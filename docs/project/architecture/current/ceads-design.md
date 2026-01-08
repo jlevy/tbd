@@ -280,6 +280,7 @@ Ceads uses two directories with a clear separation of concerns:
 
 - **`.ceads/`** on the main branch (and all working branches): Configuration and local
   files
+
 - **`.ceads-sync/`** on the `ceads-sync` branch: Synced data (entities, attic, metadata)
 
 #### On Main Branch (all working branches)
@@ -287,18 +288,19 @@ Ceads uses two directories with a clear separation of concerns:
 ```
 .ceads/
 ├── config.yml              # Project configuration (tracked)
-├── .gitignore              # Ignores everything except config (tracked)
+├── .gitignore              # Ignores local/ directory (tracked)
 │
-│   # Everything below is gitignored (local/transient):
-├── local/                  # Private workspace (never synced)
-│   └── lo-l1m2.json
-├── cache/                  # Bridge cache
-│   ├── outbound/           # Queue: bridge messages to send
-│   ├── inbound/            # Buffer: recent bridge messages
-│   └── state.json          # Connection state
-├── daemon.sock             # Daemon Unix socket
-├── daemon.pid              # Daemon PID file
-└── daemon.log              # Daemon log file
+└── local/                  # Everything below is gitignored
+    ├── nodes/              # Private workspace (never synced)
+    │   └── lo-l1m2.json
+    ├── cache/              # Bridge cache
+    │   ├── outbound/       # Queue: bridge messages to send
+    │   ├── inbound/        # Buffer: recent bridge messages
+    │   ├── dead_letter/    # Failed after max retries
+    │   └── state.json      # Connection state
+    ├── daemon.sock         # Daemon Unix socket
+    ├── daemon.pid          # Daemon PID file
+    └── daemon.log          # Daemon log file
 ```
 
 #### On `ceads-sync` Branch
@@ -324,15 +326,16 @@ Ceads uses two directories with a clear separation of concerns:
 ```
 
 > **Note on directory split**: The `.ceads/` directory on main contains configuration
-> (which versions with your code) and local-only files (which are gitignored). The
-> `.ceads-sync/` directory on the sync branch contains all shared data. This separation
-> ensures synced data never causes merge conflicts on your working branches.
+> (which versions with your code) and local-only files (which are gitignored).
+> The `.ceads-sync/` directory on the sync branch contains all shared data.
+> This separation ensures synced data never causes merge conflicts on your working
+> branches.
 
-> **Note on "nodes"**: The `nodes/` directory contains entities that form the shared
+> **Note on “nodes”**: The `nodes/` directory contains entities that form the shared
 > coordination graph—issues, agents, messages, and future entity types.
 > These are interconnected (dependencies, `in_reply_to`, `working_on`) and synced across
-> machines. The `local/` directory is explicitly outside this graph—a private workspace
-> that is never synced.
+> machines. The `local/nodes/` directory is explicitly outside this graph—a private
+> workspace that is never synced.
 
 ### 2.3 Entity Collection Pattern
 
@@ -374,11 +377,11 @@ Only the merge rules (in Git Layer) need updating for new node types.
 
 | Collection | Directory | Internal Prefix | Purpose |
 | --- | --- | --- | --- |
-| Local | `.ceads/local/` | `lo-` | Private workspace (never synced) |
+| Local | `.ceads/local/nodes/` | `lo-` | Private workspace (never synced) |
 
-> **Note**: Local items use the same entity pattern but are not "nodes" because they are
-> not part of the shared coordination graph. They live in `.ceads/local/` on the main
-> branch and are gitignored—never synced.
+> **Note**: Local items use the same entity pattern but are not “nodes” because they are
+> not part of the shared coordination graph.
+> They live in `.ceads/local/nodes/` on the main branch and are gitignored—never synced.
 
 #### Future Node Collections (Examples)
 
@@ -627,8 +630,8 @@ See [Decision 10](#decision-10-messages-as-unified-commentmessage-model) for rat
 
 #### 2.5.7 ConfigSchema
 
-Project configuration stored in `.ceads/config.yml` on the main branch. This is the
-human-editable configuration file that versions with your code.
+Project configuration stored in `.ceads/config.yml` on the main branch.
+This is the human-editable configuration file that versions with your code.
 
 ```yaml
 # .ceads/config.yml
@@ -683,8 +686,9 @@ type Config = z.infer<typeof ConfigSchema>;
 
 #### 2.5.8 MetaSchema
 
-Runtime metadata stored in `.ceads-sync/meta.json` on the sync branch. This file tracks
-sync state and schema versions—it is managed by the system, not edited by users.
+Runtime metadata stored in `.ceads-sync/meta.json` on the sync branch.
+This file tracks sync state and schema versions—it is managed by the system, not edited
+by users.
 
 ```typescript
 const SchemaVersion = z.object({
@@ -702,7 +706,8 @@ type Meta = z.infer<typeof MetaSchema>;
 ```
 
 > **Note**: User-editable configuration (prefixes, TTLs, sync settings) is now in
-> `.ceads/config.yml` on the main branch. See [ConfigSchema](#257-configschema).
+> `.ceads/config.yml` on the main branch.
+> See [ConfigSchema](#257-configschema).
 
 #### 2.5.9 AtticEntrySchema
 
@@ -785,16 +790,14 @@ main branch:                    ceads-sync branch:
 
 ```
 .ceads/config.yml       # Project configuration (YAML)
-.ceads/.gitignore       # Ignores local/cache/daemon files
+.ceads/.gitignore       # Ignores local/ directory
 ```
 
 #### .ceads/.gitignore Contents
 
 ```gitignore
-# Ignore everything in .ceads/ except config files
-*
-!.gitignore
-!config.yml
+# All local/transient files are under local/
+local/
 ```
 
 #### Files Tracked on ceads-sync Branch
@@ -807,14 +810,14 @@ main branch:                    ceads-sync branch:
 
 #### Files Never Tracked (Local Only)
 
-These live in `.ceads/` on main but are gitignored:
+These live in `.ceads/local/` on main and are gitignored:
 
 ```
-.ceads/local/           # Private workspace
-.ceads/cache/           # Bridge cache (outbound, inbound, state)
-.ceads/daemon.sock      # Daemon socket
-.ceads/daemon.pid       # Daemon PID
-.ceads/daemon.log       # Daemon log
+.ceads/local/nodes/         # Private workspace
+.ceads/local/cache/         # Bridge cache (outbound, inbound, dead_letter, state)
+.ceads/local/daemon.sock    # Daemon socket
+.ceads/local/daemon.pid     # Daemon PID
+.ceads/local/daemon.log     # Daemon log
 ```
 
 ### 3.3 Sync Operations
@@ -850,7 +853,7 @@ For each file, compare local and remote versions:
 
 ```
 SYNC_FILE(local_path, sync_path):
-  local = read_file(local_path)                    # May be null (in .ceads/local/)
+  local = read_file(local_path)                    # May be null (in .ceads/local/nodes/)
   remote = git show ceads-sync:{sync_path}         # May be null (in .ceads-sync/)
 
   if local is null and remote is null:
@@ -910,7 +913,7 @@ git ls-tree -r --name-only origin/ceads-sync .ceads-sync/
 git show origin/ceads-sync:.ceads-sync/nodes/issues/is-a1b2.json
 
 # Copy remote file to local cache (if remote is newer)
-# Note: local cache is in .ceads/cache/ or memory, not .ceads-sync/
+# Note: local cache is in .ceads/local/cache/ or memory, not .ceads-sync/
 git show origin/ceads-sync:.ceads-sync/nodes/issues/is-a1b2.json
 ```
 
@@ -1242,7 +1245,7 @@ cead init
 
 # What it does:
 # 1. Creates .ceads/ directory with config.yml and .gitignore
-# 2. Creates local subdirectories (.ceads/local/, .ceads/cache/)
+# 2. Creates local subdirectory tree (.ceads/local/nodes/, .ceads/local/cache/)
 # 3. Creates ceads-sync branch with .ceads-sync/ structure
 # 4. Pushes sync branch to origin (if remote exists)
 # 5. Returns to original branch
@@ -1267,9 +1270,10 @@ To complete setup, commit the config files:
 ```
 .ceads/
 ├── config.yml      # Default configuration
-├── .gitignore      # Ignores local/cache/daemon files
-├── local/          # Empty, for private workspace
-└── cache/          # Empty, for bridge cache
+├── .gitignore      # Ignores local/ directory
+└── local/          # Empty, all gitignored content lives here
+    ├── nodes/      # For private workspace
+    └── cache/      # For bridge cache
 ```
 
 **What gets created on ceads-sync branch:**
@@ -2541,7 +2545,7 @@ interface Session {
 
 #### Protocol
 
-Communication via Unix socket (`.ceads/daemon.sock`) or TCP on Windows.
+Communication via Unix socket (`.ceads/local/daemon.sock`) or TCP on Windows.
 
 **Request/Response format** ([JSON-RPC](https://www.jsonrpc.org/specification) style):
 
@@ -2807,7 +2811,7 @@ Pushed 4 files to ceads-sync
 ```bash
 # Terminal 1: Start daemon
 $ cead daemon start
-Daemon started on .ceads/daemon.sock
+Daemon started on .ceads/local/daemon.sock
 
 # Terminal 2: Agent 1
 $ cead agent register --name "claude-backend"
@@ -2921,8 +2925,8 @@ File system watching for UIs and IDEs:
 
 #### Decision 1: Split Architecture (Config on Main, Data on Sync Branch)
 
-**Choice**: Configuration (`.ceads/config.yml`) lives on main branch; synced entities live
-exclusively on `ceads-sync` branch in `.ceads-sync/` directory.
+**Choice**: Configuration (`.ceads/config.yml`) lives on main branch; synced entities
+live exclusively on `ceads-sync` branch in `.ceads-sync/` directory.
 
 **Rationale**:
 
@@ -3285,16 +3289,14 @@ This allows references in commit messages to be traced to new IDs.
 
 ```
 .ceads/config.yml           # Project configuration (YAML)
-.ceads/.gitignore           # Ignores local/cache/daemon files
+.ceads/.gitignore           # Ignores local/ directory
 ```
 
 #### .ceads/.gitignore Contents
 
 ```gitignore
-# Ignore everything in .ceads/ except config files
-*
-!.gitignore
-!config.yml
+# All local/transient files are under local/
+local/
 ```
 
 #### Files Tracked on ceads-sync Branch
@@ -3307,12 +3309,14 @@ This allows references in commit messages to be traced to new IDs.
 
 #### Files Never Tracked (Local Only)
 
+These live in `.ceads/local/` on main and are gitignored:
+
 ```
-.ceads/local/               # Private workspace
-.ceads/cache/               # Bridge cache
-.ceads/daemon.sock          # Daemon socket
-.ceads/daemon.pid           # Daemon PID
-.ceads/daemon.log           # Daemon log
+.ceads/local/nodes/         # Private workspace
+.ceads/local/cache/         # Bridge cache (outbound, inbound, dead_letter, state)
+.ceads/local/daemon.sock    # Daemon socket
+.ceads/local/daemon.pid     # Daemon PID
+.ceads/local/daemon.log     # Daemon log
 ```
 
 #### Example Config File
@@ -3445,7 +3449,7 @@ settings:
 }
 ```
 
-**Local item** (`.ceads/local/lo-l1m2.json`):
+**Local item** (`.ceads/local/nodes/lo-l1m2.json`):
 
 ```json
 {
@@ -3477,7 +3481,8 @@ settings:
 ```
 
 > **Note**: User-editable configuration (prefixes, TTLs, sync settings) is in
-> `.ceads/config.yml` on the main branch. See [Example Config File](#example-config-file).
+> `.ceads/config.yml` on the main branch.
+> See [Example Config File](#example-config-file).
 
 ### 7.6 Key References
 
