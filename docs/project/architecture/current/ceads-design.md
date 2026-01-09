@@ -478,6 +478,7 @@ Ceads uses two directories with a clear separation of concerns:
 │   │   └── is-a1b2/
 │   │       └── 20250107T103000Z_description_theirs.json
 │   └── orphans/               # Integrity violations
+├── short_ids.json             # Short ID → Internal ID mapping
 └── meta.json                  # Shared metadata (schema_versions, created_at)
 ```
 
@@ -634,22 +635,195 @@ const EntityId = z.string().regex(/^[a-z]{2}-[a-z0-9]{10}$/);
 > The current 10-character format provides ample collision resistance for any
 > realistic scale while remaining readable.
 
-#### Internal vs External Prefixes
+#### External Short IDs
 
-- **Internal prefixes** match directory names and appear in filenames.
-  They are immutable.
+Users interact with **external short IDs** that are more readable than internal IDs.
+Internal IDs are always 10-character hashes for collision resistance; external IDs
+use adaptive-length random hashes that grow as the issue count increases.
 
-- **External prefixes** are configurable aliases for CLI/UI display.
+**Example:**
+```
+Internal (storage):   is-a1b2c3d4e5    # Always 10 chars
+External (display):   proj-a1b        # 3-6 chars, project prefix
+```
 
-| Internal | External (default) | Notes |
-| --- | --- | --- |
-| `is-` | `cd-` | Issues display as `cd-xxxx` |
-| `ag-` | `agent-` | Agents display as `agent-xxxx` |
-| `ms-` | `msg-` | Messages display as `msg-xxxx` |
-| `lo-` | `local-` | Local items display as `local-xxxx` |
+##### Project Prefix
 
-The CLI accepts both forms and translates automatically.
-Internal prefixes are used in file references and cross-entity links.
+The project prefix is configured in the main branch `config.yaml`:
+
+```yaml
+ceads:
+  project_prefix: proj    # User-configurable, e.g., "myapp", "backend"
+```
+
+The prefix is **not stored** in `.ceads-sync/`—it's purely a display concern.
+Users can rename the prefix at any time without breaking references.
+
+##### Short ID Generation
+
+External short IDs are **randomly generated** at the appropriate length based on
+the current issue count. They are **not** derived from or prefixes of internal IDs.
+
+**Algorithm:**
+
+```typescript
+const BASE36_ALPHABET = '0123456789abcdefghijklmnopqrstuvwxyz';
+
+function createShortId(existingShortIds: Set<string>): string {
+  const count = existingShortIds.size;
+  const length = computeAdaptiveLength(count);
+
+  for (let attempt = 0; attempt < 10; attempt++) {
+    const candidate = randomBase36(length);
+    if (!existingShortIds.has(candidate)) {
+      return candidate;
+    }
+  }
+  // Collision at current length (rare): try longer
+  return createShortId(existingShortIds, length + 1);
+}
+
+function randomBase36(length: number): string {
+  let result = '';
+  for (let i = 0; i < length; i++) {
+    result += BASE36_ALPHABET[Math.floor(Math.random() * 36)];
+  }
+  return result;
+}
+```
+
+##### Adaptive Length (Birthday Paradox)
+
+The short ID length scales with issue count to maintain low collision probability.
+Using the birthday paradox approximation:
+
+```
+P(collision) ≈ 1 - e^(-n²/2N)
+```
+
+Where `n` = number of issues, `N` = 36^length (total possible IDs).
+
+**Collision probability table:**
+
+| Issue Count | 3-char | 4-char | 5-char | 6-char |
+|-------------|--------|--------|--------|--------|
+| 50          | 2.6%   | 0.07%  | 0.00%  | 0.00%  |
+| 100         | 10.2%  | 0.30%  | 0.01%  | 0.00%  |
+| 200         | 34.6%  | 1.18%  | 0.03%  | 0.00%  |
+| 500         | 95.8%  | 7.17%  | 0.21%  | 0.01%  |
+| 1,000       | 100%   | 25.75% | 0.82%  | 0.02%  |
+| 2,000       | 100%   | 69.60% | 3.25%  | 0.09%  |
+| 5,000       | 100%   | 99.94% | 18.68% | 0.57%  |
+
+**Adaptive length algorithm:**
+
+```typescript
+function computeAdaptiveLength(issueCount: number, maxCollisionProb = 0.10): number {
+  const minLength = 3;
+  const maxLength = 10;
+
+  for (let length = minLength; length <= maxLength; length++) {
+    const prob = collisionProbability(issueCount, length);
+    if (prob <= maxCollisionProb) {
+      return length;
+    }
+  }
+  return maxLength;
+}
+
+function collisionProbability(n: number, length: number): number {
+  const N = Math.pow(36, length);  // Total possible IDs
+  const exponent = -(n * n) / (2 * N);
+  return 1 - Math.exp(exponent);
+}
+```
+
+**Default thresholds (10% max collision):**
+
+| Issue Count | Short ID Length |
+|-------------|-----------------|
+| 0-100       | 3 chars         |
+| 101-600     | 4 chars         |
+| 601-3,500   | 5 chars         |
+| 3,501-21,000| 6 chars         |
+| 21,001+     | continues scaling |
+
+##### Short ID Mapping Storage
+
+The mapping from short IDs to internal IDs is stored in the synced directory:
+
+```
+.ceads-sync/short_ids.json
+```
+
+```json
+{
+  "a1b": "is-a1b2c3d4e5",
+  "x7k": "is-x7y8z9a0b1",
+  "m3p9": "is-m3n4o5p6q7"
+}
+```
+
+**Properties:**
+- **Append-only**: New mappings are added; existing mappings never change
+- **Stable**: Once `a1b → is-a1b2c3d4e5` is assigned, it persists forever
+- **Prefix-agnostic**: Only stores the hash portion, not the project prefix
+- **Synced**: Part of `.ceads-sync/` so all collaborators share the same mappings
+
+##### Resolution Flow
+
+**Display (internal → external):**
+```typescript
+function toExternalId(internalId: string, mapping: Map<string, string>, prefix: string): string {
+  // Reverse lookup: find short ID for this internal ID
+  for (const [shortId, fullId] of mapping) {
+    if (fullId === internalId) {
+      return `${prefix}-${shortId}`;
+    }
+  }
+  // Fallback: show internal ID (shouldn't happen normally)
+  return internalId;
+}
+```
+
+**Parse (external → internal):**
+```typescript
+function resolveExternalId(externalId: string, mapping: Map<string, string>, prefix: string): string | null {
+  // "proj-a1b" → "a1b" → lookup → "is-a1b2c3d4e5"
+  const parts = externalId.split('-');
+  if (parts[0] !== prefix) return null;
+
+  const shortId = parts.slice(1).join('-');  // Handle edge case of "-" in short ID
+  return mapping.get(shortId) ?? null;
+}
+```
+
+##### Distributed Collision Handling
+
+When two clients simultaneously create issues and generate the same random short ID:
+
+1. Both add entries to `short_ids.json`
+2. Git merge conflict occurs on the file
+3. Resolution: **both mappings are kept** (different internal IDs, different short IDs)
+4. The "losing" client's short ID is regenerated on next sync
+
+This is rare due to birthday paradox math—with 10% collision threshold, the
+probability of two concurrent creates hitting the same short ID is very low.
+
+##### Internal Prefixes
+
+Internal prefixes are fixed and match directory names:
+
+| Internal Prefix | Entity Type | Directory |
+|-----------------|-------------|-----------|
+| `is-`           | Issues      | `issues/` |
+| `ag-`           | Agents      | `agents/` |
+| `ms-`           | Messages    | `messages/` |
+| `lo-`           | Local       | `local/` (not synced) |
+
+Internal prefixes are used in file references, cross-entity links, and storage.
+The CLI accepts both internal IDs (`is-a1b2c3d4e5`) and external IDs (`proj-a1b`)
+and translates automatically.
 
 ### 2.5 Schemas
 
@@ -1226,9 +1400,10 @@ local/
 #### Files Tracked on ceads-sync Branch
 
 ```
-.ceads-sync/nodes/      # All node types (issues, agents, messages)
-.ceads-sync/attic/      # Conflict and orphan archive
-.ceads-sync/meta.json   # Shared metadata (schema versions)
+.ceads-sync/nodes/          # All node types (issues, agents, messages)
+.ceads-sync/attic/          # Conflict and orphan archive
+.ceads-sync/short_ids.json  # Short ID → Internal ID mapping
+.ceads-sync/meta.json       # Shared metadata (schema versions)
 ```
 
 #### Files Never Tracked (Local Only)
@@ -1361,7 +1536,7 @@ git fetch origin ceads-sync
 
 # 3. Create a tree with updated files
 git read-tree ceads-sync
-git add .ceads-sync/nodes/ .ceads-sync/attic/ .ceads-sync/meta.json
+git add .ceads-sync/nodes/ .ceads-sync/attic/ .ceads-sync/short_ids.json .ceads-sync/meta.json
 git write-tree
 
 # 4. Create commit on sync branch
@@ -1927,6 +2102,7 @@ To complete setup, commit the config files:
 ├── attic/
 │   ├── conflicts/  # Empty
 │   └── orphans/    # Empty
+├── short_ids.json  # Empty: {}
 └── meta.json       # Initial metadata
 ```
 
@@ -3972,6 +4148,7 @@ This allows references in commit messages to be traced to new IDs.
 │   │   └── is-a1b2/
 │   │       └── 20250107T103000Z_description_theirs.json
 │   └── orphans/               # Integrity violations
+├── short_ids.json             # Short ID → Internal ID mapping
 └── meta.json                  # Shared metadata (schema versions)
 ```
 
