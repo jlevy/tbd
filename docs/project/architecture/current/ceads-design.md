@@ -478,7 +478,7 @@ Ceads uses two directories with a clear separation of concerns:
 │   │   └── is-a1b2/
 │   │       └── 20250107T103000Z_description_theirs.json
 │   └── orphans/               # Integrity violations
-├── short_ids/                 # Short ID → Internal ID mappings
+├── short-ids/                 # Short ID → Internal ID mappings
 │   ├── a1b.json               # {"internal_id": "is-a1b2c3d4e5"}
 │   └── x7k.json               # {"internal_id": "is-x7y8z9a0b1"}
 └── meta.json                  # Shared metadata (schema_versions, created_at)
@@ -756,7 +756,7 @@ Short ID mappings are stored as **one file per short ID**, following the same pa
 as entity storage:
 
 ```
-.ceads-sync/short_ids/
+.ceads-sync/short-ids/
 ├── a1b.json     # {"internal_id": "is-a1b2c3d4e5"}
 ├── x7k.json     # {"internal_id": "is-x7y8z9a0b1"}
 └── m3p9.json    # {"internal_id": "is-m3n4o5p6q7"}
@@ -781,7 +781,7 @@ const ShortIdMapping = z.object({
 **Display (internal → external):**
 ```typescript
 function toExternalId(internalId: string, shortIdsDir: string, prefix: string): string {
-  // Scan short_ids/ for file containing this internal ID
+  // Scan short-ids/ for file containing this internal ID
   const files = glob(`${shortIdsDir}/*.json`);
   for (const file of files) {
     const mapping = JSON.parse(readFile(file));
@@ -1441,7 +1441,7 @@ local/
 ```
 .ceads-sync/nodes/          # All node types (issues, agents, messages)
 .ceads-sync/attic/          # Conflict and orphan archive
-.ceads-sync/short_ids/      # Short ID → Internal ID mappings (one file per)
+.ceads-sync/short-ids/      # Short ID → Internal ID mappings (one file per)
 .ceads-sync/meta.json       # Shared metadata (schema versions)
 ```
 
@@ -1575,7 +1575,7 @@ git fetch origin ceads-sync
 
 # 3. Create a tree with updated files
 git read-tree ceads-sync
-git add .ceads-sync/nodes/ .ceads-sync/attic/ .ceads-sync/short_ids/ .ceads-sync/meta.json
+git add .ceads-sync/nodes/ .ceads-sync/attic/ .ceads-sync/short-ids/ .ceads-sync/meta.json
 git write-tree
 
 # 4. Create commit on sync branch
@@ -2141,7 +2141,7 @@ To complete setup, commit the config files:
 ├── attic/
 │   ├── conflicts/  # Empty
 │   └── orphans/    # Empty
-├── short_ids/      # Empty directory
+├── short-ids/      # Empty directory
 └── meta.json       # Initial metadata
 ```
 
@@ -4187,7 +4187,7 @@ This allows references in commit messages to be traced to new IDs.
 │   │   └── is-a1b2/
 │   │       └── 20250107T103000Z_description_theirs.json
 │   └── orphans/               # Integrity violations
-├── short_ids/                 # Short ID → Internal ID mappings
+├── short-ids/                 # Short ID → Internal ID mappings
 │   ├── a1b.json
 │   └── x7k.json
 └── meta.json                  # Shared metadata (schema versions)
