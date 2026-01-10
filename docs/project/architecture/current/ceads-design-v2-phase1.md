@@ -506,7 +506,9 @@ Ceads uses two directories:
 │   └── conflicts/
 │       └── is-a1b2/
 │           └── 2025-01-07T10-30-00Z_description.json
-└── meta.json               # Metadata (schema version, last sync)
+├── mappings/               # Import ID mappings
+│   └── beads.json          # Beads ID → Ceads ID mapping
+└── meta.json               # Metadata (schema version)
 ```
 
 **Why this structure?**
@@ -1531,15 +1533,228 @@ Available on all commands:
 
 ## 5. Beads Compatibility
 
-### 5.1 Migration Strategy
+### 5.1 Import Strategy
 
-**One-time migration:**
+The import command is designed to be **idempotent and safe to re-run**. This enables
+workflows where:
+
+- Initial migration from Beads to Ceads
+- Ongoing sync if some agents still use Beads temporarily
+- Recovery if work was accidentally done in Beads
+
+#### 5.1.1 Import Command
 
 ```bash
-# From Beads repo:
+cead import <file> [options]
+
+Options:
+  --format beads          Import format (default: beads)
+  --dry-run               Show what would be imported without making changes
+  --no-sync               Don't sync after import
+  --verbose               Show detailed import progress
+```
+
+**Examples:**
+```bash
+# Initial import
+bd export > beads-export.jsonl
+cead import beads-export.jsonl
+
+# Re-import after more Beads work (safe to re-run)
+bd export > beads-export.jsonl
+cead import beads-export.jsonl  # Updates existing, adds new, no duplicates
+
+# Preview changes before importing
+cead import beads-export.jsonl --dry-run
+```
+
+#### 5.1.2 ID Mapping
+
+The key to idempotent import is **stable ID mapping**. The same Beads issue must always
+map to the same Ceads issue, even across multiple imports on different machines.
+
+**Mapping storage:**
+
+Each imported issue stores its original Beads ID in the `extensions` field:
+
+```json
+{
+  "type": "is",
+  "id": "is-a1b2c3",
+  "title": "Fix authentication bug",
+  "extensions": {
+    "beads": {
+      "original_id": "bd-x7y8",
+      "imported_at": "2025-01-10T10:00:00Z",
+      "source_file": "beads-export.jsonl"
+    }
+  }
+}
+```
+
+**Mapping file (for performance):**
+
+To enable O(1) lookups on large issue sets, import also maintains a mapping file:
+
+```
+.ceads-sync/mappings/beads.json
+```
+
+```json
+{
+  "bd-x7y8": "is-a1b2c3",
+  "bd-m5n6": "is-d4e5f6",
+  "bd-p1q2": "is-g7h8i9"
+}
+```
+
+This file:
+- Is synced with other Ceads data on the sync branch
+- Enables instant lookup of existing mappings
+- Is authoritative (extensions field is for reference/debugging)
+
+#### 5.1.3 Import Algorithm
+
+```
+IMPORT_BEADS(jsonl_file):
+  1. Load existing mapping from .ceads-sync/mappings/beads.json
+     (create empty {} if not exists)
+
+  2. For each line in jsonl_file:
+     a. Parse Beads issue JSON
+     b. beads_id = issue.id (e.g., "bd-x7y8")
+
+     c. Look up beads_id in mapping:
+        - If found: ceads_id = mapping[beads_id]
+          Load existing Ceads issue for merge
+        - If not found: ceads_id = generate_new_id("is-")
+          Add mapping[beads_id] = ceads_id
+
+     d. Convert Beads fields to Ceads format (see Field Mapping)
+
+     e. Set extensions.beads.original_id = beads_id
+        Set extensions.beads.imported_at = now()
+
+     f. If existing Ceads issue:
+        - Compare updated_at timestamps
+        - If Beads is newer: apply merge using standard rules
+        - If Ceads is newer: skip (Ceads changes preserved)
+        - If same: no-op (already imported)
+     g. If new issue:
+        - Write new Ceads issue file
+
+  3. Save updated mapping file
+
+  4. Report: N new, M updated, K unchanged, J skipped (Ceads newer)
+
+  5. Sync (unless --no-sync)
+```
+
+#### 5.1.4 Merge Behavior on Re-Import
+
+When re-importing an issue that already exists in Ceads:
+
+| Scenario | Behavior |
+| --- | --- |
+| Beads unchanged, Ceads unchanged | No-op |
+| Beads updated, Ceads unchanged | Update Ceads with Beads changes |
+| Beads unchanged, Ceads updated | Keep Ceads changes (skip) |
+| Both updated | Merge using LWW rules, loser to attic |
+
+**Merge uses standard issue merge rules:**
+- `updated_at` determines winner for scalar fields
+- Labels use union (both additions preserved)
+- Description/notes use LWW with attic preservation
+
+**Example re-import scenario:**
+
+```
+Time 0: Import bd-a1b2 → is-x1y2 (initial import)
+Time 1: Agent updates bd-a1b2 in Beads (adds label "urgent")
+Time 2: Human updates is-x1y2 in Ceads (changes priority to 1)
+Time 3: Re-import bd-a1b2
+
+Result: is-x1y2 has both changes:
+  - Label "urgent" (from Beads, union merge)
+  - Priority 1 (from Ceads, more recent updated_at wins)
+```
+
+#### 5.1.5 Handling Deletions and Tombstones
+
+Beads uses `tombstone` status for soft-deleted issues. On import:
+
+| Beads Status | Ceads Behavior | Rationale |
+| --- | --- | --- |
+| `tombstone` (first import) | Skip by default | Don't import deleted issues |
+| `tombstone` (re-import) | Set `status: closed`, add label `deleted-in-beads` | Preserve history |
+
+**Options:**
+```bash
+cead import beads.jsonl --include-tombstones  # Import tombstones as closed
+cead import beads.jsonl --skip-tombstones     # Skip tombstones (default)
+```
+
+#### 5.1.6 Dependency ID Translation
+
+Beads dependencies reference Beads IDs. On import, these must be translated:
+
+```
+Beads: { "type": "blocks", "target": "bd-m5n6" }
+Ceads: { "type": "blocks", "target": "is-d4e5f6" }  # Looked up from mapping
+```
+
+**Algorithm:**
+1. Import all issues first (build complete mapping)
+2. Second pass: translate dependency target IDs
+3. If target not in mapping: log warning, skip dependency (orphan reference)
+
+#### 5.1.7 Import Output
+
+```bash
+$ cead import beads-export.jsonl
+
+Importing from beads-export.jsonl...
+  New issues:      23
+  Updated:         5
+  Unchanged:       142
+  Skipped (newer): 2
+  Tombstones:      3 (skipped)
+
+Dependency translation:
+  Translated: 45
+  Orphaned:   1 (bd-z9a0 not found, skipped)
+
+Import complete. Run 'cead sync' to push changes.
+```
+
+**With --dry-run:**
+```bash
+$ cead import beads-export.jsonl --dry-run
+
+DRY RUN - no changes will be made
+
+Would import from beads-export.jsonl:
+  New issues:      23
+    bd-a1b2 → is-??? "Fix authentication bug"
+    bd-c3d4 → is-??? "Add OAuth support"
+    ...
+  Would update:    5
+    bd-x7y8 (is-m1n2) - Beads newer by 2 hours
+    ...
+  Unchanged:       142
+  Would skip:      2
+    bd-p1q2 (is-g7h8) - Ceads newer by 1 day
+```
+
+#### 5.1.8 Migration Workflow
+
+**Initial migration (one-time):**
+
+```bash
+# In Beads repo
 bd export > beads-export.jsonl
 
-# In new Ceads repo:
+# In target repo (may be same repo)
 cead init
 cead import beads-export.jsonl
 git add .ceads/
@@ -1547,19 +1762,27 @@ git commit -m "Initialize ceads and import from beads"
 cead sync
 ```
 
-**Import behavior:**
+**Ongoing sync (transition period):**
 
-1. Reads Beads JSONL export
+```bash
+# If agents are still using Beads occasionally
+bd export > beads-export.jsonl
+cead import beads-export.jsonl  # Safe to re-run
 
-2. Converts each issue to Ceads JSON format
+# After import, Ceads is authoritative
+# New work should use cead commands
+```
 
-3. Maps statuses (see [Status Mapping](#54-status-mapping))
+**Recovery (accidental Beads usage):**
 
-4. Preserves metadata (created_at, updated_at, etc.)
-
-5. Writes to `.ceads-sync/issues/`
-
-6. Generates new IDs (`is-xxxx`) but can optionally preserve old IDs in metadata
+```bash
+# Agent accidentally used Beads commands
+# Recover that work into Ceads
+bd export > beads-export.jsonl
+cead import beads-export.jsonl
+cead sync
+# Agent's work is now in Ceads
+```
 
 ### 5.2 Command Mapping
 
