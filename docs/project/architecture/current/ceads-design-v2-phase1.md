@@ -246,7 +246,7 @@ Ceads is pronounced “seeds” and follows Beads in the spirit of C following B
 - **File-per-entity**: Internally, each issue is a separate JSON file for fewer merge
   conflicts
 
-- **Reliable sync**: Version-based conflict resolution with attic preservation
+- **Reliable sync**: Hash-based conflict detection with LWW merge and attic preservation
 
 - **Cross-environment**: Works on local machines, CI, cloud sandboxes, network
   filesystems
@@ -325,7 +325,8 @@ combines these proven patterns with multi-environment sync and conflict resoluti
 
 6. **Cross-platform**: macOS, Linux, Windows without platform-specific code
 
-7. **Easy migration**: `cead import beads` converts existing Beads databases
+7. **Easy migration**: `cead import <beads-export.jsonl>` or `cead import --from-beads`
+   converts existing Beads databases
 
 ### 1.4 Design Principles
 
@@ -431,16 +432,33 @@ across implementations:
 
 - No trailing whitespace
 
-- Single newline at end of file
+- Single newline at end of file (LF, not CRLF)
 
 - No trailing commas
 
 - UTF-8 encoding
 
+- LF line endings on all platforms (recommend `.gitattributes` rule:
+  `.ceads-sync/** text eol=lf`)
+
+**Array ordering rules** (to ensure deterministic hashes):
+
+- `labels`: Always sorted lexicographically (case-sensitive)
+
+- `dependencies`: Always sorted by `target` field value
+
+**Field normalization rules:**
+
+- All writers MUST serialize fully-normalized entities with all default values applied
+
+- Include empty arrays explicitly (e.g., `"labels": []`)
+
+- Omit only truly optional fields that are `undefined`/`null`
+
 > **Why canonical JSON?** Content hashes are used for conflict detection.
-> If different implementations serialize the same object with different key ordering or
-> whitespace, identical logical content produces different hashes, causing spurious
-> “conflicts.”
+> If different implementations serialize the same object with different key ordering,
+> array ordering, or whitespace, identical logical content produces different hashes,
+> causing spurious "conflicts."
 
 #### Atomic File Writes
 
@@ -473,7 +491,19 @@ async function atomicWrite(path: string, content: string): Promise<void> {
 
 - Important on network filesystems
 
-**Cleanup:** On startup, remove any orphaned `.tmp.*` files in ceads directories.
+**Cross-platform notes:**
+
+- POSIX local filesystems: `rename()` is atomic and durable after `fsync()`
+- Windows: `rename()` is atomic but may fail if target exists (use `MoveFileEx` with
+  `MOVEFILE_REPLACE_EXISTING`)
+- Network filesystems (NFS, SMB): Best-effort atomicity; may not be fully atomic but
+  still prevents partial writes
+- Implementations should use a well-tested atomic-write library when available
+
+**Cleanup:** On startup, remove orphaned `.tmp.*` files in ceads directories that are
+**older than 1 hour**. This threshold prevents race conditions where one process
+creates a temp file while another is cleaning up. Alternatively, include `node_id` in
+temp file names and only cleanup files matching the current node's prefix.
 
 ### 2.2 Directory Structure
 
@@ -522,6 +552,39 @@ Ceads uses two directories:
 
 - File-per-entity enables parallel operations without conflicts
 
+### 2.6 Local Storage Model
+
+This section clarifies where issue data lives on a developer's working branch, which is
+not explicitly covered in the directory structure above.
+
+**Design choice:** Issue data lives in `.ceads/cache/entities/` on the working branch
+(gitignored), not in `.ceads-sync/` on the working tree.
+
+```
+.ceads/
+├── config.yml              # Tracked
+├── .gitignore              # Tracked
+└── cache/                  # Gitignored - all local state
+    ├── state.json          # Sync state
+    ├── index.json          # Query cache
+    ├── sync.lock           # Sync coordination
+    └── entities/           # Local copy of synced entities
+        └── issues/
+            ├── is-a1b2c3.json
+            └── is-f14c3d.json
+```
+
+**Why cache-based, not working-tree based?**
+
+1. **No untracked file noise**: `.ceads-sync/` never appears on main branch
+2. **Clear separation**: Synced data vs local cache is unambiguous
+3. **Safe git operations**: No risk of accidentally committing entities to main
+4. **Matches mental model**: "Sync branch has entities, main branch has config"
+
+**Invariant:** The `.ceads-sync/` directory should NEVER exist on a developer's working
+tree when on main or feature branches. It only exists as content on the `ceads-sync`
+branch, accessed via git plumbing commands.
+
 ### 2.3 Entity Collection Pattern
 
 Phase 1 has **one core entity type**: Issues
@@ -560,9 +623,12 @@ Entity IDs follow this pattern:
 
 - **Prefix**: 2 lowercase letters (`is-` for issues)
 
-- **Hash**: 4-6 lowercase hex characters
+- **Hash**: 6 lowercase hex characters (stored form)
 
-Example: `is-a1b2`, `is-f14c3a`
+Example: `is-a1b2c3`, `is-f14c3a`
+
+> **Note:** Users may type shorter prefixes (4-6 chars) when referring to issues; these
+> are resolved to the unique matching full ID. Stored IDs are always 6 hex chars.
 
 #### ID Generation Algorithm
 
@@ -570,10 +636,10 @@ Example: `is-a1b2`, `is-f14c3a`
 import { randomBytes } from 'crypto';
 
 function generateId(prefix: string): string {
-  // 4 bytes = 32 bits of entropy
-  const bytes = randomBytes(4);
-  const hash = bytes.toString('hex').toLowerCase().slice(0, 6);
-  return `${prefix}-${hash}`;
+  // 3 bytes = 24 bits of entropy = 6 hex chars
+  const bytes = randomBytes(3);
+  const hash = bytes.toString('hex').toLowerCase();
+  return `${prefix}-${hash}`;  // e.g., "is-a1b2c3"
 }
 ```
 
@@ -581,14 +647,27 @@ function generateId(prefix: string): string {
 
 - **Cryptographically random**: No timestamp or content dependency
 
-- **Collision probability**: Very low (1 in 16 million at 4 hex chars)
+- **Entropy**: 24 bits = 16.7 million possibilities
 
-- **On collision**: Regenerate ID (detected by file-exists check)
+- **Collision probability**: With birthday paradox, ~1% collision chance at ~13,000
+  issues; ~50% at ~5,000 simultaneous concurrent creations. Acceptable for Phase 1
+  with collision retry.
+
+- **On collision**: Regenerate ID (detected by file-exists check before write)
 
 **ID validation regex:**
 ```typescript
-const IssueId = z.string().regex(/^is-[a-f0-9]{4,6}$/);
+// Stored IDs are always 6 hex chars
+const IssueId = z.string().regex(/^is-[a-f0-9]{6}$/);
+
+// For CLI input, accept 4-6 chars and resolve to unique match
+const IssueIdInput = z.string().regex(/^(is-|bd-)?[a-f0-9]{4,6}$/);
 ```
+
+**Display prefix note:** Internal IDs use `is-` prefix. The `display.id_prefix` config
+(default: `bd`) controls how IDs are shown to users for Beads compatibility. When a
+user types `bd-a1b2c3`, it is resolved to internal `is-a1b2c3`. When displaying, the
+internal ID is shown with the configured prefix.
 
 ### 2.5 Schemas
 
@@ -606,7 +685,8 @@ const Timestamp = z.string().datetime();
 // Issue ID
 const IssueId = z.string().regex(/^is-[a-f0-9]{4,6}$/);
 
-// Version counter for optimistic concurrency
+// Edit counter for merge ordering and debugging (not true optimistic concurrency -
+// conflicts are detected by content hash, not version comparison)
 const Version = z.number().int().nonnegative();
 
 // Entity type discriminator
@@ -691,7 +771,8 @@ type Issue = z.infer<typeof IssueSchema>;
 
 - `status`: Matches Beads statuses (open, in_progress, blocked, deferred, closed)
 
-- `kind`: Matches Beads types (bug, feature, task, epic, chore)
+- `kind`: Matches Beads types (bug, feature, task, epic, chore). Note: CLI uses `--type`
+  flag for Beads compatibility, which maps to the `kind` field internally.
 
 - `priority`: 0 (highest/critical) to 4 (lowest), matching Beads
 
@@ -701,7 +782,11 @@ type Issue = z.infer<typeof IssueSchema>;
 
 - `labels`: Arbitrary string tags
 
-- `due_date` / `deferred_until`: Beads compatibility fields
+- `due_date` / `deferred_until`: Beads compatibility fields. Stored as full ISO8601
+  datetime. CLI accepts flexible input:
+  - Full datetime: `2025-02-15T10:00:00Z`
+  - Date only: `2025-02-15` (normalized to `2025-02-15T00:00:00Z` UTC)
+  - Relative: `+7d` (7 days from now), `+2w` (2 weeks)
 
 **Notes on tombstone status:**
 
@@ -776,10 +861,11 @@ Each machine maintains its own local state:
 
 ```typescript
 const LocalStateSchema = z.object({
-  node_id: z.string().optional(),         // Unique identifier for this node
-  last_sync: Timestamp.optional(),        // When this node last synced successfully
-  last_push: Timestamp.optional(),        // When this node last pushed
-  last_pull: Timestamp.optional(),        // When this node last pulled
+  node_id: z.string().optional(),             // Unique identifier for this node
+  last_sync: Timestamp.optional(),            // When this node last synced successfully
+  last_push: Timestamp.optional(),            // When this node last pushed
+  last_pull: Timestamp.optional(),            // When this node last pulled
+  last_synced_commit: z.string().optional(),  // Git commit hash of last successful sync
 });
 ```
 
@@ -787,6 +873,15 @@ const LocalStateSchema = z.object({
 > Storing it in synced state would cause every sync to modify the same file, creating a
 > guaranteed conflict generator.
 > Keeping it local eliminates this hotspot.
+
+**Sync Baseline:** The `last_synced_commit` field stores the git commit hash on
+`ceads-sync` that was last successfully synced. This enables:
+
+- `cead sync --status` to compute pending changes via
+  `git diff --name-status <baseline>..origin/ceads-sync`
+- Incremental sync operations without full scans
+- Clear definition of "local changes" (modified since baseline) and "remote changes"
+  (commits after baseline on remote)
 
 #### 2.5.7 AtticEntrySchema
 
@@ -816,12 +911,12 @@ const AtticEntrySchema = z.object({
 ### 3.1 Overview
 
 The Git Layer defines synchronization using standard git commands.
-It operates on files without interpreting entity schemas beyond what’s needed for
+It operates on files without interpreting entity schemas beyond what's needed for
 merging.
 
 **Key properties:**
 
-- **Schema-agnostic sync**: File transfer uses content hashes, doesn’t parse JSON
+- **Schema-agnostic sync**: File transfer uses content hashes, doesn't parse JSON
 
 - **Schema-aware merge**: When content differs, merge rules are per-entity-type
 
@@ -830,6 +925,16 @@ merging.
 - **Dedicated sync branch**: `ceads-sync` branch never pollutes main
 
 - **Hash-based conflict detection**: Content hash comparison triggers merge
+
+**Critical Invariant:** Ceads MUST NEVER modify the user's git index or staging area.
+All git plumbing operations that write to the sync branch MUST use an isolated
+index file via `GIT_INDEX_FILE` environment variable. This ensures that a developer's
+staged changes are never corrupted by ceads operations.
+
+```bash
+# Example: all sync branch writes use isolated index
+export GIT_INDEX_FILE="$(git rev-parse --git-dir)/ceads-index"
+```
 
 ### 3.2 Sync Branch Architecture
 
@@ -894,26 +999,59 @@ git ls-tree ceads-sync .ceads-sync/issues/
 
 #### 3.3.2 Writing to Sync Branch
 
+All write operations use an isolated index to protect user's staged changes:
+
 ```bash
+# Setup isolated index
+export GIT_INDEX_FILE="$(git rev-parse --git-dir)/ceads-index"
+
 # 1. Fetch latest
 git fetch origin ceads-sync
 
-# 2. Create a tree with updated files
+# 2. Read current sync branch state into isolated index
 git read-tree ceads-sync
-git add .ceads-sync/issues/
-git write-tree
 
-# 3. Create commit on sync branch
-git commit-tree <tree> -p ceads-sync -m "ceads sync: $(date -Iseconds)"
+# 3. Update index with local changes
+#    (files from .ceads/cache/entities/ are added to the tree)
+git update-index --add --cacheinfo 100644,<blob-sha>,".ceads-sync/issues/is-a1b2c3.json"
 
-# 4. Update sync branch ref
-git update-ref refs/heads/ceads-sync <commit>
+# 4. Write tree from isolated index
+TREE=$(git write-tree)
 
-# 5. Push to remote
+# 5. Create commit on sync branch
+COMMIT=$(git commit-tree $TREE -p ceads-sync -m "ceads sync: $(date -Iseconds)")
+
+# 6. Update sync branch ref
+git update-ref refs/heads/ceads-sync $COMMIT
+
+# 7. Push to remote
 git push origin ceads-sync
+```
 
-# If push rejected (non-fast-forward):
-#   Pull, merge, retry (max 3 attempts)
+**Push Retry Algorithm (V2-005):**
+
+If push is rejected (non-fast-forward), retry with merge:
+
+```
+MAX_RETRIES = 3
+
+for attempt in 1..MAX_RETRIES:
+  1. git fetch origin ceads-sync
+  2. Compute diff between prepared_commit and origin/ceads-sync
+  3. For each conflicting file:
+     - Load both versions as JSON
+     - Apply merge rules (section 3.5)
+     - Write merged result, save losers to attic
+  4. Create new tree with merged files
+  5. Create new commit with both parents (merge commit)
+  6. git push origin ceads-sync
+  7. If push succeeds: done
+  8. If push rejected: continue to next attempt
+
+If all attempts fail:
+  - Exit with error code 1
+  - Output: "Sync failed after 3 attempts. Manual resolution required."
+  - Suggest: "Run 'cead sync --status' to see pending changes."
 ```
 
 #### 3.3.3 Sync Algorithm
@@ -985,9 +1123,11 @@ conflict detection.
 8. Save loser values to attic (any field where values differed)
 ```
 
-> **Note**: Every merge produces attic entries for fields where values differed.
-> This ensures “no silent overwrites”—even if one version’s timestamp was older, its
-> values are preserved for recovery.
+> **Note on Attic Entries**: Attic entries are created only when a merge strategy
+> **discards** data (e.g., LWW picks one scalar over another, or one text block over
+> another). Union-style merges that retain both values (e.g., labels, dependencies) do
+> not create attic entries since no data is lost. This ensures the attic remains focused
+> on actual data loss, not routine merges.
 
 ### 3.5 Merge Rules
 
@@ -998,17 +1138,48 @@ Field-level merge strategies:
 | `immutable` | Error if different | `type`, `id` |
 | `lww` | Last-write-wins by timestamp | Scalars (title, status, priority) |
 | `lww_with_attic` | LWW, preserve loser in attic | Long text (description) |
-| `union` | Combine arrays, dedupe | Labels |
-| `merge_by_id` | Merge arrays by item ID | Dependencies |
+| `union` | Combine arrays, dedupe, sort | Labels |
+| `merge_by_id` | Merge arrays by item ID, sort | Dependencies |
 | `max_plus_one` | `max(local, remote) + 1` | `version` |
 | `recalculate` | Fresh timestamp | `updated_at` |
+| `preserve_oldest` | Keep earliest value | `created_at`, `created_by` |
+| `deep_merge_by_key` | Union keys, LWW per key | `extensions` |
+
+**LWW Tie-Breaker Rule:**
+
+When `updated_at` timestamps are equal, use this deterministic tie-breaker:
+
+1. Prefer remote over local (convention: remote is "more shared")
+2. If still ambiguous (e.g., same node), prefer lexically greater content hash
+3. Always preserve losing value in attic
+
+> **Rationale:** Equal timestamps are common with coarse clocks, imports, or identical
+> writes. A deterministic tie-breaker prevents oscillation and ensures consistent merges
+> across nodes.
+
+#### BaseEntity Merge Rules
+
+All entities share these base field merge rules:
+
+```typescript
+const baseEntityMergeRules = {
+  type: { strategy: 'immutable' },
+  id: { strategy: 'immutable' },
+  version: { strategy: 'max_plus_one' },
+  created_at: { strategy: 'preserve_oldest' },
+  updated_at: { strategy: 'recalculate' },  // Always set to merge time
+  extensions: { strategy: 'deep_merge_by_key' },
+};
+```
 
 #### Issue Merge Rules
 
 ```typescript
 const issueMergeRules: MergeRules<Issue> = {
-  type: { strategy: 'immutable' },
-  id: { strategy: 'immutable' },
+  // BaseEntity fields (inherited)
+  ...baseEntityMergeRules,
+
+  // Issue-specific fields
   kind: { strategy: 'lww' },
   title: { strategy: 'lww' },
   description: { strategy: 'lww_with_attic' },
@@ -1021,9 +1192,35 @@ const issueMergeRules: MergeRules<Issue> = {
   parent_id: { strategy: 'lww' },
   due_date: { strategy: 'lww' },
   deferred_until: { strategy: 'lww' },
+  created_by: { strategy: 'preserve_oldest' },
+  closed_at: { strategy: 'lww' },  // See status/closed_at rules below
   close_reason: { strategy: 'lww' },
-  extensions: { strategy: 'lww' },  // Preserve third-party data
 };
+```
+
+**Status and closed_at Interaction:**
+
+- If merged `status` becomes `closed` and `closed_at` is not set, set it to merge time
+- If merged `status` changes from `closed` to another status (reopen), clear `closed_at`
+- `close_reason` follows LWW independently
+
+**Extensions Deep Merge:**
+
+The `extensions` field uses per-namespace merging to preserve third-party data:
+
+```typescript
+// Example: merging extensions
+local.extensions = { github: { issue: 123 }, slack: { channel: "dev" } };
+remote.extensions = { github: { pr: 456 }, jira: { key: "PROJ-1" } };
+
+// Result: union of keys, per-key LWW for conflicts
+merged.extensions = {
+  github: { pr: 456 },        // remote wins (LWW on github namespace)
+  slack: { channel: "dev" },  // preserved from local
+  jira: { key: "PROJ-1" }     // preserved from remote
+};
+// Note: github.issue lost because remote's github namespace won LWW
+// The losing github namespace is preserved in attic
 ```
 
 ### 3.6 Attic Structure
@@ -1126,7 +1323,7 @@ To complete setup, commit the config files:
 cead create <title> [options]
 
 Options:
-  -t, --type <type>         Issue type: bug, feature, task, epic (default: task)
+  -t, --type <type>         Issue type: bug, feature, task, epic, chore (default: task)
   -p, --priority <0-4>      Priority (0=critical, 4=lowest, default: 2)
   -d, --description <text>  Description
   -f, --file <path>         Read description from file
@@ -1166,6 +1363,7 @@ Options:
   --deferred                Show only deferred issues
   --defer-before <date>     Deferred before date
   --sort <field>            Sort by: priority, created, updated (default: priority)
+                            (created/updated are shorthand for created_at/updated_at)
   --limit <n>               Limit results
   --json                    Output as JSON
 ```
@@ -1222,9 +1420,16 @@ Updated: 2025-01-07 14:30:00
 Description:
   Users are getting logged out after 5 minutes...
 
+Notes:
+  Working on session token expiry. Found issue in refresh logic.
+
 Dependencies:
   blocks bd-f14c: Update session handling
 ```
+
+> **Note:** The `notes` field is displayed separately from `description`. Notes are
+> intended for agent/developer working notes, while description is the issue's
+> canonical description.
 
 #### Update
 
@@ -1237,6 +1442,8 @@ Options:
   --priority <0-4>          Set priority
   --assignee <name>         Set assignee
   --description <text>      Set description
+  --notes <text>            Set working notes
+  --notes-file <path>       Set notes from file
   --due <date>              Set due date
   --defer <date>            Set deferred until date
   --add-label <label>       Add label
@@ -1297,7 +1504,11 @@ Options:
 
 - No `assignee` set
 
-- No blocking dependencies (where dependency.status != ‘closed’)
+- No blocking dependencies (where dependency.status != 'closed')
+
+> **Performance note:** The `ready` command uses the query index when enabled to avoid
+> loading all issues. Dependency target status is checked via index lookup. Without
+> index, dependency targets are loaded on-demand.
 
 #### Blocked
 
@@ -1506,11 +1717,100 @@ Available on all commands:
 ```bash
 --help                      Show help
 --version                   Show version
---db <path>                 Custom .ceads directory path
+--db <path>                 Custom .ceads directory path (Beads compat alias)
+--dir <path>                Custom .ceads directory path (preferred)
 --no-sync                   Disable auto-sync (per command)
 --json                      JSON output
 --actor <name>              Override actor name
 ```
+
+**Actor Resolution Order:**
+
+The actor name (used for `created_by` and recorded in sync commits) is resolved in
+this order:
+
+1. `--actor <name>` CLI flag (highest priority)
+2. `CEAD_ACTOR` environment variable
+3. Git user.email from git config
+4. System username + hostname (fallback)
+
+Example: `CEAD_ACTOR=claude-agent-1 cead create "Fix bug"`
+
+> **Note:** `--db` is retained for Beads compatibility. Prefer `--dir` for new usage.
+
+### 4.11 Attic Commands
+
+The attic preserves data lost in merge conflicts. These commands enable inspection and
+recovery.
+
+```bash
+# List attic entries
+cead attic list [options]
+
+Options:
+  --id <id>                 Filter by issue ID
+  --field <field>           Filter by field name
+  --since <date>            Entries since date
+  --limit <n>               Limit results
+  --json                    JSON output
+```
+
+**Output:**
+```
+TIMESTAMP                  ISSUE      FIELD        WINNER
+2025-01-07T10:30:00Z      bd-a1b2    description  remote
+2025-01-07T11:45:00Z      bd-a1b2    notes        local
+2025-01-08T09:00:00Z      bd-f14c    title        remote
+```
+
+```bash
+# Show attic entry details
+cead attic show <entry-id> [options]
+
+Options:
+  --json                    JSON output
+```
+
+**Output:**
+```
+Attic Entry: 2025-01-07T10-30-00Z_description
+
+Issue: bd-a1b2 (Fix authentication bug)
+Field: description
+Timestamp: 2025-01-07T10:30:00Z
+
+Winner: remote (version 4)
+Loser: local (version 3)
+
+Lost value:
+  Original description text that was overwritten...
+
+Context:
+  Local updated_at: 2025-01-07T10:25:00Z
+  Remote updated_at: 2025-01-07T10:28:00Z
+```
+
+```bash
+# Restore value from attic
+cead attic restore <entry-id> [options]
+
+Options:
+  --dry-run                 Show what would be restored
+  --no-sync                 Don't sync after restore
+```
+
+**Example:**
+```bash
+# Preview restoration
+cead attic restore 2025-01-07T10-30-00Z_description --dry-run
+
+# Apply restoration (creates new version with restored value)
+cead attic restore 2025-01-07T10-30-00Z_description
+```
+
+> **Note:** Restore creates a new version of the issue with the attic value applied to
+> the specified field. The original winning value is preserved in a new attic entry,
+> maintaining the "no data loss" invariant.
 
 ### 4.10 Output Formats
 
@@ -1705,6 +2005,10 @@ MERGE_JSONL_SOURCES(sources):
 2. Working copy (uncommitted changes)
 3. Main branch (last merged state)
 
+**Attic preservation during import:** When multiple sources have conflicting values for
+the same Beads issue, the losing version is preserved in the attic with source
+information. This maintains the "no data loss" invariant even during import merges.
+
 **Example Scenario:**
 
 ```
@@ -1793,6 +2097,10 @@ This file:
 - Enables instant lookup of existing mappings
 - Is authoritative (extensions field is for reference/debugging)
 
+**Mapping recovery:** If the mapping file is corrupted or lost, it can be reconstructed
+by scanning all issues and reading `extensions.beads.original_id`. Run:
+`cead doctor --fix` to rebuild mappings from extensions data.
+
 #### 5.1.5 Import Algorithm
 
 ```
@@ -1860,6 +2168,10 @@ Result: is-x1y2 has both changes:
 ```
 
 #### 5.1.7 Handling Deletions and Tombstones
+
+> **Canonical reference:** This section is the authoritative specification for
+> tombstone/deletion handling. See also: §2.5.3 (Notes on tombstone status),
+> §5.4 (Status Mapping), §5.5 (Migration Gotchas).
 
 Beads uses `tombstone` status for soft-deleted issues. On import:
 
@@ -2101,6 +2413,38 @@ Ceads options:
 
   - Display as `bd-xxxx` via `display.id_prefix` config
 
+### 5.6 Compatibility Contract
+
+This section defines the stability guarantees for scripts and tooling that depend on
+Ceads CLI output.
+
+**Stable (will not change without major version bump):**
+
+- JSON output schema from `--json` flag (additive changes only)
+- Exit codes: 0 = success, 1 = error, 2 = usage error
+- Command names and primary flags listed in this spec
+- ID format pattern: `{prefix}-{6 hex chars}`
+
+**Stable with deprecation warnings:**
+
+- Flag aliases (e.g., `--db` → `--dir`)
+- Field renames in JSON output (old name continues to work)
+
+**Not guaranteed stable:**
+
+- Human-readable output formatting (column widths, colors, wording)
+- Error message text
+- Timing of sync operations
+- Internal file formats (index.json structure)
+
+**Beads compatibility aliases:**
+
+These flags/behaviors are maintained for Beads script compatibility:
+
+- `--db <path>` → `--dir <path>`
+- `--type <kind>` → maps to `kind` field (not `type`)
+- Display prefix `bd-` configurable via `display.id_prefix`
+
 #### Migration Gotchas
 
 1. **IDs change**: Beads `bd-a1b2` becomes Ceads `is-a1b2` internally
@@ -2113,7 +2457,7 @@ Ceads options:
 
 3. **No auto-flush**: Beads auto-syncs on write
 
-   - Ceads syncs on `cead sync` or with `--auto-sync` config
+   - Ceads syncs on `cead sync` or with `settings.auto_sync: true` in config
 
 4. **Tombstone issues**: Decide import behavior (skip/convert/attic)
 
@@ -2128,26 +2472,52 @@ Ceads options:
 **Optional caching layer** (`.ceads/cache/index.json`):
 
 ```typescript
+// JSON-serializable index structure
 interface Index {
-  issues: Map<string, IssueSummary>;  // id -> summary
-  by_status: Map<string, Set<string>>;
-  by_assignee: Map<string, Set<string>>;
-  by_label: Map<string, Set<string>>;
+  // Main issue lookup (object, not Map)
+  issues: { [id: string]: IssueSummary };
 
-  last_updated: Timestamp;
-  checksum: string;  // Hash of issues directory
+  // Secondary indexes (arrays, not Sets)
+  by_status: { [status: string]: string[] };
+  by_assignee: { [assignee: string]: string[] };
+  by_label: { [label: string]: string[] };
+
+  // Freshness tracking
+  last_updated: string;           // ISO8601 timestamp
+  baseline_commit: string;        // Git commit hash this index was built from
 }
+```
+
+> **Note:** Index uses plain objects and arrays (JSON-serializable), not Map/Set.
+> Arrays are kept sorted for deterministic serialization.
+
+**Checksum strategy:**
+
+The index freshness is determined by comparing `baseline_commit` to the current
+`ceads-sync` branch HEAD:
+
+```bash
+# Check if index is fresh
+CURRENT=$(git rev-parse ceads-sync)
+if [ "$CURRENT" == "$INDEX_BASELINE_COMMIT" ]; then
+  # Index is fresh, use it
+else
+  # Index is stale, rebuild or incrementally update
+  git diff --name-only $INDEX_BASELINE_COMMIT..$CURRENT
+fi
 ```
 
 **Rebuild strategy:**
 
-1. Check if index exists and is fresh (checksum matches)
+1. Check if index exists and baseline_commit matches current sync branch HEAD
 
-2. If stale, scan all issue files and rebuild
+2. If stale, incrementally update by processing only changed files (via git diff)
 
-3. Store in `.ceads/cache/index.json`
+3. If no index or baseline missing, full rebuild from all issue files
 
-4. Cache is gitignored, never synced
+4. Store in `.ceads/cache/index.json`
+
+5. Cache is gitignored, never synced
 
 **Performance targets:**
 
@@ -2156,6 +2526,12 @@ interface Index {
 - Warm start (index hit): <50ms for common queries
 
 - Index rebuild: <1s for 10,000 issues
+
+- Incremental update: <100ms for typical sync (10-50 changed files)
+
+**Incremental operations:** Common operations like `cead list`, `cead ready`, and
+`cead sync --status` use the index and diff-based updates to meet performance targets
+even at scale.
 
 #### File I/O Optimization
 
