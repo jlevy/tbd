@@ -3213,4 +3213,72 @@ points identified in the Beads experience.
 
 * * *
 
+## 8. Open Questions
+
+The following items from the GPT-5 Pro design review require further discussion before
+implementation. See `ceads-design-v2-phase1-tracking.md` for full context.
+
+### 8.1 Git Operations
+
+**V2-004: Remote vs local branch reference ambiguity**
+
+After `git fetch origin ceads-sync`, should reads use `origin/ceads-sync` (remote
+tracking) or local `ceads-sync`? Current spec uses `ceads-sync:` in examples, which may
+read stale data if not updated after fetch.
+
+**Options:**
+1. Always read from `origin/ceads-sync` after fetch
+2. Update local `ceads-sync` ref after fetch, then read from it
+3. Document both patterns with guidance on when to use each
+
+### 8.2 Timestamp and Ordering
+
+**V2-012: Clock skew assumptions**
+
+LWW merge relies on `updated_at` timestamps. Clock skew between machines can cause
+counterintuitive winners. The attic preserves losers, but UX may suffer if the "wrong"
+version consistently wins.
+
+**Options:**
+1. Add a note acknowledging the limitation, rely on attic for recovery
+2. Implement Hybrid Logical Clocks (HLC) in Phase 2
+3. Add optional "prefer remote" or "prefer local" config override
+
+### 8.3 Mapping File Structure
+
+**V2-016: Single mapping file as potential conflict hotspot**
+
+`.ceads-sync/mappings/beads.json` could see conflicts if multiple nodes import
+concurrently (though this is rare).
+
+**Options:**
+1. Accept single file (low risk, concurrent imports are rare)
+2. File-per-beads-id mappings (consistent with file-per-entity pattern)
+3. Define merge semantics for mapping file (union of keys)
+
+### 8.4 ID Length
+
+**Idea 2: Longer internal IDs for long-term scaling**
+
+Current 6-hex-char IDs (24 bits, 16.7M possibilities) are sufficient for Phase 1.
+Should we extend to 8 chars (32 bits, 4B possibilities) for future-proofing?
+
+**Considerations:**
+- 6 chars: More readable, sufficient for most projects
+- 8 chars: More headroom, matches git short-hash conventions
+- Could migrate later by adding chars (old IDs remain valid)
+
+### 8.5 Future Extension Points
+
+**Idea 7: Reserve directory structure for Phase 2 bridges**
+
+Should Phase 1 reserve `.ceads/cache/outbox/` and `.ceads/cache/inbox/` directories
+for future bridge runtime use?
+
+**Options:**
+1. Reserve now (empty dirs, documented for Phase 2)
+2. Add when needed (avoid premature structure)
+
+* * *
+
 **End of Ceads V2 Phase 1 Design Specification**
