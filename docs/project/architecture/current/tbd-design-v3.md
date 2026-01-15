@@ -193,7 +193,8 @@
 eliminates some rough edges and architectural complexity while maintaining CLI
 compatibility.
 
-Tbd is pronounced “seeds” and follows Beads in the spirit of C following B.
+The `tbd` CLI stands for “To Be Done” or “TypeScript Beads,” depending on your
+preference.
 
 **Key characteristics:**
 
