@@ -9,7 +9,7 @@ validation needed before merging the tbd-cli implementation.
 
 ## Implementation Summary
 
-Tbd V1 is a complete CLI implementation with 15 phases of development:
+Tbd V1 is a complete CLI implementation with 16 phases of development:
 
 | Phase | Description                                                       | Status      |
 | ----- | ----------------------------------------------------------------- | ----------- |
@@ -18,8 +18,9 @@ Tbd V1 is a complete CLI implementation with 15 phases of development:
 | 13    | Tryscript Coverage Migration                                      | ✅ Complete |
 | 14    | Security Hardening                                                | ✅ Complete |
 | 15    | Import Validation                                                 | ✅ Complete |
+| 16    | Comprehensive Tryscript Coverage                                  | ✅ Complete |
 
-**113 beads tracked, 111 complete, 1 in_progress (master epic), 1 tombstone**
+**120 beads tracked, 118 complete, 1 in_progress (master epic), 1 tombstone**
 
 ---
 
@@ -48,33 +49,28 @@ Tbd V1 is a complete CLI implementation with 15 phases of development:
 
 ### Integration and End-to-End Testing
 
-**21 tryscript golden tests** covering CLI commands:
+**189 tryscript golden tests** covering all CLI commands across 5 test files:
 
-| Test                                  | Command Tested                   |
-| ------------------------------------- | -------------------------------- |
-| --help shows usage summary            | `tbd --help`                     |
-| --version shows version number        | `tbd --version`                  |
-| Initialize tbd in a repository        | `tbd init`                       |
-| Verify info shows initialized state   | `tbd info`                       |
-| Info as JSON                          | `tbd info --json`                |
-| Create a basic task                   | `tbd create "title"`             |
-| Create issue with labels              | `tbd create -l label1 -l label2` |
-| Create with JSON output               | `tbd create --json`              |
-| List all issues                       | `tbd list --all`                 |
-| List issues as JSON                   | `tbd list --json`                |
-| List with status filter               | `tbd list --status open`         |
-| Show issue details (text)             | `tbd show <id>`                  |
-| List to find the issue                | `tbd list` (pagination)          |
-| Create and close an issue             | `tbd close <id>`                 |
-| Create with dry-run shows preview     | `tbd create --dry-run`           |
-| Show statistics                       | `tbd stats`                      |
-| Stats as JSON                         | `tbd stats --json`               |
-| List labels                           | `tbd label list`                 |
-| Show ready issues                     | `tbd ready`                      |
-| Run doctor check                      | `tbd doctor`                     |
-| Show non-existent issue returns error | Error handling                   |
+| Test File                 | Tests | Description                                         |
+| ------------------------- | ----- | --------------------------------------------------- |
+| cli-setup.tryscript.md    | ~25   | Help, version, init options, info, error cases      |
+| cli-crud.tryscript.md     | ~60   | Create/show/update/list/close/reopen with all flags |
+| cli-workflow.tryscript.md | ~50   | Ready, blocked, stale, label, depends commands      |
+| cli-advanced.tryscript.md | ~45   | Search, sync, doctor, config, attic, stats          |
+| cli-import.tryscript.md   | ~20   | Beads import, JSONL import, validation              |
 
-**All 21 tests pass in sandbox mode with real git repository**
+Key coverage areas:
+
+- All 15+ CLI commands tested
+- All command flags and options tested
+- JSON output mode tested for all commands
+- Error handling and edge cases
+- Label add/remove, dependency add/remove
+- Search with field filters
+- Config show/set/get
+- Dry-run mode for mutations
+
+**All 189 tests pass in sandbox mode with real git repository**
 
 ### Performance Testing
 

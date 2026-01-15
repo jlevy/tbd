@@ -1,0 +1,7 @@
+# Test artifacts
+.tbd/
+.tbd-sync/
+
+# Coverage
+coverage/
+coverage-tryscript/
