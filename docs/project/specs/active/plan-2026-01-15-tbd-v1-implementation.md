@@ -2,16 +2,18 @@
 
 ## Purpose
 
-This is the master implementation plan for Tbd ("seeds") V1, a Beads replacement CLI tool
-for git-native issue tracking. This plan covers the complete implementation from initial
-project setup through a fully functional CLI with comprehensive golden test coverage.
+This is the master implementation plan for Tbd V1, a Beads replacement CLI tool for
+git-native issue tracking.
+This plan covers the complete implementation from initial project setup through a fully
+functional CLI with comprehensive golden test coverage.
 
 ## Background
 
 **What is Tbd?**
 
 Tbd is an alternative to [Beads](https://github.com/steveyegge/beads) that eliminates
-architectural complexity while maintaining CLI compatibility. Key characteristics:
+architectural complexity while maintaining CLI compatibility.
+Key characteristics:
 
 - **Drop-in replacement**: Compatible with core Beads CLI commands and workflows
 - **Simpler architecture**: No daemon, no SQLite, no file locking
@@ -324,8 +326,8 @@ From the research docs, we will use:
 ## Stage 4: Implementation Stage
 
 > **Note**: This plan assumes the pnpm monorepo skeleton is already set up with tsdown,
-> TypeScript, ESLint, Prettier, lefthook, and Changesets configured. The focus is on
-> application design and implementation.
+> TypeScript, ESLint, Prettier, lefthook, and Changesets configured.
+> The focus is on application design and implementation.
 
 ### Phase 1: Core Schemas & Serialization
 
@@ -492,7 +494,7 @@ async function atomicWrite(path: string, content: string): Promise<void> {
 └── meta.yml                # Metadata (schema version)
 ```
 
-**Git Isolated Index** (protect user's staging area):
+**Git Isolated Index** (protect user’s staging area):
 
 ```typescript
 // All sync branch writes use isolated index
@@ -671,7 +673,7 @@ function resolveActor(override?: string): string {
 
 #### Phase 3 Golden Tests
 
-```markdown
+````markdown
 ---
 sandbox: true
 env:
@@ -717,7 +719,7 @@ $ tbd info --json
 }
 ? 0
 ```
-```
+````
 
 ### Phase 4: Issue CRUD Commands
 
@@ -927,7 +929,7 @@ async function updateFromFile(path: string, storage: Storage): Promise<void> {
 
 #### Phase 4 Golden Tests
 
-```markdown
+````markdown
 ---
 sandbox: true
 env:
@@ -1023,7 +1025,7 @@ $ tbd show $ID --json | jq '.status'
 "open"
 ? 0
 ```
-```
+````
 
 ### Phase 5: Workflow Commands
 
@@ -1136,7 +1138,7 @@ function getStaleIssues(issues: Issue[], options: StaleOptions): Issue[] {
 
 #### Phase 5 Golden Tests
 
-```markdown
+````markdown
 ---
 sandbox: true
 env:
@@ -1174,7 +1176,7 @@ $ tbd blocked
 (no blocked issues)
 ? 0
 ```
-```
+````
 
 ### Phase 6: Label & Dependency Commands
 
@@ -1335,7 +1337,7 @@ async function printDependencyTree(
 
 #### Phase 6 Golden Tests
 
-```markdown
+````markdown
 ---
 sandbox: true
 env:
@@ -1376,8 +1378,7 @@ $ tbd dep tree $B
 bd-[..] Issue B
 └── bd-[..] Issue A (blocks)
 ? 0
-```
-```
+````
 
 ### Phase 7: Sync Operations
 
@@ -1386,7 +1387,7 @@ bd-[..] Issue B
 #### Phase 7 Tasks
 
 - [ ] Implement isolated index operations:
-  - [ ] Use GIT_INDEX_FILE to protect user's staging area
+  - [ ] Use GIT_INDEX_FILE to protect user’s staging area
   - [ ] Read tree from sync branch
   - [ ] Update index with changes
   - [ ] Write tree and create commit
@@ -1416,7 +1417,7 @@ bd-[..] Issue B
 
 #### Phase 7 Key Design Details
 
-**Isolated Index Operations** (protect user's staging area):
+**Isolated Index Operations** (protect user’s staging area):
 
 ```typescript
 async function withIsolatedIndex<T>(
@@ -1707,7 +1708,7 @@ async function getSyncStatus(): Promise<SyncStatus> {
 
 #### Phase 7 Golden Tests
 
-```markdown
+````markdown
 ---
 sandbox: true
 env:
@@ -1738,7 +1739,7 @@ $ tbd sync --status
 No pending changes
 ? 0
 ```
-```
+````
 
 ### Phase 8: Search Command
 
@@ -1917,7 +1918,7 @@ async function ensureWorktreeFresh(options?: { noRefresh?: boolean }): Promise<v
 
 #### Phase 8 Golden Tests
 
-```markdown
+````markdown
 ---
 sandbox: true
 env:
@@ -1956,7 +1957,7 @@ $ tbd search "OAuth" --type feature --json
 }
 ? 0
 ```
-```
+````
 
 ### Phase 9: Maintenance Commands
 
@@ -2144,7 +2145,7 @@ function setConfigValue(config: Config, path: string, value: unknown): void {
 
 #### Phase 9 Golden Tests
 
-```markdown
+````markdown
 ---
 sandbox: true
 env:
@@ -2203,7 +2204,7 @@ display:
 [..]
 ? 0
 ```
-```
+````
 
 ### Phase 10: Attic Commands
 
@@ -2366,7 +2367,7 @@ async function restoreAtticEntry(
 
 #### Phase 10 Golden Tests
 
-```markdown
+````markdown
 ---
 sandbox: true
 env:
@@ -2393,7 +2394,7 @@ Field: description
 [..]
 ? 0
 ```
-```
+````
 
 ### Phase 11: Import Command
 
@@ -2694,7 +2695,7 @@ async function importFromBeads(options: FromBeadsOptions): Promise<ImportResult>
 
 #### Phase 11 Golden Tests
 
-```markdown
+````markdown
 ---
 sandbox: true
 env:
@@ -2739,7 +2740,7 @@ Would import from beads2.jsonl:
 [..]
 ? 0
 ```
-```
+````
 
 ### Phase 12: Polish & Documentation
 
