@@ -75,6 +75,9 @@ importers:
       tsdown:
         specifier: 0.20.0-beta.3
         version: 0.20.0-beta.3(publint@0.3.16)(typescript@5.9.3)
+      tsx:
+        specifier: ^4.21.0
+        version: 4.21.0
       vitest:
         specifier: ^2.1.8
         version: 2.1.9(@types/node@22.19.6)

@@ -24,6 +24,14 @@ interface ImportOptions {
   beadsDir?: string;
   merge?: boolean;
   verbose?: boolean;
+  validate?: boolean;
+}
+
+interface ValidationIssue {
+  beadsId: string;
+  tbdId?: string;
+  issue: string;
+  severity: 'error' | 'warning';
 }
 
 /**
@@ -165,6 +173,12 @@ function convertIssue(beads: BeadsIssue, tbdId: string, depMapping: IdMapping): 
 
 class ImportHandler extends BaseCommand {
   async run(file: string | undefined, options: ImportOptions): Promise<void> {
+    // Handle validation mode
+    if (options.validate) {
+      await this.validateImport(options);
+      return;
+    }
+
     // Validate input
     if (!file && !options.fromBeads) {
       this.output.error('Provide a file path or use --from-beads');
@@ -176,6 +190,188 @@ class ImportHandler extends BaseCommand {
     } else if (file) {
       await this.importFromFile(file, options);
     }
+  }
+
+  /**
+   * Validate import by comparing Beads source with imported tbd issues.
+   * Reports any discrepancies or missing issues.
+   */
+  private async validateImport(options: ImportOptions): Promise<void> {
+    const beadsDir = options.beadsDir ?? '.beads';
+    const jsonlPath = join(beadsDir, 'issues.jsonl');
+
+    try {
+      await access(jsonlPath);
+    } catch {
+      this.output.error(`Beads database not found at ${beadsDir}`);
+      this.output.info('Use --beads-dir to specify the Beads directory');
+      return;
+    }
+
+    console.log('Validating import...\n');
+
+    // Load Beads issues
+    const content = await readFile(jsonlPath, 'utf-8');
+    const lines = content
+      .trim()
+      .split('\n')
+      .filter((l) => l);
+    const beadsIssues: BeadsIssue[] = [];
+
+    for (const line of lines) {
+      try {
+        const issue = JSON.parse(line) as BeadsIssue;
+        if (issue.id && issue.title) {
+          beadsIssues.push(issue);
+        }
+      } catch {
+        // Skip invalid lines
+      }
+    }
+
+    // Load tbd issues
+    const tbdIssues = await this.loadExistingIssues();
+    const mapping = await loadMapping();
+    const reverseMapping: Record<string, string> = {};
+    for (const [beadsId, tbdId] of Object.entries(mapping)) {
+      reverseMapping[tbdId] = beadsId;
+    }
+
+    // Build lookup by tbd ID
+    const tbdById = new Map<string, Issue>();
+    for (const issue of tbdIssues) {
+      tbdById.set(issue.id, issue);
+    }
+
+    // Validate each Beads issue
+    const issues: ValidationIssue[] = [];
+    let validCount = 0;
+
+    for (const beads of beadsIssues) {
+      const tbdId = mapping[beads.id];
+
+      if (!tbdId) {
+        issues.push({
+          beadsId: beads.id,
+          issue: 'Not imported - no ID mapping exists',
+          severity: 'error',
+        });
+        continue;
+      }
+
+      const tbdIssue = tbdById.get(tbdId);
+      if (!tbdIssue) {
+        issues.push({
+          beadsId: beads.id,
+          tbdId,
+          issue: 'ID mapping exists but issue file not found',
+          severity: 'error',
+        });
+        continue;
+      }
+
+      // Validate fields
+      const fieldIssues: string[] = [];
+
+      if (tbdIssue.title !== beads.title) {
+        fieldIssues.push(`title mismatch: "${tbdIssue.title}" vs "${beads.title}"`);
+      }
+
+      const expectedStatus = mapStatus(beads.status);
+      if (tbdIssue.status !== expectedStatus) {
+        fieldIssues.push(`status mismatch: "${tbdIssue.status}" vs expected "${expectedStatus}"`);
+      }
+
+      const expectedKind = mapKind(beads.type ?? beads.issue_type);
+      if (tbdIssue.kind !== expectedKind) {
+        fieldIssues.push(`kind mismatch: "${tbdIssue.kind}" vs expected "${expectedKind}"`);
+      }
+
+      if ((beads.priority ?? 2) !== tbdIssue.priority) {
+        fieldIssues.push(`priority mismatch: ${tbdIssue.priority} vs ${beads.priority ?? 2}`);
+      }
+
+      // Check labels
+      const beadsLabels = new Set(beads.labels ?? []);
+      const tbdLabels = new Set(tbdIssue.labels ?? []);
+      const missingLabels = [...beadsLabels].filter((l) => !tbdLabels.has(l));
+      if (missingLabels.length > 0) {
+        fieldIssues.push(`missing labels: ${missingLabels.join(', ')}`);
+      }
+
+      if (fieldIssues.length > 0) {
+        issues.push({
+          beadsId: beads.id,
+          tbdId,
+          issue: fieldIssues.join('; '),
+          severity: 'warning',
+        });
+      } else {
+        validCount++;
+      }
+    }
+
+    // Check for orphaned tbd issues (not in Beads)
+    const beadsIds = new Set(beadsIssues.map((b) => b.id));
+    for (const tbdIssue of tbdIssues) {
+      const beadsId = reverseMapping[tbdIssue.id];
+      if (beadsId && !beadsIds.has(beadsId)) {
+        issues.push({
+          beadsId,
+          tbdId: tbdIssue.id,
+          issue: 'TBD issue has mapping but Beads issue no longer exists',
+          severity: 'warning',
+        });
+      }
+    }
+
+    // Report results
+    const errors = issues.filter((i) => i.severity === 'error');
+    const warnings = issues.filter((i) => i.severity === 'warning');
+
+    console.log('Validation Results');
+    console.log('─'.repeat(60));
+    console.log(`Total Beads issues:    ${beadsIssues.length}`);
+    console.log(`Total TBD issues:      ${tbdIssues.length}`);
+    console.log(`Valid imports:         ${validCount}`);
+    console.log(`Errors:                ${errors.length}`);
+    console.log(`Warnings:              ${warnings.length}`);
+    console.log('─'.repeat(60));
+
+    if (errors.length > 0) {
+      console.log('\nErrors:');
+      for (const err of errors) {
+        console.log(`  ✗ ${err.beadsId}: ${err.issue}`);
+      }
+    }
+
+    if (warnings.length > 0 && options.verbose) {
+      console.log('\nWarnings:');
+      for (const warn of warnings) {
+        console.log(`  ⚠ ${warn.beadsId}: ${warn.issue}`);
+      }
+    }
+
+    console.log();
+    if (errors.length === 0 && warnings.length === 0) {
+      this.output.success('All imports validated successfully!');
+    } else if (errors.length === 0) {
+      this.output.warn(`Validation complete with ${warnings.length} warnings`);
+      if (!options.verbose) {
+        console.log('  Use --verbose to see warning details');
+      }
+    } else {
+      this.output.error(`Validation failed with ${errors.length} errors`);
+    }
+
+    // Output JSON for programmatic use
+    this.output.data({
+      valid: validCount,
+      errors: errors.length,
+      warnings: warnings.length,
+      total: beadsIssues.length,
+      issues: options.verbose ? issues : undefined,
+    });
   }
 
   private async importFromFile(filePath: string, options: ImportOptions): Promise<void> {
@@ -324,12 +520,16 @@ class ImportHandler extends BaseCommand {
 }
 
 export const importCommand = new Command('import')
-  .description('Import issues from Beads or JSONL file')
+  .description(
+    'Import issues from Beads or JSONL file.\n' +
+      'Tip: Run "bd sync" and stop the beads daemon before importing for best results.',
+  )
   .argument('[file]', 'JSONL file to import')
   .option('--from-beads', 'Import directly from Beads database')
   .option('--beads-dir <path>', 'Beads data directory')
   .option('--merge', 'Merge with existing issues instead of skipping duplicates')
   .option('--verbose', 'Show detailed import progress')
+  .option('--validate', 'Validate existing import against Beads source')
   .action(async (file, options, command) => {
     const handler = new ImportHandler(command);
     await handler.run(file, options);

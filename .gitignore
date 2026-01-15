@@ -1,6 +1,9 @@
 # Reference repos (cloned for comparison)
 attic/
 
+# Temporary test directories
+tmp/
+
 # tbd-specific
 .tbd/cache/
 .tbd/.worktree/
