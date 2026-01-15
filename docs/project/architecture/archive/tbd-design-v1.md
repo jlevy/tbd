@@ -326,7 +326,7 @@ Tbd is organized into distinct layers, each with clear responsibilities:
 ┌──────────────────────────────┼───────────────────────────────────┐
 │                        CLI Layer                                 │
 │                        User/agent interface                      │
-│   cead <command> [args] [options]                               │
+│   tbd <command> [args] [options]                               │
 └──────────────────────────────┬───────────────────────────────────┘
                                │
 ┌──────────────────────────────┼───────────────────────────────────┐
@@ -531,7 +531,7 @@ To add a new node type (e.g., `workflows`):
 
 4. Define merge rules in Git Layer (usually: LWW for scalars, union for arrays)
 
-5. Add CLI commands: `cead workflow create`, etc.
+5. Add CLI commands: `tbd workflow create`, etc.
 
 **No changes to Git sync algorithm required.** Sync operates on files, not schemas.
 Only the merge rules (in Git Layer) need updating for new node types.
@@ -1023,7 +1023,7 @@ type Issue = z.infer<typeof IssueSchema>;
 >
 > - If P.sequence contains C, then C.parent_id SHOULD equal P
 > 
-> **When inconsistent** (detected by `cead doctor`):
+> **When inconsistent** (detected by `tbd doctor`):
 > 
 > - If child has parent_id but isn’t in parent’s sequence: add to sequence
 >
@@ -1380,10 +1380,10 @@ Schema versions are tracked in `.tbd-sync/meta.json` (on the sync branch):
 **Manual (breaking):**
 ```bash
 # Check if migration needed
-cead doctor --check-schema
+tbd doctor --check-schema
 
 # Run migration
-cead migrate --to 2
+tbd migrate --to 2
 
 # What it does:
 # 1. Backs up all entities to .tbd-sync/attic/migrations/
@@ -1676,7 +1676,7 @@ Jitter spreads retries across time, reducing contention.
 
 | Trigger | Action |
 | --- | --- |
-| `cead sync` command | Immediate full sync |
+| `tbd sync` command | Immediate full sync |
 | Daemon sync interval | Periodic background sync |
 | Agent shutdown | Final sync before exit |
 
@@ -2063,7 +2063,7 @@ Each attic file contains the `AtticEntrySchema` (defined in File Layer 2.5.10):
 
 - Attic entries are synced to the sync branch (audit trail)
 
-- `cead attic prune --days 30` removes old entries
+- `tbd attic prune --days 30` removes old entries
 
 - Configurable TTL in `.tbd/config.yml` (see [ConfigSchema](#257-configschema))
 
@@ -2106,7 +2106,7 @@ Physically removing an entity file (deleting `is-a1b2.json`) is **discouraged** 
 
 **If hard deletion is necessary:**
 ```bash
-cead issue delete <id> --hard
+tbd issue delete <id> --hard
 
 # What it does:
 # 1. Moves all referencing messages to attic/orphans/
@@ -2152,17 +2152,17 @@ Key properties:
 ### 4.2 Command Structure
 
 ```
-cead <command> [subcommand] [args] [options]
+tbd <command> [subcommand] [args] [options]
 ```
 
-> **Note**: The CLI command is `cead` (singular) while the project/directory is `tbd`
+> **Note**: The CLI command is `tbd` (singular) while the project/directory is `tbd`
 > (plural). This avoids conflict with the shell `cd` command.
 
 ### 4.3 Initialization
 
 ```bash
 # Initialize Tbd in current repository
-cead init
+tbd init
 
 # What it does:
 # 1. Creates .tbd/ directory with config.yml and .gitignore
@@ -2216,8 +2216,8 @@ To complete setup, commit the config files:
 #### Create
 
 ```bash
-cead issue create <title> [options]
-cead create <title> [options]              # Shortcut
+tbd issue create <title> [options]
+tbd create <title> [options]              # Shortcut
 
 Options:
   -p, --priority <0-4>      Priority (0=highest, 4=lowest, default: 2)
@@ -2232,19 +2232,19 @@ Options:
 
 **Examples:**
 ```bash
-cead create "Fix authentication bug" -p 1 -k bug
-cead create "Implement OAuth" -k feature -l backend -l security
-cead create "Write unit tests" --parent cd-a1b2
-cead create "Found bug" --deps discovered-from:cd-a1b2
-cead create "Large feature" --body-file=design.md
-echo "Description" | cead create "Title" --body-file=-
+tbd create "Fix authentication bug" -p 1 -k bug
+tbd create "Implement OAuth" -k feature -l backend -l security
+tbd create "Write unit tests" --parent cd-a1b2
+tbd create "Found bug" --deps discovered-from:cd-a1b2
+tbd create "Large feature" --body-file=design.md
+echo "Description" | tbd create "Title" --body-file=-
 ```
 
 #### List
 
 ```bash
-cead issue list [options]
-cead list [options]                        # Shortcut
+tbd issue list [options]
+tbd list [options]                        # Shortcut
 
 Options:
   --status <status>         Filter by status: open, in_progress, blocked, deferred, closed
@@ -2259,16 +2259,16 @@ Options:
 
 **Examples:**
 ```bash
-cead list                                  # All open issues
-cead list --status open --priority 1       # High-priority open issues
-cead list --assignee agent-x1y2            # Issues assigned to agent
+tbd list                                  # All open issues
+tbd list --status open --priority 1       # High-priority open issues
+tbd list --assignee agent-x1y2            # Issues assigned to agent
 ```
 
 #### Show
 
 ```bash
-cead issue show <id>
-cead show <id>                             # Shortcut
+tbd issue show <id>
+tbd show <id>                             # Shortcut
 ```
 
 **Output:**
@@ -2296,7 +2296,7 @@ Comments (2):                              # Messages with in_reply_to: is-a1b2
 #### Update
 
 ```bash
-cead issue update <id> [options]
+tbd issue update <id> [options]
 
 Options:
   --status <status>         Set status
@@ -2311,15 +2311,15 @@ Options:
 
 **Examples:**
 ```bash
-cead issue update cd-a1b2 --status in_progress
-cead issue update cd-a1b2 --add-label urgent --priority 0
+tbd issue update cd-a1b2 --status in_progress
+tbd issue update cd-a1b2 --add-label urgent --priority 0
 ```
 
 #### Close
 
 ```bash
-cead issue close <id> [options]
-cead close <id> [options]                  # Shortcut
+tbd issue close <id> [options]
+tbd close <id> [options]                  # Shortcut
 
 Options:
   --reason <text>           Close reason
@@ -2327,14 +2327,14 @@ Options:
 
 **Examples:**
 ```bash
-cead close cd-a1b2 --reason "Fixed in commit abc123"
+tbd close cd-a1b2 --reason "Fixed in commit abc123"
 ```
 
 #### Reopen
 
 ```bash
-cead issue reopen <id> [options]
-cead reopen <id> [options]                 # Shortcut
+tbd issue reopen <id> [options]
+tbd reopen <id> [options]                 # Shortcut
 
 Options:
   --reason <text>           Reopen reason
@@ -2342,7 +2342,7 @@ Options:
 
 **Examples:**
 ```bash
-cead reopen cd-a1b2 --reason "Not actually fixed"
+tbd reopen cd-a1b2 --reason "Not actually fixed"
 ```
 
 #### Ready
@@ -2350,8 +2350,8 @@ cead reopen cd-a1b2 --reason "Not actually fixed"
 List issues that are ready to work on (open, unblocked, unclaimed):
 
 ```bash
-cead issue ready [options]
-cead ready [options]                       # Shortcut
+tbd issue ready [options]
+tbd ready [options]                       # Shortcut
 
 Options:
   --limit <n>               Limit results
@@ -2363,8 +2363,8 @@ Options:
 List issues that are blocked by open dependencies:
 
 ```bash
-cead issue blocked [options]
-cead blocked [options]                     # Shortcut
+tbd issue blocked [options]
+tbd blocked [options]                     # Shortcut
 
 Options:
   --limit <n>               Limit results
@@ -2383,8 +2383,8 @@ cd-e5f6     Deploy to prod           cd-a1b2, cd-c3d4
 List issues that haven’t been updated in a specified number of days:
 
 ```bash
-cead issue stale [options]
-cead stale [options]                       # Shortcut
+tbd issue stale [options]
+tbd stale [options]                       # Shortcut
 
 Options:
   --days <n>                Days since last update (default: 30)
@@ -2394,21 +2394,21 @@ Options:
 
 **Examples:**
 ```bash
-cead stale --days 14                       # Issues stale for 2 weeks
-cead stale --days 7 --status in_progress   # Stale in-progress work
+tbd stale --days 14                       # Issues stale for 2 weeks
+tbd stale --days 7 --status in_progress   # Stale in-progress work
 ```
 
 #### Dependencies
 
 ```bash
 # Add dependency
-cead issue dep add <id> <target-id> --type <type>
+tbd issue dep add <id> <target-id> --type <type>
 
 # Remove dependency
-cead issue dep remove <id> <target-id>
+tbd issue dep remove <id> <target-id>
 
 # Show dependency tree
-cead issue dep tree <id>
+tbd issue dep tree <id>
 
 Dependency types:
   blocks         This issue blocks target
@@ -2418,8 +2418,8 @@ Dependency types:
 
 **Examples:**
 ```bash
-cead issue dep add cd-c3d4 cd-f14c --type blocks
-cead issue dep tree cd-a1b2
+tbd issue dep add cd-c3d4 cd-f14c --type blocks
+tbd issue dep tree cd-a1b2
 ```
 
 #### Comment
@@ -2427,9 +2427,9 @@ cead issue dep tree cd-a1b2
 Add a comment (message) to an issue or reply to another message:
 
 ```bash
-cead issue comment <id> --subject <subject> --body <body>
-cead issue comment <id> -s <subject> -b <body>
-cead issue comment <id> --file <path>      # Subject from first line, body from rest
+tbd issue comment <id> --subject <subject> --body <body>
+tbd issue comment <id> -s <subject> -b <body>
+tbd issue comment <id> --file <path>      # Subject from first line, body from rest
 
 Options:
   -s, --subject <text>      Comment subject (required)
@@ -2440,10 +2440,10 @@ Options:
 **Examples:**
 ```bash
 # Comment on an issue
-cead issue comment cd-a1b2 -s "Found the bug" -b "It's in auth.ts line 42"
+tbd issue comment cd-a1b2 -s "Found the bug" -b "It's in auth.ts line 42"
 
 # Reply to a comment (basic threading)
-cead issue comment msg-p1q2 -s "Good find" -b "I'll fix it now"
+tbd issue comment msg-p1q2 -s "Good find" -b "I'll fix it now"
 ```
 
 **Note**: Comments are stored as Message entities.
@@ -2456,7 +2456,7 @@ Messages are displayed time-sorted; explicit threading UI is a future extension.
 #### Register
 
 ```bash
-cead agent register [options]
+tbd agent register [options]
 
 Options:
   --name <name>             Display name (default: auto-generated)
@@ -2471,7 +2471,7 @@ Registered agent-x1y2: claude-backend
 #### List
 
 ```bash
-cead agent list [options]
+tbd agent list [options]
 
 Options:
   --status <status>         Filter: active, idle, inactive
@@ -2488,7 +2488,7 @@ agent-c5d6      inactive  -               15 min ago
 #### Show
 
 ```bash
-cead agent show <id>
+tbd agent show <id>
 ```
 
 #### Claim
@@ -2496,7 +2496,7 @@ cead agent show <id>
 Claim an issue for the current agent (sets `assignee` field):
 
 ```bash
-cead agent claim <issue-id>
+tbd agent claim <issue-id>
 ```
 
 **Output (success):**
@@ -2532,7 +2532,7 @@ Proceeding anyway (advisory claim)
 Release a claimed issue (clears `assignee` field):
 
 ```bash
-cead agent release <issue-id>
+tbd agent release <issue-id>
 ```
 
 #### Status
@@ -2540,7 +2540,7 @@ cead agent release <issue-id>
 Set agent status:
 
 ```bash
-cead agent status <status>
+tbd agent status <status>
 
 Status values:
   active      Actively working
@@ -2554,22 +2554,22 @@ Commands for private workspace items (`local/` directory):
 
 ```bash
 # Create local item
-cead local create <title> [options]
+tbd local create <title> [options]
 
 # List local items
-cead local list [options]
+tbd local list [options]
 
 # Show local item
-cead local show <id>
+tbd local show <id>
 
 # Update local item
-cead local update <id> [options]
+tbd local update <id> [options]
 
 # Delete local item
-cead local delete <id>
+tbd local delete <id>
 
 # Promote local item to issue
-cead local promote <id>
+tbd local promote <id>
 ```
 
 Options mirror issue commands.
@@ -2579,16 +2579,16 @@ Options mirror issue commands.
 
 ```bash
 # Full sync (pull then push)
-cead sync
+tbd sync
 
 # Pull only (fetch remote changes)
-cead sync --pull
+tbd sync --pull
 
 # Push only (push local changes)
-cead sync --push
+tbd sync --push
 
 # Show sync status (pending changes)
-cead sync --status
+tbd sync --status
 ```
 
 **Output (sync):**
@@ -2612,7 +2612,7 @@ Remote changes (not yet pulled):
 Import issues from external formats (e.g., Beads JSONL):
 
 ```bash
-cead import <file> [options]
+tbd import <file> [options]
 
 Options:
   --format <format>         Import format: beads (default: auto-detect)
@@ -2636,20 +2636,20 @@ Options:
 **Examples:**
 ```bash
 # Import Beads export
-cead import beads-export.jsonl --format beads
+tbd import beads-export.jsonl --format beads
 
 # Preview import
-cead import beads-export.jsonl --dry-run
+tbd import beads-export.jsonl --dry-run
 
 # Import with ID mapping for reference
-cead import beads-export.jsonl --id-map mapping.json
+tbd import beads-export.jsonl --id-map mapping.json
 ```
 
 ### 4.8 Attic Commands
 
 ```bash
 # List attic entries
-cead attic list [options]
+tbd attic list [options]
 
 Options:
   --entity <id>             Filter by entity
@@ -2657,17 +2657,17 @@ Options:
   --since <date>            Filter by date
 
 # Show attic entry
-cead attic show <entity-id> <timestamp>
+tbd attic show <entity-id> <timestamp>
 
 # Restore from attic
-cead attic restore <entity-id> <timestamp> [options]
+tbd attic restore <entity-id> <timestamp> [options]
 
 Options:
   --field <field>           Restore specific field only
   --dry-run                 Show what would be restored
 
 # Prune old attic entries
-cead attic prune [options]
+tbd attic prune [options]
 
 Options:
   --days <n>                Remove entries older than n days (default: 30)
@@ -2688,7 +2688,7 @@ Health check and repair for the Tbd database:
 
 ```bash
 # Run health checks
-cead doctor [options]
+tbd doctor [options]
 
 Options:
   --fix                     Attempt to fix issues automatically
@@ -2749,7 +2749,7 @@ Formatted for terminal display with colors, tables, and readable dates.
 Structured output for scripting and agent consumption:
 
 ```bash
-cead list --json
+tbd list --json
 ```
 
 ```json
@@ -2934,10 +2934,10 @@ real-time coordination and human visibility.
 
 ```bash
 # Explicitly promote an issue to GitHub
-cead github promote <issue-id>
+tbd github promote <issue-id>
 
 # Promote with specific options
-cead github promote <issue-id> --labels "tbd-sync,priority:high"
+tbd github promote <issue-id> --labels "tbd-sync,priority:high"
 ```
 
 **What happens:**
@@ -2975,7 +2975,7 @@ GitHub API rate limits (5,000 requests/hour) handled via exponential backoff.
 
 ```bash
 # Agent claims issue - adds label to GitHub
-cead agent claim cd-a1b2
+tbd agent claim cd-a1b2
 
 # Under the hood:
 gh issue edit 42 --add-label "claimed:agent-x1y2"
@@ -3060,13 +3060,13 @@ Agent A                    Slack                     Agent B
 
 ```bash
 # Send message via Slack
-cead message send <recipient> --subject "..." --body "..."
+tbd message send <recipient> --subject "..." --body "..."
 
 # List recent messages (from Slack or git archive)
-cead message list --channel coordination
+tbd message list --channel coordination
 
 # Archive Slack messages to git
-cead message archive --days 7
+tbd message archive --days 7
 ```
 
 ### 5.5 Native Bridge
@@ -3229,7 +3229,7 @@ The Local UI Bridge validates our architecture by showing that:
                             │ WebSocket / IPC
                             ▼
               ┌─────────────────────────────┐
-              │         Cead Daemon         │
+              │         tbd Daemon         │
               │                             │
               │  • File change events       │
               │  • Bridge notifications     │
@@ -3281,7 +3281,7 @@ The Local UI Bridge validates our architecture by showing that:
 - **[Electron](https://www.electronjs.org/)**: Full Node.js access, can use existing CLI
   as library
 
-- **[Tauri](https://tauri.app/)**: Rust backend, smaller binary, can shell out to `cead`
+- **[Tauri](https://tauri.app/)**: Rust backend, smaller binary, can shell out to `tbd`
   CLI
 
 - **Both**: Can read/write JSON directly, no special API needed
@@ -3296,21 +3296,21 @@ Additional CLI commands when bridges are configured:
 
 ```bash
 # GitHub bridge
-cead github promote <id>           # Promote issue to GitHub
-cead github sync                   # Force sync with GitHub
-cead github status                 # Show GitHub sync status
+tbd github promote <id>           # Promote issue to GitHub
+tbd github sync                   # Force sync with GitHub
+tbd github status                 # Show GitHub sync status
 
 # Slack bridge
-cead slack connect                 # Connect Slack workspace
-cead slack channel <name>          # Set coordination channel
+tbd slack connect                 # Connect Slack workspace
+tbd slack channel <name>          # Set coordination channel
 
 # Native bridge
-cead bridge connect <url>          # Connect to native bridge
-cead bridge status                 # Show bridge connection status
+tbd bridge connect <url>          # Connect to native bridge
+tbd bridge status                 # Show bridge connection status
 
 # General bridge commands
-cead bridge list                   # List configured bridges
-cead bridge sync                   # Sync all bridges
+tbd bridge list                   # List configured bridges
+tbd bridge sync                   # Sync all bridges
 ```
 
 ### 5.8 Offline-First Architecture
@@ -3320,7 +3320,7 @@ The cache layer provides offline-first semantics with automatic sync on reconnec
 
 #### Design Goals
 
-- **Non-blocking sends**: `cead message send` returns immediately, even offline
+- **Non-blocking sends**: `tbd message send` returns immediately, even offline
 
 - **No message loss**: Outbound messages queue until bridge confirms delivery
 
@@ -3341,7 +3341,7 @@ The cache layer provides offline-first semantics with automatic sync on reconnec
 
 ```
 Agent offline:
-  1. cead message send ... → writes to cache/outbound/
+  1. tbd message send ... → writes to cache/outbound/
   2. CLI returns immediately (non-blocking)
   3. Agent continues working
 
@@ -3561,11 +3561,11 @@ Daemon pushes events to connected agents:
 #### CLI Commands
 
 ```bash
-cead daemon start              # Start daemon (detached)
-cead daemon start --foreground # Start daemon (attached)
-cead daemon stop               # Stop daemon
-cead daemon status             # Show daemon status
-cead daemon flush              # Force flush memory → files
+tbd daemon start              # Start daemon (detached)
+tbd daemon start --foreground # Start daemon (attached)
+tbd daemon stop               # Stop daemon
+tbd daemon status             # Show daemon status
+tbd daemon flush              # Force flush memory → files
 ```
 
 ### 6.2 Use Cases by Complexity
@@ -3578,15 +3578,15 @@ A solo developer tracking tasks in a personal project.
 
 - **Layers used**: File + CLI
 
-- **Sync**: Optional, manual `cead sync` when desired
+- **Sync**: Optional, manual `tbd sync` when desired
 
 - **Daemon**: Not needed
 
 ```bash
-cead init
-cead create "Fix bug in login" -p 1
-cead list
-cead close cd-a1b2 --reason "Fixed"
+tbd init
+tbd create "Fix bug in login" -p 1
+tbd list
+tbd close cd-a1b2 --reason "Fixed"
 ```
 
 #### 2. Cross-Machine Development
@@ -3601,12 +3601,12 @@ Same developer working from multiple machines.
 
 ```bash
 # Machine A
-cead create "New feature"
-cead sync
+tbd create "New feature"
+tbd sync
 
 # Machine B
-cead sync
-cead list  # See the new feature
+tbd sync
+tbd list  # See the new feature
 ```
 
 #### 3. Team with Human + Agent Collaboration
@@ -3621,12 +3621,12 @@ A team of developers with AI coding agents.
 
 ```bash
 # Human creates issue
-cead create "Implement OAuth" -k feature
+tbd create "Implement OAuth" -k feature
 
 # Agent claims and works
-cead agent claim cd-a1b2
+tbd agent claim cd-a1b2
 # ... work ...
-cead close cd-a1b2 --reason "Implemented"
+tbd close cd-a1b2 --reason "Implemented"
 ```
 
 #### 4. Multi-Agent Work Queue
@@ -3641,15 +3641,15 @@ Multiple AI agents running concurrently.
 
 ```bash
 # Start daemon for coordination
-cead daemon start
+tbd daemon start
 
 # Agent 1
-cead agent register --name "claude-backend"
-cead ready --json  # Find available work
-cead agent claim cd-a1b2
+tbd agent register --name "claude-backend"
+tbd ready --json  # Find available work
+tbd agent claim cd-a1b2
 
 # Agent 2 (sees claim immediately via daemon)
-cead ready --json  # cd-a1b2 not shown
+tbd ready --json  # cd-a1b2 not shown
 ```
 
 #### 5. Cross-Team Real-Time Coordination
@@ -3664,7 +3664,7 @@ Multiple teams with real-time requirements.
 
 ```bash
 # Configure GitHub bridge
-cead github promote cd-a1b2  # Critical issue
+tbd github promote cd-a1b2  # Critical issue
 
 # Other team sees it instantly in GitHub
 # Claims, updates propagate in real-time
@@ -3680,8 +3680,8 @@ Automated systems creating/updating issues.
 
 ```bash
 # In CI script
-cead create "Test failure: auth tests" -k bug -l "ci-failure"
-cead sync
+tbd create "Test failure: auth tests" -k bug -l "ci-failure"
+tbd sync
 ```
 
 #### 7. Private Agent Workspace
@@ -3693,9 +3693,9 @@ Agent using local-only items for scratch work.
 - **Sync**: Never
 
 ```bash
-cead local create "TODO: refactor this later"
-cead local list
-cead local promote lo-a1b2  # Promote to real issue when ready
+tbd local create "TODO: refactor this later"
+tbd local list
+tbd local promote lo-a1b2  # Promote to real issue when ready
 ```
 
 ### 6.3 Examples
@@ -3704,7 +3704,7 @@ cead local promote lo-a1b2  # Promote to real issue when ready
 
 ```bash
 # Initialize
-$ cead init
+$ tbd init
 Created .tbd/config.yml
 Created .tbd/.gitignore
 Created sync branch: tbd-sync
@@ -3718,31 +3718,31 @@ $ git add .tbd/config.yml .tbd/.gitignore
 $ git commit -m "Initialize tbd"
 
 # Create issues
-$ cead create "Set up database schema" -p 1 -k task
+$ tbd create "Set up database schema" -p 1 -k task
 Created cd-a1b2: Set up database schema
 
-$ cead create "Implement auth endpoints" -p 1 -k feature
+$ tbd create "Implement auth endpoints" -p 1 -k feature
 Created cd-f14c: Implement auth endpoints
 
-$ cead create "Write integration tests" -p 2 -k task
+$ tbd create "Write integration tests" -p 2 -k task
 Created cd-c3d4: Write integration tests
 
 # Add dependency
-$ cead issue dep add cd-c3d4 cd-f14c --type blocks
+$ tbd issue dep add cd-c3d4 cd-f14c --type blocks
 Added: cd-c3d4 blocks cd-f14c
 
 # See ready work
-$ cead ready
+$ tbd ready
 Ready issues (no blockers):
   [P1] cd-a1b2: Set up database schema
   [P1] cd-f14c: Implement auth endpoints
 
 # Work and close
-$ cead issue update cd-a1b2 --status in_progress
-$ cead close cd-a1b2 --reason "Schema created"
+$ tbd issue update cd-a1b2 --status in_progress
+$ tbd close cd-a1b2 --reason "Schema created"
 
 # Sync to git
-$ cead sync
+$ tbd sync
 Pushed 4 files to tbd-sync
 ```
 
@@ -3750,35 +3750,35 @@ Pushed 4 files to tbd-sync
 
 ```bash
 # Terminal 1: Start daemon
-$ cead daemon start
+$ tbd daemon start
 Daemon started on .tbd/local/daemon.sock
 
 # Terminal 2: Agent 1
-$ cead agent register --name "claude-backend"
+$ tbd agent register --name "claude-backend"
 Registered agent-x1y2: claude-backend
 
-$ cead ready --json
+$ tbd ready --json
 [{"id": "is-a1b2", "title": "Fix auth bug", "priority": 1}]
 
-$ cead agent claim cd-a1b2
+$ tbd agent claim cd-a1b2
 Claimed cd-a1b2
 
 # Terminal 3: Agent 2
-$ cead agent register --name "claude-frontend"
+$ tbd agent register --name "claude-frontend"
 Registered agent-a3b4: claude-frontend
 
-$ cead agent list
+$ tbd agent list
 AGENT           STATUS   WORKING ON
 agent-x1y2      active   cd-a1b2
 agent-a3b4      active   -
 
-$ cead ready
+$ tbd ready
 Ready issues:
   [P2] cd-f14c: Update UI components
 # cd-a1b2 not shown - already claimed
 
 # Agent 2 takes different issue
-$ cead agent claim cd-f14c
+$ tbd agent claim cd-f14c
 Claimed cd-f14c
 ```
 
@@ -3786,31 +3786,31 @@ Claimed cd-f14c
 
 ```bash
 # Agent A (machine 1)
-$ cead issue update cd-a1b2 --status in_progress
-$ cead issue update cd-a1b2 --add-label backend
+$ tbd issue update cd-a1b2 --status in_progress
+$ tbd issue update cd-a1b2 --add-label backend
 
 # Agent B (machine 2, before sync)
-$ cead issue update cd-a1b2 --status blocked
-$ cead issue update cd-a1b2 --add-label urgent
+$ tbd issue update cd-a1b2 --status blocked
+$ tbd issue update cd-a1b2 --add-label urgent
 
 # Agent A syncs first
-$ cead sync
+$ tbd sync
 Pushed 1 file
 
 # Agent B syncs, conflict detected
-$ cead sync
+$ tbd sync
 Conflict in cd-a1b2:
   status: in_progress (remote) vs blocked (local) → local wins (newer)
   labels: merged → [backend, urgent]
 Merged and pushed
 
 # Check attic
-$ cead attic list --entity cd-a1b2
+$ tbd attic list --entity cd-a1b2
 TIMESTAMP              FIELD    LOST VALUE
 2025-01-07T10:30:00Z   status   in_progress
 
 # Restore if needed
-$ cead attic restore cd-a1b2 2025-01-07T10:30:00Z --field status
+$ tbd attic restore cd-a1b2 2025-01-07T10:30:00Z --field status
 ```
 
 ### 6.4 Other Potential Layers (Not Specified)
@@ -3884,7 +3884,7 @@ exclusively on `tbd-sync` branch in `.tbd-sync/` directory.
 
 **Tradeoff**: Two locations to understand (config on main, data on sync branch).
 Mitigated by clear naming (`.tbd/` for config/local, `.tbd-sync/` for synced data) and
-`cead init` setting up both locations.
+`tbd init` setting up both locations.
 
 #### Decision 2: File-Per-Entity
 
@@ -4098,7 +4098,7 @@ How to update sync branch without checking it out?
 The hidden worktree approach provides the best balance of simplicity and capability:
 
 ```bash
-# During cead init:
+# During tbd init:
 git worktree add .tbd/local/worktrees/tbd-sync --detach
 cd .tbd/local/worktrees/tbd-sync
 git switch --orphan tbd-sync  # or checkout if branch exists
@@ -4106,7 +4106,7 @@ git switch --orphan tbd-sync  # or checkout if branch exists
 git add . && git commit -m "tbd init"
 git push -u origin tbd-sync
 
-# During cead sync:
+# During tbd sync:
 cd .tbd/local/worktrees/tbd-sync
 git fetch origin tbd-sync
 git merge origin/tbd-sync  # 3-way merge with merge driver if configured
@@ -4135,7 +4135,7 @@ How long to keep messages (if stored in git)?
 
 2. **Linked to issue lifecycle** (delete when issue closes)
 
-3. **Manual only** (`cead message prune`)
+3. **Manual only** (`tbd message prune`)
 
 **Likely**: Hybrid—TTL by default, messages linked to open issues preserved.
 
@@ -4168,10 +4168,10 @@ bd export -o beads-export.jsonl --format jsonl
 
 ```bash
 # Initialize tbd
-cead init
+tbd init
 
 # Import beads export
-cead import beads-export.jsonl --format beads
+tbd import beads-export.jsonl --format beads
 
 # The importer:
 # - Converts bd-* IDs to is-* internal IDs
@@ -4747,8 +4747,8 @@ claim: z.object({
 
 **CLI additions:**
 ```bash
-cead agent claim <issue-id> --ttl 3600   # 1 hour lease
-cead agent renew <issue-id>               # Extend lease
+tbd agent claim <issue-id> --ttl 3600   # 1 hour lease
+tbd agent renew <issue-id>               # Extend lease
 ```
 
 **Behavior:**
@@ -4798,7 +4798,7 @@ const RetryPolicy = z.object({
 
 - Preserve indefinitely for manual recovery
 
-- CLI: `cead cache dead-letter list/retry/discard`
+- CLI: `tbd cache dead-letter list/retry/discard`
 
 #### 7.7.4 Bridge Conflict Resolution Details
 

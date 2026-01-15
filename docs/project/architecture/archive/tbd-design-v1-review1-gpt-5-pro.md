@@ -360,11 +360,11 @@ This is the part that often matters more than architecture.
 
 The default workflow should be:
 
-* `cead init`
+* `tbd init`
 
-* `cead create "…"`, `cead list`, `cead show`, `cead close`
+* `tbd create "…"`, `tbd list`, `tbd show`, `tbd close`
 
-* `cead sync` (or auto-sync if configured)
+* `tbd sync` (or auto-sync if configured)
 
 No daemon. No background services.
 No auth setup beyond “git works.”
@@ -404,7 +404,7 @@ If you want adoption, consider:
 
 * a “Beads-compat CLI mode” (even if internally different)
 
-* or at least `cead import beads-export.jsonl` and `cead export --format beads-jsonl`
+* or at least `tbd import beads-export.jsonl` and `tbd export --format beads-jsonl`
 
 People will tolerate internal rewrites; they won’t tolerate relearning everything on day
 1\.

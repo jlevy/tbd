@@ -32,78 +32,78 @@ Tbd. The spec now includes full parity for core workflows.
 
 | Beads Command | Tbd Command | Status |
 | --- | --- | --- |
-| `bd create "Title" -p N -t type` | `cead create "Title" -p N -k kind` | ✅ `-t` → `-k` |
-| `bd create "Title" -l label1,label2` | `cead create "Title" -l label1 -l label2` | ✅ Repeatable flag |
-| `bd create "Title" --parent <id>` | `cead create "Title" --parent <id>` | ✅ Identical |
-| `bd create "Title" -d "desc"` | `cead create "Title" -d "desc"` | ✅ Identical |
-| `bd create "Title" --body-file=file.md` | `cead create "Title" --body-file=file.md` | ✅ Identical |
-| `bd create "Title" --deps type:<id>` | `cead create "Title" --deps type:<id>` | ✅ Identical |
-| `bd list` | `cead list` | ✅ Identical |
-| `bd list --status open` | `cead list --status open` | ✅ Identical |
-| `bd list --priority N` | `cead list --priority N` | ✅ Identical |
-| `bd list --label X` | `cead list --label X` | ✅ Identical |
-| `bd list --assignee X` | `cead list --assignee X` | ✅ Identical |
-| `bd show <id>` | `cead show <id>` | ✅ Identical |
-| `bd update <id> --status X` | `cead issue update <id> --status X` | ✅ Identical |
-| `bd update <id> --priority N` | `cead issue update <id> --priority N` | ✅ Identical |
-| `bd close <id> --reason "X"` | `cead close <id> --reason "X"` | ✅ Identical |
-| `bd reopen <id>` | `cead reopen <id>` | ✅ Identical |
-| `bd ready` | `cead ready` | ✅ Identical |
-| `bd blocked` | `cead blocked` | ✅ Identical |
-| `bd stale --days N` | `cead stale --days N` | ✅ Identical |
+| `bd create "Title" -p N -t type` | `tbd create "Title" -p N -k kind` | ✅ `-t` → `-k` |
+| `bd create "Title" -l label1,label2` | `tbd create "Title" -l label1 -l label2` | ✅ Repeatable flag |
+| `bd create "Title" --parent <id>` | `tbd create "Title" --parent <id>` | ✅ Identical |
+| `bd create "Title" -d "desc"` | `tbd create "Title" -d "desc"` | ✅ Identical |
+| `bd create "Title" --body-file=file.md` | `tbd create "Title" --body-file=file.md` | ✅ Identical |
+| `bd create "Title" --deps type:<id>` | `tbd create "Title" --deps type:<id>` | ✅ Identical |
+| `bd list` | `tbd list` | ✅ Identical |
+| `bd list --status open` | `tbd list --status open` | ✅ Identical |
+| `bd list --priority N` | `tbd list --priority N` | ✅ Identical |
+| `bd list --label X` | `tbd list --label X` | ✅ Identical |
+| `bd list --assignee X` | `tbd list --assignee X` | ✅ Identical |
+| `bd show <id>` | `tbd show <id>` | ✅ Identical |
+| `bd update <id> --status X` | `tbd issue update <id> --status X` | ✅ Identical |
+| `bd update <id> --priority N` | `tbd issue update <id> --priority N` | ✅ Identical |
+| `bd close <id> --reason "X"` | `tbd close <id> --reason "X"` | ✅ Identical |
+| `bd reopen <id>` | `tbd reopen <id>` | ✅ Identical |
+| `bd ready` | `tbd ready` | ✅ Identical |
+| `bd blocked` | `tbd blocked` | ✅ Identical |
+| `bd stale --days N` | `tbd stale --days N` | ✅ Identical |
 
 ### 1.2 Dependency Commands
 
 | Beads Command | Tbd Command | Status |
 | --- | --- | --- |
-| `bd dep add <child> <parent>` | `cead issue dep add <id> <target> --type blocks` | ✅ Explicit type |
-| `bd dep add <a> <b> --type blocks` | `cead issue dep add <id> <target> --type blocks` | ✅ Identical |
-| `bd dep add <a> <b> --type related` | `cead issue dep add <id> <target> --type related` | ✅ Identical |
-| `bd dep add <a> <b> --type discovered-from` | `cead issue dep add <id> <target> --type discovered-from` | ✅ Identical |
-| `bd dep tree <id>` | `cead issue dep tree <id>` | ✅ Identical |
+| `bd dep add <child> <parent>` | `tbd issue dep add <id> <target> --type blocks` | ✅ Explicit type |
+| `bd dep add <a> <b> --type blocks` | `tbd issue dep add <id> <target> --type blocks` | ✅ Identical |
+| `bd dep add <a> <b> --type related` | `tbd issue dep add <id> <target> --type related` | ✅ Identical |
+| `bd dep add <a> <b> --type discovered-from` | `tbd issue dep add <id> <target> --type discovered-from` | ✅ Identical |
+| `bd dep tree <id>` | `tbd issue dep tree <id>` | ✅ Identical |
 
 ### 1.3 Label Commands
 
 | Beads Command | Tbd Command | Status |
 | --- | --- | --- |
-| `bd label add <id> <label>` | `cead issue update <id> --add-label <label>` | ✅ Via update |
-| `bd label remove <id> <label>` | `cead issue update <id> --remove-label <label>` | ✅ Via update |
-| `bd label list <id>` | Via `cead show <id>` | ✅ Part of show |
+| `bd label add <id> <label>` | `tbd issue update <id> --add-label <label>` | ✅ Via update |
+| `bd label remove <id> <label>` | `tbd issue update <id> --remove-label <label>` | ✅ Via update |
+| `bd label list <id>` | Via `tbd show <id>` | ✅ Part of show |
 | `bd label list-all` | Not specified | ⚠️ Future |
 
 ### 1.4 Comment Commands
 
 | Beads Command | Tbd Command | Status |
 | --- | --- | --- |
-| Comments in `bd show` | Comments in `cead show` | ✅ Identical |
-| Comments added via SQLite | `cead issue comment <id> -s "subject" -b "body"` | ✅ Explicit command |
+| Comments in `bd show` | Comments in `tbd show` | ✅ Identical |
+| Comments added via SQLite | `tbd issue comment <id> -s "subject" -b "body"` | ✅ Explicit command |
 
 ### 1.5 Sync Commands
 
 | Beads Command | Tbd Command | Status |
 | --- | --- | --- |
-| `bd sync` | `cead sync` | ✅ Identical |
-| `bd import -i file.jsonl` | `cead import file.jsonl --format beads` | ✅ Specified |
+| `bd sync` | `tbd sync` | ✅ Identical |
+| `bd import -i file.jsonl` | `tbd import file.jsonl --format beads` | ✅ Specified |
 | `bd export -o file.jsonl` | Not needed | ✅ Files are the format |
 
 ### 1.6 Agent Commands
 
 | Beads Feature | Tbd Command | Status |
 | --- | --- | --- |
-| `bd update <id> --status in_progress` | `cead agent claim <id>` | ✅ Explicit claim |
-| Release (set status back) | `cead agent release <id>` | ✅ Explicit release |
-| No agent registry | `cead agent register` | ✅ **New in Tbd** |
-| No agent list | `cead agent list` | ✅ **New in Tbd** |
-| No agent status | `cead agent status <status>` | ✅ **New in Tbd** |
+| `bd update <id> --status in_progress` | `tbd agent claim <id>` | ✅ Explicit claim |
+| Release (set status back) | `tbd agent release <id>` | ✅ Explicit release |
+| No agent registry | `tbd agent register` | ✅ **New in Tbd** |
+| No agent list | `tbd agent list` | ✅ **New in Tbd** |
+| No agent status | `tbd agent status <status>` | ✅ **New in Tbd** |
 
 ### 1.7 Daemon Commands
 
 | Beads Command | Tbd Command | Status |
 | --- | --- | --- |
-| `bd daemons list` | `cead daemon status` | ✅ Similar |
-| `bd daemons start` | `cead daemon start` | ✅ Identical |
-| `bd daemons stop` | `cead daemon stop` | ✅ Identical |
-| `bd daemons health` | `cead daemon status` | ✅ Combined |
+| `bd daemons list` | `tbd daemon status` | ✅ Similar |
+| `bd daemons start` | `tbd daemon start` | ✅ Identical |
+| `bd daemons stop` | `tbd daemon stop` | ✅ Identical |
+| `bd daemons health` | `tbd daemon status` | ✅ Combined |
 | `bd daemons logs` | Not specified | ⚠️ Future |
 | `bd daemons killall` | Not specified | ⚠️ Future |
 
@@ -111,16 +111,16 @@ Tbd. The spec now includes full parity for core workflows.
 
 | Beads Command | Tbd Command | Status |
 | --- | --- | --- |
-| `bd doctor` | `cead doctor` | ✅ Identical |
-| `bd doctor --fix` | `cead doctor --fix` | ✅ Identical |
+| `bd doctor` | `tbd doctor` | ✅ Identical |
+| `bd doctor --fix` | `tbd doctor --fix` | ✅ Identical |
 | `bd admin compact` | Not specified | ⚠️ Future |
 | `bd admin cleanup` | Not specified | ⚠️ Future |
 | `bd duplicates` | Not specified | ⚠️ Future |
 | `bd merge` | Not specified | ⚠️ Future |
-| `bd restore` | `cead attic restore` | ✅ Via attic |
+| `bd restore` | `tbd attic restore` | ✅ Via attic |
 | `bd rename-prefix` | Via meta.json config | ✅ Configuration |
 | `bd audit` | Not specified | ⚠️ Future |
-| `bd search` | `cead list` filters | ✅ Via list |
+| `bd search` | `tbd list` filters | ✅ Via list |
 | `bd stats` | Not specified | ⚠️ Future |
 
 ### 1.9 Molecule Commands (Future in Tbd)
@@ -128,9 +128,9 @@ Tbd. The spec now includes full parity for core workflows.
 | Beads Command | Tbd Equivalent | Status |
 | --- | --- | --- |
 | `bd mol pour <proto>` | Not specified | ⚠️ Future |
-| `bd mol wisp <proto>` | `cead local create` | ✅ Similar |
-| `bd mol squash` | `cead local promote` | ✅ Similar |
-| `bd mol burn` | `cead local delete` | ✅ Similar |
+| `bd mol wisp <proto>` | `tbd local create` | ✅ Similar |
+| `bd mol squash` | `tbd local promote` | ✅ Similar |
+| `bd mol burn` | `tbd local delete` | ✅ Similar |
 | `bd mol bond` | Not specified | ⚠️ Future |
 | `bd formula list` | Not specified | ⚠️ Future |
 
@@ -257,11 +257,11 @@ bd sync                       # Sync
 
 **Tbd:**
 ```bash
-cead ready --json            # Find work
-cead agent claim <id>        # Claim (explicit)
+tbd ready --json            # Find work
+tbd agent claim <id>        # Claim (explicit)
 # ... work ...
-cead close <id> --reason "Done"  # Complete
-cead sync                    # Sync
+tbd close <id> --reason "Done"  # Complete
+tbd sync                    # Sync
 ```
 
 **Assessment:** ✅ Identical workflow, slightly more explicit in Tbd.
@@ -275,7 +275,7 @@ bd create "Found bug" -t bug -p 1 --deps discovered-from:<parent-id> --json
 
 **Tbd:**
 ```bash
-cead create "Found bug" -k bug -p 1 --deps discovered-from:<parent-id> --json
+tbd create "Found bug" -k bug -p 1 --deps discovered-from:<parent-id> --json
 ```
 
 **Assessment:** ✅ Identical (after spec update).
@@ -297,7 +297,7 @@ bd sync  # Immediate flush/commit/push
 
 **Tbd:**
 ```bash
-cead sync  # Immediate sync
+tbd sync  # Immediate sync
 ```
 
 **Assessment:** ✅ Identical.
@@ -309,8 +309,8 @@ cead sync  # Immediate sync
 bd export -o beads-export.jsonl
 
 # Import to Tbd
-cead import beads-export.jsonl --format beads --dry-run  # Preview
-cead import beads-export.jsonl --format beads            # Execute
+tbd import beads-export.jsonl --format beads --dry-run  # Preview
+tbd import beads-export.jsonl --format beads            # Execute
 ```
 
 **Assessment:** ✅ Full import support with status mapping.

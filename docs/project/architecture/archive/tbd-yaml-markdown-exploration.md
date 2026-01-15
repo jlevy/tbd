@@ -726,7 +726,7 @@ not user-edited. This is an implementation choice.
 
 ```bash
 # No change to interface
-cead create "Fix bug" -t bug -p 1 -d "Description here"
+tbd create "Fix bug" -t bug -p 1 -d "Description here"
 
 # Creates .tbd-sync/issues/is-a1b2c3.md
 ```
@@ -734,7 +734,7 @@ cead create "Fix bug" -t bug -p 1 -d "Description here"
 #### Show Command
 
 ```bash
-cead show bd-a1b2
+tbd show bd-a1b2
 
 # Output renders the Markdown naturally:
 bd-a1b2: Fix authentication timeout
@@ -761,7 +761,7 @@ Notes:
 
 ```bash
 # View raw file content
-cead raw bd-a1b2
+tbd raw bd-a1b2
 
 # Outputs the actual .md file content
 ---
@@ -777,7 +777,7 @@ Users are getting logged out...
 
 ```bash
 # Open in $EDITOR
-cead edit bd-a1b2
+tbd edit bd-a1b2
 
 # Opens the .md file directly
 # On save, validates and updates updated_at
@@ -812,7 +812,7 @@ display:
 #### Beads Import (unchanged interface)
 
 ```bash
-cead import beads-export.jsonl
+tbd import beads-export.jsonl
 # Converts to Markdown files
 ```
 
@@ -820,7 +820,7 @@ cead import beads-export.jsonl
 
 ```bash
 # If migrating existing Tbd JSON to Markdown
-cead migrate --format markdown
+tbd migrate --format markdown
 
 # Converts all .json files to .md
 # Updates references
@@ -893,13 +893,13 @@ repo/
 
 ```bash
 # Pull issues from sync branch to local directory
-cead checkout [--all | --mine | --id <id>]
+tbd checkout [--all | --mine | --id <id>]
 
 # Modifies issues/ directory on current branch
 # Tracked in git, part of normal commits
 
 # Push local changes back to sync branch
-cead sync
+tbd sync
 
 # Merges local issues/ with sync branch
 # Removes from local issues/ after sync (configurable)
@@ -921,20 +921,20 @@ local_issues:
 
 ```bash
 # Start work
-cead checkout bd-a1b2
+tbd checkout bd-a1b2
 # Creates issues/active/is-a1b2c3.md
 
 # Edit directly or via CLI
 vim issues/active/is-a1b2c3.md
 # or
-cead update bd-a1b2 --status in_progress
+tbd update bd-a1b2 --status in_progress
 
 # Commit with code changes
 git add -A
 git commit -m "Fix auth timeout (bd-a1b2)"
 
 # Sync back to shared branch
-cead sync
+tbd sync
 # Merges to tbd-sync, optionally removes local copy
 ```
 
@@ -954,7 +954,7 @@ cead sync
 
 ```bash
 # Export issues to edit directory
-cead export --filter "status:open assignee:me" --to ./issue-review/
+tbd export --filter "status:open assignee:me" --to ./issue-review/
 
 # Creates:
 # ./issue-review/
@@ -968,20 +968,20 @@ vim ./issue-review/*.md
 sed -i 's/priority: 2/priority: 1/' ./issue-review/*.md
 
 # Validate changes
-cead validate ./issue-review/
+tbd validate ./issue-review/
 
 # Import changes back
-cead import ./issue-review/
+tbd import ./issue-review/
 # Validates, merges, syncs
 
 # Or dry-run first
-cead import ./issue-review/ --dry-run
+tbd import ./issue-review/ --dry-run
 ```
 
 #### Validation
 
 ```bash
-cead validate ./issue-review/
+tbd validate ./issue-review/
 
 # Output:
 ✓ is-a1b2c3.md: valid
@@ -1062,7 +1062,7 @@ LGTM, merging.
 Keep comments as separate entities but render inline:
 
 ```bash
-cead show bd-a1b2 --with-comments
+tbd show bd-a1b2 --with-comments
 ```
 
 #### Merge Strategy for Comments
@@ -1127,10 +1127,10 @@ labels:
 #### Usage
 
 ```bash
-cead create --template bug "Button doesn't work"
+tbd create --template bug "Button doesn't work"
 # Opens editor with template pre-filled
 
-cead create --template bug "Button doesn't work" --no-edit
+tbd create --template bug "Button doesn't work" --no-edit
 # Creates with template defaults
 ```
 
@@ -1144,7 +1144,7 @@ cead create --template bug "Button doesn't work" --no-edit
 
 - Issues are readable in any text editor, GitHub web UI, IDE
 
-- No need for `cead show` to understand an issue
+- No need for `tbd show` to understand an issue
 
 - Markdown renders nicely in many contexts
 
@@ -1317,17 +1317,17 @@ If adopting Markdown format with minimal spec changes:
 
 4. Keep everything else the same (sync branch, merge rules, CLI)
 
-5. Add `cead edit <id>` command
+5. Add `tbd edit <id>` command
 
-6. Add `cead raw <id>` command
+6. Add `tbd raw <id>` command
 
 ### With New Workflows (Progressive)
 
 Phase 1.5 or Phase 2 additions:
 
-1. Local issue checkout (`cead checkout`)
+1. Local issue checkout (`tbd checkout`)
 
-2. Edit directory workflow (`cead export/import`)
+2. Edit directory workflow (`tbd export/import`)
 
 3. Issue templates
 
@@ -1687,11 +1687,11 @@ Based on prior art analysis and trade-off evaluation:
 
 2. Keep conflict resolution strategy (LWW + attic) unchanged
 
-3. Add `cead edit <id>` and `cead raw <id>` commands
+3. Add `tbd edit <id>` and `tbd raw <id>` commands
 
 4. Defer advanced workflows (Part 2) to Phase 1.5 or Phase 2
 
-5. Provide `cead migrate --format markdown` for any existing JSON repos
+5. Provide `tbd migrate --format markdown` for any existing JSON repos
 
 **Key spec changes summary:**
 

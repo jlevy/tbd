@@ -710,7 +710,7 @@ When building a drop-in replacement for an existing CLI, preserve single-letter 
 to maintain compatibility with existing scripts and muscle memory:
 
 ```ts
-// OK when matching existing CLI (e.g., replacing `bd` with `cead`)
+// OK when matching existing CLI (e.g., replacing `bd` with `tbd`)
 .option('-t, --type <type>', 'Issue type')      // Matches original CLI
 .option('-p, --priority <n>', 'Priority level') // Matches original CLI
 ```

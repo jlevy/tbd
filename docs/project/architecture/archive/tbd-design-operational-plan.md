@@ -286,19 +286,19 @@ const IssueSchema = BaseEntity.extend({
 
 **Current:**
 ```bash
-cead agent claim <issue-id>
+tbd agent claim <issue-id>
 ```
 
 **Expand to:**
 ```bash
-cead agent claim <issue-id> [options]
+tbd agent claim <issue-id> [options]
 
 Options:
   --ttl <seconds>         Lease duration (default: 3600 = 1 hour)
   --force                 Claim even if already claimed (steals claim)
 
 # Lease renewal
-cead agent renew <issue-id> [options]
+tbd agent renew <issue-id> [options]
 
 Options:
   --ttl <seconds>         New lease duration
@@ -325,7 +325,7 @@ Options:
 
 **Lease expiry:**
 - Expired claims can be stolen by any agent
-- `cead ready` excludes issues with active (non-expired) claims
+- `tbd ready` excludes issues with active (non-expired) claims
 - Stale claims (agent inactive + expired lease) auto-release
 ```
 
@@ -418,13 +418,13 @@ Attempt 1: immediate Attempt 2: 1 second delay Attempt 3: 2 seconds Attempt 4: 4
 **Dead letter recovery:**
 ```bash
 # List dead letter items
-cead cache dead-letter list
+tbd cache dead-letter list
 
 # Retry a dead letter item
-cead cache dead-letter retry <idempotency-key>
+tbd cache dead-letter retry <idempotency-key>
 
 # Discard a dead letter item
-cead cache dead-letter discard <idempotency-key>
+tbd cache dead-letter discard <idempotency-key>
 ````
 
 **FIFO Ordering:**
@@ -537,10 +537,10 @@ Schema versions are tracked in `.tbd-sync/meta.json` (on the sync branch):
 **Manual (breaking):**
 ```bash
 # Check if migration needed
-cead doctor --check-schema
+tbd doctor --check-schema
 
 # Run migration
-cead migrate --to 2
+tbd migrate --to 2
 
 # What it does:
 # 1. Backs up all entities to .tbd-sync/attic/migrations/
@@ -667,7 +667,7 @@ They should be addressed as part of the implementation:
 ### 11.3 Multi-Entity Atomicity
 **Options:**
 - Operation journaling in `.tbd/local/journal/`
-- Or document that `cead doctor --fix` recovers inconsistent state
+- Or document that `tbd doctor --fix` recovers inconsistent state
 
 ### 11.4 Schema Migration Strategy
 **Addressed by:** Edit 2.5
@@ -682,7 +682,7 @@ They should be addressed as part of the implementation:
 **Add to Section 3.3:**
 - Soft references: `in_reply_to`, `dependencies.target`, `working_on`
 - Missing targets are NOT sync errors
-- `cead doctor` detects broken references post-sync
+- `tbd doctor` detects broken references post-sync
 
 ---
 

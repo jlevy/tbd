@@ -317,7 +317,7 @@ Tbd is pronounced “seeds” and follows Beads in the spirit of C following B.
 **Key characteristics:**
 
 - **Drop-in replacement**: Compatible with Beads CLI commands and workflows at the CLI
-  level (have agents use `cead` instead of `bd`)
+  level (have agents use `tbd` instead of `bd`)
 
 - **Simpler architecture**: No daemon changing your `.beads` directory, no SQLite and
   associated file locking, no git worktree complexity
@@ -406,7 +406,7 @@ combines these proven patterns with multi-environment sync and conflict resoluti
 
 6. **Cross-platform**: macOS, Linux, Windows without platform-specific code
 
-7. **Easy migration**: `cead import <beads-export.jsonl>` or `cead import --from-beads`
+7. **Easy migration**: `tbd import <beads-export.jsonl>` or `tbd import --from-beads`
    converts existing Beads databases
 
 ### 1.4 Design Principles
@@ -457,7 +457,7 @@ Tbd V2 Phase 1 has three layers:
 ┌─────────────────────────────────────────────────────────────────┐
 │                        CLI Layer                                 │
 │                        User/agent interface                      │
-│   cead <command> [args] [options]                               │
+│   tbd <command> [args] [options]                               │
 │   Beads-compatible commands                                     │
 └──────────────────────────────┬───────────────────────────────────┘
                                │
@@ -972,7 +972,7 @@ const LocalStateSchema = z.object({
 `tbd-sync` that was last successfully synced.
 This enables:
 
-- `cead sync --status` to compute pending changes via
+- `tbd sync --status` to compute pending changes via
   `git diff --name-status <baseline>..origin/tbd-sync`
 
 - Incremental sync operations without full scans
@@ -1148,7 +1148,7 @@ for attempt in 1..MAX_RETRIES:
 If all attempts fail:
   - Exit with error code 1
   - Output: "Sync failed after 3 attempts. Manual resolution required."
-  - Suggest: "Run 'cead sync --status' to see pending changes."
+  - Suggest: "Run 'tbd sync --status' to see pending changes."
 ```
 
 #### 3.3.3 Sync Algorithm
@@ -1376,15 +1376,15 @@ The CLI Layer provides a Beads-compatible command interface.
 ### 4.2 Command Structure
 
 ```
-cead <command> [subcommand] [args] [options]
+tbd <command> [subcommand] [args] [options]
 ```
 
-**Note**: CLI command is `cead` (singular) to avoid conflict with shell `cd`.
+**Note**: CLI command is `tbd` (singular) to avoid conflict with shell `cd`.
 
 ### 4.3 Initialization
 
 ```bash
-cead init [options]
+tbd init [options]
 
 Options:
   --sync-branch <name>  Sync branch name (default: tbd-sync)
@@ -1421,7 +1421,7 @@ To complete setup, commit the config files:
 #### Create
 
 ```bash
-cead create <title> [options]
+tbd create <title> [options]
 
 Options:
   -t, --type <type>         Issue type: bug, feature, task, epic, chore (default: task)
@@ -1438,10 +1438,10 @@ Options:
 
 **Examples:**
 ```bash
-cead create "Fix authentication bug" -t bug -p 1
-cead create "Add OAuth" -t feature -l backend -l security
-cead create "Write tests" --parent bd-a1b2
-cead create "API docs" -f design.md
+tbd create "Fix authentication bug" -t bug -p 1
+tbd create "Add OAuth" -t feature -l backend -l security
+tbd create "Write tests" --parent bd-a1b2
+tbd create "API docs" -f design.md
 ```
 
 **Output:**
@@ -1452,7 +1452,7 @@ Created bd-a1b2: Fix authentication bug
 #### List
 
 ```bash
-cead list [options]
+tbd list [options]
 
 Options:
   --status <status>         Filter: open, in_progress, blocked, deferred, closed
@@ -1471,10 +1471,10 @@ Options:
 
 **Examples:**
 ```bash
-cead list
-cead list --status open --priority 1
-cead list --assignee agent-1 --json
-cead list --deferred
+tbd list
+tbd list --status open --priority 1
+tbd list --assignee agent-1 --json
+tbd list --deferred
 ```
 
 **Output (human-readable):**
@@ -1505,7 +1505,7 @@ bd-c3d4   3    blocked      Write API tests
 #### Show
 
 ```bash
-cead show <id>
+tbd show <id>
 ```
 
 **Output:**
@@ -1535,7 +1535,7 @@ Dependencies:
 #### Update
 
 ```bash
-cead update <id> [options]
+tbd update <id> [options]
 
 Options:
   --status <status>         Set status
@@ -1555,15 +1555,15 @@ Options:
 
 **Examples:**
 ```bash
-cead update bd-a1b2 --status in_progress
-cead update bd-a1b2 --add-label urgent --priority 0
-cead update bd-a1b2 --defer 2025-02-01
+tbd update bd-a1b2 --status in_progress
+tbd update bd-a1b2 --add-label urgent --priority 0
+tbd update bd-a1b2 --defer 2025-02-01
 ```
 
 #### Close
 
 ```bash
-cead close <id> [options]
+tbd close <id> [options]
 
 Options:
   --reason <text>           Close reason
@@ -1572,14 +1572,14 @@ Options:
 
 **Examples:**
 ```bash
-cead close bd-a1b2
-cead close bd-a1b2 --reason "Fixed in commit abc123"
+tbd close bd-a1b2
+tbd close bd-a1b2 --reason "Fixed in commit abc123"
 ```
 
 #### Reopen
 
 ```bash
-cead reopen <id> [options]
+tbd reopen <id> [options]
 
 Options:
   --reason <text>           Reopen reason
@@ -1591,7 +1591,7 @@ Options:
 List issues ready to work on (open, unblocked, unclaimed):
 
 ```bash
-cead ready [options]
+tbd ready [options]
 
 Options:
   --type <type>             Filter by type
@@ -1616,7 +1616,7 @@ Options:
 List blocked issues:
 
 ```bash
-cead blocked [options]
+tbd blocked [options]
 
 Options:
   --limit <n>               Limit results
@@ -1635,7 +1635,7 @@ bd-e5f6     Deploy to prod           bd-a1b2, bd-c3d4
 List issues not updated recently:
 
 ```bash
-cead stale [options]
+tbd stale [options]
 
 Options:
   --days <n>                Days since last update (default: 7)
@@ -1646,9 +1646,9 @@ Options:
 
 **Examples:**
 ```bash
-cead stale                    # Issues not updated in 7 days
-cead stale --days 14          # Issues not updated in 14 days
-cead stale --status blocked   # Blocked issues that are stale
+tbd stale                    # Issues not updated in 7 days
+tbd stale --days 14          # Issues not updated in 14 days
+tbd stale --status blocked   # Blocked issues that are stale
 ```
 
 **Output:**
@@ -1662,39 +1662,39 @@ bd-f14c     9     open         Add OAuth support
 
 ```bash
 # Add label to issue
-cead label add <id> <label>
+tbd label add <id> <label>
 
 # Remove label from issue
-cead label remove <id> <label>
+tbd label remove <id> <label>
 
 # List all labels in use
-cead label list
+tbd label list
 ```
 
 **Examples:**
 ```bash
-cead label add bd-a1b2 urgent
-cead label remove bd-a1b2 low-priority
-cead label list
+tbd label add bd-a1b2 urgent
+tbd label remove bd-a1b2 low-priority
+tbd label list
 ```
 
 ### 4.6 Dependency Commands
 
 ```bash
 # Add dependency
-cead dep add <id> <target-id> [--type blocks]
+tbd dep add <id> <target-id> [--type blocks]
 
 # Remove dependency
-cead dep remove <id> <target-id>
+tbd dep remove <id> <target-id>
 
 # Show dependency tree
-cead dep tree <id>
+tbd dep tree <id>
 ```
 
 **Examples:**
 ```bash
-cead dep add bd-c3d4 bd-f14c --type blocks
-cead dep tree bd-a1b2
+tbd dep add bd-c3d4 bd-f14c --type blocks
+tbd dep tree bd-a1b2
 ```
 
 **Note**: Phase 1 only supports `blocks` dependency type.
@@ -1703,16 +1703,16 @@ cead dep tree bd-a1b2
 
 ```bash
 # Full sync (pull then push)
-cead sync
+tbd sync
 
 # Pull only
-cead sync --pull
+tbd sync --pull
 
 # Push only
-cead sync --push
+tbd sync --push
 
 # Show sync status
-cead sync --status
+tbd sync --status
 ```
 
 **Output (sync):**
@@ -1736,7 +1736,7 @@ Remote changes (not yet pulled):
 #### Stats
 
 ```bash
-cead stats
+tbd stats
 ```
 
 **Output:**
@@ -1765,7 +1765,7 @@ By Priority:
 #### Doctor
 
 ```bash
-cead doctor [options]
+tbd doctor [options]
 
 Options:
   --fix                     Auto-fix issues
@@ -1787,7 +1787,7 @@ Options:
 #### Compact (Future)
 
 ```bash
-cead compact [options]
+tbd compact [options]
 
 Options:
   --dry-run                 Show what would be compacted
@@ -1800,15 +1800,15 @@ Compaction is Phase 2.
 #### Config
 
 ```bash
-cead config <key> [value]
-cead config --list
+tbd config <key> [value]
+tbd config --list
 ```
 
 **Examples:**
 ```bash
-cead config sync.remote upstream
-cead config display.id_prefix cd
-cead config --list
+tbd config sync.remote upstream
+tbd config display.id_prefix cd
+tbd config --list
 ```
 
 ### 4.9 Global Options
@@ -1832,13 +1832,13 @@ order:
 
 1. `--actor <name>` CLI flag (highest priority)
 
-2. `CEAD_ACTOR` environment variable
+2. `tbd_ACTOR` environment variable
 
 3. Git user.email from git config
 
 4. System username + hostname (fallback)
 
-Example: `CEAD_ACTOR=claude-agent-1 cead create "Fix bug"`
+Example: `tbd_ACTOR=claude-agent-1 tbd create "Fix bug"`
 
 > **Note:** `--db` is retained for Beads compatibility.
 > Prefer `--dir` for new usage.
@@ -1850,7 +1850,7 @@ These commands enable inspection and recovery.
 
 ```bash
 # List attic entries
-cead attic list [options]
+tbd attic list [options]
 
 Options:
   --id <id>                 Filter by issue ID
@@ -1870,7 +1870,7 @@ TIMESTAMP                  ISSUE      FIELD        WINNER
 
 ```bash
 # Show attic entry details
-cead attic show <entry-id> [options]
+tbd attic show <entry-id> [options]
 
 Options:
   --json                    JSON output
@@ -1897,7 +1897,7 @@ Context:
 
 ```bash
 # Restore value from attic
-cead attic restore <entry-id> [options]
+tbd attic restore <entry-id> [options]
 
 Options:
   --dry-run                 Show what would be restored
@@ -1907,10 +1907,10 @@ Options:
 **Example:**
 ```bash
 # Preview restoration
-cead attic restore 2025-01-07T10-30-00Z_description --dry-run
+tbd attic restore 2025-01-07T10-30-00Z_description --dry-run
 
 # Apply restoration (creates new version with restored value)
-cead attic restore 2025-01-07T10-30-00Z_description
+tbd attic restore 2025-01-07T10-30-00Z_description
 ```
 
 > **Note:** Restore creates a new version of the issue with the attic value applied to
@@ -1957,10 +1957,10 @@ The import command supports two modes: **explicit file** and **repository auto-d
 
 ```bash
 # Mode 1: Explicit file (e.g., from `bd export`)
-cead import <file> [options]
+tbd import <file> [options]
 
 # Mode 2: Auto-detect from Beads repository
-cead import --from-beads [path] [options]
+tbd import --from-beads [path] [options]
 
 Options:
   --format beads          Import format (default: beads)
@@ -1975,26 +1975,26 @@ Options:
 ```bash
 # Explicit file import (recommended for controlled migration)
 bd export > beads-export.jsonl
-cead import beads-export.jsonl
+tbd import beads-export.jsonl
 
 # Re-import after more Beads work (safe to re-run)
 bd export > beads-export.jsonl
-cead import beads-export.jsonl  # Updates existing, adds new, no duplicates
+tbd import beads-export.jsonl  # Updates existing, adds new, no duplicates
 
 # Preview changes before importing
-cead import beads-export.jsonl --dry-run
+tbd import beads-export.jsonl --dry-run
 
 # Auto-detect from repository (imports from both main and sync branch)
-cead import --from-beads
+tbd import --from-beads
 
 # Auto-detect from specific path
-cead import --from-beads /path/to/repo
+tbd import --from-beads /path/to/repo
 
 # Import only from main branch
-cead import --from-beads --branch main
+tbd import --from-beads --branch main
 
 # Import only from sync branch
-cead import --from-beads --branch beads-sync
+tbd import --from-beads --branch beads-sync
 ```
 
 #### 5.1.2 Multi-Source Import (--from-beads)
@@ -2146,7 +2146,7 @@ Merged result:
 **Import Output with Multi-Source:**
 
 ```bash
-$ cead import --from-beads --verbose
+$ tbd import --from-beads --verbose
 
 Detecting Beads sources...
   ✓ Working copy: .beads/issues.jsonl (23 issues)
@@ -2218,7 +2218,7 @@ This file:
 
 **Mapping recovery:** If the mapping file is corrupted or lost, it can be reconstructed
 by scanning all issues and reading `extensions.beads.original_id`. Run:
-`cead doctor --fix` to rebuild mappings from extensions data.
+`tbd doctor --fix` to rebuild mappings from extensions data.
 
 #### 5.1.5 Import Algorithm
 
@@ -2306,8 +2306,8 @@ On import:
 
 **Options:**
 ```bash
-cead import beads.jsonl --include-tombstones  # Import tombstones as closed
-cead import beads.jsonl --skip-tombstones     # Skip tombstones (default)
+tbd import beads.jsonl --include-tombstones  # Import tombstones as closed
+tbd import beads.jsonl --skip-tombstones     # Skip tombstones (default)
 ```
 
 #### 5.1.8 Dependency ID Translation
@@ -2331,7 +2331,7 @@ Tbd: { "type": "blocks", "target": "is-d4e5f6" }  # Looked up from mapping
 #### 5.1.9 Import Output
 
 ```bash
-$ cead import beads-export.jsonl
+$ tbd import beads-export.jsonl
 
 Importing from beads-export.jsonl...
   New issues:      23
@@ -2344,12 +2344,12 @@ Dependency translation:
   Translated: 45
   Orphaned:   1 (bd-z9a0 not found, skipped)
 
-Import complete. Run 'cead sync' to push changes.
+Import complete. Run 'tbd sync' to push changes.
 ```
 
 **With --dry-run:**
 ```bash
-$ cead import beads-export.jsonl --dry-run
+$ tbd import beads-export.jsonl --dry-run
 
 DRY RUN - no changes will be made
 
@@ -2375,11 +2375,11 @@ Would import from beads-export.jsonl:
 bd export > beads-export.jsonl
 
 # In target repo (may be same repo)
-cead init
-cead import beads-export.jsonl
+tbd init
+tbd import beads-export.jsonl
 git add .tbd/
 git commit -m "Initialize tbd and import from beads"
-cead sync
+tbd sync
 ```
 
 **Ongoing sync (transition period):**
@@ -2387,10 +2387,10 @@ cead sync
 ```bash
 # If agents are still using Beads occasionally
 bd export > beads-export.jsonl
-cead import beads-export.jsonl  # Safe to re-run
+tbd import beads-export.jsonl  # Safe to re-run
 
 # After import, Tbd is authoritative
-# New work should use cead commands
+# New work should use tbd commands
 ```
 
 **Recovery (accidental Beads usage):**
@@ -2399,8 +2399,8 @@ cead import beads-export.jsonl  # Safe to re-run
 # Agent accidentally used Beads commands
 # Recover that work into Tbd
 bd export > beads-export.jsonl
-cead import beads-export.jsonl
-cead sync
+tbd import beads-export.jsonl
+tbd sync
 # Agent's work is now in Tbd
 ```
 
@@ -2408,28 +2408,28 @@ cead sync
 
 | Beads Command | Tbd Equivalent | Status | Notes |
 | --- | --- | --- | --- |
-| `bd init` | `cead init` | ✅ Full | Identical behavior |
-| `bd create` | `cead create` | ✅ Full | All options supported |
-| `bd list` | `cead list` | ✅ Full | All filters supported |
-| `bd show` | `cead show` | ✅ Full | Same output format |
-| `bd update` | `cead update` | ✅ Full | All options supported |
-| `bd close` | `cead close` | ✅ Full | With `--reason` |
-| `bd ready` | `cead ready` | ✅ Full | Same algorithm |
-| `bd blocked` | `cead blocked` | ✅ Full | Shows blocking issues |
-| `bd label add` | `cead label add` | ✅ Full | Identical |
-| `bd label remove` | `cead label remove` | ✅ Full | Identical |
-| `bd label list` | `cead label list` | ✅ Full | Lists all labels |
-| `bd dep add` | `cead dep add` | ✅ Full | Only "blocks" type |
-| `bd dep tree` | `cead dep tree` | ✅ Full | Visualize dependencies |
-| `bd sync` | `cead sync` | ✅ Full | Different mechanism, same UX |
-| `bd stats` | `cead stats` | ✅ Full | Same statistics |
-| `bd doctor` | `cead doctor` | ✅ Full | Different checks |
-| `bd config` | `cead config` | ✅ Full | YAML not SQLite |
-| `bd compact` | `cead compact` | 🔄 Phase 2 | Deferred |
+| `bd init` | `tbd init` | ✅ Full | Identical behavior |
+| `bd create` | `tbd create` | ✅ Full | All options supported |
+| `bd list` | `tbd list` | ✅ Full | All filters supported |
+| `bd show` | `tbd show` | ✅ Full | Same output format |
+| `bd update` | `tbd update` | ✅ Full | All options supported |
+| `bd close` | `tbd close` | ✅ Full | With `--reason` |
+| `bd ready` | `tbd ready` | ✅ Full | Same algorithm |
+| `bd blocked` | `tbd blocked` | ✅ Full | Shows blocking issues |
+| `bd label add` | `tbd label add` | ✅ Full | Identical |
+| `bd label remove` | `tbd label remove` | ✅ Full | Identical |
+| `bd label list` | `tbd label list` | ✅ Full | Lists all labels |
+| `bd dep add` | `tbd dep add` | ✅ Full | Only "blocks" type |
+| `bd dep tree` | `tbd dep tree` | ✅ Full | Visualize dependencies |
+| `bd sync` | `tbd sync` | ✅ Full | Different mechanism, same UX |
+| `bd stats` | `tbd stats` | ✅ Full | Same statistics |
+| `bd doctor` | `tbd doctor` | ✅ Full | Different checks |
+| `bd config` | `tbd config` | ✅ Full | YAML not SQLite |
+| `bd compact` | `tbd compact` | 🔄 Phase 2 | Deferred |
 | `bd prime` | *(none)* | ❌ Not planned | Beads-specific feature |
-| `bd diagnose` | `cead doctor` | ✅ Partial | Subset of diagnostics |
-| `bd import` | `cead import` | ✅ Full | Beads JSONL import |
-| `bd export` | `cead export` | 🔄 Phase 2 | Can export as JSON |
+| `bd diagnose` | `tbd doctor` | ✅ Partial | Subset of diagnostics |
+| `bd import` | `tbd import` | ✅ Full | Beads JSONL import |
+| `bd export` | `tbd export` | 🔄 Phase 2 | Can export as JSON |
 
 **Legend:**
 
@@ -2594,7 +2594,7 @@ These flags/behaviors are maintained for Beads script compatibility:
 
 3. **No auto-flush**: Beads auto-syncs on write
 
-   - Tbd syncs on `cead sync` or with `settings.auto_sync: true` in config
+   - Tbd syncs on `tbd sync` or with `settings.auto_sync: true` in config
 
 4. **Tombstone issues**: Decide import behavior (skip/convert/attic)
 
@@ -2666,8 +2666,8 @@ fi
 
 - Incremental update: <100ms for typical sync (10-50 changed files)
 
-**Incremental operations:** Common operations like `cead list`, `cead ready`, and
-`cead sync --status` use the index and diff-based updates to meet performance targets
+**Incremental operations:** Common operations like `tbd list`, `tbd ready`, and
+`tbd sync --status` use the index and diff-based updates to meet performance targets
 even at scale.
 
 #### File I/O Optimization
@@ -2726,13 +2726,13 @@ even at scale.
 
 1. ✅ Export Beads data: `bd export > backup.jsonl`
 
-2. ✅ Initialize Tbd: `cead init`
+2. ✅ Initialize Tbd: `tbd init`
 
-3. ✅ Import: `cead import backup.jsonl`
+3. ✅ Import: `tbd import backup.jsonl`
 
-4. ✅ Verify: `cead list --json | wc -l` matches Beads count
+4. ✅ Verify: `tbd list --json | wc -l` matches Beads count
 
-5. ✅ Configure display: `cead config display.id_prefix bd`
+5. ✅ Configure display: `tbd config display.id_prefix bd`
 
 6. ✅ Test workflows: create, update, sync
 
@@ -2740,13 +2740,13 @@ even at scale.
 
 8. ✅ Sync team: `git push origin tbd-sync`
 
-9. ✅ Update docs: Replace `bd` with `cead` in scripts (or keep `bd` alias)
+9. ✅ Update docs: Replace `bd` with `tbd` in scripts (or keep `bd` alias)
 
 **Gradual rollout:**
 
 - Keep Beads running alongside Tbd initially
 
-- Compare outputs (`bd list` vs `cead list`)
+- Compare outputs (`bd list` vs `tbd list`)
 
 - Migrate one team/agent at a time
 
@@ -2796,7 +2796,7 @@ even at scale.
 
 - No automatic background sync
 
-- Users must run `cead sync` manually or via cron
+- Users must run `tbd sync` manually or via cron
 
 #### Decision 3: Sync branch instead of main
 
@@ -2893,9 +2893,9 @@ frontmatter, which offers:
 
 - Description field supports Markdown syntax (stored as string)
 
-- `cead show` can render Markdown
+- `tbd show` can render Markdown
 
-- Future: `cead edit <id>` opens in $EDITOR with Markdown preview
+- Future: `tbd edit <id>` opens in $EDITOR with Markdown preview
 
 **Credit**: ticket’s Markdown approach is elegant for simple workflows.
 Tbd chooses JSON for multi-environment sync robustness, but we may add Markdown
@@ -2918,7 +2918,7 @@ Phase 2 should add:
 
 - Use case: When working on issue A, agent discovers issue B
 
-- Pattern: `cead create "Found bug" --deps discovered-from:<parent-id>`
+- Pattern: `tbd create "Found bug" --deps discovered-from:<parent-id>`
 
 - Common in Beads workflows for linking discovered work to parent issues
 
@@ -3013,7 +3013,7 @@ No changes to sync algorithm needed.
 
 ### 7.3 File Structure Reference
 
-**Complete file tree after `cead init`:**
+**Complete file tree after `tbd init`:**
 
 ```
 repo/
@@ -3077,62 +3077,62 @@ real-time sync) are explicitly deferred.
 
 | Beads Command | Tbd Command | Status | Notes |
 | --- | --- | --- | --- |
-| `bd create "Title"` | `cead create "Title"` | ✅ Full | Identical |
-| `bd create "Title" -t type` | `cead create "Title" -t type` | ✅ Full | Same flag |
-| `bd create "Title" -p N` | `cead create "Title" -p N` | ✅ Full | Priority 0-4 |
-| `bd create "Title" -d "desc"` | `cead create "Title" -d "desc"` | ✅ Full | Description |
-| `bd create "Title" -f file.md` | `cead create "Title" -f file.md` | ✅ Full | Body from file |
-| `bd create "Title" -l label` | `cead create "Title" -l label` | ✅ Full | Repeatable |
-| `bd create "Title" --assignee X` | `cead create "Title" --assignee X` | ✅ Full | Identical |
-| `bd create "Title" --parent <id>` | `cead create "Title" --parent <id>` | ✅ Full | Hierarchical |
-| `bd create "Title" --due <date>` | `cead create "Title" --due <date>` | ✅ Full | Due date |
-| `bd create "Title" --defer <date>` | `cead create "Title" --defer <date>` | ✅ Full | Defer until |
-| `bd list` | `cead list` | ✅ Full | Identical |
-| `bd list --status X` | `cead list --status X` | ✅ Full | Identical |
-| `bd list --type X` | `cead list --type X` | ✅ Full | Identical |
-| `bd list --priority N` | `cead list --priority N` | ✅ Full | Identical |
-| `bd list --assignee X` | `cead list --assignee X` | ✅ Full | Identical |
-| `bd list --label X` | `cead list --label X` | ✅ Full | Repeatable |
-| `bd list --parent <id>` | `cead list --parent <id>` | ✅ Full | List children |
-| `bd list --deferred` | `cead list --deferred` | ✅ Full | Deferred issues |
-| `bd list --sort X` | `cead list --sort X` | ✅ Full | priority/created/updated |
-| `bd list --limit N` | `cead list --limit N` | ✅ Full | Identical |
-| `bd list --json` | `cead list --json` | ✅ Full | JSON output |
-| `bd show <id>` | `cead show <id>` | ✅ Full | Identical |
-| `bd update <id> --status X` | `cead update <id> --status X` | ✅ Full | Identical |
-| `bd update <id> --priority N` | `cead update <id> --priority N` | ✅ Full | Identical |
-| `bd update <id> --assignee X` | `cead update <id> --assignee X` | ✅ Full | Identical |
-| `bd update <id> --description X` | `cead update <id> --description X` | ✅ Full | Identical |
-| `bd update <id> --type X` | `cead update <id> --type X` | ✅ Full | Identical |
-| `bd update <id> --due <date>` | `cead update <id> --due <date>` | ✅ Full | Identical |
-| `bd update <id> --defer <date>` | `cead update <id> --defer <date>` | ✅ Full | Identical |
-| `bd update <id> --parent <id>` | `cead update <id> --parent <id>` | ✅ Full | Identical |
-| `bd close <id>` | `cead close <id>` | ✅ Full | Identical |
-| `bd close <id> --reason "X"` | `cead close <id> --reason "X"` | ✅ Full | With reason |
-| `bd reopen <id>` | `cead reopen <id>` | ✅ Full | Identical |
-| `bd ready` | `cead ready` | ✅ Full | Identical algorithm |
-| `bd blocked` | `cead blocked` | ✅ Full | Shows blockers |
+| `bd create "Title"` | `tbd create "Title"` | ✅ Full | Identical |
+| `bd create "Title" -t type` | `tbd create "Title" -t type` | ✅ Full | Same flag |
+| `bd create "Title" -p N` | `tbd create "Title" -p N` | ✅ Full | Priority 0-4 |
+| `bd create "Title" -d "desc"` | `tbd create "Title" -d "desc"` | ✅ Full | Description |
+| `bd create "Title" -f file.md` | `tbd create "Title" -f file.md` | ✅ Full | Body from file |
+| `bd create "Title" -l label` | `tbd create "Title" -l label` | ✅ Full | Repeatable |
+| `bd create "Title" --assignee X` | `tbd create "Title" --assignee X` | ✅ Full | Identical |
+| `bd create "Title" --parent <id>` | `tbd create "Title" --parent <id>` | ✅ Full | Hierarchical |
+| `bd create "Title" --due <date>` | `tbd create "Title" --due <date>` | ✅ Full | Due date |
+| `bd create "Title" --defer <date>` | `tbd create "Title" --defer <date>` | ✅ Full | Defer until |
+| `bd list` | `tbd list` | ✅ Full | Identical |
+| `bd list --status X` | `tbd list --status X` | ✅ Full | Identical |
+| `bd list --type X` | `tbd list --type X` | ✅ Full | Identical |
+| `bd list --priority N` | `tbd list --priority N` | ✅ Full | Identical |
+| `bd list --assignee X` | `tbd list --assignee X` | ✅ Full | Identical |
+| `bd list --label X` | `tbd list --label X` | ✅ Full | Repeatable |
+| `bd list --parent <id>` | `tbd list --parent <id>` | ✅ Full | List children |
+| `bd list --deferred` | `tbd list --deferred` | ✅ Full | Deferred issues |
+| `bd list --sort X` | `tbd list --sort X` | ✅ Full | priority/created/updated |
+| `bd list --limit N` | `tbd list --limit N` | ✅ Full | Identical |
+| `bd list --json` | `tbd list --json` | ✅ Full | JSON output |
+| `bd show <id>` | `tbd show <id>` | ✅ Full | Identical |
+| `bd update <id> --status X` | `tbd update <id> --status X` | ✅ Full | Identical |
+| `bd update <id> --priority N` | `tbd update <id> --priority N` | ✅ Full | Identical |
+| `bd update <id> --assignee X` | `tbd update <id> --assignee X` | ✅ Full | Identical |
+| `bd update <id> --description X` | `tbd update <id> --description X` | ✅ Full | Identical |
+| `bd update <id> --type X` | `tbd update <id> --type X` | ✅ Full | Identical |
+| `bd update <id> --due <date>` | `tbd update <id> --due <date>` | ✅ Full | Identical |
+| `bd update <id> --defer <date>` | `tbd update <id> --defer <date>` | ✅ Full | Identical |
+| `bd update <id> --parent <id>` | `tbd update <id> --parent <id>` | ✅ Full | Identical |
+| `bd close <id>` | `tbd close <id>` | ✅ Full | Identical |
+| `bd close <id> --reason "X"` | `tbd close <id> --reason "X"` | ✅ Full | With reason |
+| `bd reopen <id>` | `tbd reopen <id>` | ✅ Full | Identical |
+| `bd ready` | `tbd ready` | ✅ Full | Identical algorithm |
+| `bd blocked` | `tbd blocked` | ✅ Full | Shows blockers |
 
 #### A.2.2 Label Commands (Full Parity)
 
 | Beads Command | Tbd Command | Status | Notes |
 | --- | --- | --- | --- |
-| `bd label add <id> <label>` | `cead label add <id> <label>` | ✅ Full | Identical |
-| `bd label remove <id> <label>` | `cead label remove <id> <label>` | ✅ Full | Identical |
-| `bd label list` | `cead label list` | ✅ Full | All labels in use |
+| `bd label add <id> <label>` | `tbd label add <id> <label>` | ✅ Full | Identical |
+| `bd label remove <id> <label>` | `tbd label remove <id> <label>` | ✅ Full | Identical |
+| `bd label list` | `tbd label list` | ✅ Full | All labels in use |
 
-Also available via update: `cead update <id> --add-label X` and `--remove-label X`
+Also available via update: `tbd update <id> --add-label X` and `--remove-label X`
 
 #### A.2.3 Dependency Commands (Partial - blocks only)
 
 | Beads Command | Tbd Command | Status | Notes |
 | --- | --- | --- | --- |
-| `bd dep add <a> <b>` | `cead dep add <id> <target>` | ✅ Full | Default: blocks |
-| `bd dep add <a> <b> --type blocks` | `cead dep add <id> <target> --type blocks` | ✅ Full | Identical |
+| `bd dep add <a> <b>` | `tbd dep add <id> <target>` | ✅ Full | Default: blocks |
+| `bd dep add <a> <b> --type blocks` | `tbd dep add <id> <target> --type blocks` | ✅ Full | Identical |
 | `bd dep add <a> <b> --type related` | *(not in Phase 1)* | ⏳ Phase 2 | Only blocks |
 | `bd dep add <a> <b> --type discovered-from` | *(not in Phase 1)* | ⏳ Phase 2 | Only blocks |
-| `bd dep remove <a> <b>` | `cead dep remove <id> <target>` | ✅ Full | Identical |
-| `bd dep tree <id>` | `cead dep tree <id>` | ✅ Full | Visualize deps |
+| `bd dep remove <a> <b>` | `tbd dep remove <id> <target>` | ✅ Full | Identical |
+| `bd dep tree <id>` | `tbd dep tree <id>` | ✅ Full | Visualize deps |
 
 **Note:** Phase 1 supports only `blocks` dependency type.
 This is sufficient for the `ready` command algorithm.
@@ -3142,22 +3142,22 @@ This is sufficient for the `ready` command algorithm.
 
 | Beads Command | Tbd Command | Status | Notes |
 | --- | --- | --- | --- |
-| `bd sync` | `cead sync` | ✅ Full | Pull then push |
-| `bd sync --pull` | `cead sync --pull` | ✅ Full | Pull only |
-| `bd sync --push` | `cead sync --push` | ✅ Full | Push only |
-| *(no equivalent)* | `cead sync --status` | ✅ New | Show pending changes |
+| `bd sync` | `tbd sync` | ✅ Full | Pull then push |
+| `bd sync --pull` | `tbd sync --pull` | ✅ Full | Pull only |
+| `bd sync --push` | `tbd sync --push` | ✅ Full | Push only |
+| *(no equivalent)* | `tbd sync --status` | ✅ New | Show pending changes |
 
 #### A.2.5 Maintenance Commands (Full Parity)
 
 | Beads Command | Tbd Command | Status | Notes |
 | --- | --- | --- | --- |
-| `bd init` | `cead init` | ✅ Full | Identical |
-| `bd doctor` | `cead doctor` | ✅ Full | Health checks |
-| `bd doctor --fix` | `cead doctor --fix` | ✅ Full | Auto-fix |
-| `bd stats` | `cead stats` | ✅ Full | Issue statistics |
-| `bd import` | `cead import <file>` | ✅ Full | Beads JSONL import |
+| `bd init` | `tbd init` | ✅ Full | Identical |
+| `bd doctor` | `tbd doctor` | ✅ Full | Health checks |
+| `bd doctor --fix` | `tbd doctor --fix` | ✅ Full | Auto-fix |
+| `bd stats` | `tbd stats` | ✅ Full | Issue statistics |
+| `bd import` | `tbd import <file>` | ✅ Full | Beads JSONL import |
 | `bd export` | *(not in Phase 1)* | ⏳ Phase 2 | Files are the format |
-| `bd config` | `cead config` | ✅ Full | YAML config |
+| `bd config` | `tbd config` | ✅ Full | YAML config |
 | `bd compact` | *(not in Phase 1)* | ⏳ Phase 2 | Memory decay |
 
 #### A.2.6 Global Options (Full Parity)
@@ -3271,11 +3271,11 @@ bd sync                       # Sync
 
 **Tbd V2 Phase 1:**
 ```bash
-cead ready --json            # Find work
-cead update <id> --status in_progress  # Claim (advisory)
+tbd ready --json            # Find work
+tbd update <id> --status in_progress  # Claim (advisory)
 # ... work ...
-cead close <id> --reason "Done"  # Complete
-cead sync                    # Sync
+tbd close <id> --reason "Done"  # Complete
+tbd sync                    # Sync
 ```
 
 **Assessment:** ✅ Identical workflow.
@@ -3291,7 +3291,7 @@ bd create "Found bug" -t bug -p 1 --deps discovered-from:<id> --json
 **Tbd V2 Phase 1:**
 ```bash
 # Only blocks dependency supported in Phase 1
-cead create "Found bug" -t bug -p 1 --parent <id> --json
+tbd create "Found bug" -t bug -p 1 --parent <id> --json
 # Or wait for Phase 2 for discovered-from
 ```
 
@@ -3305,14 +3305,14 @@ or wait for Phase 2.
 bd export -o beads-export.jsonl
 
 # In target repo
-cead init
-cead import beads-export.jsonl  # Converts format
+tbd init
+tbd import beads-export.jsonl  # Converts format
 git add .tbd/
 git commit -m "Initialize tbd from beads"
-cead sync
+tbd sync
 
 # Configure display prefix for familiarity
-cead config display.id_prefix bd
+tbd config display.id_prefix bd
 ```
 
 ### A.6 Phase 1 Parity Summary

@@ -211,8 +211,8 @@ race windows:
 **Without Daemon (section 4.5 of design):**
 
 ```
-Agent A: cead agent claim cd-a1b2
-Agent B: cead agent claim cd-a1b2  (simultaneously)
+Agent A: tbd agent claim cd-a1b2
+Agent B: tbd agent claim cd-a1b2  (simultaneously)
 Both read: issue.assignee is null
 Both write: issue.assignee = self
 Both sync to git

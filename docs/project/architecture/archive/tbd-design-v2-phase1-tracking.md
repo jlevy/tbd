@@ -172,7 +172,7 @@ These add missing details but don’t fundamentally change the design.
   - **Location:** IssueSchema includes `notes`; CLI commands don’t expose it
 
   - **Fix:** Add `--notes` and `--notes-file` to update command, show notes in
-    `cead show`
+    `tbd show`
 
 - [x] **V2-031**: Examples show IDs with `bd-` prefix but internal IDs are `is-`
 
@@ -182,8 +182,8 @@ These add missing details but don’t fundamentally change the design.
 
 ### Import Command Consistency
 
-- [x] **V2-033**: Design goal says `cead import beads` but CLI spec says
-  `cead import <file>`
+- [x] **V2-033**: Design goal says `tbd import beads` but CLI spec says
+  `tbd import <file>`
 
   - **Location:** §1.3 Design Goals vs §5.1 Import Command
 
@@ -244,7 +244,7 @@ These are substantive changes that may affect architecture.
 
   - **Resolution:** Added detailed retry algorithm
 
-- [x] **V2-006**: `cead sync --status` baseline is undefined
+- [x] **V2-006**: `tbd sync --status` baseline is undefined
 
   - **Location:** §4.7 Sync Commands
 
@@ -284,7 +284,7 @@ These are substantive changes that may affect architecture.
 
   - **Location:** Attic sections vs CLI commands
 
-  - **Decision needed:** Add `cead attic list/show/restore` commands
+  - **Decision needed:** Add `tbd attic list/show/restore` commands
 
   - **Resolution:** Added section 4.11 Attic Commands
 
@@ -380,7 +380,7 @@ These are substantive changes that may affect architecture.
 
   - **Resolution:** Added clarification and preferred `--dir` alias
 
-- [x] **V2-030**: `cead list --sort` values mismatch field names
+- [x] **V2-030**: `tbd list --sort` values mismatch field names
 
   - **Location:** §4.4 List options
 

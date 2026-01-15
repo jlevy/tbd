@@ -57,7 +57,7 @@ current index.
 
 * “No user-visible worktree complexity” (still true)
 
-* “Internally, cead uses a private worktree or isolated index to stage commits safely.”
+* “Internally, tbd uses a private worktree or isolated index to stage commits safely.”
 
 You can keep the design principle (“users don’t manage worktrees”) while using the most
 robust implementation technique.
@@ -96,7 +96,7 @@ Attic is only as valuable as the ability to:
 
 * restore/apply it.
 
-Even a minimal `cead attic list/show/restore` set will turn “attic exists” into “users
+Even a minimal `tbd attic list/show/restore` set will turn “attic exists” into “users
 trust it.”
 
 This aligns directly with the earlier design review’s product guidance (“doctor/recover
@@ -152,10 +152,10 @@ You can copy/paste this as a checklist.
   **Where:** §3.3.2 “Writing to Sync Branch” **Problem:** The sequence
   `git read-tree tbd-sync; git add ...; git write-tree` as written operates on the
   *current repo index*, which risks destroying/overwriting a developer’s staged changes
-  (and generally assumes the index is “owned” by cead).
+  (and generally assumes the index is “owned” by tbd).
   **Suggested change:** Specify that all plumbing operations MUST run with an isolated
   index/worktree (e.g., `GIT_INDEX_FILE=...` and `GIT_WORK_TREE=...`) or use an internal
-  hidden worktree. Add an explicit invariant: “cead never modifies the user’s
+  hidden worktree. Add an explicit invariant: “tbd never modifies the user’s
   index/staging area.”
 
 * **[V2-002] [BLOCKER] Local working copy location for `.tbd-sync/` is undefined**
@@ -182,7 +182,7 @@ You can copy/paste this as a checklist.
 
   * recommend adding `.tbd-sync/` to top-level `.gitignore` OR
 
-  * write to `.git/info/exclude` in `cead init` OR
+  * write to `.git/info/exclude` in `tbd init` OR
 
   * avoid having `.tbd-sync/` exist on main at all (use hidden worktree or cache).
 
@@ -211,7 +211,7 @@ You can copy/paste this as a checklist.
   * push And specify after max attempts: exit non-zero with “manual sync required”
     instructions.
 
-* **[V2-006] [MAJOR] `cead sync --status` baseline is undefined** **Where:** §4.7 Sync
+* **[V2-006] [MAJOR] `tbd sync --status` baseline is undefined** **Where:** §4.7 Sync
   Commands (status output example) **Problem:** “Local changes (not yet pushed)” and
   “Remote changes (not yet pulled)” need a baseline definition (last successful sync?
   last pull? remote-tracking vs local cached state?). **Suggested change:** Define
@@ -353,7 +353,7 @@ You can copy/paste this as a checklist.
 
 * **[V2-020] [MINOR] Temp file cleanup could race between processes** **Where:** §2.1
   Cleanup note **Problem:** “Remove orphaned `.tmp.*` on startup” can delete temp files
-  created by another concurrently-running `cead` process.
+  created by another concurrently-running `tbd` process.
   **Suggested change:** Only cleanup temp files older than a threshold (e.g., >1h) or
   include unique prefixes and only remove ones matching current node_id.
 
@@ -376,7 +376,7 @@ You can copy/paste this as a checklist.
   env var? hostname? agent name?), nor whether `created_by`/`updated_by` is recorded.
   **Suggested change:** Define:
 
-  * actor resolution order (e.g., `--actor` > `CEAD_ACTOR` > git user.email > hostname)
+  * actor resolution order (e.g., `--actor` > `tbd_ACTOR` > git user.email > hostname)
 
   * which fields are set on create/update/close/reopen.
 
@@ -401,9 +401,9 @@ You can copy/paste this as a checklist.
   “Beads parity,” Phase 1 should support reading/updating notes.
   **Suggested change:** Add:
 
-  * `cead update <id> --notes <text>` and `--notes-file <path>`
+  * `tbd update <id> --notes <text>` and `--notes-file <path>`
 
-  * `cead show` should display notes separately from description.
+  * `tbd show` should display notes separately from description.
 
 * **[V2-026] [MINOR] `due_date` and `deferred_until` types might be too strict**
   **Where:** Timestamp = `.datetime()` and CLI options `--due/--defer` **Problem:**
@@ -440,13 +440,13 @@ You can copy/paste this as a checklist.
   way to list/restore attic entries, users can’t recover without manual file spelunking.
   **Suggested change:** Add at least:
 
-  * `cead attic list [<id>]`
+  * `tbd attic list [<id>]`
 
-  * `cead attic show <id> [--field ...] [--latest]`
+  * `tbd attic show <id> [--field ...] [--latest]`
 
-  * `cead attic restore <attic-entry> [--apply]`
+  * `tbd attic restore <attic-entry> [--apply]`
 
-* **[V2-030] [MINOR] `cead list --sort` values mismatch naming** **Where:** §4.4 List
+* **[V2-030] [MINOR] `tbd list --sort` values mismatch naming** **Where:** §4.4 List
   options: sort by “priority, created, updated” **Problem:** Fields are `created_at`,
   `updated_at`. Might want to standardize names.
   **Suggested change:** Document exact sort keys and whether “created/updated” is
@@ -470,11 +470,11 @@ You can copy/paste this as a checklist.
 
 ### Import/migration specifics
 
-* **[V2-033] [MAJOR] Design goal says `cead import beads` but CLI spec says
-  `cead import <file>`** **Where:** §1.3 Design Goals vs §5.1 Import Command
-  **Problem:** Minor inconsistency but confusing.
-  **Suggested change:** Make the goal say: “`cead import <beads-export.jsonl>` and
-  `cead import --from-beads`”.
+* **[V2-033] [MAJOR] Design goal says `tbd import beads` but CLI spec says
+  `tbd import <file>`** **Where:** §1.3 Design Goals vs §5.1 Import Command **Problem:**
+  Minor inconsistency but confusing.
+  **Suggested change:** Make the goal say: “`tbd import <beads-export.jsonl>` and
+  `tbd import --from-beads`”.
 
 * **[V2-034] [MAJOR] Multi-source import merge should also write attic on conflicts**
   **Where:** §5.1.3 Multi-Source Merge Algorithm **Problem:** It uses LWW on
