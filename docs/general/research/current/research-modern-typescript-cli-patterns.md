@@ -6,11 +6,14 @@
 
 **Related**:
 
+- [Modern Python CLI Patterns](research-modern-python-cli-patterns.md) — Equivalent
+  patterns for Python CLIs (Typer, Rich, UV)
+
 - [CLI Tool Development Rules](../../agent-rules/typescript-cli-tool-rules.md) —
   Actionable rules for CLI development
 
-- [Modern TypeScript Monorepo Package](research-modern-typescript-monorepo-package.md) —
-  Build tooling, package structure, CI/CD
+- [Modern TypeScript Monorepo Package](research-modern-typescript-monorepo-patterns.md)
+  — Build tooling, package structure, CI/CD
 
 - [Commander.js Documentation](https://github.com/tj/commander.js)
 
@@ -97,7 +100,141 @@ interfaces organized.
 
 * * *
 
-### 2. Base Command Pattern
+### 2. Agent & Automation Compatibility
+
+**Status**: Strongly Recommended
+
+**Details**:
+
+Modern CLIs must work reliably in three execution contexts:
+
+| Mode | Context | Behavior |
+| --- | --- | --- |
+| **Interactive (TTY)** | Human at terminal | Prompts, spinners, colored output allowed |
+| **Non-interactive (headless)** | CI, scripts, agent runners | No prompts, deterministic output, fail-fast |
+| **Protocol mode** | MCP/JSON-RPC adapters | Structured I/O only (future extension) |
+
+**Key flags for automation**:
+
+```ts
+program
+  .option('--non-interactive', 'Disable all prompts, fail if input required')
+  .option('--yes', 'Assume yes to confirmation prompts')
+  .option('--format <format>', 'Output format: text, json, or jsonl', 'text');
+```
+
+**Behavior contract**:
+
+- If `--non-interactive` is set, stdin is not a TTY, or `CI` env var is set, **never
+  prompt**
+
+- If required values are missing, exit with code `2` and a structured error:
+
+```ts
+// Exit with actionable error for missing required input
+if (!options.name && !process.stdin.isTTY) {
+  console.error(JSON.stringify({
+    error: 'Missing required input',
+    missing: ['name'],
+    hint: 'Provide --name or run interactively'
+  }));
+  process.exit(2);
+}
+```
+
+- `--yes` skips confirmations but does **not** conjure missing required fields
+
+- Respect `CI` environment variable (set by GitHub Actions, GitLab CI, CircleCI, Travis,
+  and most CI systems):
+
+```ts
+function isCI(): boolean {
+  return Boolean(process.env.CI);
+}
+
+function isInteractive(): boolean {
+  return process.stdin.isTTY && !isCI();
+}
+```
+
+- Support `NO_COLOR` environment variable (see [no-color.org](https://no-color.org/)):
+
+```ts
+function shouldColorize(colorOption: 'auto' | 'always' | 'never'): boolean {
+  if (process.env.NO_COLOR) return false;  // Respect NO_COLOR
+  if (colorOption === 'always') return true;
+  if (colorOption === 'never') return false;
+  return process.stdout.isTTY ?? false;
+}
+```
+
+**Self-documentation for agents** (optional but high-value):
+
+```ts
+// Machine-readable command schema
+const schemaCommand = new Command('schema')
+  .argument('<command>', 'Command to describe')
+  .description('Output JSON Schema for command inputs')
+  .action((commandName) => {
+    const schema = getCommandSchema(commandName);
+    console.log(JSON.stringify(schema, null, 2));
+  });
+
+// Machine-readable examples
+const examplesCommand = new Command('examples')
+  .argument('<command>', 'Command to show examples for')
+  .description('Output example invocations as JSON')
+  .action((commandName) => {
+    const examples = getCommandExamples(commandName);
+    console.log(JSON.stringify(examples, null, 2));
+  });
+```
+
+**Critical: Disable spinners and progress output for agents**
+
+Spinners and progress indicators are a severe antipattern in non-interactive contexts.
+When an AI coding agent (Claude Code, Cursor, Copilot, etc.)
+invokes a CLI, any spinner output—even partial line rewrites via ANSI escape codes—gets
+captured as text and floods the agent’s context window.
+A single long-running command with an active spinner can generate thousands of lines of
+captured output, rapidly exhausting context and degrading agent performance.
+
+```ts
+// ALWAYS check TTY before showing progress
+if (!process.stderr.isTTY) {
+  // No spinners, no progress bars, no animations
+}
+
+// Provide explicit flag for agent-driven invocations
+program.option('--no-progress', 'Disable all progress output (for agent/script use)');
+
+// In OutputManager, respect both TTY detection AND explicit flag
+spinner(message: string): Spinner {
+  if (this.noProgress || !process.stderr.isTTY) {
+    return { message: () => {}, stop: () => {} };  // Silent no-op
+  }
+  // ...create actual spinner
+}
+```
+
+Key requirements:
+
+- **Always check `isTTY`** before any spinner/progress output
+
+- **Provide `--no-progress` flag** for explicit disabling (agents may run in
+  pseudo-TTYs)
+
+- **Default to silent** when in doubt—missing progress output is far better than flooded
+  context
+
+- **Never use carriage returns (`\r`) or ANSI cursor movement** in non-TTY mode
+
+**Assessment**: Explicit automation support enables CLIs to work reliably with AI
+agents, CI pipelines, and scripted workflows without TTY hacks or brittle parsing.
+
+* * *
+
+### 3. Base Command Pattern
 
 **Status**: Strongly Recommended
 
@@ -117,6 +254,23 @@ This pattern centralizes:
 - Dry-run checking
 
 ```ts
+// lib/errors.ts
+export class CLIError extends Error {
+  constructor(
+    message: string,
+    public exitCode: number = 1
+  ) {
+    super(message);
+    this.name = 'CLIError';
+  }
+}
+
+export class ValidationError extends CLIError {
+  constructor(message: string) {
+    super(message, 2);  // Exit code 2 for usage/validation errors
+  }
+}
+
 // lib/baseCommand.ts
 export abstract class BaseCommand {
   protected ctx: CommandContext;
@@ -135,6 +289,7 @@ export abstract class BaseCommand {
     return this.client;
   }
 
+  // Throws CLIError instead of calling process.exit - handled at entrypoint
   protected async execute<T>(
     action: () => Promise<T>,
     errorMessage: string
@@ -143,7 +298,7 @@ export abstract class BaseCommand {
       return await action();
     } catch (error) {
       this.output.error(errorMessage, error);
-      process.exit(1);
+      throw new CLIError(errorMessage);
     }
   }
 
@@ -155,32 +310,48 @@ export abstract class BaseCommand {
     return false;
   }
 
-  abstract run(options: any): Promise<void>;
+  abstract run(options: unknown): Promise<void>;
 }
 
-// Usage in command handler:
-class MyCommandHandler extends BaseCommand {
-  async run(options: MyCommandOptions): Promise<void> {
-    if (this.checkDryRun('Would perform action', options)) return;
-
-    const client = this.getClient();
-    const result = await this.execute(
-      () => client.query(api.something, {}),
-      'Failed to fetch data'
-    );
-
-    this.output.data(result, () => displayResult(result, this.ctx));
+// CLI entrypoint - single place for exit handling
+async function main() {
+  try {
+    await program.parseAsync(process.argv);
+  } catch (error) {
+    if (error instanceof CLIError) {
+      process.exit(error.exitCode);
+    }
+    console.error('Unexpected error:', error);
+    process.exit(1);
   }
 }
+
+// Handle SIGINT (Ctrl+C)
+process.on('SIGINT', () => {
+  console.error('\nInterrupted');
+  process.exit(130);  // 128 + SIGINT(2)
+});
+
+main();
 ```
+
+**Exit code conventions** (aligned with Unix standards):
+
+| Code | Meaning |
+| --- | --- |
+| 0 | Success |
+| 1 | Operational error (API failed, file not found) |
+| 2 | Validation/usage error (missing argument, invalid option) |
+| 130 | Interrupted (SIGINT / Ctrl+C) |
 
 **Assessment**: The Base Command pattern dramatically reduces boilerplate.
 New commands inherit consistent behavior for error handling, dry-run support, and output
-formatting.
+formatting. Throwing typed errors instead of calling `process.exit()` improves
+testability and ensures proper resource cleanup.
 
 * * *
 
-### 3. Dual Output Mode (Text + JSON)
+### 4. Dual Output Mode (Text + JSON)
 
 **Status**: Strongly Recommended
 
@@ -221,9 +392,9 @@ export class OutputManager {
     }
   }
 
-  // Spinner - returns no-op in JSON/quiet mode
+  // Spinner - returns no-op in JSON/quiet mode or non-TTY
   spinner(message: string): Spinner {
-    if (this.format === 'text' && !this.quiet) {
+    if (this.format === 'text' && !this.quiet && process.stderr.isTTY) {
       const s = p.spinner();
       s.start(message);
       return { message: (m) => s.message(m), stop: (m) => s.stop(m) };
@@ -241,7 +412,11 @@ export class OutputManager {
 | Success messages | stdout | Text mode, not quiet |
 | Errors | stderr | Always |
 | Warnings | stderr | Always |
-| Spinners/progress | stdout | Text mode, not quiet |
+| Spinners/progress | stderr | Text mode, TTY only |
+
+**Note**: Spinners and progress indicators go to **stderr** to keep stdout clean for
+pipeable data. Disable them entirely when stdout is not a TTY (prevents corruption in
+`my-cli list | jq ...` scenarios).
 
 **Assessment**: This pattern enables Unix pipeline compatibility
 (`my-cli list --format json | jq '.items[]'`) while providing rich interactive output
@@ -249,7 +424,7 @@ for terminal users.
 
 * * *
 
-### 4. Handler + Command Structure
+### 5. Handler + Command Structure
 
 **Status**: Recommended
 
@@ -292,7 +467,7 @@ The handler class is testable in isolation.
 
 * * *
 
-### 5. Named Option Types
+### 6. Named Option Types
 
 **Status**: Recommended
 
@@ -303,7 +478,7 @@ Use named interfaces for command options to get TypeScript type checking:
 ```ts
 // types/commandOptions.ts
 export interface MyFeatureListOptions {
-  limit: string;
+  limit: number;  // Coerced at parse time, not string
   status: string | null;
   verbose: boolean;
 }
@@ -312,22 +487,38 @@ export interface MyFeatureCreateOptions {
   name: string;
   description: string | null;
 }
+```
 
-// Usage:
-class MyFeatureListHandler extends BaseCommand {
-  async run(options: MyFeatureListOptions): Promise<void> {
-    const limit = parseInt(options.limit, 10);
-    // TypeScript knows exactly what options are available
+**Option coercion** (parse values in Commander, not handlers):
+
+```ts
+// lib/parsers.ts - Wrapper needed because parseInt takes 2 args
+const parseIntOption = (value: string): number => {
+  const parsed = parseInt(value, 10);
+  if (isNaN(parsed)) {
+    throw new InvalidArgumentError('Not a number');
   }
-}
+  return parsed;
+};
+
+// commands/my-feature.ts
+const listCommand = new Command('list')
+  .option('--limit <number>', 'Maximum results', parseIntOption, 20)
+  .option('--status <status>', 'Filter by status')
+  .action(async (options: MyFeatureListOptions) => {
+    // options.limit is already a number, no parsing needed
+    const handler = new MyFeatureListHandler(command, format);
+    await handler.run(options);
+  });
 ```
 
 **Assessment**: Named option types catch typos at compile time and provide autocomplete
-in editors. Worth the small overhead of maintaining interface definitions.
+in editors. Parsing options at the Commander layer (via coercion functions) keeps
+handlers clean and ensures consistent validation across commands.
 
 * * *
 
-### 6. Formatter Pattern
+### 7. Formatter Pattern
 
 **Status**: Recommended
 
@@ -378,7 +569,7 @@ The JSON formatter defines the contract for machine consumers.
 
 * * *
 
-### 7. Version Handling
+### 8. Version Handling
 
 **Status**: Recommended
 
@@ -407,7 +598,9 @@ const program = new Command()
 **Key points**:
 
 - Use the exported `VERSION` constant from your library entry point
+
 - Commander.js reserves `-V` and `--version` by default
+
 - Avoid `-v` alias for other options (conflicts with version in some setups)
 
 **Assessment**: Centralizing version in the library (injected at build time) ensures CLI
@@ -415,7 +608,7 @@ and programmatic consumers see the same version.
 
 * * *
 
-### 8. Global Options
+### 9. Global Options
 
 **Status**: Recommended
 
@@ -431,18 +624,23 @@ const program = new Command()
   .option('--dry-run', 'Show what would be done without making changes')
   .option('--verbose', 'Enable verbose output')
   .option('--quiet', 'Suppress non-essential output')
-  .option('--format <format>', 'Output format: text or json', 'text')
-  .option('--color <when>', 'Colorize output: auto, always, never', 'auto');
+  .option('--format <format>', 'Output format: text, json, or jsonl', 'text')
+  .option('--color <when>', 'Colorize output: auto, always, never', 'auto')
+  .option('--non-interactive', 'Disable all prompts, fail if input required')
+  .option('--yes', 'Assume yes to confirmation prompts');
 
 // Access via getCommandContext() in any command:
 export function getCommandContext(command: Command): CommandContext {
   const opts = command.optsWithGlobals();
+  const isCI = Boolean(process.env.CI);
   return {
     dryRun: opts.dryRun ?? false,
     verbose: opts.verbose ?? false,
     quiet: opts.quiet ?? false,
     format: opts.format ?? 'text',
     color: opts.color ?? 'auto',
+    nonInteractive: opts.nonInteractive ?? !process.stdin.isTTY ?? isCI,
+    yes: opts.yes ?? false,
   };
 }
 ```
@@ -452,17 +650,22 @@ export function getCommandContext(command: Command): CommandContext {
 The `--color` option follows the Unix convention used by `git`, `ls`, `grep`:
 
 - `auto` (default): Enable colors when stdout is a TTY, disable when piped/redirected
+
 - `always`: Force colors (useful for `less -R` or capturing colored output)
+
 - `never`: Disable colors entirely
+
+Also respect the `NO_COLOR` environment variable (see
+[no-color.org](https://no-color.org/)):
 
 ```ts
 // lib/colors.ts
-import { isatty } from 'tty';
-
 export function shouldColorize(colorOption: 'auto' | 'always' | 'never'): boolean {
+  // NO_COLOR takes precedence (unless --color=always explicitly set)
+  if (process.env.NO_COLOR && colorOption !== 'always') return false;
   if (colorOption === 'always') return true;
   if (colorOption === 'never') return false;
-  return isatty(process.stdout.fd);
+  return process.stdout.isTTY ?? false;
 }
 ```
 
@@ -480,7 +683,7 @@ conflicts across commands.
 
 * * *
 
-### 9. Avoid Single-Letter Option Aliases
+### 10. Avoid Single-Letter Option Aliases
 
 **Status**: Recommended (with exceptions)
 
@@ -520,7 +723,7 @@ However, backward compatibility with an existing CLI is a valid reason to use th
 
 * * *
 
-### 10. Show Help After Errors
+### 11. Show Help After Errors
 
 **Status**: Recommended
 
@@ -564,7 +767,7 @@ when commands are misused.
 
 * * *
 
-### 11. Stdout/Stderr Separation
+### 12. Stdout/Stderr Separation
 
 **Status**: Essential
 
@@ -589,7 +792,7 @@ enables CLI tools to be composed in pipelines.
 
 * * *
 
-### 12. Testing with Dry-Run
+### 13. Testing with Dry-Run
 
 **Status**: Recommended
 
@@ -623,7 +826,7 @@ users verify what a command will do before executing it.
 
 * * *
 
-### 13. Preaction Hooks
+### 14. Preaction Hooks
 
 **Status**: Situational
 
@@ -652,7 +855,7 @@ but shouldn’t be duplicated in each command handler.
 
 * * *
 
-### 14. Documentation Command
+### 15. Documentation Command
 
 **Status**: Recommended
 
@@ -684,34 +887,106 @@ which is especially valuable for CLIs with many subcommands.
 
 * * *
 
+### 16. Testing CLI Commands
+
+**Status**: Recommended
+
+**Details**:
+
+Test CLI commands by invoking them as subprocesses and verifying exit codes, stdout, and
+stderr:
+
+```ts
+// tests/cli.test.ts
+import { execSync, spawnSync } from 'child_process';
+import { describe, it, expect } from 'vitest';  // or node:test
+
+describe('CLI', () => {
+  const cli = (args: string) =>
+    spawnSync('node', ['./dist/cli.js', ...args.split(' ')], {
+      encoding: 'utf-8',
+    });
+
+  it('returns exit code 0 on success', () => {
+    const result = cli('list --format json');
+    expect(result.status).toBe(0);
+  });
+
+  it('outputs valid JSON in json format', () => {
+    const result = cli('list --format json');
+    expect(result.status).toBe(0);
+    const data = JSON.parse(result.stdout);
+    expect(data).toHaveProperty('items');
+  });
+
+  it('returns exit code 2 for missing required args', () => {
+    const result = cli('create');  // Missing --name
+    expect(result.status).toBe(2);
+  });
+
+  it('outputs errors to stderr while keeping stdout parseable', () => {
+    const result = cli('show --id invalid-id --format json');
+    expect(result.stderr).toContain('error');
+    // stdout should still be valid (empty or error JSON)
+    if (result.stdout.trim()) {
+      expect(() => JSON.parse(result.stdout)).not.toThrow();
+    }
+  });
+
+  it('respects --dry-run flag', () => {
+    const result = cli('delete --id test-123 --dry-run');
+    expect(result.status).toBe(0);
+    expect(result.stdout).toContain('DRY-RUN');
+  });
+});
+```
+
+**Assessment**: Testing CLIs as subprocesses validates the full user experience
+including argument parsing, exit codes, and output streams.
+Use `--format json` for assertions to avoid brittle text parsing.
+
+* * *
+
 ## Best Practices Summary
 
-1. **Use Base Command pattern** to eliminate boilerplate across commands
+1. **Support agent/automation modes** with `--non-interactive`, `--yes`, and
+   `--no-progress` flags; also respect `CI` env var
 
-2. **Support dual output modes** (text + JSON) through OutputManager
+2. **Disable spinners/progress in non-TTY** — agent context window flooding is a severe
+   antipattern
 
-3. **Separate handlers from command definitions** for testability
+3. **Use Base Command pattern** to eliminate boilerplate across commands
 
-4. **Use named option types** for TypeScript safety
+4. **Support dual output modes** (text, JSON, jsonl) through OutputManager
 
-5. **Pair text and JSON formatters** for each data domain
+5. **Throw typed errors** (CLIError), handle exits only at entrypoint
 
-6. **Use build-time VERSION constant** from library (see
-   [monorepo patterns](research-modern-typescript-monorepo-patterns.md#dynamic-git-based-versioning))
+6. **Use standard exit codes**: 0 success, 1 error, 2 validation, 130 interrupted
 
-7. **Define global options at program level** only
+7. **Route output correctly**: data to stdout, spinners/errors to stderr
 
-8. **Support `--color auto|always|never`** following Unix conventions (git, ls, grep)
+8. **Separate handlers from command definitions** for testability
 
-9. **Avoid single-letter aliases** to prevent conflicts (exception: backward compat)
+9. **Use named option types** with coercion for TypeScript safety
 
-10. **Show help after errors** for better UX
+10. **Pair text and JSON formatters** for each data domain
 
-11. **Route output correctly**: data to stdout, errors to stderr
+11. **Use build-time VERSION constant** from library (see
+    [monorepo patterns](research-modern-typescript-monorepo-patterns.md#dynamic-git-based-versioning))
 
-12. **Support --dry-run** for safe testing of destructive commands
+12. **Define global options at program level** only
 
-13. **Add a docs command** for comprehensive CLI documentation
+13. **Support `--color auto|always|never`** and respect `NO_COLOR` env var
+
+14. **Avoid single-letter aliases** to prevent conflicts (exception: backward compat)
+
+15. **Show help after errors** for better UX
+
+16. **Support --dry-run** for safe testing of destructive commands
+
+17. **Test CLI as subprocess** verifying exit codes, stdout JSON validity, stderr errors
+
+18. **Add docs/schema/examples commands** for human and machine documentation
 
 * * *
 
@@ -729,8 +1004,11 @@ which is especially valuable for CLIs with many subcommands.
 
 ### Related Documentation
 
+- [Modern Python CLI Patterns](research-modern-python-cli-patterns.md) — Equivalent
+  patterns for Python CLIs (Typer, Rich, UV)
+
 - [CLI Tool Development Rules](../../agent-rules/typescript-cli-tool-rules.md) —
   Actionable rules for CLI development
 
-- [Modern TypeScript Monorepo Package](research-modern-typescript-monorepo-package.md) —
-  Build tooling, package exports, CI/CD
+- [Modern TypeScript Monorepo Package](research-modern-typescript-monorepo-patterns.md)
+  — Build tooling, package exports, CI/CD
