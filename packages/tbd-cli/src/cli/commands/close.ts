@@ -7,6 +7,11 @@
 import { Command } from 'commander';
 
 import { BaseCommand } from '../lib/baseCommand.js';
+import { readIssue, writeIssue } from '../../file/storage.js';
+import { normalizeIssueId } from '../../lib/ids.js';
+
+// Base directory for issues
+const ISSUES_BASE_DIR = '.tbd-sync';
 
 interface CloseOptions {
   reason?: string;
@@ -14,16 +19,43 @@ interface CloseOptions {
 
 class CloseHandler extends BaseCommand {
   async run(id: string, options: CloseOptions): Promise<void> {
-    if (this.checkDryRun('Would close issue', { id, ...options })) {
+    const normalizedId = normalizeIssueId(id);
+
+    // Load existing issue
+    let issue;
+    try {
+      issue = await readIssue(ISSUES_BASE_DIR, normalizedId);
+    } catch {
+      this.output.error(`Issue not found: ${id}`);
       return;
     }
 
-    // TODO: Implement close
-    // 1. Load issue
-    // 2. Set status to closed, set closed_at
-    // 3. Save and sync
+    // Check if already closed
+    if (issue.status === 'closed') {
+      this.output.error(`Issue ${id} is already closed`);
+      return;
+    }
 
-    this.output.success(`Closed ${id}`);
+    if (this.checkDryRun('Would close issue', { id: normalizedId, reason: options.reason })) {
+      return;
+    }
+
+    // Update issue
+    issue.status = 'closed';
+    issue.closed_at = new Date().toISOString();
+    issue.close_reason = options.reason ?? null;
+    issue.version += 1;
+    issue.updated_at = new Date().toISOString();
+
+    // Save
+    await this.execute(async () => {
+      await writeIssue(ISSUES_BASE_DIR, issue);
+    }, 'Failed to close issue');
+
+    const displayId = `bd-${issue.id.slice(3)}`;
+    this.output.data({ id: displayId, closed: true }, () => {
+      this.output.success(`Closed ${displayId}`);
+    });
   }
 }
 

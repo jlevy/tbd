@@ -7,6 +7,11 @@
 import { Command } from 'commander';
 
 import { BaseCommand } from '../lib/baseCommand.js';
+import { readIssue, writeIssue } from '../../file/storage.js';
+import { normalizeIssueId } from '../../lib/ids.js';
+
+// Base directory for issues
+const ISSUES_BASE_DIR = '.tbd-sync';
 
 interface ReopenOptions {
   reason?: string;
@@ -14,16 +19,49 @@ interface ReopenOptions {
 
 class ReopenHandler extends BaseCommand {
   async run(id: string, options: ReopenOptions): Promise<void> {
-    if (this.checkDryRun('Would reopen issue', { id, ...options })) {
+    const normalizedId = normalizeIssueId(id);
+
+    // Load existing issue
+    let issue;
+    try {
+      issue = await readIssue(ISSUES_BASE_DIR, normalizedId);
+    } catch {
+      this.output.error(`Issue not found: ${id}`);
       return;
     }
 
-    // TODO: Implement reopen
-    // 1. Load issue
-    // 2. Set status to open, clear closed_at
-    // 3. Save and sync
+    // Check if not closed
+    if (issue.status !== 'closed') {
+      this.output.error(`Issue ${id} is not closed (status: ${issue.status})`);
+      return;
+    }
 
-    this.output.success(`Reopened ${id}`);
+    if (this.checkDryRun('Would reopen issue', { id: normalizedId, reason: options.reason })) {
+      return;
+    }
+
+    // Update issue
+    issue.status = 'open';
+    issue.closed_at = null;
+    issue.close_reason = null;
+    issue.version += 1;
+    issue.updated_at = new Date().toISOString();
+
+    // Optionally store reopen reason in notes if provided
+    if (options.reason) {
+      const reopenNote = `Reopened: ${options.reason}`;
+      issue.notes = issue.notes ? `${issue.notes}\n\n${reopenNote}` : reopenNote;
+    }
+
+    // Save
+    await this.execute(async () => {
+      await writeIssue(ISSUES_BASE_DIR, issue);
+    }, 'Failed to reopen issue');
+
+    const displayId = `bd-${issue.id.slice(3)}`;
+    this.output.data({ id: displayId, reopened: true }, () => {
+      this.output.success(`Reopened ${displayId}`);
+    });
   }
 }
 
