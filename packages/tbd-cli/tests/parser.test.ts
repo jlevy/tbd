@@ -90,6 +90,66 @@ Found the issue in session.ts line 42. Working on fix.`;
   });
 });
 
+describe('round-trip', () => {
+  it('parse -> serialize -> parse produces identical issue', () => {
+    const original = {
+      type: 'is' as const,
+      id: 'is-a1b2c3',
+      version: 5,
+      kind: 'bug' as const,
+      title: 'Round-trip test issue',
+      status: 'in_progress' as const,
+      priority: 1,
+      assignee: 'alice',
+      labels: ['frontend', 'urgent'],
+      dependencies: [{ type: 'blocks' as const, target: 'is-ffffff' }],
+      created_at: '2025-01-01T00:00:00Z',
+      updated_at: '2025-01-02T00:00:00Z',
+      description: 'This is a test description.',
+      notes: 'Some working notes here.',
+    };
+
+    const serialized = serializeIssue(original);
+    const parsed = parseIssue(serialized);
+
+    expect(parsed.id).toBe(original.id);
+    expect(parsed.title).toBe(original.title);
+    expect(parsed.status).toBe(original.status);
+    expect(parsed.kind).toBe(original.kind);
+    expect(parsed.priority).toBe(original.priority);
+    expect(parsed.assignee).toBe(original.assignee);
+    expect(parsed.labels).toEqual(original.labels);
+    expect(parsed.dependencies).toEqual(original.dependencies);
+    expect(parsed.description).toBe(original.description);
+    expect(parsed.notes).toBe(original.notes);
+  });
+
+  it('handles issues with null fields', () => {
+    const original = {
+      type: 'is' as const,
+      id: 'is-000001',
+      version: 1,
+      kind: 'task' as const,
+      title: 'Null field test',
+      status: 'open' as const,
+      priority: 2,
+      labels: [],
+      dependencies: [],
+      created_at: '2025-01-01T00:00:00Z',
+      updated_at: '2025-01-01T00:00:00Z',
+      description: null,
+      notes: null,
+      assignee: null,
+    };
+
+    const serialized = serializeIssue(original);
+    const parsed = parseIssue(serialized);
+
+    expect(parsed.id).toBe(original.id);
+    expect(parsed.title).toBe(original.title);
+  });
+});
+
 describe('serializeIssue', () => {
   it('serializes an issue to canonical format', () => {
     const issue = {

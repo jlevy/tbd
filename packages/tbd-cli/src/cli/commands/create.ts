@@ -5,13 +5,17 @@
  */
 
 import { Command } from 'commander';
+import { readFile } from 'node:fs/promises';
 
 import { BaseCommand } from '../lib/baseCommand.js';
-import type { IssueKindType } from '../../lib/types.js';
+import type { Issue, IssueKindType, PriorityType } from '../../lib/types.js';
+import { generateInternalId } from '../../lib/ids.js';
+import { writeIssue } from '../../file/storage.js';
+import { IssueKind, Priority } from '../../lib/schemas.js';
 
 interface CreateOptions {
   fromFile?: string;
-  type?: IssueKindType;
+  type?: string;
   priority?: string;
   description?: string;
   file?: string;
@@ -22,21 +26,89 @@ interface CreateOptions {
   label?: string[];
 }
 
+// Base directory for issues - for now, use .tbd-sync
+const ISSUES_BASE_DIR = '.tbd-sync';
+
 class CreateHandler extends BaseCommand {
   async run(title: string | undefined, options: CreateOptions): Promise<void> {
-    if (this.checkDryRun('Would create issue', { title, ...options })) {
+    // Validate title is provided (unless --from-file)
+    if (!title && !options.fromFile) {
+      this.output.error('Title is required. Use: tbd create "Issue title"');
       return;
     }
 
-    // TODO: Implement issue creation
-    // 1. Generate ID
-    // 2. Create issue file
-    // 3. Sync if enabled
+    // Parse and validate options
+    const kind = this.parseKind(options.type ?? 'task');
+    if (!kind) return;
 
-    const mockId = 'bd-a1b2c3';
-    this.output.data({ id: mockId, title }, () => {
-      this.output.success(`Created ${mockId}: ${title}`);
+    const priority = this.parsePriority(options.priority ?? '2');
+    if (priority === null) return;
+
+    // Read description from file if specified
+    let description = options.description;
+    if (options.file) {
+      try {
+        description = await readFile(options.file, 'utf-8');
+      } catch {
+        this.output.error(`Failed to read description from file: ${options.file}`);
+        return;
+      }
+    }
+
+    if (this.checkDryRun('Would create issue', { title, kind, priority, ...options })) {
+      return;
+    }
+
+    const now = new Date().toISOString();
+    const id = generateInternalId();
+
+    const issue: Issue = {
+      type: 'is',
+      id,
+      version: 1,
+      title: title!,
+      kind,
+      status: 'open',
+      priority,
+      labels: options.label ?? [],
+      dependencies: [],
+      created_at: now,
+      updated_at: now,
+      description: description ?? undefined,
+      assignee: options.assignee ?? undefined,
+      due_date: options.due ?? undefined,
+      deferred_until: options.defer ?? undefined,
+      parent_id: options.parent ?? undefined,
+    };
+
+    await this.execute(async () => {
+      await writeIssue(ISSUES_BASE_DIR, issue);
+    }, 'Failed to create issue');
+
+    // Output with display ID (bd- prefix for Beads compatibility)
+    const displayId = `bd-${id.slice(3)}`;
+    this.output.data({ id: displayId, internalId: id, title }, () => {
+      this.output.success(`Created ${displayId}: ${title}`);
     });
+  }
+
+  private parseKind(value: string): IssueKindType | undefined {
+    const result = IssueKind.safeParse(value);
+    if (!result.success) {
+      this.output.error(`Invalid type: ${value}. Must be: bug, feature, task, epic, chore`);
+      return undefined;
+    }
+    return result.data;
+  }
+
+  private parsePriority(value: string): PriorityType | null {
+    const num = parseInt(value, 10);
+    const result = Priority.safeParse(num);
+    if (!result.success) {
+      this.output.error(`Invalid priority: ${value}. Must be 0-4`);
+      return null;
+    }
+    return result.data;
   }
 }
 
