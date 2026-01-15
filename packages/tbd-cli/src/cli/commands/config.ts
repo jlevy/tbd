@@ -7,29 +7,32 @@
 import { Command } from 'commander';
 
 import { BaseCommand } from '../lib/baseCommand.js';
+import { readConfig, writeConfig } from '../../file/config.js';
+import type { Config } from '../../lib/types.js';
 
 // Show config
 class ConfigShowHandler extends BaseCommand {
   async run(): Promise<void> {
-    // TODO: Implement config show
-    const config = {
-      tbd_version: '3.0.0',
-      sync: { branch: 'tbd-sync', remote: 'origin' },
-      display: { id_prefix: 'bd' },
-      settings: { auto_sync: false, index_enabled: true },
-    };
+    let config: Config;
+    try {
+      config = await readConfig('.');
+    } catch {
+      this.output.error('No configuration found. Run `tbd init` first.');
+      return;
+    }
 
     this.output.data(config, () => {
-      // Output as YAML
-      console.log('tbd_version:', config.tbd_version);
-      console.log('sync:');
-      console.log('  branch:', config.sync.branch);
-      console.log('  remote:', config.sync.remote);
-      console.log('display:');
-      console.log('  id_prefix:', config.display.id_prefix);
-      console.log('settings:');
-      console.log('  auto_sync:', config.settings.auto_sync);
-      console.log('  index_enabled:', config.settings.index_enabled);
+      // Output as YAML format
+      const colors = this.output.getColors();
+      console.log(`${colors.dim('tbd_version:')} ${config.tbd_version}`);
+      console.log(`${colors.dim('sync:')}`);
+      console.log(`  ${colors.dim('branch:')} ${config.sync.branch}`);
+      console.log(`  ${colors.dim('remote:')} ${config.sync.remote}`);
+      console.log(`${colors.dim('display:')}`);
+      console.log(`  ${colors.dim('id_prefix:')} ${config.display.id_prefix}`);
+      console.log(`${colors.dim('settings:')}`);
+      console.log(`  ${colors.dim('auto_sync:')} ${config.settings.auto_sync}`);
+      console.log(`  ${colors.dim('index_enabled:')} ${config.settings.index_enabled}`);
     });
   }
 }
@@ -37,21 +40,88 @@ class ConfigShowHandler extends BaseCommand {
 // Set config value
 class ConfigSetHandler extends BaseCommand {
   async run(key: string, value: string): Promise<void> {
+    let config: Config;
+    try {
+      config = await readConfig('.');
+    } catch {
+      this.output.error('No configuration found. Run `tbd init` first.');
+      return;
+    }
+
     if (this.checkDryRun('Would set config', { key, value })) {
       return;
     }
-    // TODO: Implement config set
+
+    // Parse the key path and set value
+    const keys = key.split('.');
+    const parsedValue = this.parseValue(value);
+
+    try {
+      this.setNestedValue(config, keys, parsedValue);
+    } catch {
+      this.output.error(`Invalid key: ${key}`);
+      return;
+    }
+
+    await this.execute(async () => {
+      await writeConfig('.', config);
+    }, 'Failed to write config');
+
     this.output.success(`Set ${key} = ${value}`);
+  }
+
+  private parseValue(value: string): unknown {
+    // Parse boolean
+    if (value === 'true') return true;
+    if (value === 'false') return false;
+    // Parse number
+    const num = Number(value);
+    if (!isNaN(num)) return num;
+    // Return as string
+    return value;
+  }
+
+  private setNestedValue(obj: Record<string, unknown>, keys: string[], value: unknown): void {
+    let current = obj;
+    for (let i = 0; i < keys.length - 1; i++) {
+      const key = keys[i]!;
+      if (typeof current[key] !== 'object' || current[key] === null) {
+        throw new Error(`Invalid path: ${keys.slice(0, i + 1).join('.')}`);
+      }
+      current = current[key] as Record<string, unknown>;
+    }
+    const lastKey = keys[keys.length - 1]!;
+    if (!(lastKey in current)) {
+      throw new Error(`Unknown key: ${keys.join('.')}`);
+    }
+    current[lastKey] = value;
   }
 }
 
 // Get config value
 class ConfigGetHandler extends BaseCommand {
   async run(key: string): Promise<void> {
-    // TODO: Implement config get
-    const value = 'tbd-sync'; // mock
+    let config: Config;
+    try {
+      config = await readConfig('.');
+    } catch {
+      this.output.error('No configuration found. Run `tbd init` first.');
+      return;
+    }
+
+    const keys = key.split('.');
+    let value: unknown = config;
+
+    for (const k of keys) {
+      if (typeof value !== 'object' || value === null || !(k in value)) {
+        this.output.error(`Unknown key: ${key}`);
+        return;
+      }
+      value = (value as Record<string, unknown>)[k];
+    }
+
     this.output.data({ key, value }, () => {
-      console.log(value);
+      console.log(String(value));
     });
   }
 }
