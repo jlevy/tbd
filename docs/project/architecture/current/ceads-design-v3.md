@@ -1694,7 +1694,7 @@ Options:
   --no-sync                 Don't sync after create
 ```
 
-> **Note on `--type` flag:** The CLI flag `--type` (or `-t`) sets the issue's `kind`
+> **Note on `--type` flag:** The CLI flag `--type` (or `-t`) sets the issue’s `kind`
 > field, NOT the `type` field.
 > The `type` field is the entity discriminator (always `is` for issues) and is set
 > automatically. This naming choice maintains Beads CLI compatibility where `--type` was
@@ -1714,10 +1714,14 @@ cead create --from-file new-issue.md
 **`--from-file` behavior:**
 
 - Reads the YAML frontmatter + Markdown body from file
+
 - Validates against IssueSchema
+
 - Ignores `id` field in file (generates new ID)
+
 - Ignores `version`, `created_at`, `updated_at` (set automatically)
-- Title is required in the file's frontmatter (or use `<title>` argument to override)
+
+- Title is required in the file’s frontmatter (or use `<title>` argument to override)
 
 **Output:**
 ```
@@ -1845,8 +1849,9 @@ cead update bd-a1b2 --from-file issue.md
 ```
 
 > **Note:** The `notes` field appears as a `## Notes` section in the Markdown body,
-> separated from the main description. Notes are intended for agent/developer working
-> notes, while the description is the issue's canonical description.
+> separated from the main description.
+> Notes are intended for agent/developer working notes, while the description is the
+> issue’s canonical description.
 
 #### Update
 
@@ -1885,10 +1890,14 @@ cead update bd-a1b2 --from-file issue.md
 **`--from-file` behavior:**
 
 - Reads the YAML frontmatter + Markdown body from file
+
 - Validates against IssueSchema
+
 - Updates all mutable fields (immutable fields `id`, `type`, `created_at`, `created_by`
   are preserved from existing issue)
+
 - Automatically increments `version` and sets `updated_at`
+
 - Reports clear validation errors if schema is invalid
 
 #### Close
@@ -2338,7 +2347,9 @@ Available on all commands:
 The `--color` option controls ANSI color output consistently across all commands:
 
 - `auto` (default): Enable colors when stdout is a TTY, disable when piped/redirected
+
 - `always`: Force colors (useful for `less -R` or capturing colored output)
+
 - `never`: Disable colors entirely
 
 This follows the same convention as `git`, `ls`, `grep`, and other Unix tools.
