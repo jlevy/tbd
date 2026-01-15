@@ -366,11 +366,28 @@ This plan is tracked using beads. The master epic is **tbd-100**.
 
 **Bead Tracking Summary:**
 
-| Status         | Count | Beads                                                                                                                                                                                                                       |
-| -------------- | ----- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| ✅ Done        | 84    | tbd-101→tbd-111, tbd-200→tbd-209, tbd-300→tbd-309, tbd-400→tbd-409, tbd-500→tbd-504, tbd-600→tbd-607, tbd-700→tbd-708, tbd-800→tbd-804, tbd-900→tbd-904, tbd-1000→tbd-1004, tbd-1100→tbd-1105, tbd-1201, tbd-1202, tbd-1205 |
-| 🔄 In Progress | 1     | tbd-100 (master epic)                                                                                                                                                                                                       |
-| 🔲 Open        | 10    | tbd-1200, tbd-1203, tbd-1204, tbd-1206, tbd-1300→tbd-1306                                                                                                                                                                   |
+| Status         | Count | Beads                                                                                                                                                                                                                                          |
+| -------------- | ----- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| ✅ Done        | 91    | tbd-101→tbd-111, tbd-200→tbd-209, tbd-300→tbd-309, tbd-400→tbd-409, tbd-500→tbd-504, tbd-600→tbd-607, tbd-700→tbd-708, tbd-800→tbd-804, tbd-900→tbd-904, tbd-1000→tbd-1004, tbd-1100→tbd-1105, tbd-1201, tbd-1202, tbd-1205, tbd-1400→tbd-1405 |
+| 🔄 In Progress | 1     | tbd-100 (master epic)                                                                                                                                                                                                                          |
+| 🔲 Open        | 10    | tbd-1200, tbd-1203, tbd-1204, tbd-1206, tbd-1300→tbd-1306                                                                                                                                                                                      |
+
+**Phase 13: Tryscript Coverage Migration (✅ Complete)**
+
+| Bead ID  | Task                              | Status | Notes                                  |
+| -------- | --------------------------------- | ------ | -------------------------------------- |
+| tbd-1400 | Phase 13 Epic                     | Done   | Tryscript migration complete           |
+| tbd-1401 | Add tryscript and c8 dependencies | Done   | Added to package.json devDependencies  |
+| tbd-1402 | Create tryscript golden tests     | Done   | 21 tests in cli.tryscript.md           |
+| tbd-1403 | Set up coverage merge workflow    | Done   | vitest + tryscript --merge-lcov        |
+| tbd-1404 | Update package.json scripts       | Done   | test:coverage, test:tryscript commands |
+| tbd-1405 | Update plan document              | Done   | This update                            |
+
+**Coverage Results After Migration:**
+
+- Line coverage: **97.47%** (up from 35%)
+- Statement coverage: 97.41%
+- All CLI commands now covered via tryscript subprocess execution
 
 **Remaining Tasks (Phase 12 + Validation):**
 
@@ -388,9 +405,9 @@ This plan is tracked using beads. The master epic is **tbd-100**.
 | tbd-1305 | Manual testing of full workflow | Open   | ✅ Done informally - needs formal check |
 | tbd-1306 | Security review                 | Open   | Not started                             |
 
-**Coverage Strategy (Recommended Approach):**
+**Coverage Strategy (Implemented):**
 
-Following tryscript best practices (same approach as markform repo), use **unit tests + tryscript** with merged lcov coverage:
+Following tryscript best practices (same approach as markform repo), using **unit tests + tryscript** with merged lcov coverage:
 
 | Test Type        | Coverage Tool              | Purpose                         |
 | ---------------- | -------------------------- | ------------------------------- |
@@ -398,24 +415,31 @@ Following tryscript best practices (same approach as markform repo), use **unit 
 | Golden/CLI tests | tryscript + c8 → lcov.info | Test CLI via subprocess         |
 | **Merged**       | `--merge-lcov`             | Combined coverage for full view |
 
-**Coverage Collection Process:**
+**Coverage Collection Commands:**
 
 ```bash
-# Step 1: Run vitest unit tests with coverage
-pnpm test:coverage  # produces coverage/lcov.info
+# Run combined coverage (vitest + tryscript with merge)
+pnpm test:coverage
 
-# Step 2: Run tryscript golden tests with coverage, merging vitest coverage
-tryscript run 'tests/**/*.tryscript.md' --coverage --merge-lcov coverage/lcov.info
+# Run only vitest coverage
+pnpm test:coverage:vitest
 
-# Output: coverage-tryscript/lcov.info (merged from both sources)
+# Run only tryscript CLI coverage (merges with existing vitest coverage)
+pnpm test:coverage:cli
+
+# Run tryscript tests without coverage
+pnpm test:tryscript
+
+# Update tryscript golden file expectations
+pnpm test:tryscript:update
 ```
 
-**Current Status:**
+**Current Status (✅ Implemented):**
 
-- Unit tests cover `src/lib` (96.45%) and `src/file` (partial)
-- Golden tests functionally cover CLI commands (not yet using tryscript format)
-- **TODO: Migrate golden tests from custom YAML runner to tryscript markdown format**
-- **TODO: Set up `--merge-lcov` workflow in CI**
+- Unit tests cover `src/lib` (96.45%)
+- CLI commands covered via `tests/cli.tryscript.md` (21 tests)
+- Merged coverage: **97.47% lines**, 97.41% statements
+- All commands tested: init, create, list, show, update, close, stats, label, ready, doctor
 
 **Reference:** See `npx tryscript docs` for detailed coverage documentation.
 

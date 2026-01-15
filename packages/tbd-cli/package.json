@@ -52,7 +52,11 @@
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:coverage": "vitest run --coverage",
+    "test:coverage": "vitest run --coverage && tryscript run 'tests/**/*.tryscript.md' --coverage --merge-lcov coverage/lcov.info",
+    "test:coverage:vitest": "vitest run --coverage",
+    "test:coverage:cli": "tryscript run 'tests/**/*.tryscript.md' --coverage --merge-lcov coverage/lcov.info",
+    "test:tryscript": "tryscript run 'tests/**/*.tryscript.md'",
+    "test:tryscript:update": "tryscript run --update 'tests/**/*.tryscript.md'",
     "publint": "publint",
     "prepack": "pnpm build"
   },
@@ -66,7 +70,9 @@
   "devDependencies": {
     "@types/node": "^22.10.7",
     "@vitest/coverage-v8": "^2.1.8",
+    "c8": "^10.1.3",
     "publint": "^0.3.2",
+    "tryscript": "^0.1.4",
     "tsdown": "0.20.0-beta.3",
     "vitest": "^2.1.8"
   }
