@@ -330,24 +330,46 @@ From the research docs, we will use:
 > TypeScript, ESLint, Prettier, lefthook, and Changesets configured.
 > The focus is on application design and implementation.
 
+### Implementation Tracking
+
+This plan is tracked using beads. The master epic is **tbd-100**.
+
+| Phase | Epic ID | Title | Tasks |
+|-------|---------|-------|-------|
+| 1 | tbd-101 | Core Schemas & Serialization | tbd-102 through tbd-111 |
+| 2 | tbd-200 | Storage Layer & Basic Git Operations | tbd-201 through tbd-209 |
+| 3 | tbd-300 | CLI Foundation & Init Command | tbd-301 through tbd-309 |
+| 4 | tbd-400 | Issue CRUD Commands | tbd-401 through tbd-409 |
+| 5 | tbd-500 | Workflow Commands | tbd-501 through tbd-504 |
+| 6 | tbd-600 | Label & Dependency Commands | tbd-601 through tbd-607 |
+| 7 | tbd-700 | Sync Operations | tbd-701 through tbd-708 |
+| 8 | tbd-800 | Search Command | tbd-801 through tbd-804 |
+| 9 | tbd-900 | Maintenance Commands | tbd-901 through tbd-904 |
+| 10 | tbd-1000 | Attic Commands | tbd-1001 through tbd-1004 |
+| 11 | tbd-1100 | Import Command | tbd-1101 through tbd-1105 |
+| 12 | tbd-1200 | Polish & Documentation | tbd-1201 through tbd-1206 |
+| Validation | tbd-1300 | Stage 5 Validation | tbd-1301 through tbd-1306 |
+
 ### Phase 1: Core Schemas & Serialization
+
+**Epic:** tbd-101
 
 **Goal**: Implement the File Layer with Zod schemas and YAML+Markdown serialization.
 
 #### Phase 1 Tasks
 
 - [ ] Implement Zod schemas:
-  - [ ] Common types (Timestamp, IssueId, Version)
-  - [ ] IssueSchema
-  - [ ] ConfigSchema
-  - [ ] MetaSchema
-  - [ ] LocalStateSchema
-  - [ ] AtticEntrySchema
+  - [ ] Common types (Timestamp, IssueId, Version) — **tbd-102**
+  - [ ] IssueSchema — **tbd-103**
+  - [ ] ConfigSchema — **tbd-104**
+  - [ ] MetaSchema — **tbd-105**
+  - [ ] LocalStateSchema — **tbd-106**
+  - [ ] AtticEntrySchema — **tbd-107**
 - [ ] Implement serialization:
-  - [ ] YAML + Markdown parsing (gray-matter)
-  - [ ] Canonical serialization for hashing
-  - [ ] Content hash generation
-- [ ] Write unit tests for schemas and serialization
+  - [ ] YAML + Markdown parsing (gray-matter) — **tbd-108**
+  - [ ] Canonical serialization for hashing — **tbd-109**
+  - [ ] Content hash generation — **tbd-110**
+- [ ] Write unit tests for schemas and serialization — **tbd-111**
 
 #### Phase 1 Key Design Details
 
@@ -420,30 +442,22 @@ Unit tests for:
 
 ### Phase 2: Storage Layer & Basic Git Operations
 
+**Epic:** tbd-200
+
 **Goal**: Implement file operations and basic git layer.
 
 #### Phase 2 Tasks
 
-- [ ] Implement atomic file writes
+- [ ] Implement atomic file writes — **tbd-201**
 - [ ] Implement issue file operations:
-  - [ ] `readIssue(id)` - Parse .md file to Issue
-  - [ ] `writeIssue(issue)` - Serialize Issue to .md file
-  - [ ] `listIssues()` - Enumerate all issue files
-  - [ ] `deleteIssue(id)` - Remove issue file
-- [ ] Implement config operations:
-  - [ ] `readConfig()` - Parse .tbd/config.yml
-  - [ ] `writeConfig(config)` - Serialize config
-  - [ ] `initConfig()` - Create default config
-- [ ] Implement basic git plumbing:
-  - [ ] `gitExec(args)` - Execute git commands
-  - [ ] `getCurrentBranch()` - Get current branch name
-  - [ ] `branchExists(name)` - Check if branch exists
-  - [ ] `getRemoteUrl()` - Get origin URL
-- [ ] Implement worktree management:
-  - [ ] `initWorktree()` - Create hidden worktree
-  - [ ] `updateWorktree()` - Pull latest to worktree
-  - [ ] `checkWorktreeHealth()` - Validate worktree state
-- [ ] Write unit tests for storage and git operations
+  - [ ] `readIssue(id)` - Parse .md file to Issue — **tbd-202**
+  - [ ] `writeIssue(issue)` - Serialize Issue to .md file — **tbd-203**
+  - [ ] `listIssues()` - Enumerate all issue files — **tbd-204**
+  - [ ] `deleteIssue(id)` - Remove issue file — **tbd-205**
+- [ ] Implement config operations (readConfig, writeConfig, initConfig) — **tbd-206**
+- [ ] Implement basic git plumbing (gitExec, getCurrentBranch, branchExists, getRemoteUrl) — **tbd-207**
+- [ ] Implement worktree management (initWorktree, updateWorktree, checkWorktreeHealth) — **tbd-208**
+- [ ] Write unit tests for storage and git operations — **tbd-209**
 
 #### Phase 2 Key Design Details
 
@@ -524,29 +538,22 @@ Does .tbd/.worktree/ exist and valid?
 
 ### Phase 3: CLI Foundation & Init Command
 
+**Epic:** tbd-300
+
 **Goal**: Set up CLI infrastructure and implement `tbd init`.
 
 #### Phase 3 Tasks
 
 - [ ] Implement CLI infrastructure:
-  - [ ] bin.ts entry point with shebang
-  - [ ] Commander program setup with global options
-  - [ ] BaseCommand class
-  - [ ] OutputManager for dual output
-  - [ ] CLIError classes
-  - [ ] Context management (getCommandContext)
-- [ ] Implement `tbd init`:
-  - [ ] Create .tbd/ directory structure
-  - [ ] Create .tbd/config.yml
-  - [ ] Create .tbd/.gitignore
-  - [ ] Create tbd-sync branch (orphan)
-  - [ ] Initialize .tbd-sync/ structure
-  - [ ] Push to remote if exists
-  - [ ] Create hidden worktree
-- [ ] Implement `tbd info`:
-  - [ ] Show version, sync branch, remote
-  - [ ] Show worktree status
-  - [ ] JSON output option
+  - [ ] bin.ts entry point with shebang — **tbd-301**
+  - [ ] Commander program setup with global options — **tbd-302**
+  - [ ] BaseCommand class — **tbd-303**
+  - [ ] OutputManager for dual output — **tbd-304**
+  - [ ] CLIError classes — **tbd-305**
+  - [ ] Context management (getCommandContext) — **tbd-306**
+- [ ] Implement `tbd init` — **tbd-307**
+- [ ] Implement `tbd info` — **tbd-308**
+- [ ] Write golden tests for init and info commands — **tbd-309**
 
 #### Phase 3 Key Design Details
 
@@ -723,42 +730,21 @@ $ tbd info --json
 
 ### Phase 4: Issue CRUD Commands
 
+**Epic:** tbd-400
+
 **Goal**: Implement create, list, show, update, close, reopen commands.
 
 #### Phase 4 Tasks
 
-- [ ] Implement dual ID generation:
-  - [ ] `generateInternalId(prefix)` - ULID-based internal ID (e.g., `is-01hx5zzk...`)
-  - [ ] `generateShortId()` - Base36 short ID for external use (e.g., `a7k2`)
-  - [ ] ID mapping storage (`.tbd-sync/mappings/ids.yml`)
-  - [ ] `resolveId(input)` - Exact lookup from short ID to internal ID (no prefix
-        matching)
-- [ ] Implement `tbd create`:
-  - [ ] All options (-t, -p, -d, -f, -l, --assignee, --due, --defer, --parent)
-  - [ ] `--from-file` for full YAML+Markdown input
-  - [ ] Auto-sync option (configurable)
-- [ ] Implement `tbd list`:
-  - [ ] All filters (--status, --type, --priority, --assignee, --label, --parent)
-  - [ ] --all to include closed
-  - [ ] --deferred filter
-  - [ ] --sort (priority, created, updated)
-  - [ ] --limit
-  - [ ] Human-readable table output
-  - [ ] JSON output
-- [ ] Implement `tbd show`:
-  - [ ] Output as YAML+Markdown (storage format)
-  - [ ] --json option
-  - [ ] Color output when TTY
-- [ ] Implement `tbd update`:
-  - [ ] All options (--status, --type, --priority, etc.)
-  - [ ] --from-file for round-trip editing
-  - [ ] --add-label, --remove-label
-- [ ] Implement `tbd close`:
-  - [ ] --reason option
-  - [ ] Set closed_at timestamp
-- [ ] Implement `tbd reopen`:
-  - [ ] Clear closed_at
-  - [ ] Optional reason
+- [ ] Implement dual ID generation — **tbd-401**
+- [ ] Implement ID mapping storage and resolution — **tbd-402**
+- [ ] Implement `tbd create` — **tbd-403**
+- [ ] Implement `tbd list` — **tbd-404**
+- [ ] Implement `tbd show` — **tbd-405**
+- [ ] Implement `tbd update` — **tbd-406**
+- [ ] Implement `tbd close` — **tbd-407**
+- [ ] Implement `tbd reopen` — **tbd-408**
+- [ ] Write golden tests for issue CRUD commands — **tbd-409**
 
 #### Phase 4 Key Design Details
 
@@ -1075,25 +1061,16 @@ $ tbd show $ID --json | jq '.status'
 
 ### Phase 5: Workflow Commands
 
+**Epic:** tbd-500
+
 **Goal**: Implement ready, blocked, stale commands.
 
 #### Phase 5 Tasks
 
-- [ ] Implement `tbd ready`:
-  - [ ] Filter: status=open, no assignee, no blocking deps
-  - [ ] Check dependency target status
-  - [ ] --type filter
-  - [ ] --limit
-  - [ ] JSON output
-- [ ] Implement `tbd blocked`:
-  - [ ] Filter: has unresolved blocking dependencies
-  - [ ] Show blocking issue IDs and titles
-  - [ ] JSON output
-- [ ] Implement `tbd stale`:
-  - [ ] Filter by updated_at age
-  - [ ] --days option (default 7)
-  - [ ] --status filter
-  - [ ] JSON output
+- [ ] Implement `tbd ready` — **tbd-501**
+- [ ] Implement `tbd blocked` — **tbd-502**
+- [ ] Implement `tbd stale` — **tbd-503**
+- [ ] Write golden tests for workflow commands — **tbd-504**
 
 #### Phase 5 Key Design Details
 
@@ -1226,29 +1203,19 @@ $ tbd blocked
 
 ### Phase 6: Label & Dependency Commands
 
+**Epic:** tbd-600
+
 **Goal**: Implement label and dependency management.
 
 #### Phase 6 Tasks
 
-- [ ] Implement `tbd label add`:
-  - [ ] Add label to issue
-  - [ ] Deduplicate if already exists
-- [ ] Implement `tbd label remove`:
-  - [ ] Remove label from issue
-  - [ ] No error if not present
-- [ ] Implement `tbd label list`:
-  - [ ] List all unique labels in use
-  - [ ] JSON output
-- [ ] Implement `tbd dep add`:
-  - [ ] Add dependency (default: blocks)
-  - [ ] Validate target exists
-  - [ ] Deduplicate
-- [ ] Implement `tbd dep remove`:
-  - [ ] Remove dependency
-- [ ] Implement `tbd dep tree`:
-  - [ ] Visualize dependency tree
-  - [ ] ASCII art output
-  - [ ] JSON output
+- [ ] Implement `tbd label add` — **tbd-601**
+- [ ] Implement `tbd label remove` — **tbd-602**
+- [ ] Implement `tbd label list` — **tbd-603**
+- [ ] Implement `tbd dep add` — **tbd-604**
+- [ ] Implement `tbd dep remove` — **tbd-605**
+- [ ] Implement `tbd dep tree` — **tbd-606**
+- [ ] Write golden tests for label and dependency commands — **tbd-607**
 
 #### Phase 6 Key Design Details
 
@@ -1427,38 +1394,20 @@ bd-[..] Issue B
 
 ### Phase 7: Sync Operations
 
+**Epic:** tbd-700
+
 **Goal**: Implement full sync functionality.
 
 #### Phase 7 Tasks
 
-- [ ] Implement isolated index operations:
-  - [ ] Use GIT_INDEX_FILE to protect user’s staging area
-  - [ ] Read tree from sync branch
-  - [ ] Update index with changes
-  - [ ] Write tree and create commit
-- [ ] Implement `tbd sync --pull`:
-  - [ ] Fetch remote sync branch
-  - [ ] Update hidden worktree
-  - [ ] Detect local vs remote differences
-- [ ] Implement `tbd sync --push`:
-  - [ ] Commit local changes to sync branch
-  - [ ] Push to remote
-  - [ ] Retry with merge on conflict
-- [ ] Implement `tbd sync` (full):
-  - [ ] Pull then push
-  - [ ] Report changes
-- [ ] Implement `tbd sync --status`:
-  - [ ] Show pending local changes
-  - [ ] Show pending remote changes
-- [ ] Implement merge algorithm:
-  - [ ] Field-level merge strategies
-  - [ ] LWW for scalars
-  - [ ] Union for arrays
-  - [ ] Attic preservation for losers
-- [ ] Implement push retry algorithm:
-  - [ ] MAX_RETRIES = 3
-  - [ ] Merge on conflict
-  - [ ] Error on persistent failure
+- [ ] Implement isolated index operations — **tbd-701**
+- [ ] Implement `tbd sync --pull` — **tbd-702**
+- [ ] Implement `tbd sync --push` — **tbd-703**
+- [ ] Implement `tbd sync` (full) — **tbd-704**
+- [ ] Implement `tbd sync --status` — **tbd-705**
+- [ ] Implement merge algorithm with field-level strategies — **tbd-706**
+- [ ] Implement push retry algorithm — **tbd-707**
+- [ ] Write golden tests for sync operations — **tbd-708**
 
 #### Phase 7 Key Design Details
 
@@ -1782,27 +1731,16 @@ No pending changes
 
 ### Phase 8: Search Command
 
+**Epic:** tbd-800
+
 **Goal**: Implement search using hidden worktree.
 
 #### Phase 8 Tasks
 
-- [ ] Implement search backend:
-  - [ ] Detect ripgrep vs grep fallback
-  - [ ] Build search command with options
-  - [ ] Parse results and map to issues
-- [ ] Implement `tbd search`:
-  - [ ] Pattern search across all issues
-  - [ ] --field filter (title, description, notes)
-  - [ ] --type, --status, --label filters
-  - [ ] --case-sensitive option
-  - [ ] --context lines
-  - [ ] --files-only, --count modes
-  - [ ] Auto-refresh if worktree stale
-  - [ ] JSON output
-- [ ] Implement staleness check:
-  - [ ] Check last sync time
-  - [ ] Auto-pull if > 5 minutes
-  - [ ] --no-refresh option
+- [ ] Implement search backend (ripgrep/grep detection) — **tbd-801**
+- [ ] Implement `tbd search` command — **tbd-802**
+- [ ] Implement worktree staleness check and auto-refresh — **tbd-803**
+- [ ] Write golden tests for search command — **tbd-804**
 
 #### Phase 8 Key Design Details
 
@@ -2000,25 +1938,16 @@ $ tbd search "OAuth" --type feature --json
 
 ### Phase 9: Maintenance Commands
 
+**Epic:** tbd-900
+
 **Goal**: Implement stats, doctor, config commands.
 
 #### Phase 9 Tasks
 
-- [ ] Implement `tbd stats`:
-  - [ ] Count by status
-  - [ ] Count by type/kind
-  - [ ] Count by priority
-- [ ] Implement `tbd doctor`:
-  - [ ] Check schema version
-  - [ ] Find orphaned dependencies
-  - [ ] Detect duplicate IDs
-  - [ ] Validate worktree
-  - [ ] --fix option for auto-repair
-  - [ ] JSON output
-- [ ] Implement `tbd config`:
-  - [ ] Get/set config values
-  - [ ] --list option
-  - [ ] Dot notation for nested keys
+- [ ] Implement `tbd stats` — **tbd-901**
+- [ ] Implement `tbd doctor` — **tbd-902**
+- [ ] Implement `tbd config` — **tbd-903**
+- [ ] Write golden tests for maintenance commands — **tbd-904**
 
 #### Phase 9 Key Design Details
 
@@ -2247,25 +2176,16 @@ display:
 
 ### Phase 10: Attic Commands
 
+**Epic:** tbd-1000
+
 **Goal**: Implement attic inspection and restore.
 
 #### Phase 10 Tasks
 
-- [ ] Implement `tbd attic list`:
-  - [ ] List conflict entries
-  - [ ] --id filter
-  - [ ] --field filter
-  - [ ] --since filter
-  - [ ] --limit
-  - [ ] JSON output
-- [ ] Implement `tbd attic show`:
-  - [ ] Show entry details
-  - [ ] Display lost value
-  - [ ] Show context (versions, timestamps)
-- [ ] Implement `tbd attic restore`:
-  - [ ] Create new version with restored value
-  - [ ] Preserve current value in new attic entry
-  - [ ] --dry-run option
+- [ ] Implement `tbd attic list` — **tbd-1001**
+- [ ] Implement `tbd attic show` — **tbd-1002**
+- [ ] Implement `tbd attic restore` — **tbd-1003**
+- [ ] Write golden tests for attic commands — **tbd-1004**
 
 #### Phase 10 Key Design Details
 
@@ -2432,31 +2352,17 @@ Field: description
 
 ### Phase 11: Import Command
 
+**Epic:** tbd-1100
+
 **Goal**: Implement Beads import functionality.
 
 #### Phase 11 Tasks
 
-- [ ] Implement JSONL parsing:
-  - [ ] Parse Beads export format
-  - [ ] Field mapping (type→kind, due→due_date, etc.)
-  - [ ] Status mapping (tombstone handling)
-- [ ] Implement ID mapping:
-  - [ ] Load/save .tbd-sync/mappings/beads.yml
-  - [ ] Generate new IDs for new issues
-  - [ ] Lookup existing IDs for re-import
-- [ ] Implement `tbd import <file>`:
-  - [ ] Process JSONL file
-  - [ ] Apply field mapping
-  - [ ] Handle re-import (merge)
-  - [ ] Translate dependency IDs
-  - [ ] Report statistics
-  - [ ] --dry-run option
-  - [ ] --include-tombstones option
-- [ ] Implement `tbd import --from-beads`:
-  - [ ] Auto-detect .beads/ directory
-  - [ ] Read from multiple sources (main, sync branch)
-  - [ ] Merge sources with LWW
-  - [ ] --branch option
+- [ ] Implement JSONL parsing for Beads export format — **tbd-1101**
+- [ ] Implement ID mapping for import — **tbd-1102**
+- [ ] Implement `tbd import <file>` — **tbd-1103**
+- [ ] Implement `tbd import --from-beads` — **tbd-1104**
+- [ ] Write golden tests for import command — **tbd-1105**
 
 #### Phase 11 Key Design Details
 
@@ -2769,54 +2675,33 @@ Would import from beads2.jsonl:
 
 ### Phase 12: Polish & Documentation
 
+**Epic:** tbd-1200
+
 **Goal**: Final polish, documentation, and release preparation.
 
 #### Phase 12 Tasks
 
-- [ ] Implement colored output:
-  - [ ] TTY detection
-  - [ ] --color auto|always|never
-  - [ ] Respect NO_COLOR env var
-- [ ] Implement help improvements:
-  - [ ] showHelpAfterError
-  - [ ] Colored help text
-  - [ ] Examples in help
-- [ ] Performance optimization:
-  - [ ] Implement optional index caching
-  - [ ] Benchmark against 5K issues
-  - [ ] Optimize hot paths
-- [ ] Cross-platform testing:
-  - [ ] Test on Linux, macOS, Windows
-  - [ ] Path handling for Windows
-- [ ] Documentation:
-  - [ ] README.md with quick start
-  - [ ] Migration guide from Beads
-  - [ ] API documentation (if library exports used)
-- [ ] Release preparation:
-  - [ ] Create initial changeset
-  - [ ] Verify publint passes
-  - [ ] Test npm pack
-  - [ ] Configure release workflow
+- [ ] Implement colored output with TTY detection — **tbd-1201**
+- [ ] Implement help improvements — **tbd-1202**
+- [ ] Performance optimization — **tbd-1203**
+- [ ] Cross-platform testing — **tbd-1204**
+- [ ] Documentation (README, migration guide) — **tbd-1205**
+- [ ] Release preparation — **tbd-1206**
 
 ---
 
 ## Stage 5: Validation Stage
 
+**Epic:** tbd-1300
+
 ### Validation Checklist
 
-- [ ] All golden tests pass
-- [ ] Unit test coverage > 80%
-- [ ] Performance targets met (<50ms common operations)
-- [ ] Cross-platform CI passes (Linux, macOS, Windows)
-- [ ] publint validation passes
-- [ ] Manual testing of full workflow:
-  - [ ] Fresh init
-  - [ ] Create/list/show/update/close cycle
-  - [ ] Sync between two machines (simulated)
-  - [ ] Import from Beads export
-  - [ ] Search across issues
-- [ ] Documentation review
-- [ ] Security review (no command injection, safe file operations)
+- [ ] All golden tests pass — **tbd-1301**
+- [ ] Unit test coverage > 80% — **tbd-1302**
+- [ ] Performance targets met (<50ms common operations) — **tbd-1303**
+- [ ] Cross-platform CI passes (Linux, macOS, Windows) — **tbd-1304**
+- [ ] Manual testing of full workflow — **tbd-1305**
+- [ ] Security review (no command injection, safe file operations) — **tbd-1306**
 
 ### Definition of Done
 
