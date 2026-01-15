@@ -13,7 +13,7 @@
 - [repren test suite](https://github.com/jlevy/repren/tree/master/tests) — Simple
   reference implementation in Bash
 
-* * *
+---
 
 ## Executive Summary
 
@@ -49,7 +49,7 @@ ecosystems.
 
 5. What is a minimal viable design for a modern CLI golden testing framework?
 
-* * *
+---
 
 ## Research Methodology
 
@@ -74,7 +74,7 @@ Examined existing implementations, including:
 
 - Characterization testing concepts (Michael Feathers)
 
-* * *
+---
 
 ## Research Findings
 
@@ -134,11 +134,11 @@ for non-Python projects.
 
 #### TypeScript/JavaScript Tools
 
-**@gmrchk/cli-testing-library** *(Recommended for TypeScript projects)*
+**@gmrchk/cli-testing-library** _(Recommended for TypeScript projects)_
 
 - Creates isolated environment for each test (temp directories, filesystem)
 
-- Tests CLIs written in *any language* (works via shell)
+- Tests CLIs written in _any language_ (works via shell)
 
 - Normalizes system-specific differences automatically
 
@@ -194,12 +194,11 @@ shrun’s Docker approach provides strong isolation but adds complexity.
 
 #### Rust Tools
 
-**trycmd + snapbox** *(Best-in-class golden testing, Rust-only)*
+**trycmd + snapbox** _(Best-in-class golden testing, Rust-only)_
 
 - Part of the assert-rs project, inspired by cram
 
 - Two test formats:
-
   - `.trycmd` / `.md`: Markdown with fenced `console` blocks for inline tests
 
   - `.toml` + `.stdout/.stderr`: Structured format with separate expected outputs
@@ -276,14 +275,14 @@ manual implementation.
 #### Summary: Language-Agnostic Tools
 
 Most CLI testing tools are language-specific (trycmd for Rust, @oclif/test for oclif).
-Tools that can test *any* CLI:
+Tools that can test _any_ CLI:
 
-| Tool | Language | Golden Support | Interactive | Maturity |
-| --- | --- | --- | --- | --- |
-| **@gmrchk/cli-testing-library** | TypeScript | Manual | Yes | Medium |
-| **bats-core** | Bash | Manual | No | High |
-| **repren-style Bash** | Bash | Yes | No | Low (DIY) |
-| **cram** (unmaintained) | Python | Yes | No | Historical |
+| Tool                            | Language   | Golden Support | Interactive | Maturity   |
+| ------------------------------- | ---------- | -------------- | ----------- | ---------- |
+| **@gmrchk/cli-testing-library** | TypeScript | Manual         | Yes         | Medium     |
+| **bats-core**                   | Bash       | Manual         | No          | High       |
+| **repren-style Bash**           | Bash       | Yes            | No          | Low (DIY)  |
+| **cram** (unmaintained)         | Python     | Yes            | No          | Historical |
 
 **Recommendation**: For testing non-Rust/non-Go CLIs with golden files:
 
@@ -298,7 +297,7 @@ Tools that can test *any* CLI:
 4. **Inspiration**: Study trycmd’s format and elision patterns for a custom
    implementation
 
-* * *
+---
 
 ### 2. Script Format Analysis
 
@@ -341,7 +340,7 @@ tests:
   - name: create-resource
     commands:
       - run: my-cli create --name test
-        expect_stdout: "Created resource: *"
+        expect_stdout: 'Created resource: *'
         expect_exit: 0
       - run: ls -la output/
         expect_files:
@@ -362,6 +361,7 @@ Run the create command:
 ```console
 $ my-cli create --name test
 Created resource: test-123
+```
 ````
 
 Verify the file was created:
@@ -370,6 +370,7 @@ Verify the file was created:
 $ ls -la output/
 -rw-r--r--  1 user  group  0 test.txt
 ```
+
 ````
 
 **Pros**: Human-readable, can include prose, renders nicely on GitHub
@@ -393,7 +394,7 @@ my-cli show test
 
 The separate `.golden` file captures the expected output, making diffs easy to review.
 
-* * *
+---
 
 ### 3. Stdout/Stderr Capture and Interleaving
 
@@ -446,7 +447,7 @@ Warning: deprecated option used
 [exit: 0]
 ```
 
-* * *
+---
 
 ### 4. Output Normalization (Scrubbing)
 
@@ -525,7 +526,7 @@ scrubbers:
     replace: '/HOME/'
 ```
 
-* * *
+---
 
 ### 5. File System Verification
 
@@ -550,6 +551,7 @@ find output -type f -exec sha256sum {} \; | sort
 ```
 
 Output:
+
 ```
 abc123...  output/config.yaml
 def456...  output/schema.json
@@ -569,7 +571,7 @@ sha256sum output/* 2>/dev/null | cut -c1-16
 characters of hash. For important files, include content directly or in separate golden
 files.
 
-* * *
+---
 
 ### 6. Test Organization
 
@@ -603,7 +605,7 @@ tests/
 
 - Keep scripts small (<100 lines) and focused
 
-* * *
+---
 
 ### 7. CLI Design Requirements
 
@@ -612,11 +614,13 @@ For effective golden testing, CLIs should support:
 #### Required
 
 1. **Non-interactive mode**: Skip prompts, use defaults or flags
+
    ```bash
    my-cli create --name test --yes  # Skip confirmation
    ```
 
 2. **Color control**: Disable color codes
+
    ```bash
    my-cli --no-color list
    # Or via environment
@@ -624,7 +628,6 @@ For effective golden testing, CLIs should support:
    ```
 
 3. **Deterministic output**: Same inputs produce same outputs
-
    - Avoid random ordering (sort lists)
 
    - Use stable IDs where possible
@@ -632,24 +635,27 @@ For effective golden testing, CLIs should support:
 #### Recommended
 
 4. **Quiet/verbose modes**: Control output detail level
+
    ```bash
    my-cli --quiet create  # Minimal output
    my-cli --verbose list  # Maximum detail
    ```
 
 5. **Machine-readable output**: JSON mode for structured output
+
    ```bash
    my-cli list --format json
    ```
 
 6. **Dry-run mode**: Show what would happen without side effects
+
    ```bash
    my-cli --dry-run delete --all
    ```
 
 7. **Exit codes**: Use meaningful exit codes (0 success, 1 user error, 2 system error)
 
-* * *
+---
 
 ## Proposed Design: CLI Golden Test Framework
 
@@ -725,8 +731,8 @@ cli: ./dist/my-cli
 
 # Environment setup
 env:
-  NO_COLOR: "1"
-  TZ: "UTC"
+  NO_COLOR: '1'
+  TZ: 'UTC'
 
 # Output scrubbing
 scrubbers:
@@ -766,10 +772,7 @@ interface TestResult {
   diff?: string;
 }
 
-async function runScenario(
-  scenarioPath: string,
-  config: GoldenConfig
-): Promise<string> {
+async function runScenario(scenarioPath: string, config: GoldenConfig): Promise<string> {
   const script = await readFile(scenarioPath, 'utf-8');
   const commands = parseCommands(script);
 
@@ -842,19 +845,19 @@ def scrub(text: str, scrubbers: list[dict[str, str]]) -> str:
     return result
 ```
 
-* * *
+---
 
 ## Comparative Analysis
 
-| Feature | repren-style Bash | bats-core | shrun | Proposed Design |
-| --- | --- | --- | --- | --- |
-| Language | Bash | Bash | JavaScript | TypeScript/Python |
-| Golden files | Manual | None | Optional | First-class |
-| Scrubbing | External Perl | Manual | N/A | Configured YAML |
-| Parallel execution | No | Yes | Yes | Planned |
-| CI integration | Manual | TAP output | Jest | Built-in |
-| Setup complexity | Minimal | Low | Medium (Docker) | Low |
-| Cross-platform | Partial | Bash-only | Docker-based | Full |
+| Feature            | repren-style Bash | bats-core  | shrun           | Proposed Design   |
+| ------------------ | ----------------- | ---------- | --------------- | ----------------- |
+| Language           | Bash              | Bash       | JavaScript      | TypeScript/Python |
+| Golden files       | Manual            | None       | Optional        | First-class       |
+| Scrubbing          | External Perl     | Manual     | N/A             | Configured YAML   |
+| Parallel execution | No                | Yes        | Yes             | Planned           |
+| CI integration     | Manual            | TAP output | Jest            | Built-in          |
+| Setup complexity   | Minimal           | Low        | Medium (Docker) | Low               |
+| Cross-platform     | Partial           | Bash-only  | Docker-based    | Full              |
 
 **Strengths/Weaknesses Summary**:
 
@@ -866,7 +869,7 @@ def scrub(text: str, scrubbers: list[dict[str, str]]) -> str:
 
 - **Proposed Design**: Balances simplicity with modern conveniences
 
-* * *
+---
 
 ## Design: TypeScript Port of trycmd (`tryscript`)
 
@@ -985,7 +988,7 @@ command: my-cli
 
 # Environment variables
 env:
-  NO_COLOR: "1"
+  NO_COLOR: '1'
   MY_CLI_CONFIG: /dev/null
 
 # Working directory (default: temp dir)
@@ -1077,18 +1080,18 @@ npx tryscript --filter "init"
 
 ### Key Differences from trycmd
 
-| Feature | trycmd | tryscript |
-| --- | --- | --- |
-| Language | Rust | TypeScript |
-| Target binaries | Cargo binaries | Any CLI |
-| Test format | .trycmd/.toml | .tryscript.md |
-| Config | Cargo.toml integration | tryscript.config.ts |
-| Elision patterns | Same | Same (compatible) |
-| File verification | .in/.out dirs | Same |
-| Update command | TRYCMD=overwrite | --update flag |
-| Binary discovery | bin.name in Cargo | Explicit path/command |
+| Feature           | trycmd                 | tryscript             |
+| ----------------- | ---------------------- | --------------------- |
+| Language          | Rust                   | TypeScript            |
+| Target binaries   | Cargo binaries         | Any CLI               |
+| Test format       | .trycmd/.toml          | .tryscript.md         |
+| Config            | Cargo.toml integration | tryscript.config.ts   |
+| Elision patterns  | Same                   | Same (compatible)     |
+| File verification | .in/.out dirs          | Same                  |
+| Update command    | TRYCMD=overwrite       | --update flag         |
+| Binary discovery  | bin.name in Cargo      | Explicit path/command |
 
-* * *
+---
 
 ## Best Practices
 
@@ -1122,7 +1125,7 @@ npx tryscript --filter "init"
 10. **Keep golden files small**: If a single test produces >500 lines, consider
     splitting into multiple scenarios
 
-* * *
+---
 
 ## Open Research Questions
 
@@ -1138,7 +1141,7 @@ npx tryscript --filter "init"
 4. **Performance regression detection**: Can timing be captured in a way that’s useful
    but not flaky?
 
-* * *
+---
 
 ## Recommendations
 
@@ -1191,7 +1194,7 @@ Then evolve to the **full framework** as needs grow:
 
 - **For Rust CLIs**: Use trycmd for idiomatic integration
 
-* * *
+---
 
 ## References
 
@@ -1225,10 +1228,10 @@ Then evolve to the **full framework** as needs grow:
 
 - [ApprovalTests](https://approvaltests.com/) — Approval testing methodology
 
-- Michael Feathers, *Working Effectively with Legacy Code* — Characterization testing
+- Michael Feathers, _Working Effectively with Legacy Code_ — Characterization testing
   concepts
 
-* * *
+---
 
 ## Appendix A: Complete repren Test Harness Analysis
 
@@ -1288,7 +1291,7 @@ diff -r original test1
 
 5. `git diff` provides familiar diff output
 
-* * *
+---
 
 ## Appendix B: Scrubber Pattern Library
 
@@ -1304,7 +1307,7 @@ patterns:
     replace: '[TIMESTAMP]'
 
   unix_timestamp:
-    pattern: '\b1[67]\d{8}\b'  # 2020-2030 range
+    pattern: '\b1[67]\d{8}\b' # 2020-2030 range
     replace: '[UNIX_TS]'
 
   relative_time:

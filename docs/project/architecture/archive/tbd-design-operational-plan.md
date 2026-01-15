@@ -13,7 +13,7 @@
 > The core design uses simple `updated_at` LWW with the attic preserving all conflict
 > losers.
 
-* * *
+---
 
 ## Overview
 
@@ -44,7 +44,7 @@ All paths in this document use the current directory structure:
 └── meta.json               # Runtime metadata
 ```
 
-* * *
+---
 
 ## Phase 1: Critical Issues (Must Address Before v1)
 
@@ -55,6 +55,7 @@ All paths in this document use the current directory structure:
 **Location:** Section 2.5.1 (Common Types) and Section 2.5.2 (BaseEntity)
 
 **Current:**
+
 ```typescript
 // Section 2.5.1
 const Timestamp = z.string().datetime();
@@ -70,6 +71,7 @@ const BaseEntity = z.object({
 ```
 
 **Replace with:**
+
 ```typescript
 // Section 2.5.1 - Add after Timestamp definition
 const Timestamp = z.string().datetime();
@@ -77,9 +79,9 @@ const Timestamp = z.string().datetime();
 // Hybrid Logical Clock for conflict resolution
 // See: https://cse.buffalo.edu/tech-reports/2014-04.pdf
 const HybridTimestamp = z.object({
-  wall: z.string().datetime(),  // Wall clock (for display)
-  logical: z.number().int(),     // Lamport-style counter
-  node: z.string(),              // Node identifier for deterministic tiebreak
+  wall: z.string().datetime(), // Wall clock (for display)
+  logical: z.number().int(), // Lamport-style counter
+  node: z.string(), // Node identifier for deterministic tiebreak
 });
 
 // Section 2.5.2 - Update BaseEntity
@@ -87,15 +89,16 @@ const BaseEntity = z.object({
   type: EntityType,
   id: EntityId,
   version: Version,
-  created_at: Timestamp,      // Wall clock for display
-  updated_at: Timestamp,      // Wall clock for display
-  hlc: HybridTimestamp,       // For merge conflict resolution
+  created_at: Timestamp, // Wall clock for display
+  updated_at: Timestamp, // Wall clock for display
+  hlc: HybridTimestamp, // For merge conflict resolution
 });
 ```
 
 **Also update Section 3.6 (Merge Algorithm):**
 
 **Current (lines ~1010-1012):**
+
 ```typescript
 case 'lww':
   merged[field] = local.updated_at >= remote.updated_at
@@ -105,6 +108,7 @@ case 'lww':
 ```
 
 **Replace with:**
+
 ```typescript
 case 'lww':
   merged[field] = hlcCompare(local.hlc, remote.hlc) >= 0
@@ -133,7 +137,7 @@ function updateHlc(current: HybridTimestamp, nodeId: string): HybridTimestamp {
 }
 ```
 
-* * *
+---
 
 ### Edit 1.2: Add Bridge Consistency Guarantees
 
@@ -142,6 +146,7 @@ function updateHlc(current: HybridTimestamp, nodeId: string): HybridTimestamp {
 **Location:** Add new Section 5.2.1 after Section 5.2 (Bridge Architecture)
 
 **Add:**
+
 ```markdown
 ### 5.2.1 Bridge Consistency Guarantees
 
@@ -149,27 +154,28 @@ Bridges provide eventually consistent views of Git state. The following guarante
 
 #### Consistency Model
 
-| Guarantee | Description |
-|-----------|-------------|
-| **Read-Your-Writes** | After writing via Bridge, same agent's reads reflect that write |
-| **Eventual Consistency** | All agents eventually see the same state |
-| **Monotonic Reads** | Once version N seen, never see version < N (same session) |
-| **Conflict Preservation** | No data ever lost; conflicts preserved in attic |
+| Guarantee                 | Description                                                     |
+| ------------------------- | --------------------------------------------------------------- |
+| **Read-Your-Writes**      | After writing via Bridge, same agent's reads reflect that write |
+| **Eventual Consistency**  | All agents eventually see the same state                        |
+| **Monotonic Reads**       | Once version N seen, never see version < N (same session)       |
+| **Conflict Preservation** | No data ever lost; conflicts preserved in attic                 |
 
 **Tbd does NOT provide:**
+
 - Linearizability (global ordering)
 - Serializable transactions
 - Strong consistency
 
 #### Latency Expectations
 
-| Mode | Operation | Expected Latency |
-|------|-----------|------------------|
-| File-only | Read/Write | <10ms |
-| Git sync | Pull/Push | 1-30 seconds |
-| Bridge (GitHub) | Propagation | 1-5 seconds (webhook) |
-| Bridge (Native) | Propagation | <100ms |
-| Bridge (Slack) | Message delivery | <1 second |
+| Mode            | Operation        | Expected Latency      |
+| --------------- | ---------------- | --------------------- |
+| File-only       | Read/Write       | <10ms                 |
+| Git sync        | Pull/Push        | 1-30 seconds          |
+| Bridge (GitHub) | Propagation      | 1-5 seconds (webhook) |
+| Bridge (Native) | Propagation      | <100ms                |
+| Bridge (Slack)  | Message delivery | <1 second             |
 
 #### Git vs Bridge Conflict Resolution
 
@@ -183,7 +189,7 @@ When Git and Bridge both have changes to the same entity:
    - Bridge changes preserved in attic with `source: "bridge"` metadata
 ```
 
-* * *
+---
 
 ### Edit 1.3: Add Idempotency Keys to Outbound Queue
 
@@ -193,6 +199,7 @@ When Git and Bridge both have changes to the same entity:
 schema
 
 **Current (Section 5.8, Cache State Schema around line 2273):**
+
 ```typescript
 const CacheState = z.object({
   last_bridge_sync: Timestamp.optional(),
@@ -204,12 +211,13 @@ const CacheState = z.object({
 ```
 
 **Add before CacheState:**
+
 ```typescript
 // Outbound queue item with idempotency
 const OutboundQueueItem = z.object({
-  idempotency_key: z.string().uuid(),      // Unique per send attempt
+  idempotency_key: z.string().uuid(), // Unique per send attempt
   entity_type: z.enum(['message', 'claim', 'release', 'update']),
-  payload: z.unknown(),                     // Entity or operation data
+  payload: z.unknown(), // Entity or operation data
   created_at: Timestamp,
   attempts: z.number().default(0),
   last_attempt_at: Timestamp.optional(),
@@ -221,12 +229,13 @@ const OutboundQueueItem = z.object({
 const RetryPolicy = z.object({
   max_attempts: z.number().default(10),
   initial_backoff_ms: z.number().default(1000),
-  max_backoff_ms: z.number().default(300000),  // 5 minutes
+  max_backoff_ms: z.number().default(300000), // 5 minutes
   backoff_multiplier: z.number().default(2),
 });
 ```
 
 **Update CacheState:**
+
 ```typescript
 const CacheState = z.object({
   last_bridge_sync: Timestamp.optional(),
@@ -234,11 +243,12 @@ const CacheState = z.object({
   retry_policy: RetryPolicy.default({}),
   last_error: z.string().optional(),
   outbound_count: z.number().default(0),
-  dead_letter_count: z.number().default(0),  // Items that exceeded max_attempts
+  dead_letter_count: z.number().default(0), // Items that exceeded max_attempts
 });
 ```
 
 **Add to directory structure (Section 5.8):**
+
 ```
 .tbd/local/cache/
 ├── outbound/              # Queue: items waiting to send
@@ -250,7 +260,7 @@ const CacheState = z.object({
 └── state.json
 ```
 
-* * *
+---
 
 ## Phase 2: Important Issues (Strong Recommendation)
 
@@ -261,6 +271,7 @@ const CacheState = z.object({
 **Location:** Section 2.5.3 (IssueSchema), add claim field
 
 **Current IssueSchema (around line 460):**
+
 ```typescript
 const IssueSchema = BaseEntity.extend({
   // ... existing fields ...
@@ -270,6 +281,7 @@ const IssueSchema = BaseEntity.extend({
 ```
 
 **Add after assignee:**
+
 ```typescript
   assignee: z.string().optional(),
 
@@ -285,11 +297,13 @@ const IssueSchema = BaseEntity.extend({
 **Add to Section 4.5 (Agent Commands), update Claim section:**
 
 **Current:**
+
 ```bash
 tbd agent claim <issue-id>
 ```
 
 **Expand to:**
+
 ```bash
 tbd agent claim <issue-id> [options]
 
@@ -305,10 +319,12 @@ Options:
 ```
 
 **Add claim protocol documentation (new subsection under 4.5):**
+
 ```markdown
 #### Claim Protocol
 
 **Without Bridge (Git-only):**
+
 1. Read issue, check if `claim` exists and `lease_expires > now`
 2. If claimed by another agent: error (unless --force)
 3. Write issue with new `claim` object, increment `lease_sequence`
@@ -316,6 +332,7 @@ Options:
 5. Race condition window: sync latency (seconds to minutes)
 
 **With Bridge (recommended for multi-agent):**
+
 1. Request claim via Bridge (atomic compare-and-swap)
 2. Bridge validates: no active lease OR force flag
 3. Bridge updates lease, returns `lease_sequence`
@@ -324,12 +341,13 @@ Options:
 6. If Bridge unavailable: fall back to Git-only with warning
 
 **Lease expiry:**
+
 - Expired claims can be stolen by any agent
 - `tbd ready` excludes issues with active (non-expired) claims
 - Stale claims (agent inactive + expired lease) auto-release
 ```
 
-* * *
+---
 
 ### Edit 2.2: Add GitHub Field-Level Sync Direction
 
@@ -338,6 +356,7 @@ Options:
 **Location:** Section 5.3 (GitHub Issues Bridge), add configuration schema
 
 **Add after “Field Mapping” table:**
+
 ````markdown
 #### Sync Direction Configuration
 
@@ -345,36 +364,42 @@ Each field can have a sync direction policy:
 
 ```typescript
 const GitHubSyncDirection = z.enum([
-  'tbd_wins',    // Tbd overwrites GitHub
-  'github_wins',   // GitHub overwrites Tbd
-  'lww',           // Last-write-wins by timestamp
-  'union',         // Merge both (for arrays)
-  'readonly',      // Tbd reads from GitHub, never writes
+  'tbd_wins', // Tbd overwrites GitHub
+  'github_wins', // GitHub overwrites Tbd
+  'lww', // Last-write-wins by timestamp
+  'union', // Merge both (for arrays)
+  'readonly', // Tbd reads from GitHub, never writes
 ]);
 
 const GitHubBridgeConfig = z.object({
   enabled: z.boolean(),
-  repo: z.string(),                    // "owner/repo"
+  repo: z.string(), // "owner/repo"
   auto_promote: z.boolean().default(false),
 
-  field_sync: z.object({
-    title: GitHubSyncDirection.default('lww'),
-    description: GitHubSyncDirection.default('tbd_wins'),
-    status: GitHubSyncDirection.default('lww'),
-    priority: GitHubSyncDirection.default('tbd_wins'),
-    labels: GitHubSyncDirection.default('union'),
-    assignee: GitHubSyncDirection.default('lww'),
-    comments: z.literal('union'),      // Always merge, never overwrite
-  }).default({}),
+  field_sync: z
+    .object({
+      title: GitHubSyncDirection.default('lww'),
+      description: GitHubSyncDirection.default('tbd_wins'),
+      status: GitHubSyncDirection.default('lww'),
+      priority: GitHubSyncDirection.default('tbd_wins'),
+      labels: GitHubSyncDirection.default('union'),
+      assignee: GitHubSyncDirection.default('lww'),
+      comments: z.literal('union'), // Always merge, never overwrite
+    })
+    .default({}),
 
-  rate_limit: z.object({
-    requests_per_hour: z.number().default(4000),  // Leave buffer below 5000
-    burst_size: z.number().default(100),
-  }).default({}),
+  rate_limit: z
+    .object({
+      requests_per_hour: z.number().default(4000), // Leave buffer below 5000
+      burst_size: z.number().default(100),
+    })
+    .default({}),
 });
+```
 ````
 
 **Default behavior:**
+
 - `title`, `status`, `assignee`: LWW (collaborative editing)
 - `description`, `priority`: Tbd wins (agent is authority)
 - `labels`: Union (both sources contribute)
@@ -385,10 +410,12 @@ const GitHubBridgeConfig = z.object({
 GitHub API limits: 5,000 requests/hour (authenticated).
 
 **Implementation:**
+
 - Track request count in `.tbd/local/cache/state.json`
 - Exponential backoff on 429 responses
 - Batch operations where possible (GraphQL)
 - Log warning at 80% of limit
+
 ````
 
 ---
@@ -405,8 +432,10 @@ GitHub API limits: 5,000 requests/hour (authenticated).
 
 **Retry Policy:**
 ````
+
 Attempt 1: immediate Attempt 2: 1 second delay Attempt 3: 2 seconds Attempt 4: 4 seconds
-… Attempt N: min(initial * 2^(N-1), max_backoff)
+… Attempt N: min(initial \* 2^(N-1), max_backoff)
+
 ````
 
 **After max_attempts exceeded:**
@@ -428,10 +457,12 @@ tbd cache dead-letter discard <idempotency-key>
 ````
 
 **FIFO Ordering:**
+
 - Outbound queue is FIFO within entity type
 - If item N fails, items N+1 … are blocked for same entity
 - Different entities can proceed independently
 - This prevents out-of-order delivery for single entity
+
 ````
 
 ---
@@ -453,6 +484,7 @@ Entity IDs follow a consistent pattern:
 ````
 
 **Expand to:**
+
 ````markdown
 Entity IDs follow a consistent pattern:
 
@@ -472,17 +504,21 @@ function generateId(prefix: string): string {
   const hash = bytes.toString('base36').toLowerCase().slice(0, 6);
   return `${prefix}${hash}`;
 }
+```
 ````
 
 **Properties:**
+
 - **Cryptographically random**: No timestamp or content dependency
 - **Collision probability**: ~1 in 2 billion per prefix at 50,000 entities
 - **On collision**: Regenerate ID (detected by file-exists check on write)
 
 **ID validation regex:**
+
 ```typescript
 const EntityId = z.string().regex(/^[a-z]{2}-[a-z0-9]{6}$/);
 ```
+
 ````
 
 ---
@@ -519,11 +555,13 @@ Schema versions are tracked in `.tbd-sync/meta.json` (on the sync branch):
 #### Compatibility Requirements
 
 **Forward compatibility (required):**
+
 - Newer CLI versions MUST read older entity versions
 - Unknown fields MUST be preserved on read/write (pass-through)
 - Missing fields MUST use schema defaults
 
 **Backward compatibility (best effort):**
+
 - Older CLI versions reading newer entities: unknown fields ignored
 - Core fields (`id`, `version`, `type`) never change shape
 - Breaking changes require explicit migration
@@ -531,10 +569,12 @@ Schema versions are tracked in `.tbd-sync/meta.json` (on the sync branch):
 #### Migration Execution
 
 **Automatic (non-breaking):**
+
 - New optional fields: added with defaults on write
 - Field renames: handled in code, both names accepted on read
 
 **Manual (breaking):**
+
 ```bash
 # Check if migration needed
 tbd doctor --check-schema
@@ -561,6 +601,7 @@ When Agent A (schema v2) syncs with Agent B (schema v1):
 
 **Warning:** If v2 has breaking changes, B may fail to parse.
 CLI should warn: “Remote entities require CLI version >= X.Y.Z”
+
 ````
 
 ---
@@ -620,14 +661,17 @@ function validateSlackRequest(
 ````
 
 **Secret Management:**
+
 - Store secrets in environment variables, never in config files
 - Support secret rotation without downtime
 - Log validation failures (without exposing secrets)
 
 **Rate Limiting:**
+
 - Limit webhook endpoints: 100 requests/minute per source IP
 - Return 429 when exceeded
 - Log rate limit violations
+
 ```
 
 ---

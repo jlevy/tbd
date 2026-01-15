@@ -35,23 +35,19 @@ interface ExecutionCtx {
 }
 
 // 2. Factory function creates context with injected Convex operations
-function createExecutionCtx(
-  ctx: ActionCtx, 
-  agentId: string,
-  runId: string
-): ExecutionCtx {
+function createExecutionCtx(ctx: ActionCtx, agentId: string, runId: string): ExecutionCtx {
   return {
     agentId,
     runId,
     timestamp: Date.now(),
     executeAction: async (action: Action) => {
       // Inject Convex database operations
-      return await ctx.runMutation(internal.actions.execute, { 
-        agentId, 
-        runId, 
-        action 
+      return await ctx.runMutation(internal.actions.execute, {
+        agentId,
+        runId,
+        action,
       });
-    }
+    },
   };
 }
 
@@ -71,9 +67,9 @@ async function processAgent(ctx: ActionCtx, agentId: string) {
 // NEVER do this - business logic coupled to Convex database
 async function processAgent(ctx: ActionCtx, agentId: string) {
   // Bad: Direct database access mixed with business logic
-  const result = await ctx.runMutation(internal.trades.execute, { 
-    agentId, 
-    trades: computedTrades 
+  const result = await ctx.runMutation(internal.trades.execute, {
+    agentId,
+    trades: computedTrades,
   });
 
   // Bad: Hard to test, tightly coupled
@@ -108,7 +104,7 @@ function createMockExecutionCtx(agentId: string): ExecutionCtx {
     executeAction: async (action: Action) => {
       // Mock implementation for testing
       return { success: true, result: 'mocked' };
-    }
+    },
   };
 }
 
@@ -139,7 +135,7 @@ export const startAgentExecution = action({
 
 // Business logic is pure TypeScript with dependency injection
 async function executeAgentWorkflow(
-  ctx: ExecutionCtx, 
+  ctx: ExecutionCtx,
   config: Config
 ): Promise<Result> {
   // Uses injected capabilities, not direct Convex calls
@@ -218,57 +214,56 @@ function createToolContext(ctx: ActionCtx, agentId: string): ToolContext {
    experiment)
 
 ```typescript
-
 // ========== Dependency Injection Architecture ==========
 
 /**
  * DEPENDENCY INJECTION IN TYPESCRIPT & CONVEX: BACKGROUND & RATIONALE
- * 
+ *
  * This section documents the approach used for trade execution dependency injection,
  * explaining the patterns chosen and why they align with TypeScript and Convex best practices.
  */
 
 /**
  * TYPESCRIPT DEPENDENCY INJECTION PATTERNS (2024-2025)
- * 
+ *
  * Modern TypeScript DI follows these key principles:
- * 
+ *
  * 1. **Interface-Based Design**: Define clear contracts between components
  * 2. **Loose Coupling**: Components receive dependencies rather than creating them
- * 3. **Method vs Constructor Injection**: 
+ * 3. **Method vs Constructor Injection**:
  *    - Constructor injection: Dependencies injected at class creation (traditional)
  *    - Method injection: Dependencies provided when methods are called (functional)
  * 4. **Testability**: Easy to mock dependencies with test doubles
  * 5. **Modularity**: Promotes separation of concerns and clean architecture
- * 
+ *
  * Popular approaches include container-based DI (TypeDI, Awilix, Inversify) or
  * lightweight functional approaches using factory functions and context passing.
  */
 
 /**
  * CONVEX FRAMEWORK APPROACH TO DEPENDENCY INJECTION
- * 
+ *
  * Convex differs from traditional frameworks by emphasizing:
- * 
+ *
  * 1. **Context Passing**: Dependencies provided through context objects (QueryCtx, MutationCtx, ActionCtx)
  * 2. **Plain TypeScript Functions**: Business logic in regular functions, thin Convex wrappers
  * 3. **Function Composition**: Direct function calls rather than action chaining
  * 4. **No Traditional DI Containers**: Uses factory functions and context injection instead
- * 
+ *
  * This approach avoids the complexity of DI containers while maintaining loose coupling
  * and testability through context abstraction and plain function composition.
  */
 
 /**
  * TRADE EXECUTION DEPENDENCY INJECTION PATTERN
- * 
+ *
  * Our implementation uses Method Injection with Factory Pattern:
- * 
+ *
  * 1. **TradeExecutionCtx Interface**: Defines the contract for trade operations
- * 2. **createTradeExecutionCtx Factory**: Creates context with injected Convex operations  
+ * 2. **createTradeExecutionCtx Factory**: Creates context with injected Convex operations
  * 3. **Method Injection**: executeTrades function injected when context is created
  * 4. **Tool Integration**: Tools receive pre-configured execution context
- * 
+ *
  * This pattern provides:
  * - Clean separation between tool logic and database operations
  * - Easy testing via mock executeTrades functions
@@ -292,7 +287,7 @@ function createTradeExecutionCtx(ctx: ConvexContext, ...params): TradeExecutionC
     executeTrades: async (trades) => {
       // Injected implementation using Convex ctx.runMutation
       return ctx.runMutation(internal.trading.trading.applyTrades, { trades });
-    }
+    },
   };
 }
 ```

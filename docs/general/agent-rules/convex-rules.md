@@ -2,6 +2,7 @@
 description: Guidelines and best practices for building Convex projects, including database schema design, queries, mutations, and real-world examples
 globs: **/*.ts,**/*.tsx,**/*.js,**/*.jsx
 ---
+
 # Convex guidelines
 
 ## Function guidelines
@@ -537,7 +538,6 @@ and limit history display to the 10 most recent messages per channel.
 3. Public API and Internal Functions Design: Public Mutations:
 
 - createUser:
-
   - file path: convex/index.ts
 
   - arguments: {name: v.string()}
@@ -547,7 +547,6 @@ and limit history display to the 10 most recent messages per channel.
   - purpose: Create a new user with a given name
 
 - createChannel:
-
   - file path: convex/index.ts
 
   - arguments: {name: v.string()}
@@ -557,7 +556,6 @@ and limit history display to the 10 most recent messages per channel.
   - purpose: Create a new channel with a given name
 
 - sendMessage:
-
   - file path: convex/index.ts
 
   - arguments: {channelId: v.id("channels"), authorId: v.id("users"), content:
@@ -570,7 +568,6 @@ and limit history display to the 10 most recent messages per channel.
 Public Queries:
 
 - listMessages:
-
   - file path: convex/index.ts
 
   - arguments: {channelId: v.id("channels")}
@@ -585,7 +582,6 @@ Public Queries:
 Internal Functions:
 
 - generateResponse:
-
   - file path: convex/index.ts
 
   - arguments: {channelId: v.id("channels")}
@@ -595,7 +591,6 @@ Internal Functions:
   - purpose: Generate a response from the AI for a given channel
 
 - loadContext:
-
   - file path: convex/index.ts
 
   - arguments: {channelId: v.id("channels")}
@@ -605,7 +600,6 @@ Internal Functions:
     v.string(), }))
 
 - writeAgentResponse:
-
   - file path: convex/index.ts
 
   - arguments: {channelId: v.id("channels"), content: v.string()}
@@ -617,24 +611,20 @@ Internal Functions:
 4. Schema Design:
 
 - users
-
   - validator: { name: v.string() }
 
   - indexes: <none>
 
 - channels
-
   - validator: { name: v.string() }
 
   - indexes: <none>
 
 - messages
-
   - validator: { channelId: v.id("channels"), authorId: v.optional(v.id("users")),
     content: v.string() }
 
   - indexes
-
     - by_channel: ["channelId"]
 
 5. Background Processing:

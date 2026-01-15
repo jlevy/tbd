@@ -3,6 +3,7 @@
 ## 1. Test Real System Interactions, Not Mock Existence
 
 ** Don’t test that mocks were created correctly:**
+
 ```typescript
 it('should have all required methods', () => {
   const mockService = createMockService();
@@ -11,6 +12,7 @@ it('should have all required methods', () => {
 ```
 
 ** Test actual system behavior with dependencies:**
+
 ```typescript
 it('should process data through the pipeline', async () => {
   const mockDatabase = createMockDatabase();
@@ -18,21 +20,21 @@ it('should process data through the pipeline', async () => {
 
   await processor.handle(inputData);
 
-  expect(mockDatabase.save).toHaveBeenCalledWith(
-    expect.objectContaining({ processed: true })
-  );
+  expect(mockDatabase.save).toHaveBeenCalledWith(expect.objectContaining({ processed: true }));
 });
 ```
 
 ## 2. Test Integration Points and Data Flow
 
 ** Don’t test isolated dependency calls:**
+
 ```typescript
 await mockService.call('parameter');
 expect(mockService.call).toHaveBeenCalledWith('parameter');
 ```
 
 ** Test data flow between components:**
+
 ```typescript
 it('should transform data correctly between services', async () => {
   const mockTransformer = createMockTransformer();
@@ -42,15 +44,14 @@ it('should transform data correctly between services', async () => {
   await pipeline.process(rawData);
 
   expect(mockTransformer.transform).toHaveBeenCalledWith(rawData);
-  expect(mockStorage.store).toHaveBeenCalledWith(
-    expect.objectContaining({ transformed: true })
-  );
+  expect(mockStorage.store).toHaveBeenCalledWith(expect.objectContaining({ transformed: true }));
 });
 ```
 
 ## 3. Test Error Scenarios and Edge Cases
 
 ** Don’t only test happy path scenarios:**
+
 ```typescript
 it('should handle success case', async () => {
   await service.process(validData);
@@ -59,9 +60,11 @@ it('should handle success case', async () => {
 ```
 
 ** Test error handling and recovery:**
+
 ```typescript
 it('should retry when external service fails', async () => {
-  const mockApi = vi.fn()
+  const mockApi = vi
+    .fn()
     .mockRejectedValueOnce(new Error('Network error'))
     .mockResolvedValueOnce({ success: true });
 
@@ -76,6 +79,7 @@ it('should retry when external service fails', async () => {
 ## 4. Structure Tests Around Business Scenarios
 
 ** Don’t organize by technical components:**
+
 ```typescript
 describe('Database interface', () => {
   // Tests about database methods
@@ -83,6 +87,7 @@ describe('Database interface', () => {
 ```
 
 ** Organize by business workflows:**
+
 ```typescript
 describe('Order processing workflow', () => {
   describe('when payment succeeds', () => {
@@ -101,11 +106,13 @@ describe('Order processing workflow', () => {
 ## 5. Validate Data Quality and Contract Compliance
 
 ** Don’t just verify that interactions happened:**
+
 ```typescript
 expect(mockService.process).toHaveBeenCalled();
 ```
 
 ** Validate that data contracts are respected:**
+
 ```typescript
 it('should pass complete user profile to recommendation engine', async () => {
   const mockRecommendations = createMockRecommendationService();
@@ -118,8 +125,8 @@ it('should pass complete user profile to recommendation engine', async () => {
       userId: expect.any(String),
       preferences: expect.any(Array),
       history: expect.any(Array),
-      demographics: expect.any(Object)
-    })
+      demographics: expect.any(Object),
+    }),
   );
 });
 ```

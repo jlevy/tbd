@@ -3,10 +3,11 @@ description: General Testing Rules
 globs:
 alwaysApply: true
 ---
+
 ## General Testing Rules
 
 - Write the minimal set of tests with the maximal coverage.
-  Write as few tests as possible that *also* cover the desired functionality.
+  Write as few tests as possible that _also_ cover the desired functionality.
   If you see many similar tests, review to see if any can be removed or rewritten to be
   shorter without reducing test coverage.
 
@@ -14,7 +15,6 @@ alwaysApply: true
   validating they are set on an object).
   These needlessly clutter the codebase.
   For example:
-
   - Do not write a test that simply instantiates a class and the object’s fields are
     set.
 

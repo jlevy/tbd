@@ -6,12 +6,11 @@
 
 **Date**: January 2025
 
-* * *
+---
 
 ## Table of Contents
 
 1. [Introduction](#1-introduction)
-
    - [What is Tbd?](#11-what-is-tbd)
 
    - [Motivation](#12-motivation)
@@ -27,7 +26,6 @@
    - [Layer Overview](#17-layer-overview)
 
 2. [File Layer](#2-file-layer)
-
    - [Overview](#21-overview)
 
    - [Directory Structure](#22-directory-structure)
@@ -41,7 +39,6 @@
    - [Schema Versioning and Migration](#26-schema-versioning-and-migration)
 
 3. [Git Layer](#3-git-layer)
-
    - [Overview](#31-overview)
 
    - [Sync Branch Architecture](#32-sync-branch-architecture)
@@ -59,7 +56,6 @@
    - [Deletion Semantics](#38-deletion-semantics)
 
 4. [CLI Layer](#4-cli-layer)
-
    - [Overview](#41-overview)
 
    - [Command Structure](#42-command-structure)
@@ -81,7 +77,6 @@
    - [Output Formats](#410-output-formats)
 
 5. [Bridge Layer (Future)](#5-bridge-layer-future)
-
    - [Overview](#51-overview)
 
    - [Bridge Architecture](#52-bridge-architecture)
@@ -99,7 +94,6 @@
    - [Offline-First Architecture](#58-offline-first-architecture)
 
 6. [Implementation Notes](#6-implementation-notes)
-
    - [Daemon (Optional)](#61-daemon-optional)
 
    - [Use Cases by Complexity](#62-use-cases-by-complexity)
@@ -109,7 +103,6 @@
    - [Other Potential Layers](#64-other-potential-layers-not-specified)
 
 7. [Appendices](#7-appendices)
-
    - [Design Decisions](#71-design-decisions)
 
    - [Open Questions](#72-open-questions)
@@ -124,13 +117,13 @@
 
    - [Optional Enhancements](#77-optional-enhancements)
 
-* * *
+---
 
 ## 1. Introduction
 
 ### 1.1 What is Tbd?
 
-> *The name “Tbd” follows “Beads” in the spirit of C following (and learning from) B.*
+> _The name “Tbd” follows “Beads” in the spirit of C following (and learning from) B._
 
 **Tbd** (pronounced “seeds”) is a git-native coordination layer for AI coding agents.
 It provides issue tracking, agent registry, claims, and messaging—all stored as JSON
@@ -284,33 +277,33 @@ If violated, the noted mitigations apply:
 
 1. **Clock sync within seconds**: We assume NTP keeps local clocks accurate to within a
    few seconds. Last-Write-Wins (LWW) using `updated_at` timestamps works reliably under
-   this assumption. *If violated*: Conflicts may resolve to the “wrong” winner.
+   this assumption. _If violated_: Conflicts may resolve to the “wrong” winner.
    The attic preserves the loser, enabling manual recovery.
    See Appendix 7.7.1 for HLC enhancement if clock skew becomes problematic.
 
 2. **Git available everywhere**: All environments have git installed and can push/pull
-   to the remote. *If violated*: System cannot sync.
+   to the remote. _If violated_: System cannot sync.
    Local operations still work.
 
 3. **Cooperative agents**: Agents follow conventions (check claims, respect status).
    The system is not designed to prevent malicious actors.
-   *If violated*: Agents may duplicate work or create conflicts.
+   _If violated_: Agents may duplicate work or create conflicts.
    Human oversight can resolve.
 
 4. **Low conflict rate**: Multiple agents editing the same entity simultaneously is
    rare. The design optimizes for this common case.
-   *If violated*: More conflicts go to attic.
+   _If violated_: More conflicts go to attic.
    LWW still resolves deterministically.
    Consider lease-based claims (Appendix 7.7.2) if racing becomes frequent.
 
 5. **Temporary partitions**: Offline periods are bounded (hours to days, not weeks).
    Eventually all nodes can sync.
-   *If violated*: Larger merge conflicts when reconnecting.
+   _If violated_: Larger merge conflicts when reconnecting.
    Attic preserves all versions.
 
 6. **Human oversight available**: Edge cases and ambiguous conflicts can be escalated to
    human review via attic inspection.
-   *If violated*: Some conflicts may resolve suboptimally, but no data is lost.
+   _If violated_: Some conflicts may resolve suboptimally, but no data is lost.
 
 ### 1.7 Layer Overview
 
@@ -366,7 +359,7 @@ Slack, etc.). Optional; system works fully without it.
 
 - Watch Layer: File system watching for UIs/IDEs
 
-* * *
+---
 
 ## 2. File Layer
 
@@ -382,7 +375,6 @@ Key properties:
 
 - **Canonical JSON format**: All JSON files MUST use canonical serialization to ensure
   content hashes are consistent across implementations:
-
   - Keys sorted alphabetically (recursive)
 
   - 2-space indentation
@@ -538,17 +530,17 @@ Only the merge rules (in Git Layer) need updating for new node types.
 
 #### Built-in Node Collections (on sync branch)
 
-| Collection | Directory | Internal Prefix | Purpose |
-| --- | --- | --- | --- |
-| Issues | `.tbd-sync/nodes/issues/` | `is-` | Task tracking |
-| Agents | `.tbd-sync/nodes/agents/` | `ag-` | Agent registry |
-| Messages | `.tbd-sync/nodes/messages/` | `ms-` | Comments on issues (and future messaging) |
+| Collection | Directory                   | Internal Prefix | Purpose                                   |
+| ---------- | --------------------------- | --------------- | ----------------------------------------- |
+| Issues     | `.tbd-sync/nodes/issues/`   | `is-`           | Task tracking                             |
+| Agents     | `.tbd-sync/nodes/agents/`   | `ag-`           | Agent registry                            |
+| Messages   | `.tbd-sync/nodes/messages/` | `ms-`           | Comments on issues (and future messaging) |
 
 #### Non-Node Collections (on main branch, gitignored)
 
-| Collection | Directory | Internal Prefix | Purpose |
-| --- | --- | --- | --- |
-| Local | `.tbd/local/nodes/` | `lo-` | Private workspace (never synced) |
+| Collection | Directory           | Internal Prefix | Purpose                          |
+| ---------- | ------------------- | --------------- | -------------------------------- |
+| Local      | `.tbd/local/nodes/` | `lo-`           | Private workspace (never synced) |
 
 > **Note**: Local items use the same entity pattern but are not “nodes” because they are
 > not part of the shared coordination graph.
@@ -556,11 +548,11 @@ Only the merge rules (in Git Layer) need updating for new node types.
 
 #### Future Node Collections (Examples)
 
-| Collection | Directory | Internal Prefix | Purpose |
-| --- | --- | --- | --- |
-| Templates | `.tbd-sync/nodes/templates/` | `tp-` | Issue templates |
-| Workflows | `.tbd-sync/nodes/workflows/` | `wf-` | Multi-step procedures |
-| Artifacts | `.tbd-sync/nodes/artifacts/` | `ar-` | File attachments |
+| Collection | Directory                    | Internal Prefix | Purpose               |
+| ---------- | ---------------------------- | --------------- | --------------------- |
+| Templates  | `.tbd-sync/nodes/templates/` | `tp-`           | Issue templates       |
+| Workflows  | `.tbd-sync/nodes/workflows/` | `wf-`           | Multi-step procedures |
+| Artifacts  | `.tbd-sync/nodes/artifacts/` | `ar-`           | File attachments      |
 
 > **Note**: Messages support comments on issues and replies to other messages via
 > `in_reply_to`. Messages are time-sorted by `created_at`. Future extensions (threading
@@ -644,6 +636,7 @@ Either implementation is acceptable; nanoid is recommended for production use.
 - **Cross-language**: Algorithm is straightforward to implement in any language
 
 **ID validation regex:**
+
 ```typescript
 const EntityId = z.string().regex(/^[a-z]{2}-[a-z0-9]{10}$/);
 ```
@@ -659,6 +652,7 @@ Internal IDs are always 10-character hashes for collision resistance; external I
 adaptive-length random hashes that grow as the issue count increases.
 
 **Example:**
+
 ```
 Internal (storage):   is-a1b2c3d4e5    # Always 10 chars
 External (display):   proj-a1b        # 3-6 chars, project prefix
@@ -670,7 +664,7 @@ The project prefix is configured in the main branch `config.yaml`:
 
 ```yaml
 tbd:
-  project_prefix: proj    # User-configurable, e.g., "myapp", "backend"
+  project_prefix: proj # User-configurable, e.g., "myapp", "backend"
 ```
 
 The prefix is **not stored** in `.tbd-sync/`—it’s purely a display concern.
@@ -724,19 +718,19 @@ Where `n` = number of issues, `N` = 36^length (total possible IDs).
 **Collision probability table:**
 
 | Issue Count | 3-char | 4-char | 5-char | 6-char |
-| --- | --- | --- | --- | --- |
-| 50 | 2.6% | 0.07% | 0.00% | 0.00% |
-| 100 | 10.2% | 0.30% | 0.01% | 0.00% |
-| 200 | 34.6% | 1.18% | 0.03% | 0.00% |
-| 500 | 95.8% | 7.17% | 0.21% | 0.01% |
-| 1,000 | 100% | 25.75% | 0.82% | 0.02% |
-| 2,000 | 100% | 69.60% | 3.25% | 0.09% |
-| 5,000 | 100% | 99.94% | 18.68% | 0.57% |
+| ----------- | ------ | ------ | ------ | ------ |
+| 50          | 2.6%   | 0.07%  | 0.00%  | 0.00%  |
+| 100         | 10.2%  | 0.30%  | 0.01%  | 0.00%  |
+| 200         | 34.6%  | 1.18%  | 0.03%  | 0.00%  |
+| 500         | 95.8%  | 7.17%  | 0.21%  | 0.01%  |
+| 1,000       | 100%   | 25.75% | 0.82%  | 0.02%  |
+| 2,000       | 100%   | 69.60% | 3.25%  | 0.09%  |
+| 5,000       | 100%   | 99.94% | 18.68% | 0.57%  |
 
 **Adaptive length algorithm:**
 
 ```typescript
-function computeAdaptiveLength(issueCount: number, maxCollisionProb = 0.10): number {
+function computeAdaptiveLength(issueCount: number, maxCollisionProb = 0.1): number {
   const minLength = 3;
   const maxLength = 10;
 
@@ -750,7 +744,7 @@ function computeAdaptiveLength(issueCount: number, maxCollisionProb = 0.10): num
 }
 
 function collisionProbability(n: number, length: number): number {
-  const N = Math.pow(36, length);  // Total possible IDs
+  const N = Math.pow(36, length); // Total possible IDs
   const exponent = -(n * n) / (2 * N);
   return 1 - Math.exp(exponent);
 }
@@ -758,13 +752,13 @@ function collisionProbability(n: number, length: number): number {
 
 **Default thresholds (10% max collision):**
 
-| Issue Count | Short ID Length |
-| --- | --- |
-| 0-100 | 3 chars |
-| 101-600 | 4 chars |
-| 601-3,500 | 5 chars |
-| 3,501-21,000 | 6 chars |
-| 21,001+ | continues scaling |
+| Issue Count  | Short ID Length   |
+| ------------ | ----------------- |
+| 0-100        | 3 chars           |
+| 101-600      | 4 chars           |
+| 601-3,500    | 5 chars           |
+| 3,501-21,000 | 6 chars           |
+| 21,001+      | continues scaling |
 
 ##### Short ID Mapping Storage
 
@@ -779,6 +773,7 @@ entity storage:
 ```
 
 **File schema:**
+
 ```typescript
 const ShortIdMapping = z.object({
   internal_id: EntityId,
@@ -800,6 +795,7 @@ const ShortIdMapping = z.object({
 ##### Resolution Flow
 
 **Display (internal → external):**
+
 ```typescript
 function toExternalId(internalId: string, shortIdsDir: string, prefix: string): string {
   // Scan short-ids/ for file containing this internal ID
@@ -817,6 +813,7 @@ function toExternalId(internalId: string, shortIdsDir: string, prefix: string): 
 ```
 
 **Parse (external → internal):**
+
 ```typescript
 function resolveExternalId(externalId: string, shortIdsDir: string, prefix: string): string | null {
   // "proj-a1b" → "a1b" → read a1b.json → "is-a1b2c3d4e5"
@@ -834,6 +831,7 @@ function resolveExternalId(externalId: string, shortIdsDir: string, prefix: stri
 ```
 
 **Ensure short ID exists (on create or after collision):**
+
 ```typescript
 function ensureShortId(internalId: string, shortIdsDir: string): string {
   // Check if any short ID already maps to this internal ID
@@ -841,12 +839,12 @@ function ensureShortId(internalId: string, shortIdsDir: string): string {
   for (const file of files) {
     const mapping = JSON.parse(readFile(file));
     if (mapping.internal_id === internalId) {
-      return basename(file, '.json');  // Already has short ID
+      return basename(file, '.json'); // Already has short ID
     }
   }
 
   // No mapping exists (new issue or lost collision) - generate new short ID
-  const existingShortIds = new Set(files.map(f => basename(f, '.json')));
+  const existingShortIds = new Set(files.map((f) => basename(f, '.json')));
   const shortId = createShortId(existingShortIds);
 
   writeFile(`${shortIdsDir}/${shortId}.json`, JSON.stringify({ internal_id: internalId }));
@@ -879,12 +877,12 @@ Not critical since they’re tiny.
 
 Internal prefixes are fixed and match directory names:
 
-| Internal Prefix | Entity Type | Directory |
-| --- | --- | --- |
-| `is-` | Issues | `issues/` |
-| `ag-` | Agents | `agents/` |
-| `ms-` | Messages | `messages/` |
-| `lo-` | Local | `local/` (not synced) |
+| Internal Prefix | Entity Type | Directory             |
+| --------------- | ----------- | --------------------- |
+| `is-`           | Issues      | `issues/`             |
+| `ag-`           | Agents      | `agents/`             |
+| `ms-`           | Messages    | `messages/`           |
+| `lo-`           | Local       | `local/` (not synced) |
 
 Internal prefixes are used in file references, cross-entity links, and storage.
 The CLI accepts both internal IDs (`is-a1b2c3d4e5`) and external IDs (`proj-a1b`) and
@@ -929,7 +927,7 @@ All entities share common fields:
 
 ```typescript
 const BaseEntity = z.object({
-  type: EntityType,           // 2-letter type code matching ID prefix
+  type: EntityType, // 2-letter type code matching ID prefix
   id: EntityId,
   version: Version,
   created_at: Timestamp,
@@ -949,8 +947,9 @@ const BaseEntity = z.object({
 > tools, bridges, and custom integrations to store metadata without modifying core
 > schemas. Keys should be namespaced (e.g., `"github"`, `"slack"`, `"my-tool"`). Unknown
 > extensions are preserved during sync and merge (pass-through).
-> 
+>
 > Example:
+>
 > ```json
 > {
 >   "extensions": {
@@ -975,22 +974,22 @@ const IssueKind = z.enum(['bug', 'feature', 'task', 'epic', 'chore']);
 const Priority = z.number().int().min(0).max(4);
 
 const IssueSchema = BaseEntity.extend({
-  type: z.literal('is'),                        // Entity type discriminator
-  kind: IssueKind.default('task'),              // Issue classification
+  type: z.literal('is'), // Entity type discriminator
+  kind: IssueKind.default('task'), // Issue classification
 
   title: z.string().min(1).max(500),
   description: z.string().max(50000).optional(),
-  notes: z.string().max(50000).optional(),      // Working notes
+  notes: z.string().max(50000).optional(), // Working notes
   status: IssueStatus.default('open'),
   priority: Priority.default(2),
 
-  assignee: z.string().optional(),              // Advisory claim (agent ID or name)
+  assignee: z.string().optional(), // Advisory claim (agent ID or name)
   labels: z.array(z.string()).default([]),
   dependencies: z.array(Dependency).default([]),
 
   // Parent-child relationship for hierarchical issues
-  parent_id: EntityId.optional(),               // If this is a child issue
-  sequence: z.array(EntityId).optional(),       // Ordered list of child IDs (on parent)
+  parent_id: EntityId.optional(), // If this is a child issue
+  sequence: z.array(EntityId).optional(), // Ordered list of child IDs (on parent)
 
   created_by: z.string().optional(),
   closed_at: Timestamp.optional(),
@@ -1012,24 +1011,21 @@ type Issue = z.infer<typeof IssueSchema>;
 > (on child) and `sequence` (on parent).
 > These are **redundant by design** for query efficiency, but can become inconsistent
 > during conflicts.
-> 
+>
 > **Authoritative source**: `parent_id` is authoritative.
 > A child “belongs to” whoever it claims as parent.
 > The `sequence` array is a convenience for ordering.
-> 
+>
 > **Invariants:**
-> 
+>
 > - If child.parent_id = P, then child.id SHOULD appear in P.sequence
->
 > - If P.sequence contains C, then C.parent_id SHOULD equal P
-> 
-> **When inconsistent** (detected by `tbd doctor`):
-> 
-> - If child has parent_id but isn’t in parent’s sequence: add to sequence
 >
+> **When inconsistent** (detected by `tbd doctor`):
+>
+> - If child has parent_id but isn’t in parent’s sequence: add to sequence
 > - If parent’s sequence contains ID but that issue has different parent_id: remove from
 >   sequence
->
 > - If parent’s sequence contains non-existent ID: remove from sequence
 
 #### 2.5.4 AgentSchema
@@ -1038,24 +1034,24 @@ type Issue = z.infer<typeof IssueSchema>;
 const AgentStatus = z.enum(['active', 'idle', 'inactive']);
 
 const FileReservation = z.object({
-  path: z.string(),           // Glob pattern, e.g., "src/auth/**"
+  path: z.string(), // Glob pattern, e.g., "src/auth/**"
   exclusive: z.boolean(),
   expires_at: Timestamp,
-  reason: z.string().optional(),  // Usually issue ID
+  reason: z.string().optional(), // Usually issue ID
 });
 
 const AgentSchema = BaseEntity.extend({
-  type: z.literal('ag'),                          // Entity type discriminator
+  type: z.literal('ag'), // Entity type discriminator
 
   display_name: z.string(),
   status: AgentStatus.default('active'),
   last_heartbeat: Timestamp,
 
-  working_on: z.array(EntityId).default([]),  // Issue IDs
+  working_on: z.array(EntityId).default([]), // Issue IDs
   file_reservations: z.array(FileReservation).default([]),
 
-  capabilities: z.array(z.string()).default([]),  // e.g., ["code", "test", "review"]
-  metadata: z.record(z.unknown()).default({}),    // Arbitrary agent-specific data
+  capabilities: z.array(z.string()).default([]), // e.g., ["code", "test", "review"]
+  metadata: z.record(z.unknown()).default({}), // Arbitrary agent-specific data
 });
 
 type Agent = z.infer<typeof AgentSchema>;
@@ -1064,19 +1060,16 @@ type Agent = z.infer<typeof AgentSchema>;
 > **Heartbeat churn warning**: Frequent updates to `last_heartbeat` create Git sync
 > contention. If N agents each update heartbeats every minute, the sync branch sees N×60
 > commits/hour, causing push rejections and retry storms.
-> 
-> **Mitigation strategies:**
-> 
-> 1. **Throttle heartbeats**: Update every 5-15 minutes, not every minute
 >
+> **Mitigation strategies:**
+>
+> 1. **Throttle heartbeats**: Update every 5-15 minutes, not every minute
 > 2. **Separate presence from durable state**: Use Bridge Layer for real-time presence;
 >    Git stores only durable changes (status, working_on, file_reservations)
->
 > 3. **Batch updates**: Coalesce multiple field changes into single commits
->
 > 4. **Infer liveness**: Determine agent activity from recent entity updates rather than
 >    explicit heartbeats
-> 
+>
 > **Recommendation for v1**: Update `last_heartbeat` only on meaningful state changes
 > (starting work, finishing work, status change), not on a timer.
 > Real-time presence should use Bridge Layer when available.
@@ -1089,7 +1082,7 @@ They use a similar structure to issues but live in `local/`.
 
 ```typescript
 const LocalSchema = BaseEntity.extend({
-  type: z.literal('lo'),                         // Entity type discriminator
+  type: z.literal('lo'), // Entity type discriminator
 
   title: z.string().min(1).max(500),
   description: z.string().max(50000).optional(),
@@ -1122,16 +1115,16 @@ content entirely—no merge logic needed.
 
 ```typescript
 const MessageSchema = BaseEntity.extend({
-  type: z.literal('ms'),                          // Entity type discriminator
+  type: z.literal('ms'), // Entity type discriminator
 
-  subject: z.string().min(1).max(500),            // Required: like email subject
-  body: z.string().min(1).max(50000),             // Required: message content
+  subject: z.string().min(1).max(500), // Required: like email subject
+  body: z.string().min(1).max(50000), // Required: message content
 
-  author: z.string(),                             // Who wrote the message
-  in_reply_to: EntityId,                          // Parent: issue ID or message ID
+  author: z.string(), // Who wrote the message
+  in_reply_to: EntityId, // Parent: issue ID or message ID
 
   // For "editing" messages (immutable edit pattern)
-  supersedes: EntityId.optional(),                // If set, this message replaces another
+  supersedes: EntityId.optional(), // If set, this message replaces another
 });
 
 type Message = z.infer<typeof MessageSchema>;
@@ -1164,12 +1157,12 @@ type Message = z.infer<typeof MessageSchema>;
 
 ```typescript
 // All comments on an issue (direct replies only)
-messages.filter(m => m.in_reply_to === 'is-a1b2')
+messages.filter((m) => m.in_reply_to === 'is-a1b2');
 
 // All messages in a thread (recursive)
 function getThread(parentId: string): Message[] {
-  const direct = messages.filter(m => m.in_reply_to === parentId);
-  return direct.flatMap(m => [m, ...getThread(m.id)]);
+  const direct = messages.filter((m) => m.in_reply_to === parentId);
+  return direct.flatMap((m) => [m, ...getThread(m.id)]);
 }
 ```
 
@@ -1184,23 +1177,23 @@ This is the human-editable configuration file that versions with your code.
 # .tbd/config.yml
 # See: https://github.com/[org]/tbd
 
-tbd_version: "0.1.0"
+tbd_version: '0.1.0'
 
 sync:
-  branch: tbd-sync       # Branch name for synced data
+  branch: tbd-sync # Branch name for synced data
   # repo: origin           # Remote repository (default: origin)
 
 # Display aliases for entity IDs (internal → external)
 prefixes:
-  is: cd                   # issues display as cd-xxxx
-  ag: agent                # agents display as agent-xxxx
-  ms: msg                  # messages display as msg-xxxx
-  lo: local                # local items display as local-xxxx
+  is: cd # issues display as cd-xxxx
+  ag: agent # agents display as agent-xxxx
+  ms: msg # messages display as msg-xxxx
+  lo: local # local items display as local-xxxx
 
 # Runtime settings
 settings:
-  heartbeat_ttl_seconds: 300   # Agent heartbeat timeout
-  message_ttl_days: 7          # Message cache retention
+  heartbeat_ttl_seconds: 300 # Agent heartbeat timeout
+  message_ttl_days: 7 # Message cache retention
 ```
 
 ```typescript
@@ -1219,10 +1212,12 @@ const ConfigSchema = z.object({
     ms: 'msg',
     lo: 'local',
   }),
-  settings: z.object({
-    heartbeat_ttl_seconds: z.number().default(300),
-    message_ttl_days: z.number().default(7),
-  }).default({}),
+  settings: z
+    .object({
+      heartbeat_ttl_seconds: z.number().default(300),
+      message_ttl_days: z.number().default(7),
+    })
+    .default({}),
 });
 
 type Config = z.infer<typeof ConfigSchema>;
@@ -1266,10 +1261,10 @@ Each machine maintains its own local state.
 
 ```typescript
 const LocalStateSchema = z.object({
-  node_id: z.string(),                  // Unique identifier for this node
-  last_sync: Timestamp.optional(),      // When this node last synced successfully
-  last_push: Timestamp.optional(),      // When this node last pushed
-  last_pull: Timestamp.optional(),      // When this node last pulled
+  node_id: z.string(), // Unique identifier for this node
+  last_sync: Timestamp.optional(), // When this node last synced successfully
+  last_push: Timestamp.optional(), // When this node last pushed
+  last_pull: Timestamp.optional(), // When this node last pulled
 });
 
 type LocalState = z.infer<typeof LocalStateSchema>;
@@ -1286,21 +1281,21 @@ Preserved conflict data for recovery and debugging:
 
 ```typescript
 const AtticEntryKind = z.enum([
-  'field_conflict',      // Both sides changed same field differently
-  'parse_error',         // One side had unparsable JSON
+  'field_conflict', // Both sides changed same field differently
+  'parse_error', // One side had unparsable JSON
   'invariant_violation', // ID/type mismatch or other invariant failure
 ]);
 
 const AtticEntrySchema = z.object({
   kind: AtticEntryKind,
   entity_id: EntityId,
-  path: z.string(),                    // Repo-relative path
-  field: z.string().optional(),        // Field name if single field conflict
+  path: z.string(), // Repo-relative path
+  field: z.string().optional(), // Field name if single field conflict
   timestamp: Timestamp,
 
   // 3-way merge context (enables better recovery)
-  base_value: z.unknown().optional(),  // Value in common ancestor (null if new)
-  ours_value: z.unknown().optional(),  // Local value before merge
+  base_value: z.unknown().optional(), // Value in common ancestor (null if new)
+  ours_value: z.unknown().optional(), // Local value before merge
   theirs_value: z.unknown().optional(), // Remote value before merge
 
   // Resolution
@@ -1321,13 +1316,10 @@ type AtticEntry = z.infer<typeof AtticEntrySchema>;
 ```
 
 > **Why base/ours/theirs?** Storing all three values enables:
-> 
+>
 > - Understanding what actually happened (was base modified by both?)
->
 > - Manual recovery (user can see all versions and pick the right one)
->
 > - Debugging merge algorithm issues
->
 > - Future upgrade to 3-way merge if needed
 
 ### 2.6 Schema Versioning and Migration
@@ -1378,6 +1370,7 @@ Schema versions are tracked in `.tbd-sync/meta.json` (on the sync branch):
 - Field renames: handled in code, both names accepted on read
 
 **Manual (breaking):**
+
 ```bash
 # Check if migration needed
 tbd doctor --check-schema
@@ -1409,7 +1402,7 @@ When Agent A (schema v2) syncs with Agent B (schema v1):
 **Warning:** If v2 has breaking changes, B may fail to parse.
 CLI should warn: “Remote entities require CLI version >= X.Y.Z”
 
-* * *
+---
 
 ## 3. Git Layer
 
@@ -1565,17 +1558,14 @@ SYNC_FILE(local_path, sync_path):
 > **Critical**: The sync algorithm uses **content hash** as the conflict detector, not
 > version comparison. In a distributed system, a higher version number does NOT mean
 > “contains the other writer’s changes”—it only means “edited more times locally.”
-> 
+>
 > **Example of why version-only is unsafe:**
-> 
+>
 > - Base entity: version 3
->
 > - Agent A edits once → version 4
->
 > - Agent B (without seeing A) edits twice → version 5
->
 > - If A took remote because `5 > 4`, A’s edit would be silently lost.
-> 
+>
 > By merging whenever content differs, we ensure both writers’ changes are considered
 > and the loser is preserved in the attic.
 
@@ -1674,11 +1664,11 @@ Jitter spreads retries across time, reducing contention.
 
 #### 3.3.7 Sync Triggers
 
-| Trigger | Action |
-| --- | --- |
-| `tbd sync` command | Immediate full sync |
+| Trigger              | Action                   |
+| -------------------- | ------------------------ |
+| `tbd sync` command   | Immediate full sync      |
 | Daemon sync interval | Periodic background sync |
-| Agent shutdown | Final sync before exit |
+| Agent shutdown       | Final sync before exit   |
 
 ### 3.4 Conflict Detection and Resolution
 
@@ -1725,37 +1715,33 @@ outcome. Merge rules are defined per entity type and applied during conflict res
 
 #### Merge Strategies
 
-| Strategy | Behavior | Used For |
-| --- | --- | --- |
-| `immutable` | Error if different | `type` field, message content |
-| `lww` | Last-write-wins by `updated_at` + ID tiebreaker | Scalars (title, status, priority) |
-| `lww_with_attic` | LWW, but preserve loser in attic | Long text (description), ordered arrays (sequence) |
-| `union` | Combine both arrays, dedupe (add-only) | Arrays of primitives (labels) - v1 default |
-| `set_3way` | 3-way set merge (supports removals) | Arrays when base available (future) |
-| `merge_by_id` | Merge arrays by item ID | Arrays of objects (dependencies) |
-| `max_plus_one` | `max(local, remote) + 1` | `version` field |
-| `recalculate` | Fresh timestamp | `updated_at` field |
+| Strategy         | Behavior                                        | Used For                                           |
+| ---------------- | ----------------------------------------------- | -------------------------------------------------- |
+| `immutable`      | Error if different                              | `type` field, message content                      |
+| `lww`            | Last-write-wins by `updated_at` + ID tiebreaker | Scalars (title, status, priority)                  |
+| `lww_with_attic` | LWW, but preserve loser in attic                | Long text (description), ordered arrays (sequence) |
+| `union`          | Combine both arrays, dedupe (add-only)          | Arrays of primitives (labels) - v1 default         |
+| `set_3way`       | 3-way set merge (supports removals)             | Arrays when base available (future)                |
+| `merge_by_id`    | Merge arrays by item ID                         | Arrays of objects (dependencies)                   |
+| `max_plus_one`   | `max(local, remote) + 1`                        | `version` field                                    |
+| `recalculate`    | Fresh timestamp                                 | `updated_at` field                                 |
 
 > **Limitation of `union` strategy**: Union merging is **add-only**. If Agent A removes
 > a label while Agent B keeps it, the merged result will contain the label (B’s version
 > contributes it). Removals do not propagate—the label reappears after merge.
-> 
+>
 > This is acceptable for labels (typically additive), but means:
-> 
+>
 > - To truly remove a label, all copies must remove it before any sync
->
 > - Or, use `set_3way` when base is available (see `mergeSet3Way` in Section 3.6)
->
 > - Or, use LWW for the entire labels array (loses additions, but removals work)
-> 
+>
 > **Design choice**: We use `union` (add-only) for labels in v1 because:
-> 
+>
 > 1. Labels are typically additive (adding context is common, removal is rare)
->
 > 2. False additions are less harmful than false removals
->
 > 3. Simple to implement and reason about
-> 
+>
 > **Future enhancement**: When using a Git merge driver (which provides base), upgrade
 > to `set_3way` for correct removal handling.
 > The algorithm is already documented.
@@ -1787,7 +1773,7 @@ const agentMergeRules: MergeRules<Agent> = {
   type: { strategy: 'immutable' },
   display_name: { strategy: 'lww' },
   status: { strategy: 'lww' },
-  last_heartbeat: { strategy: 'lww' },  // Most recent wins
+  last_heartbeat: { strategy: 'lww' }, // Most recent wins
   working_on: { strategy: 'union' },
   file_reservations: { strategy: 'merge_by_id', key: (r) => r.path },
   capabilities: { strategy: 'union' },
@@ -1803,11 +1789,11 @@ This eliminates merge conflicts for messages entirely.
 ```typescript
 const messageMergeRules: MergeRules<Message> = {
   type: { strategy: 'immutable' },
-  subject: { strategy: 'immutable' },     // Content is immutable
-  body: { strategy: 'immutable' },        // Content is immutable
-  author: { strategy: 'immutable' },      // Author cannot change
+  subject: { strategy: 'immutable' }, // Content is immutable
+  body: { strategy: 'immutable' }, // Content is immutable
+  author: { strategy: 'immutable' }, // Author cannot change
   in_reply_to: { strategy: 'immutable' }, // Parent cannot change
-  supersedes: { strategy: 'immutable' },  // Edit reference cannot change
+  supersedes: { strategy: 'immutable' }, // Edit reference cannot change
 };
 ```
 
@@ -1843,7 +1829,7 @@ function lwwCompare(a: BaseEntity, b: BaseEntity): boolean {
 function mergeEntities<T extends BaseEntity>(
   local: T,
   remote: T,
-  rules: MergeRules<T>
+  rules: MergeRules<T>,
 ): { merged: T; atticEntries: AtticEntry[] } {
   const atticEntries: AtticEntry[] = [];
   const localWins = lwwCompare(local, remote);
@@ -1902,11 +1888,7 @@ function mergeEntities<T extends BaseEntity>(
   return { merged, atticEntries };
 }
 
-function mergeArraysById<T>(
-  local: T[],
-  remote: T[],
-  keyFn: (item: T) => string
-): T[] {
+function mergeArraysById<T>(local: T[], remote: T[], keyFn: (item: T) => string): T[] {
   const merged = new Map<string, T>();
 
   // Add all local items
@@ -1938,11 +1920,7 @@ function mergeArraysById<T>(
  * This can be used when base is available (e.g., from Git merge driver
  * or when explicitly passing the previous synced version).
  */
-function mergeSet3Way(
-  base: string[] | null,
-  ours: string[],
-  theirs: string[]
-): string[] {
+function mergeSet3Way(base: string[] | null, ours: string[], theirs: string[]): string[] {
   const B = new Set(base ?? []);
   const O = new Set(ours ?? []);
   const T = new Set(theirs ?? []);
@@ -1961,10 +1939,13 @@ function mergeSet3Way(
     // - Else if theirs == base: only ours changed, take ours
     // - Else: true conflict (both changed differently) - keep item (safer)
     const present =
-      (inOurs === inTheirs) ? inOurs :
-      (inOurs === inBase) ? inTheirs :
-      (inTheirs === inBase) ? inOurs :
-      true; // Both changed differently: safer to keep
+      inOurs === inTheirs
+        ? inOurs
+        : inOurs === inBase
+          ? inTheirs
+          : inTheirs === inBase
+            ? inOurs
+            : true; // Both changed differently: safer to keep
 
     if (present) result.push(item);
   }
@@ -2007,6 +1988,7 @@ Stores conflict data for recovery and auditing:
 - Directory per entity: `conflicts/{entity-id}/`
 
 - Filename format (Windows-safe, no colons):
+
   ```
   {yyyymmddTHHMMSSZ}_{field}_{chosen_source}.json
   ```
@@ -2105,6 +2087,7 @@ Physically removing an entity file (deleting `is-a1b2.json`) is **discouraged** 
    modification recreates the entity
 
 **If hard deletion is necessary:**
+
 ```bash
 tbd issue delete <id> --hard
 
@@ -2130,7 +2113,7 @@ removal.
 > **Design choice**: Tbd uses soft-delete as the primary deletion mechanism.
 > Hard deletion is available but creates consistency challenges in distributed systems.
 
-* * *
+---
 
 ## 4. CLI Layer
 
@@ -2176,6 +2159,7 @@ tbd init
 ```
 
 **Output:**
+
 ```
 Created .tbd/config.yml
 Created .tbd/.gitignore
@@ -2188,6 +2172,7 @@ To complete setup, commit the config files:
 ```
 
 **What gets created on main branch:**
+
 ```
 .tbd/
 ├── config.yml      # Default configuration
@@ -2198,6 +2183,7 @@ To complete setup, commit the config files:
 ```
 
 **What gets created on tbd-sync branch:**
+
 ```
 .tbd-sync/
 ├── nodes/
@@ -2231,6 +2217,7 @@ Options:
 ```
 
 **Examples:**
+
 ```bash
 tbd create "Fix authentication bug" -p 1 -k bug
 tbd create "Implement OAuth" -k feature -l backend -l security
@@ -2258,6 +2245,7 @@ Options:
 ```
 
 **Examples:**
+
 ```bash
 tbd list                                  # All open issues
 tbd list --status open --priority 1       # High-priority open issues
@@ -2272,6 +2260,7 @@ tbd show <id>                             # Shortcut
 ```
 
 **Output:**
+
 ```
 cd-a1b2: Fix authentication bug
 Status: in_progress | Priority: 1 | Kind: bug
@@ -2310,6 +2299,7 @@ Options:
 ```
 
 **Examples:**
+
 ```bash
 tbd issue update cd-a1b2 --status in_progress
 tbd issue update cd-a1b2 --add-label urgent --priority 0
@@ -2326,6 +2316,7 @@ Options:
 ```
 
 **Examples:**
+
 ```bash
 tbd close cd-a1b2 --reason "Fixed in commit abc123"
 ```
@@ -2341,6 +2332,7 @@ Options:
 ```
 
 **Examples:**
+
 ```bash
 tbd reopen cd-a1b2 --reason "Not actually fixed"
 ```
@@ -2372,6 +2364,7 @@ Options:
 ```
 
 **Output:**
+
 ```
 ISSUE       TITLE                    BLOCKED BY
 cd-c3d4     Write tests              cd-f14c (Implement feature)
@@ -2393,6 +2386,7 @@ Options:
 ```
 
 **Examples:**
+
 ```bash
 tbd stale --days 14                       # Issues stale for 2 weeks
 tbd stale --days 7 --status in_progress   # Stale in-progress work
@@ -2417,6 +2411,7 @@ Dependency types:
 ```
 
 **Examples:**
+
 ```bash
 tbd issue dep add cd-c3d4 cd-f14c --type blocks
 tbd issue dep tree cd-a1b2
@@ -2438,6 +2433,7 @@ Options:
 ```
 
 **Examples:**
+
 ```bash
 # Comment on an issue
 tbd issue comment cd-a1b2 -s "Found the bug" -b "It's in auth.ts line 42"
@@ -2464,6 +2460,7 @@ Options:
 ```
 
 **Output:**
+
 ```
 Registered agent-x1y2: claude-backend
 ```
@@ -2478,6 +2475,7 @@ Options:
 ```
 
 **Output:**
+
 ```
 AGENT           STATUS    WORKING ON      LAST SEEN
 agent-x1y2      active    cd-a1b2         now
@@ -2500,11 +2498,13 @@ tbd agent claim <issue-id>
 ```
 
 **Output (success):**
+
 ```
 Claimed cd-a1b2
 ```
 
 **Output (already claimed):**
+
 ```
 Warning: cd-a1b2 already claimed by agent-a3b4 (since 2025-01-07 10:25)
 Proceeding anyway (advisory claim)
@@ -2515,15 +2515,12 @@ Proceeding anyway (advisory claim)
 > enforce exclusivity.
 > Agents should check `assignee` before starting work and coordinate via messages if
 > conflicts arise. This simple approach works well in practice because:
-> 
+>
 > - Race conditions are rare (two agents claiming the exact same issue)
->
 > - Git sync propagates claims within seconds to minutes
->
 > - If conflicts occur, the attic preserves all work
->
 > - Explicit coordination is clearer than implicit locking
-> 
+>
 > See [Appendix 7.7](#77-optional-enhancements) for lease-based claims if stronger
 > coordination is needed.
 
@@ -2592,12 +2589,14 @@ tbd sync --status
 ```
 
 **Output (sync):**
+
 ```
 Pulled 3 files, pushed 2 files
 No conflicts
 ```
 
 **Output (sync --status):**
+
 ```
 Local changes (not yet pushed):
   modified: issues/is-a1b2.json
@@ -2622,18 +2621,19 @@ Options:
 
 **Beads Status Mapping:**
 
-| Beads Status | Tbd Import Behavior |
-| --- | --- |
-| `open` | → `open` |
-| `in_progress` | → `in_progress` |
-| `blocked` | → `blocked` |
-| `deferred` | → `deferred` |
-| `closed` | → `closed` |
-| `tombstone` | Skipped (deleted) |
-| `pinned` | → `open` + label `pinned` |
-| `hooked` | → `in_progress` + label `hooked` |
+| Beads Status  | Tbd Import Behavior              |
+| ------------- | -------------------------------- |
+| `open`        | → `open`                         |
+| `in_progress` | → `in_progress`                  |
+| `blocked`     | → `blocked`                      |
+| `deferred`    | → `deferred`                     |
+| `closed`      | → `closed`                       |
+| `tombstone`   | Skipped (deleted)                |
+| `pinned`      | → `open` + label `pinned`        |
+| `hooked`      | → `in_progress` + label `hooked` |
 
 **Examples:**
+
 ```bash
 # Import Beads export
 tbd import beads-export.jsonl --format beads
@@ -2675,6 +2675,7 @@ Options:
 ```
 
 **Output (attic list):**
+
 ```
 ENTITY      TIMESTAMP                FIELD        LOST VALUE (preview)
 cd-a1b2     2025-01-07T10:30:00Z     description  "Original description..."
@@ -2710,6 +2711,7 @@ Options:
 - Stale agent heartbeats
 
 **Output:**
+
 ```
 Running health checks...
 
@@ -2772,7 +2774,7 @@ tbd list --json
 > **Note**: JSON output uses internal prefixes (`is-`, `ag-`) for consistency with file
 > storage. Human-readable output uses external prefixes (`cd-`, `agent-`).
 
-* * *
+---
 
 ## 5. Bridge Layer (Future)
 
@@ -2834,8 +2836,8 @@ Key properties:
 
 ```typescript
 const BridgeLink = z.object({
-  service: z.string(),           // "github", "slack", "native"
-  external_id: z.string(),       // GitHub issue number, Slack channel, etc.
+  service: z.string(), // "github", "slack", "native"
+  external_id: z.string(), // GitHub issue number, Slack channel, etc.
   external_url: z.string().optional(),
   synced_at: Timestamp,
   sync_direction: z.enum(['push', 'pull', 'bidirectional']),
@@ -2849,11 +2851,11 @@ const bridge = z.record(z.string(), BridgeLink).optional();
 
 Bridges provide eventually consistent views of Git state:
 
-| Guarantee | Description |
-| --- | --- |
-| **Eventual Consistency** | All agents eventually see the same state |
-| **Conflict Preservation** | No data ever lost; conflicts preserved in attic |
-| **Git is Truth** | On conflict, Git wins; Bridge changes go to attic |
+| Guarantee                 | Description                                       |
+| ------------------------- | ------------------------------------------------- |
+| **Eventual Consistency**  | All agents eventually see the same state          |
+| **Conflict Preservation** | No data ever lost; conflicts preserved in attic   |
+| **Git is Truth**          | On conflict, Git wins; Bridge changes go to attic |
 
 **Tbd does NOT provide:**
 
@@ -2865,13 +2867,13 @@ Bridges provide eventually consistent views of Git state:
 
 #### Latency Expectations
 
-| Mode | Operation | Expected Latency |
-| --- | --- | --- |
-| File-only | Read/Write | <10ms |
-| Git sync | Pull/Push | 1-30 seconds |
-| Bridge (GitHub) | Propagation | 1-5 seconds (webhook) |
-| Bridge (Native) | Propagation | <100ms |
-| Bridge (Slack) | Message delivery | <1 second |
+| Mode            | Operation        | Expected Latency      |
+| --------------- | ---------------- | --------------------- |
+| File-only       | Read/Write       | <10ms                 |
+| Git sync        | Pull/Push        | 1-30 seconds          |
+| Bridge (GitHub) | Propagation      | 1-5 seconds (webhook) |
+| Bridge (Native) | Propagation      | <100ms                |
+| Bridge (Slack)  | Message delivery | <1 second             |
 
 #### Configuration Example
 
@@ -2950,14 +2952,14 @@ tbd github promote <issue-id> --labels "tbd-sync,priority:high"
 
 #### Field Mapping
 
-| Tbd Field | GitHub Field | Notes |
-| --- | --- | --- |
-| `title` | `title` | Direct mapping |
-| `description` | `body` | Includes Tbd metadata block |
-| `status` | Labels | `status:open`, `status:in_progress`, etc. |
-| `priority` | Labels | `priority:0`, `priority:1`, etc. |
-| `assignee` | Labels | `claimed:agent-id` |
-| `labels` | Labels | Prefixed: `tbd:label-name` |
+| Tbd Field     | GitHub Field | Notes                                     |
+| ------------- | ------------ | ----------------------------------------- |
+| `title`       | `title`      | Direct mapping                            |
+| `description` | `body`       | Includes Tbd metadata block               |
+| `status`      | Labels       | `status:open`, `status:in_progress`, etc. |
+| `priority`    | Labels       | `priority:0`, `priority:1`, etc.          |
+| `assignee`    | Labels       | `claimed:agent-id`                        |
+| `labels`      | Labels       | Prefixed: `tbd:label-name`                |
 
 #### Conflict Resolution
 
@@ -3256,13 +3258,13 @@ The Local UI Bridge validates our architecture by showing that:
 
 #### Feature Examples
 
-| Feature | File-Watch Mode | Daemon Mode |
-| --- | --- | --- |
-| **Kanban board** | ✅ Read issues, drag to change status | ✅ Same, with instant sync |
-| **Agent activity feed** | ⚠️ Poll agent files | ✅ Real-time stream |
-| **Live presence** | ❌ Not available | ✅ "Agent X is working on..." |
-| **Notifications** | ⚠️ Must poll | ✅ Push notifications |
-| **Offline editing** | ✅ Works completely offline | ✅ Queued, syncs on reconnect |
+| Feature                 | File-Watch Mode                       | Daemon Mode                   |
+| ----------------------- | ------------------------------------- | ----------------------------- |
+| **Kanban board**        | ✅ Read issues, drag to change status | ✅ Same, with instant sync    |
+| **Agent activity feed** | ⚠️ Poll agent files                   | ✅ Real-time stream           |
+| **Live presence**       | ❌ Not available                      | ✅ "Agent X is working on..." |
+| **Notifications**       | ⚠️ Must poll                          | ✅ Push notifications         |
+| **Offline editing**     | ✅ Works completely offline           | ✅ Queued, syncs on reconnect |
 
 #### Potential UI Views
 
@@ -3363,16 +3365,16 @@ Agent reconnects:
 
 Not everything needs to be in git:
 
-| Data Type | Storage | Rationale |
-| --- | --- | --- |
-| Issues | Git | Durable, historical, shared |
-| Agents | Git | Durable, historical, shared |
-| Messages (archived) | Git (optional) | Audit trail if needed |
-| Messages (recent) | Cache only | Ephemeral, high volume |
-| Outbound queue | Cache only | Temporary until delivered |
-| Connection state | Cache only | Local-only, transient |
+| Data Type           | Storage        | Rationale                   |
+| ------------------- | -------------- | --------------------------- |
+| Issues              | Git            | Durable, historical, shared |
+| Agents              | Git            | Durable, historical, shared |
+| Messages (archived) | Git (optional) | Audit trail if needed       |
+| Messages (recent)   | Cache only     | Ephemeral, high volume      |
+| Outbound queue      | Cache only     | Temporary until delivered   |
+| Connection state    | Cache only     | Local-only, transient       |
 
-* * *
+---
 
 ## 6. Implementation Notes
 
@@ -3392,12 +3394,12 @@ You need the daemon only for the Bridge Layer or sub-second local coordination.
 
 #### Layer Requirements
 
-| Layer | Without Daemon | With Daemon |
-| --- | --- | --- |
-| **File** | ✅ Read/write JSON files directly | Same, but cached in memory |
-| **Git** | ✅ CLI calls git commands directly | Same, but batched |
-| **CLI** | ✅ Each command does file I/O | Routes through daemon socket |
-| **Bridge** | ⚠️ Needs persistent process | Daemon handles webhooks, queues |
+| Layer      | Without Daemon                     | With Daemon                     |
+| ---------- | ---------------------------------- | ------------------------------- |
+| **File**   | ✅ Read/write JSON files directly  | Same, but cached in memory      |
+| **Git**    | ✅ CLI calls git commands directly | Same, but batched               |
+| **CLI**    | ✅ Each command does file I/O      | Routes through daemon socket    |
+| **Bridge** | ⚠️ Needs persistent process        | Daemon handles webhooks, queues |
 
 #### When You Need the Daemon
 
@@ -3506,15 +3508,15 @@ interface Response {
 
 #### Operations
 
-| Operation | Description |
-| --- | --- |
-| `register` | Register agent, get session |
+| Operation   | Description                     |
+| ----------- | ------------------------------- |
+| `register`  | Register agent, get session     |
 | `heartbeat` | Update last_heartbeat timestamp |
-| `claim` | Atomically claim an issue |
-| `release` | Release a claimed issue |
-| `update` | Update entity fields |
-| `query` | Query entities with filters |
-| `sync` | Trigger git sync |
+| `claim`     | Atomically claim an issue       |
+| `release`   | Release a claimed issue         |
+| `update`    | Update entity fields            |
+| `query`     | Query entities with filters     |
+| `sync`      | Trigger git sync                |
 
 #### Notification Events
 
@@ -3857,7 +3859,7 @@ File system watching for UIs and IDEs:
 
 - WebSocket server for push updates
 
-* * *
+---
 
 ## 7. Appendices
 
@@ -4072,13 +4074,11 @@ How to update sync branch without checking it out?
 **Options**:
 
 1. **Bare git operations** (`git read-tree`, `git write-tree`, `git update-ref`)
-
    - Pro: No disk I/O for checkout
 
    - Con: Complex, error-prone, hard to debug
 
 2. **Hidden worktree** (`git worktree add .tbd/local/worktrees/tbd-sync`)
-
    - Pro: Standard git porcelain (pull, commit, push)
 
    - Pro: Enables native Git 3-way merge with merge driver
@@ -4088,7 +4088,6 @@ How to update sync branch without checking it out?
    - Con: Extra disk space (~size of `.tbd-sync/` directory)
 
 3. **Shallow clone of sync branch**
-
    - Pro: Isolated from main repo
 
    - Con: Separate clone to manage, more complex setup
@@ -4197,20 +4196,20 @@ This allows references in commit messages to be traced to new IDs.
 
 ### 7.4 Comparison with Beads
 
-| Aspect | Beads | Tbd |
-| --- | --- | --- |
-| Data locations | 4 (SQLite, local JSONL, sync branch, main) | 3 (config on main, data on sync branch, local cache) |
-| File system compatibility | SQLite WAL fails on NFS/cloud | Works on any file system |
-| Main branch | JSONL committed | Config only (config.yml) |
-| Storage format | Single JSONL file | File per entity |
-| Skip-worktree | Required hack | Not needed |
-| Git worktrees | Required for sync branch | Not needed |
-| Daemon | Always recommended | Optional |
-| Sync layer | Schema-aware | Schema-agnostic (sync) / schema-aware (merge) |
-| Merge conflicts | JSONL line-based (cross-entity) | Per-file (per-entity) |
-| Entity types | Issues + molecules | Extensible (issues, agents, ...) |
-| Agent coordination | External (Agent Mail) | Built-in |
-| Architecture | Monolithic | Layered (File, Git, CLI, Bridge) |
+| Aspect                    | Beads                                      | Tbd                                                  |
+| ------------------------- | ------------------------------------------ | ---------------------------------------------------- |
+| Data locations            | 4 (SQLite, local JSONL, sync branch, main) | 3 (config on main, data on sync branch, local cache) |
+| File system compatibility | SQLite WAL fails on NFS/cloud              | Works on any file system                             |
+| Main branch               | JSONL committed                            | Config only (config.yml)                             |
+| Storage format            | Single JSONL file                          | File per entity                                      |
+| Skip-worktree             | Required hack                              | Not needed                                           |
+| Git worktrees             | Required for sync branch                   | Not needed                                           |
+| Daemon                    | Always recommended                         | Optional                                             |
+| Sync layer                | Schema-aware                               | Schema-agnostic (sync) / schema-aware (merge)        |
+| Merge conflicts           | JSONL line-based (cross-entity)            | Per-file (per-entity)                                |
+| Entity types              | Issues + molecules                         | Extensible (issues, agents, ...)                     |
+| Agent coordination        | External (Agent Mail)                      | Built-in                                             |
+| Architecture              | Monolithic                                 | Layered (File, Git, CLI, Bridge)                     |
 
 ### 7.5 File Structure Reference
 
@@ -4306,7 +4305,7 @@ These live in `.tbd/local/` on main and are gitignored:
 # Tbd configuration
 # See: https://github.com/[org]/tbd
 
-tbd_version: "0.1.0"
+tbd_version: '0.1.0'
 
 sync:
   branch: tbd-sync
@@ -4341,9 +4340,7 @@ settings:
   "priority": 1,
   "assignee": "ag-x1y2",
   "labels": ["backend", "security"],
-  "dependencies": [
-    { "type": "blocks", "target": "is-f14c" }
-  ]
+  "dependencies": [{ "type": "blocks", "target": "is-f14c" }]
 }
 ```
 
@@ -4467,7 +4464,6 @@ settings:
 #### Predecessor System
 
 - **Beads** — Git-backed issue tracking for AI coding agents
-
   - Repository: https://github.com/steveyegge/beads
 
   - Introducing Beads:
@@ -4482,7 +4478,6 @@ settings:
 #### Core Technologies
 
 - **Git**
-
   - Pro Git Book: https://git-scm.com/book/en/v2
 
   - Git Internals - Plumbing and Porcelain:
@@ -4499,7 +4494,6 @@ settings:
   - git-ls-tree: https://git-scm.com/docs/git-ls-tree
 
 - **SQLite**
-
   - Write-Ahead Logging: https://sqlite.org/wal.html — Documents WAL mode and its
     network filesystem limitations
 
@@ -4510,19 +4504,16 @@ settings:
     advisory locking requirements
 
 - **Zod** — TypeScript-first schema validation with static type inference
-
   - Documentation: https://zod.dev/
 
   - Repository: https://github.com/colinhacks/zod
 
 - **JSON-RPC 2.0** — Lightweight RPC protocol used for daemon communication
-
   - Specification: https://www.jsonrpc.org/specification
 
 #### Distributed Systems Concepts
 
 - **CRDTs** (Conflict-free Replicated Data Types)
-
   - Resource hub: https://crdt.tech/
 
   - Foundational paper (Shapiro et al.
@@ -4535,13 +4526,11 @@ settings:
   - Yjs (implementation): https://github.com/yjs/yjs
 
 - **Operational Transform**
-
   - Wikipedia overview: https://en.wikipedia.org/wiki/Operational_transformation
 
   - ShareDB (implementation): https://github.com/share/sharedb
 
 - **Optimistic Concurrency Control**
-
   - Wikipedia: https://en.wikipedia.org/wiki/Optimistic_concurrency_control
 
   - AWS DynamoDB versioning:
@@ -4550,51 +4539,42 @@ settings:
 #### File Watching APIs
 
 - **Linux**: inotify — https://man7.org/linux/man-pages/man7/inotify.7.html
-
   - Efficient kernel-level file system event notification; may overflow under high event
     rates
 
 - **macOS**: FSEvents —
   https://developer.apple.com/documentation/coreservices/file_system_events
-
   - Scales well with no known performance degradation; 4096 watched path limit
 
 - **Windows**: ReadDirectoryChangesW —
   https://learn.microsoft.com/en-us/windows/win32/api/winbase/nf-winbase-readdirectorychangesw
-
   - Provides filename details unlike FindFirstChangeNotification; buffer overflow
     possible
 
 - **Cross-platform**: fswatch — https://github.com/emcrisostomo/fswatch
-
   - Abstracts platform differences; auto-selects best backend per OS
 
 #### Bridge Layer Technologies
 
 - **Convex** — Reactive database with automatic query subscriptions
-
   - Documentation: https://docs.convex.dev/
 
   - Repository: https://github.com/get-convex/convex-backend
 
 - **Supabase Realtime** — PostgreSQL change notifications via WebSocket
-
   - Documentation: https://supabase.com/docs/guides/realtime
 
   - Repository: https://github.com/supabase/realtime
 
 - **NATS** — Cloud-native messaging (CNCF project)
-
   - Documentation: https://docs.nats.io
 
   - Repository: https://github.com/nats-io/nats-server
 
 - **Redis Pub/Sub** — In-memory real-time messaging
-
   - Documentation: https://redis.io/docs/latest/develop/pubsub/
 
 - **GitHub API**
-
   - REST API (Issues): https://docs.github.com/en/rest/issues
 
   - GraphQL API: https://docs.github.com/en/graphql
@@ -4602,7 +4582,6 @@ settings:
   - Webhooks: https://docs.github.com/en/webhooks
 
 - **Slack API**
-
   - Events API: https://docs.slack.dev/apis/events-api/
 
   - Socket Mode: https://docs.slack.dev/apis/events-api/using-socket-mode/
@@ -4612,18 +4591,15 @@ settings:
 #### Desktop UI Frameworks
 
 - **Electron** — https://www.electronjs.org/docs/latest
-
   - Full Node.js access; larger binaries; mature ecosystem
 
 - **Tauri 2.0** — https://v2.tauri.app/
-
   - Rust backend; small binaries (~600KB); supports desktop and mobile (iOS/Android)
 
 #### AI Agent Frameworks and Protocols
 
 - **Model Context Protocol (MCP)** — Open standard for AI tool integration (donated to
   Linux Foundation, Dec 2025)
-
   - Specification: https://modelcontextprotocol.io/specification/2025-11-25
 
   - Repository: https://github.com/modelcontextprotocol
@@ -4631,23 +4607,19 @@ settings:
   - Announcement: https://www.anthropic.com/news/model-context-protocol
 
 - **LangChain** — High-level agent framework (v1.0)
-
   - Documentation: https://docs.langchain.com
 
   - Repository: https://github.com/langchain-ai/langchain
 
 - **LangGraph** — Low-level agent orchestration with durable execution
-
   - Documentation: https://www.langchain.com/langgraph
 
 - **CrewAI** — Multi-agent framework (v1.0)
-
   - Documentation: https://docs.crewai.com/
 
   - Repository: https://github.com/crewAIInc/crewAI
 
 - **AutoGen** — Microsoft’s multi-agent framework (merging with Semantic Kernel)
-
   - Documentation: https://microsoft.github.io/autogen/stable/
 
   - Repository: https://github.com/microsoft/autogen
@@ -4655,20 +4627,16 @@ settings:
 #### Alternative Git-Native Issue Trackers
 
 - **git-bug** — https://github.com/git-bug/git-bug
-
   - Most mature; stores issues as git objects; GraphQL API; GitHub/GitLab bridges
 
 - **git-issue** — https://github.com/dspinellis/git-issue
-
   - Minimalist; plain text files; zero dependencies; bidirectional sync with
     GitHub/GitLab
 
 - **tk (ticket)** — https://github.com/wedow/ticket
-
   - Designed for AI agents; single bash script; YAML frontmatter + markdown format
 
 - **git-appraise** — https://github.com/google/git-appraise
-
   - Google’s distributed code review; structured schemas; uses separate git refs
 
 ### 7.7 Optional Enhancements
@@ -4695,15 +4663,15 @@ if Machine B’s write was actually later.
 ```typescript
 // Add to BaseEntity
 const HybridTimestamp = z.object({
-  wall: z.string().datetime(),  // Wall clock (for display)
-  logical: z.number().int(),     // Lamport-style counter
-  node: z.string(),              // Node identifier for tiebreak
+  wall: z.string().datetime(), // Wall clock (for display)
+  logical: z.number().int(), // Lamport-style counter
+  node: z.string(), // Node identifier for tiebreak
 });
 
 // BaseEntity becomes:
 const BaseEntity = z.object({
   // ... existing fields ...
-  hlc: HybridTimestamp.optional(),  // Added for HLC support
+  hlc: HybridTimestamp.optional(), // Added for HLC support
 });
 
 // Compare function
@@ -4746,6 +4714,7 @@ claim: z.object({
 ```
 
 **CLI additions:**
+
 ```bash
 tbd agent claim <issue-id> --ttl 3600   # 1 hour lease
 tbd agent renew <issue-id>               # Extend lease
@@ -4812,10 +4781,10 @@ resolution rules are needed.
 ```typescript
 // Per-field sync direction
 const SyncDirection = z.enum([
-  'tbd_wins',    // Tbd overwrites Bridge
-  'bridge_wins',   // Bridge overwrites Tbd
-  'lww',           // Last-write-wins by timestamp
-  'union',         // Merge arrays
+  'tbd_wins', // Tbd overwrites Bridge
+  'bridge_wins', // Bridge overwrites Tbd
+  'lww', // Last-write-wins by timestamp
+  'union', // Merge arrays
 ]);
 
 // Conflict resolution
@@ -4837,14 +4806,8 @@ Attackers could inject fake events.
 ```typescript
 // GitHub webhook validation
 function validateGitHubWebhook(payload, signature, secret) {
-  const expected = `sha256=${crypto
-    .createHmac('sha256', secret)
-    .update(payload)
-    .digest('hex')}`;
-  return crypto.timingSafeEqual(
-    Buffer.from(signature),
-    Buffer.from(expected)
-  );
+  const expected = `sha256=${crypto.createHmac('sha256', secret).update(payload).digest('hex')}`;
+  return crypto.timingSafeEqual(Buffer.from(signature), Buffer.from(expected));
 }
 ```
 

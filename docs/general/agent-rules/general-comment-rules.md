@@ -3,6 +3,7 @@ description: General Comment Rules
 globs:
 alwaysApply: true
 ---
+
 # General Comment Rules
 
 ## Comment Usage
@@ -57,7 +58,7 @@ These are language-agnostic rules on comments:
   ```typescript
   // BAD:
   const MAX_RETRIES = 5; // Maximum number of retries is 5
-  
+
   // BAD:
   /**
    * Get current paper trading timestamp using the configured 9:00 AM ET settings.
@@ -79,7 +80,7 @@ These are language-agnostic rules on comments:
     agentId: mockAgentId,
     // other fields are now removed
   });
-  
+
   // GOOD:
   expect.objectContaining({
     runId: mockRunId,
