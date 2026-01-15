@@ -1,0 +1,10 @@
+name: missing-issue
+description: Error handling for non-existent issue
+results:
+  - command: tbd
+    args:
+      - show
+      - is-[ULID]
+    exitCode: 0
+    stdout: ''
+    stderr: ''
