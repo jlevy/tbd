@@ -3,6 +3,8 @@
 .tbd/.worktree/
 *.tmp.*
 
+attic/
+
 # Build output
 dist/
 

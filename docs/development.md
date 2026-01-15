@@ -122,7 +122,7 @@ Follow the prompts to describe your change and select the version bump type.
 
 1. Create a changeset with your PR
 2. Merge PR to main
-3. CI will create a "Version Packages" PR
+3. CI will create a “Version Packages” PR
 4. Merge that PR to publish to npm and create a GitHub release
 
 ## Project Structure
@@ -150,7 +150,8 @@ tbd/
 
 ## Architecture
 
-See [tbd-design-v3.md](project/architecture/current/tbd-design-v3.md) for the full design document.
+See [tbd-design-v3.md](project/architecture/current/tbd-design-v3.md) for the full
+design document.
 
 Key concepts:
 
@@ -160,7 +161,8 @@ Key concepts:
 
 ## CLI Patterns
 
-The CLI follows patterns from [research-modern-typescript-cli-patterns.md](general/research/current/research-modern-typescript-cli-patterns.md):
+The CLI follows patterns from
+[research-modern-typescript-cli-patterns.md](general/research/current/research-modern-typescript-cli-patterns.md):
 
 - Base Command pattern for shared functionality
 - Dual output mode (text + JSON)

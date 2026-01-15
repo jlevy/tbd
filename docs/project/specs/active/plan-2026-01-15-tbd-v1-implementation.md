@@ -46,28 +46,28 @@ Implement Tbd V1 as a TypeScript CLI application following the design specificat
 
 ### API/CLI Compatibility
 
-| Area | Compatibility Level | Notes |
-| --- | --- | --- |
-| CLI command names | Full | `tbd` command with Beads-compatible subcommands |
-| CLI options | Full | Same flags as Beads (`--json`, `-t`, `-p`, etc.) |
-| JSON output schema | Full | Matches Beads JSON output structure |
-| Exit codes | Full | 0=success, 1=error, 2=usage error |
-| ID format | Compatible | Internal `is-xxxx`, display as `bd-xxxx` via config |
+| Area               | Compatibility Level | Notes                                               |
+| ------------------ | ------------------- | --------------------------------------------------- |
+| CLI command names  | Full                | `tbd` command with Beads-compatible subcommands     |
+| CLI options        | Full                | Same flags as Beads (`--json`, `-t`, `-p`, etc.)    |
+| JSON output schema | Full                | Matches Beads JSON output structure                 |
+| Exit codes         | Full                | 0=success, 1=error, 2=usage error                   |
+| ID format          | Compatible          | Internal `is-xxxx`, display as `bd-xxxx` via config |
 
 ### Data Compatibility
 
-| Area | Compatibility Level | Notes |
-| --- | --- | --- |
-| Beads import | Full | Import from JSONL export or `--from-beads` |
-| Issue fields | Full | All Beads fields mapped to Tbd equivalents |
-| Status values | Full | Direct mapping except `tombstone` (skip/convert) |
-| Dependencies | Partial | Only `blocks` type in V1 |
+| Area          | Compatibility Level | Notes                                            |
+| ------------- | ------------------- | ------------------------------------------------ |
+| Beads import  | Full                | Import from JSONL export or `--from-beads`       |
+| Issue fields  | Full                | All Beads fields mapped to Tbd equivalents       |
+| Status values | Full                | Direct mapping except `tombstone` (skip/convert) |
+| Dependencies  | Partial             | Only `blocks` type in V1                         |
 
 ### Breaking Changes
 
 - None - this is a new implementation
 
-* * *
+---
 
 ## Stage 1: Planning Stage
 
@@ -112,18 +112,18 @@ Implement Tbd V1 as a TypeScript CLI application following the design specificat
 
 ### 1.3 Technical Decisions
 
-| Decision | Choice | Rationale |
-| --- | --- | --- |
-| Package manager | pnpm | Best monorepo support, disk efficiency |
-| Build tool | tsdown | Modern, fast, proper ESM/CJS dual output |
-| CLI framework | Commander.js | Industry standard, excellent TypeScript support |
-| Schema validation | Zod | Type inference, excellent error messages |
-| YAML parsing | gray-matter + js-yaml | Mature, handles front matter correctly |
-| Testing | tryscript | Golden testing for CLI, Markdown-based tests |
-| Colors | picocolors | Tiny, fast, TTY-aware |
-| Prompts | @clack/prompts | Beautiful, accessible prompts |
+| Decision          | Choice                | Rationale                                       |
+| ----------------- | --------------------- | ----------------------------------------------- |
+| Package manager   | pnpm                  | Best monorepo support, disk efficiency          |
+| Build tool        | tsdown                | Modern, fast, proper ESM/CJS dual output        |
+| CLI framework     | Commander.js          | Industry standard, excellent TypeScript support |
+| Schema validation | Zod                   | Type inference, excellent error messages        |
+| YAML parsing      | gray-matter + js-yaml | Mature, handles front matter correctly          |
+| Testing           | tryscript             | Golden testing for CLI, Markdown-based tests    |
+| Colors            | picocolors            | Tiny, fast, TTY-aware                           |
+| Prompts           | @clack/prompts        | Beautiful, accessible prompts                   |
 
-* * *
+---
 
 ## Stage 2: Architecture Stage
 
@@ -289,7 +289,7 @@ User Command
                     (tbd-sync branch)
 ```
 
-* * *
+---
 
 ## Stage 3: Refine Architecture
 
@@ -297,15 +297,15 @@ User Command
 
 From the research docs, we will use:
 
-| Pattern | Source | Usage |
-| --- | --- | --- |
-| Base Command | CLI patterns doc §3 | Centralize context, output, error handling |
-| OutputManager | CLI patterns doc §4 | Dual text/JSON output |
-| Handler + Command | CLI patterns doc §5 | Separate concerns |
-| Named Option Types | CLI patterns doc §6 | TypeScript safety |
-| Formatter Pattern | CLI patterns doc §7 | Consistent output formatting |
-| Git-based versioning | Monorepo doc §7 | Dynamic version strings |
-| Atomic writes | Design spec §2.1 | Safe file operations |
+| Pattern              | Source              | Usage                                      |
+| -------------------- | ------------------- | ------------------------------------------ |
+| Base Command         | CLI patterns doc §3 | Centralize context, output, error handling |
+| OutputManager        | CLI patterns doc §4 | Dual text/JSON output                      |
+| Handler + Command    | CLI patterns doc §5 | Separate concerns                          |
+| Named Option Types   | CLI patterns doc §6 | TypeScript safety                          |
+| Formatter Pattern    | CLI patterns doc §7 | Consistent output formatting               |
+| Git-based versioning | Monorepo doc §7     | Dynamic version strings                    |
+| Atomic writes        | Design spec §2.1    | Safe file operations                       |
 
 ### 3.2 Performance Considerations
 
@@ -321,7 +321,7 @@ From the research docs, we will use:
 - **Files as truth**: No SQLite, no caching required for correctness
 - **Standard git**: Use git CLI, no libgit2 binding
 
-* * *
+---
 
 ## Stage 4: Implementation Stage
 
@@ -410,6 +410,7 @@ function contentHash(issue: Issue): string {
 #### Phase 1 Tests
 
 Unit tests for:
+
 - Schema validation (valid/invalid inputs)
 - Parsing YAML+Markdown to Issue object
 - Serializing Issue to canonical YAML+Markdown
@@ -564,12 +565,12 @@ const program = new Command()
   .showHelpAfterError();
 
 program.addCommand(initCommand);
-program.addCommand(issueCommands);  // create, list, show, update, close, reopen
+program.addCommand(issueCommands); // create, list, show, update, close, reopen
 program.addCommand(labelCommands);
 program.addCommand(depCommands);
 program.addCommand(syncCommand);
 program.addCommand(searchCommand);
-program.addCommand(maintenanceCommands);  // info, stats, doctor, config
+program.addCommand(maintenanceCommands); // info, stats, doctor, config
 program.addCommand(atticCommands);
 program.addCommand(importCommand);
 ```
@@ -586,10 +587,7 @@ export abstract class BaseCommand {
     this.output = new OutputManager(this.ctx);
   }
 
-  protected async execute<T>(
-    action: () => Promise<T>,
-    errorMessage: string
-  ): Promise<T> {
+  protected async execute<T>(action: () => Promise<T>, errorMessage: string): Promise<T> {
     try {
       return await action();
     } catch (error) {
@@ -641,9 +639,9 @@ export class OutputManager {
 interface CommandContext {
   json: boolean;
   color: 'auto' | 'always' | 'never';
-  dir: string | null;     // Custom .tbd path
+  dir: string | null; // Custom .tbd path
   noSync: boolean;
-  actor: string;          // Resolved actor name
+  actor: string; // Resolved actor name
   quiet: boolean;
 }
 
@@ -677,7 +675,7 @@ function resolveActor(override?: string): string {
 ---
 sandbox: true
 env:
-  NO_COLOR: "1"
+  NO_COLOR: '1'
 ---
 
 # Test: tbd init creates directory structure
@@ -764,7 +762,7 @@ $ tbd info --json
 
 ```typescript
 function generateId(prefix: string = 'is'): string {
-  const bytes = crypto.randomBytes(3);  // 6 hex chars = 16 million possibilities
+  const bytes = crypto.randomBytes(3); // 6 hex chars = 16 million possibilities
   const hex = bytes.toString('hex');
   return `${prefix}-${hex}`;
 }
@@ -823,11 +821,11 @@ interface ListOptions {
   deferred?: boolean;
   sort?: 'priority' | 'created' | 'updated';
   limit?: number;
-  all?: boolean;  // Include closed
+  all?: boolean; // Include closed
 }
 
 function filterIssues(issues: Issue[], options: ListOptions): Issue[] {
-  return issues.filter(issue => {
+  return issues.filter((issue) => {
     // By default, exclude closed unless --all
     if (!options.all && issue.status === 'closed') return false;
 
@@ -837,7 +835,7 @@ function filterIssues(issues: Issue[], options: ListOptions): Issue[] {
     if (options.priority && !options.priority.includes(issue.priority)) return false;
     if (options.assignee && issue.assignee !== options.assignee) return false;
     if (options.label?.length) {
-      if (!options.label.every(l => issue.labels.includes(l))) return false;
+      if (!options.label.every((l) => issue.labels.includes(l))) return false;
     }
     if (options.parent !== undefined) {
       if (options.parent === '' && issue.parent_id !== null) return false;
@@ -854,7 +852,7 @@ function sortIssues(issues: Issue[], sortBy: string = 'priority'): Issue[] {
   return [...issues].sort((a, b) => {
     switch (sortBy) {
       case 'priority':
-        return a.priority - b.priority;  // Lower = higher priority
+        return a.priority - b.priority; // Lower = higher priority
       case 'created':
         return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
       case 'updated':
@@ -876,7 +874,7 @@ function formatIssueTable(issues: Issue[], ctx: CommandContext): void {
     head: ['ID', 'PRI', 'STATUS', 'TITLE'],
     colWidths: [12, 5, 14, 50],
     wordWrap: true,
-    style: { head: ctx.color !== 'never' ? ['cyan'] : [] }
+    style: { head: ctx.color !== 'never' ? ['cyan'] : [] },
   });
 
   for (const issue of issues) {
@@ -885,7 +883,7 @@ function formatIssueTable(issues: Issue[], ctx: CommandContext): void {
       displayId,
       issue.priority.toString(),
       formatStatus(issue.status, ctx),
-      truncate(issue.title, 48)
+      truncate(issue.title, 48),
     ]);
   }
 
@@ -933,7 +931,7 @@ async function updateFromFile(path: string, storage: Storage): Promise<void> {
 ---
 sandbox: true
 env:
-  NO_COLOR: "1"
+  NO_COLOR: '1'
 ---
 
 # Test: Create issue with minimal options
@@ -1057,7 +1055,7 @@ $ tbd show $ID --json | jq '.status'
 async function getReadyIssues(storage: Storage, options: ReadyOptions): Promise<Issue[]> {
   const issues = await storage.listIssues();
 
-  return issues.filter(issue => {
+  return issues.filter((issue) => {
     // Must be open
     if (issue.status !== 'open') return false;
 
@@ -1075,12 +1073,12 @@ async function getReadyIssues(storage: Storage, options: ReadyOptions): Promise<
 }
 
 function hasOpenBlockers(issue: Issue, allIssues: Issue[]): boolean {
-  const blockers = issue.dependencies.filter(d => d.type === 'blocks');
+  const blockers = issue.dependencies.filter((d) => d.type === 'blocks');
 
   for (const dep of blockers) {
-    const target = allIssues.find(i => i.id === dep.target);
+    const target = allIssues.find((i) => i.id === dep.target);
     if (target && target.status !== 'closed') {
-      return true;  // Has an open blocker
+      return true; // Has an open blocker
     }
   }
   return false;
@@ -1103,14 +1101,14 @@ async function getBlockedIssues(storage: Storage): Promise<BlockedIssue[]> {
     if (issue.status === 'closed') continue;
 
     const blockers = issue.dependencies
-      .filter(d => d.type === 'blocks')
-      .map(d => issues.find(i => i.id === d.target))
+      .filter((d) => d.type === 'blocks')
+      .map((d) => issues.find((i) => i.id === d.target))
       .filter((i): i is Issue => i !== undefined && i.status !== 'closed');
 
     if (blockers.length > 0) {
       result.push({
         issue,
-        blockedBy: blockers.map(b => ({ id: b.id, title: b.title }))
+        blockedBy: blockers.map((b) => ({ id: b.id, title: b.title })),
       });
     }
   }
@@ -1125,7 +1123,7 @@ async function getBlockedIssues(storage: Storage): Promise<BlockedIssue[]> {
 function getStaleIssues(issues: Issue[], options: StaleOptions): Issue[] {
   const threshold = Date.now() - (options.days ?? 7) * 24 * 60 * 60 * 1000;
 
-  return issues.filter(issue => {
+  return issues.filter((issue) => {
     // Filter by status if provided
     if (options.status && issue.status !== options.status) return false;
 
@@ -1142,7 +1140,7 @@ function getStaleIssues(issues: Issue[], options: StaleOptions): Issue[] {
 ---
 sandbox: true
 env:
-  NO_COLOR: "1"
+  NO_COLOR: '1'
 ---
 
 # Test: Ready shows unblocked, unassigned issues
@@ -1227,7 +1225,7 @@ async function removeLabel(issueId: string, label: string, storage: Storage): Pr
   const issue = await storage.readIssue(issueId);
   if (!issue) throw new CLIError(`Issue not found: ${issueId}`);
 
-  issue.labels = issue.labels.filter(l => l !== label);
+  issue.labels = issue.labels.filter((l) => l !== label);
   issue.version++;
   issue.updated_at = new Date().toISOString();
   await storage.writeIssue(issue);
@@ -1251,15 +1249,15 @@ async function listLabels(storage: Storage): Promise<string[]> {
 
 ```typescript
 interface Dependency {
-  target: string;       // Issue ID this depends on
-  type: 'blocks';       // V1 only supports 'blocks'
+  target: string; // Issue ID this depends on
+  type: 'blocks'; // V1 only supports 'blocks'
 }
 
 async function addDependency(
   issueId: string,
   targetId: string,
   type: string,
-  storage: Storage
+  storage: Storage,
 ): Promise<void> {
   // Validate both issues exist
   const issue = await storage.readIssue(issueId);
@@ -1273,9 +1271,7 @@ async function addDependency(
   }
 
   // Check for duplicate
-  const exists = issue.dependencies.some(
-    d => d.target === targetId && d.type === type
-  );
+  const exists = issue.dependencies.some((d) => d.target === targetId && d.type === type);
   if (exists) {
     throw new CLIError('Dependency already exists');
   }
@@ -1296,10 +1292,10 @@ async function addDependency(
 async function printDependencyTree(
   issueId: string,
   storage: Storage,
-  ctx: CommandContext
+  ctx: CommandContext,
 ): Promise<void> {
   const issues = await storage.listIssues();
-  const issueMap = new Map(issues.map(i => [i.id, i]));
+  const issueMap = new Map(issues.map((i) => [i.id, i]));
   const visited = new Set<string>();
 
   function printNode(id: string, prefix: string, isLast: boolean): void {
@@ -1317,7 +1313,7 @@ async function printDependencyTree(
     console.log(`${prefix}${connector}${formatId(id)} ${issue.title}`);
 
     // Get dependencies of this node
-    const deps = issue.dependencies.filter(d => d.type === 'blocks');
+    const deps = issue.dependencies.filter((d) => d.type === 'blocks');
     deps.forEach((dep, i) => {
       const childPrefix = prefix + (isLast ? '    ' : '│   ');
       printNode(dep.target, childPrefix, i === deps.length - 1);
@@ -1328,7 +1324,7 @@ async function printDependencyTree(
   if (!root) throw new CLIError(`Issue not found: ${issueId}`);
 
   console.log(`${formatId(issueId)} ${root.title}`);
-  const deps = root.dependencies.filter(d => d.type === 'blocks');
+  const deps = root.dependencies.filter((d) => d.type === 'blocks');
   deps.forEach((dep, i) => {
     printNode(dep.target, '', i === deps.length - 1);
   });
@@ -1341,7 +1337,7 @@ async function printDependencyTree(
 ---
 sandbox: true
 env:
-  NO_COLOR: "1"
+  NO_COLOR: '1'
 ---
 
 # Test: Label management
@@ -1378,6 +1374,7 @@ $ tbd dep tree $B
 bd-[..] Issue B
 └── bd-[..] Issue A (blocks)
 ? 0
+```
 ````
 
 ### Phase 7: Sync Operations
@@ -1420,10 +1417,7 @@ bd-[..] Issue B
 **Isolated Index Operations** (protect user’s staging area):
 
 ```typescript
-async function withIsolatedIndex<T>(
-  gitDir: string,
-  fn: () => Promise<T>
-): Promise<T> {
+async function withIsolatedIndex<T>(gitDir: string, fn: () => Promise<T>): Promise<T> {
   const isolatedIndex = path.join(gitDir, 'tbd-index');
   const originalIndex = process.env.GIT_INDEX_FILE;
 
@@ -1476,7 +1470,7 @@ const FIELD_STRATEGIES: Record<keyof Issue, MergeStrategy> = {
   created_by: 'immutable',
 
   // LWW (Last-Write-Wins) - compare updated_at
-  version: 'max',           // Always increment
+  version: 'max', // Always increment
   kind: 'lww',
   title: 'lww',
   description: 'lww',
@@ -1496,7 +1490,7 @@ const FIELD_STRATEGIES: Record<keyof Issue, MergeStrategy> = {
   dependencies: 'union',
 
   // Extensions - deep merge
-  extensions: 'lww',        // Simplified: LWW for whole object
+  extensions: 'lww', // Simplified: LWW for whole object
 };
 ```
 
@@ -1509,9 +1503,9 @@ interface MergeResult {
 }
 
 function mergeIssues(
-  base: Issue | null,      // Common ancestor (or null for new)
-  local: Issue,            // Local version
-  remote: Issue            // Remote version
+  base: Issue | null, // Common ancestor (or null for new)
+  local: Issue, // Local version
+  remote: Issue, // Remote version
 ): MergeResult {
   const conflicts: ConflictEntry[] = [];
 
@@ -1600,13 +1594,13 @@ async function pushWithRetry(ctx: SyncContext): Promise<PushResult> {
       return { success: true, attempt };
     } catch (error) {
       if (!isNonFastForward(error)) {
-        throw error;  // Unrecoverable error
+        throw error; // Unrecoverable error
       }
 
       if (attempt === MAX_PUSH_RETRIES) {
         throw new CLIError(
           `Push failed after ${MAX_PUSH_RETRIES} attempts. ` +
-          `Remote has conflicting changes. Try 'tbd sync --pull' first.`
+            `Remote has conflicting changes. Try 'tbd sync --pull' first.`,
         );
       }
 
@@ -1625,9 +1619,9 @@ async function pushWithRetry(ctx: SyncContext): Promise<PushResult> {
 
 function isNonFastForward(error: unknown): boolean {
   const msg = error instanceof Error ? error.message : String(error);
-  return msg.includes('non-fast-forward') ||
-         msg.includes('fetch first') ||
-         msg.includes('rejected');
+  return (
+    msg.includes('non-fast-forward') || msg.includes('fetch first') || msg.includes('rejected')
+  );
 }
 ```
 
@@ -1645,23 +1639,20 @@ interface AtticEntry {
   resolution: 'lww' | 'manual';
 }
 
-function createAtticEntry(
-  loser: Issue,
-  field: string,
-  lostValue: unknown
-): AtticEntry {
-  const timestamp = new Date().toISOString()
+function createAtticEntry(loser: Issue, field: string, lostValue: unknown): AtticEntry {
+  const timestamp = new Date()
+    .toISOString()
     .replace(/:/g, '-')
-    .replace(/\.\d+Z$/, 'Z');  // is-abc123/2025-01-07T10-30-00Z_description
+    .replace(/\.\d+Z$/, 'Z'); // is-abc123/2025-01-07T10-30-00Z_description
 
   return {
     issue_id: loser.id,
     field,
     timestamp,
     lost_value: lostValue,
-    winner_value: null,  // Filled by caller
+    winner_value: null, // Filled by caller
     local_version: loser.version,
-    remote_version: 0,   // Filled by caller
+    remote_version: 0, // Filled by caller
     resolution: 'lww',
   };
 }
@@ -1712,7 +1703,7 @@ async function getSyncStatus(): Promise<SyncStatus> {
 ---
 sandbox: true
 env:
-  NO_COLOR: "1"
+  NO_COLOR: '1'
 ---
 
 # Test: Sync status shows pending changes
@@ -1798,7 +1789,7 @@ interface SearchOptions {
 function buildSearchCommand(
   tool: 'rg' | 'grep',
   pattern: string,
-  options: SearchOptions
+  options: SearchOptions,
 ): string[] {
   const issuesPath = '.tbd/.worktree/.tbd-sync/issues';
 
@@ -1878,7 +1869,7 @@ async function search(options: SearchOptions): Promise<SearchMatch[]> {
     if (options.kind && issue.kind !== options.kind) continue;
     if (options.status && issue.status !== options.status) continue;
     if (options.labels?.length) {
-      if (!options.labels.every(l => issue.labels.includes(l))) continue;
+      if (!options.labels.every((l) => issue.labels.includes(l))) continue;
     }
 
     matches.push({
@@ -1886,7 +1877,7 @@ async function search(options: SearchOptions): Promise<SearchMatch[]> {
       title: issue.title,
       field,
       lineNumber: parseInt(lineNum),
-      matchText: text.trim()
+      matchText: text.trim(),
     });
   }
 
@@ -1897,7 +1888,7 @@ async function search(options: SearchOptions): Promise<SearchMatch[]> {
 **Worktree Staleness Check**:
 
 ```typescript
-const STALE_THRESHOLD_MS = 5 * 60 * 1000;  // 5 minutes
+const STALE_THRESHOLD_MS = 5 * 60 * 1000; // 5 minutes
 
 async function ensureWorktreeFresh(options?: { noRefresh?: boolean }): Promise<void> {
   if (options?.noRefresh) return;
@@ -1922,7 +1913,7 @@ async function ensureWorktreeFresh(options?: { noRefresh?: boolean }): Promise<v
 ---
 sandbox: true
 env:
-  NO_COLOR: "1"
+  NO_COLOR: '1'
 ---
 
 # Test: Basic search
@@ -2045,13 +2036,13 @@ async function runDoctorChecks(options: { fix?: boolean }): Promise<HealthCheck[
       name: 'Schema version',
       status: 'warning',
       message: `Expected ${CURRENT_SCHEMA_VERSION}, found ${meta?.schema_version}`,
-      fixable: true
+      fixable: true,
     });
   }
 
   // Check 2: Orphaned dependencies
   const issues = await storage.listIssues();
-  const issueIds = new Set(issues.map(i => i.id));
+  const issueIds = new Set(issues.map((i) => i.id));
   const orphaned: Array<{ issue: string; dep: string }> = [];
 
   for (const issue of issues) {
@@ -2069,7 +2060,7 @@ async function runDoctorChecks(options: { fix?: boolean }): Promise<HealthCheck[
       name: 'Orphaned dependencies',
       status: 'warning',
       message: `${orphaned.length} found`,
-      fixable: true
+      fixable: true,
     });
 
     if (options.fix) {
@@ -2090,7 +2081,7 @@ async function runDoctorChecks(options: { fix?: boolean }): Promise<HealthCheck[
     checks.push({
       name: 'Duplicate IDs',
       status: 'error',
-      message: `${duplicates.length} found - manual fix required`
+      message: `${duplicates.length} found - manual fix required`,
     });
   }
 
@@ -2100,7 +2091,7 @@ async function runDoctorChecks(options: { fix?: boolean }): Promise<HealthCheck[
     name: 'Worktree',
     status: worktreeOk ? 'ok' : 'warning',
     message: worktreeOk ? 'healthy' : 'needs rebuild',
-    fixable: !worktreeOk
+    fixable: !worktreeOk,
   });
 
   return checks;
@@ -2149,7 +2140,7 @@ function setConfigValue(config: Config, path: string, value: unknown): void {
 ---
 sandbox: true
 env:
-  NO_COLOR: "1"
+  NO_COLOR: '1'
 ---
 
 # Test: Stats shows issue counts
@@ -2244,14 +2235,13 @@ Example: .tbd-sync/attic/conflicts/is-a1b2c3/2025-01-07T10-30-00Z_description.md
 ---
 issue_id: is-a1b2c3
 field: description
-timestamp: "2025-01-07T10:30:00Z"
+timestamp: '2025-01-07T10:30:00Z'
 local_version: 5
 remote_version: 6
 resolution: lww
 winner: remote
 loser: local
 ---
-
 Original description content that was replaced.
 
 This can be multiple lines of text that was the losing
@@ -2295,9 +2285,7 @@ async function listAtticEntries(filter: AtticFilter): Promise<AtticEntry[]> {
   }
 
   // Sort by timestamp (newest first)
-  entries.sort((a, b) =>
-    new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
-  );
+  entries.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
 
   // Apply limit
   if (filter.limit) {
@@ -2315,10 +2303,7 @@ interface RestoreOptions {
   dryRun?: boolean;
 }
 
-async function restoreAtticEntry(
-  entryPath: string,
-  options: RestoreOptions
-): Promise<void> {
+async function restoreAtticEntry(entryPath: string, options: RestoreOptions): Promise<void> {
   // Parse the attic entry
   const entry = await parseAtticEntry(entryPath);
 
@@ -2339,7 +2324,8 @@ async function restoreAtticEntry(
   }
 
   // Create new attic entry for current value
-  const timestamp = new Date().toISOString()
+  const timestamp = new Date()
+    .toISOString()
     .replace(/:/g, '-')
     .replace(/\.\d+Z$/, 'Z');
 
@@ -2371,7 +2357,7 @@ async function restoreAtticEntry(
 ---
 sandbox: true
 env:
-  NO_COLOR: "1"
+  NO_COLOR: '1'
 ---
 
 # Test: Attic list (empty initially)
@@ -2431,21 +2417,21 @@ Field: description
 ```typescript
 // Each line is a JSON object - one per issue
 interface BeadsExportLine {
-  id: string;           // "bd-a1b2c3" format
+  id: string; // "bd-a1b2c3" format
   title: string;
   description?: string;
   notes?: string;
-  type: string;         // "bug", "feature", "task", "epic"
-  status: string;       // "open", "in_progress", "closed", "tombstone"
-  priority: number;     // 0-5
+  type: string; // "bug", "feature", "task", "epic"
+  status: string; // "open", "in_progress", "closed", "tombstone"
+  priority: number; // 0-5
   assignee?: string;
   labels?: string[];
-  blocks?: string[];    // IDs this issue blocks
-  parent?: string;      // Parent issue ID
-  created_at: string;   // ISO timestamp
+  blocks?: string[]; // IDs this issue blocks
+  parent?: string; // Parent issue ID
+  created_at: string; // ISO timestamp
   updated_at: string;
   closed_at?: string;
-  due?: string;         // Due date
+  due?: string; // Due date
   deferred_until?: string;
   close_reason?: string;
 }
@@ -2471,17 +2457,17 @@ const FIELD_MAP: Record<string, string> = {
   deferred_until: 'deferred_until',
 
   // Renamed fields
-  type: 'kind',         // Beads "type" → Tbd "kind"
-  due: 'due_date',      // Beads "due" → Tbd "due_date"
-  parent: 'parent_id',  // Beads "parent" → Tbd "parent_id"
+  type: 'kind', // Beads "type" → Tbd "kind"
+  due: 'due_date', // Beads "due" → Tbd "due_date"
+  parent: 'parent_id', // Beads "parent" → Tbd "parent_id"
   blocks: 'dependencies', // Transformed to dependency array
 };
 
 const STATUS_MAP: Record<string, string> = {
-  'open': 'open',
-  'in_progress': 'in_progress',
-  'closed': 'closed',
-  'tombstone': 'skip',  // Skip by default, --include-tombstones to convert to closed
+  open: 'open',
+  in_progress: 'in_progress',
+  closed: 'closed',
+  tombstone: 'skip', // Skip by default, --include-tombstones to convert to closed
 };
 ```
 
@@ -2506,21 +2492,15 @@ interface IdMapping {
 async function loadIdMapping(storage: Storage): Promise<IdMapping> {
   const mappingPath = '.tbd-sync/mappings/beads.yml';
   const content = await storage.readFile(mappingPath).catch(() => '');
-  const data = yaml.load(content) as Record<string, string> || {};
+  const data = (yaml.load(content) as Record<string, string>) || {};
 
   const beadsToTbd = new Map(Object.entries(data));
-  const tbdToBeads = new Map(
-    Object.entries(data).map(([k, v]) => [v, k])
-  );
+  const tbdToBeads = new Map(Object.entries(data).map(([k, v]) => [v, k]));
 
   return { beadsToTbd, tbdToBeads };
 }
 
-function getOrCreateTbdId(
-  beadsId: string,
-  mapping: IdMapping,
-  storage: Storage
-): string {
+function getOrCreateTbdId(beadsId: string, mapping: IdMapping, storage: Storage): string {
   // Check existing mapping
   const existing = mapping.beadsToTbd.get(beadsId);
   if (existing) return existing;
@@ -2537,13 +2517,10 @@ function getOrCreateTbdId(
 **Dependency Translation** (convert Beads IDs in deps):
 
 ```typescript
-function translateDependencies(
-  beadsIssue: BeadsExportLine,
-  mapping: IdMapping
-): Dependency[] {
+function translateDependencies(beadsIssue: BeadsExportLine, mapping: IdMapping): Dependency[] {
   if (!beadsIssue.blocks?.length) return [];
 
-  return beadsIssue.blocks.map(beadsTargetId => {
+  return beadsIssue.blocks.map((beadsTargetId) => {
     const tbdTargetId = mapping.beadsToTbd.get(beadsTargetId);
     if (!tbdTargetId) {
       // Target not imported yet - will be resolved on second pass
@@ -2554,24 +2531,23 @@ function translateDependencies(
 }
 
 // Second pass: resolve pending dependencies after all issues imported
-async function resolvePendingDependencies(
-  issues: Issue[],
-  mapping: IdMapping
-): Promise<void> {
+async function resolvePendingDependencies(issues: Issue[], mapping: IdMapping): Promise<void> {
   for (const issue of issues) {
-    issue.dependencies = issue.dependencies.map(dep => {
-      if (dep.target.startsWith('pending:')) {
-        const beadsId = dep.target.replace('pending:', '');
-        const tbdId = mapping.beadsToTbd.get(beadsId);
-        if (tbdId) {
-          return { ...dep, target: tbdId };
+    issue.dependencies = issue.dependencies
+      .map((dep) => {
+        if (dep.target.startsWith('pending:')) {
+          const beadsId = dep.target.replace('pending:', '');
+          const tbdId = mapping.beadsToTbd.get(beadsId);
+          if (tbdId) {
+            return { ...dep, target: tbdId };
+          }
+          // Target not found - log warning and remove
+          console.warn(`Dependency target not found: ${beadsId}`);
+          return null;
         }
-        // Target not found - log warning and remove
-        console.warn(`Dependency target not found: ${beadsId}`);
-        return null;
-      }
-      return dep;
-    }).filter(Boolean);
+        return dep;
+      })
+      .filter(Boolean);
   }
 }
 ```
@@ -2587,12 +2563,13 @@ interface ImportResult {
   errors: ImportError[];
 }
 
-async function importFromJsonl(
-  filePath: string,
-  options: ImportOptions
-): Promise<ImportResult> {
+async function importFromJsonl(filePath: string, options: ImportOptions): Promise<ImportResult> {
   const result: ImportResult = {
-    created: 0, updated: 0, unchanged: 0, skipped: 0, errors: []
+    created: 0,
+    updated: 0,
+    unchanged: 0,
+    skipped: 0,
+    errors: [],
   };
 
   // Load existing ID mapping
@@ -2602,8 +2579,8 @@ async function importFromJsonl(
   const lines = await fs.readFile(filePath, 'utf8');
   const beadsIssues = lines
     .split('\n')
-    .filter(line => line.trim())
-    .map(line => JSON.parse(line) as BeadsExportLine);
+    .filter((line) => line.trim())
+    .map((line) => JSON.parse(line) as BeadsExportLine);
 
   // First pass: create/update issues
   const tbdIssues: Issue[] = [];
@@ -2678,14 +2655,14 @@ async function importFromBeads(options: FromBeadsOptions): Promise<ImportResult>
     for (const issue of issues) {
       const existing = allIssues.get(issue.id);
       if (!existing || issue.updated_at > existing.updated_at) {
-        allIssues.set(issue.id, issue);  // LWW merge
+        allIssues.set(issue.id, issue); // LWW merge
       }
     }
   }
 
   // Convert to JSONL and import
   const jsonl = Array.from(allIssues.values())
-    .map(i => JSON.stringify(i))
+    .map((i) => JSON.stringify(i))
     .join('\n');
 
   const tmpFile = await writeTempFile(jsonl);
@@ -2699,7 +2676,7 @@ async function importFromBeads(options: FromBeadsOptions): Promise<ImportResult>
 ---
 sandbox: true
 env:
-  NO_COLOR: "1"
+  NO_COLOR: '1'
 ---
 
 # Test: Import from JSONL file
@@ -2773,7 +2750,7 @@ Would import from beads2.jsonl:
   - [ ] Test npm pack
   - [ ] Configure release workflow
 
-* * *
+---
 
 ## Stage 5: Validation Stage
 
@@ -2801,7 +2778,7 @@ Would import from beads2.jsonl:
 4. **Published**: npm package published and installable
 5. **Compatible**: Beads import works, CLI flags compatible
 
-* * *
+---
 
 ## Testing Strategy: tryscript Golden Tests
 
@@ -2831,21 +2808,21 @@ Each test file includes YAML frontmatter:
 ```yaml
 ---
 env:
-  NO_COLOR: "1"              # Disable colors for stable output
-  TBD_ACTOR: "test-actor"   # Consistent actor name
-sandbox: true                # Isolate in temp directory
+  NO_COLOR: '1' # Disable colors for stable output
+  TBD_ACTOR: 'test-actor' # Consistent actor name
+sandbox: true # Isolate in temp directory
 ---
 ```
 
 ### Elision Patterns
 
-| Pattern | Matches |
-| --- | --- |
-| `[..]` | Any text on that line |
-| `...` | Zero or more lines |
-| `[CWD]` | Current working directory |
-| `[ROOT]` | Sandbox root directory |
-| `? N` | Exit code N |
+| Pattern  | Matches                   |
+| -------- | ------------------------- |
+| `[..]`   | Any text on that line     |
+| `...`    | Zero or more lines        |
+| `[CWD]`  | Current working directory |
+| `[ROOT]` | Sandbox root directory    |
+| `? N`    | Exit code N               |
 
 ### Running Tests
 
@@ -2877,7 +2854,7 @@ jobs:
       - run: pnpm test:unit
 ```
 
-* * *
+---
 
 ## Open Questions
 
@@ -2893,10 +2870,10 @@ jobs:
 2. **Windows path handling**: Test and fix during Phase 12
 3. **Error message formatting**: Refine during testing
 
-* * *
+---
 
 ## Revision History
 
-| Date | Author | Changes |
-| --- | --- | --- |
+| Date       | Author | Changes                   |
+| ---------- | ------ | ------------------------- |
 | 2026-01-15 | Claude | Initial plan spec created |
