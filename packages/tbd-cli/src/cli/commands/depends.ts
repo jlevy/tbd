@@ -11,7 +11,7 @@ import { readIssue, writeIssue, listIssues } from '../../file/storage.js';
 import { normalizeIssueId } from '../../lib/ids.js';
 import type { Issue } from '../../lib/types.js';
 import { resolveDataSyncDir } from '../../lib/paths.js';
-import { now } from '../../utils/time.js';
+import { now } from '../../utils/timeUtils.js';
 
 // Add dependency
 class DependsAddHandler extends BaseCommand {

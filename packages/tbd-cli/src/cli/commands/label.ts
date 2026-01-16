@@ -10,7 +10,7 @@ import { BaseCommand } from '../lib/baseCommand.js';
 import { readIssue, writeIssue, listIssues } from '../../file/storage.js';
 import { normalizeIssueId } from '../../lib/ids.js';
 import { resolveDataSyncDir } from '../../lib/paths.js';
-import { now } from '../../utils/time.js';
+import { now } from '../../utils/timeUtils.js';
 
 // Add label
 class LabelAddHandler extends BaseCommand {

@@ -10,7 +10,7 @@ import { BaseCommand } from '../lib/baseCommand.js';
 import { readIssue, writeIssue } from '../../file/storage.js';
 import { normalizeIssueId } from '../../lib/ids.js';
 import { resolveDataSyncDir } from '../../lib/paths.js';
-import { now } from '../../utils/time.js';
+import { now } from '../../utils/timeUtils.js';
 
 interface CloseOptions {
   reason?: string;

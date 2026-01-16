@@ -11,7 +11,7 @@ import { listIssues } from '../../file/storage.js';
 import { IssueStatus } from '../../lib/schemas.js';
 import type { Issue, IssueStatusType } from '../../lib/types.js';
 import { resolveDataSyncDir } from '../../lib/paths.js';
-import { nowDate, parseDate } from '../../utils/time.js';
+import { nowDate, parseDate } from '../../utils/timeUtils.js';
 
 interface StaleOptions {
   days?: string;

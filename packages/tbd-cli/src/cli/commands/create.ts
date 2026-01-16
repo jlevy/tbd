@@ -13,7 +13,7 @@ import { generateInternalId } from '../../lib/ids.js';
 import { writeIssue } from '../../file/storage.js';
 import { IssueKind, Priority } from '../../lib/schemas.js';
 import { resolveDataSyncDir } from '../../lib/paths.js';
-import { now } from '../../utils/time.js';
+import { now } from '../../utils/timeUtils.js';
 
 interface CreateOptions {
   fromFile?: string;

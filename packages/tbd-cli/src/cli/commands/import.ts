@@ -17,7 +17,7 @@ import { generateInternalId } from '../../lib/ids.js';
 import { IssueStatus, IssueKind } from '../../lib/schemas.js';
 import type { Issue, IssueStatusType, IssueKindType, DependencyType } from '../../lib/types.js';
 import { resolveDataSyncDir, resolveMappingsDir } from '../../lib/paths.js';
-import { now, normalizeTimestamp } from '../../utils/time.js';
+import { now, normalizeTimestamp } from '../../utils/timeUtils.js';
 
 interface ImportOptions {
   fromBeads?: boolean;
