@@ -104,6 +104,52 @@ git commit --no-verify
 git push --no-verify
 ```
 
+## Commit Conventions
+
+We use [Conventional Commits](https://www.conventionalcommits.org/) for commit messages.
+
+### Format
+
+```
+<type>: <description>
+
+[optional body]
+
+[optional footer(s)]
+```
+
+### Types
+
+- `feat`: New feature
+- `fix`: Bug fix
+- `docs`: Documentation only
+- `style`: Code style (formatting, no logic change)
+- `refactor`: Code change that neither fixes a bug nor adds a feature
+- `test`: Adding or updating tests
+- `chore`: Maintenance tasks (deps, config, etc.)
+
+### Examples
+
+```
+feat: Add support for custom labels
+
+fix: Handle empty issue list gracefully
+
+docs: Update CLI usage examples
+
+test: Add golden tests for sync command
+
+chore: Update dependencies
+```
+
+### Notes
+
+- **No scope by default**: Don't include a scope like `fix(tbd-cli):` for the main
+  codebase. Only use a scope when it provides key disambiguation or clarification (e.g.,
+  `fix(parser):` vs `fix(cli):` when the distinction matters).
+- Keep the first line under 72 characters
+- Use imperative mood ("Add feature" not "Added feature")
+
 ## Creating Releases
 
 We use [Changesets](https://github.com/changesets/changesets) for versioning.
