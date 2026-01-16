@@ -183,6 +183,16 @@ export async function createTestDir(): Promise<string> {
 }
 
 /**
+ * Create a temporary test directory WITHOUT tbd initialized.
+ * Used for testing uninitialized behavior.
+ */
+export async function createUninitializedTestDir(): Promise<string> {
+  const testDir = join(tmpdir(), `tbd-golden-${randomBytes(4).toString('hex')}`);
+  await mkdir(testDir, { recursive: true });
+  return testDir;
+}
+
+/**
  * Clean up test directory.
  */
 export async function cleanupTestDir(testDir: string): Promise<void> {

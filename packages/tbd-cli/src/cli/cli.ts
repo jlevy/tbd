@@ -89,6 +89,7 @@ export async function runCli(): Promise<void> {
     await program.parseAsync(process.argv);
   } catch (error) {
     if (error instanceof CLIError) {
+      console.error(`Error: ${error.message}`);
       process.exit(error.exitCode);
     }
     // Unexpected error

@@ -12,6 +12,7 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import {
   runCommand,
   createTestDir,
+  createUninitializedTestDir,
   cleanupTestDir,
   getCliPath,
   readGoldenFile,
@@ -132,6 +133,32 @@ describe('golden tests', () => {
   });
 
   describe('error handling', () => {
+    it(
+      'handles uninitialized tbd list',
+      async () => {
+        // Create uninitialized directory (no .tbd folder)
+        const uninitDir = await createUninitializedTestDir();
+
+        try {
+          const results: CommandResult[] = [];
+
+          // Try to list issues in uninitialized directory
+          results.push(await runCommand(uninitDir, cliPath, ['list']));
+
+          const scenario: GoldenScenario = {
+            name: 'uninitialized-list',
+            description: 'Error handling for list command in uninitialized directory',
+            results,
+          };
+
+          await verifyGolden('uninitialized-list', scenario);
+        } finally {
+          await cleanupTestDir(uninitDir);
+        }
+      },
+      GOLDEN_TEST_TIMEOUT,
+    );
+
     it(
       'handles missing issue',
       async () => {

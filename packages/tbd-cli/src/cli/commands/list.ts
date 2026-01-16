@@ -7,8 +7,10 @@
 import { Command } from 'commander';
 
 import { BaseCommand } from '../lib/baseCommand.js';
+import { NotInitializedError } from '../lib/errors.js';
 import type { Issue, IssueStatusType, IssueKindType } from '../../lib/types.js';
 import { listIssues } from '../../file/storage.js';
+import { isInitialized } from '../../file/config.js';
 import { formatDisplayId } from '../../lib/ids.js';
 
 interface ListOptions {
@@ -30,12 +32,17 @@ const ISSUES_BASE_DIR = '.tbd-sync';
 
 class ListHandler extends BaseCommand {
   async run(options: ListOptions): Promise<void> {
+    // Check if tbd is initialized
+    if (!(await isInitialized(process.cwd()))) {
+      throw new NotInitializedError();
+    }
+
     let issues: Issue[];
 
     try {
       issues = await listIssues(ISSUES_BASE_DIR);
     } catch {
-      this.output.error('Failed to read issues. Is tbd initialized?');
+      this.output.error('Failed to read issues');
       return;
     }
 

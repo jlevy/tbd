@@ -6,7 +6,7 @@
  * See: tbd-design-v3.md §2.2.2 Config File
  */
 
-import { readFile, mkdir } from 'node:fs/promises';
+import { readFile, mkdir, access } from 'node:fs/promises';
 import { join } from 'node:path';
 import { parse as parseYaml, stringify as stringifyYaml } from 'yaml';
 
@@ -76,4 +76,18 @@ export async function writeConfig(baseDir: string, config: Config): Promise<void
   });
 
   await atomicWriteFile(configPath, yaml);
+}
+
+/**
+ * Check if tbd is initialized in the given directory.
+ * Returns true if .tbd/ directory exists.
+ */
+export async function isInitialized(baseDir: string): Promise<boolean> {
+  const tbdDir = join(baseDir, '.tbd');
+  try {
+    await access(tbdDir);
+    return true;
+  } catch {
+    return false;
+  }
 }
