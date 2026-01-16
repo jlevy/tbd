@@ -10,9 +10,7 @@ import { BaseCommand } from '../lib/baseCommand.js';
 import { readIssue } from '../../file/storage.js';
 import { serializeIssue } from '../../file/parser.js';
 import { normalizeIssueId } from '../../lib/ids.js';
-
-// Base directory for issues
-const ISSUES_BASE_DIR = '.tbd-sync';
+import { DATA_SYNC_DIR } from '../../lib/paths.js';
 
 class ShowHandler extends BaseCommand {
   async run(id: string): Promise<void> {
@@ -21,7 +19,7 @@ class ShowHandler extends BaseCommand {
 
     let issue;
     try {
-      issue = await readIssue(ISSUES_BASE_DIR, normalizedId);
+      issue = await readIssue(DATA_SYNC_DIR, normalizedId);
     } catch {
       this.output.error(`Issue not found: ${id}`);
       return;

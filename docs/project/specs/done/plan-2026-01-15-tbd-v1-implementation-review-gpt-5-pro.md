@@ -32,8 +32,8 @@ The biggest themes:
 1. **Schema/serialization mismatch**: “explicit nulls” vs Zod “optional fields” +
    examples using `null`.
 2. **Git write path ambiguity/mismatch**: plan uses `GIT_INDEX_FILE` +
-   `git add .tbd-sync/` without clearly operating in a worktree that contains
-   `.tbd-sync/`.
+   `git add .tbd/data-sync/` without clearly operating in a worktree that contains
+   `.tbd/data-sync/`.
 3. **CLI contract mismatches & option parsing bugs**: `--quiet` is used in tests but not
    defined; `--no-sync` is a Commander negated option but the plan reads `opts.noSync`
    (likely wrong); missing `warn()` method in OutputManager; environment variable naming
@@ -158,7 +158,7 @@ IDs is still < 1), but the stated “1% at 13,000” is backwards.
 ☑️ **REVIEWED** - Design doc already specifies hidden worktree approach (Option A).
 
 **Assessment:** The design doc (§2.3 “Hidden Worktree Model”, Decision 7) clearly
-endorses Option A - all sync-branch operations happen inside `.tbd/sync-worktree/`. The plan
+endorses Option A - all sync-branch operations happen inside `.tbd/data-sync-worktree/`. The plan
 pseudocode may have mixed approaches that should be clarified to consistently use
 worktree commits.
 
@@ -172,8 +172,8 @@ worktree commits.
 work:
 
 - It sets `GIT_INDEX_FILE` (isolated index), does `git read-tree tbd-sync`, then runs
-  `git add .tbd-sync/`.
-- But `.tbd-sync/` is **not present** on main branch worktree; it’s on `tbd-sync` branch
+  `git add .tbd/data-sync/`.
+- But `.tbd/data-sync/` is **not present** on main branch worktree; it’s on `tbd-sync` branch
   (and your hidden worktree holds that).
 - `git add` is a porcelain command that depends on a working tree containing the files.
 
@@ -182,7 +182,7 @@ plan.
 
 #### Option A (recommended for V1): **Do all sync-branch writes inside the hidden worktree**
 
-- Treat `.tbd/sync-worktree` as the local working copy of the sync branch data.
+- Treat `.tbd/data-sync-worktree` as the local working copy of the sync branch data.
 - Modify files there, commit there, push `HEAD:refs/heads/tbd-sync`.
 - This naturally avoids touching the user’s main index; `GIT_INDEX_FILE` becomes
   unnecessary.

@@ -338,7 +338,7 @@ Tbd is organized into distinct layers, each with clear responsibilities:
 ┌──────────────────────────────┼───────────────────────────────────┐
 │                        File Layer                                │
 │                        Format specification                      │
-│   .tbd/config.yml │ .tbd-sync/ │ JSON schemas (Zod)         │
+│   .tbd/config.yml │ .tbd/data-sync/ │ JSON schemas (Zod)         │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
@@ -446,7 +446,7 @@ Tbd uses two directories with a clear separation of concerns:
 - **`.tbd/`** on the main branch (and all working branches): Configuration and local
   files
 
-- **`.tbd-sync/`** on the `tbd-sync` branch: Synced data (entities, attic, metadata)
+- **`.tbd/data-sync/`** on the `tbd-sync` branch: Synced data (entities, attic, metadata)
 
 #### On Main Branch (all working branches)
 
@@ -474,7 +474,7 @@ Tbd uses two directories with a clear separation of concerns:
 #### On `tbd-sync` Branch
 
 ```
-.tbd-sync/
+.tbd/data-sync/
 ├── nodes/                     # Shared graph entities
 │   ├── issues/                # Issue nodes
 │   │   ├── is-a1b2.json
@@ -498,7 +498,7 @@ Tbd uses two directories with a clear separation of concerns:
 
 > **Note on directory split**: The `.tbd/` directory on main contains configuration
 > (which versions with your code) and local-only files (which are gitignored).
-> The `.tbd-sync/` directory on the sync branch contains all shared data.
+> The `.tbd/data-sync/` directory on the sync branch contains all shared data.
 > This separation ensures synced data never causes merge conflicts on your working
 > branches.
 
@@ -513,7 +513,7 @@ Tbd uses two directories with a clear separation of concerns:
 Tbd uses a uniform pattern for all node types.
 Each collection is:
 
-1. **A directory** under `.tbd-sync/nodes/` (on the sync branch)
+1. **A directory** under `.tbd/data-sync/nodes/` (on the sync branch)
 
 2. **A Zod schema** defining the entity structure
 
@@ -523,7 +523,7 @@ Each collection is:
 
 To add a new node type (e.g., `workflows`):
 
-1. Create directory: `.tbd-sync/nodes/workflows/` (on sync branch)
+1. Create directory: `.tbd/data-sync/nodes/workflows/` (on sync branch)
 
 2. Define schema: `WorkflowSchema` in Zod
 
@@ -540,9 +540,9 @@ Only the merge rules (in Git Layer) need updating for new node types.
 
 | Collection | Directory | Internal Prefix | Purpose |
 | --- | --- | --- | --- |
-| Issues | `.tbd-sync/nodes/issues/` | `is-` | Task tracking |
-| Agents | `.tbd-sync/nodes/agents/` | `ag-` | Agent registry |
-| Messages | `.tbd-sync/nodes/messages/` | `ms-` | Comments on issues (and future messaging) |
+| Issues | `.tbd/data-sync/nodes/issues/` | `is-` | Task tracking |
+| Agents | `.tbd/data-sync/nodes/agents/` | `ag-` | Agent registry |
+| Messages | `.tbd/data-sync/nodes/messages/` | `ms-` | Comments on issues (and future messaging) |
 
 #### Non-Node Collections (on main branch, gitignored)
 
@@ -558,9 +558,9 @@ Only the merge rules (in Git Layer) need updating for new node types.
 
 | Collection | Directory | Internal Prefix | Purpose |
 | --- | --- | --- | --- |
-| Templates | `.tbd-sync/nodes/templates/` | `tp-` | Issue templates |
-| Workflows | `.tbd-sync/nodes/workflows/` | `wf-` | Multi-step procedures |
-| Artifacts | `.tbd-sync/nodes/artifacts/` | `ar-` | File attachments |
+| Templates | `.tbd/data-sync/nodes/templates/` | `tp-` | Issue templates |
+| Workflows | `.tbd/data-sync/nodes/workflows/` | `wf-` | Multi-step procedures |
+| Artifacts | `.tbd/data-sync/nodes/artifacts/` | `ar-` | File attachments |
 
 > **Note**: Messages support comments on issues and replies to other messages via
 > `in_reply_to`. Messages are time-sorted by `created_at`. Future extensions (threading
@@ -675,7 +675,7 @@ tbd:
   project_prefix: proj # User-configurable, e.g., "myapp", "backend"
 ```
 
-The prefix is **not stored** in `.tbd-sync/`—it’s purely a display concern.
+The prefix is **not stored** in `.tbd/data-sync/`—it’s purely a display concern.
 Users can rename the prefix at any time without breaking references.
 
 ##### Short ID Generation
@@ -774,7 +774,7 @@ Short ID mappings are stored as **one file per short ID**, following the same pa
 entity storage:
 
 ```
-.tbd-sync/short-ids/
+.tbd/data-sync/short-ids/
 ├── a1b.json     # {"internal_id": "is-a1b2c3d4e5"}
 ├── x7k.json     # {"internal_id": "is-x7y8z9a0b1"}
 └── m3p9.json    # {"internal_id": "is-m3n4o5p6q7"}
@@ -1236,7 +1236,7 @@ type Config = z.infer<typeof ConfigSchema>;
 
 #### 2.5.8 MetaSchema
 
-Shared metadata stored in `.tbd-sync/meta.json` on the sync branch.
+Shared metadata stored in `.tbd/data-sync/meta.json` on the sync branch.
 This file tracks schema versions and repository-wide metadata—it is managed by the
 system, not edited by users.
 
@@ -1334,7 +1334,7 @@ type AtticEntry = z.infer<typeof AtticEntrySchema>;
 
 #### Version Tracking
 
-Schema versions are tracked in `.tbd-sync/meta.json` (on the sync branch):
+Schema versions are tracked in `.tbd/data-sync/meta.json` (on the sync branch):
 
 ```json
 {
@@ -1387,9 +1387,9 @@ tbd doctor --check-schema
 tbd migrate --to 2
 
 # What it does:
-# 1. Backs up all entities to .tbd-sync/attic/migrations/
+# 1. Backs up all entities to .tbd/data-sync/attic/migrations/
 # 2. Transforms each entity to new schema
-# 3. Updates .tbd-sync/meta.json schema_versions
+# 3. Updates .tbd/data-sync/meta.json schema_versions
 # 4. Syncs to propagate changes
 ```
 
@@ -1438,7 +1438,7 @@ Tbd uses a split architecture with configuration on main and data on a sync bran
 
 ```
 main branch:                    tbd-sync branch:
-├── src/                        └── .tbd-sync/
+├── src/                        └── .tbd/data-sync/
 ├── tests/                          ├── nodes/
 ├── README.md                       │   ├── issues/
 ├── .tbd/                         │   ├── agents/
@@ -1483,10 +1483,10 @@ local/
 #### Files Tracked on tbd-sync Branch
 
 ```
-.tbd-sync/nodes/          # All node types (issues, agents, messages)
-.tbd-sync/attic/          # Conflict and orphan archive
-.tbd-sync/short-ids/      # Short ID → Internal ID mappings (one file per)
-.tbd-sync/meta.json       # Shared metadata (schema versions)
+.tbd/data-sync/nodes/          # All node types (issues, agents, messages)
+.tbd/data-sync/attic/          # Conflict and orphan archive
+.tbd/data-sync/short-ids/      # Short ID → Internal ID mappings (one file per)
+.tbd/data-sync/meta.json       # Shared metadata (schema versions)
 ```
 
 #### Files Never Tracked (Local Only)
@@ -1523,10 +1523,10 @@ function parseVersion(content: string): number {
 
 ```bash
 # Read a file from sync branch without checkout
-git show tbd-sync:.tbd-sync/nodes/issues/is-a1b2.json
+git show tbd-sync:.tbd/data-sync/nodes/issues/is-a1b2.json
 
 # List files in a directory on sync branch
-git ls-tree tbd-sync .tbd-sync/nodes/issues/
+git ls-tree tbd-sync .tbd/data-sync/nodes/issues/
 ```
 
 #### 3.3.3 File-Level Sync Algorithm
@@ -1536,7 +1536,7 @@ For each file, compare local and remote by **content hash first** (not version):
 ```
 SYNC_FILE(local_path, sync_path):
   local = read_file(local_path)                    # May be null (in .tbd/local/nodes/)
-  remote = git show tbd-sync:{sync_path}         # May be null (in .tbd-sync/)
+  remote = git show tbd-sync:{sync_path}         # May be null (in .tbd/data-sync/)
 
   if local is null and remote is null:
     return  # Nothing to do
@@ -1585,7 +1585,7 @@ Fetch remote changes and apply to local cache:
 # 1. Fetch latest sync branch
 git fetch origin tbd-sync
 
-# 2. For each collection, sync files from .tbd-sync/ to local cache
+# 2. For each collection, sync files from .tbd/data-sync/ to local cache
 #    (implementation iterates and applies SYNC_FILE)
 
 # 3. Update .tbd/local/state.json with last_sync timestamp (local only)
@@ -1598,14 +1598,14 @@ Expressed as git commands:
 git fetch origin tbd-sync
 
 # Get list of remote files
-git ls-tree -r --name-only origin/tbd-sync .tbd-sync/
+git ls-tree -r --name-only origin/tbd-sync .tbd/data-sync/
 
 # Read specific remote file
-git show origin/tbd-sync:.tbd-sync/nodes/issues/is-a1b2.json
+git show origin/tbd-sync:.tbd/data-sync/nodes/issues/is-a1b2.json
 
 # Copy remote file to local cache (if remote is newer)
-# Note: local cache is in .tbd/local/cache/ or memory, not .tbd-sync/
-git show origin/tbd-sync:.tbd-sync/nodes/issues/is-a1b2.json
+# Note: local cache is in .tbd/local/cache/ or memory, not .tbd/data-sync/
+git show origin/tbd-sync:.tbd/data-sync/nodes/issues/is-a1b2.json
 ```
 
 #### 3.3.5 Push Operation
@@ -1620,7 +1620,7 @@ git fetch origin tbd-sync
 
 # 3. Create a tree with updated files
 git read-tree tbd-sync
-git add .tbd-sync/nodes/ .tbd-sync/attic/ .tbd-sync/short-ids/ .tbd-sync/meta.json
+git add .tbd/data-sync/nodes/ .tbd/data-sync/attic/ .tbd/data-sync/short-ids/ .tbd/data-sync/meta.json
 git write-tree
 
 # 4. Create commit on sync branch
@@ -1973,12 +1973,12 @@ function mergeSet3Way(base: string[] | null, ours: string[], theirs: string[]): 
 ### 3.7 Attic Structure
 
 The attic preserves data that would otherwise be lost, enabling recovery and auditing.
-It lives on the sync branch in `.tbd-sync/attic/`.
+It lives on the sync branch in `.tbd/data-sync/attic/`.
 
 #### Directory Layout
 
 ```
-.tbd-sync/attic/
+.tbd/data-sync/attic/
 ├── conflicts/                 # Merge conflict losers
 │   ├── is-a1b2/
 │   │   ├── 20250107T103000Z_description_theirs.json
@@ -2027,7 +2027,7 @@ Each attic file contains the `AtticEntrySchema` (defined in File Layer 2.5.10):
 {
   "kind": "field_conflict",
   "entity_id": "is-a1b2c3d4e5",
-  "path": ".tbd-sync/nodes/issues/is-a1b2c3d4e5.json",
+  "path": ".tbd/data-sync/nodes/issues/is-a1b2c3d4e5.json",
   "field": "description",
   "timestamp": "2025-01-07T10:30:00Z",
 
@@ -2158,7 +2158,7 @@ tbd init
 # What it does:
 # 1. Creates .tbd/ directory with config.yml and .gitignore
 # 2. Creates local subdirectory tree (.tbd/local/nodes/, .tbd/local/cache/)
-# 3. Creates tbd-sync branch with .tbd-sync/ structure
+# 3. Creates tbd-sync branch with .tbd/data-sync/ structure
 # 4. Pushes sync branch to origin (if remote exists)
 # 5. Returns to original branch
 # 6. Outputs instructions for user to commit config files
@@ -2193,7 +2193,7 @@ To complete setup, commit the config files:
 **What gets created on tbd-sync branch:**
 
 ```
-.tbd-sync/
+.tbd/data-sync/
 ├── nodes/
 │   ├── issues/     # Empty
 │   ├── agents/     # Empty
@@ -2813,7 +2813,7 @@ Key properties:
 ┌─────────────────────────────────────────────────────────────────┐
 │                      Tbd Core (Git)                            │
 │                      Source of truth                             │
-│   .tbd-sync/nodes/issues/is-a1b2.json                         │
+│   .tbd/data-sync/nodes/issues/is-a1b2.json                         │
 │     {                                                            │
 │       "id": "is-a1b2",                                          │
 │       "title": "Fix auth bug",                                  │
@@ -3046,7 +3046,7 @@ Agent A                    Slack                     Agent B
    │                         │                          │
    │                   (optional)                       │
    │                         │                          │
-   │            Archive to .tbd-sync/nodes/messages/  │
+   │            Archive to .tbd/data-sync/nodes/messages/  │
 ```
 
 #### Configuration
@@ -3189,7 +3189,7 @@ The Local UI Bridge validates our architecture by showing that:
                             │ sync
                             ▼
               ┌─────────────────────────────┐
-              │   .tbd-sync/ (git)        │
+              │   .tbd/data-sync/ (git)        │
               │     nodes/, attic/          │
               │    (synced via git)         │
               └─────────────────────────────┘
@@ -3876,7 +3876,7 @@ File system watching for UIs and IDEs:
 #### Decision 1: Split Architecture (Config on Main, Data on Sync Branch)
 
 **Choice**: Configuration (`.tbd/config.yml`) lives on main branch; synced entities live
-exclusively on `tbd-sync` branch in `.tbd-sync/` directory.
+exclusively on `tbd-sync` branch in `.tbd/data-sync/` directory.
 
 **Rationale**:
 
@@ -3893,7 +3893,7 @@ exclusively on `tbd-sync` branch in `.tbd-sync/` directory.
 - Issues shared across all code branches (correct for multi-agent use case)
 
 **Tradeoff**: Two locations to understand (config on main, data on sync branch).
-Mitigated by clear naming (`.tbd/` for config/local, `.tbd-sync/` for synced data) and
+Mitigated by clear naming (`.tbd/` for config/local, `.tbd/data-sync/` for synced data) and
 `tbd init` setting up both locations.
 
 #### Decision 2: File-Per-Entity
@@ -4095,7 +4095,7 @@ How to update sync branch without checking it out?
 
    - Pro: Easier to debug (normal git commands work)
 
-   - Con: Extra disk space (~size of `.tbd-sync/` directory)
+   - Con: Extra disk space (~size of `.tbd/data-sync/` directory)
 
 3. **Shallow clone of sync branch**
 
@@ -4120,7 +4120,7 @@ git push -u origin tbd-sync
 cd .tbd/local/worktrees/tbd-sync
 git fetch origin tbd-sync
 git merge origin/tbd-sync  # 3-way merge with merge driver if configured
-git add .tbd-sync/
+git add .tbd/data-sync/
 git commit -m "tbd sync: $(date -Iseconds)"
 git push origin tbd-sync
 ```
@@ -4196,7 +4196,7 @@ tbd import beads-export.jsonl --format beads
 A mapping file is created during import (stored on sync branch for audit trail):
 
 ```json
-// .tbd-sync/migrations/beads-import-2025-01-07.json
+// .tbd/data-sync/migrations/beads-import-2025-01-07.json
 {
   "bd-a1b2": "is-x1y2",
   "bd-f14c": "is-a3b4"
@@ -4250,7 +4250,7 @@ This allows references in commit messages to be traced to new IDs.
 **On tbd-sync branch:**
 
 ```
-.tbd-sync/
+.tbd/data-sync/
 ├── nodes/                     # Shared graph entities
 │   ├── issues/                # Issue nodes
 │   │   ├── is-a1b2.json
@@ -4290,9 +4290,9 @@ local/
 #### Files Tracked on tbd-sync Branch
 
 ```
-.tbd-sync/nodes/          # All node types (issues, agents, messages)
-.tbd-sync/attic/          # Conflict and orphan archive
-.tbd-sync/meta.json       # Runtime metadata
+.tbd/data-sync/nodes/          # All node types (issues, agents, messages)
+.tbd/data-sync/attic/          # Conflict and orphan archive
+.tbd/data-sync/meta.json       # Runtime metadata
 ```
 
 #### Files Never Tracked (Local Only)
@@ -4335,7 +4335,7 @@ settings:
 
 #### Example Node Files
 
-**Issue** (`.tbd-sync/nodes/issues/is-a1b2.json`):
+**Issue** (`.tbd/data-sync/nodes/issues/is-a1b2.json`):
 
 ```json
 {
@@ -4355,7 +4355,7 @@ settings:
 }
 ```
 
-**Issue with children** (`.tbd-sync/nodes/issues/is-e5f6.json`):
+**Issue with children** (`.tbd/data-sync/nodes/issues/is-e5f6.json`):
 
 ```json
 {
@@ -4375,7 +4375,7 @@ settings:
 }
 ```
 
-**Child issue** (`.tbd-sync/nodes/issues/is-c3d4.json`):
+**Child issue** (`.tbd/data-sync/nodes/issues/is-c3d4.json`):
 
 ```json
 {
@@ -4394,7 +4394,7 @@ settings:
 }
 ```
 
-**Message (comment on issue)** (`.tbd-sync/nodes/messages/ms-p1q2.json`):
+**Message (comment on issue)** (`.tbd/data-sync/nodes/messages/ms-p1q2.json`):
 
 ```json
 {
@@ -4410,7 +4410,7 @@ settings:
 }
 ```
 
-**Agent** (`.tbd-sync/nodes/agents/ag-x1y2.json`):
+**Agent** (`.tbd/data-sync/nodes/agents/ag-x1y2.json`):
 
 ```json
 {
@@ -4453,7 +4453,7 @@ settings:
 }
 ```
 
-**Meta** (`.tbd-sync/meta.json` on sync branch):
+**Meta** (`.tbd/data-sync/meta.json` on sync branch):
 
 ```json
 {

@@ -10,12 +10,13 @@ import { randomBytes } from 'node:crypto';
 
 import { writeIssue, listIssues } from '../src/file/storage.js';
 import type { Issue } from '../src/lib/types.js';
+import { DATA_SYNC_DIR, TBD_DIR } from '../src/lib/paths.js';
 import { TEST_ULIDS, testId } from './test-helpers.js';
 
 describe('doctor command logic', () => {
   let testDir: string;
-  const issuesDir = '.tbd-sync';
-  const configDir = '.tbd';
+  const issuesDir = DATA_SYNC_DIR;
+  const configDir = TBD_DIR;
 
   beforeEach(async () => {
     testDir = join(tmpdir(), `tbd-doctor-test-${randomBytes(4).toString('hex')}`);
@@ -152,7 +153,7 @@ describe('doctor command logic', () => {
 
 describe('sync status logic', () => {
   let testDir: string;
-  const issuesDir = '.tbd-sync';
+  const issuesDir = DATA_SYNC_DIR;
 
   beforeEach(async () => {
     testDir = join(tmpdir(), `tbd-sync-test-${randomBytes(4).toString('hex')}`);

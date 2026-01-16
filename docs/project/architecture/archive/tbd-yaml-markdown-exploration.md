@@ -482,10 +482,10 @@ The YAML front matter and directory location already identify these as Tbd issue
 
 ```
 # Current (JSON)
-.tbd-sync/issues/is-a1b2c3.json
+.tbd/data-sync/issues/is-a1b2c3.json
 
 # Proposed (Markdown)
-.tbd-sync/issues/is-a1b2c3.md
+.tbd/data-sync/issues/is-a1b2c3.md
 ```
 
 ### 1.2 Schema Changes
@@ -695,7 +695,7 @@ Minimal changes - just file extensions:
 
 ```
 # On tbd-sync branch
-.tbd-sync/
+.tbd/data-sync/
 ├── issues/
 │   ├── is-a1b2c3.md          # Was .json
 │   ├── is-f14c3d.md
@@ -732,7 +732,7 @@ not user-edited. This is an implementation choice.
 # No change to interface
 tbd create "Fix bug" -t bug -p 1 -d "Description here"
 
-# Creates .tbd-sync/issues/is-a1b2c3.md
+# Creates .tbd/data-sync/issues/is-a1b2c3.md
 ```
 
 #### Show Command
@@ -1003,30 +1003,30 @@ tbd validate ./issue-review/
 
 ```bash
 # Find all high-priority bugs
-grep -l "priority: [01]" .tbd-sync/issues/*.md | \
+grep -l "priority: [01]" .tbd/data-sync/issues/*.md | \
   xargs grep -l "kind: bug"
 
 # List issues by assignee
-for f in .tbd-sync/issues/*.md; do
+for f in .tbd/data-sync/issues/*.md; do
   assignee=$(grep "^assignee:" "$f" | cut -d: -f2 | tr -d ' ')
   echo "$assignee: $(basename $f)"
 done | sort
 
 # Bulk status change via sed (then sync)
-sed -i 's/status: open/status: deferred/' .tbd-sync/issues/is-old*.md
+sed -i 's/status: open/status: deferred/' .tbd/data-sync/issues/is-old*.md
 
 # Count issues by status
-grep -h "^status:" .tbd-sync/issues/*.md | sort | uniq -c
+grep -h "^status:" .tbd/data-sync/issues/*.md | sort | uniq -c
 ```
 
 #### Integration with ripgrep/fzf
 
 ```bash
 # Interactive issue search
-rg --type md "authentication" .tbd-sync/issues/ | fzf
+rg --type md "authentication" .tbd/data-sync/issues/ | fzf
 
 # Find issues mentioning a file
-rg "session.ts" .tbd-sync/issues/
+rg "session.ts" .tbd/data-sync/issues/
 ```
 
 ### 2.4 Inline Comments

@@ -12,6 +12,7 @@ import type { Issue, IssueStatusType, IssueKindType } from '../../lib/types.js';
 import { listIssues } from '../../file/storage.js';
 import { isInitialized } from '../../file/config.js';
 import { formatDisplayId } from '../../lib/ids.js';
+import { DATA_SYNC_DIR } from '../../lib/paths.js';
 
 interface ListOptions {
   status?: IssueStatusType;
@@ -27,9 +28,6 @@ interface ListOptions {
   limit?: string;
 }
 
-// Base directory for issues
-const ISSUES_BASE_DIR = '.tbd-sync';
-
 class ListHandler extends BaseCommand {
   async run(options: ListOptions): Promise<void> {
     // Check if tbd is initialized
@@ -40,7 +38,7 @@ class ListHandler extends BaseCommand {
     let issues: Issue[];
 
     try {
-      issues = await listIssues(ISSUES_BASE_DIR);
+      issues = await listIssues(DATA_SYNC_DIR);
     } catch {
       this.output.error('Failed to read issues');
       return;

@@ -1,6 +1,6 @@
 # Test artifacts
 .tbd/
-.tbd-sync/
+.tbd/data-sync/
 
 # Coverage
 coverage/

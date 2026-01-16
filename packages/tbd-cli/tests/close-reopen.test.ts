@@ -10,11 +10,12 @@ import { randomBytes } from 'node:crypto';
 
 import { writeIssue, readIssue } from '../src/file/storage.js';
 import type { Issue } from '../src/lib/types.js';
+import { DATA_SYNC_DIR } from '../src/lib/paths.js';
 import { TEST_ULIDS, testId } from './test-helpers.js';
 
 describe('close command logic', () => {
   let testDir: string;
-  const issuesDir = '.tbd-sync';
+  const issuesDir = DATA_SYNC_DIR;
 
   beforeEach(async () => {
     testDir = join(tmpdir(), `tbd-close-test-${randomBytes(4).toString('hex')}`);
@@ -122,7 +123,7 @@ describe('close command logic', () => {
 
 describe('reopen command logic', () => {
   let testDir: string;
-  const issuesDir = '.tbd-sync';
+  const issuesDir = DATA_SYNC_DIR;
 
   beforeEach(async () => {
     testDir = join(tmpdir(), `tbd-reopen-test-${randomBytes(4).toString('hex')}`);
@@ -269,7 +270,7 @@ describe('reopen command logic', () => {
 
 describe('close/reopen file format', () => {
   let testDir: string;
-  const issuesDir = '.tbd-sync';
+  const issuesDir = DATA_SYNC_DIR;
 
   beforeEach(async () => {
     testDir = join(tmpdir(), `tbd-format-test-${randomBytes(4).toString('hex')}`);

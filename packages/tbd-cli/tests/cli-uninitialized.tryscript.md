@@ -59,7 +59,7 @@ No issues found
 
 # Test: Show without init gives error
 
-Show command fails gracefully since no .tbd-sync directory exists.
+Show command fails gracefully since no .tbd/data-sync directory exists.
 
 ```console
 $ node $TRYSCRIPT_TEST_DIR/../dist/bin.mjs show bd-1234
@@ -117,7 +117,7 @@ $ ls .tbd/config.yml
 # Test: Sync directory exists
 
 ```console
-$ ls .tbd-sync/
+$ ls .tbd/data-sync/
 issues
 ...
 ? 0

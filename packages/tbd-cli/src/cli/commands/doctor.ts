@@ -12,10 +12,9 @@ import { BaseCommand } from '../lib/baseCommand.js';
 import { listIssues } from '../../file/storage.js';
 import { readConfig } from '../../file/config.js';
 import type { Issue } from '../../lib/types.js';
+import { DATA_SYNC_DIR, TBD_DIR } from '../../lib/paths.js';
 
-// Base directory for issues
-const ISSUES_BASE_DIR = '.tbd-sync';
-const CONFIG_DIR = '.tbd';
+const CONFIG_DIR = TBD_DIR;
 
 interface DoctorOptions {
   fix?: boolean;
@@ -44,7 +43,7 @@ class DoctorHandler extends BaseCommand {
     // If issues directory exists, load issues for further checks
     if (issuesDirCheck.status === 'ok') {
       try {
-        issues = await listIssues(ISSUES_BASE_DIR);
+        issues = await listIssues(DATA_SYNC_DIR);
       } catch {
         // Already handled by issuesDirCheck
       }
@@ -119,7 +118,7 @@ class DoctorHandler extends BaseCommand {
 
   private async checkIssuesDirectory(): Promise<CheckResult> {
     try {
-      await access(join(process.cwd(), ISSUES_BASE_DIR, 'issues'));
+      await access(join(process.cwd(), DATA_SYNC_DIR, 'issues'));
       return { name: 'Issues directory', status: 'ok' };
     } catch {
       return {
@@ -179,7 +178,7 @@ class DoctorHandler extends BaseCommand {
   }
 
   private async checkTempFiles(fix?: boolean): Promise<CheckResult> {
-    const issuesDir = join(process.cwd(), ISSUES_BASE_DIR, 'issues');
+    const issuesDir = join(process.cwd(), DATA_SYNC_DIR, 'issues');
     let tempFiles: string[] = [];
 
     try {

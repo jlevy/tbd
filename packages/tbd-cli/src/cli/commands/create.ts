@@ -12,6 +12,7 @@ import type { Issue, IssueKindType, PriorityType } from '../../lib/types.js';
 import { generateInternalId } from '../../lib/ids.js';
 import { writeIssue } from '../../file/storage.js';
 import { IssueKind, Priority } from '../../lib/schemas.js';
+import { DATA_SYNC_DIR } from '../../lib/paths.js';
 
 interface CreateOptions {
   fromFile?: string;
@@ -25,9 +26,6 @@ interface CreateOptions {
   parent?: string;
   label?: string[];
 }
-
-// Base directory for issues - for now, use .tbd-sync
-const ISSUES_BASE_DIR = '.tbd-sync';
 
 class CreateHandler extends BaseCommand {
   async run(title: string | undefined, options: CreateOptions): Promise<void> {
@@ -82,7 +80,7 @@ class CreateHandler extends BaseCommand {
     };
 
     await this.execute(async () => {
-      await writeIssue(ISSUES_BASE_DIR, issue);
+      await writeIssue(DATA_SYNC_DIR, issue);
     }, 'Failed to create issue');
 
     // Output with display ID (bd- prefix for Beads compatibility)

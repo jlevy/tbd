@@ -232,21 +232,25 @@ describe('test helper: isDisplayIdNotInternal', () => {
 
 describe('test helper: isCorrectWorktreePath', () => {
   it('accepts paths in the worktree', () => {
-    expect(isCorrectWorktreePath('.tbd/sync-worktree/.tbd-sync/issues/is-abc123.md')).toBe(true);
+    expect(
+      isCorrectWorktreePath('.tbd/data-sync-worktree/.tbd/data-sync/issues/is-abc123.md'),
+    ).toBe(true);
   });
 
   it('rejects paths directly on main branch', () => {
-    expect(isCorrectWorktreePath('.tbd-sync/issues/is-abc123.md')).toBe(false);
+    expect(isCorrectWorktreePath('.tbd/data-sync/issues/is-abc123.md')).toBe(false);
   });
 });
 
 describe('test helper: isWrongMainBranchPath', () => {
   it('identifies files wrongly on main branch', () => {
-    expect(isWrongMainBranchPath('.tbd-sync/issues/is-abc123.md')).toBe(true);
+    expect(isWrongMainBranchPath('.tbd/data-sync/issues/is-abc123.md')).toBe(true);
   });
 
   it('does not flag correct worktree paths', () => {
-    expect(isWrongMainBranchPath('.tbd/sync-worktree/.tbd-sync/issues/is-abc123.md')).toBe(false);
+    expect(
+      isWrongMainBranchPath('.tbd/data-sync-worktree/.tbd/data-sync/issues/is-abc123.md'),
+    ).toBe(false);
   });
 });
 

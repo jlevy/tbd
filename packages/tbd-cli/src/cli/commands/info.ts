@@ -11,9 +11,7 @@ import { VERSION } from '../../index.js';
 import { BaseCommand } from '../lib/baseCommand.js';
 import { readConfig, CONFIG_FILE_PATH } from '../../file/config.js';
 import { listIssues } from '../../file/storage.js';
-
-// Base directory for issues
-const ISSUES_BASE_DIR = '.tbd-sync';
+import { DATA_SYNC_DIR } from '../../lib/paths.js';
 
 class InfoHandler extends BaseCommand {
   async run(): Promise<void> {
@@ -37,7 +35,7 @@ class InfoHandler extends BaseCommand {
     // Count issues
     let issueCount = 0;
     try {
-      const issues = await listIssues(ISSUES_BASE_DIR);
+      const issues = await listIssues(DATA_SYNC_DIR);
       issueCount = issues.length;
     } catch {
       issueCount = 0;

@@ -228,7 +228,7 @@ tbd sync
   config.yml             # Repository configuration
   .gitignore             # Ignores cache/local files
 
-.tbd-sync/               # Hidden worktree (from tbd-sync branch)
+.tbd/data-sync/               # Hidden worktree (from tbd-sync branch)
   issues/                # Issue files
     is-{ulid}.md
   mappings/              # ID mappings

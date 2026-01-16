@@ -192,7 +192,7 @@ export const ConfigSchema = z.object({
 // =============================================================================
 
 /**
- * Shared metadata stored in .tbd-sync/meta.yml
+ * Shared metadata stored in .tbd/data-sync/meta.yml
  */
 export const MetaSchema = z.object({
   schema_version: z.number().int(),

@@ -46,7 +46,7 @@ The design uses a split directory structure:
 **On tbd-sync branch:**
 
 ```
-.tbd-sync/
+.tbd/data-sync/
 ├── nodes/                  # Synced entities (is-*, ag-*, ms-*)
 │   ├── issues/
 │   ├── agents/

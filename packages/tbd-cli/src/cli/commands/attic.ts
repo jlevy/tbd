@@ -12,10 +12,7 @@ import { parse as parseYaml, stringify as stringifyYaml } from 'yaml';
 import { BaseCommand } from '../lib/baseCommand.js';
 import { readIssue, writeIssue, atomicWriteFile } from '../../file/storage.js';
 import { normalizeIssueId } from '../../lib/ids.js';
-
-// Base directories
-const ISSUES_BASE_DIR = '.tbd-sync';
-const ATTIC_DIR = '.tbd-sync/attic';
+import { DATA_SYNC_DIR, ATTIC_DIR } from '../../lib/paths.js';
 
 /**
  * Attic entry structure for storing lost values during conflicts.
@@ -204,7 +201,7 @@ class AtticRestoreHandler extends BaseCommand {
     // Load the current issue
     let issue;
     try {
-      issue = await readIssue(ISSUES_BASE_DIR, normalizedId);
+      issue = await readIssue(DATA_SYNC_DIR, normalizedId);
     } catch {
       this.output.error(`Issue not found: ${id}`);
       return;
@@ -223,7 +220,7 @@ class AtticRestoreHandler extends BaseCommand {
     issue.updated_at = new Date().toISOString();
 
     await this.execute(async () => {
-      await writeIssue(ISSUES_BASE_DIR, issue);
+      await writeIssue(DATA_SYNC_DIR, issue);
     }, 'Failed to restore from attic');
 
     const displayId = `bd-${normalizedId.slice(3)}`;

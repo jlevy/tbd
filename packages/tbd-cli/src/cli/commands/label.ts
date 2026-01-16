@@ -9,9 +9,7 @@ import { Command } from 'commander';
 import { BaseCommand } from '../lib/baseCommand.js';
 import { readIssue, writeIssue, listIssues } from '../../file/storage.js';
 import { normalizeIssueId } from '../../lib/ids.js';
-
-// Base directory for issues
-const ISSUES_BASE_DIR = '.tbd-sync';
+import { DATA_SYNC_DIR } from '../../lib/paths.js';
 
 // Add label
 class LabelAddHandler extends BaseCommand {
@@ -21,7 +19,7 @@ class LabelAddHandler extends BaseCommand {
     // Load existing issue
     let issue;
     try {
-      issue = await readIssue(ISSUES_BASE_DIR, normalizedId);
+      issue = await readIssue(DATA_SYNC_DIR, normalizedId);
     } catch {
       this.output.error(`Issue not found: ${id}`);
       return;
@@ -51,7 +49,7 @@ class LabelAddHandler extends BaseCommand {
     issue.updated_at = new Date().toISOString();
 
     await this.execute(async () => {
-      await writeIssue(ISSUES_BASE_DIR, issue);
+      await writeIssue(DATA_SYNC_DIR, issue);
     }, 'Failed to update issue');
 
     const displayId = `bd-${issue.id.slice(3)}`;
@@ -69,7 +67,7 @@ class LabelRemoveHandler extends BaseCommand {
     // Load existing issue
     let issue;
     try {
-      issue = await readIssue(ISSUES_BASE_DIR, normalizedId);
+      issue = await readIssue(DATA_SYNC_DIR, normalizedId);
     } catch {
       this.output.error(`Issue not found: ${id}`);
       return;
@@ -94,7 +92,7 @@ class LabelRemoveHandler extends BaseCommand {
     issue.updated_at = new Date().toISOString();
 
     await this.execute(async () => {
-      await writeIssue(ISSUES_BASE_DIR, issue);
+      await writeIssue(DATA_SYNC_DIR, issue);
     }, 'Failed to update issue');
 
     const displayId = `bd-${issue.id.slice(3)}`;
@@ -110,7 +108,7 @@ class LabelListHandler extends BaseCommand {
     // Load all issues and collect unique labels
     let issues;
     try {
-      issues = await listIssues(ISSUES_BASE_DIR);
+      issues = await listIssues(DATA_SYNC_DIR);
     } catch {
       this.output.error('No issue store found. Run `tbd init` first.');
       return;

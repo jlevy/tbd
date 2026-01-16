@@ -229,8 +229,8 @@ Testing performed manually during development (not automated, but verified worki
 
 ### 2.2 Git Integration
 
-- ✅ Repository initialization creates `.tbd/` and `.tbd-sync/` directories
-- ✅ Issue files created in `.tbd-sync/issues/` with correct naming
+- ✅ Repository initialization creates `.tbd/` and `.tbd/data-sync/` directories
+- ✅ Issue files created in `.tbd/data-sync/issues/` with correct naming
 - ✅ Config file at `.tbd/config.yml` is valid YAML
 - ✅ Git operations don’t interfere with user’s working tree
 
@@ -288,7 +288,7 @@ judgment, or areas beyond what automated tests can verify.
 
 #### File Format Review
 
-- [ ] **Issue markdown files**: Review format in `.tbd-sync/issues/*.md`
+- [ ] **Issue markdown files**: Review format in `.tbd/data-sync/issues/*.md`
 - [ ] **Config file**: Review `.tbd/config.yml` structure and defaults
 - [ ] **Beads compatibility**: Imported issues match original beads data
 
@@ -305,7 +305,7 @@ To validate import:
 
 ```bash
 # Initialize fresh tbd (remove existing)
-rm -rf .tbd .tbd-sync
+rm -rf .tbd .tbd/data-sync
 tbd init
 
 # Import from beads

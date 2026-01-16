@@ -468,7 +468,7 @@ Tbd V2 Phase 1 has three layers:
 ┌──────────────────────────────┼───────────────────────────────────┐
 │                        File Layer                                │
 │                        Format specification                      │
-│   .tbd/config.yml │ .tbd-sync/ │ JSON schemas (Zod)         │
+│   .tbd/config.yml │ .tbd/data-sync/ │ JSON schemas (Zod)         │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
@@ -518,7 +518,7 @@ across implementations:
 - UTF-8 encoding
 
 - LF line endings on all platforms (recommend `.gitattributes` rule:
-  `.tbd-sync/** text eol=lf`)
+  `.tbd/data-sync/** text eol=lf`)
 
 **Array ordering rules** (to ensure deterministic hashes):
 
@@ -594,7 +594,7 @@ Tbd uses two directories:
 
 - **`.tbd/`** on main branch: Configuration (tracked) + local cache (gitignored)
 
-- **`.tbd-sync/`** on `tbd-sync` branch: Synced entities and attic
+- **`.tbd/data-sync/`** on `tbd-sync` branch: Synced entities and attic
 
 #### On Main Branch (all working branches)
 
@@ -612,7 +612,7 @@ Tbd uses two directories:
 #### On `tbd-sync` Branch
 
 ```
-.tbd-sync/
+.tbd/data-sync/
 ├── issues/                 # Issue entities
 │   ├── is-a1b2.json
 │   └── is-f14c.json
@@ -641,7 +641,7 @@ This section clarifies where issue data lives on a developer’s working branch,
 not explicitly covered in the directory structure above.
 
 **Design choice:** Issue data lives in `.tbd/cache/entities/` on the working branch
-(gitignored), not in `.tbd-sync/` on the working tree.
+(gitignored), not in `.tbd/data-sync/` on the working tree.
 
 ```
 .tbd/
@@ -659,7 +659,7 @@ not explicitly covered in the directory structure above.
 
 **Why cache-based, not working-tree based?**
 
-1. **No untracked file noise**: `.tbd-sync/` never appears on main branch
+1. **No untracked file noise**: `.tbd/data-sync/` never appears on main branch
 
 2. **Clear separation**: Synced data vs local cache is unambiguous
 
@@ -667,7 +667,7 @@ not explicitly covered in the directory structure above.
 
 4. **Matches mental model**: “Sync branch has entities, main branch has config”
 
-**Invariant:** The `.tbd-sync/` directory should NEVER exist on a developer’s working
+**Invariant:** The `.tbd/data-sync/` directory should NEVER exist on a developer’s working
 tree when on main or feature branches.
 It only exists as content on the `tbd-sync` branch, accessed via git plumbing commands.
 
@@ -681,13 +681,13 @@ Future phases may add: agents, messages, workflows, templates
 
 | Collection | Directory | ID Prefix | Purpose |
 | --- | --- | --- | --- |
-| Issues | `.tbd-sync/issues/` | `is-` | Task tracking (synced) |
+| Issues | `.tbd/data-sync/issues/` | `is-` | Task tracking (synced) |
 
 #### Adding New Entity Types (Future)
 
 To add a new entity type:
 
-1. Create directory: `.tbd-sync/messages/` (on sync branch)
+1. Create directory: `.tbd/data-sync/messages/` (on sync branch)
 
 2. Define schema: `MessageSchema` in Zod
 
@@ -940,7 +940,7 @@ const ConfigSchema = z.object({
 
 #### 2.5.5 MetaSchema
 
-Shared metadata stored in `.tbd-sync/meta.json` on the sync branch:
+Shared metadata stored in `.tbd/data-sync/meta.json` on the sync branch:
 
 ```typescript
 const MetaSchema = z.object({
@@ -1043,7 +1043,7 @@ export GIT_INDEX_FILE="$(git rev-parse --git-dir)/tbd-index"
 
 ```
 main branch:                    tbd-sync branch:
-├── src/                        └── .tbd-sync/
+├── src/                        └── .tbd/data-sync/
 ├── tests/                          ├── issues/
 ├── README.md                       ├── attic/
 ├── .tbd/                         └── meta.json
@@ -1081,9 +1081,9 @@ cache/
 #### Files Tracked on tbd-sync Branch
 
 ```
-.tbd-sync/issues/     # Issue entities
-.tbd-sync/attic/      # Conflict archive
-.tbd-sync/meta.json   # Metadata
+.tbd/data-sync/issues/     # Issue entities
+.tbd/data-sync/attic/      # Conflict archive
+.tbd/data-sync/meta.json   # Metadata
 ```
 
 ### 3.3 Sync Operations
@@ -1094,10 +1094,10 @@ Sync uses standard git commands to read/write the sync branch without checking i
 
 ```bash
 # Read a file from sync branch without checkout
-git show tbd-sync:.tbd-sync/issues/is-a1b2.json
+git show tbd-sync:.tbd/data-sync/issues/is-a1b2.json
 
 # List files in issues directory
-git ls-tree tbd-sync .tbd-sync/issues/
+git ls-tree tbd-sync .tbd/data-sync/issues/
 ```
 
 #### 3.3.2 Writing to Sync Branch
@@ -1116,7 +1116,7 @@ git read-tree tbd-sync
 
 # 3. Update index with local changes
 #    (files from .tbd/cache/entities/ are added to the tree)
-git update-index --add --cacheinfo 100644,<blob-sha>,".tbd-sync/issues/is-a1b2c3.json"
+git update-index --add --cacheinfo 100644,<blob-sha>,".tbd/data-sync/issues/is-a1b2c3.json"
 
 # 4. Write tree from isolated index
 TREE=$(git write-tree)
@@ -1332,7 +1332,7 @@ merged.extensions = {
 The attic preserves data lost in conflicts:
 
 ```
-.tbd-sync/attic/
+.tbd/data-sync/attic/
 └── conflicts/
     └── is-a1b2/
         ├── 2025-01-07T10-30-00Z_description.json
@@ -1400,7 +1400,7 @@ Options:
 
 2. Creates `.tbd/cache/` (gitignored)
 
-3. Creates `tbd-sync` branch with `.tbd-sync/` structure
+3. Creates `tbd-sync` branch with `.tbd/data-sync/` structure
 
 4. Pushes sync branch to origin (if remote exists)
 
@@ -2222,7 +2222,7 @@ Each imported issue stores its original Beads ID in the `extensions` field:
 To enable O(1) lookups on large issue sets, import also maintains a mapping file:
 
 ```
-.tbd-sync/mappings/beads.json
+.tbd/data-sync/mappings/beads.json
 ```
 
 ```json
@@ -2249,7 +2249,7 @@ by scanning all issues and reading `extensions.beads.original_id`. Run:
 
 ```
 IMPORT_BEADS(jsonl_file):
-  1. Load existing mapping from .tbd-sync/mappings/beads.json
+  1. Load existing mapping from .tbd/data-sync/mappings/beads.json
      (create empty {} if not exists)
 
   2. For each line in jsonl_file:
@@ -2510,7 +2510,7 @@ Tbd options:
 
 2. **Import as closed**: Convert to `closed` with label `tombstone`
 
-3. **Import to attic**: Store in `.tbd-sync/attic/deleted/`
+3. **Import to attic**: Store in `.tbd/data-sync/attic/deleted/`
 
 ### 5.5 Compatibility Notes
 
@@ -2534,7 +2534,7 @@ Tbd options:
 
 - Beads: Single `issues.jsonl` file
 
-- Tbd: File-per-issue in `.tbd-sync/issues/`
+- Tbd: File-per-issue in `.tbd/data-sync/issues/`
 
 **Database:**
 
@@ -3051,7 +3051,7 @@ repo/
 │       └── sync.lock               # Optional sync coordination
 │
 └── (on tbd-sync branch)
-    └── .tbd-sync/
+    └── .tbd/data-sync/
         ├── issues/                 # Issue entities
         │   ├── is-a1b2.json
         │   └── is-f14c.json
@@ -3068,8 +3068,8 @@ repo/
 | --- | --- | --- |
 | `.tbd/` | 3 | <1 KB |
 | `.tbd/cache/` | 1-2 | <500 KB |
-| `.tbd-sync/issues/` | 1,000 | ~2 MB |
-| `.tbd-sync/attic/` | 10-50 | <100 KB |
+| `.tbd/data-sync/issues/` | 1,000 | ~2 MB |
+| `.tbd/data-sync/attic/` | 10-50 | <100 KB |
 
 * * *
 
@@ -3267,7 +3267,7 @@ This is sufficient for the `ready` command algorithm.
 | Primary store | SQLite | JSON files |
 | Sync format | JSONL | JSON files (same as primary) |
 | File structure | Single `issues.jsonl` | File per entity |
-| Location | `.beads/` on main | `.tbd-sync/` on sync branch |
+| Location | `.beads/` on main | `.tbd/data-sync/` on sync branch |
 | Config | SQLite + various | `.tbd/config.yml` on main |
 
 #### A.4.2 Sync
@@ -3426,7 +3426,7 @@ The attic preserves losers, but UX may suffer if the “wrong” version consist
 
 **V2-016: Single mapping file as potential conflict hotspot**
 
-`.tbd-sync/mappings/beads.json` could see conflicts if multiple nodes import
+`.tbd/data-sync/mappings/beads.json` could see conflicts if multiple nodes import
 concurrently (though this is rare).
 
 **Options:**

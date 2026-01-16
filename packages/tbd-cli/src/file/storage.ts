@@ -2,7 +2,7 @@
  * Storage layer for issue files.
  *
  * Provides atomic file operations and issue CRUD operations.
- * All operations work on the hidden worktree at .tbd-sync/issues/.
+ * All operations work on the hidden worktree at .tbd/data-sync/issues/.
  *
  * See: tbd-design-v3.md §3.2 Storage Layer
  */

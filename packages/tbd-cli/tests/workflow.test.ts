@@ -10,11 +10,12 @@ import { randomBytes } from 'node:crypto';
 
 import { writeIssue, listIssues } from '../src/file/storage.js';
 import type { Issue } from '../src/lib/types.js';
+import { DATA_SYNC_DIR } from '../src/lib/paths.js';
 import { TEST_ULIDS, testId } from './test-helpers.js';
 
 describe('ready command logic', () => {
   let testDir: string;
-  const issuesDir = '.tbd-sync';
+  const issuesDir = DATA_SYNC_DIR;
 
   beforeEach(async () => {
     testDir = join(tmpdir(), `tbd-ready-test-${randomBytes(4).toString('hex')}`);
@@ -183,7 +184,7 @@ describe('ready command logic', () => {
 
 describe('blocked command logic', () => {
   let testDir: string;
-  const issuesDir = '.tbd-sync';
+  const issuesDir = DATA_SYNC_DIR;
 
   beforeEach(async () => {
     testDir = join(tmpdir(), `tbd-blocked-test-${randomBytes(4).toString('hex')}`);
@@ -289,7 +290,7 @@ describe('blocked command logic', () => {
 
 describe('stale command logic', () => {
   let testDir: string;
-  const issuesDir = '.tbd-sync';
+  const issuesDir = DATA_SYNC_DIR;
 
   beforeEach(async () => {
     testDir = join(tmpdir(), `tbd-stale-test-${randomBytes(4).toString('hex')}`);

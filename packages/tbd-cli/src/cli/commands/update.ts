@@ -12,9 +12,7 @@ import { readIssue, writeIssue } from '../../file/storage.js';
 import { normalizeIssueId } from '../../lib/ids.js';
 import { IssueStatus, IssueKind, Priority } from '../../lib/schemas.js';
 import type { IssueStatusType, IssueKindType, PriorityType } from '../../lib/types.js';
-
-// Base directory for issues
-const ISSUES_BASE_DIR = '.tbd-sync';
+import { DATA_SYNC_DIR } from '../../lib/paths.js';
 
 interface UpdateOptions {
   fromFile?: string;
@@ -39,7 +37,7 @@ class UpdateHandler extends BaseCommand {
     // Load existing issue
     let issue;
     try {
-      issue = await readIssue(ISSUES_BASE_DIR, normalizedId);
+      issue = await readIssue(DATA_SYNC_DIR, normalizedId);
     } catch {
       this.output.error(`Issue not found: ${id}`);
       return;
@@ -83,7 +81,7 @@ class UpdateHandler extends BaseCommand {
 
     // Save
     await this.execute(async () => {
-      await writeIssue(ISSUES_BASE_DIR, issue);
+      await writeIssue(DATA_SYNC_DIR, issue);
     }, 'Failed to update issue');
 
     const displayId = `bd-${issue.id.slice(3)}`;

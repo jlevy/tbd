@@ -116,7 +116,7 @@ $ node $TRYSCRIPT_TEST_DIR/../dist/bin.mjs init
 ✓ Initialized tbd repository
 
 To complete setup, commit the config files:
-  git add .tbd/ .tbd-sync/
+  git add .tbd/ .tbd/data-sync/
   git commit -m "Initialize tbd"
 ? 0
 ```
@@ -183,7 +183,7 @@ $ cd custom-repo && node $TRYSCRIPT_TEST_DIR/../dist/bin.mjs init --sync-branch 
 ✓ Initialized tbd repository
 
 To complete setup, commit the config files:
-  git add .tbd/ .tbd-sync/
+  git add .tbd/ .tbd/data-sync/
   git commit -m "Initialize tbd"
 ? 0
 ```

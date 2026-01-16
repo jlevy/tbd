@@ -356,32 +356,33 @@ The master epic is **tbd-100**.
 | 17 | tbd-1800 | CI Fixes and Dependency Updates | tbd-1801 through tbd-1805 | 🔄 Pending |
 | 18 | tbd-1900 | Critical Bug Fixes | tbd-1809 through tbd-1818 | 🔴 New |
 | 19 | tbd-208 | Worktree Architecture Fix | tbd-208.1 through tbd-208.6 | 🔴 New |
+| 20 | tbd-2000 | Directory Naming Refactor | tbd-2001 through tbd-2005 | ✅ Complete |
 | Validation | tbd-1300 | Stage 5 Validation | tbd-1301 through tbd-1306 | ⚠️ Partial |
 
 **Status Legend:** ✅ Complete | ⚠️ Partial (needs review) | 🔲 Pending | 🔴 New
 
 **Implementation Progress (2026-01-16):**
 
-- Core functionality implemented and passing **104 vitest + 189 tryscript tests (293
-  total)**
+- Core functionality implemented and passing **164 vitest tests**
 - All CLI commands implemented (Phases 1-11 complete)
-- Comprehensive tryscript golden tests with 97.47% line coverage (Phase 16 complete)
 - Security hardening: command injection fix + schema validation (Phase 14 complete)
 - Import validation and benchmarks (Phase 15 complete)
 - CI fixes: pnpm version conflict, Node.js 22 LTS, dependency updates (Phase 17)
 - Build and lint passing
 - README documentation complete (Phase 12)
-- **NEW Phase 18: Critical bugs found during testing** - worktree usage, ID display,
+- **Phase 18: Critical bugs found during testing** - worktree usage, ID display,
   status mapping
-- **NEW Phase 19: Worktree architecture fix** - tbd-208 reopened, 6 sub-tasks created
+- **Phase 19: Worktree architecture fix** - tbd-208 reopened, 6 sub-tasks created
   (see [postmortem](../../retrospectives/retro-2026-01-16-worktree-architecture-not-implemented.md))
+- **Phase 20: Directory naming refactor** ✅ - renamed `.tbd-sync` to `.tbd/data-sync`,
+  created centralized `paths.ts`, refactored all commands
 - Remaining: CI validation (tbd-1805), npm publish (tbd-1206), Phase 18 & 19 bug fixes
 
 **Bead Tracking Summary:**
 
 | Status | Count | Beads |
 | --- | --- | --- |
-| ✅ Done | 116 | tbd-101→tbd-111, tbd-200→tbd-207, tbd-209, tbd-300→tbd-309, tbd-400→tbd-409, tbd-500→tbd-504, tbd-600→tbd-607, tbd-700→tbd-708, tbd-800→tbd-804, tbd-900→tbd-904, tbd-1000→tbd-1004, tbd-1100→tbd-1105, tbd-1201, tbd-1202, tbd-1205, tbd-1301, tbd-1302, tbd-1305, tbd-1306, tbd-1400→tbd-1405, tbd-1500→tbd-1502, tbd-1600→tbd-1604, tbd-1700→tbd-1706, tbd-1800→tbd-1804 |
+| ✅ Done | 122 | tbd-101→tbd-111, tbd-200→tbd-207, tbd-209, tbd-300→tbd-309, tbd-400→tbd-409, tbd-500→tbd-504, tbd-600→tbd-607, tbd-700→tbd-708, tbd-800→tbd-804, tbd-900→tbd-904, tbd-1000→tbd-1004, tbd-1100→tbd-1105, tbd-1201, tbd-1202, tbd-1205, tbd-1301, tbd-1302, tbd-1305, tbd-1306, tbd-1400→tbd-1405, tbd-1500→tbd-1502, tbd-1600→tbd-1604, tbd-1700→tbd-1706, tbd-1800→tbd-1804, tbd-2000→tbd-2005 |
 | 🔄 In Progress | 1 | tbd-100 (master epic) |
 | 🔲 Open | 15 | tbd-208, tbd-208.1→tbd-208.6, tbd-1200, tbd-1203, tbd-1204, tbd-1206, tbd-1300, tbd-1303, tbd-1304, tbd-1805, tbd-1810 |
 
@@ -447,7 +448,7 @@ The master epic is **tbd-100**.
 
 tbd-208 was incorrectly marked as done without implementing the required worktree
 functions. The entire worktree architecture was bypassed - all commands write to
-`.tbd-sync/` directly instead of `.tbd/sync-worktree/.tbd-sync/` via git worktree.
+`.tbd/data-sync/` directly instead of `.tbd/data-sync-worktree/.tbd/data-sync/` via git worktree.
 
 See [postmortem](../../retrospectives/retro-2026-01-16-worktree-architecture-not-implemented.md)
 for full analysis.
@@ -455,13 +456,38 @@ for full analysis.
 | Bead ID | Task | Status | Notes |
 | --- | --- | --- | --- |
 | tbd-208 | Worktree management (reopened) | Open | Parent epic - was incorrectly marked done |
-| tbd-208.1 | Implement initWorktree() | Open | Create worktree at `.tbd/sync-worktree/` |
+| tbd-208.1 | Implement initWorktree() | Open | Create worktree at `.tbd/data-sync-worktree/` |
 | tbd-208.2 | Implement updateWorktree() | Open | Update worktree after sync |
 | tbd-208.3 | Implement checkWorktreeHealth() | Open | Verify worktree validity |
-| tbd-208.4 | Update init.ts | Open | Create worktree instead of direct `.tbd-sync` |
+| tbd-208.4 | Update init.ts | Open | Create worktree instead of direct `.tbd/data-sync` |
 | tbd-208.5 | Update 20 command files | Open | Change ISSUES_BASE_DIR to worktree path |
-| tbd-208.6 | Update .gitignore | Open | Add `sync-worktree/` to `.tbd/.gitignore` |
+| tbd-208.6 | Update .gitignore | Open | Add `data-sync-worktree/` to `.tbd/.gitignore` |
 | tbd-1810 | Bug: files on main branch | Open | Blocked by tbd-208 |
+
+**Phase 20: Directory Naming Refactor (✅ Complete)**
+
+Renamed directories for clarity and consistency. Changed `.tbd-sync/` to `.tbd/data-sync/`
+and `sync-worktree/` to `data-sync-worktree/`. This naming:
+- Eliminates confusion between `.tbd` and `.tbd-sync`
+- Groups all tbd data under `.tbd/`
+- Enables future "simple mode" where `data-sync/` could be tracked on main
+
+| Bead ID | Task | Status | Notes |
+| --- | --- | --- | --- |
+| tbd-2000 | Phase 20 Epic | Done | Directory naming refactor |
+| tbd-2001 | Update design spec (tbd-design-v3.md) | Done | All path references updated |
+| tbd-2002 | Update plan spec | Done | This document |
+| tbd-2003 | Update retrospective | Done | Worktree postmortem updated |
+| tbd-2004 | Create centralized paths.ts | Done | `src/lib/paths.ts` with all constants |
+| tbd-2005 | Refactor commands to use paths.ts | Done | 18 command files updated |
+
+**Key Changes:**
+
+| Old Name | New Name | Purpose |
+| --- | --- | --- |
+| `.tbd-sync/` | `.tbd/data-sync/` | Data directory on sync branch |
+| `sync-worktree/` | `data-sync-worktree/` | Worktree checkout directory |
+| `ISSUES_BASE_DIR` (local) | `DATA_SYNC_DIR` (imported) | Centralized constant |
 
 **Stage 5 Validation Status (⚠️ Partial):**
 
@@ -723,7 +749,7 @@ async function atomicWrite(path: string, content: string): Promise<void> {
 **Directory Structure on tbd-sync Branch**:
 
 ```
-.tbd-sync/
+.tbd/data-sync/
 ├── issues/                 # Issue entities (ULID-named files)
 │   ├── is-01hx5zzkbkactav9wevgemmvrz.md
 │   └── is-01hx5zzkbkbctav9wevgemmvrz.md
@@ -752,14 +778,14 @@ async function withIsolatedIndex<T>(fn: () => Promise<T>): Promise<T> {
 **Worktree Initialization Decision Tree**:
 
 ```
-Does .tbd/sync-worktree/ exist and valid?
+Does .tbd/data-sync-worktree/ exist and valid?
 ├── YES → Worktree ready
 └── NO → Does tbd-sync branch exist?
-    ├── YES (local) → git worktree add .tbd/sync-worktree tbd-sync --detach
+    ├── YES (local) → git worktree add .tbd/data-sync-worktree tbd-sync --detach
     ├── YES (remote) → git fetch origin tbd-sync
-    │                  git worktree add .tbd/sync-worktree origin/tbd-sync --detach
-    └── NO → git worktree add .tbd/sync-worktree --orphan tbd-sync
-             Initialize .tbd-sync/ structure
+    │                  git worktree add .tbd/data-sync-worktree origin/tbd-sync --detach
+    └── NO → git worktree add .tbd/data-sync-worktree --orphan tbd-sync
+             Initialize .tbd/data-sync/ structure
 ```
 
 ### Phase 3: CLI Foundation & Init Command
@@ -1027,7 +1053,7 @@ async function createIssueIds(storage: Storage): Promise<{ internal: string; sho
 }
 ```
 
-**ID Mapping Storage** (`.tbd-sync/mappings/ids.yml`):
+**ID Mapping Storage** (`.tbd/data-sync/mappings/ids.yml`):
 
 ```yaml
 # short_id: ulid (without prefix)
@@ -1665,7 +1691,7 @@ async function commitToSyncBranch(message: string): Promise<string> {
     await git('read-tree', 'tbd-sync');
 
     // Add changed files to index
-    await git('add', '.tbd-sync/');
+    await git('add', '.tbd/data-sync/');
 
     // Write tree object
     const tree = await git('write-tree');
@@ -1880,7 +1906,7 @@ function createAtticEntry(loser: Issue, field: string, lostValue: unknown): Atti
   };
 }
 
-// Attic file path: .tbd-sync/attic/conflicts/{issue_id}/{timestamp}_{field}.md
+// Attic file path: .tbd/data-sync/attic/conflicts/{issue_id}/{timestamp}_{field}.md
 ```
 
 **Sync Status Detection**:
@@ -2003,7 +2029,7 @@ function buildSearchCommand(
   pattern: string,
   options: SearchOptions,
 ): string[] {
-  const issuesPath = '.tbd/sync-worktree/.tbd-sync/issues';
+  const issuesPath = '.tbd/data-sync-worktree/.tbd/data-sync/issues';
 
   if (tool === 'rg') {
     const args = ['rg'];
@@ -2418,9 +2444,9 @@ display:
 **Attic Entry Storage Format**:
 
 ```
-.tbd-sync/attic/conflicts/{issue_id}/{timestamp}_{field}.md
+.tbd/data-sync/attic/conflicts/{issue_id}/{timestamp}_{field}.md
 
-Example: .tbd-sync/attic/conflicts/is-a1b2c3/2025-01-07T10-30-00Z_description.md
+Example: .tbd/data-sync/attic/conflicts/is-a1b2c3/2025-01-07T10-30-00Z_description.md
 ```
 
 **Attic Entry File Format** (YAML + original content):
@@ -2453,7 +2479,7 @@ interface AtticFilter {
 }
 
 async function listAtticEntries(filter: AtticFilter): Promise<AtticEntry[]> {
-  const atticPath = '.tbd/sync-worktree/.tbd-sync/attic/conflicts';
+  const atticPath = '.tbd/data-sync-worktree/.tbd/data-sync/attic/conflicts';
 
   // List all directories (issue IDs)
   const issueDirs = await fs.readdir(atticPath).catch(() => []);
@@ -2651,7 +2677,7 @@ const STATUS_MAP: Record<string, string> = {
 };
 ```
 
-**ID Mapping File** (`.tbd-sync/mappings/beads.yml`):
+**ID Mapping File** (`.tbd/data-sync/mappings/beads.yml`):
 
 ```yaml
 # Maps Beads IDs to Tbd IDs for re-import support
@@ -2670,7 +2696,7 @@ interface IdMapping {
 }
 
 async function loadIdMapping(storage: Storage): Promise<IdMapping> {
-  const mappingPath = '.tbd-sync/mappings/beads.yml';
+  const mappingPath = '.tbd/data-sync/mappings/beads.yml';
   const content = await storage.readFile(mappingPath).catch(() => '');
   const data = (yaml.load(content) as Record<string, string>) || {};
 
@@ -3104,12 +3130,12 @@ The following gaps in the existing test suite allowed these bugs to slip through
   Run `tbd init` first."
 
 **tbd-1810: Files written to wrong location** (CRITICAL)
-- The import command (and all storage operations) write directly to `.tbd-sync/` in the
+- The import command (and all storage operations) write directly to `.tbd/data-sync/` in the
   current working directory
 - According to design, issues should be stored on tbd-sync branch accessed via hidden
-  worktree at `.tbd/sync-worktree/.tbd-sync/`
-- Current behavior: `.tbd-sync/` appears as untracked directory on main branch
-- Root cause: `ISSUES_BASE_DIR = '.tbd-sync'` in multiple command files instead of using
+  worktree at `.tbd/data-sync-worktree/.tbd/data-sync/`
+- Current behavior: `.tbd/data-sync/` appears as untracked directory on main branch
+- Root cause: `ISSUES_BASE_DIR = '.tbd/data-sync'` in multiple command files instead of using
   worktree path
 
 **tbd-1811: Wrong ID format displayed** (CRITICAL)

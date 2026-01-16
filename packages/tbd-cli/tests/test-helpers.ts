@@ -125,22 +125,22 @@ export function createTestIssue(overrides: Partial<Issue> & { id: string; title:
 
 /**
  * Check if a file path is in the correct worktree location.
- * Files should be in .tbd/sync-worktree/.tbd-sync/ NOT directly in .tbd-sync/.
+ * Files should be in .tbd/data-sync-worktree/.tbd/data-sync/ NOT directly in .tbd/data-sync/.
  */
 export function isCorrectWorktreePath(path: string): boolean {
   const normalized = path.replace(/\\/g, '/');
-  return normalized.includes('.tbd/sync-worktree/.tbd-sync/');
+  return normalized.includes('.tbd/data-sync-worktree/.tbd/data-sync/');
 }
 
 /**
  * Check if a file path is on the wrong location (main branch).
- * Returns true if file is in .tbd-sync/ without the worktree prefix.
+ * Returns true if file is in .tbd/data-sync/ without the worktree prefix.
  */
 export function isWrongMainBranchPath(path: string): boolean {
   const normalized = path.replace(/\\/g, '/');
   return (
-    (normalized.startsWith('.tbd-sync/') || normalized.includes('/.tbd-sync/')) &&
-    !normalized.includes('sync-worktree')
+    (normalized.startsWith('.tbd/data-sync/') || normalized.includes('/.tbd/data-sync/')) &&
+    !normalized.includes('data-sync-worktree')
   );
 }
 

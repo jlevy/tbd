@@ -9,9 +9,7 @@ import { Command } from 'commander';
 import { BaseCommand } from '../lib/baseCommand.js';
 import { readIssue, writeIssue } from '../../file/storage.js';
 import { normalizeIssueId } from '../../lib/ids.js';
-
-// Base directory for issues
-const ISSUES_BASE_DIR = '.tbd-sync';
+import { DATA_SYNC_DIR } from '../../lib/paths.js';
 
 interface CloseOptions {
   reason?: string;
@@ -24,7 +22,7 @@ class CloseHandler extends BaseCommand {
     // Load existing issue
     let issue;
     try {
-      issue = await readIssue(ISSUES_BASE_DIR, normalizedId);
+      issue = await readIssue(DATA_SYNC_DIR, normalizedId);
     } catch {
       this.output.error(`Issue not found: ${id}`);
       return;
@@ -49,7 +47,7 @@ class CloseHandler extends BaseCommand {
 
     // Save
     await this.execute(async () => {
-      await writeIssue(ISSUES_BASE_DIR, issue);
+      await writeIssue(DATA_SYNC_DIR, issue);
     }, 'Failed to close issue');
 
     const displayId = `bd-${issue.id.slice(3)}`;

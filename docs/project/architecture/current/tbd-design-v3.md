@@ -409,7 +409,7 @@ Tbd has three layers:
 ┌──────────────────────────────┼───────────────────────────────────┐
 │                        File Layer                                │
 │                        Format specification                      │
-│   .tbd/config.yml │ .tbd-sync/*.md │ Zod schemas              │
+│   .tbd/config.yml │ .tbd/data-sync/*.md │ Zod schemas              │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
@@ -532,7 +532,7 @@ For content hashing and conflict detection, we need deterministic serialization:
 **Recommended `.gitattributes`:**
 
 ```
-.tbd-sync/** text eol=lf
+.tbd/data-sync/** text eol=lf
 ```
 
 > **Why canonical format?** Content hashes are used for conflict detection.
@@ -594,47 +594,54 @@ Tbd uses three directory locations:
 
 - **`.tbd/`** on main branch: Configuration (tracked) + local cache (gitignored)
 
-- **`.tbd/sync-worktree/`** hidden worktree: Checkout of `tbd-sync` branch for search
+- **`.tbd/data-sync-worktree/`** hidden worktree: Checkout of `tbd-sync` branch for search
 
-- **`.tbd-sync/`** on `tbd-sync` branch: Synced entities and attic
+- **`.tbd/data-sync/`** on `tbd-sync` branch: Synced entities and attic
 
 #### On Main Branch (all working branches)
 
 ```
 .tbd/
-├── config.yml             # Project configuration (tracked)
-├── .gitignore              # Ignores cache/ and sync-worktree/ (tracked)
+├── config.yml              # Project configuration (tracked)
+├── .gitignore              # Ignores cache/, data-sync-worktree/, data-sync/ (tracked)
 │
 ├── cache/                  # Gitignored - local state
-│   ├── state.yml          # Per-node sync state (last_sync, node_id)
+│   ├── state.yml           # Per-node sync state (last_sync, node_id)
 │   ├── index.json          # Optional query index (rebuildable)
 │   └── sync.lock           # Sync coordination file
 │
-└── sync-worktree/              # Gitignored - hidden worktree
+└── data-sync-worktree/     # Gitignored - hidden worktree
     └── (checkout of tbd-sync branch)
-        └── .tbd-sync/
-            ├── issues/
-            │   ├── is-a1b2c3.md
-            │   └── is-f14c3d.md
-            └── ...
+        └── .tbd/
+            └── data-sync/
+                ├── issues/
+                │   ├── is-a1b2c3.md
+                │   └── is-f14c3d.md
+                └── ...
 ```
 
 #### On `tbd-sync` Branch
 
 ```
-.tbd-sync/
-├── issues/                 # Issue entities (Markdown)
-│   ├── is-01hx5zzkbkactav9wevgemmvrz.md
-│   └── is-01hx5zzkbkbctav9wevgemmvrz.md
-├── attic/                  # Conflict archive
-│   └── conflicts/
-│       └── is-01hx5zzkbkactav9wevgemmvrz/
-│           └── 2025-01-07T10-30-00Z_description.md
-├── mappings/               # ID mappings
-│   ├── ids.yml            # Short ID → ULID mapping (e.g., a7k2 → 01hx5zzk...)
-│   └── beads.yml          # Beads ID → ULID mapping (for imports)
-└── meta.yml               # Metadata (schema version)
+.tbd/
+└── data-sync/
+    ├── issues/                 # Issue entities (Markdown)
+    │   ├── is-01hx5zzkbkactav9wevgemmvrz.md
+    │   └── is-01hx5zzkbkbctav9wevgemmvrz.md
+    ├── attic/                  # Conflict archive
+    │   └── conflicts/
+    │       └── is-01hx5zzkbkactav9wevgemmvrz/
+    │           └── 2025-01-07T10-30-00Z_description.md
+    ├── mappings/               # ID mappings
+    │   ├── ids.yml            # Short ID → ULID mapping (e.g., a7k2 → 01hx5zzk...)
+    │   └── beads.yml          # Beads ID → ULID mapping (for imports)
+    └── meta.yml               # Metadata (schema version)
 ```
+
+> **Future: Simple Mode** — For users who don't need multi-machine sync, tbd could
+> support a "simple mode" where `data-sync/` is committed directly to main instead of
+> using a worktree. This would be enabled by removing `data-sync` from `.tbd/.gitignore`.
+> Not implemented in V1, but the naming structure supports this future option.
 
 **Why this structure?**
 
@@ -650,14 +657,14 @@ Tbd uses three directory locations:
 
 ### 2.3 Hidden Worktree Model
 
-Tbd maintains a **hidden git worktree** at `.tbd/sync-worktree/` that checks out the
+Tbd maintains a **hidden git worktree** at `.tbd/data-sync-worktree/` that checks out the
 `tbd-sync` branch. This provides:
 
 1. **Fast search**: ripgrep can search all issues without git plumbing commands
 
 2. **Direct file access**: Read issues without `git show` overhead
 
-3. **Isolated from main**: Doesn’t pollute working directory or affect main branch
+3. **Isolated from main**: Doesn't pollute working directory or affect main branch
 
 4. **Automatic updates**: Updated on `tbd sync` operations
 
@@ -667,10 +674,10 @@ Created automatically by `tbd init` or first `tbd sync`:
 
 ```bash
 # Create hidden worktree (done by tbd internally)
-git worktree add .tbd/sync-worktree tbd-sync --detach
+git worktree add .tbd/data-sync-worktree tbd-sync --detach
 
 # Or if tbd-sync doesn't exist yet
-git worktree add .tbd/sync-worktree --orphan tbd-sync
+git worktree add .tbd/data-sync-worktree --orphan tbd-sync
 ```
 
 **Key properties:**
@@ -679,7 +686,7 @@ git worktree add .tbd/sync-worktree --orphan tbd-sync
 
 - **Hidden location**: Inside `.tbd/` which is partially gitignored
 
-- **Safe updates**: `tbd sync` does `git -C .tbd/sync-worktree pull` after push
+- **Safe updates**: `tbd sync` does `git -C .tbd/data-sync-worktree pull` after push
 
 #### Worktree Gitignore
 
@@ -687,20 +694,25 @@ The `.tbd/.gitignore` must include:
 
 ```gitignore
 cache/
-sync-worktree/
+data-sync-worktree/
+data-sync/
 ```
+
+> **Note:** `data-sync/` is gitignored to support potential future "simple mode" where
+> issues could be stored directly on main without a worktree. In normal operation,
+> `data-sync/` only exists inside the worktree checkout.
 
 #### Accessing Issues via Worktree
 
 ```bash
 # Files are directly accessible
-cat .tbd/sync-worktree/.tbd-sync/issues/is-a1b2c3.md
+cat .tbd/data-sync-worktree/.tbd/data-sync/issues/is-a1b2c3.md
 
 # ripgrep search across all issues
-rg "authentication" .tbd/sync-worktree/.tbd-sync/issues/
+rg "authentication" .tbd/data-sync-worktree/.tbd/data-sync/issues/
 
 # List all issues
-ls .tbd/sync-worktree/.tbd-sync/issues/
+ls .tbd/data-sync-worktree/.tbd/data-sync/issues/
 ```
 
 #### Worktree Lifecycle
@@ -708,12 +720,12 @@ ls .tbd/sync-worktree/.tbd-sync/issues/
 | Operation | Worktree Action |
 | --- | --- |
 | `tbd init` | Create worktree if tbd-sync exists |
-| `tbd sync --pull` | `git -C sync-worktree pull origin tbd-sync` |
+| `tbd sync --pull` | `git -C data-sync-worktree pull origin tbd-sync` |
 | `tbd sync --push` | Update worktree after successful push |
 | `tbd doctor` | Verify worktree health, repair if needed |
 | Repo clone | Worktree created on first tbd command |
 
-**Invariant:** The hidden worktree at `.tbd/sync-worktree/` always reflects the current
+**Invariant:** The hidden worktree at `.tbd/data-sync-worktree/` always reflects the current
 state of the `tbd-sync` branch after sync operations.
 
 #### Worktree Initialization Decision Tree
@@ -728,17 +740,17 @@ START: Any tbd command
     │   ├─ NO → Run `tbd init` first (error: "Not a tbd repository")
     │   └─ YES ↓
     │
-    ├─ Does .tbd/sync-worktree/ exist and contain valid checkout?
+    ├─ Does .tbd/data-sync-worktree/ exist and contain valid checkout?
     │   ├─ YES → Worktree ready, proceed with command
     │   └─ NO ↓
     │
     ├─ Does tbd-sync branch exist (local or remote)?
-    │   ├─ YES (local) → git worktree add .tbd/sync-worktree tbd-sync --detach
+    │   ├─ YES (local) → git worktree add .tbd/data-sync-worktree tbd-sync --detach
     │   ├─ YES (remote only) → git fetch origin tbd-sync
-    │   │                      git worktree add .tbd/sync-worktree origin/tbd-sync --detach
+    │   │                      git worktree add .tbd/data-sync-worktree origin/tbd-sync --detach
     │   └─ NO → This is a fresh tbd init, create orphan worktree:
-    │           git worktree add .tbd/sync-worktree --orphan tbd-sync
-    │           (Initialize .tbd-sync/ structure in worktree)
+    │           git worktree add .tbd/data-sync-worktree --orphan tbd-sync
+    │           (Initialize .tbd/data-sync/ structure in worktree)
     │
     └─ Worktree ready, proceed with command
 ```
@@ -747,7 +759,7 @@ START: Any tbd command
 
 | Repository State | Worktree Action |
 | --- | --- |
-| Fresh `tbd init` | Create orphan worktree with empty .tbd-sync/ |
+| Fresh `tbd init` | Create orphan worktree with empty .tbd/data-sync/ |
 | Clone of existing tbd repo | Fetch remote, create worktree from origin/tbd-sync |
 | Existing local worktree corrupted | `tbd doctor --fix` removes and recreates |
 | Worktree exists but stale | `tbd sync` updates to latest commit |
@@ -762,13 +774,13 @@ Future phases may add: agents, messages, workflows, templates
 
 | Collection | Directory | Extension | ID Prefix | Purpose |
 | --- | --- | --- | --- | --- |
-| Issues | `.tbd-sync/issues/` | `.md` | `is-` | Task tracking (synced) |
+| Issues | `.tbd/data-sync/issues/` | `.md` | `is-` | Task tracking (synced) |
 
 #### Adding New Entity Types (Future)
 
 To add a new entity type:
 
-1. Create directory: `.tbd-sync/messages/` (on sync branch)
+1. Create directory: `.tbd/data-sync/messages/` (on sync branch)
 
 2. Define schema: `MessageSchema` in Zod
 
@@ -837,10 +849,10 @@ function generateShortId(): string {
 
 #### ID Mapping
 
-The mapping between external and internal IDs is stored in `.tbd-sync/mappings/ids.yml`:
+The mapping between external and internal IDs is stored in `.tbd/data-sync/mappings/ids.yml`:
 
 ```yaml
-# .tbd-sync/mappings/ids.yml
+# .tbd/data-sync/mappings/ids.yml
 # short_id: ulid (without prefix)
 a7k2: 01hx5zzkbkactav9wevgemmvrz
 b3m9: 01hx5zzkbkbctav9wevgemmvrz
@@ -885,7 +897,7 @@ Users always type the full short ID.
 Issue files use the full internal ID:
 
 ```
-.tbd-sync/issues/is-01hx5zzkbkactav9wevgemmvrz.md
+.tbd/data-sync/issues/is-01hx5zzkbkactav9wevgemmvrz.md
 ```
 
 **Why ULID in filename?**
@@ -911,7 +923,7 @@ function formatDisplayId(internalId: string, config: Config): string {
 User types:     bd-a7k2
 Lookup:         a7k2 → 01hx5zzkbkactav9wevgemmvrz
 Internal ID:    is-01hx5zzkbkactav9wevgemmvrz
-File path:      .tbd-sync/issues/is-01hx5zzkbkactav9wevgemmvrz.md
+File path:      .tbd/data-sync/issues/is-01hx5zzkbkactav9wevgemmvrz.md
 Display back:   bd-a7k2
 ```
 
@@ -1121,7 +1133,7 @@ const ConfigSchema = z.object({
 
 #### 2.6.5 MetaSchema
 
-Shared metadata stored in `.tbd-sync/meta.yml` on the sync branch:
+Shared metadata stored in `.tbd/data-sync/meta.yml` on the sync branch:
 
 ```typescript
 const MetaSchema = z.object({
@@ -1224,11 +1236,11 @@ export GIT_INDEX_FILE="$(git rev-parse --git-dir)/tbd-index"
 
 ```
 main branch:                    tbd-sync branch:
-├── src/                        └── .tbd-sync/
-├── tests/                          ├── issues/
-├── README.md                       ├── attic/
-├── .tbd/                         └── meta.yml
-│   ├── config.yml (tracked)
+├── src/                        └── .tbd/
+├── tests/                          └── data-sync/
+├── README.md                           ├── issues/
+├── .tbd/                               ├── attic/
+│   ├── config.yml (tracked)            └── meta.yml
 │   ├── .gitignore (tracked)
 │   └── cache/     (gitignored)
 └── ...
@@ -1262,9 +1274,9 @@ cache/
 #### Files Tracked on tbd-sync Branch
 
 ```
-.tbd-sync/issues/     # Issue entities
-.tbd-sync/attic/      # Conflict archive
-.tbd-sync/meta.yml   # Metadata
+.tbd/data-sync/issues/     # Issue entities
+.tbd/data-sync/attic/      # Conflict archive
+.tbd/data-sync/meta.yml   # Metadata
 ```
 
 ### 3.3 Sync Operations
@@ -1275,10 +1287,10 @@ Sync uses standard git commands to read/write the sync branch without checking i
 
 ```bash
 # Read a file from sync branch without checkout
-git show tbd-sync:.tbd-sync/issues/is-a1b2.md
+git show tbd-sync:.tbd/data-sync/issues/is-a1b2.md
 
 # List files in issues directory
-git ls-tree tbd-sync .tbd-sync/issues/
+git ls-tree tbd-sync .tbd/data-sync/issues/
 ```
 
 #### 3.3.2 Writing to Sync Branch
@@ -1297,7 +1309,7 @@ git read-tree tbd-sync
 
 # 3. Update index with local changes
 #    (files from .tbd/cache/entities/ are added to the tree)
-git update-index --add --cacheinfo 100644,<blob-sha>,".tbd-sync/issues/is-a1b2c3.md"
+git update-index --add --cacheinfo 100644,<blob-sha>,".tbd/data-sync/issues/is-a1b2c3.md"
 
 # 4. Write tree from isolated index
 TREE=$(git write-tree)
@@ -1513,7 +1525,7 @@ merged.extensions = {
 The attic preserves data lost in conflicts:
 
 ```
-.tbd-sync/attic/
+.tbd/data-sync/attic/
 └── conflicts/
     └── is-a1b2/
         ├── 2025-01-07T10-30-00Z_description.yml
@@ -1581,7 +1593,7 @@ Options:
 
 2. Creates `.tbd/cache/` (gitignored)
 
-3. Creates `tbd-sync` branch with `.tbd-sync/` structure
+3. Creates `tbd-sync` branch with `.tbd/data-sync/` structure
 
 4. Pushes sync branch to origin (if remote exists)
 
@@ -2094,7 +2106,7 @@ Search is implemented by running ripgrep (or grep as fallback) against the hidde
 worktree directory:
 
 ```
-.tbd/sync-worktree/.tbd-sync/issues/
+.tbd/data-sync-worktree/.tbd/data-sync/issues/
 ```
 
 **Tool selection:**
@@ -2118,7 +2130,7 @@ SEARCH(pattern, options):
        "-C", options.context,
        "--type", "md",  # Only search .md files
        pattern,
-       worktree_path + "/.tbd-sync/issues/"
+       worktree_path + "/.tbd/data-sync/issues/"
      ]
 
   3. If field filter specified:
@@ -2176,7 +2188,7 @@ Tbd Version: 3.0.0
 Sync Branch: tbd-sync
 Remote: origin
 Display Prefix: bd
-Worktree: .tbd/sync-worktree/ (healthy)
+Worktree: .tbd/data-sync-worktree/ (healthy)
 Last Sync: 2025-01-10T10:00:00Z
 Issue Count: 127
 ```
@@ -2189,7 +2201,7 @@ Issue Count: 127
   "sync_branch": "tbd-sync",
   "remote": "origin",
   "display_prefix": "bd",
-  "worktree_path": ".tbd/sync-worktree/",
+  "worktree_path": ".tbd/data-sync-worktree/",
   "worktree_healthy": true,
   "last_sync": "2025-01-10T10:00:00Z",
   "last_synced_commit": "abc123def456",
@@ -2745,7 +2757,7 @@ Each imported issue stores its original Beads ID in the `extensions` field:
 To enable O(1) lookups on large issue sets, import also maintains a mapping file:
 
 ```
-.tbd-sync/mappings/beads.yml
+.tbd/data-sync/mappings/beads.yml
 ```
 
 ```json
@@ -2772,7 +2784,7 @@ by scanning all issues and reading `extensions.beads.original_id`. Run:
 
 ```
 IMPORT_BEADS(jsonl_file):
-  1. Load existing mapping from .tbd-sync/mappings/beads.yml
+  1. Load existing mapping from .tbd/data-sync/mappings/beads.yml
      (create empty {} if not exists)
 
   2. For each line in jsonl_file:
@@ -3034,7 +3046,7 @@ Tbd options:
 
 2. **Import as closed**: Convert to `closed` with label `tombstone`
 
-3. **Import to attic**: Store in `.tbd-sync/attic/deleted/`
+3. **Import to attic**: Store in `.tbd/data-sync/attic/deleted/`
 
 ### 5.5 Compatibility Notes
 
@@ -3058,7 +3070,7 @@ Tbd options:
 
 - Beads: Single `issues.jsonl` file
 
-- Tbd: File-per-issue in `.tbd-sync/issues/`
+- Tbd: File-per-issue in `.tbd/data-sync/issues/`
 
 **Database:**
 
@@ -3142,7 +3154,7 @@ These flags/behaviors are maintained for Beads script compatibility:
    - Internal ID is ULID-based: `is-01hx5zzkbk...`
    - Set `display.id_prefix: bd` to keep `bd-` prefix familiar
    - Old Beads IDs in commit messages won’t auto-link to new IDs
-   - Mapping file `.tbd-sync/mappings/beads.yml` preserves the relationship
+   - Mapping file `.tbd/data-sync/mappings/beads.yml` preserves the relationship
 
 2. **No daemon**: Background sync must be manual or cron-based
 
@@ -3490,13 +3502,13 @@ checkout.
 
    - Con: Files not accessible to ripgrep/grep for searching
 
-2. **Sparse checkout**: Checkout only `.tbd-sync/` directory
+2. **Sparse checkout**: Checkout only `.tbd/data-sync/` directory
 
    - Pro: Files accessible, minimal overhead
 
    - Con: Pollutes user’s working directory, shows in `git status`
 
-3. **Hidden worktree**: Separate checkout at `.tbd/sync-worktree/`
+3. **Hidden worktree**: Separate checkout at `.tbd/data-sync-worktree/`
 
    - Pro: Files accessible for search, isolated from user’s work
 
@@ -3514,7 +3526,7 @@ checkout.
 
 **Implementation Notes**:
 
-- Worktree created at `.tbd/sync-worktree/`
+- Worktree created at `.tbd/data-sync-worktree/`
 
 - Worktree directory added to `.tbd/.gitignore`
 
@@ -3659,24 +3671,26 @@ repo/
 ├── .git/
 ├── .tbd/                         # On main branch
 │   ├── config.yml                  # Tracked: project config
-│   ├── .gitignore                  # Tracked: ignores cache/
-│   └── cache/                      # Gitignored: local only
-│       ├── index.json              # Optional query cache
-│       └── sync.lock               # Optional sync coordination
+│   ├── .gitignore                  # Tracked: ignores cache/, data-sync-worktree/, data-sync/
+│   ├── cache/                      # Gitignored: local only
+│   │   ├── index.json              # Optional query cache
+│   │   └── sync.lock               # Optional sync coordination
+│   └── data-sync-worktree/         # Gitignored: worktree checkout of tbd-sync
 │
 └── (on tbd-sync branch)
-    └── .tbd-sync/
-        ├── issues/                 # Issue entities (ULID-named files)
-        │   ├── is-01hx5zzkbkactav9wevgemmvrz.md
-        │   └── is-01hx5zzkbkbctav9wevgemmvrz.md
-        ├── mappings/               # ID mappings
-        │   ├── ids.yml            # short → ULID (e.g., a7k2 → 01hx5zzk...)
-        │   └── beads.yml          # Beads imports
-        ├── attic/                  # Conflict archive
-        │   └── conflicts/
-        │       └── is-01hx5zzkbkactav9wevgemmvrz/
-        │           └── 2025-01-07T10-30-00Z_description.yml
-        └── meta.yml               # Metadata
+    └── .tbd/
+        └── data-sync/
+            ├── issues/                 # Issue entities (ULID-named files)
+            │   ├── is-01hx5zzkbkactav9wevgemmvrz.md
+            │   └── is-01hx5zzkbkbctav9wevgemmvrz.md
+            ├── mappings/               # ID mappings
+            │   ├── ids.yml            # short → ULID (e.g., a7k2 → 01hx5zzk...)
+            │   └── beads.yml          # Beads imports
+            ├── attic/                  # Conflict archive
+            │   └── conflicts/
+            │       └── is-01hx5zzkbkactav9wevgemmvrz/
+            │           └── 2025-01-07T10-30-00Z_description.yml
+            └── meta.yml               # Metadata
 ```
 
 **File counts (example with 1,000 issues):**
@@ -3685,8 +3699,8 @@ repo/
 | --- | --- | --- |
 | `.tbd/` | 3 | <1 KB |
 | `.tbd/cache/` | 1-2 | <500 KB |
-| `.tbd-sync/issues/` | 1,000 | ~2 MB |
-| `.tbd-sync/attic/` | 10-50 | <100 KB |
+| `.tbd/data-sync/issues/` | 1,000 | ~2 MB |
+| `.tbd/data-sync/attic/` | 10-50 | <100 KB |
 
 * * *
 
@@ -3892,7 +3906,7 @@ This is sufficient for the `ready` command algorithm.
 | Primary store | SQLite | Markdown + YAML files |
 | Sync format | JSONL | Markdown + YAML (same as primary) |
 | File structure | Single `issues.jsonl` | File per entity |
-| Location | `.beads/` on main | `.tbd-sync/` on sync branch |
+| Location | `.beads/` on main | `.tbd/data-sync/` on sync branch |
 | Config | SQLite + various | `.tbd/config.yml` on main |
 
 #### A.4.2 Sync
@@ -4186,7 +4200,7 @@ The attic preserves losers, but UX may suffer if the “wrong” version consist
 
 **V2-016: Single mapping file as potential conflict hotspot**
 
-`.tbd-sync/mappings/beads.yml` could see conflicts if multiple nodes import concurrently
+`.tbd/data-sync/mappings/beads.yml` could see conflicts if multiple nodes import concurrently
 (though this is rare).
 
 **Options:**

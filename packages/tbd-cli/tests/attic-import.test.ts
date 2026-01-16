@@ -11,6 +11,7 @@ import { stringify as stringifyYaml, parse as parseYaml } from 'yaml';
 
 import { writeIssue, readIssue, atomicWriteFile } from '../src/file/storage.js';
 import type { Issue } from '../src/lib/types.js';
+import { DATA_SYNC_DIR, ATTIC_DIR, MAPPINGS_DIR } from '../src/lib/paths.js';
 import { TEST_ULIDS, testId } from './test-helpers.js';
 
 // Attic entry structure
@@ -31,8 +32,8 @@ interface AtticEntry {
 
 describe('attic commands logic', () => {
   let testDir: string;
-  const issuesDir = '.tbd-sync';
-  const atticDir = '.tbd-sync/attic';
+  const issuesDir = DATA_SYNC_DIR;
+  const atticDir = ATTIC_DIR;
 
   beforeEach(async () => {
     testDir = join(tmpdir(), `tbd-attic-test-${randomBytes(4).toString('hex')}`);
@@ -137,8 +138,8 @@ describe('attic commands logic', () => {
 
 describe('import command logic', () => {
   let testDir: string;
-  const issuesDir = '.tbd-sync';
-  const mappingsDir = '.tbd-sync/mappings';
+  const issuesDir = DATA_SYNC_DIR;
+  const mappingsDir = MAPPINGS_DIR;
 
   beforeEach(async () => {
     testDir = join(tmpdir(), `tbd-import-test-${randomBytes(4).toString('hex')}`);

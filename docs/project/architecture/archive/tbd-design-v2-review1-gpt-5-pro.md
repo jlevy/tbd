@@ -78,11 +78,11 @@ non-event.
 
 ### 3) Apply “file-per-entity” to mapping files too
 
-`.tbd-sync/mappings/beads.json` is a potential conflict hotspot if more than one node
+`.tbd/data-sync/mappings/beads.json` is a potential conflict hotspot if more than one node
 imports concurrently (even if rare).
 If you’ve embraced file-per-entity, it’s consistent to do:
 
-- `.tbd-sync/mappings/beads/bd-x7y8.json` → `{ "tbd_id": "is-..." }`
+- `.tbd/data-sync/mappings/beads/bd-x7y8.json` → `{ "tbd_id": "is-..." }`
 
 Then imports never contend on a single monolithic mapping file.
 
@@ -158,15 +158,15 @@ You can copy/paste this as a checklist.
   hidden worktree. Add an explicit invariant: “tbd never modifies the user’s
   index/staging area.”
 
-- **[V2-002] [BLOCKER] Local working copy location for `.tbd-sync/` is undefined**
+- **[V2-002] [BLOCKER] Local working copy location for `.tbd/data-sync/` is undefined**
   **Where:** §2.2 Directory Structure + §3.3 Sync Operations **Problem:** The spec says
-  `.tbd-sync/` exists on the `tbd-sync` branch, but then uses
-  `git add .tbd-sync/issues/` which requires those files to exist in the working tree.
-  Meanwhile main branch structure omits `.tbd-sync/` entirely.
+  `.tbd/data-sync/` exists on the `tbd-sync` branch, but then uses
+  `git add .tbd/data-sync/issues/` which requires those files to exist in the working tree.
+  Meanwhile main branch structure omits `.tbd/data-sync/` entirely.
   **Suggested change:** Add an explicit subsection: “Local storage model.”
   Choose one:
 
-  1. `.tbd-sync/` exists locally (gitignored on main) and is used as a workspace, OR
+  1. `.tbd/data-sync/` exists locally (gitignored on main) and is used as a workspace, OR
 
   2. issues live under `.tbd/cache/...` locally and are written into git objects
      directly, OR
@@ -174,17 +174,17 @@ You can copy/paste this as a checklist.
   3. hidden worktree checkout for `tbd-sync` exists under `.tbd/cache/worktrees/...`.
      Make it normative so implementation + UX are aligned.
 
-- **[V2-003] [BLOCKER] Missing rule for not leaving untracked `.tbd-sync/` noise on
-  main** **Where:** §2.2 + §3.2 (tracked files on main) **Problem:** If `.tbd-sync/` is
+- **[V2-003] [BLOCKER] Missing rule for not leaving untracked `.tbd/data-sync/` noise on
+  main** **Where:** §2.2 + §3.2 (tracked files on main) **Problem:** If `.tbd/data-sync/` is
   used as a local workspace on main, it will show as untracked unless explicitly
   ignored. Current `.tbd/.gitignore` ignores only `cache/`. **Suggested change:** If
-  `.tbd-sync/` exists on main working tree, specify how it is ignored:
+  `.tbd/data-sync/` exists on main working tree, specify how it is ignored:
 
-  - recommend adding `.tbd-sync/` to top-level `.gitignore` OR
+  - recommend adding `.tbd/data-sync/` to top-level `.gitignore` OR
 
   - write to `.git/info/exclude` in `tbd init` OR
 
-  - avoid having `.tbd-sync/` exist on main at all (use hidden worktree or cache).
+  - avoid having `.tbd/data-sync/` exist on main at all (use hidden worktree or cache).
 
 - **[V2-004] [MAJOR] `git show tbd-sync:...` vs remote tracking branch ambiguity**
   **Where:** §3.3.1 Reading from Sync Branch **Problem:** Examples read from `tbd-sync:`
@@ -320,7 +320,7 @@ You can copy/paste this as a checklist.
     not suffix). Update examples accordingly.
 
 - **[V2-016] [MAJOR] Single mapping file on sync branch can become a conflict hotspot**
-  **Where:** §5.1.4 `.tbd-sync/mappings/beads.json` **Problem:** Concurrent imports or
+  **Where:** §5.1.4 `.tbd/data-sync/mappings/beads.json` **Problem:** Concurrent imports or
   partial migrations could cause merges on the same file.
   **Suggested change:** Store per-beads-id mapping files (file-per-entity) or define
   merge semantics for `beads.json` as a “map union with conflict on key mismatch.”
@@ -341,7 +341,7 @@ You can copy/paste this as a checklist.
   Windows** **Where:** §2.1 Canonical JSON **Problem:** If a contributor ends up with
   CRLF vs LF, content hashes differ.
   **Suggested change:** Specify LF line endings and recommend `.gitattributes` rule for
-  `.tbd-sync/**` (e.g., `text eol=lf`) or ensure writer always emits LF.
+  `.tbd/data-sync/**` (e.g., `text eol=lf`) or ensure writer always emits LF.
 
 - **[V2-019] [MAJOR] Atomic write algorithm is not fully cross-platform safe as stated**
   **Where:** §2.1 Atomic File Writes **Problem:** The snippet claims “POSIX guarantees
@@ -515,7 +515,7 @@ You can copy/paste this as a checklist.
   doing it naïvely is O(n) file reads and defeats the purpose.
   **Suggested change:** Define checksum as either:
 
-  - git tree hash of `.tbd-sync/issues` at the synced commit, OR
+  - git tree hash of `.tbd/data-sync/issues` at the synced commit, OR
 
   - a rolling hash of (filename, mtime, size) stored in state.json, OR
 

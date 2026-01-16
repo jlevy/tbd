@@ -13,6 +13,8 @@ import { randomBytes } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import { stringify as stringifyYaml, parse as parseYaml } from 'yaml';
 
+import { TBD_DIR, ISSUES_DIR } from '../../src/lib/paths.js';
+
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
 // Package directory (where pnpm commands run from)
@@ -177,8 +179,8 @@ export function runCommand(
  */
 export async function createTestDir(): Promise<string> {
   const testDir = join(tmpdir(), `tbd-golden-${randomBytes(4).toString('hex')}`);
-  await mkdir(join(testDir, '.tbd-sync', 'issues'), { recursive: true });
-  await mkdir(join(testDir, '.tbd'), { recursive: true });
+  await mkdir(join(testDir, ISSUES_DIR), { recursive: true });
+  await mkdir(join(testDir, TBD_DIR), { recursive: true });
   return testDir;
 }
 
@@ -287,9 +289,9 @@ export async function readTestFile(testDir: string, relativePath: string): Promi
  */
 export async function listTestIssueFiles(testDir: string): Promise<string[]> {
   const { readdir } = await import('node:fs/promises');
-  const issuesDir = join(testDir, '.tbd-sync', 'issues');
+  const issuesDirPath = join(testDir, ISSUES_DIR);
   try {
-    const files = await readdir(issuesDir);
+    const files = await readdir(issuesDirPath);
     return files.filter((f) => f.endsWith('.md')).sort();
   } catch {
     return [];

@@ -208,7 +208,7 @@ These are substantive changes that may affect architecture.
 
   - **Resolution:** Added explicit requirement for isolated index, invariant statement
 
-- [x] **V2-002**: Local working copy location for `.tbd-sync/` is undefined
+- [x] **V2-002**: Local working copy location for `.tbd/data-sync/` is undefined
 
   - **Location:** §2.2 Directory Structure + §3.3 Sync Operations
 
@@ -219,11 +219,11 @@ These are substantive changes that may affect architecture.
   - **Resolution:** Added section 2.6 Local Storage Model clarifying cache-based
     approach
 
-- [x] **V2-003**: Missing rule for not leaving untracked `.tbd-sync/` noise on main
+- [x] **V2-003**: Missing rule for not leaving untracked `.tbd/data-sync/` noise on main
 
   - **Location:** §2.2 + §3.2
 
-  - **Problem:** If `.tbd-sync/` used locally, it will show as untracked
+  - **Problem:** If `.tbd/data-sync/` used locally, it will show as untracked
 
   - **Resolution:** Addressed in Local Storage Model - files live in cache, not working
     tree
@@ -268,7 +268,7 @@ These are substantive changes that may affect architecture.
 
 - [?] **V2-016**: Single mapping file on sync branch can become a conflict hotspot
 
-  - **Location:** §5.1.4 `.tbd-sync/mappings/beads.json`
+  - **Location:** §5.1.4 `.tbd/data-sync/mappings/beads.json`
 
   - **Options:**
 

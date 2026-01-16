@@ -14,10 +14,7 @@ import { writeIssue, listIssues, atomicWriteFile } from '../../file/storage.js';
 import { generateInternalId } from '../../lib/ids.js';
 import { IssueStatus, IssueKind } from '../../lib/schemas.js';
 import type { Issue, IssueStatusType, IssueKindType, DependencyType } from '../../lib/types.js';
-
-// Base directory for issues
-const ISSUES_BASE_DIR = '.tbd-sync';
-const MAPPINGS_DIR = '.tbd-sync/mappings';
+import { DATA_SYNC_DIR, MAPPINGS_DIR } from '../../lib/paths.js';
 
 interface ImportOptions {
   fromBeads?: boolean;
@@ -475,7 +472,7 @@ class ImportHandler extends BaseCommand {
       }
 
       try {
-        await writeIssue(ISSUES_BASE_DIR, issue);
+        await writeIssue(DATA_SYNC_DIR, issue);
       } catch (error) {
         if (options.verbose) {
           this.output.warn(`Failed to write issue ${beads.id}: ${(error as Error).message}`);
@@ -513,7 +510,7 @@ class ImportHandler extends BaseCommand {
 
   private async loadExistingIssues(): Promise<Issue[]> {
     try {
-      return await listIssues(ISSUES_BASE_DIR);
+      return await listIssues(DATA_SYNC_DIR);
     } catch {
       return [];
     }

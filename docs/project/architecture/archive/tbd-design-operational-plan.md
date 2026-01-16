@@ -38,7 +38,7 @@ All paths in this document use the current directory structure:
     │   └── state.json
     └── daemon.*            # Daemon files
 
-.tbd-sync/                # On tbd-sync branch
+.tbd/data-sync/                # On tbd-sync branch
 ├── nodes/                  # Synced entities
 ├── attic/                  # Conflict archive
 └── meta.json               # Runtime metadata
@@ -535,7 +535,7 @@ const EntityId = z.string().regex(/^[a-z]{2}-[a-z0-9]{6}$/);
 
 #### Version Tracking
 
-Schema versions are tracked in `.tbd-sync/meta.json` (on the sync branch):
+Schema versions are tracked in `.tbd/data-sync/meta.json` (on the sync branch):
 
 ```json
 {
@@ -583,9 +583,9 @@ tbd doctor --check-schema
 tbd migrate --to 2
 
 # What it does:
-# 1. Backs up all entities to .tbd-sync/attic/migrations/
+# 1. Backs up all entities to .tbd/data-sync/attic/migrations/
 # 2. Transforms each entity to new schema
-# 3. Updates .tbd-sync/meta.json schema_versions
+# 3. Updates .tbd/data-sync/meta.json schema_versions
 # 4. Syncs to propagate changes
 ```
 
