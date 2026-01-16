@@ -3333,15 +3333,15 @@ The following gaps in the existing test suite allowed these bugs to slip through
 
 * * *
 
-## Phase 19: Code Quality Improvements
+## Phase 20: Code Quality Improvements
 
 **Goal**: Align implementation with documented best practices and improve code maintainability.
 
-### 19.1 File Operations
+### 20.1 File Operations
 
 | Bead ID | Task | Priority | Notes |
 | --- | --- | --- | --- |
-| tbd-1853 | Replace custom atomicWriteFile with `atomically` library | P2 | Aligns with typescript-rules.md. Benefits: TypeScript-native, zero deps, built-in error retry (EMFILE/ENFILE/EAGAIN/EBUSY/EACCESS/EPERM), concurrent write queueing, symlink resolution. Changes: 1) Add `atomically` dependency, 2) Replace custom impl with re-export, 3) Keep same export name for backward compat. |
+| tbd-1853 | ✅ Replace custom atomicWriteFile with `atomically` library | P2 | **DONE.** Aligns with typescript-rules.md. Benefits: TypeScript-native, zero deps, built-in error retry (EMFILE/ENFILE/EAGAIN/EBUSY/EACCESS/EPERM), concurrent write queueing, symlink resolution. |
 
 * * *
 
@@ -3371,4 +3371,5 @@ The following gaps in the existing test suite allowed these bugs to slip through
 | 2026-01-15 | Claude | Added README (tbd-1205), manual validation (tbd-1305), security review (tbd-1306) |
 | 2026-01-16 | Claude | Added Phase 18: Critical Bug Fixes (tbd-1809 through tbd-1818) - worktree usage, ID display, status mapping, serialization |
 | 2026-01-16 | Claude | Enhanced Phase 18 with systematic testing strategy: gap analysis, test infrastructure (tbd-1837→1840), new test files (tbd-1841→1846), broader coverage (tbd-1847→1852), TDD approach |
-| 2026-01-16 | Claude | Added Phase 19: Code Quality Improvements - tbd-1853 (replace custom atomicWriteFile with `atomically` library per typescript-rules.md) |
+| 2026-01-16 | Claude | Added Phase 20: Code Quality Improvements - tbd-1853 (replace custom atomicWriteFile with `atomically` library per typescript-rules.md) |
+| 2026-01-16 | Claude | ✅ Completed tbd-1853: replaced custom atomicWriteFile with atomically library, fixed dynamic imports in git.ts |
