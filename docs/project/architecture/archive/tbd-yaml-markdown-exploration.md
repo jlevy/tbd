@@ -6,7 +6,7 @@
 
 **Related:** tbd-design-v2-phase1.md
 
-* * *
+---
 
 ## Executive Summary
 
@@ -36,12 +36,11 @@ and is increasingly common for content management.
 
 4. **Part 3**: Trade-offs and implementation considerations
 
-* * *
+---
 
 ## Table of Contents
 
 - [Part 0: Prior Art Survey](#part-0-prior-art-survey)
-
   - [0.1 ticket (wedow/ticket)](#01-ticket-wedowticket)
 
   - [0.2 TrackDown](#02-trackdown)
@@ -55,7 +54,6 @@ and is increasingly common for content management.
   - [0.6 Key Learnings](#06-key-learnings)
 
 - [Part 1: Core Format Changes](#part-1-core-format-changes)
-
   - [1.1 File Format Specification](#11-file-format-specification)
 
   - [1.2 Schema Changes](#12-schema-changes)
@@ -73,7 +71,6 @@ and is increasingly common for content management.
   - [1.8 Migration from JSON](#18-migration-from-json)
 
 - [Part 2: New Workflows](#part-2-new-workflows)
-
   - [2.1 Main Repo Issue Storage](#21-main-repo-issue-storage)
 
   - [2.2 Edit Directory Workflow](#22-edit-directory-workflow)
@@ -85,7 +82,6 @@ and is increasingly common for content management.
   - [2.5 Issue Templates](#25-issue-templates)
 
 - [Part 3: Trade-offs and Considerations](#part-3-trade-offs-and-considerations)
-
   - [3.1 Advantages](#31-advantages)
 
   - [3.2 Disadvantages](#32-disadvantages)
@@ -96,7 +92,7 @@ and is increasingly common for content management.
 
 - [Appendix: Complete Example Files](#appendix-complete-example-files)
 
-* * *
+---
 
 ## Part 0: Prior Art Survey
 
@@ -300,6 +296,7 @@ Distributed, offline-first bug tracker embedded in Git.
 The Markdown + YAML front matter pattern is well-established:
 
 **Jekyll/Hugo/Astro pattern:**
+
 ```markdown
 ---
 title: My Post
@@ -341,18 +338,17 @@ Content goes here...
 
 ### 0.6 Key Learnings
 
-| Tool | Storage | Pros | Cons |
-| --- | --- | --- | --- |
-| ticket | MD+YAML, file-per-issue | Simple, AI-friendly, production-proven | No conflict strategy |
-| TrackDown | Single MD file | Simple distribution | Merge conflicts at scale |
-| git-issue | SHA dirs + metadata files | GitHub sync, robust | Complex structure, ugly IDs |
-| git-bug | Git objects | No file clutter, CRDT-like | Not inspectable |
-| SSGs | MD+YAML, file-per-content | Universal, great tooling | No sync built-in |
+| Tool      | Storage                   | Pros                                   | Cons                        |
+| --------- | ------------------------- | -------------------------------------- | --------------------------- |
+| ticket    | MD+YAML, file-per-issue   | Simple, AI-friendly, production-proven | No conflict strategy        |
+| TrackDown | Single MD file            | Simple distribution                    | Merge conflicts at scale    |
+| git-issue | SHA dirs + metadata files | GitHub sync, robust                    | Complex structure, ugly IDs |
+| git-bug   | Git objects               | No file clutter, CRDT-like             | Not inspectable             |
+| SSGs      | MD+YAML, file-per-content | Universal, great tooling               | No sync built-in            |
 
 **Synthesis for Tbd:**
 
 1. **File-per-entity with Markdown+YAML is the right choice**
-
    - Proven by ticket’s production use
 
    - Matches developer mental model from static sites
@@ -360,32 +356,28 @@ Content goes here...
    - Better than single file (TrackDown) or git objects (git-bug)
 
 2. **Keep human-readable IDs**
-
    - SHA-based (git-issue) is robust but unfriendly
 
    - Short hex IDs (ticket, Beads) are better UX
 
 3. **Need explicit conflict strategy**
-
    - ticket relies on Git merge (works for small teams)
 
    - We should keep our LWW + attic approach for robustness
 
 4. **Git hooks are useful but optional**
-
    - TrackDown’s commit parsing is nice
 
    - Keep as optional enhancement, not requirement
 
 5. **Leverage existing tooling**
-
    - gray-matter for parsing
 
    - VS Code Markdown preview works out of box
 
    - Standard tools (grep, sed) work on files
 
-* * *
+---
 
 ## Part 1: Core Format Changes
 
@@ -409,9 +401,7 @@ while keeping all existing workflows intact.
   "priority": 1,
   "assignee": "claude",
   "labels": ["backend", "security"],
-  "dependencies": [
-    { "target": "is-f14c3d", "type": "blocks" }
-  ],
+  "dependencies": [{ "target": "is-f14c3d", "type": "blocks" }],
   "parent_id": null,
   "created_at": "2025-01-07T10:00:00Z",
   "updated_at": "2025-01-08T14:30:00Z",
@@ -456,6 +446,7 @@ extensions: {}
 Users are getting logged out after 5 minutes.
 
 Steps to reproduce:
+
 1. Log in
 2. Wait 5 minutes
 3. Try to navigate
@@ -494,29 +485,29 @@ The schema remains largely the same, but the storage format changes.
 
 #### Field Mapping
 
-| Field | Location | Notes |
-| --- | --- | --- |
-| `type` | YAML front matter | Entity discriminator |
-| `id` | YAML front matter | Issue ID |
-| `version` | YAML front matter | Edit counter |
-| `kind` | YAML front matter | bug/feature/task/epic/chore |
-| `title` | YAML front matter | Single line |
-| `status` | YAML front matter | Status enum |
-| `priority` | YAML front matter | 0-4 |
-| `assignee` | YAML front matter | String |
-| `labels` | YAML front matter | Array |
-| `dependencies` | YAML front matter | Array of objects |
-| `parent_id` | YAML front matter | String or null |
-| `created_at` | YAML front matter | ISO8601 |
-| `updated_at` | YAML front matter | ISO8601 |
-| `created_by` | YAML front matter | String |
-| `closed_at` | YAML front matter | ISO8601 or null |
-| `close_reason` | YAML front matter | String or null |
-| `due_date` | YAML front matter | ISO8601 or null |
-| `deferred_until` | YAML front matter | ISO8601 or null |
-| `extensions` | YAML front matter | Object |
-| `description` | Markdown body (first section) | Multi-line text |
-| `notes` | Markdown body (after `## Notes`) | Multi-line text |
+| Field            | Location                         | Notes                       |
+| ---------------- | -------------------------------- | --------------------------- |
+| `type`           | YAML front matter                | Entity discriminator        |
+| `id`             | YAML front matter                | Issue ID                    |
+| `version`        | YAML front matter                | Edit counter                |
+| `kind`           | YAML front matter                | bug/feature/task/epic/chore |
+| `title`          | YAML front matter                | Single line                 |
+| `status`         | YAML front matter                | Status enum                 |
+| `priority`       | YAML front matter                | 0-4                         |
+| `assignee`       | YAML front matter                | String                      |
+| `labels`         | YAML front matter                | Array                       |
+| `dependencies`   | YAML front matter                | Array of objects            |
+| `parent_id`      | YAML front matter                | String or null              |
+| `created_at`     | YAML front matter                | ISO8601                     |
+| `updated_at`     | YAML front matter                | ISO8601                     |
+| `created_by`     | YAML front matter                | String                      |
+| `closed_at`      | YAML front matter                | ISO8601 or null             |
+| `close_reason`   | YAML front matter                | String or null              |
+| `due_date`       | YAML front matter                | ISO8601 or null             |
+| `deferred_until` | YAML front matter                | ISO8601 or null             |
+| `extensions`     | YAML front matter                | Object                      |
+| `description`    | Markdown body (first section)    | Multi-line text             |
+| `notes`          | Markdown body (after `## Notes`) | Multi-line text             |
 
 #### Body Structure
 
@@ -547,7 +538,7 @@ interface ParsedIssue {
 }
 
 function parseIssueFile(content: string): ParsedIssue {
-  const { data, content: body } = matter(content);  // gray-matter library
+  const { data, content: body } = matter(content); // gray-matter library
 
   // Split body at ## Notes
   const notesMatch = body.match(/^## Notes\s*$/m);
@@ -629,9 +620,13 @@ labels: []
 # Rules for canonical body:
 
 # 1. Trim leading/trailing whitespace from description and notes
+
 # 2. Normalize internal whitespace (collapse multiple blank lines to single)
+
 # 3. No trailing whitespace on lines
+
 # 4. Single newline at end
+
 # 5. LF line endings
 ```
 
@@ -661,17 +656,17 @@ function hasConflict(local: Issue, remote: Issue): boolean {
 
 Merge rules from the main spec apply unchanged:
 
-| Field | Strategy |
-| --- | --- |
-| `type`, `id` | immutable |
-| `version` | max_plus_one |
-| `title`, `status`, `priority`, `assignee`, `kind` | lww |
-| `description`, `notes` | lww_with_attic |
-| `labels` | union (sorted) |
-| `dependencies` | merge_by_id (sorted by target) |
-| `created_at`, `created_by` | preserve_oldest |
-| `updated_at` | recalculate |
-| `extensions` | deep_merge_by_key |
+| Field                                             | Strategy                       |
+| ------------------------------------------------- | ------------------------------ |
+| `type`, `id`                                      | immutable                      |
+| `version`                                         | max_plus_one                   |
+| `title`, `status`, `priority`, `assignee`, `kind` | lww                            |
+| `description`, `notes`                            | lww_with_attic                 |
+| `labels`                                          | union (sorted)                 |
+| `dependencies`                                    | merge_by_id (sorted by target) |
+| `created_at`, `created_by`                        | preserve_oldest                |
+| `updated_at`                                      | recalculate                    |
+| `extensions`                                      | deep_merge_by_key              |
 
 #### Body Merge
 
@@ -790,7 +785,7 @@ Config is already YAML. Clarify the extension:
 ```yaml
 # .tbd/config.yaml (was config.yml)
 
-version: "1.0"
+version: '1.0'
 
 settings:
   auto_sync: false
@@ -839,7 +834,7 @@ function convertJsonToMarkdown(jsonPath: string): void {
 }
 ```
 
-* * *
+---
 
 ## Part 2: New Workflows
 
@@ -912,8 +907,8 @@ tbd sync
 
 local_issues:
   enabled: true
-  directory: issues/active     # Where to checkout issues
-  auto_cleanup: true           # Remove after sync
+  directory: issues/active # Where to checkout issues
+  auto_cleanup: true # Remove after sync
   checkout_filter: assignee:me # Default filter for checkout
 ```
 
@@ -1115,11 +1110,7 @@ labels:
 
 ## Expected Behavior
 
-
-
 ## Actual Behavior
-
-
 
 ## Screenshots/Logs
 ```
@@ -1134,7 +1125,7 @@ tbd create --template bug "Button doesn't work" --no-edit
 # Creates with template defaults
 ```
 
-* * *
+---
 
 ## Part 3: Trade-offs and Considerations
 
@@ -1229,9 +1220,9 @@ tbd create --template bug "Button doesn't work" --no-edit
 ```json
 {
   "dependencies": {
-    "gray-matter": "^4.0.3",    // Front matter parsing
-    "js-yaml": "^4.1.0",        // YAML parsing/serialization
-    "zod": "^3.22.0"            // Schema validation (unchanged)
+    "gray-matter": "^4.0.3", // Front matter parsing
+    "js-yaml": "^4.1.0", // YAML parsing/serialization
+    "zod": "^3.22.0" // Schema validation (unchanged)
   }
 }
 ```
@@ -1280,12 +1271,12 @@ assert.deepEqual(issue1, issue2);
 
 #### Parsing Benchmarks (Estimated)
 
-| Operation | JSON | YAML+MD | Difference |
-| --- | --- | --- | --- |
-| Parse 1 issue | 0.1ms | 0.3ms | 3x slower |
-| Parse 1000 issues | 100ms | 300ms | 3x slower |
-| Serialize 1 issue | 0.05ms | 0.2ms | 4x slower |
-| Index rebuild (5k issues) | 500ms | 1.5s | 3x slower |
+| Operation                 | JSON   | YAML+MD | Difference |
+| ------------------------- | ------ | ------- | ---------- |
+| Parse 1 issue             | 0.1ms  | 0.3ms   | 3x slower  |
+| Parse 1000 issues         | 100ms  | 300ms   | 3x slower  |
+| Serialize 1 issue         | 0.05ms | 0.2ms   | 4x slower  |
+| Index rebuild (5k issues) | 500ms  | 1.5s    | 3x slower  |
 
 #### Mitigation
 
@@ -1301,7 +1292,7 @@ assert.deepEqual(issue1, issue2);
 
 - Not significant for typical scale (<10k issues)
 
-* * *
+---
 
 ## Summary: Recommended Approach
 
@@ -1351,7 +1342,7 @@ Or:
 
 3. Benefit from human readability immediately
 
-* * *
+---
 
 ## Appendix: Complete Example Files
 
@@ -1415,6 +1406,7 @@ Found hardcoded `300000` (5 minutes) in `src/auth/session.ts:42`.
 ```typescript
 // BUG: This overrides the config value
 const TIMEOUT = 300000; // Should be config.sessionTimeout
+```
 ````
 
 ## Notes
@@ -1425,6 +1417,7 @@ audit.
 
 2025-01-09: PR #789 ready for review.
 Uses config value and adds tests.
+
 ````
 
 ### Issue File: Feature
@@ -1526,7 +1519,7 @@ Weekly sync with security team on Tuesdays.
 ```yaml
 # .tbd/config.yaml
 
-version: "1.0"
+version: '1.0'
 
 settings:
   auto_sync: false
@@ -1577,14 +1570,13 @@ Users are being logged out after exactly 5 minutes...
 (original local description preserved here)
 ```
 
-* * *
+---
 
 ## Open Questions
 
 ### Format Decisions
 
 1. **File extension**: `.md` vs `.issue.md` vs `.tbd`?
-
    - `.md` has best editor support
 
    - `.issue.md` is explicit and filterable
@@ -1592,7 +1584,6 @@ Users are being logged out after exactly 5 minutes...
    - Recommendation: `.md` (simplicity)
 
 2. **Cache format**: Keep index.json for performance or convert to YAML for consistency?
-
    - Cache files are not user-edited
 
    - JSON parsing is faster
@@ -1600,7 +1591,6 @@ Users are being logged out after exactly 5 minutes...
    - Recommendation: Keep cache as JSON
 
 3. **Config format**: `config.yaml` or `config.yml`?
-
    - `.yaml` is more explicit (YAML spec prefers it)
 
    - `.yml` is common (Rails, Docker)
@@ -1610,7 +1600,6 @@ Users are being logged out after exactly 5 minutes...
 ### Content Decisions
 
 4. **Comments**: Inline in document or separate entity type?
-
    - Inline: simpler, visible in file
 
    - Separate: better conflict handling, cleaner diffs
@@ -1618,7 +1607,6 @@ Users are being logged out after exactly 5 minutes...
    - Recommendation: Phase 1 inline (optional section), Phase 2 separate entities
 
 5. **Notes section marker**: `## Notes` vs `---` separator vs other?
-
    - `## Notes` is explicit and Markdown-native
 
    - `---` could conflict with front matter delimiter
@@ -1628,7 +1616,6 @@ Users are being logged out after exactly 5 minutes...
 ### Workflow Decisions
 
 6. **Main repo issues**: Enable in Phase 1 or defer to Phase 2?
-
    - Adds complexity but high value
 
    - ticket proves single-location works fine
@@ -1636,7 +1623,6 @@ Users are being logged out after exactly 5 minutes...
    - Recommendation: Defer to Phase 1.5, design for it now
 
 7. **Template location**: `.tbd/templates/` or user-configurable?
-
    - Fixed location is simpler
 
    - Configurable allows shared templates
@@ -1646,7 +1632,6 @@ Users are being logged out after exactly 5 minutes...
 ### Migration Decisions
 
 8. **Backward compatibility**: Support both JSON and Markdown, or Markdown only?
-
    - Both: more code, testing surface
 
    - Markdown only: cleaner, format is clearly better
@@ -1654,14 +1639,13 @@ Users are being logged out after exactly 5 minutes...
    - Recommendation: Markdown only, provide one-time migration tool
 
 9. **When to adopt**: Phase 1 launch or Phase 1.5 enhancement?
-
    - ticket proves format works in production
 
    - JSON spec is already written
 
    - Recommendation: Consider shipping with Markdown from start
 
-* * *
+---
 
 ## Recommendation Summary
 
@@ -1695,16 +1679,16 @@ Based on prior art analysis and trade-off evaluation:
 
 **Key spec changes summary:**
 
-| Section | Change |
-| --- | --- |
-| 2.1 File Format | JSON → Markdown + YAML front matter |
-| 2.2 Directory Structure | `.json` → `.md` extensions |
-| 2.5 Schemas | Parse from YAML, body for description/notes |
-| 3.5 Merge Rules | Unchanged (operate on parsed structure) |
-| 4.x CLI | Add `edit`, `raw` commands |
-| 6.1 Performance | gray-matter parsing, may keep JSON cache |
+| Section                 | Change                                      |
+| ----------------------- | ------------------------------------------- |
+| 2.1 File Format         | JSON → Markdown + YAML front matter         |
+| 2.2 Directory Structure | `.json` → `.md` extensions                  |
+| 2.5 Schemas             | Parse from YAML, body for description/notes |
+| 3.5 Merge Rules         | Unchanged (operate on parsed structure)     |
+| 4.x CLI                 | Add `edit`, `raw` commands                  |
+| 6.1 Performance         | gray-matter parsing, may keep JSON cache    |
 
-* * *
+---
 
 ## References
 
@@ -1724,6 +1708,6 @@ Based on prior art analysis and trade-off evaluation:
 - [Hugo Front Matter](https://gohugo.io/content-management/front-matter/) - SSG
   documentation
 
-* * *
+---
 
-*End of Exploration Document*
+_End of Exploration Document_

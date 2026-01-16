@@ -3,6 +3,7 @@ description: CLI Tool Development Rules
 globs: scripts/cli/**/*.ts, scripts/test-*.ts, scripts/*-cli.ts
 alwaysApply: false
 ---
+
 # CLI Tool Development Rules
 
 These rules apply to all CLI tools, command-line scripts, and terminal utilities.
@@ -18,7 +19,7 @@ These rules apply to all CLI tools, command-line scripts, and terminal utilities
   import pc from 'picocolors';
   console.log(pc.green('Success!'));
   console.log(pc.cyan('Info message'));
-  
+
   // BAD: Hardcoded ANSI codes
   console.log('\x1b[32mSuccess!\x1b[0m');
   console.log('\x1b[36mInfo message\x1b[0m');
@@ -30,7 +31,7 @@ These rules apply to all CLI tools, command-line scripts, and terminal utilities
   ```ts
   // lib/cliFormatting.ts - shared color utilities
   import pc from 'picocolors';
-  
+
   export const colors = {
     success: (s: string) => pc.green(s),
     error: (s: string) => pc.red(s),
@@ -38,7 +39,7 @@ These rules apply to all CLI tools, command-line scripts, and terminal utilities
     warn: (s: string) => pc.yellow(s),
     muted: (s: string) => pc.gray(s),
   };
-  
+
   // Usage in commands:
   import { colors } from '../lib/cliFormatting.js';
   console.log(colors.success('Operation completed'));
@@ -50,7 +51,6 @@ These rules apply to all CLI tools, command-line scripts, and terminal utilities
   behavior.
 
   Picocolors respects:
-
   - `NO_COLOR=1` environment variable (disables colors)
 
   - `FORCE_COLOR=1` environment variable (forces colors)
@@ -63,7 +63,7 @@ These rules apply to all CLI tools, command-line scripts, and terminal utilities
   // GOOD: Let picocolors handle it automatically
   import pc from 'picocolors';
   console.log(pc.green('This works correctly in all contexts'));
-  
+
   // BAD: Manual TTY checking (redundant with picocolors)
   const useColors = process.stdout.isTTY;
   const msg = useColors ? '\x1b[32mSuccess\x1b[0m' : 'Success';
@@ -81,7 +81,7 @@ These rules apply to all CLI tools, command-line scripts, and terminal utilities
   ```ts
   import { Command } from 'commander';
   import { withColoredHelp } from '../lib/shared.js';
-  
+
   export const myCommand = withColoredHelp(new Command('my-command'))
     .description('Description here')
     .action(async (options, command) => {
@@ -94,16 +94,16 @@ These rules apply to all CLI tools, command-line scripts, and terminal utilities
 
   ```ts
   import { getCommandContext, setupDebug, logDryRun } from '../lib/shared.js';
-  
+
   .action(async (options, command) => {
     const ctx = getCommandContext(command);
     setupDebug(ctx);
-  
+
     if (ctx.dryRun) {
       logDryRun('Would perform action', { details: 'here' });
       return;
     }
-  
+
     // Actual implementation
   });
   ```
@@ -119,19 +119,18 @@ These rules apply to all CLI tools, command-line scripts, and terminal utilities
 
   ```ts
   import * as p from '@clack/prompts';
-  
+
   p.intro('🧪 Starting test suite');
-  
+
   const spinner = p.spinner();
   spinner.start('Processing data');
   // ... work ...
   spinner.stop('✅ Data processed');
-  
+
   p.outro('All done!');
   ```
 
 - **Use consistent logging methods:**
-
   - `p.log.info()` for informational messages
 
   - `p.log.success()` for successful operations
@@ -144,7 +143,6 @@ These rules apply to all CLI tools, command-line scripts, and terminal utilities
 
 - **Use appropriate emojis for status:** Follow emoji conventions from
   `@docs/general/agent-rules/general-style-rules.md`:
-
   - ✅ for success
 
   - ❌ for failure/error
@@ -184,18 +182,18 @@ These rules apply to all CLI tools, command-line scripts, and terminal utilities
 
   ```ts
   #!/usr/bin/env tsx
-  
+
   /**
    * Script description here.
    */
-  
+
   import { execSync } from 'node:child_process';
   import * as p from '@clack/prompts';
-  
+
   async function main() {
     // Implementation
   }
-  
+
   main().catch((err) => {
     p.log.error(`Script failed: ${err}`);
     process.exit(1);
@@ -219,7 +217,6 @@ These rules apply to all CLI tools, command-line scripts, and terminal utilities
 
 - **Use descriptive kebab-case names:** CLI script files should use kebab-case with
   clear purpose indicators.
-
   - Examples: `test-with-timings.ts`, `test-all-commands.ts`, `generate-config-data.ts`
 
 - **Organize commands in a `commands/` directory:** Keep command implementations
@@ -266,7 +263,7 @@ seamlessly in local dev and in remote environments.
   ```ts
   import dotenv from 'dotenv';
   import { existsSync } from 'node:fs';
-  
+
   // Load .env.local first (higher priority), then .env (lower priority).
   // Note: dotenv does NOT override existing values by default, so load higher-priority
   // first.
@@ -296,7 +293,6 @@ seamlessly in local dev and in remote environments.
   `npm test | cat` should have no ANSI codes).
 
 - **Respect environment variables:**
-
   - `NO_COLOR` - disable colors
 
   - `FORCE_COLOR` - force colors

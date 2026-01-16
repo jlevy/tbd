@@ -21,7 +21,7 @@
 
 - [@clack/prompts Documentation](https://github.com/bombshell-dev/clack)
 
-* * *
+---
 
 ## Executive Summary
 
@@ -45,7 +45,7 @@ for dual-mode output, **Handler + Command separation** for clean organization, a
 
 4. What directory structure best organizes CLI code in a library/CLI hybrid package?
 
-* * *
+---
 
 ## Research Methodology
 
@@ -64,7 +64,7 @@ solutions to recurring problems, and documented with complete implementation exa
 
 - npm versioning conventions and semver sorting requirements
 
-* * *
+---
 
 ## Research Findings
 
@@ -98,7 +98,7 @@ commands.
 The `lib/` directory prevents code duplication, while `types/` keeps TypeScript
 interfaces organized.
 
-* * *
+---
 
 ### 2. Agent & Automation Compatibility
 
@@ -108,11 +108,11 @@ interfaces organized.
 
 Modern CLIs must work reliably in three execution contexts:
 
-| Mode | Context | Behavior |
-| --- | --- | --- |
-| **Interactive (TTY)** | Human at terminal | Prompts, spinners, colored output allowed |
+| Mode                           | Context                    | Behavior                                    |
+| ------------------------------ | -------------------------- | ------------------------------------------- |
+| **Interactive (TTY)**          | Human at terminal          | Prompts, spinners, colored output allowed   |
 | **Non-interactive (headless)** | CI, scripts, agent runners | No prompts, deterministic output, fail-fast |
-| **Protocol mode** | MCP/JSON-RPC adapters | Structured I/O only (future extension) |
+| **Protocol mode**              | MCP/JSON-RPC adapters      | Structured I/O only (future extension)      |
 
 **Key flags for automation**:
 
@@ -133,11 +133,13 @@ program
 ```ts
 // Exit with actionable error for missing required input
 if (!options.name && !process.stdin.isTTY) {
-  console.error(JSON.stringify({
-    error: 'Missing required input',
-    missing: ['name'],
-    hint: 'Provide --name or run interactively'
-  }));
+  console.error(
+    JSON.stringify({
+      error: 'Missing required input',
+      missing: ['name'],
+      hint: 'Provide --name or run interactively',
+    }),
+  );
   process.exit(2);
 }
 ```
@@ -161,7 +163,7 @@ function isInteractive(): boolean {
 
 ```ts
 function shouldColorize(colorOption: 'auto' | 'always' | 'never'): boolean {
-  if (process.env.NO_COLOR) return false;  // Respect NO_COLOR
+  if (process.env.NO_COLOR) return false; // Respect NO_COLOR
   if (colorOption === 'always') return true;
   if (colorOption === 'never') return false;
   return process.stdout.isTTY ?? false;
@@ -232,7 +234,7 @@ Key requirements:
 **Assessment**: Explicit automation support enables CLIs to work reliably with AI
 agents, CI pipelines, and scripted workflows without TTY hacks or brittle parsing.
 
-* * *
+---
 
 ### 3. Base Command Pattern
 
@@ -258,7 +260,7 @@ This pattern centralizes:
 export class CLIError extends Error {
   constructor(
     message: string,
-    public exitCode: number = 1
+    public exitCode: number = 1,
   ) {
     super(message);
     this.name = 'CLIError';
@@ -267,7 +269,7 @@ export class CLIError extends Error {
 
 export class ValidationError extends CLIError {
   constructor(message: string) {
-    super(message, 2);  // Exit code 2 for usage/validation errors
+    super(message, 2); // Exit code 2 for usage/validation errors
   }
 }
 
@@ -290,10 +292,7 @@ export abstract class BaseCommand {
   }
 
   // Throws CLIError instead of calling process.exit - handled at entrypoint
-  protected async execute<T>(
-    action: () => Promise<T>,
-    errorMessage: string
-  ): Promise<T> {
+  protected async execute<T>(action: () => Promise<T>, errorMessage: string): Promise<T> {
     try {
       return await action();
     } catch (error) {
@@ -329,7 +328,7 @@ async function main() {
 // Handle SIGINT (Ctrl+C)
 process.on('SIGINT', () => {
   console.error('\nInterrupted');
-  process.exit(130);  // 128 + SIGINT(2)
+  process.exit(130); // 128 + SIGINT(2)
 });
 
 main();
@@ -337,19 +336,19 @@ main();
 
 **Exit code conventions** (aligned with Unix standards):
 
-| Code | Meaning |
-| --- | --- |
-| 0 | Success |
-| 1 | Operational error (API failed, file not found) |
-| 2 | Validation/usage error (missing argument, invalid option) |
-| 130 | Interrupted (SIGINT / Ctrl+C) |
+| Code | Meaning                                                   |
+| ---- | --------------------------------------------------------- |
+| 0    | Success                                                   |
+| 1    | Operational error (API failed, file not found)            |
+| 2    | Validation/usage error (missing argument, invalid option) |
+| 130  | Interrupted (SIGINT / Ctrl+C)                             |
 
 **Assessment**: The Base Command pattern dramatically reduces boilerplate.
 New commands inherit consistent behavior for error handling, dry-run support, and output
 formatting. Throwing typed errors instead of calling `process.exit()` improves
 testability and ensures proper resource cleanup.
 
-* * *
+---
 
 ### 4. Dual Output Mode (Text + JSON)
 
@@ -406,13 +405,13 @@ export class OutputManager {
 
 **Key principles**:
 
-| Output Type | Destination | When Shown |
-| --- | --- | --- |
-| Data (results) | stdout | Always |
-| Success messages | stdout | Text mode, not quiet |
-| Errors | stderr | Always |
-| Warnings | stderr | Always |
-| Spinners/progress | stderr | Text mode, TTY only |
+| Output Type       | Destination | When Shown           |
+| ----------------- | ----------- | -------------------- |
+| Data (results)    | stdout      | Always               |
+| Success messages  | stdout      | Text mode, not quiet |
+| Errors            | stderr      | Always               |
+| Warnings          | stderr      | Always               |
+| Spinners/progress | stderr      | Text mode, TTY only  |
 
 **Note**: Spinners and progress indicators go to **stderr** to keep stdout clean for
 pipeable data. Disable them entirely when stdout is not a TTY (prevents corruption in
@@ -422,7 +421,7 @@ pipeable data. Disable them entirely when stdout is not a TTY (prevents corrupti
 (`my-cli list --format json | jq '.items[]'`) while providing rich interactive output
 for terminal users.
 
-* * *
+---
 
 ### 5. Handler + Command Structure
 
@@ -465,7 +464,7 @@ export const myFeatureCommand = withColoredHelp(new Command('my-feature'))
 complex handler logic.
 The handler class is testable in isolation.
 
-* * *
+---
 
 ### 6. Named Option Types
 
@@ -478,7 +477,7 @@ Use named interfaces for command options to get TypeScript type checking:
 ```ts
 // types/commandOptions.ts
 export interface MyFeatureListOptions {
-  limit: number;  // Coerced at parse time, not string
+  limit: number; // Coerced at parse time, not string
   status: string | null;
   verbose: boolean;
 }
@@ -516,7 +515,7 @@ const listCommand = new Command('list')
 in editors. Parsing options at the Commander layer (via coercion functions) keeps
 handlers clean and ensures consistent validation across commands.
 
-* * *
+---
 
 ### 7. Formatter Pattern
 
@@ -549,7 +548,7 @@ export function displayMyFeatureList(items: Item[], ctx: CommandContext): void {
 export function formatMyFeatureListJson(items: Item[]): object {
   return {
     total: items.length,
-    items: items.map(item => ({
+    items: items.map((item) => ({
       id: item.id,
       name: item.name,
       status: item.status,
@@ -559,15 +558,15 @@ export function formatMyFeatureListJson(items: Item[]): object {
 
 // Usage in handler:
 this.output.data(
-  formatMyFeatureListJson(items),  // JSON format
-  () => displayMyFeatureList(items, this.ctx)  // Text format
+  formatMyFeatureListJson(items), // JSON format
+  () => displayMyFeatureList(items, this.ctx), // Text format
 );
 ```
 
 **Assessment**: Separating formatters makes them reusable and testable.
 The JSON formatter defines the contract for machine consumers.
 
-* * *
+---
 
 ### 8. Version Handling
 
@@ -589,10 +588,8 @@ in the monorepo patterns doc.
 // Import the build-time injected VERSION constant
 import { VERSION } from '../index.js';
 
-const program = new Command()
-  .name('my-cli')
-  .version(VERSION, '--version', 'Show version number')
-  // ...
+const program = new Command().name('my-cli').version(VERSION, '--version', 'Show version number');
+// ...
 ```
 
 **Key points**:
@@ -606,7 +603,7 @@ const program = new Command()
 **Assessment**: Centralizing version in the library (injected at build time) ensures CLI
 and programmatic consumers see the same version.
 
-* * *
+---
 
 ### 9. Global Options
 
@@ -681,7 +678,7 @@ extensible but more concise for the common case:
 **Assessment**: Centralizing global options ensures consistency and prevents option name
 conflicts across commands.
 
-* * *
+---
 
 ### 10. Avoid Single-Letter Option Aliases
 
@@ -696,12 +693,12 @@ Use full option names to prevent conflicts in large CLIs:
 program
   .option('--dry-run', 'Show what would be done')
   .option('--verbose', 'Enable verbose output')
-  .option('--quiet', 'Suppress output')
+  .option('--quiet', 'Suppress output');
 
 // AVOID: Single-letter aliases
 program
-  .option('-d, --dry-run', 'Show what would be done')  // -d might conflict
-  .option('-v, --verbose', 'Verbose output')           // -v used by --version
+  .option('-d, --dry-run', 'Show what would be done') // -d might conflict
+  .option('-v, --verbose', 'Verbose output'); // -v used by --version
 ```
 
 **Exception: Backward compatibility**
@@ -721,7 +718,7 @@ Document which aliases exist for compatibility vs which are native to your CLI.
 Full names are self-documenting and avoid collisions.
 However, backward compatibility with an existing CLI is a valid reason to use them.
 
-* * *
+---
 
 ### 11. Show Help After Errors
 
@@ -734,10 +731,8 @@ This helps users understand what went wrong and how to correctly use the command
 
 ```ts
 // In program setup (affects all commands)
-const program = new Command()
-  .name('my-cli')
-  .showHelpAfterError()  // Show full help after errors
-  // ... other options
+const program = new Command().name('my-cli').showHelpAfterError(); // Show full help after errors
+// ... other options
 
 // Or with a custom hint message (more concise)
 program.showHelpAfterError('(add --help for additional information)');
@@ -765,7 +760,7 @@ automatically.
 **Assessment**: This small configuration change significantly improves user experience
 when commands are misused.
 
-* * *
+---
 
 ### 12. Stdout/Stderr Separation
 
@@ -790,7 +785,7 @@ this.output.warn('Deprecated option');
 **Assessment**: Proper stdout/stderr separation is fundamental to Unix philosophy and
 enables CLI tools to be composed in pipelines.
 
-* * *
+---
 
 ### 13. Testing with Dry-Run
 
@@ -804,10 +799,12 @@ Design commands to be testable via `--dry-run`:
 class MyCommandHandler extends BaseCommand {
   async run(options: Options): Promise<void> {
     // Check dry-run early and return
-    if (this.checkDryRun('Would create resource', {
-      name: options.name,
-      config: options.config,
-    })) {
+    if (
+      this.checkDryRun('Would create resource', {
+        name: options.name,
+        config: options.config,
+      })
+    ) {
       return;
     }
 
@@ -824,7 +821,7 @@ class MyCommandHandler extends BaseCommand {
 **Assessment**: Dry-run support enables safe testing of destructive commands and helps
 users verify what a command will do before executing it.
 
-* * *
+---
 
 ### 14. Preaction Hooks
 
@@ -853,7 +850,7 @@ program.hook('preAction', (thisCommand) => {
 **Assessment**: Preaction hooks are useful for setup that should run before any command
 but shouldn’t be duplicated in each command handler.
 
-* * *
+---
 
 ### 15. Documentation Command
 
@@ -885,7 +882,7 @@ const docsCommand = new Command('docs')
 **Assessment**: A docs command provides a single reference for all CLI functionality,
 which is especially valuable for CLIs with many subcommands.
 
-* * *
+---
 
 ### 16. Testing CLI Commands
 
@@ -899,7 +896,7 @@ stderr:
 ```ts
 // tests/cli.test.ts
 import { execSync, spawnSync } from 'child_process';
-import { describe, it, expect } from 'vitest';  // or node:test
+import { describe, it, expect } from 'vitest'; // or node:test
 
 describe('CLI', () => {
   const cli = (args: string) =>
@@ -920,7 +917,7 @@ describe('CLI', () => {
   });
 
   it('returns exit code 2 for missing required args', () => {
-    const result = cli('create');  // Missing --name
+    const result = cli('create'); // Missing --name
     expect(result.status).toBe(2);
   });
 
@@ -945,7 +942,7 @@ describe('CLI', () => {
 including argument parsing, exit codes, and output streams.
 Use `--format json` for assertions to avoid brittle text parsing.
 
-* * *
+---
 
 ## Best Practices Summary
 
@@ -988,7 +985,7 @@ Use `--format json` for assertions to avoid brittle text parsing.
 
 18. **Add docs/schema/examples commands** for human and machine documentation
 
-* * *
+---
 
 ## References
 

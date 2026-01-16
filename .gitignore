@@ -1,5 +1,18 @@
+# Reference repos (cloned for comparison)
 attic/
 
+# Temporary test directories
+tmp/
+
+# tbd-specific
+.tbd/cache/
+.tbd/.worktree/
+*.tmp.*
+
+attic/
+
+# Build output
+dist/
 
 # Logs
 logs
@@ -23,6 +36,7 @@ lib-cov
 
 # Coverage directory used by tools like istanbul
 coverage
+coverage-tryscript
 *.lcov
 
 # nyc test coverage

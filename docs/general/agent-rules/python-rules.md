@@ -3,6 +3,7 @@ description: Python Coding Guidelines
 globs: *.py, pyproject.toml
 alwaysApply: false
 ---
+
 # Python Coding Guidelines
 
 These are rules for a modern Python project using uv.
@@ -26,19 +27,20 @@ Always use full type annotations, generics, and other modern practices.
   Prefer `uv add` over `uv pip install`.
 
 - You may use the following shortcuts
+
   ```shell
-  
+
   # Install all dependencies:
   make install
-  
+
   # Run linting (with ruff) and type checking (with basedpyright).
   # Note when you run this, ruff will auto-format and sort imports, resolving any
   # linter warnings about import ordering:
   make lint
-  
+
   # Run tests:
   make test
-  
+
   # Run uv sync, lint, and test in one command:
   make
   ```
@@ -139,7 +141,7 @@ Always use full type annotations, generics, and other modern practices.
   class Link(BaseModel):
     url: str
     title: str = None
-  
+
   # DO NOT write tests like this. They are trivial and only create clutter!
   def test_link_model():
     link = Link(url="https://example.com", title="Example")
@@ -162,13 +164,14 @@ Always use full type annotations, generics, and other modern practices.
   This is more readable than LONG_ALL_CAPS_VALUES, and you can simply set the value to
   be the same as the name for each.
   For example:
+
   ```python
   class MediaType(Enum):
     """
     Media types. For broad categories only, to determine what processing
     is possible.
     """
-  
+
     text = "text"
     image = "image"
     audio = "audio"
@@ -195,8 +198,8 @@ Always use full type annotations, generics, and other modern practices.
 
 ## Guidelines for Comments
 
-- Comments should be EXPLANATORY: Explain *WHY* something is done a certain way and not
-  just *what* is done.
+- Comments should be EXPLANATORY: Explain _WHY_ something is done a certain way and not
+  just _what_ is done.
 
 - Comments should be CONCISE: Remove all extraneous words.
 
@@ -212,6 +215,7 @@ Always use full type annotations, generics, and other modern practices.
 ## Guidelines for Docstrings
 
 - Here is an example of the correct style for docstrings:
+
   ```python
   def check_if_url(
       text: UnresolvedLocator, only_schemes: list[str] | None = None
@@ -219,13 +223,13 @@ Always use full type annotations, generics, and other modern practices.
       """
       Convenience function to check if a string or Path is a URL and if so return
       the `urlparse.ParseResult`.
-  
+
       Also returns false for Paths, so that it's easy to use local paths and URLs
       (`Locator`s) interchangeably. Can provide `HTTP_ONLY` or `HTTP_OR_FILE` to
       restrict to only certain schemes.
       """
       # Function body
-  
+
   def is_url(text: UnresolvedLocator, only_schemes: list[str] | None = None) -> bool:
       """
       Check if a string is a URL. For convenience, also returns false for
@@ -247,7 +251,7 @@ Always use full type annotations, generics, and other modern practices.
   obvious details evident from the class names, function names, parameter names, and
   type annotations.
 
-- Docstrings *should* mention any key rationale or pitfalls when using the class or
+- Docstrings _should_ mention any key rationale or pitfalls when using the class or
   function.
 
 - Avoid obvious or repetitive docstrings.
@@ -270,11 +274,13 @@ Always use full type annotations, generics, and other modern practices.
 - Avoid writing trivial wrapper functions.
   For example, when writing a class DO NOT blindly make delegation methods around public
   member variables. DO NOT write methods like this:
+
   ```python
       def reassemble(self) -> str:
         """Call the original reassemble method."""
         return self.paragraph.reassemble()
   ```
+
   In general, the user can just call the enclosed objects methods, reducing code bloat.
 
 - If a function does not use a parameter, but it should still be present, you can use

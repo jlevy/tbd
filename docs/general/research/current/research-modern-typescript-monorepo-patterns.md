@@ -14,30 +14,30 @@
 
 - [publint Documentation](https://publint.dev/docs/)
 
-* * *
+---
 
 ## Updating This Document
 
 ### Last Researched Versions
 
-| Tool / Package | Version | Check For Updates |
-| --- | --- | --- |
-| **Node.js** | 24 (LTS "Krypton") | [nodejs.org/releases](https://nodejs.org/en/about/previous-releases) — Active LTS until Oct 2026 |
-| **pnpm** | 10.27.0 | [github.com/pnpm/pnpm/releases](https://github.com/pnpm/pnpm/releases) |
-| **TypeScript** | ^5.9.0 | [github.com/microsoft/TypeScript/releases](https://github.com/microsoft/TypeScript/releases) — 5.9 adds `import defer`, `--module node20` |
-| **tsdown** | ^0.18.0 | [github.com/rolldown/tsdown/releases](https://github.com/rolldown/tsdown/releases) — 0.19.x in beta |
-| **publint** | ^0.3.0 | [npmjs.com/package/publint](https://www.npmjs.com/package/publint) |
-| **@changesets/cli** | ^2.29.0 | [github.com/changesets/changesets/releases](https://github.com/changesets/changesets/releases) |
-| **@types/node** | ^24.0.0 | Should match Node.js major version (^25.0.0 also available) |
-| **actions/checkout** | v5 | [github.com/actions/checkout/releases](https://github.com/actions/checkout/releases) — v6 available, uses Node 24 |
-| **actions/setup-node** | v6 | [github.com/actions/setup-node/releases](https://github.com/actions/setup-node/releases) |
-| **pnpm/action-setup** | v4 | [github.com/pnpm/action-setup/releases](https://github.com/pnpm/action-setup/releases) |
-| **changesets/action** | v1 | [github.com/changesets/action](https://github.com/changesets/action) |
-| **lefthook** | ^2.0.0 | [github.com/evilmartians/lefthook/releases](https://github.com/evilmartians/lefthook/releases) |
-| **npm-check-updates** | ^19.0.0 | [npmjs.com/package/npm-check-updates](https://www.npmjs.com/package/npm-check-updates) |
-| **tsx** | ^4.21.0 | [github.com/privatenumber/tsx/releases](https://github.com/privatenumber/tsx/releases) |
-| **prettier** | ^3.0.0 | [github.com/prettier/prettier/releases](https://github.com/prettier/prettier/releases) |
-| **eslint-config-prettier** | ^10.0.0 | [github.com/prettier/eslint-config-prettier/releases](https://github.com/prettier/eslint-config-prettier/releases) |
+| Tool / Package             | Version            | Check For Updates                                                                                                                         |
+| -------------------------- | ------------------ | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| **Node.js**                | 24 (LTS "Krypton") | [nodejs.org/releases](https://nodejs.org/en/about/previous-releases) — Active LTS until Oct 2026                                          |
+| **pnpm**                   | 10.27.0            | [github.com/pnpm/pnpm/releases](https://github.com/pnpm/pnpm/releases)                                                                    |
+| **TypeScript**             | ^5.9.0             | [github.com/microsoft/TypeScript/releases](https://github.com/microsoft/TypeScript/releases) — 5.9 adds `import defer`, `--module node20` |
+| **tsdown**                 | ^0.18.0            | [github.com/rolldown/tsdown/releases](https://github.com/rolldown/tsdown/releases) — 0.19.x in beta                                       |
+| **publint**                | ^0.3.0             | [npmjs.com/package/publint](https://www.npmjs.com/package/publint)                                                                        |
+| **@changesets/cli**        | ^2.29.0            | [github.com/changesets/changesets/releases](https://github.com/changesets/changesets/releases)                                            |
+| **@types/node**            | ^24.0.0            | Should match Node.js major version (^25.0.0 also available)                                                                               |
+| **actions/checkout**       | v5                 | [github.com/actions/checkout/releases](https://github.com/actions/checkout/releases) — v6 available, uses Node 24                         |
+| **actions/setup-node**     | v6                 | [github.com/actions/setup-node/releases](https://github.com/actions/setup-node/releases)                                                  |
+| **pnpm/action-setup**      | v4                 | [github.com/pnpm/action-setup/releases](https://github.com/pnpm/action-setup/releases)                                                    |
+| **changesets/action**      | v1                 | [github.com/changesets/action](https://github.com/changesets/action)                                                                      |
+| **lefthook**               | ^2.0.0             | [github.com/evilmartians/lefthook/releases](https://github.com/evilmartians/lefthook/releases)                                            |
+| **npm-check-updates**      | ^19.0.0            | [npmjs.com/package/npm-check-updates](https://www.npmjs.com/package/npm-check-updates)                                                    |
+| **tsx**                    | ^4.21.0            | [github.com/privatenumber/tsx/releases](https://github.com/privatenumber/tsx/releases)                                                    |
+| **prettier**               | ^3.0.0             | [github.com/prettier/prettier/releases](https://github.com/prettier/prettier/releases)                                                    |
+| **eslint-config-prettier** | ^10.0.0            | [github.com/prettier/eslint-config-prettier/releases](https://github.com/prettier/eslint-config-prettier/releases)                        |
 
 ### Reminders When Updating
 
@@ -46,7 +46,6 @@
 2. **Update the table** with new versions and any relevant notes
 
 3. **Search and update code examples** — version numbers appear in:
-
    - GitHub Actions workflows (CI and Release sections)
 
    - `tsdown.config.ts` examples (`target: "node24"`)
@@ -64,7 +63,7 @@
 
 6. **Review “Open Research Questions”** section for any resolved items
 
-* * *
+---
 
 ## Executive Summary
 
@@ -94,7 +93,7 @@ installs, with a seamless transition to public npm publishing when ready.
 4. How can packages support optional peer dependencies (like AI SDKs or protocol
    integrations) without forcing them on users?
 
-* * *
+---
 
 ## Research Methodology
 
@@ -116,7 +115,7 @@ recommendations from the TypeScript and JavaScript ecosystem maintainers.
 
 - Real-world monorepo implementations (Effect-TS, TresJS)
 
-* * *
+---
 
 ## Research Findings
 
@@ -142,13 +141,15 @@ recommendations from the TypeScript and JavaScript ecosystem maintainers.
 superior disk efficiency and stricter dependency management than npm or yarn.
 
 **Key Configuration** (`pnpm-workspace.yaml`):
+
 ```yaml
 packages:
-  - "packages/*"
-  - "apps/*"
+  - 'packages/*'
+  - 'apps/*'
 ```
 
 **Root `.npmrc`**:
+
 ```ini
 save-workspace-protocol=true
 prefer-workspace-packages=true
@@ -160,7 +161,7 @@ prefer-workspace-packages=true
 
 - [Complete Monorepo Guide 2025](https://jsdev.space/complete-monorepo-guide/)
 
-* * *
+---
 
 #### Monorepo Structure Strategy
 
@@ -173,6 +174,7 @@ if there’s only one package initially.
 This prevents restructuring when adding new packages later.
 
 **Recommended Directory Structure**:
+
 ```
 project-root/
   .changeset/
@@ -211,7 +213,7 @@ Internal code organization (`core/`, `cli/`, `adapters/`) creates natural split 
 
 - [Wisp CMS: How to Bootstrap a Monorepo with PNPM](https://www.wisp.blog/blog/how-to-bootstrap-a-monorepo-with-pnpm-a-complete-guide)
 
-* * *
+---
 
 ### 2. TypeScript Configuration
 
@@ -224,6 +226,7 @@ Internal code organization (`core/`, `cli/`, `adapters/`) creates natural split 
 Modern TypeScript monorepos use a shared base configuration extended by each package.
 
 **`tsconfig.base.json`**:
+
 ```json
 {
   "compilerOptions": {
@@ -242,6 +245,7 @@ Modern TypeScript monorepos use a shared base configuration extended by each pac
 ```
 
 **Package-level `tsconfig.json`**:
+
 ```json
 {
   "extends": "../../tsconfig.base.json",
@@ -265,7 +269,7 @@ well.
 
 - [Is nodenext right for libraries?](https://blog.andrewbran.ch/is-nodenext-right-for-libraries-that-dont-target-node-js/)
 
-* * *
+---
 
 #### moduleResolution: Bundler vs NodeNext
 
@@ -273,12 +277,12 @@ well.
 
 **Details**:
 
-| Aspect | `Bundler` | `NodeNext` |
-| --- | --- | --- |
-| File extensions | Not required in imports | Required (.js extension) |
-| Use case | When bundler handles output | Direct Node.js execution |
-| Library compatibility | Requires bundler-aware consumers | Works everywhere |
-| Type generation | Must ensure .d.ts aligns with output | Naturally aligned |
+| Aspect                | `Bundler`                            | `NodeNext`               |
+| --------------------- | ------------------------------------ | ------------------------ |
+| File extensions       | Not required in imports              | Required (.js extension) |
+| Use case              | When bundler handles output          | Direct Node.js execution |
+| Library compatibility | Requires bundler-aware consumers     | Works everywhere         |
+| Type generation       | Must ensure .d.ts aligns with output | Naturally aligned        |
 
 **Key insight**: `NodeNext` is “infectious” in a good way—code that works in Node.js
 typically works in bundlers too.
@@ -294,7 +298,7 @@ the final output. The bundler handles the complexity of module resolution.
 
 - [Live types in a TypeScript monorepo](https://colinhacks.com/essays/live-types-typescript-monorepo)
 
-* * *
+---
 
 ### 3. Build Tooling
 
@@ -329,24 +333,24 @@ Key advantages:
 tsup configurations.
 
 **Configuration (`tsdown.config.ts`)**:
+
 ```typescript
-import { defineConfig } from "tsdown";
+import { defineConfig } from 'tsdown';
 
 export default defineConfig({
   entry: {
-    index: "src/index.ts",
-    cli: "src/cli/index.ts",
-    adapter: "src/adapters/index.ts",
-    bin: "src/bin.ts"
+    index: 'src/index.ts',
+    cli: 'src/cli/index.ts',
+    adapter: 'src/adapters/index.ts',
+    bin: 'src/bin.ts',
   },
-  format: ["esm", "cjs"],
-  platform: "node",
-  target: "node24",
+  format: ['esm', 'cjs'],
+  platform: 'node',
+  target: 'node24',
   sourcemap: true,
   dts: true,
   clean: true,
-  banner: ({ fileName }) =>
-    fileName.startsWith("bin.") ? "#!/usr/bin/env node\n" : ""
+  banner: ({ fileName }) => (fileName.startsWith('bin.') ? '#!/usr/bin/env node\n' : ''),
 });
 ```
 
@@ -369,7 +373,7 @@ The project recommends migrating to tsdown.
 
 - [Dual publish ESM and CJS with tsdown](https://dev.to/hacksore/dual-publish-esm-and-cjs-with-tsdown-2l75)
 
-* * *
+---
 
 ### 4. Package Exports & Dual Module Support
 
@@ -390,6 +394,7 @@ The `exports` field in `package.json` enables:
 **Critical rule**: The `"types"` condition must come first in each export block.
 
 **Example `package.json` exports**:
+
 ```json
 {
   "name": "@scope/package-name",
@@ -441,7 +446,7 @@ can remain stable even if internals move to `@scope/pkg-cli`.
 
 - [Building npm package compatible with ESM and CJS in 2024](https://snyk.io/blog/building-npm-package-compatible-with-esm-and-cjs-2024/)
 
-* * *
+---
 
 #### Separate Declaration Files for ESM/CJS
 
@@ -464,7 +469,7 @@ one of the module systems.
 
 - [Publishing dual ESM+CJS packages](https://mayank.co/blog/dual-packages/)
 
-* * *
+---
 
 ### 5. Optional Peer Dependencies
 
@@ -484,6 +489,7 @@ use:
 3. **Dynamic imports**: Only load the SDK when the subpath is actually imported
 
 **`package.json` configuration**:
+
 ```json
 {
   "peerDependencies": {
@@ -498,10 +504,11 @@ use:
 ```
 
 **Implementation pattern** (`src/adapters/mcp/index.ts`):
+
 ```typescript
 export async function createMcpServer(options: McpServerOptions) {
   // Dynamic import only when this code path is executed
-  const { Server } = await import("@modelcontextprotocol/sdk/server");
+  const { Server } = await import('@modelcontextprotocol/sdk/server');
   return new Server(options);
 }
 ```
@@ -515,7 +522,7 @@ providing rich integrations for users who need them.
 
 - [npm peer dependencies documentation](https://docs.npmjs.com/cli/v10/configuring-npm/package-json#peerdependenciesmeta)
 
-* * *
+---
 
 ### 6. Package Validation
 
@@ -540,6 +547,7 @@ It checks:
 - Common configuration mistakes
 
 **Integration**:
+
 ```json
 {
   "scripts": {
@@ -564,7 +572,7 @@ package. Essential for any published package.
 
 - [publint rules](https://publint.dev/rules)
 
-* * *
+---
 
 ### 7. Versioning & Release Automation
 
@@ -590,6 +598,7 @@ Changesets provides:
 1. Initialize: `pnpm add -Dw @changesets/cli && pnpm changeset init`
 
 2. Configure `.changeset/config.json`:
+
 ```json
 {
   "$schema": "https://unpkg.com/@changesets/config/schema.json",
@@ -604,6 +613,7 @@ Changesets provides:
 ```
 
 3. Root scripts:
+
 ```json
 {
   "scripts": {
@@ -621,7 +631,6 @@ Changesets provides:
 2. PR includes the changeset file
 
 3. On merge to main, GitHub Action either:
-
    - Opens a “Version Packages” PR (accumulating changesets)
 
    - Publishes to npm when that PR is merged
@@ -637,7 +646,7 @@ It integrates seamlessly with pnpm and GitHub Actions.
 
 - [Frontend Handbook: Changesets](https://infinum.com/handbook/frontend/changesets)
 
-* * *
+---
 
 #### Dynamic Git-Based Versioning
 
@@ -651,17 +660,17 @@ This provides traceability during development without manual version bumps.
 
 **Format**: `X.Y.Z-dev.N.hash`
 
-| State | Format | Example |
-| --- | --- | --- |
-| On tag | `X.Y.Z` | `1.2.3` |
-| After tag | `X.Y.Z-dev.N.hash` | `1.2.4-dev.12.a1b2c3d` |
+| State             | Format                   | Example                      |
+| ----------------- | ------------------------ | ---------------------------- |
+| On tag            | `X.Y.Z`                  | `1.2.3`                      |
+| After tag         | `X.Y.Z-dev.N.hash`       | `1.2.4-dev.12.a1b2c3d`       |
 | Dirty working dir | `X.Y.Z-dev.N.hash-dirty` | `1.2.4-dev.12.a1b2c3d-dirty` |
-| No tags | `0.0.0-dev.0.hash` | `0.0.0-dev.0.a1b2c3d` |
+| No tags           | `0.0.0-dev.0.hash`       | `0.0.0-dev.0.a1b2c3d`        |
 
 **Key design decisions**:
 
 1. **Bump patch for dev versions**: Ensures correct semver sorting—dev versions sort
-   *before* the next release, not after the current one
+   _before_ the next release, not after the current one
 
 2. **Hash in pre-release, not metadata**: npm strips build metadata (`+hash`), so embed
    the hash in the pre-release identifier (`-dev.N.hash`)
@@ -719,24 +728,23 @@ export default defineConfig({
 ```ts
 // src/index.ts
 declare const __VERSION__: string;
-export const VERSION: string =
-  typeof __VERSION__ !== 'undefined' ? __VERSION__ : 'development';
+export const VERSION: string = typeof __VERSION__ !== 'undefined' ? __VERSION__ : 'development';
 ```
 
 **Comparison with Python (uv-dynamic-versioning)**:
 
-| Aspect | npm (this approach) | Python (PEP 440) |
-| --- | --- | --- |
-| Format | `1.2.4-dev.12.a1b2c3d` | `1.2.4.dev12+a1b2c3d` |
+| Aspect            | npm (this approach)        | Python (PEP 440)                    |
+| ----------------- | -------------------------- | ----------------------------------- |
+| Format            | `1.2.4-dev.12.a1b2c3d`     | `1.2.4.dev12+a1b2c3d`               |
 | Metadata handling | In pre-release (preserved) | Local version `+` (may be stripped) |
-| Sorting | Standard semver | PEP 440 compliant |
-| Configuration | In bundler config | In `pyproject.toml` |
+| Sorting           | Standard semver            | PEP 440 compliant                   |
+| Configuration     | In bundler config          | In `pyproject.toml`                 |
 
 **Assessment**: Dynamic versioning complements Changesets—use Changesets for releases
 and git-based versioning for development builds.
 This provides full traceability without manual intervention.
 
-* * *
+---
 
 ### 8. CI/CD Configuration
 
@@ -745,6 +753,7 @@ This provides full traceability without manual intervention.
 **Status**: Recommended
 
 **`.github/workflows/ci.yml`**:
+
 ```yaml
 name: CI
 
@@ -795,13 +804,14 @@ jobs:
 
 - [pnpm Continuous Integration](https://pnpm.io/continuous-integration)
 
-* * *
+---
 
 #### GitHub Actions: Release Workflow
 
 **Status**: Recommended
 
 **`.github/workflows/release.yml`**:
+
 ```yaml
 name: Release
 
@@ -829,7 +839,7 @@ jobs:
         with:
           node-version: 24
           cache: pnpm
-          registry-url: "https://registry.npmjs.org"
+          registry-url: 'https://registry.npmjs.org'
 
       - run: pnpm install --frozen-lockfile
 
@@ -854,7 +864,7 @@ jobs:
 
 - [Using Changesets with pnpm](https://pnpm.io/using-changesets)
 
-* * *
+---
 
 ### 9. Code Formatting
 
@@ -868,11 +878,13 @@ Prettier provides consistent code formatting across the project.
 Configure it once and let it handle all formatting decisions automatically.
 
 **Installation**:
+
 ```bash
 pnpm add -Dw prettier eslint-config-prettier
 ```
 
 **`.prettierrc`**:
+
 ```json
 {
   "$schema": "https://json.schemastore.org/prettierrc",
@@ -887,6 +899,7 @@ pnpm add -Dw prettier eslint-config-prettier
 ```
 
 **`.prettierignore`**:
+
 ```
 dist
 node_modules
@@ -898,12 +911,12 @@ coverage
 
 **Key configuration choices**:
 
-| Option | Recommended | Rationale |
-| --- | --- | --- |
-| `printWidth` | 100 | Wider than default 80; fits modern screens |
-| `singleQuote` | true | Common in JS ecosystem, less visual noise |
-| `trailingComma` | "all" | Cleaner diffs, easier reordering |
-| `semi` | true | Explicit; avoids ASI edge cases |
+| Option          | Recommended | Rationale                                  |
+| --------------- | ----------- | ------------------------------------------ |
+| `printWidth`    | 100         | Wider than default 80; fits modern screens |
+| `singleQuote`   | true        | Common in JS ecosystem, less visual noise  |
+| `trailingComma` | "all"       | Cleaner diffs, easier reordering           |
+| `semi`          | true        | Explicit; avoids ASI edge cases            |
 
 **Assessment**: Prettier eliminates formatting debates and ensures consistency.
 Use `eslint-config-prettier` to disable ESLint rules that conflict with Prettier.
@@ -914,7 +927,7 @@ Use `eslint-config-prettier` to disable ESLint rules that conflict with Prettier
 
 - [eslint-config-prettier](https://github.com/prettier/eslint-config-prettier)
 
-* * *
+---
 
 #### Format Scripts Pattern
 
@@ -925,6 +938,7 @@ Use `eslint-config-prettier` to disable ESLint rules that conflict with Prettier
 Structure format and lint scripts to support both auto-fix and CI verification modes.
 
 **Root `package.json` scripts**:
+
 ```json
 {
   "scripts": {
@@ -940,13 +954,13 @@ Structure format and lint scripts to support both auto-fix and CI verification m
 
 **Script purposes**:
 
-| Script | Purpose | When to use |
-| --- | --- | --- |
-| `format` | Auto-format changed files (quiet for unchanged) | Local development |
-| `format:check` | Verify formatting (quiet for valid files) | CI |
-| `lint` | Lint with auto-fix, then verify zero warnings | Local development |
-| `lint:check` | Lint without fix, zero warnings | CI, pre-build |
-| `build` | Format, lint, then build | Production builds |
+| Script         | Purpose                                         | When to use       |
+| -------------- | ----------------------------------------------- | ----------------- |
+| `format`       | Auto-format changed files (quiet for unchanged) | Local development |
+| `format:check` | Verify formatting (quiet for valid files)       | CI                |
+| `lint`         | Lint with auto-fix, then verify zero warnings   | Local development |
+| `lint:check`   | Lint without fix, zero warnings                 | CI, pre-build     |
+| `build`        | Format, lint, then build                        | Production builds |
 
 **Key insight**: The `lint` script runs ESLint twice: first with `--fix` to auto-fix
 issues, then again with `--max-warnings 0` to catch any unfixable warnings.
@@ -964,7 +978,7 @@ lint check.
 **Assessment**: Separating `--fix` variants (for local use) from `--check` variants (for
 CI) provides the best developer experience while ensuring CI catches issues.
 
-* * *
+---
 
 ### 10. Git Hooks & Local Validation
 
@@ -980,15 +994,16 @@ and having no Node.js runtime dependency for the hook runner itself.
 
 **Why Lefthook over Husky + lint-staged**:
 
-| Aspect | Lefthook | Husky + lint-staged |
-| --- | --- | --- |
-| Runtime | Go binary (fast) | Node.js (slower startup) |
-| Configuration | Single YAML file | Multiple config files |
-| Parallel execution | Built-in | Requires configuration |
-| Staged files | Native support | Via lint-staged |
-| Monorepo support | Excellent (`root:` option) | Requires workarounds |
+| Aspect             | Lefthook                   | Husky + lint-staged      |
+| ------------------ | -------------------------- | ------------------------ |
+| Runtime            | Go binary (fast)           | Node.js (slower startup) |
+| Configuration      | Single YAML file           | Multiple config files    |
+| Parallel execution | Built-in                   | Requires configuration   |
+| Staged files       | Native support             | Via lint-staged          |
+| Monorepo support   | Excellent (`root:` option) | Requires workarounds     |
 
 **Installation**:
+
 ```bash
 pnpm add -Dw lefthook
 npx lefthook install
@@ -1000,7 +1015,7 @@ npx lefthook install
 
 - [Lefthook vs Husky](https://evilmartians.com/chronicles/lefthook-knock-your-teams-code-back-into-shape)
 
-* * *
+---
 
 #### Pre-commit Hooks Strategy
 
@@ -1025,6 +1040,7 @@ Run checks in parallel, operate only on staged files, and use caching aggressive
 5. **Cache everything**: ESLint cache, TypeScript build info, etc.
 
 **Example `lefthook.yml` (pre-commit)**:
+
 ```yaml
 pre-commit:
   parallel: true
@@ -1032,14 +1048,14 @@ pre-commit:
   commands:
     # Auto-format with prettier (~500ms)
     format:
-      glob: "*.{js,ts,tsx,json}"
+      glob: '*.{js,ts,tsx,json}'
       run: npx prettier --write --log-level warn {staged_files}
       stage_fixed: true
       priority: 1
 
     # Lint with auto-fix and caching (~1s first, ~200ms cached)
     lint:
-      glob: "*.{js,ts,tsx}"
+      glob: '*.{js,ts,tsx}'
       run: >
         npx eslint
         --cache
@@ -1050,24 +1066,25 @@ pre-commit:
 
     # Type check with incremental mode (~2s)
     typecheck:
-      glob: "*.{ts,tsx}"
+      glob: '*.{ts,tsx}'
       run: npx tsc --noEmit --incremental
       priority: 3
 ```
 
 **Monorepo considerations**: Use `root:` to scope commands to specific packages:
+
 ```yaml
 commands:
   lint:
-    root: "packages/core/"
-    glob: "*.{ts,tsx}"
+    root: 'packages/core/'
+    glob: '*.{ts,tsx}'
     run: npx eslint --fix {staged_files}
 ```
 
 **Assessment**: Fast pre-commit hooks catch issues early without slowing down commits.
 The auto-fix pattern reduces friction—developers don’t need to manually format code.
 
-* * *
+---
 
 #### Pre-push Hooks Strategy
 
@@ -1090,6 +1107,7 @@ pre-commit.
 4. **Provide clear escape hatch**: Document `--no-verify` for emergencies
 
 **Example `lefthook.yml` (pre-push)**:
+
 ```yaml
 pre-push:
   commands:
@@ -1136,7 +1154,7 @@ pre-push:
 repeated push attempts instant.
 This is especially valuable when rebasing or when a push fails for non-test reasons.
 
-* * *
+---
 
 #### CI vs Local Hook Relationship
 
@@ -1146,20 +1164,21 @@ This is especially valuable when rebasing or when a push fails for non-test reas
 
 Local hooks and CI should complement each other:
 
-| Check | Pre-commit | Pre-push | CI |
-| --- | --- | --- | --- |
-| Format | ✅ Auto-fix | — | ✅ Verify |
-| Lint | ✅ Auto-fix | — | ✅ Verify |
-| Typecheck | ✅ Incremental | — | ✅ Full |
-| Unit tests | ⚠️ Changed only | ✅ Full | ✅ Full |
-| Integration tests | — | ⚠️ Optional | ✅ Full |
-| Build | — | — | ✅ Full |
-| publint | — | — | ✅ Full |
+| Check             | Pre-commit      | Pre-push    | CI        |
+| ----------------- | --------------- | ----------- | --------- |
+| Format            | ✅ Auto-fix     | —           | ✅ Verify |
+| Lint              | ✅ Auto-fix     | —           | ✅ Verify |
+| Typecheck         | ✅ Incremental  | —           | ✅ Full   |
+| Unit tests        | ⚠️ Changed only | ✅ Full     | ✅ Full   |
+| Integration tests | —               | ⚠️ Optional | ✅ Full   |
+| Build             | —               | —           | ✅ Full   |
+| publint           | —               | —           | ✅ Full   |
 
 **Key insight**: Pre-commit hooks fix issues, CI verifies correctness.
 Never skip CI because hooks passed—hooks can be bypassed with `--no-verify`.
 
 **Root `package.json` integration**:
+
 ```json
 {
   "scripts": {
@@ -1177,7 +1196,7 @@ Never skip CI because hooks passed—hooks can be bypassed with `--no-verify`.
 
 - [Git Hooks Best Practices](https://pre-commit.com/#introduction)
 
-* * *
+---
 
 ### 11. Dependency Upgrade Management
 
@@ -1193,20 +1212,21 @@ making it easy to separate low-risk minor/patch updates from potentially breakin
 updates.
 
 **Installation**:
+
 ```bash
 pnpm add -Dw npm-check-updates
 ```
 
 **Key flags**:
 
-| Flag | Description |
-| --- | --- |
-| `--target minor` | Only upgrade to latest minor/patch (safe) |
-| `--target patch` | Only upgrade to latest patch (safest) |
-| `--target latest` | Upgrade to latest version (includes major) |
-| `--format group` | Group output by update type (major/minor/patch) |
-| `--interactive` | Select which packages to upgrade |
-| `-u` | Update package.json (otherwise just reports) |
+| Flag              | Description                                     |
+| ----------------- | ----------------------------------------------- |
+| `--target minor`  | Only upgrade to latest minor/patch (safe)       |
+| `--target patch`  | Only upgrade to latest patch (safest)           |
+| `--target latest` | Upgrade to latest version (includes major)      |
+| `--format group`  | Group output by update type (major/minor/patch) |
+| `--interactive`   | Select which packages to upgrade                |
+| `-u`              | Update package.json (otherwise just reports)    |
 
 **Upgrade Targets Explained**:
 
@@ -1229,7 +1249,7 @@ potentially breaking changes (major), enabling a safer, more frequent upgrade ca
 
 - [ncu GitHub repository](https://github.com/raineorshine/npm-check-updates)
 
-* * *
+---
 
 #### Upgrade Scripts Pattern
 
@@ -1241,6 +1261,7 @@ Add structured upgrade scripts to your root `package.json` that encode your upgr
 workflow. This makes upgrades consistent and discoverable.
 
 **Root `package.json` scripts**:
+
 ```json
 {
   "scripts": {
@@ -1254,12 +1275,12 @@ workflow. This makes upgrades consistent and discoverable.
 
 **Script descriptions**:
 
-| Script | Purpose |
-| --- | --- |
-| `upgrade:check` | Show available updates grouped by type (no changes) |
-| `upgrade` | Safe upgrade: minor+patch versions, install, and test |
-| `upgrade:patch` | Conservative upgrade: patch versions only |
-| `upgrade:major` | Interactive selection for major version changes |
+| Script          | Purpose                                               |
+| --------------- | ----------------------------------------------------- |
+| `upgrade:check` | Show available updates grouped by type (no changes)   |
+| `upgrade`       | Safe upgrade: minor+patch versions, install, and test |
+| `upgrade:patch` | Conservative upgrade: patch versions only             |
+| `upgrade:major` | Interactive selection for major version changes       |
 
 **Workflow**:
 
@@ -1279,7 +1300,7 @@ rollback before investigating.
 **Assessment**: This pattern enables frequent, low-risk dependency updates while
 maintaining control over potentially breaking changes.
 
-* * *
+---
 
 #### Monorepo Considerations
 
@@ -1298,6 +1319,7 @@ pnpm ncu --target minor -u -ws && pnpm install && pnpm test
 ```
 
 For selective package updates:
+
 ```bash
 # Upgrade specific packages only
 pnpm ncu --filter "@scope/*" --target minor -u
@@ -1311,6 +1333,7 @@ upgrades. Options:
 1. **Use `--legacy-peer-deps`** (npm): `npm install --legacy-peer-deps`
 
 2. **Pin conflicting versions**: Lock specific versions in `pnpm.overrides`:
+
    ```json
    {
      "pnpm": {
@@ -1327,7 +1350,7 @@ upgrades. Options:
 
 - [pnpm overrides documentation](https://pnpm.io/package_json#pnpmoverrides)
 
-* * *
+---
 
 ### 12. CLI Development Workflow
 
@@ -1353,10 +1376,10 @@ frustration of debugging stale builds.
 }
 ```
 
-| Script | Purpose | When to use |
-| --- | --- | --- |
-| `cli-name` | Runs source via tsx | Development—always current, no build needed |
-| `cli-name:bin` | Runs built binary | Pre-release verification of published output |
+| Script         | Purpose             | When to use                                  |
+| -------------- | ------------------- | -------------------------------------------- |
+| `cli-name`     | Runs source via tsx | Development—always current, no build needed  |
+| `cli-name:bin` | Runs built binary   | Pre-release verification of published output |
 
 **Why this matters**:
 
@@ -1369,7 +1392,7 @@ frustration of debugging stale builds.
 
 4. **Still verifiable**: The `:bin` variant ensures the production build works correctly
 
-* * *
+---
 
 #### tsx vs vite-node vs ts-node
 
@@ -1379,13 +1402,13 @@ frustration of debugging stale builds.
 
 For running TypeScript CLI commands directly, **tsx** is the recommended choice:
 
-| Aspect | tsx | vite-node | ts-node |
-| --- | --- | --- | --- |
-| **Speed** | 5-10x faster than ts-node | Fast (esbuild) | Slow |
-| **Startup time** | Single-digit milliseconds | Fast | Noticeable delay |
-| **Configuration** | Zero-config | Requires Vite familiarity | Often needs config |
-| **Use case** | CLI and scripts | Vite ecosystem projects | Legacy projects |
-| **Maintenance** | Active | Active | Active but slower |
+| Aspect            | tsx                       | vite-node                 | ts-node            |
+| ----------------- | ------------------------- | ------------------------- | ------------------ |
+| **Speed**         | 5-10x faster than ts-node | Fast (esbuild)            | Slow               |
+| **Startup time**  | Single-digit milliseconds | Fast                      | Noticeable delay   |
+| **Configuration** | Zero-config               | Requires Vite familiarity | Often needs config |
+| **Use case**      | CLI and scripts           | Vite ecosystem projects   | Legacy projects    |
+| **Maintenance**   | Active                    | Active                    | Active but slower  |
 
 **When to choose each**:
 
@@ -1423,7 +1446,7 @@ Reserve vite-node for projects that specifically need Vite’s transformation pi
 
 - [ts-runtime-comparison benchmarks](https://github.com/privatenumber/ts-runtime-comparison)
 
-* * *
+---
 
 ### 13. Private Package Distribution
 
@@ -1442,12 +1465,14 @@ GitHub Packages provides a private npm registry with standard npm semantics.
 - Repository name should match organization/scope
 
 **Publisher `.npmrc`**:
+
 ```ini
 @your-org:registry=https://npm.pkg.github.com
 //npm.pkg.github.com/:_authToken=${NODE_AUTH_TOKEN}
 ```
 
 **Consumer `.npmrc`**:
+
 ```ini
 @your-org:registry=https://npm.pkg.github.com/
 //npm.pkg.github.com/:_authToken=YOUR_GITHUB_TOKEN
@@ -1465,7 +1490,7 @@ No build-on-install quirks.
 
 - [Publish NPM Package to GitHub Packages Registry](https://www.neteye-blog.com/2024/09/publish-npm-package-to-github-packages-registry-with-github-actions/)
 
-* * *
+---
 
 #### Option B: Direct GitHub Install (pnpm)
 
@@ -1495,7 +1520,7 @@ Use GitHub Packages or npm for production.
 
 - [pnpm discussion: Add dependency from git monorepo](https://github.com/orgs/pnpm/discussions/8194)
 
-* * *
+---
 
 #### Option C: Local Linking
 
@@ -1511,6 +1536,7 @@ pnpm add ../path-to-monorepo/packages/package-name
 ```
 
 Or use `pnpm link`:
+
 ```bash
 # In package directory
 pnpm link --global
@@ -1522,7 +1548,7 @@ pnpm link --global @scope/package-name
 **Assessment**: Essential for local development iteration.
 Not suitable for distribution.
 
-* * *
+---
 
 #### Bun Compatibility Note
 
@@ -1540,7 +1566,7 @@ experience.
 
 - [Bun issue: Support installing Git dependency from subdirectory](https://github.com/oven-sh/bun/issues/15506)
 
-* * *
+---
 
 ### 14. Library/CLI Hybrid Packages
 
@@ -1579,7 +1605,7 @@ src/
 The directory structure creates clear boundaries that are easy to enforce with automated
 tests.
 
-* * *
+---
 
 #### Pattern: Move Node.js Utilities to CLI
 
@@ -1609,7 +1635,7 @@ export const DEFAULT_OUTPUT_DIR = './output';
 import { resolve } from 'node:path';
 import { DEFAULT_OUTPUT_DIR } from '../../settings.js';
 
-export { DEFAULT_OUTPUT_DIR };  // Re-export for CLI convenience
+export { DEFAULT_OUTPUT_DIR }; // Re-export for CLI convenience
 
 export function getOutputDir(override?: string): string {
   return resolve(process.cwd(), override ?? DEFAULT_OUTPUT_DIR);
@@ -1619,7 +1645,7 @@ export function getOutputDir(override?: string): string {
 **Assessment**: This pattern keeps the core library portable while providing full
 Node.js functionality in CLI contexts.
 
-* * *
+---
 
 #### Pattern: Build-Time Constants
 
@@ -1643,15 +1669,14 @@ export default {
 // src/index.ts (node-free)
 declare const __VERSION__: string;
 
-export const VERSION: string =
-  typeof __VERSION__ !== 'undefined' ? __VERSION__ : 'development';
+export const VERSION: string = typeof __VERSION__ !== 'undefined' ? __VERSION__ : 'development';
 ```
 
 **Assessment**: Build-time injection eliminates runtime Node.js dependencies for values
 that are constant at build time.
 This is cleaner than dynamic requires or filesystem reads.
 
-* * *
+---
 
 #### Guard Tests for Node-Free Core
 
@@ -1667,10 +1692,12 @@ import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join, relative } from 'node:path';
 
 const SRC_DIR = 'src';
-const NODE_ALLOWED_DIRS = ['cli'];  // Only CLI can use node:
+const NODE_ALLOWED_DIRS = ['cli']; // Only CLI can use node:
 const NODE_IMPORT_PATTERN = /from\s+['"]node:/g;
 
-function getAllTsFiles(dir: string): string[] { /* recursive scan */ }
+function getAllTsFiles(dir: string): string[] {
+  /* recursive scan */
+}
 
 describe('Node-free core library', () => {
   it('source files outside cli/ should not import from node:', () => {
@@ -1678,7 +1705,7 @@ describe('Node-free core library', () => {
 
     for (const file of getAllTsFiles(SRC_DIR)) {
       const rel = relative(SRC_DIR, file);
-      if (NODE_ALLOWED_DIRS.some(d => rel.startsWith(d + '/'))) continue;
+      if (NODE_ALLOWED_DIRS.some((d) => rel.startsWith(d + '/'))) continue;
 
       const content = readFileSync(file, 'utf-8');
       if (NODE_IMPORT_PATTERN.test(content)) {
@@ -1699,7 +1726,7 @@ describe('Node-free core library', () => {
 **Assessment**: Guard tests catch accidental node: imports during development rather
 than discovering them when users try to use the library in browser/edge contexts.
 
-* * *
+---
 
 #### Checklist for Library/CLI Packages
 
@@ -1724,39 +1751,39 @@ than discovering them when users try to use the library in browser/edge contexts
 - [CLI Tool Development Rules](../../agent-rules/typescript-cli-tool-rules.md) —
   CLI-specific patterns using Commander.js, picocolors, and @clack/prompts
 
-* * *
+---
 
 ## Comparative Analysis
 
 ### Build Tools Comparison
 
-| Criteria | tsdown | tsup | unbuild | Rollup |
-| --- | --- | --- | --- | --- |
-| Active maintenance | Yes | No (abandoned) | Yes | Yes |
-| ESM-first | Yes | No (CJS-first) | Yes | Yes |
-| DTS generation | Built-in | Built-in | Built-in | Plugin required |
-| Multi-entry | Yes | Yes | Yes | Yes |
-| Config simplicity | Excellent | Good | Good | Complex |
-| Speed | Fast (Rust) | Fast (esbuild) | Moderate | Moderate |
-| Plugin ecosystem | Rolldown/Rollup/Vite | esbuild | unbuild | Rollup |
+| Criteria           | tsdown               | tsup           | unbuild  | Rollup          |
+| ------------------ | -------------------- | -------------- | -------- | --------------- |
+| Active maintenance | Yes                  | No (abandoned) | Yes      | Yes             |
+| ESM-first          | Yes                  | No (CJS-first) | Yes      | Yes             |
+| DTS generation     | Built-in             | Built-in       | Built-in | Plugin required |
+| Multi-entry        | Yes                  | Yes            | Yes      | Yes             |
+| Config simplicity  | Excellent            | Good           | Good     | Complex         |
+| Speed              | Fast (Rust)          | Fast (esbuild) | Moderate | Moderate        |
+| Plugin ecosystem   | Rolldown/Rollup/Vite | esbuild        | unbuild  | Rollup          |
 
 **Recommendation**: tsdown for new projects; migrate from tsup if currently using it.
 
-* * *
+---
 
 ### Package Manager Comparison
 
-| Criteria | pnpm | npm | yarn |
-| --- | --- | --- | --- |
-| Disk efficiency | Excellent | Poor | Moderate |
-| Workspace support | Built-in | Built-in (v7+) | Built-in |
-| Strict mode | Yes (default) | No | Optional |
-| Speed | Fast | Moderate | Fast |
-| Monorepo tooling | Excellent | Basic | Good |
+| Criteria          | pnpm          | npm            | yarn     |
+| ----------------- | ------------- | -------------- | -------- |
+| Disk efficiency   | Excellent     | Poor           | Moderate |
+| Workspace support | Built-in      | Built-in (v7+) | Built-in |
+| Strict mode       | Yes (default) | No             | Optional |
+| Speed             | Fast          | Moderate       | Fast     |
+| Monorepo tooling  | Excellent     | Basic          | Good     |
 
 **Recommendation**: pnpm for monorepos.
 
-* * *
+---
 
 ## Best Practices
 
@@ -1827,7 +1854,7 @@ than discovering them when users try to use the library in browser/edge contexts
     This eliminates “did I forget to build?”
     confusion.
 
-* * *
+---
 
 ## Open Research Questions
 
@@ -1849,7 +1876,7 @@ than discovering them when users try to use the library in browser/edge contexts
    files in monorepos. Currently, a single root config is recommended but has
    limitations.
 
-* * *
+---
 
 ## Recommendations
 
@@ -1908,7 +1935,7 @@ ready for public release.
   non-monorepo structure is fine.
   However, the monorepo structure overhead is minimal and provides flexibility.
 
-* * *
+---
 
 ## References
 
@@ -1960,7 +1987,7 @@ ready for public release.
 
 - [changesets/action](https://github.com/changesets/action)
 
-* * *
+---
 
 ## Appendices
 
@@ -2081,16 +2108,16 @@ For projects just getting started, a minimal configuration:
 
 ```javascript
 // eslint.config.js
-import js from "@eslint/js";
-import tseslint from "typescript-eslint";
-import prettier from "eslint-config-prettier";
+import js from '@eslint/js';
+import tseslint from 'typescript-eslint';
+import prettier from 'eslint-config-prettier';
 
 export default [
   js.configs.recommended,
   ...tseslint.configs.recommended,
   prettier, // Must be last to override conflicting rules
   {
-    ignores: ["**/dist/**", "**/node_modules/**", "**/.pnpm-store/**"],
+    ignores: ['**/dist/**', '**/node_modules/**', '**/.pnpm-store/**'],
   },
 ];
 ```
@@ -2102,9 +2129,9 @@ This catches more bugs but requires tsconfig integration:
 
 ```javascript
 // eslint.config.js
-import js from "@eslint/js";
-import tseslint from "typescript-eslint";
-import prettier from "eslint-config-prettier";
+import js from '@eslint/js';
+import tseslint from 'typescript-eslint';
+import prettier from 'eslint-config-prettier';
 
 // Type-aware ESLint configuration using flat config.
 // Uses TypeScript's project service for precise, cross-project type information.
@@ -2112,7 +2139,7 @@ import prettier from "eslint-config-prettier";
 // Apply type-checked configs only to TypeScript files
 const typedRecommended = tseslint.configs.recommendedTypeChecked.map((cfg) => ({
   ...cfg,
-  files: ["**/*.ts", "**/*.tsx"],
+  files: ['**/*.ts', '**/*.tsx'],
   languageOptions: {
     ...(cfg.languageOptions ?? {}),
     parserOptions: {
@@ -2125,7 +2152,7 @@ const typedRecommended = tseslint.configs.recommendedTypeChecked.map((cfg) => ({
 
 const typedStylistic = tseslint.configs.stylisticTypeChecked.map((cfg) => ({
   ...cfg,
-  files: ["**/*.ts", "**/*.tsx"],
+  files: ['**/*.ts', '**/*.tsx'],
   languageOptions: {
     ...(cfg.languageOptions ?? {}),
     parserOptions: {
@@ -2139,12 +2166,7 @@ const typedStylistic = tseslint.configs.stylisticTypeChecked.map((cfg) => ({
 export default [
   // Global ignores
   {
-    ignores: [
-      "**/dist/**",
-      "**/node_modules/**",
-      "**/.pnpm-store/**",
-      "eslint.config.*",
-    ],
+    ignores: ['**/dist/**', '**/node_modules/**', '**/.pnpm-store/**', 'eslint.config.*'],
   },
 
   // Base JS rules
@@ -2159,59 +2181,59 @@ export default [
 
   // TypeScript-specific rules
   {
-    files: ["**/*.ts", "**/*.tsx"],
+    files: ['**/*.ts', '**/*.tsx'],
     rules: {
       // === Code Style ===
       // Enforce curly braces for all control statements (prevents bugs)
-      curly: ["error", "all"],
+      curly: ['error', 'all'],
       // Consistent brace style: opening on same line, closing on new line
-      "brace-style": ["error", "1tbs", { allowSingleLine: false }],
+      'brace-style': ['error', '1tbs', { allowSingleLine: false }],
 
       // === Unused Variables ===
       // Allow underscore prefix for intentionally unused vars/args
-      "@typescript-eslint/no-unused-vars": [
-        "error",
+      '@typescript-eslint/no-unused-vars': [
+        'error',
         {
-          argsIgnorePattern: "^_",
-          varsIgnorePattern: "^_",
-          caughtErrorsIgnorePattern: "^_",
+          argsIgnorePattern: '^_',
+          varsIgnorePattern: '^_',
+          caughtErrorsIgnorePattern: '^_',
         },
       ],
 
       // === Promise Safety (Critical for Node.js) ===
       // Catch unhandled promises (common source of silent failures)
-      "@typescript-eslint/no-floating-promises": "error",
+      '@typescript-eslint/no-floating-promises': 'error',
       // Prevent passing promises where void is expected (e.g., event handlers)
-      "@typescript-eslint/no-misused-promises": [
-        "error",
+      '@typescript-eslint/no-misused-promises': [
+        'error',
         { checksVoidReturn: { attributes: false } },
       ],
       // Catch awaiting non-promise values
-      "@typescript-eslint/await-thenable": "error",
+      '@typescript-eslint/await-thenable': 'error',
       // Prevent confusing void expressions in unexpected places
-      "@typescript-eslint/no-confusing-void-expression": "error",
+      '@typescript-eslint/no-confusing-void-expression': 'error',
 
       // === Type Import Consistency ===
       // Enforce `import type` for type-only imports (better tree-shaking)
-      "@typescript-eslint/consistent-type-imports": [
-        "error",
+      '@typescript-eslint/consistent-type-imports': [
+        'error',
         {
-          prefer: "type-imports",
-          fixStyle: "separate-type-imports",
+          prefer: 'type-imports',
+          fixStyle: 'separate-type-imports',
           disallowTypeAnnotations: true,
         },
       ],
       // Prevent side effects in type-only imports
-      "@typescript-eslint/no-import-type-side-effects": "error",
+      '@typescript-eslint/no-import-type-side-effects': 'error',
 
       // === Restricted Patterns ===
       // Forbid inline import() type expressions (prefer proper imports)
-      "no-restricted-syntax": [
-        "error",
+      'no-restricted-syntax': [
+        'error',
         {
-          selector: "TSImportType",
+          selector: 'TSImportType',
           message:
-            "Inline import() type expressions are not allowed. Use a proper import statement at the top of the file instead.",
+            'Inline import() type expressions are not allowed. Use a proper import statement at the top of the file instead.',
         },
       ],
     },
@@ -2220,21 +2242,21 @@ export default [
   // === File-Specific Overrides ===
   // Relax rules for test files where dynamic behavior is expected
   {
-    files: ["**/*.test.ts", "**/*.spec.ts", "**/tests/**/*.ts"],
+    files: ['**/*.test.ts', '**/*.spec.ts', '**/tests/**/*.ts'],
     rules: {
-      "@typescript-eslint/no-explicit-any": "off",
-      "@typescript-eslint/no-unsafe-assignment": "off",
-      "@typescript-eslint/no-unsafe-member-access": "off",
-      "@typescript-eslint/no-unsafe-call": "off",
+      '@typescript-eslint/no-explicit-any': 'off',
+      '@typescript-eslint/no-unsafe-assignment': 'off',
+      '@typescript-eslint/no-unsafe-member-access': 'off',
+      '@typescript-eslint/no-unsafe-call': 'off',
     },
   },
 
   // Relax rules for scripts/tooling
   {
-    files: ["**/scripts/**/*.ts", "**/tools/**/*.ts"],
+    files: ['**/scripts/**/*.ts', '**/tools/**/*.ts'],
     rules: {
-      "@typescript-eslint/no-explicit-any": "off",
-      "no-console": "off",
+      '@typescript-eslint/no-explicit-any': 'off',
+      'no-console': 'off',
     },
   },
 ];
@@ -2244,18 +2266,19 @@ export default [
 
 **Type-Aware vs Basic Linting**:
 
-| Aspect | `recommended` | `recommendedTypeChecked` |
-| --- | --- | --- |
-| Setup complexity | Simple | Requires tsconfig |
-| Performance | Fast | Slower (type analysis) |
-| Bug detection | Basic | Comprehensive |
-| Promise safety | Limited | Full coverage |
-| Best for | Quick setup, small projects | Production code |
+| Aspect           | `recommended`               | `recommendedTypeChecked` |
+| ---------------- | --------------------------- | ------------------------ |
+| Setup complexity | Simple                      | Requires tsconfig        |
+| Performance      | Fast                        | Slower (type analysis)   |
+| Bug detection    | Basic                       | Comprehensive            |
+| Promise safety   | Limited                     | Full coverage            |
+| Best for         | Quick setup, small projects | Production code          |
 
 **Key Rules Explained**:
 
 1. **`no-floating-promises`**: Catches unhandled promises—a common source of silent
    failures in Node.js:
+
    ```typescript
    // Bad: Promise result ignored, errors swallowed
    saveData();
@@ -2266,14 +2289,16 @@ export default [
 
 2. **`consistent-type-imports`**: Enforces `import type` for type-only imports, enabling
    better tree-shaking and clearer intent:
+
    ```typescript
    // Bad: Runtime import for type-only usage
-   import { SomeType } from "./types";
+   import { SomeType } from './types';
    // Good: Explicit type import
-   import type { SomeType } from "./types";
+   import type { SomeType } from './types';
    ```
 
 3. **`curly: ['error', 'all']`**: Prevents bugs from missing braces:
+
    ```typescript
    // Bad: Easy to introduce bugs when adding lines
    if (condition) doSomething();
@@ -2301,6 +2326,7 @@ const first = array[0]!; // ESLint may wrongly flag this as unnecessary
 ```
 
 If you encounter false positives, consider disabling the rule:
+
 ```javascript
 rules: {
   "@typescript-eslint/no-unnecessary-type-assertion": "off",
@@ -2363,22 +2389,21 @@ For CLI packages, consider restricting console usage to centralized output funct
 
 ```typescript
 // tsdown.config.ts
-import { defineConfig } from "tsdown";
+import { defineConfig } from 'tsdown';
 
 export default defineConfig({
   entry: {
-    index: "src/index.ts",
-    cli: "src/cli/index.ts",
-    bin: "src/bin.ts"
+    index: 'src/index.ts',
+    cli: 'src/cli/index.ts',
+    bin: 'src/bin.ts',
   },
-  format: ["esm", "cjs"],
-  platform: "node",
-  target: "node24",
+  format: ['esm', 'cjs'],
+  platform: 'node',
+  target: 'node24',
   sourcemap: true,
   dts: true,
   clean: true,
-  banner: ({ fileName }) =>
-    fileName.startsWith("bin.") ? "#!/usr/bin/env node\n" : ""
+  banner: ({ fileName }) => (fileName.startsWith('bin.') ? '#!/usr/bin/env node\n' : ''),
 });
 ```
 
@@ -2397,14 +2422,14 @@ pre-commit:
   commands:
     # Auto-format with prettier (~500ms)
     format:
-      glob: "*.{js,ts,tsx,json,yaml,yml}"
+      glob: '*.{js,ts,tsx,json,yaml,yml}'
       run: npx prettier --write --log-level warn {staged_files}
       stage_fixed: true
       priority: 1
 
     # Lint with auto-fix and caching (~1s first, ~200ms cached)
     lint:
-      glob: "*.{js,ts,tsx}"
+      glob: '*.{js,ts,tsx}'
       run: >
         npx eslint
         --cache
@@ -2415,7 +2440,7 @@ pre-commit:
 
     # Type check with incremental mode (~2s)
     typecheck:
-      glob: "*.{ts,tsx}"
+      glob: '*.{ts,tsx}'
       run: npx tsc --noEmit --incremental
       priority: 3
 
@@ -2471,26 +2496,27 @@ pre-push:
 ```
 
 **Monorepo variant** (scope commands to packages):
+
 ```yaml
 pre-commit:
   parallel: true
 
   commands:
     format-core:
-      root: "packages/core/"
-      glob: "*.{ts,tsx}"
+      root: 'packages/core/'
+      glob: '*.{ts,tsx}'
       run: npx prettier --write --log-level warn {staged_files}
       stage_fixed: true
 
     lint-core:
-      root: "packages/core/"
-      glob: "*.{ts,tsx}"
+      root: 'packages/core/'
+      glob: '*.{ts,tsx}'
       run: npx eslint --cache --fix {staged_files}
       stage_fixed: true
 
     typecheck-core:
-      root: "packages/core/"
-      glob: "*.{ts,tsx}"
+      root: 'packages/core/'
+      glob: '*.{ts,tsx}'
       run: npx tsc -p tsconfig.json --noEmit --incremental
 ```
 
@@ -2518,13 +2544,14 @@ that can be queried programmatically:
 ```
 
 **Simple help script** (`scripts/help.ts`):
+
 ```typescript
-import { readFileSync } from "node:fs";
+import { readFileSync } from 'node:fs';
 
-const pkg = JSON.parse(readFileSync("package.json", "utf-8"));
-const info = pkg["scripts-info"] ?? {};
+const pkg = JSON.parse(readFileSync('package.json', 'utf-8'));
+const info = pkg['scripts-info'] ?? {};
 
-console.log("\nAvailable scripts:\n");
+console.log('\nAvailable scripts:\n');
 for (const [name, desc] of Object.entries(info)) {
   console.log(`  ${name.padEnd(20)} ${desc}`);
 }

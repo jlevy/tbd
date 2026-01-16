@@ -3,6 +3,7 @@ description: General Guidelines
 globs: *.ts
 alwaysApply: true
 ---
+
 # TypeScript Rules
 
 ## Coding Style
@@ -19,15 +20,13 @@ alwaysApply: true
 
 ## Docstrings
 
-- All major functions and types should have a *concise* docstring explaining their
+- All major functions and types should have a _concise_ docstring explaining their
   purpose. They should use `\**` … `*/` style comments.
-
   - Focus on any rationale or purpose.
 
   - Do NOT state obvious things about the code.
 
   This should cover
-
   - Public types
 
   - Major functions
@@ -35,7 +34,6 @@ alwaysApply: true
   - Convex schemas, functions, actions, mutations, and queries
 
   It should NOT cover:
-
   - Test functions
 
   - Trivial internal helper functions
@@ -69,14 +67,14 @@ alwaysApply: true
      */
     testSkipScheduling?: boolean;
   }
-  
+
   // Reference it elsewhere
   export const runConfigValidator = v.object({
     logLlmCalls: v.optional(v.boolean()),
     /** @see RunConfig.testSkipScheduling for documentation */
     testSkipScheduling: v.optional(v.boolean()),
   });
-  
+
   // BAD: Documentation duplicated at multiple usage sites
   export const runConfigValidator = v.object({
     /** When true, logs full LLM request/response payloads for debugging. */
@@ -99,7 +97,7 @@ alwaysApply: true
   ```ts
   // BAD: Silences type safety
   const logger = createAgentLogger(ctx, agentCtx as any);
-  
+
   // GOOD: Provide a precise input shape or overload that matches
   const logger = createAgentLogger(ctx, {
     runId: runId as Id<'runs'>,
@@ -123,7 +121,7 @@ alwaysApply: true
       trades: { symbol: string; action: 'buy' | 'sell'; price: number }[];
     };
   }
-  
+
   // GOOD: Named type in shared location
   interface FullTradeSummary {
     stats: TradeSummaryStats;
@@ -145,7 +143,7 @@ alwaysApply: true
   const totalSellValue = trades
     .filter((t) => t.action === 'sell')
     .reduce((sum, t) => sum + t.value, 0);
-  
+
   // GOOD: Single shared function computes all related metrics
   function computeTradeSummaryStats(trades: Trade[]): TradeSummaryStats {
     return {
@@ -178,7 +176,7 @@ alwaysApply: true
       throw new Error(`Unhandled field kind: ${(_exhaustive as { kind: string }).kind}`);
     }
   }
-  
+
   // BAD: Missing cases silently fall through or return undefined
   switch (field.kind) {
     case 'string':
@@ -187,7 +185,7 @@ alwaysApply: true
       return handleNumber(field);
     // New field kinds won't cause compile errors!
   }
-  
+
   // BAD: Default that masks missing cases
   switch (field.kind) {
     case 'string':
@@ -227,7 +225,7 @@ alwaysApply: true
       paperTimestamp: number; // Unix timestamp in milliseconds (Date.now() format)
     },
   ): Promise<AgentExecCtx>;
-  
+
   // BAD: Optional parameters that can lead to accidental omission
   export function createAgentExecCtx(
     ctx: any,
@@ -249,7 +247,7 @@ alwaysApply: true
   export function doWork(_ctx: any, params: X): Y {
     /* _ctx unused */
   }
-  
+
   // GOOD: Remove unused param and update callers
   export function doWork(params: X): Y {
     /* ... */
@@ -260,7 +258,6 @@ alwaysApply: true
 
 - **Do NOT use non-descriptive filenames:** Avoid duplicate filenames `index.ts` for
   source modules. Prefer unique, purpose-revealing names that state what the file does.
-
   - Examples: Instead of `tools/index.ts`, use `tools/tool-registry.ts` (or a similarly
     descriptive name that matches its purpose).
 
@@ -268,7 +265,6 @@ alwaysApply: true
   not use the filename in different directories with different logic.
   Use unique, descriptive names to avoid confusion and make code easier to remember and
   search for.
-
   - For example, don’t have two files like `shared/types/runtimeTypes.ts` and
     `convex/models/runtimeTypes.ts`. Give them different names, such as
     `shared/types/appRuntimeTypes.ts` and `convex/models/runtimeValidators.ts`.
@@ -286,10 +282,10 @@ alwaysApply: true
     const { helper } = await import('./helpers.js');
     return helper(args);
   };
-  
+
   // GOOD: Static import at top of file
   import { helper } from './helpers.js';
-  
+
   export const myFunction = async (args) => {
     return helper(args);
   };
@@ -301,7 +297,6 @@ alwaysApply: true
 
 - **Avoid re-exporting functions or types** unless explicitly done for consumers of a
   library (such as a top-level `index.ts`).
-
   - If a function or type is moved from one file to another, ALWAYS update all imports
     in the codebase to the location.
     DO NOT re-export types a type or other value from its old location:
@@ -309,7 +304,7 @@ alwaysApply: true
     ```ts
     // BAD: Do not re-export imports for re-import elsewhere:
     export { backtestStep } from './experimentExecution';
-    
+
     // GOOD: Import directly from the new location:
     import { backtestStep } from './experimentExecution';
     ```
@@ -326,13 +321,13 @@ alwaysApply: true
   // src/harness/index.ts
   export { FormHarness } from './harness.js';
   export { MockAgent } from './mockAgent.js';
-  
+
   // BAD: Importing through module barrel
   import { FormHarness } from '../harness';
-  
+
   // GOOD: Import directly from source file
   import { FormHarness } from '../harness/harness.js';
-  
+
   // GOOD: Root index.ts for public API is fine
   // src/index.ts (package entry point)
   export { FormHarness } from './harness/harness.js';
@@ -383,7 +378,7 @@ alwaysApply: true
   // BAD: Can leave corrupted file if process crashes mid-write
   import { writeFileSync } from 'fs';
   writeFileSync(filePath, content);
-  
+
   // GOOD: Modern TypeScript-native with zero dependencies
   import { writeFile } from 'atomically';
   await writeFile(filePath, content);
