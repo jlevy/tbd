@@ -3028,8 +3028,16 @@ jobs:
 
 | Bead ID | Task | Priority | Status | Notes |
 | --- | --- | --- | --- | --- |
-| tbd-1819 | Feature: Add tbd uninstall command | P2 | Open | Remove .tbd/, delete tbd-sync branch, require --yes |
-| tbd-1820 | Test: golden test for tbd uninstall command | P2 | tbd-1819 | Verify cleanup behavior |
+| tbd-1819 | Feature: Add tbd uninstall command | P2 | Open | Remove .tbd/, delete tbd-sync branch, require --yes, **warn of full data loss** |
+| tbd-1820 | Test: golden test for tbd uninstall command | P2 | tbd-1819 | Verify cleanup and warning behavior |
+
+**tbd-1819: Uninstall command details**
+- Delete `.tbd/` directory (config, worktree)
+- Delete tbd-sync branch (local, optionally remote with `--remote` flag)
+- Delete `.tbd-sync/` if it exists on main
+- **CRITICAL**: Help text and confirmation prompt must warn about FULL DATA LOSS
+- Require `--yes` flag to skip confirmation
+- Useful for: testing cleanup, round-trip golden tests (import→operate→uninstall→repeat)
 
 ### Phase 18 Bug Details
 
