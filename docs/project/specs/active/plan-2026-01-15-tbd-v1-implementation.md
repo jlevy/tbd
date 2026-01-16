@@ -338,7 +338,7 @@ The master epic is **tbd-100**.
 | Phase | Epic ID | Title | Tasks | Status |
 | --- | --- | --- | --- | --- |
 | 1 | tbd-101 | Core Schemas & Serialization | tbd-102 through tbd-111 | ✅ Complete |
-| 2 | tbd-200 | Storage Layer & Basic Git Operations | tbd-201 through tbd-209 | ✅ Complete |
+| 2 | tbd-200 | Storage Layer & Basic Git Operations | tbd-201 through tbd-209 | ⚠️ Partial |
 | 3 | tbd-300 | CLI Foundation & Init Command | tbd-301 through tbd-309 | ✅ Complete |
 | 4 | tbd-400 | Issue CRUD Commands | tbd-401 through tbd-409 | ✅ Complete |
 | 5 | tbd-500 | Workflow Commands | tbd-501 through tbd-504 | ✅ Complete |
@@ -355,6 +355,7 @@ The master epic is **tbd-100**.
 | 16 | tbd-1700 | Comprehensive Tryscript Coverage | tbd-1701 through tbd-1706 | ✅ Complete |
 | 17 | tbd-1800 | CI Fixes and Dependency Updates | tbd-1801 through tbd-1805 | 🔄 Pending |
 | 18 | tbd-1900 | Critical Bug Fixes | tbd-1809 through tbd-1818 | 🔴 New |
+| 19 | tbd-208 | Worktree Architecture Fix | tbd-208.1 through tbd-208.6 | 🔴 New |
 | Validation | tbd-1300 | Stage 5 Validation | tbd-1301 through tbd-1306 | ⚠️ Partial |
 
 **Status Legend:** ✅ Complete | ⚠️ Partial (needs review) | 🔲 Pending | 🔴 New
@@ -372,15 +373,17 @@ The master epic is **tbd-100**.
 - README documentation complete (Phase 12)
 - **NEW Phase 18: Critical bugs found during testing** - worktree usage, ID display,
   status mapping
-- Remaining: CI validation (tbd-1805), npm publish (tbd-1206), Phase 18 bug fixes
+- **NEW Phase 19: Worktree architecture fix** - tbd-208 reopened, 6 sub-tasks created
+  (see [postmortem](../../retrospectives/retro-2026-01-16-worktree-architecture-not-implemented.md))
+- Remaining: CI validation (tbd-1805), npm publish (tbd-1206), Phase 18 & 19 bug fixes
 
 **Bead Tracking Summary:**
 
 | Status | Count | Beads |
 | --- | --- | --- |
-| ✅ Done | 117 | tbd-101→tbd-111, tbd-200→tbd-209, tbd-300→tbd-309, tbd-400→tbd-409, tbd-500→tbd-504, tbd-600→tbd-607, tbd-700→tbd-708, tbd-800→tbd-804, tbd-900→tbd-904, tbd-1000→tbd-1004, tbd-1100→tbd-1105, tbd-1201, tbd-1202, tbd-1205, tbd-1301, tbd-1302, tbd-1305, tbd-1306, tbd-1400→tbd-1405, tbd-1500→tbd-1502, tbd-1600→tbd-1604, tbd-1700→tbd-1706, tbd-1800→tbd-1804 |
+| ✅ Done | 116 | tbd-101→tbd-111, tbd-200→tbd-207, tbd-209, tbd-300→tbd-309, tbd-400→tbd-409, tbd-500→tbd-504, tbd-600→tbd-607, tbd-700→tbd-708, tbd-800→tbd-804, tbd-900→tbd-904, tbd-1000→tbd-1004, tbd-1100→tbd-1105, tbd-1201, tbd-1202, tbd-1205, tbd-1301, tbd-1302, tbd-1305, tbd-1306, tbd-1400→tbd-1405, tbd-1500→tbd-1502, tbd-1600→tbd-1604, tbd-1700→tbd-1706, tbd-1800→tbd-1804 |
 | 🔄 In Progress | 1 | tbd-100 (master epic) |
-| 🔲 Open | 8 | tbd-1200, tbd-1203, tbd-1204, tbd-1206, tbd-1300, tbd-1303, tbd-1304, tbd-1805 |
+| 🔲 Open | 15 | tbd-208, tbd-208.1→tbd-208.6, tbd-1200, tbd-1203, tbd-1204, tbd-1206, tbd-1300, tbd-1303, tbd-1304, tbd-1805, tbd-1810 |
 
 **Phase 13: Tryscript Coverage Migration (✅ Complete)**
 
@@ -439,6 +442,26 @@ The master epic is **tbd-100**.
 | tbd-1803 | Update Node.js to LTS 22 in CI | Done | Updated from 20 to 22 |
 | tbd-1804 | Update npm dependencies | Done | Minor version updates for all packages |
 | tbd-1805 | Validate CI runs on GitHub Actions | Open | Pending first run after push |
+
+**Phase 19: Worktree Architecture Fix (🔴 New)**
+
+tbd-208 was incorrectly marked as done without implementing the required worktree
+functions. The entire worktree architecture was bypassed - all commands write to
+`.tbd-sync/` directly instead of `.tbd/.worktree/.tbd-sync/` via git worktree.
+
+See [postmortem](../../retrospectives/retro-2026-01-16-worktree-architecture-not-implemented.md)
+for full analysis.
+
+| Bead ID | Task | Status | Notes |
+| --- | --- | --- | --- |
+| tbd-208 | Worktree management (reopened) | Open | Parent epic - was incorrectly marked done |
+| tbd-208.1 | Implement initWorktree() | Open | Create worktree at `.tbd/.worktree/` |
+| tbd-208.2 | Implement updateWorktree() | Open | Update worktree after sync |
+| tbd-208.3 | Implement checkWorktreeHealth() | Open | Verify worktree validity |
+| tbd-208.4 | Update init.ts | Open | Create worktree instead of direct `.tbd-sync` |
+| tbd-208.5 | Update 20 command files | Open | Change ISSUES_BASE_DIR to worktree path |
+| tbd-208.6 | Update .gitignore | Open | Add `.worktree/` to `.tbd/.gitignore` |
+| tbd-1810 | Bug: files on main branch | Open | Blocked by tbd-208 |
 
 **Stage 5 Validation Status (⚠️ Partial):**
 
