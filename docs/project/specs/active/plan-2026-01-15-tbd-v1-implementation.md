@@ -354,11 +354,12 @@ The master epic is **tbd-100**.
 | 15 | tbd-1600 | Import Validation & Benchmarks | tbd-1601 through tbd-1604 | ✅ Complete |
 | 16 | tbd-1700 | Comprehensive Tryscript Coverage | tbd-1701 through tbd-1706 | ✅ Complete |
 | 17 | tbd-1800 | CI Fixes and Dependency Updates | tbd-1801 through tbd-1805 | 🔄 Pending |
+| 18 | tbd-1900 | Critical Bug Fixes | tbd-1809 through tbd-1818 | 🔴 New |
 | Validation | tbd-1300 | Stage 5 Validation | tbd-1301 through tbd-1306 | ⚠️ Partial |
 
-**Status Legend:** ✅ Complete | ⚠️ Partial (needs review) | 🔲 Pending
+**Status Legend:** ✅ Complete | ⚠️ Partial (needs review) | 🔲 Pending | 🔴 New
 
-**Implementation Progress (2026-01-15):**
+**Implementation Progress (2026-01-16):**
 
 - Core functionality implemented and passing **104 vitest + 189 tryscript tests (293
   total)**
@@ -369,7 +370,9 @@ The master epic is **tbd-100**.
 - CI fixes: pnpm version conflict, Node.js 22 LTS, dependency updates (Phase 17)
 - Build and lint passing
 - README documentation complete (Phase 12)
-- Remaining: CI validation (tbd-1805), npm publish (tbd-1206)
+- **NEW Phase 18: Critical bugs found during testing** - worktree usage, ID display,
+  status mapping
+- Remaining: CI validation (tbd-1805), npm publish (tbd-1206), Phase 18 bug fixes
 
 **Bead Tracking Summary:**
 
@@ -2993,6 +2996,82 @@ jobs:
 
 * * *
 
+## Phase 18: Critical Bug Fixes (🔴 New)
+
+**Epic:** tbd-1800-bugfix (pending)
+
+**Goal**: Fix critical bugs discovered during initial testing that prevent basic usage.
+
+### Phase 18 Tasks
+
+**Bug Fixes:**
+
+| Bead ID | Task | Priority | Status | Notes |
+| --- | --- | --- | --- | --- |
+| tbd-1809 | Bug: tbd list shows 'no issues' instead of init prompt | P2 | Open | UX issue - should detect uninitialized state |
+| tbd-1810 | Bug: import writes files to main branch instead of tbd-sync worktree | P1 | Open | **CRITICAL** - breaks core architecture |
+| tbd-1811 | Bug: list command shows internal ULID IDs instead of short public IDs | P1 | Open | **CRITICAL** - breaks ID usability |
+| tbd-1812 | Bug: extra newline after YAML frontmatter closing --- | P3 | Open | Minor formatting issue |
+| tbd-1813 | Bug: import status mapping missing 'done' -> 'closed' | P1 | Open | **CRITICAL** - causes 127 issues to import as 'open' instead of 'closed' |
+
+**Golden Test Coverage (blocked by bug fixes):**
+
+| Bead ID | Task | Priority | Blocked By | Notes |
+| --- | --- | --- | --- | --- |
+| tbd-1814 | Test: golden test for uninitialized tbd list behavior | P2 | tbd-1809 | Verify init prompt shown |
+| tbd-1815 | Test: golden test verifying files written to tbd-sync worktree | P1 | tbd-1810 | Verify worktree used |
+| tbd-1816 | Test: golden test verifying short public IDs in list output | P1 | tbd-1811 | Verify ID format |
+| tbd-1817 | Test: golden test for YAML frontmatter formatting | P3 | tbd-1812 | Verify no extra newline |
+| tbd-1818 | Test: golden test for beads import status mapping | P1 | tbd-1813 | Verify done->closed |
+
+**New Feature:**
+
+| Bead ID | Task | Priority | Status | Notes |
+| --- | --- | --- | --- | --- |
+| tbd-1819 | Feature: Add tbd uninstall command | P2 | Open | Remove .tbd/, delete tbd-sync branch, require --yes |
+| tbd-1820 | Test: golden test for tbd uninstall command | P2 | tbd-1819 | Verify cleanup behavior |
+
+### Phase 18 Bug Details
+
+**tbd-1809: Missing init prompt**
+- When running `tbd list` without first running `tbd init`, shows “no issues” instead of
+  helpful message
+- The `listIssues` function returns empty array instead of detecting uninitialized state
+- Should show: "tbd is not initialized.
+  Run `tbd init` first."
+
+**tbd-1810: Files written to wrong location** (CRITICAL)
+- The import command (and all storage operations) write directly to `.tbd-sync/` in the
+  current working directory
+- According to design, issues should be stored on tbd-sync branch accessed via hidden
+  worktree at `.tbd/.worktree/.tbd-sync/`
+- Current behavior: `.tbd-sync/` appears as untracked directory on main branch
+- Root cause: `ISSUES_BASE_DIR = '.tbd-sync'` in multiple command files instead of using
+  worktree path
+
+**tbd-1811: Wrong ID format displayed** (CRITICAL)
+- List command shows internal ULID-based IDs like `bd-01kf2sp62c0dhqcwahs6ah5k92`
+- Should show short public IDs (e.g., `bd-a7k2`) from ID mapping file
+- For beads imports, should preserve original IDs from `extensions.beads.original_id`
+  (e.g., `tbd-401`)
+- Root cause in [list.ts:57](packages/tbd-cli/src/cli/commands/list.ts#L57):
+  `id: \`bd-${i.id.slice(3)}\`` just strips “is-” prefix
+
+**tbd-1812: Extra newline in serialization**
+- Issue files have extra blank line between YAML frontmatter `---` and markdown body
+- Body should start immediately after closing `---`
+- See serialization code in [storage.ts](packages/tbd-cli/src/file/storage.ts)
+
+**tbd-1813: Status mapping incomplete** (CRITICAL)
+- The `mapStatus` function in import.ts doesn’t map beads ‘done’ status to tbd ‘closed’
+- Beads uses ‘done’ for completed issues, but statusMap only has ‘closed’ and
+  ‘tombstone’
+- Results: 127 ‘done’ issues imported as ‘open’ instead of ‘closed’
+- Fix: Add `done: 'closed'` to statusMap in
+  [import.ts:94](packages/tbd-cli/src/cli/commands/import.ts#L94)
+
+* * *
+
 ## Open Questions
 
 ### Resolved
@@ -3017,3 +3096,4 @@ jobs:
 | 2026-01-15 | Claude | Updated bead status tracking: Phases 1-6 complete, Phases 7-12 partial, 104 tests passing |
 | 2026-01-15 | Claude | Implemented Phase 7 (sync: isolated index, merge, retry) and Phase 8 (search: staleness check) |
 | 2026-01-15 | Claude | Added README (tbd-1205), manual validation (tbd-1305), security review (tbd-1306) |
+| 2026-01-16 | Claude | Added Phase 18: Critical Bug Fixes (tbd-1809 through tbd-1818) - worktree usage, ID display, status mapping, serialization |
