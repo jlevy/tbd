@@ -118,3 +118,125 @@ export function createTestIssue(overrides: Partial<Issue> & { id: string; title:
     ...overrides,
   };
 }
+
+// ============================================================================
+// File Location Verification Helpers (tbd-1837)
+// ============================================================================
+
+/**
+ * Check if a file path is in the correct worktree location.
+ * Files should be in .tbd/.worktree/.tbd-sync/ NOT directly in .tbd-sync/.
+ */
+export function isCorrectWorktreePath(path: string): boolean {
+  const normalized = path.replace(/\\/g, '/');
+  return normalized.includes('.tbd/.worktree/.tbd-sync/');
+}
+
+/**
+ * Check if a file path is on the wrong location (main branch).
+ * Returns true if file is in .tbd-sync/ without the worktree prefix.
+ */
+export function isWrongMainBranchPath(path: string): boolean {
+  const normalized = path.replace(/\\/g, '/');
+  return (
+    (normalized.startsWith('.tbd-sync/') || normalized.includes('/.tbd-sync/')) &&
+    !normalized.includes('.worktree')
+  );
+}
+
+// ============================================================================
+// ID Format Validation Helpers (tbd-1838)
+// ============================================================================
+
+/**
+ * Verify that an ID string is in the correct short format.
+ * Short IDs must be 4-5 alphanumeric characters, not 26-char ULIDs.
+ * Returns true if valid short ID format, false otherwise.
+ */
+export function isValidShortIdFormat(id: string): boolean {
+  const shortPart = id.replace(/^[a-z]+-/, '');
+  return /^[a-z0-9]{4,5}$/.test(shortPart);
+}
+
+/**
+ * Verify that an ID string is a full internal ULID format.
+ * Internal IDs are 26 lowercase alphanumeric characters.
+ */
+export function isValidInternalIdFormat(id: string): boolean {
+  const ulidPart = id.replace(/^is-/, '');
+  return /^[a-z0-9]{26}$/.test(ulidPart);
+}
+
+/**
+ * Verify that the displayed ID is NOT an internal ULID (catches the bug).
+ * Display IDs should be short (4-5 chars), not 26-char ULIDs.
+ */
+export function isDisplayIdNotInternal(displayId: string): boolean {
+  const idPart = displayId.replace(/^[a-z]+-/, '');
+  return idPart.length <= 6;
+}
+
+// ============================================================================
+// Serialization Format Helpers (tbd-1839)
+// ============================================================================
+
+/**
+ * Verify serialization format: no extra newline after YAML frontmatter.
+ * The body should start immediately after the closing ---.
+ */
+export function hasCorrectFrontmatterFormat(content: string): boolean {
+  const lines = content.split('\n');
+  let closingIndex = -1;
+  let inFrontmatter = false;
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    if (line?.trim() === '---') {
+      if (!inFrontmatter) {
+        inFrontmatter = true;
+      } else {
+        closingIndex = i;
+        break;
+      }
+    }
+  }
+
+  if (closingIndex === -1) return false;
+
+  // Check if there's an extra blank line after closing ---
+  if (closingIndex + 1 < lines.length) {
+    const nextLine = lines[closingIndex + 1];
+    // If next line is empty AND there's non-empty content after, that's the bug
+    if (nextLine === '' && closingIndex + 2 < lines.length && lines[closingIndex + 2] !== '') {
+      return false;
+    }
+  }
+
+  return true;
+}
+
+// ============================================================================
+// Status Mapping Helpers (tbd-1840)
+// ============================================================================
+
+/** All valid beads status values for testing */
+export const BEADS_STATUS_VALUES = [
+  'open',
+  'in_progress',
+  'done', // Maps to 'closed' in tbd
+  'closed',
+  'tombstone', // Should be skipped or mapped to 'closed'
+  'blocked',
+  'deferred',
+] as const;
+
+/** Expected tbd status for each beads status */
+export const BEADS_TO_TBD_STATUS: Record<string, string> = {
+  open: 'open',
+  in_progress: 'in_progress',
+  done: 'closed', // Critical mapping that was missing
+  closed: 'closed',
+  tombstone: 'closed', // Or skip
+  blocked: 'blocked',
+  deferred: 'deferred',
+};

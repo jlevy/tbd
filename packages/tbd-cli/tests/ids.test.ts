@@ -168,3 +168,110 @@ describe('formatDisplayId', () => {
     expect(displayId).toBe('bd-abcdef');
   });
 });
+
+// Tests for test-helpers.ts ID validation functions
+import {
+  isValidShortIdFormat,
+  isValidInternalIdFormat,
+  isDisplayIdNotInternal,
+  isCorrectWorktreePath,
+  isWrongMainBranchPath,
+  hasCorrectFrontmatterFormat,
+} from './test-helpers.js';
+
+describe('test helper: isValidShortIdFormat', () => {
+  it('accepts valid 4-char short IDs', () => {
+    expect(isValidShortIdFormat('a7k2')).toBe(true);
+    expect(isValidShortIdFormat('bd-a7k2')).toBe(true);
+    expect(isValidShortIdFormat('tbd-a7k2')).toBe(true);
+  });
+
+  it('accepts valid 5-char short IDs', () => {
+    expect(isValidShortIdFormat('a7k2x')).toBe(true);
+    expect(isValidShortIdFormat('bd-a7k2x')).toBe(true);
+  });
+
+  it('rejects 26-char ULIDs (the bug we want to catch)', () => {
+    expect(isValidShortIdFormat('bd-01kf2sp62c0dhqcwahs6ah5k92')).toBe(false);
+    expect(isValidShortIdFormat('01kf2sp62c0dhqcwahs6ah5k92')).toBe(false);
+  });
+
+  it('rejects IDs that are too short or too long', () => {
+    expect(isValidShortIdFormat('abc')).toBe(false);
+    expect(isValidShortIdFormat('abcdef')).toBe(false);
+  });
+});
+
+describe('test helper: isValidInternalIdFormat', () => {
+  it('accepts valid internal IDs', () => {
+    expect(isValidInternalIdFormat('is-01kf2sp62c0dhqcwahs6ah5k92')).toBe(true);
+    expect(isValidInternalIdFormat('is-00000000000000000000000000')).toBe(true);
+  });
+
+  it('rejects short IDs', () => {
+    expect(isValidInternalIdFormat('is-a7k2')).toBe(false);
+    expect(isValidInternalIdFormat('a7k2')).toBe(false);
+  });
+
+  it('rejects wrong prefix', () => {
+    expect(isValidInternalIdFormat('bd-01kf2sp62c0dhqcwahs6ah5k92')).toBe(false);
+  });
+});
+
+describe('test helper: isDisplayIdNotInternal', () => {
+  it('accepts short display IDs', () => {
+    expect(isDisplayIdNotInternal('bd-a7k2')).toBe(true);
+    expect(isDisplayIdNotInternal('bd-abcde')).toBe(true);
+  });
+
+  it('rejects internal ULID IDs shown as display IDs (the bug)', () => {
+    expect(isDisplayIdNotInternal('bd-01kf2sp62c0dhqcwahs6ah5k92')).toBe(false);
+  });
+});
+
+describe('test helper: isCorrectWorktreePath', () => {
+  it('accepts paths in the worktree', () => {
+    expect(isCorrectWorktreePath('.tbd/.worktree/.tbd-sync/issues/is-abc123.md')).toBe(true);
+  });
+
+  it('rejects paths directly on main branch', () => {
+    expect(isCorrectWorktreePath('.tbd-sync/issues/is-abc123.md')).toBe(false);
+  });
+});
+
+describe('test helper: isWrongMainBranchPath', () => {
+  it('identifies files wrongly on main branch', () => {
+    expect(isWrongMainBranchPath('.tbd-sync/issues/is-abc123.md')).toBe(true);
+  });
+
+  it('does not flag correct worktree paths', () => {
+    expect(isWrongMainBranchPath('.tbd/.worktree/.tbd-sync/issues/is-abc123.md')).toBe(false);
+  });
+});
+
+describe('test helper: hasCorrectFrontmatterFormat', () => {
+  it('accepts content with no extra newline after frontmatter', () => {
+    const correct = `---
+title: Test
+---
+Body content here.`;
+    expect(hasCorrectFrontmatterFormat(correct)).toBe(true);
+  });
+
+  it('rejects content with extra newline after frontmatter (the bug)', () => {
+    const incorrect = `---
+title: Test
+---
+
+Body content here.`;
+    expect(hasCorrectFrontmatterFormat(incorrect)).toBe(false);
+  });
+
+  it('accepts content with empty body', () => {
+    const emptyBody = `---
+title: Test
+---
+`;
+    expect(hasCorrectFrontmatterFormat(emptyBody)).toBe(true);
+  });
+});
