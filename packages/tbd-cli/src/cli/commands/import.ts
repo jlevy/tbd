@@ -96,6 +96,7 @@ function mapStatus(beadsStatus: string): IssueStatusType {
     in_progress: 'in_progress',
     blocked: 'blocked',
     deferred: 'deferred',
+    done: 'closed', // Beads uses 'done' for completed items
     closed: 'closed',
     tombstone: 'closed',
   };
