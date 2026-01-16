@@ -357,6 +357,7 @@ The master epic is **tbd-100**.
 | 18 | tbd-1900 | Critical Bug Fixes | tbd-1809 through tbd-1818 | 🔴 New |
 | 19 | tbd-208 | Worktree Architecture Fix | tbd-208.1 through tbd-208.6 | 🔴 New |
 | 20 | tbd-2000 | Directory Naming Refactor | tbd-2001 through tbd-2005 | ✅ Complete |
+| 21 | tbd-2100 | Consistent Atomic File Operations | tbd-2101 through tbd-2104 | 🔲 Pending |
 | Validation | tbd-1300 | Stage 5 Validation | tbd-1301 through tbd-1306 | ⚠️ Partial |
 
 **Status Legend:** ✅ Complete | ⚠️ Partial (needs review) | 🔲 Pending | 🔴 New
@@ -488,6 +489,54 @@ and `sync-worktree/` to `data-sync-worktree/`. This naming:
 | `.tbd-sync/` | `.tbd/data-sync/` | Data directory on sync branch |
 | `sync-worktree/` | `data-sync-worktree/` | Worktree checkout directory |
 | `ISSUES_BASE_DIR` (local) | `DATA_SYNC_DIR` (imported) | Centralized constant |
+
+**Phase 21: Consistent Atomic File Operations (🔲 Pending)**
+
+Ensure all file creation operations consistently use atomic writes with automatic parent
+directory creation. This is a standard best practice that becomes critical with nested
+directory structures like `.tbd/data-sync/issues/`.
+
+**Motivation:**
+- Prevents partial file writes on crashes or interrupts
+- Eliminates "directory does not exist" errors from race conditions
+- Standard pattern: temp file + rename is atomic on POSIX systems
+- Critical for data integrity in git-synced files
+
+**Current State:**
+- `atomicWriteFile()` in [storage.ts](packages/tbd-cli/src/file/storage.ts:21-43)
+  already implements both atomic write AND parent directory creation
+- Not all code paths use this utility consistently
+
+| Bead ID | Task | Status | Notes |
+| --- | --- | --- | --- |
+| tbd-2100 | Phase 21 Epic | Open | Consistent atomic file operations |
+| tbd-2101 | Audit file creation calls | Open | Find all `writeFile` and `mkdir` calls |
+| tbd-2102 | Create `safeWriteFile` utility | Open | Wrapper ensuring atomic + mkdir pattern |
+| tbd-2103 | Refactor to use safe utility | Open | Update all file creation to use utility |
+| tbd-2104 | Add tests for edge cases | Open | Test mkdir failures, race conditions |
+
+**Key Implementation Pattern:**
+
+```typescript
+// The pattern we want everywhere:
+export async function safeWriteFile(filePath: string, content: string): Promise<void> {
+  // 1. Ensure parent directory exists
+  await mkdir(dirname(filePath), { recursive: true });
+
+  // 2. Write to temp file
+  const tempPath = `${filePath}.${randomBytes(8).toString('hex')}.tmp`;
+  await writeFile(tempPath, content, 'utf-8');
+
+  // 3. Atomic rename (POSIX atomic)
+  await rename(tempPath, filePath);
+}
+```
+
+**Files to Audit:**
+- `src/cli/commands/*.ts` - any direct `writeFile` calls
+- `src/file/*.ts` - storage layer
+- `tests/*.ts` - test setup code
+- Any place creating config files, cache files, etc.
 
 **Stage 5 Validation Status (⚠️ Partial):**
 
