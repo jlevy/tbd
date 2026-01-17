@@ -7,7 +7,11 @@
 import { Command } from 'commander';
 
 import { VERSION } from '../index.js';
-import { configureColoredHelp } from './lib/output.js';
+import {
+  configureColoredHelp,
+  createColoredHelpConfig,
+  getColorOptionFromArgv,
+} from './lib/output.js';
 import { initCommand } from './commands/init.js';
 import { createCommand } from './commands/create.js';
 import { listCommand } from './commands/list.js';
@@ -85,7 +89,32 @@ function createProgram(): Command {
   program.addCommand(primeCommand);
   program.addCommand(setupCommand);
 
+  // Apply colored help to all commands recursively
+  // Note: addCommand() does NOT inherit parent's configureHelp settings,
+  // unlike command() which does inherit. So we must apply manually.
+  applyColoredHelpToAllCommands(program);
+
   return program;
+}
+
+/**
+ * Apply colored help configuration to all commands recursively.
+ * This is needed because Commander.js's addCommand() does not inherit
+ * configureHelp settings from the parent command.
+ */
+function applyColoredHelpToAllCommands(program: Command): void {
+  const helpConfig = createColoredHelpConfig(getColorOptionFromArgv());
+
+  const applyRecursively = (cmd: Command) => {
+    cmd.configureHelp(helpConfig);
+    for (const sub of cmd.commands) {
+      applyRecursively(sub);
+    }
+  };
+
+  for (const cmd of program.commands) {
+    applyRecursively(cmd);
+  }
 }
 
 /**
