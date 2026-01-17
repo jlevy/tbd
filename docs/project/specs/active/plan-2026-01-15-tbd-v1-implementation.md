@@ -173,7 +173,7 @@ tbd/
 │       │   │   │   ├── dep.ts
 │       │   │   │   ├── sync.ts
 │       │   │   │   ├── search.ts
-│       │   │   │   ├── maintenance.ts # info, stats, doctor, config
+│       │   │   │   ├── maintenance.ts # status, stats, doctor, config
 │       │   │   │   ├── attic.ts
 │       │   │   │   └── import.ts
 │       │   │   └── lib/
@@ -463,6 +463,7 @@ The master epic is **tbd-100**.
 | 22 | tbd-1868 | Import ID Preservation | tbd-1869 through tbd-1873 | 🔴 New |
 | 23 | tbd-1874 | Initialization Behavior | tbd-1874.1 through tbd-1874.5 | 🔴 New |
 | 24 | tbd-1875 | Installation and Agent Integration | tbd-1876 through tbd-1881 | 🔴 New |
+| 25 | tbd-1890 | Status Command (replaces info) | tbd-1891 through tbd-1895 | 🔴 New |
 | Validation | tbd-1300 | Stage 5 Validation | tbd-1301 through tbd-1306 | ⚠️ Partial |
 
 **Status Legend:** ✅ Complete | ⚠️ Partial (needs review) | 🔲 Pending | 🔴 New
@@ -754,7 +755,7 @@ export function requireInit(cwd: string = process.cwd()): void {
 - `src/cli/commands/dep.ts` - Add requireInit() call
 - `src/cli/commands/sync.ts` - Add requireInit() call
 - `src/cli/commands/search.ts` - Add requireInit() call
-- `src/cli/commands/maintenance.ts` - Add requireInit() to info, stats, doctor, config
+- `src/cli/commands/maintenance.ts` - Add requireInit() to stats, doctor, config (status doesn't need it)
 - `src/cli/commands/attic.ts` - Add requireInit() call
 - `src/cli/commands/import.ts` - Add auto-init logic for --from-beads
 - `tests/cli-*.tryscript.md` - Add init error tests
@@ -810,6 +811,58 @@ Implement agent integration commands: `tbd prime` and `tbd setup` commands for v
 - `src/cli/cli.ts` - Register new commands
 - `tests/cli-prime.tryscript.md` - Prime golden tests
 - `tests/cli-setup.tryscript.md` - Setup golden tests
+
+**Phase 25: Status Command (replaces info) (🔴 New)**
+
+Replace `tbd info` with `tbd status` - a git-like orientation command that works
+without initialization. Unlike Beads where `bd status` is an alias for `bd stats`,
+`tbd status` is a distinct orientation command.
+
+| Bead ID | Task | Status | Notes |
+| --- | --- | --- | --- |
+| tbd-1890 | Phase 25 Epic | Open | Status command implementation |
+| tbd-1891 | Implement tbd status command | Open | Core command, works pre-init |
+| tbd-1892 | Add beads detection | Open | Detect .beads/ and issue count |
+| tbd-1893 | Add integration detection | Open | Claude, Cursor, Codex detection |
+| tbd-1894 | Remove info command | Open | Replace with status |
+| tbd-1895 | Golden tests for status | Open | Pre-init and post-init tests |
+
+**Pre-init output:**
+```
+$ tbd status
+Not a tbd repository.
+
+Detected:
+  ✓ Git repository (main branch)
+  ✓ Beads repository (.beads/ with 142 issues)
+  ✗ Tbd not initialized
+
+To get started:
+  tbd import --from-beads   # Migrate from Beads (recommended)
+  tbd init                  # Start fresh
+```
+
+**Post-init output:**
+```
+$ tbd status
+Tbd v1.0.0
+
+Repository: /path/to/repo
+  ✓ Initialized (.tbd/)
+  ✓ Git repository (feature-branch)
+
+Integrations:
+  ✓ Claude Code hooks (.claude/settings.local.json)
+  ✗ Cursor rules (not installed)
+  ✗ Codex AGENTS.md (not installed)
+
+Use 'tbd stats' for issue statistics.
+Use 'tbd setup <target>' to configure integrations.
+```
+
+**Files to Create/Update:**
+- `src/cli/commands/maintenance.ts` - Replace info with status command
+- `tests/cli-status.tryscript.md` - Status golden tests
 
 ---
 
@@ -1237,7 +1290,7 @@ program.addCommand(labelCommands);
 program.addCommand(depCommands);
 program.addCommand(syncCommand);
 program.addCommand(searchCommand);
-program.addCommand(maintenanceCommands); // info, stats, doctor, config
+program.addCommand(maintenanceCommands); // status, stats, doctor, config
 program.addCommand(atticCommands);
 program.addCommand(importCommand);
 ```
@@ -3388,7 +3441,7 @@ tests/golden/
 ├── 04-deps.md           # Dependency management
 ├── 05-sync.md           # Sync operations
 ├── 06-search.md         # Search functionality
-├── 07-maintenance.md    # info, stats, doctor, config
+├── 07-maintenance.md    # status, stats, doctor, config
 ├── 08-attic.md          # Attic operations
 ├── 09-import.md         # Beads import
 └── fixtures/

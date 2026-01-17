@@ -91,7 +91,7 @@
     - [4.8 Search Commands](#48-search-commands)
       - [Implementation Notes](#implementation-notes)
     - [4.9 Maintenance Commands](#49-maintenance-commands)
-      - [Info](#info)
+      - [Status](#status)
       - [Stats](#stats)
       - [Doctor](#doctor)
       - [Compact (Future)](#compact-future)
@@ -1626,9 +1626,10 @@ If `.tbd/config.yml` does not exist or is invalid, commands exit with an error:
 | Command | Requires Init | Behavior if Not Initialized |
 | --- | --- | --- |
 | `init` | No | Creates `.tbd/` directory and sync branch |
+| `status` | No | Shows detection results and guidance (see §4.9) |
 | `import --from-beads` | No | Auto-initializes, then imports |
 | `import <file>` | Yes | Error: "Not a tbd repository" |
-| `list`, `show`, `info`, `stats` | Yes | Error: "Not a tbd repository" |
+| `list`, `show`, `stats` | Yes | Error: "Not a tbd repository" |
 | `create`, `update`, `close`, `reopen` | Yes | Error: "Not a tbd repository" |
 | `ready`, `blocked`, `stale` | Yes | Error: "Not a tbd repository" |
 | `label`, `dep` | Yes | Error: "Not a tbd repository" |
@@ -2254,31 +2255,73 @@ tbd search "pattern" --no-refresh
 
 ### 4.9 Maintenance Commands
 
-#### Info
+#### Status
+
+The `status` command is the "orientation" command—like `git status`, it works regardless of
+initialization state and helps users understand where they are.
+
+> **Note:** Unlike Beads where `bd status` is just an alias for `bd stats`, `tbd status`
+> is a distinct command that provides system orientation, not issue statistics.
+> Use `tbd stats` for issue counts.
 
 ```bash
-tbd info [options]
+tbd status [options]
 
 Options:
   --json                    JSON output
 ```
 
-**Output:**
+**Behavior when NOT initialized:**
 
 ```
+$ tbd status
+Not a tbd repository.
+
+Detected:
+  ✓ Git repository (main branch)
+  ✓ Beads repository (.beads/ with 142 issues)
+  ✗ Tbd not initialized
+
+To get started:
+  tbd import --from-beads   # Migrate from Beads (recommended)
+  tbd init                  # Start fresh
+```
+
+**Behavior when initialized:**
+
+```
+$ tbd status
+Tbd repository: /path/to/repo
+
 Tbd Version: 3.0.0
 Sync Branch: tbd-sync
 Remote: origin
 Display Prefix: bd
+
+Sync Status:
+  Local:  2 changes (not pushed)
+  Remote: 1 change (not pulled)
+  Last sync: 5 minutes ago
+
+Issues:
+  Ready: 12 (use 'tbd ready' to see them)
+  In progress: 3
+  Blocked: 2
+  Total: 127
+
+Integrations:
+  ✓ Claude Code hooks installed (~/.claude/settings.json)
+  ✗ Cursor rules not installed
+  ✗ Codex AGENTS.md not installed
+
 Worktree: .tbd/data-sync-worktree/ (healthy)
-Last Sync: 2025-01-10T10:00:00Z
-Issue Count: 127
 ```
 
-**Output (--json):**
+**Output (--json) when initialized:**
 
 ```json
 {
+  "initialized": true,
   "tbd_version": "3.0.0",
   "sync_branch": "tbd-sync",
   "remote": "origin",
@@ -2287,7 +2330,35 @@ Issue Count: 127
   "worktree_healthy": true,
   "last_sync": "2025-01-10T10:00:00Z",
   "last_synced_commit": "abc123def456",
-  "issue_count": 127
+  "sync_status": {
+    "local_changes": 2,
+    "remote_changes": 1
+  },
+  "issues": {
+    "ready": 12,
+    "in_progress": 3,
+    "blocked": 2,
+    "total": 127
+  },
+  "integrations": {
+    "claude_code": true,
+    "cursor": false,
+    "codex": false
+  },
+  "beads_detected": false
+}
+```
+
+**Output (--json) when NOT initialized:**
+
+```json
+{
+  "initialized": false,
+  "git_repository": true,
+  "git_branch": "main",
+  "beads_detected": true,
+  "beads_issue_count": 142,
+  "suggestion": "Run 'tbd import --from-beads' to migrate"
 }
 ```
 
@@ -3112,7 +3183,8 @@ tbd sync
 | `bd sync` | `tbd sync` | ✅ Full | Different mechanism, same UX |
 | `bd stats` | `tbd stats` | ✅ Full | Same statistics |
 | `bd doctor` | `tbd doctor` | ✅ Full | Different checks |
-| `bd info` | `tbd info` | ✅ Full | System status |
+| `bd info` | `tbd status` | ⚡ Enhanced | Renamed; works pre-init, shows integrations |
+| `bd status` | `tbd stats` | ⚡ Different | Beads aliases status=stats; tbd separates them |
 | `bd config` | `tbd config` | ✅ Full | YAML not SQLite |
 | `bd compact` | `tbd compact` | 🔄 Future | Deferred |
 | `bd prime` | `tbd prime` | ✅ Full | Agent context/workflow priming |
@@ -4199,7 +4271,9 @@ This is sufficient for the `ready` command algorithm.
 | Beads Command | Tbd Command | Status | Notes |
 | --- | --- | --- | --- |
 | `bd init` | `tbd init` | ✅ Full | Identical |
-| `bd info` | `tbd info` | ✅ Full | System status |
+| `bd info` | `tbd status` | ⚡ Enhanced | Renamed; works pre-init, shows integrations |
+| `bd status` | `tbd stats` | ⚡ Different | Beads aliases status=stats; tbd separates them |
+| *(no equivalent)* | `tbd status` | ✅ New | Works pre-init, detects beads, shows integrations |
 | `bd doctor` | `tbd doctor` | ✅ Full | Health checks |
 | `bd doctor --fix` | `tbd doctor --fix` | ✅ Full | Auto-fix |
 | `bd stats` | `tbd stats` | ✅ Full | Issue statistics |
