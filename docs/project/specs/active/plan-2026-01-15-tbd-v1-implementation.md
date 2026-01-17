@@ -3361,7 +3361,7 @@ jobs:
 
 * * *
 
-## Phase 18: Critical Bug Fixes & Testing Strategy Enhancement (🔴 New)
+### Phase 18: Critical Bug Fixes & Testing Strategy Enhancement
 
 **Epic:** tbd-1836 - Phase 18 Testing Strategy Enhancement
 
