@@ -52,6 +52,17 @@ export function createColoredHelpConfig(colorOption: ColorOption = 'auto') {
 }
 
 /**
+ * Create the help epilog text with color.
+ *
+ * @param colorOption - Color option to determine if colors should be enabled
+ * @returns Colored epilog string
+ */
+export function createHelpEpilog(colorOption: ColorOption = 'auto'): string {
+  const colors = pc.createColors(shouldColorize(colorOption));
+  return colors.blue('For more on tbd, see: https://github.com/jlevy/tbd');
+}
+
+/**
  * Configure Commander.js with colored help text.
  * Call this on the program before adding commands.
  */

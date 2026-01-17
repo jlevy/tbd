@@ -10,6 +10,7 @@ import { VERSION } from '../index.js';
 import {
   configureColoredHelp,
   createColoredHelpConfig,
+  createHelpEpilog,
   getColorOptionFromArgv,
 } from './lib/output.js';
 import { initCommand } from './commands/init.js';
@@ -98,12 +99,17 @@ function createProgram(): Command {
 }
 
 /**
- * Apply colored help configuration to all commands recursively.
+ * Apply colored help configuration and epilog to all commands recursively.
  * This is needed because Commander.js's addCommand() does not inherit
  * configureHelp settings from the parent command.
  */
 function applyColoredHelpToAllCommands(program: Command): void {
-  const helpConfig = createColoredHelpConfig(getColorOptionFromArgv());
+  const colorOption = getColorOptionFromArgv();
+  const helpConfig = createColoredHelpConfig(colorOption);
+  const epilog = createHelpEpilog(colorOption);
+
+  // Add epilog to main program only - it shows for all help including subcommands
+  program.addHelpText('afterAll', `\n${epilog}`);
 
   const applyRecursively = (cmd: Command) => {
     cmd.configureHelp(helpConfig);
