@@ -48,36 +48,51 @@ Options:
   --debug                   Show internal IDs alongside public IDs for debugging
   --help                    Display help for command
 
-Commands:
+Documentation:
+  readme                    Display the README (same as GitHub landing page)
+  prime [options]           Context-efficient instructions for agents, for use
+                            in every session
+  docs [options] [topic]    Display CLI documentation
+  design [options] [topic]  Display design documentation and Beads comparison
+
+Setup & Configuration:
   init [options]            Initialize tbd in a git repository
+  config                    Manage configuration
+  setup                     Configure tbd integration with editors and tools
+
+Working With Issues:
   create [options] [title]  Create a new issue
-  list [options]            List issues
   show <id>                 Show issue details
   update [options] <id>     Update an issue
   close [options] <id>      Close an issue
   reopen [options] <id>     Reopen a closed issue
+  search [options] <query>  Search issues by text
+
+Views and Filtering:
+  list [options]            List issues
   ready [options]           List issues ready to work on (open, unblocked,
                             unclaimed)
   blocked [options]         List blocked issues
   stale [options]           List issues not updated recently
-  label                     Manage issue labels
+
+Labels and Dependencies:
   dep                       Manage issue dependencies
+  label                     Manage issue labels
+
+Sync and Status:
   sync [options]            Synchronize with remote
-  search [options] <query>  Search issues by text
   status                    Show repository status and orientation
   stats                     Show repository statistics
+
+Maintenance:
   doctor [options]          Diagnose and repair repository
-  config                    Manage configuration
   attic                     Manage conflict archive (attic)
   import [options] [file]   Import issues from Beads or JSONL file.
                             Tip: Run "bd sync" and stop the beads daemon before
                             importing for best results.
-  docs [options] [topic]    Display CLI documentation
-  design [options] [topic]  Display design documentation and Beads comparison
-  readme                    Display the README (same as GitHub landing page)
   uninstall [options]       Remove tbd from this repository
-  prime [options]           Output workflow context for AI agents
-  setup                     Configure tbd integration with editors and tools
+
+Commands:
   help [command]            display help for command
 
 For more on tbd, see: https://github.com/jlevy/tbd

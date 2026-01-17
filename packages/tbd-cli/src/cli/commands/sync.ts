@@ -297,24 +297,44 @@ class SyncHandler extends BaseCommand {
 
   private async pushChanges(syncBranch: string, remote: string): Promise<void> {
     try {
-      // Check if we have any changes to push
-      const issues = await listIssues(this.dataSyncDir);
-      if (issues.length === 0) {
-        this.output.info('No issues to push');
-        return;
-      }
-
       // Commit any uncommitted changes in the worktree before pushing
       const committedFiles = await this.commitWorktreeChanges();
       if (committedFiles > 0) {
         this.output.info(`Committed ${committedFiles} file(s) to sync branch`);
       }
 
+      // Check how many commits we're ahead of remote
+      let ahead = 0;
+      try {
+        await git('fetch', remote, syncBranch);
+        const aheadOutput = await git(
+          'rev-list',
+          '--count',
+          `${remote}/${syncBranch}..${syncBranch}`,
+        );
+        ahead = parseInt(aheadOutput, 10) || 0;
+        this.output.debug(`Ahead of remote by ${ahead} commit(s)`);
+      } catch {
+        // Remote branch doesn't exist - count all local commits
+        try {
+          const countOutput = await git('rev-list', '--count', syncBranch);
+          ahead = parseInt(countOutput, 10) || 0;
+          this.output.debug(`Remote branch not found, ${ahead} local commit(s) to push`);
+        } catch {
+          ahead = 0;
+        }
+      }
+
+      if (ahead === 0) {
+        this.output.success('Already up to date');
+        return;
+      }
+
       // Use push with retry
       const result = await this.doPushWithRetry(syncBranch, remote);
 
       if (result.success) {
-        this.output.success(`Pushed ${issues.length} issue(s) to ${remote}/${syncBranch}`);
+        this.output.success(`Pushed ${ahead} commit(s) to ${remote}/${syncBranch}`);
       } else if (result.conflicts && result.conflicts.length > 0) {
         this.output.warn(
           `Push completed with ${result.conflicts.length} conflict(s) (see attic for details)`,
@@ -378,8 +398,10 @@ class SyncHandler extends BaseCommand {
           `${syncBranch}..${remote}/${syncBranch}`,
         );
         pulled = parseInt(behindOutput, 10) || 0;
+        this.output.debug(`Behind remote by ${pulled} commit(s)`);
       } catch {
         // Branch doesn't exist
+        this.output.debug('Local sync branch does not exist yet');
       }
 
       if (pulled > 0) {
@@ -389,28 +411,51 @@ class SyncHandler extends BaseCommand {
           const remoteCommit = await git('rev-parse', `${remote}/${syncBranch}`);
           await git('update-ref', `refs/heads/${syncBranch}`, remoteCommit);
         });
+        this.output.debug(`Pulled ${pulled} commit(s) from remote`);
       }
-    } catch {
+    } catch (error) {
       // Remote not available - that's ok for first sync
+      this.output.debug(`Fetch failed (may be first sync): ${(error as Error).message}`);
     }
 
-    // Check local changes and commit before pushing
+    // Commit any uncommitted changes in the worktree before pushing
+    const committedFiles = await this.commitWorktreeChanges();
+    if (committedFiles > 0) {
+      this.output.debug(`Committed ${committedFiles} file(s) to sync branch`);
+    }
+
+    // Check how many commits we're ahead of remote (if any)
     try {
-      const issues = await listIssues(this.dataSyncDir);
-      pushed = issues.length;
-
-      if (pushed > 0) {
-        // Commit any uncommitted changes in the worktree before pushing
-        await this.commitWorktreeChanges();
-
-        // Push with retry
-        const result = await this.doPushWithRetry(syncBranch, remote);
-        if (result.conflicts) {
-          conflicts.push(...result.conflicts);
-        }
-      }
+      const aheadOutput = await git(
+        'rev-list',
+        '--count',
+        `${remote}/${syncBranch}..${syncBranch}`,
+      );
+      pushed = parseInt(aheadOutput, 10) || 0;
+      this.output.debug(`Ahead of remote by ${pushed} commit(s)`);
     } catch {
-      // No issues
+      // Remote branch doesn't exist - count all local commits on sync branch
+      try {
+        const countOutput = await git('rev-list', '--count', syncBranch);
+        pushed = parseInt(countOutput, 10) || 0;
+        this.output.debug(`Remote branch not found, ${pushed} local commit(s) to push`);
+      } catch {
+        pushed = 0;
+      }
+    }
+
+    // Push if we have commits ahead of remote
+    if (pushed > 0) {
+      this.output.debug(`Pushing ${pushed} commit(s) to remote`);
+      const result = await this.doPushWithRetry(syncBranch, remote);
+      if (result.conflicts) {
+        conflicts.push(...result.conflicts);
+      }
+      if (!result.success) {
+        this.output.debug(`Push failed: ${result.error}`);
+      }
+    } else {
+      this.output.debug('No commits to push');
     }
 
     const forceNote = force ? ' (force)' : '';

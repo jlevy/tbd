@@ -41,7 +41,7 @@ This is the most important test - verifying that `tbd sync` actually commits fil
 the tbd-sync branch.
 Without this, changes would never be pushed.
 
-# Test: Initial state has one commit (from init)
+# Test: Initial state has one commit (from init, sync doesn't add if nothing changed)
 
 ```console
 $ git -C .tbd/data-sync-worktree log --oneline | wc -l | tr -d ' '
@@ -195,7 +195,7 @@ synced: [..]
 ```console
 $ tbd sync --push 2>&1
 ...
-✗ Failed to push[..]
+✗ Failed to push: [..]
 ...
 ? 0
 ```
@@ -204,7 +204,7 @@ $ tbd sync --push 2>&1
 
 ```console
 $ tbd sync --pull 2>&1
-✗ Failed to pull[..]
+✗ Failed to pull: [..]
 ...
 ? 0
 ```
@@ -225,7 +225,7 @@ $ tbd sync
 
 ```console
 $ tbd sync
-✓ Synced[..]
+✓ [..]
 ? 0
 ```
 
@@ -239,5 +239,21 @@ $ tbd sync
 
 ```console
 $ git -C .tbd/data-sync-worktree status --porcelain
+? 0
+```
+
+* * *
+
+## JSON Output
+
+# Test: Sync reports counts in JSON format
+
+```console
+$ tbd sync --json
+{
+  "pulled": 0,
+  "pushed": [..],
+  "conflicts": 0
+}
 ? 0
 ```

@@ -231,10 +231,10 @@ export class OutputManager {
   }
 
   /**
-   * Output verbose/debug message - only in verbose mode, stderr.
+   * Output verbose/debug message - only in verbose or debug mode, stderr.
    */
   debug(message: string): void {
-    if (this.ctx.verbose && !this.ctx.json) {
+    if ((this.ctx.verbose || this.ctx.debug) && !this.ctx.json) {
       console.error(this.colors.dim(`[debug] ${message}`));
     }
   }
@@ -247,7 +247,7 @@ export class OutputManager {
       console.log(JSON.stringify({ dryRun: true, action: message, ...details }));
     } else {
       console.log(this.colors.warn(`[DRY-RUN] ${message}`));
-      if (details && this.ctx.verbose) {
+      if (details && (this.ctx.verbose || this.ctx.debug)) {
         console.log(this.colors.dim(JSON.stringify(details, null, 2)));
       }
     }

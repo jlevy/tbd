@@ -175,7 +175,7 @@ $ tbd prime --export | head -3
 $ tbd prime --help
 Usage: tbd prime [options]
 
-Output workflow context for AI agents
+Context-efficient instructions for agents, for use in every session
 
 Options:
   --export           Output default content (ignores PRIME.md override)
