@@ -7,6 +7,7 @@
 import { Command } from 'commander';
 
 import { BaseCommand } from '../lib/baseCommand.js';
+import { requireInit } from '../lib/errors.js';
 import { readIssue, writeIssue, listIssues } from '../../file/storage.js';
 import { formatDisplayId, formatDebugId } from '../../lib/ids.js';
 import type { Issue } from '../../lib/types.js';
@@ -17,6 +18,8 @@ import { loadIdMapping, resolveToInternalId } from '../../file/idMapping.js';
 // Add dependency
 class DependsAddHandler extends BaseCommand {
   async run(id: string, targetId: string): Promise<void> {
+    await requireInit();
+
     const dataSyncDir = await resolveDataSyncDir();
 
     // Load ID mapping for resolution
@@ -101,6 +104,8 @@ class DependsAddHandler extends BaseCommand {
 // Remove dependency
 class DependsRemoveHandler extends BaseCommand {
   async run(id: string, targetId: string): Promise<void> {
+    await requireInit();
+
     const dataSyncDir = await resolveDataSyncDir();
 
     // Load ID mapping for resolution
@@ -171,6 +176,8 @@ class DependsRemoveHandler extends BaseCommand {
 // List dependencies
 class DependsListHandler extends BaseCommand {
   async run(id: string): Promise<void> {
+    await requireInit();
+
     const dataSyncDir = await resolveDataSyncDir();
 
     // Load ID mapping for resolution and display

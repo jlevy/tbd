@@ -10,7 +10,7 @@ remaining items for human review before merging the tbd-cli implementation.
 
 ## Implementation Summary
 
-Tbd V1 is a complete CLI implementation with 21 phases of development:
+Tbd V1 is a complete CLI implementation with 24 phases of development:
 
 | Phase | Description | Status |
 | --- | --- | --- |
@@ -25,15 +25,19 @@ Tbd V1 is a complete CLI implementation with 21 phases of development:
 | 19 | Worktree Architecture Fix | ✅ Complete |
 | 20 | Directory Naming Refactor | ✅ Complete |
 | 21 | Consistent Atomic File Operations | ✅ Complete |
+| 22 | Beads Import with Short ID Preservation | ✅ Complete |
+| 23 | requireInit() Enforcement | ✅ Complete |
+| 24 | Agent Integration Commands | ✅ Complete |
 
-**Bead Tracking:** 194 beads tracked, 15 open (mostly P3 polish items)
+**Bead Tracking:** 211 beads tracked, ~10 open (P3 polish + golden test items)
 
 **Latest Validation (2026-01-17):**
-- ✅ 165 vitest unit tests passing
-- ✅ 318 tryscript golden tests passing
-- ✅ Import validated: 194 issues imported from beads, 0 errors
+- ✅ 176 vitest unit tests passing
+- ✅ 334 tryscript golden tests passing
+- ✅ Import validated: preserves original short IDs
 - ✅ Worktree architecture correctly implemented
 - ✅ TypeScript and ESLint checks passing
+- ✅ Phase 22-24 agent integration commands working
 
 * * *
 
@@ -259,6 +263,45 @@ Testing performed manually during development (not automated, but verified worki
 - ✅ Invalid issue ID format rejected with explanation
 - ✅ Non-existent issue shows “Issue not found” error
 
+### 2.5 Phase 22-24 Agent Integration (New)
+
+#### Phase 22: Beads Import with Short ID Preservation
+- ✅ `tbd import --from-beads` preserves original beads short IDs
+- ✅ `isShortId()` validates short ID format (1-16 chars, alphanumeric + dashes)
+- ✅ Imported issues accessible by their original beads IDs (e.g., `tbd-1234`)
+
+#### Phase 23: requireInit() Enforcement
+- ✅ All commands check for `.tbd/` directory before execution
+- ✅ Clear error message: "Not initialized. Run 'tbd init' first."
+- ✅ Auto-init during import when `.tbd/` doesn't exist
+- ✅ Commands that work without init: `init`, `info`, `prime`
+
+#### Phase 24: Agent Integration Commands
+
+**`tbd prime` command:**
+- ✅ Outputs workflow context for AI agents
+- ✅ Auto-detects MCP mode from Claude settings
+- ✅ `--full` forces full CLI output (~100 lines)
+- ✅ `--mcp` forces minimal MCP output (~15 lines)
+- ✅ `--export` shows default content (ignores PRIME.md override)
+- ✅ Custom override via `.tbd/PRIME.md` file
+
+**`tbd setup claude` command:**
+- ✅ Creates/updates `~/.claude/hooks.json` with tbd prime hooks
+- ✅ `--check` verifies installation status
+- ✅ `--remove` removes hooks
+
+**`tbd setup cursor` command:**
+- ✅ Creates/updates `.cursor/rules/tbd.mdc` with agent rules
+- ✅ `--check` verifies installation status
+- ✅ `--remove` removes rules file
+
+**`tbd setup codex` command:**
+- ✅ Creates/updates `AGENTS.md` with tbd section (HTML comment markers)
+- ✅ Section managed between `<!-- BEGIN TBD INTEGRATION -->` and `<!-- END TBD INTEGRATION -->`
+- ✅ `--check` verifies section exists
+- ✅ `--remove` removes tbd section (deletes file if empty)
+
 * * *
 
 ## Part 3: User Review Required
@@ -339,7 +382,102 @@ tbd show bd-<id>        # Spot check a few issues against beads originals
 - Titles, statuses, priorities, labels match exactly
 - Dependencies preserved (blocks relationships)
 
-### 3.4 Sync Operations (Optional)
+### 3.4 Phase 22-24 Manual Validation (New)
+
+#### 3.4.1 Verify `tbd prime` Command
+
+Test the workflow context output:
+
+```bash
+# Initialize a test project
+cd /tmp && mkdir tbd-test && cd tbd-test
+tbd init
+
+# Test prime output (should show CLI mode since no MCP configured)
+tbd prime
+
+# Test explicit modes
+tbd prime --full  # Force full CLI output (~100 lines)
+tbd prime --mcp   # Force MCP mode (minimal output, ~15 lines)
+
+# Test custom override
+echo "# Custom Prime Content" > .tbd/PRIME.md
+tbd prime  # Should show custom content
+tbd prime --export  # Should show default content
+```
+
+#### 3.4.2 Verify `tbd setup claude` Command
+
+```bash
+# Test Claude Code setup
+tbd setup claude
+
+# Verify hooks created
+cat ~/.claude/hooks.json | grep "tbd prime"
+
+# Test check mode
+tbd setup claude --check
+
+# Test remove mode
+tbd setup claude --remove
+tbd setup claude --check  # Should show not installed
+```
+
+#### 3.4.3 Verify `tbd setup cursor` Command
+
+```bash
+# Test Cursor setup
+tbd setup cursor
+
+# Verify rules created
+cat .cursor/rules/tbd.mdc
+
+# Test check and remove
+tbd setup cursor --check
+tbd setup cursor --remove
+```
+
+#### 3.4.4 Verify `tbd setup codex` Command
+
+```bash
+# Test Codex/AGENTS.md setup
+tbd setup codex
+
+# Verify AGENTS.md created/updated (look for managed section)
+cat AGENTS.md  # Should contain tbd section between HTML comment markers
+
+# Test check and remove
+tbd setup codex --check
+tbd setup codex --remove
+cat AGENTS.md  # Section should be removed
+```
+
+#### 3.4.5 Verify Beads Import with Short ID Preservation
+
+```bash
+# If you have a beads issues.jsonl file:
+tbd import --from-beads /path/to/.beads/issues.jsonl
+
+# Verify short IDs are preserved
+tbd list  # Should show original beads IDs (e.g., tbd-1234)
+tbd show tbd-1234  # Should work with original beads ID
+```
+
+#### 3.4.6 Verify requireInit() Enforcement
+
+```bash
+# Test in non-initialized directory
+cd /tmp && mkdir no-tbd && cd no-tbd
+tbd list  # Should error: "Not initialized. Run 'tbd init' first."
+tbd create "Test"  # Should error
+tbd ready  # Should error
+
+# Commands that should work without init
+tbd info  # Should work (shows not initialized)
+tbd init  # Should work (initializes)
+```
+
+### 3.5 Sync Operations (Optional)
 
 If testing remote sync functionality:
 

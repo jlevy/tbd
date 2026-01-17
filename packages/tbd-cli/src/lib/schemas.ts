@@ -24,16 +24,17 @@ export const Timestamp = z.string().datetime();
 export const IssueId = z.string().regex(/^is-[0-9a-z]{26}$/);
 
 /**
- * Short ID: 4-5 base36 characters used for external/display IDs.
- * Example: a7k2, b3m9
+ * Short ID: 1+ base36 characters used for external/display IDs.
+ * Typically 4 chars for new IDs (e.g., a7k2, b3m9).
+ * Imports may preserve longer numeric IDs (e.g., "100" from "tbd-100").
  */
-export const ShortId = z.string().regex(/^[0-9a-z]{4,5}$/);
+export const ShortId = z.string().regex(/^[0-9a-z]+$/);
 
 /**
  * External Issue ID input: accepts {prefix}-{short} or just {short}.
- * Examples: bd-a7k2, a7k2
+ * Examples: bd-a7k2, a7k2, bd-100, 100
  */
-export const ExternalIssueIdInput = z.string().regex(/^([a-z]+-)?[0-9a-z]{4,5}$/);
+export const ExternalIssueIdInput = z.string().regex(/^([a-z]+-)?[0-9a-z]+$/);
 
 /**
  * Edit counter - incremented on every local change.

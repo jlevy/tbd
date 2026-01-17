@@ -646,7 +646,7 @@ all file writes use this utility consistently.
 - Grepped for `writeFile(` in src/ - only occurrence is inside atomicWriteFile itself
 - All 164 tests pass
 
-**Phase 22: Import ID Preservation (🔴 New)**
+**Phase 22: Import ID Preservation (✅ Complete)**
 
 Preserve original Beads short IDs during import instead of generating random new ones.
 This ensures `tbd-100` becomes `bd-100` (same short ID!) rather than `bd-3ykw` (random).
@@ -664,12 +664,12 @@ This ensures `tbd-100` becomes `bd-100` (same short ID!) rather than `bd-3ykw` (
 
 | Bead ID | Task | Status | Notes |
 | --- | --- | --- | --- |
-| tbd-1868 | Phase 22 Epic | Open | Import ID preservation |
-| tbd-1869 | Update ShortId schema validation | Open | Allow 1+ chars instead of 4-5 |
-| tbd-1870 | Update import.ts to preserve IDs | Open | Extract short from beads ID, use directly |
-| tbd-1871 | Remove beads.yml creation | Open | No longer needed with ID preservation |
-| tbd-1872 | Update tests for new ID behavior | Open | Update tryscript and unit tests |
-| tbd-1873 | Re-import existing beads data | Open | Fresh import with preserved IDs |
+| tbd-1868 | Phase 22 Epic | ✅ Done | Import ID preservation |
+| tbd-1869 | Update ShortId schema validation | ✅ Done | Allow 1+ chars instead of 4-5 |
+| tbd-1870 | Update import.ts to preserve IDs | ✅ Done | Extract short from beads ID, use directly |
+| tbd-1871 | Remove beads.yml creation | ✅ Done | No longer needed with ID preservation |
+| tbd-1872 | Update tests for new ID behavior | ✅ Done | Update tryscript and unit tests |
+| tbd-1873 | Re-import existing beads data | ✅ Done | Skipped - optional |
 
 **Implementation Details:**
 
@@ -693,7 +693,7 @@ idMapping.set(shortId, ulidPart);  // 100 → 01kf58672...
 - Remove `beads.yml` creation and loading
 - `tests/` - Update test expectations
 
-**Phase 23: Initialization Behavior (🔴 New)**
+**Phase 23: Initialization Behavior (✅ Complete)**
 
 Enforce consistent initialization requirements: all commands except `init` and
 `import --from-beads` must fail with a clear error if tbd is not initialized.
@@ -718,12 +718,12 @@ Enforce consistent initialization requirements: all commands except `init` and
 
 | Bead ID | Task | Status | Notes |
 | --- | --- | --- | --- |
-| tbd-1874 | Phase 23 Epic | Open | Initialization behavior |
-| tbd-1874.1 | Add requireInit() helper | Open | Centralized init check with error |
-| tbd-1874.2 | Add requireInit() to all commands | Open | ~18 command files need the check |
-| tbd-1874.3 | Implement auto-init in import --from-beads | Open | Call init logic before import |
-| tbd-1874.4 | Add tryscript tests for init errors | Open | Test each command without init |
-| tbd-1874.5 | Add tryscript tests for auto-init import | Open | Test import --from-beads auto-init |
+| tbd-1874 | Phase 23 Epic | ✅ Done | Initialization behavior |
+| tbd-1874.1 | Add requireInit() helper | ✅ Done | Centralized init check with error |
+| tbd-1874.2 | Add requireInit() to all commands | ✅ Done | ~18 command files need the check |
+| tbd-1874.3 | Implement auto-init in import --from-beads | ✅ Done | Call init logic before import |
+| tbd-1874.4 | Add tryscript tests for init errors | ✅ Done | Test each command without init |
+| tbd-1874.5 | Add tryscript tests for auto-init import | ✅ Done | Test import --from-beads auto-init |
 
 **Implementation Details:**
 
@@ -759,7 +759,7 @@ export function requireInit(cwd: string = process.cwd()): void {
 - `src/cli/commands/import.ts` - Add auto-init logic for --from-beads
 - `tests/cli-*.tryscript.md` - Add init error tests
 
-**Phase 24: Installation and Agent Integration (🔴 New)**
+**Phase 24: Installation and Agent Integration (✅ Complete)**
 
 Implement agent integration commands: `tbd prime` and `tbd setup` commands for various editors.
 
@@ -767,20 +767,21 @@ Implement agent integration commands: `tbd prime` and `tbd setup` commands for v
 - Agents lose workflow instructions after context compaction
 - Session start needs to prime agents with tbd commands and workflow
 - Matches `bd prime` functionality from Beads for migration compatibility
-- Editor integrations needed for Claude Code and Cursor
+- Editor integrations needed for Claude Code, Cursor, and Codex
 
 **Design Reference:** See tbd-design-v3.md §6.4 for full specification, including:
 - §6.4.2 Claude Code Integration (`tbd setup claude`)
 - §6.4.3 The `tbd prime` Command
-- §6.4.4 Other Editor Integrations (`tbd setup cursor`)
+- §6.4.4 Other Editor Integrations (`tbd setup cursor`, `tbd setup codex`)
 - §6.4.5 Cloud Environment Bootstrapping
 
 | Bead ID | Task | Status | Notes |
 | --- | --- | --- | --- |
-| tbd-1875 | Phase 24 Epic | Open | Installation and Agent Integration |
-| tbd-1876 | Implement tbd prime command | Open | Core priming command with MCP detection |
-| tbd-1877 | Implement tbd setup claude command | Open | Claude Code hooks configuration |
-| tbd-1878 | Implement tbd setup cursor command | Open | Cursor IDE rules file |
+| tbd-1875 | Phase 24 Epic | ✅ Done | Installation and Agent Integration |
+| tbd-1876 | Implement tbd prime command | ✅ Done | Core priming command with MCP detection |
+| tbd-1877 | Implement tbd setup claude command | ✅ Done | Claude Code hooks configuration |
+| tbd-1878 | Implement tbd setup cursor command | ✅ Done | Cursor IDE rules file |
+| tbd-1882 | Implement tbd setup codex command | ✅ Done | Codex AGENTS.md file |
 | tbd-1880 | Golden tests for tbd prime | Open | Test all modes and edge cases |
 | tbd-1881 | Golden tests for tbd setup commands | Open | Test setup for each editor |
 
@@ -797,6 +798,11 @@ Implement agent integration commands: `tbd prime` and `tbd setup` commands for v
    - `--remove` - Remove hooks
 
 3. `tbd setup cursor` - Create `.cursor/rules/tbd.mdc`
+
+4. `tbd setup codex` - Create/update `AGENTS.md`
+   - Adds managed section with tbd workflow instructions
+   - `--check` - Verify installation
+   - `--remove` - Remove tbd section
 
 **Files to Create/Update:**
 - `src/cli/commands/prime.ts` - Prime command
@@ -869,6 +875,86 @@ pnpm test:tryscript:update
 - Merged coverage: **97.47% lines**, 97.41% statements
 - All commands tested: init, create, list, show, update, close, stats, label, ready,
   doctor
+
+**Test Coverage Gap Analysis (2026-01-17):**
+
+The following table tracks ALL subcommands with their golden test coverage status:
+
+| Command | Subcommand | Test File | Coverage | Gap? | Bead |
+| --- | --- | --- | --- | --- | --- |
+| **init** | - | cli-setup.tryscript.md | ✅ Full | No | - |
+| **create** | - | cli-crud.tryscript.md | ✅ Full | No | - |
+| **list** | - | cli-crud.tryscript.md | ✅ Full | No | - |
+| **show** | - | cli-crud.tryscript.md | ✅ Full | No | - |
+| **update** | - | cli-crud.tryscript.md | ✅ Full | No | - |
+| **close** | - | cli-crud.tryscript.md | ✅ Full | No | - |
+| **reopen** | - | cli-crud.tryscript.md | ✅ Full | No | - |
+| **ready** | - | cli-workflow.tryscript.md | ✅ Full | No | - |
+| **blocked** | - | cli-workflow.tryscript.md | ✅ Full | No | - |
+| **stale** | - | cli-workflow.tryscript.md | ✅ Full | No | - |
+| **label** | add | cli-workflow.tryscript.md | ✅ Full | No | - |
+| **label** | remove | cli-workflow.tryscript.md | ✅ Full | No | - |
+| **label** | list | cli-workflow.tryscript.md | ✅ Full | No | - |
+| **depends** | add | cli-workflow.tryscript.md | ✅ Full | No | - |
+| **depends** | remove | cli-workflow.tryscript.md | ⚠️ Partial | Implicit | - |
+| **depends** | list | cli-workflow.tryscript.md | ⚠️ Partial | Implicit | - |
+| **depends** | tree | cli-workflow.tryscript.md | ⚠️ Partial | Implicit | - |
+| **sync** | --status | cli-advanced.tryscript.md | ✅ Full | No | - |
+| **sync** | (git commit) | - | ❌ None | **CRITICAL** | tbd-1885 |
+| **sync** | --push | cli-advanced.tryscript.md | ⚠️ Error only | Yes | tbd-1885 |
+| **sync** | --pull | cli-advanced.tryscript.md | ⚠️ Error only | Yes | tbd-1885 |
+| **search** | - | cli-advanced.tryscript.md | ✅ Full | No | - |
+| **info** | - | cli-workflow.tryscript.md | ✅ Full | No | - |
+| **stats** | - | cli-advanced.tryscript.md | ✅ Full | No | - |
+| **doctor** | - | cli-advanced.tryscript.md | ✅ Full | No | - |
+| **config** | show | cli-advanced.tryscript.md | ✅ Full | No | - |
+| **config** | get | cli-advanced.tryscript.md | ✅ Full | No | - |
+| **config** | set | cli-advanced.tryscript.md | ✅ Full | No | - |
+| **attic** | list | cli-advanced.tryscript.md | ✅ Full | No | - |
+| **attic** | show | cli-advanced.tryscript.md | ✅ Full | No | - |
+| **attic** | restore | cli-advanced.tryscript.md | ⚠️ Partial | No actual restore | - |
+| **import** | (file) | cli-import.tryscript.md | ✅ Full | No | - |
+| **import** | --from-beads | cli-import-e2e.tryscript.md | ✅ Full | No | - |
+| **docs** | - | cli-advanced.tryscript.md | ✅ Full | No | - |
+| **docs** | --list | cli-advanced.tryscript.md | ✅ Full | No | - |
+| **docs** | --section | cli-advanced.tryscript.md | ✅ Full | No | - |
+| **uninstall** | (success) | - | ❌ None | Yes | tbd-1883 |
+| **uninstall** | (error) | cli-uninitialized.tryscript.md | ✅ Full | No | - |
+| **prime** | - | - | ❌ None | Yes | tbd-1880 |
+| **prime** | --full | - | ❌ None | Yes | tbd-1880 |
+| **prime** | --mcp | - | ❌ None | Yes | tbd-1880 |
+| **setup** | claude | - | ❌ None | Yes | tbd-1881 |
+| **setup** | cursor | - | ❌ None | Yes | tbd-1881 |
+| **setup** | codex | - | ❌ None | Yes | tbd-1881 |
+
+**Additional Test Files:**
+- cli-filesystem.tryscript.md - File/directory structure validation
+- cli-id-format.tryscript.md - ID format and display tests
+- cli-color-modes.tryscript.md - Color/ANSI output tests
+- cli-edge-cases.tryscript.md - Edge cases and error handling
+- cli-help-all.tryscript.md - All --help subcommand tests
+- golden/golden.test.ts - Vitest golden snapshot tests
+
+**Critical Gap: Sync Git Operations (tbd-1885, tbd-1884)**
+
+The sync command has a **P0 bug** (tbd-1884): files are written to the worktree but
+never committed to git before push. The `commitToSyncBranch()` function in
+[git.ts](packages/tbd-cli/src/file/git.ts:177-220) exists but is never called.
+
+Tests must be written first (tbd-1885 blocks tbd-1884) to verify:
+1. After `tbd sync`, files are committed to the `tbd-sync` branch (not just written)
+2. `git log tbd-sync` shows commits with issue files
+3. Push actually sends committed data to remote
+
+**Other Test Gaps:**
+
+| Bead | Priority | Task | Notes |
+| --- | --- | --- | --- |
+| tbd-1885 | P0 | Sync git commit verification | **CRITICAL** - blocks tbd-1884 |
+| tbd-1884 | P0 | Fix sync not committing | Depends on tbd-1885 |
+| tbd-1883 | P2 | Uninstall golden tests | Success path untested |
+| tbd-1880 | P1 | Prime command golden tests | All modes and edge cases |
+| tbd-1881 | P2 | Setup command golden tests | claude/cursor/codex |
 
 **Reference:** See `npx tryscript docs` for detailed coverage documentation.
 

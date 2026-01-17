@@ -7,10 +7,9 @@
 import { Command } from 'commander';
 
 import { BaseCommand } from '../lib/baseCommand.js';
-import { NotInitializedError } from '../lib/errors.js';
+import { requireInit } from '../lib/errors.js';
 import type { Issue, IssueStatusType, IssueKindType } from '../../lib/types.js';
 import { listIssues } from '../../file/storage.js';
-import { isInitialized } from '../../file/config.js';
 import { formatDisplayId, formatDebugId } from '../../lib/ids.js';
 import { resolveDataSyncDir } from '../../lib/paths.js';
 import { loadIdMapping } from '../../file/idMapping.js';
@@ -32,10 +31,7 @@ interface ListOptions {
 
 class ListHandler extends BaseCommand {
   async run(options: ListOptions): Promise<void> {
-    // Check if tbd is initialized
-    if (!(await isInitialized(process.cwd()))) {
-      throw new NotInitializedError();
-    }
+    await requireInit();
 
     let issues: Issue[];
     let dataSyncDir: string;

@@ -8,6 +8,7 @@ import { Command } from 'commander';
 import { readFile } from 'node:fs/promises';
 
 import { BaseCommand } from '../lib/baseCommand.js';
+import { requireInit } from '../lib/errors.js';
 import type { Issue, IssueKindType, PriorityType } from '../../lib/types.js';
 import { generateInternalId } from '../../lib/ids.js';
 import { writeIssue } from '../../file/storage.js';
@@ -36,6 +37,8 @@ interface CreateOptions {
 
 class CreateHandler extends BaseCommand {
   async run(title: string | undefined, options: CreateOptions): Promise<void> {
+    await requireInit();
+
     // Validate title is provided (unless --from-file)
     if (!title && !options.fromFile) {
       this.output.error('Title is required. Use: tbd create "Issue title"');

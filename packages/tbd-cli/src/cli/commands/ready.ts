@@ -7,6 +7,7 @@
 import { Command } from 'commander';
 
 import { BaseCommand } from '../lib/baseCommand.js';
+import { requireInit } from '../lib/errors.js';
 import { listIssues } from '../../file/storage.js';
 import { IssueKind } from '../../lib/schemas.js';
 import type { Issue, IssueKindType } from '../../lib/types.js';
@@ -21,6 +22,8 @@ interface ReadyOptions {
 
 class ReadyHandler extends BaseCommand {
   async run(options: ReadyOptions): Promise<void> {
+    await requireInit();
+
     // Load all issues
     let issues: Issue[];
     let dataSyncDir: string;

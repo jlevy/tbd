@@ -7,12 +7,15 @@
 import { Command } from 'commander';
 
 import { BaseCommand } from '../lib/baseCommand.js';
+import { requireInit } from '../lib/errors.js';
 import { listIssues } from '../../file/storage.js';
 import type { IssueStatusType, IssueKindType } from '../../lib/types.js';
 import { resolveDataSyncDir } from '../../lib/paths.js';
 
 class StatsHandler extends BaseCommand {
   async run(): Promise<void> {
+    await requireInit();
+
     // Load all issues
     let issues;
     try {

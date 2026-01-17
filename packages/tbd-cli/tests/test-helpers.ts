@@ -150,12 +150,13 @@ export function isWrongMainBranchPath(path: string): boolean {
 
 /**
  * Verify that an ID string is in the correct short format.
- * Short IDs must be 4-5 alphanumeric characters, not 26-char ULIDs.
+ * Short IDs must be 1-16 alphanumeric characters, not 26-char ULIDs.
+ * (Typically 4 chars for new IDs, but imports can preserve IDs like "100" from "tbd-100")
  * Returns true if valid short ID format, false otherwise.
  */
 export function isValidShortIdFormat(id: string): boolean {
   const shortPart = id.replace(/^[a-z]+-/, '');
-  return /^[a-z0-9]{4,5}$/.test(shortPart);
+  return /^[a-z0-9]+$/.test(shortPart) && shortPart.length >= 1 && shortPart.length <= 16;
 }
 
 /**

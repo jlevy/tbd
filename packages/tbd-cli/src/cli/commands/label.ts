@@ -7,6 +7,7 @@
 import { Command } from 'commander';
 
 import { BaseCommand } from '../lib/baseCommand.js';
+import { requireInit } from '../lib/errors.js';
 import { readIssue, writeIssue, listIssues } from '../../file/storage.js';
 import { formatDisplayId, formatDebugId } from '../../lib/ids.js';
 import { resolveDataSyncDir } from '../../lib/paths.js';
@@ -16,6 +17,8 @@ import { loadIdMapping, resolveToInternalId } from '../../file/idMapping.js';
 // Add label
 class LabelAddHandler extends BaseCommand {
   async run(id: string, labels: string[]): Promise<void> {
+    await requireInit();
+
     const dataSyncDir = await resolveDataSyncDir();
 
     // Load ID mapping for resolution
@@ -81,6 +84,8 @@ class LabelAddHandler extends BaseCommand {
 // Remove label
 class LabelRemoveHandler extends BaseCommand {
   async run(id: string, labels: string[]): Promise<void> {
+    await requireInit();
+
     const dataSyncDir = await resolveDataSyncDir();
 
     // Load ID mapping for resolution
@@ -141,6 +146,8 @@ class LabelRemoveHandler extends BaseCommand {
 // List labels
 class LabelListHandler extends BaseCommand {
   async run(): Promise<void> {
+    await requireInit();
+
     const dataSyncDir = await resolveDataSyncDir();
 
     // Load all issues and collect unique labels

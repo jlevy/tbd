@@ -54,10 +54,10 @@ export function validateIssueId(id: string): boolean {
 
 /**
  * Validate a short/external ID format.
- * Format: 4-5 base36 characters
+ * Format: 1+ base36 characters (typically 4 for new IDs, but imports may preserve longer IDs).
  */
 export function validateShortId(id: string): boolean {
-  return /^[0-9a-z]{4,5}$/.test(id);
+  return /^[0-9a-z]+$/.test(id);
 }
 
 /**
@@ -74,12 +74,27 @@ export function isInternalId(input: string): boolean {
 
 /**
  * Check if an input looks like a short/external ID.
+ * Returns true for IDs like "a7k2", "bd-a7k2", "100", "tbd-100".
+ * Short IDs are 16 characters or less (ULIDs are 26 characters).
  */
 export function isShortId(input: string): boolean {
   const lower = input.toLowerCase();
   // Strip prefix if present
   const stripped = lower.replace(/^[a-z]+-/, '');
-  return /^[0-9a-z]{4,5}$/.test(stripped);
+  // Must be 1-16 alphanumeric chars (short IDs, not ULIDs which are 26 chars)
+  return /^[0-9a-z]+$/.test(stripped) && stripped.length >= 1 && stripped.length <= 16;
+}
+
+/**
+ * Extract the short ID portion from an external ID.
+ * Examples:
+ *   "tbd-100" -> "100"
+ *   "bd-a7k2" -> "a7k2"
+ *   "a7k2" -> "a7k2"
+ *   "100" -> "100"
+ */
+export function extractShortId(externalId: string): string {
+  return externalId.toLowerCase().replace(/^[a-z]+-/, '');
 }
 
 /**

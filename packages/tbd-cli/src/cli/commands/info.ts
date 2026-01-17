@@ -15,6 +15,8 @@ import { resolveDataSyncDir } from '../../lib/paths.js';
 
 class InfoHandler extends BaseCommand {
   async run(): Promise<void> {
+    // Info command works without init to show status
+
     // Check if initialized
     let initialized = false;
     try {

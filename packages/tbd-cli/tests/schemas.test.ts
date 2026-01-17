@@ -41,9 +41,17 @@ describe('ShortId', () => {
   });
 
   it('rejects invalid short IDs', () => {
-    expect(ShortId.safeParse('abc').success).toBe(false); // too short
-    expect(ShortId.safeParse('abcdef').success).toBe(false); // too long
+    expect(ShortId.safeParse('').success).toBe(false); // empty
     expect(ShortId.safeParse('ABC1').success).toBe(false); // uppercase
+    expect(ShortId.safeParse('a-b').success).toBe(false); // contains hyphen
+  });
+
+  it('accepts short IDs of various lengths for import preservation', () => {
+    // New IDs are 4 chars, but imports can preserve longer IDs like "100" from "tbd-100"
+    expect(ShortId.safeParse('1').success).toBe(true);
+    expect(ShortId.safeParse('100').success).toBe(true);
+    expect(ShortId.safeParse('abc').success).toBe(true);
+    expect(ShortId.safeParse('abcdef').success).toBe(true);
   });
 });
 
@@ -55,10 +63,18 @@ describe('ExternalIssueIdInput', () => {
     expect(ExternalIssueIdInput.safeParse('a7k2x').success).toBe(true); // 5 chars
   });
 
+  it('accepts preserved import IDs of various lengths', () => {
+    // Import preserves IDs like "100" from "tbd-100"
+    expect(ExternalIssueIdInput.safeParse('bd-100').success).toBe(true);
+    expect(ExternalIssueIdInput.safeParse('bd-abc').success).toBe(true);
+    expect(ExternalIssueIdInput.safeParse('bd-abcdef').success).toBe(true);
+    expect(ExternalIssueIdInput.safeParse('100').success).toBe(true);
+  });
+
   it('rejects invalid external input IDs', () => {
-    expect(ExternalIssueIdInput.safeParse('bd-abc').success).toBe(false); // too short
-    expect(ExternalIssueIdInput.safeParse('bd-abcdef').success).toBe(false); // too long
-    expect(ExternalIssueIdInput.safeParse(`bd-${VALID_ULID}`).success).toBe(false); // full ULID not external
+    expect(ExternalIssueIdInput.safeParse('').success).toBe(false); // empty
+    expect(ExternalIssueIdInput.safeParse('bd-').success).toBe(false); // prefix only
+    expect(ExternalIssueIdInput.safeParse('BD-a7k2').success).toBe(false); // uppercase prefix
   });
 });
 

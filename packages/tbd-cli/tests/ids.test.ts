@@ -84,9 +84,19 @@ describe('validateShortId', () => {
   });
 
   it('rejects invalid short IDs', () => {
-    expect(validateShortId('abc')).toBe(false); // too short
-    expect(validateShortId('abcdef')).toBe(false); // too long
+    expect(validateShortId('')).toBe(false); // empty
     expect(validateShortId('ABC1')).toBe(false); // uppercase
+    expect(validateShortId('a-b')).toBe(false); // contains hyphen
+    expect(validateShortId('ab_c')).toBe(false); // contains underscore
+  });
+
+  it('accepts short IDs of various lengths for import preservation', () => {
+    // New IDs are 4 chars, but imports can preserve longer numeric IDs
+    expect(validateShortId('1')).toBe(true); // single char
+    expect(validateShortId('100')).toBe(true); // 3 chars (from tbd-100)
+    expect(validateShortId('abc')).toBe(true); // 3 chars
+    expect(validateShortId('abcdef')).toBe(true); // 6 chars
+    expect(validateShortId('12345678901234')).toBe(true); // 14 chars
   });
 });
 
@@ -215,14 +225,23 @@ describe('test helper: isValidShortIdFormat', () => {
     expect(isValidShortIdFormat('bd-a7k2x')).toBe(true);
   });
 
+  it('accepts preserved import IDs of various lengths (1-16 chars)', () => {
+    expect(isValidShortIdFormat('1')).toBe(true);
+    expect(isValidShortIdFormat('100')).toBe(true);
+    expect(isValidShortIdFormat('bd-100')).toBe(true);
+    expect(isValidShortIdFormat('tbd-100')).toBe(true);
+    expect(isValidShortIdFormat('abc')).toBe(true);
+    expect(isValidShortIdFormat('abcdef')).toBe(true);
+    expect(isValidShortIdFormat('1234567890123456')).toBe(true); // 16 chars
+  });
+
   it('rejects 26-char ULIDs (the bug we want to catch)', () => {
     expect(isValidShortIdFormat('bd-01kf2sp62c0dhqcwahs6ah5k92')).toBe(false);
     expect(isValidShortIdFormat('01kf2sp62c0dhqcwahs6ah5k92')).toBe(false);
   });
 
-  it('rejects IDs that are too short or too long', () => {
-    expect(isValidShortIdFormat('abc')).toBe(false);
-    expect(isValidShortIdFormat('abcdef')).toBe(false);
+  it('rejects IDs that are too long (> 16 chars)', () => {
+    expect(isValidShortIdFormat('12345678901234567')).toBe(false); // 17 chars
   });
 });
 
