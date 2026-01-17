@@ -75,6 +75,8 @@ Commands:
                             importing for best results.
   docs [options]            Display CLI documentation
   uninstall [options]       Remove tbd from this repository
+  prime [options]           Output workflow context for AI agents
+  setup                     Configure tbd integration with editors and tools
   help [command]            display help for command
 ? 0
 ```

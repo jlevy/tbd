@@ -30,6 +30,8 @@ import { atticCommand } from './commands/attic.js';
 import { importCommand } from './commands/import.js';
 import { docsCommand } from './commands/docs.js';
 import { uninstallCommand } from './commands/uninstall.js';
+import { primeCommand } from './commands/prime.js';
+import { setupCommand } from './commands/setup.js';
 import { CLIError } from './lib/errors.js';
 
 /**
@@ -80,6 +82,8 @@ function createProgram(): Command {
   program.addCommand(importCommand);
   program.addCommand(docsCommand);
   program.addCommand(uninstallCommand);
+  program.addCommand(primeCommand);
+  program.addCommand(setupCommand);
 
   return program;
 }
