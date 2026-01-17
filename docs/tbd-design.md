@@ -132,10 +132,21 @@ for collision-free generation across distributed systems.
 
 ### Sync Mechanism
 
-1. **Local changes**: Written to hidden worktree, committed to `tbd-sync` branch
-2. **Push**: Standard `git push` to remote
-3. **Pull**: Fetch remote, merge with local (field-level merge, LWW)
-4. **Conflict preservation**: Losing values saved to “attic” for recovery
+1. **Local changes**: Detected via `git status` on hidden worktree, committed to
+   `tbd-sync`
+2. **Push to remote**: Standard `git push` to sync branch
+3. **Conflict handling**: If push rejected (non-fast-forward):
+   - Fetch remote changes
+   - For each issue with a remote version, merge field-by-field
+   - Retry push (up to 3 attempts)
+4. **Merge strategies**:
+   - LWW (last-write-wins by `updated_at`): title, status, priority, description
+   - Union (combine arrays): labels, dependencies
+   - Immutable (error if different): id, type
+5. **Conflict preservation**: Losing values saved to attic for recovery
+
+**Safety**: All sync operations use an isolated git index (`GIT_INDEX_FILE`), never
+touching your staged files.
 
 The sync branch architecture keeps issues separate from code, avoiding merge conflicts
 on feature branches and working with protected main branches.

@@ -224,7 +224,8 @@ preference.
 
 - **Searchable**: Hidden worktree enables fast ripgrep/grep search across all issues
 
-- **Reliable sync**: Hash-based conflict detection with LWW merge and attic preservation
+- **Reliable sync**: Git-based conflict detection with field-level LWW merge and attic
+  preservation
 
 - **Cross-environment**: Works on local machines, CI, cloud sandboxes, network
   filesystems
@@ -506,7 +507,8 @@ Found the issue in session.ts line 42. Working on fix.
 
 #### Canonical Serialization
 
-For content hashing and conflict detection, we need deterministic serialization:
+For consistent git diffs and potential future caching, we use deterministic
+serialization:
 
 **YAML front matter rules:**
 
@@ -542,9 +544,10 @@ For content hashing and conflict detection, we need deterministic serialization:
 .tbd/data-sync/** text eol=lf
 ```
 
-> **Why canonical format?** Content hashes are used for conflict detection.
-> If different implementations serialize the same content differently, identical logical
-> content produces different hashes, causing spurious “conflicts.”
+> **Why canonical format?** Deterministic serialization ensures:
+> 1. Git diffs show only actual content changes (no spurious whitespace/ordering noise)
+> 2. Testing is reliable (same input produces same output)
+> 3. Future caching/deduplication can use content hashes if needed
 
 #### Atomic File Writes
 
@@ -985,7 +988,7 @@ const ShortId = z.string().regex(/^[0-9a-z]+$/);
 const ExternalIssueIdInput = z.string().regex(/^([a-z]+-)?[0-9a-z]+$/);
 
 // Edit counter - incremented on every local change
-// IMPORTANT: Version is NOT used for conflict detection (content hash is used instead).
+// IMPORTANT: Version is NOT used for conflict detection (Git push rejection is used).
 // Version is informational only, used for:
 // - Debugging: track how many times an entity was edited
 // - Merge result ordering: max(local, remote) + 1
@@ -998,10 +1001,10 @@ const EntityType = z.literal('is');
 
 > **Version Field Clarification:** The `version` field is **purely informational**. It
 > is incremented on every local change but is NOT used to detect conflicts.
-> Conflict detection uses **content hash comparison** (see §3.4). This avoids the
-> classic distributed systems problem where version numbers can diverge when two nodes
-> edit independently. The version is useful for debugging ("how many times was this
-> edited?") and is set to `max(local, remote) + 1` after merges.
+> Conflict detection uses **Git push rejection** (see §3.4). This avoids the classic
+> distributed systems problem where version numbers can diverge when two nodes edit
+> independently. The version is useful for debugging ("how many times was this edited?")
+> and is set to `max(local, remote) + 1` after merges.
 
 #### 2.6.2 BaseEntity
 
@@ -1243,15 +1246,15 @@ merging.
 
 **Key properties:**
 
-- **Schema-agnostic sync**: File transfer uses content hashes, doesn’t parse JSON
+- **Schema-agnostic sync**: File transfer via standard git push/pull
 
-- **Schema-aware merge**: When content differs, merge rules are per-entity-type
+- **Schema-aware merge**: When push rejected, merge rules are applied per-entity-type
 
 - **Standard git**: All operations use git CLI
 
 - **Dedicated sync branch**: `tbd-sync` branch never pollutes main
 
-- **Hash-based conflict detection**: Content hash comparison triggers merge
+- **Git-based conflict detection**: Push rejection triggers fetch and field-level merge
 
 **Critical Invariant:** tbd MUST NEVER modify the user’s git index or staging area.
 All git plumbing operations that write to the sync branch MUST use an isolated index
@@ -1412,39 +1415,39 @@ sync:
 
 #### Detection
 
+Conflict detection uses **Git’s standard push mechanics**:
+
 ```
-Different content hash = requires merge
+git push fails with non-fast-forward → merge needed
 ```
 
-If `hash(local) != hash(remote)`, a merge is needed—**regardless of version numbers**.
-The `version` field is used within the merge algorithm for LWW ordering, not for
-conflict detection.
+When a push is rejected because the remote has changes, tbd:
+1. Fetches the remote sync branch
+2. For each local issue, checks if a remote version exists via `git show`
+3. If remote version exists and differs, triggers the merge algorithm
 
-> **Why content hash, not version?** In a distributed system, a higher version number
-> does NOT mean “contains the other writer’s changes”—it only means “edited more times
-> locally.”
-> 
-> **Example of why version-only is unsafe:**
-> 
-> - Base entity: version 3
-> - Agent A edits once → version 4
-> - Agent B (without seeing A) edits twice → version 5
-> - If A took remote because `5 > 4`, A’s edit would be silently lost.
-> 
-> By merging whenever content differs, we ensure both writers’ changes are considered
-> and the loser is preserved in the attic.
+The `version` field is purely informational (edit counter) and is NOT used for conflict
+detection. This avoids the distributed systems problem where version numbers diverge
+independently.
+
+> **Why Git-based detection?** Git’s push rejection is reliable, well-tested
+> infrastructure. By letting Git handle conflict detection at the transport level, tbd
+> keeps its implementation simple and focuses on field-level merge resolution.
 
 #### Resolution Flow
 
 ```
-1. Detect: content hash differs
-2. Parse both versions as JSON
-3. Apply merge rules (field-level, from section 3.5)
-4. Increment version: max(local, remote) + 1
-5. Update timestamps
-6. Write merged result locally
-7. Stage merged result for push
-8. Save loser values to attic (any field where values differed)
+1. Detect: git push rejected (non-fast-forward)
+2. Fetch remote changes
+3. For each local issue:
+   a. Try to read remote version via git show
+   b. If remote exists and differs, parse both as YAML+Markdown
+   c. Apply merge rules (field-level, from section 3.5)
+   d. Increment version: max(local, remote) + 1
+   e. Write merged result to worktree
+   f. Save loser values to attic (for LWW fields that differed)
+4. Commit merged changes to sync branch
+5. Retry push (up to 3 attempts)
 ```
 
 > **Note on Attic Entries**: Attic entries are created only when a merge strategy
@@ -4171,7 +4174,7 @@ simplifying the architecture:
 | Daemon | Required (recommended) | Not required |
 | Agent coordination | External (Agent Mail) | Deferred |
 | Comments | Embedded in issue | Deferred |
-| Conflict resolution | 3-way merge | Content hash LWW + attic |
+| Conflict resolution | 3-way merge | Git-based detection + field-level LWW + attic |
 
 **Core finding:** All essential Beads issue-tracking workflows have direct CLI
 equivalents in tbd.
@@ -4367,7 +4370,7 @@ This is sufficient for the `ready` command algorithm.
 | --- | --- | --- |
 | Mechanism | SQLite ↔ JSONL ↔ git | Files ↔ git |
 | Branch | Main or sync branch | Sync branch only |
-| Conflict detection | 3-way (base, local, remote) | Content hash difference |
+| Conflict detection | 3-way (base, local, remote) | Git push rejection |
 | Conflict resolution | LWW + union | LWW + union (same strategies) |
 | Conflict preservation | Partial | Full (attic) |
 | Daemon required | Yes (recommended) | No |

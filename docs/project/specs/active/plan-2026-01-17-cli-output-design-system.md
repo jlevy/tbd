@@ -1,0 +1,393 @@
+# Plan Spec: CLI Output Design System Review
+
+## Purpose
+
+This is a technical design doc for systematically reviewing and standardizing all CLI
+output across tbd. The goal is to establish a universal CLI design system that ensures
+consistent output structure, formatting, colors, and conventions across all commands and
+output modes.
+
+## Background
+
+**Current State:**
+
+tbd has a functional CLI output system built on:
+- `OutputManager` class in [output.ts](packages/tbd-cli/src/cli/lib/output.ts)
+- `CommandContext` with modes: `verbose`, `debug`, `quiet`, `json`
+- Color support via `picocolors` with `--color=auto|always|never`
+- Markdown rendering via `marked-terminal`
+
+**Why This Matters:**
+
+1. **Agent ergonomics**: Agents parse CLI output; consistent formatting improves
+   reliability
+2. **User experience**: Predictable output patterns reduce cognitive load
+3. **Debugging**: Clear verbose/debug output hierarchy aids troubleshooting
+4. **Maintainability**: Design system prevents ad-hoc decisions across commands
+
+**Reference Documentation:**
+
+- [output.ts](packages/tbd-cli/src/cli/lib/output.ts) - Current OutputManager
+- [context.ts](packages/tbd-cli/src/cli/lib/context.ts) - Command context and modes
+- [errors.ts](packages/tbd-cli/src/cli/lib/errors.ts) - Error types
+- [tbd-design.md](docs/tbd-design.md) - Overall product design
+
+## Summary of Task
+
+Create a comprehensive CLI UI design system that:
+
+1. **Documents all output categories** and when each should be used
+2. **Standardizes color semantics** across all output types
+3. **Defines verbose vs debug mode** boundaries clearly
+4. **Establishes formatting conventions** for tables, lists, IDs, etc.
+5. **Creates guidelines** for error messages, success messages, and progress
+6. **Reviews existing commands** for compliance and fixes inconsistencies
+
+## Backward Compatibility
+
+### CLI Output Compatibility
+
+| Area | Compatibility Level | Notes |
+| --- | --- | --- |
+| JSON output | Must maintain | Agent scripts may parse JSON output |
+| Exit codes | Must maintain | 0=success, 1=error, 2=usage |
+| Success message format | Can evolve | May standardize prefix/suffix |
+| Color usage | Can evolve | Visual only, no semantic change |
+
+### Breaking Changes
+
+- None expected - this is standardization, not API change
+
+* * *
+
+## Stage 1: Planning Stage
+
+### 1.1 Scope Definition
+
+**In Scope:**
+
+- Audit all existing output patterns across commands
+- Document output categories (success, error, warn, info, debug, data)
+- Standardize color semantics and usage
+- Define verbose vs debug mode behaviors
+- Establish formatting conventions (tables, lists, IDs, timestamps)
+- Create architecture doc as design system reference
+- Fix inconsistencies in existing commands
+
+**Out of Scope:**
+
+- Interactive prompts (separate design system)
+- Help text formatting (handled by Commander.js)
+- Internationalization/localization
+- Accessibility beyond basic color contrast
+
+### 1.2 Success Criteria
+
+- [ ] Architecture doc `arch-cli-interface-design-system.md` created and approved
+- [ ] All output categories documented with examples
+- [ ] Color semantics standardized and documented
+- [ ] Verbose/debug mode behaviors clearly defined
+- [ ] Existing commands audited for compliance
+- [ ] Inconsistencies identified and fixed
+
+### 1.3 Current State Analysis
+
+#### Output Categories Found
+
+| Category | Method | Destination | When Shown |
+| --- | --- | --- | --- |
+| Data | `output.data()` | stdout | Always (text or JSON) |
+| Success | `output.success()` | stdout | Not in JSON/quiet |
+| Info | `output.info()` | stdout | Not in JSON/quiet |
+| Warning | `output.warn()` | stderr | Always |
+| Error | `output.error()` | stderr | Always |
+| Debug | `output.debug()` | stderr | Only in verbose/debug |
+| Command | `output.command()` | stderr | Only in verbose mode |
+| Dry-run | `output.dryRun()` | stdout | Only in dry-run mode |
+
+#### Color Semantics Found
+
+| Color | Semantic | Current Usage |
+| --- | --- | --- |
+| Green | Success | `success()`, `in_progress` status |
+| Red | Error | `error()`, `blocked` status, P0 priority |
+| Yellow | Warning | `warn()`, `dryRun()`, P1 priority |
+| Blue | Info | `info()`, paths |
+| Cyan | IDs | Issue IDs, references |
+| Magenta | Labels | Label names |
+| Dim | Secondary | Debug messages, closed status, metadata |
+| Bold | Emphasis | Titles, headers |
+
+#### Inconsistencies Identified
+
+1. **Status colors**: `getStatusColor()` duplicated in `list.ts` and `show.ts`
+2. **Debug output**: Some commands use `console.error()` directly instead of
+   `output.debug()`
+3. **Table formatting**: No standard table renderer; ad-hoc padding in each command
+4. **ID display**: Mix of internal and display IDs without clear convention
+5. **Empty state messages**: Inconsistent wording ("No issues found" vs “No results”)
+6. **Count suffixes**: Mix of “issue(s)” and “issues” pluralization
+7. **Priority display**: Raw numbers (0, 1, 2) instead of P0, P1, P2 format
+
+* * *
+
+## Stage 2: Architecture Stage
+
+### 2.1 Output Mode Hierarchy
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│  --quiet              Only errors and warnings (stderr)         │
+├─────────────────────────────────────────────────────────────────┤
+│  (default)            + Success, info, data output              │
+├─────────────────────────────────────────────────────────────────┤
+│  --verbose            + Verbose messages (operations, timing)   │
+├─────────────────────────────────────────────────────────────────┤
+│  --debug              + Debug messages (internal state, IDs)    │
+└─────────────────────────────────────────────────────────────────┘
+
+--json mode: Data as JSON, warnings/errors as JSON to stderr
+```
+
+### 2.2 Output Channel Rules
+
+| Output Type | Channel | Format | Example |
+| --- | --- | --- | --- |
+| Primary data | stdout | Text or JSON | Issue lists, show output |
+| Success confirmation | stdout | Prefixed text | `✓ Created issue bd-a1b2` |
+| Informational | stdout | Plain text | "Syncing with remote..." |
+| Warning | stderr | Prefixed text | `⚠ Remote branch not found` |
+| Error | stderr | Prefixed text | `✗ Failed to read issue` |
+| Debug | stderr | Prefixed text | `[debug] Loading 42 issues` |
+| Command | stderr | Prefixed text | `> git fetch origin tbd-sync` |
+| Progress | stderr | Spinner/animation | `⠋ Syncing...` |
+
+### 2.3 Color System
+
+**Semantic Colors (always apply):**
+
+| Semantic | Color | Usage |
+| --- | --- | --- |
+| `success` | Green | Successful operations, positive states |
+| `error` | Red | Errors, blocked states, critical priority |
+| `warn` | Yellow | Warnings, high priority, dry-run |
+| `info` | Blue | Informational, paths, links |
+| `id` | Cyan | All IDs (issue, label, etc.) |
+| `label` | Magenta | Labels, tags |
+| `dim` | Gray | Secondary info, metadata, closed states |
+| `bold` | Bold | Titles, headers, emphasis |
+
+**Status-Specific Colors:**
+
+| Status | Color | Rationale |
+| --- | --- | --- |
+| `open` | Blue | Neutral, awaiting action |
+| `in_progress` | Green | Active, positive |
+| `blocked` | Red | Needs attention |
+| `deferred` | Dim | Low priority, background |
+| `closed` | Dim | Complete, historical |
+
+**Priority Colors:**
+
+| Priority | Color | Rationale |
+| --- | --- | --- |
+| P0 (Critical) | Red | Urgent, demands attention |
+| P1 (High) | Yellow | Important, elevated |
+| P2-P4 | Default | Normal priority |
+
+**Priority Display Format:**
+
+- Always display with “P” prefix: P0, P1, P2, P3, P4
+- Never display raw numbers (0, 1, 2) in output
+- Parsing accepts both formats: `P1` or `1` → P1
+- Case-insensitive parsing: `p1`, `P1`, `1` all valid
+
+### 2.4 Formatting Conventions
+
+#### IDs
+
+- Always use display ID (e.g., `bd-a1b2`) in user-facing output
+- Show internal ID only in `--debug` mode: `bd-a1b2 (is-01hx...)`
+- Color all IDs with `id` semantic (cyan)
+
+#### Tables
+
+- Header row: dim color
+- Consistent column widths within command
+- Right-align numeric columns
+- Left-align text columns
+
+#### Lists
+
+- Bullet: `•` or `-` for items
+- Numbered: `1.`, `2.` for ordered
+- Indent: 2 spaces per level
+
+#### Counts
+
+- Use `${n} item(s)` pattern for pluralization
+- Dim color for count summaries
+- Place at end of output
+
+#### Empty States
+
+- Standard message: `No {items} found`
+- Use `info()` for empty state messages
+- Don’t show table headers for empty results
+
+#### Timestamps
+
+- ISO 8601 for JSON: `2026-01-17T14:30:00Z`
+- Relative for text: `2 hours ago`, `yesterday`
+- Full date for older: `Jan 15, 2026`
+
+### 2.5 Verbose vs Debug Mode
+
+**Verbose Mode (`--verbose`):**
+- **External commands**: Every shell command with `> ` prefix (e.g.,
+  `> git fetch origin`)
+- Operation progress: “Loading issues …”
+- Performance timing: “Synced in 150ms”
+- Network operations: “Fetching from origin …”
+- File operations: “Writing to .tbd/...”
+- Stack traces on errors
+
+**Debug Mode (`--debug`):**
+- Internal IDs alongside display IDs
+- Full paths instead of relative
+- Command output/results (in addition to the command itself)
+- Schema validation details
+- Cache hit/miss information
+
+### 2.6 External Command Display Rule
+
+**In verbose mode, always display every external command being executed.**
+
+Format:
+```
+> {command} {args...}
+```
+
+Examples:
+```bash
+$ tbd sync --verbose
+> git fetch origin tbd-sync
+> git rev-list --count origin/tbd-sync..tbd-sync
+Loading 42 issues from local cache
+> git push origin tbd-sync
+✓ Synced in 1.2s: pulled 0, pushed 4
+```
+
+Rules:
+- Use `> ` prefix with dim color
+- Show full command as it would be typed
+- Output to stderr
+- Only in verbose mode (not quiet/default)
+- Mirrors patterns from make, npm, and other build tools
+
+### 2.7 Error Message Guidelines
+
+**Format:**
+```
+✗ {What failed}
+  {Why it failed, if known}
+  {How to fix, if actionable}
+```
+
+**Examples:**
+```
+✗ Issue not found: bd-xyz
+  The ID may be incorrect or the issue may have been deleted.
+
+✗ Failed to sync with remote
+  Could not connect to origin (timeout after 30s)
+  Check your network connection and try again.
+
+✗ Not a tbd repository
+  Run 'tbd init' or 'tbd import --from-beads' first.
+```
+
+* * *
+
+## Stage 3: Refine Architecture
+
+### 3.1 Reusable Components Found
+
+| Component | Location | Can Reuse |
+| --- | --- | --- |
+| `OutputManager` | `cli/lib/output.ts` | Yes - extend |
+| `createColors()` | `cli/lib/output.ts` | Yes - use |
+| `getStatusColor()` | Duplicated in commands | Extract to shared |
+| `getPriorityColor()` | In `show.ts` only | Extract to shared |
+
+### 3.2 Simplifications
+
+1. **Extract color helpers**: Move `getStatusColor()` and `getPriorityColor()` to
+   `output.ts`
+2. **Standardize table output**: Add `table()` method to OutputManager
+3. **Consolidate debug logging**: Ensure all debug uses `output.debug()`
+4. **Unify empty state messages**: Use consistent “No {items} found” pattern
+
+* * *
+
+## Stage 4: Implementation Stage
+
+### Phase 1: Architecture Documentation
+
+- [ ] Create `arch-cli-interface-design-system.md` with full design system
+- [ ] Document all color semantics with examples
+- [ ] Document verbose/debug mode behaviors
+- [ ] Document formatting conventions
+
+### Phase 2: OutputManager Enhancements
+
+- [ ] Extract `getStatusColor()` to OutputManager
+- [ ] Extract `getPriorityColor()` to OutputManager
+- [ ] Add `command()` method for external command display in verbose mode
+- [ ] Add `table()` method for consistent table output
+- [ ] Add `list()` method for consistent list output
+- [ ] Add `count()` method for consistent count output
+- [ ] Add `verbose()` method (separate from debug)
+- [ ] Create `formatPriority()` utility for P0/P1/P2 display format
+- [ ] Create `parsePriority()` utility accepting “P1” or “1” input
+- [ ] Update all commands to use `formatPriority()` for display
+
+### Phase 3: Command Audit and Fixes
+
+- [ ] Audit `list.ts` for compliance
+- [ ] Audit `show.ts` for compliance
+- [ ] Audit `doctor.ts` for compliance
+- [ ] Audit `sync.ts` for compliance
+- [ ] Audit `stats.ts` for compliance
+- [ ] Audit `search.ts` for compliance
+- [ ] Audit `ready.ts` for compliance
+- [ ] Audit `blocked.ts` for compliance
+- [ ] Fix identified inconsistencies
+
+### Phase 4: Testing and Validation
+
+- [ ] Verify all output modes work correctly
+- [ ] Test color output with `--color=always|never|auto`
+- [ ] Verify JSON output is valid JSON
+- [ ] Test verbose and debug modes show appropriate info
+- [ ] Verify error messages follow guidelines
+
+* * *
+
+## Stage 5: Validation Stage
+
+**Validation Criteria:**
+
+1. All commands use `OutputManager` methods (no direct console.log for output)
+2. Color usage matches semantic guidelines
+3. Verbose/debug output is appropriate and helpful
+4. Error messages are actionable
+5. Empty states are handled consistently
+6. Table formatting is uniform
+7. Priorities always display as P0-P4 (never raw numbers)
+
+**Testing Approach:**
+
+- Golden tests capture output format
+- Manual review of color output
+- Agent testing with JSON mode
