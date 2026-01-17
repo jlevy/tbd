@@ -1,4 +1,4 @@
-# Feature Validation: Tbd V1 CLI Implementation
+# Feature Validation: tbd V1 CLI Implementation
 
 ## Purpose
 
@@ -10,7 +10,7 @@ remaining items for human review before merging the tbd-cli implementation.
 
 ## Implementation Summary
 
-Tbd V1 is a complete CLI implementation with 25 phases of development:
+tbd V1 is a complete CLI implementation with 25 phases of development:
 
 | Phase | Description | Status |
 | --- | --- | --- |
@@ -292,7 +292,7 @@ Testing performed manually during development (not automated, but verified worki
 
 - ✅ All commands check for `.tbd/` directory before execution
 - ✅ Clear error message: “Not initialized.
-  Run 'tbd init' first.”
+  Run ‘tbd init’ first.”
 - ✅ Auto-init during import when `.tbd/` doesn’t exist
 - ✅ Commands that work without init: `init`, `status`, `prime`
 

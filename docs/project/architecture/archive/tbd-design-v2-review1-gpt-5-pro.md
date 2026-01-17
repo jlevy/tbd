@@ -1,4 +1,4 @@
-Below is a detailed design review of **Tbd V2 Phase 1 (Beads replacement)**, with (a) a
+Below is a detailed design review of **tbd V2 Phase 1 (Beads replacement)**, with (a) a
 set of creative alternatives / scope-shaping ideas, and (b) an editor-ready issue list
 you can paste into the spec review doc or a GitHub issue.
 This review is based on the V2 Phase 1 spec, plus the earlier V1 spec and the V1 design
@@ -312,7 +312,7 @@ You can copy/paste this as a checklist.
 - **[V2-015] [MAJOR] Display-prefix compatibility vs import mapping is inconsistent**
   **Where:** §5.5 “IDs change” + §5.1.4 mapping file **Problem:** One part implies Beads
   IDs become `is-a1b2` (same suffix), but import mapping explicitly maps Beads IDs to
-  newly generated Tbd IDs (not necessarily same suffix).
+  newly generated tbd IDs (not necessarily same suffix).
   **Suggested change:** Make this consistent.
   Options:
 

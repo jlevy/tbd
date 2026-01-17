@@ -304,7 +304,7 @@ $ tbd setup codex --check --json
 {
   "installed": true,
   "path": "[..]AGENTS.md",
-  "hasTbdSection": true
+  "hastbdSection": true
 }
 ? 0
 ```

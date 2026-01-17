@@ -2,7 +2,7 @@
 
 Git-native issue tracking for AI agents and humans.
 
-**Tbd** (To Be Done) is a CLI tool for tracking issues in git repositories.
+**tbd** (To Be Done) is a CLI tool for tracking issues in git repositories.
 It’s designed as a simpler alternative to [Beads](https://github.com/steveyegge/beads)
 with full CLI compatibility.
 
@@ -174,19 +174,19 @@ Investigation shows the session TTL is hardcoded.
 
 ## Migration from Beads
 
-Tbd is designed as a drop-in replacement for core Beads functionality:
+tbd is designed as a drop-in replacement for core Beads functionality:
 
 ```bash
 # Export from Beads
 beads export > beads-export.jsonl
 
-# Import to Tbd
+# Import to tbd
 tbd import beads-export.jsonl
 ```
 
 ### Command Mapping
 
-| Beads | Tbd |
+| Beads | tbd |
 | --- | --- |
 | `bd create` | `tbd create` |
 | `bd list` | `tbd list` |
@@ -197,7 +197,7 @@ tbd import beads-export.jsonl
 
 ## For AI Agents
 
-Tbd is optimized for AI agent workflows:
+tbd is optimized for AI agent workflows:
 
 ```bash
 # Get ready issues in JSON format

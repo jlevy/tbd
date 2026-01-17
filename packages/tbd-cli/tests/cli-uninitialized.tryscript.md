@@ -38,7 +38,7 @@ Not a tbd repository.
 Detected:
   ✓ Git repository (main branch)
   ✗ Beads not detected
-  ✗ Tbd not initialized
+  ✗ tbd not initialized
 
 To get started:
   tbd init                  # Start fresh

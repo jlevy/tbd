@@ -38,7 +38,7 @@ Not a tbd repository.
 Detected:
   ✓ Git repository (main branch)
   ✗ Beads not detected
-  ✗ Tbd not initialized
+  ✗ tbd not initialized
 
 To get started:
   tbd init                  # Start fresh
@@ -82,7 +82,7 @@ Not a tbd repository.
 Detected:
   ✓ Git repository (main branch)
   ✓ Beads repository (.beads/ with 1 issues)
-  ✗ Tbd not initialized
+  ✗ tbd not initialized
 
 To get started:
   tbd import --from-beads   # Migrate from Beads (recommended)
@@ -110,7 +110,7 @@ To complete setup, commit the config files:
 
 ```console
 $ tbd status
-Tbd v[..]
+tbd v[..]
 
 Repository: [..]
   ✓ Initialized (.tbd/)

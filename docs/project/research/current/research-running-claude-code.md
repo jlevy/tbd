@@ -270,7 +270,7 @@ All these issue files live on a dedicated Git **sync branch**, keeping the main 
 clean[[4]](file://file-G3B5iAgBHwv5B5oNDoXTz5#:~:text=)[[51]](file://file-G3B5iAgBHwv5B5oNDoXTz5#:~:text=,branch%2C%20entities%20on%20sync%20branch).
 In essence, TBD is a **Git-native issue tracker**, influenced by prior art like the
 simple Bash-based “ticket” tool and
-others[[52]](file://file-G3B5iAgBHwv5B5oNDoXTz5#:~:text=Tbd%20builds%20on%20lessons%20from,native%20issue%20tracking%20ecosystem)[[53]](file://file-G3B5iAgBHwv5B5oNDoXTz5#:~:text=The%20key%20insight%3A%20%E2%80%9CYou%20don%E2%80%99t,platform%20reliability).
+others[[52]](file://file-G3B5iAgBHwv5B5oNDoXTz5#:~:text=tbd%20builds%20on%20lessons%20from,native%20issue%20tracking%20ecosystem)[[53]](file://file-G3B5iAgBHwv5B5oNDoXTz5#:~:text=The%20key%20insight%3A%20%E2%80%9CYou%20don%E2%80%99t,platform%20reliability).
 
 **Advantages for environment flexibility:** Because it has no background processes and
 no binary database, TBD can run virtually anywhere you have Git and a Node/TS runtime.
@@ -352,7 +352,7 @@ the durable cache/persistence (and perhaps they could be linked or integrated).
 
 Notably, the TBD design doc also references other projects in this vein (Ticket,
 git-bug,
-etc.)[[52]](file://file-G3B5iAgBHwv5B5oNDoXTz5#:~:text=Tbd%20builds%20on%20lessons%20from,native%20issue%20tracking%20ecosystem)[[66]](file://file-G3B5iAgBHwv5B5oNDoXTz5#:~:text=,native%20tracking%20without%20external%20files)
+etc.)[[52]](file://file-G3B5iAgBHwv5B5oNDoXTz5#:~:text=tbd%20builds%20on%20lessons%20from,native%20issue%20tracking%20ecosystem)[[66]](file://file-G3B5iAgBHwv5B5oNDoXTz5#:~:text=,native%20tracking%20without%20external%20files)
 – there’s a general trend towards **git-native issue tracking** for agents.
 Each has slightly different trade-offs (some store issues as git commits or tags rather
 than files, etc.), but all embrace *simplicity, no always-on services, and Git for
@@ -710,7 +710,7 @@ Happy New Year, and Welcome to Gas… | by Steve Yegge | Jan, 2026 | Medium
 [[49]](file://file-G3B5iAgBHwv5B5oNDoXTz5#:~:text=,file%20for%20fewer%20merge%20conflicts)
 [[50]](file://file-G3B5iAgBHwv5B5oNDoXTz5#:~:text=,sync%20branch%20for%20coordination%20data)
 [[51]](file://file-G3B5iAgBHwv5B5oNDoXTz5#:~:text=,branch%2C%20entities%20on%20sync%20branch)
-[[52]](file://file-G3B5iAgBHwv5B5oNDoXTz5#:~:text=Tbd%20builds%20on%20lessons%20from,native%20issue%20tracking%20ecosystem)
+[[52]](file://file-G3B5iAgBHwv5B5oNDoXTz5#:~:text=tbd%20builds%20on%20lessons%20from,native%20issue%20tracking%20ecosystem)
 [[53]](file://file-G3B5iAgBHwv5B5oNDoXTz5#:~:text=The%20key%20insight%3A%20%E2%80%9CYou%20don%E2%80%99t,platform%20reliability)
 [[54]](file://file-G3B5iAgBHwv5B5oNDoXTz5#:~:text=3.%20,network%20filesystems)
 [[55]](file://file-G3B5iAgBHwv5B5oNDoXTz5#:~:text=,CI%2C%20cloud%20sandboxes%2C%20network%20filesystems)

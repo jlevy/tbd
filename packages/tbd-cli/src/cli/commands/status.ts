@@ -290,8 +290,8 @@ class StatusHandler extends BaseCommand {
         console.log(`  ${colors.dim('✗')} Beads not detected`);
       }
 
-      // Tbd status
-      console.log(`  ${colors.error('✗')} Tbd not initialized`);
+      // tbd status
+      console.log(`  ${colors.error('✗')} tbd not initialized`);
 
       console.log('');
       console.log('To get started:');
@@ -305,7 +305,7 @@ class StatusHandler extends BaseCommand {
     }
 
     // Post-init output
-    console.log(`${colors.bold('Tbd')} v${data.tbd_version}`);
+    console.log(`${colors.bold('tbd')} v${data.tbd_version}`);
     console.log('');
     console.log(`Repository: ${data.working_directory}`);
     console.log(`  ${colors.success('✓')} Initialized (.tbd/)`);

@@ -21,7 +21,7 @@ interface PrimeOptions {
 /**
  * Prime output (~1-2k tokens, full command reference)
  */
-const PRIME_OUTPUT = `# Tbd Workflow Context
+const PRIME_OUTPUT = `# tbd Workflow Context
 
 > **Context Recovery**: Run \`tbd prime\` after compaction, clear, or new session
 > Hooks auto-call this in Claude Code when .tbd/ detected

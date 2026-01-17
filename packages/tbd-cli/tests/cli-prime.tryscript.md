@@ -80,7 +80,7 @@ To complete setup, commit the config files:
 
 ```console
 $ tbd prime | head -5
-# Tbd Workflow Context
+# tbd Workflow Context
 
 > **Context Recovery**: Run `tbd prime` after compaction, clear, or new session
 > Hooks auto-call this in Claude Code when .tbd/ detected
@@ -130,7 +130,7 @@ The --export flag outputs the default content, ignoring any custom PRIME.md.
 
 ```console
 $ tbd prime --export | head -3
-# Tbd Workflow Context
+# tbd Workflow Context
 
 > **Context Recovery**: Run `tbd prime` after compaction, clear, or new session
 ? 0
@@ -159,7 +159,7 @@ $ tbd prime | head -1
 
 ```console
 $ tbd prime --export | head -3
-# Tbd Workflow Context
+# tbd Workflow Context
 
 > **Context Recovery**: Run `tbd prime` after compaction, clear, or new session
 ? 0

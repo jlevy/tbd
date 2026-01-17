@@ -79,13 +79,13 @@ interface BeadsIssue {
 }
 
 /**
- * BeadsToTbd mapping: maps beads external ID to tbd internal ID.
+ * BeadsTotbd mapping: maps beads external ID to tbd internal ID.
  * This is a local structure used during import processing.
  */
-type BeadsToTbdMapping = Record<string, string>;
+type BeadsTotbdMapping = Record<string, string>;
 
 /**
- * Map Beads status to Tbd status.
+ * Map Beads status to tbd status.
  */
 function mapStatus(beadsStatus: string): IssueStatusType {
   const statusMap: Record<string, IssueStatusType> = {
@@ -102,7 +102,7 @@ function mapStatus(beadsStatus: string): IssueStatusType {
 }
 
 /**
- * Map Beads issue type to Tbd kind.
+ * Map Beads issue type to tbd kind.
  */
 function mapKind(beadsType?: string): IssueKindType {
   const kindMap: Record<string, IssueKindType> = {
@@ -118,9 +118,9 @@ function mapKind(beadsType?: string): IssueKindType {
 }
 
 /**
- * Convert Beads issue to Tbd issue.
+ * Convert Beads issue to tbd issue.
  */
-function convertIssue(beads: BeadsIssue, tbdId: string, depMapping: BeadsToTbdMapping): Issue {
+function convertIssue(beads: BeadsIssue, tbdId: string, depMapping: BeadsTotbdMapping): Issue {
   // Convert dependencies, translating IDs
   const dependencies: DependencyType[] = [];
   if (beads.dependencies) {
@@ -129,7 +129,7 @@ function convertIssue(beads: BeadsIssue, tbdId: string, depMapping: BeadsToTbdMa
         const targetId = depMapping[dep.target];
         if (targetId) {
           // "blocked_by" in Beads means the target blocks this issue
-          // In Tbd, we only have "blocks", so we need to handle this carefully
+          // In tbd, we only have "blocks", so we need to handle this carefully
           // For now, we store "blocks" dependencies directly
           if (dep.type === 'blocks') {
             dependencies.push({ type: 'blocks', target: targetId });
@@ -244,7 +244,7 @@ class ImportHandler extends BaseCommand {
 
     // Build mapping from beads ID to tbd internal ID using preserved short IDs
     // e.g., "tbd-100" -> extract "100" -> lookup in shortIdMapping -> "is-{ulid}"
-    const beadsToTbd: BeadsToTbdMapping = {};
+    const beadsTotbd: BeadsTotbdMapping = {};
     const reverseMapping: Record<string, string> = {};
 
     for (const beads of beadsIssues) {
@@ -252,7 +252,7 @@ class ImportHandler extends BaseCommand {
       const ulid = shortIdMapping.shortToUlid.get(shortId);
       if (ulid) {
         const internalId = makeInternalId(ulid);
-        beadsToTbd[beads.id] = internalId;
+        beadsTotbd[beads.id] = internalId;
         reverseMapping[internalId] = beads.id;
       }
     }
@@ -268,7 +268,7 @@ class ImportHandler extends BaseCommand {
     let validCount = 0;
 
     for (const beads of beadsIssues) {
-      const tbdId = beadsToTbd[beads.id];
+      const tbdId = beadsTotbd[beads.id];
 
       if (!tbdId) {
         issues.push({
@@ -465,7 +465,7 @@ class ImportHandler extends BaseCommand {
 
     // Build beads-to-tbd mapping, preserving original short IDs
     // e.g., "tbd-100" preserves "100" as the short ID
-    const beadsToTbd: BeadsToTbdMapping = {};
+    const beadsTotbd: BeadsTotbdMapping = {};
 
     // First pass: assign IDs to all issues (needed for dependency translation)
     for (const beads of beadsIssues) {
@@ -475,14 +475,14 @@ class ImportHandler extends BaseCommand {
       // Check if we already have this issue by beads ID (from previous import)
       const existingByBeads = existingByBeadsId.get(beads.id);
       if (existingByBeads) {
-        beadsToTbd[beads.id] = existingByBeads.id;
+        beadsTotbd[beads.id] = existingByBeads.id;
         continue;
       }
 
       // Check if we already have a mapping for this short ID
       const existingByShort = existingByShortId.get(shortId);
       if (existingByShort) {
-        beadsToTbd[beads.id] = existingByShort.id;
+        beadsTotbd[beads.id] = existingByShort.id;
         continue;
       }
 
@@ -495,7 +495,7 @@ class ImportHandler extends BaseCommand {
           );
         }
         const internalId = generateInternalId();
-        beadsToTbd[beads.id] = internalId;
+        beadsTotbd[beads.id] = internalId;
         // Generate a random short ID since the original is taken
         const ulid = extractUlidFromInternalId(internalId);
         const newShortId = this.generateUniqueShortId(shortIdMapping);
@@ -503,7 +503,7 @@ class ImportHandler extends BaseCommand {
       } else {
         // Create new mapping, preserving the original short ID
         const internalId = generateInternalId();
-        beadsToTbd[beads.id] = internalId;
+        beadsTotbd[beads.id] = internalId;
         const ulid = extractUlidFromInternalId(internalId);
         addIdMapping(shortIdMapping, ulid, shortId);
       }
@@ -515,7 +515,7 @@ class ImportHandler extends BaseCommand {
     let merged = 0;
 
     for (const beads of beadsIssues) {
-      const tbdId = beadsToTbd[beads.id]!;
+      const tbdId = beadsTotbd[beads.id]!;
       const existing = existingByBeadsId.get(beads.id);
 
       if (existing && !options.merge) {
@@ -526,7 +526,7 @@ class ImportHandler extends BaseCommand {
         }
       }
 
-      const issue = convertIssue(beads, tbdId, beadsToTbd);
+      const issue = convertIssue(beads, tbdId, beadsTotbd);
 
       if (existing) {
         // Merge: keep higher version, update fields

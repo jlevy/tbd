@@ -148,7 +148,7 @@ To complete setup, commit the config files:
 
 ```console
 $ tbd status
-Tbd v[..]
+tbd v[..]
 
 Repository: [..]
   ✓ Initialized (.tbd/)
@@ -231,7 +231,7 @@ To complete setup, commit the config files:
 
 ```console
 $ cd custom-repo && tbd status
-Tbd v[..]
+tbd v[..]
 
 Repository: [..]
   ✓ Initialized (.tbd/)
@@ -280,7 +280,7 @@ Not a tbd repository.
 Detected:
   ✓ Git repository[..]
   ✗ Beads not detected
-  ✗ Tbd not initialized
+  ✗ tbd not initialized
 
 To get started:
   tbd init                  # Start fresh

@@ -1,17 +1,17 @@
-# Plan Spec: Tbd V1 Complete Implementation
+# Plan Spec: tbd V1 Complete Implementation
 
 ## Purpose
 
-This is the master implementation plan for Tbd V1, a Beads replacement CLI tool for
+This is the master implementation plan for tbd V1, a Beads replacement CLI tool for
 git-native issue tracking.
 This plan covers the complete implementation from initial project setup through a fully
 functional CLI with comprehensive golden test coverage.
 
 ## Background
 
-**What is Tbd?**
+**What is tbd?**
 
-Tbd is an alternative to [Beads](https://github.com/steveyegge/beads) that eliminates
+tbd is an alternative to [Beads](https://github.com/steveyegge/beads) that eliminates
 architectural complexity while maintaining CLI compatibility.
 Key characteristics:
 
@@ -33,7 +33,7 @@ Key characteristics:
 
 ## Summary of Task
 
-Implement Tbd V1 as a TypeScript CLI application following the design specification in
+Implement tbd V1 as a TypeScript CLI application following the design specification in
 `tbd-design-v3.md`. The implementation includes:
 
 1. **Project Setup**: pnpm monorepo with tsdown, Changesets, and proper package exports
@@ -59,7 +59,7 @@ Implement Tbd V1 as a TypeScript CLI application following the design specificat
 | Area | Compatibility Level | Notes |
 | --- | --- | --- |
 | Beads import | Full | Import from JSONL export or `--from-beads` |
-| Issue fields | Full | All Beads fields mapped to Tbd equivalents |
+| Issue fields | Full | All Beads fields mapped to tbd equivalents |
 | Status values | Full | Direct mapping except `tombstone` (skip/convert) |
 | Dependencies | Partial | Only `blocks` type in V1 |
 
@@ -346,7 +346,7 @@ portability, and maintainability.
    This eliminates shell injection vulnerabilities that have affected libraries like
    simple-git (CVE-2022-24066, CVE-2022-24433, CVE-2022-25912).
 
-2. **Worktree Support**: Tbd’s architecture relies on Git worktrees for the sync branch.
+2. **Worktree Support**: tbd’s architecture relies on Git worktrees for the sync branch.
    Neither isomorphic-git nor simple-git fully support worktree operations.
 
 3. **Plumbing Commands**: The sync algorithm uses low-level Git plumbing commands
@@ -842,7 +842,7 @@ Not a tbd repository.
 Detected:
   ✓ Git repository (main branch)
   ✓ Beads repository (.beads/ with 142 issues)
-  ✗ Tbd not initialized
+  ✗ tbd not initialized
 
 To get started:
   tbd import --from-beads   # Migrate from Beads (recommended)
@@ -852,7 +852,7 @@ To get started:
 **Post-init output:**
 ```
 $ tbd status
-Tbd v1.0.0
+tbd v1.0.0
 
 Repository: /path/to/repo
   ✓ Initialized (.tbd/)
@@ -1426,7 +1426,7 @@ $ ls -la .tbd/
 
 ```console
 $ tbd info
-Tbd Version: [..]
+tbd Version: [..]
 Sync Branch: tbd-sync
 [..]
 ? 0
@@ -1467,7 +1467,7 @@ $ tbd info --json
 
 **Dual ID Generation** (ULID internal + base36 external):
 
-Tbd uses a dual ID system:
+tbd uses a dual ID system:
 
 - **Internal IDs**: `is-{ulid}` - 26 char ULID for storage, sorting, dependencies
 - **External IDs**: `{prefix}-{short}` - 4-5 char base36 for CLI, docs, commits
@@ -3108,7 +3108,7 @@ interface BeadsExportLine {
 }
 ```
 
-**Field Mapping** (Beads → Tbd):
+**Field Mapping** (Beads → tbd):
 
 ```typescript
 const FIELD_MAP: Record<string, string> = {
@@ -3128,9 +3128,9 @@ const FIELD_MAP: Record<string, string> = {
   deferred_until: 'deferred_until',
 
   // Renamed fields
-  type: 'kind', // Beads "type" → Tbd "kind"
-  due: 'due_date', // Beads "due" → Tbd "due_date"
-  parent: 'parent_id', // Beads "parent" → Tbd "parent_id"
+  type: 'kind', // Beads "type" → tbd "kind"
+  due: 'due_date', // Beads "due" → tbd "due_date"
+  parent: 'parent_id', // Beads "parent" → tbd "parent_id"
   blocks: 'dependencies', // Transformed to dependency array
 };
 
@@ -3145,7 +3145,7 @@ const STATUS_MAP: Record<string, string> = {
 **ID Mapping File** (`.tbd/data-sync/mappings/beads.yml`):
 
 ```yaml
-# Maps Beads IDs to Tbd IDs for re-import support
+# Maps Beads IDs to tbd IDs for re-import support
 # Format: beads_id: tbd_id
 bd-a1b2c3: is-x7y8z9
 bd-d4e5f6: is-a1b2c3
@@ -3156,7 +3156,7 @@ bd-parent: is-parent1
 
 ```typescript
 interface IdMapping {
-  beadsToTbd: Map<string, string>;
+  beadsTotbd: Map<string, string>;
   tbdToBeads: Map<string, string>;
 }
 
@@ -3165,20 +3165,20 @@ async function loadIdMapping(storage: Storage): Promise<IdMapping> {
   const content = await storage.readFile(mappingPath).catch(() => '');
   const data = (yaml.load(content) as Record<string, string>) || {};
 
-  const beadsToTbd = new Map(Object.entries(data));
+  const beadsTotbd = new Map(Object.entries(data));
   const tbdToBeads = new Map(Object.entries(data).map(([k, v]) => [v, k]));
 
-  return { beadsToTbd, tbdToBeads };
+  return { beadsTotbd, tbdToBeads };
 }
 
-function getOrCreateTbdId(beadsId: string, mapping: IdMapping, storage: Storage): string {
+function getOrCreatetbdId(beadsId: string, mapping: IdMapping, storage: Storage): string {
   // Check existing mapping
-  const existing = mapping.beadsToTbd.get(beadsId);
+  const existing = mapping.beadsTotbd.get(beadsId);
   if (existing) return existing;
 
   // Generate new ID
   const newId = generateUniqueId(storage);
-  mapping.beadsToTbd.set(beadsId, newId);
+  mapping.beadsTotbd.set(beadsId, newId);
   mapping.tbdToBeads.set(newId, beadsId);
 
   return newId;
@@ -3192,7 +3192,7 @@ function translateDependencies(beadsIssue: BeadsExportLine, mapping: IdMapping):
   if (!beadsIssue.blocks?.length) return [];
 
   return beadsIssue.blocks.map((beadsTargetId) => {
-    const tbdTargetId = mapping.beadsToTbd.get(beadsTargetId);
+    const tbdTargetId = mapping.beadsTotbd.get(beadsTargetId);
     if (!tbdTargetId) {
       // Target not imported yet - will be resolved on second pass
       return { target: `pending:${beadsTargetId}`, type: 'blocks' };
@@ -3208,7 +3208,7 @@ async function resolvePendingDependencies(issues: Issue[], mapping: IdMapping): 
       .map((dep) => {
         if (dep.target.startsWith('pending:')) {
           const beadsId = dep.target.replace('pending:', '');
-          const tbdId = mapping.beadsToTbd.get(beadsId);
+          const tbdId = mapping.beadsTotbd.get(beadsId);
           if (tbdId) {
             return { ...dep, target: tbdId };
           }
@@ -3262,10 +3262,10 @@ async function importFromJsonl(filePath: string, options: ImportOptions): Promis
       continue;
     }
 
-    const tbdId = getOrCreateTbdId(beadsIssue.id, mapping, storage);
+    const tbdId = getOrCreatetbdId(beadsIssue.id, mapping, storage);
     const existing = await storage.readIssue(tbdId).catch(() => null);
 
-    const issue = mapBeadsToTbd(beadsIssue, tbdId, mapping);
+    const issue = mapBeadsTotbd(beadsIssue, tbdId, mapping);
 
     if (!existing) {
       // New issue

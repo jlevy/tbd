@@ -1,4 +1,4 @@
-# Tbd V1 Design + Plan Review
+# tbd V1 Design + Plan Review
 
 Reviewed documents:
 
@@ -396,7 +396,7 @@ Key problems in the plan import section:
 
 1. Read JSONL only (from provided file and/or `.beads/issues.jsonl` sources).
 2. First pass: parse all lines, build a complete mapping for all Beads IDs found.
-3. Second pass: create all Tbd issues with dependencies translated using the full
+3. Second pass: create all tbd issues with dependencies translated using the full
    mapping.
 4. Merge behavior: reuse same merge machinery as sync or define import-specific rules.
 5. Never persist invalid IDs to issue files.
