@@ -9,24 +9,20 @@ control.
 Designed for AI coding agents: simple commands, JSON output, works in sandboxed cloud
 environments.
 
-**If you’re using [Beads](https://github.com/steveyegge/beads)**: tbd is a simpler
-alternative with an easier mental model.
-No daemon, no SQLite—just files and git.
-See [Migration from Beads](#migration-from-beads) to switch.
-
 ## Why tbd?
 
-- **Git-native**: Issues live in your repo as files.
-  No external services or databases.
+- **Git-native**: Issues live in your repo, synced to a dedicated `tbd-sync` branch.
+  Your code history stays clean—no issue churn polluting your logs.
+- **Markdown + YAML frontmatter**: One file per issue, human-readable and editable.
+  Eliminates the merge conflicts common with JSONL formats.
 - **AI-agent friendly**: JSON output, non-interactive mode, simple commands that agents
   understand.
-- **File-per-issue**: Parallel creation without merge conflicts.
-  Each issue is one file.
-- **No daemon**: Works everywhere—CI, cloud sandboxes, restricted environments.
-- **Simple architecture**: Two locations (files + sync branch) instead of four.
-  No SQLite, no file locking, no mystery state to debug.
-- **Beads compatible**: Drop-in replacement for
-  [Beads](https://github.com/steveyegge/beads), preserves issue IDs.
+- **No SQLite, no fighting with a daemon that modifies your files**: Works on network
+  filesystems (like Claude Code Cloud).
+  No file locking or sync state confusions.
+- **Beads alternative**: A simpler alternative to
+  [Beads](https://github.com/steveyegge/beads) with an easier mental model.
+  Imports from Beads and preserves issue IDs.
 
 ## Quick Start
 
@@ -176,7 +172,7 @@ tbd list --all
 tbd config set display.id_prefix bd
 ```
 
-Issue IDs are preserved: `tbd-100` becomes `bd-100`.
+Issue IDs are preserved: `proj-abc1` in bd becomes `proj-abc1` in tbd.
 
 ## How It Works
 
@@ -193,17 +189,24 @@ tbd stores issues on a dedicated `tbd-sync` branch, separate from your code:
 ```
 
 **Why a separate branch?**
-- No merge conflicts in feature branches
+- No noisy issue commits
+- No conflicts across main or feature branches
 - Issues shared across all branches
-- Clean code history
 
 **Conflict handling:**
-- Automatic field-level merge (last-write-wins for scalars, union for arrays)
-- Lost values preserved in attic—no data loss ever
+- Separate issues never conflict since they are separate files.
+- If two agents modify the same issue at the same time, does field-level merge
+  (last-write-wins for scalars, union for arrays)
+- In that case lost values preserved in attic—no data loss ever
+
+Issues have a short name like `proj-abc1` but these point to unique ULID-based IDs
+internally.
 
 ## Issue File Format
 
-Each issue is a Markdown file with YAML frontmatter:
+You usually don’t need to worry about where issues are stored, but it may be comforting
+to know that internally it’s very simple and transparent.
+Every issue is a Markdown file with YAML frontmatter, stored on the `tbd-sync` branch.
 
 ```markdown
 ---
@@ -218,26 +221,12 @@ updated_at: 2025-01-15T10:30:00Z
 ---
 
 The /api/users endpoint crashes when given invalid JSON.
-
-## Working Notes
-
-Found the issue—missing input validation in userController.ts.
 ```
-
-## Priority Scale
-
-| Value | Meaning |
-| --- | --- |
-| 0 (P0) | Critical—drop everything |
-| 1 (P1) | High—this sprint |
-| 2 (P2) | Medium—soon (default) |
-| 3 (P3) | Low—backlog |
-| 4 (P4) | Lowest—maybe/someday |
-
-## License
-
-MIT
 
 ## Contributing
 
 See [docs/development.md](docs/development.md) for build and test instructions.
+
+## License
+
+MIT
