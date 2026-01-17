@@ -685,6 +685,21 @@ This provides traceability during development without manual version bumps.
 5. **Single source of truth**: Extract version logic to a shared script that both the
    build config and dev scripts can use.
 
+**Why roll your own?**
+
+No npm package provides build-time git version injection with env var support for dev mode:
+
+| Package | Issue |
+| --- | --- |
+| [git-describe](https://github.com/tvdstaaij/node-git-describe) | Last updated 2019, abandoned |
+| [version-from-git](https://github.com/compulim/version-from-git) | Modifies package.json, not build-time injection |
+| [esbuild-plugin-version-injector](https://github.com/favware/esbuild-plugin-version-injector) | Only injects package.json version, no git info |
+| [rollup-plugin-git-version](https://www.npmjs.com/package/rollup-plugin-git-version) | Rollup-only, abandoned (2018) |
+
+The ~60 lines of custom code is dependency-free, bundler-agnostic, and handles all edge cases
+(no tags, dirty state, dev mode). Python's [setuptools-scm](https://github.com/pypa/setuptools-scm)
+is the gold standard; this pattern is "setuptools-scm lite" for Node.js.
+
 **Architecture Overview**:
 
 The versioning system works in three contexts:
