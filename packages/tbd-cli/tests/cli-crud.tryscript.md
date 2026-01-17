@@ -22,7 +22,7 @@ before: |
   tbd init
 ---
 
-# TBD CLI: CRUD Operations
+# tbd CLI: CRUD Operations
 
 Comprehensive tests for create, show, update, list, close, and reopen commands.
 
@@ -41,7 +41,7 @@ $ tbd create "Minimal task"
 # Test: Create with explicit type
 
 ```console
-$ tbd create "A bug report" -t bug
+$ tbd create "A bug report" --type bug
 ✓ Created bd-[SHORTID]: A bug report
 ? 0
 ```
@@ -49,7 +49,7 @@ $ tbd create "A bug report" -t bug
 # Test: Create feature with priority
 
 ```console
-$ tbd create "High priority feature" -t feature -p 0
+$ tbd create "High priority feature" --type feature --priority 0
 ✓ Created bd-[SHORTID]: High priority feature
 ? 0
 ```
@@ -57,7 +57,7 @@ $ tbd create "High priority feature" -t feature -p 0
 # Test: Create with description
 
 ```console
-$ tbd create "Task with desc" -d "This is a detailed description"
+$ tbd create "Task with desc" --description "This is a detailed description"
 ✓ Created bd-[SHORTID]: Task with desc
 ? 0
 ```
@@ -73,7 +73,7 @@ $ tbd create "Assigned task" --assignee alice
 # Test: Create with multiple labels
 
 ```console
-$ tbd create "Labeled task" -l frontend -l urgent -l needs-review
+$ tbd create "Labeled task" --label frontend --label urgent --label needs-review
 ✓ Created bd-[SHORTID]: Labeled task
 ? 0
 ```
@@ -81,7 +81,7 @@ $ tbd create "Labeled task" -l frontend -l urgent -l needs-review
 # Test: Create epic
 
 ```console
-$ tbd create "Epic project" -t epic -p 1
+$ tbd create "Epic project" --type epic --priority 1
 ✓ Created bd-[SHORTID]: Epic project
 ? 0
 ```
@@ -89,7 +89,7 @@ $ tbd create "Epic project" -t epic -p 1
 # Test: Create chore
 
 ```console
-$ tbd create "Cleanup task" -t chore
+$ tbd create "Cleanup task" --type chore
 ✓ Created bd-[SHORTID]: Cleanup task
 ? 0
 ```
@@ -113,7 +113,7 @@ $ tbd create "Deferred work" --defer 2025-06-01T00:00:00Z
 # Test: Create with dry-run
 
 ```console
-$ tbd create "Dry run only" -t bug --dry-run
+$ tbd create "Dry run only" --type bug --dry-run
 [DRY-RUN] Would create issue
 ? 0
 ```
@@ -121,7 +121,7 @@ $ tbd create "Dry run only" -t bug --dry-run
 # Test: Create with JSON output
 
 ```console
-$ tbd create "JSON test" -t task --json
+$ tbd create "JSON test" --type task --json
 {
   "id": "bd-[SHORTID]",
   "internalId": "is-[ULID]",
@@ -137,7 +137,7 @@ $ tbd create "JSON test" -t task --json
 First, create an issue to show and save its internal ID:
 
 ```console
-$ tbd create "Issue to show" -t bug -p 1 -d "Detailed description here" -l backend -l critical --json | node -e "const d=JSON.parse(require('fs').readFileSync(0,'utf8')); require('fs').writeFileSync('show_id.txt', d.internalId); console.log('Created')"
+$ tbd create "Issue to show" --type bug --priority 1 --description "Detailed description here" --label backend --label critical --json | node -e "const d=JSON.parse(require('fs').readFileSync(0,'utf8')); require('fs').writeFileSync('show_id.txt', d.internalId); console.log('Created')"
 Created
 ? 0
 ```
@@ -277,7 +277,7 @@ $ tbd list --sort updated
 First, create an issue to update and save its ID in the sandbox:
 
 ```console
-$ tbd create "Update me" -t task -p 3 --json | node -e "const d=JSON.parse(require('fs').readFileSync(0,'utf8')); require('fs').writeFileSync('update_id.txt', d.id); console.log('Created')"
+$ tbd create "Update me" --type task --priority 3 --json | node -e "const d=JSON.parse(require('fs').readFileSync(0,'utf8')); require('fs').writeFileSync('update_id.txt', d.id); console.log('Created')"
 Created
 ? 0
 ```
@@ -393,7 +393,7 @@ $ tbd update is-00000000000000000000000000 --status closed 2>&1
 Create an issue to close:
 
 ```console
-$ tbd create "Close me" -t task --json | node -e "const d=JSON.parse(require('fs').readFileSync(0,'utf8')); require('fs').writeFileSync('close_id.txt', d.id); console.log('Created')"
+$ tbd create "Close me" --type task --json | node -e "const d=JSON.parse(require('fs').readFileSync(0,'utf8')); require('fs').writeFileSync('close_id.txt', d.id); console.log('Created')"
 Created
 ? 0
 ```
@@ -419,7 +419,7 @@ status: closed
 Create another issue:
 
 ```console
-$ tbd create "Close with reason" -t bug --json | node -e "const d=JSON.parse(require('fs').readFileSync(0,'utf8')); require('fs').writeFileSync('close2_id.txt', d.id); console.log('Created')"
+$ tbd create "Close with reason" --type bug --json | node -e "const d=JSON.parse(require('fs').readFileSync(0,'utf8')); require('fs').writeFileSync('close2_id.txt', d.id); console.log('Created')"
 Created
 ? 0
 ```
@@ -530,7 +530,7 @@ $ tbd update $(cat update_id.txt) --priority 10 2>&1
 # Test: Create with invalid type
 
 ```console
-$ tbd create "Bad type" -t invalid 2>&1
+$ tbd create "Bad type" --type invalid 2>&1
 ✗ Invalid type[..]
 ? 0
 ```

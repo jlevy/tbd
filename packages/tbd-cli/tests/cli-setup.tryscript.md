@@ -19,7 +19,7 @@ before: |
   git commit -m "Initial commit"
 ---
 
-# TBD CLI: Setup and Status Commands
+# tbd CLI: Setup and Status Commands
 
 This tryscript validates initialization, help, version, and status commands.
 
@@ -74,10 +74,13 @@ Commands:
                             Tip: Run "bd sync" and stop the beads daemon before
                             importing for best results.
   docs [options] [topic]    Display CLI documentation
+  readme                    Display the README (same as GitHub landing page)
   uninstall [options]       Remove tbd from this repository
   prime [options]           Output workflow context for AI agents
   setup                     Configure tbd integration with editors and tools
   help [command]            display help for command
+
+For more on tbd, see: https://github.com/jlevy/tbd
 ? 0
 ```
 
@@ -109,6 +112,20 @@ Options:
   --sync-branch <name>  Sync branch name (default: tbd-sync)
   --remote <name>       Remote name (default: origin)
   -h, --help            display help for command
+
+Global Options:
+  -V, --version         Show version number
+  --dry-run             Show what would be done without making changes
+  --verbose             Enable verbose output
+  --quiet               Suppress non-essential output
+  --json                Output as JSON
+  --color <when>        Colorize output: auto, always, never (default: "auto")
+  --non-interactive     Disable all prompts, fail if input required
+  --yes                 Assume yes to confirmation prompts
+  --no-sync             Skip automatic sync after write operations
+  --debug               Show internal IDs alongside public IDs for debugging
+
+For more on tbd, see: https://github.com/jlevy/tbd
 ? 0
 ```
 

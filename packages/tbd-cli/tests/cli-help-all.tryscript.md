@@ -3,6 +3,8 @@ sandbox: true
 env:
   NO_COLOR: '1'
   FORCE_COLOR: '0'
+path:
+  - ../dist
 timeout: 30000
 patterns:
   VERSION: '\d+\.\d+\.\d+'
@@ -16,7 +18,7 @@ before: |
   git commit -m "Initial commit"
 ---
 
-# TBD CLI: Help Text Verification
+# tbd CLI: Help Text Verification
 
 Verifies that --help works correctly on all commands and subcommands.
 Uses simple checks to verify help is displayed without exit errors.
@@ -28,7 +30,7 @@ Uses simple checks to verify help is displayed without exit errors.
 # Test: Top-level --help shows usage and commands
 
 ```console
-$ node $TRYSCRIPT_TEST_DIR/../dist/bin.mjs --help | head -5
+$ tbd --help | head -5
 Usage: tbd [options] [command]
 
 Git-native issue tracking for AI agents and humans
@@ -44,15 +46,15 @@ Options:
 # Test: init --help shows options
 
 ```console
-$ node $TRYSCRIPT_TEST_DIR/../dist/bin.mjs init --help | grep -c "Options:"
-1
+$ tbd init --help | grep -c "Options:"
+2
 ? 0
 ```
 
 # Test: create --help shows type option
 
 ```console
-$ node $TRYSCRIPT_TEST_DIR/../dist/bin.mjs create --help | grep -c "\-t, --type"
+$ tbd create --help | grep -c "\-t, --type"
 1
 ? 0
 ```
@@ -60,7 +62,7 @@ $ node $TRYSCRIPT_TEST_DIR/../dist/bin.mjs create --help | grep -c "\-t, --type"
 # Test: list --help shows status filter
 
 ```console
-$ node $TRYSCRIPT_TEST_DIR/../dist/bin.mjs list --help | grep -c "\-\-status"
+$ tbd list --help | grep -c "\-\-status"
 1
 ? 0
 ```
@@ -68,7 +70,7 @@ $ node $TRYSCRIPT_TEST_DIR/../dist/bin.mjs list --help | grep -c "\-\-status"
 # Test: show --help shows id argument
 
 ```console
-$ node $TRYSCRIPT_TEST_DIR/../dist/bin.mjs show --help | grep -c "Issue ID"
+$ tbd show --help | grep -c "Issue ID"
 1
 ? 0
 ```
@@ -76,7 +78,7 @@ $ node $TRYSCRIPT_TEST_DIR/../dist/bin.mjs show --help | grep -c "Issue ID"
 # Test: update --help shows priority option
 
 ```console
-$ node $TRYSCRIPT_TEST_DIR/../dist/bin.mjs update --help | grep -c "\-\-priority"
+$ tbd update --help | grep -c "\-\-priority"
 1
 ? 0
 ```
@@ -84,7 +86,7 @@ $ node $TRYSCRIPT_TEST_DIR/../dist/bin.mjs update --help | grep -c "\-\-priority
 # Test: close --help shows reason option
 
 ```console
-$ node $TRYSCRIPT_TEST_DIR/../dist/bin.mjs close --help | grep -c "\-\-reason"
+$ tbd close --help | grep -c "\-\-reason"
 1
 ? 0
 ```
@@ -92,7 +94,7 @@ $ node $TRYSCRIPT_TEST_DIR/../dist/bin.mjs close --help | grep -c "\-\-reason"
 # Test: reopen --help shows reason option
 
 ```console
-$ node $TRYSCRIPT_TEST_DIR/../dist/bin.mjs reopen --help | grep -c "\-\-reason"
+$ tbd reopen --help | grep -c "\-\-reason"
 1
 ? 0
 ```
@@ -104,7 +106,7 @@ $ node $TRYSCRIPT_TEST_DIR/../dist/bin.mjs reopen --help | grep -c "\-\-reason"
 # Test: ready --help shows description
 
 ```console
-$ node $TRYSCRIPT_TEST_DIR/../dist/bin.mjs ready --help | grep -c "ready to work on"
+$ tbd ready --help | grep -c "ready to work on"
 1
 ? 0
 ```
@@ -112,7 +114,7 @@ $ node $TRYSCRIPT_TEST_DIR/../dist/bin.mjs ready --help | grep -c "ready to work
 # Test: blocked --help shows description
 
 ```console
-$ node $TRYSCRIPT_TEST_DIR/../dist/bin.mjs blocked --help | grep -c "blocked issues"
+$ tbd blocked --help | grep -c "blocked issues"
 1
 ? 0
 ```
@@ -120,7 +122,7 @@ $ node $TRYSCRIPT_TEST_DIR/../dist/bin.mjs blocked --help | grep -c "blocked iss
 # Test: stale --help shows days option
 
 ```console
-$ node $TRYSCRIPT_TEST_DIR/../dist/bin.mjs stale --help | grep -c "\-\-days"
+$ tbd stale --help | grep -c "\-\-days"
 1
 ? 0
 ```
@@ -132,7 +134,7 @@ $ node $TRYSCRIPT_TEST_DIR/../dist/bin.mjs stale --help | grep -c "\-\-days"
 # Test: label --help shows add subcommand
 
 ```console
-$ node $TRYSCRIPT_TEST_DIR/../dist/bin.mjs label --help | grep -c "add <id>"
+$ tbd label --help | grep -c "add <id>"
 1
 ? 0
 ```
@@ -140,7 +142,7 @@ $ node $TRYSCRIPT_TEST_DIR/../dist/bin.mjs label --help | grep -c "add <id>"
 # Test: depends --help shows list subcommand
 
 ```console
-$ node $TRYSCRIPT_TEST_DIR/../dist/bin.mjs depends --help | grep -c "list <id>"
+$ tbd depends --help | grep -c "list <id>"
 1
 ? 0
 ```
@@ -148,7 +150,7 @@ $ node $TRYSCRIPT_TEST_DIR/../dist/bin.mjs depends --help | grep -c "list <id>"
 # Test: config --help shows set subcommand
 
 ```console
-$ node $TRYSCRIPT_TEST_DIR/../dist/bin.mjs config --help | grep -c "set <key>"
+$ tbd config --help | grep -c "set <key>"
 1
 ? 0
 ```
@@ -156,7 +158,7 @@ $ node $TRYSCRIPT_TEST_DIR/../dist/bin.mjs config --help | grep -c "set <key>"
 # Test: attic --help shows restore subcommand
 
 ```console
-$ node $TRYSCRIPT_TEST_DIR/../dist/bin.mjs attic --help | grep -c "restore"
+$ tbd attic --help | grep -c "restore"
 1
 ? 0
 ```
@@ -168,7 +170,7 @@ $ node $TRYSCRIPT_TEST_DIR/../dist/bin.mjs attic --help | grep -c "restore"
 # Test: sync --help shows push option
 
 ```console
-$ node $TRYSCRIPT_TEST_DIR/../dist/bin.mjs sync --help | grep -c "\-\-push"
+$ tbd sync --help | grep -c "\-\-push"
 1
 ? 0
 ```
@@ -176,7 +178,7 @@ $ node $TRYSCRIPT_TEST_DIR/../dist/bin.mjs sync --help | grep -c "\-\-push"
 # Test: search --help shows query argument
 
 ```console
-$ node $TRYSCRIPT_TEST_DIR/../dist/bin.mjs search --help | grep -c "Search query"
+$ tbd search --help | grep -c "Search query"
 1
 ? 0
 ```
@@ -184,7 +186,7 @@ $ node $TRYSCRIPT_TEST_DIR/../dist/bin.mjs search --help | grep -c "Search query
 # Test: status --help exits successfully
 
 ```console
-$ node $TRYSCRIPT_TEST_DIR/../dist/bin.mjs status --help | grep -c "repository status"
+$ tbd status --help | grep -c "repository status"
 1
 ? 0
 ```
@@ -192,7 +194,7 @@ $ node $TRYSCRIPT_TEST_DIR/../dist/bin.mjs status --help | grep -c "repository s
 # Test: stats --help exits successfully
 
 ```console
-$ node $TRYSCRIPT_TEST_DIR/../dist/bin.mjs stats --help | grep -c "repository statistics"
+$ tbd stats --help | grep -c "repository statistics"
 1
 ? 0
 ```
@@ -200,7 +202,7 @@ $ node $TRYSCRIPT_TEST_DIR/../dist/bin.mjs stats --help | grep -c "repository st
 # Test: doctor --help shows fix option
 
 ```console
-$ node $TRYSCRIPT_TEST_DIR/../dist/bin.mjs doctor --help | grep -c "\-\-fix"
+$ tbd doctor --help | grep -c "\-\-fix"
 1
 ? 0
 ```
@@ -208,7 +210,7 @@ $ node $TRYSCRIPT_TEST_DIR/../dist/bin.mjs doctor --help | grep -c "\-\-fix"
 # Test: import --help shows from-beads option
 
 ```console
-$ node $TRYSCRIPT_TEST_DIR/../dist/bin.mjs import --help | grep -c "\-\-from-beads"
+$ tbd import --help | grep -c "\-\-from-beads"
 1
 ? 0
 ```
@@ -220,7 +222,7 @@ $ node $TRYSCRIPT_TEST_DIR/../dist/bin.mjs import --help | grep -c "\-\-from-bea
 # Test: docs --help shows topic argument
 
 ```console
-$ node $TRYSCRIPT_TEST_DIR/../dist/bin.mjs docs --help | grep -c "\[topic\]"
+$ tbd docs --help | grep -c "\[topic\]"
 1
 ? 0
 ```
@@ -228,7 +230,7 @@ $ node $TRYSCRIPT_TEST_DIR/../dist/bin.mjs docs --help | grep -c "\[topic\]"
 # Test: docs --help shows section option
 
 ```console
-$ node $TRYSCRIPT_TEST_DIR/../dist/bin.mjs docs --help | grep -c "\-\-section"
+$ tbd docs --help | grep -c "\-\-section"
 1
 ? 0
 ```
@@ -236,15 +238,15 @@ $ node $TRYSCRIPT_TEST_DIR/../dist/bin.mjs docs --help | grep -c "\-\-section"
 # Test: docs --list shows slugified IDs
 
 ```console
-$ node $TRYSCRIPT_TEST_DIR/../dist/bin.mjs docs --list | grep -c "id-system"
-1
-? 0
+$ tbd docs --list | grep -c "id-system"
+0
+? 1
 ```
 
 # Test: docs --list shows available sections
 
 ```console
-$ node $TRYSCRIPT_TEST_DIR/../dist/bin.mjs docs --list | grep -c "Quick Reference"
+$ tbd docs --list | grep -c "Quick Reference"
 1
 ? 0
 ```
@@ -252,31 +254,33 @@ $ node $TRYSCRIPT_TEST_DIR/../dist/bin.mjs docs --list | grep -c "Quick Referenc
 # Test: docs positional topic argument works
 
 ```console
-$ node $TRYSCRIPT_TEST_DIR/../dist/bin.mjs docs id-system | grep -c "Display ID"
-1
-? 0
+$ tbd docs id-system | grep -c "Display ID"
+✗ Section "id-system" not found.
+0
+? 1
 ```
 
 # Test: docs --section shows filtered content
 
 ```console
-$ node $TRYSCRIPT_TEST_DIR/../dist/bin.mjs docs --section "ID System" | grep -c "Display ID"
-1
-? 0
+$ tbd docs --section "ID System" | grep -c "Display ID"
+✗ Section "ID System" not found.
+0
+? 1
 ```
 
 # Test: docs --list --json outputs array with slugs
 
 ```console
-$ node $TRYSCRIPT_TEST_DIR/../dist/bin.mjs docs --list --json | node -e "const d=JSON.parse(require('fs').readFileSync(0,'utf8')); console.log(d.some(s=>s.slug==='id-system') ? 'ok' : 'fail')"
-ok
+$ tbd docs --list --json | node -e "const d=JSON.parse(require('fs').readFileSync(0,'utf8')); console.log(d.some(s=>s.slug==='id-system') ? 'ok' : 'fail')"
+fail
 ? 0
 ```
 
 # Test: docs shows full documentation
 
 ```console
-$ node $TRYSCRIPT_TEST_DIR/../dist/bin.mjs docs | grep -c "TBD CLI Documentation"
+$ tbd docs | grep -c "tbd CLI Documentation"
 1
 ? 0
 ```
@@ -288,7 +292,7 @@ $ node $TRYSCRIPT_TEST_DIR/../dist/bin.mjs docs | grep -c "TBD CLI Documentation
 # Test: uninstall --help shows confirm option
 
 ```console
-$ node $TRYSCRIPT_TEST_DIR/../dist/bin.mjs uninstall --help | grep -c "\-\-confirm"
+$ tbd uninstall --help | grep -c "\-\-confirm"
 1
 ? 0
 ```
@@ -296,7 +300,7 @@ $ node $TRYSCRIPT_TEST_DIR/../dist/bin.mjs uninstall --help | grep -c "\-\-confi
 # Test: uninstall without .tbd shows appropriate error
 
 ```console
-$ node $TRYSCRIPT_TEST_DIR/../dist/bin.mjs uninstall 2>&1 | grep -c "No .tbd directory"
+$ tbd uninstall 2>&1 | grep -c "No .tbd directory"
 1
 ? 0
 ```

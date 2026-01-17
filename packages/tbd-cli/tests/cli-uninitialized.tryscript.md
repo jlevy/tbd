@@ -19,7 +19,7 @@ before: |
   git commit -m "Initial commit"
 ---
 
-# TBD CLI: Uninitialized Repository
+# tbd CLI: Uninitialized Repository
 
 Tests for commands when tbd has not been initialized.
 These tests verify that helpful error messages are shown instead of confusing errors.

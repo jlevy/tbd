@@ -3,6 +3,8 @@ sandbox: true
 env:
   NO_COLOR: '1'
   FORCE_COLOR: '0'
+path:
+  - ../dist
 timeout: 30000
 patterns:
   ULID: '[0-9a-z]{26}'
@@ -17,9 +19,9 @@ before: |
   git add README.md
   git commit -m "Initial commit"
   # Initialize tbd
-  node $TRYSCRIPT_TEST_DIR/../dist/bin.mjs init
+  tbd init
 ---
-# TBD CLI: Filesystem and Storage Tests
+# tbd CLI: Filesystem and Storage Tests
 
 Validates that tbd stores files in the correct locations according to the architecture
 specification.
@@ -68,7 +70,7 @@ tbd_version: [..]
 # Test: Create issue stores file in worktree data-sync directory
 
 ```console
-$ node $TRYSCRIPT_TEST_DIR/../dist/bin.mjs create "Test issue for location" --json | head -1
+$ tbd create "Test issue for location" --json | head -1
 {
 ? 0
 ```
@@ -112,7 +114,7 @@ version: 1
 # Test: Mappings directory exists in worktree
 
 ```console
-$ test -d .tbd/data-sync-worktree/.tbd/data-sync/mappings && echo "mappings dir exists"
+$ test --description.tbd/data-sync-worktree/.tbd/data-sync/mappings && echo "mappings dir exists"
 mappings dir exists
 ? 0
 ```
@@ -134,13 +136,13 @@ gitkeep exists
 Note: Create command shows full ULID in success message.
 
 ```console
-$ node $TRYSCRIPT_TEST_DIR/../dist/bin.mjs create "Second issue"
+$ tbd create "Second issue"
 ✓ Created bd-[SHORTID]: Second issue
 ? 0
 ```
 
 ```console
-$ node $TRYSCRIPT_TEST_DIR/../dist/bin.mjs create "Third issue"
+$ tbd create "Third issue"
 ✓ Created bd-[SHORTID]: Third issue
 ? 0
 ```
@@ -218,7 +220,7 @@ No extra newlines after frontmatter
 # Test: Create issue with description and verify formatting
 
 ```console
-$ node $TRYSCRIPT_TEST_DIR/../dist/bin.mjs create "Issue with description" -d "This is the description body."
+$ tbd create "Issue with description" --description "This is the description body."
 ✓ Created bd-[SHORTID]: Issue with description
 ? 0
 ```

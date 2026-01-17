@@ -21,14 +21,14 @@ before: |
   # Initialize tbd
   tbd init
   # Create test issues with varied content for search
-  tbd create "Authentication bug in login" -t bug -d "Users cannot log in with SSO" -l security -l urgent
-  tbd create "Add dark mode feature" -t feature -d "Support dark theme toggle" -l frontend -l ux
-  tbd create "Update dependencies" -t chore -l maintenance
-  tbd create "Performance optimization" -t task -d "Improve API response times" -l backend
-  tbd create "Login redirect issue" -t bug -d "OAuth redirects fail" -l security
+  tbd create "Authentication bug in login" --type bug --description "Users cannot log in with SSO" --label security --label urgent
+  tbd create "Add dark mode feature" --type feature --description "Support dark theme toggle" --label frontend --label ux
+  tbd create "Update dependencies" --type chore --label maintenance
+  tbd create "Performance optimization" --type task --description "Improve API response times" --label backend
+  tbd create "Login redirect issue" --type bug --description "OAuth redirects fail" --label security
 ---
 
-# TBD CLI: Advanced Commands
+# tbd CLI: Advanced Commands
 
 Tests for search, sync, doctor, config, attic, and stats commands.
 
@@ -436,11 +436,26 @@ Manage issue labels
 Options:
   -h, --help               display help for command
 
+Global Options:
+  -V, --version            Show version number
+  --dry-run                Show what would be done without making changes
+  --verbose                Enable verbose output
+  --quiet                  Suppress non-essential output
+  --json                   Output as JSON
+  --color <when>           Colorize output: auto, always, never (default:
+                           "auto")
+  --non-interactive        Disable all prompts, fail if input required
+  --yes                    Assume yes to confirmation prompts
+  --no-sync                Skip automatic sync after write operations
+  --debug                  Show internal IDs alongside public IDs for debugging
+
 Commands:
   add <id> <labels...>     Add labels to an issue
   remove <id> <labels...>  Remove labels from an issue
   list                     List all labels in use
   help [command]           display help for command
+
+For more on tbd, see: https://github.com/jlevy/tbd
 ? 0
 ```
 
@@ -455,11 +470,25 @@ Manage issue dependencies
 Options:
   -h, --help            display help for command
 
+Global Options:
+  -V, --version         Show version number
+  --dry-run             Show what would be done without making changes
+  --verbose             Enable verbose output
+  --quiet               Suppress non-essential output
+  --json                Output as JSON
+  --color <when>        Colorize output: auto, always, never (default: "auto")
+  --non-interactive     Disable all prompts, fail if input required
+  --yes                 Assume yes to confirmation prompts
+  --no-sync             Skip automatic sync after write operations
+  --debug               Show internal IDs alongside public IDs for debugging
+
 Commands:
   add <id> <target>     Add a blocks dependency
   remove <id> <target>  Remove a blocks dependency
   list <id>             List dependencies for an issue
   help [command]        display help for command
+
+For more on tbd, see: https://github.com/jlevy/tbd
 ? 0
 ```
 
@@ -474,11 +503,25 @@ Manage configuration
 Options:
   -h, --help         display help for command
 
+Global Options:
+  -V, --version      Show version number
+  --dry-run          Show what would be done without making changes
+  --verbose          Enable verbose output
+  --quiet            Suppress non-essential output
+  --json             Output as JSON
+  --color <when>     Colorize output: auto, always, never (default: "auto")
+  --non-interactive  Disable all prompts, fail if input required
+  --yes              Assume yes to confirmation prompts
+  --no-sync          Skip automatic sync after write operations
+  --debug            Show internal IDs alongside public IDs for debugging
+
 Commands:
   show               Show all configuration
   set <key> <value>  Set a configuration value
   get <key>          Get a configuration value
   help [command]     display help for command
+
+For more on tbd, see: https://github.com/jlevy/tbd
 ? 0
 ```
 
@@ -493,10 +536,25 @@ Manage conflict archive (attic)
 Options:
   -h, --help                display help for command
 
+Global Options:
+  -V, --version             Show version number
+  --dry-run                 Show what would be done without making changes
+  --verbose                 Enable verbose output
+  --quiet                   Suppress non-essential output
+  --json                    Output as JSON
+  --color <when>            Colorize output: auto, always, never (default:
+                            "auto")
+  --non-interactive         Disable all prompts, fail if input required
+  --yes                     Assume yes to confirmation prompts
+  --no-sync                 Skip automatic sync after write operations
+  --debug                   Show internal IDs alongside public IDs for debugging
+
 Commands:
   list [options] [id]       List attic entries
   show <id> <timestamp>     Show attic entry details
   restore <id> <timestamp>  Restore lost value from attic
   help [command]            display help for command
+
+For more on tbd, see: https://github.com/jlevy/tbd
 ? 0
 ```

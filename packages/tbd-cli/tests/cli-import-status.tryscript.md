@@ -32,7 +32,7 @@ before: |
   tbd init
 ---
 
-# TBD CLI: Import Status Mapping Tests
+# tbd CLI: Import Status Mapping Tests
 
 Tests for beads status → tbd status mapping during import.
 Bug: tbd-1813 (done → closed mapping was missing).

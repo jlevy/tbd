@@ -3,6 +3,8 @@ sandbox: true
 env:
   NO_COLOR: '1'
   FORCE_COLOR: '0'
+path:
+  - ../dist
 timeout: 30000
 patterns:
   ULID: '[0-9a-z]{26}'
@@ -17,10 +19,10 @@ before: |
   git add README.md
   git commit -m "Initial commit"
   # Initialize tbd
-  node $TRYSCRIPT_TEST_DIR/../dist/bin.mjs init
+  tbd init
 ---
 
-# TBD CLI: ID Format Tests
+# tbd CLI: ID Format Tests
 
 Validates ID format behavior across commands.
 
@@ -36,7 +38,7 @@ Validates ID format behavior across commands.
 # Test: Create shows short display ID in success message
 
 ```console
-$ node $TRYSCRIPT_TEST_DIR/../dist/bin.mjs create "Test issue"
+$ tbd create "Test issue"
 ✓ Created bd-[SHORTID]: Test issue
 ? 0
 ```
@@ -44,7 +46,7 @@ $ node $TRYSCRIPT_TEST_DIR/../dist/bin.mjs create "Test issue"
 # Test: Create JSON output has both id and internalId
 
 ```console
-$ node $TRYSCRIPT_TEST_DIR/../dist/bin.mjs create "Test JSON" --json | node -e "d=JSON.parse(require('fs').readFileSync(0,'utf8')); console.log('id starts with bd-:', d.id.startsWith('bd-')); console.log('internalId starts with is-:', d.internalId.startsWith('is-'))"
+$ tbd create "Test JSON" --json | node -e "d=JSON.parse(require('fs').readFileSync(0,'utf8')); console.log('id starts with bd-:', d.id.startsWith('bd-')); console.log('internalId starts with is-:', d.internalId.startsWith('is-'))"
 id starts with bd-: true
 internalId starts with is-: true
 ? 0
@@ -57,13 +59,13 @@ internalId starts with is-: true
 # Test: Setup - create several issues with different priorities
 
 ```console
-$ node $TRYSCRIPT_TEST_DIR/../dist/bin.mjs create "High priority" -p 0
+$ tbd create "High priority" --priority 0
 ✓ Created bd-[SHORTID]: High priority
 ? 0
 ```
 
 ```console
-$ node $TRYSCRIPT_TEST_DIR/../dist/bin.mjs create "Medium priority" -p 1
+$ tbd create "Medium priority" --priority 1
 ✓ Created bd-[SHORTID]: Medium priority
 ? 0
 ```
@@ -73,7 +75,7 @@ $ node $TRYSCRIPT_TEST_DIR/../dist/bin.mjs create "Medium priority" -p 1
 The list command shows shortened display IDs for readability.
 
 ```console
-$ node $TRYSCRIPT_TEST_DIR/../dist/bin.mjs list | grep -c "^bd-"
+$ tbd list | grep -c "^bd-"
 4
 ? 0
 ```
@@ -81,7 +83,7 @@ $ node $TRYSCRIPT_TEST_DIR/../dist/bin.mjs list | grep -c "^bd-"
 # Test: List JSON has short id and full internalId
 
 ```console
-$ node $TRYSCRIPT_TEST_DIR/../dist/bin.mjs list --json | node -e "d=JSON.parse(require('fs').readFileSync(0,'utf8')); first=d[0]; console.log('id format ok:', first.id.startsWith('bd-') && first.id.length <= 9); console.log('internalId format ok:', first.internalId.startsWith('is-') && first.internalId.length === 29)"
+$ tbd list --json | node -e "d=JSON.parse(require('fs').readFileSync(0,'utf8')); first=d[0]; console.log('id format ok:', first.id.startsWith('bd-') && first.id.length <= 9); console.log('internalId format ok:', first.internalId.startsWith('is-') && first.internalId.length === 29)"
 id format ok: true
 internalId format ok: true
 ? 0
@@ -94,7 +96,7 @@ internalId format ok: true
 # Test: Capture internal ID for show tests
 
 ```console
-$ node $TRYSCRIPT_TEST_DIR/../dist/bin.mjs list --json | node -e "d=JSON.parse(require('fs').readFileSync(0,'utf8')); console.log(d[0].internalId)" > /tmp/test_id.txt && cat /tmp/test_id.txt
+$ tbd list --json | node -e "d=JSON.parse(require('fs').readFileSync(0,'utf8')); console.log(d[0].internalId)" > /tmp/test_id.txt && cat /tmp/test_id.txt
 is-[ULID]
 ? 0
 ```
@@ -102,7 +104,7 @@ is-[ULID]
 # Test: Show command accepts internal ID
 
 ```console
-$ ID=$(cat /tmp/test_id.txt) && node $TRYSCRIPT_TEST_DIR/../dist/bin.mjs show $ID | grep "^title:"
+$ ID=$(cat /tmp/test_id.txt) && tbd show $ID | grep "^title:"
 title: High priority
 ? 0
 ```
@@ -110,7 +112,7 @@ title: High priority
 # Test: Show YAML output contains internal ID
 
 ```console
-$ ID=$(cat /tmp/test_id.txt) && node $TRYSCRIPT_TEST_DIR/../dist/bin.mjs show $ID | grep "^id:"
+$ ID=$(cat /tmp/test_id.txt) && tbd show $ID | grep "^id:"
 id: is-[ULID]
 ? 0
 ```
@@ -122,7 +124,7 @@ id: is-[ULID]
 # Test: Update accepts internal ID and shows display ID
 
 ```console
-$ ID=$(cat /tmp/test_id.txt) && node $TRYSCRIPT_TEST_DIR/../dist/bin.mjs update $ID --priority 3
+$ ID=$(cat /tmp/test_id.txt) && tbd update $ID --priority 3
 ✓ Updated bd-[SHORTID]
 ? 0
 ```
@@ -134,7 +136,7 @@ $ ID=$(cat /tmp/test_id.txt) && node $TRYSCRIPT_TEST_DIR/../dist/bin.mjs update 
 # Test: Close accepts internal ID and shows short display ID
 
 ```console
-$ ID=$(cat /tmp/test_id.txt) && node $TRYSCRIPT_TEST_DIR/../dist/bin.mjs close $ID
+$ ID=$(cat /tmp/test_id.txt) && tbd close $ID
 ✓ Closed bd-[SHORTID]
 ? 0
 ```
@@ -142,7 +144,7 @@ $ ID=$(cat /tmp/test_id.txt) && node $TRYSCRIPT_TEST_DIR/../dist/bin.mjs close $
 # Test: Reopen accepts internal ID and shows short display ID
 
 ```console
-$ ID=$(cat /tmp/test_id.txt) && node $TRYSCRIPT_TEST_DIR/../dist/bin.mjs reopen $ID
+$ ID=$(cat /tmp/test_id.txt) && tbd reopen $ID
 ✓ Reopened bd-[SHORTID]
 ? 0
 ```
@@ -154,7 +156,7 @@ $ ID=$(cat /tmp/test_id.txt) && node $TRYSCRIPT_TEST_DIR/../dist/bin.mjs reopen 
 # Test: List display IDs are 4 characters (short ID)
 
 ```console
-$ node $TRYSCRIPT_TEST_DIR/../dist/bin.mjs list | awk '{print $1}' | grep "^bd-" | head -1 | sed 's/bd-//' | wc -c | tr -d ' '
+$ tbd list | awk '{print $1}' | grep "^bd-" | head -1 | sed 's/bd-//' | wc -c | tr -d ' '
 5
 ? 0
 ```
@@ -168,7 +170,7 @@ Note: wc -c includes newline, so 5 means 4 chars + newline.
 # Test: Ready command shows short display IDs
 
 ```console
-$ node $TRYSCRIPT_TEST_DIR/../dist/bin.mjs ready | grep -c "^bd-"
+$ tbd ready | grep -c "^bd-"
 4
 ? 0
 ```
@@ -176,7 +178,7 @@ $ node $TRYSCRIPT_TEST_DIR/../dist/bin.mjs ready | grep -c "^bd-"
 # Test: Blocked command output
 
 ```console
-$ node $TRYSCRIPT_TEST_DIR/../dist/bin.mjs blocked 2>&1 | head -2
+$ tbd blocked 2>&1 | head -2
 [..]
 ? 0
 ```

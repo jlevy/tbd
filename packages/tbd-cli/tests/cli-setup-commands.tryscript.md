@@ -20,7 +20,7 @@ before: |
   git commit -m "Initial commit"
 ---
 
-# TBD CLI: Setup Commands
+# tbd CLI: Setup Commands
 
 Tests for `tbd setup` subcommands that configure editor integrations.
 
@@ -37,13 +37,27 @@ Usage: tbd setup [options] [command]
 Configure tbd integration with editors and tools
 
 Options:
-  -h, --help        display help for command
+  -h, --help         display help for command
+
+Global Options:
+  -V, --version      Show version number
+  --dry-run          Show what would be done without making changes
+  --verbose          Enable verbose output
+  --quiet            Suppress non-essential output
+  --json             Output as JSON
+  --color <when>     Colorize output: auto, always, never (default: "auto")
+  --non-interactive  Disable all prompts, fail if input required
+  --yes              Assume yes to confirmation prompts
+  --no-sync          Skip automatic sync after write operations
+  --debug            Show internal IDs alongside public IDs for debugging
 
 Commands:
-  claude [options]  Configure Claude Code hooks for tbd integration
-  cursor [options]  Create Cursor IDE rules file for tbd integration
-  codex [options]   Create/update AGENTS.md for Codex and compatible tools
-  help [command]    display help for command
+  claude [options]   Configure Claude Code hooks for tbd integration
+  cursor [options]   Create Cursor IDE rules file for tbd integration
+  codex [options]    Create/update AGENTS.md for Codex and compatible tools
+  help [command]     display help for command
+
+For more on tbd, see: https://github.com/jlevy/tbd
 ? 0
 ```
 
@@ -56,9 +70,23 @@ Usage: tbd setup claude [options]
 Configure Claude Code hooks for tbd integration
 
 Options:
-  --check     Verify installation status
-  --remove    Remove tbd hooks
-  -h, --help  display help for command
+  --check            Verify installation status
+  --remove           Remove tbd hooks
+  -h, --help         display help for command
+
+Global Options:
+  -V, --version      Show version number
+  --dry-run          Show what would be done without making changes
+  --verbose          Enable verbose output
+  --quiet            Suppress non-essential output
+  --json             Output as JSON
+  --color <when>     Colorize output: auto, always, never (default: "auto")
+  --non-interactive  Disable all prompts, fail if input required
+  --yes              Assume yes to confirmation prompts
+  --no-sync          Skip automatic sync after write operations
+  --debug            Show internal IDs alongside public IDs for debugging
+
+For more on tbd, see: https://github.com/jlevy/tbd
 ? 0
 ```
 
@@ -71,9 +99,23 @@ Usage: tbd setup cursor [options]
 Create Cursor IDE rules file for tbd integration
 
 Options:
-  --check     Verify installation status
-  --remove    Remove tbd rules file
-  -h, --help  display help for command
+  --check            Verify installation status
+  --remove           Remove tbd rules file
+  -h, --help         display help for command
+
+Global Options:
+  -V, --version      Show version number
+  --dry-run          Show what would be done without making changes
+  --verbose          Enable verbose output
+  --quiet            Suppress non-essential output
+  --json             Output as JSON
+  --color <when>     Colorize output: auto, always, never (default: "auto")
+  --non-interactive  Disable all prompts, fail if input required
+  --yes              Assume yes to confirmation prompts
+  --no-sync          Skip automatic sync after write operations
+  --debug            Show internal IDs alongside public IDs for debugging
+
+For more on tbd, see: https://github.com/jlevy/tbd
 ? 0
 ```
 
@@ -86,9 +128,23 @@ Usage: tbd setup codex [options]
 Create/update AGENTS.md for Codex and compatible tools
 
 Options:
-  --check     Verify installation status
-  --remove    Remove tbd section from AGENTS.md
-  -h, --help  display help for command
+  --check            Verify installation status
+  --remove           Remove tbd section from AGENTS.md
+  -h, --help         display help for command
+
+Global Options:
+  -V, --version      Show version number
+  --dry-run          Show what would be done without making changes
+  --verbose          Enable verbose output
+  --quiet            Suppress non-essential output
+  --json             Output as JSON
+  --color <when>     Colorize output: auto, always, never (default: "auto")
+  --non-interactive  Disable all prompts, fail if input required
+  --yes              Assume yes to confirmation prompts
+  --no-sync          Skip automatic sync after write operations
+  --debug            Show internal IDs alongside public IDs for debugging
+
+For more on tbd, see: https://github.com/jlevy/tbd
 ? 0
 ```
 

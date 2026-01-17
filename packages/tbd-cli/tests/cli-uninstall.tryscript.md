@@ -20,7 +20,7 @@ before: |
   git commit -m "Initial commit"
 ---
 
-# TBD CLI: Uninstall Command
+# tbd CLI: Uninstall Command
 
 Tests for `tbd uninstall` which removes tbd from a repository.
 
@@ -37,10 +37,24 @@ Usage: tbd uninstall [options]
 Remove tbd from this repository
 
 Options:
-  --confirm        Confirm removal (required to proceed)
-  --keep-branch    Keep the local sync branch
-  --remove-remote  Also remove the remote sync branch
-  -h, --help       display help for command
+  --confirm          Confirm removal (required to proceed)
+  --keep-branch      Keep the local sync branch
+  --remove-remote    Also remove the remote sync branch
+  -h, --help         display help for command
+
+Global Options:
+  -V, --version      Show version number
+  --dry-run          Show what would be done without making changes
+  --verbose          Enable verbose output
+  --quiet            Suppress non-essential output
+  --json             Output as JSON
+  --color <when>     Colorize output: auto, always, never (default: "auto")
+  --non-interactive  Disable all prompts, fail if input required
+  --yes              Assume yes to confirmation prompts
+  --no-sync          Skip automatic sync after write operations
+  --debug            Show internal IDs alongside public IDs for debugging
+
+For more on tbd, see: https://github.com/jlevy/tbd
 ? 0
 ```
 
@@ -83,7 +97,7 @@ To complete setup, commit the config files:
 # Test: Create an issue to have some data
 
 ```console
-$ tbd create "Test issue" -t task
+$ tbd create "Test issue" --type task
 ✓ Created [..]: Test issue
 ? 0
 ```
@@ -163,7 +177,7 @@ To complete setup, commit the config files:
 # Test: Create another issue
 
 ```console
-$ tbd create "Another issue" -t bug
+$ tbd create "Another issue" --type bug
 ✓ Created [..]: Another issue
 ? 0
 ```

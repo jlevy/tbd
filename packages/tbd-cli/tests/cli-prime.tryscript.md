@@ -12,7 +12,7 @@ patterns:
   TIMESTAMP: "\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?Z"
 ---
 
-# TBD CLI: Prime Command
+# tbd CLI: Prime Command
 
 Tests for the `tbd prime` command which outputs workflow context for AI agents.
 
@@ -179,7 +179,21 @@ Usage: tbd prime [options]
 Output workflow context for AI agents
 
 Options:
-  --export    Output default content (ignores PRIME.md override)
-  -h, --help  display help for command
+  --export           Output default content (ignores PRIME.md override)
+  -h, --help         display help for command
+
+Global Options:
+  -V, --version      Show version number
+  --dry-run          Show what would be done without making changes
+  --verbose          Enable verbose output
+  --quiet            Suppress non-essential output
+  --json             Output as JSON
+  --color <when>     Colorize output: auto, always, never (default: "auto")
+  --non-interactive  Disable all prompts, fail if input required
+  --yes              Assume yes to confirmation prompts
+  --no-sync          Skip automatic sync after write operations
+  --debug            Show internal IDs alongside public IDs for debugging
+
+For more on tbd, see: https://github.com/jlevy/tbd
 ? 0
 ```

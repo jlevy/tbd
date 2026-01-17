@@ -19,7 +19,7 @@ before: |
   git commit -m "Initial commit"
 ---
 
-# TBD CLI: Color Mode Handling
+# tbd CLI: Color Mode Handling
 
 This tryscript validates that the --color flag is properly recognized and respected.
 
@@ -85,7 +85,7 @@ To complete setup, commit the config files:
 # Test: Create with --color=never produces clean output
 
 ```console
-$ tbd --color=never create "Test issue" -t task
+$ tbd --color=never create "Test issue" --type task
 [..] Created bd-[..]: Test issue
 ? 0
 ```
@@ -93,7 +93,7 @@ $ tbd --color=never create "Test issue" -t task
 # Test: Create with --color=always (output may contain ANSI codes)
 
 ```console
-$ tbd --color=always create "Another issue" -t bug
+$ tbd --color=always create "Another issue" --type bug
 [..] Created bd-[..]: Another issue
 ? 0
 ```

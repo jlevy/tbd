@@ -19,7 +19,7 @@ before: |
   git commit -m "Initial commit"
 ---
 
-# TBD CLI: Status Command
+# tbd CLI: Status Command
 
 Tests for the `tbd status` command - the orientation command that works
 regardless of initialization state (like `git status`).

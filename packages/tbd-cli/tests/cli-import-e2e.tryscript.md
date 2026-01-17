@@ -3,6 +3,8 @@ sandbox: true
 env:
   NO_COLOR: '1'
   FORCE_COLOR: '0'
+path:
+  - ../dist
 timeout: 120000
 patterns:
   ULID: '[0-9a-z]{26}'
@@ -17,10 +19,10 @@ before: |
   git add README.md
   git commit -m "Initial commit"
   # Initialize tbd
-  node $TRYSCRIPT_TEST_DIR/../dist/bin.mjs init
+  tbd init
 ---
 
-# TBD CLI: Import E2E Test (Real Beads Database)
+# tbd CLI: Import E2E Test (Real Beads Database)
 
 End-to-end test for importing from a real Beads database with 100+ issues.
 This test uses the actual beads database from the tbd repository.
@@ -44,7 +46,7 @@ $ ls $TRYSCRIPT_TEST_DIR/../../../.beads/issues.jsonl
 # Test: Import from source beads
 
 ```console
-$ node $TRYSCRIPT_TEST_DIR/../dist/bin.mjs import --from-beads --beads-dir $TRYSCRIPT_TEST_DIR/../../../.beads 2>&1 | grep "Import complete"
+$ tbd import --from-beads --beads-dir $TRYSCRIPT_TEST_DIR/../../../.beads 2>&1 | grep "Import complete"
 ✓ Import complete from [..]
 ? 0
 ```
@@ -52,7 +54,7 @@ $ node $TRYSCRIPT_TEST_DIR/../dist/bin.mjs import --from-beads --beads-dir $TRYS
 # Test: At least 100 issues imported
 
 ```console
-$ COUNT=$(node $TRYSCRIPT_TEST_DIR/../dist/bin.mjs list --all --count) && [ "$COUNT" -ge 100 ] && echo "OK: $COUNT issues"
+$ COUNT=$(tbd list --all --count) && [ "$COUNT" -ge 100 ] && echo "OK: $COUNT issues"
 OK: [..] issues
 ? 0
 ```
@@ -64,19 +66,19 @@ OK: [..] issues
 # Test: Multiple issue types exist
 
 ```console
-$ node $TRYSCRIPT_TEST_DIR/../dist/bin.mjs list --all --type task --count
+$ tbd list --all --type task --count
 [..]
 ? 0
 ```
 
 ```console
-$ node $TRYSCRIPT_TEST_DIR/../dist/bin.mjs list --all --type bug --count
+$ tbd list --all --type bug --count
 [..]
 ? 0
 ```
 
 ```console
-$ node $TRYSCRIPT_TEST_DIR/../dist/bin.mjs list --all --type epic --count
+$ tbd list --all --type epic --count
 [..]
 ? 0
 ```
@@ -84,7 +86,7 @@ $ node $TRYSCRIPT_TEST_DIR/../dist/bin.mjs list --all --type epic --count
 # Test: Labels preserved
 
 ```console
-$ node $TRYSCRIPT_TEST_DIR/../dist/bin.mjs list --all --label cli-layer --count
+$ tbd list --all --label cli-layer --count
 [..]
 ? 0
 ```
@@ -92,7 +94,7 @@ $ node $TRYSCRIPT_TEST_DIR/../dist/bin.mjs list --all --label cli-layer --count
 # Test: Beads metadata preserved in show output
 
 ```console
-$ FIRST_ID=$(node $TRYSCRIPT_TEST_DIR/../dist/bin.mjs list --all --limit 1 --json | grep internalId | head -1 | cut -d'"' -f4) && node $TRYSCRIPT_TEST_DIR/../dist/bin.mjs show $FIRST_ID --json | grep original_id
+$ FIRST_ID=$(tbd list --all --limit 1 --json | grep internalId | head -1 | cut -d'"' -f4) && tbd show $FIRST_ID --json | grep original_id
 [..]original_id[..]
 ? 0
 ```
@@ -104,7 +106,7 @@ $ FIRST_ID=$(node $TRYSCRIPT_TEST_DIR/../dist/bin.mjs list --all --limit 1 --jso
 # Test: Timestamps are valid ISO format
 
 ```console
-$ FIRST_ID=$(node $TRYSCRIPT_TEST_DIR/../dist/bin.mjs list --all --limit 1 --json | grep internalId | head -1 | cut -d'"' -f4) && node $TRYSCRIPT_TEST_DIR/../dist/bin.mjs show $FIRST_ID --json | grep -E "created_at.*Z"
+$ FIRST_ID=$(tbd list --all --limit 1 --json | grep internalId | head -1 | cut -d'"' -f4) && tbd show $FIRST_ID --json | grep -E "created_at.*Z"
 [..]created_at[..]Z[..]
 ? 0
 ```
@@ -116,7 +118,7 @@ $ FIRST_ID=$(node $TRYSCRIPT_TEST_DIR/../dist/bin.mjs list --all --limit 1 --jso
 # Test: Save count before re-import
 
 ```console
-$ node $TRYSCRIPT_TEST_DIR/../dist/bin.mjs list --all --count > count_before.txt && cat count_before.txt
+$ tbd list --all --count > count_before.txt && cat count_before.txt
 [..]
 ? 0
 ```
@@ -124,7 +126,7 @@ $ node $TRYSCRIPT_TEST_DIR/../dist/bin.mjs list --all --count > count_before.txt
 # Test: Re-import does not create duplicates
 
 ```console
-$ node $TRYSCRIPT_TEST_DIR/../dist/bin.mjs import --from-beads --beads-dir $TRYSCRIPT_TEST_DIR/../../../.beads >/dev/null 2>&1 && node $TRYSCRIPT_TEST_DIR/../dist/bin.mjs list --all --count > count_after.txt && diff count_before.txt count_after.txt && echo "Idempotent: YES"
+$ tbd import --from-beads --beads-dir $TRYSCRIPT_TEST_DIR/../../../.beads >/dev/null 2>&1 && tbd list --all --count > count_after.txt && diff count_before.txt count_after.txt && echo "Idempotent: YES"
 Idempotent: YES
 ? 0
 ```
@@ -136,7 +138,7 @@ Idempotent: YES
 # Test: Stats total matches list count
 
 ```console
-$ STATS=$(node $TRYSCRIPT_TEST_DIR/../dist/bin.mjs stats --json | grep total | cut -d':' -f2 | tr -d ' ,') && [ "$STATS" -ge 100 ] && echo "OK: $STATS total"
+$ STATS=$(tbd stats --json | grep total | cut -d':' -f2 | tr -d ' ,') && [ "$STATS" -ge 100 ] && echo "OK: $STATS total"
 OK: [..] total
 ? 0
 ```

@@ -22,7 +22,7 @@ before: |
   tbd init
 ---
 
-# TBD CLI: Sync Command
+# tbd CLI: Sync Command
 
 The sync command is core to tbd's multi-machine coordination. These tests verify
 that changes are properly committed to the tbd-sync branch before push operations.
@@ -51,7 +51,7 @@ $ git -C .tbd/data-sync-worktree log --oneline | wc -l | tr -d ' '
 # Test: Creating an issue adds uncommitted files to worktree
 
 ```console
-$ tbd create "Test sync commit behavior" -t task
+$ tbd create "Test sync commit behavior" --type task
 ✓ Created [..]
 ? 0
 ```
@@ -101,19 +101,19 @@ tbd sync: [..] (2 files)
 # Test: Create multiple issues, then sync once
 
 ```console
-$ tbd create "Issue A" -t task
+$ tbd create "Issue A" --type task
 ✓ Created [..]
 ? 0
 ```
 
 ```console
-$ tbd create "Issue B" -t bug
+$ tbd create "Issue B" --type bug
 ✓ Created [..]
 ? 0
 ```
 
 ```console
-$ tbd create "Issue C" -t feature
+$ tbd create "Issue C" --type feature
 ✓ Created [..]
 ? 0
 ```
@@ -174,7 +174,7 @@ $ tbd sync --status --json
 After creating an issue, sync status may show local changes.
 
 ```console
-$ tbd create "Status test issue" -t task
+$ tbd create "Status test issue" --type task
 ✓ Created [..]
 ? 0
 ```
