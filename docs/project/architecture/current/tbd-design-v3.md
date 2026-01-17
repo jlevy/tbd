@@ -821,7 +821,7 @@ Lexicographically Sortable Identifier):
 **External IDs** use short alphanumeric codes mapped to internal IDs:
 
 - **Required prefix**: Project-specific (e.g., `proj`, `myapp`, `tk`) via `display.id_prefix`
-  - Set during `tbd init --prefix <name>` or automatically from beads import
+  - Set during `tbd init --prefix=<name>` or automatically from beads import
 - **Short code**: 1+ alphanumeric characters (a-z, 0-9)
   - Imported issues: Preserve original short ID (e.g., `100` from `tbd-100`)
   - New issues: Generate random 4-char base36
@@ -1663,12 +1663,12 @@ tbd <command> [subcommand] [args] [options]
 ### 4.3 Initialization
 
 ```bash
-tbd init --prefix <name> [options]
+tbd init --prefix=<name> [options]
 
 Options:
-  --prefix <name>       Required: project prefix for display IDs (e.g., "proj", "myapp")
-  --sync-branch <name>  Sync branch name (default: tbd-sync)
-  --remote <name>       Remote name (default: origin)
+  --prefix=<name>       Required: project prefix for display IDs (e.g., "proj", "myapp")
+  --sync-branch=<name>  Sync branch name (default: tbd-sync)
+  --remote=<name>       Remote name (default: origin)
 ```
 
 The `--prefix` option is **required** unless you're importing from an existing beads

@@ -19,7 +19,7 @@ before: |
   git add README.md
   git commit -m "Initial commit"
   # Initialize tbd
-  tbd init
+  tbd init --prefix=test
 ---
 # tbd CLI: ID Format Tests
 
@@ -38,7 +38,7 @@ Validates ID format behavior across commands.
 
 ```console
 $ tbd create "Test issue"
-✓ Created bd-[SHORTID]: Test issue
+✓ Created test-[SHORTID]: Test issue
 ? 0
 ```
 
@@ -59,13 +59,13 @@ internalId starts with is-: true
 
 ```console
 $ tbd create "High priority" --priority=0
-✓ Created bd-[SHORTID]: High priority
+✓ Created test-[SHORTID]: High priority
 ? 0
 ```
 
 ```console
 $ tbd create "Medium priority" --priority=1
-✓ Created bd-[SHORTID]: Medium priority
+✓ Created test-[SHORTID]: Medium priority
 ? 0
 ```
 
@@ -124,7 +124,7 @@ id: is-[ULID]
 
 ```console
 $ ID=$(cat /tmp/test_id.txt) && tbd update $ID --priority=3
-✓ Updated bd-[SHORTID]
+✓ Updated test-[SHORTID]
 ? 0
 ```
 
@@ -136,7 +136,7 @@ $ ID=$(cat /tmp/test_id.txt) && tbd update $ID --priority=3
 
 ```console
 $ ID=$(cat /tmp/test_id.txt) && tbd close $ID
-✓ Closed bd-[SHORTID]
+✓ Closed test-[SHORTID]
 ? 0
 ```
 
@@ -144,7 +144,7 @@ $ ID=$(cat /tmp/test_id.txt) && tbd close $ID
 
 ```console
 $ ID=$(cat /tmp/test_id.txt) && tbd reopen $ID
-✓ Reopened bd-[SHORTID]
+✓ Reopened test-[SHORTID]
 ? 0
 ```
 

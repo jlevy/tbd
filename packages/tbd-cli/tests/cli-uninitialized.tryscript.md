@@ -120,7 +120,7 @@ meta.yml
 
 ```console
 $ tbd create "Test issue"
-✓ Created bd-[SHORTID]: Test issue
+✓ Created test-[SHORTID]: Test issue
 ? 0
 ```
 

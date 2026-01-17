@@ -8,11 +8,11 @@ import { Command } from 'commander';
 
 import { BaseCommand } from '../lib/baseCommand.js';
 import { requireInit } from '../lib/errors.js';
+import { loadDataContext, type TbdDataContext } from '../lib/dataContext.js';
 import type { Issue, IssueStatusType, IssueKindType } from '../../lib/types.js';
 import { listIssues } from '../../file/storage.js';
 import { formatDisplayId, formatDebugId, extractUlidFromInternalId } from '../../lib/ids.js';
-import { resolveDataSyncDir } from '../../lib/paths.js';
-import { loadIdMapping, type IdMapping } from '../../file/idMapping.js';
+import type { IdMapping } from '../../file/idMapping.js';
 import { naturalCompare } from '../../lib/sort.js';
 
 interface ListOptions {
@@ -35,15 +35,12 @@ class ListHandler extends BaseCommand {
     await requireInit();
 
     let issues: Issue[];
-    let dataSyncDir: string;
-    let mapping: IdMapping;
+    let dataCtx: TbdDataContext;
 
     try {
-      // Resolve the correct data sync directory (worktree or direct)
-      dataSyncDir = await resolveDataSyncDir();
-      issues = await listIssues(dataSyncDir);
-      // Load ID mapping early so we can use it for sorting
-      mapping = await loadIdMapping(dataSyncDir);
+      // Load shared data context (dataSyncDir, mapping, config, prefix)
+      dataCtx = await loadDataContext();
+      issues = await listIssues(dataCtx.dataSyncDir);
     } catch {
       this.output.error('Failed to read issues');
       return;
@@ -53,7 +50,7 @@ class ListHandler extends BaseCommand {
     issues = this.filterIssues(issues, options);
 
     // Sort results (with secondary sort by short ID for stable ordering)
-    issues = this.sortIssues(issues, options.sort ?? 'priority', mapping);
+    issues = this.sortIssues(issues, options.sort ?? 'priority', dataCtx.mapping);
 
     // Apply limit
     if (options.limit) {
@@ -72,10 +69,11 @@ class ListHandler extends BaseCommand {
     }
 
     const showDebug = this.ctx.debug;
+    const { mapping, prefix } = dataCtx;
 
     // Format output - use short display IDs instead of internal ULIDs
     const displayIssues = issues.map((i) => ({
-      id: showDebug ? formatDebugId(i.id, mapping) : formatDisplayId(i.id, mapping),
+      id: showDebug ? formatDebugId(i.id, mapping, prefix) : formatDisplayId(i.id, mapping, prefix),
       internalId: i.id,
       priority: i.priority,
       status: i.status,

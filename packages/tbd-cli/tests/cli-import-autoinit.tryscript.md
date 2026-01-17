@@ -136,7 +136,7 @@ title: Test issue one
 
 ```console
 $ tbd create "New issue after import"
-✓ Created bd-[SHORTID]: New issue after import
+✓ Created test-[SHORTID]: New issue after import
 ? 0
 ```
 

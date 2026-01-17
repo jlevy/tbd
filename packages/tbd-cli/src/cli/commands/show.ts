@@ -13,6 +13,7 @@ import { serializeIssue } from '../../file/parser.js';
 import { formatDisplayId, formatDebugId } from '../../lib/ids.js';
 import { resolveDataSyncDir } from '../../lib/paths.js';
 import { loadIdMapping, resolveToInternalId } from '../../file/idMapping.js';
+import { readConfig } from '../../file/config.js';
 
 class ShowHandler extends BaseCommand {
   async run(id: string): Promise<void> {
@@ -40,9 +41,11 @@ class ShowHandler extends BaseCommand {
       return;
     }
     const showDebug = this.ctx.debug;
+    const config = await readConfig(process.cwd());
+    const prefix = config.display.id_prefix;
     const displayId = showDebug
-      ? formatDebugId(issue.id, mapping)
-      : formatDisplayId(issue.id, mapping);
+      ? formatDebugId(issue.id, mapping, prefix)
+      : formatDisplayId(issue.id, mapping, prefix);
 
     // Create display version with short display ID
     const displayIssue = {

@@ -29,7 +29,7 @@ before: |
   echo '{"id":"stat-deferred","title":"Issue with deferred status","status":"deferred","issue_type":"task","priority":3,"created_at":"2025-01-01T00:00:05Z","updated_at":"2025-01-01T00:00:05Z"}' >> .beads/issues.jsonl
 
   # Initialize tbd
-  tbd init
+  tbd init --prefix=test
 ---
 # tbd CLI: Import Status Mapping Tests
 

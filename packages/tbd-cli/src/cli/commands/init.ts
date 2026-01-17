@@ -39,7 +39,7 @@ class InitHandler extends BaseCommand {
     if (!options.prefix) {
       this.output.error('The --prefix option is required');
       this.output.info('');
-      this.output.info('Usage: tbd init --prefix <name>');
+      this.output.info('Usage: tbd init --prefix=<name>');
       this.output.info('');
       this.output.info('The prefix is used for display IDs (e.g., proj-a7k2, myapp-b3m9)');
       this.output.info('Choose a short, memorable prefix for your project.');

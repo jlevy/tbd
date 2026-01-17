@@ -21,6 +21,7 @@ import {
 import { IssueKind, Priority } from '../../lib/schemas.js';
 import { resolveDataSyncDir } from '../../lib/paths.js';
 import { now } from '../../utils/timeUtils.js';
+import { readConfig } from '../../file/config.js';
 
 interface CreateOptions {
   fromFile?: string;
@@ -91,8 +92,13 @@ class CreateHandler extends BaseCommand {
     };
 
     let shortId: string;
+    let prefix: string;
     await this.execute(async () => {
       const dataSyncDir = await resolveDataSyncDir();
+
+      // Read config for display prefix
+      const config = await readConfig(process.cwd());
+      prefix = config.display.id_prefix;
 
       // Load mapping, generate unique short ID, and save
       const mapping = await loadIdMapping(dataSyncDir);
@@ -104,8 +110,8 @@ class CreateHandler extends BaseCommand {
       await saveIdMapping(dataSyncDir, mapping);
     }, 'Failed to create issue');
 
-    // Output with display ID (bd- prefix + 4-char short ID)
-    const displayId = `bd-${shortId!}`;
+    // Output with display ID (prefix + short ID)
+    const displayId = `${prefix!}-${shortId!}`;
     this.output.data({ id: displayId, internalId: id, title }, () => {
       this.output.success(`Created ${displayId}: ${title}`);
     });

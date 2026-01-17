@@ -24,7 +24,7 @@ before: |
   echo '{"id":"test-002","title":"Bug to fix","status":"open","issue_type":"bug","priority":1,"labels":["urgent","backend"],"created_at":"2025-01-02T00:00:00Z","updated_at":"2025-01-02T00:00:00Z"}' >> .beads/issues.jsonl
   echo '{"id":"test-003","title":"Feature request","status":"closed","issue_type":"feature","priority":3,"created_at":"2025-01-03T00:00:00Z","updated_at":"2025-01-03T00:00:00Z"}' >> .beads/issues.jsonl
   # Initialize tbd
-  tbd init
+  tbd init --prefix=test
 ---
 # tbd CLI: Import Command
 

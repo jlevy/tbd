@@ -18,8 +18,8 @@ before: |
   echo "# Test repo" > README.md
   git add README.md
   git commit -m "Initial commit"
-  # Initialize tbd
-  tbd init
+  # Initialize tbd with test prefix
+  tbd init --prefix=test
   # Create test issues with varied content for search
   tbd create "Authentication bug in login" --type=bug --description="Users cannot log in with SSO" --label=security --label=urgent
   tbd create "Add dark mode feature" --type=feature --description="Support dark theme toggle" --label=frontend --label=ux

@@ -14,6 +14,7 @@ import type { Issue } from '../../lib/types.js';
 import { resolveDataSyncDir } from '../../lib/paths.js';
 import { now } from '../../utils/timeUtils.js';
 import { loadIdMapping, resolveToInternalId } from '../../file/idMapping.js';
+import { readConfig } from '../../file/config.js';
 
 // Add dependency
 class DependsAddHandler extends BaseCommand {
@@ -88,12 +89,14 @@ class DependsAddHandler extends BaseCommand {
 
     // Use already loaded mapping for display
     const showDebug = this.ctx.debug;
+    const config = await readConfig(process.cwd());
+    const prefix = config.display.id_prefix;
     const displayId = showDebug
-      ? formatDebugId(internalId, mapping)
-      : formatDisplayId(internalId, mapping);
+      ? formatDebugId(internalId, mapping, prefix)
+      : formatDisplayId(internalId, mapping, prefix);
     const displayTarget = showDebug
-      ? formatDebugId(internalTarget, mapping)
-      : formatDisplayId(internalTarget, mapping);
+      ? formatDebugId(internalTarget, mapping, prefix)
+      : formatDisplayId(internalTarget, mapping, prefix);
 
     this.output.data({ id: displayId, blocks: displayTarget }, () => {
       this.output.success(`${displayId} now blocks ${displayTarget}`);
@@ -160,12 +163,14 @@ class DependsRemoveHandler extends BaseCommand {
 
     // Use already loaded mapping for display
     const showDebug = this.ctx.debug;
+    const config = await readConfig(process.cwd());
+    const prefix = config.display.id_prefix;
     const displayId = showDebug
-      ? formatDebugId(internalId, mapping)
-      : formatDisplayId(internalId, mapping);
+      ? formatDebugId(internalId, mapping, prefix)
+      : formatDisplayId(internalId, mapping, prefix);
     const displayTarget = showDebug
-      ? formatDebugId(internalTarget, mapping)
-      : formatDisplayId(internalTarget, mapping);
+      ? formatDebugId(internalTarget, mapping, prefix)
+      : formatDisplayId(internalTarget, mapping, prefix);
 
     this.output.data({ id: displayId, removed: displayTarget }, () => {
       this.output.success(`Removed dependency: ${displayId} no longer blocks ${displayTarget}`);
@@ -210,12 +215,16 @@ class DependsListHandler extends BaseCommand {
     }
 
     const showDebug = this.ctx.debug;
+    const config = await readConfig(process.cwd());
+    const prefix = config.display.id_prefix;
 
     // Find what this issue blocks (from its dependencies)
     const blocks = issue.dependencies
       .filter((dep) => dep.type === 'blocks')
       .map((dep) =>
-        showDebug ? formatDebugId(dep.target, mapping) : formatDisplayId(dep.target, mapping),
+        showDebug
+          ? formatDebugId(dep.target, mapping, prefix)
+          : formatDisplayId(dep.target, mapping, prefix),
       );
 
     // Find what blocks this issue (reverse lookup)
@@ -224,7 +233,9 @@ class DependsListHandler extends BaseCommand {
       for (const dep of other.dependencies) {
         if (dep.type === 'blocks' && dep.target === internalId) {
           blockedBy.push(
-            showDebug ? formatDebugId(other.id, mapping) : formatDisplayId(other.id, mapping),
+            showDebug
+              ? formatDebugId(other.id, mapping, prefix)
+              : formatDisplayId(other.id, mapping, prefix),
           );
         }
       }
