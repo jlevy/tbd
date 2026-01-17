@@ -11,6 +11,7 @@ import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 
 import { BaseCommand } from '../lib/baseCommand.js';
+import { renderMarkdown } from '../lib/output.js';
 import GithubSlugger from 'github-slugger';
 
 interface Section {
@@ -98,8 +99,8 @@ class DocsHandler extends BaseCommand {
       content = sectionContent;
     }
 
-    // Output the documentation
-    console.log(content);
+    // Output the documentation with Markdown colorization
+    console.log(renderMarkdown(content, this.ctx.color));
   }
 
   /**

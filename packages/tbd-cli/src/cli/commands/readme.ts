@@ -10,6 +10,7 @@ import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 
 import { BaseCommand } from '../lib/baseCommand.js';
+import { renderMarkdown } from '../lib/output.js';
 
 /**
  * Get the path to the bundled README file.
@@ -51,8 +52,8 @@ class ReadmeHandler extends BaseCommand {
       }
     }
 
-    // Output the README
-    console.log(content);
+    // Output the README with Markdown colorization
+    console.log(renderMarkdown(content, this.ctx.color));
   }
 }
 
