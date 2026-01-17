@@ -12,7 +12,12 @@ import { writeFile } from 'atomically';
 import { BaseCommand } from '../lib/baseCommand.js';
 import { requireInit } from '../lib/errors.js';
 import { writeIssue, listIssues } from '../../file/storage.js';
-import { generateInternalId, extractShortId, extractUlidFromInternalId } from '../../lib/ids.js';
+import {
+  generateInternalId,
+  extractShortId,
+  extractUlidFromInternalId,
+  makeInternalId,
+} from '../../lib/ids.js';
 import {
   loadIdMapping,
   saveIdMapping,
@@ -246,7 +251,7 @@ class ImportHandler extends BaseCommand {
       const shortId = extractShortId(beads.id);
       const ulid = shortIdMapping.shortToUlid.get(shortId);
       if (ulid) {
-        const internalId = `is-${ulid}`;
+        const internalId = makeInternalId(ulid);
         beadsToTbd[beads.id] = internalId;
         reverseMapping[internalId] = beads.id;
       }
