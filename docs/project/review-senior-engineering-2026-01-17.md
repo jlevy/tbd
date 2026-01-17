@@ -9,79 +9,90 @@
 
 ## Executive Summary
 
-**tbd** is a well-architected, thoughtfully designed CLI tool for git-native issue tracking. The tool successfully achieves its primary goals of being a simpler alternative to Beads with better conflict handling, no daemon requirements, and improved cross-environment support. The codebase is clean, well-documented, and follows modern TypeScript best practices.
+**tbd** is a well-architected CLI tool for git-native issue tracking. It successfully achieves its primary goals of being a simpler alternative to Beads with better conflict handling, no daemon requirements, and improved cross-environment support.
 
 **Overall Assessment**: **Ready for beta release with minor issues**
 
-The tool is functional and covers the essential workflows. There are some issues that should be addressed before a production release, but none are blockers for beta usage.
+**Key Finding from Beads Comparison**: tbd's simpler approach is better. Beads has 5 different session close protocols based on context; tbd has one clear protocol that always works. **Do not add Beads' complexity.**
 
 ---
 
 ## Table of Contents
 
-1. [Architectural Review](#architectural-review)
-2. [Bugs Found](#bugs-found)
-3. [Design Improvement Ideas](#design-improvement-ideas)
-4. [Documentation Issues](#documentation-issues)
-5. [Testing and Quality](#testing-and-quality)
-6. [Performance](#performance)
-7. [Agent-Friendly Features](#agent-friendly-features)
-8. [Migration from Beads](#migration-from-beads)
-9. [Recommendations for Release](#recommendations-for-release)
+1. [Bugs Summary](#bugs-summary)
+2. [Enhancements Summary](#enhancements-summary)
+3. [Bugs (Detailed)](#bugs-detailed)
+4. [Enhancements (Detailed)](#enhancements-detailed)
+5. [Beads vs tbd Comparison](#beads-vs-tbd-comparison)
+6. [Testing and Quality](#testing-and-quality)
+7. [Release Checklist](#release-checklist)
 
 ---
 
-## Architectural Review
+## Bugs Summary
 
-### Strengths
-
-1. **Clean Three-Layer Architecture**
-   - File Layer: Zod schemas, Markdown+YAML format, atomic writes
-   - Git Layer: Worktree management, conflict resolution, sync operations
-   - CLI Layer: Commander.js with BaseCommand pattern
-
-2. **Excellent Design Decisions**
-   - File-per-issue eliminates merge conflicts on parallel creation
-   - Hidden worktree model keeps sync branch separate from working branches
-   - Field-level merge with LWW + attic preservation prevents data loss
-   - ULID-based internal IDs with short display IDs for usability
-   - No daemon requirement enables cloud/sandboxed environment use
-
-3. **Well-Chosen Dependencies**
-   - `atomically` for safe file writes
-   - `commander` for CLI framework (mature, widely used)
-   - `zod` for schema validation
-   - `ulid` for sortable unique IDs
-
-4. **Security Considerations**
-   - Uses `execFile` instead of shell commands (prevents injection)
-   - Proper quoting in git operations
-   - No user input directly interpolated into commands
-
-### Areas for Improvement
-
-1. **Error Return Pattern**
-   - Commands use `this.output.error()` + `return` instead of throwing
-   - This causes exit code 0 on errors (critical for CI/automation)
-   - See [Bug #1](#bug-1-exit-codes) below
-
-2. **Worktree Initialization**
-   - Requires Git 2.42+ for `--orphan` worktree support
-   - Could provide fallback for older Git versions
-
-3. **No Index/Cache Layer**
-   - Each `list` operation reads all issue files from disk
-   - Works well for <10K issues per performance tests
-   - May need optimization for larger repositories
+| # | Bug | Severity | Location | Status |
+|---|-----|----------|----------|--------|
+| 1 | Exit codes return 0 on errors | **Critical** | `src/cli/commands/*.ts` | Open |
+| 2 | Dependency direction semantics confusing | Medium | `src/cli/commands/dep.ts` | Open |
+| 3 | Search outputs message with --quiet | Low | `src/cli/commands/search.ts` | Open |
+| 4 | Doctor warns on empty issues dir | Low | `src/cli/commands/doctor.ts` | Open |
+| 5 | Import changes ID prefix | Medium | `src/cli/commands/import.ts` | Open |
+| 6 | Errors not JSON with --json flag | Medium | `src/cli/lib/output.ts` | Open |
 
 ---
 
-## Bugs Found
+## Enhancements Summary
 
-### Bug #1: Exit Codes (CRITICAL for Agents)
+### Priority: Critical (Before Beta)
 
-**Severity**: High
+| # | Enhancement | Category |
+|---|-------------|----------|
+| E1 | Fix exit codes (Bug #1) | Bug Fix |
+| E2 | Publish to npm | Release |
+| E3 | Add Git 2.42+ version check | Robustness |
+
+### Priority: High (Before 1.0)
+
+| # | Enhancement | Category |
+|---|-------------|----------|
+| E4 | Clarify dependency semantics (Bug #2) | UX |
+| E5 | Error JSON output with --json | Agent Support |
+| E6 | Integration tests with git remotes | Testing |
+| E7 | Document Git version requirement | Docs |
+| E8 | Auto-detect ID prefix on import | Migration |
+
+### Priority: Medium (Nice to Have)
+
+| # | Enhancement | Category |
+|---|-------------|----------|
+| E9 | Add `--brief` flag to prime | Agent Support |
+| E10 | Issue templates | UX |
+| E11 | Query DSL for list | UX |
+| E12 | Batch operations | Agent Support |
+| E13 | `--format` option (json/yaml/table/csv) | UX |
+| E14 | Architecture diagrams in docs | Docs |
+| E15 | Make close idempotent | Agent Support |
+
+### Priority: Low (Future)
+
+| # | Enhancement | Category |
+|---|-------------|----------|
+| E16 | Issue history/log command | Feature |
+| E17 | GitHub Issues sync | Feature |
+| E18 | Plugin architecture | Extensibility |
+| E19 | Optional SQLite index layer | Performance |
+| E20 | Auto-link issue references | UX |
+
+---
+
+## Bugs (Detailed)
+
+### Bug #1: Exit Codes Return 0 on Errors ⚠️ CRITICAL
+
+**Severity**: Critical
 **Location**: `src/cli/commands/*.ts`
+**Impact**: Agents and CI scripts cannot detect failures
 
 All error conditions return exit code 0 instead of non-zero:
 
@@ -92,10 +103,10 @@ $ echo $?
 0  # Should be 1
 ```
 
-**Root Cause**: Commands use `this.output.error()` followed by `return` instead of throwing an error:
+**Root Cause**: Commands use `this.output.error()` + `return` instead of throwing:
 
 ```typescript
-// Current pattern (src/cli/commands/show.ts:31-33)
+// Current pattern
 if (!issue) {
   this.output.error(`Issue not found: ${id}`);
   return;  // Returns with exit 0
@@ -107,48 +118,43 @@ if (!issue) {
 }
 ```
 
-**Impact**: Agents and CI scripts cannot detect failures via exit codes.
-
-**Fix**: Throw appropriate `CLIError` subclasses instead of returning after `output.error()`.
+**Fix**: Throw `CLIError` subclasses instead of returning after `output.error()`.
 
 ---
 
-### Bug #2: Dependency Direction Semantics
+### Bug #2: Dependency Direction Semantics Confusing
 
 **Severity**: Medium
 **Location**: `src/cli/commands/dep.ts`
 
-The `dep add` command output is confusing:
+The `dep add` command semantics are inverted from user expectation:
 
 ```bash
 $ tbd dep add bd-afau bd-zadd
 ✓ bd-afau now blocks bd-zadd
 ```
 
-But running `tbd blocked` shows:
-```
-bd-zadd ... BLOCKED BY bd-afau
-```
+Users expect `dep add A B` to mean "A depends on B" (B blocks A), but current behavior means "A blocks B".
 
-This is actually correct behavior, but the command semantics are inverted from what users might expect. When you run `tbd dep add A B`, you'd expect "A depends on B" not "A blocks B".
-
-**Recommendation**: Either:
-1. Change semantics to `tbd dep add <issue> <blocked-by>` (issue depends on blocked-by)
-2. Add `--blocks` / `--blocked-by` flags to clarify direction
-3. Update documentation to make the semantics crystal clear
+**Fix Options**:
+1. Change semantics to `dep add <issue> <blocked-by>`
+2. Add `--blocks` / `--blocked-by` flags
+3. Add clearer documentation with examples
 
 ---
 
-### Bug #3: Search Worktree Refresh Message
+### Bug #3: Search Outputs Message with --quiet
 
 **Severity**: Low
 **Location**: `src/cli/commands/search.ts`
 
-The search command outputs "Refreshing worktree..." even with `--quiet` flag, which pollutes machine-readable output.
+The search command outputs "Refreshing worktree..." even with `--quiet` flag, polluting machine-readable output.
+
+**Fix**: Check quiet mode before outputting status messages.
 
 ---
 
-### Bug #4: Doctor Reports Healthy as Warning
+### Bug #4: Doctor Warns on Empty Issues Directory
 
 **Severity**: Low
 **Location**: `src/cli/commands/doctor.ts`
@@ -158,16 +164,18 @@ When issues directory doesn't exist (empty repo), doctor reports:
 ⚠ Issues directory - Issues directory not found (may be empty)
 ```
 
-This is not actually a problem - it's expected for a fresh repo with no issues.
+This is expected for a fresh repo with no issues and shouldn't be a warning.
+
+**Fix**: Only warn if directory is expected but missing.
 
 ---
 
-### Bug #5: Import Changes ID Prefix (Migration UX Issue)
+### Bug #5: Import Changes ID Prefix
 
 **Severity**: Medium
 **Location**: `src/cli/commands/import.ts`
 
-When importing from Beads, the ID prefix changes based on local config rather than preserving the original:
+When importing from Beads, the ID prefix changes based on local config:
 
 ```bash
 # Original Beads ID
@@ -177,103 +185,175 @@ tbd-100
 bd-100
 ```
 
-The numeric short ID ("100") is preserved, but users who had muscle memory for `tbd-100` now need to use `bd-100`. The original ID is stored in `extensions.beads.original_id` but this doesn't help day-to-day usage.
+The numeric portion is preserved, but users with muscle memory for `tbd-100` must now use `bd-100`.
 
-**Recommendation**: Either:
-1. Auto-detect prefix from Beads IDs during import and set config accordingly
-2. Add `--preserve-prefix` flag to import command
-3. Document this clearly as expected behavior in migration guide
-
----
-
-## Design Improvement Ideas
-
-### Short-term Improvements
-
-1. **Add `--format` Option**
-   - Support `--format=json|yaml|table|csv`
-   - More flexible than just `--json` flag
-
-2. **Batch Operations**
-   - `tbd update --status=closed bd-a bd-b bd-c` (partially implemented for close)
-   - Reduces agent round-trips
-
-3. **Issue Templates**
-   - `tbd create --template=bug` reads from `.tbd/templates/bug.yml`
-   - Pre-fills common fields
-
-4. **Watch Mode for Agents**
-   - `tbd watch --on-change="run-tests.sh"`
-   - Useful for reactive agent workflows
-
-### Medium-term Improvements
-
-1. **Query DSL**
-   - `tbd list "status:open priority:<2 label:backend"`
-   - More powerful than individual flags
-
-2. **Issue Links in Description**
-   - Auto-link `#bd-xyz` references in descriptions
-   - Track implicit dependencies
-
-3. **Compact History View**
-   - `tbd log bd-xyz` shows issue history from version changes
-   - `tbd diff bd-xyz@2 bd-xyz@3` shows what changed
-
-4. **Bulk Import/Export Improvements**
-   - `tbd export --format=github` for GitHub Issues export
-   - `tbd import --from=linear` for Linear migration
-
-### Long-term Ideas
-
-1. **Optional Index Layer**
-   - SQLite cache for fast queries (opt-in)
-   - Regenerated from files on demand
-   - Maintains file-as-truth principle
-
-2. **GitHub Issues Sync**
-   - Two-way sync with GitHub Issues
-   - Map tbd fields to GitHub fields
-
-3. **Plugin Architecture**
-   - Custom commands via `.tbd/plugins/`
-   - Hook into lifecycle events
+**Fix Options**:
+1. Auto-detect prefix from Beads IDs during import
+2. Add `--preserve-prefix` flag
+3. Document as expected behavior
 
 ---
 
-## Documentation Issues
+### Bug #6: Errors Not JSON with --json Flag
 
-### README.md
+**Severity**: Medium
+**Location**: `src/cli/lib/output.ts`
 
-1. **Installation Section**
-   - Shows `npm install -g tbd-cli` but package isn't published yet
-   - Should note "coming soon to npm" or provide source install instructions
+When `--json` flag is used, errors still output as plain text instead of JSON, making parsing unreliable for agents.
 
-2. **Quick Start Missing Prerequisites**
-   - Doesn't mention Git 2.42+ requirement
-   - Add note about `git --version` check
+**Fix**: Wrap errors in JSON structure when `--json` is enabled.
 
-### tbd-docs.md
+---
 
-1. **Dependency Command Semantics**
-   - The `dep add` documentation should clarify the blocking direction more clearly
-   - Add examples showing both directions
+## Enhancements (Detailed)
 
-2. **Troubleshooting Section**
-   - Could use more common error scenarios
-   - Add "Git version too old" troubleshooting
+### E1-E3: Critical for Beta
 
-### Design Document (tbd-design-v3.md)
+**E1: Fix Exit Codes** - See Bug #1
 
-1. **Excellent and Comprehensive**
-   - Very thorough architectural documentation
-   - Good decision rationale sections
-   - Well-organized with clear sections
+**E2: Publish to npm**
+- Package is ready, needs publishing
+- Update README with install instructions
 
-2. **Could Add**
-   - Architecture diagram (ASCII or mermaid)
-   - Sequence diagram for sync flow
-   - State diagram for issue lifecycle
+**E3: Add Git Version Check**
+- Requires Git 2.42+ for `--orphan` worktree
+- Fail gracefully with upgrade instructions
+
+---
+
+### E4-E8: High Priority for 1.0
+
+**E4: Clarify Dependency Semantics** - See Bug #2
+
+**E5: Error JSON Output**
+```json
+{
+  "error": true,
+  "code": "NOT_FOUND",
+  "message": "Issue not found: bd-xyz"
+}
+```
+
+**E6: Integration Tests**
+- Test with actual git remotes
+- Test concurrent operations
+- Test large repositories (>5000 issues)
+
+**E7: Document Git Requirements**
+- Add to README
+- Add to troubleshooting section
+
+**E8: Auto-detect ID Prefix on Import**
+- Parse first Beads ID to extract prefix
+- Set config `display.id_prefix` accordingly
+
+---
+
+### E9-E15: Medium Priority
+
+**E9: Add `--brief` Flag to Prime**
+- ~200 tokens output for minimal context
+- Useful for constrained contexts
+
+**E10: Issue Templates**
+```bash
+tbd create --template=bug  # reads .tbd/templates/bug.yml
+```
+
+**E11: Query DSL**
+```bash
+tbd list "status:open priority:<2 label:backend"
+```
+
+**E12: Batch Operations**
+```bash
+tbd update --status=closed bd-a bd-b bd-c
+```
+
+**E13: Format Option**
+```bash
+tbd list --format=csv
+tbd list --format=yaml
+```
+
+**E14: Architecture Diagrams**
+- Add mermaid diagrams to design doc
+- Sequence diagram for sync flow
+
+**E15: Idempotent Close**
+- `tbd close` on already-closed issue should succeed silently
+- Important for agent retry logic
+
+---
+
+### E16-E20: Future Enhancements
+
+**E16: Issue History**
+```bash
+tbd log bd-xyz           # Show version history
+tbd diff bd-xyz@2 bd-xyz@3  # Show changes
+```
+
+**E17: GitHub Issues Sync**
+- Two-way sync with GitHub Issues
+- Map tbd fields to GitHub fields
+
+**E18: Plugin Architecture**
+- Custom commands via `.tbd/plugins/`
+- Hook into lifecycle events
+
+**E19: Optional Index Layer**
+- SQLite cache for fast queries (opt-in)
+- Regenerated from files on demand
+
+**E20: Auto-link Issue References**
+- Detect `#bd-xyz` in descriptions
+- Track as implicit dependencies
+
+---
+
+## Beads vs tbd Comparison
+
+### Session Close Protocol
+
+**Beads has 5 different protocols:**
+1. Stealth/Local-only: `bd sync --flush-only`
+2. Daemon auto-syncing: no bd sync needed
+3. Ephemeral branch: `bd sync --from-main`, no push
+4. No-push mode: manual push
+5. Standard mode: full sync
+
+**tbd has 1 protocol:**
+```
+[ ] 1. git status
+[ ] 2. git add <files>
+[ ] 3. tbd sync
+[ ] 4. git commit -m "..."
+[ ] 5. tbd sync
+[ ] 6. git push
+```
+
+### Code Complexity
+
+| Metric | Beads | tbd |
+|--------|-------|-----|
+| Prime command lines | 432 | 132 |
+| Conditional paths | 5 | 1 |
+| Testing complexity | High | Low |
+
+### Recommendation
+
+**Keep tbd simple.** The single protocol is:
+- Clearer for agents
+- Easier to test
+- Simpler to document
+- Always correct
+
+**Do NOT add:**
+- MCP auto-detection (use `--brief` flag instead)
+- Ephemeral branch detection
+- Stealth mode (use PRIME.md override)
+- Daemon detection (no daemon)
 
 ---
 
@@ -282,161 +362,50 @@ The numeric short ID ("100") is preserved, but users who had muscle memory for `
 ### Test Coverage
 
 - **187 tests passing** across 15 test files
-- Good coverage of:
-  - Core schemas and ID generation
-  - File parsing and serialization
-  - Merge algorithms
-  - Workflow operations
-  - Performance characteristics
+- Good coverage of core functionality
+- Performance tests included
 
-### Test Quality
+### Test Gaps
 
-**Strengths:**
-- Uses Vitest with good isolation
-- Performance tests with real benchmarks
-- Tests actual file operations (not mocked)
-
-**Gaps:**
 - No integration tests with actual git remotes
 - No tests for concurrent operations
-- No tests for large repositories (>5000 issues)
+- No tests for >5000 issues
 - Missing error path tests for CLI exit codes
 
 ### Code Quality
 
 **Excellent:**
-- Consistent code style (ESLint + Prettier)
-- TypeScript strict mode enabled
-- Good use of Zod for validation
+- Consistent style (ESLint + Prettier)
+- TypeScript strict mode
+- Zod for validation
 - Clean separation of concerns
 
-**Minor Issues:**
-- Some console.log statements in production code (storage.ts:70)
-- A few empty catch blocks without comments
-
 ---
 
-## Performance
+## Release Checklist
 
-Performance testing showed excellent results:
+### Beta Release
 
-| Operation | Measured | Target | Status |
-|-----------|----------|--------|--------|
-| Write 100 issues | 1.4s (14ms/issue) | <30ms/issue | ✅ Pass |
-| List 1000 issues | 1.4s | <2s | ✅ Pass |
-| Read 100 random | 117ms (1.2ms/issue) | <5ms/issue | ✅ Pass |
-| Filter 1000 issues | 0.4ms | <50ms | ✅ Pass |
-| Sort 1000 issues | 0.6ms | <50ms | ✅ Pass |
+- [ ] **Bug #1**: Fix exit codes (Critical)
+- [ ] **E2**: Publish to npm
+- [ ] **E3**: Add Git version check
+- [ ] Update README with install instructions
 
-The tool meets its stated performance goals and should handle repositories with several thousand issues without problems.
+### 1.0 Release
 
----
+- [ ] **Bug #2**: Clarify dependency semantics
+- [ ] **Bug #5**: Fix or document ID prefix change
+- [ ] **Bug #6**: Error JSON output
+- [ ] **E6**: Integration tests
+- [ ] **E7**: Document Git requirements
+- [ ] **E15**: Idempotent close
 
-## Agent-Friendly Features
+### Nice to Have
 
-### What Works Well
-
-1. **JSON Output**: `--json` flag on most commands
-2. **Non-Interactive Mode**: `--non-interactive` and `--yes` flags
-3. **Dry Run**: `--dry-run` for preview
-4. **Prime Command**: Excellent context injection for AI agents
-5. **Environment Variables**: `TBD_ACTOR` for identity
-
-### What Needs Improvement
-
-1. **Exit Codes**: Critical issue - see Bug #1
-2. **Error JSON**: Errors should also be JSON with `--json` flag
-3. **Idempotency**: Some operations could be more idempotent
-   - `tbd close` on already-closed issue should succeed silently
-
-### Agent Workflow Verification
-
-Tested the recommended agent workflow:
-```bash
-tbd ready --json          # ✅ Works
-tbd update <id> --status=in_progress  # ✅ Works
-tbd close <id> --reason="..."  # ✅ Works
-tbd sync                  # ✅ Works
-```
-
-The basic agent loop works correctly.
-
----
-
-## Migration from Beads
-
-### Import Testing
-
-Tested import from existing Beads repository:
-
-```bash
-$ tbd import --from-beads --verbose
-✓ Import complete from .beads/issues.jsonl
-  New issues:   265
-  Merged:       0
-  Skipped:      0
-```
-
-**Import Works Well:**
-- Preserves short ID numeric portion (100 from tbd-100 → bd-100)
-- Maps status values correctly
-- Handles tombstoned issues
-- Stores original Beads ID in `extensions.beads.original_id`
-
-**Import Limitations:**
-- **ID prefix changes**: `tbd-100` becomes `bd-100` because the prefix comes from local config (`display.id_prefix`), not the source. This could confuse users expecting identical IDs.
-- `blocked_by` dependencies not fully handled (only `blocks` direction)
-- Beads molecules/wisps not imported (by design)
-- No validation against running Beads daemon
-- No option to preserve original prefix during import
-
-### Compatibility
-
-| Feature | Beads | tbd | Notes |
-|---------|-------|-----|-------|
-| Core CRUD | ✅ | ✅ | Full parity |
-| Dependencies | ✅ | ⚠️ | Only `blocks` type |
-| Labels | ✅ | ✅ | Full parity |
-| Search | ✅ | ✅ | Full parity |
-| Sync | ✅ | ✅ | Different mechanism |
-| Daemon | Required | Not needed | Major improvement |
-| SQLite | Yes | No | Better for cloud |
-| Molecules | ✅ | ❌ | Not planned |
-| Agent Mail | ✅ | ❌ | Not planned |
-
----
-
-## Recommendations for Release
-
-### Before Beta Release (Priority: Critical)
-
-1. **Fix Exit Codes** - All error conditions must return non-zero
-2. **Publish to npm** - Package is ready, just needs publishing
-3. **Add Git Version Check** - Fail gracefully on Git < 2.42
-
-### Before 1.0 Release (Priority: High)
-
-1. **Improve Dependency Semantics** - Clarify blocking direction
-2. **Add Error JSON Output** - Errors should be JSON with --json
-3. **Integration Tests** - Add tests with actual git operations
-4. **Document Git Requirements** - README should mention Git 2.42+
-
-### Nice to Have (Priority: Medium)
-
-1. **Issue Templates** - Reduce boilerplate for agents
-2. **Query DSL** - More powerful filtering
-3. **GitHub Issues Sync** - Useful for OSS projects
-4. **Architecture Diagrams** - Visual documentation
-
----
-
-## Conclusion
-
-**tbd is a well-designed, well-implemented tool** that successfully addresses the pain points of Beads (daemon conflicts, SQLite locking, merge conflicts) while maintaining CLI compatibility.
-
-The codebase quality is high, the architecture is sound, and the tool is ready for beta use. The exit code issue is the only critical bug that needs fixing before agents can reliably use the tool in automation.
-
-**Recommended Action**: Fix exit codes, publish to npm, and release as beta.
+- [ ] **E9**: `--brief` flag for prime
+- [ ] **E10**: Issue templates
+- [ ] **E12**: Batch operations
+- [ ] **E14**: Architecture diagrams
 
 ---
 
@@ -445,40 +414,24 @@ The codebase quality is high, the architecture is sound, and the tool is ready f
 - `README.md` - Project overview
 - `docs/tbd-docs.md` - CLI reference
 - `docs/development.md` - Development guide
-- `docs/project/architecture/current/tbd-design-v3.md` - Architecture (partial)
-- `packages/tbd-cli/src/cli/cli.ts` - Main CLI setup
-- `packages/tbd-cli/src/cli/lib/errors.ts` - Error types
-- `packages/tbd-cli/src/cli/commands/show.ts` - Example command
-- `packages/tbd-cli/src/cli/commands/import.ts` - Import logic
-- `packages/tbd-cli/src/file/git.ts` - Git/worktree operations
-- `packages/tbd-cli/src/file/storage.ts` - File storage
+- `packages/tbd-cli/src/cli/commands/*.ts` - All commands
+- `packages/tbd-cli/src/file/git.ts` - Git operations
+- `attic/beads/cmd/bd/prime.go` - Beads prime (432 lines)
+- `attic/beads/cmd/bd/setup/claude.go` - Beads Claude setup
 - All test files (15 files, 187 tests)
 
 ## Appendix: Commands Tested
 
-```bash
-tbd status          ✅
-tbd stats           ✅
-tbd list            ✅
-tbd list --json     ✅
-tbd ready           ✅
-tbd blocked         ✅
-tbd stale           ✅
-tbd create          ✅
-tbd show            ✅
-tbd update          ✅
-tbd close           ✅
-tbd reopen          ✅
-tbd search          ✅
-tbd label           ✅
-tbd dep             ✅
-tbd sync            ✅
-tbd sync --status   ✅
-tbd attic list      ✅
-tbd doctor          ✅
-tbd import --from-beads ✅
-tbd prime           ✅
-tbd setup claude --check ✅
-tbd docs            ✅
-tbd --help          ✅
+```
+tbd status          ✅    tbd update          ✅
+tbd stats           ✅    tbd close           ✅
+tbd list            ✅    tbd reopen          ✅
+tbd list --json     ✅    tbd search          ✅
+tbd ready           ✅    tbd label           ✅
+tbd blocked         ✅    tbd dep             ✅
+tbd stale           ✅    tbd sync            ✅
+tbd create          ✅    tbd attic list      ✅
+tbd show            ✅    tbd doctor          ✅
+tbd import          ✅    tbd prime           ✅
+tbd setup           ✅    tbd docs            ✅
 ```
