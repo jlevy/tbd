@@ -48,7 +48,7 @@
   ],
   "scripts": {
     "prebuild": "mkdir -p src/docs && cp ../../docs/tbd-docs.md src/docs/",
-    "build": "tsdown && mkdir -p dist/docs && cp src/docs/tbd-docs.md dist/docs/ && ln -sf bin.mjs dist/tbd",
+    "build": "tsdown && mkdir -p dist/docs && cp src/docs/tbd-docs.md dist/docs/ && node -e \"require('fs').copyFileSync('dist/bin.mjs','dist/tbd')\"",
     "dev": "tsdown --watch",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run",
