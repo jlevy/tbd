@@ -7,6 +7,7 @@
 import { Command } from 'commander';
 
 import { BaseCommand } from '../lib/baseCommand.js';
+import { requireInit } from '../lib/errors.js';
 import { readIssue } from '../../file/storage.js';
 import { serializeIssue } from '../../file/parser.js';
 import { formatDisplayId, formatDebugId } from '../../lib/ids.js';
@@ -15,6 +16,8 @@ import { loadIdMapping, resolveToInternalId } from '../../file/idMapping.js';
 
 class ShowHandler extends BaseCommand {
   async run(id: string): Promise<void> {
+    await requireInit();
+
     const dataSyncDir = await resolveDataSyncDir();
 
     // Load ID mapping for resolution and display

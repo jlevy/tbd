@@ -7,12 +7,15 @@
 import { Command } from 'commander';
 
 import { BaseCommand } from '../lib/baseCommand.js';
+import { requireInit } from '../lib/errors.js';
 import { readConfig, writeConfig } from '../../file/config.js';
 import type { Config } from '../../lib/types.js';
 
 // Show config
 class ConfigShowHandler extends BaseCommand {
   async run(): Promise<void> {
+    await requireInit();
+
     let config: Config;
     try {
       config = await readConfig('.');
@@ -40,6 +43,8 @@ class ConfigShowHandler extends BaseCommand {
 // Set config value
 class ConfigSetHandler extends BaseCommand {
   async run(key: string, value: string): Promise<void> {
+    await requireInit();
+
     let config: Config;
     try {
       config = await readConfig('.');
@@ -101,6 +106,8 @@ class ConfigSetHandler extends BaseCommand {
 // Get config value
 class ConfigGetHandler extends BaseCommand {
   async run(key: string): Promise<void> {
+    await requireInit();
+
     let config: Config;
     try {
       config = await readConfig('.');

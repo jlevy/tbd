@@ -7,6 +7,7 @@
 import { Command } from 'commander';
 
 import { BaseCommand } from '../lib/baseCommand.js';
+import { requireInit } from '../lib/errors.js';
 import { listIssues } from '../../file/storage.js';
 import type { Issue } from '../../lib/types.js';
 import { resolveDataSyncDir } from '../../lib/paths.js';
@@ -19,6 +20,8 @@ interface BlockedOptions {
 
 class BlockedHandler extends BaseCommand {
   async run(options: BlockedOptions): Promise<void> {
+    await requireInit();
+
     // Load all issues
     let issues: Issue[];
     let dataSyncDir: string;

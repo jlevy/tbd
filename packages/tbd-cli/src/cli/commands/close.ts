@@ -7,6 +7,7 @@
 import { Command } from 'commander';
 
 import { BaseCommand } from '../lib/baseCommand.js';
+import { requireInit } from '../lib/errors.js';
 import { readIssue, writeIssue } from '../../file/storage.js';
 import { formatDisplayId, formatDebugId } from '../../lib/ids.js';
 import { resolveDataSyncDir } from '../../lib/paths.js';
@@ -19,6 +20,8 @@ interface CloseOptions {
 
 class CloseHandler extends BaseCommand {
   async run(id: string, options: CloseOptions): Promise<void> {
+    await requireInit();
+
     const dataSyncDir = await resolveDataSyncDir();
 
     // Load ID mapping for resolution

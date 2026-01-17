@@ -8,6 +8,7 @@ import { Command } from 'commander';
 import { readFile } from 'node:fs/promises';
 
 import { BaseCommand } from '../lib/baseCommand.js';
+import { requireInit } from '../lib/errors.js';
 import { readIssue, writeIssue } from '../../file/storage.js';
 import { normalizeIssueId, formatDisplayId, formatDebugId } from '../../lib/ids.js';
 import { IssueStatus, IssueKind, Priority } from '../../lib/schemas.js';
@@ -34,6 +35,8 @@ interface UpdateOptions {
 
 class UpdateHandler extends BaseCommand {
   async run(id: string, options: UpdateOptions): Promise<void> {
+    await requireInit();
+
     const dataSyncDir = await resolveDataSyncDir();
 
     // Load ID mapping for resolution

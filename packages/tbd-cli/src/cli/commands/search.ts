@@ -10,6 +10,7 @@ import { readFile } from 'node:fs/promises';
 import { writeFile } from 'atomically';
 
 import { BaseCommand } from '../lib/baseCommand.js';
+import { requireInit } from '../lib/errors.js';
 import { listIssues } from '../../file/storage.js';
 import { IssueStatus } from '../../lib/schemas.js';
 import type { Issue, IssueStatusType } from '../../lib/types.js';
@@ -79,6 +80,8 @@ async function isWorktreeStale(): Promise<boolean> {
 
 class SearchHandler extends BaseCommand {
   async run(query: string, options: SearchOptions): Promise<void> {
+    await requireInit();
+
     // Check worktree staleness and auto-refresh if needed
     if (!options.noRefresh) {
       const stale = await isWorktreeStale();

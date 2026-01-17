@@ -9,6 +9,7 @@ import { access, readdir, unlink } from 'node:fs/promises';
 import { join } from 'node:path';
 
 import { BaseCommand } from '../lib/baseCommand.js';
+import { requireInit } from '../lib/errors.js';
 import { listIssues } from '../../file/storage.js';
 import { readConfig } from '../../file/config.js';
 import type { Issue } from '../../lib/types.js';
@@ -31,6 +32,8 @@ class DoctorHandler extends BaseCommand {
   private dataSyncDir = '';
 
   async run(options: DoctorOptions): Promise<void> {
+    await requireInit();
+
     this.dataSyncDir = await resolveDataSyncDir();
     const checks: CheckResult[] = [];
     let issues: Issue[] = [];

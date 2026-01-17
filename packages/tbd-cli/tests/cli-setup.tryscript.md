@@ -217,7 +217,7 @@ Total issues: 0
 ```console
 $ mkdir uninit-repo && cd uninit-repo && git init --initial-branch=main && git config user.email "test@example.com" && git config user.name "Test" && tbd list 2>&1
 Initialized empty Git repository in [..]
-Error: Not a tbd repository. Run "tbd init" first.
+Error: Not a tbd repository (run 'tbd init' or 'tbd import --from-beads' first)
 ? 1
 ```
 

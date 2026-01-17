@@ -12,6 +12,7 @@ import { parse as parseYaml, stringify as stringifyYaml } from 'yaml';
 import { writeFile } from 'atomically';
 
 import { BaseCommand } from '../lib/baseCommand.js';
+import { requireInit } from '../lib/errors.js';
 import { readIssue, writeIssue } from '../../file/storage.js';
 import { normalizeIssueId, formatDisplayId, formatDebugId } from '../../lib/ids.js';
 import { resolveDataSyncDir, resolveAtticDir } from '../../lib/paths.js';
@@ -117,6 +118,8 @@ export async function saveAtticEntry(entry: AtticEntry): Promise<void> {
 // List attic entries
 class AtticListHandler extends BaseCommand {
   async run(id?: string): Promise<void> {
+    await requireInit();
+
     const filterId = id ? normalizeIssueId(id) : undefined;
     const entries = await listAtticEntries(filterId);
 
@@ -153,6 +156,8 @@ class AtticListHandler extends BaseCommand {
 // Show attic entry
 class AtticShowHandler extends BaseCommand {
   async run(id: string, timestamp: string): Promise<void> {
+    await requireInit();
+
     const normalizedId = normalizeIssueId(id);
     const entries = await listAtticEntries(normalizedId);
 
@@ -197,6 +202,8 @@ class AtticShowHandler extends BaseCommand {
 // Restore from attic
 class AtticRestoreHandler extends BaseCommand {
   async run(id: string, timestamp: string): Promise<void> {
+    await requireInit();
+
     const normalizedId = normalizeIssueId(id);
     const entries = await listAtticEntries(normalizedId);
 

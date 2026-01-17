@@ -7,6 +7,7 @@
 import { Command } from 'commander';
 
 import { BaseCommand } from '../lib/baseCommand.js';
+import { requireInit } from '../lib/errors.js';
 import { listIssues } from '../../file/storage.js';
 import { IssueStatus } from '../../lib/schemas.js';
 import type { Issue, IssueStatusType } from '../../lib/types.js';
@@ -23,6 +24,8 @@ interface StaleOptions {
 
 class StaleHandler extends BaseCommand {
   async run(options: StaleOptions): Promise<void> {
+    await requireInit();
+
     // Load all issues
     let issues: Issue[];
     let dataSyncDir: string;

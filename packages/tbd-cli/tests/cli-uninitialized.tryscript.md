@@ -50,7 +50,7 @@ List command should fail with helpful error message when tbd is not initialized.
 
 ```console
 $ tbd list 2>&1
-Error: Not a tbd repository. Run "tbd init" first.
+Error: Not a tbd repository (run 'tbd init' or 'tbd import --from-beads' first)
 ? 1
 ```
 
@@ -60,12 +60,12 @@ Error: Not a tbd repository. Run "tbd init" first.
 
 # Test: Show without init gives error
 
-Show command fails gracefully since no .tbd directory exists.
+Show command fails with not initialized error when tbd is not set up.
 
 ```console
 $ tbd show bd-1234 2>&1
-✗ Issue not found: bd-1234
-? 0
+Error: Not a tbd repository (run 'tbd init' or 'tbd import --from-beads' first)
+? 1
 ```
 
 ---

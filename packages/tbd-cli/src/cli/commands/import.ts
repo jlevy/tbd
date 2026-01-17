@@ -5,10 +5,12 @@
  */
 
 import { Command } from 'commander';
-import { readFile, access } from 'node:fs/promises';
+import { readFile, access, mkdir } from 'node:fs/promises';
 import { join } from 'node:path';
+import { writeFile } from 'atomically';
 
 import { BaseCommand } from '../lib/baseCommand.js';
+import { requireInit } from '../lib/errors.js';
 import { writeIssue, listIssues } from '../../file/storage.js';
 import { generateInternalId, extractShortId } from '../../lib/ids.js';
 import {
@@ -20,8 +22,17 @@ import {
 } from '../../file/idMapping.js';
 import { IssueStatus, IssueKind } from '../../lib/schemas.js';
 import type { Issue, IssueStatusType, IssueKindType, DependencyType } from '../../lib/types.js';
-import { resolveDataSyncDir } from '../../lib/paths.js';
+import {
+  resolveDataSyncDir,
+  TBD_DIR,
+  CACHE_DIR,
+  WORKTREE_DIR_NAME,
+  DATA_SYNC_DIR_NAME,
+} from '../../lib/paths.js';
 import { now, normalizeTimestamp } from '../../utils/timeUtils.js';
+import { initConfig, isInitialized } from '../../file/config.js';
+import { initWorktree } from '../../file/git.js';
+import { VERSION } from '../../index.js';
 
 interface ImportOptions {
   fromBeads?: boolean;
@@ -157,23 +168,30 @@ class ImportHandler extends BaseCommand {
   private dataSyncDir = '';
 
   async run(file: string | undefined, options: ImportOptions): Promise<void> {
-    this.dataSyncDir = await resolveDataSyncDir();
-
-    // Handle validation mode
-    if (options.validate) {
-      await this.validateImport(options);
-      return;
-    }
-
-    // Validate input
-    if (!file && !options.fromBeads) {
+    // Validate input first
+    if (!file && !options.fromBeads && !options.validate) {
       this.output.error('Provide a file path or use --from-beads');
       return;
     }
 
+    // Handle validation mode - requires init
+    if (options.validate) {
+      await requireInit();
+      this.dataSyncDir = await resolveDataSyncDir();
+      await this.validateImport(options);
+      return;
+    }
+
+    // --from-beads auto-initializes if needed
     if (options.fromBeads) {
       await this.importFromBeads(options);
-    } else if (file) {
+      return;
+    }
+
+    // File import requires initialization
+    if (file) {
+      await requireInit();
+      this.dataSyncDir = await resolveDataSyncDir();
       await this.importFromFile(file, options);
     }
   }
@@ -536,6 +554,7 @@ class ImportHandler extends BaseCommand {
   }
 
   private async importFromBeads(options: ImportOptions): Promise<void> {
+    const cwd = process.cwd();
     const beadsDir = options.beadsDir ?? '.beads';
     const jsonlPath = join(beadsDir, 'issues.jsonl');
 
@@ -547,6 +566,45 @@ class ImportHandler extends BaseCommand {
       return;
     }
 
+    // Auto-initialize if not already initialized (per spec §5.6)
+    if (!(await isInitialized(cwd))) {
+      if (this.checkDryRun('Would initialize tbd and import from Beads')) {
+        return;
+      }
+
+      this.output.info('Initializing tbd repository...');
+
+      // Initialize config and directories (same as init command)
+      await initConfig(cwd, VERSION);
+
+      // Create .tbd/.gitignore
+      const gitignoreContent = [
+        '# Local cache (not shared)',
+        'cache/',
+        '',
+        '# Hidden worktree for tbd-sync branch',
+        `${WORKTREE_DIR_NAME}/`,
+        '',
+        '# Data sync directory (only exists in worktree)',
+        `${DATA_SYNC_DIR_NAME}/`,
+        '',
+        '# Temporary files',
+        '*.tmp',
+        '',
+      ].join('\n');
+      await writeFile(join(cwd, TBD_DIR, '.gitignore'), gitignoreContent);
+
+      // Create cache directory
+      await mkdir(join(cwd, CACHE_DIR), { recursive: true });
+
+      // Initialize worktree
+      await initWorktree(cwd, 'origin', 'tbd-sync');
+
+      this.output.success('Initialized tbd repository');
+    }
+
+    // Now resolve the data sync dir and import
+    this.dataSyncDir = await resolveDataSyncDir();
     await this.importFromFile(jsonlPath, options);
   }
 

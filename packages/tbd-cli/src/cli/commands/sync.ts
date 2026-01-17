@@ -7,6 +7,7 @@
 import { Command } from 'commander';
 
 import { BaseCommand } from '../lib/baseCommand.js';
+import { requireInit } from '../lib/errors.js';
 import { readConfig } from '../../file/config.js';
 import { listIssues, readIssue, writeIssue } from '../../file/storage.js';
 import {
@@ -40,6 +41,8 @@ class SyncHandler extends BaseCommand {
   private dataSyncDir = '';
 
   async run(options: SyncOptions): Promise<void> {
+    await requireInit();
+
     this.dataSyncDir = await resolveDataSyncDir();
 
     // Load config to get sync branch
