@@ -21,7 +21,6 @@ before: |
   # Initialize tbd
   tbd init
 ---
-
 # tbd CLI: ID Format Tests
 
 Validates ID format behavior across commands.
@@ -31,7 +30,7 @@ Validates ID format behavior across commands.
 - **Internal ID**: `is-{26-char-ulid}` - stored in files, used for lookups
 - **Display ID**: `bd-{4-char-short-id}` - short ID for readability
 
----
+* * *
 
 ## Create Command ID Format
 
@@ -52,20 +51,20 @@ internalId starts with is-: true
 ? 0
 ```
 
----
+* * *
 
 ## List Command ID Format
 
 # Test: Setup - create several issues with different priorities
 
 ```console
-$ tbd create "High priority" --priority 0
+$ tbd create "High priority" --priority=0
 ✓ Created bd-[SHORTID]: High priority
 ? 0
 ```
 
 ```console
-$ tbd create "Medium priority" --priority 1
+$ tbd create "Medium priority" --priority=1
 ✓ Created bd-[SHORTID]: Medium priority
 ? 0
 ```
@@ -89,7 +88,7 @@ internalId format ok: true
 ? 0
 ```
 
----
+* * *
 
 ## Show Command ID Format
 
@@ -117,19 +116,19 @@ id: is-[ULID]
 ? 0
 ```
 
----
+* * *
 
 ## Update Command ID Format
 
 # Test: Update accepts internal ID and shows display ID
 
 ```console
-$ ID=$(cat /tmp/test_id.txt) && tbd update $ID --priority 3
+$ ID=$(cat /tmp/test_id.txt) && tbd update $ID --priority=3
 ✓ Updated bd-[SHORTID]
 ? 0
 ```
 
----
+* * *
 
 ## Close/Reopen Command ID Format
 
@@ -149,7 +148,7 @@ $ ID=$(cat /tmp/test_id.txt) && tbd reopen $ID
 ? 0
 ```
 
----
+* * *
 
 ## Display ID Length Validation
 
@@ -163,7 +162,7 @@ $ tbd list | awk '{print $1}' | grep "^bd-" | head -1 | sed 's/bd-//' | wc -c | 
 
 Note: wc -c includes newline, so 5 means 4 chars + newline.
 
----
+* * *
 
 ## Workflow Commands ID Format
 

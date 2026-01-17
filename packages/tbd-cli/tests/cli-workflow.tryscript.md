@@ -33,27 +33,27 @@ Tests for ready, blocked, stale, label, and depends commands.
 Set up issues for workflow testing:
 
 ```console
-$ tbd create "Ready task 1" --type task --json | node -e "d=JSON.parse(require('fs').readFileSync(0,'utf8')); console.log(d.id)" > /tmp/ready1.txt
+$ tbd create "Ready task 1" --type=task --json | node -e "d=JSON.parse(require('fs').readFileSync(0,'utf8')); console.log(d.id)" > /tmp/ready1.txt
 ? 0
 ```
 
 ```console
-$ tbd create "Ready task 2" --type bug --priority 0 --json | node -e "d=JSON.parse(require('fs').readFileSync(0,'utf8')); console.log(d.id)" > /tmp/ready2.txt
+$ tbd create "Ready task 2" --type=bug --priority=0 --json | node -e "d=JSON.parse(require('fs').readFileSync(0,'utf8')); console.log(d.id)" > /tmp/ready2.txt
 ? 0
 ```
 
 ```console
-$ tbd create "Assigned task" --type task --assignee alice --json | node -e "d=JSON.parse(require('fs').readFileSync(0,'utf8')); console.log(d.id)" > /tmp/assigned.txt
+$ tbd create "Assigned task" --type=task --assignee=alice --json | node -e "d=JSON.parse(require('fs').readFileSync(0,'utf8')); console.log(d.id)" > /tmp/assigned.txt
 ? 0
 ```
 
 ```console
-$ tbd create "In progress task" --type task --json | node -e "d=JSON.parse(require('fs').readFileSync(0,'utf8')); console.log(d.id)" > /tmp/inprogress.txt
+$ tbd create "In progress task" --type=task --json | node -e "d=JSON.parse(require('fs').readFileSync(0,'utf8')); console.log(d.id)" > /tmp/inprogress.txt
 ? 0
 ```
 
 ```console
-$ tbd update $(cat /tmp/inprogress.txt) --status in_progress
+$ tbd update $(cat /tmp/inprogress.txt) --status=in_progress
 ✓ Updated [..]
 ? 0
 ```
@@ -79,7 +79,7 @@ $ tbd ready --json
 # Test: Ready filter by type
 
 ```console
-$ tbd ready --type bug
+$ tbd ready --type=bug
 ...
 ? 0
 ```
@@ -87,7 +87,7 @@ $ tbd ready --type bug
 # Test: Ready with limit
 
 ```console
-$ tbd ready --limit 1
+$ tbd ready --limit=1
 ...
 ? 0
 ```
@@ -115,12 +115,12 @@ OK: no in_progress
 Set up blocking relationship:
 
 ```console
-$ tbd create "Blocker issue" --type task --json | node -e "d=JSON.parse(require('fs').readFileSync(0,'utf8')); console.log(d.id)" > /tmp/blocker.txt
+$ tbd create "Blocker issue" --type=task --json | node -e "d=JSON.parse(require('fs').readFileSync(0,'utf8')); console.log(d.id)" > /tmp/blocker.txt
 ? 0
 ```
 
 ```console
-$ tbd create "Blocked by other" --type task --json | node -e "d=JSON.parse(require('fs').readFileSync(0,'utf8')); console.log(d.id)" > /tmp/blocked_by.txt
+$ tbd create "Blocked by other" --type=task --json | node -e "d=JSON.parse(require('fs').readFileSync(0,'utf8')); console.log(d.id)" > /tmp/blocked_by.txt
 ? 0
 ```
 
@@ -131,12 +131,12 @@ $ tbd depends add $(cat /tmp/blocker.txt) $(cat /tmp/blocked_by.txt)
 ```
 
 ```console
-$ tbd create "Explicitly blocked" --type task --json | node -e "d=JSON.parse(require('fs').readFileSync(0,'utf8')); console.log(d.id)" > /tmp/explicit_blocked.txt
+$ tbd create "Explicitly blocked" --type=task --json | node -e "d=JSON.parse(require('fs').readFileSync(0,'utf8')); console.log(d.id)" > /tmp/explicit_blocked.txt
 ? 0
 ```
 
 ```console
-$ tbd update $(cat /tmp/explicit_blocked.txt) --status blocked
+$ tbd update $(cat /tmp/explicit_blocked.txt) --status=blocked
 ✓ Updated [..]
 ? 0
 ```
@@ -162,7 +162,7 @@ $ tbd blocked --json
 # Test: Blocked with limit
 
 ```console
-$ tbd blocked --limit 1
+$ tbd blocked --limit=1
 ...
 ? 0
 ```
@@ -194,7 +194,7 @@ $ tbd stale
 # Test: Stale with custom days
 
 ```console
-$ tbd stale --days 0
+$ tbd stale --days=0
 ...
 ? 0
 ```
@@ -210,7 +210,7 @@ $ tbd stale --json
 # Test: Stale filter by status
 
 ```console
-$ tbd stale --status in_progress
+$ tbd stale --status=in_progress
 ...
 ? 0
 ```
@@ -218,7 +218,7 @@ $ tbd stale --status in_progress
 # Test: Stale with limit
 
 ```console
-$ tbd stale --limit 2
+$ tbd stale --limit=2
 ...
 ? 0
 ```
@@ -230,7 +230,7 @@ $ tbd stale --limit 2
 Create an issue for label testing:
 
 ```console
-$ tbd create "Label test issue" --type task --json | node -e "d=JSON.parse(require('fs').readFileSync(0,'utf8')); console.log(d.id)" > /tmp/label_issue.txt
+$ tbd create "Label test issue" --type=task --json | node -e "d=JSON.parse(require('fs').readFileSync(0,'utf8')); console.log(d.id)" > /tmp/label_issue.txt
 ? 0
 ```
 
@@ -329,12 +329,12 @@ $ tbd label add is-00000000000000000000000000 test-label 2>&1
 Create issues for dependency testing:
 
 ```console
-$ tbd create "Parent feature" --type feature --json | node -e "d=JSON.parse(require('fs').readFileSync(0,'utf8')); console.log(d.id)" > /tmp/dep_parent.txt
+$ tbd create "Parent feature" --type=feature --json | node -e "d=JSON.parse(require('fs').readFileSync(0,'utf8')); console.log(d.id)" > /tmp/dep_parent.txt
 ? 0
 ```
 
 ```console
-$ tbd create "Child task" --type task --json | node -e "d=JSON.parse(require('fs').readFileSync(0,'utf8')); console.log(d.id)" > /tmp/dep_child.txt
+$ tbd create "Child task" --type=task --json | node -e "d=JSON.parse(require('fs').readFileSync(0,'utf8')); console.log(d.id)" > /tmp/dep_child.txt
 ? 0
 ```
 

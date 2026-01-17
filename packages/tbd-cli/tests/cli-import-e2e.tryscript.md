@@ -46,7 +46,7 @@ $ ls $TRYSCRIPT_TEST_DIR/../../../.beads/issues.jsonl
 # Test: Import from source beads
 
 ```console
-$ tbd import --from-beads --beads-dir $TRYSCRIPT_TEST_DIR/../../../.beads 2>&1 | grep "Import complete"
+$ tbd import --from-beads --beads-dir=$TRYSCRIPT_TEST_DIR/../../../.beads 2>&1 | grep "Import complete"
 ✓ Import complete from [..]
 ? 0
 ```
@@ -66,19 +66,19 @@ OK: [..] issues
 # Test: Multiple issue types exist
 
 ```console
-$ tbd list --all --type task --count
+$ tbd list --all --type=task --count
 [..]
 ? 0
 ```
 
 ```console
-$ tbd list --all --type bug --count
+$ tbd list --all --type=bug --count
 [..]
 ? 0
 ```
 
 ```console
-$ tbd list --all --type epic --count
+$ tbd list --all --type=epic --count
 [..]
 ? 0
 ```
@@ -86,7 +86,7 @@ $ tbd list --all --type epic --count
 # Test: Labels preserved
 
 ```console
-$ tbd list --all --label cli-layer --count
+$ tbd list --all --label=cli-layer --count
 [..]
 ? 0
 ```
@@ -94,7 +94,7 @@ $ tbd list --all --label cli-layer --count
 # Test: Beads metadata preserved in show output
 
 ```console
-$ FIRST_ID=$(tbd list --all --limit 1 --json | grep internalId | head -1 | cut -d'"' -f4) && tbd show $FIRST_ID --json | grep original_id
+$ FIRST_ID=$(tbd list --all --limit=1 --json | grep internalId | head -1 | cut -d'"' -f4) && tbd show $FIRST_ID --json | grep original_id
 [..]original_id[..]
 ? 0
 ```
@@ -106,7 +106,7 @@ $ FIRST_ID=$(tbd list --all --limit 1 --json | grep internalId | head -1 | cut -
 # Test: Timestamps are valid ISO format
 
 ```console
-$ FIRST_ID=$(tbd list --all --limit 1 --json | grep internalId | head -1 | cut -d'"' -f4) && tbd show $FIRST_ID --json | grep -E "created_at.*Z"
+$ FIRST_ID=$(tbd list --all --limit=1 --json | grep internalId | head -1 | cut -d'"' -f4) && tbd show $FIRST_ID --json | grep -E "created_at.*Z"
 [..]created_at[..]Z[..]
 ? 0
 ```
@@ -126,7 +126,7 @@ $ tbd list --all --count > count_before.txt && cat count_before.txt
 # Test: Re-import does not create duplicates
 
 ```console
-$ tbd import --from-beads --beads-dir $TRYSCRIPT_TEST_DIR/../../../.beads >/dev/null 2>&1 && tbd list --all --count > count_after.txt && diff count_before.txt count_after.txt && echo "Idempotent: YES"
+$ tbd import --from-beads --beads-dir=$TRYSCRIPT_TEST_DIR/../../../.beads >/dev/null 2>&1 && tbd list --all --count > count_after.txt && diff count_before.txt count_after.txt && echo "Idempotent: YES"
 Idempotent: YES
 ? 0
 ```

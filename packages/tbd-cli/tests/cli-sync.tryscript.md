@@ -51,7 +51,7 @@ $ git -C .tbd/data-sync-worktree log --oneline | wc -l | tr -d ' '
 # Test: Creating an issue adds uncommitted files to worktree
 
 ```console
-$ tbd create "Test sync commit behavior" --type task
+$ tbd create "Test sync commit behavior" --type=task
 ✓ Created [..]
 ? 0
 ```
@@ -101,19 +101,19 @@ tbd sync: [..] (2 files)
 # Test: Create multiple issues, then sync once
 
 ```console
-$ tbd create "Issue A" --type task
+$ tbd create "Issue A" --type=task
 ✓ Created [..]
 ? 0
 ```
 
 ```console
-$ tbd create "Issue B" --type bug
+$ tbd create "Issue B" --type=bug
 ✓ Created [..]
 ? 0
 ```
 
 ```console
-$ tbd create "Issue C" --type feature
+$ tbd create "Issue C" --type=feature
 ✓ Created [..]
 ? 0
 ```
@@ -174,7 +174,7 @@ $ tbd sync --status --json
 After creating an issue, sync status may show local changes.
 
 ```console
-$ tbd create "Status test issue" --type task
+$ tbd create "Status test issue" --type=task
 ✓ Created [..]
 ? 0
 ```

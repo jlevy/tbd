@@ -1712,7 +1712,7 @@ Options:
   --assignee <name>         Assignee
   --due <date>              Due date (ISO8601)
   --defer <date>            Defer until date (ISO8601)
-  --parent <id>             Parent issue ID
+  --parent=<id>             Parent issue ID
   --label <label>           Add label (repeatable)
   --no-sync                 Don't sync after create
 ```
@@ -1726,8 +1726,8 @@ Options:
 **Examples:**
 
 ```bash
-tbd create "Fix authentication bug" --type bug --priority 1
-tbd create "Add OAuth" --type feature --label backend --label security
+tbd create "Fix authentication bug" --type=bug --priority=1
+tbd create "Add OAuth" --type=feature --label=backend --label=security
 tbd create "Write tests" --parent bd-a1b2
 tbd create "API docs" --file design.md
 
@@ -1765,7 +1765,7 @@ Options:
   --priority <0-4>          Filter by priority
   --assignee <name>         Filter by assignee
   --label <label>           Filter by label (repeatable)
-  --parent <id>             List children of parent
+  --parent=<id>             List children of parent
   --deferred                Show only deferred issues
   --defer-before <date>     Deferred before date
   --sort <field>            Sort by: priority, created, updated (default: priority)
@@ -1784,7 +1784,7 @@ Options:
 tbd list                             # Active issues only (excludes closed)
 tbd list --all                       # All issues including closed
 tbd list --status closed             # Only closed issues
-tbd list --status open --priority 1
+tbd list --status open --priority=1
 tbd list --assignee agent-1 --json
 tbd list --deferred
 ```
@@ -1899,14 +1899,14 @@ Options:
   --defer <date>            Set deferred until date
   --add-label <label>       Add label
   --remove-label <label>    Remove label
-  --parent <id>             Set parent
+  --parent=<id>             Set parent
   --no-sync                 Don't sync after update
 ```
 
 **Examples:**
 
 ```bash
-tbd update bd-a1b2 --status in_progress
+tbd update bd-a1b2 --status=in_progress
 tbd update bd-a1b2 --add-label urgent --priority 0
 tbd update bd-a1b2 --defer 2025-02-01
 
@@ -2139,7 +2139,7 @@ tbd search "authentication"
 tbd search "timeout" --field description
 
 # Search only bugs
-tbd search "error" --type bug
+tbd search "error" --type=bug
 
 # Search open issues only
 tbd search "TODO" --status open
@@ -2519,7 +2519,7 @@ Example agent workflow:
 
 ```bash
 # CI pipeline: create issue non-interactively
-CI=1 tbd create "Deploy failed" --kind bug --priority 2 --json
+CI=1 tbd create "Deploy failed" --kind bug --priority=2 --json
 
 # Agent: preview changes before committing
 tbd update td-abc1 --status done --dry-run --json
@@ -3645,13 +3645,13 @@ Options:
 ### Finding Work
 - `tbd ready` - Show issues ready to work (no blockers)
 - `tbd list --status open` - All open issues
-- `tbd list --status in_progress` - Your active work
+- `tbd list --status=in_progress` - Your active work
 - `tbd show <id>` - Detailed issue view with dependencies
 
 ### Creating & Updating
-- `tbd create "title" --type task|bug|feature --priority 2` - New issue
+- `tbd create "title" --type=task|bug|feature --priority=2` - New issue
   - Priority: 0-4 (0=critical, 2=medium, 4=backlog)
-- `tbd update <id> --status in_progress` - Claim work
+- `tbd update <id> --status=in_progress` - Claim work
 - `tbd update <id> --assignee username` - Assign to someone
 - `tbd close <id>` - Mark complete
 - `tbd close <id> --reason "explanation"` - Close with reason
@@ -3674,15 +3674,15 @@ Options:
 **Starting work:**
 tbd ready           # Find available work
 tbd show <id>       # Review issue details
-tbd update <id> --status in_progress  # Claim it
+tbd update <id> --status=in_progress  # Claim it
 
 **Completing work:**
 tbd close <id>      # Mark complete
 tbd sync            # Push to remote
 
 **Creating dependent work:**
-tbd create "Implement feature X" --type feature
-tbd create "Write tests for X" --type task
+tbd create "Implement feature X" --type=feature
+tbd create "Write tests for X" --type=task
 tbd dep add <tests-id> <feature-id>  # Tests depend on feature
 ```
 
@@ -3723,8 +3723,8 @@ For editors without specific integration, add to your project’s `AGENTS.md`:
 This project uses tbd for issue tracking:
 
 - Find work: `tbd ready`
-- Create issues: `tbd create "title" --type task`
-- Claim work: `tbd update <id> --status in_progress`
+- Create issues: `tbd create "title" --type=task`
+- Claim work: `tbd update <id> --status=in_progress`
 - Complete: `tbd close <id>`
 - Sync: `tbd sync`
 ```
@@ -4185,7 +4185,7 @@ explicitly deferred.
 | `bd create "Title" --file file.md` | `tbd create "Title" --file file.md` | ✅ Full | Body from file |
 | `bd create "Title" --label label` | `tbd create "Title" --label label` | ✅ Full | Repeatable |
 | `bd create "Title" --assignee X` | `tbd create "Title" --assignee X` | ✅ Full | Identical |
-| `bd create "Title" --parent <id>` | `tbd create "Title" --parent <id>` | ✅ Full | Hierarchical |
+| `bd create "Title" --parent=<id>` | `tbd create "Title" --parent=<id>` | ✅ Full | Hierarchical |
 | `bd create "Title" --due <date>` | `tbd create "Title" --due <date>` | ✅ Full | Due date |
 | `bd create "Title" --defer <date>` | `tbd create "Title" --defer <date>` | ✅ Full | Defer until |
 | `bd list` | `tbd list` | ✅ Full | Identical |
@@ -4194,7 +4194,7 @@ explicitly deferred.
 | `bd list --priority N` | `tbd list --priority N` | ✅ Full | Identical |
 | `bd list --assignee X` | `tbd list --assignee X` | ✅ Full | Identical |
 | `bd list --label X` | `tbd list --label X` | ✅ Full | Repeatable |
-| `bd list --parent <id>` | `tbd list --parent <id>` | ✅ Full | List children |
+| `bd list --parent=<id>` | `tbd list --parent=<id>` | ✅ Full | List children |
 | `bd list --deferred` | `tbd list --deferred` | ✅ Full | Deferred issues |
 | `bd list --sort X` | `tbd list --sort X` | ✅ Full | priority/created/updated |
 | `bd list --limit N` | `tbd list --limit N` | ✅ Full | Identical |
@@ -4207,7 +4207,7 @@ explicitly deferred.
 | `bd update <id> --type X` | `tbd update <id> --type X` | ✅ Full | Identical |
 | `bd update <id> --due <date>` | `tbd update <id> --due <date>` | ✅ Full | Identical |
 | `bd update <id> --defer <date>` | `tbd update <id> --defer <date>` | ✅ Full | Identical |
-| `bd update <id> --parent <id>` | `tbd update <id> --parent <id>` | ✅ Full | Identical |
+| `bd update <id> --parent=<id>` | `tbd update <id> --parent=<id>` | ✅ Full | Identical |
 | `bd close <id>` | `tbd close <id>` | ✅ Full | Identical |
 | `bd close <id> --reason "X"` | `tbd close <id> --reason "X"` | ✅ Full | With reason |
 | `bd reopen <id>` | `tbd reopen <id>` | ✅ Full | Identical |
@@ -4374,7 +4374,7 @@ This is sufficient for the `ready` command algorithm.
 
 ```bash
 bd ready --json              # Find work
-bd update <id> --status in_progress  # Claim (advisory)
+bd update <id> --status=in_progress  # Claim (advisory)
 # ... work ...
 bd close <id> --reason "Done"  # Complete
 bd sync                       # Sync
@@ -4384,7 +4384,7 @@ bd sync                       # Sync
 
 ```bash
 tbd ready --json            # Find work
-tbd update <id> --status in_progress  # Claim (advisory)
+tbd update <id> --status=in_progress  # Claim (advisory)
 # ... work ...
 tbd close <id> --reason "Done"  # Complete
 tbd sync                    # Sync
@@ -4398,14 +4398,14 @@ Claims are advisory in both (no enforcement).
 **Beads:**
 
 ```bash
-bd create "Found bug" --type bug --priority 1 --deps discovered-from:<id> --json
+bd create "Found bug" --type=bug --priority=1 --deps discovered-from:<id> --json
 ```
 
 **Tbd:**
 
 ```bash
 # Only blocks dependency supported currently
-tbd create "Found bug" --type bug --priority 1 --parent <id> --json
+tbd create "Found bug" --type=bug --priority=1 --parent=<id> --json
 # Or wait for future version for discovered-from
 ```
 

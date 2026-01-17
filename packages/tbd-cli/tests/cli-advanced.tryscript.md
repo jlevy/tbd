@@ -21,11 +21,11 @@ before: |
   # Initialize tbd
   tbd init
   # Create test issues with varied content for search
-  tbd create "Authentication bug in login" --type bug --description "Users cannot log in with SSO" --label security --label urgent
-  tbd create "Add dark mode feature" --type feature --description "Support dark theme toggle" --label frontend --label ux
-  tbd create "Update dependencies" --type chore --label maintenance
-  tbd create "Performance optimization" --type task --description "Improve API response times" --label backend
-  tbd create "Login redirect issue" --type bug --description "OAuth redirects fail" --label security
+  tbd create "Authentication bug in login" --type=bug --description="Users cannot log in with SSO" --label=security --label=urgent
+  tbd create "Add dark mode feature" --type=feature --description="Support dark theme toggle" --label=frontend --label=ux
+  tbd create "Update dependencies" --type=chore --label=maintenance
+  tbd create "Performance optimization" --type=task --description="Improve API response times" --label=backend
+  tbd create "Login redirect issue" --type=bug --description="OAuth redirects fail" --label=security
 ---
 
 # tbd CLI: Advanced Commands
@@ -65,7 +65,7 @@ matches: 2
 # Test: Search with status filter
 
 ```console
-$ tbd search "bug" --status open
+$ tbd search "bug" --status=open
 ...
 ? 0
 ```
@@ -73,7 +73,7 @@ $ tbd search "bug" --status open
 # Test: Search in title field only
 
 ```console
-$ tbd search "SSO" --field title --json | node -e "d=JSON.parse(require('fs').readFileSync(0,'utf8')); console.log('title matches:', d.length)"
+$ tbd search "SSO" --field=title --json | node -e "d=JSON.parse(require('fs').readFileSync(0,'utf8')); console.log('title matches:', d.length)"
 title matches: 0
 ? 0
 ```
@@ -81,7 +81,7 @@ title matches: 0
 # Test: Search in description field
 
 ```console
-$ tbd search "SSO" --field description --json | node -e "d=JSON.parse(require('fs').readFileSync(0,'utf8')); console.log('desc matches:', d.length)"
+$ tbd search "SSO" --field=description --json | node -e "d=JSON.parse(require('fs').readFileSync(0,'utf8')); console.log('desc matches:', d.length)"
 desc matches: 1
 ? 0
 ```
@@ -89,7 +89,7 @@ desc matches: 1
 # Test: Search in labels field
 
 ```console
-$ tbd search "security" --field labels --json | node -e "d=JSON.parse(require('fs').readFileSync(0,'utf8')); console.log('label matches:', d.length)"
+$ tbd search "security" --field=labels --json | node -e "d=JSON.parse(require('fs').readFileSync(0,'utf8')); console.log('label matches:', d.length)"
 label matches: 2
 ? 0
 ```
@@ -97,7 +97,7 @@ label matches: 2
 # Test: Search with limit
 
 ```console
-$ tbd search "e" --limit 2 --json | node -e "d=JSON.parse(require('fs').readFileSync(0,'utf8')); console.log('limited to:', d.length)"
+$ tbd search "e" --limit=2 --json | node -e "d=JSON.parse(require('fs').readFileSync(0,'utf8')); console.log('limited to:', d.length)"
 limited to: 2
 ? 0
 ```

@@ -158,10 +158,6 @@ Validating import...
 
 Validation Results
 ...
-Total Beads issues:[..]
-Total tbd issues:[..]
-Valid imports:[..]
-...
 ? 0
 ```
 
@@ -198,7 +194,7 @@ Note: We already imported from .beads, so this would add duplicates.
 Testing the flag works:
 
 ```console
-$ tbd import --from-beads --beads-dir custom-beads --verbose
+$ tbd import --from-beads --beads-dir=custom-beads --verbose
 ...
 Tip: To disable Beads and prevent agent confusion:
   bd hooks uninstall                 # Remove git hooks
@@ -256,7 +252,7 @@ $ tbd import nonexistent.jsonl 2>&1
 # Test: Import missing beads directory
 
 ```console
-$ tbd import --from-beads --beads-dir nonexistent-dir 2>&1
+$ tbd import --from-beads --beads-dir=nonexistent-dir 2>&1
 ✗ Beads database not found[..]
 ...
 ? 0

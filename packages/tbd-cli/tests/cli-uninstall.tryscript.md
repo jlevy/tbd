@@ -97,7 +97,7 @@ To complete setup, commit the config files:
 # Test: Create an issue to have some data
 
 ```console
-$ tbd create "Test issue" --type task
+$ tbd create "Test issue" --type=task
 ✓ Created [..]: Test issue
 ? 0
 ```
@@ -177,7 +177,7 @@ To complete setup, commit the config files:
 # Test: Create another issue
 
 ```console
-$ tbd create "Another issue" --type bug
+$ tbd create "Another issue" --type=bug
 ✓ Created [..]: Another issue
 ? 0
 ```

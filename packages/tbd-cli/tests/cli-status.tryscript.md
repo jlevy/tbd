@@ -165,13 +165,13 @@ $ tbd status --json
 # Test: Create some issues to verify issue counts
 
 ```console
-$ tbd create "First issue" --type task
+$ tbd create "First issue" --type=task
 ✓ Created bd-[SHORTID]: First issue
 ? 0
 ```
 
 ```console
-$ tbd create "Second issue" --type bug
+$ tbd create "Second issue" --type=bug
 ✓ Created bd-[SHORTID]: Second issue
 ? 0
 ```

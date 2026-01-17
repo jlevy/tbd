@@ -21,33 +21,33 @@ Git-native issue tracking for AI agents and humans.
 ```bash
 tbd ready                                  # What's available to work on?
 tbd show bd-1847                           # Review the issue details
-tbd update bd-1847 --status in_progress    # Claim it
+tbd update bd-1847 --status=in_progress    # Claim it
 ```
 
 ### Complete work
 
 ```bash
-tbd close bd-1847 --reason "Fixed in auth.ts, added retry logic"
+tbd close bd-1847 --reason="Fixed in auth.ts, added retry logic"
 tbd sync                                   # Push to remote
 ```
 
 ### Create issues
 
 ```bash
-tbd create "API returns 500 on malformed input" --type bug --priority 1
-tbd create "Add rate limiting to /api/upload" --type feature
-tbd create "Refactor database connection pooling" --type task --priority 3
+tbd create "API returns 500 on malformed input" --type=bug --priority=1
+tbd create "Add rate limiting to /api/upload" --type=feature
+tbd create "Refactor database connection pooling" --type=task --priority=3
 
 # With description and labels
-tbd create "Users can't reset password" --type bug --priority 0 \
-  --description "Reset emails not sending. Affects all users since deploy." \
-  --label urgent --label auth
+tbd create "Users can't reset password" --type=bug --priority=0 \
+  --description="Reset emails not sending. Affects all users since deploy." \
+  --label=urgent --label=auth
 ```
 
 ### Track dependencies
 
 ```bash
-tbd create "Write integration tests" --type task
+tbd create "Write integration tests" --type=task
 tbd depends add bd-1850 bd-1847           # Tests blocked until 1847 done
 tbd blocked                                # See what's waiting
 ```
@@ -78,8 +78,8 @@ Initialize tbd in a git repository.
 
 ```bash
 tbd init                           # Use defaults
-tbd init --sync-branch my-sync     # Custom sync branch name
-tbd init --remote upstream         # Use different remote
+tbd init --sync-branch=my-sync     # Custom sync branch name
+tbd init --remote=upstream         # Use different remote
 ```
 
 Options:
@@ -92,22 +92,22 @@ Create a new issue.
 
 ```bash
 tbd create "Implement user auth"                                   # Basic task
-tbd create "Fix crash on login" --type bug --priority 0            # Critical bug
-tbd create "Dark mode support" --type feature                      # Feature request
-tbd create "Refactor database layer" --type chore                  # Technical debt
-tbd create "Q1 Goals" --type epic                                  # Epic for grouping
+tbd create "Fix crash on login" --type=bug --priority=0            # Critical bug
+tbd create "Dark mode support" --type=feature                      # Feature request
+tbd create "Refactor database layer" --type=chore                  # Technical debt
+tbd create "Q1 Goals" --type=epic                                  # Epic for grouping
 
 # With description
-tbd create "Add rate limiting" --description "Prevent API abuse with 100 req/min limit"
+tbd create "Add rate limiting" --description="Prevent API abuse with 100 req/min limit"
 
 # With labels
-tbd create "Fix mobile layout" --label frontend --label urgent
+tbd create "Fix mobile layout" --label=frontend --label=urgent
 
 # With assignee and due date
-tbd create "Security audit" --assignee alice --due 2025-02-01
+tbd create "Security audit" --assignee=alice --due=2025-02-01
 
 # From YAML file
-tbd create --from-file issue.yml
+tbd create --from-file=issue.yml
 ```
 
 Options:
@@ -130,17 +130,17 @@ List issues with filtering and sorting.
 ```bash
 tbd list                                    # Open issues, sorted by priority
 tbd list --all                              # Include closed issues
-tbd list --status in_progress               # Currently being worked on
-tbd list --status blocked                   # Blocked issues
-tbd list --type bug                         # Only bugs
-tbd list --priority 0                       # Critical priority only
-tbd list --assignee alice                   # Assigned to alice
-tbd list --label urgent                     # With 'urgent' label
-tbd list --label backend --label api        # Multiple labels (AND)
-tbd list --parent bd-x1y2                   # Children of an epic
-tbd list --sort created                     # Sort by creation date
-tbd list --sort updated                     # Sort by last update
-tbd list --limit 10                         # Limit results
+tbd list --status=in_progress               # Currently being worked on
+tbd list --status=blocked                   # Blocked issues
+tbd list --type=bug                         # Only bugs
+tbd list --priority=0                       # Critical priority only
+tbd list --assignee=alice                   # Assigned to alice
+tbd list --label=urgent                     # With 'urgent' label
+tbd list --label=backend --label=api        # Multiple labels (AND)
+tbd list --parent=bd-x1y2                   # Children of an epic
+tbd list --sort=created                     # Sort by creation date
+tbd list --sort=updated                     # Sort by last update
+tbd list --limit=10                         # Limit results
 tbd list --count                            # Just show count
 
 # JSON output for scripting
@@ -182,21 +182,21 @@ timestamps, and working notes.
 Modify an existing issue.
 
 ```bash
-tbd update bd-a7k2 --status in_progress    # Start working
-tbd update bd-a7k2 --status blocked        # Mark as blocked
-tbd update bd-a7k2 --priority 0            # Escalate priority
-tbd update bd-a7k2 --assignee bob          # Reassign
-tbd update bd-a7k2 --description "New description"
-tbd update bd-a7k2 --notes "Found root cause in auth.ts"
-tbd update bd-a7k2 --notes-file notes.md   # Notes from file
-tbd update bd-a7k2 --due 2025-03-01        # Set due date
-tbd update bd-a7k2 --defer 2025-02-15      # Defer until later
-tbd update bd-a7k2 --add-label blocked     # Add label
-tbd update bd-a7k2 --remove-label urgent   # Remove label
-tbd update bd-a7k2 --parent bd-x1y2        # Set parent epic
+tbd update bd-a7k2 --status=in_progress    # Start working
+tbd update bd-a7k2 --status=blocked        # Mark as blocked
+tbd update bd-a7k2 --priority=0            # Escalate priority
+tbd update bd-a7k2 --assignee=bob          # Reassign
+tbd update bd-a7k2 --description="New description"
+tbd update bd-a7k2 --notes="Found root cause in auth.ts"
+tbd update bd-a7k2 --notes-file=notes.md   # Notes from file
+tbd update bd-a7k2 --due=2025-03-01        # Set due date
+tbd update bd-a7k2 --defer=2025-02-15      # Defer until later
+tbd update bd-a7k2 --add-label=blocked     # Add label
+tbd update bd-a7k2 --remove-label=urgent   # Remove label
+tbd update bd-a7k2 --parent=bd-x1y2        # Set parent epic
 
 # Update from YAML file
-tbd update bd-a7k2 --from-file updated.yml
+tbd update bd-a7k2 --from-file=updated.yml
 ```
 
 Options:
@@ -222,7 +222,7 @@ Close a completed issue.
 
 ```bash
 tbd close bd-a7k2                           # Close issue
-tbd close bd-a7k2 --reason "Fixed in PR #42"
+tbd close bd-a7k2 --reason="Fixed in PR #42"
 ```
 
 Options:
@@ -236,7 +236,7 @@ Reopen a closed issue.
 
 ```bash
 tbd reopen bd-a7k2                          # Reopen issue
-tbd reopen bd-a7k2 --reason "Bug reappeared"
+tbd reopen bd-a7k2 --reason="Bug reappeared"
 ```
 
 Options:
@@ -250,8 +250,8 @@ List issues ready to work on (open, unblocked, unassigned).
 
 ```bash
 tbd ready                                   # All ready issues
-tbd ready --type bug                        # Ready bugs
-tbd ready --limit 5                         # Top 5 ready issues
+tbd ready --type=bug                        # Ready bugs
+tbd ready --limit=5                         # Top 5 ready issues
 ```
 
 Options:
@@ -266,7 +266,7 @@ List issues that are blocked by dependencies.
 
 ```bash
 tbd blocked                                 # All blocked issues
-tbd blocked --limit 10                      # Limit results
+tbd blocked --limit=10                      # Limit results
 ```
 
 Options:
@@ -280,9 +280,9 @@ List issues not updated recently.
 
 ```bash
 tbd stale                                   # Not updated in 7 days
-tbd stale --days 30                         # Not updated in 30 days
-tbd stale --status open                     # Only open stale issues
-tbd stale --limit 20                        # Limit results
+tbd stale --days=30                         # Not updated in 30 days
+tbd stale --status=open                     # Only open stale issues
+tbd stale --limit=20                        # Limit results
 ```
 
 Options:
@@ -358,10 +358,10 @@ Search issues by text content.
 
 ```bash
 tbd search "login"                          # Search all fields
-tbd search "auth" --field title             # Search only titles
-tbd search "TODO" --field notes             # Search working notes
-tbd search "api" --status open              # Filter by status
-tbd search "bug" --limit 10                 # Limit results
+tbd search "auth" --field=title             # Search only titles
+tbd search "TODO" --field=notes             # Search working notes
+tbd search "api" --status=open              # Filter by status
+tbd search "bug" --limit=10                 # Limit results
 tbd search "Error" --case-sensitive         # Case-sensitive search
 ```
 
@@ -449,7 +449,7 @@ Import issues from Beads or JSONL file.
 ```bash
 tbd import issues.jsonl                     # Import from JSONL file
 tbd import --from-beads                     # Import directly from Beads
-tbd import --from-beads --beads-dir ~/.beads # Custom Beads directory
+tbd import --from-beads --beads-dir=~/.beads # Custom Beads directory
 tbd import issues.jsonl --merge             # Merge with existing
 tbd import --validate                       # Validate existing import
 tbd import issues.jsonl --verbose           # Show detailed progress
@@ -540,7 +540,7 @@ tbd close bd-a7k2 --no-sync                 # Skip automatic sync
 tbd list --debug                            # Show internal IDs
 tbd update bd-a7k2 --yes                    # Assume yes to prompts
 tbd list --non-interactive                  # Fail if input required
-tbd list --color never                      # Disable colors
+tbd list --color=never                      # Disable colors
 ```
 
 Options:
@@ -566,9 +566,9 @@ This section covers agent-specific patterns.
 
 ```bash
 tbd ready --json                            # Find available work
-tbd update bd-xxxx --status in_progress     # Claim it (advisory)
+tbd update bd-xxxx --status=in_progress     # Claim it (advisory)
 # ... do the work ...
-tbd close bd-xxxx --reason "Fixed in commit abc123"
+tbd close bd-xxxx --reason="Fixed in commit abc123"
 tbd sync                                    # Push changes
 ```
 
@@ -592,7 +592,7 @@ The actor name (for `created_by` field) is resolved in order:
 4. System username
 
 ```bash
-TBD_ACTOR=claude-agent tbd create "Fix bug" --type bug
+TBD_ACTOR=claude-agent tbd create "Fix bug" --type=bug
 ```
 
 ### Claude Code Integration
@@ -611,7 +611,7 @@ remembers the tbd workflow.
 Close several issues at once (more efficient than one at a time):
 
 ```bash
-tbd close bd-a1 bd-b2 bd-c3 --reason "Sprint complete"
+tbd close bd-a1 bd-b2 bd-c3 --reason="Sprint complete"
 ```
 
 * * *
@@ -624,7 +624,7 @@ tbd close bd-a1 bd-b2 bd-c3 --reason "Sprint complete"
 cd my-project
 git init
 tbd init
-tbd create "Initial setup" --type chore
+tbd create "Initial setup" --type=chore
 ```
 
 ### Daily Workflow
@@ -635,15 +635,15 @@ tbd sync
 tbd ready
 
 # Pick up an issue
-tbd update bd-a7k2 --status in_progress --assignee myname
+tbd update bd-a7k2 --status=in_progress --assignee=myname
 
 # Work on it...
 
 # Add notes as you work
-tbd update bd-a7k2 --notes "Found the bug in auth.ts line 42"
+tbd update bd-a7k2 --notes="Found the bug in auth.ts line 42"
 
 # Complete and sync
-tbd close bd-a7k2 --reason "Fixed in commit abc123"
+tbd close bd-a7k2 --reason="Fixed in commit abc123"
 tbd sync
 ```
 
@@ -651,24 +651,24 @@ tbd sync
 
 ```bash
 # Create epic
-tbd create "User Authentication System" --type epic --priority 1
+tbd create "User Authentication System" --type=epic --priority=1
 
 # Create child tasks
-tbd create "Design auth API" --parent bd-epic
-tbd create "Implement login endpoint" --parent bd-epic
-tbd create "Add password reset" --parent bd-epic
+tbd create "Design auth API" --parent=bd-epic
+tbd create "Implement login endpoint" --parent=bd-epic
+tbd create "Add password reset" --parent=bd-epic
 
 # View epic and children
 tbd show bd-epic
-tbd list --parent bd-epic
+tbd list --parent=bd-epic
 ```
 
 ### Handling Dependencies
 
 ```bash
 # Create issues
-tbd create "Set up database" --type task
-tbd create "Implement API" --type task
+tbd create "Set up database" --type=task
+tbd create "Implement API" --type=task
 
 # API depends on database (database blocks API)
 tbd depends add bd-api bd-database
@@ -685,24 +685,24 @@ tbd ready  # API now appears as ready
 
 ```bash
 # List all open bugs by priority
-tbd list --type bug --sort priority
+tbd list --type=bug --sort=priority
 
 # Escalate a critical bug
-tbd update bd-bug1 --priority 0 --label critical
+tbd update bd-bug1 --priority=0 --label=critical
 
 # Assign bugs
-tbd update bd-bug1 --assignee alice
-tbd update bd-bug2 --assignee bob
+tbd update bd-bug1 --assignee=alice
+tbd update bd-bug2 --assignee=bob
 ```
 
 ### Code Review Workflow
 
 ```bash
 # Find stale issues (awaiting review?)
-tbd stale --days 3
+tbd stale --days=3
 
 # Search for review-related issues
-tbd search "review" --status open
+tbd search "review" --status=open
 ```
 
 ### Migration from Beads
@@ -796,7 +796,7 @@ sync:
 | 3 | P3 | Low—backlog |
 | 4 | P4 | Lowest—maybe/someday |
 
-Both formats work: `--priority 1` or `--priority P1`
+Both formats work: `--priority=1` or `--priority P1`
 
 ## Date Formats
 
@@ -879,10 +879,10 @@ For large repositories with many issues:
 
 ```bash
 # Limit results
-tbd list --limit 50
+tbd list --limit=50
 
 # Use specific filters
-tbd list --status open --type bug
+tbd list --status=open --type=bug
 ```
 
 ## Tips

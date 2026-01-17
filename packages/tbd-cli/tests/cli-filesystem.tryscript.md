@@ -220,7 +220,7 @@ No extra newlines after frontmatter
 # Test: Create issue with description and verify formatting
 
 ```console
-$ tbd create "Issue with description" --description "This is the description body."
+$ tbd create "Issue with description" --description="This is the description body."
 ✓ Created bd-[SHORTID]: Issue with description
 ? 0
 ```

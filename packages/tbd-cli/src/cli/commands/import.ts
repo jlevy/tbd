@@ -339,7 +339,7 @@ class ImportHandler extends BaseCommand {
         issues.push({
           beadsId,
           tbdId: tbdIssue.id,
-          issue: 'TBD issue has mapping but Beads issue no longer exists',
+          issue: 'tbd issue has mapping but Beads issue no longer exists',
           severity: 'warning',
         });
       }
@@ -352,7 +352,7 @@ class ImportHandler extends BaseCommand {
     console.log('Validation Results');
     console.log('─'.repeat(60));
     console.log(`Total Beads issues:    ${beadsIssues.length}`);
-    console.log(`Total TBD issues:      ${tbdIssues.length}`);
+    console.log(`Total tbd issues:      ${tbdIssues.length}`);
     console.log(`Valid imports:         ${validCount}`);
     console.log(`Errors:                ${errors.length}`);
     console.log(`Warnings:              ${warnings.length}`);
@@ -611,6 +611,13 @@ class ImportHandler extends BaseCommand {
     // Now resolve the data sync dir and import
     this.dataSyncDir = await resolveDataSyncDir();
     await this.importFromFile(jsonlPath, options);
+
+    // Show tip about disabling beads
+    console.log();
+    console.log('Tip: To disable Beads and prevent agent confusion:');
+    console.log('  bd hooks uninstall                 # Remove git hooks');
+    console.log('  bd setup claude --remove           # Remove Claude Code hooks');
+    console.log('  bd setup <editor> --remove         # cursor, codex, etc.');
   }
 
   private async loadExistingIssues(): Promise<Issue[]> {
