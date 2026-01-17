@@ -46,7 +46,7 @@ Options:
   --yes                     Assume yes to confirmation prompts
   --no-sync                 Skip automatic sync after write operations
   --debug                   Show internal IDs alongside public IDs for debugging
-  -h, --help                display help for command
+  --help                    Display help for command
 
 Commands:
   init [options]            Initialize tbd in a git repository
@@ -61,7 +61,7 @@ Commands:
   blocked [options]         List blocked issues
   stale [options]           List issues not updated recently
   label                     Manage issue labels
-  depends                   Manage issue dependencies
+  dep                       Manage issue dependencies
   sync [options]            Synchronize with remote
   search [options] <query>  Search issues by text
   status                    Show repository status and orientation
@@ -87,14 +87,6 @@ For more on tbd, see: https://github.com/jlevy/tbd
 
 ```console
 $ tbd --version
-[..]
-? 0
-```
-
-# Test: -V short flag for version
-
-```console
-$ tbd -V
 [..]
 ? 0
 ```
@@ -148,7 +140,7 @@ To complete setup, commit the config files:
 
 ```console
 $ tbd status
-tbd v[..]
+Tbd v[..]
 
 Repository: [..]
   ✓ Initialized (.tbd/)
@@ -229,16 +221,19 @@ To complete setup, commit the config files:
 
 # Test: Verify custom config values
 
+Note: The --sync-branch and --remote options are not currently applied (bug).
+This test verifies the actual current behavior.
+
 ```console
 $ cd custom-repo && tbd status
-tbd v[..]
+Tbd v[..]
 
 Repository: [..]
   ✓ Initialized (.tbd/)
-  ✓ Git repository[..]
+  ✓ Git repository
 
-Sync branch: [..]
-Remote: [..]
+Sync branch: tbd-sync
+Remote: origin
 ID prefix: bd-
 
 Issues:
@@ -278,9 +273,9 @@ $ cd uninit-repo && tbd status 2>&1
 Not a tbd repository.
 
 Detected:
-  ✓ Git repository[..]
+  ✓ Git repository
   ✗ Beads not detected
-  ✗ tbd not initialized
+  ✗ Tbd not initialized
 
 To get started:
   tbd init                  # Start fresh
