@@ -58,6 +58,7 @@ The `--from-beads` flag should auto-initialize tbd and then import the issues.
 
 ```console
 $ tbd import --from-beads
+Detected beads prefix: test
 Initializing tbd repository...
 ✓ Initialized tbd repository
 ✓ Import complete from .beads/issues.jsonl
@@ -116,14 +117,14 @@ imported: 2
 
 ```console
 $ tbd list --all --json | node -e "d=JSON.parse(require('fs').readFileSync(0,'utf8')); ids=d.map(i=>i.id).sort(); console.log(ids.join(','))"
-bd-001,bd-002
+test-001,test-002
 ? 0
 ```
 
 # Test: Issue details preserved
 
 ```console
-$ tbd show bd-001 | grep "^title:"
+$ tbd show test-001 | grep "^title:"
 title: Test issue one
 ? 0
 ```
@@ -136,7 +137,7 @@ title: Test issue one
 
 ```console
 $ tbd create "New issue after import"
-✓ Created bd-[SHORTID]: New issue after import
+✓ Created test-[SHORTID]: New issue after import
 ? 0
 ```
 

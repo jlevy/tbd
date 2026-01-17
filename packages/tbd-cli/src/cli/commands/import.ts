@@ -577,10 +577,13 @@ class ImportHandler extends BaseCommand {
         return;
       }
 
+      // Detect prefix from beads issues
+      const prefix = await this.detectBeadsPrefix(jsonlPath);
+      this.output.info(`Detected beads prefix: ${prefix}`);
       this.output.info('Initializing tbd repository...');
 
       // Initialize config and directories (same as init command)
-      await initConfig(cwd, VERSION);
+      await initConfig(cwd, VERSION, prefix);
 
       // Create .tbd/.gitignore
       const gitignoreContent = [
@@ -646,6 +649,54 @@ class ImportHandler extends BaseCommand {
     }
 
     throw new Error('Failed to generate unique short ID after maximum attempts');
+  }
+
+  /**
+   * Detect the prefix used by beads issues.
+   * Reads the first few issues and extracts the common prefix pattern.
+   * Falls back to 'tbd' if no consistent prefix is found.
+   */
+  private async detectBeadsPrefix(jsonlPath: string): Promise<string> {
+    try {
+      const content = await readFile(jsonlPath, 'utf-8');
+      const lines = content
+        .trim()
+        .split('\n')
+        .filter((l) => l)
+        .slice(0, 10); // Sample first 10 issues
+
+      const prefixes = new Map<string, number>();
+
+      for (const line of lines) {
+        try {
+          const issue = JSON.parse(line) as BeadsIssue;
+          if (issue.id) {
+            // Extract prefix from ID like "tbd-100" -> "tbd"
+            const match = /^([a-zA-Z]+)-/.exec(issue.id);
+            if (match?.[1]) {
+              const prefix = match[1].toLowerCase();
+              prefixes.set(prefix, (prefixes.get(prefix) ?? 0) + 1);
+            }
+          }
+        } catch {
+          // Skip invalid lines
+        }
+      }
+
+      // Find the most common prefix
+      let maxCount = 0;
+      let mostCommonPrefix = 'tbd';
+      for (const [prefix, count] of prefixes) {
+        if (count > maxCount) {
+          maxCount = count;
+          mostCommonPrefix = prefix;
+        }
+      }
+
+      return mostCommonPrefix;
+    } catch {
+      return 'tbd'; // Default fallback
+    }
   }
 }
 

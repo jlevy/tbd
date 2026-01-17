@@ -13,6 +13,7 @@ import type { Issue } from '../../lib/types.js';
 import { resolveDataSyncDir } from '../../lib/paths.js';
 import { formatDisplayId, formatDebugId } from '../../lib/ids.js';
 import { loadIdMapping } from '../../file/idMapping.js';
+import { readConfig } from '../../file/config.js';
 
 interface BlockedOptions {
   limit?: string;
@@ -33,8 +34,10 @@ class BlockedHandler extends BaseCommand {
       return;
     }
 
-    // Load ID mapping for display
+    // Load ID mapping and config for display
     const mapping = await loadIdMapping(dataSyncDir);
+    const config = await readConfig(process.cwd());
+    const prefix = config.display.id_prefix;
     const showDebug = this.ctx.debug;
 
     // Build lookup map for dependency resolution
@@ -71,8 +74,8 @@ class BlockedHandler extends BaseCommand {
         const blocker = issueMap.get(blockerId);
         if (blocker && blocker.status !== 'closed') {
           const blockerDisplayId = showDebug
-            ? formatDebugId(blockerId, mapping)
-            : formatDisplayId(blockerId, mapping);
+            ? formatDebugId(blockerId, mapping, prefix)
+            : formatDisplayId(blockerId, mapping, prefix);
           unresolvedBlockers.push(`${blockerDisplayId} (${blocker.title.slice(0, 20)})`);
         }
       }
@@ -98,7 +101,9 @@ class BlockedHandler extends BaseCommand {
 
     // Format output
     const outputIssues = blockedIssues.map((b) => ({
-      id: showDebug ? formatDebugId(b.issue.id, mapping) : formatDisplayId(b.issue.id, mapping),
+      id: showDebug
+        ? formatDebugId(b.issue.id, mapping, prefix)
+        : formatDisplayId(b.issue.id, mapping, prefix),
       title: b.issue.title,
       blockedBy: b.blockedBy,
     }));

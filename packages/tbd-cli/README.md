@@ -1,4 +1,4 @@
-# tbd-cli
+# tproj-cli
 
 Git-native issue tracking for AI agents and humans.
 
@@ -18,9 +18,9 @@ with full CLI compatibility.
 ## Installation
 
 ```bash
-npm install -g tbd-cli
+npm install -g tproj-cli
 # or
-pnpm add -g tbd-cli
+pnpm add -g tproj-cli
 ```
 
 ## Quick Start
@@ -36,13 +36,13 @@ tbd create "Fix authentication bug" -t bug -p 1
 tbd list
 
 # Show an issue
-tbd show bd-a1b2
+tbd show proj-a1b2
 
 # Update an issue
-tbd update bd-a1b2 --status in_progress --assignee alice
+tbd update proj-a1b2 --status in_progress --assignee alice
 
 # Close an issue
-tbd close bd-a1b2 --reason completed
+tbd close proj-a1b2 --reason completed
 
 # Sync with remote
 tbd sync
@@ -133,7 +133,7 @@ sync:
   branch: tbd-sync
   remote: origin
 display:
-  id_prefix: bd
+  id_prefix: proj            # Required, set during init
 ```
 
 ### Configuration Options
@@ -142,7 +142,7 @@ display:
 | --- | --- | --- |
 | `sync.branch` | `tbd-sync` | Branch used for sync |
 | `sync.remote` | `origin` | Git remote for sync |
-| `display.id_prefix` | `bd` | Prefix for display IDs |
+| `display.id_prefix` | (required) | Prefix for display IDs |
 
 ## Issue File Format
 
@@ -207,10 +207,10 @@ tbd ready --json
 tbd create "Implement feature X" -t feature --assignee agent-1
 
 # Mark as in progress
-tbd update bd-xxxx --status in_progress
+tbd update proj-xxxx --status in_progress
 
 # Close when done
-tbd close bd-xxxx --reason completed
+tbd close proj-xxxx --reason completed
 
 # Sync changes
 tbd sync

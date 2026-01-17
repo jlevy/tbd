@@ -80,7 +80,7 @@ Error: Not a tbd repository (run 'tbd init' or 'tbd import --from-beads' first)
 # Test: Init works and provides success message
 
 ```console
-$ tbd init
+$ tbd init --prefix=test
 ✓ Initialized tbd repository
 
 To complete setup, commit the config files:
@@ -120,7 +120,7 @@ meta.yml
 
 ```console
 $ tbd create "Test issue"
-✓ Created bd-[SHORTID]: Test issue
+✓ Created test-[SHORTID]: Test issue
 ? 0
 ```
 

@@ -19,7 +19,7 @@ before: |
   git add README.md
   git commit -m "Initial commit"
   # Initialize tbd
-  tbd init
+  tbd init --prefix=test
 ---
 # tbd CLI: Filesystem and Storage Tests
 
@@ -137,13 +137,13 @@ Note: Create command shows full ULID in success message.
 
 ```console
 $ tbd create "Second issue"
-✓ Created bd-[SHORTID]: Second issue
+✓ Created test-[SHORTID]: Second issue
 ? 0
 ```
 
 ```console
 $ tbd create "Third issue"
-✓ Created bd-[SHORTID]: Third issue
+✓ Created test-[SHORTID]: Third issue
 ? 0
 ```
 
@@ -221,7 +221,7 @@ No extra newlines after frontmatter
 
 ```console
 $ tbd create "Issue with description" --description="This is the description body."
-✓ Created bd-[SHORTID]: Issue with description
+✓ Created test-[SHORTID]: Issue with description
 ? 0
 ```
 

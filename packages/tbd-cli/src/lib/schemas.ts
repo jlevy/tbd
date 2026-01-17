@@ -175,11 +175,9 @@ export const ConfigSchema = z.object({
       remote: GitRemoteName.default('origin'),
     })
     .default({}),
-  display: z
-    .object({
-      id_prefix: z.string().default('bd'), // Beads compat
-    })
-    .default({}),
+  display: z.object({
+    id_prefix: z.string().min(1).max(20), // Required: set during init --prefix or import
+  }),
   settings: z
     .object({
       auto_sync: z.boolean().default(false),

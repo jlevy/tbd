@@ -163,8 +163,10 @@ describe('IssueSchema', () => {
 
 describe('ConfigSchema', () => {
   it('parses minimal config with defaults', () => {
+    // Note: display.id_prefix is now required (no default)
     const config = {
       tbd_version: '3.0.0',
+      display: { id_prefix: 'proj' },
     };
 
     const result = ConfigSchema.safeParse(config);
@@ -172,8 +174,17 @@ describe('ConfigSchema', () => {
     if (result.success) {
       expect(result.data.sync.branch).toBe('tbd-sync');
       expect(result.data.sync.remote).toBe('origin');
-      expect(result.data.display.id_prefix).toBe('bd');
+      expect(result.data.display.id_prefix).toBe('proj');
       expect(result.data.settings.auto_sync).toBe(false);
     }
+  });
+
+  it('rejects config without required id_prefix', () => {
+    const config = {
+      tbd_version: '3.0.0',
+    };
+
+    const result = ConfigSchema.safeParse(config);
+    expect(result.success).toBe(false);
   });
 });

@@ -22,17 +22,18 @@ describe('config operations', () => {
 
   describe('initConfig', () => {
     it('creates config file with defaults', async () => {
-      await initConfig(tempDir, '3.0.0');
+      await initConfig(tempDir, '3.0.0', 'test');
 
       const configPath = join(tempDir, CONFIG_FILE_PATH);
       const content = await readFile(configPath, 'utf-8');
 
       expect(content).toContain('tbd_version: 3.0.0');
       expect(content).toContain('branch: tbd-sync');
+      expect(content).toContain('id_prefix: test');
     });
 
     it('creates .tbd directory', async () => {
-      await initConfig(tempDir, '3.0.0');
+      await initConfig(tempDir, '3.0.0', 'test');
 
       const { stat } = await import('node:fs/promises');
       const tbdDir = await stat(join(tempDir, '.tbd'));
@@ -42,13 +43,14 @@ describe('config operations', () => {
 
   describe('readConfig', () => {
     it('reads existing config', async () => {
-      await initConfig(tempDir, '3.0.0');
+      await initConfig(tempDir, '3.0.0', 'test');
 
       const config = await readConfig(tempDir);
 
       expect(config.tbd_version).toBe('3.0.0');
       expect(config.sync.branch).toBe('tbd-sync');
       expect(config.sync.remote).toBe('origin');
+      expect(config.display.id_prefix).toBe('test');
     });
 
     it('throws when config does not exist', async () => {
@@ -58,7 +60,7 @@ describe('config operations', () => {
 
   describe('writeConfig', () => {
     it('writes config to file', async () => {
-      await initConfig(tempDir, '3.0.0');
+      await initConfig(tempDir, '3.0.0', 'test');
 
       const config: Config = {
         tbd_version: '3.1.0',

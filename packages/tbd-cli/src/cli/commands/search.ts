@@ -18,6 +18,7 @@ import { resolveDataSyncDir } from '../../lib/paths.js';
 import { now } from '../../utils/timeUtils.js';
 import { formatDisplayId, formatDebugId } from '../../lib/ids.js';
 import { loadIdMapping } from '../../file/idMapping.js';
+import { readConfig } from '../../file/config.js';
 
 // Staleness threshold for worktree (5 minutes)
 const STALE_THRESHOLD_MS = 5 * 60 * 1000;
@@ -145,13 +146,17 @@ class SearchHandler extends BaseCommand {
       }
     }
 
-    // Load ID mapping for display
+    // Load ID mapping and config for display
     const mapping = await loadIdMapping(dataSyncDir);
+    const config = await readConfig(process.cwd());
+    const prefix = config.display.id_prefix;
     const showDebug = this.ctx.debug;
 
     // Format output
     const output = results.map((r) => ({
-      id: showDebug ? formatDebugId(r.issue.id, mapping) : formatDisplayId(r.issue.id, mapping),
+      id: showDebug
+        ? formatDebugId(r.issue.id, mapping, prefix)
+        : formatDisplayId(r.issue.id, mapping, prefix),
       title: r.issue.title,
       status: r.issue.status,
       matchField: r.matchField,

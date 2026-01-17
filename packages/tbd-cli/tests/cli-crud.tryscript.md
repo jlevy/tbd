@@ -18,8 +18,8 @@ before: |
   echo "# Test repo" > README.md
   git add README.md
   git commit -m "Initial commit"
-  # Initialize tbd
-  tbd init
+  # Initialize tbd with test prefix
+  tbd init --prefix=test
 ---
 # tbd CLI: CRUD Operations
 
@@ -33,7 +33,7 @@ Comprehensive tests for create, show, update, list, close, and reopen commands.
 
 ```console
 $ tbd create "Minimal task"
-✓ Created bd-[SHORTID]: Minimal task
+✓ Created test-[SHORTID]: Minimal task
 ? 0
 ```
 
@@ -41,7 +41,7 @@ $ tbd create "Minimal task"
 
 ```console
 $ tbd create "A bug report" --type=bug
-✓ Created bd-[SHORTID]: A bug report
+✓ Created test-[SHORTID]: A bug report
 ? 0
 ```
 
@@ -49,7 +49,7 @@ $ tbd create "A bug report" --type=bug
 
 ```console
 $ tbd create "High priority feature" --type=feature --priority=0
-✓ Created bd-[SHORTID]: High priority feature
+✓ Created test-[SHORTID]: High priority feature
 ? 0
 ```
 
@@ -57,7 +57,7 @@ $ tbd create "High priority feature" --type=feature --priority=0
 
 ```console
 $ tbd create "Task with desc" --description="This is a detailed description"
-✓ Created bd-[SHORTID]: Task with desc
+✓ Created test-[SHORTID]: Task with desc
 ? 0
 ```
 
@@ -65,7 +65,7 @@ $ tbd create "Task with desc" --description="This is a detailed description"
 
 ```console
 $ tbd create "Assigned task" --assignee=alice
-✓ Created bd-[SHORTID]: Assigned task
+✓ Created test-[SHORTID]: Assigned task
 ? 0
 ```
 
@@ -73,7 +73,7 @@ $ tbd create "Assigned task" --assignee=alice
 
 ```console
 $ tbd create "Labeled task" --label=frontend --label=urgent --label=needs-review
-✓ Created bd-[SHORTID]: Labeled task
+✓ Created test-[SHORTID]: Labeled task
 ? 0
 ```
 
@@ -81,7 +81,7 @@ $ tbd create "Labeled task" --label=frontend --label=urgent --label=needs-review
 
 ```console
 $ tbd create "Epic project" --type=epic --priority=1
-✓ Created bd-[SHORTID]: Epic project
+✓ Created test-[SHORTID]: Epic project
 ? 0
 ```
 
@@ -89,7 +89,7 @@ $ tbd create "Epic project" --type=epic --priority=1
 
 ```console
 $ tbd create "Cleanup task" --type=chore
-✓ Created bd-[SHORTID]: Cleanup task
+✓ Created test-[SHORTID]: Cleanup task
 ? 0
 ```
 
@@ -97,7 +97,7 @@ $ tbd create "Cleanup task" --type=chore
 
 ```console
 $ tbd create "Due task" --due=2025-12-31T23:59:59Z
-✓ Created bd-[SHORTID]: Due task
+✓ Created test-[SHORTID]: Due task
 ? 0
 ```
 
@@ -105,7 +105,7 @@ $ tbd create "Due task" --due=2025-12-31T23:59:59Z
 
 ```console
 $ tbd create "Deferred work" --defer=2025-06-01T00:00:00Z
-✓ Created bd-[SHORTID]: Deferred work
+✓ Created test-[SHORTID]: Deferred work
 ? 0
 ```
 
@@ -122,7 +122,7 @@ $ tbd create "Dry run only" --type=bug --dry-run
 ```console
 $ tbd create "JSON test" --type=task --json
 {
-  "id": "bd-[SHORTID]",
+  "id": "test-[SHORTID]",
   "internalId": "is-[ULID]",
   "title": "JSON test"
 }

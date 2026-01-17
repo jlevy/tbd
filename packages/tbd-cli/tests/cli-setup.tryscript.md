@@ -100,6 +100,7 @@ Usage: tbd init [options]
 Initialize tbd in a git repository
 
 Options:
+  --prefix <name>       Project prefix for display IDs (e.g., "proj", "myapp")
   --sync-branch <name>  Sync branch name (default: tbd-sync)
   --remote <name>       Remote name (default: origin)
   -h, --help            display help for command
@@ -127,7 +128,7 @@ For more on tbd, see: https://github.com/jlevy/tbd
 # Test: Initialize tbd with defaults
 
 ```console
-$ tbd init
+$ tbd init --prefix=bd
 ✓ Initialized tbd repository
 
 To complete setup, commit the config files:
@@ -210,7 +211,7 @@ Initialized empty Git repository in [..]
 # Test: Init with custom sync branch
 
 ```console
-$ cd custom-repo && tbd init --sync-branch custom-sync --remote upstream
+$ cd custom-repo && tbd init --prefix=bd --sync-branch custom-sync --remote upstream
 ✓ Initialized tbd repository
 
 To complete setup, commit the config files:

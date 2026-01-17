@@ -33,7 +33,7 @@ tbd V1 is a complete CLI implementation with 25 phases of development:
 **Bead Tracking:** 262 beads tracked, ~10 open (P3 polish items)
 
 **Latest Validation (2026-01-17):**
-- ✅ 187 vitest unit tests passing
+- ✅ 188 vitest unit tests passing
 - ✅ 420 tryscript golden tests passing
 - ✅ Import validated: preserves original short IDs
 - ✅ Worktree architecture correctly implemented
@@ -41,6 +41,9 @@ tbd V1 is a complete CLI implementation with 25 phases of development:
 - ✅ Phase 22-25 agent integration and status commands working
 - ✅ CLI help now shows full option names (`--option=value` style)
 - ✅ Documentation updated to use consistent full option syntax
+- ✅ Display prefix now required: `tbd init --prefix=<name>` (no default)
+- ✅ All commands use configured prefix from `config.display.id_prefix`
+- ✅ Prefix auto-detected from beads during `tbd import --from-beads`
 
 * * *
 
@@ -404,9 +407,9 @@ To validate import:
 ```bash
 # Initialize fresh tbd (remove existing)
 rm -rf .tbd .tbd/data-sync
-tbd init
+tbd init --prefix=proj    # Prefix is now required
 
-# Import from beads
+# Import from beads (auto-detects prefix from beads issues)
 tbd import --from-beads --verbose
 
 # Validate import
@@ -417,7 +420,7 @@ tbd list --all | wc -l  # Should be ~100+ open issues
 tbd stats --json        # Should show breakdown by status, type, priority
 
 # Compare specific issues
-tbd show bd-<id>        # Spot check a few issues against beads originals
+tbd show proj-<id>      # Use configured prefix, not bd-
 ```
 
 **Expected results:**
@@ -443,8 +446,8 @@ tbd status --json   # Machine-readable format
 mkdir .beads && echo '{}' > .beads/issues.jsonl
 tbd status          # Should detect beads and suggest import
 
-# Initialize and test again
-tbd init
+# Initialize and test again (prefix now required)
+tbd init --prefix=test
 tbd status          # Should show initialized state with issue summary
 
 # Test integration detection
@@ -457,9 +460,9 @@ tbd status          # Should show Claude integration detected
 Test the workflow context output:
 
 ```bash
-# Initialize a test project
+# Initialize a test project (prefix now required)
 cd /tmp && mkdir tbd-test && cd tbd-test
-tbd init
+tbd init --prefix=test
 
 # Test prime output
 tbd prime
@@ -629,6 +632,7 @@ These are documented for future consideration but not blocking for V1:
 | CI Configuration | Cross-platform workflow | ✅ Configured |
 | Build/Lint | TypeScript, ESLint, Prettier | ✅ Passing |
 | Import | --from-beads, --validate | ✅ Tested |
+| Prefix Config | --prefix required, auto-detect | ✅ Complete |
 | Local Workflow | Dev commands, git hooks | ✅ Agent verified |
 | Phase 25 | Status command, uninstall, docs | ✅ Complete |
 | Engineering | Architecture, types, security | ⏳ User review needed |

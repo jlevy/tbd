@@ -16,6 +16,7 @@ import type { IssueStatusType, IssueKindType, PriorityType } from '../../lib/typ
 import { resolveDataSyncDir } from '../../lib/paths.js';
 import { now } from '../../utils/timeUtils.js';
 import { loadIdMapping, resolveToInternalId } from '../../file/idMapping.js';
+import { readConfig } from '../../file/config.js';
 
 interface UpdateOptions {
   fromFile?: string;
@@ -103,9 +104,11 @@ class UpdateHandler extends BaseCommand {
 
     // Use already loaded mapping for display
     const showDebug = this.ctx.debug;
+    const config = await readConfig(process.cwd());
+    const prefix = config.display.id_prefix;
     const displayId = showDebug
-      ? formatDebugId(issue.id, mapping)
-      : formatDisplayId(issue.id, mapping);
+      ? formatDebugId(issue.id, mapping, prefix)
+      : formatDisplayId(issue.id, mapping, prefix);
 
     this.output.data({ id: displayId, updated: true }, () => {
       this.output.success(`Updated ${displayId}`);

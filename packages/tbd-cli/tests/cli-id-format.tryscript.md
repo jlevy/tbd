@@ -19,7 +19,7 @@ before: |
   git add README.md
   git commit -m "Initial commit"
   # Initialize tbd
-  tbd init
+  tbd init --prefix=test
 ---
 # tbd CLI: ID Format Tests
 
@@ -28,7 +28,7 @@ Validates ID format behavior across commands.
 ## ID Format Reference
 
 - **Internal ID**: `is-{26-char-ulid}` - stored in files, used for lookups
-- **Display ID**: `bd-{4-char-short-id}` - short ID for readability
+- **Display ID**: `{prefix}-{4-char-short-id}` - short ID for readability (prefix is 'test' in these tests)
 
 * * *
 
@@ -38,15 +38,15 @@ Validates ID format behavior across commands.
 
 ```console
 $ tbd create "Test issue"
-✓ Created bd-[SHORTID]: Test issue
+✓ Created test-[SHORTID]: Test issue
 ? 0
 ```
 
 # Test: Create JSON output has both id and internalId
 
 ```console
-$ tbd create "Test JSON" --json | node -e "d=JSON.parse(require('fs').readFileSync(0,'utf8')); console.log('id starts with bd-:', d.id.startsWith('bd-')); console.log('internalId starts with is-:', d.internalId.startsWith('is-'))"
-id starts with bd-: true
+$ tbd create "Test JSON" --json | node -e "d=JSON.parse(require('fs').readFileSync(0,'utf8')); console.log('id starts with test-:', d.id.startsWith('test-')); console.log('internalId starts with is-:', d.internalId.startsWith('is-'))"
+id starts with test-: true
 internalId starts with is-: true
 ? 0
 ```
@@ -59,13 +59,13 @@ internalId starts with is-: true
 
 ```console
 $ tbd create "High priority" --priority=0
-✓ Created bd-[SHORTID]: High priority
+✓ Created test-[SHORTID]: High priority
 ? 0
 ```
 
 ```console
 $ tbd create "Medium priority" --priority=1
-✓ Created bd-[SHORTID]: Medium priority
+✓ Created test-[SHORTID]: Medium priority
 ? 0
 ```
 
@@ -74,7 +74,7 @@ $ tbd create "Medium priority" --priority=1
 The list command shows shortened display IDs for readability.
 
 ```console
-$ tbd list | grep -c "^bd-"
+$ tbd list | grep -c "^test-"
 4
 ? 0
 ```
@@ -82,7 +82,7 @@ $ tbd list | grep -c "^bd-"
 # Test: List JSON has short id and full internalId
 
 ```console
-$ tbd list --json | node -e "d=JSON.parse(require('fs').readFileSync(0,'utf8')); first=d[0]; console.log('id format ok:', first.id.startsWith('bd-') && first.id.length <= 9); console.log('internalId format ok:', first.internalId.startsWith('is-') && first.internalId.length === 29)"
+$ tbd list --json | node -e "d=JSON.parse(require('fs').readFileSync(0,'utf8')); first=d[0]; console.log('id format ok:', first.id.startsWith('test-') && first.id.length <= 10); console.log('internalId format ok:', first.internalId.startsWith('is-') && first.internalId.length === 29)"
 id format ok: true
 internalId format ok: true
 ? 0
@@ -124,7 +124,7 @@ id: is-[ULID]
 
 ```console
 $ ID=$(cat /tmp/test_id.txt) && tbd update $ID --priority=3
-✓ Updated bd-[SHORTID]
+✓ Updated test-[SHORTID]
 ? 0
 ```
 
@@ -136,7 +136,7 @@ $ ID=$(cat /tmp/test_id.txt) && tbd update $ID --priority=3
 
 ```console
 $ ID=$(cat /tmp/test_id.txt) && tbd close $ID
-✓ Closed bd-[SHORTID]
+✓ Closed test-[SHORTID]
 ? 0
 ```
 
@@ -144,7 +144,7 @@ $ ID=$(cat /tmp/test_id.txt) && tbd close $ID
 
 ```console
 $ ID=$(cat /tmp/test_id.txt) && tbd reopen $ID
-✓ Reopened bd-[SHORTID]
+✓ Reopened test-[SHORTID]
 ? 0
 ```
 
@@ -155,7 +155,7 @@ $ ID=$(cat /tmp/test_id.txt) && tbd reopen $ID
 # Test: List display IDs are 4 characters (short ID)
 
 ```console
-$ tbd list | awk '{print $1}' | grep "^bd-" | head -1 | sed 's/bd-//' | wc -c | tr -d ' '
+$ tbd list | awk '{print $1}' | grep "^test-" | head -1 | sed 's/test-//' | wc -c | tr -d ' '
 5
 ? 0
 ```
@@ -169,7 +169,7 @@ Note: wc -c includes newline, so 5 means 4 chars + newline.
 # Test: Ready command shows short display IDs
 
 ```console
-$ tbd ready | grep -c "^bd-"
+$ tbd ready | grep -c "^test-"
 4
 ? 0
 ```

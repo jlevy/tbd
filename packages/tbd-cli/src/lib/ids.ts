@@ -205,10 +205,10 @@ import type { IdMapping } from '../file/idMapping.js';
  *
  * @param internalId - The internal ID (is-{ulid})
  * @param mapping - ID mapping for short ID lookup (required)
- * @param prefix - Display prefix (default: 'bd')
+ * @param prefix - Display prefix (should come from config.display.id_prefix; defaults to 'tbd' as fallback)
  * @throws Error if mapping is missing or ID not found in mapping
  */
-export function formatDisplayId(internalId: string, mapping: IdMapping, prefix = 'bd'): string {
+export function formatDisplayId(internalId: string, mapping: IdMapping, prefix = 'tbd'): string {
   // Extract the ULID portion
   const ulidPart = extractUlidFromInternalId(internalId);
 
@@ -229,9 +229,9 @@ export function formatDisplayId(internalId: string, mapping: IdMapping, prefix =
  *
  * @param internalId - The internal ID (is-{ulid})
  * @param mapping - ID mapping for short ID lookup
- * @param prefix - Display prefix (default: 'bd')
+ * @param prefix - Display prefix (should come from config.display.id_prefix; defaults to 'tbd' as fallback)
  */
-export function formatDebugId(internalId: string, mapping: IdMapping, prefix = 'bd'): string {
+export function formatDebugId(internalId: string, mapping: IdMapping, prefix = 'tbd'): string {
   const displayId = formatDisplayId(internalId, mapping, prefix);
   return `${displayId} (${internalId})`;
 }

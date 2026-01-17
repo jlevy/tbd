@@ -21,8 +21,9 @@ export const CONFIG_FILE_PATH = '.tbd/config.yml';
 
 /**
  * Create default config for a new project.
+ * @param prefix - Required: the project prefix for display IDs (e.g., "proj", "myapp")
  */
-function createDefaultConfig(version: string): Config {
+function createDefaultConfig(version: string, prefix: string): Config {
   return ConfigSchema.parse({
     tbd_version: version,
     sync: {
@@ -30,7 +31,7 @@ function createDefaultConfig(version: string): Config {
       remote: 'origin',
     },
     display: {
-      id_prefix: 'bd',
+      id_prefix: prefix,
     },
     settings: {
       auto_sync: false,
@@ -42,12 +43,17 @@ function createDefaultConfig(version: string): Config {
 /**
  * Initialize a new config file with default settings.
  * Creates .tbd directory if it doesn't exist.
+ * @param prefix - Required: the project prefix for display IDs (e.g., "proj", "myapp")
  */
-export async function initConfig(baseDir: string, version: string): Promise<Config> {
+export async function initConfig(
+  baseDir: string,
+  version: string,
+  prefix: string,
+): Promise<Config> {
   const tbdDir = join(baseDir, '.tbd');
   await mkdir(tbdDir, { recursive: true });
 
-  const config = createDefaultConfig(version);
+  const config = createDefaultConfig(version, prefix);
   await writeConfig(baseDir, config);
 
   return config;

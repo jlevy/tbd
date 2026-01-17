@@ -13,6 +13,7 @@ import { formatDisplayId, formatDebugId } from '../../lib/ids.js';
 import { resolveDataSyncDir } from '../../lib/paths.js';
 import { now } from '../../utils/timeUtils.js';
 import { loadIdMapping, resolveToInternalId } from '../../file/idMapping.js';
+import { readConfig } from '../../file/config.js';
 
 interface ReopenOptions {
   reason?: string;
@@ -75,9 +76,11 @@ class ReopenHandler extends BaseCommand {
 
     // Use already loaded mapping for display
     const showDebug = this.ctx.debug;
+    const config = await readConfig(process.cwd());
+    const prefix = config.display.id_prefix;
     const displayId = showDebug
-      ? formatDebugId(issue.id, mapping)
-      : formatDisplayId(issue.id, mapping);
+      ? formatDebugId(issue.id, mapping, prefix)
+      : formatDisplayId(issue.id, mapping, prefix);
 
     this.output.data({ id: displayId, reopened: true }, () => {
       this.output.success(`Reopened ${displayId}`);

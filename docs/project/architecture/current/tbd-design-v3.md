@@ -808,7 +808,7 @@ human usability (short, memorable):
 | ID Type | Format | Example | Purpose |
 | --- | --- | --- | --- |
 | **Internal** | `{type}-{ulid}` | `is-01hx5zzkbkactav9wevgemmvrz` | Storage, sorting, dependencies |
-| **External** | `{project}-{short}` | `bd-a7k2` | CLI, docs, commits, references |
+| **External** | `{project}-{short}` | `proj-a7k2` | CLI, docs, commits, references |
 
 **Internal IDs** use [ULID](https://github.com/ulid/spec) (Universally Unique
 Lexicographically Sortable Identifier):
@@ -820,7 +820,8 @@ Lexicographically Sortable Identifier):
 
 **External IDs** use short alphanumeric codes mapped to internal IDs:
 
-- **Configurable prefix**: Project-specific (`bd`, `proj`, `tk`) via `display.id_prefix`
+- **Required prefix**: Project-specific (e.g., `proj`, `myapp`, `tk`) via `display.id_prefix`
+  - Set during `tbd init --prefix=<name>` or automatically from beads import
 - **Short code**: 1+ alphanumeric characters (a-z, 0-9)
   - Imported issues: Preserve original short ID (e.g., `100` from `tbd-100`)
   - New issues: Generate random 4-char base36
@@ -891,7 +892,7 @@ When a user provides an ID:
 
 ```typescript
 async function resolveId(input: string, storage: Storage): Promise<string> {
-  // Strip display prefix if present (e.g., "bd-a7k2" → "a7k2")
+  // Strip display prefix if present (e.g., "proj-a7k2" → "a7k2")
   const shortId = input.replace(/^[a-z]+-/, '');
 
   // Look up in mapping file
@@ -931,29 +932,29 @@ Issue files use the full internal ID:
 function formatDisplayId(internalId: string, config: Config): string {
   const ulid = internalId.replace(/^is-/, '');
   const shortId = config.idMapping.getShortId(ulid);
-  const prefix = config.display.id_prefix ?? 'bd';
-  return `${prefix}-${shortId}`; // e.g., "bd-a7k2"
+  const prefix = config.display.id_prefix; // Required, no default
+  return `${prefix}-${shortId}`; // e.g., "proj-a7k2"
 }
 ```
 
 **CLI flow example (imported issue):**
 
 ```
-User types:     bd-100 (or tbd-100)
+User types:     proj-100 (or original beads ID like tbd-100)
 Lookup:         100 → 01hx5zzkbkactav9wevgemmvrz
 Internal ID:    is-01hx5zzkbkactav9wevgemmvrz
 File path:      .tbd/data-sync/issues/is-01hx5zzkbkactav9wevgemmvrz.md
-Display back:   bd-100
+Display back:   proj-100
 ```
 
 **CLI flow example (new issue):**
 
 ```
-User types:     bd-a7k2
+User types:     proj-a7k2
 Lookup:         a7k2 → 01hx5zzkbkdetav9wevgemmvrz
 Internal ID:    is-01hx5zzkbkdetav9wevgemmvrz
 File path:      .tbd/data-sync/issues/is-01hx5zzkbkdetav9wevgemmvrz.md
-Display back:   bd-a7k2
+Display back:   proj-a7k2
 ```
 
 ### 2.6 Schemas
@@ -1130,7 +1131,7 @@ sync:
 
 # Display settings
 display:
-  id_prefix: bd # Show IDs as "bd-xxxx" for Beads compatibility
+  id_prefix: proj # Required: project-specific prefix (set during init or import)
 
 # Runtime settings
 settings:
@@ -1149,9 +1150,8 @@ const ConfigSchema = z.object({
     .default({}),
   display: z
     .object({
-      id_prefix: z.string().default('bd'), // Beads compat
-    })
-    .default({}),
+      id_prefix: z.string(), // Required: set during init or auto-detected from beads import
+    }),
   settings: z
     .object({
       auto_sync: z.boolean().default(false),
@@ -1663,16 +1663,21 @@ tbd <command> [subcommand] [args] [options]
 ### 4.3 Initialization
 
 ```bash
-tbd init [options]
+tbd init --prefix=<name> [options]
 
 Options:
-  --sync-branch <name>  Sync branch name (default: tbd-sync)
-  --remote <name>       Remote name (default: origin)
+  --prefix=<name>       Required: project prefix for display IDs (e.g., "proj", "myapp")
+  --sync-branch=<name>  Sync branch name (default: tbd-sync)
+  --remote=<name>       Remote name (default: origin)
 ```
+
+The `--prefix` option is **required** unless you're importing from an existing beads
+repository (which automatically detects and uses the beads prefix).
 
 **What it does:**
 
-1. Creates `.tbd/` directory with `config.yml` and `.gitignore`
+1. Creates `.tbd/` directory with `config.yml` (including display.id_prefix) and
+   `.gitignore`
 
 2. Creates `.tbd/cache/` (gitignored)
 
@@ -1728,7 +1733,7 @@ Options:
 ```bash
 tbd create "Fix authentication bug" --type=bug --priority=1
 tbd create "Add OAuth" --type=feature --label=backend --label=security
-tbd create "Write tests" --parent bd-a1b2
+tbd create "Write tests" --parent proj-a1b2
 tbd create "API docs" --file design.md
 
 # Create from full YAML+Markdown file
@@ -1750,7 +1755,7 @@ tbd create --from-file new-issue.md
 **Output:**
 
 ```
-Created bd-a1b2: Fix authentication bug
+Created proj-a1b2: Fix authentication bug
 ```
 
 #### List
@@ -1793,9 +1798,9 @@ tbd list --deferred
 
 ```
 ID        PRI  STATUS       TITLE
-bd-a1b2   1    in_progress  Fix authentication bug
-bd-f14c   2    open         Add OAuth support
-bd-c3d4   3    blocked      Write API tests
+proj-a1b2   1    in_progress  Fix authentication bug
+proj-f14c   2    open         Add OAuth support
+proj-c3d4   3    blocked      Write API tests
 ```
 
 **Output (--json):**
@@ -1871,9 +1876,9 @@ Output is colorized when stdout is a TTY (see `--color` global option in §4.10)
 
 ```bash
 # Export, edit, re-import
-tbd show bd-a1b2 > issue.md
+tbd show proj-a1b2 > issue.md
 # ... edit issue.md ...
-tbd update bd-a1b2 --from-file issue.md
+tbd update proj-a1b2 --from-file issue.md
 ```
 
 > **Note:** The `notes` field appears as a `## Notes` section in the Markdown body,
@@ -1906,14 +1911,14 @@ Options:
 **Examples:**
 
 ```bash
-tbd update bd-a1b2 --status=in_progress
-tbd update bd-a1b2 --add-label urgent --priority 0
-tbd update bd-a1b2 --defer 2025-02-01
+tbd update proj-a1b2 --status=in_progress
+tbd update proj-a1b2 --add-label urgent --priority 0
+tbd update proj-a1b2 --defer 2025-02-01
 
 # Round-trip editing: export, modify, re-import
-tbd show bd-a1b2 > issue.md
+tbd show proj-a1b2 > issue.md
 # ... edit issue.md ...
-tbd update bd-a1b2 --from-file issue.md
+tbd update proj-a1b2 --from-file issue.md
 ```
 
 **`--from-file` behavior:**
@@ -1942,8 +1947,8 @@ Options:
 **Examples:**
 
 ```bash
-tbd close bd-a1b2
-tbd close bd-a1b2 --reason "Fixed in commit abc123"
+tbd close proj-a1b2
+tbd close proj-a1b2 --reason "Fixed in commit abc123"
 ```
 
 #### Reopen
@@ -1997,8 +2002,8 @@ Options:
 
 ```
 ISSUE       TITLE                    BLOCKED BY
-bd-c3d4     Write tests              bd-f14c (Add OAuth)
-bd-e5f6     Deploy to prod           bd-a1b2, bd-c3d4
+proj-c3d4     Write tests              proj-f14c (Add OAuth)
+proj-e5f6     Deploy to prod           proj-a1b2, proj-c3d4
 ```
 
 #### Stale
@@ -2027,8 +2032,8 @@ tbd stale --status blocked   # Blocked issues that are stale
 
 ```
 ISSUE       DAYS  STATUS       TITLE
-bd-a1b2     12    in_progress  Fix authentication bug
-bd-f14c     9     open         Add OAuth support
+proj-a1b2     12    in_progress  Fix authentication bug
+proj-f14c     9     open         Add OAuth support
 ```
 
 ### 4.5 Label Commands
@@ -2047,8 +2052,8 @@ tbd label list
 **Examples:**
 
 ```bash
-tbd label add bd-a1b2 urgent
-tbd label remove bd-a1b2 low-priority
+tbd label add proj-a1b2 urgent
+tbd label remove proj-a1b2 low-priority
 tbd label list
 ```
 
@@ -2068,8 +2073,8 @@ tbd dep tree <id>
 **Examples:**
 
 ```bash
-tbd dep add bd-c3d4 bd-f14c --type blocks
-tbd dep tree bd-a1b2
+tbd dep add proj-c3d4 proj-f14c --type blocks
+tbd dep tree proj-a1b2
 ```
 
 **Note**: Currently only supports `blocks` dependency type.
@@ -2154,10 +2159,10 @@ tbd search "FIXME" --count
 **Output (default):**
 
 ```
-bd-a1b2: Fix authentication timeout
+proj-a1b2: Fix authentication timeout
   description (line 5): ...users experiencing authentication timeout after 5 minutes...
 
-bd-f14c: Add OAuth support
+proj-f14c: Add OAuth support
   notes (line 2): ...need to handle timeout during OAuth callback...
 
 Found 2 issues with 2 matches
@@ -2170,7 +2175,7 @@ Found 2 issues with 2 matches
   "matches": [
     {
       "issue_id": "is-a1b2c3",
-      "display_id": "bd-a1b2",
+      "display_id": "proj-a1b2",
       "field": "description",
       "line": 5,
       "content": "users experiencing authentication timeout after 5 minutes",
@@ -2573,9 +2578,9 @@ Options:
 
 ```
 TIMESTAMP                  ISSUE      FIELD        WINNER
-2025-01-07T10:30:00Z      bd-a1b2    description  remote
-2025-01-07T11:45:00Z      bd-a1b2    notes        local
-2025-01-08T09:00:00Z      bd-f14c    title        remote
+2025-01-07T10:30:00Z      proj-a1b2    description  remote
+2025-01-07T11:45:00Z      proj-a1b2    notes        local
+2025-01-08T09:00:00Z      proj-f14c    title        remote
 ```
 
 ```bash
@@ -2591,7 +2596,7 @@ Options:
 ```
 Attic Entry: 2025-01-07T10-30-00Z_description
 
-Issue: bd-a1b2 (Fix authentication bug)
+Issue: proj-a1b2 (Fix authentication bug)
 Field: description
 Timestamp: 2025-01-07T10:30:00Z
 
@@ -3319,7 +3324,7 @@ CLI output.
 
 - Command names and primary flags listed in this spec
 
-- External ID format: `{prefix}-{4-5 base36 chars}` (e.g., `bd-a7k2`)
+- External ID format: `{prefix}-{4-5 base36 chars}` (e.g., `proj-a7k2`)
 
 - Internal ID format: `is-{26 char ulid}` (e.g., `is-01hx5zzkbkactav9wevgemmvrz`)
 
@@ -3347,7 +3352,7 @@ These flags/behaviors are maintained for Beads script compatibility:
 
 - `--type <kind>` → maps to `kind` field (not `type`)
 
-- Display prefix `bd-` configurable via `display.id_prefix`
+- Display prefix (e.g., `proj-`) set via `display.id_prefix` during init or import
 
 #### Migration Gotchas
 
@@ -4739,7 +4744,7 @@ This would enable bidirectional sync of status and comments.
 If all issue systems use clean, identifiable prefixes with unique patterns, linking
 could be convention-based:
 
-- tbd: `is-a1b2c3` or `bd-a1b2c3` (configurable display prefix)
+- tbd: `is-a1b2c3` internal, `proj-a1b2c3` display (configurable prefix)
 
 - GitHub: `github#456` or `gh#456`
 

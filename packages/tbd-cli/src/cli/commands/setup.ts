@@ -124,13 +124,13 @@ tbd create "Issue title" --description "Detailed context" --type task --priority
 **Claim and update:**
 
 \`\`\`bash
-tbd update bd-42 --status in_progress --json
+tbd update <id> --status in_progress --json
 \`\`\`
 
 **Complete work:**
 
 \`\`\`bash
-tbd close bd-42 --reason "Completed" --json
+tbd close <id> --reason "Completed" --json
 \`\`\`
 
 ### Workflow for AI Agents

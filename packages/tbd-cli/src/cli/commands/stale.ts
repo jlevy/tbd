@@ -15,6 +15,7 @@ import { resolveDataSyncDir } from '../../lib/paths.js';
 import { nowDate, parseDate } from '../../utils/timeUtils.js';
 import { formatDisplayId, formatDebugId } from '../../lib/ids.js';
 import { loadIdMapping } from '../../file/idMapping.js';
+import { readConfig } from '../../file/config.js';
 
 interface StaleOptions {
   days?: string;
@@ -93,13 +94,17 @@ class StaleHandler extends BaseCommand {
       }
     }
 
-    // Load ID mapping for display
+    // Load ID mapping and config for display
     const mapping = await loadIdMapping(dataSyncDir);
+    const config = await readConfig(process.cwd());
+    const prefix = config.display.id_prefix;
     const showDebug = this.ctx.debug;
 
     // Format output
     const outputIssues = staleIssues.map((s) => ({
-      id: showDebug ? formatDebugId(s.issue.id, mapping) : formatDisplayId(s.issue.id, mapping),
+      id: showDebug
+        ? formatDebugId(s.issue.id, mapping, prefix)
+        : formatDisplayId(s.issue.id, mapping, prefix),
       days: s.daysSinceUpdate,
       status: s.issue.status,
       title: s.issue.title,

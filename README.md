@@ -39,11 +39,11 @@ tbd create "API returns 500 on malformed input" --type=bug --priority=1
 tbd create "Add rate limiting to /api/upload" --type=feature
 
 # Find and claim work
-tbd ready                                  # What's available?
-tbd update bd-a7k2 --status=in_progress    # Claim it
+tbd ready                                    # What's available?
+tbd update proj-a7k2 --status=in_progress    # Claim it
 
 # Complete and sync
-tbd close bd-a7k2 --reason="Fixed in commit abc123"
+tbd close proj-a7k2 --reason="Fixed in commit abc123"
 tbd sync
 ```
 
@@ -64,29 +64,29 @@ npx tbd-cli <command>
 ### Core Workflow
 
 ```bash
-tbd ready                    # Issues ready to work on (open, unblocked, unassigned)
-tbd list                     # List open issues
-tbd list --all               # Include closed
-tbd show bd-a7k2             # View issue details
-tbd create "Title" --type=bug    # Create issue (bug/feature/task/epic/chore)
-tbd update bd-a7k2 --status=in_progress
-tbd close bd-a7k2            # Close issue
-tbd sync                     # Sync with remote
+tbd ready                      # Issues ready to work on (open, unblocked, unassigned)
+tbd list                       # List open issues
+tbd list --all                 # Include closed
+tbd show proj-a7k2             # View issue details
+tbd create "Title" --type=bug  # Create issue (bug/feature/task/epic/chore)
+tbd update proj-a7k2 --status=in_progress
+tbd close proj-a7k2            # Close issue
+tbd sync                       # Sync with remote
 ```
 
 ### Dependencies
 
 ```bash
-tbd dep add bd-b3m9 bd-a7k2  # b3m9 is blocked by a7k2
+tbd dep add proj-b3m9 proj-a7k2  # b3m9 is blocked by a7k2
 tbd blocked                      # Show blocked issues
 ```
 
 ### Labels
 
 ```bash
-tbd label add bd-a7k2 urgent backend
-tbd label remove bd-a7k2 urgent
-tbd label list               # All labels in use
+tbd label add proj-a7k2 urgent backend
+tbd label remove proj-a7k2 urgent
+tbd label list                   # All labels in use
 ```
 
 ### Search
@@ -112,11 +112,11 @@ tbd is designed for AI coding agents.
 ### Agent Workflow Loop
 
 ```bash
-tbd ready --json                        # Find work
-tbd update bd-xxxx --status=in_progress # Claim (advisory)
+tbd ready --json                          # Find work
+tbd update proj-xxxx --status=in_progress # Claim (advisory)
 # ... do the work ...
-tbd close bd-xxxx --reason="Done"       # Complete
-tbd sync                                # Push
+tbd close proj-xxxx --reason="Done"       # Complete
+tbd sync                                  # Push
 ```
 
 ### Agent-Friendly Flags
@@ -161,18 +161,16 @@ Or read online:
 ## Migration from Beads
 
 ```bash
-# One-step migration (auto-initializes tbd)
+# One-step migration (auto-initializes tbd, uses beads prefix)
 tbd import --from-beads
 
 # Verify
 tbd stats
 tbd list --all
-
-# Optional: keep the same ID prefix
-tbd config set display.id_prefix bd
 ```
 
-Issue IDs are preserved: `proj-abc1` in bd becomes `proj-abc1` in tbd.
+Issue IDs are preserved: `proj-123` in beads becomes `proj-123` in tbd. The prefix
+from your beads configuration is automatically used.
 
 ## How It Works
 
@@ -199,8 +197,8 @@ tbd stores issues on a dedicated `tbd-sync` branch, separate from your code:
   (last-write-wins for scalars, union for arrays)
 - In that case lost values preserved in attic—no data loss ever
 
-Issues have a short name like `proj-abc1` but these point to unique ULID-based IDs
-internally.
+Issues have a short display ID like `proj-a7k2` (where `proj` is your project's prefix)
+but these map to unique ULID-based internal IDs for reliable sorting and storage.
 
 ## Issue File Format
 

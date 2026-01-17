@@ -52,7 +52,7 @@ Implement tbd V1 as a TypeScript CLI application following the design specificat
 | CLI options | Full | Same flags as Beads (`--json`, `-t`, `-p`, etc.) |
 | JSON output schema | Full | Matches Beads JSON output structure |
 | Exit codes | Full | 0=success, 1=error, 2=usage error |
-| ID format | Compatible | Internal `is-xxxx`, display as `bd-xxxx` via config |
+| ID format | Compatible | Internal `is-xxxx`, display as `{prefix}-xxxx` via required config |
 
 ### Data Compatibility
 

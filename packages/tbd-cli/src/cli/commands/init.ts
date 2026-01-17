@@ -17,6 +17,7 @@ import { TBD_DIR, CACHE_DIR, WORKTREE_DIR_NAME, DATA_SYNC_DIR_NAME } from '../..
 import { initWorktree } from '../../file/git.js';
 
 interface InitOptions {
+  prefix?: string;
   syncBranch?: string;
   remote?: string;
 }
@@ -34,14 +35,29 @@ class InitHandler extends BaseCommand {
       // Not initialized - continue
     }
 
+    // Validate prefix is provided
+    if (!options.prefix) {
+      this.output.error('The --prefix option is required');
+      this.output.info('');
+      this.output.info('Usage: tbd init --prefix=<name>');
+      this.output.info('');
+      this.output.info('The prefix is used for display IDs (e.g., proj-a7k2, myapp-b3m9)');
+      this.output.info('Choose a short, memorable prefix for your project.');
+      this.output.info('');
+      this.output.info("If importing from beads, use 'tbd import --from-beads' instead");
+      this.output.info('(the beads prefix will be automatically detected).');
+      return;
+    }
+
     if (this.checkDryRun('Would initialize tbd repository', options)) {
       return;
     }
 
     await this.execute(async () => {
       // 1. Create .tbd/ directory with config.yml
-      await initConfig(cwd, VERSION);
-      this.output.debug(`Created ${TBD_DIR}/config.yml`);
+      // Note: options.prefix is validated to be non-null above
+      await initConfig(cwd, VERSION, options.prefix!);
+      this.output.debug(`Created ${TBD_DIR}/config.yml with prefix '${options.prefix}'`);
 
       // 2. Create .tbd/.gitignore
       // Per spec §2.3: Must ignore cache/, data-sync-worktree/, and data-sync/
@@ -97,6 +113,7 @@ class InitHandler extends BaseCommand {
 
 export const initCommand = new Command('init')
   .description('Initialize tbd in a git repository')
+  .option('--prefix <name>', 'Project prefix for display IDs (e.g., "proj", "myapp")')
   .option('--sync-branch <name>', 'Sync branch name (default: tbd-sync)')
   .option('--remote <name>', 'Remote name (default: origin)')
   .action(async (options, command) => {

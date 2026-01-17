@@ -97,7 +97,7 @@ To get started:
 # Test: Initialize tbd
 
 ```console
-$ tbd init
+$ tbd init --prefix=bd
 ✓ Initialized tbd repository
 
 To complete setup, commit the config files:

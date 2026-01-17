@@ -14,6 +14,7 @@ import type { Issue, IssueKindType } from '../../lib/types.js';
 import { resolveDataSyncDir } from '../../lib/paths.js';
 import { formatDisplayId, formatDebugId } from '../../lib/ids.js';
 import { loadIdMapping } from '../../file/idMapping.js';
+import { readConfig } from '../../file/config.js';
 
 interface ReadyOptions {
   type?: string;
@@ -92,13 +93,15 @@ class ReadyHandler extends BaseCommand {
       }
     }
 
-    // Load ID mapping for display
+    // Load ID mapping and config for display
     const mapping = await loadIdMapping(dataSyncDir);
+    const config = await readConfig(process.cwd());
+    const prefix = config.display.id_prefix;
     const showDebug = this.ctx.debug;
 
     // Format output
     const outputIssues = readyIssues.map((i) => ({
-      id: showDebug ? formatDebugId(i.id, mapping) : formatDisplayId(i.id, mapping),
+      id: showDebug ? formatDebugId(i.id, mapping, prefix) : formatDisplayId(i.id, mapping, prefix),
       priority: i.priority,
       title: i.title,
     }));

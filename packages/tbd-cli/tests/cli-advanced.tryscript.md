@@ -18,8 +18,8 @@ before: |
   echo "# Test repo" > README.md
   git add README.md
   git commit -m "Initial commit"
-  # Initialize tbd
-  tbd init
+  # Initialize tbd with test prefix
+  tbd init --prefix=test
   # Create test issues with varied content for search
   tbd create "Authentication bug in login" --type=bug --description="Users cannot log in with SSO" --label=security --label=urgent
   tbd create "Add dark mode feature" --type=feature --description="Support dark theme toggle" --label=frontend --label=ux
@@ -232,7 +232,7 @@ sync:
   branch: tbd-sync
   remote: origin
 display:
-  id_prefix: bd
+  id_prefix: test
 settings:
   auto_sync: false
   index_enabled: true
@@ -250,7 +250,7 @@ $ tbd config show --json
     "remote": "origin"
   },
   "display": {
-    "id_prefix": "bd"
+    "id_prefix": "test"
   },
   "settings": {
     "auto_sync": false,
@@ -272,7 +272,7 @@ tbd-sync
 
 ```console
 $ tbd config get display.id_prefix
-bd
+test
 ? 0
 ```
 

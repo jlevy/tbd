@@ -69,7 +69,7 @@ $ tbd --color=never --version
 # Test: Init with --color=never produces clean output
 
 ```console
-$ tbd --color=never init
+$ tbd --color=never init --prefix=bd
 [..] Initialized tbd repository
 
 To complete setup, commit the config files:

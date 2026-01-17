@@ -24,7 +24,7 @@ before: |
   echo '{"id":"test-002","title":"Bug to fix","status":"open","issue_type":"bug","priority":1,"labels":["urgent","backend"],"created_at":"2025-01-02T00:00:00Z","updated_at":"2025-01-02T00:00:00Z"}' >> .beads/issues.jsonl
   echo '{"id":"test-003","title":"Feature request","status":"closed","issue_type":"feature","priority":3,"created_at":"2025-01-03T00:00:00Z","updated_at":"2025-01-03T00:00:00Z"}' >> .beads/issues.jsonl
   # Initialize tbd
-  tbd init
+  tbd init --prefix=test
 ---
 # tbd CLI: Import Command
 
@@ -107,12 +107,12 @@ random ID like “bd-xxxx”.
 
 # Test: Imported IDs preserve original short IDs
 
-The beads issues have IDs “test-001”, “test-002”, “test-003”. After import, display IDs
-should be “bd-001”, “bd-002”, “bd-003”.
+The beads issues have IDs "test-001", "test-002", "test-003". After import, display IDs
+should be "test-001", "test-002", "test-003" (preserving the original prefix and short IDs).
 
 ```console
 $ tbd list --all --json | node -e "d=JSON.parse(require('fs').readFileSync(0,'utf8')); ids=d.map(i=>i.id).sort(); console.log(ids.join(','))"
-bd-001,bd-002,bd-003
+test-001,test-002,test-003
 ? 0
 ```
 
@@ -269,7 +269,7 @@ Initialized empty Git repository in [..]
 ```
 
 ```console
-$ cd fresh-repo && tbd init && tbd import --validate 2>&1
+$ cd fresh-repo && tbd init --prefix=test && tbd import --validate 2>&1
 ✓ Initialized tbd repository
 ...
 ✗ Beads database not found[..]

@@ -19,7 +19,7 @@ before: |
   git add README.md
   git commit -m "Initial commit"
   # Initialize tbd
-  tbd init
+  tbd init --prefix=test
 ---
 # tbd CLI: Edge Cases and Error Handling
 
@@ -33,7 +33,7 @@ Tests for unusual inputs, error conditions, and edge cases.
 
 ```console
 $ tbd create "Fix bug with émojis 🐛 and ñ"
-✓ Created bd-[SHORTID]: Fix bug with émojis 🐛 and ñ
+✓ Created test-[SHORTID]: Fix bug with émojis 🐛 and ñ
 ? 0
 ```
 
@@ -41,7 +41,7 @@ $ tbd create "Fix bug with émojis 🐛 and ñ"
 
 ```console
 $ tbd create "修复中文 bug" --type=bug
-✓ Created bd-[SHORTID]: 修复中文 bug
+✓ Created test-[SHORTID]: 修复中文 bug
 ? 0
 ```
 
@@ -49,7 +49,7 @@ $ tbd create "修复中文 bug" --type=bug
 
 ```console
 $ tbd create "日本語テスト" --type=task
-✓ Created bd-[SHORTID]: 日本語テスト
+✓ Created test-[SHORTID]: 日本語テスト
 ? 0
 ```
 
@@ -57,7 +57,7 @@ $ tbd create "日本語テスト" --type=task
 
 ```console
 $ tbd create "اختبار عربي" --type=task
-✓ Created bd-[SHORTID]: اختبار عربي
+✓ Created test-[SHORTID]: اختبار عربي
 ? 0
 ```
 
@@ -94,7 +94,7 @@ $ ID=$(cat /tmp/unicode_id.txt) && tbd label add $ID "优先级高"
 
 ```console
 $ tbd create "Special chars" --description="Description with <html>, \"quotes\", 'apostrophes', & ampersands"
-✓ Created bd-[SHORTID]: Special chars
+✓ Created test-[SHORTID]: Special chars
 ? 0
 ```
 
@@ -102,7 +102,7 @@ $ tbd create "Special chars" --description="Description with <html>, \"quotes\",
 
 ```console
 $ echo -e "Line 1\nLine 2\nLine 3" > /tmp/multi.txt && tbd create "Multi-line" --file=/tmp/multi.txt
-✓ Created bd-[SHORTID]: Multi-line
+✓ Created test-[SHORTID]: Multi-line
 ? 0
 ```
 
@@ -187,7 +187,7 @@ $ ID=$(cat /tmp/self_id.txt) && tbd dep add $ID $ID 2>&1 | head -1
 
 ```console
 $ tbd create "$(printf 'A%.0s' {1..200})"
-✓ Created bd-[SHORTID]: [..]
+✓ Created test-[SHORTID]: [..]
 ? 0
 ```
 
@@ -195,7 +195,7 @@ $ tbd create "$(printf 'A%.0s' {1..200})"
 
 ```console
 $ tbd create "Many labels" --label=one --label=two --label=three --label=four --label=five --label=six --label=seven --label=eight
-✓ Created bd-[SHORTID]: Many labels
+✓ Created test-[SHORTID]: Many labels
 ? 0
 ```
 
@@ -203,7 +203,7 @@ $ tbd create "Many labels" --label=one --label=two --label=three --label=four --
 
 ```console
 $ tbd create "Critical" --priority=0
-✓ Created bd-[SHORTID]: Critical
+✓ Created test-[SHORTID]: Critical
 ? 0
 ```
 
@@ -211,7 +211,7 @@ $ tbd create "Critical" --priority=0
 
 ```console
 $ tbd create "Backlog" --priority=4
-✓ Created bd-[SHORTID]: Backlog
+✓ Created test-[SHORTID]: Backlog
 ? 0
 ```
 
@@ -222,7 +222,7 @@ $ tbd create "Backlog" --priority=4
 # Test: List with multiple filters
 
 ```console
-$ tbd list --status=open --type=task --priority=2 | grep -c "^bd-" || echo "0"
+$ tbd list --status=open --type=task --priority=2 | grep -c "^test-" || echo "0"
 [..]
 ? 0
 ```
@@ -323,7 +323,7 @@ valid
 
 ```console
 $ ID=$(cat /tmp/self_id.txt) && tbd update $ID --notes="Investigation notes: found the root cause"
-✓ Updated bd-[SHORTID]
+✓ Updated test-[SHORTID]
 ? 0
 ```
 
@@ -339,7 +339,7 @@ $ ID=$(cat /tmp/self_id.txt) && tbd show $ID | grep -c "Investigation notes"
 
 ```console
 $ echo "Notes from file content" > /tmp/notes.txt && ID=$(cat /tmp/self_id.txt) && tbd update $ID --notes-file=/tmp/notes.txt
-✓ Updated bd-[SHORTID]
+✓ Updated test-[SHORTID]
 ? 0
 ```
 
@@ -371,7 +371,7 @@ $ tbd stale --days=0 | head -1
 
 ```console
 $ tbd create "Deferred task" --defer=2099-12-31T00:00:00Z
-✓ Created bd-[SHORTID]: Deferred task
+✓ Created test-[SHORTID]: Deferred task
 ? 0
 ```
 

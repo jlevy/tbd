@@ -170,28 +170,28 @@ describe('formatDisplayId', () => {
     ]),
   });
 
-  it('formats internal ID with default bd- prefix', () => {
+  it('formats internal ID with default tbd- prefix', () => {
     const mapping = createMockMapping();
     const displayId = formatDisplayId(`is-${VALID_ULID}`, mapping);
-    expect(displayId).toBe('bd-a7k2');
+    expect(displayId).toBe('tbd-a7k2');
   });
 
   it('uses custom prefix when provided', () => {
     const mapping = createMockMapping();
-    const displayId = formatDisplayId(`is-${VALID_ULID}`, mapping, 'issue');
-    expect(displayId).toBe('issue-a7k2');
+    const displayId = formatDisplayId(`is-${VALID_ULID}`, mapping, 'proj');
+    expect(displayId).toBe('proj-a7k2');
   });
 
   it('handles IDs without is- prefix', () => {
     const mapping = createMockMapping();
     const displayId = formatDisplayId(VALID_ULID, mapping);
-    expect(displayId).toBe('bd-a7k2');
+    expect(displayId).toBe('tbd-a7k2');
   });
 
   it('returns short ID from mapping', () => {
     const mapping = createMockMapping();
     const displayId = formatDisplayId('is-abcdef123456789012345678', mapping);
-    expect(displayId).toBe('bd-xyz1');
+    expect(displayId).toBe('tbd-xyz1');
   });
 
   it('throws error when ID not in mapping', () => {

@@ -20,14 +20,14 @@ Git-native issue tracking for AI agents and humans.
 
 ```bash
 tbd ready                                  # What's available to work on?
-tbd show bd-1847                           # Review the issue details
-tbd update bd-1847 --status=in_progress    # Claim it
+tbd show proj-1847                           # Review the issue details
+tbd update proj-1847 --status=in_progress    # Claim it
 ```
 
 ### Complete work
 
 ```bash
-tbd close bd-1847 --reason="Fixed in auth.ts, added retry logic"
+tbd close proj-1847 --reason="Fixed in auth.ts, added retry logic"
 tbd sync                                   # Push to remote
 ```
 
@@ -48,7 +48,7 @@ tbd create "Users can't reset password" --type=bug --priority=0 \
 
 ```bash
 tbd create "Write integration tests" --type=task
-tbd dep add bd-1850 bd-1847           # Tests blocked until 1847 done
+tbd dep add proj-1850 proj-1847           # Tests blocked until 1847 done
 tbd blocked                                # See what's waiting
 ```
 
@@ -58,7 +58,7 @@ tbd blocked                                # See what's waiting
 tbd sync                    # Start of session
 tbd ready                   # Find work
 # ... do the work ...
-tbd close bd-xxxx           # Mark complete
+tbd close proj-xxxx           # Mark complete
 tbd sync                    # End of session
 ```
 
@@ -137,7 +137,7 @@ tbd list --priority=0                       # Critical priority only
 tbd list --assignee=alice                   # Assigned to alice
 tbd list --label=urgent                     # With 'urgent' label
 tbd list --label=backend --label=api        # Multiple labels (AND)
-tbd list --parent=bd-x1y2                   # Children of an epic
+tbd list --parent=proj-x1y2                   # Children of an epic
 tbd list --sort=created                     # Sort by creation date
 tbd list --sort=updated                     # Sort by last update
 tbd list --limit=10                         # Limit results
@@ -168,8 +168,8 @@ Options:
 Display detailed information about an issue.
 
 ```bash
-tbd show bd-a7k2                            # YAML output
-tbd show bd-a7k2 --json                     # JSON output
+tbd show proj-a7k2                            # YAML output
+tbd show proj-a7k2 --json                     # JSON output
 ```
 
 Output includes all fields: title, description, status, priority, labels, dependencies,
@@ -182,21 +182,21 @@ timestamps, and working notes.
 Modify an existing issue.
 
 ```bash
-tbd update bd-a7k2 --status=in_progress    # Start working
-tbd update bd-a7k2 --status=blocked        # Mark as blocked
-tbd update bd-a7k2 --priority=0            # Escalate priority
-tbd update bd-a7k2 --assignee=bob          # Reassign
-tbd update bd-a7k2 --description="New description"
-tbd update bd-a7k2 --notes="Found root cause in auth.ts"
-tbd update bd-a7k2 --notes-file=notes.md   # Notes from file
-tbd update bd-a7k2 --due=2025-03-01        # Set due date
-tbd update bd-a7k2 --defer=2025-02-15      # Defer until later
-tbd update bd-a7k2 --add-label=blocked     # Add label
-tbd update bd-a7k2 --remove-label=urgent   # Remove label
-tbd update bd-a7k2 --parent=bd-x1y2        # Set parent epic
+tbd update proj-a7k2 --status=in_progress    # Start working
+tbd update proj-a7k2 --status=blocked        # Mark as blocked
+tbd update proj-a7k2 --priority=0            # Escalate priority
+tbd update proj-a7k2 --assignee=bob          # Reassign
+tbd update proj-a7k2 --description="New description"
+tbd update proj-a7k2 --notes="Found root cause in auth.ts"
+tbd update proj-a7k2 --notes-file=notes.md   # Notes from file
+tbd update proj-a7k2 --due=2025-03-01        # Set due date
+tbd update proj-a7k2 --defer=2025-02-15      # Defer until later
+tbd update proj-a7k2 --add-label=blocked     # Add label
+tbd update proj-a7k2 --remove-label=urgent   # Remove label
+tbd update proj-a7k2 --parent=proj-x1y2        # Set parent epic
 
 # Update from YAML file
-tbd update bd-a7k2 --from-file=updated.yml
+tbd update proj-a7k2 --from-file=updated.yml
 ```
 
 Options:
@@ -221,8 +221,8 @@ Options:
 Close a completed issue.
 
 ```bash
-tbd close bd-a7k2                           # Close issue
-tbd close bd-a7k2 --reason="Fixed in PR #42"
+tbd close proj-a7k2                           # Close issue
+tbd close proj-a7k2 --reason="Fixed in PR #42"
 ```
 
 Options:
@@ -235,8 +235,8 @@ Options:
 Reopen a closed issue.
 
 ```bash
-tbd reopen bd-a7k2                          # Reopen issue
-tbd reopen bd-a7k2 --reason="Bug reappeared"
+tbd reopen proj-a7k2                          # Reopen issue
+tbd reopen proj-a7k2 --reason="Bug reappeared"
 ```
 
 Options:
@@ -297,9 +297,9 @@ Options:
 Manage issue labels.
 
 ```bash
-tbd label add bd-a7k2 urgent               # Add single label
-tbd label add bd-a7k2 backend api          # Add multiple labels
-tbd label remove bd-a7k2 urgent            # Remove label
+tbd label add proj-a7k2 urgent               # Add single label
+tbd label add proj-a7k2 backend api          # Add multiple labels
+tbd label remove proj-a7k2 urgent            # Remove label
 tbd label list                             # List all labels in use
 ```
 
@@ -315,14 +315,14 @@ Subcommands:
 Manage issue dependencies (blocking relationships).
 
 ```bash
-# bd-a7k2 blocks bd-b3m9 (b3m9 depends on a7k2)
-tbd dep add bd-b3m9 bd-a7k2
+# proj-a7k2 blocks proj-b3m9 (b3m9 depends on a7k2)
+tbd dep add proj-b3m9 proj-a7k2
 
 # Remove dependency
-tbd dep remove bd-b3m9 bd-a7k2
+tbd dep remove proj-b3m9 proj-a7k2
 
 # List dependencies
-tbd dep list bd-a7k2
+tbd dep list proj-a7k2
 ```
 
 Subcommands:
@@ -417,7 +417,7 @@ Subcommands:
 - `set <key> <value>` - Set a configuration value
 
 Common config keys:
-- `display.id_prefix` - ID prefix (default: “bd”)
+- `display.id_prefix` - ID prefix (required, set during init or import)
 - `sync.branch` - Sync branch name
 - `sync.remote` - Remote name
 
@@ -430,9 +430,9 @@ When sync conflicts occur, the losing values are preserved in the attic for reco
 
 ```bash
 tbd attic list                              # List all attic entries
-tbd attic list bd-a7k2                      # Entries for specific issue
-tbd attic show bd-a7k2 2025-01-15T10:30:00Z # Show specific entry
-tbd attic restore bd-a7k2 2025-01-15T10:30:00Z # Restore from attic
+tbd attic list proj-a7k2                      # Entries for specific issue
+tbd attic show proj-a7k2 2025-01-15T10:30:00Z # Show specific entry
+tbd attic restore proj-a7k2 2025-01-15T10:30:00Z # Restore from attic
 ```
 
 Subcommands:
@@ -536,9 +536,9 @@ tbd list --json                             # JSON output
 tbd list --quiet                            # Suppress non-essential output
 tbd list --verbose                          # Enable verbose output
 tbd create "Test" --dry-run                 # Show what would happen
-tbd close bd-a7k2 --no-sync                 # Skip automatic sync
+tbd close proj-a7k2 --no-sync                 # Skip automatic sync
 tbd list --debug                            # Show internal IDs
-tbd update bd-a7k2 --yes                    # Assume yes to prompts
+tbd update proj-a7k2 --yes                    # Assume yes to prompts
 tbd list --non-interactive                  # Fail if input required
 tbd list --color=never                      # Disable colors
 ```
@@ -566,9 +566,9 @@ This section covers agent-specific patterns.
 
 ```bash
 tbd ready --json                            # Find available work
-tbd update bd-xxxx --status=in_progress     # Claim it (advisory)
+tbd update proj-xxxx --status=in_progress     # Claim it (advisory)
 # ... do the work ...
-tbd close bd-xxxx --reason="Fixed in commit abc123"
+tbd close proj-xxxx --reason="Fixed in commit abc123"
 tbd sync                                    # Push changes
 ```
 
@@ -611,7 +611,7 @@ remembers the tbd workflow.
 Close several issues at once (more efficient than one at a time):
 
 ```bash
-tbd close bd-a1 bd-b2 bd-c3 --reason="Sprint complete"
+tbd close proj-a1 proj-b2 proj-c3 --reason="Sprint complete"
 ```
 
 * * *
@@ -635,15 +635,15 @@ tbd sync
 tbd ready
 
 # Pick up an issue
-tbd update bd-a7k2 --status=in_progress --assignee=myname
+tbd update proj-a7k2 --status=in_progress --assignee=myname
 
 # Work on it...
 
 # Add notes as you work
-tbd update bd-a7k2 --notes="Found the bug in auth.ts line 42"
+tbd update proj-a7k2 --notes="Found the bug in auth.ts line 42"
 
 # Complete and sync
-tbd close bd-a7k2 --reason="Fixed in commit abc123"
+tbd close proj-a7k2 --reason="Fixed in commit abc123"
 tbd sync
 ```
 
@@ -654,13 +654,13 @@ tbd sync
 tbd create "User Authentication System" --type=epic --priority=1
 
 # Create child tasks
-tbd create "Design auth API" --parent=bd-epic
-tbd create "Implement login endpoint" --parent=bd-epic
-tbd create "Add password reset" --parent=bd-epic
+tbd create "Design auth API" --parent=proj-epic
+tbd create "Implement login endpoint" --parent=proj-epic
+tbd create "Add password reset" --parent=proj-epic
 
 # View epic and children
-tbd show bd-epic
-tbd list --parent=bd-epic
+tbd show proj-epic
+tbd list --parent=proj-epic
 ```
 
 ### Handling Dependencies
@@ -671,13 +671,13 @@ tbd create "Set up database" --type=task
 tbd create "Implement API" --type=task
 
 # API depends on database (database blocks API)
-tbd dep add bd-api bd-database
+tbd dep add proj-api proj-database
 
 # Check what's blocked
 tbd blocked
 
 # Once database is done
-tbd close bd-database
+tbd close proj-database
 tbd ready  # API now appears as ready
 ```
 
@@ -688,11 +688,11 @@ tbd ready  # API now appears as ready
 tbd list --type=bug --sort=priority
 
 # Escalate a critical bug
-tbd update bd-bug1 --priority=0 --label=critical
+tbd update proj-bug1 --priority=0 --label=critical
 
 # Assign bugs
-tbd update bd-bug1 --assignee=alice
-tbd update bd-bug2 --assignee=bob
+tbd update proj-bug1 --assignee=alice
+tbd update proj-bug2 --assignee=bob
 ```
 
 ### Code Review Workflow
@@ -778,7 +778,7 @@ Configuration is stored in `.tbd/config.yml`:
 tbd_version: "0.1.0"
 
 display:
-  id_prefix: bd              # Prefix for display IDs (default: bd)
+  id_prefix: proj            # Prefix for display IDs (required, set during init)
 
 sync:
   branch: tbd-sync           # Sync branch name
@@ -857,12 +857,12 @@ tbd list --all | grep <partial-id>
 
 # Use --debug to see internal IDs
 tbd list --debug
-# bd-a7k2 (is-01hx5zzkbkactav9wevgemmvrz)  Fix login bug
+# proj-a7k2 (is-01hx5zzkbkactav9wevgemmvrz)  Fix login bug
 ```
 
 ### Debugging with Internal IDs
 
-tbd uses short display IDs (`bd-a7k2`) that map to internal ULIDs (`is-01hx5zzkbk...`).
+tbd uses short display IDs (`proj-a7k2`) that map to internal ULIDs (`is-01hx5zzkbk...`).
 You normally don’t need internal IDs, but they’re useful for:
 
 ```bash

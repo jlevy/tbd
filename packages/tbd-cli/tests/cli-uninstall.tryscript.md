@@ -84,7 +84,7 @@ $ tbd uninstall --confirm
 # Test: Initialize tbd first
 
 ```console
-$ tbd init
+$ tbd init --prefix=test
 ✓ Initialized tbd repository
 
 To complete setup, commit the config files:
@@ -164,7 +164,7 @@ $ git branch --list tbd-sync | wc -l | tr -d ' '
 # Test: Reinitialize tbd
 
 ```console
-$ tbd init
+$ tbd init --prefix=test
 ✓ Initialized tbd repository
 
 To complete setup, commit the config files:
@@ -228,7 +228,7 @@ Deleted branch tbd-sync [..].
 # Test: Reinitialize for dry-run test
 
 ```console
-$ tbd init
+$ tbd init --prefix=test
 ✓ Initialized tbd repository
 
 To complete setup, commit the config files:

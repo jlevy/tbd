@@ -19,7 +19,7 @@ before: |
   git add README.md
   git commit -m "Initial commit"
   # Initialize tbd
-  tbd init
+  tbd init --prefix=test
 ---
 # tbd CLI: Sync Command
 

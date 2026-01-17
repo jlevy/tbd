@@ -18,6 +18,7 @@ import { normalizeIssueId, formatDisplayId, formatDebugId } from '../../lib/ids.
 import { resolveDataSyncDir, resolveAtticDir } from '../../lib/paths.js';
 import { now } from '../../utils/timeUtils.js';
 import { loadIdMapping } from '../../file/idMapping.js';
+import { readConfig } from '../../file/config.js';
 
 /**
  * Attic entry structure for storing lost values during conflicts.
@@ -123,13 +124,17 @@ class AtticListHandler extends BaseCommand {
     const filterId = id ? normalizeIssueId(id) : undefined;
     const entries = await listAtticEntries(filterId);
 
-    // Load ID mapping for display
+    // Load ID mapping and config for display
     const dataSyncDir = await resolveDataSyncDir();
     const mapping = await loadIdMapping(dataSyncDir);
+    const config = await readConfig(process.cwd());
+    const prefix = config.display.id_prefix;
     const showDebug = this.ctx.debug;
 
     const output = entries.map((e) => ({
-      id: showDebug ? formatDebugId(e.entity_id, mapping) : formatDisplayId(e.entity_id, mapping),
+      id: showDebug
+        ? formatDebugId(e.entity_id, mapping, prefix)
+        : formatDisplayId(e.entity_id, mapping, prefix),
       timestamp: e.timestamp,
       field: e.field,
       winner: e.winner_source,
@@ -171,13 +176,15 @@ class AtticShowHandler extends BaseCommand {
       return;
     }
 
-    // Load ID mapping for display
+    // Load ID mapping and config for display
     const dataSyncDir = await resolveDataSyncDir();
     const mapping = await loadIdMapping(dataSyncDir);
+    const config = await readConfig(process.cwd());
+    const prefix = config.display.id_prefix;
     const showDebug = this.ctx.debug;
     const displayId = showDebug
-      ? formatDebugId(entry.entity_id, mapping)
-      : formatDisplayId(entry.entity_id, mapping);
+      ? formatDebugId(entry.entity_id, mapping, prefix)
+      : formatDisplayId(entry.entity_id, mapping, prefix);
 
     this.output.data(entry, () => {
       const colors = this.output.getColors();
@@ -247,12 +254,14 @@ class AtticRestoreHandler extends BaseCommand {
       await writeIssue(dataSyncDir, issue);
     }, 'Failed to restore from attic');
 
-    // Load ID mapping for display
+    // Load ID mapping and config for display
     const mapping = await loadIdMapping(dataSyncDir);
+    const config = await readConfig(process.cwd());
+    const prefix = config.display.id_prefix;
     const showDebug = this.ctx.debug;
     const displayId = showDebug
-      ? formatDebugId(normalizedId, mapping)
-      : formatDisplayId(normalizedId, mapping);
+      ? formatDebugId(normalizedId, mapping, prefix)
+      : formatDisplayId(normalizedId, mapping, prefix);
 
     this.output.success(`Restored ${entry.field} for ${displayId} from attic entry ${timestamp}`);
   }

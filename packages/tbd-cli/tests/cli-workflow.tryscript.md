@@ -19,7 +19,7 @@ before: |
   git add README.md
   git commit -m "Initial commit"
   # Initialize tbd
-  tbd init
+  tbd init --prefix=test
 ---
 # tbd CLI: Workflow Commands
 
@@ -125,7 +125,7 @@ $ tbd create "Blocked by other" --type=task --json | node -e "d=JSON.parse(requi
 
 ```console
 $ tbd dep add $(cat /tmp/blocker.txt) $(cat /tmp/blocked_by.txt)
-✓ bd-[SHORTID] now blocks bd-[SHORTID]
+✓ test-[SHORTID] now blocks test-[SHORTID]
 ? 0
 ```
 
@@ -238,7 +238,7 @@ $ tbd create "Label test issue" --type=task --json | node -e "d=JSON.parse(requi
 
 ```console
 $ tbd label add $(cat /tmp/label_issue.txt) frontend
-✓ Added labels to bd-[SHORTID]: frontend
+✓ Added labels to test-[SHORTID]: frontend
 ? 0
 ```
 
@@ -246,7 +246,7 @@ $ tbd label add $(cat /tmp/label_issue.txt) frontend
 
 ```console
 $ tbd label add $(cat /tmp/label_issue.txt) backend urgent
-✓ Added labels to bd-[SHORTID]: backend, urgent
+✓ Added labels to test-[SHORTID]: backend, urgent
 ? 0
 ```
 
@@ -270,7 +270,7 @@ All labels already present
 
 ```console
 $ tbd label remove $(cat /tmp/label_issue.txt) urgent
-✓ Removed labels from bd-[SHORTID]: urgent
+✓ Removed labels from test-[SHORTID]: urgent
 ? 0
 ```
 
@@ -286,7 +286,7 @@ OK: urgent removed
 
 ```console
 $ tbd label remove $(cat /tmp/label_issue.txt) frontend backend
-✓ Removed labels from bd-[SHORTID]: frontend, backend
+✓ Removed labels from test-[SHORTID]: frontend, backend
 ? 0
 ```
 
@@ -342,7 +342,7 @@ $ tbd create "Child task" --type=task --json | node -e "d=JSON.parse(require('fs
 
 ```console
 $ tbd dep add $(cat /tmp/dep_parent.txt) $(cat /tmp/dep_child.txt)
-✓ bd-[SHORTID] now blocks bd-[SHORTID]
+✓ test-[SHORTID] now blocks test-[SHORTID]
 ? 0
 ```
 
@@ -350,7 +350,7 @@ $ tbd dep add $(cat /tmp/dep_parent.txt) $(cat /tmp/dep_child.txt)
 
 ```console
 $ tbd dep list $(cat /tmp/dep_parent.txt)
-Blocks: bd-[SHORTID]
+Blocks: test-[SHORTID]
 ? 0
 ```
 
@@ -358,7 +358,7 @@ Blocks: bd-[SHORTID]
 
 ```console
 $ tbd dep list $(cat /tmp/dep_child.txt)
-Blocked by: bd-[SHORTID]
+Blocked by: test-[SHORTID]
 ? 0
 ```
 
@@ -420,7 +420,7 @@ Add a dependency to make an issue blocked:
 
 ```console
 $ tbd dep add $(cat /tmp/blocker.txt) $(cat /tmp/ready1.txt)
-✓ bd-[SHORTID] now blocks bd-[SHORTID]
+✓ test-[SHORTID] now blocks test-[SHORTID]
 ? 0
 ```
 

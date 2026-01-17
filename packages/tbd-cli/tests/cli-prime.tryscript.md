@@ -67,7 +67,7 @@ $ echo "# Test repo" > README.md && git add README.md && git commit -m "Initial 
 ```
 
 ```console
-$ tbd init
+$ tbd init --prefix=test
 ✓ Initialized tbd repository
 
 To complete setup, commit the config files:
