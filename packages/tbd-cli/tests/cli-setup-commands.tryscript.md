@@ -285,7 +285,7 @@ $ grep -c "tbd ready" AGENTS.md
 
 ```console
 $ tbd setup codex --check
-✓ AGENTS.md (./AGENTS.md)
+✓ AGENTS.md - tbd section found (./AGENTS.md)
 ? 0
 ```
 
@@ -346,7 +346,7 @@ $ echo '# My Project' > AGENTS.md && echo '' >> AGENTS.md && echo 'This is my cu
 
 ```console
 $ tbd setup codex --check --verbose
-⚠ AGENTS.md - exists but missing tbd integration (./AGENTS.md)
+⚠ AGENTS.md - exists but no tbd section (./AGENTS.md)
     Run: tbd setup codex
 ? 0
 ```

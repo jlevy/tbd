@@ -150,7 +150,7 @@ By kind:
   chore          1
 
 By priority:
-  2 (Medium  ) 5
+  P2 (Medium  ) 5
 
 Use 'tbd status' for setup info, 'tbd doctor' for health checks.
 ? 0
