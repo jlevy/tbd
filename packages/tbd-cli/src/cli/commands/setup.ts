@@ -19,7 +19,27 @@ import { writeFile } from 'atomically';
 import { BaseCommand } from '../lib/baseCommand.js';
 import { CLIError } from '../lib/errors.js';
 import { loadSkillContent } from './prime.js';
+import { stripFrontmatter } from '../../utils/markdownUtils.js';
 import { type DiagnosticResult, renderDiagnostics } from '../lib/diagnostics.js';
+
+/**
+ * Get the tbd section content for AGENTS.md (Codex integration).
+ * Loads from SKILL.md, strips frontmatter, and wraps in TBD INTEGRATION markers.
+ */
+async function getCodexTbdSection(): Promise<string> {
+  const skillContent = await loadSkillContent();
+  const content = stripFrontmatter(skillContent);
+  return `<!-- BEGIN TBD INTEGRATION -->\n${content}<!-- END TBD INTEGRATION -->\n`;
+}
+
+/**
+ * Get the Cursor rules content from SKILL.md.
+ * Strips the skill frontmatter (content is used as-is for .mdc files).
+ */
+async function getCursorRulesContent(): Promise<string> {
+  const skillContent = await loadSkillContent();
+  return stripFrontmatter(skillContent);
+}
 
 interface SetupClaudeOptions {
   check?: boolean;
@@ -96,114 +116,25 @@ fi
 exit 0
 `;
 
-/**
- * Cursor IDE rules content
- */
-const CURSOR_RULES_CONTENT = `# tbd Issue Tracker Integration
-
-This project uses tbd for git-native issue tracking.
-
-## Issue Tracking Workflow
-
-- Check \`tbd ready\` for available work at session start
-- Track strategic work with \`tbd create\`
-- Close completed work with \`tbd close <id>\`
-- Run \`tbd sync\` before session end
-
-## Core Commands
-
-- \`tbd ready\` - Show issues ready to work (no blockers)
-- \`tbd list --status open\` - All open issues
-- \`tbd show <id>\` - Issue details with dependencies
-- \`tbd create "title" --type task\` - Create new issue
-- \`tbd update <id> --status in_progress\` - Claim work
-- \`tbd close <id>\` - Mark complete
-- \`tbd sync\` - Sync with git remote
-
-## Session Closing Protocol
-
-Before saying "done", run:
-1. git status
-2. git add <files>
-3. tbd sync
-4. git commit -m "..."
-5. tbd sync
-6. git push
-
-For more info: \`tbd docs\`
-`;
+// Cursor rules content is now generated dynamically from SKILL.md via getCursorRulesContent()
 
 /**
- * AGENTS.md integration markers and content for Codex/Factory.ai
+ * AGENTS.md integration markers for Codex/Factory.ai
+ * Content is now generated dynamically from SKILL.md via getCodexTbdSection()
  */
 const CODEX_BEGIN_MARKER = '<!-- BEGIN TBD INTEGRATION -->';
 const CODEX_END_MARKER = '<!-- END TBD INTEGRATION -->';
 
-const CODEX_TBD_SECTION = `<!-- BEGIN TBD INTEGRATION -->
-## Issue Tracking with tbd
-
-**IMPORTANT**: This project uses **tbd** for ALL issue tracking. Do NOT use markdown TODOs, task lists, or other tracking methods.
-
-### Why tbd?
-
-- Git-native: Issues stored as Markdown files on a sync branch
-- Dependency-aware: Track blockers and relationships between issues
-- Agent-optimized: JSON output, ready work detection
-- Prevents duplicate tracking systems and confusion
-
-### Quick Start
-
-**Check for ready work:**
-
-\`\`\`bash
-tbd ready --json
-\`\`\`
-
-**Create new issues:**
-
-\`\`\`bash
-tbd create "Issue title" --description "Detailed context" --type task --priority 1 --json
-\`\`\`
-
-**Claim and update:**
-
-\`\`\`bash
-tbd update <id> --status in_progress --json
-\`\`\`
-
-**Complete work:**
-
-\`\`\`bash
-tbd close <id> --reason "Completed" --json
-\`\`\`
-
-### Workflow for AI Agents
-
-1. **Check ready work**: \`tbd ready\` shows unblocked issues
-2. **Claim your task**: \`tbd update <id> --status in_progress\`
-3. **Work on it**: Implement, test, document
-4. **Complete**: \`tbd close <id> --reason "Done"\`
-5. **Sync**: \`tbd sync\` to push changes
-
-### Important Rules
-
-- ✅ Use tbd for ALL task tracking
-- ✅ Always use \`--json\` flag for programmatic use
-- ✅ Check \`tbd ready\` before asking "what should I work on?"
-- ❌ Do NOT create markdown TODO lists
-- ❌ Do NOT use external issue trackers
-
-For more details: \`tbd docs\`
-
-<!-- END TBD INTEGRATION -->
-`;
-
-const CODEX_NEW_AGENTS_FILE = `# Project Instructions for AI Agents
+/**
+ * Generate a new AGENTS.md file with tbd integration.
+ */
+async function getCodexNewAgentsFile(): Promise<string> {
+  const tbdSection = await getCodexTbdSection();
+  return `# Project Instructions for AI Agents
 
 This file provides instructions and context for AI coding agents working on this project.
 
-${CODEX_TBD_SECTION}
-
+${tbdSection}
 ## Build & Test
 
 _Add your build and test commands here_
@@ -222,6 +153,7 @@ _Add a brief overview of your project architecture_
 
 _Add your project-specific conventions here_
 `;
+}
 
 class SetupClaudeHandler extends BaseCommand {
   async run(options: SetupClaudeOptions): Promise<void> {
@@ -684,7 +616,8 @@ class SetupCursorHandler extends BaseCommand {
       // Ensure directory exists
       await mkdir(dirname(rulesPath), { recursive: true });
 
-      await writeFile(rulesPath, CURSOR_RULES_CONTENT);
+      const rulesContent = await getCursorRulesContent();
+      await writeFile(rulesPath, rulesContent);
       this.output.success('Created Cursor rules file');
       this.output.info(`  ${rulesPath}`);
       this.output.info('');
@@ -801,21 +734,24 @@ class SetupCodexHandler extends BaseCommand {
 
       let newContent: string;
 
+      const tbdSection = await getCodexTbdSection();
+
       if (existingContent) {
         if (existingContent.includes(CODEX_BEGIN_MARKER)) {
           // Update existing section
-          newContent = this.updatetbdSection(existingContent);
+          newContent = this.updatetbdSection(existingContent, tbdSection);
           await writeFile(agentsPath, newContent);
           this.output.success('Updated existing tbd section in AGENTS.md');
         } else {
           // Append section to existing file
-          newContent = existingContent + '\n\n' + CODEX_TBD_SECTION;
+          newContent = existingContent + '\n\n' + tbdSection;
           await writeFile(agentsPath, newContent);
           this.output.success('Added tbd section to existing AGENTS.md');
         }
       } else {
         // Create new file
-        await writeFile(agentsPath, CODEX_NEW_AGENTS_FILE);
+        const newAgentsFile = await getCodexNewAgentsFile();
+        await writeFile(agentsPath, newAgentsFile);
         this.output.success('Created new AGENTS.md with tbd integration');
       }
 
@@ -830,13 +766,13 @@ class SetupCodexHandler extends BaseCommand {
     }
   }
 
-  private updatetbdSection(content: string): string {
+  private updatetbdSection(content: string, tbdSection: string): string {
     const startIdx = content.indexOf(CODEX_BEGIN_MARKER);
     const endIdx = content.indexOf(CODEX_END_MARKER);
 
     if (startIdx === -1 || endIdx === -1 || startIdx > endIdx) {
       // Markers not found or invalid, append instead
-      return content + '\n\n' + CODEX_TBD_SECTION;
+      return content + '\n\n' + tbdSection;
     }
 
     // Find the end of the end marker line
@@ -846,7 +782,7 @@ class SetupCodexHandler extends BaseCommand {
       endOfEndMarker = nextNewline + 1;
     }
 
-    return content.slice(0, startIdx) + CODEX_TBD_SECTION + content.slice(endOfEndMarker);
+    return content.slice(0, startIdx) + tbdSection + content.slice(endOfEndMarker);
   }
 
   private removetbdSection(content: string): string {

@@ -14,6 +14,7 @@ import { fileURLToPath } from 'node:url';
 
 import { BaseCommand } from '../lib/baseCommand.js';
 import { isInitialized } from '../../file/config.js';
+import { stripFrontmatter } from '../../utils/markdownUtils.js';
 
 interface PrimeOptions {
   export?: boolean;
@@ -28,31 +29,6 @@ function getSkillPath(): string {
   // When bundled, runs from dist/bin.mjs or dist/cli.mjs
   // Docs are at dist/docs/SKILL.md (same level as the bundle)
   return join(__dirname, 'docs', 'SKILL.md');
-}
-
-/**
- * Strip YAML frontmatter from markdown content.
- * Frontmatter is delimited by --- at start and end.
- */
-function stripFrontmatter(content: string): string {
-  const lines = content.split('\n');
-  if (lines[0]?.trim() !== '---') {
-    return content;
-  }
-
-  // Find the closing ---
-  for (let i = 1; i < lines.length; i++) {
-    if (lines[i]?.trim() === '---') {
-      // Return content after frontmatter, trimming leading newlines
-      return lines
-        .slice(i + 1)
-        .join('\n')
-        .replace(/^\n+/, '');
-    }
-  }
-
-  // No closing --- found, return original
-  return content;
 }
 
 /**
