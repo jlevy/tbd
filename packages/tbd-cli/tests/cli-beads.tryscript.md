@@ -85,6 +85,9 @@ before: |
 
   More content below.
   EOF
+
+  # Create mock .gitattributes with beads merge driver
+  printf '%s\n' '*.md text eol=lf' '*.ts text eol=lf' '.beads/issues.jsonl merge=beads' '*.png binary' > .gitattributes
 ---
 # tbd CLI: Beads Migration Command
 
@@ -182,6 +185,14 @@ $ grep -c "BEGIN BEADS INTEGRATION" AGENTS.md
 ? 0
 ```
 
+# Test: .gitattributes has beads merge driver
+
+```console
+$ grep -c "merge=beads" .gitattributes
+1
+? 0
+```
+
 * * *
 
 ## Setup Beads --disable Preview Mode
@@ -202,6 +213,8 @@ The following Beads files will be moved to .beads-disabled/:
     Claude Code project hooks with bd commands
   AGENTS.md → .beads-disabled/AGENTS.md.backup [..]
     AGENTS.md with Beads section
+  .gitattributes → .beads-disabled/gitattributes.backup [..]
+    .gitattributes with Beads merge driver
 
 This preserves all Beads data for potential rollback.
 
@@ -262,6 +275,8 @@ The following Beads files will be moved to .beads-disabled/:
     Claude Code project hooks with bd commands
   AGENTS.md → .beads-disabled/AGENTS.md.backup [..]
     AGENTS.md with Beads section
+  .gitattributes → .beads-disabled/gitattributes.backup [..]
+    .gitattributes with Beads merge driver
 
 Disabling Beads...
   [..] [..]daemon[..]
@@ -270,6 +285,7 @@ Disabling Beads...
   ✓ Moved .cursor/rules/beads.mdc
   ✓ Backed up and removed bd hooks from .claude/settings.local.json
   ✓ Backed up and removed Beads section from AGENTS.md
+  ✓ Backed up and removed beads lines from .gitattributes
   ✓ Created RESTORE.md with rollback instructions
 
 ✓ Beads has been disabled.
@@ -392,6 +408,22 @@ $ grep -c "mv .beads-disabled/beads/ .beads/" .beads-disabled/RESTORE.md
 ? 0
 ```
 
+# Test: .gitattributes backed up
+
+```console
+$ test -f .beads-disabled/gitattributes.backup && echo "gitattributes backed up"
+gitattributes backed up
+? 0
+```
+
+# Test: Backup contains original beads line
+
+```console
+$ grep -c "merge=beads" .beads-disabled/gitattributes.backup
+1
+? 0
+```
+
 * * *
 
 ## Verify Settings Modified Correctly
@@ -432,6 +464,38 @@ $ grep -c "custom content" AGENTS.md
 
 ```console
 $ grep -c "More content below" AGENTS.md
+1
+? 0
+```
+
+# Test: .gitattributes no longer has beads merge driver
+
+```console
+$ grep "merge=beads" .gitattributes || echo "beads merge driver removed"
+beads merge driver removed
+? 0
+```
+
+# Test: .gitattributes still exists
+
+```console
+$ test -f .gitattributes && echo "gitattributes still exists"
+gitattributes still exists
+? 0
+```
+
+# Test: .gitattributes preserves other rules
+
+```console
+$ grep -c "*.md text eol=lf" .gitattributes
+1
+? 0
+```
+
+# Test: .gitattributes preserves binary rule
+
+```console
+$ grep -c "*.png binary" .gitattributes
 1
 ? 0
 ```

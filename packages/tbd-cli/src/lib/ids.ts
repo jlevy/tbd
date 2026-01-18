@@ -126,6 +126,21 @@ export function extractShortId(externalId: string): string {
 }
 
 /**
+ * Extract the prefix portion from an external ID.
+ * Returns the prefix (letters before the hyphen) or null if no prefix found.
+ * Examples:
+ *   "tbd-100" -> "tbd"
+ *   "bd-a7k2" -> "bd"
+ *   "TBD-100" -> "tbd" (normalized to lowercase)
+ *   "a7k2" -> null (no prefix)
+ *   "100" -> null (no prefix)
+ */
+export function extractPrefix(externalId: string): string | null {
+  const match = /^([a-zA-Z]+)-/.exec(externalId);
+  return match?.[1]?.toLowerCase() ?? null;
+}
+
+/**
  * Extract the ULID portion from an internal ID.
  *
  * Internal IDs have the format: {prefix}-{ulid}

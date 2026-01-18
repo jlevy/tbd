@@ -10,7 +10,7 @@
  */
 
 import { Command } from 'commander';
-import { readFile, mkdir, access, rm, rename, readdir, stat, copyFile } from 'node:fs/promises';
+import { readFile, mkdir, access, rm, rename, readdir, stat } from 'node:fs/promises';
 import { execSync } from 'node:child_process';
 import { join, dirname } from 'node:path';
 import { homedir } from 'node:os';
@@ -680,7 +680,7 @@ class SetupBeadsHandler extends BaseCommand {
       const stats = await this.getDirectoryStats(beadsDir);
       items.push({
         source: '.beads/',
-        destination: '.beads-disabled/beads/',
+        destination: '.beads-disabled/.beads/',
         description: 'Beads data directory',
         type: 'directory',
         exists: true,
@@ -695,7 +695,7 @@ class SetupBeadsHandler extends BaseCommand {
       const stats = await this.getDirectoryStats(beadsHooksDir);
       items.push({
         source: '.beads-hooks/',
-        destination: '.beads-disabled/beads-hooks/',
+        destination: '.beads-disabled/.beads-hooks/',
         description: 'Beads git hooks',
         type: 'directory',
         exists: true,
@@ -709,7 +709,7 @@ class SetupBeadsHandler extends BaseCommand {
     if (cursorBeadsExists) {
       items.push({
         source: '.cursor/rules/beads.mdc',
-        destination: '.beads-disabled/cursor-rules-beads.mdc',
+        destination: '.beads-disabled/.cursor/rules/beads.mdc',
         description: 'Cursor IDE Beads rules',
         type: 'file',
         exists: true,
@@ -722,7 +722,7 @@ class SetupBeadsHandler extends BaseCommand {
     if (claudeHooksInfo.hasBeadsHooks) {
       items.push({
         source: '.claude/settings.local.json',
-        destination: '.beads-disabled/claude-settings.local.json',
+        destination: '.beads-disabled/.claude/settings.local.json',
         description: 'Claude Code project hooks with bd commands',
         type: 'config-hooks',
         exists: true,
@@ -736,11 +736,25 @@ class SetupBeadsHandler extends BaseCommand {
     if (agentsMdInfo.hasBeadsSection) {
       items.push({
         source: 'AGENTS.md',
-        destination: '.beads-disabled/AGENTS.md.backup',
+        destination: '.beads-disabled/AGENTS.md',
         description: 'AGENTS.md with Beads section',
         type: 'file',
         exists: true,
         details: 'contains beads integration markers',
+      });
+    }
+
+    // 6. Check .gitattributes for beads merge driver config
+    const gitattributes = join(cwd, '.gitattributes');
+    const gitattributesInfo = await this.checkGitattributesBeads(gitattributes);
+    if (gitattributesInfo.hasBeadsLines) {
+      items.push({
+        source: '.gitattributes',
+        destination: '.beads-disabled/.gitattributes',
+        description: '.gitattributes with Beads merge driver',
+        type: 'config-hooks',
+        exists: true,
+        details: `${gitattributesInfo.lineCount} beads-related line(s)`,
       });
     }
 
@@ -820,10 +834,9 @@ class SetupBeadsHandler extends BaseCommand {
       const destPath = join(cwd, item.destination);
 
       try {
-        // Ensure destination directory exists
-        await mkdir(dirname(destPath), { recursive: true });
-
         if (item.type === 'directory') {
+          // Ensure destination parent directory exists for rename
+          await mkdir(dirname(destPath), { recursive: true });
           // Move directory
           await rename(sourcePath, destPath);
           console.log(`  ${colors.success('✓')} Moved ${item.source}`);
@@ -834,8 +847,10 @@ class SetupBeadsHandler extends BaseCommand {
             restoreCmd: `mv ${item.destination} ${item.source}`,
           });
         } else if (item.type === 'file') {
-          // Copy file (preserve original for AGENTS.md case where we might modify it)
-          await copyFile(sourcePath, destPath);
+          // Backup file using atomically (creates parent dirs automatically)
+          const content = await readFile(sourcePath, 'utf-8');
+          await writeFile(destPath, content);
+
           if (item.source === 'AGENTS.md') {
             // Remove beads section from AGENTS.md
             await this.removeBeadsSectionFromAgentsMd(agentsMd);
@@ -849,8 +864,8 @@ class SetupBeadsHandler extends BaseCommand {
               restoreCmd: `cp ${item.destination} ${item.source}`,
             });
           } else {
-            // Move file
-            await rename(sourcePath, destPath);
+            // Move file (after backup)
+            await rm(sourcePath);
             console.log(`  ${colors.success('✓')} Moved ${item.source}`);
             completed.push({
               source: item.source,
@@ -860,23 +875,39 @@ class SetupBeadsHandler extends BaseCommand {
             });
           }
         } else if (item.type === 'config-hooks') {
-          // Copy settings file first
-          await copyFile(sourcePath, destPath);
-          // Remove bd hooks from local settings
-          await this.removeBeadsHooksFromClaudeSettings(claudeLocalSettings);
-          console.log(
-            `  ${colors.success('✓')} Backed up and removed bd hooks from ${item.source}`,
-          );
-          completed.push({
-            source: item.source,
-            destination: item.destination,
-            action: 'backed up original, removed bd hooks from current',
-            restoreCmd: `cp ${item.destination} ${item.source}`,
-          });
+          // Backup file using atomically (creates parent dirs automatically)
+          const content = await readFile(sourcePath, 'utf-8');
+          await writeFile(destPath, content);
+
+          if (item.source === '.claude/settings.local.json') {
+            // Remove bd hooks from local settings
+            await this.removeBeadsHooksFromClaudeSettings(claudeLocalSettings);
+            console.log(
+              `  ${colors.success('✓')} Backed up and removed bd hooks from ${item.source}`,
+            );
+            completed.push({
+              source: item.source,
+              destination: item.destination,
+              action: 'backed up original, removed bd hooks from current',
+              restoreCmd: `cp ${item.destination} ${item.source}`,
+            });
+          } else if (item.source === '.gitattributes') {
+            // Remove beads lines from .gitattributes
+            await this.removeBeadsLinesFromGitattributes(gitattributes);
+            console.log(
+              `  ${colors.success('✓')} Backed up and removed beads lines from ${item.source}`,
+            );
+            completed.push({
+              source: item.source,
+              destination: item.destination,
+              action: 'backed up original, removed beads merge driver lines',
+              restoreCmd: `cp ${item.destination} ${item.source}`,
+            });
+          }
         }
       } catch (error) {
         console.log(
-          `  ${colors.warn('⚠')} Could not move ${item.source}: ${(error as Error).message}`,
+          `  ${colors.warn('⚠')} Could not process ${item.source}: ${(error as Error).message}`,
         );
       }
     }
@@ -1021,6 +1052,91 @@ class SetupBeadsHandler extends BaseCommand {
     } catch {
       return { hasBeadsSection: false };
     }
+  }
+
+  private async checkGitattributesBeads(
+    gitattributesPath: string,
+  ): Promise<{ hasBeadsLines: boolean; lineCount: number }> {
+    try {
+      await access(gitattributesPath);
+      const content = await readFile(gitattributesPath, 'utf-8');
+      const lines = content.split('\n');
+      const beadsLines = lines.filter((line) => this.isBeadsGitattributeLine(line));
+      return { hasBeadsLines: beadsLines.length > 0, lineCount: beadsLines.length };
+    } catch {
+      return { hasBeadsLines: false, lineCount: 0 };
+    }
+  }
+
+  /**
+   * Check if a .gitattributes line is beads-related.
+   * Matches lines containing:
+   * - merge=beads (merge driver)
+   * - .beads/ (beads directory patterns)
+   * - References to beads files
+   */
+  private isBeadsGitattributeLine(line: string): boolean {
+    const trimmed = line.trim();
+    // Skip empty lines and comments
+    if (!trimmed || trimmed.startsWith('#')) {
+      return false;
+    }
+    // Check for beads-related patterns
+    return (
+      trimmed.includes('merge=beads') ||
+      trimmed.includes('.beads/') ||
+      trimmed.includes('.beads ') ||
+      trimmed.startsWith('.beads')
+    );
+  }
+
+  private async removeBeadsLinesFromGitattributes(gitattributesPath: string): Promise<void> {
+    const content = await readFile(gitattributesPath, 'utf-8');
+    const lines = content.split('\n');
+
+    // Filter out beads-related lines, but keep comments that precede non-beads lines
+    const result: string[] = [];
+    let pendingComments: string[] = [];
+
+    for (const line of lines) {
+      const trimmed = line.trim();
+
+      if (!trimmed || trimmed.startsWith('#')) {
+        // Collect comments/empty lines
+        pendingComments.push(line);
+      } else if (this.isBeadsGitattributeLine(line)) {
+        // Beads line - discard it and any preceding comments that were about beads
+        // Check if pending comments mention beads
+        const nonBeadsComments = pendingComments.filter(
+          (c) =>
+            !c.toLowerCase().includes('beads') &&
+            !c.toLowerCase().includes('bd merge') &&
+            !c.toLowerCase().includes('merge driver'),
+        );
+        result.push(...nonBeadsComments);
+        pendingComments = [];
+      } else {
+        // Non-beads content line - keep it and any pending comments
+        result.push(...pendingComments);
+        result.push(line);
+        pendingComments = [];
+      }
+    }
+
+    // Add any trailing comments/empty lines that aren't beads-related
+    const nonBeadsTrailing = pendingComments.filter(
+      (c) =>
+        !c.toLowerCase().includes('beads') &&
+        !c.toLowerCase().includes('bd merge') &&
+        !c.toLowerCase().includes('merge driver'),
+    );
+    result.push(...nonBeadsTrailing);
+
+    const newContent = result.join('\n');
+
+    // If file is now empty (only whitespace), we could delete it
+    // but it's safer to leave it with just whitespace
+    await writeFile(gitattributesPath, newContent);
   }
 
   private async removeBeadsSectionFromAgentsMd(agentsMdPath: string): Promise<void> {
