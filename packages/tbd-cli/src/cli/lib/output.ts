@@ -27,6 +27,19 @@ import { shouldColorize } from './context.js';
  * - BLOCKED_ICON: ● for blocked issues
  * - CLOSED_ICON: ✓ for closed issues (same as SUCCESS_ICON)
  */
+
+/**
+ * Format a section heading - ALL CAPS for consistent CLI output.
+ * Per arch-cli-interface-design-system.md, section headings should be
+ * ALL CAPS, bold, followed by blank line before content.
+ *
+ * @param text - The heading text to format
+ * @returns Uppercase heading string
+ */
+export function formatHeading(text: string): string {
+  return text.toUpperCase();
+}
+
 export const ICONS = {
   // Message icons
   SUCCESS: '✓', // U+2713

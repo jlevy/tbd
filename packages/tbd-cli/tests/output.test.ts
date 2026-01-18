@@ -3,7 +3,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { ICONS, OutputManager } from '../src/cli/lib/output.js';
+import { ICONS, OutputManager, formatHeading } from '../src/cli/lib/output.js';
 import type { CommandContext } from '../src/cli/lib/context.js';
 
 /**
@@ -345,5 +345,23 @@ describe('OutputManager', () => {
       output.count(5, 'issue');
       expect(consoleLog).not.toHaveBeenCalled();
     });
+  });
+});
+
+describe('formatHeading', () => {
+  it('converts text to uppercase', () => {
+    expect(formatHeading('Repository')).toBe('REPOSITORY');
+  });
+
+  it('handles already uppercase text', () => {
+    expect(formatHeading('CONFIGURATION')).toBe('CONFIGURATION');
+  });
+
+  it('handles mixed case text', () => {
+    expect(formatHeading('Health Checks')).toBe('HEALTH CHECKS');
+  });
+
+  it('handles lowercase text', () => {
+    expect(formatHeading('integrations')).toBe('INTEGRATIONS');
   });
 });

@@ -17,6 +17,7 @@ import { homedir } from 'node:os';
 
 import { VERSION } from '../lib/version.js';
 import { BaseCommand } from '../lib/baseCommand.js';
+import { formatHeading } from '../lib/output.js';
 import { readConfig } from '../../file/config.js';
 import { TBD_DIR, WORKTREE_DIR } from '../../lib/paths.js';
 import { git, getCurrentBranch, checkWorktreeHealth } from '../../file/git.js';
@@ -286,14 +287,14 @@ class StatusHandler extends BaseCommand {
 
     // Integrations
     console.log('');
-    console.log(colors.bold('Integrations:'));
+    console.log(colors.bold(formatHeading('Integrations')));
     if (data.integrations.claude_code) {
       console.log(
-        `  ${colors.success('✓')} Claude Code hooks ${colors.dim(`(${data.integrations.claude_code_path})`)}`,
+        `  ${colors.success('✓')} Claude Code skill ${colors.dim(`(${data.integrations.claude_code_path})`)}`,
       );
     } else {
       console.log(
-        `  ${colors.dim('✗')} Claude Code hooks ${colors.dim(`(${data.integrations.claude_code_path})`)}`,
+        `  ${colors.dim('✗')} Claude Code skill ${colors.dim(`(${data.integrations.claude_code_path})`)}`,
       );
       console.log(`      Run: tbd setup claude`);
     }

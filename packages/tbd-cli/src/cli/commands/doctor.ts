@@ -25,6 +25,7 @@ import {
 } from '../../file/git.js';
 import { type DiagnosticResult, renderDiagnostics } from '../lib/diagnostics.js';
 import { VERSION } from '../lib/version.js';
+import { formatHeading } from '../lib/output.js';
 
 const CONFIG_DIR = TBD_DIR;
 
@@ -64,100 +65,102 @@ class DoctorHandler extends BaseCommand {
     // Gather stats info
     const statsInfo = this.gatherStatsInfo();
 
-    // Run health checks
-    const checks: DiagnosticResult[] = [];
+    // Run health checks (core system checks)
+    const healthChecks: DiagnosticResult[] = [];
 
     // Check 1: Git version
-    const gitVersionCheck = await this.checkGitVersion();
-    checks.push(gitVersionCheck);
+    healthChecks.push(await this.checkGitVersion());
 
     // Check 2: Config directory and file
-    const configCheck = await this.checkConfig();
-    checks.push(configCheck);
+    healthChecks.push(await this.checkConfig());
 
     // Check 3: Issues directory
-    const issuesDirCheck = await this.checkIssuesDirectory();
-    checks.push(issuesDirCheck);
+    healthChecks.push(await this.checkIssuesDirectory());
 
     // Check 4: Orphaned dependencies
-    const orphanCheck = this.checkOrphanedDependencies(this.issues);
-    checks.push(orphanCheck);
+    healthChecks.push(this.checkOrphanedDependencies(this.issues));
 
     // Check 5: Duplicate IDs
-    const duplicateCheck = this.checkDuplicateIds(this.issues);
-    checks.push(duplicateCheck);
+    healthChecks.push(this.checkDuplicateIds(this.issues));
 
     // Check 6: Orphaned temp files
-    const tempFilesCheck = await this.checkTempFiles(options.fix);
-    checks.push(tempFilesCheck);
+    healthChecks.push(await this.checkTempFiles(options.fix));
 
     // Check 7: Issue validity
-    const validityCheck = this.checkIssueValidity(this.issues);
-    checks.push(validityCheck);
+    healthChecks.push(this.checkIssueValidity(this.issues));
 
-    // Check 8: Claude Code skill file
-    const skillCheck = await this.checkClaudeSkill();
-    checks.push(skillCheck);
+    // Check 8: Worktree health
+    healthChecks.push(await this.checkWorktree());
 
-    // Check 9: Cursor rules file
-    const cursorCheck = await this.checkCursorRules();
-    checks.push(cursorCheck);
+    // Run integration checks (optional IDE/agent integrations)
+    const integrationChecks: DiagnosticResult[] = [];
 
-    // Check 10: Codex AGENTS.md
-    const codexCheck = await this.checkCodexAgents();
-    checks.push(codexCheck);
+    // Integration 1: Claude Code skill file
+    integrationChecks.push(await this.checkClaudeSkill());
 
-    // Check 11: Worktree health
-    const worktreeCheck = await this.checkWorktree();
-    checks.push(worktreeCheck);
+    // Integration 2: Cursor rules file
+    integrationChecks.push(await this.checkCursorRules());
 
-    const allOk = checks.every((c) => c.status === 'ok');
-    const hasFixable = checks.some((c) => c.fixable && c.status !== 'ok');
+    // Integration 3: Codex AGENTS.md
+    integrationChecks.push(await this.checkCodexAgents());
 
-    this.output.data({ statusInfo, statsInfo, checks, healthy: allOk }, () => {
-      const colors = this.output.getColors();
+    // Combine for overall status
+    const allChecks = [...healthChecks, ...integrationChecks];
+    const allOk = allChecks.every((c) => c.status === 'ok');
+    const hasFixable = allChecks.some((c) => c.fixable && c.status !== 'ok');
 
-      // STATUS section
-      console.log(colors.bold('STATUS'));
-      console.log(`tbd v${VERSION}`);
-      console.log(`Repository: ${this.cwd}`);
-      console.log(`  ${colors.success('✓')} Initialized (.tbd/)`);
-      if (statusInfo.gitBranch) {
-        console.log(`  ${colors.success('✓')} Git repository (${statusInfo.gitBranch})`);
-      }
-      if (this.config) {
-        console.log('');
-        console.log(`${colors.dim('Sync branch:')} ${this.config.sync.branch}`);
-        console.log(`${colors.dim('Remote:')} ${this.config.sync.remote}`);
-        if (this.config.display.id_prefix) {
-          console.log(`${colors.dim('ID prefix:')} ${this.config.display.id_prefix}-`);
+    this.output.data(
+      { statusInfo, statsInfo, healthChecks, integrationChecks, healthy: allOk },
+      () => {
+        const colors = this.output.getColors();
+
+        // REPOSITORY section (matches status command)
+        console.log(colors.bold(formatHeading('Repository')));
+        console.log(`tbd v${VERSION}`);
+        console.log(`Repository: ${this.cwd}`);
+        console.log(`  ${colors.success('✓')} Initialized (.tbd/)`);
+        if (statusInfo.gitBranch) {
+          console.log(`  ${colors.success('✓')} Git repository (${statusInfo.gitBranch})`);
         }
-      }
+        if (this.config) {
+          console.log('');
+          console.log(`${colors.dim('Sync branch:')} ${this.config.sync.branch}`);
+          console.log(`${colors.dim('Remote:')} ${this.config.sync.remote}`);
+          if (this.config.display.id_prefix) {
+            console.log(`${colors.dim('ID prefix:')} ${this.config.display.id_prefix}-`);
+          }
+        }
 
-      // STATISTICS section
-      console.log('');
-      console.log(colors.bold('STATISTICS'));
-      console.log(`  Ready:       ${statsInfo.ready}`);
-      console.log(`  In progress: ${statsInfo.inProgress}`);
-      console.log(`  Blocked:     ${statsInfo.blocked}`);
-      console.log(`  Open:        ${statsInfo.open}`);
-      console.log(`  Total:       ${statsInfo.total}`);
+        // STATISTICS section
+        console.log('');
+        console.log(colors.bold(formatHeading('Statistics')));
+        console.log(`  Ready:       ${statsInfo.ready}`);
+        console.log(`  In progress: ${statsInfo.inProgress}`);
+        console.log(`  Blocked:     ${statsInfo.blocked}`);
+        console.log(`  Open:        ${statsInfo.open}`);
+        console.log(`  Total:       ${statsInfo.total}`);
 
-      // HEALTH CHECKS section
-      console.log('');
-      console.log(colors.bold('HEALTH CHECKS'));
-      renderDiagnostics(checks, colors);
+        // INTEGRATIONS section (matches status command)
+        console.log('');
+        console.log(colors.bold(formatHeading('Integrations')));
+        renderDiagnostics(integrationChecks, colors);
 
-      // Final summary
-      console.log('');
-      if (allOk) {
-        this.output.success('Repository is healthy');
-      } else if (hasFixable && !options.fix) {
-        this.output.warn('Issues found. Run with --fix to repair.');
-      } else {
-        this.output.warn('Issues found that may require manual intervention.');
-      }
-    });
+        // HEALTH CHECKS section
+        console.log('');
+        console.log(colors.bold(formatHeading('Health Checks')));
+        renderDiagnostics(healthChecks, colors);
+
+        // Final summary
+        console.log('');
+        if (allOk) {
+          this.output.success('Repository is healthy');
+        } else if (hasFixable && !options.fix) {
+          this.output.warn('Issues found. Run with --fix to repair.');
+        } else {
+          this.output.warn('Issues found that may require manual intervention.');
+        }
+      },
+    );
   }
 
   private async gatherStatusInfo(): Promise<{
