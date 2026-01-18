@@ -8,7 +8,7 @@ import { Command } from 'commander';
 import { readFile } from 'node:fs/promises';
 
 import { BaseCommand } from '../lib/baseCommand.js';
-import { requireInit } from '../lib/errors.js';
+import { requireInit, ValidationError, CLIError } from '../lib/errors.js';
 import type { Issue, IssueKindType, PriorityType } from '../../lib/types.js';
 import { generateInternalId, extractUlidFromInternalId } from '../../lib/ids.js';
 import { writeIssue } from '../../file/storage.js';
@@ -42,16 +42,12 @@ class CreateHandler extends BaseCommand {
 
     // Validate title is provided (unless --from-file)
     if (!title && !options.fromFile) {
-      this.output.error('Title is required. Use: tbd create "Issue title"');
-      return;
+      throw new ValidationError('Title is required. Use: tbd create "Issue title"');
     }
 
     // Parse and validate options
     const kind = this.parseKind(options.type ?? 'task');
-    if (!kind) return;
-
     const priority = this.parsePriority(options.priority ?? '2');
-    if (priority === null) return;
 
     // Read description from file if specified
     let description = options.description;
@@ -59,8 +55,7 @@ class CreateHandler extends BaseCommand {
       try {
         description = await readFile(options.file, 'utf-8');
       } catch {
-        this.output.error(`Failed to read description from file: ${options.file}`);
-        return;
+        throw new CLIError(`Failed to read description from file: ${options.file}`);
       }
     }
 
@@ -117,21 +112,19 @@ class CreateHandler extends BaseCommand {
     });
   }
 
-  private parseKind(value: string): IssueKindType | undefined {
+  private parseKind(value: string): IssueKindType {
     const result = IssueKind.safeParse(value);
     if (!result.success) {
-      this.output.error(`Invalid type: ${value}. Must be: bug, feature, task, epic, chore`);
-      return undefined;
+      throw new ValidationError(`Invalid type: ${value}. Must be: bug, feature, task, epic, chore`);
     }
     return result.data;
   }
 
-  private parsePriority(value: string): PriorityType | null {
+  private parsePriority(value: string): PriorityType {
     const num = parseInt(value, 10);
     const result = Priority.safeParse(num);
     if (!result.success) {
-      this.output.error(`Invalid priority: ${value}. Must be 0-4`);
-      return null;
+      throw new ValidationError(`Invalid priority: ${value}. Must be 0-4`);
     }
     return result.data;
   }

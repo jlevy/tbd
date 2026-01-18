@@ -7,7 +7,7 @@
 import { Command } from 'commander';
 
 import { BaseCommand } from '../lib/baseCommand.js';
-import { requireInit } from '../lib/errors.js';
+import { requireInit, NotInitializedError, ValidationError } from '../lib/errors.js';
 import { listIssues } from '../../file/storage.js';
 import { IssueKind } from '../../lib/schemas.js';
 import type { Issue, IssueKindType } from '../../lib/types.js';
@@ -32,8 +32,7 @@ class ReadyHandler extends BaseCommand {
       dataSyncDir = await resolveDataSyncDir();
       issues = await listIssues(dataSyncDir);
     } catch {
-      this.output.error('No issue store found. Run `tbd init` first.');
-      return;
+      throw new NotInitializedError('No issue store found. Run `tbd init` first.');
     }
 
     // Build lookup map for dependency resolution
@@ -75,8 +74,7 @@ class ReadyHandler extends BaseCommand {
     if (options.type) {
       const result = IssueKind.safeParse(options.type);
       if (!result.success) {
-        this.output.error(`Invalid type: ${options.type}`);
-        return;
+        throw new ValidationError(`Invalid type: ${options.type}`);
       }
       const kind: IssueKindType = result.data;
       readyIssues = readyIssues.filter((i) => i.kind === kind);

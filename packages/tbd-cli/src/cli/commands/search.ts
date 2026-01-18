@@ -10,7 +10,7 @@ import { readFile } from 'node:fs/promises';
 import { writeFile } from 'atomically';
 
 import { BaseCommand } from '../lib/baseCommand.js';
-import { requireInit } from '../lib/errors.js';
+import { requireInit, NotInitializedError, ValidationError } from '../lib/errors.js';
 import { listIssues } from '../../file/storage.js';
 import { IssueStatus } from '../../lib/schemas.js';
 import type { Issue, IssueStatusType } from '../../lib/types.js';
@@ -100,8 +100,7 @@ class SearchHandler extends BaseCommand {
       dataSyncDir = await resolveDataSyncDir();
       issues = await listIssues(dataSyncDir);
     } catch {
-      this.output.error('No issue store found. Run `tbd init` first.');
-      return;
+      throw new NotInitializedError('No issue store found. Run `tbd init` first.');
     }
 
     // Parse status filter
@@ -109,8 +108,7 @@ class SearchHandler extends BaseCommand {
     if (options.status) {
       const result = IssueStatus.safeParse(options.status);
       if (!result.success) {
-        this.output.error(`Invalid status: ${options.status}`);
-        return;
+        throw new ValidationError(`Invalid status: ${options.status}`);
       }
       statusFilter = result.data;
     }

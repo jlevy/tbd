@@ -10,7 +10,7 @@ import { join } from 'node:path';
 import { writeFile } from 'atomically';
 
 import { BaseCommand } from '../lib/baseCommand.js';
-import { requireInit } from '../lib/errors.js';
+import { requireInit, ValidationError, NotFoundError } from '../lib/errors.js';
 import { writeIssue, listIssues } from '../../file/storage.js';
 import {
   generateInternalId,
@@ -175,8 +175,7 @@ class ImportHandler extends BaseCommand {
   async run(file: string | undefined, options: ImportOptions): Promise<void> {
     // Validate input first
     if (!file && !options.fromBeads && !options.validate) {
-      this.output.error('Provide a file path or use --from-beads');
-      return;
+      throw new ValidationError('Provide a file path or use --from-beads');
     }
 
     // Handle validation mode - requires init
@@ -212,9 +211,7 @@ class ImportHandler extends BaseCommand {
     try {
       await access(jsonlPath);
     } catch {
-      this.output.error(`Beads database not found at ${beadsDir}`);
-      this.output.info('Use --beads-dir to specify the Beads directory');
-      return;
+      throw new NotFoundError('Beads database', `${beadsDir} (use --beads-dir to specify)`);
     }
 
     console.log('Validating import...\n');
@@ -399,8 +396,7 @@ class ImportHandler extends BaseCommand {
     try {
       await access(filePath);
     } catch {
-      this.output.error(`File not found: ${filePath}`);
-      return;
+      throw new NotFoundError('File', filePath);
     }
 
     if (this.checkDryRun('Would import issues', { file: filePath })) {
@@ -566,9 +562,10 @@ class ImportHandler extends BaseCommand {
     try {
       await access(jsonlPath);
     } catch {
-      this.output.error(`Beads database not found at ${beadsDir}`);
-      this.output.info('Use `bd export > issues.jsonl` to create an export file');
-      return;
+      throw new NotFoundError(
+        'Beads database',
+        `${beadsDir} (use \`bd export > issues.jsonl\` to create an export file)`,
+      );
     }
 
     // Auto-initialize if not already initialized (per spec §5.6)

@@ -11,6 +11,7 @@ import { join } from 'node:path';
 import { writeFile } from 'atomically';
 
 import { BaseCommand } from '../lib/baseCommand.js';
+import { CLIError, ValidationError } from '../lib/errors.js';
 import { VERSION } from '../lib/version.js';
 import { initConfig } from '../../file/config.js';
 import { TBD_DIR, CACHE_DIR, WORKTREE_DIR_NAME, DATA_SYNC_DIR_NAME } from '../../lib/paths.js';
@@ -29,24 +30,22 @@ class InitHandler extends BaseCommand {
     // Check if already initialized
     try {
       await stat(join(cwd, TBD_DIR));
-      this.output.error('tbd is already initialized in this directory');
-      return;
-    } catch {
-      // Not initialized - continue
+      throw new CLIError('tbd is already initialized in this directory');
+    } catch (error) {
+      // Not initialized - continue (unless it's our CLIError)
+      if (error instanceof CLIError) throw error;
     }
 
     // Validate prefix is provided
     if (!options.prefix) {
-      this.output.error('The --prefix option is required');
-      this.output.info('');
-      this.output.info('Usage: tbd init --prefix=<name>');
-      this.output.info('');
-      this.output.info('The prefix is used for display IDs (e.g., proj-a7k2, myapp-b3m9)');
-      this.output.info('Choose a short, memorable prefix for your project.');
-      this.output.info('');
-      this.output.info("If importing from beads, use 'tbd import --from-beads' instead");
-      this.output.info('(the beads prefix will be automatically detected).');
-      return;
+      throw new ValidationError(
+        'The --prefix option is required\n\n' +
+          'Usage: tbd init --prefix=<name>\n\n' +
+          'The prefix is used for display IDs (e.g., proj-a7k2, myapp-b3m9)\n' +
+          'Choose a short, memorable prefix for your project.\n\n' +
+          "If importing from beads, use 'tbd import --from-beads' instead\n" +
+          '(the beads prefix will be automatically detected).',
+      );
     }
 
     if (this.checkDryRun('Would initialize tbd repository', options)) {

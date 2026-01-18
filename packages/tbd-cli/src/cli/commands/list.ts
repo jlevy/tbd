@@ -7,7 +7,7 @@
 import { Command } from 'commander';
 
 import { BaseCommand } from '../lib/baseCommand.js';
-import { requireInit } from '../lib/errors.js';
+import { requireInit, CLIError } from '../lib/errors.js';
 import { loadDataContext, type TbdDataContext } from '../lib/dataContext.js';
 import type { Issue, IssueStatusType, IssueKindType } from '../../lib/types.js';
 import { listIssues } from '../../file/storage.js';
@@ -42,8 +42,7 @@ class ListHandler extends BaseCommand {
       dataCtx = await loadDataContext();
       issues = await listIssues(dataCtx.dataSyncDir);
     } catch {
-      this.output.error('Failed to read issues');
-      return;
+      throw new CLIError('Failed to read issues');
     }
 
     // Apply filters

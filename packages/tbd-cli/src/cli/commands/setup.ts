@@ -16,6 +16,7 @@ import { homedir } from 'node:os';
 import { writeFile } from 'atomically';
 
 import { BaseCommand } from '../lib/baseCommand.js';
+import { CLIError } from '../lib/errors.js';
 
 interface SetupClaudeOptions {
   check?: boolean;
@@ -311,7 +312,7 @@ class SetupClaudeHandler extends BaseCommand {
       this.output.info('');
       this.output.info('Use `tbd setup claude --check` to verify installation');
     } catch (error) {
-      this.output.error(`Failed to install hooks: ${(error as Error).message}`);
+      throw new CLIError(`Failed to install hooks: ${(error as Error).message}`);
     }
   }
 }
@@ -370,7 +371,7 @@ class SetupCursorHandler extends BaseCommand {
       this.output.info('Cursor will now see tbd workflow instructions.');
       this.output.info('Use `tbd setup cursor --check` to verify installation');
     } catch (error) {
-      this.output.error(`Failed to create rules file: ${(error as Error).message}`);
+      throw new CLIError(`Failed to create rules file: ${(error as Error).message}`);
     }
   }
 }
@@ -480,7 +481,7 @@ class SetupCodexHandler extends BaseCommand {
       this.output.info('');
       this.output.info('Use `tbd setup codex --check` to verify installation');
     } catch (error) {
-      this.output.error(`Failed to update AGENTS.md: ${(error as Error).message}`);
+      throw new CLIError(`Failed to update AGENTS.md: ${(error as Error).message}`);
     }
   }
 

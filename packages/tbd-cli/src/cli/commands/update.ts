@@ -8,7 +8,7 @@ import { Command } from 'commander';
 import { readFile } from 'node:fs/promises';
 
 import { BaseCommand } from '../lib/baseCommand.js';
-import { requireInit } from '../lib/errors.js';
+import { requireInit, NotFoundError, ValidationError, CLIError } from '../lib/errors.js';
 import { readIssue, writeIssue } from '../../file/storage.js';
 import { normalizeIssueId, formatDisplayId, formatDebugId } from '../../lib/ids.js';
 import { IssueStatus, IssueKind, Priority } from '../../lib/schemas.js';
@@ -48,8 +48,7 @@ class UpdateHandler extends BaseCommand {
     try {
       internalId = resolveToInternalId(id, mapping);
     } catch {
-      this.output.error(`Issue not found: ${id}`);
-      return;
+      throw new NotFoundError('Issue', id);
     }
 
     // Load existing issue
@@ -57,8 +56,7 @@ class UpdateHandler extends BaseCommand {
     try {
       issue = await readIssue(dataSyncDir, internalId);
     } catch {
-      this.output.error(`Issue not found: ${id}`);
-      return;
+      throw new NotFoundError('Issue', id);
     }
 
     // Parse and validate options
@@ -145,8 +143,7 @@ class UpdateHandler extends BaseCommand {
     if (options.status) {
       const result = IssueStatus.safeParse(options.status);
       if (!result.success) {
-        this.output.error(`Invalid status: ${options.status}`);
-        return null;
+        throw new ValidationError(`Invalid status: ${options.status}`);
       }
       updates.status = result.data;
     }
@@ -154,8 +151,7 @@ class UpdateHandler extends BaseCommand {
     if (options.type) {
       const result = IssueKind.safeParse(options.type);
       if (!result.success) {
-        this.output.error(`Invalid type: ${options.type}`);
-        return null;
+        throw new ValidationError(`Invalid type: ${options.type}`);
       }
       updates.kind = result.data;
     }
@@ -164,8 +160,7 @@ class UpdateHandler extends BaseCommand {
       const num = parseInt(options.priority, 10);
       const result = Priority.safeParse(num);
       if (!result.success) {
-        this.output.error(`Invalid priority: ${options.priority}. Must be 0-4`);
-        return null;
+        throw new ValidationError(`Invalid priority: ${options.priority}. Must be 0-4`);
       }
       updates.priority = result.data;
     }
@@ -186,8 +181,7 @@ class UpdateHandler extends BaseCommand {
       try {
         updates.notes = await readFile(options.notesFile, 'utf-8');
       } catch {
-        this.output.error(`Failed to read notes from file: ${options.notesFile}`);
-        return null;
+        throw new CLIError(`Failed to read notes from file: ${options.notesFile}`);
       }
     }
 

@@ -7,7 +7,7 @@
 import { Command } from 'commander';
 
 import { BaseCommand } from '../lib/baseCommand.js';
-import { requireInit } from '../lib/errors.js';
+import { requireInit, NotFoundError, ValidationError } from '../lib/errors.js';
 import { readIssue, writeIssue, listIssues } from '../../file/storage.js';
 import { formatDisplayId, formatDebugId } from '../../lib/ids.js';
 import type { Issue } from '../../lib/types.js';
@@ -32,14 +32,12 @@ class DependsAddHandler extends BaseCommand {
     try {
       internalId = resolveToInternalId(id, mapping);
     } catch {
-      this.output.error(`Issue not found: ${id}`);
-      return;
+      throw new NotFoundError('Issue', id);
     }
     try {
       internalTarget = resolveToInternalId(targetId, mapping);
     } catch {
-      this.output.error(`Target issue not found: ${targetId}`);
-      return;
+      throw new NotFoundError('Target issue', targetId);
     }
 
     // Load the blocking issue
@@ -47,22 +45,19 @@ class DependsAddHandler extends BaseCommand {
     try {
       issue = await readIssue(dataSyncDir, internalId);
     } catch {
-      this.output.error(`Issue not found: ${id}`);
-      return;
+      throw new NotFoundError('Issue', id);
     }
 
     // Verify target issue exists
     try {
       await readIssue(dataSyncDir, internalTarget);
     } catch {
-      this.output.error(`Target issue not found: ${targetId}`);
-      return;
+      throw new NotFoundError('Target issue', targetId);
     }
 
     // Check for self-reference
     if (internalId === internalTarget) {
-      this.output.error('Issue cannot block itself');
-      return;
+      throw new ValidationError('Issue cannot block itself');
     }
 
     if (this.checkDryRun('Would add dependency', { id: internalId, target: internalTarget })) {
@@ -120,14 +115,12 @@ class DependsRemoveHandler extends BaseCommand {
     try {
       internalId = resolveToInternalId(id, mapping);
     } catch {
-      this.output.error(`Issue not found: ${id}`);
-      return;
+      throw new NotFoundError('Issue', id);
     }
     try {
       internalTarget = resolveToInternalId(targetId, mapping);
     } catch {
-      this.output.error(`Target issue not found: ${targetId}`);
-      return;
+      throw new NotFoundError('Target issue', targetId);
     }
 
     // Load the blocking issue
@@ -135,8 +128,7 @@ class DependsRemoveHandler extends BaseCommand {
     try {
       issue = await readIssue(dataSyncDir, internalId);
     } catch {
-      this.output.error(`Issue not found: ${id}`);
-      return;
+      throw new NotFoundError('Issue', id);
     }
 
     if (this.checkDryRun('Would remove dependency', { id: internalId, target: internalTarget })) {
@@ -193,8 +185,7 @@ class DependsListHandler extends BaseCommand {
     try {
       internalId = resolveToInternalId(id, mapping);
     } catch {
-      this.output.error(`Issue not found: ${id}`);
-      return;
+      throw new NotFoundError('Issue', id);
     }
 
     // Load the issue
@@ -202,8 +193,7 @@ class DependsListHandler extends BaseCommand {
     try {
       issue = await readIssue(dataSyncDir, internalId);
     } catch {
-      this.output.error(`Issue not found: ${id}`);
-      return;
+      throw new NotFoundError('Issue', id);
     }
 
     // Load all issues to find reverse dependencies
