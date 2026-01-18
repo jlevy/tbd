@@ -19,6 +19,7 @@ import { writeFile } from 'atomically';
 import { BaseCommand } from '../lib/baseCommand.js';
 import { CLIError } from '../lib/errors.js';
 import { loadPrimeContent } from './prime.js';
+import { type DiagnosticResult, renderDiagnostics } from '../lib/diagnostics.js';
 
 interface SetupClaudeOptions {
   check?: boolean;
@@ -334,6 +335,80 @@ class SetupClaudeHandler extends BaseCommand {
     // Report status
     const fullyInstalled = globalHooksInstalled && projectHooksInstalled && skillInstalled;
 
+    // Build diagnostic results for text output
+    const diagnostics: DiagnosticResult[] = [];
+
+    // Global hooks diagnostic
+    if (globalHooksInstalled) {
+      diagnostics.push({
+        name: 'Global hooks',
+        status: 'ok',
+        message: 'SessionStart, PreCompact',
+        path: settingsPath.replace(homedir(), '~'),
+      });
+    } else if (sessionStartHook || preCompactHook) {
+      diagnostics.push({
+        name: 'Global hooks',
+        status: 'warn',
+        message: 'partially configured',
+        path: settingsPath.replace(homedir(), '~'),
+        suggestion: 'Run: tbd setup claude',
+      });
+    } else {
+      diagnostics.push({
+        name: 'Global hooks',
+        status: 'warn',
+        message: 'not configured',
+        path: settingsPath.replace(homedir(), '~'),
+        suggestion: 'Run: tbd setup claude',
+      });
+    }
+
+    // Project hooks diagnostic
+    const projectSettingsRelPath = '.claude/settings.json';
+    if (projectHooksInstalled) {
+      diagnostics.push({
+        name: 'Project hooks',
+        status: 'ok',
+        message: 'PostToolUse sync reminder',
+        path: projectSettingsRelPath,
+      });
+    } else if (postToolUseHook || hookScriptInstalled) {
+      diagnostics.push({
+        name: 'Project hooks',
+        status: 'warn',
+        message: 'partially configured',
+        path: projectSettingsRelPath,
+        suggestion: 'Run: tbd setup claude',
+      });
+    } else {
+      diagnostics.push({
+        name: 'Project hooks',
+        status: 'warn',
+        message: 'not configured',
+        path: projectSettingsRelPath,
+        suggestion: 'Run: tbd setup claude',
+      });
+    }
+
+    // Skill file diagnostic
+    const skillRelPath = '.claude/skills/tbd/SKILL.md';
+    if (skillInstalled) {
+      diagnostics.push({
+        name: 'Skill file',
+        status: 'ok',
+        path: skillRelPath,
+      });
+    } else {
+      diagnostics.push({
+        name: 'Skill file',
+        status: 'warn',
+        message: 'not found',
+        path: skillRelPath,
+        suggestion: 'Run: tbd setup claude',
+      });
+    }
+
     this.output.data(
       {
         installed: fullyInstalled,
@@ -341,36 +416,19 @@ class SetupClaudeHandler extends BaseCommand {
           installed: globalHooksInstalled,
           sessionStart: sessionStartHook,
           preCompact: preCompactHook,
+          path: settingsPath,
         },
         projectHooks: {
           installed: projectHooksInstalled,
           postToolUse: postToolUseHook,
           hookScript: hookScriptInstalled,
+          path: projectSettingsPath,
         },
         skill: { installed: skillInstalled, path: skillPath },
       },
       () => {
-        if (globalHooksInstalled) {
-          this.output.success('Global hooks installed (SessionStart, PreCompact)');
-        } else if (sessionStartHook || preCompactHook) {
-          this.output.warn('Global hooks partially configured');
-        } else {
-          this.output.info('Global hooks not configured');
-        }
-
-        if (projectHooksInstalled) {
-          this.output.success('Project hooks installed (PostToolUse sync reminder)');
-        } else if (postToolUseHook || hookScriptInstalled) {
-          this.output.warn('Project hooks partially configured');
-        } else {
-          this.output.info('Project hooks not configured');
-        }
-
-        if (skillInstalled) {
-          this.output.success('Skill file installed');
-        } else {
-          this.output.info('Skill file not found');
-        }
+        const colors = this.output.getColors();
+        renderDiagnostics(diagnostics, colors);
       },
     );
   }
@@ -600,13 +658,30 @@ class SetupCursorHandler extends BaseCommand {
   }
 
   private async checkCursorSetup(rulesPath: string): Promise<void> {
+    const rulesRelPath = '.cursor/rules/tbd.mdc';
     try {
       await access(rulesPath);
-      this.output.success('Cursor rules file exists');
-      this.output.data({ installed: true, path: rulesPath });
+      const diagnostic: DiagnosticResult = {
+        name: 'Cursor rules file',
+        status: 'ok',
+        path: rulesRelPath,
+      };
+      this.output.data({ installed: true, path: rulesPath }, () => {
+        const colors = this.output.getColors();
+        renderDiagnostics([diagnostic], colors);
+      });
     } catch {
-      this.output.info('Cursor rules file not found');
-      this.output.data({ installed: false });
+      const diagnostic: DiagnosticResult = {
+        name: 'Cursor rules file',
+        status: 'warn',
+        message: 'not found',
+        path: rulesRelPath,
+        suggestion: 'Run: tbd setup cursor',
+      };
+      this.output.data({ installed: false, expectedPath: rulesPath }, () => {
+        const colors = this.output.getColors();
+        renderDiagnostics([diagnostic], colors);
+      });
     }
   }
 
@@ -659,22 +734,47 @@ class SetupCodexHandler extends BaseCommand {
   }
 
   private async checkCodexSetup(agentsPath: string): Promise<void> {
+    const agentsRelPath = './AGENTS.md';
     try {
       await access(agentsPath);
       const content = await readFile(agentsPath, 'utf-8');
 
       if (content.includes(CODEX_BEGIN_MARKER)) {
-        this.output.success('AGENTS.md with tbd section found');
-        this.output.data({ installed: true, path: agentsPath, hastbdSection: true });
+        const diagnostic: DiagnosticResult = {
+          name: 'AGENTS.md',
+          status: 'ok',
+          message: 'tbd section found',
+          path: agentsRelPath,
+        };
+        this.output.data({ installed: true, path: agentsPath, hastbdSection: true }, () => {
+          const colors = this.output.getColors();
+          renderDiagnostics([diagnostic], colors);
+        });
       } else {
-        this.output.warn('AGENTS.md exists but no tbd section found');
-        this.output.info('  Run: tbd setup codex (to add tbd section)');
-        this.output.data({ installed: false, path: agentsPath, hastbdSection: false });
+        const diagnostic: DiagnosticResult = {
+          name: 'AGENTS.md',
+          status: 'warn',
+          message: 'exists but no tbd section',
+          path: agentsRelPath,
+          suggestion: 'Run: tbd setup codex',
+        };
+        this.output.data({ installed: false, path: agentsPath, hastbdSection: false }, () => {
+          const colors = this.output.getColors();
+          renderDiagnostics([diagnostic], colors);
+        });
       }
     } catch {
-      this.output.info('AGENTS.md not found');
-      this.output.info('  Run: tbd setup codex');
-      this.output.data({ installed: false });
+      const diagnostic: DiagnosticResult = {
+        name: 'AGENTS.md',
+        status: 'warn',
+        message: 'not found',
+        path: agentsRelPath,
+        suggestion: 'Run: tbd setup codex',
+      };
+      this.output.data({ installed: false, expectedPath: agentsPath }, () => {
+        const colors = this.output.getColors();
+        renderDiagnostics([diagnostic], colors);
+      });
     }
   }
 

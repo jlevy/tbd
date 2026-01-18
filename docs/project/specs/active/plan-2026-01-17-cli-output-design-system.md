@@ -48,28 +48,28 @@ Create a comprehensive CLI UI design system that:
 Each subtask below is designed to be a separate issue/bead:
 
 **Phase 2: OutputManager Enhancements**
-1. OutputManager output level methods (notice, warn, info, debug, command)
-2. OutputManager helper methods (table, list, count)
-3. Define icon constants (success, error, warning, notice, status icons)
-4. Create priority utilities (`lib/priority.ts`)
-5. Create status utilities (`lib/status.ts`)
-6. Create truncation utility (`lib/truncate.ts`)
-7. Create issue formatting utilities (`cli/lib/issueFormat.ts`)
-8. Add `--long` flag to commands (list, ready, blocked)
-9. Migrate commands to use formatPriority/formatStatus
-10. Migrate commands to use issue formatting utilities
+1. ✓ tbd-euve: OutputManager output level methods (notice, warn, info, debug, command)
+2. ✓ tbd-a93c: OutputManager helper methods (table, list, count)
+3. ✓ tbd-0kg0: Define icon constants (success, error, warning, notice, status icons)
+4. ✓ tbd-fahh: Create priority utilities (`lib/priority.ts`)
+5. ✓ tbd-rp61: Create status utilities (`lib/status.ts`)
+6. ✓ tbd-0mrt: Create truncation utility (`lib/truncate.ts`)
+7. ✓ tbd-51bx: Create issue formatting utilities (`cli/lib/issueFormat.ts`)
+8. tbd-4pxv: Add `--long` flag to commands (list, ready, blocked)
+9. tbd-y0a1: Migrate commands to use formatPriority/formatStatus
+10. tbd-lss5: Migrate commands to use issue formatting utilities
 
 **Phase 3: Sync Output Improvements**
-11. Implement sync progress indicator
-12. Implement sync summary tallies
-13. Debug mode git log output
+11. ✓ tbd-2tuo: Implement sync progress indicator
+12. tbd-gr1e: Implement sync summary tallies
+13. tbd-4z1q: Debug mode git log output
 
 **Phase 4: Command Audit**
-14. Audit commands for design system compliance
+14. tbd-ar25: Audit commands for design system compliance
 
 **Phase 5: Testing**
-15. Output mode testing
-16. Message format testing
+15. tbd-b7b0: Output mode testing
+16. tbd-jgwp: Message format testing
 
 ## Backward Compatibility
 
@@ -378,8 +378,7 @@ Blocked by:
   bd-a1b2 ● Fix authentication timeout
 ```
 
-**Extended Line (with Assignee):**
-For detailed views showing assignee information:
+**Extended Line (with Assignee):** For detailed views showing assignee information:
 ```
 {ID}  {PRI}  {STATUS}  {ASSIGNEE}  {KIND} {TITLE}
 ```
@@ -395,8 +394,7 @@ bd-a1b2     P0   ● blocked        @alice      [bug] Fix authentication timeout
 bd-c3d4     P1   ◐ in_progress    @bob        [feature] Add dark mode support
 ```
 
-**Issue Line with Labels:**
-When labels are relevant (search results, filtered views):
+**Issue Line with Labels:** When labels are relevant (search results, filtered views):
 ```
 {ID}  {PRI}  {STATUS}  {KIND} {TITLE}  [{LABELS}]
 ```
@@ -413,9 +411,8 @@ bd-c3d4     P1   ◐ in_progress    [feature] Add dark mode  [ui]
 - Only show if issue has labels
 - Labels appear AFTER title (kind prefix appears BEFORE title)
 
-**Long Format (`--long`):**
-Shows description on second line, indented 6 spaces, dim color, max 2 lines.
-Truncated with Unicode ellipsis `…` (U+2026):
+**Long Format (`--long`):** Shows description on second line, indented 6 spaces, dim
+color, max 2 lines. Truncated with Unicode ellipsis `…` (U+2026):
 ```
 bd-a1b2     P0   ● blocked        [bug] Fix authentication timeout
       Users report 30s delays when logging in. Investigate connection
@@ -733,11 +730,12 @@ Tasks are organized into subtasks that can each become a separate issue/bead.
 **Subtask: Define icon constants**
 - [ ] Define icon constants in OutputManager (SUCCESS_ICON, ERROR_ICON, WARN_ICON,
   NOTICE_ICON)
-- [ ] Define status icon constants (OPEN_ICON, IN_PROGRESS_ICON, BLOCKED_ICON, CLOSED_ICON)
+- [ ] Define status icon constants (OPEN_ICON, IN_PROGRESS_ICON, BLOCKED_ICON,
+  CLOSED_ICON)
 
 **Subtask: Create priority utilities (`lib/priority.ts`)**
 - [ ] Create `formatPriority()` utility for P0/P1/P2 display format
-- [ ] Create `parsePriority()` utility accepting "P1" or "1" input
+- [ ] Create `parsePriority()` utility accepting “P1” or “1” input
 - [ ] Create `getPriorityColor()` utility
 - [ ] Unit tests for priority utilities
 
@@ -849,12 +847,13 @@ Tasks are organized into subtasks that can each become a separate issue/bead.
 7. Priorities always display as P0-P4 (never raw numbers)
 8. Icons used consistently: ✓ for success, ✗ for error, ⚠ for warning
 9. Status always displays with icon + word (○ open, ◐ in_progress, ● blocked, ✓ closed)
-10. Kind always displayed in brackets with dim color: `[bug]`, `[feature]`, `[task]`, `[epic]`, `[chore]`
+10. Kind always displayed in brackets with dim color: `[bug]`, `[feature]`, `[task]`,
+    `[epic]`, `[chore]`
 11. Kind shown as prefix to title in standard format, omitted in compact/inline formats
 12. `--long` mode shows wrapped description on second line (6-space indent, max 2 lines)
 13. `--long` works correctly with `--pretty` tree view
 14. Sync operations show immediate progress (spinner before any delay)
-15. Sync summaries show new/updated/deleted tallies (not vague "pushed/pulled")
+15. Sync summaries show new/updated/deleted tallies (not vague “pushed/pulled”)
 
 **Testing Approach:**
 

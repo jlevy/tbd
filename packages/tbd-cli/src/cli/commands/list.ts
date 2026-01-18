@@ -15,6 +15,12 @@ import { formatDisplayId, formatDebugId, extractUlidFromInternalId } from '../..
 import type { IdMapping } from '../../file/idMapping.js';
 import { resolveToInternalId } from '../../file/idMapping.js';
 import { naturalCompare } from '../../lib/sort.js';
+import {
+  formatIssueLine,
+  formatIssueLong,
+  formatIssueHeader,
+  type IssueForDisplay,
+} from '../lib/issueFormat.js';
 
 interface ListOptions {
   status?: IssueStatusType;
@@ -29,6 +35,7 @@ interface ListOptions {
   sort?: string;
   limit?: string;
   count?: boolean;
+  long?: boolean;
 }
 
 class ListHandler extends BaseCommand {
@@ -79,6 +86,7 @@ class ListHandler extends BaseCommand {
       status: i.status,
       kind: i.kind,
       title: i.title,
+      description: i.description,
       assignee: i.assignee,
       labels: i.labels,
     }));
@@ -90,14 +98,13 @@ class ListHandler extends BaseCommand {
       }
 
       const colors = this.output.getColors();
-      console.log(
-        `${colors.dim('ID'.padEnd(12))}${colors.dim('PRI'.padEnd(5))}${colors.dim('STATUS'.padEnd(14))}${colors.dim('TITLE')}`,
-      );
+      console.log(formatIssueHeader(colors));
       for (const issue of displayIssues) {
-        const statusColor = this.getStatusColor(issue.status);
-        console.log(
-          `${colors.id(issue.id.padEnd(12))}${String(issue.priority).padEnd(5)}${statusColor(issue.status.padEnd(14))}${issue.title}`,
-        );
+        if (options.long) {
+          console.log(formatIssueLong(issue as IssueForDisplay, colors));
+        } else {
+          console.log(formatIssueLine(issue as IssueForDisplay, colors));
+        }
       }
       console.log('');
       console.log(colors.dim(`${issues.length} issue(s)`));
@@ -198,24 +205,6 @@ class ListHandler extends BaseCommand {
       return naturalCompare(getShortId(a), getShortId(b));
     });
   }
-
-  private getStatusColor(status: string): (s: string) => string {
-    const colors = this.output.getColors();
-    switch (status) {
-      case 'open':
-        return colors.info;
-      case 'in_progress':
-        return colors.success;
-      case 'blocked':
-        return colors.error;
-      case 'deferred':
-        return colors.dim;
-      case 'closed':
-        return colors.dim;
-      default:
-        return (s) => s;
-    }
-  }
 }
 
 export const listCommand = new Command('list')
@@ -235,6 +224,7 @@ export const listCommand = new Command('list')
   .option('--sort <field>', 'Sort by: priority, created, updated', 'priority')
   .option('--limit <n>', 'Limit results')
   .option('--count', 'Output only the count of matching issues')
+  .option('--long', 'Show descriptions')
   .action(async (options, command) => {
     const handler = new ListHandler(command);
     await handler.run(options);

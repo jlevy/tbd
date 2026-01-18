@@ -54,8 +54,11 @@ interface StatusData {
   // Integrations
   integrations: {
     claude_code: boolean;
+    claude_code_path: string;
     cursor: boolean;
+    cursor_path: string;
     codex: boolean;
+    codex_path: string;
   };
 }
 
@@ -78,8 +81,11 @@ class StatusHandler extends BaseCommand {
       issues: null,
       integrations: {
         claude_code: false,
+        claude_code_path: '~/.claude/settings.json',
         cursor: false,
+        cursor_path: '.cursor/rules/tbd.mdc',
         codex: false,
+        codex_path: './AGENTS.md',
       },
     };
 
@@ -156,13 +162,21 @@ class StatusHandler extends BaseCommand {
     }
   }
 
-  private async checkIntegrations(
-    cwd: string,
-  ): Promise<{ claude_code: boolean; cursor: boolean; codex: boolean }> {
-    const result = { claude_code: false, cursor: false, codex: false };
+  private async checkIntegrations(cwd: string): Promise<StatusData['integrations']> {
+    const claudeSettingsPath = join(homedir(), '.claude', 'settings.json');
+    const cursorRulesPath = join(cwd, '.cursor', 'rules', 'tbd.mdc');
+    const agentsPath = join(cwd, 'AGENTS.md');
+
+    const result: StatusData['integrations'] = {
+      claude_code: false,
+      claude_code_path: claudeSettingsPath.replace(homedir(), '~'),
+      cursor: false,
+      cursor_path: '.cursor/rules/tbd.mdc',
+      codex: false,
+      codex_path: './AGENTS.md',
+    };
 
     // Check Claude Code hooks
-    const claudeSettingsPath = join(homedir(), '.claude', 'settings.json');
     try {
       await access(claudeSettingsPath);
       const content = await readFile(claudeSettingsPath, 'utf-8');
@@ -179,7 +193,6 @@ class StatusHandler extends BaseCommand {
     }
 
     // Check Cursor rules
-    const cursorRulesPath = join(cwd, '.cursor', 'rules', 'tbd.mdc');
     try {
       await access(cursorRulesPath);
       result.cursor = true;
@@ -188,7 +201,6 @@ class StatusHandler extends BaseCommand {
     }
 
     // Check Codex AGENTS.md
-    const agentsPath = join(cwd, 'AGENTS.md');
     try {
       await access(agentsPath);
       const content = await readFile(agentsPath, 'utf-8');
@@ -343,19 +355,34 @@ class StatusHandler extends BaseCommand {
     console.log('');
     console.log(colors.bold('Integrations:'));
     if (data.integrations.claude_code) {
-      console.log(`  ${colors.success('✓')} Claude Code hooks installed`);
+      console.log(
+        `  ${colors.success('✓')} Claude Code hooks ${colors.dim(`(${data.integrations.claude_code_path})`)}`,
+      );
     } else {
-      console.log(`  ${colors.dim('✗')} Claude Code hooks (run: tbd setup claude)`);
+      console.log(
+        `  ${colors.dim('✗')} Claude Code hooks ${colors.dim(`(${data.integrations.claude_code_path})`)}`,
+      );
+      console.log(`      Run: tbd setup claude`);
     }
     if (data.integrations.cursor) {
-      console.log(`  ${colors.success('✓')} Cursor rules installed`);
+      console.log(
+        `  ${colors.success('✓')} Cursor rules ${colors.dim(`(${data.integrations.cursor_path})`)}`,
+      );
     } else {
-      console.log(`  ${colors.dim('✗')} Cursor rules (run: tbd setup cursor)`);
+      console.log(
+        `  ${colors.dim('✗')} Cursor rules ${colors.dim(`(${data.integrations.cursor_path})`)}`,
+      );
+      console.log(`      Run: tbd setup cursor`);
     }
     if (data.integrations.codex) {
-      console.log(`  ${colors.success('✓')} Codex AGENTS.md installed`);
+      console.log(
+        `  ${colors.success('✓')} Codex AGENTS.md ${colors.dim(`(${data.integrations.codex_path})`)}`,
+      );
     } else {
-      console.log(`  ${colors.dim('✗')} Codex AGENTS.md (run: tbd setup codex)`);
+      console.log(
+        `  ${colors.dim('✗')} Codex AGENTS.md ${colors.dim(`(${data.integrations.codex_path})`)}`,
+      );
+      console.log(`      Run: tbd setup codex`);
     }
 
     // Worktree health

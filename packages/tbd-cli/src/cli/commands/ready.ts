@@ -15,10 +15,17 @@ import { resolveDataSyncDir } from '../../lib/paths.js';
 import { formatDisplayId, formatDebugId } from '../../lib/ids.js';
 import { loadIdMapping } from '../../file/idMapping.js';
 import { readConfig } from '../../file/config.js';
+import {
+  formatIssueLine,
+  formatIssueLong,
+  formatIssueHeader,
+  type IssueForDisplay,
+} from '../lib/issueFormat.js';
 
 interface ReadyOptions {
   type?: string;
   limit?: string;
+  long?: boolean;
 }
 
 class ReadyHandler extends BaseCommand {
@@ -101,7 +108,10 @@ class ReadyHandler extends BaseCommand {
     const outputIssues = readyIssues.map((i) => ({
       id: showDebug ? formatDebugId(i.id, mapping, prefix) : formatDisplayId(i.id, mapping, prefix),
       priority: i.priority,
+      status: i.status,
+      kind: i.kind,
       title: i.title,
+      description: i.description,
     }));
 
     this.output.data(outputIssues, () => {
@@ -111,13 +121,13 @@ class ReadyHandler extends BaseCommand {
       }
 
       const colors = this.output.getColors();
-      console.log(
-        `${colors.dim('ID'.padEnd(12))}${colors.dim('PRI'.padEnd(5))}${colors.dim('TITLE')}`,
-      );
+      console.log(formatIssueHeader(colors));
       for (const issue of outputIssues) {
-        console.log(
-          `${colors.id(issue.id.padEnd(12))}${String(issue.priority).padEnd(5)}${issue.title}`,
-        );
+        if (options.long) {
+          console.log(formatIssueLong(issue as IssueForDisplay, colors));
+        } else {
+          console.log(formatIssueLine(issue as IssueForDisplay, colors));
+        }
       }
     });
   }
@@ -127,6 +137,7 @@ export const readyCommand = new Command('ready')
   .description('List issues ready to work on (open, unblocked, unclaimed)')
   .option('--type <type>', 'Filter by type')
   .option('--limit <n>', 'Limit results')
+  .option('--long', 'Show descriptions')
   .action(async (options, command) => {
     const handler = new ReadyHandler(command);
     await handler.run(options);

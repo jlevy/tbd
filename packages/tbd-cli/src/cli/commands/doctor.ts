@@ -16,19 +16,12 @@ import type { Issue } from '../../lib/types.js';
 import { resolveDataSyncDir, TBD_DIR } from '../../lib/paths.js';
 import { validateIssueId } from '../../lib/ids.js';
 import { checkGitVersion, MIN_GIT_VERSION } from '../../file/git.js';
+import { type DiagnosticResult, renderDiagnostics } from '../lib/diagnostics.js';
 
 const CONFIG_DIR = TBD_DIR;
 
 interface DoctorOptions {
   fix?: boolean;
-}
-
-interface CheckResult {
-  name: string;
-  status: 'ok' | 'warn' | 'error';
-  message?: string;
-  path?: string;
-  fixable?: boolean;
 }
 
 class DoctorHandler extends BaseCommand {
@@ -38,7 +31,7 @@ class DoctorHandler extends BaseCommand {
     await requireInit();
 
     this.dataSyncDir = await resolveDataSyncDir();
-    const checks: CheckResult[] = [];
+    const checks: DiagnosticResult[] = [];
     let issues: Issue[] = [];
 
     // Check 1: Git version
@@ -87,18 +80,7 @@ class DoctorHandler extends BaseCommand {
 
     this.output.data({ checks, healthy: allOk }, () => {
       const colors = this.output.getColors();
-      for (const check of checks) {
-        const icon =
-          check.status === 'ok'
-            ? colors.success('✓')
-            : check.status === 'warn'
-              ? colors.warn('⚠')
-              : colors.error('✗');
-        const msg = check.message ? ` - ${check.message}` : '';
-        const pathInfo = check.path ? colors.dim(` (${check.path})`) : '';
-        const fixNote = check.fixable && check.status !== 'ok' ? ' [fixable]' : '';
-        console.log(`${icon} ${check.name}${msg}${pathInfo}${colors.dim(fixNote)}`);
-      }
+      renderDiagnostics(checks, colors);
       console.log('');
       if (allOk) {
         this.output.success('Repository is healthy');
@@ -110,7 +92,7 @@ class DoctorHandler extends BaseCommand {
     });
   }
 
-  private async checkGitVersion(): Promise<CheckResult> {
+  private async checkGitVersion(): Promise<DiagnosticResult> {
     try {
       const { version, supported } = await checkGitVersion();
       const versionStr = `${version.major}.${version.minor}.${version.patch}`;
@@ -127,7 +109,7 @@ class DoctorHandler extends BaseCommand {
         name: 'Git version',
         status: 'error',
         message: `${versionStr} (requires ${MIN_GIT_VERSION}+)`,
-        fixable: false,
+        suggestion: 'Upgrade Git: https://git-scm.com/downloads',
       };
     } catch (error) {
       const msg = error instanceof Error ? error.message : String(error);
@@ -136,19 +118,18 @@ class DoctorHandler extends BaseCommand {
           name: 'Git version',
           status: 'error',
           message: 'Git not found',
-          fixable: false,
+          suggestion: 'Install Git: https://git-scm.com/downloads',
         };
       }
       return {
         name: 'Git version',
         status: 'warn',
         message: `Unable to check: ${msg}`,
-        fixable: false,
       };
     }
   }
 
-  private async checkConfig(): Promise<CheckResult> {
+  private async checkConfig(): Promise<DiagnosticResult> {
     const configPath = join(CONFIG_DIR, 'config.yml');
     try {
       await access(join(process.cwd(), configPath));
@@ -162,7 +143,7 @@ class DoctorHandler extends BaseCommand {
           status: 'error',
           message: 'not found',
           path: configPath,
-          fixable: false,
+          suggestion: 'Run: tbd init',
         };
       }
       return {
@@ -170,12 +151,11 @@ class DoctorHandler extends BaseCommand {
         status: 'error',
         message: 'Invalid config file',
         path: configPath,
-        fixable: false,
       };
     }
   }
 
-  private async checkIssuesDirectory(): Promise<CheckResult> {
+  private async checkIssuesDirectory(): Promise<DiagnosticResult> {
     const issuesPath = join(CONFIG_DIR, 'issues');
     try {
       await access(join(this.dataSyncDir, 'issues'));
@@ -191,14 +171,14 @@ class DoctorHandler extends BaseCommand {
     }
   }
 
-  private checkOrphanedDependencies(issues: Issue[]): CheckResult {
+  private checkOrphanedDependencies(issues: Issue[]): DiagnosticResult {
     const issueIds = new Set(issues.map((i) => i.id));
     const orphans: string[] = [];
 
     for (const issue of issues) {
       for (const dep of issue.dependencies) {
         if (!issueIds.has(dep.target)) {
-          orphans.push(`${issue.id} -> ${dep.target}`);
+          orphans.push(`${issue.id} -> ${dep.target} (missing)`);
         }
       }
     }
@@ -211,11 +191,13 @@ class DoctorHandler extends BaseCommand {
       name: 'Dependencies',
       status: 'warn',
       message: `${orphans.length} orphaned reference(s)`,
+      details: orphans,
       fixable: true,
+      suggestion: 'Run: tbd doctor --fix',
     };
   }
 
-  private checkDuplicateIds(issues: Issue[]): CheckResult {
+  private checkDuplicateIds(issues: Issue[]): DiagnosticResult {
     const seen = new Set<string>();
     const duplicates: string[] = [];
 
@@ -234,11 +216,12 @@ class DoctorHandler extends BaseCommand {
       name: 'Unique IDs',
       status: 'error',
       message: `${duplicates.length} duplicate ID(s)`,
-      fixable: false,
+      details: duplicates.map((id) => `${id} (duplicate)`),
+      suggestion: 'Manually remove duplicate issue files',
     };
   }
 
-  private async checkTempFiles(fix?: boolean): Promise<CheckResult> {
+  private async checkTempFiles(fix?: boolean): Promise<DiagnosticResult> {
     const issuesPath = join(CONFIG_DIR, 'issues');
     const issuesDir = join(this.dataSyncDir, 'issues');
     let tempFiles: string[] = [];
@@ -277,25 +260,42 @@ class DoctorHandler extends BaseCommand {
       status: 'warn',
       message: `${tempFiles.length} orphaned temp file(s)`,
       path: issuesPath,
+      details: tempFiles,
       fixable: true,
+      suggestion: 'Run: tbd doctor --fix',
     };
   }
 
-  private checkIssueValidity(issues: Issue[]): CheckResult {
-    const invalid: string[] = [];
+  private checkIssueValidity(issues: Issue[]): DiagnosticResult {
+    const invalid: { id: string; reason: string }[] = [];
 
     for (const issue of issues) {
+      const issueId = issue.id ?? 'unknown';
       // Check required fields
-      if (!issue.id || !issue.title || !issue.status || !issue.kind) {
-        invalid.push(issue.id ?? 'unknown');
+      if (!issue.id) {
+        invalid.push({ id: issueId, reason: 'missing required field: id' });
+        continue;
+      }
+      if (!issue.title) {
+        invalid.push({ id: issueId, reason: 'missing required field: title' });
+        continue;
+      }
+      if (!issue.status) {
+        invalid.push({ id: issueId, reason: 'missing required field: status' });
+        continue;
+      }
+      if (!issue.kind) {
+        invalid.push({ id: issueId, reason: 'missing required field: kind' });
+        continue;
       }
       // Check ID format
-      if (issue.id && !validateIssueId(issue.id)) {
-        invalid.push(issue.id);
+      if (!validateIssueId(issue.id)) {
+        invalid.push({ id: issueId, reason: 'invalid ID format' });
+        continue;
       }
       // Check priority range
       if (issue.priority < 0 || issue.priority > 4) {
-        invalid.push(issue.id);
+        invalid.push({ id: issueId, reason: `invalid priority ${issue.priority} (must be 0-4)` });
       }
     }
 
@@ -307,11 +307,12 @@ class DoctorHandler extends BaseCommand {
       name: 'Issue validity',
       status: 'error',
       message: `${invalid.length} invalid issue(s)`,
-      fixable: false,
+      details: invalid.map((i) => `${i.id}: ${i.reason}`),
+      suggestion: 'Manually fix or delete invalid issue files',
     };
   }
 
-  private async checkClaudeSkill(): Promise<CheckResult> {
+  private async checkClaudeSkill(): Promise<DiagnosticResult> {
     const skillRelPath = join('.claude', 'skills', 'tbd', 'SKILL.md');
     const skillPath = join(process.cwd(), skillRelPath);
     try {
@@ -321,9 +322,9 @@ class DoctorHandler extends BaseCommand {
       return {
         name: 'Claude Code skill',
         status: 'warn',
-        message: 'Not installed (run: tbd setup claude)',
+        message: 'not installed',
         path: skillRelPath,
-        fixable: false,
+        suggestion: 'Run: tbd setup claude',
       };
     }
   }

@@ -19,6 +19,7 @@ import { now } from '../../utils/timeUtils.js';
 import { formatDisplayId, formatDebugId } from '../../lib/ids.js';
 import { loadIdMapping } from '../../file/idMapping.js';
 import { readConfig } from '../../file/config.js';
+import { formatIssueCompact, type IssueForDisplay } from '../lib/issueFormat.js';
 
 // Staleness threshold for worktree (5 minutes)
 const STALE_THRESHOLD_MS = 5 * 60 * 1000;
@@ -155,8 +156,10 @@ class SearchHandler extends BaseCommand {
       id: showDebug
         ? formatDebugId(r.issue.id, mapping, prefix)
         : formatDisplayId(r.issue.id, mapping, prefix),
-      title: r.issue.title,
+      priority: r.issue.priority,
       status: r.issue.status,
+      kind: r.issue.kind,
+      title: r.issue.title,
       matchField: r.matchField,
       match: r.matchText,
     }));
@@ -170,7 +173,7 @@ class SearchHandler extends BaseCommand {
       const colors = this.output.getColors();
       console.log(`Found ${output.length} result${output.length === 1 ? '' : 's'}:\n`);
       for (const result of output) {
-        console.log(`${colors.id(result.id)} ${result.title}`);
+        console.log(formatIssueCompact(result as IssueForDisplay, colors));
         console.log(`  ${colors.dim(`[${result.matchField}]`)} ${result.match}`);
         console.log('');
       }
