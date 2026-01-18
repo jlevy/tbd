@@ -9,11 +9,11 @@ id: is-01kf7mkwhb1pt1g6427vryeaxh
 kind: task
 labels: []
 priority: 2
-status: open
+status: in_progress
 title: Define icon constants
 type: is
-updated_at: 2026-01-18T04:10:34.269Z
-version: 3
+updated_at: 2026-01-18T04:16:17.119Z
+version: 4
 ---
 Define icon constants in OutputManager:
 - SUCCESS_ICON: ✓ (U+2713)
