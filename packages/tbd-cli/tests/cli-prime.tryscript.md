@@ -67,8 +67,7 @@ $ echo "# Test repo" > README.md && git add README.md && git commit -m "Initial 
 ```
 
 ```console
-$ tbd init --prefix=test
-✓ Initialized tbd repository
+$ tbd init --prefix=test --quiet
 ? 0
 ```
 

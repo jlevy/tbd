@@ -125,13 +125,15 @@ class InitHandler extends BaseCommand {
       this.output.success('Initialized tbd repository');
     });
 
-    // Auto-configure detected coding agents
-    console.log('');
-    spawnSync('tbd', ['setup', 'auto'], { stdio: 'inherit' });
+    // Auto-configure detected coding agents (skip in quiet mode)
+    if (!this.ctx.quiet) {
+      console.log('');
+      spawnSync('tbd', ['setup', 'auto'], { stdio: 'inherit' });
 
-    // Show status with next steps
-    console.log('');
-    spawnSync('tbd', ['status'], { stdio: 'inherit' });
+      // Show status with next steps
+      console.log('');
+      spawnSync('tbd', ['status'], { stdio: 'inherit' });
+    }
   }
 }
 

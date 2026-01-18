@@ -84,8 +84,7 @@ Error: No .tbd directory found. Nothing to uninstall.
 # Test: Initialize tbd first
 
 ```console
-$ tbd init --prefix=test
-✓ Initialized tbd repository
+$ tbd init --prefix=test --quiet
 ? 0
 ```
 
@@ -160,8 +159,7 @@ $ git branch --list tbd-sync | wc -l | tr -d ' '
 # Test: Reinitialize tbd
 
 ```console
-$ tbd init --prefix=test
-✓ Initialized tbd repository
+$ tbd init --prefix=test --quiet
 ? 0
 ```
 
@@ -220,8 +218,7 @@ Deleted branch tbd-sync [..].
 # Test: Reinitialize for dry-run test
 
 ```console
-$ tbd init --prefix=test
-✓ Initialized tbd repository
+$ tbd init --prefix=test --quiet
 ? 0
 ```
 

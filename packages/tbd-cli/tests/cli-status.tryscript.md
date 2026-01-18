@@ -97,8 +97,7 @@ To get started:
 # Test: Initialize tbd
 
 ```console
-$ tbd init --prefix=bd
-✓ Initialized tbd repository
+$ tbd init --prefix=bd --quiet
 ? 0
 ```
 

@@ -51,10 +51,12 @@ Global Options:
   --debug            Show internal IDs alongside public IDs for debugging
 
 Commands:
-  claude [options]   Configure Claude Code hooks for tbd integration
-  cursor [options]   Create Cursor IDE rules file for tbd integration
-  codex [options]    Create/update AGENTS.md for Codex and compatible tools
-  beads [options]    Disable Beads and migrate to tbd
+  auto               Auto-detect and configure integrations (Claude, Cursor,
+                     Codex)
+  claude [options]   Configure Claude Code (skill and hooks)
+  cursor [options]   Configure Cursor IDE (rules file)
+  codex [options]    Configure Codex and compatible tools (AGENTS.md)
+  beads [options]    Disable Beads so you only use tbd
   help [command]     display help for command
 
 For more on tbd, see: https://github.com/jlevy/tbd
@@ -67,7 +69,7 @@ For more on tbd, see: https://github.com/jlevy/tbd
 $ tbd setup claude --help
 Usage: tbd setup claude [options]
 
-Configure Claude Code hooks for tbd integration
+Configure Claude Code (skill and hooks)
 
 Options:
   --check            Verify installation status
@@ -96,7 +98,7 @@ For more on tbd, see: https://github.com/jlevy/tbd
 $ tbd setup cursor --help
 Usage: tbd setup cursor [options]
 
-Create Cursor IDE rules file for tbd integration
+Configure Cursor IDE (rules file)
 
 Options:
   --check            Verify installation status
@@ -125,7 +127,7 @@ For more on tbd, see: https://github.com/jlevy/tbd
 $ tbd setup codex --help
 Usage: tbd setup codex [options]
 
-Create/update AGENTS.md for Codex and compatible tools
+Configure Codex and compatible tools (AGENTS.md)
 
 Options:
   --check            Verify installation status

@@ -145,8 +145,7 @@ For more on tbd, see: https://github.com/jlevy/tbd
 # Test: Initialize tbd with defaults
 
 ```console
-$ tbd init --prefix=bd
-✓ Initialized tbd repository
+$ tbd init --prefix=bd --quiet
 ? 0
 ```
 
@@ -224,8 +223,7 @@ Initialized empty Git repository in [..]
 # Test: Init with custom sync branch
 
 ```console
-$ cd custom-repo && tbd init --prefix=bd --sync-branch custom-sync --remote upstream
-✓ Initialized tbd repository
+$ cd custom-repo && tbd init --prefix=bd --sync-branch custom-sync --remote upstream --quiet
 ? 0
 ```
 

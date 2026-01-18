@@ -118,7 +118,7 @@ moving Beads configuration files to a backup directory.
 $ tbd setup beads --help
 Usage: tbd setup beads [options]
 
-Disable Beads and migrate to tbd
+Disable Beads so you only use tbd
 
 Options:
   --disable          Disable Beads and move files to .beads-disabled/

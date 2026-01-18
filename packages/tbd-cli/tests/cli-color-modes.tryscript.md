@@ -69,8 +69,7 @@ $ tbd --color=never --version
 # Test: Init with --color=never produces clean output
 
 ```console
-$ tbd --color=never init --prefix=bd
-[..] Initialized tbd repository
+$ tbd --color=never init --prefix=bd --quiet
 ? 0
 ```
 

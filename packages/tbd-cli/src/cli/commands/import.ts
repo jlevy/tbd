@@ -618,13 +618,15 @@ class ImportHandler extends BaseCommand {
     this.dataSyncDir = await resolveDataSyncDir();
     await this.importFromFile(jsonlPath, options);
 
-    // Auto-configure detected coding agents
-    console.log();
-    spawnSync('tbd', ['setup', 'auto'], { stdio: 'inherit' });
+    // Auto-configure detected coding agents (skip in quiet mode)
+    if (!this.ctx.quiet) {
+      console.log();
+      spawnSync('tbd', ['setup', 'auto'], { stdio: 'inherit' });
 
-    // Show status which includes next steps for beads migration
-    console.log();
-    spawnSync('tbd', ['status'], { stdio: 'inherit' });
+      // Show status which includes next steps for beads migration
+      console.log();
+      spawnSync('tbd', ['status'], { stdio: 'inherit' });
+    }
   }
 
   private async loadExistingIssues(): Promise<Issue[]> {
