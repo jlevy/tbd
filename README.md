@@ -8,7 +8,7 @@ preference) is a command-line issue tracker that stores issues as files in git.
 Designed for AI coding agents and humans: simple commands, pretty console and JSON
 output, installs via `npm` and works in almost any agent or sandboxed cloud environment.
 
-tbd is inspired by by [Beads](https://github.com/steveyegge/beads) by Steve Yegge.
+tbd is inspired by [Beads](https://github.com/steveyegge/beads) by Steve Yegge.
 I love the power of and am grateful for it!
 Unfortunately, after using it heavily for over a month, I found architectural issues and
 glitches that were too much of a distraction to ignore.
@@ -18,7 +18,11 @@ files in the active working tree, confusing sync algorithms, and merge conflicts
 tbd uses a simpler architecture with (I hope) fewer edge cases and bugs.
 If you want to try it, you can import issues from Beads, preserving issue IDs.
 Internally, everything is Markdown files so you can debug or migrate in the future if
-you wish. See [the the design doc](docs/tbd-design.md) for a bit more.
+you wish.
+
+> [!NOTE]
+> See the design document (`tbd design`) or reference docs (`tbd docs`) for more
+> details.
 
 ## Why tbd?
 
@@ -77,8 +81,7 @@ tbd sync
 
 ```bash
 # Check your Git version
-git --version  # Should be 2.42.0 or higher.
-See "Troubleshooting" below if not.
+git --version  # Should be 2.42.0 or higher
 
 # Global install (recommended)
 npm install -g tbd-cli
@@ -183,8 +186,7 @@ tbd docs                     # Full CLI reference
 
 Or read online:
 - [CLI Reference](docs/tbd-docs.md) — Complete command documentation
-- [Design Doc](docs/project/architecture/current/tbd-design-spec.md) — Technical
-  architecture
+- [Design Doc](docs/tbd-design.md) — Technical architecture
 
 ## Migration from Beads
 
@@ -202,73 +204,10 @@ The prefix from your beads configuration is automatically used.
 
 ## How It Works
 
-tbd stores issues on a dedicated `tbd-sync` branch, separate from your code:
-
-```
-.tbd/
-├── config.yml                    # Configuration (tracked on main)
-└── data-sync-worktree/           # Hidden worktree (gitignored)
-    └── .tbd/data-sync/
-        ├── issues/               # One .md file per issue
-        ├── mappings/ids.yml      # Short ID → ULID mapping
-        └── attic/                # Conflict archive (no data loss)
-```
-
-**Why a separate branch?**
-- No noisy issue commits in your code history
-- No conflicts across main or feature branches
-- Issues shared across all branches
-
-**Automatic sync**: Unlike Beads (where you manually `git add`/`commit`/`push` the JSONL
-file), `tbd sync` handles all git operations automatically.
-One command commits and pushes issues to the sync branch.
-Your normal `git push` is only for code changes.
-
-**Conflict handling:**
-- Separate issues never conflict since they are separate files.
-- If two agents modify the same issue at the same time, does field-level merge
-  (last-write-wins for scalars, union for arrays)
-- In that case lost values preserved in attic—no data loss ever
-
-Issues have a short display ID like `proj-a7k2` (where `proj` is your project’s prefix)
-but these map to unique ULID-based internal IDs for reliable sorting and storage.
-
-## Issue File Format
-
-You usually don’t need to worry about where issues are stored, but it may be comforting
-to know that internally it’s very simple and transparent.
-Every issue is a Markdown file with YAML frontmatter, stored on the `tbd-sync` branch.
-
-```markdown
----
-id: is-01hx5zzkbkactav9wevgemmvrz
-kind: bug
-title: API returns 500 on malformed input
-status: open
-priority: 1
-labels: [backend, urgent]
-created_at: 2025-01-15T10:30:00Z
-updated_at: 2025-01-15T10:30:00Z
----
-
-The /api/users endpoint crashes when given invalid JSON.
-```
-
-## Troubleshooting
-
-### Git version too old
-
-tbd requires Git 2.42+ for orphan worktree support (`git worktree add --orphan`).
-
-**Check your version:**
-```bash
-git --version
-```
-
-**Upgrade:** See [git-scm.com/downloads](https://git-scm.com/downloads) for
-platform-specific instructions.
-
-After upgrading, verify with `git --version` and try `tbd init` again.
+tbd stores issues on a dedicated `tbd-sync` branch, separate from your code.
+One file per issue means parallel creation never conflicts.
+Run `tbd sync` to push changes—no manual git operations needed for issues.
+See the [design doc](docs/tbd-design.md) for details.
 
 ## Contributing
 

@@ -2,17 +2,86 @@
 
 Git-native issue tracking for AI agents and humans.
 
-* * *
+> [!NOTE]
+> This is the tbd reference (`tbd docs`). See the tbd readme (`tbd readme`) for a quick
+> intro or the design doc (`tbd design`) for more technical details.
 
-## Why tbd?
+## Key Design Features
 
-- **Git-native**: No external services, no databases—just files in git
-- **AI-agent friendly**: JSON output, non-interactive mode, simple commands
-- **File-per-issue**: No merge conflicts from parallel creation
-- **No daemon**: Works in restricted environments (CI, cloud sandboxes)
-- **Beads compatible**: Drop-in replacement, preserves existing issue IDs
+### Issues stored in one place
 
-* * *
+tbd stores issues on a dedicated `tbd-sync` branch, separate from your code:
+
+```
+.tbd/
+├── config.yml                    # Configuration (tracked on main)
+└── data-sync-worktree/           # Hidden worktree (gitignored)
+    └── .tbd/data-sync/
+        ├── issues/               # One .md file per issue
+        ├── mappings/ids.yml      # Short ID → ULID mapping
+        └── attic/                # Conflict archive (no data loss)
+```
+
+Why a separate branch?
+
+- No noisy issue commits in your code history
+- No conflicts across main or feature branches
+- Issues shared across all branches
+
+## File format
+
+You usually don’t need to worry about where issues are stored, but it may be comforting
+to know that internally it’s very simple and transparent.
+Every issue is a Markdown file with YAML frontmatter, stored on the `tbd-sync` branch.
+
+```markdown
+---
+id: is-01hx5zzkbkactav9wevgemmvrz
+kind: bug
+title: API returns 500 on malformed input
+status: open
+priority: 1
+labels: [backend, urgent]
+created_at: 2025-01-15T10:30:00Z
+updated_at: 2025-01-15T10:30:00Z
+---
+
+The /api/users endpoint crashes when given invalid JSON.
+```
+
+### Automatic git push
+
+Unlike Beads (where you manually `git add`/`commit`/`push` the JSONL file), `tbd sync`
+handles all git operations automatically.
+One command commits and pushes issues to the sync branch.
+Your normal `git push` is only for code changes.
+
+### Conflict handling
+
+- Separate issues never conflict since they are separate files.
+- If two agents modify the same issue at the same time, does field-level merge
+  (last-write-wins for scalars, union for arrays)
+- In that case lost values preserved in attic—no data loss ever
+
+### Unique internal ids
+
+Issues have a short display ID like `proj-a7k2` (where `proj` is your project’s prefix)
+but these map to unique ULID-based internal IDs for reliable sorting and storage.
+
+## Requirements
+
+### Git version
+
+tbd requires Git 2.42+ for orphan worktree support (`git worktree add --orphan`).
+
+Check your version:
+
+```bash
+git --version
+```
+
+See [git-scm.com/downloads](https://git-scm.com/downloads) for platform-specific
+instructions.
 
 ## Quick Reference
 
@@ -161,8 +230,6 @@ Options:
 - `--limit <n>` - Limit number of results
 - `--count` - Output only the count of matching issues
 
-* * *
-
 ### show
 
 Display detailed information about an issue.
@@ -174,8 +241,6 @@ tbd show proj-a7k2 --json                     # JSON output
 
 Output includes all fields: title, description, status, priority, labels, dependencies,
 timestamps, and working notes.
-
-* * *
 
 ### update
 
@@ -214,8 +279,6 @@ Options:
 - `--remove-label <label>` - Remove label
 - `--parent <id>` - Set parent issue
 
-* * *
-
 ### close
 
 Close a completed issue.
@@ -228,8 +291,6 @@ tbd close proj-a7k2 --reason="Fixed in PR #42"
 Options:
 - `--reason <text>` - Reason for closing
 
-* * *
-
 ### reopen
 
 Reopen a closed issue.
@@ -241,8 +302,6 @@ tbd reopen proj-a7k2 --reason="Bug reappeared"
 
 Options:
 - `--reason <text>` - Reason for reopening
-
-* * *
 
 ### ready
 
@@ -258,8 +317,6 @@ Options:
 - `--type <type>` - Filter by type
 - `--limit <n>` - Limit results
 
-* * *
-
 ### blocked
 
 List issues that are blocked by dependencies.
@@ -271,8 +328,6 @@ tbd blocked --limit=10                      # Limit results
 
 Options:
 - `--limit <n>` - Limit results
-
-* * *
 
 ### stale
 
@@ -290,8 +345,6 @@ Options:
 - `--status <status>` - Filter by status (default: open, in_progress)
 - `--limit <n>` - Limit results
 
-* * *
-
 ### label
 
 Manage issue labels.
@@ -308,13 +361,11 @@ Subcommands:
 - `remove <id> <labels...>` - Remove labels from an issue
 - `list` - List all labels currently in use
 
-* * *
-
 ### dep
 
 Manage issue dependencies.
 
-**Semantics:** `tbd dep add A B` means "A depends on B" (B must complete before A can
+**Semantics:** `tbd dep add A B` means “A depends on B” (B must complete before A can
 start).
 
 ```bash
@@ -335,8 +386,6 @@ Subcommands:
 - `remove <issue> <depends-on>` - Remove dependency
 - `list <id>` - List dependencies for an issue (what it blocks and what blocks it)
 
-* * *
-
 ### sync
 
 Synchronize issues with remote repository.
@@ -354,8 +403,6 @@ Options:
 - `--pull` - Pull remote changes only
 - `--status` - Show sync status without syncing
 - `--force` - Force sync, overwriting conflicts
-
-* * *
 
 ### search
 
@@ -377,8 +424,6 @@ Options:
 - `--no-refresh` - Skip worktree refresh
 - `--case-sensitive` - Case-sensitive search
 
-* * *
-
 ### stats
 
 Show repository statistics.
@@ -389,8 +434,6 @@ tbd stats --json                            # JSON output
 ```
 
 Displays: issue counts by status, type, priority, and label.
-
-* * *
 
 ### doctor
 
@@ -403,8 +446,6 @@ tbd doctor --fix                            # Attempt to fix issues
 
 Options:
 - `--fix` - Attempt to automatically fix detected issues
-
-* * *
 
 ### config
 
@@ -426,8 +467,6 @@ Common config keys:
 - `sync.branch` - Sync branch name
 - `sync.remote` - Remote name
 
-* * *
-
 ### attic
 
 Manage conflict archive.
@@ -444,8 +483,6 @@ Subcommands:
 - `list [id]` - List attic entries (optionally for specific issue)
 - `show <id> <timestamp>` - Show attic entry details
 - `restore <id> <timestamp>` - Restore a value from the attic
-
-* * *
 
 ### import
 
@@ -467,8 +504,6 @@ Options:
 - `--verbose` - Show detailed import progress
 - `--validate` - Validate existing import against Beads source
 
-* * *
-
 ### beads
 
 Beads migration utilities.
@@ -488,8 +523,6 @@ The `--disable` option safely moves all Beads files to `.beads-disabled/`:
 
 This preserves all data for potential rollback.
 To restore Beads, move files back from `.beads-disabled/`.
-
-* * *
 
 ### status
 
@@ -516,8 +549,6 @@ To get started:
   tbd init                  # Start fresh
 ```
 
-* * *
-
 ### prime
 
 Output workflow context for AI agents.
@@ -531,8 +562,6 @@ tbd prime --export                          # Output default (ignores PRIME.md)
 Behavior:
 - Silent exit (code 0) if not in a tbd project
 - Custom output: create `.tbd/PRIME.md` to override default content
-
-* * *
 
 ### setup
 
@@ -551,8 +580,6 @@ tbd setup codex                             # Create/update AGENTS.md
 tbd setup codex --check                     # Verify AGENTS.md
 tbd setup codex --remove                    # Remove tbd section from AGENTS.md
 ```
-
-* * *
 
 ## Global Options
 
@@ -581,8 +608,6 @@ Options:
 - `--yes` - Assume yes to confirmation prompts
 - `--no-sync` - Skip automatic sync after write operations
 - `--debug` - Show internal IDs alongside display IDs
-
-* * *
 
 ## For AI Agents
 
@@ -640,8 +665,6 @@ Close several issues at once (more efficient than one at a time):
 ```bash
 tbd close proj-a1 proj-b2 proj-c3 --reason="Sprint complete"
 ```
-
-* * *
 
 ## Common Workflows
 
@@ -764,8 +787,6 @@ potential rollback, including:
 - `bd` hooks from `.claude/settings.local.json`
 - Beads section from `AGENTS.md`
 
-* * *
-
 ## File Structure
 
 tbd stores data in the following locations:
@@ -838,7 +859,8 @@ sync:
 | 3 | P3 | Low—backlog |
 | 4 | P4 | Lowest—maybe/someday |
 
-Both formats work: `--priority=P1` or `--priority=1` (P-prefix is the canonical display format)
+Both formats work: `--priority=P1` or `--priority=1` (P-prefix is the canonical display
+format)
 
 ## Date Formats
 
@@ -878,8 +900,6 @@ tbd sync --status           # Check what's pending
 
 Note: Your normal `git push` is only for code changes.
 Issue sync is separate and automatic.
-
-* * *
 
 ## Troubleshooting
 

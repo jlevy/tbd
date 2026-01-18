@@ -2,20 +2,21 @@
 
 Git-native issue tracking for AI agents and humans.
 
-> This is a design document (`tbd design`). See the tbd readme and user docs for general
-> documentation (`tbd readme` and `tbd docs`).
+> [!NOTE]
+> This is a design document (`tbd design`). See the tbd readme (`tbd readme`) or
+> reference docs (`tbd docs`) for general documentation.
 
 ## Overview
 
-**tbd** ("To Be Done" or “TypeScript Beads”) is a git-native issue tracker designed for
+**tbd** (“To Be Done” or “TypeScript Beads”) is a git-native issue tracker designed for
 simplicity and reliability.
 It stores issues as Markdown files with YAML frontmatter on a dedicated sync branch,
 enabling conflict-free collaboration without daemons or databases.
 
-tbd is the **durable persistence layer** for issues, with three core principles:
+tbd is the **durable persistence layer** for issues, with four core principles:
 
 - Durable storage in git
-- Works in almost any enviromnent
+- Works in almost any environment
 - Simple, self-documenting CLI for agents and humans
 - Transparent internal format (Markdown/YAML that is debuggable and friendly to other
   tooling)
@@ -41,7 +42,7 @@ problem—one that can be layered on top of tbd or handled by other tools.
 ## Motivation
 
 Agents perform *far* better when they can track tasks reliably and stay organized.
-Sometimes they can us issue external issue trackers (GitHub Issues, Linear, Jira), but
+Sometimes they can use external issue trackers (GitHub Issues, Linear, Jira), but
 as Beads has shown, there is great benefit to lightweight tracking of tasks via CLI.
 
 tbd addresses specific requirements:
