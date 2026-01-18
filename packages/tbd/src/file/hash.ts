@@ -1,11 +1,14 @@
 /**
- * Content hashing for conflict detection.
+ * Content hashing for merge resolution tiebreaking.
  *
  * Uses SHA-256 hash of canonical YAML representation.
  * Canonical format ensures same content produces same hash regardless of:
  * - Field ordering in source
  * - Array element ordering (sorted)
  * - Whitespace variations
+ *
+ * Note: Conflict detection uses Git push rejection.
+ * Content hash is used as tiebreaker when timestamps are equal during merge.
  *
  * See: tbd-design.md §2.4 Content Hashing
  */

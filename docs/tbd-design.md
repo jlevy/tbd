@@ -561,6 +561,10 @@ Found the issue in session.ts line 42. Working on fix.
 
 - `## Notes` section separates working notes from description
 
+> **Note:** The example above shows fields in a human-friendly logical order for
+> readability. Actual files use canonical serialization (alphabetical key ordering)
+> as specified below.
+
 #### Canonical Serialization
 
 For consistent git diffs and potential future caching, we use deterministic
@@ -2253,15 +2257,19 @@ issues. (The worktree also enables manual use of ripgrep/grep if needed.)
 tbd search <pattern> [options]
 
 Options:
-  --field <field>           Search only in specific field (title, description, notes)
-  --type <type>             Filter by issue type (bug, feature, task, epic, chore)
+  --field <field>           Search only in specific field (title, description, notes, labels)
   --status <status>         Filter by status
-  --label <label>           Filter by label
   --case-sensitive          Case-sensitive search (default: case-insensitive)
-  --context <n>             Show n lines of context (default: 2)
-  --files-only              Only show matching file paths
-  --count                   Show match count only
+  --limit <n>               Limit results
+  --no-refresh              Skip worktree refresh
   --json                    JSON output
+
+# Future options (not yet implemented):
+#   --type <type>           Filter by issue type
+#   --label <label>         Filter by label
+#   --context <n>           Show n lines of context
+#   --files-only            Only show matching file paths
+#   --count                 Show match count only
 ```
 
 **Examples:**
@@ -2273,17 +2281,11 @@ tbd search "authentication"
 # Search in specific field
 tbd search "timeout" --field description
 
-# Search only bugs
-tbd search "error" --type=bug
-
 # Search open issues only
 tbd search "TODO" --status open
 
-# Show file paths only
-tbd search "security" --files-only
-
-# Count matches
-tbd search "FIXME" --count
+# Limit results
+tbd search "error" --limit 10
 ```
 
 **Output (default):**
@@ -3717,11 +3719,16 @@ This script:
 tbd setup claude [options]
 
 Options:
-  --project       Install to .claude/settings.local.json (project-specific)
-  --global        Install to ~/.claude/settings.json (user-wide)
   --check         Verify installation status
   --remove        Remove tbd hooks
+
+# Future options (not yet implemented):
+#   --project     Install to .claude/settings.local.json (project-specific)
+#   --global      Install to ~/.claude/settings.json (user-wide)
 ```
+
+> **Note:** Currently installs to project-level settings only. Global installation
+> planned for future release.
 
 #### 6.4.3 The `tbd prime` Command
 
