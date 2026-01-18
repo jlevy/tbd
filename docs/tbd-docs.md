@@ -910,4 +910,4 @@ tbd <command> --help          # Command-specific help
 tbd help <command>            # Alternative help syntax
 ```
 
-Report issues: https://github.com/jlevy/tbd
+**Project Repo**: https://github.com/jlevy/tbd

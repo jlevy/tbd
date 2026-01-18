@@ -448,6 +448,7 @@ necessary.
 
 ## References
 
+- **Project Repo**: https://github.com/jlevy/tbd
 - **README**: `tbd readme`
 - **CLI Documentation**: `tbd docs`
 - **Full Design Spec**:
