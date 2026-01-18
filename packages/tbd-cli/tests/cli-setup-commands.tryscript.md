@@ -182,7 +182,7 @@ rules file exists
 # Test: Cursor rules file contains workflow instructions
 
 ```console
-$ grep -c "Session Closing Protocol" .cursor/rules/tbd.mdc
+$ grep -c "SESSION CLOSING PROTOCOL" .cursor/rules/tbd.mdc
 1
 ? 0
 ```
@@ -191,7 +191,7 @@ $ grep -c "Session Closing Protocol" .cursor/rules/tbd.mdc
 
 ```console
 $ grep -c "tbd ready" .cursor/rules/tbd.mdc
-2
+3
 ? 0
 ```
 
