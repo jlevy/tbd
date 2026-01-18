@@ -437,12 +437,13 @@ Shows **operational progress** that helps users understand what’s happening:
 
 ```bash
 $ tbd sync --verbose
+⠋ Syncing with remote...
 > git fetch origin tbd-sync
 > git rev-list --count origin/tbd-sync..tbd-sync
 Loading 42 issues from local cache
 Comparing with remote (3 new, 1 modified)
 > git push origin tbd-sync
-✓ Synced in 1.2s: pulled 0, pushed 4
+✓ Synced: sent 2 new, 2 updated
 ```
 
 **What to include:**
@@ -508,6 +509,43 @@ $ tbd show bd-a1b2 --debug
 id: bd-a1b2 (is-01hx5zzkbkactav9wevgemmvrz)
 ...
 ```
+
+### Git Stat Log in Debug Mode
+
+**Rule**: In `--debug` mode, after any git push/pull operation, show the git log with stat for the commits that were just synced.
+
+```bash
+$ tbd sync --debug
+⠋ Syncing with remote...
+> git fetch origin tbd-sync
+> git push origin tbd-sync
+✓ Synced: sent 1 updated
+
+[debug] Commits synced:
+commit ee88823f61a0d224371fadaff177a8b0b54b04b1 (origin/tbd-sync, tbd-sync)
+Author: Joshua Levy <joshua@cal.berkeley.edu>
+Date:   Sat Jan 17 15:50:56 2026 -0800
+
+    tbd sync: 2026-01-17T23-50-56 (1 file)
+
+ .tbd/data-sync/issues/is-01kf5zyg8jgkn9s6c1z1r1n6sn.md | 8 ++++----
+ 1 file changed, 4 insertions(+), 4 deletions(-)
+```
+
+**Implementation:**
+```bash
+# After push, show commits that were pushed
+git log --stat origin/tbd-sync@{1}..origin/tbd-sync
+
+# After pull, show commits that were pulled
+git log --stat HEAD@{1}..HEAD
+```
+
+**Rationale:**
+- Provides full visibility into exactly what changed
+- Shows file-level diff stats (insertions/deletions)
+- Helpful for debugging sync issues
+- Can verify correct issues were synced
 
 **What to include:**
 - Internal ID mappings
@@ -592,6 +630,114 @@ $ tbd sync --json 2>&1
 - Update message in-place (same line)
 - Show final count on completion
 - Replace spinner with success/error prefix
+
+## Sync Operations
+
+### Sync vs Local Operations
+
+Commands must clearly distinguish between local-only changes and sync operations:
+
+| Operation Type | Indicator | Example |
+| --- | --- | --- |
+| Local only | Immediate success | `✓ Updated issue bd-a1b2` |
+| With sync | Progress → Success | `⠋ Syncing...` → `✓ Synced: ...` |
+
+**Rule**: Any command that touches the network must:
+1. Show immediate progress indicator when sync starts
+2. Show completion message when sync finishes
+
+**Example flow:**
+```bash
+$ tbd update bd-a1b2 --status=closed
+✓ Updated issue bd-a1b2
+⠋ Syncing...
+✓ Synced: sent 1 updated
+
+$ tbd create --title="New feature" --type=feature
+✓ Created issue bd-c3d4
+⠋ Syncing...
+✓ Synced: sent 1 new
+```
+
+### Sync Summary Format
+
+**Rule**: Sync summaries must show meaningful tallies of what changed.
+
+**Format:**
+```
+✓ Synced: sent {summary}, received {summary}
+```
+
+**Tallies to track:**
+
+| Direction | Metric | Meaning |
+| --- | --- | --- |
+| Sent (push) | `new` | Issues created locally, pushed to remote |
+| Sent (push) | `updated` | Issues modified locally, pushed to remote |
+| Sent (push) | `deleted` | Issues deleted locally, pushed to remote |
+| Received (pull) | `new` | Issues created remotely, pulled to local |
+| Received (pull) | `updated` | Issues modified remotely, pulled to local |
+| Received (pull) | `deleted` | Issues deleted remotely, pulled to local |
+
+**Examples:**
+```bash
+# Simple case - one issue updated locally
+✓ Synced: sent 1 updated
+
+# Created new issue
+✓ Synced: sent 1 new
+
+# Pull from remote with changes
+✓ Synced: received 2 new, 1 updated
+
+# Bidirectional sync
+✓ Synced: sent 1 updated, received 3 new
+
+# Nothing to sync
+✓ Already in sync
+
+# Multiple changes
+✓ Synced: sent 2 new, 1 updated, received 1 deleted
+```
+
+**JSON format:**
+```json
+{
+  "synced": true,
+  "sent": { "new": 2, "updated": 1, "deleted": 0 },
+  "received": { "new": 0, "updated": 0, "deleted": 0 }
+}
+```
+
+**Summary formatting rules:**
+- Omit zero counts (don't say "sent 0 new")
+- Use singular/plural correctly: "1 new" vs "2 new"
+- Order: new → updated → deleted
+- Separate sent/received with comma if both present
+- Use "Already in sync" when nothing changed
+
+### Sync Progress Visibility
+
+**Rule**: Never leave the user waiting without feedback.
+
+**Problem:**
+```bash
+$ tbd sync
+# ... 3 seconds of silence ...
+✓ Synced: sent 1 updated
+```
+
+**Solution:**
+```bash
+$ tbd sync
+⠋ Syncing with remote...
+✓ Synced: sent 1 updated
+```
+
+**Implementation:**
+- Start spinner immediately when sync begins
+- Update spinner message for different phases if sync is long
+- Replace spinner with final status on completion
 
 ## Implementation
 

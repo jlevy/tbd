@@ -1391,22 +1391,34 @@ High-level sync flow:
 ```
 SYNC():
   1. Fetch remote sync branch
-  2. For each issue in local cache:
-       - Compare with remote version
-       - If local newer: stage for push
-       - If remote newer: update local cache
-       - If conflict: merge and save to attic
-  3. For each issue on remote not in local:
-       - Pull to local cache
-  4. Commit local changes to sync branch
-  5. Push to remote (retry on conflict)
+  2. Update worktree to remote state (preserving local uncommitted changes)
+  3. Commit worktree changes to sync branch
+  4. Push to remote
+  5. If push rejected (non-fast-forward): retry with merge (see 3.3.2)
 ```
+
+**Why most syncs are trivial (no merge needed):**
+
+The file-per-entity design means parallel work rarely conflicts at the git level:
+
+| Scenario | Git behavior | Result |
+| --- | --- | --- |
+| A creates issue-1, B creates issue-2 | Different files added | Trivial merge |
+| A modifies issue-1, B creates issue-2 | Different files | Trivial merge |
+| A and B both modify issue-1 | Same file modified | Field-level merge |
+
+Only when two agents modify the **same issue** before syncing does tbd need to
+perform field-level merging. This is rare in practice because:
+- Issues are small, focused units of work
+- Agents typically work on different issues
+- The `ready` command distributes work across agents
 
 ### 3.4 Conflict Detection and Resolution
 
 #### When Conflicts Occur
 
-Conflicts (requiring a merge) happen when the same file is modified in two places before
+Conflicts (requiring field-level merge) happen when the same issue file is modified
+in two places before
 sync:
 
 - Two environments modify the same issue before syncing

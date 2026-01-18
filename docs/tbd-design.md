@@ -12,19 +12,19 @@ simplicity and reliability.
 It stores issues as Markdown files with YAML frontmatter on a dedicated sync branch,
 enabling conflict-free collaboration without daemons or databases.
 
-**Core Philosophy**: Files as truth, git for sync, simplicity over features.
+tbd is the **durable persistence layer** for issues, with three core principles:
 
-tbd is the **durable persistence layer** for issues:
-
-- reliable git storage
-- simple CLI for agents and humans
-- transparent Markdown YAML format that is debuggable and friendly to other tooling
+- Durable storage in git
+- Works in almost any enviromnent
+- Simple, self-documenting CLI for agents and humans
+- Transparent internal format (Markdown/YAML that is debuggable and friendly to other
+  tooling)
 
 It does *not* aim to be a full solution for real-time agent coordination.
-Latency is seconds (git operations), not milliseconds.
-Volume is thousands of issues, not millions.
-Real-time agent coordination (Agent Mail, Gas Town) is a separate problem—one that can
-be layered on top of tbd or handled by other tools.
+Git works best when latency is seconds, not milliseconds and volume is thousands of
+issues, not millions.
+Real-time agent coordination (such as used by Agent Mail, Gas Town) is a separate
+problem—one that can be layered on top of tbd or handled by other tools.
 
 **Related Projects**:
 
@@ -132,18 +132,31 @@ for collision-free generation across distributed systems.
 
 ### Sync Mechanism
 
-1. **Local changes**: Detected via `git status` on hidden worktree, committed to
-   `tbd-sync`
-2. **Push to remote**: Standard `git push` to sync branch
-3. **Conflict handling**: If push rejected (non-fast-forward):
-   - Fetch remote changes
-   - For each issue with a remote version, merge field-by-field
-   - Retry push (up to 3 attempts)
-4. **Merge strategies**:
-   - LWW (last-write-wins by `updated_at`): title, status, priority, description
-   - Union (combine arrays): labels, dependencies
-   - Immutable (error if different): id, type
-5. **Conflict preservation**: Losing values saved to attic for recovery
+**Basic flow**:
+
+1. **Commit local changes**: Stage and commit worktree files to `tbd-sync` branch
+2. **Push to remote**: `git push` to sync branch
+3. **If push rejected** (remote has changes): fetch, update worktree, re-commit, retry
+
+**Why most syncs are trivial**:
+
+The file-per-entity design means parallel work rarely conflicts at the git level:
+
+| Scenario | Git behavior | tbd behavior |
+| --- | --- | --- |
+| A creates issue-1, B creates issue-2 | Different files, trivial merge | Both issues preserved |
+| A modifies issue-1, B creates issue-2 | Different files, trivial merge | Both changes preserved |
+| A and B both modify issue-1 | Same file modified | Field-level merge (see below) |
+
+**Field-level merge** (when same issue modified by multiple agents):
+
+| Strategy | Fields | Behavior |
+| --- | --- | --- |
+| LWW | title, status, priority, description | Last-write-wins by `updated_at` |
+| Union | labels, dependencies | Combine arrays, deduplicate |
+| Immutable | id, type | Error if different |
+
+Losing values from LWW merges are saved to the attic for recovery.
 
 **Safety**: All sync operations use an isolated git index (`GIT_INDEX_FILE`), never
 touching your staged files.

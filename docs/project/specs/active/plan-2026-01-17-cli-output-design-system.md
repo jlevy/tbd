@@ -125,9 +125,12 @@ Create a comprehensive CLI UI design system that:
    `output.debug()`
 3. **Table formatting**: No standard table renderer; ad-hoc padding in each command
 4. **ID display**: Mix of internal and display IDs without clear convention
-5. **Empty state messages**: Inconsistent wording ("No issues found" vs “No results”)
-6. **Count suffixes**: Mix of “issue(s)” and “issues” pluralization
+5. **Empty state messages**: Inconsistent wording ("No issues found" vs "No results")
+6. **Count suffixes**: Mix of "issue(s)" and "issues" pluralization
 7. **Priority display**: Raw numbers (0, 1, 2) instead of P0, P1, P2 format
+8. **Icon usage**: Need to verify consistent use of ✓/✗/⚠ across all commands
+9. **Sync feedback**: No immediate progress indicator when sync starts
+10. **Sync summaries**: "pulled/pushed" counts unclear (should show new/updated/deleted)
 
 * * *
 
@@ -258,6 +261,7 @@ Create a comprehensive CLI UI design system that:
 - Command output/results (in addition to the command itself)
 - Schema validation details
 - Cache hit/miss information
+- **Git stat log after sync**: Show `git log --stat` for commits just pushed/pulled
 
 ### 2.6 External Command Display Rule
 
@@ -271,11 +275,12 @@ Format:
 Examples:
 ```bash
 $ tbd sync --verbose
+⠋ Syncing with remote...
 > git fetch origin tbd-sync
 > git rev-list --count origin/tbd-sync..tbd-sync
 Loading 42 issues from local cache
 > git push origin tbd-sync
-✓ Synced in 1.2s: pulled 0, pushed 4
+✓ Synced: sent 2 new, 2 updated
 ```
 
 Rules:
@@ -306,6 +311,79 @@ Rules:
 ✗ Not a tbd repository
   Run 'tbd init' or 'tbd import --from-beads' first.
 ```
+
+### 2.8 Icon System
+
+**Standard icons (must be used consistently):**
+
+| Icon | Meaning | Color |
+| --- | --- | --- |
+| `✓` | Success/Complete | Green |
+| `✗` | Error/Failure | Red |
+| `⚠` | Warning/Caution | Yellow |
+| `•` | Bullet/List item | Default |
+| `⠋⠙⠹...` | Progress spinner | Blue |
+
+**Rules:**
+- Always use these exact Unicode characters (no alternatives like `✔` or `√`)
+- Icon + space + message format
+- Success icon only for completed operations
+- Error icon only for failures
+
+### 2.9 Sync Operations
+
+**Sync visibility rule**: Any network operation must show immediate progress.
+
+**Pattern:**
+```bash
+$ tbd update bd-a1b2 --status=closed
+✓ Updated issue bd-a1b2
+⠋ Syncing...
+✓ Synced: sent 1 updated
+```
+
+**Sync summary format:**
+
+| Direction | Tallies |
+| --- | --- |
+| Sent (push) | new, updated, deleted |
+| Received (pull) | new, updated, deleted |
+
+**Examples:**
+```bash
+✓ Synced: sent 1 new
+✓ Synced: sent 2 updated, received 1 new
+✓ Synced: received 3 new, 1 updated
+✓ Already in sync
+```
+
+**Summary rules:**
+- Omit zero counts
+- Order: new → updated → deleted
+- Use "Already in sync" when nothing changed
+
+**Technical implementation notes:**
+- Track issue state before/after sync to compute accurate tallies
+- Compare local worktree state vs remote to determine new/updated/deleted
+- Store issue hashes or versions to detect modifications vs additions
+
+**Debug mode git log:**
+In `--debug` mode, show `git log --stat` for synced commits:
+```bash
+$ tbd sync --debug
+⠋ Syncing with remote...
+✓ Synced: sent 1 updated
+
+[debug] Commits synced:
+commit ee88823... (origin/tbd-sync, tbd-sync)
+    tbd sync: 2026-01-17T23-50-56 (1 file)
+ .tbd/data-sync/issues/is-01kf5zyg8jgkn9s6c1z1r1n6sn.md | 8 ++++----
+ 1 file changed, 4 insertions(+), 4 deletions(-)
+```
+
+Implementation:
+- After push: `git log --stat origin/tbd-sync@{1}..origin/tbd-sync`
+- After pull: `git log --stat HEAD@{1}..HEAD`
 
 * * *
 
@@ -349,10 +427,21 @@ Rules:
 - [ ] Add `count()` method for consistent count output
 - [ ] Add `verbose()` method (separate from debug)
 - [ ] Create `formatPriority()` utility for P0/P1/P2 display format
-- [ ] Create `parsePriority()` utility accepting “P1” or “1” input
+- [ ] Create `parsePriority()` utility accepting "P1" or "1" input
 - [ ] Update all commands to use `formatPriority()` for display
+- [ ] Define icon constants (SUCCESS_ICON, ERROR_ICON, WARN_ICON)
 
-### Phase 3: Command Audit and Fixes
+### Phase 3: Sync Output Improvements
+
+- [ ] Add immediate spinner when sync starts (no silent waiting)
+- [ ] Track new/updated/deleted counts during sync
+- [ ] Implement `formatSyncSummary()` for consistent sync messages
+- [ ] Update `sync.ts` to use new summary format
+- [ ] Update all commands with auto-sync to show sync progress
+- [ ] Add sync tallies to JSON output format
+- [ ] Show git log --stat in debug mode after push/pull operations
+
+### Phase 4: Command Audit and Fixes
 
 - [ ] Audit `list.ts` for compliance
 - [ ] Audit `show.ts` for compliance
@@ -362,15 +451,18 @@ Rules:
 - [ ] Audit `search.ts` for compliance
 - [ ] Audit `ready.ts` for compliance
 - [ ] Audit `blocked.ts` for compliance
+- [ ] Verify consistent icon usage across all commands
 - [ ] Fix identified inconsistencies
 
-### Phase 4: Testing and Validation
+### Phase 5: Testing and Validation
 
 - [ ] Verify all output modes work correctly
 - [ ] Test color output with `--color=always|never|auto`
 - [ ] Verify JSON output is valid JSON
 - [ ] Test verbose and debug modes show appropriate info
 - [ ] Verify error messages follow guidelines
+- [ ] Test sync progress visibility (spinner appears immediately)
+- [ ] Verify sync summaries show accurate tallies
 
 * * *
 
@@ -385,6 +477,9 @@ Rules:
 5. Empty states are handled consistently
 6. Table formatting is uniform
 7. Priorities always display as P0-P4 (never raw numbers)
+8. Icons used consistently: ✓ for success, ✗ for error, ⚠ for warning
+9. Sync operations show immediate progress (spinner before any delay)
+10. Sync summaries show new/updated/deleted tallies (not vague "pushed/pulled")
 
 **Testing Approach:**
 
