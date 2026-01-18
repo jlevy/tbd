@@ -1,22 +1,30 @@
 /**
  * `tbd doctor` - Diagnose and repair repository.
  *
+ * A comprehensive health check that includes status, stats, and health checks.
+ *
  * See: tbd-design-spec.md §4.9 Doctor
  */
 
 import { Command } from 'commander';
-import { access, readdir, unlink } from 'node:fs/promises';
+import { access, readdir, readFile, unlink } from 'node:fs/promises';
 import { join } from 'node:path';
 
 import { BaseCommand } from '../lib/baseCommand.js';
 import { requireInit } from '../lib/errors.js';
 import { listIssues } from '../../file/storage.js';
 import { readConfig } from '../../file/config.js';
-import type { Issue } from '../../lib/types.js';
-import { resolveDataSyncDir, TBD_DIR } from '../../lib/paths.js';
+import type { Config, Issue, IssueStatusType } from '../../lib/types.js';
+import { resolveDataSyncDir, TBD_DIR, WORKTREE_DIR } from '../../lib/paths.js';
 import { validateIssueId } from '../../lib/ids.js';
-import { checkGitVersion, MIN_GIT_VERSION } from '../../file/git.js';
+import {
+  checkGitVersion,
+  MIN_GIT_VERSION,
+  getCurrentBranch,
+  checkWorktreeHealth,
+} from '../../file/git.js';
 import { type DiagnosticResult, renderDiagnostics } from '../lib/diagnostics.js';
+import { VERSION } from '../lib/version.js';
 
 const CONFIG_DIR = TBD_DIR;
 
@@ -26,13 +34,38 @@ interface DoctorOptions {
 
 class DoctorHandler extends BaseCommand {
   private dataSyncDir = '';
+  private cwd = '';
+  private config: Config | null = null;
+  private issues: Issue[] = [];
 
   async run(options: DoctorOptions): Promise<void> {
     await requireInit();
 
+    this.cwd = process.cwd();
     this.dataSyncDir = await resolveDataSyncDir();
+
+    // Load config
+    try {
+      this.config = await readConfig(this.cwd);
+    } catch {
+      // Config may be invalid - will be caught by health checks
+    }
+
+    // Load issues
+    try {
+      this.issues = await listIssues(this.dataSyncDir);
+    } catch {
+      // May fail if no issues yet
+    }
+
+    // Gather status info
+    const statusInfo = await this.gatherStatusInfo();
+
+    // Gather stats info
+    const statsInfo = this.gatherStatsInfo();
+
+    // Run health checks
     const checks: DiagnosticResult[] = [];
-    let issues: Issue[] = [];
 
     // Check 1: Git version
     const gitVersionCheck = await this.checkGitVersion();
@@ -46,21 +79,12 @@ class DoctorHandler extends BaseCommand {
     const issuesDirCheck = await this.checkIssuesDirectory();
     checks.push(issuesDirCheck);
 
-    // If issues directory exists, load issues for further checks
-    if (issuesDirCheck.status === 'ok') {
-      try {
-        issues = await listIssues(this.dataSyncDir);
-      } catch {
-        // Already handled by issuesDirCheck
-      }
-    }
-
     // Check 4: Orphaned dependencies
-    const orphanCheck = this.checkOrphanedDependencies(issues);
+    const orphanCheck = this.checkOrphanedDependencies(this.issues);
     checks.push(orphanCheck);
 
     // Check 5: Duplicate IDs
-    const duplicateCheck = this.checkDuplicateIds(issues);
+    const duplicateCheck = this.checkDuplicateIds(this.issues);
     checks.push(duplicateCheck);
 
     // Check 6: Orphaned temp files
@@ -68,19 +92,63 @@ class DoctorHandler extends BaseCommand {
     checks.push(tempFilesCheck);
 
     // Check 7: Issue validity
-    const validityCheck = this.checkIssueValidity(issues);
+    const validityCheck = this.checkIssueValidity(this.issues);
     checks.push(validityCheck);
 
     // Check 8: Claude Code skill file
     const skillCheck = await this.checkClaudeSkill();
     checks.push(skillCheck);
 
+    // Check 9: Cursor rules file
+    const cursorCheck = await this.checkCursorRules();
+    checks.push(cursorCheck);
+
+    // Check 10: Codex AGENTS.md
+    const codexCheck = await this.checkCodexAgents();
+    checks.push(codexCheck);
+
+    // Check 11: Worktree health
+    const worktreeCheck = await this.checkWorktree();
+    checks.push(worktreeCheck);
+
     const allOk = checks.every((c) => c.status === 'ok');
     const hasFixable = checks.some((c) => c.fixable && c.status !== 'ok');
 
-    this.output.data({ checks, healthy: allOk }, () => {
+    this.output.data({ statusInfo, statsInfo, checks, healthy: allOk }, () => {
       const colors = this.output.getColors();
+
+      // STATUS section
+      console.log(colors.bold('STATUS'));
+      console.log(`tbd v${VERSION}`);
+      console.log(`Repository: ${this.cwd}`);
+      console.log(`  ${colors.success('✓')} Initialized (.tbd/)`);
+      if (statusInfo.gitBranch) {
+        console.log(`  ${colors.success('✓')} Git repository (${statusInfo.gitBranch})`);
+      }
+      if (this.config) {
+        console.log('');
+        console.log(`${colors.dim('Sync branch:')} ${this.config.sync.branch}`);
+        console.log(`${colors.dim('Remote:')} ${this.config.sync.remote}`);
+        if (this.config.display.id_prefix) {
+          console.log(`${colors.dim('ID prefix:')} ${this.config.display.id_prefix}-`);
+        }
+      }
+
+      // STATISTICS section
+      console.log('');
+      console.log(colors.bold('STATISTICS'));
+      console.log(`  Ready:       ${statsInfo.ready}`);
+      console.log(`  In progress: ${statsInfo.inProgress}`);
+      console.log(`  Blocked:     ${statsInfo.blocked}`);
+      console.log(`  Open:        ${statsInfo.open}`);
+      console.log(`  Total:       ${statsInfo.total}`);
+
+      // HEALTH CHECKS section
+      console.log('');
+      console.log(colors.bold('HEALTH CHECKS'));
       renderDiagnostics(checks, colors);
+
+      // Final summary
       console.log('');
       if (allOk) {
         this.output.success('Repository is healthy');
@@ -90,6 +158,73 @@ class DoctorHandler extends BaseCommand {
         this.output.warn('Issues found that may require manual intervention.');
       }
     });
+  }
+
+  private async gatherStatusInfo(): Promise<{
+    gitBranch: string | null;
+    worktreeHealthy: boolean;
+  }> {
+    let gitBranch: string | null = null;
+    try {
+      gitBranch = await getCurrentBranch();
+    } catch {
+      // Not in a git repo or no commits
+    }
+
+    const worktreeHealth = await checkWorktreeHealth(this.cwd);
+
+    return {
+      gitBranch,
+      worktreeHealthy: worktreeHealth.valid,
+    };
+  }
+
+  private gatherStatsInfo(): {
+    total: number;
+    ready: number;
+    inProgress: number;
+    blocked: number;
+    open: number;
+  } {
+    // Count by status
+    const byStatus: Record<IssueStatusType, number> = {
+      open: 0,
+      in_progress: 0,
+      blocked: 0,
+      deferred: 0,
+      closed: 0,
+    };
+
+    // Build set of blocked issue IDs
+    const blockedIds = new Set<string>();
+    for (const issue of this.issues) {
+      for (const dep of issue.dependencies) {
+        if (dep.type === 'blocks') {
+          const blockedIssue = this.issues.find((i) => i.id === dep.target);
+          if (blockedIssue && blockedIssue.status !== 'closed') {
+            blockedIds.add(dep.target);
+          }
+        }
+      }
+    }
+
+    // Count ready issues (open and not blocked)
+    let readyCount = 0;
+
+    for (const issue of this.issues) {
+      byStatus[issue.status]++;
+      if (issue.status === 'open' && !blockedIds.has(issue.id)) {
+        readyCount++;
+      }
+    }
+
+    return {
+      total: this.issues.length,
+      ready: readyCount,
+      inProgress: byStatus.in_progress,
+      blocked: blockedIds.size,
+      open: byStatus.open,
+    };
   }
 
   private async checkGitVersion(): Promise<DiagnosticResult> {
@@ -327,6 +462,70 @@ class DoctorHandler extends BaseCommand {
         suggestion: 'Run: tbd setup claude',
       };
     }
+  }
+
+  private async checkCursorRules(): Promise<DiagnosticResult> {
+    const rulesRelPath = join('.cursor', 'rules', 'tbd.mdc');
+    const rulesPath = join(this.cwd, rulesRelPath);
+    try {
+      await access(rulesPath);
+      return { name: 'Cursor rules', status: 'ok', path: rulesRelPath };
+    } catch {
+      return {
+        name: 'Cursor rules',
+        status: 'warn',
+        message: 'not installed',
+        path: rulesRelPath,
+        suggestion: 'Run: tbd setup cursor',
+      };
+    }
+  }
+
+  private async checkCodexAgents(): Promise<DiagnosticResult> {
+    const agentsRelPath = 'AGENTS.md';
+    const agentsPath = join(this.cwd, agentsRelPath);
+    try {
+      await access(agentsPath);
+      const content = await readFile(agentsPath, 'utf-8');
+      if (content.includes('BEGIN TBD INTEGRATION')) {
+        return { name: 'Codex AGENTS.md', status: 'ok', path: agentsRelPath };
+      }
+      return {
+        name: 'Codex AGENTS.md',
+        status: 'warn',
+        message: 'exists but missing tbd integration',
+        path: agentsRelPath,
+        suggestion: 'Run: tbd setup codex',
+      };
+    } catch {
+      return {
+        name: 'Codex AGENTS.md',
+        status: 'warn',
+        message: 'not installed',
+        path: agentsRelPath,
+        suggestion: 'Run: tbd setup codex',
+      };
+    }
+  }
+
+  private async checkWorktree(): Promise<DiagnosticResult> {
+    const worktreePath = WORKTREE_DIR;
+    const worktreeHealth = await checkWorktreeHealth(this.cwd);
+    if (worktreeHealth.valid) {
+      return { name: 'Worktree', status: 'ok', path: worktreePath };
+    }
+    if (!worktreeHealth.exists) {
+      // Worktree not existing is OK - it's created on demand
+      return { name: 'Worktree', status: 'ok', message: 'not created yet', path: worktreePath };
+    }
+    return {
+      name: 'Worktree',
+      status: 'warn',
+      message: worktreeHealth.error ?? 'unhealthy',
+      path: worktreePath,
+      fixable: true,
+      suggestion: 'Run: tbd doctor --fix',
+    };
   }
 }
 

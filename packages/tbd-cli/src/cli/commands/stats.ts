@@ -9,7 +9,7 @@ import { Command } from 'commander';
 import { BaseCommand } from '../lib/baseCommand.js';
 import { requireInit, NotInitializedError } from '../lib/errors.js';
 import { listIssues } from '../../file/storage.js';
-import type { IssueStatusType, IssueKindType } from '../../lib/types.js';
+import type { Issue, IssueStatusType, IssueKindType } from '../../lib/types.js';
 import { resolveDataSyncDir } from '../../lib/paths.js';
 
 class StatsHandler extends BaseCommand {
@@ -17,7 +17,7 @@ class StatsHandler extends BaseCommand {
     await requireInit();
 
     // Load all issues
-    let issues;
+    let issues: Issue[];
     try {
       const dataSyncDir = await resolveDataSyncDir();
       issues = await listIssues(dataSyncDir);
@@ -52,6 +52,23 @@ class StatsHandler extends BaseCommand {
       4: 0,
     };
 
+    // Build set of blocked issue IDs (issues that have open blockers)
+    const blockedIds = new Set<string>();
+    for (const issue of issues) {
+      for (const dep of issue.dependencies) {
+        if (dep.type === 'blocks') {
+          // The target issue is blocked by this issue
+          const blockedIssue = issues.find((i) => i.id === dep.target);
+          if (blockedIssue && blockedIssue.status !== 'closed') {
+            blockedIds.add(dep.target);
+          }
+        }
+      }
+    }
+
+    // Count ready issues (open and not blocked)
+    let readyCount = 0;
+
     // Accumulate counts
     for (const issue of issues) {
       byStatus[issue.status]++;
@@ -59,10 +76,16 @@ class StatsHandler extends BaseCommand {
       if (issue.priority >= 0 && issue.priority <= 4) {
         byPriority[issue.priority]!++;
       }
+      // Count ready: open and not blocked
+      if (issue.status === 'open' && !blockedIds.has(issue.id)) {
+        readyCount++;
+      }
     }
 
     const stats = {
       total: issues.length,
+      ready: readyCount,
+      blocked: blockedIds.size,
       byStatus,
       byKind,
       byPriority,
@@ -70,9 +93,20 @@ class StatsHandler extends BaseCommand {
 
     this.output.data(stats, () => {
       const colors = this.output.getColors();
-      console.log(`${colors.bold('Total issues:')} ${stats.total}`);
+
+      // Summary section
+      console.log(colors.bold('Summary:'));
+      console.log(`  Ready:       ${stats.ready}`);
+      console.log(`  In progress: ${stats.byStatus.in_progress}`);
+      console.log(`  Blocked:     ${stats.blocked}`);
+      console.log(`  Open:        ${stats.byStatus.open}`);
+      console.log(`  Total:       ${stats.total}`);
 
       if (stats.total === 0) {
+        console.log('');
+        console.log(
+          `Use ${colors.bold("'tbd status'")} for setup info, ${colors.bold("'tbd doctor'")} for health checks.`,
+        );
         return;
       }
 
@@ -101,6 +135,11 @@ class StatsHandler extends BaseCommand {
           console.log(`  ${i} (${priorityLabels[i]!.padEnd(8)}) ${count}`);
         }
       }
+
+      console.log('');
+      console.log(
+        `Use ${colors.bold("'tbd status'")} for setup info, ${colors.bold("'tbd doctor'")} for health checks.`,
+      );
     });
   }
 }

@@ -402,6 +402,24 @@ class SyncHandler extends BaseCommand {
     });
   }
 
+  /**
+   * Show git log --stat output in debug mode.
+   * Used to display commits that were synced.
+   */
+  private async showGitLogDebug(range: string, label: string): Promise<void> {
+    try {
+      const logOutput = await git('log', '--stat', '--oneline', range);
+      if (logOutput.trim()) {
+        this.output.debug(`${label}:`);
+        for (const line of logOutput.split('\n')) {
+          this.output.debug(`  ${line}`);
+        }
+      }
+    } catch {
+      // Ignore errors - log is just for debugging
+    }
+  }
+
   private async fullSync(syncBranch: string, remote: string, _force?: boolean): Promise<void> {
     const spinner = this.output.spinner('Syncing with remote...');
     const summary: SyncSummary = emptySummary();
@@ -459,6 +477,14 @@ class SyncHandler extends BaseCommand {
 
       // STEP 3: If remote has changes, merge them in
       if (behindCommits > 0) {
+        // Track HEAD before merge for debug log
+        let headBeforeMerge = '';
+        try {
+          headBeforeMerge = (await git('-C', worktreePath, 'rev-parse', 'HEAD')).trim();
+        } catch {
+          // Ignore - just won't show debug log
+        }
+
         // Merge remote into local using worktree
         // This is a proper git merge that preserves both local and remote changes
         try {
@@ -471,6 +497,11 @@ class SyncHandler extends BaseCommand {
             'tbd sync: merge remote changes',
           );
           this.output.debug(`Merged ${behindCommits} commit(s) from remote`);
+
+          // Show received commits in debug mode
+          if (headBeforeMerge) {
+            await this.showGitLogDebug(`${headBeforeMerge}..HEAD`, 'Commits received');
+          }
         } catch {
           // Merge conflict - try to resolve at file level
           this.output.info(`Merge conflict, attempting file-level resolution`);
@@ -541,6 +572,9 @@ class SyncHandler extends BaseCommand {
       }
       if (!result.success) {
         this.output.debug(`Push failed: ${result.error}`);
+      } else {
+        // Show pushed commits in debug mode
+        await this.showGitLogDebug(`-${aheadCommits}`, 'Commits sent');
       }
     } else {
       this.output.debug('No commits to push');
