@@ -9,11 +9,11 @@ id: is-01kf7hh4ncxp7dmksj0q2j1qkr
 kind: task
 labels: []
 priority: 1
-status: open
+status: in_progress
 title: Refactor tbd status to remove issue counts
 type: is
-updated_at: 2026-01-18T03:15:40.511Z
-version: 4
+updated_at: 2026-01-18T05:38:43.787Z
+version: 5
 ---
 Remove issue counts (Ready, In progress, Open, Total) from tbd status output. These will be moved to tbd stats.
 
