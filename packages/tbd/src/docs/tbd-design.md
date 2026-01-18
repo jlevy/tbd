@@ -615,8 +615,7 @@ necessary.
 - **Project Repo**: https://github.com/jlevy/tbd
 - **README**: `tbd readme`
 - **CLI Documentation**: `tbd docs`
-- **Full Design Spec**:
-  [docs/project/architecture/current/tbd-design-spec.md](project/architecture/current/tbd-design-spec.md)
+- **Full Design Spec**: [docs/tbd-design.md](../../../../../../docs/tbd-design.md)
 - **Beads**: https://github.com/steveyegge/beads
 - **ticket**: https://github.com/wedow/ticket
 - **ULID Spec**: https://github.com/ulid/spec

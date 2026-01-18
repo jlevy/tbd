@@ -20,7 +20,7 @@ Does not cover manual validation procedures.
 
 - [Golden Testing Guidelines](../../general/agent-guidelines/golden-testing-guidelines.md)
 - [TDD Guidelines](../../general/agent-guidelines/general-tdd-guidelines.md)
-- [tbd Design v3](tbd-design-spec.md)
+- [tbd Design v3](tbd-design.md)
 
 ## Test Category Philosophy
 

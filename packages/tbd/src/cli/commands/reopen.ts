@@ -1,7 +1,7 @@
 /**
  * `tbd reopen` - Reopen a closed issue.
  *
- * See: tbd-design-spec.md §4.4 Reopen
+ * See: tbd-design.md §4.4 Reopen
  */
 
 import { Command } from 'commander';

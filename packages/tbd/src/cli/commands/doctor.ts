@@ -3,7 +3,7 @@
  *
  * A comprehensive health check that includes status, stats, and health checks.
  *
- * See: tbd-design-spec.md §4.9 Doctor
+ * See: tbd-design.md §4.9 Doctor
  */
 
 import { Command } from 'commander';

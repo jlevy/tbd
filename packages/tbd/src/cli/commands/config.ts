@@ -1,7 +1,7 @@
 /**
  * `tbd config` - Configuration management.
  *
- * See: tbd-design-spec.md §4.9 Config
+ * See: tbd-design.md §4.9 Config
  */
 
 import { Command } from 'commander';
