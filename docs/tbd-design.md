@@ -222,7 +222,7 @@ It does *not* aim to be a full solution for real-time agent coordination.
 Git works best when latency is seconds, not milliseconds, and volume is thousands of
 issues, not millions.
 
-That said, it may for the base for future coordiation layers.
+That said, it may be the base for future coordination layers.
 Real-time agent coordination (such as used by
 [Agent Mail](https://github.com/Dicklesworthstone/mcp_agent_mail),
 [Gas Town](https://github.com/steveyegge/gastown)) is a separate problem—one that can be
@@ -400,7 +400,7 @@ tbd addresses specific requirements:
 
 2. **No data loss**: Conflicts preserve both versions via attic mechanism
 
-3. **Works anywhere**: Just `npm install -g tbd` anywhere: local dev, CI, cloud IDEs
+3. **Works anywhere**: Just `npm install -g tbd-git` anywhere: local dev, CI, cloud IDEs
    (Claude Code, Codespaces), network filesystems
 
 4. **Simple architecture**: Easy to understand, debug, and maintain
@@ -1833,6 +1833,8 @@ Options:
   --sort <field>            Sort by: priority, created, updated (default: priority)
                             (created/updated are shorthand for created_at/updated_at)
   --limit <n>               Limit results
+  --count                   Output only the count of matching issues
+  --long                    Show descriptions
   --pretty                  Tree format showing parent-child hierarchy
   --json                    Output as JSON
 ```
@@ -2207,6 +2209,9 @@ tbd sync --push
 
 # Show sync status
 tbd sync --status
+
+# Force sync (overwrite conflicts)
+tbd sync --force
 ```
 
 **Output (sync):**
@@ -2521,16 +2526,18 @@ Compaction is a future enhancement.
 #### Config
 
 ```bash
-tbd config <key> [value]
-tbd config --list
+tbd config show                    # Show all configuration
+tbd config get <key>               # Get a configuration value
+tbd config set <key> <value>       # Set a configuration value
 ```
 
 **Examples:**
 
 ```bash
-tbd config sync.remote upstream
-tbd config display.id_prefix cd
-tbd config --list
+tbd config show
+tbd config get display.id_prefix
+tbd config set sync.remote upstream
+tbd config set display.id_prefix cd
 ```
 
 ### 4.10 Global Options
@@ -2549,6 +2556,7 @@ Available on all commands:
 --dry-run                   Show what would be done without making changes
 --verbose                   Enable verbose output
 --quiet                     Suppress non-essential output
+--debug                     Show internal IDs alongside public IDs for debugging
 --non-interactive           Disable all prompts, fail if input required
 --yes                       Assume yes to confirmation prompts
 ```
@@ -2572,13 +2580,13 @@ order:
 
 1. `--actor <name>` CLI flag (highest priority)
 
-2. `tbd_ACTOR` environment variable
+2. `TBD_ACTOR` environment variable
 
 3. Git user.email from git config
 
 4. System username + hostname (fallback)
 
-Example: `tbd_ACTOR=claude-agent-1 tbd create "Fix bug"`
+Example: `TBD_ACTOR=claude-agent-1 tbd create "Fix bug"`
 
 > **Note:** `--db` is retained for Beads compatibility.
 > Prefer `--dir` for new usage.
@@ -2671,7 +2679,7 @@ TIMESTAMP                  ISSUE      FIELD        WINNER
 
 ```bash
 # Show attic entry details
-tbd attic show <entry-id> [options]
+tbd attic show <id> <timestamp> [options]
 
 Options:
   --json                    JSON output
@@ -2699,7 +2707,7 @@ Context:
 
 ```bash
 # Restore value from attic
-tbd attic restore <entry-id> [options]
+tbd attic restore <id> <timestamp> [options]
 
 Options:
   --dry-run                 Show what would be restored
@@ -2710,10 +2718,10 @@ Options:
 
 ```bash
 # Preview restoration
-tbd attic restore 2025-01-07T10-30-00Z_description --dry-run
+tbd attic restore proj-a1b2 2025-01-07T10-30-00Z --dry-run
 
 # Apply restoration (creates new version with restored value)
-tbd attic restore 2025-01-07T10-30-00Z_description
+tbd attic restore proj-a1b2 2025-01-07T10-30-00Z
 ```
 
 > **Note:** Restore creates a new version of the issue with the attic value applied to
@@ -3270,7 +3278,7 @@ tbd sync
 | `bd label remove` | `tbd label remove` | ✅ Full | Identical |
 | `bd label list` | `tbd label list` | ✅ Full | Lists all labels |
 | `bd dep add` | `tbd dep add` | ✅ Full | Only "blocks" type |
-| `bd dep tree` | `tbd dep tree` | ✅ Full | Visualize dependencies |
+| `bd dep tree` | `tbd dep tree` | 🔄 Future | Visualize dependencies |
 | `bd sync` | `tbd sync` | ✅ Full | Different mechanism, same UX |
 | `bd stats` | `tbd stats` | ✅ Full | Same statistics |
 | `bd doctor` | `tbd doctor` | ✅ Full | Different checks |
@@ -4372,7 +4380,7 @@ Also available via update: `tbd update <id> --add-label X` and `--remove-label X
 | `bd dep add <a> <b> --type related` | *(not yet)* | ⏳ Future | Only blocks |
 | `bd dep add <a> <b> --type discovered-from` | *(not yet)* | ⏳ Future | Only blocks |
 | `bd dep remove <a> <b>` | `tbd dep remove <id> <target>` | ✅ Full | Identical |
-| `bd dep tree <id>` | `tbd dep tree <id>` | ✅ Full | Visualize deps |
+| `bd dep tree <id>` | `tbd dep tree <id>` | 🔄 Future | Visualize deps |
 
 **Note:** Currently supports only `blocks` dependency type.
 This is sufficient for the `ready` command algorithm.
@@ -4680,13 +4688,13 @@ Comments will be a separate entity type in the future:
 
 ### B.6 Editor Integration Commands
 
-| Beads Command | Why Not Included |
-| --- | --- |
-| `bd setup claude` | Editor hooks - not planned |
-| `bd setup cursor` | Editor rules - not planned |
-| `bd setup aider` | Editor config - not planned |
-| `bd setup factory` | AGENTS.md - not planned |
-| `bd edit` | Interactive edit (human only) - not planned |
+| Beads Command | tbd Equivalent | Status |
+| --- | --- | --- |
+| `bd setup claude` | `tbd setup claude` | ✅ Implemented |
+| `bd setup cursor` | `tbd setup cursor` | ✅ Implemented |
+| `bd setup aider` | *(not implemented)* | Not planned |
+| `bd setup factory` | `tbd setup codex` | ✅ Implemented (renamed) |
+| `bd edit` | *(not implemented)* | Not planned (use `tbd show` + editor) |
 
 ### B.7 Additional Dependency Types
 
