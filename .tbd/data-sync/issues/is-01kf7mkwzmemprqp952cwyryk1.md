@@ -1,4 +1,6 @@
 ---
+close_reason: Created lib/priority.ts with formatPriority(), parsePriority(), getPriorityColor() and 23 unit tests
+closed_at: 2026-01-18T04:32:00.551Z
 created_at: 2026-01-18T04:08:08.948Z
 dependencies:
   - target: is-01kf7mmaqg5nsqjkh5phewrt5h
@@ -9,11 +11,11 @@ id: is-01kf7mkwzmemprqp952cwyryk1
 kind: task
 labels: []
 priority: 2
-status: in_progress
+status: closed
 title: Create priority utilities
 type: is
-updated_at: 2026-01-18T04:30:15.346Z
-version: 6
+updated_at: 2026-01-18T04:32:00.551Z
+version: 7
 ---
 Create lib/priority.ts with:
 - formatPriority() utility for P0/P1/P2 display format

@@ -9,11 +9,11 @@ id: is-01kf7mkxep66gtk77xmg0dxvza
 kind: task
 labels: []
 priority: 2
-status: open
+status: in_progress
 title: Create status utilities
 type: is
-updated_at: 2026-01-18T04:10:50.477Z
-version: 5
+updated_at: 2026-01-18T04:32:00.704Z
+version: 6
 ---
 Create lib/status.ts with:
 - formatStatus() utility for icon + word format (e.g., '● blocked')
