@@ -87,7 +87,7 @@ tbd has exactly **2 data locations**:
 | `.tbd/data-sync-worktree/.tbd/data-sync/issues/*.md` | Issue files | `tbd-sync` (via hidden worktree) |
 
 The hidden worktree provides read access to the sync branch without affecting your
-working checkout, enabling ripgrep search across all issues.
+working checkout, enabling direct file access and search across all issues.
 
 ### Issue File Format
 
@@ -225,10 +225,11 @@ scales to ~1900 issues in production.
 **Choice**: Git worktree in `.tbd/data-sync-worktree/` for sync branch access
 
 **Rationale**:
-- Enables ripgrep/grep search across all issues
+- Enables direct file access for search across all issues
 - No checkout switching needed
 - Files are always accessible (no git plumbing required)
 - Worktree is gitignored (not tracked on main)
+- Future: enables ripgrep/grep search for performance optimization
 
 **Tradeoff**: Requires Git 2.42+ for `--orphan` worktree support.
 
@@ -262,7 +263,7 @@ This section details what’s different and why.
 | Merge conflicts | Common on parallel creation | Zero on parallel creation |
 | State inspection | SQLite queries required | `cat` the files |
 | Network filesystems | SQLite locking issues | Atomic file writes work |
-| Search | SQLite FTS indexes | ripgrep on worktree |
+| Search | SQLite FTS indexes | In-memory scan (ripgrep planned) |
 
 ### Pain Points Addressed
 

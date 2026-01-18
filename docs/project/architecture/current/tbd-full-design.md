@@ -222,7 +222,8 @@ preference.
 
 - **File-per-entity**: Each issue is a separate `.md` file for fewer merge conflicts
 
-- **Searchable**: Hidden worktree enables fast ripgrep/grep search across all issues
+- **Searchable**: Hidden worktree enables search across all issues (manual ripgrep also
+  works)
 
 - **Reliable sync**: Git-based conflict detection with field-level LWW merge and attic
   preservation
@@ -305,7 +306,8 @@ architecture accumulated complexity:
 
 - **No daemon required**: Simple CLI tool, optional background sync
 
-- **Hidden worktree**: Managed worktree for sync branch access, searchable with ripgrep
+- **Hidden worktree**: Managed worktree for sync branch access (also enables manual
+  ripgrep)
 
 - **File-per-entity**: Parallel creation has zero conflicts
 
@@ -2131,8 +2133,8 @@ Remote changes (not yet pulled):
 
 ### 4.8 Search Commands
 
-tbd provides integrated search via the hidden worktree, enabling direct text search
-across all issues using standard tools like ripgrep or grep.
+tbd provides integrated search via the hidden worktree, enabling text search across all
+issues. (The worktree also enables manual use of ripgrep/grep if needed.)
 
 ```bash
 # Search issue content
@@ -2206,20 +2208,11 @@ Found 2 issues with 2 matches
 
 #### Implementation Notes
 
-Search is implemented by running ripgrep (or grep as fallback) against the hidden
-worktree directory:
+Search is currently implemented as an **in-memory scan**:
 
-```
-.tbd/data-sync-worktree/.tbd/data-sync/issues/
-```
-
-**Tool selection:**
-
-1. If `rg` (ripgrep) is available, use it (recommended for speed)
-
-2. Fall back to `grep -r` if ripgrep unavailable
-
-3. Emit warning on first fallback: “ripgrep not found, using grep (slower)”
+1. Load all issues from the hidden worktree directory
+2. Filter issues by searching fields with string matching
+3. Apply additional filters (status, type, label)
 
 **Search algorithm:**
 
@@ -2228,23 +2221,15 @@ SEARCH(pattern, options):
   1. Ensure worktree is initialized and up-to-date
      - If stale (>5 minutes since last fetch), refresh: tbd sync --pull
 
-  2. Build search command:
-     rg_args = [
-       "-i" if not options.case_sensitive,
-       "-C", options.context,
-       "--type", "md",  # Only search .md files
-       pattern,
-       worktree_path + "/.tbd/data-sync/issues/"
-     ]
+  2. Load all issues from worktree into memory
 
-  3. If field filter specified:
-     - Post-process results to filter by YAML field or body section
+  3. For each issue, search specified fields:
+     - title, description, notes, labels (default: all)
+     - Case-insensitive by default
 
-  4. Parse results and map to issue IDs
+  4. Apply additional filters (type, status, label)
 
-  5. Apply additional filters (type, status, label) by reading matched files
-
-  6. Format output according to options
+  5. Format output according to options
 ```
 
 **Worktree staleness:**
@@ -2254,20 +2239,9 @@ If the worktree is stale (last fetch was more than 5 minutes ago), search will
 automatically pull before searching to ensure results are current.
 This can be disabled with `--no-refresh`.
 
-> **Why 5 minutes?** The default staleness threshold of 5 minutes balances freshness vs
-> performance. During active work, agents typically sync more frequently than this, so
-> the auto-refresh rarely triggers.
-> For long-running sessions where remote changes may accumulate, the refresh ensures
-> search results include recent work from other agents.
-> The threshold is configurable via `settings.search_staleness_minutes` in config.yml.
-
-**Configuration:**
-
-```yaml
-# .tbd/config.yml
-settings:
-  search_staleness_minutes: 5 # Default: 5, set to 0 to always refresh, -1 to never
-```
+> **Future Enhancement:** For improved performance on large repositories (10K+ issues),
+> search could be optimized to use ripgrep (`rg`) against the worktree files directly.
+> See §7.2 Future Enhancements for details.
 
 ```bash
 # Search without refreshing (faster but potentially stale)
@@ -4059,6 +4033,35 @@ Future versions should add:
 
 **Implementation**: Extend `Dependency.type` enum, update CLI `--deps` parsing.
 No changes to sync algorithm needed.
+
+#### Ripgrep-Based Search (Performance)
+
+Currently search loads all issues into memory and filters with JavaScript string
+matching. For large repositories (10K+ issues), this could be optimized:
+
+**Approach:**
+
+1. If `rg` (ripgrep) is available, use it for initial pattern matching
+2. Fall back to `grep -r` if ripgrep unavailable
+3. Emit warning on first fallback: “ripgrep not found, using grep (slower)”
+
+**Benefits:**
+
+- Faster initial pattern matching (ripgrep is highly optimized)
+- Lower memory usage (don’t load all issues upfront)
+- Context lines support (`-C` flag)
+- External commands visible in `--verbose` mode for debugging
+
+**Implementation:**
+
+```bash
+rg -i -C 2 --type md "pattern" .tbd/data-sync-worktree/.tbd/data-sync/issues/
+```
+
+Post-process results to:
+- Map file paths to issue IDs
+- Apply field filters (title, description, notes)
+- Apply status/type/label filters by reading matched files
 
 #### Agent Registry
 
