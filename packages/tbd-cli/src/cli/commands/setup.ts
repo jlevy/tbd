@@ -876,7 +876,7 @@ class SetupCodexHandler extends BaseCommand {
 
 // Create subcommands
 const claudeCommand = new Command('claude')
-  .description('Configure Claude Code hooks for tbd integration')
+  .description('Configure Claude Code (skill and hooks)')
   .option('--check', 'Verify installation status')
   .option('--remove', 'Remove tbd hooks')
   .action(async (options, command) => {
@@ -885,7 +885,7 @@ const claudeCommand = new Command('claude')
   });
 
 const cursorCommand = new Command('cursor')
-  .description('Create Cursor IDE rules file for tbd integration')
+  .description('Configure Cursor IDE (rules file)')
   .option('--check', 'Verify installation status')
   .option('--remove', 'Remove tbd rules file')
   .action(async (options, command) => {
@@ -894,7 +894,7 @@ const cursorCommand = new Command('cursor')
   });
 
 const codexCommand = new Command('codex')
-  .description('Create/update AGENTS.md for Codex and compatible tools')
+  .description('Configure Codex and compatible tools (AGENTS.md)')
   .option('--check', 'Verify installation status')
   .option('--remove', 'Remove tbd section from AGENTS.md')
   .action(async (options, command) => {
@@ -1482,7 +1482,7 @@ interface SetupBeadsCommandOptions {
 }
 
 const beadsCommand = new Command('beads')
-  .description('Disable Beads and migrate to tbd')
+  .description('Disable Beads so you only use tbd')
   .option('--disable', 'Disable Beads and move files to .beads-disabled/')
   .option('--confirm', 'Confirm the operation (required to proceed)')
   .action(async (options: SetupBeadsCommandOptions, command) => {
@@ -1502,9 +1502,228 @@ const beadsCommand = new Command('beads')
     }
   });
 
+// ============================================================================
+// Auto Setup Command
+// ============================================================================
+
+interface AutoSetupResult {
+  name: string;
+  detected: boolean;
+  installed: boolean;
+  alreadyInstalled: boolean;
+  error?: string;
+}
+
+class SetupAutoHandler extends BaseCommand {
+  private cmd: Command;
+
+  constructor(command: Command) {
+    super(command);
+    this.cmd = command;
+  }
+
+  async run(): Promise<void> {
+    const colors = this.output.getColors();
+    const cwd = process.cwd();
+    const results: AutoSetupResult[] = [];
+
+    // Detect and set up Claude Code
+    const claudeResult = await this.setupClaudeIfDetected(cwd);
+    results.push(claudeResult);
+
+    // Detect and set up Cursor
+    const cursorResult = await this.setupCursorIfDetected(cwd);
+    results.push(cursorResult);
+
+    // Detect and set up Codex
+    const codexResult = await this.setupCodexIfDetected(cwd);
+    results.push(codexResult);
+
+    // Report results
+    const installed = results.filter((r) => r.installed && !r.alreadyInstalled);
+    const alreadyInstalled = results.filter((r) => r.alreadyInstalled);
+    const skipped = results.filter((r) => !r.detected);
+
+    if (installed.length > 0) {
+      console.log(colors.bold('Configured integrations:'));
+      for (const r of installed) {
+        console.log(`  ${colors.success('✓')} ${r.name}`);
+      }
+    }
+
+    if (alreadyInstalled.length > 0) {
+      console.log(colors.dim('Already configured:'));
+      for (const r of alreadyInstalled) {
+        console.log(`  ${colors.dim('✓')} ${r.name}`);
+      }
+    }
+
+    if (skipped.length > 0 && (installed.length > 0 || alreadyInstalled.length > 0)) {
+      console.log(colors.dim('Not detected (skipped):'));
+      for (const r of skipped) {
+        console.log(`  ${colors.dim('-')} ${r.name}`);
+      }
+    }
+
+    if (installed.length === 0 && alreadyInstalled.length === 0) {
+      console.log(colors.dim('No coding agents detected.'));
+      console.log('');
+      console.log('To manually configure:');
+      console.log('  tbd setup claude   # Claude Code hooks');
+      console.log('  tbd setup cursor   # Cursor IDE rules');
+      console.log('  tbd setup codex    # AGENTS.md for Codex');
+    }
+  }
+
+  private async setupClaudeIfDetected(cwd: string): Promise<AutoSetupResult> {
+    const result: AutoSetupResult = {
+      name: 'Claude Code',
+      detected: false,
+      installed: false,
+      alreadyInstalled: false,
+    };
+
+    // Detect Claude Code: check for ~/.claude/ directory or CLAUDE_* env vars
+    const claudeDir = join(homedir(), '.claude');
+    const hasClaudeDir = await this.pathExists(claudeDir);
+    const hasClaudeEnv = Object.keys(process.env).some((k) => k.startsWith('CLAUDE_'));
+
+    if (!hasClaudeDir && !hasClaudeEnv) {
+      return result;
+    }
+
+    result.detected = true;
+
+    // Check if already installed
+    const settingsPath = join(claudeDir, 'settings.json');
+    const skillPath = join(cwd, '.claude', 'skills', 'tbd', 'SKILL.md');
+
+    try {
+      // Check for existing tbd hooks in global settings
+      if (await this.pathExists(settingsPath)) {
+        const content = await readFile(settingsPath, 'utf-8');
+        const settings = JSON.parse(content) as Record<string, unknown>;
+        const hooks = settings.hooks as Record<string, unknown> | undefined;
+        if (hooks) {
+          const sessionStart = hooks.SessionStart as { hooks?: { command?: string }[] }[];
+          const hasTbdHook = sessionStart?.some((h) =>
+            h.hooks?.some((hook) => hook.command?.includes('tbd prime')),
+          );
+          if (hasTbdHook && (await this.pathExists(skillPath))) {
+            result.alreadyInstalled = true;
+            result.installed = true;
+            return result;
+          }
+        }
+      }
+
+      // Install Claude Code setup
+      const handler = new SetupClaudeHandler(this.cmd);
+      await handler.run({});
+      result.installed = true;
+    } catch (error) {
+      result.error = (error as Error).message;
+    }
+
+    return result;
+  }
+
+  private async setupCursorIfDetected(cwd: string): Promise<AutoSetupResult> {
+    const result: AutoSetupResult = {
+      name: 'Cursor IDE',
+      detected: false,
+      installed: false,
+      alreadyInstalled: false,
+    };
+
+    // Detect Cursor: check for .cursor/ directory
+    const cursorDir = join(cwd, '.cursor');
+    if (!(await this.pathExists(cursorDir))) {
+      return result;
+    }
+
+    result.detected = true;
+
+    // Check if already installed
+    const rulesPath = join(cwd, '.cursor', 'rules', 'tbd.mdc');
+    if (await this.pathExists(rulesPath)) {
+      result.alreadyInstalled = true;
+      result.installed = true;
+      return result;
+    }
+
+    try {
+      const handler = new SetupCursorHandler(this.cmd);
+      await handler.run({});
+      result.installed = true;
+    } catch (error) {
+      result.error = (error as Error).message;
+    }
+
+    return result;
+  }
+
+  private async setupCodexIfDetected(cwd: string): Promise<AutoSetupResult> {
+    const result: AutoSetupResult = {
+      name: 'Codex/AGENTS.md',
+      detected: false,
+      installed: false,
+      alreadyInstalled: false,
+    };
+
+    // Detect Codex: check for existing AGENTS.md or CODEX_* env vars
+    const agentsPath = join(cwd, 'AGENTS.md');
+    const hasAgentsMd = await this.pathExists(agentsPath);
+    const hasCodexEnv = Object.keys(process.env).some((k) => k.startsWith('CODEX_'));
+
+    if (!hasAgentsMd && !hasCodexEnv) {
+      return result;
+    }
+
+    result.detected = true;
+
+    // Check if already has tbd section
+    if (hasAgentsMd) {
+      const content = await readFile(agentsPath, 'utf-8');
+      if (content.includes('BEGIN TBD INTEGRATION')) {
+        result.alreadyInstalled = true;
+        result.installed = true;
+        return result;
+      }
+    }
+
+    try {
+      const handler = new SetupCodexHandler(this.cmd);
+      await handler.run({});
+      result.installed = true;
+    } catch (error) {
+      result.error = (error as Error).message;
+    }
+
+    return result;
+  }
+
+  private async pathExists(path: string): Promise<boolean> {
+    try {
+      await access(path);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+}
+
+const autoCommand = new Command('auto')
+  .description('Auto-detect and configure integrations (Claude, Cursor, Codex)')
+  .action(async (_options, command) => {
+    const handler = new SetupAutoHandler(command);
+    await handler.run();
+  });
+
 // Main setup command
 export const setupCommand = new Command('setup')
   .description('Configure tbd integration with editors and tools')
+  .addCommand(autoCommand)
   .addCommand(claudeCommand)
   .addCommand(cursorCommand)
   .addCommand(codexCommand)

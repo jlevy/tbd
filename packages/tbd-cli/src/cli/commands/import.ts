@@ -7,6 +7,7 @@
 import { Command } from 'commander';
 import { readFile, access, mkdir } from 'node:fs/promises';
 import { join } from 'node:path';
+import { spawnSync } from 'node:child_process';
 import { writeFile } from 'atomically';
 
 import { BaseCommand } from '../lib/baseCommand.js';
@@ -617,12 +618,13 @@ class ImportHandler extends BaseCommand {
     this.dataSyncDir = await resolveDataSyncDir();
     await this.importFromFile(jsonlPath, options);
 
-    // Show tip about disabling beads
+    // Auto-configure detected coding agents
     console.log();
-    console.log('Tip: To disable Beads and prevent agent confusion:');
-    console.log('  bd hooks uninstall                 # Remove git hooks');
-    console.log('  bd setup claude --remove           # Remove Claude Code hooks');
-    console.log('  bd setup <editor> --remove         # cursor, codex, etc.');
+    spawnSync('tbd', ['setup', 'auto'], { stdio: 'inherit' });
+
+    // Show status which includes next steps for beads migration
+    console.log();
+    spawnSync('tbd', ['status'], { stdio: 'inherit' });
   }
 
   private async loadExistingIssues(): Promise<Issue[]> {

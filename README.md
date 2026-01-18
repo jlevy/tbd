@@ -1,28 +1,47 @@
 # tbd
 
-Git-native issue tracking for AI agents and humans.
+**Git-native issue tracking for AI agents and humans.**
 
-**tbd** is a command-line issue tracker that stores issues as files in git.
-No external services, no databases—just Markdown files you can read, search, and version
-control.
+**tbd** (which stands for “To Be Done” or “TypeScript beads,” depending on your
+preference) is a command-line issue tracker that stores issues as files in git.
 
-Designed for AI coding agents: simple commands, JSON output, works in sandboxed cloud
-environments.
+Designed for AI coding agents and humans: simple commands, pretty console and JSON
+output, installs via `npm` and works in almost any agent or sandboxed cloud environment.
+
+tbd is inspired by by [Beads](https://github.com/steveyegge/beads) by Steve Yegge.
+I love the power of and am grateful for it!
+Unfortunately, after using it heavily for over a month, I found architectural issues and
+glitches that were too much of a distraction to ignore.
+Things like SQLite WAL errors in Claude Code Cloud, fighting with the daemon modifying
+files in the active working tree, confusing sync algorithms, and merge conflicts.
+
+tbd uses a simpler architecture with (I hope) fewer edge cases and bugs.
+If you want to try it, you can import issues from Beads, preserving issue IDs.
+Internally, everything is Markdown files so you can debug or migrate in the future if
+you wish. See [the the design doc](docs/tbd-design.md) for a bit more.
 
 ## Why tbd?
 
-- **Git-native**: Issues live in your repo, synced to a dedicated `tbd-sync` branch.
-  Your code history stays clean—no issue churn polluting your logs.
-- **Markdown + YAML frontmatter**: One file per issue, human-readable and editable.
-  Eliminates the merge conflicts common with JSONL formats.
-- **AI-agent friendly**: JSON output, non-interactive mode, simple commands that agents
-  understand.
-- **No SQLite, no fighting with a daemon that modifies your files**: Works on network
-  filesystems (like Claude Code Cloud).
-  No file locking or sync state confusions.
-- **Beads alternative**: A simpler alternative to
-  [Beads](https://github.com/steveyegge/beads) with an easier mental model.
-  Imports from Beads and preserves issue IDs.
+- **Git-native:** Issues live in your repo, synced to a separate, dedicated `tbd-sync`
+  branch. Your code history stays clean—no issue churn polluting your logs.
+- **Agent friendly:** JSON output, non-interactive mode, simple commands that agents
+  understand. Installs itself as a skill in Claude Code.
+- **Markdown + YAML frontmatter:** One file per issue, human-readable and editable.
+  This eliminates most merge conflicts.
+- **Beads alternative:** `tbd` is largely compatible with `bd` at the CLI level.
+  But has no JSONL merge conflicts in git.
+  No daemon modifying your current working tree.
+  No agents confused by error messages about which of several “modes” you’re running in.
+  No SQLite file locking issues on network filesystems (like what is used by Claude Code
+  Cloud).
+- **Future extensions:** By keeping this CLI/API/file layer simple, I think we can more
+  easily build more complex UI and coordination layers on top.
+  (Hope to have more on this soon.)
+
+> [!NOTE]
+> I use *Beads* (capitalized) to refer to the original `bd` tool.
+> In the docs and prompts I sometimes use lowercase “beads” as a generic way to refer to
+> issues in `tbd` or `bd`.
 
 ## Quick Start
 
@@ -32,17 +51,20 @@ npm install -g tbd-cli
 
 # Initialize in your repo
 cd my-project
-tbd init
+tbd init  # New project
+tbd import --from-beads  # Migrate issues from an existing Beads setup
 
 # Create issues
 tbd create "API returns 500 on malformed input" --type=bug --priority=P1
 tbd create "Add rate limiting to /api/upload" --type=feature
+tbd list --pretty  # View issues
 
 # Find and claim work
 tbd ready                                    # What's available?
 tbd update proj-a7k2 --status=in_progress    # Claim it
 
 # Complete and sync
+tbd closing  # Get a reminder of the closing protocol (this is also in the skill docs)
 tbd close proj-a7k2 --reason="Fixed in commit abc123"
 tbd sync
 ```

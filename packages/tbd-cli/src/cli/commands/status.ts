@@ -271,6 +271,14 @@ class StatusHandler extends BaseCommand {
       console.log(`  ${colors.success('✓')} Git repository${branchInfo}`);
     }
 
+    // Beads coexistence warning
+    if (data.beads_detected) {
+      console.log('');
+      console.log(`${colors.warn('⚠')}  Beads directory detected alongside tbd`);
+      console.log(`   This may cause confusion for AI agents.`);
+      console.log(`   Run ${colors.bold('tbd setup beads --disable')} for migration options`);
+    }
+
     // Config info
     if (data.sync_branch || data.remote || data.display_prefix) {
       console.log('');
@@ -288,15 +296,19 @@ class StatusHandler extends BaseCommand {
     // Integrations
     console.log('');
     console.log(colors.bold(formatHeading('Integrations')));
+
+    // Track if any integrations are missing
+    let hasMissingIntegrations = false;
+
     if (data.integrations.claude_code) {
       console.log(
-        `  ${colors.success('✓')} Claude Code skill ${colors.dim(`(${data.integrations.claude_code_path})`)}`,
+        `  ${colors.success('✓')} Claude Code hooks ${colors.dim(`(${data.integrations.claude_code_path})`)}`,
       );
     } else {
       console.log(
-        `  ${colors.dim('✗')} Claude Code skill ${colors.dim(`(${data.integrations.claude_code_path})`)}`,
+        `  ${colors.dim('✗')} Claude Code hooks ${colors.dim(`(${data.integrations.claude_code_path})`)}`,
       );
-      console.log(`      Run: tbd setup claude`);
+      hasMissingIntegrations = true;
     }
     if (data.integrations.cursor) {
       console.log(
@@ -306,7 +318,7 @@ class StatusHandler extends BaseCommand {
       console.log(
         `  ${colors.dim('✗')} Cursor rules ${colors.dim(`(${data.integrations.cursor_path})`)}`,
       );
-      console.log(`      Run: tbd setup cursor`);
+      hasMissingIntegrations = true;
     }
     if (data.integrations.codex) {
       console.log(
@@ -316,7 +328,12 @@ class StatusHandler extends BaseCommand {
       console.log(
         `  ${colors.dim('✗')} Codex AGENTS.md ${colors.dim(`(${data.integrations.codex_path})`)}`,
       );
-      console.log(`      Run: tbd setup codex`);
+      hasMissingIntegrations = true;
+    }
+
+    if (hasMissingIntegrations) {
+      console.log('');
+      console.log(`Run ${colors.bold('tbd setup auto')} to configure detected agents`);
     }
 
     // Worktree health

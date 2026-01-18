@@ -7,6 +7,7 @@
 import { Command } from 'commander';
 import { mkdir, stat } from 'node:fs/promises';
 import { join } from 'node:path';
+import { spawnSync } from 'node:child_process';
 
 import { writeFile } from 'atomically';
 
@@ -122,11 +123,15 @@ class InitHandler extends BaseCommand {
 
     this.output.data({ initialized: true, version: VERSION }, () => {
       this.output.success('Initialized tbd repository');
-      this.output.info('');
-      this.output.info('To complete setup, commit the config files:');
-      this.output.info(`  git add ${TBD_DIR}/`);
-      this.output.info('  git commit -m "Initialize tbd"');
     });
+
+    // Auto-configure detected coding agents
+    console.log('');
+    spawnSync('tbd', ['setup', 'auto'], { stdio: 'inherit' });
+
+    // Show status with next steps
+    console.log('');
+    spawnSync('tbd', ['status'], { stdio: 'inherit' });
   }
 }
 

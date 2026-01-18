@@ -82,10 +82,10 @@ For more on tbd, see: https://github.com/jlevy/tbd
 ```console
 $ tbd import --from-beads
 ...
-Tip: To disable Beads and prevent agent confusion:
-  bd hooks uninstall                 # Remove git hooks
-  bd setup claude --remove           # Remove Claude Code hooks
-  bd setup <editor> --remove         # cursor, codex, etc.
+⚠  Beads directory detected alongside tbd
+   This may cause confusion for AI agents.
+   Run tbd setup beads --disable for migration options
+...
 ? 0
 ```
 
@@ -139,10 +139,10 @@ $ cat .tbd/data-sync-worktree/.tbd/data-sync/mappings/ids.yml | grep -c '"00[123
 ```console
 $ tbd import --from-beads --verbose
 ...
-Tip: To disable Beads and prevent agent confusion:
-  bd hooks uninstall                 # Remove git hooks
-  bd setup claude --remove           # Remove Claude Code hooks
-  bd setup <editor> --remove         # cursor, codex, etc.
+⚠  Beads directory detected alongside tbd
+   This may cause confusion for AI agents.
+   Run tbd setup beads --disable for migration options
+...
 ? 0
 ```
 
@@ -196,10 +196,10 @@ Testing the flag works:
 ```console
 $ tbd import --from-beads --beads-dir=custom-beads --verbose
 ...
-Tip: To disable Beads and prevent agent confusion:
-  bd hooks uninstall                 # Remove git hooks
-  bd setup claude --remove           # Remove Claude Code hooks
-  bd setup <editor> --remove         # cursor, codex, etc.
+⚠  Beads directory detected alongside tbd
+   This may cause confusion for AI agents.
+   Run tbd setup beads --disable for migration options
+...
 ? 0
 ```
 

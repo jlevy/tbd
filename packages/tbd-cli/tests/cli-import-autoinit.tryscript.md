@@ -64,10 +64,14 @@ $ tbd import --from-beads
   Merged:       0
   Skipped:      0
 
-Tip: To disable Beads and prevent agent confusion:
-  bd hooks uninstall                 # Remove git hooks
-  bd setup claude --remove           # Remove Claude Code hooks
-  bd setup <editor> --remove         # cursor, codex, etc.
+tbd v[..]
+
+Repository: [..]
+...
+⚠  Beads directory detected alongside tbd
+   This may cause confusion for AI agents.
+   Run tbd setup beads --disable for migration options
+...
 ? 0
 ```
 
