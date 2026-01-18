@@ -1,15 +1,17 @@
 ---
+close_reason: "Fixed: bootstrap now imports bundled bin.mjs instead of unbundled cli.mjs. Saves ~30ms on startup."
+closed_at: 2026-01-18T06:12:34.775Z
 created_at: 2026-01-18T05:56:07.171Z
 dependencies: []
 id: is-01kf7tskc4r20kjzpkzckzjwng
 kind: bug
 labels: []
 priority: 1
-status: open
+status: closed
 title: Bootstrap loads unbundled cli.mjs instead of bundled bin.mjs
 type: is
-updated_at: 2026-01-18T05:56:24.050Z
-version: 2
+updated_at: 2026-01-18T06:12:34.776Z
+version: 3
 ---
 ## Problem
 
