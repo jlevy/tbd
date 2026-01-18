@@ -1,0 +1,33 @@
+---
+created_at: 2026-01-18T01:22:05.198Z
+dependencies: []
+id: is-01kf7b3trfp2yrb75ggkmnqjyc
+kind: task
+labels: []
+priority: 2
+status: open
+title: Auto-format markdown with Flowmark instead of ESLint
+type: is
+updated_at: 2026-01-18T01:22:28.055Z
+version: 2
+---
+Switch markdown formatting from ESLint to Flowmark for better markdown-specific formatting.
+
+## Tasks
+
+- Remove markdown file handling from ESLint configuration
+- Add Flowmark formatting script/command
+- Update pre-commit hooks or lint scripts to use Flowmark for .md files
+
+## Implementation
+
+Format command:
+find README.md docs -name "*.md" -type f | xargs uvx flowmark@latest --auto
+
+ESLint changes:
+- Exclude *.md files from ESLint processing
+- Remove any markdown-related ESLint plugins if present
+
+## Rationale
+
+Flowmark is purpose-built for markdown formatting and handles line wrapping, reflowing, consistent list formatting, proper spacing around headings, and smart quote handling. ESLint is designed for JavaScript/TypeScript, not prose documents.
