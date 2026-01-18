@@ -43,6 +43,34 @@ Create a comprehensive CLI UI design system that:
 5. **Creates guidelines** for error messages, success messages, and progress
 6. **Reviews existing commands** for compliance and fixes inconsistencies
 
+## Subtasks for Implementation
+
+Each subtask below is designed to be a separate issue/bead:
+
+**Phase 2: OutputManager Enhancements**
+1. OutputManager output level methods (notice, warn, info, debug, command)
+2. OutputManager helper methods (table, list, count)
+3. Define icon constants (success, error, warning, notice, status icons)
+4. Create priority utilities (`lib/priority.ts`)
+5. Create status utilities (`lib/status.ts`)
+6. Create truncation utility (`lib/truncate.ts`)
+7. Create issue formatting utilities (`cli/lib/issueFormat.ts`)
+8. Add `--long` flag to commands (list, ready, blocked)
+9. Migrate commands to use formatPriority/formatStatus
+10. Migrate commands to use issue formatting utilities
+
+**Phase 3: Sync Output Improvements**
+11. Implement sync progress indicator
+12. Implement sync summary tallies
+13. Debug mode git log output
+
+**Phase 4: Command Audit**
+14. Audit commands for design system compliance
+
+**Phase 5: Testing**
+15. Output mode testing
+16. Message format testing
+
 ## Backward Compatibility
 
 ### CLI Output Compatibility
@@ -350,6 +378,41 @@ Blocked by:
   bd-a1b2 ● Fix authentication timeout
 ```
 
+**Extended Line (with Assignee):**
+For detailed views showing assignee information:
+```
+{ID}  {PRI}  {STATUS}  {ASSIGNEE}  {KIND} {TITLE}
+```
+
+| Column | Width | Format | Color |
+| --- | --- | --- | --- |
+| ASSIGNEE | 10 chars | @username or - | Default |
+
+**Example:**
+```
+ID          PRI  STATUS           ASSIGNEE    TITLE
+bd-a1b2     P0   ● blocked        @alice      [bug] Fix authentication timeout
+bd-c3d4     P1   ◐ in_progress    @bob        [feature] Add dark mode support
+```
+
+**Issue Line with Labels:**
+When labels are relevant (search results, filtered views):
+```
+{ID}  {PRI}  {STATUS}  {KIND} {TITLE}  [{LABELS}]
+```
+
+**Example:**
+```
+bd-a1b2     P0   ● blocked        [bug] Fix auth timeout  [urgent, security]
+bd-c3d4     P1   ◐ in_progress    [feature] Add dark mode  [ui]
+```
+
+**Rules:**
+- Labels in square brackets, comma-separated
+- Labels in magenta (`label`) color
+- Only show if issue has labels
+- Labels appear AFTER title (kind prefix appears BEFORE title)
+
 **Long Format (`--long`):**
 Shows description on second line, indented 6 spaces, dim color, max 2 lines.
 Truncated with Unicode ellipsis `…` (U+2026):
@@ -357,6 +420,25 @@ Truncated with Unicode ellipsis `…` (U+2026):
 bd-a1b2     P0   ● blocked        [bug] Fix authentication timeout
       Users report 30s delays when logging in. Investigate connection
       pooling and add retry logic with exponential backoff…
+```
+
+**Long Format with Labels:**
+```
+bd-a1b2     P0   ● blocked        [bug] Fix auth timeout  [urgent, security]
+      Users report 30s delays when logging in. Investigate connection…
+```
+
+**Long Format with Tree View (`--long --pretty`):**
+```
+bd-f14c  P2  ○ open  [feature] Add OAuth support
+      Implement OAuth 2.0 flow with support for Google, GitHub, and
+      custom OIDC providers. Should handle token refresh…
+├── bd-c3d4  P2  ● blocked  [task] Write OAuth tests
+│       Need comprehensive test coverage for token exchange, refresh,
+│       and error handling scenarios…
+└── bd-e5f6  P2  ○ open  [task] Update OAuth docs
+        Document OAuth configuration options and provide examples for
+        each supported provider…
 ```
 
 **Inline Reference (messages):**
@@ -378,14 +460,16 @@ bd-a1b2     P0   ● blocked        [bug] Fix authentication timeout
 - `truncateMiddle()` - Truncate from middle (for paths/IDs)
 
 *Issue formatting* (in `cli/lib/issueFormat.ts`):
-- `formatKind()` - Format kind in brackets
+- `ISSUE_COLUMNS` - Column width constants (ID=12, PRI=5, STATUS=16, ASSIGNEE=10)
+- `formatKind()` - Format kind in brackets `[bug]`, `[feature]`, etc.
 - `formatIssueLine()` - Standard table row (includes kind)
+- `formatIssueLineExtended()` - Extended format with assignee
+- `formatIssueWithLabels()` - Format with trailing labels
 - `formatIssueCompact()` - Compact reference (no kind)
 - `formatIssueInline()` - Inline mention (no kind)
 - `formatIssueLong()` - Long format with description (uses truncate)
-- `formatIssueHeader()` - Table header
-- `wrapDescription()` - Word-wrap description text (uses truncate)
-- `ISSUE_COLUMNS` - Column width constants
+- `formatIssueHeader()` - Table header row
+- `wrapDescription()` - Word-wrap description text (6-space indent, max 2 lines)
 
 ### 2.5 Verbose vs Debug Mode
 
@@ -632,48 +716,73 @@ data<T>(data: T, textFormatter?: (data: T) => void): void {
 
 #### 2.2 Implementation Tasks
 
+Tasks are organized into subtasks that can each become a separate issue/bead.
+
+**Subtask: OutputManager output level methods**
 - [ ] Add `notice()` method - blue bullet, shown at default level
 - [ ] Update `warn()` to respect `--quiet` flag
 - [ ] Update `info()` to require `--verbose` (not default)
 - [ ] Update `debug()` to require `--debug` only (not `--verbose`)
 - [ ] Add `command()` method for external command display
-- [ ] Define icon constants (SUCCESS_ICON, ERROR_ICON, WARN_ICON, NOTICE_ICON)
-- [ ] Extract `getStatusColor()` to OutputManager
-- [ ] Extract `getPriorityColor()` to OutputManager
+
+**Subtask: OutputManager helper methods**
 - [ ] Add `table()` method for consistent table output
 - [ ] Add `list()` method for consistent list output
 - [ ] Add `count()` method for consistent count output
+
+**Subtask: Define icon constants**
+- [ ] Define icon constants in OutputManager (SUCCESS_ICON, ERROR_ICON, WARN_ICON,
+  NOTICE_ICON)
+- [ ] Define status icon constants (OPEN_ICON, IN_PROGRESS_ICON, BLOCKED_ICON, CLOSED_ICON)
+
+**Subtask: Create priority utilities (`lib/priority.ts`)**
 - [ ] Create `formatPriority()` utility for P0/P1/P2 display format
-- [ ] Create `parsePriority()` utility accepting “P1” or “1” input
+- [ ] Create `parsePriority()` utility accepting "P1" or "1" input
+- [ ] Create `getPriorityColor()` utility
+- [ ] Unit tests for priority utilities
+
+**Subtask: Create status utilities (`lib/status.ts`)**
 - [ ] Create `formatStatus()` utility for icon + word format (e.g., `● blocked`)
 - [ ] Create `getStatusIcon()` utility for status icons
-- [ ] Update all commands to use `formatPriority()` for display
-- [ ] Update all commands to use `formatStatus()` for display
-- [ ] Create `lib/truncate.ts` - standalone text truncation utility:
-  - [ ] `ELLIPSIS` constant (`…` U+2026) - never use `...`
-  - [ ] `truncate(text, maxLength, options?)` - truncate with word boundary support
-  - [ ] `truncateMiddle(text, maxLength)` - truncate from middle (for paths/IDs)
-  - [ ] Unit tests for all edge cases (empty, exact length, unicode, etc.)
-- [ ] Create `cli/lib/issueFormat.ts` with shared issue line formatting utilities:
-  - [ ] `ISSUE_COLUMNS` constants (ID=12, PRIORITY=5, STATUS=16, ASSIGNEE=10)
-  - [ ] `formatKind()` - Format kind in brackets `[bug]`, `[feature]`, etc.
-  - [ ] `formatIssueLine()` - Standard table row with `[kind]` prefix on title
-  - [ ] `formatIssueCompact()` - Compact reference format (ID + icon + title, no kind)
-  - [ ] `formatIssueInline()` - Inline mention format (ID + title in parens, no kind)
-  - [ ] `formatIssueHeader()` - Table header row
-  - [ ] `formatIssueLineExtended()` - Extended format with assignee
-  - [ ] `formatIssueLong()` - Long format with wrapped description on 2nd line
-  - [ ] `wrapDescription()` - Word-wrap description text (6-space indent, max 2 lines)
+- [ ] Create `getStatusColor()` utility
+- [ ] Unit tests for status utilities
+
+**Subtask: Create truncation utility (`lib/truncate.ts`)**
+- [ ] `ELLIPSIS` constant (`…` U+2026) - never use `...`
+- [ ] `truncate(text, maxLength, options?)` - truncate with word boundary support
+- [ ] `truncateMiddle(text, maxLength)` - truncate from middle (for paths/IDs)
+- [ ] Unit tests for all edge cases (empty, exact length, unicode, etc.)
+
+**Subtask: Create issue formatting utilities (`cli/lib/issueFormat.ts`)**
+- [ ] `ISSUE_COLUMNS` constants (ID=12, PRIORITY=5, STATUS=16, ASSIGNEE=10)
+- [ ] `formatKind()` - Format kind in brackets `[bug]`, `[feature]`, etc.
+- [ ] `formatIssueLine()` - Standard table row with `[kind]` prefix on title
+- [ ] `formatIssueLineExtended()` - Extended format with assignee
+- [ ] `formatIssueWithLabels()` - Format with trailing labels in magenta
+- [ ] `formatIssueCompact()` - Compact reference format (ID + icon + title, no kind)
+- [ ] `formatIssueInline()` - Inline mention format (ID + title in parens, no kind)
+- [ ] `formatIssueHeader()` - Table header row
+- [ ] `formatIssueLong()` - Long format with wrapped description on 2nd line
+- [ ] `wrapDescription()` - Word-wrap description text (6-space indent, max 2 lines)
+- [ ] Unit tests for issue formatting utilities
+
+**Subtask: Add `--long` flag to commands**
 - [ ] Add `--long` flag to `list` command for showing descriptions
 - [ ] Add `--long` flag to `ready` command for showing descriptions
 - [ ] Add `--long` flag to `blocked` command for showing descriptions
+- [ ] Ensure `--long` works with `--pretty` tree view (proper indentation)
+
+**Subtask: Migrate commands to use formatPriority/formatStatus**
+- [ ] Update all commands to use `formatPriority()` for display
+- [ ] Update all commands to use `formatStatus()` for display
+
+**Subtask: Migrate commands to use issue formatting utilities**
 - [ ] Update `list.ts` to use `formatIssueLine()` and `formatIssueHeader()`
 - [ ] Update `show.ts` to use issue formatting utilities for dependencies
 - [ ] Update `ready.ts` to use `formatIssueLine()`
 - [ ] Update `blocked.ts` to use `formatIssueLine()` and `formatIssueCompact()`
 - [ ] Update `search.ts` to use `formatIssueLine()`
 - [ ] Update success/notice messages to use `formatIssueInline()` consistently
-- [ ] Ensure `--long` works with `--pretty` tree view (proper indentation)
 
 #### 2.3 API Design Principles
 
@@ -685,16 +794,22 @@ data<T>(data: T, textFormatter?: (data: T) => void): void {
 
 ### Phase 3: Sync Output Improvements
 
+**Subtask: Implement sync progress indicator**
 - [ ] Add immediate spinner when sync starts (no silent waiting)
+- [ ] Update all commands with auto-sync to show sync progress
+
+**Subtask: Implement sync summary tallies**
 - [ ] Track new/updated/deleted counts during sync
 - [ ] Implement `formatSyncSummary()` for consistent sync messages
 - [ ] Update `sync.ts` to use new summary format
-- [ ] Update all commands with auto-sync to show sync progress
 - [ ] Add sync tallies to JSON output format
+
+**Subtask: Debug mode git log output**
 - [ ] Show git log --stat in debug mode after push/pull operations
 
 ### Phase 4: Command Audit and Fixes
 
+**Subtask: Audit commands for design system compliance**
 - [ ] Audit `list.ts` for compliance
 - [ ] Audit `show.ts` for compliance
 - [ ] Audit `doctor.ts` for compliance
@@ -708,10 +823,13 @@ data<T>(data: T, textFormatter?: (data: T) => void): void {
 
 ### Phase 5: Testing and Validation
 
+**Subtask: Output mode testing**
 - [ ] Verify all output modes work correctly
 - [ ] Test color output with `--color=always|never|auto`
 - [ ] Verify JSON output is valid JSON
 - [ ] Test verbose and debug modes show appropriate info
+
+**Subtask: Message format testing**
 - [ ] Verify error messages follow guidelines
 - [ ] Test sync progress visibility (spinner appears immediately)
 - [ ] Verify sync summaries show accurate tallies
@@ -731,7 +849,7 @@ data<T>(data: T, textFormatter?: (data: T) => void): void {
 7. Priorities always display as P0-P4 (never raw numbers)
 8. Icons used consistently: ✓ for success, ✗ for error, ⚠ for warning
 9. Status always displays with icon + word (○ open, ◐ in_progress, ● blocked, ✓ closed)
-10. Kind always displayed in brackets with dim color: `[bug]`, `[feature]`, `[task]`, `[epic]`
+10. Kind always displayed in brackets with dim color: `[bug]`, `[feature]`, `[task]`, `[epic]`, `[chore]`
 11. Kind shown as prefix to title in standard format, omitted in compact/inline formats
 12. `--long` mode shows wrapped description on second line (6-space indent, max 2 lines)
 13. `--long` works correctly with `--pretty` tree view
