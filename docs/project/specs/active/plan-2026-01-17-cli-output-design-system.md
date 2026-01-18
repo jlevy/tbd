@@ -125,12 +125,12 @@ Create a comprehensive CLI UI design system that:
    `output.debug()`
 3. **Table formatting**: No standard table renderer; ad-hoc padding in each command
 4. **ID display**: Mix of internal and display IDs without clear convention
-5. **Empty state messages**: Inconsistent wording ("No issues found" vs "No results")
-6. **Count suffixes**: Mix of "issue(s)" and "issues" pluralization
+5. **Empty state messages**: Inconsistent wording ("No issues found" vs “No results”)
+6. **Count suffixes**: Mix of “issue(s)” and “issues” pluralization
 7. **Priority display**: Raw numbers (0, 1, 2) instead of P0, P1, P2 format
 8. **Icon usage**: Need to verify consistent use of ✓/✗/⚠ across all commands
 9. **Sync feedback**: No immediate progress indicator when sync starts
-10. **Sync summaries**: "pulled/pushed" counts unclear (should show new/updated/deleted)
+10. **Sync summaries**: “pulled/pushed” counts unclear (should show new/updated/deleted)
 
 * * *
 
@@ -140,17 +140,75 @@ Create a comprehensive CLI UI design system that:
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│  --quiet              Only errors and warnings (stderr)         │
+│  --quiet              Only errors + data (nothing else)         │
 ├─────────────────────────────────────────────────────────────────┤
-│  (default)            + Success, info, data output              │
+│  (default)            + warnings, notices, success messages     │
 ├─────────────────────────────────────────────────────────────────┤
-│  --verbose            + Verbose messages (operations, timing)   │
+│  --verbose            + info messages (operations, progress)    │
 ├─────────────────────────────────────────────────────────────────┤
-│  --debug              + Debug messages (internal state, IDs)    │
+│  --debug              + debug messages (internal state, IDs)    │
 └─────────────────────────────────────────────────────────────────┘
 
 --json mode: Data as JSON, warnings/errors as JSON to stderr
 ```
+
+### 2.1.1 Output Level Definitions and Formatting
+
+Each output level has a specific icon, color, prefix format, and channel:
+
+| Level | Icon | Color | Prefix | Channel | Purpose |
+| --- | --- | --- | --- | --- | --- |
+| **error** | `✗` | Red | `✗ {message}` | stderr | Failures that stop operation |
+| **warning** | `⚠` | Yellow | `⚠ {message}` | stderr | Issues that didn't stop operation |
+| **notice** | `•` | Blue | `• {message}` | stdout | Noteworthy events during normal operation |
+| **success** | `✓` | Green | `✓ {message}` | stdout | Confirmation of completed actions |
+| **info** | (none) | Dim | `{message}` | stderr | Operational progress (verbose only) |
+| **command** | `>` | Dim | `> {command}` | stderr | External commands being run (verbose only) |
+| **debug** | (none) | Dim | `[debug] {message}` | stderr | Internal state (debug only) |
+| **data** | (none) | (varies) | (none) | stdout | Primary output (tables, details) |
+
+**Exact appearance examples:**
+
+```
+✗ Issue not found: bd-xyz                    # error - red
+⚠ Remote branch not found                    # warning - yellow
+• Issue doesn't exist remotely - kept local  # notice - blue
+✓ Created issue bd-a1b2                      # success - green
+Syncing with remote...                       # info - dim (verbose only)
+> git fetch origin tbd-sync                  # command - dim (verbose only)
+[debug] Resolved bd-a1b2 → is-01hx...        # debug - dim (debug only)
+```
+
+**Icon rules:**
+
+- `✓` (U+2713) - Success only, always green
+- `✗` (U+2717) - Error only, always red
+- `⚠` (U+26A0) - Warning only, always yellow
+- `•` (U+2022) - Notice only, always blue
+- `>` - Command prefix only, always dim
+- Never use alternative characters (`✔`, `√`, `×`, `!`, etc.)
+- Icon always followed by single space before message
+
+### 2.1.2 Level Visibility Matrix
+
+| Level | Method | Channel | `--quiet` | Default | `--verbose` | `--debug` |
+| --- | --- | --- | --- | --- | --- | --- |
+| error | `error()` | stderr | ✓ | ✓ | ✓ | ✓ |
+| data | `data()` | stdout | ✓ | ✓ | ✓ | ✓ |
+| warning | `warn()` | stderr | — | ✓ | ✓ | ✓ |
+| notice | `notice()` | stdout | — | ✓ | ✓ | ✓ |
+| success | `success()` | stdout | — | ✓ | ✓ | ✓ |
+| info | `info()` | stderr | — | — | ✓ | ✓ |
+| command | `command()` | stderr | — | — | ✓ | ✓ |
+| debug | `debug()` | stderr | — | — | — | ✓ |
+
+**Key design decisions:**
+
+1. **`--quiet` suppresses warnings** - Only errors and data are truly critical
+2. **`notice` is a new level** - For noteworthy-but-not-warning events shown at default
+3. **`info` requires `--verbose`** - Operational progress is opt-in, not default
+4. **`debug` requires `--debug`** - Currently shows with `--verbose` too; should be
+   separate
 
 ### 2.2 Output Channel Rules
 
@@ -360,15 +418,14 @@ $ tbd update bd-a1b2 --status=closed
 **Summary rules:**
 - Omit zero counts
 - Order: new → updated → deleted
-- Use "Already in sync" when nothing changed
+- Use “Already in sync” when nothing changed
 
 **Technical implementation notes:**
 - Track issue state before/after sync to compute accurate tallies
 - Compare local worktree state vs remote to determine new/updated/deleted
 - Store issue hashes or versions to detect modifications vs additions
 
-**Debug mode git log:**
-In `--debug` mode, show `git log --stat` for synced commits:
+**Debug mode git log:** In `--debug` mode, show `git log --stat` for synced commits:
 ```bash
 $ tbd sync --debug
 ⠋ Syncing with remote...
@@ -419,17 +476,99 @@ Implementation:
 
 ### Phase 2: OutputManager Enhancements
 
+#### 2.1 New Output Level Methods
+
+The OutputManager API must enforce consistent formatting.
+Each method handles its own icon, color, and visibility rules internally - callers just
+pass the message.
+
+```typescript
+// output.ts - OutputManager class
+
+// Icons (private constants)
+private static readonly ICONS = {
+  SUCCESS: '✓',  // U+2713
+  ERROR: '✗',    // U+2717
+  WARNING: '⚠',  // U+26A0
+  NOTICE: '•',   // U+2022
+} as const;
+
+// error() - Always shown, red, stderr
+error(message: string, err?: Error): void {
+  // ✗ {message} - red
+  // Shows stack trace in verbose mode
+}
+
+// warn() - Default+, yellow, stderr (suppressed by --quiet)
+warn(message: string): void {
+  if (this.ctx.quiet) return;
+  // ⚠ {message} - yellow
+}
+
+// notice() - NEW - Default+, blue, stdout (suppressed by --quiet)
+notice(message: string): void {
+  if (this.ctx.quiet || this.ctx.json) return;
+  // • {message} - blue
+}
+
+// success() - Default+, green, stdout (suppressed by --quiet)
+success(message: string): void {
+  if (this.ctx.quiet || this.ctx.json) return;
+  // ✓ {message} - green
+}
+
+// info() - Verbose+, dim, stderr (requires --verbose or --debug)
+info(message: string): void {
+  if (!this.ctx.verbose && !this.ctx.debug) return;
+  if (this.ctx.json) return;
+  // {message} - dim (no prefix)
+}
+
+// command() - Verbose+, dim, stderr (requires --verbose or --debug)
+command(cmd: string, args: string[]): void {
+  if (!this.ctx.verbose && !this.ctx.debug) return;
+  if (this.ctx.json) return;
+  // > {cmd} {args...} - dim
+}
+
+// debug() - Debug only, dim, stderr (requires --debug, NOT --verbose)
+debug(message: string): void {
+  if (!this.ctx.debug) return;  // Changed: verbose no longer triggers debug
+  if (this.ctx.json) return;
+  // [debug] {message} - dim
+}
+
+// data() - Always shown, stdout
+data<T>(data: T, textFormatter?: (data: T) => void): void {
+  // JSON mode: JSON.stringify
+  // Text mode: call formatter
+}
+```
+
+#### 2.2 Implementation Tasks
+
+- [ ] Add `notice()` method - blue bullet, shown at default level
+- [ ] Update `warn()` to respect `--quiet` flag
+- [ ] Update `info()` to require `--verbose` (not default)
+- [ ] Update `debug()` to require `--debug` only (not `--verbose`)
+- [ ] Add `command()` method for external command display
+- [ ] Define icon constants (SUCCESS_ICON, ERROR_ICON, WARN_ICON, NOTICE_ICON)
 - [ ] Extract `getStatusColor()` to OutputManager
 - [ ] Extract `getPriorityColor()` to OutputManager
-- [ ] Add `command()` method for external command display in verbose mode
 - [ ] Add `table()` method for consistent table output
 - [ ] Add `list()` method for consistent list output
 - [ ] Add `count()` method for consistent count output
-- [ ] Add `verbose()` method (separate from debug)
 - [ ] Create `formatPriority()` utility for P0/P1/P2 display format
-- [ ] Create `parsePriority()` utility accepting "P1" or "1" input
+- [ ] Create `parsePriority()` utility accepting “P1” or “1” input
 - [ ] Update all commands to use `formatPriority()` for display
-- [ ] Define icon constants (SUCCESS_ICON, ERROR_ICON, WARN_ICON)
+
+#### 2.3 API Design Principles
+
+1. **Callers never format icons** - Methods add their own prefix
+2. **Callers never check verbosity** - Methods handle visibility internally
+3. **Callers never choose colors** - Methods apply semantic colors consistently
+4. **One method per level** - No overloading, no optional “level” parameters
+5. **Fail-safe defaults** - If uncertain, show more rather than less
 
 ### Phase 3: Sync Output Improvements
 
@@ -479,7 +618,7 @@ Implementation:
 7. Priorities always display as P0-P4 (never raw numbers)
 8. Icons used consistently: ✓ for success, ✗ for error, ⚠ for warning
 9. Sync operations show immediate progress (spinner before any delay)
-10. Sync summaries show new/updated/deleted tallies (not vague "pushed/pulled")
+10. Sync summaries show new/updated/deleted tallies (not vague “pushed/pulled”)
 
 **Testing Approach:**
 

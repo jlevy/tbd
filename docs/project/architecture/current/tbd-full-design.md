@@ -3509,35 +3509,53 @@ even at scale.
 
 ### 6.3 Migration Path
 
-**Beads → tbd migration checklist:**
+**Beads → tbd migration workflow:**
 
-1. ✅ Export Beads data: `bd export > backup.jsonl`
+```bash
+# 1. Final Beads sync (stop daemon first)
+bd sync
 
-2. ✅ Initialize tbd: `tbd init`
+# 2. Import issues to tbd (auto-initializes if needed)
+tbd import --from-beads --verbose
 
-3. ✅ Import: `tbd import backup.jsonl`
+# 3. Disable Beads (moves files to .beads-disabled/)
+tbd beads --disable                     # Preview what will be moved
+tbd beads --disable --confirm           # Actually disable
 
-4. ✅ Verify: `tbd list --json | wc -l` matches Beads count
+# 4. Install tbd integrations
+tbd setup claude                        # Claude Code hooks
+tbd setup cursor                        # Cursor rules (optional)
+tbd setup codex                         # AGENTS.md (optional)
 
-5. ✅ Configure display: `tbd config display.id_prefix bd`
+# 5. Verify and commit
+tbd stats
+git add .tbd/ && git commit -m "Migrate from Beads to tbd"
+git push origin tbd-sync
+```
 
-6. ✅ Test workflows: create, update, sync
+**What `tbd beads --disable` does:**
 
-7. ✅ Commit config: `git add .tbd/ && git commit`
+The command safely moves all Beads files to `.beads-disabled/` for potential rollback:
 
-8. ✅ Sync team: `git push origin tbd-sync`
+| Source | Destination | Description |
+| --- | --- | --- |
+| `.beads/` | `.beads-disabled/beads/` | Beads data and config |
+| `.beads-hooks/` | `.beads-disabled/beads-hooks/` | Beads git hooks |
+| `.cursor/rules/beads.mdc` | `.beads-disabled/cursor-rules-beads.mdc` | Cursor rules |
+| `.claude/settings.local.json` | `.beads-disabled/claude-settings.local.json` | Backup (bd hooks removed) |
+| `AGENTS.md` | `.beads-disabled/AGENTS.md.backup` | Backup (Beads section removed) |
 
-9. ✅ Update docs: Replace `bd` with `tbd` in scripts (or keep `bd` alias)
+To restore Beads, move files back from `.beads-disabled/`.
 
-**Gradual rollout:**
+**Gradual rollout alternative:**
 
-- Keep Beads running alongside tbd initially
+- Keep Beads running alongside tbd initially (don't run `tbd beads --disable`)
 
 - Compare outputs (`bd list` vs `tbd list`)
 
 - Migrate one team/agent at a time
 
-- Full cutover when confident
+- Run `tbd beads --disable --confirm` for full cutover when confident
 
 ### 6.4 Installation and Agent Integration
 

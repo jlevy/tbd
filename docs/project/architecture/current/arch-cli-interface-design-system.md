@@ -40,37 +40,83 @@ tbd supports multiple output modes that can be combined:
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│  --quiet              Only errors and warnings (stderr)         │
+│  --quiet              Only errors + data (nothing else)         │
 ├─────────────────────────────────────────────────────────────────┤
-│  (default)            + Success, info, data output              │
+│  (default)            + warnings, notices, success messages     │
 ├─────────────────────────────────────────────────────────────────┤
-│  --verbose            + Verbose messages (operations, timing)   │
+│  --verbose            + info messages (operations, progress)    │
 ├─────────────────────────────────────────────────────────────────┤
-│  --debug              + Debug messages (internal state, IDs)    │
+│  --debug              + debug messages (internal state, IDs)    │
 └─────────────────────────────────────────────────────────────────┘
 ```
+
+### Output Levels
+
+Each output level has a specific icon, color, prefix format, and channel:
+
+| Level | Icon | Color | Prefix | Channel | Purpose |
+| --- | --- | --- | --- | --- | --- |
+| **error** | `✗` | Red | `✗ {message}` | stderr | Failures that stop operation |
+| **warning** | `⚠` | Yellow | `⚠ {message}` | stderr | Issues that didn't stop operation |
+| **notice** | `•` | Blue | `• {message}` | stdout | Noteworthy events during normal operation |
+| **success** | `✓` | Green | `✓ {message}` | stdout | Confirmation of completed actions |
+| **info** | (none) | Dim | `{message}` | stderr | Operational progress (verbose only) |
+| **command** | `>` | Dim | `> {command}` | stderr | External commands being run (verbose only) |
+| **debug** | (none) | Dim | `[debug] {message}` | stderr | Internal state (debug only) |
+| **data** | (none) | (varies) | (none) | stdout | Primary output (tables, details) |
+
+**Exact appearance examples:**
+
+```
+✗ Issue not found: bd-xyz                    # error - red
+⚠ Remote branch not found                    # warning - yellow
+• Issue doesn't exist remotely - kept local  # notice - blue
+✓ Created issue bd-a1b2                      # success - green
+Syncing with remote...                       # info - dim (verbose only)
+> git fetch origin tbd-sync                  # command - dim (verbose only)
+[debug] Resolved bd-a1b2 → is-01hx...        # debug - dim (debug only)
+```
+
+**Icon rules:**
+
+- `✓` (U+2713) - Success only, always green
+- `✗` (U+2717) - Error only, always red
+- `⚠` (U+26A0) - Warning only, always yellow
+- `•` (U+2022) - Notice only, always blue
+- `>` - Command prefix only, always dim
+- Never use alternative characters (`✔`, `√`, `×`, `!`, etc.)
+- Icon always followed by single space before message
 
 ### Mode Flags
 
 | Flag | Effect |
 | --- | --- |
-| `--quiet` | Suppress success and info messages |
-| `--verbose` | Show operation progress and timing |
-| `--debug` | Show internal IDs, paths, and state |
+| `--quiet` | Only errors and data output |
+| `--verbose` | Show info messages (operations, progress) |
+| `--debug` | Show debug messages (internal state, IDs) |
 | `--json` | Output data as JSON, messages as JSON to stderr |
 | `--color=auto\|always\|never` | Control colorization |
 | `--dry-run` | Show what would happen without doing it |
 
-### Mode Combinations
+### Level Visibility Matrix
 
-| Mode | Data | Success | Info | Warning | Error | Debug |
+| Level | Method | Channel | `--quiet` | Default | `--verbose` | `--debug` |
 | --- | --- | --- | --- | --- | --- | --- |
-| Default | stdout | stdout | stdout | stderr | stderr | - |
-| `--quiet` | stdout | - | - | stderr | stderr | - |
-| `--verbose` | stdout | stdout | stdout | stderr | stderr | stderr |
-| `--debug` | stdout | stdout | stdout | stderr | stderr | stderr |
-| `--json` | JSON | - | - | JSON | JSON | - |
-| `--json --verbose` | JSON | - | - | JSON | JSON | JSON |
+| error | `error()` | stderr | ✓ | ✓ | ✓ | ✓ |
+| data | `data()` | stdout | ✓ | ✓ | ✓ | ✓ |
+| warning | `warn()` | stderr | — | ✓ | ✓ | ✓ |
+| notice | `notice()` | stdout | — | ✓ | ✓ | ✓ |
+| success | `success()` | stdout | — | ✓ | ✓ | ✓ |
+| info | `info()` | stderr | — | — | ✓ | ✓ |
+| command | `command()` | stderr | — | — | ✓ | ✓ |
+| debug | `debug()` | stderr | — | — | — | ✓ |
+
+**Key design decisions:**
+
+1. **`--quiet` suppresses warnings** - Only errors and data are truly critical
+2. **`notice` is for noteworthy events** - Not warnings, but user should see them
+3. **`info` requires `--verbose`** - Operational progress is opt-in, not default
+4. **`debug` requires `--debug`** - Does NOT show with just `--verbose`
 
 ## Output Channels
 
@@ -92,27 +138,33 @@ Progress indicators and debug output go to stderr because:
 
 ### OutputManager Methods
 
+The OutputManager API enforces consistent formatting. Each method handles its own
+icon, color, and visibility rules internally - callers just pass the message.
+
 ```typescript
-// Primary data output - stdout, respects --json
+// Primary data output - stdout, always shown
 output.data(data, textFormatter)
 
-// Success confirmation - stdout, not in json/quiet
-output.success("Created issue bd-a1b2")
-
-// Informational - stdout, not in json/quiet
-output.info("Syncing with remote...")
-
-// Warning - stderr, always shown
-output.warn("Remote branch not found")
-
-// Error - stderr, always shown
+// Error - stderr, always shown (red, ✗ prefix)
 output.error("Failed to read issue", error)
 
-// Debug - stderr, only in verbose/debug mode
-output.debug("Loading 42 issues from cache")
+// Warning - stderr, default+ (yellow, ⚠ prefix, suppressed by --quiet)
+output.warn("Remote branch not found")
 
-// External command - stderr, only in verbose mode
+// Notice - stdout, default+ (blue, • prefix, suppressed by --quiet)
+output.notice("Issue doesn't exist remotely - kept local")
+
+// Success - stdout, default+ (green, ✓ prefix, suppressed by --quiet)
+output.success("Created issue bd-a1b2")
+
+// Info - stderr, verbose+ (dim, no prefix, requires --verbose)
+output.info("Syncing with remote...")
+
+// Command - stderr, verbose+ (dim, > prefix, requires --verbose)
 output.command("git", ["fetch", "origin", "tbd-sync"])
+
+// Debug - stderr, debug only (dim, [debug] prefix, requires --debug)
+output.debug("Loading 42 issues from cache")
 
 // Dry-run indicator - stdout, only in dry-run mode
 output.dryRun("Would create issue", { title: "..." })
@@ -120,6 +172,13 @@ output.dryRun("Would create issue", { title: "..." })
 // Progress spinner - stderr, only in TTY mode
 output.spinner("Syncing...")
 ```
+
+**API Design Principles:**
+
+1. **Callers never format icons** - Methods add their own prefix
+2. **Callers never check verbosity** - Methods handle visibility internally
+3. **Callers never choose colors** - Methods apply semantic colors consistently
+4. **One method per level** - No overloading, no optional "level" parameters
 
 ## Color System
 
@@ -231,41 +290,42 @@ NO_COLOR=1 tbd list
 
 ### Icons and Prefixes
 
-**Standard Icons:**
+**Standard Icons (one per level, never mix):**
 
-| Icon | Meaning | When to Use |
-| --- | --- | --- |
-| `✓` | Success/Complete | Operation completed successfully |
-| `✗` | Error/Failure | Operation failed |
-| `⚠` | Warning/Caution | Non-fatal issue, needs attention |
-| `•` | Bullet/Item | List items |
-| `⠋⠙⠹...` | Progress | Spinner animation for in-progress operations |
+| Icon | Unicode | Color | Level | When to Use |
+| --- | --- | --- | --- | --- |
+| `✓` | U+2713 | Green | success | Operation completed successfully |
+| `✗` | U+2717 | Red | error | Operation failed |
+| `⚠` | U+26A0 | Yellow | warning | Non-fatal issue, needs attention |
+| `•` | U+2022 | Blue | notice | Noteworthy event during normal operation |
+| `⠋⠙⠹...` | Braille | Blue | spinner | Progress animation for in-progress operations |
 
 **Text Prefixes:**
 
-| Prefix | Meaning | When to Use |
-| --- | --- | --- |
-| `[debug]` | Debug info | Internal state in verbose/debug mode |
-| `[DRY-RUN]` | Dry run | Simulated action, no changes made |
-| `>` | Command | External shell command being executed |
+| Prefix | Color | Level | When to Use |
+| --- | --- | --- | --- |
+| `[debug]` | Dim | debug | Internal state (debug mode only) |
+| `[DRY-RUN]` | Yellow | dryRun | Simulated action, no changes made |
+| `>` | Dim | command | External shell command being executed |
 
-**Message Prefixes:**
+**Complete Level Format Reference:**
 
-| Type | Format | Example |
-| --- | --- | --- |
-| Success | `✓ {message}` | `✓ Created issue bd-a1b2` |
-| Error | `✗ {message}` | `✗ Issue not found: bd-xyz` |
-| Warning | `⚠ {message}` | `⚠ Remote branch not found` |
-| Debug | `[debug] {message}` | `[debug] Cache hit for bd-a1b2` |
-| Dry-run | `[DRY-RUN] {message}` | `[DRY-RUN] Would create issue` |
-| Command | `> {command}` | `> git fetch origin tbd-sync` |
+| Level | Format | Color | Example |
+| --- | --- | --- | --- |
+| error | `✗ {message}` | Red | `✗ Issue not found: bd-xyz` |
+| warning | `⚠ {message}` | Yellow | `⚠ Remote branch not found` |
+| notice | `• {message}` | Blue | `• Issue doesn't exist remotely - kept local` |
+| success | `✓ {message}` | Green | `✓ Created issue bd-a1b2` |
+| info | `{message}` | Dim | `Syncing with remote...` |
+| command | `> {command}` | Dim | `> git fetch origin tbd-sync` |
+| debug | `[debug] {message}` | Dim | `[debug] Cache hit for bd-a1b2` |
+| dryRun | `[DRY-RUN] {message}` | Yellow | `[DRY-RUN] Would create issue` |
 
 **Icon Rules:**
-- Always use `✓` for successful completion (green)
-- Always use `✗` for errors (red)
-- Always use `⚠` for warnings (yellow)
-- Never mix icons (e.g., don’t use `✔` or `√` instead of `✓`)
-- Icons appear at start of line, followed by space
+- Each icon belongs to exactly one level - never reuse
+- Always use exact Unicode characters (no alternatives like `✔`, `√`, `×`)
+- Icon/prefix always followed by single space before message
+- Colors are fixed per level - never override
 
 ### Success Messages
 
@@ -309,6 +369,24 @@ Examples:
 ⚠ 3 orphaned dependency reference(s) found
   Run 'tbd doctor --fix' to clean up.
 ```
+
+### Notice Messages
+
+Notices are for noteworthy events that aren't warnings - things the user should know
+about but that don't indicate a problem.
+
+```
+• {Noteworthy event}
+
+Examples:
+• Issue doesn't exist remotely - kept local version
+• Using cached data (last sync 2 hours ago)
+• Skipped 3 issue(s) already up to date
+```
+
+**When to use notice vs warning:**
+- **Notice**: Normal operation, just informing the user
+- **Warning**: Something unexpected that may need attention
 
 ### Debug Messages
 
@@ -751,24 +829,33 @@ Central class for all output operations:
 
 ```typescript
 export class OutputManager {
-  // Primary data output
+  // Icon constants (private)
+  private static readonly ICONS = {
+    SUCCESS: '✓',  // U+2713
+    ERROR: '✗',    // U+2717
+    WARNING: '⚠',  // U+26A0
+    NOTICE: '•',   // U+2022
+  } as const;
+
+  // Always shown
   data<T>(data: T, textFormatter?: (data: T) => void): void
+  error(message: string, err?: Error): void  // ✗ red, stderr
 
-  // Message methods
-  success(message: string): void
-  info(message: string): void
-  warn(message: string): void
-  error(message: string, err?: Error): void
-  debug(message: string): void
+  // Default+ (suppressed by --quiet)
+  warn(message: string): void    // ⚠ yellow, stderr
+  notice(message: string): void  // • blue, stdout (NEW)
+  success(message: string): void // ✓ green, stdout
+
+  // Verbose+ (requires --verbose or --debug)
+  info(message: string): void    // dim, stderr
+  command(cmd: string, args: string[]): void  // > dim, stderr
+
+  // Debug only (requires --debug)
+  debug(message: string): void   // [debug] dim, stderr
+
+  // Other
   dryRun(message: string, details?: object): void
-
-  // Verbose mode
-  command(cmd: string, args: string[]): void  // Show external command being run
-
-  // Progress
   spinner(message: string): Spinner
-
-  // Colors
   getColors(): ColorFunctions
 }
 ```
@@ -846,10 +933,14 @@ export function createColors(colorOption: ColorOption) {
 ### DO: Use OutputManager Methods
 
 ```typescript
-// ✅ CORRECT: Use output methods
-output.success(`Created issue ${colors.id(displayId)}`);
-output.debug(`Resolved ${displayId} -> ${internalId}`);
-output.error('Failed to sync', error);
+// ✅ CORRECT: Use output methods - they handle icons, colors, visibility
+output.error('Failed to sync', error);           // ✗ red, always shown
+output.warn('Remote branch not found');          // ⚠ yellow, default+
+output.notice('Kept local version');             // • blue, default+
+output.success(`Created issue ${displayId}`);    // ✓ green, default+
+output.info('Syncing with remote...');           // dim, verbose+
+output.command('git', ['fetch', 'origin']);      // > dim, verbose+
+output.debug(`Resolved ${displayId}`);           // [debug] dim, debug only
 ```
 
 ### DON’T: Use console Directly
@@ -860,16 +951,19 @@ console.log('Created issue ' + id);
 console.error('[DEBUG] ' + message);
 ```
 
-### DO: Respect Mode Hierarchy
+### DO: Let Methods Handle Visibility
 
 ```typescript
-// ✅ CORRECT: Check modes appropriately
-if (!this.ctx.quiet && !this.ctx.json) {
-  output.info('Syncing...');
-}
+// ✅ CORRECT: Just call the method - it handles visibility internally
+output.notice('Kept local version');  // Suppressed by --quiet automatically
+output.info('Syncing...');            // Only shows with --verbose
+output.debug(`Cache hit for ${id}`);  // Only shows with --debug
 
-// Debug only in verbose/debug mode
-output.debug(`Cache ${hit ? 'hit' : 'miss'} for ${id}`);
+// DON'T check modes manually - the methods do this
+// ❌ WRONG:
+if (!this.ctx.quiet) {
+  output.notice('...');  // Redundant - notice() already checks
+}
 ```
 
 ### DON’T: Mix Output Channels

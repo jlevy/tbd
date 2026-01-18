@@ -54,6 +54,7 @@ Commands:
   claude [options]   Configure Claude Code hooks for tbd integration
   cursor [options]   Create Cursor IDE rules file for tbd integration
   codex [options]    Create/update AGENTS.md for Codex and compatible tools
+  beads [options]    Disable Beads and migrate to tbd
   help [command]     display help for command
 
 For more on tbd, see: https://github.com/jlevy/tbd
