@@ -36,7 +36,7 @@ $ tbd status
 Not a tbd repository.
 
 Detected:
-  ✓ Git repository (main branch)
+  ✓ Git repository
   ✗ Beads not detected
   ✗ tbd not initialized
 
@@ -54,9 +54,6 @@ $ tbd status --json
   "tbd_version": [..],
   "working_directory": [..],
   "git_repository": true,
-  "git_branch": "main",
-  "beads_detected": false,
-  "beads_issue_count": null,
 ...
 }
 ? 0
@@ -68,7 +65,7 @@ $ tbd status --json
 
 # Test: Status detects beads repository
 
-Create a mock beads directory and verify it’s detected.
+Create a mock beads directory and verify it's detected.
 
 ```console
 $ mkdir -p .beads && echo '{"id":"beads-123","title":"Test issue"}' > .beads/issues.jsonl
@@ -80,7 +77,7 @@ $ tbd status
 Not a tbd repository.
 
 Detected:
-  ✓ Git repository (main branch)
+  ✓ Git repository
   ✓ Beads repository (.beads/ with 1 issues)
   ✗ tbd not initialized
 
@@ -114,26 +111,8 @@ tbd v[..]
 
 Repository: [..]
   ✓ Initialized (.tbd/)
-  ✓ Git repository (main)
-
-Sync branch: tbd-sync
-Remote: origin
-ID prefix: bd-
-
-Issues:
-  Ready:       0
-  In progress: 0
-  Open:        0
-  Total:       0
-
-Integrations:
-  ✗ Claude Code hooks (run: tbd setup claude)
-  ✗ Cursor rules (run: tbd setup cursor)
-  ✗ Codex AGENTS.md (run: tbd setup codex)
-
-Worktree: [..] (healthy)
-
-Use 'tbd stats' for detailed issue statistics.
+  ✓ Git repository
+...
 ? 0
 ```
 
@@ -146,12 +125,6 @@ $ tbd status --json
   "tbd_version": [..],
   "working_directory": [..],
   "git_repository": true,
-  "git_branch": "main",
-  "beads_detected": true,
-  "beads_issue_count": 1,
-  "sync_branch": "tbd-sync",
-  "remote": "origin",
-  "display_prefix": "bd",
 ...
 }
 ? 0

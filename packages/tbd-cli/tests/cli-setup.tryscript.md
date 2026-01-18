@@ -145,26 +145,8 @@ tbd v[..]
 
 Repository: [..]
   ✓ Initialized (.tbd/)
-  ✓ Git repository (main)
-
-Sync branch: tbd-sync
-Remote: origin
-ID prefix: bd-
-
-Issues:
-  Ready:       0
-  In progress: 0
-  Open:        0
-  Total:       0
-
-Integrations:
-  ✗ Claude Code hooks (run: tbd setup claude)
-  ✗ Cursor rules (run: tbd setup cursor)
-  ✗ Codex AGENTS.md (run: tbd setup codex)
-
-Worktree: [..] (healthy)
-
-Use 'tbd stats' for detailed issue statistics.
+  ✓ Git repository[..]
+...
 ? 0
 ```
 
@@ -177,8 +159,6 @@ $ tbd status --json
   "tbd_version": [..],
   "working_directory": [..],
   "git_repository": true,
-  "git_branch": "main",
-  "beads_detected": false,
 ...
 }
 ? 0
@@ -232,25 +212,7 @@ tbd v[..]
 Repository: [..]
   ✓ Initialized (.tbd/)
   ✓ Git repository
-
-Sync branch: tbd-sync
-Remote: origin
-ID prefix: bd-
-
-Issues:
-  Ready:       0
-  In progress: 0
-  Open:        0
-  Total:       0
-
-Integrations:
-  ✗ Claude Code hooks (run: tbd setup claude)
-  ✗ Cursor rules (run: tbd setup cursor)
-  ✗ Codex AGENTS.md (run: tbd setup codex)
-
-Worktree: [..] (healthy)
-
-Use 'tbd stats' for detailed issue statistics.
+...
 ? 0
 ```
 
