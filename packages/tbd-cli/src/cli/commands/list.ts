@@ -13,6 +13,7 @@ import type { Issue, IssueStatusType, IssueKindType } from '../../lib/types.js';
 import { listIssues } from '../../file/storage.js';
 import { formatDisplayId, formatDebugId, extractUlidFromInternalId } from '../../lib/ids.js';
 import type { IdMapping } from '../../file/idMapping.js';
+import { resolveToInternalId } from '../../file/idMapping.js';
 import { naturalCompare } from '../../lib/sort.js';
 
 interface ListOptions {
@@ -46,7 +47,7 @@ class ListHandler extends BaseCommand {
     }
 
     // Apply filters
-    issues = this.filterIssues(issues, options);
+    issues = this.filterIssues(issues, options, dataCtx.mapping);
 
     // Sort results (with secondary sort by short ID for stable ordering)
     issues = this.sortIssues(issues, options.sort ?? 'priority', dataCtx.mapping);
@@ -103,7 +104,18 @@ class ListHandler extends BaseCommand {
     });
   }
 
-  private filterIssues(issues: Issue[], options: ListOptions): Issue[] {
+  private filterIssues(issues: Issue[], options: ListOptions, mapping: IdMapping): Issue[] {
+    // Resolve parent filter to internal ID if provided
+    let resolvedParentId: string | undefined;
+    if (options.parent) {
+      try {
+        resolvedParentId = resolveToInternalId(options.parent, mapping);
+      } catch {
+        // If parent ID cannot be resolved, no issues will match
+        return [];
+      }
+    }
+
     return issues.filter((issue) => {
       // By default, exclude closed issues unless --all
       if (!options.all && issue.status === 'closed') {
@@ -141,8 +153,8 @@ class ListHandler extends BaseCommand {
         }
       }
 
-      // Parent filter
-      if (options.parent && issue.parent_id !== options.parent) {
+      // Parent filter (compare resolved internal IDs)
+      if (resolvedParentId && issue.parent_id !== resolvedParentId) {
         return false;
       }
 

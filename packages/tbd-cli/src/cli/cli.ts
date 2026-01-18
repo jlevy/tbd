@@ -145,6 +145,31 @@ function applyColoredHelpToAllCommands(program: Command): void {
 }
 
 /**
+ * Check if --json flag is present in argv.
+ */
+function isJsonMode(): boolean {
+  return process.argv.includes('--json');
+}
+
+/**
+ * Output error in the appropriate format (JSON or text).
+ */
+function outputError(message: string, error?: Error): void {
+  if (isJsonMode()) {
+    const errorObj: { error: string; type?: string; details?: string } = { error: message };
+    if (error instanceof CLIError) {
+      errorObj.type = error.name;
+    }
+    if (error && error.message !== message) {
+      errorObj.details = error.message;
+    }
+    console.error(JSON.stringify(errorObj));
+  } else {
+    console.error(`Error: ${message}`);
+  }
+}
+
+/**
  * Run the CLI. This is the main entry point.
  */
 export async function runCli(): Promise<void> {
@@ -154,11 +179,12 @@ export async function runCli(): Promise<void> {
     await program.parseAsync(process.argv);
   } catch (error) {
     if (error instanceof CLIError) {
-      console.error(`Error: ${error.message}`);
+      outputError(error.message, error);
       process.exit(error.exitCode);
     }
     // Unexpected error
-    console.error('Unexpected error:', error);
+    const message = error instanceof Error ? error.message : String(error);
+    outputError(message, error instanceof Error ? error : undefined);
     process.exit(1);
   }
 }

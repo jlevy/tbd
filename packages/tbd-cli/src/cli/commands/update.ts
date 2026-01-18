@@ -10,12 +10,12 @@ import { readFile } from 'node:fs/promises';
 import { BaseCommand } from '../lib/baseCommand.js';
 import { requireInit, NotFoundError, ValidationError, CLIError } from '../lib/errors.js';
 import { readIssue, writeIssue } from '../../file/storage.js';
-import { normalizeIssueId, formatDisplayId, formatDebugId } from '../../lib/ids.js';
+import { formatDisplayId, formatDebugId } from '../../lib/ids.js';
 import { IssueStatus, IssueKind, Priority } from '../../lib/schemas.js';
 import type { IssueStatusType, IssueKindType, PriorityType } from '../../lib/types.js';
 import { resolveDataSyncDir } from '../../lib/paths.js';
 import { now } from '../../utils/timeUtils.js';
-import { loadIdMapping, resolveToInternalId } from '../../file/idMapping.js';
+import { loadIdMapping, resolveToInternalId, type IdMapping } from '../../file/idMapping.js';
 import { readConfig } from '../../file/config.js';
 
 interface UpdateOptions {
@@ -60,7 +60,7 @@ class UpdateHandler extends BaseCommand {
     }
 
     // Parse and validate options
-    const updates = await this.parseUpdates(options);
+    const updates = await this.parseUpdates(options, mapping);
     if (updates === null) return;
 
     if (this.checkDryRun('Would update issue', { id: internalId, ...updates })) {
@@ -113,7 +113,10 @@ class UpdateHandler extends BaseCommand {
     });
   }
 
-  private async parseUpdates(options: UpdateOptions): Promise<{
+  private async parseUpdates(
+    options: UpdateOptions,
+    mapping: IdMapping,
+  ): Promise<{
     status?: IssueStatusType;
     kind?: IssueKindType;
     priority?: PriorityType;
@@ -194,7 +197,15 @@ class UpdateHandler extends BaseCommand {
     }
 
     if (options.parent !== undefined) {
-      updates.parent_id = options.parent ? normalizeIssueId(options.parent) : null;
+      if (options.parent) {
+        try {
+          updates.parent_id = resolveToInternalId(options.parent, mapping);
+        } catch {
+          throw new ValidationError(`Invalid parent ID: ${options.parent}`);
+        }
+      } else {
+        updates.parent_id = null;
+      }
     }
 
     if (options.addLabel && options.addLabel.length > 0) {

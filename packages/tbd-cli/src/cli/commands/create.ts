@@ -17,6 +17,7 @@ import {
   saveIdMapping,
   generateUniqueShortId,
   addIdMapping,
+  resolveToInternalId,
 } from '../../file/idMapping.js';
 import { IssueKind, Priority } from '../../lib/schemas.js';
 import { resolveDataSyncDir } from '../../lib/paths.js';
@@ -67,27 +68,9 @@ class CreateHandler extends BaseCommand {
     const id = generateInternalId();
     const ulid = extractUlidFromInternalId(id);
 
-    const issue: Issue = {
-      type: 'is',
-      id,
-      version: 1,
-      title: title!,
-      kind,
-      status: 'open',
-      priority,
-      labels: options.label ?? [],
-      dependencies: [],
-      created_at: timestamp,
-      updated_at: timestamp,
-      description: description ?? undefined,
-      assignee: options.assignee ?? undefined,
-      due_date: options.due ?? undefined,
-      deferred_until: options.defer ?? undefined,
-      parent_id: options.parent ?? undefined,
-    };
-
     let shortId: string;
     let prefix: string;
+    let issue: Issue;
     await this.execute(async () => {
       const dataSyncDir = await resolveDataSyncDir();
 
@@ -99,6 +82,35 @@ class CreateHandler extends BaseCommand {
       const mapping = await loadIdMapping(dataSyncDir);
       shortId = generateUniqueShortId(mapping);
       addIdMapping(mapping, ulid, shortId);
+
+      // Resolve parent ID if provided (convert display ID to internal ID)
+      let parentId: string | undefined;
+      if (options.parent) {
+        try {
+          parentId = resolveToInternalId(options.parent, mapping);
+        } catch {
+          throw new ValidationError(`Invalid parent ID: ${options.parent}`);
+        }
+      }
+
+      issue = {
+        type: 'is',
+        id,
+        version: 1,
+        title: title!,
+        kind,
+        status: 'open',
+        priority,
+        labels: options.label ?? [],
+        dependencies: [],
+        created_at: timestamp,
+        updated_at: timestamp,
+        description: description ?? undefined,
+        assignee: options.assignee ?? undefined,
+        due_date: options.due ?? undefined,
+        deferred_until: options.defer ?? undefined,
+        parent_id: parentId,
+      };
 
       // Write both the issue and the mapping
       await writeIssue(dataSyncDir, issue);

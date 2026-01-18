@@ -181,12 +181,12 @@ class DoctorHandler extends BaseCommand {
       await access(join(this.dataSyncDir, 'issues'));
       return { name: 'Issues directory', status: 'ok', path: issuesPath };
     } catch {
+      // No issues directory is normal for a fresh/empty repo
       return {
         name: 'Issues directory',
-        status: 'warn',
-        message: 'not found (may be empty)',
+        status: 'ok',
+        message: 'empty (no issues yet)',
         path: issuesPath,
-        fixable: false,
       };
     }
   }
