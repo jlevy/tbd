@@ -62,7 +62,7 @@ jobs:
         uses: davelosert/vitest-coverage-report-action@v2
         if: always()
         with:
-          working-directory: packages/tbd-cli
+          working-directory: packages/tbd
           json-summary-path: coverage/coverage-summary.json
           json-final-path: coverage/coverage-final.json
           file-coverage-mode: ${{ github.event_name == 'pull_request' && 'changes' || 'all' }}
@@ -85,5 +85,5 @@ jobs:
       - run: pnpm build
 
       - name: Run benchmark
-        working-directory: packages/tbd-cli
+        working-directory: packages/tbd
         run: pnpm bench

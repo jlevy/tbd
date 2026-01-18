@@ -47,7 +47,7 @@ jobs:
         run: |
           # Extract the changelog section for this version
           VERSION="${{ steps.version.outputs.version }}"
-          CHANGELOG=$(awk "/^## ${VERSION//./\\.}$/,/^## [0-9]/" packages/tbd-cli/CHANGELOG.md | head -n -1)
+          CHANGELOG=$(awk "/^## ${VERSION//./\\.}$/,/^## [0-9]/" packages/tbd/CHANGELOG.md | head -n -1)
           if [ -z "$CHANGELOG" ]; then
             CHANGELOG="Release v${VERSION}"
           fi

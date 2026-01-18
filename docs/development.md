@@ -196,7 +196,7 @@ Follow the prompts to describe your change and select the version bump type.
 ```
 tbd/
 ├── packages/
-│   └── tbd-cli/           # Main CLI package
+│   └── tbd/               # Main CLI package
 │       ├── src/
 │       │   ├── index.ts   # Library entry (node-free)
 │       │   ├── cli/       # CLI-specific code

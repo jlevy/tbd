@@ -1,242 +1,207 @@
-# tproj-cli
+# tbd
 
-Git-native issue tracking for AI agents and humans.
+**Git-native issue tracking for AI agents and humans.**
 
-**tbd** (To Be Done) is a CLI tool for tracking issues in git repositories.
-It’s designed as a simpler alternative to [Beads](https://github.com/steveyegge/beads)
-with full CLI compatibility.
+**tbd** (which stands for “To Be Done” or “TypeScript beads,” depending on your
+preference) is a command-line issue tracker that stores issues as files in git.
 
-## Features
+Designed for AI coding agents and humans: simple commands, pretty console and JSON
+output, installs via `npm` and works in almost any agent or sandboxed cloud environment.
 
-- **Git-native**: Uses a dedicated sync branch for coordination data
-- **Human-readable**: Markdown + YAML front matter - directly viewable and editable
-- **File-per-entity**: Each issue is a separate `.md` file for fewer merge conflicts
-- **Searchable**: Hidden worktree enables fast ripgrep/grep search across all issues
-- **Reliable sync**: Hash-based conflict detection with LWW merge
-- **No daemon required**: Simple CLI tool, works everywhere
+tbd is inspired by [Beads](https://github.com/steveyegge/beads) by Steve Yegge.
+I love the power of and am grateful for it!
+Unfortunately, after using it heavily for over a month, I found architectural issues and
+glitches that were too much of a distraction to ignore.
+Things like SQLite WAL errors in Claude Code Cloud, fighting with the daemon modifying
+files in the active working tree, confusing sync algorithms, and merge conflicts.
 
-## Installation
+tbd uses a simpler architecture with (I hope) fewer edge cases and bugs.
+If you want to try it, you can import issues from Beads, preserving issue IDs.
+Internally, everything is Markdown files so you can debug or migrate in the future if
+you wish.
 
-```bash
-npm install -g tproj-cli
-# or
-pnpm add -g tproj-cli
-```
+> [!NOTE]
+> See the design document (`tbd design`) or reference docs (`tbd docs`) for more
+> details.
+
+## Why tbd?
+
+- **Git-native:** Issues live in your repo, synced to a separate, dedicated `tbd-sync`
+  branch. Your code history stays clean—no issue churn polluting your logs.
+- **Agent friendly:** JSON output, non-interactive mode, simple commands that agents
+  understand. Installs itself as a skill in Claude Code.
+- **Markdown + YAML frontmatter:** One file per issue, human-readable and editable.
+  This eliminates most merge conflicts.
+- **Beads alternative:** `tbd` is largely compatible with `bd` at the CLI level.
+  But has no JSONL merge conflicts in git.
+  No daemon modifying your current working tree.
+  No agents confused by error messages about which of several “modes” you’re running in.
+  No SQLite file locking issues on network filesystems (like what is used by Claude Code
+  Cloud).
+- **Future extensions:** By keeping this CLI/API/file layer simple, I think we can more
+  easily build more complex UI and coordination layers on top.
+  (Hope to have more on this soon.)
+
+> [!NOTE]
+> I use *Beads* (capitalized) to refer to the original `bd` tool.
+> In the docs and prompts I sometimes use lowercase “beads” as a generic way to refer to
+> issues in `tbd` or `bd`.
 
 ## Quick Start
 
+**Requirements:**
+- Node.js 20+
+- Git 2.42+ (for orphan worktree support)
+
 ```bash
-# Initialize tbd in your repository
-tbd init
+# Install
+npm install -g @jlevy/tbd@latest
 
-# Create an issue
-tbd create "Fix authentication bug" -t bug -p 1
+# Initialize in your repo
+cd my-project
+tbd init  # New project
+tbd import --from-beads  # Migrate issues from an existing Beads setup
 
-# List all issues
-tbd list
+# Create issues
+tbd create "API returns 500 on malformed input" --type=bug --priority=P1
+tbd create "Add rate limiting to /api/upload" --type=feature
+tbd list --pretty  # View issues
 
-# Show an issue
-tbd show proj-a1b2
+# Find and claim work
+tbd ready                                    # What's available?
+tbd update proj-a7k2 --status=in_progress    # Claim it
 
-# Update an issue
-tbd update proj-a1b2 --status in_progress --assignee alice
-
-# Close an issue
-tbd close proj-a1b2 --reason completed
-
-# Sync with remote
+# Complete and sync
+tbd closing  # Get a reminder of the closing protocol (this is also in the skill docs)
+tbd close proj-a7k2 --reason="Fixed in commit abc123"
 tbd sync
 ```
 
 ## Commands
 
-### Issue Management
+### Core Workflow
 
-| Command | Description |
-| --- | --- |
-| `tbd create <title>` | Create a new issue |
-| `tbd list` | List all issues |
-| `tbd show <id>` | Show issue details |
-| `tbd update <id>` | Update an issue |
-| `tbd close <id>` | Close an issue |
-| `tbd reopen <id>` | Reopen a closed issue |
+```bash
+tbd ready                      # Issues ready to work on (open, unblocked, unassigned)
+tbd list                       # List open issues
+tbd list --all                 # Include closed
+tbd show proj-a7k2             # View issue details
+tbd create "Title" --type=bug  # Create issue (bug/feature/task/epic/chore)
+tbd update proj-a7k2 --status=in_progress
+tbd close proj-a7k2            # Close issue
+tbd sync                       # Sync with remote (auto-commits and pushes issues)
+```
 
-### Workflow
+### Dependencies
 
-| Command | Description |
-| --- | --- |
-| `tbd ready` | List issues ready to work on |
-| `tbd blocked` | List blocked issues |
-| `tbd stale` | List stale issues |
+```bash
+tbd dep add proj-b3m9 proj-a7k2  # b3m9 is blocked by a7k2
+tbd blocked                      # Show blocked issues
+```
 
-### Labels & Dependencies
+### Labels
 
-| Command | Description |
-| --- | --- |
-| `tbd label add <id> <label>` | Add a label |
-| `tbd label remove <id> <label>` | Remove a label |
-| `tbd label list` | List all labels |
-| `tbd dep add <id> <blocker-id>` | Add a dependency |
-| `tbd dep remove <id> <blocker-id>` | Remove a dependency |
-| `tbd dep tree [id]` | Show dependency tree |
+```bash
+tbd label add proj-a7k2 urgent backend
+tbd label remove proj-a7k2 urgent
+tbd label list                   # All labels in use
+```
 
-### Sync & Search
+### Search
 
-| Command | Description |
-| --- | --- |
-| `tbd sync` | Sync with remote |
-| `tbd sync --push` | Push local changes only |
-| `tbd sync --pull` | Pull remote changes only |
-| `tbd sync --status` | Show sync status |
-| `tbd search <query>` | Search issues |
+```bash
+tbd search "authentication"
+tbd search "TODO" --status=open
+```
 
 ### Maintenance
 
-| Command | Description |
-| --- | --- |
-| `tbd status` | Show repository status |
-| `tbd stats` | Show issue statistics |
-| `tbd doctor` | Check repository health |
-| `tbd config [key] [value]` | Get/set configuration |
-
-### Import
-
-| Command | Description |
-| --- | --- |
-| `tbd import <file>` | Import from JSONL file |
-| `tbd import --from-beads` | Import from Beads database |
-
-### Attic
-
-| Command | Description |
-| --- | --- |
-| `tbd attic list` | List attic entries |
-| `tbd attic show <entry>` | Show attic entry |
-| `tbd attic restore <entry>` | Restore from attic |
-
-## Global Options
-
-| Option | Description |
-| --- | --- |
-| `--json` | Output as JSON |
-| `--dry-run` | Show what would be done |
-| `--quiet` | Suppress non-essential output |
-| `--verbose` | Show detailed output |
-
-## Configuration
-
-Configuration is stored in `.tbd/config.yml`:
-
-```yaml
-tbd_version: 1.0.0
-sync:
-  branch: tbd-sync
-  remote: origin
-display:
-  id_prefix: proj            # Required, set during init
-```
-
-### Configuration Options
-
-| Key | Default | Description |
-| --- | --- | --- |
-| `sync.branch` | `tbd-sync` | Branch used for sync |
-| `sync.remote` | `origin` | Git remote for sync |
-| `display.id_prefix` | (required) | Prefix for display IDs |
-
-## Issue File Format
-
-Issues are stored as Markdown files with YAML front matter:
-
-```markdown
----
-type: is
-id: is-01hx5zzkbkactav9wevgemmvrz
-version: 3
-kind: bug
-title: Fix authentication timeout
-status: in_progress
-priority: 1
-assignee: alice
-labels:
-  - backend
-  - security
-created_at: 2025-01-07T10:00:00Z
-updated_at: 2025-01-08T14:30:00Z
----
-
-Users are being logged out after 5 minutes of inactivity.
-
-## Notes
-
-Investigation shows the session TTL is hardcoded.
-```
-
-## Migration from Beads
-
-tbd is designed as a drop-in replacement for core Beads functionality:
-
 ```bash
-# Export from Beads
-beads export > beads-export.jsonl
-
-# Import to tbd
-tbd import beads-export.jsonl
+tbd status                   # Repository status (works before init too)
+tbd stats                    # Issue statistics
+tbd doctor                   # Check for problems
+tbd doctor --fix             # Auto-fix issues
 ```
-
-### Command Mapping
-
-| Beads | tbd |
-| --- | --- |
-| `bd create` | `tbd create` |
-| `bd list` | `tbd list` |
-| `bd show` | `tbd show` |
-| `bd update` | `tbd update` |
-| `bd close` | `tbd close` |
-| `bd sync` | `tbd sync` |
 
 ## For AI Agents
 
-tbd is optimized for AI agent workflows:
+tbd is designed for AI coding agents.
+
+### Agent Workflow Loop
 
 ```bash
-# Get ready issues in JSON format
-tbd ready --json
-
-# Create and assign in one command
-tbd create "Implement feature X" -t feature --assignee agent-1
-
-# Mark as in progress
-tbd update proj-xxxx --status in_progress
-
-# Close when done
-tbd close proj-xxxx --reason completed
-
-# Sync changes
-tbd sync
+tbd ready --json                          # Find work
+tbd update proj-xxxx --status=in_progress # Claim (advisory)
+# ... do the work ...
+tbd close proj-xxxx --reason="Done"       # Complete
+tbd sync                                  # Push
 ```
 
-### Best Practices
+### Agent-Friendly Flags
 
-1. Use `--json` for parsing output programmatically
-2. Use `--dry-run` to preview changes
-3. Sync frequently to avoid conflicts
-4. Use labels for categorization
+| Flag | Purpose |
+| --- | --- |
+| `--json` | Machine-parseable output |
+| `--non-interactive` | Fail if input required |
+| `--yes` | Auto-confirm prompts |
+| `--dry-run` | Preview changes |
+| `--quiet` | Minimal output |
 
-## Architecture
+### Claude Code Integration
 
+```bash
+tbd setup claude             # Install hooks (one-time)
 ```
-.tbd/                    # Config directory (tracked on main)
-  config.yml             # Repository configuration
-  .gitignore             # Ignores cache/local files
 
-.tbd/data-sync/               # Hidden worktree (from tbd-sync branch)
-  issues/                # Issue files
-    is-{ulid}.md
-  mappings/              # ID mappings
-    ids.yml
-  attic/                 # Conflict resolution history
+This runs `tbd prime` at session start, injecting workflow context so the agent
+remembers to use tbd.
+
+### Actor Identity
+
+```bash
+TBD_ACTOR=claude-agent tbd create "Fix bug" --type=bug
 ```
+
+Resolution order: `--actor` flag → `TBD_ACTOR` env → git user.email → system username.
+
+## Documentation
+
+```bash
+tbd readme                   # This file
+tbd docs                     # Full CLI reference
+```
+
+Or read online:
+- [CLI Reference](docs/tbd-docs.md) — Complete command documentation
+- [Design Doc](docs/tbd-design.md) — Technical architecture
+
+## Migration from Beads
+
+```bash
+# One-step migration (auto-initializes tbd, uses beads prefix)
+tbd import --from-beads
+
+# Verify
+tbd stats
+tbd list --all
+
+# If you wish to disable beads, instructions here
+tbd setup beads --disable 
+```
+
+Issue IDs are preserved: `proj-123` in beads becomes `proj-123` in tbd.
+The prefix from your beads configuration is automatically used.
+
+## How It Works
+
+tbd stores issues on a dedicated `tbd-sync` branch, separate from your code.
+One file per issue means parallel creation never conflicts.
+Run `tbd sync` to push changes—no manual git operations needed for issues.
+See the [design doc](docs/tbd-design.md) for details.
+
+## Contributing
+
+See [docs/development.md](docs/development.md) for build and test instructions.
 
 ## License
 

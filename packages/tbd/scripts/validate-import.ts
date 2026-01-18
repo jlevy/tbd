@@ -120,7 +120,7 @@ async function main(): Promise<void> {
 
     // Step 4: Build CLI
     console.log('\nStep 4: Building CLI...');
-    const cliDir = join(tempDir, 'packages', 'tbd-cli');
+    const cliDir = join(tempDir, 'packages', 'tbd');
     const buildResult = await runCommand(cliDir, 'pnpm', ['build'], 'Build');
     results.push({
       step: 'Build CLI',
