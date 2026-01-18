@@ -2565,7 +2565,7 @@ Available on all commands:
 --no-sync                   Disable auto-sync (per command)
 --json                      JSON output
 --color <when>              Colorize output: auto, always, never (default: auto)
---actor <name>              Override actor name
+--actor <name>              Override actor name (not yet implemented)
 --dry-run                   Show what would be done without making changes
 --verbose                   Enable verbose output
 --quiet                     Suppress non-essential output
@@ -2588,12 +2588,16 @@ This follows the same convention as `git`, `ls`, `grep`, and other Unix tools.
 
 **Actor Resolution Order:**
 
+> **Implementation note:** The `--actor` flag and `TBD_ACTOR` environment variable are
+> not yet implemented. Currently, actor defaults to git user.email or system username.
+> Full actor system design is tracked as future work.
+
 The actor name (used for `created_by` and recorded in sync commits) is resolved in this
 order:
 
-1. `--actor <name>` CLI flag (highest priority)
+1. `--actor <name>` CLI flag (highest priority) — *not yet implemented*
 
-2. `TBD_ACTOR` environment variable
+2. `TBD_ACTOR` environment variable — *not yet implemented*
 
 3. Git user.email from git config
 
@@ -4438,7 +4442,7 @@ This is sufficient for the `ready` command algorithm.
 | `--version` | `--version` | ✅ Full | Version info |
 | `--db <path>` | `--db <path>` | ✅ Full | Custom .tbd path |
 | `--no-sync` | `--no-sync` | ✅ Full | Skip auto-sync |
-| `--actor <name>` | `--actor <name>` | ✅ Full | Override actor |
+| `--actor <name>` | `--actor <name>` | 🔄 Future | Override actor |
 | *(n/a)* | `--dry-run` | ✅ tbd | Preview changes |
 | *(n/a)* | `--verbose` | ✅ tbd | Debug output |
 | *(n/a)* | `--quiet` | ✅ tbd | Minimal output |
@@ -4774,7 +4778,49 @@ Currently only `blocks` is supported:
 These items from the design review need further discussion before implementation.
 See `tbd-design-v2-phase1-tracking.md` for full context.
 
-### 8.1 Git Operations
+### 8.1 Actor System Design
+
+**Status:** Partially designed, not implemented.
+
+The actor system tracks who creates and modifies issues. Current implementation status:
+
+**Implemented:**
+- Schema fields: `created_by` and `assignee` exist in IssueSchema
+- CLI option: `--assignee` can be set when creating/updating issues
+- Display: `assignee` shown in list and show commands
+
+**NOT Implemented:**
+- `created_by` field is never populated when creating issues
+- `--actor` CLI flag does not exist
+- `TBD_ACTOR` environment variable not checked
+- No git user.email fallback for actor resolution
+- No system username fallback
+
+**Design Questions:**
+
+1. **Actor vs Assignee distinction:**
+   - `created_by`: Who created the issue (tracked automatically)
+   - `assignee`: Who is working on it (set explicitly)
+   - Should these always use the same resolution?
+
+2. **Multi-agent workflows:**
+   - Should agents be assigned random ULID-based actor IDs?
+   - How should agents claim/release issues?
+   - Is advisory claiming sufficient or do we need atomic claims?
+
+3. **Actor resolution order:**
+   - Design doc specifies: `--actor` > `TBD_ACTOR` > git user.email > username+hostname
+   - Is this order correct? Should git user.name be considered?
+
+4. **Sync commit authorship:**
+   - Should sync commits use the actor name?
+   - How does this interact with git commit signing?
+
+**Recommendation:** Defer full implementation until multi-agent coordination patterns
+are better understood. Current fallback to git user.email is sufficient for single-user
+and simple multi-agent scenarios.
+
+### 8.2 Git Operations
 
 **V2-004: Remote vs local branch reference ambiguity**
 
