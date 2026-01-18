@@ -447,7 +447,6 @@ Real-time coordination is a separate layer.
 | Daemon | Adds failure modes; explicit sync is sufficient for async workflows |
 | Agent Mail | Real-time messaging requires sub-second latency; out of scope |
 | Molecules/Wisps | Workflow orchestration can use tbd as storage backend |
-| SQLite indexes | File scan handles <10K issues; optional index layer planned for larger scale |
 | Real-time claims | Atomic claims require coordination service; advisory claims work for async |
 | `bd edit` | Opens $EDITOR; blocks non-interactive agents |
 
@@ -584,9 +583,6 @@ Tested benchmarks on realistic workloads:
 | Read single issue | 1.2ms | <5ms | Direct file access |
 | Filter 1000 issues | 0.4ms | <50ms | In-memory after load |
 
-For repositories approaching 10K+ issues, consider the future optional SQLite index
-layer.
-
 ## Technical Requirements
 
 - **Node.js**: 18+
@@ -601,7 +597,6 @@ Explicitly deferred to keep initial release simple:
 | --- | --- |
 | Additional dependency types (`related`, `discovered-from`) | Planned |
 | GitHub Issues bidirectional sync | Under consideration |
-| Optional SQLite index layer | For 10K+ issues |
 | Real-time presence/heartbeats | Deferred |
 | TUI/GUI interfaces | Deferred |
 | Workflow automation | Deferred |
