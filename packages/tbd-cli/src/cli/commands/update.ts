@@ -1,7 +1,7 @@
 /**
  * `tbd update` - Update an issue.
  *
- * See: tbd-design-v3.md §4.4 Update
+ * See: tbd-full-design.md §4.4 Update
  */
 
 import { Command } from 'commander';

@@ -1,7 +1,7 @@
 /**
  * `tbd label` - Label management commands.
  *
- * See: tbd-design-v3.md §4.5 Label Commands
+ * See: tbd-full-design.md §4.5 Label Commands
  */
 
 import { Command } from 'commander';

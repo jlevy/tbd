@@ -1,7 +1,7 @@
 /**
  * `tbd list` - List issues.
  *
- * See: tbd-design-v3.md §4.4 List
+ * See: tbd-full-design.md §4.4 List
  */
 
 import { Command } from 'commander';

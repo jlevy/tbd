@@ -1,7 +1,7 @@
 /**
  * `tbd doctor` - Diagnose and repair repository.
  *
- * See: tbd-design-v3.md §4.9 Doctor
+ * See: tbd-full-design.md §4.9 Doctor
  */
 
 import { Command } from 'commander';

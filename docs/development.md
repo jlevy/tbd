@@ -216,7 +216,7 @@ tbd/
 
 ## Architecture
 
-See [tbd-design-v3.md](project/architecture/current/tbd-design-v3.md) for the full
+See [tbd-full-design.md](project/architecture/current/tbd-full-design.md) for the full
 design document.
 
 Key concepts:

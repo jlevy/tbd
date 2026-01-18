@@ -1,7 +1,7 @@
 /**
  * `tbd blocked` - List blocked issues.
  *
- * See: tbd-design-v3.md §4.4 Blocked
+ * See: tbd-full-design.md §4.4 Blocked
  */
 
 import { Command } from 'commander';

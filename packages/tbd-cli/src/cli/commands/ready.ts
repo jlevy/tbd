@@ -1,7 +1,7 @@
 /**
  * `tbd ready` - List issues ready to work on.
  *
- * See: tbd-design-v3.md §4.4 Ready
+ * See: tbd-full-design.md §4.4 Ready
  */
 
 import { Command } from 'commander';

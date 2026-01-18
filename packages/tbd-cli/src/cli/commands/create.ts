@@ -1,7 +1,7 @@
 /**
  * `tbd create` - Create a new issue.
  *
- * See: tbd-design-v3.md §4.4 Create
+ * See: tbd-full-design.md §4.4 Create
  */
 
 import { Command } from 'commander';

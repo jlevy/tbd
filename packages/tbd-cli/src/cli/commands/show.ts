@@ -1,7 +1,7 @@
 /**
  * `tbd show` - Show issue details.
  *
- * See: tbd-design-v3.md §4.4 Show
+ * See: tbd-full-design.md §4.4 Show
  */
 
 import { Command } from 'commander';

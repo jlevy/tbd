@@ -1,7 +1,7 @@
 /**
  * `tbd close` - Close an issue.
  *
- * See: tbd-design-v3.md §4.4 Close
+ * See: tbd-full-design.md §4.4 Close
  */
 
 import { Command } from 'commander';

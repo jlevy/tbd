@@ -7,7 +7,7 @@
  * - Max: Take maximum value (for version)
  * - Immutable: Keep base value
  *
- * See: tbd-design-v3.md §3.4 Conflict Detection and Resolution
+ * See: tbd-full-design.md §3.4 Conflict Detection and Resolution
  */
 
 import { describe, it, expect } from 'vitest';

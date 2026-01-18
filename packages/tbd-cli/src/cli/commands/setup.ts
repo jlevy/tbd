@@ -6,7 +6,7 @@
  * - `tbd setup cursor` - Create Cursor IDE rules file
  * - `tbd setup codex` - Create/update AGENTS.md for Codex
  *
- * See: tbd-design-v3.md §6.4.2 Claude Code Integration
+ * See: tbd-full-design.md §6.4.2 Claude Code Integration
  */
 
 import { Command } from 'commander';

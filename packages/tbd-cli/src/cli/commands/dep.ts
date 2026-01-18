@@ -1,7 +1,7 @@
 /**
  * `tbd dep` - Dependency management commands.
  *
- * See: tbd-design-v3.md §4.6 Dependency Commands
+ * See: tbd-full-design.md §4.6 Dependency Commands
  */
 
 import { Command } from 'commander';

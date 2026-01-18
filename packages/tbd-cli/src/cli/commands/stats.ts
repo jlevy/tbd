@@ -1,7 +1,7 @@
 /**
  * `tbd stats` - Show repository statistics.
  *
- * See: tbd-design-v3.md §4.9 Stats
+ * See: tbd-full-design.md §4.9 Stats
  */
 
 import { Command } from 'commander';
