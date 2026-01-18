@@ -13,6 +13,36 @@ import type { CommandContext, ColorOption } from './context.js';
 import { shouldColorize } from './context.js';
 
 /**
+ * Standard icons for CLI output. Use these constants instead of hardcoded characters.
+ *
+ * Message icons (prefix messages with these):
+ * - SUCCESS_ICON: ✓ for completed operations
+ * - ERROR_ICON: ✗ for failures
+ * - WARN_ICON: ⚠ for warnings
+ * - NOTICE_ICON: • for notices/bullets
+ *
+ * Status icons (show issue status):
+ * - OPEN_ICON: ○ for open issues
+ * - IN_PROGRESS_ICON: ◐ for in-progress issues
+ * - BLOCKED_ICON: ● for blocked issues
+ * - CLOSED_ICON: ✓ for closed issues (same as SUCCESS_ICON)
+ */
+export const ICONS = {
+  // Message icons
+  SUCCESS: '✓', // U+2713
+  ERROR: '✗', // U+2717
+  WARN: '⚠', // U+26A0
+  NOTICE: '•', // U+2022
+
+  // Status icons
+  OPEN: '○', // U+25CB
+  IN_PROGRESS: '◐', // U+25D0
+  BLOCKED: '●', // U+25CF
+  CLOSED: '✓', // U+2713 (same as SUCCESS)
+  DEFERRED: '○', // U+25CB (same as OPEN)
+} as const;
+
+/**
  * Pre-parse argv to determine color setting before Commander parses options.
  * This is needed because help output happens before full option parsing.
  */
@@ -192,7 +222,7 @@ export class OutputManager {
    */
   success(message: string): void {
     if (!this.ctx.json && !this.ctx.quiet) {
-      console.log(this.colors.success(`✓ ${message}`));
+      console.log(this.colors.success(`${ICONS.SUCCESS} ${message}`));
     }
   }
 
@@ -212,7 +242,7 @@ export class OutputManager {
     if (this.ctx.json) {
       console.error(JSON.stringify({ warning: message }));
     } else {
-      console.error(this.colors.warn(`⚠ ${message}`));
+      console.error(this.colors.warn(`${ICONS.WARN} ${message}`));
     }
   }
 
@@ -223,7 +253,7 @@ export class OutputManager {
     if (this.ctx.json) {
       console.error(JSON.stringify({ error: message, details: err?.message }));
     } else {
-      console.error(this.colors.error(`✗ ${message}`));
+      console.error(this.colors.error(`${ICONS.ERROR} ${message}`));
       if (this.ctx.verbose && err?.stack) {
         console.error(this.colors.dim(err.stack));
       }
