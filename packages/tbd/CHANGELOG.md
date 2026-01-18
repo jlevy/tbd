@@ -1,5 +1,13 @@
 # tbd-git
 
+## 0.1.2
+
+### Patch Changes
+
+- Bug fixes, CLI improvements, and documentation updates including redesigned
+  status/stats/doctor commands, improved error handling with proper exit codes, and test
+  infrastructure improvements.
+
 ## 0.1.1
 
 ### Patch Changes
