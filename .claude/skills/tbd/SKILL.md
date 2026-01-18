@@ -5,6 +5,20 @@ allowed-tools: Bash(tbd:*), Read, Write
 ---
 # tbd Workflow
 
+## Installation
+
+If `tbd` is not installed, install it globally:
+
+```bash
+npm install -g tbd-cli@latest
+```
+
+Then initialize in your repository:
+
+```bash
+tbd init
+```
+
 `tbd` provides lightweight, git-native task and issue tracking using beads, which are
 just lightweight issues managed from the CLI.
 
