@@ -132,11 +132,15 @@ for collision-free generation across distributed systems.
 
 ### Sync Mechanism
 
-**Basic flow**:
+**Basic flow** (all handled automatically by `tbd sync`):
 
 1. **Commit local changes**: Stage and commit worktree files to `tbd-sync` branch
-2. **Push to remote**: `git push` to sync branch
+2. **Push to remote**: Push to sync branch
 3. **If push rejected** (remote has changes): fetch, update worktree, re-commit, retry
+
+**Key difference from Beads**: With tbd, you never manually `git push` issue data.
+The `tbd sync` command handles all git operations on the sync branch automatically.
+Your normal `git push` is only for code changes on your working branch.
 
 **Why most syncs are trivial**:
 
@@ -280,7 +284,15 @@ Doesn’t work in containers or sandboxes.
 **tbd**: No daemon. `tbd sync` is explicit and predictable.
 Works in any environment where git works.
 
-#### 3. JSONL Merge Conflicts
+#### 3. Manual Git Operations for Issues
+
+**Beads**: After creating/updating issues, you must manually `git add`, `git commit`,
+and `git push` the JSONL file. Easy to forget, leading to lost work or desync.
+
+**tbd**: `tbd sync` handles everything automatically.
+One command commits and pushes to the sync branch. No manual git operations for issues.
+
+#### 4. JSONL Merge Conflicts
 
 **Beads**: All issues in one `issues.jsonl` file.
 Two agents creating issues simultaneously produce a merge conflict requiring manual
@@ -290,7 +302,7 @@ resolution.
 Parallel creation never conflicts.
 Git handles file-level isolation naturally.
 
-#### 4. SQLite on Network Filesystems
+#### 5. SQLite on Network Filesystems
 
 **Beads**: SQLite has documented issues with NFS and SMB due to file locking semantics.
 Users on network home directories experience corruption or hangs.
@@ -298,7 +310,7 @@ Users on network home directories experience corruption or hangs.
 **tbd**: Atomic file writes (write to temp, rename).
 Works on any filesystem that supports basic POSIX operations.
 
-#### 5. Debug Difficulty
+#### 6. Debug Difficulty
 
 **Beads**: When sync fails, debugging requires: query SQLite, check JSONL, compare
 branches, check daemon logs.
@@ -307,7 +319,7 @@ State is spread across multiple representations.
 **tbd**: Everything is Markdown files.
 `cat`, `grep`, `git log`, `git diff` are all you need.
 
-#### 6. Session Close Protocol Complexity
+#### 7. Session Close Protocol Complexity
 
 **Beads `bd prime`**: 432 lines of Go with 5 conditional code paths:
 1. Stealth/Local-only mode
@@ -363,19 +375,27 @@ Real-time coordination is a separate layer.
 ### Migration Path
 
 ```bash
-# Final Beads sync
+# 1. Final Beads sync
 bd sync
 
-# Import to tbd
+# 2. Import to tbd
 tbd import --from-beads --verbose
 
-# Verify
+# 3. Disable Beads (moves files to .beads-disabled/)
+tbd beads --disable                     # Preview
+tbd beads --disable --confirm           # Execute
+
+# 4. Install tbd integrations
+tbd setup claude                        # Claude Code hooks
+
+# 5. Verify
 tbd stats
 tbd list --all
-
-# Use tbd going forward
-alias bd=tbd  # Optional muscle-memory compatibility
 ```
+
+The `tbd beads --disable` command safely moves all Beads files to `.beads-disabled/`
+including `.beads/`, `.beads-hooks/`, Cursor rules, and removes bd hooks from Claude
+settings. This preserves data for potential rollback.
 
 Import preserves:
 - Issue IDs (numeric portion preserved, prefix from config)

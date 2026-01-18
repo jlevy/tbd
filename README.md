@@ -71,7 +71,7 @@ tbd show proj-a7k2             # View issue details
 tbd create "Title" --type=bug  # Create issue (bug/feature/task/epic/chore)
 tbd update proj-a7k2 --status=in_progress
 tbd close proj-a7k2            # Close issue
-tbd sync                       # Sync with remote
+tbd sync                       # Sync with remote (auto-commits and pushes issues)
 ```
 
 ### Dependencies
@@ -187,9 +187,13 @@ tbd stores issues on a dedicated `tbd-sync` branch, separate from your code:
 ```
 
 **Why a separate branch?**
-- No noisy issue commits
+- No noisy issue commits in your code history
 - No conflicts across main or feature branches
 - Issues shared across all branches
+
+**Automatic sync**: Unlike Beads (where you manually `git add`/`commit`/`push` the JSONL file),
+`tbd sync` handles all git operations automatically. One command commits and pushes issues
+to the sync branch. Your normal `git push` is only for code changes.
 
 **Conflict handling:**
 - Separate issues never conflict since they are separate files.

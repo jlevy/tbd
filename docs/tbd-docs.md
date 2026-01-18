@@ -464,6 +464,28 @@ Options:
 
 * * *
 
+### beads
+
+Beads migration utilities.
+
+```bash
+tbd beads                                   # Show usage
+tbd beads --disable                         # Preview what will be moved
+tbd beads --disable --confirm               # Actually disable Beads
+```
+
+The `--disable` option safely moves all Beads files to `.beads-disabled/`:
+- `.beads/` → `.beads-disabled/beads/`
+- `.beads-hooks/` → `.beads-disabled/beads-hooks/`
+- `.cursor/rules/beads.mdc` → `.beads-disabled/cursor-rules-beads.mdc`
+- Removes `bd` hooks from `.claude/settings.local.json` (with backup)
+- Removes Beads section from `AGENTS.md` (with backup)
+
+This preserves all data for potential rollback. To restore Beads, move files back from
+`.beads-disabled/`.
+
+* * *
+
 ### status
 
 Show repository status.
@@ -600,7 +622,7 @@ TBD_ACTOR=claude-agent tbd create "Fix bug" --type=bug
 Install hooks for automatic context injection:
 
 ```bash
-tbd setup claude --global                   # One-time setup
+tbd setup claude                            # One-time global setup
 ```
 
 This runs `tbd prime` at session start and before context compaction, ensuring the agent
@@ -708,19 +730,34 @@ tbd search "review" --status=open
 ### Migration from Beads
 
 ```bash
-# Stop Beads daemon first
-bd sync  # Final Beads sync
+# 1. Stop Beads daemon and sync
+bd sync                                 # Final Beads sync
 
-# Import to tbd
-tbd import --from-beads --verbose
+# 2. Import issues to tbd (optional, preserves history)
+tbd import --from-beads --verbose       # Import all issues
 
-# Verify import
+# 3. Disable Beads (moves files to .beads-disabled/)
+tbd beads --disable                     # Preview what will be moved
+tbd beads --disable --confirm           # Actually disable Beads
+
+# 4. Install tbd integrations
+tbd setup claude                        # Install Claude Code hooks
+tbd setup cursor                        # Cursor rules (optional)
+tbd setup codex                         # AGENTS.md section (optional)
+
+# 5. Verify migration
 tbd stats
 tbd list --all
-
-# Continue using tbd instead of bd
-alias bd=tbd
 ```
+
+The `tbd beads --disable` command safely moves all Beads files to `.beads-disabled/` for
+potential rollback, including:
+
+- `.beads/` directory (data and config)
+- `.beads-hooks/` directory (git hooks)
+- `.cursor/rules/beads.mdc` (Cursor rules)
+- `bd` hooks from `.claude/settings.local.json`
+- Beads section from `AGENTS.md`
 
 * * *
 
@@ -813,10 +850,15 @@ Commands like `--due` and `--defer` accept flexible date input:
 
 tbd stores issues on a dedicated `tbd-sync` branch, separate from your code branches.
 
+**Fully automatic**: Unlike Beads (where you manually `git add`/`commit`/`push` the JSONL file),
+`tbd sync` handles all git operations on the sync branch automatically. You never need to
+manually push issue data—just run `tbd sync` and it's done.
+
 **Why this matters:**
 - No merge conflicts in feature branches
 - Issues shared across all branches
 - Clean code history (no issue churn)
+- No manual git operations for issues
 
 **Conflict handling:**
 - Detection via content hash comparison
@@ -828,6 +870,8 @@ tbd stores issues on a dedicated `tbd-sync` branch, separate from your code bran
 tbd sync                    # Pull + push (run at session start/end)
 tbd sync --status           # Check what's pending
 ```
+
+Note: Your normal `git push` is only for code changes. Issue sync is separate and automatic.
 
 * * *
 

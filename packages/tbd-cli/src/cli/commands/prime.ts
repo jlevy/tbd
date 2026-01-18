@@ -68,8 +68,9 @@ const PRIME_OUTPUT = `# tbd Workflow Context
 - \`tbd show <id>\` - See what's blocking/blocked by this issue
 
 ### Sync & Collaboration
-- \`tbd sync\` - Sync with git remote (run at session end)
+- \`tbd sync\` - Sync issues with remote (auto-commits and pushes to tbd-sync branch)
 - \`tbd sync --status\` - Check sync status without syncing
+- Note: \`tbd sync\` handles all git operations for issues—no manual git push needed
 
 ### Project Health
 - \`tbd stats\` - Project statistics (open/closed/blocked counts)
