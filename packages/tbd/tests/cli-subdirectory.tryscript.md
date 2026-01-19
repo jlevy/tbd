@@ -100,7 +100,7 @@ $ cd src && tbd status 2>&1
 ...
 Repository: [..]
   ✓ Initialized (.tbd/)
-  ✓ Git repository
+  ✓ Git repository[..]
 ...
 ? 0
 ```
