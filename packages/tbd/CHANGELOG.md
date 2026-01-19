@@ -1,5 +1,12 @@
 # tbd-git
 
+## 0.1.4
+
+### Patch Changes
+
+- Fix subdirectory support, enforce atomic writes for data integrity, and add
+  relationship types documentation.
+
 ## 0.1.3
 
 ### Patch Changes
