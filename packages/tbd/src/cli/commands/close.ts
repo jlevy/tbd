@@ -21,9 +21,9 @@ interface CloseOptions {
 
 class CloseHandler extends BaseCommand {
   async run(id: string, options: CloseOptions): Promise<void> {
-    await requireInit();
+    const tbdRoot = await requireInit();
 
-    const dataSyncDir = await resolveDataSyncDir();
+    const dataSyncDir = await resolveDataSyncDir(tbdRoot);
 
     // Load ID mapping for resolution
     const mapping = await loadIdMapping(dataSyncDir);
@@ -46,7 +46,7 @@ class CloseHandler extends BaseCommand {
 
     // Get display ID for output
     const showDebug = this.ctx.debug;
-    const config = await readConfig(process.cwd());
+    const config = await readConfig(tbdRoot);
     const prefix = config.display.id_prefix;
     const displayId = showDebug
       ? formatDebugId(issue.id, mapping, prefix)

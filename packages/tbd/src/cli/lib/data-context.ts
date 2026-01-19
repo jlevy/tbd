@@ -69,14 +69,12 @@ export interface FullCommandContext extends TbdDataContext {
  * Call this once at the start of a command handler instead of
  * loading each piece separately.
  *
+ * @param tbdRoot - The tbd repository root directory (from requireInit or findTbdRoot)
  * @throws Error if any of the resources fail to load
  */
-export async function loadDataContext(): Promise<TbdDataContext> {
-  const dataSyncDir = await resolveDataSyncDir();
-  const [mapping, config] = await Promise.all([
-    loadIdMapping(dataSyncDir),
-    readConfig(process.cwd()),
-  ]);
+export async function loadDataContext(tbdRoot: string): Promise<TbdDataContext> {
+  const dataSyncDir = await resolveDataSyncDir(tbdRoot);
+  const [mapping, config] = await Promise.all([loadIdMapping(dataSyncDir), readConfig(tbdRoot)]);
 
   return {
     dataSyncDir,
@@ -111,10 +109,10 @@ export async function loadDataContext(): Promise<TbdDataContext> {
  * @throws Error if tbd is not initialized or resources fail to load
  */
 export async function loadFullContext(command: Command): Promise<FullCommandContext> {
-  await requireInit();
+  const tbdRoot = await requireInit();
 
   const cli = getCommandContext(command);
-  const dataCtx = await loadDataContext();
+  const dataCtx = await loadDataContext(tbdRoot);
 
   return {
     ...dataCtx,

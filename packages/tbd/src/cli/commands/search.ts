@@ -79,7 +79,7 @@ async function isWorktreeStale(): Promise<boolean> {
 
 class SearchHandler extends BaseCommand {
   async run(query: string, options: SearchOptions): Promise<void> {
-    await requireInit();
+    const tbdRoot = await requireInit();
 
     // Check worktree staleness and auto-refresh if needed
     if (!options.noRefresh) {
@@ -95,7 +95,7 @@ class SearchHandler extends BaseCommand {
     let issues: Issue[];
     let dataSyncDir: string;
     try {
-      dataSyncDir = await resolveDataSyncDir();
+      dataSyncDir = await resolveDataSyncDir(tbdRoot);
       issues = await listIssues(dataSyncDir);
     } catch {
       throw new NotInitializedError('No issue store found. Run `tbd init` first.');
@@ -144,7 +144,7 @@ class SearchHandler extends BaseCommand {
 
     // Load ID mapping and config for display
     const mapping = await loadIdMapping(dataSyncDir);
-    const config = await readConfig(process.cwd());
+    const config = await readConfig(tbdRoot);
     const prefix = config.display.id_prefix;
     const showDebug = this.ctx.debug;
 

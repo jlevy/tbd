@@ -254,8 +254,10 @@ $ cd custom-repo && tbd status | grep -c "✓ Initialized"
 
 # Test: Commands require init first
 
+Create a git repo outside any tbd directory hierarchy to test uninitialized behavior.
+
 ```console
-$ mkdir uninit-repo && cd uninit-repo && git init --initial-branch=main && git config user.email "test@example.com" && git config user.name "Test" && tbd list 2>&1
+$ mkdir -p /tmp/tbd-uninit-test && cd /tmp/tbd-uninit-test && rm -rf .git .tbd && git init --initial-branch=main && git config user.email "test@example.com" && git config user.name "Test" && tbd list 2>&1
 Initialized empty Git repository in [..]
 Error: Not a tbd repository (run 'tbd init' or 'tbd import --from-beads' first)
 ? 1
@@ -264,7 +266,7 @@ Error: Not a tbd repository (run 'tbd init' or 'tbd import --from-beads' first)
 # Test: Status on uninitialized repo
 
 ```console
-$ cd uninit-repo && tbd status 2>&1
+$ cd /tmp/tbd-uninit-test && tbd status 2>&1
 Not a tbd repository.
 
 Detected:

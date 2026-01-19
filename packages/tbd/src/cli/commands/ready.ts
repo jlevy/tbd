@@ -30,13 +30,13 @@ interface ReadyOptions {
 
 class ReadyHandler extends BaseCommand {
   async run(options: ReadyOptions): Promise<void> {
-    await requireInit();
+    const tbdRoot = await requireInit();
 
     // Load all issues
     let issues: Issue[];
     let dataSyncDir: string;
     try {
-      dataSyncDir = await resolveDataSyncDir();
+      dataSyncDir = await resolveDataSyncDir(tbdRoot);
       issues = await listIssues(dataSyncDir);
     } catch {
       throw new NotInitializedError('No issue store found. Run `tbd init` first.');
@@ -100,7 +100,7 @@ class ReadyHandler extends BaseCommand {
 
     // Load ID mapping and config for display
     const mapping = await loadIdMapping(dataSyncDir);
-    const config = await readConfig(process.cwd());
+    const config = await readConfig(tbdRoot);
     const prefix = config.display.id_prefix;
     const showDebug = this.ctx.debug;
 

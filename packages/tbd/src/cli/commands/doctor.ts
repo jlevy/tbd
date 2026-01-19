@@ -40,10 +40,10 @@ class DoctorHandler extends BaseCommand {
   private issues: Issue[] = [];
 
   async run(options: DoctorOptions): Promise<void> {
-    await requireInit();
+    const tbdRoot = await requireInit();
 
-    this.cwd = process.cwd();
-    this.dataSyncDir = await resolveDataSyncDir();
+    this.cwd = tbdRoot;
+    this.dataSyncDir = await resolveDataSyncDir(tbdRoot);
 
     // Load config
     try {
@@ -270,8 +270,8 @@ class DoctorHandler extends BaseCommand {
   private async checkConfig(): Promise<DiagnosticResult> {
     const configPath = join(CONFIG_DIR, 'config.yml');
     try {
-      await access(join(process.cwd(), configPath));
-      await readConfig(process.cwd());
+      await access(join(this.cwd, configPath));
+      await readConfig(this.cwd);
       return { name: 'Config file', status: 'ok', path: configPath };
     } catch (error) {
       const msg = (error as Error).message;

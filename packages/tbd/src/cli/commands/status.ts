@@ -18,8 +18,8 @@ import { homedir } from 'node:os';
 import { VERSION } from '../lib/version.js';
 import { BaseCommand } from '../lib/base-command.js';
 import { formatHeading } from '../lib/output.js';
-import { readConfig } from '../../file/config.js';
-import { TBD_DIR, WORKTREE_DIR } from '../../lib/paths.js';
+import { readConfig, findTbdRoot } from '../../file/config.js';
+import { WORKTREE_DIR } from '../../lib/paths.js';
 import {
   git,
   getCurrentBranch,
@@ -64,8 +64,12 @@ interface StatusData {
 class StatusHandler extends BaseCommand {
   async run(): Promise<void> {
     const cwd = process.cwd();
+
+    // Find tbd root (may be in parent directory)
+    const tbdRoot = await findTbdRoot(cwd);
+
     const statusData: StatusData = {
-      initialized: false,
+      initialized: tbdRoot !== null,
       tbd_version: VERSION,
       working_directory: cwd,
       git_repository: false,
@@ -88,9 +92,6 @@ class StatusHandler extends BaseCommand {
         codex_path: './AGENTS.md',
       },
     };
-
-    // Check if initialized
-    statusData.initialized = await this.checkInitialized(cwd);
 
     // Check git repository
     const gitInfo = await this.checkGitRepo();
@@ -116,23 +117,14 @@ class StatusHandler extends BaseCommand {
     // Check integrations (always show)
     statusData.integrations = await this.checkIntegrations(cwd);
 
-    if (statusData.initialized) {
+    if (statusData.initialized && tbdRoot) {
       // Load config and issue info
-      await this.loadPostInitInfo(cwd, statusData);
+      await this.loadPostInitInfo(tbdRoot, statusData);
     }
 
     this.output.data(statusData, () => {
       this.renderText(statusData);
     });
-  }
-
-  private async checkInitialized(cwd: string): Promise<boolean> {
-    try {
-      await access(join(cwd, TBD_DIR));
-      return true;
-    } catch {
-      return false;
-    }
   }
 
   private async checkGitRepo(): Promise<{ isRepo: boolean; branch: string | null }> {

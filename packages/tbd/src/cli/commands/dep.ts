@@ -19,9 +19,9 @@ import { readConfig } from '../../file/config.js';
 // Add dependency: "A depends on B" means B blocks A
 class DependsAddHandler extends BaseCommand {
   async run(issueId: string, dependsOnId: string): Promise<void> {
-    await requireInit();
+    const tbdRoot = await requireInit();
 
-    const dataSyncDir = await resolveDataSyncDir();
+    const dataSyncDir = await resolveDataSyncDir(tbdRoot);
 
     // Load ID mapping for resolution
     const mapping = await loadIdMapping(dataSyncDir);
@@ -91,7 +91,7 @@ class DependsAddHandler extends BaseCommand {
 
     // Use already loaded mapping for display
     const showDebug = this.ctx.debug;
-    const config = await readConfig(process.cwd());
+    const config = await readConfig(tbdRoot);
     const prefix = config.display.id_prefix;
     const displayIssueId = showDebug
       ? formatDebugId(internalIssueId, mapping, prefix)
@@ -109,9 +109,9 @@ class DependsAddHandler extends BaseCommand {
 // Remove dependency: "A no longer depends on B" means B no longer blocks A
 class DependsRemoveHandler extends BaseCommand {
   async run(issueId: string, dependsOnId: string): Promise<void> {
-    await requireInit();
+    const tbdRoot = await requireInit();
 
-    const dataSyncDir = await resolveDataSyncDir();
+    const dataSyncDir = await resolveDataSyncDir(tbdRoot);
 
     // Load ID mapping for resolution
     const mapping = await loadIdMapping(dataSyncDir);
@@ -167,7 +167,7 @@ class DependsRemoveHandler extends BaseCommand {
 
     // Use already loaded mapping for display
     const showDebug = this.ctx.debug;
-    const config = await readConfig(process.cwd());
+    const config = await readConfig(tbdRoot);
     const prefix = config.display.id_prefix;
     const displayIssueId = showDebug
       ? formatDebugId(internalIssueId, mapping, prefix)
@@ -185,9 +185,9 @@ class DependsRemoveHandler extends BaseCommand {
 // List dependencies
 class DependsListHandler extends BaseCommand {
   async run(id: string): Promise<void> {
-    await requireInit();
+    const tbdRoot = await requireInit();
 
-    const dataSyncDir = await resolveDataSyncDir();
+    const dataSyncDir = await resolveDataSyncDir(tbdRoot);
 
     // Load ID mapping for resolution and display
     const mapping = await loadIdMapping(dataSyncDir);
@@ -217,7 +217,7 @@ class DependsListHandler extends BaseCommand {
     }
 
     const showDebug = this.ctx.debug;
-    const config = await readConfig(process.cwd());
+    const config = await readConfig(tbdRoot);
     const prefix = config.display.id_prefix;
 
     // Find what this issue blocks (from its dependencies)

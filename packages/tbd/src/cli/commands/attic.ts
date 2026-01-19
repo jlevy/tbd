@@ -102,15 +102,15 @@ export async function saveAtticEntry(entry: AtticEntry): Promise<void> {
 // List attic entries
 class AtticListHandler extends BaseCommand {
   async run(id?: string): Promise<void> {
-    await requireInit();
+    const tbdRoot = await requireInit();
 
     const filterId = id ? normalizeIssueId(id) : undefined;
     const entries = await listAtticEntries(filterId);
 
     // Load ID mapping and config for display
-    const dataSyncDir = await resolveDataSyncDir();
+    const dataSyncDir = await resolveDataSyncDir(tbdRoot);
     const mapping = await loadIdMapping(dataSyncDir);
-    const config = await readConfig(process.cwd());
+    const config = await readConfig(tbdRoot);
     const prefix = config.display.id_prefix;
     const showDebug = this.ctx.debug;
 
@@ -144,7 +144,7 @@ class AtticListHandler extends BaseCommand {
 // Show attic entry
 class AtticShowHandler extends BaseCommand {
   async run(id: string, timestamp: string): Promise<void> {
-    await requireInit();
+    const tbdRoot = await requireInit();
 
     const normalizedId = normalizeIssueId(id);
     const entries = await listAtticEntries(normalizedId);
@@ -159,9 +159,9 @@ class AtticShowHandler extends BaseCommand {
     }
 
     // Load ID mapping and config for display
-    const dataSyncDir = await resolveDataSyncDir();
+    const dataSyncDir = await resolveDataSyncDir(tbdRoot);
     const mapping = await loadIdMapping(dataSyncDir);
-    const config = await readConfig(process.cwd());
+    const config = await readConfig(tbdRoot);
     const prefix = config.display.id_prefix;
     const showDebug = this.ctx.debug;
     const displayId = showDebug
@@ -191,7 +191,7 @@ class AtticShowHandler extends BaseCommand {
 // Restore from attic
 class AtticRestoreHandler extends BaseCommand {
   async run(id: string, timestamp: string): Promise<void> {
-    await requireInit();
+    const tbdRoot = await requireInit();
 
     const normalizedId = normalizeIssueId(id);
     const entries = await listAtticEntries(normalizedId);
@@ -210,7 +210,7 @@ class AtticRestoreHandler extends BaseCommand {
     }
 
     // Load the current issue
-    const dataSyncDir = await resolveDataSyncDir();
+    const dataSyncDir = await resolveDataSyncDir(tbdRoot);
     let issue;
     try {
       issue = await readIssue(dataSyncDir, normalizedId);
@@ -235,7 +235,7 @@ class AtticRestoreHandler extends BaseCommand {
 
     // Load ID mapping and config for display
     const mapping = await loadIdMapping(dataSyncDir);
-    const config = await readConfig(process.cwd());
+    const config = await readConfig(tbdRoot);
     const prefix = config.display.id_prefix;
     const showDebug = this.ctx.debug;
     const displayId = showDebug

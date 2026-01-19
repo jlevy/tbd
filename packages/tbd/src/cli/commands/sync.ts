@@ -52,14 +52,14 @@ class SyncHandler extends BaseCommand {
   private dataSyncDir = '';
 
   async run(options: SyncOptions): Promise<void> {
-    await requireInit();
+    const tbdRoot = await requireInit();
 
-    this.dataSyncDir = await resolveDataSyncDir();
+    this.dataSyncDir = await resolveDataSyncDir(tbdRoot);
 
     // Load config to get sync branch
     let config;
     try {
-      config = await readConfig(process.cwd());
+      config = await readConfig(tbdRoot);
     } catch {
       throw new NotInitializedError('Not a tbd repository. Run `tbd init` first.');
     }

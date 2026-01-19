@@ -4,19 +4,22 @@
  * See: research-modern-typescript-cli-patterns.md#3-base-command-pattern
  */
 
-import { isInitialized } from '../../file/config.js';
+import { findTbdRoot } from '../../file/config.js';
 
 /**
- * Check if tbd is initialized in the current directory.
- * Throws NotInitializedError if not.
+ * Find and return the tbd repository root, starting from the given directory.
+ * Walks up the directory tree to find .tbd/.
  *
- * @param cwd - Working directory to check (defaults to process.cwd())
- * @throws NotInitializedError if tbd is not initialized
+ * @param cwd - Working directory to start from (defaults to process.cwd())
+ * @returns The tbd repository root path
+ * @throws NotInitializedError if tbd is not initialized in any parent directory
  */
-export async function requireInit(cwd: string = process.cwd()): Promise<void> {
-  if (!(await isInitialized(cwd))) {
+export async function requireInit(cwd: string = process.cwd()): Promise<string> {
+  const tbdRoot = await findTbdRoot(cwd);
+  if (!tbdRoot) {
     throw new NotInitializedError();
   }
+  return tbdRoot;
 }
 
 /**

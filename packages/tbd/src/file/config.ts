@@ -7,7 +7,7 @@
  */
 
 import { readFile, mkdir, access } from 'node:fs/promises';
-import { join } from 'node:path';
+import { join, dirname, parse as parsePath } from 'node:path';
 import { writeFile } from 'atomically';
 import { parse as parseYaml, stringify as stringifyYaml } from 'yaml';
 
@@ -86,15 +86,50 @@ export async function writeConfig(baseDir: string, config: Config): Promise<void
 }
 
 /**
- * Check if tbd is initialized in the given directory.
- * Returns true if .tbd/ directory exists.
+ * Check if tbd is initialized in the given directory (immediate check only).
+ * Returns true if .tbd/ directory exists directly in baseDir.
  */
-export async function isInitialized(baseDir: string): Promise<boolean> {
-  const tbdDir = join(baseDir, '.tbd');
+async function hasTbdDir(dir: string): Promise<boolean> {
+  const tbdDir = join(dir, '.tbd');
   try {
     await access(tbdDir);
     return true;
   } catch {
     return false;
   }
+}
+
+/**
+ * Find the tbd repository root by walking up the directory tree.
+ * Similar to how git finds .git/ directories.
+ *
+ * @param startDir - Directory to start searching from
+ * @returns The tbd root directory path, or null if not found
+ */
+export async function findTbdRoot(startDir: string): Promise<string | null> {
+  let currentDir = startDir;
+  const { root } = parsePath(startDir);
+
+  while (currentDir !== root) {
+    if (await hasTbdDir(currentDir)) {
+      return currentDir;
+    }
+    currentDir = dirname(currentDir);
+  }
+
+  // Check root directory as well
+  if (await hasTbdDir(root)) {
+    return root;
+  }
+
+  return null;
+}
+
+/**
+ * Check if tbd is initialized in the given directory or any parent directory.
+ * Walks up the directory tree looking for .tbd/.
+ */
+export async function isInitialized(baseDir: string): Promise<boolean> {
+  const root = await findTbdRoot(baseDir);
+  return root !== null;
 }

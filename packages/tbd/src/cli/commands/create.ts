@@ -40,7 +40,7 @@ interface CreateOptions {
 
 class CreateHandler extends BaseCommand {
   async run(title: string | undefined, options: CreateOptions): Promise<void> {
-    await requireInit();
+    const tbdRoot = await requireInit();
 
     // Validate title is provided (unless --from-file)
     if (!title && !options.fromFile) {
@@ -73,10 +73,10 @@ class CreateHandler extends BaseCommand {
     let prefix: string;
     let issue: Issue;
     await this.execute(async () => {
-      const dataSyncDir = await resolveDataSyncDir();
+      const dataSyncDir = await resolveDataSyncDir(tbdRoot);
 
       // Read config for display prefix
-      const config = await readConfig(process.cwd());
+      const config = await readConfig(tbdRoot);
       prefix = config.display.id_prefix;
 
       // Load mapping, generate unique short ID, and save

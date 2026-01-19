@@ -18,9 +18,9 @@ import { readConfig } from '../../file/config.js';
 // Add label
 class LabelAddHandler extends BaseCommand {
   async run(id: string, labels: string[]): Promise<void> {
-    await requireInit();
+    const tbdRoot = await requireInit();
 
-    const dataSyncDir = await resolveDataSyncDir();
+    const dataSyncDir = await resolveDataSyncDir(tbdRoot);
 
     // Load ID mapping for resolution
     const mapping = await loadIdMapping(dataSyncDir);
@@ -70,7 +70,7 @@ class LabelAddHandler extends BaseCommand {
 
     // Use already loaded mapping for display
     const showDebug = this.ctx.debug;
-    const config = await readConfig(process.cwd());
+    const config = await readConfig(tbdRoot);
     const prefix = config.display.id_prefix;
     const displayId = showDebug
       ? formatDebugId(issue.id, mapping, prefix)
@@ -85,9 +85,9 @@ class LabelAddHandler extends BaseCommand {
 // Remove label
 class LabelRemoveHandler extends BaseCommand {
   async run(id: string, labels: string[]): Promise<void> {
-    await requireInit();
+    const tbdRoot = await requireInit();
 
-    const dataSyncDir = await resolveDataSyncDir();
+    const dataSyncDir = await resolveDataSyncDir(tbdRoot);
 
     // Load ID mapping for resolution
     const mapping = await loadIdMapping(dataSyncDir);
@@ -132,7 +132,7 @@ class LabelRemoveHandler extends BaseCommand {
 
     // Use already loaded mapping for display
     const showDebug = this.ctx.debug;
-    const config = await readConfig(process.cwd());
+    const config = await readConfig(tbdRoot);
     const prefix = config.display.id_prefix;
     const displayId = showDebug
       ? formatDebugId(issue.id, mapping, prefix)
@@ -147,9 +147,9 @@ class LabelRemoveHandler extends BaseCommand {
 // List labels
 class LabelListHandler extends BaseCommand {
   async run(): Promise<void> {
-    await requireInit();
+    const tbdRoot = await requireInit();
 
-    const dataSyncDir = await resolveDataSyncDir();
+    const dataSyncDir = await resolveDataSyncDir(tbdRoot);
 
     // Load all issues and collect unique labels
     let issues;

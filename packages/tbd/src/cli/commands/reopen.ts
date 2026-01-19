@@ -21,9 +21,9 @@ interface ReopenOptions {
 
 class ReopenHandler extends BaseCommand {
   async run(id: string, options: ReopenOptions): Promise<void> {
-    await requireInit();
+    const tbdRoot = await requireInit();
 
-    const dataSyncDir = await resolveDataSyncDir();
+    const dataSyncDir = await resolveDataSyncDir(tbdRoot);
 
     // Load ID mapping for resolution
     const mapping = await loadIdMapping(dataSyncDir);
@@ -73,7 +73,7 @@ class ReopenHandler extends BaseCommand {
 
     // Use already loaded mapping for display
     const showDebug = this.ctx.debug;
-    const config = await readConfig(process.cwd());
+    const config = await readConfig(tbdRoot);
     const prefix = config.display.id_prefix;
     const displayId = showDebug
       ? formatDebugId(issue.id, mapping, prefix)

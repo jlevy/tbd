@@ -43,14 +43,14 @@ interface ListOptions {
 
 class ListHandler extends BaseCommand {
   async run(options: ListOptions): Promise<void> {
-    await requireInit();
+    const tbdRoot = await requireInit();
 
     let issues: Issue[];
     let dataCtx: TbdDataContext;
 
     try {
       // Load shared data context (dataSyncDir, mapping, config, prefix)
-      dataCtx = await loadDataContext();
+      dataCtx = await loadDataContext(tbdRoot);
       issues = await listIssues(dataCtx.dataSyncDir);
     } catch {
       throw new CLIError('Failed to read issues');
