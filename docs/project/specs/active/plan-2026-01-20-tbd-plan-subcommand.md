@@ -87,7 +87,7 @@ markform:
 
 ## Backend <!-- #proj-a1b2 -->
 
-{% field kind="checkboxes" id="backend_tasks" label="Backend tasks" checkboxMode="multi" %}
+{% field kind="checkboxes" id="backend_tasks" label="Backend tasks" %}
 - [x] Set up OAuth config {% #setup_oauth tbd:proj-c3d4 %}
 - [*] Implement token refresh {% #token_refresh tbd:proj-e5f6 %}
 {% /field %}
@@ -98,6 +98,7 @@ markform:
 - Pros: Can use Markform's `markform apply` for updates, structured validation
 - Cons: More complex format, requires field wrappers around every checklist
 - Sync: Could use `markform apply` with `set_checkboxes` patches
+- Note: `checkboxMode="multi"` omitted (it's the default)
 
 ### Recommended Approach: Hybrid (Approach B with graceful degradation)
 
@@ -149,6 +150,17 @@ This mapping is bidirectional and lossless.
 
 3. **No cross-field dependencies**: Markform doesn't model task dependencies.
    tbd handles this via `dependencies[].type: blocks`.
+
+### Proposed Markform Spec Clarifications
+
+For tbd plan integration, we'd like to propose these clarifications to the Markform spec:
+
+1. **File extension**: Clarify that `.form.md` is *recommended* but not strictly required.
+   Document identification is based on the `markform:` frontmatter, so extensions like
+   `.plan.md`, `.survey.md`, etc. should be valid when frontmatter is present.
+
+2. **Default checkbox mode**: Already documented that `checkboxMode="multi"` is the
+   default (so it can be omitted), but could be more prominent.
 
 ## Summary of Task
 
@@ -260,6 +272,16 @@ system-of-record for status, assignment, and dependencies.
 
 ### 2.1 Planfile Format
 
+#### File Extension
+
+tbd plan files use the `.plan.md` extension (e.g., `oauth.plan.md`).
+
+**Note:** The Markform spec currently says `.form.md` is "required", but document
+identification is actually based on the frontmatter (`markform: spec: MF/0.1`), not the
+extension. This should be clarified in a future Markform spec revision to note that
+`.form.md` is *recommended* but other extensions like `.plan.md` are valid when the
+frontmatter is present.
+
 #### Full Markform Example
 
 ```markdown
@@ -276,13 +298,13 @@ markform:
 
 ## Backend <!-- tbd:proj-a1b2 -->
 
-{% field kind="checkboxes" id="backend_tasks" label="Backend tasks" checkboxMode="multi" %}
+{% field kind="checkboxes" id="backend_tasks" label="Backend tasks" %}
 - [x] Set up OAuth provider config {% #setup_oauth tbd:proj-c3d4 %}
 - [*] Implement token refresh {% #token_refresh tbd:proj-e5f6 %}
 - [ ] Add rate limiting {% #rate_limiting tbd:proj-g7h8 %}
 {% /field %}
 
-{% field kind="checkboxes" id="rate_limit_subtasks" label="Rate limiting subtasks" checkboxMode="multi" %}
+{% field kind="checkboxes" id="rate_limit_subtasks" label="Rate limiting subtasks" %}
 - [ ] Design rate limit algorithm {% #rate_algo tbd:proj-i9j0 %}
 - [ ] Implement token bucket {% #token_bucket tbd:proj-k1l2 %}
 {% /field %}
@@ -293,7 +315,7 @@ markform:
 
 ## Frontend <!-- tbd:proj-m3n4 -->
 
-{% field kind="checkboxes" id="frontend_tasks" label="Frontend tasks" checkboxMode="multi" %}
+{% field kind="checkboxes" id="frontend_tasks" label="Frontend tasks" %}
 - [ ] Create login button component {% #login_button tbd:proj-o5p6 %}
 - [/] Handle OAuth callback {% #oauth_callback tbd:proj-q7r8 %}
 {% /field %}
@@ -302,6 +324,8 @@ markform:
 
 {% /form %}
 ```
+
+**Note:** `checkboxMode="multi"` is omitted because it's the default in Markform.
 
 #### Dual ID System
 
