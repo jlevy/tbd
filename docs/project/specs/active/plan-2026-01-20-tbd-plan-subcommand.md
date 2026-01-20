@@ -41,7 +41,7 @@ issues is manual:
 - [tbd-design.md](../../tbd-design.md) - Overall product design (sections 2.6.3
   IssueSchema, 2.7 Relationships, 4.4 Issue Commands)
 - [schemas.ts](../../../packages/tbd/src/lib/schemas.ts) - Issue schema with extensions
-- [markform-spec-mf0.1.md](../../reference/markform-spec-mf0.1.md) - Markform MF/0.1 spec
+- Markform MF/0.1 spec - run `npx --yes markform@latest spec` to view
 
 ## Markform Compatibility Analysis
 
