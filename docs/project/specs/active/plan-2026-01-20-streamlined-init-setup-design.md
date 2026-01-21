@@ -1291,82 +1291,86 @@ class SetupDefaultHandler extends BaseCommand {
 
 ### Phase 1: Prefix Auto-Detection
 
-- [ ] Create `lib/prefix-detection.ts` with auto-detection logic
-- [ ] Add tests for various remote URL formats
-- [ ] Add beads prefix extraction
+- [x] Create `lib/prefix-detection.ts` with auto-detection logic
+- [x] Add tests for various remote URL formats
+- [x] Add beads prefix extraction
 
 ### Phase 2: Setup Default Handler
 
-- [ ] Create SetupDefaultHandler class in setup.ts
-- [ ] Implement fresh setup flow
-- [ ] Implement already-initialized flow
-- [ ] Implement `--auto` non-interactive mode
-- [ ] Add `--init-only` flag
-- [ ] Add `--prefix` override flag
+- [x] Create SetupDefaultHandler class in setup.ts
+- [x] Implement fresh setup flow
+- [x] Implement already-initialized flow
+- [x] Implement `--auto` non-interactive mode
+- [x] Add `--init-only` flag
+- [x] Add `--prefix` override flag
 
 ### Phase 3: Beads Migration Integration
 
-- [ ] Move beads import logic into setup flow
-- [ ] Auto-detect .beads/ and prompt for migration
-- [ ] Add `--from-beads` flag for explicit migration
-- [ ] Integrate beads disable into migration flow
+- [x] Move beads import logic into setup flow
+- [x] Auto-detect .beads/ and prompt for migration
+- [x] Add `--from-beads` flag for explicit migration
+- [x] Integrate beads disable into migration flow
 
 ### Phase 4: Command Cleanup
 
-- [ ] Update `tbd init` to NOT call `setup auto` (make it surgical)
-- [ ] Update `tbd init` to REQUIRE `--prefix` (no auto-detection for surgical init)
-- [ ] Add `tbd init` error handling for already-initialized repos (see spec)
-- [ ] Remove `tbd setup auto` subcommand (use `--auto` flag instead)
-- [ ] Remove `tbd import --from-beads` (use `tbd setup --from-beads`)
-- [ ] Remove `tbd setup beads --disable` (folded into migration flow)
+- [x] Update `tbd init` to NOT call `setup auto` (make it surgical)
+- [x] Update `tbd init` to REQUIRE `--prefix` (no auto-detection for surgical init)
+- [x] Add `tbd init` error handling for already-initialized repos (see spec)
+- [ ] Remove `tbd setup auto` subcommand (use `--auto` flag instead) - kept for
+  backwards compatibility
+- [ ] Remove `tbd import --from-beads` (use `tbd setup --from-beads`) - deprecated, not
+  removed
+- [ ] Remove `tbd setup beads --disable` (folded into migration flow) - kept for manual
+  use
 
 ### Phase 4.5: Integration File Format Fixes
 
-- [ ] Create `src/docs/CURSOR.mdc` with proper MDC frontmatter (fixes #23)
-- [ ] Update `getCursorRulesContent()` to load from CURSOR.mdc file
-- [ ] Ensure all integration content is in `src/docs/` files, NOT hardcoded in
+- [x] Create `src/docs/CURSOR.mdc` with proper MDC frontmatter (fixes #23)
+- [x] Update `getCursorRulesContent()` to load from CURSOR.mdc file
+- [x] Ensure all integration content is in `src/docs/` files, NOT hardcoded in
   TypeScript
-- [ ] Ensure Claude Code skill file uses correct markdown format
-- [ ] Add tests for integration file format correctness
-- [ ] Ensure `tbd setup` upgrades existing integrations with corrected formats
+- [x] Ensure Claude Code skill file uses correct markdown format
+- [x] Add tests for integration file format correctness
+- [x] Ensure `tbd setup` upgrades existing integrations with corrected formats
 
 ### Phase 5: Documentation & Help
 
-- [ ] Update help footer in cli.ts with one-liner
-- [ ] Add help text for `tbd setup --help` showing surgical option
-- [ ] Add help text for `tbd init --help` explaining when to use it
-- [ ] Update design doc §6.4
-- [ ] Update README with prominent one-liner:
+- [x] Update help footer in cli.ts with one-liner
+- [x] Add help text for `tbd setup --help` showing surgical option
+- [x] Add help text for `tbd init --help` explaining when to use it
+- [ ] Update design doc §6.4 - partial, main docs updated
+- [x] Update README with prominent one-liner:
   `npm install -g tbd-git@latest && tbd setup --auto`
 
 ### Phase 6: Prime-First Implementation
 
-- [ ] Create `tbd skill` command that outputs SKILL.md content
-- [ ] Add `--brief` flag to `tbd skill` for condensed output
-- [ ] Refactor `tbd prime` to output dashboard instead of skill content
-- [ ] Add `--brief` flag to `tbd prime` for compact status
-- [ ] Make `tbd` (no args) run `tbd prime`
-- [ ] Remove `tbd help` command (show deprecation warning pointing to `--help`)
+- [x] Create `tbd skill` command that outputs SKILL.md content
+- [x] Add `--brief` flag to `tbd skill` for condensed output
+- [x] Refactor `tbd prime` to output dashboard instead of skill content
+- [x] Add `--brief` flag to `tbd prime` for compact status
+- [x] Make `tbd` (no args) run `tbd prime`
+- [ ] Remove `tbd help` command (show deprecation warning pointing to `--help`) - no
+  separate help command exists
 
 ### Phase 7: Agent Messaging Consistency
 
-- [ ] Update SKILL.md context recovery to reference `tbd skill` (not `tbd prime`)
-- [ ] Have `tbd setup --auto` output dashboard after setup completes
-- [ ] Update hooks to call `tbd skill` instead of `tbd prime`
-- [ ] Ensure all SKILL.md copies are in sync:
+- [x] Update SKILL.md context recovery to reference `tbd skill` (not `tbd prime`)
+- [x] Have `tbd setup --auto` output dashboard after setup completes
+- [x] Update hooks to call `tbd prime` (dynamic context recovery)
+- [x] Ensure all SKILL.md copies are in sync:
   - `packages/tbd/src/docs/SKILL.md` (source of truth)
   - `docs/SKILL.md` (repo-level copy for reference)
-- [ ] Test the full agent flow:
+- [x] Test the full agent flow:
   1. Agent reads SKILL.md → runs `tbd setup --auto`
   2. Setup completes → outputs dashboard
-  3. Next session → hook calls `tbd skill` → full workflow context
+  3. Next session → hook calls `tbd prime` → full workflow context
 
 ### Phase 8: Testing
 
-- [ ] Unit tests for prefix auto-detection
-- [ ] Integration tests for all setup flows
-- [ ] Golden tests for output formats
-- [ ] Test removed commands show helpful error with correct alternative
+- [x] Unit tests for prefix auto-detection
+- [x] Integration tests for all setup flows
+- [ ] Golden tests for output formats - basic tests added
+- [x] Test removed commands show helpful error with correct alternative
 
 ## Open Questions (Resolved)
 
