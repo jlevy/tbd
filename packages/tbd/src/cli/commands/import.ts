@@ -191,6 +191,12 @@ class ImportHandler extends BaseCommand {
 
     // --from-beads auto-initializes if needed
     if (options.fromBeads) {
+      // Deprecation notice
+      const colors = this.output.getColors();
+      console.log(colors.warn('Note: `tbd import --from-beads` is deprecated.'));
+      console.log(colors.dim('Use `tbd setup --auto` or `tbd setup --from-beads` instead.'));
+      console.log('');
+
       await this.importFromBeads(options);
       return;
     }
