@@ -62,7 +62,6 @@ Commands:
   cursor [options]   Configure Cursor IDE (rules file)
   codex [options]    Configure Codex and compatible tools (AGENTS.md)
   beads [options]    Disable Beads so you only use tbd
-  help [command]     display help for command
 
 For more on tbd, see: https://github.com/jlevy/tbd
 ? 0
@@ -82,6 +81,11 @@ Options:
   -h, --help         display help for command
 
 Global Options:
+  --auto             Non-interactive mode with smart defaults (for
+                     agents/scripts)
+  --interactive      Interactive mode with prompts (for humans)
+  --from-beads       Migrate from Beads to tbd
+  --prefix <name>    Override auto-detected project prefix
   --version          Show version number
   --dry-run          Show what would be done without making changes
   --verbose          Enable verbose output
@@ -111,6 +115,11 @@ Options:
   -h, --help         display help for command
 
 Global Options:
+  --auto             Non-interactive mode with smart defaults (for
+                     agents/scripts)
+  --interactive      Interactive mode with prompts (for humans)
+  --from-beads       Migrate from Beads to tbd
+  --prefix <name>    Override auto-detected project prefix
   --version          Show version number
   --dry-run          Show what would be done without making changes
   --verbose          Enable verbose output
@@ -140,6 +149,11 @@ Options:
   -h, --help         display help for command
 
 Global Options:
+  --auto             Non-interactive mode with smart defaults (for
+                     agents/scripts)
+  --interactive      Interactive mode with prompts (for humans)
+  --from-beads       Migrate from Beads to tbd
+  --prefix <name>    Override auto-detected project prefix
   --version          Show version number
   --dry-run          Show what would be done without making changes
   --verbose          Enable verbose output
