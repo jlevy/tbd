@@ -125,7 +125,7 @@ tbd setup [options]           # Full setup: init if needed + integrations
 
 # Low-level surgical commands
 tbd init [options]            # Just create .tbd/, no integrations
-  --prefix=<name>             # Override auto-detected prefix (optional now)
+  --prefix=<name>             # Project prefix for issue IDs (REQUIRED)
 tbd import <file>             # Import from exported JSONL file
 ```
 
@@ -158,7 +158,7 @@ backward compatibility with confusing patterns.
 | Command | New Behavior |
 | --- | --- |
 | `tbd init` | Surgical init only (no longer calls setup auto) |
-| `tbd init --prefix=x` | Prefix now optional (auto-detect if omitted) |
+| `tbd init --prefix=x` | Prefix REQUIRED (no auto-detect for surgical init) |
 | `tbd setup` | Full setup (init if needed + integrations) |
 | `tbd setup auto` | **Removed** - use `tbd setup --auto` instead |
 | `tbd import --from-beads` | **Removed** - use `tbd setup --from-beads` instead |
@@ -169,13 +169,13 @@ backward compatibility with confusing patterns.
 | Journey | Command | What Happens |
 | --- | --- | --- |
 | New repo (full) | `tbd setup` | Auto-detect prefix → init → integrations |
-| New repo (surgical) | `tbd init` | Auto-detect prefix → init only |
+| New repo (surgical) | `tbd init --prefix=x` | Explicit prefix → init only |
 | Has beads | `tbd setup` | Detect beads → offer migration → init → integrations |
-| Joining tbd repo | `tbd setup` | Detect .tbd → check/update integrations |
+| Joining tbd repo | `tbd setup` | Detect .tbd → check/update integrations (no prefix needed) |
 | Agent automation | `tbd setup --auto` | All defaults, no prompts |
 | Explicit beads | `tbd setup --from-beads` | Force beads migration flow |
-| Script/CI init | `tbd init` | Just create .tbd/, script handles rest |
-| Custom prefix | `tbd init --prefix=x` | Surgical init with specific prefix |
+| Script/CI init | `tbd init --prefix=x` | Just create .tbd/ with explicit prefix |
+| Global setup only | `tbd setup` (outside repo) | Warning, global config only |
 
 ### Detailed Behavior Specifications
 
@@ -228,7 +228,7 @@ For surgical initialization without integrations, see: tbd init --help
 **Help for `tbd init --help`:**
 
 ```
-Usage: tbd init [options]
+Usage: tbd init --prefix=<name>
 
 Surgical initialization: create .tbd/ directory only, no integrations.
 
@@ -236,13 +236,12 @@ Use this when you need precise control over the setup process, such as in
 CI pipelines or scripts where integrations are configured separately.
 
 Options:
-  --prefix <name>     Project prefix for issue IDs (auto-detected if omitted)
+  --prefix <name>     Project prefix for issue IDs (REQUIRED)
 
 Examples:
-  tbd init                  # Auto-detect prefix from git remote
-  tbd init --prefix=myapp   # Use specific prefix
+  tbd init --prefix=myapp   # Initialize with specific prefix
 
-For full setup with integrations, use: tbd setup --auto
+For automatic prefix detection, use: tbd setup --auto
 ```
 
 #### 2. `tbd setup` Decision Tree
@@ -264,10 +263,21 @@ tbd setup
 
 #### 3. Fresh Setup Flow (no .tbd/, no .beads/)
 
+This is the interactive flow.
+For non-interactive, see section 6 (`--auto` mode).
+
 ```
 $ tbd setup
 
 tbd: Git-native issue tracking for AI agents and humans
+
+I'll help you set up tbd in this repository. Here's what I'll do:
+
+  1. Initialize tbd tracking (.tbd/ directory)
+  2. Auto-detect your project prefix from git remote
+  3. Configure detected integrations (Claude Code, Cursor, etc.)
+
+? Proceed with setup? (Y/n)
 
 Checking repository...
   ✓ Git repository detected
@@ -284,6 +294,8 @@ Initializing tbd...
   ✓ Initialized sync branch
 
 Configuring integrations...
+  Claude Code detected.
+  ? Install hooks and skill file? (Y/n)
   ✓ Claude Code - Installed hooks and skill
   - Cursor IDE - Not detected (skipped)
   - AGENTS.md - Not detected (skipped)
@@ -366,7 +378,52 @@ Checking integrations...
   ✓ Updated skill file
 ```
 
-#### 6. Non-Interactive Mode (`--auto`)
+#### 6. Interactive vs Non-Interactive Mode
+
+**`tbd setup` (interactive, default):**
+
+The default `tbd setup` is fully interactive.
+It explains what it will do and asks for confirmation at each step.
+This is the recommended mode for humans who want to understand and control the setup
+process.
+
+```
+$ tbd setup
+
+tbd: Git-native issue tracking for AI agents and humans
+
+I'll help you set up tbd in this repository. Here's what I'll do:
+
+  1. Initialize tbd tracking (.tbd/ directory)
+  2. Auto-detect your project prefix from git remote
+  3. Configure Claude Code integration (hooks + skill file)
+
+? Proceed with setup? (Y/n)
+
+Detecting project prefix...
+  Repository: github.com/jlevy/myapp → "myapp"
+
+? Use prefix "myapp" for issue IDs (e.g., myapp-a7k2)? (Y/n)
+
+Initializing tbd...
+  ✓ Created .tbd/config.yml
+  ✓ Created .tbd/.gitignore
+  ✓ Initialized sync branch
+
+Configuring integrations...
+  Claude Code detected.
+  ? Install hooks and skill file? (Y/n)
+  ✓ Claude Code - Installed hooks and skill
+
+Setup complete! Next steps:
+  1. git add .tbd/ .claude/ && git commit -m "Initialize tbd"
+  2. tbd create "My first issue" --type=task
+```
+
+**`tbd setup --auto` (non-interactive):**
+
+The `--auto` flag runs setup non-interactively with sensible defaults.
+This is what agents should use - no prompts, no confirmations.
 
 ```
 $ tbd setup --auto
@@ -377,7 +434,7 @@ Checking repository...
   ✓ Git repository detected
   ✗ tbd not initialized
 
-Initializing with auto-detected prefix "tbd"...
+Initializing with auto-detected prefix "myapp"...
   ✓ Created .tbd/config.yml
   ✓ Initialized sync branch
 
@@ -388,7 +445,18 @@ Setup complete!
   Run: git add .tbd/ .claude/ && git commit -m "Initialize tbd"
 ```
 
-With beads detected in auto mode:
+**Key differences:**
+
+| Behavior | `tbd setup` | `tbd setup --auto` |
+| --- | --- | --- |
+| Explains what it will do | Yes, upfront | No |
+| Confirms before proceeding | Yes | No |
+| Confirms prefix | Yes (prompt) | No (auto-accept) |
+| Confirms each integration | Yes (prompt) | No (auto-install) |
+| Beads migration | Prompts | Auto-migrates |
+| Recommended for | Humans | Agents/scripts |
+
+**With beads detected in auto mode:**
 
 ```
 $ tbd setup --auto
@@ -485,12 +553,106 @@ function isValidPrefix(s: string): boolean {
 }
 ```
 
+### Prefix Requirements and Detection
+
+**Key distinction:** `tbd init` is surgical and requires explicit `--prefix`.
+`tbd setup` is smart and can reuse existing configuration.
+
+#### `tbd init` (surgical)
+
+`--prefix` is **ALWAYS required** for `tbd init`:
+
+```bash
+tbd init --prefix=myapp     # OK: explicit prefix
+tbd init                    # ERROR: --prefix is required
+```
+
+Error message:
+```
+Error: --prefix is required for tbd init
+
+Example:
+  tbd init --prefix=myapp
+
+For automatic prefix detection, use: tbd setup --auto
+```
+
+This keeps `init` predictable and explicit - no magic, no guessing.
+
+#### `tbd setup` (smart)
+
+`--prefix` is **optional** for `tbd setup` - it depends on context:
+
+| Scenario | Behavior |
+| --- | --- |
+| Already configured (has .tbd/config.yml) | Uses existing prefix from config, no `--prefix` needed |
+| Not configured, in GitHub repo | Auto-detect from remote URL, confirm with user |
+| Not configured, `--auto` mode | Auto-detect prefix, no confirmation |
+| Not configured, no auto-detect possible | Error: must specify `--prefix` |
+
+**Already configured:**
+```bash
+$ tbd setup
+# Uses prefix from .tbd/config.yml, just checks/updates integrations
+```
+
+**Not configured, needs prefix:**
+```bash
+$ tbd setup
+# Auto-detects prefix from git remote, prompts to confirm
+
+$ tbd setup --auto
+# Auto-detects prefix, no prompts
+
+$ tbd setup --prefix=myapp
+# Uses specified prefix, no auto-detection
+```
+
+**Error when prefix required but not provided:**
+```
+Error: This repository is not configured for tbd.
+
+To set up tbd:
+  tbd setup --prefix=<name>   # Specify your project prefix
+  tbd setup --auto            # Auto-detect prefix from git remote
+
+For surgical initialization, use: tbd init --prefix=<name>
+```
+
+#### Outside a Git Repository
+
+When running `tbd setup` or `tbd init` outside a git repository:
+
+**For `tbd setup`:**
+```
+Warning: Not in a git repository.
+
+Only performing global setup:
+  ✓ Installed global Claude Code skill
+  ✓ Updated user-level configuration
+
+Note: Repository initialization skipped.
+To set up tbd in a specific repository:
+  1. cd /path/to/your/repo
+  2. tbd setup --auto
+```
+
+**For `tbd init`:**
+```
+Error: Not a git repository.
+
+tbd init requires a git repository. Either:
+  1. Run 'git init' first to create a repository
+  2. Navigate to an existing git repository
+```
+
 ### Edge Cases
 
 | Scenario | Behavior |
 | --- | --- |
-| Not a git repo | Error with suggestion to run `git init` |
-| No remote, weird dir name | Use "proj" as fallback |
+| Not a git repo (`tbd init`) | Error with suggestion to run `git init` |
+| Not a git repo (`tbd setup`) | Warning, global-only setup, instructs user to run in repo |
+| No remote, weird dir name | Prompt for prefix (or error in `--auto` mode) |
 | Beads + already has .tbd/ | Skip migration, just check integrations |
 | `--from-beads` but no .beads/ | Error: "No .beads/ directory found" |
 | CI environment (no TTY) | Auto-detect non-interactive, use defaults |
