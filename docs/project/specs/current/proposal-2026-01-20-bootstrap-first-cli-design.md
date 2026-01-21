@@ -91,7 +91,7 @@ For CLI reference: tbd --help
 
 ### `tbd prime` (initialized but skill not installed)
 
-When tbd is initialized but agent integration hasn't been set up:
+When tbd is initialized but agent integration hasn’t been set up:
 
 ```
 tbd v1.2.3
@@ -117,7 +117,8 @@ Install agent integration for your environment:
 For CLI reference: tbd --help
 ```
 
-This ensures users always know their next step, whether they need to initialize, install the skill, or are fully set up.
+This ensures users always know their next step, whether they need to initialize, install
+the skill, or are fully set up.
 
 ### `tbd prime`
 
@@ -260,7 +261,8 @@ i Consider closing stale issues: ar-abc (open 14 days)
 i 2 issues have no assignee
 ```
 
-`tbd doctor` is the go-to command for troubleshooting. It subsumes `tbd status` and adds:
+`tbd doctor` is the go-to command for troubleshooting.
+It subsumes `tbd status` and adds:
 - Git configuration checks
 - Orphaned/stale issue detection
 - Circular dependency detection
@@ -377,7 +379,7 @@ These are maintained in the tbd repo and bundled with the npm package.
 ### Migration from `tbd help`
 
 - Remove `help` from command list
-- Add deprecation warning if `tbd help` is invoked: “Use 'tbd --help' instead”
+- Add deprecation warning if `tbd help` is invoked: “Use ‘tbd --help’ instead”
 - Remove warning after one minor version
 
 ### Migration from old `tbd prime`

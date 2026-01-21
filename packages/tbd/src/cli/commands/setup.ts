@@ -22,6 +22,53 @@ import { loadSkillContent } from './prime.js';
 import { stripFrontmatter } from '../../utils/markdown-utils.js';
 import { pathExists } from '../../utils/file-utils.js';
 import { type DiagnosticResult, renderDiagnostics } from '../lib/diagnostics.js';
+import { fileURLToPath } from 'node:url';
+
+/**
+ * Get the path to the bundled CURSOR.mdc file.
+ */
+function getCursorPath(): string {
+  const __filename = fileURLToPath(import.meta.url);
+  const __dirname = dirname(__filename);
+  // When bundled, runs from dist/bin.mjs or dist/cli.mjs
+  // Docs are at dist/docs/CURSOR.mdc (same level as the bundle)
+  return join(__dirname, 'docs', 'CURSOR.mdc');
+}
+
+/**
+ * Load the Cursor rules content from the bundled CURSOR.mdc file with fallbacks.
+ * Unlike SKILL.md, CURSOR.mdc includes its own frontmatter which is required for Cursor.
+ */
+async function loadCursorContent(): Promise<string> {
+  // Try bundled location first
+  try {
+    return await readFile(getCursorPath(), 'utf-8');
+  } catch {
+    // Fallback: try to read from source location during development
+  }
+
+  // Fallback for development without bundle
+  try {
+    const __filename = fileURLToPath(import.meta.url);
+    const __dirname = dirname(__filename);
+    const devPath = join(__dirname, '..', '..', 'docs', 'CURSOR.mdc');
+    return await readFile(devPath, 'utf-8');
+  } catch {
+    // Fallback: try repo-level docs
+  }
+
+  // Last fallback: repo-level docs
+  try {
+    const __filename = fileURLToPath(import.meta.url);
+    const __dirname = dirname(__filename);
+    const repoPath = join(__dirname, '..', '..', '..', '..', '..', 'docs', 'SKILL.md');
+    // Fall back to SKILL.md if CURSOR.mdc not found (strips frontmatter)
+    const content = await readFile(repoPath, 'utf-8');
+    return stripFrontmatter(content);
+  } catch {
+    throw new Error('CURSOR.mdc content file not found. Please rebuild the CLI.');
+  }
+}
 
 /**
  * Get the tbd section content for AGENTS.md (Codex integration).
@@ -34,12 +81,11 @@ async function getCodexTbdSection(): Promise<string> {
 }
 
 /**
- * Get the Cursor rules content from SKILL.md.
- * Strips the skill frontmatter (content is used as-is for .mdc files).
+ * Get the Cursor rules content from CURSOR.mdc.
+ * CURSOR.mdc has its own MDC-specific frontmatter which is required for Cursor to recognize the file.
  */
 async function getCursorRulesContent(): Promise<string> {
-  const skillContent = await loadSkillContent();
-  return stripFrontmatter(skillContent);
+  return loadCursorContent();
 }
 
 interface SetupClaudeOptions {

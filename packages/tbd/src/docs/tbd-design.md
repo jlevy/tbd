@@ -1427,7 +1427,8 @@ func (d DependencyType) AffectsReadyWork() bool {
 ```
 
 However, this does NOT mean children are blocked until their parent closes.
-The actual behavior (from `blocked_cache.go`) is **transitive blocking**:
+The actual behavior (from `attic/beads/internal/storage/sqlite/blocked_cache.go`) is
+**transitive blocking**:
 
 1. Only `blocks` (and similar types) can DIRECTLY block an issue
 2. `parent-child` PROPAGATES blockage: if a parent is blocked, children inherit that
@@ -4752,8 +4753,10 @@ This is sufficient for the `ready` command algorithm.
 - **tbd**: `parent_id` is a separate field for **organizational hierarchy only** (no
   blocking effects, no transitive propagation)
 
-tbd does not currently support transitive blocking through the parent hierarchy.
-See §2.7.7 for this as a potential future enhancement.
+This is intentional—tbd’s simpler model avoids hidden transitive effects while still
+allowing organizational hierarchy.
+See [§2.7.7](#277-future-transitive-blocking-option) for discussion of adding opt-in
+transitive blocking in the future.
 
 ### A.4 Architecture Comparison
 
