@@ -184,6 +184,24 @@ export const ConfigSchema = z.object({
       auto_sync: z.boolean().default(false),
     })
     .default({}),
+  docs: z
+    .object({
+      /**
+       * Ordered list of paths to search for documentation shortcuts.
+       * Paths can be:
+       * - Relative to tbd root (parent of .tbd/): e.g., '.tbd/docs/shortcuts/system'
+       * - Absolute paths: e.g., '/usr/share/tbd/shortcuts'
+       * - Home-relative paths: e.g., '~/my-shortcuts'
+       *
+       * Earlier paths take precedence (like shell $PATH).
+       */
+      paths: z
+        .array(z.string())
+        .default(['.tbd/docs/shortcuts/system', '.tbd/docs/shortcuts/standard']),
+    })
+    .default({
+      paths: ['.tbd/docs/shortcuts/system', '.tbd/docs/shortcuts/standard'],
+    }),
 });
 
 // =============================================================================
