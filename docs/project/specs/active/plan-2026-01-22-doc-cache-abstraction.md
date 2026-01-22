@@ -161,9 +161,11 @@ This keeps dependencies minimal and is sufficient for our use case.
 
 ```
 packages/tbd/src/
+├── file/
+│   ├── doc-cache.ts          # DocCache class (uses fs/promises)
+│   └── ...                   # Existing file modules (parser.ts, storage.ts)
 ├── lib/
-│   ├── doc-cache.ts          # DocCache class
-│   └── settings.ts           # Path constants (NEW)
+│   └── paths.ts              # Path constants (extend existing file)
 ├── cli/commands/
 │   └── shortcut.ts           # Shortcut command
 └── docs/
@@ -179,39 +181,48 @@ packages/tbd/src/
             └── ...
 ```
 
-Both `system/` and `standard/` directories are in the default doc path.
+**Note**: DocCache is placed in `file/` (not `lib/`) because it uses `fs/promises` for
+file operations. Per guidelines, `lib/` should remain node-free for library/CLI hybrids.
 
-### New Module: settings.ts
+### Extend paths.ts (not new file)
+
+Add the following constants to the existing `packages/tbd/src/lib/paths.ts`:
 
 ```typescript
-// packages/tbd/src/lib/settings.ts
+// packages/tbd/src/lib/paths.ts (extend existing file)
+import { join } from 'path';
 
-// All paths are relative to the parent of .tbd/ (the "tbd root")
-
-// Directory names
+// Existing constants...
 export const TBD_DIR = '.tbd';
+// ...
+
+// === NEW: Documentation/Shortcuts paths ===
+
+/** Subdirectory names for docs structure */
 export const DOCS_DIR = 'docs';
 export const SHORTCUTS_DIR = 'shortcuts';
 export const SYSTEM_DIR = 'system';
 export const STANDARD_DIR = 'standard';
 
-// Full paths relative to tbd root (parent of .tbd/)
+/** Full paths relative to tbd root (parent of .tbd/) */
 export const TBD_DOCS_DIR = join(TBD_DIR, DOCS_DIR);                     // .tbd/docs/
 export const TBD_SHORTCUTS_DIR = join(TBD_DOCS_DIR, SHORTCUTS_DIR);      // .tbd/docs/shortcuts/
 export const TBD_SHORTCUTS_SYSTEM = join(TBD_SHORTCUTS_DIR, SYSTEM_DIR); // .tbd/docs/shortcuts/system/
 export const TBD_SHORTCUTS_STANDARD = join(TBD_SHORTCUTS_DIR, STANDARD_DIR); // .tbd/docs/shortcuts/standard/
 
-// Built-in docs source (in package)
+/** Built-in docs source paths (relative to package src/docs/) */
 export const BUILTIN_SHORTCUTS_SYSTEM = join('shortcuts', 'system');
 export const BUILTIN_SHORTCUTS_STANDARD = join('shortcuts', 'standard');
 
-// Default doc lookup paths (searched in order, relative to repo root)
-// System docs first, then standard shortcuts
+/** Default doc lookup paths (searched in order, relative to tbd root) */
 export const DEFAULT_DOC_PATHS = [
   TBD_SHORTCUTS_SYSTEM,    // .tbd/docs/shortcuts/system/
   TBD_SHORTCUTS_STANDARD,  // .tbd/docs/shortcuts/standard/
 ];
 ```
+
+**Note**: Extend the existing `paths.ts` rather than creating a new `settings.ts` file
+to follow established patterns and avoid duplication.
 
 ### Config Schema Extension
 
@@ -254,42 +265,76 @@ export const ConfigSchema = z.object({
 ### DocCache Class Design
 
 ```typescript
-// packages/tbd/src/lib/doc-cache.ts
+// packages/tbd/src/file/doc-cache.ts
 import { readdir, readFile } from 'fs/promises';
 import { join, basename } from 'path';
-import matter from 'gray-matter';
+import { parseFrontmatter } from './parser';  // Reuse existing utility
 
-export interface CachedDoc {
-  path: string;
-  name: string;
-  frontmatter?: Record<string, unknown>;
-  content: string;
+// === Scoring Constants ===
+/** Score for exact filename match */
+export const SCORE_EXACT_MATCH = 1.0;
+/** Score when query is a prefix of filename */
+export const SCORE_PREFIX_MATCH = 0.9;
+/** Score when filename contains all query words */
+export const SCORE_CONTAINS_ALL = 0.8;
+/** Base score for partial word matches (multiplied by matched/total ratio) */
+export const SCORE_PARTIAL_BASE = 0.7;
+/** Minimum score threshold to return a fuzzy match result */
+export const SCORE_MIN_THRESHOLD = 0.5;
+
+/** Frontmatter fields used for shortcut documents */
+export interface DocFrontmatter {
+  /** Display title for the shortcut */
+  title?: string;
+  /** Brief description for fuzzy matching and listing */
+  description?: string;
+  /** Optional categorization tags */
+  tags?: string[];
 }
 
+/** A cached document loaded from the doc path */
+export interface CachedDoc {
+  /** Full filesystem path to the document */
+  path: string;
+  /** Filename without extension (used for lookups) */
+  name: string;
+  /** Parsed YAML frontmatter, if present */
+  frontmatter?: DocFrontmatter;
+  /** Full file content (including frontmatter for output) */
+  content: string;
+  /** Which directory in the path this doc came from */
+  sourceDir: string;
+}
+
+/** A document match with relevance score */
 export interface DocMatch {
   doc: CachedDoc;
-  score: number;  // 1.0 = exact match, lower = fuzzier
+  /** Match score: 1.0 = exact, lower = fuzzier */
+  score: number;
 }
 
 export class DocCache {
   private docs: CachedDoc[] = [];
   private allDocs: CachedDoc[] = [];  // Including shadowed
+  private seenNames = new Set<string>();  // Track names for shadowing
   private loaded = false;
 
-  constructor(private paths: string[]) {}
+  constructor(private readonly paths: string[]) {}
 
   async load(): Promise<void> {
     // Load all .md files from paths in order
     // Track both active docs (first occurrence) and all docs (including shadowed)
+    // Use parseFrontmatter() from parser.ts for consistency
   }
 
   get(name: string): DocMatch | null {
     // Exact match by filename (with/without .md)
-    // Returns first match in path order with score 1.0
+    // Returns first match in path order with score SCORE_EXACT_MATCH
   }
 
   search(query: string, limit = 10): DocMatch[] {
     // Fuzzy search across filename, title, description
+    // Use SCORE_* constants for scoring
     // Returns matches sorted by score descending
   }
 
@@ -304,12 +349,24 @@ export class DocCache {
 }
 ```
 
+**Notes**:
+- Reuses existing `parseFrontmatter()` from `parser.ts` instead of importing gray-matter
+  directly
+- Uses named constants for all scoring thresholds (no magic numbers)
+- `DocFrontmatter` interface provides type safety instead of `Record<string, unknown>`
+````
+
 ### Shortcut Command Design
 
 The shortcut command uses a single argument (name or description) with optional flags.
 
 ```typescript
 // packages/tbd/src/cli/commands/shortcut.ts
+import pc from 'picocolors';  // Per guidelines: always use picocolors for terminal colors
+import { getCommandContext } from '../lib/context';
+import { createOutput } from '../lib/output';  // OutputManager for proper stdout/stderr
+import { DocCache, SCORE_MIN_THRESHOLD } from '../../file/doc-cache';
+
 export function registerShortcutCommand(program: Command): void {
   program
     .command('shortcut [query]')
@@ -317,24 +374,37 @@ export function registerShortcutCommand(program: Command): void {
     .option('--list', 'List all available shortcuts')
     .option('--all', 'Include shadowed shortcuts (use with --list)')
     .option('--json', 'Output as JSON')
-    .action(async (query, options) => {
+    .action(async (query, options, command) => {
+      const ctx = getCommandContext(command);
+      const out = createOutput(ctx);
       const cache = await loadDocCache();
       await cache.load();
 
       if (options.list) {
         // List mode: show all shortcuts with source paths
         const docs = cache.list(options.all);
+
+        if (ctx.json) {
+          out.json(docs.map(d => ({
+            name: d.name,
+            title: d.frontmatter?.title,
+            path: d.path,
+            shadowed: cache.isShadowed(d),
+          })));
+          return;
+        }
+
         for (const doc of docs) {
           const shadowed = cache.isShadowed(doc);
           const title = doc.frontmatter?.title ?? doc.name;
-          const source = relativePath(doc.path);  // e.g., ".tbd/docs/shortcuts"
+          const source = relativePath(doc.sourceDir);
 
           if (shadowed) {
-            // Muted style for shadowed entries
-            console.log(muted(`  ${title}  (${source}) [shadowed]`));
+            // Muted style for shadowed entries (use picocolors)
+            out.log(pc.dim(`  ${title}  (${source}) [shadowed]`));
           } else {
-            console.log(`${title}`);
-            console.log(muted(`  ${source}`));
+            out.log(title);
+            out.log(pc.dim(`  ${source}`));
           }
         }
         return;
@@ -344,16 +414,20 @@ export function registerShortcutCommand(program: Command): void {
         // No query: show explanation + help
         const explanation = cache.get('shortcut-explanation');
         if (explanation) {
-          console.log(explanation.doc.content);
+          out.log(explanation.doc.content);
         }
-        program.commands.find(c => c.name() === 'shortcut')?.help();
+        command.help();
         return;
       }
 
       // Query provided: try exact match first, then fuzzy
       const exactMatch = cache.get(query);
       if (exactMatch) {
-        console.log(exactMatch.doc.content);
+        if (ctx.json) {
+          out.json({ doc: exactMatch.doc, score: exactMatch.score });
+        } else {
+          out.log(exactMatch.doc.content);
+        }
         return;
       }
 
@@ -364,20 +438,30 @@ export function registerShortcutCommand(program: Command): void {
       }
 
       const best = matches[0];
-      if (best.score < 0.5) {
+      if (best.score < SCORE_MIN_THRESHOLD) {
         // Low confidence - show suggestions instead
-        console.log(`No exact match for "${query}". Did you mean:`);
+        out.log(`No exact match for "${query}". Did you mean:`);
         for (const m of cache.search(query, 5)) {
-          console.log(`  ${m.doc.frontmatter?.title ?? m.doc.name} (score: ${m.score.toFixed(2)})`);
+          out.log(`  ${m.doc.frontmatter?.title ?? m.doc.name} ${pc.dim(`(score: ${m.score.toFixed(2)})`)}`);
         }
         return;
       }
 
       // Good fuzzy match - output it
-      console.log(best.doc.content);
+      if (ctx.json) {
+        out.json({ doc: best.doc, score: best.score });
+      } else {
+        out.log(best.doc.content);
+      }
     });
 }
-```
+````
+
+**Notes**:
+- Uses `picocolors` (aliased as `pc`) for terminal styling per guidelines
+- Uses `OutputManager` via `createOutput()` for proper stdout/stderr separation
+- Supports both text and JSON output modes via context
+- Uses `SCORE_MIN_THRESHOLD` constant instead of magic number 0.5
 
 ### Example Output
 
@@ -463,6 +547,10 @@ During `tbd init` or `tbd setup`:
 4. Copy built-in shortcut templates to standard/
 5. Add `docs.paths` to config.yml with default paths
 
+**File writing**: Use `atomically` library for all file writes to prevent
+partial/corrupted files during installation.
+This writes to a temp file first, then atomically renames.
+
 This allows users to:
 - Modify shipped shortcuts (they’re in their repo)
 - Add new shortcuts alongside shipped ones
@@ -471,29 +559,31 @@ This allows users to:
 ### Path Resolution
 
 ```
-doc path: ['.tbd/docs/custom', '.tbd/docs/shortcuts']
+doc path: ['.tbd/docs/custom', '.tbd/docs/shortcuts/system', '.tbd/docs/shortcuts/standard']
 
 Lookup: "new-plan-spec"
 
 1. Check .tbd/docs/custom/new-plan-spec.md → not found
-2. Check .tbd/docs/custom/shortcut-new-plan-spec.md → not found
-3. Check .tbd/docs/shortcuts/new-plan-spec.md → not found
-4. Check .tbd/docs/shortcuts/shortcut-new-plan-spec.md → FOUND!
+2. Check .tbd/docs/shortcuts/system/new-plan-spec.md → not found
+3. Check .tbd/docs/shortcuts/standard/new-plan-spec.md → FOUND!
 
-Result: .tbd/docs/shortcuts/shortcut-new-plan-spec.md (score: 1.0)
+Result: .tbd/docs/shortcuts/standard/new-plan-spec.md (score: SCORE_EXACT_MATCH = 1.0)
 ```
+
+**Note**: Files in `standard/` use plain names (e.g., `new-plan-spec.md`) without any
+prefix.
 
 For fuzzy matching, if no exact match:
 
 ```
 Query: "plan spec"
 
-Score all documents:
-- shortcut-new-plan-spec.md: 0.85 (contains "plan" and "spec")
-- shortcut-implement-spec.md: 0.6 (contains "spec")
-- shortcut-coding-spike.md: 0.2 (low match)
+Score all documents using SCORE_* constants:
+- new-plan-spec.md: SCORE_CONTAINS_ALL (0.8) - contains "plan" and "spec"
+- implement-spec.md: SCORE_PARTIAL_BASE * 0.5 (0.35) - contains "spec" only
+- coding-spike.md: 0.1 - low match
 
-Return sorted by score, apply path order for tie-breaking.
+Return sorted by score descending, path order for tie-breaking.
 ```
 
 ## Stage 3: Refine Architecture
@@ -514,11 +604,12 @@ DocCache should follow similar patterns.
 
 ### Simplification Decisions
 
-1. **No external fuzzy library initially** - Implement simple scoring first:
-   - Exact match = 1.0
-   - Prefix match = 0.9
-   - Contains all query words = 0.8
-   - Contains some query words = 0.7 × (matched/total)
+1. **No external fuzzy library initially** - Implement simple scoring using named
+   constants:
+   - `SCORE_EXACT_MATCH` = 1.0
+   - `SCORE_PREFIX_MATCH` = 0.9
+   - `SCORE_CONTAINS_ALL` = 0.8
+   - `SCORE_PARTIAL_BASE` = 0.7 (multiplied by matched/total ratio)
 
    This covers 90% of use cases.
    Add microfuzz later if needed.
@@ -526,12 +617,15 @@ DocCache should follow similar patterns.
 2. **Eager loading** - With dozens of files, load all upfront.
    No need for lazy loading complexity.
 
-3. **Filename normalization** - Strip `shortcut-` prefix automatically for lookups:
-   - `shortcut-new-plan-spec.md` matches “new-plan-spec”
-   - This allows clean command syntax: `tbd shortcut new-plan-spec`
+3. **Plain filenames** - No `shortcut-` prefix in filenames.
+   The `system/` and `standard/` directory structure provides sufficient organization.
+   Lookup by filename directly:
+   - `new-plan-spec.md` matches query “new-plan-spec”
+   - `skill.md` matches query “skill”
 
 4. **Copy on init, not on every run** - Shortcuts are copied once during init/setup.
    Users can update with `tbd setup --auto` which refreshes built-in docs.
+   Use `atomically` library for all file writes.
 
 ## Stage 4: Implementation
 
@@ -539,10 +633,14 @@ DocCache should follow similar patterns.
 
 ### Phase 1: DocCache Core + Exact Matching
 
-- [ ] **tbd-gf16** Create `packages/tbd/src/lib/settings.ts` with path constants
-- [ ] **tbd-nwhc** Create `packages/tbd/src/lib/doc-cache.ts` with DocCache class
+- [ ] **tbd-gf16** Extend `packages/tbd/src/lib/paths.ts` with doc path constants
+- [ ] **tbd-nwhc** Create `packages/tbd/src/file/doc-cache.ts` with DocCache class
+  - Define scoring constants (SCORE_EXACT_MATCH, etc.)
+    with docstrings
+  - Define DocFrontmatter interface with typed fields
   - Depends on: tbd-gf16
-- [ ] **tbd-y92x** Implement `get()` and `list()` methods for exact filename matching
+- [ ] **tbd-y92x** Implement `load()`, `get()`, and `list()` methods
+  - Use existing `parseFrontmatter()` from parser.ts
   - Depends on: tbd-nwhc
 - [ ] **tbd-oorb** Add unit tests for DocCache
   - Depends on: tbd-y92x
@@ -568,40 +666,63 @@ DocCache should follow similar patterns.
 
 ### Phase 4: Configuration Integration
 
-- [ ] **tbd-8irw** Extend ConfigSchema with `docs.paths` field
-- [ ] **tbd-s12p** Implement path resolution utility (relative, absolute, ~/ paths)
+- [ ] **tbd-8irw** Extend ConfigSchema in `schemas.ts` with `docs.paths` field
+- [ ] **tbd-s12p** Implement path resolution utility in `paths.ts`
+  - Add `resolveDocPath()` for relative, absolute, ~/ paths
   - Depends on: tbd-8irw
 
 ### Phase 5: Built-in Shortcuts Installation
 
-- [ ] **tbd-s12m** Create built-in system docs directory (skill.md, skill-brief.md,
-  shortcut-explanation.md)
-- [ ] **tbd-nvvg** Create built-in standard shortcuts directory (new-plan-spec.md, etc.)
+- [ ] **tbd-s12m** Create `packages/tbd/src/docs/shortcuts/system/` with skill.md,
+  skill-brief.md, shortcut-explanation.md
+- [ ] **tbd-nvvg** Create `packages/tbd/src/docs/shortcuts/standard/` with workflow
+  shortcuts (plain names, no prefix)
 - [ ] **tbd-ukbi** Update `tbd init` to create `.tbd/docs/shortcuts/{system,standard}/`
   - Depends on: tbd-s12m, tbd-nvvg, tbd-s12p
-- [ ] **tbd-z6ke** Update `tbd setup` to copy built-in docs with version comment
+- [ ] **tbd-z6ke** Update `tbd setup` to copy built-in docs using `atomically` library
+  - Add version comment (<!-- tbd-version: X.Y.Z -->)
   - Depends on: tbd-ukbi
 
 ### Phase 6: Documentation & Testing
+
+Per testing guidelines, include specific test types:
 
 - [ ] **tbd-lvae** Add shortcut command to CLI help
   - Depends on: tbd-7iy1
 - [ ] **tbd-ls9y** Update SKILL.md with shortcut usage
   - Depends on: tbd-7iy1
-- [ ] **tbd-x3zq** Add integration tests for shortcut command
-  - Depends on: tbd-vc4l, tbd-pkok
-- [ ] **tbd-cgb8** Add golden tests for shortcut output formats
-  - Depends on: tbd-pkok
 - [ ] **tbd-z26l** Document configuration options in tbd-design.md
   - Depends on: tbd-8irw
+- [ ] **tbd-oorb** Unit tests (`doc-cache.test.ts`):
+  - Test `get()` exact matching with/without .md extension
+  - Test `search()` scoring algorithm with various queries
+  - Test `list()` with and without shadowed docs
+  - Test path ordering (earlier paths take precedence)
+  - Test error handling (missing dirs, invalid markdown)
+- [ ] **tbd-cgb8** Golden tests (`shortcut.golden.test.ts`):
+  - Capture CLI output for `tbd shortcut --list`
+  - Capture CLI output for `tbd shortcut <name>`
+  - Capture CLI output for `tbd shortcut --list --all` (with shadowed)
+  - Capture JSON output mode
+  - Depends on: tbd-pkok
+- [ ] **tbd-x3zq** Integration tests (`shortcut.integration.test.ts`):
+  - Full command flow from CLI to file system
+  - Config loading with custom doc paths
+  - Installation flow (copying shortcuts during setup)
+  - Depends on: tbd-vc4l, tbd-pkok
 
 ## Open Questions
 
 1. **Shortcut file naming convention**: Should we keep the `shortcut-` prefix in
    filenames, or use plain names like `new-plan-spec.md`?
 
-   **Recommendation**: Keep `shortcut-` prefix in source, but strip it for lookups.
-   This keeps the source directory organized while allowing clean command syntax.
+   **Decision**: Use plain names without prefix in both `system/` and `standard/`
+   directories. The directory structure (`system/` vs `standard/`) provides sufficient
+   organization. This simplifies lookups and avoids prefix-stripping complexity.
+
+   Examples:
+   - `.tbd/docs/shortcuts/system/skill.md` (not `shortcut-skill.md`)
+   - `.tbd/docs/shortcuts/standard/new-plan-spec.md` (not `shortcut-new-plan-spec.md`)
 
 2. **Should shortcuts be editable by users?**
 
@@ -641,10 +762,17 @@ Tags are optional metadata for future categorization/filtering.
 
 ### Error Handling
 
-- Missing directory: Log warning, skip (don’t fail)
-- Invalid markdown: Log warning, skip file
-- No frontmatter: Document still works, just no metadata for fuzzy search
-- Empty doc path: Use default paths from settings.ts
+Per guidelines, wrap errors with context when catching:
+
+- **Missing directory**: Log warning with path context, skip (don’t fail)
+  `console.warn(\`Shortcut directory not found, skipping: ${dirPath}\`)`
+- **Invalid markdown**: Log warning with file path and error details, skip file
+  `console.warn(\`Failed to parse shortcut ${filePath}: ${error.message}\`)`
+- **No frontmatter**: Document still works, just no metadata for fuzzy search
+- **Empty doc path**: Use default paths from paths.ts (TBD_SHORTCUTS_SYSTEM,
+  TBD_SHORTCUTS_STANDARD)
+- **Permission error**: Log warning with context, continue with remaining paths
+  `console.warn(\`Cannot read shortcut directory ${dirPath}: ${error.message}\`)`
 
 ### Performance Considerations
 
@@ -662,15 +790,19 @@ Future optimization if needed:
 
 | Component | Purpose |
 | --- | --- |
-| `DocCache` | Path-ordered markdown document cache with lookup |
-| `settings.ts` | Centralized path constants |
+| `file/doc-cache.ts` | Path-ordered markdown document cache with lookup |
+| `lib/paths.ts` | Centralized path constants (extended, not new file) |
 | `config.yml` docs.paths | User-configurable doc directories |
 | `tbd shortcut` | CLI command: `<query>`, `--list`, `--list --all` |
 | `.tbd/docs/shortcuts/system/` | System docs (skill.md, shortcut-explanation.md) |
 | `.tbd/docs/shortcuts/standard/` | Standard shortcut templates (new-plan-spec.md, etc.) |
 
-**Key principle**: Configuration in `config.yml`, constants in `settings.ts`, no
-hardcoded paths in command implementations.
+**Key principles**:
+- Configuration in `config.yml`, constants in `paths.ts`, no hardcoded paths
+- DocCache in `file/` directory (not `lib/`) because it uses fs/promises
+- Use `picocolors` for terminal styling, `OutputManager` for output
+- Use `atomically` for file writes, `parseFrontmatter()` for YAML parsing
+- Named constants for all scoring thresholds (no magic numbers)
 
 **Usage flow**:
 1. User runs `tbd setup --auto` → shortcuts installed to
