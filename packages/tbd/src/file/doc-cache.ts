@@ -245,7 +245,13 @@ export class DocCache {
    * Calculate relevance score for a document against a query.
    */
   private calculateScore(doc: CachedDoc, query: string): number {
-    const queryLower = query.toLowerCase();
+    const queryLower = query.toLowerCase().trim();
+
+    // Empty query matches nothing
+    if (queryLower.length === 0) {
+      return 0;
+    }
+
     const nameLower = doc.name.toLowerCase();
     const titleLower = doc.frontmatter?.title?.toLowerCase() ?? '';
     const descLower = doc.frontmatter?.description?.toLowerCase() ?? '';
