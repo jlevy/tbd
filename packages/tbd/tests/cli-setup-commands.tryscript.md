@@ -467,7 +467,7 @@ Use --verbose to show status messages.
 
 ```console
 $ tbd setup claude --check --verbose
-✓ Global hooks - SessionStart, PreCompact (~/.claude/settings.json)
+[..]Global hooks[..]
 ⚠ Project hooks - not configured (.claude/settings.json)
     Run: tbd setup claude
 ⚠ Skill file - not found (.claude/skills/tbd/SKILL.md)

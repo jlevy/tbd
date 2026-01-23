@@ -268,7 +268,7 @@ settings:
 ```console
 $ tbd config show --json
 {
-  "tbd_version": "0.1.5-dev.60.578abd9-dirty",
+  "tbd_version": "[..]",
   "sync": {
     "branch": "tbd-sync",
     "remote": "origin"

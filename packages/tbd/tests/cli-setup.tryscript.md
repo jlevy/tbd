@@ -288,7 +288,7 @@ Not a tbd repository.
 
 Detected:
   ✓ Git repository
-  ✓ Git 2.50.1
+  ✓ Git [..]
   ✗ Beads not detected
   ✗ tbd not initialized
 
