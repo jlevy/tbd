@@ -1,4 +1,4 @@
-Shortcut: New Implementation Beads from Spec
+Shortcut: New Implementation Issues from Spec
 
 Instructions:
 
@@ -9,13 +9,13 @@ Create a to-do list with the following items then perform all of them:
    a plan- prefix (e.g., plan-YYYY-MM-DD-\*.md).
    If isn’t clear, stop and ask!
 
-2. Create a new top-level bead for this work, referencing the spec.
+2. Create a new top-level issue for this work, referencing the spec.
    Reference any other related specs or docs too.
 
 3. Then using all the context you now have, begin to plan the implementation step by
-   step, step by step, reviewing existing code carefully as you go and creating beads.
+   step, step by step, reviewing existing code carefully as you go and creating issues.
    Always double-check all referenced code fits with the spec code you write.
-   Be sure to track dependencies between beads correctly.
+   Be sure to track dependencies between issues correctly.
 
 4. Summarize what you have done and ask the user to review and if you should begin
    implementation.

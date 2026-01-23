@@ -1239,7 +1239,7 @@ class SetupDefaultHandler extends BaseCommand {
 
     // 3. Initialize worktree for sync branch
     try {
-      await initWorktree(cwd, 'tbd-sync', 'origin');
+      await initWorktree(cwd);
       console.log(`  ${colors.success('✓')} Initialized sync branch`);
     } catch {
       // Non-fatal - sync will work, just not optimally
