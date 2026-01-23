@@ -3,6 +3,21 @@
 `tbd` provides lightweight, git-native task and issue tracking using beads, which are
 lightweight issues managed from the CLI.
 
+## Installation
+
+If `tbd` is not installed, install and set up in one command:
+
+```bash
+npm install -g tbd-git@latest && tbd setup --auto
+```
+
+This initializes tbd and configures your coding agent automatically.
+
+**IMPORTANT FOR AGENTS:** Agents should ALWAYS run `tbd setup --auto` since it is
+non-interactive. Use `--interactive` for humans.
+If the user wishes to migrate from `bd`, the original beads implementation, you can use
+`tbd setup --from-beads`.
+
 > **Context Recovery**: Run `tbd prime` after compaction, clear, or new session.
 > Hooks auto-call this in Claude Code when .tbd/ detected.
 
