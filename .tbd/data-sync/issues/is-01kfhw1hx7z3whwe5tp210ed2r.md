@@ -8,11 +8,12 @@ dependencies:
 id: is-01kfhw1hx7z3whwe5tp210ed2r
 kind: task
 labels: []
+parent_id: is-01kfhvzn1vbsam9xckr0njfbqg
 priority: 1
 status: open
 title: Implement path resolution utility
 type: is
-updated_at: 2026-01-23T02:40:01.280Z
-version: 4
+updated_at: 2026-01-23T02:57:03.192Z
+version: 5
 ---
 Implement resolveDocPath() utility in paths.ts for consistent path handling: relative paths resolved from tbd root (parent of .tbd/), absolute paths used as-is, ~/ paths expanded to user home directory.

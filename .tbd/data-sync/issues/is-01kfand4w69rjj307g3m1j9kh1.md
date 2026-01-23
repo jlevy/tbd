@@ -1,4 +1,6 @@
 ---
+close_reason: "Fixed: setupClaudeIfDetected, setupCursorIfDetected, setupCodexIfDetected now always run handlers to update skill/rules files even when already installed"
+closed_at: 2026-01-23T02:56:01.317Z
 created_at: 2026-01-19T08:19:39.508Z
 dependencies:
   - target: is-01kf7j53z1gahrqswh8x4v4b6t
@@ -7,11 +9,11 @@ id: is-01kfand4w69rjj307g3m1j9kh1
 kind: bug
 labels: []
 priority: 1
-status: open
+status: closed
 title: tbd setup auto should update skill files, not skip them
 type: is
-updated_at: 2026-01-23T02:45:46.407Z
-version: 3
+updated_at: 2026-01-23T02:56:01.318Z
+version: 5
 ---
 ## Problem
 

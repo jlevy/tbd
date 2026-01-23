@@ -8,11 +8,12 @@ dependencies:
 id: is-01kfhw1ynx7qg6d5bfzsx8g557
 kind: task
 labels: []
+parent_id: is-01kfhvzn1vbsam9xckr0njfbqg
 priority: 1
 status: open
 title: Update tbd init to create docs directories
 type: is
-updated_at: 2026-01-23T02:40:01.725Z
-version: 3
+updated_at: 2026-01-23T02:57:03.431Z
+version: 4
 ---
 Update tbd init command to create .tbd/docs/shortcuts/system/ and .tbd/docs/shortcuts/standard/ directories. Copy built-in docs to respective directories.

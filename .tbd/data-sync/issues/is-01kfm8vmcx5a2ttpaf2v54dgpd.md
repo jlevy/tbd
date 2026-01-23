@@ -1,4 +1,6 @@
 ---
+close_reason: Created docs/skill.md with shared skill content (session protocol, commands, workflows) - no frontmatter
+closed_at: 2026-01-23T02:53:45.087Z
 created_at: 2026-01-23T01:52:47.004Z
 dependencies:
   - target: is-01kfm8m60gcnexfh7n891h2dsv
@@ -9,11 +11,11 @@ id: is-01kfm8vmcx5a2ttpaf2v54dgpd
 kind: task
 labels: []
 priority: 2
-status: open
+status: closed
 title: Extract shared workflow content to skill.md
 type: is
-updated_at: 2026-01-23T02:47:00.668Z
-version: 4
+updated_at: 2026-01-23T02:53:45.088Z
+version: 6
 ---
 Create docs/skill.md with the main skill content (no frontmatter):
 

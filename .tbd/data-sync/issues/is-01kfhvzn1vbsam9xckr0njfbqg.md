@@ -8,7 +8,7 @@ priority: 1
 status: open
 title: DocCache Abstraction and Shortcut System
 type: is
-updated_at: 2026-01-22T03:29:18.388Z
-version: 1
+updated_at: 2026-01-23T02:57:29.819Z
+version: 13
 ---
 Implement DocCache library for path-ordered markdown lookups and tbd shortcut command. See docs/project/specs/active/plan-2026-01-22-doc-cache-abstraction.md for full spec.

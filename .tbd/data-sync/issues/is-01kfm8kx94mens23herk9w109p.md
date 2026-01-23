@@ -1,4 +1,6 @@
 ---
+close_reason: "Implemented: docs/headers/ + docs/skill.md structure with build composition. SKILL.md and CURSOR.mdc are now generated from shared content."
+closed_at: 2026-01-23T02:56:22.200Z
 created_at: 2026-01-23T01:48:33.956Z
 dependencies:
   - target: is-01kfm8m50c6d1qdyef2ctjrew7
@@ -17,11 +19,11 @@ id: is-01kfm8kx94mens23herk9w109p
 kind: feature
 labels: []
 priority: 2
-status: open
+status: closed
 title: Consolidate SKILL.md and CURSOR.mdc into single source of truth
 type: is
-updated_at: 2026-01-23T02:46:43.769Z
-version: 8
+updated_at: 2026-01-23T02:56:22.201Z
+version: 9
 ---
 Create single source of truth for agent docs:
 
