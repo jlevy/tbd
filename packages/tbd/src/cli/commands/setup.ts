@@ -1377,14 +1377,14 @@ export const setupCommand = new Command('setup')
       '  --auto              Non-interactive mode with smart defaults (for agents/scripts)',
     );
     console.log('  --interactive       Interactive mode with prompts (for humans)');
+    console.log('  --from-beads        Migrate from Beads to tbd (implies --auto)');
     console.log('');
     console.log('Options:');
-    console.log('  --from-beads        Migrate from Beads to tbd (uses prefix from beads config)');
     console.log('  --prefix <name>     Project prefix for issue IDs (e.g., "tbd", "myapp")');
     console.log('');
     console.log('Examples:');
     console.log('  tbd setup --auto --prefix=tbd   # Full automatic setup with prefix');
-    console.log('  tbd setup --auto --from-beads   # Migrate from Beads (uses beads prefix)');
+    console.log('  tbd setup --from-beads          # Migrate from Beads (uses beads prefix)');
     console.log('  tbd setup --interactive         # Interactive setup with prompts');
     console.log('');
     console.log('For surgical initialization without integrations, see: tbd init --help');

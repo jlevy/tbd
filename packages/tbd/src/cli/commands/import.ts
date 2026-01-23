@@ -5,10 +5,8 @@
  */
 
 import { Command } from 'commander';
-import { readFile, access, mkdir } from 'node:fs/promises';
+import { readFile, access } from 'node:fs/promises';
 import { join } from 'node:path';
-import { spawnSync } from 'node:child_process';
-import { writeFile } from 'atomically';
 
 import { BaseCommand } from '../lib/base-command.js';
 import { requireInit, ValidationError, NotFoundError } from '../lib/errors.js';
@@ -29,18 +27,9 @@ import {
 } from '../../file/id-mapping.js';
 import { IssueStatus, IssueKind } from '../../lib/schemas.js';
 import type { Issue, IssueStatusType, IssueKindType, DependencyType } from '../../lib/types.js';
-import {
-  resolveDataSyncDir,
-  TBD_DIR,
-  CACHE_DIR,
-  WORKTREE_DIR_NAME,
-  DATA_SYNC_DIR_NAME,
-  SYNC_BRANCH,
-} from '../../lib/paths.js';
+import { resolveDataSyncDir } from '../../lib/paths.js';
 import { now, normalizeTimestamp } from '../../utils/time-utils.js';
-import { initConfig, isInitialized, readConfig, writeConfig } from '../../file/config.js';
-import { initWorktree } from '../../file/git.js';
-import { VERSION } from '../lib/version.js';
+import { readConfig, writeConfig } from '../../file/config.js';
 
 interface ImportOptions {
   beadsDir?: string;
@@ -555,75 +544,6 @@ class ImportHandler extends BaseCommand {
       console.log(`  Merged:       ${merged}`);
       console.log(`  Skipped:      ${skipped}`);
     });
-  }
-
-  private async importFromBeads(options: ImportOptions): Promise<void> {
-    const cwd = process.cwd();
-    const beadsDir = options.beadsDir ?? '.beads';
-    const jsonlPath = join(beadsDir, 'issues.jsonl');
-
-    try {
-      await access(jsonlPath);
-    } catch {
-      throw new NotFoundError(
-        'Beads database',
-        `${beadsDir} (use \`bd export > issues.jsonl\` to create an export file)`,
-      );
-    }
-
-    // Auto-initialize if not already initialized (per spec §5.6)
-    if (!(await isInitialized(cwd))) {
-      if (this.checkDryRun('Would initialize tbd and import from Beads')) {
-        return;
-      }
-
-      // Detect prefix from beads issues
-      const prefix = await this.detectBeadsPrefix(jsonlPath);
-      this.output.info(`Detected beads prefix: ${prefix}`);
-      this.output.info('Initializing tbd repository...');
-
-      // Initialize config and directories (same as init command)
-      await initConfig(cwd, VERSION, prefix);
-
-      // Create .tbd/.gitignore
-      const gitignoreContent = [
-        '# Local cache (not shared)',
-        'cache/',
-        '',
-        '# Hidden worktree for tbd-sync branch',
-        `${WORKTREE_DIR_NAME}/`,
-        '',
-        '# Data sync directory (only exists in worktree)',
-        `${DATA_SYNC_DIR_NAME}/`,
-        '',
-        '# Temporary files',
-        '*.tmp',
-        '',
-      ].join('\n');
-      await writeFile(join(cwd, TBD_DIR, '.gitignore'), gitignoreContent);
-
-      // Create cache directory
-      await mkdir(join(cwd, CACHE_DIR), { recursive: true });
-
-      // Initialize worktree
-      await initWorktree(cwd, 'origin', SYNC_BRANCH);
-
-      this.output.success('Initialized tbd repository');
-    }
-
-    // Now resolve the data sync dir and import
-    this.dataSyncDir = await resolveDataSyncDir();
-    await this.importFromFile(jsonlPath, options);
-
-    // Auto-configure detected coding agents (skip in quiet mode)
-    if (!this.ctx.quiet) {
-      console.log();
-      spawnSync('tbd', ['setup', 'auto'], { stdio: 'inherit' });
-
-      // Show status which includes next steps for beads migration
-      console.log();
-      spawnSync('tbd', ['status'], { stdio: 'inherit' });
-    }
   }
 
   private async loadExistingIssues(): Promise<Issue[]> {
