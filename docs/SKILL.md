@@ -10,18 +10,20 @@ allowed-tools: Bash(tbd:*), Read, Write
 If `tbd` is not installed, install and set up in one command:
 
 ```bash
-npm install -g tbd-git@latest && tbd setup --auto
+npm install -g tbd-git@latest && tbd setup --auto --prefix=<name>
 ```
 
-This initializes tbd and configures your coding agent automatically.
+Replace `<name>` with a short 2-4 letter project prefix (e.g., `tbd`, `myp`).
+This prefix is used in issue IDs (e.g., `tbd-a1b2`).
 
-**IMPORTANT FOR AGENTS:** Always use `--auto` flag.
-The command `tbd setup` without flags shows help and requires a mode flag.
-Use `--interactive` for humans, `--auto` for agents.
-Agents should ALWAYS run `tbd setup --auto`.
+**IMPORTANT FOR AGENTS:**
+- The `--prefix` flag is **required** for fresh setup (no auto-detection)
+- Use 2-4 lowercase letters for the prefix (e.g., `tbd`, `myp`, `app`)
+- Exception: `--from-beads` reads prefix from existing beads config
+- If setup fails due to missing prefix, ask user what prefix to use
 
 Other non-interactive commands for agents:
-- `tbd setup --from-beads` - Migrate from beads without prompts
+- `tbd setup --auto --from-beads` - Migrate from beads (uses existing prefix)
 - `tbd setup claude` - Add Claude integration only
 - `tbd setup cursor` - Add Cursor integration only
 
