@@ -7,7 +7,6 @@
 import { Command } from 'commander';
 import { mkdir, stat } from 'node:fs/promises';
 import { join } from 'node:path';
-import { spawnSync } from 'node:child_process';
 
 import { writeFile } from 'atomically';
 
@@ -50,8 +49,7 @@ class InitHandler extends BaseCommand {
           'Usage: tbd init --prefix=<name>\n\n' +
           'The prefix is used for display IDs (e.g., proj-a7k2, myapp-b3m9)\n' +
           'Choose a short, memorable prefix for your project.\n\n' +
-          "If importing from beads, use 'tbd import --from-beads' instead\n" +
-          '(the beads prefix will be automatically detected).',
+          'For automatic prefix detection, use: tbd setup --auto',
       );
     }
 
@@ -127,19 +125,16 @@ class InitHandler extends BaseCommand {
       }
     }, 'Failed to initialize tbd');
 
-    this.output.data({ initialized: true, version: VERSION }, () => {
-      this.output.success('Initialized tbd repository');
+    this.output.data({ initialized: true, version: VERSION, prefix: options.prefix }, () => {
+      this.output.success(`Initialized tbd repository (prefix: ${options.prefix})`);
+      // Only show next steps if not in quiet mode
+      if (!this.output.isQuiet()) {
+        console.log('');
+        console.log('Next steps:');
+        console.log('  git add .tbd/ && git commit -m "Initialize tbd"');
+        console.log('  tbd setup --auto   # Optional: configure agent integrations');
+      }
     });
-
-    // Auto-configure detected coding agents (skip in quiet mode)
-    if (!this.ctx.quiet) {
-      console.log('');
-      spawnSync('tbd', ['setup', 'auto'], { stdio: 'inherit' });
-
-      // Show status with next steps
-      console.log('');
-      spawnSync('tbd', ['status'], { stdio: 'inherit' });
-    }
   }
 }
 

@@ -274,10 +274,14 @@ class StatusHandler extends BaseCommand {
       console.log('To get started:');
       if (data.beads_detected) {
         console.log(
-          `  ${colors.bold('tbd import --from-beads')}   # Migrate from Beads (recommended)`,
+          `  ${colors.bold('tbd setup --auto')}          # Migrate from Beads (recommended)`,
+        );
+      } else {
+        console.log(
+          `  ${colors.bold('tbd setup --auto')}          # Full setup with auto-detection`,
         );
       }
-      console.log(`  ${colors.bold('tbd init')}                  # Start fresh`);
+      console.log(`  ${colors.bold('tbd init --prefix=X')}       # Surgical init only`);
       return;
     }
 

@@ -10,8 +10,8 @@
  */
 
 import { Command } from 'commander';
-import { readFile, mkdir, access, rm, rename, readdir, stat, chmod } from 'node:fs/promises';
-import { execSync } from 'node:child_process';
+import { readFile, mkdir, access, rm, rename, chmod } from 'node:fs/promises';
+import { spawnSync } from 'node:child_process';
 import { join, dirname } from 'node:path';
 import { homedir } from 'node:os';
 import { writeFile } from 'atomically';
@@ -22,6 +22,58 @@ import { loadSkillContent } from './prime.js';
 import { stripFrontmatter } from '../../utils/markdown-utils.js';
 import { pathExists } from '../../utils/file-utils.js';
 import { type DiagnosticResult, renderDiagnostics } from '../lib/diagnostics.js';
+import { fileURLToPath } from 'node:url';
+import { autoDetectPrefix, isValidPrefix, getBeadsPrefix } from '../lib/prefix-detection.js';
+import { initConfig, isInitialized, readConfig } from '../../file/config.js';
+import { VERSION } from '../lib/version.js';
+import { TBD_DIR, WORKTREE_DIR_NAME, DATA_SYNC_DIR_NAME } from '../../lib/paths.js';
+import { initWorktree, isInGitRepo } from '../../file/git.js';
+
+/**
+ * Get the path to the bundled CURSOR.mdc file.
+ */
+function getCursorPath(): string {
+  const __filename = fileURLToPath(import.meta.url);
+  const __dirname = dirname(__filename);
+  // When bundled, runs from dist/bin.mjs or dist/cli.mjs
+  // Docs are at dist/docs/CURSOR.mdc (same level as the bundle)
+  return join(__dirname, 'docs', 'CURSOR.mdc');
+}
+
+/**
+ * Load the Cursor rules content from the bundled CURSOR.mdc file with fallbacks.
+ * Unlike SKILL.md, CURSOR.mdc includes its own frontmatter which is required for Cursor.
+ */
+async function loadCursorContent(): Promise<string> {
+  // Try bundled location first
+  try {
+    return await readFile(getCursorPath(), 'utf-8');
+  } catch {
+    // Fallback: try to read from source location during development
+  }
+
+  // Fallback for development without bundle
+  try {
+    const __filename = fileURLToPath(import.meta.url);
+    const __dirname = dirname(__filename);
+    const devPath = join(__dirname, '..', '..', 'docs', 'CURSOR.mdc');
+    return await readFile(devPath, 'utf-8');
+  } catch {
+    // Fallback: try repo-level docs
+  }
+
+  // Last fallback: repo-level docs
+  try {
+    const __filename = fileURLToPath(import.meta.url);
+    const __dirname = dirname(__filename);
+    const repoPath = join(__dirname, '..', '..', '..', '..', '..', 'docs', 'SKILL.md');
+    // Fall back to SKILL.md if CURSOR.mdc not found (strips frontmatter)
+    const content = await readFile(repoPath, 'utf-8');
+    return stripFrontmatter(content);
+  } catch {
+    throw new Error('CURSOR.mdc content file not found. Please rebuild the CLI.');
+  }
+}
 
 /**
  * Get the tbd section content for AGENTS.md (Codex integration).
@@ -34,12 +86,11 @@ async function getCodexTbdSection(): Promise<string> {
 }
 
 /**
- * Get the Cursor rules content from SKILL.md.
- * Strips the skill frontmatter (content is used as-is for .mdc files).
+ * Get the Cursor rules content from CURSOR.mdc.
+ * CURSOR.mdc has its own MDC-specific frontmatter which is required for Cursor to recognize the file.
  */
 async function getCursorRulesContent(): Promise<string> {
-  const skillContent = await loadSkillContent();
-  return stripFrontmatter(skillContent);
+  return loadCursorContent();
 }
 
 interface SetupClaudeOptions {
@@ -840,595 +891,253 @@ const codexCommand = new Command('codex')
   });
 
 // ============================================================================
-// Beads Migration Command
+// Setup Default Handler (for --auto and --interactive modes)
 // ============================================================================
 
-interface SetupBeadsOptions {
-  confirm?: boolean;
+interface SetupDefaultOptions {
+  auto?: boolean;
+  interactive?: boolean;
+  fromBeads?: boolean;
+  prefix?: string;
 }
 
-// Markers for AGENTS.md beads section
-const BEADS_BEGIN_MARKER = '<!-- BEGIN BEADS INTEGRATION -->';
-const BEADS_END_MARKER = '<!-- END BEADS INTEGRATION -->';
+/**
+ * Default handler for `tbd setup` with --auto or --interactive flags.
+ *
+ * This implements the unified onboarding flow:
+ * - `tbd setup --auto`: Non-interactive setup with smart defaults (for agents)
+ * - `tbd setup --interactive`: Interactive setup with prompts (for humans)
+ *
+ * Decision tree:
+ * 1. Not in git repo → Error (git init first)
+ * 2. Has .tbd/ → Already initialized, check/update integrations
+ * 3. Has .beads/ → Beads migration flow
+ * 4. Fresh repo → Initialize + configure integrations
+ */
+class SetupDefaultHandler extends BaseCommand {
+  private cmd: Command;
 
-interface BeadsDisableItem {
-  source: string;
-  destination: string;
-  description: string;
-  type: 'directory' | 'file' | 'config-hooks';
-  exists: boolean;
-  details?: string;
-}
+  constructor(command: Command) {
+    super(command);
+    this.cmd = command;
+  }
 
-class SetupBeadsHandler extends BaseCommand {
-  async run(options: SetupBeadsOptions): Promise<void> {
+  async run(options: SetupDefaultOptions): Promise<void> {
     const colors = this.output.getColors();
     const cwd = process.cwd();
+
+    // Determine mode
+    const isAutoMode = options.auto === true;
+    // Note: options.interactive will be used when we add interactive prompts
+
+    // Header
+    console.log(colors.bold('tbd: Git-native issue tracking for AI agents and humans'));
+    console.log('');
+
+    // Check if in git repo
+    const inGitRepo = await isInGitRepo(cwd);
+    if (!inGitRepo) {
+      console.log(colors.warn('Error: Not a git repository.'));
+      console.log('');
+      console.log('tbd requires a git repository. Run `git init` first.');
+      process.exit(1);
+    }
+
+    // Check current state
+    const hasTbd = await isInitialized(cwd);
+    const hasBeads = await pathExists(join(cwd, '.beads'));
+
+    console.log('Checking repository...');
+    console.log(`  ${colors.success('✓')} Git repository detected`);
+
+    if (hasTbd) {
+      // Already initialized flow
+      const config = await readConfig(cwd);
+      console.log(`  ${colors.success('✓')} tbd initialized (prefix: ${config.display.id_prefix})`);
+      console.log('');
+      await this.handleAlreadyInitialized(cwd, isAutoMode);
+    } else if (hasBeads && !options.prefix) {
+      // Beads migration flow (unless prefix override given)
+      console.log(`  ${colors.dim('✗')} tbd not initialized`);
+      console.log(`  ${colors.warn('!')} Beads detected (.beads/ directory found)`);
+      console.log('');
+      await this.handleBeadsMigration(cwd, isAutoMode, options);
+    } else {
+      // Fresh setup flow
+      console.log(`  ${colors.dim('✗')} tbd not initialized`);
+      console.log('');
+      await this.handleFreshSetup(cwd, isAutoMode, options);
+    }
+  }
+
+  private async handleAlreadyInitialized(_cwd: string, _isAutoMode: boolean): Promise<void> {
+    const colors = this.output.getColors();
+
+    console.log('Checking integrations...');
+
+    // Use SetupAutoHandler to configure integrations
+    const autoHandler = new SetupAutoHandler(this.cmd);
+    await autoHandler.run();
+
+    console.log('');
+    console.log(colors.success('All set!'));
+  }
+
+  private async handleBeadsMigration(
+    cwd: string,
+    isAutoMode: boolean,
+    options: SetupDefaultOptions,
+  ): Promise<void> {
+    const colors = this.output.getColors();
+
+    if (isAutoMode) {
+      console.log(`  ${colors.warn('!')} Beads detected - auto-migrating`);
+      console.log('');
+    }
+
+    // Get prefix from beads config or auto-detect
+    const beadsPrefix = await getBeadsPrefix(cwd);
+    const prefix = options.prefix ?? beadsPrefix ?? (await autoDetectPrefix(cwd));
+
+    if (!isValidPrefix(prefix)) {
+      console.log(colors.warn('Error: Could not determine a valid prefix.'));
+      console.log('');
+      console.log('Please specify a prefix:');
+      console.log('  tbd setup --auto --prefix=myapp');
+      process.exit(1);
+    }
+
+    // Initialize tbd first
+    await this.initializeTbd(cwd, prefix);
+
+    // Import beads issues from the JSONL file
+    console.log('Importing from Beads...');
+    const beadsDir = join(cwd, '.beads');
+    const jsonlPath = join(beadsDir, 'issues.jsonl');
+
+    try {
+      await access(jsonlPath);
+      // Import directly from the JSONL file (tbd is already initialized)
+      const result = spawnSync('tbd', ['import', jsonlPath, '--verbose'], {
+        cwd,
+        stdio: 'inherit',
+      });
+      if (result.status !== 0) {
+        console.log(colors.warn('Warning: Some issues may not have imported correctly'));
+      }
+    } catch {
+      console.log(colors.dim('  No issues.jsonl found - skipping import'));
+    }
+
+    // Disable beads
+    await this.disableBeads(cwd);
+
+    console.log('');
+    console.log('Configuring integrations...');
+
+    // Configure integrations
+    const autoHandler = new SetupAutoHandler(this.cmd);
+    await autoHandler.run();
+
+    console.log('');
+    console.log(colors.success('Setup complete!'));
+    console.log('');
+
+    // Show dashboard after setup
+    spawnSync('tbd', ['prime'], { stdio: 'inherit' });
+  }
+
+  private async handleFreshSetup(
+    cwd: string,
+    isAutoMode: boolean,
+    options: SetupDefaultOptions,
+  ): Promise<void> {
+    const colors = this.output.getColors();
+
+    // Auto-detect or use provided prefix
+    const prefix = options.prefix ?? (await autoDetectPrefix(cwd));
+
+    if (!isValidPrefix(prefix)) {
+      console.log(colors.warn('Error: Could not auto-detect project prefix.'));
+      console.log('No git remote found and directory name is not a valid prefix.');
+      console.log('');
+      console.log('Please specify a prefix:');
+      console.log('  tbd setup --auto --prefix=myapp');
+      process.exit(1);
+    }
+
+    console.log(`Initializing with auto-detected prefix "${prefix}"...`);
+
+    await this.initializeTbd(cwd, prefix);
+
+    console.log('');
+    console.log('Configuring integrations...');
+
+    // Configure integrations
+    const autoHandler = new SetupAutoHandler(this.cmd);
+    await autoHandler.run();
+
+    console.log('');
+    console.log(colors.success('Setup complete!'));
+    console.log('');
+
+    // Show dashboard after setup
+    spawnSync('tbd', ['prime'], { stdio: 'inherit' });
+  }
+
+  private async initializeTbd(cwd: string, prefix: string): Promise<void> {
+    const colors = this.output.getColors();
+
+    // 1. Create .tbd/ directory with config.yml
+    await initConfig(cwd, VERSION, prefix);
+    console.log(`  ${colors.success('✓')} Created .tbd/config.yml`);
+
+    // 2. Create .tbd/.gitignore
+    const gitignoreContent = [
+      '# Local cache (not shared)',
+      'cache/',
+      '',
+      '# Hidden worktree for tbd-sync branch',
+      `${WORKTREE_DIR_NAME}/`,
+      '',
+      '# Data sync directory (only exists in worktree)',
+      `${DATA_SYNC_DIR_NAME}/`,
+      '',
+      '# Temporary files',
+      '*.tmp',
+      '*.temp',
+      '',
+    ].join('\n');
+
+    const gitignorePath = join(cwd, TBD_DIR, '.gitignore');
+    await writeFile(gitignorePath, gitignoreContent);
+    console.log(`  ${colors.success('✓')} Created .tbd/.gitignore`);
+
+    // 3. Initialize worktree for sync branch
+    try {
+      await initWorktree(cwd, 'tbd-sync', 'origin');
+      console.log(`  ${colors.success('✓')} Initialized sync branch`);
+    } catch {
+      // Non-fatal - sync will work, just not optimally
+      console.log(`  ${colors.dim('○')} Sync branch will be created on first sync`);
+    }
+  }
+
+  private async disableBeads(cwd: string): Promise<void> {
+    const colors = this.output.getColors();
+
+    // Move .beads to .beads-disabled
+    const beadsDir = join(cwd, '.beads');
     const disabledDir = join(cwd, '.beads-disabled');
 
-    // Collect all items that could be disabled
-    const items: BeadsDisableItem[] = [];
-
-    // 1. Check .beads/ directory
-    const beadsDir = join(cwd, '.beads');
-    const beadsDirExists = await pathExists(beadsDir);
-    if (beadsDirExists) {
-      const stats = await this.getDirectoryStats(beadsDir);
-      items.push({
-        source: '.beads/',
-        destination: '.beads-disabled/.beads/',
-        description: 'Beads data directory',
-        type: 'directory',
-        exists: true,
-        details: `${stats.files} files`,
-      });
-    }
-
-    // 2. Check .beads-hooks/ directory
-    const beadsHooksDir = join(cwd, '.beads-hooks');
-    const beadsHooksDirExists = await pathExists(beadsHooksDir);
-    if (beadsHooksDirExists) {
-      const stats = await this.getDirectoryStats(beadsHooksDir);
-      items.push({
-        source: '.beads-hooks/',
-        destination: '.beads-disabled/.beads-hooks/',
-        description: 'Beads git hooks',
-        type: 'directory',
-        exists: true,
-        details: `${stats.files} files`,
-      });
-    }
-
-    // 3. Check .cursor/rules/beads.mdc
-    const cursorBeadsFile = join(cwd, '.cursor', 'rules', 'beads.mdc');
-    const cursorBeadsExists = await pathExists(cursorBeadsFile);
-    if (cursorBeadsExists) {
-      items.push({
-        source: '.cursor/rules/beads.mdc',
-        destination: '.beads-disabled/.cursor/rules/beads.mdc',
-        description: 'Cursor IDE Beads rules',
-        type: 'file',
-        exists: true,
-      });
-    }
-
-    // 4. Check .claude/settings.local.json for bd hooks
-    const claudeLocalSettings = join(cwd, '.claude', 'settings.local.json');
-    const claudeHooksInfo = await this.checkClaudeLocalHooks(claudeLocalSettings);
-    if (claudeHooksInfo.hasBeadsHooks) {
-      items.push({
-        source: '.claude/settings.local.json',
-        destination: '.beads-disabled/.claude/settings.local.json',
-        description: 'Claude Code project hooks with bd commands',
-        type: 'config-hooks',
-        exists: true,
-        details: claudeHooksInfo.hookCount + ' bd hook(s)',
-      });
-    }
-
-    // 5. Check AGENTS.md for beads section
-    const agentsMd = join(cwd, 'AGENTS.md');
-    const agentsMdInfo = await this.checkAgentsMdBeads(agentsMd);
-    if (agentsMdInfo.hasBeadsSection) {
-      items.push({
-        source: 'AGENTS.md',
-        destination: '.beads-disabled/AGENTS.md',
-        description: 'AGENTS.md with Beads section',
-        type: 'file',
-        exists: true,
-        details: 'contains beads integration markers',
-      });
-    }
-
-    // 6. Check .gitattributes for beads merge driver config
-    const gitattributes = join(cwd, '.gitattributes');
-    const gitattributesInfo = await this.checkGitattributesBeads(gitattributes);
-    if (gitattributesInfo.hasBeadsLines) {
-      items.push({
-        source: '.gitattributes',
-        destination: '.beads-disabled/.gitattributes',
-        description: '.gitattributes with Beads merge driver',
-        type: 'config-hooks',
-        exists: true,
-        details: `${gitattributesInfo.lineCount} beads-related line(s)`,
-      });
-    }
-
-    // Nothing to disable?
-    if (items.length === 0) {
-      this.output.info('No Beads files found to disable.');
-      return;
-    }
-
-    // Show what will be moved
-    console.log(colors.bold('The following Beads files will be moved to .beads-disabled/:'));
-    console.log('');
-    for (const item of items) {
-      const details = item.details ? colors.dim(` (${item.details})`) : '';
-      console.log(`  ${colors.warn(item.source)} → ${colors.dim(item.destination)}${details}`);
-      console.log(`    ${colors.dim(item.description)}`);
-    }
-    console.log('');
-
-    if (!options.confirm) {
-      console.log(`This preserves all Beads data for potential rollback.`);
-      console.log('');
-      console.log(`To confirm, run: ${colors.dim('tbd setup beads --disable --confirm')}`);
-      console.log('');
-      console.log(colors.dim('After disabling Beads, run:'));
-      console.log(colors.dim('  tbd setup claude   # Install tbd hooks'));
-      console.log(colors.dim('  tbd setup cursor   # Install tbd Cursor rules (optional)'));
-      console.log(colors.dim('  tbd setup codex    # Update AGENTS.md for tbd (optional)'));
-      return;
-    }
-
-    // Check dry-run
-    if (
-      this.checkDryRun('Would disable Beads and move files', { items: items.map((i) => i.source) })
-    ) {
-      return;
-    }
-
-    // Perform the disable
-    this.output.info('Disabling Beads...');
-
-    // Stop the Beads daemon first (if running)
     try {
-      const result = execSync('bd daemon stop', {
-        encoding: 'utf-8',
-        stdio: ['pipe', 'pipe', 'pipe'],
-        timeout: 5000,
-      });
-      // Check if daemon was actually stopped
-      if (result.includes('stopped') || result.includes('Stopped')) {
-        console.log(`  ${colors.success('✓')} Stopped Beads daemon`);
-      } else {
-        console.log(`  ${colors.dim('○')} Beads daemon was not running`);
-      }
-    } catch (error) {
-      const errorMessage = (error as { message?: string }).message ?? '';
-      if (errorMessage.includes('not running') || errorMessage.includes('No daemon')) {
-        console.log(`  ${colors.dim('○')} Beads daemon was not running`);
-      } else if (errorMessage.includes('command not found') || errorMessage.includes('ENOENT')) {
-        console.log(`  ${colors.dim('○')} bd command not available (skipping daemon stop)`);
-      } else {
-        console.log(
-          `  ${colors.warn('⚠')} Could not stop Beads daemon: ${errorMessage.split('\n')[0]}`,
-        );
-      }
-    }
-
-    // Create .beads-disabled/ directory
-    await mkdir(disabledDir, { recursive: true });
-
-    // Track successful operations for RESTORE.md
-    const completed: { source: string; destination: string; action: string; restoreCmd: string }[] =
-      [];
-
-    for (const item of items) {
-      const sourcePath = join(cwd, item.source);
-      const destPath = join(cwd, item.destination);
-
-      try {
-        if (item.type === 'directory') {
-          // Ensure destination parent directory exists for rename
-          await mkdir(dirname(destPath), { recursive: true });
-          // Move directory
-          await rename(sourcePath, destPath);
-          console.log(`  ${colors.success('✓')} Moved ${item.source}`);
-          completed.push({
-            source: item.source,
-            destination: item.destination,
-            action: 'moved directory',
-            restoreCmd: `mv ${item.destination} ${item.source}`,
-          });
-        } else if (item.type === 'file') {
-          // Backup file using atomically (creates parent dirs automatically)
-          const content = await readFile(sourcePath, 'utf-8');
-          await writeFile(destPath, content);
-
-          if (item.source === 'AGENTS.md') {
-            // Remove beads section from AGENTS.md
-            await this.removeBeadsSectionFromAgentsMd(agentsMd);
-            console.log(
-              `  ${colors.success('✓')} Backed up and removed Beads section from ${item.source}`,
-            );
-            completed.push({
-              source: item.source,
-              destination: item.destination,
-              action: 'backed up original, removed Beads section from current',
-              restoreCmd: `cp ${item.destination} ${item.source}`,
-            });
-          } else {
-            // Move file (after backup)
-            await rm(sourcePath);
-            console.log(`  ${colors.success('✓')} Moved ${item.source}`);
-            completed.push({
-              source: item.source,
-              destination: item.destination,
-              action: 'moved file',
-              restoreCmd: `mv ${item.destination} ${item.source}`,
-            });
-          }
-        } else if (item.type === 'config-hooks') {
-          // Backup file using atomically (creates parent dirs automatically)
-          const content = await readFile(sourcePath, 'utf-8');
-          await writeFile(destPath, content);
-
-          if (item.source === '.claude/settings.local.json') {
-            // Remove bd hooks from local settings
-            await this.removeBeadsHooksFromClaudeSettings(claudeLocalSettings);
-            console.log(
-              `  ${colors.success('✓')} Backed up and removed bd hooks from ${item.source}`,
-            );
-            completed.push({
-              source: item.source,
-              destination: item.destination,
-              action: 'backed up original, removed bd hooks from current',
-              restoreCmd: `cp ${item.destination} ${item.source}`,
-            });
-          } else if (item.source === '.gitattributes') {
-            // Remove beads lines from .gitattributes
-            await this.removeBeadsLinesFromGitattributes(gitattributes);
-            console.log(
-              `  ${colors.success('✓')} Backed up and removed beads lines from ${item.source}`,
-            );
-            completed.push({
-              source: item.source,
-              destination: item.destination,
-              action: 'backed up original, removed beads merge driver lines',
-              restoreCmd: `cp ${item.destination} ${item.source}`,
-            });
-          }
-        }
-      } catch (error) {
-        console.log(
-          `  ${colors.warn('⚠')} Could not process ${item.source}: ${(error as Error).message}`,
-        );
-      }
-    }
-
-    // Write RESTORE.md with clear restore instructions
-    if (completed.length > 0) {
-      const restoreMd = this.generateRestoreMd(completed);
-      const restorePath = join(disabledDir, 'RESTORE.md');
-      await writeFile(restorePath, restoreMd);
-      console.log(`  ${colors.success('✓')} Created RESTORE.md with rollback instructions`);
-    }
-
-    console.log('');
-    this.output.success('Beads has been disabled.');
-    console.log('');
-    console.log('All Beads files have been moved to .beads-disabled/');
-    console.log(colors.dim('See .beads-disabled/RESTORE.md for rollback instructions.'));
-    console.log('');
-    console.log(colors.dim('Next steps:'));
-    console.log(colors.dim('  tbd setup claude   # Install tbd hooks'));
-    console.log(colors.dim('  tbd setup cursor   # Install tbd Cursor rules (optional)'));
-    console.log(colors.dim('  tbd setup codex    # Update AGENTS.md for tbd (optional)'));
-  }
-
-  private async getDirectoryStats(dirPath: string): Promise<{ files: number; size: number }> {
-    let files = 0;
-    let size = 0;
-
-    const walk = async (dir: string): Promise<void> => {
-      try {
-        const entries = await readdir(dir, { withFileTypes: true });
-        for (const entry of entries) {
-          const fullPath = join(dir, entry.name);
-          if (entry.isDirectory()) {
-            await walk(fullPath);
-          } else {
-            files++;
-            try {
-              const stats = await stat(fullPath);
-              size += stats.size;
-            } catch {
-              // Ignore stat errors
-            }
-          }
-        }
-      } catch {
-        // Ignore errors
-      }
-    };
-
-    await walk(dirPath);
-    return { files, size };
-  }
-
-  private async checkClaudeLocalHooks(
-    settingsPath: string,
-  ): Promise<{ hasBeadsHooks: boolean; hookCount: number }> {
-    try {
-      await access(settingsPath);
-      const content = await readFile(settingsPath, 'utf-8');
-      const settings = JSON.parse(content) as Record<string, unknown>;
-
-      const hooks = settings.hooks as Record<string, unknown[]> | undefined;
-      if (!hooks) {
-        return { hasBeadsHooks: false, hookCount: 0 };
-      }
-
-      let hookCount = 0;
-      for (const hookType of Object.keys(hooks)) {
-        const hookArray = hooks[hookType] as { hooks?: { command?: string }[] }[];
-        for (const hookEntry of hookArray) {
-          if (hookEntry.hooks) {
-            for (const hook of hookEntry.hooks) {
-              if (
-                hook.command &&
-                (hook.command.includes('bd ') || hook.command.includes('bd prime'))
-              ) {
-                hookCount++;
-              }
-            }
-          }
-        }
-      }
-
-      return { hasBeadsHooks: hookCount > 0, hookCount };
+      await rename(beadsDir, disabledDir);
+      console.log(`  ${colors.success('✓')} Disabled beads (moved to .beads-disabled/)`);
     } catch {
-      return { hasBeadsHooks: false, hookCount: 0 };
+      console.log(`  ${colors.dim('○')} Could not move .beads directory`);
     }
-  }
-
-  private async removeBeadsHooksFromClaudeSettings(settingsPath: string): Promise<void> {
-    const content = await readFile(settingsPath, 'utf-8');
-    const settings = JSON.parse(content) as Record<string, unknown>;
-
-    const hooks = settings.hooks as Record<string, unknown[]> | undefined;
-    if (!hooks) return;
-
-    // Filter out bd hooks from each hook type
-    for (const hookType of Object.keys(hooks)) {
-      const hookArray = hooks[hookType] as {
-        matcher?: string;
-        hooks?: { type?: string; command?: string }[];
-      }[];
-      hooks[hookType] = hookArray
-        .map((entry) => {
-          if (!entry.hooks) return entry;
-          entry.hooks = entry.hooks.filter(
-            (hook) =>
-              !hook.command ||
-              (!hook.command.includes('bd ') && !hook.command.includes('bd prime')),
-          );
-          return entry;
-        })
-        .filter((entry) => !entry.hooks || entry.hooks.length > 0);
-
-      if (hooks[hookType].length === 0) {
-        delete hooks[hookType];
-      }
-    }
-
-    if (Object.keys(hooks).length === 0) {
-      delete settings.hooks;
-    }
-
-    await writeFile(settingsPath, JSON.stringify(settings, null, 2) + '\n');
-  }
-
-  private async checkAgentsMdBeads(agentsMdPath: string): Promise<{ hasBeadsSection: boolean }> {
-    try {
-      await access(agentsMdPath);
-      const content = await readFile(agentsMdPath, 'utf-8');
-      return { hasBeadsSection: content.includes(BEADS_BEGIN_MARKER) };
-    } catch {
-      return { hasBeadsSection: false };
-    }
-  }
-
-  private async checkGitattributesBeads(
-    gitattributesPath: string,
-  ): Promise<{ hasBeadsLines: boolean; lineCount: number }> {
-    try {
-      await access(gitattributesPath);
-      const content = await readFile(gitattributesPath, 'utf-8');
-      const lines = content.split('\n');
-      const beadsLines = lines.filter((line) => this.isBeadsGitattributeLine(line));
-      return { hasBeadsLines: beadsLines.length > 0, lineCount: beadsLines.length };
-    } catch {
-      return { hasBeadsLines: false, lineCount: 0 };
-    }
-  }
-
-  /**
-   * Check if a .gitattributes line is beads-related.
-   * Matches lines containing:
-   * - merge=beads (merge driver)
-   * - .beads/ (beads directory patterns)
-   * - References to beads files
-   */
-  private isBeadsGitattributeLine(line: string): boolean {
-    const trimmed = line.trim();
-    // Skip empty lines and comments
-    if (!trimmed || trimmed.startsWith('#')) {
-      return false;
-    }
-    // Check for beads-related patterns
-    return (
-      trimmed.includes('merge=beads') ||
-      trimmed.includes('.beads/') ||
-      trimmed.includes('.beads ') ||
-      trimmed.startsWith('.beads')
-    );
-  }
-
-  private async removeBeadsLinesFromGitattributes(gitattributesPath: string): Promise<void> {
-    const content = await readFile(gitattributesPath, 'utf-8');
-    const lines = content.split('\n');
-
-    // Filter out beads-related lines, but keep comments that precede non-beads lines
-    const result: string[] = [];
-    let pendingComments: string[] = [];
-
-    for (const line of lines) {
-      const trimmed = line.trim();
-
-      if (!trimmed || trimmed.startsWith('#')) {
-        // Collect comments/empty lines
-        pendingComments.push(line);
-      } else if (this.isBeadsGitattributeLine(line)) {
-        // Beads line - discard it and any preceding comments that were about beads
-        // Check if pending comments mention beads
-        const nonBeadsComments = pendingComments.filter(
-          (c) =>
-            !c.toLowerCase().includes('beads') &&
-            !c.toLowerCase().includes('bd merge') &&
-            !c.toLowerCase().includes('merge driver'),
-        );
-        result.push(...nonBeadsComments);
-        pendingComments = [];
-      } else {
-        // Non-beads content line - keep it and any pending comments
-        result.push(...pendingComments);
-        result.push(line);
-        pendingComments = [];
-      }
-    }
-
-    // Add any trailing comments/empty lines that aren't beads-related
-    const nonBeadsTrailing = pendingComments.filter(
-      (c) =>
-        !c.toLowerCase().includes('beads') &&
-        !c.toLowerCase().includes('bd merge') &&
-        !c.toLowerCase().includes('merge driver'),
-    );
-    result.push(...nonBeadsTrailing);
-
-    const newContent = result.join('\n');
-
-    // If file is now empty (only whitespace), we could delete it
-    // but it's safer to leave it with just whitespace
-    await writeFile(gitattributesPath, newContent);
-  }
-
-  private async removeBeadsSectionFromAgentsMd(agentsMdPath: string): Promise<void> {
-    const content = await readFile(agentsMdPath, 'utf-8');
-
-    const startIdx = content.indexOf(BEADS_BEGIN_MARKER);
-    const endIdx = content.indexOf(BEADS_END_MARKER);
-
-    if (startIdx === -1 || endIdx === -1 || startIdx > endIdx) {
-      return; // No valid markers found
-    }
-
-    // Find the end of the end marker line
-    let endOfEndMarker = endIdx + BEADS_END_MARKER.length;
-    const nextNewline = content.indexOf('\n', endOfEndMarker);
-    if (nextNewline !== -1) {
-      endOfEndMarker = nextNewline + 1;
-    }
-
-    // Also remove leading blank lines before the section
-    let trimStart = startIdx;
-    while (trimStart > 0 && (content[trimStart - 1] === '\n' || content[trimStart - 1] === '\r')) {
-      trimStart--;
-    }
-
-    const newContent = content.slice(0, trimStart) + content.slice(endOfEndMarker);
-
-    // If file is now empty or just whitespace, leave it as is (don't delete)
-    await writeFile(agentsMdPath, newContent);
-  }
-
-  private generateRestoreMd(
-    completed: { source: string; destination: string; action: string; restoreCmd: string }[],
-  ): string {
-    const timestamp = new Date().toISOString();
-    const lines: string[] = [
-      '# Beads Restore Instructions',
-      '',
-      `Beads was disabled on: ${timestamp}`,
-      '',
-      '## What Was Changed',
-      '',
-      '| Original Location | Backup Location | Action |',
-      '|-------------------|-----------------|--------|',
-    ];
-
-    for (const item of completed) {
-      lines.push(`| \`${item.source}\` | \`${item.destination}\` | ${item.action} |`);
-    }
-
-    lines.push('');
-    lines.push('## To Restore Beads');
-    lines.push('');
-    lines.push('Run the following commands from your project root:');
-    lines.push('');
-    lines.push('```bash');
-
-    for (const item of completed) {
-      lines.push(`# Restore ${item.source}`);
-      lines.push(item.restoreCmd);
-      lines.push('');
-    }
-
-    lines.push('# Optionally remove this backup directory');
-    lines.push('rm -rf .beads-disabled/');
-    lines.push('```');
-    lines.push('');
-    lines.push('## Notes');
-    lines.push('');
-    lines.push('- For files that had content removed (AGENTS.md, .claude/settings.local.json),');
-    lines.push('  restoring will overwrite current content with the backed-up version.');
-    lines.push('- If you have made changes to these files since disabling Beads,');
-    lines.push('  you may need to manually merge the Beads content back in.');
-    lines.push('- After restoring, you may need to restart the Beads daemon: `bd daemon start`');
-    lines.push('');
-
-    return lines.join('\n');
   }
 }
-
-interface SetupBeadsCommandOptions {
-  disable?: boolean;
-  confirm?: boolean;
-}
-
-const beadsCommand = new Command('beads')
-  .description('Disable Beads so you only use tbd')
-  .option('--disable', 'Disable Beads and move files to .beads-disabled/')
-  .option('--confirm', 'Confirm the operation (required to proceed)')
-  .action(async (options: SetupBeadsCommandOptions, command) => {
-    if (options.disable) {
-      const handler = new SetupBeadsHandler(command);
-      await handler.run(options);
-    } else {
-      // Show usage if --disable not specified
-      console.log('Usage: tbd setup beads --disable [--confirm]');
-      console.log('');
-      console.log('Options:');
-      console.log('  --disable   Disable Beads and move files to .beads-disabled/');
-      console.log('  --confirm   Confirm the operation (required to proceed)');
-      console.log('');
-      console.log('This command helps migrate from Beads to tbd by safely');
-      console.log('moving Beads configuration files to a backup directory.');
-    }
-  });
 
 // ============================================================================
 // Auto Setup Command
@@ -1632,18 +1341,58 @@ class SetupAutoHandler extends BaseCommand {
   }
 }
 
-const autoCommand = new Command('auto')
-  .description('Auto-detect and configure integrations (Claude, Cursor, Codex)')
-  .action(async (_options, command) => {
-    const handler = new SetupAutoHandler(command);
-    await handler.run();
-  });
-
 // Main setup command
 export const setupCommand = new Command('setup')
   .description('Configure tbd integration with editors and tools')
-  .addCommand(autoCommand)
+  .option('--auto', 'Non-interactive mode with smart defaults (for agents/scripts)')
+  .option('--interactive', 'Interactive mode with prompts (for humans)')
+  .option('--from-beads', 'Migrate from Beads to tbd')
+  .option('--prefix <name>', 'Override auto-detected project prefix')
   .addCommand(claudeCommand)
   .addCommand(cursorCommand)
   .addCommand(codexCommand)
-  .addCommand(beadsCommand);
+  .action(async (options: SetupDefaultOptions, command) => {
+    // If --auto or --interactive flag is set, run the default handler
+    if (options.auto || options.interactive) {
+      const handler = new SetupDefaultHandler(command);
+      await handler.run(options);
+      return;
+    }
+
+    // If --from-beads is set without --auto/--interactive, treat as --auto
+    if (options.fromBeads) {
+      const handler = new SetupDefaultHandler(command);
+      await handler.run({ ...options, auto: true });
+      return;
+    }
+
+    // No flags provided - show help
+    console.log('Usage: tbd setup [options] [command]');
+    console.log('');
+    console.log('Full setup: initialize tbd (if needed) and configure agent integrations.');
+    console.log('');
+    console.log('IMPORTANT: You must specify a mode flag OR a subcommand.');
+    console.log('');
+    console.log('Modes:');
+    console.log(
+      '  --auto              Non-interactive mode with smart defaults (for agents/scripts)',
+    );
+    console.log('  --interactive       Interactive mode with prompts (for humans)');
+    console.log('');
+    console.log('Options:');
+    console.log('  --from-beads        Migrate from Beads to tbd (non-interactive)');
+    console.log('  --prefix <name>     Override auto-detected project prefix');
+    console.log('');
+    console.log('Commands:');
+    console.log('  claude              Configure Claude Code integration only');
+    console.log('  cursor              Configure Cursor IDE integration only');
+    console.log('  codex               Configure AGENTS.md only');
+    console.log('');
+    console.log('Examples:');
+    console.log('  tbd setup --auto              # Recommended: full automatic setup (for agents)');
+    console.log('  tbd setup --interactive       # Interactive setup with prompts (for humans)');
+    console.log('  tbd setup claude              # Add just Claude integration');
+    console.log('  tbd setup --from-beads        # Migrate from Beads');
+    console.log('');
+    console.log('For surgical initialization without integrations, see: tbd init --help');
+  });

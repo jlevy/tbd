@@ -14,6 +14,7 @@ before: |
   git init --initial-branch=main
   git config user.email "test@example.com"
   git config user.name "Test User"
+  git config commit.gpgsign false
   echo "# Test repo" > README.md
   git add README.md
   git commit -m "Initial commit"
@@ -42,7 +43,8 @@ Detected:
   ✗ tbd not initialized
 
 To get started:
-  tbd init                  # Start fresh
+  tbd setup --auto          # Full setup with auto-detection
+  tbd init --prefix=X       # Surgical init only
 ? 0
 ```
 
@@ -89,8 +91,8 @@ Detected:
   ✗ tbd not initialized
 
 To get started:
-  tbd import --from-beads   # Migrate from Beads (recommended)
-  tbd init                  # Start fresh
+  tbd setup --auto          # Migrate from Beads (recommended)
+  tbd init --prefix=X       # Surgical init only
 ? 0
 ```
 

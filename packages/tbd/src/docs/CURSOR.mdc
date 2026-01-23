@@ -1,29 +1,8 @@
 ---
-name: tbd
-description: Lightweight, git-native issue tracking (aka beads) for AI agents. Use for creating, planning, updating, and tracking issues with dependencies. Invoke when user mentions tbd, beads, to-do lists, planning, tracking tasks, issues, or bugs.
-allowed-tools: Bash(tbd:*), Read, Write
+description: tbd workflow rules for git-native issue tracking. Apply when working with tasks, issues, bugs, or project management.
+alwaysApply: false
 ---
 # tbd Workflow
-
-## Installation
-
-If `tbd` is not installed, install and set up in one command:
-
-```bash
-npm install -g tbd-git@latest && tbd setup --auto
-```
-
-This initializes tbd and configures your coding agent automatically.
-
-**IMPORTANT FOR AGENTS:** Always use `--auto` flag.
-The command `tbd setup` without flags shows help and requires a mode flag.
-Use `--interactive` for humans, `--auto` for agents.
-Agents should ALWAYS run `tbd setup --auto`.
-
-Other non-interactive commands for agents:
-- `tbd setup --from-beads` - Migrate from beads without prompts
-- `tbd setup claude` - Add Claude integration only
-- `tbd setup cursor` - Add Cursor integration only
 
 `tbd` provides lightweight, git-native task and issue tracking using beads, which are
 just lightweight issues managed from the CLI.
@@ -33,7 +12,7 @@ just lightweight issues managed from the CLI.
 
 # SESSION CLOSING PROTOCOL
 
-**CRITICAL**: Before saying “done” or “complete”, you MUST run this checklist:
+**CRITICAL**: Before saying "done" or "complete", you MUST run this checklist:
 
 ```
 [ ] 1. Stage and commit: git add + git commit
@@ -50,7 +29,7 @@ just lightweight issues managed from the CLI.
 ### CI: Wait for `--watch` to finish
 
 The `--watch` flag blocks until ALL checks complete.
-Do NOT see “passing” in early output and move on—wait for the **final summary** showing
+Do NOT see "passing" in early output and move on—wait for the **final summary** showing
 all checks passed.
 
 ### tbd: Update issues and sync
@@ -94,7 +73,7 @@ Every session must end with tbd in a clean state:
 
 - `tbd dep add <issue> <depends-on>` - Add dependency (issue depends on depends-on)
 - `tbd blocked` - Show all blocked issues
-- `tbd show <id>` - See what’s blocking/blocked by this issue
+- `tbd show <id>` - See what's blocking/blocked by this issue
 
 ### Sync & Collaboration
 

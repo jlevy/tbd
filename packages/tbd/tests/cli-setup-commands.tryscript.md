@@ -15,6 +15,7 @@ before: |
   git init --initial-branch=main
   git config user.email "test@example.com"
   git config user.name "Test User"
+  git config commit.gpgsign false
   echo "# Test repo" > README.md
   git add README.md
   git commit -m "Initial commit"
@@ -36,6 +37,11 @@ Usage: tbd setup [options] [command]
 Configure tbd integration with editors and tools
 
 Options:
+  --auto             Non-interactive mode with smart defaults (for
+                     agents/scripts)
+  --interactive      Interactive mode with prompts (for humans)
+  --from-beads       Migrate from Beads to tbd
+  --prefix <name>    Override auto-detected project prefix
   -h, --help         display help for command
 
 Global Options:
@@ -51,13 +57,16 @@ Global Options:
   --debug            Show internal IDs alongside public IDs for debugging
 
 Commands:
-  auto               Auto-detect and configure integrations (Claude, Cursor,
-                     Codex)
   claude [options]   Configure Claude Code (skill and hooks)
   cursor [options]   Configure Cursor IDE (rules file)
   codex [options]    Configure Codex and compatible tools (AGENTS.md)
-  beads [options]    Disable Beads so you only use tbd
-  help [command]     display help for command
+
+Getting Started:
+  npm install -g tbd-git@latest && tbd setup --auto
+
+  This initializes tbd and configures your coding agents automatically.
+  For interactive setup: tbd setup --interactive
+  For manual control: tbd init --help
 
 For more on tbd, see: https://github.com/jlevy/tbd
 ? 0
@@ -77,6 +86,11 @@ Options:
   -h, --help         display help for command
 
 Global Options:
+  --auto             Non-interactive mode with smart defaults (for
+                     agents/scripts)
+  --interactive      Interactive mode with prompts (for humans)
+  --from-beads       Migrate from Beads to tbd
+  --prefix <name>    Override auto-detected project prefix
   --version          Show version number
   --dry-run          Show what would be done without making changes
   --verbose          Enable verbose output
@@ -87,6 +101,13 @@ Global Options:
   --yes              Assume yes to confirmation prompts
   --no-sync          Skip automatic sync after write operations
   --debug            Show internal IDs alongside public IDs for debugging
+
+Getting Started:
+  npm install -g tbd-git@latest && tbd setup --auto
+
+  This initializes tbd and configures your coding agents automatically.
+  For interactive setup: tbd setup --interactive
+  For manual control: tbd init --help
 
 For more on tbd, see: https://github.com/jlevy/tbd
 ? 0
@@ -106,6 +127,11 @@ Options:
   -h, --help         display help for command
 
 Global Options:
+  --auto             Non-interactive mode with smart defaults (for
+                     agents/scripts)
+  --interactive      Interactive mode with prompts (for humans)
+  --from-beads       Migrate from Beads to tbd
+  --prefix <name>    Override auto-detected project prefix
   --version          Show version number
   --dry-run          Show what would be done without making changes
   --verbose          Enable verbose output
@@ -116,6 +142,13 @@ Global Options:
   --yes              Assume yes to confirmation prompts
   --no-sync          Skip automatic sync after write operations
   --debug            Show internal IDs alongside public IDs for debugging
+
+Getting Started:
+  npm install -g tbd-git@latest && tbd setup --auto
+
+  This initializes tbd and configures your coding agents automatically.
+  For interactive setup: tbd setup --interactive
+  For manual control: tbd init --help
 
 For more on tbd, see: https://github.com/jlevy/tbd
 ? 0
@@ -135,6 +168,11 @@ Options:
   -h, --help         display help for command
 
 Global Options:
+  --auto             Non-interactive mode with smart defaults (for
+                     agents/scripts)
+  --interactive      Interactive mode with prompts (for humans)
+  --from-beads       Migrate from Beads to tbd
+  --prefix <name>    Override auto-detected project prefix
   --version          Show version number
   --dry-run          Show what would be done without making changes
   --verbose          Enable verbose output
@@ -145,6 +183,13 @@ Global Options:
   --yes              Assume yes to confirmation prompts
   --no-sync          Skip automatic sync after write operations
   --debug            Show internal IDs alongside public IDs for debugging
+
+Getting Started:
+  npm install -g tbd-git@latest && tbd setup --auto
+
+  This initializes tbd and configures your coding agents automatically.
+  For interactive setup: tbd setup --interactive
+  For manual control: tbd init --help
 
 For more on tbd, see: https://github.com/jlevy/tbd
 ? 0

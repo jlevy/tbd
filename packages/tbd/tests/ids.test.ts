@@ -365,6 +365,7 @@ describe('test helper: BEADS_TO_TBD_STATUS', () => {
 
 // Tests for adaptive short ID length and collision handling
 import {
+  addIdMapping,
   calculateOptimalLength,
   generateUniqueShortId,
   type IdMapping,
@@ -438,6 +439,8 @@ describe('generateUniqueShortId', () => {
       expect(mapping.shortToUlid.has(id)).toBe(false);
       expect(generated.has(id)).toBe(false);
       generated.add(id);
+      // Add to mapping so subsequent calls don't return duplicates
+      addIdMapping(mapping, `generated-ulid-${i}`, id);
     }
   });
 

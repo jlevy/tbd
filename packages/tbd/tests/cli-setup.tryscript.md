@@ -14,6 +14,7 @@ before: |
   git init --initial-branch=main
   git config user.email "test@example.com"
   git config user.name "Test User"
+  git config commit.gpgsign false
   echo "# Test repo" > README.md
   git add README.md
   git commit -m "Initial commit"
@@ -50,8 +51,9 @@ Options:
 
 Documentation:
   readme                    Display the README (same as GitHub landing page)
-  prime [options]           Context-efficient instructions for agents, for use
-                            in every session
+  prime [options]           Show dashboard and workflow context (default when
+                            running `tbd`)
+  skill [options]           Output AI agent skill file content
   closing                   Display the session closing protocol reminder
   docs [options] [topic]    Display CLI documentation
   design [options] [topic]  Display design documentation and Beads comparison
@@ -59,7 +61,7 @@ Documentation:
 Setup & Configuration:
   init [options]            Initialize tbd in a git repository
   config                    Manage configuration
-  setup                     Configure tbd integration with editors and tools
+  setup [options]           Configure tbd integration with editors and tools
 
 Working With Issues:
   create [options] [title]  Create a new issue
@@ -88,13 +90,19 @@ Sync and Status:
 Maintenance:
   doctor [options]          Diagnose and repair repository
   attic                     Manage conflict archive (attic)
-  import [options] [file]   Import issues from Beads or JSONL file.
-                            Tip: Run "bd sync" and stop the beads daemon before
-                            importing for best results.
+  import [options] [file]   Import issues from JSONL file.
+                            For Beads migration, use: tbd setup --from-beads
   uninstall [options]       Remove tbd from this repository
 
 Commands:
   help [command]            display help for command
+
+Getting Started:
+  npm install -g tbd-git@latest && tbd setup --auto
+
+  This initializes tbd and configures your coding agents automatically.
+  For interactive setup: tbd setup --interactive
+  For manual control: tbd init --help
 
 For more on tbd, see: https://github.com/jlevy/tbd
 ? 0
@@ -133,6 +141,13 @@ Global Options:
   --yes                 Assume yes to confirmation prompts
   --no-sync             Skip automatic sync after write operations
   --debug               Show internal IDs alongside public IDs for debugging
+
+Getting Started:
+  npm install -g tbd-git@latest && tbd setup --auto
+
+  This initializes tbd and configures your coding agents automatically.
+  For interactive setup: tbd setup --interactive
+  For manual control: tbd init --help
 
 For more on tbd, see: https://github.com/jlevy/tbd
 ? 0
@@ -259,7 +274,7 @@ Create a git repo outside any tbd directory hierarchy to test uninitialized beha
 ```console
 $ mkdir -p /tmp/tbd-uninit-test && cd /tmp/tbd-uninit-test && rm -rf .git .tbd && git init --initial-branch=main && git config user.email "test@example.com" && git config user.name "Test" && tbd list 2>&1
 Initialized empty Git repository in [..]
-Error: Not a tbd repository (run 'tbd init' or 'tbd import --from-beads' first)
+Error: Not a tbd repository (run 'tbd setup --auto' first)
 ? 1
 ```
 
@@ -276,6 +291,7 @@ Detected:
   ✗ tbd not initialized
 
 To get started:
-  tbd init                  # Start fresh
+  tbd setup --auto          # Full setup with auto-detection
+  tbd init --prefix=X       # Surgical init only
 ? 0
 ```
