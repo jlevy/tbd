@@ -4,7 +4,7 @@ description: Implement issues from a spec, following TDD and project rules
 ---
 Shortcut: Implement Spec
 
-We track beads (issues) with tbd.
+We track issues with tbd.
 Run `tbd` for more on using tbd and current status.
 
 Instructions:
@@ -15,7 +15,7 @@ Create a to-do list with the following items then perform all of them:
    spec and docs/general/agent-guidelines/general-tdd-guidelines.md to understand all
    project and testing rules.
 
-2. IMPORTANT: *Track all work with beads using tbd.* Use `tbd create` to create issues,
+2. IMPORTANT: *Track all work with issues using tbd.* Use `tbd create` to create issues,
    `tbd ready` to find work, and `tbd close` when done.
 
 3. Implement issues specified by the user, highest priority first.
