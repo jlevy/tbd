@@ -1,4 +1,6 @@
 ---
+close_reason: null
+closed_at: 2026-01-23T01:50:15.827Z
 created_at: 2026-01-23T01:41:18.602Z
 dependencies:
   - target: is-01kfm86sw0c0bxb5p4zchyb8vz
@@ -11,9 +13,9 @@ id: is-01kfm86m4bmbd69qjd29wz0x0y
 kind: task
 labels: []
 priority: 1
-status: in_progress
+status: closed
 title: Refactor frontmatter parsing to use gray-matter library
 type: is
-updated_at: 2026-01-23T01:41:33.322Z
-version: 5
+updated_at: 2026-01-23T01:50:15.828Z
+version: 6
 ---
