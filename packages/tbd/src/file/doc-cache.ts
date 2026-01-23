@@ -9,9 +9,7 @@
 
 import { readdir, readFile } from 'node:fs/promises';
 import { join, basename } from 'node:path';
-import { parse as parseYaml } from 'yaml';
-
-import { parseFrontmatter } from '../utils/markdown-utils.js';
+import matter from 'gray-matter';
 
 // =============================================================================
 // Scoring Constants
@@ -176,13 +174,15 @@ export class DocCache {
 
   /**
    * Parse YAML frontmatter from content and return typed data.
+   * Uses gray-matter for consistent frontmatter parsing.
    */
   private parseFrontmatterData(content: string): DocFrontmatter | undefined {
-    const rawFrontmatter = parseFrontmatter(content);
-    if (!rawFrontmatter) return undefined;
+    if (!matter.test(content)) {
+      return undefined;
+    }
 
     try {
-      const parsed = parseYaml(rawFrontmatter) as Record<string, unknown>;
+      const parsed = matter(content).data as Record<string, unknown>;
       return {
         title: typeof parsed.title === 'string' ? parsed.title : undefined,
         description: typeof parsed.description === 'string' ? parsed.description : undefined,

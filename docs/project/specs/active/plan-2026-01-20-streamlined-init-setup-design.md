@@ -115,14 +115,10 @@ tbd                           # Runs tbd prime (dashboard)
 
 # High-level entry point (recommended for most users)
 tbd setup                     # Shows help, requires --interactive or --auto
-tbd setup --interactive       # Interactive mode (for humans who want to understand)
+tbd setup --interactive       # Interactive mode (for humans, prompts for all options)
 tbd setup --auto              # Non-interactive mode (for agents/scripts)
-  --from-beads                # Migrate from beads (can also auto-detect)
-  --prefix=<name>             # Override auto-detected prefix
-  tbd setup claude            # Just Claude integration (non-interactive)
-  tbd setup cursor            # Just Cursor integration (non-interactive)
-  tbd setup codex             # Just AGENTS.md (non-interactive)
-  tbd setup check             # Check all integration status (non-interactive)
+tbd setup --auto --prefix=X   # Non-interactive with explicit prefix
+tbd setup --auto --from-beads # Non-interactive, migrate from beads (uses beads prefix)
 
 # Low-level surgical commands
 tbd init [options]            # Just create .tbd/, no integrations
@@ -175,12 +171,12 @@ backward compatibility with confusing patterns.
 
 | Journey | Command | What Happens |
 | --- | --- | --- |
-| New repo (human) | `tbd setup --interactive` | Auto-detect prefix → confirm → init → integrations |
+| New repo (human) | `tbd setup --interactive --prefix=x` | Prompt for prefix → init → integrations |
 | New repo (surgical) | `tbd init --prefix=x` | Explicit prefix → init only |
 | Has beads (human) | `tbd setup --interactive` | Detect beads → offer migration → init → integrations |
 | Joining tbd repo | `tbd setup --interactive` | Detect .tbd → check/update integrations (no prefix needed) |
-| Agent automation | `tbd setup --auto` | All defaults, no prompts |
-| Explicit beads | `tbd setup --from-beads` | Force beads migration flow (non-interactive) |
+| Agent automation | `tbd setup --auto --prefix=x` | Requires prefix, no prompts |
+| Explicit beads | `tbd setup --from-beads` | Force beads migration flow (uses beads prefix) |
 | Script/CI init | `tbd init --prefix=x` | Just create .tbd/ with explicit prefix |
 | Global setup only | `tbd setup --interactive` (outside repo) | Warning, global config only |
 
@@ -219,8 +215,8 @@ Modes:
   --interactive       Interactive mode with prompts (for humans)
 
 Options:
-  --from-beads        Migrate from Beads to tbd (non-interactive)
-  --prefix <name>     Override auto-detected project prefix
+  --from-beads        Migrate from Beads to tbd (uses prefix from beads config)
+  --prefix <name>     Project prefix for issue IDs (REQUIRED for fresh setup)
 
 Commands:
   claude              Configure Claude Code integration only (non-interactive)
@@ -229,10 +225,10 @@ Commands:
   check               Check status of all integrations
 
 Examples:
-  tbd setup --auto              # Recommended: full automatic setup (for agents)
-  tbd setup --interactive       # Interactive setup with prompts (for humans)
-  tbd setup claude              # Add just Claude integration
-  tbd setup --from-beads        # Migrate from Beads (non-interactive)
+  tbd setup --auto --prefix=myapp   # Recommended: full automatic setup (for agents)
+  tbd setup --interactive           # Interactive setup with prompts (for humans)
+  tbd setup claude                  # Add just Claude integration
+  tbd setup --from-beads            # Migrate from Beads (uses beads prefix)
 
 For surgical initialization without integrations, see: tbd init --help
 ```
@@ -252,8 +248,6 @@ Options:
 
 Examples:
   tbd init --prefix=myapp   # Initialize with specific prefix
-
-For automatic prefix detection, use: tbd setup --auto
 ```
 
 #### 2. `tbd setup` Decision Tree
@@ -992,47 +986,11 @@ Note: Consider renaming existing issue IDs for consistency.
 **Key difference from current `tbd init`:** No longer auto-calls `tbd setup auto`. It’s
 purely surgical now.
 
-### Prefix Auto-Detection Algorithm
+### Prefix Requirements
 
-```typescript
-function autoDetectPrefix(): string {
-  // 1. If beads exists, extract from beads config
-  const beadsPrefix = getBeadsPrefix();
-  if (beadsPrefix && isValidPrefix(beadsPrefix)) return beadsPrefix;
-
-  // 2. Try git remote URL
-  const remote = getGitRemoteUrl();
-  if (remote) {
-    // github.com/jlevy/tbd → "tbd"
-    // git@github.com:jlevy/my-app.git → "myapp" (normalized)
-    const repoName = extractRepoName(remote);
-    const normalized = normalizePrefix(repoName);
-    if (isValidPrefix(normalized)) return normalized;
-  }
-
-  // 3. Fall back to directory name
-  const dirName = path.basename(process.cwd());
-  const normalized = normalizePrefix(dirName);
-  if (isValidPrefix(normalized)) return normalized;
-
-  // 4. Ultimate fallback
-  return "proj";
-}
-
-function normalizePrefix(s: string): string {
-  return s.toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 8);
-}
-
-function isValidPrefix(s: string): boolean {
-  // 2-8 lowercase alphanumeric chars, starting with letter
-  return /^[a-z][a-z0-9]{1,7}$/.test(s);
-}
-```
-
-### Prefix Requirements and Detection
-
-**Key distinction:** `tbd init` is surgical and requires explicit `--prefix`.
-`tbd setup` is smart and can reuse existing configuration.
+**Key distinction:** Both `tbd init` and `tbd setup --auto` require explicit `--prefix`.
+The only exception is beads migration, which reads the prefix from existing beads
+config.
 
 #### `tbd init` (surgical)
 
@@ -1049,22 +1007,19 @@ Error: --prefix is required for tbd init
 
 Example:
   tbd init --prefix=myapp
-
-For automatic prefix detection, use: tbd setup --auto
 ```
 
 This keeps `init` predictable and explicit - no magic, no guessing.
 
-#### `tbd setup` (smart)
+#### `tbd setup --auto` (fresh setup)
 
-`--prefix` is **optional** for `tbd setup` - it depends on context:
+`--prefix` is **required** for `tbd setup --auto` when not migrating from beads:
 
 | Scenario | Behavior |
 | --- | --- |
 | Already configured (has .tbd/config.yml) | Uses existing prefix from config, no `--prefix` needed |
-| Not configured, in GitHub repo | Auto-detect from remote URL, confirm with user |
-| Not configured, `--auto` mode | Auto-detect prefix, no confirmation |
-| Not configured, no auto-detect possible | Error: must specify `--prefix` |
+| Not configured, fresh setup | Error: must specify `--prefix` |
+| Not configured, has .beads/ | Uses prefix from beads config (migration flow) |
 
 **Already configured:**
 ```bash
@@ -1074,25 +1029,25 @@ $ tbd setup
 
 **Not configured, needs prefix:**
 ```bash
-$ tbd setup
-# Auto-detects prefix from git remote, prompts to confirm
+$ tbd setup --auto --prefix=myapp
+# Uses specified prefix
 
 $ tbd setup --auto
-# Auto-detects prefix, no prompts
-
-$ tbd setup --prefix=myapp
-# Uses specified prefix, no auto-detection
+# Error: --prefix is required
 ```
 
 **Error when prefix required but not provided:**
 ```
-Error: This repository is not configured for tbd.
+Error: --prefix is required for tbd setup --auto
 
-To set up tbd:
-  tbd setup --prefix=<name>   # Specify your project prefix
-  tbd setup --auto            # Auto-detect prefix from git remote
+The --prefix flag specifies your project name for issue IDs.
+Use a short 2-4 letter prefix so issue IDs stand out clearly.
 
-For surgical initialization, use: tbd init --prefix=<name>
+Example:
+  tbd setup --auto --prefix=tbd    # Issues: tbd-a1b2
+  tbd setup --auto --prefix=myp    # Issues: myp-c3d4
+
+Note: If migrating from beads, the prefix is automatically read from your beads config.
 ```
 
 #### Outside a Git Repository
@@ -1128,10 +1083,10 @@ tbd init requires a git repository. Either:
 | --- | --- |
 | Not a git repo (`tbd init`) | Error with suggestion to run `git init` |
 | Not a git repo (`tbd setup`) | Warning, global-only setup, instructs user to run in repo |
-| No remote, weird dir name | Prompt for prefix (or error in `--auto` mode) |
+| No `--prefix` in `--auto` mode | Error: `--prefix` is required (unless migrating from beads) |
 | Beads + already has .tbd/ | Skip migration, just check integrations |
 | `--from-beads` but no .beads/ | Error: "No .beads/ directory found" |
-| CI environment (no TTY) | Auto-detect non-interactive, use defaults |
+| CI environment (no TTY) | Use `--auto` mode with explicit `--prefix` |
 
 ### Clean Command Model (No Deprecations)
 
@@ -1178,12 +1133,12 @@ tbd setup claude
 
 | File | Changes |
 | --- | --- |
-| `commands/setup.ts` | Add default handler, beads detection, full setup flow |
-| `commands/init.ts` | Remove `setup auto` call, add prefix auto-detection, make surgical |
+| `commands/setup.ts` | Add default handler, beads detection, full setup flow, require `--prefix` |
+| `commands/init.ts` | Remove `setup auto` call, require `--prefix`, make surgical |
 | `commands/import.ts` | Add deprecation notice for `--from-beads` |
 | `cli/cli.ts` | Update help footer |
-| `lib/prefix-detection.ts` | New file for prefix auto-detection |
-| `SKILL.md` | Update to mention `tbd setup` as entry point |
+| `lib/prefix-detection.ts` | Prefix validation and beads prefix extraction |
+| `SKILL.md` | Update to mention `tbd setup --auto --prefix` as entry point |
 | `docs/tbd-design.md` | Update §6.4 Installation section |
 
 ### Integration File Formats
@@ -1252,15 +1207,14 @@ alwaysApply: false
 **Format:** Plain markdown, similar to SKILL.md but adapted for generic agents.
 No frontmatter required.
 
-### New Module: prefix-detection.ts
+### Module: prefix-detection.ts
 
 ```typescript
 // packages/tbd/src/cli/lib/prefix-detection.ts
-export function autoDetectPrefix(): string;
+// Prefix validation and beads prefix extraction (no auto-detection)
 export function normalizePrefix(s: string): string;
 export function isValidPrefix(s: string): boolean;
-export function extractRepoNameFromRemote(url: string): string | null;
-export function getBeadsPrefix(): string | null;
+export function getBeadsPrefix(cwd: string): Promise<string | null>;
 ```
 
 ### Setup Handler Flow
@@ -1289,11 +1243,12 @@ class SetupDefaultHandler extends BaseCommand {
 
 ## Stage 3: Implementation
 
-### Phase 1: Prefix Auto-Detection
+### Phase 1: Prefix Validation and Beads Extraction
 
-- [x] Create `lib/prefix-detection.ts` with auto-detection logic
-- [x] Add tests for various remote URL formats
-- [x] Add beads prefix extraction
+- [x] Create `lib/prefix-detection.ts` with validation and beads extraction
+- [x] Add tests for prefix validation
+- [x] Add beads prefix extraction for migration
+- [x] Remove auto-detection from git remote/directory (requires explicit `--prefix`)
 
 ### Phase 2: Setup Default Handler
 
@@ -1386,14 +1341,16 @@ class SetupDefaultHandler extends BaseCommand {
 | Command | Purpose | Integrations? |
 | --- | --- | --- |
 | `tbd setup` | Shows help (requires flag) | N/A |
-| `tbd setup --interactive` | Interactive for humans | Yes (auto-detect) |
-| `tbd setup --auto` | Non-interactive for agents | Yes (auto-detect) |
-| `tbd init` | Surgical repo initialization | No |
+| `tbd setup --interactive` | Interactive for humans | Yes (requires `--prefix`) |
+| `tbd setup --auto --prefix=X` | Non-interactive for agents | Yes (requires `--prefix`) |
+| `tbd setup --from-beads` | Migrate from beads | Yes (uses beads prefix) |
+| `tbd init --prefix=X` | Surgical repo initialization | No |
 | `tbd setup claude` | Add specific integration | Just Claude |
 
-**Mental model:** Think of `tbd setup --auto` like “npm create” (full setup) and
-`tbd init` like “npm init” (minimal, predictable).
+**Mental model:** Think of `tbd setup --auto --prefix=X` like “npm create” (full setup)
+and `tbd init --prefix=X` like “npm init” (minimal, predictable).
 The `--interactive` flag is for humans who want step-by-step confirmation.
+The `--prefix` flag is always required except when migrating from beads.
 
 ## Prime-First Design
 

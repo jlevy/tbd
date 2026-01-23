@@ -862,34 +862,6 @@ class SetupCodexHandler extends BaseCommand {
   }
 }
 
-// Create subcommands
-const claudeCommand = new Command('claude')
-  .description('Configure Claude Code (skill and hooks)')
-  .option('--check', 'Verify installation status')
-  .option('--remove', 'Remove tbd hooks')
-  .action(async (options, command) => {
-    const handler = new SetupClaudeHandler(command);
-    await handler.run(options);
-  });
-
-const cursorCommand = new Command('cursor')
-  .description('Configure Cursor IDE (rules file)')
-  .option('--check', 'Verify installation status')
-  .option('--remove', 'Remove tbd rules file')
-  .action(async (options, command) => {
-    const handler = new SetupCursorHandler(command);
-    await handler.run(options);
-  });
-
-const codexCommand = new Command('codex')
-  .description('Configure Codex and compatible tools (AGENTS.md)')
-  .option('--check', 'Verify installation status')
-  .option('--remove', 'Remove tbd section from AGENTS.md')
-  .action(async (options, command) => {
-    const handler = new SetupCodexHandler(command);
-    await handler.run(options);
-  });
-
 // ============================================================================
 // Setup Default Handler (for --auto and --interactive modes)
 // ============================================================================
@@ -1002,8 +974,8 @@ class SetupDefaultHandler extends BaseCommand {
     if (!prefix) {
       console.error(colors.warn('Error: Could not read prefix from beads config.'));
       console.error('');
-      console.error('Please specify a prefix:');
-      console.error('  tbd setup --auto --prefix=myapp');
+      console.error('Please specify a prefix (2-4 letters recommended):');
+      console.error('  tbd setup --auto --prefix=tbd');
       process.exit(1);
     }
 
@@ -1012,9 +984,10 @@ class SetupDefaultHandler extends BaseCommand {
       console.error(
         'Prefix must be 1-10 lowercase alphanumeric characters, starting with a letter.',
       );
+      console.error('Recommended: 2-4 letters for clear, readable issue IDs.');
       console.error('');
       console.error('Please specify a valid prefix:');
-      console.error('  tbd setup --auto --prefix=myapp');
+      console.error('  tbd setup --auto --prefix=tbd');
       process.exit(1);
     }
 
@@ -1071,12 +1044,12 @@ class SetupDefaultHandler extends BaseCommand {
     if (!prefix) {
       console.error(colors.warn('Error: --prefix is required for tbd setup --auto'));
       console.error('');
-      console.error(
-        'The --prefix flag specifies your project name for issue IDs (e.g., myapp-abc1).',
-      );
+      console.error('The --prefix flag specifies your project name for issue IDs.');
+      console.error('Use a short 2-4 letter prefix so issue IDs stand out clearly.');
       console.error('');
       console.error('Example:');
-      console.error('  tbd setup --auto --prefix=myapp');
+      console.error('  tbd setup --auto --prefix=tbd    # Issues: tbd-a1b2');
+      console.error('  tbd setup --auto --prefix=myp    # Issues: myp-c3d4');
       console.error('');
       console.error(
         'Note: If migrating from beads, the prefix is automatically read from your beads config.',
@@ -1089,9 +1062,10 @@ class SetupDefaultHandler extends BaseCommand {
       console.error(
         'Prefix must be 1-10 lowercase alphanumeric characters, starting with a letter.',
       );
+      console.error('Recommended: 2-4 letters for clear, readable issue IDs.');
       console.error('');
       console.error('Example:');
-      console.error('  tbd setup --auto --prefix=myapp');
+      console.error('  tbd setup --auto --prefix=tbd');
       process.exit(1);
     }
 
@@ -1371,15 +1345,13 @@ class SetupAutoHandler extends BaseCommand {
 }
 
 // Main setup command
+// Note: No subcommands - only flags. This allows Commander.js to properly route flags.
 export const setupCommand = new Command('setup')
   .description('Configure tbd integration with editors and tools')
   .option('--auto', 'Non-interactive mode with smart defaults (for agents/scripts)')
   .option('--interactive', 'Interactive mode with prompts (for humans)')
   .option('--from-beads', 'Migrate from Beads to tbd')
-  .option('--prefix <name>', 'Override auto-detected project prefix')
-  .addCommand(claudeCommand)
-  .addCommand(cursorCommand)
-  .addCommand(codexCommand)
+  .option('--prefix <name>', 'Project prefix for issue IDs (required for fresh setup)')
   .action(async (options: SetupDefaultOptions, command) => {
     // If --auto or --interactive flag is set, run the default handler
     if (options.auto || options.interactive) {
@@ -1396,32 +1368,24 @@ export const setupCommand = new Command('setup')
     }
 
     // No flags provided - show help
-    console.log('Usage: tbd setup [options] [command]');
+    console.log('Usage: tbd setup [options]');
     console.log('');
-    console.log('Full setup: initialize tbd (if needed) and configure agent integrations.');
+    console.log('Initialize tbd and configure agent integrations.');
     console.log('');
-    console.log('IMPORTANT: You must specify a mode flag OR a subcommand.');
-    console.log('');
-    console.log('Modes:');
+    console.log('Modes (one required):');
     console.log(
       '  --auto              Non-interactive mode with smart defaults (for agents/scripts)',
     );
     console.log('  --interactive       Interactive mode with prompts (for humans)');
     console.log('');
     console.log('Options:');
-    console.log('  --from-beads        Migrate from Beads to tbd (non-interactive)');
-    console.log('  --prefix <name>     Override auto-detected project prefix');
-    console.log('');
-    console.log('Commands:');
-    console.log('  claude              Configure Claude Code integration only');
-    console.log('  cursor              Configure Cursor IDE integration only');
-    console.log('  codex               Configure AGENTS.md only');
+    console.log('  --from-beads        Migrate from Beads to tbd (uses prefix from beads config)');
+    console.log('  --prefix <name>     Project prefix for issue IDs (e.g., "tbd", "myapp")');
     console.log('');
     console.log('Examples:');
-    console.log('  tbd setup --auto              # Recommended: full automatic setup (for agents)');
-    console.log('  tbd setup --interactive       # Interactive setup with prompts (for humans)');
-    console.log('  tbd setup claude              # Add just Claude integration');
-    console.log('  tbd setup --from-beads        # Migrate from Beads');
+    console.log('  tbd setup --auto --prefix=tbd   # Full automatic setup with prefix');
+    console.log('  tbd setup --auto --from-beads   # Migrate from Beads (uses beads prefix)');
+    console.log('  tbd setup --interactive         # Interactive setup with prompts');
     console.log('');
     console.log('For surgical initialization without integrations, see: tbd init --help');
   });

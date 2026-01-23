@@ -1,6 +1,10 @@
 /**
  * Markdown utilities for processing markdown content.
+ *
+ * Uses gray-matter for consistent frontmatter parsing across the codebase.
  */
+
+import matter from 'gray-matter';
 
 /**
  * Parse YAML frontmatter from markdown content.
@@ -8,47 +12,49 @@
  * Handles both LF and CRLF line endings.
  */
 export function parseFrontmatter(content: string): string | null {
-  const lines = content.split('\n');
-  if (lines[0]?.trim() !== '---') {
+  if (!matter.test(content)) {
     return null;
   }
 
-  // Find the closing ---
-  for (let i = 1; i < lines.length; i++) {
-    if (lines[i]?.trim() === '---') {
-      // Return frontmatter content (trimming any \r from CRLF)
-      return lines
-        .slice(1, i)
-        .map((line) => line.replace(/\r$/, ''))
-        .join('\n');
-    }
-  }
+  try {
+    // Normalize CRLF to LF before parsing
+    const normalizedContent = content.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+    const parsed = matter(normalizedContent);
 
-  // No closing --- found
-  return null;
+    // gray-matter's `matter` property contains the raw frontmatter string
+    // It may include leading whitespace/newlines that we need to strip
+    const raw = parsed.matter;
+    if (!raw || raw.trim() === '') {
+      // Empty frontmatter (just --- followed by ---)
+      return '';
+    }
+
+    // Strip leading whitespace/newlines to get clean frontmatter
+    return raw.replace(/^[\s\n]+/, '');
+  } catch {
+    // Invalid/unclosed frontmatter - return null
+    return null;
+  }
 }
 
 /**
  * Strip YAML frontmatter from markdown content.
- * Frontmatter is delimited by --- at start and end.
+ * Returns the body content without frontmatter, with leading newlines trimmed.
+ * Handles both LF and CRLF line endings.
  */
 export function stripFrontmatter(content: string): string {
-  const lines = content.split('\n');
-  if (lines[0]?.trim() !== '---') {
+  if (!matter.test(content)) {
     return content;
   }
 
-  // Find the closing ---
-  for (let i = 1; i < lines.length; i++) {
-    if (lines[i]?.trim() === '---') {
-      // Return content after frontmatter, trimming leading newlines
-      return lines
-        .slice(i + 1)
-        .join('\n')
-        .replace(/^\n+/, '');
-    }
+  try {
+    // Normalize CRLF to LF before parsing
+    const normalizedContent = content.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+    const parsed = matter(normalizedContent);
+    // Trim leading newlines to match previous behavior
+    return parsed.content.replace(/^\n+/, '');
+  } catch {
+    // Invalid/unclosed frontmatter - return original content
+    return content;
   }
-
-  // No closing --- found, return original
-  return content;
 }

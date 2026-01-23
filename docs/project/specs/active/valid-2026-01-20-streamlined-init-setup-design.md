@@ -9,12 +9,12 @@ Complete - All tests passing, reviewed and validated
 This PR implements the streamlined init/setup design that simplifies the user/agent
 onboarding experience:
 
-1. **Single entry point**: `tbd setup --auto` handles all scenarios (fresh, beads
-   migration, already initialized)
+1. **Single entry point**: `tbd setup --auto --prefix=X` handles fresh setup
 2. **Prime-first design**: Running `tbd` with no args shows a dashboard via `tbd prime`
 3. **New `tbd skill` command**: Outputs full SKILL.md content for agents
 4. **Surgical init**: `tbd init` now only creates `.tbd/` directory (no auto-calls)
-5. **Prefix auto-detection**: Automatically detects project name from git remote
+5. **Explicit prefix**: Requires `--prefix` flag for fresh setup (beads migration reads
+   from config)
 6. **Help epilog with Getting Started**: One-liner installation in help output
 7. **Cross-platform frontmatter parsing**: Robust CRLF handling for Windows
 
@@ -29,8 +29,8 @@ npm test
 
 | Test File | Tests | Description |
 | --- | --- | --- |
-| `prefix-detection.test.ts` | 17 | Prefix auto-detection (normalize, validate, extract, autoDetect) |
-| `setup-flows.test.ts` | 9 | Setup flow scenarios (fresh, beads migration, already init) |
+| `prefix-detection.test.ts` | 10 | Prefix validation (normalize, isValid, getBeadsPrefix) |
+| `setup-flows.test.ts` | 9 | Setup flow scenarios (fresh, beads migration, already init, prefix required) |
 | `integration-files.test.ts` | 4 | CURSOR.mdc format, SKILL.md content, AGENTS.md markers |
 | `markdown-utils.test.ts` | 8 | Frontmatter parsing with CRLF handling |
 | `parser.test.ts` | 10 | Issue file parsing including CRLF edge cases |
@@ -39,12 +39,10 @@ npm test
 
 ### Key Test Categories
 
-**1. Prefix Auto-Detection** (`prefix-detection.test.ts`)
+**1. Prefix Validation** (`prefix-detection.test.ts`)
 - `normalizePrefix`: Lowercasing, invalid char removal, length truncation
 - `isValidPrefix`: Format validation
-- `extractRepoNameFromRemote`: SSH and HTTPS URL parsing
 - `getBeadsPrefix`: Reading from beads config
-- `autoDetectPrefix`: Full auto-detection flow
 
 **2. Setup Flows** (`setup-flows.test.ts`)
 - Fresh repository initialization
