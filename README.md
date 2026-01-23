@@ -161,6 +161,32 @@ tbd setup --auto             # Recommended: full setup including Claude hooks
 This configures a SessionStart hook that runs `tbd prime` at session start, injecting
 workflow context so the agent remembers to use tbd.
 
+### Shortcuts
+
+tbd includes shortcuts—reusable instruction documents for common workflows.
+Agents can invoke shortcuts to follow standardized processes.
+
+```bash
+tbd shortcut --list              # List all shortcuts
+tbd shortcut new-plan-spec       # Run a shortcut by name
+tbd shortcut "create a plan"     # Fuzzy search by description
+```
+
+**Available Shortcuts:**
+
+| Shortcut | Purpose |
+| --- | --- |
+| `new-plan-spec` | Create feature planning spec |
+| `new-research-doc` | Create research document |
+| `new-architecture-doc` | Create architecture document |
+| `new-validation-plan` | Create test/validation plan |
+| `new-implementation-beads-from-spec` | Break spec into issues |
+| `implement-beads` | Implement issues from specs |
+| `precommit-process` | Pre-commit review and testing |
+| `commit-code` | Commit with pre-commit checks |
+| `create-or-update-pr-simple` | Basic PR creation |
+| `create-or-update-pr-with-validation-plan` | PR with validation plan |
+
 ## Documentation
 
 ```bash
