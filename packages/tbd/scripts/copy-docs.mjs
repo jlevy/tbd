@@ -37,12 +37,7 @@ const SHORTCUTS_SYSTEM_DIR = join(SHORTCUTS_DIR, 'system');
 /**
  * Packaged documentation files (in packages/tbd/docs/).
  */
-const PACKAGED_DOCS = [
-  'tbd-docs.md',
-  'tbd-design.md',
-  'tbd-closing.md',
-  'tbd-prime.md',
-];
+const PACKAGED_DOCS = ['tbd-docs.md', 'tbd-design.md', 'tbd-closing.md', 'tbd-prime.md'];
 
 /**
  * Atomically copy a file by reading content and writing via atomically library.
