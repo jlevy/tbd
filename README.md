@@ -184,8 +184,17 @@ tbd shortcut "create a plan"     # Fuzzy search by description
 | `implement-beads` | Implement issues from specs |
 | `precommit-process` | Pre-commit review and testing |
 | `commit-code` | Commit with pre-commit checks |
+| `review-code-typescript` | Code review for TypeScript |
+| `review-code-python` | Code review for Python |
 | `create-or-update-pr-simple` | Basic PR creation |
 | `create-or-update-pr-with-validation-plan` | PR with validation plan |
+
+**Guidelines** (coding rules referenced by review shortcuts):
+
+| Guideline | Description |
+| --- | --- |
+| `typescript-rules` | TypeScript coding rules and best practices |
+| `python-rules` | Python coding rules and best practices |
 
 ## Documentation
 

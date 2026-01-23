@@ -33,6 +33,7 @@ import {
   DEFAULT_DOC_PATHS,
   TBD_SHORTCUTS_SYSTEM,
   TBD_SHORTCUTS_STANDARD,
+  TBD_SHORTCUTS_GUIDELINES,
   CACHE_DIR,
 } from '../../lib/paths.js';
 import { initWorktree, isInGitRepo } from '../../file/git.js';
@@ -93,8 +94,8 @@ async function copyBuiltinDocs(targetDir: string): Promise<{ copied: number; err
     return { copied, errors };
   }
 
-  // Copy system and standard directories
-  const subdirs = ['system', 'standard'];
+  // Copy system, standard, and guidelines directories
+  const subdirs = ['system', 'standard', 'guidelines'];
   for (const subdir of subdirs) {
     const srcDir = join(shortcutsDir, subdir);
     const destDir = join(targetDir, TBD_SHORTCUTS_SYSTEM.replace('system', subdir));
@@ -1291,6 +1292,7 @@ class SetupAutoHandler extends BaseCommand {
     // Ensure docs directories exist
     await mkdir(join(cwd, TBD_SHORTCUTS_SYSTEM), { recursive: true });
     await mkdir(join(cwd, TBD_SHORTCUTS_STANDARD), { recursive: true });
+    await mkdir(join(cwd, TBD_SHORTCUTS_GUIDELINES), { recursive: true });
     await mkdir(join(cwd, CACHE_DIR), { recursive: true });
 
     // Copy built-in docs from the bundled package to the user's project

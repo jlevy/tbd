@@ -97,6 +97,9 @@ export const SYSTEM_DIR = 'system';
 /** Standard shortcuts directory name (workflow shortcuts) */
 export const STANDARD_DIR = 'standard';
 
+/** Guidelines directory name (coding rules and best practices) */
+export const GUIDELINES_DIR = 'guidelines';
+
 /** Full path to docs directory: .tbd/docs/ */
 export const TBD_DOCS_DIR = join(TBD_DIR, DOCS_DIR);
 
@@ -109,9 +112,13 @@ export const TBD_SHORTCUTS_SYSTEM = join(TBD_SHORTCUTS_DIR, SYSTEM_DIR);
 /** Full path to standard shortcuts: .tbd/docs/shortcuts/standard/ */
 export const TBD_SHORTCUTS_STANDARD = join(TBD_SHORTCUTS_DIR, STANDARD_DIR);
 
+/** Full path to guidelines: .tbd/docs/shortcuts/guidelines/ */
+export const TBD_SHORTCUTS_GUIDELINES = join(TBD_SHORTCUTS_DIR, GUIDELINES_DIR);
+
 /** Built-in docs source paths (relative to package docs/) */
 export const BUILTIN_SHORTCUTS_SYSTEM = join(SHORTCUTS_DIR, SYSTEM_DIR);
 export const BUILTIN_SHORTCUTS_STANDARD = join(SHORTCUTS_DIR, STANDARD_DIR);
+export const BUILTIN_SHORTCUTS_GUIDELINES = join(SHORTCUTS_DIR, GUIDELINES_DIR);
 
 /** Install directory name (header files for tool-specific installation) */
 export const INSTALL_DIR = 'install';
@@ -126,6 +133,7 @@ export const BUILTIN_INSTALL_DIR = INSTALL_DIR;
 export const DEFAULT_DOC_PATHS = [
   TBD_SHORTCUTS_SYSTEM, // .tbd/docs/shortcuts/system/
   TBD_SHORTCUTS_STANDARD, // .tbd/docs/shortcuts/standard/
+  TBD_SHORTCUTS_GUIDELINES, // .tbd/docs/shortcuts/guidelines/
 ];
 
 /**

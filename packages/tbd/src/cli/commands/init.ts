@@ -22,6 +22,7 @@ import {
   SYNC_BRANCH,
   TBD_SHORTCUTS_SYSTEM,
   TBD_SHORTCUTS_STANDARD,
+  TBD_SHORTCUTS_GUIDELINES,
   DEFAULT_DOC_PATHS,
 } from '../../lib/paths.js';
 import { initWorktree, checkGitVersion, MIN_GIT_VERSION } from '../../file/git.js';
@@ -97,7 +98,8 @@ class InitHandler extends BaseCommand {
       // 4. Create docs directories for shortcuts
       await mkdir(join(cwd, TBD_SHORTCUTS_SYSTEM), { recursive: true });
       await mkdir(join(cwd, TBD_SHORTCUTS_STANDARD), { recursive: true });
-      this.output.debug(`Created ${TBD_SHORTCUTS_SYSTEM}/ and ${TBD_SHORTCUTS_STANDARD}/`);
+      await mkdir(join(cwd, TBD_SHORTCUTS_GUIDELINES), { recursive: true });
+      this.output.debug(`Created shortcuts directories`);
 
       // 5. Initialize the hidden worktree for tbd-sync branch
       // This creates .tbd/data-sync-worktree/ with the sync branch checkout
