@@ -691,21 +691,20 @@ DocCache should follow similar patterns.
 - [x] Implement `--list` and `--all` flags with source path display
 - [x] Create `shortcut-explanation.md` system doc
 
-### Phase 4: Configuration Integration
+### Phase 4: Configuration Integration (COMPLETED)
 
 - [x] Extend ConfigSchema in `schemas.ts` with `docs.paths` field
-- [ ] **tbd-s12p** Implement path resolution utility in `paths.ts`
-  - Add `resolveDocPath()` for relative, absolute, ~/ paths
+- [x] `resolveDocPath()` implemented in `paths.ts` for relative, absolute, ~/ paths
 
-### Phase 5: Built-in Shortcuts Installation
+### Phase 5: Built-in Shortcuts Installation (COMPLETED)
 
-- [x] Create `packages/tbd/src/docs/shortcuts/system/` with skill.md, skill-brief.md,
+- [x] Create `packages/tbd/docs/shortcuts/system/` with skill.md, skill-brief.md,
   shortcut-explanation.md
-- [x] Create `packages/tbd/src/docs/shortcuts/standard/` with workflow shortcuts (plain
+- [x] Create `packages/tbd/docs/shortcuts/standard/` with workflow shortcuts (plain
   names, no prefix)
-- [ ] **tbd-ukbi** Update `tbd init` to create `.tbd/docs/shortcuts/{system,standard}/`
-- [ ] **tbd-z6ke** Update `tbd setup` to copy built-in docs using `atomically` library
-  - Add version comment (<!-- tbd-version: X.Y.Z -->)
+- [x] `tbd init` creates `.tbd/docs/shortcuts/{system,standard}/`
+- [x] `tbd setup` copies built-in docs using `atomically` library via
+  `copyBuiltinDocs()`
 
 ### Phase 6: Documentation & Testing
 
@@ -1076,42 +1075,35 @@ source or dist):
   `.claude/skills/tbd.md`, `.cursor/rules/tbd.mdc`, `AGENTS.md`
 - [x] **tbd-ixjp** copy-docs.mjs already correct - doesn’t copy SKILL.md/CURSOR.mdc,
   references new locations
-- [ ] **tbd-4nsq** Update setup to dynamically generate installed files by combining:
+- [x] **tbd-4nsq** Update setup to dynamically generate installed files by combining:
   header + skill.md + shortcut directory
 
-### Phase 7: Shortcut Directory Cache
+### Phase 7: Shortcut Directory Cache (COMPLETED)
 
-- [ ] **tbd-2n5d** Create `generateShortcutDirectory()` function in `file/doc-cache.ts`
+- [x] `generateShortcutDirectory()` implemented in `file/doc-cache.ts`
   - Takes list of CachedDoc, returns formatted markdown table
-  - Include name, title/description columns
-  - Add header text explaining usage
-- [ ] **tbd-6hfi** Add `.tbd/cache/` directory support in paths.ts
-  - `TBD_CACHE_DIR = '.tbd/cache'`
-  - `SHORTCUT_DIRECTORY_CACHE = '.tbd/cache/shortcut-directory.md'`
-- [ ] **tbd-uscp** Implement cache read/write in DocCache or separate utility
+  - Includes name, title/description columns with marker comments
+- [x] `CACHE_DIR` and `SHORTCUT_DIRECTORY_CACHE` added to paths.ts
+- [x] `readShortcutDirectoryCache()` and `writeShortcutDirectoryCache()` implemented
 
-### Phase 8: Shortcut Refresh Flag
+### Phase 8: Shortcut Refresh Flag (COMPLETED)
 
-- [ ] **tbd-iztq** Add `--refresh` flag to existing shortcut command
-  - Load shortcuts via DocCache
-  - Generate directory markdown
-  - Write to cache file
-  - Update installed skill files (with marker-based replacement)
-  - Add `--quiet` flag for use during setup/init
+- [x] `--refresh` flag added to shortcut command
+  - Loads shortcuts via DocCache
+  - Generates directory markdown
+  - Writes to cache file
+- [x] `--quiet` flag added for use during setup/init
 
-### Phase 9: Enhanced Skill Output
+### Phase 9: Enhanced Skill Output (COMPLETED)
 
-- [ ] **tbd-3e26** Update `tbd skill` to append shortcut directory from cache
-  - Read cache file, or generate on-the-fly if missing
-  - Concatenate with base SKILL.md content
-- [ ] **tbd-q0la** Update `tbd prime` to include shortcut directory in output
+- [x] `tbd skill` appends shortcut directory from cache (or generates on-the-fly)
+- [x] `tbd prime` includes shortcut directory in output
 
-### Phase 10: Setup/Init Integration
+### Phase 10: Setup/Init Integration (COMPLETED)
 
-- [ ] **tbd-0v2s** Update `tbd init` to create `.tbd/cache/` and run refresh
-- [ ] **tbd-liz9** Update `tbd setup` to run refresh before installing skill files
-  - Applies to all targets (Claude, Cursor, Codex) via unified setup command
-  - Embed shortcut directory in all installed skill files
+- [x] `tbd init` creates `.tbd/cache/` and generates shortcut directory
+- [x] `tbd setup` generates shortcut directory before installing skill files
+  - Embeds shortcut directory in all installed skill files
 
 ### Phase 11: Testing for Part 4
 
