@@ -179,10 +179,8 @@ Run `tbd shortcut <name>` to use any of these shortcuts:
 | create-or-update-pr-simple | Create or Update PR (Simple) | Create or update a pull request with a concise summary |
 | create-or-update-pr-with-validation-plan | Create or Update PR with Validation Plan | Create or update a pull request with a detailed test/validation plan |
 | implement-beads | Implement Beads | Implement issues from a spec, following TDD and project rules |
-| implement-issues | Implement Issues | Implement issues from a spec, following TDD and project rules |
 | new-architecture-doc | New Architecture Doc | Create an architecture document for a system or component design |
 | new-implementation-beads-from-spec | New Implementation Beads from Spec | Create implementation issues (beads) from a feature planning spec |
-| new-implementation-issues-from-spec | New Implementation Issues from Spec | Create implementation issues from a feature planning spec |
 | new-plan-spec | New Plan Spec | Create a new feature planning specification document |
 | new-research-doc | New Research Doc | Create a research document for investigating a topic or technology |
 | new-validation-plan | New Validation Plan | Create a validation/test plan for a feature or change |
@@ -191,40 +189,3 @@ Run `tbd shortcut <name>` to use any of these shortcuts:
 | review-code-typescript | Review Code (TypeScript) | Perform a code review for TypeScript code following best practices |
 
 <!-- END SHORTCUT DIRECTORY -->
-
-<!-- BEGIN GUIDELINES DIRECTORY -->
-## Available Guidelines
-
-Run `tbd guidelines <name>` to use any of these guidelines:
-
-| Name | Description |
-| --- | --- |
-| backward-compatibility-rules | Guidelines for maintaining backward compatibility across code, APIs, file formats, and database schemas |
-| convex-rules | Guidelines and best practices for building Convex projects, including database schema design, queries, mutations |
-| general-coding-rules | Rules for constants, magic numbers, and general coding practices |
-| general-comment-rules | Language-agnostic rules for writing clean, maintainable comments |
-| general-eng-assistant-rules | Rules for AI assistants acting as senior engineers, including objectivity and communication |
-| general-style-rules | Style guidelines for auto-formatting, emoji usage, and output formatting |
-| general-tdd-guidelines | Test-Driven Development methodology and best practices |
-| general-testing-rules | Rules for writing minimal, effective tests with maximum coverage |
-| golden-testing-guidelines | Guidelines for implementing golden/snapshot testing for complex systems |
-| python-cli-patterns | Modern patterns for Python CLI application architecture |
-| python-rules | Python coding rules and best practices |
-| typescript-cli-tool-rules | Rules for building CLI tools with Commander.js, picocolors, and TypeScript |
-| typescript-monorepo-patterns | Modern patterns for TypeScript monorepo architecture |
-| typescript-rules | TypeScript coding rules and best practices |
-
-<!-- END GUIDELINES DIRECTORY -->
-
-<!-- BEGIN TEMPLATES DIRECTORY -->
-## Available Templates
-
-Run `tbd template <name>` to use any of these templates:
-
-| Name | Description |
-| --- | --- |
-| architecture | Template for architecture documents |
-| plan-spec | Template for feature planning specification documents |
-| research-brief | Template for research documents |
-
-<!-- END TEMPLATES DIRECTORY -->

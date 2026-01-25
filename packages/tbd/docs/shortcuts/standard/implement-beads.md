@@ -1,8 +1,8 @@
 ---
-title: Implement Issues
+title: Implement Beads
 description: Implement issues from a spec, following TDD and project rules
 ---
-Shortcut: Implement Issues
+Shortcut: Implement Beads
 
 We track issues with tbd.
 Run `tbd` for more on using tbd and current status.

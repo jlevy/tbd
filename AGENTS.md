@@ -206,10 +206,8 @@ Run `tbd shortcut <name>` to use any of these shortcuts:
 | create-or-update-pr-simple | Create or Update PR (Simple) | Create or update a pull request with a concise summary |
 | create-or-update-pr-with-validation-plan | Create or Update PR with Validation Plan | Create or update a pull request with a detailed test/validation plan |
 | implement-beads | Implement Beads | Implement issues from a spec, following TDD and project rules |
-| implement-issues | Implement Issues | Implement issues from a spec, following TDD and project rules |
 | new-architecture-doc | New Architecture Doc | Create an architecture document for a system or component design |
 | new-implementation-beads-from-spec | New Implementation Beads from Spec | Create implementation issues (beads) from a feature planning spec |
-| new-implementation-issues-from-spec | New Implementation Issues from Spec | Create implementation issues from a feature planning spec |
 | new-plan-spec | New Plan Spec | Create a new feature planning specification document |
 | new-research-doc | New Research Doc | Create a research document for investigating a topic or technology |
 | new-validation-plan | New Validation Plan | Create a validation/test plan for a feature or change |
