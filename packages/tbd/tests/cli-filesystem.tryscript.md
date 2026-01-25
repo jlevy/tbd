@@ -33,8 +33,8 @@ Per the design spec, tbd uses this directory structure:
 
 **On main branch:**
 - `.tbd/config.yml` - Project configuration (tracked)
-- `.tbd/.gitignore` - Ignores cache/, data-sync-worktree/, data-sync/
-- `.tbd/cache/` - Local state (gitignored)
+- `.tbd/.gitignore` - Ignores docs/, data-sync-worktree/, data-sync/
+- `.tbd/docs/` - Installed documentation (gitignored, regenerated on setup)
 - `.tbd/data-sync-worktree/` - Hidden worktree for tbd-sync branch (gitignored)
 
 **Via worktree:**
@@ -171,8 +171,8 @@ gitignore exists
 # Test: .tbd/.gitignore contains worktree and data-sync entries
 
 ```console
-$ grep -E "^(cache|data-sync)" .tbd/.gitignore
-cache/
+$ grep -E "^(docs|data-sync)" .tbd/.gitignore
+docs/
 data-sync-worktree/
 data-sync/
 ? 0
