@@ -61,7 +61,7 @@ export function insertAfterFrontmatter(content: string, toInsert: string): strin
   const afterFrontmatter = normalizedContent.slice(match[0].length);
   const body = afterFrontmatter.replace(/^\n+/, ''); // Trim leading newlines from body
 
-  return frontmatterBlock + '\n\n' + toInsert + '\n\n' + body;
+  return frontmatterBlock + '\n' + toInsert + '\n\n' + body;
 }
 
 /**
