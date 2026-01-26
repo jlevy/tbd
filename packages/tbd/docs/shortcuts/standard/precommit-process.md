@@ -82,6 +82,7 @@ Create a to-do list with the following items then perform all of them:
    Make any updates to the spec based on the fixes or issues discovered during review
    and testing.
 
-6. **Summarize and prepare a commit message:** Do NOT commit, but summarize everything
-   that was done. Write a clear commit message based on this summary that you would use
-   for a commit and ask the user if they want to commit this code.
+6. **Summarize and commit:** Summarize what was done and write a clear commit message
+   following `tbd guidelines commit-conventions` (use conventional commits format with
+   appropriate type). If all checks pass, commit directly.
+   Only ask the user if there are unresolved issues or problems.

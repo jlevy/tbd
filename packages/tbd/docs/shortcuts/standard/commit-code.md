@@ -15,7 +15,9 @@ Create a to-do list with the following items then perform all of them:
    checks.
 
 2. If there are issues, ask for guidance.
-   If all looks correct commit, with a concise and thorough commit message.
+   Otherwise, commit directly using the commit message format from
+   `tbd guidelines commit-conventions`. Do NOT ask the user for permission to commit
+   unless there are problems.
 
 3. If commit is successful and if there is a PR already filed, update the PR
    description.
