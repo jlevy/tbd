@@ -10,6 +10,21 @@
  * Exit codes:
  *   0 - Build skipped (already up-to-date) or build succeeded
  *   1 - Build failed
+ *
+ * WHEN TO USE THIS SCRIPT:
+ * - Single-package repos or small monorepos without dedicated task orchestration
+ * - Pre-push hooks where you want to skip unnecessary builds
+ * - Local development where you want fast feedback
+ *
+ * WHEN NOT TO USE THIS SCRIPT:
+ * - If using Turborepo or Nx: These tools provide superior content-addressed caching,
+ *   remote caching for teams, and dependency graph awareness. Remove this script and
+ *   use their built-in caching instead (e.g., `turbo build`).
+ * - If mtime-based detection causes issues: Git operations (checkout, rebase) can
+ *   reset file mtimes, causing false positives or negatives. Turborepo's content
+ *   hashing is more reliable.
+ *
+ * See: docs/general/research/current/research-modern-typescript-monorepo-patterns.md
  */
 
 import { execSync } from 'node:child_process';

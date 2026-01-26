@@ -28,6 +28,7 @@ import {
   initConfig,
   isInitialized,
   readConfig,
+  readConfigWithMigration,
   findTbdRoot,
   writeConfig,
   updateLocalState,
@@ -1030,9 +1031,19 @@ class SetupDefaultHandler extends BaseCommand {
     console.log(`  ${colors.success('✓')} Git repository detected`);
 
     if (hasTbd) {
-      // Already initialized flow
-      const config = await readConfig(cwd);
+      // Already initialized flow - check for migrations
+      const { config, migrated, changes } = await readConfigWithMigration(cwd);
       console.log(`  ${colors.success('✓')} tbd initialized (prefix: ${config.display.id_prefix})`);
+
+      // Persist migration if config format was updated
+      if (migrated) {
+        await writeConfig(cwd, config);
+        console.log(`  ${colors.success('✓')} Config migrated to latest format`);
+        for (const change of changes) {
+          console.log(`      ${colors.dim(change)}`);
+        }
+      }
+
       console.log('');
       await this.handleAlreadyInitialized(cwd, isAutoMode);
     } else if ((hasBeads || options.fromBeads) && !options.prefix) {
