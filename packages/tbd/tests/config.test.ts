@@ -68,7 +68,7 @@ describe('config operations', () => {
         sync: { branch: 'custom-branch', remote: 'upstream' },
         display: { id_prefix: 'td' },
         settings: { auto_sync: true, doc_auto_sync_hours: 24 },
-        docs: { paths: ['.tbd/docs/shortcuts/system', '.tbd/docs/shortcuts/standard'] },
+        docs_cache: { lookup_path: ['.tbd/docs/shortcuts/system', '.tbd/docs/shortcuts/standard'] },
       };
 
       await writeConfig(tempDir, config);

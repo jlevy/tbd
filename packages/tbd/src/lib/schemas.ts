@@ -183,6 +183,30 @@ export const GitRemoteName = z
 export const DocCacheConfigSchema = z.record(z.string(), z.string());
 
 /**
+ * Documentation cache configuration (consolidated structure).
+ *
+ * Combines file sync mappings and lookup paths into a single config block.
+ * See: docs/project/specs/active/plan-2026-01-26-docs-cache-config-restructure.md
+ */
+export const DocsCacheSchema = z.object({
+  /**
+   * Files to sync: maps destination paths to source locations.
+   * Keys are destination paths relative to .tbd/docs/
+   * Values are source locations:
+   * - internal: prefix for bundled docs (e.g., "internal:shortcuts/standard/commit-code.md")
+   * - Full URL for external docs (e.g., "https://raw.githubusercontent.com/org/repo/main/file.md")
+   */
+  files: z.record(z.string(), z.string()).optional(),
+  /**
+   * Search paths for doc lookup (like shell $PATH).
+   * Earlier paths take precedence when names conflict.
+   */
+  lookup_path: z
+    .array(z.string())
+    .default(['.tbd/docs/shortcuts/system', '.tbd/docs/shortcuts/standard']),
+});
+
+/**
  * Project configuration stored in .tbd/config.yml
  *
  * ⚠️ FORMAT VERSIONING: See tbd-format.ts for version history and migration rules.
@@ -218,30 +242,12 @@ export const ConfigSchema = z.object({
       doc_auto_sync_hours: z.number().default(24),
     })
     .default({}),
-  docs: z
-    .object({
-      /**
-       * Ordered list of paths to search for documentation shortcuts.
-       * Paths can be:
-       * - Relative to tbd root (parent of .tbd/): e.g., '.tbd/docs/shortcuts/system'
-       * - Absolute paths: e.g., '/usr/share/tbd/shortcuts'
-       * - Home-relative paths: e.g., '~/my-shortcuts'
-       *
-       * Earlier paths take precedence (like shell $PATH).
-       */
-      paths: z
-        .array(z.string())
-        .default(['.tbd/docs/shortcuts/system', '.tbd/docs/shortcuts/standard']),
-    })
-    .default({
-      paths: ['.tbd/docs/shortcuts/system', '.tbd/docs/shortcuts/standard'],
-    }),
   /**
-   * Documentation cache configuration.
-   * Maps destination paths to source locations for syncing docs.
-   * See DocCacheConfigSchema for format details.
+   * Documentation cache configuration (consolidated).
+   * Contains files to sync and lookup paths.
+   * See DocsCacheSchema for structure details.
    */
-  doc_cache: DocCacheConfigSchema.optional(),
+  docs_cache: DocsCacheSchema.optional(),
 });
 
 // =============================================================================

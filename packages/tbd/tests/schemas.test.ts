@@ -187,4 +187,89 @@ describe('ConfigSchema', () => {
     const result = ConfigSchema.safeParse(config);
     expect(result.success).toBe(false);
   });
+
+  describe('docs_cache', () => {
+    it('parses config with docs_cache.files', () => {
+      const config = {
+        tbd_version: '3.0.0',
+        display: { id_prefix: 'proj' },
+        docs_cache: {
+          files: {
+            'shortcuts/standard/commit-code.md': 'internal:shortcuts/standard/commit-code.md',
+            'custom/my-doc.md': 'https://example.com/my-doc.md',
+          },
+        },
+      };
+
+      const result = ConfigSchema.safeParse(config);
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.data.docs_cache?.files).toEqual({
+          'shortcuts/standard/commit-code.md': 'internal:shortcuts/standard/commit-code.md',
+          'custom/my-doc.md': 'https://example.com/my-doc.md',
+        });
+      }
+    });
+
+    it('parses config with docs_cache.lookup_path', () => {
+      const config = {
+        tbd_version: '3.0.0',
+        display: { id_prefix: 'proj' },
+        docs_cache: {
+          lookup_path: [
+            '.tbd/docs/shortcuts/custom',
+            '.tbd/docs/shortcuts/system',
+            '.tbd/docs/shortcuts/standard',
+          ],
+        },
+      };
+
+      const result = ConfigSchema.safeParse(config);
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.data.docs_cache?.lookup_path).toEqual([
+          '.tbd/docs/shortcuts/custom',
+          '.tbd/docs/shortcuts/system',
+          '.tbd/docs/shortcuts/standard',
+        ]);
+      }
+    });
+
+    it('parses config with full docs_cache structure', () => {
+      const config = {
+        tbd_version: '3.0.0',
+        display: { id_prefix: 'proj' },
+        docs_cache: {
+          files: {
+            'shortcuts/standard/commit-code.md': 'internal:shortcuts/standard/commit-code.md',
+          },
+          lookup_path: ['.tbd/docs/shortcuts/system', '.tbd/docs/shortcuts/standard'],
+        },
+      };
+
+      const result = ConfigSchema.safeParse(config);
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.data.docs_cache?.files).toBeDefined();
+        expect(result.data.docs_cache?.lookup_path).toBeDefined();
+      }
+    });
+
+    it('uses default lookup_path when not specified', () => {
+      const config = {
+        tbd_version: '3.0.0',
+        display: { id_prefix: 'proj' },
+        docs_cache: {},
+      };
+
+      const result = ConfigSchema.safeParse(config);
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.data.docs_cache?.lookup_path).toEqual([
+          '.tbd/docs/shortcuts/system',
+          '.tbd/docs/shortcuts/standard',
+        ]);
+      }
+    });
+  });
 });

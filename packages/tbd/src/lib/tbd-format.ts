@@ -24,7 +24,7 @@
  * Current format version.
  * Bump this ONLY for breaking changes that require migration.
  */
-export const CURRENT_FORMAT = 'f02';
+export const CURRENT_FORMAT = 'f03';
 
 /**
  * Initial format version for configs that don't have tbd_format field.
@@ -60,6 +60,17 @@ export const FORMAT_HISTORY = {
     ],
     migration: 'Populates default doc_cache config from bundled docs',
   },
+  f03: {
+    introduced: '0.1.6',
+    description: 'Consolidates docs_cache config structure',
+    changes: [
+      'Consolidated doc_cache: and docs: into single docs_cache: key',
+      'Moved doc_cache: -> docs_cache.files:',
+      'Moved docs.paths: -> docs_cache.lookup_path:',
+      'Removed separate docs: key',
+    ],
+    migration: 'Migrates old config keys to new docs_cache structure',
+  },
 } as const;
 
 export type FormatVersion = keyof typeof FORMAT_HISTORY;
@@ -86,10 +97,16 @@ export interface RawConfig {
     auto_sync?: boolean;
     doc_auto_sync_hours?: number;
   };
+  // Old format (f02 and earlier)
   docs?: {
     paths?: string[];
   };
   doc_cache?: Record<string, string>;
+  // New format (f03+)
+  docs_cache?: {
+    files?: Record<string, string>;
+    lookup_path?: string[];
+  };
 }
 
 /**
@@ -141,6 +158,52 @@ function migrate_f01_to_f02(config: RawConfig): MigrationResult {
     config: migrated,
     fromFormat: 'f01',
     toFormat: 'f02',
+    changed: changes.length > 0,
+    changes,
+  };
+}
+
+/**
+ * Migrate from f02 to f03.
+ * - Consolidates doc_cache: and docs: into docs_cache:
+ * - Moves doc_cache: -> docs_cache.files:
+ * - Moves docs.paths: -> docs_cache.lookup_path:
+ * - Removes separate docs: and doc_cache: keys
+ */
+function migrate_f02_to_f03(config: RawConfig): MigrationResult {
+  const changes: string[] = [];
+  const migrated = { ...config };
+
+  // Update format version
+  migrated.tbd_format = 'f03';
+  changes.push('Updated tbd_format: f03');
+
+  // Initialize docs_cache if it doesn't exist
+  migrated.docs_cache ??= {};
+
+  // Migrate doc_cache -> docs_cache.files
+  if (migrated.doc_cache && Object.keys(migrated.doc_cache).length > 0) {
+    migrated.docs_cache.files = { ...migrated.doc_cache };
+    changes.push('Moved doc_cache: -> docs_cache.files:');
+    delete migrated.doc_cache;
+  }
+
+  // Migrate docs.paths -> docs_cache.lookup_path
+  if (migrated.docs?.paths && migrated.docs.paths.length > 0) {
+    migrated.docs_cache.lookup_path = [...migrated.docs.paths];
+    changes.push('Moved docs.paths: -> docs_cache.lookup_path:');
+  }
+
+  // Remove old docs: key
+  if (migrated.docs) {
+    delete migrated.docs;
+    changes.push('Removed docs: key');
+  }
+
+  return {
+    config: migrated,
+    fromFormat: 'f02',
+    toFormat: 'f03',
     changed: changes.length > 0,
     changes,
   };
@@ -209,13 +272,14 @@ export function migrateToLatest(config: RawConfig): MigrationResult {
     allChanges.push(...result.changes);
   }
 
-  // Add more migrations here as new format versions are added:
-  // if (currentFormat === 'f02') {
-  //   const result = migrate_f02_to_f03(current);
-  //   current = result.config;
-  //   currentFormat = 'f03' as FormatVersion;
-  //   allChanges.push(...result.changes);
-  // }
+  if (currentFormat === 'f02') {
+    const result = migrate_f02_to_f03(current);
+    current = result.config;
+    currentFormat = 'f03' as FormatVersion;
+    allChanges.push(...result.changes);
+  }
+
+  // Add more migrations here as new format versions are added
 
   return {
     config: current,
@@ -254,6 +318,11 @@ export function describeMigration(fromFormat: FormatVersion): string[] {
   if (current === 'f01') {
     descriptions.push('f01 → f02: Add doc_cache configuration support');
     current = 'f02';
+  }
+
+  if (current === 'f02') {
+    descriptions.push('f02 → f03: Consolidate doc_cache and docs into docs_cache');
+    current = 'f03';
   }
 
   // Add more migration descriptions here

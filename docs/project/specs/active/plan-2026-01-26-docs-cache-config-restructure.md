@@ -1,6 +1,6 @@
 # Plan Spec: Docs Cache Config Restructure
 
-**Date:** 2026-01-26 **Author:** Claude **Status:** Draft
+**Date:** 2026-01-26 **Author:** Claude **Status:** Complete
 
 ## Overview
 
@@ -91,27 +91,27 @@ docs_cache:
 
 ### Phase 1: Schema and Migration
 
-- [ ] Update `schemas.ts` with new `DocsCache` schema structure
-- [ ] Add `f03` to format history in `tbd-format.ts`
-- [ ] Implement `migrate_f02_to_f03()` function
-- [ ] Remove old `docs:` key from schema (migrated to `docs_cache.lookup_path`)
-- [ ] Remove old `doc_cache:` key from schema (migrated to `docs_cache.files`)
+- [x] Update `schemas.ts` with new `DocsCache` schema structure
+- [x] Add `f03` to format history in `tbd-format.ts`
+- [x] Implement `migrate_f02_to_f03()` function
+- [x] Remove old `docs:` key from schema (migrated to `docs_cache.lookup_path`)
+- [x] Remove old `doc_cache:` key from schema (migrated to `docs_cache.files`)
 
 ### Phase 2: Code Updates
 
-- [ ] Update `DocSync` to read from `docs_cache.files` instead of `doc_cache`
-- [ ] Update `DocCache` to read from `docs_cache.lookup_path` instead of `docs.paths`
-- [ ] Update `setup.ts` to generate new config format
-- [ ] Update `docs.ts` command to use new structure
-- [ ] Update config.ts helpers and comments
+- [x] Update `DocSync` to read from `docs_cache.files` instead of `doc_cache`
+- [x] Update `DocCache` to read from `docs_cache.lookup_path` instead of `docs.paths`
+- [x] Update `setup.ts` to generate new config format
+- [x] Update `docs.ts` command to use new structure
+- [x] Update config.ts helpers and comments
 
 ### Phase 3: Documentation and Cleanup
 
-- [ ] Update inline config comments to document new structure
-- [ ] Update SKILL.md if it references config structure
-- [ ] Verify `.tbd/docs/` is in `.tbd/.gitignore` with appropriate comment
-- [ ] Add tests for f02 -> f03 migration
-- [ ] Update any error messages that reference old config keys
+- [x] Update inline config comments to document new structure
+- [x] Update SKILL.md if it references config structure
+- [x] Verify `.tbd/docs/` is in `.tbd/.gitignore` with appropriate comment
+- [x] Add tests for f02 -> f03 migration
+- [x] Update any error messages that reference old config keys
 
 ## Schema Changes
 

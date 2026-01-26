@@ -210,9 +210,9 @@ class DocsHandler extends BaseCommand {
 
     // Merge user's config with defaults (ensures new bundled docs are added)
     const defaults = await generateDefaultDocCacheConfig();
-    const docCacheConfig = mergeDocCacheConfig(config.doc_cache, defaults);
+    const filesConfig = mergeDocCacheConfig(config.docs_cache?.files, defaults);
 
-    const sync = new DocSync(tbdRoot, docCacheConfig);
+    const sync = new DocSync(tbdRoot, filesConfig);
     const result = await sync.sync();
 
     // Update last sync time
@@ -278,9 +278,9 @@ class DocsHandler extends BaseCommand {
 
     // Merge user's config with defaults (ensures new bundled docs are added)
     const defaults = await generateDefaultDocCacheConfig();
-    const docCacheConfig = mergeDocCacheConfig(config.doc_cache, defaults);
+    const filesConfig = mergeDocCacheConfig(config.docs_cache?.files, defaults);
 
-    const sync = new DocSync(tbdRoot, docCacheConfig);
+    const sync = new DocSync(tbdRoot, filesConfig);
     const result = await sync.status();
 
     // Report results

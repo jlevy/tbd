@@ -131,14 +131,15 @@ export async function writeConfig(baseDir: string, config: Config): Promise<void
     lineWidth: 0,
   });
 
-  // Add explanatory comments for doc_cache section
+  // Add explanatory comments for docs_cache section
   let content = yaml;
-  if (config.doc_cache && Object.keys(config.doc_cache).length > 0) {
-    const docCacheComment = `# Documentation cache configuration.
-# Maps destination paths (relative to .tbd/docs/) to source locations.
-# Sources can be:
+  if (config.docs_cache && Object.keys(config.docs_cache).length > 0) {
+    const docsCacheComment = `# Documentation cache configuration.
+# files: Maps destination paths (relative to .tbd/docs/) to source locations.
+#   Sources can be:
 #   - internal: prefix for bundled docs (e.g., "internal:shortcuts/standard/commit-code.md")
 #   - Full URL for external docs (e.g., "https://raw.githubusercontent.com/org/repo/main/file.md")
+# lookup_path: Search paths for doc lookup (like shell $PATH). Earlier paths take precedence.
 #
 # To sync docs: tbd docs --refresh
 # To check status: tbd docs --status
@@ -146,7 +147,7 @@ export async function writeConfig(baseDir: string, config: Config): Promise<void
 # Auto-sync: Docs are automatically synced when stale (default: every 24 hours).
 # Configure with settings.doc_auto_sync_hours (0 = disabled).
 `;
-    content = content.replace('doc_cache:', docCacheComment + 'doc_cache:');
+    content = content.replace('docs_cache:', docsCacheComment + 'docs_cache:');
   }
 
   await writeFile(configPath, content);

@@ -14,6 +14,7 @@ import { BaseCommand } from '../lib/base-command.js';
 import { SHORTCUT_AGENT_HEADER } from '../lib/doc-prompts.js';
 import { requireInit } from '../lib/errors.js';
 import { DocCache, SCORE_PREFIX_MATCH } from '../../file/doc-cache.js';
+import { readConfig } from '../../file/config.js';
 import { DEFAULT_SHORTCUT_PATHS } from '../../lib/paths.js';
 import { truncate } from '../../lib/truncate.js';
 import { getTerminalWidth } from '../lib/output.js';
@@ -81,8 +82,12 @@ class ShortcutHandler extends BaseCommand {
       // Get tbd root (supports running from subdirectories)
       const tbdRoot = await requireInit();
 
+      // Read config to get lookup paths (fall back to defaults)
+      const config = await readConfig(tbdRoot);
+      const lookupPaths = config.docs_cache?.lookup_path ?? DEFAULT_SHORTCUT_PATHS;
+
       // Create and load the doc cache with proper base directory
-      const cache = new DocCache(DEFAULT_SHORTCUT_PATHS, tbdRoot);
+      const cache = new DocCache(lookupPaths, tbdRoot);
       await cache.load({ quiet: this.ctx.quiet });
 
       // Refresh mode: regenerate cache and update skill files

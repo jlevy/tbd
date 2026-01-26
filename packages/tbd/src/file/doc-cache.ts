@@ -168,14 +168,14 @@ export class DocCache {
         return;
       }
 
-      // Get doc cache config
-      let docCacheConfig = config.doc_cache;
-      if (!docCacheConfig || Object.keys(docCacheConfig).length === 0) {
-        docCacheConfig = await generateDefaultDocCacheConfig();
+      // Get doc cache files config
+      let filesConfig = config.docs_cache?.files;
+      if (!filesConfig || Object.keys(filesConfig).length === 0) {
+        filesConfig = await generateDefaultDocCacheConfig();
       }
 
       // Sync docs, respecting quiet option
-      const sync = new DocSync(tbdRoot, docCacheConfig);
+      const sync = new DocSync(tbdRoot, filesConfig);
       await sync.sync({ silent: quiet });
 
       // Update last sync time
