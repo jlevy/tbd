@@ -9,6 +9,7 @@ import type { Command } from 'commander';
 import pc from 'picocolors';
 
 import { BaseCommand } from './base-command.js';
+import { GUIDELINES_AGENT_HEADER } from './doc-prompts.js';
 import { requireInit } from './errors.js';
 import { DocCache, SCORE_PREFIX_MATCH } from '../../file/doc-cache.js';
 import { truncate } from '../../lib/truncate.js';
@@ -160,7 +161,7 @@ export abstract class DocCommandHandler extends BaseCommand {
    */
   protected getAgentHeader(): string | undefined {
     if (this.config.typeName === 'guideline') {
-      return 'Agent instructions: You have activated a guidelines document. If a user has asked you to apply these rules, read them carefully and apply them. Use beads to track each step.';
+      return GUIDELINES_AGENT_HEADER;
     }
     // Templates and other types don't need a header
     return undefined;

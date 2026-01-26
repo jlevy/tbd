@@ -42,31 +42,28 @@ function getSkillPath(): string {
  * This is exported for use by setup.ts for skill installation.
  */
 export async function loadSkillContent(): Promise<string> {
-  // Try bundled location first
+  // Try bundled location first (dist/docs/SKILL.md)
   try {
     return await readFile(getSkillPath(), 'utf-8');
   } catch {
-    // Fallback: try to read from source location during development
+    // Fallback: compose from source files during development
   }
 
-  // Fallback for development without bundle
+  // Dev fallback: compose SKILL.md from source files on-the-fly
+  // This mirrors what copy-docs.mjs does at build time
   try {
     const __filename = fileURLToPath(import.meta.url);
     const __dirname = dirname(__filename);
-    const devPath = join(__dirname, '..', '..', 'docs', 'SKILL.md');
-    return await readFile(devPath, 'utf-8');
-  } catch {
-    // Fallback: try repo-level docs
-  }
+    // From packages/tbd/src/cli/commands/ go to packages/tbd/docs/
+    const docsDir = join(__dirname, '..', '..', '..', 'docs');
+    const headerPath = join(docsDir, 'install', 'claude-header.md');
+    const skillPath = join(docsDir, 'shortcuts', 'system', 'skill.md');
 
-  // Last fallback: repo-level docs
-  try {
-    const __filename = fileURLToPath(import.meta.url);
-    const __dirname = dirname(__filename);
-    const repoPath = join(__dirname, '..', '..', '..', '..', '..', 'docs', 'SKILL.md');
-    return await readFile(repoPath, 'utf-8');
+    const header = await readFile(headerPath, 'utf-8');
+    const skill = await readFile(skillPath, 'utf-8');
+    return header + skill;
   } catch {
-    // If all else fails, throw an error
+    // If source files not found, throw error
     throw new Error('SKILL.md content file not found. Please rebuild the CLI.');
   }
 }

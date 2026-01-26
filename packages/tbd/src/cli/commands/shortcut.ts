@@ -11,6 +11,7 @@ import { Command } from 'commander';
 import pc from 'picocolors';
 
 import { BaseCommand } from '../lib/base-command.js';
+import { SHORTCUT_AGENT_HEADER } from '../lib/doc-prompts.js';
 import { requireInit } from '../lib/errors.js';
 import { DocCache, SCORE_PREFIX_MATCH } from '../../file/doc-cache.js';
 import { DEFAULT_SHORTCUT_PATHS } from '../../lib/paths.js';
@@ -319,9 +320,7 @@ class ShortcutHandler extends BaseCommand {
           content: exactMatch.doc.content,
         });
       } else {
-        console.log(
-          'Agent instructions: You have activated a shortcut with task instructions. If a user has asked you to do a task that requires this work, follow the instructions below carefully.\n',
-        );
+        console.log(SHORTCUT_AGENT_HEADER + '\n');
         console.log(exactMatch.doc.content);
       }
       return;
@@ -357,9 +356,7 @@ class ShortcutHandler extends BaseCommand {
         content: best.doc.content,
       });
     } else {
-      console.log(
-        'Agent instructions: You have activated a shortcut with task instructions. If a user has asked you to do a task that requires this work, follow the instructions below carefully.\n',
-      );
+      console.log(SHORTCUT_AGENT_HEADER + '\n');
       console.log(best.doc.content);
     }
   }
