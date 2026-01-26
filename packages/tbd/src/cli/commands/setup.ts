@@ -23,9 +23,16 @@ import { stripFrontmatter, insertAfterFrontmatter } from '../../utils/markdown-u
 import { pathExists } from '../../utils/file-utils.js';
 import { ensureGitignorePatterns } from '../../utils/gitignore-utils.js';
 import { type DiagnosticResult, renderDiagnostics } from '../lib/diagnostics.js';
-import { fileURLToPath } from 'node:url';
 import { isValidPrefix, getBeadsPrefix } from '../lib/prefix-detection.js';
-import { initConfig, isInitialized, readConfig, findTbdRoot } from '../../file/config.js';
+import {
+  initConfig,
+  isInitialized,
+  readConfig,
+  findTbdRoot,
+  writeConfig,
+  updateLocalState,
+} from '../../file/config.js';
+import { DocSync, generateDefaultDocCacheConfig } from '../../file/doc-sync.js';
 import { VERSION } from '../lib/version.js';
 import {
   TBD_DIR,
@@ -33,129 +40,13 @@ import {
   WORKTREE_DIR_NAME,
   DATA_SYNC_DIR_NAME,
   DEFAULT_SHORTCUT_PATHS,
-  TBD_SHORTCUTS_DIR,
   TBD_SHORTCUTS_SYSTEM,
   TBD_SHORTCUTS_STANDARD,
   TBD_GUIDELINES_DIR,
   TBD_TEMPLATES_DIR,
-  BUILTIN_GUIDELINES_DIR,
-  BUILTIN_TEMPLATES_DIR,
 } from '../../lib/paths.js';
 import { initWorktree, isInGitRepo } from '../../file/git.js';
 import { DocCache, generateShortcutDirectory } from '../../file/doc-cache.js';
-
-/**
- * Get base docs path (with fallbacks for development).
- */
-function getDocsBasePath(): string[] {
-  const __filename = fileURLToPath(import.meta.url);
-  const __dirname = dirname(__filename);
-  return [
-    // Bundled location (dist/docs/)
-    join(__dirname, 'docs'),
-    // Development: packages/tbd/docs/
-    join(__dirname, '..', '..', '..', 'docs'),
-  ];
-}
-
-/**
- * Copy all files from a source directory to a destination directory.
- */
-async function copyDirFiles(
-  srcDir: string,
-  destDir: string,
-): Promise<{ copied: number; errors: string[] }> {
-  const errors: string[] = [];
-  let copied = 0;
-
-  try {
-    await access(srcDir);
-    const entries = await readdir(srcDir, { withFileTypes: true });
-
-    // Ensure destination directory exists before copying
-    if (entries.some((e) => e.isFile() && e.name.endsWith('.md'))) {
-      await mkdir(destDir, { recursive: true });
-    }
-
-    for (const entry of entries) {
-      if (entry.isFile() && entry.name.endsWith('.md')) {
-        const srcPath = join(srcDir, entry.name);
-        const destPath = join(destDir, entry.name);
-
-        try {
-          const content = await readFile(srcPath, 'utf-8');
-          await writeFile(destPath, content);
-          copied++;
-        } catch (err) {
-          errors.push(`Failed to copy ${entry.name}: ${(err as Error).message}`);
-        }
-      }
-    }
-  } catch {
-    // Directory doesn't exist, skip
-  }
-
-  return { copied, errors };
-}
-
-/**
- * Copy built-in docs from the bundled package to the user's project.
- * Copies:
- * - shortcuts/system/ and shortcuts/standard/ to .tbd/docs/shortcuts/
- * - guidelines/ to .tbd/docs/guidelines/
- * - templates/ to .tbd/docs/templates/
- */
-async function copyBuiltinDocs(targetDir: string): Promise<{ copied: number; errors: string[] }> {
-  const allErrors: string[] = [];
-  let totalCopied = 0;
-
-  // Find the docs base directory
-  let docsDir: string | null = null;
-  for (const path of getDocsBasePath()) {
-    try {
-      await access(path);
-      docsDir = path;
-      break;
-    } catch {
-      // Try next path
-    }
-  }
-
-  if (!docsDir) {
-    allErrors.push('Could not find bundled docs directory');
-    return { copied: totalCopied, errors: allErrors };
-  }
-
-  // Copy shortcuts (system and standard subdirs)
-  const shortcutSubdirs = ['system', 'standard'];
-  for (const subdir of shortcutSubdirs) {
-    const srcDir = join(docsDir, 'shortcuts', subdir);
-    const destDir = join(targetDir, TBD_SHORTCUTS_DIR, subdir);
-    const { copied, errors } = await copyDirFiles(srcDir, destDir);
-    totalCopied += copied;
-    allErrors.push(...errors);
-  }
-
-  // Copy guidelines (top-level)
-  {
-    const srcDir = join(docsDir, BUILTIN_GUIDELINES_DIR);
-    const destDir = join(targetDir, TBD_GUIDELINES_DIR);
-    const { copied, errors } = await copyDirFiles(srcDir, destDir);
-    totalCopied += copied;
-    allErrors.push(...errors);
-  }
-
-  // Copy templates (top-level)
-  {
-    const srcDir = join(docsDir, BUILTIN_TEMPLATES_DIR);
-    const destDir = join(targetDir, TBD_TEMPLATES_DIR);
-    const { copied, errors } = await copyDirFiles(srcDir, destDir);
-    totalCopied += copied;
-    allErrors.push(...errors);
-  }
-
-  return { copied: totalCopied, errors: allErrors };
-}
 
 /**
  * Get the shortcut directory content for appending to installed skill files.
@@ -801,8 +692,18 @@ class SetupClaudeHandler extends BaseCommand {
       this.output.success('Installed project hooks');
 
       // Add .claude/.gitignore to ignore backup files
+      // NOTE: Pattern re-addition is intentional - see comment in initializeTbd
       const claudeGitignorePath = join(cwd, '.claude', '.gitignore');
-      await ensureGitignorePatterns(claudeGitignorePath, ['# Backup files', '*.bak']);
+      const claudeGitignoreResult = await ensureGitignorePatterns(claudeGitignorePath, [
+        '# Backup files',
+        '*.bak',
+      ]);
+      if (claudeGitignoreResult.created) {
+        this.output.success('Created .claude/.gitignore');
+      } else if (claudeGitignoreResult.added.length > 0) {
+        this.output.success('Updated .claude/.gitignore');
+      }
+      // else: file is up-to-date, no message needed
 
       // Install hook script
       await mkdir(dirname(hookScriptPath), { recursive: true });
@@ -1263,8 +1164,12 @@ class SetupDefaultHandler extends BaseCommand {
     await initConfig(cwd, VERSION, prefix);
     console.log(`  ${colors.success('✓')} Created .tbd/config.yml`);
 
-    // 2. Create .tbd/.gitignore (idempotent)
-    await ensureGitignorePatterns(join(cwd, TBD_DIR, '.gitignore'), [
+    // 2. Create/update .tbd/.gitignore (idempotent)
+    // NOTE: Pattern re-addition is intentional - these are tool-managed files
+    // that are regenerated from the npm package on every setup. If a user removes
+    // a pattern, we re-add it because tracking these directories in git would
+    // cause noise on every tbd upgrade.
+    const tbdGitignoreResult = await ensureGitignorePatterns(join(cwd, TBD_DIR, '.gitignore'), [
       '# Installed documentation (regenerated on setup)',
       'docs/',
       '',
@@ -1281,7 +1186,12 @@ class SetupDefaultHandler extends BaseCommand {
       '*.tmp',
       '*.temp',
     ]);
-    console.log(`  ${colors.success('✓')} Created .tbd/.gitignore`);
+    if (tbdGitignoreResult.created) {
+      console.log(`  ${colors.success('✓')} Created .tbd/.gitignore`);
+    } else if (tbdGitignoreResult.added.length > 0) {
+      console.log(`  ${colors.success('✓')} Updated .tbd/.gitignore`);
+    }
+    // else: file is up-to-date, no message needed
 
     // 3. Initialize worktree for sync branch
     try {
@@ -1441,23 +1351,8 @@ class SetupAutoHandler extends BaseCommand {
       console.log(colors.dim(`Cleaned up legacy ${parts.join(' and ')}`));
     }
 
-    // Ensure docs directories exist
-    await mkdir(join(cwd, TBD_SHORTCUTS_SYSTEM), { recursive: true });
-    await mkdir(join(cwd, TBD_SHORTCUTS_STANDARD), { recursive: true });
-    await mkdir(join(cwd, TBD_GUIDELINES_DIR), { recursive: true });
-    await mkdir(join(cwd, TBD_TEMPLATES_DIR), { recursive: true });
-    console.log(colors.dim(`Created ${TBD_DOCS_DIR}/ directories`));
-
-    // Copy built-in docs from the bundled package to the user's project
-    const { copied, errors } = await copyBuiltinDocs(cwd);
-    if (copied > 0) {
-      console.log(colors.dim(`Copied ${copied} built-in doc(s) to ${TBD_DOCS_DIR}/`));
-    }
-    if (errors.length > 0) {
-      for (const err of errors) {
-        console.log(colors.warn(`Warning: ${err}`));
-      }
-    }
+    // Sync docs using DocSync
+    await this.syncDocs(cwd);
 
     // Detect and set up Claude Code
     const claudeResult = await this.setupClaudeIfDetected(cwd);
@@ -1500,6 +1395,62 @@ class SetupAutoHandler extends BaseCommand {
         'Install a coding agent (Claude Code, Codex, or any AGENTS.md-compatible tool) and re-run:',
       );
       console.log('  tbd setup --auto');
+    }
+  }
+
+  /**
+   * Sync docs using DocSync.
+   * Generates default doc_cache config if not present and syncs docs.
+   */
+  private async syncDocs(cwd: string): Promise<void> {
+    const colors = this.output.getColors();
+
+    // Read config
+    const config = await readConfig(cwd);
+
+    // Generate default doc_cache if not present
+    let docCacheConfig = config.doc_cache;
+    let configUpdated = false;
+
+    if (!docCacheConfig || Object.keys(docCacheConfig).length === 0) {
+      docCacheConfig = await generateDefaultDocCacheConfig();
+      config.doc_cache = docCacheConfig;
+      configUpdated = true;
+    }
+
+    // Ensure docs directories exist
+    await mkdir(join(cwd, TBD_SHORTCUTS_SYSTEM), { recursive: true });
+    await mkdir(join(cwd, TBD_SHORTCUTS_STANDARD), { recursive: true });
+    await mkdir(join(cwd, TBD_GUIDELINES_DIR), { recursive: true });
+    await mkdir(join(cwd, TBD_TEMPLATES_DIR), { recursive: true });
+
+    // Sync docs
+    const sync = new DocSync(cwd, docCacheConfig);
+    const result = await sync.sync();
+
+    // Update last sync time
+    await updateLocalState(cwd, {
+      last_doc_sync_at: new Date().toISOString(),
+    });
+
+    // Write updated config if doc_cache was generated
+    if (configUpdated) {
+      await writeConfig(cwd, config);
+      console.log(colors.dim('Generated doc_cache config'));
+    }
+
+    // Report sync results
+    const total = result.added.length + result.updated.length;
+    if (total > 0) {
+      console.log(colors.dim(`Synced ${total} doc(s) to ${TBD_DOCS_DIR}/`));
+    }
+    if (result.removed.length > 0) {
+      console.log(colors.dim(`Removed ${result.removed.length} outdated doc(s)`));
+    }
+    if (result.errors.length > 0) {
+      for (const { path, error } of result.errors) {
+        console.log(colors.warn(`Warning: ${path}: ${error}`));
+      }
     }
   }
 

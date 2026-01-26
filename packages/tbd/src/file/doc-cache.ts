@@ -4,12 +4,18 @@
  * Provides document lookups for the `tbd shortcut` command, supporting
  * both exact matching by filename and fuzzy matching against metadata.
  *
+ * Also provides auto-sync functionality when docs are stale (per spec).
+ *
  * See: docs/project/specs/active/plan-2026-01-22-doc-cache-abstraction.md
+ * See: docs/project/specs/active/plan-2026-01-26-configurable-doc-cache-sync.md
  */
 
 import { readdir, readFile } from 'node:fs/promises';
 import { join, basename } from 'node:path';
 import matter from 'gray-matter';
+
+import { readConfig, readLocalState, updateLocalState, findTbdRoot } from './config.js';
+import { DocSync, generateDefaultDocCacheConfig, isDocsStale } from './doc-sync.js';
 
 // =============================================================================
 // Scoring Constants
@@ -113,9 +119,14 @@ export class DocCache {
    *
    * Reads all .md files from each path in order. Documents with the same
    * name in later paths are shadowed (tracked but not returned by default).
+   *
+   * If auto-sync is enabled and docs are stale, triggers a sync first.
    */
   async load(): Promise<void> {
     if (this.loaded) return;
+
+    // Check for auto-sync before loading
+    await this.checkAutoSync();
 
     for (const relativePath of this.paths) {
       const dirPath = join(this.baseDir, relativePath);
@@ -123,6 +134,45 @@ export class DocCache {
     }
 
     this.loaded = true;
+  }
+
+  /**
+   * Check if docs are stale and auto-sync if needed.
+   * This is silent unless there are errors.
+   */
+  private async checkAutoSync(): Promise<void> {
+    try {
+      // Find tbd root
+      const tbdRoot = await findTbdRoot(this.baseDir);
+      if (!tbdRoot) return;
+
+      // Read config and state
+      const config = await readConfig(tbdRoot);
+      const state = await readLocalState(tbdRoot);
+
+      // Check if auto-sync is enabled and docs are stale
+      const autoSyncHours = config.settings?.doc_auto_sync_hours ?? 24;
+      if (!isDocsStale(state.last_doc_sync_at, autoSyncHours)) {
+        return;
+      }
+
+      // Get doc cache config
+      let docCacheConfig = config.doc_cache;
+      if (!docCacheConfig || Object.keys(docCacheConfig).length === 0) {
+        docCacheConfig = await generateDefaultDocCacheConfig();
+      }
+
+      // Sync silently
+      const sync = new DocSync(tbdRoot, docCacheConfig);
+      await sync.sync({ silent: true });
+
+      // Update last sync time
+      await updateLocalState(tbdRoot, {
+        last_doc_sync_at: new Date().toISOString(),
+      });
+    } catch {
+      // Auto-sync errors are silent - don't interrupt the user
+    }
   }
 
   /**
