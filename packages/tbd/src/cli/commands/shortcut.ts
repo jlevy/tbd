@@ -319,6 +319,9 @@ class ShortcutHandler extends BaseCommand {
           content: exactMatch.doc.content,
         });
       } else {
+        console.log(
+          'Agent instructions: You have activated a shortcut with task instructions. If a user has asked you to do a task that requires this work, follow the instructions below carefully.\n',
+        );
         console.log(exactMatch.doc.content);
       }
       return;
@@ -354,6 +357,9 @@ class ShortcutHandler extends BaseCommand {
         content: best.doc.content,
       });
     } else {
+      console.log(
+        'Agent instructions: You have activated a shortcut with task instructions. If a user has asked you to do a task that requires this work, follow the instructions below carefully.\n',
+      );
       console.log(best.doc.content);
     }
   }

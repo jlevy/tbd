@@ -395,7 +395,7 @@ export function generateShortcutDirectory(docs: CachedDoc[]): string {
     'Run `tbd shortcut <name>` to use any of these shortcuts:',
     '',
     '| Name | Title | Description |',
-    '|------|-------|-------------|',
+    '| --- | --- | --- |',
     ...rows,
     '',
     SHORTCUT_DIRECTORY_END,

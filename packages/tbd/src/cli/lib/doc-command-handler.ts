@@ -155,6 +155,18 @@ export abstract class DocCommandHandler extends BaseCommand {
   }
 
   /**
+   * Get the agent instruction header for the doc type.
+   * Returns undefined if no header should be shown.
+   */
+  protected getAgentHeader(): string | undefined {
+    if (this.config.typeName === 'guideline') {
+      return 'Agent instructions: You have activated a guidelines document. If a user has asked you to apply these rules, read them carefully and apply them. Use beads to track each step.';
+    }
+    // Templates and other types don't need a header
+    return undefined;
+  }
+
+  /**
    * Handle query: exact match first, then fuzzy.
    */
   protected async handleQuery(query: string): Promise<void> {
@@ -171,6 +183,10 @@ export abstract class DocCommandHandler extends BaseCommand {
           content: exactMatch.doc.content,
         });
       } else {
+        const header = this.getAgentHeader();
+        if (header) {
+          console.log(header + '\n');
+        }
         console.log(exactMatch.doc.content);
       }
       return;
@@ -207,6 +223,10 @@ export abstract class DocCommandHandler extends BaseCommand {
         content: best.doc.content,
       });
     } else {
+      const header = this.getAgentHeader();
+      if (header) {
+        console.log(header + '\n');
+      }
       console.log(best.doc.content);
     }
   }
