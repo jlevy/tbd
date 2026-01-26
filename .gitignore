@@ -7,11 +7,6 @@ tmp/
 # tbd-specific (see .tbd/.gitignore for tbd's internal gitignores)
 *.tmp.*
 
-# Generated skill files (created by tbd setup)
-docs/SKILL.md
-.claude/skills/tbd/
-AGENTS.md
-
 # Build output
 dist/
 
