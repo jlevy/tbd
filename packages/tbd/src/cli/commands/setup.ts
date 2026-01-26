@@ -55,8 +55,10 @@ import { DocCache, generateShortcutDirectory } from '../../file/doc-cache.js';
 /**
  * Get the shortcut directory content for appending to installed skill files.
  * Always generates on-the-fly from installed shortcuts.
+ *
+ * @param quiet - If true, suppress auto-sync output (default: false)
  */
-async function getShortcutDirectory(): Promise<string | null> {
+async function getShortcutDirectory(quiet = false): Promise<string | null> {
   const cwd = process.cwd();
 
   // Try to find tbd root (may not be initialized)
@@ -67,7 +69,7 @@ async function getShortcutDirectory(): Promise<string | null> {
 
   // Generate on-the-fly from installed shortcuts
   const cache = new DocCache(DEFAULT_SHORTCUT_PATHS, tbdRoot);
-  await cache.load();
+  await cache.load({ quiet });
   const docs = cache.list();
 
   // If no docs loaded, skip directory
@@ -81,11 +83,13 @@ async function getShortcutDirectory(): Promise<string | null> {
 /**
  * Get the tbd section content for AGENTS.md (Codex integration).
  * Loads from SKILL.md, strips frontmatter, and wraps in TBD INTEGRATION markers.
+ *
+ * @param quiet - If true, suppress auto-sync output (default: false)
  */
-async function getCodexTbdSection(): Promise<string> {
+async function getCodexTbdSection(quiet = false): Promise<string> {
   const skillContent = await loadSkillContent();
   let content = stripFrontmatter(skillContent);
-  const directory = await getShortcutDirectory();
+  const directory = await getShortcutDirectory(quiet);
   if (directory) {
     content = content.trimEnd() + '\n\n' + directory + '\n';
   }
@@ -250,9 +254,11 @@ const CODEX_END_MARKER = '<!-- END TBD INTEGRATION -->';
 
 /**
  * Generate a new AGENTS.md file with tbd integration.
+ *
+ * @param quiet - If true, suppress auto-sync output (default: false)
  */
-async function getCodexNewAgentsFile(): Promise<string> {
-  const tbdSection = await getCodexTbdSection();
+async function getCodexNewAgentsFile(quiet = false): Promise<string> {
+  const tbdSection = await getCodexTbdSection(quiet);
   return `# Project Instructions for AI Agents
 
 This file provides instructions and context for AI coding agents working on this project.
@@ -756,7 +762,7 @@ class SetupClaudeHandler extends BaseCommand {
       // Install skill file in project (with shortcut directory appended)
       await mkdir(dirname(skillPath), { recursive: true });
       let skillContent = await loadSkillContent();
-      const directory = await getShortcutDirectory();
+      const directory = await getShortcutDirectory(this.ctx.quiet);
       if (directory) {
         skillContent = skillContent.trimEnd() + '\n\n' + directory;
       }
@@ -884,7 +890,7 @@ class SetupCodexHandler extends BaseCommand {
 
       let newContent: string;
 
-      const tbdSection = await getCodexTbdSection();
+      const tbdSection = await getCodexTbdSection(this.ctx.quiet);
 
       if (existingContent) {
         if (existingContent.includes(CODEX_BEGIN_MARKER)) {
@@ -900,7 +906,7 @@ class SetupCodexHandler extends BaseCommand {
         }
       } else {
         // Create new file
-        const newAgentsFile = await getCodexNewAgentsFile();
+        const newAgentsFile = await getCodexNewAgentsFile(this.ctx.quiet);
         await writeFile(agentsPath, newAgentsFile);
         this.output.success('Created new AGENTS.md with tbd integration');
       }

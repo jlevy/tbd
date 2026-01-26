@@ -67,7 +67,7 @@ export abstract class DocCommandHandler extends BaseCommand {
   protected async initCache(): Promise<void> {
     this.tbdRoot = await requireInit();
     this.cache = new DocCache(this.config.paths, this.tbdRoot);
-    await this.cache.load();
+    await this.cache.load({ quiet: this.ctx.quiet });
   }
 
   /**

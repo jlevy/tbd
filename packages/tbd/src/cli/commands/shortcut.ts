@@ -83,7 +83,7 @@ class ShortcutHandler extends BaseCommand {
 
       // Create and load the doc cache with proper base directory
       const cache = new DocCache(DEFAULT_SHORTCUT_PATHS, tbdRoot);
-      await cache.load();
+      await cache.load({ quiet: this.ctx.quiet });
 
       // Refresh mode: regenerate cache and update skill files
       if (options.refresh) {

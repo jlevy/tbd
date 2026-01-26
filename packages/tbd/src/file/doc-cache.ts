@@ -84,6 +84,14 @@ export interface DocMatch {
 // =============================================================================
 
 /**
+ * Options for loading the doc cache.
+ */
+export interface DocCacheLoadOptions {
+  /** If true, suppress auto-sync output (default: false) */
+  quiet?: boolean;
+}
+
+/**
  * Path-ordered markdown document cache.
  *
  * Loads all .md files from configured paths in order, with earlier paths
@@ -121,12 +129,14 @@ export class DocCache {
    * name in later paths are shadowed (tracked but not returned by default).
    *
    * If auto-sync is enabled and docs are stale, triggers a sync first.
+   *
+   * @param options - Load options (quiet: suppress auto-sync output)
    */
-  async load(): Promise<void> {
+  async load(options?: DocCacheLoadOptions): Promise<void> {
     if (this.loaded) return;
 
     // Check for auto-sync before loading
-    await this.checkAutoSync();
+    await this.checkAutoSync(options?.quiet ?? false);
 
     for (const relativePath of this.paths) {
       const dirPath = join(this.baseDir, relativePath);
@@ -138,9 +148,11 @@ export class DocCache {
 
   /**
    * Check if docs are stale and auto-sync if needed.
-   * This is silent unless there are errors.
+   * Respects the quiet option - only silent when explicitly requested.
+   *
+   * @param quiet - If true, suppress sync output
    */
-  private async checkAutoSync(): Promise<void> {
+  private async checkAutoSync(quiet: boolean): Promise<void> {
     try {
       // Find tbd root
       const tbdRoot = await findTbdRoot(this.baseDir);
@@ -162,9 +174,9 @@ export class DocCache {
         docCacheConfig = await generateDefaultDocCacheConfig();
       }
 
-      // Sync silently
+      // Sync docs, respecting quiet option
       const sync = new DocSync(tbdRoot, docCacheConfig);
-      await sync.sync({ silent: true });
+      await sync.sync({ silent: quiet });
 
       // Update last sync time
       await updateLocalState(tbdRoot, {

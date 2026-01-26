@@ -105,7 +105,7 @@ class SkillHandler extends BaseCommand {
 
     // Generate on-the-fly from installed shortcuts
     const cache = new DocCache(DEFAULT_DOC_PATHS, tbdRoot);
-    await cache.load();
+    await cache.load({ quiet: this.ctx.quiet });
     const docs = cache.list();
 
     // If no docs loaded, skip directory
