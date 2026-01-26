@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+/* global process, console */
 /**
  * Incremental build script - only builds if sources have changed.
  *
@@ -37,9 +38,7 @@ const __dirname = dirname(__filename);
 const packageDir = dirname(__dirname);
 
 const BUILD_TARGET = join(packageDir, 'dist', 'bin.mjs');
-const SOURCE_DIRS = [
-  join(packageDir, 'src'),
-];
+const SOURCE_DIRS = [join(packageDir, 'src')];
 const SOURCE_EXTENSIONS = ['.ts', '.tsx', '.mts', '.cts', '.js', '.mjs', '.cjs'];
 
 // Config files that affect build output
@@ -74,7 +73,7 @@ async function getSourceFiles(dir) {
         const fullPath = join(currentDir, entry.name);
         if (entry.isDirectory()) {
           await scan(fullPath);
-        } else if (entry.isFile() && SOURCE_EXTENSIONS.some(ext => entry.name.endsWith(ext))) {
+        } else if (entry.isFile() && SOURCE_EXTENSIONS.some((ext) => entry.name.endsWith(ext))) {
           files.push(fullPath);
         }
       }
@@ -144,7 +143,7 @@ async function main() {
       stdio: 'inherit',
     });
     console.log('Build completed');
-  } catch (error) {
+  } catch {
     console.error('Build failed');
     process.exit(1);
   }
