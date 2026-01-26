@@ -1,8 +1,8 @@
 # Research Brief: CLI as Agent Skill - Best Practices for TypeScript CLIs in Claude Code
 
-**Last Updated**: 2026-01-25
+**Last Updated**: 2026-01-26
 
-**Status**: Complete (Revised)
+**Status**: Complete (Second Revision)
 
 **Related**:
 
@@ -45,6 +45,10 @@ agent uses to better serve users.
 
 6. What mental model should agents have when using CLI tools—messenger or partner?
 
+7. How should skill descriptions be optimized for reliable activation?
+
+8. What role does MCP play alongside CLI-as-skill patterns?
+
 * * *
 
 ## Research Methodology
@@ -58,9 +62,12 @@ Patterns were validated through CI testing and actual agent usage.
 ### Sources
 
 - tbd source code (`packages/tbd/src/cli/`)
-- Claude Code skill documentation
+- Claude Code skill documentation (https://code.claude.com/docs/en/skills)
+- Agent Skills open standard (https://agentskills.io)
 - Cursor IDE MDC format specification
 - OpenAI Codex AGENTS.md convention
+- Community best practices (meta_skill repository, gists)
+- MCP protocol documentation and engineering blogs
 
 * * *
 
@@ -235,6 +242,108 @@ Include explicit context recovery instructions in all documentation:
 ```
 
 This ensures agents know how to restore context after context window events.
+
+* * *
+
+#### 2.4 Progressive Disclosure Architecture
+
+**Status**: ✅ Complete
+
+**Details**:
+
+The most important concept for building agent-integrated CLIs is **Progressive
+Disclosure**—showing just enough information to help agents decide what to do next, then
+revealing more details as needed.
+This minimizes token overhead while maintaining full capability.
+
+**Three-Level Architecture**:
+
+| Level | Content | Token Budget | When Loaded |
+| --- | --- | --- | --- |
+| Level 1 | Metadata only (name + description) | ~100 tokens | Always in system prompt |
+| Level 2 | SKILL.md body | ~1,500-5,000 tokens | On skill trigger |
+| Level 3 | Bundled resources (scripts, references) | Unlimited | As-needed |
+
+**Implementation Pattern**:
+
+```
+SKILL.md (Level 2)
+├── Overview and navigation (~500 lines max)
+├── References to supporting files
+└── Key instructions
+
+reference.md (Level 3)
+├── Detailed API documentation
+├── Loaded only when agent reads it
+└── Can be arbitrarily large
+
+scripts/ (Level 3)
+├── Executable code
+├── Runs outside context window
+└── Only output enters context
+```
+
+**Key Constraints**:
+
+- Keep SKILL.md under 500 lines
+- Reference files should stay one level deep from SKILL.md
+- Avoid chains like SKILL.md → advanced.md → details.md
+- Scripts execute outside context; only output uses tokens
+
+**Assessment**: Progressive disclosure is the foundational pattern for context-efficient
+agent integration.
+Every token competes with conversation history—add only what the agent
+doesn’t already know.
+
+* * *
+
+#### 2.5 Description Optimization Pattern
+
+**Status**: ✅ Complete
+
+**Details**:
+
+Skill activation relies on **pure LLM reasoning**, not keyword matching or embeddings.
+Description quality directly impacts activation reliability.
+
+**Activation Success Rates** (from testing across 200+ prompts):
+
+| Approach | Success Rate |
+| --- | --- |
+| Basic descriptions | ~20% |
+| Optimized descriptions | ~50% |
+| Optimized + evaluation hooks | ~84% |
+| Optimized + examples | ~90% |
+
+**The Two-Part Rule**: Every description must answer:
+
+1. **What does it do?** (capabilities)
+2. **When to use it?** (activation triggers)
+
+**Anti-Pattern**:
+```yaml
+description: Helps with documents
+```
+
+**Preferred Pattern**:
+```yaml
+description: >
+  Analyze Excel spreadsheets, create pivot tables, and export data.
+  Use when analyzing .xlsx files, working with tabular data, or
+  when the user mentions spreadsheets or Excel.
+```
+
+**Writing Guidelines**:
+
+- Use third person always ("Processes files" not “I can help you”)
+- Include explicit trigger phrases reflecting user language
+- Be specific with keywords users would naturally say
+- State both capabilities AND activation conditions
+- Match terminology to how users describe their needs
+
+**Assessment**: Description optimization is high-leverage—a properly crafted description
+can quadruple activation reliability.
+This is pure LLM reasoning, so semantic clarity matters more than keyword density.
 
 * * *
 
@@ -1000,6 +1109,409 @@ More levels create decision paralysis.
 
 * * *
 
+### 11. Dynamic Generation Patterns
+
+#### 11.1 On-the-Fly Resource Directory Generation
+
+**Status**: ✅ Complete
+
+**Details**:
+
+Rather than maintaining static resource directories that can become stale, generate them
+dynamically at runtime from installed documents.
+
+**Implementation Pattern**:
+
+```typescript
+async function generateShortcutDirectory(): Promise<string> {
+  const shortcuts = await docCache.listDocuments('shortcuts');
+  const rows = shortcuts.map(doc => {
+    const meta = doc.frontmatter;
+    return `| ${doc.name} | ${meta.title} | ${meta.description} |`;
+  });
+  return [
+    '## Available Shortcuts',
+    '',
+    '| Name | Title | Description |',
+    '| --- | --- | --- |',
+    ...rows
+  ].join('\n');
+}
+```
+
+**Benefits**:
+
+- Always current with installed resources
+- No manual synchronization required
+- Supports project-level overrides automatically
+- Can be injected into skill output dynamically
+
+**Marker Pattern for Incremental Updates**:
+
+```markdown
+<!-- BEGIN SHORTCUT DIRECTORY -->
+
+| Name | Title | Description |
+| --- | --- | --- |
+| commit-code | Commit Code | Run pre-commit checks... |
+
+<!-- END SHORTCUT DIRECTORY -->
+```
+
+Markers enable selective updates without regenerating entire documents.
+
+* * *
+
+#### 11.2 DocCache Shadowing Pattern
+
+**Status**: ✅ Complete
+
+**Details**:
+
+Implement path-ordered document loading that allows project-level resources to shadow
+(override) built-in resources, similar to how shell `$PATH` works.
+
+**Loading Order** (earlier paths take precedence):
+
+1. Project-level: `.tbd/docs/shortcuts/`
+2. User-level: `~/.tbd/docs/shortcuts/`
+3. Built-in: Bundled with CLI
+
+**Implementation Pattern**:
+
+```typescript
+class DocCache {
+  private paths: string[];  // Ordered by priority
+
+  async loadDocument(name: string): Promise<Document | null> {
+    for (const basePath of this.paths) {
+      const doc = await this.tryLoad(join(basePath, name));
+      if (doc) return doc;  // First match wins
+    }
+    return null;
+  }
+}
+```
+
+**Use Cases**:
+
+- Project-specific guidelines that override defaults
+- Custom shortcuts for specialized workflows
+- Organization-wide standards distributed separately
+
+**Assessment**: Shadowing enables customization without forking while maintaining
+sensible defaults for new projects.
+
+* * *
+
+#### 11.3 Custom Prime Override Pattern
+
+**Status**: ✅ Complete
+
+**Details**:
+
+Allow projects to customize their orientation output via a `.tbd/PRIME.md` override
+file. When present, this file is used instead of the default prime output.
+
+**Use Cases**:
+
+- Projects with specialized workflows
+- Enterprise deployments with custom guidance
+- Educational projects with learning-focused orientation
+
+**Implementation**:
+
+```typescript
+async function getPrimeContent(): Promise<string> {
+  const customPath = join(cwd, '.tbd', 'PRIME.md');
+  if (await pathExists(customPath)) {
+    return readFile(customPath, 'utf-8');
+  }
+  return generateDefaultPrime();
+}
+```
+
+**Assessment**: Custom overrides respect project autonomy while maintaining sensible
+defaults.
+
+* * *
+
+### 12. MCP Integration Patterns
+
+#### 12.1 MCP vs CLI-as-Skill
+
+**Status**: ✅ Research Complete
+
+**Details**:
+
+MCP (Model Context Protocol) and CLI-as-Skill are complementary approaches, not
+competitors. Understanding when to use each is critical.
+
+| Aspect | CLI-as-Skill | MCP Server |
+| --- | --- | --- |
+| **Deployment** | npm install | Separate process |
+| **Integration** | SKILL.md + hooks | MCP protocol |
+| **Context** | Skill content in prompt | Tool calls |
+| **State** | Stateless (per-command) | Can maintain state |
+| **Scope** | Single CLI capabilities | Ecosystem of servers |
+| **Complexity** | Lower | Higher |
+
+**When to Use CLI-as-Skill**:
+
+- Self-contained functionality
+- Workflow guidance and documentation
+- Resource libraries (guidelines, templates)
+- Simple tool integration
+- Quick setup requirements
+
+**When to Use MCP**:
+
+- Persistent connections (databases, APIs)
+- Stateful operations
+- Cross-tool orchestration
+- Real-time data streaming
+- Complex tool ecosystems
+
+**Hybrid Pattern** (tbd approach):
+
+```
+CLI-as-Skill (primary)
+├── Issue tracking commands
+├── Resource libraries (shortcuts, guidelines)
+├── Setup and configuration
+└── Context management (prime, skill)
+
+MCP (future consideration)
+├── Real-time sync status
+├── Cross-repo issue queries
+├── Integration with external trackers
+```
+
+**Assessment**: Most CLIs should start with the skill pattern for simplicity.
+Add MCP when you need persistent connections, real-time updates, or complex tool
+ecosystems.
+
+* * *
+
+#### 12.2 Agent Skills Open Standard
+
+**Status**: ✅ Complete
+
+**Details**:
+
+Claude Code skills follow the [Agent Skills](https://agentskills.io) open standard,
+which works across multiple AI tools.
+This enables portable skill definitions.
+
+**Standard Features**:
+
+- YAML frontmatter for metadata
+- Markdown content for instructions
+- Directory structure for supporting files
+- Consistent activation patterns
+
+**Claude Code Extensions**:
+
+- `context: fork` for subagent execution
+- `agent` field for subagent type selection
+- `hooks` field for lifecycle automation
+- `allowed-tools` for permission scoping
+- Dynamic context injection via `!`command\`\`
+
+**Monorepo Support**:
+
+Claude Code automatically discovers skills from nested `.claude/skills/` directories:
+
+```
+packages/
+├── frontend/
+│   └── .claude/skills/     # Frontend-specific skills
+├── backend/
+│   └── .claude/skills/     # Backend-specific skills
+└── .claude/skills/         # Shared skills
+```
+
+**Assessment**: Building on the open standard ensures portability while Claude Code
+extensions enable advanced patterns when needed.
+
+* * *
+
+### 13. Hook Script Patterns
+
+#### 13.1 PostToolUse Hook with JSON Parsing
+
+**Status**: ✅ Complete
+
+**Details**:
+
+PostToolUse hooks receive JSON input describing the tool invocation.
+Use bash scripts with jq to parse and conditionally respond.
+
+**Hook Configuration** (`.claude/settings.json`):
+
+```json
+{
+  "hooks": {
+    "PostToolUse": [{
+      "matcher": "Bash",
+      "hooks": [{
+        "type": "command",
+        "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/tbd-closing-reminder.sh"
+      }]
+    }]
+  }
+}
+```
+
+**Hook Script Pattern**:
+
+```bash
+#!/bin/bash
+input=$(cat)
+command=$(echo "$input" | jq -r '.tool_input.command // empty')
+
+# Trigger on specific patterns
+if [[ "$command" == git\ push* ]] || [[ "$command" == *"&& git push"* ]]; then
+  if [ -d ".tbd" ]; then
+    tbd closing
+  fi
+fi
+exit 0
+```
+
+**Key Patterns**:
+
+- Read input from stdin (JSON)
+- Use jq to extract relevant fields
+- Pattern match on command content
+- Exit 0 to allow tool to proceed
+- Exit non-zero to block with message
+
+**Assessment**: PostToolUse hooks enable contextual reminders without interrupting
+workflow. The git push detection pattern prevents premature session completion.
+
+* * *
+
+### 14. Invocation Control Patterns
+
+#### 14.1 User vs Model Invocation
+
+**Status**: ✅ Complete
+
+**Details**:
+
+Claude Code provides fine-grained control over who can invoke a skill:
+
+| Frontmatter | User Can Invoke | Model Can Invoke | Use Case |
+| --- | --- | --- | --- |
+| (default) | Yes | Yes | General skills |
+| `disable-model-invocation: true` | Yes | No | Workflows with side effects |
+| `user-invocable: false` | No | Yes | Background knowledge |
+
+**Examples**:
+
+```yaml
+# User-only: deployment workflow
+---
+name: deploy
+description: Deploy application to production
+disable-model-invocation: true
+---
+```
+
+```yaml
+# Model-only: background context
+---
+name: legacy-system-context
+description: How the legacy billing system works
+user-invocable: false
+---
+```
+
+**Assessment**: Invocation control prevents unintended side effects while enabling
+contextual knowledge injection.
+
+* * *
+
+#### 14.2 Argument Passing Pattern
+
+**Status**: ✅ Complete
+
+**Details**:
+
+Skills can accept arguments via the `$ARGUMENTS` placeholder:
+
+```yaml
+---
+name: fix-issue
+description: Fix a GitHub issue by number
+argument-hint: "[issue-number]"
+---
+
+Fix GitHub issue $ARGUMENTS following our coding standards.
+
+1. Read the issue description
+2. Understand requirements
+3. Implement the fix
+4. Write tests
+5. Create a commit
+```
+
+**Invocation**: `/fix-issue 123` → “Fix GitHub issue 123 following our coding
+standards.”
+
+**Auto-Append Behavior**: If `$ARGUMENTS` is not in the content, arguments are
+automatically appended as `ARGUMENTS: <value>`.
+
+* * *
+
+### 15. Visual Output Patterns
+
+#### 15.1 Bundled Script Execution
+
+**Status**: 🔬 Experimental
+
+**Details**:
+
+Skills can bundle scripts that generate visual output (HTML, SVG) which opens in the
+user’s browser. This extends CLI capabilities beyond text.
+
+**Use Cases**:
+
+- Codebase visualization (tree maps, dependency graphs)
+- Test coverage reports
+- API documentation
+- Database schema diagrams
+
+**Pattern**:
+
+```
+skill-name/
+├── SKILL.md
+└── scripts/
+    └── visualize.py   # Generates HTML, opens in browser
+```
+
+**SKILL.md**:
+
+````yaml
+---
+name: codebase-visualizer
+description: Generate interactive visualization of project structure
+allowed-tools: Bash(python:*)
+---
+
+Run visualization:
+```bash
+python ~/.claude/skills/codebase-visualizer/scripts/visualize.py .
+````
+```
+
+**Assessment**: Bundled scripts enable sophisticated visual output while keeping the
+skill self-contained. Use sparingly—most CLI interactions should be text-based.
+
+* * *
+
 ## Best Practices Summary
 
 ### Architecture
@@ -1008,80 +1520,126 @@ More levels create decision paralysis.
 2. **Implement fallback loading**: Support both bundled and development modes
 3. **Use platform-appropriate formats**: SKILL.md for Claude, MDC for Cursor, markers
    for AGENTS.md
+4. **Follow Agent Skills open standard**: Ensures portability across AI tools
 
 ### Context Management
 
-4. **Implement a `prime` command**: Dashboard at session start, brief mode for
+5. **Implement a `prime` command**: Dashboard at session start, brief mode for
    constrained contexts
-5. **Separate skill from dashboard**: Different verbosity levels for different needs
-6. **Include context recovery instructions**: Agents need to know how to restore context
-7. **Two-level orientation only**: Full (default) and brief—avoid more granularity
+6. **Separate skill from dashboard**: Different verbosity levels for different needs
+7. **Include context recovery instructions**: Agents need to know how to restore context
+8. **Two-level orientation only**: Full (default) and brief—avoid more granularity
+9. **Use progressive disclosure**: Level 1 (metadata) → Level 2 (skill body) → Level 3
+   (resources)
+10. **Keep SKILL.md under 500 lines**: Move detailed content to reference files
+
+### Description Optimization
+
+11. **Use the two-part rule**: What does it do? + When to use it?
+12. **Write in third person**: "Processes files" not "I can help you"
+13. **Include explicit trigger phrases**: Match how users naturally describe needs
+14. **Test activation across prompts**: Descriptions can quadruple activation reliability
 
 ### Self-Documentation
 
-8. **Provide documentation commands**: `readme`, `docs`, `design` as built-in commands
-9. **Include Getting Started in help epilog**: One-liner must be easily accessible
-10. **Use Markdown with terminal rendering**: Same content works in CLI and GitHub
+15. **Provide documentation commands**: `readme`, `docs`, `design` as built-in commands
+16. **Include Getting Started in help epilog**: One-liner must be easily accessible
+17. **Use Markdown with terminal rendering**: Same content works in CLI and GitHub
 
 ### Setup Flows
 
-11. **Two-tier command structure**: High-level (`setup`) and surgical (`init`)
-12. **Require explicit mode flags**: `--auto` for agents, `--interactive` for humans
-13. **Never guess user preferences**: For taste-based config (prefixes), always ask
-14. **Support multi-contributor onboarding**: Detect already-initialized projects
+18. **Two-tier command structure**: High-level (`setup`) and surgical (`init`)
+19. **Require explicit mode flags**: `--auto` for agents, `--interactive` for humans
+20. **Never guess user preferences**: For taste-based config (prefixes), always ask
+21. **Support multi-contributor onboarding**: Detect already-initialized projects
 
 ### Agent Integration
 
-15. **Install hooks programmatically**: SessionStart, PreCompact, PostToolUse
-16. **Use skill directories**: `.claude/skills/`, `.cursor/rules/`
-17. **Support multiple agents**: Single CLI, multiple integration points
+22. **Install hooks programmatically**: SessionStart, PreCompact, PostToolUse
+23. **Use skill directories**: `.claude/skills/`, `.cursor/rules/`
+24. **Support multiple agents**: Single CLI, multiple integration points
+25. **Use invocation control**: `disable-model-invocation` for side-effect workflows
 
 ### Output
 
-18. **Implement `--json` for all commands**: Machine-readable output is essential
-19. **Use `output.data()` pattern**: Single code path for JSON and human output
-20. **Provide `--quiet` mode**: For scripted usage without noise
+26. **Implement `--json` for all commands**: Machine-readable output is essential
+27. **Use `output.data()` pattern**: Single code path for JSON and human output
+28. **Provide `--quiet` mode**: For scripted usage without noise
 
 ### Error Handling
 
-21. **Include next steps in errors**: Actionable guidance, not just error messages
-22. **Graceful deprecation**: Keep old commands working with migration guidance
-23. **Explicit completion protocols**: Checklists prevent premature completion
+29. **Include next steps in errors**: Actionable guidance, not just error messages
+30. **Graceful deprecation**: Keep old commands working with migration guidance
+31. **Explicit completion protocols**: Checklists prevent premature completion
 
 ### Agent Mental Model
 
-24. **Design for agent-as-partner**: Help agents serve users, not relay commands
-25. **Lead with value proposition**: Explain *why* before *how*
-26. **Distinguish action from informational commands**: Some commands teach, not do
+32. **Design for agent-as-partner**: Help agents serve users, not relay commands
+33. **Lead with value proposition**: Explain *why* before *how*
+34. **Distinguish action from informational commands**: Some commands teach, not do
 
 ### Resource Libraries
 
-27. **Bundle guidelines, shortcuts, templates**: Ship curated knowledge with CLI
-28. **Show full commands in directories**: `cli shortcut X`, not just `X`
-29. **Organize resources by purpose**: Categories by workflow phase or domain
-30. **Enable on-demand knowledge queries**: Agents pull in relevant resources JIT
+35. **Bundle guidelines, shortcuts, templates**: Ship curated knowledge with CLI
+36. **Show full commands in directories**: `cli shortcut X`, not just `X`
+37. **Organize resources by purpose**: Categories by workflow phase or domain
+38. **Enable on-demand knowledge queries**: Agents pull in relevant resources JIT
+39. **Implement shadowing for customization**: Project-level overrides without forking
+40. **Generate directories dynamically**: Avoid stale documentation
 
 * * *
 
 ## Open Research Questions
 
-1. **Cross-agent skill synchronization**: How to keep skills in sync across Claude,
-   Cursor, Codex when formats differ?
+### Resolved Questions
 
-2. **Context budget optimization**: What’s the optimal token budget for different
-   context window sizes?
+1. ~~**Cross-agent skill synchronization**: How to keep skills in sync across Claude,
+   Cursor, Codex when formats differ?~~
+   → **Resolved**: Use Agent Skills open standard as base, with platform-specific
+   extensions. Generate platform files from single source during build.
 
-3. **Hook composition**: How should multiple CLIs with hooks interact?
+2. ~~**Context budget optimization**: What's the optimal token budget for different
+   context window sizes?~~
+   → **Resolved**: Progressive disclosure architecture. Level 1 (~100 tokens) always,
+   Level 2 (~1,500-5,000 tokens) on trigger, Level 3 as-needed. Keep SKILL.md under 500
+   lines.
 
-4. **Resource library curation**: What’s the right balance between comprehensive
-   resources and overwhelming agents with options?
-   How should resources be versioned and updated?
+### Active Questions
+
+3. **Hook composition**: How should multiple CLIs with hooks interact? What happens when
+   two tools both want SessionStart hooks? Priority rules? Composition patterns?
+
+4. **Resource library curation**: What's the right balance between comprehensive
+   resources and overwhelming agents with options? Empirical data needed on optimal
+   resource count.
 
 5. **Proactive resource suggestion**: Should CLIs suggest relevant resources based on
-   context (e.g., "you’re writing TypeScript, consider `guidelines typescript-rules`")?
+   context (e.g., "you're writing TypeScript, consider `guidelines typescript-rules`")?
+   Risk of noise vs. benefit of guidance.
 
 6. **Cross-CLI resource sharing**: Could multiple CLIs share a common resource library
-   format, enabling ecosystem-wide best practices?
+   format, enabling ecosystem-wide best practices? Agent Skills standard is a starting
+   point but doesn't cover resource libraries.
+
+7. **MCP vs Skill boundary**: When should a CLI add MCP server capabilities vs. staying
+   pure skill-based? What's the complexity threshold? Need heuristics for deciding.
+
+8. **Activation testing methodology**: How to systematically test skill activation
+   reliability? Need standardized test prompts and measurement approach.
+
+9. **Nested skill discovery**: In monorepos with nested `.claude/skills/` directories,
+   what are the precedence rules? How to handle conflicts between package-level and
+   root-level skills?
+
+10. **Visual output patterns**: When are bundled scripts that generate HTML appropriate?
+    Risk of over-engineering vs. value of visualization. Need guidelines.
+
+11. **GitHub MCP Registry integration**: Should CLIs register as MCP servers in addition
+    to skills? How to balance npm distribution with MCP registry discovery?
+
+12. **Agent-to-agent handoff**: When a skill runs in a subagent (`context: fork`), how
+    should results be communicated back? Summarization strategies? Token budgets for
+    handoff?
 
 * * *
 
@@ -1102,28 +1660,56 @@ knowledge, and distinguishing action commands from informational commands.
 ### Recommended Approach
 
 1. **Start with SKILL.md**: Define the agent-facing documentation first, leading with
-   value proposition
-2. **Implement `prime` and `skill` commands**: Context management is foundational
-3. **Build two-tier setup**: `setup --auto` for agents, surgical `init` for advanced
+   value proposition. Use the two-part description rule.
+2. **Apply progressive disclosure**: Keep SKILL.md under 500 lines, reference supporting
+   files for detailed content
+3. **Implement `prime` and `skill` commands**: Context management is foundational
+4. **Build two-tier setup**: `setup --auto` for agents, surgical `init` for advanced
    users
-4. **Add hooks installation**: Automatic context injection via SessionStart/PreCompact
-5. **Bundle resource libraries**: Guidelines, shortcuts, and templates as informational
-   commands
-6. **Organize resources by purpose**: Categories help agents find relevant knowledge
-7. **Support JSON output**: Every command should have `--json` mode
+5. **Add hooks installation**: Automatic context injection via SessionStart/PreCompact
+6. **Bundle resource libraries**: Guidelines, shortcuts, and templates as informational
+   commands with dynamic directory generation
+7. **Organize resources by purpose**: Categories help agents find relevant knowledge
+8. **Support JSON output**: Every command should have `--json` mode
+9. **Test activation reliability**: Use 10+ representative prompts to verify descriptions
+   trigger correctly
+10. **Implement shadowing**: Allow project-level overrides without forking
 
 ### Alternative Approaches
 
-- **MCP-based integration**: For deeper agent integration, consider MCP protocol
+- **MCP-based integration**: For persistent connections, real-time updates, or complex
+  tool ecosystems, add MCP server capabilities alongside skill integration
 - **Remote skill hosting**: For frequently updated skills, consider remote loading
 - **Agent-specific packages**: For platforms with unique requirements, separate packages
+- **Hybrid CLI+MCP**: Use skills for documentation and workflows, MCP for stateful
+  operations
 
 * * *
 
 ## References
 
-- Claude Code Skills Documentation: https://docs.anthropic.com/claude-code/skills
+### Official Documentation
+
+- Claude Code Skills Documentation: https://code.claude.com/docs/en/skills
+- Agent Skills Open Standard: https://agentskills.io
 - Cursor IDE MDC Format: https://cursor.sh/docs/rules
+
+### Community Resources
+
+- Claude Skills Best Practices:
+  https://github.com/Dicklesworthstone/meta_skill/blob/main/BEST_PRACTICES_FOR_WRITING_AND_USING_SKILLS_MD_FILES.md
+- Claude Code Skills Guide (Gist):
+  https://gist.github.com/mellanon/50816550ecb5f3b239aa77eef7b8ed8d
+- Awesome Claude Skills: https://github.com/travisvn/awesome-claude-skills
+
+### MCP Resources
+
+- Anthropic MCP Engineering Blog: https://www.anthropic.com/engineering/code-execution-with-mcp
+- MCP Agent Frameworks Comparison: https://clickhouse.com/blog/how-to-build-ai-agents-mcp-12-frameworks
+- GitHub MCP Registry: https://github.com/modelcontextprotocol
+
+### Implementation References
+
 - Commander.js: https://github.com/tj/commander.js
 - tbd Source Code: https://github.com/jlevy/tbd
 
@@ -1132,53 +1718,39 @@ knowledge, and distinguishing action commands from informational commands.
 ## Appendices
 
 ### Appendix A: File Structure for Agent-Integrated CLI
-
 ```
-packages/tbd/
-├── src/
-│   ├── cli/
-│   │   ├── commands/
-│   │   │   ├── prime.ts      # Context management
-│   │   │   ├── skill.ts      # Skill output
-│   │   │   ├── setup.ts      # Agent integration
-│   │   │   ├── init.ts       # Surgical init
-│   │   │   ├── docs.ts       # Documentation
-│   │   │   ├── readme.ts     # README display
-│   │   │   ├── closing.ts    # Session protocol
-│   │   │   ├── shortcut.ts   # Workflow shortcuts (informational)
-│   │   │   ├── guidelines.ts # Coding guidelines (informational)
-│   │   │   └── template.ts   # Document templates (informational)
-│   │   ├── lib/
-│   │   │   ├── output.ts     # Output modes, colors, help epilog
-│   │   │   └── base-command.ts
-│   │   └── cli.ts            # Program setup, default command
-│   └── docs/
-│       ├── SKILL.md          # Claude Code skill
-│       ├── CURSOR.mdc        # Cursor IDE rules
-│       ├── tbd-docs.md       # CLI reference
-│       ├── tbd-closing.md    # Session protocol
-│       ├── shortcuts/        # Workflow instruction files
-│       │   ├── commit-code.md
-│       │   ├── new-plan-spec.md
-│       │   └── ...
-│       ├── guidelines/       # Coding best practice files
-│       │   ├── typescript-rules.md
-│       │   ├── general-tdd-guidelines.md
-│       │   └── ...
-│       └── templates/        # Document template files
-│           ├── template-plan-spec.md
-│           └── ...
-├── dist/
-│   ├── bin.mjs               # Bundled CLI
-│   └── docs/                 # Bundled documentation
-│       ├── SKILL.md
-│       ├── CURSOR.mdc
-│       ├── README.md
-│       ├── shortcuts/
-│       ├── guidelines/
-│       ├── templates/
-│       └── ...
+packages/tbd/ ├── src/ │ ├── cli/ │ │ ├── commands/ │ │ │ ├── prime.ts # Context
+management (dashboard + orientation) │ │ │ ├── skill.ts # Skill output (static content)
+│ │ │ ├── setup.ts # Agent integration (hooks, skill files) │ │ │ ├── init.ts # Surgical
+init (prefix, config) │ │ │ ├── docs.ts # Documentation (CLI reference) │ │ │ ├──
+readme.ts # README display │ │ │ ├── closing.ts # Session protocol reminder │ │ │ ├──
+shortcut.ts # Workflow shortcuts (informational) │ │ │ ├── guidelines.ts # Coding
+guidelines (informational) │ │ │ └── template.ts # Document templates (informational) │
+│ ├── lib/ │ │ │ ├── output.ts # Output modes, colors, help epilog │ │ │ ├──
+base-command.ts │ │ │ ├── doc-cache.ts # Path-ordered doc loading with shadowing │ │ │
+└── errors.ts # Structured error types │ │ └── cli.ts # Program setup, default command │
+└── docs/ │ ├── SKILL.md # Claude Code skill (<500 lines) │ ├── SKILL-brief.md #
+Condensed skill for context recovery │ ├── CURSOR.mdc # Cursor IDE rules │ ├──
+tbd-docs.md # CLI reference │ ├── tbd-closing.md # Session protocol │ ├── shortcuts/ #
+Workflow instruction files │ │ ├── commit-code.md │ │ ├── new-plan-spec.md │ │ └── ... │
+├── guidelines/ # Coding best practice files │ │ ├── typescript-rules.md │ │ ├──
+general-tdd-guidelines.md │ │ └── ... │ └── templates/ # Document template files │ ├──
+template-plan-spec.md │ └── ... ├── dist/ │ ├── bin.mjs # Bundled CLI │ └── docs/ #
+Bundled documentation (all resources) │ ├── SKILL.md │ ├── SKILL-brief.md │ ├──
+CURSOR.mdc │ ├── README.md │ ├── shortcuts/ │ ├── guidelines/ │ ├── templates/ │ └── ...
 └── package.json
+
+# Project-level installation (shadowing support)
+
+.tbd/ ├── docs/ │ ├── shortcuts/ │ │ └── custom-workflow.md # Project-specific shortcuts
+│ └── guidelines/ │ └── project-rules.md # Project-specific guidelines ├── PRIME.md #
+Optional: custom prime override └── ...
+
+# Claude Code integration
+
+.claude/ ├── skills/ │ └── tbd/ │ └── SKILL.md # Installed by `tbd setup` ├── hooks/ │
+└── tbd-closing-reminder.sh # PostToolUse hook script └── settings.json # Hook
+configuration
 ```
 
 ### Appendix B: Integration Checklist for New CLIs
@@ -1187,6 +1759,13 @@ packages/tbd/
 - [ ] SKILL.md with YAML frontmatter (name, description, allowed-tools)
 - [ ] CURSOR.mdc with MDC frontmatter (description, alwaysApply)
 - [ ] AGENTS.md section with HTML markers
+- [ ] Follow Agent Skills open standard for portability
+
+**Description Quality**
+- [ ] Two-part description: capabilities + activation triggers
+- [ ] Third-person language only
+- [ ] Explicit trigger phrases matching user language
+- [ ] Test activation across 10+ representative prompts
 
 **Context Management**
 - [ ] `prime` command with dashboard and brief modes (two levels only)
@@ -1194,6 +1773,8 @@ packages/tbd/
 - [ ] Value-first orientation in skill file (why before how)
 - [ ] Context recovery instructions in all docs
 - [ ] Session closing protocol checklist
+- [ ] SKILL.md under 500 lines (progressive disclosure)
+- [ ] Support for custom prime override (`.tbd/PRIME.md` or equivalent)
 
 **Setup Flow**
 - [ ] `setup --auto` for agent-friendly installation
@@ -1205,6 +1786,12 @@ packages/tbd/
 - [ ] SessionStart hook to call `prime`
 - [ ] PreCompact hook to call `prime`
 - [ ] PostToolUse hook for session completion reminders
+- [ ] Hook scripts with JSON parsing for conditional triggers
+
+**Invocation Control**
+- [ ] Identify skills that should be user-only (`disable-model-invocation: true`)
+- [ ] Identify background knowledge skills (`user-invocable: false`)
+- [ ] Use `argument-hint` for skills that accept arguments
 
 **Self-Documentation**
 - [ ] Help epilog with one-liner installation command
@@ -1216,5 +1803,7 @@ packages/tbd/
 - [ ] `guidelines` command with `--list` and category filtering
 - [ ] `template` command with `--list`
 - [ ] Resources organized by purpose/workflow phase
-- [ ] Resource directories in skill file showing full commands
+- [ ] Resource directories generated dynamically (not static)
 - [ ] Resources bundled with CLI distribution
+- [ ] Shadowing support for project-level overrides
+```
