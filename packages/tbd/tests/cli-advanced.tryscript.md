@@ -491,6 +491,9 @@ Getting Started:
   For interactive setup: tbd setup --interactive
   For manual control: tbd init --help
 
+Orientation:
+  For workflow guidance, run: tbd prime
+
 For more on tbd, see: https://github.com/jlevy/tbd
 ? 0
 ```
@@ -534,6 +537,9 @@ Getting Started:
   For interactive setup: tbd setup --interactive
   For manual control: tbd init --help
 
+Orientation:
+  For workflow guidance, run: tbd prime
+
 For more on tbd, see: https://github.com/jlevy/tbd
 ? 0
 ```
@@ -573,6 +579,9 @@ Getting Started:
   This initializes tbd and configures your coding agents automatically.
   For interactive setup: tbd setup --interactive
   For manual control: tbd init --help
+
+Orientation:
+  For workflow guidance, run: tbd prime
 
 For more on tbd, see: https://github.com/jlevy/tbd
 ? 0
@@ -614,6 +623,9 @@ Getting Started:
   This initializes tbd and configures your coding agents automatically.
   For interactive setup: tbd setup --interactive
   For manual control: tbd init --help
+
+Orientation:
+  For workflow guidance, run: tbd prime
 
 For more on tbd, see: https://github.com/jlevy/tbd
 ? 0

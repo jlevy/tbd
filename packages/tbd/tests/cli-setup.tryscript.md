@@ -52,8 +52,8 @@ Options:
 
 Documentation:
   readme                        Display the README (same as GitHub landing page)
-  prime [options]               Show dashboard and workflow context (default
-                                when running `tbd`)
+  prime [options]               Show full orientation with workflow context
+                                (default when running `tbd`)
   skill [options]               Output AI agent skill file content
   shortcut [options] [query]    Find and output documentation shortcuts
   guidelines [options] [query]  Find and output coding guidelines
@@ -109,6 +109,9 @@ Getting Started:
   For interactive setup: tbd setup --interactive
   For manual control: tbd init --help
 
+Orientation:
+  For workflow guidance, run: tbd prime
+
 For more on tbd, see: https://github.com/jlevy/tbd
 ? 0
 ```
@@ -153,6 +156,9 @@ Getting Started:
   This initializes tbd and configures your coding agents automatically.
   For interactive setup: tbd setup --interactive
   For manual control: tbd init --help
+
+Orientation:
+  For workflow guidance, run: tbd prime
 
 For more on tbd, see: https://github.com/jlevy/tbd
 ? 0

@@ -61,6 +61,9 @@ Getting Started:
   For interactive setup: tbd setup --interactive
   For manual control: tbd init --help
 
+Orientation:
+  For workflow guidance, run: tbd prime
+
 For more on tbd, see: https://github.com/jlevy/tbd
 ? 0
 ```

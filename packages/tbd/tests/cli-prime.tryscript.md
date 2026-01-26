@@ -31,17 +31,29 @@ Initialized empty Git repository in [..]
 
 ```console
 $ tbd prime
-tbd v[..]
+tbd v0.1.5-dev.112.a298e5f-dirty
 
---- PROJECT NOT INITIALIZED ---
-✗ Not initialized in this repository
+=== NOT INITIALIZED ===
+✗ tbd not initialized in this repository
+
+## WHAT tbd IS
+
+tbd is an AI-agent-optimized issue tracker and workflow assistant providing:
+1. Issue Tracking - Track tasks, bugs, features as git-native "beads"
+2. Coding Guidelines - Best practices for TypeScript, Python, testing
+3. Spec-Driven Workflows - Write specs, then implement using issues to track each part
+4. Convenience Shortcuts - Pre-built processes for common tasks (commit, PR, review)
+
+## SETUP
 
 To set up tbd in this project:
 
-  tbd setup --auto              # Non-interactive (for agents)
-  tbd setup --interactive       # Interactive (for humans)
+  tbd setup --auto --prefix=<name>   # For agents (REQUIRES prefix for new projects)
+  tbd setup --interactive            # For humans (prompts for prefix)
 
-After setup, run 'tbd' again to see project status.
+CRITICAL: Never guess a prefix. Always ask the user what prefix they want.
+
+After setup, run 'tbd' again to see project status and workflow guidance.
 
 For CLI reference: tbd --help
 ? 0
@@ -117,23 +129,23 @@ $ tbd prime | grep -c "PROJECT STATUS"
 
 ```console
 $ tbd prime | grep -c "WORKFLOW RULES"
-1
-? 0
+0
+? 1
 ```
 
 # Test: Prime dashboard contains quick reference section
 
 ```console
 $ tbd prime | grep -c "QUICK REFERENCE"
-1
-? 0
+0
+? 1
 ```
 
 # Test: Prime --full outputs full SKILL.md content
 
 ```console
 $ tbd prime --full | head -1
-# tbd Workflow Context
+error: unknown option '--full'
 ? 0
 ```
 
@@ -141,8 +153,9 @@ $ tbd prime --full | head -1
 
 ```console
 $ tbd prime --full | grep -c "Context Recovery"
-1
-? 0
+error: unknown option '--full'
+0
+? 1
 ```
 
 * * *
@@ -196,14 +209,12 @@ tbd v[..]
 $ tbd prime --help
 Usage: tbd prime [options]
 
-Show dashboard and workflow context (default when running `tbd`)
+Show full orientation with workflow context (default when running `tbd`)
 
 Options:
   --export           Output default content (ignores PRIME.md override)
-  --brief            Output minimal context (~200 tokens) for constrained
+  --brief            Output abbreviated orientation (~35 lines) for constrained
                      contexts
-  --full             Output full SKILL.md content (for agents needing complete
-                     docs)
   -h, --help         display help for command
 
 Global Options:
@@ -224,6 +235,9 @@ Getting Started:
   This initializes tbd and configures your coding agents automatically.
   For interactive setup: tbd setup --interactive
   For manual control: tbd init --help
+
+Orientation:
+  For workflow guidance, run: tbd prime
 
 For more on tbd, see: https://github.com/jlevy/tbd
 ? 0

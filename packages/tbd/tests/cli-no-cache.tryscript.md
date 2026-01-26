@@ -113,9 +113,9 @@ $ tbd shortcut --list | grep -c "new-plan-spec"
 
 ```console
 $ tbd shortcut new-plan-spec | head -3
+Agent instructions: You have activated a shortcut with task instructions. If a user has asked you to do a task that requires this work, follow the instructions below carefully.
+
 ---
-title: New Plan Spec
-description: Create a new feature planning specification document
 ? 0
 ```
 

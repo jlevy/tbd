@@ -1,13 +1,14 @@
 # Research Brief: CLI as Agent Skill - Best Practices for TypeScript CLIs in Claude Code
 
-**Last Updated**: 2026-01-22
+**Last Updated**: 2026-01-25
 
-**Status**: Complete
+**Status**: Complete (Revised)
 
 **Related**:
 
 - [tbd Design Doc](../../tbd-design.md)
 - [Streamlined Init/Setup Spec](../specs/active/plan-2026-01-20-streamlined-init-setup-design.md)
+- [Agent Orientation Experience Spec](../specs/active/plan-2026-01-25-agent-orientation-experience.md)
 - [Unix Philosophy for Agents](./research-unix-philosophy-for-agents.md)
 
 * * *
@@ -23,6 +24,12 @@ The core insight is that a CLI can be much more than a command executor—it can
 **dynamic skill module** that provides context management, self-documentation, and
 seamless integration with multiple AI agents through a single npm package.
 
+A second key insight is that CLIs can serve as **knowledge libraries**—bundling
+guidelines, shortcuts, and templates that agents can query on-demand to improve the
+quality of their work.
+This transforms the CLI from a tool the agent tells users about into a resource the
+agent uses to better serve users.
+
 **Research Questions**:
 
 1. What architectural patterns make a CLI work well as an agent skill?
@@ -32,6 +39,11 @@ seamless integration with multiple AI agents through a single npm package.
 3. What setup flows work best for both human users and AI agents?
 
 4. How can a single CLI integrate with multiple agent platforms (Claude, Cursor, Codex)?
+
+5. How can CLIs provide reusable knowledge (guidelines, workflows, templates) that
+   agents can leverage to improve work quality?
+
+6. What mental model should agents have when using CLI tools—messenger or partner?
 
 * * *
 
@@ -577,6 +589,414 @@ Define explicit session completion requirements:
 
 **Assessment**: Explicit checklists prevent agents from prematurely declaring
 completion.
+
+* * *
+
+### 8. Agent Mental Model Patterns
+
+#### 8.1 Agent as Partner, Not Messenger
+
+**Status**: ✅ Complete
+
+**Details**:
+
+The fundamental mental model shift for agent-integrated CLIs is from:
+> “Here are commands you can tell the user about”
+
+To:
+> “Here’s how this tool helps you (the agent) serve the user better”
+
+This means the CLI should explain its **value proposition** in terms of what problems it
+solves, not just command syntax.
+The agent should understand *why* to use the tool and *when* to reach for it
+proactively.
+
+**Implementation Pattern**:
+
+Structure skill file orientation around capabilities, not commands:
+
+```markdown
+## What This Tool Does
+
+1. **Issue Tracking**: Track tasks, bugs, features. Never lose discovered work.
+2. **Coding Guidelines**: Best practices the agent can pull in when relevant.
+3. **Workflow Shortcuts**: Pre-built processes for common tasks.
+4. **Templates**: Starting points for common document types.
+
+## How to Use It to Help Users
+
+- User describes a bug → create an issue
+- User wants a feature → create a plan spec, then break into issues
+- Starting a session → check for available work
+- Completing work → close issues with clear reasons
+```
+
+**Assessment**: When agents understand the tool’s value proposition, they use it
+proactively rather than just relaying commands to users.
+The tool becomes a capability amplifier rather than a command reference.
+
+* * *
+
+#### 8.2 Informational Commands Pattern
+
+**Status**: ✅ Complete
+
+**Details**:
+
+A key architectural pattern is the distinction between **action commands** and
+**informational commands**:
+
+| Type | Purpose | Example |
+| --- | --- | --- |
+| Action commands | Perform operations | `create`, `close`, `sync` |
+| Informational commands | Output guidance for the agent to follow | `shortcut`, `guidelines`, `template` |
+
+Informational commands don’t perform actions—they display instructions, best practices,
+or templates that tell the agent *how* to do something well.
+The agent reads the output and follows the guidance.
+
+**Key Principle**: When unsure how to best accomplish a task, agents should run the
+relevant informational command first.
+These commands provide:
+
+- Quality guidelines that improve outcomes
+- Time-saving tips and patterns
+- Step-by-step processes that avoid mistakes
+- Best practices specific to the task
+
+**Example Flow**:
+
+```
+User: "Build a TypeScript CLI tool"
+
+Agent thinks: "I should check for relevant guidelines"
+Agent runs: tbd guidelines typescript-cli-tool-rules
+Agent receives: Comprehensive guidance on Commander.js patterns, color handling,
+                output formatting, error handling...
+Agent uses: This guidance while implementing the CLI
+```
+
+**Assessment**: This pattern lets CLIs serve as on-demand knowledge bases.
+The CLI bundles hard-won knowledge that agents can query contextually, dramatically
+improving output quality without increasing the agent’s base training.
+
+* * *
+
+#### 8.3 Resource Library Pattern
+
+**Status**: ✅ Complete
+
+**Details**:
+
+Beyond core functionality, agent-integrated CLIs can bundle **resource libraries**—
+collections of guidelines, shortcuts, and templates that agents access on-demand.
+
+**Resource Types**:
+
+| Resource | Purpose | Access Pattern |
+| --- | --- | --- |
+| Guidelines | Best practices for specific domains | `cli guidelines <name>` |
+| Shortcuts | Step-by-step workflow instructions | `cli shortcut <name>` |
+| Templates | Document starting points | `cli template <name>` |
+
+**Guidelines** encode domain expertise:
+- Language-specific rules (TypeScript, Python)
+- Testing patterns (TDD, golden testing)
+- Architecture patterns (monorepos, CLI tools)
+
+**Shortcuts** encode workflows:
+- Planning processes (write spec → break into issues → implement)
+- Shipping processes (commit → PR → validate)
+- Review processes (code review checklists)
+
+**Templates** provide structure:
+- Planning specs for features
+- Research briefs for investigations
+- Architecture docs for designs
+
+**Implementation Pattern**:
+
+```typescript
+// Resource loading with bundled fallback
+async function loadResource(type: 'guideline' | 'shortcut' | 'template', name: string) {
+  const bundledPath = join(__dirname, 'resources', type, `${name}.md`);
+  const content = await readFile(bundledPath, 'utf-8');
+  return content;
+}
+
+// List available resources
+async function listResources(type: string) {
+  const dir = join(__dirname, 'resources', type);
+  const files = await readdir(dir);
+  return files.filter(f => f.endsWith('.md')).map(f => f.replace('.md', ''));
+}
+```
+
+**Benefits**:
+
+1. **Self-contained**: Resources ship with the CLI, no external dependencies
+2. **Versionable**: Resource improvements ship with CLI updates
+3. **Discoverable**: `--list` flags help agents find available resources
+4. **Contextual**: Agents query relevant resources just-in-time
+
+**Assessment**: Resource libraries transform CLIs from single-purpose tools into
+comprehensive development assistants.
+The CLI becomes a curated knowledge base that agents leverage to produce higher-quality
+work.
+
+* * *
+
+#### 8.4 Resource Directory Pattern
+
+**Status**: ✅ Complete
+
+**Details**:
+
+When documenting available resources (shortcuts, guidelines, templates), show the **full
+command to run**, not just the resource name.
+This removes friction for agents.
+
+**Anti-pattern** (name only):
+```markdown
+## Available Shortcuts
+- commit-code
+- create-or-update-pr-simple
+- new-plan-spec
+```
+
+**Preferred pattern** (full command):
+```markdown
+## Available Shortcuts
+
+| Command | Purpose | Description |
+|---------|---------|-------------|
+| `tbd shortcut commit-code` | Commit Code | How to run pre-commit checks and commit |
+| `tbd shortcut create-or-update-pr-simple` | Create PR | How to create a pull request |
+| `tbd shortcut new-plan-spec` | Plan Feature | How to create a planning specification |
+```
+
+**Why This Matters**:
+
+- Agents can copy/run commands directly
+- No ambiguity about command syntax
+- Self-documenting—clear what each command does
+- Reduces cognitive load for agents parsing documentation
+
+**Assessment**: Small formatting changes in documentation significantly impact agent
+usability. Always optimize for copy-paste execution.
+
+* * *
+
+#### 8.5 Category Organization Pattern
+
+**Status**: ✅ Complete
+
+**Details**:
+
+Organize resources by **purpose or workflow phase**, not alphabetically.
+This helps agents find relevant resources based on what they’re trying to accomplish.
+
+**Shortcut Categories** (by workflow phase):
+
+| Category | Resources | When to Use |
+| --- | --- | --- |
+| Planning | `new-plan-spec`, `new-research-brief`, `new-architecture-doc` | Starting new work |
+| Implementation | `implement-beads`, `new-implementation-beads-from-spec` | Building features |
+| Quality | `new-validation-plan`, `precommit-process`, `review-code-*` | Ensuring quality |
+| Shipping | `commit-code`, `create-pr-*` | Delivering work |
+
+**Guideline Categories** (by domain):
+
+| Category | Resources | When to Use |
+| --- | --- | --- |
+| TypeScript | `typescript-rules`, `typescript-cli-tool-rules`, `typescript-monorepo-patterns` | TS development |
+| Python | `python-rules`, `python-cli-patterns` | Python development |
+| Testing | `general-tdd-guidelines`, `general-testing-rules`, `golden-testing-guidelines` | Writing tests |
+| General | `general-coding-rules`, `general-comment-rules`, `backward-compatibility-rules` | Any development |
+
+**Implementation**:
+
+```bash
+# Category filtering
+tbd shortcut --category planning
+tbd guidelines --category typescript
+```
+
+**Assessment**: Category organization transforms flat resource lists into navigable
+knowledge structures.
+Agents can quickly locate resources relevant to their current task phase.
+
+* * *
+
+#### 8.6 Value-First Orientation Pattern
+
+**Status**: ✅ Complete
+
+**Details**:
+
+Skill files should lead with **value proposition**, not installation instructions.
+Agents need to understand *why* to use a tool before *how*.
+
+**Anti-pattern** (installation-first):
+```markdown
+# mytool
+
+## Installation
+npm install -g mytool
+
+## Commands
+mytool init
+mytool do-thing
+...
+```
+
+**Preferred pattern** (value-first):
+```markdown
+# mytool Agent Orientation
+
+## What mytool Is
+
+mytool helps you (the agent) help users by providing:
+
+1. **Capability A**: Description of what it enables
+2. **Capability B**: Description of what it enables
+3. **Capability C**: Description of what it enables
+
+## How to Use mytool to Help Users
+
+- User wants X → use capability A
+- User wants Y → use capability B
+- User mentions Z → proactively suggest capability C
+
+## Installation (if needed)
+
+...
+```
+
+**Assessment**: Value-first orientation enables agents to make intelligent decisions
+about when and how to use tools.
+Installation is only relevant if the tool isn’t already set up.
+
+* * *
+
+### 9. Setup Flow Refinements
+
+#### 9.1 Never Guess User Preferences
+
+**Status**: ✅ Complete
+
+**Details**:
+
+For configuration values that are matters of user taste (not technical requirements),
+**never guess or auto-detect**. Always ask the user.
+
+**Examples of preference values**:
+- Project prefixes/abbreviations (e.g., “myapp” vs “ma” vs “cool”)
+- Naming conventions
+- Style choices
+
+**Why This Matters**:
+
+The prefix appears in every issue ID and becomes part of the project’s vocabulary.
+Auto-detecting from repo name might produce something the user dislikes.
+Better to ask once than to have wrong values everywhere.
+
+**Agent Prompt Template**:
+```
+"I'll set up [tool] for this project.
+What prefix would you like for issue IDs?
+This is typically a short name (2-4 letters) derived from your project name.
+For example, a project called 'my-cool-app' might use 'mca' or 'cool'.
+Issues will appear as `<prefix>-a1b2`."
+```
+
+**Implementation**:
+- `setup --interactive`: Prompts for preferences
+- `setup --auto --prefix=X`: Requires explicit preference values
+- Never silently infer preference values
+
+**Assessment**: Respecting user preferences builds trust.
+A tool that imposes choices feels presumptuous; a tool that asks feels collaborative.
+
+* * *
+
+#### 9.2 Multi-Contributor Setup Flow
+
+**Status**: ✅ Complete
+
+**Details**:
+
+CLI setup must handle both **initial setup** and **joining existing projects**
+gracefully. This is critical for team workflows.
+
+**States to detect**:
+
+| State | Detection | Setup Behavior |
+| --- | --- | --- |
+| Fresh project | No `.tbd/`, no `.beads/` | Full init, `--prefix` required |
+| Migration | Has `.beads/`, no `.tbd/` | Migrate, use existing prefix |
+| Joining project | Has `.tbd/` | Configure local hooks only, no prefix needed |
+
+**First contributor flow**:
+```bash
+npm install -g tbd-git@latest
+tbd setup --auto --prefix=myproject
+git add .tbd/ .claude/ && git commit -m "Initialize tbd"
+git push
+```
+
+**Subsequent contributor flow**:
+```bash
+git clone <repo>  # .tbd/ comes with repo
+npm install -g tbd-git@latest
+tbd setup --auto  # Detects existing config, just sets up hooks
+```
+
+**Key Behaviors**:
+- `setup --auto` on initialized project should NOT require `--prefix`
+- Should skip initialization, just configure local integrations
+- Should output status showing project is ready
+
+**Assessment**: Smooth multi-contributor onboarding is essential for team adoption.
+The second contributor’s experience should be nearly instant.
+
+* * *
+
+### 10. Orientation Hierarchy Pattern
+
+#### 10.1 Two-Level Orientation
+
+**Status**: ✅ Complete
+
+**Details**:
+
+Provide exactly two levels of orientation: **full** (default) and **brief**. Avoid three
+or more levels which create confusion about which to use.
+
+| Command | Lines | When to Use |
+| --- | --- | --- |
+| `cli prime` | ~200 | Session start, full orientation needed |
+| `cli prime --brief` | ~35 | Context recovery, constrained situations |
+
+**Full orientation includes**:
+- Dynamic status (installation state, project state, issue counts)
+- Static content (value proposition, workflow rules, all commands)
+- Resource directory (shortcuts, guidelines, templates)
+
+**Brief orientation includes**:
+- Condensed status
+- Core workflow rules only
+- Quick reference (most common commands)
+- Session closing checklist
+
+**Relationship to skill file**:
+- `cli skill` outputs static content only (for file installation)
+- `cli prime` = dynamic status + skill content
+- `cli prime --brief` = condensed status + `cli skill --brief`
+
+**Assessment**: Two levels is the right granularity.
+Full for comprehensive understanding, brief for context recovery.
+More levels create decision paralysis.
 
 * * *
 
