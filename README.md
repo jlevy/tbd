@@ -112,14 +112,14 @@ for specs, issue tracking, code review, and testing—all from a single CLI.
   No agents confused by error messages about which of several “modes” you’re running in.
   No SQLite file locking issues on network filesystems (like what is used by Claude Code
   Cloud).
-- **Shortcuts:** 12 reusable instruction documents for common workflows, like
+- **Shortcuts:** Over a dozen reusable instruction documents for common workflows, like
   - `new-plan-spec` — Create a feature planning spec
   - `new-research-brief` — Create a research document
   - `precommit-process` — Pre-commit review and testing
   - `commit-code` — Run checks and commit
   - `create-or-update-pr-with-validation-plan` — Create PR with test plan
-- **Guidelines:** 15 coding rules and best practices for TypeScript, Python, testing,
-  TDD, backward compatibility, commenting, and more.
+- **Guidelines:** [Over 30 pages](packages/tbd/docs/guidelines/) of coding rules and
+  best practices for TypeScript, Python, testing, TDD, backward compatibility, and more.
 - **Templates:** Document templates for planning specs, research briefs, architecture
   docs.
 
