@@ -30,6 +30,28 @@ users can access via `tbd shortcut`, `tbd guidelines`, and `tbd template` comman
 
 - [plan-2026-01-22-doc-cache-abstraction.md](done/plan-2026-01-22-doc-cache-abstraction.md)
   \- Implemented the current DocCache system with path-ordered lookups
+- [plan-2026-01-25-gitignore-utils-library.md](done/plan-2026-01-25-gitignore-utils-library.md)
+  \- Idempotent gitignore editing library used for `.tbd/.gitignore` management
+
+### Tracked Issues
+
+**Epic:** `tbd-xrxr` - Configurable doc cache with auto-sync
+
+| ID | Phase | Type | Priority | Description |
+| --- | --- | --- | --- | --- |
+| `tbd-2m30` | 9 | feature | P2 | Add tbd_format versioning with tbd-format.ts migration infrastructure |
+| `tbd-dwu3` | 1 | task | P2 | Add doc_cache schema and config helpers |
+| `tbd-hg5k` | 2 | task | P2 | Implement DocSync core class |
+| `tbd-780a` | 3 | task | P2 | Create tbd docs command |
+| `tbd-4ayp` | 4 | task | P2 | Integrate doc sync into setup command |
+| `tbd-r82b` | 5 | task | P2 | Implement auto-sync on stale docs |
+| `tbd-4xvj` | 6 | task | P3 | Documentation for doc cache feature |
+| `tbd-kqln` | 7 | task | P3 | Testing for doc cache feature |
+| `tbd-mhob` | 8 | bug | P3 | Fix .tbd/.gitignore messaging |
+| `tbd-v7n4` | 8 | bug | P3 | Fix .claude/.gitignore messaging (depends on tbd-mhob) |
+| `tbd-ne2f` | 8 | task | P4 | Document gitignore pattern re-addition behavior |
+
+**Dependency chain:** Phase 9 → 1 → 2 → (3, 4, 5) → (6, 7). Phase 8 is independent.
 
 ## Summary of Task
 
@@ -41,6 +63,8 @@ Implement a configurable doc cache system with these capabilities:
 3. **Auto-sync on setup**: `tbd setup --auto` creates default config and syncs all docs
 4. **Refresh command**: `tbd docs --refresh` to sync docs from config at any time
 5. **Clean sync protocol**: Download new docs, update changed docs, remove deleted docs
+6. **Auto-sync**: Automatically sync docs when loading config if stale (configurable
+   period)
 
 ## Agent Briefing (3-4 Paragraphs)
 
@@ -110,7 +134,15 @@ actual file state after sync operations.
    - `tbd docs --refresh` - standalone sync command
    - `tbd setup --auto` - includes doc sync as part of setup
 
-6. **Documentation Updates**
+6. **Auto-Sync on Stale**
+   - Track `last_doc_sync_at` timestamp in `.tbd/state.yml` (gitignored)
+   - Configure sync period via `settings.doc_auto_sync_hours` (default: 24)
+   - When loading config, check if docs are stale (last sync > period hours ago)
+   - If stale, automatically trigger doc sync before proceeding
+   - Setting `doc_auto_sync_hours: 0` disables auto-sync
+   - Auto-sync is silent unless there are errors or new external docs
+
+7. **Documentation Updates**
    - Update SKILL.md with doc cache configuration instructions
    - Update CLI help for new `tbd docs` command
    - Add explanatory comments in generated config.yml
@@ -119,6 +151,10 @@ actual file state after sync operations.
 
 ```yaml
 # .tbd/config.yml
+
+settings:
+  auto_sync: false              # Existing: auto-sync issues after write operations
+  doc_auto_sync_hours: 24       # NEW: auto-sync docs if stale (0 = disabled)
 
 # This configures which docs are synced to the .tbd/docs/ directory and available as
 # shortcuts, guidelines, and templates via the tbd CLI.
@@ -138,6 +174,23 @@ doc_cache:
   external
 - YAML dict format (not list) allows easy editing and clear key-value mapping
 - Only quote strings when YAML requires it (URLs with special chars)
+
+### State Tracking
+
+```yaml
+# .tbd/state.yml (gitignored, per-node)
+
+last_sync_at: 2026-01-25T10:00:00Z       # Existing: last issue sync
+last_doc_sync_at: 2026-01-25T10:00:00Z   # NEW: last doc cache sync
+```
+
+**Auto-sync behavior:**
+- When loading config (during any tbd command), check `last_doc_sync_at`
+- If `doc_auto_sync_hours > 0` and time since last sync exceeds that period, trigger doc
+  sync
+- This ensures docs stay fresh without manual intervention
+- Setting `doc_auto_sync_hours: 0` disables auto-sync entirely
+- Default: 24 hours (sync once per day when actively using tbd)
 
 ### GitHub URL Format Options
 
@@ -183,6 +236,10 @@ If blocked, implement Option B as fallback.
 6. GitHub URLs successfully download content (test with public repo)
 7. Sync reports what changed (added, updated, removed counts)
 8. Config includes explanatory comments for users/agents
+9. **Auto-sync**: Running any tbd command 25+ hours after last sync triggers automatic
+   doc sync
+10. **Auto-sync disable**: Setting `doc_auto_sync_hours: 0` prevents automatic syncs
+11. `last_doc_sync_at` is updated in state.yml after each successful sync
 
 ## Stage 2: Architecture Stage
 
@@ -204,14 +261,29 @@ packages/tbd/src/
 
 ```typescript
 // In schemas.ts
+
+// Doc cache mapping: destination path -> source location
 export const DocCacheConfigSchema = z.record(
   z.string(),  // destination path (e.g., "shortcuts/my-shortcut.md")
   z.string()   // source location (internal: or URL)
 );
 
+// Extended settings
+export const SettingsSchema = z.object({
+  auto_sync: z.boolean().default(false),           // existing
+  doc_auto_sync_hours: z.number().default(24),     // NEW: 0 = disabled
+}).default({});
+
 export const ConfigSchema = z.object({
   // ... existing fields ...
+  settings: SettingsSchema,
   doc_cache: DocCacheConfigSchema.optional(),
+});
+
+// Extended local state (gitignored)
+export const LocalStateSchema = z.object({
+  last_sync_at: Timestamp.optional(),      // existing: issue sync
+  last_doc_sync_at: Timestamp.optional(),  // NEW: doc cache sync
 });
 ```
 
@@ -319,6 +391,9 @@ Modify `tbd setup --auto` to:
 3. **`ensureDir()`** - directory creation
 4. **Config read/write** in file/config.ts
 5. **OutputManager** for consistent CLI output
+6. **`ensureGitignorePatterns()`** in
+   [gitignore-utils.ts](packages/tbd/src/utils/gitignore-utils.ts) - idempotent
+   gitignore management with return value indicating what changed
 
 ### Simplification Decisions
 
@@ -339,13 +414,13 @@ Modify `tbd setup --auto` to:
 
 ## Stage 4: Implementation
 
-### Phase 1: Schema and Config
+### Phase 1: Schema and Config (`tbd-dwu3`)
 
 - [ ] Add `doc_cache` field to ConfigSchema in schemas.ts
 - [ ] Add config migration to add doc_cache to existing configs
 - [ ] Add helper to generate default doc_cache config from bundled docs
 
-### Phase 2: DocSync Core
+### Phase 2: DocSync Core (`tbd-hg5k`)
 
 - [ ] Create `file/doc-sync.ts` with DocSync class
 - [ ] Implement `parseSource()` for internal: and URL sources
@@ -354,7 +429,7 @@ Modify `tbd setup --auto` to:
 - [ ] Implement `sync()` with add/update/remove logic
 - [ ] Unit tests for DocSync class
 
-### Phase 3: Docs Command
+### Phase 3: Docs Command (`tbd-780a`)
 
 - [ ] Create `cli/commands/docs.ts`
 - [ ] Implement `--refresh` flag
@@ -362,28 +437,200 @@ Modify `tbd setup --auto` to:
 - [ ] Register command in cli.ts
 - [ ] Unit tests for command
 
-### Phase 4: Setup Integration
+### Phase 4: Setup Integration (`tbd-4ayp`)
 
 - [ ] Modify setup.ts to generate default doc_cache config
 - [ ] Call DocSync.sync() during setup
 - [ ] Update setup output to report sync results
 
-### Phase 5: Documentation
+### Phase 5: Auto-Sync on Config Load (`tbd-r82b`)
+
+- [ ] Add `doc_auto_sync_hours` field to ConfigSchema settings
+- [ ] Add `last_doc_sync_at` field to LocalStateSchema
+- [ ] Create helper to check if docs are stale (last sync > configured hours)
+- [ ] Integrate auto-sync check into config loading path
+- [ ] Update state.yml after successful sync
+- [ ] Ensure auto-sync is silent (no output) unless errors occur
+- [ ] Unit tests for staleness check and auto-sync trigger
+
+### Phase 6: Documentation (`tbd-4xvj`)
 
 - [ ] Add explanatory comments to generated config.yml
 - [ ] Update SKILL.md with doc_cache usage instructions
 - [ ] Update CLI help text
 - [ ] Document GitHub URL format and limitations
+- [ ] Document auto-sync behavior and `doc_auto_sync_hours` setting
 
-### Phase 6: Testing
+### Phase 7: Testing (`tbd-kqln`)
 
 - [ ] Unit tests for DocSync with mock file system
 - [ ] Unit tests for URL fetching with mock responses
 - [ ] Integration test: fresh setup creates default config
 - [ ] Integration test: setup with existing config syncs correctly
 - [ ] Integration test: docs --refresh syncs correctly
+- [ ] Integration test: auto-sync triggers when docs are stale
+- [ ] Integration test: auto-sync disabled when `doc_auto_sync_hours: 0`
 - [ ] Tryscript test: end-to-end sync verification
 - [ ] Test GitHub URL access from agent environment
+
+### Phase 8: Setup Output Messaging Improvements (`tbd-mhob`, `tbd-v7n4`, `tbd-ne2f`)
+
+This phase addresses inconsistent messaging in `setup.ts` when managing gitignore files.
+The `ensureGitignorePatterns()` utility returns `{ added, skipped, created }` but
+setup.ts doesn’t use this return value to provide accurate feedback.
+
+**Current behavior** (problematic):
+- Always prints `✓ Created .tbd/.gitignore` even when file existed and was updated
+- No feedback when file is already up-to-date
+
+**Expected behavior**:
+- `✓ Created .tbd/.gitignore` - when file is newly created
+- `✓ Updated .tbd/.gitignore` - when patterns were added to existing file
+- No message (or `✓ .tbd/.gitignore up to date`) - when no changes needed
+
+**Design decision: Pattern re-addition is intentional**
+
+If a user manually removes a managed pattern (like `docs/`), we re-add it on next setup.
+This is correct because:
+1. The `docs/` directory is regenerated from the npm package on every setup
+2. These are tool-managed files, not user-authored content
+3. Tracking them in git would cause noise on every tbd upgrade
+
+**Tracked issues:**
+- `tbd-mhob`: Fix .tbd/.gitignore messaging to distinguish created vs updated vs no-op
+- `tbd-v7n4`: Fix .claude/.gitignore messaging (same issue, depends on tbd-mhob)
+- `tbd-ne2f`: Document gitignore pattern re-addition behavior as intentional design
+
+**Implementation:**
+
+- [ ] Update [setup.ts:1142-1159](packages/tbd/src/cli/commands/setup.ts#L1142-L1159) to
+  use `ensureGitignorePatterns()` return value for .tbd/.gitignore messaging
+- [ ] Update [setup.ts:678-680](packages/tbd/src/cli/commands/setup.ts#L678-L680) to use
+  return value for .claude/.gitignore messaging
+- [ ] Add code comment explaining why pattern re-addition is intentional
+- [ ] Close beads tbd-mhob, tbd-v7n4, tbd-ne2f when complete
+
+### Phase 9: tbd Directory Format Versioning (`tbd-2m30`)
+
+Add explicit format versioning for the entire `.tbd/` directory structure to enable safe
+migrations.
+
+**Current state:**
+- `tbd_version` exists - stores the tbd version that created/updated the config
+- No format version - can’t detect incompatible structural changes
+
+**Proposed additions to config.yml:**
+
+```yaml
+# .tbd/config.yml
+tbd_format: f01             # NEW: Bumped ONLY for breaking changes requiring migration
+tbd_version: 0.1.5          # Existing: Last tbd version to touch this config
+```
+
+**Design:**
+
+| Field | Purpose | When Updated |
+| --- | --- | --- |
+| `tbd_version` | Track which tbd version last modified config | Every `tbd setup` |
+| `tbd_format` | Detect breaking .tbd/ structure changes requiring migration | ONLY on breaking changes |
+
+**When to bump `tbd_format`:**
+- ✅ Bump: Deleting/renaming files that old code expects
+- ✅ Bump: Changing file formats in incompatible ways
+- ✅ Bump: Moving files to different locations
+- ❌ Don’t bump: Adding new optional fields to config.yml
+- ❌ Don’t bump: Adding new files/directories
+- ❌ Don’t bump: Any change that works without migration
+
+**Format version history:**
+- `f01` - Initial format (current: config.yml, state.yml, docs/, issues/)
+- `f02` - Adds `doc_cache:` config key (this spec) - requires migration to populate
+  default
+
+**Core implementation: `tbd-format.ts`**
+
+Create `packages/tbd/src/lib/tbd-format.ts` as the **single source of truth** for:
+1. Current format version constant
+2. Format version history with detailed changelog
+3. Migration functions for each version transition
+4. Validation that format is compatible
+
+```typescript
+/**
+ * tbd Directory Format Versioning
+ * ================================
+ *
+ * This file is the SINGLE SOURCE OF TRUTH for .tbd/ directory format versions.
+ *
+ * WHEN TO BUMP THE FORMAT VERSION:
+ * - Bump when changes REQUIRE migration (deleting files, changing formats, moving files)
+ * - Do NOT bump for additive changes (new optional config fields, new directories)
+ *
+ * HOW TO ADD A NEW FORMAT VERSION:
+ * 1. Add entry to FORMAT_HISTORY with detailed description
+ * 2. Implement migrate_fXX_to_fYY() function
+ * 3. Add case to migrateToLatest()
+ * 4. Update CURRENT_FORMAT
+ * 5. Add tests for the migration path
+ */
+
+export const CURRENT_FORMAT = 'f02';
+
+export const FORMAT_HISTORY = {
+  f01: {
+    introduced: '0.1.0',
+    description: 'Initial format',
+    structure: {
+      'config.yml': 'Project configuration',
+      'state.yml': 'Local state (gitignored)',
+      'docs/': 'Documentation cache (gitignored)',
+      'issues/': 'Issue YAML files',
+    },
+  },
+  f02: {
+    introduced: '0.2.0',
+    description: 'Adds configurable doc_cache',
+    changes: [
+      'Added doc_cache: key to config.yml for configurable doc sources',
+      'Added settings.doc_auto_sync_hours for automatic doc refresh',
+    ],
+    migration: 'Populates default doc_cache config from bundled docs',
+  },
+} as const;
+
+export function migrateToLatest(config: unknown, fromFormat: string): Config {
+  // ... migration logic
+}
+```
+
+**Usage pattern (prominently marked):**
+
+```typescript
+// In config.ts - prominently marked
+import { CURRENT_FORMAT, migrateToLatest } from './tbd-format.js';
+// ⚠️ FORMAT VERSIONING: See tbd-format.ts for version history and migration rules
+
+export function readConfig(tbdRoot: string): Config {
+  const raw = loadYaml(configPath);
+  const format = raw.tbd_format ?? 'f01';  // Missing = f01
+
+  if (format !== CURRENT_FORMAT) {
+    return migrateToLatest(raw, format);
+  }
+  return ConfigSchema.parse(raw);
+}
+```
+
+**Implementation:**
+
+- [ ] Create `packages/tbd/src/lib/tbd-format.ts` with format history and migration
+  infrastructure
+- [ ] Add `tbd_format` field to ConfigSchema (default: ‘f01’)
+- [ ] Implement f01 → f02 migration (adds default doc_cache)
+- [ ] Update config.ts to use tbd-format.ts (with prominent comments)
+- [ ] Update `tbd setup --auto` to run migrations and update tbd_format
+- [ ] Add comprehensive tests for migration paths
+- [ ] Add `tbd doctor` check for format version compatibility
 
 ## Open Questions
 
@@ -408,5 +655,19 @@ Modify `tbd setup --auto` to:
 5. **Sync triggers**: Should we auto-sync on every tbd command, or only explicit
    refresh?
 
-   **Decision**: Only on `tbd setup --auto` and `tbd docs --refresh`. Auto-sync on every
-   command would be too slow and surprising.
+   **Decision**: Auto-sync triggers when docs are stale (configurable via
+   `doc_auto_sync_hours`, default 24). Only checks on commands that use docs (shortcuts,
+   guidelines, templates).
+   Explicit sync via `tbd setup --auto` and `tbd docs --refresh` always runs regardless
+   of staleness.
+
+6. **Where to check staleness**: Where in the code should we check if docs are stale?
+
+   **Options**:
+   - A) In `readConfig()` - earliest point, affects all commands
+   - B) In DocCache constructor - only when docs are actually needed
+   - C) In specific commands that use docs (shortcut, guidelines, template)
+
+   **Leaning toward**: Option B - check in DocCache when instantiated.
+   This ensures auto-sync only runs when docs are actually being accessed, not for
+   unrelated commands like `tbd list` or `tbd show`.
