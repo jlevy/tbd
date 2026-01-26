@@ -45,10 +45,6 @@ doc_cache:
   templates/architecture.md: internal:templates/architecture.md
   templates/plan-spec.md: internal:templates/plan-spec.md
   templates/research-brief.md: internal:templates/research-brief.md
-docs:
-  paths:
-    - .tbd/docs/shortcuts/system
-    - .tbd/docs/shortcuts/standard
 settings:
   auto_sync: false
   doc_auto_sync_hours: 24
