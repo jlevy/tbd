@@ -32,6 +32,8 @@ tbd setup --auto                   # Existing tbd project (prefix already set)
   `tbd setup --auto`.
 - **Beads migration** (`.beads/` exists): Use `tbd setup --from-beads` (uses beads
   prefix).
+- **Refresh configs**: Run `tbd setup --auto` anytime to update skill files, hooks, and
+  get the latest shortcuts/guidelines/templates.
 
 **IMPORTANT FOR AGENTS:** NEVER guess or invent a prefix.
 Always ask the user first.
@@ -219,6 +221,10 @@ Example: `tbd template plan-spec > docs/project/specs/active/plan-YYYY-MM-DD-fea
 - `tbd setup --auto` - Non-interactive setup with smart defaults (for agents/scripts)
 - `tbd setup --interactive` - Interactive setup with prompts (for humans)
 - `tbd setup --from-beads` - Migrate from Beads to tbd
+
+> **Refresh anytime:** Run `tbd setup --auto` to update skill files, hooks, and configs
+> with the latest shortcuts/guidelines/templates.
+> Safe to run repeatedly.
 
 ## Quick Reference
 
