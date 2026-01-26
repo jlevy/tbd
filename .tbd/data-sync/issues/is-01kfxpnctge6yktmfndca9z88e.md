@@ -9,8 +9,8 @@ priority: 2
 status: open
 title: "Redesign stats command output: unified status section with active/closed/total columns"
 type: is
-updated_at: 2026-01-26T17:53:22.790Z
-version: 6
+updated_at: 2026-01-26T17:57:31.945Z
+version: 7
 ---
 The `tbd stats` output needs restructuring and better formatting.
 
@@ -28,7 +28,7 @@ By status:
   ◐ in_progress      3
   ● blocked         11
   ────────────────────
-  ◦ active          38
+    active          38
   ✓ closed         534
   ════════════════════
     total          572
@@ -49,10 +49,10 @@ By priority:            active  closed   total
 ```
 
 **Key changes:**
-1. Single 'By status' section listing all statuses, with 'active' subtotal, 'closed', and 'total'
+1. Single 'By status' section listing all statuses, with 'active' subtotal (no icon - it's a sum), 'closed', and 'total'
 2. 'By kind' and 'By priority' get 3 columns: active, closed, total
 3. All counts right-aligned to consistent column
-4. Status icons using getStatusIcon()
+4. Status icons using getStatusIcon() for actual statuses only
 5. Appropriate colors for priorities and statuses
 6. Separator lines for visual grouping
 
