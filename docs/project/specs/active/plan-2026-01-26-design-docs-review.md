@@ -15,7 +15,7 @@ coding guidelines, and shortcuts for disciplined agent-based development.
 ## Goals
 
 - Ensure consistency across all documentation (README, design docs, skill files)
-- Update messaging to reflect tbd's four core capabilities (issue tracking, guidelines,
+- Update messaging to reflect tbd’s four core capabilities (issue tracking, guidelines,
   spec-driven workflows, shortcuts)
 - Explain the synergy between issue tracking and workflows/guidelines/templates for
   high-quality agent-based coding
@@ -29,16 +29,19 @@ coding guidelines, and shortcuts for disciplined agent-based development.
 
 ## Background
 
-The original tbd documentation focused primarily on issue tracking as a Beads alternative.
-However, tbd now provides a comprehensive workflow system including:
+The original tbd documentation focused primarily on issue tracking as a Beads
+alternative. However, tbd now provides a comprehensive workflow system including:
 
-1. **Issue Tracking**: Track tasks, bugs, and features as lightweight "beads" stored in git
-2. **Coding Guidelines**: A library of best practices for TypeScript, Python, testing, etc.
-3. **Spec-Driven Workflows**: Write planning specs, break into issues, implement systematically
+1. **Issue Tracking**: Track tasks, bugs, and features as lightweight “beads” stored in
+   git
+2. **Coding Guidelines**: A library of best practices for TypeScript, Python, testing,
+   etc.
+3. **Spec-Driven Workflows**: Write planning specs, break into issues, implement
+   systematically
 4. **Convenience Shortcuts**: Pre-built processes for common tasks
 
-The documentation needs to reflect this expanded scope and explain how these capabilities
-work together to enable disciplined, high-quality agent-based coding.
+The documentation needs to reflect this expanded scope and explain how these
+capabilities work together to enable disciplined, high-quality agent-based coding.
 
 ## Design
 

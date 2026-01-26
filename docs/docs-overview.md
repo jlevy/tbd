@@ -56,8 +56,8 @@ In addition to these repository docs, tbd provides built-in documentation via CL
 
 - `tbd shortcut --list` / `tbd shortcut <name>` — Workflow shortcuts (new-plan-spec,
   commit-code, review-code-typescript, etc.)
-- `tbd guidelines --list` / `tbd guidelines <name>` — Coding guidelines (typescript-rules,
-  python-rules, general-tdd-guidelines, etc.)
+- `tbd guidelines --list` / `tbd guidelines <name>` — Coding guidelines
+  (typescript-rules, python-rules, general-tdd-guidelines, etc.)
 - `tbd template --list` / `tbd template <name>` — Document templates (plan-spec,
   research-brief, architecture)
 
