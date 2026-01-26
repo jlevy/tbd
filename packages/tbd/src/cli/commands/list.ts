@@ -24,6 +24,7 @@ import {
 import { parsePriority } from '../../lib/priority.js';
 import { buildIssueTree, renderIssueTree } from '../lib/tree-view.js';
 import { getTerminalWidth } from '../lib/output.js';
+import { matchesSpecPath } from '../../lib/spec-matching.js';
 
 interface ListOptions {
   status?: IssueStatusType;
@@ -33,6 +34,7 @@ interface ListOptions {
   assignee?: string;
   label?: string[];
   parent?: string;
+  spec?: string;
   deferred?: boolean;
   deferBefore?: string;
   sort?: string;
@@ -189,6 +191,13 @@ class ListHandler extends BaseCommand {
         return false;
       }
 
+      // Spec path filter (uses gradual matching)
+      if (options.spec) {
+        if (!issue.spec_path || !matchesSpecPath(issue.spec_path, options.spec)) {
+          return false;
+        }
+      }
+
       // Deferred filter
       if (options.deferred && issue.status !== 'deferred') {
         return false;
@@ -243,6 +252,7 @@ export const listCommand = new Command('list')
     val,
   ])
   .option('--parent <id>', 'List children of parent')
+  .option('--spec <path>', 'Filter by spec path (supports gradual matching)')
   .option('--deferred', 'Show only deferred issues')
   .option('--defer-before <date>', 'Deferred before date')
   .option('--sort <field>', 'Sort by: priority, created, updated', 'priority')
