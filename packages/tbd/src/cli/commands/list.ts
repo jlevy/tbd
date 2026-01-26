@@ -100,6 +100,7 @@ class ListHandler extends BaseCommand {
       description: i.description,
       assignee: i.assignee,
       labels: i.labels,
+      spec_path: i.spec_path,
     }));
 
     this.output.data(displayIssues, () => {

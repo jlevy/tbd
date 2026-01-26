@@ -35,6 +35,7 @@ interface UpdateOptions {
   addLabel?: string[];
   removeLabel?: string[];
   parent?: string;
+  spec?: string;
 }
 
 class UpdateHandler extends BaseCommand {
@@ -81,6 +82,7 @@ class UpdateHandler extends BaseCommand {
     if (updates.due_date !== undefined) issue.due_date = updates.due_date;
     if (updates.deferred_until !== undefined) issue.deferred_until = updates.deferred_until;
     if (updates.parent_id !== undefined) issue.parent_id = updates.parent_id;
+    if (updates.spec_path !== undefined) issue.spec_path = updates.spec_path;
 
     // Handle full labels replacement (from --from-file)
     if (updates.labels !== undefined) {
@@ -136,6 +138,7 @@ class UpdateHandler extends BaseCommand {
     due_date?: string | null;
     deferred_until?: string | null;
     parent_id?: string | null;
+    spec_path?: string | null;
     addLabels?: string[];
     removeLabels?: string[];
     labels?: string[];
@@ -151,6 +154,7 @@ class UpdateHandler extends BaseCommand {
       due_date?: string | null;
       deferred_until?: string | null;
       parent_id?: string | null;
+      spec_path?: string | null;
       addLabels?: string[];
       removeLabels?: string[];
       labels?: string[];
@@ -203,6 +207,10 @@ class UpdateHandler extends BaseCommand {
         if (frontmatter.parent_id !== undefined) {
           updates.parent_id =
             typeof frontmatter.parent_id === 'string' ? frontmatter.parent_id : null;
+        }
+        if (frontmatter.spec_path !== undefined) {
+          updates.spec_path =
+            typeof frontmatter.spec_path === 'string' ? frontmatter.spec_path : null;
         }
         if (Array.isArray(frontmatter.labels)) {
           updates.labels = frontmatter.labels.filter((l): l is string => typeof l === 'string');
@@ -292,6 +300,10 @@ class UpdateHandler extends BaseCommand {
       }
     }
 
+    if (options.spec !== undefined) {
+      updates.spec_path = options.spec || null;
+    }
+
     if (options.addLabel && options.addLabel.length > 0) {
       updates.addLabels = options.addLabel;
     }
@@ -321,6 +333,7 @@ export const updateCommand = new Command('update')
   .option('--add-label <label>', 'Add label', (val, prev: string[] = []) => [...prev, val])
   .option('--remove-label <label>', 'Remove label', (val, prev: string[] = []) => [...prev, val])
   .option('--parent <id>', 'Set parent')
+  .option('--spec <path>', 'Set or clear spec path (empty string clears)')
   .action(async (id, options, command) => {
     const handler = new UpdateHandler(command);
     await handler.run(id, options);

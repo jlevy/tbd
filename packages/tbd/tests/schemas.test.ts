@@ -159,6 +159,79 @@ describe('IssueSchema', () => {
     const result = IssueSchema.safeParse(issue);
     expect(result.success).toBe(false);
   });
+
+  describe('spec_path field', () => {
+    it('accepts valid spec_path strings', () => {
+      const issue = {
+        type: 'is',
+        id: `is-${VALID_ULID}`,
+        version: 1,
+        title: 'Test issue',
+        spec_path: 'docs/project/specs/active/plan-2026-01-26-feature.md',
+        created_at: '2025-01-01T00:00:00Z',
+        updated_at: '2025-01-01T00:00:00Z',
+      };
+
+      const result = IssueSchema.safeParse(issue);
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.data.spec_path).toBe('docs/project/specs/active/plan-2026-01-26-feature.md');
+      }
+    });
+
+    it('accepts missing spec_path (undefined)', () => {
+      const issue = {
+        type: 'is',
+        id: `is-${VALID_ULID}`,
+        version: 1,
+        title: 'Test issue',
+        created_at: '2025-01-01T00:00:00Z',
+        updated_at: '2025-01-01T00:00:00Z',
+      };
+
+      const result = IssueSchema.safeParse(issue);
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.data.spec_path).toBeUndefined();
+      }
+    });
+
+    it('accepts null spec_path', () => {
+      const issue = {
+        type: 'is',
+        id: `is-${VALID_ULID}`,
+        version: 1,
+        title: 'Test issue',
+        spec_path: null,
+        created_at: '2025-01-01T00:00:00Z',
+        updated_at: '2025-01-01T00:00:00Z',
+      };
+
+      const result = IssueSchema.safeParse(issue);
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.data.spec_path).toBeNull();
+      }
+    });
+
+    it('accepts short spec_path like filename only', () => {
+      const issue = {
+        type: 'is',
+        id: `is-${VALID_ULID}`,
+        version: 1,
+        title: 'Test issue',
+        spec_path: 'feature.md',
+        created_at: '2025-01-01T00:00:00Z',
+        updated_at: '2025-01-01T00:00:00Z',
+      };
+
+      const result = IssueSchema.safeParse(issue);
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.data.spec_path).toBe('feature.md');
+      }
+    });
+  });
 });
 
 describe('ConfigSchema', () => {

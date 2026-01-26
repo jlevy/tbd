@@ -30,3 +30,19 @@ Create a to-do list with the following items then perform all of them:
 
    - NEVER GIVE TIME FRAMES IN PLANS, like “4-6 hours” or “1 week”.
      Work will be done in one day.
+
+4. After completing the spec, link beads to it using the `--spec` flag:
+   ```
+   tbd create "Implement feature X" --spec docs/project/specs/active/plan-YYYY-MM-DD-feature-name.md
+   ```
+   Or use just the filename for brevity:
+   ```
+   tbd create "Implement feature X" --spec plan-YYYY-MM-DD-feature-name.md
+   ```
+
+5. List all beads linked to a spec with:
+   ```
+   tbd list --spec feature-name.md
+   ```
+   This uses gradual path matching - the query can be just the filename, a partial path,
+   or the full path.
