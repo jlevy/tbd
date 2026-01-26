@@ -727,56 +727,6 @@ class SetupClaudeHandler extends BaseCommand {
     }
   }
 
-  /**
-   * Clean up legacy scripts from project .claude/scripts/ directory.
-   * Hook cleanup is now done inline during install to avoid race conditions.
-   */
-  private async cleanupLegacyScripts(cwd: string): Promise<string[]> {
-    const scriptsDir = join(cwd, '.claude', 'scripts');
-    const scriptsRemoved: string[] = [];
-
-    try {
-      await access(scriptsDir);
-      const entries = await readdir(scriptsDir, { withFileTypes: true });
-
-      for (const entry of entries) {
-        if (entry.isFile()) {
-          const filename = entry.name;
-          // Check against known legacy script names
-          if (LEGACY_TBD_SCRIPTS.includes(filename)) {
-            try {
-              await rm(join(scriptsDir, filename));
-              scriptsRemoved.push(filename);
-            } catch {
-              // Ignore removal errors
-            }
-          }
-        }
-      }
-    } catch {
-      // Scripts directory doesn't exist, nothing to clean
-    }
-
-    return scriptsRemoved;
-  }
-
-  /**
-   * Filter out hook entries that match legacy tbd patterns.
-   */
-  private filterLegacyHooks(
-    hookList: { hooks?: { command?: string }[] }[],
-  ): { hooks?: { command?: string }[] }[] {
-    return hookList.filter((entry) => {
-      // Check if any hook command matches legacy patterns
-      const hasLegacyCommand = entry.hooks?.some((hook) => {
-        if (!hook.command) return false;
-        return LEGACY_TBD_HOOK_PATTERNS.some((pattern) => pattern.test(hook.command!));
-      });
-      // Keep entries that DON'T have legacy commands
-      return !hasLegacyCommand;
-    });
-  }
-
   private async installClaudeSetup(settingsPath: string, skillPath: string): Promise<void> {
     if (
       this.checkDryRun('Would install Claude Code hooks and skill file', {
@@ -791,37 +741,18 @@ class SetupClaudeHandler extends BaseCommand {
     const projectSettingsPath = join(cwd, '.claude', 'settings.json');
 
     try {
-      // Clean up legacy scripts from project .claude/scripts/ directory
-      const scriptsRemoved = await this.cleanupLegacyScripts(cwd);
-      if (scriptsRemoved.length > 0) {
-        this.output.info(`Cleaned up ${scriptsRemoved.length} legacy script(s)`);
-      }
+      // Note: Legacy script/hook cleanup is now done in SetupAutoHandler.run()
+      // before any integration-specific setup runs. This ensures cleanup happens
+      // regardless of which coding agents are detected.
 
-      // Install hooks in global settings (also cleans legacy hooks inline)
+      // Install hooks in global settings
       await mkdir(dirname(settingsPath), { recursive: true });
 
       let settings: Record<string, unknown> = {};
-      let globalHooksRemoved = 0;
       try {
         await access(settingsPath);
         const content = await readFile(settingsPath, 'utf-8');
         settings = JSON.parse(content) as Record<string, unknown>;
-
-        // Clean legacy hooks inline while we have the settings loaded
-        if (settings.hooks) {
-          const hooks = settings.hooks as Record<string, unknown>;
-          for (const hookType of ['SessionStart', 'PreCompact']) {
-            if (hooks[hookType]) {
-              const hookList = hooks[hookType] as { hooks?: { command?: string }[] }[];
-              const filtered = this.filterLegacyHooks(hookList);
-              if (filtered.length !== hookList.length) {
-                globalHooksRemoved += hookList.length - filtered.length;
-                hooks[hookType] = filtered.length > 0 ? filtered : undefined;
-                if (!hooks[hookType]) delete hooks[hookType];
-              }
-            }
-          }
-        }
       } catch {
         // File doesn't exist, start fresh
       }
@@ -848,40 +779,17 @@ class SetupClaudeHandler extends BaseCommand {
 
       // Read existing project settings if present
       let projectSettings: Record<string, unknown> = {};
-      let projectHooksRemoved = 0;
       try {
         await access(projectSettingsPath);
         const content = await readFile(projectSettingsPath, 'utf-8');
         projectSettings = JSON.parse(content) as Record<string, unknown>;
         // Backup existing settings
         await writeFile(projectSettingsPath + '.bak', content);
-
-        // Clean legacy hooks inline while we have the settings loaded
-        if (projectSettings.hooks) {
-          const hooks = projectSettings.hooks as Record<string, unknown>;
-          for (const hookType of ['SessionStart', 'PreCompact', 'PostToolUse']) {
-            if (hooks[hookType]) {
-              const hookList = hooks[hookType] as { hooks?: { command?: string }[] }[];
-              const filtered = this.filterLegacyHooks(hookList);
-              if (filtered.length !== hookList.length) {
-                projectHooksRemoved += hookList.length - filtered.length;
-                hooks[hookType] = filtered.length > 0 ? filtered : undefined;
-                if (!hooks[hookType]) delete hooks[hookType];
-              }
-            }
-          }
-        }
       } catch {
         // File doesn't exist, start fresh
       }
 
-      // Report total hooks cleaned
-      const totalHooksRemoved = globalHooksRemoved + projectHooksRemoved;
-      if (totalHooksRemoved > 0) {
-        this.output.info(`Cleaned up ${totalHooksRemoved} legacy hook(s)`);
-      }
-
-      // Merge project hooks (preserving cleaned non-tbd hooks)
+      // Merge project hooks (preserving non-tbd hooks that weren't cleaned)
       const existingProjectHooks = (projectSettings.hooks as Record<string, unknown>) || {};
       projectSettings.hooks = {
         ...existingProjectHooks,
@@ -1421,10 +1329,117 @@ class SetupAutoHandler extends BaseCommand {
     this.cmd = command;
   }
 
+  /**
+   * Clean up legacy scripts from project .claude/scripts/ directory.
+   * This runs during any setup, regardless of whether Claude Code is detected,
+   * since we want to clean up old project-level scripts that are no longer needed.
+   */
+  private async cleanupLegacyProjectScripts(cwd: string): Promise<string[]> {
+    const scriptsDir = join(cwd, '.claude', 'scripts');
+    const scriptsRemoved: string[] = [];
+
+    try {
+      await access(scriptsDir);
+      const entries = await readdir(scriptsDir, { withFileTypes: true });
+
+      for (const entry of entries) {
+        if (entry.isFile()) {
+          const filename = entry.name;
+          // Check against known legacy script names
+          if (LEGACY_TBD_SCRIPTS.includes(filename)) {
+            try {
+              await rm(join(scriptsDir, filename));
+              scriptsRemoved.push(filename);
+            } catch {
+              // Ignore removal errors
+            }
+          }
+        }
+      }
+    } catch {
+      // Scripts directory doesn't exist, nothing to clean
+    }
+
+    return scriptsRemoved;
+  }
+
+  /**
+   * Filter out hook entries that match legacy tbd patterns from project settings.
+   */
+  private filterLegacyHooks(
+    hookList: { hooks?: { command?: string }[] }[],
+  ): { hooks?: { command?: string }[] }[] {
+    return hookList.filter((entry) => {
+      // Check if any hook command matches legacy patterns
+      const hasLegacyCommand = entry.hooks?.some((hook) => {
+        if (!hook.command) return false;
+        return LEGACY_TBD_HOOK_PATTERNS.some((pattern) => pattern.test(hook.command!));
+      });
+      // Keep entries that DON'T have legacy commands
+      return !hasLegacyCommand;
+    });
+  }
+
+  /**
+   * Clean up legacy hooks from project .claude/settings.json.
+   * This runs during any setup, regardless of whether Claude Code is detected.
+   */
+  private async cleanupLegacyProjectHooks(cwd: string): Promise<number> {
+    const projectSettingsPath = join(cwd, '.claude', 'settings.json');
+    let hooksRemoved = 0;
+
+    try {
+      await access(projectSettingsPath);
+      const content = await readFile(projectSettingsPath, 'utf-8');
+      const settings = JSON.parse(content) as Record<string, unknown>;
+
+      if (settings.hooks) {
+        const hooks = settings.hooks as Record<string, unknown>;
+        let modified = false;
+
+        for (const hookType of ['SessionStart', 'PreCompact', 'PostToolUse']) {
+          if (hooks[hookType]) {
+            const hookList = hooks[hookType] as { hooks?: { command?: string }[] }[];
+            const filtered = this.filterLegacyHooks(hookList);
+            if (filtered.length !== hookList.length) {
+              hooksRemoved += hookList.length - filtered.length;
+              hooks[hookType] = filtered.length > 0 ? filtered : undefined;
+              if (!hooks[hookType]) delete hooks[hookType];
+              modified = true;
+            }
+          }
+        }
+
+        if (modified) {
+          if (Object.keys(hooks).length === 0) {
+            delete settings.hooks;
+          }
+          await writeFile(projectSettingsPath, JSON.stringify(settings, null, 2) + '\n');
+        }
+      }
+    } catch {
+      // Project settings file doesn't exist, nothing to clean
+    }
+
+    return hooksRemoved;
+  }
+
   async run(): Promise<void> {
     const colors = this.output.getColors();
     const cwd = process.cwd();
     const results: AutoSetupResult[] = [];
+
+    // Clean up legacy project-level scripts and hooks FIRST,
+    // regardless of whether any coding agent is detected.
+    // This ensures old tbd scripts are removed even if user switches tools.
+    const scriptsRemoved = await this.cleanupLegacyProjectScripts(cwd);
+    const hooksRemoved = await this.cleanupLegacyProjectHooks(cwd);
+    if (scriptsRemoved.length > 0 || hooksRemoved > 0) {
+      const parts = [];
+      if (scriptsRemoved.length > 0) parts.push(`${scriptsRemoved.length} script(s)`);
+      if (hooksRemoved > 0) parts.push(`${hooksRemoved} hook(s)`);
+      console.log(colors.dim(`Cleaned up legacy ${parts.join(' and ')}`));
+    }
 
     // Ensure docs directories exist
     await mkdir(join(cwd, TBD_SHORTCUTS_SYSTEM), { recursive: true });
