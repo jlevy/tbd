@@ -8,8 +8,8 @@ priority: 2
 status: open
 title: CLI Output Design System
 type: is
-updated_at: 2026-01-18T04:07:52.583Z
-version: 1
+updated_at: 2026-01-26T00:43:29.736Z
+version: 2
 ---
 Systematically review and standardize all CLI output across tbd. Establish a universal CLI design system that ensures consistent output structure, formatting, colors, and conventions across all commands and output modes.
 
