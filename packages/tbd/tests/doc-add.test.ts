@@ -112,8 +112,8 @@ describe('getDocTypeSubdir', () => {
     expect(getDocTypeSubdir('guideline')).toBe('guidelines');
   });
 
-  it('returns shortcuts/standard for shortcut type', () => {
-    expect(getDocTypeSubdir('shortcut')).toBe('shortcuts/standard');
+  it('returns shortcuts/custom for shortcut type', () => {
+    expect(getDocTypeSubdir('shortcut')).toBe('shortcuts/custom');
   });
 
   it('returns templates for template type', () => {
@@ -255,7 +255,7 @@ describe('addDoc', () => {
         name: 'test-shortcut',
         docType: 'shortcut',
       });
-      expect(result.destPath).toBe('shortcuts/standard/test-shortcut.md');
+      expect(result.destPath).toBe('shortcuts/custom/test-shortcut.md');
     } catch {
       console.log('Skipping network test - no connectivity');
     }

@@ -12,6 +12,7 @@ import { writeFile } from 'atomically';
 import { fileURLToPath } from 'node:url';
 
 import { TBD_DOCS_DIR } from '../lib/paths.js';
+import { fetchWithGhFallback } from './github-fetch.js';
 
 // =============================================================================
 // Types
@@ -59,9 +60,6 @@ export interface SyncOptions {
 
 /** Prefix for internal bundled doc sources */
 const INTERNAL_PREFIX = 'internal:';
-
-/** Timeout for URL fetches in milliseconds */
-const FETCH_TIMEOUT = 30000;
 
 // =============================================================================
 // DocSync Class
@@ -148,31 +146,11 @@ export class DocSync {
   }
 
   /**
-   * Fetch content from a URL.
+   * Fetch content from a URL (with gh CLI fallback on 403).
    */
   private async fetchUrlContent(url: string): Promise<string> {
-    const controller = new AbortController();
-    const timeout = setTimeout(() => {
-      controller.abort();
-    }, FETCH_TIMEOUT);
-
-    try {
-      const response = await fetch(url, {
-        signal: controller.signal,
-        headers: {
-          'User-Agent': 'tbd-git/1.0',
-          Accept: 'text/plain, text/markdown, */*',
-        },
-      });
-
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-      }
-
-      return await response.text();
-    } finally {
-      clearTimeout(timeout);
-    }
+    const { content } = await fetchWithGhFallback(url);
+    return content;
   }
 
   /**

@@ -12,7 +12,7 @@ import pc from 'picocolors';
 
 import { BaseCommand } from '../lib/base-command.js';
 import { SHORTCUT_AGENT_HEADER } from '../lib/doc-prompts.js';
-import { requireInit } from '../lib/errors.js';
+import { requireInit, CLIError } from '../lib/errors.js';
 import { DocCache, SCORE_PREFIX_MATCH } from '../../file/doc-cache.js';
 import { addDoc } from '../../file/doc-add.js';
 import { readConfig } from '../../file/config.js';
@@ -85,7 +85,7 @@ class ShortcutHandler extends BaseCommand {
       // Add mode
       if (options.add) {
         if (!options.name) {
-          throw new Error('--name is required when using --add');
+          throw new CLIError('--name is required when using --add');
         }
         const tbdRoot = await requireInit();
         console.log(`Adding shortcut: ${options.name}`);

@@ -9,6 +9,7 @@ import { Command } from 'commander';
 import pc from 'picocolors';
 
 import { DocCommandHandler, type DocCommandOptions } from '../lib/doc-command-handler.js';
+import { CLIError } from '../lib/errors.js';
 import { DEFAULT_GUIDELINES_PATHS } from '../../lib/paths.js';
 import { truncate } from '../../lib/truncate.js';
 import { getTerminalWidth } from '../lib/output.js';
@@ -73,7 +74,7 @@ class GuidelinesHandler extends DocCommandHandler {
       // Add mode
       if (options.add) {
         if (!options.name) {
-          throw new Error('--name is required when using --add');
+          throw new CLIError('--name is required when using --add');
         }
         await this.handleAdd(options.add, options.name);
         return;

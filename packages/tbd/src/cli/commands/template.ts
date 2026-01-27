@@ -8,6 +8,7 @@
 import { Command } from 'commander';
 
 import { DocCommandHandler, type DocCommandOptions } from '../lib/doc-command-handler.js';
+import { CLIError } from '../lib/errors.js';
 import { DEFAULT_TEMPLATE_PATHS } from '../../lib/paths.js';
 
 class TemplateHandler extends DocCommandHandler {
@@ -25,7 +26,7 @@ class TemplateHandler extends DocCommandHandler {
       // Add mode
       if (options.add) {
         if (!options.name) {
-          throw new Error('--name is required when using --add');
+          throw new CLIError('--name is required when using --add');
         }
         await this.handleAdd(options.add, options.name);
         return;

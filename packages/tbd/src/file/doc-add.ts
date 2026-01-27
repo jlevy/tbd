@@ -1,21 +1,22 @@
 /**
  * Add external documentation to the tbd doc cache.
  *
- * Supports adding docs by URL (including GitHub blob URLs which are
- * auto-converted to raw URLs). Falls back to `gh` CLI for fetching
- * when direct HTTP fetch fails with 403 (common in restricted environments).
+ * Uses the shared github-fetch utility for URL conversion and fetching.
+ * Handles doc-specific concerns: content validation, file writing, and
+ * atomic config updates.
  */
 
 import { join, dirname } from 'node:path';
 import { mkdir } from 'node:fs/promises';
 import { writeFile } from 'atomically';
-import { execFile } from 'node:child_process';
-import { promisify } from 'node:util';
 
 import { readConfig, writeConfig } from './config.js';
+import { githubBlobToRawUrl, fetchWithGhFallback } from './github-fetch.js';
 import { TBD_DOCS_DIR } from '../lib/paths.js';
 
-const execFileAsync = promisify(execFile);
+// Re-export for backward compatibility (tests import from here)
+export { githubBlobToRawUrl as githubToRawUrl } from './github-fetch.js';
+export { fetchWithGhFallback } from './github-fetch.js';
 
 // =============================================================================
 // Types
@@ -48,148 +49,6 @@ export interface AddDocResult {
   rawUrl: string;
   /** Whether gh CLI was used as fallback */
   usedGhCli: boolean;
-}
-
-// =============================================================================
-// GitHub URL Conversion
-// =============================================================================
-
-/**
- * Regular expression to match GitHub blob URLs.
- *
- * Matches patterns like:
- *   https://github.com/{owner}/{repo}/blob/{ref}/{path}
- */
-const GITHUB_BLOB_RE = /^https?:\/\/github\.com\/([^/]+)\/([^/]+)\/blob\/([^/]+)\/(.+)$/;
-
-/**
- * Convert a GitHub blob URL to a raw.githubusercontent.com URL.
- *
- * If the URL is already a raw URL or not a GitHub blob URL, returns it unchanged.
- *
- * @example
- * githubToRawUrl('https://github.com/org/repo/blob/main/docs/file.md')
- * // => 'https://raw.githubusercontent.com/org/repo/main/docs/file.md'
- */
-export function githubToRawUrl(url: string): string {
-  const match = GITHUB_BLOB_RE.exec(url);
-  if (!match) {
-    return url;
-  }
-  const [, owner, repo, ref, path] = match;
-  return `https://raw.githubusercontent.com/${owner}/${repo}/${ref}/${path}`;
-}
-
-// =============================================================================
-// Fetching with gh CLI Fallback
-// =============================================================================
-
-/** Timeout for URL fetches in milliseconds */
-const FETCH_TIMEOUT = 30000;
-
-/**
- * Fetch content from a URL, falling back to `gh` CLI on 403 errors.
- *
- * GitHub.com and raw.githubusercontent.com may block requests from
- * certain environments (e.g., CI runners, corporate proxies). When
- * a 403 is received, we retry using `gh api` which authenticates
- * via the user's GitHub CLI token.
- *
- * @returns Object with the fetched content and whether gh CLI was used
- * @throws If both direct fetch and gh CLI fallback fail
- */
-export async function fetchWithGhFallback(
-  url: string,
-): Promise<{ content: string; usedGhCli: boolean }> {
-  const rawUrl = githubToRawUrl(url);
-
-  // Try direct fetch first
-  try {
-    const content = await directFetch(rawUrl);
-    return { content, usedGhCli: false };
-  } catch (error) {
-    const is403 = error instanceof Error && error.message.includes('HTTP 403');
-    if (!is403) {
-      throw error;
-    }
-  }
-
-  // 403 error - try gh CLI fallback for GitHub URLs
-  const ghContent = await ghCliFetch(rawUrl);
-  return { content: ghContent, usedGhCli: true };
-}
-
-/**
- * Fetch content directly via HTTP.
- */
-async function directFetch(url: string): Promise<string> {
-  const controller = new AbortController();
-  const timeout = setTimeout(() => {
-    controller.abort();
-  }, FETCH_TIMEOUT);
-
-  try {
-    const response = await fetch(url, {
-      signal: controller.signal,
-      headers: {
-        'User-Agent': 'tbd-git/1.0',
-        Accept: 'text/plain, text/markdown, */*',
-      },
-    });
-
-    if (!response.ok) {
-      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-    }
-
-    return await response.text();
-  } finally {
-    clearTimeout(timeout);
-  }
-}
-
-/**
- * Fetch content using `gh api` for authenticated GitHub access.
- *
- * Converts raw.githubusercontent.com URLs to GitHub API content endpoints.
- */
-async function ghCliFetch(rawUrl: string): Promise<string> {
-  // Convert raw.githubusercontent.com URL to API URL
-  const rawMatch = /^https?:\/\/raw\.githubusercontent\.com\/([^/]+)\/([^/]+)\/([^/]+)\/(.+)$/.exec(
-    rawUrl,
-  );
-
-  if (rawMatch) {
-    const [, owner, repo, ref, path] = rawMatch;
-    // Use gh api to fetch file contents
-    try {
-      const { stdout } = await execFileAsync('gh', [
-        'api',
-        `/repos/${owner}/${repo}/contents/${path}?ref=${ref}`,
-        '--jq',
-        '.content',
-        '-H',
-        'Accept: application/vnd.github.v3+json',
-      ]);
-
-      // GitHub API returns base64-encoded content
-      const base64Content = stdout.trim();
-      return Buffer.from(base64Content, 'base64').toString('utf-8');
-    } catch (error) {
-      throw new Error(
-        `Failed to fetch via gh CLI: ${error instanceof Error ? error.message : String(error)}`,
-      );
-    }
-  }
-
-  // For non-GitHub URLs, try a simple curl-like approach via gh
-  try {
-    const { stdout } = await execFileAsync('gh', ['api', rawUrl]);
-    return stdout;
-  } catch (error) {
-    throw new Error(
-      `Failed to fetch via gh CLI: ${error instanceof Error ? error.message : String(error)}`,
-    );
-  }
 }
 
 // =============================================================================
@@ -239,7 +98,7 @@ export function getDocTypeSubdir(docType: DocType): string {
     case 'guideline':
       return 'guidelines';
     case 'shortcut':
-      return 'shortcuts/standard';
+      return 'shortcuts/custom';
     case 'template':
       return 'templates';
   }
@@ -269,7 +128,7 @@ export async function addDoc(tbdRoot: string, options: AddDocOptions): Promise<A
   const filename = `${cleanName}.md`;
   const subdir = getDocTypeSubdir(docType);
   const destPath = `${subdir}/${filename}`;
-  const rawUrl = githubToRawUrl(url);
+  const rawUrl = githubBlobToRawUrl(url);
 
   // Fetch content
   const { content, usedGhCli } = await fetchWithGhFallback(url);
