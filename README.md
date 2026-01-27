@@ -12,14 +12,16 @@ environment.
 
 ## Quick Start
 
-Just tell your agent:
-
-> “npm install -g tbd-git@latest and run tbd for instructions”
+> [!TIP]
+> 
+> *Just tell your agent:*
+> 
+> ***“npm install -g tbd-git@latest and run tbd for instructions”***
 
 That’s it. Running `tbd` with no arguments gives you everything you need:
-- **Not installed?** It tells you how to install and set up.
-- **Not initialized?** It explains what tbd is and how to initialize.
-- **Already set up?** It shows project status, available work, and workflow guidance.
+- Not installed? It tells you how to install and set up.
+- Not initialized? It explains what tbd is and how to initialize.
+- Already set up? It shows project status, available work, and workflow guidance.
 
 This command bootstraps you through each step, providing context-aware instructions for
 whatever comes next.
