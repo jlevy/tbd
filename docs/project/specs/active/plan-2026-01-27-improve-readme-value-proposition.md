@@ -10,6 +10,14 @@ knowledge base of engineering best practices that, together, let AI agents (and 
 plan, implement, and ship high-quality code at a level that no other tool currently
 combines.
 
+The central "aha" to communicate: tbd gives you **instant high-quality context injection**.
+When your AI agent starts a task, tbd injects expert-level knowledge—TypeScript rules,
+Convex patterns, monorepo setup, TDD practices, Python conventions—directly into the
+agent's context. The agent doesn't have to learn your codebase conventions by trial and
+error; it gets battle-tested engineering knowledge from the first keystroke. This is what
+turns a generic code-generating agent into one that writes code the way a senior engineer
+would.
+
 ## Goals
 
 - A first-time reader understands tbd's unique value within 30 seconds of scrolling
@@ -71,8 +79,11 @@ Restructure the README with these changes:
 Replace the current opening with a more concrete, differentiating pitch:
 - tbd = git-native issue tracker + curated engineering knowledge base + spec-driven
   workflows
-- One `npm install` gives your AI agent structured task management AND expert coding
-  guidelines
+- Frame the key value as **instant high-quality context injection**: one `npm install`
+  gives your AI agent structured task management AND expert coding guidelines injected
+  directly into its context
+- Make it concrete: "Your agent gets TypeScript monorepo patterns, Convex best practices,
+  Python conventions, TDD workflows, and more—before it writes a single line of code"
 - Designed for AI agents but equally useful for humans
 
 #### 2. Add a "What's Inside" section highlighting the knowledge base
