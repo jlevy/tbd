@@ -211,12 +211,13 @@ This ensures every new team member gets the full welcome experience.
 
 ## Implementation Plan
 
-### Phase 0: Fix tbd Install Hook (CRITICAL)
+### Phase 0: Fix tbd Install Hook (TDD - Red then Green)
 
 **Problem discovered**: The global tbd install hook is NOT being installed properly.
 
-When checking `~/.claude/settings.json`, it should have:
+**Expected state** after `tbd setup --auto`:
 ```json
+// ~/.claude/settings.json
 {
   "hooks": {
     "SessionStart": [{ "command": "$HOME/.claude/scripts/tbd-session.sh" }],
@@ -225,51 +226,71 @@ When checking `~/.claude/settings.json`, it should have:
 }
 ```
 
-But actual state shows:
+**Actual state**:
 - `~/.claude/scripts/` directory doesn't exist
 - `~/.claude/settings.json` has no SessionStart hook for tbd
 
-The code in `setup.ts` (lines 119-207) defines `TBD_SESSION_SCRIPT` and `CLAUDE_GLOBAL_HOOKS` correctly, but they're not being installed.
+---
+
+#### Phase 0a: RED - Write Failing Tests First
+
+Write tests that verify the expected behavior. These tests MUST fail initially (proving the bug exists).
+
+**Test file**: `packages/tbd/tests/setup-hooks.test.ts`
+
+**Tests to write**:
+- [ ] Test: `tbd setup --auto` creates `~/.claude/scripts/tbd-session.sh`
+  - Mock HOME to temp directory
+  - Run setup in a fresh git repo
+  - Assert script file exists and is executable
+- [ ] Test: `tbd setup --auto` adds SessionStart hook to global settings
+  - Mock HOME to temp directory
+  - Run setup
+  - Assert `~/.claude/settings.json` contains tbd-session.sh in SessionStart
+- [ ] Test: `tbd setup --auto` adds PreCompact hook to global settings
+  - Assert `~/.claude/settings.json` contains tbd-session.sh in PreCompact
+- [ ] Test: `tbd setup --auto` merges with existing hooks (doesn't overwrite)
+  - Pre-populate `~/.claude/settings.json` with other hooks
+  - Run setup
+  - Assert both existing and new hooks are present
+- [ ] Test: `tbd setup claude --check` correctly reports missing hooks
+  - Run check without hooks installed
+  - Assert output indicates hooks not configured
+
+**Golden file tests**:
+- [ ] Golden snapshot of `tbd-session.sh` script content
+- [ ] Golden snapshot of expected `~/.claude/settings.json` structure after setup
+
+**Run tests → Confirm they FAIL** (this proves the bug)
+
+---
+
+#### Phase 0b: GREEN - Fix the Code
+
+Once tests are failing (proving the bug), fix the implementation.
 
 **Investigation tasks**:
 - [ ] Verify `installClaudeSetup()` is being called during `tbd setup --auto`
 - [ ] Check if Claude Code detection (`hasClaudeDir || hasClaudeEnv`) is failing
 - [ ] Verify the hook merging logic doesn't overwrite existing hooks incorrectly
-- [ ] Test in a fresh environment to reproduce the issue
 
 **Fix tasks**:
 - [ ] Ensure `~/.claude/scripts/tbd-session.sh` is always created
 - [ ] Ensure global hooks are properly merged (not overwritten)
 - [ ] Add diagnostic output to show what hooks are being installed
+
+**Run tests → Confirm they PASS**
+
+---
+
+#### Phase 0c: REFACTOR (if needed)
+
 - [ ] Consider making the install hook more robust (retry, better error handling)
+- [ ] Consider renaming script for clarity (keep `tbd-session.sh` since it does install + prime)
 
 **Script name clarification**:
 - Current: `tbd-session.sh` (ensures tbd CLI + runs `tbd prime`)
-- User suggestion: Could rename to `tbd-install.sh` for clarity
-- Decision: Keep `tbd-session.sh` since it does more than just install (also runs prime)
-- Alternative: Add separate `tbd-install.sh` that ONLY ensures installation
-
-### Phase 0.5: End-to-End Golden Tests for Setup
-
-**Problem**: The install hook bug should have been caught by tests. We need comprehensive e2e golden tests for the setup flow.
-
-**Golden test scenarios to add**:
-- [ ] `tbd setup --auto --prefix=test` in fresh repo → verify:
-  - `~/.claude/scripts/tbd-session.sh` exists and is executable
-  - `~/.claude/settings.json` has SessionStart and PreCompact hooks
-  - `.claude/settings.json` (project) has PostToolUse hook
-  - `.claude/skills/tbd/SKILL.md` exists
-- [ ] `tbd setup --auto` in existing tbd repo → verify same as above
-- [ ] `tbd setup claude --check` → verify correct detection of hook state
-- [ ] Hook script content verification (golden snapshot of `tbd-session.sh`)
-
-**Test infrastructure needed**:
-- [ ] Mock/isolate `~/.claude/` to avoid polluting real user config during tests
-- [ ] Fixture for "fresh repo" and "existing tbd repo" scenarios
-- [ ] Golden file for expected `~/.claude/settings.json` structure
-- [ ] Golden file for expected `tbd-session.sh` script content
-
-**Location**: Add to `packages/tbd/tests/setup.test.ts` or new `setup-e2e.test.ts`
+- Keep this name since it does more than just install
 
 ### Phase 1: LocalState Schema Update
 
