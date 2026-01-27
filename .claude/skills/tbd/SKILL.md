@@ -48,6 +48,18 @@ preference for a given project.
 
 > `tbd prime` restores context after compaction/clear (auto-called by hooks).
 
+## Orientation and Help
+
+When users ask for orientation, help getting started, or want to understand tbd:
+
+- Run `tbd shortcut welcome-user` and follow its instructions
+- Show them the welcome message content, not a list of CLI commands
+- The welcome message explains tbd’s value and how it helps them
+
+**DO NOT** respond to “what is tbd?”
+or “help me get started” by listing CLI commands.
+Instead, give them the welcoming orientation that explains WHY tbd helps them.
+
 ## How to Use tbd to Help Users
 
 **Don’t just tell users about commands.** Use tbd proactively:
@@ -56,27 +68,33 @@ preference for a given project.
 - User wants a feature → Create a plan spec, then break into issues
 - Starting a session → Check `tbd ready` for available work
 - Completing work → `tbd close <id>` with clear reason
-- User asks what tbd does → Explain the four capabilities above
+- User asks what tbd does → Run `tbd shortcut welcome-user`
+- User asks for help/orientation → Run `tbd shortcut welcome-user`
 
 ### Quick Reference Table
 
-| User Need or Request | Command | Notes |
+| User Need or Request | Agent Runs Command | What Happens |
 | --- | --- | --- |
 | "There is a bug where ..." | `tbd create "..." --type=bug` | Creates issue |
-| "Let's plan a new feature" | `tbd shortcut new-plan-spec` | Outputs instructions |
 | "Fix current issues" | `tbd ready` | Lists ready issues |
-| "Build a TypeScript CLI" | `tbd guidelines typescript-cli-tool-rules` | Outputs guidelines |
-| "Improve eslint setup" | `tbd guidelines typescript-monorepo-patterns` | Outputs guidelines |
-| "Add better e2e testing" | `tbd guidelines golden-testing-guidelines` | Outputs guidelines |
-| "Review these changes" (TypeScript) | `tbd guidelines typescript-rules` | Outputs guidelines |
-| "Review these changes" (Python) | `tbd guidelines python-rules` | Outputs guidelines |
-| "Commit this" | `tbd shortcut commit-code` | Outputs instructions |
-| "Create a PR" | `tbd shortcut create-or-update-pr-simple` | Outputs instructions |
-| "Research this topic" | `tbd shortcut new-research-brief` | Outputs template |
-| "Document this architecture" | `tbd shortcut new-architecture-doc` | Outputs template |
+| *(agent choice)* | `tbd dep add <id> <depends-on>` | Adds dependency |
+| *(agent choice)* | `tbd close <id>` | Closes issue |
+| *(agent choice)* | `tbd sync` | Syncs issues to remote |
+| "Build a TypeScript CLI" | `tbd guidelines typescript-cli-tool-rules` | Agent gets guidelines |
+| "Improve eslint setup" | `tbd guidelines typescript-monorepo-patterns` | Agent gets guidelines |
+| "Add better e2e testing" | `tbd guidelines golden-testing-guidelines` | Agent gets guidelines |
+| "Review these changes" (TypeScript) | `tbd guidelines typescript-rules` | Agent gets guidelines |
+| "Review these changes" (Python) | `tbd guidelines python-rules` | Agent gets guidelines |
+| "Let's plan a new feature" | `tbd shortcut new-plan-spec` | Agent gets spec template and instructions |
+| "Break spec into issues" | `tbd shortcut new-implementation-beads-from-spec` | Agent gets instructions |
+| "Implement these issues" | `tbd shortcut implement-beads` | Agent gets instructions |
+| "Commit this" | `tbd shortcut commit-code` | Agent gets instructions |
+| "Create a PR" | `tbd shortcut create-or-update-pr-simple` | Agent gets instructions |
+| "Research this topic" | `tbd shortcut new-research-brief` | Agent gets template and instructions |
+| "Document this architecture" | `tbd shortcut new-architecture-doc` | Agent gets template and instructions |
 
-*“Outputs instructions/guidelines” = Read and follow the guidance.
-It tells you HOW to do something well.*
+*“Agent gets instructions/guidelines” = The agent reads and follows the guidance.
+It tells them HOW to do something well.*
 
 ## IMPORTANT: Session Closing Protocol
 
