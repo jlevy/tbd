@@ -13,7 +13,7 @@ import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { BaseCommand } from '../lib/base-command.js';
-import { findTbdRoot, readConfig } from '../../file/config.js';
+import { findTbdRoot, readConfig, hasSeenWelcome, markWelcomeSeen } from '../../file/config.js';
 import { stripFrontmatter } from '../../utils/markdown-utils.js';
 import { VERSION } from '../lib/version.js';
 import { listIssues } from '../../file/storage.js';
@@ -222,10 +222,17 @@ class PrimeHandler extends BaseCommand {
 
   /**
    * Render full orientation: dynamic status + full skill content.
+   * If the user hasn't seen the welcome message, add a welcome banner.
    */
   private async renderFullOrientation(tbdRoot: string): Promise<void> {
     // Dynamic status
     await this.renderDynamicStatus(tbdRoot);
+
+    // Check if this is the user's first time
+    const isNewUser = !(await hasSeenWelcome(tbdRoot));
+    if (isNewUser) {
+      await this.renderWelcomeBanner(tbdRoot);
+    }
 
     // Full skill content
     const primeContent = await loadPrimeContent();
@@ -270,6 +277,30 @@ class PrimeHandler extends BaseCommand {
     console.log('');
 
     console.log(`For CLI reference: ${colors.bold('tbd --help')}`);
+  }
+
+  /**
+   * Render a welcome banner for first-time users.
+   * Instructs the agent to show the welcome message.
+   */
+  private async renderWelcomeBanner(tbdRoot: string): Promise<void> {
+    const colors = this.output.getColors();
+
+    console.log(colors.bold('=== WELCOME (FIRST TIME) ==='));
+    console.log('');
+    console.log('This appears to be your first session with tbd in this project.');
+    console.log('');
+    console.log('AGENT INSTRUCTION: Welcome the user! Run `tbd shortcut welcome-user`');
+    console.log('and follow its instructions to give the user a warm orientation.');
+    console.log('Do NOT just list CLI commands — show them the welcome message.');
+    console.log('');
+
+    // Mark welcome as seen
+    try {
+      await markWelcomeSeen(tbdRoot);
+    } catch {
+      // Non-critical
+    }
   }
 
   /**
