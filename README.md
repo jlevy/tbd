@@ -30,18 +30,32 @@ whatever comes next.
 
 Firstly, tbd was inspired by [Beads](https://github.com/steveyegge/beads) by Steve
 Yegge. I love the power of Beads and am grateful for it!
+If you’re not familiar with the idea, you absolutely should be using it, as it raises an
+agent like Claude’s capacity for doing careful, planned work from ~5-10 to-do tasks to
+hundreds of issues.
+
 Unfortunately, after using it heavily for about a month, I found architectural issues
 and glitches that were too much of a distraction to ignore.
 Things like Claude Code Cloud’s network filesystems unable to use SQLite, fighting with
 the daemon modifying files in the active working tree, merge conflicts, and a confusing
 4-way sync algorithm.
-
 tbd uses a simpler architecture with (I hope) fewer edge cases and bugs.
-If you want to try it, you can import issues from Beads, preserving issue IDs.
+If you already use Beads, you can import issues to tbd, preserving your issue IDs.
 Internally, everything is Markdown files so you can debug or migrate in the future if
 you wish.
 
-But secondly, with tbd it’s now possible to add many more additional workflows:
+But beads do not solve all problems.
+They solve the task tracking well, but after months of heavy agentic coding I’m
+[a big fan of carefully written specs](https://github.com/jlevy/speculate/blob/main/about/lessons_in_spec_coding.md).
+
+But how do you use specs effectively with beads?
+It’s taken me some experimentation, but I think tbd helps a lot.
+
+A key part is that it’s just a convenient place to put *shortcuts*: small sets of
+instructions for the agent that remind it to do things right.
+Or to follow a standared process.
+You may have these alrady, but I’ve baked in a few general ones that I’ve found
+incredibly useful. With tbd it’s now possible to add many more additional workflows:
 
 - Writing planning specs
 - Writing implementation plans that map into beads
@@ -61,12 +75,22 @@ tbd gives you four capabilities that work together:
 3. **Shortcuts**: Pre-built processes for commits, PRs, reviews.
 4. **Guidelines**: Best practices for TypeScript, Python, testing.
 
-Everything is **self-documenting** through the CLI—just run `tbd` commands to discover
-workflows and best practices.
+Everything is **self-documenting** through the CLI—your agents just run `tbd` commands
+to discover workflows and best practices.
+And the tbd skill maps your intents down to shortcuts your agent can use and follow.
+
+It’s basically like tbd is an issue tracker and a meta-skill.
+When it installs, it adds instructions on all the subcommands including shortcuts, to
+the SKILL.md/AGENTS.md files.
 
 ### Quick Reference
 
-| User Need or Request | Command | Notes |
+You generally don’t need to type tbd commands unless you want to.
+The point is to make it convenient for agents.
+But here is a list of some common actions you can describe and how they map to tbd
+commands:
+
+| User Need or Request | tbd Command Agent Can Run | Notes |
 | --- | --- | --- |
 | "There is a bug where ..." | `tbd create "..." --type=bug` | Creates issue |
 | "Let's plan a new feature" | `tbd shortcut new-plan-spec` | Outputs instructions |
