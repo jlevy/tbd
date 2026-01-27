@@ -813,8 +813,9 @@ class SetupClaudeHandler extends BaseCommand {
 
       // Manage gh CLI SessionStart hook based on use_gh_cli config setting
       const useGhCli = await this.getUseGhCliSetting();
-      const mergedHooks = projectSettings.hooks as Record<string, unknown>;
-      let sessionStartEntries = (mergedHooks.SessionStart as Record<string, unknown>[]) || [];
+      const projectMergedHooks = projectSettings.hooks as Record<string, unknown>;
+      let sessionStartEntries =
+        (projectMergedHooks.SessionStart as Record<string, unknown>[]) || [];
 
       if (useGhCli) {
         // Add gh CLI hook if not already present
@@ -855,9 +856,9 @@ class SetupClaudeHandler extends BaseCommand {
       }
 
       if (sessionStartEntries.length > 0) {
-        mergedHooks.SessionStart = sessionStartEntries;
+        projectMergedHooks.SessionStart = sessionStartEntries;
       } else {
-        delete mergedHooks.SessionStart;
+        delete projectMergedHooks.SessionStart;
       }
 
       await mkdir(dirname(projectSettingsPath), { recursive: true });
