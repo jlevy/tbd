@@ -269,11 +269,13 @@ const GH_CLI_HOOK_COMMAND_PATTERN = 'ensure-gh-cli';
 async function loadBundledScript(name: string): Promise<string> {
   const __filename = fileURLToPath(import.meta.url);
   const __dirname = dirname(__filename);
-  // Bundled: dist/docs/install/<name>
-  const bundledPath = join(__dirname, '..', 'docs', 'install', name);
+  // Flat bundle: dist/docs/install/<name> (tsdown produces flat dist/)
+  const flatBundlePath = join(__dirname, 'docs', 'install', name);
+  // Nested bundle: dist/cli/commands/../../docs/install/<name>
+  const nestedBundlePath = join(__dirname, '..', 'docs', 'install', name);
   // Dev fallback: packages/tbd/docs/install/<name>
   const devPath = join(__dirname, '..', '..', '..', 'docs', 'install', name);
-  for (const p of [bundledPath, devPath]) {
+  for (const p of [flatBundlePath, nestedBundlePath, devPath]) {
     try {
       return await readFile(p, 'utf-8');
     } catch {
