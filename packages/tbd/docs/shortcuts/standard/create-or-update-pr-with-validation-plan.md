@@ -1,0 +1,48 @@
+---
+title: Create or Update PR with Validation Plan
+description: Create or update a pull request with a detailed test/validation plan
+---
+Shortcut: Create or Update PR with Validation Plan
+
+We track issues with tbd.
+Run `tbd` for more on using tbd and current status.
+
+Instructions:
+
+Create a to-do list with the following items then perform all of them:
+
+1. Check if a PR already exists for this branch using `gh pr view`. If it does, you’ll
+   be updating it. If not, you’ll create one.
+
+2. Review all commits on this branch since it diverged from main:
+   - Run `git log main..HEAD --oneline` to see commits
+   - Run `git diff main...HEAD` to see all changes
+   - Review any related specs in docs/project/specs/active/
+
+3. Write a PR title and description with these sections:
+
+   ## Summary
+
+   Brief description of the changes (2-3 sentences).
+
+   ## Changes
+
+   Bulleted list of specific changes made.
+
+   ## Test Plan
+
+   Detailed validation checklist:
+   - [ ] Unit tests pass (`npm test`)
+   - [ ] Build succeeds (`npm run build`)
+   - [ ] Manual testing steps (list specific scenarios to test)
+   - [ ] Edge cases considered (list any)
+
+   ## Related Issues
+
+   Link any related tbd issues using their IDs.
+
+4. Create or update the PR:
+   - If creating: `gh pr create --title "..." --body "..."`
+   - If updating: `gh pr edit --title "..." --body "..."`
+
+5. Report the PR URL to the user and summarize the validation plan.

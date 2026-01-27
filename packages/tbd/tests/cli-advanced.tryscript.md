@@ -15,6 +15,7 @@ before: |
   git init --initial-branch=main
   git config user.email "test@example.com"
   git config user.name "Test User"
+  git config commit.gpgsign false
   echo "# Test repo" > README.md
   git add README.md
   git commit -m "Initial commit"
@@ -267,7 +268,8 @@ settings:
 ```console
 $ tbd config show --json
 {
-  "tbd_version": [..],
+  "tbd_format": "f03",
+  "tbd_version": "[..]",
   "sync": {
     "branch": "tbd-sync",
     "remote": "origin"
@@ -276,7 +278,8 @@ $ tbd config show --json
     "id_prefix": "test"
   },
   "settings": {
-    "auto_sync": false
+    "auto_sync": false,
+    "doc_auto_sync_hours": 24
   }
 }
 ? 0
@@ -477,6 +480,16 @@ Commands:
   list                     List all labels in use
   help [command]           display help for command
 
+Getting Started:
+  npm install -g tbd-git@latest && tbd setup --auto --prefix=<name>
+
+  This initializes tbd and configures your coding agents automatically.
+  For interactive setup: tbd setup --interactive
+  For manual control: tbd init --help
+
+Orientation:
+  For workflow guidance, run: tbd prime
+
 For more on tbd, see: https://github.com/jlevy/tbd
 ? 0
 ```
@@ -513,6 +526,16 @@ Commands:
   list <id>                    List dependencies for an issue
   help [command]               display help for command
 
+Getting Started:
+  npm install -g tbd-git@latest && tbd setup --auto --prefix=<name>
+
+  This initializes tbd and configures your coding agents automatically.
+  For interactive setup: tbd setup --interactive
+  For manual control: tbd init --help
+
+Orientation:
+  For workflow guidance, run: tbd prime
+
 For more on tbd, see: https://github.com/jlevy/tbd
 ? 0
 ```
@@ -545,6 +568,16 @@ Commands:
   set <key> <value>  Set a configuration value
   get <key>          Get a configuration value
   help [command]     display help for command
+
+Getting Started:
+  npm install -g tbd-git@latest && tbd setup --auto --prefix=<name>
+
+  This initializes tbd and configures your coding agents automatically.
+  For interactive setup: tbd setup --interactive
+  For manual control: tbd init --help
+
+Orientation:
+  For workflow guidance, run: tbd prime
 
 For more on tbd, see: https://github.com/jlevy/tbd
 ? 0
@@ -579,6 +612,16 @@ Commands:
   show <id> <timestamp>     Show attic entry details
   restore <id> <timestamp>  Restore lost value from attic
   help [command]            display help for command
+
+Getting Started:
+  npm install -g tbd-git@latest && tbd setup --auto --prefix=<name>
+
+  This initializes tbd and configures your coding agents automatically.
+  For interactive setup: tbd setup --interactive
+  For manual control: tbd init --help
+
+Orientation:
+  For workflow guidance, run: tbd prime
 
 For more on tbd, see: https://github.com/jlevy/tbd
 ? 0

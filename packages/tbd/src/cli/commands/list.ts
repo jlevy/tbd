@@ -23,6 +23,8 @@ import {
 } from '../lib/issue-format.js';
 import { parsePriority } from '../../lib/priority.js';
 import { buildIssueTree, renderIssueTree } from '../lib/tree-view.js';
+import { getTerminalWidth } from '../lib/output.js';
+import { matchesSpecPath } from '../../lib/spec-matching.js';
 
 interface ListOptions {
   status?: IssueStatusType;
@@ -32,6 +34,7 @@ interface ListOptions {
   assignee?: string;
   label?: string[];
   parent?: string;
+  spec?: string;
   deferred?: boolean;
   deferBefore?: string;
   sort?: string;
@@ -97,6 +100,7 @@ class ListHandler extends BaseCommand {
       description: i.description,
       assignee: i.assignee,
       labels: i.labels,
+      spec_path: i.spec_path,
     }));
 
     this.output.data(displayIssues, () => {
@@ -112,7 +116,7 @@ class ListHandler extends BaseCommand {
         const tree = buildIssueTree(displayIssues as (IssueForDisplay & { parentId?: string })[]);
         const lines = renderIssueTree(tree, colors, {
           long: options.long,
-          maxWidth: process.stdout.columns ?? 80,
+          maxWidth: getTerminalWidth(),
         });
         for (const line of lines) {
           console.log(line);
@@ -147,8 +151,8 @@ class ListHandler extends BaseCommand {
     }
 
     return issues.filter((issue) => {
-      // By default, exclude closed issues unless --all
-      if (!options.all && issue.status === 'closed') {
+      // By default, exclude closed issues unless --all or --status closed
+      if (!options.all && options.status !== 'closed' && issue.status === 'closed') {
         return false;
       }
 
@@ -186,6 +190,13 @@ class ListHandler extends BaseCommand {
       // Parent filter (compare resolved internal IDs)
       if (resolvedParentId && issue.parent_id !== resolvedParentId) {
         return false;
+      }
+
+      // Spec path filter (uses gradual matching)
+      if (options.spec) {
+        if (!issue.spec_path || !matchesSpecPath(issue.spec_path, options.spec)) {
+          return false;
+        }
       }
 
       // Deferred filter
@@ -242,6 +253,7 @@ export const listCommand = new Command('list')
     val,
   ])
   .option('--parent <id>', 'List children of parent')
+  .option('--spec <path>', 'Filter by spec path (supports gradual matching)')
   .option('--deferred', 'Show only deferred issues')
   .option('--defer-before <date>', 'Deferred before date')
   .option('--sort <field>', 'Sort by: priority, created, updated', 'priority')

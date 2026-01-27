@@ -15,7 +15,7 @@ import { requireInit, NotInitializedError, ValidationError } from '../lib/errors
 import { listIssues } from '../../file/storage.js';
 import { IssueStatus } from '../../lib/schemas.js';
 import type { Issue, IssueStatusType, LocalState } from '../../lib/types.js';
-import { resolveDataSyncDir } from '../../lib/paths.js';
+import { resolveDataSyncDir, STATE_FILE } from '../../lib/paths.js';
 import { now } from '../../utils/time-utils.js';
 import { formatDisplayId, formatDebugId } from '../../lib/ids.js';
 import { loadIdMapping } from '../../file/id-mapping.js';
@@ -24,9 +24,6 @@ import { formatIssueCompact, type IssueForDisplay } from '../lib/issue-format.js
 
 // Staleness threshold for worktree (5 minutes)
 const STALE_THRESHOLD_MS = 5 * 60 * 1000;
-
-// State file path (YAML for consistency with other tbd config files)
-const STATE_FILE = '.tbd/cache/state.yml';
 
 interface SearchOptions {
   status?: string;

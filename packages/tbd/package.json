@@ -1,6 +1,6 @@
 {
   "name": "tbd-git",
-  "version": "0.1.4",
+  "version": "0.1.6",
   "description": "Git-native issue tracking for AI agents and humans",
   "license": "MIT",
   "author": "Joshua Levy <joshua@cal.berkeley.edu> (https://github.com/jlevy)",
@@ -69,6 +69,7 @@
     "atomically": "^2.1.0",
     "commander": "^14.0.2",
     "github-slugger": "^2.0.0",
+    "gray-matter": "^4.0.3",
     "marked": "^15.0.12",
     "marked-terminal": "^7.3.0",
     "picocolors": "^1.1.1",

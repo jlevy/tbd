@@ -1,11 +1,14 @@
-# Local cache (not shared)
-cache/
+# Installed documentation (regenerated on setup)
+docs/
 
 # Hidden worktree for tbd-sync branch
 data-sync-worktree/
 
 # Data sync directory (only exists in worktree)
 data-sync/
+
+# Local state
+state.yml
 
 # Temporary files
 *.tmp

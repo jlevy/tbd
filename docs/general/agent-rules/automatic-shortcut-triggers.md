@@ -48,7 +48,7 @@ instructions.
 | Committing code | @shortcut-precommit-process.md → @shortcut-commit-code.md |
 | Creating a validation plan | @shortcut-create-or-update-validation-plan.md |
 | Creating a PR with validation | @shortcut-create-or-update-pr-with-validation-plan.md |
-| Creating a PR (simple, no validation plan) | @shortcut-create-pr-simple.md |
+| Creating a PR (simple, no validation plan) | @shortcut-create-or-update-pr-simple.md |
 
 ### Code Review
 

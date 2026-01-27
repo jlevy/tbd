@@ -40,5 +40,11 @@ pre-commit:
 
 pre-push:
   commands:
+    # Build if needed - skips if dist is up-to-date (integration tests require dist/bin.mjs)
+    build:
+      run: pnpm build:check
+      priority: 1
+    # Then run tests
     test:
       run: pnpm test
+      priority: 2

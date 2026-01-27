@@ -3,6 +3,8 @@
  *
  * Config is stored at .tbd/config.yml and contains project-level settings.
  *
+ * ⚠️ FORMAT VERSIONING: See tbd-format.ts for version history and migration rules.
+ *
  * See: tbd-design.md §2.2.2 Config File
  */
 
@@ -11,9 +13,15 @@ import { join, dirname, parse as parsePath } from 'node:path';
 import { writeFile } from 'atomically';
 import { parse as parseYaml, stringify as stringifyYaml } from 'yaml';
 
-import type { Config } from '../lib/types.js';
-import { ConfigSchema } from '../lib/schemas.js';
-import { CONFIG_FILE, SYNC_BRANCH } from '../lib/paths.js';
+import type { Config, LocalState } from '../lib/types.js';
+import { ConfigSchema, LocalStateSchema } from '../lib/schemas.js';
+import { CONFIG_FILE, STATE_FILE, SYNC_BRANCH } from '../lib/paths.js';
+import {
+  CURRENT_FORMAT,
+  needsMigration,
+  migrateToLatest,
+  type RawConfig,
+} from '../lib/tbd-format.js';
 
 /**
  * Path to config file relative to project root.
@@ -27,6 +35,7 @@ export const CONFIG_FILE_PATH = CONFIG_FILE;
  */
 function createDefaultConfig(version: string, prefix: string): Config {
   return ConfigSchema.parse({
+    tbd_format: CURRENT_FORMAT,
     tbd_version: version,
     sync: {
       branch: SYNC_BRANCH,
@@ -37,6 +46,7 @@ function createDefaultConfig(version: string, prefix: string): Config {
     },
     settings: {
       auto_sync: false,
+      doc_auto_sync_hours: 24,
     },
   });
 }
@@ -61,18 +71,57 @@ export async function initConfig(
 }
 
 /**
- * Read config from file.
+ * Read config from file with automatic migration if needed.
+ *
+ * ⚠️ FORMAT VERSIONING: See tbd-format.ts for version history and migration rules.
+ *
  * @throws If config file doesn't exist or is invalid.
  */
 export async function readConfig(baseDir: string): Promise<Config> {
   const configPath = join(baseDir, CONFIG_FILE_PATH);
   const content = await readFile(configPath, 'utf-8');
-  const data: unknown = parseYaml(content);
+  const data = parseYaml(content) as RawConfig;
+
+  // Check if migration is needed
+  if (needsMigration(data)) {
+    const result = migrateToLatest(data);
+    // Note: We don't automatically write the migrated config here.
+    // Migration writes should be explicit via writeConfig() after setup.
+    return ConfigSchema.parse(result.config);
+  }
+
   return ConfigSchema.parse(data);
 }
 
 /**
- * Write config to file.
+ * Read config from file, returning migration info if a migration was applied.
+ * Use this when you need to know if the config was migrated.
+ */
+export async function readConfigWithMigration(
+  baseDir: string,
+): Promise<{ config: Config; migrated: boolean; changes: string[] }> {
+  const configPath = join(baseDir, CONFIG_FILE_PATH);
+  const content = await readFile(configPath, 'utf-8');
+  const data = parseYaml(content) as RawConfig;
+
+  if (needsMigration(data)) {
+    const result = migrateToLatest(data);
+    return {
+      config: ConfigSchema.parse(result.config),
+      migrated: result.changed,
+      changes: result.changes,
+    };
+  }
+
+  return {
+    config: ConfigSchema.parse(data),
+    migrated: false,
+    changes: [],
+  };
+}
+
+/**
+ * Write config to file with explanatory comments.
  */
 export async function writeConfig(baseDir: string, config: Config): Promise<void> {
   const configPath = join(baseDir, CONFIG_FILE_PATH);
@@ -82,7 +131,26 @@ export async function writeConfig(baseDir: string, config: Config): Promise<void
     lineWidth: 0,
   });
 
-  await writeFile(configPath, yaml);
+  // Add explanatory comments for docs_cache section
+  let content = yaml;
+  if (config.docs_cache && Object.keys(config.docs_cache).length > 0) {
+    const docsCacheComment = `# Documentation cache configuration.
+# files: Maps destination paths (relative to .tbd/docs/) to source locations.
+#   Sources can be:
+#   - internal: prefix for bundled docs (e.g., "internal:shortcuts/standard/commit-code.md")
+#   - Full URL for external docs (e.g., "https://raw.githubusercontent.com/org/repo/main/file.md")
+# lookup_path: Search paths for doc lookup (like shell $PATH). Earlier paths take precedence.
+#
+# To sync docs: tbd docs --refresh
+# To check status: tbd docs --status
+#
+# Auto-sync: Docs are automatically synced when stale (default: every 24 hours).
+# Configure with settings.doc_auto_sync_hours (0 = disabled).
+`;
+    content = content.replace('docs_cache:', docsCacheComment + 'docs_cache:');
+  }
+
+  await writeFile(configPath, content);
 }
 
 /**
@@ -132,4 +200,54 @@ export async function findTbdRoot(startDir: string): Promise<string | null> {
 export async function isInitialized(baseDir: string): Promise<boolean> {
   const root = await findTbdRoot(baseDir);
   return root !== null;
+}
+
+// =============================================================================
+// Local State Operations
+// =============================================================================
+
+/**
+ * Read local state from .tbd/state.yml
+ * Returns empty state if file doesn't exist.
+ */
+export async function readLocalState(baseDir: string): Promise<LocalState> {
+  const statePath = join(baseDir, STATE_FILE);
+  try {
+    const content = await readFile(statePath, 'utf-8');
+    const data: unknown = parseYaml(content);
+    return LocalStateSchema.parse(data ?? {});
+  } catch {
+    // File doesn't exist or is invalid - return empty state
+    return {};
+  }
+}
+
+/**
+ * Write local state to .tbd/state.yml
+ */
+export async function writeLocalState(baseDir: string, state: LocalState): Promise<void> {
+  const statePath = join(baseDir, STATE_FILE);
+
+  // Ensure .tbd directory exists
+  await mkdir(join(baseDir, '.tbd'), { recursive: true });
+
+  const yaml = stringifyYaml(state, {
+    sortMapEntries: true,
+    lineWidth: 0,
+  });
+
+  await writeFile(statePath, yaml);
+}
+
+/**
+ * Update specific fields in local state (merge with existing).
+ */
+export async function updateLocalState(
+  baseDir: string,
+  updates: Partial<LocalState>,
+): Promise<LocalState> {
+  const current = await readLocalState(baseDir);
+  const updated = { ...current, ...updates };
+  await writeLocalState(baseDir, updated);
+  return updated;
 }

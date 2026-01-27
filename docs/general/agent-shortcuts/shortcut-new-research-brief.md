@@ -1,4 +1,6 @@
-Shortcut: New Research Brief
+Shortcut: New Research Doc
+
+Create a research document for investigating a topic or technology.
 
 Instructions:
 

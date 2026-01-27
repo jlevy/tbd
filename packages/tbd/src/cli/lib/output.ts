@@ -79,10 +79,18 @@ export function getColorOptionFromArgv(): ColorOption {
 }
 
 /**
- * Maximum width for help text. We cap at 88 characters for readability,
- * but use narrower if the terminal is smaller.
+ * Maximum width for help text and formatted output. We cap at 88 characters
+ * for readability, but use narrower if the terminal is smaller.
  */
 export const MAX_HELP_WIDTH = 88;
+
+/**
+ * Get terminal width capped at MAX_HELP_WIDTH.
+ * Use this for all formatted CLI output to ensure consistent width handling.
+ */
+export function getTerminalWidth(): number {
+  return Math.min(MAX_HELP_WIDTH, process.stdout.columns ?? 80);
+}
 
 /**
  * Create colored help configuration for Commander.js.
@@ -95,7 +103,7 @@ export function createColoredHelpConfig(colorOption: ColorOption = 'auto') {
   const colors = pc.createColors(shouldColorize(colorOption));
 
   return {
-    helpWidth: Math.min(MAX_HELP_WIDTH, process.stdout.columns || 80),
+    helpWidth: getTerminalWidth(),
     styleTitle: (str: string) => colors.bold(colors.cyan(str)),
     styleCommandText: (str: string) => colors.green(str),
     styleOptionText: (str: string) => colors.yellow(str),
@@ -105,13 +113,27 @@ export function createColoredHelpConfig(colorOption: ColorOption = 'auto') {
 
 /**
  * Create the help epilog text with color.
+ * Includes "Getting Started" section per spec.
  *
  * @param colorOption - Color option to determine if colors should be enabled
  * @returns Colored epilog string
  */
 export function createHelpEpilog(colorOption: ColorOption = 'auto'): string {
   const colors = pc.createColors(shouldColorize(colorOption));
-  return colors.blue('For more on tbd, see: https://github.com/jlevy/tbd');
+  const lines = [
+    colors.bold('Getting Started:'),
+    `  ${colors.green('npm install -g tbd-git@latest && tbd setup --auto --prefix=<name>')}`,
+    '',
+    '  This initializes tbd and configures your coding agents automatically.',
+    `  For interactive setup: ${colors.dim('tbd setup --interactive')}`,
+    `  For manual control: ${colors.dim('tbd init --help')}`,
+    '',
+    colors.bold('Orientation:'),
+    `  For workflow guidance, run: ${colors.green('tbd prime')}`,
+    '',
+    colors.blue('For more on tbd, see: https://github.com/jlevy/tbd'),
+  ];
+  return lines.join('\n');
 }
 
 /**
@@ -181,7 +203,7 @@ export function renderMarkdown(content: string, colorOption: ColorOption = 'auto
   // but types still claim it returns TerminalRenderer. Cast to work around this.
   marked.use(
     markedTerminal({
-      width: Math.min(MAX_HELP_WIDTH, process.stdout.columns || 80),
+      width: getTerminalWidth(),
       reflowText: true,
     }) as unknown as Parameters<typeof marked.use>[0],
   );
@@ -430,5 +452,12 @@ export class OutputManager {
    */
   getColors() {
     return this.colors;
+  }
+
+  /**
+   * Check if quiet mode is enabled.
+   */
+  isQuiet(): boolean {
+    return this.ctx.quiet;
   }
 }

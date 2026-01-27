@@ -1,17 +1,17 @@
 /**
  * `tbd setup` - Configure tbd integration with editors and tools.
  *
- * Subcommands:
- * - `tbd setup claude` - Configure Claude Code hooks
- * - `tbd setup cursor` - Create Cursor IDE rules file
- * - `tbd setup codex` - Create/update AGENTS.md for Codex
+ * Options:
+ * - `tbd setup --auto` - Non-interactive setup (for agents/scripts)
+ * - `tbd setup --interactive` - Interactive setup with prompts (for humans)
+ * - `tbd setup --from-beads` - Migrate from Beads to tbd
  *
  * See: tbd-design.md §6.4.2 Claude Code Integration
  */
 
 import { Command } from 'commander';
-import { readFile, mkdir, access, rm, rename, readdir, stat, chmod } from 'node:fs/promises';
-import { execSync } from 'node:child_process';
+import { readFile, mkdir, access, rm, rename, chmod, readdir } from 'node:fs/promises';
+import { spawnSync } from 'node:child_process';
 import { join, dirname } from 'node:path';
 import { homedir } from 'node:os';
 import { writeFile } from 'atomically';
@@ -19,35 +19,85 @@ import { writeFile } from 'atomically';
 import { BaseCommand } from '../lib/base-command.js';
 import { CLIError } from '../lib/errors.js';
 import { loadSkillContent } from './prime.js';
-import { stripFrontmatter } from '../../utils/markdown-utils.js';
+import { stripFrontmatter, insertAfterFrontmatter } from '../../utils/markdown-utils.js';
 import { pathExists } from '../../utils/file-utils.js';
+import { ensureGitignorePatterns } from '../../utils/gitignore-utils.js';
 import { type DiagnosticResult, renderDiagnostics } from '../lib/diagnostics.js';
+import { isValidPrefix, getBeadsPrefix } from '../lib/prefix-detection.js';
+import {
+  initConfig,
+  isInitialized,
+  readConfig,
+  readConfigWithMigration,
+  findTbdRoot,
+  writeConfig,
+  updateLocalState,
+} from '../../file/config.js';
+import {
+  DocSync,
+  generateDefaultDocCacheConfig,
+  mergeDocCacheConfig,
+} from '../../file/doc-sync.js';
+import { VERSION } from '../lib/version.js';
+import {
+  TBD_DIR,
+  TBD_DOCS_DIR,
+  WORKTREE_DIR_NAME,
+  DATA_SYNC_DIR_NAME,
+  DEFAULT_SHORTCUT_PATHS,
+  TBD_SHORTCUTS_SYSTEM,
+  TBD_SHORTCUTS_STANDARD,
+  TBD_GUIDELINES_DIR,
+  TBD_TEMPLATES_DIR,
+} from '../../lib/paths.js';
+import { initWorktree, isInGitRepo } from '../../file/git.js';
+import { DocCache, generateShortcutDirectory } from '../../file/doc-cache.js';
+
+/**
+ * Get the shortcut directory content for appending to installed skill files.
+ * Always generates on-the-fly from installed shortcuts.
+ *
+ * @param quiet - If true, suppress auto-sync output (default: false)
+ */
+async function getShortcutDirectory(quiet = false): Promise<string | null> {
+  const cwd = process.cwd();
+
+  // Try to find tbd root (may not be initialized)
+  const tbdRoot = await findTbdRoot(cwd);
+  if (!tbdRoot) {
+    return null;
+  }
+
+  // Generate on-the-fly from installed shortcuts
+  const cache = new DocCache(DEFAULT_SHORTCUT_PATHS, tbdRoot);
+  await cache.load({ quiet });
+  const docs = cache.list();
+
+  // If no docs loaded, skip directory
+  if (docs.length === 0) {
+    return null;
+  }
+
+  return generateShortcutDirectory(docs);
+}
 
 /**
  * Get the tbd section content for AGENTS.md (Codex integration).
  * Loads from SKILL.md, strips frontmatter, and wraps in TBD INTEGRATION markers.
+ *
+ * @param quiet - If true, suppress auto-sync output (default: false)
  */
-async function getCodexTbdSection(): Promise<string> {
+async function getCodexTbdSection(quiet = false): Promise<string> {
   const skillContent = await loadSkillContent();
-  const content = stripFrontmatter(skillContent);
+  let content = stripFrontmatter(skillContent);
+  const directory = await getShortcutDirectory(quiet);
+  if (directory) {
+    content = content.trimEnd() + '\n\n' + directory + '\n';
+  }
   return `<!-- BEGIN TBD INTEGRATION -->\n${content}<!-- END TBD INTEGRATION -->\n`;
 }
 
-/**
- * Get the Cursor rules content from SKILL.md.
- * Strips the skill frontmatter (content is used as-is for .mdc files).
- */
-async function getCursorRulesContent(): Promise<string> {
-  const skillContent = await loadSkillContent();
-  return stripFrontmatter(skillContent);
-}
-
 interface SetupClaudeOptions {
-  check?: boolean;
-  remove?: boolean;
-}
-
-interface SetupCursorOptions {
   check?: boolean;
   remove?: boolean;
 }
@@ -58,20 +108,99 @@ interface SetupCodexOptions {
 }
 
 /**
+ * Global script to ensure tbd CLI is installed and run tbd prime.
+ * Installed to ~/.claude/scripts/tbd-session.sh
+ * Runs on SessionStart and PreCompact to ensure tbd is available and provide orientation.
+ *
+ * Usage:
+ *   tbd-session.sh           # Ensure tbd + run tbd prime
+ *   tbd-session.sh --brief   # Ensure tbd + run tbd prime --brief (for PreCompact)
+ */
+const TBD_SESSION_SCRIPT = `#!/bin/bash
+# Ensure tbd CLI is installed and run tbd prime for Claude Code sessions
+# Installed by: tbd setup --auto
+# This script runs on SessionStart and PreCompact
+
+# Add common binary locations to PATH (persists for entire script)
+export PATH="$HOME/.local/bin:$HOME/bin:/usr/local/bin:$PATH"
+
+# Function to ensure tbd is available
+ensure_tbd() {
+    # Check if tbd is already installed
+    if command -v tbd &> /dev/null; then
+        return 0
+    fi
+
+    echo "[tbd] CLI not found, installing..."
+
+    # Try npm first (most common for Node.js tools)
+    if command -v npm &> /dev/null; then
+        echo "[tbd] Installing via npm..."
+        npm install -g tbd-git 2>/dev/null || {
+            # If global install fails (permissions), try local install
+            echo "[tbd] Global npm install failed, trying user install..."
+            mkdir -p ~/.local/bin
+            npm install --prefix ~/.local tbd-git
+            # Create symlink if needed
+            if [ -f ~/.local/node_modules/.bin/tbd ]; then
+                ln -sf ~/.local/node_modules/.bin/tbd ~/.local/bin/tbd
+            fi
+        }
+    elif command -v pnpm &> /dev/null; then
+        echo "[tbd] Installing via pnpm..."
+        pnpm add -g tbd-git
+    elif command -v yarn &> /dev/null; then
+        echo "[tbd] Installing via yarn..."
+        yarn global add tbd-git
+    else
+        echo "[tbd] ERROR: No package manager found (npm, pnpm, or yarn required)"
+        echo "[tbd] Please install Node.js and npm, then run: npm install -g tbd-git"
+        return 1
+    fi
+
+    # Verify installation
+    if command -v tbd &> /dev/null; then
+        echo "[tbd] Successfully installed to $(which tbd)"
+        return 0
+    else
+        echo "[tbd] WARNING: tbd installed but not found in PATH"
+        echo "[tbd] Checking common locations..."
+        # Try to find and add to path
+        for dir in ~/.local/bin ~/.local/node_modules/.bin /usr/local/bin; do
+            if [ -x "$dir/tbd" ]; then
+                export PATH="$dir:$PATH"
+                echo "[tbd] Found at $dir/tbd"
+                return 0
+            fi
+        done
+        echo "[tbd] Could not locate tbd after installation"
+        return 1
+    fi
+}
+
+# Main
+ensure_tbd || exit 1
+
+# Run tbd prime with any passed arguments (e.g., --brief for PreCompact)
+tbd prime "$@"
+`;
+
+/**
  * Claude Code global hooks configuration (installed to ~/.claude/settings.json)
+ * Uses tbd-session.sh which ensures tbd is installed and runs tbd prime with correct PATH.
  */
 const CLAUDE_GLOBAL_HOOKS = {
   hooks: {
     SessionStart: [
       {
         matcher: '',
-        hooks: [{ type: 'command', command: 'tbd prime' }],
+        hooks: [{ type: 'command', command: '$HOME/.claude/scripts/tbd-session.sh' }],
       },
     ],
     PreCompact: [
       {
         matcher: '',
-        hooks: [{ type: 'command', command: 'tbd prime' }],
+        hooks: [{ type: 'command', command: '$HOME/.claude/scripts/tbd-session.sh --brief' }],
       },
     ],
   },
@@ -117,8 +246,6 @@ fi
 exit 0
 `;
 
-// Cursor rules content is now generated dynamically from SKILL.md via getCursorRulesContent()
-
 /**
  * AGENTS.md integration markers for Codex/Factory.ai
  * Content is now generated dynamically from SKILL.md via getCodexTbdSection()
@@ -128,9 +255,11 @@ const CODEX_END_MARKER = '<!-- END TBD INTEGRATION -->';
 
 /**
  * Generate a new AGENTS.md file with tbd integration.
+ *
+ * @param quiet - If true, suppress auto-sync output (default: false)
  */
-async function getCodexNewAgentsFile(): Promise<string> {
-  const tbdSection = await getCodexTbdSection();
+async function getCodexNewAgentsFile(quiet = false): Promise<string> {
+  const tbdSection = await getCodexTbdSection(quiet);
   return `# Project Instructions for AI Agents
 
 This file provides instructions and context for AI coding agents working on this project.
@@ -156,6 +285,23 @@ _Add your project-specific conventions here_
 `;
 }
 
+/**
+ * Legacy script patterns to clean up from .claude/scripts/
+ * These were used in older versions of tbd before hooks moved to `tbd prime`
+ */
+const LEGACY_TBD_SCRIPTS = ['setup-tbd.sh', 'ensure-tbd-cli.sh', 'ensure-tbd.sh', 'tbd-setup.sh'];
+
+/**
+ * Patterns to identify legacy tbd hooks that should be removed.
+ * These patterns match old-style commands that are no longer used.
+ */
+const LEGACY_TBD_HOOK_PATTERNS = [
+  /\.claude\/scripts\/.*tbd/i, // Any tbd-related script in .claude/scripts/
+  /tbd\s+setup\s+claude/i, // Old command: tbd setup claude
+  /setup-tbd\.sh/i, // Old script name
+  /ensure-tbd/i, // Old script names
+];
+
 class SetupClaudeHandler extends BaseCommand {
   async run(options: SetupClaudeOptions): Promise<void> {
     const settingsPath = join(homedir(), '.claude', 'settings.json');
@@ -178,12 +324,22 @@ class SetupClaudeHandler extends BaseCommand {
   private async checkClaudeSetup(settingsPath: string, skillPath: string): Promise<void> {
     const cwd = process.cwd();
     let globalHooksInstalled = false;
+    let globalScriptInstalled = false;
     let projectHooksInstalled = false;
     let skillInstalled = false;
     let sessionStartHook = false;
     let preCompactHook = false;
     let postToolUseHook = false;
     let hookScriptInstalled = false;
+
+    // Check for global tbd-session.sh script
+    const tbdSessionScript = join(homedir(), '.claude', 'scripts', 'tbd-session.sh');
+    try {
+      await access(tbdSessionScript);
+      globalScriptInstalled = true;
+    } catch {
+      // Script doesn't exist
+    }
 
     // Check hooks in global settings
     try {
@@ -197,13 +353,18 @@ class SetupClaudeHandler extends BaseCommand {
         const preCompact = hooks.PreCompact as { hooks?: { command?: string }[] }[];
 
         sessionStartHook = sessionStart?.some((h) =>
-          h.hooks?.some((hook) => hook.command?.includes('tbd prime')),
+          h.hooks?.some(
+            (hook) =>
+              (hook.command?.includes('tbd prime') ?? false) ||
+              (hook.command?.includes('tbd-session.sh') ?? false) ||
+              (hook.command?.includes('ensure-tbd-cli.sh') ?? false),
+          ),
         );
         preCompactHook = preCompact?.some((h) =>
           h.hooks?.some((hook) => hook.command?.includes('tbd prime')),
         );
 
-        globalHooksInstalled = sessionStartHook && preCompactHook;
+        globalHooksInstalled = sessionStartHook && preCompactHook && globalScriptInstalled;
       }
     } catch {
       // Settings file doesn't exist
@@ -266,7 +427,7 @@ class SetupClaudeHandler extends BaseCommand {
         status: 'warn',
         message: 'partially configured',
         path: settingsPath.replace(homedir(), '~'),
-        suggestion: 'Run: tbd setup claude',
+        suggestion: 'Run: tbd setup --auto',
       });
     } else {
       diagnostics.push({
@@ -274,7 +435,7 @@ class SetupClaudeHandler extends BaseCommand {
         status: 'warn',
         message: 'not configured',
         path: settingsPath.replace(homedir(), '~'),
-        suggestion: 'Run: tbd setup claude',
+        suggestion: 'Run: tbd setup --auto',
       });
     }
 
@@ -293,7 +454,7 @@ class SetupClaudeHandler extends BaseCommand {
         status: 'warn',
         message: 'partially configured',
         path: projectSettingsRelPath,
-        suggestion: 'Run: tbd setup claude',
+        suggestion: 'Run: tbd setup --auto',
       });
     } else {
       diagnostics.push({
@@ -301,7 +462,7 @@ class SetupClaudeHandler extends BaseCommand {
         status: 'warn',
         message: 'not configured',
         path: projectSettingsRelPath,
-        suggestion: 'Run: tbd setup claude',
+        suggestion: 'Run: tbd setup --auto',
       });
     }
 
@@ -319,7 +480,7 @@ class SetupClaudeHandler extends BaseCommand {
         status: 'warn',
         message: 'not found',
         path: skillRelPath,
-        suggestion: 'Run: tbd setup claude',
+        suggestion: 'Run: tbd setup --auto',
       });
     }
 
@@ -350,6 +511,7 @@ class SetupClaudeHandler extends BaseCommand {
   private async removeClaudeSetup(settingsPath: string, skillPath: string): Promise<void> {
     const cwd = process.cwd();
     let removedGlobalHooks = false;
+    let removedGlobalScript = false;
     let removedProjectHooks = false;
     let removedHookScript = false;
     let removedSkill = false;
@@ -364,9 +526,18 @@ class SetupClaudeHandler extends BaseCommand {
         const hooks = settings.hooks as Record<string, unknown>;
 
         // Remove tbd hooks from SessionStart and PreCompact
+        // Matches both old 'tbd prime' only and new 'tbd-session.sh'
         const filterHooks = (arr: { hooks?: { command?: string }[] }[] | undefined) => {
           if (!arr) return undefined;
-          return arr.filter((h) => !h.hooks?.some((hook) => hook.command?.includes('tbd prime')));
+          return arr.filter(
+            (h) =>
+              !h.hooks?.some(
+                (hook) =>
+                  (hook.command?.includes('tbd prime') ?? false) ||
+                  (hook.command?.includes('tbd-session.sh') ?? false) ||
+                  (hook.command?.includes('ensure-tbd-cli.sh') ?? false),
+              ),
+          );
         };
 
         const sessionStart = filterHooks(
@@ -439,6 +610,22 @@ class SetupClaudeHandler extends BaseCommand {
       // Hook script doesn't exist
     }
 
+    // Remove global tbd scripts (both new and legacy)
+    const tbdSessionScript = join(homedir(), '.claude', 'scripts', 'tbd-session.sh');
+    const legacyTbdScript = join(homedir(), '.claude', 'scripts', 'ensure-tbd-cli.sh');
+    try {
+      await rm(tbdSessionScript);
+      removedGlobalScript = true;
+    } catch {
+      // Script doesn't exist
+    }
+    try {
+      await rm(legacyTbdScript);
+      removedGlobalScript = true;
+    } catch {
+      // Script doesn't exist
+    }
+
     // Remove skill file from project
     try {
       await rm(skillPath);
@@ -448,8 +635,8 @@ class SetupClaudeHandler extends BaseCommand {
     }
 
     // Report what was removed
-    if (removedGlobalHooks) {
-      this.output.success('Removed global hooks from Claude Code');
+    if (removedGlobalHooks || removedGlobalScript) {
+      this.output.success('Removed global hooks and script from Claude Code');
     } else {
       this.output.info('No global hooks to remove');
     }
@@ -477,7 +664,14 @@ class SetupClaudeHandler extends BaseCommand {
       return;
     }
 
+    const cwd = process.cwd();
+    const projectSettingsPath = join(cwd, '.claude', 'settings.json');
+
     try {
+      // Note: Legacy script/hook cleanup is now done in SetupAutoHandler.run()
+      // before any integration-specific setup runs. This ensures cleanup happens
+      // regardless of which coding agents are detected.
+
       // Install hooks in global settings
       await mkdir(dirname(settingsPath), { recursive: true });
 
@@ -499,9 +693,28 @@ class SetupClaudeHandler extends BaseCommand {
       await writeFile(settingsPath, JSON.stringify(settings, null, 2) + '\n');
       this.output.success('Installed global hooks for Claude Code');
 
+      // Install global tbd-session.sh script to ~/.claude/scripts/
+      const globalScriptsDir = join(homedir(), '.claude', 'scripts');
+      await mkdir(globalScriptsDir, { recursive: true });
+
+      // Main script: tbd-session.sh (ensures tbd + runs prime)
+      const tbdSessionScript = join(globalScriptsDir, 'tbd-session.sh');
+      await writeFile(tbdSessionScript, TBD_SESSION_SCRIPT);
+      await chmod(tbdSessionScript, 0o755);
+
+      // Clean up legacy global scripts
+      const legacyGlobalScripts = ['ensure-tbd-cli.sh', 'setup-tbd.sh', 'ensure-tbd.sh'];
+      for (const script of legacyGlobalScripts) {
+        try {
+          await rm(join(globalScriptsDir, script));
+        } catch {
+          // Script doesn't exist, ignore
+        }
+      }
+
+      this.output.success('Installed global tbd session script');
+
       // Install project-local hooks in .claude/settings.json
-      const cwd = process.cwd();
-      const projectSettingsPath = join(cwd, '.claude', 'settings.json');
       const hookScriptPath = join(cwd, '.claude', 'hooks', 'tbd-closing-reminder.sh');
 
       // Read existing project settings if present
@@ -516,7 +729,7 @@ class SetupClaudeHandler extends BaseCommand {
         // File doesn't exist, start fresh
       }
 
-      // Merge project hooks
+      // Merge project hooks (preserving non-tbd hooks that weren't cleaned)
       const existingProjectHooks = (projectSettings.hooks as Record<string, unknown>) || {};
       projectSettings.hooks = {
         ...existingProjectHooks,
@@ -527,15 +740,39 @@ class SetupClaudeHandler extends BaseCommand {
       await writeFile(projectSettingsPath, JSON.stringify(projectSettings, null, 2) + '\n');
       this.output.success('Installed project hooks');
 
+      // Add .claude/.gitignore to ignore backup files
+      // NOTE: Pattern re-addition is intentional - see comment in initializeTbd
+      const claudeGitignorePath = join(cwd, '.claude', '.gitignore');
+      const claudeGitignoreResult = await ensureGitignorePatterns(claudeGitignorePath, [
+        '# Backup files',
+        '*.bak',
+      ]);
+      if (claudeGitignoreResult.created) {
+        this.output.success('Created .claude/.gitignore');
+      } else if (claudeGitignoreResult.added.length > 0) {
+        this.output.success('Updated .claude/.gitignore');
+      }
+      // else: file is up-to-date, no message needed
+
       // Install hook script
       await mkdir(dirname(hookScriptPath), { recursive: true });
       await writeFile(hookScriptPath, TBD_CLOSE_PROTOCOL_SCRIPT);
       await chmod(hookScriptPath, 0o755);
       this.output.success('Installed sync reminder hook script');
 
-      // Install skill file in project
+      // Install skill file in project (with shortcut directory appended)
       await mkdir(dirname(skillPath), { recursive: true });
-      const skillContent = await loadSkillContent();
+      let skillContent = await loadSkillContent();
+      const directory = await getShortcutDirectory(this.ctx.quiet);
+      if (directory) {
+        skillContent = skillContent.trimEnd() + '\n\n' + directory;
+      }
+      // Insert DO NOT EDIT marker after frontmatter (formatted to match flowmark output)
+      const markerComment =
+        "<!-- DO NOT EDIT: Generated by tbd setup.\nRun 'tbd setup' to update.\n-->";
+      skillContent = insertAfterFrontmatter(skillContent, markerComment);
+      // Ensure file ends with newline
+      skillContent = skillContent.trimEnd() + '\n';
       await writeFile(skillPath, skillContent);
       this.output.success('Installed skill file');
       this.output.info(`  ${skillPath}`);
@@ -545,87 +782,8 @@ class SetupClaudeHandler extends BaseCommand {
       this.output.info('  - Global hooks: SessionStart and PreCompact run `tbd prime`');
       this.output.info('  - Project hooks: PostToolUse reminds about `tbd sync` after git push');
       this.output.info('  - Project skill: .claude/skills/tbd/SKILL.md');
-      this.output.info('');
-      this.output.info('Use `tbd setup claude --check` to verify installation');
     } catch (error) {
       throw new CLIError(`Failed to install: ${(error as Error).message}`);
-    }
-  }
-}
-
-class SetupCursorHandler extends BaseCommand {
-  async run(options: SetupCursorOptions): Promise<void> {
-    const cwd = process.cwd();
-    const rulesPath = join(cwd, '.cursor', 'rules', 'tbd.mdc');
-
-    if (options.check) {
-      await this.checkCursorSetup(rulesPath);
-      return;
-    }
-
-    if (options.remove) {
-      await this.removeCursorRules(rulesPath);
-      return;
-    }
-
-    await this.installCursorRules(rulesPath);
-  }
-
-  private async checkCursorSetup(rulesPath: string): Promise<void> {
-    const rulesRelPath = '.cursor/rules/tbd.mdc';
-    try {
-      await access(rulesPath);
-      const diagnostic: DiagnosticResult = {
-        name: 'Cursor rules file',
-        status: 'ok',
-        path: rulesRelPath,
-      };
-      this.output.data({ installed: true, path: rulesPath }, () => {
-        const colors = this.output.getColors();
-        renderDiagnostics([diagnostic], colors);
-      });
-    } catch {
-      const diagnostic: DiagnosticResult = {
-        name: 'Cursor rules file',
-        status: 'warn',
-        message: 'not found',
-        path: rulesRelPath,
-        suggestion: 'Run: tbd setup cursor',
-      };
-      this.output.data({ installed: false, expectedPath: rulesPath }, () => {
-        const colors = this.output.getColors();
-        renderDiagnostics([diagnostic], colors);
-      });
-    }
-  }
-
-  private async removeCursorRules(rulesPath: string): Promise<void> {
-    try {
-      await rm(rulesPath);
-      this.output.success('Removed Cursor tbd rules file');
-    } catch {
-      this.output.info('Cursor rules file not found');
-    }
-  }
-
-  private async installCursorRules(rulesPath: string): Promise<void> {
-    if (this.checkDryRun('Would create Cursor rules file', { path: rulesPath })) {
-      return;
-    }
-
-    try {
-      // Ensure directory exists
-      await mkdir(dirname(rulesPath), { recursive: true });
-
-      const rulesContent = await getCursorRulesContent();
-      await writeFile(rulesPath, rulesContent);
-      this.output.success('Created Cursor rules file');
-      this.output.info(`  ${rulesPath}`);
-      this.output.info('');
-      this.output.info('Cursor will now see tbd workflow instructions.');
-      this.output.info('Use `tbd setup cursor --check` to verify installation');
-    } catch (error) {
-      throw new CLIError(`Failed to create rules file: ${(error as Error).message}`);
     }
   }
 }
@@ -671,7 +829,7 @@ class SetupCodexHandler extends BaseCommand {
           status: 'warn',
           message: 'exists but no tbd section',
           path: agentsRelPath,
-          suggestion: 'Run: tbd setup codex',
+          suggestion: 'Run: tbd setup --auto',
         };
         this.output.data({ installed: false, path: agentsPath, hastbdSection: false }, () => {
           const colors = this.output.getColors();
@@ -684,7 +842,7 @@ class SetupCodexHandler extends BaseCommand {
         status: 'warn',
         message: 'not found',
         path: agentsRelPath,
-        suggestion: 'Run: tbd setup codex',
+        suggestion: 'Run: tbd setup --auto',
       };
       this.output.data({ installed: false, expectedPath: agentsPath }, () => {
         const colors = this.output.getColors();
@@ -735,7 +893,7 @@ class SetupCodexHandler extends BaseCommand {
 
       let newContent: string;
 
-      const tbdSection = await getCodexTbdSection();
+      const tbdSection = await getCodexTbdSection(this.ctx.quiet);
 
       if (existingContent) {
         if (existingContent.includes(CODEX_BEGIN_MARKER)) {
@@ -751,7 +909,7 @@ class SetupCodexHandler extends BaseCommand {
         }
       } else {
         // Create new file
-        const newAgentsFile = await getCodexNewAgentsFile();
+        const newAgentsFile = await getCodexNewAgentsFile(this.ctx.quiet);
         await writeFile(agentsPath, newAgentsFile);
         this.output.success('Created new AGENTS.md with tbd integration');
       }
@@ -760,8 +918,6 @@ class SetupCodexHandler extends BaseCommand {
       this.output.info('');
       this.output.info('Codex and other AGENTS.md-compatible tools will automatically');
       this.output.info('read this file on session start.');
-      this.output.info('');
-      this.output.info('Use `tbd setup codex --check` to verify installation');
     } catch (error) {
       throw new CLIError(`Failed to update AGENTS.md: ${(error as Error).message}`);
     }
@@ -811,624 +967,318 @@ class SetupCodexHandler extends BaseCommand {
   }
 }
 
-// Create subcommands
-const claudeCommand = new Command('claude')
-  .description('Configure Claude Code (skill and hooks)')
-  .option('--check', 'Verify installation status')
-  .option('--remove', 'Remove tbd hooks')
-  .action(async (options, command) => {
-    const handler = new SetupClaudeHandler(command);
-    await handler.run(options);
-  });
-
-const cursorCommand = new Command('cursor')
-  .description('Configure Cursor IDE (rules file)')
-  .option('--check', 'Verify installation status')
-  .option('--remove', 'Remove tbd rules file')
-  .action(async (options, command) => {
-    const handler = new SetupCursorHandler(command);
-    await handler.run(options);
-  });
-
-const codexCommand = new Command('codex')
-  .description('Configure Codex and compatible tools (AGENTS.md)')
-  .option('--check', 'Verify installation status')
-  .option('--remove', 'Remove tbd section from AGENTS.md')
-  .action(async (options, command) => {
-    const handler = new SetupCodexHandler(command);
-    await handler.run(options);
-  });
-
 // ============================================================================
-// Beads Migration Command
+// Setup Default Handler (for --auto and --interactive modes)
 // ============================================================================
 
-interface SetupBeadsOptions {
-  confirm?: boolean;
+interface SetupDefaultOptions {
+  auto?: boolean;
+  interactive?: boolean;
+  fromBeads?: boolean;
+  prefix?: string;
 }
 
-// Markers for AGENTS.md beads section
-const BEADS_BEGIN_MARKER = '<!-- BEGIN BEADS INTEGRATION -->';
-const BEADS_END_MARKER = '<!-- END BEADS INTEGRATION -->';
+/**
+ * Default handler for `tbd setup` with --auto or --interactive flags.
+ *
+ * This implements the unified onboarding flow:
+ * - `tbd setup --auto`: Non-interactive setup with smart defaults (for agents)
+ * - `tbd setup --interactive`: Interactive setup with prompts (for humans)
+ *
+ * Decision tree:
+ * 1. Not in git repo → Error (git init first)
+ * 2. Has .tbd/ → Already initialized, check/update integrations
+ * 3. Has .beads/ → Beads migration flow
+ * 4. Fresh repo → Initialize + configure integrations
+ */
+class SetupDefaultHandler extends BaseCommand {
+  private cmd: Command;
 
-interface BeadsDisableItem {
-  source: string;
-  destination: string;
-  description: string;
-  type: 'directory' | 'file' | 'config-hooks';
-  exists: boolean;
-  details?: string;
-}
+  constructor(command: Command) {
+    super(command);
+    this.cmd = command;
+  }
 
-class SetupBeadsHandler extends BaseCommand {
-  async run(options: SetupBeadsOptions): Promise<void> {
+  async run(options: SetupDefaultOptions): Promise<void> {
     const colors = this.output.getColors();
     const cwd = process.cwd();
-    const disabledDir = join(cwd, '.beads-disabled');
 
-    // Collect all items that could be disabled
-    const items: BeadsDisableItem[] = [];
+    // Determine mode
+    const isAutoMode = options.auto === true;
+    // Note: options.interactive will be used when we add interactive prompts
 
-    // 1. Check .beads/ directory
+    // Header
+    console.log(colors.bold('tbd: Git-native issue tracking for AI agents and humans'));
+    console.log('');
+
+    // Check if in git repo
+    const inGitRepo = await isInGitRepo(cwd);
+    if (!inGitRepo) {
+      throw new CLIError('Not a git repository. Run `git init` first.');
+    }
+
+    // Check current state
+    const hasTbd = await isInitialized(cwd);
+    const hasBeads = await pathExists(join(cwd, '.beads'));
+
+    // Validate --from-beads flag requires .beads/ directory
+    if (options.fromBeads && !hasBeads) {
+      throw new CLIError(
+        'The --from-beads flag requires a .beads/ directory to migrate from.\n' +
+          'For fresh setup, use: tbd setup --auto --prefix=<name>',
+      );
+    }
+
+    console.log('Checking repository...');
+    console.log(`  ${colors.success('✓')} Git repository detected`);
+
+    if (hasTbd) {
+      // Already initialized flow - check for migrations
+      const { config, migrated, changes } = await readConfigWithMigration(cwd);
+      console.log(`  ${colors.success('✓')} tbd initialized (prefix: ${config.display.id_prefix})`);
+
+      // Persist migration if config format was updated
+      if (migrated) {
+        await writeConfig(cwd, config);
+        console.log(`  ${colors.success('✓')} Config migrated to latest format`);
+        for (const change of changes) {
+          console.log(`      ${colors.dim(change)}`);
+        }
+      }
+
+      console.log('');
+      await this.handleAlreadyInitialized(cwd, isAutoMode);
+    } else if ((hasBeads || options.fromBeads) && !options.prefix) {
+      // Beads migration flow (unless prefix override given)
+      console.log(`  ${colors.dim('✗')} tbd not initialized`);
+      console.log(`  ${colors.warn('!')} Beads detected (.beads/ directory found)`);
+      console.log('');
+      await this.handleBeadsMigration(cwd, isAutoMode, options);
+    } else {
+      // Fresh setup flow
+      console.log(`  ${colors.dim('✗')} tbd not initialized`);
+      console.log('');
+      await this.handleFreshSetup(cwd, isAutoMode, options);
+    }
+  }
+
+  private async handleAlreadyInitialized(_cwd: string, _isAutoMode: boolean): Promise<void> {
+    const colors = this.output.getColors();
+
+    console.log('Checking integrations...');
+
+    // Use SetupAutoHandler to configure integrations
+    const autoHandler = new SetupAutoHandler(this.cmd);
+    await autoHandler.run();
+
+    console.log('');
+    console.log(colors.success('All set!'));
+  }
+
+  private async handleBeadsMigration(
+    cwd: string,
+    isAutoMode: boolean,
+    options: SetupDefaultOptions,
+  ): Promise<void> {
+    const colors = this.output.getColors();
+
+    if (isAutoMode) {
+      console.log(`  ${colors.warn('!')} Beads detected - auto-migrating`);
+      console.log('');
+    }
+
+    // Get prefix from beads config or use provided --prefix
+    const beadsPrefix = await getBeadsPrefix(cwd);
+    const prefix = options.prefix ?? beadsPrefix;
+
+    if (!prefix) {
+      throw new CLIError(
+        'Could not read prefix from beads config.\n' +
+          'Please specify a prefix (2-4 letters recommended):\n' +
+          '  tbd setup --auto --prefix=tbd',
+      );
+    }
+
+    if (!isValidPrefix(prefix)) {
+      throw new CLIError(
+        'Invalid prefix format.\n' +
+          'Prefix must be 1-10 lowercase alphanumeric characters, starting with a letter.\n' +
+          'Recommended: 2-4 letters for clear, readable issue IDs.\n' +
+          'Please specify a valid prefix:\n' +
+          '  tbd setup --auto --prefix=tbd',
+      );
+    }
+
+    // Initialize tbd first
+    await this.initializeTbd(cwd, prefix);
+
+    // Import beads issues from the JSONL file
+    console.log('Importing from Beads...');
     const beadsDir = join(cwd, '.beads');
-    const beadsDirExists = await pathExists(beadsDir);
-    if (beadsDirExists) {
-      const stats = await this.getDirectoryStats(beadsDir);
-      items.push({
-        source: '.beads/',
-        destination: '.beads-disabled/.beads/',
-        description: 'Beads data directory',
-        type: 'directory',
-        exists: true,
-        details: `${stats.files} files`,
-      });
-    }
+    const jsonlPath = join(beadsDir, 'issues.jsonl');
 
-    // 2. Check .beads-hooks/ directory
-    const beadsHooksDir = join(cwd, '.beads-hooks');
-    const beadsHooksDirExists = await pathExists(beadsHooksDir);
-    if (beadsHooksDirExists) {
-      const stats = await this.getDirectoryStats(beadsHooksDir);
-      items.push({
-        source: '.beads-hooks/',
-        destination: '.beads-disabled/.beads-hooks/',
-        description: 'Beads git hooks',
-        type: 'directory',
-        exists: true,
-        details: `${stats.files} files`,
-      });
-    }
-
-    // 3. Check .cursor/rules/beads.mdc
-    const cursorBeadsFile = join(cwd, '.cursor', 'rules', 'beads.mdc');
-    const cursorBeadsExists = await pathExists(cursorBeadsFile);
-    if (cursorBeadsExists) {
-      items.push({
-        source: '.cursor/rules/beads.mdc',
-        destination: '.beads-disabled/.cursor/rules/beads.mdc',
-        description: 'Cursor IDE Beads rules',
-        type: 'file',
-        exists: true,
-      });
-    }
-
-    // 4. Check .claude/settings.local.json for bd hooks
-    const claudeLocalSettings = join(cwd, '.claude', 'settings.local.json');
-    const claudeHooksInfo = await this.checkClaudeLocalHooks(claudeLocalSettings);
-    if (claudeHooksInfo.hasBeadsHooks) {
-      items.push({
-        source: '.claude/settings.local.json',
-        destination: '.beads-disabled/.claude/settings.local.json',
-        description: 'Claude Code project hooks with bd commands',
-        type: 'config-hooks',
-        exists: true,
-        details: claudeHooksInfo.hookCount + ' bd hook(s)',
-      });
-    }
-
-    // 5. Check AGENTS.md for beads section
-    const agentsMd = join(cwd, 'AGENTS.md');
-    const agentsMdInfo = await this.checkAgentsMdBeads(agentsMd);
-    if (agentsMdInfo.hasBeadsSection) {
-      items.push({
-        source: 'AGENTS.md',
-        destination: '.beads-disabled/AGENTS.md',
-        description: 'AGENTS.md with Beads section',
-        type: 'file',
-        exists: true,
-        details: 'contains beads integration markers',
-      });
-    }
-
-    // 6. Check .gitattributes for beads merge driver config
-    const gitattributes = join(cwd, '.gitattributes');
-    const gitattributesInfo = await this.checkGitattributesBeads(gitattributes);
-    if (gitattributesInfo.hasBeadsLines) {
-      items.push({
-        source: '.gitattributes',
-        destination: '.beads-disabled/.gitattributes',
-        description: '.gitattributes with Beads merge driver',
-        type: 'config-hooks',
-        exists: true,
-        details: `${gitattributesInfo.lineCount} beads-related line(s)`,
-      });
-    }
-
-    // Nothing to disable?
-    if (items.length === 0) {
-      this.output.info('No Beads files found to disable.');
-      return;
-    }
-
-    // Show what will be moved
-    console.log(colors.bold('The following Beads files will be moved to .beads-disabled/:'));
-    console.log('');
-    for (const item of items) {
-      const details = item.details ? colors.dim(` (${item.details})`) : '';
-      console.log(`  ${colors.warn(item.source)} → ${colors.dim(item.destination)}${details}`);
-      console.log(`    ${colors.dim(item.description)}`);
-    }
-    console.log('');
-
-    if (!options.confirm) {
-      console.log(`This preserves all Beads data for potential rollback.`);
-      console.log('');
-      console.log(`To confirm, run: ${colors.dim('tbd setup beads --disable --confirm')}`);
-      console.log('');
-      console.log(colors.dim('After disabling Beads, run:'));
-      console.log(colors.dim('  tbd setup claude   # Install tbd hooks'));
-      console.log(colors.dim('  tbd setup cursor   # Install tbd Cursor rules (optional)'));
-      console.log(colors.dim('  tbd setup codex    # Update AGENTS.md for tbd (optional)'));
-      return;
-    }
-
-    // Check dry-run
-    if (
-      this.checkDryRun('Would disable Beads and move files', { items: items.map((i) => i.source) })
-    ) {
-      return;
-    }
-
-    // Perform the disable
-    this.output.info('Disabling Beads...');
-
-    // Stop the Beads daemon first (if running)
     try {
-      const result = execSync('bd daemon stop', {
-        encoding: 'utf-8',
-        stdio: ['pipe', 'pipe', 'pipe'],
-        timeout: 5000,
+      await access(jsonlPath);
+      // Import directly from the JSONL file (tbd is already initialized)
+      const result = spawnSync('tbd', ['import', jsonlPath, '--verbose'], {
+        cwd,
+        stdio: 'inherit',
       });
-      // Check if daemon was actually stopped
-      if (result.includes('stopped') || result.includes('Stopped')) {
-        console.log(`  ${colors.success('✓')} Stopped Beads daemon`);
-      } else {
-        console.log(`  ${colors.dim('○')} Beads daemon was not running`);
+      if (result.status !== 0) {
+        console.log(colors.warn('Warning: Some issues may not have imported correctly'));
       }
-    } catch (error) {
-      const errorMessage = (error as { message?: string }).message ?? '';
-      if (errorMessage.includes('not running') || errorMessage.includes('No daemon')) {
-        console.log(`  ${colors.dim('○')} Beads daemon was not running`);
-      } else if (errorMessage.includes('command not found') || errorMessage.includes('ENOENT')) {
-        console.log(`  ${colors.dim('○')} bd command not available (skipping daemon stop)`);
-      } else {
-        console.log(
-          `  ${colors.warn('⚠')} Could not stop Beads daemon: ${errorMessage.split('\n')[0]}`,
-        );
-      }
-    }
-
-    // Create .beads-disabled/ directory
-    await mkdir(disabledDir, { recursive: true });
-
-    // Track successful operations for RESTORE.md
-    const completed: { source: string; destination: string; action: string; restoreCmd: string }[] =
-      [];
-
-    for (const item of items) {
-      const sourcePath = join(cwd, item.source);
-      const destPath = join(cwd, item.destination);
-
-      try {
-        if (item.type === 'directory') {
-          // Ensure destination parent directory exists for rename
-          await mkdir(dirname(destPath), { recursive: true });
-          // Move directory
-          await rename(sourcePath, destPath);
-          console.log(`  ${colors.success('✓')} Moved ${item.source}`);
-          completed.push({
-            source: item.source,
-            destination: item.destination,
-            action: 'moved directory',
-            restoreCmd: `mv ${item.destination} ${item.source}`,
-          });
-        } else if (item.type === 'file') {
-          // Backup file using atomically (creates parent dirs automatically)
-          const content = await readFile(sourcePath, 'utf-8');
-          await writeFile(destPath, content);
-
-          if (item.source === 'AGENTS.md') {
-            // Remove beads section from AGENTS.md
-            await this.removeBeadsSectionFromAgentsMd(agentsMd);
-            console.log(
-              `  ${colors.success('✓')} Backed up and removed Beads section from ${item.source}`,
-            );
-            completed.push({
-              source: item.source,
-              destination: item.destination,
-              action: 'backed up original, removed Beads section from current',
-              restoreCmd: `cp ${item.destination} ${item.source}`,
-            });
-          } else {
-            // Move file (after backup)
-            await rm(sourcePath);
-            console.log(`  ${colors.success('✓')} Moved ${item.source}`);
-            completed.push({
-              source: item.source,
-              destination: item.destination,
-              action: 'moved file',
-              restoreCmd: `mv ${item.destination} ${item.source}`,
-            });
-          }
-        } else if (item.type === 'config-hooks') {
-          // Backup file using atomically (creates parent dirs automatically)
-          const content = await readFile(sourcePath, 'utf-8');
-          await writeFile(destPath, content);
-
-          if (item.source === '.claude/settings.local.json') {
-            // Remove bd hooks from local settings
-            await this.removeBeadsHooksFromClaudeSettings(claudeLocalSettings);
-            console.log(
-              `  ${colors.success('✓')} Backed up and removed bd hooks from ${item.source}`,
-            );
-            completed.push({
-              source: item.source,
-              destination: item.destination,
-              action: 'backed up original, removed bd hooks from current',
-              restoreCmd: `cp ${item.destination} ${item.source}`,
-            });
-          } else if (item.source === '.gitattributes') {
-            // Remove beads lines from .gitattributes
-            await this.removeBeadsLinesFromGitattributes(gitattributes);
-            console.log(
-              `  ${colors.success('✓')} Backed up and removed beads lines from ${item.source}`,
-            );
-            completed.push({
-              source: item.source,
-              destination: item.destination,
-              action: 'backed up original, removed beads merge driver lines',
-              restoreCmd: `cp ${item.destination} ${item.source}`,
-            });
-          }
-        }
-      } catch (error) {
-        console.log(
-          `  ${colors.warn('⚠')} Could not process ${item.source}: ${(error as Error).message}`,
-        );
-      }
-    }
-
-    // Write RESTORE.md with clear restore instructions
-    if (completed.length > 0) {
-      const restoreMd = this.generateRestoreMd(completed);
-      const restorePath = join(disabledDir, 'RESTORE.md');
-      await writeFile(restorePath, restoreMd);
-      console.log(`  ${colors.success('✓')} Created RESTORE.md with rollback instructions`);
-    }
-
-    console.log('');
-    this.output.success('Beads has been disabled.');
-    console.log('');
-    console.log('All Beads files have been moved to .beads-disabled/');
-    console.log(colors.dim('See .beads-disabled/RESTORE.md for rollback instructions.'));
-    console.log('');
-    console.log(colors.dim('Next steps:'));
-    console.log(colors.dim('  tbd setup claude   # Install tbd hooks'));
-    console.log(colors.dim('  tbd setup cursor   # Install tbd Cursor rules (optional)'));
-    console.log(colors.dim('  tbd setup codex    # Update AGENTS.md for tbd (optional)'));
-  }
-
-  private async getDirectoryStats(dirPath: string): Promise<{ files: number; size: number }> {
-    let files = 0;
-    let size = 0;
-
-    const walk = async (dir: string): Promise<void> => {
-      try {
-        const entries = await readdir(dir, { withFileTypes: true });
-        for (const entry of entries) {
-          const fullPath = join(dir, entry.name);
-          if (entry.isDirectory()) {
-            await walk(fullPath);
-          } else {
-            files++;
-            try {
-              const stats = await stat(fullPath);
-              size += stats.size;
-            } catch {
-              // Ignore stat errors
-            }
-          }
-        }
-      } catch {
-        // Ignore errors
-      }
-    };
-
-    await walk(dirPath);
-    return { files, size };
-  }
-
-  private async checkClaudeLocalHooks(
-    settingsPath: string,
-  ): Promise<{ hasBeadsHooks: boolean; hookCount: number }> {
-    try {
-      await access(settingsPath);
-      const content = await readFile(settingsPath, 'utf-8');
-      const settings = JSON.parse(content) as Record<string, unknown>;
-
-      const hooks = settings.hooks as Record<string, unknown[]> | undefined;
-      if (!hooks) {
-        return { hasBeadsHooks: false, hookCount: 0 };
-      }
-
-      let hookCount = 0;
-      for (const hookType of Object.keys(hooks)) {
-        const hookArray = hooks[hookType] as { hooks?: { command?: string }[] }[];
-        for (const hookEntry of hookArray) {
-          if (hookEntry.hooks) {
-            for (const hook of hookEntry.hooks) {
-              if (
-                hook.command &&
-                (hook.command.includes('bd ') || hook.command.includes('bd prime'))
-              ) {
-                hookCount++;
-              }
-            }
-          }
-        }
-      }
-
-      return { hasBeadsHooks: hookCount > 0, hookCount };
     } catch {
-      return { hasBeadsHooks: false, hookCount: 0 };
+      console.log(colors.dim('  No issues.jsonl found - skipping import'));
     }
+
+    // Disable beads
+    await this.disableBeads(cwd);
+
+    console.log('');
+    console.log('Configuring integrations...');
+
+    // Configure integrations
+    const autoHandler = new SetupAutoHandler(this.cmd);
+    await autoHandler.run();
+
+    console.log('');
+    console.log(colors.success('Setup complete!'));
+
+    this.showWhatsNext(colors);
+
+    // Show dashboard after setup
+    spawnSync('tbd', ['prime'], { stdio: 'inherit' });
   }
 
-  private async removeBeadsHooksFromClaudeSettings(settingsPath: string): Promise<void> {
-    const content = await readFile(settingsPath, 'utf-8');
-    const settings = JSON.parse(content) as Record<string, unknown>;
+  private async handleFreshSetup(
+    cwd: string,
+    isAutoMode: boolean,
+    options: SetupDefaultOptions,
+  ): Promise<void> {
+    const colors = this.output.getColors();
 
-    const hooks = settings.hooks as Record<string, unknown[]> | undefined;
-    if (!hooks) return;
+    // Require --prefix for fresh setup (no auto-detection)
+    const prefix = options.prefix;
 
-    // Filter out bd hooks from each hook type
-    for (const hookType of Object.keys(hooks)) {
-      const hookArray = hooks[hookType] as {
-        matcher?: string;
-        hooks?: { type?: string; command?: string }[];
-      }[];
-      hooks[hookType] = hookArray
-        .map((entry) => {
-          if (!entry.hooks) return entry;
-          entry.hooks = entry.hooks.filter(
-            (hook) =>
-              !hook.command ||
-              (!hook.command.includes('bd ') && !hook.command.includes('bd prime')),
-          );
-          return entry;
-        })
-        .filter((entry) => !entry.hooks || entry.hooks.length > 0);
-
-      if (hooks[hookType].length === 0) {
-        delete hooks[hookType];
-      }
+    if (!prefix) {
+      throw new CLIError(
+        '--prefix is required for tbd setup --auto\n\n' +
+          'The --prefix flag specifies your project name for issue IDs.\n' +
+          'Use a short 2-4 letter prefix so issue IDs stand out clearly.\n\n' +
+          'Example:\n' +
+          '  tbd setup --auto --prefix=tbd    # Issues: tbd-a1b2\n' +
+          '  tbd setup --auto --prefix=myp    # Issues: myp-c3d4\n\n' +
+          'Note: If migrating from beads, the prefix is automatically read from your beads config.',
+      );
     }
 
-    if (Object.keys(hooks).length === 0) {
-      delete settings.hooks;
+    if (!isValidPrefix(prefix)) {
+      throw new CLIError(
+        'Invalid prefix format.\n' +
+          'Prefix must be 1-10 lowercase alphanumeric characters, starting with a letter.\n' +
+          'Recommended: 2-4 letters for clear, readable issue IDs.\n\n' +
+          'Example:\n' +
+          '  tbd setup --auto --prefix=tbd',
+      );
     }
 
-    await writeFile(settingsPath, JSON.stringify(settings, null, 2) + '\n');
-  }
+    console.log(`Initializing with prefix "${prefix}"...`);
 
-  private async checkAgentsMdBeads(agentsMdPath: string): Promise<{ hasBeadsSection: boolean }> {
-    try {
-      await access(agentsMdPath);
-      const content = await readFile(agentsMdPath, 'utf-8');
-      return { hasBeadsSection: content.includes(BEADS_BEGIN_MARKER) };
-    } catch {
-      return { hasBeadsSection: false };
-    }
-  }
+    await this.initializeTbd(cwd, prefix);
 
-  private async checkGitattributesBeads(
-    gitattributesPath: string,
-  ): Promise<{ hasBeadsLines: boolean; lineCount: number }> {
-    try {
-      await access(gitattributesPath);
-      const content = await readFile(gitattributesPath, 'utf-8');
-      const lines = content.split('\n');
-      const beadsLines = lines.filter((line) => this.isBeadsGitattributeLine(line));
-      return { hasBeadsLines: beadsLines.length > 0, lineCount: beadsLines.length };
-    } catch {
-      return { hasBeadsLines: false, lineCount: 0 };
-    }
+    console.log('');
+    console.log('Configuring integrations...');
+
+    // Configure integrations
+    const autoHandler = new SetupAutoHandler(this.cmd);
+    await autoHandler.run();
+
+    console.log('');
+    console.log(colors.success('Setup complete!'));
+
+    this.showWhatsNext(colors);
+
+    // Show dashboard after setup
+    spawnSync('tbd', ['prime'], { stdio: 'inherit' });
   }
 
   /**
-   * Check if a .gitattributes line is beads-related.
-   * Matches lines containing:
-   * - merge=beads (merge driver)
-   * - .beads/ (beads directory patterns)
-   * - References to beads files
+   * Show "What's Next" guidance after setup completion.
+   * Per spec: Include key actions to help users get started.
    */
-  private isBeadsGitattributeLine(line: string): boolean {
-    const trimmed = line.trim();
-    // Skip empty lines and comments
-    if (!trimmed || trimmed.startsWith('#')) {
-      return false;
-    }
-    // Check for beads-related patterns
-    return (
-      trimmed.includes('merge=beads') ||
-      trimmed.includes('.beads/') ||
-      trimmed.includes('.beads ') ||
-      trimmed.startsWith('.beads')
-    );
+  private showWhatsNext(colors: ReturnType<typeof this.output.getColors>): void {
+    console.log('');
+    console.log(colors.bold("WHAT'S NEXT"));
+    console.log('');
+    console.log('  Track issues:       tbd create "Description" --type=bug|task|feature');
+    console.log('  Find work:          tbd ready');
+    console.log('  Plan features:      tbd shortcut new-plan-spec');
+    console.log('  Coding standards:   tbd guidelines typescript-rules');
+    console.log('  All shortcuts:      tbd shortcut --list');
+    console.log('');
   }
 
-  private async removeBeadsLinesFromGitattributes(gitattributesPath: string): Promise<void> {
-    const content = await readFile(gitattributesPath, 'utf-8');
-    const lines = content.split('\n');
+  private async initializeTbd(cwd: string, prefix: string): Promise<void> {
+    const colors = this.output.getColors();
 
-    // Filter out beads-related lines, but keep comments that precede non-beads lines
-    const result: string[] = [];
-    let pendingComments: string[] = [];
+    // 1. Create .tbd/ directory with config.yml
+    await initConfig(cwd, VERSION, prefix);
+    console.log(`  ${colors.success('✓')} Created .tbd/config.yml`);
 
-    for (const line of lines) {
-      const trimmed = line.trim();
-
-      if (!trimmed || trimmed.startsWith('#')) {
-        // Collect comments/empty lines
-        pendingComments.push(line);
-      } else if (this.isBeadsGitattributeLine(line)) {
-        // Beads line - discard it and any preceding comments that were about beads
-        // Check if pending comments mention beads
-        const nonBeadsComments = pendingComments.filter(
-          (c) =>
-            !c.toLowerCase().includes('beads') &&
-            !c.toLowerCase().includes('bd merge') &&
-            !c.toLowerCase().includes('merge driver'),
-        );
-        result.push(...nonBeadsComments);
-        pendingComments = [];
-      } else {
-        // Non-beads content line - keep it and any pending comments
-        result.push(...pendingComments);
-        result.push(line);
-        pendingComments = [];
-      }
+    // 2. Create/update .tbd/.gitignore (idempotent)
+    // NOTE: Pattern re-addition is intentional - these are tool-managed files
+    // that are regenerated from the npm package on every setup. If a user removes
+    // a pattern, we re-add it because tracking these directories in git would
+    // cause noise on every tbd upgrade.
+    const tbdGitignoreResult = await ensureGitignorePatterns(join(cwd, TBD_DIR, '.gitignore'), [
+      '# Synced documentation cache (regenerated by tbd docs --refresh)',
+      'docs/',
+      '',
+      '# Hidden worktree for tbd-sync branch',
+      `${WORKTREE_DIR_NAME}/`,
+      '',
+      '# Data sync directory (only exists in worktree)',
+      `${DATA_SYNC_DIR_NAME}/`,
+      '',
+      '# Local state',
+      'state.yml',
+      '',
+      '# Temporary files',
+      '*.tmp',
+      '*.temp',
+    ]);
+    if (tbdGitignoreResult.created) {
+      console.log(`  ${colors.success('✓')} Created .tbd/.gitignore`);
+    } else if (tbdGitignoreResult.added.length > 0) {
+      console.log(`  ${colors.success('✓')} Updated .tbd/.gitignore`);
     }
+    // else: file is up-to-date, no message needed
 
-    // Add any trailing comments/empty lines that aren't beads-related
-    const nonBeadsTrailing = pendingComments.filter(
-      (c) =>
-        !c.toLowerCase().includes('beads') &&
-        !c.toLowerCase().includes('bd merge') &&
-        !c.toLowerCase().includes('merge driver'),
-    );
-    result.push(...nonBeadsTrailing);
-
-    const newContent = result.join('\n');
-
-    // If file is now empty (only whitespace), we could delete it
-    // but it's safer to leave it with just whitespace
-    await writeFile(gitattributesPath, newContent);
+    // 3. Initialize worktree for sync branch
+    try {
+      await initWorktree(cwd);
+      console.log(`  ${colors.success('✓')} Initialized sync branch`);
+    } catch {
+      // Non-fatal - sync will work, just not optimally
+      console.log(`  ${colors.dim('○')} Sync branch will be created on first sync`);
+    }
   }
 
-  private async removeBeadsSectionFromAgentsMd(agentsMdPath: string): Promise<void> {
-    const content = await readFile(agentsMdPath, 'utf-8');
+  private async disableBeads(cwd: string): Promise<void> {
+    const colors = this.output.getColors();
 
-    const startIdx = content.indexOf(BEADS_BEGIN_MARKER);
-    const endIdx = content.indexOf(BEADS_END_MARKER);
+    // Move .beads to .beads-disabled
+    const beadsDir = join(cwd, '.beads');
+    const disabledDir = join(cwd, '.beads-disabled');
 
-    if (startIdx === -1 || endIdx === -1 || startIdx > endIdx) {
-      return; // No valid markers found
+    try {
+      await rename(beadsDir, disabledDir);
+      console.log(`  ${colors.success('✓')} Disabled beads (moved to .beads-disabled/)`);
+    } catch {
+      console.log(`  ${colors.dim('○')} Could not move .beads directory`);
     }
-
-    // Find the end of the end marker line
-    let endOfEndMarker = endIdx + BEADS_END_MARKER.length;
-    const nextNewline = content.indexOf('\n', endOfEndMarker);
-    if (nextNewline !== -1) {
-      endOfEndMarker = nextNewline + 1;
-    }
-
-    // Also remove leading blank lines before the section
-    let trimStart = startIdx;
-    while (trimStart > 0 && (content[trimStart - 1] === '\n' || content[trimStart - 1] === '\r')) {
-      trimStart--;
-    }
-
-    const newContent = content.slice(0, trimStart) + content.slice(endOfEndMarker);
-
-    // If file is now empty or just whitespace, leave it as is (don't delete)
-    await writeFile(agentsMdPath, newContent);
-  }
-
-  private generateRestoreMd(
-    completed: { source: string; destination: string; action: string; restoreCmd: string }[],
-  ): string {
-    const timestamp = new Date().toISOString();
-    const lines: string[] = [
-      '# Beads Restore Instructions',
-      '',
-      `Beads was disabled on: ${timestamp}`,
-      '',
-      '## What Was Changed',
-      '',
-      '| Original Location | Backup Location | Action |',
-      '|-------------------|-----------------|--------|',
-    ];
-
-    for (const item of completed) {
-      lines.push(`| \`${item.source}\` | \`${item.destination}\` | ${item.action} |`);
-    }
-
-    lines.push('');
-    lines.push('## To Restore Beads');
-    lines.push('');
-    lines.push('Run the following commands from your project root:');
-    lines.push('');
-    lines.push('```bash');
-
-    for (const item of completed) {
-      lines.push(`# Restore ${item.source}`);
-      lines.push(item.restoreCmd);
-      lines.push('');
-    }
-
-    lines.push('# Optionally remove this backup directory');
-    lines.push('rm -rf .beads-disabled/');
-    lines.push('```');
-    lines.push('');
-    lines.push('## Notes');
-    lines.push('');
-    lines.push('- For files that had content removed (AGENTS.md, .claude/settings.local.json),');
-    lines.push('  restoring will overwrite current content with the backed-up version.');
-    lines.push('- If you have made changes to these files since disabling Beads,');
-    lines.push('  you may need to manually merge the Beads content back in.');
-    lines.push('- After restoring, you may need to restart the Beads daemon: `bd daemon start`');
-    lines.push('');
-
-    return lines.join('\n');
   }
 }
-
-interface SetupBeadsCommandOptions {
-  disable?: boolean;
-  confirm?: boolean;
-}
-
-const beadsCommand = new Command('beads')
-  .description('Disable Beads so you only use tbd')
-  .option('--disable', 'Disable Beads and move files to .beads-disabled/')
-  .option('--confirm', 'Confirm the operation (required to proceed)')
-  .action(async (options: SetupBeadsCommandOptions, command) => {
-    if (options.disable) {
-      const handler = new SetupBeadsHandler(command);
-      await handler.run(options);
-    } else {
-      // Show usage if --disable not specified
-      console.log('Usage: tbd setup beads --disable [--confirm]');
-      console.log('');
-      console.log('Options:');
-      console.log('  --disable   Disable Beads and move files to .beads-disabled/');
-      console.log('  --confirm   Confirm the operation (required to proceed)');
-      console.log('');
-      console.log('This command helps migrate from Beads to tbd by safely');
-      console.log('moving Beads configuration files to a backup directory.');
-    }
-  });
 
 // ============================================================================
 // Auto Setup Command
@@ -1450,20 +1300,126 @@ class SetupAutoHandler extends BaseCommand {
     this.cmd = command;
   }
 
+  /**
+   * Clean up legacy scripts from project .claude/scripts/ directory.
+   * This runs during any setup, regardless of whether Claude Code is detected,
+   * since we want to clean up old project-level scripts that are no longer needed.
+   */
+  private async cleanupLegacyProjectScripts(cwd: string): Promise<string[]> {
+    const scriptsDir = join(cwd, '.claude', 'scripts');
+    const scriptsRemoved: string[] = [];
+
+    try {
+      await access(scriptsDir);
+      const entries = await readdir(scriptsDir, { withFileTypes: true });
+
+      for (const entry of entries) {
+        if (entry.isFile()) {
+          const filename = entry.name;
+          // Check against known legacy script names
+          if (LEGACY_TBD_SCRIPTS.includes(filename)) {
+            try {
+              await rm(join(scriptsDir, filename));
+              scriptsRemoved.push(filename);
+            } catch {
+              // Ignore removal errors
+            }
+          }
+        }
+      }
+    } catch {
+      // Scripts directory doesn't exist, nothing to clean
+    }
+
+    return scriptsRemoved;
+  }
+
+  /**
+   * Filter out hook entries that match legacy tbd patterns from project settings.
+   */
+  private filterLegacyHooks(
+    hookList: { hooks?: { command?: string }[] }[],
+  ): { hooks?: { command?: string }[] }[] {
+    return hookList.filter((entry) => {
+      // Check if any hook command matches legacy patterns
+      const hasLegacyCommand = entry.hooks?.some((hook) => {
+        if (!hook.command) return false;
+        return LEGACY_TBD_HOOK_PATTERNS.some((pattern) => pattern.test(hook.command!));
+      });
+      // Keep entries that DON'T have legacy commands
+      return !hasLegacyCommand;
+    });
+  }
+
+  /**
+   * Clean up legacy hooks from project .claude/settings.json.
+   * This runs during any setup, regardless of whether Claude Code is detected.
+   */
+  private async cleanupLegacyProjectHooks(cwd: string): Promise<number> {
+    const projectSettingsPath = join(cwd, '.claude', 'settings.json');
+    let hooksRemoved = 0;
+
+    try {
+      await access(projectSettingsPath);
+      const content = await readFile(projectSettingsPath, 'utf-8');
+      const settings = JSON.parse(content) as Record<string, unknown>;
+
+      if (settings.hooks) {
+        const hooks = settings.hooks as Record<string, unknown>;
+        let modified = false;
+
+        for (const hookType of ['SessionStart', 'PreCompact', 'PostToolUse']) {
+          if (hooks[hookType]) {
+            const hookList = hooks[hookType] as { hooks?: { command?: string }[] }[];
+            const filtered = this.filterLegacyHooks(hookList);
+            if (filtered.length !== hookList.length) {
+              hooksRemoved += hookList.length - filtered.length;
+              hooks[hookType] = filtered.length > 0 ? filtered : undefined;
+              if (!hooks[hookType]) delete hooks[hookType];
+              modified = true;
+            }
+          }
+        }
+
+        if (modified) {
+          if (Object.keys(hooks).length === 0) {
+            delete settings.hooks;
+          }
+          await writeFile(projectSettingsPath, JSON.stringify(settings, null, 2) + '\n');
+        }
+      }
+    } catch {
+      // Project settings file doesn't exist, nothing to clean
+    }
+
+    return hooksRemoved;
+  }
+
   async run(): Promise<void> {
     const colors = this.output.getColors();
     const cwd = process.cwd();
     const results: AutoSetupResult[] = [];
 
+    // Clean up legacy project-level scripts and hooks FIRST,
+    // regardless of whether any coding agent is detected.
+    // This ensures old tbd scripts are removed even if user switches tools.
+    const scriptsRemoved = await this.cleanupLegacyProjectScripts(cwd);
+    const hooksRemoved = await this.cleanupLegacyProjectHooks(cwd);
+    if (scriptsRemoved.length > 0 || hooksRemoved > 0) {
+      const parts = [];
+      if (scriptsRemoved.length > 0) parts.push(`${scriptsRemoved.length} script(s)`);
+      if (hooksRemoved > 0) parts.push(`${hooksRemoved} hook(s)`);
+      console.log(colors.dim(`Cleaned up legacy ${parts.join(' and ')}`));
+    }
+
+    // Sync docs using DocSync
+    await this.syncDocs(cwd);
+
     // Detect and set up Claude Code
     const claudeResult = await this.setupClaudeIfDetected(cwd);
     results.push(claudeResult);
 
-    // Detect and set up Cursor
-    const cursorResult = await this.setupCursorIfDetected(cwd);
-    results.push(cursorResult);
-
-    // Detect and set up Codex
+    // Detect and set up Codex/AGENTS.md (also used by Cursor since v1.6)
     const codexResult = await this.setupCodexIfDetected(cwd);
     results.push(codexResult);
 
@@ -1496,10 +1452,79 @@ class SetupAutoHandler extends BaseCommand {
     if (installed.length === 0 && alreadyInstalled.length === 0) {
       console.log(colors.dim('No coding agents detected.'));
       console.log('');
-      console.log('To manually configure:');
-      console.log('  tbd setup claude   # Claude Code hooks');
-      console.log('  tbd setup cursor   # Cursor IDE rules');
-      console.log('  tbd setup codex    # AGENTS.md for Codex');
+      console.log(
+        'Install a coding agent (Claude Code, Codex, or any AGENTS.md-compatible tool) and re-run:',
+      );
+      console.log('  tbd setup --auto');
+    }
+  }
+
+  /**
+   * Sync docs using DocSync.
+   * Merges default bundled docs with user's doc_cache config, then syncs.
+   * This ensures new bundled docs from tbd updates are added while
+   * preserving user's custom sources and overrides.
+   */
+  private async syncDocs(cwd: string): Promise<void> {
+    const colors = this.output.getColors();
+
+    // Read config
+    const config = await readConfig(cwd);
+
+    // Merge user's config with defaults (ensures new bundled docs are added)
+    const defaults = await generateDefaultDocCacheConfig();
+    const currentFiles = config.docs_cache?.files;
+    const filesConfig = mergeDocCacheConfig(currentFiles, defaults);
+
+    // Check if config changed (new defaults added)
+    const configUpdated =
+      !currentFiles ||
+      Object.keys(filesConfig).length !== Object.keys(currentFiles).length ||
+      Object.keys(filesConfig).some((k) => currentFiles?.[k] !== filesConfig[k]);
+
+    if (configUpdated) {
+      config.docs_cache = {
+        lookup_path: config.docs_cache?.lookup_path ?? [
+          '.tbd/docs/shortcuts/system',
+          '.tbd/docs/shortcuts/standard',
+        ],
+        files: filesConfig,
+      };
+    }
+
+    // Ensure docs directories exist
+    await mkdir(join(cwd, TBD_SHORTCUTS_SYSTEM), { recursive: true });
+    await mkdir(join(cwd, TBD_SHORTCUTS_STANDARD), { recursive: true });
+    await mkdir(join(cwd, TBD_GUIDELINES_DIR), { recursive: true });
+    await mkdir(join(cwd, TBD_TEMPLATES_DIR), { recursive: true });
+
+    // Sync docs
+    const sync = new DocSync(cwd, filesConfig);
+    const result = await sync.sync();
+
+    // Update last sync time
+    await updateLocalState(cwd, {
+      last_doc_sync_at: new Date().toISOString(),
+    });
+
+    // Write updated config if docs_cache.files was generated
+    if (configUpdated) {
+      await writeConfig(cwd, config);
+      console.log(colors.dim('Generated docs_cache config'));
+    }
+
+    // Report sync results
+    const total = result.added.length + result.updated.length;
+    if (total > 0) {
+      console.log(colors.dim(`Synced ${total} doc(s) to ${TBD_DOCS_DIR}/`));
+    }
+    if (result.removed.length > 0) {
+      console.log(colors.dim(`Removed ${result.removed.length} outdated doc(s)`));
+    }
+    if (result.errors.length > 0) {
+      for (const { path, error } of result.errors) {
+        console.log(colors.warn(`Warning: ${path}: ${error}`));
+      }
     }
   }
 
@@ -1539,49 +1564,15 @@ class SetupAutoHandler extends BaseCommand {
           );
           if (hasTbdHook && (await pathExists(skillPath))) {
             result.alreadyInstalled = true;
-            result.installed = true;
-            return result;
+            // Note: We still run the handler to update the skill file content
+            // even if hooks are already installed. This ensures users get the
+            // latest skill file when running `tbd setup --auto`.
           }
         }
       }
 
-      // Install Claude Code setup
+      // Install/update Claude Code setup (always runs to update skill file)
       const handler = new SetupClaudeHandler(this.cmd);
-      await handler.run({});
-      result.installed = true;
-    } catch (error) {
-      result.error = (error as Error).message;
-    }
-
-    return result;
-  }
-
-  private async setupCursorIfDetected(cwd: string): Promise<AutoSetupResult> {
-    const result: AutoSetupResult = {
-      name: 'Cursor IDE',
-      detected: false,
-      installed: false,
-      alreadyInstalled: false,
-    };
-
-    // Detect Cursor: check for .cursor/ directory
-    const cursorDir = join(cwd, '.cursor');
-    if (!(await pathExists(cursorDir))) {
-      return result;
-    }
-
-    result.detected = true;
-
-    // Check if already installed
-    const rulesPath = join(cwd, '.cursor', 'rules', 'tbd.mdc');
-    if (await pathExists(rulesPath)) {
-      result.alreadyInstalled = true;
-      result.installed = true;
-      return result;
-    }
-
-    try {
-      const handler = new SetupCursorHandler(this.cmd);
       await handler.run({});
       result.installed = true;
     } catch (error) {
@@ -1615,12 +1606,14 @@ class SetupAutoHandler extends BaseCommand {
       const content = await readFile(agentsPath, 'utf-8');
       if (content.includes('BEGIN TBD INTEGRATION')) {
         result.alreadyInstalled = true;
-        result.installed = true;
-        return result;
+        // Note: We still run the handler to update the AGENTS.md content
+        // even if tbd section exists. This ensures users get the latest
+        // content when running `tbd setup --auto`.
       }
     }
 
     try {
+      // Install/update Codex AGENTS.md (always runs to update content)
       const handler = new SetupCodexHandler(this.cmd);
       await handler.run({});
       result.installed = true;
@@ -1632,18 +1625,47 @@ class SetupAutoHandler extends BaseCommand {
   }
 }
 
-const autoCommand = new Command('auto')
-  .description('Auto-detect and configure integrations (Claude, Cursor, Codex)')
-  .action(async (_options, command) => {
-    const handler = new SetupAutoHandler(command);
-    await handler.run();
-  });
-
 // Main setup command
 export const setupCommand = new Command('setup')
   .description('Configure tbd integration with editors and tools')
-  .addCommand(autoCommand)
-  .addCommand(claudeCommand)
-  .addCommand(cursorCommand)
-  .addCommand(codexCommand)
-  .addCommand(beadsCommand);
+  .option('--auto', 'Non-interactive mode with smart defaults (for agents/scripts)')
+  .option('--interactive', 'Interactive mode with prompts (for humans)')
+  .option('--from-beads', 'Migrate from Beads to tbd')
+  .option('--prefix <name>', 'Project prefix for issue IDs (required for fresh setup)')
+  .action(async (options: SetupDefaultOptions, command) => {
+    // If --auto or --interactive flag is set, run the default handler
+    if (options.auto || options.interactive) {
+      const handler = new SetupDefaultHandler(command);
+      await handler.run(options);
+      return;
+    }
+
+    // If --from-beads is set without --auto/--interactive, treat as --auto
+    if (options.fromBeads) {
+      const handler = new SetupDefaultHandler(command);
+      await handler.run({ ...options, auto: true });
+      return;
+    }
+
+    // No flags provided - show help
+    console.log('Usage: tbd setup [options]');
+    console.log('');
+    console.log('Initialize tbd and configure agent integrations.');
+    console.log('');
+    console.log('Modes (one required):');
+    console.log(
+      '  --auto              Non-interactive mode with smart defaults (for agents/scripts)',
+    );
+    console.log('  --interactive       Interactive mode with prompts (for humans)');
+    console.log('  --from-beads        Migrate from Beads to tbd (implies --auto)');
+    console.log('');
+    console.log('Options:');
+    console.log('  --prefix <name>     Project prefix for issue IDs (e.g., "tbd", "myapp")');
+    console.log('');
+    console.log('Examples:');
+    console.log('  tbd setup --auto --prefix=tbd   # Full automatic setup with prefix');
+    console.log('  tbd setup --from-beads          # Migrate from Beads (uses beads prefix)');
+    console.log('  tbd setup --interactive         # Interactive setup with prompts');
+    console.log('');
+    console.log('For surgical initialization without integrations, see: tbd init --help');
+  });

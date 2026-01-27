@@ -62,6 +62,8 @@ class ShowHandler extends BaseCommand {
           console.log(`${colors.dim('priority:')} ${priorityColor(formatPriority(priority))}`);
         } else if (line.startsWith('title:')) {
           console.log(`${colors.dim('title:')} ${colors.bold(line.slice(7))}`);
+        } else if (line.startsWith('spec_path:')) {
+          console.log(`${colors.dim('spec_path:')} ${colors.id(line.slice(11))}`);
         } else if (line.startsWith('## Notes')) {
           console.log(colors.bold(line));
         } else if (line.startsWith('  - ')) {
