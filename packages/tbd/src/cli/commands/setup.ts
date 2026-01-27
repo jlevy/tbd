@@ -32,6 +32,7 @@ import {
   findTbdRoot,
   writeConfig,
   updateLocalState,
+  markWelcomeSeen,
 } from '../../file/config.js';
 import {
   DocSync,
@@ -1194,6 +1195,13 @@ class SetupDefaultHandler extends BaseCommand {
 
     // Show dashboard after setup
     spawnSync('tbd', ['prime'], { stdio: 'inherit' });
+
+    // Mark welcome as seen since the user got the full onboarding experience
+    try {
+      await markWelcomeSeen(cwd);
+    } catch {
+      // Non-critical: don't fail setup if state write fails
+    }
   }
 
   private async handleFreshSetup(
@@ -1246,6 +1254,13 @@ class SetupDefaultHandler extends BaseCommand {
 
     // Show dashboard after setup
     spawnSync('tbd', ['prime'], { stdio: 'inherit' });
+
+    // Mark welcome as seen since the user got the full onboarding experience
+    try {
+      await markWelcomeSeen(cwd);
+    } catch {
+      // Non-critical: don't fail setup if state write fails
+    }
   }
 
   /**
