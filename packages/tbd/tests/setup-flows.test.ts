@@ -29,11 +29,12 @@ describe('setup flows', () => {
   function runTbd(
     args: string[],
     cwd = tempDir,
+    extraEnv: Record<string, string> = {},
   ): { stdout: string; stderr: string; status: number } {
     const result = spawnSync('node', [tbdBin, ...args], {
       cwd,
       encoding: 'utf-8',
-      env: { ...process.env, FORCE_COLOR: '0' }, // Disable colors for testing
+      env: { ...process.env, FORCE_COLOR: '0', CLAUDE_CODE: '1', ...extraEnv },
     });
     return {
       stdout: result.stdout || '',
