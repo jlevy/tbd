@@ -59,7 +59,7 @@ Documentation:
   guidelines [options] [query]  Find and output coding guidelines
   template [options] [query]    Find and output document templates
   closing                       Display the session closing protocol reminder
-  docs [options] [topic]        Display CLI documentation
+  docs [options] [topic]        Display CLI documentation and manage doc cache
   design [options] [topic]      Display design documentation and Beads
                                 comparison
 

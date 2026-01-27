@@ -68,11 +68,10 @@ cache not in gitignore
 
 ## Shortcuts Work Without Cache
 
-# Test: tbd setup copies docs
+# Test: tbd setup runs successfully
 
 ```console
-$ tbd setup --auto 2>&1 | grep -E "(Copied|All set)"
-Copied [..] built-in doc(s) to .tbd/docs/
+$ tbd setup --auto 2>&1 | grep -E "All set"
 All set!
 ? 0
 ```

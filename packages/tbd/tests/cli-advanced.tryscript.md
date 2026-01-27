@@ -268,6 +268,7 @@ settings:
 ```console
 $ tbd config show --json
 {
+  "tbd_format": "f03",
   "tbd_version": "[..]",
   "sync": {
     "branch": "tbd-sync",
@@ -277,13 +278,8 @@ $ tbd config show --json
     "id_prefix": "test"
   },
   "settings": {
-    "auto_sync": false
-  },
-  "docs": {
-    "paths": [
-      ".tbd/docs/shortcuts/system",
-      ".tbd/docs/shortcuts/standard"
-    ]
+    "auto_sync": false,
+    "doc_auto_sync_hours": 24
   }
 }
 ? 0
