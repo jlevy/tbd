@@ -122,10 +122,10 @@ appear as standalone roots:
 $ tbd list --specs --pretty --spec docs/specs/plan-auth.md
 📋 plan-auth (4)
 
-test-[SHORTID][..]  [task] Implement login flow
+test-[SHORTID][..]
 test-[SHORTID][..]  [epic] Auth epic
 └── test-[SHORTID][..]  [task] Login page
-test-[SHORTID][..]  [task] Add password reset
+test-[SHORTID][..]
 
 4 issue(s)
 ? 0
@@ -139,10 +139,10 @@ test-[SHORTID][..]  [task] Add password reset
 $ tbd list --specs --pretty
 📋 plan-auth (4)
 
-test-[SHORTID][..]  [task] Implement login flow
+test-[SHORTID][..]
 test-[SHORTID][..]  [epic] Auth epic
 └── test-[SHORTID][..]  [task] Login page
-test-[SHORTID][..]  [task] Add password reset
+test-[SHORTID][..]
 
 📋 plan-search (1)
 
@@ -175,8 +175,8 @@ $ tbd list --specs --spec docs/specs/plan-auth.md
 📋 plan-auth (3)
 
 ID          PRI  STATUS          TITLE
-test-[SHORTID]   P0   ○ open          [task] Implement login flow
-test-[SHORTID]   P0   ○ open          [epic] Auth epic
+test-[SHORTID]   P0   ○ open          [..]
+test-[SHORTID]   P0   ○ open          [..]
 test-[SHORTID]   P1   ○ open          [task] Login page
 
 3 issue(s)
@@ -190,10 +190,10 @@ $ tbd list --specs --all --spec docs/specs/plan-auth.md
 📋 plan-auth (4)
 
 ID          PRI  STATUS          TITLE
-test-[SHORTID]   P0   ○ open          [task] Implement login flow
-test-[SHORTID]   P0   ○ open          [epic] Auth epic
-test-[SHORTID]   P1   ○ open          [task] Login page
-test-[SHORTID]   P1   ✓ closed        [task] Add password reset
+test-[SHORTID]   P0   ○ open          [..]
+test-[SHORTID]   P0   ○ open          [..]
+test-[SHORTID]   P1   [..]
+test-[SHORTID]   P1   [..]
 
 4 issue(s)
 ? 0
