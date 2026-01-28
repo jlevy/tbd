@@ -6,14 +6,14 @@ agents.**
 **tbd** (short for “To Be Done,” or “TypeScript beads” if you prefer) combines three
 things that are each powerful on their own but unreasonably effective together:
 
-1. **Task tracking (beads)** — git-native issues, bugs, epics, and dependencies that
-   persist across sessions.
+1. **Task tracking (beads)** — git-native beads (issues stored as Markdown files) for
+   bugs, features, epics, and dependencies that persist across sessions.
    This alone is a step change in what agents can do.
    Git-native issue tracking is
    [unreasonably effective](https://github.com/steveyegge/beads) at scaling an agent’s
-   capacity from ~5-10 ad-hoc tasks to hundreds of structured issues.
-2. **Spec-driven planning** — workflows for writing specs, breaking them into issues,
-   and implementing systematically.
+   capacity from ~5-10 ad-hoc tasks to hundreds of structured beads.
+2. **Spec-driven planning** — workflows for writing specs, breaking them into beads, and
+   implementing systematically.
    With a good spec and beads, you can leave an agent running overnight and come back to
    solid code.
 3. **Instant knowledge injection** — 17+ detailed guideline docs covering TypeScript,
@@ -21,6 +21,11 @@ things that are each powerful on their own but unreasonably effective together:
    and more — injected into the agent’s context on demand.
 
 Works in Claude Code, Cursor, Codex, or any agent environment with a shell.
+
+> [!NOTE]
+> We use *Beads* (capitalized) to refer to Steve Yegge’s original
+> [`bd` tool](https://github.com/steveyegge/beads).
+> Lowercase “beads” refers generically to the issues stored in `tbd` or `bd`.
 
 ## Quick Start
 
@@ -43,11 +48,11 @@ to memorize anything.
 
 | What you say | What happens |
 | --- | --- |
-| "There's a bug where ..." | Agent creates and tracks a bug |
-| "Let's work on current issues" | Agent finds ready issues and starts working |
+| "There's a bug where ..." | Agent creates and tracks a bead |
+| "Let's work on current beads" | Agent finds ready beads and starts working |
 | "Let's plan a new feature" | Agent creates a spec from a template |
-| "Break this spec into issues" | Agent creates implementation issues from the spec |
-| "Implement these issues" | Agent works through issues systematically |
+| "Break this spec into beads" | Agent creates implementation beads from the spec |
+| "Implement these beads" | Agent works through beads systematically |
 | "Build a TypeScript CLI" | Agent loads TypeScript CLI guidelines |
 | "Improve the monorepo setup" | Agent loads monorepo patterns |
 | "Add better e2e testing" | Agent loads golden testing guidelines |
@@ -75,7 +80,7 @@ follows good engineering practices while it works.
 
 tbd combines all three: beads for task management, spec-driven workflows for planning,
 and curated engineering guidelines for quality.
-Together, they let you hand an agent a well-defined spec with clear issues and expert
+Together, they let you hand an agent a well-defined spec with clear beads and expert
 knowledge, and get back careful, well-structured code — even overnight, even across
 sessions.
 
@@ -120,11 +125,11 @@ tbd guidelines --add=<url> --name=my-team-rules
 
 ## Features
 
-- **Git-native:** Issues live in your repo, synced to a separate, dedicated `tbd-sync`
-  branch. Your code history stays clean — no issue churn polluting your logs.
+- **Git-native:** Beads live in your repo, synced to a separate, dedicated `tbd-sync`
+  branch. Your code history stays clean — no bead churn polluting your logs.
 - **Agent friendly:** JSON output, non-interactive mode, simple commands that agents
   understand. Installs itself as a skill in Claude Code.
-- **Markdown + YAML frontmatter:** One file per issue, human-readable and editable.
+- **Markdown + YAML frontmatter:** One file per bead, human-readable and editable.
   This eliminates most merge conflicts.
 - **Beads alternative:** Largely compatible with `bd` at the CLI level, but with a
   simpler architecture: no JSONL merge conflicts, no daemon modifying your working tree,
@@ -155,7 +160,7 @@ npm install -g get-tbd@latest
 ### Setup
 
 ```bash
-# Fresh project (--prefix is REQUIRED — it appears in every issue ID, e.g. myapp-a1b2)
+# Fresh project (--prefix is REQUIRED — it appears in every bead ID, e.g. myapp-a1b2)
 tbd setup --auto --prefix=myapp
 
 # Joining an existing tbd project (no prefix needed — reads existing config)
@@ -225,17 +230,17 @@ Issue IDs are preserved: `proj-123` in beads becomes `proj-123` in tbd.
 
 ## Commands
 
-### Issues
+### Beads
 
 ```bash
-tbd ready                      # Issues ready to work on (open, unblocked, unassigned)
-tbd list                       # List open issues
+tbd ready                      # Beads ready to work on (open, unblocked, unassigned)
+tbd list                       # List open beads
 tbd list --all                 # Include closed
-tbd list --specs               # Group issues by spec
-tbd show proj-a7k2             # View issue details
-tbd create "Title" --type=bug  # Create issue (bug/feature/task/epic/chore)
+tbd list --specs               # Group beads by spec
+tbd show proj-a7k2             # View bead details
+tbd create "Title" --type=bug  # Create bead (bug/feature/task/epic/chore)
 tbd update proj-a7k2 --status=in_progress
-tbd close proj-a7k2            # Close issue
+tbd close proj-a7k2            # Close bead
 tbd close proj-a7k2 --reason="Fixed in commit abc123"
 tbd sync                       # Sync with remote (auto-commits and pushes)
 ```
@@ -244,11 +249,11 @@ tbd sync                       # Sync with remote (auto-commits and pushes)
 
 ```bash
 tbd dep add proj-b3m9 proj-a7k2        # b3m9 depends on a7k2
-tbd blocked                            # Show blocked issues
+tbd blocked                            # Show blocked beads
 tbd label add proj-a7k2 urgent backend
 tbd label remove proj-a7k2 urgent
 tbd label list                         # All labels in use
-tbd search "authentication"            # Search issues
+tbd search "authentication"            # Search beads
 ```
 
 ### Shortcuts, Guidelines, and Templates
@@ -282,8 +287,8 @@ tbd template --add=<url> --name=<name>
 | `new-research-brief` | Create a research document |
 | `new-architecture-doc` | Create an architecture document |
 | `new-validation-plan` | Create a test/validation plan |
-| `new-implementation-beads-from-spec` | Break a spec into implementation issues |
-| `implement-beads` | Implement issues from a spec |
+| `new-implementation-beads-from-spec` | Break a spec into implementation beads |
+| `implement-beads` | Implement beads from a spec |
 | `precommit-process` | Pre-commit review and testing |
 | `commit-code` | Commit with pre-commit checks |
 | `review-code-typescript` | Code review for TypeScript |
@@ -327,9 +332,9 @@ tbd template --add=<url> --name=<name>
 For non-trivial features, tbd supports a full spec-driven workflow:
 
 1. **Plan**: Create a planning spec (`tbd shortcut new-plan-spec`)
-2. **Break down**: Convert spec into implementation issues
+2. **Break down**: Convert spec into implementation beads
    (`tbd shortcut new-implementation-beads-from-spec`)
-3. **Implement**: Work through issues systematically (`tbd shortcut implement-beads`)
+3. **Implement**: Work through beads systematically (`tbd shortcut implement-beads`)
 4. **Validate**: Create validation plan, run tests (`tbd shortcut new-validation-plan`)
 5. **Ship**: Commit, create PR (`tbd shortcut create-or-update-pr-with-validation-plan`)
 
@@ -337,7 +342,7 @@ For non-trivial features, tbd supports a full spec-driven workflow:
 
 ```bash
 tbd status                   # Repository status (works before init too)
-tbd stats                    # Issue statistics
+tbd stats                    # Bead statistics
 tbd doctor                   # Check for problems
 tbd doctor --fix             # Auto-fix issues
 ```
@@ -413,8 +418,8 @@ The prefix from your beads configuration is automatically used.
 
 tbd keeps two things separate from your code:
 
-- **Issues** live on a dedicated `tbd-sync` branch.
-  One Markdown file per issue means parallel creation never conflicts.
+- **Beads** live on a dedicated `tbd-sync` branch.
+  One Markdown file per bead means parallel creation never conflicts.
   `tbd sync` pushes changes — no manual git operations needed.
 - **Documents** (shortcuts, guidelines, templates) are cached locally in `.tbd/docs/`
   during `tbd setup --auto`. Your agent reads them on demand via `tbd shortcut`,
@@ -436,20 +441,20 @@ After months of heavy agentic coding, I’ve found that the single biggest lever
 quality is planning before you code.
 A
 [carefully written spec](https://github.com/jlevy/speculate/blob/main/about/lessons_in_spec_coding.md)
-lets you think through what you’re building, catch design issues early, and break the
-work into well-defined issues.
-The agent then implements each issue with clear context about the bigger picture.
+lets you think through what you’re building, catch design problems early, and break the
+work into well-defined beads.
+The agent then implements each bead with clear context about the bigger picture.
 
 This matters because with a good spec broken into beads, you can leave an agent running
 overnight and come back to code that’s well-structured and coherent — not a pile of
 disconnected changes.
-tbd bakes in shortcuts for the full cycle: writing specs, breaking them into
-implementation issues, implementing, validating, and shipping.
+tbd bakes in shortcuts for the full cycle: writing specs, breaking them into beads,
+implementing, validating, and shipping.
 
 ### Was tbd built with tbd?
 
-Yes! tbd has been developed using its own issue tracking, specs, and guidelines from
-early on. Here’s what that looks like in practice:
+Yes! tbd has been developed using its own beads, specs, and guidelines from early on.
+Here’s what that looks like in practice:
 
 **Specs** — tbd has 10+ active and completed plan specs, including:
 - `plan-2026-01-15-tbd-v1-implementation.md` — The original v1 design
@@ -457,9 +462,9 @@ early on. Here’s what that looks like in practice:
 - `plan-2026-01-26-configurable-doc-cache-sync.md` — Making the doc system configurable
 - `plan-2026-01-28-cli-add-docs-by-url.md` — Adding `--add` for external docs
 
-**Beads** — Features are broken into issues, worked through systematically, and closed
+**Beads** — Features are broken into beads, worked through systematically, and closed
 with reasons. For example, improving this README was tracked as an epic with 7 child
-tasks:
+beads:
 
 ```
 tbd-cjwa  P1  ✓ closed  [epic] Improve README value proposition for cold readers
@@ -477,7 +482,7 @@ tbd was inspired by [Beads](https://github.com/steveyegge/beads) by Steve Yegge,
 grateful for the idea — it genuinely changed how I work with agents.
 If you’re not familiar with Beads, the core insight is that git-native issue tracking
 raises an agent’s capacity for structured work from ~5-10 to-do items to hundreds of
-issues.
+beads.
 
 tbd builds on that foundation with a simpler architecture: plain Markdown files instead
 of JSONL, no daemon, no SQLite, no 4-way sync.
@@ -485,7 +490,7 @@ This avoids the edge cases I ran into with network filesystems (Claude Code Clou
 merge conflicts, and multi-agent workflows.
 
 tbd also adds spec-driven planning and curated engineering guidelines — things Beads
-doesn’t attempt. If you already use Beads, `tbd setup --from-beads` migrates your issues
+doesn’t attempt. If you already use Beads, `tbd setup --from-beads` migrates your beads
 with IDs preserved.
 
 ### Can I add my own guidelines?
