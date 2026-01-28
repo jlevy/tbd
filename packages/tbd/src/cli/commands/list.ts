@@ -15,6 +15,7 @@ import { formatDisplayId, formatDebugId, extractUlidFromInternalId } from '../..
 import type { IdMapping } from '../../file/id-mapping.js';
 import { resolveToInternalId } from '../../file/id-mapping.js';
 import { naturalCompare } from '../../lib/sort.js';
+import { comparisonChain, ordering } from '../../lib/comparison-chain.js';
 import {
   formatIssueLine,
   formatIssueLong,
@@ -274,29 +275,23 @@ class ListHandler extends BaseCommand {
       return mapping.ulidToShort.get(ulid) ?? ulid;
     };
 
-    return [...issues].sort((a, b) => {
-      let primaryCompare: number;
+    const primarySelector: (i: Issue) => number =
+      sortField === 'created'
+        ? (i) => new Date(i.created_at).getTime()
+        : sortField === 'updated'
+          ? (i) => new Date(i.updated_at).getTime()
+          : (i) => i.priority;
 
-      switch (sortField) {
-        case 'priority':
-          primaryCompare = a.priority - b.priority;
-          break;
-        case 'created':
-          primaryCompare = new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
-          break;
-        case 'updated':
-          primaryCompare = new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime();
-          break;
-        default:
-          primaryCompare = a.priority - b.priority;
-      }
+    // For created/updated, reverse so newest comes first; for priority, ascending
+    const primaryOrdering =
+      sortField === 'created' || sortField === 'updated' ? ordering.reversed : ordering.default;
 
-      // Secondary sort by short ID using natural ordering for stable, intuitive results
-      if (primaryCompare !== 0) {
-        return primaryCompare;
-      }
-      return naturalCompare(getShortId(a), getShortId(b));
-    });
+    return [...issues].sort(
+      comparisonChain<Issue>()
+        .compare(primarySelector, primaryOrdering)
+        .compare(getShortId, (a, b) => naturalCompare(a, b))
+        .result(),
+    );
   }
 }
 
