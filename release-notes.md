@@ -1,39 +1,33 @@
 ## What’s Changed
 
+### Breaking Changes
+
+- **Package renamed**: `tbd-git` → `get-tbd`. The old package is deprecated on npm with
+  a message pointing to `get-tbd`. Update with: `npm install -g get-tbd`
+
 ### Features
 
-- **Spec linking**: New `spec_path` field to associate beads with specification
-  documents
-- **Create with spec**: `tbd create --spec path/to/spec.md` links beads to specs at
-  creation
-- **List by spec**: `tbd list --spec path/to/spec.md` filters beads by associated spec
-- **Configurable doc cache**: New `docs_cache` config for controlling doc sync behavior
-- **Auto-sync verbosity**: Doc auto-sync now respects CLI verbosity settings
-- **Incremental build**: Pre-push hook uses incremental build for faster development
-- **Global install script**: New `ensure-tbd-cli.sh` script for reliable tbd
-  installation
+- **`--specs` flag for `tbd list`**: Group issues by their associated spec document
+- **`--add`/`--name` options**: Add items and filter by name in guidelines, shortcut,
+  and template commands
 
 ### Fixes
 
-- Fixed shortcut name from `new-research-doc` to `new-research-brief`
-- Fixed project-paths test for Windows cross-platform CI
-- Fixed race condition in legacy cleanup on macOS
-- Fixed macOS symlink path resolution using realpath in tests
-- Fixed legacy cleanup moved to SetupAutoHandler for CI reliability
-- Fixed SKILL.md generation for flowmark-compatible formatting
-- Fixed format version from 0.2.0 to 0.1.5 in f02 spec
+- **Project-local hook installation**: Hooks now always install to project `.claude/`
+  directory (removed global `~/.claude/` fallback), fixing issues in cloud environments
+- **Git root resolution**: Setup correctly resolves to git root for `.claude/` and
+  `.tbd/` placement
+- **Deterministic sort order**: Ready, stale, and blocked commands now sort by ID as
+  secondary key
 
 ### Refactoring
 
-- Simplified markdown-utils with single `parseMarkdown` function
-- Consolidated doc_cache and docs config into unified `docs_cache`
-- Streamlined global scripts and removed legacy redirect
-- Consolidated tbd session script to ensure PATH persists
+- Extracted GitHub fetch into shared utility module
+- Added comparison-chain utility for fluent multi-field sorting
 
 ### Documentation
 
-- Comprehensive revision of CLI as Agent Skill research
-- Reorganized and improved Quick Reference tables
-- Added dependency and status update examples
+- Bun monorepo architecture patterns research
+- TypeScript sorting patterns guidelines
 
-**Full commit history**: https://github.com/jlevy/tbd/compare/v0.1.5...v0.1.6
+**Full commit history**: https://github.com/jlevy/tbd/compare/v0.1.7...v0.1.8

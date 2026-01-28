@@ -1,5 +1,12 @@
 # get-tbd
 
+## 0.1.8
+
+### Patch Changes
+
+- Rename npm package from tbd-git to get-tbd, add --specs flag for tbd list, fix
+  project-local hook installation, and improve setup git root resolution
+
 ## 0.1.7
 
 ### Patch Changes
