@@ -46,24 +46,24 @@ You talk to your agent in natural language.
 The agent translates your requests into tbd commands behind the scenes — you don’t need
 to memorize anything.
 
-| What you say | What happens |
-| --- | --- |
-| "There's a bug where ..." | Agent creates and tracks a bead |
-| "Let's work on current beads" | Agent finds ready beads and starts working |
-| "Let's plan a new feature" | Agent creates a spec from a template |
-| "Break this spec into beads" | Agent creates implementation beads from the spec |
-| "Implement these beads" | Agent works through beads systematically |
-| "Build a TypeScript CLI" | Agent loads TypeScript CLI guidelines |
-| "Improve the monorepo setup" | Agent loads monorepo patterns |
-| "Add better e2e testing" | Agent loads golden testing guidelines |
-| "Review these changes" | Agent loads language-specific review guidelines |
-| "Commit this" | Agent runs pre-commit checks and commits |
-| "Create a PR" | Agent creates or updates the pull request |
-| "Research this topic" | Agent creates a research document |
+| What you say | What happens | What runs |
+| --- | --- | --- |
+| "There's a bug where ..." | Agent creates and tracks a bead | `tbd create "..." --type=bug` |
+| "Let's work on current beads" | Agent finds ready beads and starts working | `tbd ready` |
+| "Let's plan a new feature" | Agent creates a spec from a template | `tbd shortcut new-plan-spec` |
+| "Break this spec into beads" | Agent creates implementation beads from the spec | `tbd shortcut new-implementation-beads-from-spec` |
+| "Implement these beads" | Agent works through beads systematically | `tbd shortcut implement-beads` |
+| "How could we test this better?" | Agent loads TDD and testing guidelines | `tbd guidelines general-tdd-guidelines` |
+| "Build a TypeScript CLI" | Agent loads TypeScript CLI guidelines | `tbd guidelines typescript-cli-tool-rules` |
+| "Improve the monorepo setup" | Agent loads monorepo patterns | `tbd guidelines typescript-monorepo-patterns` |
+| "Add better e2e testing" | Agent loads golden testing guidelines | `tbd guidelines golden-testing-guidelines` |
+| "Review these changes" | Agent loads language-specific review guidelines | `tbd shortcut review-code-typescript` |
+| "Commit this" | Agent runs pre-commit checks and commits | `tbd shortcut commit-code` |
+| "Create a PR" | Agent creates or updates the pull request | `tbd shortcut create-or-update-pr-simple` |
+| "Research this topic" | Agent creates a research document | `tbd shortcut new-research-brief` |
 
-Under the hood, your agent is running `tbd create`, `tbd ready`, `tbd shortcut`,
-`tbd guidelines`, and other commands.
-But you just talk naturally.
+Under the hood, your agent runs these `tbd` commands automatically.
+You just talk naturally.
 
 ## Why?
 
