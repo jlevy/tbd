@@ -6,31 +6,37 @@ agents.**
 **tbd** (short for “To Be Done,” or “TypeScript beads” if you prefer) combines three
 things that are each powerful on their own but unreasonably effective together:
 
-1. **Task tracking (beads):** git-native beads (issues stored as Markdown files) for
-   bugs, features, epics, and dependencies that persist across sessions.
+1. **Task tracking (beads):** Agent-friendly, CLI-native issue tracking for bugs,
+   features, epics, and dependencies that persist across sessions in git.
    This alone is a step change in what agents can do.
-   Git-native issue tracking is
-   [unreasonably effective](https://github.com/steveyegge/beads) at scaling an agent’s
-   capacity from ~5-10 ad-hoc tasks to hundreds of structured beads.
+   [Beads](https://github.com/steveyegge/beads) are fantastic and *unreasonably
+   effective* at scaling an agent’s capacity from ~5-10 ad-hoc tasks to hundreds of
+   structured beads.
 2. **Spec-driven planning:** workflows for writing specs, breaking them into beads, and
    implementing systematically.
    With a good spec and beads, you can leave an agent running overnight and come back to
    solid code.
-3. **Instant knowledge injection:** 17+ detailed guideline docs covering TypeScript,
-   Python, Convex, monorepo architecture, TDD, golden testing, backward compatibility,
-   and more — injected into the agent’s context on demand.
+3. **Instant knowledge injection:** Instant availability of guidelines and rules docs.
+   These are essentially “self-injected context” for an agent to get smarter when it
+   needs it.
 
-I use it most frequently in Claude Code, but it should work in Cursor, Codex, or any
-agent environment that can use skills and has a shell.
+tbd comes pre-installed with guideline docs on 17+ topics, like TDD, golden testing,
+TypeScript and Python best practices, Convex, monorepo architecture, backward
+compatibility rules.
+But you can use your own if you prefer.
 
-You can use tbd simply as a [Beads replacement](#how-does-tbd-compare-to-beads).
+I use tbd most frequently in Claude Code, where it self-installs as a skill, but it will
+work in Cursor, Codex, or any agent environment that can use the `tbd` CLI.
+
+## Should You Use tbd?
+
+If you wish, you can use tbd simply as a Beads replacement.
 It’s largely compatible with `bd` at the CLI level for core issue tracking
 functionality.
 Its design, such as using only one sync branch and separate Markdown files
-for every bead to avoid conflicts, carefully avoids some key frustrations I
-unfortunately had with Beads (like frequent merge/sync confusions, fighting with the
-daemon, and SQLite not working in Claude Code Cloud—see the
-[FAQ](#how-does-tbd-compare-to-beads)).
+for every bead to avoid conflicts, carefully avoids some key pracctical frustrations
+I’ve had with Beads (like frequent merge/sync confusions, fighting with the daemon, and
+SQLite not working in Claude Code Cloud—see the [FAQ](#how-does-tbd-compare-to-beads)).
 
 But it’s more powerful than that: the spec-driven workflows and engineering guidelines
 combine with better task management to help agents ship code with speed, quality, and
@@ -38,17 +44,22 @@ discipline.
 
 These workflows arose from several months of
 [heavy spec-driven agentic coding](https://github.com/jlevy/speculate/blob/main/about/lessons_in_spec_coding.md).
-Most of my work is now spec driven, and nearly 100% of the code is agent-written,
-planned and tracked through specs and beads and streamlined with shortcuts.
+Basically 100% of the code I now write is agent-written, planned and tracked through
+specs and beads and streamlined with shortcuts.
 
 tbd focuses on the *durable layer* of agent development: issue tracking, planning, and
 knowledge that persist in git across sessions.
 It does not (yet) try to solve real-time multi-agent coordination features of Beads or
 [Gas Town](https://github.com/steveyegge/gastown) or
-[Agent Mail](https://github.com/Dicklesworthstone/mcp_agent_mail). I do have plans to
-add a real time layer, but so far, I’ve not fully embraced speed (e.g. 20+ concurrent
-agents), because I find having a litte more process and discipline around specs (and
-around 6–8 concurrent agents) is a bit slower but gives higher quality results.
+[Agent Mail](https://github.com/Dicklesworthstone/mcp_agent_mail) or unstructured agent
+loops like
+[Ralph Wiggum](https://github.com/anthropics/claude-code/tree/main/plugins/ralph-wiggum).
+These seem great for rapid prototyping, but so far, code where quality or scale matters,
+I’ve not fully embraced unstructured automation (e.g. 20+ concurrent agents or Ralph
+loops).
+I find having more process and discipline around specs (and around 6–8 concurrent
+agents handling different aspects that I manage) is slower, because it forces you to
+design, but it gives higher quality results.
 
 > [!NOTE]
 > We use *Beads* (capitalized) to refer to Steve Yegge’s original
