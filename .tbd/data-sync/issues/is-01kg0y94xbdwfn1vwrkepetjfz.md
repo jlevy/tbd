@@ -1,4 +1,6 @@
 ---
+close_reason: Created in error
+closed_at: 2026-01-28T16:03:47.837Z
 created_at: 2026-01-27T23:58:03.178Z
 dependencies:
   - target: is-01kg0y951wnwqqbtwy81kcfh0d
@@ -10,9 +12,9 @@ kind: task
 labels: []
 priority: 2
 spec_path: docs/project/specs/active/plan-2026-01-27-parallel-processing.md
-status: open
+status: closed
 title: Add bounded concurrency utility (pMap)
 type: is
-updated_at: 2026-01-27T23:58:07.137Z
-version: 3
+updated_at: 2026-01-28T16:03:47.837Z
+version: 4
 ---
