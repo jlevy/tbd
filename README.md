@@ -411,9 +411,19 @@ The prefix from your beads configuration is automatically used.
 
 ## How It Works
 
-tbd stores issues on a dedicated `tbd-sync` branch, separate from your code.
-One file per issue means parallel creation never conflicts.
-Run `tbd sync` to push changes — no manual git operations needed for issues.
+tbd keeps two things separate from your code:
+
+- **Issues** live on a dedicated `tbd-sync` branch.
+  One Markdown file per issue means parallel creation never conflicts.
+  `tbd sync` pushes changes — no manual git operations needed.
+- **Documents** (shortcuts, guidelines, templates) are cached locally in `.tbd/docs/`
+  during `tbd setup --auto`. Your agent reads them on demand via `tbd shortcut`,
+  `tbd guidelines`, and `tbd template`. Re-run `tbd setup --auto` anytime to refresh
+  with the latest bundled docs, or add your own via `--add`.
+- **Everything is self-documented via the CLI.** Running `tbd` with no arguments gives
+  full orientation. `tbd setup --auto` writes a skill file (SKILL.md/AGENTS.md) that
+  teaches the agent all available commands, shortcuts, and guidelines automatically.
+
 See the [design doc](packages/tbd/docs/tbd-design.md) for details.
 
 ## FAQ
