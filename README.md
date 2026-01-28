@@ -22,6 +22,25 @@ things that are each powerful on their own but unreasonably effective together:
 
 Works in Claude Code, Cursor, Codex, or any agent environment with a shell.
 
+You can use tbd simply as a [Beads replacement](#how-does-tbd-compare-to-beads) — it’s
+largely compatible with `bd` at the CLI level but with a simpler architecture.
+But it’s optionally much more powerful than that: the spec-driven workflows and
+engineering knowledge base are what make it a full system for shipping high-quality code
+with agents.
+
+tbd focuses on the *durable layer* — issue tracking, planning, and knowledge that
+persist in git across sessions.
+It does not try to solve real-time multi-agent coordination; tools like
+[Agent Mail](https://github.com/Dicklesworthstone/mcp_agent_mail),
+[Gas Town](https://github.com/steveyegge/gastown), and
+[Beads](https://github.com/steveyegge/beads) address that space (see
+[FAQ](#how-does-tbd-compare-to-beads)).
+
+These workflows arose from several months of
+[heavy spec-driven agentic coding](https://github.com/jlevy/speculate/blob/main/about/lessons_in_spec_coding.md),
+where I’ve been able to ship code that is typically 100% agent-written, planned and
+tracked through specs and beads.
+
 > [!NOTE]
 > We use *Beads* (capitalized) to refer to Steve Yegge’s original
 > [`bd` tool](https://github.com/steveyegge/beads).
@@ -178,7 +197,7 @@ tbd is designed for teams where one person sets up the project and others join l
 
 **First contributor:**
 ```bash
-npm install -g tbd-git@latest
+npm install -g get-tbd@latest
 tbd setup --auto --prefix=myproject
 git add .tbd/ .claude/ && git commit -m "Initialize tbd"
 git push
@@ -187,7 +206,7 @@ git push
 **Joining contributors:**
 ```bash
 git clone <repo>
-npm install -g tbd-git@latest
+npm install -g get-tbd@latest
 tbd setup --auto                    # No --prefix needed — reads existing config
 ```
 
@@ -434,6 +453,33 @@ See the [design doc](packages/tbd/docs/tbd-design.md) for details.
 
 ## FAQ
 
+### How does tbd compare to Beads?
+
+tbd was inspired by [Beads](https://github.com/steveyegge/beads) by Steve Yegge, and I’m
+grateful for the idea — it genuinely changed how I work with agents.
+If you’re not familiar with Beads, the core insight is that git-native issue tracking
+raises an agent’s capacity for structured work from ~5-10 to-do items to hundreds of
+beads.
+
+tbd builds on that foundation with a simpler architecture: plain Markdown files instead
+of JSONL, no daemon, no SQLite, no 4-way sync.
+This avoids the edge cases I ran into with network filesystems (Claude Code Cloud),
+merge conflicts, and multi-agent workflows.
+
+tbd also adds spec-driven planning and curated engineering guidelines — things Beads
+doesn’t attempt. If you already use Beads, `tbd setup --from-beads` migrates your beads
+with IDs preserved.
+
+**Scope:** tbd focuses on the *durable layer* — issue tracking, specs, and knowledge
+that persist across sessions and live in git.
+It does *not* aim to solve real-time multi-agent coordination, which is a separate
+problem requiring sub-second messaging and atomic claims.
+Tools like [Agent Mail](https://github.com/Dicklesworthstone/mcp_agent_mail) and
+[Gas Town](https://github.com/steveyegge/gastown) address that space and are
+complementary to tbd — you could layer real-time coordination on top of tbd’s durable
+tracking. See the [design doc](packages/tbd/docs/tbd-design.md) for a detailed
+comparison.
+
 ### Why spec-driven development?
 
 After months of heavy agentic coding, I’ve found that the single biggest lever for
@@ -474,23 +520,6 @@ tbd-7san  P2  ✓ closed  [task] Restructure 'Why?' section into clear value pro
 tbd-ntp3  P2  ✓ closed  [task] Add direct clickable links to all guideline source files
 tbd-4tt2  P2  ✓ closed  [task] Clean up informal language throughout README
 ```
-
-### How does tbd compare to Beads?
-
-tbd was inspired by [Beads](https://github.com/steveyegge/beads) by Steve Yegge, and I’m
-grateful for the idea — it genuinely changed how I work with agents.
-If you’re not familiar with Beads, the core insight is that git-native issue tracking
-raises an agent’s capacity for structured work from ~5-10 to-do items to hundreds of
-beads.
-
-tbd builds on that foundation with a simpler architecture: plain Markdown files instead
-of JSONL, no daemon, no SQLite, no 4-way sync.
-This avoids the edge cases I ran into with network filesystems (Claude Code Cloud),
-merge conflicts, and multi-agent workflows.
-
-tbd also adds spec-driven planning and curated engineering guidelines — things Beads
-doesn’t attempt. If you already use Beads, `tbd setup --from-beads` migrates your beads
-with IDs preserved.
 
 ### Can I add my own guidelines?
 
