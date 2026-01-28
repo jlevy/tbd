@@ -2,17 +2,17 @@
 
 ## Purpose
 
-This spec designs the feature for tbd to automatically ensure the GitHub CLI (`gh`)
-is installed and authenticated in agent sessions by managing an `ensure-gh-cli.sh`
-script in `.claude/scripts/`. This behavior is on by default but can be disabled via
-CLI flag or config setting.
+This spec designs the feature for tbd to automatically ensure the GitHub CLI (`gh`) is
+installed and authenticated in agent sessions by managing an `ensure-gh-cli.sh` script
+in `.claude/scripts/`. This behavior is on by default but can be disabled via CLI flag
+or config setting.
 
 ## Background
 
 The GitHub CLI is essential for agent workflows: creating PRs, managing issues,
-interacting with GitHub's API. Currently, this project manually includes an
-`ensure-gh-cli.sh` script in `.claude/scripts/` and a corresponding SessionStart hook
-in `.claude/settings.json`. This works but requires manual setup per project.
+interacting with GitHub’s API. Currently, this project manually includes an
+`ensure-gh-cli.sh` script in `.claude/scripts/` and a corresponding SessionStart hook in
+`.claude/settings.json`. This works but requires manual setup per project.
 
 tbd already manages Claude Code hooks and scripts during `tbd setup` (see setup.ts).
 It installs a global `tbd-session.sh` script to `~/.claude/scripts/` and configures
@@ -26,12 +26,12 @@ script and its corresponding SessionStart hook entry in `.claude/settings.json`.
 
 - [plan-2026-01-20-streamlined-init-setup-design.md](done/plan-2026-01-20-streamlined-init-setup-design.md)
   \- Designed the unified `tbd setup` command
-- [github-cli-setup.md](../../../general/agent-setup/github-cli-setup.md)
-  \- Existing documentation for GitHub CLI setup and GH_TOKEN
+- [github-cli-setup.md](../../../general/agent-setup/github-cli-setup.md) \- Existing
+  documentation for GitHub CLI setup and GH_TOKEN
 
 ## Summary of Task
 
-Add automatic GitHub CLI installation to tbd's setup flow:
+Add automatic GitHub CLI installation to tbd’s setup flow:
 
 1. **New config setting**: `settings.use_gh_cli` (boolean, default: `true`) in
    `.tbd/config.yml`
@@ -39,12 +39,12 @@ Add automatic GitHub CLI installation to tbd's setup flow:
 3. **Idempotent script management**:
    - When `use_gh_cli` is `true` (default): `tbd setup` installs
      `.claude/scripts/ensure-gh-cli.sh` and adds a SessionStart hook entry in
-     `.claude/settings.json` if they don't already exist
+     `.claude/settings.json` if they don’t already exist
    - When `use_gh_cli` is `false`: `tbd setup` removes
-     `.claude/scripts/ensure-gh-cli.sh` and the corresponding SessionStart hook entry
-     if they exist
-4. **`--no-gh-cli` flag behavior**: Sets `use_gh_cli: false` in config and triggers
-   the removal path
+     `.claude/scripts/ensure-gh-cli.sh` and the corresponding SessionStart hook entry if
+     they exist
+4. **`--no-gh-cli` flag behavior**: Sets `use_gh_cli: false` in config and triggers the
+   removal path
 5. **Documentation**: Update reference docs to explain that tbd installs gh by default
    and how to disable it
 
@@ -69,8 +69,8 @@ Add automatic GitHub CLI installation to tbd's setup flow:
 2. **CLI Flag**
    - `tbd setup --no-gh-cli` sets `use_gh_cli: false` in config
    - `tbd setup` (without flag) preserves whatever `use_gh_cli` is in config
-   - `tbd setup --no-gh-cli` is equivalent to manually setting `use_gh_cli: false`
-     and running setup
+   - `tbd setup --no-gh-cli` is equivalent to manually setting `use_gh_cli: false` and
+     running setup
 
 3. **Script Installation (when `use_gh_cli` is `true`)**
    - Copy `ensure-gh-cli.sh` to `.claude/scripts/ensure-gh-cli.sh` in the project
@@ -102,18 +102,18 @@ Add automatic GitHub CLI installation to tbd's setup flow:
 1. Fresh `tbd setup --auto` installs `ensure-gh-cli.sh` and SessionStart hook
 2. Subsequent `tbd setup --auto` is idempotent (no duplicate hooks)
 3. `tbd setup --no-gh-cli` removes the script and hook, sets config to `false`
-4. Manually setting `use_gh_cli: false` in config and running `tbd setup --auto`
-   removes the script and hook
+4. Manually setting `use_gh_cli: false` in config and running `tbd setup --auto` removes
+   the script and hook
 5. `use_gh_cli` defaults to `true` when missing from config
-6. Config value is preserved across setup runs (not reset to `true` unless
-   `--no-gh-cli` is absent AND config has no value)
+6. Config value is preserved across setup runs (not reset to `true` unless `--no-gh-cli`
+   is absent AND config has no value)
 7. Reference docs updated
 
 ### Not in Scope
 
 - Global installation of gh CLI (this is project-local)
-- Managing GH_TOKEN (that's an environment variable, documented separately)
-- Supporting non-Claude agents (this uses Claude Code's hook system)
+- Managing GH_TOKEN (that’s an environment variable, documented separately)
+- Supporting non-Claude agents (this uses Claude Code’s hook system)
 
 ## Stage 2: Architecture Stage
 
@@ -151,11 +151,11 @@ The script lives as a real `.sh` file at `packages/tbd/docs/install/ensure-gh-cl
 2. **Postbuild** (`copy-docs.mjs`): Copy to `dist/docs/install/ensure-gh-cli.sh`
    - The `install/` directory is already copied recursively via
      `copyDir(INSTALL_DIR, join(distDocs, 'install'))` in copy-docs.mjs, so this
-     requires **no changes** to copy-docs.mjs — adding the file to `docs/install/`
-     is sufficient.
-3. **Runtime** (`setup.ts`): Read the script from the bundled location using the
-   same `import.meta.url`-based path resolution pattern used by `getDocsBasePath()`
-   in `doc-sync.ts`
+     requires **no changes** to copy-docs.mjs — adding the file to `docs/install/` is
+     sufficient.
+3. **Runtime** (`setup.ts`): Read the script from the bundled location using the same
+   `import.meta.url`-based path resolution pattern used by `getDocsBasePath()` in
+   `doc-sync.ts`
 
 **Runtime resolution in setup.ts:**
 
@@ -208,9 +208,9 @@ export const SettingsSchema = z.object({
 
 3. **Modified `installClaudeSetup()`**: After installing project-local hooks, check
    `use_gh_cli` config setting:
-   - If `true`: install `ensure-gh-cli.sh` to `.claude/scripts/`, add SessionStart
-     hook entry to project `.claude/settings.json` (idempotent - check if already
-     present by matching command string)
+   - If `true`: install `ensure-gh-cli.sh` to `.claude/scripts/`, add SessionStart hook
+     entry to project `.claude/settings.json` (idempotent - check if already present by
+     matching command string)
    - If `false`: remove script file, remove matching SessionStart hook entry
 
 4. **Modified command registration**: Add `--no-gh-cli` option to setup command.
@@ -218,22 +218,25 @@ export const SettingsSchema = z.object({
 
 ### Idempotency Strategy
 
-**Script file**: Compare content. Write only if missing or different.
+**Script file**: Compare content.
+Write only if missing or different.
 
 **Hook entry**: The project `.claude/settings.json` SessionStart array may contain
-multiple entries (tbd's and others). To be idempotent:
+multiple entries (tbd’s and others).
+To be idempotent:
 - When adding: check if any existing SessionStart entry has a command matching
-  `ensure-gh-cli`. If yes, skip. If no, append.
+  `ensure-gh-cli`. If yes, skip.
+  If no, append.
 - When removing: filter out any SessionStart entry whose command matches
   `ensure-gh-cli`. If the SessionStart array becomes empty, remove the key.
 
-This follows the same pattern used for cleaning up legacy hooks in setup.ts
-(see `LEGACY_TBD_HOOK_PATTERNS`).
+This follows the same pattern used for cleaning up legacy hooks in setup.ts (see
+`LEGACY_TBD_HOOK_PATTERNS`).
 
 ### Integration with Existing Hook Management
 
-The current `installClaudeSetup()` merges `CLAUDE_PROJECT_HOOKS` into project
-settings using spread:
+The current `installClaudeSetup()` merges `CLAUDE_PROJECT_HOOKS` into project settings
+using spread:
 ```typescript
 projectSettings.hooks = {
   ...existingProjectHooks,
@@ -241,20 +244,21 @@ projectSettings.hooks = {
 };
 ```
 
-This overwrites the entire `PostToolUse` key. For SessionStart, we need to be more
-careful since both the gh CLI hook and potentially other hooks may coexist.
+This overwrites the entire `PostToolUse` key.
+For SessionStart, we need to be more careful since both the gh CLI hook and potentially
+other hooks may coexist.
 The approach should be:
 1. After the spread merge, handle SessionStart separately
 2. Check if gh CLI hook already exists in SessionStart array
 3. Add or remove as needed
 
-Alternatively, add the gh CLI hook entry to `CLAUDE_PROJECT_HOOKS` conditionally
-based on the config setting, before the merge. This is simpler but means the merge
-logic handles it.
+Alternatively, add the gh CLI hook entry to `CLAUDE_PROJECT_HOOKS` conditionally based
+on the config setting, before the merge.
+This is simpler but means the merge logic handles it.
 
 **Recommended approach**: Handle gh CLI hook as a separate step after the main hook
-merge, using explicit array manipulation. This keeps the logic clear and avoids
-coupling with the existing merge.
+merge, using explicit array manipulation.
+This keeps the logic clear and avoids coupling with the existing merge.
 
 ## Stage 3: Refine Architecture
 
@@ -279,8 +283,8 @@ coupling with the existing merge.
    `SetupClaudeHandler`
 3. Script is a real `.sh` file in `packages/tbd/docs/install/`, read from the bundled
    `dist/docs/install/` at runtime via `loadBundledScript()` — no string constants
-4. No version tracking for the script - always overwrite with current version
-   (matches tbd-session.sh behavior)
+4. No version tracking for the script - always overwrite with current version (matches
+   tbd-session.sh behavior)
 5. No changes to `copy-docs.mjs` - the `install/` directory is already recursively
    copied in the postbuild step
 
@@ -288,29 +292,32 @@ coupling with the existing merge.
 
 1. **Script location**: `.claude/scripts/` (project-local) vs `~/.claude/scripts/`
    (global). Project-local is better because different projects may want different
-   settings. The hook reference uses a relative path (`bash .claude/scripts/...`)
-   which works for project-local.
+   settings. The hook reference uses a relative path (`bash .claude/scripts/...`) which
+   works for project-local.
 
    **Decision**: Project-local `.claude/scripts/ensure-gh-cli.sh`.
 
 2. **Should `.claude/scripts/` be gitignored?** Currently `.claude/.gitignore` only
-   ignores `*.bak`. The scripts directory contains generated files but also
-   potentially user-edited scripts. For now, keep it tracked in git (not gitignored)
-   so team members benefit from the hook without running setup.
+   ignores `*.bak`. The scripts directory contains generated files but also potentially
+   user-edited scripts.
+   For now, keep it tracked in git (not gitignored) so team members benefit from the
+   hook without running setup.
 
-   **Decision**: Keep tracked in git. The script is idempotent and safe to commit.
+   **Decision**: Keep tracked in git.
+   The script is idempotent and safe to commit.
 
-3. **Should the hook entry be in project or global settings?** Global would apply
-   to all projects. Project-local allows per-project control.
+3. **Should the hook entry be in project or global settings?** Global would apply to all
+   projects. Project-local allows per-project control.
 
    **Decision**: Project-local, matching the PostToolUse hook pattern.
 
 ## Stage 4: Testing
 
 Tests go in `packages/tbd/tests/setup-flows.test.ts`, extending the existing
-`describe('setup flows')` suite which already covers fresh setup, legacy cleanup,
-beads migration, etc. The test infrastructure uses Vitest with temp directories,
-`spawnSync` to run the built CLI binary, and direct filesystem assertions.
+`describe('setup flows')` suite which already covers fresh setup, legacy cleanup, beads
+migration, etc.
+The test infrastructure uses Vitest with temp directories, `spawnSync` to
+run the built CLI binary, and direct filesystem assertions.
 
 ### End-to-End Golden Tests
 
