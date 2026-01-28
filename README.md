@@ -98,21 +98,20 @@ examples, built from months of heavy agentic coding.
 
 | Guideline | What it covers |
 | --- | --- |
+| [general-tdd-guidelines](packages/tbd/docs/guidelines/general-tdd-guidelines.md) | Red-Green-Refactor methodology, small slices, test-first discipline |
+| [golden-testing-guidelines](packages/tbd/docs/guidelines/golden-testing-guidelines.md) | Snapshot/golden testing for complex systems: session schemas, YAML captures, mock modes |
+| [general-testing-rules](packages/tbd/docs/guidelines/general-testing-rules.md) | Minimal tests for maximum coverage, avoiding redundant test cases |
+| [typescript-code-coverage](packages/tbd/docs/guidelines/typescript-code-coverage.md) | Code coverage best practices with Vitest and v8 provider |
 | [typescript-rules](packages/tbd/docs/guidelines/typescript-rules.md) | Strict type safety, no `any`, type guards, null safety, async patterns |
-| [typescript-monorepo-patterns](packages/tbd/docs/guidelines/typescript-monorepo-patterns.md) | pnpm workspaces, tsdown, Changesets, publint, lefthook, dual ESM/CJS |
+| [typescript-monorepo-patterns](packages/tbd/docs/guidelines/typescript-monorepo-patterns.md) | pnpm workspaces, package setup, tsdown, Changesets, publint, dual ESM/CJS |
 | [typescript-cli-tool-rules](packages/tbd/docs/guidelines/typescript-cli-tool-rules.md) | Commander.js patterns, picocolors, terminal formatting |
 | [python-rules](packages/tbd/docs/guidelines/python-rules.md) | Type hints, docstrings, exception handling, resource management |
 | [python-cli-patterns](packages/tbd/docs/guidelines/python-cli-patterns.md) | Modern Python CLI stack: uv, Typer, Rich, Ruff, BasedPyright |
-| [convex-rules](packages/tbd/docs/guidelines/convex-rules.md) | Convex function syntax, schema design, queries, mutations |
-| [convex-limits-best-practices](packages/tbd/docs/guidelines/convex-limits-best-practices.md) | Platform limits, workarounds, performance tuning |
-| [general-tdd-guidelines](packages/tbd/docs/guidelines/general-tdd-guidelines.md) | Red-Green-Refactor methodology, small slices, test-first discipline |
-| [golden-testing-guidelines](packages/tbd/docs/guidelines/golden-testing-guidelines.md) | Snapshot testing for complex systems: session schemas, YAML captures, mock modes |
 | [backward-compatibility-rules](packages/tbd/docs/guidelines/backward-compatibility-rules.md) | Compatibility across code, APIs, file formats, and database schemas |
+| [convex-rules](packages/tbd/docs/guidelines/convex-rules.md) | Convex function syntax, schema design, queries, mutations |
+| [convex-limits-best-practices](packages/tbd/docs/guidelines/convex-limits-best-practices.md) | Convex platform limits, workarounds, performance tuning |
 
-Plus guidelines on
-[code coverage](packages/tbd/docs/guidelines/typescript-code-coverage.md),
-[testing principles](packages/tbd/docs/guidelines/general-testing-rules.md),
-[coding rules](packages/tbd/docs/guidelines/general-coding-rules.md),
+Plus guidelines on [coding rules](packages/tbd/docs/guidelines/general-coding-rules.md),
 [comment quality](packages/tbd/docs/guidelines/general-comment-rules.md),
 [commit conventions](packages/tbd/docs/guidelines/commit-conventions.md), and
 [style](packages/tbd/docs/guidelines/general-style-rules.md).
@@ -301,23 +300,23 @@ tbd template --add=<url> --name=<name>
 
 | Guideline | Description |
 | --- | --- |
-| [`typescript-rules`](packages/tbd/docs/guidelines/typescript-rules.md) | TypeScript coding rules |
-| [`typescript-cli-tool-rules`](packages/tbd/docs/guidelines/typescript-cli-tool-rules.md) | CLI tools with Commander.js |
-| [`typescript-monorepo-patterns`](packages/tbd/docs/guidelines/typescript-monorepo-patterns.md) | TypeScript monorepo architecture |
+| [`general-tdd-guidelines`](packages/tbd/docs/guidelines/general-tdd-guidelines.md) | TDD methodology |
+| [`golden-testing-guidelines`](packages/tbd/docs/guidelines/golden-testing-guidelines.md) | Golden/snapshot testing |
+| [`general-testing-rules`](packages/tbd/docs/guidelines/general-testing-rules.md) | General testing principles |
 | [`typescript-code-coverage`](packages/tbd/docs/guidelines/typescript-code-coverage.md) | Code coverage with Vitest and v8 |
+| [`typescript-rules`](packages/tbd/docs/guidelines/typescript-rules.md) | TypeScript coding rules |
+| [`typescript-monorepo-patterns`](packages/tbd/docs/guidelines/typescript-monorepo-patterns.md) | pnpm workspaces, package setup, monorepo architecture |
+| [`typescript-cli-tool-rules`](packages/tbd/docs/guidelines/typescript-cli-tool-rules.md) | CLI tools with Commander.js |
 | [`python-rules`](packages/tbd/docs/guidelines/python-rules.md) | Python coding rules |
 | [`python-cli-patterns`](packages/tbd/docs/guidelines/python-cli-patterns.md) | Python CLI architecture |
-| [`convex-rules`](packages/tbd/docs/guidelines/convex-rules.md) | Convex database patterns |
-| [`convex-limits-best-practices`](packages/tbd/docs/guidelines/convex-limits-best-practices.md) | Convex platform limits and workarounds |
+| [`backward-compatibility-rules`](packages/tbd/docs/guidelines/backward-compatibility-rules.md) | API and schema compatibility |
 | [`general-coding-rules`](packages/tbd/docs/guidelines/general-coding-rules.md) | Constants, magic numbers, practices |
-| [`general-testing-rules`](packages/tbd/docs/guidelines/general-testing-rules.md) | General testing principles |
-| [`general-tdd-guidelines`](packages/tbd/docs/guidelines/general-tdd-guidelines.md) | TDD methodology |
 | [`general-comment-rules`](packages/tbd/docs/guidelines/general-comment-rules.md) | Comment best practices |
 | [`general-style-rules`](packages/tbd/docs/guidelines/general-style-rules.md) | Auto-formatting and output formatting |
 | [`general-eng-assistant-rules`](packages/tbd/docs/guidelines/general-eng-assistant-rules.md) | AI assistant objectivity and communication |
 | [`commit-conventions`](packages/tbd/docs/guidelines/commit-conventions.md) | Conventional commits format |
-| [`golden-testing-guidelines`](packages/tbd/docs/guidelines/golden-testing-guidelines.md) | Golden/snapshot testing |
-| [`backward-compatibility-rules`](packages/tbd/docs/guidelines/backward-compatibility-rules.md) | API and schema compatibility |
+| [`convex-rules`](packages/tbd/docs/guidelines/convex-rules.md) | Convex database patterns |
+| [`convex-limits-best-practices`](packages/tbd/docs/guidelines/convex-limits-best-practices.md) | Convex platform limits and workarounds |
 
 **Available templates:**
 
