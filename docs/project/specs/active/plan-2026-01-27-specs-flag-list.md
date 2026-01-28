@@ -4,7 +4,7 @@ description: Add a --specs flag to tbd list that groups beads by their linked sp
 ---
 # Feature: --specs Flag for tbd list
 
-**Date:** 2026-01-27 **Author:** Claude **Status:** Draft
+**Date:** 2026-01-27 **Author:** Claude **Status:** Implemented
 
 ## Overview
 
@@ -84,15 +84,15 @@ as needed.
 
 ### Phase 1: Core Implementation and Tests
 
-- [ ] Add `--specs` boolean option to ListOptions interface and commander definition
-- [ ] Implement spec grouping logic in the `run()` method output section
-- [ ] Extract spec display name from spec_path (e.g., just the filename)
-- [ ] Render spec group headers with formatting (bold/dim as appropriate)
-- [ ] Render “No spec” group for beads without spec_path
-- [ ] Ensure `--pretty` tree view works within each spec group (build separate trees per
+- [x] Add `--specs` boolean option to ListOptions interface and commander definition
+- [x] Implement spec grouping logic in the `run()` method output section
+- [x] Extract spec display name from spec_path (e.g., just the filename)
+- [x] Render spec group headers with formatting (bold/dim as appropriate)
+- [x] Render “No spec” group for beads without spec_path
+- [x] Ensure `--pretty` tree view works within each spec group (build separate trees per
   group)
-- [ ] Ensure `--long` descriptions work within spec groups
-- [ ] Add end-to-end session tests confirming:
+- [x] Ensure `--long` descriptions work within spec groups
+- [x] Add end-to-end session tests confirming:
   - `--specs` groups beads correctly
   - `--specs --pretty` shows tree view within groups
   - `--specs` combined with filters (--status, --all, etc.)
