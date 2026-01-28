@@ -32,19 +32,23 @@ unfortunately had with Beads (like frequent merge/sync confusions, fighting with
 daemon, and SQLite not working in Claude Code Cloud—see the
 [FAQ](#how-does-tbd-compare-to-beads)).
 
-But it’s more powerful than that: the spec-driven workflows and engineering knowledge
-base are what make it a full system for shipping high-quality code with agents.
+But it’s more powerful than that: the spec-driven workflows and engineering guidelines
+combine with better task management to help agents ship code with speed, quality, and
+discipline.
+
+These workflows arose from several months of
+[heavy spec-driven agentic coding](https://github.com/jlevy/speculate/blob/main/about/lessons_in_spec_coding.md).
+Most of my work is now spec driven, and nearly 100% of the code is agent-written,
+planned and tracked through specs and beads and streamlined with shortcuts.
 
 tbd focuses on the *durable layer* of agent development: issue tracking, planning, and
 knowledge that persist in git across sessions.
 It does not (yet) try to solve real-time multi-agent coordination features of Beads or
 [Gas Town](https://github.com/steveyegge/gastown) or
-[Agent Mail](https://github.com/Dicklesworthstone/mcp_agent_mail).
-
-These workflows arose from several months of
-[heavy spec-driven agentic coding](https://github.com/jlevy/speculate/blob/main/about/lessons_in_spec_coding.md),
-where I’ve been able to ship code that is typically 100% agent-written, planned and
-tracked through specs and beads.
+[Agent Mail](https://github.com/Dicklesworthstone/mcp_agent_mail). I do have plans to
+add a real time layer, but so far, I’ve not fully embraced speed (e.g. 20+ concurrent
+agents), because I find having a litte more process and discipline around specs (and
+around 6–8 concurrent agents) is a bit slower but gives higher quality results.
 
 > [!NOTE]
 > We use *Beads* (capitalized) to refer to Steve Yegge’s original
