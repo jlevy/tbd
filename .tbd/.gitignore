@@ -12,3 +12,4 @@ state.yml
 
 # Temporary files
 *.tmp
+*.temp
