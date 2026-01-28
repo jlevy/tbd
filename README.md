@@ -1,22 +1,28 @@
 # tbd
 
-**Instant high-quality context injection for AI coding agents.**
+**Task management, spec-driven planning, and instant knowledge injection for AI coding
+agents.**
 
-**tbd** is a git-native issue tracker that bundles a curated knowledge base of
-engineering best practices — TypeScript, Python, Convex, monorepos, TDD, and more — so
-your AI agent writes code the way a senior engineer would, from the first line.
+Git-native issue tracking (beads) is
+[unreasonably effective](https://github.com/steveyegge/beads) at scaling an agent’s
+capacity from ~5-10 ad-hoc tasks to hundreds of structured issues.
+**tbd** takes that idea and adds two more things: spec-driven workflows for planning
+before you code, and a curated knowledge base of engineering best practices that gets
+injected directly into your agent’s context.
 
-One `npm install` gives any AI coding agent three things at once:
-1. **Structured issue tracking** — git-native tasks, bugs, epics, and dependencies that
-   persist across sessions
-2. **A deep engineering knowledge base** — 17+ guideline docs covering TypeScript rules,
-   Python conventions, Convex patterns, monorepo architecture, TDD, golden testing,
-   backward compatibility, and more
-3. **Spec-driven workflows** — shortcuts for planning features, breaking specs into
-   issues, reviewing code, committing, and filing PRs
+One `npm install` gives any AI coding agent:
+1. **Task tracking (beads)** — git-native issues, bugs, epics, and dependencies that
+   persist across sessions.
+   This alone is a step change in what agents can do.
+2. **Spec-driven planning** — shortcuts for writing specs, breaking them into issues,
+   and implementing systematically.
+   With a good spec and beads, you can leave an agent running overnight and come back to
+   solid code.
+3. **Instant knowledge injection** — 17+ detailed guideline docs covering TypeScript,
+   Python, Convex, monorepo architecture, TDD, golden testing, backward compatibility,
+   and more — injected into the agent’s context on demand.
 
-It works in Claude Code, Cursor, Codex, or any agent environment with a shell.
-Simple commands, readable console and JSON output.
+Works in Claude Code, Cursor, Codex, or any agent environment with a shell.
 
 ## Quick Start
 
@@ -105,43 +111,25 @@ commands:
 
 ## Why?
 
-AI agents can generate a lot of code, but without structure and knowledge, the quality
-is inconsistent. Agents forget conventions between sessions, skip testing, and don’t
+AI agents can generate a lot of code, but without structure and knowledge, the results
+are hit-or-miss. Agents forget conventions between sessions, skip testing, and don’t
 follow your team’s patterns.
-The usual fix — copying rules into prompts or CLAUDE.md files — is fragile and doesn’t
+The usual fix — pasting rules into prompts or CLAUDE.md files — is fragile and doesn’t
 scale across projects.
 
-tbd solves this by combining three things that work together:
+Beads (git-native issue tracking) solve the task management problem brilliantly.
+But task tracking alone doesn’t help with *planning* or *quality*. You still need a way
+to think through what you’re building before you start, and a way to make sure the agent
+follows good engineering practices while it works.
 
-1. **Task tracking** — Issues persist across sessions, so agents pick up where they left
-   off. Dependencies, priorities, and epics keep complex work organized.
-2. **Planning** — Spec-driven workflows help you think through features before coding.
-   With a good spec broken into issues, you can leave an agent running overnight and
-   come back to solid code.
-   See
-   [lessons in spec coding](https://github.com/jlevy/speculate/blob/main/about/lessons_in_spec_coding.md)
-   for more on this approach.
-3. **Knowledge** — Curated engineering guidelines are injected directly into the agent’s
-   context on demand. Your agent doesn’t guess at TypeScript patterns or Convex
-   conventions — it follows documented, battle-tested rules.
-
-The result: agents that do careful, planned, high-quality work on hundreds of issues,
-not just 5-10 ad-hoc tasks.
+tbd combines all three: beads for task management, spec-driven workflows for planning,
+and curated engineering guidelines for quality.
+Together, they let you hand an agent a well-defined spec with clear issues and expert
+knowledge, and get back careful, well-structured code — even overnight, even across
+sessions.
 
 All workflows and guidelines are included by default, but you’re not locked in.
-You can add your own via `--add` or configure what’s available in `.tbd/config.yml`.
-
-### Background: Beads
-
-tbd was inspired by [Beads](https://github.com/steveyegge/beads) by Steve Yegge, which
-demonstrated that git-native issue tracking dramatically improves an agent’s capacity
-for structured work.
-tbd builds on that idea with a simpler architecture — plain Markdown files instead of
-JSONL, no daemon, no SQLite — to avoid the edge cases that arise with network
-filesystems (like Claude Code Cloud) and multi-agent workflows.
-
-If you already use Beads, `tbd setup --from-beads` migrates your issues with IDs
-preserved.
+Add your own via `--add` or configure what’s available in `.tbd/config.yml`.
 
 ## Features
 
@@ -153,7 +141,8 @@ preserved.
   This eliminates most merge conflicts.
 - **Beads alternative:** Largely compatible with `bd` at the CLI level, but with a
   simpler architecture: no JSONL merge conflicts, no daemon modifying your working tree,
-  no SQLite file locking on network filesystems.
+  no SQLite file locking on network filesystems (see
+  [FAQ: How does tbd compare to Beads?](#how-does-tbd-compare-to-beads)).
 - **Shortcuts:** Over a dozen reusable instruction documents for common workflows, like
   - `new-plan-spec` — Create a feature planning spec
   - `new-research-brief` — Create a research document
@@ -489,6 +478,81 @@ tbd stores issues on a dedicated `tbd-sync` branch, separate from your code.
 One file per issue means parallel creation never conflicts.
 Run `tbd sync` to push changes—no manual git operations needed for issues.
 See the [design doc](packages/tbd/docs/tbd-design.md) for details.
+
+## FAQ
+
+### Why spec-driven development?
+
+After months of heavy agentic coding, I’ve found that the single biggest lever for
+quality is planning before you code.
+A
+[carefully written spec](https://github.com/jlevy/speculate/blob/main/about/lessons_in_spec_coding.md)
+lets you think through what you’re building, catch design issues early, and break the
+work into well-defined issues.
+The agent then implements each issue with clear context about the bigger picture.
+
+This matters because with a good spec broken into beads, you can leave an agent running
+overnight and come back to code that’s well-structured and coherent — not a pile of
+disconnected changes.
+tbd bakes in shortcuts for the full cycle: writing specs, breaking them into
+implementation issues, implementing, validating, and shipping.
+
+### Was tbd built with tbd?
+
+Yes! tbd has been developed using its own issue tracking, specs, and guidelines from
+early on. Here’s what that looks like in practice:
+
+**Specs** — tbd has 10+ active and completed plan specs, including:
+- `plan-2026-01-15-tbd-v1-implementation.md` — The original v1 design
+- `plan-2026-01-20-streamlined-init-setup-design.md` — Redesigning the setup flow
+- `plan-2026-01-26-configurable-doc-cache-sync.md` — Making the doc system configurable
+- `plan-2026-01-28-cli-add-docs-by-url.md` — Adding `--add` for external docs
+
+**Beads** — Features are broken into issues, worked through systematically, and closed
+with reasons. For example, improving this README was tracked as an epic with 7 child
+tasks:
+
+```
+tbd-cjwa  P1  ✓ closed  [epic] Improve README value proposition for cold readers
+tbd-q72d  P1  ✓ closed  [task] Sharpen README opening with instant context injection framing
+tbd-lugb  P1  ✓ closed  [task] Add 'Built-in Engineering Knowledge' section with direct links
+tbd-ezyn  P1  ✓ closed  [task] Highlight extensibility: --add flag for custom knowledge injection
+tbd-7san  P2  ✓ closed  [task] Restructure 'Why?' section into clear value proposition
+tbd-ntp3  P2  ✓ closed  [task] Add direct clickable links to all guideline source files
+tbd-4tt2  P2  ✓ closed  [task] Clean up informal language throughout README
+```
+
+### How does tbd compare to Beads?
+
+tbd was inspired by [Beads](https://github.com/steveyegge/beads) by Steve Yegge, and I’m
+grateful for the idea — it genuinely changed how I work with agents.
+If you’re not familiar with Beads, the core insight is that git-native issue tracking
+raises an agent’s capacity for structured work from ~5-10 to-do items to hundreds of
+issues.
+
+tbd builds on that foundation with a simpler architecture: plain Markdown files instead
+of JSONL, no daemon, no SQLite, no 4-way sync.
+This avoids the edge cases I ran into with network filesystems (Claude Code Cloud),
+merge conflicts, and multi-agent workflows.
+
+tbd also adds spec-driven planning and curated engineering guidelines — things Beads
+doesn’t attempt. If you already use Beads, `tbd setup --from-beads` migrates your issues
+with IDs preserved.
+
+### Can I add my own guidelines?
+
+Yes.
+tbd comes with 17+ bundled guidelines, but you can add your own team’s docs from any
+URL:
+
+```bash
+tbd guidelines --add=<url> --name=my-team-rules
+tbd shortcut --add=<url> --name=my-team-workflow
+tbd template --add=<url> --name=my-team-template
+```
+
+You can also configure which docs are available in `.tbd/config.yml`. You’re not locked
+into the bundled set.
 
 ## Contributing
 

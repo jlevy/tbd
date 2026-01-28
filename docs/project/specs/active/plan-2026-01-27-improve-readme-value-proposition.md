@@ -1,32 +1,42 @@
 # Feature: Improve README Value Proposition
 
-**Date:** 2026-01-27 **Author:** Claude **Status:** Draft
+**Date:** 2026-01-27 **Author:** Claude **Status:** In Progress
 
 ## Overview
 
 Rewrite the tbd README so a cold reader (HackerNews, Twitter/X) immediately grasps the
-full value: tbd is not just an issue tracker—it's an issue tracker **plus** a curated
-knowledge base of engineering best practices that, together, let AI agents (and humans)
-plan, implement, and ship high-quality code at a level that no other tool currently
-combines.
+full value of tbd.
 
-The central "aha" to communicate: tbd gives you **instant high-quality context injection**.
-When your AI agent starts a task, tbd injects expert-level knowledge—TypeScript rules,
-Convex patterns, monorepo setup, TDD practices, Python conventions—directly into the
-agent's context. The agent doesn't have to learn your codebase conventions by trial and
-error; it gets battle-tested engineering knowledge from the first keystroke. This is what
-turns a generic code-generating agent into one that writes code the way a senior engineer
-would.
+tbd combines three things that are each powerful on their own but unreasonably effective
+together:
+
+1. **Task management via beads** — git-native issue tracking that’s proven unreasonably
+   effective at scaling an agent’s capacity from ~5-10 ad-hoc tasks to hundreds of
+   structured issues across sessions.
+   This alone is a step change.
+2. **Spec-driven development** — workflows for planning features, writing specs, and
+   breaking them into implementation issues before coding.
+   With a good spec and beads, you can leave an agent running overnight and come back to
+   solid, well-structured code.
+3. **Instant high-quality context injection** — a curated knowledge base of engineering
+   best practices (TypeScript, Python, Convex, monorepos, TDD, etc.)
+   injected directly into the agent’s context on demand, so it follows battle-tested
+   rules instead of guessing.
+
+The README should communicate that tbd is the combination of all three, and that
+interacting with it feels natural — you talk to your agent, and tbd provides the
+discipline and knowledge behind the scenes.
 
 ## Goals
 
-- A first-time reader understands tbd's unique value within 30 seconds of scrolling
-- The deep, curated guidelines (TypeScript, Python, Convex, monorepo patterns, testing,
-  TDD, etc.) are surfaced prominently with direct links—not buried in a table at the
-  bottom
-- The connection between guidelines + issue tracking + spec-driven workflow = higher
-  engineering quality is made explicit
-- Tone is confident and concrete, not hand-wavy; show don't tell
+- A first-time reader understands tbd’s unique value within 30 seconds of scrolling
+- All three pillars (beads, specs, knowledge) are given equal weight — not organized
+  around any single one
+- The guidelines are surfaced prominently with direct links — not buried in a table
+- Tone follows writing-style-rules.md: clear, concise, casual (not stiff), detailed,
+  specific, warm, respectful of reader intelligence
+- Include an FAQ section for deeper context (spec-driven development philosophy, “built
+  with tbd” examples, Beads comparison)
 - Keep the README scannable: short paragraphs, clear headers, bullet points
 
 ## Non-Goals
@@ -34,148 +44,123 @@ would.
 - Rewriting the guidelines themselves
 - Changing CLI commands or features
 - Adding new shortcuts or templates
-- Changing the design doc or reference docs
+- Making the tone artificially formal
 
 ## Background
 
 ### Problem
 
-The current README accurately describes tbd's features but undersells the value. Key
-issues from a fresh-reader perspective:
+The current README accurately describes tbd’s features but undersells the value.
+Key issues from a fresh-reader perspective:
 
-1. **Buried lede**: The opening line says "helps humans and agents ship code with greater
-   speed, quality, and discipline" which is generic. It doesn't differentiate tbd from
-   any other project management tool.
+1. **Buried lede**: The opening line is generic and doesn’t differentiate tbd.
 
-2. **Guidelines are invisible**: The README lists 15+ deep guideline documents in a table
-   near the bottom, but doesn't link to any of them or explain why they matter. A reader
-   has no idea these contain ~30 pages of battle-tested coding rules.
+2. **Guidelines are invisible**: The README lists 15+ deep guideline documents in a
+   table near the bottom, but doesn’t link to any of them or explain why they matter.
 
-3. **The "why" section is too personal/narrative**: The "Beads: The Great and the
-   Not-So-Great Parts" section tells a personal story that's interesting for existing
-   users but loses cold readers. The comparison to Beads is important context but
-   shouldn't be the primary motivation section.
-
-4. **No direct links to guideline content**: The guideline table lists names but doesn't
-   link to the actual files on GitHub. A curious reader can't click through to see
-   `typescript-rules`, `python-rules`, `convex-rules`, etc.
-
-5. **Missing "aha moment"**: The README doesn't make it obvious that tbd gives your AI
+3. **Missing “aha moment”**: The README doesn’t make it obvious that tbd gives your AI
    agent instant access to expert-level knowledge about TypeScript monorepos, Convex
-   patterns, Python best practices, TDD, golden testing, backward compatibility, etc.—all
-   via a single `npm install`.
+   patterns, Python best practices, TDD, golden testing, backward compatibility, etc.
+   — all via a single `npm install`.
 
-6. **Informal tone in places**: Phrases like "It's basically like tbd is an issue tracker
-   and a meta-skill" are conversational but don't land for a skeptical HN audience.
+4. **Beads undersold**: Task management via beads is unreasonably effective — it’s a
+   genuine step change in how much structured work an agent can do.
+   The README should convey this more forcefully.
 
-7. **New features not yet highlighted**: Recent additions strengthen the story but aren't
-   yet woven into the narrative:
-   - `--add` flag for injecting external docs by URL (`tbd guidelines --add=<url>
-     --name=<name>`) — reinforces the "extensible context injection" angle: not just
-     bundled knowledge, you can add your own
-   - `--specs` flag (`tbd list --specs`) — groups beads by spec, tightening the
-     spec-driven workflow story
-   - `typescript-sorting-guidelines` — 18th guideline doc, further depth
+5. **Spec-driven development not explained**: The value of planning before coding, and
+   how specs + beads work together, deserves more than a brief section.
+   Much of the original “Why?”
+   content about this was valuable and should be preserved, perhaps in an FAQ.
+
+6. **New features not yet highlighted**: `--add` flag, `--specs` flag, and new guideline
+   docs strengthen the story but aren’t woven into the narrative.
+
+### What was over-corrected in initial revision
+
+- The opening was too centered on “context injection” at the expense of task management
+- Some informal language was removed that was actually fine — the goal is casual
+  clarity, not formality
+- Valuable discussion about spec-driven development was cut entirely rather than moved
 
 ## Design
 
 ### Approach
 
-Restructure the README with these changes:
+#### 1. Rebalance the opening
 
-#### 1. Sharpen the opening (lines 1–15)
+The tagline and opening should communicate all three pillars, not just knowledge
+injection. The opening should make clear that beads are a proven, unreasonably effective
+approach to task management, and that tbd adds spec-driven planning and curated
+engineering knowledge on top.
 
-Replace the current opening with a more concrete, differentiating pitch:
-- tbd = git-native issue tracker + curated engineering knowledge base + spec-driven
-  workflows
-- Frame the key value as **instant high-quality context injection**: one `npm install`
-  gives your AI agent structured task management AND expert coding guidelines injected
-  directly into its context
-- Make it concrete: "Your agent gets TypeScript monorepo patterns, Convex best practices,
-  Python conventions, TDD workflows, and more—before it writes a single line of code"
-- Designed for AI agents but equally useful for humans
+#### 2. Keep the “Built-in Engineering Knowledge” section
 
-#### 2. Add a "What's Inside" section highlighting the knowledge base
+This section with direct links to guidelines is genuinely useful.
+Keep it.
 
-Right after Quick Start, add a section that showcases the depth of bundled knowledge:
-- Direct GitHub links to key guidelines: `typescript-rules`, `typescript-monorepo-patterns`,
-  `python-rules`, `convex-rules`, `general-tdd-guidelines`, `golden-testing-guidelines`,
-  `backward-compatibility-rules`
-- Brief description of what each covers and why it matters
-- Make it clear this is ~30 pages of curated, battle-tested engineering knowledge
+#### 3. Restore warmth and informality where appropriate
 
-#### 3. Highlight extensibility (`--add` flag)
+Follow writing-style-rules.md: clear, concise, casual, warm.
+Don’t strip out personality just to sound professional.
+Remove language that’s vague or hand-wavy, but keep language that’s direct and
+conversational.
 
-Call out that tbd isn't a closed system—you can inject your own team's guidelines,
-shortcuts, or templates from any URL:
-```
-tbd guidelines --add=<url> --name=<name>
-```
-This makes the "context injection" story even stronger: bundled best practices out of the
-box, plus your own team knowledge layered on top.
+#### 4. Add FAQ section
 
-#### 4. Restructure "Why?" into a clearer value proposition
+Move deeper context to a FAQ at the bottom:
+- Why spec-driven development?
+  (Restore the cut discussion about how specs + beads work together, with link to
+  lessons in spec coding)
+- Was tbd built with tbd?
+  (Yes — show real beads and specs from this project)
+- How does tbd compare to Beads?
+  (Keep the Beads comparison here, gracious and warm)
+- Can I add my own guidelines?
+  (--add flag)
 
-- Lead with the problem: AI agents write mediocre code without structure and knowledge
-- tbd solves this by combining three things: task tracking (beads), planning (specs),
-  and knowledge (guidelines)
-- Move the Beads comparison to a smaller subsection or a separate doc
+#### 5. Highlight extensibility
 
-#### 5. Add direct links to guideline files
-
-In the guidelines table, make each guideline name a clickable link to the source file in
-`packages/tbd/docs/guidelines/`.
-
-#### 6. Clean up informal language
-
-Remove or rewrite:
-- "It's basically like tbd is an issue tracker and a meta-skill"
-- "And the tbd skill maps your intents down to shortcuts your agent can use and follow"
-- Other casual asides that dilute the message
+The `--add` flag and `.tbd/config.yml` customization should be visible — you’re not
+locked into the bundled docs.
 
 ### Components
 
-Only the README.md file needs changes. No code changes.
+Only the README.md file needs changes.
+No code changes.
 
 ## Implementation Plan
 
-### Phase 1: README restructure
+### Phase 1: README restructure (in progress)
 
-- [ ] Rewrite opening section (lines 1–11) with sharper value proposition
-- [ ] Add prominent "Knowledge Base" or "Built-in Engineering Knowledge" section after
-  Quick Start, with direct GitHub links to key guidelines
-- [ ] Restructure "What tbd Provides" to lead with the combined value (tracking +
-  planning + knowledge = quality)
-- [ ] Add direct links to guideline source files in the guidelines table
-- [ ] Clean up "Why?" section: lead with value, move Beads comparison to a subsection
-- [ ] Remove or rewrite informal/vague language throughout
+- [x] Add prominent “Built-in Engineering Knowledge” section with direct links
+- [x] Add direct links to guideline source files in the guidelines table
+- [x] Fix broken links to design doc and CLI reference
+- [ ] Rewrite opening to balance all three pillars (beads + specs + knowledge)
+- [ ] Restore casual/warm tone where it was over-formalized
+- [ ] Add FAQ section (spec-driven dev, built with tbd, Beads comparison, --add)
 - [ ] Review flow end-to-end as a cold reader
 
 ### Phase 2: Cross-linked docs (stretch)
 
-- [ ] Check that docs linked from README (design doc, CLI reference) are also clear for
-  new readers
-- [ ] Consider adding a "See these guidelines in action" example or link
+- [ ] Check that docs linked from README are also clear for new readers
+- [ ] Consider adding a “See these guidelines in action” example
 
 ## Testing Strategy
 
 - Read the revised README as a fresh HN reader: can you understand the value in 30
   seconds?
-- Verify all links work (guideline files exist at the linked paths)
-- Ensure no existing information is lost—only restructured
+- Verify all links work
+- Ensure the tone matches writing-style-rules.md: casual, clear, warm, specific
 
 ## Open Questions
 
-- Should the Beads comparison be moved entirely to a separate doc, or kept as a smaller
-  subsection?
 - Is there a good screenshot or terminal output that could be included for visual
   appeal?
-- Should we add a "Before/After" example showing what an agent session looks like with
-  vs. without tbd?
 
 ## References
 
 - Current README: README.md
+- Writing style rules: docs/project/agent-rules/writing-style-rules.md
 - Guidelines source: packages/tbd/docs/guidelines/
 - Shortcuts source: packages/tbd/docs/shortcuts/
 - Templates source: packages/tbd/docs/templates/
