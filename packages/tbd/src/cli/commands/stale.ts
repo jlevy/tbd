@@ -14,6 +14,7 @@ import type { Issue, IssueStatusType } from '../../lib/types.js';
 import { resolveDataSyncDir } from '../../lib/paths.js';
 import { nowDate, parseDate } from '../../utils/time-utils.js';
 import { formatDisplayId, formatDebugId } from '../../lib/ids.js';
+import { naturalCompare } from '../../lib/sort.js';
 import { loadIdMapping } from '../../file/id-mapping.js';
 import { readConfig } from '../../file/config.js';
 
@@ -81,7 +82,11 @@ class StaleHandler extends BaseCommand {
     }
 
     // Sort by days since update (most stale first)
-    staleIssues.sort((a, b) => b.daysSinceUpdate - a.daysSinceUpdate);
+    staleIssues.sort((a, b) => {
+      const cmp = b.daysSinceUpdate - a.daysSinceUpdate;
+      if (cmp !== 0) return cmp;
+      return naturalCompare(a.issue.id, b.issue.id);
+    });
 
     // Apply limit
     if (options.limit) {

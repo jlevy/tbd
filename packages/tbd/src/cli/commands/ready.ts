@@ -13,6 +13,7 @@ import { IssueKind } from '../../lib/schemas.js';
 import type { Issue, IssueKindType } from '../../lib/types.js';
 import { resolveDataSyncDir } from '../../lib/paths.js';
 import { formatDisplayId, formatDebugId } from '../../lib/ids.js';
+import { naturalCompare } from '../../lib/sort.js';
 import { loadIdMapping } from '../../file/id-mapping.js';
 import { readConfig } from '../../file/config.js';
 import {
@@ -88,7 +89,11 @@ class ReadyHandler extends BaseCommand {
     }
 
     // Sort by priority (lowest number = highest priority)
-    readyIssues.sort((a, b) => a.priority - b.priority);
+    readyIssues.sort((a, b) => {
+      const cmp = a.priority - b.priority;
+      if (cmp !== 0) return cmp;
+      return naturalCompare(a.id, b.id);
+    });
 
     // Apply limit
     if (options.limit) {

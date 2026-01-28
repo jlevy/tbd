@@ -12,6 +12,7 @@ import { listIssues } from '../../file/storage.js';
 import type { Issue } from '../../lib/types.js';
 import { resolveDataSyncDir } from '../../lib/paths.js';
 import { formatDisplayId, formatDebugId } from '../../lib/ids.js';
+import { naturalCompare } from '../../lib/sort.js';
 import { loadIdMapping } from '../../file/id-mapping.js';
 import { readConfig } from '../../file/config.js';
 import {
@@ -101,7 +102,11 @@ class BlockedHandler extends BaseCommand {
     }
 
     // Sort by priority
-    blockedIssues.sort((a, b) => a.issue.priority - b.issue.priority);
+    blockedIssues.sort((a, b) => {
+      const cmp = a.issue.priority - b.issue.priority;
+      if (cmp !== 0) return cmp;
+      return naturalCompare(a.issue.id, b.issue.id);
+    });
 
     // Apply limit
     if (options.limit) {
