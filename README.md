@@ -3,18 +3,16 @@
 **Task management, spec-driven planning, and instant knowledge injection for AI coding
 agents.**
 
-Git-native issue tracking (beads) is
-[unreasonably effective](https://github.com/steveyegge/beads) at scaling an agent’s
-capacity from ~5-10 ad-hoc tasks to hundreds of structured issues.
-**tbd** takes that idea and adds two more things: spec-driven workflows for planning
-before you code, and a curated knowledge base of engineering best practices that gets
-injected directly into your agent’s context.
+**tbd** (short for “To Be Done,” or “TypeScript beads” if you prefer) combines three
+things that are each powerful on their own but unreasonably effective together:
 
-One `npm install` gives any AI coding agent:
 1. **Task tracking (beads)** — git-native issues, bugs, epics, and dependencies that
    persist across sessions.
    This alone is a step change in what agents can do.
-2. **Spec-driven planning** — shortcuts for writing specs, breaking them into issues,
+   Git-native issue tracking is
+   [unreasonably effective](https://github.com/steveyegge/beads) at scaling an agent’s
+   capacity from ~5-10 ad-hoc tasks to hundreds of structured issues.
+2. **Spec-driven planning** — workflows for writing specs, breaking them into issues,
    and implementing systematically.
    With a good spec and beads, you can leave an agent running overnight and come back to
    solid code.
@@ -37,8 +35,52 @@ That’s it. Running `tbd` with no arguments gives you everything you need:
 - Not initialized? It explains what tbd is and how to initialize.
 - Already set up? It shows project status, available work, and workflow guidance.
 
-This command bootstraps you through each step, providing context-aware instructions for
-whatever comes next.
+## How to Use tbd
+
+You talk to your agent in natural language.
+The agent translates your requests into tbd commands behind the scenes — you don’t need
+to memorize anything.
+
+| What you say | What happens |
+| --- | --- |
+| "There's a bug where ..." | Agent creates and tracks a bug |
+| "Let's work on current issues" | Agent finds ready issues and starts working |
+| "Let's plan a new feature" | Agent creates a spec from a template |
+| "Break this spec into issues" | Agent creates implementation issues from the spec |
+| "Implement these issues" | Agent works through issues systematically |
+| "Build a TypeScript CLI" | Agent loads TypeScript CLI guidelines |
+| "Improve the monorepo setup" | Agent loads monorepo patterns |
+| "Add better e2e testing" | Agent loads golden testing guidelines |
+| "Review these changes" | Agent loads language-specific review guidelines |
+| "Commit this" | Agent runs pre-commit checks and commits |
+| "Create a PR" | Agent creates or updates the pull request |
+| "Research this topic" | Agent creates a research document |
+
+Under the hood, your agent is running `tbd create`, `tbd ready`, `tbd shortcut`,
+`tbd guidelines`, and other commands.
+But you just talk naturally.
+
+## Why?
+
+AI agents can generate a lot of code, but without structure and knowledge, the results
+are hit-or-miss. Agents forget conventions between sessions, skip testing, and don’t
+follow your team’s patterns.
+The usual fix — pasting rules into prompts or CLAUDE.md files — is fragile and doesn’t
+scale across projects.
+
+Beads (git-native issue tracking) solve the task management problem brilliantly.
+But task tracking alone doesn’t help with *planning* or *quality*. You still need a way
+to think through what you’re building before you start, and a way to make sure the agent
+follows good engineering practices while it works.
+
+tbd combines all three: beads for task management, spec-driven workflows for planning,
+and curated engineering guidelines for quality.
+Together, they let you hand an agent a well-defined spec with clear issues and expert
+knowledge, and get back careful, well-structured code — even overnight, even across
+sessions.
+
+All workflows and guidelines are included by default, but you’re not locked in.
+Add your own via `--add` or configure what’s available in `.tbd/config.yml`.
 
 ## Built-in Engineering Knowledge
 
@@ -70,71 +112,16 @@ Plus guidelines on
 [commit conventions](packages/tbd/docs/guidelines/commit-conventions.md), and
 [style](packages/tbd/docs/guidelines/general-style-rules.md).
 
-Your agent accesses these with a single command:
-
-```bash
-tbd guidelines typescript-rules    # Injects TypeScript rules into agent context
-tbd guidelines convex-rules        # Injects Convex patterns into agent context
-tbd guidelines --list              # See all available guidelines
-```
-
 You can also add your own team’s guidelines from any URL:
 
 ```bash
 tbd guidelines --add=<url> --name=my-team-rules
 ```
 
-## Quick Reference
-
-You describe what you want in natural language; your agent translates it into tbd
-commands:
-
-| User Need or Request | tbd Command Agent Can Run | What Happens |
-| --- | --- | --- |
-| "There is a bug where ..." | `tbd create "..." --type=bug` | Creates issue |
-| "Fix current issues" | `tbd ready` | Lists ready issues |
-| *(agent choice)* | `tbd dep add <id> <depends-on>` | Adds dependency |
-| *(agent choice)* | `tbd close <id>` | Closes issue |
-| *(agent choice)* | `tbd sync` | Syncs issues to remote |
-| "Build a TypeScript CLI" | `tbd guidelines typescript-cli-tool-rules` | Agent gets guidelines |
-| "Improve eslint setup" | `tbd guidelines typescript-monorepo-patterns` | Agent gets guidelines |
-| "Add better e2e testing" | `tbd guidelines golden-testing-guidelines` | Agent gets guidelines |
-| "Review these changes" (TypeScript) | `tbd guidelines typescript-rules` | Agent gets guidelines |
-| "Review these changes" (Python) | `tbd guidelines python-rules` | Agent gets guidelines |
-| "Let's plan a new feature" | `tbd shortcut new-plan-spec` | Agent gets spec template and instructions |
-| "Break spec into issues" | `tbd shortcut new-implementation-beads-from-spec` | Agent gets instructions |
-| "Implement these issues" | `tbd shortcut implement-beads` | Agent gets instructions |
-| "Commit this" | `tbd shortcut commit-code` | Agent gets instructions |
-| "Create a PR" | `tbd shortcut create-or-update-pr-simple` | Agent gets instructions |
-| "Research this topic" | `tbd shortcut new-research-brief` | Agent gets template and instructions |
-| "Document this architecture" | `tbd shortcut new-architecture-doc` | Agent gets template and instructions |
-
-## Why?
-
-AI agents can generate a lot of code, but without structure and knowledge, the results
-are hit-or-miss. Agents forget conventions between sessions, skip testing, and don’t
-follow your team’s patterns.
-The usual fix — pasting rules into prompts or CLAUDE.md files — is fragile and doesn’t
-scale across projects.
-
-Beads (git-native issue tracking) solve the task management problem brilliantly.
-But task tracking alone doesn’t help with *planning* or *quality*. You still need a way
-to think through what you’re building before you start, and a way to make sure the agent
-follows good engineering practices while it works.
-
-tbd combines all three: beads for task management, spec-driven workflows for planning,
-and curated engineering guidelines for quality.
-Together, they let you hand an agent a well-defined spec with clear issues and expert
-knowledge, and get back careful, well-structured code — even overnight, even across
-sessions.
-
-All workflows and guidelines are included by default, but you’re not locked in.
-Add your own via `--add` or configure what’s available in `.tbd/config.yml`.
-
 ## Features
 
 - **Git-native:** Issues live in your repo, synced to a separate, dedicated `tbd-sync`
-  branch. Your code history stays clean—no issue churn polluting your logs.
+  branch. Your code history stays clean — no issue churn polluting your logs.
 - **Agent friendly:** JSON output, non-interactive mode, simple commands that agents
   understand. Installs itself as a skill in Claude Code.
 - **Markdown + YAML frontmatter:** One file per issue, human-readable and editable.
@@ -143,15 +130,10 @@ Add your own via `--add` or configure what’s available in `.tbd/config.yml`.
   simpler architecture: no JSONL merge conflicts, no daemon modifying your working tree,
   no SQLite file locking on network filesystems (see
   [FAQ: How does tbd compare to Beads?](#how-does-tbd-compare-to-beads)).
-- **Shortcuts:** Over a dozen reusable instruction documents for common workflows, like
-  - `new-plan-spec` — Create a feature planning spec
-  - `new-research-brief` — Create a research document
-  - `precommit-process` — Pre-commit review and testing
-  - `commit-code` — Run checks and commit
-  - `create-or-update-pr-with-validation-plan` — Create PR with test plan
+- **Shortcuts:** Over a dozen reusable workflow documents — plan specs, code reviews,
+  commit processes, PR creation, research briefs, and more.
 - **Guidelines:** [17+ guideline docs](packages/tbd/docs/guidelines/) of coding rules
-  and best practices for TypeScript, Python, Convex, testing, TDD, backward
-  compatibility, and more (see
+  and best practices (see
   [Built-in Engineering Knowledge](#built-in-engineering-knowledge)).
 - **Templates:** Document templates for planning specs, research briefs, architecture
   docs.
@@ -160,7 +142,7 @@ Add your own via `--add` or configure what’s available in `.tbd/config.yml`.
 > See the [design doc](packages/tbd/docs/tbd-design.md) (`tbd design`) or
 > [reference docs](packages/tbd/docs/tbd-docs.md) (`tbd docs`) for more details.
 
-## Installation
+## Installation and Setup
 
 **Requirements:**
 - Node.js 20+
@@ -170,157 +152,48 @@ Add your own via `--add` or configure what’s available in `.tbd/config.yml`.
 npm install -g get-tbd@latest
 ```
 
-### Setup Options
+### Setup
 
 ```bash
-# Fresh project (--prefix is REQUIRED)
+# Fresh project (--prefix is REQUIRED — it appears in every issue ID, e.g. myapp-a1b2)
 tbd setup --auto --prefix=myapp
 
-# Joining existing tbd project (no prefix needed)
+# Joining an existing tbd project (no prefix needed — reads existing config)
 tbd setup --auto
 
-# Refresh configs and skill files (re-run anytime to update)
-tbd setup --auto
-
-# Migrate from Beads
+# Migrate from Beads (uses your existing beads prefix)
 tbd setup --from-beads
-
-# Advanced: surgical init only
-tbd init --prefix=proj
 ```
 
-> **Tip:** Run `tbd setup --auto` anytime to refresh skill files, hooks, and configs.
-> This updates your local installation with the latest shortcuts, guidelines, and
-> templates lists.
+> **Tip:** Run `tbd setup --auto` anytime to refresh skill files, hooks, and configs
+> with the latest shortcuts, guidelines, and templates.
 
-### Basic Usage
+### Team Setup
 
+tbd is designed for teams where one person sets up the project and others join later.
+
+**First contributor:**
 ```bash
-# Create issues
-tbd create "API returns 500 on malformed input" --type=bug --priority=P1
-tbd create "Add rate limiting to /api/upload" --type=feature
-tbd list --pretty  # View issues
-
-# Find and claim work
-tbd ready                                    # What's available?
-tbd update proj-a7k2 --status=in_progress    # Claim it
-
-# Complete and sync
-tbd closing  # Get a reminder of the closing protocol (this is also in the skill docs)
-tbd close proj-a7k2 --reason="Fixed in commit abc123"
-tbd sync
+npm install -g tbd-git@latest
+tbd setup --auto --prefix=myproject
+git add .tbd/ .claude/ && git commit -m "Initialize tbd"
+git push
 ```
 
-## Commands
-
-### Core Workflow
-
+**Joining contributors:**
 ```bash
-tbd ready                      # Issues ready to work on (open, unblocked, unassigned)
-tbd list                       # List open issues
-tbd list --all                 # Include closed
-tbd show proj-a7k2             # View issue details
-tbd create "Title" --type=bug  # Create issue (bug/feature/task/epic/chore)
-tbd update proj-a7k2 --status=in_progress
-tbd close proj-a7k2            # Close issue
-tbd sync                       # Sync with remote (auto-commits and pushes issues)
+git clone <repo>
+npm install -g tbd-git@latest
+tbd setup --auto                    # No --prefix needed — reads existing config
 ```
-
-### Dependencies
-
-```bash
-tbd dep add proj-b3m9 proj-a7k2  # b3m9 is blocked by a7k2
-tbd blocked                      # Show blocked issues
-```
-
-### Labels
-
-```bash
-tbd label add proj-a7k2 urgent backend
-tbd label remove proj-a7k2 urgent
-tbd label list                   # All labels in use
-```
-
-### Search
-
-```bash
-tbd search "authentication"
-tbd search "TODO" --status=open
-```
-
-### Maintenance
-
-```bash
-tbd status                   # Repository status (works before init too)
-tbd stats                    # Issue statistics
-tbd doctor                   # Check for problems
-tbd doctor --fix             # Auto-fix issues
-```
-
-## Spec-Driven Development
-
-For non-trivial features, tbd supports a spec-driven workflow:
-
-1. **Plan**: Create a planning spec (`tbd shortcut new-plan-spec`)
-2. **Break down**: Convert spec into implementation issues
-   (`tbd shortcut new-implementation-beads-from-spec`)
-3. **Implement**: Work through issues systematically (`tbd shortcut implement-beads`)
-4. **Validate**: Create validation plan, run tests (`tbd shortcut new-validation-plan`)
-5. **Ship**: Commit, create PR (`tbd shortcut create-or-update-pr-with-validation-plan`)
-
-This methodology helps structure complex work before diving into code, creating clear
-documentation of what was built and why.
-
-## For AI Agents
-
-tbd is designed for AI coding agents.
-The key philosophy: **agents should use tbd proactively to help users**, not just tell
-users about commands.
-
-### Getting Oriented
-
-Just run `tbd` — it provides complete orientation including:
-- Installation and project status
-- Workflow rules and session protocol
-- All available commands with examples
-- Directory of shortcuts and guidelines
-
-For abbreviated output in constrained contexts: `tbd prime --brief`
-
-### Agent Workflow Loop
-
-```bash
-tbd ready --json                          # Find work
-tbd update proj-xxxx --status=in_progress # Claim (advisory)
-# ... do the work ...
-tbd close proj-xxxx --reason="Done"       # Complete
-tbd sync                                  # Push
-```
-
-### Agent-Friendly Flags
-
-| Flag | Purpose |
-| --- | --- |
-| `--json` | Machine-parseable output |
-| `--non-interactive` | Fail if input required |
-| `--yes` | Auto-confirm prompts |
-| `--dry-run` | Preview changes |
-| `--quiet` | Minimal output |
 
 ### Claude Code Integration
 
-```bash
-tbd setup --auto --prefix=myapp   # Fresh project: full setup including Claude hooks
-tbd setup --auto                  # Existing project or refresh: configure/update hooks
-```
+`tbd setup --auto` configures SessionStart hooks that run at the beginning of each
+Claude Code session:
 
-This configures SessionStart hooks that run at the beginning of each agent session:
-
-- **`tbd prime`** — Injects workflow context so the agent knows how to use tbd
-- **`ensure-gh-cli.sh`** — Installs the GitHub CLI (`gh`) if not already available,
-  enabling PR creation, issue management, and GitHub API access from agent sessions
-
-The agent can also run `tbd` at any time to get full orientation and see project status.
+- **`tbd prime`** — injects workflow context so the agent knows how to use tbd
+- **`ensure-gh-cli.sh`** — installs the GitHub CLI (`gh`) if not already available
 
 **GitHub authentication:** For `gh` to work, set these environment variables before
 starting your agent session:
@@ -339,55 +212,87 @@ For local CLI usage, add them to your shell profile (`~/.zshrc` or `~/.bashrc`).
 To disable automatic `gh` installation, pass `--no-gh-cli` during setup or set
 `use_gh_cli: false` in `.tbd/config.yml` under `settings:`.
 
-**Updating:** Run `tbd setup --auto` anytime to refresh skill files with the latest
-shortcuts, guidelines, and templates.
+### Migrating from Beads
+
+```bash
+tbd setup --from-beads       # Auto-detects and migrates
+tbd stats                    # Verify
+tbd list --all
+tbd setup beads --disable    # Optionally disable beads after migration
+```
+
+Issue IDs are preserved: `proj-123` in beads becomes `proj-123` in tbd.
+
+## Commands
+
+### Issues
+
+```bash
+tbd ready                      # Issues ready to work on (open, unblocked, unassigned)
+tbd list                       # List open issues
+tbd list --all                 # Include closed
+tbd list --specs               # Group issues by spec
+tbd show proj-a7k2             # View issue details
+tbd create "Title" --type=bug  # Create issue (bug/feature/task/epic/chore)
+tbd update proj-a7k2 --status=in_progress
+tbd close proj-a7k2            # Close issue
+tbd close proj-a7k2 --reason="Fixed in commit abc123"
+tbd sync                       # Sync with remote (auto-commits and pushes)
+```
+
+### Dependencies and Labels
+
+```bash
+tbd dep add proj-b3m9 proj-a7k2        # b3m9 depends on a7k2
+tbd blocked                            # Show blocked issues
+tbd label add proj-a7k2 urgent backend
+tbd label remove proj-a7k2 urgent
+tbd label list                         # All labels in use
+tbd search "authentication"            # Search issues
+```
 
 ### Shortcuts, Guidelines, and Templates
 
-tbd includes three types of documentation agents can invoke:
-
-- **Shortcuts** — Reusable instruction documents for common workflows
-- **Guidelines** — Coding rules and best practices
-- **Templates** — Document templates for specs, research, architecture
+tbd bundles three types of documentation your agent can invoke on demand:
 
 ```bash
-# Shortcuts
+# Shortcuts — workflow instructions
 tbd shortcut --list              # List all shortcuts
-tbd shortcut new-plan-spec       # Run a shortcut by name
+tbd shortcut new-plan-spec       # Get the plan spec workflow
 
-# Guidelines
+# Guidelines — coding rules and best practices
 tbd guidelines --list            # List all guidelines
 tbd guidelines typescript-rules  # Get TypeScript rules
 
-# Templates
-tbd template --list             # List all templates
-tbd template plan-spec > docs/project/specs/plan-2025-01-15-feature.md
+# Templates — document scaffolds
+tbd template --list              # List all templates
+tbd template plan-spec           # Get a plan spec template
 
-# Add external docs by URL
+# Add your own from any URL
 tbd guidelines --add=<url> --name=<name>
 tbd shortcut --add=<url> --name=<name>
 tbd template --add=<url> --name=<name>
 ```
 
-**Available Shortcuts:**
+**Available shortcuts:**
 
 | Shortcut | Purpose |
 | --- | --- |
-| `new-plan-spec` | Create feature planning spec |
-| `new-research-brief` | Create research document |
-| `new-architecture-doc` | Create architecture document |
-| `new-validation-plan` | Create test/validation plan |
-| `new-implementation-beads-from-spec` | Break spec into issues |
-| `implement-beads` | Implement issues from specs |
+| `new-plan-spec` | Create a feature planning spec |
+| `new-research-brief` | Create a research document |
+| `new-architecture-doc` | Create an architecture document |
+| `new-validation-plan` | Create a test/validation plan |
+| `new-implementation-beads-from-spec` | Break a spec into implementation issues |
+| `implement-beads` | Implement issues from a spec |
 | `precommit-process` | Pre-commit review and testing |
 | `commit-code` | Commit with pre-commit checks |
 | `review-code-typescript` | Code review for TypeScript |
 | `review-code-python` | Code review for Python |
 | `create-or-update-pr-simple` | Basic PR creation |
-| `create-or-update-pr-with-validation-plan` | PR with validation plan |
+| `create-or-update-pr-with-validation-plan` | PR with a validation plan |
 
-**Available Guidelines** (see
-[Built-in Engineering Knowledge](#built-in-engineering-knowledge) above for details):
+**Available guidelines** (see
+[Built-in Engineering Knowledge](#built-in-engineering-knowledge) for details):
 
 | Guideline | Description |
 | --- | --- |
@@ -409,13 +314,45 @@ tbd template --add=<url> --name=<name>
 | [`golden-testing-guidelines`](packages/tbd/docs/guidelines/golden-testing-guidelines.md) | Golden/snapshot testing |
 | [`backward-compatibility-rules`](packages/tbd/docs/guidelines/backward-compatibility-rules.md) | API and schema compatibility |
 
-**Available Templates:**
+**Available templates:**
 
 | Template | Description |
 | --- | --- |
 | `plan-spec` | Feature planning specification |
 | `research-brief` | Research document |
 | `architecture` | Architecture document |
+
+### Spec-Driven Development
+
+For non-trivial features, tbd supports a full spec-driven workflow:
+
+1. **Plan**: Create a planning spec (`tbd shortcut new-plan-spec`)
+2. **Break down**: Convert spec into implementation issues
+   (`tbd shortcut new-implementation-beads-from-spec`)
+3. **Implement**: Work through issues systematically (`tbd shortcut implement-beads`)
+4. **Validate**: Create validation plan, run tests (`tbd shortcut new-validation-plan`)
+5. **Ship**: Commit, create PR (`tbd shortcut create-or-update-pr-with-validation-plan`)
+
+### Maintenance
+
+```bash
+tbd status                   # Repository status (works before init too)
+tbd stats                    # Issue statistics
+tbd doctor                   # Check for problems
+tbd doctor --fix             # Auto-fix issues
+```
+
+### Agent-Friendly Flags
+
+Every command supports these flags for automation:
+
+| Flag | Purpose |
+| --- | --- |
+| `--json` | Machine-parseable output |
+| `--non-interactive` | Fail if input required |
+| `--yes` | Auto-confirm prompts |
+| `--dry-run` | Preview changes |
+| `--quiet` | Minimal output |
 
 ## Documentation
 
@@ -476,7 +413,7 @@ The prefix from your beads configuration is automatically used.
 
 tbd stores issues on a dedicated `tbd-sync` branch, separate from your code.
 One file per issue means parallel creation never conflicts.
-Run `tbd sync` to push changes—no manual git operations needed for issues.
+Run `tbd sync` to push changes — no manual git operations needed for issues.
 See the [design doc](packages/tbd/docs/tbd-design.md) for details.
 
 ## FAQ
@@ -514,7 +451,7 @@ tasks:
 
 ```
 tbd-cjwa  P1  ✓ closed  [epic] Improve README value proposition for cold readers
-tbd-q72d  P1  ✓ closed  [task] Sharpen README opening with instant context injection framing
+tbd-q72d  P1  ✓ closed  [task] Sharpen README opening
 tbd-lugb  P1  ✓ closed  [task] Add 'Built-in Engineering Knowledge' section with direct links
 tbd-ezyn  P1  ✓ closed  [task] Highlight extensibility: --add flag for custom knowledge injection
 tbd-7san  P2  ✓ closed  [task] Restructure 'Why?' section into clear value proposition
