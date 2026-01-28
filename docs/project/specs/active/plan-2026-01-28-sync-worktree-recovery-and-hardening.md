@@ -98,12 +98,32 @@ export async function resolveDataSyncDir(baseDir): Promise<string> {
 
 ### Comparison: Working vs Broken Repos
 
-| Aspect | TBD Repo (Working) | AI-Trade-Arena (Broken) |
-| --- | --- | --- |
-| `data-sync-worktree/` | EXISTS with `.git` | MISSING (prunable) |
-| `data-sync/` in .tbd | Missing | Has 951 issues |
-| Worktree in git list | Valid | Marked "prunable" |
-| Remote tbd-sync | 598 issues | Only initial commit |
+| Aspect | TBD (Working) | ai-trade-arena | markform | lexikon-site |
+| --- | --- | --- | --- | --- |
+| Failure Mode | None | Worktree deleted | Never initialized | Never pushed |
+| `data-sync-worktree/` | EXISTS | MISSING (prunable) | MISSING | EXISTS |
+| Local tbd-sync | EXISTS | EXISTS | MISSING | EXISTS |
+| Remote tbd-sync | EXISTS | EXISTS (empty) | MISSING | MISSING |
+| Wrong location issues | 0 | 957 | 8 | 0 |
+| Correct location issues | 603 | 0 | 0 | 0 |
+| Severity | OK | CRITICAL | CRITICAL | MINOR |
+| Doctor --fix action | N/A | Prune + recreate + migrate | Create + migrate | Just sync |
+
+**Three distinct failure modes:**
+
+1. **Worktree deleted** (ai-trade-arena): Worktree was created, then deleted.
+   Git still tracks it as “prunable”.
+   Branches exist. Data written to wrong fallback path.
+   - Fix: `git worktree prune`, recreate worktree, migrate data, push
+
+2. **Never initialized** (markform): Worktree was never created (possibly due to older
+   tbd version or interrupted setup).
+   No branches exist. Data written to wrong path.
+   - Fix: Create orphan branch, create worktree, migrate data, push
+
+3. **Never pushed** (lexikon-site): Everything local is correct, but remote branch
+   doesn’t exist. User just needs to push.
+   - Fix: Run `tbd sync` to push
 
 ## Design
 
@@ -758,7 +778,102 @@ Checking tbd health...
 This gives User B a clear explanation of why they see no issues despite evidence (beads
 migration, configured id_prefix) that issues should exist.
 
-## Appendix B: Manual Recovery Steps for ai-trade-arena
+## Appendix B: What Doctor Would Report for markform (Never Initialized)
+
+For repos where the worktree was never created and no branches exist:
+
+```
+Checking tbd health...
+
+✗ ERROR: Worktree is missing
+  Fix: Run `tbd doctor --fix` to repair
+
+✗ ERROR: Local branch 'tbd-sync' does not exist
+  Fix: Run `tbd doctor --fix` to create from remote or initialize
+
+⚠ WARNING: Remote branch 'origin/tbd-sync' does not exist
+  Fix: Run `tbd sync` to push local branch to remote
+
+✗ ERROR: Found 8 issues in wrong location (.tbd/data-sync/)
+  Fix: Run `tbd doctor --fix` to migrate to worktree
+
+3 error(s), 1 warning(s), 0 info(s)
+```
+
+After `tbd doctor --fix`:
+
+```
+Repairing tbd...
+
+✓ Created orphan branch 'tbd-sync'
+✓ Created worktree at .tbd/data-sync-worktree
+✓ Backed up 8 issues to Attic/tbd-data-sync-backup-YYYYMMDD-HHMMSS/
+✓ Migrated 8 issues to worktree
+✓ Committed migration to tbd-sync branch
+
+Run `tbd sync` to push changes to remote.
+```
+
+**Key difference from ai-trade-arena:** No “prune” step needed because there’s no stale
+worktree entry in git.
+Instead, we create the branch from scratch as an orphan.
+
+## Appendix C: What Doctor Would Report for lexikon-site (Never Pushed)
+
+For repos where everything local is correct but remote branch doesn’t exist:
+
+```
+Checking tbd health...
+
+⚠ WARNING: Remote branch 'origin/tbd-sync' does not exist
+  Fix: Run `tbd sync` to push local branch to remote
+
+ℹ INFO: Local 'tbd-sync' has commits that are not on remote
+  Fix: Run `tbd sync` to push changes
+
+0 error(s), 1 warning(s), 1 info(s)
+```
+
+No `--fix` needed - just run `tbd sync` to push.
+
+## Appendix D: Doctor --fix Decision Tree
+
+The `tbd doctor --fix` command follows this decision tree:
+
+```
+START
+  │
+  ├─► Check worktree status
+  │   ├─► HEALTHY → skip to step 4
+  │   ├─► PRUNABLE → (1) git worktree prune
+  │   └─► MISSING → continue
+  │
+  ├─► Check local branch
+  │   ├─► EXISTS → (2) git worktree add .tbd/data-sync-worktree tbd-sync
+  │   └─► MISSING → Check remote branch
+  │       ├─► EXISTS → (2a) git fetch && git worktree add ... origin/tbd-sync
+  │       └─► MISSING → (2b) git worktree add --orphan tbd-sync ...
+  │
+  ├─► Check wrong location (.tbd/data-sync/)
+  │   ├─► HAS DATA →
+  │   │   ├─► (3) Backup to Attic/tbd-data-sync-backup-YYYYMMDD-HHMMSS/
+  │   │   ├─► (4) Copy to .tbd/data-sync-worktree/.tbd/data-sync/
+  │   │   ├─► (5) git -C worktree add -A && git commit
+  │   │   └─► (6) Remove wrong location data (optional, with confirmation)
+  │   └─► EMPTY → skip migration
+  │
+  └─► Done - remind user to run `tbd sync`
+```
+
+**Failure mode mapping:**
+
+| Failure Mode | Steps Executed |
+| --- | --- |
+| ai-trade-arena (prunable) | 1, 2, 3, 4, 5, 6 |
+| markform (never initialized) | 2b, 3, 4, 5, 6 |
+| lexikon-site (never pushed) | None (no --fix needed) |
+
+## Appendix E: Manual Recovery Steps for ai-trade-arena
 
 If manual recovery is needed (or before `tbd doctor --fix` is implemented):
 
@@ -810,7 +925,7 @@ tbd stats
 # Keep .tbd/data-sync/.gitkeep if it exists
 ```
 
-## Appendix C: Root Cause Summary
+## Appendix F: Root Cause Summary
 
 **Why did this happen?**
 
