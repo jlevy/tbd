@@ -294,6 +294,71 @@ describeUnix('setup hooks (project-local)', () => {
     });
   });
 
+  describe('subdirectory handling (git root resolution)', () => {
+    it('creates .claude/ at git root when run from a subdirectory', async () => {
+      const projectDir = join(tempDir, 'project');
+      await mkdir(projectDir, { recursive: true });
+      initGitRepo(projectDir);
+
+      // Create a subdirectory to run setup from
+      const subDir = join(projectDir, 'src', 'deep');
+      await mkdir(subDir, { recursive: true });
+
+      const result = runTbd(['setup', '--auto', '--prefix=test'], subDir);
+
+      expect(result.status).toBe(0);
+
+      // .claude/ should be at the git root, NOT in the subdirectory
+      const rootSettingsPath = join(projectDir, '.claude', 'settings.json');
+      await expect(access(rootSettingsPath)).resolves.not.toThrow();
+
+      const content = await readFile(rootSettingsPath, 'utf-8');
+      const settings = JSON.parse(content);
+      const hasSessionHook = settings.hooks?.SessionStart?.some(
+        (entry: { hooks?: { command?: string }[] }) =>
+          entry.hooks?.some((h) => h.command?.includes('tbd-session.sh')),
+      );
+      expect(hasSessionHook).toBe(true);
+
+      // Script should be at git root too
+      const scriptPath = join(projectDir, '.claude', 'scripts', 'tbd-session.sh');
+      await expect(access(scriptPath)).resolves.not.toThrow();
+
+      // .claude/ should NOT exist in the subdirectory
+      try {
+        await access(join(subDir, '.claude'));
+        // If we get here, .claude/ exists in subdirectory — that's a bug
+        expect.fail('.claude/ should not exist in subdirectory');
+      } catch {
+        // Expected: .claude/ does not exist in subdirectory
+      }
+    });
+
+    it('creates .tbd/ at git root when run from a subdirectory', async () => {
+      const projectDir = join(tempDir, 'project');
+      await mkdir(projectDir, { recursive: true });
+      initGitRepo(projectDir);
+
+      const subDir = join(projectDir, 'packages', 'lib');
+      await mkdir(subDir, { recursive: true });
+
+      const result = runTbd(['setup', '--auto', '--prefix=test'], subDir);
+
+      expect(result.status).toBe(0);
+
+      // .tbd/ should be at the git root
+      await expect(access(join(projectDir, '.tbd'))).resolves.not.toThrow();
+
+      // .tbd/ should NOT be in the subdirectory
+      try {
+        await access(join(subDir, '.tbd'));
+        expect.fail('.tbd/ should not exist in subdirectory');
+      } catch {
+        // Expected
+      }
+    });
+  });
+
   describe('idempotency', () => {
     it('running setup twice does not duplicate hooks', async () => {
       const projectDir = join(tempDir, 'project');

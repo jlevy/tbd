@@ -52,7 +52,7 @@ import {
   TBD_GUIDELINES_DIR,
   TBD_TEMPLATES_DIR,
 } from '../../lib/paths.js';
-import { initWorktree, isInGitRepo } from '../../file/git.js';
+import { initWorktree, isInGitRepo, findGitRoot } from '../../file/git.js';
 import { DocCache, generateShortcutDirectory } from '../../file/doc-cache.js';
 
 /**
@@ -343,9 +343,15 @@ const LEGACY_TBD_HOOK_PATTERNS = [
 ];
 
 class SetupClaudeHandler extends BaseCommand {
+  private projectDir: string | undefined;
+
+  setProjectDir(dir: string): void {
+    this.projectDir = dir;
+  }
+
   async run(options: SetupClaudeOptions): Promise<void> {
     const settingsPath = join(homedir(), '.claude', 'settings.json');
-    const cwd = process.cwd();
+    const cwd = this.projectDir ?? process.cwd();
     const skillPath = join(cwd, '.claude', 'skills', 'tbd', 'SKILL.md');
 
     if (options.check) {
@@ -362,7 +368,7 @@ class SetupClaudeHandler extends BaseCommand {
   }
 
   private async checkClaudeSetup(_settingsPath: string, skillPath: string): Promise<void> {
-    const cwd = process.cwd();
+    const cwd = this.projectDir ?? process.cwd();
     let sessionScriptInstalled = false;
     let sessionStartHook = false;
     let preCompactHook = false;
@@ -542,7 +548,7 @@ class SetupClaudeHandler extends BaseCommand {
   }
 
   private async removeClaudeSetup(_settingsPath: string, skillPath: string): Promise<void> {
-    const cwd = process.cwd();
+    const cwd = this.projectDir ?? process.cwd();
     let removedHooks = false;
     let removedScripts = false;
     let removedSkill = false;
@@ -690,7 +696,7 @@ class SetupClaudeHandler extends BaseCommand {
       return;
     }
 
-    const cwd = process.cwd();
+    const cwd = this.projectDir ?? process.cwd();
     const projectClaudeDir = join(cwd, '.claude');
     const projectSettingsPath = join(projectClaudeDir, 'settings.json');
     const scriptsDir = join(projectClaudeDir, 'scripts');
@@ -876,8 +882,14 @@ class SetupClaudeHandler extends BaseCommand {
 }
 
 class SetupCodexHandler extends BaseCommand {
+  private projectDir: string | undefined;
+
+  setProjectDir(dir: string): void {
+    this.projectDir = dir;
+  }
+
   async run(options: SetupCodexOptions): Promise<void> {
-    const cwd = process.cwd();
+    const cwd = this.projectDir ?? process.cwd();
     const agentsPath = join(cwd, 'AGENTS.md');
 
     if (options.check) {
@@ -1099,15 +1111,24 @@ class SetupDefaultHandler extends BaseCommand {
     console.log(colors.bold('tbd: Git-native issue tracking for AI agents and humans'));
     console.log('');
 
-    // Check if in git repo
+    // Check if in git repo and resolve to git root
     const inGitRepo = await isInGitRepo(cwd);
     if (!inGitRepo) {
       throw new CLIError('Not a git repository. Run `git init` first.');
     }
 
+    // Resolve to git root so .tbd/ and .claude/ are always adjacent to .git/
+    const gitRoot = await findGitRoot(cwd);
+    if (!gitRoot) {
+      throw new CLIError('Could not determine git repository root.');
+    }
+
+    // Use git root as the working directory for all setup operations
+    const projectDir = gitRoot;
+
     // Check current state
-    const hasTbd = await isInitialized(cwd);
-    const hasBeads = await pathExists(join(cwd, '.beads'));
+    const hasTbd = await isInitialized(projectDir);
+    const hasBeads = await pathExists(join(projectDir, '.beads'));
 
     // Validate --from-beads flag requires .beads/ directory
     if (options.fromBeads && !hasBeads) {
@@ -1122,7 +1143,7 @@ class SetupDefaultHandler extends BaseCommand {
 
     if (hasTbd) {
       // Already initialized flow - check for migrations
-      const { config, migrated, changes } = await readConfigWithMigration(cwd);
+      const { config, migrated, changes } = await readConfigWithMigration(projectDir);
       console.log(`  ${colors.success('✓')} tbd initialized (prefix: ${config.display.id_prefix})`);
 
       // Apply --no-gh-cli flag to config if specified
@@ -1134,7 +1155,7 @@ class SetupDefaultHandler extends BaseCommand {
 
       // Persist config if migrated or --no-gh-cli was applied
       if (needsConfigWrite) {
-        await writeConfig(cwd, config);
+        await writeConfig(projectDir, config);
         if (migrated) {
           console.log(`  ${colors.success('✓')} Config migrated to latest format`);
           for (const change of changes) {
@@ -1147,29 +1168,29 @@ class SetupDefaultHandler extends BaseCommand {
       }
 
       console.log('');
-      await this.handleAlreadyInitialized(cwd, isAutoMode);
+      await this.handleAlreadyInitialized(projectDir, isAutoMode);
     } else if ((hasBeads || options.fromBeads) && !options.prefix) {
       // Beads migration flow (unless prefix override given)
       console.log(`  ${colors.dim('✗')} tbd not initialized`);
       console.log(`  ${colors.warn('!')} Beads detected (.beads/ directory found)`);
       console.log('');
-      await this.handleBeadsMigration(cwd, isAutoMode, options);
+      await this.handleBeadsMigration(projectDir, isAutoMode, options);
     } else {
       // Fresh setup flow
       console.log(`  ${colors.dim('✗')} tbd not initialized`);
       console.log('');
-      await this.handleFreshSetup(cwd, isAutoMode, options);
+      await this.handleFreshSetup(projectDir, isAutoMode, options);
     }
   }
 
-  private async handleAlreadyInitialized(_cwd: string, _isAutoMode: boolean): Promise<void> {
+  private async handleAlreadyInitialized(projectDir: string, _isAutoMode: boolean): Promise<void> {
     const colors = this.output.getColors();
 
     console.log('Checking integrations...');
 
     // Use SetupAutoHandler to configure integrations
     const autoHandler = new SetupAutoHandler(this.cmd);
-    await autoHandler.run();
+    await autoHandler.run(projectDir);
 
     console.log('');
     console.log(colors.success('All set!'));
@@ -1247,7 +1268,7 @@ class SetupDefaultHandler extends BaseCommand {
 
     // Configure integrations
     const autoHandler = new SetupAutoHandler(this.cmd);
-    await autoHandler.run();
+    await autoHandler.run(cwd);
 
     console.log('');
     console.log(colors.success('Setup complete!'));
@@ -1314,7 +1335,7 @@ class SetupDefaultHandler extends BaseCommand {
 
     // Configure integrations
     const autoHandler = new SetupAutoHandler(this.cmd);
-    await autoHandler.run();
+    await autoHandler.run(cwd);
 
     console.log('');
     console.log(colors.success('Setup complete!'));
@@ -1526,9 +1547,9 @@ class SetupAutoHandler extends BaseCommand {
     return hooksRemoved;
   }
 
-  async run(): Promise<void> {
+  async run(projectDir?: string): Promise<void> {
     const colors = this.output.getColors();
-    const cwd = process.cwd();
+    const cwd = projectDir ?? process.cwd();
     const results: AutoSetupResult[] = [];
 
     // Clean up legacy project-level scripts and hooks FIRST,
@@ -1707,6 +1728,7 @@ class SetupAutoHandler extends BaseCommand {
 
       // Install/update Claude Code setup (always runs to update skill file)
       const handler = new SetupClaudeHandler(this.cmd);
+      handler.setProjectDir(cwd);
       await handler.run({});
       result.installed = true;
     } catch (error) {
@@ -1749,6 +1771,7 @@ class SetupAutoHandler extends BaseCommand {
     try {
       // Install/update Codex AGENTS.md (always runs to update content)
       const handler = new SetupCodexHandler(this.cmd);
+      handler.setProjectDir(cwd);
       await handler.run({});
       result.installed = true;
     } catch (error) {
