@@ -382,4 +382,81 @@ describeUnix('setup hooks (project-local)', () => {
       expect(tbdHookCount).toBe(1);
     });
   });
+
+  describe('script refresh on setup', () => {
+    it('tbd setup --auto refreshes tbd-session.sh with latest content', async () => {
+      const projectDir = join(tempDir, 'project');
+      await mkdir(projectDir, { recursive: true });
+      initGitRepo(projectDir);
+
+      // Initial setup
+      runTbd(['setup', '--auto', '--prefix=test'], projectDir);
+
+      const scriptPath = join(projectDir, '.claude', 'scripts', 'tbd-session.sh');
+
+      // Manually modify the script to simulate an outdated version
+      const outdatedContent = `#!/bin/bash
+# Old/stale version of the script
+echo "This is outdated"
+`;
+      await writeFile(scriptPath, outdatedContent);
+
+      // Verify the modification took effect
+      const staleContent = await readFile(scriptPath, 'utf-8');
+      expect(staleContent).toContain('This is outdated');
+
+      // Run setup again - should refresh the script
+      const result = runTbd(['setup', '--auto'], projectDir);
+      expect(result.status).toBe(0);
+
+      // Script should be refreshed with latest content
+      const refreshedContent = await readFile(scriptPath, 'utf-8');
+      expect(refreshedContent).not.toContain('This is outdated');
+      expect(refreshedContent).toContain('ensure_tbd');
+      expect(refreshedContent).toContain('npm install');
+      expect(refreshedContent).toContain('tbd prime');
+    });
+
+    it('tbd setup --auto includes npm global bin detection in tbd-session.sh', async () => {
+      const projectDir = join(tempDir, 'project');
+      await mkdir(projectDir, { recursive: true });
+      initGitRepo(projectDir);
+
+      runTbd(['setup', '--auto', '--prefix=test'], projectDir);
+
+      const scriptPath = join(projectDir, '.claude', 'scripts', 'tbd-session.sh');
+      const content = await readFile(scriptPath, 'utf-8');
+
+      // Verify npm global bin detection is present (the fix for the initialization bug)
+      expect(content).toContain('NPM_GLOBAL_BIN');
+      expect(content).toContain('npm config get prefix');
+      expect(content).toContain('$NPM_PREFIX/bin');
+    });
+
+    it('refreshed script preserves executable permissions', async () => {
+      const projectDir = join(tempDir, 'project');
+      await mkdir(projectDir, { recursive: true });
+      initGitRepo(projectDir);
+
+      // Initial setup
+      runTbd(['setup', '--auto', '--prefix=test'], projectDir);
+
+      const scriptPath = join(projectDir, '.claude', 'scripts', 'tbd-session.sh');
+
+      // Remove executable permissions to simulate corruption
+      const { chmod: chmodSync } = await import('node:fs/promises');
+      await chmodSync(scriptPath, 0o644);
+
+      // Verify permissions were removed
+      let stats = await stat(scriptPath);
+      expect(stats.mode & 0o111).toBe(0);
+
+      // Re-run setup
+      runTbd(['setup', '--auto'], projectDir);
+
+      // Permissions should be restored
+      stats = await stat(scriptPath);
+      expect(stats.mode & 0o111).toBeGreaterThan(0);
+    });
+  });
 });
