@@ -1316,6 +1316,16 @@ export async function migrateDataToWorktree(
     }
 
     // Step 3: Commit in worktree (if there are changes)
+    // IMPORTANT: Ensure worktree is on the sync branch BEFORE staging files
+    // If worktree was created with old tbd version using --detach, commits won't update the branch
+    // Check if HEAD is detached and fix it first
+    const currentBranch = await git('-C', worktreePath, 'branch', '--show-current').catch(() => '');
+    if (!currentBranch) {
+      // Detached HEAD - re-attach to sync branch
+      // This must be done before staging files to avoid losing changes
+      await git('-C', worktreePath, 'checkout', SYNC_BRANCH);
+    }
+
     // Use --no-verify to bypass parent repo hooks (lefthook, husky, etc.)
     const totalFiles = issueFiles.length + mappingFiles.length;
     await git('-C', worktreePath, 'add', '-A');
