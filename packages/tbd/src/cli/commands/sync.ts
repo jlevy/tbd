@@ -70,18 +70,20 @@ class SyncHandler extends BaseCommand {
     // See: plan-2026-01-28-sync-worktree-recovery-and-hardening.md
     let worktreeHealth = await checkWorktreeHealth(tbdRoot);
     if (!worktreeHealth.valid) {
-      // Determine if we should auto-repair or require --fix
-      // - 'missing': Fresh clone, normal state - auto-create without --fix
-      // - 'prunable'/'corrupted': Abnormal state - require --fix
-      const shouldAutoRepair = worktreeHealth.status === 'missing';
-
-      if (options.fix || shouldAutoRepair) {
-        // Attempt repair when --fix is provided OR when auto-repair is appropriate
-        // Cast is safe: status cannot be 'valid' when valid is false
-        await this.doRepairWorktree(
-          tbdRoot,
-          worktreeHealth.status as 'missing' | 'prunable' | 'corrupted',
-        );
+      // Auto-create worktree if it's simply missing (normal for fresh clones)
+      // Only require --fix for corrupted/prunable states that need repair
+      if (worktreeHealth.status === 'missing') {
+        // Auto-create worktree - this is the expected state on fresh clones
+        await this.doRepairWorktree(tbdRoot, 'missing');
+        worktreeHealth = await checkWorktreeHealth(tbdRoot);
+        if (!worktreeHealth.valid) {
+          throw new WorktreeCorruptedError(
+            `Failed to create worktree. Status: ${worktreeHealth.status}. Run 'tbd doctor' for diagnostics.`,
+          );
+        }
+      } else if (options.fix) {
+        // Attempt repair when --fix is provided for corrupted/prunable states
+        await this.doRepairWorktree(tbdRoot, worktreeHealth.status as 'prunable' | 'corrupted');
         // Re-check health after repair
         worktreeHealth = await checkWorktreeHealth(tbdRoot);
         if (!worktreeHealth.valid) {
@@ -90,7 +92,7 @@ class SyncHandler extends BaseCommand {
           );
         }
       } else {
-        // No --fix flag and not auto-repairable, throw appropriate error
+        // No --fix flag, throw appropriate error for corrupted/prunable states
         if (worktreeHealth.status === 'prunable') {
           throw new WorktreeMissingError(
             "Worktree directory was deleted but git still tracks it. Run 'tbd sync --fix' or 'tbd doctor --fix' to repair.",
@@ -101,8 +103,6 @@ class SyncHandler extends BaseCommand {
             `Worktree is corrupted: ${worktreeHealth.error ?? 'unknown error'}. Run 'tbd sync --fix' or 'tbd doctor --fix' to repair.`,
           );
         }
-        // Note: 'missing' status is now auto-repaired above, so this branch is only
-        // reached for 'prunable' or 'corrupted' states
       }
     }
 
@@ -659,6 +659,8 @@ class SyncHandler extends BaseCommand {
     }
 
     // Push if we have commits ahead of remote
+    let pushFailed = false;
+    let pushError = '';
     if (aheadCommits > 0) {
       this.output.debug(`Pushing ${aheadCommits} commit(s) to remote`);
       const result = await this.doPushWithRetry(syncBranch, remote);
@@ -666,10 +668,9 @@ class SyncHandler extends BaseCommand {
         conflicts.push(...result.conflicts);
       }
       if (!result.success) {
-        // Track push failure in summary so it's reported to the user
-        summary.pushFailed = true;
-        summary.pushError = result.error;
-        this.output.debug(`Push failed: ${result.error}`);
+        pushFailed = true;
+        pushError = result.error ?? 'Unknown push error';
+        this.output.debug(`Push failed: ${pushError}`);
       } else {
         // Show pushed commits in debug mode
         await this.showGitLogDebug(`-${aheadCommits}`, 'Commits sent');
@@ -681,24 +682,44 @@ class SyncHandler extends BaseCommand {
     summary.conflicts = conflicts.length;
     spinner.stop();
 
-    this.output.data(
-      { summary, conflicts: conflicts.length, pushFailed: summary.pushFailed },
-      () => {
-        // Check for push failure first - this is an error condition
-        if (summary.pushFailed) {
-          this.output.error(`Push failed: ${summary.pushError ?? 'unknown error'}`);
-          this.output.info('Local changes are committed but not pushed. Run `tbd sync` to retry.');
-          return;
-        }
+    // Report push failure - don't silently swallow it
+    if (pushFailed) {
+      this.output.data(
+        {
+          summary,
+          conflicts: conflicts.length,
+          pushFailed,
+          pushError,
+          unpushedCommits: aheadCommits,
+        },
+        () => {
+          // Extract meaningful error from git output (look for HTTP errors, permission issues, etc.)
+          let displayError = pushError;
+          const httpMatch = /HTTP (\d+)/.exec(pushError);
+          const curlMatch = /curl \d+ (.+?)(?:\n|$)/.exec(pushError);
+          if (httpMatch) {
+            displayError = `HTTP ${httpMatch[1]}${curlMatch ? ` - ${curlMatch[1]}` : ''}`;
+          } else {
+            // Fall back to first meaningful line (skip "Command failed: git push...")
+            const lines = pushError.split('\n').filter((l) => l && !l.startsWith('Command failed'));
+            displayError = lines[0] ?? pushError;
+          }
+          this.output.error(`Push failed: ${displayError}`);
+          console.log(`  ${aheadCommits} commit(s) not pushed to remote.`);
+          console.log(`  Run 'tbd sync' to retry or 'tbd sync --status' to check status.`);
+        },
+      );
+      return;
+    }
 
-        const summaryText = formatSyncSummary(summary);
-        if (!summaryText) {
-          this.output.success('Already in sync');
-        } else {
-          this.output.success(`Synced: ${summaryText}`);
-        }
-      },
-    );
+    this.output.data({ summary, conflicts: conflicts.length }, () => {
+      const summaryText = formatSyncSummary(summary);
+      if (!summaryText) {
+        this.output.success('Already in sync');
+      } else {
+        this.output.success(`Synced: ${summaryText}`);
+      }
+    });
   }
 }
 
