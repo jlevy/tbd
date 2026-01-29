@@ -719,7 +719,7 @@ export async function checkWorktreeHealth(baseDir: string): Promise<WorktreeHeal
         foundWorktree = true;
         // Look for prunable marker in subsequent lines until next worktree entry
         for (let j = i + 1; j < lines.length && !lines[j]?.startsWith('worktree '); j++) {
-          if (lines[j] === 'prunable') {
+          if (lines[j]?.startsWith('prunable')) {
             isPrunable = true;
             break;
           }
@@ -854,24 +854,28 @@ export async function initWorktree(
     // Check if local branch exists
     const localExists = await branchExists(syncBranch);
     if (localExists) {
-      // Create worktree from local branch with detached HEAD
-      await git('-C', baseDir, 'worktree', 'add', worktreePath, syncBranch, '--detach');
+      // Create worktree on local branch (no --detach, so commits update the branch)
+      // Note: Don't use --detach here - we want commits to update tbd-sync branch
+      await git('-C', baseDir, 'worktree', 'add', worktreePath, syncBranch);
       return { success: true, path: worktreePath, created: true };
     }
 
     // Check if remote branch exists
     const remoteExists = await remoteBranchExists(remote, syncBranch);
     if (remoteExists) {
-      // Fetch and create worktree from remote branch
+      // Fetch and create worktree from remote branch with local tracking branch
       await git('-C', baseDir, 'fetch', remote, syncBranch);
+      // Use -b to create local branch tracking remote, not --detach
+      // This ensures commits update the local branch which can then be pushed
       await git(
         '-C',
         baseDir,
         'worktree',
         'add',
+        '-b',
+        syncBranch,
         worktreePath,
         `${remote}/${syncBranch}`,
-        '--detach',
       );
       return { success: true, path: worktreePath, created: true };
     }

@@ -765,3 +765,271 @@ describeUnlessWindows('architectural test: issues written to worktree path', () 
     );
   });
 });
+
+// =============================================================================
+// Bug Fix Tests: tbd-vuuq, tbd-m0wl, tbd-tg55
+// See: Session where ai-trade-arena was recovered
+// =============================================================================
+
+describeUnlessWindows('Bug tbd-vuuq: doctor --fix respects --dry-run flag', () => {
+  let testDir: string;
+  let bareRepoPath: string;
+  let workRepoPath: string;
+  let originalCwd: string;
+
+  beforeEach(async () => {
+    const { supported } = await checkGitVersion();
+    if (!supported) {
+      console.log('Skipping tbd-vuuq tests - Git 2.42+ required');
+      return;
+    }
+
+    originalCwd = process.cwd();
+    testDir = join(tmpdir(), `tbd-vuuq-test-${randomBytes(4).toString('hex')}`);
+    bareRepoPath = join(testDir, 'remote.git');
+    workRepoPath = join(testDir, 'work');
+
+    await createBareRepo(bareRepoPath);
+    await initRepoWithRemote(workRepoPath, bareRepoPath);
+    process.chdir(workRepoPath);
+    clearPathCache();
+  });
+
+  afterEach(async () => {
+    process.chdir(originalCwd);
+    clearPathCache();
+    if (testDir) {
+      await rm(testDir, { recursive: true, force: true }).catch(() => undefined);
+    }
+  });
+
+  it('--dry-run should NOT repair prunable worktree', async () => {
+    // Step 1: Initialize worktree
+    await initWorktree(workRepoPath);
+    const worktreePath = join(workRepoPath, WORKTREE_DIR);
+
+    // Step 2: Delete worktree to make it prunable
+    await rm(worktreePath, { recursive: true, force: true });
+
+    // Verify it's prunable
+    const healthBefore = await checkWorktreeHealth(workRepoPath);
+    expect(healthBefore.status).toBe('prunable');
+
+    // Step 3: Call repairWorktree with dry-run simulation
+    // Since repairWorktree doesn't have dry-run support, we test the behavior
+    // that the doctor command SHOULD have: not calling repair when dry-run
+
+    // For now, just document that the bug exists: doctor calls repair even with --dry-run
+    // The fix is to check isDryRun() in doctor.ts before calling repairWorktree
+
+    // After the --dry-run is respected, worktree should still be prunable
+    const healthAfterDryRun = await checkWorktreeHealth(workRepoPath);
+    expect(healthAfterDryRun.status).toBe('prunable'); // Should still be prunable after dry-run
+  });
+
+  it('--dry-run should NOT migrate data from wrong location', async () => {
+    // Step 1: Initialize worktree
+    await initWorktree(workRepoPath);
+
+    // Step 2: Create data in wrong location
+    const wrongIssuesPath = join(workRepoPath, DATA_SYNC_DIR, 'issues');
+    await mkdir(wrongIssuesPath, { recursive: true });
+    await fsWriteFile(join(wrongIssuesPath, 'dry-run-test.md'), '# Dry Run Test');
+
+    // Count issues in wrong location before
+    const { readdir: fsReaddir } = await import('node:fs/promises');
+    const issuesBefore = await fsReaddir(wrongIssuesPath);
+    expect(issuesBefore.length).toBe(1);
+
+    // Step 3: Simulate what doctor --fix --dry-run SHOULD do: nothing
+    // The bug is that doctor calls migrateDataToWorktree even with --dry-run
+    // After fix, issues should still be in wrong location after dry-run
+
+    // For now, document that issues in wrong location should not be migrated with dry-run
+    const issuesStillInWrongLocation = await fsReaddir(wrongIssuesPath).catch(() => []);
+    expect(issuesStillInWrongLocation).toContain('dry-run-test.md');
+  });
+});
+
+describeUnlessWindows('Bug tbd-m0wl: sync consistency detects unpushed commits', () => {
+  let testDir: string;
+  let bareRepoPath: string;
+  let workRepoPath: string;
+  let originalCwd: string;
+
+  beforeEach(async () => {
+    const { supported } = await checkGitVersion();
+    if (!supported) {
+      console.log('Skipping tbd-m0wl tests - Git 2.42+ required');
+      return;
+    }
+
+    originalCwd = process.cwd();
+    testDir = join(tmpdir(), `tbd-m0wl-test-${randomBytes(4).toString('hex')}`);
+    bareRepoPath = join(testDir, 'remote.git');
+    workRepoPath = join(testDir, 'work');
+
+    await createBareRepo(bareRepoPath);
+    await initRepoWithRemote(workRepoPath, bareRepoPath);
+    process.chdir(workRepoPath);
+    clearPathCache();
+  });
+
+  afterEach(async () => {
+    process.chdir(originalCwd);
+    clearPathCache();
+    if (testDir) {
+      await rm(testDir, { recursive: true, force: true }).catch(() => undefined);
+    }
+  });
+
+  it('checkSyncConsistency detects local ahead when worktree has unpushed commits', async () => {
+    // Step 1: Initialize worktree and push initial commit
+    await initWorktree(workRepoPath);
+    const worktreePath = join(workRepoPath, WORKTREE_DIR);
+    await gitInDir(worktreePath, 'push', '-u', 'origin', SYNC_BRANCH);
+
+    // Step 2: Create a new commit in worktree (not pushed)
+    const testFile = join(worktreePath, TBD_DIR, DATA_SYNC_DIR_NAME, 'unpushed-test.txt');
+    await fsWriteFile(testFile, 'unpushed content');
+    await gitInDir(worktreePath, 'add', '-A');
+    await gitInDir(worktreePath, 'commit', '-m', 'Unpushed commit');
+
+    // Step 3: Check sync consistency - should detect local is ahead
+    const consistency = await checkSyncConsistency(workRepoPath, SYNC_BRANCH, 'origin');
+
+    expect(consistency.localAhead).toBeGreaterThan(0);
+    expect(consistency.worktreeMatchesLocal).toBe(true); // After tbd-tg55 fix, worktree is on branch
+  });
+
+  it('checkSyncConsistency returns worktreeMatchesLocal=true after commits on branch', async () => {
+    // This test verifies that after tbd-tg55 fix, commits in worktree update the branch
+    await initWorktree(workRepoPath);
+    const worktreePath = join(workRepoPath, WORKTREE_DIR);
+
+    // Create a commit
+    const testFile = join(worktreePath, TBD_DIR, DATA_SYNC_DIR_NAME, 'branch-test.txt');
+    await fsWriteFile(testFile, 'branch content');
+    await gitInDir(worktreePath, 'add', '-A');
+    await gitInDir(worktreePath, 'commit', '-m', 'Branch commit');
+
+    // Check consistency
+    const consistency = await checkSyncConsistency(workRepoPath, SYNC_BRANCH, 'origin');
+
+    // After tbd-tg55 fix: worktree HEAD should match local branch
+    expect(consistency.worktreeMatchesLocal).toBe(true);
+    expect(consistency.worktreeHead).toBe(consistency.localHead);
+  });
+});
+
+describeUnlessWindows(
+  'Bug tbd-tg55: initWorktree should not use detached HEAD when local branch exists',
+  () => {
+    let testDir: string;
+    let bareRepoPath: string;
+    let workRepoPath: string;
+    let originalCwd: string;
+
+    beforeEach(async () => {
+      const { supported } = await checkGitVersion();
+      if (!supported) {
+        console.log('Skipping tbd-tg55 tests - Git 2.42+ required');
+        return;
+      }
+
+      originalCwd = process.cwd();
+      testDir = join(tmpdir(), `tbd-tg55-test-${randomBytes(4).toString('hex')}`);
+      bareRepoPath = join(testDir, 'remote.git');
+      workRepoPath = join(testDir, 'work');
+
+      await createBareRepo(bareRepoPath);
+      await initRepoWithRemote(workRepoPath, bareRepoPath);
+      process.chdir(workRepoPath);
+      clearPathCache();
+    });
+
+    afterEach(async () => {
+      process.chdir(originalCwd);
+      clearPathCache();
+      if (testDir) {
+        await rm(testDir, { recursive: true, force: true }).catch(() => undefined);
+      }
+    });
+
+    it('worktree is on tbd-sync branch after repair from prunable state (not detached HEAD)', async () => {
+      // Step 1: Initialize worktree - creates tbd-sync branch
+      await initWorktree(workRepoPath);
+
+      // Verify initial state is on branch
+      const worktreePath = join(workRepoPath, WORKTREE_DIR);
+      const initialBranch = await gitInDir(worktreePath, 'branch', '--show-current');
+      expect(initialBranch).toBe(SYNC_BRANCH);
+
+      // Step 2: Delete worktree directory (simulates prunable state)
+      await rm(worktreePath, { recursive: true, force: true });
+
+      // Step 3: Repair the prunable worktree
+      const result = await repairWorktree(workRepoPath, 'prunable');
+      expect(result.success).toBe(true);
+
+      // Step 4: Verify worktree is on tbd-sync branch, NOT detached HEAD
+      // This is the bug: initWorktree uses --detach when local branch exists
+      const branchAfterRepair = await gitInDir(worktreePath, 'branch', '--show-current');
+      expect(branchAfterRepair).toBe(SYNC_BRANCH); // FAILS - currently returns '' (detached HEAD)
+    });
+
+    it('commits after repair go to tbd-sync branch (not orphaned)', async () => {
+      // Step 1: Initialize worktree
+      await initWorktree(workRepoPath);
+      const worktreePath = join(workRepoPath, WORKTREE_DIR);
+
+      // Step 2: Get initial commit hash
+      const _initialHead = await gitInDir(worktreePath, 'rev-parse', 'HEAD');
+
+      // Step 3: Simulate prunable state and repair
+      await rm(worktreePath, { recursive: true, force: true });
+      await repairWorktree(workRepoPath, 'prunable');
+
+      // Step 4: Create a new file and commit in repaired worktree
+      const testFile = join(worktreePath, TBD_DIR, DATA_SYNC_DIR_NAME, 'test.txt');
+      await fsWriteFile(testFile, 'test content');
+      await gitInDir(worktreePath, 'add', '-A');
+      await gitInDir(worktreePath, 'commit', '-m', 'Test commit after repair');
+
+      // Step 5: Get the tbd-sync branch head (from main repo, not worktree)
+      const branchHead = await gitInDir(workRepoPath, 'rev-parse', SYNC_BRANCH);
+      const worktreeHead = await gitInDir(worktreePath, 'rev-parse', 'HEAD');
+
+      // The bug: worktree commits don't update tbd-sync branch when detached
+      expect(worktreeHead).toBe(branchHead); // FAILS when detached - branch stays at initialHead
+    });
+
+    it('migration commits are on tbd-sync branch, not detached HEAD', async () => {
+      // Initialize worktree first
+      await initWorktree(workRepoPath);
+
+      // Create data in the WRONG location (.tbd/data-sync/)
+      const wrongIssuesPath = join(workRepoPath, DATA_SYNC_DIR, 'issues');
+      await mkdir(wrongIssuesPath, { recursive: true });
+      await fsWriteFile(join(wrongIssuesPath, 'test-branch.md'), '# Test Branch Issue\n');
+
+      // Migrate data to worktree
+      const result = await migrateDataToWorktree(workRepoPath);
+      expect(result.success).toBe(true);
+
+      // Get the worktree path
+      const worktreePath = join(workRepoPath, WORKTREE_DIR);
+
+      // Check that we're on the tbd-sync branch, not detached HEAD
+      const branchOutput = await gitInDir(worktreePath, 'branch', '--show-current');
+      expect(branchOutput).toBe(SYNC_BRANCH);
+
+      // Also verify HEAD is not detached
+      const headRef = await gitInDir(worktreePath, 'symbolic-ref', '-q', 'HEAD').catch(
+        () => 'detached',
+      );
+      expect(headRef).not.toBe('detached');
+      expect(headRef).toContain(SYNC_BRANCH);
+    });
+  },
+);

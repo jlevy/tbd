@@ -396,7 +396,7 @@ class DoctorHandler extends BaseCommand {
       return { name: 'Temp files', status: 'ok', path: issuesPath };
     }
 
-    if (fix) {
+    if (fix && !this.checkDryRun('Clean temp files')) {
       // Clean up temp files
       for (const file of tempFiles) {
         try {
@@ -532,8 +532,8 @@ class DoctorHandler extends BaseCommand {
 
       case 'prunable':
       case 'corrupted': {
-        // Attempt repair if --fix is provided
-        if (fix) {
+        // Attempt repair if --fix is provided and not in dry-run mode
+        if (fix && !this.checkDryRun('Repair worktree')) {
           const result = await repairWorktree(this.cwd, worktreeHealth.status);
 
           if (result.success) {
@@ -614,8 +614,8 @@ class DoctorHandler extends BaseCommand {
       return { name: 'Data location', status: 'ok' };
     }
 
-    // Issues found in wrong location - attempt migration if --fix
-    if (fix) {
+    // Issues found in wrong location - attempt migration if --fix and not dry-run
+    if (fix && !this.checkDryRun('Migrate data to worktree')) {
       // First ensure worktree exists
       const worktreeHealth = await checkWorktreeHealth(this.cwd);
       if (worktreeHealth.status !== 'valid') {
