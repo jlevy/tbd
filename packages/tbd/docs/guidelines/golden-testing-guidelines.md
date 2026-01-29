@@ -7,6 +7,8 @@ author: Joshua Levy (github.com/jlevy) with LLM assistance
 
 ## TL;DR
 
+- **Prefer raw output over abstractions** - capture console strings, not structured
+  models.
 - Define a session schema (events) with stable vs unstable fields.
 - Capture full execution for scenarios (inputs, outputs, side effects) as YAML.
 - Normalize or remove unstable fields at serialization time.
@@ -16,6 +18,7 @@ author: Joshua Levy (github.com/jlevy) with LLM assistance
 - Prefer many small artifacts (shard by scenario/phase) over monolithic traces.
 - Layer domain-focused assertions alongside raw diffs for critical invariants.
 - Review and commit session files with code; treat them as behavioral specs.
+- **For CLIs: use `--show-git` or similar flags** to log sub-commands with exit codes.
 
 ## When to Use Golden Tests
 
@@ -45,7 +48,39 @@ Filter unstable fields before writing session files by replacing with placeholde
 - **Live mode**: Calls real external services for debugging and updating golden files
 - **Mocked mode**: Uses recorded/stubbed responses for fast, deterministic CI
 
-### 4. Design for Fast CI
+### 4. Prefer Low-Level Raw Capture Over High-Level Modeling
+
+**Critical principle: Capture raw output, not abstractions.**
+
+- **Capture raw console output** directly rather than parsing into structured models
+- **Include command exit codes** as plain text in output, not just success/failure flags
+- **Log sub-command invocations** inline as strings, not as JSON/YAML structures
+- **Let the diff be the assertion** - raw diffs catch bugs that structured comparisons
+  miss
+
+High-level abstractions (structured schemas, parsed events, modeled operations) can miss
+unexpected behaviors because they only capture what you anticipated.
+Raw output captures everything, including the bugs you didn’t predict.
+
+**Example: Silent failure bug**
+
+High-level model only captures what was modeled:
+```yaml
+sync_result: { status: "success", commits_synced: 0 }  # Looks fine
+```
+
+Raw output reveals the truth:
+```
+[git] push origin main -> exit 1                       # BUG REVEALED
+[git]   stderr: HTTP 403
+Sync complete.
+Exit code: 0
+```
+
+The raw output shows the mismatch between `git push exit 1` and overall `exit 0` that a
+high-level model would hide.
+
+### 5. Design for Fast CI
 
 Golden tests should run in under 100ms per scenario:
 - Run in mocked mode (no network, no external services)
@@ -70,147 +105,111 @@ When a CLI tool calls external commands (git, npm, curl, etc.), capturing those
 operations in golden tests creates a “transparent box” that reveals internal behavior.
 This pattern catches bugs where user output doesn’t match actual operation results.
 
-### The Pattern: Debug Flags for Sub-Command Visibility
+### The Simple Pattern: Console Logging with Debug Flags
 
-Add a flag like `--show-git` or `--show-commands` that logs all sub-command invocations.
-In golden tests, enable this flag to capture the full operation trace.
+The simplest and most robust approach is to **print sub-command details directly to
+console as strings**. No structured data model needed—just log the command and exit
+code. Tryscript captures all console output, which gets committed as the golden file.
+
+This approach is:
+- **Simple**: No parsing or data modeling required
+- **Robust**: Catches unexpected command behavior automatically
+- **Complete**: The full output becomes the golden file
+
+#### Implementation
+
+Add a `--show-git` flag (or env var `SHOW_GIT=1`) that logs each command inline:
 
 ```typescript
-// CLI implementation
-interface SubCommandLog {
-  command: string;
-  args: string[];
-  exitCode: number;
-  stdout: string;
-  stderr: string;
-}
-
-const subCommandLog: SubCommandLog[] = [];
-
 async function runGit(...args: string[]): Promise<string> {
   const result = await exec('git', args);
 
-  // Log when flag is set
+  // Log directly to console when flag is set
   if (process.env.SHOW_GIT === '1' || options.showGit) {
-    subCommandLog.push({
-      command: 'git',
-      args,
-      exitCode: result.exitCode,
-      stdout: result.stdout.trim(),
-      stderr: result.stderr.trim(),
-    });
+    console.log(`[git] ${args.join(' ')} -> exit ${result.exitCode}`);
+    if (result.stderr) console.log(`[git]   stderr: ${result.stderr.trim()}`);
   }
 
   return result.stdout;
 }
-
-// At end of command, dump log if requested
-if (options.showGit) {
-  console.log('--- GIT OPERATIONS ---');
-  for (const op of subCommandLog) {
-    console.log(`git ${op.args.join(' ')} -> exit ${op.exitCode}`);
-    if (op.stdout) console.log(`  stdout: ${op.stdout}`);
-    if (op.stderr) console.log(`  stderr: ${op.stderr}`);
-  }
-}
 ```
 
-### Golden Test with Sub-Command Capture
+That’s it. The tryscript will capture everything.
 
-```yaml
-# golden/sync-push-failure.golden.yml
+### Tryscript Golden Test Example
 
-command: mycli sync --show-git
-user_output:
-  stdout: |
-    Push failed: HTTP 403 - Permission denied
-    2 commit(s) not pushed.
-  exit_code: 1
+```bash
+#!/bin/bash
+# tryscripts/sync-push-failure.tryscript.sh
 
-# Transparent box: all git operations that occurred
-git_operations:
-  - cmd: ["git", "fetch", "origin", "main"]
-    exit: 0
-  - cmd: ["git", "rev-list", "--count", "origin/main..main"]
-    exit: 0
-    stdout: "2"
-  - cmd: ["git", "push", "origin", "main"]
-    exit: 1
-    stderr: "error: failed to push"
+# Enable sub-command logging - output appears in golden file
+export SHOW_GIT=1
+
+# Setup: repo with unpushed commits
+git commit --allow-empty -m "local commit"
+
+# Run the sync command
+mycli sync
+echo "Exit code: $?"
+```
+
+The captured output becomes the golden file:
+
+```
+[git] fetch origin -> exit 0
+[git] rev-list --count origin/main..main -> exit 0
+[git] push origin main -> exit 1
+[git]   stderr: error: failed to push some refs
+Push failed: HTTP 403 - Permission denied
+2 commit(s) not pushed.
+Exit code: 1
 ```
 
 ### Why This Catches Bugs
 
-**Example: Silent Error Swallowing Bug**
+**Without sub-command logging**, a golden test only captures user-visible output:
+```
+Already in sync.
+Exit code: 0
+```
+This looks correct!
 
-Without sub-command logging, a golden test only captures:
-```yaml
-stdout: "Already in sync."
-exit_code: 0
+**With sub-command logging**, the golden file reveals the truth:
+```
+[git] fetch origin -> exit 0
+[git] push origin main -> exit 1        ← BUG REVEALED!
+[git]   stderr: HTTP 403
+Already in sync.
+Exit code: 0
 ```
 
-This looks correct. But with sub-command logging:
-```yaml
-stdout: "Already in sync."
-exit_code: 0
-git_operations:
-  - cmd: ["git", "push", "origin", "main"]
-    exit: 1                              # ← BUG! Push failed
-    stderr: "HTTP 403"
-```
+The mismatch between `git push -> exit 1` and `Exit code: 0` is now obvious to any
+reviewer. The bug cannot hide.
 
-The mismatch between `git push exit: 1` and `user exit_code: 0` reveals the bug.
+### Key Advantages Over Structured Logging
 
-### Auto-Generated Assertions
+| Approach | Pros | Cons |
+| --- | --- | --- |
+| **Console strings (recommended)** | Simple, catches everything, no parsing | Less programmatic analysis |
+| Structured JSON/YAML | Queryable, can run assertions | Complex, may miss unexpected commands |
 
-Use the sub-command log to generate invariant assertions:
+**Always prefer console strings for tryscript tests.** Structured logging is only useful
+if you need programmatic assertions, and even then the console approach catches more
+bugs because it doesn’t require predicting what commands might fail.
 
-```typescript
-function validateGoldenInvariants(golden: GoldenFile): void {
-  // If any sub-command failed, user should be informed
-  const failedOps = golden.git_operations.filter(op => op.exit !== 0);
-  if (failedOps.length > 0) {
-    const hasErrorOutput = golden.user_output.stdout.match(/fail|error/i) ||
-                           golden.user_output.stderr.length > 0;
-    assert(hasErrorOutput, 'Sub-command failed but no error shown to user');
-    assert(golden.user_output.exit_code !== 0, 'Sub-command failed but exit code is 0');
-  }
+### Best Practices
 
-  // If commits are ahead but output says "in sync", that's a bug
-  const revListOp = golden.git_operations.find(op =>
-    op.cmd.includes('rev-list') && parseInt(op.stdout) > 0
-  );
-  if (revListOp) {
-    assert(!golden.user_output.stdout.includes('in sync'),
-      'Commits ahead but reported "in sync"');
-  }
-}
-```
+1. **Always enable sub-command logging in tryscript tests** - Add `export SHOW_GIT=1` at
+   the top of every test that exercises git operations.
 
-### Tryscript Example
+2. **Log the exit code explicitly** - End tests with `echo "Exit code: $?"` so it’s
+   captured in the golden file.
 
-```bash
-#!/bin/bash
-# tryscripts/sync-failure.tryscript.sh
+3. **Review git operations in PR diffs** - When golden files change, verify that
+   sub-command exit codes align with user-facing output.
 
-# Enable sub-command logging for golden capture
-export SHOW_GIT=1
-
-# Setup: repo with commits ahead
-git commit --allow-empty -m "local commit"
-
-# Mock: push will fail
-export MOCK_GIT_PUSH_EXIT=1
-export MOCK_GIT_PUSH_STDERR="HTTP 403"
-
-# Run command - output includes git operations
-mycli sync
-
-# Golden file will capture:
-# - User-visible output
-# - All git operations with exit codes
-# - Allows detecting silent error swallowing
-```
+4. **Catch silent error swallowing** - If you see a sub-command with `exit 1` but the
+   overall `Exit code: 0`, that’s a bug.
 
 ### Benefits
 
@@ -220,6 +219,7 @@ mycli sync
 | Regression protection | Any change in sub-command behavior shows in diff |
 | Documentation | Golden files document expected sub-command sequences |
 | Debugging | When tests fail, see exactly what operations occurred |
+| Catches unexpected failures | No need to model which commands might fail |
 
 ## Common Pitfalls
 
