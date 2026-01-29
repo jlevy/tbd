@@ -362,20 +362,20 @@ class SyncHandler extends BaseCommand {
       const tallies = parseGitStatus(status);
       const fileCount = tallies.new + tallies.updated + tallies.deleted;
 
-      // IMPORTANT: Ensure worktree is on the sync branch BEFORE staging files
+      // Stage all changes
+      await git('-C', worktreePath, 'add', '-A');
+
+      // IMPORTANT: After staging, ensure worktree is on the sync branch before committing
       // If worktree was created with old tbd version using --detach, commits won't update the branch
-      // Check if HEAD is detached and fix it first
+      // Check if HEAD is detached and fix it - do this AFTER staging to preserve changes
       const currentBranch = await git('-C', worktreePath, 'branch', '--show-current').catch(
         () => '',
       );
       if (!currentBranch) {
         // Detached HEAD - re-attach to sync branch
-        // This must be done before staging files to avoid losing changes
+        // Safe to do after staging since staged changes are preserved across checkout
         await git('-C', worktreePath, 'checkout', SYNC_BRANCH);
       }
-
-      // Stage all changes
-      await git('-C', worktreePath, 'add', '-A');
 
       // Commit the changes
       const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
@@ -618,20 +618,21 @@ class SyncHandler extends BaseCommand {
             }
           }
 
-          // IMPORTANT: Ensure worktree is on the sync branch BEFORE staging files
+          // Stage resolved files and complete merge
+          // Use --no-verify to bypass parent repo hooks (lefthook, husky, etc.)
+          await git('-C', worktreePath, 'add', '-A');
+
+          // IMPORTANT: After staging, ensure worktree is on the sync branch before committing
           // If worktree was created with old tbd version using --detach, commits won't update the branch
+          // Check if HEAD is detached and fix it - do this AFTER staging to preserve changes
           const currentBranch = await git('-C', worktreePath, 'branch', '--show-current').catch(
             () => '',
           );
           if (!currentBranch) {
             // Detached HEAD - re-attach to sync branch
-            // This must be done before staging files to avoid losing changes
+            // Safe to do after staging since staged changes are preserved across checkout
             await git('-C', worktreePath, 'checkout', syncBranch);
           }
-
-          // Stage resolved files and complete merge
-          // Use --no-verify to bypass parent repo hooks (lefthook, husky, etc.)
-          await git('-C', worktreePath, 'add', '-A');
 
           try {
             await git(

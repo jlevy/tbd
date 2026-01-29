@@ -1316,13 +1316,13 @@ export async function migrateDataToWorktree(
     }
 
     // Step 3: Commit in worktree (if there are changes)
-    // IMPORTANT: Ensure worktree is on the sync branch BEFORE staging files
+    // IMPORTANT: Ensure worktree is on the sync branch BEFORE staging/committing
     // If worktree was created with old tbd version using --detach, commits won't update the branch
     // Check if HEAD is detached and fix it first
     const currentBranch = await git('-C', worktreePath, 'branch', '--show-current').catch(() => '');
     if (!currentBranch) {
       // Detached HEAD - re-attach to sync branch
-      // This must be done before staging files to avoid losing changes
+      // Do this before staging to ensure we're on the right branch
       await git('-C', worktreePath, 'checkout', SYNC_BRANCH);
     }
 
@@ -1332,7 +1332,7 @@ export async function migrateDataToWorktree(
 
     // Check if there are staged changes before committing
     // git diff --cached --quiet returns 0 if no changes, 1 if changes
-    const hasChanges = await git('-C', worktreePath, 'diff', '--cached', '--quiet')
+    const hasChanges = await git('-C', worktreePath, 'diff', '--cached --quiet')
       .then(() => false)
       .catch(() => true);
 
