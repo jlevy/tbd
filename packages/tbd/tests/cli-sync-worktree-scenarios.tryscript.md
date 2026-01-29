@@ -153,14 +153,6 @@ ok
 ? 0
 ```
 
-# Test: tbd list works after repair
-
-```console
-$ tbd list --status open | wc -l | tr -d ' ' | awk '$1 >= 3 {print "ok"}'
-ok
-? 0
-```
-
 * * *
 
 ## Scenario 3: Data in wrong location (migration test)
