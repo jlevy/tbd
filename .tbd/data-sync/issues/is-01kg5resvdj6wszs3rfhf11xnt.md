@@ -1,15 +1,17 @@
 ---
+close_reason: "Fixed: sync now properly reports push failures instead of saying 'Already in sync'. Shows HTTP error code, unpushed commit count, and retry instructions."
+closed_at: 2026-01-29T21:00:09.566Z
 created_at: 2026-01-29T20:52:29.163Z
 dependencies: []
 id: is-01kg5resvdj6wszs3rfhf11xnt
 kind: bug
 labels: []
 priority: 0
-status: open
+status: closed
 title: tbd sync silently swallows push failures and reports 'Already in sync'
 type: is
-updated_at: 2026-01-29T20:52:44.246Z
-version: 2
+updated_at: 2026-01-29T21:00:09.567Z
+version: 4
 ---
 ## Problem
 
