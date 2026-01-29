@@ -84,21 +84,25 @@ describe('performance tests', () => {
       expect(ms).toBeLessThan(isWindows ? 500 : 200);
     });
 
-    it('writes 100 issues in <3000ms (30ms avg)', async () => {
-      const issues = Array.from({ length: 100 }, (_, i) => generateTestIssue(i));
+    it(
+      'writes 100 issues in <3000ms (30ms avg)',
+      async () => {
+        const issues = Array.from({ length: 100 }, (_, i) => generateTestIssue(i));
 
-      const { ms } = await measureTime(async () => {
-        for (const issue of issues) {
-          await writeIssue(tempDir, issue);
-        }
-      });
+        const { ms } = await measureTime(async () => {
+          for (const issue of issues) {
+            await writeIssue(tempDir, issue);
+          }
+        });
 
-      // Allow 10000ms on Windows CI (very slow file I/O on GHA runners), 3000ms elsewhere
-      expect(ms).toBeLessThan(isWindows ? 10000 : 3000);
-      const avgMs = ms / 100;
-      // Log average for visibility in test output
-      console.log(`Average write time: ${avgMs.toFixed(2)}ms per issue`);
-    });
+        // Allow 10000ms on Windows CI (very slow file I/O on GHA runners), 3000ms elsewhere
+        expect(ms).toBeLessThan(isWindows ? 10000 : 3000);
+        const avgMs = ms / 100;
+        // Log average for visibility in test output
+        console.log(`Average write time: ${avgMs.toFixed(2)}ms per issue`);
+      },
+      isWindows ? 15000 : 5000,
+    );
   });
 
   // These tests require writing 1000 files, use beforeAll to do it once per describe block
