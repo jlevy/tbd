@@ -279,6 +279,83 @@ Use 'tbd stats' for issue statistics, 'tbd doctor' for health checks.
 ✓ Repository is healthy
 ```
 
+## Command Relationships and Hierarchy
+
+Some commands are designed to subsume others, showing a superset of information.
+This hierarchy should be reflected in the output design to ensure consistency.
+
+### Subsumption Relationships
+
+```
+doctor ⊃ status ⊃ (basic info)
+       ⊃ stats
+       + health checks
+
+stats ⊃ (issue statistics only)
+```
+
+| Parent Command | Subsumes | Additional Content |
+| --- | --- | --- |
+| `doctor` | `status` | Health checks, repair suggestions |
+| `doctor` | `stats` | (statistics section) |
+| `status` | (none) | Basic orientation info |
+
+### Implication for Output
+
+When a command subsumes another:
+1. **Same sections should use identical formatting** - If `doctor` shows INTEGRATIONS,
+   it must format identically to how `status` shows INTEGRATIONS
+2. **Shared components must be extracted** - Both commands should call the same
+   rendering function for shared sections
+3. **Parent shows superset** - `doctor` should show everything `status` shows, plus more
+
+### Current Violations
+
+| Issue | Description |
+| --- | --- |
+| `status` vs `doctor` repository info | Different heading presence, different Git version placement |
+| `status` vs `doctor` integrations | Different checks shown (hooks vs skill) |
+| `stats` vs `doctor` statistics | Same data, but `stats` uses "Summary:" not "STATISTICS" |
+
+### Proposed Shared Rendering Functions
+
+To enforce subsumption consistency, extract these shared renderers:
+
+```typescript
+// In cli/lib/sections.ts
+
+// Used by: status, doctor
+renderRepositorySection(config, gitInfo, colors)
+
+// Used by: status, doctor
+renderIntegrationsSection(checks, colors)
+
+// Used by: stats, doctor
+renderStatisticsSection(stats, colors)
+
+// Used by: doctor only
+renderHealthChecksSection(checks, colors)
+```
+
+When `doctor` runs, it calls the same `renderRepositorySection()` and
+`renderIntegrationsSection()` that `status` uses, ensuring identical output for those
+portions.
+
+### Command Categories
+
+Commands fall into these output categories:
+
+| Category | Commands | Characteristics |
+| --- | --- | --- |
+| **Orientation** | `status`, `doctor`, `stats` | Show system state, use section headings |
+| **Listing** | `list`, `ready`, `blocked`, `search` | Issue tables with counts |
+| **Detail** | `show` | Single item deep-dive |
+| **Mutation** | `create`, `update`, `close`, `sync` | Action + confirmation message |
+| **Setup** | `init`, `setup`, `import`, `config` | Configuration changes |
+| **Documentation** | `shortcut`, `guidelines`, `template`, `skill` | Display docs/templates |
+
+Commands in the same category should have similar output structure.
+
 ## Component Usage Matrix
 
 | Component | status | doctor | stats | list | ready | blocked | sync | show |
