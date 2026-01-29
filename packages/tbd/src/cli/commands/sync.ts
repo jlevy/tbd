@@ -657,6 +657,8 @@ class SyncHandler extends BaseCommand {
     }
 
     // Push if we have commits ahead of remote
+    let pushFailed = false;
+    let pushError = '';
     if (aheadCommits > 0) {
       this.output.debug(`Pushing ${aheadCommits} commit(s) to remote`);
       const result = await this.doPushWithRetry(syncBranch, remote);
@@ -664,7 +666,9 @@ class SyncHandler extends BaseCommand {
         conflicts.push(...result.conflicts);
       }
       if (!result.success) {
-        this.output.debug(`Push failed: ${result.error}`);
+        pushFailed = true;
+        pushError = result.error ?? 'Unknown push error';
+        this.output.debug(`Push failed: ${pushError}`);
       } else {
         // Show pushed commits in debug mode
         await this.showGitLogDebug(`-${aheadCommits}`, 'Commits sent');
@@ -675,6 +679,36 @@ class SyncHandler extends BaseCommand {
 
     summary.conflicts = conflicts.length;
     spinner.stop();
+
+    // Report push failure - don't silently swallow it
+    if (pushFailed) {
+      this.output.data(
+        {
+          summary,
+          conflicts: conflicts.length,
+          pushFailed,
+          pushError,
+          unpushedCommits: aheadCommits,
+        },
+        () => {
+          // Extract meaningful error from git output (look for HTTP errors, permission issues, etc.)
+          let displayError = pushError;
+          const httpMatch = /HTTP (\d+)/.exec(pushError);
+          const curlMatch = /curl \d+ (.+?)(?:\n|$)/.exec(pushError);
+          if (httpMatch) {
+            displayError = `HTTP ${httpMatch[1]}${curlMatch ? ` - ${curlMatch[1]}` : ''}`;
+          } else {
+            // Fall back to first meaningful line (skip "Command failed: git push...")
+            const lines = pushError.split('\n').filter((l) => l && !l.startsWith('Command failed'));
+            displayError = lines[0] ?? pushError;
+          }
+          this.output.error(`Push failed: ${displayError}`);
+          console.log(`  ${aheadCommits} commit(s) not pushed to remote.`);
+          console.log(`  Run 'tbd sync' to retry or 'tbd sync --status' to check status.`);
+        },
+      );
+      return;
+    }
 
     this.output.data({ summary, conflicts: conflicts.length }, () => {
       const summaryText = formatSyncSummary(summary);
