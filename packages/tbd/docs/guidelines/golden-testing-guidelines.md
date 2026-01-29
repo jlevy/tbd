@@ -18,7 +18,7 @@ author: Joshua Levy (github.com/jlevy) with LLM assistance
 - Prefer many small artifacts (shard by scenario/phase) over monolithic traces.
 - Layer domain-focused assertions alongside raw diffs for critical invariants.
 - Review and commit session files with code; treat them as behavioral specs.
-- **For CLIs: use `--show-git` or similar flags** to log sub-commands with exit codes.
+- **For CLIs: use `--show-subprocess`** to log all subprocess calls with exit codes.
 
 ## When to Use Golden Tests
 
@@ -99,39 +99,48 @@ Golden tests should run in under 100ms per scenario:
 - Don’t fork logic for tests vs production; share code paths.
 - Don’t let artifacts grow unbounded.
 
-## Transparent Sub-Command Logging for CLIs
+## Transparent Subprocess Logging for CLIs
 
-When a CLI tool calls external commands (git, npm, curl, etc.), capturing those
+When a CLI tool calls external commands (git, npm, curl, docker, etc.), capturing those
 operations in golden tests creates a “transparent box” that reveals internal behavior.
-This pattern catches bugs where user output doesn’t match actual operation results.
+This pattern catches bugs where user output doesn’t match actual subprocess results.
 
 ### The Simple Pattern: Console Logging with Debug Flags
 
-The simplest and most robust approach is to **print sub-command details directly to
+The simplest and most robust approach is to **print subprocess details directly to
 console as strings**. No structured data model needed—just log the command and exit
 code. Tryscript captures all console output, which gets committed as the golden file.
 
 This approach is:
 - **Simple**: No parsing or data modeling required
-- **Robust**: Catches unexpected command behavior automatically
+- **Robust**: Catches unexpected subprocess behavior automatically
 - **Complete**: The full output becomes the golden file
 
 #### Implementation
 
-Add a `--show-git` flag (or env var `SHOW_GIT=1`) that logs each command inline:
+Add a `--show-subprocess` flag (or env var `SHOW_SUBPROCESS=1`) that logs each call:
 
 ```typescript
-async function runGit(...args: string[]): Promise<string> {
-  const result = await exec('git', args);
+// Generic subprocess runner with transparent logging
+async function runSubprocess(
+  cmd: string,
+  args: string[]
+): Promise<{ stdout: string; exitCode: number }> {
+  const result = await exec(cmd, args);
 
   // Log directly to console when flag is set
-  if (process.env.SHOW_GIT === '1' || options.showGit) {
-    console.log(`[git] ${args.join(' ')} -> exit ${result.exitCode}`);
-    if (result.stderr) console.log(`[git]   stderr: ${result.stderr.trim()}`);
+  if (process.env.SHOW_SUBPROCESS === '1' || options.showSubprocess) {
+    console.log(`[${cmd}] ${args.join(' ')} -> exit ${result.exitCode}`);
+    if (result.stderr) console.log(`[${cmd}]   stderr: ${result.stderr.trim()}`);
   }
 
-  return result.stdout;
+  return result;
 }
+
+// Use for all subprocess calls
+const gitResult = await runSubprocess('git', ['push', 'origin', 'main']);
+const npmResult = await runSubprocess('npm', ['install']);
+const curlResult = await runSubprocess('curl', ['-s', url]);
 ```
 
 That’s it. The tryscript will capture everything.
@@ -142,8 +151,8 @@ That’s it. The tryscript will capture everything.
 #!/bin/bash
 # tryscripts/sync-push-failure.tryscript.sh
 
-# Enable sub-command logging - output appears in golden file
-export SHOW_GIT=1
+# Enable subprocess logging - output appears in golden file
+export SHOW_SUBPROCESS=1
 
 # Setup: repo with unpushed commits
 git commit --allow-empty -m "local commit"
@@ -167,14 +176,14 @@ Exit code: 1
 
 ### Why This Catches Bugs
 
-**Without sub-command logging**, a golden test only captures user-visible output:
+**Without subprocess logging**, a golden test only captures user-visible output:
 ```
 Already in sync.
 Exit code: 0
 ```
 This looks correct!
 
-**With sub-command logging**, the golden file reveals the truth:
+**With subprocess logging**, the golden file reveals the truth:
 ```
 [git] fetch origin -> exit 0
 [git] push origin main -> exit 1        ← BUG REVEALED!
@@ -183,7 +192,7 @@ Already in sync.
 Exit code: 0
 ```
 
-The mismatch between `git push -> exit 1` and `Exit code: 0` is now obvious to any
+The mismatch between `[git] push -> exit 1` and `Exit code: 0` is now obvious to any
 reviewer. The bug cannot hide.
 
 ### Key Advantages Over Structured Logging
@@ -195,31 +204,31 @@ reviewer. The bug cannot hide.
 
 **Always prefer console strings for tryscript tests.** Structured logging is only useful
 if you need programmatic assertions, and even then the console approach catches more
-bugs because it doesn’t require predicting what commands might fail.
+bugs because it doesn’t require predicting what subprocesses might fail.
 
 ### Best Practices
 
-1. **Always enable sub-command logging in tryscript tests** - Add `export SHOW_GIT=1` at
-   the top of every test that exercises git operations.
+1. **Always enable subprocess logging in tryscript tests** - Add
+   `export SHOW_SUBPROCESS=1` at the top of every test that exercises subprocess calls.
 
 2. **Log the exit code explicitly** - End tests with `echo "Exit code: $?"` so it’s
    captured in the golden file.
 
-3. **Review git operations in PR diffs** - When golden files change, verify that
-   sub-command exit codes align with user-facing output.
+3. **Review subprocess operations in PR diffs** - When golden files change, verify that
+   subprocess exit codes align with user-facing output.
 
-4. **Catch silent error swallowing** - If you see a sub-command with `exit 1` but the
+4. **Catch silent error swallowing** - If you see a subprocess with `exit 1` but the
    overall `Exit code: 0`, that’s a bug.
 
 ### Benefits
 
 | Benefit | Description |
 | --- | --- |
-| Bug detection | Reveals mismatches between sub-command results and user output |
-| Regression protection | Any change in sub-command behavior shows in diff |
-| Documentation | Golden files document expected sub-command sequences |
+| Bug detection | Reveals mismatches between subprocess results and user output |
+| Regression protection | Any change in subprocess behavior shows in diff |
+| Documentation | Golden files document expected subprocess sequences |
 | Debugging | When tests fail, see exactly what operations occurred |
-| Catches unexpected failures | No need to model which commands might fail |
+| Catches unexpected failures | No need to model which subprocesses might fail |
 
 ## Common Pitfalls
 
@@ -228,5 +237,5 @@ bugs because it doesn’t require predicting what commands might fail.
 - Slow or network-bound scenarios -> skipped in practice, regressions leak.
 - LLM output not recorded or scrubbed -> non-deterministic sessions.
 - Monolithic traces that grow unbounded -> hard to review, slow to diff.
-- **Sub-command failures not captured** -> silent error swallowing bugs leak through.
+- **Subprocess failures not captured** -> silent error swallowing bugs leak through.
 - **Exit codes not captured** -> mismatches between internal state and user feedback.
