@@ -4,7 +4,7 @@
 
 **Author:** Claude with human direction
 
-**Status:** Draft
+**Status:** Implemented (2026-01-29)
 
 ## Overview
 
@@ -559,35 +559,36 @@ Update `status.ts`, `doctor.ts`, and `stats.ts` to use shared section renderers:
 
 ### Epic
 
-| Issue | Title |
-| --- | --- |
-| tbd-fezd | Terminal Design System: Consistent CLI output across commands |
-
-### Phase 1-3: Core Implementation
-
-| Phase | Bead | Title | Depends On |
-| --- | --- | --- | --- |
-| 1 | tbd-4qfi | Create cli/lib/sections.ts with shared section rendering functions | - |
-| 2 | tbd-jslu | Add component helper functions to output.ts | - |
-| 3 | tbd-ua96 | Refactor status.ts to use shared section renderers | tbd-4qfi, tbd-jslu |
-| 3 | tbd-mfvk | Refactor doctor.ts to use shared section renderers | tbd-4qfi |
-| 3 | tbd-oqwb | Refactor stats.ts to use shared section renderers | tbd-4qfi, tbd-jslu |
-
-### Phase 4: Testing
-
-| Bead | Title | Depends On |
+| Issue | Title | Status |
 | --- | --- | --- |
-| tbd-kps8 | Add golden tests for terminal design system consistency | tbd-ua96, tbd-mfvk, tbd-oqwb |
+| tbd-fezd | Terminal Design System: Consistent CLI output across commands | **closed** |
+
+### Phase 1-3: Core Implementation (Complete)
+
+| Phase | Bead | Title | Status |
+| --- | --- | --- | --- |
+| 1 | tbd-4qfi | Create cli/lib/sections.ts with shared section rendering functions | **closed** |
+| 2 | tbd-jslu | Add component helper functions to output.ts | **closed** |
+| 3 | tbd-ua96 | Refactor status.ts to use shared section renderers | **closed** |
+| 3 | tbd-mfvk | Refactor doctor.ts to use shared section renderers | **closed** |
+| 3 | tbd-oqwb | Refactor stats.ts to use shared section renderers | **closed** |
+
+### Phase 4: Testing (Complete)
+
+| Bead | Title | Status |
+| --- | --- | --- |
+| tbd-kps8 | Add golden tests for terminal design system consistency | **closed** |
 
 ### Phase 5: Command Conformance Audit
 
-Create a bead for each command to audit and fix conformance:
+Beads for orientation commands (status, doctor, stats) closed as part of core
+implementation. Remaining commands can be audited incrementally.
 
 | Command | Bead | Status |
 | --- | --- | --- |
-| status | tbd-4wr7 | open |
-| doctor | tbd-sxng | open |
-| stats | tbd-abvr | open |
+| status | tbd-4wr7 | **closed** |
+| doctor | tbd-sxng | **closed** |
+| stats | tbd-abvr | **closed** |
 | list | tbd-f70s | open |
 | ready | tbd-0jco | open |
 | blocked | tbd-2y77 | open |
