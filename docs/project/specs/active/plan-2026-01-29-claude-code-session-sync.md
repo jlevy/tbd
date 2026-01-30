@@ -1,4 +1,4 @@
-# Feature: Sync Outbox and Claude Code Session Branch Support
+# Feature: Sync Outbox for Resilient Issue Syncing
 
 **Date:** 2026-01-29
 
@@ -8,36 +8,30 @@
 
 ## Overview
 
-This spec addresses two related problems:
+This spec addresses sync resilience: when `tbd sync` cannot push to the remote (network
+errors, permission issues, Claude Code branch restrictions, etc.), issue data should be
+preserved locally and synced when conditions allow.
 
-1. **General sync resilience**: When `tbd sync` cannot push to the remote (network
-   errors, permission issues, etc.), issue data should be preserved locally and synced
-   when conditions allow.
-
-2. **Claude Code compatibility**: When tbd runs inside Claude Code Cloud, the standard
-   `tbd-sync` branch cannot be pushed due to security restrictions that enforce
-   session-specific branch naming.
-
-The solution is a **committed outbox** that stores incremental changes when sync fails,
-combined with optional session-specific branch detection for Claude Code environments.
+The solution is a **committed outbox** that stores incremental changes when sync fails.
+The outbox lives on the user’s current branch and travels with it through merges and
+checkouts, ensuring data is never lost even when the `tbd-sync` branch cannot be pushed.
 
 ## Goals
 
 - **G1**: **No data loss** - Issue data must never be lost, even when sync fails
 - **G2**: **Incremental storage** - Outbox stores only changed issues and new IDs, not
   full copies (keeps git diffs small even with hundreds of issues)
-- **G3**: `tbd sync` should work transparently in Claude Code environments
-- **G4**: Session-specific branches should merge seamlessly with the canonical
-  `tbd-sync` branch
-- **G5**: No manual configuration should be required for Claude Code users
-- **G6**: Standard environments should continue working unchanged
-- **G7**: Multi-session workflows should not cause data loss or conflicts
+- **G3**: **Branch-agnostic** - Outbox works on any branch (main, feature, Claude Code
+  session branches)
+- **G4**: **Clean merges** - When branches with outboxes merge, conflicts are rare and
+  resolvable
+- **G5**: Standard environments should continue working unchanged
 
 ## Non-Goals
 
 - Changing the fundamental sync architecture (worktree model remains)
-- Supporting arbitrary branch naming schemes beyond Claude Code’s requirements
-- Automatic merging across sessions (explicit merge on session start is acceptable)
+- Special handling for specific environments (Claude Code, etc.)
+  - the outbox handles all
 - Cloning entire issue sets to outbox (incremental only)
 
 ## Background
@@ -53,84 +47,41 @@ Investigation revealed:
 3. The error was swallowed (see tbd-ca3g for the silent error bug)
 4. Even after fixing error reporting, the push still fails
 
-### Root Cause: Claude Code Security Restrictions
+### Root Cause: Push Restrictions
 
-Claude Code (the CLI and cloud environments) enforces branch naming restrictions for
-security:
+Various environments restrict which branches can be pushed:
 
-1. **Session isolation**: Each Claude session gets a unique session ID
-2. **Branch pattern**: Pushes are only allowed to branches matching
-   `claude/[name]-[SESSION_ID]`
-3. **Session ID source**: Extracted from the current working branch name
+- **Claude Code**: Enforces session-specific branch naming (`claude/*-{SESSION_ID}`)
+- **Protected branches**: Some repos protect certain branch patterns
+- **Network issues**: Transient connectivity problems
+- **Permission issues**: User may lack push access to certain branches
 
-For example, if working on branch `claude/verify-tbd-initialization-szKzG`, the session
-ID is `szKzG`, and only branches like `claude/*-szKzG` can be pushed.
+The common thread: the `tbd-sync` branch may not be pushable, but the user’s working
+branch (main, feature branch, session branch) typically IS pushable.
 
-### Why This Restriction Exists
+### Current Impact (Before This Feature)
 
-Claude Code’s branch restrictions provide:
-
-1. **Audit trail**: Every change can be traced to a specific AI session
-2. **Isolation**: Sessions cannot interfere with each other’s branches
-3. **Rollback**: Easy to identify and revert all changes from a specific session
-4. **Security**: Prevents uncontrolled modifications to shared branches
-
-### Current Impact
-
-1. **`tbd sync` fails silently** (before tbd-ca3g fix) or with HTTP 403 (after fix)
-2. **Issues never sync to remote** in Claude Code environments
-3. **Cross-session continuity broken** - issues created in one session can’t be seen in
-   another
-4. **Manual workaround required** - users must manually configure session-specific
-   branch
-
-### Manual Workaround Discovered
-
-The following manual workaround allows sync to work in Claude Code:
-
-```bash
-# 1. Extract session ID from current branch
-# Current branch: claude/verify-tbd-initialization-szKzG
-# Session ID: szKzG
-
-# 2. Create session-specific sync branch from tbd-sync
-git checkout -b claude/tbd-sync-szKzG tbd-sync
-# Or if tbd-sync doesn't exist locally:
-git checkout -b claude/tbd-sync-szKzG origin/tbd-sync
-
-# 3. Update tbd config to use session branch
-# Edit .tbd/config.yml:
-#   sync:
-#     branch: claude/tbd-sync-szKzG
-
-# 4. Now tbd sync works
-tbd sync
-```
-
-This workaround is cumbersome and must be repeated for each new session.
+1. `tbd sync` fails with an error (HTTP 403, network error, etc.)
+2. Issues are committed to the local `tbd-sync` worktree but never reach the remote
+3. If the user does a fresh checkout, those issues are lost
+4. No recovery mechanism exists
 
 ## Design
 
-### Recommended Approach: Committed Outbox with Session Branch Fallback
+### Recommended Approach: Committed Outbox
 
-The design uses a **two-tier strategy** to guarantee no data loss:
-
-1. **Committed Outbox (Primary Safety)**: A `.tbd/outbox/` directory that stores
-   **incremental** issue data when remote sync fails.
-   The outbox is **committed to the main branch** (not gitignored), so it survives
-   across clones and can be pushed even when `tbd-sync` cannot.
-
-2. **Session-Specific Branches (Secondary)**: Auto-detect Claude Code environment and
-   use session-specific sync branches that can be pushed.
+A `.tbd/outbox/` directory stores **incremental** issue data when remote sync fails.
+The outbox is **committed to the user’s current branch** (not gitignored), so it
+survives across clones and checkouts even when `tbd-sync` cannot be pushed.
 
 ### Why Committed Outbox?
 
 The outbox being committed (not gitignored) provides critical benefits:
 
 - **Survives fresh clones**: Outbox data comes along when cloning/checking out
-- **Works in Claude Code**: Session branches CAN be pushed, so outbox data reaches
-  remote
-- **Cross-session recovery**: Another session can recover data from the outbox
+- **Works on any branch**: User’s working branch can usually be pushed even when
+  `tbd-sync` cannot
+- **Cross-branch recovery**: When branches merge, outboxes merge too
 - **Audit trail**: Git history shows what went into outbox and when it was synced
 
 ### Why Incremental Storage?
@@ -171,8 +122,8 @@ Use `enable_outbox: false` if you:
 
 ```
 .tbd/
-├── data-sync-worktree/     # Existing: worktree on tbd-sync (or session branch)
-├── outbox/                 # NEW: committed to main branch (NOT gitignored)
+├── data-sync-worktree/     # Existing: worktree on tbd-sync branch
+├── outbox/                 # NEW: on user's current branch (NOT gitignored)
 │   ├── issues/             # Only issues that failed to sync (incremental)
 │   └── mappings/
 │       └── ids.yml         # Only NEW short ID mappings (incremental)
@@ -180,11 +131,12 @@ Use `enable_outbox: false` if you:
 └── state.yml
 ```
 
-**Key difference from previous design**: The outbox is **on the main branch** (not
-gitignored), not on the `tbd-sync` branch.
+**Key design choice**: The outbox is **on the user’s current branch** (not gitignored),
+not on the `tbd-sync` branch.
 This means:
 - Outbox data is versioned alongside user code
 - Outbox data can be pushed/pulled with the user’s working branch
+- When branches merge, outboxes merge too (enabling cross-branch recovery)
 - tbd does NOT auto-commit outbox changes to the user’s branch (user controls commits)
 - tbd DOES auto-commit to `tbd-sync` (existing behavior, unchanged)
 
@@ -199,6 +151,29 @@ This eliminates the need to reconstruct what changed from git diffs.
 | Issues | Issue files being created/updated | At write time (parallel to worktree) |
 | ID Mappings | New short ID → ULID mappings | At write time (parallel to worktree) |
 
+**File naming and format**: The outbox structure mirrors the `data-sync` directory
+exactly:
+
+```
+.tbd/outbox/                      # Mirrors .tbd/data-sync-worktree/.tbd/data-sync/
+├── issues/
+│   ├── {ulid1}.md                # Same filename format as worktree
+│   └── {ulid2}.md
+└── mappings/
+    └── ids.yml                   # Same YAML format, may be a subset
+```
+
+- **Issue files**: Same `{ulid}.md` naming, same YAML frontmatter + markdown format
+- **ID mappings**: Same `ids.yml` format (YAML key-value map), sorted alphabetically
+- **Subset allowed**: Outbox `ids.yml` may contain only NEW mappings (not the full list)
+- **Sorted YAML**: Because IDs are sorted alphabetically, merge conflicts are
+  rare—changes typically affect different lines
+
+This identical structure means:
+- No format conversion needed when merging outbox → worktree
+- Standard file comparison works for detecting no-op merges
+- Existing issue parsing code works on outbox files
+
 **Why write-through?**
 - No git diff parsing needed to identify changed files
 - Handles multiple commits naturally (we know what we wrote)
@@ -208,11 +183,19 @@ This eliminates the need to reconstruct what changed from git diffs.
 **User experience:**
 - User creates/updates issue → appears in outbox immediately (uncommitted file change)
 - User runs `tbd sync` → outbox clears (if push succeeds)
-- If sync fails → outbox stays, user sees “X issues pending sync”
+- If sync fails → outbox stays, warning printed with commit instructions
+- User/agent commits outbox to preserve data across checkouts
 - The outbox is a visible “pending changes” indicator
 
 This is good UX because users typically run sync frequently.
 The outbox provides visibility into what hasn’t reached the remote yet.
+
+**Critical for data safety**: If push fails, tbd prints a warning instructing the
+user/agent to commit the outbox.
+This is NOT automatic—tbd never auto-commits to the user’s working branch.
+But the warning ensures users/agents know to take action.
+If the warning is ignored and the user does a fresh checkout, uncommitted outbox data is
+lost. Agents SHOULD always follow the warning and commit the outbox.
 
 **User can edit outbox files:**
 - Outbox files are regular files the user can see and edit
@@ -229,7 +212,7 @@ The outbox provides visibility into what hasn’t reached the remote yet.
 | Scenario | Write Behavior | Sync Behavior |
 | --- | --- | --- |
 | Normal (push works) | Write to worktree | Commit + push, outbox stays empty |
-| Push fails (403, network) | Copy changed issues to outbox | Data saved as uncommitted file changes |
+| Push fails (403, network) | Write-through already populated outbox | Warning printed; user/agent must commit outbox |
 | Next sync (push works) | N/A | Merge outbox → worktree → push → clear outbox |
 | Same location retry | No-op merge (files match) | Retry push, clear on success |
 | Fresh checkout | Outbox has data, worktree behind | Merge restores data to worktree |
@@ -254,6 +237,24 @@ The `ids.yml` merge is a **union operation**:
 - Short IDs are unique (no conflicts possible)
 - Outbox ids.yml entries are added to worktree ids.yml
 - Uses same merge logic as current sync (or creates file if missing)
+
+### Edge Cases
+
+**Corrupted outbox files**: If an outbox file (e.g., `.tbd/outbox/issues/abc.md`) is
+malformed YAML or otherwise unparseable:
+
+- `mergeOutboxToWorktree()` should **skip the corrupted file** and log a warning
+- Continue processing other valid outbox files
+- Report which files were skipped so user can investigate
+- Do NOT fail the entire sync due to one bad file
+
+**User deletes outbox manually**: If a user runs `rm -rf .tbd/outbox/` thinking it’s a
+cache:
+
+- This is **safe** - the data is also in the worktree (already committed there)
+- The outbox is a safety copy, not the source of truth
+- Next sync will proceed normally (no outbox to merge)
+- If the worktree push then fails, write-through will repopulate the outbox
 
 ### Write-Through Flow
 
@@ -291,12 +292,12 @@ tbd sync (when enable_outbox: true):
              NOTE: If fresh checkout, worktree is behind outbox, so merge applies
 
   2. NORMAL SYNC
-     a. Fetch remote tbd-sync (or session branch)
+     a. Fetch remote tbd-sync
      b. Merge remote → worktree (existing logic)
      c. Commit local changes to worktree
 
   3. PUSH
-     └── Try push to remote (session branch if Claude Code, else tbd-sync)
+     └── Try push to remote tbd-sync
          ├── SUCCESS:
          │   a. Clear outbox (remove files from .tbd/outbox/)
          │   b. Report "synced"
@@ -305,9 +306,95 @@ tbd sync (when enable_outbox: true):
          │
          └── FAILURE (403, network, etc):
              a. Outbox already has the data (from write-through)
-             b. Report "X issues in outbox, will retry on next sync"
-             NOTE: No additional work needed - write-through already populated outbox
+             b. Print WARNING with error details and TWO OPTIONS:
+                - Option 1: Resolve the issue and run `tbd sync` again
+                - Option 2: Commit the outbox to preserve data
+             NOTE: tbd does NOT auto-commit. User/agent chooses which option.
 ```
+
+### Push Failure Warning
+
+When push fails, `tbd sync` MUST print a clear, actionable warning that presents **two
+options**:
+
+```
+⚠️  Sync failed: {ERROR_DETAILS}
+
+Your issue changes are saved locally in .tbd/outbox/
+
+You have two options:
+
+  1. RESOLVE AND RETRY: Fix the issue above and run `tbd sync` again.
+     If sync succeeds, the outbox will be cleared automatically.
+
+  2. COMMIT OUTBOX: Preserve your data by committing the outbox:
+     git add .tbd/outbox && git commit -m "tbd: preserve outbox (sync failed)"
+
+Warning: If you do neither and perform a fresh checkout, your issue data will be lost.
+```
+
+Where `{ERROR_DETAILS}` includes the specific error (e.g., “HTTP 403 - push to
+'tbd-sync' forbidden”, “Network error - connection refused”, etc.).
+
+**Why two options:**
+
+1. **Resolve and retry** - If the issue is transient (network blip) or fixable
+   (permissions), the user can fix it and sync again.
+   The outbox clears on success.
+2. **Commit outbox** - If the issue cannot be resolved (e.g., Claude Code’s branch
+   restrictions), committing the outbox preserves data across checkouts.
+
+**Why explicit warning matters:**
+
+- tbd never auto-commits to the user’s working branch (user controls their commits)
+- But users/agents MUST know their data is at risk if they don’t act
+- The warning gives users agency: fix the problem OR commit the fallback
+- Agents (like Claude Code) will typically commit the outbox since they can’t resolve
+  the underlying restriction
+
+**Data safety depends on user action:**
+
+| User Action After Warning | Data Survives Fresh Checkout? |
+| --- | --- |
+| Resolves issue, runs `tbd sync` again | Yes (outbox cleared) |
+| Commits outbox, pushes branch | Yes |
+| Commits outbox, doesn't push | Yes (locally) |
+| Ignores warning | **No** - data lost on fresh checkout |
+
+### Agent Behavior on Sync Failure
+
+When an AI agent (Claude Code, Cursor, etc.)
+encounters a sync push failure, it should evaluate the two options:
+
+1. **If the issue is resolvable** (e.g., network error, temporary auth issue):
+   - Fix the issue
+   - Run `tbd sync` again
+   - Outbox clears on success
+
+2. **If the issue is NOT resolvable** (e.g., branch restrictions, persistent permission
+   issues):
+   - Commit the outbox to preserve data
+   - Push the working branch (which typically succeeds even when `tbd-sync` doesn’t)
+   - Data survives across checkouts and branch merges
+
+When the underlying issue cannot be resolved, option 2 is the right choice.
+
+**Example agent response to sync failure:**
+
+```
+Sync failed with HTTP 403 (branch push forbidden).
+Committing outbox to preserve issue data...
+
+$ git add .tbd/outbox
+$ git commit -m "tbd: preserve outbox (sync failed)"
+$ git push origin my-feature-branch
+
+Outbox committed and pushed. Data will be recovered on next successful sync.
+```
+
+This workflow ensures data is preserved on the working branch.
+The outbox travels with the branch through merges and gets recovered when conditions
+allow a successful sync.
 
 ### Critical: Clear Timing
 
@@ -333,12 +420,12 @@ duplication.
 
 ### Fresh Checkout Case
 
-When syncing from a fresh checkout:
+When syncing from a fresh checkout **where outbox was previously committed**:
 
 1. Worktree doesn’t exist yet
-2. `tbd sync` initializes worktree from remote `tbd-sync` (which doesn’t have failed
-   data)
-3. Outbox has the failed data (came from main branch checkout)
+2. `tbd sync` initializes worktree from remote `tbd-sync` (which doesn’t have the
+   previously-failed data)
+3. Outbox has the failed data (committed to user’s branch, came with checkout)
 4. Outbox sync merges the data into worktree (now that worktree exists)
 5. Normal sync proceeds
 6. Push includes the recovered data
@@ -346,6 +433,12 @@ When syncing from a fresh checkout:
 **Important**: Worktree initialization MUST happen before outbox merge.
 The current sync implementation already ensures this (worktree is created/repaired
 before any operations).
+
+**Critical precondition**: Recovery requires the user/agent to have committed the outbox
+after the previous push failure (following the warning instructions).
+If the outbox was never committed before the fresh checkout, data from that session is
+lost. This is why the push failure warning is critical and why agents SHOULD always
+commit the outbox.
 
 ### Outbox Implementation
 
@@ -510,227 +603,49 @@ async function clearOutbox(tbdRoot: string): Promise<void> {
 
 ### Integration Points
 
-The write-through functions need to be called at these existing code locations:
+**Important**: Write-through should be added at the **command layer**, not the storage
+layer. The storage layer (`writeIssue()` in `storage.ts`) is a pure file operation with
+no knowledge of tbd root or outbox.
+Adding outbox logic there would create unwanted coupling.
+
+Instead, add write-through in the command implementations where tbd root is already
+known:
 
 ```typescript
-// In writeIssue() - packages/tbd/src/file/storage.ts
-export async function writeIssue(dataSyncDir: string, issue: Issue): Promise<void> {
-  // ... existing write logic ...
+// In create.ts - packages/tbd/src/cli/commands/create.ts
+export async function createIssue(tbdRoot: string, ...): Promise<Issue> {
+  // ... existing create logic ...
+  await writeIssue(dataSyncDir, issue);
 
-  // NEW: Write-through to outbox
-  const tbdRoot = findTbdRoot(dataSyncDir);
+  // NEW: Write-through to outbox (tbdRoot is already available here)
   await writeIssueToOutbox(tbdRoot, issue);
+
+  // ... existing ID mapping logic ...
+  await addIdMapping(dataSyncDir, shortId, ulid);
+
+  // NEW: Write-through ID to outbox
+  await addIdToOutbox(tbdRoot, shortId, ulid);
+
+  return issue;
 }
 
-// In generateShortId() or wherever IDs are added to ids.yml
-async function addIdMapping(dataSyncDir: string, shortId: string, ulid: string): Promise<void> {
-  // ... existing write to ids.yml ...
+// Similarly in update.ts and close.ts
+export async function updateIssue(tbdRoot: string, ...): Promise<Issue> {
+  // ... existing update logic ...
+  await writeIssue(dataSyncDir, issue);
 
   // NEW: Write-through to outbox
-  const tbdRoot = findTbdRoot(dataSyncDir);
-  await addIdToOutbox(tbdRoot, shortId, ulid);
+  await writeIssueToOutbox(tbdRoot, issue);
+
+  return issue;
 }
 ```
 
-### Session Branch Detection (Complementary)
-
-In addition to the outbox, auto-detect Claude Code environment to use session-specific
-branches that can actually be pushed:
-
-1. **Auto-detect Claude Code environment** using branch naming patterns
-2. **Extract session ID** from the current branch name
-3. **Dynamically use session-specific sync branch** (`claude/tbd-sync-{SESSION_ID}`)
-4. **On session start**, merge from canonical `tbd-sync` (or `origin/tbd-sync`) to get
-   issues from other sessions
-5. **Transparent operation** - users don’t need to know about session branches
-
-### Detection Strategy
-
-```typescript
-/**
- * Detect if running in Claude Code environment.
- *
- * Detection criteria:
- * 1. Current branch matches pattern: claude/*-{SESSION_ID}
- * 2. Session ID is extracted from the branch suffix
- *
- * Returns null if not in Claude Code environment.
- */
-export async function detectClaudeCodeSession(): Promise<{
-  sessionId: string;
-  currentBranch: string;
-} | null> {
-  const currentBranch = await getCurrentBranch();
-
-  // Pattern: claude/[anything]-[SESSION_ID]
-  // SESSION_ID is typically 5 alphanumeric characters
-  const match = /^claude\/.*-([a-zA-Z0-9]{5})$/.exec(currentBranch);
-
-  if (!match) {
-    return null;
-  }
-
-  return {
-    sessionId: match[1],
-    currentBranch,
-  };
-}
-```
-
-### Session Branch Naming
-
-| Context | Sync Branch Name |
-| --- | --- |
-| Standard environment | `tbd-sync` (from config) |
-| Claude Code session `szKzG` | `claude/tbd-sync-szKzG` |
-| Claude Code session `abc12` | `claude/tbd-sync-abc12` |
-
-### Sync Algorithm Updates
-
-#### Modified getSyncBranch()
-
-```typescript
-/**
- * Get the effective sync branch name.
- *
- * In Claude Code environments, returns session-specific branch.
- * Otherwise returns configured sync branch.
- */
-export async function getSyncBranch(config: TbdConfig): Promise<string> {
-  const claudeSession = await detectClaudeCodeSession();
-
-  if (claudeSession) {
-    return `claude/tbd-sync-${claudeSession.sessionId}`;
-  }
-
-  return config.sync?.branch ?? 'tbd-sync';
-}
-```
-
-#### Session Start: Merge from Canonical Branch
-
-When starting a new Claude Code session, the sync branch needs to incorporate issues
-from other sessions:
-
-```typescript
-/**
- * Initialize session-specific sync branch.
- *
- * Called at start of sync when in Claude Code environment.
- * Ensures session branch exists and has latest from canonical branch.
- */
-async function initSessionSyncBranch(
-  sessionId: string,
-  canonicalBranch: string,
-  remote: string
-): Promise<void> {
-  const sessionBranch = `claude/tbd-sync-${sessionId}`;
-
-  // Check if session branch exists locally
-  const localExists = await branchExists(sessionBranch);
-
-  // Check if session branch exists on remote
-  const remoteExists = await remoteBranchExists(remote, sessionBranch);
-
-  // Check if canonical branch exists
-  const canonicalExists =
-    (await branchExists(canonicalBranch)) ||
-    (await remoteBranchExists(remote, canonicalBranch));
-
-  if (!localExists && !remoteExists) {
-    // New session - create branch from canonical or as orphan
-    if (canonicalExists) {
-      // Fetch latest canonical
-      await git('fetch', remote, canonicalBranch);
-      // Create session branch from canonical
-      await git('checkout', '-b', sessionBranch, `${remote}/${canonicalBranch}`);
-    } else {
-      // No canonical exists - create orphan (first time setup)
-      await git('checkout', '--orphan', sessionBranch);
-      await git('commit', '--allow-empty', '-m', 'tbd: initialize sync branch');
-    }
-  } else if (!localExists && remoteExists) {
-    // Session branch exists on remote (resuming session)
-    await git('fetch', remote, sessionBranch);
-    await git('checkout', '-b', sessionBranch, `${remote}/${sessionBranch}`);
-
-    // Also merge any updates from canonical
-    if (canonicalExists) {
-      await git('fetch', remote, canonicalBranch);
-      await mergeIfNeeded(`${remote}/${canonicalBranch}`);
-    }
-  } else {
-    // Local exists - ensure we have latest from canonical
-    if (canonicalExists) {
-      await git('fetch', remote, canonicalBranch);
-      await mergeIfNeeded(`${remote}/${canonicalBranch}`);
-    }
-  }
-}
-```
-
-### Worktree Management
-
-The worktree path remains `.tbd/data-sync-worktree/` but points to the session-specific
-branch in Claude Code environments:
-
-```typescript
-async function ensureWorktreeForSession(
-  tbdRoot: string,
-  syncBranch: string
-): Promise<void> {
-  const worktreePath = join(tbdRoot, WORKTREE_DIR);
-
-  // Check if worktree exists
-  const health = await checkWorktreeHealth(tbdRoot);
-
-  if (!health.valid) {
-    // Create worktree for session branch
-    await git('worktree', 'add', worktreePath, syncBranch);
-    return;
-  }
-
-  // Worktree exists - check if it's on the right branch
-  const worktreeBranch = await git(
-    '-C',
-    worktreePath,
-    'rev-parse',
-    '--abbrev-ref',
-    'HEAD'
-  );
-
-  if (worktreeBranch.trim() !== syncBranch) {
-    // Need to switch worktree to session branch
-    // This is complex - may need to prune and recreate
-    await git('worktree', 'remove', worktreePath);
-    await git('worktree', 'add', worktreePath, syncBranch);
-  }
-}
-```
-
-### Configuration
-
-No configuration changes required for users.
-The feature is automatic.
-
-For debugging/testing, add optional flag:
-
-```yaml
-# .tbd/config.yml
-sync:
-  branch: tbd-sync # Canonical branch (used in standard environments)
-  # claude_session_override: abc12  # For testing - force session ID
-```
-
-CLI flag for manual override:
-
-```bash
-# Force session mode (useful for testing)
-tbd sync --claude-session abc12
-
-# Disable session detection (force canonical branch)
-tbd sync --no-session
-```
+**Why command layer?**
+- `tbdRoot` is already available in command context
+- Keeps storage layer as pure file operations (no tbd-specific logic)
+- Clear separation: storage writes files, commands orchestrate tbd operations
+- Easier to test: can test storage and outbox independently
 
 ## Implementation Plan
 
@@ -745,8 +660,8 @@ Implement the outbox to guarantee no data loss regardless of push failures.
 **Write-Through Functions (called at write time):**
 - [ ] Implement `writeIssueToOutbox()` - mirror issue write to outbox
 - [ ] Implement `addIdToOutbox()` - mirror ID mapping to outbox
-- [ ] Integrate into `writeIssue()` in storage.ts
-- [ ] Integrate into ID mapping write logic
+- [ ] Integrate into command layer (create.ts, update.ts, close.ts)
+- [ ] NOT in storage layer - keep storage as pure file operations
 
 **Sync-Time Functions:**
 - [ ] Implement `hasOutboxData()` - check if outbox has pending issues/IDs
@@ -763,99 +678,68 @@ Implement the outbox to guarantee no data loss regardless of push failures.
 - [ ] Update `tbd sync` to check/merge outbox FIRST (before normal sync)
 - [ ] Update `tbd sync` to clear outbox ONLY after push succeeds
 - [ ] Add `tbd sync --status` output for outbox count
+- [ ] Implement push failure WARNING with TWO OPTIONS (see “Push Failure Warning”)
+- [ ] Warning must include: error details, Option 1 (resolve + retry), Option 2 (commit
+  outbox), data loss risk
 
 **Important:** Outbox is on the user’s branch (NOT gitignored).
 tbd does NOT auto-commit outbox changes - user sees them as uncommitted file changes.
+When push fails, tbd prints a warning with two options: (1) resolve the issue and run
+`tbd sync` again (outbox clears on success), or (2) commit the outbox to preserve data.
 
 **Tests:**
 - [ ] Add unit tests for write-through operations
 - [ ] Add unit tests for merge/clear operations
 - [ ] Add integration test: create issue → appears in outbox → sync clears it
 - [ ] Add integration test: push fails → outbox retained → next sync merges
-- [ ] Add integration test: fresh checkout with outbox → data recovered
+- [ ] Add integration test: push fails → warning printed with commit instructions
+- [ ] Add integration test: fresh checkout with committed outbox → data recovered
+- [ ] Add integration test: fresh checkout without committed outbox → data lost
+  (expected)
 - [ ] Add integration test: retry cycle is idempotent
 
-### Phase 2: Session Branch Detection
+### Phase 2: Doctor and Visibility
 
-Add Claude Code environment detection to enable session-specific branches.
+Add diagnostic support for the outbox feature.
 
-- [ ] Add `detectClaudeCodeSession()` function to detect environment
-- [ ] Add `getSyncBranch()` wrapper that handles session detection
-- [ ] Add `--claude-session` flag for manual testing
-- [ ] Add `--no-session` flag to bypass detection
-- [ ] Add unit tests for session detection
-
-### Phase 3: Session Branch Management
-
-Implement automatic session branch lifecycle.
-
-- [ ] Implement `initSessionSyncBranch()` for session start
-- [ ] Add merge logic from canonical branch
-- [ ] Handle worktree branch switching
-- [ ] Add integration tests for session branch lifecycle
-
-### Phase 4: Transparent Sync Integration
-
-Wire everything together for seamless operation.
-
-- [ ] Update `tbd sync` to use `getSyncBranch()` throughout
-- [ ] Ensure push targets session branch in Claude Code
-- [ ] Add appropriate logging/debug output for troubleshooting
-- [ ] Add e2e tests simulating Claude Code environment
-
-### Phase 5: Doctor and Visibility
-
-Add diagnostic support for the new features.
-
-- [ ] Update `tbd doctor` to detect and report Claude Code environment
 - [ ] Add doctor check for outbox status (pending issues)
-- [ ] Add `tbd sync --status` to show outbox + session branch info
-- [ ] Add troubleshooting guide for session sync issues
+- [ ] Add `tbd sync --status` to show outbox count
+- [ ] Add troubleshooting guide for sync issues
 
-### Phase 6: Documentation
+### Phase 3: Documentation
 
-- [ ] Document workaround in skill file for immediate use
-- [ ] Update tbd-design.md with outbox and Claude Code support (see details below)
+- [ ] Update tbd-design.md with outbox support (see details below)
 - [ ] Add architecture diagram to developer docs
 
 #### tbd-design.md Updates
 
 The following sections in `packages/tbd/docs/tbd-design.md` need updates:
 
-##### Main Design Doc Sections
-
-**1. Table of Contents (lines ~14-210)**
+**1. Table of Contents**
 - Add entry for new section `3.7 Sync Outbox`
 
-**2. Section 2.2 Directory Structure (lines ~690-757)**
-- Add `outbox/` to the “On Main Branch” directory listing
-- Note that outbox is NOT gitignored (committed to main)
+**2. Section 2.2 Directory Structure**
+- Add `outbox/` to the directory listing
+- Note that outbox is NOT gitignored (committed to user’s branch)
 
-**3. NEW Section 3.7 Sync Outbox (insert after line ~2097, between 3.6 Attic and 4.
-CLI)**
+**3. NEW Section 3.7 Sync Outbox** (insert between 3.6 Attic and 4. CLI)
 - Purpose: Safety net for sync failures
 - Configuration: `sync.enable_outbox` flag (default: true)
-- Architecture: Committed to main branch, incremental storage
+- Architecture: Committed to user’s branch, incremental storage
 - Write-through pattern: Every worktree write mirrored to outbox
 - Sync flow: Outbox merge → normal sync → push → clear on success
 - Behavior when disabled: Simple failure reporting, no recovery
 
-**4. Section 3.3.3 Sync Algorithm (lines ~1876-1912)**
+**4. Section 3.3.3 Sync Algorithm**
 - Add reference to outbox sync phase (runs first when enabled)
 - Note that outbox merge uses same conflict resolution as remote merge
 
-**5. Section 4.7 Sync Commands (find location)**
+**5. Section 4.7 Sync Commands**
 - Document `tbd sync --status` showing outbox count
 - Note outbox behavior in sync output
 
-**6. Section 6.4.5 Cloud Environment Bootstrapping (lines ~2800+)**
-- Add Claude Code session branch detection
-- Document automatic session-specific sync branches
-
-##### Reference Doc Section
-
-**7. Section 7.3 File Structure Reference (lines ~4835-4872)**
-- Add `outbox/` directory to the file tree under `.tbd/` on main branch:
+**6. Section 7.3 File Structure Reference**
+- Add `outbox/` directory to the file tree under `.tbd/`:
   ```
   .tbd/
   ├── config.yml
@@ -883,16 +767,17 @@ CLI)**
 - `hasOutboxData()` - empty vs populated outbox (issues only, ids only, both)
 - `getOutboxCount()` - correct counts for reporting
 - `mergeOutboxToWorktree()` - no conflicts, with conflicts (uses attic), empty outbox
+- `mergeOutboxToWorktree()` - corrupted file skipped with warning, valid files processed
 - `clearOutbox()` - clears all files
+
+**Edge Cases:**
+- Corrupted outbox file → skipped with warning, other files processed
+- Deleted outbox directory → sync proceeds normally (no outbox to merge)
+- Empty outbox directory → no-op merge
 
 **ID Mappings:**
 - `readIdMappings()` / `writeIdMappings()` - round-trip YAML
 - Union merge of ids.yml (no conflicts, additive only)
-
-**Session Detection:**
-- `detectClaudeCodeSession()` with various branch names
-- `getSyncBranch()` in standard vs Claude Code environments
-- Session ID extraction edge cases
 
 ### Integration Tests
 
@@ -957,6 +842,30 @@ describe('Outbox on sync failure', () => {
 
     // Outbox should still have the issue
     expect(await hasOutboxData(tbdRoot)).toBe(true);
+  });
+
+  it('prints warning with two options when push fails', async () => {
+    // Create issue
+    await tbd('create', 'Test issue');
+
+    // Push fails
+    mockPushFailure(403);
+    const result = await tbd('sync');
+
+    // Should print warning with error details
+    expect(result.stderr).toContain('Sync failed');
+    expect(result.stderr).toContain('.tbd/outbox');
+
+    // Should present Option 1: resolve and retry
+    expect(result.stderr).toContain('tbd sync');
+    expect(result.stderr).toMatch(/resolve|retry|fix/i);
+
+    // Should present Option 2: commit outbox
+    expect(result.stderr).toContain('git add .tbd/outbox');
+    expect(result.stderr).toContain('commit');
+
+    // Should warn about data loss if neither option taken
+    expect(result.stderr).toMatch(/data.*(lost|loss)/i);
   });
 
   it('clears outbox only after push succeeds', async () => {
@@ -1031,199 +940,61 @@ describe('Outbox on sync failure', () => {
     expect(atticFiles.length).toBeGreaterThan(0);
   });
 });
-
-describe('Claude Code session sync', () => {
-  it('detects Claude Code environment from branch name', async () => {
-    await git('checkout', '-b', 'claude/test-feature-abc12');
-    const session = await detectClaudeCodeSession();
-    expect(session).toEqual({
-      sessionId: 'abc12',
-      currentBranch: 'claude/test-feature-abc12',
-    });
-  });
-
-  it('uses session-specific sync branch in Claude Code', async () => {
-    await git('checkout', '-b', 'claude/test-feature-abc12');
-    const syncBranch = await getSyncBranch(config);
-    expect(syncBranch).toBe('claude/tbd-sync-abc12');
-  });
-
-  it('uses canonical branch in standard environment', async () => {
-    await git('checkout', 'main');
-    const syncBranch = await getSyncBranch(config);
-    expect(syncBranch).toBe('tbd-sync');
-  });
-
-  it('creates session branch from canonical on first sync', async () => {
-    // Setup: canonical branch exists with issues
-    await setupCanonicalBranch();
-
-    // Simulate Claude Code environment
-    await git('checkout', '-b', 'claude/new-session-xyz99');
-
-    // Run sync
-    await runSync();
-
-    // Verify session branch created
-    expect(await branchExists('claude/tbd-sync-xyz99')).toBe(true);
-
-    // Verify issues merged from canonical
-    const issues = await listIssues();
-    expect(issues.length).toBeGreaterThan(0);
-  });
-});
 ```
 
 ### Manual Testing Checklist
 
-**Outbox (Incremental, on main branch):**
+**Outbox (Incremental, on user’s branch):**
 - [ ] Push fails → only CHANGED issues saved to outbox (not all issues)
 - [ ] Push fails → only NEW ID mappings saved to outbox (not all IDs)
+- [ ] Push fails → WARNING printed with TWO OPTIONS
+- [ ] Warning includes error details (403, network error, etc.)
+- [ ] Warning presents Option 1: resolve issue and run `tbd sync` again
+- [ ] Warning presents Option 2: commit outbox with `git add .tbd/outbox && git commit`
+- [ ] Warning mentions data loss risk if neither option taken
+- [ ] Option 1 works: fix issue → `tbd sync` → outbox cleared
+- [ ] Option 2 works: commit outbox → data preserved → recoverable on fresh checkout
 - [ ] Outbox files appear as uncommitted changes (visible in git status)
 - [ ] tbd does NOT auto-commit outbox changes to user’s branch
 - [ ] Next successful sync → outbox merged (to worktree) and cleared
 - [ ] Outbox cleared only AFTER push succeeds (not after worktree commit)
 - [ ] `tbd sync --status` shows outbox count
 - [ ] Conflict between outbox and remote → resolved correctly (attic used)
-- [ ] Fresh checkout → outbox data recovered to worktree
+- [ ] Fresh checkout (after committing outbox) → outbox data recovered to worktree
+- [ ] Fresh checkout (without committing outbox) → data lost (expected behavior)
 - [ ] Retry cycle is idempotent (no data duplication)
 - [ ] Config `enable_outbox: false` disables outbox behavior
 
-**Session Branches:**
-- [ ] Standard environment: sync works as before
-- [ ] Claude Code: auto-detects session ID
-- [ ] Claude Code: creates session-specific branch
-- [ ] Claude Code: push succeeds to session branch
-- [ ] New session: merges issues from canonical branch
-- [ ] Resumed session: continues from existing session branch
-- [ ] `--no-session` flag bypasses detection
-
-## Rollout Plan
-
-### Phase 1: Document Workaround (Immediate)
-
-Add workaround to skill file so Claude Code users can manually configure:
-
-```markdown
-## Claude Code Sync Workaround
-
-If `tbd sync` fails with HTTP 403 in Claude Code, manually configure session branch:
-
-1. Extract session ID from your branch (e.g., `szKzG` from
-   `claude/feature-name-szKzG`)
-2. Create session branch: `git checkout -b claude/tbd-sync-{SESSION_ID} tbd-sync`
-3. Edit `.tbd/config.yml`: set `sync.branch: claude/tbd-sync-{SESSION_ID}`
-4. Run `tbd sync`
-```
-
-### Phase 2: Detection Only
-
-Release with detection logging:
-
-- Log when Claude Code environment detected
-- Log effective sync branch being used
-- Continue using configured branch (manual config still required)
-
-### Phase 3: Full Automation
-
-Release with automatic session branch management:
-
-- Auto-create session branches
-- Auto-merge from canonical
-- No manual configuration required
+**Edge Cases:**
+- [ ] Corrupted outbox file → skipped with warning, other valid files processed
+- [ ] User deletes `.tbd/outbox/` manually → sync proceeds normally (safe)
+- [ ] Empty outbox directory → no-op merge, sync proceeds
 
 ## Open Questions
 
-1. **Should session branches be cleaned up?**
-   - After a session ends, the session branch could be merged to canonical and deleted
-   - Recommendation: Leave for manual cleanup; sessions may be resumed
-
-2. **How to handle conflicts between sessions?**
-   - Two sessions could modify the same issue
-   - Recommendation: Last write wins (standard git merge behavior)
-
-3. **Should canonical branch be updated automatically?**
-   - Session branches could auto-merge to canonical on sync
-   - Recommendation: No - keep canonical stable; merge on explicit action
-
-4. **What if user manually sets branch in config?**
-   - Should auto-detection override user config?
-   - Recommendation: User config takes precedence; auto-detection only when branch is
-     default `tbd-sync`
-
-5. **Alternative detection methods?**
-   - Environment variable `CLAUDE_SESSION_ID`?
-   - Claude Code may provide explicit signals in the future
-   - Recommendation: Start with branch pattern; add env var support later
-
-6. **What if outbox grows very large?**
+1. **What if outbox grows very large?**
    - If a user is offline for extended periods, outbox could accumulate many issues
    - Recommendation: This is acceptable - the outbox is incremental (only changed
      issues), so even hundreds of changed issues is manageable.
      The alternative (losing data) is worse.
 
-7. **Should outbox changes be auto-committed?**
+2. **Should outbox changes be auto-committed?**
    - tbd currently never auto-commits to the user’s working branch
    - Outbox lives on the user’s branch (not tbd-sync)
-   - Recommendation: NO. Outbox changes are file changes only.
-     User sees them in `git status` and commits when ready.
-     This is consistent with tbd’s current behavior of never auto-committing to the
-     user’s branch. The user may be on a feature branch or may want to review the changes
-     first.
+   - Recommendation: NO auto-commit, but YES explicit warning.
+     When push fails, tbd prints a clear warning with instructions to commit the outbox.
+     This preserves tbd’s policy of never auto-committing to the user’s branch while
+     ensuring users/agents know to take action.
+     Agents will follow the warning and commit the outbox, which is the intended
+     workflow. Users who ignore the warning accept the risk of data loss on fresh
+     checkout.
 
 ## References
 
-- Related issue: tbd-knfu (Claude Code environment support feature)
+- Related issue: tbd-knfu (sync resilience feature)
 - Silent error bug: tbd-ca3g (sync silent failure)
-- Claude Code docs: https://docs.anthropic.com/en/docs/claude-code
-- Workaround documented in: .tbd/docs/guidelines/
 
-## Appendix A: Environment Detection Alternatives
-
-### Option 1: Branch Pattern Detection (Recommended)
-
-Detect from branch name pattern `claude/*-{SESSION_ID}`.
-
-**Pros:**
-- No external dependencies
-- Works immediately
-- Session ID is reliably extracted
-
-**Cons:**
-- Relies on branch naming convention
-- Could false-positive on user branches named similarly
-
-### Option 2: Environment Variable
-
-Claude Code could set `CLAUDE_SESSION_ID` environment variable.
-
-**Pros:**
-- Explicit signal
-- No pattern matching required
-
-**Cons:**
-- Requires Claude Code to provide this (not currently available)
-- Would need coordination with Anthropic
-
-### Option 3: Git Config
-
-Claude Code could set a git config value.
-
-**Pros:**
-- Persisted in repo
-- Explicit signal
-
-**Cons:**
-- Pollutes git config
-- May not be set in all environments
-
-### Recommendation
-
-Use Option 1 (branch pattern) as primary detection.
-Add Option 2 (env var) as fallback when/if available.
-This provides immediate functionality with room for improvement.
-
-## Appendix B: Write-Through and Sync Flow Diagrams
+## Appendix A: Write-Through and Sync Flow Diagrams
 
 ### Write-Through Flow (at issue create/update time)
 
@@ -1297,21 +1068,6 @@ This provides immediate functionality with room for improvement.
                                 │
                                 ▼
                     ┌───────────────────────┐
-                    │ detectClaudeCodeSession│
-                    └───────────────────────┘
-                                │
-                    ┌───────────┴───────────┐
-                    │ Claude Code?          │
-                    ├───────────────────────┤
-                    │ YES                   │ NO
-                    ▼                       ▼
-        syncBranch =            syncBranch =
-        claude/tbd-sync-{ID}    tbd-sync
-                    │                       │
-                    └───────────┬───────────┘
-                                │
-                                ▼
-                    ┌───────────────────────┐
                     │ NORMAL SYNC           │
                     │ - Fetch remote        │
                     │ - Merge remote →      │
@@ -1334,11 +1090,11 @@ This provides immediate functionality with room for improvement.
         │ Clear outbox          │   │ enable_outbox?            │
         │ (remove files)        │   ├───────────────────────────┤
         │ (no auto-commit)      │   │ TRUE           │ FALSE    │
-        │ Report "Synced"       │   │ Outbox already │ Report   │
-        └───────────────────────┘   │ has data (from │ failure, │
-                                    │ write-through) │ done     │
-                                    │ Report "X in   │          │
-                                    │ outbox"        │          │
+        │ Report "Synced"       │   │ Print WARNING  │ Report   │
+        └───────────────────────┘   │ with 2 options:│ failure, │
+                                    │ 1. Fix + retry │ done     │
+                                    │ 2. Commit      │          │
+                                    │    outbox      │          │
                                     └───────────────────────────┘
 ```
 
@@ -1348,25 +1104,72 @@ This provides immediate functionality with room for improvement.
    `enable_outbox: true`)
 2. **Worktree first** - Must exist before outbox merge can proceed
 3. **Outbox sync second** - Pending data from previous failed syncs gets merged
-4. **Session detection third** - Determines target branch (Claude Code vs standard)
-5. **Normal sync** - Fetch, merge remote, commit local changes TO WORKTREE (auto-commit)
-6. **Push attempt** - Uses session branch if Claude Code, else canonical
-7. **Success** - Clear outbox ONLY after push succeeds
-8. **Failure (outbox enabled)** - Outbox already has data (from write-through), nothing
-   extra to do
-9. **Failure (outbox disabled)** - Just report failure; data is in worktree but may not
+4. **Normal sync** - Fetch, merge remote, commit local changes TO WORKTREE (auto-commit)
+5. **Push attempt** - Push to configured `tbd-sync` branch
+6. **Success** - Clear outbox ONLY after push succeeds
+7. **Failure (outbox enabled)** - Print WARNING with two options: (a) resolve issue and
+   retry sync (outbox clears on success), OR (b) commit outbox to preserve data across
+   checkouts
+8. **Failure (outbox disabled)** - Just report failure; data is in worktree but may not
    sync
-10. **Idempotent** - Retry cycle causes no data duplication (merges are additive)
-11. **No auto-commit to main** - Outbox changes are file changes only; user commits when
-    ready
+9. **Idempotent** - Retry cycle causes no data duplication (merges are additive)
+10. **No auto-commit to user’s branch** - Outbox changes are file changes only; user
+    commits when ready
+11. **Agent workflow** - Agents evaluate the two options; typically commit outbox if the
+    underlying issue cannot be resolved
+
+## Appendix B: Multi-Branch Outbox Merges (Corner Cases)
+
+When multiple agents or users work on different branches, each may accumulate outbox
+data. When these branches merge, the outboxes merge too.
+This section explains why this generally works cleanly.
+
+### Why Merges Are Usually Clean
+
+1. **Issues are distinct**: Different agents typically create different issues.
+   Each issue has a unique ULID, so there are no file conflicts.
+
+2. **ID mappings are distinct**: Each new issue gets a unique short ID. The `ids.yml`
+   files are key-value maps where keys (short IDs) don’t collide because they’re
+   generated from distinct ULIDs.
+
+3. **Outbox is additive**: The outbox only contains issues that failed to sync.
+   When branches merge, git sees two different files being added—no conflict.
+
+### Corner Cases That May Require Manual Resolution
+
+1. **Same issue updated on different branches**
+   - Agent A updates `tbd-a1b2` on branch X, fails to sync, commits outbox
+   - Agent B updates `tbd-a1b2` on branch Y, fails to sync, commits outbox
+   - When X and Y merge, git sees a conflict in `.tbd/outbox/issues/{ulid}.md`
+   - Resolution: Standard git merge resolution, then `tbd sync` uses the merged result
+
+2. **Short ID collision** (rare)
+   - Agent A generates short ID `x7k9` for ULID `abc...` on branch X
+   - Agent B generates short ID `x7k9` for ULID `def...` on branch Y
+   - When `ids.yml` files merge, git sees same key with different values
+   - Resolution: Manual resolution needed; one mapping must be changed
+   - Note: This is extremely rare due to ID generation algorithm
+
+3. **Ordering of outbox merges**
+   - Branch A merges to main, then branch B merges to main
+   - Each merge adds outbox entries sequentially
+   - This is fine—issues are additive and `tbd sync` processes all of them
+
+### After Branch Merge
+
+After merging branches with outboxes:
+
+1. Run `tbd sync` to push all accumulated outbox data to `tbd-sync`
+2. If sync succeeds, outbox clears
+3. If sync fails, the combined outbox remains for future retry
 
 ## Appendix C: Issue tbd-knfu Summary
 
 The feature bead tbd-knfu documents this problem and was created during the debugging
 session. Key findings:
 
-1. Claude Code enforces `claude/[name]-[SESSION_ID]` branch pattern
-2. HTTP 403 occurs when pushing to non-session branches
-3. Manual workaround works but is tedious
-4. Auto-detection is feasible via branch name parsing
-5. Session branches should merge from canonical to maintain continuity
+1. Various environments may restrict pushing to certain branches
+2. HTTP 403 or similar errors occur when push is forbidden
+3. The outbox provides a safety net for preserving data in these scenarios
+4. Data recovery happens when branches merge and sync eventually succeeds
