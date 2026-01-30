@@ -162,7 +162,9 @@ class StatusHandler extends BaseCommand {
     }
   }
 
-  private async checkBeads(projectRoot: string): Promise<{ detected: boolean; issueCount: number | null }> {
+  private async checkBeads(
+    projectRoot: string,
+  ): Promise<{ detected: boolean; issueCount: number | null }> {
     const beadsDir = join(projectRoot, '.beads');
     try {
       await access(beadsDir);
