@@ -282,11 +282,18 @@ before proceeding.
 ```
 tbd sync (when enable_outbox: true):
 
+  0. SNAPSHOT OUTBOX (for concurrent operation safety)
+     └── Record current outbox files BEFORE any operations
+         - List issue files in .tbd/outbox/issues/
+         - List ID mappings in .tbd/outbox/mappings/ids.yml
+         - This snapshot determines what gets merged and cleared
+         - Files created AFTER this point (during sync) are preserved
+
   1. OUTBOX SYNC (runs first)
-     └── Check if outbox has pending data
+     └── Check if snapshot has pending data
          └── If yes:
-             a. Copy outbox issues → worktree (using standard merge + attic)
-             b. Merge outbox ids.yml → worktree ids.yml (union of entries)
+             a. Copy SNAPSHOTTED outbox issues → worktree (using standard merge + attic)
+             b. Merge SNAPSHOTTED outbox ids.yml → worktree ids.yml (union of entries)
              c. Commit merged changes to worktree
              NOTE: If same location as last failure, this is a no-op (files match)
              NOTE: If fresh checkout, worktree is behind outbox, so merge applies
@@ -299,7 +306,7 @@ tbd sync (when enable_outbox: true):
   3. PUSH
      └── Try push to remote tbd-sync
          ├── SUCCESS:
-         │   a. Clear outbox (remove files from .tbd/outbox/)
+         │   a. Clear ONLY SNAPSHOTTED outbox files (preserve files created during sync)
          │   b. Report "synced"
          │   NOTE: Outbox removal is NOT auto-committed. User controls when to
          │         commit changes to their working branch.
@@ -334,7 +341,7 @@ Warning: If you do neither and perform a fresh checkout, your issue data will be
 ```
 
 Where `{ERROR_DETAILS}` includes the specific error (e.g., “HTTP 403 - push to
-'tbd-sync' forbidden”, “Network error - connection refused”, etc.).
+‘tbd-sync’ forbidden”, “Network error - connection refused”, etc.).
 
 **Why two options:**
 
@@ -403,6 +410,143 @@ allow a successful sync.
 - If we cleared after worktree commit but before push, and push fails, data is lost
 - By clearing only after push succeeds, we guarantee the data reached the remote
 - The outbox acts as a “safety net” until data is confirmed synced
+
+### Concurrent Operation Safety (Snapshot-Based Clear)
+
+A race condition exists if `tbd create` runs while `tbd sync` is in progress:
+
+```
+Timeline (WITHOUT snapshot-based clear):
+1. tbd sync starts, snapshots nothing, merges outbox → worktree
+2. User runs `tbd create "New issue"` (writes to worktree AND outbox)
+3. tbd sync pushes (includes new issue in worktree)
+4. tbd sync clears ALL of outbox (DELETES the new issue!)
+5. Push actually failed (network timeout after partial send)
+6. New issue is now lost from outbox - DATA LOSS
+```
+
+**Solution: Snapshot-based clear.** Instead of “clear everything in outbox,” we “clear
+only what we snapshotted at sync start.”
+
+**Why not file locks?** File locks (flock, fcntl, lockfile) are unreliable on network
+filesystems (NFS, SMB). They can be silently lost, cause deadlocks, or simply not work.
+The snapshot approach requires no locking primitives and is safe on any filesystem.
+
+**How it works:**
+
+1. At sync start, snapshot the list of files currently in outbox
+2. Merge only those snapshotted files to worktree
+3. Perform normal sync and push
+4. On success, delete only the snapshotted files (not files created during sync)
+5. Files created during sync remain in outbox for next sync
+
+```typescript
+interface OutboxSnapshot {
+  /** Issue filenames (e.g., ['01ABC.md', '01DEF.md']) */
+  issues: string[];
+  /** Short IDs that were in ids.yml (e.g., ['tbd-a1b2', 'tbd-c3d4']) */
+  ids: string[];
+  /** Timestamp when snapshot was taken (for debugging) */
+  timestamp: number;
+}
+
+/**
+ * Snapshot current outbox state at sync start.
+ * Only files in this snapshot will be merged and cleared.
+ */
+async function snapshotOutbox(tbdRoot: string): Promise<OutboxSnapshot> {
+  const outboxDir = join(tbdRoot, OUTBOX_DIR);
+  const snapshot: OutboxSnapshot = {
+    issues: [],
+    ids: [],
+    timestamp: Date.now(),
+  };
+
+  // Snapshot issue files
+  const issuesDir = join(outboxDir, 'issues');
+  if (await dirExists(issuesDir)) {
+    snapshot.issues = (await readdir(issuesDir))
+      .filter(f => f.endsWith('.md'));
+  }
+
+  // Snapshot ID mappings
+  const idsPath = join(outboxDir, 'mappings', 'ids.yml');
+  if (await fileExists(idsPath)) {
+    const idMap = await readIdMappings(idsPath);
+    snapshot.ids = Object.keys(idMap);
+  }
+
+  return snapshot;
+}
+
+/**
+ * Clear only the files that were in our snapshot.
+ * Files created after snapshot (during sync) are preserved.
+ *
+ * IMPORTANT: Only call after push succeeds.
+ */
+async function clearSnapshotedOutboxFiles(
+  tbdRoot: string,
+  snapshot: OutboxSnapshot
+): Promise<void> {
+  const outboxDir = join(tbdRoot, OUTBOX_DIR);
+
+  // Delete only snapshotted issue files
+  for (const issueFile of snapshot.issues) {
+    const issuePath = join(outboxDir, 'issues', issueFile);
+    await rm(issuePath, { force: true });
+  }
+
+  // Remove only snapshotted IDs from ids.yml (preserve new ones)
+  const idsPath = join(outboxDir, 'mappings', 'ids.yml');
+  if (await fileExists(idsPath) && snapshot.ids.length > 0) {
+    const currentIds = await readIdMappings(idsPath);
+
+    // Remove only the IDs that were in our snapshot
+    for (const shortId of snapshot.ids) {
+      delete currentIds[shortId];
+    }
+
+    // Write back remaining IDs, or delete file if empty
+    if (Object.keys(currentIds).length === 0) {
+      await rm(idsPath, { force: true });
+    } else {
+      await writeIdMappings(idsPath, currentIds);
+    }
+  }
+
+  // Clean up empty directories
+  await rmdirIfEmpty(join(outboxDir, 'issues'));
+  await rmdirIfEmpty(join(outboxDir, 'mappings'));
+  await rmdirIfEmpty(outboxDir);
+}
+
+/**
+ * Remove directory if empty (no-op if non-empty or doesn't exist).
+ */
+async function rmdirIfEmpty(dir: string): Promise<void> {
+  try {
+    const entries = await readdir(dir);
+    if (entries.length === 0) {
+      await rmdir(dir);
+    }
+  } catch {
+    // Directory doesn't exist or can't be read - that's fine
+  }
+}
+```
+
+**Race condition resolved:**
+
+```
+Timeline (WITH snapshot-based clear):
+1. tbd sync starts, snapshots outbox (empty or has old issues)
+2. User runs `tbd create "New issue"` (writes to worktree AND outbox)
+3. tbd sync merges snapshot → worktree (new issue not in snapshot)
+4. tbd sync pushes
+5. tbd sync clears only snapshotted files (new issue PRESERVED in outbox)
+6. Even if push failed, new issue is safe in outbox
+```
 
 ### No-Op Case (Same Location Retry)
 
@@ -589,16 +733,8 @@ async function mergeOutboxToWorktree(
   return { merged, conflicts };
 }
 
-/**
- * Clear outbox after successful push.
- *
- * IMPORTANT: Only call this AFTER push succeeds, not just after worktree commit.
- */
-async function clearOutbox(tbdRoot: string): Promise<void> {
-  const outboxDir = join(tbdRoot, OUTBOX_DIR);
-  await rm(join(outboxDir, 'issues'), { recursive: true, force: true });
-  await rm(join(outboxDir, 'mappings'), { recursive: true, force: true });
-}
+// NOTE: Outbox clearing uses clearSnapshotedOutboxFiles() with a snapshot taken at
+// sync start. See "Concurrent Operation Safety" section for the implementation.
 ```
 
 ### Integration Points
@@ -666,9 +802,12 @@ Implement the outbox to guarantee no data loss regardless of push failures.
 **Sync-Time Functions:**
 - [ ] Implement `hasOutboxData()` - check if outbox has pending issues/IDs
 - [ ] Implement `getOutboxCount()` - count items for status reporting
+- [ ] Implement `snapshotOutbox()` - snapshot current outbox state at sync start
 - [ ] Implement `mergeOutboxToWorktree()` - merge pending data using existing conflict
-  resolution (including attic)
-- [ ] Implement `clearOutbox()` - clear after successful push
+  resolution (including attic); accept snapshot parameter to merge only snapshotted
+  files
+- [ ] Implement `clearSnapshotedOutboxFiles()` - clear only snapshotted files after
+  successful push (preserves files created during sync)
 
 **ID Mapping Helpers:**
 - [ ] Implement `readIdMappings()` - parse ids.yml to object
@@ -697,6 +836,9 @@ When push fails, tbd prints a warning with two options: (1) resolve the issue an
 - [ ] Add integration test: fresh checkout without committed outbox → data lost
   (expected)
 - [ ] Add integration test: retry cycle is idempotent
+- [ ] Add integration test: concurrent create during sync preserves new issue
+- [ ] Add unit test: `snapshotOutbox()` captures current state correctly
+- [ ] Add unit test: `clearSnapshotedOutboxFiles()` only clears snapshotted files
 
 ### Phase 2: Doctor and Visibility
 
@@ -766,9 +908,12 @@ The following sections in `packages/tbd/docs/tbd-design.md` need updates:
 **Sync-Time Outbox:**
 - `hasOutboxData()` - empty vs populated outbox (issues only, ids only, both)
 - `getOutboxCount()` - correct counts for reporting
+- `snapshotOutbox()` - captures current files correctly, empty outbox returns empty
+  snapshot
 - `mergeOutboxToWorktree()` - no conflicts, with conflicts (uses attic), empty outbox
 - `mergeOutboxToWorktree()` - corrupted file skipped with warning, valid files processed
-- `clearOutbox()` - clears all files
+- `clearSnapshotedOutboxFiles()` - clears only snapshotted files, preserves files
+  created after snapshot
 
 **Edge Cases:**
 - Corrupted outbox file → skipped with warning, other files processed
@@ -940,6 +1085,71 @@ describe('Outbox on sync failure', () => {
     expect(atticFiles.length).toBeGreaterThan(0);
   });
 });
+
+describe('Concurrent operation safety (snapshot-based clear)', () => {
+  it('preserves issue created during sync', async () => {
+    // Setup: one issue already in outbox
+    await tbd('create', 'Existing issue');
+    const existingOutbox = await listOutboxFiles(tbdRoot);
+    expect(existingOutbox.issues.length).toBe(1);
+
+    // Simulate: sync starts, snapshots outbox (1 issue)
+    const snapshot = await snapshotOutbox(tbdRoot);
+    expect(snapshot.issues.length).toBe(1);
+
+    // Simulate: new issue created DURING sync (after snapshot)
+    await tbd('create', 'New issue during sync');
+    const midSyncOutbox = await listOutboxFiles(tbdRoot);
+    expect(midSyncOutbox.issues.length).toBe(2);
+
+    // Simulate: sync completes, clears only snapshotted files
+    mockPushSuccess();
+    await clearSnapshotedOutboxFiles(tbdRoot, snapshot);
+
+    // New issue should still be in outbox
+    const finalOutbox = await listOutboxFiles(tbdRoot);
+    expect(finalOutbox.issues.length).toBe(1);
+    const remainingIssue = await readIssue(join(tbdRoot, '.tbd/outbox/issues'), finalOutbox.issues[0]);
+    expect(remainingIssue.title).toBe('New issue during sync');
+  });
+
+  it('preserves ID mapping added during sync', async () => {
+    // Setup: one ID already in outbox
+    await tbd('create', 'Existing issue');
+    const snapshot = await snapshotOutbox(tbdRoot);
+    expect(snapshot.ids.length).toBe(1);
+
+    // Simulate: new issue created DURING sync
+    await tbd('create', 'New issue during sync');
+
+    // Clear only snapshotted IDs
+    mockPushSuccess();
+    await clearSnapshotedOutboxFiles(tbdRoot, snapshot);
+
+    // New ID should still be in outbox ids.yml
+    const remainingIds = await readIdMappings(join(tbdRoot, '.tbd/outbox/mappings/ids.yml'));
+    expect(Object.keys(remainingIds).length).toBe(1);
+  });
+
+  it('snapshot is empty when outbox is empty', async () => {
+    const snapshot = await snapshotOutbox(tbdRoot);
+    expect(snapshot.issues).toEqual([]);
+    expect(snapshot.ids).toEqual([]);
+  });
+
+  it('clearing empty snapshot is a no-op', async () => {
+    // Create an issue (populates outbox)
+    await tbd('create', 'Test issue');
+    expect(await hasOutboxData(tbdRoot)).toBe(true);
+
+    // Clear with empty snapshot (simulates: sync started with empty outbox)
+    const emptySnapshot: OutboxSnapshot = { issues: [], ids: [], timestamp: Date.now() };
+    await clearSnapshotedOutboxFiles(tbdRoot, emptySnapshot);
+
+    // Issue should still be in outbox
+    expect(await hasOutboxData(tbdRoot)).toBe(true);
+  });
+});
 ```
 
 ### Manual Testing Checklist
@@ -969,6 +1179,14 @@ describe('Outbox on sync failure', () => {
 - [ ] Corrupted outbox file → skipped with warning, other valid files processed
 - [ ] User deletes `.tbd/outbox/` manually → sync proceeds normally (safe)
 - [ ] Empty outbox directory → no-op merge, sync proceeds
+
+**Concurrent Operations (Snapshot-Based Clear):**
+- [ ] `tbd create` during sync → new issue preserved in outbox after sync completes
+- [ ] `tbd update` during sync → updated issue preserved in outbox after sync completes
+- [ ] Multiple creates during sync → all new issues preserved
+- [ ] Snapshot is taken at sync START (before merge/push)
+- [ ] Only snapshotted files cleared on success (not files created during sync)
+- [ ] Works correctly on network filesystems (no file locks used)
 
 ## Open Questions
 
@@ -1043,9 +1261,19 @@ describe('Outbox on sync failure', () => {
                                 │
                                 ▼
                     ┌───────────────────────┐
+                    │ SNAPSHOT OUTBOX       │
+                    │ (for concurrent       │
+                    │ operation safety)     │
+                    │ Record current files: │
+                    │ - issues/*.md         │
+                    │ - mappings/ids.yml    │
+                    └───────────────────────┘
+                                │
+                                ▼
+                    ┌───────────────────────┐
                     │ OUTBOX SYNC (if       │
                     │ enable_outbox=true)   │
-                    │ Check outbox for      │
+                    │ Check SNAPSHOT for    │
                     │ pending data          │
                     └───────────────────────┘
                                 │
@@ -1087,13 +1315,13 @@ describe('Outbox on sync failure', () => {
                     │ SUCCESS               │ FAILURE (403, network, etc)
                     ▼                       ▼
         ┌───────────────────────┐   ┌───────────────────────────┐
-        │ Clear outbox          │   │ enable_outbox?            │
-        │ (remove files)        │   ├───────────────────────────┤
-        │ (no auto-commit)      │   │ TRUE           │ FALSE    │
-        │ Report "Synced"       │   │ Print WARNING  │ Report   │
-        └───────────────────────┘   │ with 2 options:│ failure, │
-                                    │ 1. Fix + retry │ done     │
-                                    │ 2. Commit      │          │
+        │ Clear ONLY SNAPSHOTTED│   │ enable_outbox?            │
+        │ outbox files          │   ├───────────────────────────┤
+        │ (files created during │   │ TRUE           │ FALSE    │
+        │ sync are preserved)   │   │ Print WARNING  │ Report   │
+        │ (no auto-commit)      │   │ with 2 options:│ failure, │
+        │ Report "Synced"       │   │ 1. Fix + retry │ done     │
+        └───────────────────────┘   │ 2. Commit      │          │
                                     │    outbox      │          │
                                     └───────────────────────────┘
 ```
@@ -1103,19 +1331,25 @@ describe('Outbox on sync failure', () => {
 1. **Write-through** - Every issue write is mirrored to outbox (when
    `enable_outbox: true`)
 2. **Worktree first** - Must exist before outbox merge can proceed
-3. **Outbox sync second** - Pending data from previous failed syncs gets merged
-4. **Normal sync** - Fetch, merge remote, commit local changes TO WORKTREE (auto-commit)
-5. **Push attempt** - Push to configured `tbd-sync` branch
-6. **Success** - Clear outbox ONLY after push succeeds
-7. **Failure (outbox enabled)** - Print WARNING with two options: (a) resolve issue and
+3. **Snapshot at sync start** - Record outbox contents BEFORE any operations; this
+   determines what gets merged and cleared
+4. **Outbox sync** - Pending data from previous failed syncs gets merged (only
+   snapshotted files)
+5. **Normal sync** - Fetch, merge remote, commit local changes TO WORKTREE (auto-commit)
+6. **Push attempt** - Push to configured `tbd-sync` branch
+7. **Success** - Clear ONLY SNAPSHOTTED outbox files after push succeeds (files created
+   during sync are preserved for next sync)
+8. **Failure (outbox enabled)** - Print WARNING with two options: (a) resolve issue and
    retry sync (outbox clears on success), OR (b) commit outbox to preserve data across
    checkouts
-8. **Failure (outbox disabled)** - Just report failure; data is in worktree but may not
+9. **Failure (outbox disabled)** - Just report failure; data is in worktree but may not
    sync
-9. **Idempotent** - Retry cycle causes no data duplication (merges are additive)
-10. **No auto-commit to user’s branch** - Outbox changes are file changes only; user
+10. **Idempotent** - Retry cycle causes no data duplication (merges are additive)
+11. **Concurrent-safe** - Snapshot-based clear means operations during sync don’t lose
+    data (no file locks needed, NFS-safe)
+12. **No auto-commit to user’s branch** - Outbox changes are file changes only; user
     commits when ready
-11. **Agent workflow** - Agents evaluate the two options; typically commit outbox if the
+13. **Agent workflow** - Agents evaluate the two options; typically commit outbox if the
     underlying issue cannot be resolved
 
 ## Appendix B: Multi-Branch Outbox Merges (Corner Cases)
