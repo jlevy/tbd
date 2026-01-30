@@ -566,3 +566,108 @@ All tests should:
 - Be included in the standard `pnpm test` run
 - Use temp directories that are cleaned up after tests
 - Not depend on external state or ordering between tests
+
+## Stage 5: Documentation Updates
+
+The following documentation must be updated to reflect the new `children_order_hints`
+feature:
+
+### 1. tbd-design.md Updates
+
+#### Schema Section (§2.6.3 IssueSchema)
+
+Add `children_order_hints` field to the schema documentation after `parent_id`:
+
+```typescript
+// Hierarchical issues
+parent_id: IssueId.optional(),
+
+// Child ordering hints - soft ordering for children under this parent.
+// Array of internal IssueIds in preferred display order.
+// May contain stale IDs; display logic filters for actual children.
+children_order_hints: z.array(IssueId).nullable().optional(),
+```
+
+Add design notes explaining:
+- Purpose: Soft hints for child display order
+- Auto-population: Appended when setting `--parent`
+- Stale ID handling: Silently ignored during display
+- Manual control via `--children-order` flag
+
+#### Parent-Child Relationships Section (§2.7.2)
+
+Update to describe child ordering:
+
+- Default behavior: Children sorted by priority (via list command)
+- With hints: Children sorted according to `children_order_hints`
+- Auto-population: When child is assigned to parent, ID appended to hints
+- Manual reordering: Use `tbd update <parent> --children-order <id1>,<id2>,...`
+- Visibility: Use `tbd show <id> --show-order` to see current hints
+
+#### Update Command Section (§4.2.6)
+
+Add `--children-order` flag to options table:
+
+```
+--children-order=<ids>    Set child ordering hints (comma-separated IDs)
+```
+
+With example:
+```bash
+tbd update proj-a1b2 --children-order bd-c3d4,bd-e5f6,bd-g7h8
+```
+
+#### Show Command Section (§4.2.4)
+
+Add `--show-order` flag to options table:
+
+```
+--show-order              Display children ordering hints
+```
+
+With example:
+```bash
+tbd show proj-a1b2 --show-order
+# Output includes: children_order_hints: [bd-c3d4, bd-e5f6, bd-g7h8]
+```
+
+#### Merge Strategies Section (§3.4.3)
+
+Document that `children_order_hints` uses LWW (last-writer-wins) strategy:
+
+```typescript
+children_order_hints: 'lww',
+```
+
+### 2. CLI Help Consistency
+
+Verify that `--help` output for affected commands matches documentation:
+
+- `tbd update --help` should list `--children-order`
+- `tbd show --help` should list `--show-order`
+
+### 3. tbd-docs.md Updates (if applicable)
+
+If tbd-docs.md contains command reference sections, ensure they include:
+- `--children-order` for update command
+- `--show-order` for show command
+
+### 4. Type Safety Documentation
+
+Document the branded types added for ID handling:
+
+- `InternalIssueId`: Branded type for storage IDs (`is-{ulid}`)
+- `DisplayIssueId`: Branded type for display IDs (`{prefix}-{short}`)
+- Helper functions: `asInternalId()`, `asDisplayId()`
+
+This ensures compile-time safety when handling IDs in different contexts.
+
+### Documentation Acceptance Criteria
+
+- [ ] tbd-design.md schema section includes `children_order_hints` field
+- [ ] tbd-design.md §2.7.2 describes child ordering behavior
+- [ ] tbd-design.md update command section includes `--children-order`
+- [ ] tbd-design.md show command section includes `--show-order`
+- [ ] tbd-design.md merge strategies includes `children_order_hints: 'lww'`
+- [ ] CLI `--help` output matches documentation
+- [ ] Branded types (InternalIssueId, DisplayIssueId) are documented
