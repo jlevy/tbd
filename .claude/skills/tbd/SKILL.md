@@ -167,6 +167,8 @@ Run `tbd shortcut <name>` to use any of these shortcuts:
 | precommit-process | Pre-Commit Process | Full pre-commit checklist including spec sync, code review, and testing |
 | review-code-python | Review Code (Python) | Perform a code review for Python code following best practices |
 | review-code-typescript | Review Code (TypeScript) | Perform a code review for TypeScript code following best practices |
+| revise-all-architecture-docs | Revise All Architecture Docs | Comprehensive revision of all current architecture documents |
+| revise-architecture-doc | Revise Architecture Doc | Revise an existing architecture document to reflect current system state |
 | welcome-user | Welcome User | Welcome message for users after tbd installation or setup |
 
 <!-- END SHORTCUT DIRECTORY -->
