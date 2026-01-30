@@ -398,7 +398,8 @@ if (failedOps.length > 0) {
 }
 ```
 
-See `golden-testing-guidelines` for full patterns on transparent box testing.
+See `tbd guidelines golden-testing-guidelines` for full patterns on transparent box
+testing.
 
 ## Library/CLI Hybrid Packages
 

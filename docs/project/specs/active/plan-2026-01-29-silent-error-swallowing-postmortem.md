@@ -880,6 +880,50 @@ fi
 - [ ] Schedule quarterly error handling audits
 - [ ] Document blameless post-mortem process
 
+## Guideline Updates
+
+This post-mortem led to creation of a new guideline and identifies updates needed for
+existing guidelines.
+
+### New Guideline Created
+
+**`error-handling-rules`** — Created to capture the principles and anti-patterns from
+this post-mortem.
+
+Run `tbd guidelines error-handling-rules` to see the full guideline, which covers:
+
+- **8 Principles**: Error handling as feature, success must be proven, explicit state
+  tracking, exception vs Result choice, logging is not handling, exit code contracts,
+  error testing requirements, transient vs permanent error classification
+
+- **8 Anti-Patterns**: Debug-only handling, optimistic success, empty catches,
+  catch-and-continue, inferring success from side effects, lost Result types, default
+  success returns, losing exception context
+
+- **Detection Strategies**: Grep patterns to find each anti-pattern in codebases
+
+### Existing Guidelines to Update
+
+| Guideline | Update Needed | Priority |
+| --- | --- | --- |
+| `typescript-rules` | Reference `error-handling-rules` from Exceptions section | P2 |
+| `typescript-cli-tool-rules` | Reference `error-handling-rules` for exit code discipline | P2 |
+| `golden-testing-guidelines` | Add error scenario coverage requirements | P2 |
+| `general-testing-rules` | Add failure scenario testing mandate | P2 |
+
+### Cross-Reference: Existing Coverage
+
+Some patterns are already partially covered:
+
+- **Sub-command logging**: `tbd guidelines typescript-cli-tool-rules` has
+  `SHOW_COMMANDS` pattern for transparent box testing—this would have caught this bug
+
+- **Exception handling**: `tbd guidelines typescript-rules` covers pointless try/catch
+  but not debug-only logging or catch-and-continue
+
+- **Testing error cases**: `tbd guidelines general-testing-rules` mentions error
+  conditions but doesn’t make failure scenario tests mandatory
+
 ## Proposed ESLint Rules
 
 ### Rule: no-debug-only-errors

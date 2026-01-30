@@ -7,10 +7,12 @@ allowed-tools: Bash(tbd:*), Read, Write
 Run 'tbd setup' to update.
 -->
 
----
-title: tbd Workflow
+* * *
+
+## title: tbd Workflow
+
 description: Full tbd workflow guide for agents
----
+
 **`tbd` helps humans and agents ship code with greater speed, quality, and discipline.**
 
 1. **Beads**: Git-native issue tracking (tasks, bugs, features).
@@ -20,205 +22,127 @@ description: Full tbd workflow guide for agents
 3. **Shortcuts**: Reusable instruction templates for common workflows.
 4. **Guidelines**: Coding rules and best practices.
 
-These features work together to create high-quality workflows.
-Be sure to apply the workflows below for all bead tracking, spec driven planning and
-implementation, and code review.
-
 ## Installation
-
-If `tbd` is not installed, install and set up:
 
 ```bash
 npm install -g get-tbd@latest
-tbd                                # Gives full orientation
-tbd setup --auto --prefix=<name>   # Fresh project (--prefix REQUIRED)
+tbd setup --auto --prefix=<name>   # Fresh project (--prefix is REQUIRED and should be short. For new project setup, ALWAYS ASK THE USER FOR THE PREFIX; do not guess it)
 tbd setup --auto                   # Existing tbd project (prefix already set)
+tbd setup --from-beads             # Migration from .beads/ if `bd` has been used
 ```
 
-The prefix appears in every bead ID (e.g., `myapp-a1b2`) and is a matter of user
-preference for a given project.
+## Routine Commands
 
-**IMPORTANT NOTES ON SETUP:**
-- **Fresh projects**: `--prefix` is REQUIRED. NEVER guess or invent a prefix.
-  Always ask the user first.
-- **Existing tbd projects** (`.tbd/` exists): No `--prefix` needed, just run
-  `tbd setup --auto`.
-- **Beads migration** (`.beads/` exists): Use `tbd setup --from-beads` (uses beads
-  prefix).
-- **Refresh configs**: Run `tbd setup --auto` anytime to update skill files, hooks, and
-  get the latest shortcuts/guidelines/templates.
+```bash
+tbd --help    # Command reference
+tbd status    # Status
+tbd doctor    # If there are problems
 
-> `tbd prime` restores context after compaction/clear (auto-called by hooks).
+tbd setup --auto   # Run any time to refresh setup
+tbd prime      # Restore full context on tbd after compaction
+```
 
-## CRITICAL: You Use tbd — The User Doesn’t
+## CRITICAL: You Operate tbd — The User Doesn’t
 
-**You are the tbd operator.** The user talks to you naturally; you translate their
-requests into tbd actions.
-Never tell the user to run tbd commands themselves.
+**You are the tbd operator:** Users talk naturally; you translate their requests to tbd
+actions. DO NOT tell users to run tbd commands.
+That’s your job.
 
 - **WRONG**: "Run `tbd create` to track this bug"
 
 - **RIGHT**: *(you run `tbd create` yourself and tell the user it’s tracked)*
 
-- **WRONG**: "You can use `tbd ready` to see available work"
+**Welcoming a user:** When users ask “what is tbd?”
+or want help → run `tbd shortcut welcome-user`
 
-- **RIGHT**: *(you run `tbd ready` yourself and show the user what’s available)*
+## User Request → Agent Action
 
-## Orientation and Help
+| User Says | You (the Agent) Run |
+| --- | --- |
+| "There's a bug where ..." | `tbd create "..." --type=bug` |
+| "Let's work on issues" | `tbd ready` |
+| "Build a TypeScript CLI" | `tbd guidelines typescript-cli-tool-rules` |
+| "Improve eslint/monorepo" | `tbd guidelines typescript-monorepo-patterns` |
+| "Add e2e/golden testing" | `tbd guidelines golden-testing-guidelines` |
+| "Review changes" (TS) | `tbd guidelines typescript-rules` |
+| "Review changes" (Python) | `tbd guidelines python-rules` |
+| "Plan a new feature" | `tbd shortcut new-plan-spec` |
+| "Break spec into beads" | `tbd shortcut plan-implementation-with-beads` |
+| "Implement these beads" | `tbd shortcut implement-beads` |
+| "Commit this" | `tbd shortcut commit-code` |
+| "Create a PR" | `tbd shortcut create-or-update-pr-simple` |
+| "Research this topic" | `tbd shortcut new-research-brief` |
+| "Document architecture" | `tbd shortcut new-architecture-doc` |
+| *(your choice whenever appropriate)* | `tbd list`, `tbd dep add`, `tbd close`, `tbd sync`, etc. |
 
-When users ask for orientation, help getting started, or want to understand tbd:
+## CRITICAL: Session Closing Protocol
 
-- Run `tbd shortcut welcome-user` and follow its instructions
-- Show the user what they can **say** (natural language), not commands to run
-- The welcome message explains tbd’s value through examples of what the user can ask
-
-**DO NOT** respond to “what is tbd?”
-or “help me get started” by listing CLI commands.
-Instead, welcome them and show them the kinds of things they can ask you to do.
-
-## How to Use tbd to Help Users
-
-Use tbd proactively on behalf of the user:
-
-- User describes a bug → You run `tbd create "Bug: ..." --type=bug`
-- User wants a feature → You create a plan spec, then break into beads
-- Starting a session → You check `tbd ready` for available work
-- Completing work → You run `tbd close <id>` with clear reason
-- User asks what tbd does → You run `tbd shortcut welcome-user`
-- User asks for help/orientation → You run `tbd shortcut welcome-user`
-
-### Quick Reference Table
-
-This table shows what the user says naturally and what you (the agent) do in response.
-
-| What the User Says | What You (Agent) Do | What Happens |
-| --- | --- | --- |
-| "There's a bug where ..." | `tbd create "..." --type=bug` | Creates and tracks a bug bead |
-| "Let's work on current issues" | `tbd ready` | Shows ready beads |
-| "Build a TypeScript CLI" | `tbd guidelines typescript-cli-tool-rules` | You follow the guidelines |
-| "Improve eslint setup" | `tbd guidelines typescript-monorepo-patterns` | You follow the guidelines |
-| "Add better e2e testing" | `tbd guidelines golden-testing-guidelines` | You follow the guidelines |
-| "Review these changes" (TypeScript) | `tbd guidelines typescript-rules` | You follow the guidelines |
-| "Review these changes" (Python) | `tbd guidelines python-rules` | You follow the guidelines |
-| "Let's plan a new feature" | `tbd shortcut new-plan-spec` | You follow the spec template |
-| "Break spec into beads" | `tbd shortcut plan-implementation-with-beads` | You create implementation beads |
-| "Implement these beads" | `tbd shortcut implement-beads` | You implement systematically |
-| "Commit this" | `tbd shortcut commit-code` | You review and commit |
-| "Create a PR" | `tbd shortcut create-or-update-pr-simple` | You create the PR |
-| "Research this topic" | `tbd shortcut new-research-brief` | You research and document |
-| "Document this architecture" | `tbd shortcut new-architecture-doc` | You create the doc |
-| *(your judgment)* | `tbd dep add`, `tbd close`, `tbd sync` | You manage beads as needed |
-
-## IMPORTANT: Session Closing Protocol
-
-**CRITICAL**: Before saying “done” or “complete”, you MUST run this checklist:
+**Before saying “done”, you MUST complete this checklist:**
 
 ```
-[ ] 1. Stage and commit: git add + git commit
-[ ] 2. Push to remote: git push
-[ ] 3. Start CI watch (BLOCKS until done): gh pr checks <PR> --watch 2>&1
-[ ] 4. While CI runs: tbd close/update <id> for beads worked on
-[ ] 5. While CI runs: tbd sync
-[ ] 6. Return to step 3 and CONFIRM CI passed
-[ ] 7. If CI failed: fix, re-push, restart from step 3
+[ ] 1. git add + git commit
+[ ] 2. git push
+[ ] 3. gh pr checks <PR> --watch 2>&1 (IMPORTANT: WAIT for final summary, do NOT tell user it is done until you confirm it passes CI!)
+[ ] 4. tbd close/update <id> for all beads worked on
+[ ] 5. tbd sync
+[ ] 6. CONFIRM CI passed (if failed: fix, run tests, re-push, restart from step 3)
 ```
-
-### NON-NEGOTIABLE Requirements
-
-#### CI: Wait for `--watch` to finish
-
-The `--watch` flag blocks until ALL checks complete.
-Do NOT see “passing” in early output and move on—wait for the **final summary** showing
-all checks passed.
-
-#### tbd: Update beads and sync
-
-Every session must end with tbd in a clean state:
-- Close/update **every bead** you worked on
-- Run `tbd sync` and confirm it completed
 
 **Work is not done until pushed, CI passes, and tbd is synced.**
 
-## IMPORTANT: Bead Tracking Rules
+## Bead Tracking Rules
 
-- Track *all task work* not being done immediately as beads using `tbd` (discovered
-  work, future work, TODOs for the session, multi-session work)
-- When in doubt, prefer beads for tracking tasks, bugs, and features
-- Use `tbd create` for creating beads
-- Git workflow: update or close beads and run `tbd sync` at session end
-- If not given specific directions, check `tbd ready` for available work
+- Track all task work not done immediately as beads (discovered work, TODOs,
+  multi-session work)
+- When in doubt, create a bead
+- Check `tbd ready` when not given specific directions
+- Always close/update beads and run `tbd sync` at session end
 
-## Essential Commands
+## Commands
 
 ### Finding Work
 
-- `tbd ready` - Show beads ready to work (no blockers)
-- `tbd list --status open` - All open beads
-- `tbd list --status in_progress` - Your active work
-- `tbd show <id>` - Detailed bead view with dependencies
+| Command | Purpose |
+| --- | --- |
+| `tbd ready` | Beads ready to work (no blockers) |
+| `tbd list --status open` | All open beads |
+| `tbd list --status in_progress` | Your active work |
+| `tbd show <id>` | Bead details with dependencies |
 
 ### Creating & Updating
 
-- `tbd create "title" --type task|bug|feature --priority=P2` - New bead
-  - Priority: P0-P4 (P0=critical, P2=medium, P4=backlog).
-    Do NOT use "high"/"medium"/"low"
-- `tbd update <id> --status in_progress` - Claim work
-- `tbd update <id> --assignee username` - Assign to someone
-- `tbd close <id>` - Mark complete
-- `tbd close <id> --reason "explanation"` - Close with reason
-- **Tip**: When creating multiple beads, use parallel subagents for efficiency
+| Command | Purpose |
+| --- | --- |
+| `tbd create "title" --type task\|bug\|feature --priority=P2` | New bead (P0-P4, not "high/medium/low") |
+| `tbd update <id> --status in_progress` | Claim work |
+| `tbd close <id> [--reason "..."]` | Mark complete |
 
-### Dependencies & Blocking
+### Dependencies & Sync
 
-- `tbd dep add <bead> <depends-on>` - Add dependency (bead depends on depends-on)
-- `tbd blocked` - Show all blocked beads
-- `tbd show <id>` - See what’s blocking/blocked by this bead
+| Command | Purpose |
+| --- | --- |
+| `tbd dep add <bead> <depends-on>` | Add dependency |
+| `tbd blocked` | Show blocked beads |
+| `tbd sync` | Sync with git remote (run at session end) |
+| `tbd stats` | Project statistics |
+| `tbd doctor` | Check for problems |
 
-### Sync & Collaboration
+### Documentation
 
-- `tbd sync` - Sync with git remote (run at session end)
-- `tbd sync --status` - Check sync status without syncing
-
-Note: `tbd sync` handles all git operations for beads--no manual git push needed.
-
-### Project Health
-
-- `tbd stats` - Project statistics (open/closed/blocked counts)
-- `tbd doctor` - Check for problems (sync issues, missing hooks)
-
-## Documentation Commands
-
-### Shortcuts
-
-Reusable instruction templates for common tasks:
-
-- `tbd shortcut <name>` - Output a shortcut by name
-- `tbd shortcut --list` - List all available shortcuts
-
-### Guidelines
-
-Coding rules and best practices:
-
-- `tbd guidelines <name>` - Output a guideline by name
-- `tbd guidelines --list` - List all available guidelines
-
-Example: `tbd guidelines typescript-rules`
-
-### Templates
-
-Document templates for specs, research, architecture:
-
-- `tbd template <name>` - Output a template by name
-- `tbd template --list` - List all available templates
-
-Example: `tbd template plan-spec > docs/project/specs/active/plan-YYYY-MM-DD-feature.md`
+| Command | Purpose |
+| --- | --- |
+| `tbd shortcut <name>` | Run a shortcut |
+| `tbd shortcut --list` | List shortcuts |
+| `tbd guidelines <name>` | Load coding guidelines |
+| `tbd guidelines --list` | List guidelines |
+| `tbd template <name>` | Output a template |
 
 ## Quick Reference
 
-- **Priority levels**: 0=critical, 1=high, 2=medium (default), 3=low, 4=backlog
-- **Bead types**: task, bug, feature, epic
-- **Status values**: open, in_progress, closed
-- **JSON output**: Add `--json` to any command for machine-readable output
+- **Priority**: P0=critical, P1=high, P2=medium (default), P3=low, P4=backlog
+- **Types**: task, bug, feature, epic
+- **Status**: open, in_progress, closed
+- **JSON output**: Add `--json` to any command
 
 <!-- BEGIN SHORTCUT DIRECTORY -->
 ## Available Shortcuts
