@@ -10,14 +10,21 @@ Instructions:
 
 Create a to-do list with the following items then perform all of them:
 
-1. Determine repository and branch info:
-   - Get the current branch: `git rev-parse --abbrev-ref HEAD`
-   - Extract the GitHub repo (OWNER/REPO) from the remote URL. The remote may be:
-     - Standard GitHub URL: `https://github.com/OWNER/REPO.git` or
-       `git@github.com:OWNER/REPO.git`
-     - Proxy URL (Claude Code): `http://local_proxy@127.0.0.1:PORT/git/OWNER/REPO`
-   - For proxy URLs, extract OWNER/REPO from the path after `/git/`
-   - Store as `REPO=OWNER/REPO` and `BRANCH=current-branch-name`
+1. Determine repository and branch info (**CRITICAL - do this first**):
+   - Run: `BRANCH=$(git rev-parse --abbrev-ref HEAD)`
+   - Run: `REMOTE_URL=$(git remote get-url origin)`
+   - Extract OWNER/REPO from the remote URL:
+     - Standard GitHub: `https://github.com/OWNER/REPO.git` → extract OWNER/REPO
+     - Proxy URL: `http://...127.0.0.1:.../git/OWNER/REPO` → extract from path after
+       `/git/`
+   - Run:
+     `REPO=$(echo "$REMOTE_URL" | sed -E 's#.*/git/##; s#.*github.com[:/]##; s#\.git$##')`
+   - Verify: `echo "REPO=$REPO BRANCH=$BRANCH"`
+
+   **Why this matters:** In Claude Code, git remotes use a local proxy.
+   The `gh` CLI cannot detect the GitHub repo from proxy URLs, so `--repo $REPO` is
+   REQUIRED on all gh commands.
+   Without it, you’ll get “none of the git remotes point to a known GitHub host” errors.
 
 2. Check if a PR already exists for this branch:
    - Run: `gh pr view $BRANCH --repo $REPO --json number,url 2>/dev/null`
