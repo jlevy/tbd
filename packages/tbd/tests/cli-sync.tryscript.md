@@ -266,6 +266,8 @@ $ git -C .tbd/data-sync-worktree status --porcelain
 
 # Test: Sync reports counts in JSON format
 
+Note: Without a remote, pushFailed is true and shows the error.
+
 ```console
 $ tbd sync --json
 {
@@ -282,7 +284,10 @@ $ tbd sync --json
     },
     "conflicts": 0
   },
-  "conflicts": 0
+  "conflicts": 0,
+  "pushFailed": true,
+  "pushError": [..],
+  "unpushedCommits": 4
 }
 ? 0
 ```
