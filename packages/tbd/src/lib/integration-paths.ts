@@ -134,8 +134,3 @@ export const CLAUDE_SETTINGS_DISPLAY = './.claude/settings.json';
  * Display path for AGENTS.md in status/doctor output.
  */
 export const AGENTS_MD_DISPLAY = './AGENTS.md';
-
-/**
- * Display path for tbd skill in status/doctor output.
- */
-export const CLAUDE_SKILL_DISPLAY = './.claude/skills/tbd/SKILL.md';
