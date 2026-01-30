@@ -18,6 +18,7 @@ import { stripFrontmatter } from '../../utils/markdown-utils.js';
 import { VERSION } from '../lib/version.js';
 import { listIssues } from '../../file/storage.js';
 import { resolveDataSyncDir, DEFAULT_DOC_PATHS } from '../../lib/paths.js';
+import { getClaudePaths } from '../../lib/integration-paths.js';
 import type { Issue } from '../../lib/types.js';
 import { DocCache, generateShortcutDirectory } from '../../file/doc-cache.js';
 
@@ -193,7 +194,7 @@ class PrimeHandler extends BaseCommand {
     console.log(`${colors.success('✓')} Initialized in this repo`);
 
     // Check if hooks are installed
-    const hooksInstalled = await this.checkHooksInstalled();
+    const hooksInstalled = await this.checkHooksInstalled(tbdRoot);
     if (hooksInstalled) {
       console.log(`${colors.success('✓')} Hooks installed`);
     } else {
@@ -306,13 +307,12 @@ class PrimeHandler extends BaseCommand {
   }
 
   /**
-   * Check if Claude Code hooks are installed.
+   * Check if Claude Code hooks are installed in project-local .claude/settings.json.
    */
-  private async checkHooksInstalled(): Promise<boolean> {
-    const { homedir } = await import('node:os');
-    const settingsPath = join(homedir(), '.claude', 'settings.json');
+  private async checkHooksInstalled(projectRoot: string): Promise<boolean> {
+    const { settings } = getClaudePaths(projectRoot);
     try {
-      const content = await readFile(settingsPath, 'utf-8');
+      const content = await readFile(settings, 'utf-8');
       return content.includes('tbd');
     } catch {
       return false;

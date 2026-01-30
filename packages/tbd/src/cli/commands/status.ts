@@ -29,6 +29,12 @@ import {
 import { readConfig, findTbdRoot } from '../../file/config.js';
 import { WORKTREE_DIR } from '../../lib/paths.js';
 import {
+  getClaudePaths,
+  getAgentsMdPath,
+  CLAUDE_SETTINGS_DISPLAY,
+  AGENTS_MD_DISPLAY,
+} from '../../lib/integration-paths.js';
+import {
   git,
   getCurrentBranch,
   checkWorktreeHealth,
@@ -91,9 +97,9 @@ class StatusHandler extends BaseCommand {
       worktree_healthy: null,
       integrations: {
         claude_code: false,
-        claude_code_path: '~/.claude/settings.json',
+        claude_code_path: CLAUDE_SETTINGS_DISPLAY,
         codex: false,
-        codex_path: './AGENTS.md',
+        codex_path: AGENTS_MD_DISPLAY,
       },
     };
 
@@ -170,21 +176,21 @@ class StatusHandler extends BaseCommand {
   }
 
   private async checkIntegrations(cwd: string): Promise<StatusData['integrations']> {
-    // Hooks are installed to project-local .claude/settings.json
-    const claudeSettingsPath = join(cwd, '.claude', 'settings.json');
-    const agentsPath = join(cwd, 'AGENTS.md');
+    // All integrations use project-local paths
+    const claudePaths = getClaudePaths(cwd);
+    const agentsPath = getAgentsMdPath(cwd);
 
     const result: StatusData['integrations'] = {
       claude_code: false,
-      claude_code_path: './.claude/settings.json',
+      claude_code_path: CLAUDE_SETTINGS_DISPLAY,
       codex: false,
-      codex_path: './AGENTS.md',
+      codex_path: AGENTS_MD_DISPLAY,
     };
 
     // Check Claude Code hooks in project-local settings
     try {
-      await access(claudeSettingsPath);
-      const content = await readFile(claudeSettingsPath, 'utf-8');
+      await access(claudePaths.settings);
+      const content = await readFile(claudePaths.settings, 'utf-8');
       const settings = JSON.parse(content) as Record<string, unknown>;
       const hooks = settings.hooks as Record<string, unknown> | undefined;
       if (hooks) {

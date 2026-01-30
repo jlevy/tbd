@@ -51,6 +51,15 @@ import {
   TBD_GUIDELINES_DIR,
   TBD_TEMPLATES_DIR,
 } from '../../lib/paths.js';
+import {
+  getClaudePaths,
+  getAgentsMdPath,
+  GLOBAL_CLAUDE_DIR,
+  GLOBAL_CLAUDE_SETTINGS,
+  LEGACY_GLOBAL_SCRIPTS,
+  CLAUDE_SKILL_REL,
+  AGENTS_MD_REL,
+} from '../../lib/integration-paths.js';
 import { initWorktree, isInGitRepo, findGitRoot, checkWorktreeHealth } from '../../file/git.js';
 import { DocCache, generateShortcutDirectory } from '../../file/doc-cache.js';
 
@@ -558,17 +567,15 @@ class SetupClaudeHandler extends BaseCommand {
 
   private async removeClaudeSetup(_settingsPath: string, skillPath: string): Promise<void> {
     const cwd = this.projectDir ?? process.cwd();
+    const claudePaths = getClaudePaths(cwd);
     let removedHooks = false;
     let removedScripts = false;
     let removedSkill = false;
 
     // Remove hooks from project .claude/settings.json
-    const projectSettingsPath = join(cwd, '.claude', 'settings.json');
-    const hookScriptPath = join(cwd, '.claude', 'hooks', 'tbd-closing-reminder.sh');
-
     try {
-      await access(projectSettingsPath);
-      const content = await readFile(projectSettingsPath, 'utf-8');
+      await access(claudePaths.settings);
+      const content = await readFile(claudePaths.settings, 'utf-8');
       const settings = JSON.parse(content) as Record<string, unknown>;
 
       if (settings.hooks) {
@@ -598,7 +605,7 @@ class SetupClaudeHandler extends BaseCommand {
           delete settings.hooks;
         }
 
-        await writeFile(projectSettingsPath, JSON.stringify(settings, null, 2) + '\n');
+        await writeFile(claudePaths.settings, JSON.stringify(settings, null, 2) + '\n');
         removedHooks = true;
       }
     } catch {
@@ -607,7 +614,7 @@ class SetupClaudeHandler extends BaseCommand {
 
     // Remove hook script
     try {
-      await rm(hookScriptPath);
+      await rm(claudePaths.closingReminder);
       removedHooks = true;
     } catch {
       // Hook script doesn't exist
@@ -615,10 +622,9 @@ class SetupClaudeHandler extends BaseCommand {
 
     // Remove tbd scripts from project (and legacy global locations for cleanup)
     const scriptsToRemove = [
-      join(cwd, '.claude', 'scripts', 'tbd-session.sh'),
+      claudePaths.sessionScript,
       // Legacy global locations - clean up from older installs
-      join(homedir(), '.claude', 'scripts', 'tbd-session.sh'),
-      join(homedir(), '.claude', 'scripts', 'ensure-tbd-cli.sh'),
+      ...LEGACY_GLOBAL_SCRIPTS,
     ];
     for (const script of scriptsToRemove) {
       try {
@@ -630,7 +636,7 @@ class SetupClaudeHandler extends BaseCommand {
     }
 
     // Also clean up legacy hooks from global settings (from older installs)
-    const globalSettingsPath = join(homedir(), '.claude', 'settings.json');
+    const globalSettingsPath = GLOBAL_CLAUDE_SETTINGS;
     try {
       await access(globalSettingsPath);
       const content = await readFile(globalSettingsPath, 'utf-8');
@@ -1717,8 +1723,8 @@ class SetupAutoHandler extends BaseCommand {
     };
 
     // Detect Claude Code: check for ~/.claude/ directory or CLAUDE_* env vars
-    const claudeDir = join(homedir(), '.claude');
-    const hasClaudeDir = await pathExists(claudeDir);
+    // Note: We check global dir for DETECTION only, not for installation
+    const hasClaudeDir = await pathExists(GLOBAL_CLAUDE_DIR);
     const hasClaudeEnv = Object.keys(process.env).some((k) => k.startsWith('CLAUDE_'));
 
     if (!hasClaudeDir && !hasClaudeEnv) {
@@ -1727,13 +1733,12 @@ class SetupAutoHandler extends BaseCommand {
 
     result.detected = true;
 
-    // Check if already installed (project-local settings)
-    const projectSettingsPath = join(cwd, '.claude', 'settings.json');
-    const skillPath = join(cwd, '.claude', 'skills', 'tbd', 'SKILL.md');
+    // Check if already installed (project-local settings - all installs are project-local)
+    const claudePaths = getClaudePaths(cwd);
 
     try {
-      if (await pathExists(projectSettingsPath)) {
-        const content = await readFile(projectSettingsPath, 'utf-8');
+      if (await pathExists(claudePaths.settings)) {
+        const content = await readFile(claudePaths.settings, 'utf-8');
         const settings = JSON.parse(content) as Record<string, unknown>;
         const hooks = settings.hooks as Record<string, unknown> | undefined;
         if (hooks) {
@@ -1745,7 +1750,7 @@ class SetupAutoHandler extends BaseCommand {
                 (hook.command?.includes('tbd-session.sh') ?? false),
             ),
           );
-          if (hasTbdHook && (await pathExists(skillPath))) {
+          if (hasTbdHook && (await pathExists(claudePaths.skill))) {
             result.alreadyInstalled = true;
             // Note: We still run the handler to update the skill file content
             // even if hooks are already installed. This ensures users get the
@@ -1775,7 +1780,7 @@ class SetupAutoHandler extends BaseCommand {
     };
 
     // Detect Codex: check for existing AGENTS.md or CODEX_* env vars
-    const agentsPath = join(cwd, 'AGENTS.md');
+    const agentsPath = getAgentsMdPath(cwd);
     const hasAgentsMd = await pathExists(agentsPath);
     const hasCodexEnv = Object.keys(process.env).some((k) => k.startsWith('CODEX_'));
 
