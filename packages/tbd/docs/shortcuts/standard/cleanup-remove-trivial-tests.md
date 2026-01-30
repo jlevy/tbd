@@ -1,3 +1,8 @@
+---
+title: Cleanup: Remove Trivial Tests
+description: Review and remove tests that do not add meaningful coverage
+author: Joshua Levy (github.com/jlevy) with LLM assistance
+---
 # Shortcut: Remove Trivial Tests
 
 ## Instructions
@@ -41,7 +46,7 @@ Keep tests that:
 
 ## Process
 
-1. Review @docs/general/agent-rules/general-testing-rules.md for context
+1. Review `tbd guidelines general-testing-rules` for context
 
 2. Scan all test files in the codebase
 
