@@ -38,8 +38,10 @@ If unclear, ask the user if they want you to create a spec first using
    Use blocker dependencies when one bead cannot start until another is complete (e.g.,
    “implement API” blocks “write integration tests”).
 
-4. **Summarize the bead breakdown** and confirm with the user.
-   When ready to implement, use `tbd shortcut implement-beads`.
+4. **Summarize the bead breakdown** for the user.
+   If the user has already asked you to implement the beads too, use
+   `tbd shortcut implement-beads`. Otherwise confirm with the user if you should use
+   this shortcut next.
 
 ## Dependency Types
 
