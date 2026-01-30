@@ -390,77 +390,95 @@ const SHORTCUT_DIRECTORY_BEGIN = '<!-- BEGIN SHORTCUT DIRECTORY -->';
 const SHORTCUT_DIRECTORY_END = '<!-- END SHORTCUT DIRECTORY -->';
 
 /**
- * Generate a formatted markdown shortcut directory from a list of cached documents.
- *
- * The output includes:
- * 1. Marker comments for incremental updates
- * 2. A header explaining how to use shortcuts
- * 3. A markdown table with name, title, and description columns
- *
- * @param docs - Array of CachedDoc objects from DocCache.list()
- * @returns Formatted markdown string with shortcut directory
- *
- * @example
- * const cache = new DocCache(paths);
- * await cache.load();
- * const directory = generateShortcutDirectory(cache.list());
- * // Returns:
- * // <!-- BEGIN SHORTCUT DIRECTORY -->
- * // ## Available Shortcuts
- * // Run `tbd shortcut <name>` to use any of these shortcuts:
- * // | Name | Title | Description |
- * // |------|-------|-------------|
- * // | new-plan-spec | New Plan Spec | Create a new feature planning specification document |
- * // ...
- * // <!-- END SHORTCUT DIRECTORY -->
+ * Build table rows from docs (shared helper for shortcuts and guidelines).
  */
-export function generateShortcutDirectory(docs: CachedDoc[]): string {
-  // Sort docs by name for consistent output
+function buildTableRows(docs: CachedDoc[], skipNames: string[] = []): string[] {
   const sortedDocs = [...docs].sort((a, b) => a.name.localeCompare(b.name));
-
-  // Build table rows
   const rows: string[] = [];
+
   for (const doc of sortedDocs) {
-    // Skip system docs like skill.md and shortcut-explanation.md
-    // These are meta-docs, not shortcuts users would invoke directly
-    if (doc.name === 'skill' || doc.name === 'skill-brief' || doc.name === 'shortcut-explanation') {
+    if (skipNames.includes(doc.name)) {
       continue;
     }
 
     const name = doc.name;
-    const title = doc.frontmatter?.title ?? '';
     const description = doc.frontmatter?.description ?? '';
-
-    // Escape pipe characters to avoid breaking the table
-    const escapedTitle = title.replace(/\|/g, '\\|');
     const escapedDescription = description.replace(/\|/g, '\\|');
 
-    rows.push(`| ${name} | ${escapedTitle} | ${escapedDescription} |`);
+    rows.push(`| ${name} | ${escapedDescription} |`);
   }
 
-  // If no shortcuts to list, return a minimal directory
-  if (rows.length === 0) {
-    return [
-      SHORTCUT_DIRECTORY_BEGIN,
-      '## Available Shortcuts',
-      '',
-      'No shortcuts available. Create shortcuts in `.tbd/docs/shortcuts/standard/`.',
-      '',
-      SHORTCUT_DIRECTORY_END,
-    ].join('\n');
+  return rows;
+}
+
+/**
+ * Generate a formatted markdown directory of shortcuts and guidelines.
+ *
+ * The output includes:
+ * 1. Marker comments for incremental updates
+ * 2. Available Shortcuts section with name and description
+ * 3. Available Guidelines section with name and description (if provided)
+ *
+ * @param shortcuts - Array of shortcut CachedDoc objects
+ * @param guidelines - Optional array of guideline CachedDoc objects
+ * @returns Formatted markdown string with shortcuts and guidelines directory
+ *
+ * @example
+ * const directory = generateShortcutDirectory(shortcutDocs, guidelineDocs);
+ * // Returns:
+ * // <!-- BEGIN SHORTCUT DIRECTORY -->
+ * // ## Available Shortcuts
+ * // | Name | Description |
+ * // | --- | --- |
+ * // | commit-code | Run pre-commit checks, review changes, and commit code |
+ * // ...
+ * // ## Available Guidelines
+ * // | Name | Description |
+ * // | --- | --- |
+ * // | typescript-rules | TypeScript coding rules and best practices |
+ * // ...
+ * // <!-- END SHORTCUT DIRECTORY -->
+ */
+export function generateShortcutDirectory(
+  shortcuts: CachedDoc[],
+  guidelines: CachedDoc[] = [],
+): string {
+  const lines: string[] = [SHORTCUT_DIRECTORY_BEGIN];
+
+  // Shortcuts section
+  const shortcutRows = buildTableRows(shortcuts, ['skill', 'skill-brief', 'shortcut-explanation']);
+
+  lines.push('## Available Shortcuts');
+  lines.push('');
+  lines.push('Run `tbd shortcut <name>` to use any of these shortcuts:');
+  lines.push('');
+
+  if (shortcutRows.length === 0) {
+    lines.push('No shortcuts available. Create shortcuts in `.tbd/docs/shortcuts/standard/`.');
+  } else {
+    lines.push('| Name | Description |');
+    lines.push('| --- | --- |');
+    lines.push(...shortcutRows);
   }
 
-  // Build the full directory
-  return [
-    SHORTCUT_DIRECTORY_BEGIN,
-    '## Available Shortcuts',
-    '',
-    'Run `tbd shortcut <name>` to use any of these shortcuts:',
-    '',
-    '| Name | Title | Description |',
-    '| --- | --- | --- |',
-    ...rows,
-    '',
-    SHORTCUT_DIRECTORY_END,
-  ].join('\n');
+  // Guidelines section (if provided)
+  if (guidelines.length > 0) {
+    const guidelineRows = buildTableRows(guidelines);
+
+    if (guidelineRows.length > 0) {
+      lines.push('');
+      lines.push('## Available Guidelines');
+      lines.push('');
+      lines.push('Run `tbd guidelines <name>` to apply any of these guidelines:');
+      lines.push('');
+      lines.push('| Name | Description |');
+      lines.push('| --- | --- |');
+      lines.push(...guidelineRows);
+    }
+  }
+
+  lines.push('');
+  lines.push(SHORTCUT_DIRECTORY_END);
+
+  return lines.join('\n');
 }

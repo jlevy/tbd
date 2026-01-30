@@ -12,7 +12,7 @@ import { fileURLToPath } from 'node:url';
 import { BaseCommand } from '../lib/base-command.js';
 import { findTbdRoot } from '../../file/config.js';
 import { DocCache, generateShortcutDirectory } from '../../file/doc-cache.js';
-import { DEFAULT_DOC_PATHS } from '../../lib/paths.js';
+import { DEFAULT_SHORTCUT_PATHS, DEFAULT_GUIDELINES_PATHS } from '../../lib/paths.js';
 
 interface SkillOptions {
   brief?: boolean;
@@ -103,17 +103,22 @@ class SkillHandler extends BaseCommand {
       return null;
     }
 
-    // Generate on-the-fly from installed shortcuts
-    const cache = new DocCache(DEFAULT_DOC_PATHS, tbdRoot);
-    await cache.load({ quiet: this.ctx.quiet });
-    const docs = cache.list();
+    // Load shortcuts
+    const shortcutCache = new DocCache(DEFAULT_SHORTCUT_PATHS, tbdRoot);
+    await shortcutCache.load({ quiet: this.ctx.quiet });
+    const shortcuts = shortcutCache.list();
+
+    // Load guidelines
+    const guidelinesCache = new DocCache(DEFAULT_GUIDELINES_PATHS, tbdRoot);
+    await guidelinesCache.load({ quiet: this.ctx.quiet });
+    const guidelines = guidelinesCache.list();
 
     // If no docs loaded, skip directory
-    if (docs.length === 0) {
+    if (shortcuts.length === 0 && guidelines.length === 0) {
       return null;
     }
 
-    return generateShortcutDirectory(docs);
+    return generateShortcutDirectory(shortcuts, guidelines);
   }
 }
 
