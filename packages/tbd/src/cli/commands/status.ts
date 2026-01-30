@@ -13,7 +13,6 @@
 import { Command } from 'commander';
 import { access, readFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import { homedir } from 'node:os';
 
 import { VERSION } from '../lib/version.js';
 import { BaseCommand } from '../lib/base-command.js';
@@ -171,17 +170,18 @@ class StatusHandler extends BaseCommand {
   }
 
   private async checkIntegrations(cwd: string): Promise<StatusData['integrations']> {
-    const claudeSettingsPath = join(homedir(), '.claude', 'settings.json');
+    // Hooks are installed to project-local .claude/settings.json
+    const claudeSettingsPath = join(cwd, '.claude', 'settings.json');
     const agentsPath = join(cwd, 'AGENTS.md');
 
     const result: StatusData['integrations'] = {
       claude_code: false,
-      claude_code_path: claudeSettingsPath.replace(homedir(), '~'),
+      claude_code_path: './.claude/settings.json',
       codex: false,
       codex_path: './AGENTS.md',
     };
 
-    // Check Claude Code hooks
+    // Check Claude Code hooks in project-local settings
     try {
       await access(claudeSettingsPath);
       const content = await readFile(claudeSettingsPath, 'utf-8');
