@@ -5,7 +5,7 @@ author: Joshua Levy (github.com/jlevy) with LLM assistance
 ---
 # Golden Testing Guidelines
 
-**Related**: `docs/general/agent-guidelines/general-tdd-guidelines.md`
+**Related**: `tbd guidelines general-tdd-guidelines`
 
 ## TL;DR (What to do)
 
