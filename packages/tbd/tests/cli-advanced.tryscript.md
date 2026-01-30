@@ -161,8 +161,8 @@ Use 'tbd status' for setup info, 'tbd doctor' for health checks.
 $ tbd stats --json
 {
   "total": 5,
-  "ready": 5,
-  "blocked": 0,
+  "activeTotal": 5,
+  "closedTotal": 0,
   "byStatus": {
     "open": 5,
     "in_progress": 0,
@@ -170,17 +170,31 @@ $ tbd stats --json
     "deferred": 0,
     "closed": 0
   },
-  "byKind": {
+  "byKindActive": {
     "bug": 2,
     "feature": 1,
     "task": 1,
     "epic": 0,
     "chore": 1
   },
-  "byPriority": {
+  "byKindClosed": {
+    "bug": 0,
+    "feature": 0,
+    "task": 0,
+    "epic": 0,
+    "chore": 0
+  },
+  "byPriorityActive": {
     "0": 0,
     "1": 0,
     "2": 5,
+    "3": 0,
+    "4": 0
+  },
+  "byPriorityClosed": {
+    "0": 0,
+    "1": 0,
+    "2": 0,
     "3": 0,
     "4": 0
   }

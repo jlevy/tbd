@@ -129,22 +129,20 @@ This is the complete output of `tbd stats`.
 
 ```console
 $ tbd stats
-Summary:
-  Ready:       2
-  In progress: 0
-  Blocked:     0
-  Open:        2
-  Total:       2
-
 By status:
-  open           2
+  ○ open               2
+  ──────────────────────
+  active               2
+  ✓ closed             0
+  ══════════════════════
+  total                2
 
-By kind:
-  bug            1
-  task           1
+By kind:          active closed  total
+  bug                  1      0      1
+  task                 1      0      1
 
-By priority:
-  P2 (Medium  ) 2
+By priority:      active closed  total
+  P2 (Medium)          2      0      2
 
 Use 'tbd status' for setup info, 'tbd doctor' for health checks.
 ? 0

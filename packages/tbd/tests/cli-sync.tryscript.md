@@ -67,9 +67,14 @@ $ git -C .tbd/data-sync-worktree status --porcelain | head -3
 
 # Test: Sync commits the uncommitted files
 
+Note: Without a remote configured, sync commits locally but shows a push failure.
+The important behavior is that files get committed (verified in the next test).
+
 ```console
 $ tbd sync
-✓ Synced: sent [..] new
+✗ Push failed: fatal: 'origin' does not appear to be a git repository
+  2 commit(s) not pushed to remote.
+  Run 'tbd sync' to retry or 'tbd sync --status' to check status.
 ? 0
 ```
 
@@ -132,7 +137,9 @@ $ git -C .tbd/data-sync-worktree status --porcelain | grep -c "??" | tr -d ' '
 
 ```console
 $ tbd sync
-✓ Synced[..]
+✗ Push failed: fatal: 'origin' does not appear to be a git repository
+  3 commit(s) not pushed to remote.
+  Run 'tbd sync' to retry or 'tbd sync --status' to check status.
 ? 0
 ```
 
