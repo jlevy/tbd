@@ -1,5 +1,5 @@
 ---
-title: Cleanup: Update Docstrings
+title: "Cleanup: Update Docstrings"
 description: Review and add concise docstrings to major functions and types
 author: Joshua Levy (github.com/jlevy) with LLM assistance
 ---

@@ -1,47 +1,29 @@
 ---
 title: Revise Architecture Doc
-description: Revise an existing architecture document to reflect current system state
+description: Update an architecture document to reflect current codebase state
 author: Joshua Levy (github.com/jlevy) with LLM assistance
 ---
-We track work as beads using tbd.
-Run `tbd` for more on using tbd and current status.
+Review and update an architecture document to ensure accuracy with current code.
 
-## Instructions
+## Steps
 
-Revise an existing architecture document to reflect the current state of the system.
+1. **Read the document**: Understand the existing architecture description
 
-1. **Identify the architecture doc to update**:
-   - The user should specify which architecture doc to update
-   - Architecture docs are in `docs/project/architecture/`
+2. **Read referenced code**: Review all code files mentioned in the document
 
-2. **Review the current doc**:
-   - Read the existing architecture document
-   - Note the scope, components, and design decisions documented
+3. **Review related code**: Systematically examine related code to identify:
+   - Sections that are correct and current
+   - Gaps or missing information
+   - Inaccuracies or outdated content
 
-3. **Review the current codebase**:
-   - Compare the documented architecture against the actual implementation
-   - Look for:
-     - New components or modules added since the doc was written
-     - Removed or deprecated components
-     - Changed interfaces, APIs, or data flows
-     - Updated dependencies or technology choices
-     - Modified design decisions
+4. **Research updates**: Search for current information on:
+   - Best practices for the patterns/approaches used
+   - Latest docs for libraries and frameworks mentioned
 
-4. **Update the document**:
-   - Update diagrams if provided (describe changes in text if you cannot modify
-     diagrams)
-   - Update component descriptions to match current implementation
-   - Update interface/API documentation
-   - Update data flow descriptions
-   - Mark deprecated sections or remove obsolete content
-   - Add any new architectural decisions made since the last update
-   - Update the date in the filename if significant changes were made
+5. **Revise the document**: Update to reflect current state
+   - Preserve existing structure and style where possible
+   - Update all outdated or inaccurate sections
 
-5. **Validate accuracy**:
-   - Cross-reference key code paths mentioned in the doc
-   - Verify file paths and module names are current
-   - Check that external dependencies listed are still in use
-
-6. **Summarize changes**:
-   - Provide a brief summary of what was updated
-   - Note any areas that need further review or are unclear
+6. **Add Future Considerations section** with:
+   - **Open Questions**: Possible bugs, issues, or design uncertainties
+   - **Potential Improvements**: Ideas for future enhancements

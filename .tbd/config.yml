@@ -42,6 +42,7 @@ docs_cache:
     shortcuts/standard/create-or-update-pr-simple.md: internal:shortcuts/standard/create-or-update-pr-simple.md
     shortcuts/standard/create-or-update-pr-with-validation-plan.md: internal:shortcuts/standard/create-or-update-pr-with-validation-plan.md
     shortcuts/standard/implement-beads.md: internal:shortcuts/standard/implement-beads.md
+    shortcuts/standard/merge-upstream.md: internal:shortcuts/standard/merge-upstream.md
     shortcuts/standard/new-architecture-doc.md: internal:shortcuts/standard/new-architecture-doc.md
     shortcuts/standard/new-guideline.md: internal:shortcuts/standard/new-guideline.md
     shortcuts/standard/new-plan-spec.md: internal:shortcuts/standard/new-plan-spec.md
@@ -52,8 +53,8 @@ docs_cache:
     shortcuts/standard/precommit-process.md: internal:shortcuts/standard/precommit-process.md
     shortcuts/standard/review-code-python.md: internal:shortcuts/standard/review-code-python.md
     shortcuts/standard/review-code-typescript.md: internal:shortcuts/standard/review-code-typescript.md
-    shortcuts/standard/revise-all-architecture-docs.md: internal:shortcuts/standard/revise-all-architecture-docs.md
     shortcuts/standard/revise-architecture-doc.md: internal:shortcuts/standard/revise-architecture-doc.md
+    shortcuts/standard/update-specs-status.md: internal:shortcuts/standard/update-specs-status.md
     shortcuts/standard/welcome-user.md: internal:shortcuts/standard/welcome-user.md
     shortcuts/system/shortcut-explanation.md: internal:shortcuts/system/shortcut-explanation.md
     shortcuts/system/skill-brief.md: internal:shortcuts/system/skill-brief.md

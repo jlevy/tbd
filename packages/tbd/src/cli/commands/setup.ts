@@ -45,24 +45,19 @@ import {
   WORKTREE_DIR_NAME,
   DATA_SYNC_DIR_NAME,
   DEFAULT_SHORTCUT_PATHS,
+  DEFAULT_GUIDELINES_PATHS,
   TBD_SHORTCUTS_SYSTEM,
   TBD_SHORTCUTS_STANDARD,
   TBD_GUIDELINES_DIR,
   TBD_TEMPLATES_DIR,
 } from '../../lib/paths.js';
-import {
-  getClaudePaths,
-  getAgentsMdPath,
-  GLOBAL_CLAUDE_DIR,
-  CLAUDE_SKILL_REL,
-  AGENTS_MD_REL,
-} from '../../lib/integration-paths.js';
+import { getClaudePaths, getAgentsMdPath, GLOBAL_CLAUDE_DIR } from '../../lib/integration-paths.js';
 import { initWorktree, isInGitRepo, findGitRoot, checkWorktreeHealth } from '../../file/git.js';
 import { DocCache, generateShortcutDirectory } from '../../file/doc-cache.js';
 
 /**
- * Get the shortcut directory content for appending to installed skill files.
- * Always generates on-the-fly from installed shortcuts.
+ * Get the shortcut and guidelines directory content for appending to installed skill files.
+ * Always generates on-the-fly from installed shortcuts and guidelines.
  *
  * @param quiet - If true, suppress auto-sync output (default: false)
  */
@@ -75,17 +70,22 @@ async function getShortcutDirectory(quiet = false): Promise<string | null> {
     return null;
   }
 
-  // Generate on-the-fly from installed shortcuts
-  const cache = new DocCache(DEFAULT_SHORTCUT_PATHS, tbdRoot);
-  await cache.load({ quiet });
-  const docs = cache.list();
+  // Load shortcuts
+  const shortcutCache = new DocCache(DEFAULT_SHORTCUT_PATHS, tbdRoot);
+  await shortcutCache.load({ quiet });
+  const shortcuts = shortcutCache.list();
+
+  // Load guidelines
+  const guidelinesCache = new DocCache(DEFAULT_GUIDELINES_PATHS, tbdRoot);
+  await guidelinesCache.load({ quiet });
+  const guidelines = guidelinesCache.list();
 
   // If no docs loaded, skip directory
-  if (docs.length === 0) {
+  if (shortcuts.length === 0 && guidelines.length === 0) {
     return null;
   }
 
-  return generateShortcutDirectory(docs);
+  return generateShortcutDirectory(shortcuts, guidelines);
 }
 
 /**
