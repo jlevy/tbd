@@ -81,9 +81,13 @@ design, but it gives higher quality results.
 
 > [!TIP]
 > 
-> *Just tell your agent:*
+> *Install `tbd` globally for convenience:*
 > 
-> ***“npm install -g get-tbd@latest and run tbd for instructions”***
+> **`npm install -g get-tbd@latest`**
+> 
+> Then tell your agent:
+> 
+> ***“run tbd for instructions to set up this project”***
 
 That’s it. Running `tbd` with no arguments gives your agent what it needs as well as
 information on how to help you.
