@@ -13,9 +13,14 @@
 
 import { mkdir, readdir, rm, stat } from 'node:fs/promises';
 import { join } from 'node:path';
+import { stringify as stringifyYaml } from 'yaml';
+import { writeFile } from 'atomically';
 
-import { listIssues, writeIssue } from './storage.js';
+import { listIssues, writeIssue, readIssue } from './storage.js';
+import { mergeIssues, type ConflictEntry } from './git.js';
 import { WORKSPACES_DIR, getWorkspaceDir, isValidWorkspaceName } from '../lib/paths.js';
+import { now } from '../utils/time-utils.js';
+import type { AtticEntry } from '../lib/types.js';
 
 /**
  * Options for saveToWorkspace.
@@ -81,6 +86,48 @@ async function ensureDir(dir: string): Promise<void> {
 }
 
 /**
+ * Convert ConflictEntry to AtticEntry format and save to workspace attic.
+ */
+async function saveConflictToAttic(
+  atticDir: string,
+  conflict: ConflictEntry,
+  winnerSource: 'local' | 'remote',
+): Promise<void> {
+  const timestamp = now();
+
+  // Convert lost_value to string - handle objects, primitives, and nullish
+  const lostValueStr =
+    conflict.lost_value == null
+      ? ''
+      : typeof conflict.lost_value === 'object'
+        ? JSON.stringify(conflict.lost_value)
+        : JSON.stringify(conflict.lost_value);
+
+  const entry: AtticEntry = {
+    entity_id: conflict.issue_id,
+    timestamp,
+    field: conflict.field,
+    lost_value: lostValueStr,
+    winner_source: winnerSource,
+    loser_source: winnerSource === 'local' ? 'remote' : 'local',
+    context: {
+      local_version: conflict.local_version,
+      remote_version: conflict.remote_version,
+      local_updated_at: timestamp,
+      remote_updated_at: timestamp,
+    },
+  };
+
+  // Create filename: {entity_id}_{timestamp}_{field}.yml
+  const safeTimestamp = timestamp.replace(/:/g, '-');
+  const filename = `${conflict.issue_id}_${safeTimestamp}_${conflict.field}.yml`;
+  const filepath = join(atticDir, filename);
+
+  const content = stringifyYaml(entry, { sortMapEntries: true });
+  await writeFile(filepath, content);
+}
+
+/**
  * Get the target/source directory for workspace operations.
  */
 function resolveWorkspaceDir(
@@ -114,6 +161,10 @@ function getTargetDir(tbdRoot: string, options: SaveOptions): string {
 /**
  * Save issues from data-sync directory to a workspace or directory.
  *
+ * Uses mergeIssues() for proper conflict detection when an issue exists
+ * in both source (worktree) and target (workspace). Conflicts are saved
+ * to the workspace's attic.
+ *
  * @param tbdRoot - The root directory of the tbd project
  * @param dataSyncDir - The data-sync directory containing source issues
  * @param options - Save options (workspace name, directory, or outbox)
@@ -127,30 +178,65 @@ export async function saveToWorkspace(
   const targetDir = getTargetDir(tbdRoot, options);
 
   // Create target directory structure
-  const issuesDir = join(targetDir, 'issues');
-  const mappingsDir = join(targetDir, 'mappings');
   const atticDir = join(targetDir, 'attic');
 
-  await ensureDir(issuesDir);
-  await ensureDir(mappingsDir);
+  await ensureDir(join(targetDir, 'issues'));
+  await ensureDir(join(targetDir, 'mappings'));
   await ensureDir(atticDir);
 
-  // List all issues in source
-  const issues = await listIssues(dataSyncDir);
+  // List all issues in source (worktree)
+  const sourceIssues = await listIssues(dataSyncDir);
 
   // TODO: Implement --updates-only logic
   // For now, save all issues (ignoring updatesOnly flag)
   const _isUpdatesOnly = options.updatesOnly ?? options.outbox;
 
   let saved = 0;
-  const conflicts = 0;
+  let conflicts = 0;
 
-  // Save each issue to target
-  for (const issue of issues) {
-    // TODO: Check for conflicts if issue already exists in workspace
-    // For now, just overwrite
-    await writeIssue(targetDir, issue);
-    saved++;
+  // Save each issue to target, merging if needed
+  for (const sourceIssue of sourceIssues) {
+    // Check if issue already exists in workspace
+    let targetIssue = null;
+    try {
+      targetIssue = await readIssue(targetDir, sourceIssue.id);
+    } catch {
+      // Issue doesn't exist in target - will be created
+    }
+
+    if (targetIssue) {
+      // Issue exists in both - merge
+      // Use null base since we don't track common ancestor
+      // mergeIssues uses created_at as tiebreaker, so put newer version as "local" to win
+      const sourceTime = new Date(sourceIssue.updated_at).getTime();
+      const targetTime = new Date(targetIssue.updated_at).getTime();
+
+      let result;
+      let winnerSource: 'local' | 'remote';
+      if (sourceTime >= targetTime) {
+        // Source (worktree) is newer - put as local so it wins
+        result = mergeIssues(null, sourceIssue, targetIssue);
+        winnerSource = 'local';
+      } else {
+        // Target (workspace) is newer - put as local so it wins
+        result = mergeIssues(null, targetIssue, sourceIssue);
+        winnerSource = 'remote';
+      }
+
+      // Save merged issue
+      await writeIssue(targetDir, result.merged);
+      saved++;
+
+      // Save any conflicts to workspace attic
+      for (const conflict of result.conflicts) {
+        await saveConflictToAttic(atticDir, conflict, winnerSource);
+        conflicts++;
+      }
+    } else {
+      // New issue - just save
+      await writeIssue(targetDir, sourceIssue);
+      saved++;
+    }
   }
 
   // TODO: Copy mappings
@@ -164,6 +250,10 @@ export async function saveToWorkspace(
 
 /**
  * Import issues from a workspace or directory to the data-sync directory.
+ *
+ * Uses mergeIssues() for proper conflict detection when an issue exists
+ * in both source (workspace) and target (worktree). Conflicts are saved
+ * to the worktree's attic.
  *
  * @param tbdRoot - The root directory of the tbd project
  * @param dataSyncDir - The data-sync directory to import into
@@ -181,18 +271,59 @@ export async function importFromWorkspace(
   // --outbox implies --clear-on-success
   const shouldClear = options.clearOnSuccess ?? options.outbox ?? false;
 
+  // Create attic directory in target (worktree)
+  const atticDir = join(dataSyncDir, 'attic');
+  await ensureDir(atticDir);
+
   // List all issues in source workspace
-  const issues = await listIssues(sourceDir);
+  const sourceIssues = await listIssues(sourceDir);
 
   let imported = 0;
-  const conflicts = 0;
+  let conflicts = 0;
 
-  // Import each issue to data-sync
-  for (const issue of issues) {
-    // TODO: Check for conflicts if issue already exists
-    // For now, just overwrite
-    await writeIssue(dataSyncDir, issue);
-    imported++;
+  // Import each issue to data-sync, merging if needed
+  for (const sourceIssue of sourceIssues) {
+    // Check if issue already exists in worktree
+    let targetIssue = null;
+    try {
+      targetIssue = await readIssue(dataSyncDir, sourceIssue.id);
+    } catch {
+      // Issue doesn't exist in target - will be created
+    }
+
+    if (targetIssue) {
+      // Issue exists in both - merge
+      // Use null base since we don't track common ancestor
+      // mergeIssues uses created_at as tiebreaker, so put newer version as "local" to win
+      const sourceTime = new Date(sourceIssue.updated_at).getTime();
+      const targetTime = new Date(targetIssue.updated_at).getTime();
+
+      let result;
+      let winnerSource: 'local' | 'remote';
+      if (sourceTime >= targetTime) {
+        // Source (workspace) is newer - put as local so it wins
+        result = mergeIssues(null, sourceIssue, targetIssue);
+        winnerSource = 'local';
+      } else {
+        // Target (worktree) is newer - put as local so it wins
+        result = mergeIssues(null, targetIssue, sourceIssue);
+        winnerSource = 'remote';
+      }
+
+      // Save merged issue
+      await writeIssue(dataSyncDir, result.merged);
+      imported++;
+
+      // Save any conflicts to worktree attic
+      for (const conflict of result.conflicts) {
+        await saveConflictToAttic(atticDir, conflict, winnerSource);
+        conflicts++;
+      }
+    } else {
+      // New issue - just save
+      await writeIssue(dataSyncDir, sourceIssue);
+      imported++;
+    }
   }
 
   // TODO: Copy mappings

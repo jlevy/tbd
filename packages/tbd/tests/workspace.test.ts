@@ -157,6 +157,87 @@ describe('workspace operations', () => {
     });
   });
 
+  describe('saveToWorkspace with merge', () => {
+    it('merges issues when workspace already has an older version', async () => {
+      // Create issue in workspace (older version)
+      const workspaceDir = join(tempDir, '.tbd', 'workspaces', 'merge-test');
+      await mkdir(join(workspaceDir, 'issues'), { recursive: true });
+      await mkdir(join(workspaceDir, 'mappings'), { recursive: true });
+
+      const oldIssue = createTestIssue({
+        id: testId(TEST_ULIDS.ULID_1),
+        title: 'Original Title',
+        version: 1,
+        created_at: '2026-01-01T00:00:00.000Z',
+        updated_at: '2026-01-01T00:00:00.000Z',
+      });
+      await writeIssue(workspaceDir, oldIssue);
+
+      // Create newer issue in worktree
+      const newIssue = createTestIssue({
+        id: testId(TEST_ULIDS.ULID_1),
+        title: 'Updated Title',
+        version: 2,
+        created_at: '2026-01-01T00:00:00.000Z',
+        updated_at: '2026-01-02T00:00:00.000Z', // Newer
+      });
+      await writeIssue(dataSyncDir, newIssue);
+
+      // Save to workspace - should merge and newer should win
+      const result = await saveToWorkspace(tempDir, dataSyncDir, {
+        workspace: 'merge-test',
+      });
+
+      expect(result.saved).toBe(1);
+
+      // Verify the merged result has newer title
+      const savedIssues = await listIssues(workspaceDir);
+      expect(savedIssues.length).toBe(1);
+      expect(savedIssues[0]!.title).toBe('Updated Title');
+    });
+
+    it('records conflicts in workspace attic when both changed', async () => {
+      // Create issue in workspace with one change
+      const workspaceDir = join(tempDir, '.tbd', 'workspaces', 'conflict-test');
+      await mkdir(join(workspaceDir, 'issues'), { recursive: true });
+      await mkdir(join(workspaceDir, 'mappings'), { recursive: true });
+      await mkdir(join(workspaceDir, 'attic'), { recursive: true });
+
+      const wsIssue = createTestIssue({
+        id: testId(TEST_ULIDS.ULID_2),
+        title: 'WS Title', // Changed title
+        description: 'Original desc',
+        version: 2,
+        created_at: '2026-01-01T00:00:00.000Z',
+        updated_at: '2026-01-02T00:00:00.000Z',
+      });
+      await writeIssue(workspaceDir, wsIssue);
+
+      // Create issue in worktree with different change
+      const wtIssue = createTestIssue({
+        id: testId(TEST_ULIDS.ULID_2),
+        title: 'WT Title', // Different title change
+        description: 'Original desc',
+        version: 2,
+        created_at: '2026-01-01T00:00:00.000Z',
+        updated_at: '2026-01-02T00:00:00.000Z', // Same time - conflict
+      });
+      await writeIssue(dataSyncDir, wtIssue);
+
+      // Save to workspace - should create conflict
+      const result = await saveToWorkspace(tempDir, dataSyncDir, {
+        workspace: 'conflict-test',
+      });
+
+      // Should have recorded a conflict
+      expect(result.conflicts).toBeGreaterThan(0);
+
+      // Attic should have the losing value
+      const atticFiles = await readdir(join(workspaceDir, 'attic'));
+      expect(atticFiles.length).toBeGreaterThan(0);
+    });
+  });
+
   describe('importFromWorkspace', () => {
     it('imports issues from workspace to data-sync directory', async () => {
       // Create issues in workspace
