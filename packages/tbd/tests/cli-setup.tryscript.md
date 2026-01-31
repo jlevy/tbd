@@ -90,14 +90,18 @@ Labels and Dependencies:
 
 Sync and Status:
   sync [options]                Synchronize issues and docs (both by default)
+  save [options]                Save issues to a workspace or directory
   status                        Show repository status and orientation
   stats                         Show repository statistics
 
 Maintenance:
   doctor [options]              Diagnose and repair repository
   attic                         Manage conflict archive (attic)
-  import [options] [file]       Import issues from JSONL file.
+  workspace                     Manage workspaces for sync recovery and backups
+  import [options] [file]       Import issues from JSONL file or workspace.
                                 For Beads migration, use: tbd setup --from-beads
+                                For workspace import, use: tbd import
+                                --workspace=<name> or --outbox
   uninstall [options]           Remove tbd from this repository
 
 Commands:

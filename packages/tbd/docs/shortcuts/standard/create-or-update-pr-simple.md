@@ -10,24 +10,14 @@ Instructions:
 
 Create a to-do list with the following items then perform all of them:
 
-1. Determine repository and branch info (**CRITICAL - do this first**):
-   - Run: `BRANCH=$(git rev-parse --abbrev-ref HEAD)`
-   - Run: `REMOTE_URL=$(git remote get-url origin)`
-   - Extract OWNER/REPO from the remote URL. The sed command handles both formats:
-     - Standard GitHub: `https://github.com/OWNER/REPO.git` or
-       `git@github.com:OWNER/REPO`
-     - Proxy URL (Claude Code Cloud): `http://...127.0.0.1:.../git/OWNER/REPO`
-   - Run:
-     `REPO=$(echo "$REMOTE_URL" | sed -E 's#.*/git/##; s#.*github.com[:/]##; s#\.git$##')`
-   - Verify: `echo "REPO=$REPO BRANCH=$BRANCH"`
-
-   **Why `--repo` is required:** The `gh` CLI needs to know which GitHub repository to
-   target. Using `--repo $REPO` explicitly works in all environments:
-   - Direct connections: Works (gh could auto-detect, but explicit is reliable)
-   - Proxy connections (Claude Code Cloud): Required (gh cannot detect repo from proxy
-     URL)
-
-   Always use `--repo $REPO` on all gh commands for consistency and reliability.
+1. **GitHub CLI setup:**
+   - Verify: `gh auth status` (if issues, run `tbd shortcut setup-github-cli`)
+   - Get repo and branch:
+     ```
+     BRANCH=$(git rev-parse --abbrev-ref HEAD)
+     REPO=$(git remote get-url origin | sed -E 's#.*/git/##; s#.*github.com[:/]##; s#\.git$##')
+     ```
+   - Use `--repo $REPO` on all gh commands (required for Claude Code Cloud)
 
 2. Check if a PR already exists for this branch:
    - Run: `gh pr view $BRANCH --repo $REPO --json number,url 2>/dev/null`
@@ -52,4 +42,15 @@ Create a to-do list with the following items then perform all of them:
      `gh pr create --repo $REPO --head $BRANCH --base main --title "..." --body "..."`
    - If updating: `gh pr edit $BRANCH --repo $REPO --title "..." --body "..."`
 
-6. Report the PR URL to the user.
+6. Report the PR URL to the user and inform them you are now waiting for CI.
+
+7. **Wait for CI to pass (CRITICAL):**
+   - Run: `gh pr checks $BRANCH --repo $REPO --watch 2>&1`
+   - **IMPORTANT**: The `--watch` flag blocks until ALL checks complete.
+     Do NOT see “passing” in early output and move on—wait for the **final summary**
+     showing all checks passed.
+   - If CI fails: analyze the failure, fix the issue, commit and push the fix, then
+     restart from this step.
+   - Only proceed when you see all checks have passed in the final summary.
+
+8. Confirm to the user that CI has passed and the PR is ready for review.

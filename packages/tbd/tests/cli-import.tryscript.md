@@ -48,8 +48,9 @@ functionality.
 $ tbd import --help
 Usage: tbd import [options] [file]
 
-Import issues from JSONL file.
+Import issues from JSONL file or workspace.
 For Beads migration, use: tbd setup --from-beads
+For workspace import, use: tbd import --workspace=<name> or --outbox
 
 Arguments:
   file                JSONL file to import
@@ -59,6 +60,10 @@ Options:
   --merge             Merge with existing issues instead of skipping duplicates
   --verbose           Show detailed import progress
   --validate          Validate existing import against Beads source
+  --workspace <name>  Import from named workspace under .tbd/workspaces/
+  --dir <path>        Import from arbitrary directory
+  --outbox            Shortcut for --workspace=outbox --clear-on-success
+  --clear-on-success  Delete workspace after successful import
   -h, --help          display help for command
 
 Global Options:

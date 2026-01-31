@@ -880,6 +880,34 @@ tbd update proj-bug2 --assignee=bob
 
 ### Code Review Workflow
 
+tbd includes comprehensive code review shortcuts that load all relevant guidelines and
+perform thorough reviews:
+
+```bash
+# Review uncommitted changes (for pre-commit)
+tbd shortcut review-code
+# Then select "Uncommitted changes" scope
+
+# Review all changes on this branch vs main
+tbd shortcut review-code
+# Then select "Branch work" scope
+
+# Review a specific GitHub PR
+tbd shortcut review-github-pr
+# Supports commenting, CI checks, and follow-up fixes
+
+# Language-specific reviews (when you want just the language rules)
+tbd shortcut review-code-typescript
+tbd shortcut review-code-python
+```
+
+The `review-code` shortcut automatically loads:
+- General coding rules
+- Comment quality guidelines
+- Error handling rules
+- Language-specific rules (TypeScript/Python) based on files changed
+- Testing guidelines when test files are modified
+
 ```bash
 # Find stale issues (awaiting review?)
 tbd stale --days=3

@@ -27,7 +27,8 @@ author: Joshua Levy (github.com/jlevy) with LLM assistance
 
 - Review and commit session files with code; treat them as behavioral specs.
 
-**Why this approach**:
+- For CLI tools, use **tryscript** for console-output-based golden tests—run
+  `npx tryscript@latest docs` for syntax reference.
 
 ## When to Use Golden Tests
 
@@ -72,12 +73,72 @@ and how they change.
 
 ### Transparent Box Testing
 
-Golden session testing is “transparent box” testing: you capture *every* meaningful
-detail of execution, not just inputs and outputs.
-The goal is full visibility into system behavior so that any change—intentional or
-accidental—shows up in diffs.
+Golden session testing is “transparent box” testing: you capture a wide range of
+meaningful detail of execution, not just specific inputs and outputs.
+The goal is broad visibility into system state as well as behavior so that any
+change—intentional or accidental—shows up in diffs.
 And it does this without the maintenance burden of writing numerous unit or integration
 tests.
+
+This is a fundamental philosophical difference from unit and much integration testing,
+which verify *narrow expectations*.
+
+Session tests *contextually reveal broad state*, confirming both expected results while
+simultaneously making unexpected changes obvious.
+You gain situational awareness around code changes.
+When you modify one thing and something else unexpectedly changes, the session diff
+shows it immediately—even though you never wrote a specific test for that case.
+
+**The discipline**: Expose concise but broad pieces of application and environment
+state. Avoid surgical checks that narrow output to specific values.
+Review diffs carefully.
+When something changes unexpectedly, investigate whether it’s a bug or an intended
+consequence. This review process is where session testing provides its unique value.
+
+### Two Implementation Strategies
+
+There are two main strategies for implementing session tests:
+
+- **Event Modeling:** Model events at a low level (typically with a simple structure
+  like a Zod schema or Pydantic model for events) and serialize them to a format like
+  YAML. The test framework captures events during execution and writes them to golden
+  files. Diffs show exactly which fields changed.
+  This approach is covered in detail below.
+
+- **Console Output Capture:** Use shell script-based tests that run CLI commands and
+  capture console output.
+  The captured stdout/stderr becomes the golden file, and diffs show changes in command
+  output. This works well for any application with a CLI interface.
+
+Both approaches follow the same principles: capture as much state as you can easily
+manage and review, keep only stable fields (filtering out timestamps, generated IDs,
+etc.), use diffs to reveal unexpected changes.
+
+**Tryscript** ([github.com/jlevy/tryscript](https://github.com/jlevy/tryscript)) is a
+lightweight framework for the console output approach.
+It runs shell commands from markdown files, captures output, and diffs against expected
+results. You write commands and expected output in a readable markdown format, and
+tryscript handles execution, diffing, and updates.
+Examples in this document use tryscript syntax where applicable.
+
+Tryscript is **self-documenting**. Use these commands for full syntax and usage:
+
+```bash
+npx tryscript@latest readme    # Overview, start here
+npx tryscript@latest docs      # Syntax quick reference (patterns, elisions, config)
+npx tryscript@latest --help    # CLI options
+```
+
+**Key syntax** (see `tryscript docs` for complete reference):
+- `$ command` — command to run
+- `? N` — expected exit code (default 0)
+- `[..]` — matches any text on a single line
+- `...` — matches zero or more complete lines
+- `[PATTERN]` — custom regex patterns defined in YAML frontmatter
+
+This guideline does not duplicate tryscript’s documentation.
+For pattern syntax, YAML frontmatter options, sandbox configuration, and advanced
+features, consult `npx tryscript@latest docs` directly.
 
 Sessions should be serialized in a clean text format.
 Generally, YAML is a good choice, but other text formats are also acceptable.
@@ -530,35 +591,68 @@ test-[SHORTID]     P2  ○ open  [task] My Task
 If priority changes from P2 to P1 unexpectedly, a pattern won’t catch it.
 Use patterns only for non-deterministic values like generated IDs and timestamps.
 
-**Anti-pattern 2: Complex inline parsing instead of showing full output**
+**Anti-pattern 2: Surgical extraction instead of showing full state**
 
-Don’t embed complex parsing logic to extract specific values.
-Instead, show the full command output (within reason) or use simple tools like `jq`:
+This is the most common way to defeat the purpose of session testing (see “Transparent
+Box Testing” above).
+Don’t narrow output to check specific values when you could show the full state.
+Tools like `grep`, `jq`, `awk`, `head`, `tail`, or inline parsing scripts are all ways
+to extract narrow slices—converting your session test back into unit test mentality and
+losing the ability to catch unanticipated changes.
+
+The following examples use tryscript-style console output (command followed by expected
+output), but the principle applies to any session testing approach:
 
 ```bash
-# WRONG: Complex inline JavaScript parsing
-$ tbd show issue --json | node -e "const d=JSON.parse(require('fs').readFileSync(0,'utf8')); console.log('has hints:', Array.isArray(d.child_order_hints), 'count:', d.child_order_hints?.length)"
-has hints: true count: 4
-
-# RIGHT: Use jq for simple extractions
-$ tbd show issue --json | jq '.child_order_hints | length'
+# WRONG: Extracting narrow slices hides context
+$ grep "^node_modules/$" .gitignore
+node_modules/
+$ grep -c "^dist/$" .gitignore
+1
+$ cat config.json | jq '.settings.timeout'
+30
+$ my-app status --json | node -e "console.log(JSON.parse(require('fs').readFileSync(0)).count)"
 4
 
-# BETTER: Show full output when size is reasonable
-$ tbd show issue --json
+# RIGHT: Show the full content
+$ cat .gitignore
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+build/
+
+# Environment
+.env
+.env.local
+
+$ cat config.json
 {
-  "id": "test-abc1",
-  "title": "My Issue",
-  "child_order_hints": ["is-xxx", "is-yyy", "is-zzz", "is-www"],
-  ...
+  "name": "my-app",
+  "settings": {
+    "timeout": 30,
+    "retries": 3
+  }
+}
+
+$ my-app status --json
+{
+  "status": "healthy",
+  "count": 4,
+  "items": ["a", "b", "c", "d"]
 }
 ```
 
-**Why**: The goal of session golden tests is to reveal the full state of the system at
-each point in time. Complex parsing hides state, making it harder to catch unexpected
-changes. Full output provides better coverage and makes failures more informative.
-Use `jq` for simple extractions when you need to reduce output size or capture values
-for later use.
+**Why**: Surgical extraction only verifies what you explicitly test for—it misses
+unexpected additions, deletions, or changes elsewhere in the data.
+Full content reveals the complete state, catching regressions you didn’t anticipate.
+When the state changes, the diff shows exactly what changed.
+Narrow extractions pass silently even when the data has unexpected content.
+
+**When extraction is acceptable**: Use filtering tools when output is too large to show
+in full, or when you need to capture a value for use in subsequent commands.
+Even then, prefer showing more context rather than less.
 
 * * *
 

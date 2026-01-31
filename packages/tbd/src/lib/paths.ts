@@ -80,6 +80,88 @@ export const META_FILE = join(DATA_SYNC_DIR, 'meta.yml');
 export const SYNC_BRANCH = 'tbd-sync';
 
 // =============================================================================
+// Workspace Paths (for sync failure recovery, backups, bulk editing)
+// =============================================================================
+
+/** The workspaces directory name within .tbd/ */
+export const WORKSPACES_DIR_NAME = 'workspaces';
+
+/** Full path to workspaces directory: .tbd/workspaces/ */
+export const WORKSPACES_DIR = join(TBD_DIR, WORKSPACES_DIR_NAME);
+
+/**
+ * Get the path to a named workspace directory.
+ *
+ * Workspaces are stored at: .tbd/workspaces/{name}/
+ *
+ * @param workspaceName - The name of the workspace (e.g., 'outbox', 'my-feature')
+ * @returns Path to the workspace directory
+ */
+export function getWorkspaceDir(workspaceName: string): string {
+  return join(WORKSPACES_DIR, workspaceName);
+}
+
+/**
+ * Get the path to a workspace's issues directory.
+ *
+ * @param workspaceName - The name of the workspace
+ * @returns Path to the workspace's issues directory
+ */
+export function getWorkspaceIssuesDir(workspaceName: string): string {
+  return join(getWorkspaceDir(workspaceName), 'issues');
+}
+
+/**
+ * Get the path to a workspace's mappings directory.
+ *
+ * @param workspaceName - The name of the workspace
+ * @returns Path to the workspace's mappings directory
+ */
+export function getWorkspaceMappingsDir(workspaceName: string): string {
+  return join(getWorkspaceDir(workspaceName), 'mappings');
+}
+
+/**
+ * Get the path to a workspace's attic directory.
+ *
+ * The attic stores conflict backups during workspace save operations.
+ *
+ * @param workspaceName - The name of the workspace
+ * @returns Path to the workspace's attic directory
+ */
+export function getWorkspaceAtticDir(workspaceName: string): string {
+  return join(getWorkspaceDir(workspaceName), 'attic');
+}
+
+/**
+ * Validate a workspace name.
+ *
+ * Valid workspace names:
+ * - Lowercase alphanumeric characters
+ * - Hyphens and underscores allowed
+ * - Must not be empty
+ * - Must not contain path separators or dots at start
+ *
+ * @param name - The workspace name to validate
+ * @returns true if the name is valid
+ */
+export function isValidWorkspaceName(name: string): boolean {
+  if (!name || name.length === 0) {
+    return false;
+  }
+
+  // Must not start with dot (hidden files)
+  if (name.startsWith('.')) {
+    return false;
+  }
+
+  // Only allow lowercase alphanumeric, hyphens, and underscores
+  // No spaces, path separators, or special characters
+  const validPattern = /^[a-z0-9][a-z0-9_-]*$/;
+  return validPattern.test(name);
+}
+
+// =============================================================================
 // Documentation/Shortcuts Paths
 // =============================================================================
 
@@ -166,16 +248,6 @@ export const DEFAULT_TEMPLATE_PATHS = [
 ];
 
 /**
- * @deprecated Use DEFAULT_SHORTCUT_PATHS instead.
- * Legacy alias that includes all doc types for backward compatibility.
- */
-export const DEFAULT_DOC_PATHS = [
-  ...DEFAULT_SHORTCUT_PATHS,
-  ...DEFAULT_GUIDELINES_PATHS,
-  ...DEFAULT_TEMPLATE_PATHS,
-];
-
-/**
  * Get the full path to an issue file.
  */
 export function getIssuePath(issueId: string): string {
@@ -209,9 +281,7 @@ export interface ResolveDataSyncDirOptions {
   /**
    * Allow fallback to direct path when worktree is missing.
    * Set to true for test environments or diagnostic tools.
-   * Default: true (for backward compatibility)
-   *
-   * When false and worktree is missing, throws WorktreeMissingError.
+   * Default: true. When false and worktree is missing, throws WorktreeMissingError.
    */
   allowFallback?: boolean;
 }

@@ -42,6 +42,7 @@ import {
   findGitRoot,
   MIN_GIT_VERSION,
 } from '../../file/git.js';
+import { listWorkspaces } from '../../file/workspace.js';
 
 interface StatusData {
   initialized: boolean;
@@ -64,6 +65,7 @@ interface StatusData {
   display_prefix: string | null;
   worktree_path: string | null;
   worktree_healthy: boolean | null;
+  workspaces: string[];
 
   // Integrations
   integrations: {
@@ -103,6 +105,7 @@ class StatusHandler extends BaseCommand {
       display_prefix: null,
       worktree_path: null,
       worktree_healthy: null,
+      workspaces: [],
       integrations: {
         claude_code: false,
         claude_code_path: CLAUDE_SETTINGS_DISPLAY,
@@ -241,6 +244,13 @@ class StatusHandler extends BaseCommand {
     const worktreeHealth = await checkWorktreeHealth(cwd);
     data.worktree_path = worktreePath;
     data.worktree_healthy = worktreeHealth.valid;
+
+    // Check workspaces
+    try {
+      data.workspaces = await listWorkspaces(cwd);
+    } catch {
+      // Workspace check failed - leave as empty
+    }
   }
 
   private renderText(data: StatusData): void {
@@ -305,6 +315,15 @@ class StatusHandler extends BaseCommand {
     // Worktree health
     if (data.worktree_healthy !== null && data.worktree_path) {
       renderWorktreeStatus(data.worktree_path, data.worktree_healthy, colors);
+    }
+
+    // Workspaces (only show if there are any)
+    if (data.workspaces.length > 0) {
+      console.log('');
+      console.log(colors.bold('WORKSPACES'));
+      for (const ws of data.workspaces) {
+        console.log(`  ${ws}`);
+      }
     }
 
     // Footer (shared format)

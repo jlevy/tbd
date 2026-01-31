@@ -189,10 +189,14 @@ Run `tbd shortcut <name>` to use any of these shortcuts:
 | new-validation-plan | Create a validation/test plan showing what's tested and what remains |
 | plan-implementation-with-beads | Create implementation beads from a feature planning spec |
 | precommit-process | Full pre-commit checklist including spec sync, code review, and testing |
-| review-code-python | Perform a code review for Python code following best practices |
-| review-code-typescript | Perform a code review for TypeScript code following best practices |
+| review-code | Comprehensive code review for uncommitted changes, branch work, or GitHub PRs |
+| review-code-python | Python-focused code review (language-specific rules only) |
+| review-code-typescript | TypeScript-focused code review (language-specific rules only) |
+| review-github-pr | Review a GitHub pull request with follow-up actions (comment, fix, CI check) |
 | revise-all-architecture-docs | Comprehensive revision of all current architecture documents |
 | revise-architecture-doc | Update an architecture document to reflect current codebase state |
+| setup-github-cli | Ensure GitHub CLI (gh) is installed and working |
+| sync-failure-recovery | Handle tbd sync failures by saving to workspace and recovering later |
 | update-specs-status | Review active specs and sync their status with tbd issues |
 | welcome-user | Welcome message for users after tbd installation or setup |
 
@@ -218,6 +222,7 @@ Run `tbd guidelines <name>` to apply any of these guidelines:
 | python-cli-patterns | Modern patterns for Python CLI application architecture |
 | python-modern-guidelines | Guidelines for modern Python projects using uv, with a few more opinionated practices |
 | python-rules | General Python coding rules and best practices |
+| sync-troubleshooting | Common issues and solutions for tbd sync and workspace operations |
 | typescript-cli-tool-rules | Rules for building CLI tools with Commander.js, picocolors, and TypeScript |
 | typescript-code-coverage | Best practices for code coverage in TypeScript with Vitest and v8 provider |
 | typescript-monorepo-patterns | Modern patterns for TypeScript monorepo architecture |
