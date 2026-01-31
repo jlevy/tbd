@@ -16,6 +16,7 @@ import {
   listWorkspaces,
   deleteWorkspace,
   workspaceExists,
+  getUpdatedIssues,
 } from '../src/file/workspace.js';
 import { writeIssue, listIssues } from '../src/file/storage.js';
 import {
@@ -168,6 +169,21 @@ describe('workspace operations', () => {
     it('returns true when workspace exists', async () => {
       await mkdir(join(tempDir, '.tbd', 'workspaces', 'exists'), { recursive: true });
       expect(await workspaceExists(tempDir, 'exists')).toBe(true);
+    });
+  });
+
+  describe('listWorkspaces for status', () => {
+    it('returns count of workspaces for status display', async () => {
+      // Create multiple workspaces
+      await mkdir(join(tempDir, '.tbd', 'workspaces', 'backup-1', 'issues'), { recursive: true });
+      await mkdir(join(tempDir, '.tbd', 'workspaces', 'backup-2', 'issues'), { recursive: true });
+      await mkdir(join(tempDir, '.tbd', 'workspaces', 'outbox', 'issues'), { recursive: true });
+
+      const workspaces = await listWorkspaces(tempDir);
+      expect(workspaces.length).toBe(3);
+      expect(workspaces).toContain('backup-1');
+      expect(workspaces).toContain('backup-2');
+      expect(workspaces).toContain('outbox');
     });
   });
 
@@ -379,6 +395,67 @@ describe('workspace operations', () => {
       const result = await importFromWorkspace(tempDir, dataSyncDir, { dir: externalDir });
 
       expect(result.imported).toBe(1);
+    });
+  });
+
+  describe('getUpdatedIssues (for --updates-only)', () => {
+    it('returns issues that are new (not in remote)', () => {
+      const localIssues = [
+        createTestIssue({ id: testId(TEST_ULIDS.ULID_1), title: 'Issue 1' }),
+        createTestIssue({ id: testId(TEST_ULIDS.ULID_2), title: 'Issue 2' }),
+      ];
+      const remoteIssues = [createTestIssue({ id: testId(TEST_ULIDS.ULID_1), title: 'Issue 1' })];
+
+      const updated = getUpdatedIssues(localIssues, remoteIssues);
+
+      expect(updated.length).toBe(1);
+      expect(updated[0]!.id).toBe(testId(TEST_ULIDS.ULID_2));
+    });
+
+    it('returns issues that have been modified (different from remote)', () => {
+      const localIssues = [
+        createTestIssue({
+          id: testId(TEST_ULIDS.ULID_1),
+          title: 'Updated Title',
+          version: 2,
+          updated_at: '2026-01-02T00:00:00.000Z',
+        }),
+      ];
+      const remoteIssues = [
+        createTestIssue({
+          id: testId(TEST_ULIDS.ULID_1),
+          title: 'Original Title',
+          version: 1,
+          updated_at: '2026-01-01T00:00:00.000Z',
+        }),
+      ];
+
+      const updated = getUpdatedIssues(localIssues, remoteIssues);
+
+      expect(updated.length).toBe(1);
+      expect(updated[0]!.title).toBe('Updated Title');
+    });
+
+    it('excludes issues that are identical to remote', () => {
+      const issue = createTestIssue({ id: testId(TEST_ULIDS.ULID_1), title: 'Same Issue' });
+      const localIssues = [issue];
+      const remoteIssues = [{ ...issue }]; // Clone to ensure deep comparison
+
+      const updated = getUpdatedIssues(localIssues, remoteIssues);
+
+      expect(updated.length).toBe(0);
+    });
+
+    it('returns all issues when remote is empty', () => {
+      const localIssues = [
+        createTestIssue({ id: testId(TEST_ULIDS.ULID_1), title: 'Issue 1' }),
+        createTestIssue({ id: testId(TEST_ULIDS.ULID_2), title: 'Issue 2' }),
+      ];
+      const remoteIssues: ReturnType<typeof createTestIssue>[] = [];
+
+      const updated = getUpdatedIssues(localIssues, remoteIssues);
+
+      expect(updated.length).toBe(2);
     });
   });
 });

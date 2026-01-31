@@ -41,31 +41,36 @@ agents.
       - [Worktree Health States](#worktree-health-states)
       - [Path Terminology and Resolution](#path-terminology-and-resolution)
       - [Worktree Error Classes](#worktree-error-classes)
-    - [2.4 Entity Collection Pattern](#24-entity-collection-pattern)
+    - [2.4 Workspaces](#24-workspaces)
+      - [Workspace Structure](#workspace-structure)
+      - [Commands](#commands)
+      - [Sync Failure Recovery Workflow](#sync-failure-recovery-workflow)
+      - [Merge Behavior](#merge-behavior)
+    - [2.5 Entity Collection Pattern](#25-entity-collection-pattern)
       - [Directory Layout](#directory-layout)
       - [Adding New Entity Types (Future)](#adding-new-entity-types-future)
-    - [2.5 ID Generation](#25-id-generation)
+    - [2.6 ID Generation](#26-id-generation)
       - [ID Generation Algorithm](#id-generation-algorithm)
       - [ID Mapping](#id-mapping)
       - [ID Resolution (CLI)](#id-resolution-cli)
       - [File Naming](#file-naming)
       - [Display Format](#display-format)
-    - [2.6 Schemas](#26-schemas)
-      - [2.6.1 Common Types](#261-common-types)
-      - [2.6.2 BaseEntity](#262-baseentity)
-      - [2.6.3 IssueSchema](#263-issueschema)
-      - [2.6.4 ConfigSchema](#264-configschema)
-      - [2.6.5 MetaSchema](#265-metaschema)
-      - [2.6.6 LocalStateSchema](#266-localstateschema)
-      - [2.6.7 AtticEntrySchema](#267-atticentryschema)
-    - [2.7 Relationship Types](#27-relationship-types)
-      - [2.7.1 Relationship Model Overview](#271-relationship-model-overview)
-      - [2.7.2 Parent-Child Relationships](#272-parent-child-relationships)
-      - [2.7.3 Dependency Relationships](#273-dependency-relationships)
-      - [2.7.4 Visualization Commands](#274-visualization-commands)
-      - [2.7.5 Comparison with Beads](#275-comparison-with-beads)
-      - [2.7.6 Future Dependency Types](#276-future-dependency-types)
-      - [2.7.7 Future: Transitive Blocking Option](#277-future-transitive-blocking-option)
+    - [2.7 Schemas](#27-schemas)
+      - [2.7.1 Common Types](#271-common-types)
+      - [2.7.2 BaseEntity](#272-baseentity)
+      - [2.7.3 IssueSchema](#273-issueschema)
+      - [2.7.4 ConfigSchema](#274-configschema)
+      - [2.7.5 MetaSchema](#275-metaschema)
+      - [2.7.6 LocalStateSchema](#276-localstateschema)
+      - [2.7.7 AtticEntrySchema](#277-atticentryschema)
+    - [2.8 Relationship Types](#28-relationship-types)
+      - [2.8.1 Relationship Model Overview](#281-relationship-model-overview)
+      - [2.8.2 Parent-Child Relationships](#282-parent-child-relationships)
+      - [2.8.3 Dependency Relationships](#283-dependency-relationships)
+      - [2.8.4 Visualization Commands](#284-visualization-commands)
+      - [2.8.5 Comparison with Beads](#285-comparison-with-beads)
+      - [2.8.6 Future Dependency Types](#286-future-dependency-types)
+      - [2.8.7 Future: Transitive Blocking Option](#287-future-transitive-blocking-option)
   - [3. Git Layer](#3-git-layer)
     - [3.1 Overview](#31-overview)
     - [3.2 Sync Branch Architecture](#32-sync-branch-architecture)
@@ -713,6 +718,16 @@ tbd uses three directory locations:
 │   ├── guidelines/         # Coding rules and best practices
 │   └── templates/          # Document templates
 │
+├── workspaces/             # NOT gitignored - tracked on main branch
+│   ├── outbox/             # Sync failure recovery workspace
+│   │   ├── issues/
+│   │   ├── mappings/
+│   │   └── attic/
+│   └── {name}/             # User-created workspaces (backups, bulk edits)
+│       ├── issues/
+│       ├── mappings/
+│       └── attic/
+│
 └── data-sync-worktree/     # Gitignored - hidden worktree
     └── (checkout of tbd-sync branch)
         └── .tbd/
@@ -1020,7 +1035,63 @@ export class SyncBranchError extends TbdError {
 }
 ```
 
-### 2.4 Entity Collection Pattern
+### 2.4 Workspaces
+
+Workspaces are directories under `.tbd/workspaces/` that store issue data for sync
+failure recovery, backups, and bulk editing workflows.
+
+#### Workspace Structure
+
+Each workspace mirrors the `data-sync` directory structure:
+
+```
+.tbd/workspaces/{name}/
+├── issues/           # Issue files (same format as data-sync)
+├── mappings/
+│   └── ids.yml       # ID mappings (union with worktree)
+└── attic/            # Conflicts during workspace operations
+```
+
+#### Commands
+
+| Command | Description |
+| --- | --- |
+| `tbd save --workspace=<name>` | Save issues from worktree to workspace |
+| `tbd save --outbox` | Shortcut for `--workspace=outbox --updates-only` |
+| `tbd save --dir=<path>` | Save to arbitrary directory |
+| `tbd import --workspace=<name>` | Import issues from workspace to worktree |
+| `tbd import --outbox` | Shortcut for `--workspace=outbox --clear-on-success` |
+| `tbd workspace list` | List all workspaces |
+| `tbd workspace delete <name>` | Delete a workspace |
+
+#### Sync Failure Recovery Workflow
+
+When `tbd sync` fails to push (network errors, permission issues, branch restrictions):
+
+```bash
+# 1. Save unsynced changes
+tbd save --outbox
+
+# 2. Commit to working branch (which typically succeeds)
+git add .tbd/workspaces && git commit -m "tbd: save outbox" && git push
+
+# 3. Later, when sync works again
+tbd import --outbox
+tbd sync
+```
+
+#### Merge Behavior
+
+When saving or importing, issues are merged using `mergeIssues()`:
+
+- **New issues**: Copied directly
+- **Existing issues**: Three-way merge with LWW conflict resolution
+- **Conflicts**: Lost values saved to attic
+- **ID mappings**: Union operation (add new, don’t overwrite existing)
+
+See `tbd shortcut sync-failure-recovery` for detailed workflow documentation.
+
+### 2.5 Entity Collection Pattern
 
 tbd has **one core entity type**: Issues
 
@@ -1048,7 +1119,7 @@ To add a new entity type:
 
 No sync algorithm changes needed—sync operates on files, not schemas.
 
-### 2.5 ID Generation
+### 2.6 ID Generation
 
 tbd uses a **dual ID system** to balance machine requirements (sorting, uniqueness) with
 human usability (short, memorable):
@@ -1240,12 +1311,12 @@ export function asDisplayId(id: string): DisplayIssueId;
 - **Self-documenting**: Function signatures clarify which ID format is expected
 - **Refactoring safety**: Changing ID handling shows all affected call sites
 
-### 2.6 Schemas
+### 2.7 Schemas
 
 Schemas are defined in Zod (TypeScript).
 Other languages should produce equivalent YAML/Markdown output.
 
-#### 2.6.1 Common Types
+#### 2.7.1 Common Types
 
 ```typescript
 import { z } from 'zod';
@@ -1285,7 +1356,7 @@ const EntityType = z.literal('is');
 > independently. The version is useful for debugging ("how many times was this edited?")
 > and is set to `max(local, remote) + 1` after merges.
 
-#### 2.6.2 BaseEntity
+#### 2.7.2 BaseEntity
 
 All entities share common fields:
 
@@ -1318,7 +1389,7 @@ const BaseEntity = z.object({
 >     custom_field: value
 > ```
 
-#### 2.6.3 IssueSchema
+#### 2.7.3 IssueSchema
 
 ```typescript
 const IssueStatus = z.enum(['open', 'in_progress', 'blocked', 'deferred', 'closed']);
@@ -1451,7 +1522,7 @@ In tbd, we handle deletion differently:
 
 - No `tombstone` status needed
 
-#### 2.6.4 ConfigSchema
+#### 2.7.4 ConfigSchema
 
 Project configuration stored in `.tbd/config.yml`:
 
@@ -1495,7 +1566,7 @@ const ConfigSchema = z.object({
 });
 ```
 
-#### 2.6.5 MetaSchema
+#### 2.7.5 MetaSchema
 
 Shared metadata stored in `.tbd/data-sync/meta.yml` on the sync branch:
 
@@ -1511,7 +1582,7 @@ const MetaSchema = z.object({
 > merge conflicts. Instead, sync timestamps are tracked locally in `.tbd/state.yml`
 > (gitignored).
 
-#### 2.6.6 LocalStateSchema
+#### 2.7.6 LocalStateSchema
 
 Per-node state stored in `.tbd/state.yml` (gitignored, never synced).
 Each machine maintains its own local state:
@@ -1531,7 +1602,7 @@ const LocalStateSchema = z.object({
 > incremental sync), or separate `last_push`/`last_pull` timestamps may be added as
 > needed.
 
-#### 2.6.7 AtticEntrySchema
+#### 2.7.7 AtticEntrySchema
 
 Preserved conflict losers:
 
@@ -1552,14 +1623,14 @@ const AtticEntrySchema = z.object({
 });
 ```
 
-### 2.7 Relationship Types
+### 2.8 Relationship Types
 
 tbd supports two distinct types of relationships between issues: **parent-child**
 (hierarchical containment) and **dependencies** (blocking relationships).
 This section documents the model, compares it to Beads, and explains the design
 rationale.
 
-#### 2.7.1 Relationship Model Overview
+#### 2.8.1 Relationship Model Overview
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
@@ -1590,7 +1661,7 @@ rationale.
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
 
-#### 2.7.2 Parent-Child Relationships
+#### 2.8.2 Parent-Child Relationships
 
 Parent-child relationships use the `parent_id` field for hierarchical organization:
 
@@ -1646,7 +1717,7 @@ tbd show proj-a1b2 --show-order
 - **Tree view**: `tbd list --pretty` respects hint ordering within each parent’s
   children
 
-#### 2.7.3 Dependency Relationships
+#### 2.8.3 Dependency Relationships
 
 Dependencies use the `dependencies` array for ordering and linking:
 
@@ -1677,7 +1748,7 @@ tbd dep list proj-a1b2
 tbd dep remove proj-a1b2 proj-c3d4
 ```
 
-#### 2.7.4 Visualization Commands
+#### 2.8.4 Visualization Commands
 
 Each relationship type has dedicated visualization:
 
@@ -1690,7 +1761,7 @@ Each relationship type has dedicated visualization:
 | `tbd dep tree <id>` | Blocking dependency chain | `dependencies[].type: blocks` (future) |
 | `tbd list --format dot` | Full graph (Graphviz) | All relationships |
 
-#### 2.7.5 Comparison with Beads
+#### 2.8.5 Comparison with Beads
 
 tbd and Beads have different models for parent-child relationships:
 
@@ -1745,7 +1816,7 @@ In tbd, blocking is explicit via `blocks` dependencies only.
 There’s no transitive blocking through the parent-child hierarchy.
 This makes the blocking model easier to reason about.
 
-#### 2.7.6 Future Dependency Types
+#### 2.8.6 Future Dependency Types
 
 Based on real-world Beads usage data (from Beads’ own issue tracker):
 
@@ -1761,7 +1832,7 @@ Planned additions:
 - **`discovered-from`**: Track issue provenance when work reveals new issues
 - **`related`**: Soft links for “see also” references
 
-#### 2.7.7 Future: Transitive Blocking Option
+#### 2.8.7 Future: Transitive Blocking Option
 
 **Current design:** `parent_id` is purely organizational with no blocking effects.
 Blocking is explicit via `blocks` dependencies only.

@@ -495,9 +495,9 @@ The outbox model is recommended if:
 
 **`tbd save` Command:**
 - [x] Parse `--workspace=<name>`, `--dir=<path>`, `--outbox` flags
-- [ ] Implement `--updates-only` (compare with remote tbd-sync) - see tbd-lka2
-- [ ] Use `mergeIssues()` for proper three-way merge - see tbd-hg05
-- [ ] Copy ID mappings to workspace - see tbd-eglf
+- [x] Implement `--updates-only` (compare with remote tbd-sync) - tbd-lka2 DONE
+- [x] Use `mergeIssues()` for proper three-way merge - tbd-hg05 DONE
+- [x] Copy ID mappings to workspace - tbd-eglf DONE
 - [x] Conflicts go to workspace attic
 - [x] Report what was saved
 
@@ -505,8 +505,8 @@ The outbox model is recommended if:
 - [x] Parse `--workspace=<name>`, `--dir=<path>`, `--outbox` flags
 - [x] Implement `--clear-on-success` flag (deletes source after successful import)
 - [x] `--outbox` is shortcut for `--workspace=outbox --clear-on-success`
-- [ ] Use `mergeIssues()` for proper three-way merge - see tbd-hg05
-- [ ] Merge ID mappings from workspace (union) - see tbd-eglf
+- [x] Use `mergeIssues()` for proper three-way merge - tbd-hg05 DONE
+- [x] Merge ID mappings from workspace (union) - tbd-eglf DONE
 - [x] Do NOT auto-commit (by design - user reviews first)
 - [x] Print message suggesting `tbd sync` after import
 - [x] Report what was imported
@@ -518,18 +518,19 @@ The outbox model is recommended if:
 ### Phase 2: Integration
 
 **Sync Integration:**
-- [ ] Update `tbd sync` failure message to suggest `tbd save --outbox`
-- [ ] Add `--status` output for workspace counts
+- [x] Update `tbd sync` failure message to suggest `tbd save --outbox` - tbd-35u6 DONE
+- [x] Add `--status` output for workspace counts - tbd-at1r DONE
 
 **Agent Guidelines:**
-- [ ] Document agent workflow for sync failures
-- [ ] Update tbd workflow documentation
+- [x] Document agent workflow for sync failures - tbd-t2om DONE (sync-failure-recovery
+  shortcut)
+- [x] Update tbd workflow documentation (sync-troubleshooting guideline)
 
 ### Phase 3: Documentation
 
-- [ ] Update tbd-design.md with workspace support
-- [ ] Add architecture diagram
-- [ ] Add troubleshooting guide
+- [x] Update tbd-design.md with workspace support - tbd-nku6 DONE
+- [ ] Add architecture diagram (future)
+- [x] Add troubleshooting guide - tbd-cmz1 DONE (sync-troubleshooting guideline)
 
 ## Testing Strategy
 

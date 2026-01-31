@@ -17,11 +17,17 @@ import { stringify as stringifyYaml } from 'yaml';
 import { writeFile } from 'atomically';
 
 import { listIssues, writeIssue, readIssue } from './storage.js';
-import { mergeIssues, type ConflictEntry } from './git.js';
+import { parseIssue } from './parser.js';
+import { mergeIssues, deepEqual, git, type ConflictEntry } from './git.js';
 import { loadIdMapping, saveIdMapping, addIdMapping } from './id-mapping.js';
-import { WORKSPACES_DIR, getWorkspaceDir, isValidWorkspaceName } from '../lib/paths.js';
+import {
+  WORKSPACES_DIR,
+  getWorkspaceDir,
+  isValidWorkspaceName,
+  DATA_SYNC_DIR,
+} from '../lib/paths.js';
 import { now } from '../utils/time-utils.js';
-import type { AtticEntry } from '../lib/types.js';
+import type { AtticEntry, Issue } from '../lib/types.js';
 
 /**
  * Options for saveToWorkspace.
@@ -80,10 +86,83 @@ export interface ImportResult {
 }
 
 /**
+ * Compare local issues with remote issues and return only those that are new or modified.
+ *
+ * An issue is considered "updated" if:
+ * - It doesn't exist in the remote (new issue)
+ * - Its content differs from the remote version (modified issue)
+ *
+ * @param localIssues - Issues from the local worktree
+ * @param remoteIssues - Issues from the remote tbd-sync branch
+ * @returns Issues that are new or modified compared to remote
+ */
+export function getUpdatedIssues(localIssues: Issue[], remoteIssues: Issue[]): Issue[] {
+  // Build a map of remote issues by ID for quick lookup
+  const remoteById = new Map<string, Issue>();
+  for (const issue of remoteIssues) {
+    remoteById.set(issue.id, issue);
+  }
+
+  // Filter local issues to only those that are new or different
+  return localIssues.filter((local) => {
+    const remote = remoteById.get(local.id);
+
+    // New issue - not in remote
+    if (!remote) {
+      return true;
+    }
+
+    // Modified issue - content differs from remote
+    return !deepEqual(local, remote);
+  });
+}
+
+/**
  * Ensure a directory exists.
  */
 async function ensureDir(dir: string): Promise<void> {
   await mkdir(dir, { recursive: true });
+}
+
+/**
+ * Read issues from a git ref (e.g., origin/tbd-sync).
+ *
+ * @param baseDir - The base directory of the git repo
+ * @param remote - The remote name (e.g., 'origin')
+ * @param branch - The branch name (e.g., 'tbd-sync')
+ * @returns Array of issues from the remote ref
+ */
+async function readRemoteIssues(baseDir: string, remote: string, branch: string): Promise<Issue[]> {
+  const ref = `${remote}/${branch}`;
+  const issuesPath = `${DATA_SYNC_DIR}/issues`;
+
+  // List all issue files from the remote ref
+  let fileList: string;
+  try {
+    fileList = await git('-C', baseDir, 'ls-tree', '-r', '--name-only', ref, issuesPath);
+  } catch {
+    // Remote branch doesn't exist or has no issues
+    return [];
+  }
+
+  const issueFiles = fileList
+    .trim()
+    .split('\n')
+    .filter((f) => f.endsWith('.md'));
+  const issues: Issue[] = [];
+
+  for (const filepath of issueFiles) {
+    try {
+      // Read file content from the remote ref
+      const content = await git('-C', baseDir, 'show', `${ref}:${filepath}`);
+      const issue = parseIssue(content);
+      issues.push(issue);
+    } catch {
+      // Skip files that can't be parsed
+    }
+  }
+
+  return issues;
 }
 
 /**
@@ -186,11 +265,21 @@ export async function saveToWorkspace(
   await ensureDir(atticDir);
 
   // List all issues in source (worktree)
-  const sourceIssues = await listIssues(dataSyncDir);
+  let sourceIssues = await listIssues(dataSyncDir);
 
-  // TODO: Implement --updates-only logic
-  // For now, save all issues (ignoring updatesOnly flag)
-  const _isUpdatesOnly = options.updatesOnly ?? options.outbox;
+  // Filter to only updated issues if requested
+  const isUpdatesOnly = options.updatesOnly ?? options.outbox;
+  if (isUpdatesOnly) {
+    try {
+      // Fetch and compare with remote tbd-sync
+      await git('-C', tbdRoot, 'fetch', 'origin', 'tbd-sync');
+      const remoteIssues = await readRemoteIssues(tbdRoot, 'origin', 'tbd-sync');
+      sourceIssues = getUpdatedIssues(sourceIssues, remoteIssues);
+    } catch {
+      // If fetch fails (offline, remote doesn't exist, etc.), save all issues
+      // This is the fallback behavior mentioned in the spec
+    }
+  }
 
   let saved = 0;
   let conflicts = 0;
