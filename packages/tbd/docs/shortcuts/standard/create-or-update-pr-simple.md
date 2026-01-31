@@ -52,4 +52,15 @@ Create a to-do list with the following items then perform all of them:
      `gh pr create --repo $REPO --head $BRANCH --base main --title "..." --body "..."`
    - If updating: `gh pr edit $BRANCH --repo $REPO --title "..." --body "..."`
 
-6. Report the PR URL to the user.
+6. Report the PR URL to the user and inform them you are now waiting for CI.
+
+7. **Wait for CI to pass (CRITICAL):**
+   - Run: `gh pr checks $BRANCH --repo $REPO --watch 2>&1`
+   - **IMPORTANT**: The `--watch` flag blocks until ALL checks complete.
+     Do NOT see “passing” in early output and move on—wait for the **final summary**
+     showing all checks passed.
+   - If CI fails: analyze the failure, fix the issue, commit and push the fix, then
+     restart from this step.
+   - Only proceed when you see all checks have passed in the final summary.
+
+8. Confirm to the user that CI has passed and the PR is ready for review.

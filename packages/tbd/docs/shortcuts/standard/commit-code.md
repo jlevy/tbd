@@ -21,5 +21,19 @@ Create a to-do list with the following items then perform all of them:
    resolves an important ambiguity.
    (See `tbd guidelines commit-conventions` for details.)
 
-3. If commit is successful and if there is a PR already filed, update the PR
-   description.
+3. If commit is successful, push to remote:
+   - Run: `git push`
+
+4. If there is a PR already filed for this branch, update the PR description and **wait
+   for CI to pass**:
+   - Check for PR: `gh pr view --json number,url 2>/dev/null`
+   - If PR exists, update it with current changes summary
+   - Inform the user you are waiting for CI
+   - Run: `gh pr checks --watch 2>&1`
+   - **IMPORTANT**: The `--watch` flag blocks until ALL checks complete.
+     Do NOT see “passing” in early output and move on—wait for the **final summary**
+     showing all checks passed.
+   - If CI fails: analyze the failure, fix the issue, commit and push, then restart the
+     CI watch.
+   - Only proceed when you see all checks have passed.
+   - Confirm to the user that CI has passed.
