@@ -28,6 +28,26 @@ rules. But you can use your own if you prefer.
 I use `tbd` most frequently in Claude Code, where it self-installs as a skill, but it
 will work in Cursor, Codex, or any agent environment that can use the `tbd` CLI.
 
+## Quick Start
+
+> [!TIP]
+> 
+> *Install `tbd` globally for convenience:*
+> 
+> **`npm install -g get-tbd@latest`**
+> 
+> Then tell your agent:
+> 
+> ***“run tbd for instructions to set up this project”***
+
+That’s it. Running `tbd` with no arguments gives your agent what it needs as well as
+information on how to help you.
+It will then bootstraps a SKILL.md into your project by running `tbd setup --auto`
+(which will add a `.tbd` directory and add itself to your `.claude` skills and hooks).
+And then it will use then use shortcuts to welcome you and get you started.
+
+You can then always ask questions like: “what can I do with tbd?”
+
 ## Should You Use `tbd`?
 
 Firstly, you can use `tbd` simply as a Beads replacement.
@@ -76,26 +96,6 @@ design, but it gives higher quality results.
 > We use *Beads* (capitalized) to refer to Steve Yegge’s original
 > [`bd` tool](https://github.com/steveyegge/beads).
 > Lowercase “beads” refers generically to the issues stored in `tbd` or `bd`.
-
-## Quick Start
-
-> [!TIP]
-> 
-> *Install `tbd` globally for convenience:*
-> 
-> **`npm install -g get-tbd@latest`**
-> 
-> Then tell your agent:
-> 
-> ***“run tbd for instructions to set up this project”***
-
-That’s it. Running `tbd` with no arguments gives your agent what it needs as well as
-information on how to help you.
-It will then bootstraps a SKILL.md into your project by running `tbd setup --auto`
-(which will add a `.tbd` directory and add itself to your `.claude` skills and hooks).
-And then it will use then use shortcuts to welcome you and get you started.
-
-You can then always ask questions like: “what can I do with tbd?”
 
 ## How to Use tbd
 
