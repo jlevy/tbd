@@ -3,8 +3,8 @@
 **Task management, spec-driven planning, and instant knowledge injection for AI coding
 agents.**
 
-**tbd** (short for “To Be Done,” or “TypeScript beads” if you prefer) combines three
-things that are each powerful on their own but work really well together:
+**tbd** (short for “To Be Done,” or “TypeScript beads” if you prefer) combines four
+things that are each powerful on their own but work even better together:
 
 1. **Task tracking (beads):** Agent-friendly, CLI-native issue tracking for bugs,
    features, epics, and dependencies that persist across sessions in git.
@@ -12,13 +12,15 @@ things that are each powerful on their own but work really well together:
    [Beads](https://github.com/steveyegge/beads) are fantastic and *unreasonably
    effective* at scaling an agent’s capacity from ~5-10 ad-hoc tasks to hundreds of
    structured beads.
-2. **Spec-driven planning:** workflows for writing specs, breaking them into beads, and
-   implementing systematically.
+2. **Spec-driven planning:** Templates and workflows for writing specs, breaking them
+   into beads, and implementing systematically.
    With a good spec and beads, you can leave an agent running overnight and come back to
    solid code.
-3. **Instant knowledge injection:** Instant availability of guidelines and rules docs.
-   These are essentially “self-injected context” for an agent to get smarter when it
-   needs it.
+3. **Knowledge injection:** Instant availability of in-depth engineering guidelines and
+   rules docs. These are essentially “self-injected context” for an agent to get smarter
+   when it needs it.
+4. **Shortcuts:** Reusable instructions for common tasks like code review, PR creation,
+   and writing planning specs, architecture docs, and research briefs.
 
 `tbd` comes pre-installed with in-depth guidelines docs on many topics, including
 TypeScript and Python best practices and common agent pitfalls, red-green TDD, golden
@@ -50,40 +52,55 @@ That’s it.
 Running `tbd` with no arguments “primes” the agent with how to use tbd and how
 to help you. It will then bootstraps a SKILL.md into your project by running
 `tbd setup --auto` (which will add a `.tbd` directory and add itself to your `.claude`
-skills and hooks). And then it will use then use shortcuts to welcome you and get you
-started.
+skills and hooks). And then it will use shortcuts to welcome you and get you started.
 
 You can then always ask questions like: “what can I do with tbd?”
 
-## Should You Use `tbd`?
+## How Should You Use `tbd`?
 
-Firstly, you can use `tbd` simply as a Beads replacement.
-It’s largely compatible with the original `bd` at the CLI level for core issue tracking
+### Drop-In `bd` Replacement
+
+Firstly, you can use `tbd` simply as a replacement for the original Beads (`bd`). It’s
+largely compatible with the original `bd` at the CLI level for core issue tracking
 functionality.
 
-Unfortunately, inspite of the power of the beads ideas, there are quite a few
-[practical frustrations](#how-does-tbd-compare-to-beads) with the original
+Unfortunately, in spite of the power of the beads ideas, there are quite a few
+[practical frustrations](#how-does-tbd-compare-to-beads) with the original Beads
 implementation—notably the daemon modifying files, merge conflicts, sync confusions
 across branches and database, and SQLite not working in Claude Code Cloud.
+After using `bd` for over a month, this became my greatest pain point.
+I now use `tbd` for all my agent coding and its sync architecture works pretty well.
 
-`tbd` is *very* new but aims to be a fully functional option for those who want an
-alternative to `bd` for agent issue tracking.
-I now use it instead of `bd` now.
+### Spec-Driven Coding and Review
 
-But what excites me now is that `tbd` is more than just task management: the CLI is a
-way to **inject engineering rules and best practices** and **streamline reproducible
-workflows with shortcuts**.
+What excites me now is that `tbd` is more than just task management.
+
+These workflows arose from several months of
+[heavy spec-driven agentic coding](https://github.com/jlevy/speculate/blob/main/about/lessons_in_spec_coding.md).
+With better use of specs, what you build is far clearer and more maintainable.
+In fact, I think of iterating on a spec as the hard part now.
+Writing the code is often almost automatic, if a spec is good enough!
+
+Basically 100% of the code I now write is agent-written, planned and tracked through
+specs and beads and streamlined with shortcuts.
+
+To help with this, `tbd` provides a way to **inject engineering rules and best
+practices** and **streamline reproducible workflows with shortcuts**.
 
 By combining task management, knowledge injection, and shortcuts, I find my agents ship
 code with speed, quality, and discipline.
+
+### Shortcuts for Common Tasks (Easy with Voice!)
+
+Once you start doing things like the above workflows, it gets repetitive.
+And I like to now use voice to give prompts.
+So having “shortcut” docs that list common tasks is really helpful.
+
 I can now ship entire large features just with voice prompts like “use the shortcut to
 create a new plan spec that …” and “now use the shortcut to file a PR with a validation
 plan.”
 
-These workflows arose from several months of
-[heavy spec-driven agentic coding](https://github.com/jlevy/speculate/blob/main/about/lessons_in_spec_coding.md).
-Basically 100% of the code I now write is agent-written, planned and tracked through
-specs and beads and streamlined with shortcuts.
+### What `tbd` Doesn’t Do (Yet)
 
 `tbd` focuses on the *durable layer* of agent development: issue tracking, planning, and
 knowledge that persist in git across sessions.
@@ -100,6 +117,7 @@ agents handling different aspects that I manage) is slower, because it forces yo
 design, but it gives higher quality results.
 
 > [!NOTE]
+> 
 > We use *Beads* (capitalized) to refer to Steve Yegge’s original
 > [`bd` tool](https://github.com/steveyegge/beads).
 > Lowercase “beads” refers generically to the issues stored in `tbd` or `bd`.
@@ -191,7 +209,7 @@ sessions.
 My current favorite workflows and guidelines are included by default, but you’re not
 locked in. Add your own via `--add` or configure what’s available in `.tbd/config.yml`.
 
-And yes, all the code *and* all the speccs of `tbd` are agent written—see
+And yes, all the code *and* all the specs of `tbd` are agent written—see
 [the FAQ](#was-tbd-built-with-tbd).
 
 ## Built-in Engineering Knowledge
