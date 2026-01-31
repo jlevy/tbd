@@ -113,7 +113,8 @@ status or context or knowledge and know what to do next:
 | "Implement these beads" | Agent works through beads systematically | [`tbd shortcut implement-beads`](packages/tbd/docs/shortcuts/standard/implement-beads.md) |
 | "Create a bead for the bug where …" | Agent creates and tracks a bead | `tbd create "..." --type=bug` |
 | "Let's work on current beads" | Agent finds ready beads and starts working | `tbd ready` |
-| "Code review all changes on this branch" | Agent loads language-specific review guidelines | [`tbd shortcut review-code-typescript`](packages/tbd/docs/shortcuts/standard/review-code-typescript.md) or [`tbd shortcut review-code-python`](packages/tbd/docs/shortcuts/standard/review-code-python.md) |
+| "Review this code" | Agent performs comprehensive code review with all guidelines | [`tbd shortcut review-code`](packages/tbd/docs/shortcuts/standard/review-code.md) |
+| "Review this PR" | Agent reviews a GitHub pull request and can comment/fix | [`tbd shortcut review-github-pr`](packages/tbd/docs/shortcuts/standard/review-github-pr.md) |
 | "Use the shortcut to commit" | Agent runs full pre-commit checks, code review, and commits | [`tbd shortcut commit-code`](packages/tbd/docs/shortcuts/standard/commit-code.md) |
 | "Create a PR" | Agent creates or updates the pull request | [`tbd shortcut create-or-update-pr-simple`](packages/tbd/docs/shortcuts/standard/create-or-update-pr-simple.md) |
 | "Let's create a research brief on …" | Agent creates a research document using a template | [`tbd shortcut new-research-brief`](packages/tbd/docs/shortcuts/standard/new-research-brief.md) |
@@ -372,10 +373,12 @@ tbd template --add=<url> --name=<name>
 | `new-validation-plan` | Create a test/validation plan |
 | `plan-implementation-with-beads` | Break a spec into implementation beads |
 | `implement-beads` | Implement beads from a spec |
+| `review-code` | Comprehensive code review (uncommitted, branch, or PR) |
+| `review-github-pr` | Review a GitHub PR with commenting and CI checks |
+| `review-code-typescript` | TypeScript-focused code review |
+| `review-code-python` | Python-focused code review |
 | `precommit-process` | Pre-commit review and testing |
 | `commit-code` | Commit with pre-commit checks |
-| `review-code-typescript` | Code review for TypeScript |
-| `review-code-python` | Code review for Python |
 | `create-or-update-pr-simple` | Basic PR creation |
 | `create-or-update-pr-with-validation-plan` | PR with a validation plan |
 
