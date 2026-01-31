@@ -1,63 +1,69 @@
 ---
 title: Review GitHub PR
-description: Review a pull request and optionally add comments or create fix beads
+description: Review a GitHub pull request with follow-up actions (comment, fix, CI check)
 author: Joshua Levy (github.com/jlevy) with LLM assistance
 ---
-We track work as beads using tbd.
-Run `tbd` for more on using tbd and current status.
+This shortcut reviews a **GitHub pull request** and handles GitHub-specific follow-ups
+like commenting on the PR, checking CI status, and pushing fixes.
 
-Instructions:
+For reviewing **local changes** (uncommitted or branch work) without GitHub integration,
+use `tbd shortcut review-code` directly.
+
+## Instructions
 
 Create a to-do list with the following items then perform all of them:
 
 1. **GitHub CLI setup:**
-   - Verify: `gh auth status` (if issues, run `tbd shortcut setup-github-cli`)
+   - Verify: `gh auth status`
+   - If issues, run `tbd shortcut setup-github-cli`
    - Get repo:
      `REPO=$(git remote get-url origin | sed -E 's#.*/git/##; s#.*github.com[:/]##; s#\.git$##')`
-   - Use `--repo $REPO` on all gh commands (required for Claude Code Cloud)
+   - Use `--repo $REPO` on all gh commands
 
 2. **Get the PR to review:**
    - If the user provided a PR number or URL, extract the PR number
    - If not specified, ask the user which PR to review
-   - Run:
-     `gh pr view <PR_NUMBER> --repo $REPO --json number,title,body,author,url,files`
+   - Get PR info:
+     `gh pr view <PR_NUMBER> --repo $REPO --json number,title,body,author,url,headRefName`
 
-3. **Fetch and analyze the PR changes:**
-   - Get the diff: `gh pr diff <PR_NUMBER> --repo $REPO`
-   - Get the list of files changed: `gh pr view <PR_NUMBER> --repo $REPO --json files`
-   - Review the commits: `gh pr view <PR_NUMBER> --repo $REPO --json commits`
-
-4. **Review for code quality:**
-   - Load language-specific rules: `tbd guidelines typescript-rules` or `python-rules`
-   - Perform a thorough senior engineering review: assess design, maintainability,
-     clarity, antipatterns, and specific corrections needed.
-
-5. **Check documentation and specs:**
-   - Verify any related specs in `docs/project/specs/active/` are in sync
-   - Check that `docs/development.md` is updated if needed
-   - Review any architecture docs in `docs/project/architecture/` if affected
-
-6. **Check CI status:**
+3. **Check CI status:**
    - Run: `gh pr checks <PR_NUMBER> --repo $REPO`
    - Note any failing or pending checks
 
-7. **Compile the review:** Write a structured review with:
-   - **Summary**: Brief assessment of the PR (1-2 sentences)
-   - **Strengths**: What’s done well (if any)
-   - **Issues**: Problems found with file:line references and suggested fixes
-   - **Suggestions**: Optional improvements (not blockers)
-   - **CI Status**: Current state of checks
+4. **Perform code review:**
+   - Run `tbd shortcut review-code` using the **GitHub PR** scope
+   - The diff is obtained via: `gh pr diff <PR_NUMBER> --repo $REPO`
 
-8. **Determine next action:**
+5. **Compile full review:** Combine the code review findings with GitHub-specific info:
+
+   - **Summary**: Brief assessment (1-2 sentences)
+   - **Strengths**: What’s done well (if any)
+   - **Issues**: Problems found with `file:line` references and suggested fixes
+   - **Suggestions**: Optional improvements (not blockers)
+   - **CI Status**: Current state of checks (passing/failing/pending)
+
+6. **Determine next action:**
    - If the user already specified what to do (e.g., “review and comment”, “review and
      fix”), follow those instructions
    - Otherwise, present the review and ask the user:
      - **Add as PR comment**: Post the review as a comment on the PR
      - **Create fix beads**: Create tbd beads for issues found and begin fixing
+     - **Report only**: Just output the review (no action)
 
-9. **Take the requested action:**
-   - If adding as comment:
-     `gh pr review <PR_NUMBER> --repo $REPO --comment --body "<review>"`
-   - If creating fix beads: Create a bead for each issue using
-     `tbd create "..." --type bug`, then follow `tbd shortcut implement-beads` to fix
-     them
+7. **Take the requested action:**
+
+   - **If adding as comment:**
+     ```bash
+     gh pr review <PR_NUMBER> --repo $REPO --comment --body "<review>"
+     ```
+
+   - **If creating fix beads:**
+     - Create a bead for each issue: `tbd create "Fix: ..." --type bug`
+     - Check out the PR branch if not already on it:
+       `gh pr checkout <PR_NUMBER> --repo $REPO`
+     - Follow `tbd shortcut implement-beads` to fix issues
+     - Push changes and update the PR
+
+   - **If report only:**
+     - Output the review
+     - No further action needed
