@@ -482,49 +482,6 @@ Or read online:
 - [CLI Reference](packages/tbd/docs/tbd-docs.md) — Complete command documentation
 - [Design Doc](packages/tbd/docs/tbd-design.md) — Technical architecture
 
-## Team Workflows
-
-tbd is designed for teams where one person sets up the project and others join later.
-
-**First contributor (project setup):**
-```bash
-npm install -g get-tbd@latest
-tbd setup --auto --prefix=myproject
-git add .tbd/ .claude/ && git commit -m "Initialize tbd"
-git push
-```
-
-**Joining contributors:**
-```bash
-git clone <repo>                    # .tbd/ directory comes with repo
-npm install -g get-tbd@latest       # If not already installed
-tbd setup --auto                    # No --prefix needed! Reads existing config
-```
-
-The second contributor just runs `tbd setup --auto` — no need to know the project prefix
-or any other configuration details.
-
-**Updating tbd:** After upgrading tbd (`npm install -g get-tbd@latest`), run
-`tbd setup --auto` to refresh local skill files with the latest shortcuts, guidelines,
-and templates.
-
-## Migration from Beads
-
-```bash
-# Auto-detects beads and migrates (uses existing beads prefix)
-tbd setup --from-beads
-
-# Verify
-tbd stats
-tbd list --all
-
-# If you wish to disable beads after migration
-tbd setup beads --disable
-```
-
-Issue IDs are preserved: `proj-123` in beads becomes `proj-123` in tbd.
-The prefix from your beads configuration is automatically used.
-
 ## How It Works
 
 tbd keeps two things separate from your code:
@@ -546,22 +503,21 @@ See the [design doc](packages/tbd/docs/tbd-design.md) for details.
 
 ## FAQ
 
-### How does tbd compare to Beads?
+### How does `tbd` compare to Beads?
 
-tbd was inspired by [Beads](https://github.com/steveyegge/beads) by Steve Yegge, and I’m
-grateful for the idea — it genuinely changed how I work with agents.
+`tbd` was inspired by [Beads](https://github.com/steveyegge/beads) by Steve Yegge, and
+I’m grateful for the idea—it genuinely changed how I work with agents.
 If you’re not familiar with Beads, the core insight is that git-native issue tracking
 raises an agent’s capacity for structured work from ~5-10 to-do items to hundreds of
 beads.
 
-tbd builds on that foundation with a simpler architecture: plain Markdown files instead
-of JSONL, no daemon, no SQLite, no 4-way sync.
+`tbd` builds on that foundation with a simpler architecture: plain Markdown files
+instead of JSONL, no daemon, no SQLite, no 4-way sync.
 This avoids the edge cases I ran into with network filesystems (Claude Code Cloud),
 merge conflicts, and multi-agent workflows.
 
-tbd also adds spec-driven planning and curated engineering guidelines — things Beads
-doesn’t attempt. If you already use Beads, `tbd setup --from-beads` migrates your beads
-with IDs preserved.
+If you already use Beads, `tbd setup --from-beads` migrates you to `tbd`. This imports
+and sets up your `.tbd` directory and preserves the IDs of all issues.
 
 **Scope:** tbd focuses on the *durable layer* — issue tracking, specs, and knowledge
 that persist across sessions and live in git.
