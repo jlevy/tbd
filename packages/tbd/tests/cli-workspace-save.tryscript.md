@@ -139,13 +139,13 @@ $ grep -c '^[a-z0-9]' .tbd/workspaces/outbox/mappings/ids.yml
 
 ## Workspace Management
 
-# Test: List workspaces shows both created workspaces
+# Test: List workspaces shows both created workspaces with issue counts
 
 ```console
 $ tbd workspace list
-WORKSPACE
-my-backup
-outbox
+WORKSPACE    open  in_progress  closed   total
+my-backup       3            0       0       3
+outbox          3            0       0       3
 ? 0
 ```
 
@@ -161,8 +161,8 @@ $ tbd workspace delete my-backup
 
 ```console
 $ tbd workspace list
-WORKSPACE
-outbox
+WORKSPACE    open  in_progress  closed   total
+outbox          3            0       0       3
 ? 0
 ```
 
@@ -235,5 +235,54 @@ $ tbd import --dir=/tmp/tbd-test-backup
 
 ```console
 $ rm -rf /tmp/tbd-test-backup
+? 0
+```
+
+* * *
+
+## Workspace List with Issue Counts by Status
+
+This section tests that workspace list shows issue counts broken down by status.
+
+# Test: Create additional issues for status testing
+
+```console
+$ tbd create "Another open issue" --type=task
+✓ Created test-[SHORTID]: Another open issue
+? 0
+```
+
+# Test: Save to workspace
+
+```console
+$ tbd save --workspace=status-test
+✓ Saved 4 issue(s) to status-test
+
+Remember to commit: git add .tbd/workspaces && git commit -m "tbd: save workspace"
+? 0
+```
+
+# Test: Workspace list shows correct counts by status
+
+All 4 issues are open (no in_progress or closed).
+
+```console
+$ tbd workspace list
+WORKSPACE      open  in_progress  closed   total
+status-test       4            0       0       4
+? 0
+```
+
+# Test: No workspaces shows helpful message
+
+```console
+$ tbd workspace delete status-test
+✓ Deleted workspace "status-test"
+? 0
+```
+
+```console
+$ tbd workspace list
+No workspaces
 ? 0
 ```

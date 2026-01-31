@@ -470,6 +470,24 @@ export async function importFromWorkspace(
 }
 
 /**
+ * Issue counts by status for a workspace.
+ */
+export interface WorkspaceIssueCounts {
+  open: number;
+  in_progress: number;
+  closed: number;
+  total: number;
+}
+
+/**
+ * Information about a workspace including issue counts.
+ */
+export interface WorkspaceInfo {
+  name: string;
+  counts: WorkspaceIssueCounts;
+}
+
+/**
  * List all workspaces in .tbd/workspaces/.
  *
  * @param tbdRoot - The root directory of the tbd project
@@ -501,6 +519,50 @@ export async function listWorkspaces(tbdRoot: string): Promise<string[]> {
   }
 
   return workspaces;
+}
+
+/**
+ * List all workspaces with issue counts by status.
+ *
+ * @param tbdRoot - The root directory of the tbd project
+ * @returns Array of workspace info with names and counts
+ */
+export async function listWorkspacesWithCounts(tbdRoot: string): Promise<WorkspaceInfo[]> {
+  const workspaceNames = await listWorkspaces(tbdRoot);
+  const result: WorkspaceInfo[] = [];
+
+  for (const name of workspaceNames) {
+    const workspaceDir = join(tbdRoot, getWorkspaceDir(name));
+    let issues: Issue[] = [];
+
+    try {
+      issues = await listIssues(workspaceDir);
+    } catch {
+      // No issues or can't read - counts will be 0
+    }
+
+    // Count by status
+    const counts: WorkspaceIssueCounts = {
+      open: 0,
+      in_progress: 0,
+      closed: 0,
+      total: issues.length,
+    };
+
+    for (const issue of issues) {
+      if (issue.status === 'open' || issue.status === 'blocked' || issue.status === 'deferred') {
+        counts.open++;
+      } else if (issue.status === 'in_progress') {
+        counts.in_progress++;
+      } else if (issue.status === 'closed') {
+        counts.closed++;
+      }
+    }
+
+    result.push({ name, counts });
+  }
+
+  return result;
 }
 
 /**

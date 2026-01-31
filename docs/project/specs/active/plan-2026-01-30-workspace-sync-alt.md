@@ -286,7 +286,17 @@ tbd import --outbox
 tbd workspace list
 ```
 
-Shows all workspaces in `.tbd/workspaces/` with item counts.
+Shows all workspaces in `.tbd/workspaces/` with issue counts by status.
+Output format should be consistent with `tbd stats` styling:
+
+```
+WORKSPACE           open  in_progress  closed   total
+outbox                 2            0       0       2
+my-feature             5            1       3       9
+backup-2026-01         0            0      12      12
+```
+
+This gives visibility into what each workspace contains at a glance.
 
 #### `tbd workspace delete` - Delete a workspace
 

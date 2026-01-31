@@ -11,17 +11,21 @@ import { Command } from 'commander';
 
 import { BaseCommand } from '../lib/base-command.js';
 import { requireInit, NotFoundError, ValidationError } from '../lib/errors.js';
-import { listWorkspaces, deleteWorkspace, workspaceExists } from '../../file/workspace.js';
+import {
+  listWorkspacesWithCounts,
+  deleteWorkspace,
+  workspaceExists,
+} from '../../file/workspace.js';
 import { isValidWorkspaceName } from '../../lib/paths.js';
 
 /**
- * List all workspaces.
+ * List all workspaces with issue counts.
  */
 class WorkspaceListHandler extends BaseCommand {
   async run(): Promise<void> {
     const tbdRoot = await requireInit();
 
-    const workspaces = await listWorkspaces(tbdRoot);
+    const workspaces = await listWorkspacesWithCounts(tbdRoot);
 
     this.output.data(workspaces, () => {
       const colors = this.output.getColors();
@@ -29,9 +33,20 @@ class WorkspaceListHandler extends BaseCommand {
         console.log('No workspaces');
         return;
       }
-      console.log(colors.dim('WORKSPACE'));
+
+      // Calculate column widths
+      const maxNameLen = Math.max(9, ...workspaces.map((ws) => ws.name.length)); // 9 = "WORKSPACE".length
+      const countWidth = 6;
+
+      // Header
+      const header = `${colors.dim('WORKSPACE'.padEnd(maxNameLen))}  ${colors.dim('open'.padStart(countWidth))}  ${colors.dim('in_progress'.padStart(11))}  ${colors.dim('closed'.padStart(countWidth))}  ${colors.dim('total'.padStart(countWidth))}`;
+      console.log(header);
+
+      // Rows
       for (const ws of workspaces) {
-        console.log(ws);
+        const { name, counts } = ws;
+        const row = `${name.padEnd(maxNameLen)}  ${String(counts.open).padStart(countWidth)}  ${String(counts.in_progress).padStart(11)}  ${String(counts.closed).padStart(countWidth)}  ${String(counts.total).padStart(countWidth)}`;
+        console.log(row);
       }
     });
   }

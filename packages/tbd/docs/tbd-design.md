@@ -1062,7 +1062,7 @@ Each workspace mirrors the `data-sync` directory structure:
 | `tbd save --dir=<path>` | Save to arbitrary directory |
 | `tbd import --workspace=<name>` | Import issues from workspace to worktree |
 | `tbd import --outbox` | Shortcut for `--workspace=outbox --clear-on-success` |
-| `tbd workspace list` | List all workspaces |
+| `tbd workspace list` | List all workspaces with issue counts by status |
 | `tbd workspace delete <name>` | Delete a workspace |
 
 #### Sync Failure Recovery Workflow
