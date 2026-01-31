@@ -77,6 +77,7 @@ $ tbd sync
 ✗ Push failed: fatal: 'origin' does not appear to be a git repository
   2 commit(s) not pushed to remote.
   Run 'tbd sync' to retry or 'tbd sync --status' to check status.
+  To preserve changes locally: tbd save --outbox
 ? 0
 ```
 
@@ -143,6 +144,7 @@ $ tbd sync
 ✗ Push failed: fatal: 'origin' does not appear to be a git repository
   3 commit(s) not pushed to remote.
   Run 'tbd sync' to retry or 'tbd sync --status' to check status.
+  To preserve changes locally: tbd save --outbox
 ? 0
 ```
 
@@ -231,6 +233,7 @@ $ tbd sync
 ✗ Push failed: fatal: 'origin' does not appear to be a git repository
   4 commit(s) not pushed to remote.
   Run 'tbd sync' to retry or 'tbd sync --status' to check status.
+  To preserve changes locally: tbd save --outbox
 ? 0
 ```
 
@@ -248,6 +251,7 @@ $ tbd sync
 ✗ Push failed: fatal: 'origin' does not appear to be a git repository
   4 commit(s) not pushed to remote.
   Run 'tbd sync' to retry or 'tbd sync --status' to check status.
+  To preserve changes locally: tbd save --outbox
 ? 0
 ```
 
@@ -257,6 +261,7 @@ $ tbd sync
 ✗ Push failed: fatal: 'origin' does not appear to be a git repository
   4 commit(s) not pushed to remote.
   Run 'tbd sync' to retry or 'tbd sync --status' to check status.
+  To preserve changes locally: tbd save --outbox
 ? 0
 ```
 

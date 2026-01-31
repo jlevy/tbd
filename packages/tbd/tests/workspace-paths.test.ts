@@ -6,6 +6,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
+import { join } from 'node:path';
 import {
   WORKSPACES_DIR,
   WORKSPACES_DIR_NAME,
@@ -22,45 +23,46 @@ describe('workspace path constants', () => {
   });
 
   it('defines WORKSPACES_DIR as .tbd/workspaces', () => {
-    expect(WORKSPACES_DIR).toBe('.tbd/workspaces');
+    // Use join() to get platform-specific path separator
+    expect(WORKSPACES_DIR).toBe(join('.tbd', 'workspaces'));
   });
 });
 
 describe('getWorkspaceDir', () => {
   it('returns path to workspace directory', () => {
     const path = getWorkspaceDir('my-feature');
-    expect(path).toBe('.tbd/workspaces/my-feature');
+    expect(path).toBe(join('.tbd', 'workspaces', 'my-feature'));
   });
 
   it('returns path for outbox workspace', () => {
     const path = getWorkspaceDir('outbox');
-    expect(path).toBe('.tbd/workspaces/outbox');
+    expect(path).toBe(join('.tbd', 'workspaces', 'outbox'));
   });
 
   it('handles workspace names with hyphens', () => {
     const path = getWorkspaceDir('pre-refactor-2026-01');
-    expect(path).toBe('.tbd/workspaces/pre-refactor-2026-01');
+    expect(path).toBe(join('.tbd', 'workspaces', 'pre-refactor-2026-01'));
   });
 });
 
 describe('getWorkspaceIssuesDir', () => {
   it('returns path to workspace issues directory', () => {
     const path = getWorkspaceIssuesDir('my-feature');
-    expect(path).toBe('.tbd/workspaces/my-feature/issues');
+    expect(path).toBe(join('.tbd', 'workspaces', 'my-feature', 'issues'));
   });
 });
 
 describe('getWorkspaceMappingsDir', () => {
   it('returns path to workspace mappings directory', () => {
     const path = getWorkspaceMappingsDir('my-feature');
-    expect(path).toBe('.tbd/workspaces/my-feature/mappings');
+    expect(path).toBe(join('.tbd', 'workspaces', 'my-feature', 'mappings'));
   });
 });
 
 describe('getWorkspaceAtticDir', () => {
   it('returns path to workspace attic directory', () => {
     const path = getWorkspaceAtticDir('my-feature');
-    expect(path).toBe('.tbd/workspaces/my-feature/attic');
+    expect(path).toBe(join('.tbd', 'workspaces', 'my-feature', 'attic'));
   });
 });
 
