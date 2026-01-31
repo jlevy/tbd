@@ -1,4 +1,6 @@
 ---
+close_reason: Added workspace path constants and utilities to paths.ts with full test coverage
+closed_at: 2026-01-30T23:56:07.395Z
 created_at: 2026-01-30T23:28:59.425Z
 dependencies:
   - target: is-01kg8kt398k2rcjzqbf4g2axds
@@ -15,9 +17,9 @@ labels: []
 parent_id: is-01kg8ksme85ymkbyt1cxj9gpe3
 priority: 2
 spec_path: docs/project/specs/active/plan-2026-01-30-workspace-sync-alt.md
-status: open
+status: closed
 title: Add .tbd/workspaces/ directory structure support
 type: is
-updated_at: 2026-01-30T23:29:38.638Z
-version: 5
+updated_at: 2026-01-30T23:56:07.396Z
+version: 7
 ---
