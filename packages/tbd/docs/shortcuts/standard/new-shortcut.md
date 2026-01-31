@@ -27,7 +27,7 @@ Reference other shortcuts/guidelines/templates as needed.]
 
 Use kebab-case: `new-<thing>`, `<verb>-<noun>`, `<thing>-<variant>`
 
-Examples: `commit-code`, `new-plan-spec`, `review-code-typescript`
+Examples: `code-review-and-commit`, `new-plan-spec`, `review-code-typescript`
 
 ## Key Principles
 

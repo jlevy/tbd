@@ -93,8 +93,8 @@ export class DocSync {
    * Parse a source string into a DocSource.
    *
    * @example
-   * parseSource('internal:shortcuts/standard/commit-code.md')
-   * // => { type: 'internal', location: 'shortcuts/standard/commit-code.md' }
+   * parseSource('internal:shortcuts/standard/code-review-and-commit.md')
+   * // => { type: 'internal', location: 'shortcuts/standard/code-review-and-commit.md' }
    *
    * @example
    * parseSource('https://raw.githubusercontent.com/org/repo/main/file.md')

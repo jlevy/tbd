@@ -196,7 +196,7 @@ class DocsHandler extends BaseCommand {
     console.log(colors.bold('Workflows (Shortcuts):'));
     console.log('  tbd shortcut --list          List all available shortcuts');
     console.log('  tbd shortcut new-plan-spec   Plan a new feature');
-    console.log('  tbd shortcut commit-code     Commit code properly');
+    console.log('  tbd shortcut code-review-and-commit     Commit code properly');
     console.log('  tbd shortcut create-or-update-pr-simple  Create a pull request');
     console.log('');
 

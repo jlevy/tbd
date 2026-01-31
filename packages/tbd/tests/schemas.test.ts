@@ -268,7 +268,8 @@ describe('ConfigSchema', () => {
         display: { id_prefix: 'proj' },
         docs_cache: {
           files: {
-            'shortcuts/standard/commit-code.md': 'internal:shortcuts/standard/commit-code.md',
+            'shortcuts/standard/code-review-and-commit.md':
+              'internal:shortcuts/standard/code-review-and-commit.md',
             'custom/my-doc.md': 'https://example.com/my-doc.md',
           },
         },
@@ -278,7 +279,8 @@ describe('ConfigSchema', () => {
       expect(result.success).toBe(true);
       if (result.success) {
         expect(result.data.docs_cache?.files).toEqual({
-          'shortcuts/standard/commit-code.md': 'internal:shortcuts/standard/commit-code.md',
+          'shortcuts/standard/code-review-and-commit.md':
+            'internal:shortcuts/standard/code-review-and-commit.md',
           'custom/my-doc.md': 'https://example.com/my-doc.md',
         });
       }
@@ -314,7 +316,8 @@ describe('ConfigSchema', () => {
         display: { id_prefix: 'proj' },
         docs_cache: {
           files: {
-            'shortcuts/standard/commit-code.md': 'internal:shortcuts/standard/commit-code.md',
+            'shortcuts/standard/code-review-and-commit.md':
+              'internal:shortcuts/standard/code-review-and-commit.md',
           },
           lookup_path: ['.tbd/docs/shortcuts/system', '.tbd/docs/shortcuts/standard'],
         },

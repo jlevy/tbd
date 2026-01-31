@@ -351,7 +351,7 @@ resource name. This removes friction for agents.
 
 ```markdown
 ## Available Shortcuts
-- commit-code
+- code-review-and-commit
 - create-or-update-pr-simple
 - new-plan-spec
 ```
@@ -363,7 +363,7 @@ resource name. This removes friction for agents.
 
 | Command | Purpose | Description |
 |---------|---------|-------------|
-| `mycli shortcut commit-code` | Commit Code | How to run pre-commit checks and commit |
+| `mycli shortcut code-review-and-commit` | Commit Code | How to run pre-commit checks and commit |
 | `mycli shortcut create-pr` | Create PR | How to create a pull request |
 | `mycli shortcut new-plan-spec` | Plan Feature | How to create a planning specification |
 ```

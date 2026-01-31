@@ -125,7 +125,7 @@ them systematically using issues to track each part.
    (`tbd shortcut plan-implementation-with-beads`)
 3. **Implement**: Work through issues systematically (`tbd shortcut implement-beads`)
 4. **Validate**: Create validation plan, run tests (`tbd shortcut new-validation-plan`)
-5. **Ship**: Commit, create PR, get it merged (`tbd shortcut commit-code`,
+5. **Ship**: Commit, create PR, get it merged (`tbd shortcut code-review-and-commit`,
    `tbd shortcut create-or-update-pr-with-validation-plan`)
 
 **When the agent should use it**:
@@ -152,11 +152,11 @@ repetitive workflows.
 | **Issue Creation** | `plan-implementation-with-beads` | Break plans into trackable work |
 | **Implementation** | `implement-beads` | Execute planned work with TDD |
 | **Validation** | `new-validation-plan`, `precommit-process` | Ensure quality before shipping |
-| **Shipping** | `commit-code`, `create-or-update-pr-simple`, `create-or-update-pr-with-validation-plan` | Ship code professionally |
+| **Shipping** | `code-review-and-commit`, `create-or-update-pr-simple`, `create-or-update-pr-with-validation-plan` | Ship code professionally |
 | **Review** | `review-code-typescript`, `review-code-python` | Apply code review best practices |
 
 **When the agent should use shortcuts**:
-- Ready to commit → `tbd shortcut commit-code`
+- Ready to commit → `tbd shortcut code-review-and-commit`
 - Need to create a PR → `tbd shortcut create-or-update-pr-simple`
 - Reviewing code → `tbd shortcut review-code-typescript`
 
@@ -490,7 +490,7 @@ For existing tbd projects (`.tbd/` exists): just run `tbd setup --auto` (no pref
 | "Set up a TypeScript monorepo" | `tbd guidelines typescript-monorepo-patterns` | *Outputs instructions* |
 | "Add golden/snapshot tests" | `tbd guidelines golden-testing-guidelines` | *Outputs instructions* |
 | "Review the TypeScript code" | `tbd guidelines typescript-rules` | *Outputs instructions* |
-| "Ready to commit" | `tbd shortcut commit-code` | *Outputs instructions* |
+| "Ready to commit" | `tbd shortcut code-review-and-commit` | *Outputs instructions* |
 
 *Outputs instructions* = This command displays guidance the agent should read and follow.
 It doesn't perform the action itself - it tells the agent HOW to do it well.
@@ -515,7 +515,7 @@ These are **informational commands** - they display guidance the agent should fo
 
 | Command | Purpose | Description |
 |---------|---------|-------------|
-| `tbd shortcut commit-code` | Commit Code | How to run pre-commit checks, review changes, and commit |
+| `tbd shortcut code-review-and-commit` | Commit Code | How to run pre-commit checks, review changes, and commit |
 | `tbd shortcut create-or-update-pr-simple` | Create PR | How to create or update a pull request |
 | `tbd shortcut create-or-update-pr-with-validation-plan` | Create PR with Tests | How to create PR with detailed validation plan |
 | `tbd shortcut implement-beads` | Implement Issues | How to implement issues from a spec with TDD |
@@ -589,7 +589,7 @@ DEVELOPMENT WORKFLOWS (Shortcuts)
     review-code-python     Python code review
 
   Shipping:
-    commit-code            Commit with proper process
+    code-review-and-commit            Commit with proper process
     create-or-update-pr-simple           Simple PR
     create-or-update-pr-with-validation-plan  PR with test plan
 

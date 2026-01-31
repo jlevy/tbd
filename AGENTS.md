@@ -90,7 +90,7 @@ or want help → run `tbd shortcut welcome-user`
 | "Plan a new feature" | `tbd shortcut new-plan-spec` |
 | "Break spec into beads" | `tbd shortcut plan-implementation-with-beads` |
 | "Implement these beads" | `tbd shortcut implement-beads` |
-| "Commit this" | `tbd shortcut commit-code` |
+| "Commit this" | `tbd shortcut code-review-and-commit` |
 | "Create a PR" | `tbd shortcut create-or-update-pr-simple` |
 | "Research this topic" | `tbd shortcut new-research-brief` |
 | "Document architecture" | `tbd shortcut new-architecture-doc` |
@@ -173,10 +173,10 @@ Run `tbd shortcut <name>` to use any of these shortcuts:
 | Name | Description |
 | --- | --- |
 | agent-handoff | Generate a concise handoff prompt for another coding agent to continue work |
-| cleanup-all | Full cleanup cycle including duplicate removal, dead code, and code quality improvements |
-| cleanup-remove-trivial-tests | Review and remove tests that do not add meaningful coverage |
-| cleanup-update-docstrings | Review and add concise docstrings to major functions and types |
-| commit-code | Run pre-commit checks, review changes, and commit code |
+| code-cleanup-all | Full cleanup cycle including duplicate removal, dead code, and code quality improvements |
+| code-cleanup-docstrings | Review and add concise docstrings to major functions and types |
+| code-cleanup-tests | Review and remove tests that do not add meaningful coverage |
+| code-review-and-commit | Run pre-commit checks, review changes, and commit code |
 | create-or-update-pr-simple | Create or update a pull request with a concise summary |
 | create-or-update-pr-with-validation-plan | Create or update a pull request with a detailed test/validation plan |
 | implement-beads | Implement beads from a spec, following TDD and project rules |

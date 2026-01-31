@@ -6,7 +6,7 @@
 ## Summary
 
 Systematic codebase cleanup following
-`docs/general/agent-shortcuts/shortcut-cleanup-all.md` guidelines.
+`docs/general/agent-shortcuts/shortcut-code-cleanup-all.md` guidelines.
 Primary focus on file naming consistency (kebab-case) and duplicate code/type
 consolidation.
 

@@ -29,7 +29,7 @@ The current config structure has two related keys:
 ```yaml
 # Current structure
 doc_cache:                    # Maps destination -> source
-  shortcuts/standard/commit-code.md: internal:shortcuts/standard/commit-code.md
+  shortcuts/standard/code-review-and-commit.md: internal:shortcuts/standard/code-review-and-commit.md
 
 docs:                         # Search paths
   paths:
@@ -51,10 +51,10 @@ This is confusing because:
 docs_cache:
   # Files to sync: maps destination paths to source locations
   # Sources can be:
-  #   - internal: prefix for bundled docs (e.g., "internal:shortcuts/standard/commit-code.md")
+  #   - internal: prefix for bundled docs (e.g., "internal:shortcuts/standard/code-review-and-commit.md")
   #   - Full URL for external docs (e.g., "https://raw.githubusercontent.com/org/repo/main/file.md")
   files:
-    shortcuts/standard/commit-code.md: internal:shortcuts/standard/commit-code.md
+    shortcuts/standard/code-review-and-commit.md: internal:shortcuts/standard/code-review-and-commit.md
     shortcuts/standard/precommit-process.md: internal:shortcuts/standard/precommit-process.md
     # Custom external docs:
     # shortcuts/custom/my-shortcut.md: https://raw.githubusercontent.com/org/repo/main/shortcuts/my-shortcut.md

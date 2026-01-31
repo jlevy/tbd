@@ -989,7 +989,7 @@ This removes friction for agents.
 **Anti-pattern** (name only):
 ```markdown
 ## Available Shortcuts
-- commit-code
+- code-review-and-commit
 - create-or-update-pr-simple
 - new-plan-spec
 ```
@@ -1000,7 +1000,7 @@ This removes friction for agents.
 
 | Command | Purpose | Description |
 |---------|---------|-------------|
-| `tbd shortcut commit-code` | Commit Code | How to run pre-commit checks and commit |
+| `tbd shortcut code-review-and-commit` | Commit Code | How to run pre-commit checks and commit |
 | `tbd shortcut create-or-update-pr-simple` | Create PR | How to create a pull request |
 | `tbd shortcut new-plan-spec` | Plan Feature | How to create a planning specification |
 ```
@@ -1033,7 +1033,7 @@ This helps agents find relevant resources based on what they’re trying to acco
 | Planning | `new-plan-spec`, `new-research-brief`, `new-architecture-doc` | Starting new work |
 | Implementation | `implement-beads`, `plan-implementation-with-beads` | Building features |
 | Quality | `new-validation-plan`, `precommit-process`, `review-code-*` | Ensuring quality |
-| Shipping | `commit-code`, `create-pr-*` | Delivering work |
+| Shipping | `code-review-and-commit`, `create-pr-*` | Delivering work |
 
 **Guideline Categories** (by domain):
 
@@ -1274,7 +1274,7 @@ async function generateShortcutDirectory(): Promise<string> {
 
 | Name | Title | Description |
 | --- | --- | --- |
-| commit-code | Commit Code | Run pre-commit checks... |
+| code-review-and-commit | Commit Code | Run pre-commit checks... |
 
 <!-- END SHORTCUT DIRECTORY -->
 ```
@@ -2057,10 +2057,10 @@ base-command.ts │ │ │ ├── doc-cache.ts # Path-ordered doc loading wi
 └── docs/ │ ├── SKILL.md # Claude Code skill (<500 lines) │ ├── SKILL-brief.md #
 Condensed skill for context recovery │ ├── AGENTS.md # Cursor + Codex (repo root) │ ├──
 tbd-docs.md # CLI reference │ ├── tbd-closing.md # Session protocol │ ├── shortcuts/ #
-Workflow instruction files │ │ ├── commit-code.md │ │ ├── new-plan-spec.md │ │ └── ... │
-├── guidelines/ # Coding best practice files │ │ ├── typescript-rules.md │ │ ├──
-general-tdd-guidelines.md │ │ └── ... │ └── templates/ # Document template files │ ├──
-template-plan-spec.md │ └── ... ├── dist/ │ ├── bin.mjs # Bundled CLI │ └── docs/ #
+Workflow instruction files │ │ ├── code-review-and-commit.md │ │ ├── new-plan-spec.md │
+│ └── ... │ ├── guidelines/ # Coding best practice files │ │ ├── typescript-rules.md │ │
+├── general-tdd-guidelines.md │ │ └── ... │ └── templates/ # Document template files │
+├── template-plan-spec.md │ └── ... ├── dist/ │ ├── bin.mjs # Bundled CLI │ └── docs/ #
 Bundled documentation (all resources) │ ├── SKILL.md │ ├── SKILL-brief.md │ ├──
 AGENTS.md │ ├── README.md │ ├── shortcuts/ │ ├── guidelines/ │ ├── templates/ │ └── ...
 └── package.json

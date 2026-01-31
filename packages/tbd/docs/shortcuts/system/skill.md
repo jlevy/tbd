@@ -58,7 +58,7 @@ or want help → run `tbd shortcut welcome-user`
 | "Plan a new feature" | `tbd shortcut new-plan-spec` |
 | "Break spec into beads" | `tbd shortcut plan-implementation-with-beads` |
 | "Implement these beads" | `tbd shortcut implement-beads` |
-| "Commit this" | `tbd shortcut commit-code` |
+| "Commit this" | `tbd shortcut code-review-and-commit` |
 | "Create a PR" | `tbd shortcut create-or-update-pr-simple` |
 | "Research this topic" | `tbd shortcut new-research-brief` |
 | "Document architecture" | `tbd shortcut new-architecture-doc` |

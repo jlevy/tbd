@@ -52,9 +52,9 @@ cycle afterwords, fixing all build or test issues.
    - Review types and eliminate use of optional types as possible so we don’t spread
      state checks throughout the codebase.
 
-7. **Remove trivial tests**: Follow `tbd shortcut cleanup-remove-trivial-tests`.
+7. **Remove trivial tests**: Follow `tbd shortcut code-cleanup-tests`.
 
-8. **Update docstrings**: Follow `tbd shortcut cleanup-update-docstrings`.
+8. **Update docstrings**: Follow `tbd shortcut code-cleanup-docstrings`.
 
 9. **Consolidate constants and settings**: Determine what files hold shared settings
    (such as `settings.ts` or similar).

@@ -131,13 +131,13 @@ See “Human-Readable Formatting Standardization” section below for rationale.
 
 Current format:
 ```
-commit-code (.tbd/docs/shortcuts/standard)
+code-review-and-commit (.tbd/docs/shortcuts/standard)
    Commit Code: Run pre-commit checks, review changes, and commit code
 ```
 
 New format:
 ```
-commit-code (1.8 KB, ~450 tok)
+code-review-and-commit (1.8 KB, ~450 tok)
    Commit Code: Run pre-commit checks, review changes, and commit code
 ```
 
@@ -152,10 +152,10 @@ Add fields to JSON structure:
 
 ```json
 {
-  "name": "commit-code",
+  "name": "code-review-and-commit",
   "title": "Commit Code",
   "description": "Run pre-commit checks...",
-  "path": "/full/path/to/commit-code.md",
+  "path": "/full/path/to/code-review-and-commit.md",
   "sourceDir": ".tbd/docs/shortcuts/standard",
   "sizeBytes": 1843,
   "approxTokens": 461,

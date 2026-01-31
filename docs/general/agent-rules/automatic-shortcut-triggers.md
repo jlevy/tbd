@@ -45,7 +45,7 @@ instructions.
 
 | If user request involves... | Use shortcut |
 | --- | --- |
-| Committing code | @shortcut-precommit-process.md → @shortcut-commit-code.md |
+| Committing code | @shortcut-precommit-process.md → @shortcut-code-review-and-commit.md |
 | Creating a validation plan | @shortcut-create-or-update-validation-plan.md |
 | Creating a PR with validation | @shortcut-create-or-update-pr-with-validation-plan.md |
 | Creating a PR (simple, no validation plan) | @shortcut-create-or-update-pr-simple.md |
@@ -70,9 +70,9 @@ instructions.
 
 | If user request involves... | Use shortcut |
 | --- | --- |
-| Code cleanup or refactoring | @shortcut-cleanup-all.md |
-| Removing trivial tests | @shortcut-cleanup-remove-trivial-tests.md |
-| Updating docstrings | @shortcut-cleanup-update-docstrings.md |
+| Code cleanup or refactoring | @shortcut-code-cleanup-all.md |
+| Removing trivial tests | @shortcut-code-cleanup-tests.md |
+| Updating docstrings | @shortcut-code-cleanup-docstrings.md |
 | Merging from upstream | @shortcut-merge-upstream.md |
 
 ## Common Shortcut Chains (Combos)
@@ -94,7 +94,7 @@ When user says “implement this spec” or similar:
 
 1. @shortcut-precommit-process.md — Run pre-commit checks
 
-2. @shortcut-commit-code.md — Commit changes
+2. @shortcut-code-review-and-commit.md — Commit changes
 
 ### PR Flow (with Validation)
 

@@ -161,7 +161,7 @@ settings:
 doc_cache:
   shortcuts/system/skill.md: internal:shortcuts/system/skill.md
   shortcuts/system/shortcut-explanation.md: internal:shortcuts/system/shortcut-explanation.md
-  shortcuts/standard/commit-code.md: internal:shortcuts/standard/commit-code.md
+  shortcuts/standard/code-review-and-commit.md: internal:shortcuts/standard/code-review-and-commit.md
   shortcuts/standard/precommit-process.md: internal:shortcuts/standard/precommit-process.md
   shortcuts/custom/my-org-shortcut.md: https://raw.githubusercontent.com/myorg/docs/main/shortcuts/my-org-shortcut.md
   guidelines/typescript-rules.md: internal:guidelines/typescript-rules.md

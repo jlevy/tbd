@@ -138,7 +138,7 @@ status or context or knowledge and know what to do next:
 | "Let's work on current beads" | Agent finds ready beads and starts working | `tbd ready` |
 | "Review this code" | Agent performs comprehensive code review with all guidelines | [`tbd shortcut review-code`](packages/tbd/docs/shortcuts/standard/review-code.md) |
 | "Review this PR" | Agent reviews a GitHub pull request and can comment/fix | [`tbd shortcut review-github-pr`](packages/tbd/docs/shortcuts/standard/review-github-pr.md) |
-| "Use the shortcut to commit" | Agent runs full pre-commit checks, code review, and commits | [`tbd shortcut commit-code`](packages/tbd/docs/shortcuts/standard/commit-code.md) |
+| "Use the shortcut to commit" | Agent runs full pre-commit checks, code review, and commits | [`tbd shortcut code-review-and-commit`](packages/tbd/docs/shortcuts/standard/code-review-and-commit.md) |
 | "Create a PR" | Agent creates or updates the pull request | [`tbd shortcut create-or-update-pr-simple`](packages/tbd/docs/shortcuts/standard/create-or-update-pr-simple.md) |
 | "Let's create a research brief on …" | Agent creates a research document using a template | [`tbd shortcut new-research-brief`](packages/tbd/docs/shortcuts/standard/new-research-brief.md) |
 | "How could we test this better?" | Agent loads TDD and testing guidelines | [`tbd guidelines general-tdd-guidelines`](packages/tbd/docs/guidelines/general-tdd-guidelines.md) |
@@ -401,7 +401,7 @@ tbd template --add=<url> --name=<name>
 | `review-code-typescript` | TypeScript-focused code review |
 | `review-code-python` | Python-focused code review |
 | `precommit-process` | Pre-commit review and testing |
-| `commit-code` | Commit with pre-commit checks |
+| `code-review-and-commit` | Commit with pre-commit checks |
 | `create-or-update-pr-simple` | Basic PR creation |
 | `create-or-update-pr-with-validation-plan` | PR with a validation plan |
 

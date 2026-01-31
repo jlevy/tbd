@@ -70,7 +70,7 @@ describe('golden output tests', () => {
         Workflows (Shortcuts):
           tbd shortcut --list          List all available shortcuts
           tbd shortcut new-plan-spec   Plan a new feature
-          tbd shortcut commit-code     Commit code properly
+          tbd shortcut code-review-and-commit     Commit code properly
           tbd shortcut create-or-update-pr-simple  Create a pull request
 
         Guidelines (Coding Standards):
@@ -188,12 +188,12 @@ describe('golden output tests', () => {
       const planningResult = runTbd(['shortcut', '--list', '--category', 'planning']);
       expect(planningResult.status).toBe(0);
       expect(planningResult.stdout).toContain('new-plan-spec');
-      expect(planningResult.stdout).not.toContain('commit-code');
+      expect(planningResult.stdout).not.toContain('code-review-and-commit');
 
-      // Shipping category should include commit-code
+      // Shipping category should include code-review-and-commit
       const shippingResult = runTbd(['shortcut', '--list', '--category', 'shipping']);
       expect(shippingResult.status).toBe(0);
-      expect(shippingResult.stdout).toContain('commit-code');
+      expect(shippingResult.stdout).toContain('code-review-and-commit');
       expect(shippingResult.stdout).not.toContain('new-plan-spec');
     });
   });

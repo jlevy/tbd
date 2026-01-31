@@ -430,7 +430,7 @@ function buildTableRows(docs: CachedDoc[], skipNames: string[] = []): string[] {
  * // ## Available Shortcuts
  * // | Name | Description |
  * // | --- | --- |
- * // | commit-code | Run pre-commit checks, review changes, and commit code |
+ * // | code-review-and-commit | Run pre-commit checks, review changes, and commit code |
  * // ...
  * // ## Available Guidelines
  * // | Name | Description |

@@ -32,10 +32,10 @@ describe('doc-sync', () => {
   describe('DocSync.parseSource', () => {
     it('parses internal source', () => {
       const sync = new DocSync(tempDir, {});
-      const source = sync.parseSource('internal:shortcuts/standard/commit-code.md');
+      const source = sync.parseSource('internal:shortcuts/standard/code-review-and-commit.md');
 
       expect(source.type).toBe('internal');
-      expect(source.location).toBe('shortcuts/standard/commit-code.md');
+      expect(source.location).toBe('shortcuts/standard/code-review-and-commit.md');
     });
 
     it('parses URL source', () => {
@@ -244,8 +244,8 @@ describe('doc-sync', () => {
   describe('internalDocExists', () => {
     it('returns true for existing bundled docs', async () => {
       // This tests against the actual bundled docs in the package
-      // shortcuts/standard/commit-code.md should exist
-      const exists = await internalDocExists('shortcuts/standard/commit-code.md');
+      // shortcuts/standard/code-review-and-commit.md should exist
+      const exists = await internalDocExists('shortcuts/standard/code-review-and-commit.md');
       expect(exists).toBe(true);
     });
 
@@ -264,13 +264,14 @@ describe('doc-sync', () => {
   describe('pruneStaleInternals', () => {
     it('keeps entries with existing internal sources', async () => {
       const config = {
-        'shortcuts/standard/commit-code.md': 'internal:shortcuts/standard/commit-code.md',
+        'shortcuts/standard/code-review-and-commit.md':
+          'internal:shortcuts/standard/code-review-and-commit.md',
       };
 
       const result = await pruneStaleInternals(config);
 
-      expect(result.config['shortcuts/standard/commit-code.md']).toBe(
-        'internal:shortcuts/standard/commit-code.md',
+      expect(result.config['shortcuts/standard/code-review-and-commit.md']).toBe(
+        'internal:shortcuts/standard/code-review-and-commit.md',
       );
       expect(result.pruned).toEqual([]);
     });
@@ -299,7 +300,8 @@ describe('doc-sync', () => {
 
     it('handles mixed configs correctly', async () => {
       const config = {
-        'shortcuts/standard/commit-code.md': 'internal:shortcuts/standard/commit-code.md', // exists
+        'shortcuts/standard/code-review-and-commit.md':
+          'internal:shortcuts/standard/code-review-and-commit.md', // exists
         'stale/doc.md': 'internal:nonexistent/fake-doc.md', // doesn't exist
         'external/doc.md': 'https://example.com/doc.md', // URL, always kept
       };
@@ -307,8 +309,8 @@ describe('doc-sync', () => {
       const result = await pruneStaleInternals(config);
 
       // Existing internal kept
-      expect(result.config['shortcuts/standard/commit-code.md']).toBe(
-        'internal:shortcuts/standard/commit-code.md',
+      expect(result.config['shortcuts/standard/code-review-and-commit.md']).toBe(
+        'internal:shortcuts/standard/code-review-and-commit.md',
       );
       // Non-existent internal pruned
       expect(result.config['stale/doc.md']).toBeUndefined();

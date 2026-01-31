@@ -176,15 +176,15 @@ export const GitRemoteName = z
 /**
  * Doc cache configuration - maps destination paths to source locations.
  *
- * Keys are destination paths relative to .tbd/docs/ (e.g., "shortcuts/standard/commit-code.md")
+ * Keys are destination paths relative to .tbd/docs/ (e.g., "shortcuts/standard/code-review-and-commit.md")
  * Values are source locations:
- * - internal: prefix for bundled docs (e.g., "internal:shortcuts/standard/commit-code.md")
+ * - internal: prefix for bundled docs (e.g., "internal:shortcuts/standard/code-review-and-commit.md")
  * - Full URL for external docs (e.g., "https://raw.githubusercontent.com/org/repo/main/file.md")
  *
  * Example:
  * ```yaml
  * doc_cache:
- *   shortcuts/standard/commit-code.md: internal:shortcuts/standard/commit-code.md
+ *   shortcuts/standard/code-review-and-commit.md: internal:shortcuts/standard/code-review-and-commit.md
  *   shortcuts/custom/my-shortcut.md: https://raw.githubusercontent.com/org/repo/main/shortcuts/my-shortcut.md
  * ```
  */
@@ -201,7 +201,7 @@ export const DocsCacheSchema = z.object({
    * Files to sync: maps destination paths to source locations.
    * Keys are destination paths relative to .tbd/docs/
    * Values are source locations:
-   * - internal: prefix for bundled docs (e.g., "internal:shortcuts/standard/commit-code.md")
+   * - internal: prefix for bundled docs (e.g., "internal:shortcuts/standard/code-review-and-commit.md")
    * - Full URL for external docs (e.g., "https://raw.githubusercontent.com/org/repo/main/file.md")
    */
   files: z.record(z.string(), z.string()).optional(),

@@ -27,7 +27,7 @@ tbd sync               # Sync with remote
 | --- | --- |
 | Found a bug | `tbd create "..." --type=bug` |
 | Plan a feature | `tbd shortcut new-plan-spec` |
-| Commit code | `tbd shortcut commit-code` |
+| Commit code | `tbd shortcut code-review-and-commit` |
 | Create a PR | `tbd shortcut create-or-update-pr-simple` |
 | TypeScript review | `tbd guidelines typescript-rules` |
 

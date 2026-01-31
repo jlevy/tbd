@@ -62,19 +62,20 @@ function inferCategory(name: string): ShortcutCategory | undefined {
     return 'implementation';
   }
 
+  // Shipping: commit, PR, merge (checked before quality since some shortcuts have both)
+  if (name.includes('-commit') || name.includes('pr-') || name.includes('merge-')) {
+    return 'shipping';
+  }
+
   // Quality: review, testing, precommit, cleanup
   if (
     name.includes('review-') ||
     name.includes('precommit') ||
+    name.includes('-cleanup-') ||
     name.includes('cleanup-') ||
     name.includes('validation-plan')
   ) {
     return 'quality';
-  }
-
-  // Shipping: commit, PR, merge
-  if (name.includes('commit-') || name.includes('pr-') || name.includes('merge-')) {
-    return 'shipping';
   }
 
   return undefined;
