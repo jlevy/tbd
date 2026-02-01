@@ -30,6 +30,7 @@ docs_cache:
     guidelines/python-cli-patterns.md: internal:guidelines/python-cli-patterns.md
     guidelines/python-modern-guidelines.md: internal:guidelines/python-modern-guidelines.md
     guidelines/python-rules.md: internal:guidelines/python-rules.md
+    guidelines/release-notes-guidelines.md: internal:guidelines/release-notes-guidelines.md
     guidelines/sync-troubleshooting.md: internal:guidelines/sync-troubleshooting.md
     guidelines/typescript-cli-tool-rules.md: internal:guidelines/typescript-cli-tool-rules.md
     guidelines/typescript-code-coverage.md: internal:guidelines/typescript-code-coverage.md

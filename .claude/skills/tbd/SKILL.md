@@ -199,6 +199,7 @@ Run `tbd guidelines <name>` to apply any of these guidelines:
 | python-cli-patterns | Modern patterns for Python CLI application architecture |
 | python-modern-guidelines | Guidelines for modern Python projects using uv, with a few more opinionated practices |
 | python-rules | General Python coding rules and best practices |
+| release-notes-guidelines | Guidelines for writing clear, accurate release notes |
 | sync-troubleshooting | Common issues and solutions for tbd sync and workspace operations |
 | typescript-cli-tool-rules | Rules for building CLI tools with Commander.js, picocolors, and TypeScript |
 | typescript-code-coverage | Best practices for code coverage in TypeScript with Vitest and v8 provider |
