@@ -6,6 +6,8 @@
 
 **Related**:
 
+- [Bead Subscriptions vs Agent Mail](research-bead-subscriptions-vs-agent-mail.md) - Subscription model analysis
+- [Agent Coordination Kernel](research-agent-coordination-kernel.md) - Coordination primitives
 - [NATS FS Coordination Layer](../archive/research-nats-fs-coordination-layer.md) - Initial exploration
 - [Entity Binding Model](../archive/research-entity-binding-model.md) - Schema-driven entity design
 - [Distributed Sync Concepts](../archive/research-distributed-sync-concepts.md) - Consistency concepts reference
