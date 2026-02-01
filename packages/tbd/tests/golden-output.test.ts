@@ -190,11 +190,11 @@ describe('golden output tests', () => {
       expect(planningResult.stdout).toContain('new-plan-spec');
       expect(planningResult.stdout).not.toContain('code-review-and-commit');
 
-      // Shipping category should include code-review-and-commit
-      const shippingResult = runTbd(['shortcut', '--list', '--category', 'shipping']);
-      expect(shippingResult.status).toBe(0);
-      expect(shippingResult.stdout).toContain('code-review-and-commit');
-      expect(shippingResult.stdout).not.toContain('new-plan-spec');
+      // Git category should include code-review-and-commit
+      const gitResult = runTbd(['shortcut', '--list', '--category', 'git']);
+      expect(gitResult.status).toBe(0);
+      expect(gitResult.stdout).toContain('code-review-and-commit');
+      expect(gitResult.stdout).not.toContain('new-plan-spec');
     });
   });
 
