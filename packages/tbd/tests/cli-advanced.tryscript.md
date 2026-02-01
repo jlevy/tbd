@@ -130,41 +130,17 @@ $ tbd search "nonexistentxyz123" --json
 
 ## Stats Command
 
-# Test: Stats shows summary
+Note: Full text output golden test is in cli-orientation-golden.tryscript.md.
+These tests focus on JSON output and programmatic access.
 
-```console
-$ tbd stats
-Summary:
-  Ready:       5
-  In progress: 0
-  Blocked:     0
-  Open:        5
-  Total:       5
-
-By status:
-  open           5
-
-By kind:
-  bug            2
-  feature        1
-  task           1
-  chore          1
-
-By priority:
-  P2 (Medium  ) 5
-
-Use 'tbd status' for setup info, 'tbd doctor' for health checks.
-? 0
-```
-
-# Test: Stats as JSON
+# Test: Stats JSON output structure
 
 ```console
 $ tbd stats --json
 {
   "total": 5,
-  "ready": 5,
-  "blocked": 0,
+  "active": 5,
+  "closed": 0,
   "byStatus": {
     "open": 5,
     "in_progress": 0,
@@ -172,17 +148,31 @@ $ tbd stats --json
     "deferred": 0,
     "closed": 0
   },
-  "byKind": {
+  "byKindActive": {
     "bug": 2,
     "feature": 1,
     "task": 1,
     "epic": 0,
     "chore": 1
   },
-  "byPriority": {
+  "byKindClosed": {
+    "bug": 0,
+    "feature": 0,
+    "task": 0,
+    "epic": 0,
+    "chore": 0
+  },
+  "byPriorityActive": {
     "0": 0,
     "1": 0,
     "2": 5,
+    "3": 0,
+    "4": 0
+  },
+  "byPriorityClosed": {
+    "0": 0,
+    "1": 0,
+    "2": 0,
     "3": 0,
     "4": 0
   }
@@ -198,11 +188,11 @@ total: 5
 ? 0
 ```
 
-# Test: Stats by kind
+# Test: Stats by kind (active)
 
 ```console
-$ tbd stats --json | node -e "d=JSON.parse(require('fs').readFileSync(0,'utf8')); console.log('bugs:', d.byKind.bug)"
-bugs: 2
+$ tbd stats --json | node -e "d=JSON.parse(require('fs').readFileSync(0,'utf8')); console.log('active bugs:', d.byKindActive.bug)"
+active bugs: 2
 ? 0
 ```
 
@@ -279,7 +269,8 @@ $ tbd config show --json
   },
   "settings": {
     "auto_sync": false,
-    "doc_auto_sync_hours": 24
+    "doc_auto_sync_hours": 24,
+    "use_gh_cli": true
   }
 }
 ? 0
@@ -370,10 +361,10 @@ $ tbd sync --status
 ? 0
 ```
 
-# Test: Sync status as JSON
+# Test: Sync status as JSON (issues only)
 
 ```console
-$ tbd sync --status --json
+$ tbd sync --status --issues --json
 {
 ...
 }
@@ -481,7 +472,7 @@ Commands:
   help [command]           display help for command
 
 Getting Started:
-  npm install -g tbd-git@latest && tbd setup --auto --prefix=<name>
+  npm install -g get-tbd@latest && tbd setup --auto --prefix=<name>
 
   This initializes tbd and configures your coding agents automatically.
   For interactive setup: tbd setup --interactive
@@ -527,7 +518,7 @@ Commands:
   help [command]               display help for command
 
 Getting Started:
-  npm install -g tbd-git@latest && tbd setup --auto --prefix=<name>
+  npm install -g get-tbd@latest && tbd setup --auto --prefix=<name>
 
   This initializes tbd and configures your coding agents automatically.
   For interactive setup: tbd setup --interactive
@@ -570,7 +561,7 @@ Commands:
   help [command]     display help for command
 
 Getting Started:
-  npm install -g tbd-git@latest && tbd setup --auto --prefix=<name>
+  npm install -g get-tbd@latest && tbd setup --auto --prefix=<name>
 
   This initializes tbd and configures your coding agents automatically.
   For interactive setup: tbd setup --interactive
@@ -614,7 +605,7 @@ Commands:
   help [command]            display help for command
 
 Getting Started:
-  npm install -g tbd-git@latest && tbd setup --auto --prefix=<name>
+  npm install -g get-tbd@latest && tbd setup --auto --prefix=<name>
 
   This initializes tbd and configures your coding agents automatically.
   For interactive setup: tbd setup --interactive

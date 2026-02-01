@@ -124,7 +124,7 @@ discovered. Only top-level directories are scanned.
 **Workaround**: Symlinks at top level:
 
 ```bash
-ln -s tbd-shortcuts/commit-code commit-code
+ln -s tbd-shortcuts/code-review-and-commit code-review-and-commit
 ```
 
 * * *
@@ -138,17 +138,17 @@ Each shortcut, guideline, and template becomes a separate skill:
 ```
 .claude/skills/
 ├── tbd/SKILL.md                          # Core issue tracking
-├── tbd-shortcut-commit-code/SKILL.md     # Shortcut
+├── tbd-shortcut-code-review-and-commit/SKILL.md     # Shortcut
 ├── tbd-shortcut-new-plan-spec/SKILL.md   # Shortcut
 ├── tbd-guideline-typescript-rules/SKILL.md  # Guideline
 └── ... (50+ skills total)
 ```
 
-**Example Skill** (`tbd-shortcut-commit-code/SKILL.md`):
+**Example Skill** (`tbd-shortcut-code-review-and-commit/SKILL.md`):
 
 ```yaml
 ---
-name: tbd-shortcut-commit-code
+name: tbd-shortcut-code-review-and-commit
 description: Run pre-commit checks, review changes, and commit code. Use when ready to commit, before pushing, or when user says "commit" or "let's commit".
 disable-model-invocation: true
 allowed-tools: Bash(git:*), Bash(npm:*), Read
@@ -166,7 +166,7 @@ allowed-tools: Bash(git:*), Bash(npm:*), Read
 | Benefit | Description |
 | --- | --- |
 | **Auto-invocation** | Claude selects appropriate skill based on task context |
-| **Direct invocation** | User can `/tbd-shortcut-commit-code` directly |
+| **Direct invocation** | User can `/tbd-shortcut-code-review-and-commit` directly |
 | **Fine-grained permissions** | Each skill can have different `allowed-tools` |
 | **Subagent isolation** | Each can run with `context: fork` |
 | **Invocation control** | `disable-model-invocation` per-skill for dangerous operations |
@@ -201,7 +201,7 @@ tbd-plugin/
 │   └── plugin.json           # Plugin metadata
 ├── skills/
 │   ├── core/SKILL.md         # Issue tracking
-│   ├── commit-code/SKILL.md  # Shortcut
+│   ├── code-review-and-commit/SKILL.md  # Shortcut
 │   └── new-plan-spec/SKILL.md
 ├── commands/
 │   └── tbd-status.md         # Slash command
@@ -221,7 +221,7 @@ tbd-plugin/
 }
 ```
 
-**Namespacing**: Skills become `/tbd:commit-code`, `/tbd:new-plan-spec`
+**Namespacing**: Skills become `/tbd:code-review-and-commit`, `/tbd:new-plan-spec`
 
 #### Pros
 
@@ -282,7 +282,7 @@ allowed-tools: Bash(tbd:*), Read, Write
 ## Available Shortcuts
 | Command | Purpose |
 |---------|---------|
-| `tbd shortcut commit-code` | Pre-commit checks and commit |
+| `tbd shortcut code-review-and-commit` | Pre-commit checks and commit |
 | `tbd shortcut new-plan-spec` | Create planning spec |
 ...
 ```
@@ -291,7 +291,7 @@ allowed-tools: Bash(tbd:*), Read, Write
 
 ```
 Agent needs commit guidance →
-  Runs: tbd shortcut commit-code →
+  Runs: tbd shortcut code-review-and-commit →
   Receives: Step-by-step instructions →
   Follows: Instructions to complete task
 ```
@@ -347,7 +347,7 @@ description: Run pre-commit checks and commit code
 disable-model-invocation: true
 ---
 
-Run `tbd shortcut commit-code` and follow the instructions exactly.
+Run `tbd shortcut code-review-and-commit` and follow the instructions exactly.
 ```
 
 #### Pros
@@ -521,7 +521,7 @@ name: tbd-commit
 description: Commit code with pre-commit checks
 disable-model-invocation: true
 ---
-Run `tbd shortcut commit-code` and follow the instructions.
+Run `tbd shortcut code-review-and-commit` and follow the instructions.
 ```
 
 Criteria for promotion to individual skill:

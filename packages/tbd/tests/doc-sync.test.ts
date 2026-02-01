@@ -8,7 +8,13 @@ import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { randomBytes } from 'node:crypto';
 
-import { DocSync, isDocsStale, mergeDocCacheConfig } from '../src/file/doc-sync.js';
+import {
+  DocSync,
+  isDocsStale,
+  mergeDocCacheConfig,
+  internalDocExists,
+  pruneStaleInternals,
+} from '../src/file/doc-sync.js';
 
 describe('doc-sync', () => {
   let tempDir: string;
@@ -26,10 +32,10 @@ describe('doc-sync', () => {
   describe('DocSync.parseSource', () => {
     it('parses internal source', () => {
       const sync = new DocSync(tempDir, {});
-      const source = sync.parseSource('internal:shortcuts/standard/commit-code.md');
+      const source = sync.parseSource('internal:shortcuts/standard/code-review-and-commit.md');
 
       expect(source.type).toBe('internal');
-      expect(source.location).toBe('shortcuts/standard/commit-code.md');
+      expect(source.location).toBe('shortcuts/standard/code-review-and-commit.md');
     });
 
     it('parses URL source', () => {
@@ -232,6 +238,96 @@ describe('doc-sync', () => {
       expect(result['shortcuts/b.md']).toBe('https://custom.com/b.md');
       expect(result['guidelines/ts.md']).toBe('internal:guidelines/ts.md');
       expect(result['custom/external.md']).toBe('https://example.com/doc.md');
+    });
+  });
+
+  describe('internalDocExists', () => {
+    it('returns true for existing bundled docs', async () => {
+      // This tests against the actual bundled docs in the package
+      // shortcuts/standard/code-review-and-commit.md should exist
+      const exists = await internalDocExists('shortcuts/standard/code-review-and-commit.md');
+      expect(exists).toBe(true);
+    });
+
+    it('returns false for non-existent docs', async () => {
+      const exists = await internalDocExists('nonexistent/fake-doc.md');
+      expect(exists).toBe(false);
+    });
+
+    it('returns false for partial path matches', async () => {
+      // A path that looks similar but doesn't exist
+      const exists = await internalDocExists('shortcuts/standard/nonexistent.md');
+      expect(exists).toBe(false);
+    });
+  });
+
+  describe('pruneStaleInternals', () => {
+    it('keeps entries with existing internal sources', async () => {
+      const config = {
+        'shortcuts/standard/code-review-and-commit.md':
+          'internal:shortcuts/standard/code-review-and-commit.md',
+      };
+
+      const result = await pruneStaleInternals(config);
+
+      expect(result.config['shortcuts/standard/code-review-and-commit.md']).toBe(
+        'internal:shortcuts/standard/code-review-and-commit.md',
+      );
+      expect(result.pruned).toEqual([]);
+    });
+
+    it('removes entries with non-existent internal sources', async () => {
+      const config = {
+        'stale/doc.md': 'internal:nonexistent/fake-doc.md',
+      };
+
+      const result = await pruneStaleInternals(config);
+
+      expect(result.config['stale/doc.md']).toBeUndefined();
+      expect(result.pruned).toContain('stale/doc.md');
+    });
+
+    it('preserves URL sources without checking', async () => {
+      const config = {
+        'external/doc.md': 'https://example.com/doc.md',
+      };
+
+      const result = await pruneStaleInternals(config);
+
+      expect(result.config['external/doc.md']).toBe('https://example.com/doc.md');
+      expect(result.pruned).toEqual([]);
+    });
+
+    it('handles mixed configs correctly', async () => {
+      const config = {
+        'shortcuts/standard/code-review-and-commit.md':
+          'internal:shortcuts/standard/code-review-and-commit.md', // exists
+        'stale/doc.md': 'internal:nonexistent/fake-doc.md', // doesn't exist
+        'external/doc.md': 'https://example.com/doc.md', // URL, always kept
+      };
+
+      const result = await pruneStaleInternals(config);
+
+      // Existing internal kept
+      expect(result.config['shortcuts/standard/code-review-and-commit.md']).toBe(
+        'internal:shortcuts/standard/code-review-and-commit.md',
+      );
+      // Non-existent internal pruned
+      expect(result.config['stale/doc.md']).toBeUndefined();
+      // URL preserved
+      expect(result.config['external/doc.md']).toBe('https://example.com/doc.md');
+      // Only stale entry in pruned list
+      expect(result.pruned).toEqual(['stale/doc.md']);
+    });
+
+    it('returns empty pruned list when nothing to prune', async () => {
+      const config = {
+        'external/doc.md': 'https://example.com/doc.md',
+      };
+
+      const result = await pruneStaleInternals(config);
+
+      expect(result.pruned).toEqual([]);
     });
   });
 });

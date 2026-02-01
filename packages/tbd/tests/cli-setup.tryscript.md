@@ -59,7 +59,8 @@ Documentation:
   guidelines [options] [query]  Find and output coding guidelines
   template [options] [query]    Find and output document templates
   closing                       Display the session closing protocol reminder
-  docs [options] [topic]        Display CLI documentation and manage doc cache
+  docs [options] [topic]        Display CLI documentation (use tbd sync --docs
+                                for doc cache sync)
   design [options] [topic]      Display design documentation and Beads
                                 comparison
 
@@ -70,7 +71,7 @@ Setup & Configuration:
 
 Working With Issues:
   create [options] [title]      Create a new issue
-  show <id>                     Show issue details
+  show [options] <id>           Show issue details
   update [options] <id>         Update an issue
   close [options] <id>          Close an issue
   reopen [options] <id>         Reopen a closed issue
@@ -88,22 +89,26 @@ Labels and Dependencies:
   label                         Manage issue labels
 
 Sync and Status:
-  sync [options]                Synchronize with remote
+  sync [options]                Synchronize issues and docs (both by default)
+  save [options]                Save issues to a workspace or directory
   status                        Show repository status and orientation
   stats                         Show repository statistics
 
 Maintenance:
   doctor [options]              Diagnose and repair repository
   attic                         Manage conflict archive (attic)
-  import [options] [file]       Import issues from JSONL file.
+  workspace                     Manage workspaces for sync recovery and backups
+  import [options] [file]       Import issues from JSONL file or workspace.
                                 For Beads migration, use: tbd setup --from-beads
+                                For workspace import, use: tbd import
+                                --workspace=<name> or --outbox
   uninstall [options]           Remove tbd from this repository
 
 Commands:
   help [command]                display help for command
 
 Getting Started:
-  npm install -g tbd-git@latest && tbd setup --auto --prefix=<name>
+  npm install -g get-tbd@latest && tbd setup --auto --prefix=<name>
 
   This initializes tbd and configures your coding agents automatically.
   For interactive setup: tbd setup --interactive
@@ -151,7 +156,7 @@ Global Options:
   --debug               Show internal IDs alongside public IDs for debugging
 
 Getting Started:
-  npm install -g tbd-git@latest && tbd setup --auto --prefix=<name>
+  npm install -g get-tbd@latest && tbd setup --auto --prefix=<name>
 
   This initializes tbd and configures your coding agents automatically.
   For interactive setup: tbd setup --interactive

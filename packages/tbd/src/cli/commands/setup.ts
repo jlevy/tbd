@@ -1,6 +1,10 @@
 /**
  * `tbd setup` - Configure tbd integration with editors and tools.
  *
+ * Requires a git repository. All setup artifacts (.tbd/, .claude/) are placed
+ * at the git root, adjacent to .git/. Installation is always project-local —
+ * there is no global/user-level install.
+ *
  * Options:
  * - `tbd setup --auto` - Non-interactive setup (for agents/scripts)
  * - `tbd setup --interactive` - Interactive setup with prompts (for humans)
@@ -13,7 +17,7 @@ import { Command } from 'commander';
 import { readFile, mkdir, access, rm, rename, chmod, readdir } from 'node:fs/promises';
 import { spawnSync } from 'node:child_process';
 import { join, dirname } from 'node:path';
-import { homedir } from 'node:os';
+import { fileURLToPath } from 'node:url';
 import { writeFile } from 'atomically';
 
 import { BaseCommand } from '../lib/base-command.js';
@@ -31,13 +35,9 @@ import {
   readConfigWithMigration,
   findTbdRoot,
   writeConfig,
-  updateLocalState,
+  markWelcomeSeen,
 } from '../../file/config.js';
-import {
-  DocSync,
-  generateDefaultDocCacheConfig,
-  mergeDocCacheConfig,
-} from '../../file/doc-sync.js';
+import { syncDocsWithDefaults } from '../../file/doc-sync.js';
 import { VERSION } from '../lib/version.js';
 import {
   TBD_DIR,
@@ -45,17 +45,19 @@ import {
   WORKTREE_DIR_NAME,
   DATA_SYNC_DIR_NAME,
   DEFAULT_SHORTCUT_PATHS,
+  DEFAULT_GUIDELINES_PATHS,
   TBD_SHORTCUTS_SYSTEM,
   TBD_SHORTCUTS_STANDARD,
   TBD_GUIDELINES_DIR,
   TBD_TEMPLATES_DIR,
 } from '../../lib/paths.js';
-import { initWorktree, isInGitRepo } from '../../file/git.js';
+import { getClaudePaths, getAgentsMdPath, GLOBAL_CLAUDE_DIR } from '../../lib/integration-paths.js';
+import { initWorktree, isInGitRepo, findGitRoot, checkWorktreeHealth } from '../../file/git.js';
 import { DocCache, generateShortcutDirectory } from '../../file/doc-cache.js';
 
 /**
- * Get the shortcut directory content for appending to installed skill files.
- * Always generates on-the-fly from installed shortcuts.
+ * Get the shortcut and guidelines directory content for appending to installed skill files.
+ * Always generates on-the-fly from installed shortcuts and guidelines.
  *
  * @param quiet - If true, suppress auto-sync output (default: false)
  */
@@ -68,17 +70,22 @@ async function getShortcutDirectory(quiet = false): Promise<string | null> {
     return null;
   }
 
-  // Generate on-the-fly from installed shortcuts
-  const cache = new DocCache(DEFAULT_SHORTCUT_PATHS, tbdRoot);
-  await cache.load({ quiet });
-  const docs = cache.list();
+  // Load shortcuts
+  const shortcutCache = new DocCache(DEFAULT_SHORTCUT_PATHS, tbdRoot);
+  await shortcutCache.load({ quiet });
+  const shortcuts = shortcutCache.list();
+
+  // Load guidelines
+  const guidelinesCache = new DocCache(DEFAULT_GUIDELINES_PATHS, tbdRoot);
+  await guidelinesCache.load({ quiet });
+  const guidelines = guidelinesCache.list();
 
   // If no docs loaded, skip directory
-  if (docs.length === 0) {
+  if (shortcuts.length === 0 && guidelines.length === 0) {
     return null;
   }
 
-  return generateShortcutDirectory(docs);
+  return generateShortcutDirectory(shortcuts, guidelines);
 }
 
 /**
@@ -108,8 +115,8 @@ interface SetupCodexOptions {
 }
 
 /**
- * Global script to ensure tbd CLI is installed and run tbd prime.
- * Installed to ~/.claude/scripts/tbd-session.sh
+ * Script to ensure tbd CLI is installed and run tbd prime.
+ * Installed to project .claude/scripts/tbd-session.sh.
  * Runs on SessionStart and PreCompact to ensure tbd is available and provide orientation.
  *
  * Usage:
@@ -121,8 +128,18 @@ const TBD_SESSION_SCRIPT = `#!/bin/bash
 # Installed by: tbd setup --auto
 # This script runs on SessionStart and PreCompact
 
+# Get npm global bin directory (if npm is available)
+NPM_GLOBAL_BIN=""
+if command -v npm &> /dev/null; then
+    NPM_PREFIX=$(npm config get prefix 2>/dev/null)
+    if [ -n "$NPM_PREFIX" ] && [ -d "$NPM_PREFIX/bin" ]; then
+        NPM_GLOBAL_BIN="$NPM_PREFIX/bin"
+    fi
+fi
+
 # Add common binary locations to PATH (persists for entire script)
-export PATH="$HOME/.local/bin:$HOME/bin:/usr/local/bin:$PATH"
+# Include npm global bin if found
+export PATH="$NPM_GLOBAL_BIN:$HOME/.local/bin:$HOME/bin:/usr/local/bin:$PATH"
 
 # Function to ensure tbd is available
 ensure_tbd() {
@@ -136,11 +153,11 @@ ensure_tbd() {
     # Try npm first (most common for Node.js tools)
     if command -v npm &> /dev/null; then
         echo "[tbd] Installing via npm..."
-        npm install -g tbd-git 2>/dev/null || {
+        npm install -g get-tbd 2>/dev/null || {
             # If global install fails (permissions), try local install
             echo "[tbd] Global npm install failed, trying user install..."
             mkdir -p ~/.local/bin
-            npm install --prefix ~/.local tbd-git
+            npm install --prefix ~/.local get-tbd
             # Create symlink if needed
             if [ -f ~/.local/node_modules/.bin/tbd ]; then
                 ln -sf ~/.local/node_modules/.bin/tbd ~/.local/bin/tbd
@@ -148,13 +165,13 @@ ensure_tbd() {
         }
     elif command -v pnpm &> /dev/null; then
         echo "[tbd] Installing via pnpm..."
-        pnpm add -g tbd-git
+        pnpm add -g get-tbd
     elif command -v yarn &> /dev/null; then
         echo "[tbd] Installing via yarn..."
-        yarn global add tbd-git
+        yarn global add get-tbd
     else
         echo "[tbd] ERROR: No package manager found (npm, pnpm, or yarn required)"
-        echo "[tbd] Please install Node.js and npm, then run: npm install -g tbd-git"
+        echo "[tbd] Please install Node.js and npm, then run: npm install -g get-tbd"
         return 1
     fi
 
@@ -165,9 +182,9 @@ ensure_tbd() {
     else
         echo "[tbd] WARNING: tbd installed but not found in PATH"
         echo "[tbd] Checking common locations..."
-        # Try to find and add to path
-        for dir in ~/.local/bin ~/.local/node_modules/.bin /usr/local/bin; do
-            if [ -x "$dir/tbd" ]; then
+        # Try to find and add to path (include npm global bin)
+        for dir in "$NPM_GLOBAL_BIN" ~/.local/bin ~/.local/node_modules/.bin /usr/local/bin; do
+            if [ -n "$dir" ] && [ -x "$dir/tbd" ]; then
                 export PATH="$dir:$PATH"
                 echo "[tbd] Found at $dir/tbd"
                 return 0
@@ -186,21 +203,22 @@ tbd prime "$@"
 `;
 
 /**
- * Claude Code global hooks configuration (installed to ~/.claude/settings.json)
- * Uses tbd-session.sh which ensures tbd is installed and runs tbd prime with correct PATH.
+ * Claude Code session hooks configuration.
+ * Always uses project-relative paths so hooks work in any environment
+ * (local dev, Claude Code Cloud, etc.).
  */
-const CLAUDE_GLOBAL_HOOKS = {
+const CLAUDE_SESSION_HOOKS = {
   hooks: {
     SessionStart: [
       {
         matcher: '',
-        hooks: [{ type: 'command', command: '$HOME/.claude/scripts/tbd-session.sh' }],
+        hooks: [{ type: 'command', command: 'bash .claude/scripts/tbd-session.sh' }],
       },
     ],
     PreCompact: [
       {
         matcher: '',
-        hooks: [{ type: 'command', command: '$HOME/.claude/scripts/tbd-session.sh --brief' }],
+        hooks: [{ type: 'command', command: 'bash .claude/scripts/tbd-session.sh --brief' }],
       },
     ],
   },
@@ -245,6 +263,43 @@ fi
 
 exit 0
 `;
+
+/**
+ * SessionStart hook entry for the gh CLI ensure script.
+ * Installed to project-local .claude/settings.json when use_gh_cli is true.
+ */
+const GH_CLI_HOOK_ENTRY = {
+  matcher: '',
+  hooks: [{ type: 'command', command: 'bash .claude/scripts/ensure-gh-cli.sh', timeout: 120 }],
+};
+
+/**
+ * Command string used to identify the gh CLI hook entry in settings.json.
+ */
+const GH_CLI_HOOK_COMMAND_PATTERN = 'ensure-gh-cli';
+
+/**
+ * Load a bundled script from dist/docs/install/ (or dev fallback).
+ * Used to read real .sh files that are copied into the npm package at build time.
+ */
+async function loadBundledScript(name: string): Promise<string> {
+  const __filename = fileURLToPath(import.meta.url);
+  const __dirname = dirname(__filename);
+  // Flat bundle: dist/docs/install/<name> (tsdown produces flat dist/)
+  const flatBundlePath = join(__dirname, 'docs', 'install', name);
+  // Nested bundle: dist/cli/commands/../../docs/install/<name>
+  const nestedBundlePath = join(__dirname, '..', 'docs', 'install', name);
+  // Dev fallback: packages/tbd/docs/install/<name>
+  const devPath = join(__dirname, '..', '..', '..', 'docs', 'install', name);
+  for (const p of [flatBundlePath, nestedBundlePath, devPath]) {
+    try {
+      return await readFile(p, 'utf-8');
+    } catch {
+      continue;
+    }
+  }
+  throw new Error(`Bundled script not found: ${name}`);
+}
 
 /**
  * AGENTS.md integration markers for Codex/Factory.ai
@@ -303,88 +358,85 @@ const LEGACY_TBD_HOOK_PATTERNS = [
 ];
 
 class SetupClaudeHandler extends BaseCommand {
+  private projectDir: string | undefined;
+
+  setProjectDir(dir: string): void {
+    this.projectDir = dir;
+  }
+
   async run(options: SetupClaudeOptions): Promise<void> {
-    const settingsPath = join(homedir(), '.claude', 'settings.json');
-    const cwd = process.cwd();
-    const skillPath = join(cwd, '.claude', 'skills', 'tbd', 'SKILL.md');
+    const cwd = this.projectDir ?? process.cwd();
+    const claudePaths = getClaudePaths(cwd);
 
     if (options.check) {
-      await this.checkClaudeSetup(settingsPath, skillPath);
+      await this.checkClaudeSetup(claudePaths.skill);
       return;
     }
 
     if (options.remove) {
-      await this.removeClaudeSetup(settingsPath, skillPath);
+      await this.removeClaudeSetup(claudePaths.skill);
       return;
     }
 
-    await this.installClaudeSetup(settingsPath, skillPath);
+    await this.installClaudeSetup(claudePaths.skill);
   }
 
-  private async checkClaudeSetup(settingsPath: string, skillPath: string): Promise<void> {
-    const cwd = process.cwd();
-    let globalHooksInstalled = false;
-    let globalScriptInstalled = false;
-    let projectHooksInstalled = false;
-    let skillInstalled = false;
+  private async checkClaudeSetup(skillPath: string): Promise<void> {
+    const cwd = this.projectDir ?? process.cwd();
+    let sessionScriptInstalled = false;
     let sessionStartHook = false;
     let preCompactHook = false;
     let postToolUseHook = false;
     let hookScriptInstalled = false;
+    let skillInstalled = false;
 
-    // Check for global tbd-session.sh script
-    const tbdSessionScript = join(homedir(), '.claude', 'scripts', 'tbd-session.sh');
+    // All hooks and scripts are project-local in .claude/
+    const projectSettingsPath = join(cwd, '.claude', 'settings.json');
+    const sessionScript = join(cwd, '.claude', 'scripts', 'tbd-session.sh');
+    const hookScriptPath = join(cwd, '.claude', 'hooks', 'tbd-closing-reminder.sh');
+
+    // Check for tbd-session.sh script
     try {
-      await access(tbdSessionScript);
-      globalScriptInstalled = true;
+      await access(sessionScript);
+      sessionScriptInstalled = true;
     } catch {
       // Script doesn't exist
     }
 
-    // Check hooks in global settings
-    try {
-      await access(settingsPath);
-      const content = await readFile(settingsPath, 'utf-8');
-      const settings = JSON.parse(content) as Record<string, unknown>;
-
-      const hooks = settings.hooks as Record<string, unknown> | undefined;
-      if (hooks) {
-        const sessionStart = hooks.SessionStart as { hooks?: { command?: string }[] }[];
-        const preCompact = hooks.PreCompact as { hooks?: { command?: string }[] }[];
-
-        sessionStartHook = sessionStart?.some((h) =>
-          h.hooks?.some(
-            (hook) =>
-              (hook.command?.includes('tbd prime') ?? false) ||
-              (hook.command?.includes('tbd-session.sh') ?? false) ||
-              (hook.command?.includes('ensure-tbd-cli.sh') ?? false),
-          ),
-        );
-        preCompactHook = preCompact?.some((h) =>
-          h.hooks?.some((hook) => hook.command?.includes('tbd prime')),
-        );
-
-        globalHooksInstalled = sessionStartHook && preCompactHook && globalScriptInstalled;
-      }
-    } catch {
-      // Settings file doesn't exist
-    }
-
-    // Check project-local hooks
-    const projectSettingsPath = join(cwd, '.claude', 'settings.json');
-    const hookScriptPath = join(cwd, '.claude', 'hooks', 'tbd-closing-reminder.sh');
-
+    // Check hooks in project settings
     try {
       await access(projectSettingsPath);
       const content = await readFile(projectSettingsPath, 'utf-8');
       const settings = JSON.parse(content) as Record<string, unknown>;
-
       const hooks = settings.hooks as Record<string, unknown> | undefined;
+
       if (hooks) {
+        const sessionStart = hooks.SessionStart as { hooks?: { command?: string }[] }[];
+        const preCompact = hooks.PreCompact as { hooks?: { command?: string }[] }[];
         const postToolUse = hooks.PostToolUse as { hooks?: { command?: string }[] }[];
-        postToolUseHook = postToolUse?.some((h) =>
-          h.hooks?.some((hook) => hook.command?.includes('tbd-closing-reminder')),
-        );
+
+        sessionStartHook =
+          sessionStart?.some((h) =>
+            h.hooks?.some(
+              (hook) =>
+                (hook.command?.includes('tbd prime') ?? false) ||
+                (hook.command?.includes('tbd-session.sh') ?? false),
+            ),
+          ) ?? false;
+
+        preCompactHook =
+          preCompact?.some((h) =>
+            h.hooks?.some(
+              (hook) =>
+                (hook.command?.includes('tbd prime') ?? false) ||
+                (hook.command?.includes('tbd-session.sh') ?? false),
+            ),
+          ) ?? false;
+
+        postToolUseHook =
+          postToolUse?.some((h) =>
+            h.hooks?.some((hook) => hook.command?.includes('tbd-closing-reminder')),
+          ) ?? false;
       }
     } catch {
       // Project settings file doesn't exist
@@ -397,7 +449,8 @@ class SetupClaudeHandler extends BaseCommand {
       // Hook script doesn't exist
     }
 
-    projectHooksInstalled = postToolUseHook && hookScriptInstalled;
+    const sessionHooksInstalled = sessionStartHook && preCompactHook && sessionScriptInstalled;
+    const projectHooksInstalled = postToolUseHook && hookScriptInstalled;
 
     // Check skill file in project
     try {
@@ -407,53 +460,52 @@ class SetupClaudeHandler extends BaseCommand {
       // Skill file doesn't exist
     }
 
-    // Report status
-    const fullyInstalled = globalHooksInstalled && projectHooksInstalled && skillInstalled;
+    const fullyInstalled = sessionHooksInstalled && projectHooksInstalled && skillInstalled;
 
     // Build diagnostic results for text output
     const diagnostics: DiagnosticResult[] = [];
+    const settingsRelPath = '.claude/settings.json';
 
-    // Global hooks diagnostic
-    if (globalHooksInstalled) {
+    // Session hooks diagnostic
+    if (sessionHooksInstalled) {
       diagnostics.push({
-        name: 'Global hooks',
+        name: 'Session hooks',
         status: 'ok',
         message: 'SessionStart, PreCompact',
-        path: settingsPath.replace(homedir(), '~'),
+        path: settingsRelPath,
       });
     } else if (sessionStartHook || preCompactHook) {
       diagnostics.push({
-        name: 'Global hooks',
+        name: 'Session hooks',
         status: 'warn',
         message: 'partially configured',
-        path: settingsPath.replace(homedir(), '~'),
+        path: settingsRelPath,
         suggestion: 'Run: tbd setup --auto',
       });
     } else {
       diagnostics.push({
-        name: 'Global hooks',
+        name: 'Session hooks',
         status: 'warn',
         message: 'not configured',
-        path: settingsPath.replace(homedir(), '~'),
+        path: settingsRelPath,
         suggestion: 'Run: tbd setup --auto',
       });
     }
 
     // Project hooks diagnostic
-    const projectSettingsRelPath = '.claude/settings.json';
     if (projectHooksInstalled) {
       diagnostics.push({
         name: 'Project hooks',
         status: 'ok',
         message: 'PostToolUse sync reminder',
-        path: projectSettingsRelPath,
+        path: settingsRelPath,
       });
     } else if (postToolUseHook || hookScriptInstalled) {
       diagnostics.push({
         name: 'Project hooks',
         status: 'warn',
         message: 'partially configured',
-        path: projectSettingsRelPath,
+        path: settingsRelPath,
         suggestion: 'Run: tbd setup --auto',
       });
     } else {
@@ -461,7 +513,7 @@ class SetupClaudeHandler extends BaseCommand {
         name: 'Project hooks',
         status: 'warn',
         message: 'not configured',
-        path: projectSettingsRelPath,
+        path: settingsRelPath,
         suggestion: 'Run: tbd setup --auto',
       });
     }
@@ -487,11 +539,12 @@ class SetupClaudeHandler extends BaseCommand {
     this.output.data(
       {
         installed: fullyInstalled,
-        globalHooks: {
-          installed: globalHooksInstalled,
+        sessionHooks: {
+          installed: sessionHooksInstalled,
           sessionStart: sessionStartHook,
           preCompact: preCompactHook,
-          path: settingsPath,
+          script: sessionScriptInstalled,
+          path: projectSettingsPath,
         },
         projectHooks: {
           installed: projectHooksInstalled,
@@ -508,95 +561,48 @@ class SetupClaudeHandler extends BaseCommand {
     );
   }
 
-  private async removeClaudeSetup(settingsPath: string, skillPath: string): Promise<void> {
-    const cwd = process.cwd();
-    let removedGlobalHooks = false;
-    let removedGlobalScript = false;
-    let removedProjectHooks = false;
-    let removedHookScript = false;
+  private async removeClaudeSetup(skillPath: string): Promise<void> {
+    const cwd = this.projectDir ?? process.cwd();
+    const claudePaths = getClaudePaths(cwd);
+    let removedHooks = false;
+    let removedScripts = false;
     let removedSkill = false;
 
-    // Remove hooks from global settings
+    // Remove hooks from project .claude/settings.json
     try {
-      await access(settingsPath);
-      const content = await readFile(settingsPath, 'utf-8');
+      await access(claudePaths.settings);
+      const content = await readFile(claudePaths.settings, 'utf-8');
       const settings = JSON.parse(content) as Record<string, unknown>;
 
       if (settings.hooks) {
         const hooks = settings.hooks as Record<string, unknown>;
 
-        // Remove tbd hooks from SessionStart and PreCompact
-        // Matches both old 'tbd prime' only and new 'tbd-session.sh'
-        const filterHooks = (arr: { hooks?: { command?: string }[] }[] | undefined) => {
+        // Remove all tbd hooks (SessionStart, PreCompact, PostToolUse)
+        const filterTbdHooks = (arr: { hooks?: { command?: string }[] }[] | undefined) => {
           if (!arr) return undefined;
           return arr.filter(
             (h) =>
               !h.hooks?.some(
                 (hook) =>
-                  (hook.command?.includes('tbd prime') ?? false) ||
+                  (hook.command?.includes('tbd-closing-reminder') ?? false) ||
                   (hook.command?.includes('tbd-session.sh') ?? false) ||
-                  (hook.command?.includes('ensure-tbd-cli.sh') ?? false),
+                  (hook.command?.includes('tbd prime') ?? false),
               ),
           );
         };
 
-        const sessionStart = filterHooks(
-          hooks.SessionStart as { hooks?: { command?: string }[] }[],
-        );
-        const preCompact = filterHooks(hooks.PreCompact as { hooks?: { command?: string }[] }[]);
-
-        if (sessionStart?.length === 0) delete hooks.SessionStart;
-        else if (sessionStart) hooks.SessionStart = sessionStart;
-
-        if (preCompact?.length === 0) delete hooks.PreCompact;
-        else if (preCompact) hooks.PreCompact = preCompact;
+        for (const hookType of ['PostToolUse', 'SessionStart', 'PreCompact'] as const) {
+          const filtered = filterTbdHooks(hooks[hookType] as { hooks?: { command?: string }[] }[]);
+          if (filtered?.length === 0) delete hooks[hookType];
+          else if (filtered) hooks[hookType] = filtered;
+        }
 
         if (Object.keys(hooks).length === 0) {
           delete settings.hooks;
         }
 
-        await writeFile(settingsPath, JSON.stringify(settings, null, 2) + '\n');
-        removedGlobalHooks = true;
-      }
-    } catch {
-      // Settings file doesn't exist
-    }
-
-    // Remove project-local hooks
-    const projectSettingsPath = join(cwd, '.claude', 'settings.json');
-    const hookScriptPath = join(cwd, '.claude', 'hooks', 'tbd-closing-reminder.sh');
-
-    try {
-      await access(projectSettingsPath);
-      const content = await readFile(projectSettingsPath, 'utf-8');
-      const settings = JSON.parse(content) as Record<string, unknown>;
-
-      if (settings.hooks) {
-        const hooks = settings.hooks as Record<string, unknown>;
-
-        // Remove tbd PostToolUse hooks
-        const filterPostToolUse = (arr: { hooks?: { command?: string }[] }[] | undefined) => {
-          if (!arr) return undefined;
-          return arr.filter(
-            (h) => !h.hooks?.some((hook) => hook.command?.includes('tbd-closing-reminder')),
-          );
-        };
-
-        const postToolUse = filterPostToolUse(
-          hooks.PostToolUse as { hooks?: { command?: string }[] }[],
-        );
-
-        if (postToolUse?.length === 0) delete hooks.PostToolUse;
-        else if (postToolUse) hooks.PostToolUse = postToolUse;
-
-        if (Object.keys(hooks).length === 0) {
-          delete settings.hooks;
-        }
-
-        // If settings is now empty (only had hooks), we could remove the file
-        // but it's safer to keep it with empty object
-        await writeFile(projectSettingsPath, JSON.stringify(settings, null, 2) + '\n');
-        removedProjectHooks = true;
+        await writeFile(claudePaths.settings, JSON.stringify(settings, null, 2) + '\n');
+        removedHooks = true;
       }
     } catch {
       // Project settings file doesn't exist
@@ -604,24 +610,16 @@ class SetupClaudeHandler extends BaseCommand {
 
     // Remove hook script
     try {
-      await rm(hookScriptPath);
-      removedHookScript = true;
+      await rm(claudePaths.closingReminder);
+      removedHooks = true;
     } catch {
       // Hook script doesn't exist
     }
 
-    // Remove global tbd scripts (both new and legacy)
-    const tbdSessionScript = join(homedir(), '.claude', 'scripts', 'tbd-session.sh');
-    const legacyTbdScript = join(homedir(), '.claude', 'scripts', 'ensure-tbd-cli.sh');
+    // Remove tbd scripts from project
     try {
-      await rm(tbdSessionScript);
-      removedGlobalScript = true;
-    } catch {
-      // Script doesn't exist
-    }
-    try {
-      await rm(legacyTbdScript);
-      removedGlobalScript = true;
+      await rm(claudePaths.sessionScript);
+      removedScripts = true;
     } catch {
       // Script doesn't exist
     }
@@ -635,16 +633,10 @@ class SetupClaudeHandler extends BaseCommand {
     }
 
     // Report what was removed
-    if (removedGlobalHooks || removedGlobalScript) {
-      this.output.success('Removed global hooks and script from Claude Code');
+    if (removedHooks || removedScripts) {
+      this.output.success('Removed hooks and scripts');
     } else {
-      this.output.info('No global hooks to remove');
-    }
-
-    if (removedProjectHooks || removedHookScript) {
-      this.output.success('Removed project hooks and script');
-    } else {
-      this.output.info('No project hooks to remove');
+      this.output.info('No hooks to remove');
     }
 
     if (removedSkill) {
@@ -654,95 +646,130 @@ class SetupClaudeHandler extends BaseCommand {
     }
   }
 
-  private async installClaudeSetup(settingsPath: string, skillPath: string): Promise<void> {
+  private async installClaudeSetup(skillPath: string): Promise<void> {
+    const cwd = this.projectDir ?? process.cwd();
+    const claudePaths = getClaudePaths(cwd);
+
     if (
       this.checkDryRun('Would install Claude Code hooks and skill file', {
-        settingsPath,
+        settingsPath: claudePaths.settings,
         skillPath,
       })
     ) {
       return;
     }
 
-    const cwd = process.cwd();
-    const projectSettingsPath = join(cwd, '.claude', 'settings.json');
-
     try {
-      // Note: Legacy script/hook cleanup is now done in SetupAutoHandler.run()
-      // before any integration-specific setup runs. This ensures cleanup happens
-      // regardless of which coding agents are detected.
+      // Always install to project .claude/ directory (create if needed).
+      // This avoids confusion between global vs project-level settings and
+      // ensures hooks work in any environment (local dev, Claude Code Cloud, etc.).
+      await mkdir(claudePaths.dir, { recursive: true });
 
-      // Install hooks in global settings
-      await mkdir(dirname(settingsPath), { recursive: true });
-
+      // Read existing project settings
       let settings: Record<string, unknown> = {};
       try {
-        await access(settingsPath);
-        const content = await readFile(settingsPath, 'utf-8');
+        await access(claudePaths.settings);
+        const content = await readFile(claudePaths.settings, 'utf-8');
         settings = JSON.parse(content) as Record<string, unknown>;
       } catch {
         // File doesn't exist, start fresh
       }
 
-      const existingHooks = (settings.hooks as Record<string, unknown>) || {};
-      settings.hooks = {
-        ...existingHooks,
-        ...CLAUDE_GLOBAL_HOOKS.hooks,
-      };
+      // Merge session hooks (SessionStart, PreCompact) - append without overwriting
+      const existingHooks = (settings.hooks as Record<string, unknown[]>) || {};
+      const newHooks = CLAUDE_SESSION_HOOKS.hooks as Record<string, unknown[]>;
+      const mergedHooks: Record<string, unknown[]> = { ...existingHooks };
 
-      await writeFile(settingsPath, JSON.stringify(settings, null, 2) + '\n');
-      this.output.success('Installed global hooks for Claude Code');
+      for (const [hookType, hookEntries] of Object.entries(newHooks)) {
+        if (mergedHooks[hookType]) {
+          // Filter out any existing tbd-session.sh hooks before adding new ones
+          const filtered = (mergedHooks[hookType] as { hooks?: { command?: string }[] }[]).filter(
+            (entry) => !entry.hooks?.some((h) => h.command?.includes('tbd-session.sh')),
+          );
+          mergedHooks[hookType] = [...filtered, ...hookEntries];
+        } else {
+          mergedHooks[hookType] = hookEntries;
+        }
+      }
 
-      // Install global tbd-session.sh script to ~/.claude/scripts/
-      const globalScriptsDir = join(homedir(), '.claude', 'scripts');
-      await mkdir(globalScriptsDir, { recursive: true });
+      // Merge PostToolUse hooks
+      const projectHooks = CLAUDE_PROJECT_HOOKS.hooks as Record<string, unknown[]>;
+      for (const [hookType, hookEntries] of Object.entries(projectHooks)) {
+        mergedHooks[hookType] ??= hookEntries;
+      }
 
-      // Main script: tbd-session.sh (ensures tbd + runs prime)
-      const tbdSessionScript = join(globalScriptsDir, 'tbd-session.sh');
-      await writeFile(tbdSessionScript, TBD_SESSION_SCRIPT);
-      await chmod(tbdSessionScript, 0o755);
+      settings.hooks = mergedHooks;
 
-      // Clean up legacy global scripts
-      const legacyGlobalScripts = ['ensure-tbd-cli.sh', 'setup-tbd.sh', 'ensure-tbd.sh'];
-      for (const script of legacyGlobalScripts) {
+      // Manage gh CLI SessionStart hook based on use_gh_cli config setting
+      const useGhCli = await this.getUseGhCliSetting();
+      const finalHooks = settings.hooks as Record<string, unknown>;
+      let sessionStartEntries = (finalHooks.SessionStart as Record<string, unknown>[]) || [];
+
+      if (useGhCli) {
+        // Add gh CLI hook if not already present
+        const hasGhCliHook = sessionStartEntries.some((h: Record<string, unknown>) =>
+          (h.hooks as { command?: string }[])?.some((hook) =>
+            hook.command?.includes(GH_CLI_HOOK_COMMAND_PATTERN),
+          ),
+        );
+        if (!hasGhCliHook) {
+          sessionStartEntries = [...sessionStartEntries, GH_CLI_HOOK_ENTRY];
+        }
+
+        // Install the script file
+        await mkdir(claudePaths.scriptsDir, { recursive: true });
+        const ghScriptContent = await loadBundledScript('ensure-gh-cli.sh');
+        await writeFile(claudePaths.ghCliScript, ghScriptContent);
+        await chmod(claudePaths.ghCliScript, 0o755);
+        this.output.success('Installed gh CLI setup script');
+      } else {
+        // Remove gh CLI hook entries
+        sessionStartEntries = sessionStartEntries.filter(
+          (h: Record<string, unknown>) =>
+            !(h.hooks as { command?: string }[])?.some((hook) =>
+              hook.command?.includes(GH_CLI_HOOK_COMMAND_PATTERN),
+            ),
+        );
+
+        // Remove the script file
         try {
-          await rm(join(globalScriptsDir, script));
+          await rm(claudePaths.ghCliScript);
+          this.output.success('Removed gh CLI setup script');
         } catch {
           // Script doesn't exist, ignore
         }
       }
 
-      this.output.success('Installed global tbd session script');
-
-      // Install project-local hooks in .claude/settings.json
-      const hookScriptPath = join(cwd, '.claude', 'hooks', 'tbd-closing-reminder.sh');
-
-      // Read existing project settings if present
-      let projectSettings: Record<string, unknown> = {};
-      try {
-        await access(projectSettingsPath);
-        const content = await readFile(projectSettingsPath, 'utf-8');
-        projectSettings = JSON.parse(content) as Record<string, unknown>;
-        // Backup existing settings
-        await writeFile(projectSettingsPath + '.bak', content);
-      } catch {
-        // File doesn't exist, start fresh
+      if (sessionStartEntries.length > 0) {
+        finalHooks.SessionStart = sessionStartEntries;
+      } else {
+        delete finalHooks.SessionStart;
       }
 
-      // Merge project hooks (preserving non-tbd hooks that weren't cleaned)
-      const existingProjectHooks = (projectSettings.hooks as Record<string, unknown>) || {};
-      projectSettings.hooks = {
-        ...existingProjectHooks,
-        ...CLAUDE_PROJECT_HOOKS.hooks,
-      };
+      // Write all hooks to project settings in a single write
+      await writeFile(claudePaths.settings, JSON.stringify(settings, null, 2) + '\n');
+      this.output.success('Installed hooks to .claude/settings.json');
 
-      await mkdir(dirname(projectSettingsPath), { recursive: true });
-      await writeFile(projectSettingsPath, JSON.stringify(projectSettings, null, 2) + '\n');
-      this.output.success('Installed project hooks');
+      // Install tbd-session.sh script
+      await mkdir(claudePaths.scriptsDir, { recursive: true });
+      await writeFile(claudePaths.sessionScript, TBD_SESSION_SCRIPT);
+      await chmod(claudePaths.sessionScript, 0o755);
+
+      // Clean up legacy scripts in project
+      const legacyScripts = ['ensure-tbd-cli.sh', 'setup-tbd.sh', 'ensure-tbd.sh'];
+      for (const script of legacyScripts) {
+        try {
+          await rm(join(claudePaths.scriptsDir, script));
+        } catch {
+          // Script doesn't exist, ignore
+        }
+      }
+
+      this.output.success('Installed tbd session script to .claude/scripts/');
 
       // Add .claude/.gitignore to ignore backup files
       // NOTE: Pattern re-addition is intentional - see comment in initializeTbd
-      const claudeGitignorePath = join(cwd, '.claude', '.gitignore');
+      const claudeGitignorePath = join(claudePaths.dir, '.gitignore');
       const claudeGitignoreResult = await ensureGitignorePatterns(claudeGitignorePath, [
         '# Backup files',
         '*.bak',
@@ -755,9 +782,9 @@ class SetupClaudeHandler extends BaseCommand {
       // else: file is up-to-date, no message needed
 
       // Install hook script
-      await mkdir(dirname(hookScriptPath), { recursive: true });
-      await writeFile(hookScriptPath, TBD_CLOSE_PROTOCOL_SCRIPT);
-      await chmod(hookScriptPath, 0o755);
+      await mkdir(claudePaths.hooksDir, { recursive: true });
+      await writeFile(claudePaths.closingReminder, TBD_CLOSE_PROTOCOL_SCRIPT);
+      await chmod(claudePaths.closingReminder, 0o755);
       this.output.success('Installed sync reminder hook script');
 
       // Install skill file in project (with shortcut directory appended)
@@ -779,18 +806,40 @@ class SetupClaudeHandler extends BaseCommand {
 
       this.output.info('');
       this.output.info('What was installed:');
-      this.output.info('  - Global hooks: SessionStart and PreCompact run `tbd prime`');
+      this.output.info('  - Session hooks: SessionStart and PreCompact run `tbd prime`');
+      this.output.info('  - Session script: .claude/scripts/tbd-session.sh');
       this.output.info('  - Project hooks: PostToolUse reminds about `tbd sync` after git push');
       this.output.info('  - Project skill: .claude/skills/tbd/SKILL.md');
     } catch (error) {
       throw new CLIError(`Failed to install: ${(error as Error).message}`);
     }
   }
+
+  /**
+   * Read the use_gh_cli setting from config. Defaults to true if not set or if
+   * tbd is not yet initialized (so fresh setup installs gh CLI by default).
+   */
+  private async getUseGhCliSetting(): Promise<boolean> {
+    try {
+      const tbdRoot = await findTbdRoot(process.cwd());
+      if (!tbdRoot) return true;
+      const config = await readConfig(tbdRoot);
+      return config.settings.use_gh_cli ?? true;
+    } catch {
+      return true;
+    }
+  }
 }
 
 class SetupCodexHandler extends BaseCommand {
+  private projectDir: string | undefined;
+
+  setProjectDir(dir: string): void {
+    this.projectDir = dir;
+  }
+
   async run(options: SetupCodexOptions): Promise<void> {
-    const cwd = process.cwd();
+    const cwd = this.projectDir ?? process.cwd();
     const agentsPath = join(cwd, 'AGENTS.md');
 
     if (options.check) {
@@ -976,6 +1025,7 @@ interface SetupDefaultOptions {
   interactive?: boolean;
   fromBeads?: boolean;
   prefix?: string;
+  ghCli?: boolean; // Commander sets to false when --no-gh-cli is passed
 }
 
 /**
@@ -987,9 +1037,10 @@ interface SetupDefaultOptions {
  *
  * Decision tree:
  * 1. Not in git repo → Error (git init first)
- * 2. Has .tbd/ → Already initialized, check/update integrations
- * 3. Has .beads/ → Beads migration flow
- * 4. Fresh repo → Initialize + configure integrations
+ * 2. Resolve to git root → All paths relative to .git/ parent
+ * 3. Has .tbd/ → Already initialized, check/update integrations
+ * 4. Has .beads/ → Beads migration flow
+ * 5. Fresh repo → Initialize + configure integrations
  */
 class SetupDefaultHandler extends BaseCommand {
   private cmd: Command;
@@ -1011,15 +1062,24 @@ class SetupDefaultHandler extends BaseCommand {
     console.log(colors.bold('tbd: Git-native issue tracking for AI agents and humans'));
     console.log('');
 
-    // Check if in git repo
+    // Check if in git repo and resolve to git root
     const inGitRepo = await isInGitRepo(cwd);
     if (!inGitRepo) {
       throw new CLIError('Not a git repository. Run `git init` first.');
     }
 
+    // Resolve to git root so .tbd/ and .claude/ are always adjacent to .git/
+    const gitRoot = await findGitRoot(cwd);
+    if (!gitRoot) {
+      throw new CLIError('Could not determine git repository root.');
+    }
+
+    // Use git root as the working directory for all setup operations
+    const projectDir = gitRoot;
+
     // Check current state
-    const hasTbd = await isInitialized(cwd);
-    const hasBeads = await pathExists(join(cwd, '.beads'));
+    const hasTbd = await isInitialized(projectDir);
+    const hasBeads = await pathExists(join(projectDir, '.beads'));
 
     // Validate --from-beads flag requires .beads/ directory
     if (options.fromBeads && !hasBeads) {
@@ -1034,42 +1094,84 @@ class SetupDefaultHandler extends BaseCommand {
 
     if (hasTbd) {
       // Already initialized flow - check for migrations
-      const { config, migrated, changes } = await readConfigWithMigration(cwd);
+      const { config, migrated, changes } = await readConfigWithMigration(projectDir);
       console.log(`  ${colors.success('✓')} tbd initialized (prefix: ${config.display.id_prefix})`);
 
-      // Persist migration if config format was updated
-      if (migrated) {
-        await writeConfig(cwd, config);
-        console.log(`  ${colors.success('✓')} Config migrated to latest format`);
-        for (const change of changes) {
-          console.log(`      ${colors.dim(change)}`);
+      // Apply --no-gh-cli flag to config if specified
+      let needsConfigWrite = migrated;
+      if (options.ghCli === false && config.settings.use_gh_cli !== false) {
+        config.settings.use_gh_cli = false;
+        needsConfigWrite = true;
+      }
+
+      // Persist config if migrated or --no-gh-cli was applied
+      if (needsConfigWrite) {
+        await writeConfig(projectDir, config);
+        if (migrated) {
+          console.log(`  ${colors.success('✓')} Config migrated to latest format`);
+          for (const change of changes) {
+            console.log(`      ${colors.dim(change)}`);
+          }
+        }
+        if (options.ghCli === false) {
+          console.log(`  ${colors.success('✓')} Disabled gh CLI auto-setup`);
         }
       }
 
       console.log('');
-      await this.handleAlreadyInitialized(cwd, isAutoMode);
+      await this.handleAlreadyInitialized(projectDir, isAutoMode);
     } else if ((hasBeads || options.fromBeads) && !options.prefix) {
       // Beads migration flow (unless prefix override given)
       console.log(`  ${colors.dim('✗')} tbd not initialized`);
       console.log(`  ${colors.warn('!')} Beads detected (.beads/ directory found)`);
       console.log('');
-      await this.handleBeadsMigration(cwd, isAutoMode, options);
+      await this.handleBeadsMigration(projectDir, isAutoMode, options);
     } else {
       // Fresh setup flow
       console.log(`  ${colors.dim('✗')} tbd not initialized`);
       console.log('');
-      await this.handleFreshSetup(cwd, isAutoMode, options);
+      await this.handleFreshSetup(projectDir, isAutoMode, options);
     }
   }
 
-  private async handleAlreadyInitialized(_cwd: string, _isAutoMode: boolean): Promise<void> {
+  private async handleAlreadyInitialized(projectDir: string, _isAutoMode: boolean): Promise<void> {
     const colors = this.output.getColors();
+
+    // Ensure .tbd/.gitignore is up-to-date (may have new patterns from newer versions)
+    const tbdGitignoreResult = await ensureGitignorePatterns(
+      join(projectDir, TBD_DIR, '.gitignore'),
+      [
+        '# Synced documentation cache (regenerated by tbd sync --docs)',
+        'docs/',
+        '',
+        '# Hidden worktree for tbd-sync branch',
+        `${WORKTREE_DIR_NAME}/`,
+        '',
+        '# Data sync directory (only exists in worktree)',
+        `${DATA_SYNC_DIR_NAME}/`,
+        '',
+        '# Local state',
+        'state.yml',
+        '',
+        '# Migration backups (local only, not synced)',
+        'backups/',
+        '',
+        '# Temporary files',
+        '*.tmp',
+        '*.temp',
+      ],
+    );
+    if (tbdGitignoreResult.created) {
+      console.log(`  ${colors.success('✓')} Created .tbd/.gitignore`);
+    } else if (tbdGitignoreResult.added.length > 0) {
+      console.log(`  ${colors.success('✓')} Updated .tbd/.gitignore with new patterns`);
+    }
 
     console.log('Checking integrations...');
 
     // Use SetupAutoHandler to configure integrations
     const autoHandler = new SetupAutoHandler(this.cmd);
-    await autoHandler.run();
+    await autoHandler.run(projectDir);
 
     console.log('');
     console.log(colors.success('All set!'));
@@ -1112,6 +1214,14 @@ class SetupDefaultHandler extends BaseCommand {
     // Initialize tbd first
     await this.initializeTbd(cwd, prefix);
 
+    // Apply --no-gh-cli flag to newly created config
+    if (options.ghCli === false) {
+      const config = await readConfig(cwd);
+      config.settings.use_gh_cli = false;
+      await writeConfig(cwd, config);
+      console.log(`  ${colors.success('✓')} Disabled gh CLI auto-setup`);
+    }
+
     // Import beads issues from the JSONL file
     console.log('Importing from Beads...');
     const beadsDir = join(cwd, '.beads');
@@ -1139,7 +1249,7 @@ class SetupDefaultHandler extends BaseCommand {
 
     // Configure integrations
     const autoHandler = new SetupAutoHandler(this.cmd);
-    await autoHandler.run();
+    await autoHandler.run(cwd);
 
     console.log('');
     console.log(colors.success('Setup complete!'));
@@ -1148,6 +1258,13 @@ class SetupDefaultHandler extends BaseCommand {
 
     // Show dashboard after setup
     spawnSync('tbd', ['prime'], { stdio: 'inherit' });
+
+    // Mark welcome as seen since the user got the full onboarding experience
+    try {
+      await markWelcomeSeen(cwd);
+    } catch {
+      // Non-critical: don't fail setup if state write fails
+    }
   }
 
   private async handleFreshSetup(
@@ -1186,12 +1303,20 @@ class SetupDefaultHandler extends BaseCommand {
 
     await this.initializeTbd(cwd, prefix);
 
+    // Apply --no-gh-cli flag to newly created config
+    if (options.ghCli === false) {
+      const config = await readConfig(cwd);
+      config.settings.use_gh_cli = false;
+      await writeConfig(cwd, config);
+      console.log(`  ${colors.success('✓')} Disabled gh CLI auto-setup`);
+    }
+
     console.log('');
     console.log('Configuring integrations...');
 
     // Configure integrations
     const autoHandler = new SetupAutoHandler(this.cmd);
-    await autoHandler.run();
+    await autoHandler.run(cwd);
 
     console.log('');
     console.log(colors.success('Setup complete!'));
@@ -1200,21 +1325,29 @@ class SetupDefaultHandler extends BaseCommand {
 
     // Show dashboard after setup
     spawnSync('tbd', ['prime'], { stdio: 'inherit' });
+
+    // Mark welcome as seen since the user got the full onboarding experience
+    try {
+      await markWelcomeSeen(cwd);
+    } catch {
+      // Non-critical: don't fail setup if state write fails
+    }
   }
 
   /**
    * Show "What's Next" guidance after setup completion.
-   * Per spec: Include key actions to help users get started.
+   * Framed as what users can SAY to get help, not as CLI commands to run.
    */
   private showWhatsNext(colors: ReturnType<typeof this.output.getColors>): void {
     console.log('');
     console.log(colors.bold("WHAT'S NEXT"));
     console.log('');
-    console.log('  Track issues:       tbd create "Description" --type=bug|task|feature');
-    console.log('  Find work:          tbd ready');
-    console.log('  Plan features:      tbd shortcut new-plan-spec');
-    console.log('  Coding standards:   tbd guidelines typescript-rules');
-    console.log('  All shortcuts:      tbd shortcut --list');
+    console.log('  Try saying things like:');
+    console.log('    "There\'s a bug where ..."       → Creates and tracks a bug');
+    console.log('    "Let\'s plan a new feature"      → Walks through a planning spec');
+    console.log('    "Let\'s work on current issues"  → Shows ready issues to tackle');
+    console.log('    "Commit this code"               → Reviews and commits properly');
+    console.log('    "Review for best practices"      → Code review with guidelines');
     console.log('');
   }
 
@@ -1231,7 +1364,7 @@ class SetupDefaultHandler extends BaseCommand {
     // a pattern, we re-add it because tracking these directories in git would
     // cause noise on every tbd upgrade.
     const tbdGitignoreResult = await ensureGitignorePatterns(join(cwd, TBD_DIR, '.gitignore'), [
-      '# Synced documentation cache (regenerated by tbd docs --refresh)',
+      '# Synced documentation cache (regenerated by tbd sync --docs)',
       'docs/',
       '',
       '# Hidden worktree for tbd-sync branch',
@@ -1242,6 +1375,9 @@ class SetupDefaultHandler extends BaseCommand {
       '',
       '# Local state',
       'state.yml',
+      '',
+      '# Migration backups (local only, not synced)',
+      'backups/',
       '',
       '# Temporary files',
       '*.tmp',
@@ -1257,7 +1393,17 @@ class SetupDefaultHandler extends BaseCommand {
     // 3. Initialize worktree for sync branch
     try {
       await initWorktree(cwd);
-      console.log(`  ${colors.success('✓')} Initialized sync branch`);
+
+      // Verify worktree health after creation (prevents silent failures)
+      const health = await checkWorktreeHealth(cwd);
+      if (health.valid) {
+        console.log(`  ${colors.success('✓')} Initialized sync branch`);
+      } else {
+        console.log(
+          `  ${colors.warn('!')} Sync branch created but verification failed (status: ${health.status})`,
+        );
+        console.log(`      Run 'tbd doctor' to diagnose`);
+      }
     } catch {
       // Non-fatal - sync will work, just not optimally
       console.log(`  ${colors.dim('○')} Sync branch will be created on first sync`);
@@ -1395,9 +1541,9 @@ class SetupAutoHandler extends BaseCommand {
     return hooksRemoved;
   }
 
-  async run(): Promise<void> {
+  async run(projectDir?: string): Promise<void> {
     const colors = this.output.getColors();
-    const cwd = process.cwd();
+    const cwd = projectDir ?? process.cwd();
     const results: AutoSetupResult[] = [];
 
     // Clean up legacy project-level scripts and hooks FIRST,
@@ -1460,37 +1606,12 @@ class SetupAutoHandler extends BaseCommand {
   }
 
   /**
-   * Sync docs using DocSync.
-   * Merges default bundled docs with user's doc_cache config, then syncs.
-   * This ensures new bundled docs from tbd updates are added while
-   * preserving user's custom sources and overrides.
+   * Sync docs using syncDocsWithDefaults.
+   * Uses the shared function that merges bundled defaults, prunes stale entries,
+   * syncs files, and updates config.
    */
   private async syncDocs(cwd: string): Promise<void> {
     const colors = this.output.getColors();
-
-    // Read config
-    const config = await readConfig(cwd);
-
-    // Merge user's config with defaults (ensures new bundled docs are added)
-    const defaults = await generateDefaultDocCacheConfig();
-    const currentFiles = config.docs_cache?.files;
-    const filesConfig = mergeDocCacheConfig(currentFiles, defaults);
-
-    // Check if config changed (new defaults added)
-    const configUpdated =
-      !currentFiles ||
-      Object.keys(filesConfig).length !== Object.keys(currentFiles).length ||
-      Object.keys(filesConfig).some((k) => currentFiles?.[k] !== filesConfig[k]);
-
-    if (configUpdated) {
-      config.docs_cache = {
-        lookup_path: config.docs_cache?.lookup_path ?? [
-          '.tbd/docs/shortcuts/system',
-          '.tbd/docs/shortcuts/standard',
-        ],
-        files: filesConfig,
-      };
-    }
 
     // Ensure docs directories exist
     await mkdir(join(cwd, TBD_SHORTCUTS_SYSTEM), { recursive: true });
@@ -1498,28 +1619,28 @@ class SetupAutoHandler extends BaseCommand {
     await mkdir(join(cwd, TBD_GUIDELINES_DIR), { recursive: true });
     await mkdir(join(cwd, TBD_TEMPLATES_DIR), { recursive: true });
 
-    // Sync docs
-    const sync = new DocSync(cwd, filesConfig);
-    const result = await sync.sync();
-
-    // Update last sync time
-    await updateLocalState(cwd, {
-      last_doc_sync_at: new Date().toISOString(),
-    });
-
-    // Write updated config if docs_cache.files was generated
-    if (configUpdated) {
-      await writeConfig(cwd, config);
-      console.log(colors.dim('Generated docs_cache config'));
-    }
+    // Use shared sync function that handles:
+    // - Merging bundled defaults with user config
+    // - Pruning stale internal entries
+    // - Syncing files to .tbd/docs/
+    // - Writing config if changed
+    // - Updating last_doc_sync_at in state
+    const result = await syncDocsWithDefaults(cwd);
 
     // Report sync results
+    if (result.configChanged) {
+      console.log(colors.dim('Updated docs_cache config'));
+    }
+
     const total = result.added.length + result.updated.length;
     if (total > 0) {
       console.log(colors.dim(`Synced ${total} doc(s) to ${TBD_DOCS_DIR}/`));
     }
     if (result.removed.length > 0) {
       console.log(colors.dim(`Removed ${result.removed.length} outdated doc(s)`));
+    }
+    if (result.pruned.length > 0) {
+      console.log(colors.dim(`Pruned ${result.pruned.length} stale config entry/entries`));
     }
     if (result.errors.length > 0) {
       for (const { path, error } of result.errors) {
@@ -1537,8 +1658,8 @@ class SetupAutoHandler extends BaseCommand {
     };
 
     // Detect Claude Code: check for ~/.claude/ directory or CLAUDE_* env vars
-    const claudeDir = join(homedir(), '.claude');
-    const hasClaudeDir = await pathExists(claudeDir);
+    // Note: We check global dir for DETECTION only, not for installation
+    const hasClaudeDir = await pathExists(GLOBAL_CLAUDE_DIR);
     const hasClaudeEnv = Object.keys(process.env).some((k) => k.startsWith('CLAUDE_'));
 
     if (!hasClaudeDir && !hasClaudeEnv) {
@@ -1547,22 +1668,24 @@ class SetupAutoHandler extends BaseCommand {
 
     result.detected = true;
 
-    // Check if already installed
-    const settingsPath = join(claudeDir, 'settings.json');
-    const skillPath = join(cwd, '.claude', 'skills', 'tbd', 'SKILL.md');
+    // Check if already installed (project-local settings - all installs are project-local)
+    const claudePaths = getClaudePaths(cwd);
 
     try {
-      // Check for existing tbd hooks in global settings
-      if (await pathExists(settingsPath)) {
-        const content = await readFile(settingsPath, 'utf-8');
+      if (await pathExists(claudePaths.settings)) {
+        const content = await readFile(claudePaths.settings, 'utf-8');
         const settings = JSON.parse(content) as Record<string, unknown>;
         const hooks = settings.hooks as Record<string, unknown> | undefined;
         if (hooks) {
           const sessionStart = hooks.SessionStart as { hooks?: { command?: string }[] }[];
           const hasTbdHook = sessionStart?.some((h) =>
-            h.hooks?.some((hook) => hook.command?.includes('tbd prime')),
+            h.hooks?.some(
+              (hook) =>
+                (hook.command?.includes('tbd prime') ?? false) ||
+                (hook.command?.includes('tbd-session.sh') ?? false),
+            ),
           );
-          if (hasTbdHook && (await pathExists(skillPath))) {
+          if (hasTbdHook && (await pathExists(claudePaths.skill))) {
             result.alreadyInstalled = true;
             // Note: We still run the handler to update the skill file content
             // even if hooks are already installed. This ensures users get the
@@ -1573,6 +1696,7 @@ class SetupAutoHandler extends BaseCommand {
 
       // Install/update Claude Code setup (always runs to update skill file)
       const handler = new SetupClaudeHandler(this.cmd);
+      handler.setProjectDir(cwd);
       await handler.run({});
       result.installed = true;
     } catch (error) {
@@ -1591,7 +1715,7 @@ class SetupAutoHandler extends BaseCommand {
     };
 
     // Detect Codex: check for existing AGENTS.md or CODEX_* env vars
-    const agentsPath = join(cwd, 'AGENTS.md');
+    const agentsPath = getAgentsMdPath(cwd);
     const hasAgentsMd = await pathExists(agentsPath);
     const hasCodexEnv = Object.keys(process.env).some((k) => k.startsWith('CODEX_'));
 
@@ -1615,6 +1739,7 @@ class SetupAutoHandler extends BaseCommand {
     try {
       // Install/update Codex AGENTS.md (always runs to update content)
       const handler = new SetupCodexHandler(this.cmd);
+      handler.setProjectDir(cwd);
       await handler.run({});
       result.installed = true;
     } catch (error) {
@@ -1632,6 +1757,7 @@ export const setupCommand = new Command('setup')
   .option('--interactive', 'Interactive mode with prompts (for humans)')
   .option('--from-beads', 'Migrate from Beads to tbd')
   .option('--prefix <name>', 'Project prefix for issue IDs (required for fresh setup)')
+  .option('--no-gh-cli', 'Disable automatic GitHub CLI installation hook')
   .action(async (options: SetupDefaultOptions, command) => {
     // If --auto or --interactive flag is set, run the default handler
     if (options.auto || options.interactive) {
@@ -1651,6 +1777,8 @@ export const setupCommand = new Command('setup')
     console.log('Usage: tbd setup [options]');
     console.log('');
     console.log('Initialize tbd and configure agent integrations.');
+    console.log('Must be run inside a git repository. Installs .tbd/ and .claude/');
+    console.log('at the git root (adjacent to .git/).');
     console.log('');
     console.log('Modes (one required):');
     console.log(
@@ -1661,6 +1789,7 @@ export const setupCommand = new Command('setup')
     console.log('');
     console.log('Options:');
     console.log('  --prefix <name>     Project prefix for issue IDs (e.g., "tbd", "myapp")');
+    console.log('  --no-gh-cli         Disable automatic GitHub CLI installation hook');
     console.log('');
     console.log('Examples:');
     console.log('  tbd setup --auto --prefix=tbd   # Full automatic setup with prefix');

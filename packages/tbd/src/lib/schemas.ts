@@ -124,6 +124,11 @@ export const IssueSchema = BaseEntity.extend({
   // Hierarchical issues
   parent_id: IssueId.nullable().optional(),
 
+  // Child ordering hints - soft ordering for children under this parent.
+  // Array of internal IssueIds in preferred display order.
+  // May contain stale IDs; display logic filters for actual children.
+  child_order_hints: z.array(IssueId).nullable().optional(),
+
   // Beads compatibility
   due_date: Timestamp.nullable().optional(),
   deferred_until: Timestamp.nullable().optional(),
@@ -171,15 +176,15 @@ export const GitRemoteName = z
 /**
  * Doc cache configuration - maps destination paths to source locations.
  *
- * Keys are destination paths relative to .tbd/docs/ (e.g., "shortcuts/standard/commit-code.md")
+ * Keys are destination paths relative to .tbd/docs/ (e.g., "shortcuts/standard/code-review-and-commit.md")
  * Values are source locations:
- * - internal: prefix for bundled docs (e.g., "internal:shortcuts/standard/commit-code.md")
+ * - internal: prefix for bundled docs (e.g., "internal:shortcuts/standard/code-review-and-commit.md")
  * - Full URL for external docs (e.g., "https://raw.githubusercontent.com/org/repo/main/file.md")
  *
  * Example:
  * ```yaml
  * doc_cache:
- *   shortcuts/standard/commit-code.md: internal:shortcuts/standard/commit-code.md
+ *   shortcuts/standard/code-review-and-commit.md: internal:shortcuts/standard/code-review-and-commit.md
  *   shortcuts/custom/my-shortcut.md: https://raw.githubusercontent.com/org/repo/main/shortcuts/my-shortcut.md
  * ```
  */
@@ -196,7 +201,7 @@ export const DocsCacheSchema = z.object({
    * Files to sync: maps destination paths to source locations.
    * Keys are destination paths relative to .tbd/docs/
    * Values are source locations:
-   * - internal: prefix for bundled docs (e.g., "internal:shortcuts/standard/commit-code.md")
+   * - internal: prefix for bundled docs (e.g., "internal:shortcuts/standard/code-review-and-commit.md")
    * - Full URL for external docs (e.g., "https://raw.githubusercontent.com/org/repo/main/file.md")
    */
   files: z.record(z.string(), z.string()).optional(),
@@ -214,6 +219,20 @@ export const DocsCacheSchema = z.object({
  *
  * ⚠️ FORMAT VERSIONING: See tbd-format.ts for version history and migration rules.
  * The tbd_format field tracks breaking changes to this schema.
+ *
+ * ⚠️ FORWARD COMPATIBILITY POLICY:
+ * This schema uses Zod's default strip() mode, which discards unknown fields.
+ * To prevent data loss when users mix tbd versions:
+ *
+ * 1. **When changing config schema (adding, removing, or modifying fields), ALWAYS
+ *    bump the format version** (e.g., f03 → f04)
+ * 2. Older tbd versions will error when they see an unknown format version
+ * 3. The error message tells users to upgrade tbd
+ *
+ * This ensures older versions fail fast rather than silently corrupting config.
+ * The format version check happens in config.ts via isCompatibleFormat().
+ *
+ * See tbd-format.ts for format version history and migration rules.
  */
 export const ConfigSchema = z.object({
   /**
@@ -243,6 +262,13 @@ export const ConfigSchema = z.object({
        * - Only triggers when accessing docs (shortcut, guidelines, template commands)
        */
       doc_auto_sync_hours: z.number().default(24),
+      /**
+       * Whether to install the ensure-gh-cli.sh hook script during setup.
+       * When true (default), `tbd setup` installs a SessionStart hook that
+       * ensures the GitHub CLI is available in agent sessions.
+       * Set to false or use `tbd setup --no-gh-cli` to disable.
+       */
+      use_gh_cli: z.boolean().default(true),
     })
     .default({}),
   /**
@@ -278,6 +304,8 @@ export const LocalStateSchema = z.object({
   last_sync_at: Timestamp.optional(),
   /** When this node last synced the doc cache successfully */
   last_doc_sync_at: Timestamp.optional(),
+  /** Whether the user has seen the welcome message */
+  welcome_seen: z.boolean().optional(),
 });
 
 // =============================================================================

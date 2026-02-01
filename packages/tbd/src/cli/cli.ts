@@ -44,6 +44,8 @@ import { shortcutCommand } from './commands/shortcut.js';
 import { guidelinesCommand } from './commands/guidelines.js';
 import { templateCommand } from './commands/template.js';
 import { setupCommand } from './commands/setup.js';
+import { saveCommand } from './commands/save.js';
+import { workspaceCommand } from './commands/workspace.js';
 import { CLIError } from './lib/errors.js';
 
 /**
@@ -112,12 +114,14 @@ function createProgram(): Command {
 
   program.commandsGroup('Sync and Status:');
   program.addCommand(syncCommand);
+  program.addCommand(saveCommand);
   program.addCommand(statusCommand);
   program.addCommand(statsCommand);
 
   program.commandsGroup('Maintenance:');
   program.addCommand(doctorCommand);
   program.addCommand(atticCommand);
+  program.addCommand(workspaceCommand);
   program.addCommand(importCommand);
   program.addCommand(uninstallCommand);
 
@@ -162,20 +166,40 @@ function isJsonMode(): boolean {
 }
 
 /**
+ * Check if --debug flag is present in argv.
+ */
+function isDebugMode(): boolean {
+  return process.argv.includes('--debug');
+}
+
+/**
  * Output error in the appropriate format (JSON or text).
+ * In debug mode, shows full error details and stack trace.
  */
 function outputError(message: string, error?: Error): void {
+  const debugMode = isDebugMode();
+
   if (isJsonMode()) {
-    const errorObj: { error: string; type?: string; details?: string } = { error: message };
+    const errorObj: { error: string; type?: string; details?: string; stack?: string } = {
+      error: message,
+    };
     if (error instanceof CLIError) {
       errorObj.type = error.name;
     }
     if (error && error.message !== message) {
       errorObj.details = error.message;
     }
+    if (debugMode && error?.stack) {
+      errorObj.stack = error.stack;
+    }
     console.error(JSON.stringify(errorObj));
   } else {
     console.error(`Error: ${message}`);
+    if (debugMode && error?.stack) {
+      console.error('');
+      console.error('Stack trace:');
+      console.error(error.stack);
+    }
   }
 }
 

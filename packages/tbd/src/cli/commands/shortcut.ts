@@ -12,11 +12,13 @@ import pc from 'picocolors';
 
 import { BaseCommand } from '../lib/base-command.js';
 import { SHORTCUT_AGENT_HEADER } from '../lib/doc-prompts.js';
-import { requireInit } from '../lib/errors.js';
+import { requireInit, CLIError } from '../lib/errors.js';
 import { DocCache, SCORE_PREFIX_MATCH } from '../../file/doc-cache.js';
+import { addDoc } from '../../file/doc-add.js';
 import { readConfig } from '../../file/config.js';
 import { DEFAULT_SHORTCUT_PATHS } from '../../lib/paths.js';
 import { truncate } from '../../lib/truncate.js';
+import { formatDocSize } from '../../lib/format-utils.js';
 import { getTerminalWidth } from '../lib/output.js';
 
 interface ShortcutOptions {
@@ -25,60 +27,49 @@ interface ShortcutOptions {
   refresh?: boolean;
   quiet?: boolean;
   category?: string;
+  add?: string;
+  name?: string;
 }
 
 /**
  * Shortcut categories for filtering.
- * Categories are inferred from shortcut names.
+ * Categories are read from frontmatter.
  */
-type ShortcutCategory = 'planning' | 'implementation' | 'quality' | 'shipping';
-
-/**
- * Infer category from shortcut name.
- * Returns undefined if no category matches.
- */
-function inferCategory(name: string): ShortcutCategory | undefined {
-  // Planning: specs, architecture, research, planning docs
-  if (
-    name.includes('plan-spec') ||
-    name.includes('architecture') ||
-    name.includes('research') ||
-    name.includes('validation-spec') ||
-    name.includes('implementation-spec') ||
-    name.includes('beads-from-spec') ||
-    name.includes('update-spec') ||
-    name.includes('refine-spec') ||
-    name.includes('revise-')
-  ) {
-    return 'planning';
-  }
-
-  // Implementation: coding, implementing
-  if (name.includes('implement-') || name.includes('coding-spike')) {
-    return 'implementation';
-  }
-
-  // Quality: review, testing, precommit, cleanup
-  if (
-    name.includes('review-') ||
-    name.includes('precommit') ||
-    name.includes('cleanup-') ||
-    name.includes('validation-plan')
-  ) {
-    return 'quality';
-  }
-
-  // Shipping: commit, PR, merge
-  if (name.includes('commit-') || name.includes('pr-') || name.includes('merge-')) {
-    return 'shipping';
-  }
-
-  return undefined;
-}
+type ShortcutCategory =
+  | 'planning'
+  | 'documentation'
+  | 'review'
+  | 'git'
+  | 'cleanup'
+  | 'session'
+  | 'meta';
 
 class ShortcutHandler extends BaseCommand {
   async run(query: string | undefined, options: ShortcutOptions): Promise<void> {
     await this.execute(async () => {
+      // Add mode
+      if (options.add) {
+        if (!options.name) {
+          throw new CLIError('--name is required when using --add');
+        }
+        const tbdRoot = await requireInit();
+        console.log(`Adding shortcut: ${options.name}`);
+        console.log(`  URL: ${options.add}`);
+        const result = await addDoc(tbdRoot, {
+          url: options.add,
+          name: options.name,
+          docType: 'shortcut',
+        });
+        if (result.usedGhCli) {
+          console.log(pc.dim('  (fetched via gh CLI due to direct access restriction)'));
+        }
+        console.log(pc.green(`  Added to ${result.destPath}`));
+        console.log(pc.green(`  Config updated with source: ${result.rawUrl}`));
+        console.log('');
+        console.log('Run `tbd shortcut --list` to verify.');
+        return;
+      }
+
       // Get tbd root (supports running from subdirectories)
       const tbdRoot = await requireInit();
 
@@ -148,10 +139,10 @@ class ShortcutHandler extends BaseCommand {
   ): Promise<void> {
     let docs = cache.list(includeAll);
 
-    // Filter by category if specified
+    // Filter by category if specified (read from frontmatter)
     if (category) {
       docs = docs.filter((d) => {
-        const docCategory = inferCategory(d.name);
+        const docCategory = d.frontmatter?.category as ShortcutCategory | undefined;
         return docCategory === category;
       });
     }
@@ -162,8 +153,11 @@ class ShortcutHandler extends BaseCommand {
           name: d.name,
           title: d.frontmatter?.title,
           description: d.frontmatter?.description,
+          category: d.frontmatter?.category,
           path: d.path,
           sourceDir: d.sourceDir,
+          sizeBytes: d.sizeBytes,
+          approxTokens: d.approxTokens,
           shadowed: cache.isShadowed(d),
         })),
       );
@@ -189,8 +183,9 @@ class ShortcutHandler extends BaseCommand {
         const line = `${name} (${doc.sourceDir}) [shadowed]`;
         console.log(pc.dim(truncate(line, maxWidth)));
       } else {
-        // Line 1: name (bold) + (sourceDir) (dimmed)
-        console.log(`${pc.bold(name)} ${pc.dim(`(${doc.sourceDir})`)}`);
+        // Line 1: name (bold) + size/token info (dimmed)
+        const sizeInfo = formatDocSize(doc.sizeBytes, doc.approxTokens);
+        console.log(`${pc.bold(name)} ${pc.dim(sizeInfo)}`);
 
         // Line 2+: Indented "Title: Description"
         // Only truncate fallback body text; never truncate actual title/description
@@ -374,10 +369,12 @@ export const shortcutCommand = new Command('shortcut')
   .option('--all', 'Include shadowed shortcuts (use with --list)')
   .option(
     '--category <category>',
-    'Filter by category: planning, implementation, quality, shipping',
+    'Filter by category: planning, documentation, review, git, cleanup, session, meta',
   )
   .option('--refresh', 'Refresh the cached shortcut directory')
   .option('--quiet', 'Suppress output (use with --refresh)')
+  .option('--add <url>', 'Add a shortcut from a URL')
+  .option('--name <name>', 'Name for the added shortcut (required with --add)')
   .action(async (query: string | undefined, options: ShortcutOptions, command) => {
     const handler = new ShortcutHandler(command);
     await handler.run(query, options);

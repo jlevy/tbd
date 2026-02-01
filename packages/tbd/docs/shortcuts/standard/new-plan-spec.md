@@ -1,10 +1,10 @@
 ---
 title: New Plan Spec
 description: Create a new feature planning specification document
+category: planning
+author: Joshua Levy (github.com/jlevy) with LLM assistance
 ---
-Shortcut: New Plan Spec
-
-We track issues with tbd.
+We track work as beads using tbd.
 Run `tbd` for more on using tbd and current status.
 
 Instructions:
@@ -39,10 +39,11 @@ Create a to-do list with the following items then perform all of them:
    ```
    tbd create "Implement feature X" --spec plan-YYYY-MM-DD-feature-name.md
    ```
+   You can also update an existing bead to link it to a spec:
+   ```
+   tbd update <id> --spec plan-YYYY-MM-DD-feature-name.md
+   ```
+   To clear a spec link: `tbd update <id> --spec ""`
 
-5. List all beads linked to a spec with:
-   ```
-   tbd list --spec feature-name.md
-   ```
-   This uses gradual path matching - the query can be just the filename, a partial path,
-   or the full path.
+5. To list beads linked to a spec, use `tbd list --spec` (see `tbd list --help` for
+   details on filtering and path matching).

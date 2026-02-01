@@ -70,7 +70,7 @@ describe('golden output tests', () => {
         Workflows (Shortcuts):
           tbd shortcut --list          List all available shortcuts
           tbd shortcut new-plan-spec   Plan a new feature
-          tbd shortcut commit-code     Commit code properly
+          tbd shortcut code-review-and-commit     Commit code properly
           tbd shortcut create-or-update-pr-simple  Create a pull request
 
         Guidelines (Coding Standards):
@@ -82,7 +82,7 @@ describe('golden output tests', () => {
         Templates:
           tbd template --list          List all available templates
           tbd template plan-spec       Feature planning template
-          tbd template architecture    Architecture document template
+          tbd template architecture-doc    Architecture document template
 
         Design & Reference:
           tbd docs --list              List documentation sections
@@ -109,18 +109,14 @@ describe('golden output tests', () => {
 
       expect(result.status).toBe(0);
 
-      // Verify What's Next section is present with all key guidance
+      // Verify What's Next section uses "what you can say" framing
       expect(result.stdout).toContain("WHAT'S NEXT");
-      expect(result.stdout).toContain('Track issues:');
-      expect(result.stdout).toContain('tbd create "Description"');
-      expect(result.stdout).toContain('Find work:');
-      expect(result.stdout).toContain('tbd ready');
-      expect(result.stdout).toContain('Plan features:');
-      expect(result.stdout).toContain('tbd shortcut new-plan-spec');
-      expect(result.stdout).toContain('Coding standards:');
-      expect(result.stdout).toContain('tbd guidelines typescript-rules');
-      expect(result.stdout).toContain('All shortcuts:');
-      expect(result.stdout).toContain('tbd shortcut --list');
+      expect(result.stdout).toContain('Try saying things like:');
+      expect(result.stdout).toContain("There's a bug where");
+      expect(result.stdout).toContain("Let's plan a new feature");
+      expect(result.stdout).toContain("Let's work on current issues");
+      expect(result.stdout).toContain('Commit this code');
+      expect(result.stdout).toContain('Review for best practices');
     });
   });
 
@@ -150,7 +146,7 @@ describe('golden output tests', () => {
 
       // Verify setup instructions
       expect(output).toContain('SETUP');
-      expect(output).toContain('tbd setup --interactive');
+      expect(output).toContain('tbd setup --auto --prefix=');
       expect(output).toContain('Never guess a prefix');
     });
   });
@@ -192,13 +188,13 @@ describe('golden output tests', () => {
       const planningResult = runTbd(['shortcut', '--list', '--category', 'planning']);
       expect(planningResult.status).toBe(0);
       expect(planningResult.stdout).toContain('new-plan-spec');
-      expect(planningResult.stdout).not.toContain('commit-code');
+      expect(planningResult.stdout).not.toContain('code-review-and-commit');
 
-      // Shipping category should include commit-code
-      const shippingResult = runTbd(['shortcut', '--list', '--category', 'shipping']);
-      expect(shippingResult.status).toBe(0);
-      expect(shippingResult.stdout).toContain('commit-code');
-      expect(shippingResult.stdout).not.toContain('new-plan-spec');
+      // Git category should include code-review-and-commit
+      const gitResult = runTbd(['shortcut', '--list', '--category', 'git']);
+      expect(gitResult.status).toBe(0);
+      expect(gitResult.stdout).toContain('code-review-and-commit');
+      expect(gitResult.stdout).not.toContain('new-plan-spec');
     });
   });
 

@@ -8,6 +8,7 @@
 import { Command } from 'commander';
 
 import { DocCommandHandler, type DocCommandOptions } from '../lib/doc-command-handler.js';
+import { CLIError } from '../lib/errors.js';
 import { DEFAULT_TEMPLATE_PATHS } from '../../lib/paths.js';
 
 class TemplateHandler extends DocCommandHandler {
@@ -16,11 +17,21 @@ class TemplateHandler extends DocCommandHandler {
       typeName: 'template',
       typeNamePlural: 'templates',
       paths: DEFAULT_TEMPLATE_PATHS,
+      docType: 'template',
     });
   }
 
   async run(query: string | undefined, options: DocCommandOptions): Promise<void> {
     await this.execute(async () => {
+      // Add mode
+      if (options.add) {
+        if (!options.name) {
+          throw new CLIError('--name is required when using --add');
+        }
+        await this.handleAdd(options.add, options.name);
+        return;
+      }
+
       await this.initCache();
 
       // List mode
@@ -46,6 +57,8 @@ export const templateCommand = new Command('template')
   .argument('[query]', 'Template name or description to search for')
   .option('--list', 'List all available templates')
   .option('--all', 'Include shadowed templates (use with --list)')
+  .option('--add <url>', 'Add a template from a URL')
+  .option('--name <name>', 'Name for the added template (required with --add)')
   .action(async (query: string | undefined, options: DocCommandOptions, command) => {
     const handler = new TemplateHandler(command);
     await handler.run(query, options);

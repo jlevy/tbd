@@ -30,12 +30,21 @@ import type { Issue, IssueStatusType, IssueKindType, DependencyType } from '../.
 import { resolveDataSyncDir } from '../../lib/paths.js';
 import { now, normalizeTimestamp } from '../../utils/time-utils.js';
 import { readConfig, writeConfig } from '../../file/config.js';
+import {
+  importFromWorkspace,
+  type ImportOptions as WorkspaceImportOptions,
+} from '../../file/workspace.js';
 
 interface ImportOptions {
   beadsDir?: string;
   merge?: boolean;
   verbose?: boolean;
   validate?: boolean;
+  // Workspace import options
+  workspace?: string;
+  dir?: string;
+  outbox?: boolean;
+  clearOnSuccess?: boolean;
 }
 
 interface ValidationIssue {
@@ -164,11 +173,21 @@ class ImportHandler extends BaseCommand {
   private dataSyncDir = '';
 
   async run(file: string | undefined, options: ImportOptions): Promise<void> {
+    // Check if this is a workspace import
+    const isWorkspaceImport =
+      options.workspace != null || options.dir != null || options.outbox === true;
+
+    if (isWorkspaceImport) {
+      await this.importFromWorkspaceCmd(options);
+      return;
+    }
+
     // Validate input first
     if (!file && !options.validate) {
       throw new ValidationError(
         'Provide a JSONL file path to import.\n\n' +
-          'For Beads migration, use: tbd setup --from-beads',
+          'For Beads migration, use: tbd setup --from-beads\n' +
+          'For workspace import, use: tbd import --workspace=<name> or --outbox',
       );
     }
 
@@ -186,6 +205,64 @@ class ImportHandler extends BaseCommand {
       this.dataSyncDir = await resolveDataSyncDir();
       await this.importFromFile(file, options);
     }
+  }
+
+  /**
+   * Import issues from a workspace.
+   */
+  private async importFromWorkspaceCmd(options: ImportOptions): Promise<void> {
+    const tbdRoot = await requireInit();
+    this.dataSyncDir = await resolveDataSyncDir(tbdRoot);
+
+    const wsOptions: WorkspaceImportOptions = {
+      workspace: options.workspace,
+      dir: options.dir,
+      outbox: options.outbox,
+      clearOnSuccess: options.clearOnSuccess,
+    };
+
+    if (this.checkDryRun('Would import from workspace', wsOptions)) {
+      return;
+    }
+
+    const spinner = this.output.spinner('Importing from workspace...');
+
+    const result = await this.execute(async () => {
+      return await importFromWorkspace(tbdRoot, this.dataSyncDir, wsOptions);
+    }, 'Failed to import from workspace');
+
+    spinner.stop();
+
+    if (!result) {
+      return;
+    }
+
+    // Format output
+    const sourceName = options.outbox ? 'outbox' : (options.workspace ?? options.dir ?? 'unknown');
+
+    this.output.data(
+      {
+        imported: result.imported,
+        conflicts: result.conflicts,
+        source: sourceName,
+        cleared: result.cleared,
+      },
+      () => {
+        if (result.imported === 0) {
+          this.output.info('No issues to import');
+        } else {
+          this.output.success(`Imported ${result.imported} issue(s) from ${sourceName}`);
+          if (result.conflicts > 0) {
+            this.output.warn(`${result.conflicts} conflict(s) moved to attic`);
+          }
+          if (result.cleared) {
+            this.output.info(`Workspace "${sourceName}" cleared`);
+          }
+          // Suggest next step
+          this.output.info('Run `tbd sync` to commit and push imported issues');
+        }
+      },
+    );
   }
 
   /**
@@ -642,13 +719,20 @@ class ImportHandler extends BaseCommand {
 
 export const importCommand = new Command('import')
   .description(
-    'Import issues from JSONL file.\n' + 'For Beads migration, use: tbd setup --from-beads',
+    'Import issues from JSONL file or workspace.\n' +
+      'For Beads migration, use: tbd setup --from-beads\n' +
+      'For workspace import, use: tbd import --workspace=<name> or --outbox',
   )
   .argument('[file]', 'JSONL file to import')
   .option('--beads-dir <path>', 'Beads data directory (for --validate)')
   .option('--merge', 'Merge with existing issues instead of skipping duplicates')
   .option('--verbose', 'Show detailed import progress')
   .option('--validate', 'Validate existing import against Beads source')
+  // Workspace import options
+  .option('--workspace <name>', 'Import from named workspace under .tbd/workspaces/')
+  .option('--dir <path>', 'Import from arbitrary directory')
+  .option('--outbox', 'Shortcut for --workspace=outbox --clear-on-success')
+  .option('--clear-on-success', 'Delete workspace after successful import')
   .action(async (file, options, command) => {
     const handler = new ImportHandler(command);
     await handler.run(file, options);

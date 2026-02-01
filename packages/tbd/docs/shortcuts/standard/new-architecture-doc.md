@@ -1,10 +1,10 @@
 ---
 title: New Architecture Doc
 description: Create an architecture document for a system or component design
+category: documentation
+author: Joshua Levy (github.com/jlevy) with LLM assistance
 ---
-Shortcut: New Architecture Doc
-
-We track issues with tbd.
+We track work as beads using tbd.
 Run `tbd` for more on using tbd and current status.
 
 Instructions:
@@ -21,7 +21,7 @@ Create a to-do list with the following items then perform all of them:
 
 3. Create the architecture document using the template:
    ```
-   tbd template architecture > docs/project/architecture/arch-YYYY-MM-DD-component-name.md
+   tbd template architecture-doc > docs/project/architecture/arch-YYYY-MM-DD-component-name.md
    ```
    (Fill in the date and an appropriate component name.)
 

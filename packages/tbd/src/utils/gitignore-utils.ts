@@ -51,27 +51,45 @@ export async function ensureGitignorePatterns(
     created = true;
   }
 
-  // Determine which patterns need to be added
-  const added: string[] = [];
-  const skipped: string[] = [];
+  // Group patterns into entries: each entry is leading comments/blanks followed by
+  // one or more actual patterns. Comments are only included if their associated
+  // pattern(s) are new, preventing orphaned comment duplication on upgrades.
+  const entries: { preamble: string[]; patterns: string[] }[] = [];
+  let currentPreamble: string[] = [];
 
   for (const pattern of patterns) {
     const trimmed = pattern.trim();
-    // Always add comments and blank lines (for formatting)
     if (trimmed === '' || trimmed.startsWith('#')) {
-      added.push(pattern);
-    } else if (hasGitignorePattern(content, trimmed)) {
-      skipped.push(trimmed);
+      currentPreamble.push(pattern);
     } else {
-      added.push(pattern);
+      entries.push({ preamble: currentPreamble, patterns: [trimmed] });
+      currentPreamble = [];
+    }
+  }
+  // Trailing comments/blanks (no associated pattern) form their own entry
+  if (currentPreamble.length > 0) {
+    entries.push({ preamble: currentPreamble, patterns: [] });
+  }
+
+  // Determine which entries have new patterns to add
+  const added: string[] = [];
+  const skipped: string[] = [];
+  const linesToAppend: string[] = [];
+
+  for (const entry of entries) {
+    const newPatterns = entry.patterns.filter((p) => !hasGitignorePattern(content, p));
+    const existingPatterns = entry.patterns.filter((p) => hasGitignorePattern(content, p));
+    skipped.push(...existingPatterns);
+
+    if (newPatterns.length > 0) {
+      added.push(...newPatterns);
+      // Include preamble comments only when their associated pattern is new
+      linesToAppend.push(...entry.preamble, ...newPatterns);
     }
   }
 
-  // Filter out comments/blanks to check if we have actual patterns to add
-  const actualPatternsToAdd = added.filter((p) => p.trim() && !p.trim().startsWith('#'));
-
-  // If nothing new to add (all skipped), return early
-  if (actualPatternsToAdd.length === 0) {
+  // If nothing new to add, return early
+  if (added.length === 0) {
     return { added: [], skipped, created: false };
   }
 
@@ -93,11 +111,11 @@ export async function ensureGitignorePatterns(
     newContent += header + '\n';
   }
 
-  // Add patterns
-  newContent += added.join('\n') + '\n';
+  // Add only entries with new patterns
+  newContent += linesToAppend.join('\n') + '\n';
 
   // Atomic write
   await writeFile(gitignorePath, newContent);
 
-  return { added: actualPatternsToAdd, skipped, created };
+  return { added, skipped, created };
 }

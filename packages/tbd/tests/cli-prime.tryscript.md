@@ -45,18 +45,17 @@ tbd is an AI-agent-optimized issue tracker and workflow assistant providing:
 3. Spec-Driven Workflows - Write specs, then implement using issues to track each part
 4. Convenience Shortcuts - Pre-built processes for common tasks (commit, PR, review)
 
-## SETUP
+## SETUP (AGENT ACTION REQUIRED)
 
-To set up tbd in this project:
+tbd is not yet initialized. To set it up, run:
 
-  tbd setup --auto --prefix=<name>   # For agents (REQUIRES prefix for new projects)
-  tbd setup --interactive            # For humans (prompts for prefix)
+  tbd setup --auto --prefix=<name>   # REQUIRES prefix for new projects
+  tbd setup --auto                   # If .tbd/ already exists (prefix already set)
 
 CRITICAL: Never guess a prefix. Always ask the user what prefix they want.
+Do NOT tell the user to run these commands — run them yourself on their behalf.
 
-After setup, run 'tbd' again to see project status and workflow guidance.
-
-For CLI reference: tbd --help
+After setup, run 'tbd' again to get project status and workflow guidance.
 ? 0
 ```
 
@@ -231,7 +230,7 @@ Global Options:
   --debug            Show internal IDs alongside public IDs for debugging
 
 Getting Started:
-  npm install -g tbd-git@latest && tbd setup --auto --prefix=<name>
+  npm install -g get-tbd@latest && tbd setup --auto --prefix=<name>
 
   This initializes tbd and configures your coding agents automatically.
   For interactive setup: tbd setup --interactive

@@ -2,38 +2,48 @@
 
 ### Features
 
-- **Spec linking**: New `spec_path` field to associate beads with specification
-  documents
-- **Create with spec**: `tbd create --spec path/to/spec.md` links beads to specs at
-  creation
-- **List by spec**: `tbd list --spec path/to/spec.md` filters beads by associated spec
-- **Configurable doc cache**: New `docs_cache` config for controlling doc sync behavior
-- **Auto-sync verbosity**: Doc auto-sync now respects CLI verbosity settings
-- **Incremental build**: Pre-push hook uses incremental build for faster development
-- **Global install script**: New `ensure-tbd-cli.sh` script for reliable tbd
-  installation
+- **Workspace sync feature**: New commands for managing local workspace backups:
+  - `tbd save` to export issues to workspace directories (supports `--updates-only` and
+    `--outbox`); correctly filters ID mappings to saved issues only
+  - `tbd workspace list` to show saved workspaces with issue counts
+    (open/in_progress/closed/total)
+  - `tbd import --workspace` to restore from workspace backups
+  - Workspace save suggested on sync push failures as safety net
+- **Child bead ordering hints**: New `child_order` field allows explicit ordering of
+  child beads; priority-based ordering preserved in tree views
+- **Unified review-code shortcut**: Single shortcut supporting three scopes (uncommitted
+  changes, branch work, GitHub PR) with language-specific guideline loading
+- **Review-github-pr shortcut**: Dedicated shortcut for GitHub PR reviews with follow-up
+  actions (commenting, CI checks, fix bead creation)
+- **Forward compatibility check**: Added config format version validation - tbd now
+  errors clearly when encountering configs from newer versions instead of silently
+  stripping unknown fields
 
 ### Fixes
 
-- Fixed shortcut name from `new-research-doc` to `new-research-brief`
-- Fixed project-paths test for Windows cross-platform CI
-- Fixed race condition in legacy cleanup on macOS
-- Fixed macOS symlink path resolution using realpath in tests
-- Fixed legacy cleanup moved to SetupAutoHandler for CI reliability
-- Fixed SKILL.md generation for flowmark-compatible formatting
-- Fixed format version from 0.2.0 to 0.1.5 in f02 spec
+- **Git maxBuffer overflow**: Increased buffer from 1MB to 50MB to prevent sync failures
+  on large repos
+- **Priority ordering in tree view**: Child beads maintain priority-based ordering when
+  no explicit hints provided
+- **Tryscript test output formatting**: Updated help output column widths and test
+  expectations
 
 ### Refactoring
 
-- Simplified markdown-utils with single `parseMarkdown` function
-- Consolidated doc_cache and docs config into unified `docs_cache`
-- Streamlined global scripts and removed legacy redirect
-- Consolidated tbd session script to ensure PATH persists
+- **Branded types for IDs**: Added InternalId and DisplayId branded types for type-safe
+  ID handling
+- **Standardized gh CLI setup**: Consistent GitHub CLI configuration pattern across all
+  shortcuts
+- **Removed redundant re-exports**: Cleaned up backward compatibility aliases that were
+  no longer needed
 
 ### Documentation
 
-- Comprehensive revision of CLI as Agent Skill research
-- Reorganized and improved Quick Reference tables
-- Added dependency and status update examples
+- **Golden testing guidelines**: Improved clarity with “Two Implementation Strategies”
+  section and tryscript quick reference
+- **README cleanup**: Removed duplicate sections, fixed typos, improved quick start
+- **Editorial rules**: Expanded from 4 to 6 rules with consistent formatting
+- **Code review shortcuts**: Documented three review scopes and auto-loaded guidelines
+  in README
 
-**Full commit history**: https://github.com/jlevy/tbd/compare/v0.1.5...v0.1.6
+**Full commit history**: https://github.com/jlevy/tbd/compare/v0.1.12...v0.1.13

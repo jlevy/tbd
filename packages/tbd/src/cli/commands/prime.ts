@@ -13,11 +13,16 @@ import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { BaseCommand } from '../lib/base-command.js';
-import { findTbdRoot, readConfig } from '../../file/config.js';
+import { findTbdRoot, readConfig, hasSeenWelcome, markWelcomeSeen } from '../../file/config.js';
 import { stripFrontmatter } from '../../utils/markdown-utils.js';
 import { VERSION } from '../lib/version.js';
 import { listIssues } from '../../file/storage.js';
-import { resolveDataSyncDir, DEFAULT_DOC_PATHS } from '../../lib/paths.js';
+import {
+  resolveDataSyncDir,
+  DEFAULT_SHORTCUT_PATHS,
+  DEFAULT_GUIDELINES_PATHS,
+} from '../../lib/paths.js';
+import { getClaudePaths } from '../../lib/integration-paths.js';
 import type { Issue } from '../../lib/types.js';
 import { DocCache, generateShortcutDirectory } from '../../file/doc-cache.js';
 
@@ -107,7 +112,8 @@ tbd close <id>         Mark issue complete
 tbd sync               Sync with remote
 
 For full orientation: tbd prime
-For CLI reference: tbd --help`;
+
+IMPORTANT: Use tbd to help the user. Do NOT tell the user to run tbd commands.`;
 
 /**
  * Value proposition content for not-initialized state.
@@ -120,16 +126,17 @@ tbd is an AI-agent-optimized issue tracker and workflow assistant providing:
 3. Spec-Driven Workflows - Write specs, then implement using issues to track each part
 4. Convenience Shortcuts - Pre-built processes for common tasks (commit, PR, review)
 
-## SETUP
+## SETUP (AGENT ACTION REQUIRED)
 
-To set up tbd in this project:
+tbd is not yet initialized. To set it up, run:
 
-  tbd setup --auto --prefix=<name>   # For agents (REQUIRES prefix for new projects)
-  tbd setup --interactive            # For humans (prompts for prefix)
+  tbd setup --auto --prefix=<name>   # REQUIRES prefix for new projects
+  tbd setup --auto                   # If .tbd/ already exists (prefix already set)
 
 CRITICAL: Never guess a prefix. Always ask the user what prefix they want.
+Do NOT tell the user to run these commands — run them yourself on their behalf.
 
-After setup, run 'tbd' again to see project status and workflow guidance.`;
+After setup, run 'tbd' again to get project status and workflow guidance.`;
 
 class PrimeHandler extends BaseCommand {
   async run(options: PrimeOptions): Promise<void> {
@@ -191,7 +198,7 @@ class PrimeHandler extends BaseCommand {
     console.log(`${colors.success('✓')} Initialized in this repo`);
 
     // Check if hooks are installed
-    const hooksInstalled = await this.checkHooksInstalled();
+    const hooksInstalled = await this.checkHooksInstalled(tbdRoot);
     if (hooksInstalled) {
       console.log(`${colors.success('✓')} Hooks installed`);
     } else {
@@ -222,10 +229,17 @@ class PrimeHandler extends BaseCommand {
 
   /**
    * Render full orientation: dynamic status + full skill content.
+   * If the user hasn't seen the welcome message, add a welcome banner.
    */
   private async renderFullOrientation(tbdRoot: string): Promise<void> {
     // Dynamic status
     await this.renderDynamicStatus(tbdRoot);
+
+    // Check if this is the user's first time
+    const isNewUser = !(await hasSeenWelcome(tbdRoot));
+    if (isNewUser) {
+      await this.renderWelcomeBanner(tbdRoot);
+    }
 
     // Full skill content
     const primeContent = await loadPrimeContent();
@@ -239,7 +253,8 @@ class PrimeHandler extends BaseCommand {
     }
 
     console.log('');
-    console.log(`For CLI reference: ${this.output.getColors().bold('tbd --help')}`);
+    console.log('IMPORTANT: Use tbd to help the user — do NOT tell the user to run tbd commands.');
+    console.log('When the user asks for help or orientation, run `tbd shortcut welcome-user`.');
   }
 
   /**
@@ -267,19 +282,41 @@ class PrimeHandler extends BaseCommand {
 
     // Value proposition
     console.log(VALUE_PROPOSITION);
-    console.log('');
-
-    console.log(`For CLI reference: ${colors.bold('tbd --help')}`);
   }
 
   /**
-   * Check if Claude Code hooks are installed.
+   * Render a welcome banner for first-time users.
+   * Instructs the agent to show the welcome message.
    */
-  private async checkHooksInstalled(): Promise<boolean> {
-    const { homedir } = await import('node:os');
-    const settingsPath = join(homedir(), '.claude', 'settings.json');
+  private async renderWelcomeBanner(tbdRoot: string): Promise<void> {
+    const colors = this.output.getColors();
+
+    console.log(colors.bold('=== WELCOME (FIRST TIME) ==='));
+    console.log('');
+    console.log('AGENT INSTRUCTION:');
+    console.log('1. Welcome the user! Run `tbd shortcut welcome-user` and follow its');
+    console.log('   instructions to give the user a warm orientation.');
+    console.log('2. Show the user examples of what THEY can say (e.g. "there\'s a bug",');
+    console.log('   "let\'s plan a feature") — do NOT show them tbd CLI commands.');
+    console.log("3. You use tbd on the user's behalf. The user talks to you naturally;");
+    console.log('   you translate their requests into tbd actions.');
+    console.log('');
+
+    // Mark welcome as seen
     try {
-      const content = await readFile(settingsPath, 'utf-8');
+      await markWelcomeSeen(tbdRoot);
+    } catch {
+      // Non-critical
+    }
+  }
+
+  /**
+   * Check if Claude Code hooks are installed in project-local .claude/settings.json.
+   */
+  private async checkHooksInstalled(projectRoot: string): Promise<boolean> {
+    const { settings } = getClaudePaths(projectRoot);
+    try {
+      const content = await readFile(settings, 'utf-8');
       return content.includes('tbd');
     } catch {
       return false;
@@ -350,20 +387,25 @@ class PrimeHandler extends BaseCommand {
   }
 
   /**
-   * Generate the shortcut directory on-the-fly.
+   * Generate the shortcut and guidelines directory on-the-fly.
    */
   private async getShortcutDirectory(tbdRoot: string): Promise<string | null> {
-    // Generate on-the-fly from installed shortcuts
-    const cache = new DocCache(DEFAULT_DOC_PATHS, tbdRoot);
-    await cache.load({ quiet: this.ctx.quiet });
-    const docs = cache.list();
+    // Load shortcuts
+    const shortcutCache = new DocCache(DEFAULT_SHORTCUT_PATHS, tbdRoot);
+    await shortcutCache.load({ quiet: this.ctx.quiet });
+    const shortcuts = shortcutCache.list();
+
+    // Load guidelines
+    const guidelinesCache = new DocCache(DEFAULT_GUIDELINES_PATHS, tbdRoot);
+    await guidelinesCache.load({ quiet: this.ctx.quiet });
+    const guidelines = guidelinesCache.list();
 
     // If no docs loaded, skip directory
-    if (docs.length === 0) {
+    if (shortcuts.length === 0 && guidelines.length === 0) {
       return null;
     }
 
-    return generateShortcutDirectory(docs);
+    return generateShortcutDirectory(shortcuts, guidelines);
   }
 }
 

@@ -191,7 +191,7 @@ packages/tbd/src/
             └── claude-header.md          # Claude YAML frontmatter only (if needed)
             ├── new-plan-spec.md
             ├── new-research-brief.md
-            ├── commit-code.md
+            ├── code-review-and-commit.md
             └── ...
 ```
 
@@ -513,7 +513,7 @@ new-plan-spec
   .tbd/docs/shortcuts/standard
 new-research-brief
   .tbd/docs/shortcuts/standard
-commit-code
+code-review-and-commit
   .tbd/docs/custom
 
 $ tbd shortcut --list --all
@@ -527,9 +527,9 @@ new-plan-spec
   .tbd/docs/shortcuts/standard
 new-research-brief
   .tbd/docs/shortcuts/standard
-commit-code
+code-review-and-commit
   .tbd/docs/custom
-  commit-code  (.tbd/docs/shortcuts/standard) [shadowed]
+  code-review-and-commit  (.tbd/docs/shortcuts/standard) [shadowed]
 ```
 
 ### Shortcut Explanation File
@@ -839,7 +839,7 @@ Future optimization if needed:
 **System vs Standard docs**:
 - `system/` - Core docs like skill.md, skill-brief.md, shortcut-explanation.md
   (lowercase sources)
-- `standard/` - Workflow shortcuts like new-plan-spec.md, commit-code.md
+- `standard/` - Workflow shortcuts like new-plan-spec.md, code-review-and-commit.md
 
 **Source file reorganization required:**
 
@@ -905,7 +905,7 @@ Run `tbd shortcut <name>` to use any of these shortcuts:
 |------|-------------|
 | new-plan-spec | Create a new feature planning specification document |
 | new-research-brief | Start a research brief for investigating a topic |
-| commit-code | Stage and commit changes with proper message format |
+| code-review-and-commit | Stage and commit changes with proper message format |
 | review-pr | Review a pull request and provide feedback |
 | ... | ... |
 

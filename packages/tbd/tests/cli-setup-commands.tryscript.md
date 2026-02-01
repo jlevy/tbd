@@ -42,6 +42,7 @@ Options:
   --interactive      Interactive mode with prompts (for humans)
   --from-beads       Migrate from Beads to tbd
   --prefix <name>    Project prefix for issue IDs (required for fresh setup)
+  --no-gh-cli        Disable automatic GitHub CLI installation hook
   -h, --help         display help for command
 
 Global Options:
@@ -57,7 +58,7 @@ Global Options:
   --debug            Show internal IDs alongside public IDs for debugging
 
 Getting Started:
-  npm install -g tbd-git@latest && tbd setup --auto --prefix=<name>
+  npm install -g get-tbd@latest && tbd setup --auto --prefix=<name>
 
   This initializes tbd and configures your coding agents automatically.
   For interactive setup: tbd setup --interactive

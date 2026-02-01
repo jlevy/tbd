@@ -9,7 +9,7 @@ import { readFile } from 'node:fs/promises';
 
 import { BaseCommand } from '../lib/base-command.js';
 import { requireInit, NotFoundError, ValidationError, CLIError } from '../lib/errors.js';
-import { readIssue, writeIssue } from '../../file/storage.js';
+import { readIssue, writeIssue, listIssues } from '../../file/storage.js';
 import { parseMarkdownWithFrontmatter } from '../../file/parser.js';
 import { formatDisplayId, formatDebugId } from '../../lib/ids.js';
 import { IssueStatus, IssueKind } from '../../lib/schemas.js';
@@ -37,6 +37,7 @@ interface UpdateOptions {
   removeLabel?: string[];
   parent?: string;
   spec?: string;
+  childOrder?: string;
 }
 
 class UpdateHandler extends BaseCommand {
@@ -72,6 +73,9 @@ class UpdateHandler extends BaseCommand {
       return;
     }
 
+    // Capture old spec_path before applying updates (for propagation)
+    const oldSpecPath = issue.spec_path;
+
     // Apply updates
     if (updates.title !== undefined) issue.title = updates.title;
     if (updates.status !== undefined) issue.status = updates.status;
@@ -84,6 +88,20 @@ class UpdateHandler extends BaseCommand {
     if (updates.deferred_until !== undefined) issue.deferred_until = updates.deferred_until;
     if (updates.parent_id !== undefined) issue.parent_id = updates.parent_id;
     if (updates.spec_path !== undefined) issue.spec_path = updates.spec_path;
+    if (updates.child_order_hints !== undefined)
+      issue.child_order_hints = updates.child_order_hints;
+
+    // Inherit spec_path from new parent when re-parenting without explicit --spec
+    if (updates.parent_id && options.spec === undefined && !issue.spec_path) {
+      try {
+        const parentIssue = await readIssue(dataSyncDir, updates.parent_id);
+        if (parentIssue.spec_path) {
+          issue.spec_path = parentIssue.spec_path;
+        }
+      } catch {
+        // Parent not found — skip inheritance
+      }
+    }
 
     // Handle full labels replacement (from --from-file)
     if (updates.labels !== undefined) {
@@ -111,6 +129,39 @@ class UpdateHandler extends BaseCommand {
     await this.execute(async () => {
       await writeIssue(dataSyncDir, issue);
     }, 'Failed to update issue');
+
+    // When setting a new parent, append child to parent's child_order_hints
+    if (updates.parent_id) {
+      try {
+        const parentIssue = await readIssue(dataSyncDir, updates.parent_id);
+        const hints = parentIssue.child_order_hints ?? [];
+
+        // Only append if not already in hints
+        if (!hints.includes(internalId)) {
+          parentIssue.child_order_hints = [...hints, internalId];
+          parentIssue.version += 1;
+          parentIssue.updated_at = now();
+          await writeIssue(dataSyncDir, parentIssue);
+        }
+      } catch {
+        // Parent not found or other error - skip order hint update
+      }
+    }
+
+    // Propagate spec_path to children when parent's spec changes
+    if (updates.spec_path !== undefined && issue.spec_path && issue.spec_path !== oldSpecPath) {
+      const allIssues = await listIssues(dataSyncDir);
+      const children = allIssues.filter((i) => i.parent_id === issue.id);
+      const timestamp = now();
+      for (const child of children) {
+        if (!child.spec_path || child.spec_path === oldSpecPath) {
+          child.spec_path = issue.spec_path;
+          child.version += 1;
+          child.updated_at = timestamp;
+          await writeIssue(dataSyncDir, child);
+        }
+      }
+    }
 
     // Use already loaded mapping for display
     const showDebug = this.ctx.debug;
@@ -141,6 +192,7 @@ class UpdateHandler extends BaseCommand {
     deferred_until?: string | null;
     parent_id?: string | null;
     spec_path?: string | null;
+    child_order_hints?: string[] | null;
     addLabels?: string[];
     removeLabels?: string[];
     labels?: string[];
@@ -157,6 +209,7 @@ class UpdateHandler extends BaseCommand {
       deferred_until?: string | null;
       parent_id?: string | null;
       spec_path?: string | null;
+      child_order_hints?: string[] | null;
       addLabels?: string[];
       removeLabels?: string[];
       labels?: string[];
@@ -338,6 +391,28 @@ class UpdateHandler extends BaseCommand {
       updates.removeLabels = options.removeLabel;
     }
 
+    // Handle --child-order: set the ordering hints for children
+    if (options.childOrder !== undefined) {
+      if (options.childOrder === '' || options.childOrder === '""') {
+        // Empty string: clear the hints
+        updates.child_order_hints = null;
+      } else {
+        // Parse comma-separated short IDs and resolve to internal IDs
+        const shortIds = options.childOrder.split(',').map((s) => s.trim());
+        const internalIds: string[] = [];
+        for (const shortId of shortIds) {
+          if (!shortId) continue; // Skip empty strings
+          try {
+            const internalId = resolveToInternalId(shortId, mapping);
+            internalIds.push(internalId);
+          } catch {
+            throw new ValidationError(`Invalid ID in --child-order: ${shortId}`);
+          }
+        }
+        updates.child_order_hints = internalIds.length > 0 ? internalIds : null;
+      }
+    }
+
     return updates;
   }
 }
@@ -360,6 +435,7 @@ export const updateCommand = new Command('update')
   .option('--remove-label <label>', 'Remove label', (val, prev: string[] = []) => [...prev, val])
   .option('--parent <id>', 'Set parent')
   .option('--spec <path>', 'Set or clear spec path (empty string clears)')
+  .option('--child-order <ids>', 'Set child ordering hints (comma-separated IDs)')
   .action(async (id, options, command) => {
     const handler = new UpdateHandler(command);
     await handler.run(id, options);

@@ -1,6 +1,7 @@
 # tbd Design Specification
 
-Git-native issue tracking for AI agents and humans.
+Task management, spec-driven planning, and instant knowledge injection for AI coding
+agents.
 
 **Author:** Joshua Levy (github.com/jlevy) and various LLMs
 
@@ -37,31 +38,40 @@ Git-native issue tracking for AI agents and humans.
       - [Accessing Issues via Worktree](#accessing-issues-via-worktree)
       - [Worktree Lifecycle](#worktree-lifecycle)
       - [Worktree Initialization Decision Tree](#worktree-initialization-decision-tree)
-    - [2.4 Entity Collection Pattern](#24-entity-collection-pattern)
+      - [Worktree Health States](#worktree-health-states)
+      - [Path Terminology and Resolution](#path-terminology-and-resolution)
+      - [Worktree Error Classes](#worktree-error-classes)
+    - [2.4 Workspaces](#24-workspaces)
+      - [Workspace Structure](#workspace-structure)
+      - [Commands](#commands)
+      - [Sync Failure Recovery Workflow](#sync-failure-recovery-workflow)
+      - [Merge Behavior](#merge-behavior)
+    - [2.5 Entity Collection Pattern](#25-entity-collection-pattern)
       - [Directory Layout](#directory-layout)
       - [Adding New Entity Types (Future)](#adding-new-entity-types-future)
-    - [2.5 ID Generation](#25-id-generation)
+    - [2.6 ID Generation](#26-id-generation)
       - [ID Generation Algorithm](#id-generation-algorithm)
       - [ID Mapping](#id-mapping)
       - [ID Resolution (CLI)](#id-resolution-cli)
       - [File Naming](#file-naming)
       - [Display Format](#display-format)
-    - [2.6 Schemas](#26-schemas)
-      - [2.6.1 Common Types](#261-common-types)
-      - [2.6.2 BaseEntity](#262-baseentity)
-      - [2.6.3 IssueSchema](#263-issueschema)
-      - [2.6.4 ConfigSchema](#264-configschema)
-      - [2.6.5 MetaSchema](#265-metaschema)
-      - [2.6.6 LocalStateSchema](#266-localstateschema)
-      - [2.6.7 AtticEntrySchema](#267-atticentryschema)
-    - [2.7 Relationship Types](#27-relationship-types)
-      - [2.7.1 Relationship Model Overview](#271-relationship-model-overview)
-      - [2.7.2 Parent-Child Relationships](#272-parent-child-relationships)
-      - [2.7.3 Dependency Relationships](#273-dependency-relationships)
-      - [2.7.4 Visualization Commands](#274-visualization-commands)
-      - [2.7.5 Comparison with Beads](#275-comparison-with-beads)
-      - [2.7.6 Future Dependency Types](#276-future-dependency-types)
-      - [2.7.7 Future: Transitive Blocking Option](#277-future-transitive-blocking-option)
+      - [Type-Safe ID Handling (Branded Types)](#type-safe-id-handling-branded-types)
+    - [2.7 Schemas](#27-schemas)
+      - [2.7.1 Common Types](#271-common-types)
+      - [2.7.2 BaseEntity](#272-baseentity)
+      - [2.7.3 IssueSchema](#273-issueschema)
+      - [2.7.4 ConfigSchema](#274-configschema)
+      - [2.7.5 MetaSchema](#275-metaschema)
+      - [2.7.6 LocalStateSchema](#276-localstateschema)
+      - [2.7.7 AtticEntrySchema](#277-atticentryschema)
+    - [2.8 Relationship Types](#28-relationship-types)
+      - [2.8.1 Relationship Model Overview](#281-relationship-model-overview)
+      - [2.8.2 Parent-Child Relationships](#282-parent-child-relationships)
+      - [2.8.3 Dependency Relationships](#283-dependency-relationships)
+      - [2.8.4 Visualization Commands](#284-visualization-commands)
+      - [2.8.5 Comparison with Beads](#285-comparison-with-beads)
+      - [2.8.6 Future Dependency Types](#286-future-dependency-types)
+      - [2.8.7 Future: Transitive Blocking Option](#287-future-transitive-blocking-option)
   - [3. Git Layer](#3-git-layer)
     - [3.1 Overview](#31-overview)
     - [3.2 Sync Branch Architecture](#32-sync-branch-architecture)
@@ -197,7 +207,8 @@ Git-native issue tracking for AI agents and humans.
     - [B.10 Global Flags Not Supported](#b10-global-flags-not-supported)
     - [B.11 Issue Types/Statuses Not Supported](#b11-issue-typesstatuses-not-supported)
   - [8. Open Questions](#8-open-questions)
-    - [8.1 Git Operations](#81-git-operations)
+    - [8.1 Actor System Design](#81-actor-system-design)
+    - [8.2 Git Operations](#82-git-operations)
     - [8.2 Timestamp and Ordering](#82-timestamp-and-ordering)
     - [8.3 Mapping File Structure](#83-mapping-file-structure)
     - [8.4 ID Length](#84-id-length)
@@ -211,20 +222,26 @@ Git-native issue tracking for AI agents and humans.
 
 ### 1.1 What is tbd?
 
-**tbd helps humans and agents ship code with greater speed, quality, and discipline.**
+**tbd combines task management, spec-driven planning, and instant knowledge injection
+for AI coding agents.**
 
 tbd ("To Be Done" or “TypeScript Beads”) is a git-native issue tracker that stores
 issues as Markdown files with YAML frontmatter on a dedicated sync branch, enabling
 conflict-free collaboration without daemons or databases.
+It also bundles spec-driven workflows, reusable workflow shortcuts, and a curated
+knowledge base of engineering best practices that agents can inject into their context
+on demand.
 
-tbd provides **four integrated capabilities**:
+tbd provides **three integrated capabilities**:
 
-1. **Issue Tracking** — Git-native tasks/bugs.
-   Never lose work across sessions.
-2. **Spec-Driven Workflows** — Plan features → break into issues → implement
-   systematically.
-3. **Shortcuts** — Pre-built processes for commits, PRs, reviews.
-4. **Guidelines** — Best practices for TypeScript, Python, testing.
+1. **Task tracking (beads)** — Git-native issues, bugs, epics, and dependencies that
+   persist across sessions.
+   This alone is a step change in what agents can do.
+2. **Spec-driven planning** — Workflows for writing specs, breaking them into issues,
+   and implementing systematically.
+3. **Instant knowledge injection** — 17+ detailed guideline docs covering TypeScript,
+   Python, Convex, monorepo architecture, TDD, and more — injected into the agent’s
+   context on demand via shortcuts, guidelines, and templates.
 
 The **issue tracking layer** has four core principles:
 
@@ -418,7 +435,7 @@ tbd addresses specific requirements:
 
 2. **No data loss**: Conflicts preserve both versions via attic mechanism
 
-3. **Works anywhere**: Just `npm install -g tbd-git` anywhere: local dev, CI, cloud IDEs
+3. **Works anywhere**: Just `npm install -g get-tbd` anywhere: local dev, CI, cloud IDEs
    (Claude Code, Codespaces), network filesystems
 
 4. **Simple architecture**: Easy to understand, debug, and maintain
@@ -702,6 +719,16 @@ tbd uses three directory locations:
 │   ├── guidelines/         # Coding rules and best practices
 │   └── templates/          # Document templates
 │
+├── workspaces/             # NOT gitignored - tracked on main branch
+│   ├── outbox/             # Sync failure recovery workspace
+│   │   ├── issues/
+│   │   ├── mappings/
+│   │   └── attic/
+│   └── {name}/             # User-created workspaces (backups, bulk edits)
+│       ├── issues/
+│       ├── mappings/
+│       └── attic/
+│
 └── data-sync-worktree/     # Gitignored - hidden worktree
     └── (checkout of tbd-sync branch)
         └── .tbd/
@@ -766,7 +793,7 @@ Created automatically by `tbd init` or first `tbd sync`:
 
 ```bash
 # Create hidden worktree (done by tbd internally)
-git worktree add .tbd/data-sync-worktree tbd-sync --detach
+git worktree add .tbd/data-sync-worktree tbd-sync
 
 # Or if tbd-sync doesn't exist yet
 git worktree add .tbd/data-sync-worktree --orphan tbd-sync
@@ -774,7 +801,11 @@ git worktree add .tbd/data-sync-worktree --orphan tbd-sync
 
 **Key properties:**
 
-- **Detached HEAD**: Worktree tracks commits, not branch name, to avoid branch lock
+- **Attached to sync branch**: Worktree is checked out to `tbd-sync` branch so commits
+  update the branch ref.
+  This ensures `git push` operations can detect new commits.
+  If the worktree becomes detached (from old tbd versions), it’s automatically repaired
+  before commits.
 
 - **Hidden location**: Inside `.tbd/` which is partially gitignored
 
@@ -796,11 +827,19 @@ data-sync/
 
 # Local state
 state.yml
+
+# Local backups (corrupted worktrees, migrated data)
+backups/
 ```
 
 > **Note:** `data-sync/` is gitignored to support potential future “simple mode” where
 > issues could be stored directly on main without a worktree.
 > In normal operation, `data-sync/` only exists inside the worktree checkout.
+> 
+> **Note:** `backups/` on the main branch is for local backups only (corrupted
+> worktrees, data migrations).
+> This is different from `.tbd/data-sync/attic/` on the sync branch which stores merge
+> conflict losers.
 
 #### Accessing Issues via Worktree
 
@@ -845,9 +884,9 @@ START: Any tbd command
     │   └─ NO ↓
     │
     ├─ Does tbd-sync branch exist (local or remote)?
-    │   ├─ YES (local) → git worktree add .tbd/data-sync-worktree tbd-sync --detach
+    │   ├─ YES (local) → git worktree add .tbd/data-sync-worktree tbd-sync
     │   ├─ YES (remote only) → git fetch origin tbd-sync
-    │   │                      git worktree add .tbd/data-sync-worktree origin/tbd-sync --detach
+    │   │                      git worktree add .tbd/data-sync-worktree tbd-sync
     │   └─ NO → This is a fresh tbd init, create orphan worktree:
     │           git worktree add .tbd/data-sync-worktree --orphan tbd-sync
     │           (Initialize .tbd/data-sync/ structure in worktree)
@@ -864,7 +903,196 @@ START: Any tbd command
 | Existing local worktree corrupted | `tbd doctor --fix` removes and recreates |
 | Worktree exists but stale | `tbd sync` updates to latest commit |
 
-### 2.4 Entity Collection Pattern
+#### Worktree Health States
+
+The worktree can be in one of four states, detected by `checkWorktreeHealth()`:
+
+| State | Description | Detection | Recovery |
+| --- | --- | --- | --- |
+| `valid` | Healthy, ready to use | Directory exists, `.git` file valid, not prunable | None needed |
+| `missing` | Directory doesn't exist | `!exists(.tbd/data-sync-worktree/)` | Create from local or remote branch |
+| `prunable` | Directory deleted but git still tracks it | `git worktree list --porcelain` shows prunable | `git worktree prune`, then recreate |
+| `corrupted` | Directory exists but invalid | Missing `.git` file or invalid gitdir pointer | **Backup to .tbd/backups/**, then recreate |
+
+**Safety: Backup before removal**
+
+A corrupted worktree may still contain uncommitted issue data.
+Before removing, ALWAYS back it up to prevent data loss:
+
+```bash
+# Backup corrupted worktree before removal
+mv .tbd/data-sync-worktree .tbd/backups/corrupted-worktree-backup-$(date +%Y%m%d-%H%M%S)
+```
+
+The backup is placed in `.tbd/backups/` which is gitignored (see §3.6), preserving the
+data for manual recovery while not polluting the repository.
+
+**Detection algorithm:**
+
+```typescript
+async function checkWorktreeHealth(baseDir: string): Promise<{
+  healthy: boolean;
+  status: 'valid' | 'missing' | 'prunable' | 'corrupted';
+  details?: string;
+}> {
+  const worktreePath = join(baseDir, '.tbd/data-sync-worktree');
+
+  // Check directory exists
+  if (!await pathExists(worktreePath)) {
+    return { healthy: false, status: 'missing' };
+  }
+
+  // Check .git file exists and is valid
+  const gitFile = join(worktreePath, '.git');
+  if (!await pathExists(gitFile)) {
+    return { healthy: false, status: 'corrupted', details: 'Missing .git file' };
+  }
+
+  // Check git worktree list for prunable status
+  const worktreeList = await git('worktree', 'list', '--porcelain');
+  if (worktreeList.includes('prunable')) {
+    return { healthy: false, status: 'prunable', details: 'Git reports prunable' };
+  }
+
+  return { healthy: true, status: 'valid' };
+}
+```
+
+#### Path Terminology and Resolution
+
+**Critical distinction:**
+
+| Term | Path | Purpose |
+| --- | --- | --- |
+| **Worktree path** | `.tbd/data-sync-worktree/.tbd/data-sync/` | **Production path** — inside hidden worktree checkout |
+| **Direct path** | `.tbd/data-sync/` | **Test-only path** — gitignored on main, should NEVER contain data in production |
+
+**Invariant:** In production, the worktree path is the ONLY correct path for issue data.
+The direct path exists ONLY for test fixtures that don’t use git.
+
+**Path resolution semantics:**
+
+```typescript
+async function resolveDataSyncDir(
+  baseDir: string,
+  options?: { allowFallback?: boolean; repair?: boolean }
+): Promise<string> {
+  const worktreePath = join(baseDir, '.tbd/data-sync-worktree/.tbd/data-sync');
+
+  // Check if worktree exists
+  if (await pathExists(worktreePath)) {
+    return worktreePath;
+  }
+
+  // Attempt repair if requested
+  if (options?.repair) {
+    const result = await initWorktree(baseDir);
+    if (result.success) {
+      return worktreePath;
+    }
+  }
+
+  // Only allow fallback in test mode
+  if (options?.allowFallback) {
+    return join(baseDir, '.tbd/data-sync');
+  }
+
+  // Fail with clear error — NEVER silently fall back in production
+  throw new WorktreeMissingError(
+    'Worktree not found at .tbd/data-sync-worktree/. ' +
+    'Run `tbd doctor --fix` to repair.'
+  );
+}
+```
+
+**Rules:**
+
+1. Production code MUST call `resolveDataSyncDir()` without `allowFallback`
+2. Only test code may use `allowFallback: true`
+3. If `.tbd/data-sync/issues/` contains data on main branch, this indicates a bug — data
+   was written to wrong location due to missing worktree
+
+#### Worktree Error Classes
+
+```typescript
+// packages/tbd/src/lib/errors.ts
+
+export class WorktreeMissingError extends TbdError {
+  constructor(message: string = 'Worktree not found') {
+    super(message, 'WORKTREE_MISSING');
+  }
+}
+
+export class WorktreeCorruptedError extends TbdError {
+  constructor(message: string = 'Worktree is corrupted') {
+    super(message, 'WORKTREE_CORRUPTED');
+  }
+}
+
+export class SyncBranchError extends TbdError {
+  constructor(message: string) {
+    super(message, 'SYNC_BRANCH_ERROR');
+  }
+}
+```
+
+### 2.4 Workspaces
+
+Workspaces are directories under `.tbd/workspaces/` that store issue data for sync
+failure recovery, backups, and bulk editing workflows.
+
+#### Workspace Structure
+
+Each workspace mirrors the `data-sync` directory structure:
+
+```
+.tbd/workspaces/{name}/
+├── issues/           # Issue files (same format as data-sync)
+├── mappings/
+│   └── ids.yml       # ID mappings (union with worktree)
+└── attic/            # Conflicts during workspace operations
+```
+
+#### Commands
+
+| Command | Description |
+| --- | --- |
+| `tbd save --workspace=<name>` | Save issues from worktree to workspace |
+| `tbd save --outbox` | Shortcut for `--workspace=outbox --updates-only` |
+| `tbd save --dir=<path>` | Save to arbitrary directory |
+| `tbd import --workspace=<name>` | Import issues from workspace to worktree |
+| `tbd import --outbox` | Shortcut for `--workspace=outbox --clear-on-success` |
+| `tbd workspace list` | List all workspaces with issue counts by status |
+| `tbd workspace delete <name>` | Delete a workspace |
+
+#### Sync Failure Recovery Workflow
+
+When `tbd sync` fails to push (network errors, permission issues, branch restrictions):
+
+```bash
+# 1. Save unsynced changes
+tbd save --outbox
+
+# 2. Commit to working branch (which typically succeeds)
+git add .tbd/workspaces && git commit -m "tbd: save outbox" && git push
+
+# 3. Later, when sync works again
+tbd import --outbox
+tbd sync
+```
+
+#### Merge Behavior
+
+When saving or importing, issues are merged using `mergeIssues()`:
+
+- **New issues**: Copied directly
+- **Existing issues**: Three-way merge with LWW conflict resolution
+- **Conflicts**: Lost values saved to attic
+- **ID mappings**: Union operation (add new, don’t overwrite existing)
+
+See `tbd shortcut sync-failure-recovery` for detailed workflow documentation.
+
+### 2.5 Entity Collection Pattern
 
 tbd has **one core entity type**: Issues
 
@@ -892,7 +1120,7 @@ To add a new entity type:
 
 No sync algorithm changes needed—sync operates on files, not schemas.
 
-### 2.5 ID Generation
+### 2.6 ID Generation
 
 tbd uses a **dual ID system** to balance machine requirements (sorting, uniqueness) with
 human usability (short, memorable):
@@ -1050,12 +1278,46 @@ File path:      .tbd/data-sync/issues/is-01hx5zzkbkdetav9wevgemmvrz.md
 Display back:   proj-a7k2
 ```
 
-### 2.6 Schemas
+#### Type-Safe ID Handling (Branded Types)
+
+To prevent accidentally mixing internal and display IDs at compile time, tbd uses
+TypeScript branded types:
+
+```typescript
+// Branded type for internal IDs (stored in files)
+declare const InternalIssueIdBrand: unique symbol;
+export type InternalIssueId = string & { [InternalIssueIdBrand]: never };
+
+// Branded type for display IDs (shown to users)
+declare const DisplayIssueIdBrand: unique symbol;
+export type DisplayIssueId = string & { [DisplayIssueIdBrand]: never };
+
+// Helper functions for type casting
+export function asInternalId(id: string): InternalIssueId;
+export function asDisplayId(id: string): DisplayIssueId;
+```
+
+**Usage guidelines:**
+
+| Context | Use Type | Example |
+| --- | --- | --- |
+| `parent_id`, `dependencies`, `child_order_hints` | `InternalIssueId` | `is-01hx5zzkbk...` |
+| Storage, file operations | `InternalIssueId` | Reading/writing issue files |
+| CLI output, tree views | `DisplayIssueId` | `proj-a7k2` |
+| User input (after resolution) | `InternalIssueId` | `resolveToInternalId()` returns this |
+
+**Benefits:**
+
+- **Compile-time safety**: TypeScript errors if you pass wrong ID type to a function
+- **Self-documenting**: Function signatures clarify which ID format is expected
+- **Refactoring safety**: Changing ID handling shows all affected call sites
+
+### 2.7 Schemas
 
 Schemas are defined in Zod (TypeScript).
 Other languages should produce equivalent YAML/Markdown output.
 
-#### 2.6.1 Common Types
+#### 2.7.1 Common Types
 
 ```typescript
 import { z } from 'zod';
@@ -1095,7 +1357,7 @@ const EntityType = z.literal('is');
 > independently. The version is useful for debugging ("how many times was this edited?")
 > and is set to `max(local, remote) + 1` after merges.
 
-#### 2.6.2 BaseEntity
+#### 2.7.2 BaseEntity
 
 All entities share common fields:
 
@@ -1128,7 +1390,7 @@ const BaseEntity = z.object({
 >     custom_field: value
 > ```
 
-#### 2.6.3 IssueSchema
+#### 2.7.3 IssueSchema
 
 ```typescript
 const IssueStatus = z.enum(['open', 'in_progress', 'blocked', 'deferred', 'closed']);
@@ -1160,6 +1422,11 @@ const IssueSchema = BaseEntity.extend({
 
   // Hierarchical issues
   parent_id: IssueId.optional(),
+
+  // Child ordering hints - soft ordering for children under this parent.
+  // Array of internal IssueIds in preferred display order.
+  // May contain stale IDs; display logic filters for actual children.
+  child_order_hints: z.array(IssueId).nullable().optional(),
 
   // Spec linking - path to related spec/doc (relative to repo root)
   spec_path: z.string().optional(),
@@ -1205,6 +1472,32 @@ type Issue = z.infer<typeof IssueSchema>;
 
   This ensures consistent storage regardless of how the path was specified.
 
+  **Inheritance from Parent:** When creating a child issue with `--parent` and no
+  explicit `--spec`, the child automatically inherits the parent’s `spec_path`. When a
+  parent’s `spec_path` is updated, the new value propagates to all children whose
+  `spec_path` was null or matched the parent’s old value (i.e., was inherited).
+  Children with explicitly different `spec_path` values are not affected.
+  Re-parenting a child (via `tbd update --parent`) also inherits the new parent’s
+  `spec_path` if the child has no existing `spec_path`.
+
+- `child_order_hints`: Optional array of internal IssueIds specifying preferred display
+  order for children of this issue.
+  Used by `tbd list --pretty` to control child ordering in tree views.
+
+  **Soft hints model:** This is a “hints” approach rather than strict ordering:
+  - May contain stale IDs (deleted or re-parented issues) - silently ignored
+  - May be incomplete (not all children listed) - unlisted children appear after hinted
+    ones
+  - No automatic cleanup when children change
+
+  **Auto-population:** When a child is assigned to a parent via `--parent`, the child’s
+  internal ID is automatically appended to the parent’s `child_order_hints`.
+
+  **Manual control:** Use `tbd update <id> --child-order <ids>` to set the full ordering
+  list. Use `--child-order ""` to clear.
+
+  **Display:** Use `tbd show <id> --show-order` to view current hints.
+
 - `dependencies`: Only “blocks” type for now (affects `ready` command)
 
 - `labels`: Arbitrary string tags
@@ -1230,7 +1523,7 @@ In tbd, we handle deletion differently:
 
 - No `tombstone` status needed
 
-#### 2.6.4 ConfigSchema
+#### 2.7.4 ConfigSchema
 
 Project configuration stored in `.tbd/config.yml`:
 
@@ -1274,7 +1567,20 @@ const ConfigSchema = z.object({
 });
 ```
 
-#### 2.6.5 MetaSchema
+> **Forward Compatibility Policy:** ConfigSchema uses Zod’s `strip()` mode, which
+> discards unknown fields.
+> To prevent data loss when users mix tbd versions:
+> 
+> 1. **When changing config schema (adding, removing, or modifying fields), always bump
+>    the format version** (e.g., f03 → f04)
+> 2. Older tbd versions will error when they see an unknown format version
+> 3. The error tells users to upgrade: `npm install -g get-tbd@latest`
+> 
+> This ensures older versions fail fast rather than silently corrupting config.
+> See `tbd-format.ts` for format version history and `config.ts` for the compatibility
+> check via `isCompatibleFormat()`.
+
+#### 2.7.5 MetaSchema
 
 Shared metadata stored in `.tbd/data-sync/meta.yml` on the sync branch:
 
@@ -1290,7 +1596,7 @@ const MetaSchema = z.object({
 > merge conflicts. Instead, sync timestamps are tracked locally in `.tbd/state.yml`
 > (gitignored).
 
-#### 2.6.6 LocalStateSchema
+#### 2.7.6 LocalStateSchema
 
 Per-node state stored in `.tbd/state.yml` (gitignored, never synced).
 Each machine maintains its own local state:
@@ -1310,7 +1616,7 @@ const LocalStateSchema = z.object({
 > incremental sync), or separate `last_push`/`last_pull` timestamps may be added as
 > needed.
 
-#### 2.6.7 AtticEntrySchema
+#### 2.7.7 AtticEntrySchema
 
 Preserved conflict losers:
 
@@ -1331,14 +1637,14 @@ const AtticEntrySchema = z.object({
 });
 ```
 
-### 2.7 Relationship Types
+### 2.8 Relationship Types
 
 tbd supports two distinct types of relationships between issues: **parent-child**
 (hierarchical containment) and **dependencies** (blocking relationships).
 This section documents the model, compares it to Beads, and explains the design
 rationale.
 
-#### 2.7.1 Relationship Model Overview
+#### 2.8.1 Relationship Model Overview
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
@@ -1369,7 +1675,7 @@ rationale.
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
 
-#### 2.7.2 Parent-Child Relationships
+#### 2.8.2 Parent-Child Relationships
 
 Parent-child relationships use the `parent_id` field for hierarchical organization:
 
@@ -1400,7 +1706,32 @@ tbd update proj-c3d4 --parent proj-a1b2
 tbd list --parent proj-a1b2
 ```
 
-#### 2.7.3 Dependency Relationships
+**Child ordering:**
+
+When displaying children under a parent, tbd uses `child_order_hints` to control display
+order. This provides soft ordering hints - the parent suggests a display order for its
+children.
+
+```bash
+# Reorder children explicitly (replaces all hints)
+tbd update proj-a1b2 --child-order proj-c3d4,proj-e5f6,proj-g7h8
+
+# View current ordering
+tbd show proj-a1b2 --show-order
+```
+
+**Ordering behavior:**
+
+- **Auto-population**: When setting `--parent` on create/update, the child is
+  automatically appended to the parent’s `child_order_hints`
+- **Manual control**: Use `--child-order` to set explicit ordering
+- **Soft hints**: Hints may contain stale IDs (removed children); display logic filters
+  for actual children only
+- **Fallback**: Children not in hints are sorted by priority, then ID
+- **Tree view**: `tbd list --pretty` respects hint ordering within each parent’s
+  children
+
+#### 2.8.3 Dependency Relationships
 
 Dependencies use the `dependencies` array for ordering and linking:
 
@@ -1431,7 +1762,7 @@ tbd dep list proj-a1b2
 tbd dep remove proj-a1b2 proj-c3d4
 ```
 
-#### 2.7.4 Visualization Commands
+#### 2.8.4 Visualization Commands
 
 Each relationship type has dedicated visualization:
 
@@ -1444,7 +1775,7 @@ Each relationship type has dedicated visualization:
 | `tbd dep tree <id>` | Blocking dependency chain | `dependencies[].type: blocks` (future) |
 | `tbd list --format dot` | Full graph (Graphviz) | All relationships |
 
-#### 2.7.5 Comparison with Beads
+#### 2.8.5 Comparison with Beads
 
 tbd and Beads have different models for parent-child relationships:
 
@@ -1499,7 +1830,7 @@ In tbd, blocking is explicit via `blocks` dependencies only.
 There’s no transitive blocking through the parent-child hierarchy.
 This makes the blocking model easier to reason about.
 
-#### 2.7.6 Future Dependency Types
+#### 2.8.6 Future Dependency Types
 
 Based on real-world Beads usage data (from Beads’ own issue tracker):
 
@@ -1515,7 +1846,7 @@ Planned additions:
 - **`discovered-from`**: Track issue provenance when work reveals new issues
 - **`related`**: Soft links for “see also” references
 
-#### 2.7.7 Future: Transitive Blocking Option
+#### 2.8.7 Future: Transitive Blocking Option
 
 **Current design:** `parent_id` is purely organizational with no blocking effects.
 Blocking is explicit via `blocks` dependencies only.
@@ -1624,6 +1955,8 @@ data-sync-worktree/
 data-sync/
 # Local state
 state.yml
+# Local backups (corrupted worktrees, migrated data)
+backups/
 ```
 
 #### Files Tracked on tbd-sync Branch
@@ -1712,13 +2045,21 @@ If all attempts fail:
 High-level sync flow:
 
 ```
-SYNC():
-  1. Fetch remote sync branch
-  2. Update worktree to remote state (preserving local uncommitted changes)
-  3. Commit worktree changes to sync branch
-  4. Push to remote
-  5. If push rejected (non-fast-forward): retry with merge (see 3.3.2)
+SYNC(options):
+  0. PREREQUISITE: Verify worktree health (see §2.3.4)
+     - If unhealthy and options.fix: repair worktree
+     - If unhealthy and not options.fix: throw WorktreeMissingError/WorktreeCorruptedError
+  1. Resolve data path via resolveDataSyncDir() — uses worktree path
+  2. Fetch remote sync branch
+  3. Update worktree to remote state (preserving local uncommitted changes)
+  4. Commit worktree changes to sync branch
+  5. Push to remote
+  6. If push rejected (non-fast-forward): retry with merge (see 3.3.2)
 ```
+
+**Critical Invariant:** All operations in steps 1-6 MUST use the resolved `dataSyncDir`
+path consistently. Never read from or write to `.tbd/data-sync/` directly — always go
+through the worktree at `.tbd/data-sync-worktree/.tbd/data-sync/`.
 
 **Why most syncs are trivial (no merge needed):**
 
@@ -1860,6 +2201,7 @@ const issueMergeRules: MergeRules<Issue> = {
   created_by: { strategy: 'preserve_oldest' },
   closed_at: { strategy: 'lww' }, // See status/closed_at rules below
   close_reason: { strategy: 'lww' },
+  child_order_hints: { strategy: 'lww' }, // Soft ordering, LWW on concurrent edits
 };
 ```
 
@@ -2207,6 +2549,7 @@ tbd show <id> [options]
 
 Options:
   --json                    Output as JSON instead of YAML+Markdown
+  --show-order              Display child_order_hints (if any)
 ```
 
 **Output:**
@@ -2285,6 +2628,7 @@ Options:
   --add-label <label>       Add label
   --remove-label <label>    Remove label
   --parent=<id>             Set parent
+  --child-order <ids>    Set child ordering hints (comma-separated)
   --no-sync                 Don't sync after update
 ```
 
@@ -2295,6 +2639,9 @@ tbd update proj-a1b2 --status=in_progress
 tbd update proj-a1b2 --title "New issue title"
 tbd update proj-a1b2 --add-label urgent --priority=P0
 tbd update proj-a1b2 --defer 2025-02-01
+
+# Set child display ordering for a parent issue
+tbd update proj-a1b2 --child-order proj-c3d4,proj-e5f6,proj-g7h8
 
 # Round-trip editing: export, modify, re-import
 tbd show proj-a1b2 > issue.md
@@ -2497,7 +2844,41 @@ tbd sync --status
 
 # Force sync (overwrite conflicts)
 tbd sync --force
+
+# Repair worktree before syncing
+tbd sync --fix
 ```
+
+**Worktree Health Requirement:**
+
+Before performing any sync operation, `tbd sync` MUST verify worktree health:
+
+```typescript
+async run(options: SyncOptions): Promise<void> {
+  // FIRST: Ensure worktree exists and is healthy
+  const worktreeStatus = await checkWorktreeHealth(tbdRoot);
+  if (!worktreeStatus.healthy) {
+    if (options.fix) {
+      await this.repairWorktree(tbdRoot);
+    } else {
+      throw new WorktreeError(
+        `Worktree is ${worktreeStatus.status}. ` +
+        `Run 'tbd sync --fix' or 'tbd doctor --fix' to repair.`
+      );
+    }
+  }
+
+  // Now safe to resolve path - worktree guaranteed to exist
+  this.dataSyncDir = await resolveDataSyncDir(tbdRoot);
+
+  // ... rest of sync operations
+}
+```
+
+**Path Consistency Invariant:** All sync operations MUST use the resolved `dataSyncDir`
+path consistently.
+Never mix `resolveDataSyncDir()` results with hardcoded `WORKTREE_DIR`
+or `DATA_SYNC_DIR` constants.
 
 **Output (sync):**
 
@@ -2515,6 +2896,12 @@ Local changes (not yet pushed):
 
 Remote changes (not yet pulled):
   modified: is-x1y2.md
+```
+
+**Output (sync with unhealthy worktree):**
+
+```
+Error: Worktree is missing. Run 'tbd sync --fix' or 'tbd doctor --fix' to repair.
 ```
 
 ### 4.8 Search Commands
@@ -2689,7 +3076,7 @@ Issues:
   Total: 127
 
 Integrations:
-  ✓ Claude Code hooks installed (~/.claude/settings.json)
+  ✓ Claude Code hooks installed (./.claude/settings.json)
   ✗ Codex AGENTS.md not installed
 
 Worktree: .tbd/data-sync-worktree/ (healthy)
@@ -2780,17 +3167,94 @@ Options:
   --json                    Output as JSON
 ```
 
-**Checks:**
+**Checks performed:**
 
-- Schema version compatibility
+The doctor command performs comprehensive health checks organized into categories:
 
-- Orphaned dependencies (pointing to missing issues)
+**1. Worktree Health Check**
 
-- Duplicate IDs
+| Check | Severity | Auto-fixable | Detection |
+| --- | --- | --- | --- |
+| Worktree missing | error | yes | Directory doesn't exist |
+| Worktree prunable | error | yes | `git worktree list` shows prunable |
+| Worktree corrupted | error | yes | Missing `.git` file or invalid gitdir |
 
-- Invalid references
+**2. Sync Branch Health Check**
 
-- Sync branch integrity
+| Check | Severity | Auto-fixable | Detection |
+| --- | --- | --- | --- |
+| Local branch missing | error | yes | `refs/heads/tbd-sync` doesn't exist |
+| Remote branch missing | warning | no | `refs/remotes/origin/tbd-sync` doesn't exist |
+| Local/remote diverged | warning | no | `git merge-base` != either HEAD |
+
+**3. Sync State Consistency Check**
+
+Only runs if worktree is healthy:
+
+| Check | Severity | Auto-fixable | Detection |
+| --- | --- | --- | --- |
+| Worktree HEAD != local branch | error | yes | Different commit SHAs |
+| Local ahead of remote | info | no | `git rev-list` count > 0 |
+| Local behind remote | info | no | `git rev-list` count > 0 |
+
+**4. Data Location Check**
+
+| Check | Severity | Auto-fixable | Detection |
+| --- | --- | --- | --- |
+| Issues in wrong location | error | yes | Files exist in `.tbd/data-sync/issues/` on main |
+| Local data exists but remote empty | error | no | Worktree has issues, remote tbd-sync has none |
+
+**5. Schema and Reference Checks**
+
+| Check | Severity | Auto-fixable | Detection |
+| --- | --- | --- | --- |
+| Schema version incompatible | error | no | `meta.yml` version > supported |
+| Orphaned dependencies | warning | yes | Dependency target doesn't exist |
+| Duplicate IDs | error | yes | Multiple files with same short ID |
+| Invalid references | warning | yes | `parent_id` points to missing issue |
+
+**Example output:**
+
+```
+Checking tbd health...
+
+✗ ERROR: Worktree is prunable
+  Fix: Run `tbd doctor --fix` to repair
+
+✗ ERROR: Found 951 issues in wrong location (.tbd/data-sync/)
+  Fix: Run `tbd doctor --fix` to migrate to worktree
+
+⚠ WARNING: Remote branch 'origin/tbd-sync' does not exist
+  Fix: Run `tbd sync` to push local branch to remote
+
+3 error(s), 1 warning(s), 0 info(s)
+
+Run `tbd doctor --fix` to auto-fix 2 issue(s)
+```
+
+**`--fix` behavior:**
+
+The `--fix` flag performs repairs in this order:
+
+1. If worktree corrupted:
+   - **Backup to `.tbd/backups/corrupted-worktree-backup-YYYYMMDD-HHMMSS/`** (prevents
+     data loss)
+   - Remove the corrupted worktree directory
+2. If worktree prunable: `git worktree prune`
+3. If worktree missing (or was just removed):
+   - If local tbd-sync exists: `git worktree add .tbd/data-sync-worktree tbd-sync`
+   - Else if remote exists: `git fetch && git worktree add ... tbd-sync`
+   - Else: `git worktree add --orphan tbd-sync ...`
+4. If data in wrong location (`.tbd/data-sync/`):
+   - Backup to `.tbd/backups/tbd-data-sync-backup-YYYYMMDD-HHMMSS/`
+   - Copy to worktree
+   - Commit in worktree
+5. Rebuild ID mappings if corrupted
+6. Remove orphaned dependency references
+
+> **Note:** Backups are stored in `.tbd/backups/` which is gitignored.
+> Users can manually inspect backups to recover any data that wasn’t committed before
+> the worktree became corrupted.
 
 #### Compact (Future)
 
@@ -3925,15 +4389,15 @@ To restore Beads, move files back from `.beads-disabled/`.
 
 ### 6.4 Installation and Agent Integration
 
-tbd is distributed as an npm package (`tbd-git`), enabling simple installation across
+tbd is distributed as an npm package (`get-tbd`), enabling simple installation across
 all environments including cloud sandboxes.
 
 #### 6.4.1 Installation Methods
 
 | Method | Command | Best For |
 | --- | --- | --- |
-| **npm** (primary) | `npm install -g tbd-git` | Most users, cloud environments |
-| **npx** (no install) | `npx tbd-git <command>` | One-off usage, testing |
+| **npm** (primary) | `npm install -g get-tbd` | Most users, cloud environments |
+| **npx** (no install) | `npx get-tbd <command>` | One-off usage, testing |
 | **From source** | `pnpm install && pnpm build` | Contributors |
 
 **npm is the recommended approach** because:
@@ -3945,64 +4409,56 @@ all environments including cloud sandboxes.
 
 #### 6.4.2 Claude Code Integration
 
-Claude Code supports two hook mechanisms for automatic tool integration:
+Claude Code hooks are always installed to the **project-local** `.claude/` directory,
+adjacent to `.git/` and `.tbd/` at the git repository root.
+There is no global/user-level installation — this avoids confusion and ensures hooks
+work in any environment (local dev, Claude Code Cloud, etc.).
 
-**A. JSON Settings Hooks** (for context injection on existing installs)
-
-Location: `~/.claude/settings.json` (global) or `.claude/settings.local.json` (project)
+**A. JSON Settings Hooks** (installed to `.claude/settings.json` at project root)
 
 ```json
 {
   "hooks": {
     "SessionStart": [{
       "matcher": "",
-      "hooks": [{ "type": "command", "command": "tbd prime" }]
+      "hooks": [{ "type": "command", "command": "bash .claude/scripts/tbd-session.sh" }]
     }],
     "PreCompact": [{
       "matcher": "",
-      "hooks": [{ "type": "command", "command": "tbd prime" }]
+      "hooks": [{ "type": "command", "command": "bash .claude/scripts/tbd-session.sh --brief" }]
+    }],
+    "PostToolUse": [{
+      "matcher": "Bash",
+      "hooks": [{ "type": "command", "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/tbd-closing-reminder.sh" }]
     }]
   }
 }
 ```
 
-- **SessionStart**: Runs `tbd prime` when a Claude Code session starts
-- **PreCompact**: Runs `tbd prime` before context compaction (preserves workflow
-  instructions)
+- **SessionStart**: Ensures tbd is installed, then runs `tbd prime` for workflow context
+- **PreCompact**: Runs `tbd prime --brief` before context compaction
+- **PostToolUse**: Reminds about `tbd sync` after `git push`
 
-**B. Shell Hooks** (for cloud environments that need installation)
+All hook commands use project-relative paths (e.g.,
+`bash .claude/scripts/tbd-session.sh`) so they work regardless of where tbd was
+installed globally.
 
-Location: `.claude/hooks/session-start.sh` (committed to repo)
+**B. Session Script** (installed to `.claude/scripts/tbd-session.sh`)
 
-```bash
-#!/bin/bash
-# Minimal cloud bootstrap (2 lines)
-command -v tbd &>/dev/null || npm install -g tbd-git --quiet
-[ -d ".tbd" ] && tbd prime
-```
-
-This script:
-
-1. Checks if `tbd` is already installed (avoids reinstalling each session)
-2. Installs via npm if missing
-3. Runs `tbd prime` if the project has a `.tbd/` directory
+The session script handles tbd CLI installation (if missing) and runs `tbd prime`. It is
+committed to the repo so cloud environments bootstrap automatically.
 
 **Setup command:**
 
 ```bash
-tbd setup claude [options]
-
-Options:
-  --check         Verify installation status
-  --remove        Remove tbd hooks
-
-# Future options (not yet implemented):
-#   --project     Install to .claude/settings.local.json (project-specific)
-#   --global      Install to ~/.claude/settings.json (user-wide)
+tbd setup --auto --prefix=myapp   # Fresh project: initialize + configure hooks
+tbd setup --auto                  # Existing project: update hooks and skill files
 ```
 
-> **Note:** Currently installs to project-level settings only.
-> Global installation planned for future release.
+Setup requires a git repository.
+Running `tbd setup` outside a git repo produces an error.
+When run from a subdirectory, setup resolves to the git root so `.tbd/` and `.claude/`
+are always placed adjacent to `.git/`.
 
 #### 6.4.3 The `tbd prime` Command
 
@@ -4143,7 +4599,7 @@ bootstrap script to your repository:
 ```bash
 # .claude/hooks/session-start.sh
 #!/bin/bash
-command -v tbd &>/dev/null || npm install -g tbd-git --quiet
+command -v tbd &>/dev/null || npm install -g get-tbd --quiet
 [ -d ".tbd" ] && tbd prime
 ```
 
@@ -4385,7 +4841,8 @@ checkout.
 
 - Worktree kept in sync via `tbd sync` commands
 
-- Falls back to `git show` if worktree unavailable
+- **No silent fallback**: If worktree is missing, commands error with repair
+  instructions (see §2.3.5 Path Terminology and Resolution)
 
 **Tradeoffs**:
 
@@ -4395,13 +4852,19 @@ checkout.
 
 - Edge case: stale worktree if not synced recently
 
+- Edge case: worktree can become “prunable” if directory deleted outside of git
+
 **Mitigations**:
 
 - Search commands auto-refresh if worktree is stale
 
-- `tbd doctor` can detect/repair worktree issues
+- `tbd doctor` detects and repairs worktree issues (see §4.9)
+
+- `tbd sync --fix` repairs worktree before syncing
 
 - Space overhead is minimal (issues are small files)
+
+- Clear error messages guide users to repair commands
 
 ### 7.2 Future Enhancements
 

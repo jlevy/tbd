@@ -1,11 +1,14 @@
 ---
 title: Review Code (TypeScript)
-description: Perform a code review for TypeScript code following best practices
+description: TypeScript-focused code review (language-specific rules only)
+category: review
+author: Joshua Levy (github.com/jlevy) with LLM assistance
 ---
-Shortcut: Review Code (TypeScript)
+This shortcut performs a **TypeScript-focused** code review, checking
+TypeScript-specific best practices, patterns, and antipatterns.
 
-We track issues with tbd.
-Run `tbd` for more on using tbd and current status.
+For a **comprehensive review** that includes general coding rules, error handling,
+comment quality, and testing practices, use `tbd shortcut review-code` instead.
 
 Instructions:
 
@@ -16,31 +19,16 @@ Create a to-do list with the following items then perform all of them:
    - If changes are unstaged, review `git diff`
    - Or review specific files the user mentions
 
-2. Review the TypeScript rules and guidelines:
-   - Run `tbd guidelines typescript-rules` for language-specific rules
-   - Run `tbd guidelines general-coding-rules` for general rules
+2. Load TypeScript guidelines:
+   - Run `tbd guidelines typescript-rules`
 
-3. Check for common TypeScript issues:
-   - [ ] Types are properly defined (avoid `any` unless necessary)
-   - [ ] Interfaces/types are used for complex objects
-   - [ ] Null/undefined handled properly (strict null checks)
-   - [ ] Async/await used correctly (no floating promises)
-   - [ ] Error handling is appropriate
-   - [ ] No unused imports or variables
+3. Perform a TypeScript-focused review:
+   - Check TypeScript-specific patterns: types, generics, inference, null safety
+   - Verify proper use of TypeScript features (interfaces, enums, utility types)
+   - Identify TypeScript antipatterns (any abuse, type assertions, missing types)
+   - Assess type safety and strictness
 
-4. Check for code quality:
-   - [ ] Functions are small and focused
-   - [ ] Names are descriptive and consistent
-   - [ ] Comments explain “why” not “what”
-   - [ ] No code duplication
-   - [ ] Appropriate use of TypeScript features
-
-5. Check for security issues:
-   - [ ] No hardcoded secrets or credentials
-   - [ ] Input validation where needed
-   - [ ] Safe handling of user data
-
-6. Summarize findings:
-   - List issues found (if any) with file:line references
+4. Summarize findings:
+   - List TypeScript-specific issues found (if any) with file:line references
    - Suggest specific fixes
-   - Note any patterns that should be addressed
+   - Note any TypeScript patterns that should be addressed

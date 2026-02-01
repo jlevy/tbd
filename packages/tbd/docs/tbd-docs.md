@@ -80,10 +80,10 @@ but these map to unique ULID-based internal IDs for reliable sorting and storage
 git --version  # Should be 2.42.0 or higher
 
 # Global install (recommended)
-npm install -g tbd-git@latest
+npm install -g get-tbd@latest
 
 # Or run without installing
-npx tbd-git@latest <command>
+npx get-tbd@latest <command>
 ```
 
 tbd requires Git 2.42+ for orphan worktree support (`git worktree add --orphan`). See
@@ -226,7 +226,9 @@ Options:
 - `--assignee <name>` - Assign to someone
 - `--due <date>` - Due date (ISO8601 format)
 - `--defer <date>` - Defer until date
-- `--parent <id>` - Parent issue ID (for sub-issues)
+- `--parent <id>` - Parent issue ID (for sub-issues).
+  If the parent has a `spec_path` and `--spec` is not provided, the child inherits the
+  parent’s `spec_path`.
 - `--spec <path>` - Link to spec document (validated, normalized to project root)
 - `--label <label>` - Add label (can repeat)
 - `--from-file <path>` - Create from YAML+Markdown file
@@ -326,9 +328,12 @@ Options:
 - `--defer <date>` - Set deferred until date
 - `--add-label <label>` - Add label
 - `--remove-label <label>` - Remove label
-- `--parent <id>` - Set parent issue
+- `--parent <id>` - Set parent issue.
+  If the new parent has a `spec_path` and `--spec` is not also provided, the child
+  inherits the parent’s `spec_path` (only if the child currently has no `spec_path`).
 - `--spec <path>` - Set or clear spec path (empty string clears; validated and
-  normalized)
+  normalized). When updating a parent issue’s spec, the new value propagates to children
+  whose `spec_path` was null or matched the old value.
 
 ### close
 
@@ -665,6 +670,35 @@ tbd design --list                           # List design doc sections
 tbd closing                                 # Display session closing protocol reminder
 ```
 
+Shortcuts, guidelines, and templates:
+
+```bash
+tbd shortcut --list                         # List all shortcuts
+tbd shortcut <name>                         # Display a shortcut
+tbd guidelines --list                       # List all guidelines
+tbd guidelines <name>                       # Display a guideline
+tbd template --list                         # List all templates
+tbd template <name>                         # Display a template
+```
+
+Add external docs by URL:
+
+```bash
+tbd guidelines --add=<url> --name=<name>    # Add a guideline from URL
+tbd shortcut --add=<url> --name=<name>      # Add a shortcut from URL
+tbd template --add=<url> --name=<name>      # Add a template from URL
+```
+
+Options:
+- `--add <url>` - URL to fetch the document from (GitHub blob URLs auto-converted to
+  raw)
+- `--name <name>` - Name for the added document (required with `--add`)
+
+GitHub blob URLs are automatically converted to raw.githubusercontent.com URLs.
+On HTTP 403, fetching falls back to `gh api` for authenticated access.
+User-added shortcuts go to `shortcuts/custom/` (separate from bundled
+`shortcuts/standard/`).
+
 ### uninstall
 
 Remove tbd from a repository.
@@ -799,10 +833,10 @@ tbd sync
 ### Managing an Epic
 
 ```bash
-# Create epic
-tbd create "User Authentication System" --type=epic --priority=P1
+# Create epic linked to a spec
+tbd create "User Authentication System" --type=epic --priority=P1 --spec=docs/specs/auth.md
 
-# Create child tasks
+# Create child tasks (they inherit spec_path from the epic automatically)
 tbd create "Design auth API" --parent=proj-epic
 tbd create "Implement login endpoint" --parent=proj-epic
 tbd create "Add password reset" --parent=proj-epic
@@ -845,6 +879,34 @@ tbd update proj-bug2 --assignee=bob
 ```
 
 ### Code Review Workflow
+
+tbd includes comprehensive code review shortcuts that load all relevant guidelines and
+perform thorough reviews:
+
+```bash
+# Review uncommitted changes (for pre-commit)
+tbd shortcut review-code
+# Then select "Uncommitted changes" scope
+
+# Review all changes on this branch vs main
+tbd shortcut review-code
+# Then select "Branch work" scope
+
+# Review a specific GitHub PR
+tbd shortcut review-github-pr
+# Supports commenting, CI checks, and follow-up fixes
+
+# Language-specific reviews (when you want just the language rules)
+tbd shortcut review-code-typescript
+tbd shortcut review-code-python
+```
+
+The `review-code` shortcut automatically loads:
+- General coding rules
+- Comment quality guidelines
+- Error handling rules
+- Language-specific rules (TypeScript/Python) based on files changed
+- Testing guidelines when test files are modified
 
 ```bash
 # Find stale issues (awaiting review?)
