@@ -133,7 +133,7 @@ not extension, so this works correctly.
 
 ### `tbd plan create <file>`
 
-Convert a plan document to tbd issues.
+Convert a plain Markdown document to a plan file with tbd issues.
 
 ```bash
 tbd plan create <file> [options]
@@ -141,24 +141,38 @@ tbd plan create <file> [options]
 Options:
   --dry-run           Show what would be created without making changes
   --no-sync           Don't sync to remote after creating issues
+  --output <file>     Specify output filename (default: auto-rename to .plan.md)
+  --keep-backup       Keep original file after successful conversion
 ```
 
+**File handling:**
+- Input `foo.md` → Output `foo.plan.md` (removes `.md`, adds `.plan.md`)
+- Input `foo.plan.md` → **Error** (already a plan file, use `sync` instead)
+- On success: removes original file (unless `--keep-backup`)
+- On failure: original file unchanged, no output written
+
 **Behavior:**
-1. Add Markform scaffolding if missing (frontmatter + form wrapper)
-2. For each checkbox/heading without an ID:
+1. Validate input is not already a `.plan.md` file
+2. Add Markform scaffolding (frontmatter + form wrapper)
+3. For each checkbox/heading without an ID:
    - Create tbd issue
    - Set `parent_id` based on enclosing heading
    - Set status from checkbox marker
    - Inject ID annotation with new tbd short ID
-3. Write modified Markdown back to file
+4. Write to new `.plan.md` file
+5. Remove original file (unless `--keep-backup` or `--dry-run`)
 
 **Output:**
 ```
-Created 12 issues from docs/plans/oauth.plan.md:
+Converting docs/plans/oauth.md → docs/plans/oauth.plan.md
+
+Created 12 issues:
   proj-a1b2: OAuth Implementation (epic)
   proj-c3d4: Backend (task)
   proj-e5f6: Set up OAuth provider config (task)
   ...
+
+Removed original: docs/plans/oauth.md
 ```
 
 ### `tbd plan sync <file>`
