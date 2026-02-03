@@ -562,13 +562,24 @@ export type PushErrorCategory = 'permanent' | 'transient' | 'unknown';
  * - HTTP 401 Unauthorized (authentication failure)
  * - HTTP 404 Not Found (repository doesn't exist or no access)
  * - SSH permission denied
- * - Repository not found
+ *
+ * Configuration errors (like "origin does not appear to be a git repository") are NOT
+ * permanent errors - they indicate missing setup, not permission issues.
  *
  * When a permanent error occurs, data should be saved locally (outbox) to prevent loss.
  */
 export function isPermanentPushError(error: unknown): boolean {
   const msg = error instanceof Error ? error.message : String(error);
   const msgLower = msg.toLowerCase();
+
+  // Configuration errors should NOT be treated as permanent
+  // These indicate missing setup, not permission issues
+  if (
+    msgLower.includes('does not appear to be a git repository') ||
+    msgLower.includes('no such remote')
+  ) {
+    return false;
+  }
 
   // HTTP status codes indicating permanent failures
   if (/HTTP\s*4(01|03|04)/i.test(msg)) {
@@ -581,7 +592,6 @@ export function isPermanentPushError(error: unknown): boolean {
     msgLower.includes('access denied') ||
     msgLower.includes('authentication failed') ||
     msgLower.includes('could not read from remote') ||
-    msgLower.includes('repository not found') ||
     msgLower.includes('forbidden')
   ) {
     return true;

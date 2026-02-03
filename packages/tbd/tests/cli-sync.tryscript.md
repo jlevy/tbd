@@ -299,6 +299,7 @@ $ tbd sync --json
   "conflicts": 0,
   "pushFailed": true,
   "pushError": [..],
+  "pushErrorCategory": "unknown",
   "unpushedCommits": 4
 }
 ? 0
