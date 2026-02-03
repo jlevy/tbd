@@ -1,6 +1,8 @@
 ---
 created_at: 2026-02-03T06:31:26.834Z
-dependencies: []
+dependencies:
+  - target: is-01kgh3ebft6bxjvtfrgccpxawn
+    type: blocks
 id: is-01kgh35sbktnthef99q5grz5zp
 kind: bug
 labels: []
@@ -8,8 +10,8 @@ priority: 1
 status: open
 title: tbd doctor shows 0 issues when remote tbd-sync branch has data
 type: is
-updated_at: 2026-02-03T06:31:51.289Z
-version: 2
+updated_at: 2026-02-03T06:36:34.104Z
+version: 3
 ---
 ## Problem
 
