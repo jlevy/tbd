@@ -74,7 +74,7 @@ or want help → run `tbd shortcut welcome-user`
 | "Use TypeScript best practices" | `tbd guidelines typescript-rules` |
 | "Use Python best practices" | `tbd guidelines python-rules` |
 | "Build a TypeScript CLI" | `tbd guidelines typescript-cli-tool-rules` |
-| "Improve monorepo setup" | `tbd guidelines typescript-monorepo-patterns` |
+| "Improve monorepo setup" | `tbd guidelines pnpm-monorepo-patterns` or `bun-monorepo-patterns` |
 | "Add golden/e2e testing" | `tbd guidelines golden-testing-guidelines` |
 | "Use TDD" / "Test-driven development" | `tbd guidelines general-tdd-guidelines` |
 | "Convex best practices" | `tbd guidelines convex-rules` |

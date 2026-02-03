@@ -142,7 +142,7 @@ status or context or knowledge and know what to do next:
 | "Let's create a research brief on …" | Agent creates a research document using a template | [`tbd shortcut new-research-brief`](packages/tbd/docs/shortcuts/standard/new-research-brief.md) |
 | "How could we test this better?" | Agent loads TDD and testing guidelines | [`tbd guidelines general-tdd-guidelines`](packages/tbd/docs/guidelines/general-tdd-guidelines.md) |
 | "How can we make this a well-designed TypeScript CLI?" | Agent loads TypeScript CLI guidelines | [`tbd guidelines typescript-cli-tool-rules`](packages/tbd/docs/guidelines/typescript-cli-tool-rules.md) |
-| "Can you review if this TypeScript package setup follows best practices" | Agent loads monorepo patterns | [`tbd guidelines typescript-monorepo-patterns`](packages/tbd/docs/guidelines/typescript-monorepo-patterns.md) |
+| "Can you review if this TypeScript package setup follows best practices" | Agent loads monorepo patterns | [`tbd guidelines pnpm-monorepo-patterns`](packages/tbd/docs/guidelines/pnpm-monorepo-patterns.md) |
 | "How can we do a better job of testing?" | Agent loads golden testing guidelines | [`tbd guidelines golden-testing-guidelines`](packages/tbd/docs/guidelines/golden-testing-guidelines.md) |
 
 Under the hood, your agent runs these `tbd` commands automatically.
@@ -234,7 +234,8 @@ opinionated rules with concrete examples, built from months of heavy agentic cod
 | [general-testing-rules](packages/tbd/docs/guidelines/general-testing-rules.md) | Minimal tests for maximum coverage, avoiding redundant test cases |
 | [typescript-code-coverage](packages/tbd/docs/guidelines/typescript-code-coverage.md) | Code coverage best practices with Vitest and v8 provider |
 | [typescript-rules](packages/tbd/docs/guidelines/typescript-rules.md) | Strict type safety, no `any`, type guards, null safety, async patterns |
-| [typescript-monorepo-patterns](packages/tbd/docs/guidelines/typescript-monorepo-patterns.md) | pnpm workspaces, package setup, tsdown, Changesets, publint, dual ESM/CJS |
+| [pnpm-monorepo-patterns](packages/tbd/docs/guidelines/pnpm-monorepo-patterns.md) | pnpm workspaces, tsdown, Vitest, Changesets, publint, dual ESM/CJS |
+| [bun-monorepo-patterns](packages/tbd/docs/guidelines/bun-monorepo-patterns.md) | Bun workspaces, Bunup, Biome, bun test, standalone executables |
 | [typescript-cli-tool-rules](packages/tbd/docs/guidelines/typescript-cli-tool-rules.md) | Commander.js patterns, picocolors, terminal formatting |
 | [typescript-yaml-handling-rules](packages/tbd/docs/guidelines/typescript-yaml-handling-rules.md) | YAML parsing/serialization with the `yaml` package, Zod validation, consistent formatting |
 | [python-rules](packages/tbd/docs/guidelines/python-rules.md) | Type hints, docstrings, exception handling, resource management |

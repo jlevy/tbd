@@ -86,7 +86,7 @@ or want help → run `tbd shortcut welcome-user`
 | "Use TypeScript best practices" | `tbd guidelines typescript-rules` |
 | "Use Python best practices" | `tbd guidelines python-rules` |
 | "Build a TypeScript CLI" | `tbd guidelines typescript-cli-tool-rules` |
-| "Improve monorepo setup" | `tbd guidelines typescript-monorepo-patterns` |
+| "Improve monorepo setup" | `tbd guidelines pnpm-monorepo-patterns` or `bun-monorepo-patterns` |
 | "Add golden/e2e testing" | `tbd guidelines golden-testing-guidelines` |
 | "Use TDD" / "Test-driven development" | `tbd guidelines general-tdd-guidelines` |
 | "Convex best practices" | `tbd guidelines convex-rules` |
@@ -224,6 +224,7 @@ Run `tbd guidelines <name>` to apply any of these guidelines:
 | Name | Description |
 | --- | --- |
 | backward-compatibility-rules | Guidelines for maintaining backward compatibility across code, APIs, file formats, and database schemas |
+| bun-monorepo-patterns | Modern patterns for Bun-based TypeScript monorepo architecture |
 | cli-agent-skill-patterns | Best practices for building TypeScript CLIs that function as agent skills in Claude Code and other AI coding agents |
 | commit-conventions | Conventional Commits format with extensions for agentic workflows |
 | convex-limits-best-practices | Comprehensive reference for Convex platform limits, workarounds, and performance best practices |
@@ -236,6 +237,7 @@ Run `tbd guidelines <name>` to apply any of these guidelines:
 | general-tdd-guidelines | Test-Driven Development methodology and best practices |
 | general-testing-rules | Rules for writing minimal, effective tests with maximum coverage |
 | golden-testing-guidelines | Guidelines for implementing golden/snapshot testing for complex systems |
+| pnpm-monorepo-patterns | Modern patterns for pnpm-based TypeScript monorepo architecture |
 | python-cli-patterns | Modern patterns for Python CLI application architecture |
 | python-modern-guidelines | Guidelines for modern Python projects using uv, with a few more opinionated practices |
 | python-rules | General Python coding rules and best practices |
@@ -243,7 +245,6 @@ Run `tbd guidelines <name>` to apply any of these guidelines:
 | sync-troubleshooting | Common issues and solutions for tbd sync and workspace operations |
 | typescript-cli-tool-rules | Rules for building CLI tools with Commander.js, picocolors, and TypeScript |
 | typescript-code-coverage | Best practices for code coverage in TypeScript with Vitest and v8 provider |
-| typescript-monorepo-patterns | Modern patterns for TypeScript monorepo architecture |
 | typescript-rules | TypeScript coding rules and best practices |
 | typescript-yaml-handling-rules | Best practices for parsing and serializing YAML in TypeScript |
 

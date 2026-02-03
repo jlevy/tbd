@@ -1039,7 +1039,7 @@ This helps agents find relevant resources based on what they’re trying to acco
 
 | Category | Resources | When to Use |
 | --- | --- | --- |
-| TypeScript | `typescript-rules`, `typescript-cli-tool-rules`, `typescript-monorepo-patterns` | TS development |
+| TypeScript | `typescript-rules`, `typescript-cli-tool-rules`, `pnpm-monorepo-patterns`, `bun-monorepo-patterns` | TS development |
 | Python | `python-rules`, `python-cli-patterns` | Python development |
 | Testing | `general-tdd-guidelines`, `general-testing-rules`, `golden-testing-guidelines` | Writing tests |
 | General | `general-coding-rules`, `general-comment-rules`, `backward-compatibility-rules` | Any development |

@@ -868,4 +868,5 @@ Understanding when to use each is critical.
 - For TypeScript CLI implementation details, see
   `tbd guidelines typescript-cli-tool-rules`
 - For testing patterns, see `tbd guidelines general-testing-rules`
-- For monorepo setup, see `tbd guidelines typescript-monorepo-patterns`
+- For monorepo setup, see `tbd guidelines pnpm-monorepo-patterns` or
+  `bun-monorepo-patterns`
