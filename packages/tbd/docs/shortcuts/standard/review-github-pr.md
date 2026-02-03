@@ -35,36 +35,107 @@ Create a to-do list with the following items then perform all of them:
    - Run `tbd shortcut review-code` using the **GitHub PR** scope
    - The diff is obtained via: `gh pr diff <PR_NUMBER> --repo $REPO`
 
-5. **Compile full review:** Combine the code review findings with GitHub-specific info:
+5. **Check documentation consistency:**
+   - Review any specs referenced by the PR in `docs/project/specs/active/`
+   - Check if `docs/development.md` needs updates for behavioral changes
+   - Check if architecture docs in `docs/project/architecture/` need updates
+   - Note any documentation that is out of sync with the code changes
+
+6. **Review existing PR comments:**
+   - Get PR comments: `gh pr view <PR_NUMBER> --repo $REPO --comments`
+   - For review comments: `gh api repos/{owner}/{repo}/pulls/<PR_NUMBER>/comments`
+   - Note any unresolved comments or requested changes
+
+7. **Compile full review:** Combine the code review findings with GitHub-specific info:
 
    - **Summary**: Brief assessment (1-2 sentences)
    - **Strengths**: What’s done well (if any)
    - **Issues**: Problems found with `file:line` references and suggested fixes
+   - **Documentation gaps**: Specs or docs that need updating
+   - **Unresolved comments**: Any PR comments still needing attention
    - **Suggestions**: Optional improvements (not blockers)
    - **CI Status**: Current state of checks (passing/failing/pending)
 
-6. **Determine next action:**
+8. **Determine next action:**
    - If the user already specified what to do (e.g., “review and comment”, “review and
      fix”), follow those instructions
    - Otherwise, present the review and ask the user:
      - **Add as PR comment**: Post the review as a comment on the PR
-     - **Create fix beads**: Create tbd beads for issues found and begin fixing
+     - **Fix with beads**: Create tbd beads for every issue and systematically fix them
      - **Report only**: Just output the review (no action)
 
-7. **Take the requested action:**
+9. **Take the requested action:**
 
-   - **If adding as comment:**
-     ```bash
-     gh pr review <PR_NUMBER> --repo $REPO --comment --body "<review>"
-     ```
+   ### If adding as comment:
 
-   - **If creating fix beads:**
-     - Create a bead for each issue: `tbd create "Fix: ..." --type bug`
-     - Check out the PR branch if not already on it:
-       `gh pr checkout <PR_NUMBER> --repo $REPO`
-     - Follow `tbd shortcut implement-beads` to fix issues
-     - Push changes and update the PR
+   ```bash
+   gh pr review <PR_NUMBER> --repo $REPO --comment --body "<review>"
+   ```
 
-   - **If report only:**
-     - Output the review
-     - No further action needed
+   ### If fixing with beads (comprehensive tracking):
+
+   This approach ensures **every issue is tracked** and nothing is lost:
+
+   a. **Create a parent bead** for the PR review:
+   ```bash
+   tbd create "Review PR #<NUMBER>: <title>" --type task --priority P1
+   ```
+
+   b. **Create child beads for EVERY issue found:**
+   ```bash
+   tbd create "<issue description>" --type bug --parent <parent-bead-id>
+   ```
+
+   Categories to track as beads:
+   - Code issues (bugs, antipatterns, missing error handling)
+   - Test gaps (missing tests, inadequate coverage)
+   - Documentation gaps (specs out of sync, missing updates)
+   - CI failures (each failing check)
+   - Unresolved PR comments
+
+   Each bead description should include:
+   - File and line number (e.g., `src/foo.ts:42`)
+   - Brief description of the issue
+   - Reference to the PR (e.g., `(PR #123)`)
+
+   c. **Check out the PR branch:**
+   ```bash
+   gh pr checkout <PR_NUMBER> --repo $REPO
+   ```
+
+   d. **Fix issues systematically:**
+   - Mark the parent bead as in_progress: `tbd update <id> --status in_progress`
+   - Work through each child bead in order:
+     - Mark as in_progress before starting
+     - Follow `tbd guidelines general-tdd-guidelines` for code fixes
+     - Run tests after each fix
+     - Mark as closed when complete: `tbd close <id>`
+   - Commit fixes with conventional commit messages
+
+   e. **Verify CI passes:**
+   - Push changes: `git push`
+   - Wait for CI: `gh pr checks <PR_NUMBER> --repo $REPO --watch 2>&1`
+   - **IMPORTANT**: Wait for the final summary—don’t stop at early “passing” output
+   - If CI fails: create a bead for the failure, fix it, restart this step
+
+   f. **Update PR description** to reflect what was fixed:
+   ```bash
+   gh pr edit <PR_NUMBER> --repo $REPO --body "..."
+   ```
+
+   g. **Close the parent bead:**
+   ```bash
+   tbd close <parent-bead-id> --reason "PR review complete, all issues resolved"
+   tbd sync
+   ```
+
+   ### If report only:
+
+   - Output the review
+   - No further action needed
+
+10. **Report to user:**
+    - Summarize what was reviewed (and fixed, if applicable)
+    - List any beads created (if fixing with beads)
+    - Confirm CI status
+    - Provide the PR URL
