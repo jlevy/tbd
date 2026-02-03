@@ -167,7 +167,7 @@ You just talk naturally.
   [FAQ: How does `tbd` compare to Beads?](#how-does-tbd-compare-to-beads)).
 - **Shortcuts:** Over a dozen reusable workflow documents—plan specs, code reviews,
   commit processes, PR creation, research briefs, and more.
-- **Guidelines:** [17+ guideline docs](packages/tbd/docs/guidelines/) of coding rules
+- **Guidelines:** [20+ guideline docs](packages/tbd/docs/guidelines/) of coding rules
   and best practices (see
   [Built-in Engineering Knowledge](#built-in-engineering-knowledge)).
 - **Templates:** Document templates for planning specs, research briefs, architecture
@@ -212,7 +212,7 @@ And yes, all the code *and* all the specs of `tbd` are agent written—see
 ## Built-in Engineering Knowledge
 
 When you run `tbd setup`, your agent gets instant access to
-[17+ guideline documents](packages/tbd/docs/guidelines/) covering real-world engineering
+[20+ guideline documents](packages/tbd/docs/guidelines/) covering real-world engineering
 practices. These aren’t generic tips; they’re mostly my own detailed and sometimes
 opinionated rules with concrete examples, built from months of heavy agentic coding.
 
@@ -236,6 +236,7 @@ opinionated rules with concrete examples, built from months of heavy agentic cod
 | [typescript-rules](packages/tbd/docs/guidelines/typescript-rules.md) | Strict type safety, no `any`, type guards, null safety, async patterns |
 | [typescript-monorepo-patterns](packages/tbd/docs/guidelines/typescript-monorepo-patterns.md) | pnpm workspaces, package setup, tsdown, Changesets, publint, dual ESM/CJS |
 | [typescript-cli-tool-rules](packages/tbd/docs/guidelines/typescript-cli-tool-rules.md) | Commander.js patterns, picocolors, terminal formatting |
+| [typescript-yaml-handling-rules](packages/tbd/docs/guidelines/typescript-yaml-handling-rules.md) | YAML parsing/serialization with the `yaml` package, Zod validation, consistent formatting |
 | [python-rules](packages/tbd/docs/guidelines/python-rules.md) | Type hints, docstrings, exception handling, resource management |
 | [python-cli-patterns](packages/tbd/docs/guidelines/python-cli-patterns.md) | Modern Python CLI stack: uv, Typer, Rich, Ruff, BasedPyright |
 | [backward-compatibility-rules](packages/tbd/docs/guidelines/backward-compatibility-rules.md) | Compatibility across code, APIs, file formats, and database schemas |
@@ -266,7 +267,7 @@ npm install -g get-tbd@latest
 ### Setup
 
 ```bash
-# Fresh project (--prefix is REQUIRED—it appears in every bead ID, e.g. myapp-a1b2)
+# Fresh project (--prefix is REQUIRED—2-8 alphabetic chars, e.g. myapp-a1b2)
 tbd setup --auto --prefix=myapp
 
 # Joining an existing tbd project (no prefix needed—reads existing config)
@@ -419,7 +420,7 @@ tbd template --add=<url> --name=<name>
 
 **Available guidelines:** See
 [Built-in Engineering Knowledge](#built-in-engineering-knowledge) for the full list of
-17+ guidelines covering TypeScript, Python, testing, TDD, and more.
+20+ guidelines covering TypeScript, Python, testing, TDD, and more.
 
 **Available templates:**
 
@@ -576,7 +577,7 @@ $
 
 ### Can I add my own guidelines?
 
-Yes. `tbd` comes with 17+ bundled guidelines, but you can add your own team’s docs from
+Yes. `tbd` comes with 20+ bundled guidelines, but you can add your own team’s docs from
 any URL:
 
 ```bash

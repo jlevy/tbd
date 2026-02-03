@@ -1143,6 +1143,8 @@ Lexicographically Sortable Identifier):
 - **Required prefix**: Project-specific (e.g., `proj`, `myapp`, `tk`) via
   `display.id_prefix`
   - Set during `tbd init --prefix=<name>` or automatically from beads import
+  - Recommended: 2-8 alphabetic characters (use `--force` for other formats)
+  - Must not contain dashes (would conflict with ID separator)
 - **Short code**: 1+ alphanumeric characters (a-z, 0-9)
   - Imported issues: Preserve original short ID (e.g., `100` from `tbd-100`)
   - New issues: Generate random 4-char base36
@@ -2348,13 +2350,23 @@ tbd <command> [subcommand] [args] [options]
 tbd init --prefix=<name> [options]
 
 Options:
-  --prefix=<name>       Required: project prefix for display IDs (e.g., "proj", "myapp")
+  --prefix=<name>       Required: project prefix for display IDs (2-8 alphabetic recommended)
+  --force               Allow non-recommended prefix format
   --sync-branch=<name>  Sync branch name (default: tbd-sync)
   --remote=<name>       Remote name (default: origin)
 ```
 
 The `--prefix` option is **required** unless you’re importing from an existing beads
 repository (which automatically detects and uses the beads prefix).
+
+**Prefix validation rules:**
+
+- **Recommended** (no --force needed): 2-8 alphabetic characters (e.g., `tbd`, `proj`,
+  `myapp`)
+- **Valid with --force**: 1-20 lowercase characters, starting with a letter, ending with
+  alphanumeric, middle characters can include dots (`.`) and underscores (`_`)
+- **Never allowed**: Dashes (`-`) are not allowed as they break ID syntax (e.g.,
+  `tbd-a1b2` would be ambiguous)
 
 **What it does:**
 

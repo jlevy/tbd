@@ -27,7 +27,7 @@ import { stripFrontmatter, insertAfterFrontmatter } from '../../utils/markdown-u
 import { pathExists } from '../../utils/file-utils.js';
 import { ensureGitignorePatterns } from '../../utils/gitignore-utils.js';
 import { type DiagnosticResult, renderDiagnostics } from '../lib/diagnostics.js';
-import { isValidPrefix, getBeadsPrefix } from '../lib/prefix-detection.js';
+import { isValidPrefix, isRecommendedPrefix, getBeadsPrefix } from '../lib/prefix-detection.js';
 import {
   initConfig,
   isInitialized,
@@ -1025,6 +1025,7 @@ interface SetupDefaultOptions {
   interactive?: boolean;
   fromBeads?: boolean;
   prefix?: string;
+  force?: boolean;
   ghCli?: boolean; // Commander sets to false when --no-gh-cli is passed
 }
 
@@ -1196,18 +1197,35 @@ class SetupDefaultHandler extends BaseCommand {
     if (!prefix) {
       throw new CLIError(
         'Could not read prefix from beads config.\n' +
-          'Please specify a prefix (2-4 letters recommended):\n' +
+          'Please specify a prefix (2-8 letters recommended):\n' +
           '  tbd setup --auto --prefix=tbd',
       );
     }
 
+    // Hard validation: always enforced
     if (!isValidPrefix(prefix)) {
       throw new CLIError(
         'Invalid prefix format.\n' +
-          'Prefix must be 1-10 lowercase alphanumeric characters, starting with a letter.\n' +
-          'Recommended: 2-4 letters for clear, readable issue IDs.\n' +
+          'Prefix must be 1-20 lowercase characters:\n' +
+          '  - Must start with a letter (a-z)\n' +
+          '  - Must end with alphanumeric (a-z, 0-9)\n' +
+          '  - Middle characters can include dots (.) and underscores (_)\n' +
+          '  - No dashes allowed (breaks ID syntax)\n\n' +
           'Please specify a valid prefix:\n' +
-          '  tbd setup --auto --prefix=tbd',
+          '  tbd setup --from-beads --prefix=tbd',
+      );
+    }
+
+    // Soft validation: only for user-provided prefixes (not from beads config)
+    // If prefix came from beads config, we accept it to ease migration
+    const prefixFromBeads = beadsPrefix && prefix === beadsPrefix;
+    if (!prefixFromBeads && !isRecommendedPrefix(prefix) && !options.force) {
+      throw new CLIError(
+        `Prefix "${prefix}" is not recommended.\n` +
+          'Recommended prefixes are 2-8 alphabetic characters (e.g., "tbd", "myp", "proj").\n\n' +
+          'If you really want to use this prefix, add --force to override.\n\n' +
+          'Example:\n' +
+          `  tbd setup --from-beads --prefix=${prefix} --force`,
       );
     }
 
@@ -1289,13 +1307,28 @@ class SetupDefaultHandler extends BaseCommand {
       );
     }
 
+    // Hard validation: always enforced
     if (!isValidPrefix(prefix)) {
       throw new CLIError(
         'Invalid prefix format.\n' +
-          'Prefix must be 1-10 lowercase alphanumeric characters, starting with a letter.\n' +
-          'Recommended: 2-4 letters for clear, readable issue IDs.\n\n' +
+          'Prefix must be 1-20 lowercase characters:\n' +
+          '  - Must start with a letter (a-z)\n' +
+          '  - Must end with alphanumeric (a-z, 0-9)\n' +
+          '  - Middle characters can include dots (.) and underscores (_)\n' +
+          '  - No dashes allowed (breaks ID syntax)\n\n' +
           'Example:\n' +
           '  tbd setup --auto --prefix=tbd',
+      );
+    }
+
+    // Soft validation: recommended format (2-8 alphabetic)
+    if (!isRecommendedPrefix(prefix) && !options.force) {
+      throw new CLIError(
+        `Prefix "${prefix}" is not recommended.\n` +
+          'Recommended prefixes are 2-8 alphabetic characters (e.g., "tbd", "myp", "proj").\n\n' +
+          'If you really want to use this prefix, add --force to override.\n\n' +
+          'Example:\n' +
+          `  tbd setup --auto --prefix=${prefix} --force`,
       );
     }
 
@@ -1757,6 +1790,7 @@ export const setupCommand = new Command('setup')
   .option('--interactive', 'Interactive mode with prompts (for humans)')
   .option('--from-beads', 'Migrate from Beads to tbd')
   .option('--prefix <name>', 'Project prefix for issue IDs (required for fresh setup)')
+  .option('--force', 'Allow non-recommended prefix format (not 2-8 alphabetic)')
   .option('--no-gh-cli', 'Disable automatic GitHub CLI installation hook')
   .action(async (options: SetupDefaultOptions, command) => {
     // If --auto or --interactive flag is set, run the default handler
@@ -1788,7 +1822,8 @@ export const setupCommand = new Command('setup')
     console.log('  --from-beads        Migrate from Beads to tbd (implies --auto)');
     console.log('');
     console.log('Options:');
-    console.log('  --prefix <name>     Project prefix for issue IDs (e.g., "tbd", "myapp")');
+    console.log('  --prefix <name>     Project prefix for issue IDs (2-8 alphabetic recommended)');
+    console.log('  --force             Allow non-recommended prefix format');
     console.log('  --no-gh-cli         Disable automatic GitHub CLI installation hook');
     console.log('');
     console.log('Examples:');

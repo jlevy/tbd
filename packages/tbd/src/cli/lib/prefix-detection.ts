@@ -10,39 +10,66 @@ import { join } from 'node:path';
 import { parse as parseYaml } from 'yaml';
 
 /** Maximum length for a valid prefix */
-const MAX_PREFIX_LENGTH = 10;
+const MAX_PREFIX_LENGTH = 20;
 
 /** Minimum length for a valid prefix */
 const MIN_PREFIX_LENGTH = 1;
 
+/** Recommended minimum length */
+const RECOMMENDED_MIN_LENGTH = 2;
+
+/** Recommended maximum length */
+const RECOMMENDED_MAX_LENGTH = 8;
+
 /**
  * Normalize a prefix string.
  * - Lowercases
- * - Removes invalid characters (keeps only alphanumeric)
+ * - Removes invalid characters (keeps alphanumeric, dot, underscore)
  * - Truncates to max length
  */
 export function normalizePrefix(s: string): string {
   if (!s) return '';
 
-  // Lowercase and remove non-alphanumeric characters
-  const normalized = s.toLowerCase().replace(/[^a-z0-9]/g, '');
+  // Lowercase and remove invalid characters (keep alphanumeric, dot, underscore)
+  const normalized = s.toLowerCase().replace(/[^a-z0-9._]/g, '');
 
   // Truncate to max length
   return normalized.slice(0, MAX_PREFIX_LENGTH);
 }
 
 /**
- * Check if a prefix is valid.
- * - Must be 1-10 characters
- * - Must start with a letter
- * - Must be alphanumeric only (lowercase)
+ * Check if a prefix is valid (hard rules, always enforced).
+ * - Must be 1-20 characters
+ * - Must start with a letter (a-z)
+ * - Must end with alphanumeric (a-z0-9)
+ * - Middle characters can be alphanumeric, dot, or underscore
+ * - No dashes allowed (breaks ID syntax)
  */
 export function isValidPrefix(s: string): boolean {
   if (!s) return false;
   if (s.length < MIN_PREFIX_LENGTH || s.length > MAX_PREFIX_LENGTH) return false;
 
-  // Must match: starts with letter, followed by alphanumeric (lowercase)
-  return /^[a-z][a-z0-9]*$/.test(s);
+  // First char must be a letter
+  if (!/^[a-z]/.test(s)) return false;
+
+  // Last char must be alphanumeric (for length > 1)
+  if (s.length > 1 && !/[a-z0-9]$/.test(s)) return false;
+
+  // All chars must be alphanumeric, dot, or underscore (no dashes!)
+  return /^[a-z][a-z0-9._]*$/.test(s);
+}
+
+/**
+ * Check if a prefix follows recommended format (soft rules).
+ * - Must be 2-8 characters
+ * - Must be alphabetic only (a-z)
+ *
+ * Prefixes that don't match this can still be used with --force.
+ */
+export function isRecommendedPrefix(s: string): boolean {
+  if (!s) return false;
+  if (s.length < RECOMMENDED_MIN_LENGTH || s.length > RECOMMENDED_MAX_LENGTH) return false;
+  return /^[a-z]+$/.test(s);
 }
 
 /**

@@ -11,6 +11,7 @@ import { join } from 'node:path';
 import { BaseCommand } from '../lib/base-command.js';
 import { ensureGitignorePatterns } from '../../utils/gitignore-utils.js';
 import { CLIError, ValidationError } from '../lib/errors.js';
+import { isValidPrefix, isRecommendedPrefix } from '../lib/prefix-detection.js';
 import { VERSION } from '../lib/version.js';
 import { initConfig } from '../../file/config.js';
 import {
@@ -33,6 +34,7 @@ import {
 
 interface InitOptions {
   prefix?: string;
+  force?: boolean;
   syncBranch?: string;
   remote?: string;
 }
@@ -56,8 +58,35 @@ class InitHandler extends BaseCommand {
         'The --prefix option is required\n\n' +
           'Usage: tbd init --prefix=<name>\n\n' +
           'The prefix is used for display IDs (e.g., proj-a7k2, myapp-b3m9)\n' +
-          'Choose a short 2-4 letter prefix for your project (e.g., tbd, myp).\n\n' +
+          'Choose a short 2-8 letter prefix for your project (e.g., tbd, myp, proj).\n\n' +
           'For full setup with integrations: tbd setup --auto --prefix=<name>',
+      );
+    }
+
+    const prefix = options.prefix;
+
+    // Hard validation: always enforced
+    if (!isValidPrefix(prefix)) {
+      throw new ValidationError(
+        'Invalid prefix format.\n' +
+          'Prefix must be 1-20 lowercase characters:\n' +
+          '  - Must start with a letter (a-z)\n' +
+          '  - Must end with alphanumeric (a-z, 0-9)\n' +
+          '  - Middle characters can include dots (.) and underscores (_)\n' +
+          '  - No dashes allowed (breaks ID syntax)\n\n' +
+          'Example:\n' +
+          '  tbd init --prefix=tbd',
+      );
+    }
+
+    // Soft validation: recommended format (2-8 alphabetic)
+    if (!isRecommendedPrefix(prefix) && !options.force) {
+      throw new ValidationError(
+        `Prefix "${prefix}" is not recommended.\n` +
+          'Recommended prefixes are 2-8 alphabetic characters (e.g., "tbd", "myp", "proj").\n\n' +
+          'If you really want to use this prefix, add --force to override.\n\n' +
+          'Example:\n' +
+          `  tbd init --prefix=${prefix} --force`,
       );
     }
 
@@ -165,7 +194,8 @@ class InitHandler extends BaseCommand {
 
 export const initCommand = new Command('init')
   .description('Initialize tbd in a git repository')
-  .option('--prefix <name>', 'Project prefix for display IDs (e.g., "proj", "myapp")')
+  .option('--prefix <name>', 'Project prefix for display IDs (2-8 alphabetic recommended)')
+  .option('--force', 'Allow non-recommended prefix format')
   .option('--sync-branch <name>', 'Sync branch name (default: tbd-sync)')
   .option('--remote <name>', 'Remote name (default: origin)')
   .action(async (options, command) => {

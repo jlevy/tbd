@@ -17,13 +17,28 @@ Create a new shortcut for `tbd shortcut <name>`.
 ---
 title: [Title]
 description: [One line for --list output]
-category: meta
+category: [category]
 author: Joshua Levy (github.com/jlevy) with LLM assistance
 ---
 [Concise instructions. Focus on what's specific to this task.
 Skip obvious steps the agent would figure out.
 Reference other shortcuts/guidelines/templates as needed.]
 ```
+
+## Categories
+
+Use one of these standard categories in the frontmatter:
+
+| Category | Use For |
+| --- | --- |
+| `planning` | Spec creation, implementation planning, validation plans |
+| `documentation` | Research briefs, architecture docs, doc revisions |
+| `review` | Code review, PR review |
+| `git` | Commits, PRs, merging, pre-commit workflows |
+| `cleanup` | Code cleanup, dead code removal, test cleanup |
+| `session` | Session management, handoffs, setup, recovery |
+| `meta` | Creating new shortcuts/guidelines |
+| `research` | Research tasks, third-party code checkout |
 
 ## Naming
 
@@ -46,6 +61,15 @@ tbd shortcut --list      # Verify listing
 ```
 
 For official shortcuts: `pnpm build` in packages/tbd/
+
+## Documentation Updates (Official Shortcuts)
+
+For official shortcuts added to `packages/tbd/docs/shortcuts/standard/`:
+
+1. **Update root README.md** — Add to the “Available shortcuts” table (grouped by
+   category: Planning, Documentation, Review, Git, Cleanup, Session, Meta)
+2. **Sync docs cache** — Run `tbd setup --auto` to update `.tbd/docs/`
+3. **Rebuild** — `pnpm build` in packages/tbd/ (also copies README to package)
 
 ## Shortcuts vs Guidelines
 

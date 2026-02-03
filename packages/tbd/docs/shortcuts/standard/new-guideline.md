@@ -88,6 +88,11 @@ Create a to-do list with the following items then perform all of them:
    - Rebuild tbd: `pnpm build` (in packages/tbd/)
    - Verify bundled: check `packages/tbd/dist/docs/guidelines/<name>.md`
 
+9. **Update documentation** (for official guidelines):
+   - Add to root `README.md` “Built-in Engineering Knowledge” table
+   - Sync docs cache: `tbd setup --auto` (updates `.tbd/docs/`)
+   - Note: `packages/tbd/README.md` is auto-copied from root during build
+
 ## Guideline Quality Checklist
 
 - [ ] Frontmatter has title and description
@@ -97,6 +102,8 @@ Create a to-do list with the following items then perform all of them:
 - [ ] Cross-references to related guidelines
 - [ ] No relative links (use full URLs for external refs)
 - [ ] Tested with `tbd guidelines <name>`
+- [ ] (Official) Added to root README.md “Built-in Engineering Knowledge” table
+- [ ] (Official) Docs cache synced: `tbd setup --auto`
 
 ## Example Frontmatter
 
