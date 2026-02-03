@@ -138,7 +138,9 @@ Usage: tbd init [options]
 Initialize tbd in a git repository
 
 Options:
-  --prefix <name>       Project prefix for display IDs (e.g., "proj", "myapp")
+  --prefix <name>       Project prefix for display IDs (2-8 alphabetic
+                        recommended)
+  --force               Allow non-recommended prefix format
   --sync-branch <name>  Sync branch name (default: tbd-sync)
   --remote <name>       Remote name (default: origin)
   -h, --help            display help for command
