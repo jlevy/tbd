@@ -53,7 +53,6 @@ Options:
 Documentation:
   readme                        Display the README (same as GitHub landing page)
   prime [options]               Show full orientation with workflow context
-                                (default when running `tbd`)
   skill [options]               Output AI agent skill file content
   shortcut [options] [query]    Find and output documentation shortcuts
   guidelines [options] [query]  Find and output coding guidelines

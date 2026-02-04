@@ -209,7 +209,7 @@ tbd v[..]
 $ tbd prime --help
 Usage: tbd prime [options]
 
-Show full orientation with workflow context (default when running `tbd`)
+Show full orientation with workflow context
 
 Options:
   --export           Output default content (ignores PRIME.md override)
