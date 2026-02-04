@@ -1001,6 +1001,59 @@ describe('end-to-end recovery', () => {
    - Alternative: When in doubt, auto-save anyway
    - Recommendation: Transient default is safer (auto-save is side effect)
 
+## Implementation Status
+
+**Status**: Core implementation complete, integration tests pending.
+
+### Completed
+
+| Phase | Component | Status |
+| --- | --- | --- |
+| 1 | `classifySyncError()` function in errors.ts | ✅ Complete with 38 unit tests |
+| 2.1 | `--no-auto-save` flag | ✅ Complete |
+| 2.2 | `handlePermanentFailure()` method | ✅ Complete |
+| 2.3 | Integration into fullSync() push failure | ✅ Complete |
+| 2.4 | No-churn logic | ✅ Complete (uses updatesOnly + result.saved check) |
+| 3.1 | `--no-outbox` flag | ✅ Complete |
+| 3.2 | `maybeImportOutbox()` method | ✅ Complete |
+| 3.3 | Integration into fullSync() success path | ✅ Complete |
+| 4 | Integration tests | ⏳ Pending |
+| 5 | Documentation | ⏳ Pending |
+
+### Implementation Notes
+
+1. **Error classification patterns**: Added 10 permanent patterns (403, forbidden,
+   permission denied, 401, unauthorized, protected branch, remote rejected, pre-receive
+   hook declined, push declined, not allowed to push) and 13 transient patterns
+   (timeout, timed out, connection refused/reset/closed, network, dns, 5xx, server
+   error, temporarily, try again, could not resolve, no route to host).
+
+2. **No-churn implementation**: Uses `saveToWorkspace` with `outbox: true` which implies
+   `updatesOnly: true`. This filters issues via `getUpdatedIssues()` to only those that
+   differ from remote. When `result.saved === 0`, the message indicates issues are
+   already in outbox.
+
+3. **Two-phase outbox import**: `maybeImportOutbox()` performs: (1) import with
+   `clearOnSuccess: false`, (2) commit changes, (3) push to remote, (4) delete outbox
+   only if all succeed.
+   If secondary push fails, outbox is preserved but issues remain in worktree for next
+   sync.
+
+### Open Issues
+
+1. **Integration test infrastructure**: Full integration tests require mocking git push
+   failures and setting up test remotes.
+   The existing test infrastructure uses isolated git repos but doesn’t easily support
+   simulating push failures.
+   Consider:
+   - Adding mock infrastructure for push operations
+   - Creating dedicated test fixtures with branch protection
+   - Using git hooks to simulate push rejections
+
+2. **Outbox count after merge**: The `handlePermanentFailure` shows “N total in outbox”
+   but this counts files in outbox directory, not accounting for merges.
+   If an issue exists in both worktree and outbox, the count may be off by one.
+
 ## References
 
 - Related spec: plan-2026-01-30-workspace-sync-alt.md
