@@ -115,14 +115,14 @@ Global Options:
   --debug            Show internal IDs alongside public IDs for debugging
 
 IMPORTANT:
-  Agents unfamiliar with tbd should run tbd prime for full workflow context.
+  Agents unfamiliar with tbd should run `tbd prime` for full workflow context.
 
 Getting Started:
   npm install -g get-tbd@latest && tbd setup --auto --prefix=<name>
 
   This initializes tbd and configures your coding agents automatically.
-  To refresh setup (idempotent, safe anytime): tbd setup --auto
-  For interactive setup: tbd setup --interactive
+  To refresh setup (idempotent, safe anytime): `tbd setup --auto`
+  For interactive setup: `tbd setup --interactive`
 
 For more on tbd, see: https://github.com/jlevy/tbd
 ? 0

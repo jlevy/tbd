@@ -122,14 +122,14 @@ export function createHelpEpilog(colorOption: ColorOption = 'auto'): string {
   const colors = pc.createColors(shouldColorize(colorOption));
   const lines = [
     colors.bold(colors.yellow('IMPORTANT:')),
-    `  Agents unfamiliar with tbd should run ${colors.green('tbd prime')} for full workflow context.`,
+    `  Agents unfamiliar with tbd should run ${colors.green('`tbd prime`')} for full workflow context.`,
     '',
     colors.bold('Getting Started:'),
     `  ${colors.green('npm install -g get-tbd@latest && tbd setup --auto --prefix=<name>')}`,
     '',
     '  This initializes tbd and configures your coding agents automatically.',
-    `  To refresh setup (idempotent, safe anytime): ${colors.green('tbd setup --auto')}`,
-    `  For interactive setup: ${colors.dim('tbd setup --interactive')}`,
+    `  To refresh setup (idempotent, safe anytime): ${colors.green('`tbd setup --auto`')}`,
+    `  For interactive setup: ${colors.dim('`tbd setup --interactive`')}`,
     '',
     colors.blue('For more on tbd, see: https://github.com/jlevy/tbd'),
   ];
