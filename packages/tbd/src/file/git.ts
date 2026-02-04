@@ -1175,6 +1175,41 @@ export async function checkSyncConsistency(
 }
 
 /**
+ * Count issues on a remote sync branch without creating a worktree.
+ * Used by doctor to show accurate statistics on fresh clones.
+ *
+ * @param remote - The remote name (default: 'origin')
+ * @param syncBranch - The sync branch name (default: 'tbd-sync')
+ * @returns Number of issue files on the remote branch, or null if branch doesn't exist
+ */
+export async function countRemoteIssues(
+  remote = 'origin',
+  syncBranch: string = SYNC_BRANCH,
+): Promise<number | null> {
+  try {
+    // Fetch the remote branch first
+    await git('fetch', remote, syncBranch);
+
+    // List all files in the remote branch
+    const remoteBranch = `${remote}/${syncBranch}`;
+    const output = await git('ls-tree', '-r', '--name-only', remoteBranch);
+
+    // Count issue files in the issues directory
+    // Uses path constants to avoid hardcoded paths
+    const issuesDir = `${TBD_DIR}/${DATA_SYNC_DIR_NAME}/issues/`;
+    const lines = output.split('\n').filter(Boolean);
+    const issueCount = lines.filter(
+      (line) => line.startsWith(issuesDir) && line.endsWith('.md'),
+    ).length;
+
+    return issueCount;
+  } catch {
+    // Remote branch doesn't exist or fetch failed
+    return null;
+  }
+}
+
+/**
  * Remove the hidden worktree.
  * Used by doctor --fix when worktree is corrupted.
  */
