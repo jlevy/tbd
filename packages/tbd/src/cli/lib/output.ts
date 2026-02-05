@@ -13,6 +13,7 @@ import { spawn } from 'node:child_process';
 import type { CommandContext, ColorOption } from './context.js';
 import { shouldColorize } from './context.js';
 import { PAGINATION_LINE_THRESHOLD } from '../../lib/settings.js';
+import { parseMarkdown } from '../../utils/markdown-utils.js';
 
 /**
  * Standard icons for CLI output. Use these constants instead of hardcoded characters.
@@ -212,6 +213,48 @@ export function renderMarkdown(content: string, colorOption: ColorOption = 'auto
 
   // marked.parse returns string with sync renderer
   return marked.parse(content) as string;
+}
+
+/**
+ * Render markdown with proper YAML frontmatter handling.
+ *
+ * Separates YAML frontmatter from markdown body and renders them appropriately:
+ * - Frontmatter is rendered as a YAML code block (gets syntax highlighting)
+ * - Body is rendered as regular markdown
+ *
+ * Works with or without frontmatter - if no frontmatter exists, renders as plain markdown.
+ *
+ * @param content - Markdown string (possibly with YAML frontmatter) to render
+ * @param colorOption - Color option to determine if colors should be enabled
+ * @returns Rendered string (colorized or plain)
+ */
+export function renderMarkdownWithFrontmatter(
+  content: string,
+  colorOption: ColorOption = 'auto',
+): string {
+  const useColors = shouldColorize(colorOption);
+
+  if (!useColors) {
+    // Return plain markdown when colors are disabled
+    return content;
+  }
+
+  const { frontmatter, body } = parseMarkdown(content);
+
+  let result = '';
+
+  // Render frontmatter as YAML code block if present
+  if (frontmatter !== null && frontmatter.length > 0) {
+    const yamlBlock = '```yaml\n' + frontmatter + '\n```\n\n';
+    result += renderMarkdown(yamlBlock, colorOption);
+  }
+
+  // Render body as markdown
+  if (body) {
+    result += renderMarkdown(body, colorOption);
+  }
+
+  return result;
 }
 
 /**

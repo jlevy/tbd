@@ -11,7 +11,7 @@ import { fileURLToPath } from 'node:url';
 
 import { BaseCommand } from '../lib/base-command.js';
 import { shouldUseInteractiveOutput } from '../lib/context.js';
-import { renderMarkdown, paginateOutput } from '../lib/output.js';
+import { renderMarkdownWithFrontmatter, paginateOutput } from '../lib/output.js';
 import { findTbdRoot } from '../../file/config.js';
 import { DocCache, generateShortcutDirectory } from '../../file/doc-cache.js';
 import { DEFAULT_SHORTCUT_PATHS, DEFAULT_GUIDELINES_PATHS } from '../../lib/paths.js';
@@ -68,7 +68,7 @@ class SkillHandler extends BaseCommand {
 
       // Output with interactive formatting (colors, pagination) when appropriate
       if (shouldUseInteractiveOutput(this.ctx)) {
-        const rendered = renderMarkdown(content, this.ctx.color);
+        const rendered = renderMarkdownWithFrontmatter(content, this.ctx.color);
         await paginateOutput(rendered, true);
       } else {
         console.log(content);

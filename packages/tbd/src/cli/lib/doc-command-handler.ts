@@ -16,7 +16,7 @@ import { DocCache, SCORE_PREFIX_MATCH } from '../../file/doc-cache.js';
 import { addDoc, type DocType } from '../../file/doc-add.js';
 import { truncate } from '../../lib/truncate.js';
 import { formatDocSize } from '../../lib/format-utils.js';
-import { getTerminalWidth, renderMarkdown, paginateOutput } from './output.js';
+import { getTerminalWidth, renderMarkdownWithFrontmatter, paginateOutput } from './output.js';
 
 /**
  * Configuration for a doc command handler.
@@ -237,20 +237,29 @@ export abstract class DocCommandHandler extends BaseCommand {
   /**
    * Output document content with interactive formatting (colors, pagination) when appropriate.
    * For non-interactive output (pipes, agents), outputs plain text.
+   *
+   * Handles YAML frontmatter properly by rendering it separately with YAML syntax highlighting.
    */
   protected async outputDocContent(content: string): Promise<void> {
-    // Build output with optional agent header
-    let output = content;
     const header = this.getAgentHeader();
-    if (header) {
-      output = header + '\n\n' + output;
-    }
 
     // Use interactive formatting (colors, pagination) only for TTY
     if (shouldUseInteractiveOutput(this.ctx)) {
-      output = renderMarkdown(output, this.ctx.color);
+      // Render content with proper frontmatter handling (YAML gets syntax highlighting)
+      let output = renderMarkdownWithFrontmatter(content, this.ctx.color);
+
+      // Prepend header if present (after rendering so it doesn't interfere with frontmatter)
+      if (header) {
+        output = header + '\n\n' + output;
+      }
+
       await paginateOutput(output, true);
     } else {
+      // Plain text output - prepend header to raw content
+      let output = content;
+      if (header) {
+        output = header + '\n\n' + output;
+      }
       console.log(output);
     }
   }
