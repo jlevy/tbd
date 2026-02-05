@@ -5,6 +5,10 @@ author: Joshua Levy (github.com/jlevy) with LLM assistance
 ---
 # Research Brief: Convex Database Limits, Best Practices, and Workarounds
 
+> **Source**: This document was originally written by [jlevy](https://github.com/jlevy)
+> and is maintained at
+> [convex-backend](https://github.com/jlevy/convex-backend/blob/main/docs/general/research/current/research-convex-limits-best-practices.md).
+
 **Last Updated**: 2026-01-20
 
 **Status**: Complete (reviewed January 2026; updated 2026-01-20 with source code
