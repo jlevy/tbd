@@ -104,8 +104,8 @@ export class RepoCache {
       for (const relativeMdPath of entries) {
         const fullPath = join(dirPath, relativeMdPath);
         const content = await readFile(fullPath, 'utf-8');
-        // relativePath is relative to repoDir
-        const relativePath = join(pathPattern, relativeMdPath);
+        // relativePath is relative to repoDir, always uses forward slashes
+        const relativePath = join(pathPattern, relativeMdPath).replace(/\\/g, '/');
         docs.push({ relativePath, content });
       }
     }
