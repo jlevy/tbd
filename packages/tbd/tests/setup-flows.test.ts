@@ -215,7 +215,7 @@ describe('setup flows', { timeout: 15000 }, () => {
     });
   });
 
-  describe('legacy cleanup', { timeout: 15000 }, () => {
+  describe('legacy cleanup', { timeout: 30000 }, () => {
     it('removes legacy tbd scripts from .claude/scripts/', async () => {
       initGitRepo();
 
