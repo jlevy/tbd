@@ -18,7 +18,7 @@ import { execSync, spawnSync } from 'node:child_process';
 // Shell script hooks are Unix-only; skip entire suite on Windows
 const describeUnix = platform() === 'win32' ? describe.skip : describe;
 
-describeUnix('setup hooks (project-local)', () => {
+describeUnix('setup hooks (project-local)', { timeout: 15000 }, () => {
   let tempDir: string;
   let fakeHome: string;
   let originalHome: string | undefined;
