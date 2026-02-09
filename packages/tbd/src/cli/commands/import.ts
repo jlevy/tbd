@@ -33,7 +33,6 @@ import { readConfig, writeConfig } from '../../file/config.js';
 import {
   importFromWorkspace,
   type ImportOptions as WorkspaceImportOptions,
-  type WorkspaceLogger,
 } from '../../file/workspace.js';
 
 interface ImportOptions {
@@ -251,20 +250,7 @@ class ImportHandler extends BaseCommand {
     }
 
     const spinner = this.output.spinner('Importing from workspace...');
-
-    // Create logger that feeds progress to spinner and verbose/debug output
-    const logger: WorkspaceLogger = {
-      progress: (msg) => {
-        spinner.message(msg);
-      },
-      info: (msg) => {
-        this.output.info(msg);
-      },
-      debug: (msg) => {
-        this.output.debug(msg);
-      },
-    };
-    wsOptions.logger = logger;
+    wsOptions.logger = this.output.logger(spinner);
 
     const result = await this.execute(async () => {
       return await importFromWorkspace(this.tbdRoot, this.dataSyncDir, wsOptions);

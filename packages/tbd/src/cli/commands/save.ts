@@ -12,7 +12,7 @@ import { Command } from 'commander';
 import { BaseCommand } from '../lib/base-command.js';
 import { requireInit, ValidationError } from '../lib/errors.js';
 import { resolveDataSyncDir } from '../../lib/paths.js';
-import { saveToWorkspace, type SaveOptions, type WorkspaceLogger } from '../../file/workspace.js';
+import { saveToWorkspace, type SaveOptions } from '../../file/workspace.js';
 
 interface SaveCommandOptions {
   workspace?: string;
@@ -44,20 +44,7 @@ class SaveHandler extends BaseCommand {
     }
 
     const spinner = this.output.spinner('Saving issues...');
-
-    // Create logger that feeds progress to spinner and verbose/debug output
-    const logger: WorkspaceLogger = {
-      progress: (msg) => {
-        spinner.message(msg);
-      },
-      info: (msg) => {
-        this.output.info(msg);
-      },
-      debug: (msg) => {
-        this.output.debug(msg);
-      },
-    };
-    saveOptions.logger = logger;
+    saveOptions.logger = this.output.logger(spinner);
 
     const result = await this.execute(async () => {
       return await saveToWorkspace(tbdRoot, dataSyncDir, saveOptions);

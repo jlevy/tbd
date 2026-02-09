@@ -144,3 +144,24 @@ export interface DocSection {
   title: string;
   slug: string;
 }
+
+/**
+ * Logger interface for long-running operations in non-CLI layers.
+ *
+ * Allows core logic (file/, lib/) to report progress without depending on
+ * the CLI output layer. CLI commands create an OperationLogger via
+ * `OutputManager.logger(spinner)` and pass it to core functions.
+ *
+ * All methods are optional so callers can provide only what they need,
+ * and core code can safely use `log.info?.("...")` without null checks.
+ */
+export interface OperationLogger {
+  /** Key milestones — drives the spinner in CLI context */
+  progress?: (message: string) => void;
+  /** Operational detail (shown with --verbose or --debug) */
+  info?: (message: string) => void;
+  /** Non-fatal warnings */
+  warn?: (message: string) => void;
+  /** Internal state for troubleshooting (shown with --debug only) */
+  debug?: (message: string) => void;
+}

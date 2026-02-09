@@ -29,20 +29,7 @@ import {
 } from '../lib/paths.js';
 import { extractUlidFromInternalId } from '../lib/ids.js';
 import { now } from '../utils/time-utils.js';
-import type { AtticEntry, Issue } from '../lib/types.js';
-
-/**
- * Logger interface for workspace operations.
- * Allows callers to receive progress information at different verbosity levels.
- */
-export interface WorkspaceLogger {
-  /** Key milestones visible in normal output (e.g., spinner updates) */
-  progress?: (message: string) => void;
-  /** Detailed operational info (shown with --verbose) */
-  info?: (message: string) => void;
-  /** Internal debug details (shown with --debug) */
-  debug?: (message: string) => void;
-}
+import type { AtticEntry, Issue, OperationLogger } from '../lib/types.js';
 
 /**
  * Options for saveToWorkspace.
@@ -58,7 +45,7 @@ export interface SaveOptions {
   /** Only save issues modified since last sync */
   updatesOnly?: boolean;
   /** Optional logger for progress reporting */
-  logger?: WorkspaceLogger;
+  logger?: OperationLogger;
 }
 
 /**
@@ -91,7 +78,7 @@ export interface ImportOptions {
   /** Delete workspace after successful import */
   clearOnSuccess?: boolean;
   /** Optional logger for progress reporting */
-  logger?: WorkspaceLogger;
+  logger?: OperationLogger;
 }
 
 /**

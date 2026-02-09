@@ -14,6 +14,7 @@ import type { CommandContext, ColorOption } from './context.js';
 import { shouldColorize } from './context.js';
 import { PAGINATION_LINE_THRESHOLD } from '../../lib/settings.js';
 import { parseMarkdown } from '../../utils/markdown-utils.js';
+import type { OperationLogger } from '../../lib/types.js';
 
 /**
  * Standard icons for CLI output. Use these constants instead of hardcoded characters.
@@ -342,6 +343,9 @@ export interface Spinner {
   stop(msg?: string): void;
 }
 
+// Re-export OperationLogger so CLI consumers can import from output.ts
+export type { OperationLogger } from '../../lib/types.js';
+
 /**
  * No-op spinner for non-TTY or quiet mode.
  */
@@ -566,6 +570,21 @@ export class OutputManager {
           console.error(msg);
         }
       },
+    };
+  }
+
+  /**
+   * Create an OperationLogger wired to this OutputManager and a spinner.
+   *
+   * Eliminates the boilerplate of manually wiring spinner.message, output.info,
+   * output.warn, and output.debug in every command that calls a core function.
+   */
+  logger(spinner: Spinner): OperationLogger {
+    return {
+      progress: (msg) => { spinner.message(msg); },
+      info: (msg) => { this.info(msg); },
+      warn: (msg) => { this.warn(msg); },
+      debug: (msg) => { this.debug(msg); },
     };
   }
 
