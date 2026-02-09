@@ -449,7 +449,12 @@ export function generateShortcutDirectory(
   const lines: string[] = [SHORTCUT_DIRECTORY_BEGIN];
 
   // Shortcuts section
-  const shortcutRows = buildTableRows(shortcuts, ['skill', 'skill-brief', 'shortcut-explanation']);
+  const shortcutRows = buildTableRows(shortcuts, [
+    'skill-baseline',
+    'skill-brief',
+    'skill-minimal',
+    'shortcut-explanation',
+  ]);
 
   lines.push('## Available Shortcuts');
   lines.push('');
