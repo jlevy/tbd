@@ -92,11 +92,11 @@ if (phase === 'prebuild') {
     }
   }
 
-  // Compose SKILL.md from header + skill.md (needed by tbd prime --full)
+  // Compose SKILL.md from header + skill-baseline.md (needed by tbd prime --full)
   // Note: The full skill file with shortcuts is dynamically generated at setup time.
   // This is a minimal version without shortcuts for prime --full output.
   const claudeHeader = readFileSync(join(INSTALL_DIR, 'claude-header.md'), 'utf-8');
-  const skillContent = readFileSync(join(SHORTCUTS_SYSTEM_DIR, 'skill.md'), 'utf-8');
+  const skillContent = readFileSync(join(SHORTCUTS_SYSTEM_DIR, 'skill-baseline.md'), 'utf-8');
   await writeFile(join(distDocs, 'SKILL.md'), claudeHeader + skillContent);
 
   // Copy skill-brief.md from shortcuts/system to dist/docs

@@ -5,7 +5,7 @@
  * Note: SKILL.md is NOT pre-built in dist/docs.
  * It is dynamically generated at setup/install time by combining:
  * - Header (from dist/docs/install/claude-header.md)
- * - Base skill content (from dist/docs/shortcuts/system/skill.md)
+ * - Base skill content (from dist/docs/shortcuts/system/skill-baseline.md)
  * - Shortcut directory (generated from available shortcuts)
  */
 
@@ -36,9 +36,9 @@ describe('integration file formats', () => {
     });
   });
 
-  describe('skill.md (shared skill content)', () => {
+  describe('skill-baseline.md (shared skill content)', () => {
     it('contains tbd workflow content', async () => {
-      const skillPath = join(shortcutsSystemDir, 'skill.md');
+      const skillPath = join(shortcutsSystemDir, 'skill-baseline.md');
       const content = await readFile(skillPath, 'utf-8');
 
       expect(content).toContain('tbd');
@@ -47,7 +47,7 @@ describe('integration file formats', () => {
     });
 
     it('contains essential command documentation', async () => {
-      const skillPath = join(shortcutsSystemDir, 'skill.md');
+      const skillPath = join(shortcutsSystemDir, 'skill-baseline.md');
       const content = await readFile(skillPath, 'utf-8');
 
       // Essential commands should be documented

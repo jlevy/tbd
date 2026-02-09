@@ -30,8 +30,8 @@ async function findMarkdownFiles(dir: string): Promise<string[]> {
       const stats = await stat(fullPath);
 
       if (stats.isDirectory()) {
-        // Skip node_modules and hidden directories
-        if (!entry.startsWith('.') && entry !== 'node_modules') {
+        // Skip node_modules, hidden directories, and specs (which reference future features)
+        if (!entry.startsWith('.') && entry !== 'node_modules' && entry !== 'specs') {
           files.push(...(await findMarkdownFiles(fullPath)));
         }
       } else if (extname(entry) === '.md') {

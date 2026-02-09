@@ -171,7 +171,7 @@ export const DOCS_DIR = 'docs';
 /** Shortcuts directory name within docs/ */
 export const SHORTCUTS_DIR = 'shortcuts';
 
-/** System shortcuts directory name (core docs like skill.md) */
+/** System shortcuts directory name (core docs like skill-baseline.md) */
 export const SYSTEM_DIR = 'system';
 
 /** Standard shortcuts directory name (workflow shortcuts) */
