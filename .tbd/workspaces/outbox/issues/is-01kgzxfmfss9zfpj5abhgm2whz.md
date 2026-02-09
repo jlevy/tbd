@@ -12,7 +12,7 @@ spec_path: docs/project/specs/active/plan-2026-02-02-external-docs-repos.md
 status: open
 title: "GREEN: Migrate ShortcutHandler to extend DocCommandHandler"
 type: is
-updated_at: 2026-02-09T00:41:29.414Z
-version: 3
+updated_at: 2026-02-09T01:51:03.438Z
+version: 4
 ---
 TDD Step 2 (Green): Change ShortcutHandler to extend DocCommandHandler instead of BaseCommand. Map existing behavior to DocCommandHandler interface: typeName='shortcut', typeNamePlural='shortcuts', paths from config.docs_cache?.lookup_path ?? DEFAULT_SHORTCUT_PATHS, excludeFromList=['skill','skill-brief','shortcut-explanation'], noQueryDocName='shortcut-explanation', docType='shortcut'. All characterization tests from step 1 must still pass.

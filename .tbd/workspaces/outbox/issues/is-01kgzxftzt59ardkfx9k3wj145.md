@@ -12,7 +12,7 @@ spec_path: docs/project/specs/active/plan-2026-02-02-external-docs-repos.md
 status: open
 title: "REFACTOR: Remove duplicate code from shortcut.ts after migration"
 type: is
-updated_at: 2026-02-09T00:41:35.988Z
-version: 3
+updated_at: 2026-02-09T01:51:03.452Z
+version: 4
 ---
 TDD Step 3 (Refactor): Delete all duplicated code from shortcut.ts that now lives in DocCommandHandler: extractFallbackText(), printWrappedDescription(), wrapAtWord(), handleList() (use base), handleNoQuery() (use base), handleQuery() (use base). The shortcut.ts file should shrink from ~380 lines to ~80-100 lines. Tests must still pass.
