@@ -145,6 +145,44 @@ describe('tbd-format', () => {
       expect(result.config.settings?.doc_auto_sync_hours).toBe(12);
     });
 
+    it('returns warnings array on migration result', () => {
+      const config: RawConfig = {
+        tbd_version: '0.1.0',
+        display: { id_prefix: 'test' },
+      };
+
+      const result = migrateToLatest(config);
+
+      // MigrationResult should always include a warnings array
+      expect(result.warnings).toBeDefined();
+      expect(Array.isArray(result.warnings)).toBe(true);
+    });
+
+    it('returns empty warnings for standard migrations', () => {
+      const config: RawConfig = {
+        tbd_version: '0.1.0',
+        display: { id_prefix: 'test' },
+        sync: { branch: 'tbd-sync', remote: 'origin' },
+        settings: { auto_sync: false },
+      };
+
+      const result = migrateToLatest(config);
+
+      expect(result.warnings).toEqual([]);
+    });
+
+    it('returns empty warnings for no-op migration', () => {
+      const config: RawConfig = {
+        tbd_format: 'f03',
+        tbd_version: '0.1.6',
+        display: { id_prefix: 'test' },
+      };
+
+      const result = migrateToLatest(config);
+
+      expect(result.warnings).toEqual([]);
+    });
+
     it('preserves existing settings when migrating', () => {
       const config: RawConfig = {
         tbd_version: '0.1.0',

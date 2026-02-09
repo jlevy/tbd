@@ -8,6 +8,8 @@ import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import {
   DocCache,
+  generateShortcutDirectory,
+  type CachedDoc,
   SCORE_EXACT_MATCH,
   SCORE_PREFIX_MATCH,
   SCORE_CONTAINS_ALL,
@@ -440,5 +442,70 @@ not: closed: properly
       expect(SCORE_CONTAINS_ALL).toBeGreaterThan(SCORE_PARTIAL_BASE);
       expect(SCORE_PARTIAL_BASE).toBeGreaterThan(SCORE_MIN_THRESHOLD);
     });
+  });
+});
+
+describe('generateShortcutDirectory', () => {
+  function makeCachedDoc(name: string, description: string, hidden?: boolean): CachedDoc {
+    return {
+      path: `/test/${name}.md`,
+      name,
+      frontmatter: { description },
+      content: `# ${name}`,
+      sourceDir: '/test',
+      sizeBytes: 100,
+      approxTokens: 30,
+      hidden: hidden ?? false,
+    };
+  }
+
+  it('excludes docs with hidden=true from shortcut table', () => {
+    const shortcuts = [
+      makeCachedDoc('skill', 'System skill file', true),
+      makeCachedDoc('skill-brief', 'Brief skill file', true),
+      makeCachedDoc('code-review', 'Review code changes'),
+    ];
+
+    const result = generateShortcutDirectory(shortcuts);
+
+    expect(result).toContain('code-review');
+    expect(result).not.toContain('| skill |');
+    expect(result).not.toContain('| skill-brief |');
+  });
+
+  it('excludes docs with hidden=true from guidelines table', () => {
+    const shortcuts = [makeCachedDoc('workflow', 'A workflow')];
+    const guidelines = [
+      makeCachedDoc('internal-guide', 'Internal only', true),
+      makeCachedDoc('typescript-rules', 'TypeScript best practices'),
+    ];
+
+    const result = generateShortcutDirectory(shortcuts, guidelines);
+
+    expect(result).toContain('typescript-rules');
+    expect(result).not.toContain('internal-guide');
+  });
+
+  it('includes all docs when none are hidden', () => {
+    const shortcuts = [
+      makeCachedDoc('review', 'Review code'),
+      makeCachedDoc('commit', 'Commit changes'),
+    ];
+
+    const result = generateShortcutDirectory(shortcuts);
+
+    expect(result).toContain('review');
+    expect(result).toContain('commit');
+  });
+
+  it('shows empty message when all shortcuts are hidden', () => {
+    const shortcuts = [
+      makeCachedDoc('skill', 'Hidden', true),
+      makeCachedDoc('skill-brief', 'Hidden', true),
+    ];
+
+    const result = generateShortcutDirectory(shortcuts);
+
+    expect(result).toContain('No shortcuts available');
   });
 });

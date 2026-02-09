@@ -74,6 +74,8 @@ export interface CachedDoc {
   sizeBytes: number;
   /** Estimated token count (based on ~3.5 chars/token) */
   approxTokens: number;
+  /** If true, excluded from --list and directory tables */
+  hidden?: boolean;
 }
 
 /**
@@ -394,13 +396,14 @@ const SHORTCUT_DIRECTORY_END = '<!-- END SHORTCUT DIRECTORY -->';
 
 /**
  * Build table rows from docs (shared helper for shortcuts and guidelines).
+ * Filters out hidden docs and any explicitly skipped names.
  */
 function buildTableRows(docs: CachedDoc[], skipNames: string[] = []): string[] {
   const sortedDocs = [...docs].sort((a, b) => a.name.localeCompare(b.name));
   const rows: string[] = [];
 
   for (const doc of sortedDocs) {
-    if (skipNames.includes(doc.name)) {
+    if (doc.hidden || skipNames.includes(doc.name)) {
       continue;
     }
 

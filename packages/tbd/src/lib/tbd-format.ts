@@ -136,6 +136,8 @@ export interface MigrationResult {
   changed: boolean;
   /** Description of changes made */
   changes: string[];
+  /** Non-fatal warnings (e.g., preserved custom overrides) */
+  warnings: string[];
 }
 
 // =============================================================================
@@ -173,6 +175,7 @@ function migrate_f01_to_f02(config: RawConfig): MigrationResult {
     toFormat: 'f02',
     changed: changes.length > 0,
     changes,
+    warnings: [],
   };
 }
 
@@ -219,6 +222,7 @@ function migrate_f02_to_f03(config: RawConfig): MigrationResult {
     toFormat: 'f03',
     changed: changes.length > 0,
     changes,
+    warnings: [],
   };
 }
 
@@ -270,12 +274,14 @@ export function migrateToLatest(config: RawConfig): MigrationResult {
       toFormat: CURRENT_FORMAT,
       changed: false,
       changes: [],
+      warnings: [],
     };
   }
 
   let current = config;
   let currentFormat: FormatVersion = fromFormat;
   const allChanges: string[] = [];
+  const allWarnings: string[] = [];
 
   // Apply migrations in sequence
   if (currentFormat === 'f01') {
@@ -283,6 +289,7 @@ export function migrateToLatest(config: RawConfig): MigrationResult {
     current = result.config;
     currentFormat = 'f02' as FormatVersion;
     allChanges.push(...result.changes);
+    allWarnings.push(...result.warnings);
   }
 
   if (currentFormat === 'f02') {
@@ -290,6 +297,7 @@ export function migrateToLatest(config: RawConfig): MigrationResult {
     current = result.config;
     currentFormat = 'f03' as FormatVersion;
     allChanges.push(...result.changes);
+    allWarnings.push(...result.warnings);
   }
 
   // Add more migrations here as new format versions are added
@@ -300,6 +308,7 @@ export function migrateToLatest(config: RawConfig): MigrationResult {
     toFormat: currentFormat,
     changed: allChanges.length > 0,
     changes: allChanges,
+    warnings: allWarnings,
   };
 }
 
