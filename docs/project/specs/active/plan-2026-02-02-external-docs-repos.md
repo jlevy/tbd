@@ -1528,16 +1528,16 @@ tool (`speculate init`), while tbd handles all doc/shortcut/guideline management
     - Ambiguous names require `prefix:name` qualification
     - `hidden: true` sources excluded from `--list` but accessible via lookup
 
-## Future Work
+## Implemented: Source Management CLI
 
-**CLI commands for managing sources** (not in initial implementation):
+**CLI commands for managing sources** (implemented):
 
 ```bash
 # Add a repo source with prefix
 tbd source add github.com/org/guidelines --prefix myorg
 
-# Add with specific ref
-tbd source add github.com/org/guidelines --prefix myorg --ref v2.0
+# Add with specific ref and selective paths
+tbd source add github.com/org/guidelines --prefix myorg --ref v2.0 --paths guidelines,references
 
 # List configured sources with prefixes
 tbd source list
@@ -1546,11 +1546,16 @@ tbd source list
 tbd source remove myorg
 ```
 
-These commands would:
-- Require `--prefix` for new sources
-- Validate prefix is unique
+These commands:
+- Require `--prefix` for new sources (validated: 1-16 lowercase alphanumeric + dashes)
+- Validate prefix is unique (rejects duplicates)
 - Default `ref` to `main` but always write it explicitly to config.yml
-- Validate the repo is accessible before adding
+- Default `paths` to all doc type directories (shortcuts, guidelines, templates,
+  references)
+- Prevent removal of internal sources (only repo sources can be removed)
+- 12 unit tests in `source.test.ts`
+
+## Future Work
 
 **Cross-prefix search** (not in initial implementation):
 
