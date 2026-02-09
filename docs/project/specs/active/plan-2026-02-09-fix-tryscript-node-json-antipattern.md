@@ -9,18 +9,31 @@
 ## Overview
 
 Systematically remove the `node -e "JSON.parse(require('fs').readFileSync(0,'utf8'))"`
-antipattern from all tryscript golden tests and replace with idiomatic golden test
-patterns that expose full CLI output for diff-based validation.
+antipattern from all tryscript golden tests and replace with patterns that show actual
+CLI output — real data, real field values, real structure — so that tests are more
+checkable and better validate outputs.
+
+## Guiding Principle
+
+**Expose all the context that is reasonable but still maintainable.** Tryscript golden
+tests should include actual outputs and related data as long as the output isn't
+excessively large. Showing real JSON output makes tests far more checkable: you can see
+exactly what the CLI produces, catch unexpected field changes, and validate the full
+shape of responses — not just one cherry-picked field.
+
+The `node -e` antipattern does the opposite: it hides all output behind a JavaScript
+program that extracts a single value, reducing a rich golden test to a narrow unit-test-
+style assertion. This loses the core value of golden testing.
 
 ## Goals
 
 - Remove all 130 instances of the `node -e` JSON-parsing antipattern across 18 test
   files
-- Replace with idiomatic tryscript golden test patterns: full `--json` output with
-  elision patterns, and `jq` + `tee` for ID capture
-- Improve test coverage by exposing complete JSON output rather than surgically
-  extracting single fields
-- Align all tryscript tests with the golden testing guidelines
+- Show actual CLI output in the golden files — real JSON responses with elision
+  patterns (`[SHORTID]`, `[ULID]`, `[TIMESTAMP]`) only for genuinely unstable fields
+  like IDs and timestamps
+- Use `jq` + `tee` for ID capture where an ID must be saved for subsequent commands
+- Make every test more checkable by exposing the real data the CLI produces
 
 ## Non-Goals
 
@@ -40,10 +53,26 @@ specific fields:
 tbd show $(cat id.txt) --json | node -e "const d=JSON.parse(require('fs').readFileSync(0,'utf8')); console.log('spec:', d.spec_path)"
 ```
 
-This defeats the core purpose of golden testing. From the golden testing guidelines:
+This defeats the core purpose of golden testing. The golden testing guidelines
+(`tbd guidelines golden-testing-guidelines`, section "Anti-Patterns for Session Tests")
+call this out explicitly as **Anti-pattern 2: Surgical extraction instead of showing
+full state**:
 
-> **The discipline**: Expose concise but broad pieces of application and environment
-> state. Avoid surgical checks that narrow output to specific values.
+> Don't narrow output to check specific values when you could show the full state.
+> Tools like `grep`, `jq`, `awk`, `head`, `tail`, or inline parsing scripts are all
+> ways to extract narrow slices—converting your session test back into unit test
+> mentality and losing the ability to catch unanticipated changes.
+
+The guidelines also cite the `node -e` pattern specifically as a wrong example:
+
+> ```
+> $ my-app status --json | node -e "console.log(JSON.parse(require('fs').readFileSync(0)).count)"
+> 4
+> ```
+
+And the testing architecture doc (`docs/project/architecture/current/arch-testing.md`)
+describes the philosophy as **transparent box testing**: "capturing every meaningful
+detail of execution so behavioral changes show up immediately in diffs."
 
 The antipattern manifests in three sub-patterns:
 
@@ -73,7 +102,10 @@ $ tbd list --status closed --json | node -e "const d=JSON.parse(require('fs').re
 
 ### The Correct Patterns
 
-The project already has examples of the correct approach:
+The project already has examples of the correct approach. The key idea: **show real data
+in the golden output**. Use elision patterns only for genuinely unstable fields (IDs,
+timestamps) — everything else should be actual values so the golden diff catches
+unexpected changes.
 
 **For ID capture** (from `cli-child-order.tryscript.md`):
 
@@ -86,7 +118,7 @@ test-[SHORTID]
 **For full JSON validation** (from `cli-crud.tryscript.md` line 140):
 
 ```bash
-# CORRECT: Full JSON output with pattern matching for unstable fields
+# CORRECT: Full JSON output — real values for stable fields, patterns only for IDs
 $ tbd create "JSON test" --type=task --json
 {
   "id": "test-[SHORTID]",
@@ -95,10 +127,12 @@ $ tbd create "JSON test" --type=task --json
 }
 ```
 
-**For showing detailed state**:
+**For showing detailed state**: Show the full JSON response. Every field value that the
+CLI returns is visible in the golden output, so if a field is added, removed, renamed,
+or changes value, the diff will surface it immediately:
 
 ```bash
-# CORRECT: Show full JSON output, let golden diff validate everything
+# CORRECT: Full state exposed — catches unexpected changes in any field
 $ tbd show $(cat id.txt) --json
 {
   "id": "test-[SHORTID]",
@@ -107,26 +141,37 @@ $ tbd show $(cat id.txt) --json
   "kind": "bug",
   "status": "open",
   "priority": 1,
-  "spec_path": "docs/specs/my-feature.md",
+  "labels": ["backend", "critical"],
+  "created_at": "[TIMESTAMP]",
+  "updated_at": "[TIMESTAMP]",
   ...
 }
 ```
+
+The golden file should include the actual output as captured by
+`npx tryscript run --update`. The output may be moderately long for complex objects but
+that's fine — the point is to expose all the context that is reasonable but still
+maintainable, making tests more checkable and better at validating outputs.
 
 ### Fix Strategy Per Sub-Pattern
 
 **Sub-pattern A (ID capture)** — Replace `node -e ... writeFileSync` with
 `jq -r '.id' | tee id.txt` so the ID is both visible in golden output and saved.
-Alternatively, show full JSON via `tee output.json` and extract the ID in a
-follow-up step.
+Alternatively, show full JSON via `tee output.json` and extract the ID in a follow-up
+step. Either way, the golden output should show real data, not just "Created".
 
 **Sub-pattern B (single-field extraction)** — Remove the `| node -e ...` pipe entirely.
-Show the full `--json` output with `[..]` / `[SHORTID]` / `[ULID]` / `[TIMESTAMP]`
-patterns for unstable fields. The golden diff validates all fields, not just one.
+Show the full `--json` output with `[SHORTID]` / `[ULID]` / `[TIMESTAMP]` patterns
+only for genuinely unstable fields. All stable field values (title, kind, status,
+priority, labels, spec_path, etc.) should be shown as real values. The golden diff
+validates everything — one line per field — making it trivial to spot unexpected changes.
 
 **Sub-pattern C (computed assertions)** — Remove the `| node -e ...` pipe. Show the
-full `--json` output. The golden file implicitly validates counts, field values, and
-filtering by showing the complete data. If a count is truly needed, `jq 'length'` is
-acceptable but full output is preferred.
+full `--json` output. The golden file shows the actual data, which implicitly validates
+counts, field values, and filtering by making everything visible. For list commands
+returning a small number of items, the full JSON array is preferred. For large lists
+(20+ items), `jq length` or `jq '.[].id'` is acceptable, but err on the side of
+showing more rather than less.
 
 ## Implementation Plan
 
@@ -224,17 +269,35 @@ After all files are updated, run the full test suite to confirm no regressions.
 
 ## Open Questions
 
-- For list/search commands that return many items, should we show the full JSON array
-  or is `jq 'length'` acceptable for count checks? Recommendation: show full output
-  when the list is small (under ~20 items), use `jq 'length'` only when the full
-  output would be unwieldy.
 - Some tests use `$(cat /tmp/file.txt)` for ID capture. Should these also move to
   sandbox-local files (e.g., `id.txt` instead of `/tmp/id.txt`)? Recommendation: yes,
   sandbox-local files are cleaner and avoid /tmp pollution.
 
 ## References
 
-- `tbd guidelines golden-testing-guidelines` — Golden testing philosophy and patterns
-- `npx tryscript@latest docs` — Tryscript syntax reference
-- `cli-child-order.tryscript.md` — Exemplar of correct pattern (uses `jq` + `tee`)
-- `cli-crud.tryscript.md:140-147` — Exemplar of correct full JSON golden output
+### Anti-Pattern Documentation
+
+- **`tbd guidelines golden-testing-guidelines`** — Section "Anti-Patterns for Session
+  Tests (tryscript/golden tests)": defines Anti-pattern 1 (patterns for stable fields)
+  and **Anti-pattern 2** (surgical extraction instead of showing full state), which is
+  the primary issue addressed by this spec. Includes a `node -e` example as wrong usage.
+- **`docs/project/architecture/current/arch-testing.md`** — Testing Architecture doc,
+  describes the "transparent box testing" philosophy: "capturing every meaningful detail
+  of execution so behavioral changes show up immediately in diffs."
+- **`docs/general/research/current/research-cli-golden-testing.md`** — Research brief on
+  golden testing for CLI applications, includes design rationale for tryscript and the
+  full-output capture approach.
+
+### Tryscript Syntax Reference
+
+- **`npx tryscript@latest docs`** — Complete tryscript syntax reference (patterns,
+  elisions, config). Key features for this work: `[SHORTID]`/`[ULID]`/`[TIMESTAMP]`
+  custom patterns, `[..]` single-line wildcards, `...` multi-line wildcards.
+- **`npx tryscript@latest readme`** — tryscript overview and usage.
+
+### Exemplar Test Files (correct patterns)
+
+- **`cli-child-order.tryscript.md`** — Uses `jq -r '.id' | tee id.txt` for ID capture
+  with visible output, `jq` for field extraction with data shown.
+- **`cli-crud.tryscript.md:140-147`** — Shows full JSON create output with real field
+  values and patterns only for IDs.
