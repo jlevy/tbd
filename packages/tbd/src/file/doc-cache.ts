@@ -460,7 +460,7 @@ export function generateShortcutDirectory(
   lines.push('');
 
   if (shortcutRows.length === 0) {
-    lines.push('No shortcuts available. Create shortcuts in `.tbd/docs/shortcuts/standard/`.');
+    lines.push('No shortcuts available. Create shortcuts in `.tbd/docs/tbd/shortcuts/`.');
   } else {
     lines.push('| Name | Description |');
     lines.push('| --- | --- |');

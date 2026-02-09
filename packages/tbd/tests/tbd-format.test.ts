@@ -129,11 +129,11 @@ describe('tbd-format', () => {
         settings: { auto_sync: false, doc_auto_sync_hours: 12 },
         docs_cache: {
           files: {
-            'shortcuts/system/skill.md': 'internal:shortcuts/system/skill.md',
+            'sys/shortcuts/skill.md': 'internal:sys/shortcuts/skill.md',
             'guidelines/standard/typescript-rules.md':
               'internal:guidelines/standard/typescript-rules.md',
           },
-          lookup_path: ['.tbd/docs/shortcuts/system', '.tbd/docs/shortcuts/standard'],
+          lookup_path: ['.tbd/docs/sys/shortcuts', '.tbd/docs/tbd/shortcuts'],
         },
       };
 
@@ -159,10 +159,10 @@ describe('tbd-format', () => {
         display: { id_prefix: 'test' },
         docs_cache: {
           files: {
-            'shortcuts/system/skill.md': 'internal:shortcuts/system/skill.md',
+            'sys/shortcuts/skill.md': 'internal:sys/shortcuts/skill.md',
             'guidelines/custom.md': 'https://example.com/custom.md',
           },
-          lookup_path: ['.tbd/docs/shortcuts/system'],
+          lookup_path: ['.tbd/docs/sys/shortcuts'],
         },
       };
 
@@ -175,7 +175,7 @@ describe('tbd-format', () => {
         'https://example.com/custom.md',
       );
       // Default internal entries should NOT be in files anymore
-      expect(result.config.docs_cache?.files?.['shortcuts/system/skill.md']).toBeUndefined();
+      expect(result.config.docs_cache?.files?.['sys/shortcuts/skill.md']).toBeUndefined();
     });
 
     it('migrates f03 to f04 with empty docs_cache', () => {

@@ -87,7 +87,7 @@ class SkillHandler extends BaseCommand {
     const header = await loadDocContent('install/claude-header.md');
 
     // Load base skill content
-    const baseSkill = await loadDocContent('shortcuts/system/skill.md');
+    const baseSkill = await loadDocContent('sys/shortcuts/skill.md');
 
     // Get shortcut directory
     const directory = await this.getShortcutDirectory();

@@ -279,8 +279,8 @@ describe('ConfigSchema', () => {
         display: { id_prefix: 'proj' },
         docs_cache: {
           files: {
-            'shortcuts/standard/code-review-and-commit.md':
-              'internal:shortcuts/standard/code-review-and-commit.md',
+            'tbd/shortcuts/code-review-and-commit.md':
+              'internal:tbd/shortcuts/code-review-and-commit.md',
             'custom/my-doc.md': 'https://example.com/my-doc.md',
           },
         },
@@ -290,8 +290,8 @@ describe('ConfigSchema', () => {
       expect(result.success).toBe(true);
       if (result.success) {
         expect(result.data.docs_cache?.files).toEqual({
-          'shortcuts/standard/code-review-and-commit.md':
-            'internal:shortcuts/standard/code-review-and-commit.md',
+          'tbd/shortcuts/code-review-and-commit.md':
+            'internal:tbd/shortcuts/code-review-and-commit.md',
           'custom/my-doc.md': 'https://example.com/my-doc.md',
         });
       }
@@ -304,8 +304,8 @@ describe('ConfigSchema', () => {
         docs_cache: {
           lookup_path: [
             '.tbd/docs/shortcuts/custom',
-            '.tbd/docs/shortcuts/system',
-            '.tbd/docs/shortcuts/standard',
+            '.tbd/docs/sys/shortcuts',
+            '.tbd/docs/tbd/shortcuts',
           ],
         },
       };
@@ -315,8 +315,8 @@ describe('ConfigSchema', () => {
       if (result.success) {
         expect(result.data.docs_cache?.lookup_path).toEqual([
           '.tbd/docs/shortcuts/custom',
-          '.tbd/docs/shortcuts/system',
-          '.tbd/docs/shortcuts/standard',
+          '.tbd/docs/sys/shortcuts',
+          '.tbd/docs/tbd/shortcuts',
         ]);
       }
     });
@@ -327,10 +327,10 @@ describe('ConfigSchema', () => {
         display: { id_prefix: 'proj' },
         docs_cache: {
           files: {
-            'shortcuts/standard/code-review-and-commit.md':
-              'internal:shortcuts/standard/code-review-and-commit.md',
+            'tbd/shortcuts/code-review-and-commit.md':
+              'internal:tbd/shortcuts/code-review-and-commit.md',
           },
-          lookup_path: ['.tbd/docs/shortcuts/system', '.tbd/docs/shortcuts/standard'],
+          lookup_path: ['.tbd/docs/sys/shortcuts', '.tbd/docs/tbd/shortcuts'],
         },
       };
 
@@ -353,8 +353,8 @@ describe('ConfigSchema', () => {
       expect(result.success).toBe(true);
       if (result.success) {
         expect(result.data.docs_cache?.lookup_path).toEqual([
-          '.tbd/docs/shortcuts/system',
-          '.tbd/docs/shortcuts/standard',
+          '.tbd/docs/sys/shortcuts',
+          '.tbd/docs/tbd/shortcuts',
         ]);
       }
     });
@@ -581,7 +581,7 @@ describe('DocsCacheSchema with sources', () => {
   it('accepts docs_cache without sources (backward compat)', () => {
     const result = DocsCacheSchema.safeParse({
       files: {
-        'shortcuts/standard/code-review.md': 'internal:shortcuts/standard/code-review.md',
+        'tbd/shortcuts/code-review.md': 'internal:tbd/shortcuts/code-review.md',
       },
     });
     expect(result.success).toBe(true);

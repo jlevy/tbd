@@ -74,10 +74,7 @@ export function createMockConfig(overrides?: {
     settings: { auto_sync: false, doc_auto_sync_hours: 24 },
     docs_cache: {
       files: overrides?.files ?? {},
-      lookup_path: overrides?.lookupPath ?? [
-        '.tbd/docs/shortcuts/system',
-        '.tbd/docs/shortcuts/standard',
-      ],
+      lookup_path: overrides?.lookupPath ?? ['.tbd/docs/sys/shortcuts', '.tbd/docs/tbd/shortcuts'],
     },
   };
 }
@@ -107,9 +104,10 @@ export async function createTestBareRepo(files: Record<string, string>): Promise
   );
   await mkdir(workDir, { recursive: true });
 
-  await execFileAsync('git', ['init', workDir]);
+  await execFileAsync('git', ['init', '-b', 'main', workDir]);
   await execFileAsync('git', ['-C', workDir, 'config', 'user.email', 'test@test.com']);
   await execFileAsync('git', ['-C', workDir, 'config', 'user.name', 'Test']);
+  await execFileAsync('git', ['-C', workDir, 'config', 'commit.gpgsign', 'false']);
 
   // Write files
   for (const [filePath, content] of Object.entries(files)) {

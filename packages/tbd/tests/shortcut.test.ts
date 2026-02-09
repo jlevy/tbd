@@ -20,8 +20,8 @@ describe('shortcut command behavior', () => {
 
   beforeEach(async () => {
     testDir = join(tmpdir(), `shortcut-test-${Date.now()}`);
-    systemDir = join(testDir, '.tbd', 'docs', 'shortcuts', 'system');
-    standardDir = join(testDir, '.tbd', 'docs', 'shortcuts', 'standard');
+    systemDir = join(testDir, '.tbd', 'docs', 'sys', 'shortcuts');
+    standardDir = join(testDir, '.tbd', 'docs', 'tbd', 'shortcuts');
     await mkdir(systemDir, { recursive: true });
     await mkdir(standardDir, { recursive: true });
 
@@ -98,10 +98,7 @@ Follow TDD to implement beads.`,
 
   describe('exact lookup', () => {
     it('finds shortcut by exact name and returns content', async () => {
-      const cache = new DocCache(
-        ['.tbd/docs/shortcuts/system', '.tbd/docs/shortcuts/standard'],
-        testDir,
-      );
+      const cache = new DocCache(['.tbd/docs/sys/shortcuts', '.tbd/docs/tbd/shortcuts'], testDir);
       await cache.load();
 
       const match = cache.get('code-review');
@@ -111,10 +108,7 @@ Follow TDD to implement beads.`,
     });
 
     it('finds system shortcuts by exact name', async () => {
-      const cache = new DocCache(
-        ['.tbd/docs/shortcuts/system', '.tbd/docs/shortcuts/standard'],
-        testDir,
-      );
+      const cache = new DocCache(['.tbd/docs/sys/shortcuts', '.tbd/docs/tbd/shortcuts'], testDir);
       await cache.load();
 
       const match = cache.get('shortcut-explanation');
@@ -125,7 +119,7 @@ Follow TDD to implement beads.`,
 
   describe('fuzzy search with score thresholds', () => {
     it('prefix match returns score >= SCORE_PREFIX_MATCH', async () => {
-      const cache = new DocCache(['.tbd/docs/shortcuts/standard'], testDir);
+      const cache = new DocCache(['.tbd/docs/tbd/shortcuts'], testDir);
       await cache.load();
 
       const matches = cache.search('code-rev');
@@ -135,7 +129,7 @@ Follow TDD to implement beads.`,
     });
 
     it('word-based match returns lower score than prefix match', async () => {
-      const cache = new DocCache(['.tbd/docs/shortcuts/standard'], testDir);
+      const cache = new DocCache(['.tbd/docs/tbd/shortcuts'], testDir);
       await cache.load();
 
       const matches = cache.search('review code');
@@ -147,7 +141,7 @@ Follow TDD to implement beads.`,
 
   describe('--category filtering', () => {
     it('filters docs by category from frontmatter', async () => {
-      const cache = new DocCache(['.tbd/docs/shortcuts/standard'], testDir);
+      const cache = new DocCache(['.tbd/docs/tbd/shortcuts'], testDir);
       await cache.load();
 
       const allDocs = cache.list();
@@ -161,10 +155,7 @@ Follow TDD to implement beads.`,
 
   describe('no-query fallback', () => {
     it('shortcut-explanation.md is accessible for no-query mode', async () => {
-      const cache = new DocCache(
-        ['.tbd/docs/shortcuts/system', '.tbd/docs/shortcuts/standard'],
-        testDir,
-      );
+      const cache = new DocCache(['.tbd/docs/sys/shortcuts', '.tbd/docs/tbd/shortcuts'], testDir);
       await cache.load();
 
       const explanation = cache.get('shortcut-explanation');
@@ -191,30 +182,24 @@ Follow TDD to implement beads.`,
       // Add a file with same name to both dirs
       await writeFile(join(standardDir, 'skill.md'), '# Standard skill');
 
-      const cache = new DocCache(
-        ['.tbd/docs/shortcuts/system', '.tbd/docs/shortcuts/standard'],
-        testDir,
-      );
+      const cache = new DocCache(['.tbd/docs/sys/shortcuts', '.tbd/docs/tbd/shortcuts'], testDir);
       await cache.load();
 
       const match = cache.get('skill');
       expect(match).not.toBeNull();
       expect(match!.doc.content).toContain('Skill Content'); // System version
-      expect(match!.doc.sourceDir).toBe('.tbd/docs/shortcuts/system');
+      expect(match!.doc.sourceDir).toBe('.tbd/docs/sys/shortcuts');
     });
 
     it('shadowed entries are identifiable', async () => {
       await writeFile(join(standardDir, 'skill.md'), '# Standard skill');
 
-      const cache = new DocCache(
-        ['.tbd/docs/shortcuts/system', '.tbd/docs/shortcuts/standard'],
-        testDir,
-      );
+      const cache = new DocCache(['.tbd/docs/sys/shortcuts', '.tbd/docs/tbd/shortcuts'], testDir);
       await cache.load();
 
       const allDocs = cache.list(true); // include shadowed
       const standardSkill = allDocs.find(
-        (d) => d.name === 'skill' && d.sourceDir === '.tbd/docs/shortcuts/standard',
+        (d) => d.name === 'skill' && d.sourceDir === '.tbd/docs/tbd/shortcuts',
       );
       expect(standardSkill).toBeDefined();
       expect(cache.isShadowed(standardSkill!)).toBe(true);
@@ -223,7 +208,7 @@ Follow TDD to implement beads.`,
 
   describe('JSON output shape', () => {
     it('list output has expected fields', async () => {
-      const cache = new DocCache(['.tbd/docs/shortcuts/standard'], testDir);
+      const cache = new DocCache(['.tbd/docs/tbd/shortcuts'], testDir);
       await cache.load();
 
       const docs = cache.list();
@@ -239,7 +224,7 @@ Follow TDD to implement beads.`,
     });
 
     it('search result has expected fields', async () => {
-      const cache = new DocCache(['.tbd/docs/shortcuts/standard'], testDir);
+      const cache = new DocCache(['.tbd/docs/tbd/shortcuts'], testDir);
       await cache.load();
 
       const matches = cache.search('code-review');
@@ -253,10 +238,7 @@ Follow TDD to implement beads.`,
 
   describe('generateShortcutDirectory', () => {
     it('generates directory excluding system shortcuts by name', async () => {
-      const cache = new DocCache(
-        ['.tbd/docs/shortcuts/system', '.tbd/docs/shortcuts/standard'],
-        testDir,
-      );
+      const cache = new DocCache(['.tbd/docs/sys/shortcuts', '.tbd/docs/tbd/shortcuts'], testDir);
       await cache.load();
 
       const docs = cache.list();
@@ -274,7 +256,7 @@ Follow TDD to implement beads.`,
     });
 
     it('wraps with directory markers', async () => {
-      const cache = new DocCache(['.tbd/docs/shortcuts/standard'], testDir);
+      const cache = new DocCache(['.tbd/docs/tbd/shortcuts'], testDir);
       await cache.load();
 
       const docs = cache.list();

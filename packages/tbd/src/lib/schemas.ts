@@ -185,16 +185,16 @@ export const GitRemoteName = z
 /**
  * Doc cache configuration - maps destination paths to source locations.
  *
- * Keys are destination paths relative to .tbd/docs/ (e.g., "shortcuts/standard/code-review-and-commit.md")
+ * Keys are destination paths relative to .tbd/docs/ (e.g., "tbd/shortcuts/code-review-and-commit.md")
  * Values are source locations:
- * - internal: prefix for bundled docs (e.g., "internal:shortcuts/standard/code-review-and-commit.md")
+ * - internal: prefix for bundled docs (e.g., "internal:tbd/shortcuts/code-review-and-commit.md")
  * - Full URL for external docs (e.g., "https://raw.githubusercontent.com/org/repo/main/file.md")
  *
  * Example:
  * ```yaml
  * doc_cache:
- *   shortcuts/standard/code-review-and-commit.md: internal:shortcuts/standard/code-review-and-commit.md
- *   shortcuts/custom/my-shortcut.md: https://raw.githubusercontent.com/org/repo/main/shortcuts/my-shortcut.md
+ *   tbd/shortcuts/code-review-and-commit.md: internal:tbd/shortcuts/code-review-and-commit.md
+ *   guidelines/custom.md: https://example.com/custom.md
  * ```
  */
 export const DocCacheConfigSchema = z.record(z.string(), z.string());
@@ -239,7 +239,7 @@ export const DocsCacheSchema = z.object({
    * Files to sync: maps destination paths to source locations.
    * Keys are destination paths relative to .tbd/docs/
    * Values are source locations:
-   * - internal: prefix for bundled docs (e.g., "internal:shortcuts/standard/code-review-and-commit.md")
+   * - internal: prefix for bundled docs (e.g., "internal:tbd/shortcuts/code-review-and-commit.md")
    * - Full URL for external docs (e.g., "https://raw.githubusercontent.com/org/repo/main/file.md")
    */
   files: z.record(z.string(), z.string()).optional(),
@@ -247,9 +247,7 @@ export const DocsCacheSchema = z.object({
    * Search paths for doc lookup (like shell $PATH).
    * Earlier paths take precedence when names conflict.
    */
-  lookup_path: z
-    .array(z.string())
-    .default(['.tbd/docs/shortcuts/system', '.tbd/docs/shortcuts/standard']),
+  lookup_path: z.array(z.string()).default(['.tbd/docs/sys/shortcuts', '.tbd/docs/tbd/shortcuts']),
 });
 
 /**

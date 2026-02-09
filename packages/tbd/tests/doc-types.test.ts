@@ -77,8 +77,8 @@ describe('doc-types', () => {
     });
 
     it('infers from old-style nested paths', () => {
-      expect(inferDocType('.tbd/docs/shortcuts/standard/code-review.md')).toBe('shortcut');
-      expect(inferDocType('.tbd/docs/shortcuts/system/skill.md')).toBe('shortcut');
+      expect(inferDocType('.tbd/docs/tbd/shortcuts/code-review.md')).toBe('shortcut');
+      expect(inferDocType('.tbd/docs/sys/shortcuts/skill.md')).toBe('shortcut');
     });
 
     it('returns undefined for unrecognized paths', () => {
