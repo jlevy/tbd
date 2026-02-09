@@ -114,6 +114,7 @@ HEALTH CHECKS
     Run: tbd sync to push issues to remote
 ✓ Clone status
 ✓ Sync consistency
+✓ Repo cache
 
 ⚠ Issues found that may require manual intervention.
 ? 0

@@ -8,7 +8,8 @@
 
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
-import { join } from 'node:path';
+import { join, isAbsolute } from 'node:path';
+import { createHash } from 'node:crypto';
 import { mkdir, readFile, readdir, access, stat } from 'node:fs/promises';
 import { repoUrlToSlug, getCloneUrl } from '../lib/repo-url.js';
 
@@ -35,8 +36,14 @@ export class RepoCache {
 
   /**
    * Get the deterministic directory path for a repo URL.
+   * Handles both remote URLs and local filesystem paths.
    */
   getRepoDir(url: string): string {
+    if (this.isLocalPath(url)) {
+      // Local paths: hash to get a deterministic slug
+      const hash = createHash('sha256').update(url).digest('hex').slice(0, 12);
+      return join(this.cacheDir, `local-${hash}`);
+    }
     const slug = repoUrlToSlug(url);
     return join(this.cacheDir, slug);
   }
@@ -153,6 +160,15 @@ export class RepoCache {
   }
 
   /**
+   * Check if a URL is a local filesystem path.
+   */
+  private isLocalPath(url: string): boolean {
+    return (
+      url.startsWith('/') || url.startsWith('.') || url.startsWith('file://') || isAbsolute(url)
+    );
+  }
+
+  /**
    * Resolve a URL to a clone-able format.
    * Local paths use file:// protocol to support --depth.
    */
@@ -161,8 +177,8 @@ export class RepoCache {
     if (url.startsWith('file://')) {
       return url;
     }
-    // Local paths (absolute or relative) - convert to file:// for --depth support
-    if (url.startsWith('/') || url.startsWith('.')) {
+    // Local paths (absolute or relative, including Windows drive letters) - convert to file:// for --depth support
+    if (url.startsWith('/') || url.startsWith('.') || isAbsolute(url)) {
       return `file://${url}`;
     }
     // Already a full URL or SSH format
