@@ -39,7 +39,7 @@ Validates ID format behavior across commands.
 # Test: Create shows short display ID in success message
 
 ```console
-$ tbd create "Test issue"
+$ tbd create "Test issue" --priority=3
 ✓ Created test-[SHORTID]: Test issue
 ? 0
 ```
@@ -113,16 +113,16 @@ $ tbd list --json
     "priority": 2,
     "status": "open",
     "kind": "task",
-    "title": "Test issue",
+    "title": "Test JSON",
     "labels": []
   },
   {
     "id": "test-[SHORTID]",
     "internalId": "is-[ULID]",
-    "priority": 2,
+    "priority": 3,
     "status": "open",
     "kind": "task",
-    "title": "Test JSON",
+    "title": "Test issue",
     "labels": []
   }
 ]
