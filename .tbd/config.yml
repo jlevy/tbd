@@ -15,8 +15,9 @@ display:
 docs_cache:
   files:
     sys/shortcuts/shortcut-explanation.md: internal:sys/shortcuts/shortcut-explanation.md
+    sys/shortcuts/skill-baseline.md: internal:sys/shortcuts/skill-baseline.md
     sys/shortcuts/skill-brief.md: internal:sys/shortcuts/skill-brief.md
-    sys/shortcuts/skill.md: internal:sys/shortcuts/skill.md
+    sys/shortcuts/skill-minimal.md: internal:sys/shortcuts/skill-minimal.md
     tbd/guidelines/backward-compatibility-rules.md: internal:tbd/guidelines/backward-compatibility-rules.md
     tbd/guidelines/bun-monorepo-patterns.md: internal:tbd/guidelines/bun-monorepo-patterns.md
     tbd/guidelines/cli-agent-skill-patterns.md: internal:tbd/guidelines/cli-agent-skill-patterns.md

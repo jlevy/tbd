@@ -113,7 +113,11 @@ class ShortcutHandler extends BaseCommand {
 
     // Count shortcuts (excluding system docs)
     const shortcutCount = docs.filter(
-      (d) => d.name !== 'skill' && d.name !== 'skill-brief' && d.name !== 'shortcut-explanation',
+      (d) =>
+        d.name !== 'skill-baseline' &&
+        d.name !== 'skill-brief' &&
+        d.name !== 'skill-minimal' &&
+        d.name !== 'shortcut-explanation',
     ).length;
 
     if (!quiet) {

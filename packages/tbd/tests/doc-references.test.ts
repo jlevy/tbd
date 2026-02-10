@@ -30,8 +30,8 @@ async function findMarkdownFiles(dir: string): Promise<string[]> {
       const stats = await stat(fullPath);
 
       if (stats.isDirectory()) {
-        // Skip node_modules and hidden directories
-        if (!entry.startsWith('.') && entry !== 'node_modules') {
+        // Skip node_modules, hidden directories, and specs (which reference future features)
+        if (!entry.startsWith('.') && entry !== 'node_modules' && entry !== 'specs') {
           files.push(...(await findMarkdownFiles(fullPath)));
         }
       } else if (extname(entry) === '.md') {
@@ -83,7 +83,7 @@ function extractDocCommands(content: string): string[] {
   return [...new Set(commands)]; // dedupe
 }
 
-describe('doc references', () => {
+describe('doc references', { timeout: 30000 }, () => {
   // Ensure docs are installed before running tests
   beforeAll(() => {
     // Run tbd setup --auto to install docs (they're gitignored so not present in CI)

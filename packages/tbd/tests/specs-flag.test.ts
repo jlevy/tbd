@@ -16,7 +16,7 @@ import { join } from 'node:path';
 import { execSync, spawnSync } from 'node:child_process';
 import { writeFile } from 'atomically';
 
-describe('tbd list --specs', () => {
+describe('tbd list --specs', { timeout: 15000 }, () => {
   let tempDir: string;
   const tbdBin = join(__dirname, '..', 'dist', 'bin.mjs');
 

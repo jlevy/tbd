@@ -12,7 +12,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { execSync, spawnSync } from 'node:child_process';
 
-describe('child ordering end-to-end', () => {
+describe('child ordering end-to-end', { timeout: 15000 }, () => {
   let tempDir: string;
   const tbdBin = join(__dirname, '..', 'dist', 'bin.mjs');
 

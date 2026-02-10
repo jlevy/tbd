@@ -62,7 +62,7 @@ class SkillHandler extends BaseCommand {
         // Brief mode: just output skill-brief.md
         content = await loadDocContent('skill-brief.md');
       } else {
-        // Full mode: compose header + skill.md + shortcut directory
+        // Full mode: compose header + skill-baseline.md + shortcut directory
         content = await this.composeFullSkill();
       }
 
@@ -79,7 +79,7 @@ class SkillHandler extends BaseCommand {
   /**
    * Compose the full skill output by combining:
    * 1. Claude header (YAML frontmatter)
-   * 2. Base skill content (skill.md from shortcuts/system)
+   * 2. Base skill content (skill-baseline.md from shortcuts/system)
    * 3. Shortcut directory (from cache or generated on-the-fly)
    */
   private async composeFullSkill(): Promise<string> {
@@ -87,7 +87,7 @@ class SkillHandler extends BaseCommand {
     const header = await loadDocContent('install/claude-header.md');
 
     // Load base skill content
-    const baseSkill = await loadDocContent('sys/shortcuts/skill.md');
+    const baseSkill = await loadDocContent('sys/shortcuts/skill-baseline.md');
 
     // Get shortcut directory
     const directory = await this.getShortcutDirectory();

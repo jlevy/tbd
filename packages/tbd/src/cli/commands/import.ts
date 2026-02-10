@@ -250,6 +250,7 @@ class ImportHandler extends BaseCommand {
     }
 
     const spinner = this.output.spinner('Importing from workspace...');
+    wsOptions.logger = this.output.logger(spinner);
 
     const result = await this.execute(async () => {
       return await importFromWorkspace(this.tbdRoot, this.dataSyncDir, wsOptions);

@@ -367,7 +367,9 @@ describe('doc-sync', () => {
       const result = await resolveSourcesToDocs(sources);
 
       // Should contain sys shortcuts
-      expect(result['sys/shortcuts/skill.md']).toBe('internal:sys/shortcuts/skill.md');
+      expect(result['sys/shortcuts/skill-baseline.md']).toBe(
+        'internal:sys/shortcuts/skill-baseline.md',
+      );
     });
 
     it('resolves multiple internal sources', async () => {
@@ -388,7 +390,9 @@ describe('doc-sync', () => {
       const result = await resolveSourcesToDocs(sources);
 
       // sys shortcuts
-      expect(result['sys/shortcuts/skill.md']).toBe('internal:sys/shortcuts/skill.md');
+      expect(result['sys/shortcuts/skill-baseline.md']).toBe(
+        'internal:sys/shortcuts/skill-baseline.md',
+      );
       // tbd shortcuts
       expect(result['tbd/shortcuts/code-review-and-commit.md']).toBe(
         'internal:tbd/shortcuts/code-review-and-commit.md',
@@ -614,7 +618,9 @@ describe('doc-sync', () => {
 
       // Verify resolution produced expected entries
       expect(Object.keys(fileMap).length).toBeGreaterThan(0);
-      expect(fileMap['sys/shortcuts/skill.md']).toBe('internal:sys/shortcuts/skill.md');
+      expect(fileMap['sys/shortcuts/skill-baseline.md']).toBe(
+        'internal:sys/shortcuts/skill-baseline.md',
+      );
       expect(fileMap['tbd/shortcuts/code-review-and-commit.md']).toBe(
         'internal:tbd/shortcuts/code-review-and-commit.md',
       );
@@ -633,7 +639,7 @@ describe('doc-sync', () => {
 
       // Verify files actually exist on disk
       const skillContent = await readFile(
-        join(tempDir, '.tbd', 'docs', 'sys', 'shortcuts', 'skill.md'),
+        join(tempDir, '.tbd', 'docs', 'sys', 'shortcuts', 'skill-baseline.md'),
         'utf-8',
       );
       expect(skillContent).toContain('tbd');
@@ -707,7 +713,7 @@ describe('doc-sync', () => {
 
       const sysShortcuts = await rd(join(tempDir, '.tbd', 'docs', 'sys', 'shortcuts'));
       expect(sysShortcuts.length).toBeGreaterThan(0);
-      expect(sysShortcuts).toContain('skill.md');
+      expect(sysShortcuts).toContain('skill-baseline.md');
 
       const tbdShortcuts = await rd(join(tempDir, '.tbd', 'docs', 'tbd', 'shortcuts'));
       expect(tbdShortcuts.length).toBeGreaterThan(0);

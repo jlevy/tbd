@@ -39,7 +39,7 @@ describe('DocCache', () => {
 
   describe('load()', () => {
     it('loads markdown files from directories', async () => {
-      await writeFile(join(systemDir, 'skill.md'), '# Skill\n\nContent here.');
+      await writeFile(join(systemDir, 'skill-baseline.md'), '# Skill\n\nContent here.');
       await writeFile(join(standardDir, 'workflow.md'), '# Workflow\n\nContent here.');
 
       const cache = new DocCache(['.tbd/docs/sys/shortcuts', '.tbd/docs/tbd/shortcuts'], testDir);
@@ -47,12 +47,12 @@ describe('DocCache', () => {
 
       const docs = cache.list();
       expect(docs).toHaveLength(2);
-      expect(docs.map((d) => d.name)).toContain('skill');
+      expect(docs.map((d) => d.name)).toContain('skill-baseline');
       expect(docs.map((d) => d.name)).toContain('workflow');
     });
 
     it('skips non-markdown files', async () => {
-      await writeFile(join(systemDir, 'skill.md'), '# Skill');
+      await writeFile(join(systemDir, 'skill-baseline.md'), '# Skill');
       await writeFile(join(systemDir, 'readme.txt'), 'Not markdown');
       await writeFile(join(systemDir, 'config.yml'), 'yaml: true');
 
@@ -61,7 +61,7 @@ describe('DocCache', () => {
 
       const docs = cache.list();
       expect(docs).toHaveLength(1);
-      expect(docs[0]!.name).toBe('skill');
+      expect(docs[0]!.name).toBe('skill-baseline');
     });
 
     it('handles missing directories gracefully', async () => {

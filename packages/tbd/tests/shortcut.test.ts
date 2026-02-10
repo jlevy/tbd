@@ -27,9 +27,9 @@ describe('shortcut command behavior', () => {
 
     // System shortcuts (hidden in real setup)
     await writeFile(
-      join(systemDir, 'skill.md'),
+      join(systemDir, 'skill-baseline.md'),
       `---
-title: Skill
+title: Skill Baseline
 description: Main skill file
 ---
 # Skill Content`,
@@ -180,26 +180,26 @@ Follow TDD to implement beads.`,
   describe('path ordering and shadowing', () => {
     it('system dir takes precedence over standard dir for same name', async () => {
       // Add a file with same name to both dirs
-      await writeFile(join(standardDir, 'skill.md'), '# Standard skill');
+      await writeFile(join(standardDir, 'skill-baseline.md'), '# Standard skill');
 
       const cache = new DocCache(['.tbd/docs/sys/shortcuts', '.tbd/docs/tbd/shortcuts'], testDir);
       await cache.load();
 
-      const match = cache.get('skill');
+      const match = cache.get('skill-baseline');
       expect(match).not.toBeNull();
       expect(match!.doc.content).toContain('Skill Content'); // System version
       expect(match!.doc.sourceDir).toBe('.tbd/docs/sys/shortcuts');
     });
 
     it('shadowed entries are identifiable', async () => {
-      await writeFile(join(standardDir, 'skill.md'), '# Standard skill');
+      await writeFile(join(standardDir, 'skill-baseline.md'), '# Standard skill');
 
       const cache = new DocCache(['.tbd/docs/sys/shortcuts', '.tbd/docs/tbd/shortcuts'], testDir);
       await cache.load();
 
       const allDocs = cache.list(true); // include shadowed
       const standardSkill = allDocs.find(
-        (d) => d.name === 'skill' && d.sourceDir === '.tbd/docs/tbd/shortcuts',
+        (d) => d.name === 'skill-baseline' && d.sourceDir === '.tbd/docs/tbd/shortcuts',
       );
       expect(standardSkill).toBeDefined();
       expect(cache.isShadowed(standardSkill!)).toBe(true);
@@ -250,8 +250,9 @@ Follow TDD to implement beads.`,
       expect(directory).toContain('implement-beads');
 
       // System shortcuts should be excluded (by hardcoded skip names)
-      expect(directory).not.toContain('| skill |');
+      expect(directory).not.toContain('| skill-baseline |');
       expect(directory).not.toContain('| skill-brief |');
+      expect(directory).not.toContain('| skill-minimal |');
       expect(directory).not.toContain('| shortcut-explanation |');
     });
 
