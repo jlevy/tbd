@@ -343,10 +343,6 @@ export interface Spinner {
   stop(msg?: string): void;
 }
 
-// Re-export OperationLogger and noopLogger so CLI consumers can import from output.ts
-export { noopLogger } from '../../lib/types.js';
-export type { OperationLogger } from '../../lib/types.js';
-
 /**
  * No-op spinner for non-TTY or quiet mode.
  */
