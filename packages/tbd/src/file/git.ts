@@ -298,6 +298,7 @@ const FIELD_STRATEGIES: Record<keyof Issue, MergeStrategy> = {
   due_date: 'lww',
   deferred_until: 'lww',
   spec_path: 'lww',
+  external_issue_url: 'lww',
 
   // Union - combine arrays, deduplicate
   labels: 'union',
