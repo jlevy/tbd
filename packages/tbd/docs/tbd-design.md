@@ -1582,10 +1582,18 @@ const ConfigSchema = z.object({
     .object({
       auto_sync: z.boolean().default(false),
       index_enabled: z.boolean().default(true),
+      use_gh_cli: z.boolean().default(true), // Master gate for GitHub CLI features
     })
     .default({}),
 });
 ```
+
+**`use_gh_cli` setting:** Controls whether GitHub CLI (`gh`) features are
+enabled. When `true` (default), `tbd setup` installs a SessionStart hook that
+ensures `gh` is available, and all external issue features (linking, sync,
+validation) are active. When `false`, the hook is not installed and all `gh`-
+dependent features are disabled — including external issue linking (§8.7) and
+`tbd sync --external`. Set via `tbd setup --no-gh-cli` or directly in config.
 
 > **Forward Compatibility Policy:** ConfigSchema uses Zod’s `strip()` mode, which
 > discards unknown fields.
@@ -5744,6 +5752,19 @@ tbd issues can be optionally linked to an external issue tracker via the
 
 See: `docs/project/specs/active/plan-2026-02-10-external-issue-linking.md`
 
+**Prerequisite: `use_gh_cli` must be `true`**
+
+All external issue features require the GitHub CLI (`gh`). The `use_gh_cli`
+setting in ConfigSchema (see §2.7.4) serves as the master gate:
+
+- When `false`: `--external-issue` flags are rejected, `tbd sync --external`
+  is a no-op, and `tbd sync` (no flags) silently skips external phases. The
+  `external_issue_url` field can still exist on beads (from collaborators),
+  but no validation or sync occurs locally.
+- When `true` (default): All features are available — URL validation at link
+  time, bidirectional status/label sync at `tbd sync` time, and `doctor`
+  checks for `gh` availability.
+
 **Schema:**
 
 ```typescript
@@ -5752,8 +5773,9 @@ external_issue_url: z.string().url().optional(),
 ```
 
 The field stores the full GitHub issue URL (e.g.,
-`https://github.com/owner/repo/issues/123`). The URL is parsed to extract
-`{owner, repo, number}` for API operations via `gh` CLI.
+`https://github.com/owner/repo/issues/123`). Only full URLs are accepted —
+no shorthand like `#123`. The URL is parsed to extract `{owner, repo, number}`
+for API operations via `gh` CLI.
 
 **Inheritance:** `external_issue_url` uses the same generic inheritable field system
 as `spec_path`. When creating a child with `--parent`, the child inherits the URL

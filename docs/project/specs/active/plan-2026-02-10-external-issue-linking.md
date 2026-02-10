@@ -409,14 +409,62 @@ but the overall sync returns a non-zero exit code.
 3. Report a summary of synced issues (e.g., "Synced 3 external issues:
    2 pushed, 1 pulled, 1 unchanged")
 
+### `use_gh_cli` Configuration Gate
+
+All external issue features require the GitHub CLI (`gh`). The existing
+`use_gh_cli` config setting (in `.tbd/config.yml` under `settings:`,
+default `true`) serves as the master gate for all external issue functionality.
+
+**When `use_gh_cli` is `false`:**
+
+- `--external-issue` flag on `create`/`update` is **rejected** with a clear
+  error: "External issue linking requires GitHub CLI. Set `use_gh_cli: true`
+  in config or run `tbd setup --auto`."
+- `tbd sync --external` is a **no-op** with a warning: "External sync skipped:
+  GitHub CLI is disabled (use_gh_cli: false)."
+- `tbd sync` (no flags) silently skips the external sync phases (phases 1 and
+  4) — issues and docs sync still run normally.
+- The `external_issue_url` field on the schema is unaffected — beads may still
+  have the field populated (e.g., from a collaborator who has `gh` enabled),
+  but no sync or validation occurs locally.
+- The `doctor` command's `gh` CLI check reports "skipped" rather than a warning
+  when `use_gh_cli` is `false`.
+
+**When `use_gh_cli` is `true` (default):**
+
+- All external issue features are available.
+- The `--external-issue` flag validates the URL and verifies the issue exists
+  via `gh api`.
+- `tbd sync` includes the external sync phases.
+- The `doctor` command checks `gh` availability and auth status.
+
+This gating behavior must be clearly documented in:
+- CLI `--help` text for `--external-issue` flags
+- Error messages (always suggest how to enable)
+- The design doc §8.7
+- The README (GitHub authentication section)
+- The `setup-github-cli` shortcut
+
 ### Error Handling
 
-- At link time (`--external-issue` on `create`/`update`), validate the issue
-  exists and is readable. If not accessible, fail the command with a clear
-  error message.
+- At link time (`--external-issue` on `create`/`update`):
+  - If `use_gh_cli` is `false`, reject immediately with a clear error.
+  - If `use_gh_cli` is `true`, validate the URL format first (must be a full
+    GitHub issue URL like `https://github.com/owner/repo/issues/123`), then
+    verify the issue exists via `gh api`. Clear error messages for each
+    failure mode:
+    - Not a URL → "Invalid URL. Expected a full GitHub issue URL like
+      https://github.com/owner/repo/issues/123"
+    - GitHub PR URL → "This is a pull request URL, not an issue URL.
+      Expected: https://github.com/owner/repo/issues/123"
+    - Non-GitHub URL → "Only GitHub issue URLs are supported. Expected:
+      https://github.com/owner/repo/issues/123"
+    - Valid URL but 404 → "Issue not found or not accessible. Check the URL
+      and your GitHub authentication (`gh auth status`)."
 - During `tbd sync --external`:
-  - If `gh` CLI is not available, log a warning and skip external sync.
-    Return non-zero exit code.
+  - If `use_gh_cli` is `false`, skip with warning (see above).
+  - If `gh` CLI is not installed or not authenticated, log a warning and skip
+    external sync. Return non-zero exit code.
   - If a GitHub API call fails for a specific issue (network error, auth error,
     permission error), log the error for that issue, continue syncing other
     issues, and return non-zero exit code at the end.
@@ -533,14 +581,26 @@ is optional and can be deferred.
 
 ### Design Doc Updates
 
-- [ ] Update `tbd-design.md` §2.6.3 (IssueSchema) to add `external_issue_url`
-- [ ] Update `tbd-design.md` merge rules (§5.5) to add `external_issue_url: 'lww'`
-- [ ] Update `tbd-design.md` §8.7 to reflect the implemented design
-- [ ] Add status mapping table to design doc
-- [ ] Add label sync design to design doc
-- [ ] Document the scoped sync architecture (`--external` as third sync scope)
-- [ ] Document the staging model (local operations don't touch external systems)
-- [ ] Document the inheritance and propagation rules alongside `spec_path`
+- [x] Update `tbd-design.md` §2.6.3 (IssueSchema) to add `external_issue_url`
+- [x] Update `tbd-design.md` merge rules (§5.5) to add `external_issue_url: 'lww'`
+- [x] Update `tbd-design.md` §8.7 to reflect the implemented design
+- [x] Add status mapping table to design doc
+- [x] Add label sync design to design doc
+- [x] Document the scoped sync architecture (`--external` as third sync scope)
+- [x] Document the staging model (local operations don't touch external systems)
+- [x] Document the inheritance and propagation rules alongside `spec_path`
+- [ ] Add `use_gh_cli` to design doc ConfigSchema (§2.7.4 settings)
+- [ ] Document `use_gh_cli` gating behavior in design doc §8.7
+
+### User-Facing Doc Updates
+
+- [ ] Update README GitHub authentication section to mention external issue
+  features depend on `use_gh_cli: true`
+- [ ] Update `setup-github-cli` shortcut to mention external issue linking
+  as a feature that requires `gh` CLI
+- [ ] Ensure all `--external-issue` `--help` text includes format example
+  and mentions `use_gh_cli` requirement
+- [ ] Ensure error messages include the expected URL format example
 
 ## Testing Strategy
 
@@ -706,15 +766,18 @@ via LWW).
    them externally. The `--external` scope flag selects this sync, and it's
    included by default when no scope flags are given.
 
-4. **How should we handle GitHub rate limits?**
-   Recommendation: Rely on `gh` CLI's built-in rate limit handling for v1. If
-   rate-limited, the error is surfaced to the user. Future enhancement could add
-   batching or queuing.
+4. ~~**How should we handle GitHub rate limits?**~~
+   **RESOLVED**: We don't handle rate limits. If rate-limited, the `gh` CLI
+   surfaces the error. The user or agent decides whether to back off and retry.
+   No special retry logic, batching, or queuing in tbd.
 
-5. **Should the `--external-issue` flag accept shorthand like `#123` for the current
-   repo?**
-   Recommendation: For v1, require full URLs for clarity and unambiguity. Shorthand
-   can be added as a convenience enhancement later.
+5. ~~**Should the `--external-issue` flag accept shorthand like `#123` for the current
+   repo?**~~
+   **RESOLVED**: No. Only full GitHub issue URLs are accepted
+   (`https://github.com/owner/repo/issues/123`). However, `--help` text, error
+   messages, and documentation must be very clear about the expected format so
+   that agents have no confusion. Every error message should include an example
+   of the correct URL format.
 
 ## References
 
