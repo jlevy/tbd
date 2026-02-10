@@ -9,7 +9,6 @@ import { Command } from 'commander';
 import { BaseCommand } from '../lib/base-command.js';
 import {
   requireInit,
-  NotInitializedError,
   SyncError,
   WorktreeMissingError,
   WorktreeCorruptedError,
@@ -63,6 +62,7 @@ interface SyncOptions {
   fix?: boolean;
   issues?: boolean;
   docs?: boolean;
+  external?: boolean;
   noAutoSave?: boolean;
   noOutbox?: boolean;
 }
@@ -90,103 +90,122 @@ class SyncHandler extends BaseCommand {
     if ((options.push || options.pull) && options.docs) {
       throw new ValidationError('--push/--pull only work with issue sync, not --docs');
     }
+    if ((options.push || options.pull) && options.external) {
+      throw new ValidationError('--push/--pull only work with issue sync, not --external');
+    }
 
     // Determine what to sync:
-    // - If neither --issues nor --docs specified, sync both
-    // - If --push or --pull specified (without --issues/--docs), sync only issues
+    // - If no scope flags specified, sync all (issues, docs, external)
+    // - If --push or --pull specified (without scope flags), sync only issues
     const hasExclusiveIssueFlag = Boolean(options.push) || Boolean(options.pull);
-    const hasSelectiveFlag = Boolean(options.issues) || Boolean(options.docs);
+    const hasSelectiveFlag =
+      Boolean(options.issues) || Boolean(options.docs) || Boolean(options.external);
 
     // Sync docs: explicit --docs, or default (no selective flags and no push/pull)
     const syncDocs = Boolean(options.docs) || (!hasSelectiveFlag && !hasExclusiveIssueFlag);
     // Sync issues: explicit --issues, push/pull flags, or default (no selective flags)
     const syncIssues = Boolean(options.issues) || hasExclusiveIssueFlag || !hasSelectiveFlag;
+    // Sync external: explicit --external, or default (no selective flags and no push/pull)
+    const syncExternal = Boolean(options.external) || (!hasSelectiveFlag && !hasExclusiveIssueFlag);
 
-    // STEP 1: Sync docs first (fast, local operations)
+    // Check use_gh_cli gate for external sync
+    const config = await readConfig(tbdRoot);
+    const useGhCli = config.settings.use_gh_cli !== false;
+
+    // PHASE 1: External-pull (before git commit, so changes are captured)
+    if (syncExternal && useGhCli) {
+      // External pull: fetch GitHub issue states into local beads
+      // Implementation in Phase 3b - placeholder for sync ordering
+    } else if (options.external && !useGhCli) {
+      this.output.warn('External sync skipped: GitHub CLI is disabled (use_gh_cli: false)');
+    }
+
+    // PHASE 2: Sync docs (fast, local operations)
     // This ensures docs are updated even if issue sync fails
     if (syncDocs) {
       await this.syncDocs(options.status);
 
       // If only doing docs, return after doc sync
-      if (!syncIssues) {
+      if (!syncIssues && !syncExternal) {
         return;
       }
     }
 
-    // STEP 2: Sync issues (network operations)
-    // Check worktree health before any issue sync operations
-    // See: plan-2026-01-28-sync-worktree-recovery-and-hardening.md
-    let worktreeHealth = await checkWorktreeHealth(tbdRoot);
-    if (!worktreeHealth.valid) {
-      // Auto-create worktree if it's simply missing (normal for fresh clones)
-      // Only require --fix for corrupted/prunable states that need repair
-      if (worktreeHealth.status === 'missing') {
-        // Auto-create worktree - this is the expected state on fresh clones
-        await this.doRepairWorktree(tbdRoot, 'missing');
-        worktreeHealth = await checkWorktreeHealth(tbdRoot);
-        if (!worktreeHealth.valid) {
-          throw new WorktreeCorruptedError(
-            `Failed to create worktree. Status: ${worktreeHealth.status}. Run 'tbd doctor' for diagnostics.`,
-          );
+    // PHASE 3: Sync issues (network operations)
+    if (syncIssues) {
+      // Check worktree health before any issue sync operations
+      // See: plan-2026-01-28-sync-worktree-recovery-and-hardening.md
+      let worktreeHealth = await checkWorktreeHealth(tbdRoot);
+      if (!worktreeHealth.valid) {
+        // Auto-create worktree if it's simply missing (normal for fresh clones)
+        // Only require --fix for corrupted/prunable states that need repair
+        if (worktreeHealth.status === 'missing') {
+          // Auto-create worktree - this is the expected state on fresh clones
+          await this.doRepairWorktree(tbdRoot, 'missing');
+          worktreeHealth = await checkWorktreeHealth(tbdRoot);
+          if (!worktreeHealth.valid) {
+            throw new WorktreeCorruptedError(
+              `Failed to create worktree. Status: ${worktreeHealth.status}. Run 'tbd doctor' for diagnostics.`,
+            );
+          }
+        } else if (options.fix) {
+          // Attempt repair when --fix is provided for corrupted/prunable states
+          await this.doRepairWorktree(tbdRoot, worktreeHealth.status as 'prunable' | 'corrupted');
+          // Re-check health after repair
+          worktreeHealth = await checkWorktreeHealth(tbdRoot);
+          if (!worktreeHealth.valid) {
+            throw new WorktreeCorruptedError(
+              `Worktree repair failed. Status: ${worktreeHealth.status}. Run 'tbd doctor' for diagnostics.`,
+            );
+          }
+        } else {
+          // No --fix flag, throw appropriate error for corrupted/prunable states
+          if (worktreeHealth.status === 'prunable') {
+            throw new WorktreeMissingError(
+              "Worktree directory was deleted but git still tracks it. Run 'tbd sync --fix' or 'tbd doctor --fix' to repair.",
+            );
+          }
+          if (worktreeHealth.status === 'corrupted') {
+            throw new WorktreeCorruptedError(
+              `Worktree is corrupted: ${worktreeHealth.error ?? 'unknown error'}. Run 'tbd sync --fix' or 'tbd doctor --fix' to repair.`,
+            );
+          }
         }
-      } else if (options.fix) {
-        // Attempt repair when --fix is provided for corrupted/prunable states
-        await this.doRepairWorktree(tbdRoot, worktreeHealth.status as 'prunable' | 'corrupted');
-        // Re-check health after repair
-        worktreeHealth = await checkWorktreeHealth(tbdRoot);
-        if (!worktreeHealth.valid) {
-          throw new WorktreeCorruptedError(
-            `Worktree repair failed. Status: ${worktreeHealth.status}. Run 'tbd doctor' for diagnostics.`,
-          );
-        }
+      }
+
+      this.dataSyncDir = await resolveDataSyncDir(tbdRoot);
+
+      // Use existing config (loaded above) for sync branch
+      const syncBranch = config.sync.branch;
+      const remote = config.sync.remote;
+
+      if (options.status) {
+        await this.showIssueStatus(syncBranch, remote);
+        return;
+      }
+
+      if (this.checkDryRun('Would sync repository', { syncBranch, remote })) {
+        return;
+      }
+
+      if (options.pull) {
+        await this.pullChanges(syncBranch, remote);
+      } else if (options.push) {
+        await this.pushChanges(syncBranch, remote);
       } else {
-        // No --fix flag, throw appropriate error for corrupted/prunable states
-        if (worktreeHealth.status === 'prunable') {
-          throw new WorktreeMissingError(
-            "Worktree directory was deleted but git still tracks it. Run 'tbd sync --fix' or 'tbd doctor --fix' to repair.",
-          );
-        }
-        if (worktreeHealth.status === 'corrupted') {
-          throw new WorktreeCorruptedError(
-            `Worktree is corrupted: ${worktreeHealth.error ?? 'unknown error'}. Run 'tbd sync --fix' or 'tbd doctor --fix' to repair.`,
-          );
-        }
+        // Full sync: pull then push
+        await this.fullSync(syncBranch, remote, {
+          force: options.force,
+          noAutoSave: options.noAutoSave,
+          noOutbox: options.noOutbox,
+        });
       }
     }
 
-    this.dataSyncDir = await resolveDataSyncDir(tbdRoot);
-
-    // Load config to get sync branch
-    let config;
-    try {
-      config = await readConfig(tbdRoot);
-    } catch {
-      throw new NotInitializedError('Not a tbd repository. Run `tbd init` first.');
-    }
-
-    const syncBranch = config.sync.branch;
-    const remote = config.sync.remote;
-
-    if (options.status) {
-      await this.showIssueStatus(syncBranch, remote);
-      return;
-    }
-
-    if (this.checkDryRun('Would sync repository', { syncBranch, remote })) {
-      return;
-    }
-
-    if (options.pull) {
-      await this.pullChanges(syncBranch, remote);
-    } else if (options.push) {
-      await this.pushChanges(syncBranch, remote);
-    } else {
-      // Full sync: pull then push
-      await this.fullSync(syncBranch, remote, {
-        force: options.force,
-        noAutoSave: options.noAutoSave,
-        noOutbox: options.noOutbox,
-      });
+    // PHASE 4: External-push (after git sync, so bead statuses are finalized)
+    if (syncExternal && useGhCli) {
+      // External push: push local bead status/label changes to GitHub Issues
+      // Implementation in Phase 3b - placeholder for sync ordering
     }
   }
 
@@ -1097,9 +1116,10 @@ class SyncHandler extends BaseCommand {
 }
 
 export const syncCommand = new Command('sync')
-  .description('Synchronize issues and docs (both by default)')
-  .option('--issues', 'Sync only issues (not docs)')
-  .option('--docs', 'Sync only docs (not issues)')
+  .description('Synchronize issues, docs, and external links (all by default)')
+  .option('--issues', 'Sync only issues (not docs or external)')
+  .option('--docs', 'Sync only docs (not issues or external)')
+  .option('--external', 'Sync only external issue links (GitHub). Requires use_gh_cli: true')
   .option('--push', 'Push local issue changes only')
   .option('--pull', 'Pull remote issue changes only')
   .option('--status', 'Show sync status')
