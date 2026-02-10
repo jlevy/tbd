@@ -1433,6 +1433,9 @@ const IssueSchema = BaseEntity.extend({
   // Spec linking - path to related spec/doc (relative to repo root)
   spec_path: z.string().optional(),
 
+  // External issue linking - URL to linked external issue (e.g., GitHub Issues)
+  external_issue_url: z.string().url().optional(),
+
   // Beads compatibility
   due_date: Timestamp.optional(),
   deferred_until: Timestamp.optional(),
@@ -1479,8 +1482,23 @@ type Issue = z.infer<typeof IssueSchema>;
   parent’s `spec_path` is updated, the new value propagates to all children whose
   `spec_path` was null or matched the parent’s old value (i.e., was inherited).
   Children with explicitly different `spec_path` values are not affected.
-  Re-parenting a child (via `tbd update --parent`) also inherits the new parent’s
+  Re-parenting a child (via `tbd update --parent`) also inherits the new parent's
   `spec_path` if the child has no existing `spec_path`.
+
+- `external_issue_url`: Optional URL to a linked external issue tracker issue.
+  For v1, only GitHub issue URLs are supported
+  (e.g., `https://github.com/owner/repo/issues/123`). The URL is validated at link
+  time to ensure the issue exists and is accessible via `gh` CLI.
+
+  **Inheritance from Parent:** Follows the same inheritance rules as `spec_path`:
+  both fields are registered in the generic inheritable field system. When creating
+  a child with `--parent`, the child inherits `external_issue_url` from the parent
+  if not explicitly set. When a parent's URL is updated, it propagates to children
+  whose URL was null or matched the old value.
+
+  **Sync Behavior:** External issue sync (status and labels) happens only at
+  `tbd sync` time via the `--external` scope. See §8.7 for the full sync
+  architecture.
 
 - `child_order_hints`: Optional array of internal IssueIds specifying preferred display
   order for children of this issue.
@@ -2198,6 +2216,7 @@ const issueMergeRules: MergeRules<Issue> = {
   dependencies: { strategy: 'merge_by_id', key: (d) => d.target },
   parent_id: { strategy: 'lww' },
   spec_path: { strategy: 'lww' },
+  external_issue_url: { strategy: 'lww' },
   due_date: { strategy: 'lww' },
   deferred_until: { strategy: 'lww' },
   created_by: { strategy: 'preserve_oldest' },
@@ -4957,17 +4976,19 @@ Post-process results to:
 
 #### GitHub Bridge
 
-**Architecture**:
+**v1 (implemented):** CLI-driven external issue linking via `external_issue_url` field
+and `tbd sync --external`. See §8.7 for details. Supports bidirectional status and
+label sync via `gh` CLI.
 
-- Optional bridge process
+**Future architecture** (beyond v1):
 
-- Webhook-driven sync
+- Optional bridge process with webhook-driven sync
 
-- Outbox/inbox pattern
+- Outbox/inbox pattern for offline resilience
 
-- Rate limit aware
+- Rate limit aware batching
 
-**Use cases**:
+**Future use cases** (beyond v1):
 
 - Mirror issues to GitHub for visibility
 
@@ -5714,69 +5735,95 @@ branch.
 The gitignored working copy approach (Option 4) seems promising as it preserves the
 single-source-of-truth model while adding convenience.
 
-### 8.7 External Issue Tracker Linking
+### 8.7 External Issue Linking
 
-**Linking tbd issues to GitHub issues (and other providers)**
+**Linking tbd issues to external issue trackers (v1: GitHub Issues)**
 
-A common workflow need is linking tbd issues to external issue trackers like GitHub
-Issues, Jira, Linear, etc.
-This would enable bidirectional sync of status and comments.
+tbd issues can be optionally linked to an external issue tracker via the
+`external_issue_url` field. For v1, only GitHub issue URLs are supported.
 
-**ID Convention Approach:**
+See: `docs/project/specs/active/plan-2026-02-10-external-issue-linking.md`
 
-If all issue systems use clean, identifiable prefixes with unique patterns, linking
-could be convention-based:
+**Schema:**
 
-- tbd: `is-a1b2c3` internal, `proj-a1b2c3` display (configurable prefix)
-
-- GitHub: `github#456` or `gh#456`
-
-- Jira: `PROJ-123`
-
-- Linear: `LIN-abc`
-
-These patterns are recognizable via regex, allowing automatic detection and linking when
-referenced in descriptions, comments, or commit messages.
-
-**Metadata Model:**
-
-Issues could have a `linked` field (or use `extensions`) to store external references:
-
-```yaml
-linked:
-  - provider: github
-    repo: owner/repo
-    issue: 456
-    synced_at: 2025-01-10T10:00:00Z
-  - provider: jira
-    project: PROJ
-    key: PROJ-123
+```typescript
+// In IssueSchema
+external_issue_url: z.string().url().optional(),
 ```
 
-**Sync Behaviors:**
+The field stores the full GitHub issue URL (e.g.,
+`https://github.com/owner/repo/issues/123`). The URL is parsed to extract
+`{owner, repo, number}` for API operations via `gh` CLI.
 
-- Closing a tbd issue could automatically close the linked GitHub issue (or vice versa)
+**Inheritance:** `external_issue_url` uses the same generic inheritable field system
+as `spec_path`. When creating a child with `--parent`, the child inherits the URL
+from the parent if not explicitly set. When a parent's URL changes, it propagates
+to children whose URL was null or matched the old value.
 
-- Comments could sync bidirectionally
+**Sync Architecture:**
 
-- Status changes could propagate
+External issue sync happens only at `tbd sync` time via the `--external` scope,
+not on individual bead operations. Local operations act as a staging area.
 
-- Labels/tags could map between systems
+The full sync ordering when `tbd sync` runs all scopes:
 
-**Implementation Considerations:**
+```
+Phase 1: Pull from external → local beads    (external-pull)
+Phase 2: Sync docs                            (docs)
+Phase 3: Sync issues to git (push/pull)       (issues)
+Phase 4: Push from local beads → external     (external-push)
+```
 
-- Provider plugins/adapters for different external systems
+External-pull runs first so that changes from GitHub are captured into local beads
+before those beads are committed to the git sync branch. External-push runs last
+so that only committed, consistent state is pushed to external trackers.
 
-- Conflict resolution when both sides change
+**Status Mapping (tbd → GitHub):**
 
-- Rate limiting and API authentication
+| tbd Status | GitHub Action | GitHub State | `state_reason` |
+| --- | --- | --- | --- |
+| `open` | Reopen (if closed) | `open` | — |
+| `in_progress` | Reopen (if closed) | `open` | — |
+| `blocked` | No change | — | — |
+| `deferred` | Close | `closed` | `not_planned` |
+| `closed` | Close | `closed` | `completed` |
 
-- Webhook-driven vs polling sync
+**Status Mapping (GitHub → tbd):**
 
-- Which system is authoritative for which fields
+| GitHub State | `state_reason` | tbd Status |
+| --- | --- | --- |
+| `open` | `null`/`reopened` | `open` (only if bead is `closed`/`deferred`) |
+| `closed` | `completed` | `closed` |
+| `closed` | `not_planned` | `deferred` |
+| `closed` | `duplicate` | `closed` |
 
-**Recommendation:** Design the `linked` metadata structure now (even if unused),
-implement GitHub bridge later with plugin architecture for other providers.
+`blocked` and `in_progress` have no GitHub equivalent and are preserved.
+
+**Label Sync:** Labels sync bidirectionally at sync time via exact string matching
+with union semantics. Labels are auto-created on GitHub if they don't exist
+(two-step API: create label, then add to issue).
+
+**Future Extensions:**
+
+The current design uses a simple `external_issue_url` string field for v1 simplicity.
+Future enhancements could include:
+
+- **Multiple external links per issue**: A structured `linked` array (possibly in
+  `extensions`) with provider-specific fields:
+  ```yaml
+  linked:
+    - provider: github
+      repo: owner/repo
+      issue: 456
+    - provider: jira
+      project: PROJ
+      key: PROJ-123
+  ```
+- **Additional providers**: Jira, Linear, and other project management systems,
+  each with provider-specific adapters for status/label mapping
+- **Bidirectional comment sync** (see GitHub Bridge in §7.2)
+- **Convention-based linking**: Auto-detecting issue references like `gh#456`,
+  `PROJ-123` in descriptions and commit messages
 
 * * *
 
