@@ -353,22 +353,61 @@ externally.
 and external. Selective flags (`--issues`, `--docs`, `--external`) let you
 choose which scopes to sync.
 
-**External sync flow** (what `--external` does):
+**Full sync ordering** (when `tbd sync` runs all scopes):
 
+The sync phases are ordered so that on failure at any step, the data is in
+a sane, consistent state. The key insight: pull from external sources
+*before* committing issues to git, and push to external sources *after*
+committing to git.
+
+```
+Phase 1: Pull from external → local beads    (external-pull)
+Phase 2: Sync docs                            (docs)
+Phase 3: Sync issues to git (push/pull)       (issues)
+Phase 4: Push from local beads → external     (external-push)
+```
+
+**Why this order:**
+
+- **External-pull first** (Phase 1): Captures any changes made on GitHub
+  (status changes, label changes by collaborators) into local beads before
+  those beads are committed to the git sync branch. This means the git
+  commit reflects the latest merged state from all sources.
+
+- **Issues sync in the middle** (Phase 3): After pulling external changes,
+  commit the local bead data (which now includes merged external state)
+  to the git sync branch. If this fails (e.g., merge conflict, push
+  rejection), the external state has already been captured locally but
+  nothing has been pushed externally yet — a safe state.
+
+- **External-push last** (Phase 4): Only after the local bead state has
+  been successfully committed to git do we push changes to external
+  trackers. This means the git sync branch is the source of truth. If
+  the external push fails partway through, the git state is already
+  consistent and the next sync will retry the external push.
+
+**If any phase fails**, subsequent phases still attempt to run (best-effort),
+but the overall sync returns a non-zero exit code.
+
+**External sync flow** (detail of Phases 1 and 4):
+
+*Phase 1 — External-pull:*
 1. Find all beads with a non-null `external_issue_url`
-2. For each linked bead:
-   a. Fetch current GitHub issue state (status, labels) via `gh api`
-   b. **Push local → GitHub**: If bead status or labels differ from what
-      GitHub has, push local changes to GitHub using the mapping tables
-   c. **Pull GitHub → local**: If GitHub state or labels differ from bead,
-      pull changes into the bead
-3. Conflict resolution: If both sides changed since last sync, local wins
+2. For each linked bead, fetch current GitHub issue state via `gh api`
+3. If GitHub state differs from bead, apply the reverse mapping:
+   - Update bead status per the GitHub → tbd mapping table
+   - Pull label changes from GitHub into the bead
+4. Conflict resolution: If both sides changed since last sync, local wins
    (consistent with LWW merge strategy). The losing value is logged.
-4. Report a summary of synced issues (like the existing issue sync summary)
 
-**Ordering**: External sync runs after issue sync and doc sync. This ensures
-that any local bead changes are committed to the sync branch first, then
-pushed to external trackers.
+*Phase 4 — External-push:*
+1. For each bead with a non-null `external_issue_url`
+2. If bead status or labels differ from what GitHub has (based on the
+   state fetched in Phase 1), push local changes to GitHub:
+   - Map bead status to GitHub state and update via `gh api`
+   - Sync label diff to GitHub (with auto-creation as needed)
+3. Report a summary of synced issues (e.g., "Synced 3 external issues:
+   2 pushed, 1 pulled, 1 unchanged")
 
 ### Error Handling
 
@@ -438,18 +477,25 @@ properly validates GitHub access.
 
 ### Phase 3: External Sync Scope and Status Sync
 
-Add `--external` scope to `tbd sync` and implement bidirectional status sync.
+Add `--external` scope to `tbd sync` and implement bidirectional status sync
+with the correct two-phase ordering (pull before git commit, push after).
 
 - [ ] Add `--external` flag to `tbd sync` command:
-  - [ ] Default behavior: `tbd sync` (no flags) syncs issues + docs + external
+  - [ ] Default behavior: `tbd sync` (no flags) syncs all scopes
   - [ ] `tbd sync --external` syncs only external issues
   - [ ] `tbd sync --issues` and `tbd sync --docs` continue to work as before
     (no external sync unless `--external` also given or no flags at all)
-  - [ ] External sync runs after issue sync and doc sync
-- [ ] Implement external sync loop in `sync.ts`:
-  - [ ] Find all beads with non-null `external_issue_url`
-  - [ ] For each: fetch GitHub state, compute diff, push/pull changes
-  - [ ] Continue on per-issue failures, report summary at end
+- [ ] Implement two-phase external sync in `sync.ts`:
+  - [ ] **External-pull phase** (before issue git sync):
+    - [ ] Find all beads with non-null `external_issue_url`
+    - [ ] For each: fetch GitHub state, apply reverse status mapping, pull labels
+    - [ ] Write updated beads to local storage
+  - [ ] **External-push phase** (after issue git sync succeeds):
+    - [ ] For each linked bead: compare local state to fetched GitHub state
+    - [ ] Push status changes and label diffs to GitHub
+    - [ ] Continue on per-issue failures, report summary at end
+  - [ ] Integrate phases into existing sync ordering:
+    external-pull → docs → issues (git) → external-push
 - [ ] Add status mapping table to `github-issues.ts`:
   - [ ] `tbd closed` → GitHub `closed` (`completed`)
   - [ ] `tbd deferred` → GitHub `closed` (`not_planned`)
