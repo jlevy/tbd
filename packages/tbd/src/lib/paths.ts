@@ -171,7 +171,7 @@ export const DOCS_DIR = 'docs';
 /** Shortcuts directory name within docs/ */
 export const SHORTCUTS_DIR = 'shortcuts';
 
-/** System shortcuts directory name (core docs like skill.md) */
+/** System shortcuts directory name (core docs like skill-baseline.md) */
 export const SYSTEM_DIR = 'system';
 
 /** Standard shortcuts directory name (workflow shortcuts) */
@@ -317,7 +317,7 @@ let _resolvedAllowFallback: boolean | null = null;
  * 1. Worktree path if worktree exists: .tbd/data-sync-worktree/.tbd/data-sync/
  * 2. Direct path as fallback (only if allowFallback: true)
  *
- * @param baseDir - The base directory of the repository (default: process.cwd())
+ * @param baseDir - The tbd root directory (from requireInit or findTbdRoot)
  * @param options - Options for path resolution
  * @returns Resolved data sync directory path
  * @throws WorktreeMissingError if worktree missing and allowFallback is false
@@ -325,7 +325,7 @@ let _resolvedAllowFallback: boolean | null = null;
  * See: plan-2026-01-28-sync-worktree-recovery-and-hardening.md
  */
 export async function resolveDataSyncDir(
-  baseDir: string = process.cwd(),
+  baseDir: string,
   options?: ResolveDataSyncDirOptions,
 ): Promise<string> {
   const allowFallback = options?.allowFallback ?? true;
@@ -374,7 +374,7 @@ export async function resolveDataSyncDir(
  * Resolve issues directory path.
  */
 export async function resolveIssuesDir(
-  baseDir: string = process.cwd(),
+  baseDir: string,
   options?: ResolveDataSyncDirOptions,
 ): Promise<string> {
   const dataSyncDir = await resolveDataSyncDir(baseDir, options);
@@ -385,7 +385,7 @@ export async function resolveIssuesDir(
  * Resolve mappings directory path.
  */
 export async function resolveMappingsDir(
-  baseDir: string = process.cwd(),
+  baseDir: string,
   options?: ResolveDataSyncDirOptions,
 ): Promise<string> {
   const dataSyncDir = await resolveDataSyncDir(baseDir, options);
@@ -396,7 +396,7 @@ export async function resolveMappingsDir(
  * Resolve attic directory path.
  */
 export async function resolveAtticDir(
-  baseDir: string = process.cwd(),
+  baseDir: string,
   options?: ResolveDataSyncDirOptions,
 ): Promise<string> {
   const dataSyncDir = await resolveDataSyncDir(baseDir, options);
@@ -429,7 +429,7 @@ import { homedir } from 'node:os';
  * - Relative paths: resolved from tbd root (baseDir)
  *
  * @param docPath - The path to resolve
- * @param baseDir - The tbd root directory (parent of .tbd/), defaults to cwd
+ * @param baseDir - The tbd root directory (parent of .tbd/)
  * @returns Resolved absolute path
  *
  * @example
@@ -442,7 +442,7 @@ import { homedir } from 'node:os';
  * // Relative path - resolved from baseDir
  * resolveDocPath('docs/file.md', '/project') // => '/project/docs/file.md'
  */
-export function resolveDocPath(docPath: string, baseDir: string = process.cwd()): string {
+export function resolveDocPath(docPath: string, baseDir: string): string {
   // Handle home directory expansion
   if (docPath.startsWith('~/')) {
     return join(homedir(), docPath.slice(2));

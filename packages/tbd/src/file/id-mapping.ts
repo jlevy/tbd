@@ -10,8 +10,8 @@
 import { readFile, mkdir } from 'node:fs/promises';
 import { join, dirname } from 'node:path';
 import { writeFile } from 'atomically';
-import { stringify as stringifyYaml } from 'yaml';
-import { parseYamlWithConflictDetection } from '../utils/yaml-utils.js';
+
+import { parseYamlToleratingDuplicateKeys, stringifyYaml } from '../utils/yaml-utils.js';
 
 import {
   generateShortId,
@@ -23,6 +23,7 @@ import {
   type InternalIssueId,
 } from '../lib/ids.js';
 import { naturalSort } from '../lib/sort.js';
+import { IdMappingYamlSchema } from '../lib/schemas.js';
 
 /**
  * ID mapping from short ID to ULID.
@@ -60,13 +61,34 @@ export async function loadIdMapping(baseDir: string): Promise<IdMapping> {
     };
   }
 
-  // Parse with conflict detection - provides helpful error if file has merge markers
-  const data = parseYamlWithConflictDetection<Record<string, string>>(content, filePath) || {};
+  // Parse tolerating duplicate keys — this handles the case where a git merge
+  // conflict resolution kept entries from both sides, creating duplicate YAML keys.
+  // Without this, the yaml parser throws "Map keys must be unique".
+  const { data: rawData, duplicateKeys } = parseYamlToleratingDuplicateKeys<unknown>(
+    content,
+    filePath,
+  );
+  const data = rawData ?? {};
+
+  if (duplicateKeys.length > 0) {
+    console.warn(
+      `Warning: ${filePath} contains ${duplicateKeys.length} duplicate key(s): ${duplicateKeys.join(', ')}. ` +
+        `This usually happens after a git merge conflict resolution. ` +
+        `The file will be auto-fixed on next save.`,
+    );
+  }
+
+  // Validate with Zod schema - ensures all keys are valid short IDs and values are ULIDs
+  const parseResult = IdMappingYamlSchema.safeParse(data);
+  if (!parseResult.success) {
+    throw new Error(`Invalid ID mapping format in ${filePath}: ${parseResult.error.message}`);
+  }
+  const validData = parseResult.data;
 
   const shortToUlid = new Map<string, string>();
   const ulidToShort = new Map<string, string>();
 
-  for (const [shortId, ulid] of Object.entries(data)) {
+  for (const [shortId, ulid] of Object.entries(validData)) {
     shortToUlid.set(shortId, ulid);
     ulidToShort.set(ulid, shortId);
   }
@@ -244,13 +266,28 @@ export function resolveToInternalId(input: string, mapping: IdMapping): Internal
  * @throws MergeConflictError if content contains merge conflict markers
  */
 export function parseIdMappingFromYaml(content: string): IdMapping {
-  // Parse with conflict detection - throws MergeConflictError if markers found
-  const data = parseYamlWithConflictDetection<Record<string, string>>(content) || {};
+  // Parse tolerating duplicate keys — handles post-merge-conflict duplicates
+  const { data: rawData, duplicateKeys } = parseYamlToleratingDuplicateKeys<unknown>(content);
+  const data = rawData ?? {};
+
+  if (duplicateKeys.length > 0) {
+    console.warn(
+      `Warning: ID mapping YAML contains ${duplicateKeys.length} duplicate key(s): ${duplicateKeys.join(', ')}. ` +
+        `Duplicates will be auto-resolved.`,
+    );
+  }
+
+  // Validate with Zod schema
+  const parseResult = IdMappingYamlSchema.safeParse(data);
+  if (!parseResult.success) {
+    throw new Error(`Invalid ID mapping format: ${parseResult.error.message}`);
+  }
+  const validData = parseResult.data;
 
   const shortToUlid = new Map<string, string>();
   const ulidToShort = new Map<string, string>();
 
-  for (const [shortId, ulid] of Object.entries(data)) {
+  for (const [shortId, ulid] of Object.entries(validData)) {
     shortToUlid.set(shortId, ulid);
     ulidToShort.set(ulid, shortId);
   }

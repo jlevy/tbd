@@ -404,43 +404,54 @@ function createConflictEntry(
 export function mergeIssues(base: Issue | null, local: Issue, remote: Issue): MergeResult {
   const conflicts: ConflictEntry[] = [];
 
-  // If no base, one was created independently - LWW based on created_at
+  // If no base, check if these are versions of the same issue or independent creations
   if (!base) {
     const localTime = new Date(local.created_at).getTime();
     const remoteTime = new Date(remote.created_at).getTime();
 
-    if (localTime <= remoteTime) {
-      // Local was created first - it wins
-      if (!deepEqual(local, remote)) {
-        conflicts.push(
-          createConflictEntry(
-            remote.id,
-            'whole_issue',
-            remote,
-            local,
-            remote.version,
-            local.version,
-            'lww',
-          ),
-        );
-      }
-      return { merged: local, conflicts };
+    // Same created_at means same original creation - these are versions of the same issue
+    // Use field-by-field merge instead of whole_issue conflict
+    if (localTime === remoteTime) {
+      // Use the one with the lower version as a synthetic base
+      // This forces field-by-field comparison
+      base = local.version <= remote.version ? local : remote;
+      // Fall through to field-by-field merge below
     } else {
-      // Remote was created first - it wins
-      if (!deepEqual(local, remote)) {
-        conflicts.push(
-          createConflictEntry(
-            local.id,
-            'whole_issue',
-            local,
-            remote,
-            local.version,
-            remote.version,
-            'lww',
-          ),
-        );
+      // Different creation times - truly independent issues
+      // Use whole_issue conflict (original behavior)
+      if (localTime < remoteTime) {
+        // Local was created first - it wins
+        if (!deepEqual(local, remote)) {
+          conflicts.push(
+            createConflictEntry(
+              remote.id,
+              'whole_issue',
+              remote,
+              local,
+              remote.version,
+              local.version,
+              'lww',
+            ),
+          );
+        }
+        return { merged: local, conflicts };
+      } else {
+        // Remote was created first - it wins
+        if (!deepEqual(local, remote)) {
+          conflicts.push(
+            createConflictEntry(
+              local.id,
+              'whole_issue',
+              local,
+              remote,
+              local.version,
+              remote.version,
+              'lww',
+            ),
+          );
+        }
+        return { merged: remote, conflicts };
       }
-      return { merged: remote, conflicts };
     }
   }
 
@@ -475,7 +486,15 @@ export function mergeIssues(base: Issue | null, local: Issue, remote: Issue): Me
         break;
 
       case 'lww': {
-        // Compare updated_at timestamps
+        // Only create conflicts when values actually differ (data is discarded)
+        // See: tbd-design.md §3.5 "Attic entries are created only when a merge strategy discards data"
+        if (deepEqual(localVal, remoteVal)) {
+          // Values are identical - no conflict, use either one
+          (merged as Record<string, unknown>)[key] = localVal;
+          break;
+        }
+
+        // Values differ - apply LWW based on updated_at timestamps
         const localTime = new Date(local.updated_at).getTime();
         const remoteTime = new Date(remote.updated_at).getTime();
 
@@ -566,16 +585,23 @@ export interface PushResult {
  * @param syncBranch - The sync branch name
  * @param remote - The remote name
  * @param onMergeNeeded - Callback to merge remote changes
+ * @param baseDir - Repository root directory (uses process.cwd() if not provided)
  */
 export async function pushWithRetry(
   syncBranch: string,
   remote: string,
   onMergeNeeded: () => Promise<ConflictEntry[]>,
+  baseDir?: string,
 ): Promise<PushResult> {
+  // Use explicit refspec to avoid ambiguity with tags or other refs
+  const refspec = `refs/heads/${syncBranch}:refs/heads/${syncBranch}`;
+  // Build -C prefix args when baseDir is provided
+  const dirArgs = baseDir ? ['-C', baseDir] : [];
+
   for (let attempt = 1; attempt <= MAX_PUSH_RETRIES; attempt++) {
     try {
       // Try to push
-      await git('push', remote, syncBranch);
+      await git(...dirArgs, 'push', remote, refspec);
       return { success: true, attempt };
     } catch (error) {
       if (!isNonFastForward(error)) {
@@ -596,7 +622,7 @@ export async function pushWithRetry(
       }
 
       // Fetch and merge remote changes
-      await git('fetch', remote, syncBranch);
+      await git(...dirArgs, 'fetch', remote, syncBranch);
       const conflicts = await onMergeNeeded();
 
       if (conflicts.length > 0) {
@@ -1153,6 +1179,41 @@ export async function checkSyncConsistency(
     localAhead,
     localBehind,
   };
+}
+
+/**
+ * Count issues on a remote sync branch without creating a worktree.
+ * Used by doctor to show accurate statistics on fresh clones.
+ *
+ * @param remote - The remote name (default: 'origin')
+ * @param syncBranch - The sync branch name (default: 'tbd-sync')
+ * @returns Number of issue files on the remote branch, or null if branch doesn't exist
+ */
+export async function countRemoteIssues(
+  remote = 'origin',
+  syncBranch: string = SYNC_BRANCH,
+): Promise<number | null> {
+  try {
+    // Fetch the remote branch first
+    await git('fetch', remote, syncBranch);
+
+    // List all files in the remote branch
+    const remoteBranch = `${remote}/${syncBranch}`;
+    const output = await git('ls-tree', '-r', '--name-only', remoteBranch);
+
+    // Count issue files in the issues directory
+    // Uses path constants to avoid hardcoded paths
+    const issuesDir = `${TBD_DIR}/${DATA_SYNC_DIR_NAME}/issues/`;
+    const lines = output.split('\n').filter(Boolean);
+    const issueCount = lines.filter(
+      (line) => line.startsWith(issuesDir) && line.endsWith('.md'),
+    ).length;
+
+    return issueCount;
+  } catch {
+    // Remote branch doesn't exist or fetch failed
+    return null;
+  }
 }
 
 /**

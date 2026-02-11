@@ -44,6 +44,7 @@ class SaveHandler extends BaseCommand {
     }
 
     const spinner = this.output.spinner('Saving issues...');
+    saveOptions.logger = this.output.logger(spinner);
 
     const result = await this.execute(async () => {
       return await saveToWorkspace(tbdRoot, dataSyncDir, saveOptions);

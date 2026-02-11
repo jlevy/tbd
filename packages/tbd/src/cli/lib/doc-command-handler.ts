@@ -9,13 +9,14 @@ import type { Command } from 'commander';
 import pc from 'picocolors';
 
 import { BaseCommand } from './base-command.js';
+import { shouldUseInteractiveOutput } from './context.js';
 import { GUIDELINES_AGENT_HEADER } from './doc-prompts.js';
 import { requireInit } from './errors.js';
 import { DocCache, SCORE_PREFIX_MATCH } from '../../file/doc-cache.js';
 import { addDoc, type DocType } from '../../file/doc-add.js';
 import { truncate } from '../../lib/truncate.js';
 import { formatDocSize } from '../../lib/format-utils.js';
-import { getTerminalWidth } from './output.js';
+import { getTerminalWidth, renderMarkdownWithFrontmatter, paginateOutput } from './output.js';
 
 /**
  * Configuration for a doc command handler.
@@ -193,11 +194,7 @@ export abstract class DocCommandHandler extends BaseCommand {
           content: exactMatch.doc.content,
         });
       } else {
-        const header = this.getAgentHeader();
-        if (header) {
-          console.log(header + '\n');
-        }
-        console.log(exactMatch.doc.content);
+        await this.outputDocContent(exactMatch.doc.content);
       }
       return;
     }
@@ -233,11 +230,37 @@ export abstract class DocCommandHandler extends BaseCommand {
         content: best.doc.content,
       });
     } else {
-      const header = this.getAgentHeader();
+      await this.outputDocContent(best.doc.content);
+    }
+  }
+
+  /**
+   * Output document content with interactive formatting (colors, pagination) when appropriate.
+   * For non-interactive output (pipes, agents), outputs plain text.
+   *
+   * Handles YAML frontmatter properly by rendering it separately with YAML syntax highlighting.
+   */
+  protected async outputDocContent(content: string): Promise<void> {
+    const header = this.getAgentHeader();
+
+    // Use interactive formatting (colors, pagination) only for TTY
+    if (shouldUseInteractiveOutput(this.ctx)) {
+      // Render content with proper frontmatter handling (YAML gets syntax highlighting)
+      let output = renderMarkdownWithFrontmatter(content, this.ctx.color);
+
+      // Prepend header if present (after rendering so it doesn't interfere with frontmatter)
       if (header) {
-        console.log(header + '\n');
+        output = header + '\n\n' + output;
       }
-      console.log(best.doc.content);
+
+      await paginateOutput(output, true);
+    } else {
+      // Plain text output - prepend header to raw content
+      let output = content;
+      if (header) {
+        output = header + '\n\n' + output;
+      }
+      console.log(output);
     }
   }
 

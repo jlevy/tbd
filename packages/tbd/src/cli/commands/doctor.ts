@@ -16,6 +16,7 @@ import { listIssues } from '../../file/storage.js';
 import { readConfig } from '../../file/config.js';
 import type { Config, Issue, IssueStatusType } from '../../lib/types.js';
 import { resolveDataSyncDir, TBD_DIR, WORKTREE_DIR, DATA_SYNC_DIR } from '../../lib/paths.js';
+import { detectDuplicateYamlKeys } from '../../utils/yaml-utils.js';
 import {
   getClaudePaths,
   getAgentsMdPath,
@@ -34,6 +35,7 @@ import {
   repairWorktree,
   migrateDataToWorktree,
   initWorktree,
+  countRemoteIssues,
 } from '../../file/git.js';
 import { type DiagnosticResult, renderDiagnostics } from '../lib/diagnostics.js';
 import { VERSION } from '../lib/version.js';
@@ -79,8 +81,8 @@ class DoctorHandler extends BaseCommand {
     // Gather status info
     const statusInfo = await this.gatherStatusInfo();
 
-    // Gather stats info
-    const statsInfo = this.gatherStatsInfo();
+    // Gather stats info (async to check remote when local is empty)
+    const statsInfo = await this.gatherStatsInfo();
 
     // Run health checks (core system checks)
     const healthChecks: DiagnosticResult[] = [];
@@ -100,31 +102,34 @@ class DoctorHandler extends BaseCommand {
     // Check 5: Duplicate IDs
     healthChecks.push(this.checkDuplicateIds(this.issues));
 
-    // Check 6: Orphaned temp files
+    // Check 6: Duplicate mapping keys in ids.yml
+    healthChecks.push(await this.checkIdMappingDuplicates(options.fix));
+
+    // Check 7: Orphaned temp files
     healthChecks.push(await this.checkTempFiles(options.fix));
 
-    // Check 7: Issue validity
+    // Check 8: Issue validity
     healthChecks.push(this.checkIssueValidity(this.issues));
 
-    // Check 8: Worktree health (with fix support)
+    // Check 9: Worktree health (with fix support)
     healthChecks.push(await this.checkWorktree(options.fix));
 
-    // Check 9: Data location (issues in wrong path, with fix support)
+    // Check 10: Data location (issues in wrong path, with fix support)
     healthChecks.push(await this.checkDataLocation(options.fix));
 
-    // Check 10: Local sync branch health
+    // Check 11: Local sync branch health
     healthChecks.push(await this.checkLocalSyncBranch());
 
-    // Check 11: Remote sync branch health
+    // Check 12: Remote sync branch health
     healthChecks.push(await this.checkRemoteSyncBranch());
 
-    // Check 12: Local has data but remote empty (ai-trade-arena bug detection)
+    // Check 13: Local has data but remote empty (ai-trade-arena bug detection)
     healthChecks.push(await this.checkLocalVsRemoteData());
 
-    // Check 13: Multi-user/clone scenario detection
+    // Check 14: Multi-user/clone scenario detection
     healthChecks.push(await this.checkCloneScenarios());
 
-    // Check 14: Sync consistency (worktree matches local, ahead/behind counts)
+    // Check 15: Sync consistency (worktree matches local, ahead/behind counts)
     healthChecks.push(await this.checkSyncConsistency());
 
     // Run integration checks (optional IDE/agent integrations)
@@ -218,13 +223,14 @@ class DoctorHandler extends BaseCommand {
     };
   }
 
-  private gatherStatsInfo(): {
+  private async gatherStatsInfo(): Promise<{
     total: number;
     ready: number;
     inProgress: number;
     blocked: number;
     open: number;
-  } {
+    remoteTotal: number | null;
+  }> {
     // Count by status
     const byStatus: Record<IssueStatusType, number> = {
       open: 0,
@@ -257,12 +263,22 @@ class DoctorHandler extends BaseCommand {
       }
     }
 
+    // Check remote issue count when local is empty
+    // This helps users on fresh clones understand that data exists
+    let remoteTotal: number | null = null;
+    if (this.issues.length === 0 && this.config) {
+      const remote = this.config.sync.remote ?? 'origin';
+      const syncBranch = this.config.sync.branch ?? 'tbd-sync';
+      remoteTotal = await countRemoteIssues(remote, syncBranch);
+    }
+
     return {
       total: this.issues.length,
       ready: readyCount,
       inProgress: byStatus.in_progress,
       blocked: blockedIds.size,
       open: byStatus.open,
+      remoteTotal,
     };
   }
 
@@ -392,6 +408,63 @@ class DoctorHandler extends BaseCommand {
       message: `${duplicates.length} duplicate ID(s)`,
       details: duplicates.map((id) => `${id} (duplicate)`),
       suggestion: 'Manually remove duplicate issue files',
+    };
+  }
+
+  /**
+   * Check for duplicate keys in the ID mapping file (ids.yml).
+   *
+   * After a git merge conflict resolution that keeps entries from both sides,
+   * ids.yml can end up with duplicate YAML keys. The yaml parser throws
+   * "Map keys must be unique" which breaks tbd commands.
+   *
+   * With --fix, re-saves the file to eliminate duplicates.
+   */
+  private async checkIdMappingDuplicates(fix?: boolean): Promise<DiagnosticResult> {
+    const mappingPath = join(this.dataSyncDir, 'mappings', 'ids.yml');
+    let content: string;
+
+    try {
+      content = await readFile(mappingPath, 'utf-8');
+    } catch {
+      // File doesn't exist — normal for repos with no issues yet
+      return { name: 'ID mapping keys', status: 'ok' };
+    }
+
+    const duplicates = detectDuplicateYamlKeys(content);
+
+    if (duplicates.length === 0) {
+      return { name: 'ID mapping keys', status: 'ok' };
+    }
+
+    if (fix && !this.checkDryRun('Fix duplicate ID mapping keys')) {
+      // Load and re-save to deduplicate (Map + saveIdMapping naturally dedupes)
+      try {
+        const { loadIdMapping, saveIdMapping } = await import('../../file/id-mapping.js');
+        const mapping = await loadIdMapping(this.dataSyncDir);
+        await saveIdMapping(this.dataSyncDir, mapping);
+        return {
+          name: 'ID mapping keys',
+          status: 'ok',
+          message: `fixed ${duplicates.length} duplicate key(s)`,
+        };
+      } catch (error) {
+        const msg = error instanceof Error ? error.message : String(error);
+        return {
+          name: 'ID mapping keys',
+          status: 'error',
+          message: `failed to fix duplicates: ${msg}`,
+        };
+      }
+    }
+
+    return {
+      name: 'ID mapping keys',
+      status: 'warn',
+      message: `${duplicates.length} duplicate key(s) in ids.yml`,
+      details: duplicates.map((k) => `"${k}" appears multiple times`),
+      fixable: true,
+      suggestion: 'Run: tbd doctor --fix to deduplicate',
     };
   }
 

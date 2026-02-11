@@ -1,8 +1,8 @@
 # Research Brief: Skills vs Meta-Skill Architecture for Agent-Integrated CLIs
 
-**Last Updated**: 2026-01-25
+**Last Updated**: 2026-02-08
 
-**Status**: Complete
+**Status**: Complete (updated with skills.sh ecosystem and activation reliability data)
 
 **Related**:
 
@@ -50,13 +50,17 @@ community resources, and practical testing of the tbd CLI implementation.
 
 ### Sources
 
-- [Claude Code Skills Documentation](https://code.claude.com/docs/en/skills) (Jan 2026)
-- [Claude Code Plugins Documentation](https://code.claude.com/docs/en/plugins) (Jan
+- [Claude Code Skills Documentation](https://code.claude.com/docs/en/skills) (Feb 2026)
+- [Claude Code Plugins Documentation](https://code.claude.com/docs/en/plugins) (Feb
   2026\)
+- [GitHub Issue #11045: Skills Context Overflow](https://github.com/anthropics/claude-code/issues/11045)
+  (canonical issue for budget limits)
 - [GitHub Issue #18192: Recursive Skill Discovery](https://github.com/anthropics/claude-code/issues/18192)
 - [Skills vs MCP Comparison](https://intuitionlabs.ai/articles/claude-skills-vs-mcp)
 - [Claude Skills Explained (Anthropic Blog)](https://claude.com/blog/skills-explained)
 - [Extending Claude with Skills and MCP](https://claude.com/blog/extending-claude-capabilities-with-skills-mcp-servers)
+- [Skill Activation Reliability Testing](https://scottspence.com/posts/how-to-make-claude-code-skills-activate-reliably)
+- [Claude Code Skills Guide (Gist)](https://gist.github.com/mellanon/50816550ecb5f3b239aa77eef7b8ed8d)
 - tbd CLI implementation (`packages/tbd/`)
 
 * * *
@@ -468,6 +472,22 @@ Leaves 14,800 characters for other skills in the project.
 | Individual skills | 50+ SKILL.md files | Edit each file |
 | Meta-skill | 1 SKILL.md + CLI | `tbd setup --auto` |
 
+### Activation Reliability (2026-02 Update)
+
+Real-world testing across 200+ prompts shows significant variation in skill activation:
+
+| Description Approach | Success Rate |
+| --- | --- |
+| No optimization / vague | ~20% |
+| Optimized with "Use when..." | ~50% |
+| With concrete examples | 72-90% |
+| Forced evaluation hooks | 80-84% |
+
+**Implication for architecture choice**: Individual skills rely on description-based
+activation, which is unreliable (20-50% without hooks).
+The meta-skill approach sidesteps this by having the agent explicitly query
+`tbd shortcut X` or `tbd guidelines X`, which is 100% reliable once the skill is loaded.
+
 * * *
 
 ## Decision Framework
@@ -546,6 +566,43 @@ Too many drawbacks:
 
 * * *
 
+## Skills Distribution Ecosystem (2026-02 Update)
+
+### skills.sh and the Broader Ecosystem
+
+Since the original research, Vercel launched [skills.sh](https://skills.sh) as an open
+ecosystem for skill discovery and installation (`npx skills add <owner/repo>`). This has
+become the primary distribution channel for Agent Skills, with 47K+ total installations
+across 27+ compatible agent products.
+
+**Impact on tbd’s architecture decision**: skills.sh validates the meta-skill approach.
+skills.sh distributes SKILL.md files (Level 1-2 content), while tbd’s CLI serves as an
+on-demand Level 3 resource server.
+These are complementary layers:
+
+- **skills.sh**: “How do I give my agent the ability to do X?” (capabilities)
+- **tbd CLI**: “How do I give my agent knowledge about X?” (domain expertise)
+
+tbd itself could be listed as a skill on skills.sh (for discovery), while
+`tbd source add` handles the separate problem of distributing domain knowledge repos.
+
+### External Docs Repos Feature
+
+The new
+[external docs repos spec](../../specs/active/plan-2026-02-02-external-docs-repos.md)
+extends the meta-skill architecture to support external knowledge sources:
+
+```bash
+tbd source add github.com/jlevy/rust-porting-playbook
+# Adds domain expertise accessible via tbd guidelines X
+```
+
+This is distinct from skills.sh distribution: skills.sh copies SKILL.md files once,
+while `tbd source add` establishes ongoing git sync for evolving knowledge repos.
+See the spec appendix for detailed comparison.
+
+* * *
+
 ## Open Questions
 
 1. **Usage telemetry**: Which shortcuts are most frequently used?
@@ -553,12 +610,29 @@ Too many drawbacks:
 
 2. **Recursive discovery fix**: When Claude Code fixes recursive skill discovery, should
    tbd reconsider nested skill organization?
+   *(Status: Issue #18192 still open as of Feb 2026; workaround is symlinks at top
+   level)*
 
 3. **Skill auto-suggestion**: Could the tbd skill proactively suggest running
    `tbd guidelines X` when it detects relevant context?
+   *(Partial answer: Forced evaluation hooks can achieve 80-84% activation, but require
+   additional complexity)*
 
 4. **Cross-platform consistency**: How do Cursor (MDC) and Codex (AGENTS.md) handle
    similar architectural decisions?
+
+5. **Router/Hidden skill proposal**: GitHub Issue #11045 proposes `hidden: true` and
+   `router: true` frontmatter fields to enable meta-skill patterns natively.
+   If implemented, this could provide official support for the pattern tbd already uses.
+
+6. **skills.sh as distribution channel for tbd**: Should tbd be listed on skills.sh for
+   discovery? This would make tbd discoverable via `npx skills add` while the actual
+   functionality remains CLI-based.
+
+7. **Doc repos as “knowledge skills”**: Could domain knowledge repos (like
+   rust-porting-playbook) be listed on skills.sh with a SKILL.md that references
+   `tbd guidelines X` commands?
+   This would bridge the two distribution models.
 
 * * *
 
@@ -589,5 +663,18 @@ This pattern should be documented as a best practice for similar tools.
 - Extending Claude with Skills and MCP:
   https://claude.com/blog/extending-claude-capabilities-with-skills-mcp-servers
 - Skills vs MCP Comparison: https://intuitionlabs.ai/articles/claude-skills-vs-mcp
-- GitHub Issue #18192: https://github.com/anthropics/claude-code/issues/18192
+- GitHub Issue #11045 (Skills Context Overflow):
+  https://github.com/anthropics/claude-code/issues/11045
+- GitHub Issue #18192 (Recursive Skill Discovery):
+  https://github.com/anthropics/claude-code/issues/18192
 - Agent Skills Standard: https://agentskills.io
+- Agent Skills Specification: https://agentskills.io/specification
+- skills.sh (Vercel): https://skills.sh
+- skills.sh CLI: https://github.com/vercel-labs/skills
+- Anthropic Skills Repo: https://github.com/anthropics/skills
+- Vercel skills.sh announcement:
+  https://vercel.com/changelog/introducing-skills-the-open-agent-skills-ecosystem
+- Skill Activation Reliability Testing:
+  https://scottspence.com/posts/how-to-make-claude-code-skills-activate-reliably
+- Claude Code Skills Guide (Gist):
+  https://gist.github.com/mellanon/50816550ecb5f3b239aa77eef7b8ed8d

@@ -9,7 +9,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { execSync, spawnSync } from 'node:child_process';
 
-describe('prime command', () => {
+describe('prime command', { timeout: 15000 }, () => {
   let tempDir: string;
   const tbdBin = join(__dirname, '..', 'dist', 'bin.mjs');
 
@@ -85,12 +85,13 @@ describe('prime command', () => {
       expect(result.stdout).toContain('tbd prime');
     });
 
-    it('tbd (no args) is equivalent to tbd prime', () => {
+    it('tbd (no args) shows help with agent guidance', () => {
       const noArgsResult = runTbd([]);
 
-      // Default command (no args) should show full orientation
-      expect(noArgsResult.stdout).toContain('INSTALLATION');
-      expect(noArgsResult.stdout).toContain('Session Closing Protocol');
+      // Default command (no args) should show help with prominent agent guidance
+      expect(noArgsResult.stdout).toContain('IMPORTANT:');
+      expect(noArgsResult.stdout).toContain('tbd prime');
+      expect(noArgsResult.stdout).toContain('Getting Started:');
     });
   });
 

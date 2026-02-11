@@ -1,6 +1,6 @@
 # Research Brief: CLI as Agent Skill - Best Practices for TypeScript CLIs in Claude Code
 
-**Last Updated**: 2026-01-28
+**Last Updated**: 2026-02-08
 
 **Related**:
 
@@ -78,6 +78,9 @@ Patterns were validated through CI testing and actual agent usage.
 - tbd source code (`packages/tbd/src/cli/`)
 - Claude Code skill documentation (https://code.claude.com/docs/en/skills)
 - Agent Skills open standard (https://agentskills.io)
+- skills.sh open ecosystem (https://skills.sh) - Vercel’s skill discovery/installation
+  platform
+- Anthropic Skills repo (https://github.com/anthropics/skills)
 - Cursor IDE rules documentation (AGENTS.md support)
 - OpenAI Codex AGENTS.md convention
 - Community best practices (meta_skill repository, gists)
@@ -197,7 +200,7 @@ It outputs contextual information appropriate to the current state:
 - `--brief` flag for constrained contexts (~200 tokens)
 - `--full` flag for complete skill documentation
 - Custom override via `.tbd/PRIME.md` file
-- Default when running CLI with no command (`tbd` runs `tbd prime`)
+- CLI with no args shows help with prominent prompt to run `tbd prime` for full context
 
 **Dashboard Output Structure**:
 ```
@@ -1039,7 +1042,7 @@ This helps agents find relevant resources based on what they’re trying to acco
 
 | Category | Resources | When to Use |
 | --- | --- | --- |
-| TypeScript | `typescript-rules`, `typescript-cli-tool-rules`, `typescript-monorepo-patterns` | TS development |
+| TypeScript | `typescript-rules`, `typescript-cli-tool-rules`, `pnpm-monorepo-patterns`, `bun-monorepo-patterns` | TS development |
 | Python | `python-rules`, `python-cli-patterns` | Python development |
 | Testing | `general-tdd-guidelines`, `general-testing-rules`, `golden-testing-guidelines` | Writing tests |
 | General | `general-coding-rules`, `general-comment-rules`, `backward-compatibility-rules` | Any development |
@@ -1357,7 +1360,123 @@ defaults.
 
 * * *
 
-### 13. MCP Integration Patterns
+### 13. Skills Distribution Ecosystem (2026-02 Update)
+
+#### 13.1 skills.sh and the Agent Skills Open Standard
+
+**Status**: ✅ Research Complete (New)
+
+**Details**:
+
+The agent skills ecosystem has matured significantly since initial research.
+Three key components now form the distribution infrastructure:
+
+1. **Agent Skills Open Standard** ([agentskills.io](https://agentskills.io)): Originally
+   developed by Anthropic, now adopted by 27+ agent products (Claude Code, Cursor,
+   GitHub Copilot, Codex, Gemini CLI, Windsurf, Goose, and others).
+   Defines the SKILL.md format with standardized frontmatter fields: `name`,
+   `description`, `license`, `compatibility`, `metadata`, `allowed-tools`.
+
+2. **skills.sh** ([skills.sh](https://skills.sh)): Vercel’s open ecosystem for
+   discovering and installing skills.
+   Functions as “npm for agents” with CLI: `npx skills add <owner/repo>`. Installs
+   SKILL.md to `.agents/skills/` and symlinks to agent-specific directories.
+   Hosts a leaderboard with 47K+ installations.
+
+3. **Anthropic Skills Repo**
+   ([github.com/anthropics/skills](https://github.com/anthropics/skills)): Reference
+   implementations (65K+ stars).
+   Skills for document creation, creative workflows, and technical tasks.
+
+**The Progressive Disclosure Hierarchy**:
+
+The Agent Skills spec formalizes the three-level progressive disclosure pattern:
+
+| Level | Content | Token Budget | Loading |
+| --- | --- | --- | --- |
+| Level 1 | Metadata (`name` + `description`) | ~100 tokens | At session start (all skills) |
+| Level 2 | SKILL.md body | <5K tokens recommended | When skill is activated |
+| Level 3 | Resources (`scripts/`, `references/`, `assets/`) | Unlimited | On demand only |
+
+**Implication for CLIs**: A CLI meta-skill provides Level 1-2 (the SKILL.md describing
+the CLI’s capabilities).
+The CLI’s resource library (guidelines, shortcuts, templates) provides Level 3 content
+on demand. This architecture aligns perfectly with the open standard.
+
+**skills.sh Installation Flow**:
+
+```bash
+npx skills add <owner/repo>
+# 1. Clones the repo
+# 2. Discovers SKILL.md files
+# 3. Interactive: choose skills, choose agents, choose scope (global/repo)
+# 4. Copies files to .agents/skills/ and symlinks to agent dirs
+```
+
+**Comparison with CLI resource distribution**:
+
+| Aspect | skills.sh | CLI resource library (tbd) |
+| --- | --- | --- |
+| Content | Agent capabilities (SKILL.md) | Domain knowledge (guidelines) |
+| Level | L1-2 (metadata + instructions) | L3 (on-demand resources) |
+| Install | One-time file copy | Ongoing git sync |
+| Access | Direct file loading by agent | CLI commands (`tbd guidelines X`) |
+| Cross-agent | Multi-agent directory support | Agent-agnostic (CLI-based) |
+
+**Assessment**: The skills ecosystem and CLI resource libraries are complementary, not
+competing. Skills give agents capabilities; CLI resources give agents domain knowledge.
+A project might use `npx skills add` for capabilities AND `tbd source add` for domain
+knowledge. See the
+[external docs repos spec](../../specs/active/plan-2026-02-02-external-docs-repos.md)
+appendix for detailed analysis.
+
+* * *
+
+#### 13.2 Frontmatter Alignment with Agent Skills Spec
+
+**Status**: ✅ Complete (New)
+
+**Details**:
+
+The Agent Skills spec defines standardized frontmatter for SKILL.md:
+
+```yaml
+---
+name: skill-name               # Required: 1-64 chars, lowercase+hyphens
+description: What and when      # Required: 1-1024 chars
+license: Apache-2.0             # Optional
+compatibility: Requires git     # Optional: environment requirements
+metadata:                       # Optional: arbitrary key-value
+  author: example-org
+  version: "1.0"
+allowed-tools: Read Bash(git:*) # Optional: pre-approved tools
+---
+```
+
+**tbd’s current doc frontmatter**:
+
+```yaml
+---
+title: TypeScript Rules          # Similar to 'name'
+description: Best practices...   # Same field
+author: tbd                      # -> metadata.author in skills spec
+category: typescript             # -> metadata.category in skills spec
+---
+```
+
+**Alignment recommendations**:
+
+- `description` is already shared
+- `title` maps to `name` (conceptual equivalent)
+- `author` and `category` map to `metadata.*` in the skills spec
+- No conflicts; tbd can add skills-spec fields without breaking existing docs
+
+This alignment matters for the external docs repos feature: if external repos adopt
+skills-compatible frontmatter, tbd can parse it without custom handling.
+
+* * *
+
+### 14. MCP Integration Patterns
 
 #### 13.1 MCP vs CLI-as-Skill
 
@@ -1414,9 +1533,9 @@ ecosystems.
 
 * * *
 
-#### 13.2 Agent Skills Open Standard
+#### 14.2 Agent Skills Open Standard
 
-**Status**: ✅ Complete
+**Status**: ✅ Complete (Updated)
 
 **Details**:
 
@@ -1457,9 +1576,9 @@ extensions enable advanced patterns when needed.
 
 * * *
 
-### 14. Hook Script Patterns
+### 15. Hook Script Patterns
 
-#### 14.1 PostToolUse Hook with JSON Parsing
+#### 15.1 PostToolUse Hook with JSON Parsing
 
 **Status**: ✅ Complete
 
@@ -1513,9 +1632,9 @@ workflow. The git push detection pattern prevents premature session completion.
 
 * * *
 
-### 15. Invocation Control Patterns
+### 16. Invocation Control Patterns
 
-#### 15.1 User vs Model Invocation
+#### 16.1 User vs Model Invocation
 
 **Status**: ✅ Complete
 
@@ -1554,7 +1673,7 @@ contextual knowledge injection.
 
 * * *
 
-#### 15.2 Argument Passing Pattern
+#### 16.2 Argument Passing Pattern
 
 **Status**: ✅ Complete
 
@@ -1586,9 +1705,9 @@ automatically appended as `ARGUMENTS: <value>`.
 
 * * *
 
-### 16. Task Management Integration Patterns
+### 17. Task Management Integration Patterns
 
-#### 16.1 Task Tracking Strategy Selection
+#### 17.1 Task Tracking Strategy Selection
 
 **Status**: ✅ Complete
 
@@ -1626,7 +1745,7 @@ Is the task done in one command?
 
 * * *
 
-#### 16.2 Embedded vs External Task Management
+#### 17.2 Embedded vs External Task Management
 
 **Status**: ✅ Complete
 
@@ -1704,7 +1823,7 @@ integration (tbd) and add embedded tracking only if the use case demands it.
 
 * * *
 
-#### 16.3 Agent-Aware Task Patterns
+#### 17.3 Agent-Aware Task Patterns
 
 **Status**: ✅ Complete
 
@@ -1769,9 +1888,9 @@ integrate more smoothly with agentic workflows.
 
 * * *
 
-### 17. Visual Output Patterns
+### 18. Visual Output Patterns
 
-#### 17.1 Bundled Script Execution
+#### 18.1 Bundled Script Execution
 
 **Status**: 🔬 Experimental
 
@@ -2017,6 +2136,10 @@ self-reinforcing context chains where each piece of guidance leads naturally to 
 
 - Claude Code Skills Documentation: https://code.claude.com/docs/en/skills
 - Agent Skills Open Standard: https://agentskills.io
+- Agent Skills Specification: https://agentskills.io/specification
+- skills.sh (Vercel): https://skills.sh
+- skills.sh CLI: https://github.com/vercel-labs/skills
+- Anthropic Skills Repo: https://github.com/anthropics/skills
 - Cursor Rules Documentation: https://cursor.com/docs/context/rules
 
 ### Community Resources

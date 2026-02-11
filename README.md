@@ -44,13 +44,17 @@ will work in Cursor, Codex, or any agent environment that can use the `tbd` CLI.
 > 
 > If running on a fresh cloud instance (like Claude Code Cloud), tell the agent:
 > 
-> ***“install tbd (npm install -g get-tbd@latest) and run tbd for instructions to set up
-> this project”***
+> ***“install tbd (npm install -g get-tbd@latest) and run tbd prime for instructions to
+> set up this project”***
 
-That’s it. Running `tbd` with no arguments “primes” the agent with how to use `tbd` and
-how to help you. It will then bootstraps a SKILL.md into your project by running
+That’s it.
+Running `tbd prime` gives agents full workflow context on how to use `tbd` and
+how to help you. It will then bootstrap a SKILL.md into your project by running
 `tbd setup --auto` (which will add a `.tbd` directory and add itself to your `.claude`
 skills and hooks). And then it will use shortcuts to welcome you and get you started.
+
+Running `tbd` with no arguments shows help with a prominent reminder for agents to run
+`tbd prime`.
 
 You can then always ask questions like: “what can I do with tbd?”
 
@@ -142,7 +146,7 @@ status or context or knowledge and know what to do next:
 | "Let's create a research brief on …" | Agent creates a research document using a template | [`tbd shortcut new-research-brief`](packages/tbd/docs/shortcuts/standard/new-research-brief.md) |
 | "How could we test this better?" | Agent loads TDD and testing guidelines | [`tbd guidelines general-tdd-guidelines`](packages/tbd/docs/guidelines/general-tdd-guidelines.md) |
 | "How can we make this a well-designed TypeScript CLI?" | Agent loads TypeScript CLI guidelines | [`tbd guidelines typescript-cli-tool-rules`](packages/tbd/docs/guidelines/typescript-cli-tool-rules.md) |
-| "Can you review if this TypeScript package setup follows best practices" | Agent loads monorepo patterns | [`tbd guidelines typescript-monorepo-patterns`](packages/tbd/docs/guidelines/typescript-monorepo-patterns.md) |
+| "Can you review if this TypeScript package setup follows best practices" | Agent loads monorepo patterns | [`tbd guidelines pnpm-monorepo-patterns`](packages/tbd/docs/guidelines/pnpm-monorepo-patterns.md) |
 | "How can we do a better job of testing?" | Agent loads golden testing guidelines | [`tbd guidelines golden-testing-guidelines`](packages/tbd/docs/guidelines/golden-testing-guidelines.md) |
 
 Under the hood, your agent runs these `tbd` commands automatically.
@@ -167,7 +171,7 @@ You just talk naturally.
   [FAQ: How does `tbd` compare to Beads?](#how-does-tbd-compare-to-beads)).
 - **Shortcuts:** Over a dozen reusable workflow documents—plan specs, code reviews,
   commit processes, PR creation, research briefs, and more.
-- **Guidelines:** [17+ guideline docs](packages/tbd/docs/guidelines/) of coding rules
+- **Guidelines:** [20+ guideline docs](packages/tbd/docs/guidelines/) of coding rules
   and best practices (see
   [Built-in Engineering Knowledge](#built-in-engineering-knowledge)).
 - **Templates:** Document templates for planning specs, research briefs, architecture
@@ -212,7 +216,7 @@ And yes, all the code *and* all the specs of `tbd` are agent written—see
 ## Built-in Engineering Knowledge
 
 When you run `tbd setup`, your agent gets instant access to
-[17+ guideline documents](packages/tbd/docs/guidelines/) covering real-world engineering
+[20+ guideline documents](packages/tbd/docs/guidelines/) covering real-world engineering
 practices. These aren’t generic tips; they’re mostly my own detailed and sometimes
 opinionated rules with concrete examples, built from months of heavy agentic coding.
 
@@ -234,8 +238,13 @@ opinionated rules with concrete examples, built from months of heavy agentic cod
 | [general-testing-rules](packages/tbd/docs/guidelines/general-testing-rules.md) | Minimal tests for maximum coverage, avoiding redundant test cases |
 | [typescript-code-coverage](packages/tbd/docs/guidelines/typescript-code-coverage.md) | Code coverage best practices with Vitest and v8 provider |
 | [typescript-rules](packages/tbd/docs/guidelines/typescript-rules.md) | Strict type safety, no `any`, type guards, null safety, async patterns |
-| [typescript-monorepo-patterns](packages/tbd/docs/guidelines/typescript-monorepo-patterns.md) | pnpm workspaces, package setup, tsdown, Changesets, publint, dual ESM/CJS |
+| [typescript-sorting-patterns](packages/tbd/docs/guidelines/typescript-sorting-patterns.md) | Deterministic sorting, comparison chains for multi-field sorts |
+| [pnpm-monorepo-patterns](packages/tbd/docs/guidelines/pnpm-monorepo-patterns.md) | pnpm workspaces, tsdown, Vitest, Changesets, publint, dual ESM/CJS |
+| [bun-monorepo-patterns](packages/tbd/docs/guidelines/bun-monorepo-patterns.md) | Bun workspaces, Bunup, Biome, bun test, standalone executables |
 | [typescript-cli-tool-rules](packages/tbd/docs/guidelines/typescript-cli-tool-rules.md) | Commander.js patterns, picocolors, terminal formatting |
+| [cli-agent-skill-patterns](packages/tbd/docs/guidelines/cli-agent-skill-patterns.md) | Building CLIs that function as agent skills in Claude Code |
+| [electron-app-development-patterns](packages/tbd/docs/guidelines/electron-app-development-patterns.md) | Electron ecosystems (npm, pnpm, Bun), security baselines, Electrobun comparison |
+| [typescript-yaml-handling-rules](packages/tbd/docs/guidelines/typescript-yaml-handling-rules.md) | YAML parsing/serialization with the `yaml` package, Zod validation, consistent formatting |
 | [python-rules](packages/tbd/docs/guidelines/python-rules.md) | Type hints, docstrings, exception handling, resource management |
 | [python-cli-patterns](packages/tbd/docs/guidelines/python-cli-patterns.md) | Modern Python CLI stack: uv, Typer, Rich, Ruff, BasedPyright |
 | [backward-compatibility-rules](packages/tbd/docs/guidelines/backward-compatibility-rules.md) | Compatibility across code, APIs, file formats, and database schemas |
@@ -266,7 +275,7 @@ npm install -g get-tbd@latest
 ### Setup
 
 ```bash
-# Fresh project (--prefix is REQUIRED—it appears in every bead ID, e.g. myapp-a1b2)
+# Fresh project (--prefix is REQUIRED—2-8 alphabetic chars, e.g. myapp-a1b2)
 tbd setup --auto --prefix=myapp
 
 # Joining an existing tbd project (no prefix needed—reads existing config)
@@ -317,8 +326,9 @@ GH_PROMPT_DISABLED=1
 Create a [Personal Access Token](https://github.com/settings/tokens?type=beta)
 (fine-grained recommended) with **Contents** and **Pull requests** read/write
 permissions. For Claude Code Cloud, set these in your project’s environment variables.
-For local CLI usage, add them to your shell profile (`~/.zshrc` or `~/.bashrc`). See
-[GitHub CLI setup docs](docs/general/agent-setup/github-cli-setup.md) for details.
+For local CLI usage, add them to your shell profile (`~/.zshrc` or `~/.bashrc`). See the
+[setup-github-cli shortcut](packages/tbd/docs/shortcuts/standard/setup-github-cli.md)
+for details.
 
 To disable automatic `gh` installation, pass `--no-gh-cli` during setup or set
 `use_gh_cli: false` in `.tbd/config.yml` under `settings:`.
@@ -414,12 +424,14 @@ tbd template --add=<url> --name=<name>
 |  | `welcome-user` | Welcome message after tbd installation |
 |  | `setup-github-cli` | Ensure GitHub CLI is installed and working |
 |  | `sync-failure-recovery` | Handle tbd sync failures |
+|  | `checkout-third-party-repo` | Clone library source code for review |
+| **Exploration** | `coding-spike` | Prototype to validate a spec through implementation |
 | **Meta** | `new-guideline` | Create a new coding guideline for tbd |
 |  | `new-shortcut` | Create a new shortcut for tbd |
 
 **Available guidelines:** See
 [Built-in Engineering Knowledge](#built-in-engineering-knowledge) for the full list of
-17+ guidelines covering TypeScript, Python, testing, TDD, and more.
+20+ guidelines covering TypeScript, Python, testing, TDD, and more.
 
 **Available templates:**
 
@@ -484,9 +496,10 @@ Or read online:
   during `tbd setup --auto`. Your agent reads them on demand via `tbd shortcut`,
   `tbd guidelines`, and `tbd template`. Re-run `tbd setup --auto` anytime to refresh
   with the latest bundled docs, or add your own via `--add`.
-- **Everything is self-documented via the CLI.** Running `tbd` with no arguments gives
-  full orientation. `tbd setup --auto` writes a skill file (SKILL.md/AGENTS.md) that
-  teaches the agent all available commands, shortcuts, and guidelines.
+- **Everything is self-documented via the CLI.** Running `tbd` shows help with quick
+  command reference; `tbd prime` gives full workflow orientation.
+  `tbd setup --auto` (idempotent, safe anytime) writes a skill file (SKILL.md/AGENTS.md)
+  that teaches the agent all available commands, shortcuts, and guidelines.
   This means agents can inject context—specs, engineering guidelines, workflow
   instructions—at any point in a session, not just at startup.
 
@@ -576,7 +589,7 @@ $
 
 ### Can I add my own guidelines?
 
-Yes. `tbd` comes with 17+ bundled guidelines, but you can add your own team’s docs from
+Yes. `tbd` comes with 20+ bundled guidelines, but you can add your own team’s docs from
 any URL:
 
 ```bash

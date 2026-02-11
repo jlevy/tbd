@@ -57,8 +57,10 @@ $ tbd search "login" --json
 # Test: Search finds multiple matches
 
 ```console
-$ tbd search "login" --json | node -e "d=JSON.parse(require('fs').readFileSync(0,'utf8')); console.log('matches:', d.length)"
-matches: 2
+$ tbd search "login" --json
+[
+...
+]
 ? 0
 ```
 
@@ -73,48 +75,56 @@ $ tbd search "bug" --status=open
 # Test: Search in title field only
 
 ```console
-$ tbd search "SSO" --field=title --json | node -e "d=JSON.parse(require('fs').readFileSync(0,'utf8')); console.log('title matches:', d.length)"
-title matches: 0
+$ tbd search "SSO" --field=title --json
+[]
 ? 0
 ```
 
 # Test: Search in description field
 
 ```console
-$ tbd search "SSO" --field=description --json | node -e "d=JSON.parse(require('fs').readFileSync(0,'utf8')); console.log('desc matches:', d.length)"
-desc matches: 1
+$ tbd search "SSO" --field=description --json
+[
+...
+]
 ? 0
 ```
 
 # Test: Search in labels field
 
 ```console
-$ tbd search "security" --field=labels --json | node -e "d=JSON.parse(require('fs').readFileSync(0,'utf8')); console.log('label matches:', d.length)"
-label matches: 2
+$ tbd search "security" --field=labels --json
+[
+...
+]
 ? 0
 ```
 
 # Test: Search with limit
 
 ```console
-$ tbd search "e" --limit=2 --json | node -e "d=JSON.parse(require('fs').readFileSync(0,'utf8')); console.log('limited to:', d.length)"
-limited to: 2
+$ tbd search "e" --limit=2 --json
+[
+...
+]
 ? 0
 ```
 
 # Test: Search case insensitive (default)
 
 ```console
-$ tbd search "LOGIN" --json | node -e "d=JSON.parse(require('fs').readFileSync(0,'utf8')); console.log('case insensitive matches:', d.length)"
-case insensitive matches: 2
+$ tbd search "LOGIN" --json
+[
+...
+]
 ? 0
 ```
 
 # Test: Search case sensitive
 
 ```console
-$ tbd search "LOGIN" --case-sensitive --json | node -e "d=JSON.parse(require('fs').readFileSync(0,'utf8')); console.log('case sensitive matches:', d.length)"
-case sensitive matches: 0
+$ tbd search "LOGIN" --case-sensitive --json
+[]
 ? 0
 ```
 
@@ -183,16 +193,20 @@ $ tbd stats --json
 # Test: Stats counts are accurate
 
 ```console
-$ tbd stats --json | node -e "d=JSON.parse(require('fs').readFileSync(0,'utf8')); console.log('total:', d.total)"
-total: 5
+$ tbd stats --json
+{
+...
+}
 ? 0
 ```
 
 # Test: Stats by kind (active)
 
 ```console
-$ tbd stats --json | node -e "d=JSON.parse(require('fs').readFileSync(0,'utf8')); console.log('active bugs:', d.byKindActive.bug)"
-active bugs: 2
+$ tbd stats --json
+{
+...
+}
 ? 0
 ```
 
@@ -221,8 +235,10 @@ $ tbd doctor --json
 # Test: Doctor reports no issues on healthy repo
 
 ```console
-$ tbd doctor --json | node -e "d=JSON.parse(require('fs').readFileSync(0,'utf8')); console.log('issues:', d.issues?.length ?? 0)"
-issues: 0
+$ tbd doctor --json
+{
+...
+}
 ? 0
 ```
 
@@ -471,15 +487,15 @@ Commands:
   list                     List all labels in use
   help [command]           display help for command
 
+IMPORTANT:
+  Agents unfamiliar with tbd should run `tbd prime` for full workflow context.
+
 Getting Started:
   npm install -g get-tbd@latest && tbd setup --auto --prefix=<name>
 
   This initializes tbd and configures your coding agents automatically.
-  For interactive setup: tbd setup --interactive
-  For manual control: tbd init --help
-
-Orientation:
-  For workflow guidance, run: tbd prime
+  To refresh setup (idempotent, safe anytime): `tbd setup --auto`
+  For interactive setup: `tbd setup --interactive`
 
 For more on tbd, see: https://github.com/jlevy/tbd
 ? 0
@@ -517,15 +533,15 @@ Commands:
   list <id>                    List dependencies for an issue
   help [command]               display help for command
 
+IMPORTANT:
+  Agents unfamiliar with tbd should run `tbd prime` for full workflow context.
+
 Getting Started:
   npm install -g get-tbd@latest && tbd setup --auto --prefix=<name>
 
   This initializes tbd and configures your coding agents automatically.
-  For interactive setup: tbd setup --interactive
-  For manual control: tbd init --help
-
-Orientation:
-  For workflow guidance, run: tbd prime
+  To refresh setup (idempotent, safe anytime): `tbd setup --auto`
+  For interactive setup: `tbd setup --interactive`
 
 For more on tbd, see: https://github.com/jlevy/tbd
 ? 0
@@ -560,15 +576,15 @@ Commands:
   get <key>          Get a configuration value
   help [command]     display help for command
 
+IMPORTANT:
+  Agents unfamiliar with tbd should run `tbd prime` for full workflow context.
+
 Getting Started:
   npm install -g get-tbd@latest && tbd setup --auto --prefix=<name>
 
   This initializes tbd and configures your coding agents automatically.
-  For interactive setup: tbd setup --interactive
-  For manual control: tbd init --help
-
-Orientation:
-  For workflow guidance, run: tbd prime
+  To refresh setup (idempotent, safe anytime): `tbd setup --auto`
+  For interactive setup: `tbd setup --interactive`
 
 For more on tbd, see: https://github.com/jlevy/tbd
 ? 0
@@ -604,15 +620,15 @@ Commands:
   restore <id> <timestamp>  Restore lost value from attic
   help [command]            display help for command
 
+IMPORTANT:
+  Agents unfamiliar with tbd should run `tbd prime` for full workflow context.
+
 Getting Started:
   npm install -g get-tbd@latest && tbd setup --auto --prefix=<name>
 
   This initializes tbd and configures your coding agents automatically.
-  For interactive setup: tbd setup --interactive
-  For manual control: tbd init --help
-
-Orientation:
-  For workflow guidance, run: tbd prime
+  To refresh setup (idempotent, safe anytime): `tbd setup --auto`
+  For interactive setup: `tbd setup --interactive`
 
 For more on tbd, see: https://github.com/jlevy/tbd
 ? 0

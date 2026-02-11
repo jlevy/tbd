@@ -76,3 +76,15 @@ export function shouldColorize(colorOption: ColorOption): boolean {
 export function isInteractive(ctx: CommandContext): boolean {
   return !ctx.nonInteractive && process.stdin.isTTY === true && !process.env.CI;
 }
+
+/**
+ * Check if we should use interactive output features (colors, pagination).
+ * Returns true when: TTY output, not JSON mode, not quiet mode.
+ *
+ * This is specifically for human-readable output formatting. Agents typically
+ * capture output via pipes (isTTY=false) or use --json mode, so they get
+ * clean plain text without ANSI codes or pagination.
+ */
+export function shouldUseInteractiveOutput(ctx: CommandContext): boolean {
+  return !ctx.json && !ctx.quiet && shouldColorize(ctx.color) && process.stdout.isTTY === true;
+}

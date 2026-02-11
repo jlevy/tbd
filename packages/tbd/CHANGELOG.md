@@ -1,5 +1,45 @@
 # get-tbd
 
+## 0.1.18
+
+### Patch Changes
+
+- 0feb918: Bug fixes and stability improvements: YAML duplicate key handling after merge
+  conflicts, sync debug log branch fix, beads import priority mapping, EPIPE pager
+  handling, improved error cause chains, workspace save/import progress logging, and
+  test stability fixes.
+
+## 0.1.17
+
+### Patch Changes
+
+- 3f1a09c: Add interactive markdown rendering with pagination for doc commands
+  (guidelines, shortcuts, templates) and improve YAML frontmatter styling with syntax
+  highlighting.
+
+## 0.1.16
+
+### Patch Changes
+
+- 78d4671: Bug fixes and improvements including doctor remote count fix, init git root
+  resolution, JSON mode options suppression, streamlined sync outbox workflow, and
+  updated default no-args behavior.
+
+## 0.1.15
+
+### Patch Changes
+
+- 6062050: Documentation consolidation: new shortcuts directory, comprehensive
+  TypeScript monorepo and CLI guidelines, and updated README with new shortcuts and
+  guidelines.
+
+## 0.1.14
+
+### Patch Changes
+
+- 65b691f: Two-tier prefix validation with --force override, YAML handling improvements
+  with Zod validation, and various bug fixes.
+
 ## 0.1.13
 
 ### Patch Changes

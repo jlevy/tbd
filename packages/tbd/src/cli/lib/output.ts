@@ -8,9 +8,13 @@ import pc from 'picocolors';
 import type { Command } from 'commander';
 import { marked } from 'marked';
 import { markedTerminal } from 'marked-terminal';
+import { spawn } from 'node:child_process';
 
 import type { CommandContext, ColorOption } from './context.js';
 import { shouldColorize } from './context.js';
+import { PAGINATION_LINE_THRESHOLD } from '../../lib/settings.js';
+import { parseMarkdown } from '../../utils/markdown-utils.js';
+import type { OperationLogger } from '../../lib/types.js';
 
 /**
  * Standard icons for CLI output. Use these constants instead of hardcoded characters.
@@ -113,7 +117,7 @@ export function createColoredHelpConfig(colorOption: ColorOption = 'auto') {
 
 /**
  * Create the help epilog text with color.
- * Includes "Getting Started" section per spec.
+ * Includes "Getting Started" section and prominent agent guidance per spec.
  *
  * @param colorOption - Color option to determine if colors should be enabled
  * @returns Colored epilog string
@@ -121,15 +125,15 @@ export function createColoredHelpConfig(colorOption: ColorOption = 'auto') {
 export function createHelpEpilog(colorOption: ColorOption = 'auto'): string {
   const colors = pc.createColors(shouldColorize(colorOption));
   const lines = [
+    colors.bold(colors.yellow('IMPORTANT:')),
+    `  Agents unfamiliar with tbd should run ${colors.green('`tbd prime`')} for full workflow context.`,
+    '',
     colors.bold('Getting Started:'),
     `  ${colors.green('npm install -g get-tbd@latest && tbd setup --auto --prefix=<name>')}`,
     '',
     '  This initializes tbd and configures your coding agents automatically.',
-    `  For interactive setup: ${colors.dim('tbd setup --interactive')}`,
-    `  For manual control: ${colors.dim('tbd init --help')}`,
-    '',
-    colors.bold('Orientation:'),
-    `  For workflow guidance, run: ${colors.green('tbd prime')}`,
+    `  To refresh setup (idempotent, safe anytime): ${colors.green('`tbd setup --auto`')}`,
+    `  For interactive setup: ${colors.dim('`tbd setup --interactive`')}`,
     '',
     colors.blue('For more on tbd, see: https://github.com/jlevy/tbd'),
   ];
@@ -210,6 +214,125 @@ export function renderMarkdown(content: string, colorOption: ColorOption = 'auto
 
   // marked.parse returns string with sync renderer
   return marked.parse(content) as string;
+}
+
+/**
+ * Render YAML frontmatter with custom styling.
+ * Keys are dimmed, values are bold.
+ *
+ * @param frontmatter - Raw YAML frontmatter string (without --- delimiters)
+ * @returns Styled frontmatter string
+ */
+function renderYamlFrontmatter(frontmatter: string): string {
+  const lines = frontmatter.split('\n');
+  const styledLines = lines.map((line) => {
+    // Match YAML key: value pattern
+    const match = /^(\s*)([^:]+:)(.*)$/.exec(line);
+    if (match) {
+      const [, indent, key, value] = match;
+      // Key (including colon) is dim, value is bold
+      return indent + pc.dim(key) + pc.bold(value);
+    }
+    // Lines without key: pattern (e.g., continuation lines) stay as-is but bold
+    return pc.bold(line);
+  });
+  return styledLines.join('\n');
+}
+
+/**
+ * Render markdown with proper YAML frontmatter handling.
+ *
+ * Separates YAML frontmatter from markdown body and renders them appropriately:
+ * - Frontmatter keys are dimmed, values are bold (no indentation)
+ * - Body is rendered as regular markdown
+ *
+ * Works with or without frontmatter - if no frontmatter exists, renders as plain markdown.
+ *
+ * @param content - Markdown string (possibly with YAML frontmatter) to render
+ * @param colorOption - Color option to determine if colors should be enabled
+ * @returns Rendered string (colorized or plain)
+ */
+export function renderMarkdownWithFrontmatter(
+  content: string,
+  colorOption: ColorOption = 'auto',
+): string {
+  const useColors = shouldColorize(colorOption);
+
+  if (!useColors) {
+    // Return plain markdown when colors are disabled
+    return content;
+  }
+
+  const { frontmatter, body } = parseMarkdown(content);
+
+  let result = '';
+
+  // Render frontmatter with custom YAML styling if present
+  if (frontmatter !== null && frontmatter.length > 0) {
+    result += pc.dim('---') + '\n';
+    result += renderYamlFrontmatter(frontmatter) + '\n';
+    result += pc.dim('---') + '\n\n';
+  }
+
+  // Render body as markdown
+  if (body) {
+    result += renderMarkdown(body, colorOption);
+  }
+
+  return result;
+}
+
+/**
+ * Output content with pagination if it exceeds threshold and TTY is interactive.
+ * Uses PAGER env var or falls back to 'less -R' (supports colors).
+ *
+ * When output is piped or not a TTY, outputs directly without pagination.
+ * This ensures agents and scripts get clean output.
+ *
+ * @param content - Content to output
+ * @param hasColors - If true, content has ANSI colors (use -R flag for less)
+ * @returns Promise that resolves when output is complete
+ */
+export async function paginateOutput(content: string, hasColors = false): Promise<void> {
+  const lines = content.split('\n').length;
+
+  // Don't paginate short content or non-TTY
+  if (lines < PAGINATION_LINE_THRESHOLD || !process.stdout.isTTY) {
+    console.log(content);
+    return;
+  }
+
+  const pager = process.env.PAGER ?? (hasColors ? 'less -R' : 'less');
+  const [cmd, ...args] = pager.split(' ');
+
+  return new Promise((resolve) => {
+    const child = spawn(cmd!, args, {
+      stdio: ['pipe', 'inherit', 'inherit'],
+    });
+
+    // Handle EPIPE error when user quits pager (e.g., pressing 'q' in less).
+    // This is expected behavior - the pager closes stdin when the user exits early.
+    child.stdin.on('error', (err: NodeJS.ErrnoException) => {
+      if (err.code === 'EPIPE') {
+        // User quit the pager early - this is fine, not an error
+        return;
+      }
+      // For other errors, log only in debug scenarios
+      // (but don't throw - let the process exit cleanly)
+    });
+
+    child.stdin.write(content);
+    child.stdin.end();
+
+    child.on('close', () => {
+      resolve();
+    });
+    child.on('error', () => {
+      // Fall back to direct output if pager fails (e.g., less not installed)
+      console.log(content);
+      resolve();
+    });
+  });
 }
 
 /**
@@ -443,6 +566,29 @@ export class OutputManager {
         if (msg) {
           console.error(msg);
         }
+      },
+    };
+  }
+
+  /**
+   * Create an OperationLogger wired to this OutputManager and a spinner.
+   *
+   * Eliminates the boilerplate of manually wiring spinner.message, output.info,
+   * output.warn, and output.debug in every command that calls a core function.
+   */
+  logger(spinner: Spinner): OperationLogger {
+    return {
+      progress: (msg) => {
+        spinner.message(msg);
+      },
+      info: (msg) => {
+        this.info(msg);
+      },
+      warn: (msg) => {
+        this.warn(msg);
+      },
+      debug: (msg) => {
+        this.debug(msg);
       },
     };
   }

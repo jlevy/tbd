@@ -14,8 +14,9 @@ import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 
 import { BaseCommand } from '../lib/base-command.js';
+import { shouldUseInteractiveOutput } from '../lib/context.js';
 import { CLIError, NotFoundError } from '../lib/errors.js';
-import { renderMarkdown } from '../lib/output.js';
+import { renderMarkdown, paginateOutput } from '../lib/output.js';
 import type { DocSection } from '../../lib/types.js';
 import GithubSlugger from 'github-slugger';
 
@@ -96,8 +97,13 @@ class DocsHandler extends BaseCommand {
       content = sectionContent;
     }
 
-    // Output the documentation with Markdown colorization
-    console.log(renderMarkdown(content, this.ctx.color));
+    // Output the documentation with Markdown colorization and pagination for interactive
+    if (shouldUseInteractiveOutput(this.ctx)) {
+      const rendered = renderMarkdown(content, this.ctx.color);
+      await paginateOutput(rendered, true);
+    } else {
+      console.log(content);
+    }
   }
 
   /**

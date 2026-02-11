@@ -1,15 +1,11 @@
+---
+title: TypeScript Sorting Patterns
+description: Deterministic sorting patterns and comparison chains for TypeScript
+author: Joshua Levy (github.com/jlevy) with LLM assistance
+---
 # TypeScript Sorting Patterns
 
-**Author**: Joshua Levy (github.com/jlevy) with LLM assistance
-
-**Last Updated**: 2026-01-28
-
-**Related**:
-
-- `docs/general/agent-guidelines/typescript-testing-guidelines.md`
-- `docs/general/agent-guidelines/golden-testing-guidelines.md`
-
-* * *
+**Related**: `tbd guidelines typescript-rules`, `tbd guidelines general-testing-rules`
 
 ## 1. Always Make Sorting Deterministic
 
@@ -21,14 +17,14 @@ This causes flaky tests, confusing UI, and unreproducible bugs.
 **Always add a secondary (or tertiary) sort key that is guaranteed unique**, such as an
 ID or timestamp.
 
-### ❌ BAD: Primary sort only
+### BAD: Primary sort only
 
 ```typescript
 // If two issues share the same priority, order is random.
 issues.sort((a, b) => a.priority - b.priority);
 ```
 
-### ✅ GOOD: Secondary sort for determinism
+### GOOD: Secondary sort for determinism
 
 ```typescript
 issues.sort((a, b) => {

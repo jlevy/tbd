@@ -11,8 +11,9 @@
 import { readFile, mkdir, access } from 'node:fs/promises';
 import { join, dirname, parse as parsePath } from 'node:path';
 import { writeFile } from 'atomically';
-import { parse as parseYaml, stringify as stringifyYaml } from 'yaml';
+import { parse as parseYaml } from 'yaml';
 
+import { stringifyYaml } from '../utils/yaml-utils.js';
 import type { Config, LocalState } from '../lib/types.js';
 import { ConfigSchema, LocalStateSchema } from '../lib/schemas.js';
 import { CONFIG_FILE, STATE_FILE, SYNC_BRANCH } from '../lib/paths.js';
@@ -159,10 +160,8 @@ export async function readConfigWithMigration(
 export async function writeConfig(baseDir: string, config: Config): Promise<void> {
   const configPath = join(baseDir, CONFIG_FILE);
 
-  const yaml = stringifyYaml(config, {
-    sortMapEntries: true,
-    lineWidth: 0,
-  });
+  // Use lineWidth: 0 for compact config output (sortMapEntries is in defaults)
+  const yaml = stringifyYaml(config, { lineWidth: 0 });
 
   // Add explanatory comments for docs_cache section
   let content = yaml;
@@ -187,13 +186,17 @@ export async function writeConfig(baseDir: string, config: Config): Promise<void
 }
 
 /**
- * Check if tbd is initialized in the given directory (immediate check only).
- * Returns true if .tbd/ directory exists directly in baseDir.
+ * Check if tbd is properly initialized in the given directory.
+ * Returns true only if .tbd/config.yml exists (not just a .tbd/ directory).
+ *
+ * This prevents spurious .tbd/ directories (e.g., containing only state.yml
+ * created by a bug) from being mistaken for tbd roots. A valid tbd root
+ * always has config.yml created during `tbd init`.
  */
 async function hasTbdDir(dir: string): Promise<boolean> {
-  const tbdDir = join(dir, '.tbd');
+  const configPath = join(dir, CONFIG_FILE);
   try {
-    await access(tbdDir);
+    await access(configPath);
     return true;
   } catch {
     return false;
@@ -257,17 +260,30 @@ export async function readLocalState(baseDir: string): Promise<LocalState> {
 
 /**
  * Write local state to .tbd/state.yml
+ *
+ * Uses `atomically` for safe writes (atomic rename, auto parent-dir creation).
+ * However, we intentionally guard against .tbd/ not existing: `atomically`
+ * would auto-create it, which is wrong if baseDir is a subdirectory rather
+ * than the true tbd root. Only `tbd init` (via initConfig) should create .tbd/.
  */
 export async function writeLocalState(baseDir: string, state: LocalState): Promise<void> {
+  // Guard: refuse to write if .tbd/ directory doesn't exist.
+  // Without this, `atomically` would auto-create .tbd/ in subdirectories,
+  // producing spurious directories that confuse findTbdRoot().
+  const tbdDir = join(baseDir, '.tbd');
+  try {
+    await access(tbdDir);
+  } catch {
+    throw new Error(
+      `Cannot write state: .tbd/ directory does not exist at ${baseDir}. ` +
+        `Run 'tbd init' first or ensure the correct tbd root is being used.`,
+    );
+  }
+
   const statePath = join(baseDir, STATE_FILE);
 
-  // Ensure .tbd directory exists
-  await mkdir(join(baseDir, '.tbd'), { recursive: true });
-
-  const yaml = stringifyYaml(state, {
-    sortMapEntries: true,
-    lineWidth: 0,
-  });
+  // Use lineWidth: 0 for compact state output (sortMapEntries is in defaults)
+  const yaml = stringifyYaml(state, { lineWidth: 0 });
 
   await writeFile(statePath, yaml);
 }

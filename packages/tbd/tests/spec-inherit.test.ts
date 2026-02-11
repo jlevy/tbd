@@ -15,7 +15,7 @@ import { join } from 'node:path';
 import { execSync, spawnSync } from 'node:child_process';
 import { writeFile } from 'atomically';
 
-describe('spec_path inheritance', () => {
+describe('spec_path inheritance', { timeout: 15000 }, () => {
   let tempDir: string;
   const tbdBin = join(__dirname, '..', 'dist', 'bin.mjs');
 

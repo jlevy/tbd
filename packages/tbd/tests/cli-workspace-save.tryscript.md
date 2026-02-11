@@ -286,3 +286,96 @@ $ tbd workspace list
 No workspaces
 ? 0
 ```
+
+* * *
+
+## Verbose Logging
+
+The --verbose flag shows info-level progress messages from workspace operations.
+
+# Test: Save with --verbose shows operational info
+
+```console
+$ tbd save --workspace=verbose-test --verbose 2>&1
+Loaded 4 issue(s) from worktree
+Saved 4 issue(s), 0 conflict(s)
+✓ Saved 4 issue(s) to verbose-test
+...
+? 0
+```
+
+# Test: Import with --verbose shows operational info
+
+```console
+$ rm -rf .tbd/data-sync-worktree/.tbd/data-sync/issues/*.md
+? 0
+```
+
+```console
+$ tbd import --workspace=verbose-test --verbose 2>&1
+Loaded 4 issue(s) from workspace
+Imported 4 issue(s), 0 conflict(s)
+✓ Imported 4 issue(s) from verbose-test
+...
+? 0
+```
+
+# Test: Cleanup verbose-test workspace
+
+```console
+$ tbd workspace delete verbose-test
+✓ Deleted workspace "verbose-test"
+? 0
+```
+
+* * *
+
+## Debug Logging
+
+The --debug flag shows detailed internal information including directory paths and merge
+details.
+
+# Test: Save with --debug shows debug-level details
+
+```console
+$ tbd save --workspace=debug-test --debug 2>&1
+[debug] Target directory: [..]
+[debug] Source directory: [..]
+...
+[debug] Merging ID mappings...
+...
+? 0
+```
+
+# Test: Cleanup debug-test workspace
+
+```console
+$ tbd workspace delete debug-test
+✓ Deleted workspace "debug-test"
+? 0
+```
+
+* * *
+
+## Error Message Preservation
+
+Error messages now include the original error details, not just a generic “Failed to
+save issues”.
+
+# Test: Save with invalid workspace name shows detailed error
+
+```console
+$ tbd save --workspace=../INVALID 2>&1
+✗ Failed to save issues: Invalid workspace name: ../INVALID
+Error: Failed to save issues: Invalid workspace name: ../INVALID
+? 1
+```
+
+# Test: Import with invalid workspace name shows detailed error
+
+```console
+$ tbd import --workspace=../INVALID 2>&1
+✗ Failed to import from workspace: Invalid workspace name: ../INVALID
+Error: Failed to import from workspace: Invalid workspace name: ../INVALID
+? 1
+```

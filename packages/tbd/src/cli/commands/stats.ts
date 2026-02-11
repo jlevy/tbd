@@ -37,12 +37,12 @@ const PRIORITY_LABELS = ['Critical', 'High', 'Medium', 'Low', 'Lowest'];
 
 class StatsHandler extends BaseCommand {
   async run(): Promise<void> {
-    await requireInit();
+    const tbdRoot = await requireInit();
 
     // Load all issues
     let issues: Issue[];
     try {
-      const dataSyncDir = await resolveDataSyncDir();
+      const dataSyncDir = await resolveDataSyncDir(tbdRoot);
       issues = await listIssues(dataSyncDir);
     } catch {
       throw new NotInitializedError('No issue store found. Run `tbd init` first.');

@@ -174,13 +174,19 @@ function isDebugMode(): boolean {
 
 /**
  * Output error in the appropriate format (JSON or text).
- * In debug mode, shows full error details and stack trace.
+ * In debug mode, shows full error details, stack trace, and cause chain.
  */
 function outputError(message: string, error?: Error): void {
   const debugMode = isDebugMode();
 
   if (isJsonMode()) {
-    const errorObj: { error: string; type?: string; details?: string; stack?: string } = {
+    const errorObj: {
+      error: string;
+      type?: string;
+      details?: string;
+      stack?: string;
+      cause?: string;
+    } = {
       error: message,
     };
     if (error instanceof CLIError) {
@@ -192,6 +198,9 @@ function outputError(message: string, error?: Error): void {
     if (debugMode && error?.stack) {
       errorObj.stack = error.stack;
     }
+    if (error?.cause instanceof Error) {
+      errorObj.cause = error.cause.message;
+    }
     console.error(JSON.stringify(errorObj));
   } else {
     console.error(`Error: ${message}`);
@@ -199,6 +208,16 @@ function outputError(message: string, error?: Error): void {
       console.error('');
       console.error('Stack trace:');
       console.error(error.stack);
+      // Walk the cause chain to show underlying errors
+      let cause = error.cause;
+      while (cause instanceof Error) {
+        console.error('');
+        console.error(`Caused by: ${cause.message}`);
+        if (cause.stack) {
+          console.error(cause.stack);
+        }
+        cause = cause.cause;
+      }
     }
   }
 }
@@ -255,9 +274,11 @@ export async function runCli(): Promise<void> {
     process.argv.includes('--version') ||
     process.argv.includes('-V');
 
+  // Show help by default when no command given (changed from prime)
+  // The help epilog guides agents to run `tbd prime` for full context
   if (hasNoCommand() && !isHelpOrVersion) {
-    // Insert 'prime' as the command
-    process.argv.splice(2, 0, 'prime');
+    // Show help instead of defaulting to prime
+    process.argv.splice(2, 0, '--help');
   }
 
   try {

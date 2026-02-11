@@ -487,7 +487,7 @@ For existing tbd projects (`.tbd/` exists): just run `tbd setup --auto` (no pref
 | "Let's plan this feature" | `tbd shortcut new-plan-spec` | *Outputs instructions* |
 | "What should I work on?" | `tbd ready` | Lists ready issues |
 | "Build a new TypeScript CLI app" | `tbd guidelines typescript-cli-tool-rules` | *Outputs instructions* |
-| "Set up a TypeScript monorepo" | `tbd guidelines typescript-monorepo-patterns` | *Outputs instructions* |
+| "Set up a TypeScript monorepo" | `tbd guidelines pnpm-monorepo-patterns` | *Outputs instructions* |
 | "Add golden/snapshot tests" | `tbd guidelines golden-testing-guidelines` | *Outputs instructions* |
 | "Review the TypeScript code" | `tbd guidelines typescript-rules` | *Outputs instructions* |
 | "Ready to commit" | `tbd shortcut code-review-and-commit` | *Outputs instructions* |
@@ -534,7 +534,8 @@ These are **informational commands** - they display guidance the agent should fo
 |---------|---------|-------------|
 | `tbd guidelines typescript-rules` | TypeScript | TypeScript coding rules and best practices |
 | `tbd guidelines typescript-cli-tool-rules` | TypeScript CLI | Rules for CLI tools with Commander.js |
-| `tbd guidelines typescript-monorepo-patterns` | TypeScript Monorepo | Monorepo architecture patterns |
+| `tbd guidelines pnpm-monorepo-patterns` | pnpm Monorepo | Monorepo architecture patterns (pnpm) |
+| `tbd guidelines bun-monorepo-patterns` | Bun Monorepo | Monorepo architecture patterns (Bun) |
 | `tbd guidelines python-rules` | Python | Python coding rules and best practices |
 | `tbd guidelines python-cli-patterns` | Python CLI | Python CLI application patterns |
 | `tbd guidelines general-tdd-guidelines` | TDD | Test-Driven Development methodology |
@@ -602,7 +603,8 @@ CODING GUIDELINES
   TypeScript:
     typescript-rules       TypeScript best practices
     typescript-cli-tool-rules  CLI tools with Commander
-    typescript-monorepo-patterns  Monorepo architecture
+    pnpm-monorepo-patterns  Monorepo patterns (pnpm)
+    bun-monorepo-patterns   Monorepo patterns (Bun)
 
   Python:
     python-rules           Python best practices

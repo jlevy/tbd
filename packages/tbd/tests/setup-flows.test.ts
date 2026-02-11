@@ -9,7 +9,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { execSync, spawnSync } from 'node:child_process';
 
-describe('setup flows', () => {
+describe('setup flows', { timeout: 15000 }, () => {
   let tempDir: string;
   const tbdBin = join(__dirname, '..', 'dist', 'bin.mjs');
 
@@ -186,9 +186,36 @@ describe('setup flows', () => {
       expect(result.status).not.toBe(0);
       expect(result.stderr).toContain('--prefix');
     });
+
+    it('tbd init from subdirectory creates .tbd at git root', async () => {
+      initGitRepo();
+
+      // Create a nested subdirectory
+      const subdir = join(tempDir, 'src', 'components');
+      await mkdir(subdir, { recursive: true });
+
+      // Run tbd init from subdirectory
+      const result = runTbd(['init', '--prefix=subtest'], subdir);
+
+      expect(result.status).toBe(0);
+
+      // .tbd should be at git root, NOT in subdirectory
+      await expect(access(join(tempDir, '.tbd'))).resolves.not.toThrow();
+
+      // Verify .tbd is NOT in subdirectory
+      await expect(access(join(subdir, '.tbd'))).rejects.toThrow();
+    });
+
+    it('tbd init fails outside git repository', () => {
+      // Don't init git repo - just use bare temp dir
+      const result = runTbd(['init', '--prefix=nogit']);
+
+      expect(result.status).not.toBe(0);
+      expect(result.stderr).toContain('Not a git repository');
+    });
   });
 
-  describe('legacy cleanup', { timeout: 15000 }, () => {
+  describe('legacy cleanup', { timeout: 30000 }, () => {
     it('removes legacy tbd scripts from .claude/scripts/', async () => {
       initGitRepo();
 

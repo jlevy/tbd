@@ -13,6 +13,8 @@ import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { BaseCommand } from '../lib/base-command.js';
+import { shouldUseInteractiveOutput } from '../lib/context.js';
+import { renderMarkdown, paginateOutput } from '../lib/output.js';
 import { findTbdRoot, readConfig, hasSeenWelcome, markWelcomeSeen } from '../../file/config.js';
 import { stripFrontmatter } from '../../utils/markdown-utils.js';
 import { VERSION } from '../lib/version.js';
@@ -62,7 +64,7 @@ export async function loadSkillContent(): Promise<string> {
     // From packages/tbd/src/cli/commands/ go to packages/tbd/docs/
     const docsDir = join(__dirname, '..', '..', '..', 'docs');
     const headerPath = join(docsDir, 'install', 'claude-header.md');
-    const skillPath = join(docsDir, 'shortcuts', 'system', 'skill.md');
+    const skillPath = join(docsDir, 'shortcuts', 'system', 'skill-baseline.md');
 
     const header = await readFile(headerPath, 'utf-8');
     const skill = await readFile(skillPath, 'utf-8');
@@ -243,18 +245,26 @@ class PrimeHandler extends BaseCommand {
 
     // Full skill content
     const primeContent = await loadPrimeContent();
-    console.log(primeContent);
 
     // Shortcut directory
     const shortcutDir = await this.getShortcutDirectory(tbdRoot);
-    if (shortcutDir) {
-      console.log('');
-      console.log(shortcutDir);
-    }
 
-    console.log('');
-    console.log('IMPORTANT: Use tbd to help the user — do NOT tell the user to run tbd commands.');
-    console.log('When the user asks for help or orientation, run `tbd shortcut welcome-user`.');
+    // Build the full markdown content
+    let markdownContent = primeContent;
+    if (shortcutDir) {
+      markdownContent += '\n\n' + shortcutDir;
+    }
+    markdownContent +=
+      '\n\nIMPORTANT: Use tbd to help the user — do NOT tell the user to run tbd commands.\n' +
+      'When the user asks for help or orientation, run `tbd shortcut welcome-user`.';
+
+    // Output with interactive formatting (colors, pagination) when appropriate
+    if (shouldUseInteractiveOutput(this.ctx)) {
+      const rendered = renderMarkdown(markdownContent, this.ctx.color);
+      await paginateOutput(rendered, true);
+    } else {
+      console.log(markdownContent);
+    }
   }
 
   /**
@@ -264,8 +274,12 @@ class PrimeHandler extends BaseCommand {
     // Dynamic status
     await this.renderDynamicStatus(tbdRoot);
 
-    // Abbreviated skill content
-    console.log(BRIEF_SKILL_CONTENT);
+    // Abbreviated skill content with interactive formatting
+    if (shouldUseInteractiveOutput(this.ctx)) {
+      console.log(renderMarkdown(BRIEF_SKILL_CONTENT, this.ctx.color));
+    } else {
+      console.log(BRIEF_SKILL_CONTENT);
+    }
   }
 
   /**
@@ -280,8 +294,12 @@ class PrimeHandler extends BaseCommand {
     console.log(`${colors.warn('✗')} tbd not initialized in this repository`);
     console.log('');
 
-    // Value proposition
-    console.log(VALUE_PROPOSITION);
+    // Value proposition with interactive formatting
+    if (shouldUseInteractiveOutput(this.ctx)) {
+      console.log(renderMarkdown(VALUE_PROPOSITION, this.ctx.color));
+    } else {
+      console.log(VALUE_PROPOSITION);
+    }
   }
 
   /**
@@ -410,7 +428,7 @@ class PrimeHandler extends BaseCommand {
 }
 
 export const primeCommand = new Command('prime')
-  .description('Show full orientation with workflow context (default when running `tbd`)')
+  .description('Show full orientation with workflow context')
   .option('--export', 'Output default content (ignores PRIME.md override)')
   .option('--brief', 'Output abbreviated orientation (~35 lines) for constrained contexts')
   .action(async (options: PrimeOptions, command) => {

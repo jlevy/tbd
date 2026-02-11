@@ -129,7 +129,8 @@ It outputs contextual information appropriate to the current state:
 - `--brief` flag for constrained contexts (~200 tokens)
 - `--full` flag for complete skill documentation
 - Custom override via `.mycli/PRIME.md` file
-- Default when running CLI with no command (`mycli` runs `mycli prime`)
+- CLI with no args shows help with prominent prompt to run `mycli prime` for full
+  context
 
 **Dashboard Output Structure**:
 
@@ -183,6 +184,15 @@ This minimizes token overhead while maintaining full capability.
 Skill activation relies on **pure LLM reasoning**, not keyword matching or embeddings.
 Description quality directly impacts activation reliability.
 
+**Activation Reliability Data** (from real-world testing across 200+ prompts):
+
+| Approach | Success Rate |
+| --- | --- |
+| No optimization / vague descriptions | ~20% |
+| Optimized descriptions with "Use when..." | ~50% |
+| Descriptions with concrete examples | 72-90% |
+| Forced evaluation hooks | 80-84% |
+
 **The Two-Part Rule**: Every description must answer:
 
 1. **What does it do?** (capabilities)
@@ -206,9 +216,55 @@ description: >
 **Writing Guidelines**:
 
 - Use third person always ("Processes files" not “I can help you”)
-- Include explicit trigger phrases reflecting user language
+- Include explicit “Use when …” triggers with concrete scenarios
 - Be specific with keywords users would naturally say
 - State both capabilities AND activation conditions
+- Front-load the most important trigger keywords in the first 50 characters
+  (descriptions may be truncated in large skill collections)
+
+### 2.4 Description Length and Budget Constraints
+
+Claude Code has a **cumulative character budget** for all skill descriptions combined.
+Understanding these limits is critical for CLIs that install multiple skills.
+
+**Hard Limits**:
+
+| Constraint | Limit | Notes |
+| --- | --- | --- |
+| Individual description | 1,024 characters | Per-skill maximum |
+| Skill name | 64 characters | Lowercase, numbers, hyphens only |
+| SKILL.md body | ~500 lines | Soft limit; use supporting files for more |
+| **Cumulative budget** | ~15,000-16,000 chars | For ALL skill descriptions combined |
+
+**Per-Skill Overhead**: Each skill consumes ~109 characters of XML overhead (tags, name,
+location) plus the description length.
+
+**Truncation Behavior**: When the cumulative budget is exceeded, skills are hidden:
+
+| Skills Installed | Skills Visible | Hidden |
+| --- | --- | --- |
+| 63 | 42 | 33% |
+| 92 | 36 | 60% |
+
+**No warning is shown** when skills are truncated.
+Run `/context` to check for excluded skills.
+
+**Description Length Guidelines by Collection Size**:
+
+| Skill Collection Size | Recommended Description Length |
+| --- | --- |
+| < 40 skills | Up to 1,024 characters (full limit) |
+| 40-60 skills | ≤150 characters |
+| 60+ skills | ≤130 characters |
+
+**Override**: Set `SLASH_COMMAND_TOOL_CHAR_BUDGET` environment variable to increase the
+limit.
+
+**Meta-Skill Pattern**: For CLIs with many resources (50+), use a single meta-skill that
+exposes resources via CLI commands rather than individual skills.
+This consumes only one description slot (~200 chars) instead of 50+ slots that would
+exceed the budget. See
+[Skills vs Meta-Skill Architecture Research](../../project/research/current/research-skills-vs-meta-skill-architecture.md).
 
 * * *
 
@@ -642,6 +698,10 @@ Understanding when to use each is critical.
     + When to use it?
 11. **Write in third person**: “Processes files” not “I can help you”
 12. **Include explicit trigger phrases**: Match how users naturally describe needs
+13. **Front-load keywords**: Put most important triggers in first 50 characters
+14. **Respect cumulative budget**: All descriptions share a ~15K character limit
+15. **Use meta-skill pattern for 50+ resources**: One skill + CLI beats 50 individual
+    skills
 
 ### Self-Documentation
 
@@ -715,7 +775,17 @@ Understanding when to use each is critical.
 
 - [ ] Two-part description: capabilities + activation triggers
 - [ ] Third-person language only
-- [ ] Explicit trigger phrases matching user language
+- [ ] Explicit “Use when …” trigger phrases matching user language
+- [ ] Front-load important keywords in first 50 characters
+- [ ] Description length appropriate for skill collection size (≤130 chars for 60+
+  skills)
+
+**Budget Management** (for CLIs installing multiple skills)
+
+- [ ] Calculate cumulative description size (descriptions + ~109 chars overhead each)
+- [ ] Verify total stays under 15K character budget
+- [ ] Use meta-skill pattern if resources exceed 50
+- [ ] Run `/context` to verify skills aren’t being truncated
 
 **Context Management**
 
@@ -776,6 +846,10 @@ Understanding when to use each is critical.
 - Claude Code Skills Guide (Gist):
   https://gist.github.com/mellanon/50816550ecb5f3b239aa77eef7b8ed8d
 - Awesome Claude Skills: https://github.com/travisvn/awesome-claude-skills
+- Skills Character Budget Research:
+  https://github.com/anthropics/claude-code/issues/11045
+- Skill Activation Reliability Testing:
+  https://scottspence.com/posts/how-to-make-claude-code-skills-activate-reliably
 
 ### MCP Resources
 
@@ -795,4 +869,5 @@ Understanding when to use each is critical.
 - For TypeScript CLI implementation details, see
   `tbd guidelines typescript-cli-tool-rules`
 - For testing patterns, see `tbd guidelines general-testing-rules`
-- For monorepo setup, see `tbd guidelines typescript-monorepo-patterns`
+- For monorepo setup, see `tbd guidelines pnpm-monorepo-patterns` or
+  `bun-monorepo-patterns`

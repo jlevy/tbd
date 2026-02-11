@@ -7,11 +7,11 @@
 import { Command } from 'commander';
 import { rm, access, readdir, stat } from 'node:fs/promises';
 import { execSync } from 'node:child_process';
-import { join } from 'node:path';
+import { join, relative } from 'node:path';
 
 import { BaseCommand } from '../lib/base-command.js';
 import { NotInitializedError, CLIError } from '../lib/errors.js';
-import { readConfig } from '../../file/config.js';
+import { findTbdRoot, readConfig } from '../../file/config.js';
 import { SYNC_BRANCH } from '../../lib/paths.js';
 
 interface UninstallOptions {
@@ -24,24 +24,27 @@ class UninstallHandler extends BaseCommand {
   async run(options: UninstallOptions): Promise<void> {
     const colors = this.output.getColors();
 
-    // Check if tbd is initialized
-    try {
-      await access('.tbd');
-    } catch {
+    // Resolve tbd root (walks up from cwd)
+    const tbdRoot = await findTbdRoot(process.cwd());
+    if (!tbdRoot) {
       throw new NotInitializedError('No .tbd directory found. Nothing to uninstall.');
     }
 
     // Read config to get branch info
     let config;
     try {
-      config = await readConfig('.');
+      config = await readConfig(tbdRoot);
     } catch {
       config = null;
     }
 
     const syncBranch = config?.sync.branch ?? SYNC_BRANCH;
     const remote = config?.sync.remote ?? 'origin';
-    const worktreePath = join('.tbd', 'data-sync-worktree');
+    const tbdDir = join(tbdRoot, '.tbd');
+    const worktreePath = join(tbdDir, 'data-sync-worktree');
+
+    // Display paths relative to cwd for readability
+    const displayPath = (p: string) => relative(process.cwd(), p) || p;
 
     // Check what exists
     const items: string[] = [];
@@ -52,7 +55,7 @@ class UninstallHandler extends BaseCommand {
       await access(worktreePath);
       worktreeExists = true;
       const worktreeStats = await this.getDirectoryStats(worktreePath);
-      items.push(`  - Worktree: ${worktreePath} (${worktreeStats.files} files)`);
+      items.push(`  - Worktree: ${displayPath(worktreePath)} (${worktreeStats.files} files)`);
     } catch {
       // Worktree doesn't exist
     }
@@ -88,8 +91,8 @@ class UninstallHandler extends BaseCommand {
     }
 
     // Count .tbd contents
-    const tbdStats = await this.getDirectoryStats('.tbd');
-    items.push(`  - Directory: .tbd/ (${tbdStats.files} files)`);
+    const tbdStats = await this.getDirectoryStats(tbdDir);
+    items.push(`  - Directory: ${displayPath(tbdDir)}/ (${tbdStats.files} files)`);
 
     // Show what will be removed
     console.log(colors.bold('The following will be removed:'));
@@ -184,7 +187,7 @@ class UninstallHandler extends BaseCommand {
 
     // 5. Remove .tbd directory
     try {
-      await rm('.tbd', { recursive: true, force: true });
+      await rm(tbdDir, { recursive: true, force: true });
       console.log(`  ${colors.success('✓')} Removed .tbd directory`);
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);

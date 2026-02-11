@@ -10,8 +10,9 @@ import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 
 import { BaseCommand } from '../lib/base-command.js';
+import { shouldUseInteractiveOutput } from '../lib/context.js';
 import { CLIError } from '../lib/errors.js';
-import { renderMarkdown } from '../lib/output.js';
+import { renderMarkdown, paginateOutput } from '../lib/output.js';
 
 /**
  * Get the path to the bundled README file.
@@ -52,8 +53,13 @@ class ReadmeHandler extends BaseCommand {
       }
     }
 
-    // Output the README with Markdown colorization
-    console.log(renderMarkdown(content, this.ctx.color));
+    // Output the README with Markdown colorization and pagination for interactive
+    if (shouldUseInteractiveOutput(this.ctx)) {
+      const rendered = renderMarkdown(content, this.ctx.color);
+      await paginateOutput(rendered, true);
+    } else {
+      console.log(content);
+    }
   }
 }
 
