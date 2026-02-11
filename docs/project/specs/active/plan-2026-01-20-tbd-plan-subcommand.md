@@ -2,9 +2,9 @@
 
 ## Purpose
 
-The `tbd plan` subcommand bridges human-readable Markdown plan documents with tbd's
-issue tracking system. It automates creating issues from plan documents and keeping
-them synchronized.
+The `tbd plan` subcommand bridges human-readable Markdown plan documents with tbd’s
+issue tracking system.
+It automates creating issues from plan documents and keeping them synchronized.
 
 ## Background
 
@@ -27,17 +27,22 @@ inserting ID annotations, and syncing checkbox markers based on issue status.
 - [tbd-design.md](../../../packages/tbd/docs/tbd-design.md) - Overall product design
 - Markform MF/0.1 spec - run `npx --yes markform@latest spec` to view
 
----
+* * *
 
 ## Plan Format
 
 ### Syntax
 
 Plan files use **HTML comment syntax** for Markform tags, which renders cleanly on
-GitHub (comments are hidden). Markdoc tag syntax (`{% form %}`) is also fully
-supported and equivalent.
+GitHub (comments are hidden).
+Markdoc tag syntax (`{% form %}`) is also fully supported and equivalent.
 
 ### Example Plan Document
+
+> **Note:** This example shows ID annotations on headings
+> (`## Phase 1 <!-- #proj-a1b2 -->`). Whether headings become tbd issues is an **open
+> design question** — see Core Design Decisions below.
+> The heading annotations may be removed depending on resolution.
 
 ```markdown
 ---
@@ -86,14 +91,16 @@ markform:
 <!-- /form -->
 ```
 
-**3. ID annotations** - tbd short IDs serve as both Markform option IDs and issue references:
+**3. ID annotations** - tbd short IDs serve as both Markform option IDs and issue
+references:
 ```markdown
 - [ ] Task description <!-- #proj-a1b2 -->
 ## Heading <!-- #proj-c3d4 -->
 ```
 
-**4. Implicit checkboxes** - No `{% field %}` wrappers needed. Markform automatically
-collects all checkboxes into an implicit field with ID `checkboxes`.
+**4. Implicit checkboxes** - No `{% field %}` wrappers needed.
+Markform automatically collects all checkboxes into an implicit field with ID
+`checkboxes`.
 
 ### ID Format
 
@@ -107,7 +114,8 @@ The tbd short ID (e.g., `proj-a1b2`) serves as:
 
 This works because tbd short IDs are:
 - **Unique** within a project
-- **Valid identifiers** (lowercase alphanumeric with hyphens)
+- **Valid identifiers** (lowercase alphanumeric with hyphens, dots, and underscores per
+  `ShortId` schema: `/^[0-9a-z._-]+$/`)
 - **Self-documenting** - directly reference the tbd issue
 
 ### Checkbox Markers (5-State)
@@ -124,10 +132,13 @@ This mapping is bidirectional and lossless.
 
 ### File Extension
 
-Plan files use `.plan.md` extension. Markform identifies documents by frontmatter,
-not extension, so this works correctly.
+Plan files use `.plan.md` extension (diverging from Markform’s `.form.md` convention).
+This is intentional:
+- `.plan.md` clearly identifies the file’s purpose (a plan document)
+- Markform identifies documents by frontmatter content, not extension
+- Allows coexistence with other Markform forms (`.form.md`) in the same project
 
----
+* * *
 
 ## Commands
 
@@ -197,7 +208,8 @@ Options:
    - Create new issue, inject ID
 4. Write modified plan file
 
-**Truth rules:** tbd is system-of-record for status. Plan is source for new items.
+**Truth rules:** tbd is system-of-record for status.
+Plan is source for new items.
 
 **Output:**
 ```
@@ -219,8 +231,8 @@ Options:
   --quiet             Only show if there are changes needed
 ```
 
-**Output:** Similar to `tbd list` but scoped to issues in this plan, plus a dry-run
-of sync changes.
+**Output:** Similar to `tbd list` but scoped to issues in this plan, plus a dry-run of
+sync changes.
 
 ```
 Plan: docs/plans/oauth.plan.md
@@ -247,7 +259,7 @@ Run `tbd plan sync docs/plans/oauth.plan.md` to apply changes.
 2. **Sync preview** - Dry-run of what `sync` would change:
    - Marker updates (checkbox state ≠ issue status)
    - New issues to create (plan items without IDs)
-   - Orphan references (IDs that don't resolve)
+   - Orphan references (IDs that don’t resolve)
    - Title mismatches (warning only)
 
 ### `tbd plan validate <file>`
@@ -269,7 +281,7 @@ Options:
 - Reference resolution (all IDs resolve to issues)
 - Plan ownership (issues have matching `extensions.plan.file`)
 
----
+* * *
 
 ## Core Design Decisions
 
@@ -289,11 +301,33 @@ Options:
 - `- [ ] Checkbox` → task
 - Nested checkboxes inherit parent from enclosing checkbox/heading
 
-**4. Derived status for headings**
-- Headings don't have checkbox markers
-- Their status is computed from children during sync
+> **⚠️ OPEN DESIGN QUESTION: Heading Treatment**
+> 
+> Markform MF/0.1’s implicit checkboxes feature **only collects checkboxes** (`- [ ]`
+> items), not headings.
+> The examples in this spec show headings with ID annotations
+> (`## Phase 1 <!-- #proj-a1b2 -->`), but these would NOT be part of the implicit
+> `checkboxes` field.
+> 
+> **Options to resolve:**
+> 1. **Don’t create issues for headings** — Only checkboxes become issues.
+>    Headings provide visual structure but no ID annotations.
+>    Parent-child hierarchy derived from nesting under headings.
+> 2. **Custom parsing for headings** — tbd parses headings separately from Markform,
+>    creating issues but not syncing status (headings have no checkbox marker).
+> 3. **Extend Markform** — Add capability to expose parsed heading structure without
+>    treating them as form fields.
+>    This would require Markform changes.
+> 
+> **Action needed:** Review Markform spec for potential extensions before finalizing
+> this design. The current examples assume headings have ID annotations, but this
+> conflicts with “derived status for headings” (below).
 
----
+**4. Derived status for headings** (contingent on resolution above)
+- If headings become issues: status computed from children (aggregate)
+- If headings don’t become issues: they’re structural only, no status tracking
+
+* * *
 
 ## Issue Extensions Schema
 
@@ -303,11 +337,31 @@ Plan-managed issues use the `extensions.plan` namespace:
 extensions:
   plan:
     file: docs/plans/oauth.plan.md
-    node_kind: checkbox  # or "heading"
+    node_kind: checkbox  # or "heading" (if headings become issues)
     outline_path:
       - "OAuth Implementation"
       - "Backend"
     line_number: 15
+```
+
+**Zod schema (to add to `src/lib/schemas.ts`):**
+
+```typescript
+/**
+ * Plan extension data for issues managed by tbd plan.
+ */
+export const PlanExtensions = z.object({
+  /** Path to the plan file (relative to repo root) */
+  file: z.string(),
+  /** Type of node in the plan document */
+  node_kind: z.enum(['checkbox', 'heading']),
+  /** Path of heading titles from root to this node */
+  outline_path: z.array(z.string()).optional(),
+  /** Line number in the plan file (for debugging) */
+  line_number: z.number().int().positive().optional(),
+});
+
+export type PlanExtensions = z.infer<typeof PlanExtensions>;
 ```
 
 This enables:
@@ -315,48 +369,69 @@ This enables:
 - Reconstructing hierarchy if plan structure changes
 - Debugging sync issues
 
----
+* * *
 
 ## Markform Integration
 
 ### APIs Used
 
+> **Note:** Verify exact API signatures against markform package before implementation.
+> The examples below are based on Markform MF/0.1 spec; actual function names may
+> differ.
+
 ```typescript
-import {
-  parseForm,
-  applyPatches,
-  getMarkdown
-} from 'markform';
+import { parseForm, apply, getMarkdown } from 'markform';
 
 // Parse plan - checkboxes auto-collected into implicit field
 const parsed = parseForm(content);
 
 // Access implicit checkboxes field
-const field = parsed.schema.fields.find(f => f.id === 'checkboxes');
-const options = field?.options ?? [];
+// Note: For implicit checkboxes, Markform synthesizes a field with id='checkboxes'
+// Schema structure: schema.groups[].children[] (fields are nested under groups)
+const checkboxesField = parsed.schema.groups
+  .flatMap(g => g.children)
+  .find(f => f.id === 'checkboxes');
+const options = checkboxesField?.options ?? [];
 
-// Get current checkbox states
-const states = parsed.responsesByFieldId['checkboxes']?.values ?? {};
+// Get current checkbox states (FieldResponse.value, not .values)
+const states: Record<string, CheckboxValue> =
+  parsed.responsesByFieldId['checkboxes']?.value ?? {};
 ```
 
 ### Sync Implementation
 
 ```typescript
+// Status mapping: tbd status → Markform CheckboxValue
+function tbdStatusToMarkformState(status: IssueStatus): CheckboxValue {
+  const mapping: Record<IssueStatus, CheckboxValue> = {
+    open: 'todo',
+    closed: 'done',
+    in_progress: 'active',
+    blocked: 'incomplete',
+    deferred: 'na',
+  };
+  return mapping[status];
+}
+
 async function syncPlanFile(path: string): Promise<SyncResult> {
   const content = await fs.readFile(path, 'utf8');
   const parsed = parseForm(content);
 
-  const field = parsed.schema.fields.find(f => f.id === 'checkboxes');
+  // Find implicit checkboxes field
+  const field = parsed.schema.groups
+    .flatMap(g => g.children)
+    .find(f => f.id === 'checkboxes');
   if (!field) return { updated: 0 };
 
   // Build patches - option.id IS the tbd short ID
-  const patches = [];
+  const patches: Patch[] = [];
   for (const option of field.options) {
     const issue = await loadIssue(option.id);
     if (!issue) continue;
 
     const expectedState = tbdStatusToMarkformState(issue.status);
-    const currentState = parsed.responsesByFieldId['checkboxes']?.values?.[option.id];
+    // FieldResponse.value is Record<OptionId, CheckboxValue> for checkboxes
+    const currentState = parsed.responsesByFieldId['checkboxes']?.value?.[option.id];
 
     if (currentState !== expectedState) {
       patches.push({
@@ -369,7 +444,8 @@ async function syncPlanFile(path: string): Promise<SyncResult> {
 
   if (patches.length === 0) return { updated: 0 };
 
-  const result = applyPatches(parsed, patches);
+  // apply() returns ApplyResult with applyStatus
+  const result = apply(parsed, patches);
   if (result.applyStatus === 'applied') {
     await fs.writeFile(path, getMarkdown(result));
   }
@@ -378,7 +454,7 @@ async function syncPlanFile(path: string): Promise<SyncResult> {
 }
 ```
 
----
+* * *
 
 ## Open Questions
 
@@ -390,8 +466,9 @@ Markform specifies plain-text-only labels, but plan checkboxes often contain:
 - Inline code: `` `src/foo.ts` ``
 - Links: `[ADR-12](docs/adr-12.md)`
 
-**Current approach:** Accept any Markdown for v1. Strip formatting when creating
-issue titles, preserve in plan doc. Revisit if Markform adds rich label support.
+**Current approach:** Accept any Markdown for v1. Strip formatting when creating issue
+titles, preserve in plan doc.
+Revisit if Markform adds rich label support.
 
 ### 2. Title Drift
 
@@ -404,17 +481,26 @@ Show warning in `status`. Future: `--sync-titles` flag or interactive resolution
 
 **Question:** What happens if a checkbox is deleted from the plan doc?
 
-**Current approach:** Issue remains in tbd, orphaned. Detect and warn in `validate`.
-Future: `tbd plan prune` command for cleanup.
+**Current approach:** Issue remains in tbd, orphaned.
+Detect and warn in `validate`. Future: `tbd plan prune` command for cleanup.
 
 ### 4. Orphan References
 
 **Question:** What if an ID annotation references a deleted issue?
 
-**Current approach:** `validate` detects and reports. Manual cleanup is appropriate
-since deleting issues is rare.
+**Current approach:** `validate` detects and reports.
+Manual cleanup is appropriate since deleting issues is rare.
 
----
+### 5. Edge Cases
+
+**Checkboxes inside code blocks:** Markform should ignore checkboxes inside fenced code
+blocks. Verify this behavior during implementation.
+
+**Comment syntax limitations:** If a checkbox label contains `-->`, it could break the
+HTML comment syntax.
+Recommend using Markdoc tag syntax (`{% #id %}`) for such cases, or escaping.
+
+* * *
 
 ## Possible Enhancements
 
@@ -428,8 +514,8 @@ since deleting issues is rare.
 ### Flexible Workflows
 
 - **Bidirectional sync**: Allow editing issue titles in tbd and syncing back to plan
-- **Partial plans**: Support plans that only track some issues (not all plan items
-  need IDs)
+- **Partial plans**: Support plans that only track some issues (not all plan items need
+  IDs)
 - **Plan templates**: Generate new plans from tbd issue queries
 - **Cross-plan references**: Issues appearing in multiple plans with different contexts
 
@@ -446,10 +532,10 @@ since deleting issues is rare.
 
 - **Plan versioning**: Track plan structure changes over time
 - **Ordering preservation**: `child_order_hints` based on document order
-- **Validation markers**: `[v]` state for "completed and verified"
+- **Validation markers**: `[v]` state for “completed and verified”
 - **Multi-plan issues**: `extensions.plan.files[]` for shared issues
 
----
+* * *
 
 ## Implementation Summary
 
@@ -477,9 +563,17 @@ since deleting issues is rare.
 | `tests/plan/sync.test.ts` | Sync algorithm scenarios |
 | `tests/plan/e2e.test.ts` | End-to-end workflows |
 
----
+* * *
 
 ## Implementation Phases
+
+### Phase 0: Design Validation
+
+- [ ] **Resolve heading treatment** — Decide whether headings become issues (see open
+  design question above).
+  May require Markform extension discussion.
+- [ ] **Verify Markform API** — Confirm exact function names and data structures against
+  markform package (parseForm, apply, getMarkdown, schema traversal)
 
 ### Phase 1: Core (MVP)
 
@@ -500,7 +594,7 @@ since deleting issues is rare.
 - [ ] Documentation
 - [ ] Golden tests
 
----
+* * *
 
 ## Validation Criteria
 
@@ -509,3 +603,7 @@ since deleting issues is rare.
 - [ ] New plan items create issues with correct hierarchy
 - [ ] Broken references detected by validate
 - [ ] Plan doc remains valid Markdown throughout
+- [ ] Markform API signatures verified against actual package (parseForm, apply,
+  getMarkdown)
+- [ ] Implicit checkboxes field structure confirmed (schema.groups[].children[]
+  navigation)
