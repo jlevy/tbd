@@ -261,14 +261,15 @@ export async function readLocalState(baseDir: string): Promise<LocalState> {
 /**
  * Write local state to .tbd/state.yml
  *
- * IMPORTANT: The .tbd/ directory must already exist (created by `tbd init`).
- * This function refuses to write if .tbd/ doesn't exist, preventing the
- * creation of spurious .tbd/ directories in subdirectories.
+ * Uses `atomically` for safe writes (atomic rename, auto parent-dir creation).
+ * However, we intentionally guard against .tbd/ not existing: `atomically`
+ * would auto-create it, which is wrong if baseDir is a subdirectory rather
+ * than the true tbd root. Only `tbd init` (via initConfig) should create .tbd/.
  */
 export async function writeLocalState(baseDir: string, state: LocalState): Promise<void> {
   // Guard: refuse to write if .tbd/ directory doesn't exist.
-  // Only `tbd init` should create .tbd/. Writing state to a non-existent
-  // .tbd/ would create a spurious directory that confuses root detection.
+  // Without this, `atomically` would auto-create .tbd/ in subdirectories,
+  // producing spurious directories that confuse findTbdRoot().
   const tbdDir = join(baseDir, '.tbd');
   try {
     await access(tbdDir);
