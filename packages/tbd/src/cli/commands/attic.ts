@@ -51,8 +51,8 @@ function parseAtticFilename(
 /**
  * List all attic entries.
  */
-async function listAtticEntries(filterById?: string): Promise<AtticEntry[]> {
-  const atticPath = await resolveAtticDir();
+async function listAtticEntries(tbdRoot: string, filterById?: string): Promise<AtticEntry[]> {
+  const atticPath = await resolveAtticDir(tbdRoot);
   let files: string[];
 
   try {
@@ -93,8 +93,8 @@ async function listAtticEntries(filterById?: string): Promise<AtticEntry[]> {
 /**
  * Save an attic entry.
  */
-export async function saveAtticEntry(entry: AtticEntry): Promise<void> {
-  const atticPath = await resolveAtticDir();
+export async function saveAtticEntry(tbdRoot: string, entry: AtticEntry): Promise<void> {
+  const atticPath = await resolveAtticDir(tbdRoot);
   await mkdir(atticPath, { recursive: true });
 
   const filename = getAtticFilename(entry.entity_id, entry.timestamp, entry.field);
@@ -111,7 +111,7 @@ class AtticListHandler extends BaseCommand {
     const tbdRoot = await requireInit();
 
     const filterId = id ? normalizeIssueId(id) : undefined;
-    const entries = await listAtticEntries(filterId);
+    const entries = await listAtticEntries(tbdRoot, filterId);
 
     // Load ID mapping and config for display
     const dataSyncDir = await resolveDataSyncDir(tbdRoot);
@@ -154,7 +154,7 @@ class AtticShowHandler extends BaseCommand {
     const tbdRoot = await requireInit();
 
     const normalizedId = normalizeIssueId(id);
-    const entries = await listAtticEntries(normalizedId);
+    const entries = await listAtticEntries(tbdRoot, normalizedId);
 
     // Find entry matching timestamp (approximate match for different formats)
     const entry = entries.find(
@@ -203,7 +203,7 @@ class AtticRestoreHandler extends BaseCommand {
     const tbdRoot = await requireInit();
 
     const normalizedId = normalizeIssueId(id);
-    const entries = await listAtticEntries(normalizedId);
+    const entries = await listAtticEntries(tbdRoot, normalizedId);
 
     // Find entry matching timestamp
     const entry = entries.find(

@@ -5,20 +5,15 @@
  */
 
 import { Command } from 'commander';
-import { readFile } from 'node:fs/promises';
-import { parse as parseYaml } from 'yaml';
-import { writeFile } from 'atomically';
-
-import { stringifyYaml } from '../../utils/yaml-utils.js';
 
 import { BaseCommand } from '../lib/base-command.js';
 import { applyLimit } from '../lib/limit-utils.js';
 import { loadDataContext, type TbdDataContext } from '../lib/data-context.js';
 import { requireInit, NotInitializedError, ValidationError } from '../lib/errors.js';
 import { listIssues } from '../../file/storage.js';
+import { readLocalState, updateLocalState } from '../../file/config.js';
 import { IssueStatus } from '../../lib/schemas.js';
-import type { Issue, IssueStatusType, LocalState } from '../../lib/types.js';
-import { STATE_FILE } from '../../lib/paths.js';
+import type { Issue, IssueStatusType } from '../../lib/types.js';
 import { formatTimestampAgo } from '../../lib/format-utils.js';
 import { now } from '../../utils/time-utils.js';
 import { formatDisplayId, formatDebugId } from '../../lib/ids.js';
@@ -41,55 +36,20 @@ interface SearchResult {
   matchText: string;
 }
 
-/**
- * Read local state file.
- */
-async function readState(): Promise<LocalState> {
-  try {
-    const content = await readFile(STATE_FILE, 'utf-8');
-    return parseYaml(content) as LocalState;
-  } catch {
-    return {};
-  }
-}
-
-/**
- * Update local state file.
- */
-async function updateState(updates: Partial<LocalState>): Promise<void> {
-  const state = await readState();
-  const newState = { ...state, ...updates };
-  await writeFile(STATE_FILE, stringifyYaml(newState));
-}
-
-/**
- * Check if worktree is stale and needs refresh.
- */
-async function isWorktreeStale(): Promise<boolean> {
-  const state = await readState();
-  if (!state.last_sync_at) {
-    return true; // Never synced
-  }
-
-  const lastSync = new Date(state.last_sync_at).getTime();
-  const now = Date.now();
-  return now - lastSync > STALE_THRESHOLD_MS;
-}
-
 class SearchHandler extends BaseCommand {
   async run(query: string, options: SearchOptions): Promise<void> {
     const tbdRoot = await requireInit();
 
     // Check worktree staleness and auto-refresh if needed
     if (!options.noRefresh) {
-      const state = await readState();
-      const stale = await isWorktreeStale();
+      const state = await readLocalState(tbdRoot);
+      const lastSync = state.last_sync_at ? new Date(state.last_sync_at).getTime() : 0;
+      const stale = Date.now() - lastSync > STALE_THRESHOLD_MS;
       if (stale) {
         const lastSyncAgo = formatTimestampAgo(state.last_sync_at);
         const staleInfo = lastSyncAgo ? ` (last synced ${lastSyncAgo})` : '';
         this.output.info(`Refreshing worktree${staleInfo}...`);
-        // Update state to mark as fresh (in a full implementation, would actually sync)
-        await updateState({ last_sync_at: now() });
+        await updateLocalState(tbdRoot, { last_sync_at: now() });
       }
     }
 
