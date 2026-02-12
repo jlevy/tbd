@@ -20,6 +20,12 @@ import { now } from '../../utils/time-utils.js';
 import { loadIdMapping, resolveToInternalId, type IdMapping } from '../../file/id-mapping.js';
 import { readConfig } from '../../file/config.js';
 import { resolveAndValidatePath, getPathErrorMessage } from '../../lib/project-paths.js';
+import {
+  inheritFromParent,
+  propagateToChildren,
+  captureInheritableValues,
+} from '../../lib/inheritable-fields.js';
+import { parseGitHubIssueUrl, validateGitHubIssue } from '../../file/github-issues.js';
 
 interface UpdateOptions {
   fromFile?: string;
@@ -37,6 +43,7 @@ interface UpdateOptions {
   removeLabel?: string[];
   parent?: string;
   spec?: string;
+  externalIssue?: string;
   childOrder?: string;
 }
 
@@ -73,8 +80,8 @@ class UpdateHandler extends BaseCommand {
       return;
     }
 
-    // Capture old spec_path before applying updates (for propagation)
-    const oldSpecPath = issue.spec_path;
+    // Capture old inheritable field values before applying updates (for propagation)
+    const oldInheritableValues = captureInheritableValues(issue);
 
     // Apply updates
     if (updates.title !== undefined) issue.title = updates.title;
@@ -88,16 +95,19 @@ class UpdateHandler extends BaseCommand {
     if (updates.deferred_until !== undefined) issue.deferred_until = updates.deferred_until;
     if (updates.parent_id !== undefined) issue.parent_id = updates.parent_id;
     if (updates.spec_path !== undefined) issue.spec_path = updates.spec_path;
+    if (updates.external_issue_url !== undefined)
+      issue.external_issue_url = updates.external_issue_url;
     if (updates.child_order_hints !== undefined)
       issue.child_order_hints = updates.child_order_hints;
 
-    // Inherit spec_path from new parent when re-parenting without explicit --spec
-    if (updates.parent_id && options.spec === undefined && !issue.spec_path) {
+    // Inherit inheritable fields from new parent when re-parenting
+    if (updates.parent_id) {
       try {
         const parentIssue = await readIssue(dataSyncDir, updates.parent_id);
-        if (parentIssue.spec_path) {
-          issue.spec_path = parentIssue.spec_path;
-        }
+        const explicitlySet = new Set<string>();
+        if (options.spec !== undefined) explicitlySet.add('spec_path');
+        if (options.externalIssue !== undefined) explicitlySet.add('external_issue_url');
+        inheritFromParent(issue, parentIssue, explicitlySet);
       } catch {
         // Parent not found — skip inheritance
       }
@@ -148,19 +158,18 @@ class UpdateHandler extends BaseCommand {
       }
     }
 
-    // Propagate spec_path to children when parent's spec changes
-    if (updates.spec_path !== undefined && issue.spec_path && issue.spec_path !== oldSpecPath) {
-      const allIssues = await listIssues(dataSyncDir);
-      const children = allIssues.filter((i) => i.parent_id === issue.id);
+    // Propagate inheritable field changes to children
+    const allIssues = await listIssues(dataSyncDir);
+    const children = allIssues.filter((i) => i.parent_id === issue.id);
+    if (children.length > 0) {
       const timestamp = now();
-      for (const child of children) {
-        if (!child.spec_path || child.spec_path === oldSpecPath) {
-          child.spec_path = issue.spec_path;
-          child.version += 1;
-          child.updated_at = timestamp;
-          await writeIssue(dataSyncDir, child);
-        }
-      }
+      await propagateToChildren(
+        issue,
+        oldInheritableValues,
+        children,
+        (child) => writeIssue(dataSyncDir, child),
+        timestamp,
+      );
     }
 
     // Use already loaded mapping for display
@@ -192,6 +201,7 @@ class UpdateHandler extends BaseCommand {
     deferred_until?: string | null;
     parent_id?: string | null;
     spec_path?: string | null;
+    external_issue_url?: string | null;
     child_order_hints?: string[] | null;
     addLabels?: string[];
     removeLabels?: string[];
@@ -209,6 +219,7 @@ class UpdateHandler extends BaseCommand {
       deferred_until?: string | null;
       parent_id?: string | null;
       spec_path?: string | null;
+      external_issue_url?: string | null;
       child_order_hints?: string[] | null;
       addLabels?: string[];
       removeLabels?: string[];
@@ -278,6 +289,16 @@ class UpdateHandler extends BaseCommand {
             }
           } else {
             updates.spec_path = null;
+          }
+        }
+        if (frontmatter.external_issue_url !== undefined) {
+          if (
+            typeof frontmatter.external_issue_url === 'string' &&
+            frontmatter.external_issue_url
+          ) {
+            updates.external_issue_url = frontmatter.external_issue_url;
+          } else {
+            updates.external_issue_url = null;
           }
         }
         if (Array.isArray(frontmatter.labels)) {
@@ -383,6 +404,34 @@ class UpdateHandler extends BaseCommand {
       }
     }
 
+    if (options.externalIssue !== undefined) {
+      if (options.externalIssue) {
+        // Non-empty: validate URL format and check with GitHub API
+        const config = await readConfig(tbdRoot);
+        if (config.settings.use_gh_cli === false) {
+          throw new ValidationError(
+            'External issue linking requires GitHub CLI. Set use_gh_cli: true in config or run `tbd setup --auto`.',
+          );
+        }
+        const ref = parseGitHubIssueUrl(options.externalIssue);
+        if (!ref) {
+          throw new ValidationError(
+            'Invalid URL. Expected a GitHub issue or pull request URL like https://github.com/owner/repo/issues/123',
+          );
+        }
+        const exists = await validateGitHubIssue(ref);
+        if (!exists) {
+          throw new ValidationError(
+            'Issue or pull request not found or not accessible. Check the URL and your GitHub authentication (`gh auth status`).',
+          );
+        }
+        updates.external_issue_url = options.externalIssue;
+      } else {
+        // Empty string: clear the external issue URL
+        updates.external_issue_url = null;
+      }
+    }
+
     if (options.addLabel && options.addLabel.length > 0) {
       updates.addLabels = options.addLabel;
     }
@@ -435,6 +484,10 @@ export const updateCommand = new Command('update')
   .option('--remove-label <label>', 'Remove label', (val, prev: string[] = []) => [...prev, val])
   .option('--parent <id>', 'Set parent')
   .option('--spec <path>', 'Set or clear spec path (empty string clears)')
+  .option(
+    '--external-issue <url>',
+    'Set or clear external issue (empty clears). Requires use_gh_cli: true',
+  )
   .option('--child-order <ids>', 'Set child ordering hints (comma-separated IDs)')
   .action(async (id, options, command) => {
     const handler = new UpdateHandler(command);

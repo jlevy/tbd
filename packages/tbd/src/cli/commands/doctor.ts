@@ -7,8 +7,12 @@
  */
 
 import { Command } from 'commander';
+import { execFile } from 'node:child_process';
 import { access, readdir, readFile, unlink } from 'node:fs/promises';
 import { join } from 'node:path';
+import { promisify } from 'node:util';
+
+const execFileAsync = promisify(execFile);
 
 import { BaseCommand } from '../lib/base-command.js';
 import { requireInit } from '../lib/errors.js';
@@ -140,6 +144,9 @@ class DoctorHandler extends BaseCommand {
 
     // Integration 2: Codex AGENTS.md (also used by Cursor since v1.6)
     integrationChecks.push(await this.checkCodexAgents());
+
+    // Integration 3: GitHub CLI (gh)
+    integrationChecks.push(await this.checkGhCli());
 
     // Combine for overall status
     const allChecks = [...healthChecks, ...integrationChecks];
@@ -597,6 +604,46 @@ class DoctorHandler extends BaseCommand {
         message: 'not installed',
         path: AGENTS_MD_REL,
         suggestion: 'Run: tbd setup --auto',
+      };
+    }
+  }
+
+  /**
+   * Check GitHub CLI (gh) availability and authentication.
+   * Reports "disabled" when use_gh_cli is false, warns if not found or unauthenticated.
+   */
+  private async checkGhCli(): Promise<DiagnosticResult> {
+    // If use_gh_cli is false, report as disabled (not an error)
+    if (this.config?.settings?.use_gh_cli === false) {
+      return {
+        name: 'GitHub CLI (gh)',
+        status: 'ok',
+        message: 'disabled (use_gh_cli: false)',
+      };
+    }
+
+    // Check if gh is available
+    try {
+      await execFileAsync('gh', ['--version']);
+    } catch {
+      return {
+        name: 'GitHub CLI (gh)',
+        status: 'warn',
+        message: 'not found in PATH',
+        suggestion: 'Run: tbd setup --auto, or set use_gh_cli: false in config',
+      };
+    }
+
+    // Check auth
+    try {
+      await execFileAsync('gh', ['auth', 'status']);
+      return { name: 'GitHub CLI (gh)', status: 'ok' };
+    } catch {
+      return {
+        name: 'GitHub CLI (gh)',
+        status: 'warn',
+        message: 'not authenticated',
+        suggestion: 'Run: gh auth login, or set GH_TOKEN env var',
       };
     }
   }

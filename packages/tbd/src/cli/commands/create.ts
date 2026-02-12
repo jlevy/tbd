@@ -25,6 +25,8 @@ import { resolveDataSyncDir } from '../../lib/paths.js';
 import { now } from '../../utils/time-utils.js';
 import { readConfig } from '../../file/config.js';
 import { resolveAndValidatePath, getPathErrorMessage } from '../../lib/project-paths.js';
+import { inheritFromParent } from '../../lib/inheritable-fields.js';
+import { parseGitHubIssueUrl, validateGitHubIssue } from '../../file/github-issues.js';
 
 interface CreateOptions {
   fromFile?: string;
@@ -38,6 +40,7 @@ interface CreateOptions {
   parent?: string;
   label?: string[];
   spec?: string;
+  externalIssue?: string;
 }
 
 class CreateHandler extends BaseCommand {
@@ -75,6 +78,30 @@ class CreateHandler extends BaseCommand {
       }
     }
 
+    // Validate and resolve external issue URL if provided
+    let externalIssueUrl: string | undefined;
+    if (options.externalIssue) {
+      const config = await readConfig(tbdRoot);
+      if (config.settings.use_gh_cli === false) {
+        throw new ValidationError(
+          'External issue linking requires GitHub CLI. Set use_gh_cli: true in config or run `tbd setup --auto`.',
+        );
+      }
+      const ref = parseGitHubIssueUrl(options.externalIssue);
+      if (!ref) {
+        throw new ValidationError(
+          'Invalid URL. Expected a GitHub issue or pull request URL like https://github.com/owner/repo/issues/123',
+        );
+      }
+      const exists = await validateGitHubIssue(ref);
+      if (!exists) {
+        throw new ValidationError(
+          'Issue or pull request not found or not accessible. Check the URL and your GitHub authentication (`gh auth status`).',
+        );
+      }
+      externalIssueUrl = options.externalIssue;
+    }
+
     if (
       this.checkDryRun('Would create issue', { title, kind, priority, spec: specPath, ...options })
     ) {
@@ -110,14 +137,7 @@ class CreateHandler extends BaseCommand {
         }
       }
 
-      // Inherit spec_path from parent if not explicitly provided
-      if (!specPath && parentId) {
-        const parentIssue = await readIssue(dataSyncDir, parentId);
-        if (parentIssue.spec_path) {
-          specPath = parentIssue.spec_path;
-        }
-      }
-
+      // Build issue data
       issue = {
         type: 'is',
         id,
@@ -136,7 +156,17 @@ class CreateHandler extends BaseCommand {
         deferred_until: options.defer ?? undefined,
         parent_id: parentId,
         spec_path: specPath,
+        external_issue_url: externalIssueUrl,
       };
+
+      // Inherit inheritable fields from parent if not explicitly provided
+      if (parentId) {
+        const parentIssue = await readIssue(dataSyncDir, parentId);
+        const explicitlySet = new Set<string>();
+        if (options.spec) explicitlySet.add('spec_path');
+        if (options.externalIssue) explicitlySet.add('external_issue_url');
+        inheritFromParent(issue, parentIssue, explicitlySet);
+      }
 
       // Write both the issue and the mapping
       await writeIssue(dataSyncDir, issue);
@@ -199,6 +229,10 @@ export const createCommand = new Command('create')
   .option('--defer <date>', 'Defer until date (ISO8601)')
   .option('--parent <id>', 'Parent issue ID')
   .option('--spec <path>', 'Link to spec document (relative path)')
+  .option(
+    '--external-issue <url>',
+    'Link to GitHub issue or PR (e.g., https://github.com/owner/repo/issues/123). Requires use_gh_cli: true',
+  )
   .option('-l, --label <label>', 'Add label (repeatable)', (val, prev: string[] = []) => [
     ...prev,
     val,

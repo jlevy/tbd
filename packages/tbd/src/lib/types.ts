@@ -88,6 +88,7 @@ export interface CreateIssueOptions {
   parent_id?: string;
   due_date?: string;
   deferred_until?: string;
+  external_issue_url?: string | null;
 }
 
 /**
@@ -106,6 +107,7 @@ export interface UpdateIssueOptions {
   parent_id?: string | null;
   due_date?: string | null;
   deferred_until?: string | null;
+  external_issue_url?: string | null;
 }
 
 /**

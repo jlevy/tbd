@@ -148,6 +148,9 @@ export const IssueSchema = BaseEntity.extend({
 
   // Spec linking - path to related spec/doc (relative to repo root)
   spec_path: z.string().nullable().optional(),
+
+  // External issue linking - URL to linked GitHub issue or PR
+  external_issue_url: z.string().url().nullable().optional(),
 });
 
 // =============================================================================

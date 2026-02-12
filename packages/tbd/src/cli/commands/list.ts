@@ -39,6 +39,7 @@ interface ListOptions {
   label?: string[];
   parent?: string;
   spec?: string;
+  externalIssue?: string;
   deferred?: boolean;
   deferBefore?: string;
   sort?: string;
@@ -94,6 +95,7 @@ class ListHandler extends BaseCommand {
       assignee: i.assignee ?? undefined,
       labels: i.labels,
       spec_path: i.spec_path ?? undefined,
+      external_issue_url: i.external_issue_url ?? undefined,
       // Use internal IDs for order hints (buildIssueTree compares against internal IDs)
       child_order_hints: i.child_order_hints ?? undefined,
     }));
@@ -250,6 +252,18 @@ class ListHandler extends BaseCommand {
         }
       }
 
+      // External issue filter
+      if (options.externalIssue) {
+        if (!issue.external_issue_url) return false;
+        // If a specific URL is given (not just the flag), match it exactly
+        if (
+          typeof options.externalIssue === 'string' &&
+          issue.external_issue_url !== options.externalIssue
+        ) {
+          return false;
+        }
+      }
+
       // Deferred filter
       if (options.deferred && issue.status !== 'deferred') {
         return false;
@@ -301,6 +315,10 @@ export const listCommand = new Command('list')
   .option(
     '--spec <path>',
     'Filter by spec path (matches full path, partial path suffix, or filename)',
+  )
+  .option(
+    '--external-issue [url]',
+    'Filter by external issue (URL optional, shows all linked if no URL given)',
   )
   .option('--deferred', 'Show only deferred issues')
   .option('--defer-before <date>', 'Deferred before date')
