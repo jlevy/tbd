@@ -27,6 +27,7 @@
  */
 
 import { join } from 'node:path';
+import { type DocTypeName, getDocTypeDirectory } from './doc-types.js';
 
 /** The tbd configuration directory on main branch */
 export const TBD_DIR = '.tbd';
@@ -168,38 +169,33 @@ export function isValidWorkspaceName(name: string): boolean {
 /** Docs directory name within .tbd/ */
 export const DOCS_DIR = 'docs';
 
-/** Shortcuts directory name within docs/ */
+/** Doc type directory names */
 export const SHORTCUTS_DIR = 'shortcuts';
-
-/** System shortcuts directory name (core docs like skill-baseline.md) */
-export const SYSTEM_DIR = 'system';
-
-/** Standard shortcuts directory name (workflow shortcuts) */
-export const STANDARD_DIR = 'standard';
-
-/** Guidelines directory name (coding rules and best practices) */
 export const GUIDELINES_DIR = 'guidelines';
-
-/** Templates directory name (document templates) */
 export const TEMPLATES_DIR = 'templates';
+
+/** Prefix names for doc sources */
+export const SYS_PREFIX = 'sys';
+export const TBD_PREFIX = 'tbd';
+
+/** @deprecated Legacy directory names kept for backward compatibility */
+export const SYSTEM_DIR = 'system';
+export const STANDARD_DIR = 'standard';
 
 /** Full path to docs directory: .tbd/docs/ */
 export const TBD_DOCS_DIR = join(TBD_DIR, DOCS_DIR);
 
-/** Full path to shortcuts directory: .tbd/docs/shortcuts/ */
-export const TBD_SHORTCUTS_DIR = join(TBD_DOCS_DIR, SHORTCUTS_DIR);
+/** Full path to system shortcuts: .tbd/docs/sys/shortcuts/ */
+export const TBD_SHORTCUTS_SYSTEM = join(TBD_DOCS_DIR, SYS_PREFIX, SHORTCUTS_DIR);
 
-/** Full path to system shortcuts: .tbd/docs/shortcuts/system/ */
-export const TBD_SHORTCUTS_SYSTEM = join(TBD_SHORTCUTS_DIR, SYSTEM_DIR);
+/** Full path to standard shortcuts: .tbd/docs/tbd/shortcuts/ */
+export const TBD_SHORTCUTS_STANDARD = join(TBD_DOCS_DIR, TBD_PREFIX, SHORTCUTS_DIR);
 
-/** Full path to standard shortcuts: .tbd/docs/shortcuts/standard/ */
-export const TBD_SHORTCUTS_STANDARD = join(TBD_SHORTCUTS_DIR, STANDARD_DIR);
+/** Full path to guidelines: .tbd/docs/tbd/guidelines/ */
+export const TBD_GUIDELINES_DIR = join(TBD_DOCS_DIR, TBD_PREFIX, GUIDELINES_DIR);
 
-/** Full path to guidelines: .tbd/docs/guidelines/ (top-level, not under shortcuts) */
-export const TBD_GUIDELINES_DIR = join(TBD_DOCS_DIR, GUIDELINES_DIR);
-
-/** Full path to templates: .tbd/docs/templates/ (top-level, not under shortcuts) */
-export const TBD_TEMPLATES_DIR = join(TBD_DOCS_DIR, TEMPLATES_DIR);
+/** Full path to templates: .tbd/docs/tbd/templates/ */
+export const TBD_TEMPLATES_DIR = join(TBD_DOCS_DIR, TBD_PREFIX, TEMPLATES_DIR);
 
 /** @deprecated Use TBD_GUIDELINES_DIR instead */
 export const TBD_SHORTCUTS_GUIDELINES = TBD_GUIDELINES_DIR;
@@ -207,14 +203,22 @@ export const TBD_SHORTCUTS_GUIDELINES = TBD_GUIDELINES_DIR;
 /** @deprecated Use TBD_TEMPLATES_DIR instead */
 export const TBD_SHORTCUTS_TEMPLATES = TBD_TEMPLATES_DIR;
 
-/** Built-in docs source paths (relative to package docs/) */
-export const BUILTIN_SHORTCUTS_SYSTEM = join(SHORTCUTS_DIR, SYSTEM_DIR);
-export const BUILTIN_SHORTCUTS_STANDARD = join(SHORTCUTS_DIR, STANDARD_DIR);
+/** @deprecated Legacy path constant */
+export const TBD_SHORTCUTS_DIR = join(TBD_DOCS_DIR, SHORTCUTS_DIR);
 
-/** Built-in guidelines source path (relative to package docs/) */
+/** Built-in docs source paths (relative to package docs/, prefix-based) */
+export const BUILTIN_SYS_SHORTCUTS = join(SYS_PREFIX, SHORTCUTS_DIR);
+export const BUILTIN_TBD_SHORTCUTS = join(TBD_PREFIX, SHORTCUTS_DIR);
+export const BUILTIN_TBD_GUIDELINES = join(TBD_PREFIX, GUIDELINES_DIR);
+export const BUILTIN_TBD_TEMPLATES = join(TBD_PREFIX, TEMPLATES_DIR);
+
+/** @deprecated Use BUILTIN_SYS_SHORTCUTS instead */
+export const BUILTIN_SHORTCUTS_SYSTEM = BUILTIN_SYS_SHORTCUTS;
+/** @deprecated Use BUILTIN_TBD_SHORTCUTS instead */
+export const BUILTIN_SHORTCUTS_STANDARD = BUILTIN_TBD_SHORTCUTS;
+/** @deprecated Use BUILTIN_TBD_GUIDELINES instead */
 export const BUILTIN_GUIDELINES_DIR = GUIDELINES_DIR;
-
-/** Built-in templates source path (relative to package docs/) */
+/** @deprecated Use BUILTIN_TBD_TEMPLATES instead */
 export const BUILTIN_TEMPLATES_DIR = TEMPLATES_DIR;
 
 /** Install directory name (header files for tool-specific installation) */
@@ -224,28 +228,21 @@ export const INSTALL_DIR = 'install';
 export const BUILTIN_INSTALL_DIR = INSTALL_DIR;
 
 /**
- * Default shortcut lookup paths (searched in order, relative to tbd root).
- * Earlier paths take precedence over later paths.
- * Note: Guidelines and templates are now separate top-level directories.
+ * Get default lookup paths for a doc type, derived from the doc-types registry.
+ *
+ * Shortcuts get two lookup directories (sys + tbd prefixes).
+ * All other types get a single tbd-prefixed directory.
+ *
+ * @param typeName - The doc type name from the registry
+ * @returns Array of paths relative to tbd root (e.g., '.tbd/docs/tbd/guidelines')
  */
-export const DEFAULT_SHORTCUT_PATHS = [
-  TBD_SHORTCUTS_SYSTEM, // .tbd/docs/shortcuts/system/
-  TBD_SHORTCUTS_STANDARD, // .tbd/docs/shortcuts/standard/
-];
-
-/**
- * Default guidelines lookup paths (relative to tbd root).
- */
-export const DEFAULT_GUIDELINES_PATHS = [
-  TBD_GUIDELINES_DIR, // .tbd/docs/guidelines/
-];
-
-/**
- * Default template lookup paths (relative to tbd root).
- */
-export const DEFAULT_TEMPLATE_PATHS = [
-  TBD_TEMPLATES_DIR, // .tbd/docs/templates/
-];
+export function getDefaultDocPaths(typeName: DocTypeName): string[] {
+  const dir = getDocTypeDirectory(typeName);
+  if (typeName === 'shortcut') {
+    return [join(TBD_DOCS_DIR, SYS_PREFIX, dir), join(TBD_DOCS_DIR, TBD_PREFIX, dir)];
+  }
+  return [join(TBD_DOCS_DIR, TBD_PREFIX, dir)];
+}
 
 /**
  * Get the full path to an issue file.

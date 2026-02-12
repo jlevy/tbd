@@ -12,7 +12,7 @@ import { writeFile } from 'atomically';
 
 import { readConfig, writeConfig } from './config.js';
 import { githubBlobToRawUrl, fetchWithGhFallback } from './github-fetch.js';
-import { TBD_DOCS_DIR } from '../lib/paths.js';
+import { TBD_DOCS_DIR, TBD_PREFIX } from '../lib/paths.js';
 
 // =============================================================================
 // Types
@@ -21,7 +21,7 @@ import { TBD_DOCS_DIR } from '../lib/paths.js';
 /**
  * The type of document being added.
  */
-export type DocType = 'guideline' | 'shortcut' | 'template';
+export type DocType = 'guideline' | 'shortcut' | 'template' | 'reference';
 
 /**
  * Options for adding a document.
@@ -94,9 +94,11 @@ export function getDocTypeSubdir(docType: DocType): string {
     case 'guideline':
       return 'guidelines';
     case 'shortcut':
-      return 'shortcuts/custom';
+      return 'shortcuts';
     case 'template':
       return 'templates';
+    case 'reference':
+      return 'references';
   }
 }
 
@@ -123,7 +125,8 @@ export async function addDoc(tbdRoot: string, options: AddDocOptions): Promise<A
   const cleanName = name.endsWith('.md') ? name.slice(0, -3) : name;
   const filename = `${cleanName}.md`;
   const subdir = getDocTypeSubdir(docType);
-  const destPath = `${subdir}/${filename}`;
+  // User-added docs go into the tbd/ prefix directory
+  const destPath = `${TBD_PREFIX}/${subdir}/${filename}`;
   const rawUrl = githubBlobToRawUrl(url);
 
   // Fetch content
@@ -132,7 +135,7 @@ export async function addDoc(tbdRoot: string, options: AddDocOptions): Promise<A
   // Validate content
   validateDocContent(content, cleanName);
 
-  // Write file to .tbd/docs/{subdir}/{name}.md
+  // Write file to .tbd/docs/tbd/{subdir}/{name}.md
   const fullPath = join(tbdRoot, TBD_DOCS_DIR, destPath);
   await mkdir(dirname(fullPath), { recursive: true });
   await writeFile(fullPath, content);
@@ -143,8 +146,8 @@ export async function addDoc(tbdRoot: string, options: AddDocOptions): Promise<A
   config.docs_cache.files ??= {};
   config.docs_cache.files[destPath] = rawUrl;
 
-  // Ensure the lookup_path includes the subdir
-  const lookupDir = `.tbd/docs/${subdir}`;
+  // Ensure the lookup_path includes the prefixed subdir
+  const lookupDir = `.tbd/docs/${TBD_PREFIX}/${subdir}`;
   if (!config.docs_cache.lookup_path.includes(lookupDir)) {
     config.docs_cache.lookup_path.push(lookupDir);
   }

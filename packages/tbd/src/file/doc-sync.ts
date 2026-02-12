@@ -8,6 +8,7 @@
 
 import { readdir, readFile, rm, mkdir, access } from 'node:fs/promises';
 import { join, dirname } from 'node:path';
+import { createHash } from 'node:crypto';
 import { writeFile } from 'atomically';
 import { fileURLToPath } from 'node:url';
 
@@ -93,8 +94,8 @@ export class DocSync {
    * Parse a source string into a DocSource.
    *
    * @example
-   * parseSource('internal:shortcuts/standard/code-review-and-commit.md')
-   * // => { type: 'internal', location: 'shortcuts/standard/code-review-and-commit.md' }
+   * parseSource('internal:tbd/shortcuts/code-review-and-commit.md')
+   * // => { type: 'internal', location: 'tbd/shortcuts/code-review-and-commit.md' }
    *
    * @example
    * parseSource('https://raw.githubusercontent.com/org/repo/main/file.md')
@@ -332,12 +333,12 @@ export async function generateDefaultDocCacheConfig(): Promise<Record<string, st
     return config;
   }
 
-  // Directories to scan
+  // Directories to scan (prefix-based layout)
   const scanDirs = [
-    { subdir: 'shortcuts/system', prefix: 'shortcuts/system' },
-    { subdir: 'shortcuts/standard', prefix: 'shortcuts/standard' },
-    { subdir: 'guidelines', prefix: 'guidelines' },
-    { subdir: 'templates', prefix: 'templates' },
+    { subdir: 'sys/shortcuts', prefix: 'sys/shortcuts' },
+    { subdir: 'tbd/shortcuts', prefix: 'tbd/shortcuts' },
+    { subdir: 'tbd/guidelines', prefix: 'tbd/guidelines' },
+    { subdir: 'tbd/templates', prefix: 'tbd/templates' },
   ];
 
   for (const { subdir, prefix } of scanDirs) {
@@ -495,6 +496,173 @@ export async function pruneStaleInternals(
   return { config: result, pruned };
 }
 
+// =============================================================================
+// Source-based resolution (Phase 1)
+// =============================================================================
+
+/** A source entry matching DocsSourceSchema shape. */
+interface SourceEntry {
+  type: 'internal' | 'repo';
+  prefix: string;
+  url?: string;
+  ref?: string;
+  paths: string[];
+  hidden?: boolean;
+}
+
+/**
+ * Resolve an array of doc sources into a flat file map.
+ *
+ * For each source:
+ * - internal: scans bundled docs at {prefix}/{path} and generates internal: entries
+ * - repo: (future) uses RepoCache to checkout and scan
+ *
+ * Files overrides are applied last, taking highest precedence.
+ *
+ * @param sources - Array of source entries (from config.docs_cache.sources)
+ * @param filesOverrides - Optional file overrides (from config.docs_cache.files)
+ * @returns Flat map of destination path → source string
+ */
+export async function resolveSourcesToDocs(
+  sources: SourceEntry[],
+  filesOverrides?: Record<string, string>,
+): Promise<Record<string, string>> {
+  const result: Record<string, string> = {};
+
+  for (const source of sources) {
+    if (source.type === 'internal') {
+      await resolveInternalSource(source, result);
+    }
+    // repo type will be added in Phase 2
+  }
+
+  // Apply files overrides last (highest precedence)
+  if (filesOverrides) {
+    for (const [dest, src] of Object.entries(filesOverrides)) {
+      result[dest] = src;
+    }
+  }
+
+  return result;
+}
+
+/**
+ * Resolve an internal source by scanning bundled docs.
+ */
+async function resolveInternalSource(
+  source: SourceEntry,
+  result: Record<string, string>,
+): Promise<void> {
+  const basePaths = getDocsBasePath();
+
+  for (const pathPattern of source.paths) {
+    // Try each base path to find bundled docs
+    for (const basePath of basePaths) {
+      const scanDir = join(basePath, source.prefix, pathPattern);
+      try {
+        await access(scanDir);
+      } catch {
+        continue; // Try next base path
+      }
+
+      // Scan for .md files
+      const files = await scanMdFiles(scanDir);
+      for (const file of files) {
+        const destPath = `${source.prefix}/${pathPattern}${file}`;
+        const sourcePath = `internal:${source.prefix}/${pathPattern}${file}`;
+        result[destPath] = sourcePath;
+      }
+      break; // Found in this base path, no need to check others
+    }
+  }
+}
+
+/**
+ * Recursively scan a directory for .md files.
+ * Returns paths relative to the given directory.
+ */
+async function scanMdFiles(dirPath: string): Promise<string[]> {
+  const results: string[] = [];
+
+  try {
+    const entries = await readdir(dirPath, { withFileTypes: true });
+    for (const entry of entries) {
+      if (entry.isDirectory()) {
+        const subResults = await scanMdFiles(join(dirPath, entry.name));
+        for (const sub of subResults) {
+          results.push(`${entry.name}/${sub}`);
+        }
+      } else if (entry.isFile() && entry.name.endsWith('.md')) {
+        results.push(entry.name);
+      }
+    }
+  } catch {
+    // Directory doesn't exist or not readable
+  }
+
+  return results;
+}
+
+/**
+ * Compute a deterministic hash of a sources array.
+ *
+ * Used to detect when source configuration changes, triggering a cache clear.
+ * Returns the first 8 hex characters of a SHA256 hash.
+ */
+export function getSourcesHash(sources: SourceEntry[]): string {
+  const hash = createHash('sha256');
+  hash.update(JSON.stringify(sources));
+  return hash.digest('hex').slice(0, 8);
+}
+
+/** Path to the sources hash file within .tbd/docs/. */
+const SOURCES_HASH_FILE = '.sources-hash';
+
+/**
+ * Read the stored sources hash from .tbd/docs/.sources-hash.
+ * Returns undefined if the file doesn't exist.
+ */
+export async function readSourcesHash(tbdRoot: string): Promise<string | undefined> {
+  const hashPath = join(tbdRoot, TBD_DOCS_DIR, SOURCES_HASH_FILE);
+  try {
+    const content = await readFile(hashPath, 'utf-8');
+    return content.trim();
+  } catch {
+    return undefined;
+  }
+}
+
+/**
+ * Write the sources hash to .tbd/docs/.sources-hash.
+ */
+export async function writeSourcesHash(tbdRoot: string, hash: string): Promise<void> {
+  const docsDir = join(tbdRoot, TBD_DOCS_DIR);
+  await mkdir(docsDir, { recursive: true });
+  const hashPath = join(docsDir, SOURCES_HASH_FILE);
+  await writeFile(hashPath, hash + '\n');
+}
+
+/**
+ * Check if the docs cache should be cleared.
+ *
+ * Returns true if:
+ * - No hash file exists (first sync or post-migration)
+ * - Hash doesn't match current sources config
+ *
+ * .tbd/docs/ is gitignored and fully regenerable, so clearing is safe.
+ */
+export async function shouldClearDocsCache(
+  tbdRoot: string,
+  sources: SourceEntry[],
+): Promise<boolean> {
+  const storedHash = await readSourcesHash(tbdRoot);
+  if (!storedHash) {
+    return true;
+  }
+  const currentHash = getSourcesHash(sources);
+  return storedHash !== currentHash;
+}
+
 /**
  * Deep equality check for config objects.
  */
@@ -555,18 +723,18 @@ export async function syncDocsWithDefaults(
   const docSync = new DocSync(tbdRoot, prunedConfig);
   const syncResult = await docSync.sync({ dryRun: options.dryRun });
 
-  // 6. Check if config changed
-  const configChanged = !configsEqual(prunedConfig, originalFiles);
+  // 6. Check if config changed (files or lookup_path)
+  const defaultLookupPath = ['.tbd/docs/sys/shortcuts', '.tbd/docs/tbd/shortcuts'];
+  const currentLookupPath = config.docs_cache?.lookup_path ?? [];
+  const lookupPathChanged =
+    currentLookupPath.length !== defaultLookupPath.length ||
+    currentLookupPath.some((p, i) => p !== defaultLookupPath[i]);
+  const configChanged = !configsEqual(prunedConfig, originalFiles) || lookupPathChanged;
 
   // 7. Write config if changed (and not dry run)
   if (configChanged && !options.dryRun) {
-    // Preserve existing lookup_path or use default
-    const lookupPath = config.docs_cache?.lookup_path ?? [
-      '.tbd/docs/shortcuts/system',
-      '.tbd/docs/shortcuts/standard',
-    ];
     config.docs_cache = {
-      lookup_path: lookupPath,
+      lookup_path: defaultLookupPath,
       files: prunedConfig,
     };
     await writeConfig(tbdRoot, config);

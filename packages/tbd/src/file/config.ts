@@ -169,7 +169,7 @@ export async function writeConfig(baseDir: string, config: Config): Promise<void
     const docsCacheComment = `# Documentation cache configuration.
 # files: Maps destination paths (relative to .tbd/docs/) to source locations.
 #   Sources can be:
-#   - internal: prefix for bundled docs (e.g., "internal:shortcuts/standard/code-review-and-commit.md")
+#   - internal: prefix for bundled docs (e.g., "internal:tbd/shortcuts/code-review-and-commit.md")
 #   - Full URL for external docs (e.g., "https://raw.githubusercontent.com/org/repo/main/file.md")
 # lookup_path: Search paths for doc lookup (like shell $PATH). Earlier paths take precedence.
 #
