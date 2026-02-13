@@ -173,19 +173,25 @@ The model for each sub-agent is determined by a priority chain:
 1. **`CLAUDE_CODE_SUBAGENT_MODEL`** environment variable — overrides model for **all**
    sub-agents globally
    ([model-config docs](https://code.claude.com/docs/en/model-config#environment-variables))
-2. **Per-sub-agent `model` field** — set in the sub-agent’s frontmatter configuration
+2. **Per-invocation `model` parameter on the Task tool** — when the parent agent spawns
+   a sub-agent, it can pass `model: "opus"` (or `"sonnet"`, `"haiku"`) directly on the
+   Task tool call. This is the most direct way the parent agent controls a specific
+   sub-agent invocation’s model, independent of the sub-agent’s definition.
+   The Task tool schema accepts `{"enum": ["sonnet", "opus", "haiku"]}`.
+3. **Per-sub-agent `model` field** — set in the sub-agent’s frontmatter configuration
    (for custom sub-agents) or hardcoded (for built-in sub-agents)
    ([sub-agents docs](https://code.claude.com/docs/en/sub-agents#choose-a-model))
-3. **`inherit`** — if model is omitted or set to `inherit`, uses the main conversation’s
+4. **`inherit`** — if model is omitted or set to `inherit`, uses the main conversation’s
    model ([sub-agents docs](https://code.claude.com/docs/en/sub-agents#choose-a-model):
    "If not specified, defaults to `inherit`")
 
 **Note on priority:** The docs confirm that `CLAUDE_CODE_SUBAGENT_MODEL` is “the model
 to use for subagents” and that per-agent `model` field defaults to `inherit` if omitted.
-However, the exact override precedence between `CLAUDE_CODE_SUBAGENT_MODEL` and an
-explicit per-agent `model` field (e.g., `model: sonnet` in a custom sub-agent) is not
-explicitly documented.
-The priority chain above is inferred from the env var’s purpose as a global override.
+The exact override precedence between `CLAUDE_CODE_SUBAGENT_MODEL`, the Task tool’s
+per-invocation `model` parameter, and an explicit per-agent `model` field (e.g.,
+`model: sonnet` in a custom sub-agent) is not explicitly documented.
+The priority chain above is inferred from specificity: env var as global override,
+per-invocation as call-site override, per-agent as definition-time default.
 
 Available model values for the `model` field: `sonnet`, `opus`, `haiku` (aliases), or
 `inherit` (use parent model).
@@ -647,7 +653,11 @@ Main agent:
 
 Background sub-agents:
 - Run concurrently while the main agent continues
-- Write output to a file that can be checked via Read or `tail`
+- **Write output to a file** — when `run_in_background: true` is set, the Task tool
+  result includes an `output_file` path.
+  The parent agent retrieves results by reading this file with the Read tool or `tail`
+  in Bash. This is the **only** way to get results from a background sub-agent — unlike
+  foreground sub-agents, results are not returned inline.
 - Inherit pre-approved permissions (auto-deny anything not pre-approved)
 - Cannot use MCP tools
 - Cannot ask clarifying questions (those tool calls fail but the sub-agent continues)
@@ -655,11 +665,18 @@ Background sub-agents:
 
 #### `max_turns` for Bounded Execution
 
-The `max_turns` parameter limits the number of agentic turns (API round-trips) a
-sub-agent can take. This is useful for:
+The `max_turns` parameter is a **first-class parameter on the Task tool** itself (not
+just a CLI flag).
+When the parent agent spawns a sub-agent via the Task tool, it can pass
+`max_turns: N` to limit the number of agentic turns (API round-trips) the sub-agent can
+take. The Task tool schema defines it as
+`{"exclusiveMinimum": 0, "maximum": 9007199254740991}`.
+
+This is useful for:
 - Preventing runaway sub-agents that consume too many tokens
 - Creating “time-boxed” exploration tasks
 - Implementing work-then-report patterns
+- Budgeting sub-agent work in orchestration loops (e.g., 20-30 turns per iteration)
 
 #### Agent Teams (Experimental) — For Complex Coordination
 
@@ -880,18 +897,21 @@ The **Agent SDK** (Python and TypeScript packages) provides even more programmat
 control:
 
 ```python
-# Python Agent SDK example (conceptual)
-from claude_code import ClaudeCode
+# PSEUDOCODE — illustrates the concept, not actual API.
+# Real SDK: `pip install claude-code-sdk`, import is `claude_code_sdk`.
+# See https://platform.claude.com/docs/en/agent-sdk/overview for actual usage.
 
-agent = ClaudeCode(
+from claude_code_sdk import claude_code  # actual import path
+
+result = claude_code(
+    prompt="Refactor the auth module",
     model="opus",
-    system_prompt="You are a refactoring specialist...",
-    allowed_tools=["Read", "Edit", "Bash"],
-    max_turns=20
+    options={
+        "system_prompt": "You are a refactoring specialist...",
+        "allowed_tools": ["Read", "Edit", "Bash"],
+        "max_turns": 20,
+    }
 )
-
-result = agent.run("Refactor the auth module")
-handoff = result.structured_output  # if using --json-schema
 ```
 
 ### 8. Comparison: Native Sub-Agents vs Agent Teams vs Outer Loop
@@ -1308,7 +1328,14 @@ cp "$TRANSCRIPT" "$BACKUP_DIR/transcript_$(date +%Y%m%d_%H%M%S).jsonl"
 exit 0
 ```
 
-**Inject handoff context after compaction:**
+**Inject handoff context after compaction (unreliable — see caveat):**
+
+**Caveat:** The `SessionStart` hook with `compact` matcher has a
+[known bug (Issue #15174)](https://github.com/anthropics/claude-code/issues/15174) — the
+hook executes but stdout may not be injected into context after compaction completes.
+This means the pattern below may silently fail.
+Test in your environment before relying on it, and prefer the `PreCompact` backup
+approach above as the more reliable hook-based strategy.
 
 ```json
 {
@@ -1323,11 +1350,6 @@ exit 0
   }
 }
 ```
-
-Note: The `SessionStart` hook with `compact` matcher has a
-[known bug](https://github.com/anthropics/claude-code/issues/15174) — the hook executes
-but stdout may not be injected into context after compaction completes.
-Test this in your environment.
 
 **Force handoff before session ends:**
 
