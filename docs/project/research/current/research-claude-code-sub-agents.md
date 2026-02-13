@@ -21,6 +21,70 @@ sub-agents, and how the system behaves across different environments (local CLI,
 VS Code, cloud). It also explores advanced orchestration patterns including
 loops, nested invocations ("Ralph Wiggum loops"), and custom compaction cycles.
 
+## Key Takeaways
+
+**These are the most actionable findings. Read these first.**
+
+### Forcing Opus on All Sub-Agents (Including Cloud)
+
+By default, Claude Code delegates codebase exploration and help queries to
+**Haiku** (a faster but less capable model). To force Opus everywhere, you
+need **two settings** — one for the main agent, one for sub-agents:
+
+```json
+// .claude/settings.json — commit this to your repo
+{
+  "model": "opus",
+  "env": {
+    "CLAUDE_CODE_SUBAGENT_MODEL": "claude-opus-4-6"
+  }
+}
+```
+
+This works in **all environments** — local CLI, VS Code, desktop, and Cloud.
+
+**In Claude Code Cloud specifically**, there are two reliable methods:
+
+1. **Project settings.json** (shown above) — best for teams, committed to git,
+   automatically picked up when the Cloud VM clones your repo.
+2. **Cloud environment dialog** — on claude.ai, edit your environment and add
+   env vars in `.env` format:
+   ```
+   CLAUDE_CODE_SUBAGENT_MODEL=claude-opus-4-6
+   ANTHROPIC_MODEL=opus
+   ```
+
+**What does NOT work:**
+- `export` in Bash — each Bash runs in a fresh shell; the variable is invisible
+  to Claude Code's agentic loop that spawns sub-agents.
+- `~/.claude/settings.json` — not available in Cloud (it's not in your repo).
+- `CLAUDE_ENV_FILE` — may only affect subsequent Bash commands, not sub-agent
+  spawning (read at startup).
+
+**To verify:** Run `/agents` in session to see all sub-agents and their
+configured models. Or ask: "What model are your sub-agents configured to use?"
+
+### Self-Managed Compaction Is Better Than Auto-Compaction
+
+Auto-compaction (at ~95% context) progressively loses critical context with
+each summarization pass. A better pattern: **the agent writes a structured
+handoff, then a fresh instance picks it up with a clean context window.**
+
+Three ways to implement this, from simplest to most powerful:
+
+1. **tbd agent-handoff shortcut** — run `tbd shortcut agent-handoff` to
+   generate a structured handoff prompt. Copy it into a new session.
+2. **Outer loop (`claude -p`)** — the agent spawns a fresh Claude Code
+   instance via Bash with a handoff document as the prompt. Each iteration
+   gets a clean context window. (See Section 10.)
+3. **Ralph Loop shell script** — a shell script runs `claude -p` in a loop,
+   reading/writing state files between iterations. Fully autonomous. (See
+   Section 10.)
+
+**Key insight:** Memory persists not in the model's context but in the
+**filesystem** — git commits, handoff files, tbd issues. Each fresh instance
+reads current state, does one unit of work, writes updated state.
+
 ## Questions to Answer
 
 1. How do Claude Code sub-agents work and what models do they use?
@@ -31,6 +95,8 @@ loops, nested invocations ("Ralph Wiggum loops"), and custom compaction cycles.
 6. Can sub-agents be orchestrated in loops or complex patterns?
 7. How does Claude-code-invoking-Claude-code compare to native sub-agents?
 8. Can we implement custom compaction/handoff cycles?
+9. How can a custom sub-agent delegation framework be built?
+10. How can an agent manage its own compaction — self-restart with a handoff?
 
 ## Scope
 
@@ -966,6 +1032,369 @@ fi
 This gives you fully custom delegation at the cost of managing the
 orchestration yourself.
 
+### 10. Self-Managed Compaction and Agent Self-Restart
+
+This section addresses a fundamental problem: **auto-compaction degrades
+quality progressively**, and there is no built-in way for an agent to
+"kill itself and rejuvenate" with a clean context window. We explore every
+available mechanism for an agent to manage its own context lifecycle.
+
+#### The Problem with Auto-Compaction
+
+Built-in auto-compaction triggers at ~95% context capacity. It uses an LLM
+call to summarize the conversation, then continues with the summary. Known
+problems:
+
+1. **Progressive context loss.** Each compaction summarizes the summary,
+   causing exponential detail loss. By the 2nd or 3rd compaction, critical
+   decisions, failed approaches, and nuanced understanding are typically gone.
+2. **Late trigger.** At 95% capacity, model performance is already degraded.
+   Practitioners recommend treating 70% as the practical ceiling.
+3. **Not task-aware.** Compaction fires purely on token count, not at semantic
+   boundaries (e.g., between phases of work).
+4. **Infinite compaction loops.** A known bug where Claude Code gets stuck
+   cycling between compaction and work.
+5. **Buffer overhead.** Claude Code reserves ~33K-45K tokens as buffer, so
+   usable context is less than the raw 200K.
+
+**Configuration:**
+
+```json
+// Trigger compaction earlier (at 70% instead of ~95%)
+{
+  "env": {
+    "CLAUDE_AUTOCOMPACT_PCT_OVERRIDE": "70"
+  }
+}
+```
+
+The `/compact` command also accepts custom focus instructions:
+```
+/compact focus on the authentication refactoring decisions and failed approaches
+```
+
+#### Approach 1: tbd Agent Handoff (Simplest)
+
+The `tbd shortcut agent-handoff` shortcut generates a structured handoff
+prompt optimized for the next agent. It captures:
+
+- Task and spec context
+- Current branch, PR, CI status
+- tbd issue IDs and statuses
+- Failed approaches and key decisions
+- Non-obvious setup requirements
+
+**Workflow:**
+
+```
+1. Agent detects it's getting long/complex
+2. Agent runs: tbd shortcut agent-handoff
+3. Output is a structured prompt
+4. User pastes it into a new Claude Code session
+5. New session starts fresh with full context
+```
+
+**Critical pre-handoff step:** Always run `tbd sync` before generating the
+handoff to ensure issue state is pushed to the remote.
+
+**Advantage over auto-compaction:** The handoff is curated — it captures
+*what matters*, not a generic summary. Failed approaches (the most valuable
+information) are explicitly preserved.
+
+#### Approach 2: Outer Loop with `claude -p` (Semi-Autonomous)
+
+The agent spawns a fresh Claude Code instance via the Bash tool. The current
+session waits for the subprocess to complete, then continues.
+
+```bash
+# Agent writes handoff, then spawns a fresh instance
+claude -p "$(cat .handoff/current.md)" \
+  --model opus \
+  --allowedTools "Bash,Read,Edit,Write,Glob,Grep" \
+  --max-turns 30 \
+  --max-budget-usd 5.00
+```
+
+**Key flags for self-restart:**
+
+| Flag | Purpose |
+|------|---------|
+| `-p "prompt"` | Non-interactive mode |
+| `--output-format json` | Get session_id, metadata back |
+| `--max-turns N` | Prevent runaway (budget the phase) |
+| `--max-budget-usd N` | Hard spending cap |
+| `--append-system-prompt "..."` | Inject handoff instructions |
+| `--system-prompt-file ./prompt.txt` | Full custom system prompt |
+| `--session-id UUID` | Control session identity |
+| `--no-session-persistence` | Don't save (for throwaway work) |
+
+**What happens to the current session?** It blocks on the Bash call until the
+subprocess finishes, then continues. The subprocess is fully independent —
+its own context window, model, permissions. The old session does NOT
+terminate itself.
+
+**Can the agent truly "self-restart"?** Not quite — the old session persists
+and waits. But the *effective* behavior is the same: work transfers to a
+fresh context. To get true self-termination, use the outer loop shell script
+(Approach 4).
+
+#### Approach 3: Session Chaining with `--continue` and `--resume`
+
+```bash
+# Continue most recent session (appends to existing context)
+claude -c -p "Now fix the remaining test failures"
+
+# Resume a specific session by ID
+claude -r "abc123-def456" -p "Continue from where you left off"
+
+# Fork: new session ID, inherits history up to fork point
+claude --resume "abc123" --fork-session
+```
+
+**Important distinction:**
+- `--continue`/`--resume` **reloads the full conversation history**. This is
+  NOT compaction — it carries the full context and can hit `prompt_too_long`
+  errors if the session was already near limits.
+- **Forking** is useful for trying alternative approaches without losing the
+  original session.
+
+**When to use this vs handoff:**
+- Use `--continue` when context is still manageable and you want continuity.
+- Use a handoff (fresh `-p`) when context is bloated and you want a clean
+  restart with curated state.
+
+#### Approach 4: Ralph Loop Shell Script (Fully Autonomous)
+
+The "Ralph Loop" pattern: a shell script runs `claude -p` in a loop, with
+each iteration getting a fresh context window. State persists in the
+filesystem, not in the model's memory.
+
+```bash
+#!/bin/bash
+# ralph-loop.sh — Autonomous compaction via iteration
+
+TASK_FILE=".handoff/task.md"
+STATE_FILE=".handoff/state.md"
+MAX_ITERATIONS=20
+
+for i in $(seq 1 $MAX_ITERATIONS); do
+  echo "=== Iteration $i ==="
+
+  PROMPT="You are iteration $i of $MAX_ITERATIONS.
+Read $STATE_FILE for current progress.
+Read $TASK_FILE for the overall task.
+Do ONE meaningful unit of work, then update $STATE_FILE.
+If the task is complete, write DONE as the first line of $STATE_FILE."
+
+  claude -p "$PROMPT" \
+    --model opus \
+    --allowedTools "Bash,Read,Edit,Write,Glob,Grep" \
+    --max-turns 30 \
+    --max-budget-usd 3.00
+
+  # Check if done
+  if head -1 "$STATE_FILE" 2>/dev/null | grep -q "DONE"; then
+    echo "Task completed in $i iterations"
+    break
+  fi
+
+  # Commit progress between iterations
+  git add -A && git commit -m "ralph loop: iteration $i" --no-verify 2>/dev/null
+done
+```
+
+**Key design principles:**
+
+1. **State lives in files, not context.** The state file is the "memory"
+   that survives across iterations. Each iteration reads it, works, updates it.
+2. **One unit of work per iteration.** Don't try to do everything in one pass.
+   Let the loop handle continuity.
+3. **Git commits between iterations.** Each iteration's work is preserved in
+   git, providing a safety net and audit trail.
+4. **Budget limits per iteration.** Prevents any single iteration from running
+   away.
+
+**Overnight batch processing:** A team at a YC hackathon used this pattern
+to produce 1,100+ commits across six repos overnight for ~$800
+($10.50/hour/agent).
+
+#### Approach 5: Hooks-Based Compaction Management
+
+Use Claude Code hooks to automate parts of the compaction lifecycle.
+
+**Backup context before auto-compaction:**
+
+```json
+{
+  "hooks": {
+    "PreCompact": [{
+      "hooks": [{
+        "type": "command",
+        "command": ".claude/hooks/backup-transcript.sh"
+      }]
+    }]
+  }
+}
+```
+
+```bash
+#!/bin/bash
+# .claude/hooks/backup-transcript.sh
+INPUT=$(cat)
+TRANSCRIPT=$(echo "$INPUT" | jq -r '.transcript_path')
+BACKUP_DIR="$CLAUDE_PROJECT_DIR/.handoff/backups"
+mkdir -p "$BACKUP_DIR"
+cp "$TRANSCRIPT" "$BACKUP_DIR/transcript_$(date +%Y%m%d_%H%M%S).jsonl"
+exit 0
+```
+
+**Inject handoff context after compaction:**
+
+```json
+{
+  "hooks": {
+    "SessionStart": [{
+      "matcher": "compact",
+      "hooks": [{
+        "type": "command",
+        "command": "cat .handoff/current.md 2>/dev/null || echo 'No handoff context'"
+      }]
+    }]
+  }
+}
+```
+
+Note: The `SessionStart` hook with `compact` matcher has a [known bug](https://github.com/anthropics/claude-code/issues/15174) —
+the hook executes but stdout may not be injected into context after
+compaction completes. Test this in your environment.
+
+**Force handoff before session ends:**
+
+```json
+{
+  "hooks": {
+    "Stop": [{
+      "hooks": [{
+        "type": "prompt",
+        "prompt": "Before stopping: update .handoff/current.md with current state, run tbd sync, and commit the handoff file."
+      }]
+    }]
+  }
+}
+```
+
+#### Approach 6: Git-Based Handoff (Cross-Device, Cross-Agent)
+
+The agent writes handoff state to a git-tracked file, commits, pushes. Any
+subsequent session (local, cloud, different machine) picks it up by pulling.
+
+```bash
+# Current agent writes handoff and pushes
+cat > .handoff/current.md << 'HANDOFF'
+# Handoff: OAuth2 Implementation
+## Phase: 3/5 — Email Notification Service
+### Completed: database models, API endpoints, token validation
+### In Progress: email template rendering
+### Failed Approaches:
+- Session cookies: cross-origin issues with mobile app
+- SendGrid API v2: deprecated, had to migrate to v3
+### Key Decisions:
+- JWT over opaque tokens (client-side validation needed)
+### Next Steps:
+1. Complete email templates in src/notifications/templates/
+2. Wire up frontend form to POST /api/auth/register
+HANDOFF
+git add .handoff/current.md && git commit -m "handoff state" && git push
+```
+
+```bash
+# New session (anywhere) picks it up
+git pull
+claude -p "Read .handoff/current.md and continue the task."
+```
+
+**Advantages:** Durable (survives VM teardowns), auditable (git log), works
+across the Cloud/local boundary.
+
+**Disadvantage:** Commit noise. Use a `.handoff/` directory and consider
+squashing handoff commits later.
+
+#### Approach 7: tbd Handoff Integration (Recommended for This Project)
+
+Combining tbd's issue tracking with structured handoffs provides the most
+robust pattern for our project:
+
+```
+1. Agent works on tbd issue(s)
+2. Agent detects it's approaching context limits
+   (or human decides it's time to hand off)
+3. Agent runs: tbd shortcut agent-handoff
+4. Agent runs: tbd sync
+5. Agent commits any WIP + handoff file
+6. Agent pushes
+7. New session starts:
+   - Reads .handoff/current.md
+   - Runs tbd prime (restores full tbd context)
+   - Runs tbd ready (sees what issues to work on)
+   - Continues implementation
+```
+
+This is strictly better than auto-compaction because:
+- The handoff is **curated** (not a generic LLM summary)
+- Failed approaches are explicitly captured
+- tbd issues provide structural continuity across sessions
+- Git provides a safety net and audit trail
+- Works across Cloud/local boundary
+
+#### Cloud-Specific Considerations
+
+**Can a Cloud session restart itself?** Not directly — a Cloud session cannot
+spawn a new Cloud session. However:
+
+- The agent can write a handoff file, commit, and push. A new Cloud session
+  (started by the user) will see it.
+- From local: `claude --remote "Read .handoff/current.md and continue"` spawns
+  a new Cloud session.
+- Teleport (`/tp`) pulls a Cloud session to local, where you have full
+  shell control for outer loops.
+
+**For autonomous self-restart in Cloud:** The most practical pattern is to
+use hooks (Stop hook forces handoff) + git-based state + human starts a new
+Cloud session. True autonomous restart requires local CLI or a shell script
+runner.
+
+#### Token Budget Awareness
+
+Can an agent detect when it's approaching context limits?
+
+1. **System-level warnings** are injected into context when token usage is
+   high. The format varies but includes remaining token count.
+2. **`/context` command** shows current context usage breakdown in
+   interactive mode.
+3. **`CLAUDE_AUTOCOMPACT_PCT_OVERRIDE`** can be set to 70% to trigger
+   compaction earlier, before quality degrades.
+4. **Subagents get their own context** — offloading work to sub-agents
+   naturally reduces main context pressure.
+
+**There is no programmatic API for an agent to query its own token usage.**
+The agent can't invoke `/compact` programmatically either. The closest
+workaround: set `CLAUDE_AUTOCOMPACT_PCT_OVERRIDE=70`, configure a
+`PreCompact` hook to back up state, and a `SessionStart(compact)` hook to
+inject the handoff after compaction.
+
+#### Decision Matrix: Which Approach to Use
+
+| Approach | Complexity | Context Quality | Autonomy | Cloud? | Best For |
+|----------|-----------|-----------------|----------|--------|----------|
+| `/compact` (built-in) | None | Low-Medium | Automatic | Yes | Quick extension of a session |
+| `tbd agent-handoff` | Low | High | Manual | Yes | Structured team/project handoffs |
+| `claude -p` from session | Medium | High | Semi-auto | Local only | Agent-initiated fresh start |
+| `--continue`/`--resume` | Low | Full (risky) | Manual | Yes | Quick session pickup |
+| Ralph Loop script | High | High | Fully auto | Local only | Long autonomous multi-phase work |
+| Hooks (Pre/Post compact) | Medium | Medium-High | Automatic | Yes | Augmenting auto-compaction |
+| Git-based handoff | Medium | High | Semi-auto | Yes | Cross-device, cross-agent work |
+| tbd handoff + git | Medium | Highest | Semi-auto | Yes | This project specifically |
+
 ---
 
 ## Recommendations
@@ -1034,11 +1463,13 @@ claude --model opus
 ## Next Steps
 
 - [ ] Test `CLAUDE_CODE_SUBAGENT_MODEL` override in practice and verify behavior
-- [ ] Prototype an outer-loop orchestrator script using `claude -p`
+- [ ] Add `CLAUDE_CODE_SUBAGENT_MODEL` to this project's `.claude/settings.json`
+- [ ] Prototype the Ralph Loop script for this project (using tbd handoff)
+- [ ] Test `PreCompact` and `SessionStart(compact)` hooks for context backup
 - [ ] Evaluate token cost impact of forcing Opus on all sub-agents
-- [ ] Experiment with agent teams for collaborative debugging workflows
 - [ ] Create project-specific custom sub-agents for common tasks
-- [ ] Design a handoff document format for outer-loop compaction cycles
+- [ ] Configure Stop hook to force handoff before session ends
+- [ ] Experiment with agent teams for collaborative debugging workflows
 
 ---
 
@@ -1064,6 +1495,30 @@ claude --model opus
   SubagentStart/SubagentStop events
 - [Claude Code on the web](https://code.claude.com/docs/en/claude-code-on-the-web) —
   Cloud environment configuration including environment variables
+
+- [Manage Claude's memory](https://code.claude.com/docs/en/memory) —
+  Context management, compaction, and `/compact` command
+- [Slash commands](https://code.claude.com/docs/en/slash-commands) —
+  `/compact`, `/context`, `/model`, `/agents`, `/status` commands
+
+### Compaction and Handoff Patterns
+
+- [The Ralph Loop](https://awesomeclaude.ai/ralph-wiggum) — Foundational
+  outer-loop pattern for autonomous multi-iteration work
+- [Smart Handoff for Claude Code](https://blog.skinnyandbald.com/never-lose-your-flow-smart-handoff-for-claude-code/) —
+  Custom compact message + WORKING.md pattern
+- [Continuous-Claude-v3](https://github.com/parcadei/Continuous-Claude-v3) —
+  Ledger-based persistence with handoffs and TLDR analysis
+- [claude-handoff plugin](https://github.com/willseltzer/claude-handoff) —
+  Emphasizes documenting failed approaches in handoffs
+- [claude-code-handoff](https://github.com/nlashinsky/claude-code-handoff) —
+  JSON-based machine-readable handoff format
+- [Self-checkpoint feature request (Issue #21776)](https://github.com/anthropics/claude-code/issues/21776) —
+  Proposed but closed as duplicate
+- [SessionStart hook bug with compact matcher (Issue #15174)](https://github.com/anthropics/claude-code/issues/15174) —
+  Hook executes but stdout not injected after compaction
+- [Context backups: beat auto-compaction](https://claudefa.st/blog/tools/hooks/context-recovery-hook) —
+  PreCompact hook for transcript backup
 
 ### Anthropic Research
 
