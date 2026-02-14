@@ -40,6 +40,7 @@ docs_cache:
     guidelines/typescript-rules.md: internal:guidelines/typescript-rules.md
     guidelines/typescript-sorting-patterns.md: internal:guidelines/typescript-sorting-patterns.md
     guidelines/typescript-yaml-handling-rules.md: internal:guidelines/typescript-yaml-handling-rules.md
+    guidelines/writing-style-guidelines.md: internal:guidelines/writing-style-guidelines.md
     shortcuts/standard/agent-handoff.md: internal:shortcuts/standard/agent-handoff.md
     shortcuts/standard/checkout-third-party-repo.md: internal:shortcuts/standard/checkout-third-party-repo.md
     shortcuts/standard/code-cleanup-all.md: internal:shortcuts/standard/code-cleanup-all.md
@@ -54,6 +55,7 @@ docs_cache:
     shortcuts/standard/new-architecture-doc.md: internal:shortcuts/standard/new-architecture-doc.md
     shortcuts/standard/new-guideline.md: internal:shortcuts/standard/new-guideline.md
     shortcuts/standard/new-plan-spec.md: internal:shortcuts/standard/new-plan-spec.md
+    shortcuts/standard/new-qa-playbook.md: internal:shortcuts/standard/new-qa-playbook.md
     shortcuts/standard/new-research-brief.md: internal:shortcuts/standard/new-research-brief.md
     shortcuts/standard/new-shortcut.md: internal:shortcuts/standard/new-shortcut.md
     shortcuts/standard/new-validation-plan.md: internal:shortcuts/standard/new-validation-plan.md
@@ -75,6 +77,7 @@ docs_cache:
     shortcuts/system/skill-minimal.md: internal:shortcuts/system/skill-minimal.md
     templates/architecture-doc.md: internal:templates/architecture-doc.md
     templates/plan-spec.md: internal:templates/plan-spec.md
+    templates/qa-playbook.md: internal:templates/qa-playbook.md
     templates/research-brief.md: internal:templates/research-brief.md
   lookup_path:
     - .tbd/docs/shortcuts/system
