@@ -135,6 +135,20 @@ class InitHandler extends BaseCommand {
         '# Temporary files',
         '*.tmp',
         '*.temp',
+        '',
+        '# ============================================================================',
+        '# IMPORTANT: workspaces/ must NEVER be gitignored!',
+        '#',
+        '# The workspaces/ directory (including workspaces/outbox/) stores issue data',
+        '# that could not be pushed to the tbd-sync branch (e.g. due to HTTP 403 in',
+        '# restricted environments like Claude Code). The ENTIRE POINT of this',
+        '# directory is that it gets committed to your working branch so the data',
+        '# survives across sessions and can be synced later.',
+        '#',
+        '# Gitignoring workspaces/ would CAUSE DATA LOSS -- unsynced issues would be',
+        '# silently discarded on checkout. Do NOT add workspaces/ to any .gitignore.',
+        '# ============================================================================',
+        '!workspaces/',
       ]);
       this.output.debug(`Created ${TBD_DIR}/.gitignore`);
 

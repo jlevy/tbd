@@ -89,6 +89,17 @@ or want help → run `tbd shortcut welcome-user`
 | "Check out this library's source" | `tbd shortcut checkout-third-party-repo` |
 | *(your choice whenever appropriate)* | `tbd list`, `tbd dep add`, `tbd close`, `tbd sync`, etc. |
 
+## CRITICAL: NEVER Gitignore .tbd/workspaces/
+
+If `tbd sync` fails and saves to `.tbd/workspaces/outbox/`, do NOT add it to
+`.gitignore`. The outbox MUST be committed to your working branch — that is how unsynced
+data survives. Gitignoring it causes data loss.
+Instead:
+
+```bash
+git add .tbd/workspaces && git commit -m "tbd: save outbox" && git push
+```
+
 ## CRITICAL: Session Closing Protocol
 
 **Before saying “done”, you MUST complete this checklist:**

@@ -995,6 +995,10 @@ class SyncHandler extends BaseCommand {
         console.log("    1. Commit:  git add .tbd/workspaces && git commit -m 'tbd: save outbox'");
         console.log('    2. Push your working branch:  git push');
         console.log("    3. Run 'tbd sync' when push access is available");
+        console.log('');
+        console.log(
+          '  WARNING: Do NOT add .tbd/workspaces/ to .gitignore -- that would cause data loss.',
+        );
       } else {
         // Show saved count and total in outbox
         const totalInOutbox = existingOutboxCount + result.saved;
@@ -1013,6 +1017,10 @@ class SyncHandler extends BaseCommand {
         console.log('    2. Push your working branch:  git push');
         console.log("    3. Run 'tbd sync' when push access is available");
         console.log('       (outbox will be imported automatically on successful sync)');
+        console.log('');
+        console.log(
+          '  WARNING: Do NOT add .tbd/workspaces/ to .gitignore -- that would cause data loss.',
+        );
       }
     } catch (saveError) {
       // Auto-save failed - report both errors

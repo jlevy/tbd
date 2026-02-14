@@ -31,6 +31,10 @@ git commit -m "tbd: save outbox"
 git push
 ```
 
+**IMPORTANT: NEVER add `.tbd/workspaces/` to `.gitignore`.** The outbox exists
+specifically so unsynced data gets committed to your working branch and survives across
+sessions. Gitignoring it would cause data loss.
+
 ## Later, When Sync Works
 
 In a new session or environment where sync works:
