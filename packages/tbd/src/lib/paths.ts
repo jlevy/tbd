@@ -5,17 +5,15 @@
  *
  * On main/dev branches:
  *   .tbd/
- *     config.yml              - Project configuration (tracked)
- *     state.yml               - Local state (gitignored)
- *     .gitignore              - Ignores docs/, data-sync-worktree/, data-sync/
- *     docs/                   - Installed documentation (gitignored, regenerated on setup)
- *     data-sync-worktree/     - Hidden worktree checkout of tbd-sync branch
- *       .tbd/
- *         data-sync/
- *           issues/
- *           mappings/
- *           attic/
- *           meta.yml
+ *     Committed to the repo:
+ *       config.yml            - Project configuration
+ *       .gitignore            - Controls what's gitignored below
+ *       workspaces/           - Persistent state (outbox, named workspaces)
+ *     Gitignored (local only):
+ *       state.yml             - Local state
+ *       docs/                 - Installed documentation (regenerated on setup)
+ *       data-sync-worktree/   - Hidden worktree checkout of tbd-sync branch
+ *         .tbd/data-sync/     - issues/, mappings/, attic/, meta.yml
  *
  * On tbd-sync branch:
  *   .tbd/

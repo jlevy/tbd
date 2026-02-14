@@ -708,18 +708,11 @@ tbd uses three directory locations:
 
 ```
 .tbd/
-├── config.yml              # Project configuration (tracked)
-├── .gitignore              # Ignores docs/, state.yml, worktree, data-sync (tracked)
-├── state.yml               # Per-node sync state (gitignored)
 │
-├── docs/                   # Gitignored - installed documentation (regenerated on setup)
-│   ├── shortcuts/
-│   │   ├── system/         # Core docs (skill.md, shortcut-explanation.md)
-│   │   └── standard/       # Workflow shortcuts (new-plan-spec.md, etc.)
-│   ├── guidelines/         # Coding rules and best practices
-│   └── templates/          # Document templates
-│
-├── workspaces/             # NOT gitignored - tracked on main branch
+│ Committed to the repo:
+├── config.yml              # Project configuration
+├── .gitignore              # Controls what's gitignored below
+├── workspaces/             # Persistent state (outbox, named workspaces)
 │   ├── outbox/             # Sync failure recovery workspace
 │   │   ├── issues/
 │   │   ├── mappings/
@@ -729,7 +722,15 @@ tbd uses three directory locations:
 │       ├── mappings/
 │       └── attic/
 │
-└── data-sync-worktree/     # Gitignored - hidden worktree
+│ Gitignored (local only):
+├── state.yml               # Per-node sync state
+├── docs/                   # Installed documentation (regenerated on setup)
+│   ├── shortcuts/
+│   │   ├── system/         # Core docs (skill.md, shortcut-explanation.md)
+│   │   └── standard/       # Workflow shortcuts (new-plan-spec.md, etc.)
+│   ├── guidelines/         # Coding rules and best practices
+│   └── templates/          # Document templates
+└── data-sync-worktree/     # Hidden worktree
     └── (checkout of tbd-sync branch)
         └── .tbd/
             └── data-sync/
@@ -1934,9 +1935,12 @@ main branch:                    tbd-sync branch:
 ├── tests/                          └── data-sync/
 ├── README.md                           ├── issues/
 ├── .tbd/                               ├── attic/
-│   ├── config.yml (tracked)            └── meta.yml
-│   ├── .gitignore (tracked)
-│   └── docs/      (gitignored)
+│   ├── config.yml  (committed)         └── meta.yml
+│   ├── .gitignore  (committed)
+│   ├── workspaces/ (committed)
+│   ├── state.yml   (gitignored)
+│   ├── docs/       (gitignored)
+│   └── data-sync-worktree/ (gitignored)
 └── ...
 ```
 
@@ -1951,29 +1955,22 @@ main branch:                    tbd-sync branch:
 
 4. **Clean git history**: Issue updates don’t pollute code commit history
 
-#### Files Tracked on Main Branch
+#### Files Committed on Main Branch
 
 ```
 .tbd/config.yml       # Project configuration (YAML)
-.tbd/.gitignore       # Ignores docs/, state.yml, data-sync-worktree/, data-sync/
+.tbd/.gitignore       # Controls what's gitignored below
+.tbd/workspaces/      # Persistent state (outbox, named workspaces)
 ```
 
-#### .tbd/.gitignore Contents
+#### Files Gitignored (local only)
 
-```gitignore
-# Installed documentation (regenerated on setup)
-docs/
-# Hidden worktree for search access
-data-sync-worktree/
-# Reserved for potential future "simple mode" (issues on main branch)
-data-sync/
-# Local state
-state.yml
-# Local backups (corrupted worktrees, migrated data)
-backups/
-
-# workspaces/ stores state (including outbox) committed to the working branch
-!workspaces/
+```
+.tbd/state.yml              # Per-node sync state
+.tbd/docs/                  # Installed documentation (regenerated on setup)
+.tbd/backups/               # Local backups (corrupted worktrees, migrated data)
+.tbd/data-sync-worktree/    # Hidden worktree for search access
+.tbd/data-sync/             # Reserved for potential future "simple mode"
 ```
 
 #### Files Tracked on tbd-sync Branch
@@ -5084,11 +5081,16 @@ Post-process results to:
 repo/
 ├── .git/
 ├── .tbd/                         # On main branch
-│   ├── config.yml                  # Tracked: project config
-│   ├── .gitignore                  # Tracked: ignores docs/, state.yml, data-sync-worktree/, data-sync/
-│   ├── docs/                       # Gitignored: installed documentation
-│   ├── state.yml                   # Gitignored: local state (sync timestamps)
-│   └── data-sync-worktree/         # Gitignored: worktree checkout of tbd-sync
+│   │
+│   │ Committed to the repo:
+│   ├── config.yml                  # Project config
+│   ├── .gitignore                  # Controls what's gitignored below
+│   ├── workspaces/                 # Persistent state (outbox, named workspaces)
+│   │
+│   │ Gitignored (local only):
+│   ├── state.yml                   # Local state (sync timestamps)
+│   ├── docs/                       # Installed documentation (regenerated on setup)
+│   └── data-sync-worktree/         # Worktree checkout of tbd-sync
 │
 └── (on tbd-sync branch)
     └── .tbd/

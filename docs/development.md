@@ -282,14 +282,18 @@ the full specification.
 
 ```
 .tbd/                               # Config directory (on main branch)
-├── config.yml                      # Project configuration (tracked)
-├── state.yml                       # Local state (gitignored)
-├── .gitignore                      # Ignores worktree, docs, backups
-├── docs/                           # Installed documentation (gitignored)
-├── backups/                        # Local backups (gitignored)
-├── workspaces/                     # Outbox and named workspaces (NOT gitignored!)
+│
+│ Committed to the repo:
+├── config.yml                      # Project configuration
+├── .gitignore                      # Controls what's gitignored below
+├── workspaces/                     # Persistent state (outbox, named workspaces)
 │   └── outbox/                     # Sync failure recovery data
-└── data-sync-worktree/             # Hidden worktree (gitignored)
+│
+│ Gitignored (local only):
+├── state.yml                       # Local state
+├── docs/                           # Installed documentation (regenerated on setup)
+├── backups/                        # Local backups
+└── data-sync-worktree/             # Hidden worktree
     └── .tbd/
         └── data-sync/              # Actual issue storage (on tbd-sync branch)
             ├── issues/
@@ -297,9 +301,6 @@ the full specification.
             ├── attic/
             └── meta.yml
 ```
-
-**Note:** `.tbd/workspaces/` must not be gitignored — it stores outbox data that must be
-committed to the working branch.
 
 **CRITICAL**: Issues must be written to the **worktree path**
 (`.tbd/data-sync-worktree/.tbd/data-sync/issues/`), NOT the direct path

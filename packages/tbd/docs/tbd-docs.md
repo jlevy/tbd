@@ -957,10 +957,15 @@ tbd stores data in the following locations:
 ```
 my-project/
 ├── .tbd/
-│   ├── config.yml                    # Project configuration (tracked)
-│   ├── .gitignore                    # Ignores local files
-│   ├── cache/                        # Local state (gitignored)
-│   └── data-sync-worktree/           # Hidden worktree (gitignored)
+│   │
+│   │ Committed to the repo:
+│   ├── config.yml                    # Project configuration
+│   ├── .gitignore                    # Controls what's gitignored below
+│   ├── workspaces/                   # Persistent state (outbox, named workspaces)
+│   │
+│   │ Gitignored (local only):
+│   ├── state.yml                     # Local state
+│   └── data-sync-worktree/           # Hidden worktree
 │       └── .tbd/
 │           └── data-sync/
 │               ├── issues/           # Issue files (*.md)
