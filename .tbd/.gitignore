@@ -17,5 +17,5 @@ state.yml
 # Migration backups (local only, not synced)
 backups/
 
-# workspaces/ must NOT be gitignored (outbox data must be committed to working branch)
+# workspaces/ stores state (including outbox) committed to the working branch
 !workspaces/

@@ -831,7 +831,7 @@ state.yml
 # Local backups (corrupted worktrees, migrated data)
 backups/
 
-# workspaces/ must NOT be gitignored (outbox data must be committed to working branch)
+# workspaces/ stores state (including outbox) committed to the working branch
 !workspaces/
 ```
 
@@ -1972,7 +1972,7 @@ state.yml
 # Local backups (corrupted worktrees, migrated data)
 backups/
 
-# workspaces/ must NOT be gitignored (outbox data must be committed to working branch)
+# workspaces/ stores state (including outbox) committed to the working branch
 !workspaces/
 ```
 

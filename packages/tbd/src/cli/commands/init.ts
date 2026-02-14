@@ -136,7 +136,7 @@ class InitHandler extends BaseCommand {
         '*.tmp',
         '*.temp',
         '',
-        '# workspaces/ must NOT be gitignored (outbox data must be committed to working branch)',
+        '# workspaces/ stores state (including outbox) committed to the working branch',
         '!workspaces/',
       ]);
       this.output.debug(`Created ${TBD_DIR}/.gitignore`);
