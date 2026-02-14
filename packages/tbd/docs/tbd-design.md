@@ -831,9 +831,7 @@ state.yml
 # Local backups (corrupted worktrees, migrated data)
 backups/
 
-# IMPORTANT: workspaces/ must NEVER be gitignored!
-# It stores issue data from sync failures (outbox) that must be committed
-# to the working branch. Gitignoring it causes data loss.
+# workspaces/ must NOT be gitignored (outbox data must be committed to working branch)
 !workspaces/
 ```
 
@@ -846,11 +844,8 @@ backups/
 > This is different from `.tbd/data-sync/attic/` on the sync branch which stores merge
 > conflict losers.
 > 
-> **IMPORTANT:** `workspaces/` (including `workspaces/outbox/`) must NEVER be
-> gitignored. This directory stores issue data that could not be pushed to the tbd-sync
-> branch (e.g., due to HTTP 403 from git branch restrictions).
-> It must be committed to the working branch so the data can be recovered and synced
-> later. Gitignoring it causes data loss.
+> **Note:** `workspaces/` must not be gitignored — it stores outbox data that must be
+> committed to the working branch.
 
 #### Accessing Issues via Worktree
 
@@ -1052,10 +1047,8 @@ export class SyncBranchError extends TbdError {
 Workspaces are directories under `.tbd/workspaces/` that store issue data for sync
 failure recovery, backups, and bulk editing workflows.
 
-> **IMPORTANT:** `.tbd/workspaces/` must NEVER be added to `.gitignore`. Workspaces
-> (especially `outbox/`) are designed to be committed to the working branch so unsynced
-> data survives across sessions.
-> Gitignoring this directory causes data loss.
+> **Note:** `.tbd/workspaces/` must not be gitignored — outbox data must be committed to
+> the working branch.
 
 #### Workspace Structure
 
@@ -1979,8 +1972,7 @@ state.yml
 # Local backups (corrupted worktrees, migrated data)
 backups/
 
-# IMPORTANT: workspaces/ must NEVER be gitignored!
-# It stores outbox data that must be committed to the working branch.
+# workspaces/ must NOT be gitignored (outbox data must be committed to working branch)
 !workspaces/
 ```
 

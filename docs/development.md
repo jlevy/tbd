@@ -298,10 +298,8 @@ the full specification.
             └── meta.yml
 ```
 
-**IMPORTANT:** `.tbd/workspaces/` must NEVER be added to `.gitignore`. It stores outbox
-data from sync failures that must be committed to the working branch.
-Gitignoring it causes data loss.
-See `.tbd/.gitignore` for details.
+**Note:** `.tbd/workspaces/` must not be gitignored — it stores outbox data that must be
+committed to the working branch.
 
 **CRITICAL**: Issues must be written to the **worktree path**
 (`.tbd/data-sync-worktree/.tbd/data-sync/issues/`), NOT the direct path
