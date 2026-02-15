@@ -67,7 +67,29 @@ summarizations in a pyramid structure:
 More broadly, this extends to dynamic or hierarchical pyramid summaries for very large
 doc sets.
 
-### 3. Make These Available to Agents via Context-Efficient Tools
+### 3. Separate Authoring Format from Compiled Format
+
+A key architectural insight: the format humans use to *write* docs should be completely
+decoupled from the format agents use to *consume* them.
+
+- **Authoring format**: "Whatever markdown exists in repos" — optionally with light
+  metadata (YAML front matter), but no special tooling required. Humans write docs in
+  their preferred editors, organize them naturally, and commit to git. The system should
+  not be prescriptive about how humans write or structure their documents.
+
+- **Compiled format**: Machine-optimized artifacts generated locally from the authoring
+  sources. These include:
+  - **Doc cards**: Compact descriptors ("when to use / what it contains / how to fetch")
+  - **Outline**: Structural overview, key sections, heading hierarchy
+  - **Summary ladder**: Multiple fidelity levels (card → S → M → L → full)
+  - **Chunks**: Stable section-level fragments with anchors for partial retrieval
+  - **Search indexes**: Lexical (BM25) + optional embedding vectors
+  - **Provenance**: Source repo + ref + commit SHA + path for every artifact
+
+This separation means: "don't be prescriptive about how humans write docs; be very smart
+about compiling them for agent consumption."
+
+### 4. Make These Available to Agents via Context-Efficient Tools
 
 For efficient context engineering, agents need content in a variety of formats and
 mechanisms for reading it. The most direct way: a CLI that offers all these capabilities,
@@ -249,19 +271,34 @@ kn build                         # (Re)build knowledge map from sources
 kn build --source=<prefix>       # Rebuild for specific source
 kn status                        # Show map freshness, source status
 
+# The always-on knowledge map
+kn map                           # Print the compact always-on map (for CLAUDE.md/SKILL.md)
+kn map --budget=500              # With token budget constraint
+
 # Retrieval (the five modalities)
 kn list                          # List all available knowledge (Modality 1)
 kn list --category=<cat>         # Filter by category
-kn get <name>                    # Exact retrieval (Modality 2)
+kn get <name>                    # Exact retrieval — full document (Modality 2)
 kn get <name> --summary          # Summary only (Modality 4)
 kn get <name> --outline          # Outline level (Modality 4)
 kn search <query>                # Semantic search (Modality 3)
 kn search <query> --top=5        # Limit results
 
-# Context-optimized output
-kn prime                         # Output persistent awareness block
-kn prime --budget=500            # With token budget constraint
-kn recommend --context="..."     # Given current context, recommend relevant docs
+# Progressive summarization
+kn summarize <name> --level=card   # One-liner doc card
+kn summarize <name> --level=S      # Short summary (1 paragraph)
+kn summarize <name> --level=M      # Medium summary (key points)
+kn summarize <name> --level=L      # Long summary (section-level detail)
+
+# Context routing and injection
+kn route "<context>"             # Given current context, suggest relevant docs (+ why)
+kn inject "<context>" --budget=1200  # Emit a ready-to-paste context block within budget
+kn prime                         # Output persistent awareness block (alias for map)
+
+# All commands support:
+# --json        (structured output for agents)
+# stdin/stdout  (piping for humans + agents)
+# Deterministic outputs where possible
 ```
 
 ### Integration with tbd
@@ -364,6 +401,35 @@ From studying all six systems (shadcn, copier, cookiecutter, Homebrew, npm/cargo
 5. **Progressive complexity for updates**: Manual diff → automated three-way merge
 6. **Baseline tracking**: Record what the original looked like to enable smart merges
 7. **Schema-first, static-hostable**: No server needed — just files following a schema
+
+### Two Forkability Models
+
+From the prior art, two viable low-friction models emerge. Both can be supported without
+building a platform:
+
+**Model 1: Fork-the-Repo (Git-native, first-class)**
+
+The "registry" is just a list of git repos in config. If someone wants to customize, they
+fork the repo and point their config at the fork. Upstream contribution is standard PR
+flow. This is the simplest model and should be first-class from day one:
+- Zero new concepts — just git repos and config pointers
+- Customization = fork + change config URL
+- Contributing back = PR on the upstream repo
+- Update = `git pull` on the fork, merge upstream changes
+
+**Model 2: Vendor/Copy-In (shadcn-style, add later)**
+
+A CLI "adopts" individual docs into a local `vendor/` area, records `_upstream` metadata
+(source repo, commit SHA, path), and optionally helps update later. This mirrors shadcn's
+"copy it into your project, you own it" philosophy, and also parallels copier-style
+"templates evolve and projects update" patterns:
+- Fine-grained: adopt individual docs, not entire repos
+- Full ownership: modify freely after copy-in
+- Upgrade path: `kn diff` shows upstream changes, `kn merge` applies them
+- More complex but more flexible than fork-the-repo
+
+**Recommendation**: Make fork-the-repo first-class immediately. Add vendor/copy-in later
+when real-world usage reveals whether per-doc customization is needed.
 
 ### Proposed Knowledge Registry Model
 
@@ -519,6 +585,24 @@ Microsoft, GitHub, Cursor, and others.
 installations. Distributes *capabilities* (what an agent can do), not *knowledge*
 (what an agent should know). Complementary to the knowledge system we're designing.
 
+#### Skills Ecosystem and Progressive Disclosure Standards
+
+The skills ecosystem is converging on the exact same "inventory → load when needed"
+pattern we propose for knowledge, just applied to action scripts:
+
+- **anthropics/skills**: Documents the simple "folder with SKILL.md + YAML frontmatter"
+  packaging model. The reference implementation.
+- **vercel-labs/skills**: CLI-driven install/sync of skills to multiple agents. Universal
+  installer approach.
+- **OpenSkills**: Universal loader for the Claude skills format. Emphasizes progressive
+  disclosure and AGENTS.md integration.
+- **VS Code Agent Skills**: Frames Agent Skills as an open standard that works across
+  multiple agents (Copilot in VS Code, CLI, etc.).
+
+The insight: our "doc cards always in context; load details later" is exactly the same
+pattern, just applied to *knowledge* instead of *action scripts*. The convergence across
+independent ecosystems validates the progressive disclosure architecture.
+
 #### Context Budgeting Guidelines
 
 Token budgeting has become an engineering discipline:
@@ -571,9 +655,18 @@ Collection-based abstraction maps well to knowledge domains.
 you grep, find, awk — but those only work with exact text. SemTools fills that gap."
 Built for coding agents (tested with Claude Code on 1000 ArXiv papers). 1,600+ stars.
 
+**BeaconBay/ck** ("semantic grep"): Hybrid semantic + regex + BM25 search with MCP
+server integration. Gives grep-like workflows but semantic; includes indexing and
+pagination patterns that map well to context-efficient retrieval. The router can delegate
+"find candidate snippets" to something like this.
+
 **RAGex**: MCP server combining semantic (RAG), symbolic (tree-sitter), and regex
 (ripgrep) search. Automatically detects best search mode per query — powerful abstraction
 for agents that shouldn't need to choose a search strategy.
+
+**mcp-local-rag** (shinpr): Lightweight local document search (PDF/DOCX/TXT/Markdown)
+with minimal setup. If the system broadens beyond markdown later, this shows a "simple
+ingestion + search" MCP server pattern.
 
 #### Tier 4: LLM Infrastructure Tools
 
@@ -596,6 +689,36 @@ the knowledge map concept.
 "Datapacks" — curated content packages loaded into context windows. Demonstrates
 metadata-first retrieval: agent sees tags and summaries first, fetches full content on
 demand. Simple, effective, purpose-built for exactly our use case.
+
+#### Repo Map / Progressive Expansion Tools
+
+These tools solve the same problem for *code* that we're solving for *docs* — keeping a
+compact map in context and expanding on demand:
+
+**llm-context.py**: Rule-based context selection + outlines + MCP integration. Frames the
+exact pain: "finding and copying relevant files is friction-heavy," then solves it with
+composable rules and commands like `outlines`, `preview`, `context`. Their "rules as
+YAML+Markdown, composable filters/excerpters" is a very strong blueprint for a docs
+router that stays Unix-y.
+
+**Aider repo map**: The canonical example of the "compact map in context, expand on
+demand" pattern. Aider maintains a concise map of the entire repository in context so the
+agent always knows what exists, then loads specific files when needed. Our "knowledge map
+of docs" is the docs-analogue of this exact approach.
+
+#### Repo Packing Tools
+
+Sometimes you just want "make me a digest I can paste into an LLM" — these are not
+routers, but they're useful as "break glass" context exporters and show the appetite for
+the problem:
+
+**repomix**: Packs repo into an AI-friendly single file. Supports remote repos, token
+counting, and even MCP / skills generation options.
+
+**repopack**: Similar "pack repo, token counts, git-aware" approach.
+
+**gitingest**: Generates consolidated text prompts from repos/paths. Supports
+tokens/private repos, stdout piping.
 
 ### Forkable Registries
 
@@ -898,6 +1021,109 @@ We pre-compute all of this once, then serve it as static data.
 
 ---
 
+## Practical Architecture: A Surprisingly Simple Direction
+
+Given all the research above, here is the simplest concrete architecture that still
+achieves the broader goal. It follows a principle of deferring complexity: start with the
+cheapest possible primitives, and only layer in sophistication when simpler approaches
+prove insufficient.
+
+### The Doc Card as Primary Compiled Artifact
+
+The **doc card** is the atomic unit of the compiled knowledge system. Each doc card
+answers three questions an agent needs: *What is this? When should I read it? How do I
+get it?*
+
+A doc card is small enough to always be in context (50-100 tokens), yet informative
+enough for an agent to self-route without any search infrastructure:
+
+```yaml
+- id: typescript-rules
+  description: "TypeScript coding rules: strict config, type patterns, error handling"
+  when: "Writing, reviewing, or refactoring TypeScript code"
+  signals: [typescript, ts, .tsx, type safety, discriminated union]
+  read: "kn get typescript-rules"
+  tokens: 3200
+```
+
+The **knowledge map** (`MAP.md` or `.knowledge/map.yml`) is simply the collection of all
+doc cards, small enough to include in `tbd prime`, CLAUDE.md, or an `AGENTS.md`
+`available_docs` block. This file is the "always-on directory" that replaces expensive
+runtime discovery.
+
+### Step 1: Make Doc Cards + Map the Primary Artifact
+
+Add a build step that generates the map from source docs:
+
+```
+kn build →
+  For each doc:
+    1. Extract/generate: name, description, when-to-use, signal keywords
+    2. Generate heading outline
+    3. Optionally: generate summary ladder (S/M/L)
+  Emit: MAP.md (human-readable) + map.yml (machine-readable)
+```
+
+The map is tiny enough to always be present in agent context. This alone converts O(n)
+document discovery into O(1) lookup.
+
+### Step 2: Router Returns Cards First, Full Docs Only on Demand
+
+The routing function is dead simple — not a giant schema, just a tool:
+
+```
+kn route "<context>" →
+  Input:  current task, repo signals, errors/logs, language/framework hints
+  Output: ranked doc cards + "read this section first" suggestions + summary level
+```
+
+Start with lexical + heuristic scoring (surprisingly effective when doc cards include
+rich "signals" fields). The flow:
+
+1. `kn route` returns ranked doc cards
+2. Agent chooses to read or summarize based on the cards
+3. Agent requests `kn get <id>` or `kn summarize <id> --level=S`
+
+This gives agents a directory-hierarchy feel (if cards are grouped by category), a
+search-engine feel (if router ranks by relevance), and progressive disclosure (cards →
+summaries → full) — all from the same primitive.
+
+### Step 3: Treat External Doc Repos as Sources for the Compiler
+
+The existing `docs_cache.sources` design in the external docs spec is already the right
+primitive. Sources (git repos with prefix-based namespacing, path filtering, precedence
+ordering) feed into the compiler. The compiler doesn't care whether sources are local
+directories, remote repos, or a mix — it just walks markdown files and builds the map.
+
+This means the "external docs" problem and the "knowledge map" problem are the same
+problem: ingest sources → compile map → serve via CLI.
+
+### Step 4: Only Then Add Hybrid Search / Embeddings
+
+The embedding/vector search layer can be deferred until the "map + route + summarize"
+loop is working and validated. For a curated corpus of hundreds of documents, card-based
+routing with lexical matching handles the vast majority of queries.
+
+When you do want to add hybrid search, QMD and ck (BeaconBay) are extremely aligned
+with this architecture — they provide BM25 + vector search + re-ranking that can augment
+the card-based router for large or unfamiliar corpora.
+
+### Why This Works
+
+This architecture is effective because it leverages several compounding insights:
+
+1. **LLMs are excellent compilers** — they generate better keyword indices, summaries,
+   and relevance descriptors than any heuristic, and this can be done once at build time
+2. **Small corpora don't need embeddings** — for hundreds of curated docs, metadata
+   search over doc cards handles 95%+ of queries
+3. **Agents are good at self-routing** — given a compact inventory of doc cards, agents
+   reliably choose the right document without sophisticated retrieval infrastructure
+4. **The same primitive serves all modalities** — doc cards power persistent awareness
+   (always in context), exact retrieval (card → id → file), search (match over card
+   fields), and progressive disclosure (card → summary → outline → full)
+
+---
+
 ## Progressive Disclosure in Practice
 
 ### Example Flow: Agent Needs TypeScript Guidance
@@ -1174,18 +1400,62 @@ Candidates:
 8. **Relationship to MCP resources**: Could `kn` also serve as an MCP resource provider?
    This would give agents two access paths (CLI and MCP).
 
+9. **Flat doc types vs arbitrary hierarchies**: The current tbd spec assumes syncing
+   fixed top-level directories (`shortcuts/`, `guidelines/`, `templates/`, `references/`)
+   and prefers them flat. But the broader knowledge problem involves ingesting arbitrary
+   repo docs (README.md, `docs/**/*.md`, ADRs, RFCs, runbooks) with nested taxonomies.
+   Should the existing typed directories remain as a curated "pack format" while also
+   allowing `paths` to be globs or nested subdirectories? This tension between "structured
+   knowledge packs" and "arbitrary doc corpora" needs a clear resolution.
+
+10. **Router sophistication curve**: When does simple keyword/heuristic routing over doc
+    card signals become insufficient, requiring BM25 or embedding-based search? Need
+    empirical data on failure modes — likely when the corpus exceeds a few hundred docs
+    or when queries are semantically distant from signal keywords.
+
 ---
 
 ## Next Steps
 
-- [ ] Validate the knowledge map format with 2-3 real document repos
-- [ ] Prototype `kn build` for pure-extraction map generation
-- [ ] Prototype `kn get` with summary/outline/full depth levels
+### Recommended Experiments (High Learning, Low Commitment)
+
+These experiments validate the architecture before committing to full implementation:
+
+1. **Create one "knowledge pack" repo as a reference implementation**
+   - Include both: `guidelines/`, `shortcuts/`, `templates/` and a `docs/` tree
+   - Hand-curate a small `MAP.md` at the top as the always-on directory
+   - Test whether agents can self-route from the map alone (no search infra)
+
+2. **Auto-generate doc cards for that pack**
+   - Build a simple script that extracts front matter + first paragraph + headings
+   - Measure: how well does a compact card inventory let an agent self-route without
+     semantic search? (Hypothesis: >90% accuracy for curated corpora <200 docs)
+
+3. **Test summary ladders for 5-10 large docs**
+   - Generate card → S → M → L summaries for substantial documents
+   - Test progressive disclosure: agent reads card, decides whether to go deeper
+   - Measure token savings vs accuracy compared to always loading full docs
+
+4. **Build a trivial router first**
+   - Regex/keyword scoring over doc card `signals` fields
+   - No embeddings, no BM25, just string matching on card metadata
+   - Validate: does this handle 95%+ of real agent queries for a curated corpus?
+   - Only graduate to BM25/embeddings when the trivial router demonstrably fails
+
+5. **Pick the forkability story now** (design decision, not code)
+   - Fork-the-repo should be first-class from day one
+   - Vendor/copy-in can be added later if per-doc customization proves needed
+   - This decision affects config schema design, so decide early
+
+### Implementation Milestones
+
+- [ ] Prototype `kn build` for pure-extraction map generation (experiment 2)
+- [ ] Prototype `kn get` with summary/outline/full depth levels (experiment 3)
+- [ ] Prototype `kn route` with trivial keyword-based scoring (experiment 4)
 - [ ] Prototype `kn search` with ripgrep-based keyword search
 - [ ] Design the persistent awareness block format for SKILL.md integration
 - [ ] Decide on tool name and npm package scope
 - [ ] Plan the integration boundary between kn and tbd
-- [ ] Evaluate whether the fork/merge workflow is worth building in v1
 - [ ] Write a spec for the first implementation phase
 
 ---
@@ -1215,6 +1485,8 @@ Candidates:
 - [ripgrep](https://github.com/BurntSushi/ripgrep) — Fast text search (foundation tier)
 - [fzf](https://github.com/junegunn/fzf) — Fuzzy finder
 - [QMD](https://github.com/tobi/qmd) — Hybrid BM25 + vector + LLM re-ranking search
+- [ck](https://github.com/BeaconBay/ck) — Semantic grep: hybrid semantic + regex + BM25
+  with MCP server integration
 - [SemTools](https://github.com/run-llama/semtools) — Rust CLI semantic search for agents
 - [sqlite-vec](https://github.com/asg017/sqlite-vec) — SQLite extension for vector search
 - [Simon Willison's llm](https://github.com/simonw/llm) — CLI for LLM operations with
@@ -1223,6 +1495,20 @@ Candidates:
 - [RAGex](https://github.com/jbenshetler/mcp-ragex) — MCP server with hybrid search
   routing
 - [mgrep](https://github.com/mixedbread-ai/mgrep) — Semantic grep for code and docs
+- [mcp-local-rag](https://github.com/shinpr/mcp-local-rag) — Lightweight local doc
+  search (PDF/DOCX/TXT/Markdown)
+
+### Repo Map and Context Selection Tools
+- [llm-context.py](https://github.com/cyberchitta/llm-context.py) — Rule-based context
+  selection + outlines + MCP; composable YAML+Markdown rules for filtering/excerpting
+- [Aider repo map](https://aider.chat/docs/repomap.html) — Canonical example of "compact
+  map in context, expand on demand" for code repositories
+- [repomix](https://github.com/yamadashy/repomix) — Pack repo into AI-friendly single
+  file, token counting, MCP/skills generation
+- [repopack](https://github.com/kirill-markin/repopack) — Pack repo with token counts,
+  git-aware
+- [gitingest](https://github.com/cyclotruc/gitingest) — Consolidated text prompts from
+  repos/paths, stdout piping
 
 ### Knowledge Standards and Formats
 - [llms.txt](https://llmstxt.org/) — Standard for LLM-readable site index
@@ -1232,6 +1518,16 @@ Candidates:
 - [skills.sh](https://skills.sh) — Vercel's agent skill ecosystem
 - [MCP (Model Context Protocol)](https://modelcontextprotocol.io) — Anthropic's tool
   integration protocol
+
+### Skills Ecosystem
+- [anthropics/skills](https://github.com/anthropics/skills) — Reference implementation:
+  folder with SKILL.md + YAML frontmatter
+- [vercel-labs/skills](https://github.com/vercel-labs/skills) — CLI-driven install/sync
+  of skills to multiple agents
+- [OpenSkills](https://github.com/nicholasq/openskills) — Universal loader for Claude
+  skills format with AGENTS.md integration
+- [VS Code Agent Skills](https://code.visualstudio.com/docs/copilot/agent-skills) —
+  Open standard across multiple agents (Copilot in VS Code, CLI, etc.)
 
 ### Context Engineering Ecosystem (GitHub)
 - [agents.md](https://github.com/agentsmd/agents.md) — Standard agent-consumable
@@ -1264,9 +1560,16 @@ Candidates:
   efficiency improvement measured in Claude-Mem
 - Context Engineering — Managing the full information environment around an LLM; the
   dominant paradigm as of 2025-2026
+- Authoring vs Compiled Format — Separate human writing format (markdown) from
+  machine-optimized consumption format (doc cards, summaries, indexes)
+- Doc Card — Compact descriptor (~50-100 tokens) answering "what is this, when to use it,
+  how to get it" — the atomic unit of the compiled knowledge system
 - Four Core Operations — Write, Select, Compress, Isolate (LangChain/Anthropic)
 - DITA (Darwin Information Typing Architecture) — Topic-based documentation standard
 - Zettelkasten — Atomic, linked note methodology
 - RAG (Retrieval-Augmented Generation) — Knowledge injection via embedding retrieval
 - llms.txt — Emerging standard for LLM-navigable site indices
 - ACE — Agentic Context Engineering with delta updates to prevent context collapse
+- Fork-the-Repo — Git-native forkability model: fork repo, change config URL, PR back
+- Vendor/Copy-In — shadcn-style model: adopt individual docs locally, track upstream
+  provenance for optional merge
