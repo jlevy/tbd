@@ -273,7 +273,8 @@ Options:
   path, or full path)
 - `--deferred` - Show only deferred issues
 - `--defer-before <date>` - Deferred before date
-- `--sort <field>` - Sort by: priority, created, updated (default: priority)
+- `--sort <field>` - Sort by: priority, created, updated (default: priority).
+  Tiebreaker: internal ULID (chronological creation order)
 - `--limit <n>` - Limit number of results
 - `--count` - Output only the count of matching issues
 - `--long` - Show issue descriptions on a second line
