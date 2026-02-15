@@ -18,17 +18,17 @@
 ## Executive Summary
 
 This research brief explores the problem of **dynamic, progressive knowledge discovery
-and injection for LLM coding agents**. The core challenge: agents need access to large
-bodies of curated knowledge (guidelines, references, patterns, docs) spread across
-multiple repositories, but context windows are finite, and the right knowledge depends
-heavily on the current task.
+and injection**. The core challenge: agents and humans need access to large bodies of
+curated knowledge (guidelines, references, patterns, docs) spread across multiple
+repositories, but context windows are finite, and the right knowledge depends heavily on
+the current task.
 
 We need a system that is simultaneously:
 
 - A **directory** (browsable hierarchy of trusted knowledge)
 - A **search engine** (keyword and semantic retrieval)
 - A **context engineer** (knows what to inject when, in what form)
-- A **progressive summarizer** (pyramid of detail levels: keywords → outline → full doc)
+- A **progressive reader** (multiple depth levels: purpose → summary → outline → content)
 - A **forkable registry** (pull, customize, contribute back — the shadcn model)
 
 The surprising finding is that this entire problem can likely be solved with a small,
@@ -41,136 +41,125 @@ reliable.
 
 ---
 
-## Guiding Principles
+## Scope
 
-These principles frame the design space and constrain solutions:
+This research concerns **curated, trusted knowledge** — documents that are already known
+to be reliable and useful (guidelines, references, patterns, runbooks). It does not
+address general-purpose mutable agent memory (short-lived facts, session state,
+corrections). There is a separate process by which ephemeral observations can be curated
+into trusted knowledge; that lifecycle is out of scope here.
 
-### 1. Organize a Trusted Set of Documents
-
-By human manual or automated means, decide which documents we trust. These should be
-cleaned and curated, but the system shouldn't be excessively prescriptive about their
-formats — they may live in various places, typically GitHub repos as markdown. Some repos
-may be custom-organized for agent reuse; others may simply have useful documentation for
-an existing software project.
-
-### 2. Pre-compute Efficient Knowledge Formats
-
-We can pre-compute how an agent would know a document is relevant, plus context-efficient
-summaries for progressive consumption. Because LLMs are so powerful, we can do
-sophisticated equivalents of indexing by pre-computing relevance descriptors and
-summarizations in a pyramid structure:
-
-- **Minimal**: keyword summary of when to look at the doc, like a skill description
-- **Outline**: structural overview, key sections, scope
-- **Full document**: the complete content
-
-More broadly, this extends to dynamic or hierarchical pyramid summaries for very large
-doc sets.
-
-### 3. Separate Authoring Format from Compiled Format
-
-A key architectural insight: the format humans use to *write* docs should be completely
-decoupled from the format agents use to *consume* them.
-
-- **Authoring format**: "Whatever markdown exists in repos" — optionally with light
-  metadata (YAML front matter), but no special tooling required. Humans write docs in
-  their preferred editors, organize them naturally, and commit to git. The system should
-  not be prescriptive about how humans write or structure their documents.
-
-- **Compiled format**: Machine-optimized artifacts generated locally from the authoring
-  sources. These include:
-  - **Doc cards**: Compact descriptors ("when to use / what it contains / how to fetch")
-  - **Outline**: Structural overview, key sections, heading hierarchy
-  - **Summary ladder**: Multiple fidelity levels (card → S → M → L → full)
-  - **Chunks**: Stable section-level fragments with anchors for partial retrieval
-  - **Search indexes**: Lexical (BM25) + optional embedding vectors
-  - **Provenance**: Source repo + ref + commit SHA + path for every artifact
-
-This separation means: "don't be prescriptive about how humans write docs; be very smart
-about compiling them for agent consumption."
-
-### 4. Make These Available to Agents via Context-Efficient Tools
-
-For efficient context engineering, agents need content in a variety of formats and
-mechanisms for reading it. The most direct way: a CLI that offers all these capabilities,
-with skill-style descriptions about when to use each tool.
-
-### 5. Conserve Context by Reference, Not by Value
-
-A critical design principle: **never put content into context when you can put a reference
-instead**. This applies at every level of the system:
-
-- **CLI inputs**: Don't pass long strings as arguments. Instead, accept file paths, doc
-  IDs, or globs. An agent should say `kdex route --files=src/auth.ts,src/db.ts` rather than
-  piping file contents into the command.
-- **CLI outputs**: Return references (doc IDs, file paths, section anchors) that the agent
-  can follow up on, not full content by default.
-- **Context descriptions**: When describing "what I'm working on" to the router, reference
-  files and docs by name rather than inlining their content.
-
-This is the same principle that makes Unix pipes efficient: commands pass file handles and
-short messages, not entire file contents. For agents, the principle is even more important
-because every token of inline content competes with the agent's reasoning space.
-
-The corollary: the system should make it trivially easy to *produce* references (doc IDs,
-file paths, summary depth markers) and trivially easy to *dereference* them (fetch the
-actual content at any depth level).
+The focus: given a set of documents we trust, how do we make them mappable and accessible
+— to agents and humans alike — at the right time, in the right format, and in a
+context-efficient manner?
 
 ---
 
-## Agent Access Modalities
+## Guiding Principles
 
-There are five distinct modalities for how agents access knowledge. A complete solution
-must support all five:
+### 1. Curate a Trusted Document Set
 
-### Modality 1: Persistent Awareness (Skill-Style Descriptions)
+Decide which documents are trusted. These may live in various places — typically GitHub
+repos as markdown. The system should not be prescriptive about formats or organization.
 
-Brief descriptions always in the context window, so an agent can "remember" knowledge
-exists at any time. This is the SKILL.md / CLAUDE.md pattern — a compact directory of
-what's available with trigger phrases for when to look.
+### 2. Pre-compute Efficient Representations
+
+Pre-compute how a consumer would know a document is relevant, plus summaries for
+progressive consumption: relevance descriptors, outlines, summaries at various lengths.
+LLMs are excellent at generating these at build time.
+
+### 3. Separate Authoring from Compilation, Then Serve via Context-Efficient Tools
+
+The format people use to *write* docs should be decoupled from the format agents use to
+*consume* them. Authoring is "whatever markdown exists in repos." Compilation produces
+machine-optimized artifacts: doc cards, outlines, summaries, search indexes, provenance
+records. These compiled artifacts are then served via a CLI (or library) that provides
+context-efficient retrieval — multiple depth levels, structured output, and skill-style
+descriptions of when to use each tool.
+
+### 4. Conserve Context by Reference
+
+Never put content into context when a reference suffices. Accept file paths and doc IDs
+as inputs, return references as outputs, and make it trivially easy to dereference them
+at any depth level. This is the same principle that makes Unix pipes efficient — short
+messages, not entire file contents.
+
+---
+
+## Access Modalities
+
+There are five distinct modalities for how agents and humans access knowledge. A complete
+solution must support all five:
+
+### Modality 1: Awareness
+
+Brief descriptions always in the context window, so an agent "remembers" that knowledge
+exists. This is the persistent context pattern seen in SKILL.md, CLAUDE.md, and
+AGENTS.md — a compact directory of what's available, with signal keywords for when to
+look deeper.
 
 **Token budget**: ~100-500 tokens per knowledge area.
 **Mechanism**: Installed in skill files or CLAUDE.md during setup.
 **Example**: "For TypeScript patterns, run `kdex get typescript-rules`."
 
-### Modality 2: Exact Retrieval
+### Modality 2: Lookup
 
-The agent knows exactly what document it wants and pulls it up by name.
+The consumer knows exactly what document it wants and retrieves it by name. The
+distinction from Search: with Lookup, you already know what you're looking for.
 
 **Token budget**: Full document size (hundreds to thousands of tokens).
 **Mechanism**: `kdex get <name>` — direct fetch by identifier.
 **Example**: Agent runs `kdex get typescript-rules` and receives the full guideline.
 
-### Modality 3: Semantic Retrieval (Search)
+### Modality 3: Search
 
-The agent knows what kind of knowledge it needs but not the exact document. It queries
-by keywords, topic, or natural language.
+The consumer knows what kind of knowledge it needs but not the exact document. It queries
+by keywords, topic, or natural language. Search may be keyword-based, embedding-based, or
+hybrid — the modality is defined by the intent (discovery), not the mechanism.
 
 **Token budget**: Variable — search results, then drill-down.
-**Mechanism**: `kdex search <query>` — keyword/fuzzy/semantic search over the knowledge map.
+**Mechanism**: `kdex search <query>` — keyword/semantic/hybrid search over the knowledge
+map.
 **Example**: Agent runs `kdex search "handling database migrations"` and gets ranked
 results with summaries.
 
-### Modality 4: Knowledge Summarization (Progressive Disclosure)
+### Modality 4: Progressive Reading
 
-For large documents or multiple search results, the agent needs an overview first and can
-drill deeper selectively. This is the pyramid pattern:
+Once a document is identified (via Lookup or Search), the consumer reads it at varying
+levels of depth. This is about *how much* and *in what form* content is consumed.
 
-1. **Index level**: One-line description per doc (what's available)
-2. **Summary level**: Paragraph-level overview (what's in it)
-3. **Section level**: Specific sections or key points
-4. **Full level**: Complete document content
+There are distinct dimensions to progressive reading:
+
+**By purpose** — what kind of information is needed:
+- **Scope metadata**: Title, description, when-to-use — enough to decide relevance
+- **Summaries**: Condensed versions at various lengths
+- **Key insights**: The most important points or takeaways
+- **Outline**: Structural overview (headings, sections)
+- **Section content**: A specific section, possibly with surrounding context
+
+**By depth** — how much detail:
+- **Index-level descriptions**: What goes in a skill or awareness block (~50 tokens)
+- **Outlines and summaries**: Shorter versions of a document (~100-500 tokens)
+- **Section content**: Individual sections retrieved by heading (~200-2000 tokens)
+- **Full content**: The complete document
+
+These dimensions are not strictly hierarchical — an outline is not commensurate with a
+summary, but both are useful. The system should support requesting content by purpose
+and constraining by budget.
 
 **Token budget**: Scales from ~50 to full document size.
-**Mechanism**: `kdex get <name> --depth=summary|outline|full` or similar.
+**Mechanism**: `kdex get <name> --level=outline|summary|content` with optional
+`--budget=<words>`.
 
-### Modality 5: Tool Documentation
+### Modality 5: Meta Documentation
 
-Documentation on how to use the knowledge tools themselves. Referenced in the persistent
-awareness layer. This is meta-knowledge — the agent's understanding of how to navigate
-the knowledge system.
+Documentation on how to consume the other kinds of information. This includes tool
+documentation (how to use `kdex`), orientation about the knowledge structure (what
+categories exist, how docs are organized), and contextual guidance from the user about
+which knowledge areas matter for the current task.
 
-**Mechanism**: Built into the skill description and `kdex --help`.
+**Mechanism**: Built into skill descriptions, `kdex --help`, and the knowledge map's
+own structure.
 
 ---
 
@@ -192,26 +181,25 @@ documents:
     title: "TypeScript Rules and Best Practices"
     description: "Comprehensive TypeScript coding rules..."
 
-    # Pre-computed for Modality 1 (persistent awareness)
-    triggers:
-      - "typescript"
-      - "ts"
-      - "type safety"
-      - "TypeScript project"
-    when_to_use: "When writing, reviewing, or refactoring TypeScript code"
-
-    # Pre-computed for Modality 3 (semantic retrieval)
-    keywords:
+    # Pre-computed for Awareness and Search
+    # Signals: terms/patterns that indicate this doc is relevant to the current task.
+    # When these appear in the working context (file names, code, queries), the
+    # document should be considered.
+    signals:
       - typescript
+      - ts
+      - .tsx
+      - type safety
       - strict mode
       - type narrowing
       - discriminated unions
       - error handling
+    when_to_use: "When writing, reviewing, or refactoring TypeScript code"
     topics:
       - language-rules
       - code-quality
 
-    # Pre-computed for Modality 4 (progressive disclosure)
+    # Pre-computed for Progressive Reading (multiple depth levels)
     summary: |
       Rules for TypeScript projects: strict mode, proper typing,
       error handling patterns, naming conventions, import organization.
@@ -236,7 +224,7 @@ The map is generated by an LLM pass over all documents:
 1. **Scan**: Walk the document corpus, reading each markdown file
 2. **Analyze**: For each doc, extract/generate:
    - Title, description, keywords (from content + front matter)
-   - Trigger phrases (when an agent should consult this doc)
+   - Signal keywords (terms that indicate relevance to this doc)
    - Summary at multiple levels (one-line, paragraph, outline)
    - Category and topic classification
    - Token count estimate
@@ -255,9 +243,9 @@ Without pre-computation, an agent must:
 4. Read the relevant one in full
 
 This wastes enormous context. With a pre-computed map:
-1. The map summary is already in context (persistent awareness)
-2. Agent identifies relevant doc instantly from triggers/keywords
-3. Agent requests exactly the right doc at the right depth
+1. The map summary is already in context (Awareness)
+2. Consumer identifies relevant doc instantly from signals/keywords (Search/Lookup)
+3. Consumer requests exactly the right doc at the right depth (Progressive Reading)
 
 **The map turns O(n) document discovery into O(1) lookup.**
 
@@ -278,50 +266,96 @@ Reasons for separation:
 - **Extensibility**: Anyone can add knowledge sources without modifying tbd
 - **Library + CLI**: Can be both a library (imported by tbd) and a standalone CLI
 
+### Docspecs: Referencing Documents
+
+A **docspec** is a URL-like reference to a document, either local or remote. Docspecs
+are the standard way to point at content in the knowledge system:
+
+```
+# Local files (relative to config or working directory)
+./guidelines/typescript-rules.md
+./docs/**/*.md
+
+# Git-hosted docs (cloned/cached locally)
+github://jlevy/speculate#main/guidelines/
+github://org/knowledge-base#main/docs/runbooks/
+
+# Any docspec can be "mounted" in the knowledge map at a local path
+# Simple: add all markdown docs from a repo
+# Complex: cherry-pick specific paths with custom mount points
+```
+
+Docspecs are used in configuration to declare sources and in CLI commands to reference
+content. They unify local paths, remote repos, and globs into a single referencing
+scheme.
+
 ### CLI Interface Sketch
 
 ```bash
 # Setup and configuration
 kdex init                          # Initialize in a project
-kdex source add <url> [--prefix=X] # Add a knowledge source (git repo)
+kdex source add <docspec> [--prefix=X]  # Add a knowledge source (docspec)
 kdex source list                   # List configured sources
 kdex source remove <prefix>        # Remove a source
+kdex sync [<prefix>]               # Sync sources to local corpus
 
 # Building the knowledge map
 kdex build                         # (Re)build knowledge map from sources
 kdex build --source=<prefix>       # Rebuild for specific source
 kdex status                        # Show map freshness, source status
 
-# The always-on knowledge map
-kdex map                           # Print the compact always-on map (for CLAUDE.md/SKILL.md)
+# Discovery and validation
+kdex discover [--source <prefix>]  # Show docs in sources without cards yet
+kdex lint                          # Validate map: duplicate IDs, missing fields,
+                                   #   broken references, dangling pointers
+
+# The always-on knowledge map (Awareness)
+kdex map                           # Print the compact map (for CLAUDE.md/SKILL.md)
 kdex map --budget=500              # With token budget constraint
 
-# Retrieval (the five modalities)
-kdex list                          # List all available knowledge (Modality 1)
+# Lookup (you know what you want)
+kdex list                          # List all available knowledge
 kdex list --category=<cat>         # Filter by category
-kdex get <name>                    # Exact retrieval — full document (Modality 2)
-kdex get <name> --summary          # Summary only (Modality 4)
-kdex get <name> --outline          # Outline level (Modality 4)
-kdex search <query>                # Semantic search (Modality 3)
-kdex search <query> --top=5        # Limit results
+kdex get <name>                    # Full document
+kdex get <name> --level=summary    # Summary only
+kdex get <name> --level=outline    # Outline (heading structure)
+kdex get <name> --level=purpose    # Scope metadata (when to use, description)
+kdex get <name> --section=<heading>  # Specific section by heading
 
-# Progressive summarization
-kdex summarize <name> --level=card   # One-liner doc card
-kdex summarize <name> --level=S      # Short summary (1 paragraph)
-kdex summarize <name> --level=M      # Medium summary (key points)
-kdex summarize <name> --level=L      # Long summary (section-level detail)
+# Search (you're discovering)
+kdex search <query>                # Search over the knowledge map
+kdex search <query> --top=5        # Limit results
+kdex search <query> --backend=rg   # Explicit backend (rg, qmd, ck)
+
+# Progressive Reading (content at controlled depth)
+kdex get <name> --level=content --budget=500words   # Content within a word budget
+kdex get <name> --level=summary --budget=200words   # Summary within a word budget
 
 # Context routing and injection (references, not inline content)
 kdex route --files=<paths>         # Suggest relevant docs based on file references
 kdex route --files=<paths> --query="..." # Combine file refs with short query
-kdex inject --refs=<ref>,<ref> --budget=1200  # Assemble context block from depth-annotated refs
-kdex prime                         # Output persistent awareness block (alias for map)
+kdex inject --refs=<ref>,<ref> --budget=1200  # Assemble context block from refs
+kdex prime                         # Output Awareness block (alias for map)
 
 # All commands support:
 # --json        (structured output for agents)
 # stdin/stdout  (piping for humans + agents)
 # Deterministic outputs where possible
 ```
+
+### Search Backends
+
+The CLI delegates search to pluggable backends via `--backend`:
+
+- **rg** (default): ripgrep over the local corpus directory. Fast, ubiquitous, always
+  available. Handles "I know the exact term" perfectly.
+- **qmd**: BM25 + vector + LLM re-ranking via QMD. Opt-in when installed.
+- **ck**: Hybrid semantic + regex + BM25 via BeaconBay/ck. Opt-in when installed.
+- **semtools**: Semantic keyword search via SemTools. Opt-in when installed.
+
+The corpus directory (`.kdex/corpus/`) is the unifying substrate — all backends operate
+over the same materialized filesystem view of synced docs. This keeps backend integration
+thin: `kdex sync` materializes docs, backends just search a directory.
 
 ### Integration with tbd
 
@@ -623,7 +657,7 @@ pattern we propose for knowledge, just applied to action scripts:
 
 The insight: our "doc cards always in context; load details later" is exactly the same
 pattern, just applied to *knowledge* instead of *action scripts*. The convergence across
-independent ecosystems validates the progressive disclosure architecture.
+independent ecosystems validates the progressive reading architecture.
 
 #### Context Budgeting Guidelines
 
@@ -810,8 +844,8 @@ verification tools that activate depending on component contents (context routin
 [RAPTOR](https://github.com/parthsarthi03/raptor) (1.5K stars) builds a tree of
 summaries bottom-up: chunks → clusters → summaries → meta-summaries. Retrieves at
 different abstraction levels. 20% absolute accuracy improvement on the QuALITY
-benchmark. **This is the academic validation of the pyramid pattern** — the same
-structure we propose in the knowledge map (keywords → summary → outline → full doc).
+benchmark. **This is the academic validation of progressive reading** — the same
+structure we propose in the knowledge map (purpose → summary → outline → content).
 
 #### RAG (Retrieval-Augmented Generation)
 The dominant paradigm for knowledge injection. Typically uses embedding databases
@@ -847,7 +881,7 @@ Zettelkasten index computed over markdown files.
 
 **Description**: Evolve tbd's current `source add` / `guidelines` / `shortcut` commands
 to support all five modalities. Add knowledge map generation, search, and progressive
-disclosure directly to tbd.
+reading directly to tbd.
 
 **Pros:**
 - No new tool to install or maintain
@@ -921,7 +955,7 @@ should be:
 - Published as an npm package with both CLI and library exports
 - Integrated into tbd as a dependency
 - Operable independently for non-tbd users
-- Designed with the same progressive disclosure architecture as tbd
+- Designed with the same progressive reading architecture as tbd
 
 ---
 
@@ -957,10 +991,10 @@ title: TypeScript Rules              # Human-readable title
 description: Best practices for TS   # One-line description
 category: language-rules             # Primary category
 tags: [typescript, coding-rules]     # Additional tags
-triggers:                            # When agents should consult this
-  - "writing typescript"
-  - "ts project setup"
-  - "type safety"
+signals:                             # Terms that indicate this doc is relevant
+  - typescript
+  - ts project
+  - type safety
 author: org-name                     # Optional
 version: "1.0"                       # Optional
 ---
@@ -1001,7 +1035,7 @@ documents:
     tokens: 3200
     hash: sha256:abc123...
 
-# Aggregate metadata for persistent awareness
+# Aggregate metadata for Awareness modality
 categories:
   language-rules:
     description: "Language-specific coding rules and best practices"
@@ -1020,14 +1054,14 @@ categories:
 
 The knowledge map is the single artifact that enables everything:
 
-1. **Persistent awareness**: Generate a compact directory from the map's descriptions
-   and triggers → inject into SKILL.md or CLAUDE.md
-2. **Exact retrieval**: Map `id` → file path → read file
-3. **Semantic search**: Search over `keywords`, `description`, `summary` fields using
-   ripgrep, fzf, or simple substring matching
-4. **Progressive disclosure**: Map stores `summary` → `outline` → full file path at
+1. **Awareness**: Generate a compact directory from the map's descriptions and signals
+   → inject into SKILL.md or CLAUDE.md
+2. **Lookup**: Map `id` → file path → read file
+3. **Search**: Search over `keywords`, `description`, `summary` fields using ripgrep,
+   pluggable backends, or simple substring matching
+4. **Progressive Reading**: Map stores `summary` → `outline` → full file path at
    increasing detail levels
-5. **Tool documentation**: Map structure is self-describing
+5. **Meta Documentation**: Map structure is self-describing
 
 The map is a **static JSON/YAML file**. No database. No server. No embeddings (unless
 you want them). It's just a file that makes markdown documents navigable by LLMs.
@@ -1043,60 +1077,53 @@ We pre-compute all of this once, then serve it as static data.
 
 ---
 
-## Pyramid Summaries as a Universal Primitive
+## Progressive Reading as a Universal Primitive
 
 ### The Generalization
 
-The summary ladder (card → S → M → L → full) described above for knowledge docs is
-actually a much more general primitive. The same structure applies to **anything that has
-text content**:
+The multi-level reading approach described above for knowledge docs is actually a much
+more general primitive. The same structure applies to **anything that has text content**:
 
-- A single knowledge document → pyramid summary at any depth
-- A set of knowledge documents → pyramid summary of the collection
-- An arbitrary file (source code, config, logs) → pyramid summary
-- A directory of files → pyramid summary
-- A user's current working context (open files, recent edits) → pyramid summary
-- A conversation or prompt → pyramid summary
+- A single knowledge document → readable at any depth
+- A set of knowledge documents → summary of the collection
+- An arbitrary file (source code, config, logs) → summary or outline
+- A directory of files → structural overview
+- A user's current working context → condensed summary
 
-The insight: **a pyramid summary is a content-addressed, depth-parameterized
-representation of any textual content**. If the system can produce and consume these
-uniformly, then "context" becomes a first-class, composable, referenceable object — not
-an opaque string you paste into a prompt.
+The insight: **depth-parameterized content is a universal primitive**. If the system can
+produce and consume these uniformly, then "context" becomes a first-class, composable,
+referenceable object — not an opaque string you paste into a prompt.
 
 ### Reference Syntax for Depth-Parameterized Content
 
-If pyramid summaries are the universal primitive, we need a compact syntax for referencing
-content at a specific depth. The syntax should be:
+We need a compact syntax for referencing content at a specific depth:
 
 1. **Short enough for CLI use** — agents type these in tool calls
 2. **Uniform across content types** — same syntax for knowledge docs, files, directories
-3. **Depth is optional** — sensible default (usually "card" or "full" depending on context)
+3. **Depth is optional** — sensible default depending on context
 
-A natural syntax combines a content reference with a depth specifier:
+A natural syntax combines a content reference with a descriptive level:
 
 ```
 # Knowledge docs (by ID)
-kdex:typescript-rules              # card-level summary (default for routing)
-kdex:typescript-rules:S            # short summary (1 paragraph)
-kdex:typescript-rules:M            # medium summary (key sections)
-kdex:typescript-rules:L            # long summary (detailed)
-kdex:typescript-rules:full         # full document
-kdex:typescript-rules:outline      # structural outline
+kdex:typescript-rules              # purpose metadata (default for routing)
+kdex:typescript-rules:summary      # summary (paragraph-level overview)
+kdex:typescript-rules:outline      # structural outline (headings)
+kdex:typescript-rules:content      # full document content
 
 # Arbitrary files (by path)
-@src/auth/login.ts               # reference to a file (full by default)
-@src/auth/login.ts:S             # short summary of the file
+@src/auth/login.ts               # reference to a file (content by default)
+@src/auth/login.ts:summary       # summary of the file
 @src/auth/login.ts:outline       # structural outline (functions, classes)
-@src/auth/login.ts:card          # one-line description of what this file does
 
 # Directories / globs
-@src/auth/:S                     # summary of the auth directory
-@src/auth/**/*.ts:card           # card-level summary of each TS file
+@src/auth/:summary               # summary of the auth directory
+@src/auth/**/*.ts:purpose        # purpose metadata for each TS file
 @src/auth/:outline               # structural outline of the directory
 
 # Knowledge categories
-kdex:category:language-rules:S     # summary of all language rule docs
-kdex:category:testing:card         # card-level list of all testing docs
+kdex:category:language-rules:summary  # summary of all language rule docs
+kdex:category:testing:purpose         # purpose-level list of all testing docs
 ```
 
 ### How This Works in Practice
@@ -1115,15 +1142,15 @@ kdex route --files=src/auth/ --query="error handling"
 kdex route --files=src/auth/token.ts --query="retry patterns"
 ```
 
-The router reads the referenced files at card/S depth internally, matches against doc
-card signals, and returns relevant knowledge doc references. The agent never had to put
-file contents into the CLI call.
+The router reads the referenced files internally, matches against doc card signals, and
+returns relevant knowledge doc references. The agent never had to put file contents into
+the CLI call.
 
 **Composing context from references:**
 
 ```bash
 # Build a context block from references at specified depths
-kdex inject --refs=kdex:typescript-rules:S,@src/auth/:outline --budget=1500
+kdex inject --refs=kdex:typescript-rules:summary,@src/auth/:outline --budget=1500
 
 # The inject command:
 # 1. Resolves each reference at the specified depth
@@ -1136,34 +1163,39 @@ kdex inject --refs=kdex:typescript-rules:S,@src/auth/:outline --budget=1500
 
 ```bash
 # Agent starts broad
-kdex get typescript-rules:card    →  "TS coding rules: strict config, types, errors" (15 tokens)
+kdex get typescript-rules --level=purpose  →  "TS coding rules: strict config, types, errors.
+                                                Use when writing/reviewing TypeScript." (30 tokens)
 
-# Decides it's relevant, goes deeper
-kdex get typescript-rules:S       →  One paragraph overview (80 tokens)
+# Decides it's relevant, gets overview
+kdex get typescript-rules --level=summary  →  One paragraph overview (80 tokens)
 
-# Needs the error handling section specifically
-kdex get typescript-rules:outline →  Section list with anchors
-kdex get typescript-rules#error-handling  →  Just that section (400 tokens)
+# Wants structural understanding
+kdex get typescript-rules --level=outline  →  Section list with anchors
 
-# Or goes to full
-kdex get typescript-rules:full    →  Complete document (3200 tokens)
+# Needs a specific section
+kdex get typescript-rules --section="Error Handling"  →  Just that section (400 tokens)
+
+# Or goes to full content
+kdex get typescript-rules --level=content  →  Complete document (3200 tokens)
+
+# Or requests content within a budget
+kdex get typescript-rules --level=content --budget=500words  →  Condensed version
 ```
 
-### The Pyramid Summary as a Build Artifact
+### Pre-Computed Reading Levels as Build Artifacts
 
-For knowledge docs in the corpus, pyramid summaries are **pre-computed at build time**:
+For knowledge docs in the corpus, reading levels are **pre-computed at build time**:
 
 ```yaml
-# In map.yml, each doc has pre-computed summaries at every level
+# In map.yml, each doc has pre-computed content at multiple levels
 - id: typescript-rules
   path: guidelines/typescript-rules.md
-  card: "TypeScript coding rules: strict config, type patterns, error handling"
-  summary_S: |
+  purpose: "TypeScript coding rules: strict config, type patterns, error handling"
+  when_to_use: "Writing, reviewing, or refactoring TypeScript code"
+  summary: |
     Comprehensive TypeScript rules covering strict tsconfig, type patterns
     (discriminated unions, branded types), Result-type error handling, naming
     conventions, and import organization.
-  summary_M: |
-    [~200 token summary with key points from each section]
   outline:
     - "1. Strict Configuration: tsconfig requirements"
     - "2. Type Patterns: unions, branding, narrowing"
@@ -1173,25 +1205,25 @@ For knowledge docs in the corpus, pyramid summaries are **pre-computed at build 
   tokens: 3200
 ```
 
-For arbitrary files (source code, etc.), pyramid summaries are **generated on demand**
-and optionally cached:
+For arbitrary files (source code, etc.), summaries are **generated on demand** and
+optionally cached:
 
 ```bash
-kdex summarize @src/auth/login.ts --level=S
-# → Generates a short summary of the file (via LLM or heuristic extraction)
+kdex summarize @src/auth/login.ts --level=summary
+# → Generates a summary of the file (via LLM or heuristic extraction)
 # → Caches the result for subsequent requests
 ```
 
 ### Why This Matters: Context as Composable References
 
 This framing transforms "context engineering" from "figure out what text to paste" into
-"compose references at appropriate depths." The agent's workflow becomes:
+"compose references at appropriate depths." The workflow becomes:
 
-1. **Always have the map** — card-level references for all knowledge docs (~500 tokens)
+1. **Always have the map** — purpose-level references for all knowledge docs (~500 tokens)
 2. **Route by reference** — give the router file paths, not content
-3. **Escalate by depth** — go from card → S → M → full as needed
-4. **Compose by reference** — `kdex inject` assembles context blocks from depth-annotated
-   references within a token budget
+3. **Escalate by depth** — go from purpose → summary → outline → section → content
+4. **Compose by reference** — `kdex inject` assembles context blocks from
+   depth-annotated references within a token budget
 
 The key property: **at no point does the agent need to put large content blocks into CLI
 arguments**. Everything is referenced by path/ID, and depth is a parameter. The system
@@ -1199,8 +1231,8 @@ handles all content resolution internally.
 
 This is also the bridge between the knowledge system and the broader "repo context"
 problem (Aider repo map, llm-context.py, repomix). All of these tools are essentially
-generating pyramid summaries of code — our system generalizes the primitive and makes it
-uniformly addressable.
+generating multi-level summaries of code — our system generalizes the primitive and makes
+it uniformly addressable.
 
 ---
 
@@ -1243,7 +1275,7 @@ kdex build →
   For each doc:
     1. Extract/generate: name, description, when-to-use, signal keywords
     2. Generate heading outline
-    3. Optionally: generate summary ladder (S/M/L)
+    3. Optionally: generate summaries at multiple lengths
   Emit: MAP.md (human-readable) + map.yml (machine-readable)
 ```
 
@@ -1254,7 +1286,7 @@ document discovery into O(1) lookup.
 
 The routing function is dead simple — not a giant schema, just a tool. Critically,
 context is passed as **file references**, not inline content (see "Conserve Context by
-Reference" principle and "Pyramid Summaries as Universal Primitive"):
+Reference" principle and "Progressive Reading as Universal Primitive"):
 
 ```
 kdex route --files=src/auth/token.ts,src/auth/refresh.ts →
@@ -1268,11 +1300,11 @@ rich "signals" fields). The flow:
 
 1. `kdex route --files=...` returns ranked doc cards (references, not content)
 2. Agent chooses to read or summarize based on the cards
-3. Agent requests `kdex get <id>:S` or `kdex get <id>:full`
+3. Agent requests `kdex get <id> --level=summary` or `kdex get <id> --level=content`
 
 This gives agents a directory-hierarchy feel (if cards are grouped by category), a
-search-engine feel (if router ranks by relevance), and progressive disclosure (cards →
-summaries → full) — all from the same primitive.
+search-engine feel (if router ranks by relevance), and progressive reading (purpose →
+summary → outline → content) — all from the same primitive.
 
 ### Step 3: Treat External Doc Repos as Sources for the Compiler
 
@@ -1304,17 +1336,17 @@ This architecture is effective because it leverages several compounding insights
    search over doc cards handles 95%+ of queries
 3. **Agents are good at self-routing** — given a compact inventory of doc cards, agents
    reliably choose the right document without sophisticated retrieval infrastructure
-4. **The same primitive serves all modalities** — doc cards power persistent awareness
-   (always in context), exact retrieval (card → id → file), search (match over card
-   fields), and progressive disclosure (card → summary → outline → full)
+4. **The same primitive serves all modalities** — doc cards power Awareness (always in
+   context), Lookup (card → id → file), Search (match over card fields), and
+   Progressive Reading (purpose → summary → outline → content)
 
 ---
 
-## Progressive Disclosure in Practice
+## Progressive Reading in Practice
 
 ### Example Flow: Agent Needs TypeScript Guidance
 
-**Step 1: Persistent awareness** (always in context, ~200 tokens)
+**Step 1: Awareness** (always in context, ~200 tokens)
 
 ```
 Available knowledge via `kdex`:
@@ -1327,7 +1359,7 @@ Available knowledge via `kdex`:
 [... 20 more one-liners ...]
 ```
 
-**Step 2: Agent recognizes need** → runs `kdex get typescript-rules --summary`
+**Step 2: Agent recognizes need** → runs `kdex get typescript-rules --level=summary`
 
 ```
 TypeScript Rules: Comprehensive coding rules covering strict configuration,
@@ -1335,7 +1367,7 @@ type patterns (discriminated unions, branded types, narrowing), error handling
 with Result types, naming conventions, and import organization. 3200 tokens.
 ```
 
-**Step 3: Agent wants details** → runs `kdex get typescript-rules --outline`
+**Step 3: Agent wants structure** → runs `kdex get typescript-rules --level=outline`
 
 ```
 1. Strict Configuration: tsconfig requirements
@@ -1345,7 +1377,7 @@ with Result types, naming conventions, and import organization. 3200 tokens.
 5. Imports: organization, barrel files
 ```
 
-**Step 4: Agent needs full content** → runs `kdex get typescript-rules`
+**Step 4: Agent needs full content** → runs `kdex get typescript-rules --level=content`
 
 ```
 [Full 3200-token document]
@@ -1366,7 +1398,7 @@ Results:
 | --- | --- |
 | Load all docs upfront | ~50,000+ |
 | Load map + one doc on demand | ~500 + 3,200 = 3,700 |
-| With progressive disclosure | ~500 + 50 + 100 + 3,200 = 3,850 |
+| With progressive reading | ~500 + 50 + 100 + 3,200 = 3,850 |
 | Traditional (read all file names, then guess) | ~200 + 3,200+ (often wrong doc) |
 
 The progressive approach uses ~13x fewer tokens than loading everything, with equal or
@@ -1374,13 +1406,13 @@ better accuracy.
 
 ### External Validation: Claude-Mem Metrics
 
-Independent research on progressive disclosure for agent knowledge systems (Claude-Mem,
+Independent research on progressive reading for agent knowledge systems (Claude-Mem,
 Gemini CLI) shows even more dramatic results:
 
 | Approach | Tokens Consumed | Efficiency |
 | --- | --- | --- |
 | Load everything at session start | ~25,000 tokens | 0.8% |
-| Progressive disclosure (3-layer) | ~955 tokens | ~100% |
+| Progressive reading (3-layer) | ~955 tokens | ~100% |
 
 This represents a **~26x improvement** in token efficiency. The 3-layer pattern
 (index → context → details) is converging as a standard across agent platforms.
@@ -1450,7 +1482,7 @@ for (const file of markdownFiles) {
   const content = await readFile(file);
   const analysis = await llm.analyze(content, {
     prompt: "For this document, generate: title, description, keywords, " +
-            "trigger phrases, one-paragraph summary, and heading outline."
+            "signal keywords, one-paragraph summary, and heading outline."
   });
   map.add({ ...analysis, path: file });
 }
@@ -1462,7 +1494,7 @@ optional `kdex build --enrich` step for source repos that want richer metadata.
 ### Search Implementation: Tiered Approach
 
 **Tier 1 — Metadata search (v1, no dependencies)**:
-1. Keyword search over map.yml fields (triggers, keywords, description)
+1. Keyword search over map.yml fields (signals, when_to_use, description)
 2. Fuzzy matching over document names and descriptions
 3. ripgrep over the actual markdown files for content-level queries
 4. This covers 95%+ of agent knowledge queries for small corpora (<500 docs)
@@ -1520,9 +1552,9 @@ markdown. Front matter is encouraged but not required.
 Documents are plain markdown files in git repos. Edit with any tool, review via
 standard PR process, version via git history. No special editing workflow.
 
-### Consuming Knowledge (Zero Friction for Agents)
+### Consuming Knowledge (Zero Friction)
 
-Agents interact with `kdex` commands. The persistent awareness block tells them what's
+Agents and humans interact with `kdex` commands. The Awareness block tells them what's
 available. The CLI handles all retrieval. No configuration beyond `kdex source add`.
 
 ### Contributing Back (the Shadcn Challenge)
@@ -1547,9 +1579,10 @@ The tool is called **`kdex`** — short for "knowledge index." The name is:
 - **Unique** — not taken on npm, no collisions with common Unix tools
 - **Short enough for CLI use** — 4 chars, easy to type
 - **Works as a universal prefix** — `kdex` serves as the consistent namespace everywhere
-  it appears: CLI command (`kdex build`), reference syntax (`kdex:typescript-rules:S`),
-  config directory (`~/.kdex/`), package name (`@jlevy/kdex`), cache paths, source
-  prefixes, and any other context where a unique identifier is needed
+  it appears: CLI command (`kdex build`), reference syntax
+  (`kdex:typescript-rules:summary`), config directory (`~/.kdex/`), package name
+  (`@jlevy/kdex`), cache paths, source prefixes, and any other context where a unique
+  identifier is needed
 - **Suggestive of purpose** — "k" for knowledge, "dex" evokes index/directory
 
 ---
@@ -1614,9 +1647,9 @@ These experiments validate the architecture before committing to full implementa
    - Measure: how well does a compact card inventory let an agent self-route without
      semantic search? (Hypothesis: >90% accuracy for curated corpora <200 docs)
 
-3. **Test summary ladders for 5-10 large docs**
-   - Generate card → S → M → L summaries for substantial documents
-   - Test progressive disclosure: agent reads card, decides whether to go deeper
+3. **Test progressive reading levels for 5-10 large docs**
+   - Generate purpose → summary → outline → content for substantial documents
+   - Test progressive reading: agent reads purpose, decides whether to go deeper
    - Measure token savings vs accuracy compared to always loading full docs
 
 4. **Build a trivial router first**
@@ -1633,10 +1666,10 @@ These experiments validate the architecture before committing to full implementa
 ### Implementation Milestones
 
 - [ ] Prototype `kdex build` for pure-extraction map generation (experiment 2)
-- [ ] Prototype `kdex get` with summary/outline/full depth levels (experiment 3)
+- [ ] Prototype `kdex get` with purpose/summary/outline/content depth levels (experiment 3)
 - [ ] Prototype `kdex route` with trivial keyword-based scoring (experiment 4)
 - [ ] Prototype `kdex search` with ripgrep-based keyword search
-- [ ] Design the persistent awareness block format for SKILL.md integration
+- [ ] Design the Awareness block format for SKILL.md integration
 - [ ] Decide on tool name and npm package scope
 - [ ] Plan the integration boundary between kdex and tbd
 - [ ] Write a spec for the first implementation phase
@@ -1739,19 +1772,20 @@ These experiments validate the architecture before committing to full implementa
 - [Devin Docs: Knowledge Onboarding](https://docs.devin.ai/onboard-devin/knowledge-onboarding)
 
 ### Concepts
-- Progressive Disclosure — UI pattern of revealing information in layers; ~26x token
-  efficiency improvement measured in Claude-Mem
+- Progressive Reading — Consuming content at varying depth levels (purpose → summary →
+  outline → section → content); ~26x token efficiency improvement measured in Claude-Mem
 - Context Engineering — Managing the full information environment around an LLM; the
   dominant paradigm as of 2025-2026
 - Authoring vs Compiled Format — Separate human writing format (markdown) from
   machine-optimized consumption format (doc cards, summaries, indexes)
 - Doc Card — Compact descriptor (~50-100 tokens) answering "what is this, when to use it,
   how to get it" — the atomic unit of the compiled knowledge system
+- Docspec — URL-like reference to a document (local path, git URL, or
+  `github://owner/repo#branch/path`) that can be mounted in the knowledge map
 - Context Conservation — Design principle: reference content by path/ID instead of
   inlining it; never put content into context when a reference suffices
-- Pyramid Summary — Depth-parameterized representation of any textual content
-  (card → S → M → L → full); a universal primitive applicable to docs, files,
-  directories, collections, or any content
+- Access Modalities — The five ways knowledge is consumed: Awareness, Lookup, Search,
+  Progressive Reading, Meta Documentation
 - Four Core Operations — Write, Select, Compress, Isolate (LangChain/Anthropic)
 - DITA (Darwin Information Typing Architecture) — Topic-based documentation standard
 - Zettelkasten — Atomic, linked note methodology
