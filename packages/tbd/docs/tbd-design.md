@@ -2481,6 +2481,7 @@ Options:
   --defer-before <date>     Deferred before date
   --sort <field>            Sort by: priority, created, updated (default: priority)
                             (created/updated are shorthand for created_at/updated_at)
+                            Tiebreaker: internal ULID (chronological creation order)
   --limit <n>               Limit results
   --count                   Output only the count of matching issues
   --long                    Show descriptions
@@ -2491,6 +2492,13 @@ Options:
 > **Default filtering:** By default, `tbd list` excludes closed issues to focus on
 > active work. Use `--all` to include closed issues, or `--status closed` to show only
 > closed issues.
+
+**Sort order:** The primary sort is by the `--sort` field (default: priority ascending;
+created/updated: newest first).
+The tiebreaker for issues with equal primary values is the internal ULID, which sorts
+lexicographically in chronological creation order.
+This ensures deterministic, stable ordering — issues created earlier always appear
+before issues created later within the same priority level.
 
 **Examples:**
 

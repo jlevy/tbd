@@ -1,5 +1,9 @@
 # tbd
 
+[![CI](https://github.com/jlevy/tbd/actions/workflows/ci.yml/badge.svg)](https://github.com/jlevy/tbd/actions/workflows/ci.yml)
+[![npm version](https://img.shields.io/npm/v/get-tbd)](https://www.npmjs.com/package/get-tbd)
+[![X Follow](https://img.shields.io/twitter/follow/ojoshe)](https://x.com/ojoshe)
+
 **Task tracking, spec-driven planning, and knowledge injection for AI coding agents.**
 
 **tbd** (short for “To Be Done,” or “TypeScript beads” if you prefer) combines four
