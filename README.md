@@ -1,8 +1,8 @@
 # tbd
 
+[![Follow @ojoshe on X](https://img.shields.io/badge/follow_%40ojoshe-black?logo=x&logoColor=white)](https://x.com/ojoshe)
 [![CI](https://github.com/jlevy/tbd/actions/workflows/ci.yml/badge.svg)](https://github.com/jlevy/tbd/actions/workflows/ci.yml)
 [![npm version](https://img.shields.io/npm/v/get-tbd)](https://www.npmjs.com/package/get-tbd)
-[![X Follow](https://img.shields.io/twitter/follow/ojoshe)](https://x.com/ojoshe)
 
 **Task tracking, spec-driven planning, and knowledge injection for AI coding agents.**
 
