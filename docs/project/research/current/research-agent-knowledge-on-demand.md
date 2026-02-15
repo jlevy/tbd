@@ -101,7 +101,7 @@ A critical design principle: **never put content into context when you can put a
 instead**. This applies at every level of the system:
 
 - **CLI inputs**: Don't pass long strings as arguments. Instead, accept file paths, doc
-  IDs, or globs. An agent should say `kn route --files=src/auth.ts,src/db.ts` rather than
+  IDs, or globs. An agent should say `kdex route --files=src/auth.ts,src/db.ts` rather than
   piping file contents into the command.
 - **CLI outputs**: Return references (doc IDs, file paths, section anchors) that the agent
   can follow up on, not full content by default.
@@ -131,15 +131,15 @@ what's available with trigger phrases for when to look.
 
 **Token budget**: ~100-500 tokens per knowledge area.
 **Mechanism**: Installed in skill files or CLAUDE.md during setup.
-**Example**: "For TypeScript patterns, run `kn get typescript-rules`."
+**Example**: "For TypeScript patterns, run `kdex get typescript-rules`."
 
 ### Modality 2: Exact Retrieval
 
 The agent knows exactly what document it wants and pulls it up by name.
 
 **Token budget**: Full document size (hundreds to thousands of tokens).
-**Mechanism**: `kn get <name>` — direct fetch by identifier.
-**Example**: Agent runs `kn get typescript-rules` and receives the full guideline.
+**Mechanism**: `kdex get <name>` — direct fetch by identifier.
+**Example**: Agent runs `kdex get typescript-rules` and receives the full guideline.
 
 ### Modality 3: Semantic Retrieval (Search)
 
@@ -147,8 +147,8 @@ The agent knows what kind of knowledge it needs but not the exact document. It q
 by keywords, topic, or natural language.
 
 **Token budget**: Variable — search results, then drill-down.
-**Mechanism**: `kn search <query>` — keyword/fuzzy/semantic search over the knowledge map.
-**Example**: Agent runs `kn search "handling database migrations"` and gets ranked
+**Mechanism**: `kdex search <query>` — keyword/fuzzy/semantic search over the knowledge map.
+**Example**: Agent runs `kdex search "handling database migrations"` and gets ranked
 results with summaries.
 
 ### Modality 4: Knowledge Summarization (Progressive Disclosure)
@@ -162,7 +162,7 @@ drill deeper selectively. This is the pyramid pattern:
 4. **Full level**: Complete document content
 
 **Token budget**: Scales from ~50 to full document size.
-**Mechanism**: `kn get <name> --depth=summary|outline|full` or similar.
+**Mechanism**: `kdex get <name> --depth=summary|outline|full` or similar.
 
 ### Modality 5: Tool Documentation
 
@@ -170,7 +170,7 @@ Documentation on how to use the knowledge tools themselves. Referenced in the pe
 awareness layer. This is meta-knowledge — the agent's understanding of how to navigate
 the knowledge system.
 
-**Mechanism**: Built into the skill description and `kn --help`.
+**Mechanism**: Built into the skill description and `kdex --help`.
 
 ---
 
@@ -269,7 +269,7 @@ This wastes enormous context. With a pre-computed map:
 
 Following the Unix philosophy for agents, knowledge management should be a **standalone
 CLI tool** — not monolithically integrated into tbd or any other tool. This tool could be
-called something like `kn` (knowledge), `kb` (knowledge base), or `know`.
+called something like `kdex` (knowledge), `kb` (knowledge base), or `know`.
 
 Reasons for separation:
 - **Single responsibility**: Knowledge retrieval is orthogonal to issue tracking
@@ -282,40 +282,40 @@ Reasons for separation:
 
 ```bash
 # Setup and configuration
-kn init                          # Initialize in a project
-kn source add <url> [--prefix=X] # Add a knowledge source (git repo)
-kn source list                   # List configured sources
-kn source remove <prefix>        # Remove a source
+kdex init                          # Initialize in a project
+kdex source add <url> [--prefix=X] # Add a knowledge source (git repo)
+kdex source list                   # List configured sources
+kdex source remove <prefix>        # Remove a source
 
 # Building the knowledge map
-kn build                         # (Re)build knowledge map from sources
-kn build --source=<prefix>       # Rebuild for specific source
-kn status                        # Show map freshness, source status
+kdex build                         # (Re)build knowledge map from sources
+kdex build --source=<prefix>       # Rebuild for specific source
+kdex status                        # Show map freshness, source status
 
 # The always-on knowledge map
-kn map                           # Print the compact always-on map (for CLAUDE.md/SKILL.md)
-kn map --budget=500              # With token budget constraint
+kdex map                           # Print the compact always-on map (for CLAUDE.md/SKILL.md)
+kdex map --budget=500              # With token budget constraint
 
 # Retrieval (the five modalities)
-kn list                          # List all available knowledge (Modality 1)
-kn list --category=<cat>         # Filter by category
-kn get <name>                    # Exact retrieval — full document (Modality 2)
-kn get <name> --summary          # Summary only (Modality 4)
-kn get <name> --outline          # Outline level (Modality 4)
-kn search <query>                # Semantic search (Modality 3)
-kn search <query> --top=5        # Limit results
+kdex list                          # List all available knowledge (Modality 1)
+kdex list --category=<cat>         # Filter by category
+kdex get <name>                    # Exact retrieval — full document (Modality 2)
+kdex get <name> --summary          # Summary only (Modality 4)
+kdex get <name> --outline          # Outline level (Modality 4)
+kdex search <query>                # Semantic search (Modality 3)
+kdex search <query> --top=5        # Limit results
 
 # Progressive summarization
-kn summarize <name> --level=card   # One-liner doc card
-kn summarize <name> --level=S      # Short summary (1 paragraph)
-kn summarize <name> --level=M      # Medium summary (key points)
-kn summarize <name> --level=L      # Long summary (section-level detail)
+kdex summarize <name> --level=card   # One-liner doc card
+kdex summarize <name> --level=S      # Short summary (1 paragraph)
+kdex summarize <name> --level=M      # Medium summary (key points)
+kdex summarize <name> --level=L      # Long summary (section-level detail)
 
 # Context routing and injection (references, not inline content)
-kn route --files=<paths>         # Suggest relevant docs based on file references
-kn route --files=<paths> --query="..." # Combine file refs with short query
-kn inject --refs=<ref>,<ref> --budget=1200  # Assemble context block from depth-annotated refs
-kn prime                         # Output persistent awareness block (alias for map)
+kdex route --files=<paths>         # Suggest relevant docs based on file references
+kdex route --files=<paths> --query="..." # Combine file refs with short query
+kdex inject --refs=<ref>,<ref> --budget=1200  # Assemble context block from depth-annotated refs
+kdex prime                         # Output persistent awareness block (alias for map)
 
 # All commands support:
 # --json        (structured output for agents)
@@ -325,17 +325,17 @@ kn prime                         # Output persistent awareness block (alias for 
 
 ### Integration with tbd
 
-tbd would integrate with `kn` as a consumer:
+tbd would integrate with `kdex` as a consumer:
 
 ```typescript
 // In tbd's guidelines command
-import { getDocument, searchDocuments } from 'kn';
+import { getDocument, searchDocuments } from 'kdex';
 
 // Or simply shell out
-const result = execSync('kn get typescript-rules');
+const result = execSync('kdex get typescript-rules');
 ```
 
-The `tbd guidelines` and `tbd shortcut` commands would become thin wrappers around `kn`
+The `tbd guidelines` and `tbd shortcut` commands would become thin wrappers around `kdex`
 for documents that are knowledge-type content, while tbd retains ownership of
 tbd-specific workflows (issue tracking, sync, setup).
 
@@ -447,7 +447,7 @@ A CLI "adopts" individual docs into a local `vendor/` area, records `_upstream` 
 "templates evolve and projects update" patterns:
 - Fine-grained: adopt individual docs, not entire repos
 - Full ownership: modify freely after copy-in
-- Upgrade path: `kn diff` shows upstream changes, `kn merge` applies them
+- Upgrade path: `kdex diff` shows upstream changes, `kdex merge` applies them
 - More complex but more flexible than fork-the-repo
 
 **Recommendation**: Make fork-the-repo first-class immediately. Add vendor/copy-in later
@@ -462,33 +462,33 @@ simplicity:
 
 ```bash
 # Add a knowledge source — clones/caches the repo
-kn source add github.com/org/knowledge-base --prefix=org
+kdex source add github.com/org/knowledge-base --prefix=org
 
 # Knowledge is now available
-kn get org:typescript-rules     # Reads from cache
-kn list --source=org            # List what's available from this source
+kdex get org:typescript-rules     # Reads from cache
+kdex list --source=org            # List what's available from this source
 ```
 
 #### Fork Model (for customization)
 
 ```bash
 # Fork a specific doc for local customization
-kn fork org:typescript-rules    # Copies to local/ prefix
+kdex fork org:typescript-rules    # Copies to local/ prefix
 # Edit local/guidelines/typescript-rules.md freely
 
 # Local version takes precedence
-kn get typescript-rules         # Returns local version (shadows org version)
+kdex get typescript-rules         # Returns local version (shadows org version)
 ```
 
 #### Upstream Sync Model
 
 ```bash
 # Check for upstream changes
-kn source update org            # Git pull on the cached repo
-kn diff org:typescript-rules    # Compare local fork vs upstream
+kdex source update org            # Git pull on the cached repo
+kdex diff org:typescript-rules    # Compare local fork vs upstream
 
 # Merge upstream changes into local fork
-kn merge org:typescript-rules   # Interactive merge if conflicts
+kdex merge org:typescript-rules   # Interactive merge if conflicts
 ```
 
 #### The Registry Index
@@ -520,7 +520,7 @@ map: .knowledge/map.yml
 ```
 
 If the source repo includes a pre-computed map, consumers can use it directly. If not,
-`kn build` generates one locally.
+`kdex build` generates one locally.
 
 #### Minimal Viable Forkable Registry for Knowledge
 
@@ -530,14 +530,14 @@ Based on the registry research, the minimum implementation needs:
    (title, description, category, tags)
 2. **A registry index** — The knowledge map (`map.yml`) listing all items with metadata.
    Hostable as a static file in the repo.
-3. **A CLI that fetches and writes** — `kn source add <url>` fetches and caches
+3. **A CLI that fetches and writes** — `kdex source add <url>` fetches and caches
 4. **A baseline record** — Track what version of each source is cached
    (git commit SHA in `.knowledge/sources.yml`)
 5. **Convention for custom registries** — Namespace-prefixed sources, standard directory
    structure
 
 **v1 (manual diff)**: Like shadcn — pull, fork, customize, but review upstream changes
-manually via `kn diff`. Simple, low friction.
+manually via `kdex diff`. Simple, low friction.
 
 **v2 (three-way merge)**: Like copier — track baseline, compute user diff, apply to
 upstream changes automatically. Higher value, more complexity.
@@ -862,7 +862,7 @@ disclosure directly to tbd.
 
 ### Option B: Standalone CLI + Library (Recommended)
 
-**Description**: A separate npm package (e.g., `@jlevy/kn` or similar) that provides
+**Description**: A separate npm package (e.g., `@jlevy/kdex` or similar) that provides
 both a CLI and a library. tbd imports it as a dependency and wraps specific commands.
 Other tools can use it independently.
 
@@ -876,7 +876,7 @@ Other tools can use it independently.
 
 **Cons:**
 - Another package to maintain
-- Coordination between tbd and kn for releases
+- Coordination between tbd and kdex for releases
 - Users install two tools instead of one
 
 ### Option C: Pure Convention + Scripts (Minimal Viable)
@@ -966,7 +966,7 @@ version: "1.0"                       # Optional
 ---
 ```
 
-The front matter is optional — `kn build` can infer everything from content if needed.
+The front matter is optional — `kdex build` can infer everything from content if needed.
 But front matter makes the map more accurate and faster to build.
 
 ### The Knowledge Map Format
@@ -974,10 +974,10 @@ But front matter makes the map more accurate and faster to build.
 The `.knowledge/map.yml` file is the compiled index:
 
 ```yaml
-# Generated by kn build — do not edit manually
+# Generated by kdex build — do not edit manually
 version: 1
 built: 2026-02-15T10:00:00Z
-builder: kn/0.1.0
+builder: kdex/0.1.0
 
 documents:
   - id: typescript-rules
@@ -1076,12 +1076,12 @@ A natural syntax combines a content reference with a depth specifier:
 
 ```
 # Knowledge docs (by ID)
-kn:typescript-rules              # card-level summary (default for routing)
-kn:typescript-rules:S            # short summary (1 paragraph)
-kn:typescript-rules:M            # medium summary (key sections)
-kn:typescript-rules:L            # long summary (detailed)
-kn:typescript-rules:full         # full document
-kn:typescript-rules:outline      # structural outline
+kdex:typescript-rules              # card-level summary (default for routing)
+kdex:typescript-rules:S            # short summary (1 paragraph)
+kdex:typescript-rules:M            # medium summary (key sections)
+kdex:typescript-rules:L            # long summary (detailed)
+kdex:typescript-rules:full         # full document
+kdex:typescript-rules:outline      # structural outline
 
 # Arbitrary files (by path)
 @src/auth/login.ts               # reference to a file (full by default)
@@ -1095,8 +1095,8 @@ kn:typescript-rules:outline      # structural outline
 @src/auth/:outline               # structural outline of the directory
 
 # Knowledge categories
-kn:category:language-rules:S     # summary of all language rule docs
-kn:category:testing:card         # card-level list of all testing docs
+kdex:category:language-rules:S     # summary of all language rule docs
+kdex:category:testing:card         # card-level list of all testing docs
 ```
 
 ### How This Works in Practice
@@ -1105,14 +1105,14 @@ kn:category:testing:card         # card-level list of all testing docs
 
 ```bash
 # WRONG: puts content into context during the CLI call
-kn route "I'm working on auth and need to handle token refresh errors"
+kdex route "I'm working on auth and need to handle token refresh errors"
 
 # RIGHT: reference files, let the router read them at appropriate depth
-kn route --files=src/auth/token.ts,src/auth/refresh.ts
-kn route --files=src/auth/ --query="error handling"
+kdex route --files=src/auth/token.ts,src/auth/refresh.ts
+kdex route --files=src/auth/ --query="error handling"
 
 # ALSO RIGHT: combine file references with a short query
-kn route --files=src/auth/token.ts --query="retry patterns"
+kdex route --files=src/auth/token.ts --query="retry patterns"
 ```
 
 The router reads the referenced files at card/S depth internally, matches against doc
@@ -1123,7 +1123,7 @@ file contents into the CLI call.
 
 ```bash
 # Build a context block from references at specified depths
-kn inject --refs=kn:typescript-rules:S,@src/auth/:outline --budget=1500
+kdex inject --refs=kdex:typescript-rules:S,@src/auth/:outline --budget=1500
 
 # The inject command:
 # 1. Resolves each reference at the specified depth
@@ -1136,17 +1136,17 @@ kn inject --refs=kn:typescript-rules:S,@src/auth/:outline --budget=1500
 
 ```bash
 # Agent starts broad
-kn get typescript-rules:card    →  "TS coding rules: strict config, types, errors" (15 tokens)
+kdex get typescript-rules:card    →  "TS coding rules: strict config, types, errors" (15 tokens)
 
 # Decides it's relevant, goes deeper
-kn get typescript-rules:S       →  One paragraph overview (80 tokens)
+kdex get typescript-rules:S       →  One paragraph overview (80 tokens)
 
 # Needs the error handling section specifically
-kn get typescript-rules:outline →  Section list with anchors
-kn get typescript-rules#error-handling  →  Just that section (400 tokens)
+kdex get typescript-rules:outline →  Section list with anchors
+kdex get typescript-rules#error-handling  →  Just that section (400 tokens)
 
 # Or goes to full
-kn get typescript-rules:full    →  Complete document (3200 tokens)
+kdex get typescript-rules:full    →  Complete document (3200 tokens)
 ```
 
 ### The Pyramid Summary as a Build Artifact
@@ -1177,7 +1177,7 @@ For arbitrary files (source code, etc.), pyramid summaries are **generated on de
 and optionally cached:
 
 ```bash
-kn summarize @src/auth/login.ts --level=S
+kdex summarize @src/auth/login.ts --level=S
 # → Generates a short summary of the file (via LLM or heuristic extraction)
 # → Caches the result for subsequent requests
 ```
@@ -1190,7 +1190,7 @@ This framing transforms "context engineering" from "figure out what text to past
 1. **Always have the map** — card-level references for all knowledge docs (~500 tokens)
 2. **Route by reference** — give the router file paths, not content
 3. **Escalate by depth** — go from card → S → M → full as needed
-4. **Compose by reference** — `kn inject` assembles context blocks from depth-annotated
+4. **Compose by reference** — `kdex inject` assembles context blocks from depth-annotated
    references within a token budget
 
 The key property: **at no point does the agent need to put large content blocks into CLI
@@ -1225,7 +1225,7 @@ enough for an agent to self-route without any search infrastructure:
   description: "TypeScript coding rules: strict config, type patterns, error handling"
   when: "Writing, reviewing, or refactoring TypeScript code"
   signals: [typescript, ts, .tsx, type safety, discriminated union]
-  read: "kn get typescript-rules"
+  read: "kdex get typescript-rules"
   tokens: 3200
 ```
 
@@ -1239,7 +1239,7 @@ runtime discovery.
 Add a build step that generates the map from source docs:
 
 ```
-kn build →
+kdex build →
   For each doc:
     1. Extract/generate: name, description, when-to-use, signal keywords
     2. Generate heading outline
@@ -1257,7 +1257,7 @@ context is passed as **file references**, not inline content (see "Conserve Cont
 Reference" principle and "Pyramid Summaries as Universal Primitive"):
 
 ```
-kn route --files=src/auth/token.ts,src/auth/refresh.ts →
+kdex route --files=src/auth/token.ts,src/auth/refresh.ts →
   1. Reads referenced files at card/S depth internally
   2. Matches file signals against doc card signals
   3. Output: ranked doc cards + "read this section first" suggestions + summary level
@@ -1266,9 +1266,9 @@ kn route --files=src/auth/token.ts,src/auth/refresh.ts →
 Start with lexical + heuristic scoring (surprisingly effective when doc cards include
 rich "signals" fields). The flow:
 
-1. `kn route --files=...` returns ranked doc cards (references, not content)
+1. `kdex route --files=...` returns ranked doc cards (references, not content)
 2. Agent chooses to read or summarize based on the cards
-3. Agent requests `kn get <id>:S` or `kn get <id>:full`
+3. Agent requests `kdex get <id>:S` or `kdex get <id>:full`
 
 This gives agents a directory-hierarchy feel (if cards are grouped by category), a
 search-engine feel (if router ranks by relevance), and progressive disclosure (cards →
@@ -1317,7 +1317,7 @@ This architecture is effective because it leverages several compounding insights
 **Step 1: Persistent awareness** (always in context, ~200 tokens)
 
 ```
-Available knowledge via `kn`:
+Available knowledge via `kdex`:
 - typescript-rules: TypeScript coding best practices
   (Use when writing/reviewing TypeScript)
 - python-rules: Python coding best practices
@@ -1327,7 +1327,7 @@ Available knowledge via `kn`:
 [... 20 more one-liners ...]
 ```
 
-**Step 2: Agent recognizes need** → runs `kn get typescript-rules --summary`
+**Step 2: Agent recognizes need** → runs `kdex get typescript-rules --summary`
 
 ```
 TypeScript Rules: Comprehensive coding rules covering strict configuration,
@@ -1335,7 +1335,7 @@ type patterns (discriminated unions, branded types, narrowing), error handling
 with Result types, naming conventions, and import organization. 3200 tokens.
 ```
 
-**Step 3: Agent wants details** → runs `kn get typescript-rules --outline`
+**Step 3: Agent wants details** → runs `kdex get typescript-rules --outline`
 
 ```
 1. Strict Configuration: tsconfig requirements
@@ -1345,13 +1345,13 @@ with Result types, naming conventions, and import organization. 3200 tokens.
 5. Imports: organization, barrel files
 ```
 
-**Step 4: Agent needs full content** → runs `kn get typescript-rules`
+**Step 4: Agent needs full content** → runs `kdex get typescript-rules`
 
 ```
 [Full 3200-token document]
 ```
 
-**Step 5: Agent needs related knowledge** → runs `kn search "error handling patterns"`
+**Step 5: Agent needs related knowledge** → runs `kdex search "error handling patterns"`
 
 ```
 Results:
@@ -1457,7 +1457,7 @@ for (const file of markdownFiles) {
 ```
 
 **Recommendation**: Start with approach 1 (pure extraction), add LLM augmentation as an
-optional `kn build --enrich` step for source repos that want richer metadata.
+optional `kdex build --enrich` step for source repos that want richer metadata.
 
 ### Search Implementation: Tiered Approach
 
@@ -1487,7 +1487,7 @@ is aspirational — QMD shows it works but it's heavyweight.
 Knowledge sources are git repos. Caching follows the same pattern as tbd's RepoCache:
 
 ```
-~/.kn/cache/
+~/.kdex/cache/
   github.com-jlevy-speculate/       # Sparse git checkout
     guidelines/
     shortcuts/
@@ -1497,7 +1497,7 @@ Knowledge sources are git repos. Caching follows the same pattern as tbd's RepoC
     .knowledge/map.yml
 ```
 
-**Sync behavior**: `kn source update` does `git pull` on cached repos, then checks if
+**Sync behavior**: `kdex source update` does `git pull` on cached repos, then checks if
 the map needs rebuilding (by comparing file hashes).
 
 ---
@@ -1509,7 +1509,7 @@ the map needs rebuilding (by comparing file hashes).
 Within a repo, adding knowledge should be as simple as:
 1. Write a markdown file in the appropriate directory
 2. Optionally add front matter for richer metadata
-3. Run `kn build` to update the map (or have CI do it)
+3. Run `kdex build` to update the map (or have CI do it)
 4. Commit and push
 
 The system should not require special tools, formats, or processes beyond writing
@@ -1522,17 +1522,17 @@ standard PR process, version via git history. No special editing workflow.
 
 ### Consuming Knowledge (Zero Friction for Agents)
 
-Agents interact with `kn` commands. The persistent awareness block tells them what's
-available. The CLI handles all retrieval. No configuration beyond `kn source add`.
+Agents interact with `kdex` commands. The persistent awareness block tells them what's
+available. The CLI handles all retrieval. No configuration beyond `kdex source add`.
 
 ### Contributing Back (the Shadcn Challenge)
 
 The hardest workflow: using knowledge locally, improving it, and pushing improvements
 upstream. The fork/merge model enables this:
 
-1. `kn fork org:typescript-rules` → creates local copy
+1. `kdex fork org:typescript-rules` → creates local copy
 2. Edit the local copy
-3. `kn diff org:typescript-rules` → see what changed vs upstream
+3. `kdex diff org:typescript-rules` → see what changed vs upstream
 4. Create PR on upstream repo with the changes
 
 This requires tracking provenance (where did this file come from, which version) but
@@ -1540,20 +1540,17 @@ doesn't require complex merge infrastructure — it's just git operations on kno
 
 ---
 
-## Potential Names and Identity
+## Name: `kdex`
 
-The standalone tool needs a name. Considerations:
-- Short (2-3 chars is ideal for CLI usage)
-- Memorable and suggestive of purpose
-- Not taken on npm
+The tool is called **`kdex`** — short for "knowledge index." The name is:
 
-Candidates:
-- `kn` — "know" / "knowledge" — short, Unix-style
-- `kb` — "knowledge base" — familiar abbreviation
-- `know` — obvious meaning, slightly longer
-- `lore` — "project lore" — evocative, memorable
-- `ctx` — "context" — connects to context engineering
-- `dok` — "docs + knowledge" — unique, short
+- **Unique** — not taken on npm, no collisions with common Unix tools
+- **Short enough for CLI use** — 4 chars, easy to type
+- **Works as a universal prefix** — `kdex` serves as the consistent namespace everywhere
+  it appears: CLI command (`kdex build`), reference syntax (`kdex:typescript-rules:S`),
+  config directory (`~/.kdex/`), package name (`@jlevy/kdex`), cache paths, source
+  prefixes, and any other context where a unique identifier is needed
+- **Suggestive of purpose** — "k" for knowledge, "dex" evokes index/directory
 
 ---
 
@@ -1562,7 +1559,7 @@ Candidates:
 1. **Map format**: YAML vs JSON vs TOML for the knowledge map? YAML is more readable,
    JSON is more portable, TOML is simpler. Need to decide.
 
-2. **LLM dependency for build**: Should `kn build` require an LLM API for enrichment,
+2. **LLM dependency for build**: Should `kdex build` require an LLM API for enrichment,
    or should pure extraction be the default? Likely: pure extraction as default,
    LLM enrichment as opt-in.
 
@@ -1570,20 +1567,20 @@ Candidates:
    to git refs (like tbd source already does) or always track HEAD?
 
 4. **Multi-agent coordination**: If multiple agents share a knowledge base, how do
-   concurrent `kn fork` / `kn merge` operations interact?
+   concurrent `kdex fork` / `kdex merge` operations interact?
 
-5. **Integration depth with tbd**: Should tbd shell out to `kn` or import it as a
+5. **Integration depth with tbd**: Should tbd shell out to `kdex` or import it as a
    library? Library import is cleaner but creates a dependency. Shell-out is more
    Unix-style but adds process overhead.
 
-6. **Scope of the first version**: What's the minimal viable `kn` that validates the
-   architecture? Probably: `kn source add`, `kn build`, `kn get`, `kn search`,
-   `kn list`.
+6. **Scope of the first version**: What's the minimal viable `kdex` that validates the
+   architecture? Probably: `kdex source add`, `kdex build`, `kdex get`, `kdex search`,
+   `kdex list`.
 
 7. **How to handle very large documents**: Some references might be 10K+ tokens. Should
-   `kn get` support section-level retrieval (e.g., `kn get typescript-rules#error-handling`)?
+   `kdex get` support section-level retrieval (e.g., `kdex get typescript-rules#error-handling`)?
 
-8. **Relationship to MCP resources**: Could `kn` also serve as an MCP resource provider?
+8. **Relationship to MCP resources**: Could `kdex` also serve as an MCP resource provider?
    This would give agents two access paths (CLI and MCP).
 
 9. **Flat doc types vs arbitrary hierarchies**: The current tbd spec assumes syncing
@@ -1635,13 +1632,13 @@ These experiments validate the architecture before committing to full implementa
 
 ### Implementation Milestones
 
-- [ ] Prototype `kn build` for pure-extraction map generation (experiment 2)
-- [ ] Prototype `kn get` with summary/outline/full depth levels (experiment 3)
-- [ ] Prototype `kn route` with trivial keyword-based scoring (experiment 4)
-- [ ] Prototype `kn search` with ripgrep-based keyword search
+- [ ] Prototype `kdex build` for pure-extraction map generation (experiment 2)
+- [ ] Prototype `kdex get` with summary/outline/full depth levels (experiment 3)
+- [ ] Prototype `kdex route` with trivial keyword-based scoring (experiment 4)
+- [ ] Prototype `kdex search` with ripgrep-based keyword search
 - [ ] Design the persistent awareness block format for SKILL.md integration
 - [ ] Decide on tool name and npm package scope
-- [ ] Plan the integration boundary between kn and tbd
+- [ ] Plan the integration boundary between kdex and tbd
 - [ ] Write a spec for the first implementation phase
 
 ---
