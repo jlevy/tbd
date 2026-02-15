@@ -95,6 +95,27 @@ For efficient context engineering, agents need content in a variety of formats a
 mechanisms for reading it. The most direct way: a CLI that offers all these capabilities,
 with skill-style descriptions about when to use each tool.
 
+### 5. Conserve Context by Reference, Not by Value
+
+A critical design principle: **never put content into context when you can put a reference
+instead**. This applies at every level of the system:
+
+- **CLI inputs**: Don't pass long strings as arguments. Instead, accept file paths, doc
+  IDs, or globs. An agent should say `kn route --files=src/auth.ts,src/db.ts` rather than
+  piping file contents into the command.
+- **CLI outputs**: Return references (doc IDs, file paths, section anchors) that the agent
+  can follow up on, not full content by default.
+- **Context descriptions**: When describing "what I'm working on" to the router, reference
+  files and docs by name rather than inlining their content.
+
+This is the same principle that makes Unix pipes efficient: commands pass file handles and
+short messages, not entire file contents. For agents, the principle is even more important
+because every token of inline content competes with the agent's reasoning space.
+
+The corollary: the system should make it trivially easy to *produce* references (doc IDs,
+file paths, summary depth markers) and trivially easy to *dereference* them (fetch the
+actual content at any depth level).
+
 ---
 
 ## Agent Access Modalities
@@ -290,9 +311,10 @@ kn summarize <name> --level=S      # Short summary (1 paragraph)
 kn summarize <name> --level=M      # Medium summary (key points)
 kn summarize <name> --level=L      # Long summary (section-level detail)
 
-# Context routing and injection
-kn route "<context>"             # Given current context, suggest relevant docs (+ why)
-kn inject "<context>" --budget=1200  # Emit a ready-to-paste context block within budget
+# Context routing and injection (references, not inline content)
+kn route --files=<paths>         # Suggest relevant docs based on file references
+kn route --files=<paths> --query="..." # Combine file refs with short query
+kn inject --refs=<ref>,<ref> --budget=1200  # Assemble context block from depth-annotated refs
 kn prime                         # Output persistent awareness block (alias for map)
 
 # All commands support:
@@ -1021,6 +1043,167 @@ We pre-compute all of this once, then serve it as static data.
 
 ---
 
+## Pyramid Summaries as a Universal Primitive
+
+### The Generalization
+
+The summary ladder (card → S → M → L → full) described above for knowledge docs is
+actually a much more general primitive. The same structure applies to **anything that has
+text content**:
+
+- A single knowledge document → pyramid summary at any depth
+- A set of knowledge documents → pyramid summary of the collection
+- An arbitrary file (source code, config, logs) → pyramid summary
+- A directory of files → pyramid summary
+- A user's current working context (open files, recent edits) → pyramid summary
+- A conversation or prompt → pyramid summary
+
+The insight: **a pyramid summary is a content-addressed, depth-parameterized
+representation of any textual content**. If the system can produce and consume these
+uniformly, then "context" becomes a first-class, composable, referenceable object — not
+an opaque string you paste into a prompt.
+
+### Reference Syntax for Depth-Parameterized Content
+
+If pyramid summaries are the universal primitive, we need a compact syntax for referencing
+content at a specific depth. The syntax should be:
+
+1. **Short enough for CLI use** — agents type these in tool calls
+2. **Uniform across content types** — same syntax for knowledge docs, files, directories
+3. **Depth is optional** — sensible default (usually "card" or "full" depending on context)
+
+A natural syntax combines a content reference with a depth specifier:
+
+```
+# Knowledge docs (by ID)
+kn:typescript-rules              # card-level summary (default for routing)
+kn:typescript-rules:S            # short summary (1 paragraph)
+kn:typescript-rules:M            # medium summary (key sections)
+kn:typescript-rules:L            # long summary (detailed)
+kn:typescript-rules:full         # full document
+kn:typescript-rules:outline      # structural outline
+
+# Arbitrary files (by path)
+@src/auth/login.ts               # reference to a file (full by default)
+@src/auth/login.ts:S             # short summary of the file
+@src/auth/login.ts:outline       # structural outline (functions, classes)
+@src/auth/login.ts:card          # one-line description of what this file does
+
+# Directories / globs
+@src/auth/:S                     # summary of the auth directory
+@src/auth/**/*.ts:card           # card-level summary of each TS file
+@src/auth/:outline               # structural outline of the directory
+
+# Knowledge categories
+kn:category:language-rules:S     # summary of all language rule docs
+kn:category:testing:card         # card-level list of all testing docs
+```
+
+### How This Works in Practice
+
+**Routing with file references instead of inline context:**
+
+```bash
+# WRONG: puts content into context during the CLI call
+kn route "I'm working on auth and need to handle token refresh errors"
+
+# RIGHT: reference files, let the router read them at appropriate depth
+kn route --files=src/auth/token.ts,src/auth/refresh.ts
+kn route --files=src/auth/ --query="error handling"
+
+# ALSO RIGHT: combine file references with a short query
+kn route --files=src/auth/token.ts --query="retry patterns"
+```
+
+The router reads the referenced files at card/S depth internally, matches against doc
+card signals, and returns relevant knowledge doc references. The agent never had to put
+file contents into the CLI call.
+
+**Composing context from references:**
+
+```bash
+# Build a context block from references at specified depths
+kn inject --refs=kn:typescript-rules:S,@src/auth/:outline --budget=1500
+
+# The inject command:
+# 1. Resolves each reference at the specified depth
+# 2. Assembles them into a coherent context block
+# 3. Stays within the token budget (truncating lower-priority refs if needed)
+# 4. Outputs a ready-to-use text block
+```
+
+**Progressive exploration via depth escalation:**
+
+```bash
+# Agent starts broad
+kn get typescript-rules:card    →  "TS coding rules: strict config, types, errors" (15 tokens)
+
+# Decides it's relevant, goes deeper
+kn get typescript-rules:S       →  One paragraph overview (80 tokens)
+
+# Needs the error handling section specifically
+kn get typescript-rules:outline →  Section list with anchors
+kn get typescript-rules#error-handling  →  Just that section (400 tokens)
+
+# Or goes to full
+kn get typescript-rules:full    →  Complete document (3200 tokens)
+```
+
+### The Pyramid Summary as a Build Artifact
+
+For knowledge docs in the corpus, pyramid summaries are **pre-computed at build time**:
+
+```yaml
+# In map.yml, each doc has pre-computed summaries at every level
+- id: typescript-rules
+  path: guidelines/typescript-rules.md
+  card: "TypeScript coding rules: strict config, type patterns, error handling"
+  summary_S: |
+    Comprehensive TypeScript rules covering strict tsconfig, type patterns
+    (discriminated unions, branded types), Result-type error handling, naming
+    conventions, and import organization.
+  summary_M: |
+    [~200 token summary with key points from each section]
+  outline:
+    - "1. Strict Configuration: tsconfig requirements"
+    - "2. Type Patterns: unions, branding, narrowing"
+    - "3. Error Handling: Result types, boundaries"
+    - "4. Naming: types, interfaces, enums"
+    - "5. Imports: organization, barrel files"
+  tokens: 3200
+```
+
+For arbitrary files (source code, etc.), pyramid summaries are **generated on demand**
+and optionally cached:
+
+```bash
+kn summarize @src/auth/login.ts --level=S
+# → Generates a short summary of the file (via LLM or heuristic extraction)
+# → Caches the result for subsequent requests
+```
+
+### Why This Matters: Context as Composable References
+
+This framing transforms "context engineering" from "figure out what text to paste" into
+"compose references at appropriate depths." The agent's workflow becomes:
+
+1. **Always have the map** — card-level references for all knowledge docs (~500 tokens)
+2. **Route by reference** — give the router file paths, not content
+3. **Escalate by depth** — go from card → S → M → full as needed
+4. **Compose by reference** — `kn inject` assembles context blocks from depth-annotated
+   references within a token budget
+
+The key property: **at no point does the agent need to put large content blocks into CLI
+arguments**. Everything is referenced by path/ID, and depth is a parameter. The system
+handles all content resolution internally.
+
+This is also the bridge between the knowledge system and the broader "repo context"
+problem (Aider repo map, llm-context.py, repomix). All of these tools are essentially
+generating pyramid summaries of code — our system generalizes the primitive and makes it
+uniformly addressable.
+
+---
+
 ## Practical Architecture: A Surprisingly Simple Direction
 
 Given all the research above, here is the simplest concrete architecture that still
@@ -1069,20 +1252,23 @@ document discovery into O(1) lookup.
 
 ### Step 2: Router Returns Cards First, Full Docs Only on Demand
 
-The routing function is dead simple — not a giant schema, just a tool:
+The routing function is dead simple — not a giant schema, just a tool. Critically,
+context is passed as **file references**, not inline content (see "Conserve Context by
+Reference" principle and "Pyramid Summaries as Universal Primitive"):
 
 ```
-kn route "<context>" →
-  Input:  current task, repo signals, errors/logs, language/framework hints
-  Output: ranked doc cards + "read this section first" suggestions + summary level
+kn route --files=src/auth/token.ts,src/auth/refresh.ts →
+  1. Reads referenced files at card/S depth internally
+  2. Matches file signals against doc card signals
+  3. Output: ranked doc cards + "read this section first" suggestions + summary level
 ```
 
 Start with lexical + heuristic scoring (surprisingly effective when doc cards include
 rich "signals" fields). The flow:
 
-1. `kn route` returns ranked doc cards
+1. `kn route --files=...` returns ranked doc cards (references, not content)
 2. Agent chooses to read or summarize based on the cards
-3. Agent requests `kn get <id>` or `kn summarize <id> --level=S`
+3. Agent requests `kn get <id>:S` or `kn get <id>:full`
 
 This gives agents a directory-hierarchy feel (if cards are grouped by category), a
 search-engine feel (if router ranks by relevance), and progressive disclosure (cards →
@@ -1564,6 +1750,11 @@ These experiments validate the architecture before committing to full implementa
   machine-optimized consumption format (doc cards, summaries, indexes)
 - Doc Card — Compact descriptor (~50-100 tokens) answering "what is this, when to use it,
   how to get it" — the atomic unit of the compiled knowledge system
+- Context Conservation — Design principle: reference content by path/ID instead of
+  inlining it; never put content into context when a reference suffices
+- Pyramid Summary — Depth-parameterized representation of any textual content
+  (card → S → M → L → full); a universal primitive applicable to docs, files,
+  directories, collections, or any content
 - Four Core Operations — Write, Select, Compress, Isolate (LangChain/Anthropic)
 - DITA (Darwin Information Typing Architecture) — Topic-based documentation standard
 - Zettelkasten — Atomic, linked note methodology
