@@ -197,7 +197,7 @@ beads removed
 # Test: Create works after setup
 
 ```console
-$ tbd create "New issue after import"
+$ tbd create "New issue after import" --priority=P3
 ✓ Created test-[SHORTID]: New issue after import
 ? 0
 ```
@@ -233,7 +233,7 @@ $ tbd list --all --json
   {
     "id": "test-[SHORTID]",
     "internalId": "is-[ULID]",
-    "priority": 2,
+    "priority": 3,
     "status": "open",
     "kind": "task",
     "title": "New issue after import",
