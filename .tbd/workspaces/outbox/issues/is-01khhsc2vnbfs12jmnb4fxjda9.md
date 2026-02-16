@@ -10,6 +10,6 @@ priority: 1
 status: closed
 title: "Research doc: Introduce 'docspecs' concept — URL-like references to docs (local paths, git URLs, github://owner/repo#branch/path) that get mounted in the knowledge map"
 type: is
-updated_at: 2026-02-15T23:25:53.674Z
-version: 2
+updated_at: 2026-02-16T07:07:43.551Z
+version: 3
 ---

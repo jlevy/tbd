@@ -10,6 +10,6 @@ priority: 1
 status: closed
 title: "Research doc: Use descriptive level names (outline, summary, content, purpose/when_to_use) instead of opaque labels"
 type: is
-updated_at: 2026-02-15T23:25:54.098Z
-version: 2
+updated_at: 2026-02-16T07:07:43.559Z
+version: 3
 ---

@@ -10,6 +10,6 @@ priority: 1
 status: closed
 title: "Research doc: Rename Modality 4 from 'Knowledge Summarization (Progressive Disclosure)' to 'Progressive Reading'"
 type: is
-updated_at: 2026-02-15T23:25:52.360Z
-version: 2
+updated_at: 2026-02-16T07:07:43.523Z
+version: 3
 ---

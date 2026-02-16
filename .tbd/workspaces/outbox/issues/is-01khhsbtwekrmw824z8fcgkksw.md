@@ -10,6 +10,6 @@ priority: 1
 status: closed
 title: "Research doc: Clarify Progressive Reading taxonomy — levels (index descriptions, outlines/summaries, section content), formats (outline vs summary vs section), purposes (scope, summaries, key insights, detailed content)"
 type: is
-updated_at: 2026-02-15T23:25:52.811Z
-version: 2
+updated_at: 2026-02-16T07:07:43.531Z
+version: 3
 ---

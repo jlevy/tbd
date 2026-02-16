@@ -10,6 +10,6 @@ priority: 1
 status: closed
 title: "Research doc: Rename Modality 3 from 'Semantic Retrieval (Search)' to 'Search' — covers keyword and embedding, not just semantic"
 type: is
-updated_at: 2026-02-15T23:25:51.924Z
-version: 2
+updated_at: 2026-02-16T07:07:43.515Z
+version: 3
 ---

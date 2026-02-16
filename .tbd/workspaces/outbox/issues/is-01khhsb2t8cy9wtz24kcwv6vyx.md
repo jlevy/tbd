@@ -10,6 +10,6 @@ priority: 1
 status: closed
 title: "Research doc: Merge principle 3 (authoring vs compiled format) into principle 4 (context-efficient tools) — they are the same point"
 type: is
-updated_at: 2026-02-15T23:25:50.202Z
-version: 2
+updated_at: 2026-02-16T07:07:43.481Z
+version: 3
 ---
