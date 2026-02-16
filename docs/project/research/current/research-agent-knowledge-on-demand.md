@@ -277,13 +277,35 @@ are the standard way to point at content in the knowledge system:
 ./docs/**/*.md
 
 # Git-hosted docs (cloned/cached locally)
-github://jlevy/speculate#main/guidelines/
-github://org/knowledge-base#main/docs/runbooks/
+github:jlevy/speculate@main//guidelines/
+github:org/knowledge-base@main//docs/runbooks/
 
 # Any docspec can be "mounted" in the knowledge map at a local path
 # Simple: add all markdown docs from a repo
 # Complex: cherry-pick specific paths with custom mount points
 ```
+
+This format follows established conventions from widely adopted tools:
+
+- **`github:` prefix** — Matches Nix flake references (`github:owner/repo/ref`),
+  making the scheme unambiguous and parseable without heuristics.
+- **`@ref` separator** — Matches GitHub Actions (`owner/repo@ref`), the most widely
+  adopted convention for git content references. Critically, this solves the
+  **slash-in-branch-name ambiguity** that plagues GitHub web URLs — a URL like
+  `github.com/owner/repo/blob/feature/auth/src/main.py` is unparseable without an API
+  call because the branch could be `feature`, `feature/auth`, or `feature/auth/src`.
+  The `@` unambiguously delimits the ref from the path.
+- **`//path` separator** — Matches Terraform module sources
+  (`github.com/org/repo//modules/vpc`), cleanly separating the repo identity from the
+  path within it.
+- **No `blob`/`tree` distinction** — Unlike GitHub web URLs, which require knowing
+  whether a path points to a file or directory in advance (and 404 if you guess wrong),
+  docspecs are type-agnostic. The consumer resolves the type.
+
+There is no existing RFC or IETF standard for git content URIs (the `git://` scheme is
+only provisionally registered and only addresses repo-level cloning). PURL (ECMA-427)
+is the closest standard (`pkg:github/owner/repo@version#subpath`) but is designed for
+package identification, not arbitrary file referencing.
 
 Docspecs are used in configuration to declare sources and in CLI commands to reference
 content. They unify local paths, remote repos, and globs into a single referencing
@@ -496,7 +518,7 @@ simplicity:
 
 ```bash
 # Add a knowledge source — clones/caches the repo
-kdex source add github.com/org/knowledge-base --prefix=org
+kdex source add github:org/knowledge-base --prefix=org
 
 # Knowledge is now available
 kdex get org:typescript-rules     # Reads from cache
@@ -1781,7 +1803,9 @@ These experiments validate the architecture before committing to full implementa
 - Doc Card — Compact descriptor (~50-100 tokens) answering "what is this, when to use it,
   how to get it" — the atomic unit of the compiled knowledge system
 - Docspec — URL-like reference to a document (local path, git URL, or
-  `github://owner/repo#branch/path`) that can be mounted in the knowledge map
+  `github:owner/repo@ref//path`) that can be mounted in the knowledge map. Format
+  follows GitHub Actions (`@ref`), Nix flakes (`github:` prefix), and Terraform
+  (`//path`) conventions to avoid the slash-in-branch-name ambiguity of GitHub web URLs
 - Context Conservation — Design principle: reference content by path/ID instead of
   inlining it; never put content into context when a reference suffices
 - Access Modalities — The five ways knowledge is consumed: Awareness, Lookup, Search,
