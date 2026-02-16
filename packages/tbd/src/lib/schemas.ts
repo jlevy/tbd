@@ -112,20 +112,33 @@ export const Dependency = z.object({
 /**
  * Full issue schema.
  *
+ * Field order is canonical: identity, classification, content, linkages,
+ * assignment, hierarchy, scheduling, provenance, timestamps, lifecycle,
+ * then bookkeeping. This order is mirrored by ISSUE_FIELD_ORDER below.
+ *
  * Note: Fields use .nullable() in addition to .optional() because
  * YAML parses `field: null` as JavaScript null, not undefined.
  */
 export const IssueSchema = BaseEntity.extend({
+  // Identity
   type: z.literal('is'),
 
+  // Classification
+  kind: IssueKind.default('task'),
+
+  // Core content
   title: z.string().min(1).max(500),
   description: z.string().max(50000).nullable().optional(),
   notes: z.string().max(50000).nullable().optional(),
 
-  kind: IssueKind.default('task'),
+  // Classification (continued)
   status: IssueStatus.default('open'),
   priority: Priority.default(2),
 
+  // Linkages
+  spec_path: z.string().nullable().optional(),
+
+  // Assignment and categorization
   assignee: z.string().nullable().optional(),
   labels: z.array(z.string()).default([]),
   dependencies: z.array(Dependency).default([]),
@@ -138,16 +151,14 @@ export const IssueSchema = BaseEntity.extend({
   // May contain stale IDs; display logic filters for actual children.
   child_order_hints: z.array(IssueId).nullable().optional(),
 
-  // Beads compatibility
+  // Scheduling
   due_date: Timestamp.nullable().optional(),
   deferred_until: Timestamp.nullable().optional(),
 
+  // Provenance and lifecycle
   created_by: z.string().nullable().optional(),
   closed_at: Timestamp.nullable().optional(),
   close_reason: z.string().nullable().optional(),
-
-  // Spec linking - path to related spec/doc (relative to repo root)
-  spec_path: z.string().nullable().optional(),
 });
 
 // =============================================================================
@@ -349,3 +360,100 @@ export const AtticEntrySchema = z.object({
  * Format: { "a7k2": "01hx5zzkbkactav9wevgemmvrz", ... }
  */
 export const IdMappingYamlSchema = z.record(ShortId, Ulid);
+
+// =============================================================================
+// Field Order Constants for YAML Serialization
+// =============================================================================
+//
+// Each array defines the canonical field order for YAML output.
+// Order mirrors the Zod schema definition above: identity first,
+// human-relevant fields next, bookkeeping last.
+//
+// Used with sortKeys() from yaml-utils.ts and ordering.manual()
+// from comparison-chain.ts. Fields not listed sort to the end.
+
+/**
+ * Canonical field order for issue YAML frontmatter.
+ * (description and notes are body content, not frontmatter)
+ */
+export const ISSUE_FIELD_ORDER = [
+  // Identity
+  'type',
+  'kind',
+  'title',
+  'id',
+
+  // Classification
+  'status',
+  'priority',
+
+  // Linkages
+  'spec_path',
+
+  // Assignment and categorization
+  'assignee',
+  'labels',
+  'dependencies',
+
+  // Hierarchy
+  'parent_id',
+  'child_order_hints',
+
+  // Scheduling
+  'due_date',
+  'deferred_until',
+
+  // Provenance
+  'created_by',
+
+  // Timestamps
+  'created_at',
+  'updated_at',
+
+  // Lifecycle (closure)
+  'closed_at',
+  'close_reason',
+
+  // Internal bookkeeping
+  'version',
+  'extensions',
+] as const;
+
+/**
+ * Canonical field order for config YAML.
+ */
+export const CONFIG_FIELD_ORDER = [
+  'tbd_format',
+  'tbd_version',
+  'display',
+  'sync',
+  'settings',
+  'docs_cache',
+] as const;
+
+/**
+ * Canonical field order for attic entry YAML.
+ */
+export const ATTIC_ENTRY_FIELD_ORDER = [
+  'entity_id',
+  'timestamp',
+  'field',
+  'lost_value',
+  'winner_source',
+  'loser_source',
+  'context',
+] as const;
+
+/**
+ * Canonical field order for meta YAML.
+ */
+export const META_FIELD_ORDER = ['schema_version', 'created_at'] as const;
+
+/**
+ * Canonical field order for local state YAML.
+ */
+export const LOCAL_STATE_FIELD_ORDER = [
+  'last_sync_at',
+  'last_doc_sync_at',
+  'welcome_seen',
+] as const;

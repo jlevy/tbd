@@ -15,7 +15,8 @@ import { mkdir, readdir, rm, stat } from 'node:fs/promises';
 import { join } from 'node:path';
 import { writeFile } from 'atomically';
 
-import { stringifyYaml } from '../utils/yaml-utils.js';
+import { sortKeys, stringifyYaml } from '../utils/yaml-utils.js';
+import { ATTIC_ENTRY_FIELD_ORDER } from '../lib/schemas.js';
 
 import { listIssues, writeIssue, readIssue } from './storage.js';
 import { parseIssue } from './parser.js';
@@ -214,8 +215,9 @@ async function saveConflictToAttic(
   const filename = `${conflict.issue_id}_${safeTimestamp}_${conflict.field}.yml`;
   const filepath = join(atticDir, filename);
 
-  // Uses default options which include sortMapEntries: true
-  const content = stringifyYaml(entry);
+  // Sort keys using canonical field order, then serialize
+  const sorted = sortKeys(entry as unknown as Record<string, unknown>, ATTIC_ENTRY_FIELD_ORDER);
+  const content = stringifyYaml(sorted, { sortMapEntries: false });
   await writeFile(filepath, content);
 }
 

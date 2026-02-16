@@ -9,9 +9,10 @@
 ## Overview
 
 Replace alphabetical YAML key sorting with deterministic manual field ordering across
-all YAML serializations in tbd. Field order will mirror the Zod schema definitions,
-putting the most human-relevant fields (title, kind, status, priority) near the top and
-bookkeeping fields (version, timestamps, extensions) near the bottom.
+all YAML serializations in tbd.
+Field order will mirror the Zod schema definitions, putting the most human-relevant
+fields (title, kind, status, priority) near the top and bookkeeping fields (version,
+timestamps, extensions) near the bottom.
 
 This uses the `ordering.manual()` pattern from the existing `comparison-chain.ts`
 utility, which is already used elsewhere in the codebase for custom sort orderings.
@@ -81,21 +82,24 @@ updated_at: 2025-01-08T14:30:00Z
 version: 3
 ```
 
-The **title** is buried near the bottom. The **type** and **id** (the most fundamental
-identity fields) are also buried. Timestamps and bookkeeping fields like `version` and
-`extensions` are interleaved with human-relevant fields like `status` and `priority`.
+The **title** is buried near the bottom.
+The **type** and **id** (the most fundamental identity fields) are also buried.
+Timestamps and bookkeeping fields like `version` and `extensions` are interleaved with
+human-relevant fields like `status` and `priority`.
 
 ### Desired State
 
-Fields should appear in a human-friendly order that matches the Zod schema definition:
+Fields should appear in a human-friendly order: type, kind, title at the top, then
+classification (status, priority), then linkages (spec_path), then the rest:
 
 ```yaml
 type: is
-id: is-01hx5zzkbkactav9wevgemmvrz
-title: Fix authentication timeout
 kind: bug
+title: Fix authentication timeout
+id: is-01hx5zzkbkactav9wevgemmvrz
 status: in_progress
 priority: 1
+spec_path: null
 assignee: alice
 labels:
   - backend
@@ -105,7 +109,6 @@ parent_id: null
 child_order_hints: null
 due_date: null
 deferred_until: null
-spec_path: null
 created_by: alice
 created_at: 2025-01-07T10:00:00Z
 updated_at: 2025-01-08T14:30:00Z
@@ -115,8 +118,9 @@ version: 3
 extensions: {}
 ```
 
-This puts identity and content first, classification next, relationships and scheduling
-in the middle, and bookkeeping at the bottom.
+This puts type and kind first (so you immediately see what entity/kind), title next (the
+most important human content), then classification, linkages, assignment, scheduling,
+and bookkeeping at the bottom.
 
 ### Existing Utilities
 
@@ -137,28 +141,29 @@ const manualOrderComparator = <T>(order: readonly T[]): Comparator<T> => {
 ```
 
 Values not in the order array sort to the end, providing safe handling if new fields are
-added to a schema but the order array isn't updated yet.
+added to a schema but the order array isn’t updated yet.
 
 ## Design
 
 ### Approach
 
 1. **Define field order arrays** alongside each Zod schema in `schemas.ts` (or in a
-   companion `field-orders.ts` file). Each array lists the schema's field names in the
-   desired serialization order, mirroring the Zod definition order.
+   companion `field-orders.ts` file).
+   Each array lists the schema’s field names in the desired serialization order,
+   mirroring the Zod definition order.
 
 2. **Create a `sortKeys()` utility** that takes an object and a field order array,
-   returning a new object with keys in the specified order. This uses
-   `ordering.manual()` internally.
+   returning a new object with keys in the specified order.
+   This uses `ordering.manual()` internally.
 
 3. **Update each serialization point** to use `sortKeys()` instead of alphabetical
-   sorting, and pass `sortMapEntries: false` to `stringifyYaml` to preserve the
-   manual order (since `sortMapEntries: true` would re-sort alphabetically).
+   sorting, and pass `sortMapEntries: false` to `stringifyYaml` to preserve the manual
+   order (since `sortMapEntries: true` would re-sort alphabetically).
 
 ### Field Order Definitions
 
-Each order array mirrors the Zod schema definition, with the principle: **identity
-first, human-relevant fields next, bookkeeping last.**
+Each order array mirrors the Zod schema definition, with the principle: **type and kind
+first, title next, classification, linkages, then assignment/scheduling/bookkeeping.**
 
 #### Issue Fields
 
@@ -169,15 +174,16 @@ frontmatter):
 export const ISSUE_FIELD_ORDER = [
   // Identity
   'type',
+  'kind',
+  'title',
   'id',
 
-  // Core content (most important for human readers)
-  'title',
-
   // Classification
-  'kind',
   'status',
   'priority',
+
+  // Linkages
+  'spec_path',
 
   // Assignment and categorization
   'assignee',
@@ -191,9 +197,6 @@ export const ISSUE_FIELD_ORDER = [
   // Scheduling
   'due_date',
   'deferred_until',
-
-  // Linking
-  'spec_path',
 
   // Provenance
   'created_by',
@@ -355,8 +358,8 @@ const content = stringifyYaml(sorted, { sortMapEntries: false });
 #### 5. Global default: keep `sortMapEntries: true`
 
 The global `YAML_STRINGIFY_OPTIONS.sortMapEntries` stays `true` as a safe default for
-any YAML serialization that doesn't explicitly override it. This way, only the
-serialization points that opt in to manual ordering get it.
+any YAML serialization that doesn’t explicitly override it.
+This way, only the serialization points that opt in to manual ordering get it.
 
 ### Backward Compatibility
 
@@ -373,8 +376,8 @@ serialization points that opt in to manual ordering get it.
 
 ### Phase 1: Field Order Definitions and Utility
 
-- [ ] Add field order arrays to `packages/tbd/src/lib/schemas.ts` (co-located with
-  their Zod schemas)
+- [ ] Add field order arrays to `packages/tbd/src/lib/schemas.ts` (co-located with their
+  Zod schemas)
 - [ ] Add `sortKeys()` utility to `packages/tbd/src/utils/yaml-utils.ts`
 - [ ] Add unit tests for `sortKeys()` (unknown keys go to end, empty order = original
   order, etc.)
@@ -402,7 +405,7 @@ serialization points that opt in to manual ordering get it.
 1. **Unit tests for `sortKeys()`**: Test manual ordering, unknown keys handling, empty
    inputs
 2. **Field order completeness test**: Verify each field order array matches its Zod
-   schema's keys (catches drift when fields are added)
+   schema’s keys (catches drift when fields are added)
 3. **Round-trip tests**: Ensure `parseIssue(serializeIssue(issue))` produces identical
    data regardless of field order
 4. **Serialization order tests**: Assert that `serializeIssue()` produces keys in the
