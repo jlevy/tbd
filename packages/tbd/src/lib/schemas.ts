@@ -112,28 +112,26 @@ export const Dependency = z.object({
 /**
  * Full issue schema.
  *
- * Field order is canonical: identity, classification, content, linkages,
- * assignment, hierarchy, scheduling, provenance, timestamps, lifecycle,
- * then bookkeeping. This order is mirrored by ISSUE_FIELD_ORDER below.
+ * Field order is canonical and mirrored by ISSUE_FIELD_ORDER below:
+ * type, id, title, kind, status, priority, version (the "header seven"),
+ * then linkages, assignment, hierarchy, scheduling, provenance,
+ * timestamps, lifecycle, and extensions.
  *
  * Note: Fields use .nullable() in addition to .optional() because
  * YAML parses `field: null` as JavaScript null, not undefined.
  */
 export const IssueSchema = BaseEntity.extend({
-  // Identity
+  // Header seven: the fields you always want to see at a glance
   type: z.literal('is'),
-
-  // Classification
-  kind: IssueKind.default('task'),
-
-  // Core content
+  // id, version inherited from BaseEntity
   title: z.string().min(1).max(500),
-  description: z.string().max(50000).nullable().optional(),
-  notes: z.string().max(50000).nullable().optional(),
-
-  // Classification (continued)
+  kind: IssueKind.default('task'),
   status: IssueStatus.default('open'),
   priority: Priority.default(2),
+
+  // Body content (serialized outside frontmatter)
+  description: z.string().max(50000).nullable().optional(),
+  notes: z.string().max(50000).nullable().optional(),
 
   // Linkages
   spec_path: z.string().nullable().optional(),
@@ -377,15 +375,14 @@ export const IdMappingYamlSchema = z.record(ShortId, Ulid);
  * (description and notes are body content, not frontmatter)
  */
 export const ISSUE_FIELD_ORDER = [
-  // Identity
+  // Header seven: the fields you always want to see at a glance
   'type',
-  'kind',
-  'title',
   'id',
-
-  // Classification
+  'title',
+  'kind',
   'status',
   'priority',
+  'version',
 
   // Linkages
   'spec_path',
@@ -414,8 +411,7 @@ export const ISSUE_FIELD_ORDER = [
   'closed_at',
   'close_reason',
 
-  // Internal bookkeeping
-  'version',
+  // Extensibility
   'extensions',
 ] as const;
 

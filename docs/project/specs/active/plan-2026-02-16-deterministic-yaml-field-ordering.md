@@ -89,16 +89,18 @@ human-relevant fields like `status` and `priority`.
 
 ### Desired State
 
-Fields should appear in a human-friendly order: type, kind, title at the top, then
-classification (status, priority), then linkages (spec_path), then the rest:
+Fields should appear in a human-friendly order with the “header seven” at the top —
+type, id, title, kind, status, priority, version — then linkages, assignment,
+scheduling, and bookkeeping:
 
 ```yaml
 type: is
-kind: bug
-title: Fix authentication timeout
 id: is-01hx5zzkbkactav9wevgemmvrz
+title: Fix authentication timeout
+kind: bug
 status: in_progress
 priority: 1
+version: 3
 spec_path: null
 assignee: alice
 labels:
@@ -114,13 +116,13 @@ created_at: 2025-01-07T10:00:00Z
 updated_at: 2025-01-08T14:30:00Z
 closed_at: null
 close_reason: null
-version: 3
 extensions: {}
 ```
 
-This puts type and kind first (so you immediately see what entity/kind), title next (the
-most important human content), then classification, linkages, assignment, scheduling,
-and bookkeeping at the bottom.
+The first seven fields ("header seven") give you everything you need at a glance: what
+it is (type, id, title), what kind, where it stands (status, priority), and which
+version. Everything else follows: linkages, assignment, scheduling, and bookkeeping at
+the bottom.
 
 ### Existing Utilities
 
