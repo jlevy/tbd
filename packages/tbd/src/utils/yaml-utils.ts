@@ -18,6 +18,7 @@ import {
   YAML_STRINGIFY_OPTIONS_COMPACT,
   type YamlStringifyOptions,
 } from '../lib/settings.js';
+import { ordering } from '../lib/comparison-chain.js';
 
 // Re-export for convenience
 export { YAML_LINE_WIDTH, YAML_STRINGIFY_OPTIONS, YAML_STRINGIFY_OPTIONS_COMPACT };
@@ -52,6 +53,23 @@ export function stringifyYaml(data: unknown, options?: Partial<YamlStringifyOpti
  */
 export function stringifyYamlCompact(data: unknown): string {
   return stringify(data, YAML_STRINGIFY_OPTIONS_COMPACT);
+}
+
+/**
+ * Create a new object with keys sorted according to a manual field ordering.
+ * Uses ordering.manual() from comparison-chain.ts, so fields not in the
+ * order array are placed at the end.
+ */
+export function sortKeys<T extends Record<string, unknown>>(
+  obj: T,
+  fieldOrder: readonly string[],
+): Record<string, unknown> {
+  const keyComparator = ordering.manual(fieldOrder);
+  const sorted: Record<string, unknown> = {};
+  for (const key of Object.keys(obj).sort(keyComparator)) {
+    sorted[key] = obj[key];
+  }
+  return sorted;
 }
 
 /**

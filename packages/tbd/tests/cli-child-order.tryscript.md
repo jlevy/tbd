@@ -94,21 +94,21 @@ internal IDs (in YAML) and display IDs (in summary):
 ```console
 $ tbd show $(cat parent_id.txt) --show-order
 ---
+type: is
+id: is-[ULID]
+title: Parent Epic
+kind: epic
+status: open
+priority: P2
+version: 4
+labels: []
+dependencies: []
 child_order_hints:
   - is-[ULID]
   - is-[ULID]
   - is-[ULID]
 created_at: [TIMESTAMP]
-dependencies: []
-id: is-[ULID]
-kind: epic
-labels: []
-priority: P2
-status: open
-title: Parent Epic
-type: is
 updated_at: [TIMESTAMP]
-version: 4
 ---
 
 
@@ -154,21 +154,21 @@ The reordered hints are now stored on the parent:
 ```console
 $ tbd show $(cat parent_id.txt) --show-order
 ---
+type: is
+id: is-[ULID]
+title: Parent Epic
+kind: epic
+status: open
+priority: P2
+version: 5
+labels: []
+dependencies: []
 child_order_hints:
   - is-[ULID]
   - is-[ULID]
   - is-[ULID]
 created_at: [TIMESTAMP]
-dependencies: []
-id: is-[ULID]
-kind: epic
-labels: []
-priority: P2
-status: open
-title: Parent Epic
-type: is
 updated_at: [TIMESTAMP]
-version: 5
 ---
 
 
@@ -196,18 +196,18 @@ Verify hints are cleared (shows null in YAML, (none) in summary):
 ```console
 $ tbd show $(cat parent_id.txt) --show-order
 ---
+type: is
+id: is-[ULID]
+title: Parent Epic
+kind: epic
+status: open
+priority: P2
+version: 6
+labels: []
+dependencies: []
 child_order_hints: null
 created_at: [TIMESTAMP]
-dependencies: []
-id: is-[ULID]
-kind: epic
-labels: []
-priority: P2
-status: open
-title: Parent Epic
-type: is
 updated_at: [TIMESTAMP]
-version: 6
 ---
 
 
@@ -240,19 +240,19 @@ Verify the hint was added (Fourth Child is the only one in hints now):
 ```console
 $ tbd show $(cat parent_id.txt) --show-order
 ---
+type: is
+id: is-[ULID]
+title: Parent Epic
+kind: epic
+status: open
+priority: P2
+version: 7
+labels: []
+dependencies: []
 child_order_hints:
   - is-[ULID]
 created_at: [TIMESTAMP]
-dependencies: []
-id: is-[ULID]
-kind: epic
-labels: []
-priority: P2
-status: open
-title: Parent Epic
-type: is
 updated_at: [TIMESTAMP]
-version: 7
 ---
 
 
@@ -352,17 +352,17 @@ test-[SHORTID]
 ```console
 $ tbd show $(cat standalone_id.txt) --show-order
 ---
-created_at: [TIMESTAMP]
-dependencies: []
-id: is-[ULID]
-kind: task
-labels: []
-priority: P2
-status: open
-title: Standalone Issue
 type: is
-updated_at: [TIMESTAMP]
+id: is-[ULID]
+title: Standalone Issue
+kind: task
+status: open
+priority: P2
 version: 1
+labels: []
+dependencies: []
+created_at: [TIMESTAMP]
+updated_at: [TIMESTAMP]
 ---
 
 
