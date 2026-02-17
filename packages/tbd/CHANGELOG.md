@@ -1,5 +1,12 @@
 # get-tbd
 
+## 0.1.21
+
+### Patch Changes
+
+- 7948df2: Fix outbox sync bulk save noise, add deterministic YAML field ordering, and
+  fix list sort order stability.
+
 ## 0.1.20
 
 ### Patch Changes
