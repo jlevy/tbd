@@ -62,6 +62,35 @@ auto-saving, since the issue is likely temporary.
 3. Retry: `tbd sync`
 4. If persistent, manually save: `tbd save --workspace=offline-backup`
 
+### Bulk Trivial Changes in Outbox (Version/Timestamp Only)
+
+**Symptoms:**
+- Outbox contains hundreds or thousands of issues
+- `git diff` shows only `updated_at` and `version` changes, no real content changes
+- Sync commit shows thousands of files changed
+
+**Causes (fixed in v0.1.21+):**
+- The merge algorithm previously bumped `version` and `updated_at` on every merged
+  issue, even when the merge produced no substantive content change
+- The outbox save compared issues using full equality (including version/timestamp),
+  treating all merged issues as “modified”
+- When network was down, the outbox fallback saved ALL issues instead of using cached
+  remote state
+
+**What tbd now does:**
+- `mergeIssues()` detects no-op merges and skips the version/timestamp bump
+- `getUpdatedIssues()` ignores `version` and `updated_at` when filtering — only issues
+  with actual content changes (title, status, labels, description, etc.)
+  are saved
+- When fetch fails, the cached `origin/tbd-sync` ref is used for comparison instead of
+  falling back to saving all issues
+
+**If you encounter this with an older version:**
+1. Update tbd: `npm install -g get-tbd@latest`
+2. If you already have a large outbox, you can safely import it — the import will merge
+   using field-level LWW and the trivial changes will be harmless
+3. Run `tbd sync` to clear the outbox
+
 ## Workspace Issues
 
 ### Don’t gitignore .tbd/workspaces/

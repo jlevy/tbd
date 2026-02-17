@@ -494,5 +494,43 @@ describe('mergeIssues', () => {
       const b = makeIssue({ labels: ['feature'] });
       expect(issuesSubstantivelyEqual(a, b)).toBe(false);
     });
+
+    it('returns false when dependencies differ', () => {
+      const a = makeIssue({ dependencies: [{ type: 'blocks', target: 'is-aaaaaa' }] });
+      const b = makeIssue({ dependencies: [{ type: 'blocks', target: 'is-bbbbbb' }] });
+      expect(issuesSubstantivelyEqual(a, b)).toBe(false);
+    });
+
+    it('returns true when dependencies are equal', () => {
+      const deps = [{ type: 'blocks' as const, target: 'is-aaaaaa' }];
+      const a = makeIssue({ dependencies: deps });
+      const b = makeIssue({ dependencies: [{ type: 'blocks' as const, target: 'is-aaaaaa' }] });
+      expect(issuesSubstantivelyEqual(a, b)).toBe(true);
+    });
+
+    it('returns false when description is null vs undefined', () => {
+      const a = makeIssue({ description: null });
+      const b = makeIssue({ description: undefined });
+      // Note: deepEqual(null, undefined) is false by design
+      expect(issuesSubstantivelyEqual(a, b)).toBe(false);
+    });
+
+    it('returns true when both descriptions are null', () => {
+      const a = makeIssue({ description: null });
+      const b = makeIssue({ description: null });
+      expect(issuesSubstantivelyEqual(a, b)).toBe(true);
+    });
+
+    it('returns false when extensions differ', () => {
+      const a = makeIssue({ extensions: { source: 'github' } });
+      const b = makeIssue({ extensions: { source: 'gitlab' } });
+      expect(issuesSubstantivelyEqual(a, b)).toBe(false);
+    });
+
+    it('returns true when extensions are equal', () => {
+      const a = makeIssue({ extensions: { source: 'github', count: 42 } });
+      const b = makeIssue({ extensions: { source: 'github', count: 42 } });
+      expect(issuesSubstantivelyEqual(a, b)).toBe(true);
+    });
   });
 });
