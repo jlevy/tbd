@@ -23,10 +23,12 @@ import {
   initWorktree,
   worktreeExists,
   mergeIssues,
+  issuesSubstantivelyEqual,
   branchExists,
   remoteBranchExists,
   checkGitVersion,
 } from '../src/file/git.js';
+import { getUpdatedIssues } from '../src/file/workspace.js';
 import { WORKTREE_DIR, TBD_DIR, DATA_SYNC_DIR_NAME, SYNC_BRANCH } from '../src/lib/paths.js';
 import { TEST_ULIDS, testId, createTestIssue } from './test-helpers.js';
 
@@ -390,6 +392,252 @@ describeUnlessWindows('concurrent sync operations', () => {
     const issues = await listIssues(dataSync1);
     expect(issues.length).toBe(2);
     expect(issues.map((i) => i.title).sort()).toEqual(['Issue 1', 'Issue 2']);
+  });
+});
+
+/**
+ * Bug reproduction: bulk outbox saves from trivial version/timestamp changes.
+ *
+ * Reproduces the scenario where merging all issues after a sync conflict causes
+ * every issue to get a gratuitous version/updated_at bump, which then makes
+ * getUpdatedIssues() treat them all as modified, flooding the outbox.
+ *
+ * See: plan-2026-02-17-fix-outbox-sync-bulk-trivial-changes.md
+ */
+describeUnlessWindows('bulk outbox save bug fix', () => {
+  let testDir: string;
+  let bareRepoPath: string;
+  let workRepoPath: string;
+  let originalCwd: string;
+
+  beforeEach(async () => {
+    const { supported } = await checkGitVersion();
+    if (!supported) {
+      console.log('Skipping bulk outbox tests - Git 2.42+ required');
+      return;
+    }
+
+    originalCwd = process.cwd();
+    testDir = join(tmpdir(), `tbd-bulk-outbox-test-${randomBytes(4).toString('hex')}`);
+    bareRepoPath = join(testDir, 'remote.git');
+    workRepoPath = join(testDir, 'work');
+
+    await createBareRepo(bareRepoPath);
+    await initRepoWithRemote(workRepoPath, bareRepoPath);
+    process.chdir(workRepoPath);
+  });
+
+  afterEach(async () => {
+    process.chdir(originalCwd);
+    if (testDir) {
+      await rm(testDir, { recursive: true, force: true }).catch(() => undefined);
+    }
+  });
+
+  it('mergeIssues does not bump version when merging identical issues', async () => {
+    // Setup: create N issues in worktree and push to remote
+    await initWorktree(workRepoPath);
+    const worktreePath = join(workRepoPath, WORKTREE_DIR);
+    const dataSyncPath = join(worktreePath, TBD_DIR, DATA_SYNC_DIR_NAME);
+
+    const ISSUE_COUNT = 20;
+    const issues: Issue[] = [];
+    for (let i = 0; i < ISSUE_COUNT; i++) {
+      const indexPart = String(i).padStart(3, '0');
+      const ulid = `01jbulkoutboxtest0${indexPart}00000000`.slice(0, 26);
+      const issue = createTestIssue({
+        id: `is-${ulid}`,
+        title: `Issue ${i}`,
+        status: i % 3 === 0 ? 'closed' : 'open',
+        priority: (i % 4) as 0 | 1 | 2 | 3,
+        version: 5,
+        updated_at: '2026-02-13T08:39:15.000Z',
+      });
+      issues.push(issue);
+      await writeIssue(dataSyncPath, issue);
+    }
+
+    // Commit and push all issues to remote
+    await gitInDir(worktreePath, 'add', '.');
+    await gitInDir(worktreePath, 'commit', '-m', 'Add all issues');
+    await gitInDir(worktreePath, 'push', 'origin', 'HEAD:refs/heads/' + SYNC_BRANCH);
+
+    // Simulate the bug: merge each issue with itself (base=null, as sync.ts does)
+    // Before fix: every issue gets version bumped from 5 to 11 (max(5,5)+1=6...etc.)
+    // After fix: no-op detection skips the bump
+    let bumpCount = 0;
+    for (const issue of issues) {
+      const result = mergeIssues(null, issue, { ...issue });
+      if (result.merged.version !== issue.version) {
+        bumpCount++;
+      }
+    }
+
+    // With the fix, no issues should have version bumped (they're identical)
+    expect(bumpCount).toBe(0);
+  });
+
+  it('mergeIssues only bumps version for substantively changed issues', async () => {
+    await initWorktree(workRepoPath);
+    const worktreePath = join(workRepoPath, WORKTREE_DIR);
+    const dataSyncPath = join(worktreePath, TBD_DIR, DATA_SYNC_DIR_NAME);
+
+    // Create base issue
+    const base = createTestIssue({
+      id: testId(TEST_ULIDS.REMOTE_1),
+      title: 'Original title',
+      status: 'open',
+      version: 5,
+      updated_at: '2026-02-01T00:00:00Z',
+    });
+    await writeIssue(dataSyncPath, base);
+
+    // Local only bumps version/timestamp (trivial change)
+    const trivialLocal = {
+      ...base,
+      version: 8,
+      updated_at: '2026-02-17T17:00:00Z',
+    };
+
+    // Remote is identical to trivial local (same trivial change)
+    const trivialRemote = {
+      ...base,
+      version: 6,
+      updated_at: '2026-02-15T12:00:00Z',
+    };
+
+    // Merge trivial changes - should NOT bump version
+    const trivialResult = mergeIssues(base, trivialLocal, trivialRemote);
+    expect(trivialResult.merged.version).toBe(8); // Returns higher version as-is
+    expect(issuesSubstantivelyEqual(trivialResult.merged, base)).toBe(true);
+
+    // Now test with substantive changes
+    const substantiveLocal = {
+      ...base,
+      title: 'Changed title', // Real change
+      version: 8,
+      updated_at: '2026-02-17T17:00:00Z',
+    };
+
+    const substantiveRemote = {
+      ...base,
+      description: 'Added description', // Different real change
+      version: 6,
+      updated_at: '2026-02-15T12:00:00Z',
+    };
+
+    // Merge substantive changes - SHOULD bump version
+    const substantiveResult = mergeIssues(base, substantiveLocal, substantiveRemote);
+    expect(substantiveResult.merged.version).toBe(9); // max(8,6)+1
+    expect(substantiveResult.merged.title).toBe('Changed title');
+    expect(substantiveResult.merged.description).toBe('Added description');
+  });
+
+  it('getUpdatedIssues filters out trivial version/timestamp-only changes', () => {
+    // Simulate: after merge, local issues have bumped version/updated_at
+    // but no substantive changes. Remote has original versions.
+    const ISSUE_COUNT = 50;
+    const localIssues: Issue[] = [];
+    const remoteIssues: Issue[] = [];
+
+    for (let i = 0; i < ISSUE_COUNT; i++) {
+      const indexPart = String(i).padStart(3, '0');
+      const ulid = `01jbulkfiltertest0${indexPart}00000000`.slice(0, 26);
+
+      const remoteIssue = createTestIssue({
+        id: `is-${ulid}`,
+        title: `Issue ${i}`,
+        status: i % 3 === 0 ? 'closed' : 'open',
+        version: 5,
+        updated_at: '2026-02-13T08:39:15.000Z',
+      });
+      remoteIssues.push(remoteIssue);
+
+      // Local has same content but bumped version/timestamp (trivial)
+      const localIssue = {
+        ...remoteIssue,
+        version: 36,
+        updated_at: '2026-02-17T17:00:37.000Z',
+      };
+      localIssues.push(localIssue);
+    }
+
+    // Change just 2 issues substantively
+    localIssues[0] = { ...localIssues[0]!, title: 'Actually changed title' };
+    localIssues[25] = { ...localIssues[25]!, status: 'closed' as const };
+
+    // getUpdatedIssues should return only the 2 actually changed issues
+    const updated = getUpdatedIssues(localIssues, remoteIssues);
+
+    expect(updated.length).toBe(2);
+    expect(updated.map((i) => i.title)).toContain('Actually changed title');
+    expect(updated.some((i) => i.id === localIssues[25]!.id)).toBe(true);
+  });
+
+  it('end-to-end: outbox save after merge only includes substantive changes', async () => {
+    // Setup: create issues, push to remote, then simulate a merge that
+    // touches all issues with version/timestamp bumps
+    await initWorktree(workRepoPath);
+    const worktreePath = join(workRepoPath, WORKTREE_DIR);
+    const dataSyncPath = join(worktreePath, TBD_DIR, DATA_SYNC_DIR_NAME);
+
+    const ISSUE_COUNT = 10;
+    const issues: Issue[] = [];
+    for (let i = 0; i < ISSUE_COUNT; i++) {
+      const indexPart = String(i).padStart(3, '0');
+      const ulid = `01jbulke2etestx00${indexPart}00000000`.slice(0, 26);
+      const issue = createTestIssue({
+        id: `is-${ulid}`,
+        title: `Issue ${i}`,
+        status: 'open',
+        version: 5,
+        updated_at: '2026-02-13T08:39:15.000Z',
+      });
+      issues.push(issue);
+      await writeIssue(dataSyncPath, issue);
+    }
+
+    // Commit and push to remote
+    await gitInDir(worktreePath, 'add', '.');
+    await gitInDir(worktreePath, 'commit', '-m', 'Add issues');
+    await gitInDir(worktreePath, 'push', 'origin', 'HEAD:refs/heads/' + SYNC_BRANCH);
+
+    // Now modify ALL issues with trivial version/timestamp bumps
+    // AND make 1 substantive change
+    for (let i = 0; i < issues.length; i++) {
+      const issue = issues[i]!;
+      const modified = {
+        ...issue,
+        version: 36,
+        updated_at: '2026-02-17T17:00:37.000Z',
+        // Only issue 0 gets a real change
+        ...(i === 0 ? { title: 'Substantively changed' } : {}),
+      };
+      await writeIssue(dataSyncPath, modified);
+    }
+
+    // Commit the changes locally (simulating post-merge state)
+    await gitInDir(worktreePath, 'add', '.');
+    await gitInDir(worktreePath, 'commit', '-m', 'Merge changes (version bumps)');
+
+    // Verify local issues are readable and modified
+    const localIssues = await listIssues(dataSyncPath);
+    expect(localIssues.length).toBe(ISSUE_COUNT);
+    expect(localIssues.find((i) => i.title === 'Substantively changed')).toBeTruthy();
+
+    // Read remote issues by checking out the original commit in a temp dir
+    // (readRemoteIssues is not exported, so we reconstruct the remote state)
+    const remoteIssues = issues; // The original issues array before modification
+    expect(remoteIssues.length).toBe(ISSUE_COUNT);
+
+    // Verify getUpdatedIssues correctly filters to only substantive changes
+    const updated = getUpdatedIssues(localIssues, remoteIssues);
+
+    // Only 1 issue should be identified as updated (the one with title change)
+    // Before fix: all 10 would be "updated" (version/timestamp differ)
+    // After fix: only the 1 with actual title change
+    expect(updated.length).toBe(1);
+    expect(updated[0]!.title).toBe('Substantively changed');
   });
 });
 
