@@ -697,5 +697,71 @@ describe('workspace operations', () => {
 
       expect(updated.length).toBe(2);
     });
+
+    it('excludes issues that differ only in version and updated_at (bug fix)', () => {
+      // This is the key bug scenario: after a merge, all issues get version/updated_at
+      // bumped but no substantive content changes. These should NOT be treated as updates.
+      const localIssues = [
+        createTestIssue({
+          id: testId(TEST_ULIDS.ULID_1),
+          title: 'Same Title',
+          status: 'closed',
+          version: 36,
+          updated_at: '2026-02-17T17:00:37.906Z',
+        }),
+        createTestIssue({
+          id: testId(TEST_ULIDS.ULID_2),
+          title: 'Another Issue',
+          status: 'open',
+          version: 10,
+          updated_at: '2026-02-17T17:00:37.915Z',
+        }),
+      ];
+      const remoteIssues = [
+        createTestIssue({
+          id: testId(TEST_ULIDS.ULID_1),
+          title: 'Same Title',
+          status: 'closed',
+          version: 32,
+          updated_at: '2026-02-13T08:39:15.522Z',
+        }),
+        createTestIssue({
+          id: testId(TEST_ULIDS.ULID_2),
+          title: 'Another Issue',
+          status: 'open',
+          version: 6,
+          updated_at: '2026-02-13T08:39:15.532Z',
+        }),
+      ];
+
+      const updated = getUpdatedIssues(localIssues, remoteIssues);
+
+      // Both issues have only version/updated_at changes - should be filtered out
+      expect(updated.length).toBe(0);
+    });
+
+    it('includes issues with substantive changes even when version also differs', () => {
+      const localIssues = [
+        createTestIssue({
+          id: testId(TEST_ULIDS.ULID_1),
+          title: 'Updated Title', // Substantive change
+          version: 36,
+          updated_at: '2026-02-17T17:00:37.906Z',
+        }),
+      ];
+      const remoteIssues = [
+        createTestIssue({
+          id: testId(TEST_ULIDS.ULID_1),
+          title: 'Original Title',
+          version: 32,
+          updated_at: '2026-02-13T08:39:15.522Z',
+        }),
+      ];
+
+      const updated = getUpdatedIssues(localIssues, remoteIssues);
+
+      // Title changed - this IS a real update
+      expect(updated.length).toBe(1);
+    });
   });
 });

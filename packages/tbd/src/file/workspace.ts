@@ -20,7 +20,7 @@ import { ATTIC_ENTRY_FIELD_ORDER } from '../lib/schemas.js';
 
 import { listIssues, writeIssue, readIssue } from './storage.js';
 import { parseIssue } from './parser.js';
-import { mergeIssues, deepEqual, git, type ConflictEntry } from './git.js';
+import { mergeIssues, issuesSubstantivelyEqual, git, type ConflictEntry } from './git.js';
 import { loadIdMapping, saveIdMapping, addIdMapping } from './id-mapping.js';
 import {
   WORKSPACES_DIR,
@@ -102,11 +102,15 @@ export interface ImportResult {
  *
  * An issue is considered "updated" if:
  * - It doesn't exist in the remote (new issue)
- * - Its content differs from the remote version (modified issue)
+ * - Its substantive content differs from the remote version (modified issue)
+ *
+ * Uses issuesSubstantivelyEqual to ignore metadata-only changes (version, updated_at)
+ * that don't represent meaningful content changes. This prevents trivial timestamp
+ * bumps from causing thousands of issues to be saved to the outbox.
  *
  * @param localIssues - Issues from the local worktree
  * @param remoteIssues - Issues from the remote tbd-sync branch
- * @returns Issues that are new or modified compared to remote
+ * @returns Issues that are new or substantively modified compared to remote
  */
 export function getUpdatedIssues(localIssues: Issue[], remoteIssues: Issue[]): Issue[] {
   // Build a map of remote issues by ID for quick lookup
@@ -115,7 +119,7 @@ export function getUpdatedIssues(localIssues: Issue[], remoteIssues: Issue[]): I
     remoteById.set(issue.id, issue);
   }
 
-  // Filter local issues to only those that are new or different
+  // Filter local issues to only those that are new or substantively different
   return localIssues.filter((local) => {
     const remote = remoteById.get(local.id);
 
@@ -124,8 +128,9 @@ export function getUpdatedIssues(localIssues: Issue[], remoteIssues: Issue[]): I
       return true;
     }
 
-    // Modified issue - content differs from remote
-    return !deepEqual(local, remote);
+    // Modified issue - substantive content differs from remote
+    // Ignores version and updated_at which change on every merge
+    return !issuesSubstantivelyEqual(local, remote);
   });
 }
 
@@ -291,20 +296,27 @@ export async function saveToWorkspace(
   // Filter to only updated issues if requested
   const isUpdatesOnly = options.updatesOnly ?? options.outbox;
   if (isUpdatesOnly) {
+    // Try to fetch latest remote state (may fail if offline)
     try {
-      // Fetch and compare with remote tbd-sync
       log.progress('Fetching remote for comparison...');
       await git('-C', tbdRoot, 'fetch', 'origin', 'tbd-sync');
-      log.debug('Fetch succeeded, reading remote issues...');
+      log.debug('Fetch succeeded');
+    } catch (fetchError) {
+      const fetchMsg = fetchError instanceof Error ? fetchError.message : String(fetchError);
+      log.info(`Fetch failed (${fetchMsg}), using cached remote state for comparison`);
+    }
+
+    // Try to read remote issues (works even if fetch failed, using cached ref).
+    // This prevents saving ALL issues when the network is down but we have a
+    // cached copy of the remote state from a previous fetch.
+    try {
       const remoteIssues = await readRemoteIssues(tbdRoot, 'origin', 'tbd-sync');
       log.info(`Loaded ${remoteIssues.length} remote issue(s) for comparison`);
       sourceIssues = getUpdatedIssues(allSourceIssues, remoteIssues);
       log.info(`Filtered to ${sourceIssues.length} updated issue(s) (of ${totalSource} total)`);
-    } catch (fetchError) {
-      // If fetch fails (offline, remote doesn't exist, etc.), save all issues
-      // This is the fallback behavior mentioned in the spec
-      const fetchMsg = fetchError instanceof Error ? fetchError.message : String(fetchError);
-      log.info(`Fetch failed (${fetchMsg}), falling back to saving all ${totalSource} issues`);
+    } catch {
+      // No cached remote state either (first sync, or ref was never fetched)
+      log.info(`No remote state available, falling back to saving all ${totalSource} issues`);
     }
   }
 

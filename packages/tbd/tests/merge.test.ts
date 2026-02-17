@@ -11,7 +11,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { mergeIssues } from '../src/file/git.js';
+import { mergeIssues, issuesSubstantivelyEqual } from '../src/file/git.js';
 import type { Issue } from '../src/lib/types.js';
 
 const makeIssue = (overrides: Partial<Issue> = {}): Issue => ({
@@ -202,15 +202,36 @@ describe('mergeIssues', () => {
   });
 
   describe('Max strategy (version)', () => {
-    it('takes maximum version and increments', () => {
+    it('returns higher version without bumping when no substantive changes', () => {
       const base = makeIssue({ version: 1 });
       const local = makeIssue({ version: 3, updated_at: '2025-01-02T00:00:00Z' });
       const remote = makeIssue({ version: 5, updated_at: '2025-01-02T00:00:00Z' });
 
       const result = mergeIssues(base, local, remote);
 
-      // max(3, 5) + 1 = 6
+      // No substantive changes - returns higher version (remote=5) without bumping
+      expect(result.merged.version).toBe(5);
+    });
+
+    it('bumps version when there are substantive changes', () => {
+      const base = makeIssue({ version: 1 });
+      const local = makeIssue({
+        title: 'Local title',
+        version: 3,
+        updated_at: '2025-01-02T00:00:00Z',
+      });
+      const remote = makeIssue({
+        description: 'Remote desc',
+        version: 5,
+        updated_at: '2025-01-02T00:00:00Z',
+      });
+
+      const result = mergeIssues(base, local, remote);
+
+      // Substantive changes in both sides - max(3, 5) + 1 = 6
       expect(result.merged.version).toBe(6);
+      expect(result.merged.title).toBe('Local title');
+      expect(result.merged.description).toBe('Remote desc');
     });
   });
 
@@ -375,8 +396,103 @@ describe('mergeIssues', () => {
       // Union: all labels combined
       expect(result.merged.labels).toContain('urgent');
       expect(result.merged.labels).toContain('backend');
-      // Max + 1: max(2, 3) + 1 = 4
+      // Substantive changes (title changed, labels changed) - version bumped: max(2, 3) + 1 = 4
       expect(result.merged.version).toBe(4);
+    });
+  });
+
+  describe('No-op merge detection', () => {
+    it('does not bump version when merge is a no-op (identical issues)', () => {
+      const base = makeIssue({ version: 1 });
+      const local = makeIssue({ version: 2, updated_at: '2025-01-02T00:00:00Z' });
+      const remote = makeIssue({ version: 3, updated_at: '2025-01-03T00:00:00Z' });
+
+      const result = mergeIssues(base, local, remote);
+
+      // No substantive changes - returns higher version (remote=3) without bumping
+      expect(result.merged.version).toBe(3);
+      expect(result.conflicts).toHaveLength(0);
+    });
+
+    it('does not bump version when one-sided change matches latest', () => {
+      const base = makeIssue({ title: 'Original' });
+      const local = makeIssue({ title: 'Changed', version: 5, updated_at: '2025-01-02T00:00:00Z' });
+      const remote = makeIssue({ title: 'Original', version: 3 });
+
+      const result = mergeIssues(base, local, remote);
+
+      // Local changed title, remote didn't. Merged matches local.
+      // Since local has higher version, return local as-is.
+      expect(result.merged.title).toBe('Changed');
+      expect(result.merged.version).toBe(5);
+    });
+
+    it('bumps version when merge produces content not in either input', () => {
+      const base = makeIssue({ title: 'Original', description: 'Original desc' });
+      const local = makeIssue({
+        title: 'Local title',
+        description: 'Original desc',
+        version: 2,
+        updated_at: '2025-01-02T00:00:00Z',
+      });
+      const remote = makeIssue({
+        title: 'Original',
+        description: 'Remote desc',
+        version: 3,
+        updated_at: '2025-01-02T00:00:00Z',
+      });
+
+      const result = mergeIssues(base, local, remote);
+
+      // Both sides changed different fields - true three-way merge
+      expect(result.merged.title).toBe('Local title');
+      expect(result.merged.description).toBe('Remote desc');
+      // max(2, 3) + 1 = 4
+      expect(result.merged.version).toBe(4);
+    });
+  });
+
+  describe('issuesSubstantivelyEqual', () => {
+    it('returns true for identical issues', () => {
+      const a = makeIssue();
+      const b = makeIssue();
+      expect(issuesSubstantivelyEqual(a, b)).toBe(true);
+    });
+
+    it('returns true when only version differs', () => {
+      const a = makeIssue({ version: 1 });
+      const b = makeIssue({ version: 5 });
+      expect(issuesSubstantivelyEqual(a, b)).toBe(true);
+    });
+
+    it('returns true when only updated_at differs', () => {
+      const a = makeIssue({ updated_at: '2025-01-01T00:00:00Z' });
+      const b = makeIssue({ updated_at: '2025-12-31T23:59:59Z' });
+      expect(issuesSubstantivelyEqual(a, b)).toBe(true);
+    });
+
+    it('returns true when only version and updated_at differ', () => {
+      const a = makeIssue({ version: 1, updated_at: '2025-01-01T00:00:00Z' });
+      const b = makeIssue({ version: 99, updated_at: '2025-12-31T23:59:59Z' });
+      expect(issuesSubstantivelyEqual(a, b)).toBe(true);
+    });
+
+    it('returns false when title differs', () => {
+      const a = makeIssue({ title: 'Title A' });
+      const b = makeIssue({ title: 'Title B' });
+      expect(issuesSubstantivelyEqual(a, b)).toBe(false);
+    });
+
+    it('returns false when status differs', () => {
+      const a = makeIssue({ status: 'open' });
+      const b = makeIssue({ status: 'closed' });
+      expect(issuesSubstantivelyEqual(a, b)).toBe(false);
+    });
+
+    it('returns false when labels differ', () => {
+      const a = makeIssue({ labels: ['bug'] });
+      const b = makeIssue({ labels: ['feature'] });
+      expect(issuesSubstantivelyEqual(a, b)).toBe(false);
     });
   });
 });
