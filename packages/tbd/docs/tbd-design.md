@@ -77,6 +77,7 @@ agents.
     - [3.2 Sync Branch Architecture](#32-sync-branch-architecture)
       - [Files Tracked on Main Branch](#files-tracked-on-main-branch)
       - [.tbd/.gitignore Contents](#tbdgitignore-contents)
+      - [.tbd/.gitattributes Contents](#tbdgitattributes-contents)
       - [Files Tracked on tbd-sync Branch](#files-tracked-on-tbd-sync-branch)
     - [3.3 Sync Operations](#33-sync-operations)
       - [3.3.1 Reading from Sync Branch](#331-reading-from-sync-branch)
@@ -325,7 +326,7 @@ tbd and Beads serve different use cases:
 | Complex workflow orchestration | Molecules, wisps, formulas, bonding |
 | Need ephemeral work tracking | Wisps (never synced, squash to digest) |
 | High-performance queries on 10K+ issues | SQLite with indexes is faster than file scan |
-| Need automatic "memory decay" | AI-powered compaction of old issues |
+| Need automatic “memory decay” | AI-powered compaction of old issues |
 | Need interactive edit mode | `bd edit` opens in $EDITOR |
 
 **Key Differences Summary:**
@@ -639,6 +640,24 @@ serialization:
 .tbd/data-sync/** text eol=lf
 ```
 
+**Required `.tbd/.gitattributes`** (created by `tbd setup`):
+
+```gitattributes
+# Protect ID mappings from merge deletion (always keep all rows)
+# See: https://github.com/jlevy/tbd/issues/99
+**/mappings/ids.yml merge=union
+```
+
+> **Why `merge=union`?** Git 3-way merge can delete `ids.yml` when merging a feature
+> branch back to main, because main has no outbox directory and the merge treats “no
+> file” as the correct state.
+> The `merge=union` strategy keeps all lines from both sides, which is safe for
+> `ids.yml` since it’s an append-only mapping.
+> Duplicate keys (if any) are tolerated by the YAML parser and auto-fixed on next save.
+> This file is placed inside `.tbd/` so all tbd settings are self-contained in one
+> directory. Git supports `.gitattributes` in subdirectories with paths relative to that
+> directory.
+
 > **Why canonical format?** Deterministic serialization ensures:
 > 1. Git diffs show only actual content changes (no spurious whitespace/ordering noise)
 > 2. Testing is reliable (same input produces same output)
@@ -712,6 +731,7 @@ tbd uses three directory locations:
 │ Committed to the repo:
 ├── config.yml              # Project configuration
 ├── .gitignore              # Controls what's gitignored below
+├── .gitattributes          # Merge strategies (merge=union for ids.yml)
 ├── workspaces/             # Persistent state (outbox, named workspaces)
 │   ├── outbox/             # Sync failure recovery workspace
 │   │   ├── issues/
@@ -848,6 +868,27 @@ backups/
 > **Note:** `workspaces/` must not be gitignored — it stores outbox data that must be
 > committed to the working branch.
 
+#### .tbd/.gitattributes Contents
+
+The `.tbd/.gitattributes` file configures merge strategies for tbd files.
+It is placed inside `.tbd/` (not at the repo root) so all tbd settings are
+self-contained. Git supports `.gitattributes` in subdirectories with paths relative to
+that directory.
+
+```gitattributes
+# Protect ID mappings from merge deletion (always keep all rows)
+# See: https://github.com/jlevy/tbd/issues/99
+**/mappings/ids.yml merge=union
+```
+
+> **Why this is needed:** When a feature branch with outbox changes is merged back to
+> main (which has no outbox), git’s 3-way merge can delete `ids.yml` entirely — treating
+> “no file” on main as the correct state.
+> This causes all tbd commands to crash with “No short ID mapping found”.
+> The `merge=union` built-in merge driver keeps all lines from both sides, preventing
+> row deletion. Duplicate YAML keys (if any) are tolerated by the parser and auto-fixed
+> on next save. See [#99](https://github.com/jlevy/tbd/issues/99) for details.
+
 #### Accessing Issues via Worktree
 
 ```bash
@@ -917,7 +958,7 @@ The worktree can be in one of four states, detected by `checkWorktreeHealth()`:
 | State | Description | Detection | Recovery |
 | --- | --- | --- | --- |
 | `valid` | Healthy, ready to use | Directory exists, `.git` file valid, not prunable | None needed |
-| `missing` | Directory doesn't exist | `!exists(.tbd/data-sync-worktree/)` | Create from local or remote branch |
+| `missing` | Directory doesn’t exist | `!exists(.tbd/data-sync-worktree/)` | Create from local or remote branch |
 | `prunable` | Directory deleted but git still tracks it | `git worktree list --porcelain` shows prunable | `git worktree prune`, then recreate |
 | `corrupted` | Directory exists but invalid | Missing `.git` file or invalid gitdir pointer | **Backup to .tbd/backups/**, then recreate |
 
@@ -1760,9 +1801,9 @@ dependencies:
 
 | Type | Affects Ready? | Use Case |
 | --- | --- | --- |
-| `blocks` | **Yes** | "This issue must close before target can proceed" |
-| `related` | No | Soft link: "See also" references (future) |
-| `discovered-from` | No | Provenance: "Found while working on X" (future) |
+| `blocks` | **Yes** | “This issue must close before target can proceed” |
+| `related` | No | Soft link: “See also” references (future) |
+| `discovered-from` | No | Provenance: “Found while working on X” (future) |
 
 **Commands:**
 
@@ -1797,7 +1838,7 @@ tbd and Beads have different models for parent-child relationships:
 | Aspect | tbd | Beads |
 | --- | --- | --- |
 | Parent-child storage | `parent_id` field | `dependencies[].type: parent-child` |
-| Parent-child blocking | **No** (organizational only) | **Transitive** (inherits parent's blocked state) |
+| Parent-child blocking | **No** (organizational only) | **Transitive** (inherits parent’s blocked state) |
 | Dependency types | `blocks` only (more planned) | `blocks`, `parent-child`, `related`, `discovered-from`, + more |
 
 **Understanding Beads’ parent-child behavior:**
@@ -1935,9 +1976,10 @@ main branch:                    tbd-sync branch:
 ├── tests/                          └── data-sync/
 ├── README.md                           ├── issues/
 ├── .tbd/                               ├── attic/
-│   ├── config.yml  (committed)         └── meta.yml
-│   ├── .gitignore  (committed)
-│   ├── workspaces/ (committed)
+│   ├── config.yml      (committed)     └── meta.yml
+│   ├── .gitignore      (committed)
+│   ├── .gitattributes  (committed)
+│   ├── workspaces/     (committed)
 │   ├── state.yml   (gitignored)
 │   ├── docs/       (gitignored)
 │   └── data-sync-worktree/ (gitignored)
@@ -1960,6 +2002,7 @@ main branch:                    tbd-sync branch:
 ```
 .tbd/config.yml       # Project configuration (YAML)
 .tbd/.gitignore       # Controls what's gitignored below
+.tbd/.gitattributes   # Merge strategies (merge=union for ids.yml)
 .tbd/workspaces/      # Persistent state (outbox, named workspaces)
 ```
 
@@ -2324,14 +2367,14 @@ If `.tbd/config.yml` does not exist or is invalid, commands exit with an error:
 | `init` | No | Creates `.tbd/` directory and sync branch |
 | `status` | No | Shows detection results and guidance (see §4.9) |
 | `import --from-beads` | No | Auto-initializes, then imports |
-| `import <file>` | Yes | Error: "Not a tbd repository" |
-| `list`, `show`, `stats` | Yes | Error: "Not a tbd repository" |
-| `create`, `update`, `close`, `reopen` | Yes | Error: "Not a tbd repository" |
-| `ready`, `blocked`, `stale` | Yes | Error: "Not a tbd repository" |
-| `label`, `dep` | Yes | Error: "Not a tbd repository" |
-| `sync`, `search`, `doctor`, `config` | Yes | Error: "Not a tbd repository" |
-| `attic list/show/restore` | Yes | Error: "Not a tbd repository" |
-| All other commands | Yes | Error: "Not a tbd repository" |
+| `import <file>` | Yes | Error: “Not a tbd repository” |
+| `list`, `show`, `stats` | Yes | Error: “Not a tbd repository” |
+| `create`, `update`, `close`, `reopen` | Yes | Error: “Not a tbd repository” |
+| `ready`, `blocked`, `stale` | Yes | Error: “Not a tbd repository” |
+| `label`, `dep` | Yes | Error: “Not a tbd repository” |
+| `sync`, `search`, `doctor`, `config` | Yes | Error: “Not a tbd repository” |
+| `attic list/show/restore` | Yes | Error: “Not a tbd repository” |
+| All other commands | Yes | Error: “Not a tbd repository” |
 
 **`import --from-beads` auto-initialization:**
 
@@ -2382,8 +2425,8 @@ repository (which automatically detects and uses the beads prefix).
 
 **What it does:**
 
-1. Creates `.tbd/` directory with `config.yml` (including display.id_prefix) and
-   `.gitignore`
+1. Creates `.tbd/` directory with `config.yml` (including display.id_prefix),
+   `.gitignore`, and `.gitattributes` (merge=union for ids.yml)
 
 2. Creates `.tbd/docs/` directories for shortcuts, guidelines, templates (gitignored)
 
@@ -2403,7 +2446,7 @@ Created sync branch: tbd-sync
 Pushed sync branch to origin
 
 To complete setup, commit the config files:
-  git add .tbd/config.yml .tbd/.gitignore
+  git add .tbd/config.yml .tbd/.gitignore .tbd/.gitattributes
   git commit -m "Initialize tbd"
 ```
 
@@ -3251,7 +3294,7 @@ The doctor command performs comprehensive health checks organized into categorie
 
 | Check | Severity | Auto-fixable | Detection |
 | --- | --- | --- | --- |
-| Worktree missing | error | yes | Directory doesn't exist |
+| Worktree missing | error | yes | Directory doesn’t exist |
 | Worktree prunable | error | yes | `git worktree list` shows prunable |
 | Worktree corrupted | error | yes | Missing `.git` file or invalid gitdir |
 
@@ -3259,8 +3302,8 @@ The doctor command performs comprehensive health checks organized into categorie
 
 | Check | Severity | Auto-fixable | Detection |
 | --- | --- | --- | --- |
-| Local branch missing | error | yes | `refs/heads/tbd-sync` doesn't exist |
-| Remote branch missing | warning | no | `refs/remotes/origin/tbd-sync` doesn't exist |
+| Local branch missing | error | yes | `refs/heads/tbd-sync` doesn’t exist |
+| Remote branch missing | warning | no | `refs/remotes/origin/tbd-sync` doesn’t exist |
 | Local/remote diverged | warning | no | `git merge-base` != either HEAD |
 
 **3. Sync State Consistency Check**
@@ -3285,7 +3328,7 @@ Only runs if worktree is healthy:
 | Check | Severity | Auto-fixable | Detection |
 | --- | --- | --- | --- |
 | Schema version incompatible | error | no | `meta.yml` version > supported |
-| Orphaned dependencies | warning | yes | Dependency target doesn't exist |
+| Orphaned dependencies | warning | yes | Dependency target doesn’t exist |
 | Duplicate IDs | error | yes | Multiple files with same short ID |
 | Invalid references | warning | yes | `parent_id` points to missing issue |
 
@@ -3972,7 +4015,7 @@ On import:
 
 | Beads Status | tbd Behavior | Rationale |
 | --- | --- | --- |
-| `tombstone` (first import) | Skip by default | Don't import deleted issues |
+| `tombstone` (first import) | Skip by default | Don’t import deleted issues |
 | `tombstone` (re-import) | Set `status: closed`, add label `deleted-in-beads` | Preserve history |
 
 **Options:**
@@ -4104,7 +4147,7 @@ tbd sync
 | `bd label add` | `tbd label add` | ✅ Full | Identical |
 | `bd label remove` | `tbd label remove` | ✅ Full | Identical |
 | `bd label list` | `tbd label list` | ✅ Full | Lists all labels |
-| `bd dep add` | `tbd dep add` | ✅ Full | Only "blocks" type |
+| `bd dep add` | `tbd dep add` | ✅ Full | Only “blocks” type |
 | `bd dep tree` | `tbd dep tree` | 🔄 Future | Visualize dependencies |
 | `bd sync` | `tbd sync` | ✅ Full | Different mechanism, same UX |
 | `bd stats` | `tbd stats` | ✅ Full | Same statistics |
@@ -4140,7 +4183,7 @@ tbd sync
 | `priority` | `priority` | Identical (0-4) |
 | `assignee` | `assignee` | Identical |
 | `labels` | `labels` | Identical |
-| `dependencies` | `dependencies` | Only "blocks" type currently |
+| `dependencies` | `dependencies` | Only “blocks” type currently |
 | `created_at` | `created_at` | Identical |
 | `updated_at` | `updated_at` | Identical |
 | `closed_at` | `closed_at` | Identical |
@@ -5093,6 +5136,7 @@ repo/
 │   │ Committed to the repo:
 │   ├── config.yml                  # Project config
 │   ├── .gitignore                  # Controls what's gitignored below
+│   ├── .gitattributes              # Merge strategies (merge=union for ids.yml)
 │   ├── workspaces/                 # Persistent state (outbox, named workspaces)
 │   │
 │   │ Gitignored (local only):
@@ -5119,7 +5163,7 @@ repo/
 
 | Location | Files | Size |
 | --- | --- | --- |
-| `.tbd/` | 3 | <1 KB |
+| `.tbd/` | 4 | <1 KB |
 | `.tbd/docs/` | ~30 | ~100 KB |
 | `.tbd/data-sync/issues/` | 1,000 | ~2 MB |
 | `.tbd/data-sync/attic/` | 10-50 | <100 KB |
@@ -5594,7 +5638,7 @@ See [§2.7.5](#275-comparison-with-beads) for details.
 | `--no-daemon` | No daemon to disable |
 | `--no-auto-flush` | No auto-flush mechanism |
 | `--no-auto-import` | Different sync model |
-| `--sandbox` | tbd is always "sandbox safe" |
+| `--sandbox` | tbd is always “sandbox safe” |
 | `--allow-stale` | Different staleness model |
 
 ### B.11 Issue Types/Statuses Not Supported
@@ -5706,6 +5750,15 @@ never conflicts with existing ones.
 
 Concurrent imports with the same source would produce identical mappings (idempotent).
 Concurrent imports from different sources have distinct short IDs (no conflict).
+
+**Additional protection** (added in response to
+[#99](https://github.com/jlevy/tbd/issues/99)): `.tbd/.gitattributes` configures
+`merge=union` for all `ids.yml` files, preventing git from deleting rows during merge.
+The sync code also includes `reconcileMappings()` which detects missing mappings after
+merge and recovers original short IDs from git history before falling back to new random
+IDs. The `doctor --fix` command provides a manual recovery path.
+Together these provide three layers of defense: prevention (`.gitattributes`), detection
+and recovery (reconcileMappings), and manual repair (doctor).
 
 ### 8.4 ID Length
 
