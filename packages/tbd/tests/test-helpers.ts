@@ -105,6 +105,11 @@ export const TEST_ULIDS = {
   CONCURRENT_3: '01concurrent0000000000003a',
   CONCURRENT_4: '01concurrent0000000000004a',
 
+  // Merge protection / reconcileMappings integration tests (26 chars)
+  MERGE_1: '01mergetest0000000000001aa',
+  MERGE_2: '01mergetest0000000000002aa',
+  MERGE_3: '01mergetest0000000000003aa',
+
   // Child ordering tests (26 chars)
   CHILD_ORDER_PARENT: '01childorder0000000000001a',
   CHILD_ORDER_A: '01childorder0000000000002a',

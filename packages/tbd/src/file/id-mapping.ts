@@ -296,6 +296,54 @@ export function parseIdMappingFromYaml(content: string): IdMapping {
 }
 
 /**
+ * Ensure all given internal IDs have short ID mappings.
+ * Creates missing mappings for any IDs without entries.
+ *
+ * This repairs state after git merges that may add issue files
+ * without corresponding mapping entries (e.g., when outbox issues
+ * are merged from a feature branch but ids.yml doesn't include them).
+ *
+ * When a `historicalMapping` is provided, the function will try to recover
+ * the original short ID from that mapping before generating a new random one.
+ * This preserves ID stability so that existing references (in docs, PRs,
+ * conversations) remain valid.
+ *
+ * @param internalIds - Array of internal IDs (is-{ulid}) to reconcile
+ * @param mapping - The ID mapping to update (mutated in-place)
+ * @param historicalMapping - Optional mapping from prior state (e.g., git history) to recover original short IDs
+ * @returns Object with `created` (IDs that got new random short IDs) and `recovered` (IDs restored from history)
+ */
+export function reconcileMappings(
+  internalIds: string[],
+  mapping: IdMapping,
+  historicalMapping?: IdMapping,
+): { created: string[]; recovered: string[] } {
+  const created: string[] = [];
+  const recovered: string[] = [];
+
+  for (const id of internalIds) {
+    const ulid = extractUlidFromInternalId(id);
+    if (mapping.ulidToShort.has(ulid)) {
+      continue; // Already has a mapping
+    }
+
+    // Try to recover original short ID from historical mapping
+    const historicalShortId = historicalMapping?.ulidToShort.get(ulid);
+    if (historicalShortId && !mapping.shortToUlid.has(historicalShortId)) {
+      // Recovered: restore the original short ID
+      addIdMapping(mapping, ulid, historicalShortId);
+      recovered.push(id);
+    } else {
+      // No history available or short ID conflicts — generate new random one
+      createShortIdMapping(id, mapping);
+      created.push(id);
+    }
+  }
+
+  return { created, recovered };
+}
+
+/**
  * Merge two ID mappings by combining all entries from both.
  * ID mappings are always additive (new IDs are only added, never removed),
  * so merging simply unions all key-value pairs.

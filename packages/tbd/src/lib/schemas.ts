@@ -119,6 +119,12 @@ export const Dependency = z.object({
  *
  * Note: Fields use .nullable() in addition to .optional() because
  * YAML parses `field: null` as JavaScript null, not undefined.
+ *
+ * Design note: We could add the short ID to this schema. We didn't originally
+ * because it's one more field to maintain consistency around across files.
+ * Having it here might make recovery of lost ID mappings far easier, but for
+ * now we have more reliable management of the mappings file (ids.yml) and
+ * consider it authoritative. See IdMappingYamlSchema (§2.6.8).
  */
 export const IssueSchema = BaseEntity.extend({
   // Header seven: the fields you always want to see at a glance

@@ -91,6 +91,33 @@ auto-saving, since the issue is likely temporary.
    using field-level LWW and the trivial changes will be harmless
 3. Run `tbd sync` to clear the outbox
 
+### Missing ID Mappings After Branch Merge
+
+**Symptoms:**
+- `tbd list` crashes with “No short ID mapping found for internal ID: is-...”
+- `tbd doctor` reports missing ID mappings
+- Happened after merging a feature branch into main
+
+**Causes:**
+- Git 3-way merge can delete `.tbd/workspaces/outbox/mappings/ids.yml` when merging a
+  feature branch back to main, because main has no outbox directory and the merge treats
+  “no file” as the correct state
+- This causes issues to exist without corresponding short ID mappings
+- See [#99](https://github.com/jlevy/tbd/issues/99) for full details
+
+**Prevention (v0.1.22+):**
+- `tbd setup` creates `.tbd/.gitattributes` with `merge=union` for all `ids.yml` files,
+  which prevents git from ever deleting rows during merge
+- The sync code includes `reconcileMappings()` which detects and repairs missing
+  mappings after merge, recovering original short IDs from git history when possible
+
+**If you encounter this:**
+1. Run `tbd doctor --fix` to detect and repair missing mappings
+2. The fix will attempt to recover original short IDs from git history
+3. If history is unavailable, new short IDs are generated
+4. Run `tbd setup --auto` to ensure `.tbd/.gitattributes` is in place for future
+   prevention
+
 ## Workspace Issues
 
 ### Don’t gitignore .tbd/workspaces/

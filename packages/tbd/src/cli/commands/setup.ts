@@ -1171,6 +1171,23 @@ class SetupDefaultHandler extends BaseCommand {
       console.log(`  ${colors.success('✓')} Updated .tbd/.gitignore with new patterns`);
     }
 
+    // Ensure .tbd/.gitattributes has merge protection for outbox ids.yml
+    // Placed inside .tbd/ so all tbd settings are self-contained in one directory.
+    // Git supports .gitattributes in subdirectories — patterns are relative to that directory.
+    const gitattributesResult = await ensureGitignorePatterns(
+      join(projectDir, TBD_DIR, '.gitattributes'),
+      [
+        '# Protect ID mappings from merge deletion (always keep all rows)',
+        '# See: https://github.com/jlevy/tbd/issues/99',
+        '**/mappings/ids.yml merge=union',
+      ],
+    );
+    if (gitattributesResult.created) {
+      console.log(`  ${colors.success('✓')} Created .tbd/.gitattributes (merge protection)`);
+    } else if (gitattributesResult.added.length > 0) {
+      console.log(`  ${colors.success('✓')} Updated .tbd/.gitattributes (merge protection)`);
+    }
+
     console.log('Checking integrations...');
 
     // Use SetupAutoHandler to configure integrations
@@ -1428,6 +1445,28 @@ class SetupDefaultHandler extends BaseCommand {
       console.log(`  ${colors.success('✓')} Updated .tbd/.gitignore`);
     }
     // else: file is up-to-date, no message needed
+
+    // 2b. Create/update .tbd/.gitattributes with merge strategies for tbd files.
+    // Placed inside .tbd/ so all tbd settings are self-contained in one directory.
+    // Git supports .gitattributes in subdirectories — patterns are relative to that directory.
+    // The outbox ids.yml must use "merge=union" so git never drops rows during merge.
+    // Without this, AI agents resolving merge conflicts can delete the mapping file
+    // (main has no outbox, so the merge considers "no file" as the correct version),
+    // causing all tbd commands to crash with "No short ID mapping found".
+    // See: https://github.com/jlevy/tbd/issues/99
+    const gitattributesResult = await ensureGitignorePatterns(
+      join(cwd, TBD_DIR, '.gitattributes'),
+      [
+        '# Protect ID mappings from merge deletion (always keep all rows)',
+        '# See: https://github.com/jlevy/tbd/issues/99',
+        '**/mappings/ids.yml merge=union',
+      ],
+    );
+    if (gitattributesResult.created) {
+      console.log(`  ${colors.success('✓')} Created .tbd/.gitattributes (merge protection)`);
+    } else if (gitattributesResult.added.length > 0) {
+      console.log(`  ${colors.success('✓')} Updated .tbd/.gitattributes (merge protection)`);
+    }
 
     // 3. Initialize worktree for sync branch
     try {

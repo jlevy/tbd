@@ -1,0 +1,3 @@
+# Protect ID mappings from merge deletion (always keep all rows)
+# See: https://github.com/jlevy/tbd/issues/99
+**/mappings/ids.yml merge=union
