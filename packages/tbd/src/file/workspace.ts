@@ -21,7 +21,7 @@ import { ATTIC_ENTRY_FIELD_ORDER } from '../lib/schemas.js';
 import { listIssues, writeIssue, readIssue } from './storage.js';
 import { parseIssue } from './parser.js';
 import { mergeIssues, issuesSubstantivelyEqual, git, type ConflictEntry } from './git.js';
-import { loadIdMapping, saveIdMapping, addIdMapping } from './id-mapping.js';
+import { loadIdMapping, saveIdMapping, addIdMapping, reconcileMappings } from './id-mapping.js';
 import {
   WORKSPACES_DIR,
   getWorkspaceDir,
@@ -522,6 +522,18 @@ export async function importFromWorkspace(
       addIdMapping(targetMapping, ulid, shortId);
     }
   }
+
+  // Reconcile: ensure all imported issues have mappings.
+  // Imported issues may have ULIDs not present in either source or target mapping
+  // (e.g., when outbox issues were created but their mappings were lost in a merge).
+  const reconciledIds = reconcileMappings(
+    sourceIssues.map((i) => i.id),
+    targetMapping,
+  );
+  if (reconciledIds.length > 0) {
+    log.info(`Created ${reconciledIds.length} missing ID mapping(s) for imported issues`);
+  }
+
   await saveIdMapping(dataSyncDir, targetMapping);
 
   // Clear source workspace if requested

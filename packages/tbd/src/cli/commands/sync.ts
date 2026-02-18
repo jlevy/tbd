@@ -47,6 +47,7 @@ import {
   saveIdMapping,
   mergeIdMappings,
   parseIdMappingFromYaml,
+  reconcileMappings,
 } from '../../file/id-mapping.js';
 import {
   saveToWorkspace,
@@ -749,6 +750,34 @@ class SyncHandler extends BaseCommand {
           if (headBeforeMerge) {
             await this.showGitLogDebug('Commits received', `${headBeforeMerge}..${syncBranch}`);
           }
+
+          // Reconcile ID mappings after clean merge.
+          // A git merge may add issue files without corresponding ids.yml entries
+          // (e.g., when outbox issues were committed to a feature branch).
+          const postMergeIssues = await listIssues(this.dataSyncDir);
+          const postMergeMapping = await loadIdMapping(this.dataSyncDir);
+          const reconciled = reconcileMappings(
+            postMergeIssues.map((i) => i.id),
+            postMergeMapping,
+          );
+          if (reconciled.length > 0) {
+            await saveIdMapping(this.dataSyncDir, postMergeMapping);
+            // Commit the updated mapping so it's included in the push
+            await git('-C', worktreePath, 'add', '-A');
+            try {
+              await git(
+                '-C',
+                worktreePath,
+                'commit',
+                '--no-verify',
+                '-m',
+                `tbd sync: reconcile ${reconciled.length} missing ID mapping(s)`,
+              );
+            } catch {
+              // Nothing to commit if mapping file was unchanged
+            }
+            this.output.debug(`Reconciled ${reconciled.length} missing ID mapping(s) after merge`);
+          }
         } catch {
           // Merge conflict - try to resolve at file level
           this.output.info(`Merge conflict, attempting file-level resolution`);
@@ -791,6 +820,22 @@ class SyncHandler extends BaseCommand {
           } catch (error) {
             // Remote ids.yml doesn't exist or can't be parsed - keep local
             this.output.debug(`Could not merge ids.yml: ${(error as Error).message}`);
+          }
+
+          // Reconcile any remaining issues without mappings after conflict resolution
+          {
+            const allIssues = await listIssues(this.dataSyncDir);
+            const currentMapping = await loadIdMapping(this.dataSyncDir);
+            const reconciled = reconcileMappings(
+              allIssues.map((i) => i.id),
+              currentMapping,
+            );
+            if (reconciled.length > 0) {
+              await saveIdMapping(this.dataSyncDir, currentMapping);
+              this.output.debug(
+                `Reconciled ${reconciled.length} missing ID mapping(s) after conflict resolution`,
+              );
+            }
           }
 
           // Stage resolved files and complete merge

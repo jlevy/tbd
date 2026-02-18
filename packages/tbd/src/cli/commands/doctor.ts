@@ -23,7 +23,7 @@ import {
   CLAUDE_SKILL_REL,
   AGENTS_MD_REL,
 } from '../../lib/integration-paths.js';
-import { validateIssueId } from '../../lib/ids.js';
+import { validateIssueId, extractUlidFromInternalId } from '../../lib/ids.js';
 import {
   checkGitVersion,
   MIN_GIT_VERSION,
@@ -110,6 +110,9 @@ class DoctorHandler extends BaseCommand {
 
     // Check 8: Issue validity
     healthChecks.push(this.checkIssueValidity(this.issues));
+
+    // Check 8b: Missing ID mappings (issues without short IDs)
+    healthChecks.push(await this.checkMissingMappings(options.fix));
 
     // Check 9: Worktree health (with fix support)
     healthChecks.push(await this.checkWorktree(options.fix));
@@ -556,6 +559,58 @@ class DoctorHandler extends BaseCommand {
       message: `${invalid.length} invalid issue(s)`,
       details: invalid.map((i) => `${i.id}: ${i.reason}`),
       suggestion: 'Manually fix or delete invalid issue files',
+    };
+  }
+
+  /**
+   * Check for issues that have no short ID mapping in ids.yml.
+   *
+   * This can happen when a git merge brings in issue files (e.g., from
+   * a feature branch with outbox issues) without the corresponding
+   * ids.yml entries. Without a mapping, any command that tries to
+   * display the issue ID will crash.
+   *
+   * With --fix, creates missing mappings automatically.
+   */
+  private async checkMissingMappings(fix?: boolean): Promise<DiagnosticResult> {
+    if (this.issues.length === 0) {
+      return { name: 'ID mapping coverage', status: 'ok' };
+    }
+
+    const { loadIdMapping, saveIdMapping, reconcileMappings } =
+      await import('../../file/id-mapping.js');
+    const mapping = await loadIdMapping(this.dataSyncDir);
+
+    // Find issues missing from the mapping
+    const missingIds: string[] = [];
+    for (const issue of this.issues) {
+      const ulid = extractUlidFromInternalId(issue.id);
+      if (!mapping.ulidToShort.has(ulid)) {
+        missingIds.push(issue.id);
+      }
+    }
+
+    if (missingIds.length === 0) {
+      return { name: 'ID mapping coverage', status: 'ok' };
+    }
+
+    if (fix && !this.checkDryRun('Create missing ID mappings')) {
+      const created = reconcileMappings(missingIds, mapping);
+      await saveIdMapping(this.dataSyncDir, mapping);
+      return {
+        name: 'ID mapping coverage',
+        status: 'ok',
+        message: `created ${created.length} missing mapping(s)`,
+      };
+    }
+
+    return {
+      name: 'ID mapping coverage',
+      status: 'error',
+      message: `${missingIds.length} issue(s) without short ID mapping`,
+      details: missingIds.map((id) => `${id} (no short ID)`),
+      fixable: true,
+      suggestion: 'Run: tbd doctor --fix to create missing mappings',
     };
   }
 

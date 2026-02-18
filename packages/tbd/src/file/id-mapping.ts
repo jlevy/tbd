@@ -296,6 +296,30 @@ export function parseIdMappingFromYaml(content: string): IdMapping {
 }
 
 /**
+ * Ensure all given internal IDs have short ID mappings.
+ * Creates missing mappings for any IDs without entries.
+ *
+ * This repairs state after git merges that may add issue files
+ * without corresponding mapping entries (e.g., when outbox issues
+ * are merged from a feature branch but ids.yml doesn't include them).
+ *
+ * @param internalIds - Array of internal IDs (is-{ulid}) to reconcile
+ * @param mapping - The ID mapping to update (mutated in-place)
+ * @returns Array of internal IDs for which new mappings were created
+ */
+export function reconcileMappings(internalIds: string[], mapping: IdMapping): string[] {
+  const created: string[] = [];
+  for (const id of internalIds) {
+    const ulid = extractUlidFromInternalId(id);
+    if (!mapping.ulidToShort.has(ulid)) {
+      createShortIdMapping(id, mapping);
+      created.push(id);
+    }
+  }
+  return created;
+}
+
+/**
  * Merge two ID mappings by combining all entries from both.
  * ID mappings are always additive (new IDs are only added, never removed),
  * so merging simply unions all key-value pairs.

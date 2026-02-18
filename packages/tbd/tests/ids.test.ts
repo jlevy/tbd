@@ -374,6 +374,7 @@ import {
   addIdMapping,
   calculateOptimalLength,
   generateUniqueShortId,
+  reconcileMappings,
   type IdMapping,
 } from '../src/file/id-mapping.js';
 
@@ -459,6 +460,82 @@ describe('generateUniqueShortId', () => {
     // Empty mapping should generate 4-char IDs
     const id = generateUniqueShortId(mapping);
     expect(id.length).toBe(4);
+  });
+});
+
+describe('reconcileMappings', () => {
+  it('creates mappings for internal IDs missing from the mapping', () => {
+    const mapping: IdMapping = {
+      shortToUlid: new Map([['a1b2', '01hx5zzkbkactav9wevgemmvrz']]),
+      ulidToShort: new Map([['01hx5zzkbkactav9wevgemmvrz', 'a1b2']]),
+    };
+
+    const missingId = 'is-01hx5zzkbkbctav9wevgemmvrw';
+    const created = reconcileMappings([missingId], mapping);
+
+    expect(created).toEqual([missingId]);
+    expect(mapping.ulidToShort.has('01hx5zzkbkbctav9wevgemmvrw')).toBe(true);
+    expect(mapping.shortToUlid.size).toBe(2);
+  });
+
+  it('does not create duplicates for IDs already in the mapping', () => {
+    const mapping: IdMapping = {
+      shortToUlid: new Map([['a1b2', '01hx5zzkbkactav9wevgemmvrz']]),
+      ulidToShort: new Map([['01hx5zzkbkactav9wevgemmvrz', 'a1b2']]),
+    };
+
+    const existingId = 'is-01hx5zzkbkactav9wevgemmvrz';
+    const created = reconcileMappings([existingId], mapping);
+
+    expect(created).toEqual([]);
+    expect(mapping.shortToUlid.size).toBe(1);
+  });
+
+  it('handles mix of existing and missing IDs', () => {
+    const mapping: IdMapping = {
+      shortToUlid: new Map([['a1b2', '01hx5zzkbkactav9wevgemmvrz']]),
+      ulidToShort: new Map([['01hx5zzkbkactav9wevgemmvrz', 'a1b2']]),
+    };
+
+    const ids = [
+      'is-01hx5zzkbkactav9wevgemmvrz', // existing
+      'is-01hx5zzkbkbctav9wevgemmvrw', // missing
+      'is-01hx5zzkbkcctav9wevgemmvrx', // missing
+    ];
+    const created = reconcileMappings(ids, mapping);
+
+    expect(created).toHaveLength(2);
+    expect(created).toContain('is-01hx5zzkbkbctav9wevgemmvrw');
+    expect(created).toContain('is-01hx5zzkbkcctav9wevgemmvrx');
+    expect(mapping.shortToUlid.size).toBe(3);
+  });
+
+  it('returns empty array when all IDs already have mappings', () => {
+    const mapping: IdMapping = {
+      shortToUlid: new Map([
+        ['a1b2', '01hx5zzkbkactav9wevgemmvrz'],
+        ['c3d4', '01hx5zzkbkbctav9wevgemmvrw'],
+      ]),
+      ulidToShort: new Map([
+        ['01hx5zzkbkactav9wevgemmvrz', 'a1b2'],
+        ['01hx5zzkbkbctav9wevgemmvrw', 'c3d4'],
+      ]),
+    };
+
+    const ids = ['is-01hx5zzkbkactav9wevgemmvrz', 'is-01hx5zzkbkbctav9wevgemmvrw'];
+    const created = reconcileMappings(ids, mapping);
+
+    expect(created).toEqual([]);
+  });
+
+  it('handles empty input', () => {
+    const mapping: IdMapping = {
+      shortToUlid: new Map(),
+      ulidToShort: new Map(),
+    };
+
+    const created = reconcileMappings([], mapping);
+    expect(created).toEqual([]);
   });
 });
 
