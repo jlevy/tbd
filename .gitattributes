@@ -1,1 +1,4 @@
 
+
+# tbd: Protect outbox ID mappings from merge deletion (always keep all rows)
+.tbd/workspaces/outbox/mappings/ids.yml merge=union
