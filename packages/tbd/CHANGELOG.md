@@ -1,5 +1,12 @@
 # get-tbd
 
+## 0.1.22
+
+### Patch Changes
+
+- b98e317: Fix ID mapping loss during git merges with automatic reconciliation and merge
+  protection
+
 ## 0.1.21
 
 ### Patch Changes
