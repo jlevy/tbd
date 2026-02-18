@@ -1171,6 +1171,17 @@ class SetupDefaultHandler extends BaseCommand {
       console.log(`  ${colors.success('✓')} Updated .tbd/.gitignore with new patterns`);
     }
 
+    // Ensure .gitattributes has merge protection for outbox ids.yml
+    const gitattributesResult = await ensureGitignorePatterns(join(projectDir, '.gitattributes'), [
+      '# tbd: Protect outbox ID mappings from merge deletion (always keep all rows)',
+      '.tbd/workspaces/outbox/mappings/ids.yml merge=union',
+    ]);
+    if (gitattributesResult.created) {
+      console.log(`  ${colors.success('✓')} Created .gitattributes (tbd merge protection)`);
+    } else if (gitattributesResult.added.length > 0) {
+      console.log(`  ${colors.success('✓')} Updated .gitattributes (tbd merge protection)`);
+    }
+
     console.log('Checking integrations...');
 
     // Use SetupAutoHandler to configure integrations
@@ -1428,6 +1439,22 @@ class SetupDefaultHandler extends BaseCommand {
       console.log(`  ${colors.success('✓')} Updated .tbd/.gitignore`);
     }
     // else: file is up-to-date, no message needed
+
+    // 2b. Create/update .gitattributes with merge strategies for tbd files.
+    // The outbox ids.yml must use "merge=union" so git never drops rows during merge.
+    // Without this, AI agents resolving merge conflicts can delete the mapping file
+    // (main has no outbox, so the merge considers "no file" as the correct version),
+    // causing all tbd commands to crash with "No short ID mapping found".
+    // See: https://github.com/jlevy/tbd/issues/99
+    const gitattributesResult = await ensureGitignorePatterns(join(cwd, '.gitattributes'), [
+      '# tbd: Protect outbox ID mappings from merge deletion (always keep all rows)',
+      '.tbd/workspaces/outbox/mappings/ids.yml merge=union',
+    ]);
+    if (gitattributesResult.created) {
+      console.log(`  ${colors.success('✓')} Created .gitattributes (tbd merge protection)`);
+    } else if (gitattributesResult.added.length > 0) {
+      console.log(`  ${colors.success('✓')} Updated .gitattributes (tbd merge protection)`);
+    }
 
     // 3. Initialize worktree for sync branch
     try {
