@@ -754,13 +754,32 @@ class SyncHandler extends BaseCommand {
           // Reconcile ID mappings after clean merge.
           // A git merge may add issue files without corresponding ids.yml entries
           // (e.g., when outbox issues were committed to a feature branch).
+          // Try to recover original short IDs from the remote's mapping to preserve
+          // ID stability (so existing references in docs/PRs remain valid).
           const postMergeIssues = await listIssues(this.dataSyncDir);
           const postMergeMapping = await loadIdMapping(this.dataSyncDir);
-          const reconciled = reconcileMappings(
+
+          // Load historical mapping from remote to recover original short IDs
+          let historicalMapping: Awaited<ReturnType<typeof loadIdMapping>> | undefined;
+          try {
+            const remoteIdsContent = await git(
+              'show',
+              `${remote}/${syncBranch}:${DATA_SYNC_DIR}/mappings/ids.yml`,
+            );
+            if (remoteIdsContent) {
+              historicalMapping = parseIdMappingFromYaml(remoteIdsContent);
+            }
+          } catch {
+            // Remote mapping not available - will generate new IDs
+          }
+
+          const reconcileResult = reconcileMappings(
             postMergeIssues.map((i) => i.id),
             postMergeMapping,
+            historicalMapping,
           );
-          if (reconciled.length > 0) {
+          const totalReconciled = reconcileResult.created.length + reconcileResult.recovered.length;
+          if (totalReconciled > 0) {
             await saveIdMapping(this.dataSyncDir, postMergeMapping);
             // Commit the updated mapping so it's included in the push
             await git('-C', worktreePath, 'add', '-A');
@@ -771,12 +790,21 @@ class SyncHandler extends BaseCommand {
                 'commit',
                 '--no-verify',
                 '-m',
-                `tbd sync: reconcile ${reconciled.length} missing ID mapping(s)`,
+                `tbd sync: reconcile ${totalReconciled} missing ID mapping(s)`,
               );
             } catch {
               // Nothing to commit if mapping file was unchanged
             }
-            this.output.debug(`Reconciled ${reconciled.length} missing ID mapping(s) after merge`);
+            if (reconcileResult.recovered.length > 0) {
+              this.output.debug(
+                `Recovered ${reconcileResult.recovered.length} ID mapping(s) from history`,
+              );
+            }
+            if (reconcileResult.created.length > 0) {
+              this.output.debug(
+                `Created ${reconcileResult.created.length} new ID mapping(s) (no history available)`,
+              );
+            }
           }
         } catch {
           // Merge conflict - try to resolve at file level
@@ -803,18 +831,20 @@ class SyncHandler extends BaseCommand {
           }
 
           // Merge ids.yml (ID mappings are always additive, so we union both sides)
+          // Also capture the remote mapping for recovery of original short IDs
+          let conflictRemoteMapping: Awaited<ReturnType<typeof loadIdMapping>> | undefined;
           try {
             const remoteIdsContent = await git(
               'show',
               `${remote}/${syncBranch}:${DATA_SYNC_DIR}/mappings/ids.yml`,
             );
             if (remoteIdsContent) {
+              conflictRemoteMapping = parseIdMappingFromYaml(remoteIdsContent);
               const localMapping = await loadIdMapping(this.dataSyncDir);
-              const remoteMapping = parseIdMappingFromYaml(remoteIdsContent);
-              const mergedMapping = mergeIdMappings(localMapping, remoteMapping);
+              const mergedMapping = mergeIdMappings(localMapping, conflictRemoteMapping);
               await saveIdMapping(this.dataSyncDir, mergedMapping);
               this.output.debug(
-                `Merged ID mappings: ${localMapping.shortToUlid.size} local + ${remoteMapping.shortToUlid.size} remote = ${mergedMapping.shortToUlid.size} total`,
+                `Merged ID mappings: ${localMapping.shortToUlid.size} local + ${conflictRemoteMapping.shortToUlid.size} remote = ${mergedMapping.shortToUlid.size} total`,
               );
             }
           } catch (error) {
@@ -822,19 +852,30 @@ class SyncHandler extends BaseCommand {
             this.output.debug(`Could not merge ids.yml: ${(error as Error).message}`);
           }
 
-          // Reconcile any remaining issues without mappings after conflict resolution
+          // Reconcile any remaining issues without mappings after conflict resolution.
+          // Use the remote mapping as historical source to recover original short IDs.
           {
             const allIssues = await listIssues(this.dataSyncDir);
             const currentMapping = await loadIdMapping(this.dataSyncDir);
-            const reconciled = reconcileMappings(
+            const reconcileResult = reconcileMappings(
               allIssues.map((i) => i.id),
               currentMapping,
+              conflictRemoteMapping,
             );
-            if (reconciled.length > 0) {
+            const totalReconciled =
+              reconcileResult.created.length + reconcileResult.recovered.length;
+            if (totalReconciled > 0) {
               await saveIdMapping(this.dataSyncDir, currentMapping);
-              this.output.debug(
-                `Reconciled ${reconciled.length} missing ID mapping(s) after conflict resolution`,
-              );
+              if (reconcileResult.recovered.length > 0) {
+                this.output.debug(
+                  `Recovered ${reconcileResult.recovered.length} ID mapping(s) from remote`,
+                );
+              }
+              if (reconcileResult.created.length > 0) {
+                this.output.debug(
+                  `Created ${reconcileResult.created.length} new ID mapping(s) after conflict resolution`,
+                );
+              }
             }
           }
 

@@ -24,6 +24,7 @@ import {
   AGENTS_MD_REL,
 } from '../../lib/integration-paths.js';
 import { validateIssueId, extractUlidFromInternalId } from '../../lib/ids.js';
+import { git } from '../../file/git.js';
 import {
   checkGitVersion,
   MIN_GIT_VERSION,
@@ -595,12 +596,49 @@ class DoctorHandler extends BaseCommand {
     }
 
     if (fix && !this.checkDryRun('Create missing ID mappings')) {
-      const created = reconcileMappings(missingIds, mapping);
+      // Try to recover original short IDs from git history before generating new ones.
+      // Search the tbd-sync branch log for prior versions of ids.yml that contained
+      // the missing ULIDs.
+      const { parseIdMappingFromYaml } = await import('../../file/id-mapping.js');
+      let historicalMapping: Awaited<ReturnType<typeof loadIdMapping>> | undefined;
+      try {
+        // Get the full ids.yml content from the most recent prior commit on tbd-sync
+        const config = await import('../../file/config.js').then((m) => m.readConfig(this.cwd));
+        const syncBranch = config.sync.branch;
+        // Use git log to find the most recent commit that touched ids.yml
+        const priorContent = await git(
+          'log',
+          '-1',
+          '--format=%H',
+          syncBranch,
+          '--',
+          `${DATA_SYNC_DIR}/mappings/ids.yml`,
+        );
+        if (priorContent.trim()) {
+          const commitHash = priorContent.trim();
+          const idsContent = await git('show', `${commitHash}:${DATA_SYNC_DIR}/mappings/ids.yml`);
+          if (idsContent) {
+            historicalMapping = parseIdMappingFromYaml(idsContent);
+          }
+        }
+      } catch {
+        // Git history not available - will generate new IDs
+      }
+
+      const result = reconcileMappings(missingIds, mapping, historicalMapping);
       await saveIdMapping(this.dataSyncDir, mapping);
+
+      const parts: string[] = [];
+      if (result.recovered.length > 0) {
+        parts.push(`recovered ${result.recovered.length} from git history`);
+      }
+      if (result.created.length > 0) {
+        parts.push(`created ${result.created.length} new`);
+      }
       return {
         name: 'ID mapping coverage',
         status: 'ok',
-        message: `created ${created.length} missing mapping(s)`,
+        message: parts.join(', '),
       };
     }
 

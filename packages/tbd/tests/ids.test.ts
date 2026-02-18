@@ -471,9 +471,10 @@ describe('reconcileMappings', () => {
     };
 
     const missingId = 'is-01hx5zzkbkbctav9wevgemmvrw';
-    const created = reconcileMappings([missingId], mapping);
+    const result = reconcileMappings([missingId], mapping);
 
-    expect(created).toEqual([missingId]);
+    expect(result.created).toEqual([missingId]);
+    expect(result.recovered).toEqual([]);
     expect(mapping.ulidToShort.has('01hx5zzkbkbctav9wevgemmvrw')).toBe(true);
     expect(mapping.shortToUlid.size).toBe(2);
   });
@@ -485,9 +486,10 @@ describe('reconcileMappings', () => {
     };
 
     const existingId = 'is-01hx5zzkbkactav9wevgemmvrz';
-    const created = reconcileMappings([existingId], mapping);
+    const result = reconcileMappings([existingId], mapping);
 
-    expect(created).toEqual([]);
+    expect(result.created).toEqual([]);
+    expect(result.recovered).toEqual([]);
     expect(mapping.shortToUlid.size).toBe(1);
   });
 
@@ -502,15 +504,16 @@ describe('reconcileMappings', () => {
       'is-01hx5zzkbkbctav9wevgemmvrw', // missing
       'is-01hx5zzkbkcctav9wevgemmvrx', // missing
     ];
-    const created = reconcileMappings(ids, mapping);
+    const result = reconcileMappings(ids, mapping);
 
-    expect(created).toHaveLength(2);
-    expect(created).toContain('is-01hx5zzkbkbctav9wevgemmvrw');
-    expect(created).toContain('is-01hx5zzkbkcctav9wevgemmvrx');
+    expect(result.created).toHaveLength(2);
+    expect(result.created).toContain('is-01hx5zzkbkbctav9wevgemmvrw');
+    expect(result.created).toContain('is-01hx5zzkbkcctav9wevgemmvrx');
+    expect(result.recovered).toEqual([]);
     expect(mapping.shortToUlid.size).toBe(3);
   });
 
-  it('returns empty array when all IDs already have mappings', () => {
+  it('returns empty arrays when all IDs already have mappings', () => {
     const mapping: IdMapping = {
       shortToUlid: new Map([
         ['a1b2', '01hx5zzkbkactav9wevgemmvrz'],
@@ -523,9 +526,10 @@ describe('reconcileMappings', () => {
     };
 
     const ids = ['is-01hx5zzkbkactav9wevgemmvrz', 'is-01hx5zzkbkbctav9wevgemmvrw'];
-    const created = reconcileMappings(ids, mapping);
+    const result = reconcileMappings(ids, mapping);
 
-    expect(created).toEqual([]);
+    expect(result.created).toEqual([]);
+    expect(result.recovered).toEqual([]);
   });
 
   it('handles empty input', () => {
@@ -534,8 +538,90 @@ describe('reconcileMappings', () => {
       ulidToShort: new Map(),
     };
 
-    const created = reconcileMappings([], mapping);
-    expect(created).toEqual([]);
+    const result = reconcileMappings([], mapping);
+    expect(result.created).toEqual([]);
+    expect(result.recovered).toEqual([]);
+  });
+
+  it('recovers original short IDs from historical mapping', () => {
+    const mapping: IdMapping = {
+      shortToUlid: new Map([['a1b2', '01hx5zzkbkactav9wevgemmvrz']]),
+      ulidToShort: new Map([['01hx5zzkbkactav9wevgemmvrz', 'a1b2']]),
+    };
+
+    // Historical mapping has the original short ID for the missing issue
+    const historicalMapping: IdMapping = {
+      shortToUlid: new Map([
+        ['a1b2', '01hx5zzkbkactav9wevgemmvrz'],
+        ['x9m3', '01hx5zzkbkbctav9wevgemmvrw'],
+      ]),
+      ulidToShort: new Map([
+        ['01hx5zzkbkactav9wevgemmvrz', 'a1b2'],
+        ['01hx5zzkbkbctav9wevgemmvrw', 'x9m3'],
+      ]),
+    };
+
+    const missingId = 'is-01hx5zzkbkbctav9wevgemmvrw';
+    const result = reconcileMappings([missingId], mapping, historicalMapping);
+
+    expect(result.recovered).toEqual([missingId]);
+    expect(result.created).toEqual([]);
+    // The original short ID 'x9m3' should be restored, not a random new one
+    expect(mapping.ulidToShort.get('01hx5zzkbkbctav9wevgemmvrw')).toBe('x9m3');
+    expect(mapping.shortToUlid.get('x9m3')).toBe('01hx5zzkbkbctav9wevgemmvrw');
+  });
+
+  it('falls back to new random ID when historical short ID conflicts', () => {
+    const mapping: IdMapping = {
+      shortToUlid: new Map([
+        ['a1b2', '01hx5zzkbkactav9wevgemmvrz'],
+        ['x9m3', '01hx5zzkbkdctav9wevgemmvry'], // x9m3 already taken by a different ULID
+      ]),
+      ulidToShort: new Map([
+        ['01hx5zzkbkactav9wevgemmvrz', 'a1b2'],
+        ['01hx5zzkbkdctav9wevgemmvry', 'x9m3'],
+      ]),
+    };
+
+    // Historical mapping says this issue should be x9m3, but that's taken
+    const historicalMapping: IdMapping = {
+      shortToUlid: new Map([['x9m3', '01hx5zzkbkbctav9wevgemmvrw']]),
+      ulidToShort: new Map([['01hx5zzkbkbctav9wevgemmvrw', 'x9m3']]),
+    };
+
+    const missingId = 'is-01hx5zzkbkbctav9wevgemmvrw';
+    const result = reconcileMappings([missingId], mapping, historicalMapping);
+
+    // Should fall back to creating a new random ID since x9m3 conflicts
+    expect(result.created).toEqual([missingId]);
+    expect(result.recovered).toEqual([]);
+    // The new short ID should NOT be x9m3
+    expect(mapping.ulidToShort.get('01hx5zzkbkbctav9wevgemmvrw')).not.toBe('x9m3');
+    expect(mapping.shortToUlid.size).toBe(3);
+  });
+
+  it('mixes recovery and creation when some IDs have history and some do not', () => {
+    const mapping: IdMapping = {
+      shortToUlid: new Map([['a1b2', '01hx5zzkbkactav9wevgemmvrz']]),
+      ulidToShort: new Map([['01hx5zzkbkactav9wevgemmvrz', 'a1b2']]),
+    };
+
+    // Historical mapping only has one of the two missing issues
+    const historicalMapping: IdMapping = {
+      shortToUlid: new Map([['x9m3', '01hx5zzkbkbctav9wevgemmvrw']]),
+      ulidToShort: new Map([['01hx5zzkbkbctav9wevgemmvrw', 'x9m3']]),
+    };
+
+    const ids = [
+      'is-01hx5zzkbkbctav9wevgemmvrw', // recoverable from history
+      'is-01hx5zzkbkcctav9wevgemmvrx', // no history, needs new random ID
+    ];
+    const result = reconcileMappings(ids, mapping, historicalMapping);
+
+    expect(result.recovered).toEqual(['is-01hx5zzkbkbctav9wevgemmvrw']);
+    expect(result.created).toEqual(['is-01hx5zzkbkcctav9wevgemmvrx']);
+    expect(mapping.ulidToShort.get('01hx5zzkbkbctav9wevgemmvrw')).toBe('x9m3');
+    expect(mapping.shortToUlid.size).toBe(3);
   });
 });
 

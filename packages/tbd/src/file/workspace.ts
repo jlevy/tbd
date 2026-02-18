@@ -526,12 +526,17 @@ export async function importFromWorkspace(
   // Reconcile: ensure all imported issues have mappings.
   // Imported issues may have ULIDs not present in either source or target mapping
   // (e.g., when outbox issues were created but their mappings were lost in a merge).
-  const reconciledIds = reconcileMappings(
+  // Use the source mapping as historical reference to recover original short IDs.
+  const reconcileResult = reconcileMappings(
     sourceIssues.map((i) => i.id),
     targetMapping,
+    sourceMapping,
   );
-  if (reconciledIds.length > 0) {
-    log.info(`Created ${reconciledIds.length} missing ID mapping(s) for imported issues`);
+  if (reconcileResult.recovered.length > 0) {
+    log.info(`Recovered ${reconcileResult.recovered.length} ID mapping(s) from workspace`);
+  }
+  if (reconcileResult.created.length > 0) {
+    log.info(`Created ${reconcileResult.created.length} new ID mapping(s) for imported issues`);
   }
 
   await saveIdMapping(dataSyncDir, targetMapping);
