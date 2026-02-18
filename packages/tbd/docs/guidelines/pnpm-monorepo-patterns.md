@@ -23,9 +23,9 @@ author: Joshua Levy (github.com/jlevy) with LLM assistance
 
 | Tool / Package | Version | Check For Updates |
 | --- | --- | --- |
-| **Node.js** | 24 (LTS "Krypton") | [nodejs.org/releases](https://nodejs.org/en/about/previous-releases) — Active LTS until Oct 2026 |
+| **Node.js** | 24 (LTS “Krypton”) | [nodejs.org/releases](https://nodejs.org/en/about/previous-releases) — Active LTS until Oct 2026 |
 | **pnpm** | 10.28.0 | [github.com/pnpm/pnpm/releases](https://github.com/pnpm/pnpm/releases) — V8 binary storage for faster cache reads |
-| **TypeScript** | ^5.9.3 | [github.com/microsoft/TypeScript/releases](https://github.com/microsoft/TypeScript/releases) — 5.9.3 stable. TS 6.0 is "bridge" release; TS 7.0 (Go rewrite) in VS 2026 Insiders preview. |
+| **TypeScript** | ^5.9.3 | [github.com/microsoft/TypeScript/releases](https://github.com/microsoft/TypeScript/releases) — 5.9.3 stable. TS 6.0 is “bridge” release; TS 7.0 (Go rewrite) in VS 2026 Insiders preview. |
 | **tsdown** | ^0.20.0 | [github.com/rolldown/tsdown/releases](https://github.com/rolldown/tsdown/releases) — 0.20.0-beta.3 latest. Requires Node.js 20.19+. |
 | **publint** | ^0.3.0 | [npmjs.com/package/publint](https://www.npmjs.com/package/publint) |
 | **@changesets/cli** | ^2.29.0 | [github.com/changesets/changesets/releases](https://github.com/changesets/changesets/releases) |
@@ -379,6 +379,56 @@ The project recommends migrating to tsdown.
 
 * * *
 
+#### ESM-Only Alternative (Node.js 22+)
+
+**Status**: Recommended for Node.js-only packages
+
+**When to use**: If your package targets Node.js 22+ exclusively and doesn’t need to
+support CommonJS consumers (bundlers, older Node.js, or specific CJS-only tools), an
+ESM-only build is simpler and sufficient.
+
+**Simplified tsdown config**:
+
+```typescript
+export default defineConfig({
+  entry: { index: 'src/index.ts' },
+  format: ['esm'],  // ESM only
+  platform: 'node',
+  target: 'node24',
+  sourcemap: true,
+  dts: true,
+  clean: true,
+});
+```
+
+**Simplified package.json exports**:
+
+```json
+{
+  "type": "module",
+  "main": "./dist/index.mjs",
+  "types": "./dist/index.d.mts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.mts",
+      "default": "./dist/index.mjs"
+    }
+  }
+}
+```
+
+**Trade-offs**:
+
+- ✅ Simpler config, smaller package, faster builds
+- ✅ No dual-format complexity
+- ❌ CJS consumers cannot use the package
+- ❌ Some bundlers may require additional config
+
+**Assessment**: ESM-only is the right choice for modern Node.js libraries.
+Only provide dual ESM/CJS if you have confirmed CJS consumer requirements.
+
+* * *
+
 ### 4. Package Exports & Dual Module Support
 
 #### Subpath Exports
@@ -650,6 +700,100 @@ It integrates seamlessly with pnpm and GitHub Actions.
 - [Changesets GitHub repository](https://github.com/changesets/changesets)
 
 - [Frontend Handbook: Changesets](https://infinum.com/handbook/frontend/changesets)
+
+* * *
+
+#### Alternative: Tag-Triggered OIDC Publishing
+
+**Status**: Recommended for single-package repos, viable for monorepos
+
+**Details**:
+
+For simpler release workflows without Changesets, use tag-triggered GitHub Actions with
+OIDC trusted publishing.
+No NPM_TOKEN needed, no “Version Packages” PR workflow.
+
+**Workflow**:
+
+1. Manually bump version in package.json
+2. Update CHANGELOG.md or release-notes.md
+3. Commit, tag (e.g., `v1.2.3`), and push
+4. GitHub Action publishes automatically on tag push
+
+**One-time setup**:
+
+1. Publish package manually once: `npm publish --access public`
+2. Configure OIDC on npmjs.com → package settings → Trusted Publishing:
+   - Publisher: GitHub Actions
+   - Organization: your-org
+   - Repository: your-repo
+   - Workflow: `release.yml`
+
+**Release workflow** (`.github/workflows/release.yml`):
+
+```yaml
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+  id-token: write  # Required for OIDC
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: pnpm
+          registry-url: 'https://registry.npmjs.org'
+
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm build
+      - run: pnpm publint
+
+      - name: Publish to npm
+        run: pnpm -r publish --access public --no-git-checks
+        env:
+          NPM_CONFIG_PROVENANCE: true  # Automatic provenance attestation
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          body_path: release-notes.md
+```
+
+**Advantages**:
+
+- No NPM_TOKEN secret to manage or rotate
+- Provenance attestation included automatically
+- Simpler workflow (no Changesets PR dance)
+- Works with existing git tag practices
+
+**Disadvantages**:
+
+- Manual version bumps (vs Changesets automation)
+- No automated changelog generation
+- Requires public GitHub repository
+
+**Assessment**: Ideal for single-package repos or teams comfortable with manual
+versioning. For large monorepos with many packages, Changesets provides better
+automation.
+
+**References**:
+
+- [npm Trusted Publishing](https://docs.npmjs.com/generating-provenance-statements)
+- [GitHub OIDC tokens](https://docs.github.com/actions/deployment/security-hardening-your-deployments/about-security-hardening-with-openid-connect)
 
 * * *
 
@@ -1184,7 +1328,7 @@ coverage
 | --- | --- | --- |
 | `printWidth` | 100 | Wider than default 80; fits modern screens |
 | `singleQuote` | true | Common in JS ecosystem, less visual noise |
-| `trailingComma` | "all" | Cleaner diffs, easier reordering |
+| `trailingComma` | “all” | Cleaner diffs, easier reordering |
 | `semi` | true | Explicit; avoids ASI edge cases |
 
 **Assessment**: Prettier eliminates formatting debates and ensures consistency.
@@ -1195,6 +1339,71 @@ Use `eslint-config-prettier` to disable ESLint rules that conflict with Prettier
 - [Prettier Documentation](https://prettier.io/docs/)
 
 - [eslint-config-prettier](https://github.com/prettier/eslint-config-prettier)
+
+* * *
+
+#### Markdown Formatting with flowmark
+
+**Status**: Optional
+
+**Details**:
+
+For markdown files, [flowmark](https://github.com/jlevy/flowmark) provides semantic
+line-breaking (reflowing) that creates cleaner git diffs than traditional hard-wrap
+formatters.
+
+**Key differences from Prettier**:
+
+- Prettier doesn’t format markdown by default (prose-wrap: preserve)
+- flowmark breaks lines at semantic boundaries (after sentences, list items)
+- Result: Git diffs show actual content changes, not just rewrapping
+
+**Installation**: None required if using `uvx` (uv’s tool runner)
+
+**Configuration**:
+
+Add to `.prettierignore` to prevent Prettier from touching markdown:
+
+```
+*.md
+```
+
+Add to `.flowmarkignore` to skip tool-managed files:
+
+```
+.tbd/
+node_modules/
+template/
+attic/
+```
+
+**Lefthook integration**:
+
+```yaml
+pre-commit:
+  commands:
+    format-md:
+      glob: '*.md'
+      exclude:
+        - CLAUDE.md
+        - AGENTS.md
+        - template/**
+      run: uvx flowmark@latest --auto {staged_files}
+      stage_fixed: true
+```
+
+**CI consideration**: flowmark is typically NOT enforced in CI (unlike Prettier for
+code). Markdown formatting rarely causes functional issues, and flowmark can be brittle
+on edge cases (tables, complex nesting).
+
+**Assessment**: Useful for projects with extensive markdown documentation.
+The cleaner diffs make reviews easier.
+Optional tool; requires `uv` installed locally.
+
+**References**:
+
+- [flowmark on GitHub](https://github.com/jlevy/flowmark)
+- [uv installation](https://docs.astral.sh/uv/)
 
 * * *
 
@@ -1317,7 +1526,7 @@ pre-commit:
   commands:
     # Auto-format with prettier (~500ms)
     format:
-      glob: '*.{js,ts,tsx,json}'
+      glob: '*.{js,ts,tsx,json,yaml,yml}'
       run: npx prettier --write --log-level warn {staged_files}
       stage_fixed: true
       priority: 1
