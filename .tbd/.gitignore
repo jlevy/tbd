@@ -19,3 +19,7 @@ backups/
 
 # workspaces/ stores state (including outbox) committed to the working branch
 !workspaces/
+
+
+# Cached external repo checkouts
+repo-cache/

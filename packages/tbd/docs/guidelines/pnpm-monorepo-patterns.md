@@ -5,7 +5,7 @@ author: Joshua Levy (github.com/jlevy) with LLM assistance
 ---
 # pnpm Monorepo Patterns
 
-**Last Updated**: 2026-02-02
+**Last Updated**: 2026-02-18
 
 **Related**:
 
@@ -24,7 +24,7 @@ author: Joshua Levy (github.com/jlevy) with LLM assistance
 | Tool / Package | Version | Check For Updates |
 | --- | --- | --- |
 | **Node.js** | 24 (LTS “Krypton”) | [nodejs.org/releases](https://nodejs.org/en/about/previous-releases) — Active LTS until Oct 2026 |
-| **pnpm** | 10.28.0 | [github.com/pnpm/pnpm/releases](https://github.com/pnpm/pnpm/releases) — V8 binary storage for faster cache reads |
+| **pnpm** | 10.28.2 | [github.com/pnpm/pnpm/releases](https://github.com/pnpm/pnpm/releases) — V8 binary storage for faster cache reads |
 | **TypeScript** | ^5.9.3 | [github.com/microsoft/TypeScript/releases](https://github.com/microsoft/TypeScript/releases) — 5.9.3 stable. TS 6.0 is “bridge” release; TS 7.0 (Go rewrite) in VS 2026 Insiders preview. |
 | **tsdown** | ^0.20.0 | [github.com/rolldown/tsdown/releases](https://github.com/rolldown/tsdown/releases) — 0.20.0-beta.3 latest. Requires Node.js 20.19+. |
 | **publint** | ^0.3.0 | [npmjs.com/package/publint](https://www.npmjs.com/package/publint) |
@@ -34,13 +34,13 @@ author: Joshua Levy (github.com/jlevy) with LLM assistance
 | **actions/setup-node** | v6 | [github.com/actions/setup-node/releases](https://github.com/actions/setup-node/releases) |
 | **pnpm/action-setup** | v4 | [github.com/pnpm/action-setup/releases](https://github.com/pnpm/action-setup/releases) |
 | **changesets/action** | v1 | [github.com/changesets/action](https://github.com/changesets/action) |
-| **lefthook** | ^2.0.15 | [github.com/evilmartians/lefthook/releases](https://github.com/evilmartians/lefthook/releases) — 2.0.15 latest |
+| **lefthook** | ^2.0.15 | [github.com/evilmartians/lefthook/releases](https://github.com/evilmartians/lefthook/releases) — 2.1.1 latest. v2 dropped regexp `exclude`, `skip_output`. |
 | **npm-check-updates** | ^19.0.0 | [npmjs.com/package/npm-check-updates](https://www.npmjs.com/package/npm-check-updates) |
 | **tsx** | ^4.21.0 | [github.com/privatenumber/tsx/releases](https://github.com/privatenumber/tsx/releases) |
 | **prettier** | ^3.0.0 | [github.com/prettier/prettier/releases](https://github.com/prettier/prettier/releases) |
 | **eslint-config-prettier** | ^10.0.0 | [github.com/prettier/eslint-config-prettier/releases](https://github.com/prettier/eslint-config-prettier/releases) |
 | **ESLint** | ^9.39.0 | [github.com/eslint/eslint/releases](https://github.com/eslint/eslint/releases) — 9.39.2 stable. v10.0.0 in RC phase (Jan 2026). |
-| **Vitest** | ^4.0.0 | [github.com/vitest-dev/vitest/releases](https://github.com/vitest-dev/vitest/releases) — 4.0.17 latest. Browser Mode stable, visual regression testing added. |
+| **Vitest** | ^4.0.0 | [github.com/vitest-dev/vitest/releases](https://github.com/vitest-dev/vitest/releases) — 4.0.18 latest. Browser Mode stable, visual regression testing added. `coverage.all` removed in v4. |
 
 ### Reminders When Updating
 
@@ -260,6 +260,11 @@ Modern TypeScript monorepos use a shared base configuration extended by each pac
   "include": ["src"]
 }
 ```
+
+**Note on target/lib version**: Use `ES2024` when targeting Node.js 22+ (which supports
+all ES2024 features).
+Use `ES2023` if your minimum is Node.js 20. The target should match what your
+`engines.node` field supports.
 
 **Assessment**: Using `moduleResolution: "Bundler"` is appropriate when a bundler
 (tsdown) handles the final output.
@@ -656,7 +661,7 @@ Changesets provides:
 ```json
 {
   "$schema": "https://unpkg.com/@changesets/config/schema.json",
-  "changelog": "@changesets/changelog-github",
+  "changelog": "@changesets/changelog-github",  // or "@changesets/cli/changelog" for simpler output
   "commit": false,
   "fixed": [],
   "linked": [],
@@ -1164,7 +1169,7 @@ Use it for all TypeScript monorepo projects.
 
 **Status**: Recommended
 
-**`.github/workflows/ci.yml`**:
+**`.github/workflows/ci.yml`** (minimal single-job):
 
 ```yaml
 name: CI
@@ -1181,8 +1186,6 @@ jobs:
       - uses: actions/checkout@v6
 
       - uses: pnpm/action-setup@v4
-        with:
-          version: 10
 
       - uses: actions/setup-node@v6
         with:
@@ -1197,6 +1200,46 @@ jobs:
       - run: pnpm test
 ```
 
+**Multi-job CI with cross-platform testing** (recommended for CLI tools):
+
+```yaml
+jobs:
+  test:
+    name: Test (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v6
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm build
+      - run: pnpm test
+
+  lint:
+    name: Lint & Coverage
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm format:check
+      - run: pnpm lint:check
+      - run: pnpm build
+      - run: pnpm publint
+      - run: pnpm test:coverage
+```
+
 **Key points**:
 
 - Node.js 24 is the current LTS ("Krypton", active until Oct 2026, maintained until Apr
@@ -1205,11 +1248,18 @@ jobs:
 - `actions/checkout@v6` requires Actions Runner v2.329.0+ (stores credentials under
   $RUNNER_TEMP)
 
-- `pnpm/action-setup@v4` includes built-in caching
+- `pnpm/action-setup@v4` includes built-in caching (no `version:` needed if
+  `packageManager` is set in `package.json`)
 
 - `actions/setup-node@v6` with `cache: pnpm` provides additional caching
 
 - `--frozen-lockfile` ensures CI uses exact versions from lockfile
+
+- For CLI tools, cross-platform testing catches platform-specific issues (path
+  separators, file permissions, line endings)
+
+- Separating lint/coverage from tests enables parallel execution and clearer failure
+  diagnosis
 
 **References**:
 
@@ -1368,13 +1418,16 @@ Add to `.prettierignore` to prevent Prettier from touching markdown:
 *.md
 ```
 
-Add to `.flowmarkignore` to skip tool-managed files:
+Add a `.flowmarkignore` file at the repo root to skip tool-managed files:
 
 ```
 .tbd/
 node_modules/
-template/
+dist/
 attic/
+template/
+coverage/
+.changeset/
 ```
 
 **Lefthook integration**:
@@ -1926,6 +1979,202 @@ Reserve vite-node for projects that specifically need Vite’s transformation pi
 
 * * *
 
+#### CJS Bootstrap for Compile Cache
+
+**Status**: Recommended for CLI tools
+
+**Details**:
+
+Node.js 22.8.0+ supports `module.enableCompileCache()`, which caches compiled bytecode
+on disk for faster subsequent runs.
+However, this must be called **before** any ESM modules are loaded—ESM static imports
+are resolved before module code runs, so calling it in an ESM file is “too late.”
+
+The solution is a **CJS bootstrap**: a tiny CommonJS entry point that enables compile
+cache, then dynamically imports the real ESM CLI binary.
+
+**`src/cli/bin-bootstrap.cjs`**:
+
+```js
+'use strict';
+
+const path = require('node:path');
+const { pathToFileURL } = require('node:url');
+
+// Enable compile cache BEFORE loading any ESM modules.
+// Available in Node 22.8.0+, gracefully ignored in older versions.
+try {
+  const mod = require('node:module');
+  if (typeof mod.enableCompileCache === 'function') {
+    mod.enableCompileCache();
+  }
+} catch {
+  // Silently ignore - caching is an optimization, not required.
+}
+
+// Load the bundled CLI binary (ESM).
+const binPath = path.join(__dirname, 'bin.mjs');
+import(pathToFileURL(binPath).href);
+```
+
+**`package.json` bin field**:
+
+```json
+{
+  "bin": {
+    "cli-name": "./dist/bin-bootstrap.cjs"
+  }
+}
+```
+
+**Why this matters**: On repeated invocations (common for CLI tools), compile cache
+reduces startup time significantly—Node.js skips re-parsing and re-compiling JavaScript
+that hasn’t changed.
+
+**Assessment**: Essential optimization for any CLI tool that targets Node.js 22+. The
+CJS bootstrap adds minimal complexity (one small file) for meaningful startup
+improvement.
+
+* * *
+
+#### Dependency Bundling for CLI Startup
+
+**Status**: Recommended for CLI tools
+
+**Details**:
+
+CLI tools benefit from bundling their runtime dependencies directly into the binary
+instead of resolving them from `node_modules` at runtime.
+tsdown’s `noExternal` option enables this.
+
+**tsdown config for bundled CLI**:
+
+```typescript
+{
+  entry: { bin: 'src/cli/bin.ts' },
+  format: ['esm'],
+  platform: 'node',
+  target: 'node24',
+  noExternal: [
+    'yaml',
+    'commander',
+    'picocolors',
+    'zod',
+    // ... all runtime deps
+  ],
+  // Acknowledge intentional bundling (suppresses tsdown 0.20+ warning)
+  inlineOnly: false,
+}
+```
+
+**Trade-offs**:
+
+| Aspect | Bundled | Unbundled |
+| --- | --- | --- |
+| Startup time | Faster (no resolution) | Slower (resolves deps) |
+| Binary size | Larger (~1MB+ typical) | Smaller |
+| Deduplication | No (each package bundles its own) | Yes (shared node\_modules) |
+| Use case | CLI tools, serverless | Libraries |
+
+**Assessment**: Bundling is the right choice for CLI tools where startup time matters.
+Libraries should NOT bundle dependencies (consumers may need to deduplicate).
+
+* * *
+
+#### Multi-Config tsdown (Array Pattern)
+
+**Status**: Recommended for CLI/library hybrid packages
+
+**Details**:
+
+When a package serves as both a library and a CLI tool, use `defineConfig([...])` with
+separate configurations for each output type:
+
+```typescript
+import { defineConfig } from 'tsdown';
+
+const commonOptions = {
+  format: ['esm'] as 'esm'[],
+  platform: 'node' as const,
+  target: 'node24' as const,
+  sourcemap: true,
+  dts: true,
+  define: {
+    __VERSION__: JSON.stringify(version),
+  },
+};
+
+export default defineConfig([
+  // Library entry points (ESM + DTS, no bundled deps)
+  {
+    ...commonOptions,
+    entry: {
+      index: 'src/index.ts',
+      cli: 'src/cli/cli.ts',
+    },
+    clean: true,
+  },
+  // CLI binary (ESM, bundled deps for fast startup)
+  {
+    ...commonOptions,
+    entry: { bin: 'src/cli/bin.ts' },
+    banner: '#!/usr/bin/env node',
+    clean: false,
+    noExternal: ['yaml', 'commander', 'picocolors', 'zod'],
+    inlineOnly: false,
+  },
+  // CJS bootstrap (enables compile cache before ESM loads)
+  {
+    format: ['cjs'] as 'cjs'[],
+    platform: 'node' as const,
+    target: 'node24' as const,
+    sourcemap: true,
+    dts: false,
+    entry: { 'bin-bootstrap': 'src/cli/bin-bootstrap.cjs' },
+    banner: '#!/usr/bin/env node',
+    clean: false,
+  },
+]);
+```
+
+**Key patterns**:
+
+1. **`commonOptions` object**: Avoids duplication across configs
+2. **`clean: true` only on first config**: Prevents later configs from deleting earlier
+   output
+3. **Separate DTS generation**: Only library entry points need `.d.mts` files
+4. **Different `noExternal` per config**: Bundle deps for CLI, leave unbundled for
+   library
+
+**Assessment**: This pattern provides optimal output for each use case without
+compromise.
+
+* * *
+
+#### Conditional Build Script
+
+**Status**: Recommended
+
+**Details**:
+
+Pre-push hooks should avoid unnecessary rebuilds.
+A `build-if-needed` script checks whether the build output is up-to-date before running
+the full build:
+
+```json
+{
+  "scripts": {
+    "build:check": "node packages/my-cli/scripts/build-if-needed.mjs"
+  }
+}
+```
+
+The script compares modification times of `src/` files against `dist/` output and only
+triggers a build if source is newer.
+This makes pre-push hooks near-instant when the build is already current.
+
+* * *
+
 ### 14. Private Package Distribution
 
 #### Option A: GitHub Packages (Recommended)
@@ -2332,6 +2581,17 @@ than discovering them when users try to use the library in browser/edge contexts
     This eliminates “did I forget to build?”
     confusion.
 
+20. **Use CJS bootstrap for CLI startup**: Enable Node.js compile cache via a CJS
+    bootstrap file that runs before ESM module loading.
+    This significantly improves repeated CLI invocation times on Node.js 22.8+.
+
+21. **Bundle CLI dependencies**: Use tsdown’s `noExternal` to bundle runtime deps into
+    the CLI binary for faster startup (no `node_modules` resolution at runtime).
+
+22. **Add guard tests for node-free core**: If your library entry point should be
+    node-free, add automated tests that verify no `node:` imports leak into the public
+    API surface.
+
 * * *
 
 ## Open Research Questions
@@ -2544,7 +2804,7 @@ ready for public release.
 {
   "name": "project-workspace",
   "private": true,
-  "packageManager": "pnpm@10.27.0",
+  "packageManager": "pnpm@10.28.2",
   "engines": {
     "node": ">=24"
   },
@@ -2571,7 +2831,7 @@ ready for public release.
     "@eslint/js": "^9.0.0",
     "eslint": "^9.0.0",
     "eslint-config-prettier": "^10.0.0",
-    "lefthook": "^2.0.0",
+    "lefthook": "^2.0.15",
     "npm-check-updates": "^19.0.0",
     "prettier": "^3.0.0",
     "typescript": "^5.9.0",
@@ -2865,7 +3125,52 @@ For CLI packages, consider restricting console usage to centralized output funct
 }
 ```
 
-### Appendix D: tsdown Config Example
+**Project-Specific Restricted Imports**:
+
+Use `@typescript-eslint/no-restricted-imports` to enforce project-specific patterns.
+For example, requiring atomic file writes:
+
+```javascript
+{
+  files: ['**/*.ts'],
+  rules: {
+    '@typescript-eslint/no-restricted-imports': [
+      'error',
+      {
+        paths: [
+          {
+            name: 'node:fs/promises',
+            importNames: ['writeFile'],
+            message: 'Use writeFile from "atomically" instead for atomic writes.',
+          },
+        ],
+      },
+    ],
+  },
+}
+```
+
+**CLI Command Handler Relaxations**:
+
+Commander.js command handlers often have async signatures and unused parameters.
+Relax strict rules for these files:
+
+```javascript
+{
+  files: ['**/cli/commands/**/*.ts'],
+  rules: {
+    '@typescript-eslint/require-await': 'off',
+    '@typescript-eslint/no-unused-vars': [
+      'error',
+      { argsIgnorePattern: '^_|^options$|^id$|^query$' },
+    ],
+  },
+}
+```
+
+### Appendix D: tsdown Config Examples
+
+#### Simple Library (Single Config)
 
 ```typescript
 // tsdown.config.ts
@@ -2885,6 +3190,62 @@ export default defineConfig({
   clean: true,
   banner: ({ fileName }) => (fileName.startsWith('bin.') ? '#!/usr/bin/env node\n' : ''),
 });
+```
+
+#### CLI/Library Hybrid (Multi-Config with Bundling)
+
+For packages that are both a library and a CLI tool, use an array of configs to optimize
+each output separately:
+
+```typescript
+// tsdown.config.ts
+import { defineConfig } from 'tsdown';
+import { getGitVersion } from './scripts/git-version.mjs';
+
+const version = getGitVersion();
+
+const commonOptions = {
+  format: ['esm'] as 'esm'[],
+  platform: 'node' as const,
+  target: 'node24' as const,
+  sourcemap: true,
+  dts: true,
+  define: {
+    __VERSION__: JSON.stringify(version),
+  },
+};
+
+export default defineConfig([
+  // Library entry points (unbundled, with type declarations)
+  {
+    ...commonOptions,
+    entry: {
+      index: 'src/index.ts',
+      cli: 'src/cli/cli.ts',
+    },
+    clean: true,
+  },
+  // CLI binary (bundled deps for fast startup, shebang banner)
+  {
+    ...commonOptions,
+    entry: { bin: 'src/cli/bin.ts' },
+    banner: '#!/usr/bin/env node',
+    clean: false,
+    noExternal: ['yaml', 'commander', 'picocolors', 'zod'],
+    inlineOnly: false,
+  },
+  // CJS bootstrap (enables compile cache before ESM loads)
+  {
+    format: ['cjs'] as 'cjs'[],
+    platform: 'node' as const,
+    target: 'node24' as const,
+    sourcemap: true,
+    dts: false,
+    entry: { 'bin-bootstrap': 'src/cli/bin-bootstrap.cjs' },
+    banner: '#!/usr/bin/env node',
+    clean: false,
+  },
+]);
 ```
 
 ### Appendix E: Complete lefthook.yml Example
