@@ -90,7 +90,7 @@ credits: Additional contributors or AI assistance acknowledgment (optional)
 | --- | --- | --- |
 | `title` | Yes | Display name in lists and headers |
 | `description` | Yes | Brief description for `--list` output |
-| `author` | Yes | Primary author(s) - individual names or "tbd team" |
+| `author` | Yes | Primary author(s) - individual names or “tbd team” |
 | `credits` | No | Additional contributors, AI acknowledgment |
 
 ### Author Attribution Guidelines

@@ -183,7 +183,7 @@ Each output level has a specific icon, color, prefix format, and channel:
 | Level | Icon | Color | Prefix | Channel | Purpose |
 | --- | --- | --- | --- | --- | --- |
 | **error** | `✗` | Red | `✗ {message}` | stderr | Failures that stop operation |
-| **warning** | `⚠` | Yellow | `⚠ {message}` | stderr | Issues that didn't stop operation |
+| **warning** | `⚠` | Yellow | `⚠ {message}` | stderr | Issues that didn’t stop operation |
 | **notice** | `•` | Blue | `• {message}` | stdout | Noteworthy events during normal operation |
 | **success** | `✓` | Green | `✓ {message}` | stdout | Confirmation of completed actions |
 | **info** | (none) | Dim | `{message}` | stderr | Operational progress (verbose only) |
@@ -240,7 +240,7 @@ Syncing with remote...                       # info - dim (verbose only)
 | --- | --- | --- | --- |
 | Primary data | stdout | Text or JSON | Issue lists, show output |
 | Success confirmation | stdout | Prefixed text | `✓ Created issue bd-a1b2` |
-| Informational | stdout | Plain text | "Syncing with remote..." |
+| Informational | stdout | Plain text | “Syncing with remote …” |
 | Warning | stderr | Prefixed text | `⚠ Remote branch not found` |
 | Error | stderr | Prefixed text | `✗ Failed to read issue` |
 | Debug | stderr | Prefixed text | `[debug] Loading 42 issues` |

@@ -591,7 +591,7 @@ No collisions at sync time - all sources coexist.
 | --- | --- |
 | `typescript-rules` | Search all prefixes in config order, return if unique |
 | `spec:typescript-rules` | Direct lookup in `spec/guidelines/typescript-rules.md` |
-| Ambiguous name | Error: "Multiple matches: use `spec:name` or `rpp:name`" |
+| Ambiguous name | Error: “Multiple matches: use `spec:name` or `rpp:name`” |
 
 **Precedence for unqualified names:**
 
@@ -1335,7 +1335,7 @@ tool (`speculate init`), while tbd handles all doc/shortcut/guideline management
    directory: `{type}/{name}.md`. No nested subdirectories.
    Prefixes replace the old `shortcuts/system/` vs `shortcuts/standard/` split.
 
-9. ~~**Which docs are "general" vs "tbd-specific"?**~~ **Decided:** Separate by prefix:
+9. ~~**Which docs are “general” vs “tbd-specific”?**~~ **Decided:** Separate by prefix:
    - `sys` prefix: system shortcuts (skill.md, hidden)
    - `tbd` prefix: tbd-specific shortcuts (code-review-and-commit, implement-beads)
    - `spec` prefix: general docs from Speculate (review-code, typescript-rules)
@@ -1501,9 +1501,9 @@ disclosure hierarchy** defined by the Agent Skills spec:
 
 | Level | What | Token Budget | Example |
 | --- | --- | --- | --- |
-| Level 1 | Metadata (name + description) | ~100 tokens | tbd's skill description in system prompt |
-| Level 2 | Skill body (SKILL.md) | <5K tokens | tbd's SKILL.md with workflow docs |
-| **Level 3** | **Resources (loaded on demand)** | **Unlimited** | **tbd's guidelines, shortcuts, templates** |
+| Level 1 | Metadata (name + description) | ~100 tokens | tbd’s skill description in system prompt |
+| Level 2 | Skill body (SKILL.md) | <5K tokens | tbd’s SKILL.md with workflow docs |
+| **Level 3** | **Resources (loaded on demand)** | **Unlimited** | **tbd’s guidelines, shortcuts, templates** |
 
 **Key insight:** tbd itself is already an Agent Skill (Level 1-2). It has a SKILL.md
 installed in `.claude/skills/tbd/`. The external docs repos feature adds **Level 3
@@ -1512,8 +1512,8 @@ like `tbd guidelines X`.
 
 The Agent Skills spec explicitly supports this pattern:
 
-> "Skills should be structured for efficient use of context … Files (e.g. those in
-> `scripts/`, `references/`, or `assets/`) are loaded only when required."
+> “Skills should be structured for efficient use of context … Files (e.g. those in
+> `scripts/`, `references/`, or `assets/`) are loaded only when required.”
 
 tbd’s `tbd guidelines X` and `tbd shortcut X` commands are exactly this — on-demand
 Level 3 resource loading.
@@ -1587,9 +1587,9 @@ Level 3 resource loading.
 
 **Complementary.** They solve different problems:
 
-- **skills.sh** answers: "How do I give my agent the *ability* to do X?" (e.g., create
+- **skills.sh** answers: “How do I give my agent the *ability* to do X?” (e.g., create
   PDFs, run data analysis, follow design patterns)
-- **tbd source add** answers: "How do I give my agent *knowledge* about X?" (e.g., Rust
+- **tbd source add** answers: “How do I give my agent *knowledge* about X?” (e.g., Rust
   porting rules, TypeScript best practices, project-specific conventions)
 
 A project could use both:
