@@ -64,8 +64,8 @@ interface SyncOptions {
   fix?: boolean;
   issues?: boolean;
   docs?: boolean;
-  noAutoSave?: boolean;
-  noOutbox?: boolean;
+  autoSave?: boolean; // Commander: --no-auto-save sets this to false (default: true)
+  outbox?: boolean; // Commander: --no-outbox sets this to false (default: true)
 }
 
 interface SyncStatus {
@@ -185,8 +185,8 @@ class SyncHandler extends BaseCommand {
       // Full sync: pull then push
       await this.fullSync(syncBranch, remote, {
         force: options.force,
-        noAutoSave: options.noAutoSave,
-        noOutbox: options.noOutbox,
+        autoSave: options.autoSave,
+        outbox: options.outbox,
       });
     }
   }
@@ -664,7 +664,7 @@ class SyncHandler extends BaseCommand {
   private async fullSync(
     syncBranch: string,
     remote: string,
-    options: { force?: boolean; noAutoSave?: boolean; noOutbox?: boolean } = {},
+    options: { force?: boolean; autoSave?: boolean; outbox?: boolean } = {},
   ): Promise<void> {
     const spinner = this.output.spinner('Syncing with remote...');
     const summary: SyncSummary = emptySummary();
@@ -1006,7 +1006,7 @@ class SyncHandler extends BaseCommand {
 
       // Handle recovery based on error type (after output.data to avoid async callback)
       // Only show options in non-JSON mode
-      if (errorType === 'permanent' && !options.noAutoSave) {
+      if (errorType === 'permanent' && options.autoSave !== false) {
         // Auto-save to outbox on permanent failure
         await this.handlePermanentFailure();
       } else if (!this.ctx.json) {
@@ -1029,7 +1029,7 @@ class SyncHandler extends BaseCommand {
     }
 
     // After successful push, import from outbox if it has data
-    if (!options.noOutbox) {
+    if (options.outbox !== false) {
       await this.maybeImportOutbox(syncBranch, remote);
     }
 
