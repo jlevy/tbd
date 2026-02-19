@@ -6,6 +6,8 @@ author: Joshua Levy (github.com/jlevy) with LLM assistance
 # CLI Tool Development Rules
 
 These rules apply to all CLI tools, command-line scripts, and terminal utilities.
+Examples may be inspired by modern TypeScript repos, but guidance here is intentionally
+generic and reusable across projects.
 
 ## Color and Output Formatting
 
@@ -18,56 +20,74 @@ These rules apply to all CLI tools, command-line scripts, and terminal utilities
   import pc from 'picocolors';
   console.log(pc.green('Success!'));
   console.log(pc.cyan('Info message'));
-  
+
   // BAD: Hardcoded ANSI codes
   console.log('\x1b[32mSuccess!\x1b[0m');
   console.log('\x1b[36mInfo message\x1b[0m');
   ```
 
-- **Use shared color utilities:** Create a shared formatting module for consistent color
-  application across commands.
+- **Use `pc.createColors()` for explicit color control:** When you need to honor a
+  `--color` option or disable colors programmatically, use picocolors’ `createColors()`
+  factory. This overrides picocolors’ automatic TTY detection and is the recommended
+  approach per picocolors documentation.
 
   ```ts
-  // lib/cliFormatting.ts - shared color utilities
   import pc from 'picocolors';
-  
-  export const colors = {
-    success: (s: string) => pc.green(s),
-    error: (s: string) => pc.red(s),
-    info: (s: string) => pc.cyan(s),
-    warn: (s: string) => pc.yellow(s),
-    muted: (s: string) => pc.gray(s),
-  };
-  
-  // Usage in commands:
-  import { colors } from '../lib/cliFormatting.js';
-  console.log(colors.success('Operation completed'));
+
+  // Create a color instance with explicit enable/disable control
+  const colors = pc.createColors(shouldColorize(colorOption));
+
+  // Now use it — colors are no-ops when disabled
+  console.log(colors.green('Success'));
+  console.log(colors.dim('Debug info'));
   ```
 
-- **Trust picocolors TTY detection:** Picocolors automatically detects when stdout is
-  not a TTY (e.g., piped to `cat` or redirected to a file) and disables colors.
-  DO NOT manually check `process.stdout.isTTY` unless you need special non-color
-  behavior.
-
-  Picocolors respects:
-
-  - `NO_COLOR=1` environment variable (disables colors)
-
-  - `FORCE_COLOR=1` environment variable (forces colors)
-
-  - `--no-color` and `--color` command-line flags (if implemented)
-
-  - TTY detection via `process.stdout.isTTY`
+- **Use shared color utilities with semantic names:** Create a `createColors()` factory
+  that returns semantic color functions.
+  The `OutputManager` carries this and exposes it via `getColors()`.
 
   ```ts
-  // GOOD: Let picocolors handle it automatically
+  // cli/lib/output.ts - shared color factory
   import pc from 'picocolors';
-  console.log(pc.green('This works correctly in all contexts'));
-  
-  // BAD: Manual TTY checking (redundant with picocolors)
-  const useColors = process.stdout.isTTY;
-  const msg = useColors ? '\x1b[32mSuccess\x1b[0m' : 'Success';
-  console.log(msg);
+  import type { ColorOption } from './context.js';
+  import { shouldColorize } from './context.js';
+
+  export function createColors(colorOption: ColorOption) {
+    const enabled = shouldColorize(colorOption);
+    const colors = pc.createColors(enabled);
+
+    return {
+      // Status colors
+      success: colors.green,
+      error: colors.red,
+      warn: colors.yellow,
+      info: colors.blue,
+      // Text formatting
+      bold: colors.bold,
+      dim: colors.dim,
+      italic: colors.italic,
+      underline: colors.underline,
+      // Semantic colors
+      id: colors.cyan,
+      label: colors.magenta,
+      path: colors.blue,
+    };
+  }
+  ```
+
+- **Respect `NO_COLOR`, `FORCE_COLOR`, and `--color` option:** Support a
+  `--color <when>` option with values `auto`, `always`, `never`, and define a clear
+  precedence order:
+  1. explicit `--color` flag, 2) `NO_COLOR`, 3) `FORCE_COLOR`, 4) TTY auto-detection.
+
+  ```ts
+  export function shouldColorize(colorOption: ColorOption): boolean {
+    if (colorOption === 'always') return true;
+    if (colorOption === 'never') return false;
+    if (process.env.NO_COLOR) return false;
+    if (process.env.FORCE_COLOR && process.env.FORCE_COLOR !== '0') return true;
+    return process.stdout.isTTY === true;
+  }
   ```
 
 ## Commander.js Patterns
@@ -75,164 +95,415 @@ These rules apply to all CLI tools, command-line scripts, and terminal utilities
 - **Use Commander.js for all CLI tools:** Import from `commander` and follow established
   patterns for command registration and option handling.
 
-- **Apply colored help to all commands:** Use `withColoredHelp()` wrapper from shared
-  utilities to ensure consistent help text formatting.
+- **Apply colored help globally, not per-command:** Use Commander v14+ `configureHelp()`
+  with style functions, applied recursively to all commands at program initialization.
 
   ```ts
-  import { Command } from 'commander';
-  import { withColoredHelp } from '../lib/shared.js';
-  
-  export const myCommand = withColoredHelp(new Command('my-command'))
-    .description('Description here')
-    .action(async (options, command) => {
-      // Implementation
-    });
+  // cli/lib/output.ts
+  export function createColoredHelpConfig(colorOption: ColorOption = 'auto') {
+    const colors = pc.createColors(shouldColorize(colorOption));
+    return {
+      helpWidth: getTerminalWidth(),
+      styleTitle: (str: string) => colors.bold(colors.cyan(str)),
+      styleCommandText: (str: string) => colors.green(str),
+      styleOptionText: (str: string) => colors.yellow(str),
+      showGlobalOptions: true,
+    };
+  }
+
+  // cli/cli.ts - apply once at startup
+  configureColoredHelp(program);
+  // After all commands added:
+  applyColoredHelpToAllCommands(program);
   ```
 
-- **Use shared context helpers:** Create utilities like `getCommandContext()`,
-  `setupDebug()`, and `logDryRun()` in a shared module for consistent behavior.
+- **Define global options at the program level:** Common global options include
+  `--dry-run`, `--verbose`, `--quiet`, `--json`, `--color`, `--non-interactive`,
+  `--yes`, and `--debug`. Add domain-specific flags only when they apply.
 
   ```ts
-  import { getCommandContext, setupDebug, logDryRun } from '../lib/shared.js';
-  
-  .action(async (options, command) => {
-    const ctx = getCommandContext(command);
-    setupDebug(ctx);
-  
-    if (ctx.dryRun) {
-      logDryRun('Would perform action', { details: 'here' });
-      return;
-    }
-  
-    // Actual implementation
-  });
+  program
+    .option('--dry-run', 'Show what would be done without making changes')
+    .option('--verbose', 'Enable verbose output')
+    .option('--quiet', 'Suppress non-essential output')
+    .option('--json', 'Output as JSON')
+    .option('--color <when>', 'Colorize output: auto, always, never', 'auto')
+    .option('--non-interactive', 'Disable all prompts, fail if input required')
+    .option('--yes', 'Assume yes to confirmation prompts')
+    .option('--debug', 'Enable debug diagnostics');
   ```
 
-- **Support `--dry-run`, `--verbose`, and `--quiet` flags:** These are global options
-  defined at the program level.
-  Access them via `getCommandContext()`.
+- **Validate enum-like options explicitly:** For options with fixed values, use
+  Commander validation (`Option(...).choices(...)`) so invalid input fails fast.
+
+  ```ts
+  import { Option } from 'commander';
+
+  program.addOption(
+    new Option('--color <when>', 'Colorize output: auto, always, never')
+      .choices(['auto', 'always', 'never'])
+      .default('auto'),
+  );
+  ```
+
+- **Access global options via `getCommandContext()`:** Extract a typed `CommandContext`
+  from Commander’s `optsWithGlobals()`. Use this in the `BaseCommand` constructor (see
+  below), not directly in action handlers.
+
+  ```ts
+  export function getCommandContext(command: Command): CommandContext {
+    const opts = command.optsWithGlobals();
+    const isCI = Boolean(process.env.CI);
+    return {
+      dryRun: opts.dryRun ?? false,
+      verbose: opts.verbose ?? false,
+      quiet: opts.quiet ?? false,
+      json: opts.json ?? false,
+      color: (opts.color as ColorOption) ?? 'auto',
+      nonInteractive: opts.nonInteractive ?? (!process.stdin.isTTY || isCI),
+      yes: opts.yes ?? false,
+      debug: opts.debug ?? false,
+    };
+  }
+  ```
 
 - **Handle negated boolean flags (`--no-X`) correctly:** Commander.js sets
-  `options.X = false`, NOT `options.noX = true`. This is a common gotcha.
+  `options.X = false`, NOT `options.noX = true`. This is a common gotcha that causes
+  silent bugs where the flag has no effect.
 
   ```ts
-  // WRONG: options.noBrowser is ALWAYS undefined
+  // WRONG: options.noBrowser is ALWAYS undefined — the flag silently does nothing!
   program.option('--no-browser', 'Disable browser auto-open');
   if (options.noBrowser) { /* Never executes! */ }
-  
+
   // CORRECT: Check the positive property name
   program.option('--no-browser', 'Disable browser auto-open');
   if (options.browser === false) { /* This works */ }
-  
-  // Best practice: destructure with default true
-  const { browser = true } = options;
-  if (browser) {
+
+  // Best practice: use !== false for clarity
+  if (options.browser !== false) {
     await openBrowser(url);
   }
   ```
 
-## Progress and Feedback
-
-- **Use @clack/prompts for interactive UI:** Import `@clack/prompts` as `p` for
-  spinners, prompts, and status messages.
+  When typing the options interface, use the *positive* property name:
 
   ```ts
-  import * as p from '@clack/prompts';
-  
-  p.intro('🧪 Starting test suite');
-  
-  const spinner = p.spinner();
-  spinner.start('Processing data');
-  // ... work ...
-  spinner.stop('✅ Data processed');
-  
-  p.outro('All done!');
+  // WRONG:
+  interface MyOptions {
+    noBrowser?: boolean;  // Commander never sets this
+  }
+
+  // CORRECT:
+  interface MyOptions {
+    browser?: boolean;  // Commander: --no-browser sets this to false (default: true)
+  }
   ```
 
-- **Use consistent logging methods:**
+## BaseCommand Pattern
 
-  - `p.log.info()` for informational messages
+All CLI command handlers extend a shared `BaseCommand` class that provides consistent
+context, output, and error handling.
 
-  - `p.log.success()` for successful operations
+- **BaseCommand provides `CommandContext` + `OutputManager`:** Every command handler
+  gets typed context and a shared output manager in its constructor.
 
-  - `p.log.warn()` for warnings
+  ```ts
+  // cli/lib/base-command.ts
+  export abstract class BaseCommand {
+    protected ctx: CommandContext;
+    protected output: OutputManager;
 
-  - `p.log.error()` for errors
+    constructor(command: Command) {
+      this.ctx = getCommandContext(command);
+      this.output = new OutputManager(this.ctx);
+    }
 
-  - `p.log.step()` for step-by-step progress
+    protected async execute<T>(action: () => Promise<T>, errorMessage: string): Promise<T> {
+      try {
+        return await action();
+      } catch (error) {
+        if (error instanceof CLIError) {
+          this.output.error(error.message);
+          throw error;
+        }
+        // Wrap with cause chain for debugging
+        const wrapped = new CLIError(errorMessage);
+        wrapped.cause = error instanceof Error ? error : undefined;
+        throw wrapped;
+      }
+    }
 
-- **Use appropriate emojis for status:** Follow emoji conventions from
-  `tbd guidelines general-style-rules`:
+    protected checkDryRun(message: string, details?: object): boolean {
+      if (this.ctx.dryRun) {
+        this.output.dryRun(message, details);
+        return true;
+      }
+      return false;
+    }
 
-  - ✅ for success
+    abstract run(...args: unknown[]): Promise<void>;
+  }
+  ```
 
-  - ❌ for failure/error
+- **Action handlers instantiate a handler class:** Commands create a handler and
+  delegate to its `run()` method.
+  This separates command definition from implementation.
 
-  - ⚠️ for warnings
+  ```ts
+  export const myCommand = new Command('my-command')
+    .description('Description here')
+    .option('--some-flag', 'Flag description')
+    .action(async (options, command) => {
+      const handler = new MyHandler(command);
+      await handler.run(options);
+    });
 
-  - ⏰ for timing information
+  class MyHandler extends BaseCommand {
+    async run(options: MyOptions): Promise<void> {
+      if (this.checkDryRun('Would perform action')) return;
+      // Implementation using this.output and this.ctx
+    }
+  }
+  ```
 
-  - 🧪 for tests
+## Output and Feedback
+
+- **Use `OutputManager` for all output:** The `OutputManager` class handles format
+  switching (text vs JSON), verbosity levels, and stream separation.
+
+  ```ts
+  // cli/lib/output.ts
+  class OutputManager {
+    // Structured data — stdout
+    data<T>(data: T, textFormatter?: (data: T) => void): void;
+
+    // Status messages — stdout (suppressed by --quiet, --json)
+    success(message: string): void;   // ✓ Green
+    notice(message: string): void;    // • Blue
+
+    // Diagnostics — stderr
+    info(message: string): void;      // Dim (--verbose or --debug only)
+    warn(message: string): void;      // ⚠ Yellow (suppressed by --quiet)
+    error(message: string): void;     // ✗ Red (always shown)
+    command(cmd: string, args?: string[]): void; // > Dim (--verbose or --debug only)
+    debug(message: string): void;     // [debug] Dim (--debug only)
+
+    // Dry-run — stdout
+    dryRun(message: string, details?: object): void;
+
+    // Tabular/list output — stdout
+    table(headers, rows): void;
+    list(items: string[]): void;
+    count(count: number, singular: string): void;
+
+    // Progress indication — stderr (suppressed in JSON/quiet/non-TTY)
+    spinner(message: string): Spinner;
+  }
+  ```
+
+- **Use standard icons from the ICONS constant:** Use Unicode characters, not emojis,
+  for status indicators.
+  These render consistently across terminals.
+
+  ```ts
+  export const ICONS = {
+    SUCCESS: '✓',      // U+2713
+    ERROR: '✗',        // U+2717
+    WARN: '⚠',         // U+26A0
+    NOTICE: '•',       // U+2022
+    OPEN: '○',         // U+25CB
+    IN_PROGRESS: '◐',  // U+25D0
+    BLOCKED: '●',      // U+25CF
+    CLOSED: '✓',       // U+2713
+  } as const;
+  ```
+
+- **Custom inline spinner (no external dependency):** The spinner uses Braille
+  characters, writes to stderr, and is automatically suppressed in JSON/quiet/non-TTY
+  modes.
+
+  ```ts
+  spinner(message: string): Spinner {
+    if (this.ctx.json || this.ctx.quiet || !process.stderr.isTTY) {
+      return noopSpinner;
+    }
+    const frames = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'];
+    // ... interval-based animation on stderr
+  }
+  ```
+
+- **Use `OperationLogger` to bridge CLI and core layers:** Core logic (domain/service
+  layers) should not depend on CLI output code.
+  Define a simple logger interface in the types layer and wire it in commands via
+  `OutputManager.logger(spinner)`.
+
+  ```ts
+  // lib/types.ts — node-free
+  export interface OperationLogger {
+    progress: (message: string) => void;  // Drives the spinner
+    info: (message: string) => void;      // --verbose detail
+    warn: (message: string) => void;      // Non-fatal warnings
+    debug: (message: string) => void;     // --debug only
+  }
+
+  // cli/lib/output.ts — wires to OutputManager + spinner
+  logger(spinner: Spinner): OperationLogger { ... }
+  ```
+
+## Stdout/Stderr Separation
+
+Strict separation of data and diagnostics enables pipeline composability.
+
+- **Data to stdout:** `data()`, `success()`, `notice()`, `dryRun()`, `table()`,
+  `list()`, `count()` — all go to `console.log` (stdout).
+
+- **Diagnostics to stderr:** `info()`, `warn()`, `error()`, `command()`, `debug()`,
+  `spinner` — all go to `console.error` (stderr) or `process.stderr.write`.
+
+- **JSON mode wraps diagnostics:** `warn()` outputs `{"warning": "..."}` to stderr.
+  `error()` outputs `{"error": "..."}` to stderr.
+  `data()` outputs structured JSON to stdout.
+
+- **Handle EPIPE for graceful pipe close:** Both stdout and stderr need EPIPE handlers
+  so piping to `head` or quitting a pager works cleanly.
+
+  ```ts
+  // cli/bin.ts
+  process.stdout.on('error', (err: NodeJS.ErrnoException) => {
+    if (err.code === 'EPIPE') process.exit(0);
+    throw err;
+  });
+  process.stderr.on('error', (err: NodeJS.ErrnoException) => {
+    if (err.code === 'EPIPE') process.exit(0);
+    throw err;
+  });
+  ```
+
+- **Support pagination with `PAGER`:** For long output, pipe through `$PAGER` (or
+  `less -R` for colored content) when stdout is a TTY. Fall through to `console.log()`
+  otherwise.
+
+## Dual Output Mode (Text + JSON)
+
+- **Use `OutputManager.data()` for all structured output:** The `data()` method switches
+  between JSON and text formatting based on the `--json` flag.
+
+  ```ts
+  this.output.data(issues, () => {
+    // Text formatter — only called when NOT in JSON mode
+    for (const issue of issues) {
+      console.log(formatIssueLine(issue, colors));
+    }
+    this.output.count(issues.length, 'issue');
+  });
+  ```
+
+- **Global `--json` flag:** Defined at the program level.
+  When active, `data()` outputs `JSON.stringify(data, null, 2)` to stdout.
+  All non-data output methods are suppressed or wrapped in JSON objects.
+
+- **Pre-parse argv for early JSON detection:** For error output during Commander parsing
+  (before options are processed), check `process.argv.includes('--json')` directly.
+
+## Error Handling Architecture
+
+- **Use structured error classes with exit codes:**
+
+  ```ts
+  class CLIError extends Error { exitCode = 1; }
+  class ValidationError extends CLIError { exitCode = 2; }  // Usage/argument issues
+  class NotFoundError extends CLIError { }                    // Entity not found
+  class ExternalCommandError extends CLIError { }             // git/docker/etc failures
+  ```
+
+- **`BaseCommand.execute()` wraps errors with cause chains:** Preserves the original
+  error for debugging while providing user-friendly messages.
+
+- **Top-level try/catch in `runCli()`:** Catches `CLIError` subclasses (uses their
+  `exitCode`) and unexpected errors (exit 1). Handle SIGINT separately (exit 130).
+
+  ```ts
+  export async function runCli(): Promise<void> {
+    try {
+      await program.parseAsync(process.argv);
+    } catch (error) {
+      if (error instanceof CLIError) {
+        process.exit(error.exitCode);
+      }
+      outputError(error);
+      process.exit(1);
+    }
+  }
+  // Separate SIGINT handler
+  process.on('SIGINT', () => process.exit(130));
+  ```
+
+## Entry Point Architecture
+
+A three-tier entry point optimizes startup time and error handling:
+
+1. **CJS bootstrap (`bin-bootstrap.cjs`):** Enables Node.js compile cache (`node:module`
+   `enableCompileCache()`) BEFORE any ESM imports.
+   This must be CJS because ESM static imports resolve before module code runs.
+
+2. **ESM binary (`bin.ts`):** Registers EPIPE handlers on stdout/stderr, then calls
+   `void runCli()`. Should be minimal.
+
+3. **CLI setup (`cli.ts`):** Creates the Commander program, registers all commands,
+   defines global options, and handles the top-level try/catch with `process.exit()`.
 
 ## Timing and Performance
 
 - **Display timing for long operations:** For operations that take multiple seconds,
-  display timing information using the ⏰ emoji and colored output.
+  display timing information.
 
   ```ts
   const start = Date.now();
   // ... operation ...
   const duration = ((Date.now() - start) / 1000).toFixed(1);
-  console.log(colors.cyan(`⏰ Operation completed: ${duration}s`));
+  console.log(colors.info(`Operation completed: ${duration}s`));
   ```
 
-- **Show total time for multi-step operations:** For scripts that run multiple phases
-  (like test suites), show individual phase times and a total.
-
-  ```ts
-  console.log(colors.cyan(`⏰ Phase 1: ${phase1Time}s`));
-  console.log(colors.cyan(`⏰ Phase 2: ${phase2Time}s`));
-  console.log('');
-  console.log(colors.green(`⏰ Total time: ${totalTime}s`));
-  ```
+- **Use `performance.now()` for benchmarks:** For precise timing in test scripts and
+  benchmarks, prefer `performance.now()` over `Date.now()`.
 
 ## Script Structure
 
-- **Use TypeScript for all CLI scripts:** Write scripts as `.ts` files with proper
-  types. Use `#!/usr/bin/env tsx` shebang for executable scripts.
+- **Use TypeScript for CLI scripts:** Write scripts as `.ts` files with proper types.
+  For executable TS scripts, use a shebang compatible with your runtime setup (for
+  example `#!/usr/bin/env npx tsx`). For compiled `.mjs` entry points, use
+  `#!/usr/bin/env node`.
 
   ```ts
-  #!/usr/bin/env tsx
-  
+  #!/usr/bin/env npx tsx
+
   /**
    * Script description here.
    */
-  
+
   import { execSync } from 'node:child_process';
-  import * as p from '@clack/prompts';
-  
+
   async function main() {
     // Implementation
   }
-  
+
   main().catch((err) => {
-    p.log.error(`Script failed: ${err}`);
+    console.error(`Script failed: ${err.message || err}`);
     process.exit(1);
   });
   ```
+
+- **For CLI binaries, use `void runCli()`:** The CLI entry point calls `runCli()` as a
+  void promise (error handling is inside `runCli()`). For standalone scripts, use the
+  `main().catch()` pattern.
 
 - **Handle errors gracefully:** Always catch errors at the top level and provide clear
   error messages before exiting.
 
-  ```ts
-  main().catch((err) => {
-    p.log.error(`Operation failed: ${err.message || err}`);
-    process.exit(1);
-  });
-  ```
-
 - **Exit with proper codes:** Use `process.exit(0)` for success and `process.exit(1)`
-  for failures. This is important for CI/CD pipelines and shell scripts.
+  for failures. Use `process.exit(130)` for SIGINT. Use `process.exit(2)` for validation
+  errors. This is important for CI/CD pipelines and shell scripts.
 
 ## File Naming
 
@@ -242,18 +513,20 @@ These rules apply to all CLI tools, command-line scripts, and terminal utilities
 
 - **Organize commands in a `commands/` directory:** Keep command implementations
   organized with one file per command or command group.
+  Shared CLI utilities go in `lib/` (e.g., `base-command.ts`, `output.ts`, `context.ts`,
+  `errors.ts`).
 
 ## Documentation
 
-- **Document CLI scripts with file-level comments:** Include a brief description of what
-  the script does at the top of the file.
+- **Document CLI scripts with file-level JSDoc comments:** Include a brief description
+  of what the script does at the top of the file.
+  Reference relevant design docs when available.
 
   ```ts
   /**
-   * Test Runner with Timing
+   * `<tool> sync` - synchronization commands.
    *
-   * Runs the full test suite (codegen, format, lint, unit, integration)
-   * and displays timing information for each phase.
+   * See: architecture/cli-sync.md
    */
   ```
 
@@ -265,26 +538,35 @@ These rules apply to all CLI tools, command-line scripts, and terminal utilities
   .option('--output-dir <path>', 'Output directory', './runs')
   ```
 
+- **Use command groups for organized help output:** Use `program.commandsGroup()` to
+  group commands under headings in the help text.
+
+  ```ts
+  program.commandsGroup('Core Commands:');
+  program.addCommand(createCommand);
+  program.addCommand(listCommand);
+  ```
+
 ## Environment Variables
 
 When supporting environment variables, especially those used by SDK libraries (like
 `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, etc.), also support `.env` loading so CLIs work
 seamlessly in local dev and in remote environments.
 
-- **Add dotenv as a dependency:** Add `dotenv` to your project dependencies for `.env`
-  file loading.
+- **Use dotenv only when needed:** Add `dotenv` only if your CLI should load local env
+  files automatically.
 
 - **Load `.env.local` and `.env` automatically (recommended):** Support both
   `.env.local` and `.env` automatically, with `.env.local` taking precedence over
   `.env`.
 
-- **Manual dotenv loading:** For standalone scripts that don’t use `vite-node`, load
+- **Manual dotenv loading:** For runtimes that don’t already load env files, load
   environment files manually with explicit precedence:
 
   ```ts
   import dotenv from 'dotenv';
   import { existsSync } from 'node:fs';
-  
+
   // Load .env.local first (higher priority), then .env (lower priority).
   // Note: dotenv does NOT override existing values by default, so load higher-priority
   // first.
@@ -305,26 +587,13 @@ seamlessly in local dev and in remote environments.
 - **Never commit secrets:** Use `.env.local` for secrets (it’s typically gitignored).
   `.env` should only contain non-sensitive defaults.
 
-## Best Practices
+- **Standard environment variables to respect:**
 
-- **Don’t reinvent the wheel:** Use established patterns from existing CLI commands in
-  this project or best practices from other modern open source CLI tools in Typescript.
-
-- **Test with pipes:** Verify that scripts work correctly when output is piped (e.g.,
-  `npm test | cat` should have no ANSI codes).
-
-- **Respect environment variables:**
-
-  - `NO_COLOR` - disable colors
-
-  - `FORCE_COLOR` - force colors
-
-  - `DEBUG` or `VERBOSE` - enable verbose logging
-
-  - `QUIET_MODE` - suppress non-essential output
-
-- **Make scripts composable:** Design scripts to work well in pipelines and automation.
-  Consider how they’ll be used in CI/CD and shell scripts.
+  - `NO_COLOR` — disable colors (standard)
+  - `FORCE_COLOR` — force colors
+  - `CI` — detect CI environment, force non-interactive
+  - `DEBUG` — enable debug logging (or a namespaced equivalent like `<TOOL>_DEBUG`)
+  - `PAGER` — custom pager command for long output
 
 ## Sub-Command Logging for Testability
 
@@ -333,6 +602,17 @@ operations. This enables “transparent box” golden testing that catches silen
 swallowing bugs.
 
 ### The Pattern
+
+Use `OutputManager.command()` to log executed commands at `--verbose` / `--debug` level:
+
+```ts
+// In your command handler:
+this.output.command('git', ['push', 'origin', syncBranch]);
+const result = await git('push', 'origin', syncBranch);
+```
+
+For more comprehensive sub-command logging (e.g., for golden tests), add a
+`SHOW_COMMANDS=1` env var or `--show-commands` flag:
 
 ```ts
 interface SubCommandLog {
@@ -343,13 +623,10 @@ interface SubCommandLog {
   stderr: string;
 }
 
-// Global log, populated when SHOW_COMMANDS=1 or --show-commands
 const subCommandLog: SubCommandLog[] = [];
 
 async function runCommand(cmd: string, args: string[]): Promise<ExecResult> {
   const result = await exec(cmd, args);
-
-  // Log for golden tests
   if (process.env.SHOW_COMMANDS === '1') {
     subCommandLog.push({
       command: cmd,
@@ -359,12 +636,8 @@ async function runCommand(cmd: string, args: string[]): Promise<ExecResult> {
       stderr: result.stderr.trim(),
     });
   }
-
   return result;
 }
-
-// Expose via flag: mycli sync --show-commands
-program.option('--show-commands', 'Log all sub-command invocations');
 ```
 
 ### Why This Matters
@@ -374,37 +647,12 @@ show “Already in sync” with exit code 0, which looks correct.
 With logging, you’d see that `git push` returned exit code 1 with “HTTP 403” - revealing
 the bug.
 
-**Correlation**: Golden tests can verify that sub-command failures are reflected in user
-output and exit codes.
-
-### Usage in Tests
-
-```bash
-# In tryscripts/golden tests
-export SHOW_COMMANDS=1
-mycli sync  # Output now includes all git operations with exit codes
-```
-
-### Auto-Assertions
-
-Generate assertions from sub-command logs:
-
-```ts
-// If any sub-command failed, user should see an error
-const failedOps = log.filter(op => op.exitCode !== 0);
-if (failedOps.length > 0) {
-  expect(userOutput).toMatch(/error|fail/i);
-  expect(exitCode).not.toBe(0);
-}
-```
-
-See `tbd guidelines golden-testing-guidelines` for full patterns on transparent box
-testing.
+See your project’s golden/snapshot testing guide for full transparent-box patterns.
 
 ## Library/CLI Hybrid Packages
 
 When building a package that functions as both a library and a CLI tool, isolate all
-Node.js dependencies to CLI-only code.
+Node.js dependencies to runtime-specific modules.
 This allows the core library to be used in non-Node environments (browsers, edge
 runtimes, Cloudflare Workers, etc.).
 
@@ -412,7 +660,8 @@ runtimes, Cloudflare Workers, etc.).
 
 - Core library entry point (`index.ts`) must have no `node:` imports
 
-- All `node:` imports must be in `cli/` directory only
+- All `node:` imports must be limited to Node-only modules (for example `cli/`,
+  `adapters/node/`, or `platform/node/`)
 
 - Configuration constants go in node-free files
 
@@ -420,22 +669,46 @@ runtimes, Cloudflare Workers, etc.).
 
 - Add guard tests to prevent future regressions
 
+- Use an `OperationLogger` interface in the types layer to bridge progress reporting
+  from core logic to CLI output without introducing CLI dependencies
+
+- Export separate package entry points: `"."` for the node-free library, `"./cli"` for
+  CLI-specific code
+
 ## CLI Architecture Patterns
 
 **Key patterns:**
 
-- **Base Command Pattern** — Eliminate boilerplate with a base class
+- **Base Command Pattern** — All handlers extend `BaseCommand`, which provides
+  `CommandContext`, `OutputManager`, `execute()` error wrapping, and `checkDryRun()`
 
-- **Dual Output Mode** — Support both text and JSON output via OutputManager
+- **Dual Output Mode** — `OutputManager.data(data, textFormatter)` switches between JSON
+  and text formatting based on `--json` flag
 
-- **Handler + Command Structure** — Separate definitions from implementation
+- **Handler + Command Structure** — Command definition (`.option()`, `.action()`) is
+  separate from handler class implementation.
+  Action handlers do `new XxxHandler(command)` then `handler.run(options)`
 
-- **Formatter Pattern** — Pair text and JSON formatters for each domain
+- **Version Handling** — Prefer deterministic runtime version resolution: build-time
+  injection first, then environment override for dev/test, then `package.json` fallback
 
-- **Version Handling** — Git-based dynamic versioning (`X.Y.Z-dev.N.hash`)
+- **Global Options** — Define `--dry-run`, `--verbose`, `--quiet`, `--json`, `--color`,
+  `--non-interactive`, `--yes`, and `--debug` at program level, plus tool-specific
+  options as needed
 
-- **Global Options** — Define `--dry-run`, `--verbose`, `--quiet`, `--format` at program
-  level
+- **Stdout/Stderr Separation** — Data to stdout, diagnostics to stderr for pipeline
+  compatibility. See the Stdout/Stderr Separation section above for details
 
-- **Stdout/Stderr Separation** — Data to stdout, errors to stderr for pipeline
-  compatibility
+- **Terminal Width Management** — Cap help text and formatted output at a maximum width
+  (e.g., 88 chars) for readability, using narrower if the terminal is smaller
+
+## Best Practices
+
+- **Don’t reinvent the wheel:** Use established patterns from your codebase and best
+  practices from mature open source TypeScript CLIs.
+
+- **Test with pipes:** Verify that scripts work correctly when output is piped (e.g.,
+  `npm test | cat` should have no ANSI codes).
+
+- **Make scripts composable:** Design scripts to work well in pipelines and automation.
+  Consider how they’ll be used in CI/CD and shell scripts.
