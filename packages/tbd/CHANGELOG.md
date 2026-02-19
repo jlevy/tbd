@@ -1,5 +1,11 @@
 # get-tbd
 
+## 0.1.23
+
+### Patch Changes
+
+- e746cce: Fix sync flag handling, remove unused CLI flags, and fix Windows CI timeout
+
 ## 0.1.22
 
 ### Patch Changes

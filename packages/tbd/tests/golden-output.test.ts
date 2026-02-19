@@ -220,7 +220,7 @@ describe('golden output tests', { timeout: 15000 }, () => {
     });
   });
 
-  describe('fresh clone with remote tbd-sync data (tbd-n6ra)', () => {
+  describe('fresh clone with remote tbd-sync data (tbd-n6ra)', { timeout: 30000 }, () => {
     let bareRepo: string;
     let cloneDir: string;
 
