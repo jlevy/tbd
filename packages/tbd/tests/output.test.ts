@@ -24,8 +24,6 @@ function createMockContext(overrides: Partial<CommandContext> = {}): CommandCont
     quiet: false,
     json: false,
     color: 'never', // Disable colors for testing
-    nonInteractive: true,
-    yes: false,
     sync: true,
     debug: false,
     ...overrides,

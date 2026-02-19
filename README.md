@@ -138,20 +138,20 @@ status or context or knowledge and know what to do next:
 
 | What you say | What happens | What runs |
 | --- | --- | --- |
-| "Let's plan a new feature that …" | Agent creates a spec from a template | [`tbd shortcut new-plan-spec`](packages/tbd/docs/shortcuts/standard/new-plan-spec.md) |
-| "Break this spec into beads" | Agent creates implementation beads from the spec | [`tbd shortcut plan-implementation-with-beads`](packages/tbd/docs/shortcuts/standard/plan-implementation-with-beads.md) |
-| "Implement these beads" | Agent works through beads systematically | [`tbd shortcut implement-beads`](packages/tbd/docs/shortcuts/standard/implement-beads.md) |
-| "Create a bead for the bug where …" | Agent creates and tracks a bead | `tbd create "..." --type=bug` |
-| "Let's work on current beads" | Agent finds ready beads and starts working | `tbd ready` |
-| "Review this code" | Agent performs comprehensive code review with all guidelines | [`tbd shortcut review-code`](packages/tbd/docs/shortcuts/standard/review-code.md) |
-| "Review this PR" | Agent reviews a GitHub pull request and can comment/fix | [`tbd shortcut review-github-pr`](packages/tbd/docs/shortcuts/standard/review-github-pr.md) |
-| "Use the shortcut to commit" | Agent runs full pre-commit checks, code review, and commits | [`tbd shortcut code-review-and-commit`](packages/tbd/docs/shortcuts/standard/code-review-and-commit.md) |
-| "Create a PR" | Agent creates or updates the pull request | [`tbd shortcut create-or-update-pr-simple`](packages/tbd/docs/shortcuts/standard/create-or-update-pr-simple.md) |
-| "Let's create a research brief on …" | Agent creates a research document using a template | [`tbd shortcut new-research-brief`](packages/tbd/docs/shortcuts/standard/new-research-brief.md) |
-| "How could we test this better?" | Agent loads TDD and testing guidelines | [`tbd guidelines general-tdd-guidelines`](packages/tbd/docs/guidelines/general-tdd-guidelines.md) |
-| "How can we make this a well-designed TypeScript CLI?" | Agent loads TypeScript CLI guidelines | [`tbd guidelines typescript-cli-tool-rules`](packages/tbd/docs/guidelines/typescript-cli-tool-rules.md) |
-| "Can you review if this TypeScript package setup follows best practices" | Agent loads monorepo patterns | [`tbd guidelines pnpm-monorepo-patterns`](packages/tbd/docs/guidelines/pnpm-monorepo-patterns.md) |
-| "How can we do a better job of testing?" | Agent loads golden testing guidelines | [`tbd guidelines golden-testing-guidelines`](packages/tbd/docs/guidelines/golden-testing-guidelines.md) |
+| “Let’s plan a new feature that …” | Agent creates a spec from a template | [`tbd shortcut new-plan-spec`](packages/tbd/docs/shortcuts/standard/new-plan-spec.md) |
+| “Break this spec into beads” | Agent creates implementation beads from the spec | [`tbd shortcut plan-implementation-with-beads`](packages/tbd/docs/shortcuts/standard/plan-implementation-with-beads.md) |
+| “Implement these beads” | Agent works through beads systematically | [`tbd shortcut implement-beads`](packages/tbd/docs/shortcuts/standard/implement-beads.md) |
+| “Create a bead for the bug where …” | Agent creates and tracks a bead | `tbd create "..." --type=bug` |
+| “Let’s work on current beads” | Agent finds ready beads and starts working | `tbd ready` |
+| “Review this code” | Agent performs comprehensive code review with all guidelines | [`tbd shortcut review-code`](packages/tbd/docs/shortcuts/standard/review-code.md) |
+| “Review this PR” | Agent reviews a GitHub pull request and can comment/fix | [`tbd shortcut review-github-pr`](packages/tbd/docs/shortcuts/standard/review-github-pr.md) |
+| “Use the shortcut to commit” | Agent runs full pre-commit checks, code review, and commits | [`tbd shortcut code-review-and-commit`](packages/tbd/docs/shortcuts/standard/code-review-and-commit.md) |
+| “Create a PR” | Agent creates or updates the pull request | [`tbd shortcut create-or-update-pr-simple`](packages/tbd/docs/shortcuts/standard/create-or-update-pr-simple.md) |
+| “Let’s create a research brief on …” | Agent creates a research document using a template | [`tbd shortcut new-research-brief`](packages/tbd/docs/shortcuts/standard/new-research-brief.md) |
+| “How could we test this better?” | Agent loads TDD and testing guidelines | [`tbd guidelines general-tdd-guidelines`](packages/tbd/docs/guidelines/general-tdd-guidelines.md) |
+| “How can we make this a well-designed TypeScript CLI?” | Agent loads TypeScript CLI guidelines | [`tbd guidelines typescript-cli-tool-rules`](packages/tbd/docs/guidelines/typescript-cli-tool-rules.md) |
+| “Can you review if this TypeScript package setup follows best practices” | Agent loads monorepo patterns | [`tbd guidelines pnpm-monorepo-patterns`](packages/tbd/docs/guidelines/pnpm-monorepo-patterns.md) |
+| “How can we do a better job of testing?” | Agent loads golden testing guidelines | [`tbd guidelines golden-testing-guidelines`](packages/tbd/docs/guidelines/golden-testing-guidelines.md) |
 
 Under the hood, your agent runs these `tbd` commands automatically.
 You just talk naturally.
@@ -165,8 +165,8 @@ You just talk naturally.
 
 - **Git-native:** Beads live in your repo, synced to a separate, dedicated `tbd-sync`
   branch. Your code history stays clean—no bead churn polluting your logs.
-- **Agent friendly:** JSON output, non-interactive mode, simple commands that agents
-  understand. Installs itself as a skill in Claude Code.
+- **Agent friendly:** JSON output, simple commands that agents understand.
+  Installs itself as a skill in Claude Code.
 - **Markdown + YAML frontmatter:** One file per bead, human-readable and editable.
   This eliminates most merge conflicts.
 - **Beads alternative:** Largely compatible with `bd` at the CLI level, but with a
@@ -472,8 +472,6 @@ Every command supports these flags for automation:
 | Flag | Purpose |
 | --- | --- |
 | `--json` | Machine-parseable output |
-| `--non-interactive` | Fail if input required |
-| `--yes` | Auto-confirm prompts |
 | `--dry-run` | Preview changes |
 | `--quiet` | Minimal output |
 
@@ -533,7 +531,7 @@ It does *not* aim to solve real-time multi-agent coordination, which is a separa
 problem requiring sub-second messaging and atomic claims.
 Tools like [Agent Mail](https://github.com/Dicklesworthstone/mcp_agent_mail) and
 [Gas Town](https://github.com/steveyegge/gastown) address that space and are
-complementary to `tbd`—you could layer real-time coordination on top of `tbd`'s durable
+complementary to `tbd`—you could layer real-time coordination on top of `tbd`’s durable
 tracking. See the [design doc](packages/tbd/docs/tbd-design.md) for a detailed
 comparison.
 

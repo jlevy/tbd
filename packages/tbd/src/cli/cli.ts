@@ -69,8 +69,6 @@ function createProgram(): Command {
     .option('--quiet', 'Suppress non-essential output')
     .option('--json', 'Output as JSON')
     .option('--color <when>', 'Colorize output: auto, always, never', 'auto')
-    .option('--non-interactive', 'Disable all prompts, fail if input required')
-    .option('--yes', 'Assume yes to confirmation prompts')
     .option('--no-sync', 'Skip automatic sync after write operations')
     .option('--debug', 'Show internal IDs alongside public IDs for debugging');
 

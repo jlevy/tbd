@@ -118,8 +118,9 @@ generic and reusable across projects.
   ```
 
 - **Define global options at the program level:** Common global options include
-  `--dry-run`, `--verbose`, `--quiet`, `--json`, `--color`, `--non-interactive`,
-  `--yes`, and `--debug`. Add domain-specific flags only when they apply.
+  `--dry-run`, `--verbose`, `--quiet`, `--json`, `--color`, and `--debug`. Only add
+  `--non-interactive` and `--yes` if your CLI actually has interactive prompts or
+  confirmations. Add domain-specific flags only when they apply.
 
   ```ts
   program
@@ -128,8 +129,6 @@ generic and reusable across projects.
     .option('--quiet', 'Suppress non-essential output')
     .option('--json', 'Output as JSON')
     .option('--color <when>', 'Colorize output: auto, always, never', 'auto')
-    .option('--non-interactive', 'Disable all prompts, fail if input required')
-    .option('--yes', 'Assume yes to confirmation prompts')
     .option('--debug', 'Enable debug diagnostics');
   ```
 
@@ -153,15 +152,12 @@ generic and reusable across projects.
   ```ts
   export function getCommandContext(command: Command): CommandContext {
     const opts = command.optsWithGlobals();
-    const isCI = Boolean(process.env.CI);
     return {
       dryRun: opts.dryRun ?? false,
       verbose: opts.verbose ?? false,
       quiet: opts.quiet ?? false,
       json: opts.json ?? false,
       color: (opts.color as ColorOption) ?? 'auto',
-      nonInteractive: opts.nonInteractive ?? (!process.stdin.isTTY || isCI),
-      yes: opts.yes ?? false,
       debug: opts.debug ?? false,
     };
   }
@@ -693,8 +689,8 @@ runtimes, Cloudflare Workers, etc.).
   injection first, then environment override for dev/test, then `package.json` fallback
 
 - **Global Options** — Define `--dry-run`, `--verbose`, `--quiet`, `--json`, `--color`,
-  `--non-interactive`, `--yes`, and `--debug` at program level, plus tool-specific
-  options as needed
+  and `--debug` at program level, plus tool-specific options as needed.
+  Only add `--non-interactive` and `--yes` if the CLI has interactive prompts
 
 - **Stdout/Stderr Separation** — Data to stdout, diagnostics to stderr for pipeline
   compatibility. See the Stdout/Stderr Separation section above for details

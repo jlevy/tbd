@@ -212,22 +212,20 @@ Usage: tbd prime [options]
 Show full orientation with workflow context
 
 Options:
-  --export           Output default content (ignores PRIME.md override)
-  --brief            Output abbreviated orientation (~35 lines) for constrained
-                     contexts
-  -h, --help         display help for command
+  --export        Output default content (ignores PRIME.md override)
+  --brief         Output abbreviated orientation (~35 lines) for constrained
+                  contexts
+  -h, --help      display help for command
 
 Global Options:
-  --version          Show version number
-  --dry-run          Show what would be done without making changes
-  --verbose          Enable verbose output
-  --quiet            Suppress non-essential output
-  --json             Output as JSON
-  --color <when>     Colorize output: auto, always, never (default: "auto")
-  --non-interactive  Disable all prompts, fail if input required
-  --yes              Assume yes to confirmation prompts
-  --no-sync          Skip automatic sync after write operations
-  --debug            Show internal IDs alongside public IDs for debugging
+  --version       Show version number
+  --dry-run       Show what would be done without making changes
+  --verbose       Enable verbose output
+  --quiet         Suppress non-essential output
+  --json          Output as JSON
+  --color <when>  Colorize output: auto, always, never (default: "auto")
+  --no-sync       Skip automatic sync after write operations
+  --debug         Show internal IDs alongside public IDs for debugging
 
 IMPORTANT:
   Agents unfamiliar with tbd should run `tbd prime` for full workflow context.

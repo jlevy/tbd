@@ -46,7 +46,7 @@ Tests for `tbd setup --from-beads` which migrates from Beads to tbd.
 
 ```console
 $ tbd setup --help | grep -E "(--from-beads|Migrate)"
-  --from-beads       Migrate from Beads to tbd
+  --from-beads     Migrate from Beads to tbd
 ? 0
 ```
 

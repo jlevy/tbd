@@ -425,7 +425,7 @@ tbd addresses specific requirements:
 | Git commit log noise | Issues stored on separate `tbd-sync` branch |
 | Synchronized state across Git branches | Always sync from the `tbd-sync` branch |
 | Git merging conflicts | One file per issue eliminates most merge conflicts |
-| Agent-friendly | Self-documenting, skill-compatible, non-interactive, simple commands |
+| Agent-friendly | Self-documenting, skill-compatible, simple commands |
 | Transparent formats | Issues internally are Markdown files with YAML frontmatter |
 | Reliable | Clear specs, golden testing of end-to-end use scenarios |
 
@@ -3422,8 +3422,6 @@ Available on all commands:
 --verbose                   Enable verbose output
 --quiet                     Suppress non-essential output
 --debug                     Show internal IDs alongside public IDs for debugging
---non-interactive           Disable all prompts, fail if input required
---yes                       Assume yes to confirmation prompts
 ```
 
 **Color Output:**
@@ -3463,16 +3461,7 @@ Example: `TBD_ACTOR=claude-agent-1 tbd create "Fix bug"`
 
 **Agent/Automation Flags:**
 
-These options enable non-interactive use in CI/CD pipelines and by AI agents:
-
-- `--non-interactive`: Disables all interactive prompts.
-  Commands that require user input will fail with an error instead of blocking.
-  Automatically enabled when `CI` environment variable is set or when stdin is not a
-  TTY.
-
-- `--yes`: Automatically answers “yes” to confirmation prompts.
-  Useful for batch operations or scripts.
-  Does not bypass `--non-interactive`—combine both for fully automated execution.
+These options enable automation in CI/CD pipelines and by AI agents:
 
 - `--dry-run`: Shows what changes would be made without actually making them.
   Essential for verifying agent-planned operations before execution.
@@ -3487,14 +3476,14 @@ These options enable non-interactive use in CI/CD pipelines and by AI agents:
 Example agent workflow:
 
 ```bash
-# CI pipeline: create issue non-interactively
+# CI pipeline: create issue with JSON output
 CI=1 tbd create "Deploy failed" --kind bug --priority=P2 --json
 
 # Agent: preview changes before committing
 tbd update td-abc1 --status done --dry-run --json
 
 # Batch script: close multiple issues
-tbd close td-abc1 td-abc2 td-abc3 --yes --quiet
+tbd close td-abc1 td-abc2 td-abc3 --quiet
 ```
 
 ### 4.11 Attic Commands
@@ -5299,8 +5288,6 @@ This is sufficient for the `ready` command algorithm.
 | *(n/a)* | `--dry-run` | ✅ tbd | Preview changes |
 | *(n/a)* | `--verbose` | ✅ tbd | Debug output |
 | *(n/a)* | `--quiet` | ✅ tbd | Minimal output |
-| *(n/a)* | `--non-interactive` | ✅ tbd | Agent/CI mode |
-| *(n/a)* | `--yes` | ✅ tbd | Auto-confirm |
 | *(n/a)* | `--color <when>` | ✅ tbd | Color control |
 
 ### A.3 Data Model Mapping

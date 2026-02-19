@@ -37,22 +37,20 @@ Usage: tbd uninstall [options]
 Remove tbd from this repository
 
 Options:
-  --confirm          Confirm removal (required to proceed)
-  --keep-branch      Keep the local sync branch
-  --remove-remote    Also remove the remote sync branch
-  -h, --help         display help for command
+  --confirm        Confirm removal (required to proceed)
+  --keep-branch    Keep the local sync branch
+  --remove-remote  Also remove the remote sync branch
+  -h, --help       display help for command
 
 Global Options:
-  --version          Show version number
-  --dry-run          Show what would be done without making changes
-  --verbose          Enable verbose output
-  --quiet            Suppress non-essential output
-  --json             Output as JSON
-  --color <when>     Colorize output: auto, always, never (default: "auto")
-  --non-interactive  Disable all prompts, fail if input required
-  --yes              Assume yes to confirmation prompts
-  --no-sync          Skip automatic sync after write operations
-  --debug            Show internal IDs alongside public IDs for debugging
+  --version        Show version number
+  --dry-run        Show what would be done without making changes
+  --verbose        Enable verbose output
+  --quiet          Suppress non-essential output
+  --json           Output as JSON
+  --color <when>   Colorize output: auto, always, never (default: "auto")
+  --no-sync        Skip automatic sync after write operations
+  --debug          Show internal IDs alongside public IDs for debugging
 
 IMPORTANT:
   Agents unfamiliar with tbd should run `tbd prime` for full workflow context.
