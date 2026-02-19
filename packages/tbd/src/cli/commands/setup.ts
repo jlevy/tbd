@@ -1178,7 +1178,6 @@ class SetupDefaultHandler extends BaseCommand {
       join(projectDir, TBD_DIR, '.gitattributes'),
       [
         '# Protect ID mappings from merge deletion (always keep all rows)',
-        '# See: https://github.com/jlevy/tbd/issues/99',
         '**/mappings/ids.yml merge=union',
       ],
     );
@@ -1458,7 +1457,6 @@ class SetupDefaultHandler extends BaseCommand {
       join(cwd, TBD_DIR, '.gitattributes'),
       [
         '# Protect ID mappings from merge deletion (always keep all rows)',
-        '# See: https://github.com/jlevy/tbd/issues/99',
         '**/mappings/ids.yml merge=union',
       ],
     );
