@@ -410,9 +410,6 @@ export function isDocsStale(lastSyncAt: string | undefined, autoSyncHours: numbe
 // Unified Doc Sync with Defaults
 // =============================================================================
 
-/** Prefix for internal bundled doc sources */
-const INTERNAL_SOURCE_PREFIX = 'internal:';
-
 /**
  * Options for syncDocsWithDefaults.
  */
@@ -481,8 +478,8 @@ export async function pruneStaleInternals(
   const pruned: string[] = [];
 
   for (const [dest, source] of Object.entries(config)) {
-    if (source.startsWith(INTERNAL_SOURCE_PREFIX)) {
-      const location = source.slice(INTERNAL_SOURCE_PREFIX.length);
+    if (source.startsWith(INTERNAL_PREFIX)) {
+      const location = source.slice(INTERNAL_PREFIX.length);
       const exists = await internalDocExists(location);
       if (!exists) {
         pruned.push(dest);

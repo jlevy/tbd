@@ -397,7 +397,7 @@ class PrimeHandler extends BaseCommand {
       // .beads/ exists - warn the agent
       return `⚠️  WARNING: A .beads/ directory was detected alongside .tbd/
    When asked to use beads, use \`tbd\` commands, NOT \`bd\` commands.
-   To complete migration: tbd setup beads --disable --confirm`;
+   To complete migration: tbd setup --from-beads`;
     } catch {
       // No .beads/ directory, no warning needed
       return null;

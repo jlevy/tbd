@@ -419,7 +419,8 @@ class SyncHandler extends BaseCommand {
           'log',
           '--oneline',
           `${syncBranch}..${remote}/${syncBranch}`,
-          '--limit=10',
+          '-n',
+          '10',
         );
         for (const line of logOutput.split('\n')) {
           if (line) {

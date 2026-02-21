@@ -309,7 +309,7 @@ class StatusHandler extends BaseCommand {
 
     if (hasMissingIntegrations) {
       console.log('');
-      console.log(`Run ${colors.bold('tbd setup auto')} to configure detected agents`);
+      console.log(`Run ${colors.bold('tbd setup --auto')} to configure detected agents`);
     }
 
     // Worktree health

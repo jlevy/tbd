@@ -28,6 +28,7 @@ import { parsePriority } from '../../lib/priority.js';
 import { buildIssueTree, renderIssueTree } from '../lib/tree-view.js';
 import { getTerminalWidth, type createColors } from '../lib/output.js';
 import { matchesSpecPath } from '../../lib/spec-matching.js';
+import { parseDate } from '../../utils/time-utils.js';
 
 interface ListOptions {
   status?: IssueStatusType;
@@ -252,6 +253,15 @@ class ListHandler extends BaseCommand {
       // Deferred filter
       if (options.deferred && issue.status !== 'deferred') {
         return false;
+      }
+
+      // Defer-before filter: show deferred issues whose deferred_until is before the given date
+      if (options.deferBefore) {
+        if (issue.status !== 'deferred') return false;
+        const deferredUntil = parseDate(issue.deferred_until);
+        const beforeDate = parseDate(options.deferBefore);
+        if (!deferredUntil || !beforeDate) return false;
+        if (deferredUntil.getTime() >= beforeDate.getTime()) return false;
       }
 
       return true;

@@ -65,11 +65,12 @@ class CloseHandler extends BaseCommand {
     }
 
     // Update issue
+    const timestamp = now();
     issue.status = 'closed';
-    issue.closed_at = now();
+    issue.closed_at = timestamp;
     issue.close_reason = options.reason ?? null;
     issue.version += 1;
-    issue.updated_at = now();
+    issue.updated_at = timestamp;
 
     // Save
     await this.execute(async () => {

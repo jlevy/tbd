@@ -237,7 +237,7 @@ export function renderBeadsWarning(colors: ReturnType<typeof createColors>): voi
   console.log('');
   console.log(`${colors.warn(ICONS.WARN)} Beads directory detected alongside tbd`);
   console.log('This may cause confusion for AI agents.');
-  console.log(`Run ${colors.bold('tbd setup beads --disable')} for migration options`);
+  console.log(`Run ${colors.bold('tbd setup --from-beads')} for migration options`);
 }
 
 /**
