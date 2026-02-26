@@ -106,6 +106,14 @@ describe('config operations', () => {
       expect(state.welcome_seen).toBe(true);
     });
 
+    it('stores and reads local_sync_branch', async () => {
+      await initConfig(tempDir, '3.0.0', 'test');
+      await updateLocalState(tempDir, { local_sync_branch: 'tbd-sync--wt-a1b2c3d4' });
+
+      const state = await readLocalState(tempDir);
+      expect(state.local_sync_branch).toBe('tbd-sync--wt-a1b2c3d4');
+    });
+
     it('preserves other state fields when updating welcome_seen', async () => {
       await initConfig(tempDir, '3.0.0', 'test');
       await updateLocalState(tempDir, { last_sync_at: '2026-01-01T00:00:00Z' });

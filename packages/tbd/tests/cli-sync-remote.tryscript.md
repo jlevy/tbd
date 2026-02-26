@@ -152,6 +152,8 @@ $ tbd sync --status --json
   "localChanges": [],
   "remoteChanges": [],
   "syncBranch": "tbd-sync",
+  "localSyncBranch": "tbd-sync",
+  "remoteSyncBranch": "tbd-sync",
   "remote": "origin",
   "ahead": 0,
   "behind": 0

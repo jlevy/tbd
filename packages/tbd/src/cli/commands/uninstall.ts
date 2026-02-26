@@ -12,6 +12,12 @@ import { join, relative } from 'node:path';
 import { BaseCommand } from '../lib/base-command.js';
 import { NotInitializedError, CLIError } from '../lib/errors.js';
 import { findTbdRoot, readConfig } from '../../file/config.js';
+import {
+  branchExists,
+  remoteBranchExists,
+  isBranchCheckedOutInOtherWorktree,
+} from '../../file/git.js';
+import { resolveSyncBranchRefs, listManagedLocalBranches } from '../../file/sync-branch.js';
 import { SYNC_BRANCH } from '../../lib/paths.js';
 
 interface UninstallOptions {
@@ -38,8 +44,27 @@ class UninstallHandler extends BaseCommand {
       config = null;
     }
 
-    const syncBranch = config?.sync.branch ?? SYNC_BRANCH;
-    const remote = config?.sync.remote ?? 'origin';
+    let syncBranch = config?.sync.branch ?? SYNC_BRANCH;
+    let remote = config?.sync.remote ?? 'origin';
+    if (config) {
+      try {
+        const refs = await resolveSyncBranchRefs(tbdRoot, config, { forWrite: false });
+        syncBranch = refs.remoteSyncBranch;
+        remote = refs.remoteName;
+      } catch {
+        // Keep config-derived defaults
+      }
+    }
+
+    const managedLocalBranches = await listManagedLocalBranches(tbdRoot, syncBranch);
+    const candidateLocalBranches = Array.from(new Set([syncBranch, ...managedLocalBranches]));
+    const removableLocalBranches: string[] = [];
+    for (const candidate of candidateLocalBranches) {
+      if (await branchExists(candidate)) {
+        removableLocalBranches.push(candidate);
+      }
+    }
+
     const tbdDir = join(tbdRoot, '.tbd');
     const worktreePath = join(tbdDir, 'data-sync-worktree');
 
@@ -60,33 +85,20 @@ class UninstallHandler extends BaseCommand {
       // Worktree doesn't exist
     }
 
-    // Check local sync branch
-    let localBranchExists = false;
-    try {
-      execSync(`git rev-parse --verify ${syncBranch}`, {
-        encoding: 'utf-8',
-        stdio: ['ignore', 'pipe', 'ignore'],
-      });
-      localBranchExists = true;
-      if (!options.keepBranch) {
-        items.push(`  - Local branch: ${syncBranch}`);
+    // Check local sync branches
+    const localBranchExists = removableLocalBranches.length > 0;
+    if (localBranchExists && !options.keepBranch) {
+      for (const branch of removableLocalBranches) {
+        items.push(`  - Local branch: ${branch}`);
       }
-    } catch {
-      // Branch doesn't exist
     }
 
     // Check remote sync branch
-    let remoteBranchExists = false;
+    let remoteBranchPresent = false;
     if (options.removeRemote) {
-      try {
-        execSync(`git rev-parse --verify ${remote}/${syncBranch}`, {
-          encoding: 'utf-8',
-          stdio: ['ignore', 'pipe', 'ignore'],
-        });
-        remoteBranchExists = true;
+      if (await remoteBranchExists(remote, syncBranch)) {
+        remoteBranchPresent = true;
         items.push(`  - Remote branch: ${remote}/${syncBranch}`);
-      } catch {
-        // Remote branch doesn't exist
       }
     }
 
@@ -147,21 +159,31 @@ class UninstallHandler extends BaseCommand {
       }
     }
 
-    // 2. Remove local sync branch
+    // 2. Remove local sync branches
     if (localBranchExists && !options.keepBranch) {
-      try {
-        execSync(`git branch -D ${syncBranch}`, {
-          encoding: 'utf-8',
-          stdio: ['ignore', 'pipe', 'ignore'],
-        });
-        console.log(`  ${colors.success('✓')} Removed local branch: ${syncBranch}`);
-      } catch {
-        console.log(`  ${colors.warn('⚠')} Could not remove local branch: ${syncBranch}`);
+      for (const branch of removableLocalBranches) {
+        const inUse = await isBranchCheckedOutInOtherWorktree(tbdRoot, branch);
+        if (inUse) {
+          console.log(
+            `  ${colors.warn('⚠')} Skipped local branch in use by another worktree: ${branch}`,
+          );
+          continue;
+        }
+
+        try {
+          execSync(`git branch -D -- "${branch}"`, {
+            encoding: 'utf-8',
+            stdio: ['ignore', 'pipe', 'ignore'],
+          });
+          console.log(`  ${colors.success('✓')} Removed local branch: ${branch}`);
+        } catch {
+          console.log(`  ${colors.warn('⚠')} Could not remove local branch: ${branch}`);
+        }
       }
     }
 
     // 3. Remove remote sync branch
-    if (remoteBranchExists && options.removeRemote) {
+    if (remoteBranchPresent && options.removeRemote) {
       try {
         execSync(`git push ${remote} --delete ${syncBranch}`, {
           encoding: 'utf-8',
@@ -199,11 +221,22 @@ class UninstallHandler extends BaseCommand {
 
     if (options.keepBranch && localBranchExists) {
       console.log('');
-      console.log(colors.dim(`Note: The ${syncBranch} branch was preserved. Delete it with:`));
-      console.log(colors.dim(`  git branch -D ${syncBranch}`));
+      if (removableLocalBranches.length === 1) {
+        console.log(
+          colors.dim(
+            `Note: The ${removableLocalBranches[0]} branch was preserved. Delete it with:`,
+          ),
+        );
+        console.log(colors.dim(`  git branch -D ${removableLocalBranches[0]}`));
+      } else {
+        console.log(colors.dim('Note: Local sync branches were preserved:'));
+        for (const branch of removableLocalBranches) {
+          console.log(colors.dim(`  - ${branch}`));
+        }
+      }
     }
 
-    if (!options.removeRemote && remoteBranchExists) {
+    if (!options.removeRemote && remoteBranchPresent) {
       console.log('');
       console.log(
         colors.dim(

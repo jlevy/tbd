@@ -328,6 +328,8 @@ export const LocalStateSchema = z.object({
   last_sync_at: Timestamp.optional(),
   /** When this node last synced the doc cache successfully */
   last_doc_sync_at: Timestamp.optional(),
+  /** The local sync branch selected for this checkout/worktree */
+  local_sync_branch: GitBranchName.optional(),
   /** Whether the user has seen the welcome message */
   welcome_seen: z.boolean().optional(),
 });
@@ -457,5 +459,6 @@ export const META_FIELD_ORDER = ['schema_version', 'created_at'] as const;
 export const LOCAL_STATE_FIELD_ORDER = [
   'last_sync_at',
   'last_doc_sync_at',
+  'local_sync_branch',
   'welcome_seen',
 ] as const;

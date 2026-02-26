@@ -17,6 +17,7 @@ import {
 } from '../lib/errors.js';
 import { readConfig } from '../../file/config.js';
 import { listIssues, readIssue, writeIssue } from '../../file/storage.js';
+import { resolveSyncBranchRefs, type SyncBranchRefs } from '../../file/sync-branch.js';
 import {
   git,
   withIsolatedIndex,
@@ -73,6 +74,8 @@ interface SyncStatus {
   localChanges: string[];
   remoteChanges: string[];
   syncBranch: string;
+  localSyncBranch: string;
+  remoteSyncBranch: string;
   remote: string;
   ahead: number;
   behind: number;
@@ -85,6 +88,15 @@ class SyncHandler extends BaseCommand {
   async run(options: SyncOptions): Promise<void> {
     const tbdRoot = await requireInit();
     this.tbdRoot = tbdRoot;
+
+    // Load config early so branch refs are available for worktree repair paths.
+    let config;
+    try {
+      config = await readConfig(tbdRoot);
+    } catch {
+      throw new NotInitializedError('Not a tbd repository. Run `tbd init` first.');
+    }
+    const refs = await resolveSyncBranchRefs(tbdRoot, config, { forWrite: true });
 
     // Validate mutually exclusive options
     // --push/--pull only apply to issues (network operations)
@@ -123,7 +135,7 @@ class SyncHandler extends BaseCommand {
       // Only require --fix for corrupted/prunable states that need repair
       if (worktreeHealth.status === 'missing') {
         // Auto-create worktree - this is the expected state on fresh clones
-        await this.doRepairWorktree(tbdRoot, 'missing');
+        await this.doRepairWorktree(tbdRoot, 'missing', refs);
         worktreeHealth = await checkWorktreeHealth(tbdRoot);
         if (!worktreeHealth.valid) {
           throw new WorktreeCorruptedError(
@@ -132,7 +144,11 @@ class SyncHandler extends BaseCommand {
         }
       } else if (options.fix) {
         // Attempt repair when --fix is provided for corrupted/prunable states
-        await this.doRepairWorktree(tbdRoot, worktreeHealth.status as 'prunable' | 'corrupted');
+        await this.doRepairWorktree(
+          tbdRoot,
+          worktreeHealth.status as 'prunable' | 'corrupted',
+          refs,
+        );
         // Re-check health after repair
         worktreeHealth = await checkWorktreeHealth(tbdRoot);
         if (!worktreeHealth.valid) {
@@ -157,33 +173,28 @@ class SyncHandler extends BaseCommand {
 
     this.dataSyncDir = await resolveDataSyncDir(tbdRoot);
 
-    // Load config to get sync branch
-    let config;
-    try {
-      config = await readConfig(tbdRoot);
-    } catch {
-      throw new NotInitializedError('Not a tbd repository. Run `tbd init` first.');
-    }
-
-    const syncBranch = config.sync.branch;
-    const remote = config.sync.remote;
-
     if (options.status) {
-      await this.showIssueStatus(syncBranch, remote);
+      await this.showIssueStatus(refs);
       return;
     }
 
-    if (this.checkDryRun('Would sync repository', { syncBranch, remote })) {
+    if (
+      this.checkDryRun('Would sync repository', {
+        localSyncBranch: refs.localSyncBranch,
+        remoteSyncBranch: refs.remoteSyncBranch,
+        remote: refs.remoteName,
+      })
+    ) {
       return;
     }
 
     if (options.pull) {
-      await this.pullChanges(syncBranch, remote);
+      await this.pullChanges(refs);
     } else if (options.push) {
-      await this.pushChanges(syncBranch, remote);
+      await this.pushChanges(refs);
     } else {
       // Full sync: pull then push
-      await this.fullSync(syncBranch, remote, {
+      await this.fullSync(refs, {
         force: options.force,
         autoSave: options.autoSave,
         outbox: options.outbox,
@@ -292,12 +303,19 @@ class SyncHandler extends BaseCommand {
   private async doRepairWorktree(
     tbdRoot: string,
     status: 'missing' | 'prunable' | 'corrupted',
+    refs: SyncBranchRefs,
   ): Promise<void> {
     const spinner = this.output.spinner(`Repairing worktree (${status})...`);
 
     try {
       // Use shared repairWorktree from git.ts
-      const result = await repairWorktree(tbdRoot, status);
+      const result = await repairWorktree(
+        tbdRoot,
+        status,
+        refs.remoteName,
+        refs.remoteSyncBranch,
+        refs.localSyncBranch,
+      );
 
       spinner.stop();
 
@@ -316,8 +334,8 @@ class SyncHandler extends BaseCommand {
     }
   }
 
-  private async showIssueStatus(syncBranch: string, remote: string): Promise<void> {
-    const status = await this.getSyncStatus(syncBranch, remote);
+  private async showIssueStatus(refs: SyncBranchRefs): Promise<void> {
+    const status = await this.getSyncStatus(refs);
 
     this.output.data(status, () => {
       const colors = this.output.getColors();
@@ -327,7 +345,14 @@ class SyncHandler extends BaseCommand {
         return;
       }
 
-      console.log(colors.bold(`Sync status: ${syncBranch} ↔ ${remote}/${syncBranch}`));
+      console.log(
+        colors.bold(
+          `Sync status: ${status.localSyncBranch} ↔ ${status.remote}/${status.remoteSyncBranch}`,
+        ),
+      );
+      if (status.localSyncBranch !== status.remoteSyncBranch) {
+        console.log(colors.dim(`  canonical: ${status.remoteSyncBranch}`));
+      }
       console.log('');
 
       if (status.ahead > 0) {
@@ -355,7 +380,7 @@ class SyncHandler extends BaseCommand {
     });
   }
 
-  private async getSyncStatus(syncBranch: string, remote: string): Promise<SyncStatus> {
+  private async getSyncStatus(refs: SyncBranchRefs): Promise<SyncStatus> {
     const localChanges: string[] = [];
     const remoteChanges: string[] = [];
     let ahead = 0;
@@ -388,14 +413,14 @@ class SyncHandler extends BaseCommand {
 
     // Check for remote changes
     try {
-      await git('fetch', remote, syncBranch);
+      await git('fetch', refs.remoteName, refs.remoteSyncBranch);
 
       // Count commits ahead/behind
       try {
         const aheadOutput = await git(
           'rev-list',
           '--count',
-          `${remote}/${syncBranch}..${syncBranch}`,
+          `${refs.remoteName}/${refs.remoteSyncBranch}..${refs.localSyncBranch}`,
         );
         ahead = parseInt(aheadOutput, 10) || 0;
       } catch {
@@ -406,7 +431,7 @@ class SyncHandler extends BaseCommand {
         const behindOutput = await git(
           'rev-list',
           '--count',
-          `${syncBranch}..${remote}/${syncBranch}`,
+          `${refs.localSyncBranch}..${refs.remoteName}/${refs.remoteSyncBranch}`,
         );
         behind = parseInt(behindOutput, 10) || 0;
       } catch {
@@ -418,7 +443,7 @@ class SyncHandler extends BaseCommand {
         const logOutput = await git(
           'log',
           '--oneline',
-          `${syncBranch}..${remote}/${syncBranch}`,
+          `${refs.localSyncBranch}..${refs.remoteName}/${refs.remoteSyncBranch}`,
           '--limit=10',
         );
         for (const line of logOutput.split('\n')) {
@@ -436,17 +461,19 @@ class SyncHandler extends BaseCommand {
         localChanges.length === 0 && remoteChanges.length === 0 && ahead === 0 && behind === 0,
       localChanges,
       remoteChanges,
-      syncBranch,
-      remote,
+      syncBranch: refs.remoteSyncBranch,
+      localSyncBranch: refs.localSyncBranch,
+      remoteSyncBranch: refs.remoteSyncBranch,
+      remote: refs.remoteName,
       ahead,
       behind,
     };
   }
 
-  private async pullChanges(syncBranch: string, remote: string): Promise<void> {
+  private async pullChanges(refs: SyncBranchRefs): Promise<void> {
     const spinner = this.output.spinner('Pulling from remote...');
     try {
-      await git('fetch', remote, syncBranch);
+      await git('fetch', refs.remoteName, refs.remoteSyncBranch);
 
       // Get list of changed files
       let behind = 0;
@@ -454,7 +481,7 @@ class SyncHandler extends BaseCommand {
         const behindOutput = await git(
           'rev-list',
           '--count',
-          `${syncBranch}..${remote}/${syncBranch}`,
+          `${refs.localSyncBranch}..${refs.remoteName}/${refs.remoteSyncBranch}`,
         );
         behind = parseInt(behindOutput, 10) || 0;
       } catch {
@@ -470,19 +497,23 @@ class SyncHandler extends BaseCommand {
       // Merge changes using isolated index
       await withIsolatedIndex(async () => {
         // Read the remote tree
-        await git('read-tree', `${remote}/${syncBranch}`);
+        await git('read-tree', `${refs.remoteName}/${refs.remoteSyncBranch}`);
 
         // Update local branch to remote
-        const remoteCommit = await git('rev-parse', `${remote}/${syncBranch}`);
-        await git('update-ref', `refs/heads/${syncBranch}`, remoteCommit);
+        const remoteCommit = await git('rev-parse', `${refs.remoteName}/${refs.remoteSyncBranch}`);
+        await git('update-ref', `refs/heads/${refs.localSyncBranch}`, remoteCommit);
       });
 
-      this.output.success(`Pulled ${behind} change(s) from ${remote}/${syncBranch}`);
+      this.output.success(
+        `Pulled ${behind} change(s) from ${refs.remoteName}/${refs.remoteSyncBranch}`,
+      );
     } catch (error) {
       spinner.stop();
       const msg = (error as Error).message;
       if (msg.includes('not found') || msg.includes('does not exist')) {
-        this.output.info(`Remote branch ${remote}/${syncBranch} does not exist yet`);
+        this.output.info(
+          `Remote branch ${refs.remoteName}/${refs.remoteSyncBranch} does not exist yet`,
+        );
       } else {
         throw new SyncError(`Failed to pull: ${msg}`);
       }
@@ -495,7 +526,7 @@ class SyncHandler extends BaseCommand {
    *
    * @returns Tallies of new/updated/deleted files committed
    */
-  private async commitWorktreeChanges(): Promise<SyncTallies> {
+  private async commitWorktreeChanges(localSyncBranch: string): Promise<SyncTallies> {
     // Use tbdRoot to derive worktree path consistently
     // FIX Bug 1: Previously used process.cwd() which fails if not in repo root
     // See: plan-2026-01-28-sync-worktree-recovery-and-hardening.md
@@ -503,7 +534,7 @@ class SyncHandler extends BaseCommand {
 
     try {
       // Ensure worktree is attached to sync branch (repair old tbd repos)
-      await ensureWorktreeAttached(worktreePath);
+      await ensureWorktreeAttached(worktreePath, localSyncBranch);
 
       // Check for uncommitted changes (untracked, modified, or deleted)
       const status = await git('-C', worktreePath, 'status', '--porcelain');
@@ -539,11 +570,11 @@ class SyncHandler extends BaseCommand {
     }
   }
 
-  private async pushChanges(syncBranch: string, remote: string): Promise<void> {
+  private async pushChanges(refs: SyncBranchRefs): Promise<void> {
     const spinner = this.output.spinner('Pushing to remote...');
     try {
       // Commit any uncommitted changes in the worktree before pushing
-      const committedTallies = await this.commitWorktreeChanges();
+      const committedTallies = await this.commitWorktreeChanges(refs.localSyncBranch);
       const committedCount =
         committedTallies.new + committedTallies.updated + committedTallies.deleted;
       if (committedCount > 0) {
@@ -553,18 +584,18 @@ class SyncHandler extends BaseCommand {
       // Check how many commits we're ahead of remote
       let ahead = 0;
       try {
-        await git('fetch', remote, syncBranch);
+        await git('fetch', refs.remoteName, refs.remoteSyncBranch);
         const aheadOutput = await git(
           'rev-list',
           '--count',
-          `${remote}/${syncBranch}..${syncBranch}`,
+          `${refs.remoteName}/${refs.remoteSyncBranch}..${refs.localSyncBranch}`,
         );
         ahead = parseInt(aheadOutput, 10) || 0;
         this.output.debug(`Ahead of remote by ${ahead} commit(s)`);
       } catch {
         // Remote branch doesn't exist - count all local commits
         try {
-          const countOutput = await git('rev-list', '--count', syncBranch);
+          const countOutput = await git('rev-list', '--count', refs.localSyncBranch);
           ahead = parseInt(countOutput, 10) || 0;
           this.output.debug(`Remote branch not found, ${ahead} local commit(s) to push`);
         } catch {
@@ -580,11 +611,13 @@ class SyncHandler extends BaseCommand {
       }
 
       // Use push with retry
-      const result = await this.doPushWithRetry(syncBranch, remote);
+      const result = await this.doPushWithRetry(refs);
       spinner.stop();
 
       if (result.success) {
-        this.output.success(`Pushed ${ahead} commit(s) to ${remote}/${syncBranch}`);
+        this.output.success(
+          `Pushed ${ahead} commit(s) to ${refs.remoteName}/${refs.remoteSyncBranch}`,
+        );
       } else if (result.conflicts && result.conflicts.length > 0) {
         this.output.warn(
           `Push completed with ${result.conflicts.length} conflict(s) (see attic for details)`,
@@ -599,10 +632,11 @@ class SyncHandler extends BaseCommand {
     }
   }
 
-  private async doPushWithRetry(syncBranch: string, remote: string): Promise<PushResult> {
+  private async doPushWithRetry(refs: SyncBranchRefs): Promise<PushResult> {
     return pushWithRetry(
-      syncBranch,
-      remote,
+      refs.localSyncBranch,
+      refs.remoteName,
+      refs.remoteSyncBranch,
       async () => {
         // Merge callback - called when we need to merge remote changes
         const conflicts: ConflictEntry[] = [];
@@ -615,7 +649,7 @@ class SyncHandler extends BaseCommand {
             // Try to get the remote version (use relative path for git show)
             const remoteContent = await git(
               'show',
-              `${remote}/${syncBranch}:${DATA_SYNC_DIR}/issues/${localIssue.id}.md`,
+              `${refs.remoteName}/${refs.remoteSyncBranch}:${DATA_SYNC_DIR}/issues/${localIssue.id}.md`,
             );
 
             if (remoteContent) {
@@ -662,8 +696,7 @@ class SyncHandler extends BaseCommand {
   }
 
   private async fullSync(
-    syncBranch: string,
-    remote: string,
+    refs: SyncBranchRefs,
     options: { force?: boolean; autoSave?: boolean; outbox?: boolean } = {},
   ): Promise<void> {
     const spinner = this.output.spinner('Syncing with remote...');
@@ -675,7 +708,7 @@ class SyncHandler extends BaseCommand {
     try {
       // STEP 1: Commit local changes FIRST (before pulling)
       // This ensures local work is preserved before we incorporate remote changes.
-      const committedTallies = await this.commitWorktreeChanges();
+      const committedTallies = await this.commitWorktreeChanges(refs.localSyncBranch);
       // Add committed changes to sent tallies
       summary.sent.new += committedTallies.new;
       summary.sent.updated += committedTallies.updated;
@@ -686,7 +719,7 @@ class SyncHandler extends BaseCommand {
       }
 
       // STEP 2: Fetch remote
-      await git('fetch', remote, syncBranch);
+      await git('fetch', refs.remoteName, refs.remoteSyncBranch);
 
       // Get file-level changes from remote using git diff
       let behindCommits = 0;
@@ -694,7 +727,7 @@ class SyncHandler extends BaseCommand {
         const behindOutput = await git(
           'rev-list',
           '--count',
-          `${syncBranch}..${remote}/${syncBranch}`,
+          `${refs.localSyncBranch}..${refs.remoteName}/${refs.remoteSyncBranch}`,
         );
         behindCommits = parseInt(behindOutput, 10) || 0;
         this.output.debug(`Behind remote by ${behindCommits} commit(s)`);
@@ -705,7 +738,7 @@ class SyncHandler extends BaseCommand {
             const diffOutput = await git(
               'diff',
               '--name-status',
-              `${syncBranch}..${remote}/${syncBranch}`,
+              `${refs.localSyncBranch}..${refs.remoteName}/${refs.remoteSyncBranch}`,
             );
             const receivedTallies = parseGitDiff(diffOutput);
             summary.received.new += receivedTallies.new;
@@ -738,7 +771,7 @@ class SyncHandler extends BaseCommand {
             '-C',
             worktreePath,
             'merge',
-            `${remote}/${syncBranch}`,
+            `${refs.remoteName}/${refs.remoteSyncBranch}`,
             '-m',
             'tbd sync: merge remote changes',
           );
@@ -748,7 +781,10 @@ class SyncHandler extends BaseCommand {
           // Use syncBranch explicitly — bare `HEAD` would resolve to the user's
           // current working branch, not the tbd-sync branch in the worktree.
           if (headBeforeMerge) {
-            await this.showGitLogDebug('Commits received', `${headBeforeMerge}..${syncBranch}`);
+            await this.showGitLogDebug(
+              'Commits received',
+              `${headBeforeMerge}..${refs.localSyncBranch}`,
+            );
           }
 
           // Reconcile ID mappings after clean merge.
@@ -764,7 +800,7 @@ class SyncHandler extends BaseCommand {
           try {
             const remoteIdsContent = await git(
               'show',
-              `${remote}/${syncBranch}:${DATA_SYNC_DIR}/mappings/ids.yml`,
+              `${refs.remoteName}/${refs.remoteSyncBranch}:${DATA_SYNC_DIR}/mappings/ids.yml`,
             );
             if (remoteIdsContent) {
               historicalMapping = parseIdMappingFromYaml(remoteIdsContent);
@@ -816,7 +852,7 @@ class SyncHandler extends BaseCommand {
             try {
               const remoteContent = await git(
                 'show',
-                `${remote}/${syncBranch}:${DATA_SYNC_DIR}/issues/${localIssue.id}.md`,
+                `${refs.remoteName}/${refs.remoteSyncBranch}:${DATA_SYNC_DIR}/issues/${localIssue.id}.md`,
               );
               if (remoteContent) {
                 const remoteIssue = await readIssue(this.dataSyncDir, localIssue.id);
@@ -836,7 +872,7 @@ class SyncHandler extends BaseCommand {
           try {
             const remoteIdsContent = await git(
               'show',
-              `${remote}/${syncBranch}:${DATA_SYNC_DIR}/mappings/ids.yml`,
+              `${refs.remoteName}/${refs.remoteSyncBranch}:${DATA_SYNC_DIR}/mappings/ids.yml`,
             );
             if (remoteIdsContent) {
               conflictRemoteMapping = parseIdMappingFromYaml(remoteIdsContent);
@@ -930,14 +966,14 @@ class SyncHandler extends BaseCommand {
       const aheadOutput = await git(
         'rev-list',
         '--count',
-        `${remote}/${syncBranch}..${syncBranch}`,
+        `${refs.remoteName}/${refs.remoteSyncBranch}..${refs.localSyncBranch}`,
       );
       aheadCommits = parseInt(aheadOutput, 10) || 0;
       this.output.debug(`Ahead of remote by ${aheadCommits} commit(s)`);
     } catch {
       // Remote branch doesn't exist - count all local commits on sync branch
       try {
-        const countOutput = await git('rev-list', '--count', syncBranch);
+        const countOutput = await git('rev-list', '--count', refs.localSyncBranch);
         aheadCommits = parseInt(countOutput, 10) || 0;
         this.output.debug(`Remote branch not found, ${aheadCommits} local commit(s) to push`);
       } catch {
@@ -951,7 +987,7 @@ class SyncHandler extends BaseCommand {
     let pushError = '';
     if (aheadCommits > 0) {
       this.output.debug(`Pushing ${aheadCommits} commit(s) to remote`);
-      const result = await this.doPushWithRetry(syncBranch, remote);
+      const result = await this.doPushWithRetry(refs);
       if (result.conflicts) {
         conflicts.push(...result.conflicts);
       }
@@ -963,7 +999,7 @@ class SyncHandler extends BaseCommand {
         // Show pushed commits in debug mode
         // Use syncBranch explicitly — bare `-N` would resolve against the user's
         // current working branch (HEAD), not the tbd-sync branch.
-        await this.showGitLogDebug('Commits sent', syncBranch, `-${aheadCommits}`);
+        await this.showGitLogDebug('Commits sent', refs.localSyncBranch, `-${aheadCommits}`);
       }
     } else {
       this.output.debug('No commits to push');
@@ -1030,7 +1066,7 @@ class SyncHandler extends BaseCommand {
 
     // After successful push, import from outbox if it has data
     if (options.outbox !== false) {
-      await this.maybeImportOutbox(syncBranch, remote);
+      await this.maybeImportOutbox(refs);
     }
 
     this.output.data({ summary, conflicts: conflicts.length }, () => {
@@ -1123,10 +1159,9 @@ class SyncHandler extends BaseCommand {
    * Uses two-phase sync: import → commit → push → clear.
    * Only clears the outbox if all steps succeed.
    *
-   * @param syncBranch - The sync branch name
-   * @param remote - The remote name
+   * @param refs - Resolved local and remote sync branch refs
    */
-  private async maybeImportOutbox(syncBranch: string, remote: string): Promise<void> {
+  private async maybeImportOutbox(refs: SyncBranchRefs): Promise<void> {
     // Check if outbox exists and has issues
     if (!(await workspaceExists(this.tbdRoot, 'outbox'))) {
       return; // No outbox - nothing to import
@@ -1156,7 +1191,7 @@ class SyncHandler extends BaseCommand {
       }
 
       // Step 2: Commit the imported issues
-      const committedTallies = await this.commitWorktreeChanges();
+      const committedTallies = await this.commitWorktreeChanges(refs.localSyncBranch);
       if (committedTallies.new + committedTallies.updated + committedTallies.deleted === 0) {
         // Nothing to commit - issues were already in worktree
         // This can happen if outbox data was identical to worktree
@@ -1166,7 +1201,7 @@ class SyncHandler extends BaseCommand {
       }
 
       // Step 3: Push the imported issues
-      const pushResult = await this.doPushWithRetry(syncBranch, remote);
+      const pushResult = await this.doPushWithRetry(refs);
       if (!pushResult.success) {
         // Secondary push failed - DON'T clear outbox
         // The issues are now in the worktree, so they'll be synced next time

@@ -161,6 +161,7 @@ $ tbd status --json
   "beads_detected": true,
   "beads_issue_count": 1,
   "sync_branch": "tbd-sync",
+  "local_sync_branch": "tbd-sync",
   "remote": "origin",
   "display_prefix": "bd",
 ...

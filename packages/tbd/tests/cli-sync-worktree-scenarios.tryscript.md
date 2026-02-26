@@ -292,3 +292,62 @@ All worktree scenarios tested:
 2. Worktree deleted - sync --fix repairs it
 3. Data in wrong location - doctor --fix migrates it
 4. Migration commits are properly synced to remote (bug reproduction)
+5. Linked outer worktrees can sync without local branch checkout conflicts
+
+* * *
+
+## Scenario 5: Linked outer worktrees get isolated local sync branches
+
+This verifies the new split-branch model:
+- canonical remote sync branch remains `tbd-sync`
+- linked outer checkouts can each sync by using their own local sync branch
+
+# Test: Commit .tbd metadata to main so linked worktree has project setup
+
+```console
+$ git add .tbd && git commit -m "Add tbd metadata" 2>&1 | head -1
+[main [..]] Add tbd metadata
+? 0
+```
+
+# Test: Clean stale linked checkout path from prior runs
+
+```console
+$ rm -rf ../linked-checkout
+? 0
+```
+
+# Test: Create linked outer worktree on main
+
+```console
+$ git worktree add -b linked-main ../linked-checkout HEAD
+Preparing worktree [..]
+HEAD is now at [..]
+? 0
+```
+
+# Test: Linked checkout can sync successfully
+
+```console
+$ (cd ../linked-checkout && tbd sync 2>&1)
+✓ [..]
+✓ [..]
+✓ [..]
+? 0
+```
+
+# Test: Linked checkout stores a managed local sync branch in state.yml
+
+```console
+$ (cd ../linked-checkout && grep -E 'local_sync_branch: tbd-sync--wt-' .tbd/state.yml)
+local_sync_branch: tbd-sync--wt-[..]
+? 0
+```
+
+# Test: Canonical remote branch remains tbd-sync
+
+```console
+$ git ls-remote origin tbd-sync | wc -l | tr -d ' '
+1
+? 0
+```

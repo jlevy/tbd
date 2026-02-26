@@ -10,9 +10,9 @@
  */
 
 import { execFile } from 'node:child_process';
-import { mkdir } from 'node:fs/promises';
+import { mkdir, access, rm, cp, readdir, realpath } from 'node:fs/promises';
 import { promisify } from 'node:util';
-import { join } from 'node:path';
+import { join, normalize as normalizePath, resolve as resolvePath } from 'node:path';
 
 import { writeFile } from 'atomically';
 
@@ -613,26 +613,28 @@ export interface PushResult {
  * Push with retry and merge on conflict.
  * See: tbd-design.md §3.3.3 Sync Algorithm
  *
- * @param syncBranch - The sync branch name
- * @param remote - The remote name
+ * @param localSyncBranch - Local sync branch name (source ref)
+ * @param remoteName - Remote name
+ * @param remoteSyncBranch - Canonical remote sync branch (destination ref)
  * @param onMergeNeeded - Callback to merge remote changes
  * @param baseDir - Repository root directory (uses process.cwd() if not provided)
  */
 export async function pushWithRetry(
-  syncBranch: string,
-  remote: string,
+  localSyncBranch: string,
+  remoteName: string,
+  remoteSyncBranch: string,
   onMergeNeeded: () => Promise<ConflictEntry[]>,
   baseDir?: string,
 ): Promise<PushResult> {
   // Use explicit refspec to avoid ambiguity with tags or other refs
-  const refspec = `refs/heads/${syncBranch}:refs/heads/${syncBranch}`;
+  const refspec = `refs/heads/${localSyncBranch}:refs/heads/${remoteSyncBranch}`;
   // Build -C prefix args when baseDir is provided
   const dirArgs = baseDir ? ['-C', baseDir] : [];
 
   for (let attempt = 1; attempt <= MAX_PUSH_RETRIES; attempt++) {
     try {
       // Try to push
-      await git(...dirArgs, 'push', remote, refspec);
+      await git(...dirArgs, 'push', remoteName, refspec);
       return { success: true, attempt };
     } catch (error) {
       if (!isNonFastForward(error)) {
@@ -653,7 +655,7 @@ export async function pushWithRetry(
       }
 
       // Fetch and merge remote changes
-      await git(...dirArgs, 'fetch', remote, syncBranch);
+      await git(...dirArgs, 'fetch', remoteName, remoteSyncBranch);
       const conflicts = await onMergeNeeded();
 
       if (conflicts.length > 0) {
@@ -710,12 +712,125 @@ export async function getRemoteUrl(remote: string): Promise<string | null> {
   }
 }
 
+/**
+ * Worktree entry parsed from `git worktree list --porcelain`.
+ */
+export interface WorktreeBranchRef {
+  path: string;
+  branch: string | null;
+  prunable: boolean;
+}
+
+/**
+ * List worktree paths and checked-out local branches.
+ */
+export async function listWorktreeBranchRefs(baseDir: string): Promise<WorktreeBranchRef[]> {
+  try {
+    const output = await git('-C', baseDir, 'worktree', 'list', '--porcelain');
+    const lines = output.split('\n');
+    const refs: WorktreeBranchRef[] = [];
+
+    let current: WorktreeBranchRef | null = null;
+    for (const line of lines) {
+      if (!line.trim()) {
+        if (current) {
+          refs.push(current);
+        }
+        current = null;
+        continue;
+      }
+
+      if (line.startsWith('worktree ')) {
+        if (current) {
+          refs.push(current);
+        }
+        current = {
+          path: line.slice('worktree '.length).trim(),
+          branch: null,
+          prunable: false,
+        };
+        continue;
+      }
+
+      if (!current) {
+        continue;
+      }
+
+      if (line.startsWith('branch ')) {
+        const ref = line.slice('branch '.length).trim();
+        current.branch = ref.startsWith('refs/heads/') ? ref.replace('refs/heads/', '') : null;
+        continue;
+      }
+
+      if (line.startsWith('prunable')) {
+        current.prunable = true;
+      }
+    }
+
+    if (current) {
+      refs.push(current);
+    }
+    return refs;
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Check whether a local branch is checked out by any worktree other than the current one.
+ */
+export async function isBranchCheckedOutInOtherWorktree(
+  baseDir: string,
+  branch: string,
+  currentWorktreePath?: string,
+): Promise<boolean> {
+  const refs = await listWorktreeBranchRefs(baseDir);
+  const currentPath = currentWorktreePath
+    ? await normalizeExistingOrFallbackPath(currentWorktreePath)
+    : null;
+
+  for (const ref of refs) {
+    if (ref.prunable || ref.branch !== branch) {
+      continue;
+    }
+
+    if (currentPath) {
+      const refPath = await normalizeExistingOrFallbackPath(ref.path);
+      if (refPath === currentPath) {
+        continue;
+      }
+    }
+
+    return true;
+  }
+
+  return false;
+}
+
+/**
+ * Normalize path values for reliable worktree-path comparisons.
+ */
+async function normalizeExistingOrFallbackPath(pathValue: string): Promise<string> {
+  try {
+    return normalizePathForComparison(await realpath(pathValue));
+  } catch {
+    return normalizePathForComparison(pathValue);
+  }
+}
+
+/**
+ * Convert paths to a canonical comparison key.
+ */
+function normalizePathForComparison(pathValue: string): string {
+  const resolved = normalizePath(resolvePath(pathValue));
+  return process.platform === 'win32' ? resolved.toLowerCase() : resolved;
+}
+
 // =============================================================================
 // Worktree Management
 // See: tbd-design.md §2.3 Hidden Worktree Model
 // =============================================================================
 
-import { access, rm, cp } from 'node:fs/promises';
 import {
   WORKTREE_DIR,
   WORKTREE_DIR_NAME,
@@ -897,13 +1012,15 @@ export async function checkWorktreeHealth(baseDir: string): Promise<WorktreeHeal
  *
  * @param baseDir - The base directory of the repository
  * @param remote - The remote name (default: 'origin')
- * @param syncBranch - The sync branch name (default: 'tbd-sync')
+ * @param remoteSyncBranch - Canonical remote sync branch name (default: 'tbd-sync')
+ * @param localSyncBranch - Local sync branch name for this checkout
  * @returns Path to the worktree or error message
  */
 export async function initWorktree(
   baseDir: string,
   remote = 'origin',
-  syncBranch: string = SYNC_BRANCH,
+  remoteSyncBranch: string = SYNC_BRANCH,
+  localSyncBranch: string = remoteSyncBranch,
 ): Promise<{ success: boolean; path?: string; created?: boolean; error?: string }> {
   const worktreePath = join(baseDir, WORKTREE_DIR);
 
@@ -921,19 +1038,19 @@ export async function initWorktree(
 
   try {
     // Check if local branch exists
-    const localExists = await branchExists(syncBranch);
+    const localExists = await branchExists(localSyncBranch);
     if (localExists) {
       // Create worktree on local branch (no --detach, so commits update the branch)
       // Note: Don't use --detach here - we want commits to update tbd-sync branch
-      await git('-C', baseDir, 'worktree', 'add', worktreePath, syncBranch);
+      await git('-C', baseDir, 'worktree', 'add', worktreePath, localSyncBranch);
       return { success: true, path: worktreePath, created: true };
     }
 
     // Check if remote branch exists
-    const remoteExists = await remoteBranchExists(remote, syncBranch);
+    const remoteExists = await remoteBranchExists(remote, remoteSyncBranch);
     if (remoteExists) {
       // Fetch and create worktree from remote branch with local tracking branch
-      await git('-C', baseDir, 'fetch', remote, syncBranch);
+      await git('-C', baseDir, 'fetch', remote, remoteSyncBranch);
       // Use -b to create local branch tracking remote, not --detach
       // This ensures commits update the local branch which can then be pushed
       await git(
@@ -942,9 +1059,9 @@ export async function initWorktree(
         'worktree',
         'add',
         '-b',
-        syncBranch,
+        localSyncBranch,
         worktreePath,
-        `${remote}/${syncBranch}`,
+        `${remote}/${remoteSyncBranch}`,
       );
       return { success: true, path: worktreePath, created: true };
     }
@@ -952,7 +1069,7 @@ export async function initWorktree(
     // No branch exists - create orphan worktree (requires Git 2.42+)
     // Syntax: git worktree add --orphan -b <branch> <path>
     await requireGitVersion();
-    await git('-C', baseDir, 'worktree', 'add', '--orphan', '-b', syncBranch, worktreePath);
+    await git('-C', baseDir, 'worktree', 'add', '--orphan', '-b', localSyncBranch, worktreePath);
 
     // Initialize the data-sync directory structure in the worktree
     const dataSyncPath = join(worktreePath, TBD_DIR, DATA_SYNC_DIR_NAME);
@@ -985,18 +1102,20 @@ export async function initWorktree(
  *
  * @param baseDir - The base directory of the repository
  * @param remote - The remote name (default: 'origin')
- * @param syncBranch - The sync branch name (default: 'tbd-sync')
+ * @param remoteSyncBranch - Canonical remote sync branch name (default: 'tbd-sync')
+ * @param localSyncBranch - Local sync branch name for this checkout
  */
 export async function updateWorktree(
   baseDir: string,
   remote = 'origin',
-  syncBranch: string = SYNC_BRANCH,
+  remoteSyncBranch: string = SYNC_BRANCH,
+  localSyncBranch: string = remoteSyncBranch,
 ): Promise<{ success: boolean; error?: string }> {
   const worktreePath = join(baseDir, WORKTREE_DIR);
 
   // Ensure worktree exists
   if (!(await worktreeExists(baseDir))) {
-    const initResult = await initWorktree(baseDir, remote, syncBranch);
+    const initResult = await initWorktree(baseDir, remote, remoteSyncBranch, localSyncBranch);
     if (!initResult.success) {
       return { success: false, error: initResult.error };
     }
@@ -1005,7 +1124,7 @@ export async function updateWorktree(
   try {
     // Fetch latest from remote
     try {
-      await git('-C', baseDir, 'fetch', remote, syncBranch);
+      await git('-C', baseDir, 'fetch', remote, remoteSyncBranch);
     } catch {
       // Remote fetch may fail if offline - that's ok
     }
@@ -1014,7 +1133,7 @@ export async function updateWorktree(
     let targetCommit: string;
     try {
       // Try local branch first
-      targetCommit = await git('-C', baseDir, 'rev-parse', `refs/heads/${syncBranch}`);
+      targetCommit = await git('-C', baseDir, 'rev-parse', `refs/heads/${localSyncBranch}`);
     } catch {
       try {
         // Fall back to remote tracking branch
@@ -1022,7 +1141,7 @@ export async function updateWorktree(
           '-C',
           baseDir,
           'rev-parse',
-          `refs/remotes/${remote}/${syncBranch}`,
+          `refs/remotes/${remote}/${remoteSyncBranch}`,
         );
       } catch {
         // No remote either - worktree is already at latest
@@ -1093,24 +1212,30 @@ export interface RemoteBranchHealth {
  * Check remote sync branch health.
  * See: plan-2026-01-28-sync-worktree-recovery-and-hardening.md §4b
  *
- * @param remote - The remote name (default: 'origin')
- * @param syncBranch - The sync branch name (default: 'tbd-sync')
+ * @param remoteName - The remote name (default: 'origin')
+ * @param remoteSyncBranch - The remote sync branch name (default: 'tbd-sync')
+ * @param localSyncBranch - The local sync branch used for divergence checks
  * @returns Health status indicating if remote branch exists and divergence state
  */
 export async function checkRemoteBranchHealth(
-  remote = 'origin',
-  syncBranch: string = SYNC_BRANCH,
+  remoteName = 'origin',
+  remoteSyncBranch: string = SYNC_BRANCH,
+  localSyncBranch: string = remoteSyncBranch,
 ): Promise<RemoteBranchHealth> {
   try {
-    await git('fetch', remote, syncBranch);
-    const head = await git('rev-parse', `refs/remotes/${remote}/${syncBranch}`);
+    await git('fetch', remoteName, remoteSyncBranch);
+    const head = await git('rev-parse', `refs/remotes/${remoteName}/${remoteSyncBranch}`);
     const remoteHead = head.trim();
 
     // Check for divergence (only if local branch exists)
     let diverged = false;
     try {
-      const mergeBase = await git('merge-base', syncBranch, `${remote}/${syncBranch}`);
-      const localHead = await git('rev-parse', syncBranch);
+      const mergeBase = await git(
+        'merge-base',
+        localSyncBranch,
+        `${remoteName}/${remoteSyncBranch}`,
+      );
+      const localHead = await git('rev-parse', localSyncBranch);
 
       // Diverged if merge-base is neither local nor remote HEAD
       diverged = mergeBase.trim() !== localHead.trim() && mergeBase.trim() !== remoteHead;
@@ -1148,14 +1273,16 @@ export interface SyncConsistency {
  * See: plan-2026-01-28-sync-worktree-recovery-and-hardening.md §4b
  *
  * @param baseDir - The base directory of the repository
- * @param syncBranch - The sync branch name (default: 'tbd-sync')
- * @param remote - The remote name (default: 'origin')
+ * @param localSyncBranch - The local sync branch name (default: 'tbd-sync')
+ * @param remoteName - The remote name (default: 'origin')
+ * @param remoteSyncBranch - The remote sync branch name (defaults to localSyncBranch)
  * @returns Consistency status with HEAD comparisons and ahead/behind counts
  */
 export async function checkSyncConsistency(
   baseDir: string,
-  syncBranch: string = SYNC_BRANCH,
-  remote = 'origin',
+  localSyncBranch: string = SYNC_BRANCH,
+  remoteName = 'origin',
+  remoteSyncBranch: string = localSyncBranch,
 ): Promise<SyncConsistency> {
   const worktreePath = join(baseDir, WORKTREE_DIR);
 
@@ -1163,12 +1290,15 @@ export async function checkSyncConsistency(
   const worktreeHead = await git('-C', worktreePath, 'rev-parse', 'HEAD').catch(() => '');
 
   // Get local branch HEAD
-  const localHead = await git('-C', baseDir, 'rev-parse', syncBranch).catch(() => '');
+  const localHead = await git('-C', baseDir, 'rev-parse', localSyncBranch).catch(() => '');
 
   // Get remote branch HEAD
-  const remoteHead = await git('-C', baseDir, 'rev-parse', `${remote}/${syncBranch}`).catch(
-    () => '',
-  );
+  const remoteHead = await git(
+    '-C',
+    baseDir,
+    'rev-parse',
+    `${remoteName}/${remoteSyncBranch}`,
+  ).catch(() => '');
 
   // Calculate ahead/behind counts
   let localAhead = 0;
@@ -1181,7 +1311,7 @@ export async function checkSyncConsistency(
         baseDir,
         'rev-list',
         '--count',
-        `${remote}/${syncBranch}..${syncBranch}`,
+        `${remoteName}/${remoteSyncBranch}..${localSyncBranch}`,
       );
       localAhead = parseInt(aheadOutput.trim(), 10) || 0;
     } catch {
@@ -1194,7 +1324,7 @@ export async function checkSyncConsistency(
         baseDir,
         'rev-list',
         '--count',
-        `${syncBranch}..${remote}/${syncBranch}`,
+        `${localSyncBranch}..${remoteName}/${remoteSyncBranch}`,
       );
       localBehind = parseInt(behindOutput.trim(), 10) || 0;
     } catch {
@@ -1290,13 +1420,15 @@ export async function removeWorktree(
  * @param baseDir - The base directory of the repository
  * @param status - Current worktree health status
  * @param remote - The remote name (default: 'origin')
- * @param syncBranch - The sync branch name (default: 'tbd-sync')
+ * @param remoteSyncBranch - Canonical remote sync branch (default: 'tbd-sync')
+ * @param localSyncBranch - Local sync branch for this checkout
  */
 export async function repairWorktree(
   baseDir: string,
   status: 'missing' | 'prunable' | 'corrupted',
   remote = 'origin',
-  syncBranch: string = SYNC_BRANCH,
+  remoteSyncBranch: string = SYNC_BRANCH,
+  localSyncBranch: string = remoteSyncBranch,
 ): Promise<{ success: boolean; path?: string; backedUp?: string; error?: string }> {
   const worktreePath = join(baseDir, WORKTREE_DIR);
 
@@ -1328,12 +1460,12 @@ export async function repairWorktree(
       await git('-C', baseDir, 'worktree', 'prune');
 
       // Initialize fresh worktree
-      const result = await initWorktree(baseDir, remote, syncBranch);
+      const result = await initWorktree(baseDir, remote, remoteSyncBranch, localSyncBranch);
       return { ...result, backedUp: backupPath };
     }
 
     // For missing or prunable (after prune), just initialize
-    const result = await initWorktree(baseDir, remote, syncBranch);
+    const result = await initWorktree(baseDir, remote, remoteSyncBranch, localSyncBranch);
     return result;
   } catch (error) {
     return {
@@ -1349,20 +1481,29 @@ export async function repairWorktree(
  * This repairs them automatically.
  *
  * @param worktreePath - Path to the worktree directory
+ * @param expectedLocalBranch - Expected local sync branch for this checkout
  * @returns true if worktree was detached and repaired, false if already attached
  */
-export async function ensureWorktreeAttached(worktreePath: string): Promise<boolean> {
+export async function ensureWorktreeAttached(
+  worktreePath: string,
+  expectedLocalBranch: string,
+): Promise<boolean> {
   try {
     const currentBranch = await git('-C', worktreePath, 'branch', '--show-current').catch(() => '');
 
     if (!currentBranch) {
       // Detached HEAD - re-attach to sync branch
       // This is a one-time repair for repos created with old tbd versions
-      await git('-C', worktreePath, 'checkout', SYNC_BRANCH);
+      await git('-C', worktreePath, 'checkout', expectedLocalBranch);
       return true; // Was detached, now repaired
     }
 
-    return false; // Already attached
+    if (currentBranch !== expectedLocalBranch) {
+      await git('-C', worktreePath, 'checkout', expectedLocalBranch);
+      return true; // Attached to wrong branch, now repaired
+    }
+
+    return false; // Already attached to expected branch
   } catch (error) {
     // If we can't check/fix, that's a problem but don't fail the operation
     console.warn('Warning: Could not check worktree HEAD status:', error);
@@ -1384,10 +1525,12 @@ export async function ensureWorktreeAttached(worktreePath: string): Promise<bool
  *
  * @param baseDir - The base directory of the repository
  * @param removeSource - Whether to remove data from wrong location after migration
+ * @param expectedLocalBranch - Local sync branch to ensure before writing
  */
 export async function migrateDataToWorktree(
   baseDir: string,
   removeSource = false,
+  expectedLocalBranch: string = SYNC_BRANCH,
 ): Promise<{
   success: boolean;
   migratedCount: number;
@@ -1400,7 +1543,7 @@ export async function migrateDataToWorktree(
 
   try {
     // Ensure worktree is attached to sync branch (repair old tbd repos)
-    await ensureWorktreeAttached(worktreePath);
+    await ensureWorktreeAttached(worktreePath, expectedLocalBranch);
     // Check if there's data in the wrong location
     const wrongIssuesPath = join(wrongPath, 'issues');
     const wrongMappingsPath = join(wrongPath, 'mappings');
@@ -1408,13 +1551,8 @@ export async function migrateDataToWorktree(
     let issueFiles: string[] = [];
     let mappingFiles: string[] = [];
 
-    try {
-      const { readdir } = await import('node:fs/promises');
-      issueFiles = await readdir(wrongIssuesPath).catch(() => []);
-      mappingFiles = await readdir(wrongMappingsPath).catch(() => []);
-    } catch {
-      // Directory doesn't exist
-    }
+    issueFiles = await readdir(wrongIssuesPath).catch(() => []);
+    mappingFiles = await readdir(wrongMappingsPath).catch(() => []);
 
     // Filter out .gitkeep files
     issueFiles = issueFiles.filter((f) => f !== '.gitkeep');
