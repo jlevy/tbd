@@ -243,6 +243,51 @@ describeUnlessWindows('git remote integration', () => {
       const issues = await listIssues(dataSyncPath);
       expect(issues.length).toBe(2);
     });
+
+    it('pushes multiple local sync branches into one canonical remote branch', async () => {
+      const localBranchA = 'tbd-sync--wt-a1b2c3d4';
+      const localBranchB = 'tbd-sync--wt-b1c2d3e4';
+
+      await initWorktree(workRepoPath, 'origin', SYNC_BRANCH, localBranchA);
+      const worktreePath = join(workRepoPath, WORKTREE_DIR);
+      const dataSyncPath = join(worktreePath, TBD_DIR, DATA_SYNC_DIR_NAME);
+
+      const issueA = createTestIssue({
+        id: testId(TEST_ULIDS.REMOTE_5),
+        title: 'Issue from local branch A',
+      });
+      await writeIssue(dataSyncPath, issueA);
+      await gitInDir(worktreePath, 'add', '.');
+      await gitInDir(worktreePath, 'commit', '-m', 'Add issue from local branch A');
+      await gitInDir(worktreePath, 'push', 'origin', `HEAD:refs/heads/${SYNC_BRANCH}`);
+
+      await gitInDir(workRepoPath, 'branch', localBranchB, localBranchA);
+      await gitInDir(worktreePath, 'checkout', localBranchB);
+
+      const issueB = createTestIssue({
+        id: testId(TEST_ULIDS.CONCURRENT_1),
+        title: 'Issue from local branch B',
+      });
+      await writeIssue(dataSyncPath, issueB);
+      await gitInDir(worktreePath, 'add', '.');
+      await gitInDir(worktreePath, 'commit', '-m', 'Add issue from local branch B');
+      await gitInDir(worktreePath, 'push', 'origin', `HEAD:refs/heads/${SYNC_BRANCH}`);
+
+      await gitInDir(workRepoPath, 'fetch', 'origin', SYNC_BRANCH);
+
+      const remoteIssueA = await gitInDir(
+        workRepoPath,
+        'show',
+        `origin/${SYNC_BRANCH}:.tbd/data-sync/issues/${issueA.id}.md`,
+      );
+      const remoteIssueB = await gitInDir(
+        workRepoPath,
+        'show',
+        `origin/${SYNC_BRANCH}:.tbd/data-sync/issues/${issueB.id}.md`,
+      );
+      expect(remoteIssueA).toContain('Issue from local branch A');
+      expect(remoteIssueB).toContain('Issue from local branch B');
+    });
   });
 
   describe('merge algorithm', () => {

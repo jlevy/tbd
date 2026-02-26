@@ -37,6 +37,7 @@ import {
   writeConfig,
   markWelcomeSeen,
 } from '../../file/config.js';
+import { resolveSyncBranchRefs } from '../../file/sync-branch.js';
 import { syncDocsWithDefaults } from '../../file/doc-sync.js';
 import { VERSION } from '../lib/version.js';
 import {
@@ -1468,7 +1469,9 @@ class SetupDefaultHandler extends BaseCommand {
 
     // 3. Initialize worktree for sync branch
     try {
-      await initWorktree(cwd);
+      const config = await readConfig(cwd);
+      const refs = await resolveSyncBranchRefs(cwd, config, { forWrite: true });
+      await initWorktree(cwd, refs.remoteName, refs.remoteSyncBranch, refs.localSyncBranch);
 
       // Verify worktree health after creation (prevents silent failures)
       const health = await checkWorktreeHealth(cwd);

@@ -13,12 +13,12 @@ import { ensureGitignorePatterns } from '../../utils/gitignore-utils.js';
 import { CLIError, ValidationError } from '../lib/errors.js';
 import { isValidPrefix, isRecommendedPrefix } from '../lib/prefix-detection.js';
 import { VERSION } from '../lib/version.js';
-import { initConfig } from '../../file/config.js';
+import { initConfig, writeConfig } from '../../file/config.js';
+import { resolveSyncBranchRefs } from '../../file/sync-branch.js';
 import {
   TBD_DIR,
   WORKTREE_DIR_NAME,
   DATA_SYNC_DIR_NAME,
-  SYNC_BRANCH,
   TBD_SHORTCUTS_SYSTEM,
   TBD_SHORTCUTS_STANDARD,
   TBD_GUIDELINES_DIR,
@@ -111,7 +111,7 @@ class InitHandler extends BaseCommand {
     await this.execute(async () => {
       // 1. Create .tbd/ directory with config.yml
       // Note: options.prefix is validated to be non-null above
-      await initConfig(cwd, VERSION, options.prefix!);
+      const createdConfig = await initConfig(cwd, VERSION, options.prefix!);
       this.output.debug(`Created ${TBD_DIR}/config.yml with prefix '${options.prefix}'`);
 
       // 2. Create .tbd/.gitignore (idempotent)
@@ -148,10 +148,23 @@ class InitHandler extends BaseCommand {
       await mkdir(join(cwd, TBD_TEMPLATES_DIR), { recursive: true });
       this.output.debug(`Created ${TBD_DOCS_DIR}/ directories`);
 
-      // 4. Initialize the hidden worktree for tbd-sync branch
-      // This creates .tbd/data-sync-worktree/ with the sync branch checkout
-      const remote = options.remote ?? 'origin';
-      const syncBranch = options.syncBranch ?? SYNC_BRANCH;
+      // 4. Initialize the hidden worktree for sync branch.
+      // If branch/remote overrides were provided, persist them in config first.
+      const config =
+        options.remote || options.syncBranch
+          ? {
+              ...createdConfig,
+              sync: {
+                branch: options.syncBranch ?? createdConfig.sync.branch,
+                remote: options.remote ?? createdConfig.sync.remote,
+              },
+            }
+          : createdConfig;
+      if (config !== createdConfig) {
+        await writeConfig(cwd, config);
+        this.output.debug(`Updated ${TBD_DIR}/config.yml with sync overrides`);
+      }
+      const refs = await resolveSyncBranchRefs(cwd, config, { forWrite: true });
 
       // Check Git version before attempting worktree creation
       // Git 2.42+ is required for --orphan worktree support
@@ -172,7 +185,12 @@ class InitHandler extends BaseCommand {
         this.output.debug(`Git version check skipped: ${(error as Error).message}`);
       }
 
-      const worktreeResult = await initWorktree(cwd, remote, syncBranch);
+      const worktreeResult = await initWorktree(
+        cwd,
+        refs.remoteName,
+        refs.remoteSyncBranch,
+        refs.localSyncBranch,
+      );
 
       if (worktreeResult.success) {
         if (worktreeResult.created) {

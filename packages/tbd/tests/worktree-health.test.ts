@@ -21,6 +21,7 @@ import {
   checkGitVersion,
   repairWorktree,
   migrateDataToWorktree,
+  ensureWorktreeAttached,
 } from '../src/file/git.js';
 import { resolveDataSyncDir, WorktreeMissingError, clearPathCache } from '../src/lib/paths.js';
 import {
@@ -229,6 +230,44 @@ describeUnlessWindows('worktree health checks', () => {
 
       expect(consistency.localAhead).toBe(1);
       expect(consistency.localBehind).toBe(0);
+    });
+
+    it('supports split local and remote branch names', async () => {
+      await initWorktree(workRepoPath);
+
+      const worktreePath = join(workRepoPath, WORKTREE_DIR);
+      await gitInDir(worktreePath, 'push', '-u', 'origin', SYNC_BRANCH);
+
+      const localManaged = 'tbd-sync--wt-test';
+      await gitInDir(workRepoPath, 'branch', localManaged, SYNC_BRANCH);
+      await gitInDir(worktreePath, 'checkout', localManaged);
+
+      const consistency = await checkSyncConsistency(
+        workRepoPath,
+        localManaged,
+        'origin',
+        SYNC_BRANCH,
+      );
+      expect(consistency.worktreeMatchesLocal).toBe(true);
+      expect(consistency.localAhead).toBe(0);
+      expect(consistency.localBehind).toBe(0);
+    });
+  });
+
+  describe('ensureWorktreeAttached', () => {
+    it('reattaches detached worktree to expected local branch', async () => {
+      await initWorktree(workRepoPath);
+
+      const worktreePath = join(workRepoPath, WORKTREE_DIR);
+      const localManaged = 'tbd-sync--wt-attach';
+      await gitInDir(workRepoPath, 'branch', localManaged, SYNC_BRANCH);
+      await gitInDir(worktreePath, 'checkout', '--detach');
+
+      const repaired = await ensureWorktreeAttached(worktreePath, localManaged);
+      expect(repaired).toBe(true);
+
+      const currentBranch = await gitInDir(worktreePath, 'branch', '--show-current');
+      expect(currentBranch).toBe(localManaged);
     });
   });
 });

@@ -13,7 +13,12 @@ import { join } from 'node:path';
 import { BaseCommand } from '../lib/base-command.js';
 import { requireInit } from '../lib/errors.js';
 import { listIssues } from '../../file/storage.js';
-import { readConfig } from '../../file/config.js';
+import { readConfig, readLocalState } from '../../file/config.js';
+import {
+  resolveSyncBranchRefs,
+  listManagedLocalBranches,
+  type SyncBranchRefs,
+} from '../../file/sync-branch.js';
 import type { Config, Issue, IssueStatusType } from '../../lib/types.js';
 import { resolveDataSyncDir, TBD_DIR, WORKTREE_DIR, DATA_SYNC_DIR } from '../../lib/paths.js';
 import { detectDuplicateYamlKeys } from '../../utils/yaml-utils.js';
@@ -33,6 +38,8 @@ import {
   checkLocalBranchHealth,
   checkRemoteBranchHealth,
   checkSyncConsistency,
+  isBranchCheckedOutInOtherWorktree,
+  ensureWorktreeAttached,
   repairWorktree,
   migrateDataToWorktree,
   initWorktree,
@@ -57,6 +64,7 @@ class DoctorHandler extends BaseCommand {
   private dataSyncDir = '';
   private cwd = '';
   private config: Config | null = null;
+  private syncRefs: SyncBranchRefs | null = null;
   private issues: Issue[] = [];
 
   async run(options: DoctorOptions): Promise<void> {
@@ -68,6 +76,9 @@ class DoctorHandler extends BaseCommand {
     // Load config
     try {
       this.config = await readConfig(this.cwd);
+      this.syncRefs = await resolveSyncBranchRefs(this.cwd, this.config, {
+        forWrite: Boolean(options.fix),
+      });
     } catch {
       // Config may be invalid - will be caught by health checks
     }
@@ -136,6 +147,12 @@ class DoctorHandler extends BaseCommand {
     // Check 15: Sync consistency (worktree matches local, ahead/behind counts)
     healthChecks.push(await this.checkSyncConsistency());
 
+    // Check 16: Local sync branch binding in state/worktree
+    healthChecks.push(await this.checkLocalSyncBinding(options.fix));
+
+    // Check 17: Stale managed local sync branches
+    healthChecks.push(await this.checkManagedLocalBranches(options.fix));
+
     // Run integration checks (optional IDE/agent integrations)
     const integrationChecks: DiagnosticResult[] = [];
 
@@ -172,10 +189,12 @@ class DoctorHandler extends BaseCommand {
 
         // CONFIG section (shared with status command)
         if (this.config) {
+          const refs = this.getSyncRefs();
           renderConfigSection(
             {
-              syncBranch: this.config.sync.branch,
-              remote: this.config.sync.remote,
+              syncBranch: refs.remoteSyncBranch,
+              localSyncBranch: refs.localSyncBranch,
+              remote: refs.remoteName,
               displayPrefix: this.config.display.id_prefix,
             },
             colors,
@@ -224,6 +243,24 @@ class DoctorHandler extends BaseCommand {
     return {
       gitBranch,
       worktreeHealthy: worktreeHealth.valid,
+    };
+  }
+
+  /**
+   * Get resolved sync refs, falling back to config defaults when resolution is unavailable.
+   */
+  private getSyncRefs(): SyncBranchRefs {
+    if (this.syncRefs) {
+      return this.syncRefs;
+    }
+
+    const remoteSyncBranch = this.config?.sync.branch ?? 'tbd-sync';
+    const remoteName = this.config?.sync.remote ?? 'origin';
+    return {
+      remoteName,
+      remoteSyncBranch,
+      localSyncBranch: remoteSyncBranch,
+      source: 'canonical',
     };
   }
 
@@ -714,7 +751,14 @@ class DoctorHandler extends BaseCommand {
       case 'corrupted': {
         // Attempt repair if --fix is provided and not in dry-run mode
         if (fix && !this.checkDryRun('Repair worktree')) {
-          const result = await repairWorktree(this.cwd, worktreeHealth.status);
+          const refs = this.getSyncRefs();
+          const result = await repairWorktree(
+            this.cwd,
+            worktreeHealth.status,
+            refs.remoteName,
+            refs.remoteSyncBranch,
+            refs.localSyncBranch,
+          );
 
           if (result.success) {
             const message = result.backedUp
@@ -796,11 +840,17 @@ class DoctorHandler extends BaseCommand {
 
     // Issues found in wrong location - attempt migration if --fix and not dry-run
     if (fix && !this.checkDryRun('Migrate data to worktree')) {
+      const refs = this.getSyncRefs();
       // First ensure worktree exists - create it if missing
       let worktreeHealth = await checkWorktreeHealth(this.cwd);
       if (worktreeHealth.status === 'missing') {
         // Worktree doesn't exist yet - create it for migration
-        const initResult = await initWorktree(this.cwd);
+        const initResult = await initWorktree(
+          this.cwd,
+          refs.remoteName,
+          refs.remoteSyncBranch,
+          refs.localSyncBranch,
+        );
         if (!initResult.success) {
           return {
             name: 'Data location',
@@ -826,7 +876,7 @@ class DoctorHandler extends BaseCommand {
       }
 
       // Migrate data to worktree
-      const result = await migrateDataToWorktree(this.cwd);
+      const result = await migrateDataToWorktree(this.cwd, false, refs.localSyncBranch);
 
       if (result.success) {
         const message = result.backupPath
@@ -864,24 +914,27 @@ class DoctorHandler extends BaseCommand {
    * See: plan-2026-01-28-sync-worktree-recovery-and-hardening.md §4b
    */
   private async checkLocalSyncBranch(): Promise<DiagnosticResult> {
-    const syncBranch = this.config?.sync.branch ?? 'tbd-sync';
-    const localHealth = await checkLocalBranchHealth(syncBranch);
+    const refs = this.getSyncRefs();
+    const localHealth = await checkLocalBranchHealth(refs.localSyncBranch);
 
     if (localHealth.exists && !localHealth.orphaned) {
-      return { name: 'Local sync branch', status: 'ok', message: syncBranch };
+      return { name: 'Local sync branch', status: 'ok', message: refs.localSyncBranch };
     }
 
     if (!localHealth.exists) {
       // Local branch doesn't exist - check if remote exists
-      const remote = this.config?.sync.remote ?? 'origin';
-      const remoteHealth = await checkRemoteBranchHealth(remote, syncBranch);
+      const remoteHealth = await checkRemoteBranchHealth(
+        refs.remoteName,
+        refs.remoteSyncBranch,
+        refs.localSyncBranch,
+      );
 
       if (remoteHealth.exists) {
         // Remote exists but local doesn't - can be created from remote
         return {
           name: 'Local sync branch',
           status: 'warn',
-          message: `${syncBranch} not found (remote exists)`,
+          message: `${refs.localSyncBranch} not found (remote exists)`,
           suggestion: 'Run: tbd sync to create from remote',
         };
       }
@@ -898,7 +951,7 @@ class DoctorHandler extends BaseCommand {
     return {
       name: 'Local sync branch',
       status: 'warn',
-      message: `${syncBranch} exists but has no commits`,
+      message: `${refs.localSyncBranch} exists but has no commits`,
       suggestion: 'Run: tbd sync to push data',
     };
   }
@@ -908,30 +961,37 @@ class DoctorHandler extends BaseCommand {
    * See: plan-2026-01-28-sync-worktree-recovery-and-hardening.md §4b
    */
   private async checkRemoteSyncBranch(): Promise<DiagnosticResult> {
-    const syncBranch = this.config?.sync.branch ?? 'tbd-sync';
-    const remote = this.config?.sync.remote ?? 'origin';
-    const remoteHealth = await checkRemoteBranchHealth(remote, syncBranch);
+    const refs = this.getSyncRefs();
+    const remoteHealth = await checkRemoteBranchHealth(
+      refs.remoteName,
+      refs.remoteSyncBranch,
+      refs.localSyncBranch,
+    );
 
     if (remoteHealth.exists) {
       if (remoteHealth.diverged) {
         return {
           name: 'Remote sync branch',
           status: 'warn',
-          message: `${remote}/${syncBranch} has diverged`,
+          message: `${refs.remoteName}/${refs.remoteSyncBranch} has diverged`,
           suggestion: 'Run: tbd sync to reconcile changes',
         };
       }
-      return { name: 'Remote sync branch', status: 'ok', message: `${remote}/${syncBranch}` };
+      return {
+        name: 'Remote sync branch',
+        status: 'ok',
+        message: `${refs.remoteName}/${refs.remoteSyncBranch}`,
+      };
     }
 
     // Remote branch doesn't exist
-    const localHealth = await checkLocalBranchHealth(syncBranch);
+    const localHealth = await checkLocalBranchHealth(refs.localSyncBranch);
     if (localHealth.exists) {
       // Local exists but remote doesn't - needs push
       return {
         name: 'Remote sync branch',
         status: 'warn',
-        message: `${remote}/${syncBranch} not found`,
+        message: `${refs.remoteName}/${refs.remoteSyncBranch} not found`,
         suggestion: 'Run: tbd sync to push local branch',
       };
     }
@@ -964,9 +1024,12 @@ class DoctorHandler extends BaseCommand {
     }
 
     // Check if remote branch exists and has commits
-    const syncBranch = this.config?.sync.branch ?? 'tbd-sync';
-    const remote = this.config?.sync.remote ?? 'origin';
-    const remoteHealth = await checkRemoteBranchHealth(remote, syncBranch);
+    const refs = this.getSyncRefs();
+    const remoteHealth = await checkRemoteBranchHealth(
+      refs.remoteName,
+      refs.remoteSyncBranch,
+      refs.localSyncBranch,
+    );
 
     if (!remoteHealth.exists) {
       // Remote doesn't exist - issues haven't been pushed
@@ -1072,8 +1135,7 @@ class DoctorHandler extends BaseCommand {
    * See: plan-2026-01-28-sync-worktree-recovery-and-hardening.md §4
    */
   private async checkSyncConsistency(): Promise<DiagnosticResult> {
-    const syncBranch = this.config?.sync.branch ?? 'tbd-sync';
-    const remote = this.config?.sync.remote ?? 'origin';
+    const refs = this.getSyncRefs();
 
     // Only check if worktree is valid
     const worktreeHealth = await checkWorktreeHealth(this.cwd);
@@ -1082,7 +1144,12 @@ class DoctorHandler extends BaseCommand {
     }
 
     try {
-      const consistency = await checkSyncConsistency(this.cwd, syncBranch, remote);
+      const consistency = await checkSyncConsistency(
+        this.cwd,
+        refs.localSyncBranch,
+        refs.remoteName,
+        refs.remoteSyncBranch,
+      );
 
       // Check if worktree matches local
       if (!consistency.worktreeMatchesLocal) {
@@ -1092,7 +1159,7 @@ class DoctorHandler extends BaseCommand {
           message: 'worktree HEAD does not match local branch',
           details: [
             `Worktree HEAD: ${consistency.worktreeHead.slice(0, 7)}`,
-            `Local ${syncBranch}: ${consistency.localHead.slice(0, 7)}`,
+            `Local ${refs.localSyncBranch}: ${consistency.localHead.slice(0, 7)}`,
           ],
           fixable: true,
           suggestion: 'Run: tbd doctor --fix to synchronize',
@@ -1140,6 +1207,140 @@ class DoctorHandler extends BaseCommand {
         message: `Unable to check: ${msg}`,
       };
     }
+  }
+
+  /**
+   * Check that local sync branch state and worktree attachment are coherent.
+   */
+  private async checkLocalSyncBinding(fix?: boolean): Promise<DiagnosticResult> {
+    const refs = this.getSyncRefs();
+    const state = await readLocalState(this.cwd);
+    const stateBranch = state.local_sync_branch;
+    const worktreePath = join(this.cwd, WORKTREE_DIR);
+
+    if (stateBranch && stateBranch !== refs.localSyncBranch) {
+      if (fix && this.config && !this.checkDryRun('Re-resolve local sync branch binding')) {
+        this.syncRefs = await resolveSyncBranchRefs(this.cwd, this.config, { forWrite: true });
+        return {
+          name: 'Local sync binding',
+          status: 'ok',
+          message: `updated to ${this.syncRefs.localSyncBranch}`,
+        };
+      }
+
+      return {
+        name: 'Local sync binding',
+        status: 'warn',
+        message: `state points to ${stateBranch}, resolved ${refs.localSyncBranch}`,
+        fixable: true,
+        suggestion: 'Run: tbd doctor --fix to update local binding',
+      };
+    }
+
+    if (stateBranch) {
+      const occupiedElsewhere = await isBranchCheckedOutInOtherWorktree(
+        this.cwd,
+        stateBranch,
+        worktreePath,
+      );
+      if (occupiedElsewhere) {
+        return {
+          name: 'Local sync binding',
+          status: 'warn',
+          message: `${stateBranch} is checked out by another worktree`,
+          fixable: true,
+          suggestion: 'Run: tbd doctor --fix to rebind this checkout',
+        };
+      }
+    }
+
+    const worktreeHealth = await checkWorktreeHealth(this.cwd);
+    if (worktreeHealth.status !== 'valid') {
+      return { name: 'Local sync binding', status: 'ok', message: 'worktree not active' };
+    }
+
+    if (worktreeHealth.branch === refs.localSyncBranch) {
+      return { name: 'Local sync binding', status: 'ok', message: refs.localSyncBranch };
+    }
+
+    if (fix && !this.checkDryRun('Attach worktree to resolved local sync branch')) {
+      await ensureWorktreeAttached(worktreePath, refs.localSyncBranch);
+      return {
+        name: 'Local sync binding',
+        status: 'ok',
+        message: `attached to ${refs.localSyncBranch}`,
+      };
+    }
+
+    const branchMsg = worktreeHealth.branch ?? 'detached HEAD';
+    return {
+      name: 'Local sync binding',
+      status: 'warn',
+      message: `worktree on ${branchMsg}, expected ${refs.localSyncBranch}`,
+      fixable: true,
+      suggestion: 'Run: tbd doctor --fix to reattach worktree',
+    };
+  }
+
+  /**
+   * Identify and optionally prune stale managed local sync branches.
+   */
+  private async checkManagedLocalBranches(fix?: boolean): Promise<DiagnosticResult> {
+    const refs = this.getSyncRefs();
+    const managed = await listManagedLocalBranches(this.cwd, refs.remoteSyncBranch);
+    const candidates = managed.filter((branch) => branch !== refs.localSyncBranch);
+
+    if (candidates.length === 0) {
+      return { name: 'Managed branches', status: 'ok' };
+    }
+
+    const stale: string[] = [];
+    for (const branch of candidates) {
+      const inUse = await isBranchCheckedOutInOtherWorktree(this.cwd, branch);
+      if (!inUse) {
+        stale.push(branch);
+      }
+    }
+
+    if (stale.length === 0) {
+      return { name: 'Managed branches', status: 'ok', message: `${candidates.length} active` };
+    }
+
+    if (fix && !this.checkDryRun('Prune stale managed local sync branches')) {
+      let removed = 0;
+      const failed: string[] = [];
+      for (const branch of stale) {
+        try {
+          await git('-C', this.cwd, 'branch', '-D', branch);
+          removed += 1;
+        } catch {
+          failed.push(branch);
+        }
+      }
+
+      if (failed.length > 0) {
+        return {
+          name: 'Managed branches',
+          status: 'warn',
+          message: `removed ${removed}, failed ${failed.length}`,
+          details: failed.map((branch) => `Could not remove: ${branch}`),
+        };
+      }
+
+      return {
+        name: 'Managed branches',
+        status: 'ok',
+        message: `removed ${removed} stale branch(es)`,
+      };
+    }
+
+    return {
+      name: 'Managed branches',
+      status: 'warn',
+      message: `${stale.length} stale managed branch(es)`,
+      fixable: true,
+      suggestion: 'Run: tbd doctor --fix to prune stale managed branches',
+    };
   }
 }
 

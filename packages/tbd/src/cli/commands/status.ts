@@ -27,6 +27,7 @@ import {
   type IntegrationCheck,
 } from '../lib/sections.js';
 import { readConfig, findTbdRoot } from '../../file/config.js';
+import { resolveSyncBranchRefs } from '../../file/sync-branch.js';
 import { WORKTREE_DIR } from '../../lib/paths.js';
 import {
   getClaudePaths,
@@ -61,6 +62,7 @@ interface StatusData {
 
   // Post-init only
   sync_branch: string | null;
+  local_sync_branch: string | null;
   remote: string | null;
   display_prefix: string | null;
   worktree_path: string | null;
@@ -101,6 +103,7 @@ class StatusHandler extends BaseCommand {
       beads_detected: false,
       beads_issue_count: null,
       sync_branch: null,
+      local_sync_branch: null,
       remote: null,
       display_prefix: null,
       worktree_path: null,
@@ -232,8 +235,10 @@ class StatusHandler extends BaseCommand {
     // Load config
     try {
       const config = await readConfig(cwd);
-      data.sync_branch = config.sync.branch;
-      data.remote = config.sync.remote;
+      const refs = await resolveSyncBranchRefs(cwd, config, { forWrite: false });
+      data.sync_branch = refs.remoteSyncBranch;
+      data.local_sync_branch = refs.localSyncBranch;
+      data.remote = refs.remoteName;
       data.display_prefix = config.display.id_prefix;
     } catch {
       // Config read failed
@@ -286,6 +291,7 @@ class StatusHandler extends BaseCommand {
     renderConfigSection(
       {
         syncBranch: data.sync_branch,
+        localSyncBranch: data.local_sync_branch,
         remote: data.remote,
         displayPrefix: data.display_prefix,
       },

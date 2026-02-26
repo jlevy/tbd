@@ -30,6 +30,7 @@ export interface RepositorySectionData {
  */
 export interface ConfigSectionData {
   syncBranch: string | null;
+  localSyncBranch?: string | null;
   remote: string | null;
   displayPrefix: string | null;
 }
@@ -137,6 +138,9 @@ export function renderConfigSection(
 
   if (data.syncBranch) {
     console.log(`${colors.dim('Sync branch:')} ${data.syncBranch}`);
+  }
+  if (data.localSyncBranch && data.localSyncBranch !== data.syncBranch) {
+    console.log(`${colors.dim('Local sync branch:')} ${data.localSyncBranch}`);
   }
   if (data.remote) {
     console.log(`${colors.dim('Remote:')} ${data.remote}`);
