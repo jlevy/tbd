@@ -51,6 +51,7 @@ const CONFIG_DIR = TBD_DIR;
 
 interface DoctorOptions {
   fix?: boolean;
+  maxHistory?: string;
 }
 
 class DoctorHandler extends BaseCommand {
@@ -113,7 +114,10 @@ class DoctorHandler extends BaseCommand {
     healthChecks.push(this.checkIssueValidity(this.issues));
 
     // Check 8b: Missing ID mappings (issues without short IDs)
-    healthChecks.push(await this.checkMissingMappings(options.fix));
+    const parsedMaxHistory = options.maxHistory ? parseInt(options.maxHistory, 10) : 50;
+    const maxHistory =
+      Number.isNaN(parsedMaxHistory) || parsedMaxHistory < 0 ? 50 : parsedMaxHistory;
+    healthChecks.push(await this.checkMissingMappings(options.fix, maxHistory));
 
     // Check 9: Worktree health (with fix support)
     healthChecks.push(await this.checkWorktree(options.fix));
@@ -573,7 +577,7 @@ class DoctorHandler extends BaseCommand {
    *
    * With --fix, creates missing mappings automatically.
    */
-  private async checkMissingMappings(fix?: boolean): Promise<DiagnosticResult> {
+  private async checkMissingMappings(fix?: boolean, maxHistory = 50): Promise<DiagnosticResult> {
     if (this.issues.length === 0) {
       return { name: 'ID mapping coverage', status: 'ok' };
     }
@@ -597,34 +601,44 @@ class DoctorHandler extends BaseCommand {
 
     if (fix && !this.checkDryRun('Create missing ID mappings')) {
       // Try to recover original short IDs from git history before generating new ones.
-      // Search the tbd-sync branch log for prior versions of ids.yml that contained
-      // the missing ULIDs.
-      const { parseIdMappingFromYaml } = await import('../../file/id-mapping.js');
+      // Search recent commits on the tbd-sync branch that touched ids.yml, not
+      // just the latest. This handles the case where a bug (e.g., migration
+      // overwrite) destroyed entries in a recent commit — the entries still exist
+      // in earlier commits. Since mappings are append-only, merging all versions
+      // is safe. Capped via --max-history (default 50, 0 = full history).
+      const { parseIdMappingFromYaml, mergeIdMappings } = await import('../../file/id-mapping.js');
       let historicalMapping: Awaited<ReturnType<typeof loadIdMapping>> | undefined;
       try {
-        // Get the full ids.yml content from the most recent prior commit on tbd-sync
         const config = await import('../../file/config.js').then((m) => m.readConfig(this.cwd));
         const syncBranch = config.sync.branch;
-        // Use git log to find the most recent commit that touched ids.yml
-        const priorContent = await git(
-          'log',
-          '-1',
-          '--format=%H',
-          syncBranch,
-          '--',
-          `${DATA_SYNC_DIR}/mappings/ids.yml`,
-        );
-        if (priorContent.trim()) {
-          const commitHash = priorContent.trim();
-          const idsContent = await git('show', `${commitHash}:${DATA_SYNC_DIR}/mappings/ids.yml`);
-          if (idsContent) {
-            historicalMapping = parseIdMappingFromYaml(idsContent);
+        // Get recent commits that touched ids.yml (most recent first, capped)
+        const logArgs = ['log', '--format=%H'];
+        if (maxHistory > 0) {
+          logArgs.push(`-${maxHistory}`);
+        }
+        logArgs.push(syncBranch, '--', `${DATA_SYNC_DIR}/mappings/ids.yml`);
+        const commitLog = await git(...logArgs);
+        const commitHashes = commitLog.trim().split('\n').filter(Boolean);
+        for (const commitHash of commitHashes) {
+          try {
+            const idsContent = await git('show', `${commitHash}:${DATA_SYNC_DIR}/mappings/ids.yml`);
+            if (idsContent) {
+              const versionMapping = parseIdMappingFromYaml(idsContent);
+              if (!historicalMapping) {
+                historicalMapping = versionMapping;
+              } else {
+                historicalMapping = mergeIdMappings(historicalMapping, versionMapping);
+              }
+            }
+          } catch {
+            // Individual commit may be unreachable — skip
           }
         }
       } catch {
         // Git history not available - will generate new IDs
       }
 
+      const historicalCount = historicalMapping?.shortToUlid.size ?? 0;
       const result = reconcileMappings(missingIds, mapping, historicalMapping);
       await saveIdMapping(this.dataSyncDir, mapping);
 
@@ -635,10 +649,24 @@ class DoctorHandler extends BaseCommand {
       if (result.created.length > 0) {
         parts.push(`created ${result.created.length} new`);
       }
+      const details: string[] = [
+        `Scanned ${maxHistory > 0 ? `up to ${maxHistory}` : 'all'} git commits for ids.yml history`,
+        `Found ${historicalCount} historical mapping(s) to use for recovery`,
+        `${missingIds.length} issue(s) were missing short ID mappings`,
+      ];
+      if (result.recovered.length > 0) {
+        details.push(`Recovered ${result.recovered.length} original short ID(s) from git history`);
+      }
+      if (result.created.length > 0) {
+        details.push(
+          `Generated ${result.created.length} new short ID(s) (originals not found in history)`,
+        );
+      }
       return {
         name: 'ID mapping coverage',
         status: 'ok',
         message: parts.join(', '),
+        details,
       };
     }
 
@@ -825,14 +853,28 @@ class DoctorHandler extends BaseCommand {
         };
       }
 
-      // Migrate data to worktree
-      const result = await migrateDataToWorktree(this.cwd);
+      // Migrate data to worktree (remove source after backup + copy)
+      const result = await migrateDataToWorktree(this.cwd, true);
 
       if (result.success) {
+        const details: string[] = [];
+        if (result.backupPath) {
+          details.push(`Backed up to ${result.backupPath}`);
+        }
+        details.push(
+          `Migrated ${result.migratedCount} file(s) from .tbd/data-sync/ to worktree`,
+          'Source files removed after successful migration',
+        );
         const message = result.backupPath
           ? `migrated ${result.migratedCount} file(s), backed up to ${result.backupPath}`
           : `migrated ${result.migratedCount} file(s)`;
-        return { name: 'Data location', status: 'ok', message, path: wrongIssuesPath };
+        return {
+          name: 'Data location',
+          status: 'ok',
+          message,
+          path: wrongIssuesPath,
+          details,
+        };
       }
 
       return {
@@ -1112,18 +1154,16 @@ class DoctorHandler extends BaseCommand {
       if (consistency.localAhead > 0) {
         return {
           name: 'Sync consistency',
-          status: 'warn',
-          message: `${consistency.localAhead} commit(s) ahead of remote`,
-          suggestion: 'Run: tbd sync to push changes',
+          status: 'ok',
+          message: `${consistency.localAhead} local commit(s) not yet pushed — run \`tbd sync\` to push`,
         };
       }
 
       if (consistency.localBehind > 0) {
         return {
           name: 'Sync consistency',
-          status: 'warn',
-          message: `${consistency.localBehind} commit(s) behind remote`,
-          suggestion: 'Run: tbd sync to pull changes',
+          status: 'ok',
+          message: `${consistency.localBehind} remote commit(s) not yet pulled — run \`tbd sync\` to pull`,
         };
       }
 
@@ -1146,6 +1186,11 @@ class DoctorHandler extends BaseCommand {
 export const doctorCommand = new Command('doctor')
   .description('Diagnose and repair repository')
   .option('--fix', 'Attempt to fix issues')
+  .option(
+    '--max-history <n>',
+    'Max git commits to scan for ID mapping recovery (0 = full history)',
+    '50',
+  )
   .action(async (options, command) => {
     const handler = new DoctorHandler(command);
     await handler.run(options);

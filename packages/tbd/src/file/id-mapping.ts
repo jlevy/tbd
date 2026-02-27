@@ -12,6 +12,7 @@ import { join, dirname } from 'node:path';
 import { writeFile } from 'atomically';
 
 import { parseYamlToleratingDuplicateKeys, stringifyYaml } from '../utils/yaml-utils.js';
+import { withLockfile } from '../utils/lockfile.js';
 
 import {
   generateShortId,
@@ -97,7 +98,15 @@ export async function loadIdMapping(baseDir: string): Promise<IdMapping> {
 }
 
 /**
- * Save the ID mapping to disk.
+ * Save the ID mapping to disk with mutual exclusion.
+ *
+ * Uses a lockfile to serialize concurrent writers, then performs read-merge-write
+ * inside the lock. This prevents the lost-update problem when multiple `tbd create`
+ * commands run in parallel.
+ *
+ * The merge is safe because ID mappings are append-only — entries are never
+ * intentionally removed. Even if the lock acquisition fails (degraded mode),
+ * the read-merge-write provides a fallback that preserves entries from other writers.
  */
 export async function saveIdMapping(baseDir: string, mapping: IdMapping): Promise<void> {
   const filePath = getMappingPath(baseDir);
@@ -105,16 +114,69 @@ export async function saveIdMapping(baseDir: string, mapping: IdMapping): Promis
   // Ensure directory exists
   await mkdir(dirname(filePath), { recursive: true });
 
-  // Convert Map to sorted object for deterministic output
-  // Use natural sort so "1", "2", "10" sorts correctly (not "1", "10", "2")
-  const data: Record<string, string> = {};
-  const sortedKeys = naturalSort(Array.from(mapping.shortToUlid.keys()));
-  for (const key of sortedKeys) {
-    data[key] = mapping.shortToUlid.get(key)!;
+  await withLockfile(filePath + '.lock', async () => {
+    // Inside the lock: read current on-disk state, merge with our in-memory
+    // mapping, and write the result. Our entries take precedence for short ID
+    // conflicts (extremely unlikely with random 4-char base36 IDs).
+    let merged = mapping;
+    let onDiskSize = 0;
+    try {
+      const onDisk = await loadIdMappingRaw(filePath);
+      onDiskSize = onDisk.shortToUlid.size;
+      if (onDiskSize > 0) {
+        merged = mergeIdMappings(mapping, onDisk);
+      }
+    } catch {
+      // File doesn't exist or is unreadable — proceed with our mapping only
+    }
+
+    // Safety check: ID mappings are append-only. If the merged result has fewer
+    // entries than what's on disk, something went wrong. Refuse to write so the
+    // caller can investigate rather than silently destroying entries.
+    if (merged.shortToUlid.size < onDiskSize) {
+      throw new Error(
+        `Refusing to save ID mapping: would lose ${onDiskSize - merged.shortToUlid.size} entries ` +
+          `(on-disk: ${onDiskSize}, proposed: ${merged.shortToUlid.size}). ` +
+          `ID mappings are append-only — this indicates a bug.`,
+      );
+    }
+
+    const data: Record<string, string> = {};
+    const sortedKeys = naturalSort(Array.from(merged.shortToUlid.keys()));
+    for (const key of sortedKeys) {
+      data[key] = merged.shortToUlid.get(key)!;
+    }
+
+    const content = stringifyYaml(data);
+    await writeFile(filePath, content);
+  });
+}
+
+/**
+ * Load an ID mapping directly from a file path (internal helper for save merging).
+ * Separated from loadIdMapping to avoid coupling the save path to baseDir resolution.
+ */
+async function loadIdMappingRaw(filePath: string): Promise<IdMapping> {
+  const content = await readFile(filePath, 'utf-8');
+
+  const { data: rawData } = parseYamlToleratingDuplicateKeys<unknown>(content, filePath);
+  const data = rawData ?? {};
+
+  const parseResult = IdMappingYamlSchema.safeParse(data);
+  if (!parseResult.success) {
+    throw new Error(`Invalid ID mapping format in ${filePath}: ${parseResult.error.message}`);
+  }
+  const validData = parseResult.data;
+
+  const shortToUlid = new Map<string, string>();
+  const ulidToShort = new Map<string, string>();
+
+  for (const [shortId, ulid] of Object.entries(validData)) {
+    shortToUlid.set(shortId, ulid);
+    ulidToShort.set(ulid, shortId);
   }
 
-  const content = stringifyYaml(data);
-  await writeFile(filePath, content);
+  return { shortToUlid, ulidToShort };
 }
 
 /**

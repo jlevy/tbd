@@ -1444,8 +1444,19 @@ export async function migrateDataToWorktree(
       await cp(join(wrongIssuesPath, file), join(correctIssuesPath, file));
     }
 
+    // Merge ID mappings instead of overwriting — ids.yml is append-only, so a
+    // raw cp would destroy existing entries in the worktree. Import and use the
+    // merge utilities so both source and destination entries are preserved.
     for (const file of mappingFiles) {
-      await cp(join(wrongMappingsPath, file), join(correctMappingsPath, file));
+      if (file === 'ids.yml') {
+        const { loadIdMapping, mergeIdMappings, saveIdMapping } = await import('./id-mapping.js');
+        const sourceMapping = await loadIdMapping(wrongPath);
+        const targetMapping = await loadIdMapping(correctPath);
+        const merged = mergeIdMappings(targetMapping, sourceMapping);
+        await saveIdMapping(correctPath, merged);
+      } else {
+        await cp(join(wrongMappingsPath, file), join(correctMappingsPath, file));
+      }
     }
 
     // Step 3: Commit in worktree (if there are changes)
