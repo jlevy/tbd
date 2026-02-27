@@ -1,5 +1,12 @@
 # get-tbd
 
+## 0.1.24
+
+### Patch Changes
+
+- 71d6033: Bug fixes for concurrent create race conditions, migration safety, doctor
+  history scanning, lockfile defaults, and sync status reporting.
+
 ## 0.1.23
 
 ### Patch Changes
