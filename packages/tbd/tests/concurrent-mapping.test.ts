@@ -1,8 +1,9 @@
 /**
  * Tests for concurrent ID mapping operations.
  *
- * Validates that saveIdMapping's read-merge-write prevents data loss
- * when multiple processes write to ids.yml concurrently.
+ * Validates that saveIdMapping's lockfile-based mutual exclusion and
+ * read-merge-write prevents data loss when multiple processes write
+ * to ids.yml concurrently.
  *
  * See: Bug report "tbd missing short ID mapping after concurrent create"
  */
@@ -28,7 +29,7 @@ function emptyMapping(): IdMapping {
   };
 }
 
-describe('saveIdMapping read-merge-write', () => {
+describe('saveIdMapping concurrent safety', () => {
   let tempDir: string;
 
   beforeEach(async () => {
@@ -42,7 +43,7 @@ describe('saveIdMapping read-merge-write', () => {
   it('preserves entries from concurrent writers', async () => {
     // Simulate the race: two "processes" load the same empty mapping,
     // each adds its own entry, then both save.
-    // Without read-merge-write, the second save would overwrite the first.
+    // Without the lock + merge, the second save would overwrite the first.
 
     // Process A loads mapping (empty)
     const mappingA = await loadIdMapping(tempDir);
@@ -99,8 +100,9 @@ describe('saveIdMapping read-merge-write', () => {
     expect(result.shortToUlid.size).toBe(5);
   });
 
-  it('preserves entries when saves happen concurrently via Promise.all', async () => {
-    // All load, all add, all save concurrently
+  it('preserves all entries when saves happen concurrently via Promise.all', async () => {
+    // With lockfile-based mutual exclusion, even truly concurrent saves
+    // are serialized and all entries must survive.
     const entries: { ulid: string; shortId: string }[] = [
       { ulid: TEST_ULIDS.CONCURRENT_1, shortId: 'dd01' },
       { ulid: TEST_ULIDS.CONCURRENT_2, shortId: 'dd02' },
@@ -113,25 +115,16 @@ describe('saveIdMapping read-merge-write', () => {
       addIdMapping(snapshots[i]!, entries[i]!.ulid, entries[i]!.shortId);
     }
 
-    // Save all concurrently
+    // Save all concurrently — the lockfile serializes these
     await Promise.all(snapshots.map((s) => saveIdMapping(tempDir, s)));
 
-    // With read-merge-write, at least the last writer should have merged
-    // all previous entries. The key invariant: no entry is silently lost.
+    // All entries must survive
     const result = await loadIdMapping(tempDir);
-
-    // In the concurrent Promise.all case, the read-merge-write narrows
-    // the race window but can't guarantee all entries survive if writes
-    // truly overlap. We verify the minimum guarantee: at least the last
-    // writer's entry exists, and any entries that were on disk before
-    // a writer's re-read are preserved.
-    // In practice on local filesystem, sequential I/O ordering means
-    // most/all entries should survive.
-    expect(result.shortToUlid.size).toBeGreaterThanOrEqual(1);
-
-    // The strongest guarantee: check each entry is either present or
-    // can be recovered by doctor --fix (issue file still exists).
-    // For the sequential test above, ALL entries must survive.
+    for (const entry of entries) {
+      expect(result.shortToUlid.get(entry.shortId)).toBe(entry.ulid);
+      expect(result.ulidToShort.get(entry.ulid)).toBe(entry.shortId);
+    }
+    expect(result.shortToUlid.size).toBe(3);
   });
 
   it('does not lose pre-existing entries when saving new ones', async () => {
@@ -171,5 +164,17 @@ describe('saveIdMapping read-merge-write', () => {
     const result = await loadIdMapping(tempDir);
     expect(result.ulidToShort.has(TEST_ULIDS.CONCURRENT_1)).toBe(true);
     expect(result.ulidToShort.has(TEST_ULIDS.CONCURRENT_2)).toBe(true);
+  });
+
+  it('cleans up lockfile after save', async () => {
+    const mapping = emptyMapping();
+    addIdMapping(mapping, TEST_ULIDS.CONCURRENT_1, 'ff01');
+    await saveIdMapping(tempDir, mapping);
+
+    // Lockfile directory should not remain after successful save
+    const { readdir } = await import('node:fs/promises');
+    const mappingsDir = join(tempDir, 'mappings');
+    const files = await readdir(mappingsDir);
+    expect(files.filter((f) => f.includes('.lock'))).toEqual([]);
   });
 });
