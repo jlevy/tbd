@@ -114,7 +114,9 @@ class DoctorHandler extends BaseCommand {
     healthChecks.push(this.checkIssueValidity(this.issues));
 
     // Check 8b: Missing ID mappings (issues without short IDs)
-    const maxHistory = options.maxHistory ? parseInt(options.maxHistory, 10) : 50;
+    const parsedMaxHistory = options.maxHistory ? parseInt(options.maxHistory, 10) : 50;
+    const maxHistory =
+      Number.isNaN(parsedMaxHistory) || parsedMaxHistory < 0 ? 50 : parsedMaxHistory;
     healthChecks.push(await this.checkMissingMappings(options.fix, maxHistory));
 
     // Check 9: Worktree health (with fix support)
