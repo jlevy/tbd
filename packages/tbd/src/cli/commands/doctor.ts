@@ -597,18 +597,21 @@ class DoctorHandler extends BaseCommand {
 
     if (fix && !this.checkDryRun('Create missing ID mappings')) {
       // Try to recover original short IDs from git history before generating new ones.
-      // Search ALL commits on the tbd-sync branch that touched ids.yml, not just
-      // the latest. This handles the case where a bug (e.g., migration overwrite)
-      // destroyed entries in a recent commit — the entries still exist in earlier
-      // commits. Since mappings are append-only, merging all versions is safe.
+      // Search recent commits on the tbd-sync branch that touched ids.yml, not
+      // just the latest. This handles the case where a bug (e.g., migration
+      // overwrite) destroyed entries in a recent commit — the entries still exist
+      // in earlier commits. Since mappings are append-only, merging all versions
+      // is safe. Capped to avoid scanning thousands of commits on long-lived repos.
+      const MAX_HISTORY_COMMITS = 50;
       const { parseIdMappingFromYaml, mergeIdMappings } = await import('../../file/id-mapping.js');
       let historicalMapping: Awaited<ReturnType<typeof loadIdMapping>> | undefined;
       try {
         const config = await import('../../file/config.js').then((m) => m.readConfig(this.cwd));
         const syncBranch = config.sync.branch;
-        // Get all commits that touched ids.yml (most recent first)
+        // Get recent commits that touched ids.yml (most recent first, capped)
         const commitLog = await git(
           'log',
+          `-${MAX_HISTORY_COMMITS}`,
           '--format=%H',
           syncBranch,
           '--',

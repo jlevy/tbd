@@ -138,18 +138,17 @@ It looks at the **most recent** commit that touched `ids.yml` — but after the 
 bug, the most recent commit is the one that *destroyed* the entries.
 So recovery gets the truncated version and finds nothing to recover.
 
-**Fix:** Search **multiple** prior commits that touched `ids.yml` and merge them all.
-Since mappings are append-only, the union of all historical versions gives us the
-complete set of all mappings that ever existed:
+**Fix:** Search the most recent N commits (default 50) that touched `ids.yml` and merge
+them all. Since mappings are append-only, the union of historical versions gives us the
+complete set of all mappings from that window:
 
 ```typescript
-// Get all commits that touched ids.yml (not just the latest)
-const commitHashes = await git(
-  'log', '--format=%H', syncBranch, '--', `${DATA_SYNC_DIR}/mappings/ids.yml`
+const MAX_HISTORY_COMMITS = 50;
+const commitLog = await git(
+  'log', `-${MAX_HISTORY_COMMITS}`, '--format=%H', syncBranch,
+  '--', `${DATA_SYNC_DIR}/mappings/ids.yml`
 );
-// Parse each version and merge them all together
-let fullHistoricalMapping = emptyMapping();
-for (const hash of commitHashes.trim().split('\n').filter(Boolean)) {
+for (const hash of commitLog.trim().split('\n').filter(Boolean)) {
   const content = await git('show', `${hash}:${DATA_SYNC_DIR}/mappings/ids.yml`);
   const versionMapping = parseIdMappingFromYaml(content);
   fullHistoricalMapping = mergeIdMappings(fullHistoricalMapping, versionMapping);
@@ -157,10 +156,10 @@ for (const hash of commitHashes.trim().split('\n').filter(Boolean)) {
 ```
 
 This approach is robust because:
-- It recovers from *any* point where entries were lost, not just the most recent commit
-- Merging all versions is safe — entries are append-only, so union is always correct
-- Even if a future bug corrupts `ids.yml` again, this will recover everything from
-  history
+- It recovers from *any* point where entries were lost within the window
+- Merging versions is safe — entries are append-only, so union is always correct
+- Capped at 50 commits to avoid scanning thousands on long-lived repos
+- 50 is generous — data loss bugs typically happen within a few commits
 
 **Practical impact on this repo:** The ~3045 deleted mappings existed in commit
 `8b0f9d5` (the sync commit just before the bad migration).
