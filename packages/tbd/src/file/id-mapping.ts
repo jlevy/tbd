@@ -98,6 +98,14 @@ export async function loadIdMapping(baseDir: string): Promise<IdMapping> {
 
 /**
  * Save the ID mapping to disk.
+ *
+ * Uses read-merge-write to prevent concurrent processes (e.g., parallel
+ * `tbd create` commands) from overwriting each other's entries.
+ * This is safe because ID mappings are append-only — entries are never
+ * intentionally removed.
+ *
+ * Without the merge, the last writer wins and silently drops entries
+ * added by other processes between our load and save.
  */
 export async function saveIdMapping(baseDir: string, mapping: IdMapping): Promise<void> {
   const filePath = getMappingPath(baseDir);
@@ -105,16 +113,56 @@ export async function saveIdMapping(baseDir: string, mapping: IdMapping): Promis
   // Ensure directory exists
   await mkdir(dirname(filePath), { recursive: true });
 
+  // Read-merge-write: reload current on-disk state and merge with our
+  // in-memory mapping before writing. Our entries take precedence for
+  // short ID conflicts (extremely unlikely with random 4-char base36 IDs).
+  let merged = mapping;
+  try {
+    const onDisk = await loadIdMappingRaw(filePath);
+    if (onDisk.shortToUlid.size > 0) {
+      merged = mergeIdMappings(mapping, onDisk);
+    }
+  } catch {
+    // File doesn't exist or is unreadable — proceed with our mapping only
+  }
+
   // Convert Map to sorted object for deterministic output
   // Use natural sort so "1", "2", "10" sorts correctly (not "1", "10", "2")
   const data: Record<string, string> = {};
-  const sortedKeys = naturalSort(Array.from(mapping.shortToUlid.keys()));
+  const sortedKeys = naturalSort(Array.from(merged.shortToUlid.keys()));
   for (const key of sortedKeys) {
-    data[key] = mapping.shortToUlid.get(key)!;
+    data[key] = merged.shortToUlid.get(key)!;
   }
 
   const content = stringifyYaml(data);
   await writeFile(filePath, content);
+}
+
+/**
+ * Load an ID mapping directly from a file path (internal helper for save merging).
+ * Separated from loadIdMapping to avoid coupling the save path to baseDir resolution.
+ */
+async function loadIdMappingRaw(filePath: string): Promise<IdMapping> {
+  const content = await readFile(filePath, 'utf-8');
+
+  const { data: rawData } = parseYamlToleratingDuplicateKeys<unknown>(content, filePath);
+  const data = rawData ?? {};
+
+  const parseResult = IdMappingYamlSchema.safeParse(data);
+  if (!parseResult.success) {
+    throw new Error(`Invalid ID mapping format in ${filePath}: ${parseResult.error.message}`);
+  }
+  const validData = parseResult.data;
+
+  const shortToUlid = new Map<string, string>();
+  const ulidToShort = new Map<string, string>();
+
+  for (const [shortId, ulid] of Object.entries(validData)) {
+    shortToUlid.set(shortId, ulid);
+    ulidToShort.set(ulid, shortId);
+  }
+
+  return { shortToUlid, ulidToShort };
 }
 
 /**
