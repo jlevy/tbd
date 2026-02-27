@@ -1,17 +1,21 @@
 /**
- * Lockfile-based mutual exclusion for concurrent file access.
+ * Directory-based mutual exclusion for concurrent file access.
  *
- * Provides a `withLockfile` helper that uses mkdir(2) as an atomic lock
- * primitive. This is the same strategy used by:
+ * Note: Despite the name "lockfile", this is NOT a POSIX file lock (flock/fcntl).
+ * It uses mkdir to create a lock *directory* as a coordination convention — no
+ * OS-level file locking syscalls are involved. This makes it portable across all
+ * filesystems, including NFS and other network mounts where flock/fcntl locks
+ * are unreliable or unsupported.
+ *
+ * This is the same strategy used by:
  *
  * - **Git** for ref updates (e.g., `.git/refs/heads/main.lock`)
  *   See: https://git-scm.com/docs/gitrepository-layout ("lockfile protocol")
  * - **npm** for package-lock.json concurrent access
- * - **POSIX advisory locking** conventions (mkdir is atomic per POSIX.1-2017 §2.9.7)
  *
  * ## Why mkdir?
  *
- * `mkdir(2)` is guaranteed atomic on POSIX-compliant filesystems: it either
+ * `mkdir(2)` is atomic on all common filesystems (local and network): it either
  * creates the directory or returns EEXIST. Unlike `open(O_CREAT|O_EXCL)`,
  * a directory lock is trivially distinguishable from normal files.
  *
@@ -40,17 +44,17 @@ import { mkdir, rmdir, stat } from 'node:fs/promises';
 
 /** Options for `withLockfile`. */
 export interface LockfileOptions {
-  /** Maximum time (ms) to wait for the lock. Default: 10000 */
+  /** Maximum time (ms) to wait for the lock. Default: 2000 */
   timeoutMs?: number;
   /** Polling interval (ms) between acquisition attempts. Default: 50 */
   pollMs?: number;
-  /** Age (ms) after which a lock is considered stale. Default: 30000 */
+  /** Age (ms) after which a lock is considered stale. Default: 5000 */
   staleMs?: number;
 }
 
-const DEFAULT_TIMEOUT_MS = 10_000;
+const DEFAULT_TIMEOUT_MS = 2_000;
 const DEFAULT_POLL_MS = 50;
-const DEFAULT_STALE_MS = 30_000;
+const DEFAULT_STALE_MS = 5_000;
 
 /**
  * Execute `fn` while holding a lockfile.
