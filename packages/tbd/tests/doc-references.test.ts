@@ -83,7 +83,9 @@ function extractDocCommands(content: string): string[] {
   return [...new Set(commands)]; // dedupe
 }
 
-describe('doc references', { timeout: 30000 }, () => {
+// This test runs every `tbd shortcut/guidelines/template` command found in docs.
+// Takes ~23s in isolation; under full parallel suite CPU contention pushes it higher.
+describe('doc references', { timeout: 60_000 }, () => {
   // Ensure docs are installed before running tests
   beforeAll(() => {
     // Run tbd setup --auto to install docs (they're gitignored so not present in CI)

@@ -7,11 +7,12 @@
  * See: tbd-design.md §2.5 ID Generation
  */
 
-import { readFile, mkdir, rmdir, stat } from 'node:fs/promises';
+import { readFile, mkdir } from 'node:fs/promises';
 import { join, dirname } from 'node:path';
 import { writeFile } from 'atomically';
 
 import { parseYamlToleratingDuplicateKeys, stringifyYaml } from '../utils/yaml-utils.js';
+import { withLockfile } from '../utils/lockfile.js';
 
 import {
   generateShortId,
@@ -99,17 +100,13 @@ export async function loadIdMapping(baseDir: string): Promise<IdMapping> {
 /**
  * Save the ID mapping to disk with mutual exclusion.
  *
- * Uses a lockfile (mkdir-based, atomic on POSIX) to serialize concurrent
- * writers, then performs read-merge-write inside the lock. This prevents
- * the lost-update problem when multiple `tbd create` commands run in parallel.
+ * Uses a lockfile to serialize concurrent writers, then performs read-merge-write
+ * inside the lock. This prevents the lost-update problem when multiple `tbd create`
+ * commands run in parallel.
  *
  * The merge is safe because ID mappings are append-only — entries are never
- * intentionally removed. Even if the lock acquisition fails (e.g., stale lock
- * from a crashed process), the read-merge-write provides a fallback that
- * preserves entries from other writers.
- *
- * Pattern: lockfile mutual exclusion (same as git's .lock files and npm's
- * package-lock.json.lock). Uses mkdir as the atomic lock primitive.
+ * intentionally removed. Even if the lock acquisition fails (degraded mode),
+ * the read-merge-write provides a fallback that preserves entries from other writers.
  */
 export async function saveIdMapping(baseDir: string, mapping: IdMapping): Promise<void> {
   const filePath = getMappingPath(baseDir);
@@ -117,7 +114,7 @@ export async function saveIdMapping(baseDir: string, mapping: IdMapping): Promis
   // Ensure directory exists
   await mkdir(dirname(filePath), { recursive: true });
 
-  await withMappingLock(filePath, async () => {
+  await withLockfile(filePath + '.lock', async () => {
     // Inside the lock: read current on-disk state, merge with our in-memory
     // mapping, and write the result. Our entries take precedence for short ID
     // conflicts (extremely unlikely with random 4-char base36 IDs).
@@ -140,80 +137,6 @@ export async function saveIdMapping(baseDir: string, mapping: IdMapping): Promis
     const content = stringifyYaml(data);
     await writeFile(filePath, content);
   });
-}
-
-// ---------------------------------------------------------------------------
-// Lockfile helpers — mkdir-based mutual exclusion
-// ---------------------------------------------------------------------------
-
-/** Maximum time (ms) to wait for a lock before giving up. */
-const LOCK_TIMEOUT_MS = 10_000;
-
-/** Time (ms) between lock acquisition attempts. */
-const LOCK_POLL_MS = 50;
-
-/** Age (ms) after which a lock is considered stale and can be broken. */
-const LOCK_STALE_MS = 30_000;
-
-/**
- * Execute `fn` while holding a lockfile for `filePath`.
- *
- * Uses `mkdir` as the atomic lock primitive — it fails with EEXIST if the
- * directory already exists, providing mutual exclusion without race conditions.
- * Stale locks (from crashed processes) are broken after LOCK_STALE_MS.
- *
- * If the lock cannot be acquired within LOCK_TIMEOUT_MS, the function falls
- * through and executes `fn` without the lock (degraded mode). This ensures
- * a stuck lockfile never permanently blocks the CLI — the read-merge-write
- * inside `fn` still provides best-effort protection.
- */
-async function withMappingLock<T>(filePath: string, fn: () => Promise<T>): Promise<T> {
-  const lockDir = filePath + '.lock';
-  const deadline = Date.now() + LOCK_TIMEOUT_MS;
-  let acquired = false;
-
-  while (Date.now() < deadline) {
-    try {
-      await mkdir(lockDir);
-      acquired = true;
-      break;
-    } catch (error) {
-      if ((error as NodeJS.ErrnoException).code !== 'EEXIST') {
-        // Unexpected error (permissions, etc.) — skip locking
-        break;
-      }
-      // Lock exists — check if it's stale
-      try {
-        const lockStat = await stat(lockDir);
-        if (Date.now() - lockStat.mtimeMs > LOCK_STALE_MS) {
-          // Stale lock from a crashed process — break it
-          try {
-            await rmdir(lockDir);
-          } catch {
-            // Another process may have already broken/released it
-          }
-          continue;
-        }
-      } catch {
-        // Lock was released between our mkdir and stat — retry
-        continue;
-      }
-      // Lock is fresh — wait and retry
-      await new Promise((resolve) => setTimeout(resolve, LOCK_POLL_MS));
-    }
-  }
-
-  try {
-    return await fn();
-  } finally {
-    if (acquired) {
-      try {
-        await rmdir(lockDir);
-      } catch {
-        // Best-effort cleanup; stale lock detection handles the rest
-      }
-    }
-  }
 }
 
 /**
