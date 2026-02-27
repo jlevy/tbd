@@ -4,7 +4,7 @@
 
 **Author:** Claude (with Joshua Levy)
 
-**Status:** In Review
+**Status:** Implemented
 
 ## Overview
 
@@ -49,7 +49,7 @@ With 5 concurrent creates, only 1 mapping survives.
 - Stale lock detection (30s default) and degraded-mode fallback ensure the system never
   deadlocks
 
-### Bug 2: Migration Overwrites `ids.yml` (This Spec — Not Yet Fixed)
+### Bug 2: Migration Overwrites `ids.yml` (This Spec — Fixed)
 
 **Root cause:** The `migrateDataToWorktree()` function in `packages/tbd/src/file/git.ts`
 uses raw `cp` (file copy) to move mapping files from the wrong location to the worktree.
@@ -84,7 +84,7 @@ entries, even in a serial execution.
 | `tbd doctor --fix` (dedup) | Yes | Yes |
 | `tbd doctor --fix` (missing IDs) | Yes | Yes |
 | `saveToWorkspace` (outbox) | Yes | Yes |
-| **`migrateDataToWorktree`** | **No (raw `cp`)** | **No — BUG** |
+| `migrateDataToWorktree` | Yes (merge + save) | Yes (fixed) |
 
 ## Design
 
@@ -171,13 +171,14 @@ of them.
 ### Phase 1: Fix Migration + Add Safety Guard
 
 - [x] Add append-only safety guard in `saveIdMapping()` (`id-mapping.ts`)
-- [ ] Fix `migrateDataToWorktree()` to merge `ids.yml` instead of copying (`git.ts`)
-- [ ] Improve `checkMissingMappings` to search all git history, not just the latest
-  commit
-- [ ] Add test: migration preserves existing worktree mappings while adding source
-  mappings
-- [ ] Add test: `saveIdMapping` throws when write would lose entries
-- [ ] Verify all existing tests pass (concurrent-mapping, lockfile, etc.)
+- [x] Fix `migrateDataToWorktree()` to merge `ids.yml` instead of copying (`git.ts`)
+- [x] Improve `checkMissingMappings` to search recent git history (default 50 commits,
+  configurable via `--max-history`, 0 = full), not just the latest commit
+- [x] Add test: `saveIdMapping` merge recovers on-disk entries when saving partial
+  mapping
+- [x] Validate `--max-history` input (NaN/negative falls back to 50)
+- [x] Remove source files after successful migration (`removeSource=true`)
+- [x] Verify all existing tests pass — 55 files, 1036 tests, 0 failures
 
 ## Testing Strategy
 
