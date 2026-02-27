@@ -12,7 +12,7 @@
 import { execFile } from 'node:child_process';
 import { mkdir } from 'node:fs/promises';
 import { promisify } from 'node:util';
-import { join } from 'node:path';
+import { join, resolve } from 'node:path';
 
 import { writeFile } from 'atomically';
 
@@ -888,6 +888,61 @@ export async function checkWorktreeHealth(baseDir: string): Promise<WorktreeHeal
       commit: null,
       error: error instanceof Error ? error.message : String(error),
     };
+  }
+}
+
+/**
+ * Check if the sync branch is already checked out in another worktree.
+ * This happens when running tbd from a linked worktree (e.g., created by Codex)
+ * while the main checkout already has a tbd data-sync worktree.
+ *
+ * @param baseDir - The base directory of the repository
+ * @param syncBranch - The sync branch name (default: 'tbd-sync')
+ * @returns The path of the other worktree if branch is checked out elsewhere, or null
+ */
+export async function isSyncBranchCheckedOutElsewhere(
+  baseDir: string,
+  syncBranch: string = SYNC_BRANCH,
+): Promise<string | null> {
+  try {
+    const output = await git('-C', baseDir, 'worktree', 'list', '--porcelain');
+    const normalizedBase = resolve(baseDir);
+
+    // Parse porcelain output into worktree entries.
+    // Format: blocks separated by blank lines, each starting with "worktree <path>".
+    let currentPath: string | null = null;
+    let currentBranch: string | null = null;
+
+    for (const line of output.split('\n')) {
+      if (line.startsWith('worktree ')) {
+        // Flush previous entry
+        if (
+          currentPath &&
+          currentBranch === `refs/heads/${syncBranch}` &&
+          !resolve(currentPath).startsWith(normalizedBase)
+        ) {
+          return currentPath;
+        }
+        currentPath = line.slice('worktree '.length);
+        currentBranch = null;
+      } else if (line.startsWith('branch ')) {
+        currentBranch = line.slice('branch '.length);
+      }
+    }
+
+    // Check last entry
+    if (
+      currentPath &&
+      currentBranch === `refs/heads/${syncBranch}` &&
+      !resolve(currentPath).startsWith(normalizedBase)
+    ) {
+      return currentPath;
+    }
+
+    return null;
+  } catch {
+    // If we can't list worktrees, assume no conflict
+    return null;
   }
 }
 

@@ -25,6 +25,7 @@ import {
   checkWorktreeHealth,
   repairWorktree,
   ensureWorktreeAttached,
+  isSyncBranchCheckedOutElsewhere,
   type ConflictEntry,
   type PushResult,
 } from '../../file/git.js';
@@ -115,6 +116,18 @@ class SyncHandler extends BaseCommand {
     }
 
     // STEP 2: Sync issues (network operations)
+
+    // Load config early — needed for sync branch name in worktree conflict detection
+    let config;
+    try {
+      config = await readConfig(tbdRoot);
+    } catch {
+      throw new NotInitializedError('Not a tbd repository. Run `tbd init` first.');
+    }
+
+    const syncBranch = config.sync.branch;
+    const remote = config.sync.remote;
+
     // Check worktree health before any issue sync operations
     // See: plan-2026-01-28-sync-worktree-recovery-and-hardening.md
     let worktreeHealth = await checkWorktreeHealth(tbdRoot);
@@ -122,6 +135,15 @@ class SyncHandler extends BaseCommand {
       // Auto-create worktree if it's simply missing (normal for fresh clones)
       // Only require --fix for corrupted/prunable states that need repair
       if (worktreeHealth.status === 'missing') {
+        // Before trying to create the worktree, check if the sync branch is
+        // already checked out in another worktree (e.g., running from a linked
+        // worktree created by Codex). If so, fall back to outbox.
+        const otherWorktreePath = await isSyncBranchCheckedOutElsewhere(tbdRoot, syncBranch);
+        if (otherWorktreePath) {
+          await this.handleWorktreeBranchConflict(tbdRoot, syncBranch, otherWorktreePath);
+          return;
+        }
+
         // Auto-create worktree - this is the expected state on fresh clones
         await this.doRepairWorktree(tbdRoot, 'missing');
         worktreeHealth = await checkWorktreeHealth(tbdRoot);
@@ -156,17 +178,6 @@ class SyncHandler extends BaseCommand {
     }
 
     this.dataSyncDir = await resolveDataSyncDir(tbdRoot);
-
-    // Load config to get sync branch
-    let config;
-    try {
-      config = await readConfig(tbdRoot);
-    } catch {
-      throw new NotInitializedError('Not a tbd repository. Run `tbd init` first.');
-    }
-
-    const syncBranch = config.sync.branch;
-    const remote = config.sync.remote;
 
     if (options.status) {
       await this.showIssueStatus(syncBranch, remote);
@@ -1041,6 +1052,62 @@ class SyncHandler extends BaseCommand {
         this.output.success(`Synced: ${summaryText}`);
       }
     });
+  }
+
+  /**
+   * Handle the case where the sync branch is checked out in another worktree.
+   * Saves any pending issues to the outbox and displays a clear message.
+   */
+  private async handleWorktreeBranchConflict(
+    tbdRoot: string,
+    syncBranch: string,
+    otherWorktreePath: string,
+  ): Promise<void> {
+    console.log('');
+    this.output.info(
+      `Branch '${syncBranch}' is already checked out in another worktree at:\n` +
+        `  ${otherWorktreePath}`,
+    );
+    console.log('');
+    console.log('  This happens when running from a linked worktree (e.g., Codex).');
+    console.log('  Saving issues to outbox instead.');
+
+    // Check if there are local issues to save (in the direct fallback path)
+    const directDataSyncDir = join(tbdRoot, '.tbd', 'data-sync');
+    let issueCount = 0;
+    try {
+      const issues = await listIssues(directDataSyncDir);
+      issueCount = issues.length;
+    } catch {
+      // No direct data-sync directory or no issues — that's fine
+    }
+
+    if (issueCount > 0) {
+      try {
+        const result = await saveToWorkspace(tbdRoot, directDataSyncDir, { outbox: true });
+        if (result.saved > 0) {
+          console.log('');
+          this.output.success(`Saved ${result.saved} issue(s) to outbox`);
+        }
+      } catch (saveError) {
+        const msg = saveError instanceof Error ? saveError.message : String(saveError);
+        console.log('');
+        this.output.error(`Failed to save to outbox: ${msg}`);
+        console.log("  Run 'tbd save --outbox' manually, or 'tbd doctor' to diagnose.");
+        return;
+      }
+    }
+
+    console.log('');
+    console.log('  Issues will sync automatically next time `tbd sync` runs');
+    console.log('  from the main checkout where the sync branch is available.');
+    console.log('');
+    console.log('  To commit outbox data to your working branch:');
+    console.log("    git add .tbd/workspaces && git commit -m 'tbd: save outbox'");
+    console.log('');
+    console.log(
+      '  WARNING: Do NOT add .tbd/workspaces/ to .gitignore -- that would cause data loss.',
+    );
   }
 
   /**
