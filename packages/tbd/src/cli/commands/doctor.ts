@@ -636,6 +636,7 @@ class DoctorHandler extends BaseCommand {
         // Git history not available - will generate new IDs
       }
 
+      const historicalCount = historicalMapping?.shortToUlid.size ?? 0;
       const result = reconcileMappings(missingIds, mapping, historicalMapping);
       await saveIdMapping(this.dataSyncDir, mapping);
 
@@ -646,10 +647,24 @@ class DoctorHandler extends BaseCommand {
       if (result.created.length > 0) {
         parts.push(`created ${result.created.length} new`);
       }
+      const details: string[] = [
+        `Scanned ${maxHistory > 0 ? `up to ${maxHistory}` : 'all'} git commits for ids.yml history`,
+        `Found ${historicalCount} historical mapping(s) to use for recovery`,
+        `${missingIds.length} issue(s) were missing short ID mappings`,
+      ];
+      if (result.recovered.length > 0) {
+        details.push(`Recovered ${result.recovered.length} original short ID(s) from git history`);
+      }
+      if (result.created.length > 0) {
+        details.push(
+          `Generated ${result.created.length} new short ID(s) (originals not found in history)`,
+        );
+      }
       return {
         name: 'ID mapping coverage',
         status: 'ok',
         message: parts.join(', '),
+        details,
       };
     }
 
@@ -836,14 +851,28 @@ class DoctorHandler extends BaseCommand {
         };
       }
 
-      // Migrate data to worktree
-      const result = await migrateDataToWorktree(this.cwd);
+      // Migrate data to worktree (remove source after backup + copy)
+      const result = await migrateDataToWorktree(this.cwd, true);
 
       if (result.success) {
+        const details: string[] = [];
+        if (result.backupPath) {
+          details.push(`Backed up to ${result.backupPath}`);
+        }
+        details.push(
+          `Migrated ${result.migratedCount} file(s) from .tbd/data-sync/ to worktree`,
+          'Source files removed after successful migration',
+        );
         const message = result.backupPath
           ? `migrated ${result.migratedCount} file(s), backed up to ${result.backupPath}`
           : `migrated ${result.migratedCount} file(s)`;
-        return { name: 'Data location', status: 'ok', message, path: wrongIssuesPath };
+        return {
+          name: 'Data location',
+          status: 'ok',
+          message,
+          path: wrongIssuesPath,
+          details,
+        };
       }
 
       return {
