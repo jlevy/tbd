@@ -51,6 +51,7 @@ const CONFIG_DIR = TBD_DIR;
 
 interface DoctorOptions {
   fix?: boolean;
+  maxHistory?: string;
 }
 
 class DoctorHandler extends BaseCommand {
@@ -113,7 +114,8 @@ class DoctorHandler extends BaseCommand {
     healthChecks.push(this.checkIssueValidity(this.issues));
 
     // Check 8b: Missing ID mappings (issues without short IDs)
-    healthChecks.push(await this.checkMissingMappings(options.fix));
+    const maxHistory = options.maxHistory ? parseInt(options.maxHistory, 10) : 50;
+    healthChecks.push(await this.checkMissingMappings(options.fix, maxHistory));
 
     // Check 9: Worktree health (with fix support)
     healthChecks.push(await this.checkWorktree(options.fix));
@@ -573,7 +575,7 @@ class DoctorHandler extends BaseCommand {
    *
    * With --fix, creates missing mappings automatically.
    */
-  private async checkMissingMappings(fix?: boolean): Promise<DiagnosticResult> {
+  private async checkMissingMappings(fix?: boolean, maxHistory = 50): Promise<DiagnosticResult> {
     if (this.issues.length === 0) {
       return { name: 'ID mapping coverage', status: 'ok' };
     }
@@ -601,22 +603,19 @@ class DoctorHandler extends BaseCommand {
       // just the latest. This handles the case where a bug (e.g., migration
       // overwrite) destroyed entries in a recent commit — the entries still exist
       // in earlier commits. Since mappings are append-only, merging all versions
-      // is safe. Capped to avoid scanning thousands of commits on long-lived repos.
-      const MAX_HISTORY_COMMITS = 50;
+      // is safe. Capped via --max-history (default 50, 0 = full history).
       const { parseIdMappingFromYaml, mergeIdMappings } = await import('../../file/id-mapping.js');
       let historicalMapping: Awaited<ReturnType<typeof loadIdMapping>> | undefined;
       try {
         const config = await import('../../file/config.js').then((m) => m.readConfig(this.cwd));
         const syncBranch = config.sync.branch;
         // Get recent commits that touched ids.yml (most recent first, capped)
-        const commitLog = await git(
-          'log',
-          `-${MAX_HISTORY_COMMITS}`,
-          '--format=%H',
-          syncBranch,
-          '--',
-          `${DATA_SYNC_DIR}/mappings/ids.yml`,
-        );
+        const logArgs = ['log', '--format=%H'];
+        if (maxHistory > 0) {
+          logArgs.push(`-${maxHistory}`);
+        }
+        logArgs.push(syncBranch, '--', `${DATA_SYNC_DIR}/mappings/ids.yml`);
+        const commitLog = await git(...logArgs);
         const commitHashes = commitLog.trim().split('\n').filter(Boolean);
         for (const commitHash of commitHashes) {
           try {
@@ -1158,6 +1157,11 @@ class DoctorHandler extends BaseCommand {
 export const doctorCommand = new Command('doctor')
   .description('Diagnose and repair repository')
   .option('--fix', 'Attempt to fix issues')
+  .option(
+    '--max-history <n>',
+    'Max git commits to scan for ID mapping recovery (0 = full history)',
+    '50',
+  )
   .action(async (options, command) => {
     const handler = new DoctorHandler(command);
     await handler.run(options);
