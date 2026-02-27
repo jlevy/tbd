@@ -597,28 +597,37 @@ class DoctorHandler extends BaseCommand {
 
     if (fix && !this.checkDryRun('Create missing ID mappings')) {
       // Try to recover original short IDs from git history before generating new ones.
-      // Search the tbd-sync branch log for prior versions of ids.yml that contained
-      // the missing ULIDs.
-      const { parseIdMappingFromYaml } = await import('../../file/id-mapping.js');
+      // Search ALL commits on the tbd-sync branch that touched ids.yml, not just
+      // the latest. This handles the case where a bug (e.g., migration overwrite)
+      // destroyed entries in a recent commit — the entries still exist in earlier
+      // commits. Since mappings are append-only, merging all versions is safe.
+      const { parseIdMappingFromYaml, mergeIdMappings } = await import('../../file/id-mapping.js');
       let historicalMapping: Awaited<ReturnType<typeof loadIdMapping>> | undefined;
       try {
-        // Get the full ids.yml content from the most recent prior commit on tbd-sync
         const config = await import('../../file/config.js').then((m) => m.readConfig(this.cwd));
         const syncBranch = config.sync.branch;
-        // Use git log to find the most recent commit that touched ids.yml
-        const priorContent = await git(
+        // Get all commits that touched ids.yml (most recent first)
+        const commitLog = await git(
           'log',
-          '-1',
           '--format=%H',
           syncBranch,
           '--',
           `${DATA_SYNC_DIR}/mappings/ids.yml`,
         );
-        if (priorContent.trim()) {
-          const commitHash = priorContent.trim();
-          const idsContent = await git('show', `${commitHash}:${DATA_SYNC_DIR}/mappings/ids.yml`);
-          if (idsContent) {
-            historicalMapping = parseIdMappingFromYaml(idsContent);
+        const commitHashes = commitLog.trim().split('\n').filter(Boolean);
+        for (const commitHash of commitHashes) {
+          try {
+            const idsContent = await git('show', `${commitHash}:${DATA_SYNC_DIR}/mappings/ids.yml`);
+            if (idsContent) {
+              const versionMapping = parseIdMappingFromYaml(idsContent);
+              if (!historicalMapping) {
+                historicalMapping = versionMapping;
+              } else {
+                historicalMapping = mergeIdMappings(historicalMapping, versionMapping);
+              }
+            }
+          } catch {
+            // Individual commit may be unreachable — skip
           }
         }
       } catch {

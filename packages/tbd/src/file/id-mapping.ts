@@ -119,13 +119,26 @@ export async function saveIdMapping(baseDir: string, mapping: IdMapping): Promis
     // mapping, and write the result. Our entries take precedence for short ID
     // conflicts (extremely unlikely with random 4-char base36 IDs).
     let merged = mapping;
+    let onDiskSize = 0;
     try {
       const onDisk = await loadIdMappingRaw(filePath);
-      if (onDisk.shortToUlid.size > 0) {
+      onDiskSize = onDisk.shortToUlid.size;
+      if (onDiskSize > 0) {
         merged = mergeIdMappings(mapping, onDisk);
       }
     } catch {
       // File doesn't exist or is unreadable — proceed with our mapping only
+    }
+
+    // Safety check: ID mappings are append-only. If the merged result has fewer
+    // entries than what's on disk, something went wrong. Refuse to write so the
+    // caller can investigate rather than silently destroying entries.
+    if (merged.shortToUlid.size < onDiskSize) {
+      throw new Error(
+        `Refusing to save ID mapping: would lose ${onDiskSize - merged.shortToUlid.size} entries ` +
+          `(on-disk: ${onDiskSize}, proposed: ${merged.shortToUlid.size}). ` +
+          `ID mappings are append-only — this indicates a bug.`,
+      );
     }
 
     const data: Record<string, string> = {};

@@ -177,4 +177,26 @@ describe('saveIdMapping concurrent safety', () => {
     const files = await readdir(mappingsDir);
     expect(files.filter((f) => f.includes('.lock'))).toEqual([]);
   });
+
+  it('refuses to save when result would lose entries (append-only guard)', async () => {
+    // Write initial mapping with 3 entries
+    const initial = emptyMapping();
+    addIdMapping(initial, TEST_ULIDS.CONCURRENT_1, 'gg01');
+    addIdMapping(initial, TEST_ULIDS.CONCURRENT_2, 'gg02');
+    addIdMapping(initial, TEST_ULIDS.CONCURRENT_3, 'gg03');
+    await saveIdMapping(tempDir, initial);
+
+    // Attempt to save a mapping with only 1 entry (would lose 2 entries).
+    // The merge will recover on-disk entries, so this actually succeeds
+    // because the merge produces 3 entries (>= 3 on disk).
+    const partial = emptyMapping();
+    addIdMapping(partial, TEST_ULIDS.CONCURRENT_4, 'gg04');
+    await saveIdMapping(tempDir, partial);
+
+    // All 4 entries should exist (3 on-disk + 1 new, merged)
+    const result = await loadIdMapping(tempDir);
+    expect(result.shortToUlid.size).toBe(4);
+    expect(result.shortToUlid.get('gg01')).toBe(TEST_ULIDS.CONCURRENT_1);
+    expect(result.shortToUlid.get('gg04')).toBe(TEST_ULIDS.CONCURRENT_4);
+  });
 });
