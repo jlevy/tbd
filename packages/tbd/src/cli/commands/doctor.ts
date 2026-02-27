@@ -1154,18 +1154,16 @@ class DoctorHandler extends BaseCommand {
       if (consistency.localAhead > 0) {
         return {
           name: 'Sync consistency',
-          status: 'warn',
-          message: `${consistency.localAhead} commit(s) ahead of remote`,
-          suggestion: 'Run: tbd sync to push changes',
+          status: 'ok',
+          message: `${consistency.localAhead} local commit(s) not yet pushed — run \`tbd sync\` to push`,
         };
       }
 
       if (consistency.localBehind > 0) {
         return {
           name: 'Sync consistency',
-          status: 'warn',
-          message: `${consistency.localBehind} commit(s) behind remote`,
-          suggestion: 'Run: tbd sync to pull changes',
+          status: 'ok',
+          message: `${consistency.localBehind} remote commit(s) not yet pulled — run \`tbd sync\` to pull`,
         };
       }
 
