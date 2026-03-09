@@ -3,6 +3,17 @@
 *Research document on multi-agent orchestration for AI coding agents* *Last updated:
 January 2026*
 
+**Related:**
+
+- [Claude Code Sub-Agents](research-claude-code-sub-agents.md) — Internal sub-agent
+  architecture, model configuration, compaction/handoff patterns
+- [Claude Code Orchestration Interfaces and UIs](research-claude-code-orchestration-and-uis.md)
+  — Control protocols, IDE surfaces, and external orchestration interfaces
+- [API References for Bridge Integrations](api-references-bridge-integrations.md) —
+  Multi-agent protocols (MCP, ACP, A2A, ANP) and bridge APIs
+
+* * *
+
 ## Introduction: The Multi-Agent Orchestration Problem
 
 Claude Code is currently used in fairly siloed ways—via IDE plugins (like Cursor’s
@@ -585,6 +596,12 @@ internally.
 * * *
 
 ## Part 8: IDE and Platform Integrations
+
+> **See also:**
+> [Claude Code Orchestration Interfaces and UIs](research-claude-code-orchestration-and-uis.md)
+> provides a comprehensive analysis of the control protocols (Agent SDK, `--sdk-url`
+> WebSocket, IDE integration protocol, ACP), UI surfaces, and third-party projects
+> that have emerged since this section was originally written.
 
 ### Current State
 

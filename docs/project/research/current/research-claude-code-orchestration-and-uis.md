@@ -13,7 +13,7 @@
   inter-agent communication)
 - [Claude Code Sub-Agents](research-claude-code-sub-agents.md) — Internal sub-agent
   architecture, model configuration, compaction/handoff patterns
-- [API References for Bridge Integrations](../api-references-bridge-integrations.md) —
+- [API References for Bridge Integrations](api-references-bridge-integrations.md) —
   Multi-agent protocols (MCP, ACP, A2A, ANP) and bridge APIs
 
 * * *
