@@ -936,27 +936,79 @@ The architectural patterns (per-issue workspaces, multi-turn continuation, WORKF
 prompt-as-config, stall detection, reconciliation loops) are directly applicable to
 Claude Code orchestration design.
 
-### Multiclaude — "Brownian Ratchet" Pattern (Expanded)
+### Multiclaude — "Brownian Ratchet" Multi-Agent Orchestrator (Expanded)
 
 **Repository:** [dlorenc/multiclaude](https://github.com/dlorenc/multiclaude)
 **Author:** Dan Lorenc (Chainguard CEO, co-creator of Sigstore)
+**Language:** Go (99.5%)
+**License:** MIT
+**Stars:** ~250–500
+**Released:** January 2026
+**Blog:** [A Gentle Introduction to multiclaude](https://dlorenc.medium.com/a-gentle-introduction-to-multiclaude-36491514ba89)
 
-Multiclaude implements a "Brownian ratchet" pattern: spawn many Claude Code instances on
-separate branches working on the same problem, each making random attempts at a solution.
-CI acts as a one-way gate — PRs that pass CI get auto-merged; those that fail are
-discarded. The name comes from the physics concept: random motion, but a ratchet mechanism
-only allows forward progress.
+Multiclaude spawns multiple autonomous Claude Code agents in tmux windows, each with its
+own git worktree, working concurrently on a shared codebase. The project is self-hosting —
+multiclaude's own agents wrote its code.
 
-**How it works:**
-1. Create N branches from main
-2. Launch Claude Code on each branch with the same task prompt
-3. Each instance independently attempts the implementation
-4. CI runs on each branch automatically
-5. PRs passing CI are auto-merged; failing ones are discarded
-6. Repeat until the task is done
+**The "Brownian ratchet" philosophy:** Borrowed from physics — random molecular motion
+converted to directional progress via a one-way mechanism. Applied to software: multiple
+agents make random attempts, CI acts as the ratchet (passing PRs merge, failing ones are
+discarded), and progress is permanent. Perfect coordination is explicitly rejected:
+*"Trying to perfectly coordinate agent work is both expensive and fragile. Instead, we let
+chaos happen and use CI as the ratchet that captures forward progress."* The motto: *"Three
+okay PRs beat one perfect PR."*
 
-This is effective for tasks with clear, automatable acceptance criteria (tests pass, lint
-clean, type-check succeeds) but less useful for subjective tasks requiring human review.
+**Agent roles:**
+
+| Agent | Role |
+| --- | --- |
+| **Supervisor** | Air traffic control. Watches workers, detects stuck agents, sends nudges |
+| **Merge Queue** | Watches PRs. Green CI = merge. Red CI = spawn fix-it worker |
+| **Workers** | Given a task, execute it, create PR, self-destruct. Each gets a cute animal name |
+| **PR Shepherd** | (Multiplayer mode) Coordinates human reviewers for team workflows |
+| **Reviewer** | Provides automated code review feedback on PRs |
+| **Workspace** | Personal Claude interface for the human operator |
+
+**Two modes:** Single Player (auto-merge all passing PRs, max velocity) and Multiplayer
+(PR Shepherd coordinates human reviewers).
+
+**Architecture — "refreshingly dumb":**
+- No fancy orchestration framework. No distributed consensus. Just files, tmux, and Go.
+- A daemon runs **four loops**, each ticking ~every 2 minutes:
+  1. **Health check** — are agents alive? Try resurrection, then clean up
+  2. **Message passing** — agents communicate via JSON files on disk; daemon types
+     messages into recipient tmux windows
+  3. **Wake/nudge cycle** — periodic prods to keep agents moving
+  4. **Worktree refresh** — keeps git worktrees in sync
+- State lives in a JSON file + filesystem. No database. Survives session crashes.
+- Public libraries: `pkg/tmux` (programmatic tmux control), `pkg/claude` (Claude Code
+  interaction)
+
+**Custom agents:** Defined as markdown files in `.multiclaude/agents/` (per-repo,
+shareable) or `~/.multiclaude/repos/<repo>/agents/` (per-user). No code needed — just
+write a markdown file describing the role.
+
+**Install:** `go install github.com/dlorenc/multiclaude/cmd/multiclaude@latest`
+
+**Usage:**
+```bash
+multiclaude start
+multiclaude repo init https://github.com/your/repo
+multiclaude worker create "your task description"
+```
+
+**Other "multi-claude" projects (disambiguation):**
+- **[abrookins/multi-claude](https://github.com/abrookins/multi-claude)** (~6 stars) —
+  Python script for isolated workspaces per feature, LLM-based approval workflows,
+  `TASK_MEMORY.md` persistence. Lighter-weight.
+- **[0xDaz/MultiClaude](https://github.com/0xDaz/MultiClaude)** (~1 star, alpha) —
+  Electron + React desktop app for running multiple Claude Code instances in tabs.
+  Not an orchestrator — just a multi-tab manager.
+- **[pbantolas/multiclaude](https://github.com/pbantolas/multiclaude)** — Version manager
+  for switching between Claude Code versions (different purpose entirely).
+
+See also: [The Brownian Ratchet and the Chimpanzee Factory](https://dev.to/aronchick/the-brownian-ratchet-and-the-chimpanzee-factory-583n)
+comparing multiclaude and GasTown architectures.
 
 ### Industry Context (March 2026)
 
@@ -1062,7 +1114,15 @@ clean, type-check succeeds) but less useful for subjective tasks requiring human
 - [stellarlinkco/myclaude](https://github.com/stellarlinkco/myclaude) — Multi-runtime
   orchestration
 - [dlorenc/multiclaude](https://github.com/dlorenc/multiclaude) — "Brownian ratchet"
-  auto-merge orchestrator
+  auto-merge orchestrator (Go, tmux, git worktrees)
+- [A Gentle Introduction to multiclaude](https://dlorenc.medium.com/a-gentle-introduction-to-multiclaude-36491514ba89) —
+  Dan Lorenc, Jan 2026
+- [The Brownian Ratchet and the Chimpanzee Factory](https://dev.to/aronchick/the-brownian-ratchet-and-the-chimpanzee-factory-583n) —
+  multiclaude vs GasTown comparison
+- [abrookins/multi-claude](https://github.com/abrookins/multi-claude) — Python multi-workspace
+  agent manager with LLM approval workflows
+- [0xDaz/MultiClaude](https://github.com/0xDaz/MultiClaude) — Electron multi-tab Claude Code
+  manager (alpha)
 - [ruvnet/ruflo](https://github.com/ruvnet/ruflo) — Ruflo (formerly Claude Flow), 19.9k
   stars
 
