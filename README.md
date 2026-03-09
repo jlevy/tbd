@@ -279,7 +279,7 @@ npm install -g get-tbd@latest
 ### Setup
 
 ```bash
-# Fresh project (--prefix is REQUIRED—2-8 alphabetic chars, e.g. myapp-a1b2)
+# Fresh project (--prefix is REQUIRED—a short alphabetic name used as an issue ID prefix, e.g. myapp → issues like myapp-a1b2)
 tbd setup --auto --prefix=myapp
 
 # Joining an existing tbd project (no prefix needed—reads existing config)
@@ -299,7 +299,7 @@ tbd setup --from-beads
 **First contributor:**
 ```bash
 npm install -g get-tbd@latest
-tbd setup --auto --prefix=myproject
+tbd setup --auto --prefix=proj   # Short alphabetic prefix for issue IDs
 git add .tbd/ .claude/ && git commit -m "Initialize tbd"
 git push
 ```
