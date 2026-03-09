@@ -762,11 +762,80 @@ for detailed architecture analysis.
 
 | Tool | Stars | What It Does |
 | --- | --- | --- |
-| [Claude Squad](https://github.com/smtg-ai/claude-squad) | 6k+ | tmux TUI for multi-agent sessions with git worktrees |
+| [cmux (Manaflow)](https://github.com/manaflow-ai/cmux) | 4.2k | Native macOS terminal app for AI agents (YC-backed, libghostty) |
+| [Symphony (OpenAI)](https://github.com/openai/symphony) | NEW | Issue-tracker daemon: polls Linear, per-issue workspaces, Codex app-server |
+| [Claude Squad](https://github.com/smtg-ai/claude-squad) | 5.8k+ | tmux TUI for multi-agent sessions with git worktrees |
 | [myclaude](https://github.com/stellarlinkco/myclaude) | 2.4k | Multi-runtime orchestration (Claude, Codex, Gemini, OpenCode) |
 | [Multiclaude](https://github.com/dlorenc/multiclaude) | — | "Brownian ratchet" auto-merge (CI as one-way gate) |
+| [cmux (craigsc)](https://github.com/craigsc/cmux) | ~276 | Git worktree lifecycle manager for Claude Code |
+| [amux](https://github.com/mixpeek/amux) | — | tmux-based multiplexer + web dashboard |
+| [coder/mux](https://github.com/coder/mux) | — | Desktop app with custom agent loop |
 | [CodePilot](https://github.com/op7418/CodePilot) | — | Electron desktop GUI with mobile bridges |
 | [Agentrooms](https://claudecode.run/) | — | @mention-based multi-agent coordination |
+
+### cmux (Manaflow) — Native macOS Agent Terminal (NEW)
+
+The most significant new entrant in the **terminal UI** category. cmux
+([manaflow-ai/cmux](https://github.com/manaflow-ai/cmux), [cmux.dev](https://www.cmux.dev/))
+is a **native macOS terminal application** purpose-built for running multiple AI coding
+agents simultaneously. YC-backed (via Manaflow), ~4,200 stars, peaked at #2 on Hacker
+News.
+
+Unlike tmux-based approaches (Claude Squad, amux), cmux is a standalone terminal emulator
+using **libghostty** for GPU-accelerated rendering. Key capabilities:
+
+- **Vertical tab sidebar** with git branch, PR status, ports, notifications per workspace
+- **Built-in scriptable browser** — agents can snapshot accessibility trees, interact with
+  dev servers directly
+- **Notification system** — blue rings on panes needing attention, macOS desktop
+  notifications via OSC escape sequences or `cmux notify` CLI
+- **Full scriptability** via CLI + socket API: create workspaces, split panes, send
+  keystrokes, orchestrate sub-agents
+
+Philosophy: "A primitive, not a solution" — composable building blocks rather than
+opinionated workflows. Currently macOS only.
+
+See [Claude Code Orchestration Interfaces and UIs](research-claude-code-orchestration-and-uis.md)
+for detailed feature breakdown.
+
+### OpenAI Symphony — Issue-Tracker-Driven Orchestration (NEW)
+
+**[openai/symphony](https://github.com/openai/symphony)** is OpenAI's open-source
+specification for a long-running daemon that continuously polls an issue tracker (Linear),
+creates per-issue workspaces, and runs Codex sessions. It's architecturally the most
+spec-driven orchestrator in this space.
+
+**Core loop:** Poll Linear → find eligible issues → create workspace → run
+`after_create` hook (e.g. git clone) → launch Codex via app-server protocol → stream
+turns → re-check issue state → continue or stop → exponential backoff retries on failure.
+
+**Key architectural patterns relevant to Claude Code orchestration:**
+1. **WORKFLOW.md as unified config:** YAML front matter (polling, concurrency, hooks,
+   sandbox policy) + Markdown body (prompt template with `{{ issue.identifier }}` Liquid
+   variables). The prompt IS the configuration — version-controlled in-repo.
+2. **Per-issue workspace isolation:** Each issue gets its own directory under a workspace
+   root. Workspaces persist across runs. Safety invariants enforce workspace-root containment.
+3. **Multi-turn continuation:** After each successful turn, worker re-checks issue state
+   on the tracker. If still active, starts another turn on the same thread (up to
+   `max_turns`). Continuation turns get brief guidance, not the full prompt.
+4. **Reconciliation:** Every poll tick reconciles running agents against tracker state —
+   stops agents for terminal issues, detects stalls (no event within 5 min → kill + retry).
+5. **No persistent database:** All state is in-memory + tracker-driven + filesystem.
+   Restart recovery just re-polls the tracker.
+6. **Dynamic reload:** Watches `WORKFLOW.md` for changes, re-applies config without restart.
+
+**Elixir reference implementation:** GenServer orchestrator, Erlang Ports for subprocess
+management, Phoenix LiveView dashboard, `linear_graphql` dynamic tool injection. Fully
+hot-reloadable.
+
+**Codex app-server protocol:** JSON-RPC 2.0 over stdio — `initialize` → `initialized` →
+`thread/start` → `turn/start`, then stream `turn/completed`/`turn/failed`/`turn/cancelled`
+plus approval requests and tool calls. Agent-agnostic: the `codex.command` config accepts
+any shell command that speaks this protocol, making it theoretically possible to plug in
+Claude Code with an adapter.
+
+See [Claude Code Orchestration Interfaces and UIs](research-claude-code-orchestration-and-uis.md)
+for the full architecture analysis. Source code cloned to `attic/symphony/`.
 
 ### Claude Code Platform Changes (March 2026)
 
@@ -833,10 +902,23 @@ MCP, etc.), we’re likely to see these capabilities become more accessible.
    org charts, budgets, goal hierarchies, and governance — wrapping Claude Code, OpenClaw,
    or Codex as “employees”
 
+9. **Native Terminal for Agent Sessions (macOS):** **cmux** (Manaflow) provides the best
+   purpose-built terminal experience for managing multiple concurrent AI agents — vertical
+   tabs, notification system, scriptable browser, full CLI/socket API. Think of it as the
+   “IDE for agent supervision” on macOS.
+
+10. **Issue-Tracker-Driven Daemon:** **Symphony** (OpenAI) demonstrates the most mature
+    pattern for automated dispatch: poll an issue tracker, create per-issue workspaces,
+    run agent sessions, reconcile state, retry with backoff. The WORKFLOW.md pattern
+    (prompt + config in one versioned file) is particularly elegant and could be adapted
+    for Claude Code + Linear/GitHub.
+
 The future likely holds even more **turnkey orchestration services** (perhaps even a
 dedicated “Claude Orchestrator” product from Anthropic eventually, or third-party
 platforms built around this idea). Paperclip represents the first serious open-source
-attempt at this — and its 4.3k stars in days suggests strong demand.
+attempt at this — and its 4.3k stars in days suggests strong demand. Symphony shows
+OpenAI's approach to the same problem (daemon-first, spec-driven). cmux shows that the
+terminal itself is becoming a first-class orchestration surface.
 Mixing and matching open-source solutions remains the state of the art, but the tooling
 is maturing rapidly.
 
@@ -910,6 +992,17 @@ is maturing rapidly.
 
 ### Orchestration Tools
 
+- [GitHub: manaflow-ai/cmux](https://github.com/manaflow-ai/cmux) — cmux native macOS
+  terminal for AI agents (YC-backed, libghostty)
+- [cmux.dev](https://www.cmux.dev/) — cmux website
+- [GitHub: openai/symphony](https://github.com/openai/symphony) — Symphony issue-tracker
+  daemon orchestrator (Elixir/OTP reference, language-agnostic spec)
+- [GitHub: craigsc/cmux](https://github.com/craigsc/cmux) — cmux worktree lifecycle
+  manager (separate project from Manaflow cmux)
+- [GitHub: mixpeek/amux](https://github.com/mixpeek/amux) — amux tmux-based multiplexer +
+  web dashboard
+- [GitHub: coder/mux](https://github.com/coder/mux) — mux desktop app with custom agent
+  loop
 - [GitHub: paperclipai/paperclip](https://github.com/paperclipai/paperclip) — Company-level
   control plane for autonomous AI organizations (March 2026)
 - [GitHub: smtg-ai/claude-squad](https://github.com/smtg-ai/claude-squad) — Claude Squad
