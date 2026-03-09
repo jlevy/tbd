@@ -1,7 +1,7 @@
 # Running Claude Code Across Environments
 
 *Research document on multi-agent orchestration for AI coding agents* *Last updated:
-January 2026*
+March 2026*
 
 **Related:**
 
@@ -720,6 +720,73 @@ coordinating specialist agents—the “microservices revolution” for AI agent
 
 * * *
 
+## Part 10: March 2026 Ecosystem Update
+
+### Major Rebrands and Milestones
+
+**OpenClaw (formerly Moltbot/Clawdbot):** Reached 100k+ GitHub stars. Renamed from Moltbot
+on Jan 30, 2026 after Anthropic trademark complaints. Creator Peter Steinberger announced
+he's joining OpenAI (Feb 14). **Major security crisis:** "ClawJacked" vulnerability enables
+full agent takeover via any website. Microsoft, CrowdStrike, 1Password, and Oasis Security
+all published warnings. Microsoft explicitly recommends running OpenClaw only in fully
+isolated VMs. ClawHub skill registry launched for automatic skill discovery.
+
+**Ruflo (formerly Claude Flow):** Rebranded Feb 27, 2026 with v3.5 as "first major stable
+release." ~19.9k stars, 2.2k forks, 5,800+ commits, 215 MCP tools, 60+ agents. WASM
+kernels in Rust for policy engine.
+([ruvnet/ruflo](https://github.com/ruvnet/ruflo))
+
+**Gas Town:** Now has a companion web GUI
+([gastown-gui](https://github.com/web3dev1337/gastown-gui)). Real-world cost reports:
+~$100/hour in Claude tokens.
+
+### Paperclip: Company-Level Agent Orchestration (NEW)
+
+The most architecturally novel entrant in this space. **Paperclip** is not another
+multi-agent coding orchestrator — it's a **company-level control plane** for autonomous AI
+organizations. Open-sourced March 5-6, 2026. 4.3k+ stars in days.
+([paperclipai/paperclip](https://github.com/paperclipai/paperclip))
+
+Tagline: *"If OpenClaw is an employee, Paperclip is the entire company."*
+
+Core innovation: Treats agents as employees in a persistent org chart with roles, reporting
+lines, monthly token budgets, goal hierarchies (every task chains to company mission),
+heartbeat scheduling, board governance with approval gates, and full audit trail. Agent-
+agnostic — works with Claude Code, OpenClaw, Codex, or any runtime via `process` and
+`http` adapters.
+
+See [Claude Code Orchestration Interfaces and UIs](research-claude-code-orchestration-and-uis.md)
+for detailed architecture analysis.
+
+### New Orchestration Tools
+
+| Tool | Stars | What It Does |
+| --- | --- | --- |
+| [Claude Squad](https://github.com/smtg-ai/claude-squad) | 6k+ | tmux TUI for multi-agent sessions with git worktrees |
+| [myclaude](https://github.com/stellarlinkco/myclaude) | 2.4k | Multi-runtime orchestration (Claude, Codex, Gemini, OpenCode) |
+| [Multiclaude](https://github.com/dlorenc/multiclaude) | — | "Brownian ratchet" auto-merge (CI as one-way gate) |
+| [CodePilot](https://github.com/op7418/CodePilot) | — | Electron desktop GUI with mobile bridges |
+| [Agentrooms](https://claudecode.run/) | — | @mention-based multi-agent coordination |
+
+### Claude Code Platform Changes (March 2026)
+
+- **Opus 4.6** now default; Opus 4/4.1 deprecated from model selector
+- **Agent Teams** shipped with bug fixes (hanging `--print`, nested teammate spawning)
+- **`/loop` command:** Recurring interval prompts — a built-in heartbeat mechanism
+- **Claude Agent SDK** (rebranded from "Claude Code SDK") v0.1.48 with new
+  `agent_id`/`agent_type` hook fields
+- **Compaction API** (beta): Server-side context summarization
+- **Tool Search** (public beta): Dynamic tool discovery from large catalogs
+
+### Industry Scale
+
+- Claude Code now authors **4% of public GitHub commits** (projected 20% by end of 2026)
+- Skills ecosystem: ~50 (mid-2025) → **334+** (March 2026)
+- Anthropic's C compiler project: 16 agents, ~2,000 sessions, $20k API costs, 100k-line
+  Rust C compiler building Linux 6.9 on x86/ARM/RISC-V
+
+* * *
+
 ## Practical Recommendations
 
 For teams seeking to coordinate Claude Code instances today, a combination of approaches
@@ -761,11 +828,17 @@ Now, with efforts like TBD (making the core tracking more reliable across platfo
 big players like Anthropic and OpenAI formalizing orchestration capabilities (Cowork,
 MCP, etc.), we’re likely to see these capabilities become more accessible.
 
+8. **Company-Level Orchestration:** For teams running multiple agents toward business
+   goals (not just coding tasks), **Paperclip** provides the highest-level abstraction:
+   org charts, budgets, goal hierarchies, and governance — wrapping Claude Code, OpenClaw,
+   or Codex as “employees”
+
 The future likely holds even more **turnkey orchestration services** (perhaps even a
 dedicated “Claude Orchestrator” product from Anthropic eventually, or third-party
-platforms built around this idea).
-Until then, mixing and matching the open-source solutions discussed here is the state of
-the art.
+platforms built around this idea). Paperclip represents the first serious open-source
+attempt at this — and its 4.3k stars in days suggests strong demand.
+Mixing and matching open-source solutions remains the state of the art, but the tooling
+is maturing rapidly.
 
 * * *
 
@@ -795,12 +868,20 @@ the art.
 - [Jeffrey Emanuel on companion app](https://x.com/doodlestein/status/1985405083488755740)
   — Commercial development
 
-### Moltbot
+### OpenClaw (formerly Moltbot/Clawdbot)
 
 - [Moltbot Guide - DEV Community](https://dev.to/czmilo/moltbot-the-ultimate-personal-ai-assistant-guide-for-2026-d4e)
 - [What is Moltbot? -
   DigitalOcean](https://www.digitalocean.com/resources/articles/what-is-moltbot)
 - [Moltbot Documentation](https://docs.molt.bot/)
+- [GitHub: openclaw/openclaw](https://github.com/openclaw/openclaw) — OpenClaw (renamed
+  from Moltbot Jan 30, 2026)
+- [ClawJacked Vulnerability - Oasis Security](https://www.oasis.security/blog/openclaw-vulnerability)
+  — Full agent takeover CVE
+- [Running OpenClaw Safely - Microsoft](https://www.microsoft.com/en-us/security/blog/2026/02/19/running-openclaw-safely-identity-isolation-runtime-risk/)
+  — VM isolation recommendation
+- [OpenClaw Attack Surface - 1Password](https://1password.com/blog/from-magic-to-malware-how-openclaws-agent-skills-become-an-attack-surface)
+  — Skill injection risks
 
 ### Claude Code Multi-Agent Features
 
@@ -812,8 +893,8 @@ the art.
   Mirror announcement
 - [GitHub: mikekelly/claude-sneakpeek](https://github.com/mikekelly/claude-sneakpeek) —
   Feature flag bypass
-- [GitHub: ruvnet/claude-flow](https://github.com/ruvnet/claude-flow) — Claude-Flow
-  orchestration
+- [GitHub: ruvnet/ruflo](https://github.com/ruvnet/ruflo) — Ruflo (formerly Claude-Flow),
+  rebranded Feb 27, 2026
 
 ### Anthropic Official
 
@@ -824,16 +905,27 @@ the art.
 - [Claude Code GitHub Actions](https://code.claude.com/docs/en/github-actions)
 - [Claude Code Hooks Reference](https://code.claude.com/docs/en/hooks)
 - [GitHub: anthropics/claude-code-action](https://github.com/anthropics/claude-code-action)
+- [Building a C Compiler with Claude](https://www.anthropic.com/engineering/building-c-compiler)
+  — 16 agents, ~2,000 sessions, $20k, 100k-line output
 
 ### Orchestration Tools
 
+- [GitHub: paperclipai/paperclip](https://github.com/paperclipai/paperclip) — Company-level
+  control plane for autonomous AI organizations (March 2026)
 - [GitHub: smtg-ai/claude-squad](https://github.com/smtg-ai/claude-squad) — Claude Squad
+  tmux TUI
+- [GitHub: stellarlinkco/myclaude](https://github.com/stellarlinkco/myclaude) — myclaude
+  multi-runtime orchestration
+- [GitHub: dlorenc/multiclaude](https://github.com/dlorenc/multiclaude) — Multiclaude
+  "brownian ratchet" auto-merge
 - [Conductor](https://www.conductor.build/) — Melty Labs macOS app
 - [GitHub: ryanmac/code-conductor](https://github.com/ryanmac/code-conductor) —
   GitHub-native
 - [Oh My Claude - Medium Review](https://medium.com/@joe.njenga/i-tested-oh-my-claude-code-the-only-agents-swarm-orchestration-you-need-7338ad92c00f)
 - [GitHub: baryhuang/claude-code-by-agents](https://github.com/baryhuang/claude-code-by-agents)
-  — Cross-machine
+  — Agentrooms cross-machine coordination
+- [GitHub: web3dev1337/gastown-gui](https://github.com/web3dev1337/gastown-gui) — Gas Town
+  web GUI companion
 
 ### Protocols and Standards
 

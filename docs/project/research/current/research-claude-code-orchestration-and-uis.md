@@ -1,6 +1,6 @@
 # Research: Claude Code Orchestration Interfaces and UIs
 
-**Date:** 2026-02-15 (last updated 2026-02-15)
+**Date:** 2026-02-15 (last updated 2026-03-09)
 
 **Author:** Research brief (AI-assisted)
 
@@ -402,11 +402,15 @@ protocols.
 
 | Project | Type | Protocol | Key Feature |
 | --- | --- | --- | --- |
-| [OpCode](https://github.com/winfunc/opcode) | Tauri desktop app | Agent SDK / process | Custom AI agents, session versioning, checkpoint viz |
+| [Paperclip](https://github.com/paperclipai/paperclip) | Web control plane | REST API (agent-agnostic) | Company-level orchestration: org charts, budgets, heartbeats, governance |
+| [OpCode](https://github.com/winfunc/opcode) | Tauri desktop app | Agent SDK / process | Custom AI agents, session versioning, checkpoint viz (20k+ stars) |
 | [Claudia](https://github.com/marcusbey/claudia) (Asterisk, YC) | Tauri desktop app | CLI wrapper | Session time travel, sandboxed background agents |
 | [Claude Code Chat](https://github.com/andrepimenta/claude-code-chat) | VS Code extension | CLI wrapper | Chat panel interface, WSL support |
 | [Claudix](https://github.com/Haleclipse/Claudix) | VS Code extension (Vue 3) | Agent SDK | Shares data with local Claude Code, DI architecture |
 | [Companion](https://github.com/The-Vibe-Company/companion) | Browser/mobile UI | `--sdk-url` WebSocket | Full session control from browser, no extra API key |
+| [CodePilot](https://github.com/op7418/CodePilot) | Electron desktop app | CLI wrapper | Session pause/resume/rewind, Telegram/Discord bridge |
+| [Claude Squad](https://github.com/smtg-ai/claude-squad) | TUI orchestrator | CLI + tmux | Multi-agent tmux sessions with git worktrees (6k+ stars) |
+| [myclaude](https://github.com/stellarlinkco/myclaude) | CLI orchestrator | Multi-agent CLI | Cross-agent orchestration (Claude, Codex, Gemini, OpenCode) |
 | [Sandbox Agent](https://github.com/rivet-dev/sandbox-agent) | HTTP API adapter | Universal (per-agent) | Swap agents with config, streaming events, single Rust binary |
 | [claude-agent-server](https://github.com/dzhng/claude-agent-server) | WebSocket server | Agent SDK | E2B sandbox deployment, real-time streaming |
 | [Toad](https://willmcgugan.github.io/toad-released/) | TUI (Textual) | ACP | Unified terminal UI for any ACP-enabled agent |
@@ -448,6 +452,86 @@ Solves the fragmentation problem: Claude Code uses JSONL over stdout, Codex uses
 OpenCode uses HTTP+SSE. Sandbox Agent provides **one HTTP API** to interact with all of them.
 Universal session schema, streaming SSE events, single Rust binary. Supports E2B, Daytona,
 Vercel Sandboxes. Open-sourced January 2026.
+
+##### Paperclip (NEW — March 2026)
+
+**The most architecturally novel project in this survey.** Paperclip is not another
+coding-agent orchestrator — it's a **company-level control plane** for autonomous AI
+organizations. The tagline: *"If OpenClaw is an employee, Paperclip is the company."*
+
+Open-sourced March 5-6, 2026. 4.3k+ GitHub stars within days. Node.js + React + PostgreSQL
+(PGlite embedded for local dev). MIT licensed. Created by "dotta."
+
+**Core concepts:**
+
+- **Company as first-order object:** Everything (agents, tasks, goals, budgets) is scoped
+  to a company. One Paperclip instance can manage multiple companies.
+- **Agents as employees:** Each agent gets a role, title, reporting line (org chart),
+  capabilities description, and adapter config. The CEO agent reviews executives; engineers
+  pick tasks from the backlog.
+- **Goal hierarchy:** All work traces back to the company mission through a chain of parent
+  tasks: `current task → parent → ... → company goal`. This is what keeps autonomous agents
+  aligned — they can always answer "why am I doing this?"
+- **Heartbeat system:** Agents wake on scheduled intervals, check assigned work, execute
+  autonomously, report back. Two adapter modes: `process` (Paperclip spawns a shell command
+  / Claude Code session) and `http` (fire-and-forget webhook to external agent).
+- **Monthly token budgets:** Per-agent budgets with soft alerts and hard-stop auto-pause at
+  100%. Cost events tracked per agent, task, project, and company. Prevents runaway spend.
+- **Board governance:** Human "board" operator approves agent hires, CEO strategy proposals,
+  and can pause/override any agent or task. Append-only audit trail.
+- **Atomic task checkout:** Single assignee model with atomic `in_progress` transitions to
+  prevent duplicate execution.
+
+**Agent integration (adapter architecture):**
+
+Paperclip is agent-agnostic. The adapter config defines how each agent runs:
+
+```
+Adapter types:
+  process → spawn Claude Code, OpenClaw, Codex, or any CLI as subprocess
+  http    → POST webhook to externally running agent (OpenClaw hooks, custom APIs)
+```
+
+The adapter config is opaque to Paperclip — it passes through whatever the agent runtime
+expects (CLAUDE.md content for Claude Code, SOUL.md for OpenClaw, CLI args for scripts).
+
+**What makes it novel vs. other orchestrators:**
+
+| Dimension | Gas Town / Claude Squad / CC Mirror | Paperclip |
+| --- | --- | --- |
+| **Abstraction level** | Individual coding sessions | Entire company |
+| **Agent identity** | Ad-hoc (per session) | Persistent employees with roles |
+| **Task model** | Flat or manual | Hierarchical goal chain |
+| **Cost control** | Manual / per-invocation budget | Monthly budgets per agent |
+| **Governance** | None | Board approvals, audit trail |
+| **Agent scope** | Claude Code only | Any agent runtime |
+| **Persistence** | Session-based | PostgreSQL (survives restarts) |
+
+**Relevance to Claude Code orchestration:** Paperclip represents the highest-level
+abstraction in this space — it sits *above* the orchestration frameworks covered in
+`research-running-claude-code.md` (Gas Town, Claude Squad) and the control protocols
+covered in this doc. A Paperclip deployment might use Claude Code's Agent SDK or
+`claude -p` as the adapter backend, while Paperclip handles the organizational layer:
+who does what, within what budget, toward what goal.
+
+##### CodePilot (NEW — March 2026)
+
+Desktop GUI for Claude Code built with Electron + Next.js. Features session
+pause/resume/rewind, split-screen view, cost tracking, and bridges to Telegram, Discord,
+QQ, and Feishu for mobile session control. v0.26.0 as of March 4, 2026.
+
+##### Claude Squad (NEW)
+
+Terminal TUI managing multiple agents (Claude Code, Aider, Codex, OpenCode, Amp) in
+separate tmux sessions with git worktrees. 5.6k+ stars. Install via
+`brew install claude-squad` (runs as `cs`). More of a session manager than an orchestrator
+— each agent works independently in its own worktree.
+
+##### myclaude (NEW)
+
+Multi-agent orchestration across Claude Code, Codex, Gemini, and OpenCode. 2.4k stars,
+74 releases, v6.8.2 as of March 3, 2026. High release velocity suggests active
+development.
 
 ### 3. Orchestrating Claude Code Instances from Claude Code
 
@@ -557,6 +641,12 @@ support (Gemini CLI) and adapter-mediated support (Claude Code) creates friction
 past messages, no resuming from history, no checkpointing when using Claude Code through ACP
 in Zed.
 
+**Anthropic ToS crackdown (February 18, 2026):** Anthropic banned OAuth tokens from
+consumer Pro/Max plans in third-party tools. Claude Code itself (terminal, ACP adapter, or
+Obsidian plugin) remains supported, but wrapping Claude Code's OAuth auth in custom
+third-party UIs now violates Terms of Service. This creates a friction point for projects
+like Companion that rely on the `--sdk-url` protocol with Max plan auth.
+
 **Strategic implication:** If ACP gains critical mass (JetBrains as co-developer is a strong
 signal), pressure on Anthropic to provide native support will increase. The
 [closed issue #6686](https://github.com/anthropics/claude-code/issues/6686) may be
@@ -655,6 +745,83 @@ web technologies.
 
 * * *
 
+## March 2026 Updates
+
+### Claude Code Platform Changes
+
+Several changes since mid-February affect the orchestration landscape:
+
+**New interaction paradigms:**
+- **`/loop` command:** Run prompts on recurring intervals (e.g., `/loop 5m check the
+  deploy`) with cron scheduling. Relevant for heartbeat-style monitoring without external
+  orchestration.
+- **Voice mode:** `/voice` toggle, STT now supports 20 languages. New input modality for
+  session control.
+- **`/simplify` and `/batch` commands:** New built-in slash commands.
+
+**Agent SDK updates:**
+- Rebranded from "Claude Code SDK" to **Claude Agent SDK**.
+- v0.1.48 (March 7) fixed `include_partial_messages=True` regression (affected
+  v0.1.36-0.1.47).
+- New hook inputs: `agent_id` and `agent_type` fields added to tool-lifecycle hooks —
+  useful for orchestrators tracking which agent triggered which action.
+- Apple **Xcode 26.3** now integrates the Claude Agent SDK natively.
+
+**Agent Teams bug fixes (March 2026):**
+- Fixed `--print` hanging forever when agent teams configured.
+- Fixed teammates accidentally spawning nested teammates via Agent tool's name parameter.
+- Still no role-based model selection (community wants lead on Opus, workers on Sonnet).
+- Still one team per session, no nested teams, no session resumption.
+
+**API-level changes:**
+- **Compaction API** (beta): Server-side context summarization for infinite conversations.
+- **Tool Search** (public beta): Dynamic tool discovery from large catalogs.
+- **Effort parameter** GA: Replaces `budget_tokens` on new models.
+- **Sonnet 4.6** launched; Opus 4/4.1 deprecated from model selector.
+
+### Ecosystem Rebrands and Security Events
+
+**OpenClaw (formerly Moltbot/Clawdbot):** Now at 100k+ GitHub stars. Renamed from Moltbot
+on Jan 30, 2026 after Anthropic trademark complaints. Creator Peter Steinberger joining
+OpenAI (Feb 14). Major security vulnerabilities discovered: "ClawJacked" — full agent
+takeover via any website. Microsoft warns it should NOT run on standard workstations.
+Relevant because Paperclip uses OpenClaw as its primary adapter target.
+
+**Ruflo (formerly Claude Flow):** Rebranded Feb 27, 2026 with v3.5 as "first major stable
+release." ~19.9k stars, 215 MCP tools, 60+ agents. WASM kernels in Rust for policy
+engine.
+
+**OpCode:** Now at 20.8k stars. Same Asterisk Labs (YC-backed) team.
+
+**Gas Town:** Now has a companion web GUI
+([gastown-gui](https://github.com/web3dev1337/gastown-gui)). Real-world cost reports:
+~$100/hour in Claude tokens. Steve Yegge reportedly runs three concurrent Claude Max
+accounts.
+
+### New UI/Orchestration Projects
+
+| Project | Stars | Key Differentiator |
+| --- | --- | --- |
+| [CodePilot](https://github.com/op7418/CodePilot) | — | Electron desktop, mobile bridges (Telegram/Discord/QQ/Feishu) |
+| [Claude Squad](https://github.com/smtg-ai/claude-squad) | 6k+ | tmux TUI for multi-agent worktree sessions |
+| [myclaude](https://github.com/stellarlinkco/myclaude) | 2.4k | Multi-runtime orchestration (Claude, Codex, Gemini, OpenCode) |
+| [Multiclaude](https://github.com/dlorenc/multiclaude) | — | "Brownian ratchet" — CI as one-way gate, auto-merge passing PRs |
+| [CloudCLI](https://github.com/siteboon/claudecodeui) | — | Web UI for remote/mobile Claude Code session management |
+| [Zerg](https://github.com/) | — | Parallel orchestration with security and crash recovery |
+| [Agentrooms](https://claudecode.run/) | — | @mention-based multi-agent coordination, local + remote |
+
+### Industry Context (March 2026)
+
+- Claude Code now authors **4% of public GitHub commits**, projected 20% by end of 2026.
+- Claude Code skills ecosystem: grew from ~50 (mid-2025) to **334+**.
+- Anthropic's C compiler project: 16 agents, ~2,000 sessions, $20k API costs, produced
+  100k-line Rust C compiler that builds Linux 6.9 on x86/ARM/RISC-V.
+- **Claude Marketplace** launched — enterprises can apply Anthropic spend commitments
+  toward third-party Claude-powered tools (GitLab, Replit, Harvey, Lovable, Snowflake).
+- Claude Code added to every Team plan standard seat.
+
+* * *
+
 ## Next Steps
 
 - [ ] Test `--sdk-url` protocol with a minimal WebSocket server to validate Companion's
@@ -666,6 +833,11 @@ web technologies.
 - [ ] Track Agent SDK V2 preview for session management improvements
 - [ ] Evaluate Sandbox Agent for multi-agent sandbox orchestration
 - [ ] Test Companion for browser-based session management
+- [ ] Deploy Paperclip locally and test Claude Code adapter integration
+- [ ] Evaluate `/loop` command as lightweight alternative to external heartbeat orchestration
+- [ ] Monitor OpenClaw security situation — assess impact on Paperclip adapter usage
+- [ ] Track Ruflo v3.5 stability for potential use as orchestration layer
+- [ ] Evaluate Anthropic ToS impact on `--sdk-url` wrapper projects
 
 * * *
 
@@ -711,6 +883,8 @@ web technologies.
 
 ### Third-Party Projects
 
+- [paperclipai/paperclip](https://github.com/paperclipai/paperclip) — Company-level control
+  plane for autonomous AI organizations
 - [winfunc/opcode](https://github.com/winfunc/opcode) — OpCode Tauri desktop command center
 - [marcusbey/claudia](https://github.com/marcusbey/claudia) — Claudia (YC-backed) desktop
   GUI
@@ -723,6 +897,16 @@ web technologies.
 - [dzhng/claude-agent-server](https://github.com/dzhng/claude-agent-server) — WebSocket
   server wrapping Agent SDK
 - [Toad](https://willmcgugan.github.io/toad-released/) — Unified TUI for ACP-enabled agents
+- [op7418/CodePilot](https://github.com/op7418/CodePilot) — Electron desktop GUI with mobile
+  bridges
+- [smtg-ai/claude-squad](https://github.com/smtg-ai/claude-squad) — tmux TUI for
+  multi-agent sessions
+- [stellarlinkco/myclaude](https://github.com/stellarlinkco/myclaude) — Multi-runtime
+  orchestration
+- [dlorenc/multiclaude](https://github.com/dlorenc/multiclaude) — "Brownian ratchet"
+  auto-merge orchestrator
+- [ruvnet/ruflo](https://github.com/ruvnet/ruflo) — Ruflo (formerly Claude Flow), 19.9k
+  stars
 
 ### Other References
 
