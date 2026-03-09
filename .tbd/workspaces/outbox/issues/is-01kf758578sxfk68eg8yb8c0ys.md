@@ -10,7 +10,7 @@ priority: 3
 status: closed
 title: "Remove dead code: hash.ts content hashing functions are unused"
 type: is
-updated_at: 2026-03-09T02:47:22.261Z
-version: 6
+updated_at: 2026-03-09T16:12:31.176Z
+version: 7
 ---
 The file packages/tbd-cli/src/file/hash.ts defines computeContentHash() and canonicalizeForHash() but these are never called anywhere in the codebase. Either remove the dead code or document why it's being kept for future use.

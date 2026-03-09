@@ -12,6 +12,6 @@ spec_path: docs/project/specs/active/plan-2026-02-03-tbd-no-args-help-behavior.m
 status: closed
 title: Update test files for new behavior
 type: is
-updated_at: 2026-03-09T02:47:24.800Z
-version: 7
+updated_at: 2026-03-09T16:12:33.973Z
+version: 8
 ---

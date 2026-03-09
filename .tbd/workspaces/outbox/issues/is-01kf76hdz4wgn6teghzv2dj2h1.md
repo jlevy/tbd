@@ -10,8 +10,8 @@ priority: 0
 status: closed
 title: "Bug: Sync doesn't update worktree after pull, may lose remote changes"
 type: is
-updated_at: 2026-03-09T02:47:22.398Z
-version: 8
+updated_at: 2026-03-09T16:12:31.340Z
+version: 9
 ---
 In fullSync(), after pulling remote changes (update-ref to remote commit), the worktree's working directory is NOT updated. This means:
 

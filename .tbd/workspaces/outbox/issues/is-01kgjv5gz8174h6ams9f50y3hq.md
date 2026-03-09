@@ -12,6 +12,6 @@ spec_path: docs/project/specs/active/plan-2026-02-03-streamlined-outbox-workflow
 status: closed
 title: Implement auto-import from outbox on successful sync
 type: is
-updated_at: 2026-03-09T02:47:24.761Z
-version: 7
+updated_at: 2026-03-09T16:12:33.926Z
+version: 8
 ---

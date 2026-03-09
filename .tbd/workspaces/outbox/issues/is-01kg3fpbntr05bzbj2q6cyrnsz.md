@@ -14,7 +14,7 @@ spec_path: docs/project/specs/active/plan-2026-01-28-sync-worktree-recovery-and-
 status: closed
 title: Audit sync.ts for hardcoded DATA_SYNC_DIR/WORKTREE_DIR usage
 type: is
-updated_at: 2026-03-09T02:47:24.090Z
-version: 8
+updated_at: 2026-03-09T16:12:33.202Z
+version: 9
 ---
 Review all sync operations for hardcoded WORKTREE_DIR or DATA_SYNC_DIR usage. All data paths MUST go through resolveDataSyncDir(). Only exception: worktree creation/repair in git.ts. Document findings and fix any remaining hardcoded paths. Location: packages/tbd/src/cli/commands/sync.ts

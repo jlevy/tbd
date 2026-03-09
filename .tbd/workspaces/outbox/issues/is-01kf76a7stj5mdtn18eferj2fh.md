@@ -10,7 +10,7 @@ priority: 3
 status: closed
 title: GitHub Issues sync
 type: is
-updated_at: 2026-03-09T02:47:22.378Z
-version: 6
+updated_at: 2026-03-09T16:12:31.315Z
+version: 7
 ---
 Two-way sync with GitHub Issues. Map tbd fields to GitHub fields.

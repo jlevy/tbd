@@ -11,6 +11,6 @@ priority: 2
 status: closed
 title: Update prime.ts to always generate shortcut directory
 type: is
-updated_at: 2026-03-09T02:47:23.644Z
-version: 6
+updated_at: 2026-03-09T16:12:32.727Z
+version: 7
 ---

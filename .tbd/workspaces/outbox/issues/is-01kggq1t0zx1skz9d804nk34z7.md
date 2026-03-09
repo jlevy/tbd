@@ -10,6 +10,6 @@ priority: 3
 status: closed
 title: Review/update publint version in both monorepo docs
 type: is
-updated_at: 2026-03-09T02:47:24.708Z
-version: 6
+updated_at: 2026-03-09T16:12:33.864Z
+version: 7
 ---

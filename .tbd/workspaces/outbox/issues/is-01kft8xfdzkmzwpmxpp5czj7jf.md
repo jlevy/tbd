@@ -11,6 +11,6 @@ priority: 2
 status: closed
 title: "Update setup.ts: remove cache operations, update gitignore, always generate"
 type: is
-updated_at: 2026-03-09T02:47:23.635Z
-version: 6
+updated_at: 2026-03-09T16:12:32.716Z
+version: 7
 ---

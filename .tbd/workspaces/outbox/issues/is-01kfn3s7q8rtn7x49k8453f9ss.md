@@ -11,7 +11,7 @@ priority: 2
 status: closed
 title: Register new commands in CLI
 type: is
-updated_at: 2026-03-09T02:47:23.435Z
-version: 6
+updated_at: 2026-03-09T16:12:32.499Z
+version: 7
 ---
 Register guidelines and templates commands in cli.ts. Add imports and .addCommand() calls for guidelinesCommand and templatesCommand.

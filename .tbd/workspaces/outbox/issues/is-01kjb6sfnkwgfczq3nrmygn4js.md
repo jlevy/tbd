@@ -12,7 +12,7 @@ spec_path: docs/project/specs/active/plan-2026-02-25-multi-worktree-sync-branch-
 status: closed
 title: Add linked-worktree regression tests for sync branch isolation
 type: is
-updated_at: 2026-03-09T02:47:25.404Z
-version: 7
+updated_at: 2026-03-09T16:12:34.646Z
+version: 8
 ---
 Add unit and e2e tests covering multiple linked outer checkouts, concurrent sync, push failures/outbox recovery, and single-checkout backward compatibility.

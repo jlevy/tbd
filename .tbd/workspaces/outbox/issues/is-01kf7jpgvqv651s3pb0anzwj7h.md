@@ -10,7 +10,7 @@ priority: 2
 status: closed
 title: Add --pretty flag to tbd list command
 type: is
-updated_at: 2026-03-09T02:47:22.529Z
-version: 6
+updated_at: 2026-03-09T16:12:31.498Z
+version: 7
 ---
 Implement tree view display for tbd list that shows parent-child relationships similar to bd list --pretty. This provides a scannable hierarchical view of issues with their children nested underneath.

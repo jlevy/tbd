@@ -14,6 +14,6 @@ spec_path: docs/project/specs/active/plan-2026-02-02-skill-md-comprehensive-upda
 status: closed
 title: Update claude-header.md with expanded description and trigger keywords
 type: is
-updated_at: 2026-03-09T02:47:24.530Z
-version: 8
+updated_at: 2026-03-09T16:12:33.675Z
+version: 9
 ---

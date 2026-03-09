@@ -8,8 +8,8 @@ priority: 2
 status: open
 title: "CLI output consistency: stats formatting and status icons"
 type: is
-updated_at: 2026-03-09T02:47:23.898Z
-version: 5
+updated_at: 2026-03-09T16:12:33.001Z
+version: 6
 ---
 Improve CLI output consistency for stats command and status icon usage across all commands.
 

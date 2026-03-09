@@ -10,8 +10,8 @@ priority: 1
 status: closed
 title: tbd doctor should show paths for all checks
 type: is
-updated_at: 2026-03-09T02:47:22.431Z
-version: 7
+updated_at: 2026-03-09T16:12:31.382Z
+version: 8
 ---
 Currently tbd doctor just shows checkmarks without details. It should show the exact paths verified for each check. For example:
 

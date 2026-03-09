@@ -14,8 +14,8 @@ priority: 2
 status: closed
 title: Create issue formatting utilities
 type: is
-updated_at: 2026-03-09T02:47:22.606Z
-version: 15
+updated_at: 2026-03-09T16:12:31.580Z
+version: 16
 ---
 Create cli/lib/issueFormat.ts with:
 - ISSUE_COLUMNS constants (ID=12, PRIORITY=5, STATUS=16, ASSIGNEE=10)

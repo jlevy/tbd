@@ -12,7 +12,7 @@ spec_path: docs/project/specs/active/plan-2026-02-02-skill-md-comprehensive-upda
 status: closed
 title: Standardize YAML error handling with parseYamlWithConflictDetection
 type: is
-updated_at: 2026-03-09T02:47:24.593Z
-version: 7
+updated_at: 2026-03-09T16:12:33.740Z
+version: 8
 ---
 Replace direct parseYaml calls with parseYamlWithConflictDetection for user-editable files to provide helpful error messages for merge conflicts.

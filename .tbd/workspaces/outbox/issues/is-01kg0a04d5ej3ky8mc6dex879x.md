@@ -9,6 +9,6 @@ spec_path: docs/project/specs/active/plan-2026-01-26-cli-output-formatting-consi
 status: open
 title: "Spec: CLI Output Formatting Consistency"
 type: is
-updated_at: 2026-03-09T02:47:23.908Z
-version: 5
+updated_at: 2026-03-09T16:12:33.011Z
+version: 6
 ---

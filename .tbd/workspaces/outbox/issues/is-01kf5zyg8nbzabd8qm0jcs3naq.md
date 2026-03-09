@@ -17,7 +17,7 @@ priority: 2
 status: closed
 title: Add requireInit() helper function
 type: is
-updated_at: 2026-03-09T02:47:21.395Z
-version: 5
+updated_at: 2026-03-09T16:12:30.228Z
+version: 6
 ---
 Create src/cli/lib/requireInit.ts with centralized init check that throws CLIError with message: Not a tbd repository (run 'tbd init' or 'tbd import --from-beads' first)

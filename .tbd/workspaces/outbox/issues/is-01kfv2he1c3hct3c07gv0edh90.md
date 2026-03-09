@@ -10,8 +10,8 @@ priority: 2
 status: closed
 title: Implement gitignore-utils library
 type: is
-updated_at: 2026-03-09T02:47:23.728Z
-version: 6
+updated_at: 2026-03-09T16:12:32.822Z
+version: 7
 ---
 Create reusable utility library for idempotent .gitignore editing with atomic writes.
 

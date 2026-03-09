@@ -17,7 +17,7 @@ priority: 2
 status: closed
 title: Document prime command
 type: is
-updated_at: 2026-03-09T02:47:21.605Z
-version: 5
+updated_at: 2026-03-09T16:12:30.450Z
+version: 6
 ---
 Document the `tbd prime` command for AI agent context injection. Output workflow context for agents. Called automatically by hooks. Options: --export (output default content ignoring PRIME.md). Silent exit if not in TBD project. Custom output via .tbd/PRIME.md file.

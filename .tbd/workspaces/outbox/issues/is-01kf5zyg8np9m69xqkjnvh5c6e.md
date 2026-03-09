@@ -19,6 +19,6 @@ priority: 2
 status: closed
 title: Add debug flag to show internal IDs in output
 type: is
-updated_at: 2026-03-09T02:47:21.482Z
-version: 5
+updated_at: 2026-03-09T16:12:30.313Z
+version: 6
 ---

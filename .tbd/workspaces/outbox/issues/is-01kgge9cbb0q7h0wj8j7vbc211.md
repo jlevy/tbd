@@ -12,6 +12,6 @@ priority: 2
 status: closed
 title: Prefix validation improvements
 type: is
-updated_at: 2026-03-09T02:47:24.636Z
-version: 7
+updated_at: 2026-03-09T16:12:33.784Z
+version: 8
 ---

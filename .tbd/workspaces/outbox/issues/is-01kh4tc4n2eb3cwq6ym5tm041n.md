@@ -12,6 +12,6 @@ spec_path: docs/project/specs/active/plan-2026-02-10-external-issue-linking.md
 status: closed
 title: Documentation updates — design doc (§4.4, §4.7), tbd-docs.md (create/update/list/show/sync), tbd-prime.md, README commands, shortcuts (plan-with-beads, implement-beads, agent-handoff, setup-github-cli), CLI --help text, error messages
 type: is
-updated_at: 2026-03-09T02:47:24.990Z
-version: 9
+updated_at: 2026-03-09T16:12:34.176Z
+version: 10
 ---

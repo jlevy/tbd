@@ -20,6 +20,6 @@ spec_path: docs/project/specs/active/plan-2026-02-03-tbd-no-args-help-behavior.m
 status: closed
 title: Remove default-to-prime code in cli.ts
 type: is
-updated_at: 2026-03-09T02:47:24.775Z
-version: 11
+updated_at: 2026-03-09T16:12:33.946Z
+version: 12
 ---

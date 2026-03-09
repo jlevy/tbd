@@ -10,6 +10,6 @@ priority: 2
 status: closed
 title: Remove --non-interactive/--yes from docs and guidelines
 type: is
-updated_at: 2026-03-09T02:47:25.385Z
-version: 6
+updated_at: 2026-03-09T16:12:34.624Z
+version: 7
 ---

@@ -11,6 +11,6 @@ priority: 2
 status: closed
 title: Add tests for prefix validation
 type: is
-updated_at: 2026-03-09T02:47:24.629Z
-version: 7
+updated_at: 2026-03-09T16:12:33.779Z
+version: 8
 ---

@@ -15,7 +15,7 @@ priority: 1
 status: closed
 title: Add cache directory paths to paths.ts
 type: is
-updated_at: 2026-03-09T02:47:23.256Z
-version: 10
+updated_at: 2026-03-09T16:12:32.310Z
+version: 11
 ---
 Add cache directory path constants to paths.ts: TBD_CACHE_DIR = '.tbd/cache', SHORTCUT_DIRECTORY_CACHE = '.tbd/cache/shortcut-directory.md'.

@@ -19,7 +19,7 @@ priority: 1
 status: closed
 title: Implement colored output with TTY detection
 type: is
-updated_at: 2026-03-09T02:47:20.846Z
-version: 5
+updated_at: 2026-03-09T16:12:29.661Z
+version: 6
 ---
 TTY detection, --color auto|always|never, respect NO_COLOR env var.

@@ -11,7 +11,7 @@ priority: 1
 status: closed
 title: Update tbd prime to include shortcut directory in output
 type: is
-updated_at: 2026-03-09T02:47:23.285Z
-version: 7
+updated_at: 2026-03-09T16:12:32.342Z
+version: 8
 ---
 Update tbd prime command to include shortcut directory in its output, ensuring agents see available shortcuts in context recovery.

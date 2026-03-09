@@ -8,6 +8,6 @@ priority: 2
 status: open
 title: Stabilize flaky full-suite timeouts in doc-add/performance/setup-hooks tests
 type: is
-updated_at: 2026-03-09T02:47:25.409Z
-version: 5
+updated_at: 2026-03-09T16:12:34.651Z
+version: 6
 ---

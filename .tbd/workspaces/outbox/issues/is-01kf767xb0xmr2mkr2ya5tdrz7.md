@@ -10,7 +10,7 @@ priority: 1
 status: closed
 title: Document Git version requirement
 type: is
-updated_at: 2026-03-09T02:47:22.331Z
-version: 7
+updated_at: 2026-03-09T16:12:31.257Z
+version: 8
 ---
 Add Git 2.42+ requirement to README and troubleshooting section.

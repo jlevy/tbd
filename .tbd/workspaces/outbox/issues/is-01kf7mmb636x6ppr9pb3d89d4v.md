@@ -12,8 +12,8 @@ priority: 2
 status: closed
 title: Add --long flag to commands
 type: is
-updated_at: 2026-03-09T02:47:22.611Z
-version: 9
+updated_at: 2026-03-09T16:12:31.585Z
+version: 10
 ---
 Add --long flag for showing descriptions:
 - Add --long flag to list command

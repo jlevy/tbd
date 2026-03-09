@@ -12,7 +12,7 @@ priority: 2
 status: closed
 title: "GREEN: Implement shortcut existence validation"
 type: is
-updated_at: 2026-03-09T02:47:23.588Z
-version: 9
+updated_at: 2026-03-09T16:12:32.667Z
+version: 10
 ---
 Implement validateShortcuts() using DocCache to verify each shortcut in README exists. Report missing items with clear error messages.

@@ -10,7 +10,7 @@ priority: 1
 status: closed
 title: "Bug: --parent stores display ID instead of internal ID"
 type: is
-updated_at: 2026-03-09T02:47:22.554Z
-version: 7
+updated_at: 2026-03-09T16:12:31.529Z
+version: 8
 ---
 When using 'tbd update --parent tbd-xyz', the parent_id field stores the display ID (tbd-xyz) instead of the internal ID (is-...). This causes schema validation errors since parent_id must match the internal ID regex. The --parent option should resolve the display ID to internal ID before storing.

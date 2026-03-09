@@ -20,7 +20,7 @@ priority: 1
 status: closed
 title: Implement tbd create command
 type: is
-updated_at: 2026-03-09T02:47:21.972Z
-version: 5
+updated_at: 2026-03-09T16:12:30.851Z
+version: 6
 ---
 Create issues with all options: -t, -p, -d, -f, -l, --assignee, --due, --defer, --parent, --from-file.

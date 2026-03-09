@@ -14,6 +14,6 @@ spec_path: docs/project/specs/active/plan-2026-02-03-streamlined-outbox-workflow
 status: closed
 title: "Phase 1: Add classifySyncError() function to errors.ts"
 type: is
-updated_at: 2026-03-09T02:47:24.805Z
-version: 8
+updated_at: 2026-03-09T16:12:33.979Z
+version: 9
 ---

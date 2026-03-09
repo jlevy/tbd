@@ -18,7 +18,7 @@ priority: 2
 status: closed
 title: Update import.ts to preserve original Beads IDs
 type: is
-updated_at: 2026-03-09T02:47:21.374Z
-version: 5
+updated_at: 2026-03-09T16:12:30.203Z
+version: 6
 ---
 Modify import code to extract short ID from beads ID (e.g., '100' from 'tbd-100') and use it directly in ids.yml instead of generating a random 4-char base36 ID.

@@ -18,6 +18,6 @@ spec_path: docs/project/specs/active/plan-2026-02-02-skill-md-comprehensive-upda
 status: closed
 title: "Spec: SKILL.md comprehensive update for expanded tbd capabilities"
 type: is
-updated_at: 2026-03-09T02:47:24.524Z
-version: 12
+updated_at: 2026-03-09T16:12:33.670Z
+version: 13
 ---

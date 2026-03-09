@@ -11,7 +11,7 @@ spec_path: docs/project/specs/active/plan-2026-01-28-sync-worktree-recovery-and-
 status: closed
 title: "Epic: Sync Worktree Recovery and Hardening"
 type: is
-updated_at: 2026-03-09T02:47:24.000Z
-version: 6
+updated_at: 2026-03-09T16:12:33.111Z
+version: 7
 ---
 Comprehensive fixes to make tbd sync robust, recoverable, and fail-safe. Goals: (G1) Sync should NEVER report 'in sync' when data hasn't been synced, (G2) Missing/corrupted worktree should be automatically repaired, (G3) Path resolution should be consistent across all sync operations, (G4) Clear error messages when sync cannot proceed, (G5) Recovery path for existing repos with data in wrong location. Related: tbd-1810, tbd-208

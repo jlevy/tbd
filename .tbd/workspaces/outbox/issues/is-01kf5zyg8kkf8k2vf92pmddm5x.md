@@ -19,7 +19,7 @@ priority: 1
 status: closed
 title: Implement ID mapping for import
 type: is
-updated_at: 2026-03-09T02:47:20.912Z
-version: 5
+updated_at: 2026-03-09T16:12:29.735Z
+version: 6
 ---
 Load/save .tbd-sync/mappings/beads.yml, generate new IDs, lookup existing for re-import.

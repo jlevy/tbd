@@ -12,6 +12,6 @@ priority: 2
 status: open
 title: Create packages/tbd/docs/shortcuts/standard/closing-protocol.md
 type: is
-updated_at: 2026-03-09T02:47:23.783Z
-version: 7
+updated_at: 2026-03-09T16:12:32.885Z
+version: 8
 ---

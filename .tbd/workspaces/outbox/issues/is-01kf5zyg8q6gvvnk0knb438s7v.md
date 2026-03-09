@@ -19,7 +19,7 @@ priority: 1
 status: closed
 title: Implement dual ID generation (ULID internal + base36 external)
 type: is
-updated_at: 2026-03-09T02:47:21.875Z
-version: 5
+updated_at: 2026-03-09T16:12:30.751Z
+version: 6
 ---
 Create generateInternalId(prefix) for ULID IDs and generateShortId() for base36 short IDs.

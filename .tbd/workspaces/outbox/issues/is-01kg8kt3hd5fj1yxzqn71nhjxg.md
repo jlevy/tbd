@@ -16,6 +16,6 @@ spec_path: docs/project/specs/active/plan-2026-01-30-workspace-sync-alt.md
 status: closed
 title: Implement tbd import command with --workspace, --dir, --outbox, --clear-on-success flags
 type: is
-updated_at: 2026-03-09T02:47:24.402Z
-version: 9
+updated_at: 2026-03-09T16:12:33.543Z
+version: 10
 ---

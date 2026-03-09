@@ -19,7 +19,7 @@ priority: 1
 status: closed
 title: "Phase 1: Core Schemas & Serialization"
 type: is
-updated_at: 2026-03-09T02:47:20.755Z
-version: 5
+updated_at: 2026-03-09T16:12:29.554Z
+version: 6
 ---
 Implement the File Layer with Zod schemas and YAML+Markdown serialization.

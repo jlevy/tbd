@@ -17,7 +17,7 @@ priority: 2
 status: closed
 title: Set Commander help width to max 88 characters
 type: is
-updated_at: 2026-03-09T02:47:22.056Z
-version: 5
+updated_at: 2026-03-09T16:12:30.941Z
+version: 6
 ---
 Add helpWidth to createColoredHelpConfig() in output.ts. Use Math.min(88, process.stdout.columns || 80) to cap help text at 88 characters while respecting narrower terminals.

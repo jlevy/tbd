@@ -17,7 +17,7 @@ priority: 2
 status: closed
 title: Remove Git < 2.42 fallback, require Git 2.42+
 type: is
-updated_at: 2026-03-09T02:47:21.268Z
-version: 5
+updated_at: 2026-03-09T16:12:30.094Z
+version: 6
 ---
 Remove createOrphanWorktreeFallback() and simplify to just require Git 2.42+. Error with clear upgrade instructions if version is too old.

@@ -14,7 +14,7 @@ priority: 1
 status: closed
 title: Create DocCache class with load() method
 type: is
-updated_at: 2026-03-09T02:47:22.988Z
-version: 9
+updated_at: 2026-03-09T16:12:32.012Z
+version: 10
 ---
 Create packages/tbd/src/file/doc-cache.ts (in file/ not lib/ because it uses fs/promises). Define DocCache class, scoring constants (SCORE_EXACT_MATCH=1.0, SCORE_PREFIX_MATCH=0.9, SCORE_CONTAINS_ALL=0.8, SCORE_PARTIAL_BASE=0.7, SCORE_MIN_THRESHOLD=0.5) with docstrings, DocFrontmatter interface, and CachedDoc/DocMatch interfaces.

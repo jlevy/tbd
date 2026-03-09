@@ -17,8 +17,8 @@ priority: 2
 status: closed
 title: Implement lazy command loading for CLI startup performance
 type: is
-updated_at: 2026-03-09T02:47:21.928Z
-version: 5
+updated_at: 2026-03-09T16:12:30.807Z
+version: 6
 ---
 ## Goal
 Reduce CLI startup time from ~55ms to ~30ms for help/version/simple commands by lazy-loading command handlers.

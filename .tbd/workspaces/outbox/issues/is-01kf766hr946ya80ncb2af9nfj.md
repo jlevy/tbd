@@ -10,8 +10,8 @@ priority: 2
 status: closed
 title: "Bug: Import changes ID prefix"
 type: is
-updated_at: 2026-03-09T02:47:22.306Z
-version: 6
+updated_at: 2026-03-09T16:12:31.225Z
+version: 7
 ---
 When importing from Beads, ID prefix changes based on local config.
 Original tbd-100 becomes bd-100. Fix: auto-detect prefix or add --preserve-prefix flag.

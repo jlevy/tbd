@@ -9,6 +9,6 @@ spec_path: docs/project/specs/active/plan-2026-01-29-unified-sync-command.md
 status: open
 title: "Unified sync command: sync both issues and docs by default"
 type: is
-updated_at: 2026-03-09T02:47:24.243Z
-version: 5
+updated_at: 2026-03-09T16:12:33.372Z
+version: 6
 ---

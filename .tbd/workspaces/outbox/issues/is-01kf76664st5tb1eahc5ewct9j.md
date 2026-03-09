@@ -10,7 +10,7 @@ priority: 2
 status: closed
 title: "Bug: Dependency direction semantics confusing"
 type: is
-updated_at: 2026-03-09T02:47:22.290Z
-version: 7
+updated_at: 2026-03-09T16:12:31.209Z
+version: 8
 ---
 The dep add command semantics are inverted. Users expect 'dep add A B' to mean A depends on B, but current behavior means A blocks B. Fix options: change semantics, add flags, or improve docs.

@@ -10,7 +10,7 @@ priority: 3
 status: closed
 title: Optional SQLite index layer
 type: is
-updated_at: 2026-03-09T02:47:22.388Z
-version: 6
+updated_at: 2026-03-09T16:12:31.326Z
+version: 7
 ---
 SQLite cache for fast queries (opt-in). Regenerated from files on demand.

@@ -11,8 +11,8 @@ priority: 2
 status: closed
 title: Add integration tests for corrupted data scenarios (YAML parse errors, merge conflicts)
 type: is
-updated_at: 2026-03-09T02:47:24.514Z
-version: 8
+updated_at: 2026-03-09T16:12:33.660Z
+version: 9
 ---
 Test scenarios to add:
 

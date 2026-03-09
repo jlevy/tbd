@@ -12,6 +12,6 @@ spec_path: docs/project/specs/active/plan-2026-02-03-tbd-no-args-help-behavior.m
 status: closed
 title: Update SKILL.md files with correct tbd/prime references
 type: is
-updated_at: 2026-03-09T02:47:24.790Z
-version: 7
+updated_at: 2026-03-09T16:12:33.963Z
+version: 8
 ---

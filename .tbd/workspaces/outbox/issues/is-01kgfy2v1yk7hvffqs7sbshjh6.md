@@ -12,7 +12,7 @@ spec_path: docs/project/specs/active/plan-2026-02-02-skill-md-comprehensive-upda
 status: closed
 title: Add comprehensive YAML edge case tests
 type: is
-updated_at: 2026-03-09T02:47:24.599Z
-version: 7
+updated_at: 2026-03-09T16:12:33.746Z
+version: 8
 ---
 Add tests for YAML edge cases: values with colons, multiline strings, special characters. Add tests to markdown-utils.test.ts and create yaml-handling.test.ts for comprehensive coverage.

@@ -25,7 +25,7 @@ priority: 1
 status: closed
 title: Implement shortcuts refresh subcommand
 type: is
-updated_at: 2026-03-09T02:47:23.272Z
-version: 14
+updated_at: 2026-03-09T16:12:32.329Z
+version: 15
 ---
 Add --refresh and --quiet flags to existing shortcut command. Load shortcuts via DocCache, generate directory markdown, write to cache file, and update installed skill files with marker-based replacement.

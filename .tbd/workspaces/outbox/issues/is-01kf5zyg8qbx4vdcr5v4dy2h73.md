@@ -20,7 +20,7 @@ priority: 1
 status: closed
 title: Implement tbd blocked command
 type: is
-updated_at: 2026-03-09T02:47:21.960Z
-version: 5
+updated_at: 2026-03-09T16:12:30.839Z
+version: 6
 ---
 Show issues with unresolved blocking dependencies. Display blocking issue IDs and titles.

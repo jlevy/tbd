@@ -8,8 +8,8 @@ priority: 2
 status: open
 title: Comprehensive testing of TriScript 0.1.6 coverage mechanisms
 type: is
-updated_at: 2026-03-09T02:47:22.780Z
-version: 5
+updated_at: 2026-03-09T16:12:31.789Z
+version: 6
 ---
 Test the new coverage mechanisms in TriScript 0.1.6 to verify they work correctly.
 

@@ -15,7 +15,7 @@ priority: 1
 status: closed
 title: Update tbd init to create docs directories
 type: is
-updated_at: 2026-03-09T02:47:23.062Z
-version: 10
+updated_at: 2026-03-09T16:12:32.091Z
+version: 11
 ---
 Update tbd init to create .tbd/docs/shortcuts/system/ and .tbd/docs/shortcuts/standard/ directories for shortcut storage.

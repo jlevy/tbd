@@ -11,7 +11,7 @@ priority: 1
 status: closed
 title: Update tbd setup codex to run refresh and embed shortcut directory
 type: is
-updated_at: 2026-03-09T02:47:23.333Z
-version: 7
+updated_at: 2026-03-09T16:12:32.395Z
+version: 8
 ---
 Update tbd setup codex to: 1) Run tbd shortcut --refresh --quiet before installing, 2) Generate AGENTS.md section with embedded shortcut directory from cache, 3) Update or create AGENTS.md.

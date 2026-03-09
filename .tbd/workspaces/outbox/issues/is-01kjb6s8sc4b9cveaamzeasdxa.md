@@ -13,7 +13,7 @@ spec_path: docs/project/specs/active/plan-2026-02-25-multi-worktree-sync-branch-
 status: closed
 title: Support linked-worktree sync without branch checkout conflicts
 type: is
-updated_at: 2026-03-09T02:47:25.389Z
-version: 7
+updated_at: 2026-03-09T16:12:34.630Z
+version: 8
 ---
 Implement per-checkout local sync branches while keeping origin/tbd-sync canonical to avoid inner worktree branch lock failures in AI linked-worktree environments.

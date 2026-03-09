@@ -12,7 +12,7 @@ spec_path: docs/project/specs/active/plan-2026-01-28-sync-worktree-recovery-and-
 status: closed
 title: Add warning in resolveDataSyncDir test mode fallback
 type: is
-updated_at: 2026-03-09T02:47:24.155Z
-version: 7
+updated_at: 2026-03-09T16:12:33.269Z
+version: 8
 ---
 When resolveDataSyncDir({ allowFallback: true }) falls back to direct path, emit debug-level warning. Helps detect unintended fallback usage. Location: packages/tbd/src/lib/paths.ts

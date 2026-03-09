@@ -12,8 +12,8 @@ priority: 2
 status: closed
 title: Implement sync progress indicator
 type: is
-updated_at: 2026-03-09T02:47:22.629Z
-version: 8
+updated_at: 2026-03-09T16:12:31.601Z
+version: 9
 ---
 Add immediate progress feedback for sync operations:
 - Add immediate spinner when sync starts (no silent waiting)

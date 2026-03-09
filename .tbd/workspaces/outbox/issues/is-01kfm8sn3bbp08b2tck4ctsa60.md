@@ -10,8 +10,8 @@ priority: 1
 status: closed
 title: Remove prefix auto-detection from spec
 type: is
-updated_at: 2026-03-09T02:47:23.204Z
-version: 7
+updated_at: 2026-03-09T16:12:32.242Z
+version: 8
 ---
 Update the design spec to remove all references to prefix auto-detection feature.
 

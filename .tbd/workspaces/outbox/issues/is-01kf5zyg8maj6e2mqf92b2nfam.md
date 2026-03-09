@@ -17,7 +17,7 @@ priority: 2
 status: closed
 title: "Test: Add golden test for tbd uninstall command"
 type: is
-updated_at: 2026-03-09T02:47:21.030Z
-version: 5
+updated_at: 2026-03-09T16:12:29.861Z
+version: 6
 ---
 Add tryscript golden test for tbd uninstall command - verify it removes .tbd/, deletes tbd-sync branch, requires confirmation without --yes flag.

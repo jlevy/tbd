@@ -17,7 +17,7 @@ priority: 2
 status: closed
 title: Add tests for sync conflict resolution edge cases
 type: is
-updated_at: 2026-03-09T02:47:21.282Z
-version: 5
+updated_at: 2026-03-09T16:12:30.105Z
+version: 6
 ---
 Test edge cases: concurrent edits, partial syncs, network errors during sync, conflict in same field, multiple conflicts in one issue.

@@ -11,8 +11,8 @@ priority: 2
 status: open
 title: Generate commit subject line with up to 8 short IDs (truncate if >10)
 type: is
-updated_at: 2026-03-09T02:47:22.911Z
-version: 8
+updated_at: 2026-03-09T16:12:31.932Z
+version: 9
 ---
 Generate commit subject line:
 - Load ID mapping to convert internal IDs to short display IDs (e.g., tbd-a1b2)

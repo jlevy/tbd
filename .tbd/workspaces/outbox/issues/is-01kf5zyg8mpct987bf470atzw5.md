@@ -17,7 +17,7 @@ priority: 1
 status: closed
 title: "Bug: import status mapping missing done to closed"
 type: is
-updated_at: 2026-03-09T02:47:21.149Z
-version: 5
+updated_at: 2026-03-09T16:12:29.994Z
+version: 6
 ---
 The mapStatus function in import.ts doesn't map beads 'done' status to tbd 'closed'. Beads uses 'done' for completed issues, but the statusMap only has 'closed' and 'tombstone'. This causes all 'done' issues (127 of them) to be imported as 'open' instead of 'closed'.

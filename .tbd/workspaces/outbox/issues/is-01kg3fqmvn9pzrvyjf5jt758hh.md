@@ -14,7 +14,7 @@ spec_path: docs/project/specs/active/plan-2026-01-28-sync-worktree-recovery-and-
 status: closed
 title: "Doctor --fix: Implement repair actions"
 type: is
-updated_at: 2026-03-09T02:47:24.127Z
-version: 8
+updated_at: 2026-03-09T16:12:33.241Z
+version: 9
 ---
 Implement repair actions in doctor.ts when --fix is provided: (1) repair unhealthy worktree via repairWorktree(), (2) migrate data from wrong location via migrateDataToWorktree(), (3) prune stale worktree entries. Output progress for each step. Location: packages/tbd/src/cli/commands/doctor.ts

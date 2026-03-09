@@ -17,7 +17,7 @@ priority: 2
 status: closed
 title: Document status command (distinct from info/stats)
 type: is
-updated_at: 2026-03-09T02:47:21.697Z
-version: 5
+updated_at: 2026-03-09T16:12:30.563Z
+version: 6
 ---
 Document `tbd status` as orientation command that works even when not initialized. Shows: initialization state, sync status, issue counts, integrations. Detects Beads and suggests migration. Different from `tbd info` and `tbd stats`.

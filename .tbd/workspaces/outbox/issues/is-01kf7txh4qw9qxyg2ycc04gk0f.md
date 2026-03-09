@@ -12,7 +12,7 @@ priority: 2
 status: closed
 title: Review tbd stats output for heading consistency
 type: is
-updated_at: 2026-03-09T02:47:22.764Z
-version: 7
+updated_at: 2026-03-09T16:12:31.771Z
+version: 8
 ---
 Update stats command to use consistent heading grammar per arch-cli-interface-design-system.md if it uses section headings.

@@ -10,6 +10,6 @@ priority: 1
 status: closed
 title: Reconcile general-tdd-guidelines.md - 63% content truncated
 type: is
-updated_at: 2026-03-09T02:47:24.301Z
-version: 7
+updated_at: 2026-03-09T16:12:33.441Z
+version: 8
 ---

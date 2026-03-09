@@ -8,6 +8,6 @@ priority: 2
 status: open
 title: Update skill file generation to include closing-protocol in shortcut directory
 type: is
-updated_at: 2026-03-09T02:47:23.793Z
-version: 5
+updated_at: 2026-03-09T16:12:32.896Z
+version: 6
 ---

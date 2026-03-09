@@ -10,6 +10,6 @@ priority: 2
 status: closed
 title: Support --long flag with --pretty tree view
 type: is
-updated_at: 2026-03-09T02:47:22.837Z
-version: 7
+updated_at: 2026-03-09T16:12:31.852Z
+version: 8
 ---

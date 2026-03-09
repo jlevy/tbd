@@ -11,6 +11,6 @@ spec_path: docs/project/specs/active/plan-2026-02-18-monorepo-patterns-codebase-
 status: closed
 title: Add node-free-core guard test and .flowmarkignore
 type: is
-updated_at: 2026-03-09T02:47:25.296Z
-version: 7
+updated_at: 2026-03-09T16:12:34.528Z
+version: 8
 ---

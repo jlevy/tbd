@@ -17,7 +17,7 @@ priority: 2
 status: closed
 title: Add tryscript tests for init errors
 type: is
-updated_at: 2026-03-09T02:47:21.353Z
-version: 5
+updated_at: 2026-03-09T16:12:30.180Z
+version: 6
 ---
 Add tests in cli-*.tryscript.md to verify each command fails with exit code 1 and correct error message when run in uninitialized repo.

@@ -8,7 +8,7 @@ priority: 2
 status: open
 title: "Review S4: Environments — CLI, VS Code, Desktop, Cloud"
 type: is
-updated_at: 2026-03-09T02:47:25.092Z
-version: 6
+updated_at: 2026-03-09T16:12:34.280Z
+version: 7
 ---
 Review Section 4 (lines 395-555): Environments — CLI, VS Code, Desktop, Cloud. (1) Verify Cloud-specific considerations are current — check if new env var methods have been added. (2) Confirm the 'export in Bash does NOT work' claim. (3) Verify default models by account type. (4) Check if /model affecting sub-agents behavior has been officially documented since initial writing. (5) Research: Are there new Cloud features or environment configuration options?

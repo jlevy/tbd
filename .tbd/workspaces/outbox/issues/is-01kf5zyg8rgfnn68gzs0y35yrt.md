@@ -19,7 +19,7 @@ priority: 1
 status: closed
 title: Implement push retry algorithm
 type: is
-updated_at: 2026-03-09T02:47:22.173Z
-version: 5
+updated_at: 2026-03-09T16:12:31.071Z
+version: 6
 ---
 MAX_RETRIES = 3, merge on conflict, error on persistent failure.

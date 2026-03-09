@@ -13,7 +13,7 @@ priority: 1
 status: closed
 title: Create generateShortcutDirectory() function in doc-cache.ts
 type: is
-updated_at: 2026-03-09T02:47:23.251Z
-version: 8
+updated_at: 2026-03-09T16:12:32.293Z
+version: 9
 ---
 Create generateShortcutDirectory() function that takes a list of CachedDoc and returns formatted markdown table with name and description columns. Include header text explaining usage.

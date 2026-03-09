@@ -10,6 +10,6 @@ priority: 2
 status: open
 title: "Review: Section 2 — Model Selection and Control (verify env vars, alias resolution, cost claims)"
 type: is
-updated_at: 2026-03-09T02:47:25.013Z
-version: 7
+updated_at: 2026-03-09T16:12:34.197Z
+version: 8
 ---

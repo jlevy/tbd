@@ -17,7 +17,7 @@ priority: 2
 status: closed
 title: "Test: Add golden tests for tbd docs command"
 type: is
-updated_at: 2026-03-09T02:47:21.161Z
-version: 5
+updated_at: 2026-03-09T16:12:30.007Z
+version: 6
 ---
 Golden tests for docs command: verify 'tbd docs', 'tbd docs --open' (mock), 'tbd docs sync', and help text formatting.

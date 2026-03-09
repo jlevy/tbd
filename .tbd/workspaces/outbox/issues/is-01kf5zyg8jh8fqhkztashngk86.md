@@ -19,7 +19,7 @@ priority: 1
 status: closed
 title: Implement MetaSchema
 type: is
-updated_at: 2026-03-09T02:47:20.785Z
-version: 5
+updated_at: 2026-03-09T16:12:29.586Z
+version: 6
 ---
 Create Zod schema for metadata file (.tbd-sync/meta.yml) containing schema version.

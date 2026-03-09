@@ -15,8 +15,8 @@ priority: 2
 status: closed
 title: Create unified agent-rules directory
 type: is
-updated_at: 2026-03-09T02:47:22.513Z
-version: 12
+updated_at: 2026-03-09T16:12:31.480Z
+version: 13
 ---
 Create docs/headers/ directory structure:
 

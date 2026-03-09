@@ -10,8 +10,8 @@ priority: 1
 status: closed
 title: Add .gitattributes handling to tbd setup beads --disable
 type: is
-updated_at: 2026-03-09T02:47:22.524Z
-version: 7
+updated_at: 2026-03-09T16:12:31.491Z
+version: 8
 ---
 The `tbd setup beads --disable` command is missing handling for `.gitattributes` which contains beads merge driver configuration:
 

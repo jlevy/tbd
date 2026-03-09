@@ -19,7 +19,7 @@ priority: 1
 status: closed
 title: Implement config operations (readConfig, writeConfig, initConfig)
 type: is
-updated_at: 2026-03-09T02:47:21.825Z
-version: 5
+updated_at: 2026-03-09T16:12:30.695Z
+version: 6
 ---
 Parse and write .tbd/config.yml with default initialization.

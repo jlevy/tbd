@@ -8,7 +8,7 @@ priority: 2
 status: open
 title: "Review S7: Claude-Code-Invoking-Claude-Code (Ralph Wiggum Loops)"
 type: is
-updated_at: 2026-03-09T02:47:25.107Z
-version: 6
+updated_at: 2026-03-09T16:12:34.298Z
+version: 7
 ---
 Review Section 7 (lines 685-895): Claude-Code-Invoking-Claude-Code (Ralph Wiggum Loops). (1) Verify all CLI flags listed are current (--model, --system-prompt, --max-turns, --max-budget-usd, --json-schema, --resume, --fork-session, etc.). (2) Verify the Agent SDK example is accurate against current SDK docs. (3) Research: Find real-world implementations of the outer-loop pattern — the Ralph Loop (awesomeclaude.ai), Continuous-Claude-v3, and any newer projects. (4) Look for analogous patterns in other agent frameworks (e.g., LangGraph cycles, AutoGen conversation patterns).

@@ -17,7 +17,7 @@ priority: 1
 status: closed
 title: "Test: Add golden test verifying short public IDs in list output"
 type: is
-updated_at: 2026-03-09T02:47:21.137Z
-version: 5
+updated_at: 2026-03-09T16:12:29.983Z
+version: 6
 ---
 Add tryscript golden test that verifies list output shows short public IDs like 'bd-a7k2' not internal ULIDs, and preserves original beads IDs for imports.

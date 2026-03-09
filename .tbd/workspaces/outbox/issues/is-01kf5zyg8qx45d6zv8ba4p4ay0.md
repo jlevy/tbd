@@ -17,7 +17,7 @@ priority: 2
 status: closed
 title: Enable Node.js compile cache for CLI startup performance
 type: is
-updated_at: 2026-03-09T02:47:22.094Z
-version: 5
+updated_at: 2026-03-09T16:12:30.982Z
+version: 6
 ---
 Add Node.js module compile cache (Node 22.8+) to improve CLI warm startup times. The compile cache stores pre-compiled bytecode on disk, making subsequent runs significantly faster. Implementation: create a CJS bootstrap that enables cache before loading ESM CLI.

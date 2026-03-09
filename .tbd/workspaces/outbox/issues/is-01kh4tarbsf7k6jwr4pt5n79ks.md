@@ -16,6 +16,6 @@ spec_path: docs/project/specs/active/plan-2026-02-10-external-issue-linking.md
 status: closed
 title: "Phase 1h-i: Golden tests and verification — cli-external-issue-linking.tryscript.md, cli-inheritable-fields.tryscript.md (5 inheritance scenarios), verify existing spec_path tests pass"
 type: is
-updated_at: 2026-03-09T02:47:24.960Z
-version: 13
+updated_at: 2026-03-09T16:12:34.149Z
+version: 14
 ---

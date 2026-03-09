@@ -9,7 +9,7 @@ priority: 2
 status: open
 title: Golden tests for skill output with embedded shortcut directory
 type: is
-updated_at: 2026-03-09T02:47:23.317Z
-version: 6
+updated_at: 2026-03-09T16:12:32.378Z
+version: 7
 ---
 Golden tests for skill output with embedded shortcut directory. Capture expected output of tbd skill showing base SKILL.md content plus appended shortcut directory.

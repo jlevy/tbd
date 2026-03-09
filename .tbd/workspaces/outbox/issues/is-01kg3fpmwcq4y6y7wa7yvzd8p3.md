@@ -16,7 +16,7 @@ spec_path: docs/project/specs/active/plan-2026-01-28-sync-worktree-recovery-and-
 status: closed
 title: "Tests: Phase 2 path consistency"
 type: is
-updated_at: 2026-03-09T02:47:24.100Z
-version: 9
+updated_at: 2026-03-09T16:12:33.213Z
+version: 10
 ---
 Add tests: resolveDataSyncDir() returns worktree path in production, throws WorktreeMissingError when missing, allows fallback with { allowFallback: true }. Test getSyncStatus() checks correct path. Test commitWorktreeChanges() uses consistent paths.

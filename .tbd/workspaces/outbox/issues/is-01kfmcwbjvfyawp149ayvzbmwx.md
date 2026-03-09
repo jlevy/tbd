@@ -13,7 +13,7 @@ priority: 1
 status: closed
 title: Update tbd setup to run shortcuts refresh after copying docs
 type: is
-updated_at: 2026-03-09T02:47:23.296Z
-version: 9
+updated_at: 2026-03-09T16:12:32.356Z
+version: 10
 ---
 Update unified tbd setup command to run tbd shortcut --refresh --quiet before installing skill files. Embed shortcut directory in all targets: .claude/skills/tbd.md, .cursor/rules/tbd.mdc, AGENTS.md, docs/SKILL.md.

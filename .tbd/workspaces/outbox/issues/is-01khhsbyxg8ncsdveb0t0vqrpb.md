@@ -10,6 +10,6 @@ priority: 1
 status: closed
 title: "Research doc: Rename Modality 5 from 'Tool Documentation' to 'Meta Documentation' — how to consume the other kinds of information"
 type: is
-updated_at: 2026-03-09T02:47:25.208Z
-version: 7
+updated_at: 2026-03-09T16:12:34.420Z
+version: 8
 ---

@@ -12,7 +12,7 @@ priority: 2
 status: closed
 title: Review tbd doctor output for heading consistency
 type: is
-updated_at: 2026-03-09T02:47:22.754Z
-version: 7
+updated_at: 2026-03-09T16:12:31.759Z
+version: 8
 ---
 Update doctor command to use consistent heading grammar per arch-cli-interface-design-system.md: ALL CAPS, bold, blank line after.

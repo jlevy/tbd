@@ -11,7 +11,7 @@ priority: 2
 status: closed
 title: Create tbd templates command
 type: is
-updated_at: 2026-03-09T02:47:23.410Z
-version: 6
+updated_at: 2026-03-09T16:12:32.473Z
+version: 7
 ---
 Create new templates.ts command file using the shared DocCommandHandler. Commands: tbd templates [query] - show a template by name or fuzzy search, tbd templates --list - list all available templates. Uses DEFAULT_TEMPLATES_PATHS for document discovery.

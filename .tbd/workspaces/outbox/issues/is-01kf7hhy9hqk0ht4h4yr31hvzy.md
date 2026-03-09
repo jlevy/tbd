@@ -12,8 +12,8 @@ priority: 1
 status: closed
 title: Refactor tbd doctor to include status and stats output
 type: is
-updated_at: 2026-03-09T02:47:22.460Z
-version: 10
+updated_at: 2026-03-09T16:12:31.420Z
+version: 11
 ---
 Make tbd doctor a comprehensive health check that includes:
 

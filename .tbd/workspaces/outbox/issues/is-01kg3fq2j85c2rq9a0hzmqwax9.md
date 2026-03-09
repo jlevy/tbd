@@ -14,7 +14,7 @@ spec_path: docs/project/specs/active/plan-2026-01-28-sync-worktree-recovery-and-
 status: closed
 title: Add --fix flag to tbd sync
 type: is
-updated_at: 2026-03-09T02:47:24.105Z
-version: 8
+updated_at: 2026-03-09T16:12:33.219Z
+version: 9
 ---
 Add --fix option to sync command. When worktree is unhealthy and --fix is provided, attempt repair before syncing. Call repairWorktree() which prunes stale entries and recreates worktree. Location: packages/tbd/src/cli/commands/sync.ts:597-606

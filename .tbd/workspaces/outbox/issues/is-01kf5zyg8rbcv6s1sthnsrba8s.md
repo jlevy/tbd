@@ -20,7 +20,7 @@ priority: 1
 status: closed
 title: Implement tbd stats command
 type: is
-updated_at: 2026-03-09T02:47:22.152Z
-version: 5
+updated_at: 2026-03-09T16:12:31.046Z
+version: 6
 ---
 Show counts by status, type/kind, priority.

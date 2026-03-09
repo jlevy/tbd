@@ -17,7 +17,7 @@ priority: 3
 status: closed
 title: Migrate missing-issue.yaml to tryscript format
 type: is
-updated_at: 2026-03-09T02:47:21.751Z
-version: 5
+updated_at: 2026-03-09T16:12:30.619Z
+version: 6
 ---
 Write tryscript tests covering missing-issue.yaml scenarios (show non-existent issue), then delete the YAML file

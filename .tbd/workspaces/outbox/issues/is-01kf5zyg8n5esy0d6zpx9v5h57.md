@@ -18,7 +18,7 @@ priority: 2
 status: closed
 title: Remove beads.yml creation from import
 type: is
-updated_at: 2026-03-09T02:47:21.347Z
-version: 5
+updated_at: 2026-03-09T16:12:30.174Z
+version: 6
 ---
 Since short IDs are now preserved in ids.yml, beads.yml is no longer needed. Remove: loadMapping(), saveMapping() functions and all beads.yml file operations. Keep extensions.beads.original_id for debugging.

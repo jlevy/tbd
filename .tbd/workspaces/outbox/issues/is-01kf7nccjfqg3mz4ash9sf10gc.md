@@ -12,8 +12,8 @@ priority: 2
 status: closed
 title: "Setup claude --check: Show file paths in output"
 type: is
-updated_at: 2026-03-09T02:47:22.670Z
-version: 7
+updated_at: 2026-03-09T16:12:31.660Z
+version: 8
 ---
 The `tbd setup claude --check` command should show the specific file paths being checked.
 

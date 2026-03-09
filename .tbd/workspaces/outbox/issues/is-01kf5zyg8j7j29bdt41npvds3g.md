@@ -19,7 +19,7 @@ priority: 1
 status: closed
 title: Implement ConfigSchema
 type: is
-updated_at: 2026-03-09T02:47:20.762Z
-version: 5
+updated_at: 2026-03-09T16:12:29.561Z
+version: 6
 ---
 Create Zod schema for project configuration stored in .tbd/config.yml.

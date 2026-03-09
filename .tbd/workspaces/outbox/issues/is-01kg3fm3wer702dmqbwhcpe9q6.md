@@ -16,7 +16,7 @@ spec_path: docs/project/specs/active/plan-2026-01-28-sync-worktree-recovery-and-
 status: closed
 title: Add checkRemoteBranchHealth() function
 type: is
-updated_at: 2026-03-09T02:47:24.023Z
-version: 9
+updated_at: 2026-03-09T16:12:33.133Z
+version: 10
 ---
 Add checkRemoteBranchHealth() to git.ts per spec. Returns { exists, diverged, head? }. Uses git fetch and merge-base to detect if remote tbd-sync exists and whether local/remote have diverged. Location: packages/tbd/src/file/git.ts

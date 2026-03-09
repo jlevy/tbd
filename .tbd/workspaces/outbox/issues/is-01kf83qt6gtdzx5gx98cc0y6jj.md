@@ -11,8 +11,8 @@ priority: 2
 status: open
 title: Generate commit body with long-format issue summaries (title, description, close_reason)
 type: is
-updated_at: 2026-03-09T02:47:22.916Z
-version: 8
+updated_at: 2026-03-09T16:12:31.938Z
+version: 9
 ---
 Generate commit body in long format similar to 'tbd list --long':
 - For each modified issue, show one-line summary

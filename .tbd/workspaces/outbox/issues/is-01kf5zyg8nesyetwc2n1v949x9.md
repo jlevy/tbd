@@ -17,7 +17,7 @@ priority: 2
 status: closed
 title: Add requireInit() to all commands
 type: is
-updated_at: 2026-03-09T02:47:21.441Z
-version: 5
+updated_at: 2026-03-09T16:12:30.274Z
+version: 6
 ---
 Add requireInit() call to ~18 command files: issue.ts, workflow.ts, label.ts, dep.ts, sync.ts, search.ts, maintenance.ts (info, stats, doctor, config), attic.ts. Skip init.ts and import.ts (special handling).

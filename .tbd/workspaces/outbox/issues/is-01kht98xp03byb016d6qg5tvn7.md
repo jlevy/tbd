@@ -10,6 +10,6 @@ priority: 2
 status: closed
 title: "Update bun-monorepo-patterns: update version table and add clam case study appendix"
 type: is
-updated_at: 2026-03-09T02:47:25.366Z
-version: 7
+updated_at: 2026-03-09T16:12:34.603Z
+version: 8
 ---

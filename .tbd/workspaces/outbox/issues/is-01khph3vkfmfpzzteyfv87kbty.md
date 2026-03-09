@@ -10,6 +10,6 @@ priority: 3
 status: closed
 title: "Add cross-reference to research-claude-code-sub-agents.md: Section 7 (Ralph Wiggum Loops) should reference the new orchestration-and-uis doc for the protocol/interface perspective on instance-from-instance orchestration"
 type: is
-updated_at: 2026-03-09T02:47:25.247Z
-version: 4
+updated_at: 2026-03-09T16:12:34.467Z
+version: 5
 ---

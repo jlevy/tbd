@@ -17,7 +17,7 @@ priority: 2
 status: closed
 title: Design tbd docs command structure and topics
 type: is
-updated_at: 2026-03-09T02:47:21.235Z
-version: 5
+updated_at: 2026-03-09T16:12:30.083Z
+version: 6
 ---
 Design the tbd docs command: (1) What topics to support (commands, concepts, workflows), (2) Output modes (terminal quick-ref vs browser), (3) How to structure built-in help content, (4) Whether to link to online docs or embed locally.

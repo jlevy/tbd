@@ -11,6 +11,6 @@ spec_path: docs/project/specs/active/plan-2026-01-27-parallel-processing.md
 status: closed
 title: Parallelize status command checks with Promise.all
 type: is
-updated_at: 2026-03-09T02:47:23.939Z
-version: 6
+updated_at: 2026-03-09T16:12:33.046Z
+version: 7
 ---

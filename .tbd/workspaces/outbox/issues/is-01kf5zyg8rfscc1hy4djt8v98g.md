@@ -20,7 +20,7 @@ priority: 1
 status: closed
 title: Implement tbd search command
 type: is
-updated_at: 2026-03-09T02:47:22.168Z
-version: 5
+updated_at: 2026-03-09T16:12:31.065Z
+version: 6
 ---
 Pattern search with --field, --type, --status, --label, --case-sensitive, --context, --files-only, --count, --no-refresh options.

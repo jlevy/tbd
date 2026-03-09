@@ -20,6 +20,6 @@ spec_path: docs/project/specs/active/plan-2026-02-03-tbd-no-args-help-behavior.m
 status: closed
 title: Update help epilog with prominent agent guidance in output.ts
 type: is
-updated_at: 2026-03-09T02:47:24.780Z
-version: 11
+updated_at: 2026-03-09T16:12:33.952Z
+version: 12
 ---

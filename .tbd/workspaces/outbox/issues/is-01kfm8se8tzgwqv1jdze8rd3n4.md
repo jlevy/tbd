@@ -14,8 +14,8 @@ priority: 1
 status: closed
 title: Remove prefix auto-detection from code
 type: is
-updated_at: 2026-03-09T02:47:23.197Z
-version: 9
+updated_at: 2026-03-09T16:12:32.236Z
+version: 10
 ---
 Remove the autoDetectPrefix function and its usages from the codebase.
 

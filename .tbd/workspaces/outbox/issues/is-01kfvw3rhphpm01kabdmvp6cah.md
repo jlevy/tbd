@@ -10,8 +10,8 @@ priority: 2
 status: closed
 title: "Bug: update command --from-file option not implemented"
 type: is
-updated_at: 2026-03-09T02:47:23.816Z
-version: 7
+updated_at: 2026-03-09T16:12:32.916Z
+version: 8
 ---
 The --from-file option is declared in update.ts line 227 but parseUpdates() method never processes options.fromFile. Need to:
 1. Read the YAML+Markdown file using the existing file format

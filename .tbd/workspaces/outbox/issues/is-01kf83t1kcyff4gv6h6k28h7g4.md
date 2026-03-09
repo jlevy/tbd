@@ -13,8 +13,8 @@ priority: 2
 status: open
 title: Track modified issues at commit time and pass to commit message generator
 type: is
-updated_at: 2026-03-09T02:47:22.927Z
-version: 8
+updated_at: 2026-03-09T16:12:31.949Z
+version: 9
 ---
 During sync operations, we already know which issues are being modified. The approach:
 

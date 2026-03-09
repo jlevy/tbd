@@ -10,7 +10,7 @@ priority: 3
 status: closed
 title: Fix .claude/.gitignore messaging - same issue as .tbd/.gitignore
 type: is
-updated_at: 2026-03-09T02:47:23.831Z
-version: 6
+updated_at: 2026-03-09T16:12:32.932Z
+version: 7
 ---
 At setup.ts:678-680, we call ensureGitignorePatterns for .claude/.gitignore but don't use the return value for messaging. Should show appropriate message based on created/updated/no-op. Related to tbd-mhob.

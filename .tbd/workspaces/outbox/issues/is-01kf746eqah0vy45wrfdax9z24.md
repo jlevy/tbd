@@ -14,8 +14,8 @@ priority: 2
 status: closed
 title: Move prime instructions to top-level tbd-prime.md doc
 type: is
-updated_at: 2026-03-09T02:47:22.253Z
-version: 9
+updated_at: 2026-03-09T16:12:31.170Z
+version: 10
 ---
 Currently the prime instructions are hardcoded as a string constant (PRIME_OUTPUT) in packages/tbd-cli/src/cli/commands/prime.ts.
 

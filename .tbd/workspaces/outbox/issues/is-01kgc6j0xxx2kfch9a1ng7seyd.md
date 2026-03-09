@@ -11,6 +11,6 @@ priority: 1
 status: closed
 title: Remove error swallowing in list.ts - let errors propagate to central handler
 type: is
-updated_at: 2026-03-09T02:47:24.500Z
-version: 6
+updated_at: 2026-03-09T16:12:33.643Z
+version: 7
 ---

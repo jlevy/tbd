@@ -19,7 +19,7 @@ priority: 1
 status: closed
 title: Verify performance targets (<500ms CLI operations)
 type: is
-updated_at: 2026-03-09T02:47:20.907Z
-version: 5
+updated_at: 2026-03-09T16:12:29.728Z
+version: 6
 ---
 Benchmark 5K issues: all CLI operations pass <500ms (includes Node.js startup). In-process ops ~10-50ms.

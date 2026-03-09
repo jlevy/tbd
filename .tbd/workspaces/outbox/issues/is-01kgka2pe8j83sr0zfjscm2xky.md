@@ -14,6 +14,6 @@ spec_path: docs/project/specs/active/plan-2026-02-03-streamlined-outbox-workflow
 status: closed
 title: "Phase 2.2: Add handlePermanentFailure() method with auto-save logic"
 type: is
-updated_at: 2026-03-09T02:47:24.815Z
-version: 8
+updated_at: 2026-03-09T16:12:33.990Z
+version: 9
 ---

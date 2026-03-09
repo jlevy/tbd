@@ -17,7 +17,7 @@ priority: 1
 status: closed
 title: Create cli-import-status.tryscript.md - all status mappings
 type: is
-updated_at: 2026-03-09T02:47:21.305Z
-version: 5
+updated_at: 2026-03-09T16:12:30.128Z
+version: 6
 ---
 New tryscript file testing all beads status → tbd status mappings: open→open, in_progress→in_progress, done→closed, closed→closed, tombstone→skip, blocked→blocked, deferred→deferred.

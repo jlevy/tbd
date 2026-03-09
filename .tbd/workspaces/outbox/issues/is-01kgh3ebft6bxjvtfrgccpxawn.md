@@ -8,8 +8,8 @@ priority: 1
 status: open
 title: Add golden test for fresh clone with remote tbd-sync data
 type: is
-updated_at: 2026-03-09T02:47:24.735Z
-version: 7
+updated_at: 2026-03-09T16:12:33.894Z
+version: 8
 ---
 ## Overview
 

@@ -17,8 +17,8 @@ priority: 3
 status: closed
 title: Add Priority and Date format reference
 type: is
-updated_at: 2026-03-09T02:47:21.809Z
-version: 5
+updated_at: 2026-03-09T16:12:30.678Z
+version: 6
 ---
 Add reference for priority scale and date formats:
 

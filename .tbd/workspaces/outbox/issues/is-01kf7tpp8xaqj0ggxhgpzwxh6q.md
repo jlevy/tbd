@@ -14,7 +14,7 @@ priority: 2
 status: closed
 title: Separate Integrations from Health Checks in doctor output
 type: is
-updated_at: 2026-03-09T02:47:22.703Z
-version: 9
+updated_at: 2026-03-09T16:12:31.698Z
+version: 10
 ---
 Move Claude/Cursor/Codex checks to their own Integrations section instead of mixing them into Health Checks

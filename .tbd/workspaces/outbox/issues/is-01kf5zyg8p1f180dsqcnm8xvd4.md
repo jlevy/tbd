@@ -17,8 +17,8 @@ priority: 2
 status: closed
 title: Add golden tests for tbd uninstall command
 type: is
-updated_at: 2026-03-09T02:47:21.559Z
-version: 5
+updated_at: 2026-03-09T16:12:30.403Z
+version: 6
 ---
 Create golden tests for tbd uninstall command.
 

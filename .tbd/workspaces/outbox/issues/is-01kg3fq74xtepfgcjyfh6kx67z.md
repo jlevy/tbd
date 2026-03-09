@@ -16,7 +16,7 @@ spec_path: docs/project/specs/active/plan-2026-01-28-sync-worktree-recovery-and-
 status: closed
 title: Implement repairWorktree() function
 type: is
-updated_at: 2026-03-09T02:47:24.111Z
-version: 9
+updated_at: 2026-03-09T16:12:33.224Z
+version: 10
 ---
 Add repairWorktree() to git.ts. Follows decision tree from spec Appendix E: prune if prunable, create from local/remote/orphan based on branch state. Uses existing initWorktree() after cleanup. Location: packages/tbd/src/file/git.ts

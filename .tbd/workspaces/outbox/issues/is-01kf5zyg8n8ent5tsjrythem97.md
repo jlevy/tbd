@@ -17,7 +17,7 @@ priority: 1
 status: closed
 title: "Phase 23: Initialization Behavior"
 type: is
-updated_at: 2026-03-09T02:47:21.364Z
-version: 5
+updated_at: 2026-03-09T16:12:30.191Z
+version: 6
 ---
 Enforce consistent initialization requirements: all commands except init and import --from-beads must fail with clear error if tbd is not initialized. See tbd-design-v3.md §4.1.1.

@@ -11,7 +11,7 @@ priority: 2
 status: closed
 title: Add tests for guidelines and templates commands
 type: is
-updated_at: 2026-03-09T02:47:23.440Z
-version: 6
+updated_at: 2026-03-09T16:12:32.504Z
+version: 7
 ---
 Add integration tests for new commands: tbd guidelines --list, tbd guidelines [name], tbd templates --list, tbd templates [name]. Test fuzzy search and exact match. Verify commands work from subdirectories.

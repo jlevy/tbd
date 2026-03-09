@@ -10,8 +10,8 @@ priority: 2
 status: closed
 title: Auto-format markdown with Flowmark instead of ESLint
 type: is
-updated_at: 2026-03-09T02:47:22.408Z
-version: 7
+updated_at: 2026-03-09T16:12:31.352Z
+version: 8
 ---
 Switch markdown formatting from ESLint to Flowmark for better markdown-specific formatting.
 

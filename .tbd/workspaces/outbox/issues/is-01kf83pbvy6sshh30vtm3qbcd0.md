@@ -10,8 +10,8 @@ priority: 3
 status: closed
 title: Review and remove remaining hardcoded content in setup commands
 type: is
-updated_at: 2026-03-09T02:47:22.895Z
-version: 7
+updated_at: 2026-03-09T16:12:31.916Z
+version: 8
 ---
 ## Notes
 

@@ -10,6 +10,6 @@ priority: 1
 status: closed
 title: "Bug: Detached HEAD worktree prevents sync from pushing migration commits"
 type: is
-updated_at: 2026-03-09T02:47:24.207Z
-version: 6
+updated_at: 2026-03-09T16:12:33.334Z
+version: 7
 ---

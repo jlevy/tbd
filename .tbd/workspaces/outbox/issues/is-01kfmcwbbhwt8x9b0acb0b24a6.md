@@ -11,7 +11,7 @@ priority: 1
 status: closed
 title: Update tbd init to create cache directory and run refresh
 type: is
-updated_at: 2026-03-09T02:47:23.291Z
-version: 7
+updated_at: 2026-03-09T16:12:32.349Z
+version: 8
 ---
 Update tbd init to: 1) Create .tbd/cache/ directory, 2) Run tbd shortcut --refresh --quiet to generate initial shortcut directory cache.

@@ -9,8 +9,8 @@ priority: 2
 status: open
 title: "Redesign stats command output: unified status section with active/closed/total columns"
 type: is
-updated_at: 2026-03-09T02:47:23.888Z
-version: 11
+updated_at: 2026-03-09T16:12:32.990Z
+version: 12
 ---
 The `tbd stats` output needs restructuring and better formatting.
 

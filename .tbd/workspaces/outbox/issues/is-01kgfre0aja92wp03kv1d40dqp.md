@@ -14,6 +14,6 @@ spec_path: docs/project/specs/active/plan-2026-02-02-skill-md-comprehensive-upda
 status: closed
 title: Expand User Request → Agent Action table with categorized mappings
 type: is
-updated_at: 2026-03-09T02:47:24.541Z
-version: 8
+updated_at: 2026-03-09T16:12:33.686Z
+version: 9
 ---

@@ -10,7 +10,7 @@ priority: 2
 status: closed
 title: Reconcile tbd-design.md with tbd-design-spec.md
 type: is
-updated_at: 2026-03-09T02:47:22.843Z
-version: 6
+updated_at: 2026-03-09T16:12:31.858Z
+version: 7
 ---
 The shorter tbd-design.md needs to be reconciled with the full tbd-design-spec.md to ensure it covers all essential details accurately and consistently.

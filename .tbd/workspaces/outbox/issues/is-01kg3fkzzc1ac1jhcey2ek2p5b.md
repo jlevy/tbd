@@ -16,7 +16,7 @@ spec_path: docs/project/specs/active/plan-2026-01-28-sync-worktree-recovery-and-
 status: closed
 title: Add checkLocalBranchHealth() function
 type: is
-updated_at: 2026-03-09T02:47:24.018Z
-version: 9
+updated_at: 2026-03-09T16:12:33.127Z
+version: 10
 ---
 Add checkLocalBranchHealth() to git.ts per spec. Returns { exists, orphaned, head? }. Uses git rev-parse and git show-ref to check if tbd-sync branch exists and has commits. Location: packages/tbd/src/file/git.ts

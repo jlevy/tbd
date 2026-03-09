@@ -17,7 +17,7 @@ priority: 2
 status: closed
 title: Audit all subcommands for --help support and help text quality
 type: is
-updated_at: 2026-03-09T02:47:20.988Z
-version: 5
+updated_at: 2026-03-09T16:12:29.812Z
+version: 6
 ---
 Audit each subcommand for: (1) --help flag works, (2) Description is clear and complete, (3) All options documented, (4) Examples provided where helpful. Commands: init, create, list, show, update, close, reopen, ready, blocked, stale, label, dep, sync, search, info, stats, doctor, config, attic, import.

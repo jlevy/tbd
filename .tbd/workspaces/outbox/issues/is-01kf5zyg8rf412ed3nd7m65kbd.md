@@ -19,7 +19,7 @@ priority: 1
 status: closed
 title: Write golden tests for search command
 type: is
-updated_at: 2026-03-09T02:47:22.163Z
-version: 5
+updated_at: 2026-03-09T16:12:31.059Z
+version: 6
 ---
 Create tryscript tests for basic search and search with filters.

@@ -10,8 +10,8 @@ priority: 1
 status: closed
 title: Redesign tbd status/stats/doctor command hierarchy
 type: is
-updated_at: 2026-03-09T02:47:22.445Z
-version: 13
+updated_at: 2026-03-09T16:12:31.400Z
+version: 14
 ---
 Redesign the relationship between status, stats, and doctor commands:
 

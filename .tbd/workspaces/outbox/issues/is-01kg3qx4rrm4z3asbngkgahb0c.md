@@ -10,6 +10,6 @@ priority: 1
 status: closed
 title: "Bug: --dry-run flag not respected in doctor --fix"
 type: is
-updated_at: 2026-03-09T02:47:24.171Z
-version: 6
+updated_at: 2026-03-09T16:12:33.286Z
+version: 7
 ---

@@ -10,7 +10,7 @@ priority: 2
 status: closed
 title: "setup.ts: cursor fallback reads wrong file"
 type: is
-updated_at: 2026-03-09T02:47:23.489Z
-version: 6
+updated_at: 2026-03-09T16:12:32.559Z
+version: 7
 ---
 loadCursorContent last fallback reads docs/SKILL.md instead of docs/CURSOR.mdc.

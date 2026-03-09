@@ -9,7 +9,7 @@ spec_path: docs/project/specs/active/plan-2026-01-17-beads-migration.md
 status: open
 title: "Spec: Beads Migration"
 type: is
-updated_at: 2026-03-09T02:47:23.799Z
-version: 6
+updated_at: 2026-03-09T16:12:32.901Z
+version: 7
 ---
 Plan spec for Beads to tbd migration workflow. Includes safe disable command and integration verification. Spec: docs/project/specs/active/plan-2026-01-17-beads-migration.md

@@ -12,8 +12,8 @@ priority: 1
 status: closed
 title: "Fix setup command: use flags not subcommands"
 type: is
-updated_at: 2026-03-09T02:47:23.219Z
-version: 8
+updated_at: 2026-03-09T16:12:32.258Z
+version: 9
 ---
 ## Intended Behavior
 

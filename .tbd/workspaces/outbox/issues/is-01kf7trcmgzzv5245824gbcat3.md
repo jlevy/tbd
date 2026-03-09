@@ -12,7 +12,7 @@ priority: 2
 status: closed
 title: Review status/doctor output for consistency with CLI design system
 type: is
-updated_at: 2026-03-09T02:47:22.729Z
-version: 7
+updated_at: 2026-03-09T16:12:31.730Z
+version: 8
 ---
 After implementing changes, review all output against arch-cli-interface-design-system.md to ensure consistency.

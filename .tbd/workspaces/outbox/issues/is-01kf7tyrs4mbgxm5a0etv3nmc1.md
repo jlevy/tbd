@@ -10,6 +10,6 @@ priority: 2
 status: open
 title: Update TriScript to 0.1.6
 type: is
-updated_at: 2026-03-09T02:47:22.775Z
-version: 6
+updated_at: 2026-03-09T16:12:31.783Z
+version: 7
 ---

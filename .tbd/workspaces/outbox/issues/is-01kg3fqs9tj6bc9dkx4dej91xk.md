@@ -18,7 +18,7 @@ spec_path: docs/project/specs/active/plan-2026-01-28-sync-worktree-recovery-and-
 status: closed
 title: "Tests: Phase 3 auto-repair"
 type: is
-updated_at: 2026-03-09T02:47:24.132Z
-version: 10
+updated_at: 2026-03-09T16:12:33.248Z
+version: 11
 ---
 Add integration tests: sync --fix recreates worktree, doctor --fix migrates data, repairWorktree() handles all failure modes (prunable, missing local, missing remote, orphan). Test migration preserves all issue data. Test backup to Attic works.

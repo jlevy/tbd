@@ -12,6 +12,6 @@ priority: 2
 status: closed
 title: Align TypeScript version between monorepo docs (^5.9.0 vs ^5.9.3)
 type: is
-updated_at: 2026-03-09T02:47:24.659Z
-version: 7
+updated_at: 2026-03-09T16:12:33.806Z
+version: 8
 ---

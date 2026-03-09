@@ -10,6 +10,6 @@ priority: 3
 status: closed
 title: "Update research-running-claude-code.md Part 8 (IDE/Platform Integrations): section is dated — should reference orchestration-and-uis doc for detailed protocol/UI analysis and update third-party project list"
 type: is
-updated_at: 2026-03-09T02:47:25.262Z
-version: 4
+updated_at: 2026-03-09T16:12:34.487Z
+version: 5
 ---

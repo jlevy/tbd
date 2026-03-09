@@ -10,6 +10,6 @@ priority: 2
 status: open
 title: "Review: Section 9 — Custom Sub-Agent Delegation Frameworks (verify hooks, permissions, pipeline patterns)"
 type: is
-updated_at: 2026-03-09T02:47:25.051Z
-version: 7
+updated_at: 2026-03-09T16:12:34.237Z
+version: 8
 ---

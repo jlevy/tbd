@@ -13,6 +13,6 @@ spec_path: docs/project/specs/active/plan-2026-02-18-monorepo-patterns-codebase-
 status: closed
 title: Upgrade Vitest v2 to v4 and @types/node to v24
 type: is
-updated_at: 2026-03-09T02:47:25.291Z
-version: 7
+updated_at: 2026-03-09T16:12:34.522Z
+version: 8
 ---

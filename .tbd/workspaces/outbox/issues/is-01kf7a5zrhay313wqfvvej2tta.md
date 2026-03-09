@@ -10,8 +10,8 @@ priority: 2
 status: closed
 title: Show Git version in tbd status command
 type: is
-updated_at: 2026-03-09T02:47:22.403Z
-version: 7
+updated_at: 2026-03-09T16:12:31.347Z
+version: 8
 ---
 Add Git version detection to tbd status command.
 

@@ -14,8 +14,8 @@ priority: 2
 status: closed
 title: Create status utilities
 type: is
-updated_at: 2026-03-09T02:47:22.595Z
-version: 11
+updated_at: 2026-03-09T16:12:31.568Z
+version: 12
 ---
 Create lib/status.ts with:
 - formatStatus() utility for icon + word format (e.g., '● blocked')

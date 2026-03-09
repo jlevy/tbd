@@ -19,6 +19,6 @@ priority: 1
 status: closed
 title: Update list command to load mapping and display short IDs
 type: is
-updated_at: 2026-03-09T02:47:21.311Z
-version: 5
+updated_at: 2026-03-09T16:12:30.134Z
+version: 6
 ---

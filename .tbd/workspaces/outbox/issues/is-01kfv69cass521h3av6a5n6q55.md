@@ -9,7 +9,7 @@ spec_path: docs/project/specs/active/plan-2026-01-19-transactional-mode-and-agen
 status: open
 title: "Spec: Transactional Mode and Agent Registration"
 type: is
-updated_at: 2026-03-09T02:47:23.805Z
-version: 6
+updated_at: 2026-03-09T16:12:32.906Z
+version: 7
 ---
 Plan spec for adding transactional workflow support and agent registration. Enables agents to batch changes atomically. Spec: docs/project/specs/active/plan-2026-01-19-transactional-mode-and-agent-registration.md

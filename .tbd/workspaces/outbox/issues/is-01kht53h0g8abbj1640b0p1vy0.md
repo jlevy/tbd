@@ -13,6 +13,6 @@ spec_path: docs/project/specs/active/plan-2026-02-18-monorepo-patterns-codebase-
 status: closed
 title: "Update guideline: document CJS bootstrap, dep bundling, multi-config tsdown"
 type: is
-updated_at: 2026-03-09T02:47:25.301Z
-version: 8
+updated_at: 2026-03-09T16:12:34.533Z
+version: 9
 ---

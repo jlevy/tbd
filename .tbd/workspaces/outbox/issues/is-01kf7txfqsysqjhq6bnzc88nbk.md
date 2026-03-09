@@ -12,7 +12,7 @@ priority: 2
 status: closed
 title: Review tbd status output for heading consistency
 type: is
-updated_at: 2026-03-09T02:47:22.749Z
-version: 7
+updated_at: 2026-03-09T16:12:31.754Z
+version: 8
 ---
 Update status command to use consistent heading grammar per arch-cli-interface-design-system.md: ALL CAPS, bold, blank line after.

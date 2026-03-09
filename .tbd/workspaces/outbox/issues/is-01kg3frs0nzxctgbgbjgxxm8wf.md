@@ -12,7 +12,7 @@ spec_path: docs/project/specs/active/plan-2026-01-28-sync-worktree-recovery-and-
 status: closed
 title: Document worktree architecture in developer docs
 type: is
-updated_at: 2026-03-09T02:47:24.161Z
-version: 7
+updated_at: 2026-03-09T16:12:33.274Z
+version: 8
 ---
 Add/update developer documentation explaining worktree architecture: why we use worktree, path conventions, common failure modes, debugging tips. Reference tbd-design.md §2.3. Location: docs/development.md or new file

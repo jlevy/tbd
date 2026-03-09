@@ -16,7 +16,7 @@ priority: 1
 status: closed
 title: Implement shortcut --list and --all flags
 type: is
-updated_at: 2026-03-09T02:47:23.031Z
-version: 9
+updated_at: 2026-03-09T16:12:32.056Z
+version: 10
 ---
 Implement --list flag showing active shortcuts with source path in muted text. Implement --all flag (with --list) to include shadowed shortcuts marked as [shadowed]. Add --json flag for structured output.

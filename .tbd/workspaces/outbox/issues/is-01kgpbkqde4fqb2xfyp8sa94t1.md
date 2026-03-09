@@ -12,6 +12,6 @@ priority: 2
 status: closed
 title: Improve markdown rendering to handle YAML frontmatter separately
 type: is
-updated_at: 2026-03-09T02:47:24.895Z
-version: 7
+updated_at: 2026-03-09T16:12:34.087Z
+version: 8
 ---

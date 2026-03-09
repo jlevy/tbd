@@ -17,7 +17,7 @@ priority: 2
 status: closed
 title: Write docs/tbd-docs.md documentation file for bundling with CLI
 type: is
-updated_at: 2026-03-09T02:47:21.515Z
-version: 5
+updated_at: 2026-03-09T16:12:30.352Z
+version: 6
 ---
 Create docs/tbd-docs.md with comprehensive CLI documentation. This file will be copied to packages/tbd-cli/src/docs/ during build and bundled with the CLI for offline access via 'tbd docs'. Follow the pattern used in markform/tryscript where docs are maintained in docs/ directory and copied to code during build. Content should include: quick reference, all commands with examples, common workflows, ID system explanation, sync/import guides.

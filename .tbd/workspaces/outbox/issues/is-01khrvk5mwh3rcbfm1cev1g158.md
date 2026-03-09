@@ -8,6 +8,6 @@ priority: 2
 status: open
 title: Add comment to IssueSchema explaining why short_id is not in the schema
 type: is
-updated_at: 2026-03-09T02:47:25.267Z
-version: 5
+updated_at: 2026-03-09T16:12:34.493Z
+version: 6
 ---

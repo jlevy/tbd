@@ -17,8 +17,8 @@ priority: 2
 status: closed
 title: Remove -f shorthand for --file option
 type: is
-updated_at: 2026-03-09T02:47:21.708Z
-version: 5
+updated_at: 2026-03-09T16:12:30.574Z
+version: 6
 ---
 Remove the -f one-letter option alias for --file in the create command. Keep only --file.
 

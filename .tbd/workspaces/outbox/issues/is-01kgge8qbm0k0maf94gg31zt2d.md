@@ -17,6 +17,6 @@ priority: 2
 status: closed
 title: Add prefix validation with --force override
 type: is
-updated_at: 2026-03-09T02:47:24.604Z
-version: 12
+updated_at: 2026-03-09T16:12:33.752Z
+version: 13
 ---

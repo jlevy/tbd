@@ -17,7 +17,7 @@ priority: 3
 status: closed
 title: Migrate core-workflow.yaml to tryscript format
 type: is
-updated_at: 2026-03-09T02:47:21.758Z
-version: 5
+updated_at: 2026-03-09T16:12:30.625Z
+version: 6
 ---
 Write tryscript tests covering core-workflow.yaml scenarios (create, list, show), then delete the YAML file

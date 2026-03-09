@@ -11,7 +11,7 @@ priority: 2
 status: closed
 title: Update SKILL.md and README with new commands
 type: is
-updated_at: 2026-03-09T02:47:23.445Z
-version: 6
+updated_at: 2026-03-09T16:12:32.509Z
+version: 7
 ---
 Update skill.md to document new commands: tbd guidelines, tbd templates. Update README.md shortcuts section to separate shortcuts from guidelines and templates. Update shortcut directory generation if needed.

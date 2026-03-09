@@ -20,7 +20,7 @@ priority: 1
 status: closed
 title: "Phase 10: Attic Commands"
 type: is
-updated_at: 2026-03-09T02:47:20.803Z
-version: 5
+updated_at: 2026-03-09T16:12:29.606Z
+version: 6
 ---
 Implement attic inspection and restore for conflict resolution.

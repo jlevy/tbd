@@ -14,6 +14,6 @@ spec_path: docs/project/specs/active/plan-2026-02-02-skill-md-comprehensive-upda
 status: closed
 title: Add Labels & Search commands section to skill.md
 type: is
-updated_at: 2026-03-09T02:47:24.546Z
-version: 8
+updated_at: 2026-03-09T16:12:33.691Z
+version: 9
 ---

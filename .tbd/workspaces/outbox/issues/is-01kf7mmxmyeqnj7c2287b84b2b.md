@@ -12,8 +12,8 @@ priority: 2
 status: closed
 title: Debug mode git log output
 type: is
-updated_at: 2026-03-09T02:47:22.640Z
-version: 9
+updated_at: 2026-03-09T16:12:31.612Z
+version: 10
 ---
 Show git log --stat in debug mode after sync:
 - After push: git log --stat origin/tbd-sync@{1}..origin/tbd-sync

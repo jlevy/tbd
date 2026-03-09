@@ -12,7 +12,7 @@ priority: 2
 status: closed
 title: Review/update version table in pnpm-monorepo-patterns.md
 type: is
-updated_at: 2026-03-09T02:47:24.649Z
-version: 7
+updated_at: 2026-03-09T16:12:33.795Z
+version: 8
 ---
 The version table (lines 24-41) needs currency check. Today is Feb 2026 - verify: Node.js 24 LTS, pnpm (10.27.0), TypeScript (^5.9.0 - note Bun doc says ^5.9.3 - align), tsdown (^0.18.0 - check 0.19.x beta status), publint (^0.3.0), Changesets (^2.29.0), GH Actions, lefthook (^2.0.0), ncu (^19.0.0), tsx (^4.21.0), prettier (^3.0.0). Last updated date shows Jan 5, 2026 - older than Bun doc.

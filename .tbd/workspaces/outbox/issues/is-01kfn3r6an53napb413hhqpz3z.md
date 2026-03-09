@@ -11,7 +11,7 @@ priority: 2
 status: closed
 title: Create tbd guidelines command
 type: is
-updated_at: 2026-03-09T02:47:23.404Z
-version: 6
+updated_at: 2026-03-09T16:12:32.468Z
+version: 7
 ---
 Create new guidelines.ts command file using the shared DocCommandHandler. Commands: tbd guidelines [query] - show a guideline by name or fuzzy search, tbd guidelines --list - list all available guidelines. Uses DEFAULT_GUIDELINES_PATHS for document discovery.

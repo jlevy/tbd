@@ -10,6 +10,6 @@ priority: 1
 status: closed
 title: Update SKILL.md/AGENTS.md generation to include guidelines and simplify format
 type: is
-updated_at: 2026-03-09T02:47:24.381Z
-version: 7
+updated_at: 2026-03-09T16:12:33.522Z
+version: 8
 ---

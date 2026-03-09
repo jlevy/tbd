@@ -10,6 +10,6 @@ priority: 2
 status: closed
 title: "Update bun-monorepo-patterns: document cross-platform CI matrix"
 type: is
-updated_at: 2026-03-09T02:47:25.342Z
-version: 7
+updated_at: 2026-03-09T16:12:34.577Z
+version: 8
 ---

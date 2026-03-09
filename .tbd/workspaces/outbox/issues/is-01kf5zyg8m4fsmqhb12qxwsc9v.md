@@ -19,7 +19,7 @@ priority: 1
 status: closed
 title: Update package.json scripts for combined coverage
 type: is
-updated_at: 2026-03-09T02:47:20.998Z
-version: 5
+updated_at: 2026-03-09T16:12:29.824Z
+version: 6
 ---
 Add test:coverage:full script that runs vitest + tryscript with merged lcov.

@@ -12,8 +12,8 @@ priority: 2
 status: closed
 title: Consolidate hardcoded constants into shared settings.ts
 type: is
-updated_at: 2026-03-09T02:47:22.472Z
-version: 8
+updated_at: 2026-03-09T16:12:31.432Z
+version: 9
 ---
 Review the entire codebase for hardcoded constants and settings, then consolidate them into a shared settings.ts file.
 

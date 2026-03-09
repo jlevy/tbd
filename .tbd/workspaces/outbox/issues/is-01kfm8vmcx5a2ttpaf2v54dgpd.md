@@ -14,8 +14,8 @@ priority: 2
 status: closed
 title: Extract shared workflow content to skill.md
 type: is
-updated_at: 2026-03-09T02:47:23.229Z
-version: 10
+updated_at: 2026-03-09T16:12:32.269Z
+version: 11
 ---
 Create docs/skill.md with the main skill content (no frontmatter):
 

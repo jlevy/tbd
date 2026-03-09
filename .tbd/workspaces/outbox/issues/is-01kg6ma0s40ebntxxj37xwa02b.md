@@ -14,6 +14,6 @@ spec_path: docs/project/specs/active/plan-2026-01-29-doc-size-and-token-counts.m
 status: closed
 title: Add pretty-bytes and pretty-ms dependencies to package.json
 type: is
-updated_at: 2026-03-09T02:47:24.317Z
-version: 8
+updated_at: 2026-03-09T16:12:33.459Z
+version: 9
 ---

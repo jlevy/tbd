@@ -14,7 +14,7 @@ spec_path: docs/project/specs/active/plan-2026-02-02-skill-md-comprehensive-upda
 status: closed
 title: Add Zod schemas for id-mapping.ts and prefix-detection.ts
 type: is
-updated_at: 2026-03-09T02:47:24.582Z
-version: 8
+updated_at: 2026-03-09T16:12:33.730Z
+version: 9
 ---
 Add IdMappingSchema and PrefixDetectionCacheSchema to schemas.ts for validating parsed YAML data.

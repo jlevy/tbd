@@ -9,7 +9,7 @@ priority: 2
 status: open
 title: Unit tests for generateShortcutDirectory() function
 type: is
-updated_at: 2026-03-09T02:47:23.306Z
-version: 6
+updated_at: 2026-03-09T16:12:32.367Z
+version: 7
 ---
 Unit tests for generateShortcutDirectory() function. Test markdown table generation, proper escaping, empty list handling, sorting behavior.

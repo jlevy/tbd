@@ -12,7 +12,7 @@ priority: 2
 status: closed
 title: "GREEN: Implement guidelines existence validation"
 type: is
-updated_at: 2026-03-09T02:47:23.598Z
-version: 9
+updated_at: 2026-03-09T16:12:32.678Z
+version: 10
 ---
 Implement validateGuidelines() using DocCache to verify each guideline in README exists. Report missing items with clear error messages.

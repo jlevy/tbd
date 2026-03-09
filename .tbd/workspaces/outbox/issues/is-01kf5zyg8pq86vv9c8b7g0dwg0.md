@@ -17,7 +17,7 @@ priority: 3
 status: closed
 title: Migrate status-command.yaml to tryscript format
 type: is
-updated_at: 2026-03-09T02:47:21.737Z
-version: 5
+updated_at: 2026-03-09T16:12:30.606Z
+version: 6
 ---
 Write tryscript tests covering status-command.yaml scenarios (status output, JSON format, stats), then delete the YAML file

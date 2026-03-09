@@ -10,7 +10,7 @@ priority: 3
 status: closed
 title: Issue history/log command
 type: is
-updated_at: 2026-03-09T02:47:22.372Z
-version: 6
+updated_at: 2026-03-09T16:12:31.310Z
+version: 7
 ---
 tbd log bd-xyz shows version history. tbd diff bd-xyz@2 bd-xyz@3 shows changes.

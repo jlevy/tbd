@@ -19,7 +19,7 @@ priority: 1
 status: closed
 title: Implement YAML + Markdown parsing with gray-matter
 type: is
-updated_at: 2026-03-09T02:47:20.835Z
-version: 5
+updated_at: 2026-03-09T16:12:29.648Z
+version: 6
 ---
 Create parser to read .md files with YAML frontmatter and extract Issue objects.

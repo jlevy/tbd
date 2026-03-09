@@ -12,7 +12,7 @@ priority: 2
 status: closed
 title: Update arch-cli-interface-design-system.md with heading grammar rules
 type: is
-updated_at: 2026-03-09T02:47:22.734Z
-version: 7
+updated_at: 2026-03-09T16:12:31.736Z
+version: 8
 ---
 Add section for heading/section title formatting: capitalized, bold, newline after. Apply consistently to all UI output.

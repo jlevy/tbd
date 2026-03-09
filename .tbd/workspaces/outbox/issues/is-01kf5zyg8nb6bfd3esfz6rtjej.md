@@ -17,7 +17,7 @@ priority: 2
 status: closed
 title: Git version detection and compatibility
 type: is
-updated_at: 2026-03-09T02:47:21.384Z
-version: 5
+updated_at: 2026-03-09T16:12:30.216Z
+version: 6
 ---
 Add Git version checking with fallback for Git < 2.42 (which lacks git worktree add --orphan). Includes: getGitVersion(), checkGitVersion(), compareVersions(), platform-specific upgrade instructions, and createOrphanWorktreeFallback().

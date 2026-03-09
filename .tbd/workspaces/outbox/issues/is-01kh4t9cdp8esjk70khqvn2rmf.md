@@ -24,6 +24,6 @@ spec_path: docs/project/specs/active/plan-2026-02-10-external-issue-linking.md
 status: closed
 title: "Epic: External issue linking"
 type: is
-updated_at: 2026-03-09T02:47:24.916Z
-version: 21
+updated_at: 2026-03-09T16:12:34.110Z
+version: 22
 ---

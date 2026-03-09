@@ -12,8 +12,8 @@ priority: 2
 status: closed
 title: Audit and fix copy file operations to use atomic writes
 type: is
-updated_at: 2026-03-09T02:47:22.478Z
-version: 8
+updated_at: 2026-03-09T16:12:31.437Z
+version: 9
 ---
 Audit all file copy operations in the codebase and ensure they use atomic writes.
 

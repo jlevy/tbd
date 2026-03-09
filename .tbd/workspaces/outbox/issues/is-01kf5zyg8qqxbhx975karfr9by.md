@@ -20,7 +20,7 @@ priority: 1
 status: closed
 title: Implement tbd ready command
 type: is
-updated_at: 2026-03-09T02:47:22.062Z
-version: 5
+updated_at: 2026-03-09T16:12:30.947Z
+version: 6
 ---
 Filter issues: status=open, no assignee, no blocking deps. Support --type filter, --limit, JSON output.

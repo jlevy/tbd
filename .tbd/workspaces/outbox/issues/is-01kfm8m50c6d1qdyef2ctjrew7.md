@@ -14,8 +14,8 @@ priority: 2
 status: closed
 title: Create cursor-header.md with Cursor-specific YAML frontmatter
 type: is
-updated_at: 2026-03-09T02:47:23.166Z
-version: 10
+updated_at: 2026-03-09T16:12:32.202Z
+version: 11
 ---
 Create docs/headers/cursor.md containing only the YAML frontmatter for Cursor rules:
 

@@ -17,7 +17,7 @@ priority: 2
 status: closed
 title: Add tests for error handling edge cases
 type: is
-updated_at: 2026-03-09T02:47:21.463Z
-version: 5
+updated_at: 2026-03-09T16:12:30.297Z
+version: 6
 ---
 Test: permission errors, disk full, corrupted files, missing git repo, detached HEAD, invalid YAML, schema validation failures.

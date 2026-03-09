@@ -12,8 +12,8 @@ spec_path: docs/project/specs/active/plan-2026-01-29-unified-sync-command.md
 status: open
 title: "Phase 5: Update setup command to use shared function"
 type: is
-updated_at: 2026-03-09T02:47:24.269Z
-version: 6
+updated_at: 2026-03-09T16:12:33.400Z
+version: 7
 ---
 Update setup.ts to:
 - Replace inline doc sync logic with syncDocsWithDefaults()

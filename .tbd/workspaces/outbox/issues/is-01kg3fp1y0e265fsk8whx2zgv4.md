@@ -14,7 +14,7 @@ spec_path: docs/project/specs/active/plan-2026-01-28-sync-worktree-recovery-and-
 status: closed
 title: Update getSyncStatus() to check worktree, not main branch
 type: is
-updated_at: 2026-03-09T02:47:24.079Z
-version: 8
+updated_at: 2026-03-09T16:12:33.191Z
+version: 9
 ---
 Fix Bug 2: getSyncStatus() at sync.ts:140 runs 'git status --porcelain DATA_SYNC_DIR' on main branch where data-sync is gitignored. Change to check files in worktree path via resolveDataSyncDir(). Location: packages/tbd/src/cli/commands/sync.ts:128-218

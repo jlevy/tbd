@@ -17,7 +17,7 @@ priority: 1
 status: closed
 title: Create cli-id-format.tryscript.md - comprehensive ID testing
 type: is
-updated_at: 2026-03-09T02:47:21.435Z
-version: 5
+updated_at: 2026-03-09T16:12:30.267Z
+version: 6
 ---
 New tryscript file for ID format testing: (1) Short IDs in all output, (2) Beads ID preservation on import, (3) ID resolution works, (4) ID collisions handled, (5) Custom prefix config works.

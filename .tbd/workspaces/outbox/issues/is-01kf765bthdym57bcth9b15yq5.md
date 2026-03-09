@@ -10,7 +10,7 @@ priority: 0
 status: closed
 title: Exit codes return 0 on errors
 type: is
-updated_at: 2026-03-09T02:47:22.285Z
-version: 7
+updated_at: 2026-03-09T16:12:31.203Z
+version: 8
 ---
 All error conditions return exit code 0 instead of non-zero. Commands use this.output.error() + return instead of throwing. Fix: Throw CLIError subclasses instead of returning after output.error().

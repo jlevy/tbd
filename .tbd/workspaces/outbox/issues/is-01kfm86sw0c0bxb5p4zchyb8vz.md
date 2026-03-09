@@ -12,6 +12,6 @@ priority: 1
 status: closed
 title: "Update markdown-utils.ts: parseFrontmatter and stripFrontmatter to use gray-matter"
 type: is
-updated_at: 2026-03-09T02:47:23.103Z
-version: 8
+updated_at: 2026-03-09T16:12:32.136Z
+version: 9
 ---

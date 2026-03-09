@@ -10,7 +10,7 @@ priority: 2
 status: closed
 title: "Bug: Errors not JSON with --json flag"
 type: is
-updated_at: 2026-03-09T02:47:22.311Z
-version: 7
+updated_at: 2026-03-09T16:12:31.231Z
+version: 8
 ---
 When --json flag is used, errors still output as plain text instead of JSON, making parsing unreliable for agents.

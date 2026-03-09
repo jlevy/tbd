@@ -12,8 +12,8 @@ priority: 2
 status: closed
 title: Implement sync summary tallies
 type: is
-updated_at: 2026-03-09T02:47:22.635Z
-version: 9
+updated_at: 2026-03-09T16:12:31.607Z
+version: 10
 ---
 Implement detailed sync summary reporting:
 - Track new/updated/deleted counts during sync

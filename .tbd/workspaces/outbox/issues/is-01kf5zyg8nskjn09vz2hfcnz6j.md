@@ -18,7 +18,7 @@ priority: 2
 status: closed
 title: Update ShortId schema validation to allow 1+ chars
 type: is
-updated_at: 2026-03-09T02:47:21.505Z
-version: 5
+updated_at: 2026-03-09T16:12:30.338Z
+version: 6
 ---
 Change validateShortId() regex from /^[0-9a-z]{4,5}$/ to /^[0-9a-z]+$/ to allow imported IDs of any length (e.g., '1', '100', '1823').

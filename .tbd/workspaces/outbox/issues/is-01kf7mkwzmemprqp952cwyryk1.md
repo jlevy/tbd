@@ -14,8 +14,8 @@ priority: 2
 status: closed
 title: Create priority utilities
 type: is
-updated_at: 2026-03-09T02:47:22.590Z
-version: 11
+updated_at: 2026-03-09T16:12:31.562Z
+version: 12
 ---
 Create lib/priority.ts with:
 - formatPriority() utility for P0/P1/P2 display format

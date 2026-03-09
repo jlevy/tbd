@@ -8,8 +8,8 @@ priority: 3
 status: open
 title: Add ESLint rule to enforce atomically for file writes
 type: is
-updated_at: 2026-03-09T02:47:22.488Z
-version: 6
+updated_at: 2026-03-09T16:12:31.450Z
+version: 7
 ---
 Create or configure an ESLint rule to enforce use of 'atomically' library for all file write operations.
 

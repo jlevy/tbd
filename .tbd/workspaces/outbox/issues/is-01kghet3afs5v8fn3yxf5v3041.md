@@ -10,8 +10,8 @@ priority: 0
 status: closed
 title: "Fix: use field-level merge instead of whole_issue conflicts in workspace import"
 type: is
-updated_at: 2026-03-09T02:47:24.750Z
-version: 8
+updated_at: 2026-03-09T16:12:33.913Z
+version: 9
 ---
 ## Notes
 

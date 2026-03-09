@@ -10,6 +10,6 @@ priority: 3
 status: closed
 title: Add Vitest v8 coverage patterns to pnpm-monorepo-patterns.md
 type: is
-updated_at: 2026-03-09T02:47:24.669Z
-version: 6
+updated_at: 2026-03-09T16:12:33.817Z
+version: 7
 ---

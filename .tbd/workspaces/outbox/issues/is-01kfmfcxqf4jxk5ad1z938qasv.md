@@ -11,6 +11,6 @@ priority: 1
 status: closed
 title: Update copy-docs.mjs script to reflect new source locations in shortcuts/system/
 type: is
-updated_at: 2026-03-09T02:47:23.353Z
-version: 6
+updated_at: 2026-03-09T16:12:32.414Z
+version: 7
 ---

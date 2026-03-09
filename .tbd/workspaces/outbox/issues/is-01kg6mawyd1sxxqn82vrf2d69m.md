@@ -12,6 +12,6 @@ spec_path: docs/project/specs/active/plan-2026-01-29-doc-size-and-token-counts.m
 status: closed
 title: Add unit tests for format-utils functions (tokens, bytes, time)
 type: is
-updated_at: 2026-03-09T02:47:24.370Z
-version: 6
+updated_at: 2026-03-09T16:12:33.511Z
+version: 7
 ---

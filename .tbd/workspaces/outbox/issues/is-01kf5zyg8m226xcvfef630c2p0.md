@@ -19,7 +19,7 @@ priority: 1
 status: closed
 title: Add benchmark.ts script
 type: is
-updated_at: 2026-03-09T02:47:20.976Z
-version: 5
+updated_at: 2026-03-09T16:12:29.800Z
+version: 6
 ---
 Performance benchmark against 5K issues with pass/fail targets.

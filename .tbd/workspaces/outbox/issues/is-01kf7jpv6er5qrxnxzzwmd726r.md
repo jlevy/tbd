@@ -11,7 +11,7 @@ priority: 2
 status: closed
 title: Implement tree rendering with Unicode box-drawing characters
 type: is
-updated_at: 2026-03-09T02:47:22.538Z
-version: 7
+updated_at: 2026-03-09T16:12:31.512Z
+version: 8
 ---
 Create formatters for rendering the tree structure using Unicode box-drawing characters (├── └── │). Handle multi-level nesting with proper indentation. Follow design system colors (dim for tree lines, cyan for IDs, etc.).

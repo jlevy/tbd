@@ -9,6 +9,6 @@ spec_path: docs/project/specs/active/plan-2026-01-27-welcome-message-improvement
 status: open
 title: "Spec: Welcome Message Improvements"
 type: is
-updated_at: 2026-03-09T02:47:23.903Z
-version: 5
+updated_at: 2026-03-09T16:12:33.006Z
+version: 6
 ---

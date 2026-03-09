@@ -20,7 +20,7 @@ priority: 1
 status: closed
 title: Create cli-import.tryscript.md - beads import and validation tests
 type: is
-updated_at: 2026-03-09T02:47:21.125Z
-version: 5
+updated_at: 2026-03-09T16:12:29.969Z
+version: 6
 ---
 Golden tests for import command with beads data, JSONL files, and validation.

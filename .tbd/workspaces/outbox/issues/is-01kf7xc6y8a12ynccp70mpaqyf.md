@@ -16,8 +16,8 @@ priority: 1
 status: closed
 title: Implement tbd setup auto to detect and configure coding agents
 type: is
-updated_at: 2026-03-09T02:47:22.815Z
-version: 10
+updated_at: 2026-03-09T16:12:31.828Z
+version: 11
 ---
 Auto-detect available coding agents (Claude Code, Cursor, Codex) and set them up automatically. Detection strategies:
 - Claude Code: ~/.claude/ exists or CLAUDE_* env vars present

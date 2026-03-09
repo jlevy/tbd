@@ -12,7 +12,7 @@ priority: 3
 status: closed
 title: Fix .tbd/.gitignore messaging to distinguish created vs updated vs no-op
 type: is
-updated_at: 2026-03-09T02:47:23.826Z
-version: 8
+updated_at: 2026-03-09T16:12:32.926Z
+version: 9
 ---
 In setup.ts:1159, we always print 'Created .tbd/.gitignore' but ensureGitignorePatterns returns { added, skipped, created } which tells us exactly what happened. Should show: Created (new file), Updated (patterns added), or nothing (already up to date). Location: packages/tbd/src/cli/commands/setup.ts#L1142-1159

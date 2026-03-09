@@ -11,6 +11,6 @@ priority: 1
 status: closed
 title: "Remove redundant Shortcut: titles from all standard shortcut files"
 type: is
-updated_at: 2026-03-09T02:47:24.223Z
-version: 8
+updated_at: 2026-03-09T16:12:33.351Z
+version: 9
 ---

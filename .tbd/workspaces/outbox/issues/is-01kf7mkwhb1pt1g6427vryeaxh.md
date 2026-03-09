@@ -14,8 +14,8 @@ priority: 2
 status: closed
 title: Define icon constants
 type: is
-updated_at: 2026-03-09T02:47:22.583Z
-version: 9
+updated_at: 2026-03-09T16:12:31.556Z
+version: 10
 ---
 Define icon constants in OutputManager:
 - SUCCESS_ICON: ✓ (U+2713)

@@ -19,7 +19,7 @@ priority: 1
 status: closed
 title: Verify cross-platform CI passes
 type: is
-updated_at: 2026-03-09T02:47:20.857Z
-version: 5
+updated_at: 2026-03-09T16:12:29.672Z
+version: 6
 ---
 CI workflow configured with matrix: Linux, macOS, Windows. Will pass when PR is merged.

@@ -10,6 +10,6 @@ priority: 2
 status: closed
 title: "Test: Add golden session tests for workspace save --outbox scenarios"
 type: is
-updated_at: 2026-03-09T02:47:24.467Z
-version: 7
+updated_at: 2026-03-09T16:12:33.612Z
+version: 8
 ---

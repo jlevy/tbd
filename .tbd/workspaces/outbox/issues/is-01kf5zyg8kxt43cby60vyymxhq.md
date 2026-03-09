@@ -19,7 +19,7 @@ priority: 1
 status: closed
 title: Manual testing of full workflow
 type: is
-updated_at: 2026-03-09T02:47:20.958Z
-version: 5
+updated_at: 2026-03-09T16:12:29.783Z
+version: 6
 ---
 Test fresh init, CRUD cycle, sync, import, search manually. Covered by tryscript golden tests.

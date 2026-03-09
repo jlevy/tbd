@@ -10,7 +10,7 @@ priority: 1
 status: closed
 title: Rename tbd-prime.md to SKILL.md for consistency
 type: is
-updated_at: 2026-03-09T02:47:22.426Z
-version: 7
+updated_at: 2026-03-09T16:12:31.376Z
+version: 8
 ---
 Rename docs/tbd-prime.md to docs/SKILL.md for consistency with the skill file naming. Update copy-docs.mjs, prime.ts to use the new filename. Auto-format with Flowmark.

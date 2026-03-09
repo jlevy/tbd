@@ -10,6 +10,6 @@ priority: 2
 status: closed
 title: Review/update CI/CD GitHub Actions versions in both monorepo docs
 type: is
-updated_at: 2026-03-09T02:47:24.678Z
-version: 6
+updated_at: 2026-03-09T16:12:33.827Z
+version: 7
 ---

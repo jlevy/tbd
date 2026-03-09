@@ -10,6 +10,6 @@ priority: 2
 status: closed
 title: Systematic YAML handling cleanup across codebase
 type: is
-updated_at: 2026-03-09T02:47:24.566Z
-version: 8
+updated_at: 2026-03-09T16:12:33.713Z
+version: 9
 ---

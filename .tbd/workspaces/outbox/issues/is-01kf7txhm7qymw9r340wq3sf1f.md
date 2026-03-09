@@ -18,7 +18,7 @@ priority: 2
 status: closed
 title: Add formatHeading utility to output module
 type: is
-updated_at: 2026-03-09T02:47:22.769Z
-version: 11
+updated_at: 2026-03-09T16:12:31.777Z
+version: 12
 ---
 Implement formatHeading(text) function in output.ts that returns colors.bold(text.toUpperCase()) for consistent section heading formatting.

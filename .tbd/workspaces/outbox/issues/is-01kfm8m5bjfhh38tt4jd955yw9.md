@@ -14,8 +14,8 @@ priority: 2
 status: closed
 title: Create claude-header.md with Claude-specific YAML frontmatter
 type: is
-updated_at: 2026-03-09T02:47:23.171Z
-version: 10
+updated_at: 2026-03-09T16:12:32.208Z
+version: 11
 ---
 Create docs/headers/claude.md containing only the YAML frontmatter for Claude SKILL.md:
 

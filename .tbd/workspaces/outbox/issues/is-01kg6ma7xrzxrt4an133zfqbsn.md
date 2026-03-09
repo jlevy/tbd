@@ -18,6 +18,6 @@ spec_path: docs/project/specs/active/plan-2026-01-29-doc-size-and-token-counts.m
 status: closed
 title: Update DocCache to calculate sizeBytes and approxTokens when loading docs
 type: is
-updated_at: 2026-03-09T02:47:24.333Z
-version: 10
+updated_at: 2026-03-09T16:12:33.474Z
+version: 11
 ---

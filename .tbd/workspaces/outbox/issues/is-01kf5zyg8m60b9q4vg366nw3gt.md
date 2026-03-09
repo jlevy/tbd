@@ -17,7 +17,7 @@ priority: 2
 status: closed
 title: "Bug: tbd list shows 'no issues' instead of init prompt when not initialized"
 type: is
-updated_at: 2026-03-09T02:47:21.004Z
-version: 5
+updated_at: 2026-03-09T16:12:29.831Z
+version: 6
 ---
 When running 'tbd list' without first running 'tbd init', the command shows 'no issues' instead of a helpful message like 'tbd is not initialized. Run tbd init first.' The listIssues function returns an empty array instead of detecting the uninitialized state.

@@ -10,8 +10,8 @@ spec_path: docs/project/specs/active/plan-2026-01-29-unified-sync-command.md
 status: open
 title: "Phase 6: Update documentation for unified sync"
 type: is
-updated_at: 2026-03-09T02:47:24.274Z
-version: 5
+updated_at: 2026-03-09T16:12:33.405Z
+version: 6
 ---
 Update documentation:
 - Update tbd-design.md sync section

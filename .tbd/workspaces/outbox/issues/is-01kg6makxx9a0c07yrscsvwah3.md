@@ -14,6 +14,6 @@ spec_path: docs/project/specs/active/plan-2026-01-29-doc-size-and-token-counts.m
 status: closed
 title: Update search.ts to show 'last synced Xm ago' in refresh message
 type: is
-updated_at: 2026-03-09T02:47:24.365Z
-version: 7
+updated_at: 2026-03-09T16:12:33.506Z
+version: 8
 ---

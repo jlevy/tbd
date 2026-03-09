@@ -11,7 +11,7 @@ priority: 2
 status: closed
 title: Update shortcut command to exclude guidelines and templates
 type: is
-updated_at: 2026-03-09T02:47:23.415Z
-version: 6
+updated_at: 2026-03-09T16:12:32.478Z
+version: 7
 ---
 Update shortcut.ts to use new DEFAULT_DOC_PATHS (without guidelines/templates subdirs). Shortcuts command should only show system and standard shortcuts. Update ShortcutHandler to use the extracted base class.

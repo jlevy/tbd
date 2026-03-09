@@ -17,7 +17,7 @@ priority: 2
 status: closed
 title: "Feature: Add tbd docs subcommand for documentation access"
 type: is
-updated_at: 2026-03-09T02:47:21.077Z
-version: 5
+updated_at: 2026-03-09T16:12:29.915Z
+version: 6
 ---
 Add a 'tbd docs' subcommand that provides access to documentation. Options: (1) Open docs in browser, (2) Print quick reference to terminal, (3) Show path to local docs. Could support 'tbd docs <topic>' for specific help (e.g., 'tbd docs sync', 'tbd docs import').

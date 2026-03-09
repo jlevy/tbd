@@ -12,7 +12,7 @@ spec_path: docs/project/specs/active/plan-2026-02-25-multi-worktree-sync-branch-
 status: closed
 title: Implement local sync branch resolution and worktree branch allocation
 type: is
-updated_at: 2026-03-09T02:47:25.399Z
-version: 7
+updated_at: 2026-03-09T16:12:34.641Z
+version: 8
 ---
 Add deterministic per-checkout local branch naming, branch-in-use detection, state persistence, and worktree init/repair integration.

@@ -11,6 +11,6 @@ spec_path: docs/project/specs/done/plan-2026-01-27-inherit-spec-path.md
 status: closed
 title: "Spec: Inherit spec_path from Parent Bead"
 type: is
-updated_at: 2026-03-09T02:47:23.923Z
-version: 7
+updated_at: 2026-03-09T16:12:33.028Z
+version: 8
 ---

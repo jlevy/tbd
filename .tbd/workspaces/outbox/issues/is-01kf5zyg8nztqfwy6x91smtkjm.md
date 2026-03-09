@@ -18,7 +18,7 @@ priority: 2
 status: closed
 title: Re-import existing beads data with preserved IDs
 type: is
-updated_at: 2026-03-09T02:47:21.544Z
-version: 5
+updated_at: 2026-03-09T16:12:30.382Z
+version: 6
 ---
 Delete existing .tbd data (rm -rf .tbd/ except config), run fresh import with ID preservation. Verify all tbd-* IDs are preserved (bd-100 not bd-xxxx). Delete obsolete beads.yml.

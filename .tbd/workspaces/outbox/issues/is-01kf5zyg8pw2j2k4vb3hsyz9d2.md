@@ -17,8 +17,8 @@ priority: 2
 status: closed
 title: Remove -t shorthand for --type option
 type: is
-updated_at: 2026-03-09T02:47:21.792Z
-version: 5
+updated_at: 2026-03-09T16:12:30.659Z
+version: 6
 ---
 Remove the -t one-letter option alias for --type in the create command. Keep only --type.
 

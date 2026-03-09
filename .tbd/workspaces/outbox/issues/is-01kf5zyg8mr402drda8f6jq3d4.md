@@ -19,7 +19,7 @@ priority: 0
 status: closed
 title: Fix command injection in git.ts
 type: is
-updated_at: 2026-03-09T02:47:21.189Z
-version: 5
+updated_at: 2026-03-09T16:12:30.036Z
+version: 6
 ---
 Changed exec to execFile to prevent shell injection attacks in git command execution.

@@ -11,7 +11,7 @@ priority: 2
 status: closed
 title: "prime.ts: blocked issues calculation checks wrong status"
 type: is
-updated_at: 2026-03-09T02:47:23.450Z
-version: 6
+updated_at: 2026-03-09T16:12:32.514Z
+version: 7
 ---
 The getIssueStats function should check if the blocker issue is closed, not the blocked issue.

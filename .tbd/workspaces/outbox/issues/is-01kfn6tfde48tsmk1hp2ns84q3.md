@@ -11,7 +11,7 @@ priority: 2
 status: closed
 title: "setup.ts: missing --from-beads validation"
 type: is
-updated_at: 2026-03-09T02:47:23.460Z
-version: 6
+updated_at: 2026-03-09T16:12:32.525Z
+version: 7
 ---
 Should error when --from-beads flag used but no .beads/ directory exists.

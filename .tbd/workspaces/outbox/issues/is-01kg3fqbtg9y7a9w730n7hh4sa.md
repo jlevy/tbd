@@ -16,7 +16,7 @@ spec_path: docs/project/specs/active/plan-2026-01-28-sync-worktree-recovery-and-
 status: closed
 title: Implement migrateDataToWorktree() function
 type: is
-updated_at: 2026-03-09T02:47:24.116Z
-version: 9
+updated_at: 2026-03-09T16:12:33.230Z
+version: 10
 ---
 Add migrateDataToWorktree() for repos with data in wrong location. Per spec: (1) backup to Attic/, (2) copy issues/mappings from .tbd/data-sync/ to worktree, (3) commit in worktree, (4) optionally remove wrong location data. Location: packages/tbd/src/file/git.ts

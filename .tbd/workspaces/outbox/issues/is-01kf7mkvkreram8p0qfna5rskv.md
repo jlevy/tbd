@@ -10,8 +10,8 @@ priority: 2
 status: closed
 title: OutputManager output level methods
 type: is
-updated_at: 2026-03-09T02:47:22.568Z
-version: 7
+updated_at: 2026-03-09T16:12:31.545Z
+version: 8
 ---
 Add and update OutputManager output level methods:
 - Add notice() method - blue bullet, shown at default level

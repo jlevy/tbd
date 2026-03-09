@@ -17,7 +17,7 @@ priority: 2
 status: closed
 title: Add tests for Unicode and special characters in fields
 type: is
-updated_at: 2026-03-09T02:47:21.447Z
-version: 5
+updated_at: 2026-03-09T16:12:30.279Z
+version: 6
 ---
 Test titles/descriptions with: emoji, CJK characters, RTL text, special punctuation, very long strings, multi-line content.

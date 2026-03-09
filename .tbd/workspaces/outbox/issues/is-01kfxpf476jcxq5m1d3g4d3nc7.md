@@ -11,7 +11,7 @@ spec_path: docs/project/specs/done/plan-2026-01-26-configurable-doc-cache-sync.m
 status: closed
 title: "Spec: Configurable Doc Cache with Auto-Sync"
 type: is
-updated_at: 2026-03-09T02:47:23.846Z
-version: 8
+updated_at: 2026-03-09T16:12:32.948Z
+version: 9
 ---
 Parent epic for plan-2026-01-26-configurable-doc-cache-sync.md. Implement configurable documentation cache system that syncs from internal and external sources.

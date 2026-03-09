@@ -22,8 +22,8 @@ priority: 2
 status: closed
 title: Consolidate SKILL.md and CURSOR.mdc into single source of truth
 type: is
-updated_at: 2026-03-09T02:47:23.161Z
-version: 13
+updated_at: 2026-03-09T16:12:32.197Z
+version: 14
 ---
 Create single source of truth for agent docs:
 

@@ -17,7 +17,7 @@ priority: 3
 status: closed
 title: Move ID System section to Troubleshooting
 type: is
-updated_at: 2026-03-09T02:47:21.633Z
-version: 5
+updated_at: 2026-03-09T16:12:30.483Z
+version: 6
 ---
 Remove dedicated ID System section. Move ID debugging info to Troubleshooting section. Users rarely need internal IDs. Add: `tbd list --debug` shows internal IDs, useful for file lookup and debugging creation order.

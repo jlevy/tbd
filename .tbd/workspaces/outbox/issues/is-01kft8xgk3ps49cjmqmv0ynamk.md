@@ -11,6 +11,6 @@ priority: 2
 status: closed
 title: Update schemas.ts comment for state file location
 type: is
-updated_at: 2026-03-09T02:47:23.658Z
-version: 6
+updated_at: 2026-03-09T16:12:32.745Z
+version: 7
 ---

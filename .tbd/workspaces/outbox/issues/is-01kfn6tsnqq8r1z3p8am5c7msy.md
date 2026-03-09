@@ -11,7 +11,7 @@ priority: 2
 status: closed
 title: shortcuts contain repo-specific file references
 type: is
-updated_at: 2026-03-09T02:47:23.484Z
-version: 6
+updated_at: 2026-03-09T16:12:32.553Z
+version: 7
 ---
 new-plan-spec.md references paths like docs/general/agent-rules/ that wont exist in user projects.

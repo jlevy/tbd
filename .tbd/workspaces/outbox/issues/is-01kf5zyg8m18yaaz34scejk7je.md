@@ -17,7 +17,7 @@ priority: 2
 status: closed
 title: "Bug: Ensure --help works on all subcommands, not just top-level help"
 type: is
-updated_at: 2026-03-09T02:47:20.971Z
-version: 5
+updated_at: 2026-03-09T16:12:29.794Z
+version: 6
 ---
 Verify that --help flag works consistently on all subcommands (e.g., 'tbd list --help', 'tbd create --help', 'tbd sync --help'). Should not rely on a separate top-level 'help' command - standard CLI pattern is --help on each command. Commander.js should handle this automatically but verify all commands have proper help text.

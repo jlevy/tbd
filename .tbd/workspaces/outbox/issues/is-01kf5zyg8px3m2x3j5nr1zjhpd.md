@@ -17,7 +17,7 @@ priority: 3
 status: closed
 title: Migrate uninitialized-list.yaml to tryscript format
 type: is
-updated_at: 2026-03-09T02:47:21.798Z
-version: 5
+updated_at: 2026-03-09T16:12:30.665Z
+version: 6
 ---
 Write tryscript tests covering uninitialized-list.yaml scenarios (list command error when not initialized), then delete the YAML file

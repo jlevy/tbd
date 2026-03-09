@@ -14,7 +14,7 @@ spec_path: docs/project/specs/active/plan-2026-01-28-sync-worktree-recovery-and-
 status: closed
 title: "Add architectural test: issues written to worktree path"
 type: is
-updated_at: 2026-03-09T02:47:24.137Z
-version: 8
+updated_at: 2026-03-09T16:12:33.253Z
+version: 9
 ---
 Add test per spec that verifies: after tbd init + create, issues exist in .tbd/data-sync-worktree/.tbd/data-sync/issues/ and NOT in .tbd/data-sync/issues/. This prevents regression of the core bug.

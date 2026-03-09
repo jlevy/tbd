@@ -11,7 +11,7 @@ priority: 2
 status: closed
 title: Document all merge strategies completely
 type: is
-updated_at: 2026-03-09T02:47:22.859Z
-version: 7
+updated_at: 2026-03-09T16:12:31.875Z
+version: 8
 ---
 tbd-design.md only shows 3 merge strategies (LWW, Union, Immutable) but the spec defines more: lww_with_attic, merge_by_id, max_plus_one, recalculate, preserve_oldest, deep_merge_by_key. Need to either add these or note they exist with reference to full spec.

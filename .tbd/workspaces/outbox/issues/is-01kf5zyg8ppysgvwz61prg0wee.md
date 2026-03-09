@@ -17,7 +17,7 @@ priority: 2
 status: closed
 title: Add help epilog with GitHub link to all CLI help commands
 type: is
-updated_at: 2026-03-09T02:47:21.730Z
-version: 5
+updated_at: 2026-03-09T16:12:30.599Z
+version: 6
 ---
 Add a colored (dark blue) epilog at the bottom of all help/usage commands that displays: 'For more on tbd, see: https://github.com/jlevy/tbd'. Implementation: 1) Add createHelpEpilog() function in output.ts, 2) Update applyColoredHelpToAllCommands() to add the epilog to main program and all subcommands using addHelpText().

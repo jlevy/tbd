@@ -10,6 +10,6 @@ priority: 2
 status: closed
 title: Review/update Changesets version and Bun workarounds in bun-monorepo-patterns.md
 type: is
-updated_at: 2026-03-09T02:47:24.692Z
-version: 6
+updated_at: 2026-03-09T16:12:33.844Z
+version: 7
 ---

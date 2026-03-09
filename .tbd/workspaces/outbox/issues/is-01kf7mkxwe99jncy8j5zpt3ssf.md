@@ -12,8 +12,8 @@ priority: 2
 status: closed
 title: Create truncation utility
 type: is
-updated_at: 2026-03-09T02:47:22.600Z
-version: 8
+updated_at: 2026-03-09T16:12:31.574Z
+version: 9
 ---
 Create lib/truncate.ts with:
 - ELLIPSIS constant (… U+2026) - never use '...'

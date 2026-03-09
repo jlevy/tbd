@@ -19,7 +19,7 @@ priority: 0
 status: closed
 title: tbd V1 Complete Implementation
 type: is
-updated_at: 2026-03-09T02:47:20.779Z
-version: 6
+updated_at: 2026-03-09T16:12:29.579Z
+version: 7
 ---
 Master epic for the full tbd V1 implementation - a Beads replacement CLI tool for git-native issue tracking.

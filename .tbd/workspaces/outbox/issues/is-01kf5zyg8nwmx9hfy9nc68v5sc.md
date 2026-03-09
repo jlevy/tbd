@@ -19,6 +19,6 @@ priority: 1
 status: closed
 title: Update all other commands to use short IDs in output
 type: is
-updated_at: 2026-03-09T02:47:21.521Z
-version: 5
+updated_at: 2026-03-09T16:12:30.359Z
+version: 6
 ---

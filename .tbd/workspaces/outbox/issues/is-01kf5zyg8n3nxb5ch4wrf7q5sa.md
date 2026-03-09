@@ -17,7 +17,7 @@ priority: 2
 status: closed
 title: Implement packageBin feature in tryscript
 type: is
-updated_at: 2026-03-09T02:47:21.321Z
-version: 5
+updated_at: 2026-03-09T16:12:30.146Z
+version: 6
 ---
 Add packageBin option to automatically expose package.json bin entries in PATH. See https://github.com/jlevy/tryscript/issues/32

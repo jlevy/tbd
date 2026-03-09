@@ -10,8 +10,8 @@ priority: 2
 status: closed
 title: Add displayId() helper methods to CommandContext
 type: is
-updated_at: 2026-03-09T02:47:22.248Z
-version: 6
+updated_at: 2026-03-09T16:12:31.164Z
+version: 7
 ---
 Currently, display ID formatting logic is repetitive across commands:
 

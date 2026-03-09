@@ -17,6 +17,6 @@ priority: 2
 status: closed
 title: Implement tbd status command
 type: is
-updated_at: 2026-03-09T02:47:21.587Z
-version: 5
+updated_at: 2026-03-09T16:12:30.430Z
+version: 6
 ---

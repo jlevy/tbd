@@ -10,8 +10,8 @@ priority: 2
 status: closed
 title: Include YAML frontmatter in source SKILL.md file
 type: is
-updated_at: 2026-03-09T02:47:22.499Z
-version: 8
+updated_at: 2026-03-09T16:12:31.464Z
+version: 9
 ---
 Move the YAML frontmatter from setup.ts into the source docs/SKILL.md file.
 

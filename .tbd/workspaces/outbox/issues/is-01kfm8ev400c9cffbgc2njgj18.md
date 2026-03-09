@@ -14,8 +14,8 @@ priority: 3
 status: closed
 title: Verify shortcut command (internal) docs consistency
 type: is
-updated_at: 2026-03-09T02:47:23.151Z
-version: 7
+updated_at: 2026-03-09T16:12:32.186Z
+version: 8
 ---
 The shortcut command is a new internal command not exposed in main CLI help. Verify:
 - Internal documentation/comments are accurate

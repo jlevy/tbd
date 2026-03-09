@@ -14,8 +14,8 @@ priority: 0
 status: closed
 title: "Bug: workspace import creates whole_issue conflicts instead of field-level merges"
 type: is
-updated_at: 2026-03-09T02:47:24.741Z
-version: 9
+updated_at: 2026-03-09T16:12:33.900Z
+version: 10
 ---
 ## Notes
 

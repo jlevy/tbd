@@ -8,7 +8,7 @@ priority: 2
 status: open
 title: "Review S1: Sub-Agent Architecture and Built-in Types"
 type: is
-updated_at: 2026-03-09T02:47:25.077Z
-version: 6
+updated_at: 2026-03-09T16:12:34.264Z
+version: 7
 ---
 Review Section 1 (lines 125-165): Sub-Agent Architecture and Built-in Types. (1) Verify the built-in sub-agent table against current official docs — check if any new sub-agent types have been added since Feb 2026. (2) Confirm the 'sub-agents cannot spawn other sub-agents' constraint is still accurate. (3) Research: Are there other AI coding tools with similar sub-agent architectures? Look at Cursor, Windsurf, Cline, Aider, Continue.dev — do they have equivalent delegation systems? How do they compare?

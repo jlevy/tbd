@@ -14,7 +14,7 @@ priority: 1
 status: closed
 title: Create built-in system docs directory
 type: is
-updated_at: 2026-03-09T02:47:23.052Z
-version: 8
+updated_at: 2026-03-09T16:12:32.080Z
+version: 9
 ---
 Create packages/tbd/src/docs/shortcuts/system/ with skill.md, skill-brief.md, and shortcut-explanation.md. Add frontmatter (title, description) to all files.

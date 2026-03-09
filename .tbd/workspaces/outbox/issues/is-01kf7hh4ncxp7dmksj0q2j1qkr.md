@@ -14,8 +14,8 @@ priority: 1
 status: closed
 title: Refactor tbd status to remove issue counts
 type: is
-updated_at: 2026-03-09T02:47:22.450Z
-version: 10
+updated_at: 2026-03-09T16:12:31.407Z
+version: 11
 ---
 Remove issue counts (Ready, In progress, Open, Total) from tbd status output. These will be moved to tbd stats.
 

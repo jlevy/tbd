@@ -16,7 +16,7 @@ priority: 2
 status: closed
 title: Implement DocCache search() method
 type: is
-updated_at: 2026-03-09T02:47:23.010Z
-version: 9
+updated_at: 2026-03-09T16:12:32.034Z
+version: 10
 ---
 Implement search(query, limit=10) method that performs fuzzy lookups across filename, title, and description. Returns DocMatch[] sorted by score descending. Use path order for tie-breaking.

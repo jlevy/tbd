@@ -17,7 +17,7 @@ priority: 3
 status: closed
 title: Add performance tests with 1000+ issues
 type: is
-updated_at: 2026-03-09T02:47:21.526Z
-version: 5
+updated_at: 2026-03-09T16:12:30.366Z
+version: 6
 ---
 Created performance.test.ts with 7 tests covering 1000 issue operations: list, read, write, filter, sort. All passing.

@@ -12,7 +12,7 @@ spec_path: docs/project/specs/active/plan-2026-01-28-sync-worktree-recovery-and-
 status: closed
 title: "Doctor: Add sync consistency check"
 type: is
-updated_at: 2026-03-09T02:47:24.049Z
-version: 7
+updated_at: 2026-03-09T16:12:33.159Z
+version: 8
 ---
 Add checkSyncConsistency() to doctor.ts. Only runs if worktree is healthy. Checks: worktree HEAD matches local branch, local ahead/behind counts. Reports errors/info as appropriate. Location: packages/tbd/src/cli/commands/doctor.ts

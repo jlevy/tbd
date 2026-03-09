@@ -11,6 +11,6 @@ spec_path: docs/project/specs/active/plan-2026-02-16-kdex-knowledge-index-cli.md
 status: open
 title: "kdex: Knowledge map + progressive reading (Phase 2)"
 type: is
-updated_at: 2026-03-09T02:47:25.237Z
-version: 6
+updated_at: 2026-03-09T16:12:34.453Z
+version: 7
 ---

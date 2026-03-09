@@ -10,6 +10,6 @@ priority: 2
 status: open
 title: "Review: Section 6 — Sub-Agent Orchestration Patterns (verify loops, background sub-agents, agent teams)"
 type: is
-updated_at: 2026-03-09T02:47:25.036Z
-version: 7
+updated_at: 2026-03-09T16:12:34.219Z
+version: 8
 ---

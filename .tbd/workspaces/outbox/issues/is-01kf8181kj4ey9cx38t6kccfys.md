@@ -11,7 +11,7 @@ priority: 3
 status: closed
 title: Document all setup commands
 type: is
-updated_at: 2026-03-09T02:47:22.869Z
-version: 7
+updated_at: 2026-03-09T16:12:31.888Z
+version: 8
 ---
 tbd-design.md only mentions 'tbd setup claude' but the spec also defines 'tbd setup cursor' and 'tbd setup codex'. Should document all available setup commands.

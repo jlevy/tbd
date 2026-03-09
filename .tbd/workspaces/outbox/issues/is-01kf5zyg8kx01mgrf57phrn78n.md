@@ -19,7 +19,7 @@ priority: 1
 status: closed
 title: Add tryscript and c8 dependencies
 type: is
-updated_at: 2026-03-09T02:47:20.946Z
-version: 5
+updated_at: 2026-03-09T16:12:29.772Z
+version: 6
 ---
 Add tryscript and c8 as dev dependencies for CLI coverage collection.

@@ -19,7 +19,7 @@ priority: 1
 status: closed
 title: Implement canonical serialization for hashing
 type: is
-updated_at: 2026-03-09T02:47:20.867Z
-version: 5
+updated_at: 2026-03-09T16:12:29.684Z
+version: 6
 ---
 Create deterministic serialization with sorted keys, block style arrays, sorted arrays, ISO8601 timestamps, explicit nulls, LF line endings.

@@ -11,6 +11,6 @@ priority: 1
 status: closed
 title: Remove docs/skill.md - replaced by installed docs/SKILL.md via setup
 type: is
-updated_at: 2026-03-09T02:47:23.348Z
-version: 6
+updated_at: 2026-03-09T16:12:32.409Z
+version: 7
 ---

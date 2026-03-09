@@ -20,7 +20,7 @@ priority: 1
 status: closed
 title: Update Node.js to LTS 22 in CI
 type: is
-updated_at: 2026-03-09T02:47:21.087Z
-version: 5
+updated_at: 2026-03-09T16:12:29.928Z
+version: 6
 ---
 Update Node.js from 20 to current Active LTS version 22.

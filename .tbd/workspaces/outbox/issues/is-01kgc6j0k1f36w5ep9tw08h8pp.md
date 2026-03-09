@@ -11,6 +11,6 @@ priority: 1
 status: closed
 title: Add stack trace display in debug mode
 type: is
-updated_at: 2026-03-09T02:47:24.495Z
-version: 6
+updated_at: 2026-03-09T16:12:33.638Z
+version: 7
 ---

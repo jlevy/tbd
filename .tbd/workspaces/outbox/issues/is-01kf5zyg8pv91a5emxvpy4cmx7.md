@@ -17,7 +17,7 @@ priority: 3
 status: closed
 title: Migrate update-close.yaml to tryscript format
 type: is
-updated_at: 2026-03-09T02:47:21.775Z
-version: 5
+updated_at: 2026-03-09T16:12:30.642Z
+version: 6
 ---
 Write tryscript tests covering update-close.yaml scenarios (update priority, invalid options, close with reason), then delete the YAML file

@@ -10,6 +10,6 @@ priority: 1
 status: closed
 title: "Research doc: Rename Modality 2 from 'Exact Retrieval' to 'Lookup' (you know what you're looking for)"
 type: is
-updated_at: 2026-03-09T02:47:25.188Z
-version: 7
+updated_at: 2026-03-09T16:12:34.396Z
+version: 8
 ---

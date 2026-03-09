@@ -12,6 +12,6 @@ priority: 1
 status: closed
 title: Verify tbd setup --auto works without Cursor detection
 type: is
-updated_at: 2026-03-09T02:47:23.545Z
-version: 8
+updated_at: 2026-03-09T16:12:32.617Z
+version: 9
 ---

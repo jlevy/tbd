@@ -12,6 +12,6 @@ spec_path: docs/project/specs/active/plan-2026-02-03-streamlined-outbox-workflow
 status: closed
 title: "Phase 5: Update documentation (shortcuts, guidelines, skill.md)"
 type: is
-updated_at: 2026-03-09T02:47:24.851Z
-version: 7
+updated_at: 2026-03-09T16:12:34.029Z
+version: 8
 ---

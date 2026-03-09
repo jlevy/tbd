@@ -17,7 +17,7 @@ priority: 2
 status: closed
 title: Implement auto-init in import --from-beads
 type: is
-updated_at: 2026-03-09T02:47:21.476Z
-version: 5
+updated_at: 2026-03-09T16:12:30.308Z
+version: 6
 ---
 In import.ts, when --from-beads is used and .tbd/config.yml doesn't exist, automatically run init logic before proceeding with import. Report: Initialized tbd and imported N issues from Beads

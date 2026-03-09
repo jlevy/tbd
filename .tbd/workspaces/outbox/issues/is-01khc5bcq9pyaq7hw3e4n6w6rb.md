@@ -10,6 +10,6 @@ priority: 2
 status: open
 title: "Review: Section 10 — Self-Managed Compaction (verify all 8 approaches, hook bugs, Ralph Loop, bead-managed loop)"
 type: is
-updated_at: 2026-03-09T02:47:25.056Z
-version: 7
+updated_at: 2026-03-09T16:12:34.242Z
+version: 8
 ---

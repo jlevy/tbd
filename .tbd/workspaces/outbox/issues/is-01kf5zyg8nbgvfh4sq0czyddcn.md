@@ -17,7 +17,7 @@ priority: 3
 status: closed
 title: Apply Commander.js v14 style functions uniformly to all help
 type: is
-updated_at: 2026-03-09T02:47:21.390Z
-version: 5
+updated_at: 2026-03-09T16:12:30.222Z
+version: 6
 ---
 Apply Commander.js v14 style functions consistently: use styleTitle(), styleCommandText(), styleOptionText(), etc. for all command help output. Ensure custom help formatting matches Commander defaults.

@@ -19,7 +19,7 @@ priority: 1
 status: closed
 title: Implement BaseCommand class
 type: is
-updated_at: 2026-03-09T02:47:21.993Z
-version: 5
+updated_at: 2026-03-09T16:12:30.876Z
+version: 6
 ---
 Create abstract base command with context and output management.

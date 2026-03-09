@@ -10,6 +10,6 @@ priority: 1
 status: closed
 title: Verify regenerated SKILL.md fits within 15K character budget and follows best practices
 type: is
-updated_at: 2026-03-09T02:47:24.561Z
-version: 7
+updated_at: 2026-03-09T16:12:33.707Z
+version: 8
 ---

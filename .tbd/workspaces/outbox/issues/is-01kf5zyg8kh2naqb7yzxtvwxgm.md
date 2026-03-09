@@ -19,7 +19,7 @@ priority: 2
 status: closed
 title: Documentation (README, migration guide)
 type: is
-updated_at: 2026-03-09T02:47:20.895Z
-version: 5
+updated_at: 2026-03-09T16:12:29.717Z
+version: 6
 ---
 Write README.md with quick start, migration guide from Beads.

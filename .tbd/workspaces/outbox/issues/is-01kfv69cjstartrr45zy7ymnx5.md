@@ -11,7 +11,7 @@ spec_path: docs/project/specs/done/plan-2026-01-25-agent-orientation-experience.
 status: closed
 title: "Spec: Agent Orientation Experience"
 type: is
-updated_at: 2026-03-09T02:47:23.811Z
-version: 8
+updated_at: 2026-03-09T16:12:32.911Z
+version: 9
 ---
 Design a comprehensive orientation and onboarding experience for tbd that enables AI agents to understand the tool holistically. Spec: docs/project/specs/active/plan-2026-01-25-agent-orientation-experience.md

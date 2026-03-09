@@ -17,7 +17,7 @@ priority: 2
 status: closed
 title: Fix any subcommands missing proper --help descriptions
 type: is
-updated_at: 2026-03-09T02:47:21.213Z
-version: 5
+updated_at: 2026-03-09T16:12:30.059Z
+version: 6
 ---
 Fix any issues found in audit: add missing descriptions, document undocumented options, add usage examples for complex commands.

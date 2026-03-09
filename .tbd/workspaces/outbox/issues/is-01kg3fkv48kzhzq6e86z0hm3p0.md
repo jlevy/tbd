@@ -18,7 +18,7 @@ spec_path: docs/project/specs/active/plan-2026-01-28-sync-worktree-recovery-and-
 status: closed
 title: Enhance checkWorktreeHealth() to detect prunable state
 type: is
-updated_at: 2026-03-09T02:47:24.012Z
-version: 10
+updated_at: 2026-03-09T16:12:33.122Z
+version: 11
 ---
 Update checkWorktreeHealth() in git.ts to detect prunable worktree state via 'git worktree list --porcelain'. Return status: 'valid' | 'missing' | 'prunable' | 'corrupted'. Current implementation only checks exists/valid. Location: packages/tbd/src/file/git.ts:682-729

@@ -12,7 +12,7 @@ priority: 2
 status: closed
 title: Add shortcut command to CLI help
 type: is
-updated_at: 2026-03-09T02:47:23.073Z
-version: 7
+updated_at: 2026-03-09T16:12:32.103Z
+version: 8
 ---
 Ensure shortcut command appears in tbd --help output with proper description. Update any CLI documentation.

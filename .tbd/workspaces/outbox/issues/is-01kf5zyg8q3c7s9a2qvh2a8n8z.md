@@ -19,7 +19,7 @@ priority: 1
 status: closed
 title: Implement ID mapping storage and resolution
 type: is
-updated_at: 2026-03-09T02:47:21.853Z
-version: 5
+updated_at: 2026-03-09T16:12:30.726Z
+version: 6
 ---
 Create .tbd-sync/mappings/ids.yml and resolveId(input) for short to internal ID lookup.

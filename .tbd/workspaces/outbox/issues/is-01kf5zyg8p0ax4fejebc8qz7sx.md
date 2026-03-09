@@ -17,7 +17,7 @@ priority: 1
 status: closed
 title: Create root README.md for GitHub landing page
 type: is
-updated_at: 2026-03-09T02:47:21.549Z
-version: 5
+updated_at: 2026-03-09T16:12:30.390Z
+version: 6
 ---
 Create the main README.md at repository root. Should include: project tagline, key features, installation, quick start, command overview, AI agent section, links to detailed docs, and license. Follow markform README structure as reference.

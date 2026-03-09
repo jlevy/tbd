@@ -10,6 +10,6 @@ priority: 3
 status: closed
 title: Verify cross-reference paths between bun and pnpm monorepo docs
 type: is
-updated_at: 2026-03-09T02:47:24.682Z
-version: 6
+updated_at: 2026-03-09T16:12:33.833Z
+version: 7
 ---

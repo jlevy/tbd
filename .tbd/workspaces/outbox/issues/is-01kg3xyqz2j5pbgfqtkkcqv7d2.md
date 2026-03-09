@@ -10,8 +10,8 @@ priority: 1
 status: closed
 title: Add --id option to tbd create for specifying short IDs
 type: is
-updated_at: 2026-03-09T02:47:24.202Z
-version: 6
+updated_at: 2026-03-09T16:12:33.328Z
+version: 7
 ---
 Allow users to specify a custom short ID when creating issues, preserving IDs from specs.
 

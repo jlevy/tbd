@@ -17,7 +17,7 @@ priority: 3
 status: closed
 title: "Test: Verify consistent color behavior across commands"
 type: is
-updated_at: 2026-03-09T02:47:21.470Z
-version: 5
+updated_at: 2026-03-09T16:12:30.303Z
+version: 6
 ---
 Golden tests for color behavior: (1) Test with NO_COLOR=1, (2) Test with --color=never, (3) Test with --color=always (if possible in test env). Verify consistent output formatting.

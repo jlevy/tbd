@@ -16,6 +16,6 @@ priority: 1
 status: closed
 title: Refactor frontmatter parsing to use gray-matter library
 type: is
-updated_at: 2026-03-09T02:47:23.098Z
-version: 10
+updated_at: 2026-03-09T16:12:32.131Z
+version: 11
 ---

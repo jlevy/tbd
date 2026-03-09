@@ -17,7 +17,7 @@ priority: 1
 status: closed
 title: "Test: Add golden test for beads import status mapping (done -> closed)"
 type: is
-updated_at: 2026-03-09T02:47:21.194Z
-version: 5
+updated_at: 2026-03-09T16:12:30.042Z
+version: 6
 ---
 Add tryscript golden test that imports beads issues with status 'done' and verifies they are imported as 'closed' status in tbd.

@@ -13,7 +13,7 @@ priority: 1
 status: closed
 title: Update tbd setup to copy built-in docs
 type: is
-updated_at: 2026-03-09T02:47:23.067Z
-version: 10
+updated_at: 2026-03-09T16:12:32.097Z
+version: 11
 ---
 Update tbd setup to: 1) Copy built-in system and standard docs to .tbd/docs/shortcuts/{system,standard}/, 2) Use atomically library for safe file writes, 3) Add version comment (<!-- tbd-version: X.Y.Z -->) for upgrade detection.

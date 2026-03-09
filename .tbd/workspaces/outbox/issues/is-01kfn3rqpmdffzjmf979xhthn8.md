@@ -11,7 +11,7 @@ priority: 2
 status: closed
 title: "Move built-in docs: guidelines and templates to top-level"
 type: is
-updated_at: 2026-03-09T02:47:23.420Z
-version: 6
+updated_at: 2026-03-09T16:12:32.483Z
+version: 7
 ---
 Move files in packages/tbd/docs/: shortcuts/guidelines/* -> guidelines/*, shortcuts/templates/* -> templates/*. Update copy-docs.mjs script to handle new structure. Update tsdown.config.ts if needed for build copying.

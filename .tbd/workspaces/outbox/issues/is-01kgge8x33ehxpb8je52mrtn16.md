@@ -11,6 +11,6 @@ priority: 2
 status: closed
 title: Add --force option to setup command
 type: is
-updated_at: 2026-03-09T02:47:24.614Z
-version: 7
+updated_at: 2026-03-09T16:12:33.763Z
+version: 8
 ---

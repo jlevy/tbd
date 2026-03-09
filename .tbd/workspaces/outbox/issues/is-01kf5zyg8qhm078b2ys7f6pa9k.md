@@ -20,7 +20,7 @@ priority: 1
 status: closed
 title: Implement tbd update command
 type: is
-updated_at: 2026-03-09T02:47:22.006Z
-version: 5
+updated_at: 2026-03-09T16:12:30.888Z
+version: 6
 ---
 Update issue with --status, --type, --priority, --from-file, --add-label, --remove-label options.

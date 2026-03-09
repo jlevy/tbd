@@ -11,8 +11,8 @@ priority: 1
 status: closed
 title: Fix sync that committed unresolved merge conflicts
 type: is
-updated_at: 2026-03-09T02:47:24.509Z
-version: 8
+updated_at: 2026-03-09T16:12:33.655Z
+version: 9
 ---
 The sync code resolves conflicts for issue files but ignores ids.yml. When ids.yml has conflicts, it gets staged and committed with conflict markers.
 

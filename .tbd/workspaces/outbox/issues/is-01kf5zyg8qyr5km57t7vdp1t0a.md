@@ -19,7 +19,7 @@ priority: 1
 status: closed
 title: Implement Context management (getCommandContext)
 type: is
-updated_at: 2026-03-09T02:47:22.114Z
-version: 5
+updated_at: 2026-03-09T16:12:31.005Z
+version: 6
 ---
 Create function to extract global options into typed context.

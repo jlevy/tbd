@@ -12,8 +12,8 @@ priority: 2
 status: closed
 title: "Setup codex --check: Show full AGENTS.md path"
 type: is
-updated_at: 2026-03-09T02:47:22.676Z
-version: 7
+updated_at: 2026-03-09T16:12:31.667Z
+version: 8
 ---
 The `tbd setup codex --check` command should show the full file path being checked.
 

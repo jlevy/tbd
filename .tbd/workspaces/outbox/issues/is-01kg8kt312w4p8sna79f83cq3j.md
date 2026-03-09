@@ -20,6 +20,6 @@ spec_path: docs/project/specs/active/plan-2026-01-30-workspace-sync-alt.md
 status: closed
 title: Add .tbd/workspaces/ directory structure support
 type: is
-updated_at: 2026-03-09T02:47:24.391Z
-version: 11
+updated_at: 2026-03-09T16:12:33.532Z
+version: 12
 ---

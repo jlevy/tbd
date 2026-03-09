@@ -11,7 +11,7 @@ priority: 3
 status: closed
 title: Document missing CLI commands
 type: is
-updated_at: 2026-03-09T02:47:22.865Z
-version: 7
+updated_at: 2026-03-09T16:12:31.881Z
+version: 8
 ---
 tbd-design.md doesn't mention several CLI commands: tbd status (distinct from tbd stats), tbd stale, tbd search, tbd attic list/show/restore, tbd reopen. Consider adding a command reference section or noting these exist.

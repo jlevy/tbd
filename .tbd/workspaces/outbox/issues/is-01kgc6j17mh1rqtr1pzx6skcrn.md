@@ -11,6 +11,6 @@ priority: 2
 status: closed
 title: Add merge conflict detection in YAML parsing errors
 type: is
-updated_at: 2026-03-09T02:47:24.505Z
-version: 7
+updated_at: 2026-03-09T16:12:33.649Z
+version: 8
 ---

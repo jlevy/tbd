@@ -11,7 +11,7 @@ priority: 2
 status: closed
 title: "skill.ts: incorrect dev fallback path"
 type: is
-updated_at: 2026-03-09T02:47:23.464Z
-version: 6
+updated_at: 2026-03-09T16:12:32.531Z
+version: 7
 ---
 Uses 3 parent jumps but should use 2 to reach src/docs/.

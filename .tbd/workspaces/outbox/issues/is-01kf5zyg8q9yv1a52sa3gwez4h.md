@@ -17,6 +17,6 @@ priority: 1
 status: closed
 title: Update ISSUES_BASE_DIR in all 20 command files to use worktree path
 type: is
-updated_at: 2026-03-09T02:47:21.912Z
-version: 5
+updated_at: 2026-03-09T16:12:30.790Z
+version: 6
 ---

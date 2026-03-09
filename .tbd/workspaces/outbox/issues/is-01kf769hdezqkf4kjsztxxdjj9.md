@@ -10,7 +10,7 @@ priority: 2
 status: closed
 title: Make close idempotent
 type: is
-updated_at: 2026-03-09T02:47:22.367Z
-version: 6
+updated_at: 2026-03-09T16:12:31.304Z
+version: 7
 ---
 tbd close on already-closed issue should succeed silently. Important for agent retry logic.

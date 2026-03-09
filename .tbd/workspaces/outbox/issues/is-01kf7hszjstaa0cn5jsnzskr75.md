@@ -12,8 +12,8 @@ priority: 2
 status: closed
 title: Audit all write file operations for atomic writes
 type: is
-updated_at: 2026-03-09T02:47:22.483Z
-version: 8
+updated_at: 2026-03-09T16:12:31.443Z
+version: 9
 ---
 Audit all file write operations to ensure we're using the 'atomically' library consistently.
 

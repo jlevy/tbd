@@ -10,7 +10,7 @@ priority: 1
 status: closed
 title: Implement skill installation in tbd setup claude
 type: is
-updated_at: 2026-03-09T02:47:22.420Z
-version: 9
+updated_at: 2026-03-09T16:12:31.368Z
+version: 10
 ---
 Add automatic skill file (.claude/skills/tbd/SKILL.md) installation as part of tbd setup claude. The skill content should derive from the same PRIME_OUTPUT source used by tbd prime. Also add skill check to tbd doctor.

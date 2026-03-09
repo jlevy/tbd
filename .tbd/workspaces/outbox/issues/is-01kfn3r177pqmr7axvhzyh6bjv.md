@@ -11,7 +11,7 @@ priority: 2
 status: closed
 title: Extract shared doc command handler base class
 type: is
-updated_at: 2026-03-09T02:47:23.399Z
-version: 6
+updated_at: 2026-03-09T16:12:32.463Z
+version: 7
 ---
 Extract reusable logic from ShortcutHandler into a base class (e.g., DocCommandHandler) that can be shared by shortcuts, guidelines, and templates commands. Include: handleList(), handleQuery(), handleNoQuery(), printWrappedDescription(), extractFallbackText(). The base class should be parameterized with doc type name and paths.

@@ -11,8 +11,8 @@ priority: 2
 status: closed
 title: End-to-end integration test for gitignore-utils
 type: is
-updated_at: 2026-03-09T02:47:23.773Z
-version: 6
+updated_at: 2026-03-09T16:12:32.872Z
+version: 7
 ---
 Create end-to-end integration test that validates the full workflow.
 

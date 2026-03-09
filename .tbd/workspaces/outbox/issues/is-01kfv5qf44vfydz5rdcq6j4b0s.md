@@ -8,6 +8,6 @@ priority: 2
 status: open
 title: Create closing-protocol shortcut and refactor skill file
 type: is
-updated_at: 2026-03-09T02:47:23.778Z
-version: 5
+updated_at: 2026-03-09T16:12:32.880Z
+version: 6
 ---

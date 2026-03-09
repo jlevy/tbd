@@ -10,6 +10,6 @@ priority: 3
 status: closed
 title: Add cross-references between the three Claude Code research docs (orchestration-and-uis, running-claude-code, sub-agents) to their Related sections
 type: is
-updated_at: 2026-03-09T02:47:25.257Z
-version: 4
+updated_at: 2026-03-09T16:12:34.480Z
+version: 5
 ---

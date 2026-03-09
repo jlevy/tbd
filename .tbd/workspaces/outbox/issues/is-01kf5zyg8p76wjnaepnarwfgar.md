@@ -17,7 +17,7 @@ priority: 0
 status: closed
 title: Add golden tests for tbd sync git operations (commit verification)
 type: is
-updated_at: 2026-03-09T02:47:21.638Z
-version: 5
+updated_at: 2026-03-09T16:12:30.490Z
+version: 6
 ---
 Tests must verify that tbd sync actually commits files to the tbd-sync branch before pushing. Currently tests only check --status and error handling but NOT that files are committed to git. This bead must be completed BEFORE fixing tbd-1884.

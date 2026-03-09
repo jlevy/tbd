@@ -11,7 +11,7 @@ priority: 2
 status: closed
 title: Update tbd-design.md for cache removal
 type: is
-updated_at: 2026-03-09T02:47:23.695Z
-version: 6
+updated_at: 2026-03-09T16:12:32.782Z
+version: 7
 ---
 Update main design doc to reflect: no .tbd/cache/, docs gitignored, state.yml at .tbd/state.yml, shortcuts generated on-the-fly

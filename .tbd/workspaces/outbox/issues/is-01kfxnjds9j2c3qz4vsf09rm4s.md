@@ -14,7 +14,7 @@ spec_path: docs/project/specs/done/plan-2026-01-26-configurable-doc-cache-sync.m
 status: closed
 title: Add tbd_format versioning with tbd-format.ts migration infrastructure
 type: is
-updated_at: 2026-03-09T02:47:23.841Z
-version: 11
+updated_at: 2026-03-09T16:12:32.942Z
+version: 12
 ---
 Add explicit tbd_format field to config.yml for safe .tbd/ directory migrations. Create tbd-format.ts as single source of truth for format history, migration rules, and version constants. Only bump format for breaking changes requiring migration. See plan-2026-01-26-configurable-doc-cache-sync.md Phase 9.

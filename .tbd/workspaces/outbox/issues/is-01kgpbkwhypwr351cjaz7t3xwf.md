@@ -12,6 +12,6 @@ priority: 2
 status: closed
 title: Add renderMarkdownWithFrontmatter() function to output.ts
 type: is
-updated_at: 2026-03-09T02:47:24.900Z
-version: 8
+updated_at: 2026-03-09T16:12:34.093Z
+version: 9
 ---

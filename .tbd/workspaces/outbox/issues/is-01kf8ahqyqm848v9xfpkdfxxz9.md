@@ -10,6 +10,6 @@ priority: 2
 status: closed
 title: "Design spec §2.6.6: Local state file is state.json not state.yml, field is last_sync_at not last_sync/last_push/last_pull"
 type: is
-updated_at: 2026-03-09T02:47:22.937Z
-version: 6
+updated_at: 2026-03-09T16:12:31.960Z
+version: 7
 ---

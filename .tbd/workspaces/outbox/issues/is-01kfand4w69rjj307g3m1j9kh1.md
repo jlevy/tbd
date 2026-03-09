@@ -12,8 +12,8 @@ priority: 1
 status: closed
 title: tbd setup auto should update skill files, not skip them
 type: is
-updated_at: 2026-03-09T02:47:22.973Z
-version: 9
+updated_at: 2026-03-09T16:12:31.997Z
+version: 10
 ---
 ## Problem
 

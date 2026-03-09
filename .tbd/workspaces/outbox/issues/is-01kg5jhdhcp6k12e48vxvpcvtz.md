@@ -14,8 +14,8 @@ spec_path: docs/project/specs/active/plan-2026-01-29-unified-sync-command.md
 status: open
 title: "Phase 4: Remove docs --refresh command"
 type: is
-updated_at: 2026-03-09T02:47:24.264Z
-version: 7
+updated_at: 2026-03-09T16:12:33.395Z
+version: 8
 ---
 Update docs.ts to:
 - Remove --refresh option

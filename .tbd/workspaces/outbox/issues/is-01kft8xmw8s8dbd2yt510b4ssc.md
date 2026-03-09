@@ -11,6 +11,6 @@ priority: 2
 status: closed
 title: Add tryscript e2e test for cache removal verification
 type: is
-updated_at: 2026-03-09T02:47:23.663Z
-version: 6
+updated_at: 2026-03-09T16:12:32.750Z
+version: 7
 ---

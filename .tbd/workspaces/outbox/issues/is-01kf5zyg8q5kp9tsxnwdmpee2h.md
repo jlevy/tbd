@@ -19,7 +19,7 @@ priority: 1
 status: closed
 title: Implement listIssues()
 type: is
-updated_at: 2026-03-09T02:47:21.864Z
-version: 5
+updated_at: 2026-03-09T16:12:30.738Z
+version: 6
 ---
 Enumerate all issue files from worktree directory.

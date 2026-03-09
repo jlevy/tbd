@@ -10,6 +10,6 @@ priority: 2
 status: closed
 title: Update golden tests for frontmatter rendering
 type: is
-updated_at: 2026-03-09T02:47:24.911Z
-version: 6
+updated_at: 2026-03-09T16:12:34.105Z
+version: 7
 ---

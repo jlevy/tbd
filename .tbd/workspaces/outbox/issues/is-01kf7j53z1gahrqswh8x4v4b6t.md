@@ -8,7 +8,7 @@ priority: 2
 status: open
 title: Agent documentation consolidation and cleanup
 type: is
-updated_at: 2026-03-09T02:47:22.508Z
-version: 5
+updated_at: 2026-03-09T16:12:31.475Z
+version: 6
 ---
 Epic for consolidating all agent-related documentation (SKILL.md, AGENTS.md, Cursor rules, etc.) into a single organized location with consistent patterns and reduced duplication.

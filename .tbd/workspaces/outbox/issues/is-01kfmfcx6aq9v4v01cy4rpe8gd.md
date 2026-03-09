@@ -11,6 +11,6 @@ priority: 1
 status: closed
 title: Move skill-brief.md to shortcuts/system/skill-brief.md
 type: is
-updated_at: 2026-03-09T02:47:23.342Z
-version: 6
+updated_at: 2026-03-09T16:12:32.404Z
+version: 7
 ---

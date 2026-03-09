@@ -15,7 +15,7 @@ priority: 2
 status: closed
 title: Reduce duplication and ensure consistency across agent docs
 type: is
-updated_at: 2026-03-09T02:47:22.504Z
-version: 10
+updated_at: 2026-03-09T16:12:31.469Z
+version: 11
 ---
 Audit all agent documentation files (SKILL.md, AGENTS.md, Cursor rules, etc.) for duplicated content and inconsistent terminology. Create shared content where appropriate and establish consistent patterns across all agent integrations.

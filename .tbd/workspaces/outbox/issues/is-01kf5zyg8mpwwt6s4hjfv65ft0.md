@@ -19,7 +19,7 @@ priority: 1
 status: closed
 title: Create tryscript golden tests for core workflows
 type: is
-updated_at: 2026-03-09T02:47:21.172Z
-version: 5
+updated_at: 2026-03-09T16:12:30.018Z
+version: 6
 ---
 Create cli.tryscript.md with tests for init, create, list, show, update, close commands.

@@ -10,8 +10,8 @@ spec_path: docs/project/specs/active/plan-2026-01-29-unified-sync-command.md
 status: open
 title: "Phase 7: Testing for unified sync"
 type: is
-updated_at: 2026-03-09T02:47:24.279Z
-version: 5
+updated_at: 2026-03-09T16:12:33.410Z
+version: 6
 ---
 Add tests:
 - Unit tests for syncDocsWithDefaults()

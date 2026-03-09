@@ -20,7 +20,7 @@ priority: 0
 status: closed
 title: Fix pnpm version conflict in CI workflow
 type: is
-updated_at: 2026-03-09T02:47:21.155Z
-version: 5
+updated_at: 2026-03-09T16:12:30.001Z
+version: 6
 ---
 Remove explicit pnpm version from GitHub Actions to let it read from packageManager field in package.json.

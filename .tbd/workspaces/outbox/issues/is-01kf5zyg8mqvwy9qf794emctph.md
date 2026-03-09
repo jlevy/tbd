@@ -20,7 +20,7 @@ priority: 1
 status: closed
 title: "Phase 17: CI Fixes and Dependency Updates"
 type: is
-updated_at: 2026-03-09T02:47:21.183Z
-version: 5
+updated_at: 2026-03-09T16:12:30.030Z
+version: 6
 ---
 Fix CI workflow failures and update dependencies to latest versions.

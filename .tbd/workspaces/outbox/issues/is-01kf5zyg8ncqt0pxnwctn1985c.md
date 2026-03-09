@@ -17,7 +17,7 @@ priority: 1
 status: closed
 title: Create cli-filesystem.tryscript.md - verify file locations and formats
 type: is
-updated_at: 2026-03-09T02:47:21.418Z
-version: 5
+updated_at: 2026-03-09T16:12:30.251Z
+version: 6
 ---
 New tryscript file that verifies file system state after operations: (1) Files in correct worktree location, (2) No files on main branch, (3) Correct file format/serialization, (4) Atomic writes work correctly.

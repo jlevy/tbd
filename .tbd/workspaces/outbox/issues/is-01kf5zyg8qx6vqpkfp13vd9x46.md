@@ -20,7 +20,7 @@ priority: 1
 status: closed
 title: Implement tbd list command
 type: is
-updated_at: 2026-03-09T02:47:22.099Z
-version: 5
+updated_at: 2026-03-09T16:12:30.988Z
+version: 6
 ---
 List issues with filters: --status, --type, --priority, --assignee, --label, --parent, --all, --deferred, --sort, --limit. Human-readable table and JSON output.

@@ -13,8 +13,8 @@ priority: 2
 status: closed
 title: Refactor init.ts to use ensureGitignorePatterns()
 type: is
-updated_at: 2026-03-09T02:47:23.749Z
-version: 8
+updated_at: 2026-03-09T16:12:32.846Z
+version: 9
 ---
 Replace duplicated gitignore creation code in init.ts with the new ensureGitignorePatterns() utility.
 

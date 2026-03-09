@@ -20,7 +20,7 @@ priority: 1
 status: closed
 title: "Phase 13: Tryscript Coverage Migration"
 type: is
-updated_at: 2026-03-09T02:47:20.878Z
-version: 5
+updated_at: 2026-03-09T16:12:29.696Z
+version: 6
 ---
 Migrate golden tests to tryscript format and implement merged coverage workflow.

@@ -11,8 +11,8 @@ priority: 2
 status: closed
 title: Verify init command docs consistency
 type: is
-updated_at: 2026-03-09T02:47:23.125Z
-version: 7
+updated_at: 2026-03-09T16:12:32.159Z
+version: 8
 ---
 Check tbd-docs.md, tbd-design.md, and CLI --help for the init command. Ensure all three sources are consistent and accurate for:
 - Command description and purpose

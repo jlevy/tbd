@@ -13,8 +13,8 @@ priority: 2
 status: closed
 title: Verify setup command docs consistency
 type: is
-updated_at: 2026-03-09T02:47:23.130Z
-version: 8
+updated_at: 2026-03-09T16:12:32.165Z
+version: 9
 ---
 Check tbd-docs.md, tbd-design.md, and CLI --help for the setup command and all subcommands (auto, claude, cursor, codex, beads). Ensure all sources are consistent and accurate for:
 - Main setup command options

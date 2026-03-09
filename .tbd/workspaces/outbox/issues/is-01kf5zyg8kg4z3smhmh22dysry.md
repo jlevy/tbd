@@ -20,7 +20,7 @@ priority: 1
 status: closed
 title: "Phase 11: Import Command"
 type: is
-updated_at: 2026-03-09T02:47:20.883Z
-version: 5
+updated_at: 2026-03-09T16:12:29.704Z
+version: 6
 ---
 Implement Beads import functionality for migration.

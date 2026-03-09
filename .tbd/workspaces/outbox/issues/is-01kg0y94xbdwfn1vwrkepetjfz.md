@@ -15,6 +15,6 @@ spec_path: docs/project/specs/active/plan-2026-01-27-parallel-processing.md
 status: closed
 title: Add bounded concurrency utility (pMap)
 type: is
-updated_at: 2026-03-09T02:47:23.949Z
-version: 8
+updated_at: 2026-03-09T16:12:33.058Z
+version: 9
 ---

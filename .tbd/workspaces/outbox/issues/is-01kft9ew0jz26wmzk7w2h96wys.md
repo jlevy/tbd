@@ -11,7 +11,7 @@ priority: 2
 status: closed
 title: Update plan-2026-01-15-tbd-v1-implementation.md for cache removal
 type: is
-updated_at: 2026-03-09T02:47:23.679Z
-version: 6
+updated_at: 2026-03-09T16:12:32.766Z
+version: 7
 ---
 Update spec to reflect: no .tbd/cache/, docs gitignored, state.yml moved to .tbd/

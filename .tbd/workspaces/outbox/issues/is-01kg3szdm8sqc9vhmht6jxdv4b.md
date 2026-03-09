@@ -10,6 +10,6 @@ priority: 3
 status: closed
 title: "Bug: migrateDataToWorktree fails when data already migrated (nothing to commit)"
 type: is
-updated_at: 2026-03-09T02:47:24.192Z
-version: 6
+updated_at: 2026-03-09T16:12:33.316Z
+version: 7
 ---

@@ -17,8 +17,8 @@ priority: 2
 status: closed
 title: Remove -p shorthand for --priority option
 type: is
-updated_at: 2026-03-09T02:47:21.599Z
-version: 5
+updated_at: 2026-03-09T16:12:30.444Z
+version: 6
 ---
 Remove the -p one-letter option alias for --priority in the create command. Keep only --priority.
 

@@ -17,6 +17,6 @@ priority: 1
 status: closed
 title: Implement initWorktree() function in git.ts
 type: is
-updated_at: 2026-03-09T02:47:21.941Z
-version: 5
+updated_at: 2026-03-09T16:12:30.819Z
+version: 6
 ---

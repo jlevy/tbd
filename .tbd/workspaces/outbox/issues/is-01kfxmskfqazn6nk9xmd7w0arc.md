@@ -10,7 +10,7 @@ priority: 4
 status: closed
 title: Document gitignore pattern re-addition behavior as intentional design
 type: is
-updated_at: 2026-03-09T02:47:23.836Z
-version: 6
+updated_at: 2026-03-09T16:12:32.937Z
+version: 7
 ---
 If a user manually removes a pattern we manage (like docs/), we re-add it on next setup. This is intentional because: 1) docs/ is regenerated from npm package on every setup, 2) These are tool-managed files, not user-authored, 3) Tracking them would cause noise on every upgrade. Should add a comment in setup.ts explaining this design decision.

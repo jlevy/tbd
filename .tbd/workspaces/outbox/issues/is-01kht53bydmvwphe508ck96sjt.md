@@ -13,6 +13,6 @@ spec_path: docs/project/specs/active/plan-2026-02-18-monorepo-patterns-codebase-
 status: closed
 title: Upgrade lefthook v1 to v2, ncu v17 to v19
 type: is
-updated_at: 2026-03-09T02:47:25.286Z
-version: 7
+updated_at: 2026-03-09T16:12:34.516Z
+version: 8
 ---

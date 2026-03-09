@@ -17,7 +17,7 @@ priority: 2
 status: closed
 title: Create cli-help-all.tryscript.md - verify --help on every subcommand
 type: is
-updated_at: 2026-03-09T02:47:21.274Z
-version: 5
+updated_at: 2026-03-09T16:12:30.099Z
+version: 6
 ---
 New tryscript file that runs '<command> --help' for EVERY subcommand and verifies: (1) Help text shown, (2) Options documented, (3) Consistent formatting, (4) No errors.

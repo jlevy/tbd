@@ -10,7 +10,7 @@ priority: 2
 status: closed
 title: "Restructure docs: separate shortcuts, guidelines, and templates as top-level commands"
 type: is
-updated_at: 2026-03-09T02:47:23.388Z
-version: 6
+updated_at: 2026-03-09T16:12:32.452Z
+version: 7
 ---
 Restructure the shortcuts system to separate guidelines and templates from shortcuts, making them top-level commands with their own directories. Target: .tbd/docs/shortcuts/, .tbd/docs/guidelines/, .tbd/docs/templates/. New commands: tbd templates, tbd guidelines (both support --list and fuzzy search).

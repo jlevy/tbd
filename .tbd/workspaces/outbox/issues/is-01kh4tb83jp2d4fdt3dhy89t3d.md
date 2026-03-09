@@ -12,6 +12,6 @@ spec_path: docs/project/specs/active/plan-2026-02-10-external-issue-linking.md
 status: closed
 title: "Phase 2: gh CLI health check in doctor — add checkGhCli() integration check (doctor.ts:136-142), respect use_gh_cli gate, check gh --version and gh auth status"
 type: is
-updated_at: 2026-03-09T02:47:24.967Z
-version: 11
+updated_at: 2026-03-09T16:12:34.154Z
+version: 12
 ---

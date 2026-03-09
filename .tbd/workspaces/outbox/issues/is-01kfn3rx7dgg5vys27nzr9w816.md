@@ -11,7 +11,7 @@ priority: 2
 status: closed
 title: Update init.ts and setup.ts for new directory structure
 type: is
-updated_at: 2026-03-09T02:47:23.425Z
-version: 6
+updated_at: 2026-03-09T16:12:32.489Z
+version: 7
 ---
 Update init.ts: create .tbd/docs/guidelines/ and .tbd/docs/templates/ directories. Update setup.ts: create new directories and update copyBuiltinDocs() to copy from new source locations. Remove creation of shortcuts/guidelines and shortcuts/templates subdirs.

@@ -11,6 +11,6 @@ spec_path: docs/project/specs/active/plan-2026-02-16-kdex-knowledge-index-cli.md
 status: open
 title: "kdex: Core store + source resolution (Phase 1)"
 type: is
-updated_at: 2026-03-09T02:47:25.233Z
-version: 6
+updated_at: 2026-03-09T16:12:34.448Z
+version: 7
 ---

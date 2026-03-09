@@ -14,7 +14,7 @@ spec_path: docs/project/specs/active/plan-2026-02-02-skill-md-comprehensive-upda
 status: closed
 title: Fix markdown-utils.ts to use yaml package stringify
 type: is
-updated_at: 2026-03-09T02:47:24.577Z
-version: 8
+updated_at: 2026-03-09T16:12:33.724Z
+version: 9
 ---
 Replace manual YAML string reconstruction with yaml package stringify. Import stringify from yaml package and use it in parseMarkdown() to properly handle special characters like colons in values.

@@ -12,8 +12,8 @@ priority: 1
 status: closed
 title: "Reproduce: workspace import creates whole_issue conflicts for simple updates"
 type: is
-updated_at: 2026-03-09T02:47:24.746Z
-version: 8
+updated_at: 2026-03-09T16:12:33.906Z
+version: 9
 ---
 ## Notes
 

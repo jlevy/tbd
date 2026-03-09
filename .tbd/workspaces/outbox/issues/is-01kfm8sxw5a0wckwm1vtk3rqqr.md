@@ -10,8 +10,8 @@ priority: 1
 status: closed
 title: Update SKILL.md to clarify prefix requirement
 type: is
-updated_at: 2026-03-09T02:47:23.209Z
-version: 7
+updated_at: 2026-03-09T16:12:32.247Z
+version: 8
 ---
 Update the agent instructions (SKILL.md and related docs) to make it clear that --prefix is required unless migrating from beads.
 

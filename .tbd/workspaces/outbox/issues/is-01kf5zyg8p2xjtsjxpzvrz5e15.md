@@ -17,7 +17,7 @@ priority: 2
 status: closed
 title: Update build to copy README to package
 type: is
-updated_at: 2026-03-09T02:47:21.581Z
-version: 5
+updated_at: 2026-03-09T16:12:30.424Z
+version: 6
 ---
 Extend packages/tbd-cli/scripts/copy-docs.mjs to copy README.md from repo root to package dist/docs/. The readme command will read from this location.

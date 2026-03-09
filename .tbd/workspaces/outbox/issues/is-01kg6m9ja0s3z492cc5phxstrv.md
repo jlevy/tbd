@@ -11,6 +11,6 @@ spec_path: docs/project/specs/active/plan-2026-01-29-doc-size-and-token-counts.m
 status: closed
 title: "Spec: Document size and token counts"
 type: is
-updated_at: 2026-03-09T02:47:24.312Z
-version: 6
+updated_at: 2026-03-09T16:12:33.453Z
+version: 7
 ---

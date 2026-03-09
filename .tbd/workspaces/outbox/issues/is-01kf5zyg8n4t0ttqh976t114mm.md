@@ -18,7 +18,7 @@ priority: 2
 status: closed
 title: Update tests for new ID preservation behavior
 type: is
-updated_at: 2026-03-09T02:47:21.331Z
-version: 5
+updated_at: 2026-03-09T16:12:30.157Z
+version: 6
 ---
 Update tryscript and unit tests to expect preserved IDs. After import of tbd-100, display should be bd-100 not bd-xxxx. Also update idMapping tests for 1+ char short IDs.

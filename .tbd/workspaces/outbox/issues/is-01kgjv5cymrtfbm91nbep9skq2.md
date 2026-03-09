@@ -24,6 +24,6 @@ spec_path: docs/project/specs/active/plan-2026-02-03-streamlined-outbox-workflow
 status: closed
 title: Implement streamlined outbox workflow
 type: is
-updated_at: 2026-03-09T02:47:24.755Z
-version: 18
+updated_at: 2026-03-09T16:12:33.920Z
+version: 19
 ---

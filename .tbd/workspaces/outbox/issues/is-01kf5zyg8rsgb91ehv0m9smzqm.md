@@ -20,7 +20,7 @@ priority: 1
 status: closed
 title: "Phase 8: Search Command"
 type: is
-updated_at: 2026-03-09T02:47:22.227Z
-version: 5
+updated_at: 2026-03-09T16:12:31.139Z
+version: 6
 ---
 Implement search using hidden worktree with ripgrep/grep.

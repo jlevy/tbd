@@ -10,6 +10,6 @@ priority: 2
 status: closed
 title: "Update bun-monorepo-patterns: document biome ci command for CI"
 type: is
-updated_at: 2026-03-09T02:47:25.348Z
-version: 7
+updated_at: 2026-03-09T16:12:34.583Z
+version: 8
 ---

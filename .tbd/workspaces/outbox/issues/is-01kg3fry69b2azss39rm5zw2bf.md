@@ -12,7 +12,7 @@ spec_path: docs/project/specs/active/plan-2026-01-28-sync-worktree-recovery-and-
 status: closed
 title: Add e2e tryscript test for sync worktree scenarios
 type: is
-updated_at: 2026-03-09T02:47:24.166Z
-version: 7
+updated_at: 2026-03-09T16:12:33.280Z
+version: 8
 ---
 Implement the e2e tryscript test from spec Appendix (test-sync-worktree-scenarios.sh). Tests all 5 scenarios: fresh init, fresh clone, worktree deleted, never initialized, never pushed. Uses local bare repo for isolation.

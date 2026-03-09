@@ -11,6 +11,6 @@ spec_path: docs/project/specs/done/plan-2026-01-27-gh-cli-auto-setup.md
 status: closed
 title: "Spec: GH CLI Auto Setup"
 type: is
-updated_at: 2026-03-09T02:47:23.928Z
-version: 7
+updated_at: 2026-03-09T16:12:33.034Z
+version: 8
 ---

@@ -8,7 +8,7 @@ priority: 2
 status: open
 title: Add remote vs local issue counts to tbd stats
 type: is
-updated_at: 2026-03-09T02:47:22.274Z
-version: 6
+updated_at: 2026-03-09T16:12:31.189Z
+version: 7
 ---
 When running `tbd stats`, show how many issues are synced to remote vs only exist locally. This gives visibility into sync status at the issue level.

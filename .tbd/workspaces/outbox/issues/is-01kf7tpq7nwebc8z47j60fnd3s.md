@@ -14,7 +14,7 @@ priority: 2
 status: closed
 title: Remove redundant STATUS header from doctor
 type: is
-updated_at: 2026-03-09T02:47:22.713Z
-version: 8
+updated_at: 2026-03-09T16:12:31.712Z
+version: 9
 ---
 Doctor duplicates the status output under a STATUS header. Remove the header since the version line is sufficient.

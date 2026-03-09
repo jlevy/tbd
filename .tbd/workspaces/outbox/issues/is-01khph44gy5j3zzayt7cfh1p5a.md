@@ -10,6 +10,6 @@ priority: 4
 status: closed
 title: Move api-references-bridge-integrations.md into current/ subdirectory for consistency with other active research docs
 type: is
-updated_at: 2026-03-09T02:47:25.252Z
-version: 4
+updated_at: 2026-03-09T16:12:34.475Z
+version: 5
 ---

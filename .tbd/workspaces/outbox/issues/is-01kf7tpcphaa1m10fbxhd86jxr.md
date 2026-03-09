@@ -10,7 +10,7 @@ priority: 2
 status: closed
 title: Make tbd doctor a clean superset of tbd status
 type: is
-updated_at: 2026-03-09T02:47:22.698Z
-version: 14
+updated_at: 2026-03-09T16:12:31.692Z
+version: 15
 ---
 The doctor and status commands have inconsistent output structure. Doctor should be a clear superset of status with consistent section names and formatting.

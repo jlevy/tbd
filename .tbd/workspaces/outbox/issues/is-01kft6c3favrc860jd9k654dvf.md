@@ -12,7 +12,7 @@ priority: 2
 status: closed
 title: "REFACTOR: Consolidate doc validation into unified test suite"
 type: is
-updated_at: 2026-03-09T02:47:23.614Z
-version: 8
+updated_at: 2026-03-09T16:12:32.694Z
+version: 9
 ---
 Refactor: consolidate validation functions, remove duplication, add unified test runner. Consider: should test also report undocumented items?

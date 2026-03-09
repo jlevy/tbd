@@ -20,7 +20,7 @@ priority: 1
 status: closed
 title: Implement tbd import <file> command
 type: is
-updated_at: 2026-03-09T02:47:20.814Z
-version: 5
+updated_at: 2026-03-09T16:12:29.622Z
+version: 6
 ---
 Process JSONL file with field mapping, re-import merge, dependency ID translation, --dry-run, --include-tombstones.

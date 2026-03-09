@@ -17,7 +17,7 @@ priority: 1
 status: closed
 title: "Test: Add golden test verifying files written to tbd-sync worktree not main"
 type: is
-updated_at: 2026-03-09T02:47:21.229Z
-version: 5
+updated_at: 2026-03-09T16:12:30.077Z
+version: 6
 ---
 Add tryscript golden test that verifies issue files are written to .tbd/sync-worktree/.tbd-sync/ (tbd-sync branch worktree) not directly to .tbd-sync/ on main.

@@ -17,7 +17,7 @@ priority: 3
 status: closed
 title: "Bug: Inconsistent color usage in help text across commands"
 type: is
-updated_at: 2026-03-09T02:47:21.066Z
-version: 5
+updated_at: 2026-03-09T16:12:29.902Z
+version: 6
 ---
 Ensure consistent colored output across all help text: (1) Top-level 'tbd --help', (2) Subcommand help 'tbd list --help', (3) Error messages. Colors should respect --color flag (auto/always/never) and NO_COLOR env var. Check that Commander.js v14 style functions are applied uniformly.

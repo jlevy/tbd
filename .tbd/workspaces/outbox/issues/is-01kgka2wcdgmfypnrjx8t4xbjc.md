@@ -14,6 +14,6 @@ spec_path: docs/project/specs/active/plan-2026-02-03-streamlined-outbox-workflow
 status: closed
 title: "Phase 3.3: Integrate outbox import into fullSync() success path"
 type: is
-updated_at: 2026-03-09T02:47:24.841Z
-version: 7
+updated_at: 2026-03-09T16:12:34.017Z
+version: 8
 ---

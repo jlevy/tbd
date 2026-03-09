@@ -17,7 +17,7 @@ priority: 3
 status: closed
 title: Audit color usage across all commands and help text
 type: is
-updated_at: 2026-03-09T02:47:21.327Z
-version: 5
+updated_at: 2026-03-09T16:12:30.151Z
+version: 6
 ---
 Review all commands for color usage: (1) Check if colors used in output, (2) Check help text coloring, (3) Identify inconsistencies between commands, (4) Note which use picocolors directly vs Commander styling.

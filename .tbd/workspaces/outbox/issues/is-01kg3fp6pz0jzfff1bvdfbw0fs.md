@@ -14,7 +14,7 @@ spec_path: docs/project/specs/active/plan-2026-01-28-sync-worktree-recovery-and-
 status: closed
 title: Update commitWorktreeChanges() to use dataSyncDir consistently
 type: is
-updated_at: 2026-03-09T02:47:24.084Z
-version: 8
+updated_at: 2026-03-09T16:12:33.197Z
+version: 9
 ---
 Fix Bug 1: commitWorktreeChanges() uses hardcoded join(process.cwd(), WORKTREE_DIR) at line 273. Should derive worktree path from this.dataSyncDir. Same issue in fullSync() at line 427. Location: packages/tbd/src/cli/commands/sync.ts:272-308, 423-594

@@ -17,7 +17,7 @@ priority: 3
 status: closed
 title: Update cli-import-e2e.tryscript.md to use path directive
 type: is
-updated_at: 2026-03-09T02:47:21.934Z
-version: 5
+updated_at: 2026-03-09T16:12:30.813Z
+version: 6
 ---
 Replace node $TRYSCRIPT_TEST_DIR/../dist/bin.mjs with tbd command by adding path: - ../dist to YAML frontmatter

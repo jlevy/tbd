@@ -15,8 +15,8 @@ priority: 2
 status: closed
 title: Parse git status to identify modified issue files and extract issue IDs
 type: is
-updated_at: 2026-03-09T02:47:22.905Z
-version: 10
+updated_at: 2026-03-09T16:12:31.927Z
+version: 11
 ---
 In commitWorktreeChanges(), after getting git status output, parse it to:
 1. Filter for issue files (.tbd/data-sync/issues/*.md)

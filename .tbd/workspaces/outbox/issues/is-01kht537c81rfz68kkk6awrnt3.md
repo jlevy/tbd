@@ -11,6 +11,6 @@ spec_path: docs/project/specs/active/plan-2026-02-18-monorepo-patterns-codebase-
 status: closed
 title: Update CI workflow to actions v6 and Node 24
 type: is
-updated_at: 2026-03-09T02:47:25.281Z
-version: 8
+updated_at: 2026-03-09T16:12:34.510Z
+version: 9
 ---

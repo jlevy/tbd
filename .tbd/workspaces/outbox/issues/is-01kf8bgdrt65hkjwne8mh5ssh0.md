@@ -10,8 +10,8 @@ priority: 3
 status: closed
 title: Remove unused index_enabled config and index.json references
 type: is
-updated_at: 2026-03-09T02:47:22.968Z
-version: 6
+updated_at: 2026-03-09T16:12:31.991Z
+version: 7
 ---
 The index.json query cache is not implemented. Remove:
 - index_enabled from ConfigSchema in schemas.ts

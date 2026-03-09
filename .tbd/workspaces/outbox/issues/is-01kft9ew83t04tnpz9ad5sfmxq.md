@@ -11,7 +11,7 @@ priority: 2
 status: closed
 title: Update plan-2026-01-19-transactional-mode-and-agent-registration.md for cache removal
 type: is
-updated_at: 2026-03-09T02:47:23.684Z
-version: 6
+updated_at: 2026-03-09T16:12:32.771Z
+version: 7
 ---
 Update spec to reflect new state file location (.tbd/state.yml not .tbd/cache/)

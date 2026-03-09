@@ -11,7 +11,7 @@ priority: 2
 status: closed
 title: Update valid-2026-01-18-design-doc-consistency-review.md for cache removal
 type: is
-updated_at: 2026-03-09T02:47:23.690Z
-version: 6
+updated_at: 2026-03-09T16:12:32.776Z
+version: 7
 ---
 Update validation doc to reflect new .tbd/.gitignore format (docs/ not cache/)

@@ -17,7 +17,7 @@ priority: 3
 status: closed
 title: Migrate input-validation.yaml to tryscript format
 type: is
-updated_at: 2026-03-09T02:47:21.787Z
-version: 5
+updated_at: 2026-03-09T16:12:30.654Z
+version: 6
 ---
 Write tryscript tests covering input-validation.yaml scenarios (invalid priority, missing title), then delete the YAML file

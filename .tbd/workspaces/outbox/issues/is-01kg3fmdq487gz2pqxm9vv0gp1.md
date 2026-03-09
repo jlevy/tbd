@@ -12,7 +12,7 @@ spec_path: docs/project/specs/active/plan-2026-01-28-sync-worktree-recovery-and-
 status: closed
 title: "Doctor: Enhanced worktree health check with prunable detection"
 type: is
-updated_at: 2026-03-09T02:47:24.034Z
-version: 7
+updated_at: 2026-03-09T16:12:33.143Z
+version: 8
 ---
 Update doctor.ts checkWorktree() to use enhanced checkWorktreeHealth() that detects prunable state. Report error for missing/prunable/corrupted worktree instead of returning 'not created yet' as OK. Location: packages/tbd/src/cli/commands/doctor.ts:494-512

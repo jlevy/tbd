@@ -11,8 +11,8 @@ priority: 2
 status: closed
 title: Extract hardcoded content templates to markdown files
 type: is
-updated_at: 2026-03-09T02:47:22.493Z
-version: 10
+updated_at: 2026-03-09T16:12:31.458Z
+version: 11
 ---
 Extract hardcoded content templates from setup.ts into separate markdown files, following the pattern established with SKILL.md.
 

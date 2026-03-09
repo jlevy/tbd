@@ -10,6 +10,6 @@ priority: 2
 status: closed
 title: Add golden tests for interactive vs non-interactive doc output
 type: is
-updated_at: 2026-03-09T02:47:24.885Z
-version: 7
+updated_at: 2026-03-09T16:12:34.077Z
+version: 8
 ---

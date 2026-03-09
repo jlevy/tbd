@@ -12,8 +12,8 @@ priority: 2
 status: closed
 title: Migrate commands to issue formatting utilities
 type: is
-updated_at: 2026-03-09T02:47:22.623Z
-version: 10
+updated_at: 2026-03-09T16:12:31.596Z
+version: 11
 ---
 Update commands to use issueFormat.ts utilities:
 - Update list.ts to use formatIssueLine() and formatIssueHeader()

@@ -19,7 +19,7 @@ priority: 1
 status: closed
 title: Implement Commander program setup with global options
 type: is
-updated_at: 2026-03-09T02:47:21.886Z
-version: 5
+updated_at: 2026-03-09T16:12:30.762Z
+version: 6
 ---
 Set up Commander.js program with --json, --color, --dir, --no-sync, --actor options.

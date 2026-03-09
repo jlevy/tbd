@@ -19,7 +19,7 @@ priority: 0
 status: closed
 title: Add schema validation for git branch/remote names
 type: is
-updated_at: 2026-03-09T02:47:21.224Z
-version: 5
+updated_at: 2026-03-09T16:12:30.071Z
+version: 6
 ---
 Added GitBranchName and GitRemoteName schema validators to prevent malicious config values.

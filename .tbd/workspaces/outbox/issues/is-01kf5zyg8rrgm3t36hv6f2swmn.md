@@ -19,7 +19,7 @@ priority: 1
 status: closed
 title: Implement worktree staleness check and auto-refresh
 type: is
-updated_at: 2026-03-09T02:47:22.222Z
-version: 5
+updated_at: 2026-03-09T16:12:31.133Z
+version: 6
 ---
 Check last sync time, auto-pull if > 5 minutes, --no-refresh option.

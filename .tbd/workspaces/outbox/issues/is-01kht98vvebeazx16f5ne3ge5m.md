@@ -10,6 +10,6 @@ priority: 2
 status: closed
 title: "Update bun-monorepo-patterns: document golden/CLI testing with tryscript"
 type: is
-updated_at: 2026-03-09T02:47:25.357Z
-version: 7
+updated_at: 2026-03-09T16:12:34.593Z
+version: 8
 ---

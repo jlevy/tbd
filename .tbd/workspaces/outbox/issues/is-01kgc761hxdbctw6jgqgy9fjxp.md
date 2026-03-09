@@ -11,8 +11,8 @@ priority: 1
 status: closed
 title: Add test for merge conflict detection in sync
 type: is
-updated_at: 2026-03-09T02:47:24.519Z
-version: 7
+updated_at: 2026-03-09T16:12:33.665Z
+version: 8
 ---
 Test the safety check that prevents committing files with merge conflict markers.
 

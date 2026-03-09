@@ -10,8 +10,8 @@ priority: 2
 status: closed
 title: Fix column alignment for short bead IDs in pretty output
 type: is
-updated_at: 2026-03-09T02:47:22.932Z
-version: 7
+updated_at: 2026-03-09T16:12:31.954Z
+version: 8
 ---
 When bead IDs have short suffixes (3 or fewer characters after the prefix, e.g., ar-0m1, ar-4ob, ar-80u), the columns in `tbd list --pretty` output don't align properly.
 

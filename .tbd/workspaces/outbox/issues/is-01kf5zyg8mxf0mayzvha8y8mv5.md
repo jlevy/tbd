@@ -19,7 +19,7 @@ priority: 1
 status: closed
 title: Update pnpm to 10.28.0
 type: is
-updated_at: 2026-03-09T02:47:21.219Z
-version: 5
+updated_at: 2026-03-09T16:12:30.066Z
+version: 6
 ---
 Update pnpm from 10.27.0 to latest 10.28.0.

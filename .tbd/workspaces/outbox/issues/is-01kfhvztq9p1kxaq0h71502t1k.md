@@ -14,7 +14,7 @@ priority: 1
 status: closed
 title: Create settings.ts with path constants
 type: is
-updated_at: 2026-03-09T02:47:22.983Z
-version: 9
+updated_at: 2026-03-09T16:12:32.007Z
+version: 10
 ---
 Extend existing packages/tbd/src/lib/paths.ts with doc path constants for shortcuts. Add DOCS_DIR, SHORTCUTS_DIR, SYSTEM_DIR, STANDARD_DIR, TBD_DOCS_DIR, TBD_SHORTCUTS_DIR, TBD_SHORTCUTS_SYSTEM, TBD_SHORTCUTS_STANDARD, BUILTIN_SHORTCUTS_SYSTEM, BUILTIN_SHORTCUTS_STANDARD, and DEFAULT_DOC_PATHS. Note: Extend existing paths.ts rather than creating new settings.ts file.

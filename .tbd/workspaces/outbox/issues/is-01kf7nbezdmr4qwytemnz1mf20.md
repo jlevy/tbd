@@ -10,8 +10,8 @@ priority: 1
 status: closed
 title: "Audit: Diagnostic commands should show specific paths and details"
 type: is
-updated_at: 2026-03-09T02:47:22.660Z
-version: 6
+updated_at: 2026-03-09T16:12:31.647Z
+version: 7
 ---
 All diagnostic commands (doctor, setup --check, status) should consistently show specific file paths and detailed information when reporting issues.
 

@@ -13,7 +13,7 @@ priority: 1
 status: closed
 title: Update setup to combine header + skill.md + shortcut directory when installing
 type: is
-updated_at: 2026-03-09T02:47:23.363Z
-version: 9
+updated_at: 2026-03-09T16:12:32.425Z
+version: 10
 ---
 Update setup command to assemble installed files by combining: tool-specific header (from docs/install/) + skill.md content + shortcut directory. Applies to .claude/skills/tbd/SKILL.md, .cursor/rules/tbd.mdc, docs/SKILL.md, AGENTS.md.

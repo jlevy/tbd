@@ -12,7 +12,7 @@ spec_path: docs/project/specs/active/plan-2026-01-28-sync-worktree-recovery-and-
 status: closed
 title: "Doctor: Add local branch health check"
 type: is
-updated_at: 2026-03-09T02:47:24.039Z
-version: 6
+updated_at: 2026-03-09T16:12:33.148Z
+version: 7
 ---
 Add checkLocalBranch() to doctor.ts. Uses checkLocalBranchHealth() to verify local tbd-sync branch exists. Report error if missing, warning if orphaned. Location: packages/tbd/src/cli/commands/doctor.ts

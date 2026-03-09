@@ -11,7 +11,7 @@ priority: 2
 status: closed
 title: "[PR#25] Fix cross-reference to non-existent implement-spec shortcut"
 type: is
-updated_at: 2026-03-09T02:47:23.718Z
-version: 6
+updated_at: 2026-03-09T16:12:32.809Z
+version: 7
 ---
 The new-implementation-beads-from-spec.md shortcut references 'implement-spec' but that shortcut doesn't exist. It should reference 'implement-issues' (after renaming).

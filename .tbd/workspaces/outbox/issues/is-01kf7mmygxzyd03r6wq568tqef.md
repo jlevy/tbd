@@ -10,8 +10,8 @@ priority: 2
 status: closed
 title: Output mode testing
 type: is
-updated_at: 2026-03-09T02:47:22.650Z
-version: 8
+updated_at: 2026-03-09T16:12:31.623Z
+version: 9
 ---
 Test all output modes work correctly:
 - Verify all output modes work correctly

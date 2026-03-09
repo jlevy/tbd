@@ -14,6 +14,6 @@ spec_path: docs/project/specs/active/plan-2026-01-30-workspace-sync-alt.md
 status: closed
 title: Implement tbd workspace list subcommand
 type: is
-updated_at: 2026-03-09T02:47:24.407Z
-version: 7
+updated_at: 2026-03-09T16:12:33.548Z
+version: 8
 ---

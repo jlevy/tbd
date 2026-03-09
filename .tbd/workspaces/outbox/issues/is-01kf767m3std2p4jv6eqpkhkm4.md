@@ -10,7 +10,7 @@ priority: 1
 status: closed
 title: Add Git 2.42+ version check
 type: is
-updated_at: 2026-03-09T02:47:22.321Z
-version: 7
+updated_at: 2026-03-09T16:12:31.244Z
+version: 8
 ---
 Requires Git 2.42+ for --orphan worktree. Fail gracefully with upgrade instructions.

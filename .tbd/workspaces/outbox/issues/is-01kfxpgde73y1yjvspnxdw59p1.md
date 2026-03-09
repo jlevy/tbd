@@ -16,7 +16,7 @@ spec_path: docs/project/specs/done/plan-2026-01-26-configurable-doc-cache-sync.m
 status: closed
 title: "Phase 5: Implement auto-sync on stale docs"
 type: is
-updated_at: 2026-03-09T02:47:23.872Z
-version: 10
+updated_at: 2026-03-09T16:12:32.975Z
+version: 11
 ---
 Add doc_auto_sync_hours setting and last_doc_sync_at state tracking. Auto-sync docs when stale during DocCache instantiation. See plan-2026-01-26-configurable-doc-cache-sync.md Phase 5.

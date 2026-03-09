@@ -10,6 +10,6 @@ priority: 2
 status: closed
 title: "Update bun-monorepo-patterns: document cross-platform bundler workarounds"
 type: is
-updated_at: 2026-03-09T02:47:25.326Z
-version: 7
+updated_at: 2026-03-09T16:12:34.560Z
+version: 8
 ---

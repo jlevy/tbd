@@ -8,8 +8,8 @@ priority: 2
 status: open
 title: Message format testing
 type: is
-updated_at: 2026-03-09T02:47:22.655Z
-version: 7
+updated_at: 2026-03-09T16:12:31.630Z
+version: 8
 ---
 Test message formats meet design system:
 - Verify error messages follow guidelines

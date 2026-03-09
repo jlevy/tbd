@@ -10,7 +10,7 @@ priority: 1
 status: closed
 title: Auto-detect ID prefix on import
 type: is
-updated_at: 2026-03-09T02:47:22.335Z
-version: 6
+updated_at: 2026-03-09T16:12:31.263Z
+version: 7
 ---
 Parse first Beads ID to extract prefix. Set config display.id_prefix accordingly.

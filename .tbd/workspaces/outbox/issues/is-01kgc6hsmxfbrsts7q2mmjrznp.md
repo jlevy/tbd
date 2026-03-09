@@ -15,6 +15,6 @@ priority: 1
 status: open
 title: Improve CLI error handling and debugging
 type: is
-updated_at: 2026-03-09T02:47:24.488Z
-version: 11
+updated_at: 2026-03-09T16:12:33.633Z
+version: 12
 ---

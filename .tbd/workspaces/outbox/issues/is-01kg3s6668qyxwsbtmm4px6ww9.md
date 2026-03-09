@@ -10,8 +10,8 @@ priority: 2
 status: closed
 title: "Bug: worktree commit operations should bypass parent repo git hooks"
 type: is
-updated_at: 2026-03-09T02:47:24.187Z
-version: 7
+updated_at: 2026-03-09T16:12:33.310Z
+version: 8
 ---
 When migrateDataToWorktree commits files in the worktree, the commit can fail due to lefthook (or other git hooks) from the parent repo. Worktree commit operations in git.ts should use --no-verify to bypass hooks, since the worktree is an internal data store and shouldn't be subject to project-level hooks like linting.
 

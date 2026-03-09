@@ -11,7 +11,7 @@ priority: 2
 status: closed
 title: Write golden tests for tbd list --pretty
 type: is
-updated_at: 2026-03-09T02:47:22.548Z
-version: 8
+updated_at: 2026-03-09T16:12:31.524Z
+version: 9
 ---
 Add tryscript golden tests covering: single parent with children, multiple parents, nested grandchildren, mixed root and child issues, empty results.

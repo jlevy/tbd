@@ -16,7 +16,7 @@ spec_path: docs/project/specs/active/plan-2026-01-28-sync-worktree-recovery-and-
 status: closed
 title: Add WorktreeMissingError, WorktreeCorruptedError, SyncBranchError classes
 type: is
-updated_at: 2026-03-09T02:47:24.005Z
-version: 9
+updated_at: 2026-03-09T16:12:33.117Z
+version: 10
 ---
 Add error classes to errors.ts per spec design. WorktreeMissingError for missing worktree, WorktreeCorruptedError for invalid worktree, SyncBranchError for sync branch issues. Location: packages/tbd/src/cli/lib/errors.ts

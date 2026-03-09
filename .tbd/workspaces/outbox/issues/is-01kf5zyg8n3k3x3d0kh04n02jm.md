@@ -17,7 +17,7 @@ priority: 1
 status: closed
 title: "Phase 22 Epic: Import ID Preservation"
 type: is
-updated_at: 2026-03-09T02:47:21.316Z
-version: 5
+updated_at: 2026-03-09T16:12:30.140Z
+version: 6
 ---
 Preserve original Beads short IDs during import instead of generating random new ones. This ensures tbd-100 becomes bd-100 (same short ID!) rather than bd-3ykw (random). See plan-2026-01-15-tbd-v1-implementation.md Phase 22.

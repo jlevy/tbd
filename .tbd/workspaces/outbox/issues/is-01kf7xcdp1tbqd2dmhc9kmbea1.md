@@ -10,7 +10,7 @@ priority: 1
 status: closed
 title: Call tbd setup auto after tbd init
 type: is
-updated_at: 2026-03-09T02:47:22.820Z
-version: 7
+updated_at: 2026-03-09T16:12:31.834Z
+version: 8
 ---
 After tbd init completes, run tbd setup auto to automatically configure any detected coding agents.

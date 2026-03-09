@@ -12,6 +12,6 @@ spec_path: docs/project/specs/active/plan-2026-02-02-skill-md-comprehensive-upda
 status: closed
 title: Regenerate SKILL.md with tbd setup --auto and verify changes
 type: is
-updated_at: 2026-03-09T02:47:24.556Z
-version: 7
+updated_at: 2026-03-09T16:12:33.701Z
+version: 8
 ---

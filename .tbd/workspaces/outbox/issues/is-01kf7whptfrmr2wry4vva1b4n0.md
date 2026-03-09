@@ -10,6 +10,6 @@ priority: 1
 status: closed
 title: Fix priority parsing in list command to accept P0 format
 type: is
-updated_at: 2026-03-09T02:47:22.785Z
-version: 7
+updated_at: 2026-03-09T16:12:31.795Z
+version: 8
 ---

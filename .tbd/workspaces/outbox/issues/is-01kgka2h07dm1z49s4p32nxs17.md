@@ -12,6 +12,6 @@ spec_path: docs/project/specs/active/plan-2026-02-03-streamlined-outbox-workflow
 status: closed
 title: "Phase 2.1: Add --no-auto-save flag to sync command"
 type: is
-updated_at: 2026-03-09T02:47:24.810Z
-version: 7
+updated_at: 2026-03-09T16:12:33.984Z
+version: 8
 ---

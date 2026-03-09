@@ -14,6 +14,6 @@ priority: 2
 status: closed
 title: Verify skill-brief.md stays clean markdown with no frontmatter
 type: is
-updated_at: 2026-03-09T02:47:23.239Z
-version: 8
+updated_at: 2026-03-09T16:12:32.281Z
+version: 9
 ---

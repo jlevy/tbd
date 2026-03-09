@@ -19,7 +19,7 @@ priority: 1
 status: closed
 title: Write golden tests for attic commands
 type: is
-updated_at: 2026-03-09T02:47:20.808Z
-version: 5
+updated_at: 2026-03-09T16:12:29.613Z
+version: 6
 ---
 Create tryscript tests for attic list, show, restore workflows.

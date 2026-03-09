@@ -17,8 +17,8 @@ priority: 2
 status: closed
 title: Remove -V shorthand for --version option
 type: is
-updated_at: 2026-03-09T02:47:21.654Z
-version: 5
+updated_at: 2026-03-09T16:12:30.510Z
+version: 6
 ---
 Remove the -V one-letter option alias for --version. Keep only --version.
 

@@ -14,7 +14,7 @@ priority: 2
 status: closed
 title: Implement simple scoring algorithm for fuzzy matching
 type: is
-updated_at: 2026-03-09T02:47:23.005Z
-version: 8
+updated_at: 2026-03-09T16:12:32.029Z
+version: 9
 ---
 Implement scoring in DocCache: exact filename match = 1.0, prefix match = 0.9, contains all query words = 0.8, contains some query words = 0.7 × (matched/total). No external library needed initially. Score against filename, title, and description from frontmatter.

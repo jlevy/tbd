@@ -14,6 +14,6 @@ spec_path: docs/project/specs/active/plan-2026-02-10-external-issue-linking.md
 status: closed
 title: "Phase 3b: External sync implementation — syncExternalPull/Push methods in sync.ts, status mapping tables in github-issues.ts (TBD_TO_GITHUB_STATUS, githubToTbdStatus), summary output"
 type: is
-updated_at: 2026-03-09T02:47:24.979Z
-version: 12
+updated_at: 2026-03-09T16:12:34.165Z
+version: 13
 ---

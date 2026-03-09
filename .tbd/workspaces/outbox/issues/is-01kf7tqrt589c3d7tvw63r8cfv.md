@@ -14,7 +14,7 @@ priority: 2
 status: closed
 title: Define consistent heading grammar in CLI design system
 type: is
-updated_at: 2026-03-09T02:47:22.724Z
-version: 8
+updated_at: 2026-03-09T16:12:31.724Z
+version: 9
 ---
 Document heading style: capitalized, bold, newline after. Update arch-cli-interface-design-system.md for consistency across all UI elements.

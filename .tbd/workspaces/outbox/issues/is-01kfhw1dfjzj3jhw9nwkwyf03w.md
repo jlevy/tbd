@@ -16,7 +16,7 @@ priority: 1
 status: closed
 title: Extend ConfigSchema with docs.paths field
 type: is
-updated_at: 2026-03-09T02:47:23.042Z
-version: 9
+updated_at: 2026-03-09T16:12:32.068Z
+version: 10
 ---
 Add docs.paths field to ConfigSchema in schemas.ts. Default to ['.tbd/docs/shortcuts/system', '.tbd/docs/shortcuts/standard']. Support relative paths (from tbd root), absolute paths, and ~/home-relative paths.

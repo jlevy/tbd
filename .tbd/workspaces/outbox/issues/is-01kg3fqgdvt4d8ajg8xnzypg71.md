@@ -14,7 +14,7 @@ spec_path: docs/project/specs/active/plan-2026-01-28-sync-worktree-recovery-and-
 status: closed
 title: Add confirmation prompt for destructive repair operations
 type: is
-updated_at: 2026-03-09T02:47:24.121Z
-version: 8
+updated_at: 2026-03-09T16:12:33.235Z
+version: 9
 ---
 Add confirmation prompt before: deleting wrong-location data after migration, pruning worktree entries. Use existing CLI prompt patterns. Skip prompt with --yes flag. Location: packages/tbd/src/cli/commands/doctor.ts, sync.ts

@@ -14,7 +14,7 @@ spec_path: docs/project/specs/active/plan-2026-01-28-sync-worktree-recovery-and-
 status: closed
 title: "Tests: Phase 1 detection and error reporting"
 type: is
-updated_at: 2026-03-09T02:47:24.075Z
-version: 7
+updated_at: 2026-03-09T16:12:33.185Z
+version: 8
 ---
 Add unit tests for: checkWorktreeHealth() with various states, checkLocalBranchHealth(), checkRemoteBranchHealth(), checkSyncConsistency(). Add golden tests for doctor output with various issues. Add integration tests for sync error handling.

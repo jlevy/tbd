@@ -10,6 +10,6 @@ priority: 2
 status: closed
 title: "Update bun-monorepo-patterns: document tag-triggered OIDC release workflow"
 type: is
-updated_at: 2026-03-09T02:47:25.332Z
-version: 7
+updated_at: 2026-03-09T16:12:34.566Z
+version: 8
 ---

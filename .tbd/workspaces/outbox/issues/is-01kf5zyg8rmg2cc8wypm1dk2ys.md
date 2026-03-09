@@ -20,7 +20,7 @@ priority: 1
 status: closed
 title: Implement tbd doctor command
 type: is
-updated_at: 2026-03-09T02:47:22.211Z
-version: 5
+updated_at: 2026-03-09T16:12:31.119Z
+version: 6
 ---
 Check schema version, find orphaned dependencies, detect duplicate IDs, validate worktree. Support --fix for auto-repair and JSON output.

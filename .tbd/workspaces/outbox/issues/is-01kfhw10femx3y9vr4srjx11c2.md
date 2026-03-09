@@ -14,7 +14,7 @@ priority: 1
 status: closed
 title: Implement shortcut query matching
 type: is
-updated_at: 2026-03-09T02:47:23.026Z
-version: 9
+updated_at: 2026-03-09T16:12:32.051Z
+version: 10
 ---
 Implement query handling in shortcut command: try exact match with get(), then fuzzy with search(). Use SCORE_MIN_THRESHOLD constant for low-confidence detection. Show suggestions if score < threshold, otherwise output matched document content. Support --json output mode.

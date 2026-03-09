@@ -19,7 +19,7 @@ priority: 1
 status: closed
 title: Implement AtticEntrySchema
 type: is
-updated_at: 2026-03-09T02:47:20.941Z
-version: 5
+updated_at: 2026-03-09T16:12:29.766Z
+version: 6
 ---
 Create Zod schema for conflict attic entries.

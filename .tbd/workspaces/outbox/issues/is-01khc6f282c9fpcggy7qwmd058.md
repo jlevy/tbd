@@ -32,7 +32,7 @@ priority: 2
 status: open
 title: "Review & research pass: Claude Code Sub-Agents research doc"
 type: is
-updated_at: 2026-03-09T02:47:25.072Z
-version: 18
+updated_at: 2026-03-09T16:12:34.258Z
+version: 19
 ---
 Full senior technical review and research pass on docs/project/research/current/research-claude-code-sub-agents.md. Goals: (1) Verify all claims are accurate and properly cited against current docs (Feb 2026). (2) Identify gaps, inaccuracies, or stale information. (3) Research emerging agentic workflow tooling on GitHub — trending projects for sub-agent orchestration, loops, compaction, handoffs, and multi-agent coordination. (4) Find analogs and related projects that illustrate patterns discussed in the doc (outer loops, bead-managed iterations, custom delegation, agent teams). (5) Expand references section with newly discovered projects and patterns. Each child bead covers one section of the doc.

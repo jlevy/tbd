@@ -10,6 +10,6 @@ priority: 1
 status: closed
 title: "Research doc: Shorten Guiding Principles to core insights, not design details. Content applies to agents AND humans equally."
 type: is
-updated_at: 2026-03-09T02:47:25.169Z
-version: 7
+updated_at: 2026-03-09T16:12:34.369Z
+version: 8
 ---

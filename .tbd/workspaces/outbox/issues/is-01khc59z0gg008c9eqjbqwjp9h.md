@@ -10,6 +10,6 @@ priority: 2
 status: open
 title: "Review: Key Takeaways — verify Opus settings, Cloud methods, and what-doesn't-work claims"
 type: is
-updated_at: 2026-03-09T02:47:25.002Z
-version: 7
+updated_at: 2026-03-09T16:12:34.186Z
+version: 8
 ---

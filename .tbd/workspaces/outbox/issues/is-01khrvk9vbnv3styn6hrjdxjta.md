@@ -8,6 +8,6 @@ priority: 2
 status: open
 title: "Clean up .gitattributes setup: use idempotent insertion (like .gitignore), remove hard-coded issue reference, add comment explaining merge=union strategy"
 type: is
-updated_at: 2026-03-09T02:47:25.272Z
-version: 5
+updated_at: 2026-03-09T16:12:34.500Z
+version: 6
 ---

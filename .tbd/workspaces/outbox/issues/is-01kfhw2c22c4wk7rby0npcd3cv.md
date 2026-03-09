@@ -13,7 +13,7 @@ priority: 2
 status: closed
 title: Update SKILL.md with shortcut usage
 type: is
-updated_at: 2026-03-09T02:47:23.077Z
-version: 8
+updated_at: 2026-03-09T16:12:32.109Z
+version: 9
 ---
 Update skill.md (SKILL.md content) to document the shortcut command: usage syntax, examples, how to find shortcuts, how to create custom shortcuts.

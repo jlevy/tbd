@@ -10,6 +10,6 @@ priority: 1
 status: closed
 title: "Research doc: Incorporate external agent report ideas — discover command, lint command, corpus/ substrate, pluggable backends, card notes safe zone"
 type: is
-updated_at: 2026-03-09T02:47:25.227Z
-version: 7
+updated_at: 2026-03-09T16:12:34.443Z
+version: 8
 ---

@@ -17,8 +17,8 @@ priority: 2
 status: closed
 title: "Add docs: Switching from Beads to TBD (temporary disable)"
 type: is
-updated_at: 2026-03-09T02:47:21.686Z
-version: 5
+updated_at: 2026-03-09T16:12:30.548Z
+version: 6
 ---
 ## Summary
 

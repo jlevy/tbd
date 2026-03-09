@@ -18,6 +18,6 @@ spec_path: docs/project/specs/active/plan-2026-01-30-workspace-sync-alt.md
 status: closed
 title: Implement tbd save command with --workspace, --dir, --outbox, --updates-only flags
 type: is
-updated_at: 2026-03-09T02:47:24.397Z
-version: 10
+updated_at: 2026-03-09T16:12:33.537Z
+version: 11
 ---

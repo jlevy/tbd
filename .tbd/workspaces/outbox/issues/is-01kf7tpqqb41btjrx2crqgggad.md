@@ -14,7 +14,7 @@ priority: 2
 status: closed
 title: "Consistent integration naming: Claude Code skill vs hooks"
 type: is
-updated_at: 2026-03-09T02:47:22.718Z
-version: 9
+updated_at: 2026-03-09T16:12:31.718Z
+version: 10
 ---
 Status says 'Claude Code hooks' but doctor says 'Claude Code skill'. Use consistent naming.

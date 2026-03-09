@@ -10,7 +10,7 @@ priority: 2
 status: closed
 title: "shortcut.ts: unreachable confidence check"
 type: is
-updated_at: 2026-03-09T02:47:23.495Z
-version: 6
+updated_at: 2026-03-09T16:12:32.563Z
+version: 7
 ---
 Check at line 286 for score less than SCORE_PREFIX_MATCH may need adjustment.

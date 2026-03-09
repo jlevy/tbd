@@ -11,6 +11,6 @@ spec_path: docs/project/specs/active/plan-2026-02-18-monorepo-patterns-codebase-
 status: closed
 title: "Update guideline: CI section, version table, minor corrections"
 type: is
-updated_at: 2026-03-09T02:47:25.306Z
-version: 7
+updated_at: 2026-03-09T16:12:34.539Z
+version: 8
 ---

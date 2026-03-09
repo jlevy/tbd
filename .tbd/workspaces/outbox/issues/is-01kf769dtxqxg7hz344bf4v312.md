@@ -8,7 +8,7 @@ priority: 2
 status: open
 title: Architecture diagrams in docs
 type: is
-updated_at: 2026-03-09T02:47:22.363Z
-version: 5
+updated_at: 2026-03-09T16:12:31.297Z
+version: 6
 ---
 Add mermaid diagrams to design doc. Sequence diagram for sync flow.

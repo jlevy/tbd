@@ -20,7 +20,7 @@ priority: 1
 status: closed
 title: Implement tbd label list command
 type: is
-updated_at: 2026-03-09T02:47:21.859Z
-version: 5
+updated_at: 2026-03-09T16:12:30.732Z
+version: 6
 ---
 List all unique labels in use with JSON output.

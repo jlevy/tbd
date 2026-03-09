@@ -10,6 +10,6 @@ priority: 1
 status: closed
 title: "Research doc: Drop S/M/L summary naming — use descriptive names and optional word/token budget (e.g. --level=content --budget=1000words)"
 type: is
-updated_at: 2026-03-09T02:47:25.222Z
-version: 7
+updated_at: 2026-03-09T16:12:34.437Z
+version: 8
 ---

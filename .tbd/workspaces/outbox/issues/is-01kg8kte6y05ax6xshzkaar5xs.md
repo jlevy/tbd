@@ -12,6 +12,6 @@ spec_path: docs/project/specs/active/plan-2026-01-30-workspace-sync-alt.md
 status: closed
 title: Document agent workflow for sync failures in tbd guidelines
 type: is
-updated_at: 2026-03-09T02:47:24.427Z
-version: 6
+updated_at: 2026-03-09T16:12:33.569Z
+version: 7
 ---

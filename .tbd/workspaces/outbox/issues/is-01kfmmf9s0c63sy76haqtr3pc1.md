@@ -10,6 +10,6 @@ priority: 1
 status: closed
 title: Update copy-docs.mjs to stop copying SKILL.md and CURSOR.mdc (now generated dynamically)
 type: is
-updated_at: 2026-03-09T02:47:23.383Z
-version: 6
+updated_at: 2026-03-09T16:12:32.446Z
+version: 7
 ---

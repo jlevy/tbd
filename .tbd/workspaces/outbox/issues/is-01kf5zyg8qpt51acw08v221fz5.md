@@ -19,7 +19,7 @@ priority: 1
 status: closed
 title: Implement readIssue(id)
 type: is
-updated_at: 2026-03-09T02:47:22.046Z
-version: 5
+updated_at: 2026-03-09T16:12:30.930Z
+version: 6
 ---
 Parse .md file to Issue object from worktree.

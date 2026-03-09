@@ -19,7 +19,7 @@ priority: 1
 status: closed
 title: Implement writeIssue(issue)
 type: is
-updated_at: 2026-03-09T02:47:22.035Z
-version: 5
+updated_at: 2026-03-09T16:12:30.918Z
+version: 6
 ---
 Serialize Issue to .md file with atomic write.

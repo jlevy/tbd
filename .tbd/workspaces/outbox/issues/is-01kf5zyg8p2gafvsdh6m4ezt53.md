@@ -17,6 +17,6 @@ priority: 0
 status: closed
 title: "Bug: tbd sync does not commit changes before push"
 type: is
-updated_at: 2026-03-09T02:47:21.575Z
-version: 5
+updated_at: 2026-03-09T16:12:30.418Z
+version: 6
 ---

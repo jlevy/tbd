@@ -16,6 +16,6 @@ priority: 2
 status: closed
 title: Interactive markdown rendering and pagination for doc commands
 type: is
-updated_at: 2026-03-09T02:47:24.857Z
-version: 9
+updated_at: 2026-03-09T16:12:34.035Z
+version: 10
 ---

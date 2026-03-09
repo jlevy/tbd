@@ -11,7 +11,7 @@ spec_path: docs/project/specs/active/plan-2026-01-30-workspace-sync-alt.md
 status: closed
 title: "Enhancement: workspace list should show issue counts by status"
 type: is
-updated_at: 2026-03-09T02:47:24.472Z
-version: 10
+updated_at: 2026-03-09T16:12:33.617Z
+version: 11
 ---
 Enhance `tbd workspace list` to show issue counts by status (open, in_progress, closed, total) for each workspace. Output format should be consistent with `tbd stats` styling (aligned columns). Currently only lists workspace names without any counts.

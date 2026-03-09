@@ -10,7 +10,7 @@ priority: 2
 status: closed
 title: Update tbd status to suggest tbd setup auto for missing integrations
 type: is
-updated_at: 2026-03-09T02:47:22.831Z
-version: 7
+updated_at: 2026-03-09T16:12:31.846Z
+version: 8
 ---
 Instead of suggesting individual setup commands (tbd setup claude, tbd setup cursor, etc.), suggest tbd setup auto as the primary action.

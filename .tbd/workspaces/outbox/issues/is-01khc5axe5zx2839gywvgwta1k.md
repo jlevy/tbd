@@ -10,6 +10,6 @@ priority: 2
 status: open
 title: "Review: Section 7 — Claude-Code-Invoking-Claude-Code (verify CLI flags, comparison table, code examples)"
 type: is
-updated_at: 2026-03-09T02:47:25.041Z
-version: 7
+updated_at: 2026-03-09T16:12:34.226Z
+version: 8
 ---

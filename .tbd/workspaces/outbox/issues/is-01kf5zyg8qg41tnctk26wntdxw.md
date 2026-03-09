@@ -17,7 +17,7 @@ priority: 2
 status: closed
 title: Add marked-terminal support for colorized Markdown help
 type: is
-updated_at: 2026-03-09T02:47:22.000Z
-version: 5
+updated_at: 2026-03-09T16:12:30.882Z
+version: 6
 ---
 Add marked + marked-terminal dependencies. Create renderMarkdown() utility in output.ts that: (1) Uses marked-terminal for colorized output when TTY, (2) Falls back to plain text when piped, (3) Respects --color option, (4) Caps width at 88 chars. This enables colorized Markdown in help text and docs commands.

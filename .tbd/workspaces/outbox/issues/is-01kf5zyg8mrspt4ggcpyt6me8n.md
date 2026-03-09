@@ -21,7 +21,7 @@ priority: 2
 status: closed
 title: Windows CI excluded due to colon in filenames
 type: is
-updated_at: 2026-03-09T02:47:21.208Z
-version: 5
+updated_at: 2026-03-09T16:12:30.054Z
+version: 6
 ---
 Windows CI is excluded from test matrix because docs/general contains files with : in names (shortcut:*.md) which is invalid on Windows. Fixed by renaming to shortcut- prefix.

@@ -11,7 +11,7 @@ priority: 2
 status: closed
 title: Update shortcut references to use new commands
 type: is
-updated_at: 2026-03-09T02:47:23.430Z
-version: 6
+updated_at: 2026-03-09T16:12:32.494Z
+version: 7
 ---
 Update shortcuts that reference templates/guidelines to use new commands: 'tbd shortcut template-*' -> 'tbd templates *', 'tbd shortcut *-rules' -> 'tbd guidelines *-rules'. Files to update: new-plan-spec.md, new-research-doc.md, new-architecture-doc.md, review-code-typescript.md, review-code-python.md.

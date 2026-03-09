@@ -10,8 +10,8 @@ priority: 2
 status: closed
 title: Add Claude Code skill for tbd (SKILL.md)
 type: is
-updated_at: 2026-03-09T02:47:22.414Z
-version: 8
+updated_at: 2026-03-09T16:12:31.358Z
+version: 9
 ---
 Create a Claude Code skill file at .claude/skills/tbd/SKILL.md that provides tbd workflow instructions. The skill should cover the same content as tbd prime but formatted for the skill system.
 

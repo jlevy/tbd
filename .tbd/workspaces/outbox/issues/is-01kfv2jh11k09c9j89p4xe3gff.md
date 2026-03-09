@@ -15,8 +15,8 @@ priority: 2
 status: closed
 title: Export gitignore-utils from utils/index.ts
 type: is
-updated_at: 2026-03-09T02:47:23.744Z
-version: 8
+updated_at: 2026-03-09T16:12:32.840Z
+version: 9
 ---
 Add export for gitignore-utils.js to packages/tbd/src/utils/index.ts
 

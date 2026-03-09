@@ -17,7 +17,7 @@ priority: 1
 status: closed
 title: "Add test helper: strict ID format validation"
 type: is
-updated_at: 2026-03-09T02:47:21.406Z
-version: 5
+updated_at: 2026-03-09T16:12:30.239Z
+version: 6
 ---
 Replace loose [SHORTID] regex with strict validation: must be exactly 4-5 alphanumeric chars, not 26-char ULIDs. Used to catch bugs like tbd-1811.

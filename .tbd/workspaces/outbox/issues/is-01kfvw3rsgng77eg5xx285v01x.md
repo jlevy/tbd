@@ -10,8 +10,8 @@ priority: 2
 status: closed
 title: "Feature: add --title option to tbd update command"
 type: is
-updated_at: 2026-03-09T02:47:23.821Z
-version: 7
+updated_at: 2026-03-09T16:12:32.921Z
+version: 8
 ---
 Add --title option to tbd update command for direct title updates without using --from-file.
 

@@ -20,7 +20,7 @@ priority: 2
 status: closed
 title: "Rename shortcut: prefix to shortcut- in speculate docs"
 type: is
-updated_at: 2026-03-09T02:47:21.167Z
-version: 5
+updated_at: 2026-03-09T16:12:30.012Z
+version: 6
 ---
 Renamed all shortcut:*.md files to shortcut-*.md in docs/general to enable Windows CI compatibility.

@@ -10,6 +10,6 @@ priority: 3
 status: closed
 title: "schemas.ts: Update LocalStateSchema comment from state.yml to state.json"
 type: is
-updated_at: 2026-03-09T02:47:22.948Z
-version: 6
+updated_at: 2026-03-09T16:12:31.970Z
+version: 7
 ---

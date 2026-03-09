@@ -11,6 +11,6 @@ priority: 2
 status: closed
 title: Remove cache read/write functions from doc-cache.ts
 type: is
-updated_at: 2026-03-09T02:47:23.624Z
-version: 6
+updated_at: 2026-03-09T16:12:32.705Z
+version: 7
 ---

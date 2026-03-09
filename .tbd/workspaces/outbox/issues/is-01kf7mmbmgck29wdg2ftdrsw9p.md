@@ -12,8 +12,8 @@ priority: 2
 status: closed
 title: Migrate commands to formatPriority/formatStatus
 type: is
-updated_at: 2026-03-09T02:47:22.616Z
-version: 12
+updated_at: 2026-03-09T16:12:31.591Z
+version: 13
 ---
 Update all commands to use new utilities:
 - Update all commands to use formatPriority() for display

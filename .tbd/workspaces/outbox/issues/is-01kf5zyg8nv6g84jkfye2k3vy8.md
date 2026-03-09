@@ -17,7 +17,7 @@ priority: 1
 status: closed
 title: Create cli-uninitialized.tryscript.md - test all commands without init
 type: is
-updated_at: 2026-03-09T02:47:21.510Z
-version: 5
+updated_at: 2026-03-09T16:12:30.345Z
+version: 6
 ---
 New tryscript file that tests EVERY command in an uninitialized repo. Each should show helpful message. Commands: list, show, create, update, close, ready, blocked, stale, search, stats, sync, etc.

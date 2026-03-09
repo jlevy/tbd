@@ -12,8 +12,8 @@ priority: 2
 status: open
 title: Refactor copy-docs.mjs to use shared settings
 type: is
-updated_at: 2026-03-09T02:47:22.466Z
-version: 8
+updated_at: 2026-03-09T16:12:31.426Z
+version: 9
 ---
 Refactor packages/tbd-cli/scripts/copy-docs.mjs to be less repetitive:
 

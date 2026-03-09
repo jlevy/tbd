@@ -10,7 +10,7 @@ priority: 2
 status: closed
 title: "Update design doc: conflict detection uses Git, not content hashing"
 type: is
-updated_at: 2026-03-09T02:47:22.268Z
-version: 7
+updated_at: 2026-03-09T16:12:31.182Z
+version: 8
 ---
 The v3 spec (tbd-full-design-v3.md) describes content hash comparison for conflict detection, but the actual implementation uses standard Git mechanics (push rejection triggers fetch+merge). Update design doc to reflect the simpler actual implementation.

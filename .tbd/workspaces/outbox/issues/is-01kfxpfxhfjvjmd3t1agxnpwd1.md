@@ -16,7 +16,7 @@ spec_path: docs/project/specs/done/plan-2026-01-26-configurable-doc-cache-sync.m
 status: closed
 title: "Phase 1: Add doc_cache schema and config helpers"
 type: is
-updated_at: 2026-03-09T02:47:23.851Z
-version: 10
+updated_at: 2026-03-09T16:12:32.954Z
+version: 11
 ---
 Add doc_cache field to ConfigSchema, create helper to generate default doc_cache config from bundled docs. See plan-2026-01-26-configurable-doc-cache-sync.md Phase 1.

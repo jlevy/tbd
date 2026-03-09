@@ -12,7 +12,7 @@ priority: 1
 status: closed
 title: Add unit tests for DocCache
 type: is
-updated_at: 2026-03-09T02:47:23.000Z
-version: 8
+updated_at: 2026-03-09T16:12:32.024Z
+version: 9
 ---
 Create tests/file/doc-cache.test.ts with unit tests: get() exact matching with/without .md extension, search() scoring algorithm with various queries, list() with and without shadowed docs, path ordering (earlier paths take precedence), error handling (missing dirs, invalid markdown).

@@ -11,7 +11,7 @@ priority: 1
 status: closed
 title: Update tbd setup claude to embed shortcut directory in installed skill
 type: is
-updated_at: 2026-03-09T02:47:23.301Z
-version: 7
+updated_at: 2026-03-09T16:12:32.362Z
+version: 8
 ---
 Update tbd setup claude to: 1) Run tbd shortcut --refresh --quiet before installing, 2) Generate SKILL.md with embedded shortcut directory from cache, 3) Install to .claude/skills/tbd.md.

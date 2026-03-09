@@ -17,8 +17,8 @@ priority: 2
 status: closed
 title: Add "Why TBD?" motivation section
 type: is
-updated_at: 2026-03-09T02:47:21.820Z
-version: 5
+updated_at: 2026-03-09T16:12:30.690Z
+version: 6
 ---
 Add a brief motivation section near the top:
 

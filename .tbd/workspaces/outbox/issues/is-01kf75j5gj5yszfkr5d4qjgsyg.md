@@ -10,8 +10,8 @@ priority: 2
 status: closed
 title: Move issue tally counts from tbd status to tbd stats
 type: is
-updated_at: 2026-03-09T02:47:22.280Z
-version: 7
+updated_at: 2026-03-09T16:12:31.196Z
+version: 8
 ---
 Currently `tbd status` shows issue counts (Ready, In progress, Open, Total). These should be moved to `tbd stats` so that:
 - `tbd stats` is focused on issue statistics and metrics

@@ -20,7 +20,7 @@ priority: 1
 status: closed
 title: Create cli-crud.tryscript.md - create, show, update, list, close, reopen tests
 type: is
-updated_at: 2026-03-09T02:47:21.045Z
-version: 5
+updated_at: 2026-03-09T16:12:29.878Z
+version: 6
 ---
 Golden tests for all CRUD operations with all flags and edge cases.

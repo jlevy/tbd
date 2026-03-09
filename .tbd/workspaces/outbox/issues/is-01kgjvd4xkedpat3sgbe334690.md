@@ -12,6 +12,6 @@ spec_path: docs/project/specs/active/plan-2026-02-03-tbd-no-args-help-behavior.m
 status: closed
 title: Review and update other docs for consistency
 type: is
-updated_at: 2026-03-09T02:47:24.795Z
-version: 7
+updated_at: 2026-03-09T16:12:33.968Z
+version: 8
 ---

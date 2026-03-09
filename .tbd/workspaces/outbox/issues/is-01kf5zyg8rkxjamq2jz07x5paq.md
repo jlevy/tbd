@@ -20,7 +20,7 @@ priority: 1
 status: closed
 title: Implement tbd sync --pull
 type: is
-updated_at: 2026-03-09T02:47:22.200Z
-version: 5
+updated_at: 2026-03-09T16:12:31.105Z
+version: 6
 ---
 Fetch remote sync branch, update hidden worktree, detect local vs remote differences.

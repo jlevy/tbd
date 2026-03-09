@@ -11,7 +11,7 @@ priority: 3
 status: closed
 title: Add config.yml schema example
 type: is
-updated_at: 2026-03-09T02:47:22.880Z
-version: 7
+updated_at: 2026-03-09T16:12:31.900Z
+version: 8
 ---
 tbd-design.md doesn't show the full config.yml structure. Should add example showing: tbd_version, sync.branch, sync.remote, display.id_prefix, settings.auto_sync, settings.index_enabled.

@@ -10,6 +10,6 @@ priority: 1
 status: closed
 title: "Research doc: Rename Modality 1 from 'Persistent Awareness (Skill-Style Descriptions)' to 'Awareness'"
 type: is
-updated_at: 2026-03-09T02:47:25.183Z
-version: 7
+updated_at: 2026-03-09T16:12:34.389Z
+version: 8
 ---

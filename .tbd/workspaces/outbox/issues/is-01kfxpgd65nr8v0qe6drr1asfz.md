@@ -16,7 +16,7 @@ spec_path: docs/project/specs/done/plan-2026-01-26-configurable-doc-cache-sync.m
 status: closed
 title: "Phase 4: Integrate doc sync into setup command"
 type: is
-updated_at: 2026-03-09T02:47:23.867Z
-version: 10
+updated_at: 2026-03-09T16:12:32.970Z
+version: 11
 ---
 Modify setup.ts to generate default doc_cache config on fresh setup, call DocSync.sync(), and report sync results. See plan-2026-01-26-configurable-doc-cache-sync.md Phase 4.

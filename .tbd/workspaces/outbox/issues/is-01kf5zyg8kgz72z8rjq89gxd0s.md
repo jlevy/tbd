@@ -19,7 +19,7 @@ priority: 1
 status: closed
 title: Write unit tests for schemas and serialization
 type: is
-updated_at: 2026-03-09T02:47:20.889Z
-version: 5
+updated_at: 2026-03-09T16:12:29.710Z
+version: 6
 ---
 Create comprehensive unit tests for schema validation, parsing, serialization, round-trip, and hash stability.

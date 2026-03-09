@@ -19,6 +19,6 @@ priority: 1
 status: closed
 title: Update doc-command-handler to prepend title from frontmatter when outputting shortcuts
 type: is
-updated_at: 2026-03-09T02:47:24.218Z
-version: 12
+updated_at: 2026-03-09T16:12:33.346Z
+version: 13
 ---

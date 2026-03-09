@@ -11,7 +11,7 @@ priority: 2
 status: closed
 title: "[PR#25] Rename new-implementation-beads-from-spec.md to use tbd terminology"
 type: is
-updated_at: 2026-03-09T02:47:23.714Z
-version: 6
+updated_at: 2026-03-09T16:12:32.804Z
+version: 7
 ---
 The shortcut file new-implementation-beads-from-spec.md uses outdated 'beads' terminology. Rename to new-implementation-issues-from-spec.md and update the title.

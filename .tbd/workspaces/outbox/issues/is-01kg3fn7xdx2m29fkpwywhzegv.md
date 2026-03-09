@@ -12,7 +12,7 @@ spec_path: docs/project/specs/active/plan-2026-01-28-sync-worktree-recovery-and-
 status: closed
 title: "Doctor: Add multi-user/clone scenario detection"
 type: is
-updated_at: 2026-03-09T02:47:24.065Z
-version: 7
+updated_at: 2026-03-09T16:12:33.175Z
+version: 8
 ---
 Add checks to doctor.ts for User B clone scenarios: (1) .beads-disabled exists but tbd has no issues, (2) config has id_prefix but no issues, (3) .beads/ exists (migration available). Provide clear guidance for each case. Location: packages/tbd/src/cli/commands/doctor.ts

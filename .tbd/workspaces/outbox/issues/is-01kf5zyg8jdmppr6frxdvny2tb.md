@@ -19,7 +19,7 @@ priority: 1
 status: closed
 title: Implement IssueSchema
 type: is
-updated_at: 2026-03-09T02:47:20.774Z
-version: 5
+updated_at: 2026-03-09T16:12:29.573Z
+version: 6
 ---
 Create Zod schema for Issue entity with all fields: type, id, version, kind, title, status, priority, assignee, labels, dependencies, parent_id, timestamps, etc.

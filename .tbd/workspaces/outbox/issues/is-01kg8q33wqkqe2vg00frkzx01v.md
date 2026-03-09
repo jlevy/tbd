@@ -12,8 +12,8 @@ spec_path: docs/project/specs/active/plan-2026-01-30-workspace-sync-alt.md
 status: closed
 title: Implement --updates-only for tbd save command
 type: is
-updated_at: 2026-03-09T02:47:24.442Z
-version: 8
+updated_at: 2026-03-09T16:12:33.585Z
+version: 9
 ---
 Compare local worktree issues with origin/tbd-sync to identify issues that are new, modified, or missing from remote. These are the 'updated' issues that --updates-only should save.
 

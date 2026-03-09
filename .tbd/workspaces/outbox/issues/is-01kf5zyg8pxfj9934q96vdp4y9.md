@@ -17,7 +17,7 @@ priority: 3
 status: closed
 title: Migrate search-command.yaml to tryscript format
 type: is
-updated_at: 2026-03-09T02:47:21.803Z
-version: 5
+updated_at: 2026-03-09T16:12:30.672Z
+version: 6
 ---
 Write tryscript tests covering search-command.yaml scenarios (search with keyword, status filter, limit, no results), then delete the YAML file

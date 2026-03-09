@@ -8,7 +8,7 @@ priority: 2
 status: open
 title: Issue templates
 type: is
-updated_at: 2026-03-09T02:47:22.344Z
-version: 5
+updated_at: 2026-03-09T16:12:31.274Z
+version: 6
 ---
 tbd create --template=bug reads .tbd/templates/bug.yml

@@ -10,7 +10,7 @@ priority: 1
 status: closed
 title: Fix --parent option storing public ID instead of internal ID
 type: is
-updated_at: 2026-03-09T02:47:22.519Z
-version: 7
+updated_at: 2026-03-09T16:12:31.486Z
+version: 8
 ---
 When using `tbd update --parent tbd-xxx` or `tbd create --parent tbd-xxx`, the CLI stores the public ID in the parent_id field instead of converting it to the internal ID. This causes ZodError validation failures when listing/reading issues because the parent_id schema expects an internal ID format (is-*) not a public ID format (tbd-*).

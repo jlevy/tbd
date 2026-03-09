@@ -17,7 +17,7 @@ priority: 3
 status: closed
 title: Document multiple issue close
 type: is
-updated_at: 2026-03-09T02:47:21.681Z
-version: 5
+updated_at: 2026-03-09T16:12:30.541Z
+version: 6
 ---
 Document that `tbd close` accepts multiple IDs: `tbd close bd-a1 bd-b2 bd-c3 --reason "Sprint complete"`. More efficient than closing one at a time.

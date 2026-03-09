@@ -10,7 +10,7 @@ priority: 2
 status: closed
 title: "setup.ts: fragile path construction with string replace"
 type: is
-updated_at: 2026-03-09T02:47:23.469Z
-version: 6
+updated_at: 2026-03-09T16:12:32.537Z
+version: 7
 ---
 Uses TBD_SHORTCUTS_SYSTEM.replace('system', subdir) instead of path constants directly.

@@ -12,7 +12,7 @@ priority: 2
 status: closed
 title: "GREEN: Implement README parser to extract doc references"
 type: is
-updated_at: 2026-03-09T02:47:23.578Z
-version: 9
+updated_at: 2026-03-09T16:12:32.656Z
+version: 10
 ---
 Implement extractDocReferences() that parses README markdown tables for shortcuts, guidelines, templates sections. Return {shortcuts: string[], guidelines: string[], templates: string[]}.

@@ -20,7 +20,7 @@ priority: 1
 status: closed
 title: Implement tbd show command
 type: is
-updated_at: 2026-03-09T02:47:21.906Z
-version: 5
+updated_at: 2026-03-09T16:12:30.784Z
+version: 6
 ---
 Display issue as YAML+Markdown with --json option and color output.

@@ -19,7 +19,7 @@ priority: 1
 status: closed
 title: Implement CLIError classes
 type: is
-updated_at: 2026-03-09T02:47:21.901Z
-version: 5
+updated_at: 2026-03-09T16:12:30.779Z
+version: 6
 ---
 Create structured error classes for CLI error handling.

@@ -12,8 +12,8 @@ priority: 2
 status: closed
 title: Consolidate command context loading into unified CommandContext class
 type: is
-updated_at: 2026-03-09T02:47:22.242Z
-version: 7
+updated_at: 2026-03-09T16:12:31.158Z
+version: 8
 ---
 Currently, commands load configuration and mapping data in a repetitive pattern:
 

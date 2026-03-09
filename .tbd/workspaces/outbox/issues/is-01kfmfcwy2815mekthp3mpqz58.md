@@ -17,6 +17,6 @@ priority: 1
 status: closed
 title: Move SKILL.md to shortcuts/system/skill.md (lowercase source)
 type: is
-updated_at: 2026-03-09T02:47:23.337Z
-version: 10
+updated_at: 2026-03-09T16:12:32.400Z
+version: 11
 ---

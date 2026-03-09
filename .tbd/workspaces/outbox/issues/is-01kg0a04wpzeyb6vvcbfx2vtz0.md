@@ -11,6 +11,6 @@ spec_path: docs/project/specs/done/plan-2026-01-26-spec-linking.md
 status: closed
 title: "Spec: Bead Spec Linking"
 type: is
-updated_at: 2026-03-09T02:47:23.918Z
-version: 7
+updated_at: 2026-03-09T16:12:33.022Z
+version: 8
 ---

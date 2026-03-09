@@ -8,7 +8,7 @@ priority: 2
 status: open
 title: "Review S2: Model Selection and Control"
 type: is
-updated_at: 2026-03-09T02:47:25.082Z
-version: 6
+updated_at: 2026-03-09T16:12:34.269Z
+version: 7
 ---
 Review Section 2 (lines 167-305): Model Selection and Control. (1) Verify the 4-level priority chain (env var > Task tool param > per-agent field > inherit) — test or confirm empirically. (2) Check if model alias table is current (Opus 4.6, Sonnet 4.5, Haiku). (3) Verify cost considerations and the opusplan alias. (4) Research: How do other multi-agent frameworks handle model routing? Look at LangGraph, CrewAI, AutoGen, Magentic-One — do they offer per-agent model selection?

@@ -11,7 +11,7 @@ priority: 2
 status: closed
 title: Review and update specs for cache removal and docs gitignore consistency
 type: is
-updated_at: 2026-03-09T02:47:23.669Z
-version: 6
+updated_at: 2026-03-09T16:12:32.755Z
+version: 7
 ---
 Update all spec documents to reflect: 1) No more .tbd/cache/ directory 2) .tbd/docs/ is now gitignored 3) Shortcuts generated on-the-fly 4) state.yml moved to .tbd/state.yml

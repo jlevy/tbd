@@ -12,6 +12,6 @@ priority: 1
 status: closed
 title: Delete cursor-header.md and .cursor/rules/tbd.mdc files
 type: is
-updated_at: 2026-03-09T02:47:23.530Z
-version: 8
+updated_at: 2026-03-09T16:12:32.599Z
+version: 9
 ---

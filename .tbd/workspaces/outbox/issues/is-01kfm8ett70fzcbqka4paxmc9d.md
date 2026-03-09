@@ -11,8 +11,8 @@ priority: 2
 status: closed
 title: Verify status command docs consistency
 type: is
-updated_at: 2026-03-09T02:47:23.145Z
-version: 7
+updated_at: 2026-03-09T16:12:32.181Z
+version: 8
 ---
 Check tbd-docs.md, tbd-design.md, and CLI --help for the status command. Ensure all sources are consistent and accurate for:
 - Command description and purpose

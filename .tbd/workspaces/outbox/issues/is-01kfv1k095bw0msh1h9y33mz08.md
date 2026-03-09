@@ -11,7 +11,7 @@ priority: 2
 status: closed
 title: "[PR#25] Fix gitignore path for tbd skill file"
 type: is
-updated_at: 2026-03-09T02:47:23.704Z
-version: 6
+updated_at: 2026-03-09T16:12:32.793Z
+version: 7
 ---
 The .gitignore has '.claude/skills/tbd.md' but the actual file is at '.claude/skills/tbd/SKILL.md'. Update gitignore to match actual path.

@@ -12,7 +12,7 @@ priority: 2
 status: closed
 title: "RED: Write failing test for guidelines validation"
 type: is
-updated_at: 2026-03-09T02:47:23.593Z
-version: 9
+updated_at: 2026-03-09T16:12:32.672Z
+version: 10
 ---
 Write test that validates each extracted guideline name can be loaded via DocCache. Test should fail for any missing/misspelled guidelines.

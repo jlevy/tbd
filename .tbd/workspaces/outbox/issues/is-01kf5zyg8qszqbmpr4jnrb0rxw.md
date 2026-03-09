@@ -19,7 +19,7 @@ priority: 1
 status: closed
 title: Implement bin.ts entry point with shebang
 type: is
-updated_at: 2026-03-09T02:47:22.072Z
-version: 5
+updated_at: 2026-03-09T16:12:30.960Z
+version: 6
 ---
 Create CLI entry point with proper shebang for npm bin.

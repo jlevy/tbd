@@ -10,6 +10,6 @@ priority: 1
 status: closed
 title: "Research doc: Add scope clarification — this is about trusted knowledge, NOT general mutable agent memory"
 type: is
-updated_at: 2026-03-09T02:47:25.179Z
-version: 7
+updated_at: 2026-03-09T16:12:34.384Z
+version: 8
 ---

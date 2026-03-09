@@ -17,7 +17,7 @@ priority: 3
 status: closed
 title: Ensure --color flag and NO_COLOR env var respected everywhere
 type: is
-updated_at: 2026-03-09T02:47:21.494Z
-version: 5
+updated_at: 2026-03-09T16:12:30.326Z
+version: 6
 ---
 Ensure global --color flag (auto/always/never) and NO_COLOR env var are respected in: (1) Command output, (2) Help text, (3) Error messages. Use picocolors createColors() with proper color forcing.

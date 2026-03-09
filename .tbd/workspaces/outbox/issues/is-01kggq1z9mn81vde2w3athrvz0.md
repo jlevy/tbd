@@ -10,6 +10,6 @@ priority: 2
 status: closed
 title: Synchronize content coverage between bun and pnpm monorepo docs
 type: is
-updated_at: 2026-03-09T02:47:24.719Z
-version: 6
+updated_at: 2026-03-09T16:12:33.876Z
+version: 7
 ---

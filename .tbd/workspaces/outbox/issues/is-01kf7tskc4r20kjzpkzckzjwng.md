@@ -10,8 +10,8 @@ priority: 1
 status: closed
 title: Bootstrap loads unbundled cli.mjs instead of bundled bin.mjs
 type: is
-updated_at: 2026-03-09T02:47:22.738Z
-version: 7
+updated_at: 2026-03-09T16:12:31.742Z
+version: 8
 ---
 ## Problem
 

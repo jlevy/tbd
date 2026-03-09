@@ -9,8 +9,8 @@ spec_path: docs/project/specs/active/plan-2026-01-17-cli-output-design-system.md
 status: open
 title: "Spec: CLI Output Design System"
 type: is
-updated_at: 2026-03-09T02:47:22.563Z
-version: 8
+updated_at: 2026-03-09T16:12:31.540Z
+version: 9
 ---
 Systematically review and standardize all CLI output across tbd. Establish a universal CLI design system that ensures consistent output structure, formatting, colors, and conventions across all commands and output modes.
 

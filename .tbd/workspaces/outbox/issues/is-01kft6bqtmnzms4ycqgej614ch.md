@@ -10,7 +10,7 @@ priority: 2
 status: closed
 title: "Epic: Documentation reference validation tests"
 type: is
-updated_at: 2026-03-09T02:47:23.568Z
-version: 7
+updated_at: 2026-03-09T16:12:32.645Z
+version: 8
 ---
 Test suite to validate all README doc references (shortcuts, guidelines, templates) exist and load correctly. Prevents doc drift.

@@ -14,7 +14,7 @@ spec_path: docs/project/specs/active/plan-2026-02-02-skill-md-comprehensive-upda
 status: closed
 title: Add Zod validation to id-mapping, attic, search, prefix-detection, doc-cache
 type: is
-updated_at: 2026-03-09T02:47:24.588Z
-version: 8
+updated_at: 2026-03-09T16:12:33.735Z
+version: 9
 ---
 Update files to use Zod schemas for runtime validation: id-mapping.ts, attic.ts (use AtticEntrySchema), search.ts (use LocalStateSchema), prefix-detection.ts, doc-cache.ts.

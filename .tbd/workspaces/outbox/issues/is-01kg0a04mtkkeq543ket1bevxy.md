@@ -9,6 +9,6 @@ spec_path: docs/project/specs/active/plan-2026-01-26-design-docs-review.md
 status: open
 title: "Spec: Design Docs Review"
 type: is
-updated_at: 2026-03-09T02:47:23.913Z
-version: 5
+updated_at: 2026-03-09T16:12:33.017Z
+version: 6
 ---

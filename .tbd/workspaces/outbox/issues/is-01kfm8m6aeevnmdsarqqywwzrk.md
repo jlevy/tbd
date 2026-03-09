@@ -12,6 +12,6 @@ priority: 2
 status: closed
 title: Update setup.ts to use generated files
 type: is
-updated_at: 2026-03-09T02:47:23.187Z
-version: 7
+updated_at: 2026-03-09T16:12:32.226Z
+version: 8
 ---

@@ -20,7 +20,7 @@ priority: 1
 status: closed
 title: Implement tbd attic restore command
 type: is
-updated_at: 2026-03-09T02:47:20.791Z
-version: 5
+updated_at: 2026-03-09T16:12:29.594Z
+version: 6
 ---
 Create new version with restored value, preserve current in attic, support --dry-run.

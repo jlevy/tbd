@@ -20,7 +20,7 @@ priority: 1
 status: closed
 title: Create cli-setup.tryscript.md - help, version, init, info tests
 type: is
-updated_at: 2026-03-09T02:47:20.982Z
-version: 5
+updated_at: 2026-03-09T16:12:29.806Z
+version: 6
 ---
 Golden tests for CLI setup commands including init options and error cases.

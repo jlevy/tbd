@@ -17,7 +17,7 @@ priority: 2
 status: closed
 title: "Test: Verify --help works on all subcommands"
 type: is
-updated_at: 2026-03-09T02:47:21.041Z
-version: 5
+updated_at: 2026-03-09T16:12:29.872Z
+version: 6
 ---
 Golden tests verifying --help output for all subcommands. Each should show usage, description, options, and examples.

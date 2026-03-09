@@ -10,6 +10,6 @@ priority: 1
 status: closed
 title: Add context conservation principle and pyramid summary as universal primitive
 type: is
-updated_at: 2026-03-09T02:47:25.164Z
-version: 10
+updated_at: 2026-03-09T16:12:34.364Z
+version: 11
 ---

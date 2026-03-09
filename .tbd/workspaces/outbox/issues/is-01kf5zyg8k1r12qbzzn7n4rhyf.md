@@ -19,7 +19,7 @@ priority: 1
 status: closed
 title: Security review
 type: is
-updated_at: 2026-03-09T02:47:20.824Z
-version: 5
+updated_at: 2026-03-09T16:12:29.634Z
+version: 6
 ---
 Review for command injection, safe file operations. Fixed: git.ts now uses execFile instead of exec to prevent shell injection. Added schema validation for branch/remote names.

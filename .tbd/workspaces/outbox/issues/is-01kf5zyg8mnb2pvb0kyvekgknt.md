@@ -17,7 +17,7 @@ priority: 3
 status: closed
 title: Add topic-specific help to tbd docs (sync, import, etc.)
 type: is
-updated_at: 2026-03-09T02:47:21.114Z
-version: 5
+updated_at: 2026-03-09T16:12:29.958Z
+version: 6
 ---
 Add topic-specific documentation: 'tbd docs sync' (sync workflow), 'tbd docs import' (beads migration), 'tbd docs ids' (ID system explanation), 'tbd docs workflow' (ready/blocked/stale usage).

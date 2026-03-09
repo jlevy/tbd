@@ -11,6 +11,6 @@ priority: 1
 status: closed
 title: Update new-shortcut.md template to reflect new format without body title
 type: is
-updated_at: 2026-03-09T02:47:24.228Z
-version: 8
+updated_at: 2026-03-09T16:12:33.356Z
+version: 9
 ---

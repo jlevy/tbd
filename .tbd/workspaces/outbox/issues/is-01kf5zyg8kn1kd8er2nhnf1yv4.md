@@ -19,7 +19,7 @@ priority: 1
 status: closed
 title: Write golden tests for import command
 type: is
-updated_at: 2026-03-09T02:47:20.924Z
-version: 5
+updated_at: 2026-03-09T16:12:29.748Z
+version: 6
 ---
 Create tryscript tests for JSONL import and --from-beads workflows.

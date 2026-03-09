@@ -10,7 +10,7 @@ priority: 3
 status: closed
 title: Auto-link issue references
 type: is
-updated_at: 2026-03-09T02:47:22.394Z
-version: 6
+updated_at: 2026-03-09T16:12:31.331Z
+version: 7
 ---
 Detect #bd-xyz in descriptions. Track as implicit dependencies.

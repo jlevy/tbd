@@ -10,7 +10,7 @@ priority: 1
 status: closed
 title: Call tbd setup auto after tbd import
 type: is
-updated_at: 2026-03-09T02:47:22.825Z
-version: 6
+updated_at: 2026-03-09T16:12:31.839Z
+version: 7
 ---
 After tbd import completes, run tbd setup auto to automatically configure any detected coding agents. Should happen before calling tbd status.

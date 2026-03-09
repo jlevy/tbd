@@ -18,7 +18,7 @@ priority: 1
 status: closed
 title: Implement DocCache get() and list() methods
 type: is
-updated_at: 2026-03-09T02:47:22.993Z
-version: 11
+updated_at: 2026-03-09T16:12:32.018Z
+version: 12
 ---
 Implement DocCache methods: load() using existing parseFrontmatter() from parser.ts, get(name) for exact filename matching (with/without .md), list(includeAll) returning active or all docs including shadowed, and isShadowed() helper. Track seenNames for shadowing detection.

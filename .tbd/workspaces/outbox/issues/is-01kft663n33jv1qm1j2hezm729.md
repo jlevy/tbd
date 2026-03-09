@@ -12,6 +12,6 @@ priority: 1
 status: closed
 title: Verify tbd status output excludes Cursor integration
 type: is
-updated_at: 2026-03-09T02:47:23.554Z
-version: 8
+updated_at: 2026-03-09T16:12:32.628Z
+version: 9
 ---

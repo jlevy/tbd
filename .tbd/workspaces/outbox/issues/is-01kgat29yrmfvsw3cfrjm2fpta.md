@@ -12,6 +12,6 @@ priority: 1
 status: closed
 title: "Bug: workspace save --updates-only copies all ID mappings instead of only mappings for saved issues"
 type: is
-updated_at: 2026-03-09T02:47:24.457Z
-version: 8
+updated_at: 2026-03-09T16:12:33.601Z
+version: 9
 ---

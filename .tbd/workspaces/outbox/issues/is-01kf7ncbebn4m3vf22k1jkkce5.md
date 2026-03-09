@@ -12,8 +12,8 @@ priority: 2
 status: closed
 title: "Doctor: Show specific items for orphaned deps, duplicates, and invalid issues"
 type: is
-updated_at: 2026-03-09T02:47:22.665Z
-version: 7
+updated_at: 2026-03-09T16:12:31.653Z
+version: 8
 ---
 When doctor finds orphaned dependencies, duplicate IDs, or invalid issues, it should list the specific items instead of just showing counts.
 

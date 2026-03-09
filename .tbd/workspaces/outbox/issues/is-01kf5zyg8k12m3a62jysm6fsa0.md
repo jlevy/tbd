@@ -19,7 +19,7 @@ priority: 1
 status: closed
 title: Cross-platform testing
 type: is
-updated_at: 2026-03-09T02:47:20.819Z
-version: 5
+updated_at: 2026-03-09T16:12:29.628Z
+version: 6
 ---
 CI workflow configured with matrix: Linux, macOS, Windows.

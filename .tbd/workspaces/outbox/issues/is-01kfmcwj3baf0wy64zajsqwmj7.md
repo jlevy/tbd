@@ -9,7 +9,7 @@ priority: 2
 status: open
 title: Test marker-based replacement in installed skill files
 type: is
-updated_at: 2026-03-09T02:47:23.322Z
-version: 6
+updated_at: 2026-03-09T16:12:32.384Z
+version: 7
 ---
 Test marker-based replacement in installed skill files. Verify that <!-- BEGIN SHORTCUT DIRECTORY --> and <!-- END SHORTCUT DIRECTORY --> markers allow incremental updates without overwriting user content.

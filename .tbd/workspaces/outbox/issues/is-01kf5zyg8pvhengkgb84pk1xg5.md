@@ -17,7 +17,7 @@ priority: 2
 status: closed
 title: Document setup command
 type: is
-updated_at: 2026-03-09T02:47:21.781Z
-version: 5
+updated_at: 2026-03-09T16:12:30.648Z
+version: 6
 ---
 Document the `tbd setup` command for editor/agent integrations. Subcommands: `tbd setup claude --global/--project/--check/--remove` for Claude Code hooks, `tbd setup cursor` for Cursor rules file.

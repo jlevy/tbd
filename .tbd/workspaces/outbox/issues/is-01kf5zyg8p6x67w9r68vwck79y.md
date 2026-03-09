@@ -17,8 +17,8 @@ priority: 2
 status: closed
 title: Golden tests for tbd setup commands
 type: is
-updated_at: 2026-03-09T02:47:21.627Z
-version: 5
+updated_at: 2026-03-09T16:12:30.476Z
+version: 6
 ---
 Create golden tests for tbd setup commands (claude, cursor, codex).
 

@@ -10,6 +10,6 @@ priority: 1
 status: closed
 title: Update import test expectations for new output format
 type: is
-updated_at: 2026-03-09T02:47:22.805Z
-version: 7
+updated_at: 2026-03-09T16:12:31.817Z
+version: 8
 ---

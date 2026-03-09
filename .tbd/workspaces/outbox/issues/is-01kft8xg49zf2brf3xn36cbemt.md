@@ -11,6 +11,6 @@ priority: 2
 status: closed
 title: "Update shortcut.ts: remove cache write on --refresh"
 type: is
-updated_at: 2026-03-09T02:47:23.649Z
-version: 6
+updated_at: 2026-03-09T16:12:32.733Z
+version: 7
 ---

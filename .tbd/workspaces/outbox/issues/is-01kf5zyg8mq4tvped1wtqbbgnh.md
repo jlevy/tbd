@@ -19,7 +19,7 @@ priority: 2
 status: closed
 title: Update npm dependencies to latest minor versions
 type: is
-updated_at: 2026-03-09T02:47:21.178Z
-version: 5
+updated_at: 2026-03-09T16:12:30.024Z
+version: 6
 ---
 Update all npm dependencies to latest minor/patch versions: eslint, prettier, typescript, vitest, etc.

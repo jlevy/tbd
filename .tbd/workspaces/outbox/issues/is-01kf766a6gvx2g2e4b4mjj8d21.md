@@ -10,7 +10,7 @@ priority: 3
 status: closed
 title: "Bug: Search outputs message with --quiet"
 type: is
-updated_at: 2026-03-09T02:47:22.295Z
-version: 7
+updated_at: 2026-03-09T16:12:31.214Z
+version: 8
 ---
 Search command outputs 'Refreshing worktree...' even with --quiet flag, polluting machine-readable output.

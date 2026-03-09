@@ -12,8 +12,8 @@ spec_path: docs/project/specs/active/plan-2026-01-29-unified-sync-command.md
 status: open
 title: "Phase 2: Update sync command with --issues/--docs flags"
 type: is
-updated_at: 2026-03-09T02:47:24.253Z
-version: 6
+updated_at: 2026-03-09T16:12:33.383Z
+version: 7
 ---
 Update sync.ts to:
 - Add --issues and --docs flags

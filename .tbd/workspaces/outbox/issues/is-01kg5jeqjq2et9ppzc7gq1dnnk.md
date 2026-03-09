@@ -11,6 +11,6 @@ priority: 1
 status: closed
 title: Add frontmatter to system shortcuts (skill.md, skill-brief.md)
 type: is
-updated_at: 2026-03-09T02:47:24.238Z
-version: 8
+updated_at: 2026-03-09T16:12:33.367Z
+version: 9
 ---

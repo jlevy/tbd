@@ -14,8 +14,8 @@ priority: 1
 status: closed
 title: Enhance tbd stats with ready/open counts
 type: is
-updated_at: 2026-03-09T02:47:22.455Z
-version: 10
+updated_at: 2026-03-09T16:12:31.414Z
+version: 11
 ---
 Add the following counts to tbd stats (moved from tbd status):
 - Ready count (issues with no blockers)

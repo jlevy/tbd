@@ -10,6 +10,6 @@ priority: 1
 status: closed
 title: Reconcile typescript-rules.md - 85% content truncated
 type: is
-updated_at: 2026-03-09T02:47:24.289Z
-version: 7
+updated_at: 2026-03-09T16:12:33.429Z
+version: 8
 ---

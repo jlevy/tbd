@@ -13,7 +13,7 @@ priority: 1
 status: closed
 title: Implement cache read/write utilities for shortcut directory
 type: is
-updated_at: 2026-03-09T02:47:23.262Z
-version: 8
+updated_at: 2026-03-09T16:12:32.317Z
+version: 9
 ---
 Implement cache read/write utilities for shortcut directory. Read from .tbd/cache/shortcut-directory.md, write using atomically library for safe writes.

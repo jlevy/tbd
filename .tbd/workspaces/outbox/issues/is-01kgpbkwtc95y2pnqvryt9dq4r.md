@@ -12,6 +12,6 @@ priority: 2
 status: closed
 title: Update doc commands to use renderMarkdownWithFrontmatter()
 type: is
-updated_at: 2026-03-09T02:47:24.905Z
-version: 8
+updated_at: 2026-03-09T16:12:34.099Z
+version: 9
 ---

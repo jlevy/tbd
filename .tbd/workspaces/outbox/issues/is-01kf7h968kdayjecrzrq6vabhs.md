@@ -12,8 +12,8 @@ priority: 2
 status: closed
 title: Research and implement Codex skills integration
 type: is
-updated_at: 2026-03-09T02:47:22.440Z
-version: 8
+updated_at: 2026-03-09T16:12:31.394Z
+version: 9
 ---
 Research the best way to provide tbd workflow context to OpenAI Codex and compatible tools through AGENTS.md or similar mechanism. Currently using AGENTS.md file format, but should verify this is optimal.
 

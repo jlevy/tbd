@@ -13,7 +13,7 @@ priority: 1
 status: closed
 title: Replace CURSOR.mdc with cursor-header.md (YAML frontmatter only)
 type: is
-updated_at: 2026-03-09T02:47:23.358Z
-version: 9
+updated_at: 2026-03-09T16:12:32.419Z
+version: 10
 ---
 Create docs/install/cursor-header.md containing only the Cursor YAML frontmatter. Delete packages/tbd/src/docs/CURSOR.mdc. When installing .cursor/rules/tbd.mdc, setup will combine: cursor-header.md + skill.md + shortcut directory.

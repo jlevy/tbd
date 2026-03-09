@@ -19,7 +19,7 @@ priority: 1
 status: closed
 title: Set up coverage merge workflow
 type: is
-updated_at: 2026-03-09T02:47:21.010Z
-version: 5
+updated_at: 2026-03-09T16:12:29.837Z
+version: 6
 ---
 Configure vitest and tryscript coverage to merge via --merge-lcov.

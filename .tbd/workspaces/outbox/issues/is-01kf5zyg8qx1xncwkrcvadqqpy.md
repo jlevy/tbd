@@ -20,7 +20,7 @@ priority: 1
 status: closed
 title: "Phase 5: Workflow Commands"
 type: is
-updated_at: 2026-03-09T02:47:22.088Z
-version: 5
+updated_at: 2026-03-09T16:12:30.977Z
+version: 6
 ---
 Implement ready, blocked, stale commands for workflow management.

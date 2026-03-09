@@ -12,7 +12,7 @@ spec_path: docs/project/specs/active/plan-2026-01-28-sync-worktree-recovery-and-
 status: closed
 title: "Add CI check: worktree health after operations"
 type: is
-updated_at: 2026-03-09T02:47:24.142Z
-version: 7
+updated_at: 2026-03-09T16:12:33.259Z
+version: 8
 ---
 Add CI step that runs 'tbd doctor' after test operations and fails if unhealthy. Ensures worktree integrity is maintained in CI pipeline.

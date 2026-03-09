@@ -17,7 +17,7 @@ priority: 2
 status: closed
 title: Implement tbd docs command with browser/terminal output
 type: is
-updated_at: 2026-03-09T02:47:21.120Z
-version: 5
+updated_at: 2026-03-09T16:12:29.963Z
+version: 6
 ---
 Implement core tbd docs command: (1) 'tbd docs' shows overview/quick reference, (2) 'tbd docs --open' opens docs in browser, (3) 'tbd docs --path' shows local docs path. Use picocolors for terminal formatting.

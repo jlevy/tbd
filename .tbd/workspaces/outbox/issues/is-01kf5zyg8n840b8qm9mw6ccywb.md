@@ -17,7 +17,7 @@ priority: 2
 status: closed
 title: Add tests for attic restore workflows
 type: is
-updated_at: 2026-03-09T02:47:21.358Z
-version: 5
+updated_at: 2026-03-09T16:12:30.186Z
+version: 6
 ---
 Test full attic workflow: create conflict, list attic entries, show entry details, restore entry, verify restoration.

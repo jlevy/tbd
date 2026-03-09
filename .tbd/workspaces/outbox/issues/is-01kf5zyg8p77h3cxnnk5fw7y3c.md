@@ -17,8 +17,8 @@ priority: 2
 status: closed
 title: Remove -d shorthand for --description option
 type: is
-updated_at: 2026-03-09T02:47:21.644Z
-version: 5
+updated_at: 2026-03-09T16:12:30.495Z
+version: 6
 ---
 Remove the -d one-letter option alias for --description in the create command. Keep only --description.
 

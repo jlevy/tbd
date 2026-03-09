@@ -22,8 +22,8 @@ priority: 2
 status: closed
 title: Create shared diagnostic output utilities
 type: is
-updated_at: 2026-03-09T02:47:22.692Z
-version: 13
+updated_at: 2026-03-09T16:12:31.684Z
+version: 14
 ---
 Create shared utilities for consistent diagnostic output across doctor, setup --check, and status commands.
 

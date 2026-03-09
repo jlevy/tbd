@@ -10,7 +10,7 @@ priority: 2
 status: closed
 title: Add --brief flag to prime
 type: is
-updated_at: 2026-03-09T02:47:22.340Z
-version: 6
+updated_at: 2026-03-09T16:12:31.268Z
+version: 7
 ---
 ~200 tokens output for minimal context. Useful for constrained contexts.

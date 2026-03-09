@@ -17,8 +17,8 @@ priority: 2
 status: closed
 title: Remove all one-letter CLI option aliases
 type: is
-updated_at: 2026-03-09T02:47:21.713Z
-version: 5
+updated_at: 2026-03-09T16:12:30.581Z
+version: 6
 ---
 Systematically remove all one-letter option aliases from the TBD CLI. These short options are error-prone and the full-word versions are clear enough to type.
 

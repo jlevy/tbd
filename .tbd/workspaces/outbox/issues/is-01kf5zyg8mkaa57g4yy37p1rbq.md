@@ -17,7 +17,7 @@ priority: 2
 status: closed
 title: "Test: Add golden test for uninitialized tbd list behavior"
 type: is
-updated_at: 2026-03-09T02:47:21.098Z
-version: 5
+updated_at: 2026-03-09T16:12:29.940Z
+version: 6
 ---
 Add tryscript golden test that verifies tbd list shows helpful init message when not initialized instead of 'no issues'.

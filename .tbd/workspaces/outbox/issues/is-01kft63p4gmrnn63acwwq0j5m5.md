@@ -14,6 +14,6 @@ priority: 1
 status: closed
 title: Update integration-files.test.ts to remove Cursor tests
 type: is
-updated_at: 2026-03-09T02:47:23.524Z
-version: 9
+updated_at: 2026-03-09T16:12:32.591Z
+version: 10
 ---

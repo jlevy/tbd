@@ -12,6 +12,6 @@ priority: 2
 status: closed
 title: Extract shared workflow content to workflow-body.md
 type: is
-updated_at: 2026-03-09T02:47:23.177Z
-version: 7
+updated_at: 2026-03-09T16:12:32.214Z
+version: 8
 ---

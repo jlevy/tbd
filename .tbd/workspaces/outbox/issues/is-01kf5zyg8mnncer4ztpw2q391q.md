@@ -17,7 +17,7 @@ priority: 3
 status: closed
 title: "Test: Add golden test for YAML frontmatter formatting (no extra newline)"
 type: is
-updated_at: 2026-03-09T02:47:21.130Z
-version: 5
+updated_at: 2026-03-09T16:12:29.976Z
+version: 6
 ---
 Add tryscript golden test that verifies serialized issue files have no extra newline between YAML frontmatter closing --- and markdown body.

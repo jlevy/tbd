@@ -14,8 +14,8 @@ priority: 2
 status: closed
 title: Audit commands for design system compliance
 type: is
-updated_at: 2026-03-09T02:47:22.645Z
-version: 14
+updated_at: 2026-03-09T16:12:31.617Z
+version: 15
 ---
 Audit all commands for design system compliance:
 - Audit list.ts for compliance

@@ -17,7 +17,7 @@ priority: 3
 status: closed
 title: "Bug: extra newline after YAML frontmatter closing ---"
 type: is
-updated_at: 2026-03-09T02:47:21.035Z
-version: 5
+updated_at: 2026-03-09T16:12:29.866Z
+version: 6
 ---
 Issue files have an extra blank line between the YAML frontmatter closing '---' and the markdown body content. The body should start immediately after the closing ---. See serialization code in file/storage.ts.

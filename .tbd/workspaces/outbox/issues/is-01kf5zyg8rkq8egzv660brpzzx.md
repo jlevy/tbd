@@ -20,7 +20,7 @@ priority: 1
 status: closed
 title: Implement tbd config command
 type: is
-updated_at: 2026-03-09T02:47:22.194Z
-version: 5
+updated_at: 2026-03-09T16:12:31.099Z
+version: 6
 ---
 Get/set config values with --list option and dot notation for nested keys.

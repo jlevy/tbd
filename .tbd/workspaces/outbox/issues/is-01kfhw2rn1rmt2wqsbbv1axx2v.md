@@ -10,7 +10,7 @@ priority: 2
 status: open
 title: Document configuration options in tbd-design.md
 type: is
-updated_at: 2026-03-09T02:47:23.092Z
-version: 6
+updated_at: 2026-03-09T16:12:32.126Z
+version: 7
 ---
 Add docs.paths configuration section to tbd-design.md explaining: path formats (relative, absolute, ~/), default paths, how shadowing works, how to add custom shortcuts.

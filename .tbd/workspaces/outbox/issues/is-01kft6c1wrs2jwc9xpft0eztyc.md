@@ -12,7 +12,7 @@ priority: 2
 status: closed
 title: "RED: Write failing test for shortcut validation"
 type: is
-updated_at: 2026-03-09T02:47:23.583Z
-version: 9
+updated_at: 2026-03-09T16:12:32.661Z
+version: 10
 ---
 Write test that validates each extracted shortcut name can be loaded via DocCache. Test should fail for any missing/misspelled shortcuts.

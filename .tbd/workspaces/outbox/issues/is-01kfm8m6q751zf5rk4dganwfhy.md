@@ -14,8 +14,8 @@ priority: 2
 status: closed
 title: Remove hardcoded CURSOR.mdc, keep only source parts
 type: is
-updated_at: 2026-03-09T02:47:23.192Z
-version: 10
+updated_at: 2026-03-09T16:12:32.231Z
+version: 11
 ---
 After build composition is working:
 

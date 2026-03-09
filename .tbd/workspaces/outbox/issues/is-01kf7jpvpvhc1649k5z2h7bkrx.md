@@ -11,7 +11,7 @@ priority: 2
 status: closed
 title: Add --pretty flag to list command CLI
 type: is
-updated_at: 2026-03-09T02:47:22.543Z
-version: 7
+updated_at: 2026-03-09T16:12:31.518Z
+version: 8
 ---
 Add the --pretty option to the list command in commander. Wire it up to call the tree formatter instead of the table formatter when specified.

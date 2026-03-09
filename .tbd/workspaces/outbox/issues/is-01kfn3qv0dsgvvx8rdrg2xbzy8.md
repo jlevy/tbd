@@ -11,7 +11,7 @@ priority: 2
 status: closed
 title: "Update paths.ts: add TBD_GUIDELINES_DIR and TBD_TEMPLATES_DIR constants"
 type: is
-updated_at: 2026-03-09T02:47:23.393Z
-version: 6
+updated_at: 2026-03-09T16:12:32.458Z
+version: 7
 ---
 Add new path constants for top-level guidelines and templates directories. Update DEFAULT_DOC_PATHS to remove guidelines/templates subdirs. Add new constants: TBD_GUIDELINES_DIR (.tbd/docs/guidelines/), TBD_TEMPLATES_DIR (.tbd/docs/templates/), DEFAULT_GUIDELINES_PATHS, DEFAULT_TEMPLATES_PATHS.

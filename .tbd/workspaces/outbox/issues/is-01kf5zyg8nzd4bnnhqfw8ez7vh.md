@@ -17,7 +17,7 @@ priority: 3
 status: closed
 title: Create cli-color-modes.tryscript.md - test color flag handling
 type: is
-updated_at: 2026-03-09T02:47:21.538Z
-version: 5
+updated_at: 2026-03-09T16:12:30.377Z
+version: 6
 ---
 Created cli-color-modes.tryscript.md with 16 tests for --color auto/always/never and NO_COLOR env var.

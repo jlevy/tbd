@@ -10,7 +10,7 @@ priority: 1
 status: closed
 title: Publish to npm
 type: is
-updated_at: 2026-03-09T02:47:22.316Z
-version: 6
+updated_at: 2026-03-09T16:12:31.238Z
+version: 7
 ---
 Package is ready, needs publishing. Update README with install instructions.
