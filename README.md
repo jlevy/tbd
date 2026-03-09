@@ -279,7 +279,8 @@ npm install -g get-tbd@latest
 ### Setup
 
 ```bash
-# Fresh project (--prefix is REQUIRED—2-8 alphabetic chars, e.g. myapp-a1b2)
+# Fresh project (--prefix is REQUIRED—a short 2-8 letter name like "myapp")
+# This prefix is used in issue IDs (e.g., myapp-a1b2). No dashes allowed.
 tbd setup --auto --prefix=myapp
 
 # Joining an existing tbd project (no prefix needed—reads existing config)
