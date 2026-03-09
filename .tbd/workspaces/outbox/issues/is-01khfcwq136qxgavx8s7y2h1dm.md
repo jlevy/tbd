@@ -1,0 +1,13 @@
+---
+created_at: 2026-02-15T00:58:28.258Z
+dependencies: []
+id: is-01khfcwq136qxgavx8s7y2h1dm
+kind: task
+labels: []
+priority: 3
+status: open
+title: "Add cross-references to research-running-claude-code.md: Parts 7-8 should reference the new orchestration-and-uis doc for detailed protocol analysis of --sdk-url, IDE WebSocket, and ACP. Add Related section at top linking to new doc."
+type: is
+updated_at: 2026-02-15T00:58:28.258Z
+version: 1
+---
