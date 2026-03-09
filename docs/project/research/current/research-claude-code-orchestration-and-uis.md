@@ -804,13 +804,21 @@ accounts.
 | --- | --- | --- |
 | [cmux (Manaflow)](https://github.com/manaflow-ai/cmux) | 4.2k | Native macOS terminal app for AI agents (YC-backed) |
 | [Symphony (OpenAI)](https://github.com/openai/symphony) | NEW | Issue-tracker-driven daemon orchestrator with per-issue workspaces |
+| [Composio Agent Orchestrator](https://github.com/ComposioHQ/agent-orchestrator) | 3.1k | Agent/runtime/tracker-agnostic fleet manager with CI awareness |
 | [Claude Squad](https://github.com/smtg-ai/claude-squad) | 5.8k+ | tmux TUI for multi-agent worktree sessions |
+| [Agent of Empires](https://github.com/njbrake/agent-of-empires) | ~931 | Rust tmux TUI, 6+ agent CLIs, Docker sandboxing |
+| [Overstory](https://github.com/jayminwest/overstory) | ~320–760 | SQLite mail, FIFO merge queue, 4-tier conflict resolution |
+| [Agent Farm](https://github.com/Dicklesworthstone/claude_code_agent_farm) | ~619 | 20-50 parallel agents, lock-based coordination, 34 tech stacks |
+| [Multiclaude](https://github.com/dlorenc/multiclaude) | ~250–500 | "Brownian ratchet" — CI as one-way gate, auto-merge passing PRs |
 | [CodePilot](https://github.com/op7418/CodePilot) | — | Electron desktop, mobile bridges (Telegram/Discord/QQ/Feishu) |
 | [myclaude](https://github.com/stellarlinkco/myclaude) | 2.4k | Multi-runtime orchestration (Claude, Codex, Gemini, OpenCode) |
-| [Multiclaude](https://github.com/dlorenc/multiclaude) | — | "Brownian ratchet" — CI as one-way gate, auto-merge passing PRs |
+| [dmux](https://github.com/standardagents/dmux) | — | Lightweight multiplexer, 11 agent CLIs, AI branch names |
 | [cmux (craigsc)](https://github.com/craigsc/cmux) | ~276 | Git worktree lifecycle manager for Claude Code |
-| [amux](https://github.com/mixpeek/amux) | — | tmux-based multiplexer + web dashboard for headless agents |
-| [coder/mux](https://github.com/coder/mux) | — | Desktop app with custom agent loop (Plan/Exec, vim inputs) |
+| [amux](https://github.com/mixpeek/amux) | ~41 | Single-file Python multiplexer + web dashboard, self-healing |
+| [coder/mux](https://github.com/coder/mux) | — | Enterprise desktop/web app, audit logging, model governance |
+| [ittybitty](https://github.com/adamwulf/ittybitty) | — | Manager/Worker hierarchy with emergency kill |
+| [OpenSwarm](https://github.com/Intrect-io/OpenSwarm) | — | Linear issues → Worker/Reviewer pipelines, LanceDB memory |
+| [agent-swarm](https://github.com/desplega-ai/agent-swarm) | — | Docker-isolated, compounding knowledge, Slack/GitHub integration |
 | [CloudCLI](https://github.com/siteboon/claudecodeui) | — | Web UI for remote/mobile Claude Code session management |
 | [Zerg](https://github.com/) | — | Parallel orchestration with security and crash recovery |
 | [Agentrooms](https://claudecode.run/) | — | @mention-based multi-agent coordination, local + remote |
@@ -1010,6 +1018,52 @@ multiclaude worker create "your task description"
 See also: [The Brownian Ratchet and the Chimpanzee Factory](https://dev.to/aronchick/the-brownian-ratchet-and-the-chimpanzee-factory-583n)
 comparing multiclaude and GasTown architectures.
 
+### Other Notable New Tools (March 2026 Sweep)
+
+**Composio Agent Orchestrator** ([ComposioHQ/agent-orchestrator](https://github.com/ComposioHQ/agent-orchestrator),
+~3.1k stars) — The most polished agent-agnostic fleet manager. Each agent gets its own git
+worktree, branch, and PR. Watches CI, forwards review comments back to agents, only pings
+humans when needed. 8 pluggable slots: agent-agnostic (Claude Code, Codex, Aider),
+runtime-agnostic (tmux, Docker), tracker-agnostic (GitHub, Linear). Built by 30 agents
+(every commit has Co-Authored-By trailer). 3,288 test cases. CLI: `ao spawn`, `ao status`,
+`ao dashboard`.
+
+**Agent of Empires** ([njbrake/agent-of-empires](https://github.com/njbrake/agent-of-empires),
+~931 stars) — Rust-based terminal session manager built on tmux. Supports Claude Code,
+OpenCode, Mistral Vibe, Codex CLI, Gemini CLI, Cursor CLI. Auto-detects agent status. Git
+worktrees for isolation, optional Docker sandboxing. Install: `brew install aoe`.
+
+**Overstory** ([jayminwest/overstory](https://github.com/jayminwest/overstory), ~320–760
+stars) — Turns a single coding session into a multi-agent team. Spawns workers in git
+worktrees via tmux, coordinates through custom **SQLite mail system** (WAL mode, ~1-5ms).
+FIFO merge queue with **4-tier conflict resolution**. Tiered watchdog system.
+Runtime-agnostic (Claude Code, Codex, Gemini CLI, and more). Zero production dependencies,
+runs on Bun. MIT.
+
+**Claude Code Agent Farm** ([Dicklesworthstone/claude_code_agent_farm](https://github.com/Dicklesworthstone/claude_code_agent_farm),
+~619 stars) — Runs 20-50 Claude Code agents in parallel for systematic codebase
+improvement. Lock-based coordination prevents conflicts. Supports 34 tech stacks. Multiple
+workflow types: bug fixing, best practices sweeps. Real-time tmux monitoring.
+
+**dmux** ([standardagents/dmux](https://github.com/standardagents/dmux), [dmux.ai](https://dmux.ai/))
+— Lightweight dev agent multiplexer for git worktrees. Press `n` to create a pane, type a
+prompt, pick agents. Supports 11 CLIs: Claude Code, Codex, OpenCode, Cline CLI, Gemini
+CLI, Qwen CLI, Amp CLI, pi CLI, Cursor CLI, Copilot CLI, Crush CLI. AI-generated branch
+names, smart merging.
+
+**ittybitty** ([adamwulf/ittybitty](https://github.com/adamwulf/ittybitty)) — Barebones
+multi-agent orchestrator. Two agent types: Managers (can spawn other agents including other
+Managers) and Workers (cannot spawn). Emergency kill via `ib nuke`. Commands: `ib
+new-agent`, `ib send`, `ib diff`, `ib merge`, `ib kill`.
+
+**Monitoring resources:**
+- [awesome-agent-orchestrators](https://github.com/andyrewlee/awesome-agent-orchestrators)
+  — Curated list of orchestration tools
+- [awesome-claude-code](https://github.com/hesreallyhim/awesome-claude-code) — 21.6k stars,
+  the largest curated Claude Code list
+- [awesome-claude-code-toolkit](https://github.com/rohitg00/awesome-claude-code-toolkit) —
+  135 agents, 35 skills, 42 commands, 121 plugins
+
 ### Industry Context (March 2026)
 
 - Claude Code now authors **4% of public GitHub commits**, projected 20% by end of 2026.
@@ -1091,8 +1145,28 @@ comparing multiclaude and GasTown architectures.
   Claude Code
 - [mixpeek/amux](https://github.com/mixpeek/amux) — tmux-based multiplexer + web dashboard
   for headless agent sessions
-- [coder/mux](https://github.com/coder/mux) — Desktop app with custom agent loop
-  (Plan/Exec, vim inputs)
+- [coder/mux](https://github.com/coder/mux) — Enterprise desktop/web app with audit
+  logging and model governance
+- [ComposioHQ/agent-orchestrator](https://github.com/ComposioHQ/agent-orchestrator) —
+  Agent/runtime/tracker-agnostic fleet manager (~3.1k stars)
+- [njbrake/agent-of-empires](https://github.com/njbrake/agent-of-empires) — Rust tmux TUI
+  for 6+ agent CLIs (~931 stars)
+- [jayminwest/overstory](https://github.com/jayminwest/overstory) — SQLite mail, FIFO merge
+  queue, 4-tier conflict resolution
+- [Dicklesworthstone/claude_code_agent_farm](https://github.com/Dicklesworthstone/claude_code_agent_farm)
+  — 20-50 parallel agents with lock-based coordination
+- [standardagents/dmux](https://github.com/standardagents/dmux) — Lightweight multiplexer,
+  11 agent CLIs ([dmux.ai](https://dmux.ai/))
+- [adamwulf/ittybitty](https://github.com/adamwulf/ittybitty) — Manager/Worker hierarchy
+  orchestrator
+- [Intrect-io/OpenSwarm](https://github.com/Intrect-io/OpenSwarm) — Linear → Worker/Reviewer
+  pipelines with LanceDB vector memory
+- [desplega-ai/agent-swarm](https://github.com/desplega-ai/agent-swarm) — Docker-isolated
+  workers with compounding knowledge
+- [andyrewlee/awesome-agent-orchestrators](https://github.com/andyrewlee/awesome-agent-orchestrators)
+  — Curated list of orchestration tools
+- [hesreallyhim/awesome-claude-code](https://github.com/hesreallyhim/awesome-claude-code) —
+  Largest curated Claude Code list (21.6k stars)
 - [paperclipai/paperclip](https://github.com/paperclipai/paperclip) — Company-level control
   plane for autonomous AI organizations
 - [winfunc/opcode](https://github.com/winfunc/opcode) — OpCode Tauri desktop command center

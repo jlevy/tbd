@@ -764,14 +764,22 @@ for detailed architecture analysis.
 | --- | --- | --- |
 | [cmux (Manaflow)](https://github.com/manaflow-ai/cmux) | 4.2k | Native macOS terminal app for AI agents (YC-backed, libghostty) |
 | [Symphony (OpenAI)](https://github.com/openai/symphony) | NEW | Issue-tracker daemon: polls Linear, per-issue workspaces, Codex app-server |
+| [Composio Agent Orchestrator](https://github.com/ComposioHQ/agent-orchestrator) | 3.1k | Agent/runtime/tracker-agnostic fleet manager with CI awareness |
 | [Claude Squad](https://github.com/smtg-ai/claude-squad) | 5.8k+ | tmux TUI for multi-agent sessions with git worktrees |
 | [myclaude](https://github.com/stellarlinkco/myclaude) | 2.4k | Multi-runtime orchestration (Claude, Codex, Gemini, OpenCode) |
-| [Multiclaude](https://github.com/dlorenc/multiclaude) | — | "Brownian ratchet" auto-merge (CI as one-way gate) |
+| [Agent of Empires](https://github.com/njbrake/agent-of-empires) | ~931 | Rust tmux TUI supporting 6+ agent CLIs, Docker sandboxing |
+| [Overstory](https://github.com/jayminwest/overstory) | ~320–760 | SQLite mail system, FIFO merge queue, 4-tier conflict resolution |
+| [Agent Farm](https://github.com/Dicklesworthstone/claude_code_agent_farm) | ~619 | 20-50 parallel agents with lock-based coordination, 34 tech stacks |
+| [Multiclaude](https://github.com/dlorenc/multiclaude) | ~250–500 | "Brownian ratchet" auto-merge (CI as one-way gate) |
 | [cmux (craigsc)](https://github.com/craigsc/cmux) | ~276 | Git worktree lifecycle manager for Claude Code |
-| [amux](https://github.com/mixpeek/amux) | — | tmux-based multiplexer + web dashboard |
-| [coder/mux](https://github.com/coder/mux) | — | Desktop app with custom agent loop |
+| [dmux](https://github.com/standardagents/dmux) | — | Lightweight multiplexer supporting 11 agent CLIs |
+| [amux](https://github.com/mixpeek/amux) | ~41 | Single-file Python multiplexer + web dashboard, self-healing |
+| [coder/mux](https://github.com/coder/mux) | — | Enterprise desktop/web app with audit logging, model governance |
+| [ittybitty](https://github.com/adamwulf/ittybitty) | — | Manager/Worker hierarchy with emergency kill and agent caps |
 | [CodePilot](https://github.com/op7418/CodePilot) | — | Electron desktop GUI with mobile bridges |
 | [Agentrooms](https://claudecode.run/) | — | @mention-based multi-agent coordination |
+| [OpenSwarm](https://github.com/Intrect-io/OpenSwarm) | — | Linear → Worker/Reviewer pipelines, LanceDB vector memory, Discord |
+| [agent-swarm](https://github.com/desplega-ai/agent-swarm) | — | Docker-isolated workers, compounding knowledge, Slack/GitHub integration |
 
 ### cmux (Manaflow) — Native macOS Agent Terminal (NEW)
 
@@ -1011,6 +1019,26 @@ is maturing rapidly.
   multi-runtime orchestration
 - [GitHub: dlorenc/multiclaude](https://github.com/dlorenc/multiclaude) — Multiclaude
   "brownian ratchet" auto-merge
+- [GitHub: ComposioHQ/agent-orchestrator](https://github.com/ComposioHQ/agent-orchestrator)
+  — Agent/runtime/tracker-agnostic fleet manager (~3.1k stars)
+- [GitHub: njbrake/agent-of-empires](https://github.com/njbrake/agent-of-empires) — Rust
+  tmux TUI for 6+ agent CLIs (~931 stars)
+- [GitHub: jayminwest/overstory](https://github.com/jayminwest/overstory) — SQLite mail,
+  FIFO merge queue, 4-tier conflict resolution
+- [GitHub: Dicklesworthstone/claude_code_agent_farm](https://github.com/Dicklesworthstone/claude_code_agent_farm)
+  — 20-50 parallel agents, lock-based coordination
+- [GitHub: standardagents/dmux](https://github.com/standardagents/dmux) — Lightweight
+  multiplexer, 11 agent CLIs ([dmux.ai](https://dmux.ai/))
+- [GitHub: adamwulf/ittybitty](https://github.com/adamwulf/ittybitty) — Manager/Worker
+  hierarchy orchestrator
+- [GitHub: Intrect-io/OpenSwarm](https://github.com/Intrect-io/OpenSwarm) — Linear →
+  Worker/Reviewer pipelines, LanceDB vector memory
+- [GitHub: desplega-ai/agent-swarm](https://github.com/desplega-ai/agent-swarm) — Docker
+  workers with compounding knowledge
+- [GitHub: andyrewlee/awesome-agent-orchestrators](https://github.com/andyrewlee/awesome-agent-orchestrators)
+  — Curated orchestration tools list
+- [GitHub: hesreallyhim/awesome-claude-code](https://github.com/hesreallyhim/awesome-claude-code)
+  — Largest curated Claude Code list (21.6k stars)
 - [Conductor](https://www.conductor.build/) — Melty Labs macOS app
 - [GitHub: ryanmac/code-conductor](https://github.com/ryanmac/code-conductor) —
   GitHub-native
