@@ -9,11 +9,17 @@ import { tmpdir } from 'node:os';
 import { randomBytes } from 'node:crypto';
 
 import { writeIssue, listIssues } from '../src/file/storage.js';
-import { loadIdMapping, saveIdMapping } from '../src/file/id-mapping.js';
+import {
+  loadIdMapping,
+  saveIdMapping,
+  createShortIdMapping,
+  reconcileMappings,
+} from '../src/file/id-mapping.js';
+import { extractUlidFromInternalId } from '../src/lib/ids.js';
 import type { Issue } from '../src/lib/types.js';
 import { DATA_SYNC_DIR, TBD_DIR } from '../src/lib/paths.js';
 import { detectDuplicateYamlKeys } from '../src/utils/yaml-utils.js';
-import { TEST_ULIDS, testId } from './test-helpers.js';
+import { TEST_ULIDS, testId, createTestIssue } from './test-helpers.js';
 
 describe('doctor command logic', () => {
   let testDir: string;
@@ -224,5 +230,193 @@ describe('sync status logic', () => {
     const issues = await listIssues(issuesDir);
     expect(issues.length).toBe(1);
     expect(issues[0]!.id).toBe(issueId);
+  });
+});
+
+/**
+ * Integration tests for missing ID mapping detection and reconciliation.
+ *
+ * These test the scenario from GitHub issue #99: after a git merge,
+ * ids.yml can be deleted while issue files survive, causing
+ * "No short ID mapping found" crashes.
+ *
+ * See: https://github.com/jlevy/tbd/issues/99
+ */
+describe('missing ID mapping reconciliation', () => {
+  let testDir: string;
+  const issuesDir = DATA_SYNC_DIR;
+
+  beforeEach(async () => {
+    testDir = join(tmpdir(), `tbd-merge-test-${randomBytes(4).toString('hex')}`);
+    await mkdir(join(testDir, issuesDir, 'issues'), { recursive: true });
+    await mkdir(join(testDir, issuesDir, 'mappings'), { recursive: true });
+    process.chdir(testDir);
+  });
+
+  afterEach(async () => {
+    process.chdir('/');
+    await rm(testDir, { recursive: true, force: true });
+  });
+
+  it('detects issues missing from ID mapping', async () => {
+    // Create 3 issues but only map 1 of them (simulates post-merge state)
+    const id1 = testId(TEST_ULIDS.MERGE_1);
+    const id2 = testId(TEST_ULIDS.MERGE_2);
+    const id3 = testId(TEST_ULIDS.MERGE_3);
+
+    for (const id of [id1, id2, id3]) {
+      await writeIssue(issuesDir, createTestIssue({ id, title: `Issue ${id}` }));
+    }
+
+    // Only create mapping for the first issue
+    const mapping = await loadIdMapping(issuesDir);
+    createShortIdMapping(id1, mapping);
+    await saveIdMapping(issuesDir, mapping);
+
+    // Verify: 3 issues exist but only 1 has a mapping
+    const issues = await listIssues(issuesDir);
+    expect(issues).toHaveLength(3);
+    expect(mapping.ulidToShort.size).toBe(1);
+
+    // Find unmapped issues (this is what doctor check 8b does)
+    const unmapped = issues.filter((i) => {
+      const ulid = extractUlidFromInternalId(i.id);
+      return ulid && !mapping.ulidToShort.has(ulid);
+    });
+    expect(unmapped).toHaveLength(2);
+  });
+
+  it('reconcileMappings creates mappings for issues missing after merge', async () => {
+    // Simulate the bug: 3 issues exist, ids.yml was deleted during merge,
+    // then partially reconstructed with only 1 mapping
+    const id1 = testId(TEST_ULIDS.MERGE_1);
+    const id2 = testId(TEST_ULIDS.MERGE_2);
+    const id3 = testId(TEST_ULIDS.MERGE_3);
+
+    for (const id of [id1, id2, id3]) {
+      await writeIssue(issuesDir, createTestIssue({ id, title: `Issue ${id}` }));
+    }
+
+    // Create mapping with only 1 of 3 issues (simulates partial loss)
+    const mapping = await loadIdMapping(issuesDir);
+    createShortIdMapping(id1, mapping);
+
+    // Run reconciliation
+    const result = reconcileMappings([id1, id2, id3], mapping);
+
+    // id1 was already mapped, id2 and id3 should be created
+    expect(result.created).toHaveLength(2);
+    expect(result.recovered).toHaveLength(0);
+    expect(result.created).toContain(id2);
+    expect(result.created).toContain(id3);
+
+    // All 3 should now have mappings
+    for (const id of [id1, id2, id3]) {
+      const ulid = extractUlidFromInternalId(id);
+      expect(mapping.ulidToShort.has(ulid)).toBe(true);
+    }
+  });
+
+  it('reconcileMappings recovers original short IDs from historical mapping', async () => {
+    // Simulate: ids.yml was deleted during merge, but we have a historical
+    // copy from before the merge (from git history or remote)
+    const id1 = testId(TEST_ULIDS.MERGE_1);
+    const id2 = testId(TEST_ULIDS.MERGE_2);
+
+    for (const id of [id1, id2]) {
+      await writeIssue(issuesDir, createTestIssue({ id, title: `Issue ${id}` }));
+    }
+
+    // Historical mapping has both issues mapped
+    const historicalMapping = await loadIdMapping(issuesDir);
+    createShortIdMapping(id1, historicalMapping);
+    createShortIdMapping(id2, historicalMapping);
+    const originalShortId1 = historicalMapping.ulidToShort.get(extractUlidFromInternalId(id1))!;
+    const originalShortId2 = historicalMapping.ulidToShort.get(extractUlidFromInternalId(id2))!;
+
+    // Current mapping is empty (simulates complete deletion)
+    const currentMapping = await loadIdMapping(issuesDir);
+
+    // Reconcile with historical mapping
+    const result = reconcileMappings([id1, id2], currentMapping, historicalMapping);
+
+    // Both should be recovered (not created with new random IDs)
+    expect(result.recovered).toHaveLength(2);
+    expect(result.created).toHaveLength(0);
+
+    // Recovered short IDs should match the originals
+    const recoveredShortId1 = currentMapping.ulidToShort.get(extractUlidFromInternalId(id1))!;
+    const recoveredShortId2 = currentMapping.ulidToShort.get(extractUlidFromInternalId(id2))!;
+    expect(recoveredShortId1).toBe(originalShortId1);
+    expect(recoveredShortId2).toBe(originalShortId2);
+  });
+
+  it('full round-trip: write issues + mapping, lose mapping, reconcile from history', async () => {
+    // This tests the complete scenario end-to-end:
+    // 1. Write issues and mappings normally
+    // 2. Save the mapping as "historical" (simulates git history)
+    // 3. Delete the mapping file (simulates merge deletion)
+    // 4. Reload (empty mapping)
+    // 5. Reconcile with historical mapping
+    // 6. Verify original short IDs are preserved
+    const id1 = testId(TEST_ULIDS.MERGE_1);
+    const id2 = testId(TEST_ULIDS.MERGE_2);
+    const id3 = testId(TEST_ULIDS.MERGE_3);
+
+    // Step 1: Write issues and create mappings
+    for (const id of [id1, id2, id3]) {
+      await writeIssue(issuesDir, createTestIssue({ id, title: `Issue ${id}` }));
+    }
+    const originalMapping = await loadIdMapping(issuesDir);
+    for (const id of [id1, id2, id3]) {
+      createShortIdMapping(id, originalMapping);
+    }
+    await saveIdMapping(issuesDir, originalMapping);
+
+    // Save original short IDs for later comparison
+    const originalShortIds = new Map<string, string>();
+    for (const id of [id1, id2, id3]) {
+      const ulid = extractUlidFromInternalId(id);
+      originalShortIds.set(id, originalMapping.ulidToShort.get(ulid)!);
+    }
+
+    // Step 2: Keep a copy of the mapping as "historical"
+    const historicalMapping = await loadIdMapping(issuesDir);
+
+    // Step 3: Delete the mapping file (simulates git merge deletion)
+    await rm(join(testDir, issuesDir, 'mappings', 'ids.yml'));
+
+    // Step 4: Reload (should be empty)
+    const emptyMapping = await loadIdMapping(issuesDir);
+    expect(emptyMapping.ulidToShort.size).toBe(0);
+
+    // Verify issues still exist
+    const issues = await listIssues(issuesDir);
+    expect(issues).toHaveLength(3);
+
+    // Step 5: Reconcile with historical mapping
+    const result = reconcileMappings(
+      issues.map((i) => i.id),
+      emptyMapping,
+      historicalMapping,
+    );
+    expect(result.recovered).toHaveLength(3);
+    expect(result.created).toHaveLength(0);
+
+    // Step 6: Verify original short IDs are preserved
+    for (const id of [id1, id2, id3]) {
+      const ulid = extractUlidFromInternalId(id);
+      const recoveredShortId = emptyMapping.ulidToShort.get(ulid)!;
+      expect(recoveredShortId).toBe(originalShortIds.get(id));
+    }
+
+    // Save and reload to verify persistence
+    await saveIdMapping(issuesDir, emptyMapping);
+    const reloadedMapping = await loadIdMapping(issuesDir);
+    expect(reloadedMapping.ulidToShort.size).toBe(3);
+    for (const id of [id1, id2, id3]) {
+      const ulid = extractUlidFromInternalId(id);
+      expect(reloadedMapping.ulidToShort.get(ulid)).toBe(originalShortIds.get(id));
+    }
   });
 });

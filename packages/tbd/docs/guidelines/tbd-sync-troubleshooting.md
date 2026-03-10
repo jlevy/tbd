@@ -62,6 +62,62 @@ auto-saving, since the issue is likely temporary.
 3. Retry: `tbd sync`
 4. If persistent, manually save: `tbd save --workspace=offline-backup`
 
+### Bulk Trivial Changes in Outbox (Version/Timestamp Only)
+
+**Symptoms:**
+- Outbox contains hundreds or thousands of issues
+- `git diff` shows only `updated_at` and `version` changes, no real content changes
+- Sync commit shows thousands of files changed
+
+**Causes (fixed in v0.1.21+):**
+- The merge algorithm previously bumped `version` and `updated_at` on every merged
+  issue, even when the merge produced no substantive content change
+- The outbox save compared issues using full equality (including version/timestamp),
+  treating all merged issues as “modified”
+- When network was down, the outbox fallback saved ALL issues instead of using cached
+  remote state
+
+**What tbd now does:**
+- `mergeIssues()` detects no-op merges and skips the version/timestamp bump
+- `getUpdatedIssues()` ignores `version` and `updated_at` when filtering — only issues
+  with actual content changes (title, status, labels, description, etc.)
+  are saved
+- When fetch fails, the cached `origin/tbd-sync` ref is used for comparison instead of
+  falling back to saving all issues
+
+**If you encounter this with an older version:**
+1. Update tbd: `npm install -g get-tbd@latest`
+2. If you already have a large outbox, you can safely import it — the import will merge
+   using field-level LWW and the trivial changes will be harmless
+3. Run `tbd sync` to clear the outbox
+
+### Missing ID Mappings After Branch Merge
+
+**Symptoms:**
+- `tbd list` crashes with “No short ID mapping found for internal ID: is-...”
+- `tbd doctor` reports missing ID mappings
+- Happened after merging a feature branch into main
+
+**Causes:**
+- Git 3-way merge can delete `.tbd/workspaces/outbox/mappings/ids.yml` when merging a
+  feature branch back to main, because main has no outbox directory and the merge treats
+  “no file” as the correct state
+- This causes issues to exist without corresponding short ID mappings
+- See [#99](https://github.com/jlevy/tbd/issues/99) for full details
+
+**Prevention (v0.1.22+):**
+- `tbd setup` creates `.tbd/.gitattributes` with `merge=union` for all `ids.yml` files,
+  which prevents git from ever deleting rows during merge
+- The sync code includes `reconcileMappings()` which detects and repairs missing
+  mappings after merge, recovering original short IDs from git history when possible
+
+**If you encounter this:**
+1. Run `tbd doctor --fix` to detect and repair missing mappings
+2. The fix will attempt to recover original short IDs from git history
+3. If history is unavailable, new short IDs are generated
+4. Run `tbd setup --auto` to ensure `.tbd/.gitattributes` is in place for future
+   prevention
+
 ## Workspace Issues
 
 ### Don’t gitignore .tbd/workspaces/

@@ -34,7 +34,7 @@ A review of CLI outputs reveals **5 different heading patterns**:
 | Pattern | Example | Used In |
 | --- | --- | --- |
 | Box style | `=== HEADING ===` | prime (INSTALLATION, PROJECT STATUS), docs --all |
-| All caps | `HEADING` | doctor, status, setup (WHAT'S NEXT) |
+| All caps | `HEADING` | doctor, status, setup (WHAT’S NEXT) |
 | Title with colon | `Heading:` | docs --all sections, stats |
 | Markdown H2 | `## Heading` | prime skill content, prime --brief |
 | Process label | `Heading...` | setup progress |

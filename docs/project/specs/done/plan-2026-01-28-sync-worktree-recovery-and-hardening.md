@@ -149,10 +149,10 @@ from remote.
 | --- | --- | --- | --- | --- |
 | 1 | Path mismatch: dataSyncDir vs WORKTREE_DIR | sync.ts:57,273,427 | N/A (code fix) | N/A |
 | 2 | getSyncStatus checks gitignored path | sync.ts:140 | N/A (code fix) | N/A |
-| 3 | Silent fallback in resolveDataSyncDir | paths.ts:225-246 | "Worktree missing" | Create worktree |
-| 4 | No worktree health check before sync | sync.ts | "Worktree missing/prunable" | Repair worktree |
-| 5 | commitWorktreeChanges fails silently | sync.ts:300-306 | "Data in wrong location" | Migrate data |
-| 6 | Fresh clone doesn't pull from remote | sync.ts | "Worktree missing, remote exists" | Create from remote |
+| 3 | Silent fallback in resolveDataSyncDir | paths.ts:225-246 | “Worktree missing” | Create worktree |
+| 4 | No worktree health check before sync | sync.ts | “Worktree missing/prunable” | Repair worktree |
+| 5 | commitWorktreeChanges fails silently | sync.ts:300-306 | “Data in wrong location” | Migrate data |
+| 6 | Fresh clone doesn’t pull from remote | sync.ts | “Worktree missing, remote exists” | Create from remote |
 
 ### Failure Mode → Doctor Detection → Fix
 
@@ -658,7 +658,7 @@ All implementation work is tracked as tbd issues with proper dependencies.
 | tbd-ty40 | Doctor: Add local branch health check | open | tbd-wwb2 |
 | tbd-umee | Doctor: Add remote branch health check | open | tbd-9pw4 |
 | tbd-ft5u | Doctor: Add sync consistency check | open | tbd-sad6 |
-| tbd-xho7 | Doctor: Add 'local has data but remote empty' detection | open | tbd-nkkt |
+| tbd-xho7 | Doctor: Add ‘local has data but remote empty’ detection | open | tbd-nkkt |
 | tbd-6cok | Doctor: Add multi-user/clone scenario detection | open | tbd-nkkt |
 | tbd-vuk8 | Sync: Check worktree health before operations | open | tbd-uzdy |
 | tbd-3bs1 | Tests: Phase 1 detection and error reporting | open | tbd-vuk8 |
@@ -1103,10 +1103,10 @@ echo "=== All scenarios tested ==="
 | Scenario | Bug Tested | Expected Doctor Output | Expected Fix |
 | --- | --- | --- | --- |
 | 1. Fresh init | Happy path | No errors | N/A |
-| 2. Fresh clone | Bug 6 | "Worktree missing, remote exists" | Create from remote |
-| 3. Worktree deleted | Bugs 1-5 | "Worktree prunable" | Prune + recreate |
-| 4. Never initialized | Old version | "Worktree missing, issues in wrong location" | Create + migrate |
-| 5. Never pushed | Missing remote | "Remote branch missing" | Push on sync |
+| 2. Fresh clone | Bug 6 | “Worktree missing, remote exists” | Create from remote |
+| 3. Worktree deleted | Bugs 1-5 | “Worktree prunable” | Prune + recreate |
+| 4. Never initialized | Old version | “Worktree missing, issues in wrong location” | Create + migrate |
+| 5. Never pushed | Missing remote | “Remote branch missing” | Push on sync |
 
 This test should be added to CI and run after any changes to sync, paths, or worktree
 code.

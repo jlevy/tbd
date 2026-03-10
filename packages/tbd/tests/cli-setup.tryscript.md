@@ -43,8 +43,6 @@ Options:
   --json                        Output as JSON
   --color <when>                Colorize output: auto, always, never (default:
                                 "auto")
-  --non-interactive             Disable all prompts, fail if input required
-  --yes                         Assume yes to confirmation prompts
   --no-sync                     Skip automatic sync after write operations
   --debug                       Show internal IDs alongside public IDs for
                                 debugging
@@ -151,8 +149,6 @@ Global Options:
   --quiet               Suppress non-essential output
   --json                Output as JSON
   --color <when>        Colorize output: auto, always, never (default: "auto")
-  --non-interactive     Disable all prompts, fail if input required
-  --yes                 Assume yes to confirmation prompts
   --no-sync             Skip automatic sync after write operations
   --debug               Show internal IDs alongside public IDs for debugging
 

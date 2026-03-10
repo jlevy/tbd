@@ -5,7 +5,7 @@ author: Joshua Levy (github.com/jlevy) with LLM assistance
 ---
 # Bun Monorepo Patterns
 
-**Last Updated**: 2026-02-02
+**Last Updated**: 2026-02-18
 
 **Related**:
 
@@ -24,10 +24,13 @@ author: Joshua Levy (github.com/jlevy) with LLM assistance
 | Tool / Package | Version | Check For Updates |
 | --- | --- | --- |
 | **Bun** | 1.3.8 | [bun.sh/blog](https://bun.sh/blog) — Runtime, bundler, package manager, test runner. Acquired by Anthropic (Dec 2025). |
-| **TypeScript** | ^5.9.3 | [github.com/microsoft/TypeScript/releases](https://github.com/microsoft/TypeScript/releases) — 5.9.3 stable. TS 6.0 is "bridge" release; TS 7.0 (Go rewrite) in VS 2026 Insiders preview. |
-| **Bunup** | ^0.16.0 | [npmjs.com/package/bunup](https://www.npmjs.com/package/bunup) — Build tool for TS libs. Rapid iteration (0.16.20 latest). |
-| **Biome** | ^2.3.0 | [biomejs.dev](https://biomejs.dev/) — Formatter + linter. v2.0 added plugins and type-aware linting; 2.3.x is latest stable. |
-| **@changesets/cli** | ^2.29.0 | [github.com/changesets/changesets/releases](https://github.com/changesets/changesets/releases) — 2.29.8 latest. No native Bun support yet. |
+| **TypeScript** | ^5.9.3 | [github.com/microsoft/TypeScript/releases](https://github.com/microsoft/TypeScript/releases) — 5.9.3 stable. TS 6.0 is “bridge” release; TS 7.0 (Go rewrite) in VS 2026 Insiders preview. |
+| **Bunup** | ^0.16.22 | [npmjs.com/package/bunup](https://www.npmjs.com/package/bunup) — Build tool for TS libs. Rapid iteration (0.16.22 latest). |
+| **Biome** | ^2.3.14 | [biomejs.dev](https://biomejs.dev/) — Formatter + linter. v2.0 added plugins and type-aware linting; 2.3.14 is latest stable. |
+| **@changesets/cli** | ^2.29.8 | [github.com/changesets/changesets/releases](https://github.com/changesets/changesets/releases) — 2.29.8 latest. No native Bun support yet. |
+| **bun-types** | ^1.3.8 | [npmjs.com/package/bun-types](https://www.npmjs.com/package/bun-types) — Type definitions for Bun runtime APIs. |
+| **tryscript** | ^0.1.6 | [npmjs.com/package/tryscript](https://www.npmjs.com/package/tryscript) — Golden/CLI testing via Markdown test files. |
+| **flowmark** | latest | [github.com/jlevy/flowmark](https://github.com/jlevy/flowmark) — Markdown auto-formatter (via `uvx`). |
 | **publint** | ^0.3.17 | [npmjs.com/package/publint](https://www.npmjs.com/package/publint) — 0.3.17 latest |
 | **actions/checkout** | v6 | [github.com/actions/checkout/releases](https://github.com/actions/checkout/releases) |
 | **oven-sh/setup-bun** | v2 | [github.com/oven-sh/setup-bun](https://github.com/oven-sh/setup-bun) — Verified on GitHub Marketplace |
@@ -69,9 +72,9 @@ It serves as a direct comparison to the companion document on pnpm-based monorep
 covering the same architectural scope but using Bun-native tooling wherever possible.
 
 The recommended stack uses **Bun workspaces** for dependency management, **Bunup** for
-building ESM/CJS dual outputs with TypeScript declarations, **Changesets** (with Bun
-workarounds) for versioning and release automation, **Biome** for formatting and
-linting, **publint** for package validation, and **lefthook** for git hooks.
+building ESM (or dual ESM/CJS) outputs with TypeScript declarations, **Changesets**
+(with Bun workarounds) for versioning and release automation, **Biome** for formatting
+and linting, **publint** for package validation, and **lefthook** for git hooks.
 The architecture also covers Bun’s unique capability for **compiling standalone
 executables** — a native binary distribution path unavailable in the pnpm ecosystem.
 
@@ -281,6 +284,24 @@ primarily serves IDE support, type checking, and declaration generation.
 projects because Bunup’s DTS generation is dramatically faster when this is enabled (it
 avoids invoking the full TypeScript compiler).
 
+**Override at package level**: For packages with complex types that cannot satisfy
+isolated declaration emit, override to `false` at the package level while keeping `true`
+in the base config:
+
+```json
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "types": ["bun-types"],
+    "noEmit": true,
+    "isolatedDeclarations": false
+  },
+  "include": ["src", "tests", "*.config.ts"]
+}
+```
+
+This lets most packages benefit from fast DTS generation while allowing exceptions.
+
 **Assessment**: Nearly identical to the pnpm setup.
 The addition of `isolatedDeclarations` and `bun-types` are the only differences.
 Using `moduleResolution: "Bundler"` is appropriate since Bunup handles the final output.
@@ -425,6 +446,175 @@ The workspace mode provides monorepo-aware builds that tsdown does not offer nat
 - [Bunup Documentation](https://bunup.dev/)
 
 - [Building a TypeScript Library in 2026 with Bunup](https://dev.to/arshadyaseen/building-a-typescript-library-in-2026-with-bunup-3bmg)
+
+* * *
+
+#### ESM-Only Build Strategy
+
+**Status**: Recommended (when appropriate)
+
+**Details**:
+
+Not every package needs dual ESM/CJS output.
+For Bun-native CLI tools and packages targeting modern Node.js (>=22), ESM-only is
+simpler and avoids CJS compatibility concerns entirely.
+
+**When ESM-only is appropriate**:
+
+- CLI tools that run via `#!/usr/bin/env bun` or `#!/usr/bin/env node`
+- Libraries targeting only modern consumers (Node.js >=22, Bun, Deno)
+- Internal monorepo packages not published to npm
+
+**When you still need dual ESM/CJS**:
+
+- Libraries consumed by older Node.js versions or legacy bundlers
+- Packages that must work in CommonJS-only environments
+
+**ESM-only configuration** (`bunup.config.ts`):
+
+```typescript
+import { defineConfig } from 'bunup';
+
+export default defineConfig({
+  entry: ['src/index.ts'],
+  format: ['esm'],  // No CJS output
+  dts: true,
+  clean: true,
+  sourcemap: 'linked',
+});
+```
+
+**ESM-only exports** (`package.json`):
+
+```json
+{
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "bun": "./src/index.ts",
+      "import": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      }
+    },
+    "./package.json": "./package.json"
+  }
+}
+```
+
+Note: The legacy `"main"` and `"types"` fields still work for ESM-only packages and
+provide fallback resolution for older tooling.
+
+**Assessment**: ESM-only is the right default for new Bun-native projects.
+Only add CJS if you have specific consumers that require it.
+
+* * *
+
+#### Multi-Config Bunup (Array Pattern)
+
+**Status**: Recommended for CLI packages
+
+**Details**:
+
+For packages that produce both a library and a CLI binary, use `defineConfig([...])`
+with separate configurations.
+This provides fine-grained control over each output:
+
+```typescript
+import { defineConfig } from 'bunup';
+
+export default defineConfig([
+  // Library entry point — consumers import this
+  {
+    name: 'index',
+    entry: ['src/index.ts'],
+    format: ['esm'],
+    dts: true,
+    clean: true,
+    sourcemap: 'linked',
+    target: 'node',
+  },
+  // CLI binary — users run this directly
+  {
+    name: 'bin',
+    entry: ['src/bin.ts'],
+    format: ['esm'],
+    dts: false,        // No declarations for CLI entry
+    clean: false,      // Don't delete library output from first config
+    sourcemap: 'linked',
+    target: 'node',
+    banner: '#!/usr/bin/env bun',
+  },
+]);
+```
+
+**Key details**:
+
+- Set `clean: true` only on the first config — subsequent configs must use
+  `clean: false` to avoid deleting earlier outputs.
+- CLI binaries typically don’t need `dts` since they aren’t imported by consumers.
+- The `banner` field adds the shebang line for direct execution.
+
+**Assessment**: The array pattern is cleaner than a single config with multiple entries
+when the library and CLI have different build requirements (dts, format, banner, etc.).
+
+* * *
+
+#### Dependency Bundling for CLI Startup
+
+**Status**: Recommended for CLI tools
+
+**Details**:
+
+Bunup’s `noExternal` option can inline specific dependencies into the CLI binary,
+reducing startup time by eliminating require/import resolution at runtime:
+
+```typescript
+{
+  name: 'bin',
+  entry: ['src/bin.ts'],
+  format: ['esm'],
+  banner: '#!/usr/bin/env bun',
+  noExternal: ['picocolors'],  // Bundle into output for faster startup
+}
+```
+
+**When to bundle**:
+
+- Small, frequently-imported packages (e.g., `picocolors`, `kleur`)
+- Dependencies used on every CLI invocation (startup-path dependencies)
+- Dependencies with deep `node_modules` resolution chains
+
+**When NOT to bundle**:
+
+- Large dependencies (increases output size significantly)
+- Dependencies with native bindings
+- Dependencies shared with the library entry point (consumers may already have them)
+
+**Cross-platform considerations**: Some dependencies may trigger Bun bundler bugs on
+specific platforms. Use platform guards when needed:
+
+```typescript
+const isWindows = process.platform === 'win32';
+
+export default defineConfig([
+  {
+    name: 'bin',
+    entry: ['src/bin.ts'],
+    format: ['esm'],
+    banner: '#!/usr/bin/env bun',
+    // Skip bundling on Windows due to Bun bundler bug with Windows paths
+    // See: https://github.com/oven-sh/bun/issues/15007
+    noExternal: isWindows ? [] : ['picocolors'],
+  },
+]);
+```
+
+**Assessment**: Dependency bundling is a practical optimization for CLI tools.
+The cross-platform guard pattern ensures builds work everywhere even when Bun’s bundler
+has platform-specific issues.
 
 * * *
 
@@ -613,6 +803,10 @@ bunx changeset init
 }
 ```
 
+**Note**: For solo or small projects, `"changelog": "@changesets/cli/changelog"` is a
+simpler alternative that uses the built-in changelog generator without requiring the
+`@changesets/changelog-github` dependency.
+
 **Critical workaround scripts**:
 
 ```json
@@ -786,6 +980,71 @@ safer choice.
 
 * * *
 
+#### Golden/CLI Testing with tryscript
+
+**Status**: Recommended for CLI tools
+
+**Details**:
+
+For CLI tools, `bun test` covers unit tests but doesn’t validate end-to-end CLI behavior
+(argument parsing, output formatting, exit codes).
+Use [tryscript](https://github.com/jlevy/tryscript) for golden/snapshot testing of CLI
+output.
+
+**Setup**:
+
+```bash
+bun add -d tryscript
+```
+
+**Dual-test pattern** (`package.json`):
+
+```json
+{
+  "scripts": {
+    "test": "bun test && tryscript run tests/cli.tryscript.md",
+    "test:unit": "bun test",
+    "test:golden": "tryscript run tests/*.tryscript.md"
+  }
+}
+```
+
+This ensures `bun run test` runs both unit tests and golden tests.
+Developers can also run them separately during development.
+
+**Example golden test** (`tests/cli.tryscript.md`):
+
+````markdown
+# CLI Golden Tests
+
+## Help output
+
+```shell
+$ my-cli --help
+Usage: my-cli [options] [command]
+...
+```
+
+## Version output
+
+```shell
+$ my-cli --version
+0.1.0
+```
+````
+
+**Assessment**: Golden tests are especially valuable for CLI tools where output
+stability matters. They catch regressions in help text, formatting, and argument parsing
+that unit tests may miss.
+The `tryscript` tool uses Markdown files as test cases, making them easy to read and
+maintain.
+
+**References**:
+
+- [tryscript](https://github.com/jlevy/tryscript)
+
+* * *
+
 ### 9. Code Formatting & Linting
 
 #### Biome
@@ -826,15 +1085,29 @@ bun add -d @biomejs/biome
 
 ```json
 {
-  "$schema": "https://biomejs.dev/schemas/2.3.0/schema.json",
-  "organizeImports": {
-    "enabled": true
+  "$schema": "https://biomejs.dev/schemas/2.3.14/schema.json",
+  "vcs": {
+    "enabled": true,
+    "clientKind": "git",
+    "useIgnoreFile": true
   },
+  "files": {
+    "ignoreUnknown": true,
+    "includes": [
+      "**",
+      "!**/dist",
+      "!**/node_modules",
+      "!**/*.d.ts",
+      "!**/bun.lock"
+    ]
+  },
+  "assist": { "actions": { "source": { "organizeImports": "on" } } },
   "formatter": {
     "enabled": true,
     "indentStyle": "space",
     "indentWidth": 2,
-    "lineWidth": 100
+    "lineWidth": 100,
+    "lineEnding": "lf"
   },
   "linter": {
     "enabled": true,
@@ -849,15 +1122,26 @@ bun add -d @biomejs/biome
       },
       "style": {
         "useConst": "error",
-        "noNonNullAssertion": "warn"
+        "noNonNullAssertion": "warn",
+        "useImportType": "error"
       }
     }
-  },
-  "files": {
-    "ignore": ["dist", "node_modules", ".changeset"]
   }
 }
 ```
+
+**Key configuration notes**:
+
+- **VCS integration**:
+  `"vcs": { "enabled": true, "clientKind": "git", "useIgnoreFile": true }` tells Biome
+  to respect `.gitignore` for file exclusion, reducing config duplication.
+- **Import organization**: In Biome 2.x, the `"organizeImports"` top-level key is
+  deprecated. Use the new `"assist"` API:
+  `"assist": { "actions": { "source": { "organizeImports": "on" } } }`.
+- **`ignoreUnknown: true`**: Prevents Biome from erroring on file types it doesn’t
+  support (e.g., images, binaries).
+- **`useImportType: "error"`**: Enforces `import type` for type-only imports, aligning
+  with `verbatimModuleSyntax` in TypeScript.
 
 **Scripts**:
 
@@ -866,17 +1150,17 @@ bun add -d @biomejs/biome
   "scripts": {
     "format": "biome format --write .",
     "format:check": "biome format .",
-    "lint": "biome lint --write .",
-    "lint:check": "biome lint .",
+    "lint": "biome check --write . && bun run typecheck",
+    "lint:check": "biome check . && bun run typecheck",
     "check": "biome check --write .",
-    "check:ci": "biome check ."
+    "check:ci": "biome ci ."
   }
 }
 ```
 
-**Biome `check` vs separate commands**: `biome check` runs both formatting and linting
-in a single pass, which is faster than running them separately.
-Use `check` for local development and `check:ci` (without `--write`) for CI.
+**Biome `check` vs `ci`**: `biome check` runs formatting and linting in a single pass.
+Use `biome check --write .` for local development (auto-fixes issues) and `biome ci .`
+for CI (stricter: errors on any issue, cleaner output for CI logs).
 
 **Comparison with Prettier + ESLint**:
 
@@ -921,7 +1205,7 @@ approach (Biome + targeted Prettier/ESLint) is viable.
 
 **Status**: Recommended
 
-**`.github/workflows/ci.yml`**:
+**`.github/workflows/ci.yml`** (basic):
 
 ```yaml
 name: CI
@@ -948,6 +1232,61 @@ jobs:
       - run: bunx publint
       - run: bun test
 ```
+
+**Cross-platform CI with separate lint job** (recommended for CLI tools):
+
+```yaml
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: Test (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - run: bun install --frozen-lockfile
+      - run: bun run build
+      - run: bun run --filter '*' test
+
+  lint:
+    name: Lint & Typecheck
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - run: bun install --frozen-lockfile
+      - run: bun run check:ci
+      - run: bun run typecheck
+      - run: bun run build
+      - run: bun run publint
+```
+
+**`biome ci` vs `biome check`**: Use `biome ci .` (via `"check:ci": "biome ci ."`) in CI
+workflows instead of `biome check .`. The `biome ci` command is stricter — it errors on
+formatting issues rather than just reporting them, and produces cleaner output for CI
+logs. Use `biome check --write .` for local development (auto-fixes issues) and
+`biome ci .` in CI (fails on any issue).
 
 **Key differences from pnpm CI**:
 
@@ -1023,6 +1362,131 @@ Changesets workarounds, but functionally equivalent.
 
 * * *
 
+#### Alternative: Tag-Triggered OIDC Release Workflow
+
+**Status**: Recommended (alternative to Changesets Action)
+
+**Details**:
+
+Instead of using the `changesets/action` GitHub Action, an alternative approach uses git
+tags to trigger releases with npm provenance attestation via OIDC. This is simpler for
+projects that prefer manual version control and want provenance guarantees.
+
+**`.github/workflows/release.yml`**:
+
+```yaml
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+  id-token: write  # Required for npm provenance attestation
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      # Node.js still needed for npm provenance attestation
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          registry-url: 'https://registry.npmjs.org'
+
+      - run: bun install --frozen-lockfile
+
+      - run: bun run build
+
+      - run: bun run publint
+
+      - name: Publish to npm
+        run: bun run publish-packages
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          NPM_CONFIG_PROVENANCE: true
+
+      - name: Extract version from tag
+        id: version
+        run: echo "version=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+
+      - name: Extract release notes
+        id: changelog
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          PREV_TAG=$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || echo "")
+          CHANGELOG=$(awk "/^## ${VERSION//./\\.}/,/^## [0-9]/" packages/*/CHANGELOG.md 2>/dev/null | head -n -1 || true)
+          if [ -z "$CHANGELOG" ]; then
+            if [ -n "$PREV_TAG" ]; then
+              CHANGELOG="See [full commit history](https://github.com/${{ github.repository }}/compare/${PREV_TAG}...v${VERSION}) for details."
+            else
+              CHANGELOG="Release v${VERSION}"
+            fi
+          fi
+          echo "body<<EOF" >> $GITHUB_OUTPUT
+          echo "$CHANGELOG" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          body: ${{ steps.changelog.outputs.body }}
+          prerelease: ${{ contains(steps.version.outputs.version, '-') }}
+```
+
+**Release process with tag-triggered workflow**:
+
+1. `bun run changeset` — create changeset
+2. Commit the changeset file
+3. `bun run changeset version` — bumps versions, updates CHANGELOG
+4. Commit the version bump
+5. `git tag vX.X.X && git push --tags` — triggers the release workflow
+
+**Key advantages over Changesets Action**:
+
+- **npm provenance**: OIDC-based attestation proves packages were published from CI, not
+  a developer machine
+- **GitHub Releases**: Automatically creates a GitHub Release with extracted CHANGELOG
+  notes
+- **Pre-release detection**: Versions containing `-` (e.g., `1.0.0-beta.1`) are
+  automatically marked as pre-releases
+- **Manual control**: The developer decides exactly when to publish by creating a tag
+
+**Key requirements**:
+
+- `id-token: write` permission is required for npm provenance
+- Node.js setup is still needed because npm provenance attestation uses Node.js
+  internally
+- `NPM_TOKEN` secret must be configured in the repository
+- `NPM_CONFIG_PROVENANCE: true` enables provenance attestation
+
+**Comparison with Changesets Action**:
+
+| Aspect | Changesets Action | Tag-Triggered OIDC |
+| --- | --- | --- |
+| Trigger | Push to main | Push of `v*` tag |
+| PR creation | Automatic “Version Packages” PR | Manual |
+| npm provenance | Not built-in | Built-in via OIDC |
+| GitHub Release | Not built-in | Automatic |
+| Control | More automated | More manual |
+| Complexity | Simpler workflow file | More steps but more features |
+
+**Assessment**: Tag-triggered OIDC releases are recommended for projects that want npm
+provenance attestation, automatic GitHub Releases, and manual control over release
+timing. The Changesets Action remains simpler for projects that prefer full automation.
+
+* * *
+
 ### 11. Git Hooks & Local Validation
 
 #### Lefthook with Biome
@@ -1052,6 +1516,16 @@ pre-commit:
     check:
       glob: '*.{js,ts,tsx,json}'
       run: bunx biome check --write {staged_files}
+      stage_fixed: true
+      priority: 1
+
+    # Format markdown with flowmark (~500ms)
+    # Biome does not format Markdown, so flowmark fills this gap
+    # Excludes auto-generated files
+    format-md:
+      glob: '*.md'
+      exclude: '(\.tbd/|\.claude/skills/|AGENTS\.md)'
+      run: uvx flowmark@latest --auto {staged_files}
       stage_fixed: true
       priority: 1
 
@@ -1091,8 +1565,16 @@ pre-push:
 **Key advantage**: Using `biome check` in pre-commit combines formatting and linting
 into a single command, reducing hook complexity from 2–3 commands to 1.
 
+**Markdown formatting**: Since Biome does not format Markdown, use
+[flowmark](https://github.com/jlevy/flowmark) (`uvx flowmark@latest --auto`) in a
+separate pre-commit command.
+The `exclude` pattern prevents reformatting auto-generated files.
+flowmark requires Python (via `uvx`), which is available on most development machines.
+
 **Assessment**: Simpler and faster hooks than the pnpm equivalent thanks to Biome’s
 unified check command.
+The addition of flowmark provides consistent Markdown formatting that Biome cannot
+offer.
 
 * * *
 
@@ -1361,8 +1843,8 @@ in core library code if the library needs to work in Node.js environments.
 3. **Use Bunup’s auto-exports** (`exports: true`) to keep `package.json` exports
    synchronized with build output.
 
-4. **Use Biome for formatting + linting** via a single `biome.json`. Use `biome check`
-   for combined format + lint in one pass.
+4. **Use Biome for formatting + linting** via a single `biome.json`. Use
+   `biome check --write` locally and `biome ci` in CI for stricter checks.
 
 5. **Add `bun update` after `changeset version`** to fix workspace reference resolution
    in the lockfile.
@@ -1395,6 +1877,21 @@ in core library code if the library needs to work in Node.js environments.
 
 15. **Use dynamic git-based versioning** for dev builds — the pattern works identically
     with Bun, and `bun` replaces `tsx` for script execution.
+
+16. **Use `biome ci`** in CI workflows instead of `biome check` — it’s stricter and
+    produces cleaner output for CI logs.
+
+17. **Consider ESM-only output** for Bun-native CLI tools and packages targeting modern
+    Node.js (>=22). Only add CJS if specific consumers require it.
+
+18. **Use flowmark** for Markdown formatting in pre-commit hooks — Biome does not format
+    Markdown, and consistent Markdown formatting improves documentation quality.
+
+19. **Add golden/CLI tests** with `tryscript` alongside `bun test` for CLI tools — they
+    catch regressions in help text, output formatting, and argument parsing.
+
+20. **Consider tag-triggered OIDC releases** as an alternative to the Changesets GitHub
+    Action — they provide npm provenance attestation and automatic GitHub Releases.
 
 * * *
 
@@ -1492,7 +1989,7 @@ testing features.
 
 1. **Initialize workspace** with Bun and packages in `packages/`
 
-2. **Configure Bunup** for dual ESM/CJS output with auto-exports
+2. **Configure Bunup** for ESM (or dual ESM/CJS) output with auto-exports
 
 3. **Enable `isolatedDeclarations`** in TypeScript config
 
@@ -1576,6 +2073,56 @@ testing features.
 
 ### Appendix A: Complete Package package.json Example
 
+**ESM-only** (recommended for Bun-native CLI tools and modern packages):
+
+```json
+{
+  "name": "get-package-name",
+  "version": "0.1.0",
+  "description": "Package description",
+  "license": "MIT",
+  "type": "module",
+  "sideEffects": false,
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "bun": "./src/index.ts",
+      "import": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      }
+    },
+    "./package.json": "./package.json"
+  },
+  "bin": {
+    "package-name": "./dist/bin.js"
+  },
+  "files": ["dist"],
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "prebuild": "cp ../../README.md ./README.md",
+    "build": "bunup",
+    "dev": "bun --watch src/bin.ts",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "bun test",
+    "publint": "publint",
+    "prepack": "bun run build"
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "bun-types": "^1.3.8",
+    "bunup": "^0.16.22",
+    "publint": "^0.3.17",
+    "typescript": "^5.9.3"
+  }
+}
+```
+
+**Dual ESM/CJS** (for libraries that must support older Node.js or CJS consumers):
+
 ```json
 {
   "name": "@scope/package-name",
@@ -1599,17 +2146,6 @@ testing features.
         "default": "./dist/index.cjs"
       }
     },
-    "./cli": {
-      "bun": "./src/cli/index.ts",
-      "import": {
-        "types": "./dist/cli.d.ts",
-        "default": "./dist/cli.js"
-      },
-      "require": {
-        "types": "./dist/cli.d.cts",
-        "default": "./dist/cli.cjs"
-      }
-    },
     "./package.json": "./package.json"
   },
   "bin": {
@@ -1621,7 +2157,7 @@ testing features.
     "dev": "bunup --watch",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "bun test",
-    "publint": "bunx publint",
+    "publint": "publint",
     "prepack": "bun run build"
   },
   "dependencies": {},
@@ -1632,9 +2168,10 @@ testing features.
     "optional-sdk": { "optional": true }
   },
   "devDependencies": {
-    "bun-types": "latest",
-    "bunup": "^0.16.0",
-    "typescript": "^5.9.0"
+    "bun-types": "^1.3.8",
+    "bunup": "^0.16.22",
+    "publint": "^0.3.17",
+    "typescript": "^5.9.3"
   }
 }
 ```
@@ -1645,48 +2182,75 @@ testing features.
 {
   "name": "project-workspace",
   "private": true,
+  "type": "module",
   "workspaces": [
     "packages/*"
   ],
+  "engines": {
+    "node": ">=22"
+  },
   "scripts": {
-    "build": "bunup",
-    "typecheck": "tsc -b",
-    "test": "bun test",
-    "publint": "bunx publint",
+    "prepare": "lefthook install",
+    "build": "bun run --filter '*' build",
+    "typecheck": "bun run --filter '*' typecheck",
+    "test": "bun run --filter '*' test",
+    "publint": "bun run --filter '*' publint",
     "format": "biome format --write .",
     "format:check": "biome format .",
-    "lint": "biome lint --write .",
-    "lint:check": "biome lint .",
+    "lint": "biome check --write . && bun run typecheck",
+    "lint:check": "biome check . && bun run typecheck",
     "check": "biome check --write .",
-    "check:ci": "biome check .",
-    "prepare": "lefthook install",
+    "check:ci": "biome ci .",
     "changeset": "changeset",
     "version-packages": "changeset version && bun update",
-    "release": "bun run build && bunx publint && bun run publish-packages",
+    "release": "bun run build && bun run publint && bun run publish-packages",
     "publish-packages": "for dir in packages/*; do (cd \"$dir\" && bun publish || true); done && changeset tag",
     "upgrade:check": "bunx npm-check-updates --format group",
-    "upgrade": "bunx npm-check-updates --target minor -u && bun install && bun test",
+    "upgrade": "bunx npm-check-updates --target minor -u && bun install && bun run test",
     "upgrade:major": "bunx npm-check-updates --target latest --interactive --format group"
   },
   "devDependencies": {
-    "@biomejs/biome": "^2.3.0",
-    "@changesets/cli": "^2.29.0",
-    "@changesets/changelog-github": "^0.5.0",
-    "lefthook": "^2.0.0",
-    "publint": "^0.3.0",
-    "typescript": "^5.9.0"
+    "@biomejs/biome": "^2.3.14",
+    "@changesets/cli": "^2.29.8",
+    "lefthook": "^2.0.15",
+    "npm-check-updates": "^19.0.0",
+    "typescript": "^5.9.3"
   }
 }
 ```
+
+**Notes**:
+
+- `"check:ci": "biome ci ."` uses `biome ci` (stricter than `biome check` — errors on
+  formatting issues)
+- `bun run --filter '*' <script>` delegates to each workspace package
+- The `@changesets/changelog-github` dependency is optional — use
+  `"changelog": "@changesets/cli/changelog"` in `.changeset/config.json` for a simpler
+  built-in changelog generator
 
 ### Appendix C: Complete biome.json Example
 
 ```json
 {
-  "$schema": "https://biomejs.dev/schemas/2.3.0/schema.json",
-  "organizeImports": {
-    "enabled": true
+  "$schema": "https://biomejs.dev/schemas/2.3.14/schema.json",
+  "vcs": {
+    "enabled": true,
+    "clientKind": "git",
+    "useIgnoreFile": true
   },
+  "files": {
+    "ignoreUnknown": true,
+    "includes": [
+      "**",
+      "!**/dist",
+      "!**/node_modules",
+      "!**/*.d.ts",
+      "!**/*.d.mts",
+      "!**/bun.lock",
+      "!**/.tbd"
+    ]
+  },
+  "assist": { "actions": { "source": { "organizeImports": "on" } } },
   "formatter": {
     "enabled": true,
     "indentStyle": "space",
@@ -1730,7 +2294,7 @@ testing features.
   },
   "overrides": [
     {
-      "include": ["**/*.test.ts", "**/*.spec.ts", "**/tests/**/*.ts"],
+      "includes": ["**/*.test.ts", "**/*.spec.ts", "**/tests/**/*.ts"],
       "linter": {
         "rules": {
           "suspicious": {
@@ -1740,7 +2304,7 @@ testing features.
       }
     },
     {
-      "include": ["**/scripts/**/*.ts"],
+      "includes": ["**/scripts/**/*.ts"],
       "linter": {
         "rules": {
           "suspicious": {
@@ -1749,18 +2313,18 @@ testing features.
         }
       }
     }
-  ],
-  "files": {
-    "ignore": [
-      "dist",
-      "node_modules",
-      ".changeset",
-      "bun.lock",
-      "coverage"
-    ]
-  }
+  ]
 }
 ```
+
+**Key changes from Biome 1.x to 2.x**:
+
+- `"organizeImports": { "enabled": true }` →
+  `"assist": { "actions": { "source": { "organizeImports": "on" } } }`
+- `"vcs"` configuration is new — enables `.gitignore`-based file exclusion
+- `"files.ignoreUnknown": true` prevents errors on unsupported file types
+- `"files.includes"` with negation patterns replaces the old `"files.ignore"` array
+  (both still work, but `includes` with negation is more flexible)
 
 ### Appendix D: Complete bunup.config.ts Example
 
@@ -1804,7 +2368,41 @@ export default defineWorkspace([
 ]);
 ```
 
-**Single-package config** (`packages/core/bunup.config.ts`):
+**Single-package config with multi-config array** (`packages/cli/bunup.config.ts`):
+
+```typescript
+import { defineConfig } from 'bunup';
+
+// Platform guard for cross-platform bundler workarounds
+const isWindows = process.platform === 'win32';
+
+export default defineConfig([
+  // Library entry point
+  {
+    name: 'index',
+    entry: ['src/index.ts'],
+    format: ['esm'],
+    dts: true,
+    clean: true,
+    sourcemap: 'linked',
+    target: 'node',
+  },
+  // CLI binary - separate config for different build requirements
+  {
+    name: 'bin',
+    entry: ['src/bin.ts'],
+    format: ['esm'],
+    dts: false,
+    clean: false,       // Don't delete library output
+    sourcemap: 'linked',
+    target: 'node',
+    banner: '#!/usr/bin/env bun',
+    noExternal: isWindows ? [] : ['picocolors'],  // Bundle for startup speed
+  },
+]);
+```
+
+**Simple single-package config** (`packages/core/bunup.config.ts`):
 
 ```typescript
 import { defineConfig } from 'bunup';
@@ -1831,7 +2429,7 @@ export default defineConfig({
 ```yaml
 # lefthook.yml
 # Git hooks for code quality (Bun + Biome edition)
-# Pre-commit: Fast checks with auto-fix (target: <1 second)
+# Pre-commit: Fast checks with auto-fix (target: 2-5 seconds)
 # Pre-push: Full test validation with caching
 
 pre-commit:
@@ -1840,28 +2438,46 @@ pre-commit:
   commands:
     # Format + lint with Biome (~200ms for staged files)
     check:
-      glob: '*.{js,ts,tsx,json,css}'
+      glob: '*.{js,ts,tsx,json}'
       run: bunx biome check --write {staged_files}
+      stage_fixed: true
+      priority: 1
+
+    # Format markdown with flowmark (~500ms)
+    # Biome does not format Markdown, so flowmark fills this gap
+    # Excludes auto-generated files (.tbd/, .claude/skills/, AGENTS.md)
+    format-md:
+      glob: '*.md'
+      exclude: '(\.tbd/|\.claude/skills/|AGENTS\.md)'
+      run: uvx flowmark@latest --auto {staged_files}
       stage_fixed: true
       priority: 1
 
     # Type check with incremental mode (~2s)
     typecheck:
       glob: '*.{ts,tsx}'
-      run: bunx tsc --noEmit --incremental
+      run: bun run typecheck
       priority: 2
 
 pre-push:
+  parallel: true
+
   commands:
-    verify-tests:
+    # Build packages
+    build:
+      run: bun run build
+      priority: 1
+
+    # Tests with caching - skip if already passed for this commit
+    test:
       run: |
         COMMIT_HASH=$(git rev-parse HEAD)
         CACHE_DIR="node_modules/.test-cache"
         CACHE_FILE="$CACHE_DIR/$COMMIT_HASH"
 
-        # Check for uncommitted changes
+        # Check for uncommitted changes - always run tests
         if ! git diff --quiet || ! git diff --cached --quiet; then
-          bun test
+          bun run test
           exit $?
         fi
 
@@ -1873,7 +2489,7 @@ pre-push:
         fi
 
         # Run tests
-        bun test
+        bun run test
 
         # Cache on success
         if [ $? -eq 0 ]; then
@@ -1885,6 +2501,7 @@ pre-push:
           echo "Bypass with: git push --no-verify"
           exit 1
         fi
+      priority: 2
 ```
 
 ### Appendix F: Standalone Executable Build Example
@@ -2094,3 +2711,122 @@ Key takeaways:
 The source-level exports pattern and TypeScript build scripts are directly applicable.
 The hybrid esbuild/Vite approach is more relevant for Electron/full-stack apps than for
 pure library packages where Bunup would be simpler.
+
+### Appendix H: Case Study — clam (Published Bun CLI Monorepo)
+
+**Repository**: [jlevy/clam](https://github.com/jlevy/clam) (MIT, shell-like interface
+for Claude Code and other agents)
+
+This appendix documents a real-world, published Bun monorepo that closely follows the
+patterns in this guide.
+Unlike Appendix G (craft-agents-oss, a private Electron app), clam is a public npm
+package that exercises the full publishing pipeline.
+
+#### Structure Overview
+
+```
+clam/
+├── .changeset/
+│   └── config.json          # Changesets with @changesets/cli/changelog
+├── .github/
+│   └── workflows/
+│       ├── ci.yml            # 3-OS matrix + separate lint job
+│       └── release.yml       # Tag-triggered OIDC release
+├── packages/
+│   └── clam/
+│       ├── src/
+│       │   ├── bin.ts        # CLI entry point
+│       │   ├── index.ts      # Library barrel exports
+│       │   └── lib/          # Core modules (co-located *.test.ts)
+│       ├── tests/
+│       │   └── cli.tryscript.md  # Golden CLI tests
+│       ├── bunup.config.ts   # Multi-config: library + CLI binary
+│       ├── package.json      # ESM-only, "bun" export condition
+│       └── tsconfig.json     # extends base, bun-types, isolatedDeclarations: false
+├── biome.json                # VCS integration, assist API, ignoreUnknown
+├── bun.lock                  # Text JSONC lockfile
+├── lefthook.yml              # Biome + flowmark pre-commit, cached tests pre-push
+├── package.json              # Root workspace config
+└── tsconfig.base.json        # ES2024, strict, isolatedDeclarations: true
+```
+
+#### Key Patterns Demonstrated
+
+**1. ESM-Only Build with Multi-Config Bunup**
+
+```typescript
+// bunup.config.ts
+export default defineConfig([
+  {
+    name: 'index',
+    entry: ['src/index.ts'],
+    format: ['esm'],
+    dts: true,
+    clean: true,
+    sourcemap: 'linked',
+    target: 'node',
+  },
+  {
+    name: 'bin',
+    entry: ['src/bin.ts'],
+    format: ['esm'],
+    dts: false,
+    clean: false,
+    sourcemap: 'linked',
+    target: 'node',
+    banner: '#!/usr/bin/env bun',
+    noExternal: isWindows ? [] : ['picocolors'],
+  },
+]);
+```
+
+Separate configs for library (with DTS) and CLI binary (with shebang, dependency
+bundling, no DTS). ESM-only output — no CJS.
+
+**2. Tag-Triggered OIDC Release with npm Provenance**
+
+Release workflow triggers on `v*` tags with `id-token: write` permission.
+Uses `NPM_CONFIG_PROVENANCE: true` for npm provenance attestation.
+Automatically creates GitHub Releases with CHANGELOG extraction via
+`softprops/action-gh-release@v2`.
+
+**3. Cross-Platform CI Matrix**
+
+Tests run on ubuntu, macos, and windows with `fail-fast: false`. Linting, type checking,
+and publint run in a separate ubuntu-only job for efficiency.
+
+**4. Dual Testing Strategy**
+
+Unit tests with `bun test` (co-located `*.test.ts` files) plus golden CLI tests with
+`tryscript` (Markdown-based test files in `tests/`). Combined via:
+`"test": "bun test && tryscript run tests/cli.tryscript.md"`.
+
+**5. Biome with VCS Integration**
+
+Uses `"vcs": { "enabled": true, "clientKind": "git", "useIgnoreFile": true }` and the
+new Biome 2.x `"assist"` API for import organization.
+`"check:ci": "biome ci ."` for strict CI checks.
+
+**6. Intentional `isolatedDeclarations: false` at Package Level**
+
+The base config enables `isolatedDeclarations: true` (as recommended), but the package
+overrides it to `false` because its types are complex enough to require the full
+TypeScript compiler for DTS generation.
+This is a valid pattern — enable in the base, override in packages that need it.
+
+#### What This Repo Uses
+
+| Area | Choice |
+| --- | --- |
+| Package manager | Bun workspaces |
+| Build | Bunup `^0.16.22` (multi-config array) |
+| Output format | ESM-only |
+| TypeScript | `^5.9.3`, ES2024, Bundler resolution |
+| Linting | Biome `^2.3.14` |
+| Markdown formatting | flowmark (via `uvx`) |
+| Testing | bun test + tryscript (golden) |
+| Git hooks | lefthook `^1.11.13` |
+| Versioning | Changesets `^2.29.8` |
+| CI | 3-OS matrix + separate lint job |
+| Release | Tag-triggered OIDC with npm provenance |
+| Package validation | publint `^0.3.17` |

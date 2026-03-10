@@ -34,10 +34,10 @@ src/myproject/
 ### Agent & CI Compatibility
 
 Support automation with explicit flags:
-- `--non-interactive`: Disable prompts, fail if input required
-- `--yes` / `-y`: Assume yes to confirmations
 - `--format text|json|jsonl`: Output format
 - `--no-progress`: Disable spinners (critical for AI agents)
+- `--non-interactive`: Disable prompts (only if the CLI has interactive prompts)
+- `--yes` / `-y`: Assume yes to confirmations (only if the CLI has confirmations)
 
 Respect environment variables:
 - `CI`: Set by GitHub Actions, GitLab CI, etc.

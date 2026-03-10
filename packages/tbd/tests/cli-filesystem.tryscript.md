@@ -58,9 +58,9 @@ config exists
 
 ```console
 $ grep -E "^(sync|display|tbd_version):" .tbd/config.yml
+tbd_version: [..]
 display:
 sync:
-tbd_version: [..]
 ? 0
 ```
 
@@ -88,22 +88,22 @@ $ ls .tbd/data-sync-worktree/.tbd/data-sync/issues/*.md 2>/dev/null | wc -l | tr
 
 # Test: Issue file has correct format (YAML frontmatter + markdown)
 
-Issue files have YAML frontmatter with keys in alphabetical order.
+Issue files have YAML frontmatter with keys in canonical field order.
 
 ```console
 $ cat .tbd/data-sync-worktree/.tbd/data-sync/issues/*.md | head -15
 ---
-created_at: [TIMESTAMP]
-dependencies: []
-id: is-[ULID]
-kind: task
-labels: []
-priority: 2
-status: open
-title: Test issue for location
 type: is
-updated_at: [TIMESTAMP]
+id: is-[ULID]
+title: Test issue for location
+kind: task
+status: open
+priority: 2
 version: 1
+labels: []
+dependencies: []
+created_at: [TIMESTAMP]
+updated_at: [TIMESTAMP]
 ---
 ? 0
 ```

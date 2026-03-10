@@ -57,7 +57,7 @@ Each output level has a specific icon, color, prefix format, and channel:
 | Level | Icon | Color | Prefix | Channel | Purpose |
 | --- | --- | --- | --- | --- | --- |
 | **error** | `✗` | Red | `✗ {message}` | stderr | Failures that stop operation |
-| **warning** | `⚠` | Yellow | `⚠ {message}` | stderr | Issues that didn't stop operation |
+| **warning** | `⚠` | Yellow | `⚠ {message}` | stderr | Issues that didn’t stop operation |
 | **notice** | `•` | Blue | `• {message}` | stdout | Noteworthy events during normal operation |
 | **success** | `✓` | Green | `✓ {message}` | stdout | Confirmation of completed actions |
 | **info** | (none) | Dim | `{message}` | stderr | Operational progress (verbose only) |
@@ -1543,7 +1543,6 @@ export interface CommandContext {
   quiet: boolean;
   json: boolean;
   color: ColorOption;
-  nonInteractive: boolean;
   debug: boolean;
 }
 ```
