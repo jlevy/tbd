@@ -1,19 +1,19 @@
 ---
-close_reason: Completed in cf08856 - copy-docs.mjs now uses atomicCopy with atomically library
-closed_at: 2026-01-19T08:21:32.828Z
-created_at: 2026-01-18T03:18:49.128Z
-dependencies:
-  - target: is-01kf7hszjstaa0cn5jsnzskr75
-    type: blocks
-id: is-01kf7hsjh9n11zpty12bnn6nqg
-kind: task
-labels: []
-priority: 2
-status: closed
-title: Audit and fix copy file operations to use atomic writes
 type: is
-updated_at: 2026-01-19T08:21:32.829Z
-version: 4
+id: is-01kf7hsjh9n11zpty12bnn6nqg
+title: Audit and fix copy file operations to use atomic writes
+kind: task
+status: closed
+priority: 2
+version: 9
+labels: []
+dependencies:
+  - type: blocks
+    target: is-01kf7hszjstaa0cn5jsnzskr75
+created_at: 2026-01-18T03:18:49.128Z
+updated_at: 2026-03-09T16:12:31.437Z
+closed_at: 2026-01-19T08:21:32.828Z
+close_reason: Completed in cf08856 - copy-docs.mjs now uses atomicCopy with atomically library
 ---
 Audit all file copy operations in the codebase and ensure they use atomic writes.
 

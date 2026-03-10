@@ -1,19 +1,19 @@
 ---
-close_reason: Implemented showGitLogDebug helper in sync.ts - shows git log --stat after push/pull in debug mode
-closed_at: 2026-01-18T05:46:15.152Z
-created_at: 2026-01-18T04:08:42.397Z
-dependencies:
-  - target: is-01kf7mmy2wq0qgmaxj55vtsvsc
-    type: blocks
-id: is-01kf7mmxmyeqnj7c2287b84b2b
-kind: task
-labels: []
-priority: 2
-status: closed
-title: Debug mode git log output
 type: is
-updated_at: 2026-01-18T05:46:15.153Z
-version: 5
+id: is-01kf7mmxmyeqnj7c2287b84b2b
+title: Debug mode git log output
+kind: task
+status: closed
+priority: 2
+version: 10
+labels: []
+dependencies:
+  - type: blocks
+    target: is-01kf7mmy2wq0qgmaxj55vtsvsc
+created_at: 2026-01-18T04:08:42.397Z
+updated_at: 2026-03-09T16:12:31.612Z
+closed_at: 2026-01-18T05:46:15.152Z
+close_reason: Implemented showGitLogDebug helper in sync.ts - shows git log --stat after push/pull in debug mode
 ---
 Show git log --stat in debug mode after sync:
 - After push: git log --stat origin/tbd-sync@{1}..origin/tbd-sync

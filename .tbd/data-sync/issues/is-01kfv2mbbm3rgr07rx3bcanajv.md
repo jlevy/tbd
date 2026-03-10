@@ -1,18 +1,18 @@
 ---
-close_reason: null
-closed_at: 2026-01-25T17:26:43.393Z
-created_at: 2026-01-25T17:18:37.939Z
-dependencies: []
-id: is-01kfv2mbbm3rgr07rx3bcanajv
-kind: task
-labels: []
-parent_id: is-01kfv2he1c3hct3c07gv0edh90
-priority: 2
-status: closed
-title: End-to-end integration test for gitignore-utils
 type: is
-updated_at: 2026-01-25T17:26:43.394Z
-version: 2
+id: is-01kfv2mbbm3rgr07rx3bcanajv
+title: End-to-end integration test for gitignore-utils
+kind: task
+status: closed
+priority: 2
+version: 7
+labels: []
+dependencies: []
+parent_id: is-01kfv2he1c3hct3c07gv0edh90
+created_at: 2026-01-25T17:18:37.939Z
+updated_at: 2026-03-09T16:12:32.872Z
+closed_at: 2026-01-25T17:26:43.393Z
+close_reason: null
 ---
 Create end-to-end integration test that validates the full workflow.
 

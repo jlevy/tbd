@@ -1,20 +1,20 @@
 ---
-close_reason: null
-closed_at: 2026-01-25T17:26:43.151Z
-created_at: 2026-01-25T17:18:17.145Z
-dependencies:
-  - target: is-01kfv2mbbm3rgr07rx3bcanajv
-    type: blocks
-id: is-01kfv2kq1tptewzzk901njccnj
-kind: task
-labels: []
-parent_id: is-01kfv2he1c3hct3c07gv0edh90
-priority: 2
-status: closed
-title: Unit tests for hasGitignorePattern()
 type: is
-updated_at: 2026-01-25T17:26:43.152Z
-version: 3
+id: is-01kfv2kq1tptewzzk901njccnj
+title: Unit tests for hasGitignorePattern()
+kind: task
+status: closed
+priority: 2
+version: 8
+labels: []
+dependencies:
+  - type: blocks
+    target: is-01kfv2mbbm3rgr07rx3bcanajv
+parent_id: is-01kfv2he1c3hct3c07gv0edh90
+created_at: 2026-01-25T17:18:17.145Z
+updated_at: 2026-03-09T16:12:32.861Z
+closed_at: 2026-01-25T17:26:43.151Z
+close_reason: null
 ---
 Create comprehensive unit tests for the hasGitignorePattern() detection function.
 

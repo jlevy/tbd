@@ -1,15 +1,15 @@
 ---
-created_at: 2026-01-26T17:48:14.591Z
-dependencies: []
-id: is-01kfxpq9c0j5wdsqy6vsqc3d1g
-kind: epic
-labels: []
-priority: 2
-status: open
-title: "CLI output consistency: stats formatting and status icons"
 type: is
-updated_at: 2026-01-26T17:48:14.591Z
-version: 1
+id: is-01kfxpq9c0j5wdsqy6vsqc3d1g
+title: "CLI output consistency: stats formatting and status icons"
+kind: epic
+status: open
+priority: 2
+version: 6
+labels: []
+dependencies: []
+created_at: 2026-01-26T17:48:14.591Z
+updated_at: 2026-03-09T16:12:33.001Z
 ---
 Improve CLI output consistency for stats command and status icon usage across all commands.
 

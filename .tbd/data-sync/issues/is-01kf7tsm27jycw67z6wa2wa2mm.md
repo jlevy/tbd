@@ -1,17 +1,17 @@
 ---
-close_reason: "Fixed: listIssues() now uses Promise.all() for parallel file reading. Saves ~35ms on list operations with 300+ issues."
-closed_at: 2026-01-18T06:12:34.938Z
-created_at: 2026-01-18T05:56:07.878Z
-dependencies: []
-id: is-01kf7tsm27jycw67z6wa2wa2mm
-kind: task
-labels: []
-priority: 2
-status: closed
-title: Parallelize file reading in listIssues() for faster list command
 type: is
-updated_at: 2026-01-18T06:12:34.939Z
-version: 3
+id: is-01kf7tsm27jycw67z6wa2wa2mm
+title: Parallelize file reading in listIssues() for faster list command
+kind: task
+status: closed
+priority: 2
+version: 8
+labels: []
+dependencies: []
+created_at: 2026-01-18T05:56:07.878Z
+updated_at: 2026-03-09T16:12:31.748Z
+closed_at: 2026-01-18T06:12:34.938Z
+close_reason: "Fixed: listIssues() now uses Promise.all() for parallel file reading. Saves ~35ms on list operations with 300+ issues."
 ---
 ## Problem
 

@@ -1,19 +1,19 @@
 ---
-close_reason: Created lib/truncate.ts with ELLIPSIS constant, truncate() with word boundary support, and truncateMiddle() for paths/IDs. Added comprehensive unit tests.
-closed_at: 2026-01-18T04:20:31.225Z
-created_at: 2026-01-18T04:08:09.869Z
-dependencies:
-  - target: is-01kf7mmaqg5nsqjkh5phewrt5h
-    type: blocks
-id: is-01kf7mkxwe99jncy8j5zpt3ssf
-kind: task
-labels: []
-priority: 2
-status: closed
-title: Create truncation utility
 type: is
-updated_at: 2026-01-18T04:20:31.226Z
-version: 4
+id: is-01kf7mkxwe99jncy8j5zpt3ssf
+title: Create truncation utility
+kind: task
+status: closed
+priority: 2
+version: 9
+labels: []
+dependencies:
+  - type: blocks
+    target: is-01kf7mmaqg5nsqjkh5phewrt5h
+created_at: 2026-01-18T04:08:09.869Z
+updated_at: 2026-03-09T16:12:31.574Z
+closed_at: 2026-01-18T04:20:31.225Z
+close_reason: Created lib/truncate.ts with ELLIPSIS constant, truncate() with word boundary support, and truncateMiddle() for paths/IDs. Added comprehensive unit tests.
 ---
 Create lib/truncate.ts with:
 - ELLIPSIS constant (… U+2026) - never use '...'

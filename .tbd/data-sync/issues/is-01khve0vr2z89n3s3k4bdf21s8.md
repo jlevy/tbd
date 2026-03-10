@@ -5,11 +5,11 @@ title: Update tests referencing --non-interactive/--yes
 kind: task
 status: closed
 priority: 2
-version: 2
+version: 7
 labels: []
 dependencies: []
 created_at: 2026-02-19T17:09:05.921Z
-updated_at: 2026-02-19T17:13:21.816Z
+updated_at: 2026-03-09T16:12:34.618Z
 closed_at: 2026-02-19T17:13:21.814Z
 close_reason: Updated all tryscript golden tests and output.test.ts
 ---

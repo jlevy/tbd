@@ -1,19 +1,19 @@
 ---
-close_reason: Implemented --long flag in list, ready, and blocked commands with formatIssueLong support
-closed_at: 2026-01-18T05:33:02.094Z
-created_at: 2026-01-18T04:08:23.490Z
-dependencies:
-  - target: is-01kf7mmy2wq0qgmaxj55vtsvsc
-    type: blocks
-id: is-01kf7mmb636x6ppr9pb3d89d4v
-kind: task
-labels: []
-priority: 2
-status: closed
-title: Add --long flag to commands
 type: is
-updated_at: 2026-01-18T05:33:02.095Z
-version: 5
+id: is-01kf7mmb636x6ppr9pb3d89d4v
+title: Add --long flag to commands
+kind: task
+status: closed
+priority: 2
+version: 10
+labels: []
+dependencies:
+  - type: blocks
+    target: is-01kf7mmy2wq0qgmaxj55vtsvsc
+created_at: 2026-01-18T04:08:23.490Z
+updated_at: 2026-03-09T16:12:31.585Z
+closed_at: 2026-01-18T05:33:02.094Z
+close_reason: Implemented --long flag in list, ready, and blocked commands with formatIssueLong support
 ---
 Add --long flag for showing descriptions:
 - Add --long flag to list command

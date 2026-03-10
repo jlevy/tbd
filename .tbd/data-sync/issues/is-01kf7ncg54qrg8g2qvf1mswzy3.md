@@ -1,19 +1,19 @@
 ---
-close_reason: Updated status.ts integrations section to show file paths for claude_code, cursor, and codex
-closed_at: 2026-01-18T05:32:56.296Z
-created_at: 2026-01-18T04:21:35.012Z
-dependencies:
-  - target: is-01kf7nbezdmr4qwytemnz1mf20
-    type: blocks
-id: is-01kf7ncg54qrg8g2qvf1mswzy3
-kind: task
-labels: []
-priority: 2
-status: closed
-title: "Status: Show integration file paths"
 type: is
-updated_at: 2026-01-18T05:32:56.297Z
-version: 3
+id: is-01kf7ncg54qrg8g2qvf1mswzy3
+title: "Status: Show integration file paths"
+kind: task
+status: closed
+priority: 2
+version: 8
+labels: []
+dependencies:
+  - type: blocks
+    target: is-01kf7nbezdmr4qwytemnz1mf20
+created_at: 2026-01-18T04:21:35.012Z
+updated_at: 2026-03-09T16:12:31.678Z
+closed_at: 2026-01-18T05:32:56.296Z
+close_reason: Updated status.ts integrations section to show file paths for claude_code, cursor, and codex
 ---
 The `tbd status` command Integrations section should show specific file paths.
 

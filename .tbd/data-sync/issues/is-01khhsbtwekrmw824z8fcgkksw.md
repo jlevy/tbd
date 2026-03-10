@@ -5,11 +5,11 @@ title: "Research doc: Clarify Progressive Reading taxonomy — levels (index des
 kind: task
 status: closed
 priority: 1
-version: 3
+version: 8
 labels: []
 dependencies: []
 created_at: 2026-02-15T23:14:55.502Z
-updated_at: 2026-02-16T07:07:43.531Z
+updated_at: 2026-03-09T16:12:34.413Z
 closed_at: 2026-02-15T23:25:52.810Z
 close_reason: Progressive Reading taxonomy clarified with by-purpose and by-depth dimensions
 ---

@@ -1,18 +1,18 @@
 ---
-close_reason: Added mergeIdMappings function and integrated into sync conflict resolution
-closed_at: 2026-02-01T09:13:01.901Z
-created_at: 2026-02-01T08:54:21.998Z
-dependencies: []
-id: is-01kgc6j1hf1z3wkb6yv6kfhk6k
-kind: bug
-labels: []
-parent_id: is-01kgc6hsmxfbrsts7q2mmjrznp
-priority: 1
-status: closed
-title: Fix sync that committed unresolved merge conflicts
 type: is
-updated_at: 2026-02-01T09:13:01.901Z
-version: 4
+id: is-01kgc6j1hf1z3wkb6yv6kfhk6k
+title: Fix sync that committed unresolved merge conflicts
+kind: bug
+status: closed
+priority: 1
+version: 9
+labels: []
+dependencies: []
+parent_id: is-01kgc6hsmxfbrsts7q2mmjrznp
+created_at: 2026-02-01T08:54:21.998Z
+updated_at: 2026-03-09T16:12:33.655Z
+closed_at: 2026-02-01T09:13:01.901Z
+close_reason: Added mergeIdMappings function and integrated into sync conflict resolution
 ---
 The sync code resolves conflicts for issue files but ignores ids.yml. When ids.yml has conflicts, it gets staged and committed with conflict markers.
 

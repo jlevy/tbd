@@ -1,19 +1,19 @@
 ---
-close_reason: "Fixed: setup command now uses only flags (--auto, --interactive), no subcommands. Commander.js properly routes flags when no subcommands exist."
-closed_at: 2026-01-23T02:11:22.422Z
-created_at: 2026-01-23T01:52:22.103Z
-dependencies: []
+type: is
 id: is-01kfm8tw2rf5jd0rmapbx6f9gn
+title: "Fix setup command: use flags not subcommands"
 kind: bug
+status: closed
+priority: 1
+version: 9
 labels:
   - cli
   - docs
-priority: 1
-status: closed
-title: "Fix setup command: use flags not subcommands"
-type: is
-updated_at: 2026-01-23T02:11:22.423Z
-version: 4
+dependencies: []
+created_at: 2026-01-23T01:52:22.103Z
+updated_at: 2026-03-09T16:12:32.258Z
+closed_at: 2026-01-23T02:11:22.422Z
+close_reason: "Fixed: setup command now uses only flags (--auto, --interactive), no subcommands. Commander.js properly routes flags when no subcommands exist."
 ---
 ## Intended Behavior
 

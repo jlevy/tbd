@@ -1,15 +1,15 @@
 ---
-created_at: 2026-01-18T04:08:43.729Z
-dependencies: []
-id: is-01kf7mmyyjapv7szwbkhe66p83
-kind: task
-labels: []
-priority: 2
-status: open
-title: Message format testing
 type: is
-updated_at: 2026-01-18T04:11:08.523Z
-version: 3
+id: is-01kf7mmyyjapv7szwbkhe66p83
+title: Message format testing
+kind: task
+status: open
+priority: 2
+version: 8
+labels: []
+dependencies: []
+created_at: 2026-01-18T04:08:43.729Z
+updated_at: 2026-03-09T16:12:31.630Z
 ---
 Test message formats meet design system:
 - Verify error messages follow guidelines

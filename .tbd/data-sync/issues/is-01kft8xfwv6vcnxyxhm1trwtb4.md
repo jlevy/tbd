@@ -1,16 +1,16 @@
 ---
-close_reason: null
-closed_at: 2026-01-25T09:52:59.491Z
-created_at: 2026-01-25T09:49:14.522Z
-dependencies: []
+type: is
 id: is-01kft8xfwv6vcnxyxhm1trwtb4
+title: Update prime.ts to always generate shortcut directory
 kind: task
+status: closed
+priority: 2
+version: 7
 labels:
   - refactor
-priority: 2
-status: closed
-title: Update prime.ts to always generate shortcut directory
-type: is
-updated_at: 2026-01-25T09:52:59.500Z
-version: 2
+dependencies: []
+created_at: 2026-01-25T09:49:14.522Z
+updated_at: 2026-03-09T16:12:32.727Z
+closed_at: 2026-01-25T09:52:59.491Z
+close_reason: null
 ---

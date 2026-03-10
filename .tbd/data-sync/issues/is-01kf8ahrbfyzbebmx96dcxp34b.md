@@ -1,17 +1,17 @@
 ---
-close_reason: Fixed all occurrences of 'tbd beads --disable' to 'tbd setup beads --disable' in tbd-design.md, tbd-docs.md, tbd-design-spec.md, and plan-2026-01-17-beads-migration.md
-closed_at: 2026-01-18T10:44:31.761Z
-created_at: 2026-01-18T10:31:27.342Z
-dependencies: []
-id: is-01kf8ahrbfyzbebmx96dcxp34b
-kind: bug
-labels: []
-priority: 2
-status: closed
-title: "Docs: Update 'tbd beads --disable' to 'tbd setup beads --disable' in tbd-design.md and tbd-docs.md"
 type: is
-updated_at: 2026-01-18T10:44:31.762Z
-version: 3
+id: is-01kf8ahrbfyzbebmx96dcxp34b
+title: "Docs: Update 'tbd beads --disable' to 'tbd setup beads --disable' in tbd-design.md and tbd-docs.md"
+kind: bug
+status: closed
+priority: 2
+version: 8
+labels: []
+dependencies: []
+created_at: 2026-01-18T10:31:27.342Z
+updated_at: 2026-03-09T16:12:31.965Z
+closed_at: 2026-01-18T10:44:31.761Z
+close_reason: Fixed all occurrences of 'tbd beads --disable' to 'tbd setup beads --disable' in tbd-design.md, tbd-docs.md, tbd-design-spec.md, and plan-2026-01-17-beads-migration.md
 ---
 ## Notes
 

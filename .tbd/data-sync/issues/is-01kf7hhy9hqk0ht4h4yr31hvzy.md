@@ -1,19 +1,19 @@
 ---
-close_reason: Doctor now shows STATUS + STATISTICS + HEALTH CHECKS as comprehensive superset
-closed_at: 2026-01-18T05:44:03.619Z
-created_at: 2026-01-18T03:14:39.024Z
-dependencies:
-  - target: is-01kf7hgnt5ymykg47yvryr2dj7
-    type: blocks
-id: is-01kf7hhy9hqk0ht4h4yr31hvzy
-kind: task
-labels: []
-priority: 1
-status: closed
-title: Refactor tbd doctor to include status and stats output
 type: is
-updated_at: 2026-01-18T05:44:03.620Z
-version: 6
+id: is-01kf7hhy9hqk0ht4h4yr31hvzy
+title: Refactor tbd doctor to include status and stats output
+kind: task
+status: closed
+priority: 1
+version: 11
+labels: []
+dependencies:
+  - type: blocks
+    target: is-01kf7hgnt5ymykg47yvryr2dj7
+created_at: 2026-01-18T03:14:39.024Z
+updated_at: 2026-03-09T16:12:31.420Z
+closed_at: 2026-01-18T05:44:03.619Z
+close_reason: Doctor now shows STATUS + STATISTICS + HEALTH CHECKS as comprehensive superset
 ---
 Make tbd doctor a comprehensive health check that includes:
 

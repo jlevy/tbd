@@ -1,17 +1,17 @@
 ---
-close_reason: Implemented --from-file processing in update.ts
-closed_at: 2026-01-26T00:56:05.578Z
-created_at: 2026-01-26T00:43:57.365Z
-dependencies: []
-id: is-01kfvw3rhphpm01kabdmvp6cah
-kind: bug
-labels: []
-priority: 2
-status: closed
-title: "Bug: update command --from-file option not implemented"
 type: is
-updated_at: 2026-01-26T00:56:05.579Z
-version: 3
+id: is-01kfvw3rhphpm01kabdmvp6cah
+title: "Bug: update command --from-file option not implemented"
+kind: bug
+status: closed
+priority: 2
+version: 8
+labels: []
+dependencies: []
+created_at: 2026-01-26T00:43:57.365Z
+updated_at: 2026-03-09T16:12:32.916Z
+closed_at: 2026-01-26T00:56:05.578Z
+close_reason: Implemented --from-file processing in update.ts
 ---
 The --from-file option is declared in update.ts line 227 but parseUpdates() method never processes options.fromFile. Need to:
 1. Read the YAML+Markdown file using the existing file format

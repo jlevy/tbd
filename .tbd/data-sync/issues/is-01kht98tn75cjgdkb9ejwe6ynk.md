@@ -5,11 +5,11 @@ title: "Update bun-monorepo-patterns: document flowmark markdown formatting in p
 kind: task
 status: closed
 priority: 2
-version: 3
+version: 8
 labels: []
 dependencies: []
 created_at: 2026-02-19T06:26:49.638Z
-updated_at: 2026-02-19T06:34:48.388Z
+updated_at: 2026-03-09T16:12:34.588Z
 closed_at: 2026-02-19T06:34:48.387Z
 close_reason: Added flowmark markdown formatting in pre-commit hooks
 ---

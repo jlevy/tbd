@@ -1,15 +1,15 @@
 ---
-created_at: 2026-01-18T05:59:12.749Z
-dependencies: []
-id: is-01kf7tz8kdvprg08rkxtzqxekd
-kind: task
-labels: []
-priority: 2
-status: open
-title: Comprehensive testing of TriScript 0.1.6 coverage mechanisms
 type: is
-updated_at: 2026-01-18T05:59:12.749Z
-version: 1
+id: is-01kf7tz8kdvprg08rkxtzqxekd
+title: Comprehensive testing of TriScript 0.1.6 coverage mechanisms
+kind: task
+status: open
+priority: 2
+version: 6
+labels: []
+dependencies: []
+created_at: 2026-01-18T05:59:12.749Z
+updated_at: 2026-03-09T16:12:31.789Z
 ---
 Test the new coverage mechanisms in TriScript 0.1.6 to verify they work correctly.
 

@@ -5,11 +5,11 @@ title: "Research doc: Add scope clarification — this is about trusted knowledg
 kind: task
 status: closed
 priority: 1
-version: 3
+version: 8
 labels: []
 dependencies: []
 created_at: 2026-02-15T23:14:34.558Z
-updated_at: 2026-02-16T07:07:43.490Z
+updated_at: 2026-03-09T16:12:34.384Z
 closed_at: 2026-02-15T23:25:50.632Z
 close_reason: Scope section added clarifying trusted knowledge vs mutable memory
 ---

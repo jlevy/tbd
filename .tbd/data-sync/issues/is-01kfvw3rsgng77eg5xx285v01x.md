@@ -1,17 +1,17 @@
 ---
-close_reason: Implemented --title option in update.ts
-closed_at: 2026-01-26T00:56:05.690Z
-created_at: 2026-01-26T00:43:57.615Z
-dependencies: []
-id: is-01kfvw3rsgng77eg5xx285v01x
-kind: feature
-labels: []
-priority: 2
-status: closed
-title: "Feature: add --title option to tbd update command"
 type: is
-updated_at: 2026-01-26T00:56:05.691Z
-version: 3
+id: is-01kfvw3rsgng77eg5xx285v01x
+title: "Feature: add --title option to tbd update command"
+kind: feature
+status: closed
+priority: 2
+version: 8
+labels: []
+dependencies: []
+created_at: 2026-01-26T00:43:57.615Z
+updated_at: 2026-03-09T16:12:32.921Z
+closed_at: 2026-01-26T00:56:05.690Z
+close_reason: Implemented --title option in update.ts
 ---
 Add --title option to tbd update command for direct title updates without using --from-file.
 

@@ -1,19 +1,19 @@
 ---
-close_reason: Implemented sync summary tallies with formatSyncSummary utility and updated sync.ts
-closed_at: 2026-01-18T05:36:38.822Z
-created_at: 2026-01-18T04:08:41.910Z
-dependencies:
-  - target: is-01kf7mmxmyeqnj7c2287b84b2b
-    type: blocks
-id: is-01kf7mmx5pwdx3f8rq76gpsv3f
-kind: task
-labels: []
-priority: 2
-status: closed
-title: Implement sync summary tallies
 type: is
-updated_at: 2026-01-18T05:36:38.823Z
-version: 5
+id: is-01kf7mmx5pwdx3f8rq76gpsv3f
+title: Implement sync summary tallies
+kind: task
+status: closed
+priority: 2
+version: 10
+labels: []
+dependencies:
+  - type: blocks
+    target: is-01kf7mmxmyeqnj7c2287b84b2b
+created_at: 2026-01-18T04:08:41.910Z
+updated_at: 2026-03-09T16:12:31.607Z
+closed_at: 2026-01-18T05:36:38.822Z
+close_reason: Implemented sync summary tallies with formatSyncSummary utility and updated sync.ts
 ---
 Implement detailed sync summary reporting:
 - Track new/updated/deleted counts during sync

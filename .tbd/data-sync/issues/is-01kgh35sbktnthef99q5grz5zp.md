@@ -1,17 +1,17 @@
 ---
-created_at: 2026-02-03T06:31:26.834Z
-dependencies:
-  - target: is-01kgh3ebft6bxjvtfrgccpxawn
-    type: blocks
-id: is-01kgh35sbktnthef99q5grz5zp
-kind: bug
-labels: []
-priority: 1
-status: open
-title: tbd doctor shows 0 issues when remote tbd-sync branch has data
 type: is
-updated_at: 2026-02-05T07:26:02.745Z
-version: 4
+id: is-01kgh35sbktnthef99q5grz5zp
+title: tbd doctor shows 0 issues when remote tbd-sync branch has data
+kind: bug
+status: open
+priority: 1
+version: 9
+labels: []
+dependencies:
+  - type: blocks
+    target: is-01kgh3ebft6bxjvtfrgccpxawn
+created_at: 2026-02-03T06:31:26.834Z
+updated_at: 2026-03-09T16:12:33.887Z
 ---
 ## Problem
 

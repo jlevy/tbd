@@ -1,21 +1,21 @@
 ---
-close_reason: Removed hardcoded docs/SKILL.md and docs/CURSOR.mdc - now generated from headers + skill.md during build
-closed_at: 2026-01-23T02:53:45.766Z
-created_at: 2026-01-23T01:48:43.622Z
-dependencies:
-  - target: is-01kfm8yvqk6t31j1g3pfjkmzc3
-    type: blocks
-  - target: is-01kf7j53z1gahrqswh8x4v4b6t
-    type: blocks
-id: is-01kfm8m6q751zf5rk4dganwfhy
-kind: task
-labels: []
-priority: 2
-status: closed
-title: Remove hardcoded CURSOR.mdc, keep only source parts
 type: is
-updated_at: 2026-01-23T02:53:45.767Z
-version: 6
+id: is-01kfm8m6q751zf5rk4dganwfhy
+title: Remove hardcoded CURSOR.mdc, keep only source parts
+kind: task
+status: closed
+priority: 2
+version: 11
+labels: []
+dependencies:
+  - type: blocks
+    target: is-01kfm8yvqk6t31j1g3pfjkmzc3
+  - type: blocks
+    target: is-01kf7j53z1gahrqswh8x4v4b6t
+created_at: 2026-01-23T01:48:43.622Z
+updated_at: 2026-03-09T16:12:32.231Z
+closed_at: 2026-01-23T02:53:45.766Z
+close_reason: Removed hardcoded docs/SKILL.md and docs/CURSOR.mdc - now generated from headers + skill.md during build
 ---
 After build composition is working:
 

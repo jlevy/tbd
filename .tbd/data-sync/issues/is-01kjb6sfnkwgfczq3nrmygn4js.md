@@ -5,13 +5,13 @@ title: Add linked-worktree regression tests for sync branch isolation
 kind: task
 status: closed
 priority: 1
-version: 3
+version: 8
 spec_path: docs/project/specs/active/plan-2026-02-25-multi-worktree-sync-branch-isolation.md
 labels: []
 dependencies: []
 parent_id: is-01kjb6s8sc4b9cveaamzeasdxa
 created_at: 2026-02-25T20:10:35.058Z
-updated_at: 2026-02-26T06:38:49.183Z
+updated_at: 2026-03-09T16:12:34.646Z
 closed_at: 2026-02-26T06:38:49.183Z
 close_reason: Added regression coverage for split sync refs and linked worktrees (new sync-branch tests, updated git/worktree tests, and tryscript scenarios).
 ---

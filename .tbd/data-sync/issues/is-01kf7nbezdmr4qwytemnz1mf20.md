@@ -1,17 +1,17 @@
 ---
-close_reason: "All child issues completed: diagnostic utilities implemented, doctor/setup/status commands updated to show specific paths and details"
-closed_at: 2026-01-18T05:32:57.198Z
-created_at: 2026-01-18T04:21:01.035Z
-dependencies: []
-id: is-01kf7nbezdmr4qwytemnz1mf20
-kind: task
-labels: []
-priority: 1
-status: closed
-title: "Audit: Diagnostic commands should show specific paths and details"
 type: is
-updated_at: 2026-01-18T05:32:57.199Z
-version: 2
+id: is-01kf7nbezdmr4qwytemnz1mf20
+title: "Audit: Diagnostic commands should show specific paths and details"
+kind: task
+status: closed
+priority: 1
+version: 7
+labels: []
+dependencies: []
+created_at: 2026-01-18T04:21:01.035Z
+updated_at: 2026-03-09T16:12:31.647Z
+closed_at: 2026-01-18T05:32:57.198Z
+close_reason: "All child issues completed: diagnostic utilities implemented, doctor/setup/status commands updated to show specific paths and details"
 ---
 All diagnostic commands (doctor, setup --check, status) should consistently show specific file paths and detailed information when reporting issues.
 

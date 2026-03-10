@@ -1,16 +1,16 @@
 ---
-created_at: 2026-01-26T17:48:08.077Z
-dependencies: []
-id: is-01kfxpq30e2t43c1as274g93pa
-kind: task
-labels: []
-parent_id: is-01kfxpq9c0j5wdsqy6vsqc3d1g
-priority: 2
-status: open
-title: Audit and ensure consistent status icon usage across all CLI commands
 type: is
-updated_at: 2026-01-26T17:48:18.446Z
-version: 2
+id: is-01kfxpq30e2t43c1as274g93pa
+title: Audit and ensure consistent status icon usage across all CLI commands
+kind: task
+status: open
+priority: 2
+version: 7
+labels: []
+dependencies: []
+parent_id: is-01kfxpq9c0j5wdsqy6vsqc3d1g
+created_at: 2026-01-26T17:48:08.077Z
+updated_at: 2026-03-09T16:12:32.996Z
 ---
 Status icons (○ ◐ ● ✓) should be used consistently everywhere statuses are displayed.
 

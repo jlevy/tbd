@@ -1,17 +1,17 @@
 ---
-close_reason: Implemented --id and --force options for tbd create. Added tryscript tests. When using --force with an existing ID, the old issue gets reassigned a new unique short ID.
-closed_at: 2026-01-29T04:06:36.368Z
-created_at: 2026-01-29T03:50:05.536Z
-dependencies: []
-id: is-01kg3xyqz2j5pbgfqtkkcqv7d2
-kind: feature
-labels: []
-priority: 1
-status: closed
-title: Add --id option to tbd create for specifying short IDs
 type: is
-updated_at: 2026-01-29T04:06:36.369Z
-version: 2
+id: is-01kg3xyqz2j5pbgfqtkkcqv7d2
+title: Add --id option to tbd create for specifying short IDs
+kind: feature
+status: closed
+priority: 1
+version: 7
+labels: []
+dependencies: []
+created_at: 2026-01-29T03:50:05.536Z
+updated_at: 2026-03-09T16:12:33.328Z
+closed_at: 2026-01-29T04:06:36.368Z
+close_reason: Implemented --id and --force options for tbd create. Added tryscript tests. When using --force with an existing ID, the old issue gets reassigned a new unique short ID.
 ---
 Allow users to specify a custom short ID when creating issues, preserving IDs from specs.
 

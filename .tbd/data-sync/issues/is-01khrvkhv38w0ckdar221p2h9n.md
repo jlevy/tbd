@@ -5,7 +5,7 @@ title: "Post-merge ID mapping resilience: polish and cleanup"
 kind: epic
 status: open
 priority: 2
-version: 3
+version: 8
 labels: []
 dependencies:
   - type: blocks
@@ -13,5 +13,5 @@ dependencies:
   - type: blocks
     target: is-01khrvk9vbnv3styn6hrjdxjta
 created_at: 2026-02-18T17:08:46.562Z
-updated_at: 2026-02-18T17:08:55.085Z
+updated_at: 2026-03-09T16:12:34.505Z
 ---

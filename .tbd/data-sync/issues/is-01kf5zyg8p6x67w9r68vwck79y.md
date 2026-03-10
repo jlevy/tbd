@@ -1,24 +1,24 @@
 ---
-close_reason: Complete - tests for claude/cursor/codex done, aider not needed
-closed_at: 2026-01-17T09:59:22.109Z
-created_at: 2026-01-17T07:23:11.926Z
-deferred_until: null
+type: is
+id: is-01kf5zyg8p6x67w9r68vwck79y
+title: Golden tests for tbd setup commands
+kind: task
+status: closed
+priority: 2
+version: 6
+labels: []
 dependencies: []
+parent_id: null
 due_date: null
+deferred_until: null
+created_at: 2026-01-17T07:23:11.926Z
+updated_at: 2026-03-09T16:12:30.476Z
+closed_at: 2026-01-17T09:59:22.109Z
+close_reason: Complete - tests for claude/cursor/codex done, aider not needed
 extensions:
   beads:
     imported_at: 2026-01-17T12:47:42.756Z
     original_id: tbd-1881
-id: is-01kf5zyg8p6x67w9r68vwck79y
-kind: task
-labels: []
-parent_id: null
-priority: 2
-status: closed
-title: Golden tests for tbd setup commands
-type: is
-updated_at: 2026-01-17T09:59:22.109Z
-version: 1
 ---
 Create golden tests for tbd setup commands (claude, cursor, codex).
 

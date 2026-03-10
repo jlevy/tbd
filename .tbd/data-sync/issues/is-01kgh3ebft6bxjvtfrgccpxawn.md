@@ -1,15 +1,15 @@
 ---
-created_at: 2026-02-03T06:36:07.545Z
-dependencies: []
-id: is-01kgh3ebft6bxjvtfrgccpxawn
-kind: task
-labels: []
-priority: 1
-status: open
-title: Add golden test for fresh clone with remote tbd-sync data
 type: is
-updated_at: 2026-02-05T07:26:02.761Z
-version: 3
+id: is-01kgh3ebft6bxjvtfrgccpxawn
+title: Add golden test for fresh clone with remote tbd-sync data
+kind: task
+status: open
+priority: 1
+version: 8
+labels: []
+dependencies: []
+created_at: 2026-02-03T06:36:07.545Z
+updated_at: 2026-03-09T16:12:33.894Z
 ---
 ## Overview
 

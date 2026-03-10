@@ -1,17 +1,17 @@
 ---
-close_reason: Incorporated into tbd-gev4 - error message requirements already specified there
-closed_at: 2026-01-23T01:52:23.315Z
-created_at: 2026-01-23T01:51:59.039Z
-dependencies: []
-id: is-01kfm8t5j0zepm5h3n4vx8tv6a
-kind: task
-labels: []
-priority: 2
-status: closed
-title: Improve error message when --prefix is required
 type: is
-updated_at: 2026-01-23T01:52:23.316Z
-version: 2
+id: is-01kfm8t5j0zepm5h3n4vx8tv6a
+title: Improve error message when --prefix is required
+kind: task
+status: closed
+priority: 2
+version: 7
+labels: []
+dependencies: []
+created_at: 2026-01-23T01:51:59.039Z
+updated_at: 2026-03-09T16:12:32.252Z
+closed_at: 2026-01-23T01:52:23.315Z
+close_reason: Incorporated into tbd-gev4 - error message requirements already specified there
 ---
 When tbd setup --auto is run without --prefix (and not doing beads migration), show a helpful error message.
 

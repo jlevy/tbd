@@ -1,24 +1,24 @@
 ---
-close_reason: Beads-side documentation, not TBD. The existing migration section in tbd-docs.md is sufficient for TBD users.
-closed_at: 2026-01-17T12:44:53.958Z
-created_at: 2026-01-17T10:45:43.748Z
-deferred_until: null
+type: is
+id: is-01kf5zyg8pfyaqsyb9tpkh89yq
+title: "Add docs: Switching from Beads to TBD (temporary disable)"
+kind: task
+status: closed
+priority: 2
+version: 6
+labels: []
 dependencies: []
+parent_id: null
 due_date: null
+deferred_until: null
+created_at: 2026-01-17T10:45:43.748Z
+updated_at: 2026-03-09T16:12:30.548Z
+closed_at: 2026-01-17T12:44:53.958Z
+close_reason: Beads-side documentation, not TBD. The existing migration section in tbd-docs.md is sufficient for TBD users.
 extensions:
   beads:
     imported_at: 2026-01-17T12:47:43.012Z
     original_id: tbd-1921
-id: is-01kf5zyg8pfyaqsyb9tpkh89yq
-kind: task
-labels: []
-parent_id: null
-priority: 2
-status: closed
-title: "Add docs: Switching from Beads to TBD (temporary disable)"
-type: is
-updated_at: 2026-01-17T12:44:53.958Z
-version: 1
 ---
 ## Summary
 

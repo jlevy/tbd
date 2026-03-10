@@ -5,11 +5,11 @@ title: "Research doc: Use descriptive level names (outline, summary, content, pu
 kind: task
 status: closed
 priority: 1
-version: 3
+version: 8
 labels: []
 dependencies: []
 created_at: 2026-02-15T23:15:07.803Z
-updated_at: 2026-02-16T07:07:43.559Z
+updated_at: 2026-03-09T16:12:34.431Z
 closed_at: 2026-02-15T23:25:54.096Z
 close_reason: Descriptive level names used throughout (purpose, summary, outline, content)
 ---

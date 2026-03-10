@@ -5,11 +5,11 @@ title: "Research doc: Drop S/M/L summary naming — use descriptive names and op
 kind: task
 status: closed
 priority: 1
-version: 3
+version: 8
 labels: []
 dependencies: []
 created_at: 2026-02-15T23:15:11.771Z
-updated_at: 2026-02-16T07:07:43.570Z
+updated_at: 2026-03-09T16:12:34.437Z
 closed_at: 2026-02-15T23:25:54.571Z
 close_reason: S/M/L naming replaced with descriptive names and --budget flag
 ---

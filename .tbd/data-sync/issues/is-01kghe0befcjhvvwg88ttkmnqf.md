@@ -1,21 +1,21 @@
 ---
-close_reason: Bug fixed and verified
-closed_at: 2026-02-03T10:10:12.904Z
-created_at: 2026-02-03T09:40:43.086Z
-dependencies:
-  - target: is-01kgheseasdm734hm4rs14xnvq
-    type: blocks
-  - target: is-01kghet3afs5v8fn3yxf5v3041
-    type: blocks
-id: is-01kghe0befcjhvvwg88ttkmnqf
-kind: bug
-labels: []
-priority: 0
-status: closed
-title: "Bug: workspace import creates whole_issue conflicts instead of field-level merges"
 type: is
-updated_at: 2026-02-03T10:10:12.904Z
-version: 5
+id: is-01kghe0befcjhvvwg88ttkmnqf
+title: "Bug: workspace import creates whole_issue conflicts instead of field-level merges"
+kind: bug
+status: closed
+priority: 0
+version: 10
+labels: []
+dependencies:
+  - type: blocks
+    target: is-01kgheseasdm734hm4rs14xnvq
+  - type: blocks
+    target: is-01kghet3afs5v8fn3yxf5v3041
+created_at: 2026-02-03T09:40:43.086Z
+updated_at: 2026-03-09T16:12:33.900Z
+closed_at: 2026-02-03T10:10:12.904Z
+close_reason: Bug fixed and verified
 ---
 ## Notes
 

@@ -1,24 +1,24 @@
 ---
-close_reason: Implemented in Phase 22-24
-closed_at: 2026-01-17T09:17:52.363Z
-created_at: 2026-01-17T07:22:45.104Z
-deferred_until: null
+type: is
+id: is-01kf5zyg8n2mx06mjhj8fyn9cr
+title: Implement tbd prime command
+kind: task
+status: closed
+priority: 1
+version: 6
+labels: []
 dependencies: []
+parent_id: null
 due_date: null
+deferred_until: null
+created_at: 2026-01-17T07:22:45.104Z
+updated_at: 2026-03-09T16:12:30.116Z
+closed_at: 2026-01-17T09:17:52.363Z
+close_reason: Implemented in Phase 22-24
 extensions:
   beads:
     imported_at: 2026-01-17T12:47:42.721Z
     original_id: tbd-1876
-id: is-01kf5zyg8n2mx06mjhj8fyn9cr
-kind: task
-labels: []
-parent_id: null
-priority: 1
-status: closed
-title: Implement tbd prime command
-type: is
-updated_at: 2026-01-17T07:22:45.104Z
-version: 1
 ---
 Implement the tbd prime command that outputs workflow context for AI agents.
 

@@ -1,24 +1,24 @@
 ---
-close_reason: Implemented documentation improvements
-closed_at: 2026-01-17T10:56:04.137Z
-created_at: 2026-01-17T10:41:21.591Z
-deferred_until: null
+type: is
+id: is-01kf5zyg8pymwq29rvkva1bk1t
+title: Add "Why TBD?" motivation section
+kind: task
+status: closed
+priority: 2
+version: 6
+labels: []
 dependencies: []
+parent_id: null
 due_date: null
+deferred_until: null
+created_at: 2026-01-17T10:41:21.591Z
+updated_at: 2026-03-09T16:12:30.690Z
+closed_at: 2026-01-17T10:56:04.137Z
+close_reason: Implemented documentation improvements
 extensions:
   beads:
     imported_at: 2026-01-17T12:47:42.960Z
     original_id: tbd-1912
-id: is-01kf5zyg8pymwq29rvkva1bk1t
-kind: task
-labels: []
-parent_id: null
-priority: 2
-status: closed
-title: Add "Why TBD?" motivation section
-type: is
-updated_at: 2026-01-17T10:56:04.137Z
-version: 1
 ---
 Add a brief motivation section near the top:
 

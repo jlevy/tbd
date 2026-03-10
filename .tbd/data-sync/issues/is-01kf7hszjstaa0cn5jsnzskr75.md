@@ -1,19 +1,19 @@
 ---
-close_reason: Completed in cf08856 - enforce atomic writes and consolidate command context (#16)
-closed_at: 2026-01-19T08:21:01.205Z
-created_at: 2026-01-18T03:19:02.488Z
-dependencies:
-  - target: is-01kf7htgqhy36w25mnk7c6qwqs
-    type: blocks
-id: is-01kf7hszjstaa0cn5jsnzskr75
-kind: task
-labels: []
-priority: 2
-status: closed
-title: Audit all write file operations for atomic writes
 type: is
-updated_at: 2026-01-19T08:21:01.206Z
-version: 4
+id: is-01kf7hszjstaa0cn5jsnzskr75
+title: Audit all write file operations for atomic writes
+kind: task
+status: closed
+priority: 2
+version: 9
+labels: []
+dependencies:
+  - type: blocks
+    target: is-01kf7htgqhy36w25mnk7c6qwqs
+created_at: 2026-01-18T03:19:02.488Z
+updated_at: 2026-03-09T16:12:31.443Z
+closed_at: 2026-01-19T08:21:01.205Z
+close_reason: Completed in cf08856 - enforce atomic writes and consolidate command context (#16)
 ---
 Audit all file write operations to ensure we're using the 'atomically' library consistently.
 

@@ -1,24 +1,24 @@
 ---
-close_reason: Implemented documentation improvements
-closed_at: 2026-01-17T10:56:04.137Z
-created_at: 2026-01-17T10:41:18.185Z
-deferred_until: null
+type: is
+id: is-01kf5zyg8ppvcfr8ps2p3nvsj1
+title: Revise Quick Reference with realistic examples
+kind: task
+status: closed
+priority: 2
+version: 6
+labels: []
 dependencies: []
+parent_id: null
 due_date: null
+deferred_until: null
+created_at: 2026-01-17T10:41:18.185Z
+updated_at: 2026-03-09T16:12:30.593Z
+closed_at: 2026-01-17T10:56:04.137Z
+close_reason: Implemented documentation improvements
 extensions:
   beads:
     imported_at: 2026-01-17T12:47:42.951Z
     original_id: tbd-1911
-id: is-01kf5zyg8ppvcfr8ps2p3nvsj1
-kind: task
-labels: []
-parent_id: null
-priority: 2
-status: closed
-title: Revise Quick Reference with realistic examples
-type: is
-updated_at: 2026-01-17T10:56:04.137Z
-version: 1
 ---
 ## Quick Reference
 

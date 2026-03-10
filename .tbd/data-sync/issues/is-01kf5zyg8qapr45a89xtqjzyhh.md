@@ -1,24 +1,24 @@
 ---
-close_reason: Superseded by compile cache approach (tbd-1937). Lazy loading was attempted but showed minimal benefit due to single-bundle architecture. Compile cache provides ~25% improvement with much less complexity.
-closed_at: 2026-01-17T12:43:09.376Z
-created_at: 2026-01-17T11:22:04.118Z
-deferred_until: null
+type: is
+id: is-01kf5zyg8qapr45a89xtqjzyhh
+title: Implement lazy command loading for CLI startup performance
+kind: task
+status: closed
+priority: 2
+version: 6
+labels: []
 dependencies: []
+parent_id: null
 due_date: null
+deferred_until: null
+created_at: 2026-01-17T11:22:04.118Z
+updated_at: 2026-03-09T16:12:30.807Z
+closed_at: 2026-01-17T12:43:09.376Z
+close_reason: Superseded by compile cache approach (tbd-1937). Lazy loading was attempted but showed minimal benefit due to single-bundle architecture. Compile cache provides ~25% improvement with much less complexity.
 extensions:
   beads:
     imported_at: 2026-01-17T12:47:43.111Z
     original_id: tbd-1934
-id: is-01kf5zyg8qapr45a89xtqjzyhh
-kind: task
-labels: []
-parent_id: null
-priority: 2
-status: closed
-title: Implement lazy command loading for CLI startup performance
-type: is
-updated_at: 2026-01-17T12:43:09.376Z
-version: 1
 ---
 ## Goal
 Reduce CLI startup time from ~55ms to ~30ms for help/version/simple commands by lazy-loading command handlers.

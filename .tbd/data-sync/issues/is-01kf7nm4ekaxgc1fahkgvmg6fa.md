@@ -1,29 +1,29 @@
 ---
-close_reason: Implemented DiagnosticResult interface and renderDiagnostic/renderDiagnostics functions in cli/lib/diagnostics.ts with 17 unit tests
-closed_at: 2026-01-18T05:29:55.924Z
-created_at: 2026-01-18T04:25:45.170Z
-dependencies:
-  - target: is-01kf7ncbebn4m3vf22k1jkkce5
-    type: blocks
-  - target: is-01kf7nccjfqg3mz4ash9sf10gc
-    type: blocks
-  - target: is-01kf7nce0tke23q8brce4p9ppn
-    type: blocks
-  - target: is-01kf7ncf2nwaden4yapxtkeqnh
-    type: blocks
-  - target: is-01kf7ncg54qrg8g2qvf1mswzy3
-    type: blocks
-  - target: is-01kf7nbezdmr4qwytemnz1mf20
-    type: blocks
-id: is-01kf7nm4ekaxgc1fahkgvmg6fa
-kind: task
-labels: []
-priority: 2
-status: closed
-title: Create shared diagnostic output utilities
 type: is
-updated_at: 2026-01-18T05:29:55.925Z
-version: 9
+id: is-01kf7nm4ekaxgc1fahkgvmg6fa
+title: Create shared diagnostic output utilities
+kind: task
+status: closed
+priority: 2
+version: 14
+labels: []
+dependencies:
+  - type: blocks
+    target: is-01kf7ncbebn4m3vf22k1jkkce5
+  - type: blocks
+    target: is-01kf7nccjfqg3mz4ash9sf10gc
+  - type: blocks
+    target: is-01kf7nce0tke23q8brce4p9ppn
+  - type: blocks
+    target: is-01kf7ncf2nwaden4yapxtkeqnh
+  - type: blocks
+    target: is-01kf7ncg54qrg8g2qvf1mswzy3
+  - type: blocks
+    target: is-01kf7nbezdmr4qwytemnz1mf20
+created_at: 2026-01-18T04:25:45.170Z
+updated_at: 2026-03-09T16:12:31.684Z
+closed_at: 2026-01-18T05:29:55.924Z
+close_reason: Implemented DiagnosticResult interface and renderDiagnostic/renderDiagnostics functions in cli/lib/diagnostics.ts with 17 unit tests
 ---
 Create shared utilities for consistent diagnostic output across doctor, setup --check, and status commands.
 

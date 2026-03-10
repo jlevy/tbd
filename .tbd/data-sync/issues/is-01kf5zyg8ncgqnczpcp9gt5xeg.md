@@ -1,24 +1,24 @@
 ---
-close_reason: Implemented in Phase 22-24
-closed_at: 2026-01-17T09:17:52.363Z
-created_at: 2026-01-17T07:22:25.348Z
-deferred_until: null
+type: is
+id: is-01kf5zyg8ncgqnczpcp9gt5xeg
+title: "Phase 24 Epic: Installation and Agent Integration"
+kind: epic
+status: closed
+priority: 1
+version: 6
+labels: []
 dependencies: []
+parent_id: null
 due_date: null
+deferred_until: null
+created_at: 2026-01-17T07:22:25.348Z
+updated_at: 2026-03-09T16:12:30.246Z
+closed_at: 2026-01-17T09:17:52.363Z
+close_reason: Implemented in Phase 22-24
 extensions:
   beads:
     imported_at: 2026-01-17T12:47:42.714Z
     original_id: tbd-1875
-id: is-01kf5zyg8ncgqnczpcp9gt5xeg
-kind: epic
-labels: []
-parent_id: null
-priority: 1
-status: closed
-title: "Phase 24 Epic: Installation and Agent Integration"
-type: is
-updated_at: 2026-01-17T07:22:25.348Z
-version: 1
 ---
 Implement installation mechanisms and agent integration for tbd. Key components:
 

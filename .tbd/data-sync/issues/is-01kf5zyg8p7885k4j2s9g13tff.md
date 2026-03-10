@@ -1,24 +1,24 @@
 ---
-close_reason: Closed
-closed_at: 2026-01-17T11:50:25.206Z
-created_at: 2026-01-17T11:03:31.210Z
-deferred_until: null
+type: is
+id: is-01kf5zyg8p7885k4j2s9g13tff
+title: Remove -V shorthand for --version option
+kind: task
+status: closed
+priority: 2
+version: 6
+labels: []
 dependencies: []
+parent_id: null
 due_date: null
+deferred_until: null
+created_at: 2026-01-17T11:03:31.210Z
+updated_at: 2026-03-09T16:12:30.510Z
+closed_at: 2026-01-17T11:50:25.206Z
+close_reason: Closed
 extensions:
   beads:
     imported_at: 2026-01-17T12:47:43.019Z
     original_id: tbd-1922
-id: is-01kf5zyg8p7885k4j2s9g13tff
-kind: task
-labels: []
-parent_id: null
-priority: 2
-status: closed
-title: Remove -V shorthand for --version option
-type: is
-updated_at: 2026-01-17T11:50:25.206Z
-version: 1
 ---
 Remove the -V one-letter option alias for --version. Keep only --version.
 

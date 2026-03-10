@@ -1,15 +1,15 @@
 ---
-created_at: 2026-01-18T03:19:20.048Z
-dependencies: []
-id: is-01kf7htgqhy36w25mnk7c6qwqs
-kind: task
-labels: []
-priority: 3
-status: open
-title: Add ESLint rule to enforce atomically for file writes
 type: is
-updated_at: 2026-01-18T03:19:28.347Z
-version: 2
+id: is-01kf7htgqhy36w25mnk7c6qwqs
+title: Add ESLint rule to enforce atomically for file writes
+kind: task
+status: open
+priority: 3
+version: 7
+labels: []
+dependencies: []
+created_at: 2026-01-18T03:19:20.048Z
+updated_at: 2026-03-09T16:12:31.450Z
 ---
 Create or configure an ESLint rule to enforce use of 'atomically' library for all file write operations.
 

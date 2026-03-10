@@ -1,18 +1,18 @@
 ---
-created_at: 2026-01-18T08:32:25.807Z
-dependencies:
-  - target: is-01kf83qzj2bzffyeqdrryhn64m
-    type: blocks
-id: is-01kf83qt6gtdzx5gx98cc0y6jj
-kind: task
-labels: []
-parent_id: is-01kf83qm50827p60a7cg7jkqpd
-priority: 2
-status: open
-title: Generate commit body with long-format issue summaries (title, description, close_reason)
 type: is
-updated_at: 2026-01-18T08:33:00.485Z
-version: 4
+id: is-01kf83qt6gtdzx5gx98cc0y6jj
+title: Generate commit body with long-format issue summaries (title, description, close_reason)
+kind: task
+status: open
+priority: 2
+version: 9
+labels: []
+dependencies:
+  - type: blocks
+    target: is-01kf83qzj2bzffyeqdrryhn64m
+parent_id: is-01kf83qm50827p60a7cg7jkqpd
+created_at: 2026-01-18T08:32:25.807Z
+updated_at: 2026-03-09T16:12:31.938Z
 ---
 Generate commit body in long format similar to 'tbd list --long':
 - For each modified issue, show one-line summary

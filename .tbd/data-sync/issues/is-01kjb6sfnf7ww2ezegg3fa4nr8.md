@@ -5,13 +5,13 @@ title: Integrate split local/remote sync branch semantics in sync, status, and d
 kind: task
 status: closed
 priority: 1
-version: 3
+version: 8
 spec_path: docs/project/specs/active/plan-2026-02-25-multi-worktree-sync-branch-isolation.md
 labels: []
 dependencies: []
 parent_id: is-01kjb6s8sc4b9cveaamzeasdxa
 created_at: 2026-02-25T20:10:35.054Z
-updated_at: 2026-02-26T06:38:49.050Z
+updated_at: 2026-03-09T16:12:34.635Z
 closed_at: 2026-02-26T06:38:49.050Z
 close_reason: Integrated split local/remote sync refs across sync, doctor, status, init, setup, and uninstall commands including diagnostics and managed-branch cleanup.
 ---

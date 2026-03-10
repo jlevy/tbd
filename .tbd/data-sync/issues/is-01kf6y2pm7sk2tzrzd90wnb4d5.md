@@ -1,17 +1,17 @@
 ---
-close_reason: Completed in cf08856 - displayId() helper added to CommandContext
-closed_at: 2026-01-19T08:21:21.232Z
-created_at: 2026-01-17T21:34:16.710Z
-dependencies: []
-id: is-01kf6y2pm7sk2tzrzd90wnb4d5
-kind: task
-labels: []
-priority: 2
-status: closed
-title: Add displayId() helper methods to CommandContext
 type: is
-updated_at: 2026-01-19T08:21:21.233Z
-version: 2
+id: is-01kf6y2pm7sk2tzrzd90wnb4d5
+title: Add displayId() helper methods to CommandContext
+kind: task
+status: closed
+priority: 2
+version: 7
+labels: []
+dependencies: []
+created_at: 2026-01-17T21:34:16.710Z
+updated_at: 2026-03-09T16:12:31.164Z
+closed_at: 2026-01-19T08:21:21.232Z
+close_reason: Completed in cf08856 - displayId() helper added to CommandContext
 ---
 Currently, display ID formatting logic is repetitive across commands:
 

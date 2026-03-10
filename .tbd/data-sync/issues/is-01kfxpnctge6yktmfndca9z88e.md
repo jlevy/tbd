@@ -1,16 +1,16 @@
 ---
-created_at: 2026-01-26T17:47:12.591Z
-dependencies: []
-id: is-01kfxpnctge6yktmfndca9z88e
-kind: bug
-labels: []
-parent_id: is-01kfxpq9c0j5wdsqy6vsqc3d1g
-priority: 2
-status: open
-title: "Redesign stats command output: unified status section with active/closed/total columns"
 type: is
-updated_at: 2026-01-26T17:57:31.945Z
-version: 7
+id: is-01kfxpnctge6yktmfndca9z88e
+title: "Redesign stats command output: unified status section with active/closed/total columns"
+kind: bug
+status: open
+priority: 2
+version: 12
+labels: []
+dependencies: []
+parent_id: is-01kfxpq9c0j5wdsqy6vsqc3d1g
+created_at: 2026-01-26T17:47:12.591Z
+updated_at: 2026-03-09T16:12:32.990Z
 ---
 The `tbd stats` output needs restructuring and better formatting.
 

@@ -1,24 +1,24 @@
 ---
-close_reason: Created cli-uninstall.tryscript.md with 27 passing tests covering all uninstall scenarios
-closed_at: 2026-01-17T09:39:40.767Z
-created_at: 2026-01-17T09:18:00.368Z
-deferred_until: null
+type: is
+id: is-01kf5zyg8p1f180dsqcnm8xvd4
+title: Add golden tests for tbd uninstall command
+kind: task
+status: closed
+priority: 2
+version: 6
+labels: []
 dependencies: []
+parent_id: null
 due_date: null
+deferred_until: null
+created_at: 2026-01-17T09:18:00.368Z
+updated_at: 2026-03-09T16:12:30.403Z
+closed_at: 2026-01-17T09:39:40.767Z
+close_reason: Created cli-uninstall.tryscript.md with 27 passing tests covering all uninstall scenarios
 extensions:
   beads:
     imported_at: 2026-01-17T12:47:42.779Z
     original_id: tbd-1883
-id: is-01kf5zyg8p1f180dsqcnm8xvd4
-kind: task
-labels: []
-parent_id: null
-priority: 2
-status: closed
-title: Add golden tests for tbd uninstall command
-type: is
-updated_at: 2026-01-17T09:39:40.767Z
-version: 1
 ---
 Create golden tests for tbd uninstall command.
 

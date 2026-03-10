@@ -1,24 +1,24 @@
 ---
-close_reason: Won't implement - aider support not needed
-closed_at: 2026-01-17T09:59:10.225Z
-created_at: 2026-01-17T07:23:01.263Z
-deferred_until: null
+type: is
+id: is-01kf5zyg8pt4mk1y64da0jv7gr
+title: Implement tbd setup aider command
+kind: task
+status: closed
+priority: 2
+version: 6
+labels: []
 dependencies: []
+parent_id: null
 due_date: null
+deferred_until: null
+created_at: 2026-01-17T07:23:01.263Z
+updated_at: 2026-03-09T16:12:30.637Z
+closed_at: 2026-01-17T09:59:10.225Z
+close_reason: Won't implement - aider support not needed
 extensions:
   beads:
     imported_at: 2026-01-17T12:47:42.744Z
     original_id: tbd-1879
-id: is-01kf5zyg8pt4mk1y64da0jv7gr
-kind: task
-labels: []
-parent_id: null
-priority: 2
-status: closed
-title: Implement tbd setup aider command
-type: is
-updated_at: 2026-01-17T09:59:10.225Z
-version: 1
 ---
 Implement the tbd setup aider command for Aider integration.
 

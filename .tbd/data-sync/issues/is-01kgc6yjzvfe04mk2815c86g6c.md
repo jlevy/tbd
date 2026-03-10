@@ -1,18 +1,18 @@
 ---
-close_reason: Added corrupted-data.test.ts with integration tests for merge conflicts and invalid YAML
-closed_at: 2026-02-01T09:16:48.439Z
-created_at: 2026-02-01T09:01:13.082Z
-dependencies: []
-id: is-01kgc6yjzvfe04mk2815c86g6c
-kind: task
-labels: []
-parent_id: is-01kgc6hsmxfbrsts7q2mmjrznp
-priority: 2
-status: closed
-title: Add integration tests for corrupted data scenarios (YAML parse errors, merge conflicts)
 type: is
-updated_at: 2026-02-01T09:16:48.440Z
-version: 4
+id: is-01kgc6yjzvfe04mk2815c86g6c
+title: Add integration tests for corrupted data scenarios (YAML parse errors, merge conflicts)
+kind: task
+status: closed
+priority: 2
+version: 9
+labels: []
+dependencies: []
+parent_id: is-01kgc6hsmxfbrsts7q2mmjrznp
+created_at: 2026-02-01T09:01:13.082Z
+updated_at: 2026-03-09T16:12:33.660Z
+closed_at: 2026-02-01T09:16:48.439Z
+close_reason: Added corrupted-data.test.ts with integration tests for merge conflicts and invalid YAML
 ---
 Test scenarios to add:
 

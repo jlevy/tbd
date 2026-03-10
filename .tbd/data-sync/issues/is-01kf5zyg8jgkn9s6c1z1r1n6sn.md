@@ -1,25 +1,25 @@
 ---
-close_reason: null
-closed_at: 2026-01-17T23:50:47.975Z
-created_at: 2026-01-15T10:00:00.000Z
-deferred_until: null
+type: is
+id: is-01kf5zyg8jgkn9s6c1z1r1n6sn
+title: tbd V1 Complete Implementation
+kind: epic
+status: closed
+priority: 0
+version: 7
+labels:
+  - implementation
+  - tbd-v1
 dependencies: []
+parent_id: null
 due_date: null
+deferred_until: null
+created_at: 2026-01-15T10:00:00.000Z
+updated_at: 2026-03-09T16:12:29.579Z
+closed_at: 2026-01-17T23:50:47.975Z
+close_reason: null
 extensions:
   beads:
     imported_at: 2026-01-17T12:47:41.857Z
     original_id: tbd-100
-id: is-01kf5zyg8jgkn9s6c1z1r1n6sn
-kind: epic
-labels:
-  - implementation
-  - tbd-v1
-parent_id: null
-priority: 0
-status: closed
-title: tbd V1 Complete Implementation
-type: is
-updated_at: 2026-01-17T23:50:47.985Z
-version: 2
 ---
 Master epic for the full tbd V1 implementation - a Beads replacement CLI tool for git-native issue tracking.

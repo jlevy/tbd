@@ -1,18 +1,18 @@
 ---
-close_reason: Added unit tests for mergeIdMappings and parseIdMappingFromYaml functions
-closed_at: 2026-02-01T09:14:25.543Z
-created_at: 2026-02-01T09:05:17.371Z
-dependencies: []
-id: is-01kgc761hxdbctw6jgqgy9fjxp
-kind: task
-labels: []
-parent_id: is-01kgc6hsmxfbrsts7q2mmjrznp
-priority: 1
-status: closed
-title: Add test for merge conflict detection in sync
 type: is
-updated_at: 2026-02-01T09:14:25.544Z
-version: 3
+id: is-01kgc761hxdbctw6jgqgy9fjxp
+title: Add test for merge conflict detection in sync
+kind: task
+status: closed
+priority: 1
+version: 8
+labels: []
+dependencies: []
+parent_id: is-01kgc6hsmxfbrsts7q2mmjrznp
+created_at: 2026-02-01T09:05:17.371Z
+updated_at: 2026-03-09T16:12:33.665Z
+closed_at: 2026-02-01T09:14:25.543Z
+close_reason: Added unit tests for mergeIdMappings and parseIdMappingFromYaml functions
 ---
 Test the safety check that prevents committing files with merge conflict markers.
 

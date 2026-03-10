@@ -1,19 +1,19 @@
 ---
-close_reason: Reproduction complete
-closed_at: 2026-02-03T09:54:46.615Z
-created_at: 2026-02-03T09:54:25.240Z
-dependencies:
-  - target: is-01kghet3afs5v8fn3yxf5v3041
-    type: blocks
-id: is-01kgheseasdm734hm4rs14xnvq
-kind: task
-labels: []
-priority: 1
-status: closed
-title: "Reproduce: workspace import creates whole_issue conflicts for simple updates"
 type: is
-updated_at: 2026-02-03T09:55:04.173Z
-version: 4
+id: is-01kgheseasdm734hm4rs14xnvq
+title: "Reproduce: workspace import creates whole_issue conflicts for simple updates"
+kind: task
+status: closed
+priority: 1
+version: 9
+labels: []
+dependencies:
+  - type: blocks
+    target: is-01kghet3afs5v8fn3yxf5v3041
+created_at: 2026-02-03T09:54:25.240Z
+updated_at: 2026-03-09T16:12:33.906Z
+closed_at: 2026-02-03T09:54:46.615Z
+close_reason: Reproduction complete
 ---
 ## Notes
 

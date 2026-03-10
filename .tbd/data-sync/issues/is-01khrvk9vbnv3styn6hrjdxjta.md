@@ -5,9 +5,9 @@ title: "Clean up .gitattributes setup: use idempotent insertion (like .gitignore
 kind: task
 status: open
 priority: 2
-version: 1
+version: 6
 labels: []
 dependencies: []
 created_at: 2026-02-18T17:08:38.378Z
-updated_at: 2026-02-18T17:08:38.378Z
+updated_at: 2026-03-09T16:12:34.500Z
 ---

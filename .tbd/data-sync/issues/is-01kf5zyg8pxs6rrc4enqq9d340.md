@@ -1,24 +1,24 @@
 ---
-close_reason: Implemented documentation improvements
-closed_at: 2026-01-17T10:56:04.137Z
-created_at: 2026-01-17T10:41:51.114Z
-deferred_until: null
+type: is
+id: is-01kf5zyg8pxs6rrc4enqq9d340
+title: Add Priority and Date format reference
+kind: task
+status: closed
+priority: 3
+version: 6
+labels: []
 dependencies: []
+parent_id: null
 due_date: null
+deferred_until: null
+created_at: 2026-01-17T10:41:51.114Z
+updated_at: 2026-03-09T16:12:30.678Z
+closed_at: 2026-01-17T10:56:04.137Z
+close_reason: Implemented documentation improvements
 extensions:
   beads:
     imported_at: 2026-01-17T12:47:42.996Z
     original_id: tbd-1918
-id: is-01kf5zyg8pxs6rrc4enqq9d340
-kind: task
-labels: []
-parent_id: null
-priority: 3
-status: closed
-title: Add Priority and Date format reference
-type: is
-updated_at: 2026-01-17T10:56:04.137Z
-version: 1
 ---
 Add reference for priority scale and date formats:
 

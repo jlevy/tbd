@@ -1,24 +1,24 @@
 ---
-close_reason: Implemented documentation improvements
-closed_at: 2026-01-17T10:56:04.137Z
-created_at: 2026-01-17T10:41:31.472Z
-deferred_until: null
+type: is
+id: is-01kf5zyg8pxx1y1fkhhr8tv9q5
+title: Add "For AI Agents" section
+kind: task
+status: closed
+priority: 1
+version: 6
+labels: []
 dependencies: []
+parent_id: null
 due_date: null
+deferred_until: null
+created_at: 2026-01-17T10:41:31.472Z
+updated_at: 2026-03-09T16:12:30.685Z
+closed_at: 2026-01-17T10:56:04.137Z
+close_reason: Implemented documentation improvements
 extensions:
   beads:
     imported_at: 2026-01-17T12:47:42.967Z
     original_id: tbd-1913
-id: is-01kf5zyg8pxx1y1fkhhr8tv9q5
-kind: task
-labels: []
-parent_id: null
-priority: 1
-status: closed
-title: Add "For AI Agents" section
-type: is
-updated_at: 2026-01-17T10:56:04.137Z
-version: 1
 ---
 Add dedicated section for AI agent usage:
 

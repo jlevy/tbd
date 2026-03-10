@@ -1,23 +1,23 @@
 ---
-close_reason: cli-help-all.tryscript.md created with 21 tests verifying --help on all commands
-closed_at: 2026-01-17T01:13:37.238Z
-created_at: 2026-01-16T07:14:23.723Z
-deferred_until: null
+type: is
+id: is-01kf5zyg8marg2eef0qyt9jkvs
+title: "Test: Verify --help works on all subcommands"
+kind: task
+status: closed
+priority: 2
+version: 6
+labels: []
 dependencies: []
+parent_id: null
 due_date: null
+deferred_until: null
+created_at: 2026-01-16T07:14:23.723Z
+updated_at: 2026-03-09T16:12:29.872Z
+closed_at: 2026-01-17T01:13:37.238Z
+close_reason: cli-help-all.tryscript.md created with 21 tests verifying --help on all commands
 extensions:
   beads:
     imported_at: 2026-01-17T12:47:42.350Z
     original_id: tbd-1830
-id: is-01kf5zyg8marg2eef0qyt9jkvs
-kind: task
-labels: []
-parent_id: null
-priority: 2
-status: closed
-title: "Test: Verify --help works on all subcommands"
-type: is
-updated_at: 2026-01-17T01:13:37.238Z
-version: 1
 ---
 Golden tests verifying --help output for all subcommands. Each should show usage, description, options, and examples.

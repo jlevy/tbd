@@ -1,24 +1,24 @@
 ---
-close_reason: Implemented in Phase 22-24
-closed_at: 2026-01-17T09:17:52.363Z
-created_at: 2026-01-17T16:45:00.000Z
-deferred_until: null
+type: is
+id: is-01kf5zyg8pmej89cwnyr2wmfma
+title: Implement tbd setup codex command
+kind: task
+status: closed
+priority: 2
+version: 6
+labels: []
 dependencies: []
+parent_id: null
 due_date: null
+deferred_until: null
+created_at: 2026-01-17T16:45:00.000Z
+updated_at: 2026-03-09T16:12:30.588Z
+closed_at: 2026-01-17T09:17:52.363Z
+close_reason: Implemented in Phase 22-24
 extensions:
   beads:
     imported_at: 2026-01-17T12:47:42.769Z
     original_id: tbd-1882
-id: is-01kf5zyg8pmej89cwnyr2wmfma
-kind: task
-labels: []
-parent_id: null
-priority: 2
-status: closed
-title: Implement tbd setup codex command
-type: is
-updated_at: 2026-01-17T16:45:00.000Z
-version: 1
 ---
 Implement the tbd setup codex command for OpenAI Codex CLI integration.
 

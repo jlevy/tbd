@@ -1,24 +1,24 @@
 ---
-close_reason: null
-closed_at: 2026-01-25T17:26:47.985Z
-created_at: 2026-01-25T17:17:17.648Z
-dependencies:
-  - target: is-01kfv2jp1rd4b9sgfpgvqt9pw1
-    type: blocks
-  - target: is-01kfv2jy2gj2nnbct7vt46rqjt
-    type: blocks
-  - target: is-01kfv2m19gxrg8vbjps5m7t1cj
-    type: blocks
-id: is-01kfv2hwyh8g0namvvastjprj9
-kind: task
-labels: []
-parent_id: is-01kfv2he1c3hct3c07gv0edh90
-priority: 2
-status: closed
-title: Create ensureGitignorePatterns() edit function
 type: is
-updated_at: 2026-01-25T17:26:47.985Z
-version: 5
+id: is-01kfv2hwyh8g0namvvastjprj9
+title: Create ensureGitignorePatterns() edit function
+kind: task
+status: closed
+priority: 2
+version: 10
+labels: []
+dependencies:
+  - type: blocks
+    target: is-01kfv2jp1rd4b9sgfpgvqt9pw1
+  - type: blocks
+    target: is-01kfv2jy2gj2nnbct7vt46rqjt
+  - type: blocks
+    target: is-01kfv2m19gxrg8vbjps5m7t1cj
+parent_id: is-01kfv2he1c3hct3c07gv0edh90
+created_at: 2026-01-25T17:17:17.648Z
+updated_at: 2026-03-09T16:12:32.834Z
+closed_at: 2026-01-25T17:26:47.985Z
+close_reason: null
 ---
 Implement the idempotent edit function that ensures patterns exist in a .gitignore file.
 

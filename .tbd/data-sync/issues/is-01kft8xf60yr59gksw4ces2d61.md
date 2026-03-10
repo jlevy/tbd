@@ -1,16 +1,16 @@
 ---
-close_reason: null
-closed_at: 2026-01-25T09:51:06.124Z
-created_at: 2026-01-25T09:49:13.791Z
-dependencies: []
+type: is
 id: is-01kft8xf60yr59gksw4ces2d61
+title: "Update init.ts: remove cache dir creation, update gitignore to docs/"
 kind: task
+status: closed
+priority: 2
+version: 7
 labels:
   - refactor
-priority: 2
-status: closed
-title: "Update init.ts: remove cache dir creation, update gitignore to docs/"
-type: is
-updated_at: 2026-01-25T09:51:06.137Z
-version: 2
+dependencies: []
+created_at: 2026-01-25T09:49:13.791Z
+updated_at: 2026-03-09T16:12:32.711Z
+closed_at: 2026-01-25T09:51:06.124Z
+close_reason: null
 ---

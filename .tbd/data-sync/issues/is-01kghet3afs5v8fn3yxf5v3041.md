@@ -1,17 +1,17 @@
 ---
-close_reason: Fix complete and tested
-closed_at: 2026-02-03T10:10:12.772Z
-created_at: 2026-02-03T09:54:46.734Z
-dependencies: []
-id: is-01kghet3afs5v8fn3yxf5v3041
-kind: task
-labels: []
-priority: 0
-status: closed
-title: "Fix: use field-level merge instead of whole_issue conflicts in workspace import"
 type: is
-updated_at: 2026-02-03T10:10:12.773Z
-version: 4
+id: is-01kghet3afs5v8fn3yxf5v3041
+title: "Fix: use field-level merge instead of whole_issue conflicts in workspace import"
+kind: task
+status: closed
+priority: 0
+version: 9
+labels: []
+dependencies: []
+created_at: 2026-02-03T09:54:46.734Z
+updated_at: 2026-03-09T16:12:33.913Z
+closed_at: 2026-02-03T10:10:12.772Z
+close_reason: Fix complete and tested
 ---
 ## Notes
 

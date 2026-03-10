@@ -1,21 +1,21 @@
 ---
-close_reason: "Implemented: removed autoDetectPrefix and related functions, setup now requires --prefix"
-closed_at: 2026-01-23T01:57:40.882Z
-created_at: 2026-01-23T01:51:35.193Z
-dependencies:
-  - target: is-01kfm8sxw5a0wckwm1vtk3rqqr
-    type: blocks
-  - target: is-01kfm8t5j0zepm5h3n4vx8tv6a
-    type: blocks
-id: is-01kfm8se8tzgwqv1jdze8rd3n4
-kind: task
-labels: []
-priority: 1
-status: closed
-title: Remove prefix auto-detection from code
 type: is
-updated_at: 2026-01-23T01:57:40.883Z
-version: 5
+id: is-01kfm8se8tzgwqv1jdze8rd3n4
+title: Remove prefix auto-detection from code
+kind: task
+status: closed
+priority: 1
+version: 10
+labels: []
+dependencies:
+  - type: blocks
+    target: is-01kfm8sxw5a0wckwm1vtk3rqqr
+  - type: blocks
+    target: is-01kfm8t5j0zepm5h3n4vx8tv6a
+created_at: 2026-01-23T01:51:35.193Z
+updated_at: 2026-03-09T16:12:32.236Z
+closed_at: 2026-01-23T01:57:40.882Z
+close_reason: "Implemented: removed autoDetectPrefix and related functions, setup now requires --prefix"
 ---
 Remove the autoDetectPrefix function and its usages from the codebase.
 

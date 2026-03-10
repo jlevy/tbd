@@ -1,20 +1,20 @@
 ---
-created_at: 2026-01-18T08:33:38.923Z
-dependencies:
-  - target: is-01kf83qst1yakat6384xpw3bx1
-    type: blocks
-  - target: is-01kf83qt6gtdzx5gx98cc0y6jj
-    type: blocks
-id: is-01kf83t1kcyff4gv6h6k28h7g4
-kind: task
-labels: []
-parent_id: is-01kf83qm50827p60a7cg7jkqpd
-priority: 2
-status: open
-title: Track modified issues at commit time and pass to commit message generator
 type: is
-updated_at: 2026-01-18T08:33:49.219Z
-version: 4
+id: is-01kf83t1kcyff4gv6h6k28h7g4
+title: Track modified issues at commit time and pass to commit message generator
+kind: task
+status: open
+priority: 2
+version: 9
+labels: []
+dependencies:
+  - type: blocks
+    target: is-01kf83qst1yakat6384xpw3bx1
+  - type: blocks
+    target: is-01kf83qt6gtdzx5gx98cc0y6jj
+parent_id: is-01kf83qm50827p60a7cg7jkqpd
+created_at: 2026-01-18T08:33:38.923Z
+updated_at: 2026-03-09T16:12:31.949Z
 ---
 During sync operations, we already know which issues are being modified. The approach:
 

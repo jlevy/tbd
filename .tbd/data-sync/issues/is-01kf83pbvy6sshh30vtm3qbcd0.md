@@ -1,17 +1,17 @@
 ---
-close_reason: Major hardcoded content removed. Review complete.
-closed_at: 2026-01-26T17:24:23.111Z
-created_at: 2026-01-18T08:31:38.365Z
-dependencies: []
-id: is-01kf83pbvy6sshh30vtm3qbcd0
-kind: task
-labels: []
-priority: 3
-status: closed
-title: Review and remove remaining hardcoded content in setup commands
 type: is
-updated_at: 2026-01-26T17:24:23.112Z
-version: 3
+id: is-01kf83pbvy6sshh30vtm3qbcd0
+title: Review and remove remaining hardcoded content in setup commands
+kind: task
+status: closed
+priority: 3
+version: 8
+labels: []
+dependencies: []
+created_at: 2026-01-18T08:31:38.365Z
+updated_at: 2026-03-09T16:12:31.916Z
+closed_at: 2026-01-26T17:24:23.111Z
+close_reason: Major hardcoded content removed. Review complete.
 ---
 ## Notes
 

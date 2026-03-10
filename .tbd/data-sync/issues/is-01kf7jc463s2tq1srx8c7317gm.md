@@ -1,17 +1,17 @@
 ---
-close_reason: Already implemented in setup.ts. Added documentation to tbd-full-design.md and tbd-design.md
-closed_at: 2026-01-18T03:51:46.966Z
-created_at: 2026-01-18T03:28:57.011Z
-dependencies: []
-id: is-01kf7jc463s2tq1srx8c7317gm
-kind: task
-labels: []
-priority: 1
-status: closed
-title: Add .gitattributes handling to tbd setup beads --disable
 type: is
-updated_at: 2026-01-18T03:51:46.967Z
-version: 3
+id: is-01kf7jc463s2tq1srx8c7317gm
+title: Add .gitattributes handling to tbd setup beads --disable
+kind: task
+status: closed
+priority: 1
+version: 8
+labels: []
+dependencies: []
+created_at: 2026-01-18T03:28:57.011Z
+updated_at: 2026-03-09T16:12:31.491Z
+closed_at: 2026-01-18T03:51:46.966Z
+close_reason: Already implemented in setup.ts. Added documentation to tbd-full-design.md and tbd-design.md
 ---
 The `tbd setup beads --disable` command is missing handling for `.gitattributes` which contains beads merge driver configuration:
 

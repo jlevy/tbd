@@ -1,21 +1,21 @@
 ---
-close_reason: Audited all commands for design system compliance. Fixed stats.ts priority display to use P0-P4 format instead of raw numbers.
-closed_at: 2026-01-18T05:49:15.508Z
-created_at: 2026-01-18T04:08:42.843Z
-dependencies:
-  - target: is-01kf7mmygxzyd03r6wq568tqef
-    type: blocks
-  - target: is-01kf7mmyyjapv7szwbkhe66p83
-    type: blocks
-id: is-01kf7mmy2wq0qgmaxj55vtsvsc
-kind: task
-labels: []
-priority: 2
-status: closed
-title: Audit commands for design system compliance
 type: is
-updated_at: 2026-01-18T05:49:15.509Z
-version: 10
+id: is-01kf7mmy2wq0qgmaxj55vtsvsc
+title: Audit commands for design system compliance
+kind: task
+status: closed
+priority: 2
+version: 15
+labels: []
+dependencies:
+  - type: blocks
+    target: is-01kf7mmygxzyd03r6wq568tqef
+  - type: blocks
+    target: is-01kf7mmyyjapv7szwbkhe66p83
+created_at: 2026-01-18T04:08:42.843Z
+updated_at: 2026-03-09T16:12:31.617Z
+closed_at: 2026-01-18T05:49:15.508Z
+close_reason: Audited all commands for design system compliance. Fixed stats.ts priority display to use P0-P4 format instead of raw numbers.
 ---
 Audit all commands for design system compliance:
 - Audit list.ts for compliance

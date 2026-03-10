@@ -1,17 +1,17 @@
 ---
-close_reason: "Implemented: doctor now shows paths for config file, issues directory, temp files, and Claude skill file checks"
-closed_at: 2026-01-18T03:09:34.495Z
-created_at: 2026-01-18T03:02:19.295Z
-dependencies: []
-id: is-01kf7gvbx0kztdh2211fcqzgms
-kind: task
-labels: []
-priority: 1
-status: closed
-title: tbd doctor should show paths for all checks
 type: is
-updated_at: 2026-01-18T03:09:34.496Z
-version: 3
+id: is-01kf7gvbx0kztdh2211fcqzgms
+title: tbd doctor should show paths for all checks
+kind: task
+status: closed
+priority: 1
+version: 8
+labels: []
+dependencies: []
+created_at: 2026-01-18T03:02:19.295Z
+updated_at: 2026-03-09T16:12:31.382Z
+closed_at: 2026-01-18T03:09:34.495Z
+close_reason: "Implemented: doctor now shows paths for config file, issues directory, temp files, and Claude skill file checks"
 ---
 Currently tbd doctor just shows checkmarks without details. It should show the exact paths verified for each check. For example:
 

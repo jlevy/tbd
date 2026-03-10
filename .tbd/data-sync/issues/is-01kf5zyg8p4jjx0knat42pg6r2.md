@@ -1,24 +1,24 @@
 ---
-close_reason: Done - cli-prime.tryscript.md with 12 tests
-closed_at: 2026-01-17T10:00:06.561Z
-created_at: 2026-01-17T07:23:06.597Z
-deferred_until: null
+type: is
+id: is-01kf5zyg8p4jjx0knat42pg6r2
+title: Golden tests for tbd prime command
+kind: task
+status: closed
+priority: 1
+version: 6
+labels: []
 dependencies: []
+parent_id: null
 due_date: null
+deferred_until: null
+created_at: 2026-01-17T07:23:06.597Z
+updated_at: 2026-03-09T16:12:30.457Z
+closed_at: 2026-01-17T10:00:06.561Z
+close_reason: Done - cli-prime.tryscript.md with 12 tests
 extensions:
   beads:
     imported_at: 2026-01-17T12:47:42.750Z
     original_id: tbd-1880
-id: is-01kf5zyg8p4jjx0knat42pg6r2
-kind: task
-labels: []
-parent_id: null
-priority: 1
-status: closed
-title: Golden tests for tbd prime command
-type: is
-updated_at: 2026-01-17T10:00:06.561Z
-version: 1
 ---
 Create golden tests for tbd prime command.
 
