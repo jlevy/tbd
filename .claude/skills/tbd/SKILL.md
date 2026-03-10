@@ -30,7 +30,7 @@ description: Full tbd workflow guide for agents
 
 ```bash
 npm install -g get-tbd@latest
-tbd setup --auto --prefix=<name>   # Fresh project (--prefix is REQUIRED: 2-8 alphabetic chars recommended. ALWAYS ASK THE USER FOR THE PREFIX; do not guess it)
+tbd setup --auto --prefix=<name>   # Fresh project (--prefix is REQUIRED: a short alphabetic name, 2-8 chars, used as an issue ID prefix e.g. myapp → myapp-a1b2. No dashes or special chars. ALWAYS ASK THE USER FOR THE PREFIX; do not guess it)
 tbd setup --auto                   # Existing tbd project (prefix already set)
 tbd setup --from-beads             # Migration from .beads/ if `bd` has been used
 ```
