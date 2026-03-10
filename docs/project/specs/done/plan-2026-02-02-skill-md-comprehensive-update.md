@@ -75,7 +75,7 @@ shortcuts, templates, commit, PR workflows, code review, testing best practices,
 
 | Capability | README Emphasis |
 | --- | --- |
-| **Knowledge injection** | One of the 4 pillars - "self-injected context for agents to get smarter" |
+| **Knowledge injection** | One of the 4 pillars - “self-injected context for agents to get smarter” |
 | **bd/Beads replacement** | Drop-in replacement, simpler architecture, no daemon/SQLite issues |
 | **Code cleanup workflows** | `code-cleanup-all`, `code-cleanup-tests`, `code-cleanup-docstrings` |
 | **Agent handoffs** | `agent-handoff` shortcut for session continuity |
@@ -113,14 +113,14 @@ Current triggers are missing these important terms:
 
 | User Says | Should Run |
 | --- | --- |
-| "Clean up this code" / "Remove dead code" | `tbd shortcut code-cleanup-all` |
-| "Hand off to another agent" | `tbd shortcut agent-handoff` |
-| "Check out / review this library's source" | `tbd shortcut checkout-third-party-repo` |
-| "Merge main into my branch" | `tbd shortcut merge-upstream` |
-| "Search issues for X" | `tbd search "X"` |
-| "Add label X to issue Y" | `tbd label add <id> <label>` |
-| "What issues are stale?" | `tbd stale` |
-| "Fix repository problems" | `tbd doctor --fix` |
+| “Clean up this code” / “Remove dead code” | `tbd shortcut code-cleanup-all` |
+| “Hand off to another agent” | `tbd shortcut agent-handoff` |
+| “Check out / review this library’s source” | `tbd shortcut checkout-third-party-repo` |
+| “Merge main into my branch” | `tbd shortcut merge-upstream` |
+| “Search issues for X” | `tbd search "X"` |
+| “Add label X to issue Y” | `tbd label add <id> <label>` |
+| “What issues are stale?” | `tbd stale` |
+| “Fix repository problems” | `tbd doctor --fix` |
 
 ## Implementation (Complete)
 

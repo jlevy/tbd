@@ -273,7 +273,8 @@ Options:
   path, or full path)
 - `--deferred` - Show only deferred issues
 - `--defer-before <date>` - Deferred before date
-- `--sort <field>` - Sort by: priority, created, updated (default: priority)
+- `--sort <field>` - Sort by: priority, created, updated (default: priority).
+  Tiebreaker: internal ULID (chronological creation order)
 - `--limit <n>` - Limit number of results
 - `--count` - Output only the count of matching issues
 - `--long` - Show issue descriptions on a second line
@@ -728,8 +729,6 @@ tbd list --verbose                          # Enable verbose output
 tbd create "Test" --dry-run                 # Show what would happen
 tbd close proj-a7k2 --no-sync                 # Skip automatic sync
 tbd list --debug                            # Show internal IDs
-tbd update proj-a7k2 --yes                    # Assume yes to prompts
-tbd list --non-interactive                  # Fail if input required
 tbd list --color=never                      # Disable colors
 ```
 
@@ -740,8 +739,6 @@ Options:
 - `--quiet` - Suppress non-essential output
 - `--json` - Output as JSON
 - `--color <when>` - Colorize output: auto, always, never
-- `--non-interactive` - Disable all prompts, fail if input required
-- `--yes` - Assume yes to confirmation prompts
 - `--no-sync` - Skip automatic sync after write operations
 - `--debug` - Show internal IDs alongside display IDs
 
@@ -765,8 +762,6 @@ tbd sync                                    # Push changes
 | Flag | Purpose |
 | --- | --- |
 | `--json` | Machine-parseable output |
-| `--non-interactive` | Fail if input required (auto-enabled in CI) |
-| `--yes` | Auto-confirm prompts |
 | `--dry-run` | Preview changes before applying |
 | `--quiet` | Suppress informational output |
 

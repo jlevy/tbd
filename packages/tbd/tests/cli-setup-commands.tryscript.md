@@ -37,26 +37,23 @@ Usage: tbd setup [options]
 Configure tbd integration with editors and tools
 
 Options:
-  --auto             Non-interactive mode with smart defaults (for
-                     agents/scripts)
-  --interactive      Interactive mode with prompts (for humans)
-  --from-beads       Migrate from Beads to tbd
-  --prefix <name>    Project prefix for issue IDs (required for fresh setup)
-  --force            Allow non-recommended prefix format (not 2-8 alphabetic)
-  --no-gh-cli        Disable automatic GitHub CLI installation hook
-  -h, --help         display help for command
+  --auto           Non-interactive mode with smart defaults (for agents/scripts)
+  --interactive    Interactive mode with prompts (for humans)
+  --from-beads     Migrate from Beads to tbd
+  --prefix <name>  Project prefix for issue IDs (required for fresh setup)
+  --force          Allow non-recommended prefix format (not 2-8 alphabetic)
+  --no-gh-cli      Disable automatic GitHub CLI installation hook
+  -h, --help       display help for command
 
 Global Options:
-  --version          Show version number
-  --dry-run          Show what would be done without making changes
-  --verbose          Enable verbose output
-  --quiet            Suppress non-essential output
-  --json             Output as JSON
-  --color <when>     Colorize output: auto, always, never (default: "auto")
-  --non-interactive  Disable all prompts, fail if input required
-  --yes              Assume yes to confirmation prompts
-  --no-sync          Skip automatic sync after write operations
-  --debug            Show internal IDs alongside public IDs for debugging
+  --version        Show version number
+  --dry-run        Show what would be done without making changes
+  --verbose        Enable verbose output
+  --quiet          Suppress non-essential output
+  --json           Output as JSON
+  --color <when>   Colorize output: auto, always, never (default: "auto")
+  --no-sync        Skip automatic sync after write operations
+  --debug          Show internal IDs alongside public IDs for debugging
 
 IMPORTANT:
   Agents unfamiliar with tbd should run `tbd prime` for full workflow context.

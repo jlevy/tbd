@@ -15,7 +15,6 @@ import { listIssues } from '../../file/storage.js';
 import { formatDisplayId, formatDebugId, extractUlidFromInternalId } from '../../lib/ids.js';
 import type { IdMapping } from '../../file/id-mapping.js';
 import { resolveToInternalId } from '../../file/id-mapping.js';
-import { naturalCompare } from '../../lib/sort.js';
 import { comparisonChain, ordering } from '../../lib/comparison-chain.js';
 import {
   formatIssueLine,
@@ -259,13 +258,7 @@ class ListHandler extends BaseCommand {
     });
   }
 
-  private sortIssues(issues: Issue[], sortField: string, mapping: IdMapping): Issue[] {
-    // Helper to get short ID for secondary sort
-    const getShortId = (issue: Issue): string => {
-      const ulid = extractUlidFromInternalId(issue.id);
-      return mapping.ulidToShort.get(ulid) ?? ulid;
-    };
-
+  private sortIssues(issues: Issue[], sortField: string, _mapping: IdMapping): Issue[] {
     const primarySelector: (i: Issue) => number =
       sortField === 'created'
         ? (i) => new Date(i.created_at).getTime()
@@ -280,7 +273,8 @@ class ListHandler extends BaseCommand {
     return [...issues].sort(
       comparisonChain<Issue>()
         .compare(primarySelector, primaryOrdering)
-        .compare(getShortId, (a, b) => naturalCompare(a, b))
+        // Tiebreak by internal ULID (chronological and deterministic, unlike random short IDs)
+        .compare((i) => extractUlidFromInternalId(i.id))
         .result(),
     );
   }

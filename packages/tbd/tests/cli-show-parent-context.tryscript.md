@@ -50,36 +50,36 @@ test-[SHORTID]
 ```console
 $ tbd show $(cat child_id.txt)
 ---
-created_at: [TIMESTAMP]
-dependencies: []
-id: is-[ULID]
-kind: task
-labels: []
-parent_id: is-[ULID]
-priority: P2
-status: open
-title: Implement OAuth
 type: is
-updated_at: [TIMESTAMP]
+id: is-[ULID]
+title: Implement OAuth
+kind: task
+status: open
+priority: P2
 version: 1
+labels: []
+dependencies: []
+parent_id: is-[ULID]
+created_at: [TIMESTAMP]
+updated_at: [TIMESTAMP]
 ---
 
 
 The parent of this bead is:
 ---
+type: is
+id: is-[ULID]
+title: Build Auth System
+kind: epic
+status: open
+priority: P1
+version: 2
+labels: []
+dependencies: []
 child_order_hints:
   - is-[ULID]
 created_at: [TIMESTAMP]
-dependencies: []
-id: is-[ULID]
-kind: epic
-labels: []
-priority: P1
-status: open
-title: Build Auth System
-type: is
 updated_at: [TIMESTAMP]
-version: 2
 ---
 Users need OAuth and SAML auth
 ? 0
@@ -92,18 +92,18 @@ Users need OAuth and SAML auth
 ```console
 $ tbd show $(cat child_id.txt) --no-parent
 ---
-created_at: [TIMESTAMP]
-dependencies: []
-id: is-[ULID]
-kind: task
-labels: []
-parent_id: is-[ULID]
-priority: P2
-status: open
-title: Implement OAuth
 type: is
-updated_at: [TIMESTAMP]
+id: is-[ULID]
+title: Implement OAuth
+kind: task
+status: open
+priority: P2
 version: 1
+labels: []
+dependencies: []
+parent_id: is-[ULID]
+created_at: [TIMESTAMP]
+updated_at: [TIMESTAMP]
 ---
 ? 0
 ```
@@ -115,8 +115,8 @@ version: 1
 ```console
 $ tbd show $(cat child_id.txt) --no-parent --max-lines 3
 ---
-created_at: [TIMESTAMP]
-dependencies: []
+type: is
+id: is-[ULID]
 … [12 lines omitted]
 ? 0
 ```
@@ -128,19 +128,19 @@ dependencies: []
 ```console
 $ tbd show $(cat parent_id.txt)
 ---
+type: is
+id: is-[ULID]
+title: Build Auth System
+kind: epic
+status: open
+priority: P1
+version: 2
+labels: []
+dependencies: []
 child_order_hints:
   - is-[ULID]
 created_at: [TIMESTAMP]
-dependencies: []
-id: is-[ULID]
-kind: epic
-labels: []
-priority: P1
-status: open
-title: Build Auth System
-type: is
 updated_at: [TIMESTAMP]
-version: 2
 ---
 Users need OAuth and SAML auth
 ? 0
@@ -173,10 +173,10 @@ $ tbd show $(cat child_id.txt) --json
     "created_at": "[TIMESTAMP]",
     "updated_at": "[TIMESTAMP]",
     "title": "Build Auth System",
-    "description": "Users need OAuth and SAML auth",
     "kind": "epic",
     "status": "open",
     "priority": 1,
+    "description": "Users need OAuth and SAML auth",
     "labels": [],
     "dependencies": [],
     "child_order_hints": [
@@ -199,10 +199,10 @@ $ tbd show $(cat parent_id.txt) --json
   "created_at": "[TIMESTAMP]",
   "updated_at": "[TIMESTAMP]",
   "title": "Build Auth System",
-  "description": "Users need OAuth and SAML auth",
   "kind": "epic",
   "status": "open",
   "priority": 1,
+  "description": "Users need OAuth and SAML auth",
   "labels": [],
   "dependencies": [],
   "child_order_hints": [

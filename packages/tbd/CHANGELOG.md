@@ -1,5 +1,25 @@
 # get-tbd
 
+## 0.1.23
+
+### Patch Changes
+
+- e746cce: Fix sync flag handling, remove unused CLI flags, and fix Windows CI timeout
+
+## 0.1.22
+
+### Patch Changes
+
+- b98e317: Fix ID mapping loss during git merges with automatic reconciliation and merge
+  protection
+
+## 0.1.21
+
+### Patch Changes
+
+- 7948df2: Fix outbox sync bulk save noise, add deterministic YAML field ordering, and
+  fix list sort order stability.
+
 ## 0.1.20
 
 ### Patch Changes

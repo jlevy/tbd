@@ -96,30 +96,12 @@ The “done” status should be mapped to “closed” during import.
 $ tbd list --all --json
 [
   {
-    "id": "stat-blocked",
+    "id": "stat-open",
     "internalId": "is-[ULID]",
     "priority": 2,
-    "status": "blocked",
+    "status": "open",
     "kind": "task",
-    "title": "Issue with blocked status",
-    "labels": []
-  },
-  {
-    "id": "stat-closed",
-    "internalId": "is-[ULID]",
-    "priority": 2,
-    "status": "closed",
-    "kind": "task",
-    "title": "Issue with closed status",
-    "labels": []
-  },
-  {
-    "id": "stat-done",
-    "internalId": "is-[ULID]",
-    "priority": 2,
-    "status": "closed",
-    "kind": "task",
-    "title": "Issue with done status should map to closed",
+    "title": "Issue with open status",
     "labels": []
   },
   {
@@ -132,12 +114,30 @@ $ tbd list --all --json
     "labels": []
   },
   {
-    "id": "stat-open",
+    "id": "stat-done",
     "internalId": "is-[ULID]",
     "priority": 2,
-    "status": "open",
+    "status": "closed",
     "kind": "task",
-    "title": "Issue with open status",
+    "title": "Issue with done status should map to closed",
+    "labels": []
+  },
+  {
+    "id": "stat-closed",
+    "internalId": "is-[ULID]",
+    "priority": 2,
+    "status": "closed",
+    "kind": "task",
+    "title": "Issue with closed status",
+    "labels": []
+  },
+  {
+    "id": "stat-blocked",
+    "internalId": "is-[ULID]",
+    "priority": 2,
+    "status": "blocked",
+    "kind": "task",
+    "title": "Issue with blocked status",
     "labels": []
   },
   {
@@ -159,30 +159,12 @@ $ tbd list --all --json
 $ tbd list --all --json
 [
   {
-    "id": "stat-blocked",
+    "id": "stat-open",
     "internalId": "is-[ULID]",
     "priority": 2,
-    "status": "blocked",
+    "status": "open",
     "kind": "task",
-    "title": "Issue with blocked status",
-    "labels": []
-  },
-  {
-    "id": "stat-closed",
-    "internalId": "is-[ULID]",
-    "priority": 2,
-    "status": "closed",
-    "kind": "task",
-    "title": "Issue with closed status",
-    "labels": []
-  },
-  {
-    "id": "stat-done",
-    "internalId": "is-[ULID]",
-    "priority": 2,
-    "status": "closed",
-    "kind": "task",
-    "title": "Issue with done status should map to closed",
+    "title": "Issue with open status",
     "labels": []
   },
   {
@@ -195,12 +177,30 @@ $ tbd list --all --json
     "labels": []
   },
   {
-    "id": "stat-open",
+    "id": "stat-done",
     "internalId": "is-[ULID]",
     "priority": 2,
-    "status": "open",
+    "status": "closed",
     "kind": "task",
-    "title": "Issue with open status",
+    "title": "Issue with done status should map to closed",
+    "labels": []
+  },
+  {
+    "id": "stat-closed",
+    "internalId": "is-[ULID]",
+    "priority": 2,
+    "status": "closed",
+    "kind": "task",
+    "title": "Issue with closed status",
+    "labels": []
+  },
+  {
+    "id": "stat-blocked",
+    "internalId": "is-[ULID]",
+    "priority": 2,
+    "status": "blocked",
+    "kind": "task",
+    "title": "Issue with blocked status",
     "labels": []
   },
   {
@@ -228,30 +228,12 @@ Non-standard status values should map to ‘open’ as the safe default.
 $ tbd list --all --json
 [
   {
-    "id": "stat-blocked",
+    "id": "stat-open",
     "internalId": "is-[ULID]",
     "priority": 2,
-    "status": "blocked",
+    "status": "open",
     "kind": "task",
-    "title": "Issue with blocked status",
-    "labels": []
-  },
-  {
-    "id": "stat-closed",
-    "internalId": "is-[ULID]",
-    "priority": 2,
-    "status": "closed",
-    "kind": "task",
-    "title": "Issue with closed status",
-    "labels": []
-  },
-  {
-    "id": "stat-done",
-    "internalId": "is-[ULID]",
-    "priority": 2,
-    "status": "closed",
-    "kind": "task",
-    "title": "Issue with done status should map to closed",
+    "title": "Issue with open status",
     "labels": []
   },
   {
@@ -264,12 +246,30 @@ $ tbd list --all --json
     "labels": []
   },
   {
-    "id": "stat-open",
+    "id": "stat-done",
     "internalId": "is-[ULID]",
     "priority": 2,
-    "status": "open",
+    "status": "closed",
     "kind": "task",
-    "title": "Issue with open status",
+    "title": "Issue with done status should map to closed",
+    "labels": []
+  },
+  {
+    "id": "stat-closed",
+    "internalId": "is-[ULID]",
+    "priority": 2,
+    "status": "closed",
+    "kind": "task",
+    "title": "Issue with closed status",
+    "labels": []
+  },
+  {
+    "id": "stat-blocked",
+    "internalId": "is-[ULID]",
+    "priority": 2,
+    "status": "blocked",
+    "kind": "task",
+    "title": "Issue with blocked status",
     "labels": []
   },
   {
@@ -291,30 +291,12 @@ $ tbd list --all --json
 $ tbd list --all --json
 [
   {
-    "id": "stat-blocked",
+    "id": "stat-open",
     "internalId": "is-[ULID]",
     "priority": 2,
-    "status": "blocked",
+    "status": "open",
     "kind": "task",
-    "title": "Issue with blocked status",
-    "labels": []
-  },
-  {
-    "id": "stat-closed",
-    "internalId": "is-[ULID]",
-    "priority": 2,
-    "status": "closed",
-    "kind": "task",
-    "title": "Issue with closed status",
-    "labels": []
-  },
-  {
-    "id": "stat-done",
-    "internalId": "is-[ULID]",
-    "priority": 2,
-    "status": "closed",
-    "kind": "task",
-    "title": "Issue with done status should map to closed",
+    "title": "Issue with open status",
     "labels": []
   },
   {
@@ -327,12 +309,30 @@ $ tbd list --all --json
     "labels": []
   },
   {
-    "id": "stat-open",
+    "id": "stat-done",
     "internalId": "is-[ULID]",
     "priority": 2,
-    "status": "open",
+    "status": "closed",
     "kind": "task",
-    "title": "Issue with open status",
+    "title": "Issue with done status should map to closed",
+    "labels": []
+  },
+  {
+    "id": "stat-closed",
+    "internalId": "is-[ULID]",
+    "priority": 2,
+    "status": "closed",
+    "kind": "task",
+    "title": "Issue with closed status",
+    "labels": []
+  },
+  {
+    "id": "stat-blocked",
+    "internalId": "is-[ULID]",
+    "priority": 2,
+    "status": "blocked",
+    "kind": "task",
+    "title": "Issue with blocked status",
     "labels": []
   },
   {

@@ -10,8 +10,13 @@
  * See: tbd-design.md §2.5 ID Generation
  */
 
-import { ulid } from 'ulid';
+import { monotonicFactory } from 'ulid';
 import { randomBytes } from 'node:crypto';
+
+// Monotonic factory ensures ULIDs are strictly increasing even within the same
+// millisecond. This guarantees that lexicographic sort = creation order, which
+// is critical for deterministic list output (the tiebreaker sort is by ULID).
+const ulid = monotonicFactory();
 
 // =============================================================================
 // Branded Types for Type-Safe ID Handling

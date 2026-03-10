@@ -47,6 +47,7 @@ import {
   saveIdMapping,
   mergeIdMappings,
   parseIdMappingFromYaml,
+  reconcileMappings,
 } from '../../file/id-mapping.js';
 import {
   saveToWorkspace,
@@ -63,8 +64,8 @@ interface SyncOptions {
   fix?: boolean;
   issues?: boolean;
   docs?: boolean;
-  noAutoSave?: boolean;
-  noOutbox?: boolean;
+  autoSave?: boolean; // Commander: --no-auto-save sets this to false (default: true)
+  outbox?: boolean; // Commander: --no-outbox sets this to false (default: true)
 }
 
 interface SyncStatus {
@@ -184,8 +185,8 @@ class SyncHandler extends BaseCommand {
       // Full sync: pull then push
       await this.fullSync(syncBranch, remote, {
         force: options.force,
-        noAutoSave: options.noAutoSave,
-        noOutbox: options.noOutbox,
+        autoSave: options.autoSave,
+        outbox: options.outbox,
       });
     }
   }
@@ -663,7 +664,7 @@ class SyncHandler extends BaseCommand {
   private async fullSync(
     syncBranch: string,
     remote: string,
-    options: { force?: boolean; noAutoSave?: boolean; noOutbox?: boolean } = {},
+    options: { force?: boolean; autoSave?: boolean; outbox?: boolean } = {},
   ): Promise<void> {
     const spinner = this.output.spinner('Syncing with remote...');
     const summary: SyncSummary = emptySummary();
@@ -749,6 +750,62 @@ class SyncHandler extends BaseCommand {
           if (headBeforeMerge) {
             await this.showGitLogDebug('Commits received', `${headBeforeMerge}..${syncBranch}`);
           }
+
+          // Reconcile ID mappings after clean merge.
+          // A git merge may add issue files without corresponding ids.yml entries
+          // (e.g., when outbox issues were committed to a feature branch).
+          // Try to recover original short IDs from the remote's mapping to preserve
+          // ID stability (so existing references in docs/PRs remain valid).
+          const postMergeIssues = await listIssues(this.dataSyncDir);
+          const postMergeMapping = await loadIdMapping(this.dataSyncDir);
+
+          // Load historical mapping from remote to recover original short IDs
+          let historicalMapping: Awaited<ReturnType<typeof loadIdMapping>> | undefined;
+          try {
+            const remoteIdsContent = await git(
+              'show',
+              `${remote}/${syncBranch}:${DATA_SYNC_DIR}/mappings/ids.yml`,
+            );
+            if (remoteIdsContent) {
+              historicalMapping = parseIdMappingFromYaml(remoteIdsContent);
+            }
+          } catch {
+            // Remote mapping not available - will generate new IDs
+          }
+
+          const reconcileResult = reconcileMappings(
+            postMergeIssues.map((i) => i.id),
+            postMergeMapping,
+            historicalMapping,
+          );
+          const totalReconciled = reconcileResult.created.length + reconcileResult.recovered.length;
+          if (totalReconciled > 0) {
+            await saveIdMapping(this.dataSyncDir, postMergeMapping);
+            // Commit the updated mapping so it's included in the push
+            await git('-C', worktreePath, 'add', '-A');
+            try {
+              await git(
+                '-C',
+                worktreePath,
+                'commit',
+                '--no-verify',
+                '-m',
+                `tbd sync: reconcile ${totalReconciled} missing ID mapping(s)`,
+              );
+            } catch {
+              // Nothing to commit if mapping file was unchanged
+            }
+            if (reconcileResult.recovered.length > 0) {
+              this.output.debug(
+                `Recovered ${reconcileResult.recovered.length} ID mapping(s) from history`,
+              );
+            }
+            if (reconcileResult.created.length > 0) {
+              this.output.debug(
+                `Created ${reconcileResult.created.length} new ID mapping(s) (no history available)`,
+              );
+            }
+          }
         } catch {
           // Merge conflict - try to resolve at file level
           this.output.info(`Merge conflict, attempting file-level resolution`);
@@ -774,23 +831,52 @@ class SyncHandler extends BaseCommand {
           }
 
           // Merge ids.yml (ID mappings are always additive, so we union both sides)
+          // Also capture the remote mapping for recovery of original short IDs
+          let conflictRemoteMapping: Awaited<ReturnType<typeof loadIdMapping>> | undefined;
           try {
             const remoteIdsContent = await git(
               'show',
               `${remote}/${syncBranch}:${DATA_SYNC_DIR}/mappings/ids.yml`,
             );
             if (remoteIdsContent) {
+              conflictRemoteMapping = parseIdMappingFromYaml(remoteIdsContent);
               const localMapping = await loadIdMapping(this.dataSyncDir);
-              const remoteMapping = parseIdMappingFromYaml(remoteIdsContent);
-              const mergedMapping = mergeIdMappings(localMapping, remoteMapping);
+              const mergedMapping = mergeIdMappings(localMapping, conflictRemoteMapping);
               await saveIdMapping(this.dataSyncDir, mergedMapping);
               this.output.debug(
-                `Merged ID mappings: ${localMapping.shortToUlid.size} local + ${remoteMapping.shortToUlid.size} remote = ${mergedMapping.shortToUlid.size} total`,
+                `Merged ID mappings: ${localMapping.shortToUlid.size} local + ${conflictRemoteMapping.shortToUlid.size} remote = ${mergedMapping.shortToUlid.size} total`,
               );
             }
           } catch (error) {
             // Remote ids.yml doesn't exist or can't be parsed - keep local
             this.output.debug(`Could not merge ids.yml: ${(error as Error).message}`);
+          }
+
+          // Reconcile any remaining issues without mappings after conflict resolution.
+          // Use the remote mapping as historical source to recover original short IDs.
+          {
+            const allIssues = await listIssues(this.dataSyncDir);
+            const currentMapping = await loadIdMapping(this.dataSyncDir);
+            const reconcileResult = reconcileMappings(
+              allIssues.map((i) => i.id),
+              currentMapping,
+              conflictRemoteMapping,
+            );
+            const totalReconciled =
+              reconcileResult.created.length + reconcileResult.recovered.length;
+            if (totalReconciled > 0) {
+              await saveIdMapping(this.dataSyncDir, currentMapping);
+              if (reconcileResult.recovered.length > 0) {
+                this.output.debug(
+                  `Recovered ${reconcileResult.recovered.length} ID mapping(s) from remote`,
+                );
+              }
+              if (reconcileResult.created.length > 0) {
+                this.output.debug(
+                  `Created ${reconcileResult.created.length} new ID mapping(s) after conflict resolution`,
+                );
+              }
+            }
           }
 
           // Stage resolved files and complete merge
@@ -920,7 +1006,7 @@ class SyncHandler extends BaseCommand {
 
       // Handle recovery based on error type (after output.data to avoid async callback)
       // Only show options in non-JSON mode
-      if (errorType === 'permanent' && !options.noAutoSave) {
+      if (errorType === 'permanent' && options.autoSave !== false) {
         // Auto-save to outbox on permanent failure
         await this.handlePermanentFailure();
       } else if (!this.ctx.json) {
@@ -943,7 +1029,7 @@ class SyncHandler extends BaseCommand {
     }
 
     // After successful push, import from outbox if it has data
-    if (!options.noOutbox) {
+    if (options.outbox !== false) {
       await this.maybeImportOutbox(syncBranch, remote);
     }
 

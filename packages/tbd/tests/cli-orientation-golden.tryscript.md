@@ -106,6 +106,7 @@ HEALTH CHECKS
 ✓ ID mapping keys
 ✓ Temp files (.tbd/issues)
 ✓ Issue validity
+✓ ID mapping coverage
 ✓ Worktree (.tbd/data-sync-worktree)
 ✓ Data location
 ✓ Local sync branch - tbd-sync

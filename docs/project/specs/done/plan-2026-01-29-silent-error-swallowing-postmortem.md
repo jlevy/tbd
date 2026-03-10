@@ -20,7 +20,7 @@ systematic engineering guidelines and process improvements to prevent this class
 | **Severity** | P0 - Data loss risk |
 | **Duration** | Unknown (possibly since feature was implemented) |
 | **Detection** | Manual debugging during Claude Code sync issues |
-| **Impact** | Users believed data was synced when it wasn't |
+| **Impact** | Users believed data was synced when it wasn’t |
 | **Issue ID** | tbd-ca3g |
 | **Epic** | tbd-i10x |
 
@@ -98,8 +98,8 @@ if (!result.success) {
 | Factor | How it Contributed |
 | --- | --- |
 | Complex control flow | Multiple code paths made it easy to miss the failure case |
-| Result type ignored | `{ success: boolean }` was checked but failure wasn't surfaced |
-| Debug vs user output | Easy to log to debug thinking it's "handled" |
+| Result type ignored | `{ success: boolean }` was checked but failure wasn’t surfaced |
+| Debug vs user output | Easy to log to debug thinking it’s “handled” |
 | No explicit success/fail state | Function tracked summaryText, not operation outcomes |
 
 ## The Fix
@@ -1074,7 +1074,7 @@ if (!summaryText) {
 | Anti-Pattern | Description | Detection |
 | --- | --- | --- |
 | Silent swallow | Error caught/checked but only logged to debug | Audit debug() calls |
-| Optimistic success | Success assumed unless explicit failure | Check for "else" branches |
+| Optimistic success | Success assumed unless explicit failure | Check for “else” branches |
 | Lost Result | Result type returned but not checked | TypeScript strict mode |
 | Catch-and-continue | Error caught, logged, execution continues | Audit catch blocks |
 | Default success | Function returns success by default | Check return paths |

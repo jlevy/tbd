@@ -21,9 +21,9 @@ import matter from 'gray-matter';
 import { parse as parseYaml } from 'yaml';
 
 import { normalizeLineEndings } from '../utils/markdown-utils.js';
-import { stringifyYaml } from '../utils/yaml-utils.js';
+import { sortKeys, stringifyYaml } from '../utils/yaml-utils.js';
 import type { Issue } from '../lib/types.js';
-import { IssueSchema } from '../lib/schemas.js';
+import { IssueSchema, ISSUE_FIELD_ORDER } from '../lib/schemas.js';
 
 /**
  * gray-matter options using the 'yaml' package as engine.
@@ -123,16 +123,15 @@ export function serializeIssue(issue: Issue): string {
   // Extract body fields
   const { description, notes, ...metadata } = issue;
 
-  // Sort keys alphabetically for canonical output
-  const sortedMetadata: Record<string, unknown> = {};
-  for (const key of Object.keys(metadata).sort()) {
-    sortedMetadata[key] = metadata[key as keyof typeof metadata];
-  }
+  // Sort keys using canonical field order (not alphabetical)
+  const sortedMetadata = sortKeys(metadata, ISSUE_FIELD_ORDER);
 
-  // Serialize YAML with compact output for frontmatter (sortMapEntries is in defaults)
+  // Serialize YAML with compact output for frontmatter.
+  // sortMapEntries: false preserves our manual ordering.
   const yaml = stringifyYaml(sortedMetadata, {
-    lineWidth: 0, // No wrapping
+    lineWidth: 0,
     nullStr: 'null',
+    sortMapEntries: false,
   });
 
   // Build the file content

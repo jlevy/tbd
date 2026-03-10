@@ -1,34 +1,26 @@
 ## What’s Changed
 
-### Features
-
-- **Parent context for child beads**: `tbd show` now automatically displays parent
-  context when viewing a child bead, making it easier to understand where a bead fits
-  within a larger feature or epic.
-
 ### Fixes
 
-- **Workspace gitignore protection**: Fixed an issue where agents could inadvertently
-  add `.tbd/workspaces/` to `.gitignore`, which would prevent the outbox (used for sync
-  failure recovery) from being committed.
-  The warning is now generalized beyond Claude Code to cover all agents.
+- **Fix `--no-auto-save` and `--no-outbox` flag handling in sync**: Commander.js
+  `--no-*` flags were not being read correctly, causing auto-save and outbox import to
+  run even when explicitly disabled.
+  Both flags now work as expected.
 
-- **Setup verbose output**: Fixed a missed verbose block in `setup.ts` that could
-  produce unexpected output during setup.
+- **Stop writing GitHub issue URL into user `.gitattributes`**: The setup command no
+  longer writes external GitHub issue URLs into project `.gitattributes` files.
 
-### Documentation
+- **Remove unused `--non-interactive` and `--yes` CLI flags**: These global flags were
+  defined but never used.
+  Removed to keep the CLI surface clean.
 
-- **Writing style guidelines**: Added new `writing-style-guidelines` guideline for
-  consistent documentation style.
+- **Fix Windows CI timeout**: Increased timeout for the fresh-clone doctor test which
+  performs extensive git operations that exceed 15s on Windows CI runners.
 
-- **QA playbook**: Added QA playbook shortcut and template for structured testing
-  workflows.
+### Docs
 
-- **Sub-agent research**: Added research brief on Claude Code sub-agents and
-  orchestration patterns, including bead-managed loops, self-managed compaction, and
-  custom sub-agent frameworks.
+- Updated pnpm-monorepo-patterns and bun-monorepo-patterns guidelines with ESM-only,
+  OIDC, and Biome 2.x sections.
+- Rewrote typescript-cli-tool-rules to match actual codebase patterns.
 
-- **.tbd/ layout docs**: Restructured documentation to clearly separate committed vs
-  gitignored sections of the `.tbd/` directory.
-
-**Full commit history**: https://github.com/jlevy/tbd/compare/v0.1.19...v0.1.20
+**Full commit history**: https://github.com/jlevy/tbd/compare/v0.1.22...v0.1.23

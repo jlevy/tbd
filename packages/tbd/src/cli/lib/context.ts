@@ -25,8 +25,6 @@ export interface CommandContext {
   quiet: boolean;
   json: boolean;
   color: ColorOption;
-  nonInteractive: boolean;
-  yes: boolean;
   sync: boolean;
   /** Debug mode: shows internal IDs alongside public IDs */
   debug: boolean;
@@ -38,7 +36,6 @@ export interface CommandContext {
  */
 export function getCommandContext(command: Command): CommandContext {
   const opts = command.optsWithGlobals();
-  const isCI = Boolean(process.env.CI);
 
   return {
     dryRun: opts.dryRun ?? false,
@@ -46,8 +43,6 @@ export function getCommandContext(command: Command): CommandContext {
     quiet: opts.quiet ?? false,
     json: opts.json ?? false,
     color: (opts.color as ColorOption) ?? 'auto',
-    nonInteractive: opts.nonInteractive ?? (!process.stdin.isTTY || isCI),
-    yes: opts.yes ?? false,
     sync: opts.sync !== false, // --no-sync sets this to false
     debug: opts.debug ?? false,
   };
@@ -68,13 +63,6 @@ export function shouldColorize(colorOption: ColorOption): boolean {
     return false;
   }
   return process.stdout.isTTY ?? false;
-}
-
-/**
- * Check if running in interactive mode.
- */
-export function isInteractive(ctx: CommandContext): boolean {
-  return !ctx.nonInteractive && process.stdin.isTTY === true && !process.env.CI;
 }
 
 /**

@@ -99,9 +99,9 @@ $ tbd show $(cat spec1_id.txt) --json
   "kind": "task",
   "status": "open",
   "priority": 2,
+  "spec_path": "docs/project/specs/active/plan-2026-01-26-my-feature.md",
   "labels": [],
   "dependencies": [],
-  "spec_path": "docs/project/specs/active/plan-2026-01-26-my-feature.md",
   "displayId": "test-[SHORTID]"
 }
 ? 0
@@ -129,9 +129,9 @@ $ tbd show $(cat spec2_id.txt) --json
   "kind": "task",
   "status": "open",
   "priority": 2,
+  "spec_path": "docs/project/specs/active/plan-2026-01-26-my-feature.md",
   "labels": [],
   "dependencies": [],
-  "spec_path": "docs/project/specs/active/plan-2026-01-26-my-feature.md",
   "displayId": "test-[SHORTID]"
 }
 ? 0
@@ -247,9 +247,9 @@ $ tbd show $(cat spec1_id.txt) --json
   "kind": "task",
   "status": "open",
   "priority": 2,
+  "spec_path": "docs/project/specs/active/plan-2026-01-26-my-feature.md",
   "labels": [],
   "dependencies": [],
-  "spec_path": "docs/project/specs/active/plan-2026-01-26-my-feature.md",
   "displayId": "test-[SHORTID]"
 }
 ? 0
@@ -288,9 +288,9 @@ $ tbd show $(cat nospec_id.txt) --json
   "kind": "task",
   "status": "open",
   "priority": 2,
+  "spec_path": "new-spec.md",
   "labels": [],
   "dependencies": [],
-  "spec_path": "new-spec.md",
   "displayId": "test-[SHORTID]"
 }
 ? 0
@@ -318,9 +318,9 @@ $ tbd show $(cat nospec_id.txt) --json
   "kind": "task",
   "status": "open",
   "priority": 2,
+  "spec_path": "different-spec.md",
   "labels": [],
   "dependencies": [],
-  "spec_path": "different-spec.md",
   "displayId": "test-[SHORTID]"
 }
 ? 0
@@ -348,9 +348,9 @@ $ tbd show $(cat nospec_id.txt) --json
   "kind": "task",
   "status": "open",
   "priority": 2,
+  "spec_path": null,
   "labels": [],
   "dependencies": [],
-  "spec_path": null,
   "displayId": "test-[SHORTID]"
 }
 ? 0
@@ -480,9 +480,9 @@ $ tbd show $(cat subdir_id.txt) --json
   "kind": "task",
   "status": "open",
   "priority": 2,
+  "spec_path": "docs/project/specs/active/plan-2026-01-26-my-feature.md",
   "labels": [],
   "dependencies": [],
-  "spec_path": "docs/project/specs/active/plan-2026-01-26-my-feature.md",
   "displayId": "test-[SHORTID]"
 }
 ? 0

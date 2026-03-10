@@ -330,6 +330,28 @@ export interface MergeResult {
 }
 
 /**
+ * Fields that are metadata-only and should be ignored when checking
+ * for substantive changes between issues. These fields change on every
+ * merge operation and don't represent meaningful content changes.
+ */
+const METADATA_ONLY_FIELDS: ReadonlySet<keyof Issue> = new Set(['version', 'updated_at']);
+
+/**
+ * Check if two issues are substantively equal, ignoring metadata fields
+ * (version, updated_at) that change on every merge.
+ *
+ * This prevents trivial timestamp/version bumps from being treated as
+ * real changes during outbox saves and sync operations.
+ */
+export function issuesSubstantivelyEqual(a: Issue, b: Issue): boolean {
+  for (const key of Object.keys(FIELD_STRATEGIES) as (keyof Issue)[]) {
+    if (METADATA_ONLY_FIELDS.has(key)) continue;
+    if (!deepEqual(a[key], b[key])) return false;
+  }
+  return true;
+}
+
+/**
  * Deep equality check for values.
  */
 export function deepEqual(a: unknown, b: unknown): boolean {
@@ -546,7 +568,16 @@ export function mergeIssues(base: Issue | null, local: Issue, remote: Issue): Me
     }
   }
 
-  // Always increment version after merge
+  // Check if the merge produced any substantive changes compared to the
+  // highest-versioned input. If not, return that input as-is to avoid
+  // gratuitous version/timestamp bumps that cause bulk outbox saves.
+  const latest = local.version >= remote.version ? local : remote;
+  if (issuesSubstantivelyEqual(merged, latest)) {
+    // No substantive change - return the latest version without bumping
+    return { merged: { ...latest }, conflicts };
+  }
+
+  // Actual substantive changes from merge - bump version
   merged.version = Math.max(local.version, remote.version) + 1;
   merged.updated_at = now();
 

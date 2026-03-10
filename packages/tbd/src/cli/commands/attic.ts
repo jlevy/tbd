@@ -8,7 +8,7 @@ import { Command } from 'commander';
 import { readdir, readFile, mkdir } from 'node:fs/promises';
 import { join } from 'node:path';
 
-import { parseYamlWithConflictDetection, stringifyYaml } from '../../utils/yaml-utils.js';
+import { parseYamlWithConflictDetection, sortKeys, stringifyYaml } from '../../utils/yaml-utils.js';
 
 import { writeFile } from 'atomically';
 
@@ -22,7 +22,7 @@ import { now } from '../../utils/time-utils.js';
 import { loadIdMapping } from '../../file/id-mapping.js';
 import { readConfig } from '../../file/config.js';
 import type { AtticEntry } from '../../lib/types.js';
-import { AtticEntrySchema } from '../../lib/schemas.js';
+import { AtticEntrySchema, ATTIC_ENTRY_FIELD_ORDER } from '../../lib/schemas.js';
 
 /**
  * Get attic entry filename from components.
@@ -99,8 +99,9 @@ export async function saveAtticEntry(tbdRoot: string, entry: AtticEntry): Promis
 
   const filename = getAtticFilename(entry.entity_id, entry.timestamp, entry.field);
   const filepath = join(atticPath, filename);
-  // Uses default options which include sortMapEntries: true
-  const content = stringifyYaml(entry);
+  // Sort keys using canonical field order, then serialize
+  const sorted = sortKeys(entry as unknown as Record<string, unknown>, ATTIC_ENTRY_FIELD_ORDER);
+  const content = stringifyYaml(sorted, { sortMapEntries: false });
 
   await writeFile(filepath, content);
 }
