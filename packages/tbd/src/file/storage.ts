@@ -61,29 +61,34 @@ export async function listIssues(baseDir: string): Promise<Issue[]> {
   // Filter to only .md files
   const mdFiles = files.filter((f) => f.endsWith('.md'));
 
-  // Read all files in parallel for better I/O performance
-  const fileContents = await Promise.all(
-    mdFiles.map(async (file) => {
-      const filePath = join(issuesDir, file);
-      try {
-        const content = await readFile(filePath, 'utf-8');
-        return { file, content };
-      } catch {
-        return { file, content: null };
-      }
-    }),
-  );
-
-  // Parse issues (filter out failed reads)
+  // Read files in batches to avoid EMFILE (too many open files) on large repos.
+  // Unbounded Promise.all on thousands of files exceeds typical fd limits (1024-4096).
+  const BATCH_SIZE = 200;
   const issues: Issue[] = [];
-  for (const { file, content } of fileContents) {
-    if (content === null) continue;
-    try {
-      const issue = parseIssue(content);
-      issues.push(issue);
-    } catch (error) {
-      // Skip invalid files with a warning
-      console.warn(`Skipping invalid issue file: ${file}`, error);
+
+  for (let i = 0; i < mdFiles.length; i += BATCH_SIZE) {
+    const batch = mdFiles.slice(i, i + BATCH_SIZE);
+    const fileContents = await Promise.all(
+      batch.map(async (file) => {
+        const filePath = join(issuesDir, file);
+        try {
+          const content = await readFile(filePath, 'utf-8');
+          return { file, content };
+        } catch {
+          return { file, content: null };
+        }
+      }),
+    );
+
+    for (const { file, content } of fileContents) {
+      if (content === null) continue;
+      try {
+        const issue = parseIssue(content);
+        issues.push(issue);
+      } catch (error) {
+        // Skip invalid files with a warning
+        console.warn(`Skipping invalid issue file: ${file}`, error);
+      }
     }
   }
 
