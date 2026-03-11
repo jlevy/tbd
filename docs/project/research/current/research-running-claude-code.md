@@ -1,7 +1,18 @@
 # Running Claude Code Across Environments
 
 *Research document on multi-agent orchestration for AI coding agents* *Last updated:
-January 2026*
+March 2026*
+
+**Related:**
+
+- [Claude Code Sub-Agents](research-claude-code-sub-agents.md) — Internal sub-agent
+  architecture, model configuration, compaction/handoff patterns
+- [Claude Code Orchestration Interfaces and UIs](research-claude-code-orchestration-and-uis.md)
+  — Control protocols, IDE surfaces, and external orchestration interfaces
+- [API References for Bridge Integrations](api-references-bridge-integrations.md) —
+  Multi-agent protocols (MCP, ACP, A2A, ANP) and bridge APIs
+
+* * *
 
 ## Introduction: The Multi-Agent Orchestration Problem
 
@@ -586,6 +597,12 @@ internally.
 
 ## Part 8: IDE and Platform Integrations
 
+> **See also:**
+> [Claude Code Orchestration Interfaces and UIs](research-claude-code-orchestration-and-uis.md)
+> provides a comprehensive analysis of the control protocols (Agent SDK, `--sdk-url`
+> WebSocket, IDE integration protocol, ACP), UI surfaces, and third-party projects
+> that have emerged since this section was originally written.
+
 ### Current State
 
 IDE-based AI coding assistants (Cursor, VS Code Copilot, etc.)
@@ -703,6 +720,150 @@ coordinating specialist agents—the “microservices revolution” for AI agent
 
 * * *
 
+## Part 10: March 2026 Ecosystem Update
+
+### Major Rebrands and Milestones
+
+**OpenClaw (formerly Moltbot/Clawdbot):** Reached 100k+ GitHub stars. Renamed from Moltbot
+on Jan 30, 2026 after Anthropic trademark complaints. Creator Peter Steinberger announced
+he's joining OpenAI (Feb 14). **Major security crisis:** "ClawJacked" vulnerability enables
+full agent takeover via any website. Microsoft, CrowdStrike, 1Password, and Oasis Security
+all published warnings. Microsoft explicitly recommends running OpenClaw only in fully
+isolated VMs. ClawHub skill registry launched for automatic skill discovery.
+
+**Ruflo (formerly Claude Flow):** Rebranded Feb 27, 2026 with v3.5 as "first major stable
+release." ~19.9k stars, 2.2k forks, 5,800+ commits, 215 MCP tools, 60+ agents. WASM
+kernels in Rust for policy engine.
+([ruvnet/ruflo](https://github.com/ruvnet/ruflo))
+
+**Gas Town:** Now has a companion web GUI
+([gastown-gui](https://github.com/web3dev1337/gastown-gui)). Real-world cost reports:
+~$100/hour in Claude tokens.
+
+### Paperclip: Company-Level Agent Orchestration (NEW)
+
+The most architecturally novel entrant in this space. **Paperclip** is not another
+multi-agent coding orchestrator — it's a **company-level control plane** for autonomous AI
+organizations. Open-sourced March 5-6, 2026. 4.3k+ stars in days.
+([paperclipai/paperclip](https://github.com/paperclipai/paperclip))
+
+Tagline: *"If OpenClaw is an employee, Paperclip is the entire company."*
+
+Core innovation: Treats agents as employees in a persistent org chart with roles, reporting
+lines, monthly token budgets, goal hierarchies (every task chains to company mission),
+heartbeat scheduling, board governance with approval gates, and full audit trail. Agent-
+agnostic — works with Claude Code, OpenClaw, Codex, or any runtime via `process` and
+`http` adapters.
+
+See [Claude Code Orchestration Interfaces and UIs](research-claude-code-orchestration-and-uis.md)
+for detailed architecture analysis.
+
+### New Orchestration Tools
+
+| Tool | Stars | What It Does |
+| --- | --- | --- |
+| [cmux (Manaflow)](https://github.com/manaflow-ai/cmux) | 4.2k | Native macOS terminal app for AI agents (YC-backed, libghostty) |
+| [Symphony (OpenAI)](https://github.com/openai/symphony) | NEW | Issue-tracker daemon: polls Linear, per-issue workspaces, Codex app-server |
+| [Composio Agent Orchestrator](https://github.com/ComposioHQ/agent-orchestrator) | 3.1k | Agent/runtime/tracker-agnostic fleet manager with CI awareness |
+| [Claude Squad](https://github.com/smtg-ai/claude-squad) | 5.8k+ | tmux TUI for multi-agent sessions with git worktrees |
+| [myclaude](https://github.com/stellarlinkco/myclaude) | 2.4k | Multi-runtime orchestration (Claude, Codex, Gemini, OpenCode) |
+| [Agent of Empires](https://github.com/njbrake/agent-of-empires) | ~931 | Rust tmux TUI supporting 6+ agent CLIs, Docker sandboxing |
+| [Overstory](https://github.com/jayminwest/overstory) | ~320–760 | SQLite mail system, FIFO merge queue, 4-tier conflict resolution |
+| [Agent Farm](https://github.com/Dicklesworthstone/claude_code_agent_farm) | ~619 | 20-50 parallel agents with lock-based coordination, 34 tech stacks |
+| [Multiclaude](https://github.com/dlorenc/multiclaude) | ~250–500 | "Brownian ratchet" auto-merge (CI as one-way gate) |
+| [cmux (craigsc)](https://github.com/craigsc/cmux) | ~276 | Git worktree lifecycle manager for Claude Code |
+| [dmux](https://github.com/standardagents/dmux) | — | Lightweight multiplexer supporting 11 agent CLIs |
+| [amux](https://github.com/mixpeek/amux) | ~41 | Single-file Python multiplexer + web dashboard, self-healing |
+| [coder/mux](https://github.com/coder/mux) | — | Enterprise desktop/web app with audit logging, model governance |
+| [ittybitty](https://github.com/adamwulf/ittybitty) | — | Manager/Worker hierarchy with emergency kill and agent caps |
+| [CodePilot](https://github.com/op7418/CodePilot) | — | Electron desktop GUI with mobile bridges |
+| [Agentrooms](https://claudecode.run/) | — | @mention-based multi-agent coordination |
+| [OpenSwarm](https://github.com/Intrect-io/OpenSwarm) | — | Linear → Worker/Reviewer pipelines, LanceDB vector memory, Discord |
+| [agent-swarm](https://github.com/desplega-ai/agent-swarm) | — | Docker-isolated workers, compounding knowledge, Slack/GitHub integration |
+
+### cmux (Manaflow) — Native macOS Agent Terminal (NEW)
+
+The most significant new entrant in the **terminal UI** category. cmux
+([manaflow-ai/cmux](https://github.com/manaflow-ai/cmux), [cmux.dev](https://www.cmux.dev/))
+is a **native macOS terminal application** purpose-built for running multiple AI coding
+agents simultaneously. YC-backed (via Manaflow), ~4,200 stars, peaked at #2 on Hacker
+News.
+
+Unlike tmux-based approaches (Claude Squad, amux), cmux is a standalone terminal emulator
+using **libghostty** for GPU-accelerated rendering. Key capabilities:
+
+- **Vertical tab sidebar** with git branch, PR status, ports, notifications per workspace
+- **Built-in scriptable browser** — agents can snapshot accessibility trees, interact with
+  dev servers directly
+- **Notification system** — blue rings on panes needing attention, macOS desktop
+  notifications via OSC escape sequences or `cmux notify` CLI
+- **Full scriptability** via CLI + socket API: create workspaces, split panes, send
+  keystrokes, orchestrate sub-agents
+
+Philosophy: "A primitive, not a solution" — composable building blocks rather than
+opinionated workflows. Currently macOS only.
+
+See [Claude Code Orchestration Interfaces and UIs](research-claude-code-orchestration-and-uis.md)
+for detailed feature breakdown.
+
+### OpenAI Symphony — Issue-Tracker-Driven Orchestration (NEW)
+
+**[openai/symphony](https://github.com/openai/symphony)** is OpenAI's open-source
+specification for a long-running daemon that continuously polls an issue tracker (Linear),
+creates per-issue workspaces, and runs Codex sessions. It's architecturally the most
+spec-driven orchestrator in this space.
+
+**Core loop:** Poll Linear → find eligible issues → create workspace → run
+`after_create` hook (e.g. git clone) → launch Codex via app-server protocol → stream
+turns → re-check issue state → continue or stop → exponential backoff retries on failure.
+
+**Key architectural patterns relevant to Claude Code orchestration:**
+1. **WORKFLOW.md as unified config:** YAML front matter (polling, concurrency, hooks,
+   sandbox policy) + Markdown body (prompt template with `{{ issue.identifier }}` Liquid
+   variables). The prompt IS the configuration — version-controlled in-repo.
+2. **Per-issue workspace isolation:** Each issue gets its own directory under a workspace
+   root. Workspaces persist across runs. Safety invariants enforce workspace-root containment.
+3. **Multi-turn continuation:** After each successful turn, worker re-checks issue state
+   on the tracker. If still active, starts another turn on the same thread (up to
+   `max_turns`). Continuation turns get brief guidance, not the full prompt.
+4. **Reconciliation:** Every poll tick reconciles running agents against tracker state —
+   stops agents for terminal issues, detects stalls (no event within 5 min → kill + retry).
+5. **No persistent database:** All state is in-memory + tracker-driven + filesystem.
+   Restart recovery just re-polls the tracker.
+6. **Dynamic reload:** Watches `WORKFLOW.md` for changes, re-applies config without restart.
+
+**Elixir reference implementation:** GenServer orchestrator, Erlang Ports for subprocess
+management, Phoenix LiveView dashboard, `linear_graphql` dynamic tool injection. Fully
+hot-reloadable.
+
+**Codex app-server protocol:** JSON-RPC 2.0 over stdio — `initialize` → `initialized` →
+`thread/start` → `turn/start`, then stream `turn/completed`/`turn/failed`/`turn/cancelled`
+plus approval requests and tool calls. Agent-agnostic: the `codex.command` config accepts
+any shell command that speaks this protocol, making it theoretically possible to plug in
+Claude Code with an adapter.
+
+See [Claude Code Orchestration Interfaces and UIs](research-claude-code-orchestration-and-uis.md)
+for the full architecture analysis. Source code cloned to `attic/symphony/`.
+
+### Claude Code Platform Changes (March 2026)
+
+- **Opus 4.6** now default; Opus 4/4.1 deprecated from model selector
+- **Agent Teams** shipped with bug fixes (hanging `--print`, nested teammate spawning)
+- **`/loop` command:** Recurring interval prompts — a built-in heartbeat mechanism
+- **Claude Agent SDK** (rebranded from "Claude Code SDK") v0.1.48 with new
+  `agent_id`/`agent_type` hook fields
+- **Compaction API** (beta): Server-side context summarization
+- **Tool Search** (public beta): Dynamic tool discovery from large catalogs
+
+### Industry Scale
+
+- Claude Code now authors **4% of public GitHub commits** (projected 20% by end of 2026)
+- Skills ecosystem: ~50 (mid-2025) → **334+** (March 2026)
+- Anthropic's C compiler project: 16 agents, ~2,000 sessions, $20k API costs, 100k-line
+  Rust C compiler building Linux 6.9 on x86/ARM/RISC-V
+
+* * *
+
 ## Practical Recommendations
 
 For teams seeking to coordinate Claude Code instances today, a combination of approaches
@@ -744,11 +905,30 @@ Now, with efforts like TBD (making the core tracking more reliable across platfo
 big players like Anthropic and OpenAI formalizing orchestration capabilities (Cowork,
 MCP, etc.), we’re likely to see these capabilities become more accessible.
 
+8. **Company-Level Orchestration:** For teams running multiple agents toward business
+   goals (not just coding tasks), **Paperclip** provides the highest-level abstraction:
+   org charts, budgets, goal hierarchies, and governance — wrapping Claude Code, OpenClaw,
+   or Codex as “employees”
+
+9. **Native Terminal for Agent Sessions (macOS):** **cmux** (Manaflow) provides the best
+   purpose-built terminal experience for managing multiple concurrent AI agents — vertical
+   tabs, notification system, scriptable browser, full CLI/socket API. Think of it as the
+   “IDE for agent supervision” on macOS.
+
+10. **Issue-Tracker-Driven Daemon:** **Symphony** (OpenAI) demonstrates the most mature
+    pattern for automated dispatch: poll an issue tracker, create per-issue workspaces,
+    run agent sessions, reconcile state, retry with backoff. The WORKFLOW.md pattern
+    (prompt + config in one versioned file) is particularly elegant and could be adapted
+    for Claude Code + Linear/GitHub.
+
 The future likely holds even more **turnkey orchestration services** (perhaps even a
 dedicated “Claude Orchestrator” product from Anthropic eventually, or third-party
-platforms built around this idea).
-Until then, mixing and matching the open-source solutions discussed here is the state of
-the art.
+platforms built around this idea). Paperclip represents the first serious open-source
+attempt at this — and its 4.3k stars in days suggests strong demand. Symphony shows
+OpenAI's approach to the same problem (daemon-first, spec-driven). cmux shows that the
+terminal itself is becoming a first-class orchestration surface.
+Mixing and matching open-source solutions remains the state of the art, but the tooling
+is maturing rapidly.
 
 * * *
 
@@ -778,12 +958,20 @@ the art.
 - [Jeffrey Emanuel on companion app](https://x.com/doodlestein/status/1985405083488755740)
   — Commercial development
 
-### Moltbot
+### OpenClaw (formerly Moltbot/Clawdbot)
 
 - [Moltbot Guide - DEV Community](https://dev.to/czmilo/moltbot-the-ultimate-personal-ai-assistant-guide-for-2026-d4e)
 - [What is Moltbot? -
   DigitalOcean](https://www.digitalocean.com/resources/articles/what-is-moltbot)
 - [Moltbot Documentation](https://docs.molt.bot/)
+- [GitHub: openclaw/openclaw](https://github.com/openclaw/openclaw) — OpenClaw (renamed
+  from Moltbot Jan 30, 2026)
+- [ClawJacked Vulnerability - Oasis Security](https://www.oasis.security/blog/openclaw-vulnerability)
+  — Full agent takeover CVE
+- [Running OpenClaw Safely - Microsoft](https://www.microsoft.com/en-us/security/blog/2026/02/19/running-openclaw-safely-identity-isolation-runtime-risk/)
+  — VM isolation recommendation
+- [OpenClaw Attack Surface - 1Password](https://1password.com/blog/from-magic-to-malware-how-openclaws-agent-skills-become-an-attack-surface)
+  — Skill injection risks
 
 ### Claude Code Multi-Agent Features
 
@@ -795,8 +983,8 @@ the art.
   Mirror announcement
 - [GitHub: mikekelly/claude-sneakpeek](https://github.com/mikekelly/claude-sneakpeek) —
   Feature flag bypass
-- [GitHub: ruvnet/claude-flow](https://github.com/ruvnet/claude-flow) — Claude-Flow
-  orchestration
+- [GitHub: ruvnet/ruflo](https://github.com/ruvnet/ruflo) — Ruflo (formerly Claude-Flow),
+  rebranded Feb 27, 2026
 
 ### Anthropic Official
 
@@ -807,16 +995,58 @@ the art.
 - [Claude Code GitHub Actions](https://code.claude.com/docs/en/github-actions)
 - [Claude Code Hooks Reference](https://code.claude.com/docs/en/hooks)
 - [GitHub: anthropics/claude-code-action](https://github.com/anthropics/claude-code-action)
+- [Building a C Compiler with Claude](https://www.anthropic.com/engineering/building-c-compiler)
+  — 16 agents, ~2,000 sessions, $20k, 100k-line output
 
 ### Orchestration Tools
 
+- [GitHub: manaflow-ai/cmux](https://github.com/manaflow-ai/cmux) — cmux native macOS
+  terminal for AI agents (YC-backed, libghostty)
+- [cmux.dev](https://www.cmux.dev/) — cmux website
+- [GitHub: openai/symphony](https://github.com/openai/symphony) — Symphony issue-tracker
+  daemon orchestrator (Elixir/OTP reference, language-agnostic spec)
+- [GitHub: craigsc/cmux](https://github.com/craigsc/cmux) — cmux worktree lifecycle
+  manager (separate project from Manaflow cmux)
+- [GitHub: mixpeek/amux](https://github.com/mixpeek/amux) — amux tmux-based multiplexer +
+  web dashboard
+- [GitHub: coder/mux](https://github.com/coder/mux) — mux desktop app with custom agent
+  loop
+- [GitHub: paperclipai/paperclip](https://github.com/paperclipai/paperclip) — Company-level
+  control plane for autonomous AI organizations (March 2026)
 - [GitHub: smtg-ai/claude-squad](https://github.com/smtg-ai/claude-squad) — Claude Squad
+  tmux TUI
+- [GitHub: stellarlinkco/myclaude](https://github.com/stellarlinkco/myclaude) — myclaude
+  multi-runtime orchestration
+- [GitHub: dlorenc/multiclaude](https://github.com/dlorenc/multiclaude) — Multiclaude
+  "brownian ratchet" auto-merge
+- [GitHub: ComposioHQ/agent-orchestrator](https://github.com/ComposioHQ/agent-orchestrator)
+  — Agent/runtime/tracker-agnostic fleet manager (~3.1k stars)
+- [GitHub: njbrake/agent-of-empires](https://github.com/njbrake/agent-of-empires) — Rust
+  tmux TUI for 6+ agent CLIs (~931 stars)
+- [GitHub: jayminwest/overstory](https://github.com/jayminwest/overstory) — SQLite mail,
+  FIFO merge queue, 4-tier conflict resolution
+- [GitHub: Dicklesworthstone/claude_code_agent_farm](https://github.com/Dicklesworthstone/claude_code_agent_farm)
+  — 20-50 parallel agents, lock-based coordination
+- [GitHub: standardagents/dmux](https://github.com/standardagents/dmux) — Lightweight
+  multiplexer, 11 agent CLIs ([dmux.ai](https://dmux.ai/))
+- [GitHub: adamwulf/ittybitty](https://github.com/adamwulf/ittybitty) — Manager/Worker
+  hierarchy orchestrator
+- [GitHub: Intrect-io/OpenSwarm](https://github.com/Intrect-io/OpenSwarm) — Linear →
+  Worker/Reviewer pipelines, LanceDB vector memory
+- [GitHub: desplega-ai/agent-swarm](https://github.com/desplega-ai/agent-swarm) — Docker
+  workers with compounding knowledge
+- [GitHub: andyrewlee/awesome-agent-orchestrators](https://github.com/andyrewlee/awesome-agent-orchestrators)
+  — Curated orchestration tools list
+- [GitHub: hesreallyhim/awesome-claude-code](https://github.com/hesreallyhim/awesome-claude-code)
+  — Largest curated Claude Code list (21.6k stars)
 - [Conductor](https://www.conductor.build/) — Melty Labs macOS app
 - [GitHub: ryanmac/code-conductor](https://github.com/ryanmac/code-conductor) —
   GitHub-native
 - [Oh My Claude - Medium Review](https://medium.com/@joe.njenga/i-tested-oh-my-claude-code-the-only-agents-swarm-orchestration-you-need-7338ad92c00f)
 - [GitHub: baryhuang/claude-code-by-agents](https://github.com/baryhuang/claude-code-by-agents)
-  — Cross-machine
+  — Agentrooms cross-machine coordination
+- [GitHub: web3dev1337/gastown-gui](https://github.com/web3dev1337/gastown-gui) — Gas Town
+  web GUI companion
 
 ### Protocols and Standards
 
