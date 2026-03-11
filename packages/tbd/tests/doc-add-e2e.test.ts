@@ -15,9 +15,9 @@ import { join } from 'node:path';
 import { execSync, spawnSync } from 'node:child_process';
 
 // Each test spawns CLI processes via spawnSync (git init + tbd init + tbd setup + command).
-// In isolation each takes ~2.7s, but during the full parallel suite CPU contention
-// can push individual tests past vitest's default 5s timeout.
-describe('doc --add end-to-end', { timeout: 15_000 }, () => {
+// The network tests fetch from GitHub which can take 10-20s under load.
+// Allow 90s per test to handle parallel suite CPU contention + network latency.
+describe('doc --add end-to-end', { timeout: 90_000 }, () => {
   let tempDir: string;
   const tbdBin = join(__dirname, '..', 'dist', 'bin.mjs');
 
