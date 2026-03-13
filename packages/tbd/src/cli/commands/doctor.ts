@@ -113,17 +113,32 @@ class DoctorHandler extends BaseCommand {
     // Check 8: Issue validity
     healthChecks.push(this.checkIssueValidity(this.issues));
 
+    // Check 9: Worktree health (with fix support)
+    // Run BEFORE ID mapping check — worktree repair and data migration can
+    // overwrite ids.yml, so mappings must be verified after migration.
+    healthChecks.push(await this.checkWorktree(options.fix));
+
+    // Check 10: Data location (issues in wrong path, with fix support)
+    const dataLocationResult = await this.checkDataLocation(options.fix);
+    healthChecks.push(dataLocationResult);
+
+    // If data was migrated, reload issues and refresh dataSyncDir so
+    // subsequent checks (especially ID mappings) see the current state.
+    if (dataLocationResult.status === 'ok' && dataLocationResult.message?.includes('migrated')) {
+      this.dataSyncDir = await resolveDataSyncDir(this.cwd);
+      try {
+        this.issues = await listIssues(this.dataSyncDir);
+      } catch {
+        // Will be caught by other health checks
+      }
+    }
+
     // Check 8b: Missing ID mappings (issues without short IDs)
+    // Runs AFTER worktree/migration checks to ensure ids.yml is in its final location.
     const parsedMaxHistory = options.maxHistory ? parseInt(options.maxHistory, 10) : 50;
     const maxHistory =
       Number.isNaN(parsedMaxHistory) || parsedMaxHistory < 0 ? 50 : parsedMaxHistory;
     healthChecks.push(await this.checkMissingMappings(options.fix, maxHistory));
-
-    // Check 9: Worktree health (with fix support)
-    healthChecks.push(await this.checkWorktree(options.fix));
-
-    // Check 10: Data location (issues in wrong path, with fix support)
-    healthChecks.push(await this.checkDataLocation(options.fix));
 
     // Check 11: Local sync branch health
     healthChecks.push(await this.checkLocalSyncBranch());
