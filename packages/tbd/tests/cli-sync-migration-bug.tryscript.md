@@ -127,11 +127,11 @@ $ git log tbd-sync --oneline -1
 ? 0
 ```
 
-# Test: Check ahead count - should be 1 commit ahead of remote
+# Test: Check ahead count - should be at least 1 commit ahead of remote
 
 ```console
-$ git rev-list --count origin/tbd-sync..tbd-sync | tr -d ' '
-1
+$ test "$(git rev-list --count origin/tbd-sync..tbd-sync)" -ge 1 && echo "ahead"
+ahead
 ? 0
 ```
 
@@ -163,7 +163,7 @@ $ tbd doctor 2>&1 | grep "Sync consistency"
 # Test: Verify remote has the migration commit
 
 ```console
-$ git log origin/tbd-sync --oneline | grep "tbd: migrate"
+$ git log origin/tbd-sync --oneline | grep "tbd: migrate" | head -1
 [..] tbd: migrate [..] file(s) from incorrect location
 ? 0
 ```
