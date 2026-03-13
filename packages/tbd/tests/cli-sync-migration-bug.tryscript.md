@@ -163,7 +163,7 @@ $ tbd doctor 2>&1 | grep "Sync consistency"
 # Test: Verify remote has the migration commit
 
 ```console
-$ git log origin/tbd-sync --oneline -1
+$ git log origin/tbd-sync --oneline | grep "tbd: migrate"
 [..] tbd: migrate [..] file(s) from incorrect location
 ? 0
 ```
