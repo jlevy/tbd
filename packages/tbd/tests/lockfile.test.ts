@@ -2,7 +2,7 @@
  * Tests for the lockfile mutual exclusion utility.
  *
  * Validates that withLockfile provides correct mutual exclusion using
- * mkdir-based locking, with stale lock detection and degraded mode fallback.
+ * mkdir-based locking, with stale lock detection.
  */
 
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
@@ -95,24 +95,39 @@ describe('withLockfile', () => {
     expect(result).toBe('success');
   });
 
-  it('falls through to degraded mode on timeout', async () => {
+  it('throws LockAcquisitionError on timeout instead of running unprotected', async () => {
     const lockPath = join(tempDir, 'held.lock');
 
     // Create a "held" lock
     await mkdir(lockPath);
 
     // Try to acquire with short timeout and long stale threshold (won't break)
-    const result = await withLockfile(lockPath, () => Promise.resolve('degraded'), {
-      timeoutMs: 200,
-      pollMs: 50,
-      staleMs: 999_999, // Lock won't be considered stale
-    });
-
-    // Should still execute fn in degraded mode
-    expect(result).toBe('degraded');
+    await expect(
+      withLockfile(lockPath, () => Promise.resolve('should-not-run'), {
+        timeoutMs: 200,
+        pollMs: 50,
+        staleMs: 999_999, // Lock won't be considered stale
+      }),
+    ).rejects.toThrow('Failed to acquire lock');
 
     // Clean up the manually created lock
     await rm(lockPath, { recursive: true, force: true });
+  });
+
+  it('detects and breaks stale lock within timeout when staleMs < timeoutMs', async () => {
+    const lockPath = join(tempDir, 'stale-timing.lock');
+
+    // Simulate a stale lock from a crashed process
+    await mkdir(lockPath);
+
+    // With staleMs < timeoutMs, the lock is detected as stale and broken
+    const result = await withLockfile(lockPath, () => Promise.resolve('recovered'), {
+      timeoutMs: 2000,
+      pollMs: 50,
+      staleMs: 0, // Immediately considered stale
+    });
+
+    expect(result).toBe('recovered');
   });
 
   it('allows re-acquisition after release', async () => {

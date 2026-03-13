@@ -106,9 +106,9 @@ HEALTH CHECKS
 ✓ ID mapping keys
 ✓ Temp files (.tbd/issues)
 ✓ Issue validity
-✓ ID mapping coverage
 ✓ Worktree (.tbd/data-sync-worktree)
 ✓ Data location
+✓ ID mapping coverage
 ✓ Local sync branch - tbd-sync
 ⚠ Remote sync branch - origin/tbd-sync not found
     Run: tbd sync to push local branch

@@ -32,19 +32,22 @@
  *    crashed and break the lock. This is a heuristic — safe when the critical
  *    section is short-lived (sub-second for file I/O).
  *
- * ## Degraded mode
+ * ## Failure on timeout
  *
- * If the lock cannot be acquired within the timeout (e.g., due to a stuck
- * lockfile that isn't old enough to break), the critical section runs anyway.
- * Callers should design their critical sections to be safe without the lock
- * (e.g., using read-merge-write for append-only data).
+ * If the lock cannot be acquired within the timeout, a LockAcquisitionError is
+ * thrown. This prevents the dangerous "degraded mode" where the critical section
+ * runs without mutual exclusion, which can cause data loss (e.g., lost ID
+ * mappings during concurrent `tbd create`).
+ *
+ * IMPORTANT: `timeoutMs` must be greater than `staleMs` so stale locks from
+ * crashed processes are always detected and broken before the timeout expires.
  */
 
 import { mkdir, rmdir, stat } from 'node:fs/promises';
 
 /** Options for `withLockfile`. */
 export interface LockfileOptions {
-  /** Maximum time (ms) to wait for the lock. Default: 2000 */
+  /** Maximum time (ms) to wait for the lock. Default: 10000 */
   timeoutMs?: number;
   /** Polling interval (ms) between acquisition attempts. Default: 50 */
   pollMs?: number;
@@ -52,9 +55,23 @@ export interface LockfileOptions {
   staleMs?: number;
 }
 
-const DEFAULT_TIMEOUT_MS = 2_000;
+const DEFAULT_TIMEOUT_MS = 10_000;
 const DEFAULT_POLL_MS = 50;
 const DEFAULT_STALE_MS = 5_000;
+
+/**
+ * Error thrown when the lock cannot be acquired within the timeout.
+ */
+export class LockAcquisitionError extends Error {
+  constructor(lockPath: string, timeoutMs: number) {
+    super(
+      `Failed to acquire lock at ${lockPath} within ${timeoutMs}ms. ` +
+        `Another process may be holding the lock. If this persists, ` +
+        `delete the lock directory manually and retry.`,
+    );
+    this.name = 'LockAcquisitionError';
+  }
+}
 
 /**
  * Execute `fn` while holding a lockfile.
@@ -63,13 +80,15 @@ const DEFAULT_STALE_MS = 5_000;
  * Concurrent callers will wait up to `timeoutMs` for the lock, polling
  * every `pollMs`. Stale locks older than `staleMs` are broken automatically.
  *
- * If the lock cannot be acquired, `fn` is still executed (degraded mode).
- * This ensures a stuck lockfile never permanently blocks the CLI.
+ * If the lock cannot be acquired within the timeout, a LockAcquisitionError
+ * is thrown. This ensures mutual exclusion is never silently bypassed, which
+ * prevents data loss from concurrent writes.
  *
  * @param lockPath - Path to use as the lock directory (e.g., "/path/to/ids.yml.lock")
  * @param fn - Critical section to execute under the lock
  * @param options - Timing parameters for lock acquisition
  * @returns The return value of `fn`
+ * @throws LockAcquisitionError if the lock cannot be acquired within the timeout
  *
  * @example
  * ```ts
@@ -125,15 +144,17 @@ export async function withLockfile<T>(
     }
   }
 
+  if (!acquired) {
+    throw new LockAcquisitionError(lockPath, timeoutMs);
+  }
+
   try {
     return await fn();
   } finally {
-    if (acquired) {
-      try {
-        await rmdir(lockPath);
-      } catch {
-        // Best-effort cleanup; stale lock detection handles the rest
-      }
+    try {
+      await rmdir(lockPath);
+    } catch {
+      // Best-effort cleanup; stale lock detection handles the rest
     }
   }
 }
