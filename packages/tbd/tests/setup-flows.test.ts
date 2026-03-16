@@ -5,11 +5,14 @@
 
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { mkdtemp, rm, mkdir, writeFile, readFile, access, realpath } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
+import { tmpdir, platform } from 'node:os';
 import { join } from 'node:path';
 import { execSync, spawnSync } from 'node:child_process';
 
-describe('setup flows', { timeout: 15000 }, () => {
+// Windows process spawning is significantly slower on CI
+const isWindows = platform() === 'win32';
+
+describe('setup flows', { timeout: isWindows ? 60000 : 15000 }, () => {
   let tempDir: string;
   const tbdBin = join(__dirname, '..', 'dist', 'bin.mjs');
 
@@ -119,7 +122,7 @@ describe('setup flows', { timeout: 15000 }, () => {
     });
   });
 
-  describe('beads migration', { timeout: 15000 }, () => {
+  describe('beads migration', { timeout: isWindows ? 60000 : 15000 }, () => {
     it('detects beads and offers migration', async () => {
       initGitRepo();
 

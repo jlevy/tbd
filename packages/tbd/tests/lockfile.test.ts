@@ -52,24 +52,41 @@ describe('withLockfile', () => {
     const lockPath = join(tempDir, 'test.lock');
     const order: number[] = [];
 
+    // Use longer work duration (200ms) relative to poll interval (50ms default)
+    // and longer timeout to ensure the lock is properly acquired rather than
+    // falling through to degraded mode.
+    const lockOpts = { timeoutMs: 10_000, pollMs: 20 };
+
     // Launch 3 concurrent critical sections
     await Promise.all([
-      withLockfile(lockPath, async () => {
-        order.push(1);
-        // Simulate some work
-        await new Promise((r) => setTimeout(r, 50));
-        order.push(1);
-      }),
-      withLockfile(lockPath, async () => {
-        order.push(2);
-        await new Promise((r) => setTimeout(r, 50));
-        order.push(2);
-      }),
-      withLockfile(lockPath, async () => {
-        order.push(3);
-        await new Promise((r) => setTimeout(r, 50));
-        order.push(3);
-      }),
+      withLockfile(
+        lockPath,
+        async () => {
+          order.push(1);
+          // Simulate some work — must be long enough relative to poll interval
+          await new Promise((r) => setTimeout(r, 200));
+          order.push(1);
+        },
+        lockOpts,
+      ),
+      withLockfile(
+        lockPath,
+        async () => {
+          order.push(2);
+          await new Promise((r) => setTimeout(r, 200));
+          order.push(2);
+        },
+        lockOpts,
+      ),
+      withLockfile(
+        lockPath,
+        async () => {
+          order.push(3);
+          await new Promise((r) => setTimeout(r, 200));
+          order.push(3);
+        },
+        lockOpts,
+      ),
     ]);
 
     // Each critical section should run to completion before the next starts.

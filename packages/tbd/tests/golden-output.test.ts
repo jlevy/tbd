@@ -6,11 +6,14 @@
 
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { mkdtemp, rm, readFile } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
+import { tmpdir, platform } from 'node:os';
 import { join } from 'node:path';
 import { execSync, spawnSync } from 'node:child_process';
 
-describe('golden output tests', { timeout: 15000 }, () => {
+// Windows process spawning is significantly slower on CI
+const isWindows = platform() === 'win32';
+
+describe('golden output tests', { timeout: isWindows ? 60000 : 15000 }, () => {
   let tempDir: string;
   const tbdBin = join(__dirname, '..', 'dist', 'bin.mjs');
 

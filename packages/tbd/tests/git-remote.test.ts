@@ -654,16 +654,14 @@ describeUnlessWindows('large repository performance', () => {
 
     console.log(`Creating ${LARGE_ISSUE_COUNT} issues for performance test...`);
 
-    // Write issues in batches for better performance
-    const BATCH_SIZE = 100;
-    for (let i = 0; i < LARGE_ISSUE_COUNT; i += BATCH_SIZE) {
-      const batch = Array.from({ length: Math.min(BATCH_SIZE, LARGE_ISSUE_COUNT - i) }, (_, j) =>
-        generateIssue(i + j),
-      );
-      await Promise.all(batch.map((issue) => writeIssue(dataSyncPath, issue)));
+    // Write issues sequentially to avoid temp file collisions in the
+    // `atomically` package, which uses temp files + rename for atomic writes.
+    // Concurrent writes to the same directory can cause silent data loss.
+    for (let i = 0; i < LARGE_ISSUE_COUNT; i++) {
+      await writeIssue(dataSyncPath, generateIssue(i));
 
-      if ((i + BATCH_SIZE) % 1000 === 0) {
-        console.log(`  Created ${Math.min(i + BATCH_SIZE, LARGE_ISSUE_COUNT)} issues...`);
+      if ((i + 1) % 1000 === 0) {
+        console.log(`  Created ${i + 1} issues...`);
       }
     }
   }, 300000); // 5 minute timeout for setup
