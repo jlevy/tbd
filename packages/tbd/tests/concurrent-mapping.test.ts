@@ -9,7 +9,7 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { mkdtemp, rm } from 'node:fs/promises';
+import { mkdtemp, rm, mkdir } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -198,5 +198,111 @@ describe('saveIdMapping concurrent safety', () => {
     expect(result.shortToUlid.size).toBe(4);
     expect(result.shortToUlid.get('gg01')).toBe(TEST_ULIDS.CONCURRENT_1);
     expect(result.shortToUlid.get('gg04')).toBe(TEST_ULIDS.CONCURRENT_4);
+  });
+});
+
+describe('saveIdMapping rejects on lock contention (prevents degraded-mode data loss)', () => {
+  let tempDir: string;
+
+  beforeEach(async () => {
+    tempDir = await mkdtemp(join(tmpdir(), 'tbd-lockrace-'));
+  });
+
+  afterEach(async () => {
+    await rm(tempDir, { recursive: true, force: true });
+  });
+
+  it('recovers from stale lock left by crashed process', async () => {
+    // If a previous tbd process crashed while holding the lock,
+    // the lock directory remains. The stale detection should break it
+    // and allow the next save to succeed.
+
+    // Write initial data
+    const initial = emptyMapping();
+    addIdMapping(initial, TEST_ULIDS.CONCURRENT_1, 'sl01');
+    await saveIdMapping(tempDir, initial);
+
+    // Simulate a stale lock from a crashed process
+    const mappingsDir = join(tempDir, 'mappings');
+    const lockPath = join(mappingsDir, 'ids.yml.lock');
+    await mkdir(lockPath);
+
+    // Save should succeed after detecting and breaking the stale lock
+    // (default staleMs=5000, timeout=10000, so stale is detected first)
+    const mapping = emptyMapping();
+    addIdMapping(mapping, TEST_ULIDS.CONCURRENT_1, 'sl01');
+    addIdMapping(mapping, TEST_ULIDS.CONCURRENT_2, 'sl02');
+    await saveIdMapping(tempDir, mapping);
+
+    // Both entries must be present
+    const result = await loadIdMapping(tempDir);
+    expect(result.shortToUlid.get('sl01')).toBe(TEST_ULIDS.CONCURRENT_1);
+    expect(result.shortToUlid.get('sl02')).toBe(TEST_ULIDS.CONCURRENT_2);
+  }, 15_000);
+
+  it('saves successfully after contending lock is released', async () => {
+    // Write initial mapping
+    const initial = emptyMapping();
+    addIdMapping(initial, TEST_ULIDS.CONCURRENT_1, 'ok01');
+    await saveIdMapping(tempDir, initial);
+
+    // Simulate a briefly held lock that releases before timeout
+    const mappingsDir = join(tempDir, 'mappings');
+    const lockPath = join(mappingsDir, 'ids.yml.lock');
+    await mkdir(lockPath);
+
+    // Release the lock after 100ms
+    setTimeout(() => {
+      void import('node:fs/promises').then(({ rmdir }) =>
+        rmdir(lockPath).catch((_e: unknown) => {
+          /* lock already released */
+        }),
+      );
+    }, 100);
+
+    // Save should succeed after waiting for lock release
+    const mapping = emptyMapping();
+    addIdMapping(mapping, TEST_ULIDS.CONCURRENT_1, 'ok01');
+    addIdMapping(mapping, TEST_ULIDS.CONCURRENT_2, 'ok02');
+    await saveIdMapping(tempDir, mapping);
+
+    // Both entries must be present
+    const result = await loadIdMapping(tempDir);
+    expect(result.shortToUlid.get('ok01')).toBe(TEST_ULIDS.CONCURRENT_1);
+    expect(result.shortToUlid.get('ok02')).toBe(TEST_ULIDS.CONCURRENT_2);
+  });
+
+  it('high-concurrency Promise.all saves all survive with lock serialization', async () => {
+    // Regression test: 10 concurrent saves from stale snapshots.
+    // With degraded mode, some entries would be lost.
+    // With proper locking, all are serialized and merged.
+    const count = 10;
+    const entries: { ulid: string; shortId: string }[] = [];
+    for (let i = 0; i < count; i++) {
+      // Generate distinct ULIDs using a simple pattern
+      const ulid = `01highconcur00000000000${String(i).padStart(2, '0')}a`;
+      entries.push({ ulid, shortId: `hc${String(i).padStart(2, '0')}` });
+    }
+
+    // All "processes" load the same empty mapping
+    const snapshots = await Promise.all(entries.map(() => loadIdMapping(tempDir)));
+
+    // Each adds its own entry to its stale snapshot
+    for (let i = 0; i < entries.length; i++) {
+      addIdMapping(snapshots[i]!, entries[i]!.ulid, entries[i]!.shortId);
+    }
+
+    // Save all concurrently — lockfile serializes, read-merge-write preserves
+    await Promise.all(snapshots.map((s) => saveIdMapping(tempDir, s)));
+
+    // ALL entries must survive
+    const result = await loadIdMapping(tempDir);
+    for (const entry of entries) {
+      expect(
+        result.shortToUlid.get(entry.shortId),
+        `Missing mapping for ${entry.shortId} (ulid: ${entry.ulid})`,
+      ).toBe(entry.ulid);
+    }
+    expect(result.shortToUlid.size).toBe(count);
   });
 });

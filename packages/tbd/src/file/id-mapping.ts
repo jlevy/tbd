@@ -105,8 +105,8 @@ export async function loadIdMapping(baseDir: string): Promise<IdMapping> {
  * commands run in parallel.
  *
  * The merge is safe because ID mappings are append-only — entries are never
- * intentionally removed. Even if the lock acquisition fails (degraded mode),
- * the read-merge-write provides a fallback that preserves entries from other writers.
+ * intentionally removed. If the lock cannot be acquired within the timeout,
+ * a LockAcquisitionError is thrown rather than proceeding without protection.
  */
 export async function saveIdMapping(baseDir: string, mapping: IdMapping): Promise<void> {
   const filePath = getMappingPath(baseDir);
