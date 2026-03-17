@@ -240,9 +240,8 @@ class StatusHandler extends BaseCommand {
     }
 
     // Check worktree health
-    const worktreePath = join(cwd, WORKTREE_DIR);
     const worktreeHealth = await checkWorktreeHealth(cwd);
-    data.worktree_path = worktreePath;
+    data.worktree_path = worktreeHealth.path ?? join(cwd, WORKTREE_DIR);
     data.worktree_healthy = worktreeHealth.valid;
 
     // Check workspaces

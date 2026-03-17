@@ -12,7 +12,7 @@
 import { execFile } from 'node:child_process';
 import { mkdir } from 'node:fs/promises';
 import { promisify } from 'node:util';
-import { join } from 'node:path';
+import { join, normalize } from 'node:path';
 
 import { writeFile } from 'atomically';
 
@@ -717,21 +717,81 @@ export async function getRemoteUrl(remote: string): Promise<string | null> {
 
 import { access, rm, cp } from 'node:fs/promises';
 import {
-  WORKTREE_DIR,
   WORKTREE_DIR_NAME,
   TBD_DIR,
   DATA_SYNC_DIR_NAME,
   SYNC_BRANCH,
+  clearPathCache,
+  getDataSyncDirForWorktree,
+  getLocalSyncWorktreePath,
+  resolveSyncWorktreePath,
 } from '../lib/paths.js';
+
+interface RegisteredGitWorktree {
+  path: string;
+  prunable: boolean;
+}
+
+const SYNC_WORKTREE_SUFFIX = normalize(join(TBD_DIR, WORKTREE_DIR_NAME));
+
+function isSyncWorktreePath(worktreePath: string): boolean {
+  return normalize(worktreePath).endsWith(SYNC_WORKTREE_SUFFIX);
+}
+
+async function listRegisteredSyncWorktrees(baseDir: string): Promise<RegisteredGitWorktree[]> {
+  try {
+    const worktreeList = await git('-C', baseDir, 'worktree', 'list', '--porcelain');
+    const worktrees: RegisteredGitWorktree[] = [];
+    let current: RegisteredGitWorktree | null = null;
+
+    for (const line of worktreeList.split('\n')) {
+      if (line.startsWith('worktree ')) {
+        if (current && isSyncWorktreePath(current.path)) {
+          worktrees.push(current);
+        }
+        current = {
+          path: line.slice('worktree '.length),
+          prunable: false,
+        };
+        continue;
+      }
+
+      if (!current) {
+        continue;
+      }
+
+      if (line.startsWith('prunable')) {
+        current.prunable = true;
+      }
+
+      if (line === '') {
+        if (isSyncWorktreePath(current.path)) {
+          worktrees.push(current);
+        }
+        current = null;
+      }
+    }
+
+    if (current && isSyncWorktreePath(current.path)) {
+      worktrees.push(current);
+    }
+
+    return worktrees;
+  } catch {
+    return [];
+  }
+}
 
 /**
  * Check if the hidden worktree exists and is valid.
  */
 export async function worktreeExists(baseDir: string): Promise<boolean> {
-  const worktreePath = join(baseDir, WORKTREE_DIR);
+  const worktreePath = await resolveSyncWorktreePath(baseDir);
+  if (!worktreePath) {
+    return false;
+  }
+
   try {
-    await access(worktreePath);
-    // Also verify it's a valid git worktree by checking for .git file
     await access(join(worktreePath, '.git'));
     return true;
   } catch {
@@ -749,6 +809,8 @@ export type WorktreeStatus = 'valid' | 'missing' | 'prunable' | 'corrupted';
  * Worktree health status.
  */
 export interface WorktreeHealth {
+  /** The resolved worktree path, which may be in another linked checkout */
+  path: string | null;
   /** Whether the worktree directory exists on disk */
   exists: boolean;
   /** Whether the worktree is valid and functional */
@@ -769,124 +831,105 @@ export interface WorktreeHealth {
  * See: plan-2026-01-28-sync-worktree-recovery-and-hardening.md §3
  */
 export async function checkWorktreeHealth(baseDir: string): Promise<WorktreeHealth> {
-  const worktreePath = join(baseDir, WORKTREE_DIR);
+  const localWorktreePath = getLocalSyncWorktreePath(baseDir);
+  const registeredSyncWorktrees = await listRegisteredSyncWorktrees(baseDir);
+  const activeWorktree = registeredSyncWorktrees.find((entry) => !entry.prunable);
 
-  // First check if git reports the worktree as prunable
-  // This catches the case where worktree directory was deleted but git still tracks it
-  try {
-    const worktreeList = await git('-C', baseDir, 'worktree', 'list', '--porcelain');
+  if (activeWorktree) {
+    const worktreePath = activeWorktree.path;
 
-    // Check if our worktree path appears in the list as prunable
-    const lines = worktreeList.split('\n');
-    let foundWorktree = false;
-    let isPrunable = false;
-
-    for (let i = 0; i < lines.length; i++) {
-      const line = lines[i];
-      // Check if this entry is for our worktree path
-      if (line?.startsWith('worktree ') && line.includes(WORKTREE_DIR_NAME)) {
-        foundWorktree = true;
-        // Look for prunable marker in subsequent lines until next worktree entry
-        for (let j = i + 1; j < lines.length && !lines[j]?.startsWith('worktree '); j++) {
-          if (lines[j]?.startsWith('prunable')) {
-            isPrunable = true;
-            break;
-          }
-        }
-        break;
-      }
-    }
-
-    if (isPrunable) {
+    try {
+      await access(worktreePath);
+    } catch {
       return {
+        path: worktreePath,
         exists: false,
         valid: false,
-        status: 'prunable',
+        status: 'corrupted',
         branch: null,
         commit: null,
-        error: 'Worktree directory was deleted but git still tracks it. Run: git worktree prune',
+        error: 'Worktree is registered with git but missing on disk',
       };
     }
 
-    // If git doesn't know about the worktree, check if directory exists
-    if (!foundWorktree) {
-      try {
-        await access(worktreePath);
-        // Directory exists but git doesn't know about it - corrupted
-        return {
-          exists: true,
-          valid: false,
-          status: 'corrupted',
-          branch: null,
-          commit: null,
-          error: 'Worktree directory exists but is not registered with git',
-        };
-      } catch {
-        // Directory doesn't exist and git doesn't know about it - missing
-        return {
-          exists: false,
-          valid: false,
-          status: 'missing',
-          branch: null,
-          commit: null,
-        };
-      }
+    try {
+      await access(join(worktreePath, '.git'));
+    } catch {
+      return {
+        path: worktreePath,
+        exists: true,
+        valid: false,
+        status: 'corrupted',
+        branch: null,
+        commit: null,
+        error: 'Worktree directory exists but is not a valid git worktree (missing .git)',
+      };
     }
-  } catch {
-    // git worktree list failed - likely not in a git repo
-    // Fall through to directory-based checks
+
+    try {
+      const commit = await git('-C', worktreePath, 'rev-parse', 'HEAD');
+      let branch: string | null = null;
+
+      try {
+        const refName = await git('-C', worktreePath, 'symbolic-ref', '-q', 'HEAD');
+        branch = refName.replace('refs/heads/', '');
+      } catch {
+        branch = null;
+      }
+
+      return {
+        path: worktreePath,
+        exists: true,
+        valid: true,
+        status: 'valid',
+        branch,
+        commit,
+      };
+    } catch (error) {
+      return {
+        path: worktreePath,
+        exists: true,
+        valid: false,
+        status: 'corrupted',
+        branch: null,
+        commit: null,
+        error: error instanceof Error ? error.message : String(error),
+      };
+    }
   }
 
-  // Check if worktree directory exists
+  const prunableWorktree = registeredSyncWorktrees.find((entry) => entry.prunable);
+  if (prunableWorktree) {
+    return {
+      path: prunableWorktree.path,
+      exists: false,
+      valid: false,
+      status: 'prunable',
+      branch: null,
+      commit: null,
+      error: 'Worktree directory was deleted but git still tracks it. Run: git worktree prune',
+    };
+  }
+
   try {
-    await access(worktreePath);
+    await access(localWorktreePath);
+    return {
+      path: localWorktreePath,
+      exists: true,
+      valid: false,
+      status: 'corrupted',
+      branch: null,
+      commit: null,
+      error: 'Worktree directory exists but is not registered with git',
+    };
   } catch {
     return {
+      path: localWorktreePath,
       exists: false,
       valid: false,
       status: 'missing',
       branch: null,
       commit: null,
-    };
-  }
-
-  // Check if it's a valid git worktree
-  try {
-    await access(join(worktreePath, '.git'));
-  } catch {
-    return {
-      exists: true,
-      valid: false,
-      status: 'corrupted',
-      branch: null,
-      commit: null,
-      error: 'Worktree directory exists but is not a valid git worktree (missing .git)',
-    };
-  }
-
-  // Get current commit and branch info
-  try {
-    const commit = await git('-C', worktreePath, 'rev-parse', 'HEAD');
-    let branch: string | null = null;
-
-    try {
-      // Check if we're on detached HEAD pointing to tbd-sync
-      const refName = await git('-C', worktreePath, 'symbolic-ref', '-q', 'HEAD');
-      branch = refName.replace('refs/heads/', '');
-    } catch {
-      // Detached HEAD - expected state
-      branch = null;
-    }
-
-    return { exists: true, valid: true, status: 'valid', branch, commit };
-  } catch (error) {
-    return {
-      exists: true,
-      valid: false,
-      status: 'corrupted',
-      branch: null,
-      commit: null,
-      error: error instanceof Error ? error.message : String(error),
     };
   }
 }
@@ -905,12 +948,24 @@ export async function initWorktree(
   remote = 'origin',
   syncBranch: string = SYNC_BRANCH,
 ): Promise<{ success: boolean; path?: string; created?: boolean; error?: string }> {
-  const worktreePath = join(baseDir, WORKTREE_DIR);
-
-  // Check if worktree already exists and is valid
-  if (await worktreeExists(baseDir)) {
-    return { success: true, path: worktreePath, created: false };
+  const worktreeHealth = await checkWorktreeHealth(baseDir);
+  if (worktreeHealth.status === 'valid' && worktreeHealth.path) {
+    return { success: true, path: worktreeHealth.path, created: false };
   }
+
+  if (worktreeHealth.status === 'corrupted' && worktreeHealth.path) {
+    return {
+      success: false,
+      error: `Existing sync worktree is corrupted at ${worktreeHealth.path}. Run 'tbd doctor --fix' to repair.`,
+    };
+  }
+
+  if (worktreeHealth.status === 'prunable') {
+    await git('-C', baseDir, 'worktree', 'prune');
+    clearPathCache();
+  }
+
+  const worktreePath = getLocalSyncWorktreePath(baseDir);
 
   // Remove any stale worktree directory
   try {
@@ -926,6 +981,7 @@ export async function initWorktree(
       // Create worktree on local branch (no --detach, so commits update the branch)
       // Note: Don't use --detach here - we want commits to update tbd-sync branch
       await git('-C', baseDir, 'worktree', 'add', worktreePath, syncBranch);
+      clearPathCache();
       return { success: true, path: worktreePath, created: true };
     }
 
@@ -946,6 +1002,7 @@ export async function initWorktree(
         worktreePath,
         `${remote}/${syncBranch}`,
       );
+      clearPathCache();
       return { success: true, path: worktreePath, created: true };
     }
 
@@ -970,6 +1027,7 @@ export async function initWorktree(
     await git('-C', worktreePath, 'add', '.');
     await git('-C', worktreePath, 'commit', '--no-verify', '-m', 'Initialize tbd-sync branch');
 
+    clearPathCache();
     return { success: true, path: worktreePath, created: true };
   } catch (error) {
     return {
@@ -992,14 +1050,15 @@ export async function updateWorktree(
   remote = 'origin',
   syncBranch: string = SYNC_BRANCH,
 ): Promise<{ success: boolean; error?: string }> {
-  const worktreePath = join(baseDir, WORKTREE_DIR);
+  let worktreePath = await resolveSyncWorktreePath(baseDir);
 
   // Ensure worktree exists
-  if (!(await worktreeExists(baseDir))) {
+  if (!worktreePath) {
     const initResult = await initWorktree(baseDir, remote, syncBranch);
-    if (!initResult.success) {
+    if (!initResult.success || !initResult.path) {
       return { success: false, error: initResult.error };
     }
+    worktreePath = initResult.path;
   }
 
   try {
@@ -1157,10 +1216,12 @@ export async function checkSyncConsistency(
   syncBranch: string = SYNC_BRANCH,
   remote = 'origin',
 ): Promise<SyncConsistency> {
-  const worktreePath = join(baseDir, WORKTREE_DIR);
+  const worktreePath = await resolveSyncWorktreePath(baseDir);
 
   // Get worktree HEAD
-  const worktreeHead = await git('-C', worktreePath, 'rev-parse', 'HEAD').catch(() => '');
+  const worktreeHead = worktreePath
+    ? await git('-C', worktreePath, 'rev-parse', 'HEAD').catch(() => '')
+    : '';
 
   // Get local branch HEAD
   const localHead = await git('-C', baseDir, 'rev-parse', syncBranch).catch(() => '');
@@ -1254,7 +1315,8 @@ export async function countRemoteIssues(
 export async function removeWorktree(
   baseDir: string,
 ): Promise<{ success: boolean; error?: string }> {
-  const worktreePath = join(baseDir, WORKTREE_DIR);
+  const worktreePath =
+    (await resolveSyncWorktreePath(baseDir)) ?? getLocalSyncWorktreePath(baseDir);
 
   try {
     // First try to properly remove via git
@@ -1267,6 +1329,7 @@ export async function removeWorktree(
 
     // Prune stale worktree references
     await git('-C', baseDir, 'worktree', 'prune');
+    clearPathCache();
 
     return { success: true };
   } catch (error) {
@@ -1298,13 +1361,15 @@ export async function repairWorktree(
   remote = 'origin',
   syncBranch: string = SYNC_BRANCH,
 ): Promise<{ success: boolean; path?: string; backedUp?: string; error?: string }> {
-  const worktreePath = join(baseDir, WORKTREE_DIR);
+  const worktreeHealth = await checkWorktreeHealth(baseDir);
+  const worktreePath = worktreeHealth.path ?? getLocalSyncWorktreePath(baseDir);
 
   try {
     // Always prune stale worktree entries first for missing and prunable states
     // This ensures git's worktree list is clean before creating a new worktree
     if (status === 'missing' || status === 'prunable') {
       await git('-C', baseDir, 'worktree', 'prune');
+      clearPathCache();
     }
 
     // Handle corrupted status: backup before removal
@@ -1324,8 +1389,13 @@ export async function repairWorktree(
       }
 
       // Remove the corrupted worktree
-      await rm(worktreePath, { recursive: true, force: true });
+      try {
+        await git('-C', baseDir, 'worktree', 'remove', worktreePath, '--force');
+      } catch {
+        await rm(worktreePath, { recursive: true, force: true });
+      }
       await git('-C', baseDir, 'worktree', 'prune');
+      clearPathCache();
 
       // Initialize fresh worktree
       const result = await initWorktree(baseDir, remote, syncBranch);
@@ -1395,8 +1465,9 @@ export async function migrateDataToWorktree(
   error?: string;
 }> {
   const wrongPath = join(baseDir, TBD_DIR, DATA_SYNC_DIR_NAME);
-  const correctPath = join(baseDir, WORKTREE_DIR, TBD_DIR, DATA_SYNC_DIR_NAME);
-  const worktreePath = join(baseDir, WORKTREE_DIR);
+  const worktreePath =
+    (await resolveSyncWorktreePath(baseDir)) ?? getLocalSyncWorktreePath(baseDir);
+  const correctPath = getDataSyncDirForWorktree(worktreePath);
 
   try {
     // Ensure worktree is attached to sync branch (repair old tbd repos)

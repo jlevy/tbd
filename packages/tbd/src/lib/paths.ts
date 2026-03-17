@@ -24,7 +24,11 @@
  *       meta.yml
  */
 
-import { join } from 'node:path';
+import { execFile } from 'node:child_process';
+import { access } from 'node:fs/promises';
+import { homedir } from 'node:os';
+import { isAbsolute, join, normalize } from 'node:path';
+import { promisify } from 'node:util';
 
 /** The tbd configuration directory on main branch */
 export const TBD_DIR = '.tbd';
@@ -61,6 +65,20 @@ export const DATA_SYNC_DIR = join(TBD_DIR, DATA_SYNC_DIR_NAME);
  * Use this once worktree management is implemented.
  */
 export const DATA_SYNC_DIR_VIA_WORKTREE = join(WORKTREE_DIR, TBD_DIR, DATA_SYNC_DIR_NAME);
+
+/**
+ * Get the local default path for the hidden sync worktree in a checkout.
+ */
+export function getLocalSyncWorktreePath(baseDir: string): string {
+  return join(baseDir, WORKTREE_DIR);
+}
+
+/**
+ * Get the data-sync directory path inside a specific sync worktree.
+ */
+export function getDataSyncDirForWorktree(worktreePath: string): string {
+  return join(worktreePath, TBD_DIR, DATA_SYNC_DIR_NAME);
+}
 
 /** Issues directory */
 export const ISSUES_DIR = join(DATA_SYNC_DIR, 'issues');
@@ -270,7 +288,81 @@ export function getAtticPath(issueId: string, filename: string): string {
 // Dynamic Path Resolution
 // =============================================================================
 
-import { access } from 'node:fs/promises';
+const execFileAsync = promisify(execFile);
+
+interface GitWorktreeListEntry {
+  path: string;
+  prunable: boolean;
+}
+
+const SYNC_WORKTREE_SUFFIX = normalize(join(TBD_DIR, WORKTREE_DIR_NAME));
+
+async function isAccessiblePath(path: string): Promise<boolean> {
+  try {
+    await access(path);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+async function isValidWorktreePath(worktreePath: string): Promise<boolean> {
+  return (
+    (await isAccessiblePath(worktreePath)) && (await isAccessiblePath(join(worktreePath, '.git')))
+  );
+}
+
+function isSyncWorktreePath(worktreePath: string): boolean {
+  return normalize(worktreePath).endsWith(SYNC_WORKTREE_SUFFIX);
+}
+
+async function listRegisteredWorktrees(baseDir: string): Promise<GitWorktreeListEntry[]> {
+  try {
+    const { stdout } = await execFileAsync('git', [
+      '-C',
+      baseDir,
+      'worktree',
+      'list',
+      '--porcelain',
+    ]);
+    const entries: GitWorktreeListEntry[] = [];
+    let current: GitWorktreeListEntry | null = null;
+
+    for (const line of stdout.split('\n')) {
+      if (line.startsWith('worktree ')) {
+        if (current) {
+          entries.push(current);
+        }
+        current = {
+          path: line.slice('worktree '.length),
+          prunable: false,
+        };
+        continue;
+      }
+
+      if (!current) {
+        continue;
+      }
+
+      if (line.startsWith('prunable')) {
+        current.prunable = true;
+      }
+
+      if (line === '') {
+        entries.push(current);
+        current = null;
+      }
+    }
+
+    if (current) {
+      entries.push(current);
+    }
+
+    return entries;
+  } catch {
+    return [];
+  }
+}
 
 /**
  * Options for resolveDataSyncDir.
@@ -279,7 +371,7 @@ export interface ResolveDataSyncDirOptions {
   /**
    * Allow fallback to direct path when worktree is missing.
    * Set to true for test environments or diagnostic tools.
-   * Default: true. When false and worktree is missing, throws WorktreeMissingError.
+   * Default: false. When false and worktree is missing, throws WorktreeMissingError.
    */
   allowFallback?: boolean;
 }
@@ -290,7 +382,7 @@ export interface ResolveDataSyncDirOptions {
  */
 export class WorktreeMissingError extends Error {
   constructor(
-    message = "Worktree not found at .tbd/data-sync-worktree/. Run 'tbd doctor --fix' to repair.",
+    message = "No active sync worktree found for this clone. Run 'tbd doctor --fix' to repair.",
   ) {
     super(message);
     this.name = 'WorktreeMissingError';
@@ -298,12 +390,53 @@ export class WorktreeMissingError extends Error {
 }
 
 /**
- * Cache for resolved data sync directory.
- * Reset when baseDir changes.
+ * Cache for resolved sync worktree path.
  */
-let _resolvedDataSyncDir: string | null = null;
+let _resolvedSyncWorktreePath: string | null = null;
 let _resolvedBaseDir: string | null = null;
-let _resolvedAllowFallback: boolean | null = null;
+
+/**
+ * Resolve the active sync worktree path for this git clone.
+ *
+ * Resolution order:
+ * 1. Current checkout's local .tbd/data-sync-worktree/
+ * 2. Another registered worktree in the same clone whose path ends with
+ *    .tbd/data-sync-worktree
+ *
+ * Returns null when no active sync worktree is available.
+ */
+export async function resolveSyncWorktreePath(baseDir: string): Promise<string | null> {
+  if (
+    _resolvedSyncWorktreePath &&
+    _resolvedBaseDir === baseDir &&
+    (await isValidWorktreePath(_resolvedSyncWorktreePath))
+  ) {
+    return _resolvedSyncWorktreePath;
+  }
+
+  const localWorktreePath = getLocalSyncWorktreePath(baseDir);
+  if (await isValidWorktreePath(localWorktreePath)) {
+    _resolvedSyncWorktreePath = localWorktreePath;
+    _resolvedBaseDir = baseDir;
+    return localWorktreePath;
+  }
+
+  const registeredWorktrees = await listRegisteredWorktrees(baseDir);
+  for (const worktree of registeredWorktrees) {
+    if (worktree.prunable || !isSyncWorktreePath(worktree.path)) {
+      continue;
+    }
+    if (await isValidWorktreePath(worktree.path)) {
+      _resolvedSyncWorktreePath = worktree.path;
+      _resolvedBaseDir = baseDir;
+      return worktree.path;
+    }
+  }
+
+  _resolvedSyncWorktreePath = null;
+  _resolvedBaseDir = null;
+  return null;
+}
 
 /**
  * Resolve the actual data sync directory path.
@@ -312,7 +445,7 @@ let _resolvedAllowFallback: boolean | null = null;
  * (production) or in a test environment without worktree.
  *
  * Order of preference:
- * 1. Worktree path if worktree exists: .tbd/data-sync-worktree/.tbd/data-sync/
+ * 1. Active sync worktree path for this clone
  * 2. Direct path as fallback (only if allowFallback: true)
  *
  * @param baseDir - The tbd root directory (from requireInit or findTbdRoot)
@@ -326,46 +459,26 @@ export async function resolveDataSyncDir(
   baseDir: string,
   options?: ResolveDataSyncDirOptions,
 ): Promise<string> {
-  const allowFallback = options?.allowFallback ?? true;
+  const allowFallback = options?.allowFallback ?? false;
 
-  // Return cached result if baseDir and options haven't changed
-  if (
-    _resolvedDataSyncDir &&
-    _resolvedBaseDir === baseDir &&
-    _resolvedAllowFallback === allowFallback
-  ) {
-    return _resolvedDataSyncDir;
-  }
-
-  const worktreePath = join(baseDir, DATA_SYNC_DIR_VIA_WORKTREE);
+  const resolvedWorktreePath = await resolveSyncWorktreePath(baseDir);
   const directPath = join(baseDir, DATA_SYNC_DIR);
 
-  // Check if worktree path exists
-  try {
-    await access(worktreePath);
-    _resolvedDataSyncDir = worktreePath;
-    _resolvedBaseDir = baseDir;
-    _resolvedAllowFallback = allowFallback;
-    return worktreePath;
-  } catch {
-    // Worktree doesn't exist
-    if (!allowFallback) {
-      throw new WorktreeMissingError();
-    }
-
-    // Fallback to direct path (test mode or diagnostic tools)
-    // Note: In production, sync.ts checks worktree health before calling this
-    // Debug warning to help detect unintended fallback usage
-    if (process.env.DEBUG || process.env.TBD_DEBUG) {
-      console.warn(
-        '[tbd:paths] resolveDataSyncDir: worktree not found, falling back to direct path',
-      );
-    }
-    _resolvedDataSyncDir = directPath;
-    _resolvedBaseDir = baseDir;
-    _resolvedAllowFallback = allowFallback;
-    return directPath;
+  if (resolvedWorktreePath) {
+    return getDataSyncDirForWorktree(resolvedWorktreePath);
   }
+
+  if (!allowFallback) {
+    throw new WorktreeMissingError();
+  }
+
+  if (process.env.DEBUG || process.env.TBD_DEBUG) {
+    console.warn(
+      '[tbd:paths] resolveDataSyncDir: active sync worktree not found, falling back to direct path',
+    );
+  }
+
+  return directPath;
 }
 
 /**
@@ -406,17 +519,13 @@ export async function resolveAtticDir(
  * Call this when the repository state changes (e.g., after init).
  */
 export function clearPathCache(): void {
-  _resolvedDataSyncDir = null;
+  _resolvedSyncWorktreePath = null;
   _resolvedBaseDir = null;
-  _resolvedAllowFallback = null;
 }
 
 // =============================================================================
 // Doc Path Resolution
 // =============================================================================
-
-import { isAbsolute } from 'node:path';
-import { homedir } from 'node:os';
 
 /**
  * Resolve a doc path for consistent handling across the codebase.

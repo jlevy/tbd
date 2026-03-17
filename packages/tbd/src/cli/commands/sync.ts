@@ -81,6 +81,7 @@ interface SyncStatus {
 class SyncHandler extends BaseCommand {
   private dataSyncDir = '';
   private tbdRoot = '';
+  private worktreePath = '';
 
   async run(options: SyncOptions): Promise<void> {
     const tbdRoot = await requireInit();
@@ -155,6 +156,7 @@ class SyncHandler extends BaseCommand {
       }
     }
 
+    this.worktreePath = worktreeHealth.path ?? join(tbdRoot, WORKTREE_DIR);
     this.dataSyncDir = await resolveDataSyncDir(tbdRoot);
 
     // Load config to get sync branch
@@ -366,8 +368,7 @@ class SyncHandler extends BaseCommand {
     // Now check worktree status directly.
     // See: plan-2026-01-28-sync-worktree-recovery-and-hardening.md
     try {
-      const worktreePath = join(this.tbdRoot, WORKTREE_DIR);
-      const status = await git('-C', worktreePath, 'status', '--porcelain');
+      const status = await git('-C', this.worktreePath, 'status', '--porcelain');
       if (status) {
         for (const line of status.split('\n')) {
           if (!line) continue;
@@ -499,14 +500,12 @@ class SyncHandler extends BaseCommand {
     // Use tbdRoot to derive worktree path consistently
     // FIX Bug 1: Previously used process.cwd() which fails if not in repo root
     // See: plan-2026-01-28-sync-worktree-recovery-and-hardening.md
-    const worktreePath = join(this.tbdRoot, WORKTREE_DIR);
-
     try {
       // Ensure worktree is attached to sync branch (repair old tbd repos)
-      await ensureWorktreeAttached(worktreePath);
+      await ensureWorktreeAttached(this.worktreePath);
 
       // Check for uncommitted changes (untracked, modified, or deleted)
-      const status = await git('-C', worktreePath, 'status', '--porcelain');
+      const status = await git('-C', this.worktreePath, 'status', '--porcelain');
       if (!status || status.trim() === '') {
         return emptyTallies(); // Nothing to commit
       }
@@ -516,13 +515,13 @@ class SyncHandler extends BaseCommand {
       const fileCount = tallies.new + tallies.updated + tallies.deleted;
 
       // Stage all changes
-      await git('-C', worktreePath, 'add', '-A');
+      await git('-C', this.worktreePath, 'add', '-A');
 
       // Commit the changes
       const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
       await git(
         '-C',
-        worktreePath,
+        this.worktreePath,
         'commit',
         '-m',
         `tbd sync: ${timestamp} (${fileCount} file${fileCount === 1 ? '' : 's'})`,
@@ -669,8 +668,6 @@ class SyncHandler extends BaseCommand {
     const spinner = this.output.spinner('Syncing with remote...');
     const summary: SyncSummary = emptySummary();
     const conflicts: ConflictEntry[] = [];
-    // Use tbdRoot for consistent path resolution
-    const worktreePath = join(this.tbdRoot, WORKTREE_DIR);
 
     try {
       // STEP 1: Commit local changes FIRST (before pulling)
@@ -726,7 +723,7 @@ class SyncHandler extends BaseCommand {
         // Track HEAD before merge for debug log
         let headBeforeMerge = '';
         try {
-          headBeforeMerge = (await git('-C', worktreePath, 'rev-parse', 'HEAD')).trim();
+          headBeforeMerge = (await git('-C', this.worktreePath, 'rev-parse', 'HEAD')).trim();
         } catch {
           // Ignore - just won't show debug log
         }
@@ -736,7 +733,7 @@ class SyncHandler extends BaseCommand {
         try {
           await git(
             '-C',
-            worktreePath,
+            this.worktreePath,
             'merge',
             `${remote}/${syncBranch}`,
             '-m',
@@ -782,11 +779,11 @@ class SyncHandler extends BaseCommand {
           if (totalReconciled > 0) {
             await saveIdMapping(this.dataSyncDir, postMergeMapping);
             // Commit the updated mapping so it's included in the push
-            await git('-C', worktreePath, 'add', '-A');
+            await git('-C', this.worktreePath, 'add', '-A');
             try {
               await git(
                 '-C',
-                worktreePath,
+                this.worktreePath,
                 'commit',
                 '--no-verify',
                 '-m',
@@ -881,14 +878,14 @@ class SyncHandler extends BaseCommand {
 
           // Stage resolved files and complete merge
           // Use --no-verify to bypass parent repo hooks (lefthook, husky, etc.)
-          await git('-C', worktreePath, 'add', '-A');
+          await git('-C', this.worktreePath, 'add', '-A');
 
           // SAFETY CHECK: Never commit files with unresolved merge conflict markers
           // This prevents the bug where ids.yml or other files get committed with
           // <<<<<<< HEAD markers still present
           const conflictCheck = await git(
             '-C',
-            worktreePath,
+            this.worktreePath,
             'diff',
             '--cached',
             '-S<<<<<<< ',
@@ -900,14 +897,14 @@ class SyncHandler extends BaseCommand {
               `Cannot commit: ${conflictedFiles.length} file(s) still have merge conflict markers:\n` +
                 conflictedFiles.map((f) => `  - ${f}`).join('\n') +
                 `\n\nThis is a bug in tbd sync. Please report it and manually resolve conflicts in:\n` +
-                `  ${worktreePath}`,
+                `  ${this.worktreePath}`,
             );
           }
 
           try {
             await git(
               '-C',
-              worktreePath,
+              this.worktreePath,
               'commit',
               '--no-verify',
               '-m',

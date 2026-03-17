@@ -64,7 +64,7 @@ class DoctorHandler extends BaseCommand {
     const tbdRoot = await requireInit();
 
     this.cwd = tbdRoot;
-    this.dataSyncDir = await resolveDataSyncDir(tbdRoot);
+    this.dataSyncDir = await resolveDataSyncDir(tbdRoot, { allowFallback: true });
 
     // Load config
     try {
@@ -125,7 +125,7 @@ class DoctorHandler extends BaseCommand {
     // If data was migrated, reload issues and refresh dataSyncDir so
     // subsequent checks (especially ID mappings) see the current state.
     if (dataLocationResult.status === 'ok' && dataLocationResult.message?.includes('migrated')) {
-      this.dataSyncDir = await resolveDataSyncDir(this.cwd);
+      this.dataSyncDir = await resolveDataSyncDir(this.cwd, { allowFallback: true });
       try {
         this.issues = await listIssues(this.dataSyncDir);
       } catch {
@@ -742,8 +742,8 @@ class DoctorHandler extends BaseCommand {
    * See: plan-2026-01-28-sync-worktree-recovery-and-hardening.md §4
    */
   private async checkWorktree(fix?: boolean): Promise<DiagnosticResult> {
-    const worktreePath = WORKTREE_DIR;
     const worktreeHealth = await checkWorktreeHealth(this.cwd);
+    const worktreePath = worktreeHealth.path ?? join(this.cwd, WORKTREE_DIR);
 
     switch (worktreeHealth.status) {
       case 'valid':

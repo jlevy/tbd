@@ -253,14 +253,6 @@ describe('resolveDataSyncDir with allowFallback option', () => {
     }
   });
 
-  it('returns direct path when allowFallback is true (default) and worktree missing', async () => {
-    // No worktree exists, but allowFallback defaults to true
-    const dataSyncDir = await resolveDataSyncDir(testDir);
-
-    expect(dataSyncDir).toContain('data-sync');
-    expect(dataSyncDir).not.toContain('data-sync-worktree');
-  });
-
   it('returns direct path when allowFallback is explicitly true', async () => {
     const dataSyncDir = await resolveDataSyncDir(testDir, { allowFallback: true });
 
@@ -268,16 +260,15 @@ describe('resolveDataSyncDir with allowFallback option', () => {
     expect(dataSyncDir).not.toContain('data-sync-worktree');
   });
 
-  it('throws WorktreeMissingError when allowFallback is false and worktree missing', async () => {
-    await expect(resolveDataSyncDir(testDir, { allowFallback: false })).rejects.toThrow(
-      WorktreeMissingError,
-    );
+  it('throws WorktreeMissingError by default when worktree is missing', async () => {
+    await expect(resolveDataSyncDir(testDir)).rejects.toThrow(WorktreeMissingError);
   });
 
   it('returns worktree path when worktree exists', async () => {
     // Create the worktree directory structure
     const worktreePath = join(testDir, WORKTREE_DIR, TBD_DIR, DATA_SYNC_DIR_NAME);
     await mkdir(worktreePath, { recursive: true });
+    await fsWriteFile(join(testDir, WORKTREE_DIR, '.git'), 'gitdir: /tmp/fake-worktree\n');
 
     clearPathCache();
     const dataSyncDir = await resolveDataSyncDir(testDir);
