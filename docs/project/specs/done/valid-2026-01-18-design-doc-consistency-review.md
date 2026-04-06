@@ -37,7 +37,7 @@ The following sections of `docs/tbd-design.md` were updated:
 
 | Section | Changes Made |
 | --- | --- |
-| §1.1 Introduction | Fixed typos ("may for the base" → "may be the base", "coordiation" → "coordination") |
+| §1.1 Introduction | Fixed typos ("may for the base" → “may be the base”, “coordiation” → “coordination”) |
 | §2.1 Issue File Format | Added note clarifying example uses human-friendly order, not canonical |
 | §2.6.4 ConfigSchema | Added `index_enabled: z.boolean().default(true)` |
 | §2.6.6 LocalStateSchema | Added implementation note about state.json vs state.yml |
@@ -46,18 +46,18 @@ The following sections of `docs/tbd-design.md` were updated:
 | §4.4 List Command | Added --long, --count, --pretty options |
 | §4.7 Sync Command | Added --force option |
 | §4.8 Search Command | Updated options to match CLI, marked unimplemented as future |
-| §4.10 Global Options | Added --debug, marked --actor as "not yet implemented" |
+| §4.10 Global Options | Added --debug, marked --actor as “not yet implemented” |
 | §4.11 Attic Commands | Fixed syntax to use `<id> <timestamp>` instead of composite entry-id |
 | §6.4.2 setup claude | Marked --project/--global as future, added note |
 | §8.1 Actor System | NEW SECTION - Documents implementation status and design questions |
-| Appendix tables | Fixed --actor from "✅ Full" to "🔄 Future", dep tree to "🔄 Future" |
+| Appendix tables | Fixed --actor from “✅ Full” to “🔄 Future”, dep tree to “🔄 Future” |
 
 ### 2. Code Comment Fixes
 
 | File | Change |
 | --- | --- |
-| `packages/tbd/src/lib/schemas.ts` | Fixed Version comment: "Git push rejection" not "content hash" for conflict detection |
-| `packages/tbd/src/file/hash.ts` | Fixed module comment: "merge resolution tiebreaking" not "conflict detection" |
+| `packages/tbd/src/lib/schemas.ts` | Fixed Version comment: “Git push rejection” not “content hash” for conflict detection |
+| `packages/tbd/src/file/hash.ts` | Fixed module comment: “merge resolution tiebreaking” not “conflict detection” |
 
 ### 3. tbd-docs.md Updates
 

@@ -676,11 +676,11 @@ Agents must:
 3. **For existing tbd projects**: The prefix is already configured (no need to ask)
 
 **Agent prompt template for fresh projects**:
-> "I’ll set up tbd for issue tracking.
+> “I’ll set up tbd for issue tracking.
 > What prefix would you like for issue IDs?
 > This is typically a short name (2-4 letters) derived from your project name.
 > For example, a project called ‘my-cool-app’ might use ‘mca’ or ‘cool’.
-> Issues will appear as `<prefix>-a1b2`."
+> Issues will appear as `<prefix>-a1b2`.”
 
 **Why this matters**: The prefix appears in every issue ID and becomes part of the
 project’s vocabulary.
@@ -736,10 +736,10 @@ The agent needs to set up tbd but must ask the user for their preferred prefix.
 The agent should NOT guess or auto-detect - always ask.
 Suggested prompt:
 
-> "I’ll set up tbd for issue tracking.
+> “I’ll set up tbd for issue tracking.
 > What prefix would you like for issue IDs?
 > This is typically a short name (2-4 letters) like ‘myapp’ or ‘proj’.
-> Issues will be named like `myapp-a1b2`."
+> Issues will be named like `myapp-a1b2`.”
 
 **What agent says after setup**: “I’ve set up tbd with prefix ‘X’ for issue tracking.
 I can now help you plan features, track bugs, and manage your development workflow.
@@ -862,7 +862,7 @@ token usage while still providing essential workflow guidance.
 | Value proposition | Not explained | Clear in prime and skill orientation |
 | Setup rules (prefix) | Not mentioned | Prominently stated: never guess prefix |
 | Documentation discovery | Fragmented commands | Unified `tbd docs --all` |
-| First-run guidance | Dashboard only | Dashboard + orientation + "what's next" |
+| First-run guidance | Dashboard only | Dashboard + orientation + “what’s next” |
 | Shortcut organization | Flat list | Categorized by workflow phase |
 | Guideline organization | Flat list | Categorized by language/topic |
 | Agent mental model | Command executor | Partner using tool to help user |

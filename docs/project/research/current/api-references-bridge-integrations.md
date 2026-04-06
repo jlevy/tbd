@@ -1741,13 +1741,13 @@ For TBD bridge integrations, use modern, well-supported APIs and protocols:
    updated: 2026-01-08T15:30:00Z
    tags: [bridge, github, integration]
    ---
-   
+
    # Description
-   
+
    Implement bidirectional sync between TBD and GitHub Issues...
-   
+
    # Discussion
-   
+
    - Comment 1...
    - Comment 2...
    ```

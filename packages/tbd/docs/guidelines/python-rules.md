@@ -109,7 +109,7 @@ These are general rules that *must* be followed on this project for Python code.
     Media types. For broad categories only, to determine what processing
     is possible.
     """
-  
+
     text = "text"
     image = "image"
     audio = "audio"
@@ -194,7 +194,7 @@ These are general rules that *must* be followed on this project for Python code.
   class Link(BaseModel):
     url: str
     title: str = None
-  
+
   # DO NOT write tests like this. They are trivial and only create clutter!
   def test_link_model():
     link = Link(url="https://example.com", title="Example")
@@ -213,13 +213,13 @@ These are general rules that *must* be followed on this project for Python code.
       """
       Convenience function to check if a string or Path is a URL and if so return
       the `urlparse.ParseResult`.
-  
+
       Also returns false for Paths, so that it's easy to use local paths and URLs
       (`Locator`s) interchangeably. Can provide `HTTP_ONLY` or `HTTP_OR_FILE` to
       restrict to only certain schemes.
       """
       # Function body
-  
+
   def is_url(text: UnresolvedLocator, only_schemes: list[str] | None = None) -> bool:
       """
       Check if a string is a URL. For convenience, also returns false for

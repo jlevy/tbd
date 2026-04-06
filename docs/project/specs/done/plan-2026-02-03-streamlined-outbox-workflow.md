@@ -359,7 +359,7 @@ Run 'tbd save --outbox' manually, or 'tbd doctor' to diagnose.
 | --- | --- |
 | `tbd save --outbox` | Manually save to outbox |
 | `tbd import --outbox` | Manually import from outbox |
-| `tbd workspace list` | See what's in workspaces |
+| `tbd workspace list` | See what’s in workspaces |
 
 ### Part 4: User and Agent Experience
 
@@ -653,7 +653,7 @@ async function handlePermanentFailure(
 | 2.2 Import workspace functions | Add imports for `saveToWorkspace`, `workspaceExists` from workspace.ts |
 | 2.3 Add `handlePermanentFailure()` method | New private method in `SyncHandler` class |
 | 2.4 Modify push failure handling | In `fullSync()` lines 860-888, classify error and call auto-save |
-| 2.5 Add smart "no-churn" logic | Only save if there are new changes since last save |
+| 2.5 Add smart “no-churn” logic | Only save if there are new changes since last save |
 | 2.6 Format output messages | Clear messages for permanent vs transient failures |
 | 2.7 Unit tests | Test auto-save triggers, accumulation, no-churn |
 
@@ -693,7 +693,7 @@ async function handlePermanentFailure(
 | 4.1 Create test file | New integration test file for outbox scenarios |
 | 4.2 Test full recovery workflow | Create → fail → auto-save → recover → sync |
 | 4.3 Test accumulation | Multiple failed syncs accumulate in outbox |
-| 4.4 Test no-churn | Repeated syncs don't modify unchanged outbox |
+| 4.4 Test no-churn | Repeated syncs don’t modify unchanged outbox |
 | 4.5 Test Claude Code workflow | Blocked env → commit → unblocked env |
 
 ### Phase 5: Documentation

@@ -76,7 +76,7 @@ Better heuristic—choose based on what the caller can do:
 
 | Failure Type | Pattern | Why |
 | --- | --- | --- |
-| Caller cannot recover | `throw` | Forces handling, can't be ignored |
+| Caller cannot recover | `throw` | Forces handling, can’t be ignored |
 | Caller might retry or degrade | `Result<T>` | Makes recovery explicit |
 | Should never happen | `throw` / assertion | Fail fast, debug fast |
 
@@ -538,7 +538,7 @@ When implementing any operation that can fail:
 | Empty catch blocks | Grep for `catch.*\{\s*\}` or catch blocks without throw/return |
 | Lost Result types | TypeScript: enable `@typescript-eslint/no-floating-promises` |
 | Optimistic success | Search for success messages, trace back to verify guards |
-| Catch-and-continue | Audit catch blocks that log but don't throw/return |
+| Catch-and-continue | Audit catch blocks that log but don’t throw/return |
 | Lost exception context | Grep for `new Error.*\.message` (wrapping without cause) |
 | Catch-and-replace | Grep for `} catch {` followed by `throw new` (bare catch discards error) |
 

@@ -20,7 +20,11 @@ import {
   extractPrefix,
 } from '../src/lib/ids.js';
 import { IssueId } from '../src/lib/schemas.js';
-import { mergeIdMappings, parseIdMappingFromYaml } from '../src/file/id-mapping.js';
+import {
+  mergeIdMappings,
+  parseIdMappingFromYaml,
+  resolveIdMappingConflicts,
+} from '../src/file/id-mapping.js';
 import {
   detectDuplicateYamlKeys,
   parseYamlToleratingDuplicateKeys,
@@ -937,5 +941,62 @@ zm4q: 01aaaaaaaaaaaaaaaaaaaaaa07`;
     expect(result.data.vb4g).toBe('01aaaaaaaaaaaaaaaaaaaaaa05');
     expect(result.data.g7h8).toBe('01aaaaaaaaaaaaaaaaaaaaaa06');
     expect(result.data.zm4q).toBe('01aaaaaaaaaaaaaaaaaaaaaa07');
+  });
+});
+
+// =============================================================================
+// resolveIdMappingConflicts tests (bug: ids.yml conflict markers block all commands)
+// =============================================================================
+
+describe('resolveIdMappingConflicts', () => {
+  it('resolves typical non-overlapping key conflict (the reported bug)', () => {
+    const content = `hs6d: 01kmmem94ap4mq2efsactya0z1
+hsxb: 01kjrj8krqbe38phsgrmtsr6p2
+hvk3: 01kn1j94bfwcm6axdv8pjyk7td
+<<<<<<< HEAD
+i034: 01kna0bedbkvk7m1ebgj8524wr
+=======
+i25q: 01knbgj8efrykwan4v40wvf75z
+>>>>>>> origin/tbd-sync
+i3id: 01km6fgh37rbq1t9af9ad576sn`;
+
+    const result = resolveIdMappingConflicts(content);
+    // Both entries from both sides should be present
+    expect(result.shortToUlid.get('hs6d')).toBe('01kmmem94ap4mq2efsactya0z1');
+    expect(result.shortToUlid.get('hsxb')).toBe('01kjrj8krqbe38phsgrmtsr6p2');
+    expect(result.shortToUlid.get('hvk3')).toBe('01kn1j94bfwcm6axdv8pjyk7td');
+    expect(result.shortToUlid.get('i034')).toBe('01kna0bedbkvk7m1ebgj8524wr');
+    expect(result.shortToUlid.get('i25q')).toBe('01knbgj8efrykwan4v40wvf75z');
+    expect(result.shortToUlid.get('i3id')).toBe('01km6fgh37rbq1t9af9ad576sn');
+    expect(result.shortToUlid.size).toBe(6);
+  });
+
+  it('handles multiple conflict blocks', () => {
+    const content = `a1b2: 01aaaaaaaaaaaaaaaaaaaaaa01
+<<<<<<< HEAD
+b3c4: 01aaaaaaaaaaaaaaaaaaaaaa02
+=======
+d5e6: 01aaaaaaaaaaaaaaaaaaaaaa03
+>>>>>>> origin/tbd-sync
+f7g8: 01aaaaaaaaaaaaaaaaaaaaaa04
+<<<<<<< HEAD
+h9i0: 01aaaaaaaaaaaaaaaaaaaaaa05
+=======
+j1k2: 01aaaaaaaaaaaaaaaaaaaaaa06
+>>>>>>> origin/tbd-sync`;
+
+    const result = resolveIdMappingConflicts(content);
+    expect(result.shortToUlid.size).toBe(6);
+    expect(result.shortToUlid.has('b3c4')).toBe(true);
+    expect(result.shortToUlid.has('d5e6')).toBe(true);
+    expect(result.shortToUlid.has('h9i0')).toBe(true);
+    expect(result.shortToUlid.has('j1k2')).toBe(true);
+  });
+
+  it('passes through clean content without conflict markers', () => {
+    const content = `a1b2: 01aaaaaaaaaaaaaaaaaaaaaa01
+c3d4: 01aaaaaaaaaaaaaaaaaaaaaa02`;
+    const result = resolveIdMappingConflicts(content);
+    expect(result.shortToUlid.size).toBe(2);
   });
 });

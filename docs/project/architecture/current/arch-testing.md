@@ -527,7 +527,7 @@ pnpm test:watch         # Watch mode for TDD
 
 ## Choosing the Right Test Category
 
-| What you're testing | Test category | Why |
+| What you’re testing | Test category | Why |
 | --- | --- | --- |
 | Pure function | Unit | No dependencies |
 | Zod schema validation | Unit | Pure logic |

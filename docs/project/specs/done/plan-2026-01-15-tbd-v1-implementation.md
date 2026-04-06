@@ -1032,10 +1032,10 @@ end-to-end validation:
    ```bash
    # Step 1: Import from beads
    tbd import --from-beads
-   
+
    # Step 2: Verify import with check command
    tbd import --check  # Validates sync with beads data
-   
+
    # Step 3: List and verify issue counts match
    tbd list --all | wc -l  # Should match bd list --all count
    ```
@@ -3530,7 +3530,7 @@ The following gaps in the existing test suite allowed these bugs to slip through
 | tbd-1810 (wrong file location) | Tests check command output, not file system state | File location verification |
 | tbd-1811 (wrong ID format) | Regex `[SHORTID]` too loose, matches anything | Strict ID format validation |
 | tbd-1812 (extra newline) | Tests check content, not exact formatting | Serialization format tests |
-| tbd-1813 (status mapping) | No test with beads 'done' status | Status mapping coverage |
+| tbd-1813 (status mapping) | No test with beads ‘done’ status | Status mapping coverage |
 | tbd-1822 (--help) | Tests use `help <cmd>`, not `<cmd> --help` | Help flag consistency |
 | tbd-1823 (color) | All tests use NO_COLOR=1 | Color mode variations |
 
@@ -3593,8 +3593,8 @@ The following gaps in the existing test suite allowed these bugs to slip through
 - When running `tbd list` without first running `tbd init`, shows “no issues” instead of
   helpful message
 - The `listIssues` function returns empty array instead of detecting uninitialized state
-- Should show: "tbd is not initialized.
-  Run `tbd init` first."
+- Should show: “tbd is not initialized.
+  Run `tbd init` first.”
 
 **tbd-1810: Files written to wrong location** (CRITICAL)
 - The import command (and all storage operations) write directly to `.tbd/data-sync/` in

@@ -48,6 +48,7 @@ import {
   mergeIdMappings,
   parseIdMappingFromYaml,
   reconcileMappings,
+  resolveIdMappingConflicts,
 } from '../../file/id-mapping.js';
 import {
   saveToWorkspace,
@@ -831,7 +832,9 @@ class SyncHandler extends BaseCommand {
           }
 
           // Merge ids.yml (ID mappings are always additive, so we union both sides)
-          // Also capture the remote mapping for recovery of original short IDs
+          // Also capture the remote mapping for recovery of original short IDs.
+          // The on-disk ids.yml may contain conflict markers after a failed git merge,
+          // so we resolve conflicts by extracting both sides and merging.
           let conflictRemoteMapping: Awaited<ReturnType<typeof loadIdMapping>> | undefined;
           try {
             const remoteIdsContent = await git(
@@ -840,7 +843,11 @@ class SyncHandler extends BaseCommand {
             );
             if (remoteIdsContent) {
               conflictRemoteMapping = parseIdMappingFromYaml(remoteIdsContent);
-              const localMapping = await loadIdMapping(this.dataSyncDir);
+              // Read the on-disk file (which may have conflict markers) and resolve
+              const { readFile } = await import('node:fs/promises');
+              const idsPath = join(this.dataSyncDir, 'mappings', 'ids.yml');
+              const rawContent = await readFile(idsPath, 'utf-8');
+              const localMapping = resolveIdMappingConflicts(rawContent);
               const mergedMapping = mergeIdMappings(localMapping, conflictRemoteMapping);
               await saveIdMapping(this.dataSyncDir, mergedMapping);
               this.output.debug(

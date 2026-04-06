@@ -11,7 +11,11 @@ import { readFile, mkdir } from 'node:fs/promises';
 import { join, dirname } from 'node:path';
 import { writeFile } from 'atomically';
 
-import { parseYamlToleratingDuplicateKeys, stringifyYaml } from '../utils/yaml-utils.js';
+import {
+  parseYamlToleratingDuplicateKeys,
+  stringifyYaml,
+  hasMergeConflictMarkers,
+} from '../utils/yaml-utils.js';
 import { withLockfile } from '../utils/lockfile.js';
 
 import {
@@ -442,4 +446,54 @@ export function mergeIdMappings(local: IdMapping, remote: IdMapping): IdMapping 
   }
 
   return merged;
+}
+
+/**
+ * Resolve merge conflicts in ids.yml content by extracting both sides and merging.
+ *
+ * ids.yml is a sorted key-value YAML map where entries are append-only.
+ * The most common merge conflict is both sides adding non-overlapping keys,
+ * which is trivially auto-resolvable by keeping all entries from both sides.
+ *
+ * @param content - Raw file content that may contain git merge conflict markers
+ * @returns Merged IdMapping with entries from both sides
+ */
+export function resolveIdMappingConflicts(content: string): IdMapping {
+  if (!hasMergeConflictMarkers(content)) {
+    return parseIdMappingFromYaml(content);
+  }
+
+  const lines = content.split('\n');
+  const oursLines: string[] = [];
+  const theirsLines: string[] = [];
+  let inConflict: 'none' | 'ours' | 'theirs' = 'none';
+
+  for (const line of lines) {
+    if (line.startsWith('<<<<<<< ')) {
+      inConflict = 'ours';
+      continue;
+    }
+    if (line === '=======' && inConflict === 'ours') {
+      inConflict = 'theirs';
+      continue;
+    }
+    if (line.startsWith('>>>>>>> ') && inConflict === 'theirs') {
+      inConflict = 'none';
+      continue;
+    }
+
+    if (inConflict === 'none') {
+      oursLines.push(line);
+      theirsLines.push(line);
+    } else if (inConflict === 'ours') {
+      oursLines.push(line);
+    } else {
+      theirsLines.push(line);
+    }
+  }
+
+  const oursMapping = parseIdMappingFromYaml(oursLines.join('\n'));
+  const theirsMapping = parseIdMappingFromYaml(theirsLines.join('\n'));
+
+  return mergeIdMappings(oursMapping, theirsMapping);
 }

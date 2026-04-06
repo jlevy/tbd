@@ -46,13 +46,13 @@ Create a to-do list with the following items then perform all of them:
    description: [One-line description for `tbd guidelines --list`]
    ---
    # [Title]
-   
+
    [Introduction paragraph explaining what this guideline covers and when to use it.]
-   
+
    ## [Section 1]
-   
+
    - **Rule name**: Explanation of the rule.
-   
+
      ```typescript
      // Example code if applicable
    ````

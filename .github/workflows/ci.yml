@@ -60,12 +60,12 @@ jobs:
 
       - name: Coverage Report
         uses: davelosert/vitest-coverage-report-action@v2
-        if: always()
+        if: ${{ always() && github.event_name == 'pull_request' }}
         with:
           working-directory: packages/tbd
           json-summary-path: coverage/coverage-summary.json
           json-final-path: coverage/coverage-final.json
-          file-coverage-mode: ${{ github.event_name == 'pull_request' && 'changes' || 'all' }}
+          file-coverage-mode: changes
 
   benchmark:
     name: Benchmark

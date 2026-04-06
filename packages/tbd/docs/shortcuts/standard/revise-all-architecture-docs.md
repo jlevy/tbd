@@ -14,7 +14,7 @@ Run `tbd prime` for more on using tbd and current status.
 2. Find all architecture docs in `docs/*/architecture/current/` (skip
    deprecated/archived)
 
-3. For each doc, create a child bead: "Architecture revision: <doc-name>" with content
+3. For each doc, create a child bead: “Architecture revision: <doc-name>” with content
    referencing `tbd shortcut revise-architecture-doc` for that file
 
 4. Work through each child bead, close when done

@@ -214,7 +214,7 @@ Description quality directly impacts activation reliability.
 | Approach | Success Rate |
 | --- | --- |
 | No optimization / vague descriptions | ~20% |
-| Optimized descriptions with "Use when..." | ~50% |
+| Optimized descriptions with “Use when …” | ~50% |
 | Descriptions with concrete examples | 72-90% |
 | Forced evaluation hooks | 80-84% |
 

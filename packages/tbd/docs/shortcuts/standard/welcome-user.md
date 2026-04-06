@@ -28,28 +28,28 @@ Here are examples of things you can say and what happens:
 
 | What You Can Say | What Happens |
 | --- | --- |
-| "There's a bug where ..." | Creates and tracks a bug bead (`tbd create`) |
-| "Let's work on current issues" | Shows ready beads to tackle (`tbd ready`) |
-| "Track this as a task" | Creates a task bead (`tbd create`) |
+| “There’s a bug where …” | Creates and tracks a bug bead (`tbd create`) |
+| “Let’s work on current issues” | Shows ready beads to tackle (`tbd ready`) |
+| “Track this as a task” | Creates a task bead (`tbd create`) |
 
 ### Shortcuts and Workflows
 
 | What You Can Say | What Happens |
 | --- | --- |
-| "Let's plan a new feature" | Walks you through creating a planning spec (`tbd shortcut new-plan-spec`) |
-| "Break the spec into issues" | Creates implementation beads from your spec (`tbd shortcut plan-implementation-with-beads`) |
-| "Implement these issues" | Works through beads systematically (`tbd shortcut implement-beads`) |
-| "Commit this code" | Reviews changes and commits properly (`tbd shortcut code-review-and-commit`) |
-| "Create a PR" | Creates a pull request with summary (`tbd shortcut create-or-update-pr-simple`) |
-| "Review this for best practices" | Performs a code review with guidelines |
+| “Let’s plan a new feature” | Walks you through creating a planning spec (`tbd shortcut new-plan-spec`) |
+| “Break the spec into issues” | Creates implementation beads from your spec (`tbd shortcut plan-implementation-with-beads`) |
+| “Implement these issues” | Works through beads systematically (`tbd shortcut implement-beads`) |
+| “Commit this code” | Reviews changes and commits properly (`tbd shortcut code-review-and-commit`) |
+| “Create a PR” | Creates a pull request with summary (`tbd shortcut create-or-update-pr-simple`) |
+| “Review this for best practices” | Performs a code review with guidelines |
 
 ### Guidelines
 
 | What You Can Say | What Happens |
 | --- | --- |
-| "I'm building a TypeScript CLI" | Applies TypeScript CLI guidelines |
-| "Help me set up better testing" | Applies testing guidelines |
-| "What are the Python best practices?" | Applies Python guidelines |
+| “I’m building a TypeScript CLI” | Applies TypeScript CLI guidelines |
+| “Help me set up better testing” | Applies testing guidelines |
+| “What are the Python best practices?” | Applies Python guidelines |
 
 **Tips:**
 

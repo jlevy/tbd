@@ -38,7 +38,7 @@ This was discovered on 2026-01-16 when issue files appeared as untracked on main
 | Phase | What Should Have Happened | What Actually Happened |
 | --- | --- | --- |
 | Design | Spec written (tbd-design.md §2.3) | Spec was clear and detailed |
-| Planning | Created tbd-208: "Implement worktree management" | Bead correctly captured requirement |
+| Planning | Created tbd-208: “Implement worktree management” | Bead correctly captured requirement |
 | Phase 2 | Implement `initWorktree`, `updateWorktree`, `checkWorktreeHealth` | **Functions never written; bead marked DONE** |
 | Phase 3 | `tbd init` creates worktree via `git worktree add` | **init.ts creates `.tbd/data-sync/` directly in cwd** |
 | Phase 4-11 | Commands use `.tbd/data-sync-worktree/.tbd/data-sync/` | **All commands hardcode `.tbd/data-sync/`** |
@@ -211,7 +211,7 @@ The bead description was too vague to verify:
 
 | Vague (what we had) | Specific (what we needed) |
 | --- | --- |
-| "Implement worktree management" | `[ ] Function initWorktree() exists in git.ts` |
+| “Implement worktree management” | `[ ] Function initWorktree() exists in git.ts` |
 |  | `[ ] Function updateWorktree() exists in git.ts` |
 |  | `[ ] Function checkWorktreeHealth() exists in git.ts` |
 |  | `[ ] tbd init calls initWorktree()` |

@@ -103,6 +103,7 @@ HEALTH CHECKS
 ✓ Issues directory (.tbd/issues)
 ✓ Dependencies
 ✓ Unique IDs
+✓ ID mapping conflicts
 ✓ ID mapping keys
 ✓ Temp files (.tbd/issues)
 ✓ Issue validity

@@ -39,15 +39,15 @@
     "test:uninstall": "pnpm --filter get-tbd test:uninstall"
   },
   "devDependencies": {
-    "@changesets/cli": "^2.29.8",
-    "@eslint/js": "^9.39.2",
-    "eslint": "^9.39.2",
+    "@changesets/cli": "^2.30.0",
+    "@eslint/js": "^9.39.4",
+    "eslint": "^9.39.4",
     "eslint-config-prettier": "^10.1.8",
-    "lefthook": "^2.0.15",
-    "npm-check-updates": "^19.0.0",
+    "lefthook": "^2.1.4",
+    "npm-check-updates": "^19.6.6",
     "prettier": "^3.8.1",
     "tsx": "^4.21.0",
     "typescript": "^5.9.3",
-    "typescript-eslint": "^8.54.0"
+    "typescript-eslint": "^8.58.0"
   }
 }

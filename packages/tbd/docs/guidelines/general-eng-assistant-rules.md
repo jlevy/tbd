@@ -51,5 +51,5 @@ Therefore:
   yourself. Avoid subjective descriptions.
   For example, don’t say “I’ve meticulously improved the code and it is in great shape!”
   That is useless generalization.
-  Instead, specifically say what you’ve done, e.g., "I’ve added types, including
-  generics, to all the methods in `Foo` and fixed all linter errors."
+  Instead, specifically say what you’ve done, e.g., “I’ve added types, including
+  generics, to all the methods in `Foo` and fixed all linter errors.”

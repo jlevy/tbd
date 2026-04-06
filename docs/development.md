@@ -319,7 +319,7 @@ future “simple mode” support.
 | State | Description | Fix |
 | --- | --- | --- |
 | `valid` | Worktree exists and has correct branch | None needed |
-| `missing` | Worktree directory doesn't exist | `tbd doctor --fix` |
+| `missing` | Worktree directory doesn’t exist | `tbd doctor --fix` |
 | `prunable` | Directory deleted but git tracks it | `tbd sync --fix` |
 | `corrupted` | Missing .git file or wrong branch | `tbd doctor --fix` |
 
