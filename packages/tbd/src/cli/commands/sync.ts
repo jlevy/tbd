@@ -722,6 +722,32 @@ class SyncHandler extends BaseCommand {
         this.output.debug('Remote sync branch does not exist yet');
       }
 
+      // Ensure .gitattributes exists in the worktree so ids.yml uses merge=union.
+      // This prevents conflicts when both sides add non-overlapping keys.
+      // Written before every merge so existing repos get it on their next sync.
+      {
+        const { access, writeFile } = await import('node:fs/promises');
+        const attrPath = join(this.dataSyncDir, 'mappings', '.gitattributes');
+        try {
+          await access(attrPath);
+        } catch {
+          await writeFile(attrPath, 'ids.yml merge=union\n');
+          await git('-C', worktreePath, 'add', attrPath);
+          try {
+            await git(
+              '-C',
+              worktreePath,
+              'commit',
+              '--no-verify',
+              '-m',
+              'chore: add merge=union for ids.yml',
+            );
+          } catch {
+            // May fail if nothing to commit (already staged elsewhere)
+          }
+        }
+      }
+
       // STEP 3: If remote has changes, merge them in
       if (behindCommits > 0) {
         // Track HEAD before merge for debug log

@@ -965,6 +965,12 @@ export async function initWorktree(
     await writeFile(join(dataSyncPath, 'issues', '.gitkeep'), '');
     await writeFile(join(dataSyncPath, 'mappings', '.gitkeep'), '');
 
+    // Add .gitattributes for merge=union on ids.yml so concurrent additions
+    // (both sides add non-overlapping keys) merge cleanly instead of conflicting.
+    // This must be inside the worktree — .gitattributes on the main branch has
+    // no effect on merges happening on the tbd-sync branch.
+    await writeFile(join(dataSyncPath, 'mappings', '.gitattributes'), 'ids.yml merge=union\n');
+
     // Stage and commit the initial structure
     // Use --no-verify to bypass parent repo hooks (lefthook, husky, etc.)
     await git('-C', worktreePath, 'add', '.');
