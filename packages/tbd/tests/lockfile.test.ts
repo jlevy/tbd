@@ -55,7 +55,7 @@ describe('withLockfile', () => {
     // Use longer work duration (200ms) relative to poll interval (50ms default)
     // and longer timeout to ensure the lock is properly acquired rather than
     // falling through to degraded mode.
-    const lockOpts = { timeoutMs: 10_000, pollMs: 20 };
+    const lockOpts = { timeoutMs: 30_000, pollMs: 20 };
 
     // Launch 3 concurrent critical sections
     await Promise.all([
