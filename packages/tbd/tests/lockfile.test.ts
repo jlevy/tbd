@@ -52,10 +52,11 @@ describe('withLockfile', () => {
     const lockPath = join(tempDir, 'test.lock');
     const order: number[] = [];
 
-    // Use longer work duration (200ms) relative to poll interval (50ms default)
-    // and longer timeout to ensure the lock is properly acquired rather than
-    // falling through to degraded mode.
-    const lockOpts = { timeoutMs: 30_000, pollMs: 20 };
+    // Use longer work duration (200ms) relative to poll interval.
+    // On Windows, rmdir can fail silently (leaving the lock dir behind), so
+    // we set a short staleMs to ensure stale detection breaks orphaned locks
+    // promptly rather than waiting the default 5000ms per waiter.
+    const lockOpts = { timeoutMs: 30_000, pollMs: 20, staleMs: 1_000 };
 
     // Launch 3 concurrent critical sections
     await Promise.all([
