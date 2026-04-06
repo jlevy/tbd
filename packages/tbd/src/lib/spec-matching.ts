@@ -55,17 +55,9 @@ export function matchesSpecPath(storedPath: string, queryPath: string): boolean 
   }
 
   // 3. Filename match: query is just a filename that matches stored's filename
-  const storedFilename = basename(normalizedStored);
-  const queryFilename = basename(normalizedQuery);
-
   // Only do filename match if query has no directory components
   // (otherwise it would have matched in suffix check above)
-  if (!normalizedQuery.includes('/') && storedFilename === normalizedQuery) {
-    return true;
-  }
-
-  // Also match if both have same filename and query is just a filename
-  if (!normalizedQuery.includes('/') && storedFilename === queryFilename) {
+  if (!normalizedQuery.includes('/') && basename(normalizedStored) === normalizedQuery) {
     return true;
   }
 

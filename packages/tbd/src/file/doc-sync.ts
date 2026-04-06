@@ -60,7 +60,7 @@ export interface DocSyncOptions {
 // =============================================================================
 
 /** Prefix for internal bundled doc sources */
-const INTERNAL_PREFIX = 'internal:';
+const INTERNAL_SOURCE_PREFIX = 'internal:';
 
 // =============================================================================
 // DocSync Class
@@ -101,10 +101,10 @@ export class DocSync {
    * // => { type: 'url', location: 'https://...' }
    */
   parseSource(source: string): DocSource {
-    if (source.startsWith(INTERNAL_PREFIX)) {
+    if (source.startsWith(INTERNAL_SOURCE_PREFIX)) {
       return {
         type: 'internal',
-        location: source.slice(INTERNAL_PREFIX.length),
+        location: source.slice(INTERNAL_SOURCE_PREFIX.length),
       };
     }
 
@@ -347,7 +347,7 @@ export async function generateDefaultDocCacheConfig(): Promise<Record<string, st
       for (const entry of entries) {
         if (entry.isFile() && entry.name.endsWith('.md')) {
           const relativePath = `${prefix}/${entry.name}`;
-          config[relativePath] = `${INTERNAL_PREFIX}${relativePath}`;
+          config[relativePath] = `${INTERNAL_SOURCE_PREFIX}${relativePath}`;
         }
       }
     } catch {
@@ -409,9 +409,6 @@ export function isDocsStale(lastSyncAt: string | undefined, autoSyncHours: numbe
 // =============================================================================
 // Unified Doc Sync with Defaults
 // =============================================================================
-
-/** Prefix for internal bundled doc sources */
-const INTERNAL_SOURCE_PREFIX = 'internal:';
 
 /**
  * Options for syncDocsWithDefaults.

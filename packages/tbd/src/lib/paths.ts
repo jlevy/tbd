@@ -199,12 +199,6 @@ export const TBD_GUIDELINES_DIR = join(TBD_DOCS_DIR, GUIDELINES_DIR);
 /** Full path to templates: .tbd/docs/templates/ (top-level, not under shortcuts) */
 export const TBD_TEMPLATES_DIR = join(TBD_DOCS_DIR, TEMPLATES_DIR);
 
-/** @deprecated Use TBD_GUIDELINES_DIR instead */
-export const TBD_SHORTCUTS_GUIDELINES = TBD_GUIDELINES_DIR;
-
-/** @deprecated Use TBD_TEMPLATES_DIR instead */
-export const TBD_SHORTCUTS_TEMPLATES = TBD_TEMPLATES_DIR;
-
 /** Built-in docs source paths (relative to package docs/) */
 export const BUILTIN_SHORTCUTS_SYSTEM = join(SHORTCUTS_DIR, SYSTEM_DIR);
 export const BUILTIN_SHORTCUTS_STANDARD = join(SHORTCUTS_DIR, STANDARD_DIR);
