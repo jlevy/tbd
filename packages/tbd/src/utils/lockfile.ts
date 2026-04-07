@@ -119,8 +119,9 @@ export async function withLockfile<T>(
       break;
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code !== 'EEXIST') {
-        // Unexpected error (permissions, disk full, etc.) — skip locking
-        break;
+        // Unexpected error (permissions, disk full, missing parent, etc.) —
+        // preserve the original failure instead of misreporting lock contention.
+        throw error;
       }
 
       // Lock exists — check if it's stale (holder likely crashed)

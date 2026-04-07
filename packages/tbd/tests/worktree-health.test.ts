@@ -488,6 +488,51 @@ describeUnlessWindows('migrateDataToWorktree', () => {
     expect(migratedContent).toBe('github: true');
   });
 
+  it('resolves ids.yml conflict markers while migrating misplaced mappings', async () => {
+    await initWorktree(workRepoPath);
+
+    const wrongMappingsPath = join(workRepoPath, DATA_SYNC_DIR, 'mappings');
+    await mkdir(wrongMappingsPath, { recursive: true });
+    const conflictStart = '<'.repeat(7) + ' HEAD';
+    const conflictMiddle = '='.repeat(7);
+    const conflictEnd = '>'.repeat(7) + ' origin/tbd-sync';
+    await fsWriteFile(
+      join(wrongMappingsPath, 'ids.yml'),
+      `aa11: 01aaaaaaaaaaaaaaaaaaaaaa01
+${conflictStart}
+bb22: 01aaaaaaaaaaaaaaaaaaaaaa02
+${conflictMiddle}
+cc33: 01aaaaaaaaaaaaaaaaaaaaaa03
+${conflictEnd}
+dd44: 01aaaaaaaaaaaaaaaaaaaaaa04
+`,
+    );
+
+    const correctMappingsPath = join(
+      workRepoPath,
+      WORKTREE_DIR,
+      TBD_DIR,
+      DATA_SYNC_DIR_NAME,
+      'mappings',
+    );
+    await fsWriteFile(join(correctMappingsPath, 'ids.yml'), 'zz99: 01aaaaaaaaaaaaaaaaaaaaaa99\n');
+
+    const result = await migrateDataToWorktree(workRepoPath);
+
+    expect(result.success).toBe(true);
+    expect(result.migratedCount).toBe(1);
+
+    const migratedContent = await readFile(join(correctMappingsPath, 'ids.yml'), 'utf-8');
+    expect(migratedContent).toContain('aa11: 01aaaaaaaaaaaaaaaaaaaaaa01');
+    expect(migratedContent).toContain('bb22: 01aaaaaaaaaaaaaaaaaaaaaa02');
+    expect(migratedContent).toContain('cc33: 01aaaaaaaaaaaaaaaaaaaaaa03');
+    expect(migratedContent).toContain('dd44: 01aaaaaaaaaaaaaaaaaaaaaa04');
+    expect(migratedContent).toContain('zz99: 01aaaaaaaaaaaaaaaaaaaaaa99');
+    expect(migratedContent).not.toContain(conflictStart);
+    expect(migratedContent).not.toContain(conflictMiddle);
+    expect(migratedContent).not.toContain(conflictEnd);
+  });
+
   it('creates backup before migration', async () => {
     // Initialize worktree first
     await initWorktree(workRepoPath);

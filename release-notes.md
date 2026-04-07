@@ -1,28 +1,25 @@
 ## What’s Changed
 
+### Features
+
+- **Doctor history scanning**: New `--max-history` option for `tbd doctor` to control
+  how far back mapping recovery scans (defaults to 50 commits for faster execution)
+
 ### Fixes
 
-- **Concurrent create short-ID mapping**: Prevent short-ID mapping loss when multiple
-  `tbd create` commands run simultaneously
-- **Doctor check ordering**: Reorder doctor checks so ID mapping repair runs after data
-  migration, preventing false failures
-- **Windows CI stability**: Resolve test flakiness across Windows CI environments
-  including fd limit issues and timing-dependent tests
-- **Migration test resilience**: Make migration tryscript test resilient to multiple
-  migration commits
-
-### Chores
-
-- **Outbox cleanup**: Clear outbox after successful sync
-- **Prefix instructions**: Clarify that `--prefix` is a short alphabetic issue ID prefix
+- **Concurrent create race condition**: Prevent `tbd create` from losing short ID
+  mappings when multiple creates run simultaneously
+- **Migration safety**: Prevent migration from destroying `ids.yml` mappings; remove
+  source files after successful migration and add verbose doctor output
+- **Lockfile reliability**: Tighten lockfile defaults and clarify locking behavior
+- **Sync status reporting**: Make ahead/behind status informational instead of a
+  warning, reducing noise during normal sync operations
+- **Doctor input validation**: Validate `--max-history` input to prevent unbounded
+  history scans
 
 ### Documentation
 
-- **Orchestration research**: Comprehensive research on Claude Code orchestration
-  interfaces, UIs, and multi-agent tools (cmux, Symphony, Multiclaude)
-- **Knowledge architecture research**: Research brief on agent knowledge-on-demand
-  architecture with context conservation principles
-- **Nightshift research**: Research brief for marcus/nightshift repo
-- **External docs workflow**: Support for merging external documentation via URL
+- **Research brief template**: Improved with optional sections and blockquote
+  instructions
 
-**Full commit history**: https://github.com/jlevy/tbd/compare/v0.1.24...v0.1.25
+**Full commit history**: https://github.com/jlevy/tbd/compare/v0.1.23...v0.1.24

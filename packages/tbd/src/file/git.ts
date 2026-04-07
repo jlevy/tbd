@@ -1455,9 +1455,20 @@ export async function migrateDataToWorktree(
     // merge utilities so both source and destination entries are preserved.
     for (const file of mappingFiles) {
       if (file === 'ids.yml') {
-        const { loadIdMapping, mergeIdMappings, saveIdMapping } = await import('./id-mapping.js');
-        const sourceMapping = await loadIdMapping(wrongPath);
-        const targetMapping = await loadIdMapping(correctPath);
+        const { readFile } = await import('node:fs/promises');
+        const { loadIdMapping, mergeIdMappings, saveIdMapping, resolveIdMappingConflicts } =
+          await import('./id-mapping.js');
+        const sourceContent = await readFile(join(wrongMappingsPath, file), 'utf-8');
+        const sourceMapping = resolveIdMappingConflicts(sourceContent);
+
+        let targetMapping;
+        try {
+          const targetContent = await readFile(join(correctMappingsPath, file), 'utf-8');
+          targetMapping = resolveIdMappingConflicts(targetContent);
+        } catch {
+          targetMapping = await loadIdMapping(correctPath);
+        }
+
         const merged = mergeIdMappings(targetMapping, sourceMapping);
         await saveIdMapping(correctPath, merged);
       } else {

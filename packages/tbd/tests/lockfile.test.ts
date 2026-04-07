@@ -132,6 +132,19 @@ describe('withLockfile', () => {
     await rm(lockPath, { recursive: true, force: true });
   });
 
+  it('preserves unexpected filesystem errors instead of masking them as lock contention', async () => {
+    let executed = false;
+
+    await expect(
+      withLockfile(join(tempDir, 'missing-parent', 'held.lock'), () => {
+        executed = true;
+        return Promise.resolve('should-not-run');
+      }),
+    ).rejects.toMatchObject({ code: 'ENOENT' });
+
+    expect(executed).toBe(false);
+  });
+
   it('detects and breaks stale lock within timeout when staleMs < timeoutMs', async () => {
     const lockPath = join(tempDir, 'stale-timing.lock');
 
