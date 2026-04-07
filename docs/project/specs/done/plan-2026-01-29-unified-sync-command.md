@@ -55,7 +55,7 @@ These bugs were fixed before the unified sync work to ensure a solid foundation:
 
 | ID | Type | Description | Fix |
 | --- | --- | --- | --- |
-| `tbd-93q3` | P0 bug | Sync silently swallowed push failures, reported "Already in sync" | Now reports push errors explicitly with retry instructions |
+| `tbd-93q3` | P0 bug | Sync silently swallowed push failures, reported “Already in sync” | Now reports push errors explicitly with retry instructions |
 | `tbd-6y2j` | P1 bug | Worktree not auto-created on fresh clones, required `--fix` | Auto-creates worktree when `missing` state detected |
 
 **Post-mortem insights applied:**

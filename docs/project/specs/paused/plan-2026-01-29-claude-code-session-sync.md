@@ -146,7 +146,7 @@ The outbox uses a **write-through** strategy: every time we write to the worktre
 ALSO write to the outbox.
 This eliminates the need to reconstruct what changed from git diffs.
 
-| Content | What's Stored | When Written |
+| Content | What’s Stored | When Written |
 | --- | --- | --- |
 | Issues | Issue files being created/updated | At write time (parallel to worktree) |
 | ID Mappings | New short ID → ULID mappings | At write time (parallel to worktree) |
@@ -365,7 +365,7 @@ Where `{ERROR_DETAILS}` includes the specific error (e.g., “HTTP 403 - push to
 | --- | --- |
 | Resolves issue, runs `tbd sync` again | Yes (outbox cleared) |
 | Commits outbox, pushes branch | Yes |
-| Commits outbox, doesn't push | Yes (locally) |
+| Commits outbox, doesn’t push | Yes (locally) |
 | Ignores warning | **No** - data lost on fresh checkout |
 
 ### Agent Behavior on Sync Failure

@@ -515,7 +515,7 @@ differential update mechanisms exist:
   ([docs](https://www.electron.build/auto-update.html))
 
 These can reduce downloads to MB-to-tens-of-MB range (vs full ~~150MB), but not KB-level
-like Electrobun's bsdiff patches (which claim ~~14KB for small changes).
+like Electrobun’s bsdiff patches (which claim ~~14KB for small changes).
 
 # Part 2: Third-Party Perspectives
 

@@ -132,7 +132,7 @@ export const exampleQuery = query({
   Field names must be nonempty and not start with “$” or “_”. | | Record | Record |
   `{"a": "1", "b": "2"}` | `v.record(keys, values)` | Records are objects at runtime,
   but can have dynamic keys.
-  Keys must be only ASCII characters, nonempty, and not start with “$” or "\_". |
+  Keys must be only ASCII characters, nonempty, and not start with “$” or “\_”. |
 
 ### Function registration
 
@@ -294,7 +294,7 @@ Note: `paginationOpts` is an object with the following properties:
 
 ## Typescript guidelines
 
-- You can use the helper typescript type `Id` imported from './\_generated/dataModel' to
+- You can use the helper typescript type `Id` imported from ‘./\_generated/dataModel’ to
   get the type of the id for a given table.
   For example if there is a table called ‘users’ you can use `Id<'users'>` to get the
   type of the id for that table.
@@ -443,7 +443,7 @@ export default crons;
 - You can register Convex functions within `crons.ts` just like any other file.
 
 - If a cron calls an internal function, always import the `internal` object from
-  '\_generated/api', even if the internal function is registered in the same file.
+  ‘\_generated/api’, even if the internal function is registered in the same file.
 
 ## File storage guidelines
 

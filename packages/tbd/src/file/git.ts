@@ -965,6 +965,12 @@ export async function initWorktree(
     await writeFile(join(dataSyncPath, 'issues', '.gitkeep'), '');
     await writeFile(join(dataSyncPath, 'mappings', '.gitkeep'), '');
 
+    // Add .gitattributes for merge=union on ids.yml so concurrent additions
+    // (both sides add non-overlapping keys) merge cleanly instead of conflicting.
+    // This must be inside the worktree — .gitattributes on the main branch has
+    // no effect on merges happening on the tbd-sync branch.
+    await writeFile(join(dataSyncPath, 'mappings', '.gitattributes'), 'ids.yml merge=union\n');
+
     // Stage and commit the initial structure
     // Use --no-verify to bypass parent repo hooks (lefthook, husky, etc.)
     await git('-C', worktreePath, 'add', '.');
@@ -1449,9 +1455,20 @@ export async function migrateDataToWorktree(
     // merge utilities so both source and destination entries are preserved.
     for (const file of mappingFiles) {
       if (file === 'ids.yml') {
-        const { loadIdMapping, mergeIdMappings, saveIdMapping } = await import('./id-mapping.js');
-        const sourceMapping = await loadIdMapping(wrongPath);
-        const targetMapping = await loadIdMapping(correctPath);
+        const { readFile } = await import('node:fs/promises');
+        const { loadIdMapping, mergeIdMappings, saveIdMapping, resolveIdMappingConflicts } =
+          await import('./id-mapping.js');
+        const sourceContent = await readFile(join(wrongMappingsPath, file), 'utf-8');
+        const sourceMapping = resolveIdMappingConflicts(sourceContent);
+
+        let targetMapping;
+        try {
+          const targetContent = await readFile(join(correctMappingsPath, file), 'utf-8');
+          targetMapping = resolveIdMappingConflicts(targetContent);
+        } catch {
+          targetMapping = await loadIdMapping(correctPath);
+        }
+
         const merged = mergeIdMappings(targetMapping, sourceMapping);
         await saveIdMapping(correctPath, merged);
       } else {

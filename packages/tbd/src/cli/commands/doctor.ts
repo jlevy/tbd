@@ -104,6 +104,9 @@ class DoctorHandler extends BaseCommand {
     // Check 5: Duplicate IDs
     healthChecks.push(this.checkDuplicateIds(this.issues));
 
+    // Check 5b: Merge conflict markers in ids.yml
+    healthChecks.push(await this.checkIdMappingConflicts(options.fix));
+
     // Check 6: Duplicate mapping keys in ids.yml
     healthChecks.push(await this.checkIdMappingDuplicates(options.fix));
 
@@ -431,6 +434,63 @@ class DoctorHandler extends BaseCommand {
       message: `${duplicates.length} duplicate ID(s)`,
       details: duplicates.map((id) => `${id} (duplicate)`),
       suggestion: 'Manually remove duplicate issue files',
+    };
+  }
+
+  /**
+   * Check 5b: Merge conflict markers in ids.yml.
+   *
+   * After a failed git merge during sync, ids.yml may retain unresolved
+   * conflict markers (<<<<<<< / ======= / >>>>>>>). This blocks all tbd
+   * commands since YAML parsing throws MergeConflictError.
+   *
+   * For ids.yml, both sides are simple key-value pairs that are append-only,
+   * so the resolution is trivial: keep all entries from both sides.
+   *
+   * With --fix, extracts both sides, merges them, and re-saves.
+   */
+  private async checkIdMappingConflicts(fix?: boolean): Promise<DiagnosticResult> {
+    const mappingPath = join(this.dataSyncDir, 'mappings', 'ids.yml');
+    let content: string;
+
+    try {
+      content = await readFile(mappingPath, 'utf-8');
+    } catch {
+      return { name: 'ID mapping conflicts', status: 'ok' };
+    }
+
+    const { hasMergeConflictMarkers } = await import('../../utils/yaml-utils.js');
+    if (!hasMergeConflictMarkers(content)) {
+      return { name: 'ID mapping conflicts', status: 'ok' };
+    }
+
+    if (fix && !this.checkDryRun('Resolve merge conflicts in ids.yml')) {
+      try {
+        const { resolveIdMappingConflicts, saveIdMapping } =
+          await import('../../file/id-mapping.js');
+        const resolved = resolveIdMappingConflicts(content);
+        await saveIdMapping(this.dataSyncDir, resolved);
+        return {
+          name: 'ID mapping conflicts',
+          status: 'ok',
+          message: `resolved merge conflicts (${resolved.shortToUlid.size} entries)`,
+        };
+      } catch (error) {
+        const msg = error instanceof Error ? error.message : String(error);
+        return {
+          name: 'ID mapping conflicts',
+          status: 'error',
+          message: `failed to resolve conflicts: ${msg}`,
+        };
+      }
+    }
+
+    return {
+      name: 'ID mapping conflicts',
+      status: 'error',
+      message: 'ids.yml contains unresolved merge conflict markers',
+      fixable: true,
+      suggestion: 'Run: tbd doctor --fix to auto-resolve',
     };
   }
 

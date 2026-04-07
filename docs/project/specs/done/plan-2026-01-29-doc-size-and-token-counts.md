@@ -191,7 +191,7 @@ This ensures a single source of truth for:
 | `src/cli/lib/doc-command-handler.ts` | Import from format-utils, update `handleList()` to show size |
 | `src/cli/commands/shortcut.ts` | Import from format-utils, update `handleList()` to show size |
 | `src/cli/commands/attic.ts` | Use `formatTimeAgo()` for timestamp display |
-| `src/cli/commands/search.ts` | Show "last synced Xm ago" in refresh message |
+| `src/cli/commands/search.ts` | Show “last synced Xm ago” in refresh message |
 | `src/lib/schemas.ts` | Update CachedDoc type if schema-defined |
 
 ## Implementation Plan
@@ -237,7 +237,7 @@ This ensures a single source of truth for:
 ### Unit Tests (`format-utils.test.ts`)
 
 - `estimateTokens()`: Verify ~3.5 chars/token ratio
-- `formatTokens()`: Test "~~450 tok" and "~~1.2k tok" formats
+- `formatTokens()`: Test “~~450 tok” and “~~1.2k tok” formats
 - `formatDocSize()`: Test combined output format
 - `formatTimeAgo()`: Test various durations (seconds, minutes, hours, days)
 - `formatTimestampAgo()`: Test ISO string parsing and invalid input handling
@@ -394,13 +394,13 @@ Systematic audit of all timestamp display locations in the codebase:
 
 | Command | File | Current Format | New Format | User Impact |
 | --- | --- | --- | --- | --- |
-| `tbd attic list` | `attic.ts:137` | ISO 8601 column | "2d ago" | High - conflict history |
-| `tbd attic show` | `attic.ts:185-186` | ISO timestamps | "Updated 2h ago" | High - merge context |
-| `tbd stale` | `stale.ts:128` | Integer days | "2w ago" or keep days | Medium - staleness |
-| `tbd search` | `search.ts:85` | No time shown | "Refreshing (last synced 8m ago)" | Medium - sync status |
-| `tbd sync --status` | `sync.ts` | Not implemented | "Last synced 15m ago" | Medium - sync status |
-| `tbd list` (future) | `list.ts` | No time shown | Optional "updated 3d ago" column | Low - could add |
-| `tbd show` (future) | `show.ts` | ISO timestamps | "Created 5d ago, updated 2h ago" | Low - could add |
+| `tbd attic list` | `attic.ts:137` | ISO 8601 column | “2d ago” | High - conflict history |
+| `tbd attic show` | `attic.ts:185-186` | ISO timestamps | “Updated 2h ago” | High - merge context |
+| `tbd stale` | `stale.ts:128` | Integer days | “2w ago” or keep days | Medium - staleness |
+| `tbd search` | `search.ts:85` | No time shown | “Refreshing (last synced 8m ago)” | Medium - sync status |
+| `tbd sync --status` | `sync.ts` | Not implemented | “Last synced 15m ago” | Medium - sync status |
+| `tbd list` (future) | `list.ts` | No time shown | Optional “updated 3d ago” column | Low - could add |
+| `tbd show` (future) | `show.ts` | ISO timestamps | “Created 5d ago, updated 2h ago” | Low - could add |
 
 #### Priority Order for Implementation
 

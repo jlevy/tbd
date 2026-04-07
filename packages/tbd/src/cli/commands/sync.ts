@@ -48,6 +48,7 @@ import {
   mergeIdMappings,
   parseIdMappingFromYaml,
   reconcileMappings,
+  resolveIdMappingConflicts,
 } from '../../file/id-mapping.js';
 import {
   saveToWorkspace,
@@ -721,6 +722,32 @@ class SyncHandler extends BaseCommand {
         this.output.debug('Remote sync branch does not exist yet');
       }
 
+      // Ensure .gitattributes exists in the worktree so ids.yml uses merge=union.
+      // This prevents conflicts when both sides add non-overlapping keys.
+      // Written before every merge so existing repos get it on their next sync.
+      {
+        const { access, writeFile } = await import('node:fs/promises');
+        const attrPath = join(this.dataSyncDir, 'mappings', '.gitattributes');
+        try {
+          await access(attrPath);
+        } catch {
+          await writeFile(attrPath, 'ids.yml merge=union\n');
+          await git('-C', worktreePath, 'add', attrPath);
+          try {
+            await git(
+              '-C',
+              worktreePath,
+              'commit',
+              '--no-verify',
+              '-m',
+              'chore: add merge=union for ids.yml',
+            );
+          } catch {
+            // May fail if nothing to commit (already staged elsewhere)
+          }
+        }
+      }
+
       // STEP 3: If remote has changes, merge them in
       if (behindCommits > 0) {
         // Track HEAD before merge for debug log
@@ -831,7 +858,9 @@ class SyncHandler extends BaseCommand {
           }
 
           // Merge ids.yml (ID mappings are always additive, so we union both sides)
-          // Also capture the remote mapping for recovery of original short IDs
+          // Also capture the remote mapping for recovery of original short IDs.
+          // The on-disk ids.yml may contain conflict markers after a failed git merge,
+          // so we resolve conflicts by extracting both sides and merging.
           let conflictRemoteMapping: Awaited<ReturnType<typeof loadIdMapping>> | undefined;
           try {
             const remoteIdsContent = await git(
@@ -840,7 +869,11 @@ class SyncHandler extends BaseCommand {
             );
             if (remoteIdsContent) {
               conflictRemoteMapping = parseIdMappingFromYaml(remoteIdsContent);
-              const localMapping = await loadIdMapping(this.dataSyncDir);
+              // Read the on-disk file (which may have conflict markers) and resolve
+              const { readFile } = await import('node:fs/promises');
+              const idsPath = join(this.dataSyncDir, 'mappings', 'ids.yml');
+              const rawContent = await readFile(idsPath, 'utf-8');
+              const localMapping = resolveIdMappingConflicts(rawContent);
               const mergedMapping = mergeIdMappings(localMapping, conflictRemoteMapping);
               await saveIdMapping(this.dataSyncDir, mergedMapping);
               this.output.debug(

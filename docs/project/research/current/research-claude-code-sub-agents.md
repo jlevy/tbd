@@ -8,8 +8,8 @@
 
 **Related:**
 
-- [Running Claude Code Across Environments](research-running-claude-code.md) — Multi-agent
-  orchestration ecosystem survey
+- [Running Claude Code Across Environments](research-running-claude-code.md) —
+  Multi-agent orchestration ecosystem survey
 - [Claude Code Orchestration Interfaces and UIs](research-claude-code-orchestration-and-uis.md)
   — Control protocols, IDE surfaces, and external orchestration interfaces
 - [Agent Coordination Kernel](research-agent-coordination-kernel.md)
@@ -186,7 +186,7 @@ The model for each sub-agent is determined by a priority chain:
    ([sub-agents docs](https://code.claude.com/docs/en/sub-agents#choose-a-model))
 4. **`inherit`** — if model is omitted or set to `inherit`, uses the main conversation’s
    model ([sub-agents docs](https://code.claude.com/docs/en/sub-agents#choose-a-model):
-   "If not specified, defaults to `inherit`")
+   “If not specified, defaults to `inherit`”)
 
 **Note on priority:** The docs confirm that `CLAUDE_CODE_SUBAGENT_MODEL` is “the model
 to use for subagents” and that per-agent `model` field defaults to `inherit` if omitted.
@@ -1218,7 +1218,7 @@ claude -p "$(cat .handoff/current.md)" \
 | `--append-system-prompt "..."` | Inject handoff instructions |
 | `--system-prompt-file ./prompt.txt` | Full custom system prompt |
 | `--session-id UUID` | Control session identity |
-| `--no-session-persistence` | Don't save (for throwaway work) |
+| `--no-session-persistence` | Don’t save (for throwaway work) |
 
 **What happens to the current session?** It blocks on the Bash call until the subprocess
 finishes, then continues.

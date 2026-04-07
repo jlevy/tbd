@@ -183,7 +183,7 @@ allowed-tools: Bash(git:*), Bash(npm:*), Read
 | **Character budget exceeded** | Default 15K limit; requires env var override |
 | **Namespace pollution** | `/` menu becomes crowded with 50+ entries |
 | **Maintenance burden** | 50+ SKILL.md files to keep synchronized |
-| **No nesting** | Can't organize hierarchically (recursive discovery broken) |
+| **No nesting** | Can’t organize hierarchically (recursive discovery broken) |
 | **Version drift** | Skill files may get out of sync with CLI updates |
 
 #### When to Use
@@ -245,7 +245,7 @@ tbd-plugin/
 | **Installation friction** | Users must install plugin first |
 | **More complex structure** | Plugin manifest + directory conventions |
 | **Marketplace dependency** | Need to host/distribute plugin |
-| **No CLI bundling** | Plugin doesn't include npm package |
+| **No CLI bundling** | Plugin doesn’t include npm package |
 
 #### When to Use
 
@@ -316,7 +316,7 @@ Agent needs commit guidance →
 
 | Drawback | Description |
 | --- | --- |
-| **No auto-invocation** | Claude can't auto-select specific shortcuts |
+| **No auto-invocation** | Claude can’t auto-select specific shortcuts |
 | **Two-step process** | Must query CLI, then follow output |
 | **Not in `/` menu** | Shortcuts not directly invocable |
 | **Requires CLI knowledge** | Agent must know to query tbd |
@@ -424,7 +424,7 @@ for (const shortcut of shortcuts) {
 
 | Issue | Description |
 | --- | --- |
-| **Recursive discovery broken** | Generated nested skills won't be found |
+| **Recursive discovery broken** | Generated nested skills won’t be found |
 | **Context bloat** | All generated skill descriptions load |
 | **Version sync** | Generated files may drift from CLI |
 | **Git noise** | Many generated files in version control |
@@ -479,7 +479,7 @@ Real-world testing across 200+ prompts shows significant variation in skill acti
 | Description Approach | Success Rate |
 | --- | --- |
 | No optimization / vague | ~20% |
-| Optimized with "Use when..." | ~50% |
+| Optimized with “Use when …” | ~50% |
 | With concrete examples | 72-90% |
 | Forced evaluation hooks | 80-84% |
 
@@ -575,19 +575,21 @@ ecosystem for skill discovery and installation (`npx skills add <owner/repo>`). 
 become the primary distribution channel for Agent Skills, with 47K+ total installations
 across 27+ compatible agent products.
 
-**Impact on tbd's architecture decision**: skills.sh validates the meta-skill approach.
-skills.sh distributes SKILL.md files (Level 1-2 content), while tbd's CLI serves as an
-on-demand Level 3 resource server. These are complementary layers:
+**Impact on tbd’s architecture decision**: skills.sh validates the meta-skill approach.
+skills.sh distributes SKILL.md files (Level 1-2 content), while tbd’s CLI serves as an
+on-demand Level 3 resource server.
+These are complementary layers:
 
-- **skills.sh**: "How do I give my agent the ability to do X?" (capabilities)
-- **tbd CLI**: "How do I give my agent knowledge about X?" (domain expertise)
+- **skills.sh**: “How do I give my agent the ability to do X?” (capabilities)
+- **tbd CLI**: “How do I give my agent knowledge about X?” (domain expertise)
 
-tbd itself could be listed as a skill on skills.sh (for discovery), while `tbd source
-add` handles the separate problem of distributing domain knowledge repos.
+tbd itself could be listed as a skill on skills.sh (for discovery), while
+`tbd source add` handles the separate problem of distributing domain knowledge repos.
 
 ### External Docs Repos Feature
 
-The new [external docs repos spec](../../specs/active/plan-2026-02-02-external-docs-repos.md)
+The new
+[external docs repos spec](../../specs/active/plan-2026-02-02-external-docs-repos.md)
 extends the meta-skill architecture to support external knowledge sources:
 
 ```bash
@@ -595,9 +597,9 @@ tbd source add github.com/jlevy/rust-porting-playbook
 # Adds domain expertise accessible via tbd guidelines X
 ```
 
-This is distinct from skills.sh distribution: skills.sh copies SKILL.md files once, while
-`tbd source add` establishes ongoing git sync for evolving knowledge repos. See the spec
-appendix for detailed comparison.
+This is distinct from skills.sh distribution: skills.sh copies SKILL.md files once,
+while `tbd source add` establishes ongoing git sync for evolving knowledge repos.
+See the spec appendix for detailed comparison.
 
 * * *
 
@@ -627,9 +629,10 @@ appendix for detailed comparison.
    discovery? This would make tbd discoverable via `npx skills add` while the actual
    functionality remains CLI-based.
 
-7. **Doc repos as "knowledge skills"**: Could domain knowledge repos (like
+7. **Doc repos as “knowledge skills”**: Could domain knowledge repos (like
    rust-porting-playbook) be listed on skills.sh with a SKILL.md that references
-   `tbd guidelines X` commands? This would bridge the two distribution models.
+   `tbd guidelines X` commands?
+   This would bridge the two distribution models.
 
 * * *
 

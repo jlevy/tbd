@@ -18,7 +18,7 @@ and lack of validation cause subtle bugs.
   ```ts
   // Good
   import { parse, stringify } from 'yaml';
-  
+
   // Avoid
   import yaml from 'js-yaml';
   ```
@@ -31,7 +31,7 @@ and lack of validation cause subtle bugs.
   ```ts
   // lib/settings.ts
   export const DEFAULT_YAML_LINE_WIDTH = 88;
-  
+
   // Readable YAML output:
   // - No forced quoting (YAML only quotes when necessary)
   // - Line wrapping at 88 chars for readability
@@ -50,7 +50,7 @@ and lack of validation cause subtle bugs.
   // serialize.ts
   import { stringify } from 'yaml';
   import { YAML_STRINGIFY_OPTIONS } from '../lib/settings.js';
-  
+
   const yamlStr = stringify(frontmatterObj, YAML_STRINGIFY_OPTIONS);
   ```
 
@@ -60,7 +60,7 @@ and lack of validation cause subtle bugs.
   // utils/yaml-utils.ts
   import { stringify } from 'yaml';
   import { YAML_STRINGIFY_OPTIONS } from '../lib/settings.js';
-  
+
   export function stringifyYaml(data: unknown, options?: object): string {
     return stringify(data, { ...YAML_STRINGIFY_OPTIONS, ...options });
   }
@@ -90,19 +90,19 @@ Use `PLAIN` types to let YAML quote only when semantically required.
   // Good
   import { z } from 'zod';
   import { parse } from 'yaml';
-  
+
   const ConfigSchema = z.object({
     name: z.string(),
     version: z.string(),
   });
-  
+
   const rawData = parse(content);
   const result = ConfigSchema.safeParse(rawData);
   if (!result.success) {
     throw new Error(`Invalid config: ${result.error.message}`);
   }
   const config = result.data; // Typed and validated
-  
+
   // Avoid
   const config = parse(content) as Config; // Type assertion with no runtime validation
   ```
@@ -183,7 +183,7 @@ const output = `---\n${stringifyYaml(data)}---\n\n${content}`;
   ```ts
   // Fragile: Depends on key order
   expect(yaml).toMatch(/^---\nname: foo\nversion: 1/);
-  
+
   // Robust: Tests presence, not order
   expect(yaml).toContain('name: foo');
   expect(yaml).toContain('version: 1');

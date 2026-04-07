@@ -369,7 +369,7 @@ This limit is not documented in official Convex docs but is verified in source c
    for (let i = 0; i < items.length; i++) {
      console.log(`Processing item ${i}`);
    }
-   
+
    // Good: Logs ~10 times for same dataset
    for (let i = 0; i < items.length; i++) {
      if (i % 100 === 0) {
@@ -1077,7 +1077,7 @@ const rows = await ctx.db
      contentSummary: v.string(), // Small snippet
      detailId: v.id('messageDetails'), // Link to full content
    }
-   
+
    // Store large content separately
    messageDetails: {
      fullContent: v.string(), // Large field
@@ -1130,13 +1130,13 @@ const errorCount = (await ctx.db.query('events')
 
    ```typescript
    import { Aggregate } from '@convex-dev/aggregate';
-   
+
    // Define aggregate
    const eventAggregate = new Aggregate<typeof schema.events>(components.aggregate, {
      filterKey: (event) => event.parentId,
      sumFields: { tokenCount: 0 },
    });
-   
+
    // Query aggregates efficiently
    const stats = await eventAggregate.count(ctx, {
      prefix: parentId,
@@ -1287,7 +1287,7 @@ export const createSessionAndWorkflow = mutation({
    for (const config of configs) {
      await ctx.runMutation(internal.createEntity, config);
    }
-   
+
    // CORRECT: Single mutation creates all entities
    export const createEntities = internalMutation({
      handler: async (ctx, { configs }) => {
@@ -1342,7 +1342,7 @@ export const createSessionAndWorkflow = mutation({
    ```typescript
    // WIDE: Triggers reruns on any aggregate change
    const count = await aggregate.count(ctx, { prefix: entityId });
-   
+
    // BOUNDED: Only reruns when matching records change
    const count = await aggregate.count(ctx, {
      prefix: entityId,
@@ -1433,7 +1433,7 @@ or high-frequency queries on large result sets.
       const oldRecords = await ctx.runQuery(internal.records.getCompleted, {
          beforeDate: Date.now() - 90 * 24 * 60 * 60 * 1000, // 90 days
        });
-   
+
       for (const record of oldRecords) {
          // Export to S3
         await exportRecordToS3(record);
@@ -1544,22 +1544,22 @@ export const countAllTurns = query({
      handler: async (ctx, args) => {
        let cursor = null;
        let totalProcessed = 0;
-   
+
        do {
          // Call mutation to process one batch
          const result = await ctx.runMutation(
            internal.processTurnsBatch,
            { cursor, numItems: 100 }
          );
-   
+
          totalProcessed += result.processed;
          cursor = result.continueCursor;
        } while (cursor !== null);
-   
+
        return { totalProcessed };
      },
    });
-   
+
    // Mutation processes one batch
    export const processTurnsBatch = internalMutation({
      args: { cursor: v.union(v.string(), v.null()), numItems: v.number() },
@@ -1567,10 +1567,10 @@ export const countAllTurns = query({
        const page = await ctx.db
          .query('conversationTurns')
          .paginate({ cursor: args.cursor, numItems: args.numItems });
-   
+
        // Process page.page here
        const processed = page.page.length;
-   
+
        return {
          processed,
          continueCursor: page.continueCursor,
@@ -1587,17 +1587,17 @@ export const countAllTurns = query({
      handler: async (ctx, args) => {
        let cursor = null;
        let totalValidated = 0;
-   
+
        do {
          const batch = await ctx.runQuery(internal.validateBatch, {
            cursor,
            numItems: 500,
          });
-   
+
          totalValidated += batch.count;
          cursor = batch.continueCursor;
        } while (cursor !== null);
-   
+
        return { totalValidated };
      },
    });

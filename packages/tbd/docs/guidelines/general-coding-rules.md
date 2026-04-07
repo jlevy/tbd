@@ -19,7 +19,7 @@ author: Joshua Levy (github.com/jlevy) with LLM assistance
   ```typescript
   // BAD: Hardcoded numbers
   const tradeCount = Math.min(trades.length, 50);
-  
+
   // GOOD: Named constants with documentation
   /**
    * Execution statistics counting limits for dialog tab display.
@@ -31,7 +31,7 @@ author: Joshua Levy (github.com/jlevy) with LLM assistance
     /** Maximum conversation turns to count before showing "100+" */
     maxConversationTurnCount: 100,
   } as const;
-  
+
   // Usage:
   const tradeCount = Math.min(trades.length, EXECUTION_STATS_LIMITS.maxTradeCount);
   ```

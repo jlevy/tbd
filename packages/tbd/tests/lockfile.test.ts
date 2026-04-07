@@ -52,10 +52,11 @@ describe('withLockfile', () => {
     const lockPath = join(tempDir, 'test.lock');
     const order: number[] = [];
 
-    // Use longer work duration (200ms) relative to poll interval (50ms default)
-    // and longer timeout to ensure the lock is properly acquired rather than
-    // falling through to degraded mode.
-    const lockOpts = { timeoutMs: 10_000, pollMs: 20 };
+    // Use longer work duration (200ms) relative to poll interval.
+    // On Windows, rmdir can fail silently (leaving the lock dir behind), so
+    // we set a short staleMs to ensure stale detection breaks orphaned locks
+    // promptly rather than waiting the default 5000ms per waiter.
+    const lockOpts = { timeoutMs: 30_000, pollMs: 20, staleMs: 1_000 };
 
     // Launch 3 concurrent critical sections
     await Promise.all([
@@ -129,6 +130,19 @@ describe('withLockfile', () => {
 
     // Clean up the manually created lock
     await rm(lockPath, { recursive: true, force: true });
+  });
+
+  it('preserves unexpected filesystem errors instead of masking them as lock contention', async () => {
+    let executed = false;
+
+    await expect(
+      withLockfile(join(tempDir, 'missing-parent', 'held.lock'), () => {
+        executed = true;
+        return Promise.resolve('should-not-run');
+      }),
+    ).rejects.toMatchObject({ code: 'ENOENT' });
+
+    expect(executed).toBe(false);
   });
 
   it('detects and breaks stale lock within timeout when staleMs < timeoutMs', async () => {

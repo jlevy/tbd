@@ -187,7 +187,7 @@ pnpm test:coverage
 # Runs: tryscript coverage --monocart "pnpm vitest run" "node dist/bin.mjs run tests/"
 ```
 
-| Source | Coverage Files | Data Size | What's Captured |
+| Source | Coverage Files | Data Size | What’s Captured |
 | --- | --- | --- | --- |
 | `pnpm vitest run` | 11 files | 8,194 KB | vitest workers + CLI integration subprocesses |
 | `tryscript run tests/` | 59 files (new) | 23,477 KB | golden test subprocesses |
@@ -198,7 +198,7 @@ pnpm test:coverage
 | Finding | Status | Validation |
 | --- | --- | --- |
 | Vitest uses `node:inspector`, not NODE_V8_COVERAGE | **Confirmed** | `[PR]` [vitest#2786](https://github.com/vitest-dev/vitest/pull/2786) changed coverage to use inspector API |
-| NODE_V8_COVERAGE can't capture vitest's unit test coverage | **Confirmed** | `[tested]` Coverage files contain dist/ paths, not Vite-transformed code |
+| NODE_V8_COVERAGE can’t capture vitest’s unit test coverage | **Confirmed** | `[tested]` Coverage files contain dist/ paths, not Vite-transformed code |
 | NODE_V8_COVERAGE DOES capture subprocess coverage | **Confirmed** | `[tested]` CLI integration tests spawn dist/bin.mjs, captured in V8 JSON |
 | Line count inflation (~5x) with standard c8 vs vitest | **Confirmed** | `[tested]` Observed in tryscript: ~~1700 lines (c8) vs ~~510 (vitest) |
 | Different converters: `ast-v8-to-istanbul` vs `v8-to-istanbul` | **Confirmed** | `[source]` vitest uses [ast-v8-to-istanbul](https://www.npmjs.com/package/ast-v8-to-istanbul), c8 uses [v8-to-istanbul](https://github.com/istanbuljs/v8-to-istanbul) |

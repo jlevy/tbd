@@ -180,18 +180,18 @@ covering the three main capability areas:
 | What You Can Say | What Happens |
 | --- | --- |
 | **Issues** |  |
-| "There's a bug where..." | Creates and tracks a bug issue |
-| "Let's work on current issues" | Shows ready issues to tackle |
-| "Track this as a task" | Creates a task issue |
+| “There’s a bug where …” | Creates and tracks a bug issue |
+| “Let’s work on current issues” | Shows ready issues to tackle |
+| “Track this as a task” | Creates a task issue |
 | **Shortcuts & Workflows** |  |
-| "Let's plan a new feature" | Walks you through creating a planning spec |
-| "Commit this code" | Reviews changes and commits properly |
-| "Create a PR" | Creates PR with summary |
-| "Review this for best practices" | Performs code review |
+| “Let’s plan a new feature” | Walks you through creating a planning spec |
+| “Commit this code” | Reviews changes and commits properly |
+| “Create a PR” | Creates PR with summary |
+| “Review this for best practices” | Performs code review |
 | **Guidelines** |  |
-| "I'm building a TypeScript CLI" | Applies TypeScript CLI guidelines |
-| "Help me set up better testing" | Applies testing guidelines |
-| "What are the Python best practices?" | Applies Python guidelines |
+| “I’m building a TypeScript CLI” | Applies TypeScript CLI guidelines |
+| “Help me set up better testing” | Applies testing guidelines |
+| “What are the Python best practices?” | Applies Python guidelines |
 
 This table is deliberately shorter than the full Quick Reference in SKILL.md/README.md.
 The welcome table shows *variety* — one or two examples per category — so users

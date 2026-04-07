@@ -315,7 +315,7 @@ When a command subsumes another:
 | --- | --- |
 | `status` vs `doctor` repository info | Different heading presence, different Git version placement |
 | `status` vs `doctor` integrations | Different checks shown (hooks vs skill) |
-| `stats` vs `doctor` statistics | Same data, but `stats` uses "Summary:" not "STATISTICS" |
+| `stats` vs `doctor` statistics | Same data, but `stats` uses “Summary:” not “STATISTICS” |
 
 ### Proposed Shared Rendering Functions
 

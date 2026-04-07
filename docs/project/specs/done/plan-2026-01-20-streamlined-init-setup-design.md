@@ -70,12 +70,12 @@ tbd import <file>             # Import from exported file
 
 ### Problems with Current Design
 
-| Issue | Why It's Confusing |
+| Issue | Why It’s Confusing |
 | --- | --- |
 | Three entry points | `init`, `setup`, or `import --from-beads`? |
-| `init` requires `--prefix` | New users don't know what to put |
+| `init` requires `--prefix` | New users don’t know what to put |
 | `init` calls `setup auto` | Setup is a subset of init? Backwards. |
-| `setup` alone does nothing | Users expect "setup" to set things up |
+| `setup` alone does nothing | Users expect “setup” to set things up |
 | `import --from-beads` auto-inits | Hidden initialization, inconsistent with `init` |
 | Beads detection not automatic | User must know to run `import --from-beads` |
 
@@ -615,10 +615,10 @@ To initialize a repository, run 'tbd setup --interactive' from within a git repo
 
 | Prompt | Default | Purpose |
 | --- | --- | --- |
-| "Proceed with setup?" | Y | Confirm user wants to set up tbd |
-| "Use prefix 'X'?" | Y | Confirm auto-detected prefix |
-| "Install Claude Code integration?" | Y | Confirm hook + skill installation |
-| "Install Cursor integration?" | Y (if detected) | Confirm Cursor rules |
+| “Proceed with setup?” | Y | Confirm user wants to set up tbd |
+| “Use prefix ‘X’?” | Y | Confirm auto-detected prefix |
+| “Install Claude Code integration?” | Y | Confirm hook + skill installation |
+| “Install Cursor integration?” | Y (if detected) | Confirm Cursor rules |
 
 **Interactive mode (`tbd setup --interactive`):**
 
@@ -705,9 +705,9 @@ Please specify a prefix:
 
 | Prompt | Default | Purpose |
 | --- | --- | --- |
-| "Migrate from Beads?" | Y | Confirm migration |
-| "Use prefix 'X'?" | Y | Confirm prefix (from beads or auto-detect) |
-| "Install integrations?" | Y | Confirm integration setup |
+| “Migrate from Beads?” | Y | Confirm migration |
+| “Use prefix ‘X’?” | Y | Confirm prefix (from beads or auto-detect) |
+| “Install integrations?” | Y | Confirm integration setup |
 
 **Interactive mode (`tbd setup --interactive`):**
 
@@ -794,7 +794,7 @@ Setup complete!
 
 | Prompt | Default | Purpose |
 | --- | --- | --- |
-| "Update integration?" | Y | If integration is outdated |
+| “Update integration?” | Y | If integration is outdated |
 
 **Interactive mode (`tbd setup --interactive`):**
 
@@ -870,11 +870,11 @@ All set!
 
 | Scenario | Prompts in Interactive Mode | Behavior in Auto Mode |
 | --- | --- | --- |
-| **Outside git repo** | "Proceed with global-only setup?" (Y) | Warn, proceed with global setup |
-| **Fresh setup** | "Proceed?" (Y), "Use prefix X?" (Y), "Install X integration?" (Y) | Auto-detect prefix, install all integrations |
-| **Beads migration** | "Migrate from Beads?" (Y), "Use prefix X?" (Y), "Install X?" (Y) | Auto-migrate, use beads prefix |
-| **Already initialized** | "Update X integration?" (Y) only if outdated | Auto-update outdated integrations |
-| **Prefix not detectable** | "Enter prefix:" (required) | Error with instructions |
+| **Outside git repo** | “Proceed with global-only setup?” (Y) | Warn, proceed with global setup |
+| **Fresh setup** | “Proceed?” (Y), “Use prefix X?” (Y), “Install X integration?” (Y) | Auto-detect prefix, install all integrations |
+| **Beads migration** | “Migrate from Beads?” (Y), “Use prefix X?” (Y), “Install X?” (Y) | Auto-migrate, use beads prefix |
+| **Already initialized** | “Update X integration?” (Y) only if outdated | Auto-update outdated integrations |
+| **Prefix not detectable** | “Enter prefix:” (required) | Error with instructions |
 
 * * *
 
@@ -889,7 +889,7 @@ improvements when they upgrade tbd.
 | Integration | Upgrade Trigger | What Gets Updated |
 | --- | --- | --- |
 | Claude Code | Skill file content changed | `.claude/skills/tbd/SKILL.md` |
-| Claude Code | Hook config improved | `.claude/settings.json` (merges, doesn't overwrite) |
+| Claude Code | Hook config improved | `.claude/settings.json` (merges, doesn’t overwrite) |
 | Cursor IDE | MDC content or format changed | `.cursor/rules/tbd.mdc` |
 | AGENTS.md | Content changed | `AGENTS.md` (tbd section only) |
 
@@ -1085,7 +1085,7 @@ tbd init requires a git repository. Either:
 | Not a git repo (`tbd setup`) | Warning, global-only setup, instructs user to run in repo |
 | No `--prefix` in `--auto` mode | Error: `--prefix` is required (unless migrating from beads) |
 | Beads + already has .tbd/ | Skip migration, just check integrations |
-| `--from-beads` but no .beads/ | Error: "No .beads/ directory found" |
+| `--from-beads` but no .beads/ | Error: “No .beads/ directory found” |
 | CI environment (no TTY) | Use `--auto` mode with explicit `--prefix` |
 
 ### Clean Command Model (No Deprecations)

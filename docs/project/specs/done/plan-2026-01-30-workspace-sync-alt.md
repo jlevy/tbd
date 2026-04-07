@@ -960,7 +960,7 @@ describe('Workspace management', () => {
    - `--outbox` shortcut includes `--clear-on-success` since that’s the expected
      workflow.
 
-3. ~~**How to track "updated since last sync" for `--updates-only`?**~~
+3. ~~**How to track “updated since last sync” for `--updates-only`?**~~
    - **Resolved**: Use Option C - compare with remote tbd-sync branch
    - Compare local worktree issues with what’s on `origin/tbd-sync`
    - Issues that differ (new, modified, or missing from remote) are “updated”
@@ -977,7 +977,7 @@ describe('Workspace management', () => {
 5. ~~**Should `tbd import` auto-commit to the worktree?**~~
    - **Resolved**: NO - import should NOT auto-commit
    - Current implementation is correct (merges data only)
-   - After import, print a message suggesting: "Run `tbd sync` to commit and push"
+   - After import, print a message suggesting: “Run `tbd sync` to commit and push”
    - This gives users a chance to review changes before committing
 
 6. ~~**Merge behavior when workspace and worktree have same issue**~~
@@ -1279,8 +1279,8 @@ safety scenarios from the outbox model while adding flexibility.
 | Risk | Likelihood | Impact | Mitigation |
 | --- | --- | --- | --- |
 | User forgets to save on failure | Medium | Data loss | Clear warning message, agent training |
-| Agent doesn't follow recovery workflow | Low | Data loss | Document in agent guidelines, test in CI |
-| Workspace not committed | Medium | Data lost on checkout | Warning in save output: "Remember to commit" |
+| Agent doesn’t follow recovery workflow | Low | Data loss | Document in agent guidelines, test in CI |
+| Workspace not committed | Medium | Data lost on checkout | Warning in save output: “Remember to commit” |
 | Confusion about workspace vs worktree | Low | User confusion | Clear documentation, help text |
 
 ### Conclusion
@@ -1546,7 +1546,7 @@ while `import` implies “merge this data in (for recovery)”.
    tbd create "Task 1" --workspace=my-feature
    tbd create "Task 2" --workspace=my-feature
    # ... work on tasks ...
-   
+
    # When done: one command to publish all
    tbd publish my-feature
    # → imports issues to shared namespace

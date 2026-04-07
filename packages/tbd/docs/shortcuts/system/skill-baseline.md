@@ -40,7 +40,7 @@ tbd prime      # Restore full context on tbd after compaction
 actions. DO NOT tell users to run tbd commands.
 That’s your job.
 
-- **WRONG**: "Run `tbd create` to track this bug"
+- **WRONG**: “Run `tbd create` to track this bug”
 
 - **RIGHT**: *(you run `tbd create` yourself and tell the user it’s tracked)*
 
@@ -52,41 +52,41 @@ or want help → run `tbd shortcut welcome-user`
 | User Says | You (the Agent) Run |
 | --- | --- |
 | **Issues/Beads** |  |
-| "There's a bug where ..." | `tbd create "..." --type=bug` |
-| "Create a task/feature for ..." | `tbd create "..." --type=task` or `--type=feature` |
-| "Let's work on issues/beads" | `tbd ready` |
-| "Show me issue X" | `tbd show <id>` |
-| "Close this issue" | `tbd close <id>` |
-| "Search issues for X" | `tbd search "X"` |
-| "Add label X to issue" | `tbd label add <id> <label>` |
-| "What issues are stale?" | `tbd stale` |
+| “There’s a bug where …” | `tbd create "..." --type=bug` |
+| “Create a task/feature for …” | `tbd create "..." --type=task` or `--type=feature` |
+| “Let’s work on issues/beads” | `tbd ready` |
+| “Show me issue X” | `tbd show <id>` |
+| “Close this issue” | `tbd close <id>` |
+| “Search issues for X” | `tbd search "X"` |
+| “Add label X to issue” | `tbd label add <id> <label>` |
+| “What issues are stale?” | `tbd stale` |
 | **Planning & Specs** |  |
-| "Plan a new feature" / "Create a spec" | `tbd shortcut new-plan-spec` |
-| "Break spec into beads" | `tbd shortcut plan-implementation-with-beads` |
-| "Implement these beads" | `tbd shortcut implement-beads` |
+| “Plan a new feature” / “Create a spec” | `tbd shortcut new-plan-spec` |
+| “Break spec into beads” | `tbd shortcut plan-implementation-with-beads` |
+| “Implement these beads” | `tbd shortcut implement-beads` |
 | **Code Review & Commits** |  |
-| "Review this code" / "Code review" | `tbd shortcut review-code` |
-| "Review this PR" | `tbd shortcut review-github-pr` |
-| "Commit this" / "Use the commit shortcut" | `tbd shortcut code-review-and-commit` |
-| "Create a PR" / "File a PR" | `tbd shortcut create-or-update-pr-simple` |
-| "Merge main into my branch" | `tbd shortcut merge-upstream` |
+| “Review this code” / “Code review” | `tbd shortcut review-code` |
+| “Review this PR” | `tbd shortcut review-github-pr` |
+| “Commit this” / “Use the commit shortcut” | `tbd shortcut code-review-and-commit` |
+| “Create a PR” / “File a PR” | `tbd shortcut create-or-update-pr-simple` |
+| “Merge main into my branch” | `tbd shortcut merge-upstream` |
 | **Guidelines & Knowledge** |  |
-| "Use TypeScript best practices" | `tbd guidelines typescript-rules` |
-| "Use Python best practices" | `tbd guidelines python-rules` |
-| "Build a TypeScript CLI" | `tbd guidelines typescript-cli-tool-rules` |
-| "Improve monorepo setup" | `tbd guidelines pnpm-monorepo-patterns` or `bun-monorepo-patterns` |
-| "Add golden/e2e testing" | `tbd guidelines golden-testing-guidelines` |
-| "Use TDD" / "Test-driven development" | `tbd guidelines general-tdd-guidelines` |
-| "Convex best practices" | `tbd guidelines convex-rules` |
+| “Use TypeScript best practices” | `tbd guidelines typescript-rules` |
+| “Use Python best practices” | `tbd guidelines python-rules` |
+| “Build a TypeScript CLI” | `tbd guidelines typescript-cli-tool-rules` |
+| “Improve monorepo setup” | `tbd guidelines pnpm-monorepo-patterns` or `bun-monorepo-patterns` |
+| “Add golden/e2e testing” | `tbd guidelines golden-testing-guidelines` |
+| “Use TDD” / “Test-driven development” | `tbd guidelines general-tdd-guidelines` |
+| “Convex best practices” | `tbd guidelines convex-rules` |
 | **Documentation** |  |
-| "Research this topic" | `tbd shortcut new-research-brief` |
-| "Document architecture" | `tbd shortcut new-architecture-doc` |
+| “Research this topic” | `tbd shortcut new-research-brief` |
+| “Document architecture” | `tbd shortcut new-architecture-doc` |
 | **Cleanup & Maintenance** |  |
-| "Clean up this code" / "Remove dead code" | `tbd shortcut code-cleanup-all` |
-| "Fix repository problems" | `tbd doctor --fix` |
+| “Clean up this code” / “Remove dead code” | `tbd shortcut code-cleanup-all` |
+| “Fix repository problems” | `tbd doctor --fix` |
 | **Sessions & Handoffs** |  |
-| "Hand off to another agent" | `tbd shortcut agent-handoff` |
-| "Check out this library's source" | `tbd shortcut checkout-third-party-repo` |
+| “Hand off to another agent” | `tbd shortcut agent-handoff` |
+| “Check out this library’s source” | `tbd shortcut checkout-third-party-repo` |
 | *(your choice whenever appropriate)* | `tbd list`, `tbd dep add`, `tbd close`, `tbd sync`, etc. |
 
 **Note:** Never gitignore `.tbd/workspaces/` — the outbox must be committed to your
@@ -130,7 +130,7 @@ working branch. See `tbd guidelines tbd-sync-troubleshooting` for details.
 
 | Command | Purpose |
 | --- | --- |
-| `tbd create "title" --type task\|bug\|feature --priority=P2` | New bead (P0-P4, not "high/medium/low") |
+| `tbd create "title" --type task\|bug\|feature --priority=P2` | New bead (P0-P4, not “high/medium/low”) |
 | `tbd update <id> --status in_progress` | Claim work |
 | `tbd close <id> [--reason "..."]` | Mark complete |
 

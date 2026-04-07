@@ -113,7 +113,7 @@ Every new tool requires updates in 3 locations:
 
    ```typescript
    import { createNewTool } from './newTool';
-   
+
    // In resolveTools() switch statement:
    case 'new_tool_id':
      tools.new_tool_id = createNewTool(runConfig);
