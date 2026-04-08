@@ -1,25 +1,16 @@
 ## What’s Changed
 
-### Features
-
-- **Doctor history scanning**: New `--max-history` option for `tbd doctor` to control
-  how far back mapping recovery scans (defaults to 50 commits for faster execution)
-
 ### Fixes
 
-- **Concurrent create race condition**: Prevent `tbd create` from losing short ID
-  mappings when multiple creates run simultaneously
-- **Migration safety**: Prevent migration from destroying `ids.yml` mappings; remove
-  source files after successful migration and add verbose doctor output
-- **Lockfile reliability**: Tighten lockfile defaults and clarify locking behavior
-- **Sync status reporting**: Make ahead/behind status informational instead of a
-  warning, reducing noise during normal sync operations
-- **Doctor input validation**: Validate `--max-history` input to prevent unbounded
-  history scans
+- **ids.yml merge conflict resolution**: Auto-resolve trivial merge conflicts in
+  `ids.yml` during `tbd sync` and `tbd doctor --fix`, preventing sync failures caused by
+  concurrent ID mapping updates
+- **Worktree merge strategy**: Add `merge=union` gitattributes inside the worktree for
+  `ids.yml` so Git automatically merges concurrent additions without conflict
+- **CI badge**: Scope coverage report action to PR events only to fix CI badge status
 
-### Documentation
+### Refactoring
 
-- **Research brief template**: Improved with optional sections and blockquote
-  instructions
+- Remove dead code and consolidate duplicate constants
 
-**Full commit history**: https://github.com/jlevy/tbd/compare/v0.1.23...v0.1.24
+**Full commit history**: https://github.com/jlevy/tbd/compare/v0.1.25...v0.1.26
