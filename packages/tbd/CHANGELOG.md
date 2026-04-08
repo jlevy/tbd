@@ -1,5 +1,21 @@
 # get-tbd
 
+## 0.1.26
+
+### Patch Changes
+
+- c9da6aa: Auto-resolve ids.yml merge conflicts during sync and doctor --fix, add
+  merge=union gitattributes inside worktree to prevent future conflicts, fix CI badge
+  scope, remove dead code, and update dependencies.
+
+## 0.1.25
+
+### Patch Changes
+
+- Fix short-ID mapping loss during concurrent creation, improve doctor check ordering,
+  resolve Windows CI test flakiness, and add research docs for orchestration and
+  knowledge architecture.
+
 ## 0.1.24
 
 ### Patch Changes
