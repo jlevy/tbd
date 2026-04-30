@@ -20,6 +20,7 @@ import { now } from '../../utils/time-utils.js';
 import { loadIdMapping, resolveToInternalId, type IdMapping } from '../../file/id-mapping.js';
 import { readConfig } from '../../file/config.js';
 import { resolveAndValidatePath, getPathErrorMessage } from '../../lib/project-paths.js';
+import { validateIssueTitle } from '../lib/issue-input-validation.js';
 
 interface UpdateOptions {
   fromFile?: string;
@@ -229,7 +230,10 @@ class UpdateHandler extends BaseCommand {
 
         // Extract mutable fields from frontmatter
         if (typeof frontmatter.title === 'string') {
-          updates.title = frontmatter.title;
+          updates.title = validateIssueTitle(frontmatter.title, {
+            emptyMessage: 'Title cannot be empty',
+            rejectBlank: true,
+          });
         }
         if (typeof frontmatter.status === 'string') {
           const result = IssueStatus.safeParse(frontmatter.status);
@@ -297,10 +301,10 @@ class UpdateHandler extends BaseCommand {
     }
 
     if (options.title !== undefined) {
-      if (!options.title.trim()) {
-        throw new ValidationError('Title cannot be empty');
-      }
-      updates.title = options.title;
+      updates.title = validateIssueTitle(options.title, {
+        emptyMessage: 'Title cannot be empty',
+        rejectBlank: true,
+      });
     }
 
     if (options.status) {

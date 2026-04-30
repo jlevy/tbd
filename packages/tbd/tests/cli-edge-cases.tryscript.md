@@ -196,6 +196,14 @@ $ tbd create "$(printf 'A%.0s' {1..200})"
 ? 0
 ```
 
+# Test: Too long title is rejected before writing
+
+```console
+$ tbd create "$(printf 'A%.0s' {1..501})" 2>&1
+Error: Title is too long (501 chars, max 500). Move detail into the description body.
+? 2
+```
+
 # Test: Many labels
 
 ```console

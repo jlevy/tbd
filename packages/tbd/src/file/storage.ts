@@ -12,7 +12,31 @@ import { join } from 'node:path';
 import { writeFile } from 'atomically';
 
 import type { Issue } from '../lib/types.js';
+import { IssueSchema } from '../lib/schemas.js';
+import { formatUnknownError } from '../utils/zod-error-utils.js';
 import { parseIssue, serializeIssue } from './parser.js';
+
+/**
+ * Maximum issue files read concurrently to avoid exhausting file descriptors in large repos.
+ */
+const ISSUE_READ_BATCH_SIZE = 200;
+
+/**
+ * Parse or read failure for an issue file.
+ */
+export interface InvalidIssueFile {
+  /** Issue filename relative to the issues directory. */
+  file: string;
+  /** Safe, human-readable read or parse failure reason. */
+  reason: string;
+}
+
+interface ListIssuesOptions {
+  /** When true, emit skipped-file warnings to stderr. */
+  warnOnInvalid?: boolean;
+  /** Optional callback for callers that need structured skipped-file diagnostics. */
+  onInvalidIssue?: (invalidIssue: InvalidIssueFile) => void;
+}
 
 /**
  * Get the path to an issue file.
@@ -36,8 +60,9 @@ export async function readIssue(baseDir: string, id: string): Promise<Issue> {
  * Uses atomic write to prevent corruption.
  */
 export async function writeIssue(baseDir: string, issue: Issue): Promise<void> {
-  const filePath = getIssuePath(baseDir, issue.id);
-  const content = serializeIssue(issue);
+  const validIssue = IssueSchema.parse(issue);
+  const filePath = getIssuePath(baseDir, validIssue.id);
+  const content = serializeIssue(validIssue);
   await writeFile(filePath, content);
 }
 
@@ -47,7 +72,11 @@ export async function writeIssue(baseDir: string, issue: Issue): Promise<void> {
  *
  * Uses parallel file reading for better performance with many issues.
  */
-export async function listIssues(baseDir: string): Promise<Issue[]> {
+export async function listIssues(
+  baseDir: string,
+  options: ListIssuesOptions = {},
+): Promise<Issue[]> {
+  const warnOnInvalid = options.warnOnInvalid ?? true;
   const issuesDir = join(baseDir, 'issues');
 
   let files: string[];
@@ -61,38 +90,68 @@ export async function listIssues(baseDir: string): Promise<Issue[]> {
   // Filter to only .md files
   const mdFiles = files.filter((f) => f.endsWith('.md'));
 
-  // Read files in batches to avoid EMFILE (too many open files) on large repos.
-  // Unbounded Promise.all on thousands of files exceeds typical fd limits (1024-4096).
-  const BATCH_SIZE = 200;
   const issues: Issue[] = [];
 
-  for (let i = 0; i < mdFiles.length; i += BATCH_SIZE) {
-    const batch = mdFiles.slice(i, i + BATCH_SIZE);
+  for (let i = 0; i < mdFiles.length; i += ISSUE_READ_BATCH_SIZE) {
+    const batch = mdFiles.slice(i, i + ISSUE_READ_BATCH_SIZE);
     const fileContents = await Promise.all(
       batch.map(async (file) => {
         const filePath = join(issuesDir, file);
         try {
           const content = await readFile(filePath, 'utf-8');
           return { file, content };
-        } catch {
-          return { file, content: null };
+        } catch (error) {
+          return { file, error: formatUnknownError(error) };
         }
       }),
     );
 
-    for (const { file, content } of fileContents) {
-      if (content === null) continue;
+    for (const result of fileContents) {
+      if ('error' in result) {
+        reportInvalidIssueFile(
+          { file: result.file, reason: `failed to read file: ${result.error}` },
+          warnOnInvalid,
+          options.onInvalidIssue,
+        );
+        continue;
+      }
       try {
-        const issue = parseIssue(content);
+        const issue = parseIssue(result.content);
         issues.push(issue);
       } catch (error) {
-        // Skip invalid files with a warning
-        console.warn(`Skipping invalid issue file: ${file}`, error);
+        reportInvalidIssueFile(
+          { file: result.file, reason: formatUnknownError(error) },
+          warnOnInvalid,
+          options.onInvalidIssue,
+        );
       }
     }
   }
 
   return issues;
+}
+
+/**
+ * Return issue files that cannot be parsed without emitting warnings.
+ */
+export async function listInvalidIssueFiles(baseDir: string): Promise<InvalidIssueFile[]> {
+  const invalidIssueFiles: InvalidIssueFile[] = [];
+  await listIssues(baseDir, {
+    warnOnInvalid: false,
+    onInvalidIssue: (invalidIssue) => invalidIssueFiles.push(invalidIssue),
+  });
+  return invalidIssueFiles;
+}
+
+function reportInvalidIssueFile(
+  invalidIssue: InvalidIssueFile,
+  warnOnInvalid: boolean,
+  onInvalidIssue?: (invalidIssue: InvalidIssueFile) => void,
+): void {
+  onInvalidIssue?.(invalidIssue);
+  if (warnOnInvalid) {
+    console.warn(`Skipping invalid issue file: ${invalidIssue.file}: ${invalidIssue.reason}`);
+  }
 }
 
 /**

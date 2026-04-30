@@ -92,6 +92,21 @@ export const IssueStatus = z.enum(['open', 'in_progress', 'blocked', 'deferred',
 export const IssueKind = z.enum(['bug', 'feature', 'task', 'epic', 'chore']);
 
 /**
+ * Maximum issue title length before detail belongs in the description body.
+ */
+export const ISSUE_TITLE_MAX_LENGTH = 500;
+
+/**
+ * Maximum issue body section length to keep issue files practical to review and sync.
+ */
+export const ISSUE_BODY_MAX_LENGTH = 50_000;
+
+/**
+ * Issue title text as persisted in issue files.
+ */
+export const IssueTitle = z.string().min(1).max(ISSUE_TITLE_MAX_LENGTH);
+
+/**
  * Priority: 0 (highest/critical) to 4 (lowest).
  */
 export const Priority = z.number().int().min(0).max(4);
@@ -130,14 +145,14 @@ export const IssueSchema = BaseEntity.extend({
   // Header seven: the fields you always want to see at a glance
   type: z.literal('is'),
   // id, version inherited from BaseEntity
-  title: z.string().min(1).max(500),
+  title: IssueTitle,
   kind: IssueKind.default('task'),
   status: IssueStatus.default('open'),
   priority: Priority.default(2),
 
   // Body content (serialized outside frontmatter)
-  description: z.string().max(50000).nullable().optional(),
-  notes: z.string().max(50000).nullable().optional(),
+  description: z.string().max(ISSUE_BODY_MAX_LENGTH).nullable().optional(),
+  notes: z.string().max(ISSUE_BODY_MAX_LENGTH).nullable().optional(),
 
   // Linkages
   spec_path: z.string().nullable().optional(),
