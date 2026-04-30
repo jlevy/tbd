@@ -188,8 +188,8 @@ dependencies: []
       expect(doctorResult.status).toBe(0);
       expect(doctorResult.stderr).toContain('Issues found that may require manual intervention.');
       expect(doctorResult.stderr).not.toContain('Skipping invalid issue file');
-      expect(doctorResult.stdout).toContain(
-        '✗ Issue validity - 1 invalid issue file(s) (.tbd/issues)',
+      expect(doctorResult.stdout).toMatch(
+        /✗ Issue validity - 1 invalid issue file\(s\) \(\.tbd[\\/]issues\)/,
       );
       expect(doctorResult.stdout).toContain(`${invalidId}.md: title:`);
     });
