@@ -22,16 +22,16 @@ export function validateIssueTitle(title: string, options: IssueTitleValidationO
     throw new ValidationError(options.emptyMessage);
   }
 
-  const result = IssueTitle.safeParse(title);
-  if (result.success) {
-    return result.data;
-  }
-
   if (title.length > ISSUE_TITLE_MAX_LENGTH) {
     throw new ValidationError(
       `Title is too long (${title.length} chars, max ${ISSUE_TITLE_MAX_LENGTH}). Move detail into the description body.`,
     );
   }
 
-  throw new ValidationError(`Invalid title: ${formatZodError(result.error)}`);
+  const result = IssueTitle.safeParse(title);
+  if (!result.success) {
+    throw new ValidationError(`Invalid title: ${formatZodError(result.error)}`);
+  }
+
+  return title;
 }

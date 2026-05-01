@@ -54,6 +54,7 @@ class CreateHandler extends BaseCommand {
         ? undefined
         : validateIssueTitle(title, {
             emptyMessage: 'Title is required. Use: tbd create "Issue title"',
+            rejectBlank: true,
           });
 
     // Parse and validate options

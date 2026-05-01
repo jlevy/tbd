@@ -131,18 +131,6 @@ export async function listIssues(
   return issues;
 }
 
-/**
- * Return issue files that cannot be parsed without emitting warnings.
- */
-export async function listInvalidIssueFiles(baseDir: string): Promise<InvalidIssueFile[]> {
-  const invalidIssueFiles: InvalidIssueFile[] = [];
-  await listIssues(baseDir, {
-    warnOnInvalid: false,
-    onInvalidIssue: (invalidIssue) => invalidIssueFiles.push(invalidIssue),
-  });
-  return invalidIssueFiles;
-}
-
 function reportInvalidIssueFile(
   invalidIssue: InvalidIssueFile,
   warnOnInvalid: boolean,
