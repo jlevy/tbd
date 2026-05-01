@@ -12,7 +12,7 @@ import { join } from 'node:path';
 
 import { BaseCommand } from '../lib/base-command.js';
 import { requireInit } from '../lib/errors.js';
-import { listIssues } from '../../file/storage.js';
+import { listIssues, type InvalidIssueFile } from '../../file/storage.js';
 import { readConfig } from '../../file/config.js';
 import type { Config, Issue, IssueStatusType } from '../../lib/types.js';
 import { resolveDataSyncDir, TBD_DIR, WORKTREE_DIR, DATA_SYNC_DIR } from '../../lib/paths.js';
@@ -59,6 +59,7 @@ class DoctorHandler extends BaseCommand {
   private cwd = '';
   private config: Config | null = null;
   private issues: Issue[] = [];
+  private invalidIssueFiles: InvalidIssueFile[] = [];
 
   async run(options: DoctorOptions): Promise<void> {
     const tbdRoot = await requireInit();
@@ -75,7 +76,11 @@ class DoctorHandler extends BaseCommand {
 
     // Load issues
     try {
-      this.issues = await listIssues(this.dataSyncDir);
+      this.invalidIssueFiles = [];
+      this.issues = await listIssues(this.dataSyncDir, {
+        warnOnInvalid: false,
+        onInvalidIssue: (invalidIssue) => this.invalidIssueFiles.push(invalidIssue),
+      });
     } catch {
       // May fail if no issues yet
     }
@@ -114,7 +119,7 @@ class DoctorHandler extends BaseCommand {
     healthChecks.push(await this.checkTempFiles(options.fix));
 
     // Check 8: Issue validity
-    healthChecks.push(this.checkIssueValidity(this.issues));
+    healthChecks.push(this.checkIssueValidity(this.issues, this.invalidIssueFiles));
 
     // Check 9: Worktree health (with fix support)
     // Run BEFORE ID mapping check — worktree repair and data migration can
@@ -130,7 +135,11 @@ class DoctorHandler extends BaseCommand {
     if (dataLocationResult.status === 'ok' && dataLocationResult.message?.includes('migrated')) {
       this.dataSyncDir = await resolveDataSyncDir(this.cwd);
       try {
-        this.issues = await listIssues(this.dataSyncDir);
+        this.invalidIssueFiles = [];
+        this.issues = await listIssues(this.dataSyncDir, {
+          warnOnInvalid: false,
+          onInvalidIssue: (invalidIssue) => this.invalidIssueFiles.push(invalidIssue),
+        });
       } catch {
         // Will be caught by other health checks
       }
@@ -596,8 +605,15 @@ class DoctorHandler extends BaseCommand {
     };
   }
 
-  private checkIssueValidity(issues: Issue[]): DiagnosticResult {
+  private checkIssueValidity(
+    issues: Issue[],
+    invalidIssueFiles: InvalidIssueFile[],
+  ): DiagnosticResult {
     const invalid: { id: string; reason: string }[] = [];
+
+    for (const invalidIssueFile of invalidIssueFiles) {
+      invalid.push({ id: invalidIssueFile.file, reason: invalidIssueFile.reason });
+    }
 
     for (const issue of issues) {
       const issueId = issue.id ?? 'unknown';
@@ -636,7 +652,8 @@ class DoctorHandler extends BaseCommand {
     return {
       name: 'Issue validity',
       status: 'error',
-      message: `${invalid.length} invalid issue(s)`,
+      message: `${invalid.length} invalid issue file(s)`,
+      path: join(CONFIG_DIR, 'issues'),
       details: invalid.map((i) => `${i.id}: ${i.reason}`),
       suggestion: 'Manually fix or delete invalid issue files',
     };

@@ -191,9 +191,17 @@ Error: Issue cannot depend on itself
 # Test: Very long title (200 chars)
 
 ```console
-$ tbd create "$(printf 'A%.0s' {1..200})"
+$ tbd create "$(awk 'BEGIN { for (i = 0; i < 200; i++) printf "A" }')"
 ✓ Created test-[SHORTID]: [..]
 ? 0
+```
+
+# Test: Too long title is rejected before writing
+
+```console
+$ tbd create "$(awk 'BEGIN { for (i = 0; i < 501; i++) printf "A" }')" 2>&1
+Error: Title is too long (501 chars, max 500). Move detail into the description body.
+? 2
 ```
 
 # Test: Many labels

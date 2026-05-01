@@ -25,6 +25,7 @@ import { resolveDataSyncDir } from '../../lib/paths.js';
 import { now } from '../../utils/time-utils.js';
 import { readConfig } from '../../file/config.js';
 import { resolveAndValidatePath, getPathErrorMessage } from '../../lib/project-paths.js';
+import { validateIssueTitle } from '../lib/issue-input-validation.js';
 
 interface CreateOptions {
   fromFile?: string;
@@ -48,6 +49,13 @@ class CreateHandler extends BaseCommand {
     if (!title && !options.fromFile) {
       throw new ValidationError('Title is required. Use: tbd create "Issue title"');
     }
+    const validatedTitle =
+      title === undefined
+        ? undefined
+        : validateIssueTitle(title, {
+            emptyMessage: 'Title is required. Use: tbd create "Issue title"',
+            rejectBlank: true,
+          });
 
     // Parse and validate options
     const kind = this.parseKind(options.type ?? 'task');
@@ -76,7 +84,13 @@ class CreateHandler extends BaseCommand {
     }
 
     if (
-      this.checkDryRun('Would create issue', { title, kind, priority, spec: specPath, ...options })
+      this.checkDryRun('Would create issue', {
+        title: validatedTitle,
+        kind,
+        priority,
+        spec: specPath,
+        ...options,
+      })
     ) {
       return;
     }
@@ -122,7 +136,7 @@ class CreateHandler extends BaseCommand {
         type: 'is',
         id,
         version: 1,
-        title: title!,
+        title: validatedTitle!,
         kind,
         status: 'open',
         priority,
@@ -163,8 +177,8 @@ class CreateHandler extends BaseCommand {
 
     // Output with display ID (prefix + short ID)
     const displayId = `${prefix!}-${shortId!}`;
-    this.output.data({ id: displayId, internalId: id, title }, () => {
-      this.output.success(`Created ${displayId}: ${title}`);
+    this.output.data({ id: displayId, internalId: id, title: validatedTitle }, () => {
+      this.output.success(`Created ${displayId}: ${validatedTitle}`);
     });
   }
 

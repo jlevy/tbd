@@ -2,12 +2,13 @@
  * Tests for storage layer - issue file operations.
  */
 
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { mkdtemp, rm, readFile, writeFile as fsWriteFile } from 'node:fs/promises';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { mkdtemp, rm, readFile, writeFile as fsWriteFile, mkdir } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { writeFile } from 'atomically';
 import { readIssue, writeIssue, listIssues, deleteIssue } from '../src/file/storage.js';
+import { ISSUE_TITLE_MAX_LENGTH } from '../src/lib/schemas.js';
 import type { Issue } from '../src/lib/types.js';
 import { TEST_ULIDS, testId } from './test-helpers.js';
 
@@ -144,6 +145,17 @@ describe('writeIssue and readIssue', () => {
   it('throws on non-existent issue', async () => {
     await expect(readIssue(tempDir, testId(TEST_ULIDS.ULID_9))).rejects.toThrow();
   });
+
+  it('rejects invalid issues before writing', async () => {
+    const issueId = testId(TEST_ULIDS.ULID_3);
+    const issue = makeIssue({
+      id: issueId,
+      title: 'x'.repeat(ISSUE_TITLE_MAX_LENGTH + 1),
+    });
+
+    await expect(writeIssue(tempDir, issue)).rejects.toThrow(/title/);
+    await expect(readFile(join(tempDir, 'issues', `${issueId}.md`), 'utf-8')).rejects.toThrow();
+  });
 });
 
 describe('listIssues', () => {
@@ -187,6 +199,46 @@ describe('listIssues', () => {
     const issues = await listIssues(tempDir);
     expect(issues).toHaveLength(1);
     expect(issues[0]!.id).toBe(id1);
+  });
+
+  it('skips invalid issue files with a safe warning', async () => {
+    const validId = testId(TEST_ULIDS.STORAGE_2);
+    const invalidId = testId(TEST_ULIDS.STORAGE_3);
+    await writeIssue(tempDir, makeIssue({ id: validId, title: 'Valid issue' }));
+
+    const issuesDir = join(tempDir, 'issues');
+    await mkdir(issuesDir, { recursive: true });
+    await fsWriteFile(
+      join(issuesDir, `${invalidId}.md`),
+      `---
+type: is
+id: ${invalidId}
+title: ${'x'.repeat(ISSUE_TITLE_MAX_LENGTH + 1)}
+kind: task
+status: open
+priority: 2
+version: 1
+created_at: 2025-01-01T00:00:00Z
+updated_at: 2025-01-01T00:00:00Z
+labels: []
+dependencies: []
+---
+`,
+    );
+
+    const consoleWarn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    try {
+      const issues = await listIssues(tempDir);
+
+      expect(issues).toHaveLength(1);
+      expect(issues[0]!.id).toBe(validId);
+      expect(consoleWarn).toHaveBeenCalledTimes(1);
+      expect(consoleWarn.mock.calls[0]).toEqual([
+        expect.stringContaining(`Skipping invalid issue file: ${invalidId}.md: title:`),
+      ]);
+    } finally {
+      consoleWarn.mockRestore();
+    }
   });
 });
 
