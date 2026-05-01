@@ -1,5 +1,12 @@
 # get-tbd
 
+## 0.1.27
+
+### Patch Changes
+
+- e166f14: Reject invalid issue titles before writing issue files, skip parse-invalid
+  issue files without crashing, and report invalid issue files in `tbd doctor`.
+
 ## 0.1.26
 
 ### Patch Changes
