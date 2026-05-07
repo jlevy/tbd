@@ -290,7 +290,7 @@ See the schema design below for the syntax.
 The format that defines docspec URIs, the source manifest, the lockfile,
 the doc map, and the resolution algorithm is **not tbd-specific**. It
 lives as its own architecture document inside tbd
-([arch-docspec-format.md](../../architecture/current/arch-docspec-format.md))
+([design-docspec-format.md](../../../packages/tbd/docs/design-docspec-format.md))
 under the umbrella name **docspec** (version `docspec/0.1`).
 
 This separation has two motivations:
@@ -418,7 +418,7 @@ also sketched below to confirm it's not the right starting target.
 
 The schema, URI grammar, lockfile, doc map, and resolution algorithm are
 defined in their own architecture document:
-[arch-docspec-format.md](../../architecture/current/arch-docspec-format.md).
+[design-docspec-format.md](../../../packages/tbd/docs/design-docspec-format.md).
 This plan-spec uses that format and focuses on tbd-specific workflows
 layered on top. A summary follows for context; the format spec is
 authoritative.
@@ -505,7 +505,7 @@ just appending a row:
 
 The CLI dispatches `tbd doc <type> <name>` to a generic handler and
 aliases the named types as their own subcommands. Format spec
-[§2.2](../../architecture/current/arch-docspec-format.md#22-doc_types)
+[§2.2](../../../packages/tbd/docs/design-docspec-format.md#22-doc_types)
 defines the schema.
 
 **Local sources are real directories, not stubs.** A `./docs/agent/`
@@ -586,7 +586,7 @@ plus the security and packaging footguns that come with plugin loading
 in a CLI tool. Most users don't need it. The current design keeps the
 option open — the scheme set is an enum at first; opening to a registry
 later is a localized change. **Defer.** The format spec
-[§1.8](../../architecture/current/arch-docspec-format.md#18-extensibility)
+[§1.8](../../../packages/tbd/docs/design-docspec-format.md#18-extensibility)
 calls out the scheme prefix as the extension point.
 
 ### Decisions to confirm before implementation
@@ -607,7 +607,7 @@ they can be confirmed (or pushed back on) before any code is written:
   `github:jlevy/tbd-docs`), kept as a `github:`-scheme source by
   default rather than a local `./` source. (G1.)
 - Format identifier is `docspec/0.1`; the format itself is documented
-  as a separable artifact (G18, see arch-docspec-format.md).
+  as a separable artifact (G18, see design-docspec-format.md).
 
 ## Open Questions
 
@@ -674,7 +674,7 @@ before building eject/roundtrip commands on top.
 ### Phase 1: New schema, docspec parser, doc-type registry, sync, migration
 
 Format-level work (the `docspec/0.1` core). All of this is implementing
-[arch-docspec-format.md](../../architecture/current/arch-docspec-format.md):
+[design-docspec-format.md](../../../packages/tbd/docs/design-docspec-format.md):
 
 - [ ] Define `docs:` block in `.tbd/config.yml` per the format spec
   (Zod schemas for manifest, lockfile, doc map). No `files` /
@@ -764,7 +764,7 @@ upgrade prompts the user before mutating config.
 ## References
 
 - **Format spec (authoritative for schema/URIs/algorithms):**
-  [arch-docspec-format.md](../../architecture/current/arch-docspec-format.md)
+  [design-docspec-format.md](../../../packages/tbd/docs/design-docspec-format.md)
 - PR #87 (unmerged): https://github.com/jlevy/tbd/pull/87
 - Original spec: `docs/project/specs/done/plan-2026-02-02-external-docs-repos.md`
   (3010 lines; useful for prior-art on RepoCache, prefix design,
