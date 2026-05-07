@@ -43,6 +43,11 @@ shortcuts, templates, and other doc types out of the box. Most of these should
 live in a separate repo (or repos) rather than inside the tbd CLI codebase, so
 they can evolve independently of npm releases. A small core remains internal.
 
+Concrete examples of bundle repos: `jlevy/coding-guidelines`,
+`jlevy/writing-guidelines`. Each one is a single bundle but contains a
+mix of doc types (guidelines, references, rules, shortcuts, etc.) — see
+G17 for why bundles and doc types are orthogonal.
+
 ### G2. Easy addition of new local, project-specific docs
 
 It must be easy to add a new doc of any kind that lives in the current repo
@@ -234,6 +239,52 @@ pending change — which bundle name, which docs would land where, what
 will be added to `.gitignore` — so the user can review before any sync
 runs. This makes adding a mirrored source low-risk and reversible.
 
+### G16. Upstream repos require no special tbd format
+
+External doc sources (git, URL) must work with **vanilla repo
+structures** — a README and content files in whatever layout makes
+sense for that repo. tbd does not require:
+
+- a `tbd.yml` manifest, `.tbdrc`, or any other tbd-specific control file
+  in the upstream
+- mandatory frontmatter fields on every doc
+- mandatory directory names matching tbd's doc types
+- any naming convention beyond "files are named what they're named"
+
+A repo like `jlevy/coding-guidelines` should look like a normal docs
+repo to anyone browsing it on GitHub. tbd's job at sync time is to
+treat the upstream as a *bag of files* and let the **consumer's tbd
+config** describe how those files map onto doc types. Consumers may
+override the mapping per-bundle without touching upstream.
+
+(An optional, opt-in upstream `tbd.yml` manifest may be supported as a
+convenience for publishers who want to ship a recommended default
+mapping — but consumers can always ignore it. This is a future
+direction; the core design assumes no manifest.)
+
+### G17. Bundles and doc types are orthogonal — one bundle can span many types
+
+A single bundle (e.g., `coding-guidelines`) typically contributes docs
+of **multiple** types: some guidelines, some references, some shortcuts,
+some rules. Installing one bundle enables all of its docs across
+whatever types they fit into. The two axes are independent:
+
+- **Bundle** = ownership / origin / where it came from (G14)
+- **Doc type** = how the doc is used / which command surfaces it (G7)
+
+Concretely: `jlevy/coding-guidelines` (one bundle) might land as
+`.tbd/docs/coding/guidelines/typescript.md`,
+`.tbd/docs/coding/references/api-design.md`,
+`.tbd/docs/coding/shortcuts/refactor-large-file.md` — same bundle,
+three doc types, addressable as `coding:typescript`,
+`coding:api-design`, `coding:refactor-large-file`.
+
+The mapping from upstream paths to doc types lives in the consumer's
+source config and uses sensible defaults: an upstream subdir whose name
+matches a known doc-type folder (`guidelines/`, `shortcuts/`, etc.)
+auto-maps to that type. Anything else needs an explicit mapping rule.
+See the schema design below for the syntax.
+
 ## Non-Goals
 
 - Real-time / webhook-driven sync. Sync remains explicit (`tbd sync --docs`)
@@ -357,19 +408,62 @@ docs_cache:
     - { type: local,   bundle: proj, path: docs/agent }
 
     # git: sparse-checked-out external repo, gitignored cache (G3, G9).
-    - { type: git,     bundle: acme, url: github:acme/docs, ref: v1.2.0,
-        include: [guidelines/, shortcuts/] }
+    # `contents` maps upstream paths to doc types. Upstream repos need
+    # no tbd-specific format (G16); the consumer config does the mapping.
+    - type: git
+      bundle: coding
+      url: github:jlevy/coding-guidelines
+      ref: main
+      contents:
+        # Auto-detect: any subdir whose name matches a known doc-type
+        # folder maps to that type. So with no explicit `contents`, an
+        # upstream `guidelines/` folder lands as type `guideline`.
+        - auto
+
+    # git source with explicit mapping (when upstream layout doesn't
+    # match conventions, or to filter / rename / span multiple types).
+    - type: git
+      bundle: writing
+      url: github:jlevy/writing-guidelines
+      ref: main
+      contents:
+        - { path: docs/style/,     type: guideline }
+        - { path: docs/refs/,      type: reference }
+        - { path: snippets/,       type: shortcut  }
+        - { path: README.md,       type: reference, as: writing-overview }
 
     # url: rare per-file case (current --add=<url> use case).
-    - { type: url,     bundle: misc, files: { foo: "https://..." } }
+    - type: url
+      bundle: misc
+      contents:
+        - { url: "https://...", type: guideline, as: foo }
 
   # No `files:`. No `lookup_path:`. Order in `sources` IS the lookup order.
 ```
 
 **Lookup semantics.** Sources are searched in declared order. First match
-wins for unqualified names; qualified names (`acme:python-rules`) target
+wins for unqualified names; qualified names (`coding:typescript`) target
 a specific bundle and skip priority. Overrides are achieved by putting a
 `local` source higher in the list — there is no `overrides:` field (G4).
+
+**Upstream layout flexibility (G16, G17).** The `contents` field is the
+**consumer's** description of how upstream files map onto doc types.
+Two modes:
+
+- `- auto`: walk the upstream tree; any subdirectory whose name matches
+  a known doc-type folder (per the `doc_types:` registry) contributes
+  docs of that type. Files at the root or in unmatched subdirs are
+  ignored. This is the zero-config path for repos that follow the
+  convention.
+- Explicit mapping rules (`{ path, type, as? }` entries): each rule
+  picks an upstream path or glob and assigns it a doc type, optionally
+  renaming via `as`. Use this when the upstream layout doesn't match
+  conventions, or to be selective.
+
+Either way, the **landed** layout under `.tbd/docs/<bundle>/` is
+canonical: `<bundle>/<doc-type-folder>/<name>.md`. Upstream is a bag
+of files; the consumer's config classifies them; tbd writes them to
+the canonical local layout.
 
 **Doc types: directories, declared once.**
 
@@ -523,6 +617,19 @@ These need resolution before the implementation spec.
     moving most built-in docs out? Maybe a single small `core` builtin
     source with no user-visible shape, and everything else is
     `git`/`local`/`url`.
+12. **`contents` mapping syntax (G16, G17).** Is `path:` a literal
+    prefix, a glob (`docs/**/*.md`), or both? Are explicit rules
+    additive on top of `- auto`, or do they replace it? How are
+    conflicts handled (same upstream file matched by two rules)?
+13. **Optional upstream `tbd.yml` manifest (G16).** Defer entirely, or
+    define a thin opt-in shape for publishers who want to ship a
+    recommended mapping? If we defer, we should still be careful not to
+    burn a filename that we'd want later.
+14. **Renaming via `as`.** Is there a real need to rename docs at
+    import (e.g., upstream `python.md` → `python-rules`)? If yes, how
+    do qualified names (`bundle:name`) reference it — by upstream name
+    or rename? Lean toward: rename wins, qualified name is the renamed
+    one.
 
 ## Implementation Plan
 
@@ -536,6 +643,10 @@ before building eject/roundtrip commands on top.
 - [ ] Define `doc_types` config block with built-in seeds.
 - [ ] Implement source resolution: walk `sources` in order, produce a
   `(bundle, type, name) → file path` map.
+- [ ] Implement `contents` mapping (G16, G17): `- auto` mode walks the
+  upstream tree and matches subdir names against the `doc_types`
+  registry; explicit `{ path, type, as? }` rules pick paths/globs and
+  assign types, optionally renaming. Resolves conflicts deterministically.
 - [ ] Replace `DocCache.lookupPath`-based logic with source-walking logic.
   Qualified lookup `bundle:name` works.
 - [ ] Implement source-type fetchers:
