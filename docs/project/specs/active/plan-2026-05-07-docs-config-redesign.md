@@ -309,6 +309,76 @@ upstream, unfork, doc-type-to-CLI dispatch) are layered on top of docmap.
 Other consumers — present or future — would only need to implement the docmap primitives
 (which in turn use docref).
 
+## Design Principles
+
+These are the values the design serves.
+When the open questions (Q1–Q20) are resolved, the answers should be the ones most
+consistent with these principles.
+
+### P1. Simple things simple, complex things possible
+
+Adding a typical doc bundle should be a single command that “just works” — no config
+edits, no per-doc rules, no upstream coordination.
+At the same time, irregular cases (mixed-layout repos, partial extraction, renames,
+multi-source bundles, deep customization) should all be expressible through additional
+configuration. The default path must be effortless; the escape hatches must be complete.
+
+### P2. Upstream is unconstrained; the consumer owns the mapping
+
+External docs should be usable regardless of how their upstream is formatted.
+Providers don’t need a tbd-specific manifest, frontmatter, or folder layout (G16). The
+consumer’s docmap config is responsible for mapping arbitrary upstream shapes onto
+consumer concepts (bundles, categories, names).
+Providers who *do* opt into light cooperation (a `category:` in frontmatter, a `tbd.yml`
+manifest, a conventional `guidelines/` directory) make consumer config trivial or
+unnecessary — but it’s their choice, not a requirement.
+
+### P3. Explicit beats implicit, but conventions earn defaults
+
+Auto-detection magic is rejected as the primary mechanism (Q20b). The core model is
+explicit: globs select files, rules assign categories, provenance is recorded.
+Conventions still matter — they let common cases use sensible defaults — but the
+conventions are documented and overridable, not load-bearing.
+
+### P4. Lossless inventory, policy-driven views
+
+Every doc that exists in any source should be discoverable through the format (G6, Q15).
+Shadowing, overriding, ambiguity, and collisions are properties of the *view*, not of
+the inventory. The raw graph never hides anything; tooling builds policy views over it.
+
+### P5. Reproducible from config
+
+Given the manifest, the lockfile, and a working network, two clones of a repo produce
+caches with identical content (G9). Sync is idempotent; update is the explicit forward
+step. Lockfile carries enough identity (Q17) to make this contract robust under bundle
+moves and source reshapes.
+
+### P6. tbd never holds credentials
+
+Authentication is always out of band: git’s credential helpers, `gh` CLI, AWS profiles,
+etc. (G13). The format has no auth fields, ever.
+Public sources just work; private sources rely on the user’s environment.
+
+### P7. The format is a separable artifact
+
+docref and docmap are tool-agnostic specifications with reference implementations.
+tbd is the first consumer; others can adopt the formats without depending on tbd code
+(G18). Architectural decisions that benefit a single tool but burden the format (e.g.,
+baking tbd-specific overrides into the schema) are rejected in favor of layering —
+tbd-specific concerns live above the format.
+
+### P8. Hard cuts on format versions, reliable migration
+
+Schema versions are clean breaks at the boundary; runtime supports exactly one shape;
+deprecated fields are detected, migrated, and deleted (G11). Forward compatibility lives
+in `.strict()` validation and migration tests, not in layered field-level fallbacks.
+
+### P9. Tests are spec mirrors
+
+Every spec example has a corresponding test; every change to either side requires the
+matching change to the other.
+Synchrony is mechanical, not aspirational.
+
 ## Non-Goals
 
 - Real-time / webhook-driven sync.
@@ -813,6 +883,207 @@ Options for disambiguation:
   only on `contents` rules.
   Lighter touch than B; loses the flexibility of a generic `as: <user-name>` on sources
   (currently allowed but rarely used).
+
+#### Q20. Categories vs. types vs. folders, glob-first matching, CLI as aliases
+
+The current design uses a single concept (`doc_types`) that conflates three things: the
+CLI surface (`tbd guidelines`), the in-cache folder name (`<bundle>/guidelines/`), and
+the auto-detection rule (upstream subdir `guidelines/` becomes type `guideline`). Three
+concerns inside one field makes the model magical: you can’t have an upstream layout
+that looks different from how it lands, you can’t have docs from a flat upstream treated
+as guidelines, and the singular/plural mismatch between `type: guideline` and the
+command `tbd guidelines` is a constant papercut.
+
+Recommended direction: **separate category (CLI surface) from folder (filesystem layout)
+from selection (which files match)**. Use globs as the only matching primitive in
+`contents`, drop auto-detection magic, and keep the existing typed CLI commands as
+validated aliases over a single flexible `tbd doc` family.
+
+##### Q20a. Rename `type` → `category`
+
+- *Option A. Keep `type`.* Status quo.
+  Singular form forces awkward pluralization at the CLI surface (`type: guideline` ↔
+  `tbd guidelines`). “type” is also overloaded across the codebase (TypeScript types,
+  source types, doc types).
+- *Option B. Rename to `category`.* The natural plural form (`category: guidelines`)
+  matches the CLI command name (`tbd guidelines`) and removes the singular/plural
+  friction. “category” is uncontested vocabulary in this codebase.
+- *Option C. Use `kind` instead.* Shorter, also unloaded.
+  Doesn’t solve the pluralization issue (`kind: guideline` ↔ `tbd guidelines` still
+  mismatches).
+
+Lean: B (`category`).
+
+##### Q20b. Glob-only matching, no auto-detection
+
+- *Option A. Keep auto-detection (current).* Magic but works for the common case where
+  upstream layout matches `doc_types[].dir`. Falls apart for any non-conventional
+  upstream.
+- *Option B. Glob-only (recommended).* Drop the auto-detect mode.
+  Every source that needs type/category assignment uses `contents:` with globs.
+  A generic default for tbd’s own bundled core can be a single
+  `contents: [{ glob: "**/*", category: ... }]` rule.
+  The schema’s `path:` field becomes `glob:` (or stays `path:` accepting standard glob
+  syntax — see Q20c).
+- *Option C. Glob with conventional fallback.* If no `contents` is given, fall back to
+  current auto-detection.
+  Best of both, but preserves the magic for users who rely on the convention.
+
+Lean: B. The convention being explicit removes the “what does this source actually pick
+up?” mystery. Bundled tbd-internal sources can ship a default `contents:` block as part
+of their setup.
+
+##### Q20c. `contents` rule shape
+
+If we go glob-first, the rule shape needs to be settled.
+
+- *Option A. Keep `path:`, document it as glob.* Backward-compatible if we ever ship the
+  current shape. Confusing because `path:` reads literal in YAML.
+- *Option B. Rename `path:` to `glob:`.* Self-describing.
+  ```yaml
+  contents:
+    - { glob: "guidelines/**/*.md", category: guidelines }
+    - { glob: "shortcuts/shortcut-*.md", category: shortcuts }
+    - { glob: "README.md", category: references, as: writing-overview }
+  ```
+- *Option C. Per-rule `glob` plus per-source `glob` filter.* Source-level `glob`
+  (currently default `**/*.md`) acts as a pre-filter; `contents` rules then partition
+  the surviving set into categories.
+  Two layers of globbing is more than necessary; consider folding into one.
+
+Lean: B. Single glob per rule, no source-level pre-filter (or only as sugar for “exclude
+these files” via `ignore:`).
+
+##### Q20d. Folder layout vs. category assignment
+
+Folders and categories are two different axes:
+
+- **Folder**: where a doc lives on disk under `.tbd/docs/<bundle>/...`. Naturally
+  inherited from the upstream provider’s layout — the provider decides their tree shape;
+  tbd mirrors it within the bundle.
+- **Category**: how tbd surfaces and addresses the doc — which CLI command lists it,
+  which canonical key it gets.
+  Assigned by the consumer’s config (or by frontmatter; see Q20f).
+
+Decoupling these means the canonical key (`<bundle>:<category>/<name>`) need not match
+the on-disk path (`.tbd/docs/<bundle>/<upstream-subpath>/<name>.md`). The doc map
+records both: each entry has a `path` (where the content lives) and a `key` (how it’s
+looked up).
+
+Options:
+
+- *Option A. Folder = category, coupled (current spec).* Provider must follow
+  `guidelines/`, `shortcuts/`, etc.
+  Forces conventions on every upstream.
+  Files always land in `<bundle>/<category>/`.
+- *Option B. Folder mirrors upstream within bundle, category assigned by config.* The
+  cache faithfully preserves the upstream’s tree under
+  `.tbd/docs/<bundle>/<upstream-relative>/`. Category is whatever the consumer’s
+  `contents` rule (or doc frontmatter; see Q20f) assigns.
+  The canonical key is decoupled from the file path.
+- *Option C. Folder configurable per category.* Each category can declare a `folder:`
+  override. Maximum flexibility; probably YAGNI.
+
+Lean: B. Provider chooses the shape (no mandate to use `guidelines/`); consumer decides
+the category. The previous “folder must match category” rule was the source of much of
+the auto-detect magic — once we drop auto-detection (Q20b), there’s no reason to force
+coupling.
+
+Implication: the doc map entry now consistently records both:
+
+```yaml
+- key: writing:guidelines/typescript      # lookup address (bundle:category/name)
+  bundle: writing
+  category: guidelines
+  path: writing/docs/style/typescript.md  # actual on-disk path under .tbd/docs/
+  upstream_path: docs/style/typescript.md
+```
+
+Lookup by `writing:guidelines/typescript` finds the entry; the consumer reads from
+`path`. No magic translation between the two.
+
+##### Q20f. Frontmatter `category:` as auto-assignment
+
+A natural addition: a doc can self-declare its category via YAML frontmatter.
+If `category: shortcuts` appears in the doc’s frontmatter, the provider has signaled
+intent and the consumer doesn’t need to write a `contents:` rule for it.
+
+```markdown
+---
+category: shortcuts
+title: Code review
+---
+# Code Review
+...
+```
+
+This makes provider-cooperative bundles (those that opt into the docmap convention)
+zero-config for consumers — no `contents:` needed, just `docref:` + `bundle:`.
+
+Options for resolution priority (highest first):
+
+- *Option A. Consumer `contents:` rule beats frontmatter.* Consumer always wins;
+  frontmatter is a fallback when no rule matches.
+  Matches the existing three-layer metadata resolution (per-file override → frontmatter
+  → source default) used elsewhere in the spec.
+- *Option B. Frontmatter beats consumer `contents:`.* Provider’s declared category is
+  authoritative. Consumer can still override via per-file `metadata:` map (most specific
+  wins).
+- *Option C. Strict precedence: per-file `metadata:` > frontmatter > `contents:` rule >
+  none.* Three-layer model: provider can express intent (frontmatter), consumer can
+  broadly classify (`contents:`), consumer can override per file (`metadata:`). Mirrors
+  the title/description/when resolution.
+
+Lean: C. Same precedence model as title/description/when keeps the mental model uniform.
+The most specific declaration always wins.
+
+If no rule, no frontmatter, and no per-file override assigns a category, the doc is
+**unclassified**: it’s still in the cache but doesn’t appear in any `tbd <command>`
+listing. Surfacing this in `tbd doc status` ("3 unclassified docs in bundle ‘acme’ —
+assign via contents: rule or frontmatter") is the right UX.
+
+##### Q20e. CLI commands as validated aliases over a generic `tbd doc`
+
+- *Option A. Keep dedicated commands as primary surface (current).* `tbd guidelines`,
+  `tbd shortcut`, `tbd template`, `tbd reference` each have their own implementation.
+  New types require code (or config-driven dispatch).
+- *Option B. Single `tbd doc` family with category aliases.*
+  `tbd doc list --category guidelines` is the canonical form; `tbd guidelines` is a
+  validated alias auto-generated from the `categories:` config.
+  A new category needs only a row added to config; the alias surfaces automatically.
+  ```yaml
+  categories:
+    - name: guidelines
+      command: guidelines       # alias surfaces as `tbd guidelines`
+    - name: shortcuts
+      command: shortcut         # alias surfaces as `tbd shortcut`
+    - name: playbooks
+      command: playbook         # new category, new alias
+  ```
+- *Option C. `tbd doc <category> ...` only.* Drop typed aliases.
+  Most uniform; breaks user muscle memory.
+  Probably too aggressive.
+
+Lean: B. Existing aliases stay (zero user-visible churn); new categories added by config
+alone (G7’s “extensible, not hardcoded” becomes real).
+Tryscript golden tests for the typed-alias commands remain unchanged.
+
+##### Linkage and rollout
+
+Q20a–e are coupled but not all-or-nothing.
+A reasonable adoption path:
+
+1. Phase 1 schema can ship Q20a + Q20b + Q20c together (the rename and the glob-first
+   `contents` are mechanical and small).
+2. Q20d is already implicit — making it explicit costs nothing.
+3. Q20e (CLI alias generation) can happen later in Phase 1 or early Phase 2; the
+   existing dedicated commands continue to work in the meantime.
+
+Linked questions: Q20a’s `category` rename interacts with Q19 (the `as` overload — once
+`category` is a separate concept, `as` for rename and `mode` for source aggregation are
+easier to disentangle).
+Q20b’s glob-only choice may also affect Q15 (the resolver’s behavior with renamed
+entries via `as:`).
 
 ## Doc States and Transitions
 
