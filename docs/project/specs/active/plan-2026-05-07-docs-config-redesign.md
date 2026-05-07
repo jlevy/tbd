@@ -127,13 +127,32 @@ from, which ref / URL / path within that source, and (for git sources) which
 commit. This is what makes G6 (status) and G5 (roundtrip diffs) cleanly
 implementable.
 
-#### G11. No zombie / no-compat schema (clean break with format bump)
+#### G11. Hard cut on config format, with reliable migration from old formats
 
-The PR #87 lineage shows that keeping deprecated fields alive (`lookup_path`
-alongside `sources`) generated 12 separate bug-fix commits. I think the new
-format (call it f05) should drop deprecated fields entirely and migrate f03/f04
-configs forward in a single one-shot transformation. Backward compatibility is
-provided by **migration**, not by **layered runtime support**.
+The PR #87 lineage shows that keeping deprecated fields alive at runtime
+(`lookup_path` alongside `sources`) generated 12 separate bug-fix commits as
+the deprecated field kept reappearing through different code paths. The new
+format (call it f05) should be a **hard cut**: only one schema is valid at
+runtime; deprecated fields are not understood, not written, not tolerated.
+
+The compatibility surface lives entirely in **format detection + one-shot
+migration**, not in layered runtime support:
+
+- On every config read, detect the format version (`tbd_format: f03|f04|f05`).
+- If older than current, run a deterministic migration to f05 in memory; if
+  the user is doing a write operation, persist the migrated form. Existing
+  `tbd-format.ts` already does this for f02→f03; extend the same pattern.
+- Migration must be **reliable**: round-trip tests on representative f03 and
+  f04 configs (with various `files:` shapes, URL overrides, custom prefixes)
+  must produce f05 configs that resolve to the **same set of docs** as the
+  source configs did. No silent data loss, no hidden re-additions.
+- Migration warnings (e.g., a custom `files:` URL override that becomes a
+  `url`-type source) are surfaced to the user rather than buried.
+- After migration, the f05 schema validator rejects any field it doesn't
+  recognize — this is what prevents zombies from creeping back in.
+
+The contract: **users don't touch their config to upgrade**, but the
+runtime never sees more than one valid shape at a time.
 
 #### G12. Atomic, all-or-nothing sync per source
 
