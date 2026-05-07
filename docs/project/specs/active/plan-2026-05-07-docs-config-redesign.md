@@ -55,8 +55,21 @@ right place and it shows up.
 Docs should be pullable from any of: a GitHub repo, an S3 / GCS / generic
 object-store path, an arbitrary URL, or a local filesystem path. The model
 should be a **flexible reference to a source of files**, not a hardcoded list
-of supported source types. Mirrored docs are auto-cached locally and refreshed
-via an explicit sync (the same model `tbd sync` already uses for issues).
+of supported source types.
+
+Mirrored docs are **cached locally on disk but not git-tracked by default**.
+The cache lives under `.tbd/docs/` (already gitignored) — exactly the same
+model `tbd sync` already uses for issues. This means:
+
+- The cache is fast to read (just files on disk; no network at lookup time).
+- The cache is reproducible from config (G9): another clone of the repo
+  + `tbd sync --docs` reproduces the same content.
+- The repo doesn't churn on every upstream change — mirrored content
+  doesn't appear in `git status` or `git diff`.
+
+To pull a mirrored doc into git-tracked content (so you can edit and version
+it locally), use the promotion / override workflow in G4. G3 covers the
+"read-only mirror" path; G4 covers the "fork it locally" path.
 
 ### G4. Easy local override of mirrored docs (shadcn-style)
 
