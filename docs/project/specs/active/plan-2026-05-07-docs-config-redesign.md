@@ -108,26 +108,21 @@ re-commit mirrored content on every sync). Local-authored docs and local
 overrides should be git-tracked. There should be a clear command to **promote**
 a mirrored doc to a tracked override, and (less commonly) the inverse.
 
-### Additional goals (proposed — please confirm)
-
-These are goals I think are natural extensions of yours and worth nailing
-down explicitly. Please mark each as "in" or "out" before we finalize.
-
-#### G9. Reproducible / pinnable mirror state
+### G9. Reproducible / pinnable mirror state
 
 A mirrored source should be pinnable to a specific git ref (commit, tag, or
 branch). Cache content should be reproducible from config — given the same
 config and a working network, two checkouts produce the same docs. This is
 how the existing tbd-sync model already works for issues.
 
-#### G10. Provenance and integrity per doc
+### G10. Provenance and integrity per doc
 
 Every doc in the cache should carry provenance metadata: which source it came
 from, which ref / URL / path within that source, and (for git sources) which
 commit. This is what makes G6 (status) and G5 (roundtrip diffs) cleanly
 implementable.
 
-#### G11. Hard cut on config format, with reliable migration from old formats
+### G11. Hard cut on config format, with reliable migration from old formats
 
 The PR #87 lineage shows that keeping deprecated fields alive at runtime
 (`lookup_path` alongside `sources`) generated 12 separate bug-fix commits as
@@ -154,18 +149,40 @@ migration**, not in layered runtime support:
 The contract: **users don't touch their config to upgrade**, but the
 runtime never sees more than one valid shape at a time.
 
-#### G12. Atomic, all-or-nothing sync per source
+### G12. Atomic, all-or-nothing sync per source
 
 A failed mirror sync (clone fails, network error, single bad file) should not
 leave the cache in a partially updated state. Sync to a temp location, then
 swap atomically. Today's per-file URL fetches do not have this property.
 
-#### G13. Auth deferred but designed-for
+### G13. Auth is always out-of-band — tbd never handles credentials
 
-Private GitHub repos, private S3 buckets, etc. are out of scope for the first
-implementation — but the source schema should leave a clean place for auth
-config to land later (e.g., `auth: { method: 'gh' | 'env' | ... }`) without
-another schema break.
+tbd does not implement, configure, or store authentication for any source
+backend. Public URLs and public git repos must just work; private sources
+must be made accessible via the underlying tool's own auth mechanism, and
+tbd inherits that environment as-is.
+
+In practice:
+
+- **Git sources**: rely on the user's existing `git` config — SSH keys for
+  `git@github.com:...` URLs, `gh` CLI auth for `https://github.com/...`
+  URLs, credential helpers, etc. tbd shells out to git and lets git
+  authenticate.
+- **URL sources**: a public HTTP(S) URL works directly. For URLs requiring
+  auth, the user uses whatever the underlying tool (curl, gh) already has
+  — we do not add bearer-token fields to the schema.
+- **Object stores (S3/GCS, future)**: rely on the standard SDK env vars
+  (`AWS_PROFILE`, `GOOGLE_APPLICATION_CREDENTIALS`, etc.). tbd's job is to
+  invoke the right command/SDK; the user's job is to have credentials
+  configured.
+
+Consequence: there is **no `auth:` field in the source schema, ever**. If
+a private source fails to fetch, the error message says "configure your
+credentials for `<backend>`" and points at the relevant tool's docs. This
+keeps tbd's surface small, avoids a long tail of credential-handling
+security bugs, and means private-source support arrives the moment the
+underlying tool's auth works in the user's environment — no tbd changes
+required.
 
 ## Non-Goals
 
@@ -472,9 +489,11 @@ These need resolution before the implementation spec.
    runs, the local target is `docs/agent/guidelines/python-rules.md` (with
    prefix `proj`). But what if there are multiple `local` sources? Pick
    first writable, or require `--to <prefix>`?
-7. **Roundtrip auth (G13).** First version assumes `gh` is authenticated.
-   Document the contract clearly so private-repo support can land later
-   without schema changes.
+7. **Roundtrip auth boundary (G13).** Confirm tbd's failure messaging
+   contract: when a fetch or push fails because credentials aren't
+   configured, the error names the underlying tool (`git`, `gh`, `aws`,
+   etc.) and points at its own auth docs. tbd never prompts for or stores
+   credentials.
 8. **Hidden vs visible sources.** Currently `sys` is hidden from `--list`.
    Is `hidden: true` per source still the right knob, or should listing
    filter by source-type / prefix?
