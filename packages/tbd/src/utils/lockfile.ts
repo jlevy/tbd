@@ -118,7 +118,13 @@ export async function withLockfile<T>(
       acquired = true;
       break;
     } catch (error) {
-      if ((error as NodeJS.ErrnoException).code !== 'EEXIST') {
+      const code = (error as NodeJS.ErrnoException).code;
+      // POSIX expresses lock contention as EEXIST. Windows' filesystem layer
+      // can return EPERM under concurrent mkdir on the same path (a known
+      // Windows quirk distinct from a real permission denial), so we treat
+      // it as contention there. Any other error is genuine.
+      const isContention = code === 'EEXIST' || (process.platform === 'win32' && code === 'EPERM');
+      if (!isContention) {
         // Unexpected error (permissions, disk full, missing parent, etc.) —
         // preserve the original failure instead of misreporting lock contention.
         throw error;
