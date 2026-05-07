@@ -285,29 +285,35 @@ matches a known doc-type folder (`guidelines/`, `shortcuts/`, etc.)
 auto-maps to that type. Anything else needs an explicit mapping rule.
 See the schema design below for the syntax.
 
-### G18. Format spec is an extractable, reusable artifact
+### G18. Format specs are extractable, reusable artifacts
 
-The format that defines docrefs, the source manifest, the lockfile,
-the doc map, and the resolution algorithm is **not tbd-specific**. It
-lives as its own architecture document inside tbd
-([design-docref-format.md](../../../packages/tbd/docs/design-docref-format.md))
-under the umbrella name **docref** (version `docref/0.1`).
+The format is split across two layered design docs inside tbd:
+
+- **docref** ([design-docref-format.md](../../../packages/tbd/docs/design-docref-format.md))
+  — the URI-like single-string grammar for addressing a resource
+  (version `docref/0.1`). Small, focused, could live as its own
+  micro-library.
+- **docmap** ([design-docmap-format.md](../../../packages/tbd/docs/design-docmap-format.md))
+  — manifest, lockfile, doc map, addressing/resolution algorithm,
+  sync semantics, all built on top of docref (version `docmap/0.1`).
 
 This separation has two motivations:
 
-- **Modularity.** Other tools could read a docref manifest without
-  depending on tbd. If we eventually want a standalone `docref` CLI or
-  library — or want another tool to interoperate with tbd's docs — the
-  format is already factored out.
-- **Discipline.** Keeping format-level concerns (docref grammar, schemas,
+- **Modularity.** Either layer can be consumed independently. A tool
+  that just needs an addressing grammar imports docref. A tool that
+  wants the full sync/index machinery imports docmap. If we eventually
+  extract these into standalone libraries or CLIs, the boundaries are
+  already drawn.
+- **Discipline.** Keeping format-level concerns (grammar, schemas,
   resolution algorithm, sync semantics) out of tbd-specific concerns
   (overrides, eject, roundtrip, doc-type-as-CLI-command) prevents the
-  layered-mechanism creep that produced PR #87's twelve bug-fix commits.
+  layered-mechanism creep that produced PR #87's twelve bug-fix
+  commits.
 
-tbd is the first consumer of the format and its concrete extensions
-(eject, diff, upstream, unfork, doc-type-to-CLI dispatch) are layered on
-top. Other consumers — present or future — would only need to implement
-the format primitives.
+tbd is the first consumer of both layers; its concrete extensions
+(eject, diff, upstream, unfork, doc-type-to-CLI dispatch) are layered
+on top of docmap. Other consumers — present or future — would only
+need to implement the docmap primitives (which in turn use docref).
 
 ## Non-Goals
 
@@ -416,21 +422,23 @@ also sketched below to confirm it's not the right starting target.
 
 ### Schema and source types
 
-The schema, docref grammar, lockfile, doc map, and resolution algorithm are
-defined in their own architecture document:
-[design-docref-format.md](../../../packages/tbd/docs/design-docref-format.md).
-This plan-spec uses that format and focuses on tbd-specific workflows
-layered on top. A summary follows for context; the format spec is
-authoritative.
+The schema, manifest, lockfile, doc map, addressing, and resolution
+algorithm are defined in two layered architecture documents:
+[design-docref-format.md](../../../packages/tbd/docs/design-docref-format.md)
+(the URI-like docref grammar) and
+[design-docmap-format.md](../../../packages/tbd/docs/design-docmap-format.md)
+(the manifest/lockfile/index/sync system on top). This plan-spec uses
+those formats and focuses on tbd-specific workflows layered on top of
+docmap. A summary follows for context; the format specs are authoritative.
 
-The manifest lives inline in `.tbd/config.yml` under `docs:`. One concept
-(an ordered list of sources, addressed by docrefs) does what three
-currently do.
+The manifest lives inline in `.tbd/config.yml` under `docmap:`. One
+concept (an ordered list of sources, addressed by docrefs) does what
+three currently do.
 
 ```yaml
 tbd_format: f05
-docs:
-  format: docref/0.1
+docmap:
+  schema: docmap/0.1
 
   doc_types:
     - { name: shortcut,  dir: shortcuts,  command: shortcut }
@@ -505,7 +513,7 @@ just appending a row:
 
 The CLI dispatches `tbd doc <type> <name>` to a generic handler and
 aliases the named types as their own subcommands. Format spec
-[§2.2](../../../packages/tbd/docs/design-docref-format.md#22-doc_types)
+[§1.2](../../../packages/tbd/docs/design-docmap-format.md#12-doc_types)
 defines the schema.
 
 **Local sources are real directories, not stubs.** A `./docs/agent/`
@@ -586,7 +594,7 @@ plus the security and packaging footguns that come with plugin loading
 in a CLI tool. Most users don't need it. The current design keeps the
 option open — the scheme set is an enum at first; opening to a registry
 later is a localized change. **Defer.** The format spec
-[§1.8](../../../packages/tbd/docs/design-docref-format.md#18-extensibility)
+[§1.9](../../../packages/tbd/docs/design-docref-format.md#19-extensibility)
 calls out the scheme prefix as the extension point.
 
 ### Decisions to confirm before implementation
@@ -606,8 +614,10 @@ they can be confirmed (or pushed back on) before any code is written:
 - The bundled doc set mostly moves out to a separate repo (e.g.
   `github:jlevy/tbd-docs`), kept as a `github:`-scheme source by
   default rather than a local `./` source. (G1.)
-- Format identifier is `docref/0.1`; the format itself is documented
-  as a separable artifact (G18, see design-docref-format.md).
+- Format identifiers are `docref/0.1` (URI-like grammar) and
+  `docmap/0.1` (manifest/sync system on top); both are documented
+  as separable artifacts (G18, see design-docref-format.md and
+  design-docmap-format.md).
 
 ## Open Questions
 
@@ -673,8 +683,11 @@ before building eject/roundtrip commands on top.
 
 ### Phase 1: New schema, docref parser, doc-type registry, sync, migration
 
-Format-level work (the `docref/0.1` core). All of this is implementing
-[design-docref-format.md](../../../packages/tbd/docs/design-docref-format.md):
+Format-level work (the `docref/0.1` and `docmap/0.1` cores). All of
+this is implementing
+[design-docref-format.md](../../../packages/tbd/docs/design-docref-format.md)
+and
+[design-docmap-format.md](../../../packages/tbd/docs/design-docmap-format.md):
 
 - [ ] Define `docs:` block in `.tbd/config.yml` per the format spec
   (Zod schemas for manifest, lockfile, doc map). No `files` /
@@ -763,8 +776,11 @@ upgrade prompts the user before mutating config.
 
 ## References
 
-- **Format spec (authoritative for schema/docrefs/algorithms):**
-  [design-docref-format.md](../../../packages/tbd/docs/design-docref-format.md)
+- **Format specs (authoritative for schema/docrefs/algorithms):**
+  - [design-docref-format.md](../../../packages/tbd/docs/design-docref-format.md)
+    — docref grammar (URI-like addressing)
+  - [design-docmap-format.md](../../../packages/tbd/docs/design-docmap-format.md)
+    — manifest, lockfile, doc map, resolution algorithm, sync semantics
 - PR #87 (unmerged): https://github.com/jlevy/tbd/pull/87
 - Original spec: `docs/project/specs/done/plan-2026-02-02-external-docs-repos.md`
   (3010 lines; useful for prior-art on RepoCache, prefix design,
