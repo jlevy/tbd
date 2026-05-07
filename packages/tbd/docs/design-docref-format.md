@@ -238,6 +238,24 @@ The scheme prefix is the extension point. New schemes are added by
 defining their grammar and resolution semantics; the parsing rule remains
 "match the prefix, parse accordingly, error on unknown."
 
+### 1.9 Reserved: fragment identifier (`#`)
+
+The `#` character is **reserved** for future fragment-identifier syntax
+(addressing content *within* a doc — section anchors, line ranges, named
+regions, or other fine-grained selectors to be defined in a later format
+version). The intended grammar is:
+
+```
+<docref>[#<fragment>]
+```
+
+mirroring URI fragment convention. The fragment grammar itself is left
+open: future versions may define one or more fragment schemes.
+
+In v0.1, any docref containing an unescaped `#` is a parse error. File
+paths or git refs containing a literal `#` (rare) must be percent-encoded
+as `%23`, per URI convention.
+
 ## 2. Manifest
 
 The manifest declares an ordered list of sources and the doc-type registry.
