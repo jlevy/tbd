@@ -387,6 +387,23 @@ Every spec example has a corresponding test; every change to either side require
 matching change to the other.
 Synchrony is mechanical, not aspirational.
 
+### P10. Docs are the integration boundary (extends tbd-design §1.5 #11)
+
+External capabilities — scripts, third-party CLIs, MCP servers, package ecosystems — are
+integrated into tbd by **importing the docs that describe them**, not by adding parallel
+subsystems.
+A repo with a few guidelines and a couple of scripts is just a docmap source:
+tbd mirrors the docs (per the existing contents/glob/category mechanism); the docs
+themselves explain how to install the scripts (e.g., `npm install -g foo`,
+`bash ./scripts/x.sh`, or `gh release download ...`). The agent reads the docs and
+follows the instructions; tbd does not need a “plugin” concept, an executable manifest,
+a `scripts:` block, or any awareness of distribution mechanisms.
+
+This makes the docs subsystem the universal extension point.
+Any capability expressible in prose can be added by importing one or more docs.
+The same docs serve agents *and* humans who read them, with no tbd-specific metadata
+required upstream.
+
 ## Non-Goals
 
 - Real-time / webhook-driven sync.
@@ -398,6 +415,11 @@ Synchrony is mechanical, not aspirational.
 - Migrating issue storage.
   This spec is purely about docs/config.
 - Authentication for private sources (deferred per G13).
+- A separate “plugin” or “skill” subsystem with executable manifests, script registries,
+  or PATH/installation management.
+  External capabilities are integrated by importing docs that describe them (P10);
+  distribution and execution are handled by whatever mechanism the doc references (npm,
+  pip, gh, curl, MCP, etc.), not by tbd.
 
 ## Background
 

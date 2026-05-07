@@ -494,6 +494,15 @@ tbd addresses specific requirements:
     Format specs are extractable as standalone libraries; tbd-specific policy
     (overrides, eject, roundtrip) sits above and depends on the format.
 
+11. **Docs are the integration boundary**: tbd manages documents; documents describe
+    whatever distribution, installation, or execution mechanism is appropriate (npm,
+    pip, `gh`, `curl`, custom scripts, MCP servers, third-party APIs).
+    tbd does not manage code distribution, package installation, or script execution.
+    Capabilities and “skills” are added by importing docs that describe them, not by
+    adding parallel subsystems for plugins, packages, or executables.
+    This keeps the surface area small and lets the same doc serve any agent or human who
+    reads it.
+
 ### 1.6 Non-Goals
 
 Explicitly deferred to future versions:
