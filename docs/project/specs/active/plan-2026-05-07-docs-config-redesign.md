@@ -666,17 +666,469 @@ These need resolution before the implementation spec.
     reference it — by upstream name or rename?
     Lean toward: rename wins, qualified name is the renamed one.
 
+## Doc States and Transitions
+
+Every doc visible to a tbd user is in exactly one of three states.
+The states differ by source kind, by where the file lives on disk, and by whether git
+tracks it.
+
+| State | Source kind | On-disk location | Git status | Description |
+| --- | --- | --- | --- | --- |
+| **A. Cached** | external (`github:`, `gitlab:`, `https:`, `git:`) | `.tbd/docs/<bundle>/<type>/<name>.md` (gitignored) | invisible | Mirrored upstream content; pinned by lockfile; read-only from the user’s POV |
+| **B. Tracked Override** | local bundle listed *before* an upstream bundle that supplies the same `<type>/<name>` | `<local-bundle-path>/<type>/<name>.md` | tracked | A local copy that shadows the upstream version due to source order |
+| **C. Pure Local** | local bundle, no upstream version exists | `<local-bundle-path>/<type>/<name>.md` | tracked | Project-only doc with no upstream relationship |
+
+States B and C are physically identical (same file location, same git tracking); they
+differ only in whether an upstream version of the doc also exists.
+tbd computes the distinction at read time by checking whether any other bundle in the
+source list contributes the same `<type>/<name>`.
+
+### Transitions
+
+```
+                    eject (W7)
+              A ─────────────────────► B
+            (cached)  cp + git add  (override)
+              ▲                          │
+              │                          │
+              │ unfork (W10)             │ remove upstream bundle (rare)
+              │ rm + sync                ▼
+              └────────────────────── C (orphan)
+                                    (pure local)
+```
+
+- **A → B (eject, W7).** Copy cached file into the first writable local bundle’s
+  directory, `git add`. Source order ensures the override wins.
+- **B → A (unfork, W10).** Delete the local override; next sync re-populates the cache,
+  which is now the live version.
+- **B → C (orphan).** If the upstream bundle is removed (`tbd source remove`) or
+  upstream deletes the doc, what was an override becomes a pure-local doc.
+  No file movement; just a state re-classification at read time.
+- **C → B (adopt).** Uncommon.
+  Adding an upstream bundle that supplies the same `<type>/<name>` reclassifies a
+  pure-local doc as an override.
+  No file movement.
+- **C → ∅ (delete).** Just `git rm` the file.
+
+### Why three states (and not two or four)
+
+Two states (cached vs local) misses the upstream-relationship axis, which the roundtrip
+workflow (W9) and the diff workflow (W8) depend on.
+Four states (cached / cached-with-edits / forked / local) would require tbd to track
+per-doc edit state separately from git, which duplicates what git already does.
+Three states keeps the model git-aligned: the cache is gitignored, overrides and
+pure-local docs are tracked, and the difference between B and C is computed not stored.
+
+## Workflow Catalog
+
+For each user-visible workflow, this section gives a one-line scenario, two or three
+design options with tradeoffs, a tentative design, and any open questions.
+Workflows are grouped by the phase in which they land.
+
+### Phase 1 workflows: basic capabilities and migration
+
+These preserve existing UX while moving to the new docmap-backed implementation.
+
+#### W1. Migrate from f03/f04 to f05 (one-shot)
+
+**Scenario.** An existing tbd repo with `tbd_format: f03` (or `f04`) upgrades the CLI;
+the next config read produces a clear migration path.
+
+**Options.**
+
+- *A. Auto-migrate on read, persist on write.* On loading config, detect old format,
+  transform in memory, and write back the migrated form on the next config-mutating
+  operation. User sees a one-time warning.
+- *B. Doctor-only migration.* Refuse to operate on old configs; surface a clear “run
+  `tbd doctor --fix`” message.
+  Migration runs only when the user opts in.
+- *C. Per-command opt-in.* Each command checks the format and migrates only the parts it
+  touches. Simplest implementation but produces inconsistent state during the transition.
+
+**Tentative.** *Option A.* Existing users get the migration without extra ceremony; the
+warning makes it visible.
+Persisting on write matches how `tbd-format.ts` already handles f02→f03. Reading without
+writing is non-destructive (in-memory migration only).
+G11’s clean-cut contract is preserved because the migrated form is the only thing the
+runtime understands.
+
+**Open.** What’s the warning message and exit channel?
+(stderr line on first invocation per process; not repeated within the process.)
+Should the migrated f05 config be committed automatically or left for the user to
+commit? (Lean toward: tbd writes the file; user commits it explicitly.)
+
+#### W2. Read or list existing docs (preserved UX)
+
+**Scenario.** `tbd guidelines typescript-rules`, `tbd shortcut --list`, etc.
+continue to work after migration with no visible change to the user.
+
+**Options.**
+
+- *A. Compatibility shim.* Each existing command wraps a generic docmap-backed
+  dispatcher. Outputs match the existing tryscripts.
+- *B. Re-implement each command.* Native rewrite per command.
+  More code, more chances for output drift.
+- *C. Replace named commands with a generic `tbd doc <type> <name>`.* Drops aliases.
+  Simplest but breaks user muscle memory.
+
+**Tentative.** *Option A.* Existing typed commands stay (they’re discoverable and short
+to type), but they delegate to a single implementation backed by `resolveLookupKey` from
+the docmap module. A generic `tbd doc <type> <name>` is also added per G7 for new types.
+
+**Open.** Should `tbd guidelines --list` show source bundle in the listing now (e.g.,
+`[tbd] python-rules`, `[proj] my-rule`)? Useful once external sources exist (Phase 2);
+preview-only flag in Phase 1.
+
+#### W3. Initial setup with default core bundle
+
+**Scenario.** A fresh `tbd setup --auto` produces a working install with the same set of
+guidelines/shortcuts/templates available today.
+
+**Options.**
+
+- *A. Single bundled `tbd` source seeded by setup.* `setup` writes a `local`-style
+  docref pointing into the npm package’s bundled docs (via `./packages/tbd/docs/...` or
+  an internal-content equivalent).
+- *B. External git source from day one.* `setup` writes
+  `github:jlevy/tbd-docs@<pinned-tag>` as the default source.
+  Requires the external repo to exist and a network at first install.
+- *C. Hybrid.* A small core ships in the npm package (a `local`-style source); the bulk
+  lives external (`github:` source).
+  Two default entries.
+
+**Tentative.** *Option A for Phase 1.* Keep all bundled docs internal in Phase 1 to
+avoid coupling Phase 1 to Phase 3’s external repo.
+Phase 3 transitions to *Option C*.
+
+**Open.** What’s the docref form for “internal to the npm package”?
+A relative `./packages/tbd/docs/` works during dev but breaks once installed via npm.
+Options: a special `pkg:tbd-docs/...` scheme (a new docref scheme — has to be added
+consistently), or a `./` docref that the consumer (tbd) resolves against the package
+install location. Lean toward the latter, with the resolution being tbd-internal logic.
+
+### Phase 2 workflows: external bundles and override roundtrip
+
+#### W4. Add an external bundle
+
+**Scenario.** User runs `tbd source add github:jlevy/coding-guidelines@main` to mirror a
+new guideline repo.
+
+**Options.**
+
+- *A. Confirm-then-persist.* Print a preview (auto-suggested bundle name, what doc files
+  would land where, gitignore changes) and prompt y/N. Default y. (G15.)
+- *B. Persist-and-print.* Write the config update and tell the user what was added; they
+  can `tbd source remove` to undo.
+- *C. Two-step CLI.* `tbd source preview <docref>` and `tbd source add <docref>`; the
+  second performs no preview.
+
+**Tentative.** *Option A.* Matches G15’s “previewable before commit” goal.
+The preview is short (5–15 lines for a typical bundle); the prompt is one keystroke.
+Use `--yes` to skip in scripts.
+
+**Open.** Does `tbd source add` also kick off a sync, or only update the config?
+Lean toward: update config, then run sync (since the user explicitly added the source —
+they want the docs available).
+
+#### W5. Sync external sources
+
+**Scenario.** `tbd sync --docs` walks all configured sources, fetches or refreshes the
+cache, and rebuilds the doc map.
+
+**Options.**
+
+- *A. Always-walk-all.* Every `--docs` sync re-fetches every source.
+  Simple but slow on large or many bundles.
+- *B. Lockfile-driven.* If the cache hash matches the lockfile and the source’s manifest
+  entry is unchanged, skip.
+  (The docmap spec §5.1 sync algorithm.)
+- *C. Diff-against-upstream.* Always check upstream HEAD; only re-fetch if it advanced.
+  Adds a network round-trip per source even on no-op syncs.
+
+**Tentative.** *Option B.* Idempotent and fast.
+`tbd sync --docs --update [<bundle>]` (or `tbd source update`) is the explicit “move
+forward” operation that bypasses the lockfile.
+
+**Open.** Naming: `tbd sync --docs --update` vs `tbd source update`. The former
+parallels `tbd sync` (which today syncs issues); the latter parallels how npm
+distinguishes `install` from `update`. Lean toward `tbd source update [<bundle>]` for
+clarity.
+
+#### W6. Show status of all docs and bundles
+
+**Scenario.** `tbd doc status` (and `tbd source list`) tells the user where each doc
+came from, whether the cache is stale, and whether overrides exist.
+
+**Options.**
+
+- *A. One unified `tbd doc status` command.* Bundle-grouped output with state markers
+  per doc (A / B / C; ✓ / ⚠ / ✗ for sync state).
+- *B. Two separate commands.* `tbd source list` for source-level state;
+  `tbd doc status [<query>]` for per-doc state.
+- *C. Add a `--verbose` toggle to `tbd doctor`.* Folds into existing health-check
+  output.
+
+**Tentative.** *Option B.* Different audiences.
+`tbd source list` answers “what bundles do I have”; `tbd doc status` answers “what’s the
+state of doc X” or “show me everything”.
+`tbd doctor` calls into both for its own checks.
+
+**Open.** Output format.
+JSON via `--json` is mandatory for both; the human-readable form needs design.
+
+#### W7. Add a project-local doc (no upstream)
+
+**Scenario.** User wants a project-specific shortcut.
+They put it at `docs/agent/shortcuts/migrate-to-v2.md`; it shows up in
+`tbd shortcut --list` and `tbd shortcut migrate-to-v2`.
+
+**Options.**
+
+- *A. Convention-based — no CLI helper.* User creates the file in the right directory;
+  tbd picks it up on next read.
+- *B. CLI helper.* `tbd doc new shortcut migrate-to-v2 [--bundle proj]` scaffolds the
+  file with a frontmatter template.
+- *C. Both.* Convention works always; CLI helper is a convenience.
+
+**Tentative.** *Option C.* Convention-based is the foundational behavior (G2: “no copy
+step, no separate registration ceremony”). The CLI helper is sugar for the common case
+of starting a new doc from a template.
+
+**Open.** Does the helper auto-register a new doc type if the user gives a type that
+doesn’t exist in `doc_types`? (Lean toward: no.
+That’s a separate explicit step — see W11.)
+
+#### W8. Eject a mirrored doc into a local override
+
+**Scenario.** User wants to fork an upstream guideline locally — shadcn-style — without
+losing track of where it came from.
+
+```
+$ tbd source eject coding:guideline/typescript
+Ejected coding:guideline/typescript →
+  docs/agent/guidelines/typescript.md (proj bundle)
+The local copy now overrides upstream. Next `tbd sync --docs` will
+not affect it. To compare with upstream: `tbd source diff
+coding:guideline/typescript`. To unfork: `tbd source unfork ...`.
+```
+
+**Options.**
+
+- *A. Copy + git-add.* tbd copies the cached file into the first writable `local`
+  bundle’s directory and runs `git add`.
+- *B. Copy only.* User runs `git add` themselves.
+  Simpler tbd, more steps for the user.
+- *C. In-place tracking flip.* Move the file from `.tbd/docs/<bundle>/...` to a tracked
+  dir and rewrite source order.
+  More magical, harder to reason about.
+
+**Tentative.** *Option A.* Fewest user steps.
+The local file path is deterministic from the bundle’s directory + the doc’s
+`<type>/<name>`. A frontmatter comment (or sidecar) records the original cached revision
+so `tbd source diff` knows what to diff against.
+
+**Open.** What if there are multiple `local` bundles?
+Pick the first writable, or require `--to <bundle>`. Lean toward first-writable default
+with `--to` override.
+What if a doc with the same path already exists locally?
+Refuse with a clear error; require `--force` to overwrite.
+
+#### W9. Diff a local override against upstream
+
+**Scenario.** User edited a local override; later upstream changed.
+They want to see what’s different.
+
+**Options.**
+
+- *A. tbd-managed three-way pointer.* tbd records the cached revision at eject time.
+  `diff` compares: local override vs cached current vs revision-at-eject (a true 3-way
+  diff).
+- *B. Two-way diff.* `diff` shows local override vs cached current.
+  Loses the “what did you fork from” context; simpler.
+- *C. Defer to git.* If the upstream content is committed somewhere,
+  `git diff <ref> -- <path>`. But the cache isn’t git-tracked, so this requires extra
+  plumbing.
+
+**Tentative.** *Option B for v1; option A as future enhancement.* Two-way is enough to
+answer “are upstream and my override different”.
+Three-way is nice-to-have for understanding “did upstream change in a way that affects
+my fork”.
+
+**Open.** Output format: unified diff (`diff -u`) by default; `--side` for side-by-side;
+`--stat` for summary.
+Should diff include the frontmatter?
+Probably yes; users edit it too.
+
+#### W10. Push a local override upstream (PR)
+
+**Scenario.** User refined a local override; now wants to contribute the change back
+upstream so future `sync` re-mirrors it cleanly.
+
+**Options.**
+
+- *A. tbd opens a PR via `gh`.* For `github:` sources only.
+  tbd builds a branch + commit in the cached repo, pushes, opens a PR with body
+  describing the change.
+  User completes review/merge upstream.
+- *B. tbd prints a patch and instructions.* User applies and pushes themselves.
+  Works for any git-style source.
+  No `gh` dependency.
+- *C. tbd does branch + commit + push, no PR.* User creates the PR in the GitHub UI.
+  Halfway between A and B.
+
+**Tentative.** *Option A for `github:`, option B for everything else.* The CLI surface
+is the same (`tbd source upstream <key>`); the implementation branches on source kind.
+For `gitlab:` we can add `glab` integration later (Phase 2.5 or later).
+
+**Open.** Branch naming convention.
+Default to `tbd/upstream-<bundle>-<type>-<name>-<date>`. Editable via flag.
+What if the user has uncommitted local edits in the override file?
+Refuse and ask them to commit (or use `--include-uncommitted`).
+
+#### W11. Unfork after upstream merge
+
+**Scenario.** Upstream merged the user’s PR. They want to drop the local override and
+let the (now-updated) upstream content serve via sync.
+
+**Options.**
+
+- *A. Delete + sync.* `tbd source unfork <key>` runs `git rm` on the local override,
+  runs `tbd source update <bundle>`, prints the result.
+- *B. Delete only.* User runs sync separately.
+- *C. Lazy delete.* tbd marks the override as “to be removed” but leaves the file until
+  the next sync. More state, no real benefit.
+
+**Tentative.** *Option A.* Single command, single observable result.
+
+**Open.** What if the local override has uncommitted edits?
+Refuse with a clear message ("uncommitted changes in <path>; commit or discard before
+unforking").
+
+#### W12. Add a new doc type
+
+**Scenario.** User wants to add a `playbook` doc type for QA test playbooks.
+
+**Options.**
+
+- *A. Config edit only.* User adds a row to `doc_types:` in `.tbd/config.yml`. tbd
+  auto-generates the dispatch.
+- *B. CLI helper.* `tbd doctype add playbook --dir playbooks [--command playbook]`
+  writes the config row.
+- *C. Both.* Convention works always; helper is sugar.
+
+**Tentative.** *Option C.* Same pattern as W7: convention works always, helper is sugar
+for the common case.
+
+**Open.** Does `--command` auto-create a top-level `tbd playbook` alias?
+In v1, lean toward: only the generic `tbd doc playbook <name>` is exposed.
+Top-level aliases for new types are a manual opt-in (later phase).
+
+#### W13. Remove a bundle
+
+**Scenario.** User no longer wants to mirror an external bundle.
+
+**Options.**
+
+- *A. Refuse if overrides exist.* `tbd source remove <bundle>` refuses if any local
+  override references it; user must `unfork` first.
+- *B. Remove and orphan.* Refuses nothing; ejected docs become pure-local (state C).
+  Their `tbd source diff` and `unfork` commands stop working since there’s no upstream
+  to diff against.
+- *C. Remove with `--force-orphan`.* Default refuses; flag opts into orphaning behavior.
+
+**Tentative.** *Option C.* Default-safe; explicit opt-in for orphaning.
+Removing a bundle deletes the cache directory; orphaned overrides are flagged in
+`tbd doc status`.
+
+**Open.** Should `remove` also delete the lockfile entry?
+Yes — keep lockfile and config in sync.
+
+### Phase 3 workflows: internal-to-external doc migration
+
+This phase moves the bulk of bundled docs (guidelines, shortcuts, templates) from
+`packages/tbd/docs/` into one or more external repos (e.g., `github:jlevy/tbd-docs`),
+then updates `tbd setup` defaults to pull them from there.
+After Phase 3, the npm package ships only a small core (essential `sys` shortcuts that
+bootstrap tbd itself).
+
+#### W14. Move bundled docs to an external repo
+
+**Scenario.** Maintainer creates `github:jlevy/tbd-docs` with the current bundled
+content; future updates ship there independent of the tbd npm release cycle.
+
+**Options.**
+
+- *A. Big-bang move.* Move everything except the truly tbd-specific shortcuts in one PR.
+  Fast; a single point of risk.
+- *B. Incremental move.* One doc type at a time (guidelines first, then templates, then
+  shortcuts). Slower; lower per-step risk.
+- *C. Shadow-then-cut.* Publish to the external repo while still shipping internal
+  copies for one release; delete internal copies in the next release.
+  Catches issues with the external mirror before users depend on it.
+
+**Tentative.** *Option C.* Lowest risk for users; one extra release cycle.
+The external repo can be stood up and validated by users opting in
+(`tbd source add github:jlevy/tbd-docs`) before we change the default.
+
+**Open.** Which docs are truly tbd-internal (must stay bundled)?
+Candidates: `welcome-user`, `prime`, `sync-failure-recovery`, the `sys/`
+shortcut-execution helpers.
+Working hypothesis: anything that mentions `tbd <command>` runtime invocations stays
+bundled; generic guidelines (TypeScript, Python, etc.)
+move out.
+
+#### W15. Update default install to pull from the external repo
+
+**Scenario.** A fresh `tbd setup --auto` adds the external repo as a default source.
+
+**Options.**
+
+- *A. Pinned tag default.* Default source is
+  `github:jlevy/tbd-docs@<latest-stable-tag>`. Reproducible; needs CLI release for new
+  doc updates.
+- *B. Branch default.* Default is `github:jlevy/tbd-docs@main`. Doc updates flow without
+  CLI release; reproducibility depends on the lockfile.
+- *C. Tag default with auto-staleness.* Pin to a tag, but tbd’s existing 24h-staleness
+  sync prompts the user to update.
+
+**Tentative.** *Option A.* Reproducibility wins over freshness; the user can opt into
+branch tracking (`tbd source update tbd-docs` moves them forward, or they edit the
+docref).
+
+**Open.** Versioning of the external repo.
+Likely Semver-ish tags (e.g., `v1.0.0`). What triggers a CLI default-pin bump?
+(Lean toward: piggyback on tbd minor releases, with an explicit bump in the changeset.)
+
+#### W16. Migrate existing installs to the new default
+
+**Scenario.** Users on the old version had a single internal `tbd` bundle.
+After upgrading the CLI, they should pick up the external default without losing local
+customizations.
+
+**Options.**
+
+- *A. Auto-add on first run after upgrade.* If the config has a `tbd` bundle pointing at
+  the internal source, append the external source after migration to f05.
+- *B. Doctor-suggested.* `tbd doctor` reports “external bundle available; run
+  `tbd setup --auto` to enable” but doesn’t auto-add.
+- *C. Setup-only.* Only `tbd setup --auto` adds the new default; upgrade alone changes
+  nothing.
+
+**Tentative.** *Option C.* Re-running setup is a deliberate operation; users opt in.
+`tbd doctor` notes the upgrade availability.
+
+**Open.** What happens to user-configured bundles that overlap with the external repo’s
+content? They keep priority by source order; no surprises.
+
 ## Implementation Plan
 
-Two phases. Splitting purely so we can validate the schema and migration before building
-eject/roundtrip commands on top.
+The user-visible surface is staged across three phases.
+Each phase is releaseable and useful on its own.
 
-### Phase 1: New schema, docref parser, doc-type registry, sync, migration
+### Phase 1: Basic capabilities and migration
 
-Format-level work (the `docref/0.1` and `docmap/0.1` cores).
-All of this is implementing
-[design-docref-format.md](../../../packages/tbd/docs/design-docref-format.md) and
-[design-docmap-format.md](../../../packages/tbd/docs/design-docmap-format.md).
+**Goal.** Existing UX preserved; new schema and modules are the backing implementation.
+No new user-visible features beyond what exists today.
 
 **Already done — committed in this branch as the canonical reference implementations of
 both specs:**
@@ -694,70 +1146,111 @@ both specs:**
   and
   [`packages/tbd/tests/docmap-resolve.test.ts`](../../../packages/tbd/tests/docmap-resolve.test.ts))
 
-Both modules are standalone (docref depends only on the language; docmap depends only on
-zod + docref) and could be extracted as separate npm packages without modification.
-Spec ↔ implementation synchrony is enforced by tests.
+Both modules are standalone and could be extracted as separate npm packages without
+modification. Spec ↔ implementation synchrony is enforced by tests.
 
 **Remaining Phase 1 work:**
 
-- [ ] Wire `docs:` block in `.tbd/config.yml` to use the docmap manifest schema.
-  No `files` / `lookup_path`.
-- [ ] URL → docref normalization (GitHub URL → `github:`, GitLab URL → `gitlab:`, etc.)
-  — informative per the spec, useful for CLI inputs.
-- [ ] Implement scheme-specific fetchers / resolvers:
-  - filesystem (`./`, `/`) — direct read, no cache
-  - `https:` — single-file fetch with `gh`/HTTP fallback; ETag-aware
-  - `github:` — sparse `git clone --depth 1 --branch <ref>`, atomic swap on success
-    (port `RepoCache` from PR #87, completing the update path)
-  - `git:` — same machinery as `github:`, with the SSH/HTTPS remote parsed from the
-    docref
-- [ ] Implement source resolution: walk `sources` in declared order, produce a
-  `(bundle, type, name) → file path` map.
-  Supports both auto (subdir-name matching) and explicit `contents` mapping (G16, G17).
-- [ ] Replace `DocCache.lookupPath`-based logic with source-walking logic.
-  Qualified lookup `bundle:type/name` works per format spec §5.
-- [ ] Define `doc_types` config block with built-in seeds (shortcut, guideline,
-  template, reference).
-  Generic `tbd doc <type> <name>` command dispatcher.
-- [ ] Lockfile: write/read `.tbd/docs.lock.yml` per format spec §3. Reproducibility
-  round-trip test (G9).
-- [ ] Doc map: build `.tbd/docs/map.yml` per format spec §4. Three-layer metadata
-  resolution (per-file overrides → frontmatter → source defaults).
+- [ ] Wire `docmap:` block in `.tbd/config.yml` to use the docmap manifest schema.
+  No `files` / `lookup_path`. Workflow: W1.
 - [ ] One-shot migration f03/f04 → f05 in `tbd-format.ts`: rewrite `type:`
   discriminators to `docref:`; rename `prefix:` → `bundle:`; drop `lookup_path` and
   `files`. No runtime compat for deprecated fields.
-- [ ] `tbd source add/list/remove` with bundle-name auto-suggestion (G15) and a
-  confirmation preview before persisting.
-- [ ] `tbd bundle list` / `tbd bundle show <name>` as bundle-oriented views over the
-  source list (G14).
-- [ ] Update `tbd setup` to seed default sources (small local core + default external
-  `tbd-docs` git source — see open question 1).
-- [ ] Update `tbd sync --docs` to drive scheme-specific fetchers and produce a fresh
-  lockfile + doc map.
-- [ ] Update `tbd doctor` checks to validate source health (clone exists, ref reachable,
-  lockfile matches cache hashes, no orphaned bundles).
+  Workflow: W1.
+- [ ] Filesystem-only fetcher (`./` and `/` docrefs — direct read, no cache).
+  Workflow: W3.
+- [ ] Source resolution: walk `sources` in declared order, produce a
+  `(bundle, type, name) → file path` map.
+  Supports auto-detection (subdir-name matching) for now; explicit `contents` mapping
+  wired in but lightly tested (heavy testing in Phase 2).
+- [ ] Replace `DocCache.lookupPath`-based logic with source-walking logic.
+  Qualified lookup `bundle:type/name` works.
+- [ ] `doc_types` config block with built-in seeds (shortcut, guideline, template,
+  reference). Generic `tbd doc <type> <name>` command dispatcher.
+  Existing typed commands delegate.
+  Workflows: W2, W12.
+- [ ] Lockfile: write/read `.tbd/docs.lock.yml` per format spec §3 (filesystem sources
+  don’t appear in it).
+  Workflow: W1.
+- [ ] Doc map: build `.tbd/docs/map.yml` per format spec §4. Three- layer metadata
+  resolution.
+- [ ] Update `tbd setup` to seed default sources (single internal bundle for Phase 1;
+  external repo defaults arrive in Phase 3). Workflow: W3.
 - [ ] All existing doc commands (`tbd shortcut`, `tbd guidelines`, `tbd template`,
   `tbd reference`) work via the new resolution path.
-- [ ] Tests: docref parser (incl.
-  normalization), schema validation, migration golden tests for f03→f05 and f04→f05,
-  source resolution unit tests, RepoCache integration tests with a fixture repo,
-  lockfile round-trip tests (G9), doc map golden tests, bundle-name auto-suggestion
-  golden tests across URL shapes (G15).
+  Workflow: W2.
+- [ ] Tests: migration golden tests for f03→f05 and f04→f05; source resolution unit
+  tests; doc map golden tests; existing tryscripts pass unchanged.
 
-### Phase 2: Override / promotion / roundtrip workflows
+### Phase 2: External bundles and override roundtrip
 
-- [ ] `tbd source eject <bundle:name> [--to <local-bundle>]` — copy cached doc into a
-  local bundle’s dir, `git add`.
-- [ ] `tbd source diff <bundle:name>` — diff local override vs cached upstream content.
-- [ ] `tbd source upstream <bundle:name>` — for `git`-type sources with a GitHub URL,
-  open a PR upstream via `gh`. For other source types: print the patch with
-  instructions. Document the contract for non-GitHub git sources clearly.
-- [ ] `tbd source unfork <bundle:name>` — delete local override after upstream merge;
-  next sync re-pulls upstream.
-- [ ] `tbd doc status [name]` — show provenance, shadow state, staleness, divergence for
-  a single doc or all docs.
-- [ ] Tests: end-to-end eject → edit → diff → unfork flow against a fixture git source;
-  status output golden tests.
+**Goal.** External docs are first-class; users can mirror, sync, override, and
+round-trip changes.
+
+- [ ] URL → docref normalization (GitHub URL → `github:`, GitLab URL → `gitlab:`, etc.)
+  — informative per the spec, useful for CLI inputs.
+  Workflow: W4.
+- [ ] Scheme-specific fetchers:
+  - `https:` — single-file fetch with `gh`/HTTP fallback; ETag-aware.
+    Workflow: W5.
+  - `github:` — sparse `git clone --depth 1 --branch <ref>`, atomic swap on success
+    (port `RepoCache` from PR #87, completing the update path).
+    Workflow: W5.
+  - `git:` and `gitlab:` — same machinery as `github:`, with the SSH/HTTPS remote parsed
+    from the docref. Workflow: W5.
+- [ ] Explicit `contents` mapping fully wired and tested: `{ path, type, as?
+  }` rules; auto-detection fallback; tests for G16/G17 examples (including `jlevy/coding-guidelines`, `jlevy/writing-guidelines`).
+- [ ] `tbd source add/list/remove/show` with bundle-name auto-suggestion and
+  confirmation preview.
+  Workflows: W4, W6, W13.
+- [ ] `tbd sync --docs` and `tbd source update [<bundle>]` for scheme-specific fetching,
+  lockfile update, doc map rebuild.
+  Workflow: W5.
+- [ ] `tbd doc status [<query>]` — bundle-grouped output, per-doc state (A/B/C),
+  staleness, divergence.
+  Workflow: W6.
+- [ ] `tbd source eject <key> [--to <local-bundle>]` — copy cached doc into a local
+  bundle, `git add`. Workflow: W8.
+- [ ] `tbd source diff <key>` — two-way diff (local override vs cached current); flag
+  for unified/side-by-side.
+  Workflow: W9.
+- [ ] `tbd source upstream <key>` — for `github:` sources, branch
+  + commit + push + open PR via `gh`. For other source kinds, print a patch with
+    instructions. Workflow: W10.
+- [ ] `tbd source unfork <key>` — `git rm` the local override, run
+  `source update <bundle>`. Workflow: W11.
+- [ ] CLI helper for new local docs: `tbd doc new <type> <name> [--bundle <name>]`
+  scaffolds with template frontmatter.
+  Workflow: W7.
+- [ ] `tbd doctor` checks: source health (clone exists, ref reachable, lockfile matches
+  cache hashes, no orphaned bundles).
+- [ ] Tests: end-to-end eject → edit → diff → unfork against a fixture git source;
+  bundle-add preview golden tests; status output golden tests; lockfile round-trip tests
+  (G9).
+
+### Phase 3: Migrate bundled docs to an external repo
+
+**Goal.** The bulk of bundled docs lives in `github:jlevy/tbd-docs` (or equivalent); the
+npm package ships a small core.
+Users get the same default doc set; tbd-docs evolves on its own release cycle.
+
+- [ ] Stand up `github:jlevy/tbd-docs`. Initial content = current `packages/tbd/docs/`
+  (excluding tbd-internal shortcuts).
+  Workflow: W14, *Option C* (shadow-then-cut).
+- [ ] Tag `v1.0.0` of the external repo.
+- [ ] Update `tbd setup --auto` to add `github:jlevy/tbd-docs@v1.0.0` as a default
+  source (in addition to the small internal core).
+  Workflow: W15.
+- [ ] Validation period: one tbd release with both internal and external sources active.
+  Watch for breakage; fix issues in the external repo.
+- [ ] Cut: remove the migrated docs from `packages/tbd/docs/` (keep only the truly
+  tbd-internal set). Bump `tbd-docs` if needed.
+- [ ] Migration path for existing installs: re-running `tbd setup --auto` (or
+  `tbd doctor` with explicit prompt) adds the external source.
+  Workflow: W16.
+- [ ] Update `tbd-docs` release notes and link from tbd’s docs.
+- [ ] Tests: tryscripts that depend on specific bundled-doc content point at the new
+  bundle name explicitly.
 
 ## Testing Strategy
 
