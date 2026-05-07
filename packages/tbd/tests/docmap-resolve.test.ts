@@ -12,8 +12,12 @@ import {
   resolveLookupKey,
 } from '../src/docmap/index.js';
 
+// `documents` must be in source priority order. Earlier entries beat later
+// entries when both match the same (type, name). The fixture below mirrors
+// a manifest where `coding` is listed before `writing`, which is listed
+// before `flask`.
 const DOCS: readonly DocMapEntry[] = [
-  // Bundle: coding (priority 0 — listed first)
+  // Bundle: coding (highest priority)
   {
     key: 'coding:guideline/typescript',
     bundle: 'coding',
@@ -32,7 +36,14 @@ const DOCS: readonly DocMapEntry[] = [
     type: 'shortcut',
     path: 'shortcuts/review-code.md',
   },
-  // Bundle: writing
+  {
+    key: 'coding:shortcut/typescript',
+    bundle: 'coding',
+    type: 'shortcut',
+    path: 'shortcuts/typescript.md',
+  },
+  // Bundle: writing (lower priority — same (type, name) as coding's
+  // typescript guideline, used to test that priority wins)
   {
     key: 'writing:reference/writing-overview',
     bundle: 'writing',
@@ -89,9 +100,18 @@ describe('resolveLookupKey', () => {
     expect(entry.key).toBe('coding:guideline/typescript');
   });
 
-  it('resolves a bundle-scoped basename', () => {
-    const entry = resolveLookupKey(DOCS, 'coding:typescript');
-    expect(entry.key).toBe('coding:guideline/typescript');
+  it('resolves a bundle-scoped basename when unique within the bundle', () => {
+    // `coding:python` matches only `coding:guideline/python` — unique
+    // within the bundle, so the basename match resolves cleanly.
+    const entry = resolveLookupKey(DOCS, 'coding:python');
+    expect(entry.key).toBe('coding:guideline/python');
+  });
+
+  it('throws Ambiguous on a bundle-scoped basename that spans types', () => {
+    // `coding:typescript` matches both `coding:guideline/typescript` and
+    // `coding:shortcut/typescript`. Bundle scope alone can't disambiguate
+    // typed lookups; caller must use a fully qualified canonical key.
+    expect(() => resolveLookupKey(DOCS, 'coding:typescript')).toThrow(LookupAmbiguous);
   });
 
   it('resolves a unique bare basename', () => {
@@ -99,7 +119,27 @@ describe('resolveLookupKey', () => {
     expect(entry.key).toBe('coding:guideline/python');
   });
 
-  it('throws Ambiguous on a basename that matches multiple bundles', () => {
+  it('priority wins when multiple bundles share the same (type, name)', () => {
+    // `typescript` matches both `coding:guideline/typescript` and
+    // `writing:guideline/typescript`. They share the same (type, name)
+    // — `guideline/typescript` — so source priority resolves to the
+    // first listed (coding).
+    //
+    // It ALSO matches `coding:shortcut/typescript` — but the priority-
+    // resolution logic operates per (type, name); see the next test
+    // for the cross-type ambiguity case.
+    //
+    // For this test we drop the cross-type entry to isolate priority
+    // behavior. The cross-type case is tested separately.
+    const guidelineOnly = DOCS.filter((d) => d.type === 'guideline');
+    const entry = resolveLookupKey(guidelineOnly, 'typescript');
+    expect(entry.key).toBe('coding:guideline/typescript');
+  });
+
+  it('throws Ambiguous when basename matches across different doc types', () => {
+    // `typescript` matches both `coding:guideline/typescript` and
+    // `coding:shortcut/typescript`. Source priority can't disambiguate
+    // a typed lookup, so this is ambiguous.
     expect(() => resolveLookupKey(DOCS, 'typescript')).toThrow(LookupAmbiguous);
     try {
       resolveLookupKey(DOCS, 'typescript');
@@ -107,6 +147,7 @@ describe('resolveLookupKey', () => {
       expect(e).toBeInstanceOf(LookupAmbiguous);
       expect((e as LookupAmbiguous).matches).toEqual([
         'coding:guideline/typescript',
+        'coding:shortcut/typescript',
         'writing:guideline/typescript',
       ]);
     }
@@ -131,10 +172,21 @@ describe('resolveLookupKey', () => {
     expect(entry.key).toBe('coding:guideline/typescript');
   });
 
-  it('throws Ambiguous when alias is shared across multiple entries', () => {
+  it('priority wins when an alias is shared across same-type entries', () => {
+    // Same (type, name) bucket across two bundles → priority wins.
     const aliases = new Map<string, string[]>([
       ['coding:guideline/typescript', ['ts']],
       ['writing:guideline/typescript', ['ts']],
+    ]);
+    const entry = resolveLookupKey(DOCS, 'ts', { aliases });
+    expect(entry.key).toBe('coding:guideline/typescript');
+  });
+
+  it('throws Ambiguous when an alias matches across different doc types', () => {
+    // Different types → genuine ambiguity, not resolvable by priority.
+    const aliases = new Map<string, string[]>([
+      ['coding:guideline/typescript', ['ts']],
+      ['coding:shortcut/typescript', ['ts']],
     ]);
     expect(() => resolveLookupKey(DOCS, 'ts', { aliases })).toThrow(LookupAmbiguous);
   });

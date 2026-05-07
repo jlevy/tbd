@@ -437,33 +437,47 @@ Given a lookup-key query, the resolver attempts progressively broader matches:
 3. **Exact canonical key match.** If the query (after step 2) matches a full canonical
    key (e.g., `guideline/typescript`), return.
 
-4. **Basename match.** If exactly one item in scope has matching basename (filename
-   without extension, ignoring directory), return.
-   If multiple, fail with an `Ambiguous` error listing all matches.
+4. **Basename match.** Find every item in scope whose basename equals the query.
+   Then apply priority resolution: if all matches share the same `<type>`, the first one
+   (in source priority order) wins.
+   If matches span multiple types, the query is genuinely ambiguous — return `Ambiguous`
+   listing all matches.
 
-5. **Alias match.** Same as basename but against declared aliases.
+5. **Alias match.** Find every item in scope with a declared alias equal to the query.
+   Same priority-vs-ambiguity rule as basename match: priority resolves matches that
+   share a `<type>`; matches across different types are ambiguous.
 
 6. **Failure.** Return `NotFound` listing available canonical keys in scope (limited to
    a reasonable display count).
 
-### 4.4 Collisions
+### 4.4 Collisions and priority
 
-- **Canonical key collisions** are fatal at `build` time.
-- **Basename / alias collisions** are allowed: all colliding items remain in the index.
-  Unqualified queries that hit them return `Ambiguous`; callers must use the canonical
-  key or bundle-scoped form.
-- A `status` operation reports collisions so users can detect unintended overlap.
+Collisions are evaluated at two levels:
 
-### 4.5 Override via priority
+- **Canonical key collisions** (same `<bundle>:<type>/<name>` from two sources) are
+  fatal at `build` time.
+  Two sources cannot contribute identically-keyed docs; one of them must be re-bundled
+  or re-mapped.
+- **Same `(type, name)` across different bundles** is **not** a collision.
+  Both items remain in the index, individually addressable as `<bundle1>:<type>/<name>`
+  and `<bundle2>:<type>/<name>`. Unqualified queries resolve via priority: the bundle
+  whose source is listed first in the manifest wins.
+  This is the foundation of override semantics — a higher- priority `local` bundle
+  naturally shadows a lower-priority remote bundle for the same `(type, name)`.
+- **Same basename across different `(type, name)` buckets** is genuinely ambiguous for
+  unqualified queries; priority alone can’t disambiguate a typed lookup.
+  The caller must use a canonical key, a bundle+name+type qualified form (Section 4.2 /
+  future), or a typed command (e.g., `tbd guideline typescript` rather than bare
+  `typescript`).
+- A `status` operation reports basename collisions across types so users can detect
+  unintended overlap.
 
-When two sources contribute items with the **same `<type>/<name>`** (but different
-bundles), they are **not** a collision; they are independently addressable as
-`<bundle1>:<type>/<name>` and `<bundle2>:<type>/<name>`.
-
-Unqualified bare-basename queries respect source order: the bundle whose source is
-listed first in the manifest wins.
-This is the foundation of override semantics: a higher-priority `local` bundle naturally
-shadows a lower-priority remote bundle for the same basename.
+The resolver implementation ([`resolveLookupKey`](../src/docmap/resolve.ts)) treats the
+input documents array as already in source priority order; consumers building this array
+must preserve that order.
+A future enhancement (see open questions) is exposing a
+`mode: 'effective' | 'all' | 'strict'` parameter for callers that need either every
+shadowed item or stricter behavior.
 
 ## 5. Sync Semantics
 

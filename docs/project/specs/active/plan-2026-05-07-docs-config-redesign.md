@@ -666,6 +666,154 @@ These need resolution before the implementation spec.
     reference it — by upstream name or rename?
     Lean toward: rename wins, qualified name is the renamed one.
 
+### Architectural questions surfaced in design review
+
+These are higher-stakes than Q1–Q14 and should be resolved before substantive Phase 2
+implementation. Each lists the options surfaced during the senior-design review
+(in-PR-comment) plus tradeoffs; none are tentatively chosen — they need joint review.
+
+#### Q15. Resolver semantics: priority-only vs. DocGraph + DocMap policy view
+
+The shipped resolver now does priority-wins on same `(type, name)` and ambiguous across
+types (matches the spec’s stated intent).
+The review proposes going further: introduce a separate **DocGraph** layer that retains
+every item including shadowed ones, then a **DocMap** *effective view* that resolves a
+query against the graph using a configurable policy `{ type?, bundle?, mode?
+}` where `mode ∈ 'effective' | 'all' | 'strict'`.
+
+- *Option A. Keep current shape.* `resolveLookupKey(documents, query)` takes a flat
+  array assumed to be in source-priority order and returns one entry.
+  Simple. Works for `tbd guidelines foo` and `tbd doc status`. Doesn’t expose shadowed
+  entries or strict mode.
+- *Option B. Add a typed mode parameter to the existing function.*
+  `resolveLookupKey(documents, query, { type?, mode?
+  })`. `mode: 'all'` returns every match (including shadowed); `mode:
+  'strict'` refuses to disambiguate across `(type, name)` even by priority.
+  Type filter is the natural lift from typed CLI commands.
+  Minimum-viable answer to the review.
+- *Option C. Two-layer DocGraph + DocMap.* DocGraph is the lossless inventory; DocMap is
+  a built view (with policy applied).
+  The resolver lives at the DocMap layer.
+  Status / collisions read the DocGraph.
+  Cleanest separation; biggest refactor; arguably the right shape if/when docref+docmap
+  get extracted.
+
+Open: do typed commands (`tbd guidelines typescript-rules`) pass the type constraint at
+the call site, or does the dispatcher inject it?
+Either way, the genuine-ambiguity case ("typescript matches a guideline AND a shortcut")
+goes away once the type is known.
+
+#### Q16. Bundle ↔ source cardinality
+
+Current design: one source = one bundle, with the bundle name on the source entry.
+The review argues this should be split:
+
+- *Option A. Keep 1:1 (current).* Simplest.
+  Schema is one array of sources.
+  Bundle name auto-suggestion is straightforward.
+- *Option B. Split bundles from sources.* Two arrays at the top level: `bundles:` (with
+  optional priority, hidden, local_root) and `sources:` (each with a `bundle:` reference
+  and a stable `id:`). Multiple sources can populate one bundle.
+  CLI sugar (`tbd source add ...`) auto-creates bundles when needed.
+  Concrete use cases the reviewer cited:
+  - org docs bundle = repo + a few canonical web URLs
+  - `tbd` bundle during Phase 3 migration = small package-local core + external
+    `tbd-docs` repo
+  - product bundle = reference docs, examples, code in different repos
+  - multiple single-file URL sources presenting as one bundle
+- *Option C. Allow optional grouping.* Default is 1:1; a source can opt into “join an
+  existing bundle” via `bundle: <existing-name>`. Less schema disruption than B; loses
+  the explicit `bundles:` list for priority/policy.
+
+Question for joint review: are the multi-source-per-bundle use cases real and frequent
+enough to justify the schema split now (B), or do we postpone (A or C) and revisit
+if/when extraction makes the 1:1 limit painful?
+
+#### Q17. Lockfile identity
+
+Current lock entries key on `docref` + materialization.
+The review argues this is fragile when sources move bundles, filters change, the same
+`docref` appears twice with different `contents` mappings, or upstream content is
+remapped. Recommended additions:
+
+- *Option A. Keep current shape.* docref + revision + content hash is enough for “the
+  cache reproduces from the lockfile.”
+  Reproducibility holds.
+  Identity ambiguity is a corner case.
+- *Option B. Add `source_id` only.* Every source gets a stable manifest-level id;
+  lockfile entries reference it.
+  Solves the “same docref twice” case and bundle-rename case without introducing
+  config-fingerprinting.
+- *Option C. Full reviewer recommendation.* Lock entries carry `source_id`, `docref`,
+  `source_config_hash` (hash of all materialization-affecting fields: `docref`,
+  `contents`, `glob`, `ignore`, `depth`), `revision`, `content_hash`, and
+  `materialization`. Sync/update/remove/orphan-cleanup operate on source ids rather than
+  guessing identity from docref.
+
+Q16 (bundle/source split) and Q17 are linked: Option B/C of Q17 needs source ids, which
+Option B of Q16 already introduces.
+
+#### Q18. Override provenance: computed-by-name vs. recorded edge
+
+The current state model computes “tracked override vs pure local” by checking whether
+another bundle contributes the same `<type>/<name>`. W8 (eject) tentatively records the
+original revision in frontmatter or sidecar but doesn’t formalize an override edge.
+
+The review identifies cases that get muddy without explicit provenance:
+
+- A pure-local doc becomes a supposed override just because an upstream bundle is added
+  later with the same name.
+- Removing an upstream bundle turns an override into pure-local and loses the data
+  needed for `tbd source diff` / `unfork`.
+- Upstream renames or deletes a doc; the local file still exists but the relationship is
+  no longer discoverable by name.
+- `tbd source upstream` (PR creation) needs the exact upstream source/path/revision to
+  patch.
+
+Options:
+
+- *Option A. Computed-by-name only (current).* Cheap; no extra state.
+  Roundtrip workflows degrade silently when upstream changes name or is removed.
+- *Option B. Frontmatter pointer.* Eject inserts a small frontmatter block
+  (`_upstream: { source_id, docref, revision, content_hash }`) into the override.
+  Self-contained; survives upstream changes.
+  Pollutes doc content with tbd metadata.
+- *Option C. Sidecar edge.* Eject writes a sidecar (e.g. `.tbd/overrides.yml` or
+  `<file>.override.yml`) recording the override edge.
+  Doc content stays clean; one more file to track.
+- *Option D. tbd-internal overlay.* Eject records the edge in a dedicated file under
+  `.tbd/` that’s git-tracked alongside the override (e.g. `.tbd/docmap-overrides.yml`).
+  Single source of truth; aggregates well; needs migration logic if the overlay format
+  evolves.
+
+Linked to Q16/Q17: Option C/D rely on stable source ids.
+
+#### Q19. The `as` field is overloaded
+
+`as` currently means two unrelated things:
+
+- On a source, `as: <name>` means “treat this source as a single named item rather than
+  a bag of files” (whole-repo mode, single- URL mode).
+- On a `contents` rule, `as: <name>` means “rename this upstream doc on import” (the
+  upstream basename `python.md` lands as `python-rules`).
+
+Options for disambiguation:
+
+- *Option A. Keep `as` as-is and document the two meanings.* Cheapest but invites
+  confusion. The reviewer flagged this as confusing.
+- *Option B. Split into `mode:` discriminator on sources.*
+  ```yaml
+  mode: files     # default — index files via contents/glob
+  mode: file      # one source = one named doc; requires type, name
+  mode: repo      # whole-repo aggregate (KDEX-style as: repo)
+  ```
+  Cleanest. `as` survives only on `contents` rules as the rename semantics.
+- *Option C. KDEX-aligned: `as: repo` literal for aggregates.* Keep `as` on sources but
+  restrict to literal values like `'repo'` / `'file'`. `as: <name>` for renames lives
+  only on `contents` rules.
+  Lighter touch than B; loses the flexibility of a generic `as: <user-name>` on sources
+  (currently allowed but rarely used).
+
 ## Doc States and Transitions
 
 Every doc visible to a tbd user is in exactly one of three states.

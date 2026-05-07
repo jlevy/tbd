@@ -5,9 +5,13 @@
  *   1. Repo-subpath form (query contains `//`)
  *   2. Bundle scope (query contains `:`)
  *   3. Exact canonical-key match
- *   4. Basename match
- *   5. Alias match
+ *   4. Basename match (priority-wins within same type; ambiguous across types)
+ *   5. Alias match (same priority semantics as basename)
  *   6. Failure (NotFound)
+ *
+ * The `documents` argument is expected to be in **source priority order**:
+ * earlier entries beat later entries when both match the same `(type, name)`.
+ * This is how local overrides shadow upstream content (spec §4.4).
  *
  * The spec and this implementation MUST stay in exact sync.
  */
@@ -86,13 +90,35 @@ export function entryBasename(entry: DocMapEntry): string {
 }
 
 /**
+ * Resolve matches against `(type, name)` priority semantics.
+ *
+ * If all candidates share the same `type`, the first one wins (the
+ * documents array is in source priority order, so the highest-priority
+ * bundle's entry is first). If candidates span multiple types, the
+ * query is genuinely ambiguous because typed semantics can't be
+ * resolved by priority alone.
+ */
+function resolveByPriorityOrAmbiguous(
+  query: string,
+  candidates: readonly DocMapEntry[],
+): DocMapEntry | null {
+  if (candidates.length === 0) return null;
+  const types = new Set(candidates.map((c) => c.type));
+  if (types.size === 1) return candidates[0]!;
+  throw new LookupAmbiguous(
+    query,
+    candidates.map((e) => e.key),
+  );
+}
+
+/**
  * Resolve a lookup-key query against an in-memory list of doc-map
  * entries. Returns the matched entry or throws LookupNotFound /
  * LookupAmbiguous per the spec algorithm.
  *
- * Aggregate (`as:`-style) sources are detected by canonical keys
- * lacking a `:` (i.e. `<bundle>` only). Aliases on entries are
- * matched in the alias step if present.
+ * `documents` must be in source priority order. Aggregate (`as:`-style)
+ * sources are detected by canonical keys lacking a `:` (i.e. `<bundle>`
+ * only). Aliases on entries are matched in the alias step if present.
  */
 export function resolveLookupKey(
   documents: readonly DocMapEntry[],
@@ -131,13 +157,8 @@ export function resolveLookupKey(
 
   // Step 4: basename match.
   const basenameMatches = inScope.filter((e) => entryBasename(e) === parsed.name);
-  if (basenameMatches.length === 1) return basenameMatches[0]!;
-  if (basenameMatches.length > 1) {
-    throw new LookupAmbiguous(
-      query,
-      basenameMatches.map((e) => e.key),
-    );
-  }
+  const basenameWinner = resolveByPriorityOrAmbiguous(query, basenameMatches);
+  if (basenameWinner) return basenameWinner;
 
   // Step 5: alias match.
   if (options.aliases) {
@@ -146,13 +167,8 @@ export function resolveLookupKey(
       const aliases = options.aliases.get(entry.key);
       if (aliases?.includes(parsed.name)) aliasHits.push(entry);
     }
-    if (aliasHits.length === 1) return aliasHits[0]!;
-    if (aliasHits.length > 1) {
-      throw new LookupAmbiguous(
-        query,
-        aliasHits.map((e) => e.key),
-      );
-    }
+    const aliasWinner = resolveByPriorityOrAmbiguous(query, aliasHits);
+    if (aliasWinner) return aliasWinner;
   }
 
   // Step 6: failure.

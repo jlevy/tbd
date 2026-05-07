@@ -84,6 +84,54 @@ describe('ManifestEnvelopeSchema', () => {
     };
     expect(() => ManifestEnvelopeSchema.parse(manifest)).toThrow();
   });
+
+  it('rejects unknown top-level fields (G11 strict-mode)', () => {
+    const manifest = {
+      docmap: {
+        schema: 'docmap/0.1' as const,
+        doc_types: [{ name: 'x', dir: 'x' }],
+        sources: [],
+        // deprecated f04 field that must not survive into f05
+        lookup_path: ['old/path'],
+      },
+    };
+    expect(() => ManifestEnvelopeSchema.parse(manifest)).toThrow(/unrecognized/i);
+  });
+
+  it('rejects unknown fields on a source entry', () => {
+    const manifest = {
+      docmap: {
+        schema: 'docmap/0.1' as const,
+        doc_types: [{ name: 'x', dir: 'x' }],
+        sources: [{ docref: './foo/', bundle: 'proj', mystery: 'value' }],
+      },
+    };
+    expect(() => ManifestEnvelopeSchema.parse(manifest)).toThrow(/unrecognized/i);
+  });
+
+  it('allows a local docref to omit bundle', () => {
+    const manifest = {
+      docmap: {
+        schema: 'docmap/0.1' as const,
+        doc_types: [{ name: 'x', dir: 'x' }],
+        sources: [{ docref: './docs/agent/' }],
+      },
+    };
+    expect(() => ManifestEnvelopeSchema.parse(manifest)).not.toThrow();
+  });
+
+  it('rejects a remote docref that omits bundle', () => {
+    const manifest = {
+      docmap: {
+        schema: 'docmap/0.1' as const,
+        doc_types: [{ name: 'x', dir: 'x' }],
+        sources: [{ docref: 'github:foo/bar@main' }],
+      },
+    };
+    expect(() => ManifestEnvelopeSchema.parse(manifest)).toThrow(
+      /bundle is required for remote docrefs/,
+    );
+  });
 });
 
 describe('LockfileSchema', () => {
