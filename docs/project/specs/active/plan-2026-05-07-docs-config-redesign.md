@@ -287,19 +287,19 @@ See the schema design below for the syntax.
 
 ### G18. Format spec is an extractable, reusable artifact
 
-The format that defines docspec URIs, the source manifest, the lockfile,
+The format that defines docrefs, the source manifest, the lockfile,
 the doc map, and the resolution algorithm is **not tbd-specific**. It
 lives as its own architecture document inside tbd
-([design-docspec-format.md](../../../packages/tbd/docs/design-docspec-format.md))
-under the umbrella name **docspec** (version `docspec/0.1`).
+([design-docref-format.md](../../../packages/tbd/docs/design-docref-format.md))
+under the umbrella name **docref** (version `docref/0.1`).
 
 This separation has two motivations:
 
-- **Modularity.** Other tools could read a docspec manifest without
-  depending on tbd. If we eventually want a standalone `docspec` CLI or
+- **Modularity.** Other tools could read a docref manifest without
+  depending on tbd. If we eventually want a standalone `docref` CLI or
   library — or want another tool to interoperate with tbd's docs — the
   format is already factored out.
-- **Discipline.** Keeping format-level concerns (URI grammar, schemas,
+- **Discipline.** Keeping format-level concerns (docref grammar, schemas,
   resolution algorithm, sync semantics) out of tbd-specific concerns
   (overrides, eject, roundtrip, doc-type-as-CLI-command) prevents the
   layered-mechanism creep that produced PR #87's twelve bug-fix commits.
@@ -416,21 +416,21 @@ also sketched below to confirm it's not the right starting target.
 
 ### Schema and source types
 
-The schema, URI grammar, lockfile, doc map, and resolution algorithm are
+The schema, docref grammar, lockfile, doc map, and resolution algorithm are
 defined in their own architecture document:
-[design-docspec-format.md](../../../packages/tbd/docs/design-docspec-format.md).
+[design-docref-format.md](../../../packages/tbd/docs/design-docref-format.md).
 This plan-spec uses that format and focuses on tbd-specific workflows
 layered on top. A summary follows for context; the format spec is
 authoritative.
 
 The manifest lives inline in `.tbd/config.yml` under `docs:`. One concept
-(an ordered list of sources, addressed by docspec URIs) does what three
+(an ordered list of sources, addressed by docrefs) does what three
 currently do.
 
 ```yaml
 tbd_format: f05
 docs:
-  format: docspec/0.1
+  format: docref/0.1
 
   doc_types:
     - { name: shortcut,  dir: shortcuts,  command: shortcut }
@@ -441,25 +441,25 @@ docs:
   sources:
     # tbd-internal core (ships with the npm package). A small builtin
     # source seeded by `tbd setup`.
-    - docspec: ./packages/tbd/docs/core/
+    - docref: ./packages/tbd/docs/core/
       bundle: sys
       hidden: true
 
     # Project-local: a tracked directory in the repo. Read directly,
     # no copy. Doubles as the home for shadcn-style local overrides
     # (G4). G2.
-    - docspec: ./docs/agent/
+    - docref: ./docs/agent/
       bundle: proj
 
     # External git source — auto-detects subdirectories matching
     # known doc-type folders (G16, G17). Pinned to a tag for
     # reproducibility (G9).
-    - docspec: github:jlevy/coding-guidelines@main
+    - docref: github:jlevy/coding-guidelines@main
       bundle: coding
 
     # Same shape, but with an explicit `contents` mapping when the
     # upstream layout doesn't match the convention.
-    - docspec: github:jlevy/writing-guidelines@main
+    - docref: github:jlevy/writing-guidelines@main
       bundle: writing
       contents:
         - { path: docs/style/, type: guideline }
@@ -468,7 +468,7 @@ docs:
         - { path: README.md,   type: reference, as: writing-overview }
 
     # Per-URL one-off (current --add=<url> use case).
-    - docspec: https://example.com/foo.md
+    - docref: https://example.com/foo.md
       bundle: misc
       type: guideline
       as: foo
@@ -478,7 +478,7 @@ docs:
 
 The four scheme prefixes (`./`, `https:`, `github:`, `git:`) replace the
 earlier sketch's `type:` discriminator. The scheme determines how the
-source is fetched. (The earlier `type: builtin` is just a `./` docspec
+source is fetched. (The earlier `type: builtin` is just a `./` docref
 pointing at a path inside the npm package.)
 
 **Lookup semantics.** Sources are searched in declared order. First match
@@ -505,11 +505,11 @@ just appending a row:
 
 The CLI dispatches `tbd doc <type> <name>` to a generic handler and
 aliases the named types as their own subcommands. Format spec
-[§2.2](../../../packages/tbd/docs/design-docspec-format.md#22-doc_types)
+[§2.2](../../../packages/tbd/docs/design-docref-format.md#22-doc_types)
 defines the schema.
 
 **Local sources are real directories, not stubs.** A `./docs/agent/`
-docspec is a tracked directory read directly by DocCache. `.tbd/docs/`
+docref is a tracked directory read directly by DocCache. `.tbd/docs/`
 only holds *builtin* and *cached* content — it remains gitignored.
 
 **Override is just priority.** No `overrides:` field. To override
@@ -557,15 +557,15 @@ the bundle-internal addressing.
 **Migration (G11).** f03/f04 → f05 is a one-shot transformation:
 
 - f03 `files: { dest: internal:src }` rows are absorbed into a synthetic
-  source whose docspec is `./packages/tbd/docs/core/` (or moved to an
+  source whose docref is `./packages/tbd/docs/core/` (or moved to an
   external `github:jlevy/tbd-docs` git source — see decisions below).
 - f03 `files: { dest: https://... }` rows become per-URL `https:`
-  docspec sources (with auto-suggested bundle name from the URL host,
+  docref sources (with auto-suggested bundle name from the URL host,
   per G15).
 - f03 `lookup_path` is dropped.
 - f04 `sources` array is rewritten: the `type:` discriminator is replaced
-  by a `docspec:` URI (`type: 'internal'` + bundled path → `./...`
-  docspec; `type: 'repo'` + url + ref → `github:owner/repo@ref` docspec),
+  by a `docref:` (`type: 'internal'` + bundled path → `./...`
+  docref; `type: 'repo'` + url + ref → `github:owner/repo@ref` docref),
   and `prefix:` is renamed to `bundle:`.
 - The deprecated fields are deleted with no runtime fallback. If you
   don't migrate, the CLI errors with a clear "run `tbd doctor --fix`"
@@ -573,7 +573,7 @@ the bundle-internal addressing.
 
 ### Deferred: pluggable source schemes
 
-Worth naming so it's not lost: a future direction is making the docspec
+Worth naming so it's not lost: a future direction is making the docref
 scheme set itself pluggable. A scheme provider would be a Node module (or
 external command) implementing `list(source) → docs[]` and `fetch(doc) →
 content`. Built-in schemes (`./`, `https:`, `github:`, `git:`) ship with
@@ -586,7 +586,7 @@ plus the security and packaging footguns that come with plugin loading
 in a CLI tool. Most users don't need it. The current design keeps the
 option open — the scheme set is an enum at first; opening to a registry
 later is a localized change. **Defer.** The format spec
-[§1.8](../../../packages/tbd/docs/design-docspec-format.md#18-extensibility)
+[§1.8](../../../packages/tbd/docs/design-docref-format.md#18-extensibility)
 calls out the scheme prefix as the extension point.
 
 ### Decisions to confirm before implementation
@@ -594,7 +594,7 @@ calls out the scheme prefix as the extension point.
 The design above is the proposal. These specific choices are flagged so
 they can be confirmed (or pushed back on) before any code is written:
 
-- The four built-in docspec schemes (`./`, `https:`, `github:`, `git:`)
+- The four built-in docref schemes (`./`, `https:`, `github:`, `git:`)
   are sufficient for the first cut. `s3:`/`gs:`/etc. wait for the
   deferred pluggable-scheme direction.
 - "Override = priority in source list" rather than an explicit
@@ -606,8 +606,8 @@ they can be confirmed (or pushed back on) before any code is written:
 - The bundled doc set mostly moves out to a separate repo (e.g.
   `github:jlevy/tbd-docs`), kept as a `github:`-scheme source by
   default rather than a local `./` source. (G1.)
-- Format identifier is `docspec/0.1`; the format itself is documented
-  as a separable artifact (G18, see design-docspec-format.md).
+- Format identifier is `docref/0.1`; the format itself is documented
+  as a separable artifact (G18, see design-docref-format.md).
 
 ## Open Questions
 
@@ -671,15 +671,15 @@ These need resolution before the implementation spec.
 Two phases. Splitting purely so we can validate the schema and migration
 before building eject/roundtrip commands on top.
 
-### Phase 1: New schema, docspec parser, doc-type registry, sync, migration
+### Phase 1: New schema, docref parser, doc-type registry, sync, migration
 
-Format-level work (the `docspec/0.1` core). All of this is implementing
-[design-docspec-format.md](../../../packages/tbd/docs/design-docspec-format.md):
+Format-level work (the `docref/0.1` core). All of this is implementing
+[design-docref-format.md](../../../packages/tbd/docs/design-docref-format.md):
 
 - [ ] Define `docs:` block in `.tbd/config.yml` per the format spec
   (Zod schemas for manifest, lockfile, doc map). No `files` /
   `lookup_path`.
-- [ ] Implement docspec URI parser (schemes: `./`, `/`, `https:`,
+- [ ] Implement docref parser (schemes: `./`, `/`, `https:`,
   `github:`, `git:`) plus normalization (GitHub URL → `github:`).
 - [ ] Implement scheme-specific fetchers / resolvers:
   - filesystem (`./`, `/`) — direct read, no cache
@@ -688,7 +688,7 @@ Format-level work (the `docspec/0.1` core). All of this is implementing
     swap on success (port `RepoCache` from PR #87, completing the
     update path)
   - `git:` — same machinery as `github:`, with the SSH/HTTPS remote
-    parsed from the docspec
+    parsed from the docref
 - [ ] Implement source resolution: walk `sources` in declared order,
   produce a `(bundle, type, name) → file path` map. Supports both auto
   (subdir-name matching) and explicit `contents` mapping (G16, G17).
@@ -702,7 +702,7 @@ Format-level work (the `docspec/0.1` core). All of this is implementing
 - [ ] Doc map: build `.tbd/docs/map.yml` per format spec §4. Three-layer
   metadata resolution (per-file overrides → frontmatter → source defaults).
 - [ ] One-shot migration f03/f04 → f05 in `tbd-format.ts`: rewrite
-  `type:` discriminators to `docspec:` URIs; rename `prefix:` →
+  `type:` discriminators to `docref:`; rename `prefix:` →
   `bundle:`; drop `lookup_path` and `files`. No runtime compat for
   deprecated fields.
 - [ ] `tbd source add/list/remove` with bundle-name auto-suggestion (G15)
@@ -718,7 +718,7 @@ Format-level work (the `docspec/0.1` core). All of this is implementing
   bundles).
 - [ ] All existing doc commands (`tbd shortcut`, `tbd guidelines`,
   `tbd template`, `tbd reference`) work via the new resolution path.
-- [ ] Tests: docspec URI parser (incl. normalization), schema
+- [ ] Tests: docref parser (incl. normalization), schema
   validation, migration golden tests for f03→f05 and f04→f05, source
   resolution unit tests, RepoCache integration tests with a fixture
   repo, lockfile round-trip tests (G9), doc map golden tests, bundle-name
@@ -763,8 +763,8 @@ upgrade prompts the user before mutating config.
 
 ## References
 
-- **Format spec (authoritative for schema/URIs/algorithms):**
-  [design-docspec-format.md](../../../packages/tbd/docs/design-docspec-format.md)
+- **Format spec (authoritative for schema/docrefs/algorithms):**
+  [design-docref-format.md](../../../packages/tbd/docs/design-docref-format.md)
 - PR #87 (unmerged): https://github.com/jlevy/tbd/pull/87
 - Original spec: `docs/project/specs/done/plan-2026-02-02-external-docs-repos.md`
   (3010 lines; useful for prior-art on RepoCache, prefix design,

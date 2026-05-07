@@ -1,4 +1,4 @@
-# docspec Format
+# docref Format
 
 Last updated: 2026-05-07
 
@@ -7,16 +7,18 @@ Maintenance: When revising this doc you must follow instructions in
 
 ## Overview
 
-**docspec** is a format specification for declaring, mirroring, addressing,
+**docref** is a format specification for declaring, mirroring, addressing,
 and retrieving knowledge documents — agent guidelines, shortcuts, templates,
 references, source-code repos, and other reusable doc-shaped content — from a
 mix of local and remote sources.
 
 It defines:
 
-1. A **docspec URI** — a single string that addresses any source or item
-   (a local path, a web URL, a file in a GitHub repo, a directory in a generic
-   git remote, etc.).
+1. A **docref** — a single string that addresses any source or item.
+   The grammar mixes URI-style schemed forms (`https:`, `github:`, `git:`)
+   with bare filesystem paths (`./foo`, `/abs/path`) and short index
+   forms (canonical keys, basenames, aliases). Borrows from npm/pip's
+   "package specifier" tradition rather than being a strict RFC 3986 URI.
 2. A **manifest schema** — the YAML shape that declares an ordered list of
    sources, how they should be filtered, and how they map to consumer-defined
    doc types.
@@ -35,35 +37,38 @@ reads YAML. tbd embeds the implementation today; the format itself is
 designed to be extractable as a separate library or CLI later without a
 breaking change.
 
-**Scope:** This document defines the format only — schemas, URI grammar,
-resolution algorithm, sync semantics. It does **not** define tbd-specific
-workflows (overrides, eject, roundtrip, doc-type-as-CLI-command), which live
-in [plan-2026-05-07-docs-config-redesign.md](../specs/active/plan-2026-05-07-docs-config-redesign.md).
+**Scope:** This document defines the format only — schemas, docref
+grammar, resolution algorithm, sync semantics. It does **not** define
+tbd-specific workflows (overrides, eject, roundtrip,
+doc-type-as-CLI-command), which live in
+[plan-2026-05-07-docs-config-redesign.md](../../../docs/project/specs/active/plan-2026-05-07-docs-config-redesign.md).
 
 **Related Documents:**
 
-- [plan-2026-05-07-docs-config-redesign.md](../specs/active/plan-2026-05-07-docs-config-redesign.md)
+- [plan-2026-05-07-docs-config-redesign.md](../../../docs/project/specs/active/plan-2026-05-07-docs-config-redesign.md)
   — the implementation spec that consumes this format
-- [tbd-design.md](../../../packages/tbd/docs/tbd-design.md) — overall tbd
-  architecture
+- [tbd-design.md](./tbd-design.md) — overall tbd architecture
 
 ## Terminology
 
-- **docspec URI** (or just **docspec**): a single URI string addressing a
-  source or item.
+- **docref**: a string that points to a doc or to a source of docs.
+  The grammar admits multiple forms (Section 1): URI-shaped schemed
+  references (`https:`, `github:`, `git:`), bare filesystem paths
+  (`./`, `/`), canonical keys (`<bundle>:<type>/<name>`), basenames,
+  and aliases. Some forms are valid only as **source docrefs** in the
+  manifest; some only as **lookup docrefs** in CLI queries; some are
+  valid in both contexts.
 - **source**: an entry in the manifest declaring one origin (a local
-  directory, a git repo, a URL, etc.).
+  directory, a git repo, a URL, etc.). Identified by its source docref.
 - **bundle**: a user-visible name attached to a source. Used as the prefix
   in canonical keys and as the directory name where mirrored content lands.
   One source = one bundle.
 - **doc type**: a consumer-defined classification of a doc (e.g.,
   `guideline`, `shortcut`, `template`, `reference`). Doc types are
   config-driven, not hardcoded by the format.
-- **docref**: a user-supplied query string identifying an item in the
-  index. Can be a fully qualified canonical key, a basename, an alias, or
-  a bundle-scoped short form.
 - **canonical key**: the fully qualified, globally-unique address of an
   item: `<bundle>:<type>/<name>` (or `<bundle>` for a whole-repo source).
+  A canonical key is one valid form of a lookup docref.
 - **manifest**: the YAML file (or section) declaring `sources`, `doc_types`,
   and related fields.
 - **lockfile**: the YAML file pinning the resolved state of each remote
@@ -75,7 +80,7 @@ in [plan-2026-05-07-docs-config-redesign.md](../specs/active/plan-2026-05-07-doc
 The manifest carries a version identifier:
 
 ```yaml
-format: docspec/0.1
+format: docref/0.1
 ```
 
 Tools must recognize the format identifier and refuse to parse manifests
@@ -85,15 +90,22 @@ backward-compatible additions; major bumps (`0.1` → `1.0`) may break.
 Unknown fields in a known-major manifest are ignored for forward
 compatibility.
 
-## 1. docspec URI
+## 1. docref Grammar
 
-A docspec URI is a single string that addresses a source or an item within
-a source. Every reference in the format is a docspec — there are no special
+A docref is a single string that addresses a source or an item within a
+source. Every reference in the format is a docref — there are no special
 cases.
 
-### 1.1 Schemes
+A docref is **not** strictly an RFC 3986 URI. URI-shaped schemed forms
+(`https:`, `github:`, `git:`) are valid docrefs, but so are bare
+filesystem paths (`./foo`, `/abs/path`) and short index forms used as
+lookup queries (canonical keys, basenames, aliases). The model follows
+npm's "package specifier" tradition rather than a strict URI grammar.
 
-A docspec begins with one of the following scheme markers:
+### 1.1 Source-form prefixes
+
+When a docref appears in the manifest as a source address, it must begin
+with one of the following prefix markers:
 
 | Prefix | Meaning |
 |---|---|
@@ -103,8 +115,9 @@ A docspec begins with one of the following scheme markers:
 | `github:` | A reference into a GitHub repository |
 | `git:` | A reference into any git remote (GitLab, Bitbucket, self-hosted, etc.) |
 
-Any other input is a parse error. **Bare relative paths without `./`
-are forbidden** — `guidelines/foo.md` must be written `./guidelines/foo.md`.
+Any other input as a source docref is a parse error. **Bare relative
+paths without `./` are forbidden** — `guidelines/foo.md` must be written
+`./guidelines/foo.md`.
 This eliminates ambiguity with future schemes.
 
 Reserved for future use (must be rejected today, but the prefix space is
@@ -135,9 +148,9 @@ https://docs.example.org/intro.html
   other formats are cached as-is.
 - Single-file only — `glob` and `ignore` fields don't apply.
 - An `https://github.com/...` URL is **automatically normalized** to a
-  `github:` docspec (see 1.6).
+  `github:` docref (see 1.6).
 
-### 1.4 GitHub docspecs
+### 1.4 GitHub docrefs
 
 ```
 github:owner/repo[@ref][//path]
@@ -166,7 +179,7 @@ The `@` separator and `//` path-prefix borrow conventions from established
 ecosystems (`@ref` from GitHub Actions, `//path` from Terraform, the
 `github:` prefix from package managers) — readable and parseable by humans.
 
-### 1.5 Generic git docspecs
+### 1.5 Generic git docrefs
 
 ```
 git:<remote>[@ref][//path]
@@ -185,12 +198,12 @@ Parsing rule: the remote URL ends at the first `@` that follows `.git` (or
 at end of string if no ref). This disambiguates the `@` in SSH URLs
 (`git@host`) from the `@ref` separator.
 
-If a `git:` docspec points at `github.com`, it is normalized to a `github:`
-docspec.
+If a `git:` docref points at `github.com`, it is normalized to a `github:`
+docref.
 
 ### 1.6 Input normalization
 
-Several common URL forms auto-normalize to canonical docspec form. Tools
+Several common URL forms auto-normalize to canonical docref form. Tools
 must apply these on parse so the manifest and lockfile always store
 canonical forms.
 
@@ -235,7 +248,7 @@ standalone tool it would live in a dedicated `docs.yml` (or similar) file.
 
 ```yaml
 docs:
-  format: docspec/0.1
+  format: docref/0.1
 
   doc_types:
     - { name: shortcut,  dir: shortcuts,  command: shortcut }
@@ -244,19 +257,19 @@ docs:
     - { name: reference, dir: references, command: reference }
 
   sources:
-    - docspec: ./docs/agent/
+    - docref: ./docs/agent/
       bundle: proj
 
-    - docspec: github:jlevy/coding-guidelines@main
+    - docref: github:jlevy/coding-guidelines@main
       bundle: coding
 
-    - docspec: github:jlevy/writing-guidelines@main
+    - docref: github:jlevy/writing-guidelines@main
       bundle: writing
       contents:
         - { path: docs/style/, type: guideline }
         - { path: docs/refs/,  type: reference }
 
-    - docspec: https://example.com/foo.md
+    - docref: https://example.com/foo.md
       bundle: misc
       type: guideline
       as: foo
@@ -285,7 +298,7 @@ wins.
 
 **Required:**
 
-- `docspec` (string) — a valid docspec URI (Section 1).
+- `docref` (string) — a valid source docref (Section 1.1).
 - `bundle` (string) — the bundle name. Required for remote sources;
   optional for local sources (defaults to `local`). Lowercase letters,
   digits, and hyphens; 1–32 chars.
@@ -338,7 +351,7 @@ when you want to filter / rename / span multiple upstream paths into one
 doc type, use the explicit `contents` list:
 
 ```yaml
-- docspec: github:jlevy/writing-guidelines@main
+- docref: github:jlevy/writing-guidelines@main
   bundle: writing
   contents:
     - { path: docs/style/, type: guideline }
@@ -366,9 +379,9 @@ Resolution rules:
 ### 2.5 Bundle name auto-suggestion
 
 When a user adds a source via CLI, the implementation should suggest a
-bundle name derived from the docspec:
+bundle name derived from the docref:
 
-| docspec | Suggested bundle |
+| docref | Suggested bundle |
 |---|---|
 | `./docs/agent/` | `local` (or `proj`, see consumer policy) |
 | `github:jlevy/coding-guidelines@main` | `coding-guidelines` |
@@ -396,10 +409,10 @@ state for reproducible installs.
 
 ```yaml
 # docs.lock.yml — generated, do not hand-edit
-format: docspec/0.1
+format: docref/0.1
 
 sources:
-  - docspec: github:jlevy/coding-guidelines@main
+  - docref: github:jlevy/coding-guidelines@main
     revision: a1b2c3d4e5f67890abcdef1234567890abcdef12
     hash: sha256:9f86d081884c7d659a2feaa0c55ad015a3bf4f1b1234567890abcdef12345678
     materialization:
@@ -407,7 +420,7 @@ sources:
       depth: 1
     synced_at: 2026-05-07T10:00:00Z
 
-  - docspec: https://example.com/foo.md
+  - docref: https://example.com/foo.md
     hash: sha256:3e864103...
     etag: '"3e86-410-3596fbbc"'
     materialization:
@@ -420,7 +433,7 @@ sources:
 
 **git sources (`github:`, `git:`):**
 
-- `docspec` — the docspec from the manifest.
+- `docref` — the docref from the manifest.
 - `revision` — full SHA of the resolved commit.
 - `hash` — content hash of the cached tree.
 - `materialization.kind` — `git-shallow` or `git-full`.
@@ -429,7 +442,7 @@ sources:
 
 **Web URL sources (`https:`, `http:`):**
 
-- `docspec` — the docspec.
+- `docref` — the docref.
 - `hash` — content hash of the fetched resource.
 - `etag` — HTTP ETag for conditional re-fetch (optional).
 - `materialization.kind` — `fetched-file`.
@@ -456,7 +469,7 @@ with another item's. Generated by `build`.
 
 ```yaml
 # docs/map.yml — generated
-format: docspec/0.1
+format: docref/0.1
 built: 2026-05-07T10:00:00Z
 
 documents:
@@ -509,13 +522,24 @@ references like library source code.
 
 ## 5. Item Addressing and Resolution
 
-The format has two complementary address types:
+A docref has two complementary uses, sharing one grammar:
 
-- **docspec** addresses a *source* (Section 1) — used in the manifest.
-- **docref** addresses an *item in the index* — used in CLI commands and
-  programmatic lookups.
+- **Source docrefs** appear in the manifest's `docref:` field — they
+  address a *source* (where to fetch from). Resolved by sync. Their
+  valid forms are the source-form prefixes in Section 1.1
+  (`./`, `/`, `https:`, `github:`, `git:`).
+- **Lookup docrefs** appear as CLI arguments and programmatic lookup
+  queries — they address an *indexed item* (which item to retrieve).
+  Resolved by the algorithm in Section 5.3. Their valid forms are
+  listed in Section 5.2 (canonical keys, basenames, aliases,
+  repo-subpaths).
 
-The resolution chain: **docref → canonical key → docspec + path on disk**.
+A few forms are valid in both contexts (notably the URI-shaped schemed
+forms — pointing at one specific upstream file). Most forms are
+unambiguous: `./local-dir/` only makes sense as a source; a bare
+basename like `typescript-rules` only makes sense as a lookup query.
+
+The lookup chain: **docref → canonical key → on-disk path**.
 
 ### 5.1 Canonical keys
 
@@ -547,9 +571,9 @@ Canonical keys must be globally unique across the index. If two sources
 would produce the same canonical key, `build` fails with a config error
 identifying both.
 
-### 5.2 Docref grammar
+### 5.2 Lookup-form docrefs
 
-A docref is one of:
+A lookup-form docref is one of:
 
 | Form | Example | Meaning |
 |---|---|---|
@@ -678,7 +702,7 @@ For tbd's specific embedding:
 
 Errors fall into five classes; implementations should distinguish them:
 
-1. **Config errors** — invalid manifest YAML, unknown docspec scheme,
+1. **Config errors** — invalid manifest YAML, unknown docref scheme,
    unknown `format` version, missing required field. Block all
    operations.
 2. **Sync errors** — clone/fetch failure, ref not found, HTTP non-2xx,
@@ -697,7 +721,7 @@ specific reason, and a suggested fix when applicable ("run `sync`",
 
 ## 9. Versioning and Stability
 
-- `docspec/0.1` is the initial draft. Breaking changes are allowed
+- `docref/0.1` is the initial draft. Breaking changes are allowed
   before `1.0`.
 - Future minor versions (`0.2`, `0.3`) add fields without breaking
   existing manifests.
@@ -720,7 +744,7 @@ of the core format but are documented here for cross-reference:
   map, lockfile, and divergence detection. (G6.)
 - **Bundle-scoped `tbd shortcut --bundle <name>`** filter on listings.
 
-A standalone `docspec` tool would expose the format primitives directly
-(`docspec sync`, `docspec build`, `docspec resolve <docref>`, `docspec get
+A standalone `docref` tool would expose the format primitives directly
+(`docref sync`, `docref build`, `docref resolve <docref>`, `docref get
 <docref>`) without these tbd-specific workflows. The two layers are
 designed to compose cleanly.
