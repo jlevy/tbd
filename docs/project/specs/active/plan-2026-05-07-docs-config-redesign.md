@@ -184,6 +184,56 @@ security bugs, and means private-source support arrives the moment the
 underlying tool's auth works in the user's environment — no tbd changes
 required.
 
+### G14. Bundles as the first-class organizing unit
+
+Every doc belongs to exactly one **bundle**. A bundle represents an
+ownership / origin grouping: a GitHub repo, a website domain, an internal
+team's doc set, the core that ships with tbd, or `local` for
+project-specific docs that don't live anywhere else. Bundles are
+user-visible everywhere docs surface — `tbd doc status`, `tbd shortcut
+--list`, the on-disk cache layout under `.tbd/docs/<bundle>/`, the
+config, and provenance metadata.
+
+Bundles drive:
+
+- **Listing and filtering** (`tbd doc status --bundle acme`,
+  `tbd shortcut --bundle proj`)
+- **Override semantics** (a doc in a higher-priority bundle shadows a
+  doc with the same name in a lower-priority bundle — this is exactly
+  G4's mechanism, expressed in bundle terms)
+- **Provenance display** (G10 metadata is bundle-scoped: which bundle,
+  which ref within that bundle, which upstream path)
+- **Status output** (G6: organize by bundle, then by doc, then state)
+
+Within a bundle, the upstream source's layout can be anything — a source
+config maps which upstream paths to mirror. The **landed** layout under
+`.tbd/docs/<bundle>/` is canonical:
+`<bundle>/<doc-type-folder>/<name>.md` (e.g.,
+`.tbd/docs/acme/guidelines/python-rules.md`). Doc-type folders
+(`guidelines/`, `shortcuts/`, etc.) are the only layout convention that
+matters; everything above the doc-type folder is bundle-flat.
+
+Bundles are 1:1 with sources in the schema (one source = one bundle),
+and the bundle name is the source's identifier. This unifies what
+PR #87 called "prefix" with the higher-level ownership concept the user
+actually reasons about.
+
+### G15. Bundle names auto-suggested at add time, explicit, previewable before commit
+
+Adding a source proposes a bundle name derived from the source URL or
+path:
+
+- `github:acme/docs` → `acme-docs` (or `acme/docs`, TBD on slashes)
+- `https://example.com/foo.md` → `example-com`
+- A local source in `docs/agent/` → `local` (the default for local
+  sources unless multiple exist)
+
+The user can override with explicit `--bundle <name>`. Before the
+config change is persisted, `tbd source add` prints a preview of the
+pending change — which bundle name, which docs would land where, what
+will be added to `.gitignore` — so the user can review before any sync
+runs. This makes adding a mirrored source low-risk and reversible.
+
 ## Non-Goals
 
 - Real-time / webhook-driven sync. Sync remains explicit (`tbd sync --docs`)
@@ -279,65 +329,47 @@ the right direction; this spec is a re-cut that finishes it.
 
 ## Design
 
-This section presents three candidate approaches at increasing levels of
-ambition, then makes a recommendation. The point is to surface the tradeoffs
-clearly before committing.
+The design is **one ordered list of sources, one bundle per source, four
+source types, no parallel `files` or `lookup_path` machinery, and doc
+types as data**. PR #87's direction was right; this is the same idea
+finished — with the override / promotion / roundtrip workflows that
+PR #87 didn't build, and without the three coexisting compatibility
+layers that produced PR #87's twelve bug-fix commits.
 
-### Approach A: Finish PR #87 as-designed
+A deferred future direction (fully pluggable source-type providers) is
+also sketched below to confirm it's not the right starting target.
 
-**Shape.** Merge PR #87, complete the `repo` type sync wiring, implement the
-already-designed `local` type with stub pointers, add a `tbd source eject`
-command to copy a mirrored doc into a local override.
+### Schema and source types
 
-**Pros.**
-- Smallest delta from existing state. ~80% of the code is already written.
-- Lowest review/migration risk — the f04 migration already exists and is
-  tested.
-
-**Cons.**
-- Carries forward all three of `sources` / `files` / `lookup_path`. The
-  zombie class likely keeps producing bugs.
-- Stub-pointer local sources are confusing (a `.md` file in the cache that
-  isn't really the doc).
-- Doc-type registry is still a code-level closed enum.
-- G4/G5/G8 still need to be added on top — no smaller than option B for
-  those.
-
-**Verdict.** Pragmatic if we want to ship fast. But the schema cleanup we'd
-defer is real technical debt, and the spec already counts 12 bug fixes against
-it.
-
-### Approach B (recommended): Unified ordered source list, clean f05 schema
-
-**Shape.** One concept does what three currently do.
+One concept does what three currently do.
 
 ```yaml
 tbd_format: f05
 docs_cache:
   sources:
-    # Bundled: ships with the tbd npm package; contents known at build time
-    - { type: bundled, prefix: sys,  hidden: true }
-    - { type: bundled, prefix: tbd }
+    # builtin: ships with the tbd npm package; contents known at build time.
+    # (Source type is named "builtin" to avoid term-collision with "bundle".)
+    - { type: builtin, bundle: sys,  hidden: true }
+    - { type: builtin, bundle: tbd }
 
-    # Local: a tracked directory in the repo. DocCache reads it directly.
+    # local: a tracked directory in the repo. DocCache reads it directly.
     # Use this for project-specific docs (G2) AND for overrides (G4).
-    - { type: local,   prefix: proj, path: docs/agent }
+    - { type: local,   bundle: proj, path: docs/agent }
 
-    # Git: sparse-checked-out external repo, gitignored cache (G3, G9)
-    - { type: git,     prefix: acme, url: github:acme/docs, ref: v1.2.0,
+    # git: sparse-checked-out external repo, gitignored cache (G3, G9).
+    - { type: git,     bundle: acme, url: github:acme/docs, ref: v1.2.0,
         include: [guidelines/, shortcuts/] }
 
-    # URL: rare per-file case (current --add=<url> use case)
-    - { type: url,     prefix: misc, files: { foo: "https://..." } }
+    # url: rare per-file case (current --add=<url> use case).
+    - { type: url,     bundle: misc, files: { foo: "https://..." } }
 
   # No `files:`. No `lookup_path:`. Order in `sources` IS the lookup order.
 ```
 
 **Lookup semantics.** Sources are searched in declared order. First match
-wins for unqualified names; qualified names (`acme:python-rules`) skip the
-priority order and target a specific source. This is identical to the PR #87
-prefix model but with no `files` override field — overrides are achieved by
-putting a `local` source higher in the list (G4).
+wins for unqualified names; qualified names (`acme:python-rules`) target
+a specific bundle and skip priority. Overrides are achieved by putting a
+`local` source higher in the list — there is no `overrides:` field (G4).
 
 **Doc types: directories, declared once.**
 
@@ -357,11 +389,11 @@ the named ones. (G7 met for real.)
 
 **Local sources are real directories, not stubs.** A `local` source's `path`
 is a tracked directory; DocCache reads it directly. `.tbd/docs/` only holds
-the *bundled* and *cached* content — it remains gitignored.
+the *builtin* and *cached* content — it remains gitignored.
 
 **Override is just priority.** No `overrides:` field. To override
 `acme:python-rules`, copy the file into `docs/agent/guidelines/python-rules.md`
-(the `proj` source's directory). It now wins because `proj` is listed before
+(the `proj` bundle's directory). It now wins because `proj` is listed before
 `acme`. (G4 met by the same mechanism that gives us local docs.)
 
 **Promotion command (G8).**
@@ -397,76 +429,56 @@ Walks sources in order, shows for each doc:
 - whether a local override diverges from cache (and by how much)
 
 **Provenance (G10).** Each cached doc gets a sidecar (or frontmatter
-augmentation, TBD) with `{ source_prefix, source_ref, source_path,
-fetched_at, content_hash }`.
+augmentation, TBD) with `{ bundle, source_ref, source_path, fetched_at,
+content_hash }`. `bundle` is the user-visible name; everything else is
+the bundle-internal addressing.
 
 **Migration (G11).** f03/f04 → f05 is a one-shot transformation:
 
 - f03 `files: { dest: internal:src }` rows are absorbed into synthetic
-  `sys` / `tbd` bundled sources.
-- f03 `files: { dest: https://... }` rows become a `url`-type source.
+  `sys` / `tbd` builtin sources.
+- f03 `files: { dest: https://... }` rows become a `url`-type source
+  (with auto-suggested bundle name from the URL host, per G15).
 - f03 `lookup_path` is dropped.
 - f04 `sources` is preserved with field renames (`type: 'internal'` →
-  `'bundled'`, `type: 'repo'` → `'git'`).
+  `'builtin'`, `type: 'repo'` → `'git'`, `prefix:` → `bundle:`).
 - The deprecated fields are deleted with no runtime fallback. If you don't
   migrate, the CLI errors with a clear "run `tbd doctor --fix`" message.
 
-**Pros.**
-- One concept, one mechanism. No zombie field class.
-- G2, G4, G7, G8 fall out naturally; G5/G6 are thin commands over git/gh.
-- Schema is small enough to fit on a screen.
-- Migration is a one-shot transform — no ongoing compat surface.
+### Deferred: pluggable source-type providers
 
-**Cons.**
-- Bigger delta from current state than A. Some PR #87 code (RepoCache,
-  format migration) carries over; some (the closed-type registry, the
-  stub-pointer local design) does not.
-- `bundled` source type means the CLI knows about a directory shipped in
-  the npm package; any pluggable bundle requires a `git` source instead.
-  Probably fine.
-- "Override = priority" is implicit. Newcomers may not realize a doc with
-  the same name in `proj` shadows one in `acme`. Mitigated by `tbd doc
-  status` and good error messages.
+Worth naming so it's not lost: a future direction is making source types
+themselves pluggable. A source-type provider would be a Node module (or
+external command) implementing `list(config) → docs[]` and `fetch(doc) →
+content`. Built-ins (`builtin`, `local`, `git`, `url`) ship with tbd;
+users register others (S3, GCS, custom internal stores) via config.
 
-### Approach C: Fully data-driven, source types as plugins
+This is significantly more design surface (caching, refs, content
+addressing, partial failure all need to be in the provider contract),
+plus the security and packaging footguns that come with plugin loading
+in a CLI tool. Most users don't need it. The current design keeps the
+option open — source types are an enum at first; opening to a registry
+later is a localized change. **Defer.**
 
-**Shape.** Like B, but source types are themselves pluggable. A source-type
-provider is a Node module (or external command) implementing a small
-contract: `list(config) → docs[]`, `fetch(doc) → content`. Built-ins
-(`bundled`, `local`, `git`, `url`) ship with tbd; users can register
-others (S3, GCS, custom internal stores) via config.
+### Decisions to confirm before implementation
 
-**Pros.**
-- Truly extensible. S3/GCS/Artifactory don't need a tbd code change.
-- Clean separation: source-type providers are just data adapters.
+The design above is the proposal. These specific choices are flagged so
+they can be confirmed (or pushed back on) before any code is written:
 
-**Cons.**
-- Significantly more design surface. The provider contract has to handle
-  caching, refs, content addressing, partial failure.
-- Most users don't need it. tbd is small and ships fast.
-- "Plugin loading from a CLI tool" is a known footgun (security, packaging,
-  Node module resolution).
-
-**Verdict.** Probably right *eventually*, but not the right starting target.
-Approach B keeps the option open: source types are an enum at first; opening
-to a registry later is a localized change. Defer.
-
-### Recommendation
-
-**Approach B**, with the following caveats explicitly called out for review
-before any code is written:
-
-- Confirm the four built-in source types (`bundled`, `local`, `git`, `url`)
-  are sufficient for the first cut. (S3/GCS deferred to Approach C, future.)
-- Confirm "override = priority in source list" rather than an explicit
-  `overrides:` field. (Simpler model; UX risk acknowledged.)
-- Confirm clean break with no `lookup_path` runtime fallback, only one-shot
-  migration (G11).
-- Confirm doc types live in config (`doc_types:`) rather than a code-level
+- The four built-in source types (`builtin`, `local`, `git`, `url`) are
+  sufficient for the first cut. S3/GCS/etc. wait for the deferred
+  pluggable-provider direction.
+- "Override = priority in source list" rather than an explicit
+  `overrides:` field. (Simpler model; UX risk acknowledged — mitigated
+  by `tbd doc status`.)
+- Clean break with no `lookup_path` runtime fallback (G11).
+- Doc types live in config (`doc_types:`) rather than a code-level
   registry, with built-in types seeded by `setup`.
-- Confirm the bundled doc set should mostly move out to a separate repo
-  (e.g. `github:jlevy/tbd-docs`), kept as a `git`-type source by default.
-  (G1.)
+- The builtin doc set mostly moves out to a separate repo (e.g.
+  `github:jlevy/tbd-docs`), kept as a `git`-type source by default
+  rather than a `builtin` source. (G1.)
+- Source type is named `builtin` (not `bundled`) so the type name
+  doesn't collide with the bundle concept (G14).
 
 ## Open Questions
 
@@ -483,23 +495,34 @@ These need resolution before the implementation spec.
    Frontmatter pollutes the doc but stays inline. Lean toward sidecars.
 4. **Atomic sync (G12) at what granularity?** Per source (all of acme or
    none) seems right, but per-doc-type may be acceptable.
-5. **Reserved prefixes.** `sys` and `tbd` are reserved. What else? `local`?
-   `cache`?
+5. **Reserved bundle names.** `sys` and `tbd` are reserved. What else?
+   `local`? `cache`? Should `local` be the always-on default bundle for
+   any local-source addition?
 6. **Override directory layout.** When `tbd source eject acme:python-rules`
-   runs, the local target is `docs/agent/guidelines/python-rules.md` (with
-   prefix `proj`). But what if there are multiple `local` sources? Pick
-   first writable, or require `--to <prefix>`?
-7. **Roundtrip auth boundary (G13).** Confirm tbd's failure messaging
+   runs, the local target is `docs/agent/guidelines/python-rules.md` (the
+   `proj` bundle's directory). What if there are multiple `local`
+   bundles? Pick first writable, or require `--to <bundle>`?
+7. **Bundle name auto-derivation rules.** What's the canonical mapping
+   from URL → bundle name? Examples: `github:acme/docs` → `acme-docs`?
+   `acme/docs`? `acme.docs`? `https://example.com/foo` → `example-com`
+   or `example.com`? Need a deterministic rule that's both readable and
+   safe as a directory name.
+8. **Bundle = source 1:1, or many sources per bundle?** Current design
+   is 1:1 (one source = one bundle). Is there a real use case for
+   multiple sources contributing to one bundle (e.g., two URL-type
+   sources both labeled `acme`)? Probably not, but worth confirming.
+9. **Roundtrip auth boundary (G13).** Confirm tbd's failure messaging
    contract: when a fetch or push fails because credentials aren't
    configured, the error names the underlying tool (`git`, `gh`, `aws`,
    etc.) and points at its own auth docs. tbd never prompts for or stores
    credentials.
-8. **Hidden vs visible sources.** Currently `sys` is hidden from `--list`.
-   Is `hidden: true` per source still the right knob, or should listing
-   filter by source-type / prefix?
-9. **Should `bundled` be a source type at all,** given the goal of moving
-   most bundled docs out? Maybe a single `core-bundled` source with no
-   user-visible shape, and everything else is `git`/`local`/`url`.
+10. **Hidden vs visible bundles.** Currently `sys` is hidden from
+    `--list`. Is `hidden: true` per source still the right knob, or
+    should listing filter by source-type / bundle?
+11. **Should `builtin` be a source type at all,** given the goal of
+    moving most built-in docs out? Maybe a single small `core` builtin
+    source with no user-visible shape, and everything else is
+    `git`/`local`/`url`.
 
 ## Implementation Plan
 
@@ -509,47 +532,52 @@ before building eject/roundtrip commands on top.
 ### Phase 1: New schema, source types, doc-type registry, migration
 
 - [ ] Define f05 `DocsCacheSchema` (Zod) with `sources` array, no
-  `files` / `lookup_path`. Source types: `bundled` | `local` | `git` | `url`.
+  `files` / `lookup_path`. Source types: `builtin` | `local` | `git` | `url`.
 - [ ] Define `doc_types` config block with built-in seeds.
 - [ ] Implement source resolution: walk `sources` in order, produce a
-  `(prefix, type, name) → file path` map.
+  `(bundle, type, name) → file path` map.
 - [ ] Replace `DocCache.lookupPath`-based logic with source-walking logic.
-  Qualified lookup `prefix:name` works.
+  Qualified lookup `bundle:name` works.
 - [ ] Implement source-type fetchers:
-  - `bundled` — read from package `dist/docs/`
+  - `builtin` — read from package `dist/docs/`
   - `local` — direct directory read (no copy)
   - `git` — port `RepoCache` from PR #87, completing the sparse-checkout
     update path; atomic swap on success
   - `url` — single-file fetch with `gh` fallback (port from current code)
 - [ ] One-shot migration f03/f04 → f05 in `tbd-format.ts`. No runtime
   compat: deprecated fields are deleted in the migration write.
-- [ ] `tbd source add/list/remove` for `git` and `url` source types.
-  `bundled` and `local` are managed by setup / config edits respectively.
-- [ ] Update `tbd setup` to seed default sources (likely `core-bundled`
-  + a default external `tbd-docs` git source — see open question 1).
+- [ ] `tbd source add/list/remove` for `git` and `url` source types,
+  with bundle-name auto-suggestion (G15) and a confirmation preview.
+  `builtin` and `local` are managed by setup / config edits respectively.
+- [ ] `tbd bundle list` / `tbd bundle show <name>` as bundle-oriented
+  views over the source list (G14).
+- [ ] Update `tbd setup` to seed default sources (likely a small
+  `builtin` core + a default external `tbd-docs` git source — see open
+  question 1).
 - [ ] Update `tbd sync --docs` to drive source-type fetchers.
 - [ ] Update `tbd doctor` checks to validate source health (clone exists,
   ref reachable, paths populated).
 - [ ] Provenance sidecars (or chosen alternative — see open question 3)
-  written by the cache pipeline.
+  written by the cache pipeline; bundle name is the user-visible field.
 - [ ] All existing doc commands (`tbd shortcut`, `tbd guidelines`,
   `tbd template`, `tbd reference`) work via the new resolution path.
   Generic `tbd doc <type> <name>` registered.
 - [ ] Tests: schema validation, migration golden tests for f03→f05 and
   f04→f05, source resolution unit tests, RepoCache integration tests
-  with a fixture repo, status output golden tests.
+  with a fixture repo, status output golden tests, bundle-name
+  auto-suggestion golden tests across URL shapes (G15).
 
 ### Phase 2: Override / promotion / roundtrip workflows
 
-- [ ] `tbd source eject <prefix:name> [--to <local-prefix>]` — copy
-  cached doc into a local source dir, `git add`.
-- [ ] `tbd source diff <prefix:name>` — diff local override vs cached
+- [ ] `tbd source eject <bundle:name> [--to <local-bundle>]` — copy
+  cached doc into a local bundle's dir, `git add`.
+- [ ] `tbd source diff <bundle:name>` — diff local override vs cached
   upstream content.
-- [ ] `tbd source upstream <prefix:name>` — for `git`-type sources with a
+- [ ] `tbd source upstream <bundle:name>` — for `git`-type sources with a
   GitHub URL, open a PR upstream via `gh`. For other source types: print
   the patch with instructions. Document the contract for non-GitHub git
   sources clearly.
-- [ ] `tbd source unfork <prefix:name>` — delete local override after
+- [ ] `tbd source unfork <bundle:name>` — delete local override after
   upstream merge; next sync re-pulls upstream.
 - [ ] `tbd doc status [name]` — show provenance, shadow state, staleness,
   divergence for a single doc or all docs.
@@ -559,7 +587,7 @@ before building eject/roundtrip commands on top.
 ## Testing Strategy
 
 - **Unit:** schema validation, parser/migrator (f03/f04→f05), source
-  resolution, prefix collision handling, `parseQualifiedName`.
+  resolution, bundle-name collision handling, `parseQualifiedName`.
 - **Integration:** RepoCache against a local bare-repo fixture; full
   sync cycle with mixed source types.
 - **Golden / tryscript:** existing doc-command tryscripts updated; new
