@@ -269,7 +269,7 @@ Run `tbd guidelines <name>` to apply any of these guidelines:
 | python-modern-guidelines | Guidelines for modern Python projects using uv, with a few more opinionated practices |
 | python-rules | General Python coding rules and best practices |
 | release-notes-guidelines | Guidelines for writing clear, accurate release notes |
-| std-doc-guidelines |  |
+| std-doc-guidelines | General guidelines for writing and organizing code, documentation, and text files for humans and AI agents |
 | tbd-sync-troubleshooting | Common issues and solutions for tbd sync and workspace operations |
 | typescript-cli-tool-rules | Rules for building CLI tools with Commander.js, picocolors, and TypeScript |
 | typescript-code-coverage | Best practices for code coverage in TypeScript with Vitest and v8 provider |

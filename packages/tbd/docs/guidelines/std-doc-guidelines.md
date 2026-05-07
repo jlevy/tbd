@@ -1,3 +1,8 @@
+---
+title: Standard Documentation Guidelines
+description: General guidelines for writing and organizing code, documentation, and text files for humans and AI agents
+author: Joshua Levy (github.com/jlevy)
+---
 # Standard Documentation Guidelines
 
 Version: v0.3 (last update 2026-05-05)\
@@ -210,4 +215,3 @@ Rules:
 <!-- This document follows std-doc-guidelines.md.
 Review guidelines before editing.
 -->
-
