@@ -285,6 +285,30 @@ matches a known doc-type folder (`guidelines/`, `shortcuts/`, etc.)
 auto-maps to that type. Anything else needs an explicit mapping rule.
 See the schema design below for the syntax.
 
+### G18. Format spec is an extractable, reusable artifact
+
+The format that defines docspec URIs, the source manifest, the lockfile,
+the doc map, and the resolution algorithm is **not tbd-specific**. It
+lives as its own architecture document inside tbd
+([arch-docspec-format.md](../../architecture/current/arch-docspec-format.md))
+under the umbrella name **docspec** (version `docspec/0.1`).
+
+This separation has two motivations:
+
+- **Modularity.** Other tools could read a docspec manifest without
+  depending on tbd. If we eventually want a standalone `docspec` CLI or
+  library — or want another tool to interoperate with tbd's docs — the
+  format is already factored out.
+- **Discipline.** Keeping format-level concerns (URI grammar, schemas,
+  resolution algorithm, sync semantics) out of tbd-specific concerns
+  (overrides, eject, roundtrip, doc-type-as-CLI-command) prevents the
+  layered-mechanism creep that produced PR #87's twelve bug-fix commits.
+
+tbd is the first consumer of the format and its concrete extensions
+(eject, diff, upstream, unfork, doc-type-to-CLI dispatch) are layered on
+top. Other consumers — present or future — would only need to implement
+the format primitives.
+
 ## Non-Goals
 
 - Real-time / webhook-driven sync. Sync remains explicit (`tbd sync --docs`)
@@ -392,98 +416,101 @@ also sketched below to confirm it's not the right starting target.
 
 ### Schema and source types
 
-One concept does what three currently do.
+The schema, URI grammar, lockfile, doc map, and resolution algorithm are
+defined in their own architecture document:
+[arch-docspec-format.md](../../architecture/current/arch-docspec-format.md).
+This plan-spec uses that format and focuses on tbd-specific workflows
+layered on top. A summary follows for context; the format spec is
+authoritative.
+
+The manifest lives inline in `.tbd/config.yml` under `docs:`. One concept
+(an ordered list of sources, addressed by docspec URIs) does what three
+currently do.
 
 ```yaml
 tbd_format: f05
-docs_cache:
+docs:
+  format: docspec/0.1
+
+  doc_types:
+    - { name: shortcut,  dir: shortcuts,  command: shortcut }
+    - { name: guideline, dir: guidelines, command: guidelines }
+    - { name: template,  dir: templates,  command: template }
+    - { name: reference, dir: references, command: reference }
+
   sources:
-    # builtin: ships with the tbd npm package; contents known at build time.
-    # (Source type is named "builtin" to avoid term-collision with "bundle".)
-    - { type: builtin, bundle: sys,  hidden: true }
-    - { type: builtin, bundle: tbd }
+    # tbd-internal core (ships with the npm package). A small builtin
+    # source seeded by `tbd setup`.
+    - docspec: ./packages/tbd/docs/core/
+      bundle: sys
+      hidden: true
 
-    # local: a tracked directory in the repo. DocCache reads it directly.
-    # Use this for project-specific docs (G2) AND for overrides (G4).
-    - { type: local,   bundle: proj, path: docs/agent }
+    # Project-local: a tracked directory in the repo. Read directly,
+    # no copy. Doubles as the home for shadcn-style local overrides
+    # (G4). G2.
+    - docspec: ./docs/agent/
+      bundle: proj
 
-    # git: sparse-checked-out external repo, gitignored cache (G3, G9).
-    # `contents` maps upstream paths to doc types. Upstream repos need
-    # no tbd-specific format (G16); the consumer config does the mapping.
-    - type: git
+    # External git source — auto-detects subdirectories matching
+    # known doc-type folders (G16, G17). Pinned to a tag for
+    # reproducibility (G9).
+    - docspec: github:jlevy/coding-guidelines@main
       bundle: coding
-      url: github:jlevy/coding-guidelines
-      ref: main
-      contents:
-        # Auto-detect: any subdir whose name matches a known doc-type
-        # folder maps to that type. So with no explicit `contents`, an
-        # upstream `guidelines/` folder lands as type `guideline`.
-        - auto
 
-    # git source with explicit mapping (when upstream layout doesn't
-    # match conventions, or to filter / rename / span multiple types).
-    - type: git
+    # Same shape, but with an explicit `contents` mapping when the
+    # upstream layout doesn't match the convention.
+    - docspec: github:jlevy/writing-guidelines@main
       bundle: writing
-      url: github:jlevy/writing-guidelines
-      ref: main
       contents:
-        - { path: docs/style/,     type: guideline }
-        - { path: docs/refs/,      type: reference }
-        - { path: snippets/,       type: shortcut  }
-        - { path: README.md,       type: reference, as: writing-overview }
+        - { path: docs/style/, type: guideline }
+        - { path: docs/refs/,  type: reference }
+        - { path: snippets/,   type: shortcut  }
+        - { path: README.md,   type: reference, as: writing-overview }
 
-    # url: rare per-file case (current --add=<url> use case).
-    - type: url
+    # Per-URL one-off (current --add=<url> use case).
+    - docspec: https://example.com/foo.md
       bundle: misc
-      contents:
-        - { url: "https://...", type: guideline, as: foo }
+      type: guideline
+      as: foo
 
   # No `files:`. No `lookup_path:`. Order in `sources` IS the lookup order.
 ```
+
+The four scheme prefixes (`./`, `https:`, `github:`, `git:`) replace the
+earlier sketch's `type:` discriminator. The scheme determines how the
+source is fetched. (The earlier `type: builtin` is just a `./` docspec
+pointing at a path inside the npm package.)
 
 **Lookup semantics.** Sources are searched in declared order. First match
 wins for unqualified names; qualified names (`coding:typescript`) target
 a specific bundle and skip priority. Overrides are achieved by putting a
 `local` source higher in the list — there is no `overrides:` field (G4).
 
-**Upstream layout flexibility (G16, G17).** The `contents` field is the
-**consumer's** description of how upstream files map onto doc types.
-Two modes:
+**Upstream layout flexibility (G16, G17).** Without `contents`,
+auto-detection walks the upstream tree and matches subdirectory names
+against the `doc_types:` registry (e.g., upstream `guidelines/` → type
+`guideline`). With `contents`, explicit `{ path, type, as? }` rules pick
+upstream paths/globs and assign types, optionally renaming. Either way,
+the **landed** layout under `.tbd/docs/<bundle>/` is canonical:
+`<bundle>/<doc-type-folder>/<name>.md`.
 
-- `- auto`: walk the upstream tree; any subdirectory whose name matches
-  a known doc-type folder (per the `doc_types:` registry) contributes
-  docs of that type. Files at the root or in unmatched subdirs are
-  ignored. This is the zero-config path for repos that follow the
-  convention.
-- Explicit mapping rules (`{ path, type, as? }` entries): each rule
-  picks an upstream path or glob and assigns it a doc type, optionally
-  renaming via `as`. Use this when the upstream layout doesn't match
-  conventions, or to be selective.
-
-Either way, the **landed** layout under `.tbd/docs/<bundle>/` is
-canonical: `<bundle>/<doc-type-folder>/<name>.md`. Upstream is a bag
-of files; the consumer's config classifies them; tbd writes them to
-the canonical local layout.
-
-**Doc types: directories, declared once.**
+**Doc types are config-driven, not hardcoded** (G7). Built-in types
+(`shortcut`, `guideline`, `template`, `reference`) are seeded by
+`tbd setup` into `doc_types:`. Adding a new type — say `playbook` — is
+just appending a row:
 
 ```yaml
-doc_types:
-  - { name: shortcut,   dir: shortcuts,   command: shortcut }
-  - { name: guideline,  dir: guidelines,  command: guidelines }
-  - { name: template,   dir: templates,   command: template }
-  - { name: reference,  dir: references,  command: reference }
-  # User adds:
-  - { name: playbook,   dir: playbooks,   command: playbook }
+- { name: playbook, dir: playbooks, command: playbook }
 ```
 
-Built-in types are seeded by `tbd setup`. Adding a new type means adding a
-row here; the CLI generates a generic `tbd doc <type> <name>` and aliases
-the named ones. (G7 met for real.)
+The CLI dispatches `tbd doc <type> <name>` to a generic handler and
+aliases the named types as their own subcommands. Format spec
+[§2.2](../../architecture/current/arch-docspec-format.md#22-doc_types)
+defines the schema.
 
-**Local sources are real directories, not stubs.** A `local` source's `path`
-is a tracked directory; DocCache reads it directly. `.tbd/docs/` only holds
-the *builtin* and *cached* content — it remains gitignored.
+**Local sources are real directories, not stubs.** A `./docs/agent/`
+docspec is a tracked directory read directly by DocCache. `.tbd/docs/`
+only holds *builtin* and *cached* content — it remains gitignored.
 
 **Override is just priority.** No `overrides:` field. To override
 `acme:python-rules`, copy the file into `docs/agent/guidelines/python-rules.md`
@@ -529,50 +556,58 @@ the bundle-internal addressing.
 
 **Migration (G11).** f03/f04 → f05 is a one-shot transformation:
 
-- f03 `files: { dest: internal:src }` rows are absorbed into synthetic
-  `sys` / `tbd` builtin sources.
-- f03 `files: { dest: https://... }` rows become a `url`-type source
-  (with auto-suggested bundle name from the URL host, per G15).
+- f03 `files: { dest: internal:src }` rows are absorbed into a synthetic
+  source whose docspec is `./packages/tbd/docs/core/` (or moved to an
+  external `github:jlevy/tbd-docs` git source — see decisions below).
+- f03 `files: { dest: https://... }` rows become per-URL `https:`
+  docspec sources (with auto-suggested bundle name from the URL host,
+  per G15).
 - f03 `lookup_path` is dropped.
-- f04 `sources` is preserved with field renames (`type: 'internal'` →
-  `'builtin'`, `type: 'repo'` → `'git'`, `prefix:` → `bundle:`).
-- The deprecated fields are deleted with no runtime fallback. If you don't
-  migrate, the CLI errors with a clear "run `tbd doctor --fix`" message.
+- f04 `sources` array is rewritten: the `type:` discriminator is replaced
+  by a `docspec:` URI (`type: 'internal'` + bundled path → `./...`
+  docspec; `type: 'repo'` + url + ref → `github:owner/repo@ref` docspec),
+  and `prefix:` is renamed to `bundle:`.
+- The deprecated fields are deleted with no runtime fallback. If you
+  don't migrate, the CLI errors with a clear "run `tbd doctor --fix`"
+  message.
 
-### Deferred: pluggable source-type providers
+### Deferred: pluggable source schemes
 
-Worth naming so it's not lost: a future direction is making source types
-themselves pluggable. A source-type provider would be a Node module (or
-external command) implementing `list(config) → docs[]` and `fetch(doc) →
-content`. Built-ins (`builtin`, `local`, `git`, `url`) ship with tbd;
-users register others (S3, GCS, custom internal stores) via config.
+Worth naming so it's not lost: a future direction is making the docspec
+scheme set itself pluggable. A scheme provider would be a Node module (or
+external command) implementing `list(source) → docs[]` and `fetch(doc) →
+content`. Built-in schemes (`./`, `https:`, `github:`, `git:`) ship with
+tbd; users could register others (`s3:`, `gs:`, custom internal stores)
+via config.
 
 This is significantly more design surface (caching, refs, content
 addressing, partial failure all need to be in the provider contract),
 plus the security and packaging footguns that come with plugin loading
 in a CLI tool. Most users don't need it. The current design keeps the
-option open — source types are an enum at first; opening to a registry
-later is a localized change. **Defer.**
+option open — the scheme set is an enum at first; opening to a registry
+later is a localized change. **Defer.** The format spec
+[§1.8](../../architecture/current/arch-docspec-format.md#18-extensibility)
+calls out the scheme prefix as the extension point.
 
 ### Decisions to confirm before implementation
 
 The design above is the proposal. These specific choices are flagged so
 they can be confirmed (or pushed back on) before any code is written:
 
-- The four built-in source types (`builtin`, `local`, `git`, `url`) are
-  sufficient for the first cut. S3/GCS/etc. wait for the deferred
-  pluggable-provider direction.
+- The four built-in docspec schemes (`./`, `https:`, `github:`, `git:`)
+  are sufficient for the first cut. `s3:`/`gs:`/etc. wait for the
+  deferred pluggable-scheme direction.
 - "Override = priority in source list" rather than an explicit
   `overrides:` field. (Simpler model; UX risk acknowledged — mitigated
   by `tbd doc status`.)
 - Clean break with no `lookup_path` runtime fallback (G11).
 - Doc types live in config (`doc_types:`) rather than a code-level
   registry, with built-in types seeded by `setup`.
-- The builtin doc set mostly moves out to a separate repo (e.g.
-  `github:jlevy/tbd-docs`), kept as a `git`-type source by default
-  rather than a `builtin` source. (G1.)
-- Source type is named `builtin` (not `bundled`) so the type name
-  doesn't collide with the bundle concept (G14).
+- The bundled doc set mostly moves out to a separate repo (e.g.
+  `github:jlevy/tbd-docs`), kept as a `github:`-scheme source by
+  default rather than a local `./` source. (G1.)
+- Format identifier is `docspec/0.1`; the format itself is documented
+  as a separable artifact (G18, see arch-docspec-format.md).
 
 ## Open Questions
 
@@ -636,46 +671,57 @@ These need resolution before the implementation spec.
 Two phases. Splitting purely so we can validate the schema and migration
 before building eject/roundtrip commands on top.
 
-### Phase 1: New schema, source types, doc-type registry, migration
+### Phase 1: New schema, docspec parser, doc-type registry, sync, migration
 
-- [ ] Define f05 `DocsCacheSchema` (Zod) with `sources` array, no
-  `files` / `lookup_path`. Source types: `builtin` | `local` | `git` | `url`.
-- [ ] Define `doc_types` config block with built-in seeds.
-- [ ] Implement source resolution: walk `sources` in order, produce a
-  `(bundle, type, name) → file path` map.
-- [ ] Implement `contents` mapping (G16, G17): `- auto` mode walks the
-  upstream tree and matches subdir names against the `doc_types`
-  registry; explicit `{ path, type, as? }` rules pick paths/globs and
-  assign types, optionally renaming. Resolves conflicts deterministically.
+Format-level work (the `docspec/0.1` core). All of this is implementing
+[arch-docspec-format.md](../../architecture/current/arch-docspec-format.md):
+
+- [ ] Define `docs:` block in `.tbd/config.yml` per the format spec
+  (Zod schemas for manifest, lockfile, doc map). No `files` /
+  `lookup_path`.
+- [ ] Implement docspec URI parser (schemes: `./`, `/`, `https:`,
+  `github:`, `git:`) plus normalization (GitHub URL → `github:`).
+- [ ] Implement scheme-specific fetchers / resolvers:
+  - filesystem (`./`, `/`) — direct read, no cache
+  - `https:` — single-file fetch with `gh`/HTTP fallback; ETag-aware
+  - `github:` — sparse `git clone --depth 1 --branch <ref>`, atomic
+    swap on success (port `RepoCache` from PR #87, completing the
+    update path)
+  - `git:` — same machinery as `github:`, with the SSH/HTTPS remote
+    parsed from the docspec
+- [ ] Implement source resolution: walk `sources` in declared order,
+  produce a `(bundle, type, name) → file path` map. Supports both auto
+  (subdir-name matching) and explicit `contents` mapping (G16, G17).
 - [ ] Replace `DocCache.lookupPath`-based logic with source-walking logic.
-  Qualified lookup `bundle:name` works.
-- [ ] Implement source-type fetchers:
-  - `builtin` — read from package `dist/docs/`
-  - `local` — direct directory read (no copy)
-  - `git` — port `RepoCache` from PR #87, completing the sparse-checkout
-    update path; atomic swap on success
-  - `url` — single-file fetch with `gh` fallback (port from current code)
-- [ ] One-shot migration f03/f04 → f05 in `tbd-format.ts`. No runtime
-  compat: deprecated fields are deleted in the migration write.
-- [ ] `tbd source add/list/remove` for `git` and `url` source types,
-  with bundle-name auto-suggestion (G15) and a confirmation preview.
-  `builtin` and `local` are managed by setup / config edits respectively.
+  Qualified lookup `bundle:type/name` works per format spec §5.
+- [ ] Define `doc_types` config block with built-in seeds (shortcut,
+  guideline, template, reference). Generic `tbd doc <type> <name>`
+  command dispatcher.
+- [ ] Lockfile: write/read `.tbd/docs.lock.yml` per format spec §3.
+  Reproducibility round-trip test (G9).
+- [ ] Doc map: build `.tbd/docs/map.yml` per format spec §4. Three-layer
+  metadata resolution (per-file overrides → frontmatter → source defaults).
+- [ ] One-shot migration f03/f04 → f05 in `tbd-format.ts`: rewrite
+  `type:` discriminators to `docspec:` URIs; rename `prefix:` →
+  `bundle:`; drop `lookup_path` and `files`. No runtime compat for
+  deprecated fields.
+- [ ] `tbd source add/list/remove` with bundle-name auto-suggestion (G15)
+  and a confirmation preview before persisting.
 - [ ] `tbd bundle list` / `tbd bundle show <name>` as bundle-oriented
   views over the source list (G14).
-- [ ] Update `tbd setup` to seed default sources (likely a small
-  `builtin` core + a default external `tbd-docs` git source — see open
-  question 1).
-- [ ] Update `tbd sync --docs` to drive source-type fetchers.
-- [ ] Update `tbd doctor` checks to validate source health (clone exists,
-  ref reachable, paths populated).
-- [ ] Provenance sidecars (or chosen alternative — see open question 3)
-  written by the cache pipeline; bundle name is the user-visible field.
+- [ ] Update `tbd setup` to seed default sources (small local core +
+  default external `tbd-docs` git source — see open question 1).
+- [ ] Update `tbd sync --docs` to drive scheme-specific fetchers and
+  produce a fresh lockfile + doc map.
+- [ ] Update `tbd doctor` checks to validate source health (clone
+  exists, ref reachable, lockfile matches cache hashes, no orphaned
+  bundles).
 - [ ] All existing doc commands (`tbd shortcut`, `tbd guidelines`,
   `tbd template`, `tbd reference`) work via the new resolution path.
-  Generic `tbd doc <type> <name>` registered.
-- [ ] Tests: schema validation, migration golden tests for f03→f05 and
-  f04→f05, source resolution unit tests, RepoCache integration tests
-  with a fixture repo, status output golden tests, bundle-name
+- [ ] Tests: docspec URI parser (incl. normalization), schema
+  validation, migration golden tests for f03→f05 and f04→f05, source
+  resolution unit tests, RepoCache integration tests with a fixture
+  repo, lockfile round-trip tests (G9), doc map golden tests, bundle-name
   auto-suggestion golden tests across URL shapes (G15).
 
 ### Phase 2: Override / promotion / roundtrip workflows
@@ -717,6 +763,8 @@ upgrade prompts the user before mutating config.
 
 ## References
 
+- **Format spec (authoritative for schema/URIs/algorithms):**
+  [arch-docspec-format.md](../../architecture/current/arch-docspec-format.md)
 - PR #87 (unmerged): https://github.com/jlevy/tbd/pull/87
 - Original spec: `docs/project/specs/done/plan-2026-02-02-external-docs-repos.md`
   (3010 lines; useful for prior-art on RepoCache, prefix design,
