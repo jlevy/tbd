@@ -252,9 +252,17 @@ version). The intended grammar is:
 mirroring URI fragment convention. The fragment grammar itself is left
 open: future versions may define one or more fragment schemes.
 
-In v0.1, any docref containing an unescaped `#` is a parse error. File
-paths or git refs containing a literal `#` (rare) must be percent-encoded
-as `%23`, per URI convention.
+In v0.1, the fragment portion is **silently dropped on parse**: an
+implementation that doesn't understand fragments treats `github:foo/bar@main#section`
+as `github:foo/bar@main`. This is the standard URI-client convention
+when a fragment grammar isn't recognized — return the whole resource —
+and is forward-compatible: docrefs written today with fragments will
+"upgrade" to honoring those fragments once a future format version
+defines them, without changing the docref string itself.
+
+File paths or git refs containing a literal `#` (rare) must be
+percent-encoded as `%23`, per URI convention, so they aren't
+mis-parsed as fragments.
 
 ## 2. Manifest
 
