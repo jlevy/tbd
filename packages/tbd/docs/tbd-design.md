@@ -448,20 +448,51 @@ tbd addresses specific requirements:
 7. **Easy migration**: `tbd import <beads-export.jsonl>` or `tbd import --from-beads`
    converts existing Beads databases
 
+8. **Extensible knowledge subsystem**: Shortcuts, guidelines, templates, and other doc
+   types ("categories") can be authored locally, mirrored from external git repos or
+   URLs, overridden in shadcn-style local forks, and round-tripped back upstream — using
+   a tool-agnostic format (`docref` for addressing,
+   [`docmap`](./design-docmap-format.md) for the manifest/lockfile/index/sync layer)
+   that can be extracted as standalone libraries.
+   Detailed design lives in
+   [plan-2026-05-07-docs-config-redesign.md](../../../docs/project/specs/active/plan-2026-05-07-docs-config-redesign.md).
+
 ### 1.5 Design Principles
 
 1. **Simplicity first**: Prefer boring, well-understood approaches over clever
-   optimization
+   optimization. Simple things should be simple; complex things should be possible.
 
-2. **Files as truth**: Markdown + YAML files on disk are the canonical state
+2. **Files as truth**: Markdown + YAML files on disk are the canonical state.
 
-3. **Git for sync**: Standard git commands handle all distribution
+3. **Git for sync**: Standard git commands handle all distribution.
+   Reproducible from config: given the manifest/lockfile and a working network, two
+   clones produce identical state.
 
-4. **No required daemon**: CLI-first, background services optional
+4. **No required daemon**: CLI-first, background services optional.
 
-5. **Debuggable by design**: Every state change is visible in files and git history
+5. **Debuggable by design**: Every state change is visible in files and git history.
 
-6. **Progressive enhancement**: Core works standalone, bridges/UI are optional layers
+6. **Progressive enhancement**: Core works standalone, bridges/UI are optional layers.
+
+7. **Auth is always out-of-band**: tbd never holds credentials.
+   Authentication is delegated to the underlying tool’s own mechanisms (git credential
+   helpers, `gh` CLI, AWS profiles, etc.). The format has no auth fields, ever.
+
+8. **Hard cuts on format versions, reliable migration**: Each format version is the only
+   valid shape at runtime; deprecated fields are detected on read, migrated in one shot,
+   and never re-emitted.
+   Forward compatibility lives in strict schema validation and migration tests, not in
+   layered runtime fallbacks.
+
+9. **Spec ↔ implementation synchrony via tests**: Reference implementations of
+   format-level specs (Zod schemas, parsers, resolvers) are kept in sync with their
+   specs by tests that mirror every spec example.
+   Changes to either side require a matching change to the other.
+
+10. **Layered architecture, separable artifacts**: Tool-agnostic format specifications
+    (e.g., docref, docmap) are layered below tool-specific workflows.
+    Format specs are extractable as standalone libraries; tbd-specific policy
+    (overrides, eject, roundtrip) sits above and depends on the format.
 
 ### 1.6 Non-Goals
 

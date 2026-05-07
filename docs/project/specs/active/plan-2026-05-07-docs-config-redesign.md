@@ -311,11 +311,19 @@ Other consumers — present or future — would only need to implement the docma
 
 ## Design Principles
 
-These are the values the design serves.
-When the open questions (Q1–Q20) are resolved, the answers should be the ones most
-consistent with these principles.
+These are the values this redesign serves.
+When the open questions (Q1–Q20) are resolved, the answers should be most consistent
+with these principles.
 
-### P1. Simple things simple, complex things possible
+The principles below extend the system-wide design principles in
+[tbd-design.md §1.5](../../../packages/tbd/docs/tbd-design.md#15-design-principles).
+P1, P5, P6, P7, P8, and P9 here are restatements or doc-system-specific elaborations of
+principles in that doc; P2, P3, and P4 are docs/config-specific principles without a
+direct system-wide analog.
+Anything inconsistent between the two should be reconciled in tbd-design.md, which is
+authoritative for system-wide values.
+
+### P1. Simple things simple, complex things possible (extends tbd-design §1.5 #1)
 
 Adding a typical doc bundle should be a single command that “just works” — no config
 edits, no per-doc rules, no upstream coordination.
@@ -346,20 +354,20 @@ Every doc that exists in any source should be discoverable through the format (G
 Shadowing, overriding, ambiguity, and collisions are properties of the *view*, not of
 the inventory. The raw graph never hides anything; tooling builds policy views over it.
 
-### P5. Reproducible from config
+### P5. Reproducible from config (extends tbd-design §1.5 #3)
 
 Given the manifest, the lockfile, and a working network, two clones of a repo produce
 caches with identical content (G9). Sync is idempotent; update is the explicit forward
 step. Lockfile carries enough identity (Q17) to make this contract robust under bundle
 moves and source reshapes.
 
-### P6. tbd never holds credentials
+### P6. tbd never holds credentials (extends tbd-design §1.5 #7)
 
 Authentication is always out of band: git’s credential helpers, `gh` CLI, AWS profiles,
 etc. (G13). The format has no auth fields, ever.
 Public sources just work; private sources rely on the user’s environment.
 
-### P7. The format is a separable artifact
+### P7. The format is a separable artifact (extends tbd-design §1.5 #10)
 
 docref and docmap are tool-agnostic specifications with reference implementations.
 tbd is the first consumer; others can adopt the formats without depending on tbd code
@@ -367,13 +375,13 @@ tbd is the first consumer; others can adopt the formats without depending on tbd
 baking tbd-specific overrides into the schema) are rejected in favor of layering —
 tbd-specific concerns live above the format.
 
-### P8. Hard cuts on format versions, reliable migration
+### P8. Hard cuts on format versions, reliable migration (extends tbd-design §1.5 #8)
 
 Schema versions are clean breaks at the boundary; runtime supports exactly one shape;
 deprecated fields are detected, migrated, and deleted (G11). Forward compatibility lives
 in `.strict()` validation and migration tests, not in layered field-level fallbacks.
 
-### P9. Tests are spec mirrors
+### P9. Tests are spec mirrors (extends tbd-design §1.5 #9)
 
 Every spec example has a corresponding test; every change to either side requires the
 matching change to the other.
