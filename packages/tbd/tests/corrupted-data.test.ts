@@ -186,7 +186,10 @@ dependencies: []
 
       const doctorResult = runTbd(['doctor']);
       expect(doctorResult.status).toBe(0);
-      expect(doctorResult.stderr).toContain('Issues found that may require manual intervention.');
+      // doctor.ts:228-237 reports either "Run with --fix" (when fixable) or
+      // "may require manual intervention" (when not). Either is acceptable
+      // here — the assertion on stdout below pins the actual finding.
+      expect(doctorResult.stderr).toMatch(/Issues found[. ]/);
       expect(doctorResult.stderr).not.toContain('Skipping invalid issue file');
       expect(doctorResult.stdout).toMatch(
         /✗ Issue validity - 1 invalid issue file\(s\) \(\.tbd[\\/]issues\)/,
