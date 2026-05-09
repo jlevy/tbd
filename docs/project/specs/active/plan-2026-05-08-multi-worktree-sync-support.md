@@ -558,26 +558,37 @@ worth splitting across releases.
         and expects a non-empty result). Update those reads to use
         `git -C <wt> rev-parse HEAD` plus the branch ref where needed.
 
-**Tests:**
+**Tests** (apply golden-testing methodology — broad state capture in
+tryscripts plus targeted unit tests for new primitives; see "Testing
+Strategy" below):
 
-- [ ] `packages/tbd/test/sync/multi-worktree.test.ts` (new): unit-style
-      test that creates two sibling worktrees, runs `tbd sync` from
-      each, and asserts both succeed and `tbd-sync` reflects both
-      commits.
-- [ ] Tryscript test in `packages/tbd/tryscripts/`:
-      `multi-worktree-sync.sh` based on the Reproduction script above.
-      Run from CI.
-- [ ] Unit test: `advanceSyncBranch()` returns `success: false` with
-      correct `actualHead` when the ref has moved.
-- [ ] Unit test: `commitWorktreeChanges()` performs one merge-and-retry
-      on CAS failure and succeeds.
-- [ ] Unit test: `checkWorktreeHealth()` returns `'attached'` for a
-      legacy worktree and `'valid'` for a detached one on `tbd-sync`.
-- [ ] Migration test: existing attached worktree from a v0.1.26 setup
-      is detected as `'attached'` and silently repaired by the next
-      `tbd sync` or by `tbd doctor --fix`.
-- [ ] Update existing golden tests in `packages/tbd/test/golden/doctor*`
-      to reflect the new `attached` status text where applicable.
+- [ ] New tryscript `packages/tbd/tests/cli-sync-multi-worktree.tryscript.md`
+      — primary + sibling worktree topology, both run setup/create/sync,
+      end-state captured (worktree list porcelain, log, detached check,
+      issue count).
+- [ ] New tryscript
+      `packages/tbd/tests/cli-sync-legacy-attached-migration.tryscript.md`
+      — pre-state attached, doctor reports info, `--fix` detaches in
+      place, post-state captured.
+- [ ] Update `packages/tbd/tests/cli-sync-detached-worktree-bug.tryscript.md`
+      (rename to `cli-sync-worktree-ref-advance.tryscript.md`) — flip
+      "detached is bug" assertions to "detached is desired; ref is
+      advanced via update-ref."
+- [ ] Update `packages/tbd/tests/cli-sync-worktree-scenarios.tryscript.md`
+      — flip happy-path attached assertions; add scenario 6 "sibling
+      worktree of same repo."
+- [ ] Update `packages/tbd/tests/cli-sync.tryscript.md` — replace
+      `branch --show-current` checks with `symbolic-ref -q HEAD` empty
+      checks for the detached state.
+- [ ] Unit tests in `packages/tbd/tests/doctor-sync.test.ts` (or new
+      `worktree-management.test.ts`): `advanceSyncBranch()` happy +
+      CAS-failure + orphan-first paths; `findWorktreeOwningBranch()`
+      across all topologies; `ensureWorktreeDetached()` idempotency;
+      `checkWorktreeHealth()` returns `'attached'` for legacy worktree.
+- [ ] Architectural test: `tbd setup` produces a detached worktree;
+      two sibling checkouts can coexist with no owning worktree.
+- [ ] Update golden snapshots in `packages/tbd/tests/golden-output.test.ts`
+      that print worktree status text (`pnpm test -- -u` to refresh).
 
 **Documentation:**
 
@@ -591,44 +602,147 @@ worth splitting across releases.
 
 ## Testing Strategy
 
-### Unit tests
+We follow the project's golden-testing methodology
+(`tbd guidelines golden-testing-guidelines`): broad-state tryscripts that
+diff full command output, plus narrow unit tests for the new primitives.
+The combination of "raw diffs reveal unexpected changes" plus "asserted
+invariants over filesystem and git state" is what catches behavioral
+regressions in worktree handling.
 
-- `advanceSyncBranch()`: success, CAS failure, repo-without-branch.
-- `checkWorktreeHealth()`: each of the five states including the new
-  `attached`.
-- `findWorktreeOwningBranch()`: branch attached, branch detached, no
-  worktree, multiple worktrees on different branches.
-- `commitWorktreeChanges()`: clean commit, CAS race triggers one merge
-  retry, two-race exhaustion throws `SyncError`.
-- `ensureWorktreeDetached()`: idempotent on already-detached, detaches
-  attached.
+### Unit tests (`packages/tbd/tests/*.test.ts`)
 
-### Integration tests (tryscript)
+- `advanceSyncBranch()` — happy path advances ref; CAS failure returns
+  `actualHead` matching the current ref; orphan first-commit path uses
+  no-old-value form.
+- `checkWorktreeHealth()` — returns each of the five states
+  (`valid`, `missing`, `prunable`, `corrupted`, `attached`).
+- `findWorktreeOwningBranch()` — branch attached in primary, branch
+  detached everywhere, branch attached in a sibling, no worktree on
+  branch, multiple worktrees with different branches.
+- `commitWorktreeChanges()` — clean commit advances ref; race triggers
+  one merge-and-retry that succeeds; second race throws `SyncError`.
+- `ensureWorktreeDetached()` — no-op on already-detached; detaches
+  attached worktree without losing HEAD.
 
-- `multi-worktree-sync.sh` (new): two sibling worktrees, both run
-  `tbd setup`, both create issues, both `tbd sync`, final state is
-  consistent.
-- `legacy-attached-worktree-migration.sh` (new): create a worktree
-  with the v0.1.26 attached layout, run `tbd doctor --fix`, assert
-  worktree is detached and `tbd sync` from a sibling now works.
-- Existing tryscripts in `packages/tbd/tryscripts/` should pass
-  unchanged.
+### Golden tryscripts (`packages/tbd/tests/*.tryscript.md`)
 
-### Architectural test
+Each tryscript captures the full command output and the resulting
+filesystem/git state, so unintended changes show up as diffs.
+
+**New: `cli-sync-multi-worktree.tryscript.md`**
+
+The headline test for this spec. Sets up a primary checkout plus a
+sibling worktree (mirroring the user's codex/agent topology) and
+exercises:
+
+1. `tbd setup --auto` succeeds in both worktrees.
+2. Each worktree's `.tbd/data-sync-worktree` exists and is detached
+   (`git -C ... symbolic-ref -q HEAD` is empty).
+3. `tbd create` from each side produces issues with no `fatal:` from
+   git.
+4. `tbd sync` from one side advances `tbd-sync`; the other side's
+   next `tbd sync` merges and re-advances via CAS without conflict.
+5. After both sync, `git log tbd-sync --oneline` shows commits from
+   both worktrees in causal order.
+6. `git worktree list --porcelain` shows both `.tbd/data-sync-worktree`
+   entries marked `detached`.
+7. The bug-reproduction sequence from the "Reproduction" section above,
+   adapted to use `tbd` commands instead of raw git — must produce no
+   `fatal: 'tbd-sync' is already used by worktree` line anywhere.
+
+**New: `cli-sync-legacy-attached-migration.tryscript.md`**
+
+Migration of an existing v0.1.26 attached worktree. Captures:
+
+1. Pre-state: worktree is attached
+   (`git -C .tbd/data-sync-worktree symbolic-ref HEAD` returns
+   `refs/heads/tbd-sync`).
+2. `tbd doctor` reports `attached` as info-severity (not error).
+3. `tbd doctor --fix` detaches without data movement; output mentions
+   "detach" not "backup" / "migrate".
+4. Post-state: worktree is detached, branch ref unchanged
+   (no commits added during migration).
+5. Sibling worktree can now successfully run
+   `tbd setup` + `tbd create` + `tbd sync`.
+
+**Update: `cli-sync-detached-worktree-bug.tryscript.md`**
+(`packages/tbd/tests/cli-sync-detached-worktree-bug.tryscript.md:1-169`)
+
+Today this script asserts the *old* behavior — that a detached
+worktree is a bug, and `ensureWorktreeAttached` re-attaches it.
+After the change, detached is the *desired* state. Update the script
+to:
+
+1. Rename file to `cli-sync-worktree-ref-advance.tryscript.md`
+   (renaming because the file's premise changes).
+2. Replace "FIX VERIFICATION" assertions:
+   - Old: "worktree gets re-attached"
+   - New: "worktree stays detached AND `tbd-sync` ref advanced via
+     `update-ref`"
+3. Keep the data-migration assertions — those still hold.
+
+**Update: `cli-sync-worktree-scenarios.tryscript.md`**
+(`packages/tbd/tests/cli-sync-worktree-scenarios.tryscript.md:1-294`)
+
+Update each "happy-path" scenario to assert detached HEAD instead of
+attached. Add a new scenario at the end:
+
+```
+## Scenario 6: Sibling worktree of same repo
+
+Tests that a second working tree sharing the same .git can independently
+init, create, and sync without `git worktree add` failing.
+```
+
+**Update: `cli-sync.tryscript.md`** —
+(`packages/tbd/tests/cli-sync.tryscript.md`, sections that grep
+`branch --show-current` on the worktree). Replace those with
+`symbolic-ref -q HEAD` returning empty for the detached state.
+
+### Golden filesystem assertions (capture-and-diff style)
+
+Per the golden-testing guideline, capture the broad git/filesystem state
+inside each tryscript so unintended changes surface as diffs. Each
+multi-worktree tryscript should include a final block that captures:
+
+```console
+$ git worktree list --porcelain | sort
+$ git log tbd-sync --oneline -5
+$ git -C .tbd/data-sync-worktree symbolic-ref -q HEAD || echo "(detached)"
+$ ls .tbd/data-sync-worktree/.tbd/data-sync/issues/ | wc -l
+```
+
+These are the "broad state" probes that catch unexpected behavior
+(e.g., a regression that re-attaches the worktree, or a sibling worktree
+silently losing its HEAD).
+
+### Architectural tests (`packages/tbd/tests/architectural.test.ts`)
 
 ```ts
-it('hidden worktree is detached, not attached to tbd-sync', async () => {
+it('hidden worktree is detached on fresh tbd setup', async () => {
   await run('tbd setup --auto --prefix=test');
   const ref = await git('-C', '.tbd/data-sync-worktree',
                         'symbolic-ref', '-q', 'HEAD').catch(() => '');
-  expect(ref).toBe('');  // detached
+  expect(ref).toBe('');  // detached → no symbolic ref
+});
+
+it('two sibling worktrees coexist without claiming tbd-sync', async () => {
+  await run('tbd setup --auto --prefix=test');
+  await git('worktree', 'add', '../sibling', '-b', 'feat');
+  // tbd setup in sibling must not throw "already used by worktree"
+  await run('tbd setup --auto', { cwd: '../sibling' });
+  const owning = await findWorktreeOwningBranch(repoRoot, 'tbd-sync');
+  expect(owning).toBe(null);  // nobody owns it; both detached
 });
 ```
 
 ### Manual verification
 
-- Reproduction script above must produce no `fatal:` lines from any
+- The Reproduction script above must produce no `fatal:` lines from any
   step after the fix.
+- Manually run two `tbd sync` invocations from sibling shells in
+  different working trees of the same repo and confirm both succeed
+  with the expected merged state.
 
 ## Rollout Plan
 
