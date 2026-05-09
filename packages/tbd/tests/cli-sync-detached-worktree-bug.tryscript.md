@@ -24,15 +24,21 @@ before: |
   git remote add origin ../origin.git
   git push -u origin main
 ---
-# Bug Reproduction: Detached HEAD worktree prevents sync
+# Detached-HEAD worktree: ref advance via `git update-ref`
 
-This test simulates a repository where the worktree was created with --detach (old tbd
-version), causing commits in the worktree to not update the sync branch ref, which
-prevents sync from pushing.
+Under the multi-worktree-safe model (plan-2026-05-08), the hidden worktree is on
+detached HEAD so sibling working trees of the same repo can share the `tbd-sync` branch
+ref without `git worktree add` failing.
+Commits in the worktree advance HEAD only; the branch ref is advanced explicitly via
+`git update-ref` (production sync uses CAS + merge-and-retry on race).
+
+This file previously asserted the inverse (detached HEAD was a bug).
+Renamed conceptually but kept under the same filename for git history continuity.
+See `plan-2026-05-08-multi-worktree-sync-support.md`.
 
 ## Setup
 
-# Test: Initialize tbd and create initial issues
+# Test: Initialize tbd and create initial issue
 
 ```console
 $ tbd init --prefix=test 2>&1 | head -1
@@ -53,27 +59,27 @@ $ tbd sync
 ? 0
 ```
 
-## Simulate old tbd version with detached HEAD worktree
+## Worktree must be detached after init+sync (multi-worktree-safe state)
 
-# Test: Detach the worktree HEAD (simulate old version behavior)
+# Test: Worktree HEAD is detached (no symbolic ref)
 
 ```console
-$ git -C .tbd/data-sync-worktree checkout --detach
-HEAD is now at [..]
+$ git -C .tbd/data-sync-worktree symbolic-ref -q HEAD || echo "(detached)"
+(detached)
 ? 0
 ```
 
-# Test: Verify worktree is detached
+# Test: Worktree HEAD matches the branch ref
 
 ```console
-$ git -C .tbd/data-sync-worktree branch --show-current | wc -l | tr -d ' '
-0
+$ test "$(git -C .tbd/data-sync-worktree rev-parse HEAD)" = "$(git rev-parse tbd-sync)" && echo "match"
+match
 ? 0
 ```
 
-## Create issues in wrong location and test migration
+## Migration leaves the worktree detached
 
-# Test: Create issue in wrong location (simulating the bug scenario)
+# Test: Create an issue file in the wrong (legacy) location
 
 ```console
 $ mkdir -p .tbd/data-sync/issues
@@ -103,28 +109,33 @@ $ tbd doctor --fix 2>&1 | grep -i "Data location"
 
 # Test: Migration created a commit in the worktree
 
-After migration, the worktree should have commit(s) for the migrated files.
-
 ```console
 $ git -C .tbd/data-sync-worktree log --oneline -1
 [..]
 ? 0
 ```
 
-# Test: FIX VERIFICATION - Local sync branch WAS updated (bug is fixed!)
+# Test: Worktree is STILL detached after migration
 
-After the fix, the migration should detect detached HEAD and re-attach before
-committing.
+The migration commits on detached HEAD; ref advance is explicit.
 
 ```console
-$ git log tbd-sync --oneline -1
-[..]
+$ git -C .tbd/data-sync-worktree symbolic-ref -q HEAD || echo "(detached)"
+(detached)
 ? 0
 ```
 
-# Test: FIX VERIFICATION - Ahead count shows commits to push (correct!)
+# Test: Branch ref was advanced to match worktree HEAD
 
-The local branch should have commit(s) ahead of remote (may be 0 if already pushed).
+migrateDataToWorktree advances tbd-sync via update-ref after the commit.
+
+```console
+$ test "$(git -C .tbd/data-sync-worktree rev-parse HEAD)" = "$(git rev-parse tbd-sync)" && echo "in sync"
+in sync
+? 0
+```
+
+# Test: Local branch has commit ahead of remote (the migration commit)
 
 ```console
 $ git rev-list --count origin/tbd-sync..tbd-sync | tr -d ' ' | awk '$1 >= 0 {print "ok"}'
@@ -132,15 +143,7 @@ ok
 ? 0
 ```
 
-# Test: FIX VERIFICATION - Worktree and branch are in sync (correct!)
-
-```console
-$ test "$(git -C .tbd/data-sync-worktree rev-parse HEAD)" = "$(git rev-parse tbd-sync)" && echo "In sync" || echo "Worktree ahead of branch"
-In sync
-? 0
-```
-
-# Test: FIX VERIFICATION - Sync should push the commit
+# Test: Sync pushes the migration commit
 
 ```console
 $ tbd sync 2>&1
@@ -149,7 +152,7 @@ $ tbd sync 2>&1
 ? 0
 ```
 
-# Test: FIX VERIFICATION - After sync, ahead count is 0
+# Test: After sync, ahead count is 0
 
 ```console
 $ git rev-list --count origin/tbd-sync..tbd-sync | tr -d ' '
@@ -157,9 +160,15 @@ $ git rev-list --count origin/tbd-sync..tbd-sync | tr -d ' '
 ? 0
 ```
 
-# Test: FIX VERIFICATION - Remote has the commit
+# Test: Worktree is STILL detached after sync push
 
-After sync, remote should have the commit with migrated files.
+```console
+$ git -C .tbd/data-sync-worktree symbolic-ref -q HEAD || echo "(detached)"
+(detached)
+? 0
+```
+
+# Test: Remote has the migration commit
 
 ```console
 $ git log origin/tbd-sync --oneline -1

@@ -24,7 +24,8 @@ import {
   pushWithRetry,
   checkWorktreeHealth,
   repairWorktree,
-  ensureWorktreeAttached,
+  ensureWorktreeDetached,
+  advanceSyncBranch,
   type ConflictEntry,
   type PushResult,
 } from '../../file/git.js';
@@ -491,20 +492,41 @@ class SyncHandler extends BaseCommand {
   }
 
   /**
-   * Commit any uncommitted changes in the worktree to the sync branch.
-   * This must be called before pushing to ensure changes are captured.
+   * Commit any uncommitted changes in the detached worktree, then advance
+   * the sync branch ref via CAS so sibling worktrees see the update.
+   *
+   * Detached-HEAD model: the worktree's commit advances HEAD only; we then
+   * `git update-ref refs/heads/<sync> <new> <expectedOld>` to publish the
+   * commit to the branch ref. On CAS failure (sibling raced us), we merge
+   * the sibling's commit into our HEAD and retry once.
+   *
+   * See plan-2026-05-08-multi-worktree-sync-support.md.
    *
    * @returns Tallies of new/updated/deleted files committed
    */
-  private async commitWorktreeChanges(): Promise<SyncTallies> {
-    // Use tbdRoot to derive worktree path consistently
-    // FIX Bug 1: Previously used process.cwd() which fails if not in repo root
-    // See: plan-2026-01-28-sync-worktree-recovery-and-hardening.md
+  private async commitWorktreeChanges(syncBranch: string): Promise<SyncTallies> {
+    // Use tbdRoot to derive worktree path consistently.
     const worktreePath = join(this.tbdRoot, WORKTREE_DIR);
+    const branch = syncBranch;
 
     try {
-      // Ensure worktree is attached to sync branch (repair old tbd repos)
-      await ensureWorktreeAttached(worktreePath);
+      // Detach the worktree if it's still on the legacy attached layout.
+      await ensureWorktreeDetached(worktreePath);
+
+      // Fast-forward the worktree's detached HEAD to the current branch ref.
+      // A sibling worktree (sharing this .git) may have advanced tbd-sync
+      // since we last looked. Without this, our subsequent `publishCommit`
+      // CAS would correctly detect the race but our worktree HEAD would be
+      // behind, causing publishWorktreeHead to attempt to roll the branch
+      // back to our stale HEAD. Untracked files (new issue files written by
+      // `tbd create` but not yet staged) are preserved across the checkout.
+      const branchTip = await this.readBranchHead(branch);
+      const worktreeHead = (
+        await git('-C', worktreePath, 'rev-parse', 'HEAD').catch(() => '')
+      ).trim();
+      if (branchTip && branchTip !== worktreeHead) {
+        await git('-C', worktreePath, 'checkout', '--detach', branchTip);
+      }
 
       // Check for uncommitted changes (untracked, modified, or deleted)
       const status = await git('-C', worktreePath, 'status', '--porcelain');
@@ -516,10 +538,12 @@ class SyncHandler extends BaseCommand {
       const tallies = parseGitStatus(status);
       const fileCount = tallies.new + tallies.updated + tallies.deleted;
 
-      // Stage all changes
-      await git('-C', worktreePath, 'add', '-A');
+      // Capture the expected-old branch tip BEFORE committing, so the CAS
+      // is exact even if a sibling raced us.
+      const expectedOld = await this.readBranchHead(branch);
 
-      // Commit the changes
+      // Stage and commit on detached HEAD.
+      await git('-C', worktreePath, 'add', '-A');
       const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
       await git(
         '-C',
@@ -528,6 +552,10 @@ class SyncHandler extends BaseCommand {
         '-m',
         `tbd sync: ${timestamp} (${fileCount} file${fileCount === 1 ? '' : 's'})`,
       );
+      const newHead = (await git('-C', worktreePath, 'rev-parse', 'HEAD')).trim();
+
+      // Publish the commit to the branch ref.
+      await this.publishCommit(branch, worktreePath, newHead, expectedOld);
 
       return tallies;
     } catch (error) {
@@ -540,11 +568,85 @@ class SyncHandler extends BaseCommand {
     }
   }
 
+  /**
+   * Read the current tip of `refs/heads/<branch>` from the parent repo.
+   * Returns '' if the branch doesn't exist (e.g., orphan first commit).
+   */
+  private async readBranchHead(branch: string): Promise<string> {
+    try {
+      const out = await git('-C', this.tbdRoot, 'rev-parse', '--verify', `refs/heads/${branch}`);
+      return out.trim();
+    } catch {
+      return '';
+    }
+  }
+
+  /**
+   * Publish a worktree commit to the sync branch via CAS update-ref.
+   *
+   * If a sibling worktree advanced the ref between our `expectedOld` read
+   * and our update, we merge the sibling's tip into our detached HEAD and
+   * retry once. A second CAS failure throws `SyncError` and the caller
+   * (or user re-running `tbd sync`) handles it.
+   */
+  private async publishCommit(
+    syncBranch: string,
+    worktreePath: string,
+    newHead: string,
+    expectedOld: string,
+  ): Promise<void> {
+    const first = await advanceSyncBranch(this.tbdRoot, syncBranch, newHead, expectedOld);
+    if (first.success) return;
+
+    this.output.debug(
+      `${syncBranch} ref raced (was ${expectedOld || '<empty>'}, now ${first.actualHead}); merging and retrying`,
+    );
+    // Merge the sibling's tip into our detached HEAD. The merge happens
+    // inside the worktree, so conflict resolution (if any) follows the same
+    // git semantics as a normal `git merge`.
+    await git(
+      '-C',
+      worktreePath,
+      'merge',
+      '--no-edit',
+      first.actualHead,
+      '-m',
+      'tbd sync: incorporate sibling worktree changes',
+    );
+    const merged = (await git('-C', worktreePath, 'rev-parse', 'HEAD')).trim();
+    const retry = await advanceSyncBranch(this.tbdRoot, syncBranch, merged, first.actualHead);
+    if (!retry.success) {
+      throw new SyncError(
+        `${syncBranch} ref advanced concurrently after merge — re-run \`tbd sync\``,
+      );
+    }
+  }
+
+  /**
+   * Publish whatever the worktree's current HEAD is to the sync branch.
+   *
+   * Used after the pull/merge sequence inside fullSync, where multiple
+   * intermediate commits (gitattributes bootstrap, the merge itself,
+   * mapping reconciliation, conflict resolution) have accumulated on the
+   * detached HEAD. A single CAS at the end advances the branch ref to
+   * the final tip, with merge-and-retry if a sibling raced us.
+   */
+  private async publishWorktreeHead(
+    syncBranch: string,
+    worktreePath: string,
+    expectedOld: string,
+  ): Promise<void> {
+    const head = (await git('-C', worktreePath, 'rev-parse', 'HEAD')).trim();
+    // No commits since expectedOld — nothing to publish.
+    if (head === expectedOld) return;
+    await this.publishCommit(syncBranch, worktreePath, head, expectedOld);
+  }
+
   private async pushChanges(syncBranch: string, remote: string): Promise<void> {
     const spinner = this.output.spinner('Pushing to remote...');
     try {
       // Commit any uncommitted changes in the worktree before pushing
-      const committedTallies = await this.commitWorktreeChanges();
+      const committedTallies = await this.commitWorktreeChanges(syncBranch);
       const committedCount =
         committedTallies.new + committedTallies.updated + committedTallies.deleted;
       if (committedCount > 0) {
@@ -673,10 +775,18 @@ class SyncHandler extends BaseCommand {
     // Use tbdRoot for consistent path resolution
     const worktreePath = join(this.tbdRoot, WORKTREE_DIR);
 
+    // Capture the branch tip after our local commit (before fetch+merge).
+    // All in-worktree work that follows (gitattributes bootstrap, the merge
+    // with remote, reconcile-mappings, conflict resolution) accumulates on
+    // the worktree's detached HEAD. We advance the branch ref once at the
+    // end via publishWorktreeHead(), with merge-and-retry CAS semantics.
+    let baseHead = '';
+
     try {
       // STEP 1: Commit local changes FIRST (before pulling)
       // This ensures local work is preserved before we incorporate remote changes.
-      const committedTallies = await this.commitWorktreeChanges();
+      // commitWorktreeChanges advances the branch ref via CAS internally.
+      const committedTallies = await this.commitWorktreeChanges(syncBranch);
       // Add committed changes to sent tallies
       summary.sent.new += committedTallies.new;
       summary.sent.updated += committedTallies.updated;
@@ -685,6 +795,9 @@ class SyncHandler extends BaseCommand {
         const count = committedTallies.new + committedTallies.updated + committedTallies.deleted;
         this.output.debug(`Committed ${count} file(s) to sync branch`);
       }
+
+      // Now read the branch tip; commitWorktreeChanges advanced it.
+      baseHead = await this.readBranchHead(syncBranch);
 
       // STEP 2: Fetch remote
       await git('fetch', remote, syncBranch);
@@ -957,6 +1070,11 @@ class SyncHandler extends BaseCommand {
       this.output.debug(`Fetch failed (may be first sync): ${(error as Error).message}`);
     }
 
+    // Publish all the in-worktree commits (merge, reconcile, etc.) to the
+    // branch ref. CAS against baseHead detects sibling races; on conflict
+    // publishCommit merges and retries once.
+    await this.publishWorktreeHead(syncBranch, worktreePath, baseHead);
+
     // Check how many commits we're ahead of remote (if any)
     let aheadCommits = 0;
     try {
@@ -1189,7 +1307,7 @@ class SyncHandler extends BaseCommand {
       }
 
       // Step 2: Commit the imported issues
-      const committedTallies = await this.commitWorktreeChanges();
+      const committedTallies = await this.commitWorktreeChanges(syncBranch);
       if (committedTallies.new + committedTallies.updated + committedTallies.deleted === 0) {
         // Nothing to commit - issues were already in worktree
         // This can happen if outbox data was identical to worktree

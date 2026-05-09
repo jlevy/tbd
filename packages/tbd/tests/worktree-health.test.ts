@@ -21,6 +21,9 @@ import {
   checkGitVersion,
   repairWorktree,
   migrateDataToWorktree,
+  ensureWorktreeDetached,
+  findWorktreeOwningBranch,
+  advanceSyncBranch,
 } from '../src/file/git.js';
 import { resolveDataSyncDir, WorktreeMissingError, clearPathCache } from '../src/lib/paths.js';
 import {
@@ -122,10 +125,13 @@ describeUnlessWindows('worktree health checks', () => {
 
       const health = await checkWorktreeHealth(workRepoPath);
 
+      // Under the multi-worktree-safe model (plan-2026-05-08), the hidden
+      // worktree is on detached HEAD so sibling checkouts of the same repo
+      // can each have their own. branch === null indicates detached.
       expect(health.status).toBe('valid');
       expect(health.exists).toBe(true);
       expect(health.valid).toBe(true);
-      expect(health.branch).toBe(SYNC_BRANCH);
+      expect(health.branch).toBe(null);
       expect(health.commit).toBeTruthy();
     });
 
@@ -220,10 +226,14 @@ describeUnlessWindows('worktree health checks', () => {
       const worktreePath = join(workRepoPath, WORKTREE_DIR);
       await gitInDir(worktreePath, 'push', '-u', 'origin', SYNC_BRANCH);
 
-      // Create a new commit in worktree (making local ahead)
+      // Create a new commit in the detached worktree, then advance the
+      // branch ref via update-ref. Mirrors the production sync flow under
+      // the multi-worktree-safe model (plan-2026-05-08).
       await fsWriteFile(join(worktreePath, TBD_DIR, DATA_SYNC_DIR_NAME, 'test.txt'), 'test');
       await gitInDir(worktreePath, 'add', '-A');
       await gitInDir(worktreePath, 'commit', '-m', 'Test commit');
+      const newHead = await gitInDir(worktreePath, 'rev-parse', 'HEAD');
+      await gitInDir(workRepoPath, 'update-ref', `refs/heads/${SYNC_BRANCH}`, newHead);
 
       const consistency = await checkSyncConsistency(workRepoPath, SYNC_BRANCH, 'origin');
 
@@ -693,12 +703,13 @@ describeUnlessWindows('worktree health after init (CI check)', () => {
     const initResult = await initWorktree(workRepoPath);
     expect(initResult.success).toBe(true);
 
-    // Verify worktree is healthy
+    // Verify worktree is healthy. Under the multi-worktree-safe model
+    // (plan-2026-05-08), the worktree is detached so branch === null.
     const health = await checkWorktreeHealth(workRepoPath);
     expect(health.status).toBe('valid');
     expect(health.valid).toBe(true);
     expect(health.exists).toBe(true);
-    expect(health.branch).toBe(SYNC_BRANCH);
+    expect(health.branch).toBe(null);
   });
 
   it('worktree remains healthy after creating issues', async () => {
@@ -934,147 +945,337 @@ describeUnlessWindows('Bug tbd-m0wl: sync consistency detects unpushed commits',
     const worktreePath = join(workRepoPath, WORKTREE_DIR);
     await gitInDir(worktreePath, 'push', '-u', 'origin', SYNC_BRANCH);
 
-    // Step 2: Create a new commit in worktree (not pushed)
+    // Step 2: Create a new commit in worktree (detached HEAD), then advance
+    // the branch ref via update-ref. This mirrors the production sync flow
+    // under the multi-worktree-safe model (plan-2026-05-08).
     const testFile = join(worktreePath, TBD_DIR, DATA_SYNC_DIR_NAME, 'unpushed-test.txt');
     await fsWriteFile(testFile, 'unpushed content');
     await gitInDir(worktreePath, 'add', '-A');
     await gitInDir(worktreePath, 'commit', '-m', 'Unpushed commit');
+    const newHead = await gitInDir(worktreePath, 'rev-parse', 'HEAD');
+    await gitInDir(workRepoPath, 'update-ref', `refs/heads/${SYNC_BRANCH}`, newHead);
 
     // Step 3: Check sync consistency - should detect local is ahead
     const consistency = await checkSyncConsistency(workRepoPath, SYNC_BRANCH, 'origin');
 
     expect(consistency.localAhead).toBeGreaterThan(0);
-    expect(consistency.worktreeMatchesLocal).toBe(true); // After tbd-tg55 fix, worktree is on branch
+    // Detached HEAD pointing at the same commit as the branch tip is the
+    // multi-worktree-safe state.
+    expect(consistency.worktreeMatchesLocal).toBe(true);
   });
 
   it('checkSyncConsistency returns worktreeMatchesLocal=true after commits on branch', async () => {
-    // This test verifies that after tbd-tg55 fix, commits in worktree update the branch
+    // Verifies the production flow: commit on detached HEAD + update-ref
+    // produces a worktree HEAD that matches the local branch ref.
     await initWorktree(workRepoPath);
     const worktreePath = join(workRepoPath, WORKTREE_DIR);
 
-    // Create a commit
+    // Create a commit on the detached worktree HEAD, then publish.
     const testFile = join(worktreePath, TBD_DIR, DATA_SYNC_DIR_NAME, 'branch-test.txt');
     await fsWriteFile(testFile, 'branch content');
     await gitInDir(worktreePath, 'add', '-A');
     await gitInDir(worktreePath, 'commit', '-m', 'Branch commit');
+    const newHead = await gitInDir(worktreePath, 'rev-parse', 'HEAD');
+    await gitInDir(workRepoPath, 'update-ref', `refs/heads/${SYNC_BRANCH}`, newHead);
 
     // Check consistency
     const consistency = await checkSyncConsistency(workRepoPath, SYNC_BRANCH, 'origin');
 
-    // After tbd-tg55 fix: worktree HEAD should match local branch
     expect(consistency.worktreeMatchesLocal).toBe(true);
     expect(consistency.worktreeHead).toBe(consistency.localHead);
   });
 });
 
-describeUnlessWindows(
-  'Bug tbd-tg55: initWorktree should not use detached HEAD when local branch exists',
-  () => {
-    let testDir: string;
-    let bareRepoPath: string;
-    let workRepoPath: string;
-    let originalCwd: string;
+/**
+ * Multi-worktree-safe model (plan-2026-05-08): the hidden worktree must be
+ * on detached HEAD so sibling working trees of the same repo can share the
+ * branch ref. Commits in the worktree advance HEAD only; the branch ref is
+ * advanced explicitly via `git update-ref` (production sync uses CAS).
+ *
+ * These tests previously asserted the inverse (the pre-2026-05-08 design
+ * that attached the worktree to tbd-sync). They are kept under the same
+ * names so git history remains traceable, but the assertions are flipped.
+ */
+describeUnlessWindows('Detached-HEAD worktree model (multi-worktree-safe)', () => {
+  let testDir: string;
+  let bareRepoPath: string;
+  let workRepoPath: string;
+  let originalCwd: string;
 
-    beforeEach(async () => {
-      const { supported } = await checkGitVersion();
-      if (!supported) {
-        console.log('Skipping tbd-tg55 tests - Git 2.42+ required');
-        return;
-      }
+  beforeEach(async () => {
+    const { supported } = await checkGitVersion();
+    if (!supported) {
+      console.log('Skipping detached-HEAD worktree tests - Git 2.42+ required');
+      return;
+    }
 
-      originalCwd = process.cwd();
-      testDir = join(tmpdir(), `tbd-tg55-test-${randomBytes(4).toString('hex')}`);
-      bareRepoPath = join(testDir, 'remote.git');
-      workRepoPath = join(testDir, 'work');
+    originalCwd = process.cwd();
+    testDir = join(tmpdir(), `tbd-detach-test-${randomBytes(4).toString('hex')}`);
+    bareRepoPath = join(testDir, 'remote.git');
+    workRepoPath = join(testDir, 'work');
 
-      await createBareRepo(bareRepoPath);
-      await initRepoWithRemote(workRepoPath, bareRepoPath);
-      process.chdir(workRepoPath);
-      clearPathCache();
-    });
+    await createBareRepo(bareRepoPath);
+    await initRepoWithRemote(workRepoPath, bareRepoPath);
+    process.chdir(workRepoPath);
+    clearPathCache();
+  });
 
-    afterEach(async () => {
-      process.chdir(originalCwd);
-      clearPathCache();
-      if (testDir) {
-        await rm(testDir, { recursive: true, force: true }).catch(() => undefined);
-      }
-    });
+  afterEach(async () => {
+    process.chdir(originalCwd);
+    clearPathCache();
+    if (testDir) {
+      await rm(testDir, { recursive: true, force: true }).catch(() => undefined);
+    }
+  });
 
-    it('worktree is on tbd-sync branch after repair from prunable state (not detached HEAD)', async () => {
-      // Step 1: Initialize worktree - creates tbd-sync branch
+  it('worktree is detached after fresh init', async () => {
+    await initWorktree(workRepoPath);
+    const worktreePath = join(workRepoPath, WORKTREE_DIR);
+
+    // Detached HEAD: symbolic-ref returns non-zero (no symbolic ref).
+    const symbolic = await gitInDir(worktreePath, 'symbolic-ref', '-q', 'HEAD').catch(() => '');
+    expect(symbolic).toBe('');
+
+    // But HEAD must be at the same commit as the branch ref.
+    const head = await gitInDir(worktreePath, 'rev-parse', 'HEAD');
+    const branch = await gitInDir(workRepoPath, 'rev-parse', SYNC_BRANCH);
+    expect(head).toBe(branch);
+  });
+
+  it('worktree is detached after repair from prunable state', async () => {
+    await initWorktree(workRepoPath);
+    const worktreePath = join(workRepoPath, WORKTREE_DIR);
+
+    await rm(worktreePath, { recursive: true, force: true });
+    const result = await repairWorktree(workRepoPath, 'prunable');
+    expect(result.success).toBe(true);
+
+    const symbolic = await gitInDir(worktreePath, 'symbolic-ref', '-q', 'HEAD').catch(() => '');
+    expect(symbolic).toBe('');
+  });
+
+  it('commits after repair update branch ref via update-ref (the production flow)', async () => {
+    await initWorktree(workRepoPath);
+    const worktreePath = join(workRepoPath, WORKTREE_DIR);
+
+    await rm(worktreePath, { recursive: true, force: true });
+    await repairWorktree(workRepoPath, 'prunable');
+
+    // Production sync: commit on detached HEAD, then advance the branch ref.
+    const testFile = join(worktreePath, TBD_DIR, DATA_SYNC_DIR_NAME, 'test.txt');
+    await fsWriteFile(testFile, 'test content');
+    await gitInDir(worktreePath, 'add', '-A');
+    await gitInDir(worktreePath, 'commit', '-m', 'Test commit after repair');
+    const newHead = await gitInDir(worktreePath, 'rev-parse', 'HEAD');
+    await gitInDir(workRepoPath, 'update-ref', `refs/heads/${SYNC_BRANCH}`, newHead);
+
+    const branchHead = await gitInDir(workRepoPath, 'rev-parse', SYNC_BRANCH);
+    expect(newHead).toBe(branchHead);
+  });
+
+  it('migration leaves the worktree on detached HEAD', async () => {
+    await initWorktree(workRepoPath);
+
+    // Create data in the WRONG location (.tbd/data-sync/)
+    const wrongIssuesPath = join(workRepoPath, DATA_SYNC_DIR, 'issues');
+    await mkdir(wrongIssuesPath, { recursive: true });
+    await fsWriteFile(join(wrongIssuesPath, 'test-branch.md'), '# Test Branch Issue\n');
+
+    const result = await migrateDataToWorktree(workRepoPath);
+    expect(result.success).toBe(true);
+
+    const worktreePath = join(workRepoPath, WORKTREE_DIR);
+    const symbolic = await gitInDir(worktreePath, 'symbolic-ref', '-q', 'HEAD').catch(() => '');
+    expect(symbolic).toBe('');
+  });
+});
+
+/**
+ * Unit tests for the new primitives introduced by the multi-worktree-safe
+ * design (plan-2026-05-08-multi-worktree-sync-support.md).
+ */
+describeUnlessWindows('multi-worktree primitives', () => {
+  let testDir: string;
+  let bareRepoPath: string;
+  let workRepoPath: string;
+  let originalCwd: string;
+
+  beforeEach(async () => {
+    const { supported } = await checkGitVersion();
+    if (!supported) {
+      console.log('Skipping multi-worktree tests - Git 2.42+ required');
+      return;
+    }
+
+    originalCwd = process.cwd();
+    testDir = join(tmpdir(), `tbd-mw-test-${randomBytes(4).toString('hex')}`);
+    bareRepoPath = join(testDir, 'remote.git');
+    workRepoPath = join(testDir, 'work');
+
+    await createBareRepo(bareRepoPath);
+    await initRepoWithRemote(workRepoPath, bareRepoPath);
+    process.chdir(workRepoPath);
+    clearPathCache();
+  });
+
+  afterEach(async () => {
+    process.chdir(originalCwd);
+    clearPathCache();
+    if (testDir) {
+      await rm(testDir, { recursive: true, force: true }).catch(() => undefined);
+    }
+  });
+
+  describe('checkWorktreeHealth: attached state', () => {
+    it("returns status='attached' when worktree HEAD is symbolic-ref to tbd-sync", async () => {
       await initWorktree(workRepoPath);
-
-      // Verify initial state is on branch
       const worktreePath = join(workRepoPath, WORKTREE_DIR);
-      const initialBranch = await gitInDir(worktreePath, 'branch', '--show-current');
-      expect(initialBranch).toBe(SYNC_BRANCH);
 
-      // Step 2: Delete worktree directory (simulates prunable state)
-      await rm(worktreePath, { recursive: true, force: true });
+      // Re-attach to simulate the legacy layout.
+      await gitInDir(worktreePath, 'checkout', SYNC_BRANCH);
 
-      // Step 3: Repair the prunable worktree
-      const result = await repairWorktree(workRepoPath, 'prunable');
-      expect(result.success).toBe(true);
-
-      // Step 4: Verify worktree is on tbd-sync branch, NOT detached HEAD
-      // This is the bug: initWorktree uses --detach when local branch exists
-      const branchAfterRepair = await gitInDir(worktreePath, 'branch', '--show-current');
-      expect(branchAfterRepair).toBe(SYNC_BRANCH); // FAILS - currently returns '' (detached HEAD)
+      const health = await checkWorktreeHealth(workRepoPath);
+      expect(health.status).toBe('attached');
+      expect(health.exists).toBe(true);
+      // Attached is a *legacy* state, not invalid; doctor auto-repairs it.
+      expect(health.valid).toBe(true);
+      expect(health.branch).toBe(SYNC_BRANCH);
+      expect(health.error).toMatch(/blocks sibling|detach in place/i);
     });
 
-    it('commits after repair go to tbd-sync branch (not orphaned)', async () => {
-      // Step 1: Initialize worktree
+    it("returns status='valid' with branch=null when detached", async () => {
+      await initWorktree(workRepoPath);
+      const health = await checkWorktreeHealth(workRepoPath);
+      expect(health.status).toBe('valid');
+      expect(health.branch).toBe(null);
+    });
+  });
+
+  describe('ensureWorktreeDetached', () => {
+    it('detaches an attached worktree and returns true', async () => {
+      await initWorktree(workRepoPath);
+      const worktreePath = join(workRepoPath, WORKTREE_DIR);
+      await gitInDir(worktreePath, 'checkout', SYNC_BRANCH);
+
+      const wasAttached = await ensureWorktreeDetached(worktreePath);
+      expect(wasAttached).toBe(true);
+
+      const symbolic = await gitInDir(worktreePath, 'symbolic-ref', '-q', 'HEAD').catch(() => '');
+      expect(symbolic).toBe('');
+    });
+
+    it('is a no-op on an already-detached worktree (returns false)', async () => {
       await initWorktree(workRepoPath);
       const worktreePath = join(workRepoPath, WORKTREE_DIR);
 
-      // Step 2: Get initial commit hash
-      const _initialHead = await gitInDir(worktreePath, 'rev-parse', 'HEAD');
+      const wasAttached = await ensureWorktreeDetached(worktreePath);
+      expect(wasAttached).toBe(false);
+    });
+  });
 
-      // Step 3: Simulate prunable state and repair
-      await rm(worktreePath, { recursive: true, force: true });
-      await repairWorktree(workRepoPath, 'prunable');
+  describe('findWorktreeOwningBranch', () => {
+    it('returns null when no worktree owns the branch (detached layout)', async () => {
+      await initWorktree(workRepoPath);
+      const owner = await findWorktreeOwningBranch(workRepoPath, SYNC_BRANCH);
+      expect(owner).toBe(null);
+    });
 
-      // Step 4: Create a new file and commit in repaired worktree
-      const testFile = join(worktreePath, TBD_DIR, DATA_SYNC_DIR_NAME, 'test.txt');
-      await fsWriteFile(testFile, 'test content');
+    it('returns the worktree path when a worktree has the branch attached', async () => {
+      await initWorktree(workRepoPath);
+      const worktreePath = join(workRepoPath, WORKTREE_DIR);
+      await gitInDir(worktreePath, 'checkout', SYNC_BRANCH);
+
+      const owner = await findWorktreeOwningBranch(workRepoPath, SYNC_BRANCH);
+      // Path comparison is loose — git may report a canonicalized path.
+      expect(owner).toBeTruthy();
+      expect(owner).toContain(WORKTREE_DIR);
+    });
+
+    it('returns null for a non-existent branch', async () => {
+      await initWorktree(workRepoPath);
+      const owner = await findWorktreeOwningBranch(workRepoPath, 'no-such-branch');
+      expect(owner).toBe(null);
+    });
+  });
+
+  describe('advanceSyncBranch (CAS update-ref)', () => {
+    it('advances the branch ref when expectedOld matches', async () => {
+      await initWorktree(workRepoPath);
+      const worktreePath = join(workRepoPath, WORKTREE_DIR);
+
+      // Make a new commit on the detached worktree.
+      const testFile = join(worktreePath, TBD_DIR, DATA_SYNC_DIR_NAME, 'cas-test.txt');
+      await fsWriteFile(testFile, 'cas content');
       await gitInDir(worktreePath, 'add', '-A');
-      await gitInDir(worktreePath, 'commit', '-m', 'Test commit after repair');
+      await gitInDir(worktreePath, 'commit', '-m', 'CAS test commit');
+      const newHead = await gitInDir(worktreePath, 'rev-parse', 'HEAD');
+      const expectedOld = await gitInDir(workRepoPath, 'rev-parse', SYNC_BRANCH);
 
-      // Step 5: Get the tbd-sync branch head (from main repo, not worktree)
-      const branchHead = await gitInDir(workRepoPath, 'rev-parse', SYNC_BRANCH);
-      const worktreeHead = await gitInDir(worktreePath, 'rev-parse', 'HEAD');
-
-      // The bug: worktree commits don't update tbd-sync branch when detached
-      expect(worktreeHead).toBe(branchHead); // FAILS when detached - branch stays at initialHead
-    });
-
-    it('migration commits are on tbd-sync branch, not detached HEAD', async () => {
-      // Initialize worktree first
-      await initWorktree(workRepoPath);
-
-      // Create data in the WRONG location (.tbd/data-sync/)
-      const wrongIssuesPath = join(workRepoPath, DATA_SYNC_DIR, 'issues');
-      await mkdir(wrongIssuesPath, { recursive: true });
-      await fsWriteFile(join(wrongIssuesPath, 'test-branch.md'), '# Test Branch Issue\n');
-
-      // Migrate data to worktree
-      const result = await migrateDataToWorktree(workRepoPath);
+      const result = await advanceSyncBranch(workRepoPath, SYNC_BRANCH, newHead, expectedOld);
       expect(result.success).toBe(true);
 
-      // Get the worktree path
-      const worktreePath = join(workRepoPath, WORKTREE_DIR);
-
-      // Check that we're on the tbd-sync branch, not detached HEAD
-      const branchOutput = await gitInDir(worktreePath, 'branch', '--show-current');
-      expect(branchOutput).toBe(SYNC_BRANCH);
-
-      // Also verify HEAD is not detached
-      const headRef = await gitInDir(worktreePath, 'symbolic-ref', '-q', 'HEAD').catch(
-        () => 'detached',
-      );
-      expect(headRef).not.toBe('detached');
-      expect(headRef).toContain(SYNC_BRANCH);
+      const branchHead = await gitInDir(workRepoPath, 'rev-parse', SYNC_BRANCH);
+      expect(branchHead).toBe(newHead);
     });
-  },
-);
+
+    it('returns success:false with actualHead when expectedOld is stale', async () => {
+      await initWorktree(workRepoPath);
+      const worktreePath = join(workRepoPath, WORKTREE_DIR);
+      const initialBranch = await gitInDir(workRepoPath, 'rev-parse', SYNC_BRANCH);
+
+      // Advance the branch ref out-of-band so expectedOld becomes stale.
+      const f1 = join(worktreePath, TBD_DIR, DATA_SYNC_DIR_NAME, 'sibling.txt');
+      await fsWriteFile(f1, 'sibling content');
+      await gitInDir(worktreePath, 'add', '-A');
+      await gitInDir(worktreePath, 'commit', '-m', 'Sibling commit');
+      const siblingHead = await gitInDir(worktreePath, 'rev-parse', 'HEAD');
+      await gitInDir(workRepoPath, 'update-ref', `refs/heads/${SYNC_BRANCH}`, siblingHead);
+
+      // Now try to CAS using the stale expectedOld.
+      const result = await advanceSyncBranch(workRepoPath, SYNC_BRANCH, siblingHead, initialBranch);
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        expect(result.actualHead).toBe(siblingHead);
+      }
+    });
+
+    it('uses unguarded update-ref when expectedOld is empty (orphan first commit)', async () => {
+      // Set up a worktree with no branch ref yet — simulate by deleting the
+      // ref after init (the "no prior commit" scenario for orphan branches).
+      await initWorktree(workRepoPath);
+      const worktreePath = join(workRepoPath, WORKTREE_DIR);
+      await gitInDir(workRepoPath, 'update-ref', '-d', `refs/heads/${SYNC_BRANCH}`);
+
+      const head = await gitInDir(worktreePath, 'rev-parse', 'HEAD');
+      const result = await advanceSyncBranch(workRepoPath, SYNC_BRANCH, head, '');
+      expect(result.success).toBe(true);
+
+      const branch = await gitInDir(workRepoPath, 'rev-parse', SYNC_BRANCH);
+      expect(branch).toBe(head);
+    });
+  });
+
+  describe('repairWorktree: attached', () => {
+    it("repairs status='attached' by detaching in place (no commits, no backup)", async () => {
+      await initWorktree(workRepoPath);
+      const worktreePath = join(workRepoPath, WORKTREE_DIR);
+      await gitInDir(worktreePath, 'checkout', SYNC_BRANCH);
+
+      const headBefore = await gitInDir(worktreePath, 'rev-parse', 'HEAD');
+      const branchBefore = await gitInDir(workRepoPath, 'rev-parse', SYNC_BRANCH);
+
+      const result = await repairWorktree(workRepoPath, 'attached');
+      expect(result.success).toBe(true);
+      expect(result.backedUp).toBeUndefined();
+
+      const symbolic = await gitInDir(worktreePath, 'symbolic-ref', '-q', 'HEAD').catch(() => '');
+      expect(symbolic).toBe('');
+
+      // No commits added, no data movement.
+      const headAfter = await gitInDir(worktreePath, 'rev-parse', 'HEAD');
+      const branchAfter = await gitInDir(workRepoPath, 'rev-parse', SYNC_BRANCH);
+      expect(headAfter).toBe(headBefore);
+      expect(branchAfter).toBe(branchBefore);
+    });
+  });
+});

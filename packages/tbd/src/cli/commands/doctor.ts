@@ -830,6 +830,43 @@ class DoctorHandler extends BaseCommand {
         // Worktree not existing is OK - it's created on demand
         return { name: 'Worktree', status: 'ok', message: 'not created yet', path: worktreePath };
 
+      case 'attached': {
+        // Legacy state: worktree was created with the pre-2026-05-08 design
+        // (attached to tbd-sync). Functional, but blocks sibling worktrees
+        // from creating their own. Repair is in-place detach — no data
+        // movement. See plan-2026-05-08-multi-worktree-sync-support.md.
+        if (fix && !this.checkDryRun('Detach worktree (legacy attached state)')) {
+          const result = await repairWorktree(this.cwd, 'attached');
+          if (result.success) {
+            return {
+              name: 'Worktree',
+              status: 'ok',
+              message: 'detached (legacy attached state repaired)',
+              path: worktreePath,
+            };
+          }
+          return {
+            name: 'Worktree',
+            status: 'error',
+            message: `detach failed: ${result.error}`,
+            path: worktreePath,
+          };
+        }
+        return {
+          name: 'Worktree',
+          status: 'warn',
+          message: 'attached to sync branch (legacy state)',
+          path: worktreePath,
+          details: [
+            'Worktree HEAD is a symbolic ref to the sync branch.',
+            'This blocks sibling working trees of the same repo from sharing it.',
+            'Repair is in-place: no data moves, only HEAD form changes.',
+          ],
+          fixable: true,
+          suggestion: 'Run: tbd doctor --fix to detach in place',
+        };
+      }
+
       case 'prunable':
       case 'corrupted': {
         // Attempt repair if --fix is provided and not in dry-run mode

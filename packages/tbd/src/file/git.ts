@@ -742,8 +742,14 @@ export async function worktreeExists(baseDir: string): Promise<boolean> {
 /**
  * Worktree health status values.
  * See: tbd-design.md §2.3.4 Worktree Health States
+ *
+ * `attached` is a legacy state from the pre-detached design — the worktree
+ * is healthy but its HEAD is a symbolic ref to refs/heads/tbd-sync, which
+ * blocks any sibling checkout from creating its own worktree on the same
+ * branch. It is repaired in place by `checkout --detach tbd-sync` (no data
+ * movement). See plan-2026-05-08-multi-worktree-sync-support.md.
  */
-export type WorktreeStatus = 'valid' | 'missing' | 'prunable' | 'corrupted';
+export type WorktreeStatus = 'valid' | 'missing' | 'prunable' | 'corrupted' | 'attached';
 
 /**
  * Worktree health status.
@@ -753,9 +759,9 @@ export interface WorktreeHealth {
   exists: boolean;
   /** Whether the worktree is valid and functional */
   valid: boolean;
-  /** Detailed status: valid, missing, prunable, or corrupted */
+  /** Detailed status */
   status: WorktreeStatus;
-  /** The branch checked out in the worktree */
+  /** The branch checked out in the worktree (null when detached) */
   branch: string | null;
   /** The commit HEAD points to */
   commit: string | null;
@@ -870,15 +876,47 @@ export async function checkWorktreeHealth(baseDir: string): Promise<WorktreeHeal
     let branch: string | null = null;
 
     try {
-      // Check if we're on detached HEAD pointing to tbd-sync
       const refName = await git('-C', worktreePath, 'symbolic-ref', '-q', 'HEAD');
       branch = refName.replace('refs/heads/', '');
     } catch {
-      // Detached HEAD - expected state
+      // Detached HEAD — the desired state under the multi-worktree model.
       branch = null;
     }
 
-    return { exists: true, valid: true, status: 'valid', branch, commit };
+    // Detached worktree on the right commit — healthy.
+    if (branch === null) {
+      return { exists: true, valid: true, status: 'valid', branch, commit };
+    }
+
+    // Attached to tbd-sync — legacy state. Functional, but blocks sibling
+    // checkouts from creating their own worktree on the same branch.
+    // Auto-repaired by `tbd doctor --fix` (and lazily by `tbd sync`) via
+    // `git checkout --detach tbd-sync`.
+    if (branch === SYNC_BRANCH) {
+      return {
+        exists: true,
+        valid: true,
+        status: 'attached',
+        branch,
+        commit,
+        error:
+          `Worktree HEAD is attached to ${SYNC_BRANCH}; expected detached. ` +
+          `This blocks sibling worktrees from sharing the branch. ` +
+          `Run \`tbd doctor --fix\` to detach in place.`,
+      };
+    }
+
+    // Attached to some other branch — unexpected; treat as corrupted so
+    // the user notices (this should not happen under either old or new
+    // designs).
+    return {
+      exists: true,
+      valid: false,
+      status: 'corrupted',
+      branch,
+      commit,
+      error: `Worktree HEAD is on unexpected branch '${branch}'`,
+    };
   } catch (error) {
     return {
       exists: true,
@@ -888,6 +926,84 @@ export async function checkWorktreeHealth(baseDir: string): Promise<WorktreeHeal
       commit: null,
       error: error instanceof Error ? error.message : String(error),
     };
+  }
+}
+
+/**
+ * Find which worktree (if any) currently has `branch` checked out as a
+ * symbolic ref. Returns the worktree path or null. Used to diagnose the
+ * "branch already used by worktree" condition that prevents sibling
+ * checkouts from creating their own data-sync-worktree.
+ *
+ * See plan-2026-05-08-multi-worktree-sync-support.md research §R8.
+ */
+export async function findWorktreeOwningBranch(
+  baseDir: string,
+  branch: string,
+): Promise<string | null> {
+  let porcelain: string;
+  try {
+    porcelain = await git('-C', baseDir, 'worktree', 'list', '--porcelain');
+  } catch {
+    return null;
+  }
+
+  const target = `refs/heads/${branch}`;
+  let currentPath: string | null = null;
+  for (const line of porcelain.split('\n')) {
+    if (line.startsWith('worktree ')) {
+      currentPath = line.slice('worktree '.length).trim();
+    } else if (line.startsWith('branch ') && currentPath) {
+      const ref = line.slice('branch '.length).trim();
+      if (ref === target) return currentPath;
+    }
+  }
+  return null;
+}
+
+/**
+ * Advance `refs/heads/<syncBranch>` to `newHead` using a compare-and-swap.
+ * Returns `{ success: true }` on a clean update.
+ *
+ * On CAS failure (sibling worktree advanced the ref between our read and
+ * our update), returns `{ success: false, actualHead }` so the caller can
+ * merge the sibling commit and retry.
+ *
+ * If `expectedOld` is empty (e.g., orphan branch with no prior commit),
+ * the unguarded form `git update-ref refs/heads/<syncBranch> <newHead>`
+ * is used.
+ *
+ * See plan-2026-05-08-multi-worktree-sync-support.md research §R4.
+ */
+export async function advanceSyncBranch(
+  baseDir: string,
+  syncBranch: string,
+  newHead: string,
+  expectedOld: string,
+): Promise<{ success: true } | { success: false; actualHead: string }> {
+  const ref = `refs/heads/${syncBranch}`;
+  try {
+    if (expectedOld) {
+      await git('-C', baseDir, 'update-ref', ref, newHead, expectedOld);
+    } else {
+      await git('-C', baseDir, 'update-ref', ref, newHead);
+    }
+    return { success: true };
+  } catch (error) {
+    const msg = error instanceof Error ? error.message : String(error);
+    // CAS failure manifests as "cannot lock ref ... is at X but expected Y".
+    // Re-read the ref so the caller knows what to merge against.
+    let actualHead = '';
+    try {
+      actualHead = (await git('-C', baseDir, 'rev-parse', '--verify', ref)).trim();
+    } catch {
+      // Ref doesn't exist anymore — propagate as failure with empty head.
+    }
+    if (msg.includes('cannot lock ref') || actualHead) {
+      return { success: false, actualHead };
+    }
+    // Unrelated error (e.g., not a git repo) — surface it.
+    throw error;
   }
 }
 
@@ -920,37 +1036,36 @@ export async function initWorktree(
   }
 
   try {
+    // Detached HEAD model: the worktree never claims tbd-sync as a symbolic
+    // ref, which lets sibling worktrees of the same repo each have their own
+    // hidden worktree. Branch advancement is explicit via advanceSyncBranch().
+    // See plan-2026-05-08-multi-worktree-sync-support.md.
+
     // Check if local branch exists
     const localExists = await branchExists(syncBranch);
     if (localExists) {
-      // Create worktree on local branch (no --detach, so commits update the branch)
-      // Note: Don't use --detach here - we want commits to update tbd-sync branch
-      await git('-C', baseDir, 'worktree', 'add', worktreePath, syncBranch);
+      await git('-C', baseDir, 'worktree', 'add', '--detach', worktreePath, syncBranch);
       return { success: true, path: worktreePath, created: true };
     }
 
-    // Check if remote branch exists
+    // Check if remote branch exists — fetch, materialize the local ref via
+    // update-ref (so the branch exists locally without claiming a worktree),
+    // then create a detached worktree at it.
     const remoteExists = await remoteBranchExists(remote, syncBranch);
     if (remoteExists) {
-      // Fetch and create worktree from remote branch with local tracking branch
       await git('-C', baseDir, 'fetch', remote, syncBranch);
-      // Use -b to create local branch tracking remote, not --detach
-      // This ensures commits update the local branch which can then be pushed
-      await git(
-        '-C',
-        baseDir,
-        'worktree',
-        'add',
-        '-b',
-        syncBranch,
-        worktreePath,
-        `${remote}/${syncBranch}`,
-      );
+      const remoteCommit = (
+        await git('-C', baseDir, 'rev-parse', `${remote}/${syncBranch}`)
+      ).trim();
+      await git('-C', baseDir, 'update-ref', `refs/heads/${syncBranch}`, remoteCommit);
+      await git('-C', baseDir, 'worktree', 'add', '--detach', worktreePath, syncBranch);
       return { success: true, path: worktreePath, created: true };
     }
 
-    // No branch exists - create orphan worktree (requires Git 2.42+)
-    // Syntax: git worktree add --orphan -b <branch> <path>
+    // No branch exists - create orphan worktree (requires Git 2.42+).
+    // Orphan must be created on a branch initially; we detach immediately
+    // after the initial commit so the branch ref is held only by us-as-data,
+    // not by a worktree symbolic-ref.
     await requireGitVersion();
     await git('-C', baseDir, 'worktree', 'add', '--orphan', '-b', syncBranch, worktreePath);
 
@@ -975,6 +1090,10 @@ export async function initWorktree(
     // Use --no-verify to bypass parent repo hooks (lefthook, husky, etc.)
     await git('-C', worktreePath, 'add', '.');
     await git('-C', worktreePath, 'commit', '--no-verify', '-m', 'Initialize tbd-sync branch');
+
+    // Detach so the branch ref is no longer held as a symbolic-ref by this
+    // worktree; subsequent commits use commit + advanceSyncBranch().
+    await git('-C', worktreePath, 'checkout', '--detach', 'HEAD');
 
     return { success: true, path: worktreePath, created: true };
   } catch (error) {
@@ -1287,11 +1406,15 @@ export async function removeWorktree(
  * Repair an unhealthy worktree.
  *
  * Follows decision tree from spec Appendix E:
+ * - ATTACHED: detach in place — no data movement, no backup. The worktree
+ *   already has the right files; we only stop holding the branch ref as
+ *   a symbolic-ref so sibling worktrees can share it.
  * - PRUNABLE: git worktree prune, then recreate
  * - CORRUPTED: backup to .tbd/backups/, remove, then recreate
  * - MISSING: just create
  *
  * See: plan-2026-01-28-sync-worktree-recovery-and-hardening.md
+ * See: plan-2026-05-08-multi-worktree-sync-support.md
  *
  * @param baseDir - The base directory of the repository
  * @param status - Current worktree health status
@@ -1300,13 +1423,20 @@ export async function removeWorktree(
  */
 export async function repairWorktree(
   baseDir: string,
-  status: 'missing' | 'prunable' | 'corrupted',
+  status: 'missing' | 'prunable' | 'corrupted' | 'attached',
   remote = 'origin',
   syncBranch: string = SYNC_BRANCH,
 ): Promise<{ success: boolean; path?: string; backedUp?: string; error?: string }> {
   const worktreePath = join(baseDir, WORKTREE_DIR);
 
   try {
+    // Attached: just detach in place. The worktree's files already match
+    // the branch tip; we change only the HEAD form (symbolic-ref → detached).
+    if (status === 'attached') {
+      await git('-C', worktreePath, 'checkout', '--detach', syncBranch);
+      return { success: true, path: worktreePath };
+    }
+
     // Always prune stale worktree entries first for missing and prunable states
     // This ensures git's worktree list is clean before creating a new worktree
     if (status === 'missing' || status === 'prunable') {
@@ -1350,25 +1480,30 @@ export async function repairWorktree(
 }
 
 /**
- * Ensure worktree is attached to sync branch, not detached HEAD.
- * Old tbd versions (pre-v0.1.9) created worktrees with --detach flag.
- * This repairs them automatically.
+ * Ensure worktree is on detached HEAD (the multi-worktree-safe state).
+ *
+ * If the worktree's HEAD is a symbolic ref to refs/heads/<sync branch>, it
+ * blocks any sibling checkout from creating its own worktree on the same
+ * branch. Detach in place — no commits move; only the HEAD form changes.
+ *
+ * Old tbd versions (and the pre-2026-05-08 design) attached the worktree
+ * to tbd-sync. This is a one-time silent repair on first sync after upgrade.
  *
  * @param worktreePath - Path to the worktree directory
- * @returns true if worktree was detached and repaired, false if already attached
+ * @returns true if worktree was attached and got detached, false if already detached
  */
-export async function ensureWorktreeAttached(worktreePath: string): Promise<boolean> {
+export async function ensureWorktreeDetached(worktreePath: string): Promise<boolean> {
   try {
-    const currentBranch = await git('-C', worktreePath, 'branch', '--show-current').catch(() => '');
+    const symbolic = await git('-C', worktreePath, 'symbolic-ref', '-q', 'HEAD').catch(() => '');
 
-    if (!currentBranch) {
-      // Detached HEAD - re-attach to sync branch
-      // This is a one-time repair for repos created with old tbd versions
-      await git('-C', worktreePath, 'checkout', SYNC_BRANCH);
-      return true; // Was detached, now repaired
+    if (symbolic?.trim() === `refs/heads/${SYNC_BRANCH}`) {
+      // Attached to tbd-sync — detach in place. The commit doesn't move;
+      // we just stop holding the branch ref as a symbolic-ref.
+      await git('-C', worktreePath, 'checkout', '--detach', SYNC_BRANCH);
+      return true; // Was attached, now detached
     }
 
-    return false; // Already attached
+    return false; // Already detached or on something unexpected
   } catch (error) {
     // If we can't check/fix, that's a problem but don't fail the operation
     console.warn('Warning: Could not check worktree HEAD status:', error);
@@ -1394,6 +1529,7 @@ export async function ensureWorktreeAttached(worktreePath: string): Promise<bool
 export async function migrateDataToWorktree(
   baseDir: string,
   removeSource = false,
+  syncBranch: string = SYNC_BRANCH,
 ): Promise<{
   success: boolean;
   migratedCount: number;
@@ -1405,8 +1541,9 @@ export async function migrateDataToWorktree(
   const worktreePath = join(baseDir, WORKTREE_DIR);
 
   try {
-    // Ensure worktree is attached to sync branch (repair old tbd repos)
-    await ensureWorktreeAttached(worktreePath);
+    // Ensure worktree is detached so commits-then-CAS can advance the branch
+    // ref without claiming it for sibling worktrees.
+    await ensureWorktreeDetached(worktreePath);
     // Check if there's data in the wrong location
     const wrongIssuesPath = join(wrongPath, 'issues');
     const wrongMappingsPath = join(wrongPath, 'mappings');
@@ -1487,6 +1624,19 @@ export async function migrateDataToWorktree(
       .catch(() => true);
 
     if (hasChanges) {
+      // Capture the branch tip BEFORE the commit so we can advance the
+      // branch ref via CAS afterward. The worktree is detached (per the
+      // multi-worktree-safe model), so the commit advances HEAD only.
+      const expectedOld = await git(
+        '-C',
+        baseDir,
+        'rev-parse',
+        '--verify',
+        `refs/heads/${syncBranch}`,
+      )
+        .then((s) => s.trim())
+        .catch(() => '');
+
       await git(
         '-C',
         worktreePath,
@@ -1495,6 +1645,14 @@ export async function migrateDataToWorktree(
         '-m',
         `tbd: migrate ${totalFiles} file(s) from incorrect location`,
       );
+      const newHead = (await git('-C', worktreePath, 'rev-parse', 'HEAD')).trim();
+      const cas = await advanceSyncBranch(baseDir, syncBranch, newHead, expectedOld);
+      if (!cas.success) {
+        // Sibling raced us during migration; fall back to a fresh non-CAS
+        // update so the migration always lands. The dropped sibling commit
+        // will be reachable via the worktree's reflog if recovery is needed.
+        await git('-C', baseDir, 'update-ref', `refs/heads/${syncBranch}`, newHead);
+      }
     }
     // If no changes, files were already migrated - that's fine
 
