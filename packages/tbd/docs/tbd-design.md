@@ -813,20 +813,35 @@ This provides:
 Created automatically by `tbd init` or first `tbd sync`:
 
 ```bash
-# Create hidden worktree (done by tbd internally)
-git worktree add .tbd/data-sync-worktree tbd-sync
+# Create hidden worktree (done by tbd internally) — always detached so
+# sibling working trees of the same repo can share the tbd-sync branch.
+git worktree add --detach .tbd/data-sync-worktree tbd-sync
 
-# Or if tbd-sync doesn't exist yet
-git worktree add .tbd/data-sync-worktree --orphan tbd-sync
+# Or if tbd-sync doesn't exist yet (orphan; detached after the initial commit)
+git worktree add --orphan -b tbd-sync .tbd/data-sync-worktree
+git -C .tbd/data-sync-worktree commit -m "Initialize tbd-sync branch"
+git -C .tbd/data-sync-worktree checkout --detach HEAD
 ```
 
 **Key properties:**
 
-- **Attached to sync branch**: Worktree is checked out to `tbd-sync` branch so commits
-  update the branch ref.
-  This ensures `git push` operations can detect new commits.
-  If the worktree becomes detached (from old tbd versions), it’s automatically repaired
-  before commits.
+- **Detached HEAD**: Worktree’s HEAD points at the current `tbd-sync` commit but is
+  *not* a symbolic-ref to `refs/heads/tbd-sync`. This is the multi-worktree-safe state:
+  any number of sibling working trees of the same repo can each have their own
+  `.tbd/data-sync-worktree/` without git’s “branch already used by worktree” rule
+  firing. See plan-2026-05-08-multi-worktree-sync-support.md.
+
+- **Branch advance via CAS update-ref**: Commits inside the worktree advance HEAD only.
+  `tbd sync` then advances `refs/heads/tbd-sync` explicitly with
+  `git update-ref refs/heads/tbd-sync <newHead> <expectedOld>` (compare-and-swap).
+  On CAS failure (sibling worktree raced us), it merges the sibling commit into HEAD and
+  retries once.
+
+- **Legacy attached state auto-repaired**: Worktrees from tbd <= v0.1.26 were attached
+  to `tbd-sync` via symbolic-ref.
+  `checkWorktreeHealth` reports them as `status: 'attached'`; `tbd doctor --fix` (and
+  the next `tbd sync`) detaches them in place via `git checkout --detach tbd-sync` — no
+  data movement.
 
 - **Hidden location**: Inside `.tbd/` which is partially gitignored
 
@@ -953,14 +968,21 @@ START: Any tbd command
 
 #### Worktree Health States
 
-The worktree can be in one of four states, detected by `checkWorktreeHealth()`:
+The worktree can be in one of five states, detected by `checkWorktreeHealth()`:
 
 | State | Description | Detection | Recovery |
 | --- | --- | --- | --- |
-| `valid` | Healthy, ready to use | Directory exists, `.git` file valid, not prunable | None needed |
+| `valid` | Healthy, ready to use | Directory exists, `.git` file valid, not prunable, HEAD detached | None needed |
 | `missing` | Directory doesn’t exist | `!exists(.tbd/data-sync-worktree/)` | Create from local or remote branch |
 | `prunable` | Directory deleted but git still tracks it | `git worktree list --porcelain` shows prunable | `git worktree prune`, then recreate |
 | `corrupted` | Directory exists but invalid | Missing `.git` file or invalid gitdir pointer | **Backup to .tbd/backups/**, then recreate |
+| `attached` | Legacy: HEAD is symbolic-ref to `refs/heads/tbd-sync` | `git -C wt symbolic-ref HEAD` returns the sync branch | In-place `git checkout --detach tbd-sync` (no data movement) |
+
+The `attached` state is *legacy but functional* — left over from tbd <= v0.1.26 which
+created the worktree without `--detach`. The data is fine; only the HEAD form is wrong.
+It blocks sibling working trees of the same repo from sharing `tbd-sync`. Repair is
+silent and zero-cost: `tbd sync` and `tbd doctor --fix` both detect and detach in place.
+See plan-2026-05-08-multi-worktree-sync-support.md.
 
 **Safety: Backup before removal**
 
@@ -4952,6 +4974,13 @@ checkout.
 - **No silent fallback**: If worktree is missing, commands error with repair
   instructions (see §2.3.5 Path Terminology and Resolution)
 
+- **Detached HEAD + CAS update-ref**: Worktree is created with
+  `git worktree add --detach`, never claiming the branch ref via symbolic-ref.
+  `tbd sync` commits on detached HEAD then advances `refs/heads/tbd-sync` via
+  `git update-ref <new> <expectedOld>` (CAS). This was changed from the original
+  attached-HEAD design after the multi-checkout failure mode was discovered.
+  See plan-2026-05-08-multi-worktree-sync-support.md.
+
 **Tradeoffs**:
 
 - Additional disk space (~2x issue storage)
@@ -4961,6 +4990,10 @@ checkout.
 - Edge case: stale worktree if not synced recently
 
 - Edge case: worktree can become “prunable” if directory deleted outside of git
+
+- Edge case: legacy worktrees from tbd <= v0.1.26 are attached to `tbd-sync` and block
+  sibling working trees from sharing the branch (auto-repaired on next `tbd sync` /
+  `tbd doctor`)
 
 **Mitigations**:
 
@@ -4973,6 +5006,11 @@ checkout.
 - Space overhead is minimal (issues are small files)
 
 - Clear error messages guide users to repair commands
+
+- Sibling working trees of the same repo (e.g. user’s primary checkout + Codex/agent
+  worktree) can each have their own hidden `tbd-sync` worktree without
+  `git worktree add` failing — both are detached and share the branch ref via
+  `update-ref`.
 
 ### 7.2 Future Enhancements
 

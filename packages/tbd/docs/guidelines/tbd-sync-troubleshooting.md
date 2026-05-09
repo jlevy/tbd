@@ -185,6 +185,31 @@ The `.tbd/.gitignore` file contains a `!workspaces/` negation pattern to prevent
 
 ## Worktree Issues
 
+### Multiple checkouts of the same repo (sibling worktrees)
+
+**Symptoms:**
+- `tbd setup --auto` or `tbd doctor --fix` in a second checkout fails with:
+  ```
+  fatal: 'tbd-sync' is already used by worktree at
+  '<other-checkout>/.tbd/data-sync-worktree'
+  ```
+- Common topology: user’s primary checkout (`~/wrk/proj/`) plus a Codex / agent worktree
+  of the same repo (`~/.codex/worktrees/.../proj/`).
+
+**Cause:**
+- Both checkouts share one `.git` common dir, so git enforces its “one branch, one
+  worktree” rule on `refs/heads/tbd-sync`.
+- Pre-v0.1.27 tbd attached the hidden worktree to `tbd-sync` via symbolic ref, so only
+  one checkout could ever own it.
+
+**Solution (tbd >= v0.1.27):**
+- Upgrade tbd everywhere (`npm install -g get-tbd@latest`).
+- Run `tbd doctor --fix` once in the primary to detach its worktree in place (no data
+  movement). The detach is auto-applied by the next `tbd sync` too.
+- Sibling checkouts can then `tbd setup --auto` and `tbd sync` normally; each gets its
+  own detached `.tbd/data-sync-worktree/`. The `tbd-sync` branch ref is advanced via
+  `git update-ref` compare-and-swap, with merge-and-retry on race.
+
 ### Worktree corrupted
 
 **Symptoms:**
