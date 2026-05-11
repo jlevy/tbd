@@ -12,7 +12,7 @@ import { join } from 'node:path';
 
 import { BaseCommand } from '../lib/base-command.js';
 import { requireInit } from '../lib/errors.js';
-import { listIssues } from '../../file/storage.js';
+import { listIssuesDetailed } from '../../file/storage.js';
 import { readConfig } from '../../file/config.js';
 import type { Config, Issue, IssueStatusType } from '../../lib/types.js';
 import { resolveDataSyncDir, TBD_DIR, WORKTREE_DIR, DATA_SYNC_DIR } from '../../lib/paths.js';
@@ -73,9 +73,12 @@ class DoctorHandler extends BaseCommand {
       // Config may be invalid - will be caught by health checks
     }
 
-    // Load issues
+    // Load issues. Use listIssuesDetailed so doctor doesn't trigger
+    // listIssues's per-file console warnings (the validity check below
+    // already surfaces skipped files cleanly).
     try {
-      this.issues = await listIssues(this.dataSyncDir);
+      const result = await listIssuesDetailed(this.dataSyncDir);
+      this.issues = result.issues;
     } catch {
       // May fail if no issues yet
     }
@@ -113,8 +116,9 @@ class DoctorHandler extends BaseCommand {
     // Check 7: Orphaned temp files
     healthChecks.push(await this.checkTempFiles(options.fix));
 
-    // Check 8: Issue validity
-    healthChecks.push(this.checkIssueValidity(this.issues));
+    // Check 8: Issue validity (re-parses every issue file from disk so we
+    // catch schema violations that listIssues silently skipped — see #115).
+    healthChecks.push(await this.checkIssueValidity());
 
     // Check 9: Worktree health (with fix support)
     // Run BEFORE ID mapping check — worktree repair and data migration can
@@ -130,7 +134,8 @@ class DoctorHandler extends BaseCommand {
     if (dataLocationResult.status === 'ok' && dataLocationResult.message?.includes('migrated')) {
       this.dataSyncDir = await resolveDataSyncDir(this.cwd);
       try {
-        this.issues = await listIssues(this.dataSyncDir);
+        const result = await listIssuesDetailed(this.dataSyncDir);
+        this.issues = result.issues;
       } catch {
         // Will be caught by other health checks
       }
@@ -552,20 +557,27 @@ class DoctorHandler extends BaseCommand {
   }
 
   private async checkTempFiles(fix?: boolean): Promise<DiagnosticResult> {
-    const issuesPath = join(CONFIG_DIR, 'issues');
+    // The actual issues directory lives inside the worktree
+    // (.tbd/data-sync-worktree/.tbd/data-sync/issues), not in .tbd/issues —
+    // the displayed path must reflect what we're really scanning, otherwise
+    // doctor reports OK on a path that doesn't even exist.
     const issuesDir = join(this.dataSyncDir, 'issues');
+    const displayPath = join(DATA_SYNC_DIR, 'issues');
     let tempFiles: string[] = [];
 
     try {
       const files = await readdir(issuesDir);
-      tempFiles = files.filter((f) => f.endsWith('.tmp'));
+      // Catch both plain `.tmp` and `atomically`'s leftover `<name>.md.tmp-NNNN`
+      // intermediate files. Restricted to `.tmp` patterns so --fix doesn't
+      // accidentally delete unrelated files a user may have placed here.
+      tempFiles = files.filter((f) => f.endsWith('.tmp') || /\.tmp-\d+$/.test(f));
     } catch {
       // Directory doesn't exist - no temp files
-      return { name: 'Temp files', status: 'ok', path: issuesPath };
+      return { name: 'Temp files', status: 'ok', path: displayPath };
     }
 
     if (tempFiles.length === 0) {
-      return { name: 'Temp files', status: 'ok', path: issuesPath };
+      return { name: 'Temp files', status: 'ok', path: displayPath };
     }
 
     if (fix && !this.checkDryRun('Clean temp files')) {
@@ -581,51 +593,37 @@ class DoctorHandler extends BaseCommand {
         name: 'Temp files',
         status: 'ok',
         message: `Cleaned ${tempFiles.length} temp file(s)`,
-        path: issuesPath,
+        path: displayPath,
       };
     }
 
     return {
       name: 'Temp files',
       status: 'warn',
-      message: `${tempFiles.length} orphaned temp file(s)`,
-      path: issuesPath,
+      message: `${tempFiles.length} orphaned non-issue file(s)`,
+      path: displayPath,
       details: tempFiles,
       fixable: true,
       suggestion: 'Run: tbd doctor --fix',
     };
   }
 
-  private checkIssueValidity(issues: Issue[]): DiagnosticResult {
-    const invalid: { id: string; reason: string }[] = [];
+  private async checkIssueValidity(): Promise<DiagnosticResult> {
+    // Re-parse every issue file from disk so we catch schema violations
+    // (e.g. oversize titles) that listIssues silently skipped.
+    // See issue #115.
+    const { issues, skipped } = await listIssuesDetailed(this.dataSyncDir);
 
+    const invalid: { id: string; reason: string }[] = skipped.map((s) => ({
+      id: s.file,
+      reason: s.reason,
+    }));
+
+    // Belt-and-braces: also sanity-check parsed issues for the things the
+    // schema technically allows but that downstream commands depend on.
     for (const issue of issues) {
-      const issueId = issue.id ?? 'unknown';
-      // Check required fields
-      if (!issue.id) {
-        invalid.push({ id: issueId, reason: 'missing required field: id' });
-        continue;
-      }
-      if (!issue.title) {
-        invalid.push({ id: issueId, reason: 'missing required field: title' });
-        continue;
-      }
-      if (!issue.status) {
-        invalid.push({ id: issueId, reason: 'missing required field: status' });
-        continue;
-      }
-      if (!issue.kind) {
-        invalid.push({ id: issueId, reason: 'missing required field: kind' });
-        continue;
-      }
-      // Check ID format
       if (!validateIssueId(issue.id)) {
-        invalid.push({ id: issueId, reason: 'invalid ID format' });
-        continue;
-      }
-      // Check priority range
-      if (issue.priority < 0 || issue.priority > 4) {
-        invalid.push({ id: issueId, reason: `invalid priority ${issue.priority} (must be 0-4)` });
+        invalid.push({ id: issue.id ?? 'unknown', reason: 'invalid ID format' });
       }
     }
 
@@ -636,7 +634,7 @@ class DoctorHandler extends BaseCommand {
     return {
       name: 'Issue validity',
       status: 'error',
-      message: `${invalid.length} invalid issue(s)`,
+      message: `${invalid.length} invalid issue file(s)`,
       details: invalid.map((i) => `${i.id}: ${i.reason}`),
       suggestion: 'Manually fix or delete invalid issue files',
     };
@@ -885,10 +883,13 @@ class DoctorHandler extends BaseCommand {
     const wrongPath = join(this.cwd, DATA_SYNC_DIR);
     const wrongIssuesPath = join(wrongPath, 'issues');
 
-    // Try to list issues in the wrong location
+    // Try to list issues in the wrong location. Use the detailed variant
+    // to avoid duplicating listIssues's per-file warnings (they were
+    // already surfaced by the validity check).
     let wrongPathIssues: Issue[] = [];
     try {
-      wrongPathIssues = await listIssues(wrongPath);
+      const result = await listIssuesDetailed(wrongPath);
+      wrongPathIssues = result.issues;
     } catch {
       // No issues in wrong path - this is expected
     }

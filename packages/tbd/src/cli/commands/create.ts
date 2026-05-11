@@ -19,7 +19,7 @@ import {
   addIdMapping,
   resolveToInternalId,
 } from '../../file/id-mapping.js';
-import { IssueKind } from '../../lib/schemas.js';
+import { IssueKind, IssueSchema } from '../../lib/schemas.js';
 import { parsePriority } from '../../lib/priority.js';
 import { resolveDataSyncDir } from '../../lib/paths.js';
 import { now } from '../../utils/time-utils.js';
@@ -47,6 +47,21 @@ class CreateHandler extends BaseCommand {
     // Validate title is provided (unless --from-file)
     if (!title && !options.fromFile) {
       throw new ValidationError('Title is required. Use: tbd create "Issue title"');
+    }
+
+    // Validate title length up-front against the schema constraint, so users
+    // get a clean error before we attempt to write. Without this, agents that
+    // dump a multi-paragraph description into the title field would get a raw
+    // ZodError later (or, before #115, would silently poison the data store).
+    if (title !== undefined) {
+      const titleCheck = IssueSchema.shape.title.safeParse(title);
+      if (!titleCheck.success) {
+        const reason = titleCheck.error.issues[0]?.message ?? 'invalid title';
+        throw new ValidationError(
+          `Invalid title (${title.length} chars): ${reason}. ` +
+            `Move detail into the description (-d / -f).`,
+        );
+      }
     }
 
     // Parse and validate options

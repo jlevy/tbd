@@ -2,14 +2,22 @@
  * Tests for storage layer - issue file operations.
  */
 
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { mkdtemp, rm, readFile, writeFile as fsWriteFile } from 'node:fs/promises';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { mkdtemp, mkdir, rm, readFile, writeFile as fsWriteFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { writeFile } from 'atomically';
-import { readIssue, writeIssue, listIssues, deleteIssue } from '../src/file/storage.js';
+import {
+  readIssue,
+  writeIssue,
+  listIssues,
+  listIssuesDetailed,
+  deleteIssue,
+  formatIssueParseError,
+} from '../src/file/storage.js';
 import type { Issue } from '../src/lib/types.js';
 import { TEST_ULIDS, testId } from './test-helpers.js';
+import { z } from 'zod';
 
 const makeIssue = (overrides: Partial<Issue> = {}): Issue => ({
   type: 'is',
@@ -187,6 +195,128 @@ describe('listIssues', () => {
     const issues = await listIssues(tempDir);
     expect(issues).toHaveLength(1);
     expect(issues[0]!.id).toBe(id1);
+  });
+});
+
+describe('writeIssue validation (issue #115)', () => {
+  let tempDir: string;
+
+  beforeEach(async () => {
+    tempDir = await mkdtemp(join(tmpdir(), 'tbd-test-'));
+  });
+
+  afterEach(async () => {
+    await rm(tempDir, { recursive: true, force: true });
+  });
+
+  it('rejects an issue with an oversize title', async () => {
+    const issue = makeIssue({
+      id: testId(TEST_ULIDS.STORAGE_1),
+      title: 'x'.repeat(600),
+    });
+
+    await expect(writeIssue(tempDir, issue)).rejects.toBeInstanceOf(z.ZodError);
+
+    // Nothing should have been written
+    const issues = await listIssues(tempDir);
+    expect(issues).toHaveLength(0);
+  });
+
+  it('rejects an issue with an empty title', async () => {
+    const issue = makeIssue({ id: testId(TEST_ULIDS.STORAGE_2), title: '' });
+    await expect(writeIssue(tempDir, issue)).rejects.toBeInstanceOf(z.ZodError);
+  });
+
+  it('accepts a title at the maximum length (500)', async () => {
+    const issue = makeIssue({
+      id: testId(TEST_ULIDS.STORAGE_3),
+      title: 'x'.repeat(500),
+    });
+    await expect(writeIssue(tempDir, issue)).resolves.toBeUndefined();
+  });
+});
+
+describe('listIssues skip behavior (issue #115)', () => {
+  let tempDir: string;
+  let warnSpy: ReturnType<typeof vi.spyOn>;
+
+  beforeEach(async () => {
+    tempDir = await mkdtemp(join(tmpdir(), 'tbd-test-'));
+    warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {
+      // swallow warnings during tests
+    });
+  });
+
+  afterEach(async () => {
+    warnSpy.mockRestore();
+    await rm(tempDir, { recursive: true, force: true });
+  });
+
+  it('skips invalid files without throwing', async () => {
+    // Write one valid issue, then an invalid raw file with the .md extension
+    const goodId = testId(TEST_ULIDS.STORAGE_1);
+    await writeIssue(tempDir, makeIssue({ id: goodId, title: 'good' }));
+
+    const issuesDir = join(tempDir, 'issues');
+    await fsWriteFile(join(issuesDir, 'is-broken.md'), 'this is not a valid issue\n');
+
+    const issues = await listIssues(tempDir);
+    expect(issues).toHaveLength(1);
+    expect(issues[0]!.id).toBe(goodId);
+    expect(warnSpy).toHaveBeenCalled();
+  });
+
+  it('formats warnings as strings (never raw error objects, issue #115)', async () => {
+    const issuesDir = join(tempDir, 'issues');
+    await mkdir(issuesDir, { recursive: true });
+    await fsWriteFile(join(issuesDir, 'is-broken.md'), '---\ntype: is\n---\n');
+
+    await listIssues(tempDir);
+
+    // Every console.warn argument must be a string — never an Error object,
+    // because util.inspect on certain ZodErrors crashes Node v24.
+    for (const call of warnSpy.mock.calls) {
+      for (const arg of call) {
+        expect(typeof arg).toBe('string');
+      }
+    }
+  });
+
+  it('listIssuesDetailed returns the list of skipped files', async () => {
+    const goodId = testId(TEST_ULIDS.STORAGE_2);
+    await writeIssue(tempDir, makeIssue({ id: goodId, title: 'good' }));
+
+    const issuesDir = join(tempDir, 'issues');
+    await fsWriteFile(join(issuesDir, 'is-broken.md'), 'not valid\n');
+
+    const { issues, skipped } = await listIssuesDetailed(tempDir);
+    expect(issues).toHaveLength(1);
+    expect(skipped).toHaveLength(1);
+    expect(skipped[0]!.file).toBe('is-broken.md');
+    expect(skipped[0]!.reason).toBeTypeOf('string');
+    expect(skipped[0]!.reason.length).toBeGreaterThan(0);
+  });
+});
+
+describe('formatIssueParseError (issue #115)', () => {
+  it('formats a ZodError as a string without invoking util.inspect', () => {
+    const schema = z.object({ title: z.string().max(5) });
+    const result = schema.safeParse({ title: 'too long' });
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      const formatted = formatIssueParseError(result.error);
+      expect(typeof formatted).toBe('string');
+      expect(formatted).toContain('title');
+    }
+  });
+
+  it('formats a plain Error', () => {
+    expect(formatIssueParseError(new Error('boom'))).toBe('boom');
+  });
+
+  it('stringifies unknown values', () => {
+    expect(formatIssueParseError('plain string')).toBe('plain string');
+    expect(formatIssueParseError(42)).toBe('42');
   });
 });
 
