@@ -170,23 +170,26 @@ There are two viable sub-options:
 2. **Shared detached worktree:** the shared worktree is detached at the `tbd-sync` tip.
    Commits advance HEAD only, and tbd advances `refs/heads/tbd-sync` explicitly.
 
-Preferred draft choice: **shared detached worktree plus common lock**.
+Preferred draft choice: **shared attached worktree plus common lock**.
 
 Reasons:
 
-- It avoids branch ownership conflicts during migration if any legacy worktree is still
-  attached to `tbd-sync`.
-- It keeps the shared worktree compatible with Git’s linked-worktree branch rules.
-- The common lock makes explicit branch advancement much simpler than the per-checkout
-  detached model because only one tbd process should be manipulating the shared worktree
+- Once there is only one shared sync worktree per Git common directory, attaching it to
+  `tbd-sync` no longer causes sibling checkout branch-ownership conflicts.
+- Commits made in the shared worktree naturally advance `refs/heads/tbd-sync`; this
+  matches the current `initWorktree()` behavior and avoids the detached-HEAD failure
+  mode where commits become orphaned from the branch.
+- The common lock ensures only one tbd process manipulates the attached shared worktree
   at a time.
 
-The attached variant is still worth validating in a spike because it may simplify the
-write path after legacy migration is complete.
+Migration may still need a temporary detached scratch path or a legacy cleanup step if
+an old per-checkout worktree currently owns `tbd-sync`. The migration must resolve that
+ownership before the final shared attached worktree is created.
 
 ### Format And Layout Versioning
 
-This change should use three version scopes, each with a different job.
+This change should use one synchronized local-layout format ID in both places that need
+to agree, plus a separate synced payload schema.
 
 #### 1. Top-Level `.tbd/` Format
 
@@ -230,11 +233,23 @@ The `f04` bump is important for mixed-version safety:
   compatibility is checked before creating, repairing, committing, or syncing a legacy
   `.tbd/data-sync-worktree/`.
 
+The config guard is necessary but not sufficient by itself because `.tbd/config.yml` is
+branch-visible. A stale linked worktree may still have an `f03` copy of the config until
+it rebases or merges the upgrade.
+The shared attached worktree is the second guard: once it owns `tbd-sync`, stale old
+clients that try to create a legacy attached worktree for the same branch should fail at
+Git branch ownership instead of writing divergent local sync state.
+
 #### 2. Git Common-Dir Local Layout
 
-The shared common-dir machinery also needs its own local layout version because future
-versions may change lock files, backup locations, worktree attachment mode, or repair
-metadata without changing the synced issue schema.
+The shared common-dir machinery also needs local layout metadata because future versions
+may change lock files, backup locations, worktree attachment mode, or repair metadata.
+That metadata should use the same `f04`, `f05`, ... format IDs as top-level
+`.tbd/config.yml`, not a second `c01` namespace.
+
+This keeps the contract simple: if the repository says `tbd_format: f04`, then the
+Git-common-dir layout for that checkout must also say `tbd_format: f04`. Future
+migrations that need both locations to move should advance both to `f05`.
 
 Add a common-dir layout metadata file:
 
@@ -245,8 +260,7 @@ $GIT_COMMON_DIR/tbd/layout.yml
 Draft shape:
 
 ```yaml
-tbd_common_format: c01
-created_by_tbd_format: f04
+tbd_format: f04
 sync_storage: git-common-dir-v1
 data_sync_worktree: data-sync-worktree
 lock_profile: data-sync-v1
@@ -254,29 +268,34 @@ created_at: "2026-05-17T00:00:00.000Z"
 updated_at: "2026-05-17T00:00:00.000Z"
 ```
 
-Implementation should add a single source of truth for this version, analogous to
-`tbd-format.ts`, for example:
+Implementation should use `packages/tbd/src/lib/tbd-format.ts` as the single source of
+truth for both top-level `.tbd/config.yml` and `$GIT_COMMON_DIR/tbd/layout.yml` format
+IDs.
 
 ```typescript
-export const CURRENT_COMMON_LAYOUT = 'c01';
+export const CURRENT_FORMAT = 'f04';
 ```
 
 Common-dir layout policy:
 
-- If `.tbd/config.yml` says `f04` / `git-common-dir-v1` but `layout.yml` is missing,
-  normal mutating commands should fail and point to `tbd doctor --fix`.
-- `tbd doctor --fix` may initialize or repair the common-dir layout after checking for
-  legacy unsynced data.
-- If `layout.yml` contains an unknown future `tbd_common_format`, new writes should fail
-  fast until the user upgrades `tbd`.
-- Future common-dir upgrades should be explicit `c01 -> c02` migrations, not ad hoc
+- If `.tbd/config.yml` says `f04` / `git-common-dir-v1` but `layout.yml` is missing, new
+  clients should acquire the common lock, check for legacy unsynced data, and initialize
+  or migrate the common-dir layout.
+  This is expected for fresh clones and newly upgraded checkouts.
+- `tbd doctor --fix` should expose the same initialization/repair path explicitly.
+- If `layout.yml` contains an unknown future `tbd_format`, new writes should fail fast
+  until the user upgrades `tbd`.
+- If `.tbd/config.yml` and `$GIT_COMMON_DIR/tbd/layout.yml` disagree on `tbd_format`,
+  normal mutating commands should fail closed and route repair through
+  `tbd doctor --fix`.
+- Future common-dir upgrades should be explicit `f04 -> f05` migrations, not ad hoc
   directory probing.
 
 #### 3. Synced Data Schema
 
 The existing `.tbd/data-sync/meta.yml` `schema_version` tracks the schema of the data
 that lives on the `tbd-sync` branch.
-It should remain separate from both `tbd_format` and `tbd_common_format`.
+It should remain separate from the local-layout `tbd_format`.
 
 This design does not require changing the issue payload schema, so the synced data
 schema can probably remain at `schema_version: 1`. The implementation should still
@@ -284,7 +303,6 @@ extract that value into a named constant and document when to bump it:
 
 - bump `tbd_format` when checkout-visible `.tbd/` config or layout compatibility
   changes;
-- bump `tbd_common_format` when local Git-common-dir implementation state changes;
 - bump `.tbd/data-sync/meta.yml` `schema_version` when the synced branch payload
   changes.
 
@@ -354,12 +372,14 @@ Migration requirements:
    - commit dirty data if needed;
    - merge or publish any ahead commits into `tbd-sync`;
    - preserve backups before destructive repair.
-4. Initialize or update `$GIT_COMMON_DIR/tbd/data-sync-worktree/` from `tbd-sync`.
-5. Write `$GIT_COMMON_DIR/tbd/layout.yml` with `tbd_common_format: c01` after the shared
+4. Resolve legacy branch ownership so no per-checkout worktree still owns `tbd-sync`.
+5. Initialize or update `$GIT_COMMON_DIR/tbd/data-sync-worktree/` from `tbd-sync` as the
+   single attached worktree for the sync branch.
+6. Write `$GIT_COMMON_DIR/tbd/layout.yml` with `tbd_format: f04` after the shared
    worktree is healthy.
-6. Write `.tbd/config.yml` with `tbd_format: f04` and the selected sync storage marker
+7. Write `.tbd/config.yml` with `tbd_format: f04` and the selected sync storage marker
    as the final step.
-7. Leave legacy locations alone initially, or remove them only after a clear successful
+8. Leave legacy locations alone initially, or remove them only after a clear successful
    migration and backup.
 
 Compatibility statement:
@@ -370,12 +390,14 @@ Compatibility statement:
   the old layout while the user fixes the migration problem.
 - If migration reaches the `f04` config write, the shared layout must already be valid;
   older clients should now fail fast instead of writing the old worktree format.
-- If an `f04` repo has missing or corrupt common-dir metadata, normal writes must fail
-  rather than falling back to legacy paths.
+- If an `f04` repo has missing common-dir metadata, new clients may initialize or
+  migrate it under the common lock.
+- If an `f04` repo has corrupt, mismatched, or future-version common-dir metadata,
+  normal writes must fail rather than falling back to legacy paths.
   `tbd doctor --fix` owns recovery.
 - Future upgrades should follow the same pattern: migrate local/common data first,
-  verify it, then bump the top-level format or common layout marker that blocks older
-  writers.
+  verify it, then bump the synchronized `tbd_format` marker in both `.tbd/config.yml`
+  and `$GIT_COMMON_DIR/tbd/layout.yml` so older writers are blocked.
 
 ### Failure Handling
 
@@ -402,10 +424,11 @@ If the lock cannot be acquired:
 - Add tests proving `f03` migrates to `f04` and older format compatibility checks reject
   `f04`.
 
-### Common-Dir Layout Version Module
+### Common-Dir Layout Metadata Module
 
-- Add a small single-source module for common-dir local layout versions.
-- Define `CURRENT_COMMON_LAYOUT = 'c01'`.
+- Add a small module for reading and writing common-dir local layout metadata.
+- Reuse `CURRENT_FORMAT` from `tbd-format.ts`; do not create a second common-dir version
+  namespace.
 - Provide parse, compatibility, and migration helpers for
   `$GIT_COMMON_DIR/tbd/layout.yml`.
 - Keep this separate from `.tbd/data-sync/meta.yml` schema handling.
@@ -479,8 +502,7 @@ type SharedWorktreeStatus =
   | 'corrupted';
 
 interface CommonDirLayout {
-  tbd_common_format: 'c01';
-  created_by_tbd_format: 'f04';
+  tbd_format: 'f04';
   sync_storage: 'git-common-dir-v1';
   data_sync_worktree: 'data-sync-worktree';
   lock_profile: 'data-sync-v1';
@@ -499,7 +521,7 @@ Doctor output will change to show the shared local sync location.
 - [ ] Add a small research tryscript proving a hidden worktree under
   `$GIT_COMMON_DIR/tbd/data-sync-worktree/` works from the main checkout and a linked
   worktree.
-- [ ] Add the common-dir layout version module and `layout.yml` schema.
+- [ ] Add the common-dir layout metadata module and `layout.yml` schema.
 - [ ] Add path helpers for absolute Git common directory resolution.
 - [ ] Add shared lock path helper.
 - [ ] Add shared worktree health detection without changing production writes yet.
@@ -510,10 +532,13 @@ Doctor output will change to show the shared local sync location.
 
 - [ ] Add `f04` to `.tbd/config.yml` format history.
 - [ ] Add the selected sync storage marker to config schema and migration.
+- [ ] Add a shared command entry helper that reads config and checks format
+  compatibility before resolving data paths or initializing worktrees.
 - [ ] Audit every command that can create or mutate `.tbd/data-sync-worktree/` so config
   compatibility is checked before legacy writes happen.
-- [ ] Make `f04` plus missing/corrupt `layout.yml` fail closed, with repair routed
-  through `tbd doctor --fix`.
+- [ ] Make `f04` plus missing `layout.yml` initialize or migrate under the common lock.
+- [ ] Make `f04` plus corrupt, mismatched, or future-version `layout.yml` fail closed,
+  with repair routed through `tbd doctor --fix`.
 - [ ] Add an idempotent migration path for rerunning setup or doctor after a partial
   migration.
 
@@ -536,7 +561,7 @@ Doctor output will change to show the shared local sync location.
 - Unit tests for shared lock acquisition, timeout, and stale/heartbeat behavior.
 - Worktree health tests for:
   - missing shared worktree;
-  - valid shared detached worktree;
+  - valid shared attached worktree;
   - corrupted shared worktree;
   - legacy per-checkout worktree with dirty data;
   - legacy per-checkout worktree with commits ahead of `tbd-sync`.
@@ -553,14 +578,20 @@ Doctor output will change to show the shared local sync location.
   - create shared worktree;
   - run `tbd doctor --fix`;
   - assert dirty/ahead legacy data is preserved in `tbd-sync`;
-  - assert `$GIT_COMMON_DIR/tbd/layout.yml` is written with `tbd_common_format: c01`;
+  - assert `$GIT_COMMON_DIR/tbd/layout.yml` is written with `tbd_format: f04`;
   - assert `.tbd/config.yml` is written with `tbd_format: f04` only after the shared
     worktree is valid;
   - assert the shared worktree sees the migrated data.
 - Format/version tests:
   - `f03 -> f04` migration writes the sync storage marker;
   - unknown future `tbd_format` fails before legacy worktree mutation;
-  - unknown future `tbd_common_format` fails before shared worktree mutation;
+  - stale linked worktree still seeing `f03` cannot create a legacy attached worktree
+    after the shared attached worktree owns `tbd-sync`;
+  - unknown future `tbd_format` in `layout.yml` fails before shared worktree mutation;
+  - mismatched `.tbd/config.yml` and `$GIT_COMMON_DIR/tbd/layout.yml` `tbd_format`
+    values fail closed and route repair through `tbd doctor --fix`;
+  - missing `layout.yml` in an otherwise valid `f04` checkout initializes or migrates
+    under the common lock;
   - rerunning migration after success is idempotent;
   - interruption before the `f04` config write leaves the legacy layout usable by older
     clients;
@@ -588,8 +619,9 @@ Release notes should warn:
 
 ## Open Questions
 
-- Should the shared worktree be attached to `tbd-sync` after migration, or remain
-  detached with explicit branch updates?
+- Should migration use a temporary detached scratch worktree when a legacy worktree
+  still owns `tbd-sync`, or should it always detach/remove the legacy owner before
+  creating the shared worktree?
 - Should read-only commands take the shared lock initially, or only mutating commands?
 - What stale-lock policy is safe for sync operations that include network calls?
 - Should `tbd doctor --fix` remove old legacy worktrees after migration, or leave them
