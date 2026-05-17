@@ -35,12 +35,16 @@ Per the design spec, tbd uses this directory structure:
 - `.tbd/config.yml` - Project configuration (tracked)
 - `.tbd/.gitignore` - Ignores docs/, data-sync-worktree/, data-sync/
 - `.tbd/docs/` - Installed documentation (gitignored, regenerated on setup)
-- `.tbd/data-sync-worktree/` - Hidden worktree for tbd-sync branch (gitignored)
+- `$(git rev-parse --path-format=absolute --git-common-dir)/tbd/data-sync-worktree/` -
+  Hidden worktree for tbd-sync branch (gitignored)
 
 **Via worktree:**
-- `.tbd/data-sync-worktree/.tbd/data-sync/issues/` - Issue files
-- `.tbd/data-sync-worktree/.tbd/data-sync/mappings/` - ID mappings
-- `.tbd/data-sync-worktree/.tbd/data-sync/attic/` - Conflict archive
+- `$(git rev-parse --path-format=absolute --git-common-dir)/tbd/data-sync-worktree/.tbd/data-sync/issues/`
+  \- Issue files
+- `$(git rev-parse --path-format=absolute --git-common-dir)/tbd/data-sync-worktree/.tbd/data-sync/mappings/`
+  \- ID mappings
+- `$(git rev-parse --path-format=absolute --git-common-dir)/tbd/data-sync-worktree/.tbd/data-sync/attic/`
+  \- Conflict archive
 
 * * *
 
@@ -81,7 +85,7 @@ $ tbd create "Test issue for location" --json | head -1
 After creating an issue, verify the file is stored in the worktree directory.
 
 ```console
-$ ls .tbd/data-sync-worktree/.tbd/data-sync/issues/*.md 2>/dev/null | wc -l | tr -d ' '
+$ ls $(git rev-parse --path-format=absolute --git-common-dir)/tbd/data-sync-worktree/.tbd/data-sync/issues/*.md 2>/dev/null | wc -l | tr -d ' '
 1
 ? 0
 ```
@@ -91,7 +95,7 @@ $ ls .tbd/data-sync-worktree/.tbd/data-sync/issues/*.md 2>/dev/null | wc -l | tr
 Issue files have YAML frontmatter with keys in canonical field order.
 
 ```console
-$ cat .tbd/data-sync-worktree/.tbd/data-sync/issues/*.md | head -15
+$ cat $(git rev-parse --path-format=absolute --git-common-dir)/tbd/data-sync-worktree/.tbd/data-sync/issues/*.md | head -15
 ---
 type: is
 id: is-[ULID]
@@ -115,7 +119,7 @@ updated_at: [TIMESTAMP]
 # Test: Mappings directory exists in worktree
 
 ```console
-$ test --description.tbd/data-sync-worktree/.tbd/data-sync/mappings && echo "mappings dir exists"
+$ test -d $(git rev-parse --path-format=absolute --git-common-dir)/tbd/data-sync-worktree/.tbd/data-sync/mappings && echo "mappings dir exists"
 mappings dir exists
 ? 0
 ```
@@ -123,7 +127,7 @@ mappings dir exists
 # Test: Mappings has gitkeep placeholder
 
 ```console
-$ test -f .tbd/data-sync-worktree/.tbd/data-sync/mappings/.gitkeep && echo "gitkeep exists"
+$ test -f $(git rev-parse --path-format=absolute --git-common-dir)/tbd/data-sync-worktree/.tbd/data-sync/mappings/.gitkeep && echo "gitkeep exists"
 gitkeep exists
 ? 0
 ```
@@ -151,7 +155,7 @@ $ tbd create "Third issue"
 # Test: Multiple issue files exist in worktree
 
 ```console
-$ ls .tbd/data-sync-worktree/.tbd/data-sync/issues/*.md 2>/dev/null | wc -l | tr -d ' '
+$ ls $(git rev-parse --path-format=absolute --git-common-dir)/tbd/data-sync-worktree/.tbd/data-sync/issues/*.md 2>/dev/null | wc -l | tr -d ' '
 3
 ? 0
 ```
@@ -187,13 +191,13 @@ data-sync/
 Each issue file should have exactly 2 `---` delimiters (opening and closing).
 
 ```console
-$ ls .tbd/data-sync-worktree/.tbd/data-sync/issues/*.md | wc -l | tr -d ' '
+$ ls $(git rev-parse --path-format=absolute --git-common-dir)/tbd/data-sync-worktree/.tbd/data-sync/issues/*.md | wc -l | tr -d ' '
 3
 ? 0
 ```
 
 ```console
-$ cat .tbd/data-sync-worktree/.tbd/data-sync/issues/*.md | grep -c "^---$"
+$ cat $(git rev-parse --path-format=absolute --git-common-dir)/tbd/data-sync-worktree/.tbd/data-sync/issues/*.md | grep -c "^---$"
 6
 ? 0
 ```
@@ -213,7 +217,7 @@ Each issue file should end with `---` followed by either content or EOF, not a b
 line. This test checks that no file has `---` followed by an empty line.
 
 ```console
-$ for f in .tbd/data-sync-worktree/.tbd/data-sync/issues/*.md; do if grep -Pzo '\n---\n\n' "$f" >/dev/null 2>&1; then echo "FAIL: $f has extra newline"; exit 1; fi; done && echo "No extra newlines after frontmatter"
+$ for f in $(git rev-parse --path-format=absolute --git-common-dir)/tbd/data-sync-worktree/.tbd/data-sync/issues/*.md; do if grep -Pzo '\n---\n\n' "$f" >/dev/null 2>&1; then echo "FAIL: $f has extra newline"; exit 1; fi; done && echo "No extra newlines after frontmatter"
 No extra newlines after frontmatter
 ? 0
 ```
@@ -232,7 +236,7 @@ The line immediately after the closing `---` should be the description content, 
 blank.
 
 ```console
-$ FILE=$(ls -t .tbd/data-sync-worktree/.tbd/data-sync/issues/*.md | head -1) && grep -A1 "^---$" "$FILE" | tail -1
+$ FILE=$(ls -t $(git rev-parse --path-format=absolute --git-common-dir)/tbd/data-sync-worktree/.tbd/data-sync/issues/*.md | head -1) && grep -A1 "^---$" "$FILE" | tail -1
 This is the description body.
 ? 0
 ```
@@ -243,7 +247,9 @@ This is the description body.
 
 # Test: data-sync-worktree directory should be gitignored
 
-Files in `.tbd/data-sync-worktree/` should not appear as untracked in git status.
+Files in
+`$(git rev-parse --path-format=absolute --git-common-dir)/tbd/data-sync-worktree/`
+should not appear as untracked in git status.
 
 ```console
 $ git status --porcelain | grep "data-sync-worktree" || echo "worktree is properly gitignored"
@@ -266,7 +272,7 @@ $ git status --porcelain | grep "^??" | head -5
 # Test: Meta file exists in worktree
 
 ```console
-$ test -f .tbd/data-sync-worktree/.tbd/data-sync/meta.yml && echo "meta exists"
+$ test -f $(git rev-parse --path-format=absolute --git-common-dir)/tbd/data-sync-worktree/.tbd/data-sync/meta.yml && echo "meta exists"
 meta exists
 ? 0
 ```
@@ -274,7 +280,7 @@ meta exists
 # Test: Meta file contains schema version
 
 ```console
-$ grep "schema_version" .tbd/data-sync-worktree/.tbd/data-sync/meta.yml
+$ grep "schema_version" $(git rev-parse --path-format=absolute --git-common-dir)/tbd/data-sync-worktree/.tbd/data-sync/meta.yml
 schema_version: 1
 ? 0
 ```

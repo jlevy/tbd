@@ -4,7 +4,7 @@
 
 **Author:** Codex with Joshua Levy
 
-**Status:** Draft
+**Status:** Implemented
 
 ## Overview
 
@@ -20,6 +20,33 @@ This spec explores Design B: move the local sync machinery out of each checkout 
 the repository’s Git common directory, then serialize access with the existing
 mkdir-based lock pattern.
 Every linked worktree of the same repository would use one shared local sync worktree.
+
+## Implementation Result
+
+Implemented in branch `codex/implement-shared-common-dir-sync-worktree`.
+
+- `.tbd/config.yml` now migrates to `tbd_format: f04` with
+  `sync.storage: git-common-dir-v1`.
+- `$GIT_COMMON_DIR/tbd/layout.yml` uses the same `f04` format ID so the checkout config
+  and Git common-dir local layout advance together.
+- The canonical issue data path is now
+  `$GIT_COMMON_DIR/tbd/data-sync-worktree/.tbd/data-sync/`.
+- Mutating commands and sync prepare the shared worktree under the repo-scoped
+  `$GIT_COMMON_DIR/tbd/locks/data-sync.lock` lock.
+- Legacy per-checkout `.tbd/data-sync-worktree/` locations are preserved and removed
+  before the shared attached worktree claims `tbd-sync`.
+- `doctor`, `status`, setup, init, sync, and uninstall now understand the shared layout.
+- Linked-worktree regression coverage verifies that main and agent worktrees resolve to
+  the same shared sync worktree.
+
+Validated with:
+
+- `pnpm --filter get-tbd typecheck`
+- `pnpm lint:check`
+- `pnpm format:check`
+- `pnpm --filter get-tbd build`
+- `pnpm --filter get-tbd test`
+- `pnpm --filter get-tbd test:tryscript`
 
 ## Goals
 

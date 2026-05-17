@@ -70,6 +70,7 @@ function createDefaultConfig(version: string, prefix: string): Config {
     sync: {
       branch: SYNC_BRANCH,
       remote: 'origin',
+      storage: 'git-common-dir-v1',
     },
     display: {
       id_prefix: prefix,

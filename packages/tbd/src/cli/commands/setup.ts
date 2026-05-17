@@ -50,10 +50,13 @@ import {
   TBD_SHORTCUTS_STANDARD,
   TBD_GUIDELINES_DIR,
   TBD_TEMPLATES_DIR,
+  resolveSharedTbdPaths,
 } from '../../lib/paths.js';
 import { getClaudePaths, getAgentsMdPath, GLOBAL_CLAUDE_DIR } from '../../lib/integration-paths.js';
 import { initWorktree, isInGitRepo, findGitRoot, checkWorktreeHealth } from '../../file/git.js';
 import { DocCache, generateShortcutDirectory } from '../../file/doc-cache.js';
+import { writeCommonDirLayout } from '../../file/common-dir-layout.js';
+import { withDataSyncContext } from '../lib/data-context.js';
 
 /**
  * Get the shortcut and guidelines directory content for appending to installed skill files.
@@ -1105,6 +1108,10 @@ class SetupDefaultHandler extends BaseCommand {
         needsConfigWrite = true;
       }
 
+      if (migrated) {
+        await withDataSyncContext(projectDir, { lock: true }, async () => undefined);
+      }
+
       // Persist config if migrated or --no-gh-cli was applied
       if (needsConfigWrite) {
         await writeConfig(projectDir, config);
@@ -1407,7 +1414,7 @@ class SetupDefaultHandler extends BaseCommand {
     const colors = this.output.getColors();
 
     // 1. Create .tbd/ directory with config.yml
-    await initConfig(cwd, VERSION, prefix);
+    const config = await initConfig(cwd, VERSION, prefix);
     console.log(`  ${colors.success('✓')} Created .tbd/config.yml`);
 
     // 2. Create/update .tbd/.gitignore (idempotent)
@@ -1469,6 +1476,8 @@ class SetupDefaultHandler extends BaseCommand {
     // 3. Initialize worktree for sync branch
     try {
       await initWorktree(cwd);
+      const sharedPaths = await resolveSharedTbdPaths(cwd);
+      await writeCommonDirLayout(sharedPaths, config);
 
       // Verify worktree health after creation (prevents silent failures)
       const health = await checkWorktreeHealth(cwd);

@@ -110,7 +110,7 @@ title: Test issue one
 # Test: ID mapping file exists after import
 
 ```console
-$ test -f .tbd/data-sync-worktree/.tbd/data-sync/mappings/ids.yml && echo "mapping file exists" || echo "no mapping file"
+$ test -f $(git rev-parse --path-format=absolute --git-common-dir)/tbd/data-sync-worktree/.tbd/data-sync/mappings/ids.yml && echo "mapping file exists" || echo "no mapping file"
 mapping file exists
 ? 0
 ```

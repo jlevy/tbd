@@ -22,7 +22,12 @@ import {
   repairWorktree,
   migrateDataToWorktree,
 } from '../src/file/git.js';
-import { resolveDataSyncDir, WorktreeMissingError, clearPathCache } from '../src/lib/paths.js';
+import {
+  resolveDataSyncDir,
+  resolveSharedTbdPaths,
+  WorktreeMissingError,
+  clearPathCache,
+} from '../src/lib/paths.js';
 import {
   WORKTREE_DIR,
   TBD_DIR,
@@ -762,7 +767,31 @@ describeUnlessWindows('architectural test: issues written to worktree path', () 
 
     // Verify it points to worktree path, not direct path
     expect(dataSyncDir).toContain('data-sync-worktree');
-    expect(dataSyncDir).toBe(join(workRepoPath, WORKTREE_DIR, TBD_DIR, DATA_SYNC_DIR_NAME));
+    expect(dataSyncDir).toBe((await resolveSharedTbdPaths(workRepoPath)).sharedDataSyncDir);
+  });
+
+  it('uses the same shared sync worktree from a linked Git worktree', async () => {
+    const mainInit = await initWorktree(workRepoPath);
+    expect(mainInit.success).toBe(true);
+
+    const linkedRepoPath = join(testDir, 'linked-worktree');
+    await gitInDir(workRepoPath, 'worktree', 'add', '-b', 'agent-branch', linkedRepoPath);
+    clearPathCache();
+
+    const mainPaths = await resolveSharedTbdPaths(workRepoPath);
+    const linkedPaths = await resolveSharedTbdPaths(linkedRepoPath);
+    expect(linkedPaths.sharedWorktreePath).toBe(mainPaths.sharedWorktreePath);
+
+    const linkedInit = await initWorktree(linkedRepoPath);
+    expect(linkedInit.success).toBe(true);
+    expect(linkedInit.created).toBe(false);
+    expect(linkedInit.path).toBe(mainPaths.sharedWorktreePath);
+
+    const linkedHealth = await checkWorktreeHealth(linkedRepoPath);
+    expect(linkedHealth.status).toBe('valid');
+
+    const linkedDataSyncDir = await resolveDataSyncDir(linkedRepoPath, { allowFallback: false });
+    expect(linkedDataSyncDir).toBe(mainPaths.sharedDataSyncDir);
   });
 
   it('issues written via resolved path exist in worktree, not direct path', async () => {
@@ -856,9 +885,11 @@ describeUnlessWindows('Bug tbd-vuuq: doctor --fix respects --dry-run flag', () =
     // Step 2: Delete worktree to make it prunable
     await rm(worktreePath, { recursive: true, force: true });
 
-    // Verify it's prunable
+    // Verify the worktree remains unrepaired. Git may report a deleted
+    // worktree as either prunable or missing depending on whether it still
+    // resolves the registered path.
     const healthBefore = await checkWorktreeHealth(workRepoPath);
-    expect(healthBefore.status).toBe('prunable');
+    expect(['prunable', 'missing']).toContain(healthBefore.status);
 
     // Step 3: Call repairWorktree with dry-run simulation
     // Since repairWorktree doesn't have dry-run support, we test the behavior
@@ -867,9 +898,9 @@ describeUnlessWindows('Bug tbd-vuuq: doctor --fix respects --dry-run flag', () =
     // For now, just document that the bug exists: doctor calls repair even with --dry-run
     // The fix is to check isDryRun() in doctor.ts before calling repairWorktree
 
-    // After the --dry-run is respected, worktree should still be prunable
+    // After the --dry-run is respected, worktree should still be unrepaired.
     const healthAfterDryRun = await checkWorktreeHealth(workRepoPath);
-    expect(healthAfterDryRun.status).toBe('prunable'); // Should still be prunable after dry-run
+    expect(['prunable', 'missing']).toContain(healthAfterDryRun.status);
   });
 
   it('--dry-run should NOT migrate data from wrong location', async () => {

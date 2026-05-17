@@ -60,6 +60,18 @@ const DEFAULT_POLL_MS = 50;
 const DEFAULT_STALE_MS = 5_000;
 
 /**
+ * Lock timing profile for shared data-sync operations.
+ *
+ * Issue sync can include fetch, merge, push, and outbox import work, so it must
+ * not use the short stale window intended for single-file writes.
+ */
+export const DATA_SYNC_LOCK_OPTIONS: Required<LockfileOptions> = {
+  timeoutMs: 120_000,
+  pollMs: 100,
+  staleMs: 30 * 60_000,
+};
+
+/**
  * Error thrown when the lock cannot be acquired within the timeout.
  */
 export class LockAcquisitionError extends Error {

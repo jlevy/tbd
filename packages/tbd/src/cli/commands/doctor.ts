@@ -15,7 +15,7 @@ import { requireInit } from '../lib/errors.js';
 import { listIssues, type InvalidIssueFile } from '../../file/storage.js';
 import { readConfig } from '../../file/config.js';
 import type { Config, Issue, IssueStatusType } from '../../lib/types.js';
-import { resolveDataSyncDir, TBD_DIR, WORKTREE_DIR, DATA_SYNC_DIR } from '../../lib/paths.js';
+import { resolveSharedTbdPaths, TBD_DIR, DATA_SYNC_DIR } from '../../lib/paths.js';
 import { detectDuplicateYamlKeys } from '../../utils/yaml-utils.js';
 import {
   getClaudePaths,
@@ -65,7 +65,7 @@ class DoctorHandler extends BaseCommand {
     const tbdRoot = await requireInit();
 
     this.cwd = tbdRoot;
-    this.dataSyncDir = await resolveDataSyncDir(tbdRoot);
+    this.dataSyncDir = (await resolveSharedTbdPaths(tbdRoot)).sharedDataSyncDir;
 
     // Load config
     try {
@@ -133,7 +133,7 @@ class DoctorHandler extends BaseCommand {
     // If data was migrated, reload issues and refresh dataSyncDir so
     // subsequent checks (especially ID mappings) see the current state.
     if (dataLocationResult.status === 'ok' && dataLocationResult.message?.includes('migrated')) {
-      this.dataSyncDir = await resolveDataSyncDir(this.cwd);
+      this.dataSyncDir = (await resolveSharedTbdPaths(this.cwd)).sharedDataSyncDir;
       try {
         this.invalidIssueFiles = [];
         this.issues = await listIssues(this.dataSyncDir, {
@@ -245,7 +245,7 @@ class DoctorHandler extends BaseCommand {
   }> {
     let gitBranch: string | null = null;
     try {
-      gitBranch = await getCurrentBranch();
+      gitBranch = await getCurrentBranch(this.cwd);
     } catch {
       // Not in a git repo or no commits
     }
@@ -304,7 +304,7 @@ class DoctorHandler extends BaseCommand {
     if (this.issues.length === 0 && this.config) {
       const remote = this.config.sync.remote ?? 'origin';
       const syncBranch = this.config.sync.branch ?? 'tbd-sync';
-      remoteTotal = await countRemoteIssues(remote, syncBranch);
+      remoteTotal = await countRemoteIssues(remote, syncBranch, this.cwd);
     }
 
     return {
@@ -819,8 +819,10 @@ class DoctorHandler extends BaseCommand {
    * See: plan-2026-01-28-sync-worktree-recovery-and-hardening.md §4
    */
   private async checkWorktree(fix?: boolean): Promise<DiagnosticResult> {
-    const worktreePath = WORKTREE_DIR;
-    const worktreeHealth = await checkWorktreeHealth(this.cwd);
+    const worktreePath = (await resolveSharedTbdPaths(this.cwd)).sharedWorktreePath;
+    const syncBranch = this.config?.sync.branch ?? 'tbd-sync';
+    const remote = this.config?.sync.remote ?? 'origin';
+    const worktreeHealth = await checkWorktreeHealth(this.cwd, syncBranch);
 
     switch (worktreeHealth.status) {
       case 'valid':
@@ -834,7 +836,7 @@ class DoctorHandler extends BaseCommand {
       case 'corrupted': {
         // Attempt repair if --fix is provided and not in dry-run mode
         if (fix && !this.checkDryRun('Repair worktree')) {
-          const result = await repairWorktree(this.cwd, worktreeHealth.status);
+          const result = await repairWorktree(this.cwd, worktreeHealth.status, remote, syncBranch);
 
           if (result.success) {
             const message = result.backedUp
@@ -894,7 +896,7 @@ class DoctorHandler extends BaseCommand {
    * Check for issues in wrong location.
    * See: plan-2026-01-28-sync-worktree-recovery-and-hardening.md §5
    *
-   * Issues should be in .tbd/data-sync-worktree/.tbd/data-sync/issues/
+   * Issues should be in $GIT_COMMON_DIR/tbd/data-sync-worktree/.tbd/data-sync/issues/
    * If they're in .tbd/data-sync/issues/ on main branch, the worktree was missing
    * and data was written to the fallback path - this is a bug requiring migration.
    */
@@ -985,7 +987,7 @@ class DoctorHandler extends BaseCommand {
       path: wrongIssuesPath,
       details: [
         `Found ${wrongPathIssues.length} issues in .tbd/data-sync/ (wrong)`,
-        'Issues should be in .tbd/data-sync-worktree/.tbd/data-sync/',
+        'Issues should be in $GIT_COMMON_DIR/tbd/data-sync-worktree/.tbd/data-sync/',
         'This indicates the worktree was missing when issues were created',
       ],
       fixable: true,
@@ -999,7 +1001,7 @@ class DoctorHandler extends BaseCommand {
    */
   private async checkLocalSyncBranch(): Promise<DiagnosticResult> {
     const syncBranch = this.config?.sync.branch ?? 'tbd-sync';
-    const localHealth = await checkLocalBranchHealth(syncBranch);
+    const localHealth = await checkLocalBranchHealth(syncBranch, this.cwd);
 
     if (localHealth.exists && !localHealth.orphaned) {
       return { name: 'Local sync branch', status: 'ok', message: syncBranch };
@@ -1008,7 +1010,7 @@ class DoctorHandler extends BaseCommand {
     if (!localHealth.exists) {
       // Local branch doesn't exist - check if remote exists
       const remote = this.config?.sync.remote ?? 'origin';
-      const remoteHealth = await checkRemoteBranchHealth(remote, syncBranch);
+      const remoteHealth = await checkRemoteBranchHealth(remote, syncBranch, this.cwd);
 
       if (remoteHealth.exists) {
         // Remote exists but local doesn't - can be created from remote
@@ -1044,7 +1046,7 @@ class DoctorHandler extends BaseCommand {
   private async checkRemoteSyncBranch(): Promise<DiagnosticResult> {
     const syncBranch = this.config?.sync.branch ?? 'tbd-sync';
     const remote = this.config?.sync.remote ?? 'origin';
-    const remoteHealth = await checkRemoteBranchHealth(remote, syncBranch);
+    const remoteHealth = await checkRemoteBranchHealth(remote, syncBranch, this.cwd);
 
     if (remoteHealth.exists) {
       if (remoteHealth.diverged) {
@@ -1059,7 +1061,7 @@ class DoctorHandler extends BaseCommand {
     }
 
     // Remote branch doesn't exist
-    const localHealth = await checkLocalBranchHealth(syncBranch);
+    const localHealth = await checkLocalBranchHealth(syncBranch, this.cwd);
     if (localHealth.exists) {
       // Local exists but remote doesn't - needs push
       return {
@@ -1100,7 +1102,7 @@ class DoctorHandler extends BaseCommand {
     // Check if remote branch exists and has commits
     const syncBranch = this.config?.sync.branch ?? 'tbd-sync';
     const remote = this.config?.sync.remote ?? 'origin';
-    const remoteHealth = await checkRemoteBranchHealth(remote, syncBranch);
+    const remoteHealth = await checkRemoteBranchHealth(remote, syncBranch, this.cwd);
 
     if (!remoteHealth.exists) {
       // Remote doesn't exist - issues haven't been pushed

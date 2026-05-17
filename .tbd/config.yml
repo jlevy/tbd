@@ -1,10 +1,11 @@
-tbd_format: f03
+tbd_format: f04
 tbd_version: development
 display:
   id_prefix: tbd
 sync:
   branch: tbd-sync
   remote: origin
+  storage: git-common-dir-v1
 settings:
   auto_sync: false
   doc_auto_sync_hours: 24
@@ -22,9 +23,6 @@ settings:
 # Auto-sync: Docs are automatically synced when stale (default: every 24 hours).
 # Configure with settings.doc_auto_sync_hours (0 = disabled).
 docs_cache:
-  lookup_path:
-    - .tbd/docs/shortcuts/system
-    - .tbd/docs/shortcuts/standard
   files:
     shortcuts/system/shortcut-explanation.md: internal:shortcuts/system/shortcut-explanation.md
     shortcuts/system/skill-baseline.md: internal:shortcuts/system/skill-baseline.md
@@ -91,3 +89,6 @@ docs_cache:
     templates/plan-spec.md: internal:templates/plan-spec.md
     templates/qa-playbook.md: internal:templates/qa-playbook.md
     templates/research-brief.md: internal:templates/research-brief.md
+  lookup_path:
+    - .tbd/docs/shortcuts/system
+    - .tbd/docs/shortcuts/standard

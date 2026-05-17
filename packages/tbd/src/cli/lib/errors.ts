@@ -79,13 +79,13 @@ export class SyncError extends CLIError {
 }
 
 /**
- * Worktree missing error - the data-sync-worktree directory doesn't exist.
+ * Worktree missing error - the shared data-sync-worktree directory doesn't exist.
  * This indicates the worktree was never created or was deleted.
  * See: tbd-design.md §2.3.6 Worktree Error Classes
  */
 export class WorktreeMissingError extends CLIError {
   constructor(
-    message = "Worktree not found at .tbd/data-sync-worktree/. Run 'tbd doctor --fix' to repair.",
+    message = "Shared worktree not found under $GIT_COMMON_DIR/tbd/data-sync-worktree/. Run 'tbd doctor --fix' to repair.",
   ) {
     super(message, 1);
     this.name = 'WorktreeMissingError';
@@ -99,7 +99,7 @@ export class WorktreeMissingError extends CLIError {
  */
 export class WorktreeCorruptedError extends CLIError {
   constructor(
-    message = "Worktree at .tbd/data-sync-worktree/ is corrupted. Run 'tbd doctor --fix' to repair.",
+    message = "Shared worktree under $GIT_COMMON_DIR/tbd/data-sync-worktree/ is corrupted. Run 'tbd doctor --fix' to repair.",
   ) {
     super(message, 1);
     this.name = 'WorktreeCorruptedError';

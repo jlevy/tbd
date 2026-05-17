@@ -16,13 +16,12 @@ import { BaseCommand } from '../lib/base-command.js';
 import { requireInit, NotFoundError, ValidationError } from '../lib/errors.js';
 import { readIssue, writeIssue } from '../../file/storage.js';
 import { normalizeIssueId, formatDisplayId, formatDebugId } from '../../lib/ids.js';
-import { resolveDataSyncDir, resolveAtticDir } from '../../lib/paths.js';
+import { resolveAtticDir } from '../../lib/paths.js';
 import { formatTimestampAgo } from '../../lib/format-utils.js';
 import { now } from '../../utils/time-utils.js';
-import { loadIdMapping } from '../../file/id-mapping.js';
-import { readConfig } from '../../file/config.js';
 import type { AtticEntry } from '../../lib/types.js';
 import { AtticEntrySchema, ATTIC_ENTRY_FIELD_ORDER } from '../../lib/schemas.js';
+import { loadDataContext, withDataSyncContext } from '../lib/data-context.js';
 
 /**
  * Get attic entry filename from components.
@@ -111,13 +110,12 @@ class AtticListHandler extends BaseCommand {
   async run(id?: string): Promise<void> {
     const tbdRoot = await requireInit();
 
+    // Load ID mapping and config for display, initializing shared layout first.
+    const { mapping, config } = await loadDataContext(tbdRoot);
+
     const filterId = id ? normalizeIssueId(id) : undefined;
     const entries = await listAtticEntries(tbdRoot, filterId);
 
-    // Load ID mapping and config for display
-    const dataSyncDir = await resolveDataSyncDir(tbdRoot);
-    const mapping = await loadIdMapping(dataSyncDir);
-    const config = await readConfig(tbdRoot);
     const prefix = config.display.id_prefix;
     const showDebug = this.ctx.debug;
 
@@ -154,6 +152,9 @@ class AtticShowHandler extends BaseCommand {
   async run(id: string, timestamp: string): Promise<void> {
     const tbdRoot = await requireInit();
 
+    // Load ID mapping and config for display, initializing shared layout first.
+    const { mapping, config } = await loadDataContext(tbdRoot);
+
     const normalizedId = normalizeIssueId(id);
     const entries = await listAtticEntries(tbdRoot, normalizedId);
 
@@ -166,10 +167,6 @@ class AtticShowHandler extends BaseCommand {
       throw new NotFoundError('Attic entry', `${id} at ${timestamp}`);
     }
 
-    // Load ID mapping and config for display
-    const dataSyncDir = await resolveDataSyncDir(tbdRoot);
-    const mapping = await loadIdMapping(dataSyncDir);
-    const config = await readConfig(tbdRoot);
     const prefix = config.display.id_prefix;
     const showDebug = this.ctx.debug;
     const displayId = showDebug
@@ -203,6 +200,8 @@ class AtticRestoreHandler extends BaseCommand {
   async run(id: string, timestamp: string): Promise<void> {
     const tbdRoot = await requireInit();
 
+    await loadDataContext(tbdRoot);
+
     const normalizedId = normalizeIssueId(id);
     const entries = await listAtticEntries(tbdRoot, normalizedId);
 
@@ -219,38 +218,40 @@ class AtticRestoreHandler extends BaseCommand {
       return;
     }
 
-    // Load the current issue
-    const dataSyncDir = await resolveDataSyncDir(tbdRoot);
-    let issue;
-    try {
-      issue = await readIssue(dataSyncDir, normalizedId);
-    } catch {
-      throw new NotFoundError('Issue', id);
-    }
-
-    // Restore the field value
-    const field = entry.field as keyof typeof issue;
-    if (field === 'description' || field === 'notes' || field === 'title') {
-      (issue as Record<string, unknown>)[field] = entry.lost_value;
-    } else {
-      throw new ValidationError(`Cannot restore field: ${entry.field}`);
-    }
-
-    issue.version += 1;
-    issue.updated_at = now();
+    let displayId = id;
 
     await this.execute(async () => {
-      await writeIssue(dataSyncDir, issue);
-    }, 'Failed to restore from attic');
+      await withDataSyncContext(
+        tbdRoot,
+        { lock: true },
+        async ({ dataSyncDir, mapping, config }) => {
+          // Load the current issue
+          let issue;
+          try {
+            issue = await readIssue(dataSyncDir, normalizedId);
+          } catch {
+            throw new NotFoundError('Issue', id);
+          }
 
-    // Load ID mapping and config for display
-    const mapping = await loadIdMapping(dataSyncDir);
-    const config = await readConfig(tbdRoot);
-    const prefix = config.display.id_prefix;
-    const showDebug = this.ctx.debug;
-    const displayId = showDebug
-      ? formatDebugId(normalizedId, mapping, prefix)
-      : formatDisplayId(normalizedId, mapping, prefix);
+          // Restore the field value
+          const field = entry.field as keyof typeof issue;
+          if (field === 'description' || field === 'notes' || field === 'title') {
+            (issue as Record<string, unknown>)[field] = entry.lost_value;
+          } else {
+            throw new ValidationError(`Cannot restore field: ${entry.field}`);
+          }
+
+          issue.version += 1;
+          issue.updated_at = now();
+
+          await writeIssue(dataSyncDir, issue);
+
+          displayId = this.ctx.debug
+            ? formatDebugId(normalizedId, mapping, config.display.id_prefix)
+            : formatDisplayId(normalizedId, mapping, config.display.id_prefix);
+        },
+      );
+    }, 'Failed to restore from attic');
 
     this.output.success(`Restored ${entry.field} for ${displayId} from attic entry ${timestamp}`);
   }

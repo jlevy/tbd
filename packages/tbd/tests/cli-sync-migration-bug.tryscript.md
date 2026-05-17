@@ -106,7 +106,7 @@ $ tbd doctor --fix >/dev/null 2>&1
 # Test: Verify migration created files in correct worktree location
 
 ```console
-$ ls .tbd/data-sync-worktree/.tbd/data-sync/issues/is-00000000000000000wrongloc*.md 2>/dev/null | wc -l | tr -d ' '
+$ ls $(git rev-parse --path-format=absolute --git-common-dir)/tbd/data-sync-worktree/.tbd/data-sync/issues/is-00000000000000000wrongloc*.md 2>/dev/null | wc -l | tr -d ' '
 2
 ? 0
 ```
@@ -114,7 +114,7 @@ $ ls .tbd/data-sync-worktree/.tbd/data-sync/issues/is-00000000000000000wrongloc*
 # Test: Check worktree git status - should have committed migration
 
 ```console
-$ git -C .tbd/data-sync-worktree log --oneline -1
+$ git -C $(git rev-parse --path-format=absolute --git-common-dir)/tbd/data-sync-worktree log --oneline -1
 [..] tbd: migrate [..] file(s) from incorrect location
 ? 0
 ```

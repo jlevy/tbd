@@ -11,8 +11,8 @@ import { Command } from 'commander';
 
 import { BaseCommand } from '../lib/base-command.js';
 import { requireInit, ValidationError } from '../lib/errors.js';
-import { resolveDataSyncDir } from '../../lib/paths.js';
 import { saveToWorkspace, type SaveOptions } from '../../file/workspace.js';
+import { withDataSyncContext } from '../lib/data-context.js';
 
 interface SaveCommandOptions {
   workspace?: string;
@@ -24,7 +24,6 @@ interface SaveCommandOptions {
 class SaveHandler extends BaseCommand {
   async run(options: SaveCommandOptions): Promise<void> {
     const tbdRoot = await requireInit();
-    const dataSyncDir = await resolveDataSyncDir(tbdRoot);
 
     // Validate that at least one target is specified
     if (!options.workspace && !options.dir && !options.outbox) {
@@ -47,7 +46,9 @@ class SaveHandler extends BaseCommand {
     saveOptions.logger = this.output.logger(spinner);
 
     const result = await this.execute(async () => {
-      return await saveToWorkspace(tbdRoot, dataSyncDir, saveOptions);
+      return await withDataSyncContext(tbdRoot, { lock: true }, async ({ dataSyncDir }) => {
+        return await saveToWorkspace(tbdRoot, dataSyncDir, saveOptions);
+      });
     }, 'Failed to save issues');
 
     spinner.stop();

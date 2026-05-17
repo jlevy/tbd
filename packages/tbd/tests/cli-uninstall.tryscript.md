@@ -111,7 +111,7 @@ $ tbd create "Test issue" --type=task
 $ tbd uninstall | head -5
 The following will be removed:
 
-  - Worktree: .tbd/data-sync-worktree [..]
+  - Worktree: .git/tbd/data-sync-worktree [..]
   - Local branch: tbd-sync
   - Directory: .tbd/ [..]
 ? 0

@@ -12,8 +12,14 @@
  *     Gitignored (local only):
  *       state.yml             - Local state
  *       docs/                 - Installed documentation (regenerated on setup)
- *       data-sync-worktree/   - Hidden worktree checkout of tbd-sync branch
- *         .tbd/data-sync/     - issues/, mappings/, attic/, meta.yml
+ *
+ * In the Git common dir shared by all linked worktrees:
+ *   $GIT_COMMON_DIR/tbd/
+ *     layout.yml              - Shared layout metadata
+ *     locks/data-sync.lock/   - Repo-scoped lock directory
+ *     backups/                - Local repair/migration backups
+ *     data-sync-worktree/     - Hidden worktree checkout of tbd-sync branch
+ *       .tbd/data-sync/       - issues/, mappings/, attic/, meta.yml
  *
  * On tbd-sync branch:
  *   .tbd/
@@ -24,7 +30,10 @@
  *       meta.yml
  */
 
-import { join } from 'node:path';
+import { execFile } from 'node:child_process';
+import { homedir } from 'node:os';
+import { isAbsolute, join, resolve } from 'node:path';
+import { promisify } from 'node:util';
 
 /** The tbd configuration directory on main branch */
 export const TBD_DIR = '.tbd';
@@ -38,27 +47,32 @@ export const STATE_FILE = join(TBD_DIR, 'state.yml');
 /** The worktree directory name */
 export const WORKTREE_DIR_NAME = 'data-sync-worktree';
 
-/** The worktree path (gitignored) */
-export const WORKTREE_DIR = join(TBD_DIR, WORKTREE_DIR_NAME);
+/** Legacy per-checkout worktree path used by f03 and earlier clients. */
+export const LEGACY_WORKTREE_DIR = join(TBD_DIR, WORKTREE_DIR_NAME);
+
+/**
+ * Shared worktree path relative to a primary checkout whose .git is a directory.
+ *
+ * Production code should use resolveSharedTbdPaths() because linked worktrees have
+ * a .git file rather than a .git directory.
+ */
+export const WORKTREE_DIR = join('.git', 'tbd', WORKTREE_DIR_NAME);
 
 /** The data directory name on the sync branch */
 export const DATA_SYNC_DIR_NAME = 'data-sync';
 
 /**
- * The base directory for synced data.
- *
- * NOTE: This is currently pointing directly to .tbd/data-sync/ which is WRONG
- * per the spec. The correct path should be via the worktree:
- *   .tbd/data-sync-worktree/.tbd/data-sync/
- *
- * TODO(tbd-208): Update this to use the worktree path once worktree
- * management is implemented.
+ * The data directory path as it appears on the tbd-sync branch.
+ * In a normal checkout this same relative path is a legacy/wrong-location fallback;
+ * production callers should resolve the absolute shared worktree path with
+ * resolveDataSyncDir().
  */
 export const DATA_SYNC_DIR = join(TBD_DIR, DATA_SYNC_DIR_NAME);
 
 /**
- * The correct path for synced data via worktree (per spec).
- * Use this once worktree management is implemented.
+ * Static primary-checkout path for synced data via the shared worktree.
+ * Production code should use resolveSharedTbdPaths() so linked worktrees with .git files
+ * resolve to the same Git common-dir location.
  */
 export const DATA_SYNC_DIR_VIA_WORKTREE = join(WORKTREE_DIR, TBD_DIR, DATA_SYNC_DIR_NAME);
 
@@ -76,6 +90,107 @@ export const META_FILE = join(DATA_SYNC_DIR, 'meta.yml');
 
 /** The sync branch name */
 export const SYNC_BRANCH = 'tbd-sync';
+
+// =============================================================================
+// Git Common-Dir Shared Sync Paths
+// =============================================================================
+
+const execFileAsync = promisify(execFile);
+
+/** Directory name under $GIT_COMMON_DIR for tbd local machinery. */
+export const GIT_COMMON_TBD_DIR_NAME = 'tbd';
+
+/** Common-dir layout metadata file name. */
+export const COMMON_DIR_LAYOUT_FILE_NAME = 'layout.yml';
+
+/** Shared lock directory name under $GIT_COMMON_DIR/tbd/. */
+export const SHARED_LOCKS_DIR_NAME = 'locks';
+
+/** Shared backups directory name under $GIT_COMMON_DIR/tbd/. */
+export const SHARED_BACKUPS_DIR_NAME = 'backups';
+
+/** Directory-lock name for shared data-sync operations. */
+export const DATA_SYNC_LOCK_DIR_NAME = 'data-sync.lock';
+
+/**
+ * Resolved Git common-dir paths for the repo-scoped sync layout.
+ */
+export interface SharedTbdPaths {
+  /** Absolute Git common directory shared by all linked worktrees. */
+  gitCommonDir: string;
+  /** Absolute $GIT_COMMON_DIR/tbd path. */
+  sharedTbdDir: string;
+  /** Absolute shared hidden worktree path. */
+  sharedWorktreePath: string;
+  /** Absolute data-sync directory inside the shared worktree. */
+  sharedDataSyncDir: string;
+  /** Absolute common-dir layout metadata path. */
+  sharedLayoutPath: string;
+  /** Absolute shared lock directory parent. */
+  sharedLocksDir: string;
+  /** Absolute data-sync lock path. */
+  sharedLockPath: string;
+  /** Absolute shared backups directory. */
+  sharedBackupsDir: string;
+}
+
+/**
+ * Resolve Git's common directory from any checkout or linked worktree.
+ */
+export async function resolveGitCommonDir(cwd: string): Promise<string> {
+  let output: string;
+  try {
+    const { stdout } = await execFileAsync('git', ['-C', cwd, 'rev-parse', '--git-common-dir'], {
+      maxBuffer: 1024 * 1024,
+    });
+    output = stdout.trim();
+  } catch {
+    const { stdout } = await execFileAsync(
+      'git',
+      ['-C', cwd, 'rev-parse', '--path-format=absolute', '--git-common-dir'],
+      { maxBuffer: 1024 * 1024 },
+    );
+    output = stdout.trim();
+  }
+
+  if (!output) {
+    throw new Error(`Unable to resolve Git common directory from ${cwd}`);
+  }
+
+  const gitCommonDir = isAbsolute(output) ? output : resolve(cwd, output);
+  return realpath(gitCommonDir).catch(() => gitCommonDir);
+}
+
+/**
+ * Build all shared tbd paths from an absolute Git common directory.
+ */
+export function buildSharedTbdPaths(gitCommonDir: string): SharedTbdPaths {
+  const sharedTbdDir = join(gitCommonDir, GIT_COMMON_TBD_DIR_NAME);
+  const sharedWorktreePath = join(sharedTbdDir, WORKTREE_DIR_NAME);
+  const sharedDataSyncDir = join(sharedWorktreePath, TBD_DIR, DATA_SYNC_DIR_NAME);
+  const sharedLayoutPath = join(sharedTbdDir, COMMON_DIR_LAYOUT_FILE_NAME);
+  const sharedLocksDir = join(sharedTbdDir, SHARED_LOCKS_DIR_NAME);
+  const sharedLockPath = join(sharedLocksDir, DATA_SYNC_LOCK_DIR_NAME);
+  const sharedBackupsDir = join(sharedTbdDir, SHARED_BACKUPS_DIR_NAME);
+
+  return {
+    gitCommonDir,
+    sharedTbdDir,
+    sharedWorktreePath,
+    sharedDataSyncDir,
+    sharedLayoutPath,
+    sharedLocksDir,
+    sharedLockPath,
+    sharedBackupsDir,
+  };
+}
+
+/**
+ * Resolve the shared tbd paths for the repository containing baseDir.
+ */
+export async function resolveSharedTbdPaths(baseDir: string): Promise<SharedTbdPaths> {
+  return buildSharedTbdPaths(await resolveGitCommonDir(baseDir));
+}
 
 // =============================================================================
 // Workspace Paths (for sync failure recovery, backups, bulk editing)
@@ -264,7 +379,7 @@ export function getAtticPath(issueId: string, filename: string): string {
 // Dynamic Path Resolution
 // =============================================================================
 
-import { access } from 'node:fs/promises';
+import { access, realpath } from 'node:fs/promises';
 
 /**
  * Options for resolveDataSyncDir.
@@ -284,7 +399,7 @@ export interface ResolveDataSyncDirOptions {
  */
 export class WorktreeMissingError extends Error {
   constructor(
-    message = "Worktree not found at .tbd/data-sync-worktree/. Run 'tbd doctor --fix' to repair.",
+    message = "Shared worktree not found under $GIT_COMMON_DIR/tbd/data-sync-worktree/. Run 'tbd doctor --fix' to repair.",
   ) {
     super(message);
     this.name = 'WorktreeMissingError';
@@ -306,8 +421,9 @@ let _resolvedAllowFallback: boolean | null = null;
  * (production) or in a test environment without worktree.
  *
  * Order of preference:
- * 1. Worktree path if worktree exists: .tbd/data-sync-worktree/.tbd/data-sync/
- * 2. Direct path as fallback (only if allowFallback: true)
+ * 1. Shared worktree path if it exists:
+ *    $GIT_COMMON_DIR/tbd/data-sync-worktree/.tbd/data-sync/
+ * 2. Direct path as fallback (only if allowFallback: true, for tests/diagnostics)
  *
  * @param baseDir - The tbd root directory (from requireInit or findTbdRoot)
  * @param options - Options for path resolution
@@ -331,17 +447,30 @@ export async function resolveDataSyncDir(
     return _resolvedDataSyncDir;
   }
 
-  const worktreePath = join(baseDir, DATA_SYNC_DIR_VIA_WORKTREE);
+  let worktreePath: string | null = null;
+  try {
+    worktreePath = (await resolveSharedTbdPaths(baseDir)).sharedDataSyncDir;
+  } catch {
+    // Not in a git repository or git is unavailable. Check the static primary-checkout
+    // path for unit tests before falling back to the direct diagnostic path.
+    worktreePath = join(baseDir, DATA_SYNC_DIR_VIA_WORKTREE);
+  }
   const directPath = join(baseDir, DATA_SYNC_DIR);
 
   // Check if worktree path exists
-  try {
-    await access(worktreePath);
-    _resolvedDataSyncDir = worktreePath;
-    _resolvedBaseDir = baseDir;
-    _resolvedAllowFallback = allowFallback;
-    return worktreePath;
-  } catch {
+  if (worktreePath) {
+    try {
+      await access(worktreePath);
+      _resolvedDataSyncDir = worktreePath;
+      _resolvedBaseDir = baseDir;
+      _resolvedAllowFallback = allowFallback;
+      return worktreePath;
+    } catch {
+      // Worktree doesn't exist
+    }
+  }
+
+  {
     // Worktree doesn't exist
     if (!allowFallback) {
       throw new WorktreeMissingError();
@@ -408,9 +537,6 @@ export function clearPathCache(): void {
 // =============================================================================
 // Doc Path Resolution
 // =============================================================================
-
-import { isAbsolute } from 'node:path';
-import { homedir } from 'node:os';
 
 /**
  * Resolve a doc path for consistent handling across the codebase.

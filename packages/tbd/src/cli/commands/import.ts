@@ -27,13 +27,13 @@ import {
 } from '../../file/id-mapping.js';
 import { IssueStatus, IssueKind } from '../../lib/schemas.js';
 import type { Issue, IssueStatusType, IssueKindType, DependencyType } from '../../lib/types.js';
-import { resolveDataSyncDir } from '../../lib/paths.js';
 import { now, normalizeTimestamp } from '../../utils/time-utils.js';
 import { readConfig, writeConfig } from '../../file/config.js';
 import {
   importFromWorkspace,
   type ImportOptions as WorkspaceImportOptions,
 } from '../../file/workspace.js';
+import { withDataSyncContext } from '../lib/data-context.js';
 
 interface ImportOptions {
   beadsDir?: string;
@@ -218,16 +218,20 @@ class ImportHandler extends BaseCommand {
     // Handle validation mode - requires init
     if (options.validate) {
       this.tbdRoot = await requireInit();
-      this.dataSyncDir = await resolveDataSyncDir(this.tbdRoot);
-      await this.validateImport(options);
+      await withDataSyncContext(this.tbdRoot, { lock: true }, async ({ dataSyncDir }) => {
+        this.dataSyncDir = dataSyncDir;
+        await this.validateImport(options);
+      });
       return;
     }
 
     // File import requires initialization
     if (file) {
       this.tbdRoot = await requireInit();
-      this.dataSyncDir = await resolveDataSyncDir(this.tbdRoot);
-      await this.importFromFile(file, options);
+      await withDataSyncContext(this.tbdRoot, { lock: true }, async ({ dataSyncDir }) => {
+        this.dataSyncDir = dataSyncDir;
+        await this.importFromFile(file, options);
+      });
     }
   }
 
@@ -236,7 +240,6 @@ class ImportHandler extends BaseCommand {
    */
   private async importFromWorkspaceCmd(options: ImportOptions): Promise<void> {
     this.tbdRoot = await requireInit();
-    this.dataSyncDir = await resolveDataSyncDir(this.tbdRoot);
 
     const wsOptions: WorkspaceImportOptions = {
       workspace: options.workspace,
@@ -253,7 +256,10 @@ class ImportHandler extends BaseCommand {
     wsOptions.logger = this.output.logger(spinner);
 
     const result = await this.execute(async () => {
-      return await importFromWorkspace(this.tbdRoot, this.dataSyncDir, wsOptions);
+      return await withDataSyncContext(this.tbdRoot, { lock: true }, async ({ dataSyncDir }) => {
+        this.dataSyncDir = dataSyncDir;
+        return await importFromWorkspace(this.tbdRoot, this.dataSyncDir, wsOptions);
+      });
     }, 'Failed to import from workspace');
 
     spinner.stop();

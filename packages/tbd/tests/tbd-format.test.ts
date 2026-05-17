@@ -18,7 +18,7 @@ import {
 describe('tbd-format', () => {
   describe('constants', () => {
     it('has current format', () => {
-      expect(CURRENT_FORMAT).toBe('f03');
+      expect(CURRENT_FORMAT).toBe('f04');
     });
 
     it('has initial format', () => {
@@ -29,6 +29,7 @@ describe('tbd-format', () => {
       expect(FORMAT_HISTORY.f01).toBeDefined();
       expect(FORMAT_HISTORY.f02).toBeDefined();
       expect(FORMAT_HISTORY.f03).toBeDefined();
+      expect(FORMAT_HISTORY.f04).toBeDefined();
     });
   });
 
@@ -75,7 +76,7 @@ describe('tbd-format', () => {
   });
 
   describe('migrateToLatest', () => {
-    it('migrates f01 to f03 (through f02)', () => {
+    it('migrates f01 to f04 through all format steps', () => {
       const config: RawConfig = {
         tbd_version: '0.1.0',
         display: { id_prefix: 'test' },
@@ -86,16 +87,19 @@ describe('tbd-format', () => {
       const result = migrateToLatest(config);
 
       expect(result.fromFormat).toBe('f01');
-      expect(result.toFormat).toBe('f03');
+      expect(result.toFormat).toBe('f04');
       expect(result.changed).toBe(true);
-      expect(result.config.tbd_format).toBe('f03');
+      expect(result.config.tbd_format).toBe('f04');
+      expect(result.config.sync?.storage).toBe('git-common-dir-v1');
       expect(result.config.settings?.doc_auto_sync_hours).toBe(24);
       expect(result.changes).toContain('Added tbd_format: f02');
       expect(result.changes).toContain('Added settings.doc_auto_sync_hours: 24');
       expect(result.changes).toContain('Updated tbd_format: f03');
+      expect(result.changes).toContain('Updated tbd_format: f04');
+      expect(result.changes).toContain('Added sync.storage: git-common-dir-v1');
     });
 
-    it('migrates f02 to f03', () => {
+    it('migrates f02 to f04', () => {
       const config: RawConfig = {
         tbd_format: 'f02',
         tbd_version: '0.1.5',
@@ -108,9 +112,10 @@ describe('tbd-format', () => {
       const result = migrateToLatest(config);
 
       expect(result.fromFormat).toBe('f02');
-      expect(result.toFormat).toBe('f03');
+      expect(result.toFormat).toBe('f04');
       expect(result.changed).toBe(true);
-      expect(result.config.tbd_format).toBe('f03');
+      expect(result.config.tbd_format).toBe('f04');
+      expect(result.config.sync?.storage).toBe('git-common-dir-v1');
       // doc_cache moved to docs_cache.files
       expect(result.config.doc_cache).toBeUndefined();
       expect(result.config.docs_cache?.files).toEqual({
@@ -126,8 +131,9 @@ describe('tbd-format', () => {
 
     it('does not modify already current config', () => {
       const config: RawConfig = {
-        tbd_format: 'f03',
-        tbd_version: '0.1.6',
+        tbd_format: 'f04',
+        tbd_version: '0.2.0',
+        sync: { branch: 'tbd-sync', remote: 'origin', storage: 'git-common-dir-v1' },
         display: { id_prefix: 'test' },
         settings: { auto_sync: false, doc_auto_sync_hours: 12 },
         docs_cache: {
@@ -138,11 +144,34 @@ describe('tbd-format', () => {
 
       const result = migrateToLatest(config);
 
-      expect(result.fromFormat).toBe('f03');
-      expect(result.toFormat).toBe('f03');
+      expect(result.fromFormat).toBe('f04');
+      expect(result.toFormat).toBe('f04');
       expect(result.changed).toBe(false);
       expect(result.changes).toHaveLength(0);
       expect(result.config.settings?.doc_auto_sync_hours).toBe(12);
+      expect(result.config.sync?.storage).toBe('git-common-dir-v1');
+    });
+
+    it('migrates f03 to f04 by adding sync storage marker', () => {
+      const config: RawConfig = {
+        tbd_format: 'f03',
+        tbd_version: '0.1.6',
+        display: { id_prefix: 'test' },
+        sync: { branch: 'custom-sync', remote: 'upstream' },
+        settings: { auto_sync: false, doc_auto_sync_hours: 12 },
+      };
+
+      const result = migrateToLatest(config);
+
+      expect(result.fromFormat).toBe('f03');
+      expect(result.toFormat).toBe('f04');
+      expect(result.changed).toBe(true);
+      expect(result.config.tbd_format).toBe('f04');
+      expect(result.config.sync).toEqual({
+        branch: 'custom-sync',
+        remote: 'upstream',
+        storage: 'git-common-dir-v1',
+      });
     });
 
     it('preserves existing settings when migrating', () => {
@@ -175,6 +204,10 @@ describe('tbd-format', () => {
       expect(isCompatibleFormat('f03')).toBe(true);
     });
 
+    it('returns true for f04', () => {
+      expect(isCompatibleFormat('f04')).toBe(true);
+    });
+
     it('returns false for unknown future format', () => {
       expect(isCompatibleFormat('f99')).toBe(false);
     });
@@ -183,19 +216,21 @@ describe('tbd-format', () => {
   describe('describeMigration', () => {
     it('describes f01 migration (two steps)', () => {
       const descriptions = describeMigration('f01');
-      expect(descriptions).toHaveLength(2);
+      expect(descriptions).toHaveLength(3);
       expect(descriptions[0]).toContain('f01 → f02');
       expect(descriptions[1]).toContain('f02 → f03');
+      expect(descriptions[2]).toContain('f03 → f04');
     });
 
     it('describes f02 migration', () => {
       const descriptions = describeMigration('f02');
-      expect(descriptions).toHaveLength(1);
+      expect(descriptions).toHaveLength(2);
       expect(descriptions[0]).toContain('f02 → f03');
+      expect(descriptions[1]).toContain('f03 → f04');
     });
 
     it('returns empty for current format', () => {
-      const descriptions = describeMigration('f03');
+      const descriptions = describeMigration('f04');
       expect(descriptions).toHaveLength(0);
     });
   });

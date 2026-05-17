@@ -213,6 +213,11 @@ export const GitRemoteName = z
   );
 
 /**
+ * Canonical local storage backend for issue sync machinery.
+ */
+export const SyncStorage = z.enum(['git-common-dir-v1']);
+
+/**
  * Doc cache configuration - maps destination paths to source locations.
  *
  * Keys are destination paths relative to .tbd/docs/ (e.g., "shortcuts/standard/code-review-and-commit.md")
@@ -286,6 +291,7 @@ export const ConfigSchema = z.object({
     .object({
       branch: GitBranchName.default('tbd-sync'),
       remote: GitRemoteName.default('origin'),
+      storage: SyncStorage.default('git-common-dir-v1'),
     })
     .default({}),
   display: z.object({
@@ -319,8 +325,35 @@ export const ConfigSchema = z.object({
 });
 
 // =============================================================================
+// Common-Dir Layout Schema
+// =============================================================================
+
+/**
+ * Local layout metadata stored in $GIT_COMMON_DIR/tbd/layout.yml.
+ *
+ * This uses the same tbd_format IDs as .tbd/config.yml so local checkout config
+ * and Git common-dir machinery advance together during layout migrations.
+ */
+export const CommonDirLayoutSchema = z.object({
+  tbd_format: z.string(),
+  sync_storage: SyncStorage.default('git-common-dir-v1'),
+  data_sync_worktree: z.literal('data-sync-worktree').default('data-sync-worktree'),
+  lock_profile: z.literal('data-sync-v1').default('data-sync-v1'),
+  created_at: Timestamp,
+  updated_at: Timestamp,
+});
+
+// =============================================================================
 // Meta Schema (§2.6.5)
 // =============================================================================
+
+/**
+ * Current schema version for synced payloads on the tbd-sync branch.
+ *
+ * This is intentionally separate from tbd_format, which tracks local checkout
+ * and Git common-dir layout compatibility.
+ */
+export const DATA_SYNC_SCHEMA_VERSION = 1;
 
 /**
  * Shared metadata stored in .tbd/data-sync/meta.yml
@@ -446,6 +479,18 @@ export const CONFIG_FIELD_ORDER = [
   'sync',
   'settings',
   'docs_cache',
+] as const;
+
+/**
+ * Canonical field order for $GIT_COMMON_DIR/tbd/layout.yml.
+ */
+export const COMMON_DIR_LAYOUT_FIELD_ORDER = [
+  'tbd_format',
+  'sync_storage',
+  'data_sync_worktree',
+  'lock_profile',
+  'created_at',
+  'updated_at',
 ] as const;
 
 /**

@@ -294,7 +294,7 @@ describe('test helper: isDisplayIdNotInternal', () => {
 describe('test helper: isCorrectWorktreePath', () => {
   it('accepts paths in the worktree', () => {
     expect(
-      isCorrectWorktreePath('.tbd/data-sync-worktree/.tbd/data-sync/issues/is-abc123.md'),
+      isCorrectWorktreePath('.git/tbd/data-sync-worktree/.tbd/data-sync/issues/is-abc123.md'),
     ).toBe(true);
   });
 

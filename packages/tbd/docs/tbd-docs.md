@@ -14,8 +14,10 @@ tbd stores issues on a dedicated `tbd-sync` branch, separate from your code:
 
 ```
 .tbd/
-├── config.yml                    # Configuration (tracked on main)
-└── data-sync-worktree/           # Hidden worktree (gitignored)
+└── config.yml                    # Configuration (tracked on main)
+
+$GIT_COMMON_DIR/tbd/
+└── data-sync-worktree/           # Hidden worktree shared by linked checkouts
     └── .tbd/data-sync/
         ├── issues/               # One .md file per issue
         ├── mappings/ids.yml      # Short ID → ULID mapping
@@ -968,15 +970,16 @@ my-project/
 │   ├── workspaces/                   # Persistent state (outbox, named workspaces)
 │   │
 │   │ Gitignored (local only):
-│   ├── state.yml                     # Local state
-│   └── data-sync-worktree/           # Hidden worktree
-│       └── .tbd/
-│           └── data-sync/
-│               ├── issues/           # Issue files (*.md)
-│               ├── mappings/         # ID mappings
-│               │   └── ids.yml       # Short ID → ULID mapping
-│               ├── attic/            # Conflict archive
-│               └── meta.yml          # Schema version
+│   └── state.yml                     # Local state
+│
+└── $GIT_COMMON_DIR/tbd/
+    └── data-sync-worktree/           # Hidden worktree shared by linked checkouts
+        └── .tbd/data-sync/
+            ├── issues/               # Issue files (*.md)
+            ├── mappings/             # ID mappings
+            │   └── ids.yml           # Short ID → ULID mapping
+            ├── attic/                # Conflict archive
+            └── meta.yml              # Schema version
 ```
 
 ### Issue File Format
@@ -1109,10 +1112,10 @@ tbd uses short display IDs (`proj-a7k2`) that map to internal ULIDs
 
 ```bash
 # Find the actual issue file
-ls .tbd/data-sync-worktree/.tbd/data-sync/issues/is-01hx5*.md
+ls "$(git rev-parse --path-format=absolute --git-common-dir)/tbd/data-sync-worktree/.tbd/data-sync/issues"/is-01hx5*.md
 
 # Internal IDs sort chronologically (creation order)
-ls .tbd/data-sync-worktree/.tbd/data-sync/issues/ | sort
+ls "$(git rev-parse --path-format=absolute --git-common-dir)/tbd/data-sync-worktree/.tbd/data-sync/issues/" | sort
 ```
 
 ### Performance

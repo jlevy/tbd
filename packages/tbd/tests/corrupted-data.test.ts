@@ -56,6 +56,14 @@ describe('corrupted data scenarios', { timeout: 15000 }, () => {
     runTbd(['init', '--prefix=test']);
   }
 
+  function sharedDataSyncDir(): string {
+    const gitCommonDir = execSync('git rev-parse --path-format=absolute --git-common-dir', {
+      cwd: tempDir,
+      encoding: 'utf-8',
+    }).trim();
+    return join(gitCommonDir, 'tbd', 'data-sync-worktree', '.tbd', 'data-sync');
+  }
+
   describe('ids.yml with merge conflict markers', () => {
     it('provides helpful error message when ids.yml has conflict markers', async () => {
       initGitAndTbd();
@@ -65,15 +73,7 @@ describe('corrupted data scenarios', { timeout: 15000 }, () => {
       expect(createResult.status).toBe(0);
 
       // Now corrupt the ids.yml file with merge conflict markers
-      const idsPath = join(
-        tempDir,
-        '.tbd',
-        'data-sync-worktree',
-        '.tbd',
-        'data-sync',
-        'mappings',
-        'ids.yml',
-      );
+      const idsPath = join(sharedDataSyncDir(), 'mappings', 'ids.yml');
       await writeFile(
         idsPath,
         `<<<<<<< HEAD
@@ -98,15 +98,7 @@ c3d4: 01hx5zzkbkbctav9wevgemmvrw
       runTbd(['create', 'Test issue', '--type=task']);
 
       // Corrupt ids.yml
-      const idsPath = join(
-        tempDir,
-        '.tbd',
-        'data-sync-worktree',
-        '.tbd',
-        'data-sync',
-        'mappings',
-        'ids.yml',
-      );
+      const idsPath = join(sharedDataSyncDir(), 'mappings', 'ids.yml');
       await writeFile(idsPath, '<<<<<<< HEAD\na1b2: 01hx5zzkbkactav9wevgemmvrz\n');
 
       // Run with --debug flag
@@ -125,15 +117,7 @@ c3d4: 01hx5zzkbkbctav9wevgemmvrw
       runTbd(['create', 'Test issue', '--type=task']);
 
       // Corrupt ids.yml with invalid YAML
-      const idsPath = join(
-        tempDir,
-        '.tbd',
-        'data-sync-worktree',
-        '.tbd',
-        'data-sync',
-        'mappings',
-        'ids.yml',
-      );
+      const idsPath = join(sharedDataSyncDir(), 'mappings', 'ids.yml');
       await writeFile(idsPath, 'this: is: not: valid: yaml:');
 
       const listResult = runTbd(['list']);
@@ -152,15 +136,7 @@ c3d4: 01hx5zzkbkbctav9wevgemmvrw
       expect(createResult.status).toBe(0);
 
       const invalidId = testId(TEST_ULIDS.DOCTOR_4);
-      const issuePath = join(
-        tempDir,
-        '.tbd',
-        'data-sync-worktree',
-        '.tbd',
-        'data-sync',
-        'issues',
-        `${invalidId}.md`,
-      );
+      const issuePath = join(sharedDataSyncDir(), 'issues', `${invalidId}.md`);
       await writeFile(
         issuePath,
         `---

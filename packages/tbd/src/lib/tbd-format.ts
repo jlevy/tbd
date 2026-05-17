@@ -37,7 +37,7 @@
  * Current format version.
  * Bump this ONLY for breaking changes that require migration.
  */
-export const CURRENT_FORMAT = 'f03';
+export const CURRENT_FORMAT = 'f04';
 
 /**
  * Initial format version for configs that don't have tbd_format field.
@@ -84,6 +84,17 @@ export const FORMAT_HISTORY = {
     ],
     migration: 'Migrates old config keys to new docs_cache structure',
   },
+  f04: {
+    introduced: '0.2.0',
+    description: 'Moves local issue sync worktree into the Git common directory',
+    changes: [
+      'Added sync.storage: git-common-dir-v1 to config.yml',
+      'Moved local data-sync worktree machinery to $GIT_COMMON_DIR/tbd/',
+      'Added $GIT_COMMON_DIR/tbd/layout.yml using the same tbd_format ID',
+    ],
+    migration:
+      'Initializes shared common-dir sync layout before writing config.yml with tbd_format f04',
+  },
 } as const;
 
 export type FormatVersion = keyof typeof FORMAT_HISTORY;
@@ -102,6 +113,7 @@ export interface RawConfig {
   sync?: {
     branch?: string;
     remote?: string;
+    storage?: 'git-common-dir-v1';
   };
   display?: {
     id_prefix?: string;
@@ -222,6 +234,30 @@ function migrate_f02_to_f03(config: RawConfig): MigrationResult {
   };
 }
 
+/**
+ * Migrate from f03 to f04.
+ * - Adds sync.storage marker for the Git common-dir shared worktree layout
+ * - Bumps tbd_format so old clients fail before writing legacy worktrees
+ */
+function migrate_f03_to_f04(config: RawConfig): MigrationResult {
+  const changes: string[] = [];
+  const migrated = { ...config };
+
+  migrated.tbd_format = 'f04';
+  changes.push('Updated tbd_format: f04');
+
+  migrated.sync = { ...migrated.sync, storage: 'git-common-dir-v1' };
+  changes.push('Added sync.storage: git-common-dir-v1');
+
+  return {
+    config: migrated,
+    fromFormat: 'f03',
+    toFormat: 'f04',
+    changed: changes.length > 0,
+    changes,
+  };
+}
+
 // =============================================================================
 // Public API
 // =============================================================================
@@ -292,7 +328,12 @@ export function migrateToLatest(config: RawConfig): MigrationResult {
     allChanges.push(...result.changes);
   }
 
-  // Add more migrations here as new format versions are added
+  if (currentFormat === 'f03') {
+    const result = migrate_f03_to_f04(current);
+    current = result.config;
+    currentFormat = 'f04' as FormatVersion;
+    allChanges.push(...result.changes);
+  }
 
   return {
     config: current,
@@ -338,7 +379,10 @@ export function describeMigration(fromFormat: FormatVersion): string[] {
     current = 'f03';
   }
 
-  // Add more migration descriptions here
+  if (current === 'f03') {
+    descriptions.push('f03 → f04: Move local sync worktree to Git common directory');
+    current = 'f04';
+  }
 
   return descriptions;
 }
