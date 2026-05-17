@@ -53,28 +53,31 @@ before: |
   mkdir -p .tbd/data-sync-worktree/.tbd/data-sync/issues
   mkdir -p .tbd/data-sync-worktree/.tbd/data-sync/mappings
   mkdir -p .tbd/data-sync-worktree/.tbd/data-sync/attic/conflicts
-  cat > .tbd/data-sync-worktree/.tbd/data-sync/issues/is-01legacy000000000000000001.md <<'EOF'
-  ---
-## type: is
-id: is-01legacy000000000000000001
-title: Legacy issue from f03 worktree
-kind: task
-status: open
-priority: 2
-version: 1
-labels: []
-dependencies: []
-created_at: 2026-05-17T00:00:00.000Z
-updated_at: 2026-05-17T00:00:00.000Z
+  printf '%s\n' \
+    '---' \
+    'type: is' \
+    'id: is-01legacy000000000000000001' \
+    'title: Legacy issue from f03 worktree' \
+    'kind: task' \
+    'status: open' \
+    'priority: 2' \
+    'version: 1' \
+    'labels: []' \
+    'dependencies: []' \
+    'created_at: 2026-05-17T00:00:00.000Z' \
+    'updated_at: 2026-05-17T00:00:00.000Z' \
+    '---' \
+    'Legacy issue body.' \
+    > .tbd/data-sync-worktree/.tbd/data-sync/issues/is-01legacy000000000000000001.md
+  printf '%s\n' 'aa01: 01legacy000000000000000001' \
+    > .tbd/data-sync-worktree/.tbd/data-sync/mappings/ids.yml
+  printf '%s\n' 'schema_version: 1' > .tbd/data-sync-worktree/.tbd/data-sync/meta.yml
+  git -C .tbd/data-sync-worktree add .
+  git -C .tbd/data-sync-worktree commit -m "Legacy sync data"
+  git -C .tbd/data-sync-worktree push -u origin tbd-sync
 
-Legacy issue body. EOF cat > .tbd/data-sync-worktree/.tbd/data-sync/mappings/ids.yml
-<<'EOF' aa01: 01legacy000000000000000001 EOF cat >
-.tbd/data-sync-worktree/.tbd/data-sync/meta.yml <<'EOF' schema_version: 1 EOF git -C
-.tbd/data-sync-worktree add . git -C .tbd/data-sync-worktree commit -m “Legacy sync
-data” git -C .tbd/data-sync-worktree push -u origin tbd-sync
-
-## git worktree add -b codex-agent agent main
-
+  git worktree add -b codex-agent agent main
+---
 # tbd CLI: Shared Common-Dir Worktree Migration
 
 This golden scenario captures the full workflow that motivated the shared common-dir
