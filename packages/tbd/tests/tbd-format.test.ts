@@ -12,6 +12,8 @@ import {
   migrateToLatest,
   isCompatibleFormat,
   describeMigration,
+  formatUpgradeMessage,
+  isFormatCompatibleWithSupported,
   type RawConfig,
 } from '../src/lib/tbd-format.js';
 
@@ -210,6 +212,28 @@ describe('tbd-format', () => {
 
     it('returns false for unknown future format', () => {
       expect(isCompatibleFormat('f99')).toBe(false);
+    });
+  });
+
+  describe('isFormatCompatibleWithSupported', () => {
+    it('models old f03 clients rejecting f04 repositories', () => {
+      expect(isFormatCompatibleWithSupported('f04', 'f03')).toBe(false);
+    });
+
+    it('allows old clients to read older formats they know how to migrate', () => {
+      expect(isFormatCompatibleWithSupported('f01', 'f03')).toBe(true);
+      expect(isFormatCompatibleWithSupported('f03', 'f03')).toBe(true);
+    });
+  });
+
+  describe('formatUpgradeMessage', () => {
+    it('clearly tells users when a repository needs a newer tbd', () => {
+      expect(formatUpgradeMessage('Config', 'f04', 'f03')).toBe(
+        'This repository requires a newer version of tbd.\n' +
+          "Config format 'f04' is from a newer tbd version.\n" +
+          "This tbd version supports up to format 'f03'.\n" +
+          'Upgrade tbd: npm install -g get-tbd@latest',
+      );
     });
   });
 

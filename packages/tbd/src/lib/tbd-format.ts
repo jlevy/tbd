@@ -349,8 +349,20 @@ export function migrateToLatest(config: RawConfig): MigrationResult {
  * Future format versions are considered incompatible (would need tbd upgrade).
  */
 export function isCompatibleFormat(format: string): boolean {
+  return isFormatCompatibleWithSupported(format, CURRENT_FORMAT);
+}
+
+/**
+ * Check whether a format version is compatible with a tbd client that supports
+ * versions up to supportedFormat. This makes the old-client contract testable:
+ * an f03 client must reject an f04 repository instead of writing legacy data.
+ */
+export function isFormatCompatibleWithSupported(
+  format: string,
+  supportedFormat: FormatVersion,
+): boolean {
   const formatVersions = Object.keys(FORMAT_HISTORY);
-  const currentIndex = formatVersions.indexOf(CURRENT_FORMAT);
+  const currentIndex = formatVersions.indexOf(supportedFormat);
   const checkIndex = formatVersions.indexOf(format);
 
   if (checkIndex === -1) {
@@ -360,6 +372,23 @@ export function isCompatibleFormat(format: string): boolean {
 
   // Compatible if same or older format (we can migrate up)
   return checkIndex <= currentIndex;
+}
+
+/**
+ * Build the standard message shown when a repository has a format newer than
+ * this tbd client supports.
+ */
+export function formatUpgradeMessage(
+  subject: string,
+  foundFormat: string,
+  supportedFormat: string,
+): string {
+  return (
+    `This repository requires a newer version of tbd.\n` +
+    `${subject} format '${foundFormat}' is from a newer tbd version.\n` +
+    `This tbd version supports up to format '${supportedFormat}'.\n` +
+    `Upgrade tbd: npm install -g get-tbd@latest`
+  );
 }
 
 /**

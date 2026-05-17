@@ -10,7 +10,7 @@ import { parse as parseYaml } from 'yaml';
 import type { CommonDirLayout, Config } from '../lib/types.js';
 import { CommonDirLayoutSchema, COMMON_DIR_LAYOUT_FIELD_ORDER } from '../lib/schemas.js';
 import { resolveSharedTbdPaths, type SharedTbdPaths } from '../lib/paths.js';
-import { CURRENT_FORMAT, isCompatibleFormat } from '../lib/tbd-format.js';
+import { CURRENT_FORMAT, formatUpgradeMessage, isCompatibleFormat } from '../lib/tbd-format.js';
 import { sortKeys, stringifyYaml } from '../utils/yaml-utils.js';
 import { now } from '../utils/time-utils.js';
 import { DATA_SYNC_LOCK_OPTIONS, withLockfile } from '../utils/lockfile.js';
@@ -50,8 +50,7 @@ export async function readCommonDirLayout(layoutPath: string): Promise<CommonDir
 export function validateCommonDirLayout(layout: CommonDirLayout, config: Config): void {
   if (!isCompatibleFormat(layout.tbd_format)) {
     throw new CommonDirLayoutError(
-      `Common-dir layout format '${layout.tbd_format}' is from a newer tbd version. ` +
-        `This tbd version supports up to format '${CURRENT_FORMAT}'. Please upgrade tbd.`,
+      formatUpgradeMessage('Common-dir layout', layout.tbd_format, CURRENT_FORMAT),
     );
   }
 

@@ -3,7 +3,7 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { mkdtemp, rm, readFile } from 'node:fs/promises';
+import { mkdtemp, rm, readFile, mkdir, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import {
@@ -14,6 +14,7 @@ import {
   updateLocalState,
   hasSeenWelcome,
   markWelcomeSeen,
+  IncompatibleFormatError,
 } from '../src/file/config.js';
 import { CONFIG_FILE } from '../src/lib/paths.js';
 import type { Config } from '../src/lib/types.js';
@@ -65,6 +66,33 @@ describe('config operations', () => {
 
     it('throws when config does not exist', async () => {
       await expect(readConfig(tempDir)).rejects.toThrow();
+    });
+
+    it('uses a clear newer-version message for future config formats', async () => {
+      await mkdir(join(tempDir, '.tbd'), { recursive: true });
+      await writeFile(
+        join(tempDir, CONFIG_FILE),
+        [
+          'tbd_format: f99',
+          'tbd_version: future',
+          'display:',
+          '  id_prefix: test',
+          'sync:',
+          '  branch: tbd-sync',
+          '  remote: origin',
+          'settings:',
+          '  auto_sync: false',
+          '',
+        ].join('\n'),
+      );
+
+      await expect(readConfig(tempDir)).rejects.toThrow(IncompatibleFormatError);
+      await expect(readConfig(tempDir)).rejects.toThrow(
+        'This repository requires a newer version of tbd.\n' +
+          "Config format 'f99' is from a newer tbd version.\n" +
+          "This tbd version supports up to format 'f04'.\n" +
+          'Upgrade tbd: npm install -g get-tbd@latest',
+      );
     });
   });
 

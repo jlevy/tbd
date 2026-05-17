@@ -38,6 +38,11 @@ Implemented in branch `codex/implement-shared-common-dir-sync-worktree`.
 - `doctor`, `status`, setup, init, sync, and uninstall now understand the shared layout.
 - Linked-worktree regression coverage verifies that main and agent worktrees resolve to
   the same shared sync worktree.
+- Golden CLI scenario coverage now walks the old per-checkout branch-ownership failure,
+  f03-to-f04 migration, main-checkout writes, linked-worktree writes, and the f03
+  old-client compatibility guard.
+- Future-format errors now explicitly state that the repository requires a newer version
+  of tbd and include the supported format plus upgrade command.
 
 Validated with:
 
