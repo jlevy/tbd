@@ -382,6 +382,22 @@ Blocks: test-[SHORTID]
 ? 0
 ```
 
+# Test: Show child explains what blocks it
+
+```console
+$ tbd show $(cat dep_child.txt) | grep "# Blocked by:"
+# Blocked by: test-[SHORTID]
+? 0
+```
+
+# Test: Show parent explains what it blocks
+
+```console
+$ tbd show $(cat dep_parent.txt) | grep "# Blocks:"
+# Blocks: test-[SHORTID]
+? 0
+```
+
 # Test: Dep list as JSON
 
 ```console

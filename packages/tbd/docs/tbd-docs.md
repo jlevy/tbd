@@ -292,8 +292,13 @@ tbd show proj-a7k2 --no-parent                # Suppress parent context
 
 Output includes all fields: title, description, status, priority, labels, dependencies,
 timestamps, and working notes.
-For child issues, the parent’s details (ID, title, status, priority, description) are
-automatically displayed below the child for context.
+The raw `dependencies` field is a storage-format edge list: an entry with `type: blocks`
+means the shown issue blocks the target.
+When dependency directions exist, text output adds YAML comments above `dependencies`
+with human-facing `Blocks:` and `Blocked by:` sections using display IDs.
+For dependency-direction checks, prefer `tbd dep list <id>`. For child issues, the
+parent’s details (ID, title, status, priority, description) are automatically displayed
+below the child for context.
 
 ### update
 
@@ -449,6 +454,10 @@ Subcommands:
 - `add <issue> <depends-on>` - Issue depends on depends-on (depends-on blocks issue)
 - `remove <issue> <depends-on>` - Remove dependency
 - `list <id>` - List dependencies for an issue (what it blocks and what blocks it)
+
+Use `tbd dep list <id>` when checking dependency direction.
+The raw `dependencies` frontmatter in `tbd show` stores graph edges where `type: blocks`
+means the shown issue blocks the target.
 
 ### sync
 

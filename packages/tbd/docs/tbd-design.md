@@ -2631,9 +2631,24 @@ Options:
 
 **Output:**
 
-The `show` command outputs the issue in the exact storage format (YAML frontmatter +
+The `show` command outputs the issue in a storage-compatible format (YAML frontmatter +
 Markdown body). This format is both human-readable and machine-parseable, enabling
 round-trip editing workflows.
+For dependency direction, text output may include YAML comments immediately above the
+`dependencies` field:
+
+```yaml
+# Blocks: proj-c3d4
+# Blocked by: proj-f14c
+dependencies:
+  - type: blocks
+    target: is-c3d4...
+```
+
+These comments are ignored by `tbd update --from-file` and exist only to clarify the raw
+edge list. In storage, `type: blocks` means the shown issue blocks the target.
+For dependency-direction checks, prefer `tbd dep list <id>`, which renders the
+human-facing `Blocks:` and `Blocked by:` sections directly.
 
 **Parent context (auto-displayed for child issues):**
 
