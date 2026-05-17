@@ -3,9 +3,9 @@ type: is
 id: is-01krvv3hm7d5gnfzw50qzpzph7
 title: "Spec: Shared common-dir sync worktree implementation"
 kind: epic
-status: open
+status: in_progress
 priority: 2
-version: 15
+version: 16
 spec_path: docs/project/specs/active/plan-2026-05-17-shared-common-dir-sync-worktree.md
 labels: []
 dependencies: []
@@ -24,6 +24,6 @@ child_order_hints:
   - is-01krvv515z9w0eprhy15wrpqxf
   - is-01krvv51c86bs8q20g7gv89qsc
 created_at: 2026-05-17T20:47:38.119Z
-updated_at: 2026-05-17T20:48:53.332Z
+updated_at: 2026-05-17T20:55:09.816Z
 ---
 Implementation epic for the shared Git common-dir sync worktree design. Scope includes the f04 local-layout migration, shared attached sync worktree under $GIT_COMMON_DIR/tbd/, common locking, legacy per-checkout migration, command routing, and validation from the active plan spec.
