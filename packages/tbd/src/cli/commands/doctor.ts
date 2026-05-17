@@ -180,6 +180,7 @@ class DoctorHandler extends BaseCommand {
     const allChecks = [...healthChecks, ...integrationChecks];
     const allOk = allChecks.every((c) => c.status === 'ok');
     const hasFixable = allChecks.some((c) => c.fixable && c.status !== 'ok');
+    const hasNonFixableError = allChecks.some((c) => c.status === 'error' && !c.fixable);
 
     this.output.data(
       { statusInfo, statsInfo, healthChecks, integrationChecks, healthy: allOk },
@@ -230,7 +231,7 @@ class DoctorHandler extends BaseCommand {
         console.log('');
         if (allOk) {
           this.output.success('Repository is healthy');
-        } else if (hasFixable && !options.fix) {
+        } else if (hasFixable && !hasNonFixableError && !options.fix) {
           this.output.warn('Issues found. Run with --fix to repair.');
         } else {
           this.output.warn('Issues found that may require manual intervention.');
