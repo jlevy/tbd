@@ -8,6 +8,7 @@ import { Command } from 'commander';
 
 import { BaseCommand } from '../lib/base-command.js';
 import { requireInit, NotFoundError, ValidationError } from '../lib/errors.js';
+import { getDependencyDirections } from '../lib/dependency-format.js';
 import { readIssue, writeIssue, listIssues } from '../../file/storage.js';
 import { formatDisplayId, formatDebugId } from '../../lib/ids.js';
 import type { Issue } from '../../lib/types.js';
@@ -220,30 +221,11 @@ class DependsListHandler extends BaseCommand {
     const config = await readConfig(tbdRoot);
     const prefix = config.display.id_prefix;
 
-    // Find what this issue blocks (from its dependencies)
-    const blocks = issue.dependencies
-      .filter((dep) => dep.type === 'blocks')
-      .map((dep) =>
-        showDebug
-          ? formatDebugId(dep.target, mapping, prefix)
-          : formatDisplayId(dep.target, mapping, prefix),
-      );
-
-    // Find what blocks this issue (reverse lookup)
-    const blockedBy: string[] = [];
-    for (const other of allIssues) {
-      for (const dep of other.dependencies) {
-        if (dep.type === 'blocks' && dep.target === internalId) {
-          blockedBy.push(
-            showDebug
-              ? formatDebugId(other.id, mapping, prefix)
-              : formatDisplayId(other.id, mapping, prefix),
-          );
-        }
-      }
-    }
-
-    const deps = { blocks, blockedBy };
+    const deps = getDependencyDirections(issue, allIssues, (dependencyId) =>
+      showDebug
+        ? formatDebugId(dependencyId, mapping, prefix)
+        : formatDisplayId(dependencyId, mapping, prefix),
+    );
     this.output.data(deps, () => {
       const colors = this.output.getColors();
       if (deps.blocks.length > 0) {

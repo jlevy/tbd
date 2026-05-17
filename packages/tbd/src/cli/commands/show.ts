@@ -9,7 +9,12 @@ import { Command } from 'commander';
 import { BaseCommand } from '../lib/base-command.js';
 import { NotFoundError } from '../lib/errors.js';
 import { loadFullContext } from '../lib/data-context.js';
-import { readIssue } from '../../file/storage.js';
+import {
+  formatDependencyDirectionComments,
+  getDependencyDirections,
+  type DependencyDirections,
+} from '../lib/dependency-format.js';
+import { readIssue, listIssues } from '../../file/storage.js';
 import { serializeIssue } from '../../file/parser.js';
 import { formatPriority, getPriorityColor } from '../../lib/priority.js';
 import { getStatusColor } from '../../lib/status.js';
@@ -28,16 +33,28 @@ interface ShowOptions {
  *
  * @param issue - The issue to render
  * @param colors - Color functions
- * @param maxLines - If set, truncate output to this many lines with an omission notice
+ * @param dependencyDirections - Optional human-facing dependency direction comments
  * @returns Array of formatted lines
  */
-function renderIssueLines(issue: Issue, colors: ReturnType<typeof createColors>): string[] {
+function renderIssueLines(
+  issue: Issue,
+  colors: ReturnType<typeof createColors>,
+  dependencyDirections?: DependencyDirections,
+): string[] {
   const serialized = serializeIssue(issue);
   const output: string[] = [];
+  const dependencyDirectionComments = dependencyDirections
+    ? formatDependencyDirectionComments(dependencyDirections)
+    : [];
 
   for (const line of serialized.split('\n')) {
     if (line === '---') {
       output.push(colors.dim(line));
+    } else if (line.startsWith('dependencies:')) {
+      for (const comment of dependencyDirectionComments) {
+        output.push(colors.dim(comment));
+      }
+      output.push(line);
     } else if (line.startsWith('id:')) {
       output.push(`${colors.dim('id:')} ${colors.id(line.slice(4))}`);
     } else if (line.startsWith('status:')) {
@@ -116,6 +133,15 @@ class ShowHandler extends BaseCommand {
 
     // Format display ID using helper (respects debug mode automatically)
     const displayId = ctx.displayId(issue.id);
+    const allIssues = ctx.cli.json ? undefined : await listIssues(ctx.dataSyncDir);
+    const displayDependencyId = (dependencyId: string) => ctx.displayId(dependencyId);
+    const dependencyDirections = allIssues
+      ? getDependencyDirections(issue, allIssues, displayDependencyId)
+      : undefined;
+    const parentDependencyDirections =
+      allIssues && parentIssue
+        ? getDependencyDirections(parentIssue, allIssues, displayDependencyId)
+        : undefined;
 
     // Create display version with short display ID
     const displayIssue = {
@@ -135,14 +161,14 @@ class ShowHandler extends BaseCommand {
       const colors = this.output.getColors();
 
       // Render main issue first (what the user asked for)
-      const issueLines = renderIssueLines(issue, colors);
+      const issueLines = renderIssueLines(issue, colors, dependencyDirections);
       printWithTruncation(issueLines, colors, maxLines);
 
       // Show parent context below if this is a child issue
       if (parentIssue) {
         console.log('');
         console.log(colors.dim('The parent of this bead is:'));
-        const parentLines = renderIssueLines(parentIssue, colors);
+        const parentLines = renderIssueLines(parentIssue, colors, parentDependencyDirections);
         printWithTruncation(parentLines, colors, PARENT_CONTEXT_MAX_LINES);
       }
 
