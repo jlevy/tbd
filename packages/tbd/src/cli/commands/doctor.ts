@@ -561,13 +561,17 @@ class DoctorHandler extends BaseCommand {
   }
 
   private async checkTempFiles(fix?: boolean): Promise<DiagnosticResult> {
-    const issuesPath = join(CONFIG_DIR, 'issues');
     const issuesDir = join(this.dataSyncDir, 'issues');
+    // Display the actual scanned path, not a stale `.tbd/issues` that
+    // doesn't exist in current installs.
+    const issuesPath = join(DATA_SYNC_DIR, 'issues');
     let tempFiles: string[] = [];
 
     try {
       const files = await readdir(issuesDir);
-      tempFiles = files.filter((f) => f.endsWith('.tmp'));
+      // Catch both plain `.tmp` and `atomically`'s leftover
+      // `<name>.md.tmp-NNNN` intermediates.
+      tempFiles = files.filter((f) => f.endsWith('.tmp') || /\.tmp-\d+$/.test(f));
     } catch {
       // Directory doesn't exist - no temp files
       return { name: 'Temp files', status: 'ok', path: issuesPath };
