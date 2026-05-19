@@ -3412,9 +3412,12 @@ The `--fix` flag performs repairs in this order:
 5. Rebuild ID mappings if corrupted
 6. Remove orphaned dependency references
 
-> **Note:** Backups are stored in `.tbd/backups/` which is gitignored.
-> Users can manually inspect backups to recover any data that wasn’t committed before
-> the worktree became corrupted.
+> **Note:** Migration and repair backups are stored under `$GIT_COMMON_DIR/tbd/backups/`
+> (alongside the shared sync worktree, outside the working tree and never committed).
+> Older clients may still have data in `.tbd/backups/`, which is kept gitignored for
+> legacy compatibility but is no longer the active write location.
+> Users can manually inspect backups in either location to recover any data that wasn’t
+> committed before the worktree became corrupted.
 
 #### Compact (Future)
 

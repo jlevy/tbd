@@ -238,7 +238,7 @@ describe('tbd-format', () => {
   });
 
   describe('describeMigration', () => {
-    it('describes f01 migration (two steps)', () => {
+    it('describes f01 migration (three steps)', () => {
       const descriptions = describeMigration('f01');
       expect(descriptions).toHaveLength(3);
       expect(descriptions[0]).toContain('f01 → f02');

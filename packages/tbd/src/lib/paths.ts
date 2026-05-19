@@ -51,12 +51,14 @@ export const WORKTREE_DIR_NAME = 'data-sync-worktree';
 export const LEGACY_WORKTREE_DIR = join(TBD_DIR, WORKTREE_DIR_NAME);
 
 /**
- * Shared worktree path relative to a primary checkout whose .git is a directory.
+ * @internal Primary-checkout relative path to the shared sync worktree.
  *
- * Production code should use resolveSharedTbdPaths() because linked worktrees have
- * a .git file rather than a .git directory.
+ * Only valid when `.git` is a directory (i.e., the primary checkout). Production
+ * code must call resolveSharedTbdPaths() instead: linked worktrees have a `.git`
+ * file, so this constant resolves to the wrong location for them. Intended for
+ * tests and the non-git fallback in resolveDataSyncDir().
  */
-export const WORKTREE_DIR = join('.git', 'tbd', WORKTREE_DIR_NAME);
+export const PRIMARY_CHECKOUT_WORKTREE_DIR = join('.git', 'tbd', WORKTREE_DIR_NAME);
 
 /** The data directory name on the sync branch */
 export const DATA_SYNC_DIR_NAME = 'data-sync';
@@ -70,11 +72,17 @@ export const DATA_SYNC_DIR_NAME = 'data-sync';
 export const DATA_SYNC_DIR = join(TBD_DIR, DATA_SYNC_DIR_NAME);
 
 /**
- * Static primary-checkout path for synced data via the shared worktree.
- * Production code should use resolveSharedTbdPaths() so linked worktrees with .git files
- * resolve to the same Git common-dir location.
+ * @internal Primary-checkout relative path to the synced data via the shared worktree.
+ *
+ * Same caveat as `PRIMARY_CHECKOUT_WORKTREE_DIR`: only valid for a primary checkout.
+ * Production code should resolve the absolute path with resolveDataSyncDir(); this
+ * constant is intended for tests and the non-git fallback path.
  */
-export const DATA_SYNC_DIR_VIA_WORKTREE = join(WORKTREE_DIR, TBD_DIR, DATA_SYNC_DIR_NAME);
+export const PRIMARY_CHECKOUT_DATA_SYNC_DIR = join(
+  PRIMARY_CHECKOUT_WORKTREE_DIR,
+  TBD_DIR,
+  DATA_SYNC_DIR_NAME,
+);
 
 /** Issues directory */
 export const ISSUES_DIR = join(DATA_SYNC_DIR, 'issues');
@@ -453,7 +461,7 @@ export async function resolveDataSyncDir(
   } catch {
     // Not in a git repository or git is unavailable. Check the static primary-checkout
     // path for unit tests before falling back to the direct diagnostic path.
-    worktreePath = join(baseDir, DATA_SYNC_DIR_VIA_WORKTREE);
+    worktreePath = join(baseDir, PRIMARY_CHECKOUT_DATA_SYNC_DIR);
   }
   const directPath = join(baseDir, DATA_SYNC_DIR);
 
@@ -484,9 +492,9 @@ export async function resolveDataSyncDir(
         '[tbd:paths] resolveDataSyncDir: worktree not found, falling back to direct path',
       );
     }
-    _resolvedDataSyncDir = directPath;
-    _resolvedBaseDir = baseDir;
-    _resolvedAllowFallback = allowFallback;
+    // Intentionally do NOT cache the fallback result: a later call after the
+    // worktree is created must rediscover the real path, not keep returning
+    // the stale fallback.
     return directPath;
   }
 }

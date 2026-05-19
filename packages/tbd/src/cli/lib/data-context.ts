@@ -116,10 +116,8 @@ export async function prepareDataSyncContext(tbdRoot: string): Promise<TbdDataCo
     }
   }
 
-  if (existingLayout) {
-    validateCommonDirLayout(existingLayout, config);
-  } else {
-    await writeCommonDirLayout(sharedPaths, config, existingLayout);
+  if (!existingLayout) {
+    await writeCommonDirLayout(sharedPaths, config, null);
   }
 
   if (migrated) {
@@ -154,8 +152,17 @@ export async function withDataSyncContext<T>(
   return run();
 }
 
+/**
+ * Load the shared data-sync context for a read-only command.
+ *
+ * Reads do not need to serialize behind the heavy data-sync lock: a concurrent
+ * sync may produce a momentarily inconsistent view, but write-side commands use
+ * `withDataSyncContext(..., { lock: true }, ...)` so concurrent writers remain
+ * mutually exclusive. Avoiding the lock here keeps trivial reads from waiting
+ * out a long sync.
+ */
 export async function loadDataContext(tbdRoot: string): Promise<TbdDataContext> {
-  return withDataSyncContext(tbdRoot, { lock: true }, async (context) => context);
+  return withDataSyncContext(tbdRoot, { lock: false }, async (context) => context);
 }
 
 /**

@@ -63,11 +63,13 @@ const DEFAULT_STALE_MS = 5_000;
  * Lock timing profile for shared data-sync operations.
  *
  * Issue sync can include fetch, merge, push, and outbox import work, so it must
- * not use the short stale window intended for single-file writes.
+ * not use the short stale window intended for single-file writes. `timeoutMs`
+ * is kept just above `staleMs` so a crashed-process lock is always broken as
+ * stale before the timeout expires, matching the invariant documented above.
  */
 export const DATA_SYNC_LOCK_OPTIONS: Required<LockfileOptions> = {
-  timeoutMs: 120_000,
-  pollMs: 100,
+  timeoutMs: 35 * 60_000,
+  pollMs: 250,
   staleMs: 30 * 60_000,
 };
 

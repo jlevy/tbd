@@ -19,6 +19,8 @@ import {
 } from '../../file/git.js';
 import { DATA_SYNC_DIR } from '../../lib/paths.js';
 import { join } from 'node:path';
+import { access, readFile } from 'node:fs/promises';
+import { writeFile } from 'atomically';
 import {
   type SyncSummary,
   type SyncTallies,
@@ -643,7 +645,6 @@ class SyncHandler extends BaseCommand {
       // This prevents conflicts when both sides add non-overlapping keys.
       // Written before every merge so existing repos get it on their next sync.
       {
-        const { access, writeFile } = await import('node:fs/promises');
         const attrPath = join(this.dataSyncDir, 'mappings', '.gitattributes');
         try {
           await access(attrPath);
@@ -787,7 +788,6 @@ class SyncHandler extends BaseCommand {
             if (remoteIdsContent) {
               conflictRemoteMapping = parseIdMappingFromYaml(remoteIdsContent);
               // Read the on-disk file (which may have conflict markers) and resolve
-              const { readFile } = await import('node:fs/promises');
               const idsPath = join(this.dataSyncDir, 'mappings', 'ids.yml');
               const rawContent = await readFile(idsPath, 'utf-8');
               const localMapping = resolveIdMappingConflicts(rawContent);

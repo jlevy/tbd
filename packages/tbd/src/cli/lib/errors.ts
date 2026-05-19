@@ -79,34 +79,6 @@ export class SyncError extends CLIError {
 }
 
 /**
- * Worktree missing error - the shared data-sync-worktree directory doesn't exist.
- * This indicates the worktree was never created or was deleted.
- * See: tbd-design.md §2.3.6 Worktree Error Classes
- */
-export class WorktreeMissingError extends CLIError {
-  constructor(
-    message = "Shared worktree not found under $GIT_COMMON_DIR/tbd/data-sync-worktree/. Run 'tbd doctor --fix' to repair.",
-  ) {
-    super(message, 1);
-    this.name = 'WorktreeMissingError';
-  }
-}
-
-/**
- * Worktree corrupted error - the worktree exists but is invalid.
- * This can occur when the .git file is missing or points to an invalid location.
- * See: tbd-design.md §2.3.6 Worktree Error Classes
- */
-export class WorktreeCorruptedError extends CLIError {
-  constructor(
-    message = "Shared worktree under $GIT_COMMON_DIR/tbd/data-sync-worktree/ is corrupted. Run 'tbd doctor --fix' to repair.",
-  ) {
-    super(message, 1);
-    this.name = 'WorktreeCorruptedError';
-  }
-}
-
-/**
  * Sync branch error - issues with the tbd-sync branch.
  * This can indicate the branch is missing, orphaned, or has diverged.
  * See: tbd-design.md §2.3.6 Worktree Error Classes

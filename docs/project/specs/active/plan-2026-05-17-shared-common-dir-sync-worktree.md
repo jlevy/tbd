@@ -550,39 +550,39 @@ Doctor output will change to show the shared local sync location.
 
 ### Phase 1: Design Spike And Shared Resolver
 
-- [ ] Add a small research tryscript proving a hidden worktree under
+- [x] Add a small research tryscript proving a hidden worktree under
   `$GIT_COMMON_DIR/tbd/data-sync-worktree/` works from the main checkout and a linked
   worktree.
-- [ ] Add the common-dir layout metadata module and `layout.yml` schema.
-- [ ] Add path helpers for absolute Git common directory resolution.
-- [ ] Add shared lock path helper.
-- [ ] Add shared worktree health detection without changing production writes yet.
-- [ ] Add doctor output that reports both the current legacy location and the proposed
+- [x] Add the common-dir layout metadata module and `layout.yml` schema.
+- [x] Add path helpers for absolute Git common directory resolution.
+- [x] Add shared lock path helper.
+- [x] Add shared worktree health detection without changing production writes yet.
+- [x] Add doctor output that reports both the current legacy location and the proposed
   shared location.
 
 ### Phase 2: Format Migration And Old-Client Guard
 
-- [ ] Add `f04` to `.tbd/config.yml` format history.
-- [ ] Add the selected sync storage marker to config schema and migration.
-- [ ] Add a shared command entry helper that reads config and checks format
+- [x] Add `f04` to `.tbd/config.yml` format history.
+- [x] Add the selected sync storage marker to config schema and migration.
+- [x] Add a shared command entry helper that reads config and checks format
   compatibility before resolving data paths or initializing worktrees.
-- [ ] Audit every command that can create or mutate `.tbd/data-sync-worktree/` so config
+- [x] Audit every command that can create or mutate `.tbd/data-sync-worktree/` so config
   compatibility is checked before legacy writes happen.
-- [ ] Make `f04` plus missing `layout.yml` initialize or migrate under the common lock.
-- [ ] Make `f04` plus corrupt, mismatched, or future-version `layout.yml` fail closed,
+- [x] Make `f04` plus missing `layout.yml` initialize or migrate under the common lock.
+- [x] Make `f04` plus corrupt, mismatched, or future-version `layout.yml` fail closed,
   with repair routed through `tbd doctor --fix`.
-- [ ] Add an idempotent migration path for rerunning setup or doctor after a partial
+- [x] Add an idempotent migration path for rerunning setup or doctor after a partial
   migration.
 
 ### Phase 3: Shared Worktree Write Path
 
-- [ ] Initialize the shared worktree from local or remote `tbd-sync`.
-- [ ] Route production `resolveDataSyncDir()` to the shared data-sync directory.
-- [ ] Wrap mutating commands and sync in the shared lock.
-- [ ] Update sync to commit/merge/push through the shared worktree.
-- [ ] Add migration from legacy per-checkout worktrees.
-- [ ] Update uninstall and cleanup behavior.
-- [ ] Update docs and troubleshooting guidance.
+- [x] Initialize the shared worktree from local or remote `tbd-sync`.
+- [x] Route production `resolveDataSyncDir()` to the shared data-sync directory.
+- [x] Wrap mutating commands and sync in the shared lock.
+- [x] Update sync to commit/merge/push through the shared worktree.
+- [x] Add migration from legacy per-checkout worktrees.
+- [x] Update uninstall and cleanup behavior.
+- [x] Update docs and troubleshooting guidance.
 
 ## Testing Strategy
 

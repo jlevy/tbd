@@ -1051,7 +1051,7 @@ async function preserveLegacyWorktreeHead(
     return;
   }
 
-  const backupBranch = `tbd-legacy-preserve-${nowFilenameTimestamp().replace(/[^0-9A-Za-z-]/g, '-')}`;
+  const backupBranch = `tbd-legacy-preserve-${nowFilenameTimestamp()}`;
   await git('-C', baseDir, 'branch', backupBranch, head);
   throw new Error(
     `Legacy sync worktree at ${legacyPath} diverges from ${syncBranch}. ` +

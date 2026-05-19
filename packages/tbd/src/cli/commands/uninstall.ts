@@ -41,7 +41,15 @@ class UninstallHandler extends BaseCommand {
     const syncBranch = config?.sync.branch ?? SYNC_BRANCH;
     const remote = config?.sync.remote ?? 'origin';
     const tbdDir = join(tbdRoot, '.tbd');
-    const sharedPaths = await resolveSharedTbdPaths(tbdRoot).catch(() => null);
+    const sharedPaths = await resolveSharedTbdPaths(tbdRoot).catch((error: unknown) => {
+      // Most often this is "not in a git repo" or git is unavailable; either way we
+      // can still uninstall, but surface the real cause when --debug is set so the
+      // operator can investigate later "Could not remove shared common-dir metadata".
+      this.output.debug(
+        `resolveSharedTbdPaths failed: ${error instanceof Error ? error.message : String(error)}`,
+      );
+      return null;
+    });
     const worktreePath = sharedPaths?.sharedWorktreePath ?? join(tbdDir, 'data-sync-worktree');
     const legacyWorktreePath = join(tbdDir, 'data-sync-worktree');
 

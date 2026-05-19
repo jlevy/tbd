@@ -1102,28 +1102,27 @@ class SetupDefaultHandler extends BaseCommand {
       console.log(`  ${colors.success('✓')} tbd initialized (prefix: ${config.display.id_prefix})`);
 
       // Apply --no-gh-cli flag to config if specified
-      let needsConfigWrite = migrated;
+      let ghCliChanged = false;
       if (options.ghCli === false && config.settings.use_gh_cli !== false) {
         config.settings.use_gh_cli = false;
-        needsConfigWrite = true;
+        ghCliChanged = true;
       }
 
       if (migrated) {
+        // Initialize the shared common-dir layout under the data-sync lock.
+        // prepareDataSyncContext also persists the migrated config to disk, so
+        // we don't need a separate writeConfig() for the migration itself.
         await withDataSyncContext(projectDir, { lock: true }, async () => undefined);
+        console.log(`  ${colors.success('✓')} Config migrated to latest format`);
+        for (const change of changes) {
+          console.log(`      ${colors.dim(change)}`);
+        }
       }
 
-      // Persist config if migrated or --no-gh-cli was applied
-      if (needsConfigWrite) {
+      // Persist non-migration changes (e.g., --no-gh-cli) as a single explicit write.
+      if (ghCliChanged) {
         await writeConfig(projectDir, config);
-        if (migrated) {
-          console.log(`  ${colors.success('✓')} Config migrated to latest format`);
-          for (const change of changes) {
-            console.log(`      ${colors.dim(change)}`);
-          }
-        }
-        if (options.ghCli === false) {
-          console.log(`  ${colors.success('✓')} Disabled gh CLI auto-setup`);
-        }
+        console.log(`  ${colors.success('✓')} Disabled gh CLI auto-setup`);
       }
 
       console.log('');

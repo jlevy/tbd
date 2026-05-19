@@ -29,7 +29,7 @@ import {
   clearPathCache,
 } from '../src/lib/paths.js';
 import {
-  WORKTREE_DIR,
+  PRIMARY_CHECKOUT_WORKTREE_DIR,
   TBD_DIR,
   DATA_SYNC_DIR_NAME,
   SYNC_BRANCH,
@@ -143,7 +143,7 @@ describeUnlessWindows('worktree health checks', () => {
       expect(health.status).toBe('valid');
 
       // Delete the worktree directory manually (simulating user deletion)
-      const worktreePath = join(workRepoPath, WORKTREE_DIR);
+      const worktreePath = join(workRepoPath, PRIMARY_CHECKOUT_WORKTREE_DIR);
       await rm(worktreePath, { recursive: true, force: true });
 
       // Check health again - git worktree list should show it as prunable
@@ -188,7 +188,7 @@ describeUnlessWindows('worktree health checks', () => {
       await initWorktree(workRepoPath);
 
       // Push the sync branch to remote
-      const worktreePath = join(workRepoPath, WORKTREE_DIR);
+      const worktreePath = join(workRepoPath, PRIMARY_CHECKOUT_WORKTREE_DIR);
       await gitInDir(worktreePath, 'push', '-u', 'origin', SYNC_BRANCH);
 
       const health = await checkRemoteBranchHealth('origin', SYNC_BRANCH);
@@ -204,7 +204,7 @@ describeUnlessWindows('worktree health checks', () => {
       await initWorktree(workRepoPath);
 
       // Push to remote
-      const worktreePath = join(workRepoPath, WORKTREE_DIR);
+      const worktreePath = join(workRepoPath, PRIMARY_CHECKOUT_WORKTREE_DIR);
       await gitInDir(worktreePath, 'push', '-u', 'origin', SYNC_BRANCH);
 
       const consistency = await checkSyncConsistency(workRepoPath, SYNC_BRANCH, 'origin');
@@ -222,7 +222,7 @@ describeUnlessWindows('worktree health checks', () => {
       await initWorktree(workRepoPath);
 
       // Push to remote
-      const worktreePath = join(workRepoPath, WORKTREE_DIR);
+      const worktreePath = join(workRepoPath, PRIMARY_CHECKOUT_WORKTREE_DIR);
       await gitInDir(worktreePath, 'push', '-u', 'origin', SYNC_BRANCH);
 
       // Create a new commit in worktree (making local ahead)
@@ -281,7 +281,7 @@ describe('resolveDataSyncDir with allowFallback option', () => {
 
   it('returns worktree path when worktree exists', async () => {
     // Create the worktree directory structure
-    const worktreePath = join(testDir, WORKTREE_DIR, TBD_DIR, DATA_SYNC_DIR_NAME);
+    const worktreePath = join(testDir, PRIMARY_CHECKOUT_WORKTREE_DIR, TBD_DIR, DATA_SYNC_DIR_NAME);
     await mkdir(worktreePath, { recursive: true });
 
     clearPathCache();
@@ -350,7 +350,7 @@ describeUnlessWindows('repairWorktree', () => {
     await initWorktree(workRepoPath);
 
     // Delete the worktree directory to make it prunable
-    const worktreePath = join(workRepoPath, WORKTREE_DIR);
+    const worktreePath = join(workRepoPath, PRIMARY_CHECKOUT_WORKTREE_DIR);
     await rm(worktreePath, { recursive: true, force: true });
 
     // Repair the prunable worktree
@@ -369,7 +369,7 @@ describeUnlessWindows('repairWorktree', () => {
     await initWorktree(workRepoPath);
 
     // Corrupt the worktree by removing .git file but keeping directory
-    const worktreePath = join(workRepoPath, WORKTREE_DIR);
+    const worktreePath = join(workRepoPath, PRIMARY_CHECKOUT_WORKTREE_DIR);
     const dotGitPath = join(worktreePath, '.git');
     await rm(dotGitPath, { force: true });
 
@@ -457,7 +457,7 @@ describeUnlessWindows('migrateDataToWorktree', () => {
     // Verify data is now in the correct location
     const correctIssuesPath = join(
       workRepoPath,
-      WORKTREE_DIR,
+      PRIMARY_CHECKOUT_WORKTREE_DIR,
       TBD_DIR,
       DATA_SYNC_DIR_NAME,
       'issues',
@@ -484,7 +484,7 @@ describeUnlessWindows('migrateDataToWorktree', () => {
     // Verify data is now in the correct location
     const correctMappingsPath = join(
       workRepoPath,
-      WORKTREE_DIR,
+      PRIMARY_CHECKOUT_WORKTREE_DIR,
       TBD_DIR,
       DATA_SYNC_DIR_NAME,
       'mappings',
@@ -515,7 +515,7 @@ dd44: 01aaaaaaaaaaaaaaaaaaaaaa04
 
     const correctMappingsPath = join(
       workRepoPath,
-      WORKTREE_DIR,
+      PRIMARY_CHECKOUT_WORKTREE_DIR,
       TBD_DIR,
       DATA_SYNC_DIR_NAME,
       'mappings',
@@ -641,7 +641,7 @@ This issue tests that all data is preserved during migration.
     // Verify data integrity
     const correctIssuesPath = join(
       workRepoPath,
-      WORKTREE_DIR,
+      PRIMARY_CHECKOUT_WORKTREE_DIR,
       TBD_DIR,
       DATA_SYNC_DIR_NAME,
       'issues',
@@ -711,7 +711,13 @@ describeUnlessWindows('worktree health after init (CI check)', () => {
     await initWorktree(workRepoPath);
 
     // Create a test issue file in the worktree
-    const issuesPath = join(workRepoPath, WORKTREE_DIR, TBD_DIR, DATA_SYNC_DIR_NAME, 'issues');
+    const issuesPath = join(
+      workRepoPath,
+      PRIMARY_CHECKOUT_WORKTREE_DIR,
+      TBD_DIR,
+      DATA_SYNC_DIR_NAME,
+      'issues',
+    );
     await mkdir(issuesPath, { recursive: true });
     await fsWriteFile(
       join(issuesPath, 'is-0000000000000000000000test.md'),
@@ -812,7 +818,7 @@ describeUnlessWindows('architectural test: issues written to worktree path', () 
     // Verify issue exists in worktree path
     const worktreeIssuesPath = join(
       workRepoPath,
-      WORKTREE_DIR,
+      PRIMARY_CHECKOUT_WORKTREE_DIR,
       TBD_DIR,
       DATA_SYNC_DIR_NAME,
       'issues',
@@ -880,7 +886,7 @@ describeUnlessWindows('Bug tbd-vuuq: doctor --fix respects --dry-run flag', () =
   it('--dry-run should NOT repair prunable worktree', async () => {
     // Step 1: Initialize worktree
     await initWorktree(workRepoPath);
-    const worktreePath = join(workRepoPath, WORKTREE_DIR);
+    const worktreePath = join(workRepoPath, PRIMARY_CHECKOUT_WORKTREE_DIR);
 
     // Step 2: Delete worktree to make it prunable
     await rm(worktreePath, { recursive: true, force: true });
@@ -962,7 +968,7 @@ describeUnlessWindows('Bug tbd-m0wl: sync consistency detects unpushed commits',
   it('checkSyncConsistency detects local ahead when worktree has unpushed commits', async () => {
     // Step 1: Initialize worktree and push initial commit
     await initWorktree(workRepoPath);
-    const worktreePath = join(workRepoPath, WORKTREE_DIR);
+    const worktreePath = join(workRepoPath, PRIMARY_CHECKOUT_WORKTREE_DIR);
     await gitInDir(worktreePath, 'push', '-u', 'origin', SYNC_BRANCH);
 
     // Step 2: Create a new commit in worktree (not pushed)
@@ -981,7 +987,7 @@ describeUnlessWindows('Bug tbd-m0wl: sync consistency detects unpushed commits',
   it('checkSyncConsistency returns worktreeMatchesLocal=true after commits on branch', async () => {
     // This test verifies that after tbd-tg55 fix, commits in worktree update the branch
     await initWorktree(workRepoPath);
-    const worktreePath = join(workRepoPath, WORKTREE_DIR);
+    const worktreePath = join(workRepoPath, PRIMARY_CHECKOUT_WORKTREE_DIR);
 
     // Create a commit
     const testFile = join(worktreePath, TBD_DIR, DATA_SYNC_DIR_NAME, 'branch-test.txt');
@@ -1037,7 +1043,7 @@ describeUnlessWindows(
       await initWorktree(workRepoPath);
 
       // Verify initial state is on branch
-      const worktreePath = join(workRepoPath, WORKTREE_DIR);
+      const worktreePath = join(workRepoPath, PRIMARY_CHECKOUT_WORKTREE_DIR);
       const initialBranch = await gitInDir(worktreePath, 'branch', '--show-current');
       expect(initialBranch).toBe(SYNC_BRANCH);
 
@@ -1057,7 +1063,7 @@ describeUnlessWindows(
     it('commits after repair go to tbd-sync branch (not orphaned)', async () => {
       // Step 1: Initialize worktree
       await initWorktree(workRepoPath);
-      const worktreePath = join(workRepoPath, WORKTREE_DIR);
+      const worktreePath = join(workRepoPath, PRIMARY_CHECKOUT_WORKTREE_DIR);
 
       // Step 2: Get initial commit hash
       const _initialHead = await gitInDir(worktreePath, 'rev-parse', 'HEAD');
@@ -1094,7 +1100,7 @@ describeUnlessWindows(
       expect(result.success).toBe(true);
 
       // Get the worktree path
-      const worktreePath = join(workRepoPath, WORKTREE_DIR);
+      const worktreePath = join(workRepoPath, PRIMARY_CHECKOUT_WORKTREE_DIR);
 
       // Check that we're on the tbd-sync branch, not detached HEAD
       const branchOutput = await gitInDir(worktreePath, 'branch', '--show-current');
