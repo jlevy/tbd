@@ -105,7 +105,7 @@ HEALTH CHECKS
 ✓ Unique IDs
 ✓ ID mapping conflicts
 ✓ ID mapping keys
-✓ Temp files (.tbd/issues)
+✓ Temp files (.tbd/data-sync/issues)
 ✓ Issue validity
 ✓ Worktree (.tbd/data-sync-worktree)
 ✓ Data location
