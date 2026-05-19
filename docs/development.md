@@ -267,6 +267,8 @@ The CLI follows patterns from
 
 tbd uses a **hidden git worktree** to store issue data on the `tbd-sync` branch while
 keeping the user’s working directory clean.
+The sync worktree is anchored under Git’s common directory so the main checkout and any
+linked worktrees created by tools like Codex all share the same local issue state.
 See [tbd-design.md §2.3](packages/tbd/docs/tbd-design.md#23-hidden-worktree-model) for
 the full specification.
 
@@ -276,7 +278,8 @@ the full specification.
 - **Direct file access**: Read/write issues as regular files, no
   `git show`/`git cat-file`
 - **Isolated from main**: Issues don’t pollute working directory or affect main branch
-- **Conflict-free**: Detached HEAD avoids branch lock conflicts
+- **Conflict-free across linked worktrees**: One shared worktree owns `tbd-sync`, and a
+  repo-scoped lock serializes mutations
 
 ### Path Conventions
 
@@ -292,20 +295,25 @@ the full specification.
 │ Gitignored (local only):
 ├── state.yml                       # Local state
 ├── docs/                           # Installed documentation (regenerated on setup)
-├── backups/                        # Local backups
+└── backups/                        # Legacy local backups
+
+$GIT_COMMON_DIR/tbd/                # Shared by all linked worktrees of this repo
+├── layout.yml                      # Common-dir layout metadata (same f04 format ID)
+├── locks/
+│   └── data-sync.lock/             # mkdir-based repo-scoped lock
+├── backups/                        # Shared migration/repair backups
 └── data-sync-worktree/             # Hidden worktree
-    └── .tbd/
-        └── data-sync/              # Actual issue storage (on tbd-sync branch)
-            ├── issues/
-            ├── mappings/
-            ├── attic/
-            └── meta.yml
+    └── .tbd/data-sync/             # Actual issue storage (on tbd-sync branch)
+        ├── issues/
+        ├── mappings/
+        ├── attic/
+        └── meta.yml
 ```
 
 **CRITICAL**: Issues must be written to the **worktree path**
-(`.tbd/data-sync-worktree/.tbd/data-sync/issues/`), NOT the direct path
-(`.tbd/data-sync/issues/`). The direct path is gitignored and exists only for potential
-future “simple mode” support.
+(`$GIT_COMMON_DIR/tbd/data-sync-worktree/.tbd/data-sync/issues/`), NOT the direct path
+(`.tbd/data-sync/issues/`). The direct path is gitignored and exists only as a legacy
+diagnostic/migration location.
 
 ### Key Source Files
 
@@ -325,8 +333,8 @@ future “simple mode” support.
 
 ### Common Failure Modes
 
-1. **Worktree deleted manually**: User or tool deletes `.tbd/data-sync-worktree/`. Git
-   still tracks it (prunable state).
+1. **Worktree deleted manually**: User or tool deletes
+   `$GIT_COMMON_DIR/tbd/data-sync-worktree/`. Git may still track it (prunable state).
    Fix: `tbd sync --fix` or `tbd doctor --fix`.
 
 2. **Data in wrong location**: Bug or old code writes to `.tbd/data-sync/` instead of

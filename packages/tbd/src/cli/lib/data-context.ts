@@ -16,13 +16,21 @@
 import type { Command } from 'commander';
 import type { IdMapping } from '../../file/id-mapping.js';
 import { loadIdMapping, resolveToInternalId } from '../../file/id-mapping.js';
-import { readConfig } from '../../file/config.js';
+import { readConfigWithMigration, writeConfig } from '../../file/config.js';
 import type { Config } from '../../lib/types.js';
-import { resolveDataSyncDir } from '../../lib/paths.js';
+import { resolveDataSyncDir, resolveSharedTbdPaths, type SharedTbdPaths } from '../../lib/paths.js';
 import { formatDisplayId, formatDebugId } from '../../lib/ids.js';
 import type { CommandContext } from './context.js';
 import { getCommandContext } from './context.js';
 import { requireInit, NotFoundError } from './errors.js';
+import { checkWorktreeHealth, repairWorktree } from '../../file/git.js';
+import type { WorktreeStatus } from '../../file/git.js';
+import {
+  readCommonDirLayout,
+  validateCommonDirLayout,
+  writeCommonDirLayout,
+  withSharedDataSyncLock,
+} from '../../file/common-dir-layout.js';
 
 /**
  * Data context containing commonly needed data for tbd commands.
@@ -36,6 +44,10 @@ export interface TbdDataContext {
   config: Config;
   /** Display prefix from config (convenience accessor) */
   prefix: string;
+  /** Resolved shared common-dir paths for the repo-scoped sync layout */
+  sharedPaths: SharedTbdPaths;
+  /** Worktree health status that was repaired while preparing the context, if any */
+  repairedWorktreeStatus?: WorktreeStatus;
 }
 
 /**
@@ -72,16 +84,85 @@ export interface FullCommandContext extends TbdDataContext {
  * @param tbdRoot - The tbd repository root directory (from requireInit or findTbdRoot)
  * @throws Error if any of the resources fail to load
  */
-export async function loadDataContext(tbdRoot: string): Promise<TbdDataContext> {
-  const dataSyncDir = await resolveDataSyncDir(tbdRoot);
-  const [mapping, config] = await Promise.all([loadIdMapping(dataSyncDir), readConfig(tbdRoot)]);
+export async function prepareDataSyncContext(tbdRoot: string): Promise<TbdDataContext> {
+  const { config, migrated } = await readConfigWithMigration(tbdRoot);
+  const sharedPaths = await resolveSharedTbdPaths(tbdRoot);
 
+  const existingLayout = await readCommonDirLayout(sharedPaths.sharedLayoutPath);
+  if (existingLayout) {
+    validateCommonDirLayout(existingLayout, config);
+  }
+
+  const health = await checkWorktreeHealth(tbdRoot, config.sync.branch);
+  let repairedWorktreeStatus: WorktreeStatus | undefined;
+  if (!health.valid) {
+    if (health.status === 'missing' || health.status === 'prunable') {
+      const repairResult = await repairWorktree(
+        tbdRoot,
+        health.status,
+        config.sync.remote,
+        config.sync.branch,
+      );
+      if (!repairResult.success) {
+        throw new Error(`Failed to initialize shared data-sync worktree: ${repairResult.error}`);
+      }
+      repairedWorktreeStatus = health.status;
+    } else {
+      throw new Error(
+        `Shared data-sync worktree is ${health.status}: ${
+          health.error ?? 'unknown error'
+        }. Run 'tbd doctor --fix' to repair.`,
+      );
+    }
+  }
+
+  if (!existingLayout) {
+    await writeCommonDirLayout(sharedPaths, config, null);
+  }
+
+  if (migrated) {
+    await writeConfig(tbdRoot, config);
+  }
+
+  const dataSyncDir = await resolveDataSyncDir(tbdRoot, { allowFallback: false });
+  const mapping = await loadIdMapping(dataSyncDir);
   return {
     dataSyncDir,
     mapping,
     config,
     prefix: config.display.id_prefix,
+    sharedPaths,
+    repairedWorktreeStatus,
   };
+}
+
+/**
+ * Prepare shared data-sync context and optionally hold the repo-scoped lock
+ * for the whole caller critical section.
+ */
+export async function withDataSyncContext<T>(
+  tbdRoot: string,
+  options: { lock: boolean },
+  fn: (context: TbdDataContext) => Promise<T>,
+): Promise<T> {
+  const run = async () => fn(await prepareDataSyncContext(tbdRoot));
+  if (options.lock) {
+    return withSharedDataSyncLock(tbdRoot, run);
+  }
+  return run();
+}
+
+/**
+ * Load the shared data-sync context for a read-only command.
+ *
+ * Reads do not need to serialize behind the heavy data-sync lock: a concurrent
+ * sync may produce a momentarily inconsistent view, but write-side commands use
+ * `withDataSyncContext(..., { lock: true }, ...)` so concurrent writers remain
+ * mutually exclusive. Avoiding the lock here keeps trivial reads from waiting
+ * out a long sync.
+ */
+export async function loadDataContext(tbdRoot: string): Promise<TbdDataContext> {
+  return withDataSyncContext(tbdRoot, { lock: false }, async (context) => context);
 }
 
 /**

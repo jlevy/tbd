@@ -262,6 +262,7 @@ tbd_version: [..]
 sync:
   branch: tbd-sync
   remote: origin
+  storage: git-common-dir-v1
 display:
   id_prefix: test
 settings:
@@ -274,11 +275,12 @@ settings:
 ```console
 $ tbd config show --json
 {
-  "tbd_format": "f03",
+  "tbd_format": "f04",
   "tbd_version": "[..]",
   "sync": {
     "branch": "tbd-sync",
-    "remote": "origin"
+    "remote": "origin",
+    "storage": "git-common-dir-v1"
   },
   "display": {
     "id_prefix": "test"

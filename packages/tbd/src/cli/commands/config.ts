@@ -30,6 +30,7 @@ class ConfigShowHandler extends BaseCommand {
       console.log(`${colors.dim('sync:')}`);
       console.log(`  ${colors.dim('branch:')} ${config.sync.branch}`);
       console.log(`  ${colors.dim('remote:')} ${config.sync.remote}`);
+      console.log(`  ${colors.dim('storage:')} ${config.sync.storage}`);
       console.log(`${colors.dim('display:')}`);
       console.log(`  ${colors.dim('id_prefix:')} ${config.display.id_prefix}`);
       console.log(`${colors.dim('settings:')}`);

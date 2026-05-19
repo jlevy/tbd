@@ -102,7 +102,7 @@ $ ls .tbd/config.yml
 # Test: Sync worktree exists
 
 ```console
-$ ls .tbd/data-sync-worktree/.tbd/data-sync/
+$ ls $(git rev-parse --path-format=absolute --git-common-dir)/tbd/data-sync-worktree/.tbd/data-sync/
 attic
 issues
 mappings

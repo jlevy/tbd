@@ -163,7 +163,8 @@ The `.tbd/.gitignore` file contains a `!workspaces/` negation pattern to prevent
 - Conflicting changes at field level
 
 **Solutions:**
-1. Check attic for conflict details: `ls .tbd/data-sync-worktree/.tbd/data-sync/attic/`
+1. Check attic for conflict details:
+   `ls "$(git rev-parse --path-format=absolute --git-common-dir)/tbd/data-sync-worktree/.tbd/data-sync/attic/"`
 2. Review conflict files to understand what was lost
 3. Manually merge if needed
 4. Re-import with fresh workspace if appropriate
@@ -195,7 +196,7 @@ The `.tbd/.gitignore` file contains a `!workspaces/` negation pattern to prevent
 1. Run `tbd doctor --fix` to auto-repair
 2. If that fails, manually repair:
    ```bash
-   rm -rf .tbd/data-sync-worktree
+   rm -rf "$(git rev-parse --path-format=absolute --git-common-dir)/tbd/data-sync-worktree"
    git worktree prune
    tbd doctor --fix
    ```
@@ -204,7 +205,8 @@ The `.tbd/.gitignore` file contains a `!workspaces/` negation pattern to prevent
 ### Worktree shows “detached HEAD”
 
 **Symptoms:**
-- `git -C .tbd/data-sync-worktree status` shows detached HEAD
+- `git -C "$(git rev-parse --path-format=absolute --git-common-dir)/tbd/data-sync-worktree" status`
+  shows detached HEAD
 - Commits not going to tbd-sync branch
 
 **Solutions:**
@@ -224,7 +226,7 @@ tbd sync --status
 tbd workspace list
 
 # View worktree branch
-git -C .tbd/data-sync-worktree branch
+git -C "$(git rev-parse --path-format=absolute --git-common-dir)/tbd/data-sync-worktree" branch
 
 # Compare local vs remote
 git log tbd-sync --oneline -5

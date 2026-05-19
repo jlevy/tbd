@@ -80,7 +80,7 @@ $ tbd sync
 # Test: No uncommitted changes after sync
 
 ```console
-$ git -C .tbd/data-sync-worktree status --porcelain
+$ git -C $(git rev-parse --path-format=absolute --git-common-dir)/tbd/data-sync-worktree status --porcelain
 ? 0
 ```
 
@@ -106,7 +106,7 @@ $ tbd sync
 ```
 
 ```console
-$ git -C .tbd/data-sync-worktree status --porcelain
+$ git -C $(git rev-parse --path-format=absolute --git-common-dir)/tbd/data-sync-worktree status --porcelain
 ? 0
 ```
 

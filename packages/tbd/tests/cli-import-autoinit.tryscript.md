@@ -89,7 +89,7 @@ config exists
 # Test: Worktree was created
 
 ```console
-$ test -d .tbd/data-sync-worktree && echo "worktree exists"
+$ test -d $(git rev-parse --path-format=absolute --git-common-dir)/tbd/data-sync-worktree && echo "worktree exists"
 worktree exists
 ? 0
 ```

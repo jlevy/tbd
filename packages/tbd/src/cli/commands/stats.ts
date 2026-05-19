@@ -10,10 +10,10 @@ import { BaseCommand } from '../lib/base-command.js';
 import { requireInit, NotInitializedError } from '../lib/errors.js';
 import { listIssues } from '../../file/storage.js';
 import type { Issue, IssueStatusType, IssueKindType } from '../../lib/types.js';
-import { resolveDataSyncDir } from '../../lib/paths.js';
 import { formatPriority } from '../../lib/priority.js';
 import { renderFooter } from '../lib/sections.js';
 import { getStatusIcon, getStatusColor } from '../../lib/status.js';
+import { loadDataContext } from '../lib/data-context.js';
 
 /**
  * Active statuses (non-closed).
@@ -42,7 +42,7 @@ class StatsHandler extends BaseCommand {
     // Load all issues
     let issues: Issue[];
     try {
-      const dataSyncDir = await resolveDataSyncDir(tbdRoot);
+      const { dataSyncDir } = await loadDataContext(tbdRoot);
       issues = await listIssues(dataSyncDir);
     } catch {
       throw new NotInitializedError('No issue store found. Run `tbd init` first.');

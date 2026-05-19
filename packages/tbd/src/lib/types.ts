@@ -13,6 +13,7 @@ import type {
   Priority,
   Dependency,
   ConfigSchema,
+  CommonDirLayoutSchema,
   MetaSchema,
   LocalStateSchema,
   AtticEntrySchema,
@@ -55,6 +56,11 @@ export type DependencyType = z.infer<typeof Dependency>;
  * Project configuration.
  */
 export type Config = z.infer<typeof ConfigSchema>;
+
+/**
+ * Git common-dir local layout metadata.
+ */
+export type CommonDirLayout = z.infer<typeof CommonDirLayoutSchema>;
 
 /**
  * Shared metadata.

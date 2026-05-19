@@ -714,14 +714,17 @@ current node’s prefix.
 
 ### 2.2 Directory Structure
 
-tbd uses three directory locations:
+tbd uses four directory locations:
 
 - **`.tbd/`** on main branch: Configuration (tracked) + installed docs (gitignored)
 
-- **`.tbd/data-sync-worktree/`** hidden worktree: Checkout of `tbd-sync` branch for
-  search
+- **`$GIT_COMMON_DIR/tbd/`** local repo-scoped machinery shared by the main checkout and
+  all linked worktrees
 
-- **`.tbd/data-sync/`** on `tbd-sync` branch: Synced entities and attic
+- **`$GIT_COMMON_DIR/tbd/data-sync-worktree/`** hidden worktree: Checkout of `tbd-sync`
+  branch for search and writes
+
+- **`.tbd/data-sync/`** on `tbd-sync` branch: Synced entities and attic payload
 
 #### On Main Branch (all working branches)
 
@@ -750,14 +753,24 @@ tbd uses three directory locations:
 │   │   └── standard/       # Workflow shortcuts (new-plan-spec.md, etc.)
 │   ├── guidelines/         # Coding rules and best practices
 │   └── templates/          # Document templates
-└── data-sync-worktree/     # Hidden worktree
-    └── (checkout of tbd-sync branch)
-        └── .tbd/
-            └── data-sync/
-                ├── issues/
-                │   ├── is-a1b2c3.md
-                │   └── is-f14c3d.md
-                └── ...
+└── backups/                # Legacy local backups
+```
+
+#### In `$GIT_COMMON_DIR/tbd/` (local, shared by linked worktrees)
+
+```
+$GIT_COMMON_DIR/tbd/
+├── layout.yml              # Local layout metadata; uses the same f04 format ID
+├── locks/
+│   └── data-sync.lock/     # mkdir-based repo-scoped lock
+├── backups/                # Repair and migration backups
+└── data-sync-worktree/     # Checkout of tbd-sync branch
+    └── .tbd/
+        └── data-sync/
+            ├── issues/
+            │   ├── is-a1b2c3.md
+            │   └── is-f14c3d.md
+            └── ...
 ```
 
 #### On `tbd-sync` Branch
@@ -796,9 +809,11 @@ tbd uses three directory locations:
 
 ### 2.3 Hidden Worktree Model
 
-tbd maintains a **hidden git worktree** at `.tbd/data-sync-worktree/` that checks out
-the `tbd-sync` branch.
-This provides:
+tbd maintains one **hidden git worktree** at `$GIT_COMMON_DIR/tbd/data-sync-worktree/`
+that checks out the `tbd-sync` branch.
+The Git common-dir location is shared by the main checkout and linked worktrees, so
+Codex or other agents can run from any checkout without creating competing `tbd-sync`
+worktrees. This provides:
 
 1. **Fast search**: ripgrep can search all issues without git plumbing commands
 
@@ -808,16 +823,19 @@ This provides:
 
 4. **Automatic updates**: Updated on `tbd sync` operations
 
+5. **Linked-worktree safety**: One shared sync worktree owns `tbd-sync`, and a
+   repo-scoped mkdir lock serializes mutations
+
 #### Worktree Setup
 
 Created automatically by `tbd init` or first `tbd sync`:
 
 ```bash
 # Create hidden worktree (done by tbd internally)
-git worktree add .tbd/data-sync-worktree tbd-sync
+git worktree add "$(git rev-parse --path-format=absolute --git-common-dir)/tbd/data-sync-worktree" tbd-sync
 
 # Or if tbd-sync doesn't exist yet
-git worktree add .tbd/data-sync-worktree --orphan tbd-sync
+git worktree add --orphan -b tbd-sync "$(git rev-parse --path-format=absolute --git-common-dir)/tbd/data-sync-worktree"
 ```
 
 **Key properties:**
@@ -828,9 +846,10 @@ git worktree add .tbd/data-sync-worktree --orphan tbd-sync
   If the worktree becomes detached (from old tbd versions), it’s automatically repaired
   before commits.
 
-- **Hidden location**: Inside `.tbd/` which is partially gitignored
+- **Hidden location**: Inside Git’s common directory, not inside any single checkout
 
-- **Safe updates**: `tbd sync` does `git -C .tbd/data-sync-worktree pull` after push
+- **Safe updates**: `tbd sync` acquires `$GIT_COMMON_DIR/tbd/locks/data-sync.lock/`
+  before mutating the worktree, committing, fetching, merging, or pushing
 
 #### Worktree Gitignore
 
@@ -892,14 +911,16 @@ that directory.
 #### Accessing Issues via Worktree
 
 ```bash
+WORKTREE="$(git rev-parse --path-format=absolute --git-common-dir)/tbd/data-sync-worktree"
+
 # Files are directly accessible
-cat .tbd/data-sync-worktree/.tbd/data-sync/issues/is-a1b2c3.md
+cat "$WORKTREE/.tbd/data-sync/issues/is-a1b2c3.md"
 
 # ripgrep search across all issues
-rg "authentication" .tbd/data-sync-worktree/.tbd/data-sync/issues/
+rg "authentication" "$WORKTREE/.tbd/data-sync/issues/"
 
 # List all issues
-ls .tbd/data-sync-worktree/.tbd/data-sync/issues/
+ls "$WORKTREE/.tbd/data-sync/issues/"
 ```
 
 #### Worktree Lifecycle
@@ -907,13 +928,13 @@ ls .tbd/data-sync-worktree/.tbd/data-sync/issues/
 | Operation | Worktree Action |
 | --- | --- |
 | `tbd init` | Create worktree if tbd-sync exists |
-| `tbd sync --pull` | `git -C data-sync-worktree pull origin tbd-sync` |
+| `tbd sync --pull` | Fetch and merge through the shared worktree |
 | `tbd sync --push` | Update worktree after successful push |
 | `tbd doctor` | Verify worktree health, repair if needed |
 | Repo clone | Worktree created on first tbd command |
 
-**Invariant:** The hidden worktree at `.tbd/data-sync-worktree/` always reflects the
-current state of the `tbd-sync` branch after sync operations.
+**Invariant:** The hidden worktree at `$GIT_COMMON_DIR/tbd/data-sync-worktree/` always
+reflects the current state of the `tbd-sync` branch after sync operations.
 
 #### Worktree Initialization Decision Tree
 
@@ -927,16 +948,16 @@ START: Any tbd command
     │   ├─ NO → Run `tbd init` first (error: "Not a tbd repository")
     │   └─ YES ↓
     │
-    ├─ Does .tbd/data-sync-worktree/ exist and contain valid checkout?
+    ├─ Does $GIT_COMMON_DIR/tbd/data-sync-worktree/ exist and contain valid checkout?
     │   ├─ YES → Worktree ready, proceed with command
     │   └─ NO ↓
     │
     ├─ Does tbd-sync branch exist (local or remote)?
-    │   ├─ YES (local) → git worktree add .tbd/data-sync-worktree tbd-sync
+    │   ├─ YES (local) → git worktree add $GIT_COMMON_DIR/tbd/data-sync-worktree tbd-sync
     │   ├─ YES (remote only) → git fetch origin tbd-sync
-    │   │                      git worktree add .tbd/data-sync-worktree tbd-sync
+    │   │                      git worktree add $GIT_COMMON_DIR/tbd/data-sync-worktree tbd-sync
     │   └─ NO → This is a fresh tbd init, create orphan worktree:
-    │           git worktree add .tbd/data-sync-worktree --orphan tbd-sync
+    │           git worktree add --orphan -b tbd-sync $GIT_COMMON_DIR/tbd/data-sync-worktree
     │           (Initialize .tbd/data-sync/ structure in worktree)
     │
     └─ Worktree ready, proceed with command
@@ -958,9 +979,9 @@ The worktree can be in one of four states, detected by `checkWorktreeHealth()`:
 | State | Description | Detection | Recovery |
 | --- | --- | --- | --- |
 | `valid` | Healthy, ready to use | Directory exists, `.git` file valid, not prunable | None needed |
-| `missing` | Directory doesn’t exist | `!exists(.tbd/data-sync-worktree/)` | Create from local or remote branch |
+| `missing` | Directory doesn’t exist | `!exists($GIT_COMMON_DIR/tbd/data-sync-worktree/)` | Create from local or remote branch |
 | `prunable` | Directory deleted but git still tracks it | `git worktree list --porcelain` shows prunable | `git worktree prune`, then recreate |
-| `corrupted` | Directory exists but invalid | Missing `.git` file or invalid gitdir pointer | **Backup to .tbd/backups/**, then recreate |
+| `corrupted` | Directory exists but invalid | Missing `.git` file, invalid gitdir pointer, or wrong branch | **Backup to $GIT_COMMON_DIR/tbd/backups/**, then recreate |
 
 **Safety: Backup before removal**
 
@@ -969,11 +990,12 @@ Before removing, ALWAYS back it up to prevent data loss:
 
 ```bash
 # Backup corrupted worktree before removal
-mv .tbd/data-sync-worktree .tbd/backups/corrupted-worktree-backup-$(date +%Y%m%d-%H%M%S)
+COMMON="$(git rev-parse --path-format=absolute --git-common-dir)"
+mv "$COMMON/tbd/data-sync-worktree" "$COMMON/tbd/backups/corrupted-worktree-backup-$(date +%Y%m%d-%H%M%S)"
 ```
 
-The backup is placed in `.tbd/backups/` which is gitignored (see §3.6), preserving the
-data for manual recovery while not polluting the repository.
+The backup is placed in `$GIT_COMMON_DIR/tbd/backups/`, preserving the data for manual
+recovery while not polluting the repository.
 
 **Detection algorithm:**
 
@@ -983,7 +1005,7 @@ async function checkWorktreeHealth(baseDir: string): Promise<{
   status: 'valid' | 'missing' | 'prunable' | 'corrupted';
   details?: string;
 }> {
-  const worktreePath = join(baseDir, '.tbd/data-sync-worktree');
+  const { sharedWorktreePath: worktreePath } = await resolveSharedTbdPaths(baseDir);
 
   // Check directory exists
   if (!await pathExists(worktreePath)) {
@@ -1012,8 +1034,8 @@ async function checkWorktreeHealth(baseDir: string): Promise<{
 
 | Term | Path | Purpose |
 | --- | --- | --- |
-| **Worktree path** | `.tbd/data-sync-worktree/.tbd/data-sync/` | **Production path** — inside hidden worktree checkout |
-| **Direct path** | `.tbd/data-sync/` | **Test-only path** — gitignored on main, should NEVER contain data in production |
+| **Worktree path** | `$GIT_COMMON_DIR/tbd/data-sync-worktree/.tbd/data-sync/` | **Production path** — inside hidden worktree checkout |
+| **Direct path** | `.tbd/data-sync/` | **Legacy fallback path** — gitignored on main, should NEVER contain data in production |
 
 **Invariant:** In production, the worktree path is the ONLY correct path for issue data.
 The direct path exists ONLY for test fixtures that don’t use git.
@@ -1025,7 +1047,7 @@ async function resolveDataSyncDir(
   baseDir: string,
   options?: { allowFallback?: boolean; repair?: boolean }
 ): Promise<string> {
-  const worktreePath = join(baseDir, '.tbd/data-sync-worktree/.tbd/data-sync');
+  const worktreePath = (await resolveSharedTbdPaths(baseDir)).sharedDataSyncDir;
 
   // Check if worktree exists
   if (await pathExists(worktreePath)) {
@@ -1047,7 +1069,7 @@ async function resolveDataSyncDir(
 
   // Fail with clear error — NEVER silently fall back in production
   throw new WorktreeMissingError(
-    'Worktree not found at .tbd/data-sync-worktree/. ' +
+    'Shared worktree not found under $GIT_COMMON_DIR/tbd/data-sync-worktree/. ' +
     'Run `tbd doctor --fix` to repair.'
   );
 }
@@ -2011,9 +2033,10 @@ main branch:                    tbd-sync branch:
 ```
 .tbd/state.yml              # Per-node sync state
 .tbd/docs/                  # Installed documentation (regenerated on setup)
-.tbd/backups/               # Local backups (corrupted worktrees, migrated data)
-.tbd/data-sync-worktree/    # Hidden worktree for search access
+.tbd/backups/               # Legacy local backups
+.tbd/data-sync-worktree/    # Legacy per-checkout worktree path
 .tbd/data-sync/             # Reserved for potential future "simple mode"
+$GIT_COMMON_DIR/tbd/        # Shared local sync worktree, locks, backups
 ```
 
 #### Files Tracked on tbd-sync Branch
@@ -2103,20 +2126,21 @@ High-level sync flow:
 
 ```
 SYNC(options):
-  0. PREREQUISITE: Verify worktree health (see §2.3.4)
-     - If unhealthy and options.fix: repair worktree
-     - If unhealthy and not options.fix: throw WorktreeMissingError/WorktreeCorruptedError
-  1. Resolve data path via resolveDataSyncDir() — uses worktree path
-  2. Fetch remote sync branch
-  3. Update worktree to remote state (preserving local uncommitted changes)
-  4. Commit worktree changes to sync branch
-  5. Push to remote
-  6. If push rejected (non-fast-forward): retry with merge (see 3.3.2)
+  0. PREREQUISITE: Acquire $GIT_COMMON_DIR/tbd/locks/data-sync.lock
+  1. Verify shared worktree health (see §2.3.4)
+     - If missing/prunable: repair shared worktree
+     - If corrupted: throw WorktreeCorruptedError and route to doctor --fix
+  2. Resolve data path via resolveDataSyncDir() — uses worktree path
+  3. Fetch remote sync branch
+  4. Update worktree to remote state (preserving local uncommitted changes)
+  5. Commit worktree changes to sync branch
+  6. Push to remote
+  7. If push rejected (non-fast-forward): retry with merge (see 3.3.2)
 ```
 
 **Critical Invariant:** All operations in steps 1-6 MUST use the resolved `dataSyncDir`
 path consistently. Never read from or write to `.tbd/data-sync/` directly — always go
-through the worktree at `.tbd/data-sync-worktree/.tbd/data-sync/`.
+through the shared worktree at `$GIT_COMMON_DIR/tbd/data-sync-worktree/.tbd/data-sync/`.
 
 **Why most syncs are trivial (no merge needed):**
 
@@ -3213,7 +3237,7 @@ Integrations:
   ✓ Claude Code hooks installed (./.claude/settings.json)
   ✗ Codex AGENTS.md not installed
 
-Worktree: .tbd/data-sync-worktree/ (healthy)
+Worktree: /path/to/repo/.git/tbd/data-sync-worktree (healthy)
 ```
 
 **Output (--json) when initialized:**
@@ -3225,7 +3249,7 @@ Worktree: .tbd/data-sync-worktree/ (healthy)
   "sync_branch": "tbd-sync",
   "remote": "origin",
   "display_prefix": "bd",
-  "worktree_path": ".tbd/data-sync-worktree/",
+  "worktree_path": "/path/to/repo/.git/tbd/data-sync-worktree",
   "worktree_healthy": true,
   "last_sync": "2025-01-10T10:00:00Z",
   "last_synced_commit": "abc123def456",
@@ -3371,24 +3395,29 @@ Run `tbd doctor --fix` to auto-fix 2 issue(s)
 The `--fix` flag performs repairs in this order:
 
 1. If worktree corrupted:
-   - **Backup to `.tbd/backups/corrupted-worktree-backup-YYYYMMDD-HHMMSS/`** (prevents
-     data loss)
+   - **Backup to
+     `$GIT_COMMON_DIR/tbd/backups/corrupted-worktree-backup-YYYYMMDD-HHMMSS/`**
+     (prevents data loss)
    - Remove the corrupted worktree directory
 2. If worktree prunable: `git worktree prune`
 3. If worktree missing (or was just removed):
-   - If local tbd-sync exists: `git worktree add .tbd/data-sync-worktree tbd-sync`
+   - If local tbd-sync exists:
+     `git worktree add $GIT_COMMON_DIR/tbd/data-sync-worktree tbd-sync`
    - Else if remote exists: `git fetch && git worktree add ... tbd-sync`
    - Else: `git worktree add --orphan tbd-sync ...`
 4. If data in wrong location (`.tbd/data-sync/`):
-   - Backup to `.tbd/backups/tbd-data-sync-backup-YYYYMMDD-HHMMSS/`
+   - Backup to `$GIT_COMMON_DIR/tbd/backups/tbd-data-sync-backup-YYYYMMDD-HHMMSS/`
    - Copy to worktree
    - Commit in worktree
 5. Rebuild ID mappings if corrupted
 6. Remove orphaned dependency references
 
-> **Note:** Backups are stored in `.tbd/backups/` which is gitignored.
-> Users can manually inspect backups to recover any data that wasn’t committed before
-> the worktree became corrupted.
+> **Note:** Migration and repair backups are stored under `$GIT_COMMON_DIR/tbd/backups/`
+> (alongside the shared sync worktree, outside the working tree and never committed).
+> Older clients may still have data in `.tbd/backups/`, which is kept gitignored for
+> legacy compatibility but is no longer the active write location.
+> Users can manually inspect backups in either location to recover any data that wasn’t
+> committed before the worktree became corrupted.
 
 #### Compact (Future)
 
@@ -4938,7 +4967,7 @@ checkout.
 
    - Con: Pollutes user’s working directory, shows in `git status`
 
-3. **Hidden worktree**: Separate checkout at `.tbd/data-sync-worktree/`
+3. **Hidden worktree**: Separate checkout at `$GIT_COMMON_DIR/tbd/data-sync-worktree/`
 
    - Pro: Files accessible for search, isolated from user’s work
 
@@ -4948,15 +4977,15 @@ checkout.
 
 - **Search integration**: ripgrep/grep work directly on issue files
 
-- **User isolation**: Hidden in `.tbd/`, doesn’t pollute working directory
+- **User isolation**: Hidden in Git’s common directory, doesn’t pollute any checkout
 
 - **Git-native**: Uses standard `git worktree` mechanics
 
-- **Clean status**: Gitignored, doesn’t appear in user’s `git status`
+- **Clean status**: Lives under `.git`, doesn’t appear in user’s `git status`
 
 **Implementation Notes**:
 
-- Worktree created at `.tbd/data-sync-worktree/`
+- Worktree created at `$GIT_COMMON_DIR/tbd/data-sync-worktree/`
 
 - Worktree directory added to `.tbd/.gitignore`
 
@@ -5034,7 +5063,7 @@ matching. For large repositories (10K+ issues), this could be optimized:
 **Implementation:**
 
 ```bash
-rg -i -C 2 --type md "pattern" .tbd/data-sync-worktree/.tbd/data-sync/issues/
+rg -i -C 2 --type md "pattern" "$(git rev-parse --path-format=absolute --git-common-dir)/tbd/data-sync-worktree/.tbd/data-sync/issues/"
 ```
 
 Post-process results to:

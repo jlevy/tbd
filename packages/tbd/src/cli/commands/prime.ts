@@ -19,14 +19,11 @@ import { findTbdRoot, readConfig, hasSeenWelcome, markWelcomeSeen } from '../../
 import { stripFrontmatter } from '../../utils/markdown-utils.js';
 import { VERSION } from '../lib/version.js';
 import { listIssues } from '../../file/storage.js';
-import {
-  resolveDataSyncDir,
-  DEFAULT_SHORTCUT_PATHS,
-  DEFAULT_GUIDELINES_PATHS,
-} from '../../lib/paths.js';
+import { DEFAULT_SHORTCUT_PATHS, DEFAULT_GUIDELINES_PATHS } from '../../lib/paths.js';
 import { getClaudePaths } from '../../lib/integration-paths.js';
 import type { Issue } from '../../lib/types.js';
 import { DocCache, generateShortcutDirectory } from '../../file/doc-cache.js';
+import { loadDataContext } from '../lib/data-context.js';
 
 interface PrimeOptions {
   export?: boolean;
@@ -350,7 +347,7 @@ class PrimeHandler extends BaseCommand {
     blocked: number;
   } | null> {
     try {
-      const dataSyncDir = await resolveDataSyncDir(tbdRoot);
+      const { dataSyncDir } = await loadDataContext(tbdRoot);
       const issues: Issue[] = await listIssues(dataSyncDir);
 
       let open = 0;

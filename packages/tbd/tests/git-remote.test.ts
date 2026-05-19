@@ -29,7 +29,12 @@ import {
   checkGitVersion,
 } from '../src/file/git.js';
 import { getUpdatedIssues } from '../src/file/workspace.js';
-import { WORKTREE_DIR, TBD_DIR, DATA_SYNC_DIR_NAME, SYNC_BRANCH } from '../src/lib/paths.js';
+import {
+  PRIMARY_CHECKOUT_WORKTREE_DIR,
+  TBD_DIR,
+  DATA_SYNC_DIR_NAME,
+  SYNC_BRANCH,
+} from '../src/lib/paths.js';
 import { TEST_ULIDS, testId, createTestIssue } from './test-helpers.js';
 
 const execFileAsync = promisify(execFile);
@@ -134,7 +139,7 @@ describeUnlessWindows('git remote integration', () => {
       expect(await worktreeExists(workRepoPath)).toBe(true);
 
       // Verify worktree has the expected structure
-      const worktreePath = join(workRepoPath, WORKTREE_DIR);
+      const worktreePath = join(workRepoPath, PRIMARY_CHECKOUT_WORKTREE_DIR);
       const dataSyncPath = join(worktreePath, TBD_DIR, DATA_SYNC_DIR_NAME);
       const issuesDir = await readdir(join(dataSyncPath, 'issues'));
       expect(issuesDir).toContain('.gitkeep');
@@ -157,7 +162,7 @@ describeUnlessWindows('git remote integration', () => {
       await initWorktree(workRepoPath);
 
       // Remove the worktree but keep the branch
-      const worktreePath = join(workRepoPath, WORKTREE_DIR);
+      const worktreePath = join(workRepoPath, PRIMARY_CHECKOUT_WORKTREE_DIR);
       await gitInDir(workRepoPath, 'worktree', 'remove', worktreePath, '--force');
 
       // Now init should use existing branch
@@ -174,7 +179,7 @@ describeUnlessWindows('git remote integration', () => {
       await initWorktree(workRepoPath);
 
       // Write an issue to the worktree
-      const worktreePath = join(workRepoPath, WORKTREE_DIR);
+      const worktreePath = join(workRepoPath, PRIMARY_CHECKOUT_WORKTREE_DIR);
       const dataSyncPath = join(worktreePath, TBD_DIR, DATA_SYNC_DIR_NAME);
 
       const issue = createTestIssue({
@@ -197,7 +202,7 @@ describeUnlessWindows('git remote integration', () => {
     it('verifies remote branch exists after push', async () => {
       // Initialize in first repo
       await initWorktree(workRepoPath);
-      const worktreePath = join(workRepoPath, WORKTREE_DIR);
+      const worktreePath = join(workRepoPath, PRIMARY_CHECKOUT_WORKTREE_DIR);
       const dataSyncPath = join(worktreePath, TBD_DIR, DATA_SYNC_DIR_NAME);
 
       // Write and push an issue
@@ -218,7 +223,7 @@ describeUnlessWindows('git remote integration', () => {
     it('updates worktree after local commits', async () => {
       // Setup repo with sync branch
       await initWorktree(workRepoPath);
-      const worktreePath = join(workRepoPath, WORKTREE_DIR);
+      const worktreePath = join(workRepoPath, PRIMARY_CHECKOUT_WORKTREE_DIR);
       const dataSyncPath = join(worktreePath, TBD_DIR, DATA_SYNC_DIR_NAME);
 
       // Add first issue
@@ -366,7 +371,7 @@ describeUnlessWindows('concurrent sync operations', () => {
 
     // Initialize worktree and push initial state
     await initWorktree(repo1Path);
-    const worktree1 = join(repo1Path, WORKTREE_DIR);
+    const worktree1 = join(repo1Path, PRIMARY_CHECKOUT_WORKTREE_DIR);
     const dataSync1 = join(worktree1, TBD_DIR, DATA_SYNC_DIR_NAME);
 
     const issue1 = createTestIssue({
@@ -437,7 +442,7 @@ describeUnlessWindows('bulk outbox save bug fix', () => {
   it('mergeIssues does not bump version when merging identical issues', async () => {
     // Setup: create N issues in worktree and push to remote
     await initWorktree(workRepoPath);
-    const worktreePath = join(workRepoPath, WORKTREE_DIR);
+    const worktreePath = join(workRepoPath, PRIMARY_CHECKOUT_WORKTREE_DIR);
     const dataSyncPath = join(worktreePath, TBD_DIR, DATA_SYNC_DIR_NAME);
 
     const ISSUE_COUNT = 20;
@@ -479,7 +484,7 @@ describeUnlessWindows('bulk outbox save bug fix', () => {
 
   it('mergeIssues only bumps version for substantively changed issues', async () => {
     await initWorktree(workRepoPath);
-    const worktreePath = join(workRepoPath, WORKTREE_DIR);
+    const worktreePath = join(workRepoPath, PRIMARY_CHECKOUT_WORKTREE_DIR);
     const dataSyncPath = join(worktreePath, TBD_DIR, DATA_SYNC_DIR_NAME);
 
     // Create base issue
@@ -578,7 +583,7 @@ describeUnlessWindows('bulk outbox save bug fix', () => {
     // Setup: create issues, push to remote, then simulate a merge that
     // touches all issues with version/timestamp bumps
     await initWorktree(workRepoPath);
-    const worktreePath = join(workRepoPath, WORKTREE_DIR);
+    const worktreePath = join(workRepoPath, PRIMARY_CHECKOUT_WORKTREE_DIR);
     const dataSyncPath = join(worktreePath, TBD_DIR, DATA_SYNC_DIR_NAME);
 
     const ISSUE_COUNT = 10;

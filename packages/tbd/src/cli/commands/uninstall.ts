@@ -12,7 +12,7 @@ import { join, relative } from 'node:path';
 import { BaseCommand } from '../lib/base-command.js';
 import { NotInitializedError, CLIError } from '../lib/errors.js';
 import { findTbdRoot, readConfig } from '../../file/config.js';
-import { SYNC_BRANCH } from '../../lib/paths.js';
+import { SYNC_BRANCH, resolveSharedTbdPaths } from '../../lib/paths.js';
 
 interface UninstallOptions {
   confirm?: boolean;
@@ -41,7 +41,17 @@ class UninstallHandler extends BaseCommand {
     const syncBranch = config?.sync.branch ?? SYNC_BRANCH;
     const remote = config?.sync.remote ?? 'origin';
     const tbdDir = join(tbdRoot, '.tbd');
-    const worktreePath = join(tbdDir, 'data-sync-worktree');
+    const sharedPaths = await resolveSharedTbdPaths(tbdRoot).catch((error: unknown) => {
+      // Most often this is "not in a git repo" or git is unavailable; either way we
+      // can still uninstall, but surface the real cause when --debug is set so the
+      // operator can investigate later "Could not remove shared common-dir metadata".
+      this.output.debug(
+        `resolveSharedTbdPaths failed: ${error instanceof Error ? error.message : String(error)}`,
+      );
+      return null;
+    });
+    const worktreePath = sharedPaths?.sharedWorktreePath ?? join(tbdDir, 'data-sync-worktree');
+    const legacyWorktreePath = join(tbdDir, 'data-sync-worktree');
 
     // Display paths relative to cwd for readability
     const displayPath = (p: string) => relative(process.cwd(), p) || p;
@@ -58,6 +68,20 @@ class UninstallHandler extends BaseCommand {
       items.push(`  - Worktree: ${displayPath(worktreePath)} (${worktreeStats.files} files)`);
     } catch {
       // Worktree doesn't exist
+    }
+
+    let legacyWorktreeExists = false;
+    if (legacyWorktreePath !== worktreePath) {
+      try {
+        await access(legacyWorktreePath);
+        legacyWorktreeExists = true;
+        const legacyStats = await this.getDirectoryStats(legacyWorktreePath);
+        items.push(
+          `  - Legacy worktree: ${displayPath(legacyWorktreePath)} (${legacyStats.files} files)`,
+        );
+      } catch {
+        // Legacy worktree doesn't exist
+      }
     }
 
     // Check local sync branch
@@ -147,6 +171,19 @@ class UninstallHandler extends BaseCommand {
       }
     }
 
+    if (legacyWorktreeExists) {
+      try {
+        execSync(`git worktree remove --force "${legacyWorktreePath}"`, {
+          encoding: 'utf-8',
+          stdio: ['ignore', 'pipe', 'ignore'],
+        });
+        console.log(`  ${colors.success('✓')} Removed legacy git worktree`);
+      } catch {
+        await rm(legacyWorktreePath, { recursive: true, force: true });
+        console.log(`  ${colors.success('✓')} Removed legacy worktree directory`);
+      }
+    }
+
     // 2. Remove local sync branch
     if (localBranchExists && !options.keepBranch) {
       try {
@@ -192,6 +229,15 @@ class UninstallHandler extends BaseCommand {
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       throw new CLIError(`Failed to remove .tbd directory: ${message}`);
+    }
+
+    if (sharedPaths) {
+      try {
+        await rm(sharedPaths.sharedTbdDir, { recursive: true, force: true });
+        console.log(`  ${colors.success('✓')} Removed shared common-dir metadata`);
+      } catch {
+        console.log(`  ${colors.warn('⚠')} Could not remove shared common-dir metadata`);
+      }
     }
 
     console.log('');

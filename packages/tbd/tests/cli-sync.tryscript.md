@@ -45,7 +45,7 @@ Without this, changes would never be pushed.
 # Test: Initial state has one commit (from init, sync doesn’t add if nothing changed)
 
 ```console
-$ git -C .tbd/data-sync-worktree log --oneline | wc -l | tr -d ' '
+$ git -C $(git rev-parse --path-format=absolute --git-common-dir)/tbd/data-sync-worktree log --oneline | wc -l | tr -d ' '
 1
 ? 0
 ```
@@ -59,7 +59,7 @@ $ tbd create "Test sync commit behavior" --type=task
 ```
 
 ```console
-$ git -C .tbd/data-sync-worktree status --porcelain | head -3
+$ git -C $(git rev-parse --path-format=absolute --git-common-dir)/tbd/data-sync-worktree status --porcelain | head -3
 ?? .tbd/data-sync/issues/[..]
 ?? .tbd/data-sync/mappings/ids.yml
 ? 0
@@ -87,14 +87,14 @@ $ tbd sync
 # Test: After sync, no uncommitted changes remain
 
 ```console
-$ git -C .tbd/data-sync-worktree status --porcelain
+$ git -C $(git rev-parse --path-format=absolute --git-common-dir)/tbd/data-sync-worktree status --porcelain
 ? 0
 ```
 
 # Test: Commit count increased after sync
 
 ```console
-$ git -C .tbd/data-sync-worktree log --oneline | wc -l | tr -d ' '
+$ git -C $(git rev-parse --path-format=absolute --git-common-dir)/tbd/data-sync-worktree log --oneline | wc -l | tr -d ' '
 2
 ? 0
 ```
@@ -102,7 +102,7 @@ $ git -C .tbd/data-sync-worktree log --oneline | wc -l | tr -d ' '
 # Test: Commit message includes file count
 
 ```console
-$ git -C .tbd/data-sync-worktree log -1 --format=%s
+$ git -C $(git rev-parse --path-format=absolute --git-common-dir)/tbd/data-sync-worktree log -1 --format=%s
 tbd sync: [..] (2 files)
 ? 0
 ```
@@ -134,7 +134,7 @@ $ tbd create "Issue C" --type=feature
 # Test: Multiple uncommitted files before sync
 
 ```console
-$ git -C .tbd/data-sync-worktree status --porcelain | grep -c "??" | tr -d ' '
+$ git -C $(git rev-parse --path-format=absolute --git-common-dir)/tbd/data-sync-worktree status --porcelain | grep -c "??" | tr -d ' '
 3
 ? 0
 ```
@@ -157,7 +157,7 @@ $ tbd sync
 # Test: All changes committed
 
 ```console
-$ git -C .tbd/data-sync-worktree status --porcelain
+$ git -C $(git rev-parse --path-format=absolute --git-common-dir)/tbd/data-sync-worktree status --porcelain
 ? 0
 ```
 
@@ -293,7 +293,7 @@ $ tbd sync
 # Test: No uncommitted changes after double sync
 
 ```console
-$ git -C .tbd/data-sync-worktree status --porcelain
+$ git -C $(git rev-parse --path-format=absolute --git-common-dir)/tbd/data-sync-worktree status --porcelain
 ? 0
 ```
 
@@ -343,7 +343,7 @@ This is distinct from `prunable` (directory deleted but git still tracks it).
 # Test: Remove worktree AND prune git metadata to simulate fresh clone
 
 ```console
-$ rm -rf .tbd/data-sync-worktree && git worktree prune
+$ rm -rf $(git rev-parse --path-format=absolute --git-common-dir)/tbd/data-sync-worktree && git worktree prune
 ? 0
 ```
 
@@ -372,7 +372,7 @@ $ tbd sync 2>&1 | head -3
 # Test: Worktree exists after auto-creation
 
 ```console
-$ test -d .tbd/data-sync-worktree && echo "worktree exists"
+$ test -d $(git rev-parse --path-format=absolute --git-common-dir)/tbd/data-sync-worktree && echo "worktree exists"
 worktree exists
 ? 0
 ```

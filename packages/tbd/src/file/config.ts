@@ -24,6 +24,7 @@ import {
 import { CONFIG_FILE, STATE_FILE, SYNC_BRANCH } from '../lib/paths.js';
 import {
   CURRENT_FORMAT,
+  formatUpgradeMessage,
   needsMigration,
   migrateToLatest,
   isCompatibleFormat,
@@ -39,11 +40,7 @@ export class IncompatibleFormatError extends Error {
     public readonly foundFormat: string,
     public readonly supportedFormat: string,
   ) {
-    super(
-      `Config format '${foundFormat}' is from a newer tbd version.\n` +
-        `This tbd version supports up to format '${supportedFormat}'.\n` +
-        `Please upgrade tbd: npm install -g get-tbd@latest`,
-    );
+    super(formatUpgradeMessage('Config', foundFormat, supportedFormat));
     this.name = 'IncompatibleFormatError';
   }
 }
@@ -70,6 +67,7 @@ function createDefaultConfig(version: string, prefix: string): Config {
     sync: {
       branch: SYNC_BRANCH,
       remote: 'origin',
+      storage: 'git-common-dir-v1',
     },
     display: {
       id_prefix: prefix,
