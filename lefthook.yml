@@ -50,3 +50,10 @@ pre-push:
     test:
       run: pnpm test
       priority: 2
+    # Enforce 14-day package-age rule on dependency pins.
+    # See packages/tbd/docs/guidelines/pnpm-monorepo-patterns.md#supply-chain-mitigation
+    # Only runs when a package.json is staged so day-to-day pushes aren't slowed by registry lookups.
+    package-age:
+      glob: '{package.json,packages/*/package.json}'
+      run: pnpm check:package-age
+      priority: 3
