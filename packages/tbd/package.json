@@ -76,7 +76,7 @@
     "pretty-bytes": "^7.0.0",
     "pretty-ms": "^9.0.0",
     "ulid": "^3.0.2",
-    "yaml": "^2.8.2",
+    "yaml": "~2.8.3",
     "zod": "^3.25.76"
   },
   "devDependencies": {

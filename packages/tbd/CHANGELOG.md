@@ -14,6 +14,9 @@
   add a normative Supply-Chain Mitigation section to both monorepo guides codifying a
   14-day package-age rule with lockfile discipline, provenance checks, and exception
   process.
+- Bump `yaml` to `~2.8.3` (resolves to 2.8.4) to patch GHSA-48c2-rrv3-qjmp (moderate
+  stack-overflow DoS on deeply nested YAML); range narrowed from `^2.8.2` to `~2.8.3` so
+  the resolved minor satisfies the project’s 14-day package-age rule.
 
 ## 0.1.27
 
