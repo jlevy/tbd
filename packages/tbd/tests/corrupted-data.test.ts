@@ -48,11 +48,19 @@ describe('corrupted data scenarios', { timeout: 15000 }, () => {
 
   /**
    * Initialize git repo and tbd in temp directory.
+   *
+   * Disables commit signing so the test is hermetic against any global git
+   * config (e.g., remote-execution containers that wire commit.gpgsign to a
+   * signing server). Without this, `tbd init`'s initial worktree commit can
+   * silently fail and leave the worktree HEAD unresolved, which makes the
+   * doctor's Worktree health check fire spuriously.
    */
   function initGitAndTbd(): void {
     execSync('git init --initial-branch=main', { cwd: tempDir });
     execSync('git config user.email "test@example.com"', { cwd: tempDir });
     execSync('git config user.name "Test"', { cwd: tempDir });
+    execSync('git config commit.gpgsign false', { cwd: tempDir });
+    execSync('git config tag.gpgsign false', { cwd: tempDir });
     runTbd(['init', '--prefix=test']);
   }
 
