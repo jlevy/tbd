@@ -5,6 +5,18 @@ author: Joshua Levy (github.com/jlevy) with LLM assistance
 ---
 # Code Coverage Best Practices for TypeScript with Vitest
 
+**Last Updated**: 2026-05-21
+
+**Tracks**: Vitest `^4.1.7`, `@vitest/coverage-v8` `^4.1.7`. Vitest 5.0 is in
+beta — do not adopt yet.
+
+**Related**:
+
+- [Companion: pnpm Monorepo Patterns — Testing](./pnpm-monorepo-patterns.md#8-testing)
+- [Supply-Chain Mitigation](./pnpm-monorepo-patterns.md#supply-chain-mitigation) —
+  follow the 14-day package-age rule when installing or upgrading `vitest` and
+  `@vitest/coverage-v8`.
+
 ## Coverage Metrics
 
 ### Essential Metrics
@@ -70,8 +82,20 @@ Low branch coverage often indicates untested error paths and edge cases.
 ### Installation
 
 ```bash
-pnpm add -D vitest @vitest/coverage-v8
+# Pin to a specific minor to stay on a stable line; align both packages.
+pnpm add -D vitest@^4.1 @vitest/coverage-v8@^4.1
 ```
+
+Follow the [14-day package-age rule](./pnpm-monorepo-patterns.md#supply-chain-mitigation)
+on every upgrade: use `ncu --cooldown 14` or
+`pnpm install --frozen-lockfile`.
+
+### Vitest 4.x changes that affect coverage
+
+- **`coverage.all` was removed** in Vitest 4. Use `coverage.include` and
+  `coverage.exclude` to define exactly which files are reported.
+- Coverage reporters and v8 provider now ship as part of `@vitest/coverage-v8`
+  aligned with the Vitest major version — pin them together.
 
 ### Example Configuration
 
@@ -131,10 +155,10 @@ export default defineConfig({
 
 ```yaml
 - name: Run tests with coverage
-  run: npm run test:coverage
+  run: pnpm run test:coverage
 
 - name: Upload coverage to Codecov
-  uses: codecov/codecov-action@v4
+  uses: codecov/codecov-action@v5
   with:
     files: ./coverage/lcov.info
     fail_ci_if_error: true

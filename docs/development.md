@@ -141,7 +141,8 @@ pnpm publint
 Git hooks are managed by lefthook and run automatically:
 
 - **pre-commit**: Format, lint, and typecheck staged files
-- **pre-push**: Run tests
+- **pre-push**: Build (if needed), run tests, and — when a `package.json` is
+  staged — enforce the 14-day package-age rule via `pnpm check:package-age`.
 
 To skip hooks (emergency only):
 
@@ -149,6 +150,26 @@ To skip hooks (emergency only):
 git commit --no-verify
 git push --no-verify
 ```
+
+## Dependency Hygiene: the 14-day Package-Age Rule
+
+This repo enforces the **14-day package-age rule** documented in
+[`packages/tbd/docs/guidelines/pnpm-monorepo-patterns.md`](../packages/tbd/docs/guidelines/pnpm-monorepo-patterns.md#supply-chain-mitigation):
+do not install or upgrade to any package version less than 14 days old.
+
+- `pnpm upgrade:check`, `pnpm upgrade`, and `pnpm upgrade:major` are wired to
+  `ncu --cooldown 14`; they will refuse to bump to versions inside the window.
+- `pnpm check:package-age` (also wired into `pre-push`) scans every
+  `package.json` in the repo, queries the npm registry for each pinned
+  version's publish time, and exits non-zero on any pin under 14 days. Add
+  `--warn` to report without failing.
+- Exceptions (CVE patches inside the window) must be documented in the commit
+  message or PR description with CVE ID, upstream link, and a `Reviewed-by:`
+  line.
+
+The check requires registry access (`https://registry.npmjs.org`); skip it with
+`SKIP=package-age git push` only if you're pushing infrastructure changes that
+do not touch dependencies.
 
 ## Commit Conventions
 

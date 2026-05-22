@@ -7,6 +7,24 @@ alwaysApply: true
 ---
 # TypeScript Rules
 
+**Last Updated**: 2026-05-21
+
+**Tracks**: TypeScript `^6.0.3` (stable). TypeScript 7.0 Beta
+(`@typescript/native-preview`, binary `tsgo`) is available but **not yet
+production-ready** — do not adopt for shipped builds.
+
+**Related**:
+
+- [TypeScript CLI Tool Rules](./typescript-cli-tool-rules.md)
+- [TypeScript Sorting Patterns](./typescript-sorting-patterns.md)
+- [TypeScript YAML Handling Rules](./typescript-yaml-handling-rules.md)
+- [TypeScript Code Coverage](./typescript-code-coverage.md)
+- [pnpm Monorepo Patterns](./pnpm-monorepo-patterns.md) and
+  [Bun Monorepo Patterns](./bun-monorepo-patterns.md)
+- [Supply-Chain Mitigation](./pnpm-monorepo-patterns.md#supply-chain-mitigation) —
+  the 14-day package-age rule applies to every TypeScript dependency
+  (`zod`, `commander`, `vitest`, `eslint`, type packages, etc.).
+
 ## Coding Style
 
 - Use clear lowerCamelCase or UpperCamelCase names for functions and variables, per
