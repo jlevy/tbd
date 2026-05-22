@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+/* global process, console, fetch */
 /**
  * Enforce the 14-day package-age rule across the repo's package.json files.
  *
