@@ -79,7 +79,81 @@ Choose version bump:
 - `minor` (0.1.0 → 0.2.0): New features, non-breaking changes
 - `major` (0.1.0 → 1.0.0): Breaking changes
 
-### Step 3: Create Changeset
+### Step 3: Supply-Chain Review
+
+Before bumping the version, review every dependency change since the previous release.
+Recent npm supply-chain attacks (typosquatted packages, hijacked maintainer accounts,
+post-install scripts) make this step non-optional even when the manifests look clean.
+
+#### 3a. Diff manifests and lockfile
+
+```bash
+PREV=$(git describe --tags --abbrev=0)
+
+# Manifest changes (what the project intended)
+git diff $PREV..HEAD -- '**/package.json'
+
+# Lockfile delta (what actually gets installed, including transitives)
+git diff $PREV..HEAD -- pnpm-lock.yaml | head -200
+
+# Hash check: if lockfile is byte-identical, the resolved tree is unchanged
+sha256sum pnpm-lock.yaml
+git show $PREV:pnpm-lock.yaml | sha256sum
+```
+
+If the lockfile hash is unchanged, the resolved dependency tree is identical to the
+previous release — record this in the release notes and skip to 3c.
+
+For each lockfile change, classify it:
+
+- **New direct dependency**: review on npm (publish date, maintainers, weekly downloads,
+  provenance attestation), check `package.json` for `scripts` entries (`preinstall`,
+  `install`, `postinstall`).
+- **Removed dependency**: confirm intentional.
+- **Version bump**: skim the upstream CHANGELOG and diff between the two versions on
+  https://diffs.dev or `npm diff <pkg>@<old> <pkg>@<new>`. Treat large unexpected diffs
+  as a stop sign.
+- **New transitive dependency**: same scrutiny as a new direct dep — supply-chain
+  attacks often arrive through deep transitives.
+
+#### 3b. Vulnerability audit
+
+```bash
+pnpm audit                   # All advisories
+pnpm audit --prod            # Runtime-only (shipped to users)
+```
+
+Triage:
+
+- **Runtime advisories** (paths through `packages/tbd>...` that don’t traverse dev
+  tooling): treat as release-blockers unless the impact is documented as
+  out-of-threat-model.
+  Fix by bumping the affected dependency.
+- **Dev-only advisories** (paths through `vitest`, `c8`, `tsdown`, `@changesets`,
+  `typescript-eslint`, `eslint`, `prettier`, `lefthook`, etc.): note them but do not
+  block release.
+
+#### 3c. Package-age and provenance check
+
+```bash
+pnpm check:package-age       # Enforces the 14-day rule
+```
+
+For any newly added direct dependency, manually verify on npm:
+
+- Publication date >=14 days old for the resolved version
+- Maintainer list is recognizable / unchanged from the prior release
+- Provenance attestation present where the upstream publishes with one:
+  `npm view <pkg>@<version> --json | jq '.dist.attestations // "none"'`
+
+#### 3d. Record findings
+
+Capture the audit summary in `release-notes.md` under a `### Security` section whenever
+there is anything notable (lockfile changes, new advisories, deferred fixes, new direct
+dependencies). If the lockfile is byte-identical and no new advisories landed, a single
+sentence ("Lockfile unchanged since vX.X.X; no new advisories.") is enough.
+
+### Step 4: Create Changeset
 
 Run the interactive changeset command:
 
@@ -96,7 +170,7 @@ git add .changeset
 git commit -m "chore: add changeset for vX.X.X"
 ```
 
-### Step 4: Version Packages
+### Step 5: Version Packages
 
 Run changesets to bump version and update CHANGELOG:
 
@@ -112,7 +186,7 @@ git add .
 git commit -m "chore: release get-tbd vX.X.X"
 ```
 
-### Step 5: Write Release Notes
+### Step 6: Write Release Notes
 
 **Before pushing**, write release notes following
 `tbd guidelines release-notes-guidelines`.
@@ -124,7 +198,7 @@ git log $(git describe --tags --abbrev=0 2>/dev/null || echo "HEAD~20")..HEAD --
 # Write release notes to release-notes.md or prepare for PR body
 ```
 
-### Step 6: Push and Tag
+### Step 7: Push and Tag
 
 **Option A: Direct git push (local development)**
 
@@ -155,7 +229,7 @@ gh api repos/jlevy/tbd/git/refs -X POST \
   -f sha="$MERGE_SHA"
 ```
 
-### Step 7: Update GitHub Release
+### Step 8: Update GitHub Release
 
 After the release workflow completes:
 
@@ -167,7 +241,7 @@ gh run list -R jlevy/tbd --limit 3
 gh release edit vX.X.X -R jlevy/tbd --notes-file release-notes.md
 ```
 
-### Step 8: Verify
+### Step 9: Verify
 
 ```bash
 gh release view vX.X.X -R jlevy/tbd
@@ -180,6 +254,12 @@ npm view get-tbd
 
 ```bash
 git checkout main && git pull
+
+# Supply-chain review (Step 3) — never skip
+PREV=$(git describe --tags --abbrev=0)
+git diff $PREV..HEAD -- '**/package.json' pnpm-lock.yaml | less
+pnpm audit && pnpm check:package-age
+
 pnpm changeset  # Interactive: select package, bump type, summary
 git add .changeset && git commit -m "chore: add changeset for v0.2.0"
 pnpm changeset version
@@ -195,6 +275,11 @@ gh release edit v0.2.0 -R jlevy/tbd --notes-file release-notes.md
 ### Restricted Environments (via PR and API)
 
 ```bash
+# Supply-chain review (Step 3) — never skip
+PREV=$(git describe --tags --abbrev=0)
+git diff $PREV..HEAD -- '**/package.json' pnpm-lock.yaml | less
+pnpm audit && pnpm check:package-age
+
 pnpm changeset  # Interactive: select package, bump type, summary
 git add .changeset && git commit -m "chore: add changeset for v0.2.0"
 pnpm changeset version
@@ -236,7 +321,7 @@ The release workflow automatically creates a GitHub Release when a tag is pushed
 After pushing a tag:
 
 1. Verify the release appears at: https://github.com/jlevy/tbd/releases
-2. Update the release with formatted notes (Step 7 above)
+2. Update the release with formatted notes (Step 8 above)
 
 ## Troubleshooting
 
