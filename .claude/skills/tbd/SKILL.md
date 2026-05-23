@@ -230,7 +230,7 @@ Run `tbd guidelines <name>` to apply any of these guidelines:
 | --- | --- |
 | backward-compatibility-rules | Guidelines for maintaining backward compatibility across code, APIs, file formats, and database schemas |
 | bun-monorepo-patterns | Modern patterns for Bun-based TypeScript monorepo architecture |
-| cli-agent-skill-patterns | Best practices for building TypeScript CLIs that function as agent skills in Claude Code and other AI coding agents |
+| cli-agent-skill-patterns | How to write skills and agent-integrated CLIs that work across Claude Code, Codex, and the broader coding-agent ecosystem — a simple baseline plus references for advanced, multi-subcommand tools |
 | commit-conventions | Conventional Commits format with extensions for agentic workflows |
 | convex-limits-best-practices | Comprehensive reference for Convex platform limits, workarounds, and performance best practices |
 | convex-rules | Guidelines and best practices for building Convex projects, including database schema design, queries, mutations, and real-world examples |
