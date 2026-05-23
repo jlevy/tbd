@@ -80,6 +80,7 @@ docs_cache:
     guidelines/python-modern-guidelines.md: internal:guidelines/python-modern-guidelines.md
     guidelines/python-rules.md: internal:guidelines/python-rules.md
     guidelines/release-notes-guidelines.md: internal:guidelines/release-notes-guidelines.md
+    guidelines/supply-chain-hardening.md: internal:guidelines/supply-chain-hardening.md
     guidelines/tbd-sync-troubleshooting.md: internal:guidelines/tbd-sync-troubleshooting.md
     guidelines/typescript-cli-tool-rules.md: internal:guidelines/typescript-cli-tool-rules.md
     guidelines/typescript-code-coverage.md: internal:guidelines/typescript-code-coverage.md

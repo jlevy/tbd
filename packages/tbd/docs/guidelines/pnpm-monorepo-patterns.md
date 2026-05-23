@@ -24,7 +24,7 @@ author: Joshua Levy (github.com/jlevy) with LLM assistance
 
 | Tool / Package | Version | Check For Updates |
 | --- | --- | --- |
-| **Node.js** | 24 (LTS "Krypton") | [nodejs.org/releases](https://nodejs.org/en/about/previous-releases) — Node 24 Active LTS until Oct 2026. **Node 26 Current** shipped 2026-05-05 (Temporal API enabled by default, V8 14.6, Undici 8.0). **Node 20 went EOL 2026-03-24.** Node 26 is the last release on the old two-major-per-year cadence; starting v27, all majors become LTS (one per year). |
+| **Node.js** | 24 (LTS “Krypton”) | [nodejs.org/releases](https://nodejs.org/en/about/previous-releases) — Node 24 Active LTS until Oct 2026. **Node 26 Current** shipped 2026-05-05 (Temporal API enabled by default, V8 14.6, Undici 8.0). **Node 20 went EOL 2026-03-24.** Node 26 is the last release on the old two-major-per-year cadence; starting v27, all majors become LTS (one per year). |
 | **pnpm** | ^11.0.0 (11.2.x too recent) | [github.com/pnpm/pnpm/releases](https://github.com/pnpm/pnpm/releases) — **Pinned to 11.0.0 (2026-04-28) per the 14-day rule**; 11.2.0/11.2.2 shipped 2026-05-20/21 (1–2 days old today). Breaking changes: pure ESM (requires **Node 22+**); SQLite-based store (`$STORE/index.db`); **`minimumReleaseAge` defaults to 1440 minutes (1 day)** for supply-chain hygiene; **`blockExoticSubdeps` defaults to `true`**; `onlyBuiltDependencies`/`neverBuiltDependencies` removed and replaced by **`allowBuilds`**; `patchedDependencies` format simplified; experimental Rust-based `@pnpm/pacquet` engine arrives in 11.2+. v11.1 added `pnpm audit signatures`, `pnpm bugs`, `pnpm owner`. |
 | **TypeScript** | ^6.0.3 | [github.com/microsoft/TypeScript/releases](https://github.com/microsoft/TypeScript/releases) — **6.0.3 stable** (shipped 2026-03-23). 6.0 is the last JavaScript-based release; `strict: true` is now the default, ESM is the default module system, ~9 compiler settings flipped defaults. **TS 7.0 Beta** (Project Corsa, Go rewrite) shipped 2026-04-21 as `@typescript/native-preview` (binary: `tsgo`); claims ~10× type-check speed and ~3× less memory. Stable expected mid-to-late 2026. Do not adopt `tsgo` for production builds yet. |
 | **tsdown** | ^0.22.0 | [github.com/rolldown/tsdown/releases](https://github.com/rolldown/tsdown/releases) — 0.22.0 (2026-05-07). Has not reached 1.0; incremental 0.20→0.22 releases since Feb 2026; no deprecations. Requires Node.js 20.19+. |
@@ -32,8 +32,8 @@ author: Joshua Levy (github.com/jlevy) with LLM assistance
 | **@changesets/cli** | ^2.31.0 | [github.com/changesets/changesets/releases](https://github.com/changesets/changesets/releases) — 2.31.0 latest. No native Bun support added. |
 | **@types/node** | ^24.0.0 | [@types/node npm](https://www.npmjs.com/package/@types/node) — Track Node.js major version. @types/node@25.x available; @types/node@26.x will follow Node 26. |
 | **actions/checkout** | v6 | [github.com/actions/checkout/releases](https://github.com/actions/checkout/releases) — v6.0.2 (2026-01-09). Credentials now stored in `$RUNNER_TEMP` rather than `.git/config`; Node 24 runtime; requires runner ≥ 2.327.1. |
-| **actions/setup-node** | v6 | [github.com/actions/setup-node/releases](https://github.com/actions/setup-node/releases) — Supports Node 24 by default. **Note GitHub's 2026-06-02 deadline forcing Node.js 20 actions to Node.js 24.** |
-| **pnpm/action-setup** | v6 | [github.com/pnpm/action-setup/releases](https://github.com/pnpm/action-setup/releases) — **v6 required for pnpm 11+ support.** v4 (previously documented) does not handle pnpm 11's ESM-only distribution correctly. |
+| **actions/setup-node** | v6 | [github.com/actions/setup-node/releases](https://github.com/actions/setup-node/releases) — Supports Node 24 by default. **Note GitHub’s 2026-06-02 deadline forcing Node.js 20 actions to Node.js 24.** |
+| **pnpm/action-setup** | v6 | [github.com/pnpm/action-setup/releases](https://github.com/pnpm/action-setup/releases) — **v6 required for pnpm 11+ support.** v4 (previously documented) does not handle pnpm 11’s ESM-only distribution correctly. |
 | **changesets/action** | v1 | [github.com/changesets/action](https://github.com/changesets/action) — Still v1. No v2. |
 | **lefthook** | ^2.1.5 (2.1.7/2.1.8 too recent) | [github.com/evilmartians/lefthook/releases](https://github.com/evilmartians/lefthook/releases) — **Pinned to 2.1.5 (2026-04-06) per the 14-day rule**; 2.1.7/2.1.8 both shipped 2026-05-19. Patch-level since 2.1.1. v2 still excludes regexp `exclude` and `skip_output` from v1. |
 | **npm-check-updates** | ^22.0.0 (22.2.0 too recent) | [npmjs.com/package/npm-check-updates](https://www.npmjs.com/package/npm-check-updates) — **Major version jump from 19 to 22.** **Pinned to 22.0.0 (2026-04-25) per the 14-day rule**; 22.2.0 (2026-05-12) is 10 days old today. Now pure ESM; named imports only (`import { run } from 'npm-check-updates'`); `.ncurc.js` with `module.exports` no longer works in `"type": "module"` projects (use `.ncurc.cjs`). **Ships `--cooldown <days>` to refuse versions younger than the specified age** — primary enforcement for the 14-day package-age rule. See [Supply-Chain Mitigation](#supply-chain-mitigation). |
@@ -47,7 +47,7 @@ author: Joshua Levy (github.com/jlevy) with LLM assistance
 | **picocolors** | ^1.1.1 | [npmjs.com/package/picocolors](https://www.npmjs.com/package/picocolors) — Last release October 2024. Stable; no changes expected. |
 | **dotenv** | ^17.4.2 | [npmjs.com/package/dotenv](https://www.npmjs.com/package/dotenv) — Stable. **Prefer Node.js native `--env-file` for Node ≥20.6** (production-ready since Node 24 LTS); use dotenv only when you need variable expansion, multiline values, or custom precedence logic. |
 | **atomically** | ^2.1.1 | [npmjs.com/package/atomically](https://www.npmjs.com/package/atomically) — 2.1.1 (2026-02-08). Still maintained. |
-| **yaml** | ^2.8.4 | [npmjs.com/package/yaml](https://www.npmjs.com/package/yaml) — 2.8.4 (2026-05-02). v3.0.0-1 is tagged "next" (pre-release) — do not adopt yet. |
+| **yaml** | ^2.8.4 | [npmjs.com/package/yaml](https://www.npmjs.com/package/yaml) — 2.8.4 (2026-05-02). v3.0.0-1 is tagged “next” (pre-release) — do not adopt yet. |
 | **@vitest/coverage-v8** | ^4.1.7 | [npmjs.com/package/@vitest/coverage-v8](https://www.npmjs.com/package/@vitest/coverage-v8) — Track Vitest version. |
 
 ### Reminders When Updating
@@ -75,8 +75,8 @@ author: Joshua Levy (github.com/jlevy) with LLM assistance
 
 6. **Review “Open Research Questions”** section for any resolved items
 
-7. **Honor the 14-day package-age rule** when bumping versions in code examples. See
-   [Supply-Chain Mitigation](#supply-chain-mitigation) — versions cited here should
+7. **Honor the 14-day package-age rule** when bumping versions in code examples.
+   See [Supply-Chain Mitigation](#supply-chain-mitigation) — versions cited here should
    be ≥14 days old at the time the table is updated, except where a clearly-noted
    security exception applies.
 
@@ -154,20 +154,20 @@ recommendations from the TypeScript and JavaScript ecosystem maintainers.
 
 - `pnpm deploy` command enables isolated production deployments for Docker
 
-- **pnpm 11 (shipped 2026-04-28)** adds significant supply-chain hardening
-  defaults: `minimumReleaseAge: 1440` (1 day) and `blockExoticSubdeps: true`.
-  We recommend overriding `minimumReleaseAge` to 14 days — see
+- **pnpm 11 (shipped 2026-04-28)** adds significant supply-chain hardening defaults:
+  `minimumReleaseAge: 1440` (1 day) and `blockExoticSubdeps: true`. We recommend
+  overriding `minimumReleaseAge` to 14 days — see
   [Supply-Chain Mitigation](#supply-chain-mitigation).
 
-- **pnpm 11 is pure ESM and requires Node.js 22+.** Lifecycle script gating
-  has moved from `onlyBuiltDependencies`/`neverBuiltDependencies` to
-  **`allowBuilds`** (an explicit allowlist).
+- **pnpm 11 is pure ESM and requires Node.js 22+.** Lifecycle script gating has moved
+  from `onlyBuiltDependencies`/`neverBuiltDependencies` to **`allowBuilds`** (an
+  explicit allowlist).
 
-- The store is now a single SQLite database (`$STORE/index.db`) for faster
-  cache reads; this is invisible to users but matters for CI cache configs.
+- The store is now a single SQLite database (`$STORE/index.db`) for faster cache reads;
+  this is invisible to users but matters for CI cache configs.
 
-**Assessment**: pnpm remains the consensus choice for TypeScript monorepos, with
-pnpm 11 adding meaningful supply-chain defaults and faster store I/O.
+**Assessment**: pnpm remains the consensus choice for TypeScript monorepos, with pnpm 11
+adding meaningful supply-chain defaults and faster store I/O.
 
 **Key Configuration** (`pnpm-workspace.yaml`):
 
@@ -1118,15 +1118,15 @@ Vite’s transformation pipeline.
 
 - Visual regression testing (added in Vitest 4.0)
 
-- **Vitest 4.1 (Mar 2026)** added Vite 8 support, test tags for organizing tests,
-  and extended chai-style assertions for mocking. Vitest now reuses the
-  installed Vite instead of bundling a separate dependency.
+- **Vitest 4.1 (Mar 2026)** added Vite 8 support, test tags for organizing tests, and
+  extended chai-style assertions for mocking.
+  Vitest now reuses the installed Vite instead of bundling a separate dependency.
 
-- **`coverage.all` was removed in v4** — use `coverage.include` and
-  `coverage.exclude` to control which files are reported.
+- **`coverage.all` was removed in v4** — use `coverage.include` and `coverage.exclude`
+  to control which files are reported.
 
-- **Vitest 5.0.0-beta** is in pre-release (requires Node 22+ and Vite 6.4+).
-  Stay on 4.1.x for production until stable.
+- **Vitest 5.0.0-beta** is in pre-release (requires Node 22+ and Vite 6.4+). Stay on
+  4.1.x for production until stable.
 
 **Installation**:
 
@@ -1809,8 +1809,8 @@ pnpm add -Dw npm-check-updates
 
 - Pure ESM. Named imports only: `import { run } from 'npm-check-updates'`. Default
   exports no longer work.
-- Config files: `.ncurc.js` with `module.exports` no longer works in
-  `"type": "module"` projects. Use `.ncurc.cjs`.
+- Config files: `.ncurc.js` with `module.exports` no longer works in `"type": "module"`
+  projects. Use `.ncurc.cjs`.
 - Node.js requirement: `^20.19.0 || ^22.12.0 || >=24.0.0`.
 
 **Upgrade Targets Explained**:
@@ -2538,17 +2538,24 @@ than discovering them when users try to use the library in browser/edge contexts
 
 > **Sync note**: this section is normative and is duplicated **verbatim** in both
 > `bun-monorepo-patterns.md` and `pnpm-monorepo-patterns.md`. When you change one,
-> change the other in the same commit. Tooling-specific commands (e.g.
-> `bun audit` vs. `pnpm audit`) are called out inline.
+> change the other in the same commit.
+> Tooling-specific commands (e.g. `bun audit` vs.
+> `pnpm audit`) are called out inline.
+
+> **Cross-ecosystem policy**: the concise, language-agnostic version of these rules
+> (plus deeper background, a zero-dependency audit script, and a watch list of named
+> incidents) lives in `tbd guidelines supply-chain-hardening` and the
+> [Supply Chain Hardening guidebook](https://github.com/jlevy/supply-chain-hardening).
+> The section below is the TypeScript-monorepo enforcement of that policy.
 
 Modern TypeScript supply-chain attacks land through fresh package versions — a
-maintainer's npm token is compromised, malware is published as a patch release, and
-the registry yanks it 1–10 days later once detection catches up. The
-**Shai-Hulud 2.0** campaign of May 2026 compromised 170+ npm packages this way, and
+maintainer’s npm token is compromised, malware is published as a patch release, and the
+registry yanks it 1–10 days later once detection catches up.
+The **Shai-Hulud 2.0** campaign of May 2026 compromised 170+ npm packages this way, and
 similar campaigns ran through 2025 (`debug`, `chalk`, `ansi-styles` lookalikes;
-`expr-eval` post-install RCE). pnpm shipped `minimumReleaseAge` as a default in
-v11.0 (1 day). Bun ships a built-in trusted-dependency allowlist and `bun audit`.
-The settings below are stricter than the ecosystem defaults and intentionally so.
+`expr-eval` post-install RCE). pnpm shipped `minimumReleaseAge` as a default in v11.0 (1
+day). Bun ships a built-in trusted-dependency allowlist and `bun audit`. The settings
+below are stricter than the ecosystem defaults and intentionally so.
 
 ### The 14-day package-age rule
 
@@ -2556,42 +2563,43 @@ The settings below are stricter than the ecosystem defaults and intentionally so
 
 Why 14 days specifically:
 
-- **Detection window**: most malicious publishes are reported and yanked within
-  3–7 days; 14 days gives a generous buffer past that median.
-- **Patch-level releases ship dangerous code more often**: many compromises arrive
-  as `1.2.3 → 1.2.4` patch bumps. A trailing window neutralizes the entire class
-  of "fresh patch is malicious" attacks regardless of which dependency moved.
-- **Cheap to enforce, cheap to wait**: there is essentially no business cost to
-  waiting 14 days on a routine upgrade, and the upside is large.
+- **Detection window**: most malicious publishes are reported and yanked within 3–7
+  days; 14 days gives a generous buffer past that median.
+- **Patch-level releases ship dangerous code more often**: many compromises arrive as
+  `1.2.3 → 1.2.4` patch bumps.
+  A trailing window neutralizes the entire class of “fresh patch is malicious” attacks
+  regardless of which dependency moved.
+- **Cheap to enforce, cheap to wait**: there is essentially no business cost to waiting
+  14 days on a routine upgrade, and the upside is large.
 
 Scope:
 
 - Applies to **`dependencies`, `devDependencies`, `peerDependencies`, and
-  `optionalDependencies`** alike. devDependencies (bundlers, linters, test
-  runners) have historically been *more* dangerous than runtime deps because
-  they execute with full developer privileges on every install.
-- Applies to **transitive dependencies** to the extent the package manager
-  enforces it (see below). Direct deps are the primary control point.
-- Applies to **upgrades and new installs**. Existing pins resolved before this
-  policy was adopted are grandfathered until their next planned upgrade.
+  `optionalDependencies`** alike.
+  devDependencies (bundlers, linters, test runners) have historically been *more*
+  dangerous than runtime deps because they execute with full developer privileges on
+  every install.
+- Applies to **transitive dependencies** to the extent the package manager enforces it
+  (see below). Direct deps are the primary control point.
+- Applies to **upgrades and new installs**. Existing pins resolved before this policy
+  was adopted are grandfathered until their next planned upgrade.
 
-Exception process: if a security patch within the 14-day window is needed —
-e.g., a CVE patch published yesterday that fixes a vulnerability you are
-exposed to — the exception **must** be documented in the upgrade commit message
-or PR description, including:
+Exception process: if a security patch within the 14-day window is needed — e.g., a CVE
+patch published yesterday that fixes a vulnerability you are exposed to — the exception
+**must** be documented in the upgrade commit message or PR description, including:
 
 - The CVE ID (or vulnerability description if no CVE yet).
 - A link to the upstream release notes.
 - A reviewer sign-off line (`Reviewed-by: …`).
 
-No exception is "trivial" — even a `prettier` patch is in scope. The whole
-point of the rule is that we don't trust ourselves to spot-judge which fresh
+No exception is “trivial” — even a `prettier` patch is in scope.
+The whole point of the rule is that we don’t trust ourselves to spot-judge which fresh
 versions are safe.
 
 ### Enforcement: pnpm
 
-pnpm 11 ships **`minimumReleaseAge`** as a config setting (default 1440 minutes
-= 1 day). Override it to 14 days in `.npmrc` or `pnpm-workspace.yaml`:
+pnpm 11 ships **`minimumReleaseAge`** as a config setting (default 1440 minutes = 1
+day). Override it to 14 days in `.npmrc` or `pnpm-workspace.yaml`:
 
 ```ini
 # .npmrc
@@ -2605,16 +2613,16 @@ minimumReleaseAge: 20160
 ```
 
 pnpm will refuse to resolve to any version published less than that long ago.
-Use a per-package allowlist exception (`minimumReleaseAgeExclude`) only with
-the documented exception process above.
+Use a per-package allowlist exception (`minimumReleaseAgeExclude`) only with the
+documented exception process above.
 
-pnpm 11 also defaults **`blockExoticSubdeps`** to `true` (blocks transitive
-dependencies installed from non-registry sources like `github:`, `git+ssh://`,
-or arbitrary URLs). Keep this default on.
+pnpm 11 also defaults **`blockExoticSubdeps`** to `true` (blocks transitive dependencies
+installed from non-registry sources like `github:`, `git+ssh://`, or arbitrary URLs).
+Keep this default on.
 
-Lifecycle script hygiene in pnpm 11 uses the new **`allowBuilds`** allowlist
-(replacing `onlyBuiltDependencies` / `neverBuiltDependencies`). Declare the
-exact packages allowed to run install scripts:
+Lifecycle script hygiene in pnpm 11 uses the new **`allowBuilds`** allowlist (replacing
+`onlyBuiltDependencies` / `neverBuiltDependencies`). Declare the exact packages allowed
+to run install scripts:
 
 ```yaml
 # pnpm-workspace.yaml
@@ -2623,12 +2631,11 @@ allowBuilds:
   - sharp
 ```
 
-Everything not in this list runs without `postinstall`/`preinstall`/`install`
-scripts. This is the single most important mitigation pnpm gives you out of
-the box.
+Everything not in this list runs without `postinstall`/`preinstall`/`install` scripts.
+This is the single most important mitigation pnpm gives you out of the box.
 
-`pnpm audit` and `pnpm audit signatures` (added in 11.1) provide vulnerability
-and provenance checks:
+`pnpm audit` and `pnpm audit signatures` (added in 11.1) provide vulnerability and
+provenance checks:
 
 ```bash
 pnpm audit --audit-level=moderate
@@ -2637,9 +2644,8 @@ pnpm audit signatures
 
 ### Enforcement: cross-tool tooling
 
-**`npm-check-updates --cooldown`** is the upgrade-time check, complementing
-pnpm's resolution-time `minimumReleaseAge`. Use it in scripts even on
-pnpm-managed projects:
+**`npm-check-updates --cooldown`** is the upgrade-time check, complementing pnpm’s
+resolution-time `minimumReleaseAge`. Use it in scripts even on pnpm-managed projects:
 
 ```bash
 # Refuse any candidate version younger than 14 days
@@ -2667,21 +2673,21 @@ If `npm view <pkg> time.<version>` reports less than 14 days ago, **wait**.
 ### Enforcement: lockfile discipline
 
 - **Always commit `pnpm-lock.yaml`**.
-- **Use `pnpm install --frozen-lockfile` in CI** so any drift between
-  `package.json` and `pnpm-lock.yaml` fails the build instead of silently
-  resolving to fresh versions.
-- **Never run `pnpm update` (or `pnpm install` on a fresh `node_modules` with
-  an unpinned `package.json`) without lockfile review.** Treat lockfile diffs
-  the same as code diffs.
-- In a monorepo, **a single root `pnpm-lock.yaml`** is the source of truth;
-  per-package lockfiles are an anti-pattern.
+- **Use `pnpm install --frozen-lockfile` in CI** so any drift between `package.json` and
+  `pnpm-lock.yaml` fails the build instead of silently resolving to fresh versions.
+- **Never run `pnpm update` (or `pnpm install` on a fresh `node_modules` with an
+  unpinned `package.json`) without lockfile review.** Treat lockfile diffs the same as
+  code diffs.
+- In a monorepo, **a single root `pnpm-lock.yaml`** is the source of truth; per-package
+  lockfiles are an anti-pattern.
 
 ### Enforcement: provenance and signatures
 
-- Prefer dependencies that publish with [npm provenance attestations](https://docs.npmjs.com/generating-provenance-statements).
-  Major projects (TypeScript, Vitest, Prettier, ESLint, etc.) ship these.
-- Run `pnpm audit signatures` in CI on a periodic basis to catch tampered
-  packages.
+- Prefer dependencies that publish with
+  [npm provenance attestations](https://docs.npmjs.com/generating-provenance-statements).
+  Major projects (TypeScript, Vitest, Prettier, ESLint, etc.)
+  ship these.
+- Run `pnpm audit signatures` in CI on a periodic basis to catch tampered packages.
 
 ### Sample CI gate
 
@@ -2712,8 +2718,8 @@ audit:
 
 ### Recommended local script
 
-Drop a `scripts/check-package-age.mjs` one-liner in the repo that a pre-push
-hook can call:
+Drop a `scripts/check-package-age.mjs` one-liner in the repo that a pre-push hook can
+call:
 
 ```ts
 #!/usr/bin/env tsx
@@ -2753,8 +2759,8 @@ pre-push:
 
 ### Exception bookkeeping
 
-When you take an exception, leave a one-line marker in `package.json` adjacent
-to the pin:
+When you take an exception, leave a one-line marker in `package.json` adjacent to the
+pin:
 
 ```jsonc
 {
@@ -2765,8 +2771,8 @@ to the pin:
 }
 ```
 
-(JSON strict-parsers will reject `//` comments — use a JSONC-aware tool or
-move the note to a `README.md` / `CHANGELOG.md` entry instead.)
+(JSON strict-parsers will reject `//` comments — use a JSONC-aware tool or move the note
+to a `README.md` / `CHANGELOG.md` entry instead.)
 
 * * *
 
@@ -2805,87 +2811,87 @@ move the note to a `README.md` / `CHANGELOG.md` entry instead.)
 ## Best Practices
 
 1. **Follow the 14-day package-age rule** for every dependency install and upgrade.
-   See [Supply-Chain Mitigation](#supply-chain-mitigation). Set
-   `minimumReleaseAge: 20160` (14 days in minutes) in pnpm config; use
-   `ncu --cooldown 14`; declare lifecycle-script-eligible packages via
-   `allowBuilds`; run `pnpm audit` and `pnpm audit signatures` in CI; commit
-   `pnpm-lock.yaml` and use `pnpm install --frozen-lockfile` in CI.
+   See [Supply-Chain Mitigation](#supply-chain-mitigation).
+   Set `minimumReleaseAge: 20160` (14 days in minutes) in pnpm config; use
+   `ncu --cooldown 14`; declare lifecycle-script-eligible packages via `allowBuilds`;
+   run `pnpm audit` and `pnpm audit signatures` in CI; commit `pnpm-lock.yaml` and use
+   `pnpm install --frozen-lockfile` in CI.
 
 2. **Scope your package names**: Use `@org/package-name` format for easier GitHub
    Packages integration and namespace clarity.
 
-2. **Structure for splitting**: Organize internal code (`core/`, `cli/`, `adapters/`) to
+3. **Structure for splitting**: Organize internal code (`core/`, `cli/`, `adapters/`) to
    make future package splits painless.
 
-3. **Use subpath exports from day one**: Define `./cli`, `./adapter` exports even in
+4. **Use subpath exports from day one**: Define `./cli`, `./adapter` exports even in
    v0.1 to stabilize the API surface.
 
-4. **Types first in exports**: Always put `"types"` condition before `"default"` in
+5. **Types first in exports**: Always put `"types"` condition before `"default"` in
    export conditions.
 
-5. **Optional peer deps for integrations**: Don’t force SDK dependencies on users who
+6. **Optional peer deps for integrations**: Don’t force SDK dependencies on users who
    don’t need them.
 
-6. **Validate before publish**: Run publint in CI and before every release.
+7. **Validate before publish**: Run publint in CI and before every release.
 
-7. **Changeset per PR**: Require changesets for user-facing changes to maintain accurate
+8. **Changeset per PR**: Require changesets for user-facing changes to maintain accurate
    changelogs.
 
-8. **Lock your tooling versions**: Pin exact versions in `packageManager` field and CI
+9. **Lock your tooling versions**: Pin exact versions in `packageManager` field and CI
    configurations.
 
-9. **Test both ESM and CJS**: Ensure both module formats work correctly, especially for
-   CLI tools.
+10. **Test both ESM and CJS**: Ensure both module formats work correctly, especially for
+    CLI tools.
 
-10. **Keep the monorepo root private**: The root `package.json` should have
+11. **Keep the monorepo root private**: The root `package.json` should have
     `"private": true` and only contain workspace tooling.
 
-11. **Use type-aware ESLint**: Configure `recommendedTypeChecked` for comprehensive bug
+12. **Use type-aware ESLint**: Configure `recommendedTypeChecked` for comprehensive bug
     detection, especially promise safety rules.
     See Appendix C for detailed configuration.
 
-12. **Enforce code style consistency**: Use `curly: 'all'` and `brace-style: '1tbs'` to
+13. **Enforce code style consistency**: Use `curly: 'all'` and `brace-style: '1tbs'` to
     prevent subtle bugs and improve readability.
 
-13. **Use fast pre-commit hooks**: Run formatting and linting with auto-fix on staged
+14. **Use fast pre-commit hooks**: Run formatting and linting with auto-fix on staged
     files only. Target 2-5 seconds total.
     Use lefthook for better monorepo support.
 
-14. **Cache test results by commit hash**: In pre-push hooks, skip test runs if the
+15. **Cache test results by commit hash**: In pre-push hooks, skip test runs if the
     current commit has already passed tests.
     This makes repeated pushes instant.
 
-15. **Use structured upgrade scripts**: Add `upgrade:check`, `upgrade`, and
+16. **Use structured upgrade scripts**: Add `upgrade:check`, `upgrade`, and
     `upgrade:major` scripts to make dependency updates consistent and safe.
     Separate minor/patch from major upgrades.
 
-16. **Separate format and lint script variants**: Provide `format`/`format:check` and
+17. **Separate format and lint script variants**: Provide `format`/`format:check` and
     `lint`/`lint:check` scripts.
     Use `--fix` variants for local development and `--check`/zero-warnings variants for
     CI.
 
-17. **Run format before lint in builds**: The `build` script should run `format` then
+18. **Run format before lint in builds**: The `build` script should run `format` then
     `lint:check` to ensure formatting is applied before linting.
 
-18. **Use dynamic git-based versioning**: Inject version at build time using
+19. **Use dynamic git-based versioning**: Inject version at build time using
     `X.Y.Z-dev.N.hash` format.
     This provides traceability during development without manual version bumps.
     See “Dynamic Git-Based Versioning” section for implementation.
 
-19. **Run CLI from source during development**: Use the dual-script pattern with tsx to
+20. **Run CLI from source during development**: Use the dual-script pattern with tsx to
     run CLI commands directly from TypeScript source.
     Provide a separate `:bin` script for verifying the built output.
     This eliminates “did I forget to build?”
     confusion.
 
-20. **Use CJS bootstrap for CLI startup**: Enable Node.js compile cache via a CJS
+21. **Use CJS bootstrap for CLI startup**: Enable Node.js compile cache via a CJS
     bootstrap file that runs before ESM module loading.
     This significantly improves repeated CLI invocation times on Node.js 22.8+.
 
-21. **Bundle CLI dependencies**: Use tsdown’s `noExternal` to bundle runtime deps into
+22. **Bundle CLI dependencies**: Use tsdown’s `noExternal` to bundle runtime deps into
     the CLI binary for faster startup (no `node_modules` resolution at runtime).
 
-22. **Add guard tests for node-free core**: If your library entry point should be
+23. **Add guard tests for node-free core**: If your library entry point should be
     node-free, add automated tests that verify no `node:` imports leak into the public
     API surface.
 
@@ -2898,51 +2904,52 @@ move the note to a `README.md` / `CHANGELOG.md` entry instead.)
    Monitor for announcements that may affect best practices.
 
 2. ~~**TypeScript 6.0**~~: **SHIPPED** 2026-03-23 (currently 6.0.3). The last
-   JavaScript-based release. `strict: true` is now the default, ESM is the
-   default module system, and ~9 compiler settings flipped defaults. Adopt for
-   the codebase; review `tsconfig.base.json` for now-redundant flag declarations.
+   JavaScript-based release.
+   `strict: true` is now the default, ESM is the default module system, and ~9 compiler
+   settings flipped defaults.
+   Adopt for the codebase; review `tsconfig.base.json` for now-redundant flag
+   declarations.
 
 3. **TypeScript 7.0 (Project Corsa, Go rewrite)**: Beta shipped 2026-04-21 as
-   `@typescript/native-preview` (binary `tsgo`). Claims ~10× type-check speed
-   and ~3× less memory; passes 95%+ of the test suite. Available in
-   Visual Studio 2026 18.6 Insiders by default. **Do not adopt for production
-   builds yet** — wait for stable (expected mid-to-late 2026). Monitor for
-   tsdown/Vitest compatibility announcements.
+   `@typescript/native-preview` (binary `tsgo`). Claims ~10× type-check speed and ~3×
+   less memory; passes 95%+ of the test suite.
+   Available in Visual Studio 2026 18.6 Insiders by default.
+   **Do not adopt for production builds yet** — wait for stable (expected mid-to-late
+   2026). Monitor for tsdown/Vitest compatibility announcements.
 
 4. **Native TypeScript Execution**: TypeScript 5.8+ supports `--erasableSyntaxOnly`,
-   enabling direct execution in Node.js 23.6+ without transpilation. With
-   TypeScript 6.0 stable and Node 24 LTS, this is increasingly viable for
-   scripts. Monitor for broader tooling adoption (linters, coverage tools).
+   enabling direct execution in Node.js 23.6+ without transpilation.
+   With TypeScript 6.0 stable and Node 24 LTS, this is increasingly viable for scripts.
+   Monitor for broader tooling adoption (linters, coverage tools).
 
-5. ~~**ESLint v10**~~: **SHIPPED** 2026-02-06. `.eslintrc.*` configuration is
-   completely removed — flat config (`eslint.config.js`) is the only supported
-   format. Download size reduced 11 MB → 9.4 MB. Minimum Node.js v20.19.0.
-   ESLint 9.x EOL is 2026-08-06 — migrate now.
+5. ~~**ESLint v10**~~: **SHIPPED** 2026-02-06. `.eslintrc.*` configuration is completely
+   removed — flat config (`eslint.config.js`) is the only supported format.
+   Download size reduced 11 MB → 9.4 MB. Minimum Node.js v20.19.0. ESLint 9.x EOL is
+   2026-08-06 — migrate now.
 
-6. ~~**pnpm 11**~~: **SHIPPED** 2026-04-28 (currently 11.2.2). Breaking changes:
-   pure ESM (requires Node 22+), SQLite-based store, `minimumReleaseAge` default
-   (1 day), `blockExoticSubdeps` default `true`, `allowBuilds` replacing
-   `onlyBuiltDependencies`. Experimental Rust-based `@pnpm/pacquet` engine in
-   11.2+. Migrate via the pnpm 11 migration guide; bump
-   `pnpm/action-setup` to v6 in CI.
+6. ~~**pnpm 11**~~: **SHIPPED** 2026-04-28 (currently 11.2.2). Breaking changes: pure
+   ESM (requires Node 22+), SQLite-based store, `minimumReleaseAge` default (1 day),
+   `blockExoticSubdeps` default `true`, `allowBuilds` replacing `onlyBuiltDependencies`.
+   Experimental Rust-based `@pnpm/pacquet` engine in 11.2+. Migrate via the pnpm 11
+   migration guide; bump `pnpm/action-setup` to v6 in CI.
 
-7. ~~**Zod 4**~~: **SHIPPED** (currently 4.4.3). 14× faster string parsing,
-   7× faster array parsing, 6.5× faster object parsing vs Zod 3; core bundle
-   2.3× smaller; new `@zod/mini` (~1.9 KB gzipped) for tree-shakable frontend
-   validation. Migration from Zod 3 required — see
+7. ~~**Zod 4**~~: **SHIPPED** (currently 4.4.3). 14× faster string parsing, 7× faster
+   array parsing, 6.5× faster object parsing vs Zod 3; core bundle 2.3× smaller; new
+   `@zod/mini` (~1.9 KB gzipped) for tree-shakable frontend validation.
+   Migration from Zod 3 required — see
    [zod.dev/v4/changelog](https://zod.dev/v4/changelog).
 
-8. **Commander 15 (ESM-only)**: Commander 15 ships May 2026, requires
-   Node v22.12.0+, drops CJS. Commander 14 moves to maintenance (security
-   only) until May 2027. Upgrade path for CLI tools using Commander.
+8. **Commander 15 (ESM-only)**: Commander 15 ships May 2026, requires Node v22.12.0+,
+   drops CJS. Commander 14 moves to maintenance (security only) until May 2027. Upgrade
+   path for CLI tools using Commander.
 
-9. **`dotenv` vs Node `--env-file`**: Node 20.6+ has built-in `--env-file`
-   support, and with Node 24 LTS it is production-ready. Most new projects
-   should default to `--env-file` and reserve `dotenv` for advanced needs
-   (variable expansion, multiline values, custom precedence logic).
+9. **`dotenv` vs Node `--env-file`**: Node 20.6+ has built-in `--env-file` support, and
+   with Node 24 LTS it is production-ready.
+   Most new projects should default to `--env-file` and reserve `dotenv` for advanced
+   needs (variable expansion, multiline values, custom precedence logic).
 
-10. **Vitest 5**: 5.0.0-beta.3 in pre-release; requires Node 22+ and
-    Vite 6.4+. Stable not yet shipped. Stay on 4.1.x for now.
+10. **Vitest 5**: 5.0.0-beta.3 in pre-release; requires Node 22+ and Vite 6.4+. Stable
+    not yet shipped. Stay on 4.1.x for now.
 
 * * *
 
@@ -3170,8 +3177,8 @@ ready for public release.
 ```
 
 All pinned versions above are ≥14 days old as of 2026-05-21 per the
-[Supply-Chain Mitigation](#supply-chain-mitigation) policy. Newer releases exist
-(`pnpm` 11.2.2, `lefthook` 2.1.8, `npm-check-updates` 22.2.0,
+[Supply-Chain Mitigation](#supply-chain-mitigation) policy.
+Newer releases exist (`pnpm` 11.2.2, `lefthook` 2.1.8, `npm-check-updates` 22.2.0,
 `publint` 0.3.21, `vitest` 4.1.7) but were too fresh at this document update.
 Bump on the next refresh once the 14-day window has elapsed.
 

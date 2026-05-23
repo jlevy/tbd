@@ -675,8 +675,11 @@ an attack surface. Treat them with the same care as dependencies.
   denied.
 - **Apply the same currency discipline** you use for packages: if your skill ships a
   script with dependencies, the project’s supply-chain rules (e.g., the 14-day
-  package-age rule) apply.
-  See `tbd guidelines bun-monorepo-patterns` / `pnpm-monorepo-patterns`.
+  package-age rule) apply — and a skill that references a zero-install runner must pin
+  the version (§6.7), since unpinned `npx`/`uvx` bypasses the cool-off.
+  See `tbd guidelines supply-chain-hardening` for the cross-ecosystem policy, or
+  `tbd guidelines bun-monorepo-patterns` / `pnpm-monorepo-patterns` for monorepo
+  specifics.
 
 * * *
 

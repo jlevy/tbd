@@ -1,6 +1,10 @@
 IMPORTANT: You MUST read ./docs/development.md and ./docs/docs-overview.md for project
 documentation. (This project uses Speculate project structure.)
 
+IMPORTANT: Before adding or upgrading any dependency, follow the install rules in
+./SUPPLY-CHAIN-SECURITY.md (14-day cool-off, no unthinking installs, audit after each
+install). Deeper background: `tbd guidelines supply-chain-hardening`.
+
 ## Landing the Plane (Session Completion)
 
 **When ending a work session**, you MUST complete ALL steps below.
@@ -264,6 +268,7 @@ Run `tbd guidelines <name>` to apply any of these guidelines:
 | python-modern-guidelines | Guidelines for modern Python projects using uv, with a few more opinionated practices |
 | python-rules | General Python coding rules and best practices |
 | release-notes-guidelines | Guidelines for writing clear, accurate release notes |
+| supply-chain-hardening | Cross-ecosystem policy for installing dependencies safely (the 14-day cool-off, disabled install scripts, lockfile discipline, untrusted-repo handling). Use when adding/upgrading dependencies, hardening a repo or CI, auditing for compromised packages, or reviewing install/build commands across npm/pnpm, PyPI, Cargo, or Go. |
 | tbd-sync-troubleshooting | Common issues and solutions for tbd sync and workspace operations |
 | typescript-cli-tool-rules | Rules for building CLI tools with Commander.js, picocolors, and TypeScript |
 | typescript-code-coverage | Best practices for code coverage in TypeScript with Vitest and v8 provider |
