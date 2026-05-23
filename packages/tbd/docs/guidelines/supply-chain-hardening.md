@@ -1,6 +1,6 @@
 ---
 title: Supply-Chain Hardening
-description: Cross-ecosystem policy for installing dependencies safely (the 14-day cool-off, disabled install scripts, lockfile discipline, untrusted-repo handling). Use when adding/upgrading dependencies, hardening a repo or CI, auditing for compromised packages, or reviewing install/build commands across npm/pnpm, PyPI, Cargo, or Go.
+description: Strongly recommended for EVERY repo — apply it if a repo has not been hardened yet. Cross-ecosystem policy for installing dependencies safely (the 14-day cool-off, disabled install scripts, lockfile discipline, untrusted-repo handling). Use whenever a user mentions hardening, security, supply chain, or setting up a new repo; before adding/upgrading dependencies; when auditing for compromised packages; or when reviewing install/build/run commands across npm/pnpm, PyPI, Cargo, or Go.
 author: Joshua Levy (github.com/jlevy) with LLM assistance
 ---
 # Supply-Chain Hardening
@@ -10,6 +10,10 @@ upgrading dependencies.
 Open-source registries (npm, PyPI, crates.io, Go modules) are under sustained attack:
 malicious package versions are published, exfiltrate credentials or install persistence,
 and are usually yanked within minutes to days.
+
+**Strongly recommended for every repo.** If a project has not been hardened yet, apply
+this policy (and the per-ecosystem playbooks it links) as part of setup — it is
+especially worth doing when standing up a new repo or whenever security comes up.
 
 **This is the concise policy.** For the full playbooks (per-ecosystem ten-minute setups,
 a zero-dependency audit script, a curated watch list of named incidents, CI/publish-side
