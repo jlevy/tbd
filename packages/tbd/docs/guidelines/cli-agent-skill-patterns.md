@@ -93,6 +93,9 @@ So:
    actionable errors, and idempotent, non-interactive operation (`--yes`/`--auto`).
 2. Ship a **`SKILL.md`** (or an `AGENTS.md` snippet) that tells the agent the tool
    exists, what it’s for, and the handful of commands to run.
+   Reference the CLI via a **pinned zero-install runner** (`npx`/`uvx <pkg>@<version>`)
+   so it works even in ephemeral/cloud environments — global install vs.
+   zero-install is its own design dimension (§6.7).
 3. That’s the baseline.
    Stop here unless you have many subcommands or need cross-session state, structured
    auth, or background services — then see §6 (CLI-as-skill) and §7 (MCP).
@@ -506,6 +509,77 @@ than patching them, update only the marked section of `AGENTS.md`, and clean up 
 files each run. (Generated output must also be stable under whatever formatter the repo
 runs — e.g. don’t emit a second YAML frontmatter block mid-document.)
 
+### 6.7 Making the CLI available: global install vs. zero-install
+
+A separate design dimension from §6.6 (how the CLI installs *itself into agents*) is how
+the CLI **binary** is made available so the skill can invoke it.
+Decide this explicitly and state the chosen invocation in `SKILL.md`/`AGENTS.md`.
+
+**The two ends of the spectrum** (plus a useful middle):
+
+| Approach | How | Best when |
+| --- | --- | --- |
+| **Global install** | `npm i -g pkg`, `uv tool install pkg`, `pipx install pkg`, Homebrew, prebuilt binary | Persistent dev machines; offline/perf-sensitive use; the **project pins the version** (in `package.json`/lockfile or a tool manifest) so every run is identical |
+| **Zero-install runner** | `npx pkg@x.y.z`, `bunx`, `pnpm dlx`, `uvx pkg@x.y.z`, `pipx run`, `go run mod@x.y.z` | Ephemeral/cloud agents (Claude Code Cloud, CI, fresh containers) where nothing persists; broad reach with no setup |
+| **Persistent-on-first-use** | `uv tool install` then `uvx pkg` reuses it; a `SessionStart` bootstrap that installs once if absent | You want zero-install ergonomics *and* warm-start speed within a session |
+
+**Trade-offs**
+
+- **Global install** — *Pros*: fastest invocation (no per-call resolution), works
+  offline, and version is managed by the project (lockfile / `package.json` / `uv` tool
+  manifest), so it’s auditable and reproducible.
+  *Cons*: it’s a stateful prerequisite — in ephemeral or cloud environments the global
+  bin doesn’t persist, so the CLI can be **missing at session start** unless you
+  bootstrap it.
+- **Zero-install** — *Pros*: works in any environment with no setup; nothing to persist;
+  ideal default for portability.
+  *Cons*: cold-start download/cache cost on first call (uvx cold ≈ 1s, cached ≈ tens of
+  ms; npx similar), needs network, and an **unpinned** invocation (`npx pkg`, `uvx pkg`)
+  silently pulls the newest release.
+
+**Cloud / ephemeral bootstrap.** If you choose global install but target cloud agents,
+ship a **`SessionStart` hook** (or an `ensure-installed` script) that installs/updates
+the CLI if absent before first use.
+tbd does exactly this: a `tbd-session.sh` hook ensures the `tbd` CLI is present, then
+runs `tbd prime`. Without a bootstrap, a globally-installed CLI referenced by a skill
+will fail on a fresh cloud session.
+
+**Pin the version (security).** Whichever you choose, the skill’s referenced invocation
+should pin a version so the agent can’t silently run a newer (possibly compromised)
+release — the §9 / 14-day-package-age rule applied to the runner itself:
+
+```bash
+uvx mytool@1.4.2  ...     # not `uvx mytool`
+npx mytool@1.4.2  ...     # not `npx mytool@latest`
+```
+
+Global installs get the same guarantee from the lockfile/manifest; zero-install gets it
+only from an explicit `@version`.
+
+**Current tooling (May 2026)**
+
+- **Node / TypeScript**: zero-install via `npx <pkg>@<ver>` (`-y` to skip the prompt),
+  `bunx`, `pnpm dlx`, or `deno run`; persistent via `npm i -g` / a project
+  devDependency.
+- **Python**: `uvx <pkg>@<ver>` (= `uv tool run`, bundled with Astral’s `uv`, Rust-fast,
+  no Python prereq) or `pipx run`; persistent via `uv tool install` / `pipx install`.
+  `uvx` reuses a persistent install if one exists.
+- **Go**: `go run <module>@<ver>` (compiles on the fly) or `go install`.
+- **Rust**: no first-class zero-install runner — ship **prebuilt binaries** (GitHub
+  releases + a `curl … | sh` installer) or `cargo binstall`; `cargo install` compiles.
+- **Cross-language**: a prebuilt binary + install script, or a container image (Docker
+  is emerging as the production-grade distribution for MCP servers).
+
+This mirrors how the ecosystem ships agent tooling today: **MCP servers** are most often
+referenced as `command: npx <pkg>` (Node) or `command: uvx <pkg>` (Python) in agent
+configs; **CLIs** like Beads offer `brew` / `npm -g` / `curl` installers, while tbd uses
+`npm -g` plus the bootstrap hook above.
+
+**Recommendation**: default the skill to a **pinned zero-install invocation**
+(`uvx`/`npx <pkg>@<version>`) for maximum reach across ephemeral and cloud agents; offer
+**global install + a `SessionStart` bootstrap** as the optimization for persistent
+environments where the project wants lockfile-managed versions and warm-start speed.
+
 * * *
 
 ## 7. CLI vs MCP vs Skill — Choosing the Surface
@@ -691,6 +765,8 @@ going:
 - [ ] Idempotent `setup --auto`; `init` for surgical config
 - [ ] Help epilog with `IMPORTANT:` + Getting Started one-liner
 - [ ] `prime` (status/context) and `skill` (pure docs) commands
+- [ ] Invocation strategy chosen (§6.7): pinned zero-install (`npx`/`uvx <pkg>@<ver>`)
+  by default, or global install + `SessionStart` bootstrap for cloud/ephemeral agents
 
 **Advanced (many subcommands / knowledge library)**
 - [ ] Meta-skill composition (header + baseline + dynamic directory)
