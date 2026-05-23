@@ -96,6 +96,98 @@ No exception is “trivial” — the rule exists because we don’t trust ourse
 which fresh versions are safe.
 **Agents never self-approve an exception**: prepare the record and a human signs off.
 
+## Node / TypeScript Enforcement (npm, pnpm, Bun)
+
+The hands-on controls for the rules above in the Node ecosystem.
+Applies to **any** repo, not just new monorepos — drop these into an existing project.
+
+**Lifecycle-script hygiene (the highest-value control).** Block install/build scripts by
+default and allowlist only what you trust:
+
+- **pnpm 11**: declare allowed packages in `pnpm-workspace.yaml`; keep
+  `blockExoticSubdeps` on.
+  Everything else installs with no `postinstall`/`preinstall`.
+  ```yaml
+  # pnpm-workspace.yaml
+  minimumReleaseAge: 20160 # 14 days in minutes (pnpm 11 default is 1440 = 1 day)
+  allowBuilds:
+    - esbuild
+    - sharp
+  ```
+- **Bun**: blocks lifecycle scripts by default via an internal allowlist; extend it with
+  `trustedDependencies` in `package.json`. Bun has **no native release-age gate** yet,
+  so enforce the cool-off at the upgrade-tool layer (below).
+  ```json
+  { "trustedDependencies": ["esbuild", "sharp"] }
+  ```
+- **npm**: `NPM_CONFIG_IGNORE_SCRIPTS=true` (or `.npmrc` `ignore-scripts=true`).
+
+**Release-age gate** (resolution time): pnpm `minimumReleaseAge` (above); npm
+`NPM_CONFIG_BEFORE` / `NPM_CONFIG_MIN_RELEASE_AGE` (npm 11.10+); Bun none.
+
+**Upgrade-time check** (complements resolution-time gating): `npm-check-updates`
+`--cooldown` works on npm/pnpm/Bun/yarn projects.
+Pin the `ncu` version.
+
+```bash
+pnpm dlx npm-check-updates@<ver> --cooldown 14                 # or: bunx / npx
+pnpm dlx npm-check-updates@<ver> --cooldown 14 --errorLevel 2  # CI: non-zero if fresh upgrades exist
+npm view <pkg> time.<version>                                  # one version's publish time; if < 14d, wait
+```
+
+**Lockfile discipline**: always commit the lockfile (`pnpm-lock.yaml` / `bun.lock` /
+`package-lock.json`); install frozen in CI (`pnpm install --frozen-lockfile` /
+`bun install --frozen-lockfile` / `npm ci`); never `pnpm update` / `bun update` without
+reviewing the lockfile diff like a code diff.
+One root lockfile in a monorepo.
+
+**Provenance**: prefer deps that publish
+[npm provenance attestations](https://docs.npmjs.com/generating-provenance-statements)
+(TypeScript, Vitest, Prettier, ESLint do).
+Run `pnpm audit signatures` / `npm audit signatures` periodically.
+A provenance badge is necessary, not sufficient — the @antv worm forged one.
+
+**CI audit gate** (alongside lint/test):
+
+```yaml
+audit:
+  runs-on: ubuntu-latest
+  steps:
+    - uses: actions/checkout@v6
+    - run: pnpm install --frozen-lockfile # or: bun install --frozen-lockfile / npm ci
+    - run: pnpm audit --audit-level=moderate # or: bun audit / npm audit
+    - run: pnpm audit signatures # provenance check where supported
+    - run: pnpm dlx npm-check-updates@<ver> --cooldown 14 --errorLevel 0
+      # errorLevel 0 logs but doesn't fail — flip to 2 once the backlog is cleared
+```
+
+**Pre-push age guard** — a zero-dependency Node script wired into lefthook/husky:
+
+```ts
+#!/usr/bin/env tsx
+// Fails if any direct dependency was published < 14 days ago.
+import pkg from '../package.json' with { type: 'json' };
+const COOLDOWN_MS = 14 * 24 * 60 * 60 * 1000;
+const now = Date.now();
+let violations = 0;
+for (const [name, spec] of Object.entries({ ...pkg.dependencies, ...pkg.devDependencies })) {
+  const version = String(spec).replace(/^[\^~=<>]+/, '');
+  const meta = await (await fetch(`https://registry.npmjs.org/${name}`)).json();
+  const publishedAt = meta.time?.[version];
+  if (!publishedAt) continue;
+  if (now - new Date(publishedAt).getTime() < COOLDOWN_MS) {
+    console.error(`✗ ${name}@${version} is < 14 days old`);
+    violations++;
+  }
+}
+process.exit(violations > 0 ? 1 : 0);
+```
+
+**Exception bookkeeping**: when you pin a fresh version under the exception process,
+leave a marker next to the pin (JSONC comment in `package.json`, or a `CHANGELOG.md`
+note for strict JSON parsers): `// Exception: CVE-2026-XXXX patch within 14d window.
+Reviewed <date>.`
+
 ## Untrusted Repos & Modes
 
 - **Treat any freshly-cloned third-party repo as untrusted.** Do not run
