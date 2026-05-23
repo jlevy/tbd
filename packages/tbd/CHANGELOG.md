@@ -1,5 +1,30 @@
 # get-tbd
 
+## 0.1.29
+
+### Patch Changes
+
+- Documentation release: agent-skill guidelines refresh and supply-chain hardening.
+  - Rewrote the `cli-agent-skill-patterns` guideline into a broad, multi-agent **Agent
+    Skills & CLI Integration Patterns** guide: a non-dogmatic simple baseline (one
+    `SKILL.md`), a 15-agent integration matrix (Claude Code, Codex, Cursor, Copilot,
+    Gemini CLI, Windsurf, Cline, Aider, opencode, Amp, Jules, Goose, Zed, Factory, pi),
+    the `AGENTS.md` / Agent Skills open-standard model, CLI-as-skill vs.
+    MCP guidance, a CLI install-vs-zero-install section, and security/testing/versioning
+    sections.
+  - Added a new **`supply-chain-hardening`** guideline
+    (`tbd guidelines supply-chain-hardening`): the cross-ecosystem 14-day cool-off plus
+    Node/pnpm/Bun enforcement (lifecycle-script allowlists, lockfile discipline,
+    `ncu --cooldown`, a CI audit gate, a pre-push age guard, and the exception process),
+    strongly recommended for every repo and referencing
+    github.com/jlevy/supply-chain-hardening for the full playbooks.
+    De-duplicated the Supply-Chain Mitigation content out of the bun and pnpm monorepo
+    guides into this standalone guideline.
+  - Fixed generated skill/agent files: `tbd setup` no longer emits a stray mid-document
+    YAML frontmatter block in `.claude/skills/<tool>/SKILL.md` or the `AGENTS.md`
+    integration section, so the generated files are stable and idempotent under Prettier
+    and flowmark.
+
 ## 0.1.28
 
 ### Patch Changes
