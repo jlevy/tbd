@@ -11,7 +11,7 @@ author: Joshua Levy (github.com/jlevy)
 
 **Author:** Joshua Levy
 
-**Status:** Draft
+**Status:** Done (completed 2026-05-23; shipped in get-tbd v0.1.28, commit 98be216)
 
 ## Overview
 

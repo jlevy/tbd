@@ -4,7 +4,7 @@
 
 **Author:** Joshua Levy with LLM assistance
 
-**Status:** Draft
+**Status:** Done (completed 2026-05-23; codebase + guideline sync landed)
 
 ## Overview
 

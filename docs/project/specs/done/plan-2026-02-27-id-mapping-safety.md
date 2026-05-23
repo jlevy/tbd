@@ -4,7 +4,7 @@
 
 **Author:** Claude (with Joshua Levy)
 
-**Status:** In Review
+**Status:** Done (completed 2026-05-23; all Phase 1 fixes landed)
 
 ## Overview
 
@@ -171,13 +171,13 @@ of them.
 ### Phase 1: Fix Migration + Add Safety Guard
 
 - [x] Add append-only safety guard in `saveIdMapping()` (`id-mapping.ts`)
-- [ ] Fix `migrateDataToWorktree()` to merge `ids.yml` instead of copying (`git.ts`)
-- [ ] Improve `checkMissingMappings` to search all git history, not just the latest
+- [x] Fix `migrateDataToWorktree()` to merge `ids.yml` instead of copying (`git.ts`)
+- [x] Improve `checkMissingMappings` to search all git history, not just the latest
   commit
-- [ ] Add test: migration preserves existing worktree mappings while adding source
+- [x] Add test: migration preserves existing worktree mappings while adding source
   mappings
-- [ ] Add test: `saveIdMapping` throws when write would lose entries
-- [ ] Verify all existing tests pass (concurrent-mapping, lockfile, etc.)
+- [x] Add test: `saveIdMapping` throws when write would lose entries
+- [x] Verify all existing tests pass (concurrent-mapping, lockfile, etc.)
 
 ## Testing Strategy
 
