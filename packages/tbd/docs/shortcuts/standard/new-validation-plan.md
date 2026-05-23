@@ -1,6 +1,6 @@
 ---
 title: New Validation Plan
-description: Create a validation/test plan showing what's tested and what remains
+description: Create a validation/test plan showing what’s tested and what remains
 category: planning
 author: Joshua Levy (github.com/jlevy) with LLM assistance
 ---

@@ -14,6 +14,7 @@ import { shouldUseInteractiveOutput } from '../lib/context.js';
 import { renderMarkdownWithFrontmatter, paginateOutput } from '../lib/output.js';
 import { findTbdRoot } from '../../file/config.js';
 import { DocCache, generateShortcutDirectory } from '../../file/doc-cache.js';
+import { stripFrontmatter } from '../../utils/markdown-utils.js';
 import { DEFAULT_SHORTCUT_PATHS, DEFAULT_GUIDELINES_PATHS } from '../../lib/paths.js';
 
 interface SkillOptions {
@@ -86,8 +87,10 @@ class SkillHandler extends BaseCommand {
     // Load header (YAML frontmatter for Claude)
     const header = await loadDocContent('install/claude-header.md');
 
-    // Load base skill content
-    const baseSkill = await loadDocContent('shortcuts/system/skill-baseline.md');
+    // Load base skill content. The header already provides the document
+    // frontmatter, so strip the baseline's own frontmatter to avoid a stray
+    // `---` block mid-document (which renders wrong and is not flowmark-stable).
+    const baseSkill = stripFrontmatter(await loadDocContent('shortcuts/system/skill-baseline.md'));
 
     // Get shortcut directory
     const directory = await this.getShortcutDirectory();

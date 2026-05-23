@@ -97,7 +97,11 @@ if (phase === 'prebuild') {
   // This is a minimal version without shortcuts for prime --full output.
   const claudeHeader = readFileSync(join(INSTALL_DIR, 'claude-header.md'), 'utf-8');
   const skillContent = readFileSync(join(SHORTCUTS_SYSTEM_DIR, 'skill-baseline.md'), 'utf-8');
-  await writeFile(join(distDocs, 'SKILL.md'), claudeHeader + skillContent);
+  // The header provides the document frontmatter, so strip the baseline's own
+  // leading frontmatter — otherwise the composed SKILL.md carries a stray `---`
+  // block mid-document (renders wrong and is not flowmark-stable).
+  const skillBody = skillContent.replace(/^\uFEFF?---\r?\n[\s\S]*?\r?\n---\r?\n+/, '');
+  await writeFile(join(distDocs, 'SKILL.md'), claudeHeader + skillBody);
 
   // Copy skill-brief.md from shortcuts/system to dist/docs
   // (needed by `tbd skill --brief` command)
