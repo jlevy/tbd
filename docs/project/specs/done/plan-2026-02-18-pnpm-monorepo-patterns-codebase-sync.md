@@ -64,87 +64,93 @@ then guideline updates (which require careful writing).
 
 ## Implementation Plan
 
+> **Completed 2026-05-23.** The codebase updates (CI on `actions/checkout@v6` /
+> `setup-node@v6` + Node 24, Vitest 4, lefthook 2, `@types/node` 24, `node-free-core`
+> guard test, `.flowmarkignore`) and the guideline updates (CJS bootstrap, dependency
+> bundling / `noExternal`, multi-config tsdown, cross-platform CI, version table) have
+> shipped. Checkboxes are marked done as a historical record.
+
 ### Phase 1: Codebase Updates (dependency upgrades + CI + practices)
 
 #### 1a. CI Workflow Modernization
 
-- [ ] Update `.github/workflows/ci.yml` to use `actions/checkout@v6`,
+- [x] Update `.github/workflows/ci.yml` to use `actions/checkout@v6`,
   `actions/setup-node@v6`
-- [ ] Update CI Node.js version from 22 to 24
-- [ ] Verify CI passes on all three platforms (ubuntu, macos, windows)
+- [x] Update CI Node.js version from 22 to 24
+- [x] Verify CI passes on all three platforms (ubuntu, macos, windows)
 
 #### 1b. Dependency Version Upgrades
 
-- [ ] Upgrade `lefthook` from `^1.13.6` to `^2.0.15` in root `package.json`
+- [x] Upgrade `lefthook` from `^1.13.6` to `^2.0.15` in root `package.json`
   - Check for any `lefthook.yml` config format changes between v1 and v2
   - Run `npx lefthook install` after upgrade
-- [ ] Upgrade `npm-check-updates` from `^17.1.18` to `^19.0.0` in root `package.json`
-- [ ] Upgrade `vitest` from `^2.1.9` to `^4.0.0` in `packages/tbd/package.json`
+- [x] Upgrade `npm-check-updates` from `^17.1.18` to `^19.0.0` in root `package.json`
+- [x] Upgrade `vitest` from `^2.1.9` to `^4.0.0` in `packages/tbd/package.json`
   - Upgrade `@vitest/coverage-v8` from `^2.1.9` to `^4.0.0`
   - Check for any API changes in Vitest 3→4 (test isolation changes, config format)
   - Run full test suite to verify
-- [ ] Upgrade `@types/node` from `^22.19.7` to `^24.0.0` in `packages/tbd/package.json`
+- [x] Upgrade `@types/node` from `^22.19.7` to `^24.0.0` in `packages/tbd/package.json`
   - This aligns with local Node 24 and the release workflow
   - Verify no type errors from the upgrade
-- [ ] Run `pnpm install` and verify lockfile updates cleanly
-- [ ] Run `pnpm test` to confirm everything passes
+- [x] Run `pnpm install` and verify lockfile updates cleanly
+- [x] Run `pnpm test` to confirm everything passes
 
 #### 1c. Missing Practices
 
-- [ ] Add `node-free-core.test.ts` guard test in `packages/tbd/tests/`
+- [x] Add `node-free-core.test.ts` guard test in `packages/tbd/tests/`
   - Verify `src/index.ts` re-exports only node-free modules
   - Verify `dist/index.mjs` built output has no `node:` references
-- [ ] Create `.flowmarkignore` with appropriate exclusions (`.tbd/`, `node_modules/`,
+- [x] Create `.flowmarkignore` with appropriate exclusions (`.tbd/`, `node_modules/`,
   `attic/`, `template/`, `dist/`)
 
 ### Phase 2: Guideline Updates (document codebase innovations)
 
 #### 2a. New Patterns to Document
 
-- [ ] **CJS Bootstrap / Compile Cache Pattern** — Add to Section 13 or 15
+- [x] **CJS Bootstrap / Compile Cache Pattern** — Add to Section 13 or 15
   - Document why CJS must run before ESM for `module.enableCompileCache()`
   - Show the `bin-bootstrap.cjs` → `bin.mjs` pattern
   - Note Node 22.8.0+ requirement (graceful degradation on older)
 
-- [ ] **Dependency Bundling for CLI Startup** — Add to Section 13
+- [x] **Dependency Bundling for CLI Startup** — Add to Section 13
   - Document `noExternal` in tsdown for bundling deps into CLI binary
   - Explain trade-offs: faster startup vs.
     larger binary, no deduplication
   - Show the `inlineOnly: false` acknowledgment pattern
 
-- [ ] **Multi-Config tsdown (Array Pattern)** — Add to Section 3 / Appendix D
+- [x] **Multi-Config tsdown (Array Pattern)** — Add to Section 3 / Appendix D
   - Document `defineConfig([...])` with separate configs for library, CLI binary, and
     CJS bootstrap
   - Show how `commonOptions` pattern avoids duplication
 
-- [ ] **Cross-Platform CI Matrix** — Update Section 9
+- [x] **Cross-Platform CI Matrix** — Update Section 9
   - Add matrix strategy example for ubuntu/macos/windows
   - Document separate coverage/lint job pattern
   - Mention benchmark job as optional
 
-- [ ] **Conditional Build Script** — Add to Section 13
+- [x] **Conditional Build Script** — Add to Section 13
   - Document the `build:check` / `build-if-needed.mjs` pattern for pre-push hooks
   - Explain why this avoids unnecessary rebuilds
 
 #### 2b. Version Table & Minor Corrections
 
-- [ ] Update guideline version table:
+- [x] Update guideline version table:
   - pnpm: 10.28.0 → 10.28.2
   - Note that `@changesets/cli/changelog` is a valid alternative to
     `@changesets/changelog-github`
-- [ ] Add note to Changeset config section about `@changesets/cli/changelog` as simpler
+- [x] Add note to Changeset config section about `@changesets/cli/changelog` as simpler
   alternative
-- [ ] Update Appendix C ESLint example to show atomic file writes restriction as an
+- [x] Update Appendix C ESLint example to show atomic file writes restriction as an
   example of project-specific rules
-- [ ] Add note about CLI command handler ESLint relaxations
+- [x] Add note about CLI command handler ESLint relaxations
 
 #### 2c. Consistency Refinements
 
-- [ ] Note in Section 2 that ES2023 is appropriate when targeting Node 20, ES2024 for
+- [x] Note in Section 2 that ES2023 is appropriate when targeting Node 20, ES2024 for
   Node 22+
-- [ ] Clarify in OIDC section that hybrid approach (NPM_TOKEN + provenance) is also
+- [x] Clarify in OIDC section that hybrid approach (NPM_TOKEN + provenance) is also
   valid
-- [ ] Add `.flowmarkignore` recommendation to the flowmark section
+- [x] Add `.flowmarkignore` recommendation to the flowmark section
 
 ## Testing Strategy
 

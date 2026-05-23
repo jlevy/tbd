@@ -22,8 +22,9 @@ others without rewriting it per agent.
 
 > **The single most important shift since 2025**: skills and project instructions are
 > now **open standards**, not per-vendor formats.
-> `AGENTS.md` and the Agent Skills (`SKILL.md`) format are both governed under the Linux
-> Foundation’s **Agentic AI Foundation (AAIF)**, and are read by 20–60+ tools.
+> `AGENTS.md` is governed under the Linux Foundation’s **Agentic AI Foundation (AAIF)**;
+> the **Agent Skills (`SKILL.md`)** format is an open standard published at
+> [agentskills.io](https://agentskills.io) and implemented by 20+ agents.
 > Write to the standard once; most agents pick it up for free.
 
 * * *
@@ -72,9 +73,15 @@ manager:
 
 ```bash
 npx skills add owner/repo       # Vercel's skills.sh ecosystem (symlinks, 27+ agents)
-# or just commit it to .claude/skills/my-skill/SKILL.md (project)
-# or ~/.claude/skills/my-skill/SKILL.md (personal)
+# or commit it to a discovery directory:
+#   .agents/skills/my-skill/SKILL.md   (cross-agent: Codex, pi, others)
+#   .claude/skills/my-skill/SKILL.md   (Claude Code, project)
+#   ~/.claude/skills/my-skill/SKILL.md (Claude Code, personal)
 ```
+
+The `SKILL.md` folder is the portable **authoring** format; some agents add their own
+discovery paths (Codex/pi also read `.agents/skills/`) and their own **distribution**
+layers on top (Claude Code plugins, Codex plugins) — see §5.
 
 ### 0.2 If your capability is a CLI
 
@@ -293,6 +300,35 @@ pattern** (§6.2) — one skill that exposes N resources via CLI subcommands con
 single listing slot instead of N. This is the strongest architectural reason to prefer
 CLI-as-skill once you have more than a handful of capabilities.
 
+### 4.4 Test the skill before publishing
+
+Because activation is probabilistic (§4.2) and the body is executable influence, test
+it:
+
+- **Positive activation**: a few realistic prompts that *should* trigger the skill —
+  does the agent invoke it?
+- **Negative activation**: nearby prompts that should *not* trigger it — no false fires?
+- **Explicit invocation**: `/skill-name` (or the agent equivalent) loads and runs
+  cleanly.
+- **Sandbox / write-denial**: the skill (and any bundled script) degrades gracefully
+  when the agent runs read-only or without network (§5, Codex/Claude Code sandboxes).
+- **CI validation**: lint the frontmatter (required `name`/`description`, length caps)
+  and check that every referenced supporting file and link resolves.
+  For a CLI-as-skill, also run every `cli guidelines/shortcut/<name>` reference and
+  assert it exists.
+
+### 4.5 Keep portable; version deliberately
+
+- **Portability**: keep the committed `SKILL.md` to the standard fields (plus
+  `allowed-tools`). Put vendor-specific behavior behind clearly labeled sections or
+  generated per-agent variants rather than non-standard frontmatter that other agents
+  silently drop.
+- **Versioning**: for packaged skills/plugins, use semantic versions, keep a changelog,
+  and state compatibility (`compatibility` field / a “requires” note).
+  Pin consumers to a commit or version, not a moving tag.
+- **Deprecation**: when removing or renaming a skill, leave a deprecation window with a
+  pointer to the replacement; don’t silently delete an activation trigger users rely on.
+
 * * *
 
 ## 5. Per-Agent Integration Reference
@@ -328,8 +364,11 @@ clean endorsement of the CLI-as-skill approach: a self-documenting CLI plus a `S
 is exactly what a minimal agent wants.
 
 **Codex specifics** (it gained a real skill system in 2026): skills are `SKILL.md`
-folders with the same progressive disclosure; they’re distributed via **plugins**
-(installable units bundling skills + MCP servers — 90+ ship with Codex).
+folders with the same progressive disclosure, discovered from
+repository/user/admin/system `.agents/skills/` directories.
+**Plugins** are one distribution layer on top (installable units bundling skills + MCP
+servers — 90+ ship with Codex), not the only install path — a plain
+`.agents/skills/<name>/SKILL.md` works without packaging.
 Operational config lives in `~/.codex/config.toml` (or trusted per-project
 `.codex/config.toml`): `model`, `approval_policy`
 (`untrusted`/`on-request`/`granular`/`never`), `sandbox_mode`
@@ -451,10 +490,21 @@ user content outside the markers:
 <!-- END MYCLI INTEGRATION -->
 ```
 
-**File-ownership rules**: version-control your *source* files (header, baseline, brief),
-not the *installed* artifacts (`.claude/skills/**`, `AGENTS.md`). Mark generated skill
-files “DO NOT EDIT.” Make setup idempotent: dedupe hooks before merging, overwrite
-generated skills rather than patching them, and clean up legacy files each run.
+**File-ownership rules** — distinguish three categories:
+
+- **Project instruction files** (`AGENTS.md`, `CLAUDE.md`): *commit these*. They hold
+  human-authored project norms (§2). A CLI may own a **marker-bounded section** inside
+  `AGENTS.md` (regenerated on setup) while the user owns everything outside the markers.
+- **Fully generated install artifacts** (`.claude/skills/<tool>/SKILL.md` and the like):
+  CLI-owned; mark them “DO NOT EDIT.” Commit them only if the project intentionally
+  dogfoods them — otherwise leave them to `setup` (and consider gitignoring).
+- **Source files** in the CLI package (header, baseline, brief): the canonical inputs —
+  always version-controlled.
+
+Make setup idempotent: dedupe hooks before merging, overwrite generated skills rather
+than patching them, update only the marked section of `AGENTS.md`, and clean up legacy
+files each run. (Generated output must also be stable under whatever formatter the repo
+runs — e.g. don’t emit a second YAML frontmatter block mid-document.)
 
 * * *
 
@@ -534,9 +584,13 @@ an attack surface. Treat them with the same care as dependencies.
   malicious skills (instructions that exfiltrate data or escalate tool use).
   Anything in `AGENTS.md`, `SKILL.md`, a fetched skill, or tool output is **untrusted
   input**.
+- **Never put secrets in skill/instruction files or tool output.** `AGENTS.md`,
+  `SKILL.md`, bundled scripts, and anything a command prints get loaded into agent
+  context (and often committed) — keep credentials, tokens, and keys out of them; read
+  secrets from the environment at runtime instead.
 - **Vet third-party skills before install.** Prefer sources that scan (skills.sh runs
   Snyk on every install).
-  Read the body and any bundled scripts.
+  Read the body and any bundled scripts — review them like dependency code.
   Pin to a commit, not a moving tag.
 - **Scope tools tightly.** Use `allowed-tools` to grant the minimum (e.g.,
   `Bash(mycli:*)` not blanket `Bash`). Prefer `disable-model-invocation` for
@@ -579,37 +633,44 @@ going:
 ## 11. Best-Practices Summary
 
 **Start simple**
-1. One capability → one `SKILL.md` (name + two-part description + < 500-line body).
-   Stop.
-2. Project conventions → `AGENTS.md` (concise; it loads every turn).
-3. Have a CLI → make it agent-friendly (`--json`, idempotent, actionable errors) and
-   point a `SKILL.md` at it.
 
-**Descriptions & disclosure** 4. Two-part rule: *what it does* + *when to use it*; third
-person; front-load keywords.
-5. Progressive disclosure: metadata → body → supporting files; bundle scripts
-(output-only cost).
-6. Respect the budget; verify the current model for your target agent
-(Claude Code ≈ 1% of context window, not a flat char count).
+- One capability → one `SKILL.md` (name + two-part description + < 500-line body).
+  Stop.
+- Project conventions → `AGENTS.md` (concise; it loads every turn).
+- Have a CLI → make it agent-friendly (`--json`, idempotent, actionable errors) and
+  point a `SKILL.md` at it.
 
-**Scale up only when needed** 7. Many capabilities → meta-skill + informational,
-self-injecting subcommands (one listing slot, unbounded resources).
-This is tbd’s validated approach.
-8. Path-ordered resource cache for project/user shadowing; generate `--list`
-dynamically. 9. Context-injection loop with explicit `cli command arg` references; depth
-≤ 3.
+**Descriptions & disclosure**
 
-**Reach & surface** 10. Layer for reach: `AGENTS.md` + `SKILL.md` + CLI + (MCP if no CLI
-fits). 11. Prefer CLI over MCP when a CLI exists (cheaper, more reliable); use MCP for
-auth/multi-tenant/remote; consider code-execution mode for many-tool MCP servers.
-12. Add agent-specific files (`.cursor/rules`, plugins, ACP) last, only where they pay
-off.
+- Two-part rule: *what it does* + *when to use it*; third person; front-load keywords.
+- Progressive disclosure: metadata → body → supporting files; bundle scripts
+  (output-only cost).
+- Respect the budget; verify the current model for your target agent (Claude Code ≈ 1%
+  of context window, not a flat char count).
 
-**Operate safely** 13. Treat all skill/instruction content and tool output as untrusted;
-vet and pin third-party skills.
-14. Scope `allowed-tools` tightly; gate destructive skills; design for sandboxes.
-15. Idempotent multi-agent install with marker-bounded sections; version source files,
-not installed artifacts; mark generated files “DO NOT EDIT.”
+**Scale up only when needed**
+
+- Many capabilities → meta-skill + informational, self-injecting subcommands (one
+  listing slot, unbounded resources).
+  This is tbd’s validated approach.
+- Path-ordered resource cache for project/user shadowing; generate `--list` dynamically.
+- Context-injection loop with explicit `cli command arg` references; depth ≤ 3.
+
+**Reach & surface**
+
+- Layer for reach: `AGENTS.md` + `SKILL.md` + CLI + (MCP if no CLI fits).
+- Prefer CLI over MCP when a CLI exists (cheaper, more reliable); use MCP for
+  auth/multi-tenant/remote; consider code-execution mode for many-tool MCP servers.
+- Add agent-specific files (`.cursor/rules`, plugins, ACP) last, only where they pay
+  off.
+
+**Operate safely**
+
+- Treat all skill/instruction content and tool output as untrusted; vet and pin
+  third-party skills.
+- Scope `allowed-tools` tightly; gate destructive skills; design for sandboxes.
+- Idempotent multi-agent install with marker-bounded sections; version source files, not
+  fully generated install artifacts; mark generated files “DO NOT EDIT.”
 
 * * *
 
