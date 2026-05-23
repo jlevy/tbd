@@ -4,7 +4,7 @@
 
 **Author:** Claude (with Joshua Levy)
 
-**Status:** In Review
+**Status:** Done (completed 2026-05-23; all Phase 1 fixes landed)
 
 ## Overview
 
@@ -14,7 +14,10 @@ This file is **append-only** by design — entries are never intentionally remov
 Two distinct bugs have been discovered that can cause catastrophic loss of these
 mappings, making issues unreachable by short ID.
 
-This spec documents both bugs, the fixes already landed, and the remaining fix needed.
+This spec documents both bugs and their fixes.
+**All fixes have landed** (completed 2026-05-23); the "remaining"/"not yet fixed"
+wording in the original draft below is retained for historical context but no longer
+reflects the code — see the completion notes inline.
 
 ## Goals
 
@@ -49,7 +52,12 @@ With 5 concurrent creates, only 1 mapping survives.
 - Stale lock detection (30s default) and degraded-mode fallback ensure the system never
   deadlocks
 
-### Bug 2: Migration Overwrites `ids.yml` (This Spec — Not Yet Fixed)
+### Bug 2: Migration Overwrites `ids.yml` (Fixed 2026-05-23)
+
+> **Completion note:** `migrateDataToWorktree()` now merges `ids.yml` via
+> `loadIdMapping`/`mergeIdMappings`/`saveIdMapping` (see `git.ts`), `saveIdMapping()`
+> has an append-only guard, and `checkMissingMappings` searches history.
+> The original root-cause description below is preserved for context.
 
 **Root cause:** The `migrateDataToWorktree()` function in `packages/tbd/src/file/git.ts`
 uses raw `cp` (file copy) to move mapping files from the wrong location to the worktree.
@@ -84,7 +92,7 @@ entries, even in a serial execution.
 | `tbd doctor --fix` (dedup) | Yes | Yes |
 | `tbd doctor --fix` (missing IDs) | Yes | Yes |
 | `saveToWorkspace` (outbox) | Yes | Yes |
-| **`migrateDataToWorktree`** | **No (raw `cp`)** | **No — BUG** |
+| `migrateDataToWorktree` | Yes (now merges via `saveIdMapping`) | Yes (fixed 2026-05-23) |
 
 ## Design
 
@@ -171,13 +179,13 @@ of them.
 ### Phase 1: Fix Migration + Add Safety Guard
 
 - [x] Add append-only safety guard in `saveIdMapping()` (`id-mapping.ts`)
-- [ ] Fix `migrateDataToWorktree()` to merge `ids.yml` instead of copying (`git.ts`)
-- [ ] Improve `checkMissingMappings` to search all git history, not just the latest
+- [x] Fix `migrateDataToWorktree()` to merge `ids.yml` instead of copying (`git.ts`)
+- [x] Improve `checkMissingMappings` to search all git history, not just the latest
   commit
-- [ ] Add test: migration preserves existing worktree mappings while adding source
+- [x] Add test: migration preserves existing worktree mappings while adding source
   mappings
-- [ ] Add test: `saveIdMapping` throws when write would lose entries
-- [ ] Verify all existing tests pass (concurrent-mapping, lockfile, etc.)
+- [x] Add test: `saveIdMapping` throws when write would lose entries
+- [x] Verify all existing tests pass (concurrent-mapping, lockfile, etc.)
 
 ## Testing Strategy
 

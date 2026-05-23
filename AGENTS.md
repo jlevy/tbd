@@ -1,6 +1,10 @@
 IMPORTANT: You MUST read ./docs/development.md and ./docs/docs-overview.md for project
 documentation. (This project uses Speculate project structure.)
 
+IMPORTANT: Before adding or upgrading any dependency, follow the install rules in
+./SUPPLY-CHAIN-SECURITY.md (14-day cool-off, no unthinking installs, audit after each
+install). Deeper background: `tbd guidelines supply-chain-hardening`.
+
 ## Landing the Plane (Session Completion)
 
 **When ending a work session**, you MUST complete ALL steps below.
@@ -29,12 +33,7 @@ Work is NOT complete until `git push` succeeds.
 - NEVER say “ready to push when you are” - YOU must push
 - If push fails, resolve and retry until it succeeds
 
-## <!-- BEGIN TBD INTEGRATION -->
-
-* * *
-## title: tbd Workflow
-description: Full tbd workflow guide for agents
-
+<!-- BEGIN TBD INTEGRATION -->
 **`tbd` helps humans and agents ship code with greater speed, quality, and discipline.**
 
 1. **Beads**: Git-native issue tracking (tasks, bugs, features).
@@ -251,7 +250,7 @@ Run `tbd guidelines <name>` to apply any of these guidelines:
 | --- | --- |
 | backward-compatibility-rules | Guidelines for maintaining backward compatibility across code, APIs, file formats, and database schemas |
 | bun-monorepo-patterns | Modern patterns for Bun-based TypeScript monorepo architecture |
-| cli-agent-skill-patterns | Best practices for building TypeScript CLIs that function as agent skills in Claude Code and other AI coding agents |
+| cli-agent-skill-patterns | How to write skills and agent-integrated CLIs that work across Claude Code, Codex, and the broader coding-agent ecosystem — a simple baseline plus references for advanced, multi-subcommand tools |
 | commit-conventions | Conventional Commits format with extensions for agentic workflows |
 | convex-limits-best-practices | Comprehensive reference for Convex platform limits, workarounds, and performance best practices |
 | convex-rules | Guidelines and best practices for building Convex projects, including database schema design, queries, mutations, and real-world examples |
@@ -269,6 +268,7 @@ Run `tbd guidelines <name>` to apply any of these guidelines:
 | python-modern-guidelines | Guidelines for modern Python projects using uv, with a few more opinionated practices |
 | python-rules | General Python coding rules and best practices |
 | release-notes-guidelines | Guidelines for writing clear, accurate release notes |
+| supply-chain-hardening | Strongly recommended for EVERY repo — apply it if a repo has not been hardened yet. Cross-ecosystem policy for installing dependencies safely (the 14-day cool-off, disabled install scripts, lockfile discipline, untrusted-repo handling). Use whenever a user mentions hardening, security, supply chain, or setting up a new repo; before adding/upgrading dependencies; when auditing for compromised packages; or when reviewing install/build/run commands across npm/pnpm, PyPI, Cargo, or Go. |
 | tbd-sync-troubleshooting | Common issues and solutions for tbd sync and workspace operations |
 | typescript-cli-tool-rules | Rules for building CLI tools with Commander.js, picocolors, and TypeScript |
 | typescript-code-coverage | Best practices for code coverage in TypeScript with Vitest and v8 provider |
