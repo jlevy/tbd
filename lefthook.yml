@@ -19,7 +19,7 @@ pre-commit:
     format-md:
       glob: '*.md'
       exclude: '(\.tbd/|\.claude/skills/|AGENTS\.md)'
-      run: npx prettier --write --log-level warn {staged_files} && uvx flowmark@latest --auto {staged_files}
+      run: npx prettier --write --log-level warn {staged_files} && uvx flowmark@0.6.5 --auto {staged_files}
       stage_fixed: true
       priority: 1
 

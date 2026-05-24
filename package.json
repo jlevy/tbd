@@ -21,7 +21,7 @@
     "publint": "pnpm -r publint",
     "format": "prettier --write --log-level warn . && pnpm format:md",
     "format:check": "prettier --check --log-level warn .",
-    "format:md": "find README.md docs packages/tbd -name '*.md' -type f -not -path '*/dist/*' -not -path '*/node_modules/*' 2>/dev/null | xargs uvx flowmark@latest --auto",
+    "format:md": "find README.md docs packages/tbd -name '*.md' -type f -not -path '*/dist/*' -not -path '*/node_modules/*' 2>/dev/null | xargs uvx flowmark@0.6.5 --auto",
     "lint": "eslint . --fix && pnpm typecheck && eslint . --max-warnings 0",
     "lint:check": "pnpm typecheck && eslint . --max-warnings 0",
     "precommit": "pnpm format && pnpm lint && pnpm build && pnpm test",
