@@ -172,7 +172,13 @@ Canonical spec: [agents.md](https://agents.md).
 context).
 Put deep, on-demand material in skills or files the agent can open when needed.
 `AGENTS.override.md` lets a developer override the committed file locally without
-editing it.
+editing it. If a CLI writes a managed `AGENTS.md` block, keep that block as a compact
+bootstrap: name the tool, state the always-on operating rule, and point to commands such
+as `mycli prime`, `mycli skill`, `mycli shortcut --list`, and `mycli guidelines --list`.
+Do not paste the full skill body or generated resource directories into `AGENTS.md`;
+prefer less than 80-150 lines, and shorter is better.
+If `AGENTS.md` already exists without your markers, preserve the file and append a
+compact marked block instead of overwriting user content.
 
 * * *
 
@@ -483,13 +489,28 @@ Rules: reference commands **explicitly** (`mycli command arg`, never “see the 
 ### 6.6 Distribution & multi-agent install
 
 A CLI can install itself into multiple agents from one `setup` run.
-tbd writes a CLI-managed `SKILL.md` to `.claude/skills/tbd/` and a **marker-bounded
-section** into `AGENTS.md` (which now also feeds Cursor, Codex, and Factory), preserving
-user content outside the markers:
+Use the portable Agent Skills location as the primary project skill surface and mirror
+only where a target agent requires it:
+
+- `.agents/skills/<tool>/SKILL.md` — portable project skill for Codex, pi, OpenCode, and
+  other Agent Skills clients that scan the standard project directory.
+- `.claude/skills/<tool>/SKILL.md` — Claude Code compatibility mirror.
+- `AGENTS.md` — compact always-on project bootstrap, not a full copy of the skill.
+- `.codex/hooks.json` or `.codex/config.toml` — Codex lifecycle automation, not policy
+  text or skill content.
+
+tbd should write a CLI-managed `SKILL.md` to `.agents/skills/tbd/`, mirror it to
+`.claude/skills/tbd/`, and maintain a **marker-bounded section** in `AGENTS.md` (which
+also feeds Cursor, Codex, and Factory), preserving user content outside the markers:
 
 ```markdown
 <!-- BEGIN MYCLI INTEGRATION -->
-…CLI-generated…  ← owned by the CLI; regenerated on setup
+## mycli
+
+- Run `mycli prime` for current project context.
+- Run `mycli skill` for the full reusable skill instructions.
+- Run `mycli shortcut --list` and `mycli guidelines --list` for on-demand resources.
+
 <!-- END MYCLI INTEGRATION -->
 ```
 
@@ -498,9 +519,10 @@ user content outside the markers:
 - **Project instruction files** (`AGENTS.md`, `CLAUDE.md`): *commit these*. They hold
   human-authored project norms (§2). A CLI may own a **marker-bounded section** inside
   `AGENTS.md` (regenerated on setup) while the user owns everything outside the markers.
-- **Fully generated install artifacts** (`.claude/skills/<tool>/SKILL.md` and the like):
-  CLI-owned; mark them “DO NOT EDIT.” Commit them only if the project intentionally
-  dogfoods them — otherwise leave them to `setup` (and consider gitignoring).
+- **Fully generated install artifacts** (`.agents/skills/<tool>/SKILL.md`,
+  `.claude/skills/<tool>/SKILL.md`, and the like): CLI-owned; mark them “DO NOT EDIT.”
+  Commit them only if the project intentionally dogfoods them — otherwise leave them to
+  `setup` (and consider gitignoring).
 - **Source files** in the CLI package (header, baseline, brief): the canonical inputs —
   always version-controlled.
 
@@ -508,6 +530,24 @@ Make setup idempotent: dedupe hooks before merging, overwrite generated skills r
 than patching them, update only the marked section of `AGENTS.md`, and clean up legacy
 files each run. (Generated output must also be stable under whatever formatter the repo
 runs — e.g. don’t emit a second YAML frontmatter block mid-document.)
+Do not make Codex hooks call scripts stored under `.claude/`; put shared hook scripts in
+a neutral location or use Codex-native scripts under `.codex/`.
+
+Recommended setup flags:
+
+| Flag | Purpose |
+| --- | --- |
+| `--auto` | Detect and refresh relevant project-local integrations |
+| `--all` | Install every supported project-local integration surface |
+| `--claude` | Install or refresh Claude Code skill mirror and Claude hooks |
+| `--codex` | Install or refresh Codex skill/instruction/hook surfaces |
+| `--agents-md` | Install or refresh the managed `AGENTS.md` block |
+| `--no-<surface>` | Suppress a surface that auto-detection would otherwise update |
+
+Keep project-local setup separate from global/user setup.
+Writing `~/.codex/AGENTS.md`, `~/.agents/skills/`, or `~/.claude/skills/` should be an
+explicit global install command or documented manual step, not something `setup --auto`
+does silently.
 
 ### 6.7 Making the CLI available: global install vs. zero-install
 
@@ -554,16 +594,29 @@ npx mytool@1.4.2  ...     # not `npx mytool@latest`
 ```
 
 Global installs get the same guarantee from the lockfile/manifest; zero-install gets it
-only from an explicit `@version`.
+only from an explicit `@version`. Generated skill instructions should use a local-first,
+pinned fallback chain:
+
+1. Try `mycli <command>` if it is already on `PATH`.
+2. Fall back to a version-pinned runner:
+   - npm: `npx --yes my-package@<version> mycli <command>`
+   - uv: `uvx --from my-package@<version> mycli <command>`
+   - pipx: `pipx run my-package==<version> mycli <command>`
+   - Go: `go run module/path@<version> <args>`
+3. If the local command and pinned fallback both fail, stop and tell the user how to
+   install the CLI.
+
+Never put an unpinned network runner such as `uvx --from my-package` or `npx my-package`
+in generated skill instructions unless the user explicitly opts into that risk.
 
 **Current tooling (May 2026)**
 
 - **Node / TypeScript**: zero-install via `npx <pkg>@<ver>` (`-y` to skip the prompt),
   `bunx`, `pnpm dlx`, or `deno run`; persistent via `npm i -g` / a project
   devDependency.
-- **Python**: `uvx <pkg>@<ver>` (= `uv tool run`, bundled with Astral’s `uv`, Rust-fast,
-  no Python prereq) or `pipx run`; persistent via `uv tool install` / `pipx install`.
-  `uvx` reuses a persistent install if one exists.
+- **Python**: `uvx --from <pkg>@<ver> <entrypoint>` (= `uv tool run`, bundled with
+  Astral’s `uv`, Rust-fast, no Python prereq) or `pipx run <pkg>==<ver>`; persistent via
+  `uv tool install` / `pipx install`. `uvx` reuses a persistent install if one exists.
 - **Go**: `go run <module>@<ver>` (compiles on the fly) or `go install`.
 - **Rust**: no first-class zero-install runner — ship **prebuilt binaries** (GitHub
   releases + a `curl … | sh` installer) or `cargo binstall`; `cargo install` compiles.
@@ -628,6 +681,10 @@ Support varies:
   `beforeShellExecution`/`beforeMCPExecution`), **Windsurf** (pre-hooks can **block**
   via exit code 2), **Gemini CLI** (~12), and **opencode** (25+, with tool interception)
   all have lifecycle hooks.
+- **Codex** loads hooks from `~/.codex/hooks.json`, `~/.codex/config.toml`,
+  `<repo>/.codex/hooks.json`, or `<repo>/.codex/config.toml`. Repo-local hooks should
+  resolve scripts from the git root or `.codex/`, not from `.claude/`, so Codex setup
+  remains independent of Claude Code setup.
 - **Aider**, **Jules**, **Zed** have no agent hooks (Aider integrates Git pre-commit
   hooks only).
 
@@ -757,7 +814,8 @@ going:
 - [ ] `SKILL.md` with `name` + two-part `description`
 - [ ] Body < 500 lines; bulky material in supporting files one level deep
 - [ ] Third-person description, trigger keywords front-loaded
-- [ ] Installable via commit to `.claude/skills/` and/or `npx skills add`
+- [ ] Installable via commit to `.agents/skills/`, Claude mirror at `.claude/skills/`,
+  and/or `npx skills add`
 
 **Project**
 - [ ] `AGENTS.md` with build/test/style/conventions (concise)
@@ -768,7 +826,7 @@ going:
 - [ ] Idempotent `setup --auto`; `init` for surgical config
 - [ ] Help epilog with `IMPORTANT:` + Getting Started one-liner
 - [ ] `prime` (status/context) and `skill` (pure docs) commands
-- [ ] Invocation strategy chosen (§6.7): pinned zero-install (`npx`/`uvx <pkg>@<ver>`)
+- [ ] Invocation strategy chosen (§6.7): local-first plus pinned zero-install fallback
   by default, or global install + `SessionStart` bootstrap for cloud/ephemeral agents
 
 **Advanced (many subcommands / knowledge library)**

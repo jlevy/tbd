@@ -70,6 +70,7 @@ This research reviewed:
 - Agent Skills implementor guide:
   https://agentskills.io/client-implementation/adding-skills-support
 - Claude Code skills docs: https://code.claude.com/docs/en/skills
+- OpenAI Codex AGENTS.md docs: https://developers.openai.com/codex/guides/agents-md
 - OpenAI Codex skills docs: https://developers.openai.com/codex/skills
 - OpenAI Codex hooks docs: https://developers.openai.com/codex/hooks
 - OpenAI skills catalog: https://github.com/openai/skills
@@ -169,6 +170,33 @@ project-local path. Native paths should be mirrors or compatibility targets.
 **Assessment**: The market no longer maps “Codex integration” to `AGENTS.md` only.
 Codex still uses `AGENTS.md` for repository instructions, but it also supports Agent
 Skills as capability packages.
+
+### AGENTS.md Block Tradeoff
+
+**Status**: Complete
+
+**Details**:
+
+- OpenAI’s Codex docs describe `AGENTS.md` as a project instructions file and show
+  global, repo-root, and nested instruction layering.
+  The docs also expose `project_doc_max_bytes`, with examples using a 65,536-byte cap.
+- Cursor documents `AGENTS.md` as a simple Markdown alternative to `.cursor/rules` for
+  straightforward project instructions.
+- This makes `AGENTS.md` valuable for always-on behavior: repo rules, required commands,
+  task tracking expectations, and the one or two commands an agent should run to orient
+  itself.
+- The same always-on property creates a bloat risk.
+  A generated block that includes the full skill body plus shortcut/guideline
+  directories consumes prompt budget before the agent knows whether it needs tbd.
+
+**Assessment**: Keep a tbd-managed `AGENTS.md` block, but make it a compact bootstrap.
+The block should say what tbd is, when agents must use it, and where to get more context
+(`tbd prime`, `tbd skill`, `tbd shortcut --list`, `tbd guidelines --list`). It should
+not embed the full `SKILL.md` or full shortcut/guideline tables.
+
+**tbd implication**: Current tbd setup writes a large generated tbd block into
+`AGENTS.md`. The modernization work should replace that with a shorter marked block and
+move detailed resource discovery into `.agents/skills/tbd/SKILL.md` and CLI commands.
 
 ### Popular Modern Skill Systems
 

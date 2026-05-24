@@ -103,6 +103,9 @@ or document:
 - **Existing unmarked AGENTS.md needs a playbook.** Status/doctor should tell users what
   it means when `AGENTS.md` exists but lacks the tbd marker block, and setup should
   preserve user content outside markers.
+- **The tbd AGENTS.md block should stay, but shrink.** Downstream context and current
+  Codex/Cursor docs support a repo-root `AGENTS.md` bootstrap, but the block should not
+  duplicate the full tbd skill or generated shortcut/guideline directories.
 
 ## Design
 
@@ -205,6 +208,15 @@ user explicitly opts into that behavior.
   Claude’s SKILL.md line and character budgets should not be copied uncritically to
   AGENTS.md.
 
+For tbd itself, the recommended end state is to keep `<!-- BEGIN TBD INTEGRATION -->`
+but make the block a compact bootstrap:
+
+- identify tbd as the issue/workflow/guideline tool for the repo;
+- tell agents to run `tbd prime` for current state;
+- tell agents to use `tbd skill`, `tbd shortcut --list`, and `tbd guidelines --list` for
+  progressive disclosure;
+- keep detailed command directories in the skill and CLI output, not in `AGENTS.md`.
+
 ### Path Constants and Diagnostics
 
 Move path knowledge into `packages/tbd/src/lib/integration-paths.ts` so setup, status,
@@ -274,6 +286,8 @@ Update `packages/tbd/docs/guidelines/cli-agent-skill-patterns.md` to match the p
 - [ ] Add or document explicit agent-targeting setup flags.
 - [ ] Add pinned CLI invocation fallback guidance to generated skill/guideline patterns.
 - [ ] Define AGENTS.md marker, scope, and unmarked-file behavior.
+- [ ] Shrink the tbd-managed `AGENTS.md` block to a compact bootstrap while keeping the
+  marker contract.
 - [ ] Audit gitignore behavior for all generated and checked-in integration files.
 
 ### Phase 3: Diagnostics, Guidelines, and Tests
@@ -308,6 +322,7 @@ Children:
 | `tbd-1h9x` | P1 | open | Adopt `.agents/skills` as primary Agent Skills install path |
 | `tbd-qgpl` | P1 | open | Add `skills/tbd` distribution source |
 | `tbd-mjxt` | P1 | open | Define AGENTS.md scope and marker policy |
+| `tbd-jrir` | P1 | open | Shrink generated AGENTS.md block |
 | `tbd-orup` | P1 | open | Add Codex startup and gh CLI setup parity |
 | `tbd-shsb` | P1 | open | Document pinned CLI runner fallback patterns |
 | `tbd-zd4h` | P2 | open | Add agent-targeted setup flag design |
@@ -325,14 +340,15 @@ Dependency outline:
 - `tbd-qgpl` depends on `tbd-0fhy` and `tbd-1h9x`.
 - `tbd-orup` depends on `tbd-t5q1`.
 - `tbd-mjxt` depends on `tbd-t5q1`.
+- `tbd-jrir` depends on `tbd-mjxt` and `tbd-0fhy`.
 - `tbd-shsb` depends on `tbd-t5q1`.
 - `tbd-zd4h` depends on `tbd-t5q1`.
-- `tbd-l2ym` depends on `tbd-1h9x`, `tbd-orup`, and `tbd-mjxt`.
-- `tbd-udka` depends on `tbd-1h9x`, `tbd-orup`, `tbd-shsb`, and `tbd-mjxt`.
+- `tbd-l2ym` depends on `tbd-1h9x`, `tbd-orup`, `tbd-mjxt`, and `tbd-jrir`.
+- `tbd-udka` depends on `tbd-1h9x`, `tbd-orup`, `tbd-shsb`, `tbd-mjxt`, and `tbd-jrir`.
 - `tbd-0q8h` depends on `tbd-0fhy`.
 - `tbd-bz0h` depends on `tbd-1h9x`, `tbd-orup`, `tbd-l2ym`, `tbd-shsb`, `tbd-zd4h`, and
-  `tbd-mjxt`.
-- `tbd-m6f3` depends on `tbd-bz0h`, `tbd-udka`, and `tbd-0q8h`.
+  `tbd-mjxt` and `tbd-jrir`.
+- `tbd-m6f3` depends on `tbd-bz0h`, `tbd-udka`, `tbd-0q8h`, and `tbd-jrir`.
 - `tbd-wha7` depends on `tbd-m6f3` and `tbd-bz0h`.
 
 ## Testing Strategy
@@ -371,9 +387,11 @@ Dependency outline:
 
 - [Agent Skills specification](https://agentskills.io/specification)
 - [Agent Skills implementor guide](https://agentskills.io/client-implementation/adding-skills-support)
+- [Codex AGENTS.md docs](https://developers.openai.com/codex/guides/agents-md)
 - [Codex Agent Skills docs](https://developers.openai.com/codex/skills)
 - [Codex hooks docs](https://developers.openai.com/codex/hooks)
 - [Claude Code skills docs](https://code.claude.com/docs/en/skills)
+- [Cursor rules and AGENTS.md docs](https://docs.cursor.com/en/context/rules)
 - [Gemini CLI Agent Skills docs](https://geminicli.com/docs/cli/skills/)
 - [GSD skills docs](https://getshitdone.help/skills-extensions-agents/)
 - [Vercel supported agents](https://www.mintlify.com/vercel-labs/skills/guides/supported-agents)
