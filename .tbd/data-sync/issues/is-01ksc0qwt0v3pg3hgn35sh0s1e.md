@@ -5,7 +5,7 @@ title: Modernize multi-agent skills and hooks setup
 kind: epic
 status: open
 priority: 1
-version: 18
+version: 20
 spec_path: docs/project/specs/active/plan-2026-05-24-multi-agent-skills-hooks-setup.md
 labels:
   - agent-skills
@@ -18,6 +18,7 @@ child_order_hints:
   - is-01ksby3fdgasqh37gd81zees15
   - is-01ksc0s4vq2w1yyp10fybqpq8t
   - is-01ksdprb4vpb3drtwwjpznbqs6
+  - is-01ksdq6jr5nrtjtc194fz17kry
   - is-01ksc0scbn4h9eybnfgmvr6mw3
   - is-01ksdpqxp1bavjc60s2wynfawb
   - is-01ksdpr4q999zpz14nqmv3ycpz
@@ -28,6 +29,6 @@ child_order_hints:
   - is-01ksc0thbsjf1629exkpyd5xn7
   - is-01ksc0trd3x6wrkqx3dsb8cjfs
 created_at: 2026-05-24T03:33:58.719Z
-updated_at: 2026-05-24T19:18:32.869Z
+updated_at: 2026-05-24T19:27:52.043Z
 ---
 Bring tbd's own setup behavior and guidelines in line with the current Agent Skills ecosystem and tbd's best practices. Scope: use .agents/skills as the portable Agent Skills install target, keep .claude/skills as a Claude Code compatibility mirror, keep AGENTS.md for always-on instructions, add/confirm Codex-compatible startup and gh CLI setup behavior, ensure generated/project integration files are not accidentally gitignored, update status/doctor/tests, and run tbd setup from the local build to refresh this repository's own checked-in agent integration files.
