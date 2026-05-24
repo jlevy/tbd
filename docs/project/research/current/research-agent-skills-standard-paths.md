@@ -7,6 +7,7 @@
 **Related**:
 
 - [CLI Agent Skill Patterns](../../../../packages/tbd/docs/guidelines/cli-agent-skill-patterns.md)
+- [Modernize multi-agent skills and hooks setup](../../specs/active/plan-2026-05-24-multi-agent-skills-hooks-setup.md)
 - [Publish tbd as a Skill on skills.sh](../../specs/active/plan-2026-02-08-tbd-on-skills-sh.md)
 - [Skills vs Meta-Skill Architecture](research-skills-vs-meta-skill-architecture.md)
 - [CLI as Agent Skill](research-cli-as-agent-skill.md)
@@ -70,6 +71,7 @@ This research reviewed:
   https://agentskills.io/client-implementation/adding-skills-support
 - Claude Code skills docs: https://code.claude.com/docs/en/skills
 - OpenAI Codex skills docs: https://developers.openai.com/codex/skills
+- OpenAI Codex hooks docs: https://developers.openai.com/codex/hooks
 - OpenAI skills catalog: https://github.com/openai/skills
 - Gemini CLI skills docs:
   https://geminicli.com/docs/cli/tutorials/skills-getting-started/
@@ -84,6 +86,29 @@ This research reviewed:
 - gstack: https://github.com/garrytan/gstack
 - GSD skill docs: https://getshitdone.help/skills-extensions-agents/
 - Superpowers: https://github.com/obra/superpowers
+
+### 2026-05-24 Refresh Notes
+
+The plan refresh re-checked the external sources that determine path and hook strategy:
+
+- Codex’s current skills docs explicitly say Codex reads repository skills from
+  `.agents/skills` in the current working directory, ancestor directories, and the repo
+  root; user skills live in `$HOME/.agents/skills`; admin skills live in
+  `/etc/codex/skills`.
+- Codex’s docs now list a hooks configuration surface.
+  The implementation plan should use that official surface for Codex startup/gh CLI
+  parity if the event mapping covers tbd’s current Claude lifecycle hooks.
+- Gemini CLI still documents `.agents/skills/` as a user and workspace alias, with the
+  alias taking precedence over `.gemini/skills/` within the same tier.
+- GSD still documents `~/.agents/skills/` and project `.agents/skills/` as its skill
+  directories.
+- Vercel’s supported-agent table still lists Codex, Cursor, OpenCode, Cline, Amp, Gemini
+  CLI, and GitHub Copilot as project installs that use `.agents/skills/`; it lists
+  Claude Code as `.claude/skills/`.
+
+No refreshed source changed the main recommendation: `.agents/skills/` should be tbd’s
+portable project skill path, `.claude/skills/` should remain a Claude Code mirror, and
+`AGENTS.md` should remain a separate always-on instruction surface.
 
 * * *
 
@@ -130,7 +155,7 @@ project-local path. Native paths should be mirrors or compatibility targets.
 | Tool | Project Skill Path | Global/User Path | Notes |
 | --- | --- | --- | --- |
 | Claude Code | `.claude/skills/<name>/SKILL.md` | `~/.claude/skills/<name>/SKILL.md` | Official docs still center `.claude/skills/`. |
-| Codex | `.agents/skills/` per skills CLI support; `$CODEX_HOME/skills` for installed skills | `~/.codex/skills/` / `$CODEX_HOME/skills` | OpenAI catalog uses Agent Skills and `skill-installer`. |
+| Codex | `.agents/skills/` from CWD through repo root | `~/.agents/skills/`; admin `/etc/codex/skills`; installed plugin skills | Official Codex docs now directly document `.agents/skills` repo discovery. |
 | Cursor | `.agents/skills/` per skills CLI support | `~/.cursor/skills/` | Changelog and best-practices docs support Agent Skills; path docs are thinner than Claude/Gemini. |
 | Gemini CLI | `.gemini/skills/` or `.agents/skills/` alias | `~/.gemini/skills/` or `~/.agents/skills/` alias | Official Gemini docs explicitly mention `.agents/skills` alias. |
 | GitHub Copilot | `.agents/skills/` per skills CLI support | `~/.copilot/skills/` | Included in Vercel skills supported-agent table. |
@@ -286,6 +311,9 @@ separate always-on instruction surface.
    - If Claude Code is detected, mirror the same payload to
      `.claude/skills/tbd/SKILL.md`.
    - Keep updating `AGENTS.md` for Codex and AGENTS-compatible tools.
+   - Add Codex lifecycle hook setup where official Codex hooks support the same behavior
+     as Claude Code’s current `SessionStart`, `PreCompact`, gh CLI bootstrap, and
+     close-protocol reminder hooks.
 
 3. **Add publication source**
    - Add `skills/tbd/SKILL.md` at the repo root for skills.sh and direct GitHub

@@ -1,12 +1,15 @@
 # Research Brief: Skills vs Meta-Skill Architecture for Agent-Integrated CLIs
 
-**Last Updated**: 2026-02-08
+**Last Updated**: 2026-05-24
 
-**Status**: Complete (updated with skills.sh ecosystem and activation reliability data)
+**Status**: Complete (updated with skills.sh ecosystem, activation reliability data, and
+portable `.agents/skills/` path guidance)
 
 **Related**:
 
 - [CLI as Agent Skill Research](./research-cli-as-agent-skill.md)
+- [Agent Skills Standard Paths](./research-agent-skills-standard-paths.md)
+- [Modernize Multi-Agent Skills and Hooks Setup Spec](../specs/active/plan-2026-05-24-multi-agent-skills-hooks-setup.md)
 - [Agent Orientation Experience Spec](../specs/active/plan-2026-01-25-agent-orientation-experience.md)
 - [Claude Code Skills Documentation](https://code.claude.com/docs/en/skills)
 - [Claude Code Plugins Documentation](https://code.claude.com/docs/en/plugins)
@@ -31,6 +34,13 @@ is superior to individual skills for resource-heavy CLIs due to:
 
 The individual skills approach is better suited for CLIs with few, distinct capabilities
 that benefit from auto-invocation based on task context.
+
+**2026-05-24 path update**: This architecture decision is about one skill versus many
+skills, not about Claude-only installation.
+The single tbd meta-skill should now be installed as a portable project skill at
+`.agents/skills/tbd/SKILL.md`, mirrored to `.claude/skills/tbd/SKILL.md` for Claude
+Code, and exposed as `skills/tbd/SKILL.md` for distribution.
+This keeps the meta-skill architecture while making the install path multi-agent.
 
 **Research Questions**:
 
