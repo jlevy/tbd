@@ -197,6 +197,12 @@ not embed the full `SKILL.md` or full shortcut/guideline tables.
 **tbd implication**: Current tbd setup writes a large generated tbd block into
 `AGENTS.md`. The modernization work should replace that with a shorter marked block and
 move detailed resource discovery into `.agents/skills/tbd/SKILL.md` and CLI commands.
+Because existing repositories may already have the old marked block, the replacement
+needs a migration signal, not just different text.
+A stable outer marker plus an internal metadata comment such as
+`<!-- tbd:integration-format=2; surface=agents-md -->` lets setup distinguish “current,”
+“legacy generated,” and “user-owned/unmarked” states while preserving user content
+outside the managed region.
 
 ### Popular Modern Skill Systems
 
@@ -342,7 +348,11 @@ separate always-on instruction surface.
    - Write it to `.agents/skills/tbd/SKILL.md`.
    - If Claude Code is detected, mirror the same payload to
      `.claude/skills/tbd/SKILL.md`.
-   - Keep updating `AGENTS.md` for Codex and AGENTS-compatible tools.
+   - Keep updating `AGENTS.md` for Codex and AGENTS-compatible tools, using a compact
+     versioned managed block so old generated blocks can be upgraded safely.
+   - Upgrade prior setup installs item-by-item: add missing `.agents/skills`, refresh
+     old `.claude/skills` mirrors, replace legacy `AGENTS.md` managed blocks, and dedupe
+     only tbd-owned hook entries.
    - Add Codex lifecycle hook setup where official Codex hooks support the same behavior
      as Claude Code’s current `SessionStart`, `PreCompact`, gh CLI bootstrap, and
      close-protocol reminder hooks.

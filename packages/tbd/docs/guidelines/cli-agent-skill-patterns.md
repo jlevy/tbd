@@ -179,6 +179,22 @@ Do not paste the full skill body or generated resource directories into `AGENTS.
 prefer less than 80-150 lines, and shorter is better.
 If `AGENTS.md` already exists without your markers, preserve the file and append a
 compact marked block instead of overwriting user content.
+Version the managed block with a metadata comment inside stable markers so future setup
+runs can upgrade old generated content without touching user-authored text:
+
+```markdown
+<!-- BEGIN MYCLI INTEGRATION -->
+<!-- mycli:integration-format=2; surface=agents-md -->
+## mycli
+
+- Run `mycli prime` for current project context.
+- Run `mycli skill` for complete skill instructions.
+
+<!-- END MYCLI INTEGRATION -->
+```
+
+Do not change the outer marker names just to bump the format; old setup versions and
+cleanup code may depend on them.
 
 * * *
 
@@ -505,6 +521,7 @@ also feeds Cursor, Codex, and Factory), preserving user content outside the mark
 
 ```markdown
 <!-- BEGIN MYCLI INTEGRATION -->
+<!-- mycli:integration-format=2; surface=agents-md -->
 ## mycli
 
 - Run `mycli prime` for current project context.
@@ -532,6 +549,21 @@ files each run. (Generated output must also be stable under whatever formatter t
 runs — e.g. don’t emit a second YAML frontmatter block mid-document.)
 Do not make Codex hooks call scripts stored under `.claude/`; put shared hook scripts in
 a neutral location or use Codex-native scripts under `.codex/`.
+
+**Upgrade existing installs deliberately.** Treat generated integration files like
+config migrations:
+
+- Define an agent-integration format constant separate from the repo data/config format.
+  Bump it only when generated agent surfaces change shape.
+- Put the format in generated files: an `AGENTS.md` metadata comment, the skill “DO NOT
+  EDIT” marker, script headers, or an equivalent hook signature.
+- Treat old marked `AGENTS.md` blocks with no metadata as legacy generated content and
+  replace only the managed region.
+- Detect tbd-owned hook entries by command/path/signature, replace only those entries,
+  and preserve unrelated user hooks.
+- Print an itemized setup summary: current, installed, upgraded, removed legacy, skipped
+  by config, and user-owned/unmarked.
+- Test upgrades from at least the previous shipped setup layout plus partial installs.
 
 Recommended setup flags:
 
@@ -819,6 +851,8 @@ going:
 
 **Project**
 - [ ] `AGENTS.md` with build/test/style/conventions (concise)
+- [ ] Managed `AGENTS.md` block uses stable markers plus an integration-format metadata
+  comment
 - [ ] `CLAUDE.md` strategy decided (symlink to `AGENTS.md`, copy, or separate)
 
 **CLI tool (if applicable)**
@@ -840,6 +874,7 @@ going:
 - [ ] Decide target agents; add per-agent files only where needed
 - [ ] MCP server only if no CLI fits, or for OAuth/multi-tenant/remote
 - [ ] Marker-bounded multi-agent install; “DO NOT EDIT” on generated files
+- [ ] Existing installs upgrade item-by-item without rewriting user-owned content
 
 **Security**
 - [ ] Third-party skills vetted, scanned, and pinned

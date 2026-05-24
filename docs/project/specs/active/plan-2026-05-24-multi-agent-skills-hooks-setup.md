@@ -40,6 +40,9 @@ dogfooding so the product follows the best practices it recommends.
 - Ensure generated integration files that should be committed are not gitignored.
 - Update `tbd setup --check`, `tbd setup --remove`, `tbd setup --auto`, `tbd status`,
   `tbd doctor`, tests, and guidelines to describe the same integration model.
+- Upgrade prior `tbd setup` installs item-by-item when users run a newer tbd, including
+  old `.claude/skills`-only installs, old large `AGENTS.md` blocks, legacy tbd-owned
+  hooks, and missing new portable skill surfaces.
 - Document pinned CLI invocation fallbacks for tools that are not installed globally,
   including pprose-style `uvx --from package@version` patterns.
 - Define explicit agent-targeting setup flags so users and agents can choose surfaces
@@ -139,6 +142,8 @@ separate product decision.
    project-local hook surface.
 7. Avoid duplicate hooks by filtering existing tbd hook entries before appending current
    entries.
+8. Detect old generated integration artifacts and upgrade them in place, preserving
+   user-owned content and reporting every changed surface.
 
 Setup should also expose an explicit targeting model:
 
@@ -149,6 +154,64 @@ Setup should also expose an explicit targeting model:
   `--no-*` flags.
 - The design must define how explicit flags interact with config defaults and existing
   files before implementation.
+
+### Existing Install Upgrade Model
+
+Treat generated agent integrations like config migrations: explicit format detection,
+small deterministic upgrades, and itemized user-facing output.
+
+Use a separate `AGENT_INTEGRATION_FORMAT` constant for generated agent setup artifacts
+rather than reusing the repository data layout format such as `tbd_format: f04`. The
+migration discipline should match config format migrations, but the version should
+advance only when generated agent surfaces change shape.
+
+Recommended initial surfaces:
+
+- `AGENTS.md` block format:
+  - Keep the stable region markers for backwards-compatible replacement:
+    `<!-- BEGIN TBD INTEGRATION -->` and `<!-- END TBD INTEGRATION -->`.
+  - Add a metadata comment immediately inside the managed block, for example
+    `<!-- tbd:integration-format=2; surface=agents-md -->`.
+  - Treat old marked blocks without metadata as format 1 and replace the whole managed
+    region with the compact format 2 bootstrap.
+  - Preserve all content outside the managed region.
+  - If `AGENTS.md` exists without markers, append a new format 2 managed block and
+    report “AGENTS.md exists; added missing tbd block.”
+- Generated skill files:
+  - Include the same integration format in the “DO NOT EDIT” marker or generated header.
+  - Regenerate old `.claude/skills/tbd/SKILL.md` files and add
+    `.agents/skills/tbd/SKILL.md`.
+  - Keep the Claude mirror unless the user explicitly disables Claude support.
+- Hooks and scripts:
+  - Detect tbd-owned hook entries by command/path/signature and remove or replace only
+    those entries.
+  - Leave unrelated user hooks untouched.
+  - If a shared script path changes, either update tbd-owned hook commands or leave a
+    wrapper so existing Claude hooks do not break.
+  - New Codex hook setup should not force a Claude hook migration unless an existing
+    tbd-owned Claude hook points at a script that is being moved or renamed.
+
+`tbd setup --auto` should print an itemized upgrade summary such as:
+
+```text
+Updated AGENTS.md tbd block: format 1 -> 2
+Installed portable skill: .agents/skills/tbd/SKILL.md
+Refreshed Claude skill mirror: .claude/skills/tbd/SKILL.md
+Installed Codex hooks: .codex/hooks.json
+Preserved user content outside managed markers
+```
+
+`setup --check`, `status`, and `doctor` should distinguish:
+
+- current
+- missing
+- legacy/upgradable
+- user-owned/unmarked
+- conflict or malformed managed block
+- disabled by config or explicit flags
+
+`setup --remove` should remove both current and legacy tbd-owned artifacts and markers
+while preserving user-owned content outside managed regions.
 
 ### Codex Hook Parity
 
@@ -207,6 +270,8 @@ user explicitly opts into that behavior.
 - A generated-block size budget for AGENTS-compatible tools.
   Claude’s SKILL.md line and character budgets should not be copied uncritically to
   AGENTS.md.
+- A block format marker so setup can detect legacy generated content and upgrade it
+  without relying on brittle text comparisons.
 
 For tbd itself, the recommended end state is to keep `<!-- BEGIN TBD INTEGRATION -->`
 but make the block a compact bootstrap:
@@ -288,6 +353,8 @@ Update `packages/tbd/docs/guidelines/cli-agent-skill-patterns.md` to match the p
 - [ ] Define AGENTS.md marker, scope, and unmarked-file behavior.
 - [ ] Shrink the tbd-managed `AGENTS.md` block to a compact bootstrap while keeping the
   marker contract.
+- [ ] Add agent integration format detection and upgrades for existing `tbd setup`
+  installs.
 - [ ] Audit gitignore behavior for all generated and checked-in integration files.
 
 ### Phase 3: Diagnostics, Guidelines, and Tests
@@ -343,7 +410,8 @@ Dependency outline:
 - `tbd-jrir` depends on `tbd-mjxt` and `tbd-0fhy`.
 - `tbd-shsb` depends on `tbd-t5q1`.
 - `tbd-zd4h` depends on `tbd-t5q1`.
-- `tbd-l2ym` depends on `tbd-1h9x`, `tbd-orup`, `tbd-mjxt`, and `tbd-jrir`.
+- `tbd-l2ym` depends on `tbd-1h9x`, `tbd-orup`, `tbd-mjxt`, and `tbd-jrir`, and covers
+  upgrade state reporting for legacy generated installs.
 - `tbd-udka` depends on `tbd-1h9x`, `tbd-orup`, `tbd-shsb`, `tbd-mjxt`, and `tbd-jrir`.
 - `tbd-0q8h` depends on `tbd-0fhy`.
 - `tbd-bz0h` depends on `tbd-1h9x`, `tbd-orup`, `tbd-l2ym`, `tbd-shsb`, `tbd-zd4h`, and
@@ -356,6 +424,8 @@ Dependency outline:
 - Unit tests for path constants and helper APIs.
 - Setup-flow tests for fresh repositories, already initialized repositories, and
   repeated idempotent runs.
+- Upgrade tests for old `.claude/skills`-only installs, old unversioned/full `AGENTS.md`
+  tbd blocks, old tbd-owned hook entries, and partial installs.
 - Hook tests for Claude and Codex surfaces, including gh CLI hook enable/disable.
 - Integration-file tests validating `SKILL.md` frontmatter and generated payload parity.
 - Doctor/status tests for missing, partial, and fully installed integrations.
@@ -367,6 +437,10 @@ Dependency outline:
 - Ship as a backwards-compatible setup enhancement.
 - On existing repositories, `tbd setup --auto` should add `.agents/skills/tbd/SKILL.md`
   without removing `.claude/skills/tbd/SKILL.md`.
+- Existing unversioned `AGENTS.md` tbd blocks should be treated as legacy generated
+  format 1 and replaced with the compact versioned block.
+- Existing tbd-owned hooks should be deduped and upgraded only when their command or
+  script path changes; unrelated user hooks must be preserved.
 - `tbd setup --remove` should remove tbd-managed integration artifacts while preserving
   user-owned content outside tbd markers.
 - Release notes should call out the new portable Agent Skills path and the continued
@@ -382,6 +456,9 @@ Dependency outline:
   or manually maintained as a concise source file?
 - Should `tbd setup --remove` remove `.agents/skills/tbd/SKILL.md` by default, or only
   remove agent-specific mirrors and hooks?
+- Should the AGENTS block integration format start at `2` to represent today’s
+  unversioned full block as legacy format 1, or should the first explicit metadata use
+  `1` and rely on a separate “missing format means legacy” rule?
 
 ## References
 
