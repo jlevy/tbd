@@ -186,7 +186,7 @@ Update `packages/tbd/docs/guidelines/cli-agent-skill-patterns.md` to match the p
 - [x] Refresh current Agent Skills path research.
 - [x] Create this plan spec.
 - [x] Link the epic and all children to this spec.
-- [ ] Update the PR description with this plan.
+- [x] Update the PR description with this plan.
 
 ### Phase 2: Setup and Integration Model
 
