@@ -9,7 +9,7 @@ author: Joshua Levy (github.com/jlevy) with LLM assistance
 
 **Author:** Joshua Levy (github.com/jlevy) with LLM assistance
 
-**Status:** Draft
+**Status:** In Review
 
 ## Overview
 
@@ -40,6 +40,10 @@ dogfooding so the product follows the best practices it recommends.
 - Ensure generated integration files that should be committed are not gitignored.
 - Update `tbd setup --check`, `tbd setup --remove`, `tbd setup --auto`, `tbd status`,
   `tbd doctor`, tests, and guidelines to describe the same integration model.
+- Document pinned CLI invocation fallbacks for tools that are not installed globally,
+  including pprose-style `uvx --from package@version` patterns.
+- Define explicit agent-targeting setup flags so users and agents can choose surfaces
+  intentionally when auto-detection is insufficient.
 - Dogfood the new setup in this repository after implementation.
 
 ## Non-Goals
@@ -51,6 +55,8 @@ dogfooding so the product follows the best practices it recommends.
 - Do not split every tbd shortcut or guideline into its own skill.
   tbd remains a meta-skill backed by CLI-discoverable resources.
 - Do not build a skills registry or make tbd depend on skills.sh infrastructure.
+- Do not make Codex hooks call scripts that live under `.claude/`; shared behavior
+  should live in shared agent paths or Codex-native paths.
 
 ## Background
 
@@ -76,6 +82,28 @@ The 2026-05-24 research refresh confirmed:
 - Vercel’s supported-agent table lists Codex, Cursor, OpenCode, Cline, Amp, Gemini CLI,
   and GitHub Copilot among tools using `.agents/skills/` for project installs.
 
+### Downstream pprose Lessons
+
+A downstream audit of `practical-prose`/pprose found several patterns tbd should adopt
+or document:
+
+- **Pinned command fallback is stronger than global-install assumptions.** pprose emits
+  a local-first invocation chain, then a pinned zero-install fallback:
+  `uvx --from practical-prose@<install-time-version> pprose <command>`. tbd’s current
+  guidance assumes npm-global install paths and should grow equivalent patterns for npm,
+  uvx, pipx, and Go CLIs.
+- **AGENTS.md is not Codex-only.** tbd’s implementation already treats it as Codex,
+  Factory.ai, and Cursor-compatible, but the guideline still labels it too narrowly.
+- **Codex hooks need their own path policy.** If tbd adds `.codex/hooks.json` or another
+  Codex-native hook file, those hooks should reference shared or Codex-native scripts,
+  not `.claude/scripts/tbd-session.sh`.
+- **Agent-targeting flags should be explicit.** pprose exposes optional AGENTS.md
+  patching; tbd should design a clearer flag taxonomy such as `--claude`, `--codex`,
+  `--cursor`, `--agents-md`, and `--all`, while preserving safe `--auto` behavior.
+- **Existing unmarked AGENTS.md needs a playbook.** Status/doctor should tell users what
+  it means when `AGENTS.md` exists but lacks the tbd marker block, and setup should
+  preserve user content outside markers.
+
 ## Design
 
 ### Agent Integration Surfaces
@@ -88,6 +116,7 @@ Use four distinct surfaces with clear ownership:
 | `.agents/skills/tbd/SKILL.md` | Canonical portable project Agent Skill | tbd generated | Yes |
 | `.claude/skills/tbd/SKILL.md` | Claude Code compatibility mirror | tbd generated | Yes |
 | `skills/tbd/SKILL.md` | Distribution/publication source for skills.sh-style installers | tbd source/validated generated file | Yes |
+| `.codex/*` hook/config files | Codex lifecycle automation where officially supported | tbd generated or hybrid, depending on file | Yes if project-level |
 
 Project-local setup remains the default.
 Global installs are common in the broader ecosystem, but adding global writes would be a
@@ -108,6 +137,16 @@ separate product decision.
 7. Avoid duplicate hooks by filtering existing tbd hook entries before appending current
    entries.
 
+Setup should also expose an explicit targeting model:
+
+- `--auto` keeps the current default behavior: detect available surfaces and refresh
+  project-local integrations.
+- Future explicit flags should let users request or suppress individual surfaces, for
+  example `--claude`, `--codex`, `--cursor`, `--agents-md`, `--all`, or matching
+  `--no-*` flags.
+- The design must define how explicit flags interact with config defaults and existing
+  files before implementation.
+
 ### Codex Hook Parity
 
 Claude Code currently gets:
@@ -127,9 +166,44 @@ Codex should get the best available equivalent using official Codex configuratio
   - shared close-protocol reminder script
 - If a Claude-specific script path is required by Claude Code, use a small wrapper or a
   mirrored copy rather than making `.claude/scripts/` the canonical script home.
+- Codex hook entries must not reference `.claude/scripts/`; that creates an undocumented
+  cross-agent coupling and makes Codex setup depend on Claude setup.
 - If Codex lacks a direct equivalent for a Claude event, make that limitation explicit
   in `AGENTS.md`, `SKILL.md`, `status`, and `doctor` instead of inventing unsupported
   behavior.
+
+### CLI Invocation Pinning
+
+Generated skill text should prefer a local command when available, then a pinned
+fallback appropriate to the package manager:
+
+1. `mycli <command>` when already on `PATH`.
+2. A pinned zero-install fallback such as:
+   - `npx --yes my-package@<version> mycli <command>` for npm packages.
+   - `uvx --from my-package@<version> mycli <command>` for Python packages distributed
+     through uv-compatible indexes.
+   - `pipx run my-package==<version> mycli <command>` when pipx is the intended runner.
+   - `go run module/path@<version> <args>` for Go CLIs.
+3. If neither local nor pinned fallback works, stop and tell the user what install step
+   is required.
+
+Never recommend an unpinned network runner from generated agent instructions unless the
+user explicitly opts into that behavior.
+
+### AGENTS.md Marker and Scope Policy
+
+`AGENTS.md` guidance should cover:
+
+- Repo-root `AGENTS.md` as the primary project instruction surface.
+- Global Codex/user instruction files as an advanced/manual setup surface, not something
+  `tbd setup --auto` writes by default.
+- `<!-- BEGIN TBD INTEGRATION -->` / `<!-- END TBD INTEGRATION -->` as the authoritative
+  managed-region contract.
+- How setup behaves when `AGENTS.md` exists without markers: preserve the file and
+  append the tbd block, or report the state clearly in check/doctor output.
+- A generated-block size budget for AGENTS-compatible tools.
+  Claude’s SKILL.md line and character budgets should not be copied uncritically to
+  AGENTS.md.
 
 ### Path Constants and Diagnostics
 
@@ -187,6 +261,7 @@ Update `packages/tbd/docs/guidelines/cli-agent-skill-patterns.md` to match the p
 - [x] Create this plan spec.
 - [x] Link the epic and all children to this spec.
 - [x] Update the PR description with this plan.
+- [x] Incorporate downstream pprose audit lessons into the plan and bead map.
 
 ### Phase 2: Setup and Integration Model
 
@@ -196,6 +271,9 @@ Update `packages/tbd/docs/guidelines/cli-agent-skill-patterns.md` to match the p
 - [ ] Add `skills/tbd/SKILL.md` distribution source.
 - [ ] Add Codex hook/config setup or an explicit documented fallback based on official
   Codex hook support.
+- [ ] Add or document explicit agent-targeting setup flags.
+- [ ] Add pinned CLI invocation fallback guidance to generated skill/guideline patterns.
+- [ ] Define AGENTS.md marker, scope, and unmarked-file behavior.
 - [ ] Audit gitignore behavior for all generated and checked-in integration files.
 
 ### Phase 3: Diagnostics, Guidelines, and Tests
@@ -225,11 +303,14 @@ Children:
 
 | Bead | Priority | Status | Scope |
 | --- | --- | --- | --- |
-| `tbd-t5q1` | P1 | in_progress | Write implementation spec for multi-agent skills setup |
+| `tbd-t5q1` | P1 | closed | Write implementation spec for multi-agent skills setup |
 | `tbd-0fhy` | P1 | open | Refactor agent integration path model |
 | `tbd-1h9x` | P1 | open | Adopt `.agents/skills` as primary Agent Skills install path |
 | `tbd-qgpl` | P1 | open | Add `skills/tbd` distribution source |
+| `tbd-mjxt` | P1 | open | Define AGENTS.md scope and marker policy |
 | `tbd-orup` | P1 | open | Add Codex startup and gh CLI setup parity |
+| `tbd-shsb` | P1 | open | Document pinned CLI runner fallback patterns |
+| `tbd-zd4h` | P2 | open | Add agent-targeted setup flag design |
 | `tbd-l2ym` | P1 | open | Update setup check remove status and doctor |
 | `tbd-udka` | P1 | open | Align CLI agent skill guidelines with implementation |
 | `tbd-0q8h` | P1 | open | Audit gitignore policy for agent integration files |
@@ -243,10 +324,14 @@ Dependency outline:
 - `tbd-1h9x` depends on `tbd-0fhy`.
 - `tbd-qgpl` depends on `tbd-0fhy` and `tbd-1h9x`.
 - `tbd-orup` depends on `tbd-t5q1`.
-- `tbd-l2ym` depends on `tbd-1h9x` and `tbd-orup`.
-- `tbd-udka` depends on `tbd-1h9x` and `tbd-orup`.
+- `tbd-mjxt` depends on `tbd-t5q1`.
+- `tbd-shsb` depends on `tbd-t5q1`.
+- `tbd-zd4h` depends on `tbd-t5q1`.
+- `tbd-l2ym` depends on `tbd-1h9x`, `tbd-orup`, and `tbd-mjxt`.
+- `tbd-udka` depends on `tbd-1h9x`, `tbd-orup`, `tbd-shsb`, and `tbd-mjxt`.
 - `tbd-0q8h` depends on `tbd-0fhy`.
-- `tbd-bz0h` depends on `tbd-1h9x`, `tbd-orup`, and `tbd-l2ym`.
+- `tbd-bz0h` depends on `tbd-1h9x`, `tbd-orup`, `tbd-l2ym`, `tbd-shsb`, `tbd-zd4h`, and
+  `tbd-mjxt`.
 - `tbd-m6f3` depends on `tbd-bz0h`, `tbd-udka`, and `tbd-0q8h`.
 - `tbd-wha7` depends on `tbd-m6f3` and `tbd-bz0h`.
 

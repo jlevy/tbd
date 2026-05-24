@@ -105,6 +105,10 @@ The plan refresh re-checked the external sources that determine path and hook st
 - Vercel’s supported-agent table still lists Codex, Cursor, OpenCode, Cline, Amp, Gemini
   CLI, and GitHub Copilot as project installs that use `.agents/skills/`; it lists
   Claude Code as `.claude/skills/`.
+- A downstream pprose audit surfaced two additional process lessons that belong in tbd’s
+  guidance: generated skill instructions should prefer pinned fallback runners such as
+  `uvx --from package@version`, and Codex hooks should not reference scripts stored
+  under `.claude/`.
 
 No refreshed source changed the main recommendation: `.agents/skills/` should be tbd’s
 portable project skill path, `.claude/skills/` should remain a Claude Code mirror, and

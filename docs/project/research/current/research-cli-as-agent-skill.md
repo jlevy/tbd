@@ -65,6 +65,9 @@ boundaries lead to more reliable agentic workflows.
 10. What task management patterns work best for agent-integrated CLIs across different
     tracking needs (ephemeral, session, persistent)?
 
+11. How should generated agent instructions invoke CLIs that may not be installed
+    globally?
+
 * * *
 
 ## Research Methodology
@@ -88,6 +91,8 @@ Patterns were validated through CI testing and actual agent usage.
 - OpenAI Codex skills and hooks docs (https://developers.openai.com/codex/skills,
   https://developers.openai.com/codex/hooks)
 - Cursor Agent Skills support and AGENTS.md/rules documentation
+- Downstream pprose audit of pinned `uvx --from practical-prose@<version>` skill
+  invocation fallback
 - Community best practices (meta_skill repository, gists)
 - MCP protocol documentation and engineering blogs
 
@@ -185,6 +190,34 @@ sections of AGENTS.md.
 **Assessment**: The portable skill plus native mirror pattern minimizes drift while
 letting agents use progressive disclosure.
 `AGENTS.md` remains valuable, but it should not be the only Codex integration surface.
+
+* * *
+
+#### 1.3 Pinned CLI Invocation Fallbacks
+
+**Status**: Planned
+
+**Details**:
+
+Generated skill instructions should not assume a global CLI is installed, and should not
+recommend unpinned network execution.
+A strong pattern is:
+
+1. Try the local command first, for example `mycli <command>`.
+2. If unavailable, use an install-time pinned fallback:
+   - `npx --yes package@<version> mycli <command>` for npm CLIs.
+   - `uvx --from package@<version> mycli <command>` for Python CLIs.
+   - `pipx run package==<version> mycli <command>` for pipx workflows.
+   - `go run module/path@<version> <args>` for Go CLIs.
+3. If neither works, stop and ask the user to install the CLI.
+
+The pprose installer is a useful reference implementation: it injects a generated
+“Running pprose” block with local-first execution and an install-time pinned
+`uvx --from practical-prose@<version>` fallback.
+
+**Assessment**: tbd’s current guidance is too npm-global-specific.
+The guideline should teach pinned runner fallbacks as a supply-chain hardening pattern
+for all CLI-as-skill projects.
 
 * * *
 
