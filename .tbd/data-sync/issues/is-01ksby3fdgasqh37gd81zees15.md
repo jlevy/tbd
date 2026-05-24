@@ -5,7 +5,8 @@ title: Adopt .agents/skills as primary Agent Skills install path
 kind: task
 status: open
 priority: 1
-version: 6
+version: 8
+spec_path: docs/project/specs/active/plan-2026-05-24-multi-agent-skills-hooks-setup.md
 labels:
   - agent-skills
   - setup
@@ -20,7 +21,7 @@ dependencies:
     target: is-01ksc0ta2n1q3nkr2791574t56
 parent_id: is-01ksc0qwt0v3pg3hgn35sh0s1e
 created_at: 2026-05-24T02:47:52.495Z
-updated_at: 2026-05-24T03:36:27.125Z
+updated_at: 2026-05-24T19:09:44.339Z
 ---
 Research confirms tbd's guidelines and setup behavior are behind the current Agent Skills ecosystem. Follow-up work: update cli-agent-skill-patterns.md to recommend .agents/skills as the portable default, keep AGENTS.md as always-on repo orientation, keep .claude/skills as a Claude Code mirror, update tbd setup/status/doctor/tests to write and report .agents/skills/tbd/SKILL.md, add skills/tbd/SKILL.md for skills.sh discovery, and validate with skills-ref / npx skills add. Research: docs/project/research/current/research-agent-skills-standard-paths.md
 
