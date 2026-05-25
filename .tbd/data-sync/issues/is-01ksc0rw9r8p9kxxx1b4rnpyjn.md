@@ -5,7 +5,7 @@ title: Refactor agent integration path model
 kind: task
 status: open
 priority: 1
-version: 7
+version: 8
 spec_path: docs/project/specs/active/plan-2026-05-24-multi-agent-skills-hooks-setup.md
 labels:
   - agent-skills
@@ -21,6 +21,6 @@ dependencies:
     target: is-01ksdq6jr5nrtjtc194fz17kry
 parent_id: is-01ksc0qwt0v3pg3hgn35sh0s1e
 created_at: 2026-05-24T03:34:30.967Z
-updated_at: 2026-05-24T19:27:29.876Z
+updated_at: 2026-05-25T23:39:36.153Z
 ---
-Update integration path constants and helper APIs so tbd has first-class project-local paths for .agents/skills/tbd/SKILL.md, .claude/skills/tbd/SKILL.md, AGENTS.md, any shared agent scripts, and the repository distribution copy skills/tbd/SKILL.md. Keep project-local install policy explicit and avoid global writes except detection.
+packages/tbd/src/lib/integration-paths.ts. Add constants: AGENTS_SKILL_REL=.agents/skills/tbd/SKILL.md, SKILLS_DIST_REL=skills/tbd/SKILL.md, CODEX_DIR_REL=.codex, CODEX_HOOKS_REL=.codex/hooks.json, CODEX_CONFIG_REL=.codex/config.toml, AGENT_SCRIPTS_DIR_REL=scripts/agent (shared session/closing/gh script rels), and AGENT_INTEGRATION_FORMAT=2. Add resolver fns getAgentSkillPaths(), getCodexPaths(), getSharedScriptPaths() mirroring getClaudePaths() (line 93). Add display constants. Keep existing CLAUDE_* constants for back-compat. Foundation for all other beads.
