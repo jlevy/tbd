@@ -27,6 +27,25 @@ tbd should keep that path as a compatibility mirror rather than making it canoni
 This plan updates tbd’s own setup behavior, diagnostics, guidelines, and repository
 dogfooding so the product follows the best practices it recommends.
 
+### Current Non-Conformance (the gap this plan closes)
+
+tbd does not yet follow the guidance in this plan. As of this writing:
+
+- This repository’s `AGENTS.md` tbd-managed block is ~246 lines (of ~281 total) — well
+  over the `<80–150` line compact-bootstrap budget the updated guideline recommends
+  (closed by `tbd-jrir`).
+- `packages/tbd/src/lib/integration-paths.ts` defines only Claude surfaces
+  (`CLAUDE_SKILL_REL = .claude/skills/tbd/SKILL.md`); there is no `.agents/skills/`,
+  Codex, or shared-script constant (closed by `tbd-0fhy`, `tbd-1h9x`).
+- There is no `.agents/`, no `.codex/`, and no `skills/tbd/SKILL.md` in the repo
+  (closed by `tbd-1h9x`, `tbd-qgpl`, `tbd-orup`).
+- Hook scripts live under `.claude/scripts/` (e.g. `TBD_SESSION_SCRIPT_REL`), which the
+  updated guideline now advises against for multi-agent setups (closed by `tbd-orup`).
+
+Until Phases 2–4 land, an agent reading tbd’s own integration files would see the
+anti-pattern, not the recommended pattern. Closing that gap is the explicit dogfooding
+deliverable of this work.
+
 ## Goals
 
 - Install `.agents/skills/tbd/SKILL.md` as the canonical project-local tbd Agent Skill.
@@ -114,7 +133,7 @@ or document:
 
 ### Agent Integration Surfaces
 
-Use four distinct surfaces with clear ownership:
+Use five distinct surfaces with clear ownership:
 
 | Surface | Purpose | Owner | Commit? |
 | --- | --- | --- | --- |
@@ -222,21 +241,34 @@ Claude Code currently gets:
 - `SessionStart`: ensure `gh` is available when `settings.use_gh_cli` is true
 - `PostToolUse`: remind about `tbd sync` after `git push`
 
-Codex should get the best available equivalent using official Codex configuration:
+Codex's hook engine (confirmed against the official Codex hooks docs, May 2026) uses the
+**same event schema as Claude Code**: `SessionStart`, `PreCompact`/`PostCompact`,
+`PreToolUse`/`PostToolUse`, `UserPromptSubmit`, `Stop`, and `SubagentStart`/`SubagentStop`,
+loaded from `hooks.json` or an inline `[hooks]` table in `config.toml`. Only command
+handlers run today. This means tbd's four Claude hooks map almost 1:1, so the realistic
+target is near-full parity, not graceful degradation:
 
-- Add project-local Codex hook/config support only after confirming the exact current
-  file format and event names from the official Codex hooks docs.
-- Prefer shared scripts over duplicated script bodies:
+| Claude hook | Codex equivalent |
+| --- | --- |
+| `SessionStart` → `tbd prime` | `SessionStart` |
+| `PreCompact` → `tbd prime --brief` | `PreCompact` |
+| `SessionStart` → ensure `gh` (when `use_gh_cli`) | `SessionStart` |
+| `PostToolUse` → `tbd sync` reminder after `git push` | `PostToolUse` (command matcher) |
+
+- Prefer **one shared script referenced by two thin per-agent configs** over duplicated
+  script bodies:
   - shared bootstrap script for `tbd prime`
   - shared `ensure-gh-cli.sh`
   - shared close-protocol reminder script
-- If a Claude-specific script path is required by Claude Code, use a small wrapper or a
-  mirrored copy rather than making `.claude/scripts/` the canonical script home.
+- Relocate these shared scripts out of `.claude/scripts/` into a neutral location (e.g.
+  `scripts/agent/`) so neither agent's config owns them. Update tbd-owned Claude hook
+  commands (or leave a wrapper) so existing Claude installs keep working through the move.
 - Codex hook entries must not reference `.claude/scripts/`; that creates an undocumented
   cross-agent coupling and makes Codex setup depend on Claude setup.
-- If Codex lacks a direct equivalent for a Claude event, make that limitation explicit
-  in `AGENTS.md`, `SKILL.md`, `status`, and `doctor` instead of inventing unsupported
-  behavior.
+- The `PostToolUse` `git push` reminder relies on a command matcher; confirm Codex's
+  matcher semantics cover the shell-command case. If any single Claude event genuinely
+  lacks a Codex equivalent, make that limitation explicit in `AGENTS.md`, `SKILL.md`,
+  `status`, and `doctor` instead of inventing unsupported behavior.
 
 ### CLI Invocation Pinning
 

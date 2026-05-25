@@ -365,7 +365,7 @@ you care about.
 | Agent | Project file | Skill / rules mechanism | MCP | Hooks | Best integration path |
 | --- | --- | --- | --- | --- | --- |
 | **Claude Code** | `CLAUDE.md` | Agent Skills (`SKILL.md`), `.claude/skills/`; plugins/marketplaces | Yes (stdio + Streamable HTTP) | 29 events | SKILL.md (+ plugin for distribution) |
-| **Codex CLI** | `AGENTS.md` | `SKILL.md` skills + plugins (skills+MCP); `~/.codex/prompts` (deprecated) | Yes (stdio + Streamable HTTP) | — | AGENTS.md + skills/plugins + MCP |
+| **Codex CLI** | `AGENTS.md` | `SKILL.md` skills + plugins (skills+MCP); `~/.codex/prompts` (deprecated) | Yes (stdio + Streamable HTTP) | Claude-compatible engine (`SessionStart`, `Pre/PostCompact`, `Pre/PostToolUse`, `UserPromptSubmit`, `Stop`, …) | AGENTS.md + skills/plugins + MCP |
 | **Cursor** | `.cursor/rules/*.mdc`, `AGENTS.md` | MDC rules (Always/Auto-glob/Agent-requested/Manual) | Yes | 6 events (incl. `beforeShellExecution`) | AGENTS.md + `.mdc` for glob scoping |
 | **GitHub Copilot** | `.github/copilot-instructions.md`, `AGENTS.md` | `SKILL.md` (VS Code); `.agent.md` custom agents | Yes | `preToolUse`/`postToolUse`/… | SKILL.md + MCP; enterprise-managed plugins |
 | **Gemini CLI** | `GEMINI.md` + `AGENTS.md` | Agent Skills; extensions (bundle hooks) | Yes (stdio + SSE) | ~12 events | AGENTS.md + MCP/extension |
@@ -531,6 +531,22 @@ also feeds Cursor, Codex, and Factory), preserving user content outside the mark
 <!-- END MYCLI INTEGRATION -->
 ```
 
+**Quick recipe for a new project** (portable-first, both agents covered):
+
+```text
+.agents/skills/<tool>/SKILL.md   # canonical portable skill (Codex, Gemini, Cursor, …)
+.claude/skills/<tool>/SKILL.md   # identical copy — Claude Code mirror
+AGENTS.md                        # compact marked block (see above), every agent reads it
+CLAUDE.md                        # symlink → AGENTS.md, or a short separate file (Claude only)
+scripts/agent/<tool>-session.sh  # shared hook script, referenced by both agents
+.codex/hooks.json                # Codex hook entry → shared script (or inline [hooks])
+.claude/settings.json            # Claude hook entry → same shared script
+```
+
+Copy (don't symlink) the `SKILL.md` payload to both skill paths — symlinks behave
+unevenly across Windows, sandboxes, and remote worktrees. Claude Code does **not**
+auto-load `AGENTS.md` (it reads `CLAUDE.md`), so a multi-agent project needs both.
+
 **File-ownership rules** — distinguish three categories:
 
 - **Project instruction files** (`AGENTS.md`, `CLAUDE.md`): *commit these*. They hold
@@ -547,8 +563,13 @@ Make setup idempotent: dedupe hooks before merging, overwrite generated skills r
 than patching them, update only the marked section of `AGENTS.md`, and clean up legacy
 files each run. (Generated output must also be stable under whatever formatter the repo
 runs — e.g. don’t emit a second YAML frontmatter block mid-document.)
-Do not make Codex hooks call scripts stored under `.claude/`; put shared hook scripts in
-a neutral location or use Codex-native scripts under `.codex/`.
+Because Codex and Claude Code now share a hook event schema (§8), prefer **one shared
+script referenced by two thin per-agent configs**: keep the logic in a neutral location
+(e.g. `scripts/agent/<tool>-session.sh`) and reference it from both `.claude/settings.json`
+and the Codex `[hooks]`/`.codex/hooks.json` entry. Do not make Codex hooks call scripts
+stored under `.claude/` — that couples Codex setup to Claude setup. If a script must move
+out of `.claude/scripts/`, update the tbd-owned hook commands (or leave a wrapper) so
+existing Claude hooks keep working.
 
 **Upgrade existing installs deliberately.** Treat generated integration files like
 config migrations:
@@ -640,6 +661,9 @@ pinned fallback chain:
 
 Never put an unpinned network runner such as `uvx --from my-package` or `npx my-package`
 in generated skill instructions unless the user explicitly opts into that risk.
+This is a supply-chain control, not just ergonomics: an unpinned runner re-resolves to the
+latest published version on every run and bypasses any cool-off window. See
+`tbd guidelines supply-chain-hardening` for the cross-ecosystem policy.
 
 **Current tooling (May 2026)**
 
@@ -713,10 +737,16 @@ Support varies:
   `beforeShellExecution`/`beforeMCPExecution`), **Windsurf** (pre-hooks can **block**
   via exit code 2), **Gemini CLI** (~12), and **opencode** (25+, with tool interception)
   all have lifecycle hooks.
-- **Codex** loads hooks from `~/.codex/hooks.json`, `~/.codex/config.toml`,
-  `<repo>/.codex/hooks.json`, or `<repo>/.codex/config.toml`. Repo-local hooks should
-  resolve scripts from the git root or `.codex/`, not from `.claude/`, so Codex setup
-  remains independent of Claude Code setup.
+- **Codex** (as of May 2026) ships a **Claude-style hooks engine that uses the same event
+  schema as Claude Code** — `SessionStart`, `PreCompact`/`PostCompact`,
+  `PreToolUse`/`PostToolUse`, `UserPromptSubmit`, `Stop`, `SubagentStart`/`SubagentStop`,
+  and `PermissionRequest`. Hooks load from `hooks.json` **or an inline `[hooks]` table in
+  `config.toml`** next to an active config layer (`~/.codex/…` for user scope,
+  `<repo>/.codex/…` for project scope). Only **command** handlers run today; `prompt`/
+  `agent` handlers are parsed but skipped. Because the schema matches Claude's, a tool's
+  `SessionStart`/`PreCompact`/`PostToolUse` hooks map almost 1:1 across both agents.
+  Repo-local hooks should resolve scripts from the git root or `.codex/`, not from
+  `.claude/`, so Codex setup stays independent of Claude Code setup.
 - **Aider**, **Jules**, **Zed** have no agent hooks (Aider integrates Git pre-commit
   hooks only).
 

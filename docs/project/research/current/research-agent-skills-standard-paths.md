@@ -96,9 +96,13 @@ The plan refresh re-checked the external sources that determine path and hook st
   `.agents/skills` in the current working directory, ancestor directories, and the repo
   root; user skills live in `$HOME/.agents/skills`; admin skills live in
   `/etc/codex/skills`.
-- Codex’s docs now list a hooks configuration surface.
-  The implementation plan should use that official surface for Codex startup/gh CLI
-  parity if the event mapping covers tbd’s current Claude lifecycle hooks.
+- Codex now ships a hooks engine that **uses the same event schema as Claude Code**
+  (verified against the official Codex hooks docs, May 2026): `SessionStart`,
+  `PreCompact`/`PostCompact`, `PreToolUse`/`PostToolUse`, `UserPromptSubmit`, `Stop`, and
+  `SubagentStart`/`SubagentStop`, loaded from `hooks.json` or an inline `[hooks]` table in
+  `config.toml`; only command handlers run today. The event mapping therefore covers
+  tbd’s current Claude lifecycle hooks almost 1:1, so the implementation plan can target
+  near-full Codex parity rather than treating it as a best-effort surface.
 - Gemini CLI still documents `.agents/skills/` as a user and workspace alias, with the
   alias taking precedence over `.gemini/skills/` within the same tier.
 - GSD still documents `~/.agents/skills/` and project `.agents/skills/` as its skill
