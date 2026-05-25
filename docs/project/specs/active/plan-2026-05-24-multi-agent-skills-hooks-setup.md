@@ -9,7 +9,7 @@ author: Joshua Levy (github.com/jlevy) with LLM assistance
 
 **Author:** Joshua Levy (github.com/jlevy) with LLM assistance
 
-**Status:** In Review
+**Status:** Ready to Implement (beads detailed under epic `tbd-g9x7`, 2026-05-25)
 
 ## Overview
 
@@ -410,29 +410,31 @@ Update `packages/tbd/docs/guidelines/cli-agent-skill-patterns.md` to match the p
 
 Epic:
 
-- `tbd-g9x7` - Modernize multi-agent skills and hooks setup
+- `tbd-g9x7` — Modernize multi-agent skills and hooks setup
 
-Children:
+Children (descriptions enriched to file/function detail 2026-05-25; full acceptance
+criteria live in each bead):
 
 | Bead | Priority | Status | Scope |
 | --- | --- | --- | --- |
 | `tbd-t5q1` | P1 | closed | Write implementation spec for multi-agent skills setup |
-| `tbd-0fhy` | P1 | open | Refactor agent integration path model |
-| `tbd-1h9x` | P1 | open | Adopt `.agents/skills` as primary Agent Skills install path |
-| `tbd-qgpl` | P1 | open | Add `skills/tbd` distribution source |
-| `tbd-mjxt` | P1 | open | Define AGENTS.md scope and marker policy |
-| `tbd-jrir` | P1 | open | Shrink generated AGENTS.md block |
-| `tbd-orup` | P1 | open | Add Codex startup and gh CLI setup parity |
-| `tbd-shsb` | P1 | open | Document pinned CLI runner fallback patterns |
-| `tbd-zd4h` | P2 | open | Add agent-targeted setup flag design |
-| `tbd-l2ym` | P1 | open | Update setup check remove status and doctor |
-| `tbd-udka` | P1 | open | Align CLI agent skill guidelines with implementation |
+| `tbd-0fhy` | P1 | open | Refactor agent integration path model (`integration-paths.ts`) |
+| `tbd-1h9x` | P1 | open | Adopt `.agents/skills` as primary skill path with Claude mirror |
+| `tbd-qgpl` | P1 | open | Add `skills/tbd` distribution source and drift test |
+| `tbd-mjxt` | P1 | open | Define AGENTS.md scope, marker and format policy |
+| `tbd-jrir` | P1 | open | Shrink generated AGENTS.md block to compact bootstrap |
+| `tbd-orup` | P1 | open | Add Codex hook and gh CLI parity via shared scripts |
+| `tbd-shsb` | P1 | open | Document and emit pinned CLI runner fallbacks |
+| `tbd-zd4h` | P2 | open | Add agent-targeted setup flags |
+| `tbd-fcam` | P1 | open | Existing-install upgrade, migration and format guard |
 | `tbd-0q8h` | P1 | open | Audit gitignore policy for agent integration files |
+| `tbd-l2ym` | P1 | open | Update setup check/remove, status and doctor diagnostics |
+| `tbd-udka` | P1 | open | Align CLI agent skill guidelines with implementation |
 | `tbd-bz0h` | P1 | open | Add tests for multi-agent skills and hooks setup |
 | `tbd-m6f3` | P1 | open | Self-apply tbd setup to this repository |
 | `tbd-wha7` | P2 | open | Validate ecosystem compatibility and release metadata |
 
-Dependency outline:
+Dependency outline (blocker edges; `tbd-0fhy` is the foundational unblocked task):
 
 - `tbd-0fhy` depends on `tbd-t5q1`.
 - `tbd-1h9x` depends on `tbd-0fhy`.
@@ -442,12 +444,12 @@ Dependency outline:
 - `tbd-jrir` depends on `tbd-mjxt` and `tbd-0fhy`.
 - `tbd-shsb` depends on `tbd-t5q1`.
 - `tbd-zd4h` depends on `tbd-t5q1`.
-- `tbd-l2ym` depends on `tbd-1h9x`, `tbd-orup`, `tbd-mjxt`, and `tbd-jrir`, and covers
-  upgrade state reporting for legacy generated installs.
+- `tbd-fcam` depends on `tbd-mjxt`, `tbd-1h9x`, and `tbd-orup`.
+- `tbd-l2ym` depends on `tbd-1h9x`, `tbd-orup`, `tbd-mjxt`, `tbd-jrir`, and `tbd-fcam`.
 - `tbd-udka` depends on `tbd-1h9x`, `tbd-orup`, `tbd-shsb`, `tbd-mjxt`, and `tbd-jrir`.
 - `tbd-0q8h` depends on `tbd-0fhy`.
-- `tbd-bz0h` depends on `tbd-1h9x`, `tbd-orup`, `tbd-l2ym`, `tbd-shsb`, `tbd-zd4h`, and
-  `tbd-mjxt` and `tbd-jrir`.
+- `tbd-bz0h` depends on `tbd-1h9x`, `tbd-orup`, `tbd-l2ym`, `tbd-shsb`, `tbd-zd4h`,
+  `tbd-mjxt`, `tbd-jrir`, and `tbd-fcam`.
 - `tbd-m6f3` depends on `tbd-bz0h`, `tbd-udka`, `tbd-0q8h`, and `tbd-jrir`.
 - `tbd-wha7` depends on `tbd-m6f3` and `tbd-bz0h`.
 
@@ -478,19 +480,45 @@ Dependency outline:
 - Release notes should call out the new portable Agent Skills path and the continued
   Claude mirror.
 
-## Open Questions
+## Resolved Decisions
 
-- What exact Codex hook file and event mapping should tbd use for `tbd prime`, gh CLI
-  setup, and close-protocol reminders?
-- Should `.agents/skills/tbd/SKILL.md` be installed unconditionally for every
-  initialized repo, even if no skill-aware agent is detected?
-- Should `skills/tbd/SKILL.md` be committed as a generated artifact with a drift test,
-  or manually maintained as a concise source file?
-- Should `tbd setup --remove` remove `.agents/skills/tbd/SKILL.md` by default, or only
-  remove agent-specific mirrors and hooks?
-- Should the AGENTS block integration format start at `2` to represent today’s
-  unversioned full block as legacy format 1, or should the first explicit metadata use
-  `1` and rely on a separate “missing format means legacy” rule?
+These were open questions; resolved 2026-05-25 so the beads are unambiguous:
+
+- **Codex hook mapping** — use the same event schema as Claude (`SessionStart`,
+  `PreCompact`, `PostToolUse`, etc.) via `.codex/hooks.json` or an inline `[hooks]` table
+  in `.codex/config.toml`; command handlers only. See "Codex Hook Parity" above. (`tbd-ujh3`)
+- **Install `.agents/skills/` unconditionally** for every initialized repo. It is
+  project-local and harmless, and unconditional install is what makes the portable path
+  actually portable. (`tbd-sp93`)
+- **Commit `skills/tbd/SKILL.md`** as a generated artifact guarded by a drift test that
+  regenerates and compares. Browsable on GitHub/skills.sh *and* protected from drift.
+  (`tbd-fif7`)
+- **`tbd setup --remove`** removes all tbd-owned artifacts, including
+  `.agents/skills/tbd/SKILL.md` and `.codex/` files, while preserving user content outside
+  managed markers. (`tbd-ymts`)
+- **Integration format starts at `2`**: today's unversioned full `AGENTS.md` block is
+  treated as legacy format 1, and the new compact block is format 2. (`tbd-slsp`, `tbd-y84j`)
+
+## Self-Upgrade and Forward-Compatibility (Tier-2 behavior)
+
+This integration tier (a CLI that self-installs evolving skills, hooks, and managed blocks)
+follows the advanced pattern documented in `cli-agent-skill-patterns.md` §6.0/§6.6. Simpler
+tools should remain pure skills invoked via a pinned `npx`/`uvx` and need none of this.
+
+For tbd specifically:
+
+- `tbd setup` / `tbd setup --auto` **self-upgrades existing installs in place, safely and
+  idempotently**: it rewrites only tbd-owned regions (managed `AGENTS.md` block → compact
+  format 2, generated skills, tbd-owned hooks, `.codex/` config), re-runs as a no-op when
+  already current, and preserves all user content outside markers.
+- **Forward-compatibility guard:** every generated artifact carries
+  `AGENT_INTEGRATION_FORMAT`. When a running tbd encounters an artifact whose format is
+  **newer** than it understands, it must **stop and recommend upgrading tbd**
+  (`npm install -g get-tbd@latest`) instead of overwriting or downgrading it. This makes
+  version pinning safe on teams: an older tbd fails loudly rather than clobbering a newer
+  managed block. (`tbd-y84j`, surfaced by `tbd-ymts`)
+- Version pinning in generated invocations serves both supply-chain hardening and
+  cross-team/cross-agent behavioral consistency. (`tbd-1h2s`)
 
 ## References
 

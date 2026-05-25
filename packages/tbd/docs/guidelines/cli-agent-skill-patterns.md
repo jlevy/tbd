@@ -111,6 +111,9 @@ So:
   (§7)
 - **Maximum reach across many agents** → layer them: AGENTS.md + SKILL.md + CLI + MCP.
   (§1)
+- **Self-installs into agents & ships evolving skills?** → that is the advanced Tier 2
+  pattern (self-upgrade + format versioning); most tools are Tier 1: a pure skill run via
+  a **pinned** `npx`/`uvx`. (§6.0)
 
 Everything below is reference material.
 You do not need most of it for most tools.
@@ -416,6 +419,32 @@ Use this when you have many capabilities, need cross-session state, or want a cu
 knowledge library the agent pulls from.
 For a single capability, the §0 baseline is better — don’t reach for this prematurely.
 
+### 6.0 Two integration tiers — pick the lighter one
+
+Most tools should **not** self-install. Decide which tier you are before adding any setup
+machinery:
+
+- **Tier 1 — pure skill (the default for most tools).** Ship a `SKILL.md` (optionally an
+  `AGENTS.md` snippet); users install it once (commit to `.agents/skills/`, `npx skills
+  add`, or the Claude mirror). Invoke the tool through a **version-pinned** zero-install
+  runner — `npx --yes pkg@<ver>`, `uvx --from pkg@<ver>`, or `pipx run pkg==<ver>` (§6.7).
+  No hooks, no managed `AGENTS.md` block, no `setup` command, no format versioning.
+  Pinning the version here does **double duty**:
+  - **Supply-chain control** — an unpinned runner (`npx pkg`, `uvx --from pkg`) silently
+    re-resolves to the latest published version on every run and bypasses any cool-off
+    window. A pinned version is the artifact you actually vetted.
+  - **Consistency control** — every teammate and every agent runs the *same* tool
+    version, so skill behavior is reproducible across a team and across agents rather than
+    drifting as upstream publishes new releases.
+- **Tier 2 — self-installing CLI (advanced; the rest of §6).** A tool that writes its own
+  integration files into multiple agents (`.agents/skills/`, `.claude/skills/`, a managed
+  `AGENTS.md` block, hooks, `.codex/` config) **and** whose skill content evolves across
+  releases. Take on this complexity only for a tool with many capabilities, cross-session
+  state, or a curated knowledge library. The self-upgrade and format-versioning rules in
+  §6.6 apply **only to this tier** — a pure skill never needs them.
+
+If in doubt, you are Tier 1. `tbd` is a Tier-2 reference implementation; most CLIs are not.
+
 ### 6.1 Two kinds of commands
 
 | Type | Purpose | Examples |
@@ -571,20 +600,31 @@ stored under `.claude/` — that couples Codex setup to Claude setup. If a scrip
 out of `.claude/scripts/`, update the tbd-owned hook commands (or leave a wrapper) so
 existing Claude hooks keep working.
 
-**Upgrade existing installs deliberately.** Treat generated integration files like
-config migrations:
+**Upgrade existing installs deliberately (Tier 2 only).** A self-installing tool whose
+skill content evolves *will* leave older generated files in users' repos. Treat generated
+integration files like config migrations:
 
 - Define an agent-integration format constant separate from the repo data/config format.
   Bump it only when generated agent surfaces change shape.
 - Put the format in generated files: an `AGENTS.md` metadata comment, the skill “DO NOT
   EDIT” marker, script headers, or an equivalent hook signature.
+- On every `setup`/`setup --auto` run, **self-upgrade in place, safely and idempotently**:
+  detect older formats and rewrite only the tool-owned regions (managed `AGENTS.md` block,
+  generated skills, tool-owned hooks, `.codex/` config), re-running cleanly with no change
+  when already current.
 - Treat old marked `AGENTS.md` blocks with no metadata as legacy generated content and
   replace only the managed region.
-- Detect tbd-owned hook entries by command/path/signature, replace only those entries,
+- Detect tool-owned hook entries by command/path/signature, replace only those entries,
   and preserve unrelated user hooks.
+- **Forward-compatibility guard.** When the tool finds a generated artifact whose
+  `integration-format` is **newer** than the running version understands, it must **stop
+  and tell the user to upgrade the tool** (e.g. `npm install -g get-tbd@latest`) rather
+  than overwrite or downgrade it. This is what makes pinning safe for teams: a teammate on
+  an older version fails loudly instead of silently clobbering a newer managed block.
 - Print an itemized setup summary: current, installed, upgraded, removed legacy, skipped
-  by config, and user-owned/unmarked.
-- Test upgrades from at least the previous shipped setup layout plus partial installs.
+  by config, user-owned/unmarked, and format-too-new (upgrade required).
+- Test upgrades from at least the previous shipped setup layout plus partial installs, and
+  test that a too-new format string produces the upgrade-the-tool error.
 
 Recommended setup flags:
 
