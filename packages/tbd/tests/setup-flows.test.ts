@@ -200,6 +200,51 @@ describe('setup flows', { timeout: isWindows ? 60000 : 15000 }, () => {
     });
   });
 
+  describe('integration format guard (self-upgrade safety)', () => {
+    it('self-upgrades a legacy unversioned AGENTS.md block in place', async () => {
+      initGitRepo();
+      // Simulate an old generated block with no integration-format metadata.
+      await writeFile(
+        join(tempDir, 'AGENTS.md'),
+        '# Project Instructions for AI Agents\n\n' +
+          '<!-- BEGIN TBD INTEGRATION -->\n## tbd\n\nOld full block content here.\n' +
+          '<!-- END TBD INTEGRATION -->\n\n## My Notes\n\nKeep me.\n',
+      );
+
+      const result = runTbd(['setup', '--auto', '--prefix=test']);
+      expect(result.status).toBe(0);
+
+      const agents = await readFile(join(tempDir, 'AGENTS.md'), 'utf-8');
+      // Upgraded to the versioned compact block...
+      expect(agents).toContain('integration-format=2');
+      // ...while preserving user content outside the managed region.
+      expect(agents).toContain('## My Notes');
+      expect(agents).toContain('Keep me.');
+    });
+
+    it('refuses to overwrite an AGENTS.md written by a newer tbd', async () => {
+      initGitRepo();
+      await writeFile(
+        join(tempDir, 'AGENTS.md'),
+        '# Project Instructions for AI Agents\n\n' +
+          '<!-- BEGIN TBD INTEGRATION -->\n' +
+          '<!-- tbd:integration-format=99; surface=agents-md -->\n## tbd\n\nFuture block.\n' +
+          '<!-- END TBD INTEGRATION -->\n',
+      );
+
+      const result = runTbd(['setup', '--auto', '--prefix=test']);
+
+      // Hard stop with an actionable upgrade message; the newer block is preserved.
+      expect(result.status).not.toBe(0);
+      expect(result.stderr + result.stdout).toContain('newer tbd');
+      expect(result.stderr + result.stdout).toContain('get-tbd@latest');
+
+      const agents = await readFile(join(tempDir, 'AGENTS.md'), 'utf-8');
+      expect(agents).toContain('integration-format=99');
+      expect(agents).toContain('Future block.');
+    });
+  });
+
   describe('agent-targeting flags', () => {
     it('--codex installs only the Codex surface and skips Claude', async () => {
       initGitRepo();
