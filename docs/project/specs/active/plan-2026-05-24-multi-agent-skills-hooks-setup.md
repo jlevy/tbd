@@ -9,7 +9,8 @@ author: Joshua Levy (github.com/jlevy) with LLM assistance
 
 **Author:** Joshua Levy (github.com/jlevy) with LLM assistance
 
-**Status:** Ready to Implement (beads detailed under epic `tbd-g9x7`, 2026-05-25)
+**Status:** Implemented (all beads under epic `tbd-g9x7` closed, 2026-05-26).
+Self-applied to this repo; `tbd doctor` reports all four surfaces green.
 
 ## Overview
 
@@ -29,7 +30,8 @@ dogfooding so the product follows the best practices it recommends.
 
 ### Current Non-Conformance (the gap this plan closes)
 
-tbd does not yet follow the guidance in this plan. As of this writing:
+tbd does not yet follow the guidance in this plan.
+As of this writing:
 
 - This repository’s `AGENTS.md` tbd-managed block is ~246 lines (of ~281 total) — well
   over the `<80–150` line compact-bootstrap budget the updated guideline recommends
@@ -37,14 +39,14 @@ tbd does not yet follow the guidance in this plan. As of this writing:
 - `packages/tbd/src/lib/integration-paths.ts` defines only Claude surfaces
   (`CLAUDE_SKILL_REL = .claude/skills/tbd/SKILL.md`); there is no `.agents/skills/`,
   Codex, or shared-script constant (closed by `tbd-0fhy`, `tbd-1h9x`).
-- There is no `.agents/`, no `.codex/`, and no `skills/tbd/SKILL.md` in the repo
-  (closed by `tbd-1h9x`, `tbd-qgpl`, `tbd-orup`).
+- There is no `.agents/`, no `.codex/`, and no `skills/tbd/SKILL.md` in the repo (closed
+  by `tbd-1h9x`, `tbd-qgpl`, `tbd-orup`).
 - Hook scripts live under `.claude/scripts/` (e.g. `TBD_SESSION_SCRIPT_REL`), which the
   updated guideline now advises against for multi-agent setups (closed by `tbd-orup`).
 
 Until Phases 2–4 land, an agent reading tbd’s own integration files would see the
-anti-pattern, not the recommended pattern. Closing that gap is the explicit dogfooding
-deliverable of this work.
+anti-pattern, not the recommended pattern.
+Closing that gap is the explicit dogfooding deliverable of this work.
 
 ## Goals
 
@@ -241,12 +243,13 @@ Claude Code currently gets:
 - `SessionStart`: ensure `gh` is available when `settings.use_gh_cli` is true
 - `PostToolUse`: remind about `tbd sync` after `git push`
 
-Codex's hook engine (confirmed against the official Codex hooks docs, May 2026) uses the
+Codex’s hook engine (confirmed against the official Codex hooks docs, May 2026) uses the
 **same event schema as Claude Code**: `SessionStart`, `PreCompact`/`PostCompact`,
-`PreToolUse`/`PostToolUse`, `UserPromptSubmit`, `Stop`, and `SubagentStart`/`SubagentStop`,
-loaded from `hooks.json` or an inline `[hooks]` table in `config.toml`. Only command
-handlers run today. This means tbd's four Claude hooks map almost 1:1, so the realistic
-target is near-full parity, not graceful degradation:
+`PreToolUse`/`PostToolUse`, `UserPromptSubmit`, `Stop`, and
+`SubagentStart`/`SubagentStop`, loaded from `hooks.json` or an inline `[hooks]` table in
+`config.toml`. Only command handlers run today.
+This means tbd’s four Claude hooks map almost 1:1, so the realistic target is near-full
+parity, not graceful degradation:
 
 | Claude hook | Codex equivalent |
 | --- | --- |
@@ -261,14 +264,16 @@ target is near-full parity, not graceful degradation:
   - shared `ensure-gh-cli.sh`
   - shared close-protocol reminder script
 - Relocate these shared scripts out of `.claude/scripts/` into a neutral location (e.g.
-  `scripts/agent/`) so neither agent's config owns them. Update tbd-owned Claude hook
-  commands (or leave a wrapper) so existing Claude installs keep working through the move.
+  `scripts/agent/`) so neither agent’s config owns them.
+  Update tbd-owned Claude hook commands (or leave a wrapper) so existing Claude installs
+  keep working through the move.
 - Codex hook entries must not reference `.claude/scripts/`; that creates an undocumented
   cross-agent coupling and makes Codex setup depend on Claude setup.
-- The `PostToolUse` `git push` reminder relies on a command matcher; confirm Codex's
-  matcher semantics cover the shell-command case. If any single Claude event genuinely
-  lacks a Codex equivalent, make that limitation explicit in `AGENTS.md`, `SKILL.md`,
-  `status`, and `doctor` instead of inventing unsupported behavior.
+- The `PostToolUse` `git push` reminder relies on a command matcher; confirm Codex’s
+  matcher semantics cover the shell-command case.
+  If any single Claude event genuinely lacks a Codex equivalent, make that limitation
+  explicit in `AGENTS.md`, `SKILL.md`, `status`, and `doctor` instead of inventing
+  unsupported behavior.
 
 ### CLI Invocation Pinning
 
@@ -485,40 +490,49 @@ Dependency outline (blocker edges; `tbd-0fhy` is the foundational unblocked task
 These were open questions; resolved 2026-05-25 so the beads are unambiguous:
 
 - **Codex hook mapping** — use the same event schema as Claude (`SessionStart`,
-  `PreCompact`, `PostToolUse`, etc.) via `.codex/hooks.json` or an inline `[hooks]` table
-  in `.codex/config.toml`; command handlers only. See "Codex Hook Parity" above. (`tbd-ujh3`)
-- **Install `.agents/skills/` unconditionally** for every initialized repo. It is
-  project-local and harmless, and unconditional install is what makes the portable path
-  actually portable. (`tbd-sp93`)
+  `PreCompact`, `PostToolUse`, etc.)
+  via `.codex/hooks.json` or an inline `[hooks]` table in `.codex/config.toml`; command
+  handlers only. See “Codex Hook Parity” above.
+  (`tbd-ujh3`)
+- **Install `.agents/skills/` unconditionally** for every initialized repo.
+  It is project-local and harmless, and unconditional install is what makes the portable
+  path actually portable.
+  (`tbd-sp93`)
 - **Commit `skills/tbd/SKILL.md`** as a generated artifact guarded by a drift test that
-  regenerates and compares. Browsable on GitHub/skills.sh *and* protected from drift.
+  regenerates and compares.
+  Browsable on GitHub/skills.sh *and* protected from drift.
   (`tbd-fif7`)
 - **`tbd setup --remove`** removes all tbd-owned artifacts, including
-  `.agents/skills/tbd/SKILL.md` and `.codex/` files, while preserving user content outside
-  managed markers. (`tbd-ymts`)
-- **Integration format starts at `2`**: today's unversioned full `AGENTS.md` block is
-  treated as legacy format 1, and the new compact block is format 2. (`tbd-slsp`, `tbd-y84j`)
+  `.agents/skills/tbd/SKILL.md` and `.codex/` files, while preserving user content
+  outside managed markers.
+  (`tbd-ymts`)
+- **Integration format starts at `2`**: today’s unversioned full `AGENTS.md` block is
+  treated as legacy format 1, and the new compact block is format 2. (`tbd-slsp`,
+  `tbd-y84j`)
 
 ## Self-Upgrade and Forward-Compatibility (Tier-2 behavior)
 
-This integration tier (a CLI that self-installs evolving skills, hooks, and managed blocks)
-follows the advanced pattern documented in `cli-agent-skill-patterns.md` §6.0/§6.6. Simpler
-tools should remain pure skills invoked via a pinned `npx`/`uvx` and need none of this.
+This integration tier (a CLI that self-installs evolving skills, hooks, and managed
+blocks) follows the advanced pattern documented in `cli-agent-skill-patterns.md`
+§6.0/§6.6. Simpler tools should remain pure skills invoked via a pinned `npx`/`uvx` and
+need none of this.
 
 For tbd specifically:
 
-- `tbd setup` / `tbd setup --auto` **self-upgrades existing installs in place, safely and
-  idempotently**: it rewrites only tbd-owned regions (managed `AGENTS.md` block → compact
-  format 2, generated skills, tbd-owned hooks, `.codex/` config), re-runs as a no-op when
-  already current, and preserves all user content outside markers.
+- `tbd setup` / `tbd setup --auto` **self-upgrades existing installs in place, safely
+  and idempotently**: it rewrites only tbd-owned regions (managed `AGENTS.md` block →
+  compact format 2, generated skills, tbd-owned hooks, `.codex/` config), re-runs as a
+  no-op when already current, and preserves all user content outside markers.
 - **Forward-compatibility guard:** every generated artifact carries
   `AGENT_INTEGRATION_FORMAT`. When a running tbd encounters an artifact whose format is
   **newer** than it understands, it must **stop and recommend upgrading tbd**
-  (`npm install -g get-tbd@latest`) instead of overwriting or downgrading it. This makes
-  version pinning safe on teams: an older tbd fails loudly rather than clobbering a newer
-  managed block. (`tbd-y84j`, surfaced by `tbd-ymts`)
+  (`npm install -g get-tbd@latest`) instead of overwriting or downgrading it.
+  This makes version pinning safe on teams: an older tbd fails loudly rather than
+  clobbering a newer managed block.
+  (`tbd-y84j`, surfaced by `tbd-ymts`)
 - Version pinning in generated invocations serves both supply-chain hardening and
-  cross-team/cross-agent behavioral consistency. (`tbd-1h2s`)
+  cross-team/cross-agent behavioral consistency.
+  (`tbd-1h2s`)
 
 ## References
 
