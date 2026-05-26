@@ -16,16 +16,17 @@ import { join } from 'node:path';
 import { homedir } from 'node:os';
 
 /**
- * Format version stamped into every generated agent integration artifact
- * (the AGENTS.md managed block, generated SKILL.md files, and hook entries).
+ * Format version stamped into every generated agent integration artifact (e.g.
+ * the AGENTS.md managed block's begin marker: `... format=f02 surface=...`).
  *
- * Bump this only when the *shape* of generated agent surfaces changes, so setup
- * can detect older generated content and upgrade it in place. A running tbd that
- * encounters an artifact stamped with a HIGHER format than this must refuse to
- * overwrite it and tell the user to upgrade tbd. Today's pre-versioning full
- * AGENTS.md block is treated as legacy format 1.
+ * Uses the same `fNN` convention as tbd's repo data format (`tbd_format`), but is
+ * a SEPARATE counter — bump it only when the *shape* of generated agent surfaces
+ * changes, so setup can detect older generated content and upgrade it in place. A
+ * running tbd that encounters an artifact stamped with a HIGHER format than this
+ * must refuse to overwrite it and tell the user to upgrade tbd. The pre-versioning
+ * full AGENTS.md block (a marked block with no `format=` field) is treated as f01.
  */
-export const AGENT_INTEGRATION_FORMAT = 2;
+export const AGENT_INTEGRATION_FORMAT = 'f02';
 
 // =============================================================================
 // Claude Code Integration Paths (project-local)

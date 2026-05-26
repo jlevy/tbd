@@ -182,12 +182,12 @@ Do not paste the full skill body or generated resource directories into `AGENTS.
 prefer less than 80-150 lines, and shorter is better.
 If `AGENTS.md` already exists without your markers, preserve the file and append a
 compact marked block instead of overwriting user content.
-Version the managed block with a metadata comment inside stable markers so future setup
-runs can upgrade old generated content without touching user-authored text:
+Version the managed block by carrying the format on the **begin marker line itself** (an
+`fNN` string, like a config-format version) so future setup runs can upgrade old
+generated content without touching user-authored text:
 
 ```markdown
-<!-- BEGIN MYCLI INTEGRATION -->
-<!-- mycli:integration-format=2; surface=agents-md -->
+<!-- BEGIN MYCLI INTEGRATION format=f02 surface=agents-md -->
 ## mycli
 
 - Run `mycli prime` for current project context.
@@ -196,8 +196,9 @@ runs can upgrade old generated content without touching user-authored text:
 <!-- END MYCLI INTEGRATION -->
 ```
 
-Do not change the outer marker names just to bump the format; old setup versions and
-cleanup code may depend on them.
+Keep the begin/end marker *names* stable (`<!-- BEGIN MYCLI INTEGRATION`) — match on
+that prefix so detection finds both legacy blocks (no `format=`, treated as `f01`) and
+current ones. Only the `format=fNN` value changes when the block’s shape changes.
 
 * * *
 
@@ -553,8 +554,7 @@ tbd should write a CLI-managed `SKILL.md` to `.agents/skills/tbd/`, mirror it to
 also feeds Cursor, Codex, and Factory), preserving user content outside the markers:
 
 ```markdown
-<!-- BEGIN MYCLI INTEGRATION -->
-<!-- mycli:integration-format=2; surface=agents-md -->
+<!-- BEGIN MYCLI INTEGRATION format=f02 surface=agents-md -->
 ## mycli
 
 - Run `mycli prime` for current project context.
@@ -609,10 +609,13 @@ hook commands (or leave a wrapper) so existing Claude hooks keep working.
 skill content evolves *will* leave older generated files in users’ repos.
 Treat generated integration files like config migrations:
 
-- Define an agent-integration format constant separate from the repo data/config format.
+- Define an agent-integration format constant (`fNN`, like a config-format version)
+  separate from the repo data/config format.
   Bump it only when generated agent surfaces change shape.
-- Put the format in generated files: an `AGENTS.md` metadata comment, the skill “DO NOT
-  EDIT” marker, script headers, or an equivalent hook signature.
+- Stamp the format on the generated artifact itself: on the `AGENTS.md` begin-marker
+  line (`<!-- BEGIN … format=fNN … -->`), the skill “DO NOT EDIT” marker, script
+  headers, or an equivalent hook signature.
+  Prefer one marker line over a separate metadata comment.
 - On every `setup`/`setup --auto` run, **self-upgrade in place, safely and
   idempotently**: detect older formats and rewrite only the tool-owned regions (managed
   `AGENTS.md` block, generated skills, tool-owned hooks, `.codex/` config), re-running
@@ -934,8 +937,8 @@ going:
 
 **Project**
 - [ ] `AGENTS.md` with build/test/style/conventions (concise)
-- [ ] Managed `AGENTS.md` block uses stable markers plus an integration-format metadata
-  comment
+- [ ] Managed `AGENTS.md` block uses a stable begin/end marker with a `format=fNN` field
+  on the begin line
 - [ ] `CLAUDE.md` strategy decided (symlink to `AGENTS.md`, copy, or separate)
 
 **CLI tool (if applicable)**

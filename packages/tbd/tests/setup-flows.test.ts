@@ -136,12 +136,11 @@ describe('setup flows', { timeout: isWindows ? 60000 : 15000 }, () => {
       expect(result.status).toBe(0);
 
       const agents = await readFile(join(tempDir, 'AGENTS.md'), 'utf-8');
-      expect(agents).toContain('<!-- BEGIN TBD INTEGRATION -->');
-      expect(agents).toContain('integration-format=2');
+      expect(agents).toContain('<!-- BEGIN TBD INTEGRATION format=f02 surface=agents-md -->');
       expect(agents).toContain('tbd prime');
 
       const block = agents.slice(
-        agents.indexOf('<!-- BEGIN TBD INTEGRATION -->'),
+        agents.indexOf('<!-- BEGIN TBD INTEGRATION'),
         agents.indexOf('<!-- END TBD INTEGRATION -->'),
       );
       // The compact block must NOT embed the full skill body (which the old
@@ -235,7 +234,7 @@ describe('setup flows', { timeout: isWindows ? 60000 : 15000 }, () => {
 
       const agents = await readFile(join(tempDir, 'AGENTS.md'), 'utf-8');
       // Upgraded to the versioned compact block...
-      expect(agents).toContain('integration-format=2');
+      expect(agents).toContain('format=f02');
       // ...while preserving user content outside the managed region.
       expect(agents).toContain('## My Notes');
       expect(agents).toContain('Keep me.');
@@ -246,8 +245,8 @@ describe('setup flows', { timeout: isWindows ? 60000 : 15000 }, () => {
       await writeFile(
         join(tempDir, 'AGENTS.md'),
         '# Project Instructions for AI Agents\n\n' +
-          '<!-- BEGIN TBD INTEGRATION -->\n' +
-          '<!-- tbd:integration-format=99; surface=agents-md -->\n## tbd\n\nFuture block.\n' +
+          '<!-- BEGIN TBD INTEGRATION format=f99 surface=agents-md -->\n' +
+          '## tbd\n\nFuture block.\n' +
           '<!-- END TBD INTEGRATION -->\n',
       );
 
@@ -259,7 +258,7 @@ describe('setup flows', { timeout: isWindows ? 60000 : 15000 }, () => {
       expect(result.stderr + result.stdout).toContain('get-tbd@latest');
 
       const agents = await readFile(join(tempDir, 'AGENTS.md'), 'utf-8');
-      expect(agents).toContain('integration-format=99');
+      expect(agents).toContain('format=f99');
       expect(agents).toContain('Future block.');
     });
   });
