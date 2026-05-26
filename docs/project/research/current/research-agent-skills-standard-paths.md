@@ -1,8 +1,9 @@
 # Research Brief: Agent Skills Standard Paths
 
-**Last Updated**: 2026-05-24
+**Last Updated**: 2026-05-26
 
-**Status**: Complete
+**Status**: Complete (Codex discovery source-verified against `openai/codex`
+`rust-v0.130.0`/`v0.133.0` — see the 2026-05-26 note)
 
 **Related**:
 
@@ -170,7 +171,7 @@ project-local path. Native paths should be mirrors or compatibility targets.
 | Tool | Project Skill Path | Global/User Path | Notes |
 | --- | --- | --- | --- |
 | Claude Code | `.claude/skills/<name>/SKILL.md` | `~/.claude/skills/<name>/SKILL.md` | Official docs still center `.claude/skills/`. |
-| Codex | `.agents/skills/` from CWD through repo root | `~/.agents/skills/`; admin `/etc/codex/skills`; installed plugin skills | Official Codex docs now directly document `.agents/skills` repo discovery. |
+| Codex | `.agents/skills/` from CWD through repo root (`SkillScope::Repo`) | `~/.agents/skills/` (`User`); admin; plugin roots; `$CODEX_HOME/skills` | **Source-verified** (not just docs): `codex-rs/core-skills/src/loader.rs` `repo_agents_skill_roots()` reads a bare repo-root `.agents/skills/` directly — no manifest. See 2026-05-26 note. |
 | Cursor | `.agents/skills/` per skills CLI support | `~/.cursor/skills/` | Changelog and best-practices docs support Agent Skills; path docs are thinner than Claude/Gemini. |
 | Gemini CLI | `.gemini/skills/` or `.agents/skills/` alias | `~/.gemini/skills/` or `~/.agents/skills/` alias | Official Gemini docs explicitly mention `.agents/skills` alias. |
 | GitHub Copilot | `.agents/skills/` per skills CLI support | `~/.copilot/skills/` | Included in Vercel skills supported-agent table. |
@@ -180,6 +181,58 @@ project-local path. Native paths should be mirrors or compatibility targets.
 **Assessment**: The market no longer maps “Codex integration” to `AGENTS.md` only.
 Codex still uses `AGENTS.md` for repository instructions, but it also supports Agent
 Skills as capability packages.
+
+**Native scan vs. installer reach (be precise).** The `.agents/skills/` rows above mix
+two different mechanisms, and conflating them caused a downstream confusion (see
+2026-05-26 note):
+
+- **Scans repo-root `.agents/skills/` natively**: Codex (verified at source) and Gemini
+  CLI (documents the alias).
+  pi/OpenCode scan project Agent Skills dirs.
+- **Reached via the `npx skills add` installer**: for Cursor, Copilot, Cline, Amp,
+  Windsurf, the installer copies `SKILL.md` into `.agents/skills/` and **symlinks it
+  into each agent’s own dir** — the *installer* binds the path, not the agent.
+  “Works with Cursor/Copilot” means “via skills.sh”, not “Cursor scans `.agents/skills/`
+  itself.”
+- **Claude Code does not scan `.agents/` at all** — only `.claude/skills/` (confirmed;
+  see claude-code#31005), which is why the mirror is mandatory.
+
+### 2026-05-26 Source-Verification Notes (Codex)
+
+Triggered by downstream feedback (dxdt-labs/trading#155) claiming Codex does **not**
+read a bare repo-root `.agents/skills/` and needs a `marketplace.json` plugin manifest.
+We verified against the **Codex Rust source** (authoritative over docs/binary strings),
+at the exact version cited (`rust-v0.130.0`) and current (`rust-v0.133.0`):
+
+- `codex-rs/core-skills/src/loader.rs` → `repo_agents_skill_roots()` walks every dir
+  from the project root down to cwd and adds `<dir>/.agents/skills/` as a
+  `SkillScope::Repo` root.
+  Constants `AGENTS_DIR_NAME = ".agents"`, `SKILLS_DIR_NAME = "skills"`. **A plain
+  repo-root `.agents/skills/<name>/SKILL.md` is read directly — no manifest required.**
+- Scopes scanned: `Repo` (root→cwd `.agents/skills`), `User` (`$HOME/.agents/skills`),
+  `Admin`, plugin roots, and `$CODEX_HOME/skills`.
+- **Why a `strings` scan of the binary misses it**: the repo path is built at runtime
+  via `dir.join(".agents").join("skills")`, so it is never a contiguous `.agents/skills`
+  literal — only `~/.agents/skills` (a comment) and `.agents/plugins/marketplace.json`
+  show up. Read the source, not binary strings, for discovery questions.
+- **Plugins / `marketplace.json`** (`.agents/plugins/marketplace.json`; Codex also reads
+  `.claude-plugin/marketplace.json`) are an *additional distribution layer for
+  publishing a bundle* — **not** required for repo-local discovery.
+- **`agents/openai.yaml`** is an optional companion for richer Codex UI metadata
+  (`interface.display_name`, icons, `default_prompt`,
+  `policy.allow_implicit_invocation`). `allow_implicit_invocation` **defaults to
+  `true`** (`model.rs`: `.unwrap_or(true)`), so a bare `SKILL.md` with no companion is
+  implicitly injected into Codex context by default.
+  The companion is polish, not a requirement.
+- **`external_migration`** (experimental, off by default) can import `.claude/` config
+  into `.codex/`; don’t depend on it yet.
+
+**Implication for tbd: no change required.** tbd already writes a bare
+`.agents/skills/tbd/SKILL.md` (+ the `.claude/skills/` mirror), which Codex reads and
+implicitly invokes by default.
+We deliberately do **not** emit `agents/openai.yaml` or a `marketplace.json` — they’re
+optional per-agent polish that would cut against the portable-first, minimal-surface
+approach, and neither is needed for discovery.
 
 ### AGENTS.md Block Tradeoff
 
