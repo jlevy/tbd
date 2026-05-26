@@ -1,7 +1,9 @@
 # Publishing (npm)
 
-This project uses [Changesets](https://github.com/changesets/changesets) for version
-management and tag-based releases with provenance attestation to npm.
+This project uses **tag-based releases** with provenance attestation to npm (no
+Changesets). Version + release notes are assembled by hand from clean conventional
+commits at release time; pushing a `v*` tag publishes automatically.
+For the guided end-to-end flow, run `tbd shortcut cut-release`.
 
 For daily development workflow, see [development.md](../../development.md).
 For release notes format and guidelines, see
@@ -51,8 +53,9 @@ This will prompt for web-based authentication in your browser.
 
 ## During Development
 
-Merge PRs to `main` without creating changesets.
-Changesets are created only at release time.
+Merge PRs to `main` with clean, conventional commits.
+There are no changeset files — the version bump and release notes are assembled from the
+commits at release time.
 
 ## Release Workflow
 
@@ -80,42 +83,23 @@ Choose version bump:
 - `minor` (0.1.0 → 0.2.0): New features, non-breaking changes
 - `major` (0.1.0 → 1.0.0): Breaking changes
 
-### Step 3: Create Changeset
+### Step 3: Bump Version & Update CHANGELOG
 
-Run the interactive changeset command:
-
-```bash
-pnpm changeset
-```
-
-This prompts for package selection, bump type (patch/minor/major), and a summary.
-
-Commit:
+No Changesets — bump by hand on a `claude/release-vX.X.X` branch:
 
 ```bash
-git add .changeset
-git commit -m "chore: add changeset for vX.X.X"
+# 1. Set "version" in packages/tbd/package.json to X.X.X
+# 2. Prepend a section to packages/tbd/CHANGELOG.md (heading MUST be exactly "## X.X.X" —
+#    release.yml greps for it to build the GitHub Release body):
+#
+#    ## X.X.X
+#
+#    <release notes — see Step 4>
 ```
 
-### Step 4: Version Packages
+### Step 4: Write Release Notes
 
-Run changesets to bump version and update CHANGELOG:
-
-```bash
-pnpm changeset version
-```
-
-Review and commit:
-
-```bash
-git diff  # Verify package.json and CHANGELOG.md
-git add .
-git commit -m "chore: release get-tbd vX.X.X"
-```
-
-### Step 5: Write Release Notes
-
-**Before pushing**, write release notes following
+Write the `## X.X.X` CHANGELOG section following
 [release-notes-guidelines.md](../agent-guidelines/release-notes-guidelines.md).
 
 ```bash
@@ -125,7 +109,7 @@ git log $(git describe --tags --abbrev=0 2>/dev/null || echo "HEAD~20")..HEAD --
 # Write release notes to release-notes.md or prepare for PR body
 ```
 
-### Step 6: Push and Tag
+### Step 5: Push and Tag
 
 **Option A: Direct git push (local development)**
 
@@ -156,7 +140,7 @@ gh api repos/jlevy/tbd/git/refs -X POST \
   -f sha="$MERGE_SHA"
 ```
 
-### Step 7: Update GitHub Release
+### Step 6: Update GitHub Release
 
 After the release workflow completes:
 
@@ -168,7 +152,7 @@ gh run list -R jlevy/tbd --limit 3
 gh release edit vX.X.X -R jlevy/tbd --notes-file release-notes.md
 ```
 
-### Step 8: Verify
+### Step 7: Verify
 
 ```bash
 gh release view vX.X.X -R jlevy/tbd
@@ -181,9 +165,7 @@ npm view get-tbd
 
 ```bash
 git checkout main && git pull
-pnpm changeset  # Interactive: select package, bump type, summary
-git add .changeset && git commit -m "chore: add changeset for v0.2.0"
-pnpm changeset version
+# Bump packages/tbd/package.json to 0.2.0 and prepend a "## 0.2.0" CHANGELOG section
 git add . && git commit -m "chore: release get-tbd v0.2.0"
 
 # Write release notes (see release-notes-guidelines.md)
@@ -196,9 +178,7 @@ gh release edit v0.2.0 -R jlevy/tbd --notes-file release-notes.md
 ### Restricted Environments (via PR and API)
 
 ```bash
-pnpm changeset  # Interactive: select package, bump type, summary
-git add .changeset && git commit -m "chore: add changeset for v0.2.0"
-pnpm changeset version
+# Bump packages/tbd/package.json to 0.2.0 and prepend a "## 0.2.0" CHANGELOG section
 git add . && git commit -m "chore: release get-tbd v0.2.0"
 
 # Write release notes, push to branch

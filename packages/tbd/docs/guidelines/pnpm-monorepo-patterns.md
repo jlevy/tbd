@@ -759,6 +759,18 @@ No NPM_TOKEN needed, no “Version Packages” PR workflow.
 3. Commit, tag (e.g., `v1.2.3`), and push
 4. GitHub Action publishes automatically on tag push
 
+> **When to prefer this over Changesets (LLM-era note):** For a **single published
+> package**, Changesets’ main wins (multi-package coordination and per-PR changelog
+> accumulation) mostly evaporate, while its ceremony (a `.changeset/*.md` per PR, a
+> bump-type decision per PR, the `changeset version` step, a “Version Packages” PR)
+> stays. When releases are cut by an agent/maintainer who assembles notes from clean
+> conventional commits at release time (see a release-notes template), tag-triggered
+> publishing is simpler and has fewer moving parts: clean commits → bump + `## X.Y.Z`
+> CHANGELOG section → tag → auto-publish.
+> `tbd` itself uses this approach (`tbd shortcut cut-release`). Keep Changesets when you
+> publish several interdependent packages or want contributors to declare intent in each
+> PR.
+
 **One-time setup**:
 
 1. Publish package manually once: `npm publish --access public`

@@ -1387,6 +1387,16 @@ Instead of using the `changesets/action` GitHub Action, an alternative approach 
 tags to trigger releases with npm provenance attestation via OIDC. This is simpler for
 projects that prefer manual version control and want provenance guarantees.
 
+> **When to prefer this over Changesets (LLM-era note):** For a **single published
+> package**, Changesets’ main wins (multi-package coordination, per-PR changelog
+> accumulation) mostly evaporate while its ceremony stays — and Bun adds the extra
+> `workspace:*` workarounds above.
+> When releases are cut by an agent/maintainer who assembles notes from clean
+> conventional commits at release time (see a release-notes template), tag-triggered
+> publishing is simpler: clean commits → bump + `## X.Y.Z` CHANGELOG section → tag →
+> auto-publish. Keep Changesets when you publish several interdependent packages or want
+> contributors to declare intent in each PR.
+
 **`.github/workflows/release.yml`**:
 
 ```yaml
