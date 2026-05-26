@@ -43,6 +43,11 @@ Options:
   --prefix <name>  Project prefix for issue IDs (required for fresh setup)
   --force          Allow non-recommended prefix format (not 2-8 alphabetic)
   --no-gh-cli      Disable automatic GitHub CLI installation hook
+  --all            Install every supported agent surface (Claude + Codex)
+  --claude         Install the Claude Code surface (skill mirror + hooks)
+  --codex          Install the Codex surface (AGENTS.md block + .codex hooks)
+  --skip-claude    Skip the Claude Code surface even if detected
+  --skip-codex     Skip the Codex surface even if detected
   -h, --help       display help for command
 
 Global Options:
