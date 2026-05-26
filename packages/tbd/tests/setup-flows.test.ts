@@ -125,6 +125,33 @@ describe('setup flows', { timeout: isWindows ? 60000 : 15000 }, () => {
     });
   });
 
+  describe('AGENTS.md compact managed block', () => {
+    it('writes a compact, format-stamped block instead of the full skill', async () => {
+      initGitRepo();
+
+      // CODEX_* env makes setup write the AGENTS.md managed block.
+      const result = runTbd(['setup', '--auto', '--prefix=test'], tempDir, {
+        CODEX_HOME: tempDir,
+      });
+      expect(result.status).toBe(0);
+
+      const agents = await readFile(join(tempDir, 'AGENTS.md'), 'utf-8');
+      expect(agents).toContain('<!-- BEGIN TBD INTEGRATION -->');
+      expect(agents).toContain('integration-format=2');
+      expect(agents).toContain('tbd prime');
+
+      const block = agents.slice(
+        agents.indexOf('<!-- BEGIN TBD INTEGRATION -->'),
+        agents.indexOf('<!-- END TBD INTEGRATION -->'),
+      );
+      // The compact block must NOT embed the full skill body (which the old
+      // pre-versioning block did — e.g. the Session Closing Protocol section).
+      expect(block).not.toContain('Session Closing Protocol');
+      // Compact: the managed block stays well under the AGENTS.md budget.
+      expect(block.split('\n').length).toBeLessThan(80);
+    });
+  });
+
   describe('portable skill without Claude detection', () => {
     it('writes .agents/skills even when no Claude signals are present', async () => {
       initGitRepo();

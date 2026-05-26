@@ -23,7 +23,7 @@ import { writeFile } from 'atomically';
 import { BaseCommand } from '../lib/base-command.js';
 import { CLIError } from '../lib/errors.js';
 import { loadSkillContent } from './prime.js';
-import { stripFrontmatter, insertAfterFrontmatter } from '../../utils/markdown-utils.js';
+import { insertAfterFrontmatter } from '../../utils/markdown-utils.js';
 import { pathExists } from '../../utils/file-utils.js';
 import { ensureGitignorePatterns } from '../../utils/gitignore-utils.js';
 import { type DiagnosticResult, renderDiagnostics } from '../lib/diagnostics.js';
@@ -56,6 +56,7 @@ import {
   getAgentsMdPath,
   getAgentSkillPaths,
   AGENTS_SKILL_DISPLAY,
+  AGENT_INTEGRATION_FORMAT,
   GLOBAL_CLAUDE_DIR,
 } from '../../lib/integration-paths.js';
 import { initWorktree, isInGitRepo, findGitRoot, checkWorktreeHealth } from '../../file/git.js';
@@ -128,19 +129,42 @@ async function writeSkillFile(targetPath: string, payload: string): Promise<void
 }
 
 /**
- * Get the tbd section content for AGENTS.md (Codex integration).
- * Loads from SKILL.md, strips frontmatter, and wraps in TBD INTEGRATION markers.
- *
- * @param quiet - If true, suppress auto-sync output (default: false)
+ * AGENTS.md managed-block markers. The outer BEGIN/END markers are a stable
+ * contract that cleanup/upgrade code depends on, so they must never change.
  */
-async function getCodexTbdSection(quiet = false): Promise<string> {
-  const skillContent = await loadSkillContent();
-  let content = stripFrontmatter(skillContent);
-  const directory = await getShortcutDirectory(quiet);
-  if (directory) {
-    content = content.trimEnd() + '\n\n' + directory + '\n';
-  }
-  return `<!-- BEGIN TBD INTEGRATION -->\n${content}<!-- END TBD INTEGRATION -->\n`;
+const CODEX_BEGIN_MARKER = '<!-- BEGIN TBD INTEGRATION -->';
+const CODEX_END_MARKER = '<!-- END TBD INTEGRATION -->';
+
+/**
+ * Metadata comment stamped immediately inside the managed block so future setup
+ * runs can detect the generated format and upgrade it. A marked block without
+ * this comment is treated as legacy format 1.
+ */
+const CODEX_FORMAT_MARKER = `<!-- tbd:integration-format=${AGENT_INTEGRATION_FORMAT}; surface=agents-md -->`;
+
+/**
+ * Get the tbd managed block for AGENTS.md.
+ *
+ * This is a COMPACT always-on bootstrap, not a copy of the full skill: it names
+ * tbd, states the operating rule, and points to the CLI commands that provide
+ * progressive disclosure (`tbd prime`, `tbd skill`, `tbd shortcut/guidelines
+ * --list`). The full skill body lives in the SKILL.md surfaces, not here, so the
+ * block stays well under the AGENTS.md prompt-budget guidance.
+ */
+function getCodexTbdSection(): string {
+  const body = `## tbd
+
+This repository uses **tbd** for git-native issue tracking (beads), spec-driven
+planning, and on-demand engineering guidelines. As the agent, you operate tbd on the
+user's behalf — translate their requests into tbd actions rather than telling them to
+run commands.
+
+- Run \`tbd prime\` to load current project state and the full tbd workflow.
+- Run \`tbd skill\` for the complete reusable tbd skill instructions.
+- Run \`tbd shortcut --list\` and \`tbd guidelines --list\` for on-demand resources.
+- Track all work as beads: \`tbd create\`, \`tbd ready\`, \`tbd close\`, and \`tbd sync\`.
+`;
+  return `${CODEX_BEGIN_MARKER}\n${CODEX_FORMAT_MARKER}\n${body}${CODEX_END_MARKER}\n`;
 }
 
 interface SetupClaudeOptions {
@@ -341,19 +365,10 @@ async function loadBundledScript(name: string): Promise<string> {
 }
 
 /**
- * AGENTS.md integration markers for Codex/Factory.ai
- * Content is now generated dynamically from SKILL.md via getCodexTbdSection()
- */
-const CODEX_BEGIN_MARKER = '<!-- BEGIN TBD INTEGRATION -->';
-const CODEX_END_MARKER = '<!-- END TBD INTEGRATION -->';
-
-/**
  * Generate a new AGENTS.md file with tbd integration.
- *
- * @param quiet - If true, suppress auto-sync output (default: false)
  */
-async function getCodexNewAgentsFile(quiet = false): Promise<string> {
-  const tbdSection = await getCodexTbdSection(quiet);
+function getCodexNewAgentsFile(): string {
+  const tbdSection = getCodexTbdSection();
   return `# Project Instructions for AI Agents
 
 This file provides instructions and context for AI coding agents working on this project.
@@ -970,7 +985,7 @@ class SetupCodexHandler extends BaseCommand {
 
       let newContent: string;
 
-      const tbdSection = await getCodexTbdSection(this.ctx.quiet);
+      const tbdSection = getCodexTbdSection();
 
       if (existingContent) {
         if (existingContent.includes(CODEX_BEGIN_MARKER)) {
@@ -986,7 +1001,7 @@ class SetupCodexHandler extends BaseCommand {
         }
       } else {
         // Create new file
-        const newAgentsFile = await getCodexNewAgentsFile(this.ctx.quiet);
+        const newAgentsFile = getCodexNewAgentsFile();
         await writeFile(agentsPath, newAgentsFile);
         this.output.success('Created new AGENTS.md with tbd integration');
       }
