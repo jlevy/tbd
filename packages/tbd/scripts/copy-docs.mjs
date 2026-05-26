@@ -101,7 +101,15 @@ if (phase === 'prebuild') {
   // leading frontmatter — otherwise the composed SKILL.md carries a stray `---`
   // block mid-document (renders wrong and is not flowmark-stable).
   const skillBody = skillContent.replace(/^\uFEFF?---\r?\n[\s\S]*?\r?\n---\r?\n+/, '');
-  await writeFile(join(distDocs, 'SKILL.md'), claudeHeader + skillBody);
+  const composedSkill = claudeHeader + skillBody;
+  await writeFile(join(distDocs, 'SKILL.md'), composedSkill);
+
+  // Write the committed distribution copy of the skill at the repo root, for
+  // skills.sh-style installers (`npx skills add`) and GitHub browsing. Kept in
+  // sync with the composed skill via a drift test (see integration-files.test.ts).
+  const distSkillPath = join(repoRoot, 'skills', 'tbd', 'SKILL.md');
+  mkdirSync(dirname(distSkillPath), { recursive: true });
+  await writeFile(distSkillPath, composedSkill);
 
   // Copy skill-brief.md from shortcuts/system to dist/docs
   // (needed by `tbd skill --brief` command)
