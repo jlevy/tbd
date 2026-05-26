@@ -30,8 +30,13 @@ tbd should use a combination:
    broad agent instructions.
 2. Add `.agents/skills/tbd/SKILL.md` as the default project-local Agent Skills install
    target.
-3. Continue installing or mirroring `.claude/skills/tbd/SKILL.md` for Claude Code, since
-   Claude Code still documents `.claude/skills/` as its native path.
+3. Continue installing or mirroring `.claude/skills/tbd/SKILL.md` for Claude Code.
+   This mirror is REQUIRED, not optional: as of May 2026 Claude Code reads skills only
+   from `.claude/skills/` (and `~/.claude/skills/`, parent dirs, and `--add-dir` dirs) —
+   it does not scan `.agents/skills/` (tracked in
+   [claude-code#31005](https://github.com/anthropics/claude-code/issues/31005)), and the
+   symlink workaround fails because Claude Code writes internal `.system/` files into
+   the skills dir. So a portable-only install would hide the skill from Claude Code.
 4. Publish a source/distribution copy at `skills/tbd/SKILL.md` so registries and
    installers such as `npx skills add` can discover it cleanly.
 
@@ -98,11 +103,12 @@ The plan refresh re-checked the external sources that determine path and hook st
   `/etc/codex/skills`.
 - Codex now ships a hooks engine that **uses the same event schema as Claude Code**
   (verified against the official Codex hooks docs, May 2026): `SessionStart`,
-  `PreCompact`/`PostCompact`, `PreToolUse`/`PostToolUse`, `UserPromptSubmit`, `Stop`, and
-  `SubagentStart`/`SubagentStop`, loaded from `hooks.json` or an inline `[hooks]` table in
-  `config.toml`; only command handlers run today. The event mapping therefore covers
-  tbd’s current Claude lifecycle hooks almost 1:1, so the implementation plan can target
-  near-full Codex parity rather than treating it as a best-effort surface.
+  `PreCompact`/`PostCompact`, `PreToolUse`/`PostToolUse`, `UserPromptSubmit`, `Stop`,
+  and `SubagentStart`/`SubagentStop`, loaded from `hooks.json` or an inline `[hooks]`
+  table in `config.toml`; only command handlers run today.
+  The event mapping therefore covers tbd’s current Claude lifecycle hooks almost 1:1, so
+  the implementation plan can target near-full Codex parity rather than treating it as a
+  best-effort surface.
 - Gemini CLI still documents `.agents/skills/` as a user and workspace alias, with the
   alias taking precedence over `.gemini/skills/` within the same tier.
 - GSD still documents `~/.agents/skills/` and project `.agents/skills/` as its skill
@@ -323,7 +329,7 @@ recommendation.
 | --- | --- | --- | --- | --- |
 | Claude-only | Keep `.claude/skills/tbd/SKILL.md` as the only skill install target | Simple; current behavior | Excludes Codex/Cursor/Gemini/OpenCode skill discovery; stale guidance | No |
 | AGENTS.md-only for Codex | Keep Codex guidance only in root `AGENTS.md` | Good always-on orientation | Not a reusable skill; no progressive disclosure; no skills.sh compatibility | No |
-| `.agents/skills/` only | Install project skill only to `.agents/skills/tbd/SKILL.md` | Portable default for many tools | Claude Code may not see it unless it scans `.agents`; breaks current Claude users | No |
+| `.agents/skills/` only | Install project skill only to `.agents/skills/tbd/SKILL.md` | Portable default for many tools | Claude Code does NOT scan `.agents/skills/` (confirmed May 2026; see [claude-code#31005](https://github.com/anthropics/claude-code/issues/31005)), so this hides the skill from Claude Code and breaks current users | No |
 | `.agents/skills/` plus Claude mirror | Install canonical portable skill and mirror to `.claude/skills/tbd/SKILL.md` | Best cross-agent coverage; backward compatible with Claude Code | Need copy/symlink policy and status checks | Yes |
 | Per-agent native directories | Install to `.agents/`, `.claude/`, `.gemini/`, `.cursor/`, `.codex/`, etc. | Maximum explicitness | File proliferation, drift risk, more cleanup code | Only if specific tool needs it |
 
