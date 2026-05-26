@@ -200,6 +200,36 @@ describe('setup flows', { timeout: isWindows ? 60000 : 15000 }, () => {
     });
   });
 
+  describe('agent-targeting flags', () => {
+    it('--codex installs only the Codex surface and skips Claude', async () => {
+      initGitRepo();
+
+      // Harness sets CLAUDE_CODE=1, but --codex targets Codex explicitly, so the
+      // Claude surface must be suppressed.
+      const result = runTbd(['setup', '--auto', '--prefix=test', '--codex']);
+      expect(result.status).toBe(0);
+
+      // Codex surface present.
+      await access(join(tempDir, 'AGENTS.md'));
+      await access(join(tempDir, '.codex/hooks.json'));
+      // Portable skill is always installed.
+      await access(join(tempDir, '.agents/skills/tbd/SKILL.md'));
+      // Claude surface suppressed.
+      await expect(access(join(tempDir, '.claude/settings.json'))).rejects.toThrow();
+    });
+
+    it('--skip-codex suppresses Codex even when CODEX_HOME is set', async () => {
+      initGitRepo();
+
+      const result = runTbd(['setup', '--auto', '--prefix=test', '--skip-codex'], tempDir, {
+        CODEX_HOME: tempDir,
+      });
+      expect(result.status).toBe(0);
+
+      await expect(access(join(tempDir, '.codex/hooks.json'))).rejects.toThrow();
+    });
+  });
+
   describe('portable skill without Claude detection', () => {
     it('writes .agents/skills even when no Claude signals are present', async () => {
       initGitRepo();

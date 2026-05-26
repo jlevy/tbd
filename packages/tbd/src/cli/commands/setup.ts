@@ -1665,6 +1665,12 @@ interface AutoSetupResult {
   error?: string;
 }
 
+/**
+ * How a given agent surface should be handled by setup: forced on, forced off,
+ * or detection-based (the default when no targeting flag is given).
+ */
+type SurfaceMode = 'on' | 'off' | 'auto';
+
 class SetupAutoHandler extends BaseCommand {
   private cmd: Command;
 
@@ -1788,17 +1794,19 @@ class SetupAutoHandler extends BaseCommand {
     // Sync docs using DocSync
     await this.syncDocs(cwd);
 
+    const targeting = this.resolveTargeting();
+
     // Install the portable Agent Skill unconditionally. It is project-local and
     // harmless, and is what makes the skill discoverable by Codex, Gemini CLI,
     // Cursor, and other Agent Skills clients regardless of which agent is detected.
     await this.installPortableSkill(cwd);
 
-    // Detect and set up Claude Code
-    const claudeResult = await this.setupClaudeIfDetected(cwd);
+    // Set up Claude Code (forced/skipped/auto per targeting)
+    const claudeResult = await this.setupClaudeIfDetected(cwd, targeting.claude);
     results.push(claudeResult);
 
-    // Detect and set up Codex/AGENTS.md (also used by Cursor since v1.6)
-    const codexResult = await this.setupCodexIfDetected(cwd);
+    // Set up Codex/AGENTS.md (also used by Cursor since v1.6)
+    const codexResult = await this.setupCodexIfDetected(cwd, targeting.codex);
     results.push(codexResult);
 
     // Report results
@@ -1897,7 +1905,34 @@ class SetupAutoHandler extends BaseCommand {
     console.log(`  ${colors.success('✓')} Portable Agent Skill (${AGENTS_SKILL_DISPLAY})`);
   }
 
-  private async setupClaudeIfDetected(cwd: string): Promise<AutoSetupResult> {
+  /**
+   * Resolve which agent surfaces to install from the explicit targeting flags.
+   * `--all`/`--claude`/`--codex` force surfaces on (and suppress auto-detection
+   * of untargeted surfaces); `--skip-claude`/`--skip-codex` force them off; with
+   * no targeting flag each surface falls back to detection-based auto behavior.
+   */
+  private resolveTargeting(): { claude: SurfaceMode; codex: SurfaceMode } {
+    const opts: {
+      all?: boolean;
+      claude?: boolean;
+      codex?: boolean;
+      skipClaude?: boolean;
+      skipCodex?: boolean;
+    } = this.cmd.optsWithGlobals();
+    const all = opts.all === true;
+    const anyPositive = all || opts.claude === true || opts.codex === true;
+    const resolve = (on: boolean | undefined, skip: boolean | undefined): SurfaceMode => {
+      if (skip === true) return 'off';
+      if (on === true || all) return 'on';
+      return anyPositive ? 'off' : 'auto';
+    };
+    return {
+      claude: resolve(opts.claude, opts.skipClaude),
+      codex: resolve(opts.codex, opts.skipCodex),
+    };
+  }
+
+  private async setupClaudeIfDetected(cwd: string, mode: SurfaceMode): Promise<AutoSetupResult> {
     const result: AutoSetupResult = {
       name: 'Claude Code',
       detected: false,
@@ -1905,13 +1940,18 @@ class SetupAutoHandler extends BaseCommand {
       alreadyInstalled: false,
     };
 
-    // Detect Claude Code: check for ~/.claude/ directory or CLAUDE_* env vars
-    // Note: We check global dir for DETECTION only, not for installation
-    const hasClaudeDir = await pathExists(GLOBAL_CLAUDE_DIR);
-    const hasClaudeEnv = Object.keys(process.env).some((k) => k.startsWith('CLAUDE_'));
-
-    if (!hasClaudeDir && !hasClaudeEnv) {
+    if (mode === 'off') {
       return result;
+    }
+
+    if (mode === 'auto') {
+      // Detect Claude Code: check for ~/.claude/ directory or CLAUDE_* env vars.
+      // We check the global dir for DETECTION only, not for installation.
+      const hasClaudeDir = await pathExists(GLOBAL_CLAUDE_DIR);
+      const hasClaudeEnv = Object.keys(process.env).some((k) => k.startsWith('CLAUDE_'));
+      if (!hasClaudeDir && !hasClaudeEnv) {
+        return result;
+      }
     }
 
     result.detected = true;
@@ -1954,7 +1994,7 @@ class SetupAutoHandler extends BaseCommand {
     return result;
   }
 
-  private async setupCodexIfDetected(cwd: string): Promise<AutoSetupResult> {
+  private async setupCodexIfDetected(cwd: string, mode: SurfaceMode): Promise<AutoSetupResult> {
     const result: AutoSetupResult = {
       name: 'Codex/AGENTS.md',
       detected: false,
@@ -1962,13 +2002,19 @@ class SetupAutoHandler extends BaseCommand {
       alreadyInstalled: false,
     };
 
-    // Detect Codex: check for existing AGENTS.md or CODEX_* env vars
+    if (mode === 'off') {
+      return result;
+    }
+
     const agentsPath = getAgentsMdPath(cwd);
     const hasAgentsMd = await pathExists(agentsPath);
-    const hasCodexEnv = Object.keys(process.env).some((k) => k.startsWith('CODEX_'));
 
-    if (!hasAgentsMd && !hasCodexEnv) {
-      return result;
+    if (mode === 'auto') {
+      // Detect Codex: check for existing AGENTS.md or CODEX_* env vars
+      const hasCodexEnv = Object.keys(process.env).some((k) => k.startsWith('CODEX_'));
+      if (!hasAgentsMd && !hasCodexEnv) {
+        return result;
+      }
     }
 
     result.detected = true;
@@ -2007,6 +2053,11 @@ export const setupCommand = new Command('setup')
   .option('--prefix <name>', 'Project prefix for issue IDs (required for fresh setup)')
   .option('--force', 'Allow non-recommended prefix format (not 2-8 alphabetic)')
   .option('--no-gh-cli', 'Disable automatic GitHub CLI installation hook')
+  .option('--all', 'Install every supported agent surface (Claude + Codex)')
+  .option('--claude', 'Install the Claude Code surface (skill mirror + hooks)')
+  .option('--codex', 'Install the Codex surface (AGENTS.md block + .codex hooks)')
+  .option('--skip-claude', 'Skip the Claude Code surface even if detected')
+  .option('--skip-codex', 'Skip the Codex surface even if detected')
   .action(async (options: SetupDefaultOptions, command) => {
     // If --auto or --interactive flag is set, run the default handler
     if (options.auto || options.interactive) {
