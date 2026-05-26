@@ -200,6 +200,25 @@ describe('setup flows', { timeout: isWindows ? 60000 : 15000 }, () => {
     });
   });
 
+  describe('upgrade of an older .claude-only install', () => {
+    it('adds the portable skill while preserving the Claude mirror', async () => {
+      initGitRepo();
+      runTbd(['setup', '--auto', '--prefix=test']);
+
+      // Simulate an old install that only has the Claude surface by removing the
+      // portable skill, then re-running setup.
+      await rm(join(tempDir, '.agents'), { recursive: true, force: true });
+      await access(join(tempDir, '.claude/skills/tbd/SKILL.md'));
+
+      const result = runTbd(['setup', '--auto']);
+      expect(result.status).toBe(0);
+
+      // Portable skill is restored and the Claude mirror is still present.
+      await access(join(tempDir, '.agents/skills/tbd/SKILL.md'));
+      await access(join(tempDir, '.claude/skills/tbd/SKILL.md'));
+    });
+  });
+
   describe('integration format guard (self-upgrade safety)', () => {
     it('self-upgrades a legacy unversioned AGENTS.md block in place', async () => {
       initGitRepo();
