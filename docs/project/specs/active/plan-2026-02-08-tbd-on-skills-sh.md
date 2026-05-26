@@ -4,9 +4,31 @@ description: Evaluate and plan publishing tbd as an Agent Skill on the skills.sh
 ---
 # Feature: Publish tbd as a Skill on skills.sh
 
-**Date:** 2026-02-08 (last updated 2026-02-08)
+**Date:** 2026-02-08 (last updated 2026-05-26)
 
-**Status:** Draft
+**Status:** Mostly landed — the distribution copy now exists; remaining work is
+validation + announce.
+
+> **Update 2026-05-26 (after PR #131, multi-agent skills/hooks):** Several assumptions
+> here are now superseded by shipped behavior:
+> 
+> - `skills/tbd/SKILL.md` at the repo root **now exists** — generated at build time by
+>   `copy-docs.mjs` from the same composed payload (`claude-header.md` +
+>   `skill-baseline.md`) and committed, guarded by a drift test.
+>   So the “create the distribution copy” step is done, and it can’t drift from the
+>   CLI’s own skill.
+> - It is the **composed baseline without the per-project shortcut/guideline directory**
+>   (that directory is appended only at `tbd setup` time), which is the right shape for
+>   a distribution landing page — this supersedes the separate hand-maintained
+>   `skill-minimal.md` idea below (one generated source, no second file to drift).
+> - Frontmatter is already spec-compliant (`name: tbd` + a trigger-rich two-part
+>   `description` + `allowed-tools`), and the body opens with the
+>   `npm install -g get-tbd` + `tbd setup --auto` bootstrap.
+> - The portable `.agents/skills/tbd/SKILL.md` install also landed, so the
+>   `npx skills add` → `.agents/skills/` model is fully compatible.
+> - Net remaining work: `npx skills-ref validate skills/tbd`,
+>   `npx skills add jlevy/tbd --list` smoke test, and announce.
+>   See the consolidated publishing guidance in `cli-agent-skill-patterns` §6.8.
 
 ## Overview
 

@@ -792,6 +792,55 @@ configs; **CLIs** like Beads offer `brew` / `npm -g` / `curl` installers, while 
 **global install + a `SessionStart` bootstrap** as the optimization for persistent
 environments where the project wants lockfile-managed versions and warm-start speed.
 
+### 6.8 Publishing & discovery — make the skill installable
+
+Most “skill registries” (May 2026) are **GitHub-repo discoverers, not gated app
+stores**. You don’t submit a form; you put a spec-compliant `SKILL.md` in a public repo
+and the ecosystem finds it.
+The landscape worth targeting:
+
+- **`skills.sh` / `npx skills add <owner/repo>`** (Vercel) — the cross-agent “npm for
+  skills”: one command installs into `.agents/skills/` + symlinks per agent (Claude
+  Code, Codex, Cursor, Copilot, Gemini, …). No review; ranked by install telemetry.
+  **This is the highest-leverage target** and needs zero extra infra.
+- **GitHub-scraping indexers** (SkillsMP ~800k skills, ClaudeSkills.info, LobeHub,
+  claudemarketplaces.com) — auto-list public repos that contain a `SKILL.md` (often
+  gated on ≥2 stars). You get listed for free just by being public + discoverable.
+- **Claude Code plugin marketplace** (`.claude-plugin/marketplace.json`) — the official
+  Anthropic channel, but Claude-Code-specific and oriented at *plugins* (bundles of
+  skills + MCP + hooks + commands).
+  Only worth the extra packaging if you want that bundling; a plain `SKILL.md` already
+  reaches Claude Code via `.claude/skills/`.
+
+**The simplest publishable structure** (works for all of the above at once):
+
+```
+your-repo/
+└── skills/
+    └── <name>/
+        └── SKILL.md      # spec frontmatter: name + two-part description
+```
+
+`skills/<name>/SKILL.md` at the repo root is the universal discovery location
+(`npx skills add`, the indexers, and agent installers all scan it).
+That’s the whole publishing step — push it public.
+
+**For a CLI-backed skill** (the §6 pattern), one extra rule matters: a registry installs
+**only the Markdown**, never your binary.
+So the published `SKILL.md` must **bootstrap its own CLI** — lead with a pinned install
+line (`npm i -g <pkg>@<ver>` / `uvx --from <pkg>@<ver>`) and a one-time `setup`, and
+have commands degrade with a clear “install the CLI first” message.
+Treat the registry copy as a **landing page that installs the engine**, not the engine
+itself. Generate this distribution `SKILL.md` from the same source as your in-repo skill
+(so it can’t drift), and validate it with `npx skills-ref validate skills/<name>` before
+pushing.
+
+`tbd` does exactly this: `skills/tbd/SKILL.md` is generated at build time from the same
+baseline, carries `name: tbd` + a trigger-rich description, and opens with the
+`npm install -g get-tbd` + `tbd setup --auto` bootstrap — so `npx skills add jlevy/tbd`
+gives an agent a working landing page, and `tbd setup` then upgrades it to the full
+multi-agent install (§6.6).
+
 * * *
 
 ## 7. CLI vs MCP vs Skill — Choosing the Surface
