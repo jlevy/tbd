@@ -393,11 +393,28 @@ clean endorsement of the CLI-as-skill approach: a self-documenting CLI plus a `S
 is exactly what a minimal agent wants.
 
 **Codex specifics** (it gained a real skill system in 2026): skills are `SKILL.md`
-folders with the same progressive disclosure, discovered from
-repository/user/admin/system `.agents/skills/` directories.
-**Plugins** are one distribution layer on top (installable units bundling skills + MCP
-servers — 90+ ship with Codex), not the only install path — a plain
-`.agents/skills/<name>/SKILL.md` works without packaging.
+folders with the same progressive disclosure.
+Verified against the Codex source (`codex-rs/core-skills/src/loader.rs`, tags
+`rust-v0.130.0`…`v0.133.0`): the loader scans several **scopes** — `Repo` (every
+`<dir>/.agents/skills/` from the project root down to cwd), `User`
+(`$HOME/.agents/skills/`), `Admin`, plus plugin roots and `$CODEX_HOME/skills`. So a
+**plain repo-root `.agents/skills/<name>/SKILL.md` is read directly**, no manifest
+required. (The repo path is built by joining `.agents` + `skills` at runtime, so it does
+*not* appear as a contiguous `.agents/skills` literal in the binary — a `strings`-based
+inspection will miss it and see only `.agents/plugins/marketplace.json`; confirm against
+the source, not binary strings.)
+**Plugins** are an *additional* distribution layer (installable units bundling skills +
+MCP servers — 90+ ship with Codex), declared in `.agents/plugins/marketplace.json` (also
+reads `.claude-plugin/marketplace.json`) — useful for *publishing a bundle*, but not
+needed to make a repo-local skill load.
+Codex skills may carry a richer **`agents/openai.yaml`** companion (e.g.
+`interface.display_name`, icons, `dependencies.tools[]`,
+`policy.allow_implicit_invocation`); map the portable
+`name`/`description`/`allowed-tools` onto it only when you specifically want that Codex
+polish — it’s optional.
+An experimental, off-by-default **`external_migration`** feature can import `.claude/`
+config (hooks/MCP/skills) into `.codex/`; don’t depend on it yet, but expect the
+portable duplication to shrink if it stabilizes.
 Operational config lives in `~/.codex/config.toml` (or trusted per-project
 `.codex/config.toml`): `model`, `approval_policy`
 (`untrusted`/`on-request`/`granular`/`never`), `sandbox_mode`
@@ -542,9 +559,24 @@ A CLI can install itself into multiple agents from one `setup` run.
 Use the portable Agent Skills location as the primary project skill surface and mirror
 only where a target agent requires it:
 
-- `.agents/skills/<tool>/SKILL.md` — portable project skill for Codex, pi, OpenCode, and
-  other Agent Skills clients that scan the standard project directory.
-- `.claude/skills/<tool>/SKILL.md` — Claude Code compatibility mirror.
+- `.agents/skills/<tool>/SKILL.md` — the portable project skill.
+  **Be precise about who reads this path natively vs.
+  who reaches it via an installer**, rather than claiming a flat “all agents read it”:
+  - **Scans repo-root `.agents/skills/` natively** (verified): **Codex** (source above)
+    and **Gemini CLI** (documents `.agents/skills/` as a workspace/user alias).
+    **pi** / **OpenCode** scan project Agent Skills dirs.
+  - **Reached via the cross-agent installer**: `npx skills add` copies the same
+    `SKILL.md` into `.agents/skills/` and **symlinks it into each agent’s own dir**
+    (Cursor, Copilot, Cline, Amp, Windsurf, …). For those agents the *installer*, not
+    the agent, is what binds `.agents/skills/` to their native location — so “works with
+    Cursor/Copilot/…” means “via skills.sh”, not “Cursor scans `.agents/skills/`
+    itself.”
+  - **Claude Code does NOT scan `.agents/`** at all — it reads only `.claude/skills/`
+    (next bullet), which is why the mirror is required, not optional.
+  - When in doubt, verify against the agent’s source/docs before asserting native
+    scanning.
+- `.claude/skills/<tool>/SKILL.md` — Claude Code compatibility mirror (required: Claude
+  Code reads only this path).
 - `AGENTS.md` — compact always-on project bootstrap, not a full copy of the skill.
 - `.codex/hooks.json` or `.codex/config.toml` — Codex lifecycle automation, not policy
   text or skill content.
@@ -806,11 +838,16 @@ The landscape worth targeting:
 - **GitHub-scraping indexers** (SkillsMP ~800k skills, ClaudeSkills.info, LobeHub,
   claudemarketplaces.com) — auto-list public repos that contain a `SKILL.md` (often
   gated on ≥2 stars). You get listed for free just by being public + discoverable.
-- **Claude Code plugin marketplace** (`.claude-plugin/marketplace.json`) — the official
-  Anthropic channel, but Claude-Code-specific and oriented at *plugins* (bundles of
-  skills + MCP + hooks + commands).
-  Only worth the extra packaging if you want that bundling; a plain `SKILL.md` already
-  reaches Claude Code via `.claude/skills/`.
+- **Plugin marketplaces** — `.claude-plugin/marketplace.json` (Claude Code, the official
+  Anthropic channel) and `.agents/plugins/marketplace.json` (Codex; Codex reads both).
+  These are *plugin* channels: bundles of skills + MCP + hooks + commands.
+  They are **only for publishing a bundle** — a repo-local skill already loads from
+  `.claude/skills/` (Claude Code) and `.agents/skills/` (Codex) **without any
+  manifest**, so don’t add one just to be discovered.
+  If you *do* emit a `marketplace.json` / `.codex-plugin/plugin.json`, treat it like any
+  generated artifact (§6.6): point it at the same generated `SKILL.md` payload (no body
+  duplication), mark it `DO NOT EDIT`, make it deterministic so re-install is a no-op,
+  and pick the same commit-vs-gitignore mode as the skill it references.
 
 **The simplest publishable structure** (works for all of the above at once):
 
