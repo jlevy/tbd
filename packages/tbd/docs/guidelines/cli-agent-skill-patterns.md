@@ -587,16 +587,35 @@ project needs both.
   human-authored project norms (§2). A CLI may own a **marker-bounded section** inside
   `AGENTS.md` (regenerated on setup) while the user owns everything outside the markers.
 - **Fully generated install artifacts** (`.agents/skills/<tool>/SKILL.md`,
-  `.claude/skills/<tool>/SKILL.md`, and the like): CLI-owned; mark them “DO NOT EDIT.”
-  Commit them only if the project intentionally dogfoods them — otherwise leave them to
-  `setup` (and consider gitignoring).
+  `.claude/skills/<tool>/SKILL.md`, generated hook scripts, and the like): CLI-owned;
+  mark them “DO NOT EDIT.” Pick **one of two modes** and be consistent:
+  - **Commit + dogfood** (what `tbd` does): check the generated artifacts in, and add a
+    **drift test** that regenerates them and fails if they differ.
+    Pros: browsable on GitHub / skills.sh, the repo demonstrates its own output,
+    reviewers see changes.
+    Con: a regeneration shows up as a diff to commit.
+    Keep generated output deterministic and formatter-stable (below) or the drift
+    test/commits will churn.
+  - **Gitignore + regenerate** (what `metaproc` does): add `.../skills/*/SKILL.md` to
+    `.gitignore` and let `setup`/`--install` (re)create them on demand.
+    Pros: zero commit churn, no drift to guard.
+    Con: not browsable in the repo, and no committed artifact to diff in review.
+    With this mode a format-version stamp matters less (there is no committed artifact
+    for an older tool to clobber).
 - **Source files** in the CLI package (header, baseline, brief): the canonical inputs —
   always version-controlled.
 
 Make setup idempotent: dedupe hooks before merging, overwrite generated skills rather
 than patching them, update only the marked section of `AGENTS.md`, and clean up legacy
-files each run. (Generated output must also be stable under whatever formatter the repo
-runs — e.g. don’t emit a second YAML frontmatter block mid-document.)
+files each run.
+
+**Generated output must be deterministic.** A given input state must always produce
+byte-identical output — no timestamps, no random IDs, no machine-specific paths, no
+unstable ordering. This is what makes the artifact diff-stable, drift-testable, and safe
+to regenerate. It must also be stable under whatever formatter the repo runs (e.g. emit
+the managed block in the formatter’s canonical form — sentence-aware line wrapping,
+correct quote style — so a format pass is a no-op; and don’t emit a second YAML
+frontmatter block mid-document).
 Because Codex and Claude Code now share a hook event schema (§8), prefer **one shared
 script referenced by two thin per-agent configs**: keep the logic in a neutral location
 (e.g. `scripts/agent/<tool>-session.sh`) and reference it from both
@@ -609,9 +628,12 @@ hook commands (or leave a wrapper) so existing Claude hooks keep working.
 skill content evolves *will* leave older generated files in users’ repos.
 Treat generated integration files like config migrations:
 
-- Define an agent-integration format constant (`fNN`, like a config-format version)
-  separate from the repo data/config format.
-  Bump it only when generated agent surfaces change shape.
+- Version the generated surfaces with an `fNN` format code.
+  Prefer **one format code for all the tool’s managed surfaces** — reuse the tool’s
+  existing config/data-format version as the single source of truth (tbd stamps the
+  AGENTS.md block with the same `tbd_format`, currently `f03`) rather than maintaining a
+  parallel counter. Bump it when any managed surface — config schema or a generated agent
+  surface — changes shape.
 - Stamp the format on the generated artifact itself: on the `AGENTS.md` begin-marker
   line (`<!-- BEGIN … format=fNN … -->`), the skill “DO NOT EDIT” marker, script
   headers, or an equivalent hook signature.
@@ -656,6 +678,32 @@ Keep project-local setup separate from global/user setup.
 Writing `~/.codex/AGENTS.md`, `~/.agents/skills/`, or `~/.claude/skills/` should be an
 explicit global install command or documented manual step, not something `setup --auto`
 does silently.
+
+#### 6.6.1 Extensible skill registries (let other packages contribute skills)
+
+A single bundled skill is enough for most tools.
+But when a tool is a **platform** that other packages extend, don’t hard-code its skill
+list — expose a **registry** so any installed package can contribute a skill that the
+CLI discovers at runtime.
+
+The clean implementation is the host language’s plugin mechanism:
+
+- **Python**: an entry-point group.
+  The host defines a group (e.g. `[project.entry-points."mytool.skills"]`); each plugin
+  package points an entry at a factory that returns a skill spec; the host enumerates
+  them with `importlib.metadata`. (`metaproc` does exactly this: a `metaproc.skills`
+  group, with `metaproc skill --list` / `--install` composing each registered skill.
+  Its `earnings_predictions` package registers an `eia-batch` skill that the core tool
+  never hard-codes.)
+- **Node/TypeScript**: a documented `package.json` key or a registration API a plugin
+  calls on load.
+
+Keep each registered skill a **spec** (name, two-part description, `allowed-tools`, a
+baseline source, and an optional dynamic catalog function) and run them all through the
+**same** `compose` + `--install` path, so every skill — first-party or third-party —
+gets identical frontmatter, the `DO NOT EDIT`/format marker, and deterministic output.
+This keeps the “one tool, many self-injecting commands” model open for extension without
+the core tool taking a dependency on every plugin.
 
 ### 6.7 Making the CLI available: global install vs. zero-install
 
