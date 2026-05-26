@@ -112,8 +112,8 @@ So:
 - **Maximum reach across many agents** → layer them: AGENTS.md + SKILL.md + CLI + MCP.
   (§1)
 - **Self-installs into agents & ships evolving skills?** → that is the advanced Tier 2
-  pattern (self-upgrade + format versioning); most tools are Tier 1: a pure skill run via
-  a **pinned** `npx`/`uvx`. (§6.0)
+  pattern (self-upgrade + format versioning); most tools are Tier 1: a pure skill run
+  via a **pinned** `npx`/`uvx`. (§6.0)
 
 Everything below is reference material.
 You do not need most of it for most tools.
@@ -421,29 +421,33 @@ For a single capability, the §0 baseline is better — don’t reach for this p
 
 ### 6.0 Two integration tiers — pick the lighter one
 
-Most tools should **not** self-install. Decide which tier you are before adding any setup
-machinery:
+Most tools should **not** self-install.
+Decide which tier you are before adding any setup machinery:
 
 - **Tier 1 — pure skill (the default for most tools).** Ship a `SKILL.md` (optionally an
-  `AGENTS.md` snippet); users install it once (commit to `.agents/skills/`, `npx skills
-  add`, or the Claude mirror). Invoke the tool through a **version-pinned** zero-install
-  runner — `npx --yes pkg@<ver>`, `uvx --from pkg@<ver>`, or `pipx run pkg==<ver>` (§6.7).
-  No hooks, no managed `AGENTS.md` block, no `setup` command, no format versioning.
+  `AGENTS.md` snippet); users install it once (commit to `.agents/skills/`,
+  `npx skills add`, or the Claude mirror).
+  Invoke the tool through a **version-pinned** zero-install runner —
+  `npx --yes pkg@<ver>`, `uvx --from pkg@<ver>`, or `pipx run pkg==<ver>` (§6.7). No
+  hooks, no managed `AGENTS.md` block, no `setup` command, no format versioning.
   Pinning the version here does **double duty**:
   - **Supply-chain control** — an unpinned runner (`npx pkg`, `uvx --from pkg`) silently
     re-resolves to the latest published version on every run and bypasses any cool-off
     window. A pinned version is the artifact you actually vetted.
   - **Consistency control** — every teammate and every agent runs the *same* tool
-    version, so skill behavior is reproducible across a team and across agents rather than
-    drifting as upstream publishes new releases.
-- **Tier 2 — self-installing CLI (advanced; the rest of §6).** A tool that writes its own
-  integration files into multiple agents (`.agents/skills/`, `.claude/skills/`, a managed
-  `AGENTS.md` block, hooks, `.codex/` config) **and** whose skill content evolves across
-  releases. Take on this complexity only for a tool with many capabilities, cross-session
-  state, or a curated knowledge library. The self-upgrade and format-versioning rules in
-  §6.6 apply **only to this tier** — a pure skill never needs them.
+    version, so skill behavior is reproducible across a team and across agents rather
+    than drifting as upstream publishes new releases.
+- **Tier 2 — self-installing CLI (advanced; the rest of §6).** A tool that writes its
+  own integration files into multiple agents (`.agents/skills/`, `.claude/skills/`, a
+  managed `AGENTS.md` block, hooks, `.codex/` config) **and** whose skill content
+  evolves across releases.
+  Take on this complexity only for a tool with many capabilities, cross-session state,
+  or a curated knowledge library.
+  The self-upgrade and format-versioning rules in §6.6 apply **only to this tier** — a
+  pure skill never needs them.
 
-If in doubt, you are Tier 1. `tbd` is a Tier-2 reference implementation; most CLIs are not.
+If in doubt, you are Tier 1. `tbd` is a Tier-2 reference implementation; most CLIs are
+not.
 
 ### 6.1 Two kinds of commands
 
@@ -572,9 +576,10 @@ scripts/agent/<tool>-session.sh  # shared hook script, referenced by both agents
 .claude/settings.json            # Claude hook entry → same shared script
 ```
 
-Copy (don't symlink) the `SKILL.md` payload to both skill paths — symlinks behave
-unevenly across Windows, sandboxes, and remote worktrees. Claude Code does **not**
-auto-load `AGENTS.md` (it reads `CLAUDE.md`), so a multi-agent project needs both.
+Copy (don’t symlink) the `SKILL.md` payload to both skill paths — symlinks behave
+unevenly across Windows, sandboxes, and remote worktrees.
+Claude Code does **not** auto-load `AGENTS.md` (it reads `CLAUDE.md`), so a multi-agent
+project needs both.
 
 **File-ownership rules** — distinguish three categories:
 
@@ -594,24 +599,24 @@ files each run. (Generated output must also be stable under whatever formatter t
 runs — e.g. don’t emit a second YAML frontmatter block mid-document.)
 Because Codex and Claude Code now share a hook event schema (§8), prefer **one shared
 script referenced by two thin per-agent configs**: keep the logic in a neutral location
-(e.g. `scripts/agent/<tool>-session.sh`) and reference it from both `.claude/settings.json`
-and the Codex `[hooks]`/`.codex/hooks.json` entry. Do not make Codex hooks call scripts
-stored under `.claude/` — that couples Codex setup to Claude setup. If a script must move
-out of `.claude/scripts/`, update the tbd-owned hook commands (or leave a wrapper) so
-existing Claude hooks keep working.
+(e.g. `scripts/agent/<tool>-session.sh`) and reference it from both
+`.claude/settings.json` and the Codex `[hooks]`/`.codex/hooks.json` entry.
+Do not make Codex hooks call scripts stored under `.claude/` — that couples Codex setup
+to Claude setup. If a script must move out of `.claude/scripts/`, update the tbd-owned
+hook commands (or leave a wrapper) so existing Claude hooks keep working.
 
 **Upgrade existing installs deliberately (Tier 2 only).** A self-installing tool whose
-skill content evolves *will* leave older generated files in users' repos. Treat generated
-integration files like config migrations:
+skill content evolves *will* leave older generated files in users’ repos.
+Treat generated integration files like config migrations:
 
 - Define an agent-integration format constant separate from the repo data/config format.
   Bump it only when generated agent surfaces change shape.
 - Put the format in generated files: an `AGENTS.md` metadata comment, the skill “DO NOT
   EDIT” marker, script headers, or an equivalent hook signature.
-- On every `setup`/`setup --auto` run, **self-upgrade in place, safely and idempotently**:
-  detect older formats and rewrite only the tool-owned regions (managed `AGENTS.md` block,
-  generated skills, tool-owned hooks, `.codex/` config), re-running cleanly with no change
-  when already current.
+- On every `setup`/`setup --auto` run, **self-upgrade in place, safely and
+  idempotently**: detect older formats and rewrite only the tool-owned regions (managed
+  `AGENTS.md` block, generated skills, tool-owned hooks, `.codex/` config), re-running
+  cleanly with no change when already current.
 - Treat old marked `AGENTS.md` blocks with no metadata as legacy generated content and
   replace only the managed region.
 - Detect tool-owned hook entries by command/path/signature, replace only those entries,
@@ -619,12 +624,13 @@ integration files like config migrations:
 - **Forward-compatibility guard.** When the tool finds a generated artifact whose
   `integration-format` is **newer** than the running version understands, it must **stop
   and tell the user to upgrade the tool** (e.g. `npm install -g get-tbd@latest`) rather
-  than overwrite or downgrade it. This is what makes pinning safe for teams: a teammate on
-  an older version fails loudly instead of silently clobbering a newer managed block.
+  than overwrite or downgrade it.
+  This is what makes pinning safe for teams: a teammate on an older version fails loudly
+  instead of silently clobbering a newer managed block.
 - Print an itemized setup summary: current, installed, upgraded, removed legacy, skipped
   by config, user-owned/unmarked, and format-too-new (upgrade required).
-- Test upgrades from at least the previous shipped setup layout plus partial installs, and
-  test that a too-new format string produces the upgrade-the-tool error.
+- Test upgrades from at least the previous shipped setup layout plus partial installs,
+  and test that a too-new format string produces the upgrade-the-tool error.
 
 Recommended setup flags:
 
@@ -632,10 +638,16 @@ Recommended setup flags:
 | --- | --- |
 | `--auto` | Detect and refresh relevant project-local integrations |
 | `--all` | Install every supported project-local integration surface |
-| `--claude` | Install or refresh Claude Code skill mirror and Claude hooks |
-| `--codex` | Install or refresh Codex skill/instruction/hook surfaces |
-| `--agents-md` | Install or refresh the managed `AGENTS.md` block |
-| `--no-<surface>` | Suppress a surface that auto-detection would otherwise update |
+| `--claude` | Install or refresh the Claude Code surface (skill mirror + hooks) |
+| `--codex` | Install or refresh the Codex surface (`AGENTS.md` block + `.codex` hooks) |
+| `--skip-<surface>` | Suppress a surface (e.g. `--skip-claude`) that auto-detection would otherwise update |
+
+Use a true tri-state: with no targeting flag a surface is detection-based; a positive
+flag forces it on (and suppresses auto-detection of untargeted surfaces); `--skip-*`
+forces it off. Avoid Commander’s `--no-<x>` for surfaces — it defaults the value to
+`true`, which would force-install on every run.
+(`tbd` itself ships `--all`, `--claude`, `--codex`, `--skip-claude`, `--skip-codex`;
+`AGENTS.md` installs as part of the Codex surface.)
 
 Keep project-local setup separate from global/user setup.
 Writing `~/.codex/AGENTS.md`, `~/.agents/skills/`, or `~/.claude/skills/` should be an
@@ -701,9 +713,9 @@ pinned fallback chain:
 
 Never put an unpinned network runner such as `uvx --from my-package` or `npx my-package`
 in generated skill instructions unless the user explicitly opts into that risk.
-This is a supply-chain control, not just ergonomics: an unpinned runner re-resolves to the
-latest published version on every run and bypasses any cool-off window. See
-`tbd guidelines supply-chain-hardening` for the cross-ecosystem policy.
+This is a supply-chain control, not just ergonomics: an unpinned runner re-resolves to
+the latest published version on every run and bypasses any cool-off window.
+See `tbd guidelines supply-chain-hardening` for the cross-ecosystem policy.
 
 **Current tooling (May 2026)**
 
@@ -777,13 +789,14 @@ Support varies:
   `beforeShellExecution`/`beforeMCPExecution`), **Windsurf** (pre-hooks can **block**
   via exit code 2), **Gemini CLI** (~12), and **opencode** (25+, with tool interception)
   all have lifecycle hooks.
-- **Codex** (as of May 2026) ships a **Claude-style hooks engine that uses the same event
-  schema as Claude Code** — `SessionStart`, `PreCompact`/`PostCompact`,
-  `PreToolUse`/`PostToolUse`, `UserPromptSubmit`, `Stop`, `SubagentStart`/`SubagentStop`,
-  and `PermissionRequest`. Hooks load from `hooks.json` **or an inline `[hooks]` table in
-  `config.toml`** next to an active config layer (`~/.codex/…` for user scope,
-  `<repo>/.codex/…` for project scope). Only **command** handlers run today; `prompt`/
-  `agent` handlers are parsed but skipped. Because the schema matches Claude's, a tool's
+- **Codex** (as of May 2026) ships a **Claude-style hooks engine that uses the same
+  event schema as Claude Code** — `SessionStart`, `PreCompact`/`PostCompact`,
+  `PreToolUse`/`PostToolUse`, `UserPromptSubmit`, `Stop`,
+  `SubagentStart`/`SubagentStop`, and `PermissionRequest`. Hooks load from `hooks.json`
+  **or an inline `[hooks]` table in `config.toml`** next to an active config layer
+  (`~/.codex/…` for user scope, `<repo>/.codex/…` for project scope).
+  Only **command** handlers run today; `prompt`/ `agent` handlers are parsed but
+  skipped. Because the schema matches Claude’s, a tool’s
   `SessionStart`/`PreCompact`/`PostToolUse` hooks map almost 1:1 across both agents.
   Repo-local hooks should resolve scripts from the git root or `.codex/`, not from
   `.claude/`, so Codex setup stays independent of Claude Code setup.
