@@ -14,19 +14,21 @@
 
 import { join } from 'node:path';
 import { homedir } from 'node:os';
+import { CURRENT_FORMAT } from './tbd-format.js';
 
 /**
- * Format version stamped into every generated agent integration artifact (e.g.
- * the AGENTS.md managed block's begin marker: `... format=f02 surface=...`).
+ * Format version stamped into generated agent integration artifacts (e.g. the
+ * AGENTS.md managed block's begin marker: `... format=f03 surface=...`).
  *
- * Uses the same `fNN` convention as tbd's repo data format (`tbd_format`), but is
- * a SEPARATE counter — bump it only when the *shape* of generated agent surfaces
- * changes, so setup can detect older generated content and upgrade it in place. A
- * running tbd that encounters an artifact stamped with a HIGHER format than this
- * must refuse to overwrite it and tell the user to upgrade tbd. The pre-versioning
- * full AGENTS.md block (a marked block with no `format=` field) is treated as f01.
+ * UNIFIED with the `.tbd/` directory format (`tbd_format`): there is one format
+ * code for all tbd-managed surfaces, sourced from `tbd-format.ts` (the single
+ * source of truth). Bump `CURRENT_FORMAT` there when any managed surface — config
+ * schema OR a generated agent surface — changes shape. A marked AGENTS.md block
+ * with no `format=` field predates this and is treated as `f01`; a running tbd
+ * that finds a HIGHER format than it knows refuses to overwrite it and tells the
+ * user to upgrade tbd.
  */
-export const AGENT_INTEGRATION_FORMAT = 'f02';
+export const AGENT_INTEGRATION_FORMAT = CURRENT_FORMAT;
 
 // =============================================================================
 // Claude Code Integration Paths (project-local)
