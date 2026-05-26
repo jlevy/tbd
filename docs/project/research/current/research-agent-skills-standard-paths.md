@@ -93,6 +93,14 @@ This research reviewed:
 - gstack: https://github.com/garrytan/gstack
 - GSD skill docs: https://getshitdone.help/skills-extensions-agents/
 - Superpowers: https://github.com/obra/superpowers
+- Vercel `skills` CLI (skills.sh): https://github.com/vercel-labs/skills
+- anthropics/skills (reference skills): https://github.com/anthropics/skills
+- Claude Code plugin marketplace overview:
+  https://www.agensi.io/learn/claude-code-plugin-marketplace-guide
+- AI agent skills marketplaces survey (2026):
+  https://www.agensi.io/learn/best-ai-agent-skills-marketplaces-2026
+- Codex skill discovery (source of truth): `openai/codex`
+  `codex-rs/core-skills/src/loader.rs` (tags `rust-v0.130.0`, `rust-v0.133.0`)
 
 ### 2026-05-24 Refresh Notes
 
@@ -233,6 +241,68 @@ implicitly invokes by default.
 We deliberately do **not** emit `agents/openai.yaml` or a `marketplace.json` — they’re
 optional per-agent polish that would cut against the portable-first, minimal-surface
 approach, and neither is needed for discovery.
+
+### Distribution Channels & Registries (May 2026)
+
+Durable background on how Agent Skills are *distributed and discovered* (distinct from
+*where an agent reads them*, above).
+The headline: **most “skill registries” are GitHub-repo discoverers, not gated app
+stores** — you don’t submit a form; you put a spec-compliant `SKILL.md` in a public repo
+and the ecosystem finds it.
+The ecosystem grew from one registry (Dec 2025) to ~8 marketplaces by Q2 2026, but only
+a few matter for publishing.
+
+**The channels that matter:**
+
+| Channel | Mechanism | Scope | Curation |
+| --- | --- | --- | --- |
+| **skills.sh** (Vercel) | `npx skills add <owner/repo>` — clones repo, finds `SKILL.md` under `skills/`, `.agents/skills/`, etc., copies to `.agents/skills/` + symlinks per agent | Cross-agent (Claude Code, Codex, Cursor, Copilot, Gemini, …) | None; ranked by anonymous install telemetry |
+| **GitHub-scraping indexers** (SkillsMP ~800k skills, ClaudeSkills.info ~658, LobeHub, claudemarketplaces.com) | Auto-list any public repo containing a `SKILL.md` (often gated on ≥2 stars) | Discovery/search only — you install via git/`npx skills`/manual | Minimal; audit before install |
+| **Claude Code plugin marketplace** (Anthropic, official) | `.claude-plugin/marketplace.json` declares a *plugin* (bundle of skills + MCP + hooks + commands) | Claude Code | Curated by install count / stars / votes |
+| **Codex plugins** | `.agents/plugins/marketplace.json` (Codex also reads `.claude-plugin/marketplace.json`) | Codex | Bundle channel |
+| **anthropics/skills** | Reference repo (PDF/DOCX/XLSX, MCP builder, etc.) | Examples | Anthropic-maintained |
+| **agentskills.io** | The open `SKILL.md` standard underpinning all of the above | — | Spec, not a registry |
+
+**Common denominator:** the agentskills.io `SKILL.md` standard, and
+`skills/<name>/SKILL.md` at the **repo root** as the universal discovery location
+(`npx skills add` and the indexers all scan it).
+Publishing = push that public; no submission step.
+Visibility on skills.sh is organic (install telemetry); indexers list you automatically.
+
+**Implication for CLI-backed skills (the meta-skill pattern):** a registry distributes
+**only the Markdown**, never your binary.
+So progressive disclosure splits across channels:
+
+| Level | Content | Provided by | Installed by |
+| --- | --- | --- | --- |
+| L1 | description (~100 tok) | `SKILL.md` frontmatter | registry **or** the tool’s own `setup` |
+| L2 | skill body (~few K tok) | `SKILL.md` markdown | registry **or** `setup` |
+| L3 | resources / commands | the CLI (`tool guidelines X`, `tool shortcut X`) | `npm/uvx install` + `setup` |
+
+A registry install gives L1–L2 (a landing page); L3 needs the CLI. Therefore the
+published `SKILL.md` must **bootstrap its own CLI** (lead with a pinned install +
+one-time `setup`; degrade with a clear “install the CLI first” message).
+Treat the registry copy as a landing page that installs the engine.
+
+**tbd’s position (compatible, already publishable):** `skills/tbd/SKILL.md` exists at
+the repo root, generated at build time from the same composed payload (drift-guarded),
+spec-compliant frontmatter (`name: tbd` + trigger-rich description), opening with the
+`npm install -g get-tbd` + `tbd setup --auto` bootstrap.
+So `npx skills add jlevy/tbd` works and the indexers list it automatically — no registry
+submission, no separate repo.
+We deliberately do **not** add a Claude Code plugin-marketplace entry or a Codex
+`marketplace.json`: those are bundle-publishing layers that duplicate what `tbd setup`
+already does, and a plain `SKILL.md` already reaches both Claude Code
+(`.claude/skills/`) and Codex (`.agents/skills/`).
+
+**Recommendation for any CLI-backed skill:** publish the single `skills/<name>/SKILL.md`
+at the repo root (covers skills.sh + the indexers at once), make it bootstrap the CLI,
+generate it from the same source as the in-repo skill so it can’t drift, and validate
+with `npx skills-ref validate`. Don’t over-invest in per-marketplace packaging unless
+you specifically want plugin bundling.
+(Publishing mechanics for tbd specifically:
+[plan-2026-02-08-tbd-on-skills-sh.md](../../specs/active/plan-2026-02-08-tbd-on-skills-sh.md);
+authoring guidance: `cli-agent-skill-patterns` §6.8.)
 
 ### AGENTS.md Block Tradeoff
 
