@@ -105,6 +105,41 @@ describe('setup flows', { timeout: isWindows ? 60000 : 15000 }, () => {
       expect(result.stdout).toContain("Let's plan a new feature");
       expect(result.stdout).toContain('Commit this code');
     });
+
+    it('installs the portable Agent Skill identical to the Claude mirror', async () => {
+      initGitRepo();
+
+      const result = runTbd(['setup', '--auto', '--prefix=test']);
+      expect(result.status).toBe(0);
+
+      const portablePath = join(tempDir, '.agents/skills/tbd/SKILL.md');
+      const mirrorPath = join(tempDir, '.claude/skills/tbd/SKILL.md');
+
+      const portable = await readFile(portablePath, 'utf-8');
+      expect(portable).toContain('name:');
+      expect(portable).toContain('DO NOT EDIT');
+
+      // The portable skill and the Claude mirror must carry the same payload.
+      const mirror = await readFile(mirrorPath, 'utf-8');
+      expect(portable).toBe(mirror);
+    });
+  });
+
+  describe('portable skill without Claude detection', () => {
+    it('writes .agents/skills even when no Claude signals are present', async () => {
+      initGitRepo();
+
+      // Clear Claude/Codex detection signals so only the unconditional portable
+      // skill install runs.
+      const result = runTbd(['setup', '--auto', '--prefix=test'], tempDir, {
+        CLAUDE_CODE: '',
+        HOME: tempDir,
+        USERPROFILE: tempDir,
+      });
+      expect(result.status).toBe(0);
+
+      await access(join(tempDir, '.agents/skills/tbd/SKILL.md'));
+    });
   });
 
   describe('already initialized repo', () => {
