@@ -55,6 +55,7 @@ import {
   getClaudePaths,
   getAgentsMdPath,
   getAgentSkillPaths,
+  getCodexPaths,
   AGENTS_SKILL_DISPLAY,
   AGENT_INTEGRATION_FORMAT,
   GLOBAL_CLAUDE_DIR,
@@ -392,6 +393,50 @@ _Add a brief overview of your project architecture_
 
 _Add your project-specific conventions here_
 `;
+}
+
+/**
+ * Codex project-local script paths (relative to repo root). Codex hooks
+ * reference ONLY these `.codex/` paths, never `.claude/`, so Codex setup stays
+ * independent of Claude Code setup.
+ */
+const CODEX_SESSION_SCRIPT_REL = '.codex/tbd-session.sh';
+const CODEX_CLOSING_REMINDER_REL = '.codex/tbd-closing-reminder.sh';
+const CODEX_GH_CLI_SCRIPT_REL = '.codex/ensure-gh-cli.sh';
+
+/**
+ * Build the Codex hooks.json content. Codex uses the same lifecycle event
+ * schema as Claude Code (command handlers), so tbd's hooks map almost 1:1:
+ * SessionStart and PreCompact run `tbd prime`, PostToolUse reminds about sync
+ * after `git push`, and (when enabled) a second SessionStart entry ensures gh.
+ */
+function getCodexHooksConfig(useGhCli: boolean): { hooks: Record<string, unknown[]> } {
+  const sessionStart: unknown[] = [
+    { matcher: '', hooks: [{ type: 'command', command: `bash ${CODEX_SESSION_SCRIPT_REL}` }] },
+  ];
+  if (useGhCli) {
+    sessionStart.push({
+      matcher: '',
+      hooks: [{ type: 'command', command: `bash ${CODEX_GH_CLI_SCRIPT_REL}`, timeout: 120 }],
+    });
+  }
+  return {
+    hooks: {
+      SessionStart: sessionStart,
+      PreCompact: [
+        {
+          matcher: '',
+          hooks: [{ type: 'command', command: `bash ${CODEX_SESSION_SCRIPT_REL} --brief` }],
+        },
+      ],
+      PostToolUse: [
+        {
+          matcher: 'Bash',
+          hooks: [{ type: 'command', command: `bash ${CODEX_CLOSING_REMINDER_REL}` }],
+        },
+      ],
+    },
+  };
 }
 
 /**
@@ -892,10 +937,123 @@ class SetupCodexHandler extends BaseCommand {
 
     if (options.remove) {
       await this.removeCodexSection(agentsPath);
+      await this.removeCodexHooks(cwd);
       return;
     }
 
     await this.installCodexSection(agentsPath);
+    await this.installCodexHooks(cwd);
+  }
+
+  /**
+   * Read the use_gh_cli setting; defaults to true (so fresh setup installs it).
+   */
+  private async getUseGhCliSetting(cwd: string): Promise<boolean> {
+    try {
+      const tbdRoot = await findTbdRoot(cwd);
+      if (!tbdRoot) return true;
+      const config = await readConfig(tbdRoot);
+      return config.settings.use_gh_cli ?? true;
+    } catch {
+      return true;
+    }
+  }
+
+  /**
+   * Install Codex lifecycle hooks: writes .codex/ scripts and a .codex/hooks.json
+   * (merged idempotently with any user hooks). Scripts reuse the same bodies as
+   * the Claude install but live under .codex/ so Codex never references .claude/.
+   */
+  private async installCodexHooks(cwd: string): Promise<void> {
+    if (this.checkDryRun('Would install Codex hooks', { path: './.codex/hooks.json' })) {
+      return;
+    }
+
+    const codexPaths = getCodexPaths(cwd);
+    await mkdir(codexPaths.dir, { recursive: true });
+
+    const useGhCli = await this.getUseGhCliSetting(cwd);
+
+    // Write the hook scripts (same content as the Claude install).
+    await writeFile(join(cwd, CODEX_SESSION_SCRIPT_REL), TBD_SESSION_SCRIPT);
+    await chmod(join(cwd, CODEX_SESSION_SCRIPT_REL), 0o755);
+    await writeFile(join(cwd, CODEX_CLOSING_REMINDER_REL), TBD_CLOSE_PROTOCOL_SCRIPT);
+    await chmod(join(cwd, CODEX_CLOSING_REMINDER_REL), 0o755);
+    if (useGhCli) {
+      const ghScriptContent = await loadBundledScript('ensure-gh-cli.sh');
+      await writeFile(join(cwd, CODEX_GH_CLI_SCRIPT_REL), ghScriptContent);
+      await chmod(join(cwd, CODEX_GH_CLI_SCRIPT_REL), 0o755);
+    } else {
+      await rm(join(cwd, CODEX_GH_CLI_SCRIPT_REL), { force: true });
+    }
+
+    // Merge our hooks into any existing .codex/hooks.json, removing prior
+    // tbd-owned entries (identified by the .codex/ script paths) so repeated
+    // runs stay idempotent and user-authored hooks are preserved.
+    let existing: { hooks?: Record<string, unknown[]> } = {};
+    try {
+      existing = JSON.parse(await readFile(codexPaths.hooks, 'utf-8')) as {
+        hooks?: Record<string, unknown[]>;
+      };
+    } catch {
+      // No existing file or unparseable; start fresh.
+    }
+
+    const isTbdOwned = (entry: unknown): boolean => {
+      const hooks = (entry as { hooks?: { command?: string }[] }).hooks ?? [];
+      return hooks.some((h) => h.command?.includes('.codex/'));
+    };
+
+    const merged: Record<string, unknown[]> = { ...(existing.hooks ?? {}) };
+    const tbdHooks = getCodexHooksConfig(useGhCli).hooks;
+    for (const [event, entries] of Object.entries(tbdHooks)) {
+      const userEntries = (merged[event] ?? []).filter((e) => !isTbdOwned(e));
+      merged[event] = [...userEntries, ...entries];
+    }
+
+    await writeFile(
+      codexPaths.hooks,
+      JSON.stringify({ ...existing, hooks: merged }, null, 2) + '\n',
+    );
+    this.output.success('Installed Codex hooks (.codex/hooks.json)');
+  }
+
+  /**
+   * Remove tbd-owned Codex hook entries and scripts, preserving user hooks.
+   */
+  private async removeCodexHooks(cwd: string): Promise<void> {
+    const codexPaths = getCodexPaths(cwd);
+    try {
+      const existing = JSON.parse(await readFile(codexPaths.hooks, 'utf-8')) as {
+        hooks?: Record<string, unknown[]>;
+      };
+      const hooks = existing.hooks ?? {};
+      for (const event of Object.keys(hooks)) {
+        const kept = (hooks[event] ?? []).filter((entry) => {
+          const entryHooks = (entry as { hooks?: { command?: string }[] }).hooks ?? [];
+          return !entryHooks.some((h) => h.command?.includes('.codex/'));
+        });
+        if (kept.length === 0) {
+          delete hooks[event];
+        } else {
+          hooks[event] = kept;
+        }
+      }
+      if (Object.keys(hooks).length === 0) {
+        await rm(codexPaths.hooks, { force: true });
+      } else {
+        await writeFile(codexPaths.hooks, JSON.stringify({ ...existing, hooks }, null, 2) + '\n');
+      }
+    } catch {
+      // No hooks file; nothing to remove.
+    }
+    for (const rel of [
+      CODEX_SESSION_SCRIPT_REL,
+      CODEX_CLOSING_REMINDER_REL,
+      CODEX_GH_CLI_SCRIPT_REL,
+    ]) {
+      await rm(join(cwd, rel), { force: true });
+    }
   }
 
   private async checkCodexSetup(agentsPath: string): Promise<void> {

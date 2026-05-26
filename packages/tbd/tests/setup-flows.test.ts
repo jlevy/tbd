@@ -152,6 +152,54 @@ describe('setup flows', { timeout: isWindows ? 60000 : 15000 }, () => {
     });
   });
 
+  describe('Codex hooks install', () => {
+    it('installs .codex/hooks.json and scripts that never reference .claude', async () => {
+      initGitRepo();
+
+      const result = runTbd(['setup', '--auto', '--prefix=test'], tempDir, {
+        CODEX_HOME: tempDir,
+      });
+      expect(result.status).toBe(0);
+
+      const hooksRaw = await readFile(join(tempDir, '.codex/hooks.json'), 'utf-8');
+      const hooks = JSON.parse(hooksRaw) as {
+        hooks: Record<string, { hooks: { command: string }[] }[]>;
+      };
+
+      const allCommands = Object.values(hooks.hooks)
+        .flat()
+        .flatMap((entry) => entry.hooks.map((h) => h.command));
+
+      // SessionStart runs the session script; PreCompact passes --brief.
+      expect(allCommands.some((c) => c.includes('.codex/tbd-session.sh'))).toBe(true);
+      expect(allCommands.some((c) => c.includes('--brief'))).toBe(true);
+      expect(allCommands.some((c) => c.includes('tbd-closing-reminder.sh'))).toBe(true);
+
+      // Codex hooks must never reach into the Claude install.
+      for (const command of allCommands) {
+        expect(command).not.toContain('.claude/');
+      }
+
+      // The referenced scripts exist.
+      await access(join(tempDir, '.codex/tbd-session.sh'));
+      await access(join(tempDir, '.codex/tbd-closing-reminder.sh'));
+    });
+
+    it('does not duplicate Codex hook entries on repeated setup', async () => {
+      initGitRepo();
+      runTbd(['setup', '--auto', '--prefix=test'], tempDir, { CODEX_HOME: tempDir });
+      runTbd(['setup', '--auto'], tempDir, { CODEX_HOME: tempDir });
+
+      const hooks = JSON.parse(await readFile(join(tempDir, '.codex/hooks.json'), 'utf-8')) as {
+        hooks: Record<string, { hooks: { command: string }[] }[]>;
+      };
+      const sessionTbdEntries = (hooks.hooks.SessionStart ?? []).filter((entry) =>
+        entry.hooks.some((h) => h.command.includes('tbd-session.sh')),
+      );
+      expect(sessionTbdEntries.length).toBe(1);
+    });
+  });
+
   describe('portable skill without Claude detection', () => {
     it('writes .agents/skills even when no Claude signals are present', async () => {
       initGitRepo();
