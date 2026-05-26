@@ -31,8 +31,12 @@ import { WORKTREE_DIR } from '../../lib/paths.js';
 import {
   getClaudePaths,
   getAgentsMdPath,
+  getAgentSkillPaths,
+  getCodexPaths,
   CLAUDE_SETTINGS_DISPLAY,
   AGENTS_MD_DISPLAY,
+  AGENTS_SKILL_DISPLAY,
+  CODEX_HOOKS_DISPLAY,
 } from '../../lib/integration-paths.js';
 import {
   git,
@@ -69,10 +73,14 @@ interface StatusData {
 
   // Integrations
   integrations: {
+    portable_skill: boolean;
+    portable_skill_path: string;
     claude_code: boolean;
     claude_code_path: string;
     codex: boolean;
     codex_path: string;
+    codex_hooks: boolean;
+    codex_hooks_path: string;
   };
 }
 
@@ -107,10 +115,14 @@ class StatusHandler extends BaseCommand {
       worktree_healthy: null,
       workspaces: [],
       integrations: {
+        portable_skill: false,
+        portable_skill_path: AGENTS_SKILL_DISPLAY,
         claude_code: false,
         claude_code_path: CLAUDE_SETTINGS_DISPLAY,
         codex: false,
         codex_path: AGENTS_MD_DISPLAY,
+        codex_hooks: false,
+        codex_hooks_path: CODEX_HOOKS_DISPLAY,
       },
     };
 
@@ -194,11 +206,31 @@ class StatusHandler extends BaseCommand {
     const agentsPath = getAgentsMdPath(projectRoot);
 
     const result: StatusData['integrations'] = {
+      portable_skill: false,
+      portable_skill_path: AGENTS_SKILL_DISPLAY,
       claude_code: false,
       claude_code_path: CLAUDE_SETTINGS_DISPLAY,
       codex: false,
       codex_path: AGENTS_MD_DISPLAY,
+      codex_hooks: false,
+      codex_hooks_path: CODEX_HOOKS_DISPLAY,
     };
+
+    // Check the portable Agent Skill (.agents/skills — primary surface)
+    try {
+      await access(getAgentSkillPaths(projectRoot).portable);
+      result.portable_skill = true;
+    } catch {
+      // Not installed
+    }
+
+    // Check Codex hooks
+    try {
+      await access(getCodexPaths(projectRoot).hooks);
+      result.codex_hooks = true;
+    } catch {
+      // Not installed
+    }
 
     // Check Claude Code hooks in project-local settings
     try {
@@ -295,6 +327,11 @@ class StatusHandler extends BaseCommand {
     // INTEGRATIONS section (shared with doctor)
     const integrationChecks: IntegrationCheck[] = [
       {
+        name: 'Portable Agent Skill',
+        installed: data.integrations.portable_skill,
+        path: data.integrations.portable_skill_path,
+      },
+      {
         name: 'Claude Code hooks',
         installed: data.integrations.claude_code,
         path: data.integrations.claude_code_path,
@@ -303,6 +340,11 @@ class StatusHandler extends BaseCommand {
         name: 'Codex AGENTS.md',
         installed: data.integrations.codex,
         path: data.integrations.codex_path,
+      },
+      {
+        name: 'Codex hooks',
+        installed: data.integrations.codex_hooks,
+        path: data.integrations.codex_hooks_path,
       },
     ];
     const hasMissingIntegrations = renderIntegrationsSection(integrationChecks, colors);

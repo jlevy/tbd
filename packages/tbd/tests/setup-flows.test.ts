@@ -105,6 +105,209 @@ describe('setup flows', { timeout: isWindows ? 60000 : 15000 }, () => {
       expect(result.stdout).toContain("Let's plan a new feature");
       expect(result.stdout).toContain('Commit this code');
     });
+
+    it('installs the portable Agent Skill identical to the Claude mirror', async () => {
+      initGitRepo();
+
+      const result = runTbd(['setup', '--auto', '--prefix=test']);
+      expect(result.status).toBe(0);
+
+      const portablePath = join(tempDir, '.agents/skills/tbd/SKILL.md');
+      const mirrorPath = join(tempDir, '.claude/skills/tbd/SKILL.md');
+
+      const portable = await readFile(portablePath, 'utf-8');
+      expect(portable).toContain('name:');
+      expect(portable).toContain('DO NOT EDIT');
+
+      // The portable skill and the Claude mirror must carry the same payload.
+      const mirror = await readFile(mirrorPath, 'utf-8');
+      expect(portable).toBe(mirror);
+    });
+  });
+
+  describe('AGENTS.md compact managed block', () => {
+    it('writes a compact, format-stamped block instead of the full skill', async () => {
+      initGitRepo();
+
+      // CODEX_* env makes setup write the AGENTS.md managed block.
+      const result = runTbd(['setup', '--auto', '--prefix=test'], tempDir, {
+        CODEX_HOME: tempDir,
+      });
+      expect(result.status).toBe(0);
+
+      const agents = await readFile(join(tempDir, 'AGENTS.md'), 'utf-8');
+      expect(agents).toContain('<!-- BEGIN TBD INTEGRATION format=f03 surface=agents-md -->');
+      expect(agents).toContain('tbd prime');
+
+      const block = agents.slice(
+        agents.indexOf('<!-- BEGIN TBD INTEGRATION'),
+        agents.indexOf('<!-- END TBD INTEGRATION -->'),
+      );
+      // The compact block must NOT embed the full skill body (which the old
+      // pre-versioning block did — e.g. the Session Closing Protocol section).
+      expect(block).not.toContain('Session Closing Protocol');
+      // Compact: the managed block stays well under the AGENTS.md budget.
+      expect(block.split('\n').length).toBeLessThan(80);
+    });
+  });
+
+  describe('Codex hooks install', () => {
+    it('installs .codex/hooks.json and scripts that never reference .claude', async () => {
+      initGitRepo();
+
+      const result = runTbd(['setup', '--auto', '--prefix=test'], tempDir, {
+        CODEX_HOME: tempDir,
+      });
+      expect(result.status).toBe(0);
+
+      const hooksRaw = await readFile(join(tempDir, '.codex/hooks.json'), 'utf-8');
+      const hooks = JSON.parse(hooksRaw) as {
+        hooks: Record<string, { hooks: { command: string }[] }[]>;
+      };
+
+      const allCommands = Object.values(hooks.hooks)
+        .flat()
+        .flatMap((entry) => entry.hooks.map((h) => h.command));
+
+      // SessionStart runs the session script; PreCompact passes --brief.
+      expect(allCommands.some((c) => c.includes('.codex/tbd-session.sh'))).toBe(true);
+      expect(allCommands.some((c) => c.includes('--brief'))).toBe(true);
+      expect(allCommands.some((c) => c.includes('tbd-closing-reminder.sh'))).toBe(true);
+
+      // Codex hooks must never reach into the Claude install.
+      for (const command of allCommands) {
+        expect(command).not.toContain('.claude/');
+      }
+
+      // The referenced scripts exist.
+      await access(join(tempDir, '.codex/tbd-session.sh'));
+      await access(join(tempDir, '.codex/tbd-closing-reminder.sh'));
+    });
+
+    it('does not duplicate Codex hook entries on repeated setup', async () => {
+      initGitRepo();
+      runTbd(['setup', '--auto', '--prefix=test'], tempDir, { CODEX_HOME: tempDir });
+      runTbd(['setup', '--auto'], tempDir, { CODEX_HOME: tempDir });
+
+      const hooks = JSON.parse(await readFile(join(tempDir, '.codex/hooks.json'), 'utf-8')) as {
+        hooks: Record<string, { hooks: { command: string }[] }[]>;
+      };
+      const sessionTbdEntries = (hooks.hooks.SessionStart ?? []).filter((entry) =>
+        entry.hooks.some((h) => h.command.includes('tbd-session.sh')),
+      );
+      expect(sessionTbdEntries.length).toBe(1);
+    });
+  });
+
+  describe('upgrade of an older .claude-only install', () => {
+    it('adds the portable skill while preserving the Claude mirror', async () => {
+      initGitRepo();
+      runTbd(['setup', '--auto', '--prefix=test']);
+
+      // Simulate an old install that only has the Claude surface by removing the
+      // portable skill, then re-running setup.
+      await rm(join(tempDir, '.agents'), { recursive: true, force: true });
+      await access(join(tempDir, '.claude/skills/tbd/SKILL.md'));
+
+      const result = runTbd(['setup', '--auto']);
+      expect(result.status).toBe(0);
+
+      // Portable skill is restored and the Claude mirror is still present.
+      await access(join(tempDir, '.agents/skills/tbd/SKILL.md'));
+      await access(join(tempDir, '.claude/skills/tbd/SKILL.md'));
+    });
+  });
+
+  describe('integration format guard (self-upgrade safety)', () => {
+    it('self-upgrades a legacy unversioned AGENTS.md block in place', async () => {
+      initGitRepo();
+      // Simulate an old generated block with no integration-format metadata.
+      await writeFile(
+        join(tempDir, 'AGENTS.md'),
+        '# Project Instructions for AI Agents\n\n' +
+          '<!-- BEGIN TBD INTEGRATION -->\n## tbd\n\nOld full block content here.\n' +
+          '<!-- END TBD INTEGRATION -->\n\n## My Notes\n\nKeep me.\n',
+      );
+
+      const result = runTbd(['setup', '--auto', '--prefix=test']);
+      expect(result.status).toBe(0);
+
+      const agents = await readFile(join(tempDir, 'AGENTS.md'), 'utf-8');
+      // Upgraded to the versioned compact block...
+      expect(agents).toContain('format=f03');
+      // ...while preserving user content outside the managed region.
+      expect(agents).toContain('## My Notes');
+      expect(agents).toContain('Keep me.');
+    });
+
+    it('refuses to overwrite an AGENTS.md written by a newer tbd', async () => {
+      initGitRepo();
+      await writeFile(
+        join(tempDir, 'AGENTS.md'),
+        '# Project Instructions for AI Agents\n\n' +
+          '<!-- BEGIN TBD INTEGRATION format=f99 surface=agents-md -->\n' +
+          '## tbd\n\nFuture block.\n' +
+          '<!-- END TBD INTEGRATION -->\n',
+      );
+
+      const result = runTbd(['setup', '--auto', '--prefix=test']);
+
+      // Hard stop with an actionable upgrade message; the newer block is preserved.
+      expect(result.status).not.toBe(0);
+      expect(result.stderr + result.stdout).toContain('newer tbd');
+      expect(result.stderr + result.stdout).toContain('get-tbd@latest');
+
+      const agents = await readFile(join(tempDir, 'AGENTS.md'), 'utf-8');
+      expect(agents).toContain('format=f99');
+      expect(agents).toContain('Future block.');
+    });
+  });
+
+  describe('agent-targeting flags', () => {
+    it('--codex installs only the Codex surface and skips Claude', async () => {
+      initGitRepo();
+
+      // Harness sets CLAUDE_CODE=1, but --codex targets Codex explicitly, so the
+      // Claude surface must be suppressed.
+      const result = runTbd(['setup', '--auto', '--prefix=test', '--codex']);
+      expect(result.status).toBe(0);
+
+      // Codex surface present.
+      await access(join(tempDir, 'AGENTS.md'));
+      await access(join(tempDir, '.codex/hooks.json'));
+      // Portable skill is always installed.
+      await access(join(tempDir, '.agents/skills/tbd/SKILL.md'));
+      // Claude surface suppressed.
+      await expect(access(join(tempDir, '.claude/settings.json'))).rejects.toThrow();
+    });
+
+    it('--skip-codex suppresses Codex even when CODEX_HOME is set', async () => {
+      initGitRepo();
+
+      const result = runTbd(['setup', '--auto', '--prefix=test', '--skip-codex'], tempDir, {
+        CODEX_HOME: tempDir,
+      });
+      expect(result.status).toBe(0);
+
+      await expect(access(join(tempDir, '.codex/hooks.json'))).rejects.toThrow();
+    });
+  });
+
+  describe('portable skill without Claude detection', () => {
+    it('writes .agents/skills even when no Claude signals are present', async () => {
+      initGitRepo();
+
+      // Clear Claude/Codex detection signals so only the unconditional portable
+      // skill install runs.
+      const result = runTbd(['setup', '--auto', '--prefix=test'], tempDir, {
+        CLAUDE_CODE: '',
+        HOME: tempDir,
+        USERPROFILE: tempDir,
+      });
+      expect(result.status).toBe(0);
+
+      await access(join(tempDir, '.agents/skills/tbd/SKILL.md'));
+    });
   });
 
   describe('already initialized repo', () => {

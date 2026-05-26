@@ -37,6 +37,13 @@ function isDirty() {
 }
 
 export function getGitVersion() {
+  // Explicit override for reproducible/release builds, e.g. when regenerating the
+  // dogfooded integration artifacts so their pinned fallbacks use a clean
+  // published version rather than a dev string.
+  if (process.env.TBD_VERSION_OVERRIDE) {
+    return process.env.TBD_VERSION_OVERRIDE;
+  }
+
   // Try tag-based version first
   try {
     const tag = git('describe --tags --abbrev=0');
