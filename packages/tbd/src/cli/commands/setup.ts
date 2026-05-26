@@ -183,19 +183,23 @@ function assertNotNewerFormat(content: string, artifact: string): void {
  * block stays well under the AGENTS.md prompt-budget guidance.
  */
 function getCodexTbdSection(): string {
+  // This text is kept in flowmark's canonical form (sentence-aware line breaks,
+  // curly apostrophe, blank line before the END marker) so that setup output and
+  // a formatter pass produce byte-identical results and the dogfooded AGENTS.md
+  // never drifts.
   const body = `## tbd
 
 This repository uses **tbd** for git-native issue tracking (beads), spec-driven
-planning, and on-demand engineering guidelines. As the agent, you operate tbd on the
-user's behalf — translate their requests into tbd actions rather than telling them to
-run commands.
+planning, and on-demand engineering guidelines.
+As the agent, you operate tbd on the user’s behalf — translate their requests into tbd
+actions rather than telling them to run commands.
 
 - Run \`tbd prime\` to load current project state and the full tbd workflow.
 - Run \`tbd skill\` for the complete reusable tbd skill instructions.
 - Run \`tbd shortcut --list\` and \`tbd guidelines --list\` for on-demand resources.
 - Track all work as beads: \`tbd create\`, \`tbd ready\`, \`tbd close\`, and \`tbd sync\`.
 `;
-  return `${CODEX_BEGIN_MARKER}\n${CODEX_FORMAT_MARKER}\n${body}${CODEX_END_MARKER}\n`;
+  return `${CODEX_BEGIN_MARKER}\n${CODEX_FORMAT_MARKER}\n${body}\n${CODEX_END_MARKER}\n`;
 }
 
 interface SetupClaudeOptions {
