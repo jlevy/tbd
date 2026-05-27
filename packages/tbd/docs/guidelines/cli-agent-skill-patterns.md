@@ -104,15 +104,15 @@ So:
 
 - **Prompt/instructions only** → ship a `SKILL.md`. (§3, §4)
 - **Project-wide conventions** (build/test/style) → add an `AGENTS.md`. (§2)
-- **You have a CLI** → `SKILL.md` + agent-friendly `--json` CLI. (§0.2, §6)
+- **You have a CLI** → `SKILL.md` and an agent-friendly `--json` CLI. (§0.2, §6)
 - **Many subcommands / a knowledge library** → CLI-as-skill meta-pattern.
   (§6)
 - **A service with no CLI, or you need OAuth / multi-tenant / audit** → MCP server.
   (§7)
-- **Maximum reach across many agents** → layer them: AGENTS.md + SKILL.md + CLI + MCP.
+- **Maximum reach across many agents** → layer them: AGENTS.md, SKILL.md, CLI, and MCP.
   (§1)
 - **Self-installs into agents & ships evolving skills?** → that is the advanced Tier 2
-  pattern (self-upgrade + format versioning); most tools are Tier 1: a pure skill run
+  pattern (self-upgrade and format versioning); most tools are Tier 1: a pure skill run
   via a **pinned** `npx`/`uvx`. (§6.0)
 
 Everything below is reference material.
@@ -136,7 +136,7 @@ or capability.
 | 5. Per-agent polish | `.cursor/rules/*.mdc`, plugin packaging, ACP, etc. | Glob-scoped activation, enterprise distribution, editor discovery | Per-agent |
 
 **Recommended default for a tool author who wants broad reach**: ship an `AGENTS.md`
-snippet (universal baseline) + a `SKILL.md` (portable capability) + an agent-friendly
+snippet (universal baseline), a `SKILL.md` (portable capability), and an agent-friendly
 CLI. Add an MCP server only when a CLI can’t serve the need.
 Add agent-specific files last, and only where they buy something.
 
@@ -204,8 +204,8 @@ current ones. Only the `format=fNN` value changes when the block’s shape chang
 
 ## 3. The Agent Skills Standard (SKILL.md)
 
-**What it is**: a folder with a `SKILL.md` file (YAML frontmatter + Markdown body), plus
-optional supporting files.
+**What it is**: a folder with a `SKILL.md` file (YAML frontmatter and a Markdown body),
+plus optional supporting files.
 Created by Anthropic (Dec 2025), published under Apache 2.0 at
 [agentskills.io](https://agentskills.io).
 280,000+ public skills exist as of early 2026.
@@ -318,8 +318,8 @@ Earlier guidance cited a flat ~15K-character budget.
 - The skill listing gets a budget of **~1% of the model’s context window** by default
   (`skillListingBudgetFraction`, default `0.01`). When it overflows, the
   least-recently-invoked skills lose their descriptions first.
-- Per-skill listing text (`description` + `when_to_use`) is truncated at **1,536 chars**
-  (`maxSkillDescriptionChars`).
+- Per-skill listing text (`description` and `when_to_use`) is truncated at **1,536
+  chars** (`maxSkillDescriptionChars`).
 - `SLASH_COMMAND_TOOL_CHAR_BUDGET` overrides the fraction with a fixed character count.
 - `skillOverrides` can set any skill to `on` / `name-only` / `user-invocable-only` /
   `off` without editing the file; `/doctor` reports overflow.
@@ -399,14 +399,14 @@ Verified against the Codex source (`codex-rs/core-skills/src/loader.rs`, tags
 `<dir>/.agents/skills/` from the project root down to cwd), `User`
 (`$HOME/.agents/skills/`), `Admin`, plus plugin roots and `$CODEX_HOME/skills`. So a
 **plain repo-root `.agents/skills/<name>/SKILL.md` is read directly**, no manifest
-required. (The repo path is built by joining `.agents` + `skills` at runtime, so it does
-*not* appear as a contiguous `.agents/skills` literal in the binary — a `strings`-based
-inspection will miss it and see only `.agents/plugins/marketplace.json`; confirm against
-the source, not binary strings.)
-**Plugins** are an *additional* distribution layer (installable units bundling skills +
-MCP servers — 90+ ship with Codex), declared in `.agents/plugins/marketplace.json` (also
-reads `.claude-plugin/marketplace.json`) — useful for *publishing a bundle*, but not
-needed to make a repo-local skill load.
+required. (The repo path is built by joining `.agents` and `skills` at runtime, so it
+does *not* appear as a contiguous `.agents/skills` literal in the binary — a
+`strings`-based inspection will miss it and see only `.agents/plugins/marketplace.json`;
+confirm against the source, not binary strings.)
+**Plugins** are an *additional* distribution layer (installable units bundling skills
+and MCP servers — 90+ ship with Codex), declared in `.agents/plugins/marketplace.json`
+(also reads `.claude-plugin/marketplace.json`) — useful for *publishing a bundle*, but
+not needed to make a repo-local skill load.
 Codex skills may carry a richer **`agents/openai.yaml`** companion (e.g.
 `interface.display_name`, icons, `dependencies.tools[]`,
 `policy.allow_implicit_invocation`); map the portable
@@ -431,7 +431,7 @@ sandboxed.
 This is the pattern for a richer tool: a CLI that is itself a skill, exposing many
 capabilities as subcommands while costing a single description slot.
 `tbd` is the reference implementation; **Beads/`bd`** (Steve Yegge), `tbd`’s lineage,
-follows the same shape (subcommands + `AGENTS.md` + `--json` + an optional MCP server).
+follows the same shape (subcommands, `AGENTS.md`, `--json`, and an optional MCP server).
 
 Use this when you have many capabilities, need cross-session state, or want a curated
 knowledge library the agent pulls from.
@@ -550,8 +550,8 @@ Rules: reference commands **explicitly** (`mycli command arg`, never “see the 
 - **Actionable errors** that include the next command to run.
 - **Discoverable help**: an `IMPORTANT:` epilog pointing at a context-restore command
   (e.g., `mycli prime`), and a “Getting Started” one-liner.
-- **A `prime` command** (dashboard + status + rules) for session start and post-compact,
-  distinct from `skill` (pure documentation).
+- **A `prime` command** (dashboard, status, and rules) for session start and
+  post-compact, distinct from `skill` (pure documentation).
 
 ### 6.6 Distribution & multi-agent install
 
@@ -621,14 +621,14 @@ project needs both.
 - **Fully generated install artifacts** (`.agents/skills/<tool>/SKILL.md`,
   `.claude/skills/<tool>/SKILL.md`, generated hook scripts, and the like): CLI-owned;
   mark them “DO NOT EDIT.” Pick **one of two modes** and be consistent:
-  - **Commit + dogfood** (what `tbd` does): check the generated artifacts in, and add a
-    **drift test** that regenerates them and fails if they differ.
+  - **Commit and dogfood** (what `tbd` does): check the generated artifacts in, and add
+    a **drift test** that regenerates them and fails if they differ.
     Pros: browsable on GitHub / skills.sh, the repo demonstrates its own output,
     reviewers see changes.
     Con: a regeneration shows up as a diff to commit.
     Keep generated output deterministic and formatter-stable (below) or the drift
     test/commits will churn.
-  - **Gitignore + regenerate** (what `metaproc` does): add `.../skills/*/SKILL.md` to
+  - **Gitignore and regenerate** (what `metaproc` does): add `.../skills/*/SKILL.md` to
     `.gitignore` and let `setup`/`--install` (re)create them on demand.
     Pros: zero commit churn, no drift to guard.
     Con: not browsable in the repo, and no committed artifact to diff in review.
@@ -732,7 +732,7 @@ The clean implementation is the host language’s plugin mechanism:
 
 Keep each registered skill a **spec** (name, two-part description, `allowed-tools`, a
 baseline source, and an optional dynamic catalog function) and run them all through the
-**same** `compose` + `--install` path, so every skill — first-party or third-party —
+**same** `compose` and `--install` path, so every skill — first-party or third-party —
 gets identical frontmatter, the `DO NOT EDIT`/format marker, and deterministic output.
 This keeps the “one tool, many self-injecting commands” model open for extension without
 the core tool taking a dependency on every plugin.
@@ -810,8 +810,8 @@ See `tbd guidelines supply-chain-hardening` for the cross-ecosystem policy.
   `uv tool install` / `pipx install`. `uvx` reuses a persistent install if one exists.
 - **Go**: `go run <module>@<ver>` (compiles on the fly) or `go install`.
 - **Rust**: no first-class zero-install runner — ship **prebuilt binaries** (GitHub
-  releases + a `curl … | sh` installer) or `cargo binstall`; `cargo install` compiles.
-- **Cross-language**: a prebuilt binary + install script, or a container image (Docker
+  releases and a `curl … | sh` installer) or `cargo binstall`; `cargo install` compiles.
+- **Cross-language**: a prebuilt binary and install script, or a container image (Docker
   is emerging as the production-grade distribution for MCP servers).
 
 This mirrors how the ecosystem ships agent tooling today: **MCP servers** are most often
@@ -821,7 +821,7 @@ configs; **CLIs** like Beads offer `brew` / `npm -g` / `curl` installers, while 
 
 **Recommendation**: default the skill to a **pinned zero-install invocation**
 (`uvx`/`npx <pkg>@<version>`) for maximum reach across ephemeral and cloud agents; offer
-**global install + a `SessionStart` bootstrap** as the optimization for persistent
+**global install and a `SessionStart` bootstrap** as the optimization for persistent
 environments where the project wants lockfile-managed versions and warm-start speed.
 
 ### 6.8 Publishing & discovery — make the skill installable
@@ -832,15 +832,15 @@ and the ecosystem finds it.
 The landscape worth targeting:
 
 - **`skills.sh` / `npx skills add <owner/repo>`** (Vercel) — the cross-agent “npm for
-  skills”: one command installs into `.agents/skills/` + symlinks per agent (Claude
+  skills”: one command installs into `.agents/skills/` and symlinks per agent (Claude
   Code, Codex, Cursor, Copilot, Gemini, …). No review; ranked by install telemetry.
   **This is the highest-leverage target** and needs zero extra infra.
 - **GitHub-scraping indexers** (SkillsMP ~800k skills, ClaudeSkills.info, LobeHub,
   claudemarketplaces.com) — auto-list public repos that contain a `SKILL.md` (often
-  gated on ≥2 stars). You get listed for free just by being public + discoverable.
+  gated on ≥2 stars). You get listed for free just by being public and discoverable.
 - **Plugin marketplaces** — `.claude-plugin/marketplace.json` (Claude Code, the official
   Anthropic channel) and `.agents/plugins/marketplace.json` (Codex; Codex reads both).
-  These are *plugin* channels: bundles of skills + MCP + hooks + commands.
+  These are *plugin* channels: bundles of skills, MCP servers, hooks, and commands.
   They are **only for publishing a bundle** — a repo-local skill already loads from
   `.claude/skills/` (Claude Code) and `.agents/skills/` (Codex) **without any
   manifest**, so don’t add one just to be discovered.
@@ -873,10 +873,10 @@ itself. Generate this distribution `SKILL.md` from the same source as your in-re
 pushing.
 
 `tbd` does exactly this: `skills/tbd/SKILL.md` is generated at build time from the same
-baseline, carries `name: tbd` + a trigger-rich description, and opens with the
-`npm install -g get-tbd` + `tbd setup --auto` bootstrap — so `npx skills add jlevy/tbd`
-gives an agent a working landing page, and `tbd setup` then upgrades it to the full
-multi-agent install (§6.6).
+baseline, carries `name: tbd` and a trigger-rich description, and opens with the
+`npm install -g get-tbd` and `tbd setup --auto` bootstrap — so
+`npx skills add jlevy/tbd` gives an agent a working landing page, and `tbd setup` then
+upgrades it to the full multi-agent install (§6.6).
 
 * * *
 

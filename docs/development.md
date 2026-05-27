@@ -141,8 +141,8 @@ pnpm publint
 Git hooks are managed by lefthook and run automatically:
 
 - **pre-commit**: Format, lint, and typecheck staged files
-- **pre-push**: Build (if needed), run tests, and — when a `package.json` is
-  staged — enforce the 14-day package-age rule via `pnpm check:package-age`.
+- **pre-push**: Build (if needed), run tests, and — when a `package.json` is staged —
+  enforce the 14-day package-age rule via `pnpm check:package-age`.
 
 To skip hooks (emergency only):
 
@@ -159,17 +159,16 @@ do not install or upgrade to any package version less than 14 days old.
 
 - `pnpm upgrade:check`, `pnpm upgrade`, and `pnpm upgrade:major` are wired to
   `ncu --cooldown 14`; they will refuse to bump to versions inside the window.
-- `pnpm check:package-age` (also wired into `pre-push`) scans every
-  `package.json` in the repo, queries the npm registry for each pinned
-  version's publish time, and exits non-zero on any pin under 14 days. Add
-  `--warn` to report without failing.
-- Exceptions (CVE patches inside the window) must be documented in the commit
-  message or PR description with CVE ID, upstream link, and a `Reviewed-by:`
-  line.
+- `pnpm check:package-age` (also wired into `pre-push`) scans every `package.json` in
+  the repo, queries the npm registry for each pinned version’s publish time, and exits
+  non-zero on any pin under 14 days.
+  Add `--warn` to report without failing.
+- Exceptions (CVE patches inside the window) must be documented in the commit message or
+  PR description with CVE ID, upstream link, and a `Reviewed-by:` line.
 
 The check requires registry access (`https://registry.npmjs.org`); skip it with
-`SKIP=package-age git push` only if you're pushing infrastructure changes that
-do not touch dependencies.
+`SKIP=package-age git push` only if you’re pushing infrastructure changes that do not
+touch dependencies.
 
 ## Commit Conventions
 
@@ -222,24 +221,31 @@ chore: Update dependencies
 
 ## Creating Releases
 
-We use [Changesets](https://github.com/changesets/changesets) for versioning.
+Releases are **tag-triggered** and assembled from clean conventional commits — we do
+**not** use Changesets (no `.changeset/` files, no “Version Packages” PR). `get-tbd` is
+a single published package, so the per-PR changeset ceremony isn’t worth it; release
+notes are composed from the commits since the last tag at release time.
 
-### Adding a changeset
-
-When making a change that should be included in a release:
-
-```bash
-pnpm changeset
-```
-
-Follow the prompts to describe your change and select the version bump type.
+`.github/workflows/release.yml` runs on a `v*` tag push: it builds, runs `publint`,
+publishes `get-tbd` to npm, and creates a GitHub Release whose body is the matching
+`## X.Y.Z` section of `packages/tbd/CHANGELOG.md`.
 
 ### Release process
 
-1. Create a changeset with your PR
-2. Merge PR to main
-3. CI will create a “Version Packages” PR
-4. Merge that PR to publish to npm and create a GitHub release
+1. From clean `main`, review `git log <last-tag>..HEAD` and choose the version (a `feat`
+   → minor, `fix`/`chore` → patch, breaking → major; note for `0.x` a semver minor is
+   `0.MINOR.0`).
+2. On a `claude/release-vX.Y.Z` branch: bump `version` in `packages/tbd/package.json`
+   and prepend a `## X.Y.Z` section to `packages/tbd/CHANGELOG.md` with notes written
+   per
+   [`release-notes-guidelines`](../packages/tbd/docs/guidelines/release-notes-guidelines.md).
+3. `pnpm release:verify` (build and publint) and `pnpm test`; open the release PR; merge
+   once CI is green.
+4. Tag `vX.Y.Z` on `main` and push it — the Release workflow publishes to npm and
+   creates the GitHub Release.
+
+For the full step-by-step (including the version-bump heuristic and verification), run
+`tbd shortcut cut-release`.
 
 ## Project Structure
 
@@ -260,8 +266,7 @@ tbd/
 │       └── tests/
 ├── scripts/               # Development scripts
 ├── docs/                  # Documentation
-├── .github/workflows/     # CI/CD
-└── .changeset/            # Changesets config
+└── .github/workflows/     # CI/CD (release.yml publishes on v* tags)
 ```
 
 ## Architecture
@@ -270,7 +275,7 @@ See [tbd-design.md](tbd-design.md) for the full design document.
 
 Key concepts:
 
-- **File Layer**: Markdown + YAML front matter format
+- **File Layer**: Markdown and YAML front matter format
 - **Git Layer**: Sync via dedicated `tbd-sync` branch
 - **CLI Layer**: Commander.js with Beads-compatible commands
 
@@ -280,7 +285,7 @@ The CLI follows patterns from
 [research-modern-typescript-cli-patterns.md](general/research/current/research-modern-typescript-cli-patterns.md):
 
 - Base Command pattern for shared functionality
-- Dual output mode (text + JSON)
+- Dual output mode (text and JSON)
 - OutputManager for consistent output handling
 - Proper stdout/stderr separation
 

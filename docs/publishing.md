@@ -1,7 +1,9 @@
 # Publishing (npm)
 
-This project uses [Changesets](https://github.com/changesets/changesets) for version
-management and tag-based releases with provenance attestation to npm.
+This project uses **tag-based releases** with provenance attestation to npm (no
+Changesets). Version and release notes are assembled by hand from clean conventional
+commits at release time; pushing a `v*` tag publishes automatically.
+For the guided end-to-end flow, run `tbd shortcut cut-release`.
 
 For daily development workflow, see [development.md](../../development.md).
 For release notes format and guidelines, see `tbd guidelines release-notes-guidelines`.
@@ -50,8 +52,9 @@ This will prompt for web-based authentication in your browser.
 
 ## During Development
 
-Merge PRs to `main` without creating changesets.
-Changesets are created only at release time.
+Merge PRs to `main` with clean, conventional commits.
+There are no changeset files — the version bump and release notes are assembled from the
+commits at release time.
 
 ## Release Workflow
 
@@ -129,9 +132,8 @@ Triage:
   tooling): treat as release-blockers unless the impact is documented as
   out-of-threat-model.
   Fix by bumping the affected dependency.
-- **Dev-only advisories** (paths through `vitest`, `c8`, `tsdown`, `@changesets`,
-  `typescript-eslint`, `eslint`, `prettier`, `lefthook`, etc.): note them but do not
-  block release.
+- **Dev-only advisories** (paths through `vitest`, `c8`, `tsdown`, `typescript-eslint`,
+  `eslint`, `prettier`, `lefthook`, etc.): note them but do not block release.
 
 #### 3c. Package-age and provenance check
 
@@ -153,42 +155,26 @@ there is anything notable (lockfile changes, new advisories, deferred fixes, new
 dependencies). If the lockfile is byte-identical and no new advisories landed, a single
 sentence ("Lockfile unchanged since vX.X.X; no new advisories.") is enough.
 
-### Step 4: Create Changeset
+### Step 4: Bump Version & Update CHANGELOG
 
-Run the interactive changeset command:
-
-```bash
-pnpm changeset
-```
-
-This prompts for package selection, bump type (patch/minor/major), and a summary.
-
-Commit:
+No Changesets — bump by hand on a `claude/release-vX.X.X` branch:
 
 ```bash
-git add .changeset
-git commit -m "chore: add changeset for vX.X.X"
+# 1. Set "version" in packages/tbd/package.json to X.X.X
+# 2. Prepend a section to packages/tbd/CHANGELOG.md (heading MUST be exactly "## X.X.X" —
+#    release.yml greps for it to build the GitHub Release body):
+#
+#    ## X.X.X
+#
+#    <release notes — see Step 5>
 ```
 
-### Step 5: Version Packages
+The notes you write here ARE the release notes (Step 5); there is no separate changeset
+summary to keep in sync.
 
-Run changesets to bump version and update CHANGELOG:
+### Step 5: Write Release Notes
 
-```bash
-pnpm changeset version
-```
-
-Review and commit:
-
-```bash
-git diff  # Verify package.json and CHANGELOG.md
-git add .
-git commit -m "chore: release get-tbd vX.X.X"
-```
-
-### Step 6: Write Release Notes
-
-**Before pushing**, write release notes following
+Write the `## X.X.X` CHANGELOG section following
 `tbd guidelines release-notes-guidelines`.
 
 ```bash
@@ -198,7 +184,7 @@ git log $(git describe --tags --abbrev=0 2>/dev/null || echo "HEAD~20")..HEAD --
 # Write release notes to release-notes.md or prepare for PR body
 ```
 
-### Step 7: Push and Tag
+### Step 6: Push and Tag
 
 **Option A: Direct git push (local development)**
 
@@ -229,7 +215,7 @@ gh api repos/jlevy/tbd/git/refs -X POST \
   -f sha="$MERGE_SHA"
 ```
 
-### Step 8: Update GitHub Release
+### Step 7: Update GitHub Release
 
 After the release workflow completes:
 
@@ -241,7 +227,7 @@ gh run list -R jlevy/tbd --limit 3
 gh release edit vX.X.X -R jlevy/tbd --notes-file release-notes.md
 ```
 
-### Step 9: Verify
+### Step 8: Verify
 
 ```bash
 gh release view vX.X.X -R jlevy/tbd
@@ -260,9 +246,7 @@ PREV=$(git describe --tags --abbrev=0)
 git diff $PREV..HEAD -- '**/package.json' pnpm-lock.yaml | less
 pnpm audit && pnpm check:package-age
 
-pnpm changeset  # Interactive: select package, bump type, summary
-git add .changeset && git commit -m "chore: add changeset for v0.2.0"
-pnpm changeset version
+# Bump packages/tbd/package.json to 0.2.0 and prepend a "## 0.2.0" CHANGELOG section
 git add . && git commit -m "chore: release get-tbd v0.2.0"
 
 # Write release notes (see release-notes-guidelines.md)
@@ -280,9 +264,7 @@ PREV=$(git describe --tags --abbrev=0)
 git diff $PREV..HEAD -- '**/package.json' pnpm-lock.yaml | less
 pnpm audit && pnpm check:package-age
 
-pnpm changeset  # Interactive: select package, bump type, summary
-git add .changeset && git commit -m "chore: add changeset for v0.2.0"
-pnpm changeset version
+# Bump packages/tbd/package.json to 0.2.0 and prepend a "## 0.2.0" CHANGELOG section
 git add . && git commit -m "chore: release get-tbd v0.2.0"
 
 # Write release notes, push to branch

@@ -27,9 +27,7 @@
     "precommit": "pnpm format && pnpm lint && pnpm build && pnpm test",
     "ci": "pnpm format:check && pnpm lint:check && pnpm build && pnpm test",
     "prepare": "lefthook install",
-    "changeset": "changeset",
-    "version-packages": "changeset version",
-    "release": "pnpm build && pnpm publint && changeset publish",
+    "release:verify": "pnpm build && pnpm publint",
     "upgrade:check": "ncu --cooldown 14 --format group",
     "upgrade": "ncu --cooldown 14 --target minor -u && pnpm install && pnpm test",
     "upgrade:major": "ncu --cooldown 14 --target latest --interactive --format group",
@@ -40,7 +38,6 @@
     "test:uninstall": "pnpm --filter get-tbd test:uninstall"
   },
   "devDependencies": {
-    "@changesets/cli": "^2.30.0",
     "@eslint/js": "^9.39.4",
     "eslint": "^9.39.4",
     "eslint-config-prettier": "^10.1.8",

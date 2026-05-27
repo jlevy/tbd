@@ -79,7 +79,8 @@ covering the same architectural scope but using Bun-native tooling wherever poss
 
 The recommended stack uses **Bun workspaces** for dependency management, **Bunup** for
 building ESM (or dual ESM/CJS) outputs with TypeScript declarations, **Changesets**
-(with Bun workarounds) for versioning and release automation, **Biome** for formatting
+(multi-package monorepos, with Bun workarounds) or **tag-triggered OIDC publishing**
+(single-package repos) for versioning and release automation, **Biome** for formatting
 and linting, **publint** for package validation, and **lefthook** for git hooks.
 The architecture also covers Bun’s unique capability for **compiling standalone
 executables** — a native binary distribution path unavailable in the pnpm ecosystem.
@@ -787,12 +788,13 @@ publint is runtime-agnostic.
 
 #### Changesets (with Bun Workarounds)
 
-**Status**: Recommended (with workarounds)
+**Status**: Recommended for multi-package monorepos, with workarounds (for a single
+published package, prefer the tag-triggered approach in this section)
 
 **Details**:
 
-Changesets is the de facto standard for monorepo versioning, but it has known issues
-with Bun workspaces.
+Changesets is the de facto standard for multi-package monorepo versioning, but it has
+known issues with Bun workspaces.
 The key problem is that `changeset version` does not resolve `workspace:*` references to
 actual version numbers, which breaks published packages.
 
@@ -1386,6 +1388,16 @@ Changesets workarounds, but functionally equivalent.
 Instead of using the `changesets/action` GitHub Action, an alternative approach uses git
 tags to trigger releases with npm provenance attestation via OIDC. This is simpler for
 projects that prefer manual version control and want provenance guarantees.
+
+> **When to prefer this over Changesets (LLM-era note):** For a **single published
+> package**, Changesets’ main wins (multi-package coordination, per-PR changelog
+> accumulation) mostly evaporate while its ceremony stays — and Bun adds the extra
+> `workspace:*` workarounds above.
+> When releases are cut by an agent/maintainer who assembles notes from clean
+> conventional commits at release time (see a release-notes template), tag-triggered
+> publishing is simpler: clean commits → bump + `## X.Y.Z` CHANGELOG section → tag →
+> auto-publish. Keep Changesets when you publish several interdependent packages or want
+> contributors to declare intent in each PR.
 
 **`.github/workflows/release.yml`**:
 
