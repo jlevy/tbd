@@ -239,7 +239,7 @@ publishes `get-tbd` to npm, and creates a GitHub Release whose body is the match
    and prepend a `## X.Y.Z` section to `packages/tbd/CHANGELOG.md` with notes written
    per
    [`release-notes-guidelines`](../packages/tbd/docs/guidelines/release-notes-guidelines.md).
-3. `pnpm release:verify` (build + publint) and `pnpm test`; open the release PR; merge
+3. `pnpm release:verify` (build and publint) and `pnpm test`; open the release PR; merge
    once CI is green.
 4. Tag `vX.Y.Z` on `main` and push it — the Release workflow publishes to npm and
    creates the GitHub Release.
@@ -275,7 +275,7 @@ See [tbd-design.md](tbd-design.md) for the full design document.
 
 Key concepts:
 
-- **File Layer**: Markdown + YAML front matter format
+- **File Layer**: Markdown and YAML front matter format
 - **Git Layer**: Sync via dedicated `tbd-sync` branch
 - **CLI Layer**: Commander.js with Beads-compatible commands
 
@@ -285,7 +285,7 @@ The CLI follows patterns from
 [research-modern-typescript-cli-patterns.md](general/research/current/research-modern-typescript-cli-patterns.md):
 
 - Base Command pattern for shared functionality
-- Dual output mode (text + JSON)
+- Dual output mode (text and JSON)
 - OutputManager for consistent output handling
 - Proper stdout/stderr separation
 

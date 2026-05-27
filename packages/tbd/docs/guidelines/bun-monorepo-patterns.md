@@ -79,7 +79,8 @@ covering the same architectural scope but using Bun-native tooling wherever poss
 
 The recommended stack uses **Bun workspaces** for dependency management, **Bunup** for
 building ESM (or dual ESM/CJS) outputs with TypeScript declarations, **Changesets**
-(with Bun workarounds) for versioning and release automation, **Biome** for formatting
+(multi-package monorepos, with Bun workarounds) or **tag-triggered OIDC publishing**
+(single-package repos) for versioning and release automation, **Biome** for formatting
 and linting, **publint** for package validation, and **lefthook** for git hooks.
 The architecture also covers Bun’s unique capability for **compiling standalone
 executables** — a native binary distribution path unavailable in the pnpm ecosystem.
@@ -787,12 +788,13 @@ publint is runtime-agnostic.
 
 #### Changesets (with Bun Workarounds)
 
-**Status**: Recommended (with workarounds)
+**Status**: Recommended for multi-package monorepos, with workarounds (for a single
+published package, prefer the tag-triggered approach in this section)
 
 **Details**:
 
-Changesets is the de facto standard for monorepo versioning, but it has known issues
-with Bun workspaces.
+Changesets is the de facto standard for multi-package monorepo versioning, but it has
+known issues with Bun workspaces.
 The key problem is that `changeset version` does not resolve `workspace:*` references to
 actual version numbers, which breaks published packages.
 

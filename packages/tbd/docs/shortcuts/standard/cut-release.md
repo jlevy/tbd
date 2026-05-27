@@ -54,7 +54,7 @@ Create a to-do list with these items and do them in order:
      <release notes per the guideline>
      ```
 
-5. **Verify locally:** `pnpm release:verify` (build + publint) and `pnpm test`.
+5. **Verify locally:** `pnpm release:verify` (build and publint) and `pnpm test`.
 
 6. **Open and merge the release PR.**
    - Commit `chore: release get-tbd vX.Y.Z`, push, open a PR to `main`.

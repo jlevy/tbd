@@ -90,9 +90,10 @@ The architecture prioritizes fast iteration during early development while maint
 clear path to split packages later without breaking changes.
 
 The recommended stack uses **pnpm workspaces** for dependency management, **tsdown** for
-building ESM/CJS dual outputs with TypeScript declarations, **Changesets** for
-versioning and release automation, **publint** for validating package publishability,
-and **lefthook** for fast local git hooks.
+building ESM/CJS dual outputs with TypeScript declarations, **Changesets**
+(multi-package monorepos) or **tag-triggered OIDC publishing** (single-package repos)
+for versioning and release automation, **publint** for validating package
+publishability, and **lefthook** for fast local git hooks.
 This approach supports private development via GitHub Packages or direct GitHub
 installs, with a seamless transition to public npm publishing when ready.
 
@@ -671,7 +672,8 @@ package. Essential for any published package.
 
 #### Changesets
 
-**Status**: Strongly Recommended
+**Status**: Recommended for multi-package monorepos (for a single published package,
+prefer the tag-triggered approach below)
 
 **Details**:
 
@@ -729,8 +731,10 @@ Changesets provides:
 
    - Publishes to npm when that PR is merged
 
-**Assessment**: Changesets is the de facto standard for monorepo versioning.
-It integrates seamlessly with pnpm and GitHub Actions.
+**Assessment**: Changesets is the de facto standard for *multi-package* monorepo
+versioning and integrates seamlessly with pnpm and GitHub Actions.
+For a repo that publishes a single package, its per-PR ceremony rarely pays off — prefer
+the tag-triggered approach below (see the LLM-era note).
 
 **References**:
 

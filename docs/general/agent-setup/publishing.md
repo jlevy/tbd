@@ -1,7 +1,7 @@
 # Publishing (npm)
 
 This project uses **tag-based releases** with provenance attestation to npm (no
-Changesets). Version + release notes are assembled by hand from clean conventional
+Changesets). Version and release notes are assembled by hand from clean conventional
 commits at release time; pushing a `v*` tag publishes automatically.
 For the guided end-to-end flow, run `tbd shortcut cut-release`.
 
