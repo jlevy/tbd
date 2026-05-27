@@ -2215,3 +2215,7 @@ constraints:
 | **10-50 KB** | Separate document or file storage | Use detail tables for on-demand fetch |
 | **50-900 KB** | **Must** use detail table or file storage | Approaching 1 MiB document limit |
 | **>900 KB** | **Must** use file storage with compression | Brotli compression for HTML/text (3:1 ratio) |
+
+<!-- This document follows common-doc-guidelines.md.
+See github.com/jlevy/practical-prose and review guidelines before editing.
+-->

@@ -1174,3 +1174,7 @@ going:
 - Supply-chain / dependency currency: `tbd guidelines bun-monorepo-patterns` or
   `pnpm-monorepo-patterns`
 - Testing: `tbd guidelines general-testing-rules`
+
+<!-- This document follows common-doc-guidelines.md.
+See github.com/jlevy/practical-prose and review guidelines before editing.
+-->

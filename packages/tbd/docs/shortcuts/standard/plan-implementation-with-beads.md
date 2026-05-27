@@ -54,3 +54,7 @@ If unclear, ask the user if they want you to create a spec first using
 - **Blocker** (`tbd dep add`): Sequential ordering.
   A bead cannot start until its blockers are complete.
   Use for tasks that genuinely depend on prior work.
+
+<!-- This document follows common-doc-guidelines.md.
+See github.com/jlevy/practical-prose and review guidelines before editing.
+-->

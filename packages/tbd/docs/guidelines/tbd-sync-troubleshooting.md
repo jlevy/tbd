@@ -258,3 +258,7 @@ tbd sync
 - `--no-outbox`: Skip automatic import from outbox on success
 
 See `tbd shortcut sync-failure-recovery` for the full workflow.
+
+<!-- This document follows common-doc-guidelines.md.
+See github.com/jlevy/practical-prose and review guidelines before editing.
+-->

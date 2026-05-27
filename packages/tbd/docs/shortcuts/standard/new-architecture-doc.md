@@ -29,3 +29,7 @@ Create a to-do list with the following items then perform all of them:
    If designing new architecture, iterate with the user on the design.
 
 5. Summarize the architecture and ask the user to review.
+
+<!-- This document follows common-doc-guidelines.md.
+See github.com/jlevy/practical-prose and review guidelines before editing.
+-->

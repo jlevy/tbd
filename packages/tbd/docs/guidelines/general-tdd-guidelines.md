@@ -145,3 +145,7 @@ Tests in the project are broken down into three types:
    Are not run on every commit as they can have costs or side effects or be slow.
    Requires all API keys.
    File names end with e2e.test.ts
+
+<!-- This document follows common-doc-guidelines.md.
+See github.com/jlevy/practical-prose and review guidelines before editing.
+-->

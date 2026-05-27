@@ -322,3 +322,7 @@ After pushing a tag:
 
 - The package must already exist on npm before the workflow can publish
 - Do a manual `npm publish --access public` first from `packages/tbd` directory
+
+<!-- This document follows common-doc-guidelines.md.
+See github.com/jlevy/practical-prose and review guidelines before editing.
+-->

@@ -28,3 +28,7 @@ Create a to-do list with the following items then perform all of them:
 4. Repeat this for all beads where you know how to fix them.
    If unsure about a bead, let the user know at the end of all work which beads had
    problems.
+
+<!-- This document follows common-doc-guidelines.md.
+See github.com/jlevy/practical-prose and review guidelines before editing.
+-->

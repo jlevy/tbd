@@ -187,3 +187,7 @@ Before marking this test as **PASSED**, verify:
 - [ ] [Performance/quality threshold met]
 
 * * *
+
+<!-- This document follows common-doc-guidelines.md.
+See github.com/jlevy/practical-prose and review guidelines before editing.
+-->

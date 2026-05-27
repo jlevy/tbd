@@ -3570,3 +3570,7 @@ ncu --dep dev --format group
 # Upgrade with peer dependency handling
 ncu --target minor -u && pnpm install --force
 ```
+
+<!-- This document follows common-doc-guidelines.md.
+See github.com/jlevy/practical-prose and review guidelines before editing.
+-->

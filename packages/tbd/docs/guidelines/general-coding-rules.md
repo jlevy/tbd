@@ -35,3 +35,7 @@ author: Joshua Levy (github.com/jlevy) with LLM assistance
   // Usage:
   const tradeCount = Math.min(trades.length, EXECUTION_STATS_LIMITS.maxTradeCount);
   ```
+
+<!-- This document follows common-doc-guidelines.md.
+See github.com/jlevy/practical-prose and review guidelines before editing.
+-->

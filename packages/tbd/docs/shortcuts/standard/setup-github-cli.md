@@ -75,3 +75,7 @@ See `docs/general/agent-setup/github-cli-setup.md` for token creation instructio
 | `gh auth status` shows errors | GH_TOKEN not set or invalid |
 | `Bad credentials` | Token expired or lacks permissions |
 | `Resource not accessible` | Token lacks required scopes (need repo, workflow) |
+
+<!-- This document follows common-doc-guidelines.md.
+See github.com/jlevy/practical-prose and review guidelines before editing.
+-->

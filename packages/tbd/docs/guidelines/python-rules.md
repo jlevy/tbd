@@ -258,3 +258,7 @@ These are general rules that *must* be followed on this project for Python code.
 - Exported/public variables, functions, or methods SHOULD have concise docstrings.
   Internal/local variables, functions, and methods DO NOT need docstrings unless their
   purpose is not obvious.
+
+<!-- This document follows common-doc-guidelines.md.
+See github.com/jlevy/practical-prose and review guidelines before editing.
+-->

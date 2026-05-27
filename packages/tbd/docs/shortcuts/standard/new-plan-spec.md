@@ -47,3 +47,7 @@ Create a to-do list with the following items then perform all of them:
 
 5. To list beads linked to a spec, use `tbd list --spec` (see `tbd list --help` for
    details on filtering and path matching).
+
+<!-- This document follows common-doc-guidelines.md.
+See github.com/jlevy/practical-prose and review guidelines before editing.
+-->

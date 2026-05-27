@@ -941,3 +941,7 @@ const mockAgentId = '12345;agents' as Id<'agents'>;  // OK - looks like real Con
    entirely
 
 3. **Test IDs should follow Convex format** - if test ids `'12345;tableName'` pattern
+
+<!-- This document follows common-doc-guidelines.md.
+See github.com/jlevy/practical-prose and review guidelines before editing.
+-->

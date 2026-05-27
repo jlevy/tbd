@@ -235,3 +235,7 @@ provenance monitoring).
   StepSecurity, Socket, Unit 42).
 - Monorepo enforcement: `tbd guidelines pnpm-monorepo-patterns`,
   `tbd guidelines bun-monorepo-patterns`.
+
+<!-- This document follows common-doc-guidelines.md.
+See github.com/jlevy/practical-prose and review guidelines before editing.
+-->

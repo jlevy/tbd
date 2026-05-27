@@ -8,9 +8,9 @@ globs: "*.ts"
 
 **Last Updated**: 2026-05-21
 
-**Tracks**: `yaml@^2.8.4` (latest stable; 2026-05-02). The `yaml@3.0.0-1`
-release is tagged `next` (pre-release) — do not adopt yet. Zod 4.x is the
-recommended validation companion.
+**Tracks**: `yaml@^2.8.4` (latest stable; 2026-05-02). The `yaml@3.0.0-1` release is
+tagged `next` (pre-release) — do not adopt yet.
+Zod 4.x is the recommended validation companion.
 
 **Related**:
 
@@ -205,3 +205,7 @@ const output = `---\n${stringifyYaml(data)}---\n\n${content}`;
 
 - For general TypeScript rules, see `tbd guidelines typescript-rules`
 - For error handling patterns, see `tbd guidelines error-handling-rules`
+
+<!-- This document follows common-doc-guidelines.md.
+See github.com/jlevy/practical-prose and review guidelines before editing.
+-->

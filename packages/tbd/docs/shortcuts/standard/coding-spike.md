@@ -52,3 +52,7 @@ Create a to-do list with the following items then perform all of them:
    ```
 
 9. Report findings and recommend next steps.
+
+<!-- This document follows common-doc-guidelines.md.
+See github.com/jlevy/practical-prose and review guidelines before editing.
+-->

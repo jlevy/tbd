@@ -79,3 +79,7 @@ If direct fetch returns HTTP 403, the system falls back to `gh api` for authenti
 access.
 User-added shortcuts are stored in `shortcuts/custom/` to keep them separate from
 bundled docs.
+
+<!-- This document follows common-doc-guidelines.md.
+See github.com/jlevy/practical-prose and review guidelines before editing.
+-->

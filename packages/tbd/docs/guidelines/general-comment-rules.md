@@ -94,3 +94,7 @@ These are language-agnostic rules on comments:
   and at the top of files.
 
 - See language-specific comment rules for more details.
+
+<!-- This document follows common-doc-guidelines.md.
+See github.com/jlevy/practical-prose and review guidelines before editing.
+-->

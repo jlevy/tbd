@@ -561,3 +561,7 @@ grep -rn -A2 "} catch {" --include="*.ts" | grep -B1 "throw new"
 **Problematic patterns**:
 - `throw new CLIError('Failed to do X')` - Loses WHY it failed
 - `throw new Error('Operation failed')` - Generic message hides root cause
+
+<!-- This document follows common-doc-guidelines.md.
+See github.com/jlevy/practical-prose and review guidelines before editing.
+-->

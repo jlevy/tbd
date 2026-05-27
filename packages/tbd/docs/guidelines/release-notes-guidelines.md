@@ -138,3 +138,7 @@ Before finalizing release notes:
 
 **Full commit history**: https://github.com/org/repo/compare/v0.1.12...v0.1.13
 ```
+
+<!-- This document follows common-doc-guidelines.md.
+See github.com/jlevy/practical-prose and review guidelines before editing.
+-->

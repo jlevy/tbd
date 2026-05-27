@@ -20,3 +20,7 @@ Run `tbd prime` for more on using tbd and current status.
 4. Work through each child bead, close when done
 
 5. Close epic with summary
+
+<!-- This document follows common-doc-guidelines.md.
+See github.com/jlevy/practical-prose and review guidelines before editing.
+-->

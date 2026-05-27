@@ -77,3 +77,7 @@ For official shortcuts added to `packages/tbd/docs/shortcuts/standard/`:
 - **Guidelines**: Rules to reference (knowledge)
 
 See `tbd shortcut new-guideline` for creating guidelines.
+
+<!-- This document follows common-doc-guidelines.md.
+See github.com/jlevy/practical-prose and review guidelines before editing.
+-->

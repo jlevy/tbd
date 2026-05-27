@@ -56,3 +56,7 @@ Keep tests that:
 4. Remove trivial tests while preserving meaningful coverage
 
 5. Run the full test suite to ensure no regressions
+
+<!-- This document follows common-doc-guidelines.md.
+See github.com/jlevy/practical-prose and review guidelines before editing.
+-->

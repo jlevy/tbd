@@ -77,3 +77,7 @@ Create a to-do list with these items and do them in order:
 - Generated/dogfooded artifacts (`.claude`/`.codex` session scripts, `.agents/skills`,
   `AGENTS.md`) pin the install-time version; refresh them with `tbd setup --auto` after
   a release if you want their pins to match the new version.
+
+<!-- This document follows common-doc-guidelines.md.
+See github.com/jlevy/practical-prose and review guidelines before editing.
+-->

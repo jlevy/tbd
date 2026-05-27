@@ -85,3 +85,7 @@ This serves as both a testing checklist and a summary for PR reviewers, showing:
    - Both
 
 6. **Summarize** what’s validated vs what remains for the user to review.
+
+<!-- This document follows common-doc-guidelines.md.
+See github.com/jlevy/practical-prose and review guidelines before editing.
+-->

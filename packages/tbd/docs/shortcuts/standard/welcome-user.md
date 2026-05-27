@@ -63,3 +63,7 @@ Here are examples of things you can say and what happens:
 
 Then ask if they’d like to explore any of tbd’s capabilities or get started on
 something.
+
+<!-- This document follows common-doc-guidelines.md.
+See github.com/jlevy/practical-prose and review guidelines before editing.
+-->

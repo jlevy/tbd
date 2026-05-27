@@ -53,3 +53,7 @@ Therefore:
   That is useless generalization.
   Instead, specifically say what you’ve done, e.g., “I’ve added types, including
   generics, to all the methods in `Foo` and fixed all linter errors.”
+
+<!-- This document follows common-doc-guidelines.md.
+See github.com/jlevy/practical-prose and review guidelines before editing.
+-->

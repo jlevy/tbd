@@ -77,3 +77,7 @@ ops: Update issue status for auth feature
 ops: Sync beads with remote
 process: Add TDD guidelines for agent workflows
 ```
+
+<!-- This document follows common-doc-guidelines.md.
+See github.com/jlevy/practical-prose and review guidelines before editing.
+-->

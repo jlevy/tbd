@@ -28,3 +28,7 @@ Merge upstream changes from origin/main into the current branch.
 6. **Verify**: Run formatting, linting, and tests
    - Fix any issues introduced by the merge
    - Commit the merge result
+
+<!-- This document follows common-doc-guidelines.md.
+See github.com/jlevy/practical-prose and review guidelines before editing.
+-->

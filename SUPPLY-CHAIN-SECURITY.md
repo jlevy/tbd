@@ -80,6 +80,6 @@ controls in `guidelines/hardening-ci-cd.md`.
 Per-ecosystem hardening playbooks, the audit script, and the watch list of recent
 compromises: <https://github.com/jlevy/supply-chain-hardening>.
 
-<!-- This document follows std-doc-guidelines.md.
-Review guidelines before editing.
+<!-- This document follows common-doc-guidelines.md.
+See github.com/jlevy/practical-prose and review guidelines before editing.
 -->

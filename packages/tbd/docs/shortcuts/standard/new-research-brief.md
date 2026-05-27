@@ -28,3 +28,7 @@ Create a to-do list with the following items then perform all of them:
    Ask the user for guidance when you need clarification or hit decision points.
 
 5. Summarize findings and ask the user to review.
+
+<!-- This document follows common-doc-guidelines.md.
+See github.com/jlevy/practical-prose and review guidelines before editing.
+-->

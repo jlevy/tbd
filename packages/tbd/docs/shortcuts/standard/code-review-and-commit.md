@@ -42,3 +42,7 @@ Create a to-do list with the following items then perform all of them:
      CI watch.
    - Only proceed when you see all checks have passed.
    - Confirm to the user that CI has passed.
+
+<!-- This document follows common-doc-guidelines.md.
+See github.com/jlevy/practical-prose and review guidelines before editing.
+-->
