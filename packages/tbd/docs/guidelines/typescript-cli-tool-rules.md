@@ -5,6 +5,20 @@ author: Joshua Levy (github.com/jlevy) with LLM assistance
 ---
 # CLI Tool Development Rules
 
+**Last Updated**: 2026-05-21
+
+**Tracks**: Commander.js `^15.0.0` (ESM-only, requires Node v22.12.0+),
+picocolors `^1.1.1` (stable; no recent changes), Node.js 24 LTS / Node 26 Current.
+Commander 14 moves to security-only maintenance until May 2027.
+
+**Related**:
+
+- [TypeScript Rules](./typescript-rules.md)
+- [Supply-Chain Mitigation](./pnpm-monorepo-patterns.md#supply-chain-mitigation) —
+  follow the 14-day package-age rule for every CLI dependency. Bundlers and
+  CLI dependencies that execute at install time (`postinstall` scripts) are a
+  primary attack surface.
+
 These rules apply to all CLI tools, command-line scripts, and terminal utilities.
 Examples may be inspired by modern TypeScript repos, but guidance here is intentionally
 generic and reusable across projects.
@@ -93,7 +107,9 @@ generic and reusable across projects.
 ## Commander.js Patterns
 
 - **Use Commander.js for all CLI tools:** Import from `commander` and follow established
-  patterns for command registration and option handling.
+  patterns for command registration and option handling. **Target Commander 15+
+  (ESM-only, requires Node v22.12.0+).** Commander 14 is security-maintenance
+  only until May 2027; do not start new projects on it.
 
 - **Apply colored help globally, not per-command:** Use Commander v14+ `configureHelp()`
   with style functions, applied recursively to all commands at program initialization.
@@ -549,15 +565,30 @@ When supporting environment variables, especially those used by SDK libraries (l
 `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, etc.), also support `.env` loading so CLIs work
 seamlessly in local dev and in remote environments.
 
-- **Use dotenv only when needed:** Add `dotenv` only if your CLI should load local env
-  files automatically.
+- **Prefer Node.js native `--env-file` for Node ≥20.6**: Production-ready on
+  Node 24 LTS. Pass `--env-file=.env.local --env-file=.env` on the CLI
+  invocation; later files do not override earlier ones, so list higher-priority
+  first. No dependency required:
 
-- **Load `.env.local` and `.env` automatically (recommended):** Support both
-  `.env.local` and `.env` automatically, with `.env.local` taking precedence over
-  `.env`.
+  ```bash
+  node --env-file=.env.local --env-file=.env ./dist/bin.js
+  ```
 
-- **Manual dotenv loading:** For runtimes that don’t already load env files, load
-  environment files manually with explicit precedence:
+  Make this the default for new projects. Reserve `dotenv` for advanced needs
+  (variable expansion, multiline values, custom precedence logic, or runtime
+  conditional loading from inside the CLI).
+
+- **Use `dotenv` only when needed:** Add `dotenv` only if your CLI must load
+  env files programmatically — e.g., it reads them after parsing command-line
+  flags, performs variable expansion, or supports custom file paths the user
+  cannot pre-bake into the `node` invocation.
+
+- **Load `.env.local` and `.env` automatically (recommended):** Whichever
+  mechanism you use, support both `.env.local` (higher priority, gitignored)
+  and `.env` (lower priority, committed defaults only).
+
+- **Manual `dotenv` loading:** When you do need `dotenv`, load with explicit
+  precedence:
 
   ```ts
   import dotenv from 'dotenv';

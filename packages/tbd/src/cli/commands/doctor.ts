@@ -20,8 +20,12 @@ import { detectDuplicateYamlKeys } from '../../utils/yaml-utils.js';
 import {
   getClaudePaths,
   getAgentsMdPath,
+  getAgentSkillPaths,
+  getCodexPaths,
   CLAUDE_SKILL_REL,
   AGENTS_MD_REL,
+  AGENTS_SKILL_REL,
+  CODEX_HOOKS_REL,
 } from '../../lib/integration-paths.js';
 import { validateIssueId, extractUlidFromInternalId } from '../../lib/ids.js';
 import { git } from '../../file/git.js';
@@ -170,11 +174,17 @@ class DoctorHandler extends BaseCommand {
     // Run integration checks (optional IDE/agent integrations)
     const integrationChecks: DiagnosticResult[] = [];
 
-    // Integration 1: Claude Code skill file
+    // Integration 1: Portable Agent Skill (.agents/skills — primary)
+    integrationChecks.push(await this.checkPortableSkill());
+
+    // Integration 2: Claude Code skill mirror
     integrationChecks.push(await this.checkClaudeSkill());
 
-    // Integration 2: Codex AGENTS.md (also used by Cursor since v1.6)
+    // Integration 3: Codex AGENTS.md (also used by Cursor since v1.6)
     integrationChecks.push(await this.checkCodexAgents());
+
+    // Integration 4: Codex hooks
+    integrationChecks.push(await this.checkCodexHooks());
 
     // Combine for overall status
     const allChecks = [...healthChecks, ...integrationChecks];
@@ -561,13 +571,17 @@ class DoctorHandler extends BaseCommand {
   }
 
   private async checkTempFiles(fix?: boolean): Promise<DiagnosticResult> {
-    const issuesPath = join(CONFIG_DIR, 'issues');
     const issuesDir = join(this.dataSyncDir, 'issues');
+    // Display the actual scanned path, not a stale `.tbd/issues` that
+    // doesn't exist in current installs.
+    const issuesPath = join(DATA_SYNC_DIR, 'issues');
     let tempFiles: string[] = [];
 
     try {
       const files = await readdir(issuesDir);
-      tempFiles = files.filter((f) => f.endsWith('.tmp'));
+      // Catch both plain `.tmp` and `atomically`'s leftover
+      // `<name>.md.tmp-NNNN` intermediates.
+      tempFiles = files.filter((f) => f.endsWith('.tmp') || /\.tmp-\d+$/.test(f));
     } catch {
       // Directory doesn't exist - no temp files
       return { name: 'Temp files', status: 'ok', path: issuesPath };
@@ -772,6 +786,22 @@ class DoctorHandler extends BaseCommand {
     };
   }
 
+  private async checkPortableSkill(): Promise<DiagnosticResult> {
+    const { portable } = getAgentSkillPaths(this.cwd);
+    try {
+      await access(portable);
+      return { name: 'Portable Agent Skill', status: 'ok', path: AGENTS_SKILL_REL };
+    } catch {
+      return {
+        name: 'Portable Agent Skill',
+        status: 'warn',
+        message: 'not installed',
+        path: AGENTS_SKILL_REL,
+        suggestion: 'Run: tbd setup --auto',
+      };
+    }
+  }
+
   private async checkClaudeSkill(): Promise<DiagnosticResult> {
     const claudePaths = getClaudePaths(this.cwd);
     try {
@@ -783,6 +813,22 @@ class DoctorHandler extends BaseCommand {
         status: 'warn',
         message: 'not installed',
         path: CLAUDE_SKILL_REL,
+        suggestion: 'Run: tbd setup --auto',
+      };
+    }
+  }
+
+  private async checkCodexHooks(): Promise<DiagnosticResult> {
+    const codexPaths = getCodexPaths(this.cwd);
+    try {
+      await access(codexPaths.hooks);
+      return { name: 'Codex hooks', status: 'ok', path: CODEX_HOOKS_REL };
+    } catch {
+      return {
+        name: 'Codex hooks',
+        status: 'warn',
+        message: 'not installed',
+        path: CODEX_HOOKS_REL,
         suggestion: 'Run: tbd setup --auto',
       };
     }

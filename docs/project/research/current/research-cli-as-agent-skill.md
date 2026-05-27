@@ -1,13 +1,15 @@
 # Research Brief: CLI as Agent Skill - Best Practices for TypeScript CLIs in Claude Code
 
-**Last Updated**: 2026-02-08
+**Last Updated**: 2026-05-24
 
 **Related**:
 
 - [tbd Design Doc](../../tbd-design.md)
+- [Modernize Multi-Agent Skills and Hooks Setup Spec](../specs/active/plan-2026-05-24-multi-agent-skills-hooks-setup.md)
 - [Streamlined Init/Setup Spec](../specs/active/plan-2026-01-20-streamlined-init-setup-design.md)
 - [Agent Orientation Experience Spec](../specs/active/plan-2026-01-25-agent-orientation-experience.md)
 - [Unix Philosophy for Agents](./research-unix-philosophy-for-agents.md)
+- [Agent Skills Standard Paths](./research-agent-skills-standard-paths.md)
 
 * * *
 
@@ -63,6 +65,9 @@ boundaries lead to more reliable agentic workflows.
 10. What task management patterns work best for agent-integrated CLIs across different
     tracking needs (ephemeral, session, persistent)?
 
+11. How should generated agent instructions invoke CLIs that may not be installed
+    globally?
+
 * * *
 
 ## Research Methodology
@@ -81,8 +86,13 @@ Patterns were validated through CI testing and actual agent usage.
 - skills.sh open ecosystem (https://skills.sh) - Vercel’s skill discovery/installation
   platform
 - Anthropic Skills repo (https://github.com/anthropics/skills)
-- Cursor IDE rules documentation (AGENTS.md support)
-- OpenAI Codex AGENTS.md convention
+- Agent Skills implementor guide
+  (https://agentskills.io/client-implementation/adding-skills-support)
+- OpenAI Codex skills and hooks docs (https://developers.openai.com/codex/skills,
+  https://developers.openai.com/codex/hooks)
+- Cursor Agent Skills support and AGENTS.md/rules documentation
+- Downstream pprose audit of pinned `uvx --from practical-prose@<version>` skill
+  invocation fallback
 - Community best practices (meta_skill repository, gists)
 - MCP protocol documentation and engineering blogs
 
@@ -129,27 +139,30 @@ files may not be accessible.
 
 #### 1.2 Multi-Agent Integration Files
 
-**Status**: ✅ Complete (Updated January 2026)
+**Status**: ✅ Complete (Updated May 2026)
 
 **Details**:
 
-The agent ecosystem has converged on two standardized formats:
+The agent ecosystem has converged on two complementary standardized surfaces:
 
-| Agent | File | Format | Location |
+| Surface | Format | Project Location | Purpose |
 | --- | --- | --- | --- |
-| Claude Code | SKILL.md | YAML frontmatter + Markdown | `.claude/skills/<name>/` |
-| Cursor | AGENTS.md | Plain Markdown | repo root (or nested) |
-| Codex | AGENTS.md | Plain Markdown | repo root |
+| Agent Skill | `SKILL.md` with YAML frontmatter + Markdown | `.agents/skills/<name>/SKILL.md` | Portable, progressively loaded capabilities |
+| Agent-native skill mirror | `SKILL.md` | `.claude/skills/<name>/SKILL.md` for Claude Code | Native compatibility where a tool does not use `.agents/skills/` |
+| Always-on repo instructions | Markdown | `AGENTS.md` | Repository policy, workflow rules, and broad orientation |
 
-**Recommendation**: Use a **two-file approach**:
-1. **SKILL.md** for Claude Code (enables rich features like `allowed-tools`, hooks)
-2. **AGENTS.md** for Cursor and Codex (shared, no duplication)
+**Recommendation**: Use a **three-surface approach**:
+1. **`.agents/skills/<name>/SKILL.md`** as the canonical portable project Agent Skill.
+2. **Native mirrors** such as `.claude/skills/<name>/SKILL.md` where required for
+   compatibility.
+3. **`AGENTS.md`** for always-on repository orientation and agent operating rules.
 
-This is now the recommended approach per
-[Cursor’s documentation](https://cursor.com/docs/context/rules), which states AGENTS.md
-is “the most straightforward path” for most projects.
+This supersedes the earlier January 2026 guidance that mapped Codex primarily to
+`AGENTS.md`. Codex now directly documents repository skills under `.agents/skills`, and
+Agent Skills implementor guidance recommends scanning `.agents/skills` alongside native
+client paths.
 
-**SKILL.md Format** (Claude Code):
+**SKILL.md Format** (portable Agent Skills):
 ```yaml
 ---
 name: tbd
@@ -160,7 +173,7 @@ allowed-tools: Bash(tbd:*), Read, Write
 ...
 ```
 
-**AGENTS.md Format** (Cursor + Codex):
+**AGENTS.md Format** (always-on repository instructions):
 ```markdown
 # tbd Workflow
 
@@ -174,8 +187,37 @@ allowed-tools: Bash(tbd:*), Read, Write
 **Tip**: Use HTML markers (`<!-- BEGIN/END -->`) if you need to programmatically update
 sections of AGENTS.md.
 
-**Assessment**: This two-file approach minimizes maintenance while leveraging each
-platform’s strengths.
+**Assessment**: The portable skill plus native mirror pattern minimizes drift while
+letting agents use progressive disclosure.
+`AGENTS.md` remains valuable, but it should not be the only Codex integration surface.
+
+* * *
+
+#### 1.3 Pinned CLI Invocation Fallbacks
+
+**Status**: Planned
+
+**Details**:
+
+Generated skill instructions should not assume a global CLI is installed, and should not
+recommend unpinned network execution.
+A strong pattern is:
+
+1. Try the local command first, for example `mycli <command>`.
+2. If unavailable, use an install-time pinned fallback:
+   - `npx --yes package@<version> mycli <command>` for npm CLIs.
+   - `uvx --from package@<version> mycli <command>` for Python CLIs.
+   - `pipx run package==<version> mycli <command>` for pipx workflows.
+   - `go run module/path@<version> <args>` for Go CLIs.
+3. If neither works, stop and ask the user to install the CLI.
+
+The pprose installer is a useful reference implementation: it injects a generated
+“Running pprose” block with local-first execution and an install-time pinned
+`uvx --from practical-prose@<version>` fallback.
+
+**Assessment**: tbd’s current guidance is too npm-global-specific.
+The guideline should teach pinned runner fallbacks as a supply-chain hardening pattern
+for all CLI-as-skill projects.
 
 * * *
 

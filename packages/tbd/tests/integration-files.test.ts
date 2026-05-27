@@ -56,4 +56,25 @@ describe('integration file formats', () => {
       expect(content).toContain('tbd close');
     });
   });
+
+  describe('skills/tbd/SKILL.md (distribution copy)', () => {
+    const monorepoRoot = join(__dirname, '..', '..', '..');
+    const distSkillPath = join(monorepoRoot, 'skills', 'tbd', 'SKILL.md');
+
+    it('is committed and free of drift from the composed skill', async () => {
+      const committed = await readFile(distSkillPath, 'utf-8');
+      const composed = await readFile(join(docsDir, 'SKILL.md'), 'utf-8');
+      // The committed distribution copy must match the freshly built skill.
+      // If this fails, run `pnpm build` and commit skills/tbd/SKILL.md.
+      expect(committed).toBe(composed);
+    });
+
+    it('has valid Agent Skills frontmatter', async () => {
+      const committed = await readFile(distSkillPath, 'utf-8');
+      const frontmatter = parseFrontmatter(committed);
+      expect(frontmatter).not.toBeNull();
+      expect(frontmatter).toContain('name:');
+      expect(frontmatter).toContain('description:');
+    });
+  });
 });

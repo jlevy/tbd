@@ -117,11 +117,13 @@ describeUnix('setup hooks (project-local)', { timeout: 15000 }, () => {
       const scriptPath = join(projectDir, '.claude', 'scripts', 'tbd-session.sh');
       const content = await readFile(scriptPath, 'utf-8');
 
-      // Verify key parts of the script
+      // Verify key parts of the script: local-first, then a pinned npx fallback.
       expect(content).toContain('#!/bin/bash');
-      expect(content).toContain('ensure_tbd');
-      expect(content).toContain('npm install');
+      expect(content).toContain('command -v tbd');
+      expect(content).toContain('npx --yes get-tbd@');
       expect(content).toContain('tbd prime');
+      // Must not use an unpinned runner.
+      expect(content).not.toContain('npx get-tbd prime');
     });
   });
 
@@ -412,12 +414,12 @@ echo "This is outdated"
       // Script should be refreshed with latest content
       const refreshedContent = await readFile(scriptPath, 'utf-8');
       expect(refreshedContent).not.toContain('This is outdated');
-      expect(refreshedContent).toContain('ensure_tbd');
-      expect(refreshedContent).toContain('npm install');
+      expect(refreshedContent).toContain('command -v tbd');
+      expect(refreshedContent).toContain('npx --yes get-tbd@');
       expect(refreshedContent).toContain('tbd prime');
     });
 
-    it('tbd setup --auto includes npm global bin detection in tbd-session.sh', async () => {
+    it('pins the get-tbd version in the npx fallback', async () => {
       const projectDir = join(tempDir, 'project');
       await mkdir(projectDir, { recursive: true });
       initGitRepo(projectDir);
@@ -427,10 +429,8 @@ echo "This is outdated"
       const scriptPath = join(projectDir, '.claude', 'scripts', 'tbd-session.sh');
       const content = await readFile(scriptPath, 'utf-8');
 
-      // Verify npm global bin detection is present (the fix for the initialization bug)
-      expect(content).toContain('NPM_GLOBAL_BIN');
-      expect(content).toContain('npm config get prefix');
-      expect(content).toContain('$NPM_PREFIX/bin');
+      // The fallback must reference a pinned version (get-tbd@<semver>), never bare.
+      expect(content).toMatch(/npx --yes get-tbd@\d+\.\d+\.\d+/);
     });
 
     it('refreshed script preserves executable permissions', async () => {

@@ -7,6 +7,10 @@
  * WHEN TO BUMP THE FORMAT VERSION:
  * - Bump when changes REQUIRE migration (deleting files, changing formats, moving files)
  * - **Bump when changing config schema** (adding, removing, or modifying fields)
+ * - **Bump when the shape of a generated agent-integration surface changes** (e.g. the
+ *   managed AGENTS.md block). This same format is stamped there via
+ *   AGENT_INTEGRATION_FORMAT (integration-paths.ts), so there is ONE format code across
+ *   all tbd-managed surfaces.
  * - Do NOT bump for additive changes that don't affect config.yml (new directories, etc.)
  *
  * HOW TO ADD A NEW FORMAT VERSION:

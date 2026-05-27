@@ -1,7 +1,9 @@
 # Publishing (npm)
 
-This project uses [Changesets](https://github.com/changesets/changesets) for version
-management and tag-based releases with provenance attestation to npm.
+This project uses **tag-based releases** with provenance attestation to npm (no
+Changesets). Version and release notes are assembled by hand from clean conventional
+commits at release time; pushing a `v*` tag publishes automatically.
+For the guided end-to-end flow, run `tbd shortcut cut-release`.
 
 For daily development workflow, see [development.md](../../development.md).
 For release notes format and guidelines, see `tbd guidelines release-notes-guidelines`.
@@ -50,8 +52,9 @@ This will prompt for web-based authentication in your browser.
 
 ## During Development
 
-Merge PRs to `main` without creating changesets.
-Changesets are created only at release time.
+Merge PRs to `main` with clean, conventional commits.
+There are no changeset files — the version bump and release notes are assembled from the
+commits at release time.
 
 ## Release Workflow
 
@@ -79,42 +82,99 @@ Choose version bump:
 - `minor` (0.1.0 → 0.2.0): New features, non-breaking changes
 - `major` (0.1.0 → 1.0.0): Breaking changes
 
-### Step 3: Create Changeset
+### Step 3: Supply-Chain Review
 
-Run the interactive changeset command:
+Before bumping the version, review every dependency change since the previous release.
+Recent npm supply-chain attacks (typosquatted packages, hijacked maintainer accounts,
+post-install scripts) make this step non-optional even when the manifests look clean.
 
-```bash
-pnpm changeset
-```
-
-This prompts for package selection, bump type (patch/minor/major), and a summary.
-
-Commit:
+#### 3a. Diff manifests and lockfile
 
 ```bash
-git add .changeset
-git commit -m "chore: add changeset for vX.X.X"
+PREV=$(git describe --tags --abbrev=0)
+
+# Manifest changes (what the project intended)
+git diff $PREV..HEAD -- '**/package.json'
+
+# Lockfile delta (what actually gets installed, including transitives)
+git diff $PREV..HEAD -- pnpm-lock.yaml | head -200
+
+# Hash check: if lockfile is byte-identical, the resolved tree is unchanged
+sha256sum pnpm-lock.yaml
+git show $PREV:pnpm-lock.yaml | sha256sum
 ```
 
-### Step 4: Version Packages
+If the lockfile hash is unchanged, the resolved dependency tree is identical to the
+previous release — record this in the release notes and skip to 3c.
 
-Run changesets to bump version and update CHANGELOG:
+For each lockfile change, classify it:
+
+- **New direct dependency**: review on npm (publish date, maintainers, weekly downloads,
+  provenance attestation), check `package.json` for `scripts` entries (`preinstall`,
+  `install`, `postinstall`).
+- **Removed dependency**: confirm intentional.
+- **Version bump**: skim the upstream CHANGELOG and diff between the two versions on
+  https://diffs.dev or `npm diff <pkg>@<old> <pkg>@<new>`. Treat large unexpected diffs
+  as a stop sign.
+- **New transitive dependency**: same scrutiny as a new direct dep — supply-chain
+  attacks often arrive through deep transitives.
+
+#### 3b. Vulnerability audit
 
 ```bash
-pnpm changeset version
+pnpm audit                   # All advisories
+pnpm audit --prod            # Runtime-only (shipped to users)
 ```
 
-Review and commit:
+Triage:
+
+- **Runtime advisories** (paths through `packages/tbd>...` that don’t traverse dev
+  tooling): treat as release-blockers unless the impact is documented as
+  out-of-threat-model.
+  Fix by bumping the affected dependency.
+- **Dev-only advisories** (paths through `vitest`, `c8`, `tsdown`, `typescript-eslint`,
+  `eslint`, `prettier`, `lefthook`, etc.): note them but do not block release.
+
+#### 3c. Package-age and provenance check
 
 ```bash
-git diff  # Verify package.json and CHANGELOG.md
-git add .
-git commit -m "chore: release get-tbd vX.X.X"
+pnpm check:package-age       # Enforces the 14-day rule
 ```
+
+For any newly added direct dependency, manually verify on npm:
+
+- Publication date >=14 days old for the resolved version
+- Maintainer list is recognizable / unchanged from the prior release
+- Provenance attestation present where the upstream publishes with one:
+  `npm view <pkg>@<version> --json | jq '.dist.attestations // "none"'`
+
+#### 3d. Record findings
+
+Capture the audit summary in `release-notes.md` under a `### Security` section whenever
+there is anything notable (lockfile changes, new advisories, deferred fixes, new direct
+dependencies). If the lockfile is byte-identical and no new advisories landed, a single
+sentence ("Lockfile unchanged since vX.X.X; no new advisories.") is enough.
+
+### Step 4: Bump Version & Update CHANGELOG
+
+No Changesets — bump by hand on a `claude/release-vX.X.X` branch:
+
+```bash
+# 1. Set "version" in packages/tbd/package.json to X.X.X
+# 2. Prepend a section to packages/tbd/CHANGELOG.md (heading MUST be exactly "## X.X.X" —
+#    release.yml greps for it to build the GitHub Release body):
+#
+#    ## X.X.X
+#
+#    <release notes — see Step 5>
+```
+
+The notes you write here ARE the release notes (Step 5); there is no separate changeset
+summary to keep in sync.
 
 ### Step 5: Write Release Notes
 
-**Before pushing**, write release notes following
+Write the `## X.X.X` CHANGELOG section following
 `tbd guidelines release-notes-guidelines`.
 
 ```bash
@@ -180,9 +240,13 @@ npm view get-tbd
 
 ```bash
 git checkout main && git pull
-pnpm changeset  # Interactive: select package, bump type, summary
-git add .changeset && git commit -m "chore: add changeset for v0.2.0"
-pnpm changeset version
+
+# Supply-chain review (Step 3) — never skip
+PREV=$(git describe --tags --abbrev=0)
+git diff $PREV..HEAD -- '**/package.json' pnpm-lock.yaml | less
+pnpm audit && pnpm check:package-age
+
+# Bump packages/tbd/package.json to 0.2.0 and prepend a "## 0.2.0" CHANGELOG section
 git add . && git commit -m "chore: release get-tbd v0.2.0"
 
 # Write release notes (see release-notes-guidelines.md)
@@ -195,9 +259,12 @@ gh release edit v0.2.0 -R jlevy/tbd --notes-file release-notes.md
 ### Restricted Environments (via PR and API)
 
 ```bash
-pnpm changeset  # Interactive: select package, bump type, summary
-git add .changeset && git commit -m "chore: add changeset for v0.2.0"
-pnpm changeset version
+# Supply-chain review (Step 3) — never skip
+PREV=$(git describe --tags --abbrev=0)
+git diff $PREV..HEAD -- '**/package.json' pnpm-lock.yaml | less
+pnpm audit && pnpm check:package-age
+
+# Bump packages/tbd/package.json to 0.2.0 and prepend a "## 0.2.0" CHANGELOG section
 git add . && git commit -m "chore: release get-tbd v0.2.0"
 
 # Write release notes, push to branch
@@ -236,7 +303,7 @@ The release workflow automatically creates a GitHub Release when a tag is pushed
 After pushing a tag:
 
 1. Verify the release appears at: https://github.com/jlevy/tbd/releases
-2. Update the release with formatted notes (Step 7 above)
+2. Update the release with formatted notes (Step 8 above)
 
 ## Troubleshooting
 

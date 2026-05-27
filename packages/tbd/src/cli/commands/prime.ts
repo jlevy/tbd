@@ -65,7 +65,9 @@ export async function loadSkillContent(): Promise<string> {
 
     const header = await readFile(headerPath, 'utf-8');
     const skill = await readFile(skillPath, 'utf-8');
-    return header + skill;
+    // Strip the baseline's frontmatter — the header supplies the document
+    // frontmatter; a second `---` block mid-document is invalid and unstable.
+    return header + stripFrontmatter(skill);
   } catch {
     // If source files not found, throw error
     throw new Error('SKILL.md content file not found. Please rebuild the CLI.');

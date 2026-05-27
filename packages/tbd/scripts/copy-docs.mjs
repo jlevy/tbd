@@ -97,7 +97,22 @@ if (phase === 'prebuild') {
   // This is a minimal version without shortcuts for prime --full output.
   const claudeHeader = readFileSync(join(INSTALL_DIR, 'claude-header.md'), 'utf-8');
   const skillContent = readFileSync(join(SHORTCUTS_SYSTEM_DIR, 'skill-baseline.md'), 'utf-8');
-  await writeFile(join(distDocs, 'SKILL.md'), claudeHeader + skillContent);
+  // The header provides the document frontmatter, so strip the baseline's own
+  // leading frontmatter — otherwise the composed SKILL.md carries a stray `---`
+  // block mid-document (renders wrong and is not flowmark-stable).
+  const skillBody = skillContent.replace(/^\uFEFF?---\r?\n[\s\S]*?\r?\n---\r?\n+/, '');
+  // Join the header frontmatter directly to the body with a single newline so the
+  // result is flowmark-stable (no blank line after the closing `---`). This keeps
+  // the committed distribution copy from drifting when markdown formatters run.
+  const composedSkill = claudeHeader.replace(/\n+$/, '\n') + skillBody.replace(/^\n+/, '');
+  await writeFile(join(distDocs, 'SKILL.md'), composedSkill);
+
+  // Write the committed distribution copy of the skill at the repo root, for
+  // skills.sh-style installers (`npx skills add`) and GitHub browsing. Kept in
+  // sync with the composed skill via a drift test (see integration-files.test.ts).
+  const distSkillPath = join(repoRoot, 'skills', 'tbd', 'SKILL.md');
+  mkdirSync(dirname(distSkillPath), { recursive: true });
+  await writeFile(distSkillPath, composedSkill);
 
   // Copy skill-brief.md from shortcuts/system to dist/docs
   // (needed by `tbd skill --brief` command)
