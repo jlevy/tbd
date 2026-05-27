@@ -4,7 +4,8 @@
 
 **Author:** Codex with Joshua Levy
 
-**Status:** Implemented
+**Status:** Implemented; post-review hardening in progress (see Post-Review Hardening
+(PR #121 Follow-up))
 
 ## Overview
 
@@ -319,7 +320,14 @@ Common-dir layout policy:
   until the user upgrades `tbd`.
 - If `.tbd/config.yml` and `$GIT_COMMON_DIR/tbd/layout.yml` disagree on `tbd_format`,
   normal mutating commands should fail closed and route repair through
-  `tbd doctor --fix`.
+  `tbd doctor --fix`. Recovery contract (resolved during review): `tbd doctor` must
+  diagnose a layout/config mismatch and `tbd doctor --fix` must, under the shared lock,
+  rewrite `layout.yml` from the current config when the format is compatible (or report
+  the future-format upgrade message when it is not).
+  The mismatch error message may name the manual
+  `rm "$(git rev-parse --git-common-dir)/tbd/layout.yml"` escape hatch as a secondary
+  hint, but the primary remediation is `tbd doctor --fix`. See Post-Review Hardening
+  item H3.
 - Future common-dir upgrades should be explicit `f04 -> f05` migrations, not ad hoc
   directory probing.
 
@@ -358,6 +366,17 @@ Initial locking policy should be conservative:
 
 Read-only commands can eventually avoid the lock, but the first implementation should
 prefer correctness and simple reasoning over maximum concurrency.
+
+Review correction (resolved): the first implementation moved read-only commands off the
+lock by calling `loadDataContext()` with `{ lock: false }`, but the shared preparation
+path it runs (`prepareDataSyncContext`) still repairs the worktree, writes `layout.yml`,
+and persists the migrated config.
+That means benign reads can race first-use migration, initialization, and repair without
+the shared lock — the exact opposite of the safety property above.
+The hardening work (item H1) splits preparation into a pure read path and a locked
+ensure/migrate/repair path: reads skip the lock only when the shared layout and worktree
+are already valid and the config needs no migration; otherwise they must acquire the
+shared lock before any mutation.
 
 The current lock helper is tuned for short file writes.
 `tbd sync` can include network operations, so this design likely needs either:
@@ -584,6 +603,110 @@ Doctor output will change to show the shared local sync location.
 - [x] Update uninstall and cleanup behavior.
 - [x] Update docs and troubleshooting guidance.
 
+## Post-Review Hardening (PR #121 Follow-up)
+
+Two senior engineering reviews on PR #121 (the initial review and the review of head
+`1e1ff21`) confirmed the design is correct and the bulk of the implementation is solid.
+Earlier review items are addressed in the implementation: the lock timing invariant is
+restored (`timeoutMs` 35 min > `staleMs` 30 min in `DATA_SYNC_LOCK_OPTIONS`), the
+duplicate `WorktreeMissingError`/`WorktreeCorruptedError` definitions are gone, the
+`resolveDataSyncDir()` stale-fallback cache no longer caches the direct fallback, the
+primary-checkout-only path constants are renamed/documented as non-canonical, and
+`uninstall` preserves debug context on shared-path failure.
+
+The remaining work below closes the lock-boundary gaps the second review held the PR
+for, plus cleanups surfaced when this branch merged the post-PR-121 `main` (which
+dropped Changesets for tag-triggered releases).
+Line references are against the merged branch head, not the pre-merge review.
+
+### H1 (Blocking): Make `loadDataContext()` read-only truly read-only
+
+`loadDataContext()` (`packages/tbd/src/cli/lib/data-context.ts:164`) runs with
+`{ lock: false }` but still executes `prepareDataSyncContext()`
+(`packages/tbd/src/cli/lib/data-context.ts:87`), which mutates shared state without the
+lock: worktree repair at `:100`, `writeCommonDirLayout()` at `:120`, and migrated
+`writeConfig()` at `:124`.
+
+Fix: split preparation into a pure read path and a locked ensure path.
+
+- Add `ensureSharedDataSyncLayout(tbdRoot, config, sharedPaths)` that performs the
+  mutating steps (worktree repair, `layout.yml` write, migrated config write) and is
+  only ever called while holding `withSharedDataSyncLock`. Reuse the currently-unused
+  `ensureCommonDirLayout()` (`packages/tbd/src/file/common-dir-layout.ts:110`) as the
+  layout half rather than duplicating read/validate/write inline.
+- Add a cheap validity probe (layout exists and matches config, worktree health `valid`,
+  `migrated === false`). When the probe passes, the read path resolves the data-sync dir
+  and loads the mapping with no lock.
+  When it fails, acquire the shared lock and run the ensure path before resolving.
+- Keep `withDataSyncContext(..., { lock: true }, ...)` for writers unchanged.
+
+### H2 (High): Centralize direct init/repair behind one locked ensure entry point
+
+These callers run `initWorktree()`/`repairWorktree()` directly, and `initWorktree()`
+calls `migrateLegacyWorktreesToShared()` (`packages/tbd/src/file/git.ts:1124`), so they
+perform legacy migration and branch/worktree mutation without the shared lock:
+
+- `tbd init`: `packages/tbd/src/cli/commands/init.ts:176`.
+- fresh `tbd setup --auto`: `packages/tbd/src/cli/commands/setup.ts:1668`.
+- `tbd doctor --fix`: `packages/tbd/src/cli/commands/doctor.ts:885` (repair) and
+  `packages/tbd/src/cli/commands/doctor.ts:971` (init).
+
+(The migration path at `packages/tbd/src/cli/commands/setup.ts:1306` already wraps init
+in the shared lock and is the correct model.)
+
+Fix: route every init/migrate/repair caller through one internal “ensure shared sync
+layout under lock” entry point.
+If `initWorktree()` stays public for tests, document that it requires an outer lock and
+wrap the CLI callers in `withSharedDataSyncLock()`.
+
+### H3 (Contract gap): Implement `tbd doctor --fix` for layout mismatch
+
+`validateCommonDirLayout()` (`packages/tbd/src/file/common-dir-layout.ts:57` and `:68`)
+currently tells users to manually `rm` `layout.yml`, but this spec’s recovery contract
+routes repair through `tbd doctor --fix`, and `doctor.ts` has no `layout.yml` awareness.
+
+Fix: add a `layout.yml` diagnostic to `doctor` (read + validate against config); under
+`--fix`, acquire the shared lock and rewrite `layout.yml` from config via
+`writeCommonDirLayout()` when the format is compatible, or surface the future-format
+upgrade message when it is not.
+Update the mismatch error messages so `tbd doctor --fix` is the primary remediation and
+the manual `rm` is a secondary hint.
+Also surface the future-format **config** upgrade message in `doctor` instead of hiding
+it behind a generic “Invalid config file” error.
+
+### H4 (Tests): Lock-boundary and first-use concurrency regression coverage
+
+- Add a concurrency regression test that runs first-use read commands (`tbd list`,
+  `tbd ready`, etc.) concurrently from two linked worktrees against (a) an f03 repo and
+  (b) an f04 repo with a missing `layout.yml`, asserting exactly one shared
+  worktree/`layout.yml` is produced and no legacy/direct `.tbd/data-sync/` path is
+  written.
+- Add direct unit tests for `ensureSharedDataSyncLayout` running only under the lock and
+  for the read fast-path skipping the lock when state is already valid.
+- Add a `doctor --fix` test for the layout/config mismatch repair and the future-format
+  surfacing.
+- Re-run the full unit + golden tryscript suite on the merged branch head; PR #121’s
+  green CI predates the `main` merge that refactored `setup.ts`/`doctor.ts`/`status.ts`.
+
+### H5 (Cleanup): Release notes, dead code, and doc drift
+
+- `main` dropped Changesets for tag-triggered releases; the merge left an orphaned
+  `.changeset/shared-common-dir-worktree.md`. Move its content (especially the f04
+  old-client upgrade note) into `release-notes.md` per the new `cut-release` flow and
+  delete the changeset file.
+- Wire `ensureCommonDirLayout()` into H1 so it is no longer dead code.
+- Clarify in `packages/tbd/docs/tbd-design.md` that production migration backups live
+  under `$GIT_COMMON_DIR/tbd/backups/`, not `.tbd/backups/`.
+
+### H6 (Residual risk): Stale-lock heartbeat decision
+
+The 30-minute stale window has no heartbeat, so a live `tbd sync` that hangs longer than
+`staleMs` can have its lock broken by another process.
+Either explicitly accept this risk here (documented trade-off for current data sizes) or
+implement heartbeat metadata inside the lock directory.
+Recommended: accept the risk for now and track heartbeat as a separate future
+enhancement, since it is non-blocking for this PR.
+
 ## Testing Strategy
 
 - Unit tests for Git common-dir path resolution from:
@@ -654,8 +777,13 @@ Release notes should warn:
 - Should migration use a temporary detached scratch worktree when a legacy worktree
   still owns `tbd-sync`, or should it always detach/remove the legacy owner before
   creating the shared worktree?
-- Should read-only commands take the shared lock initially, or only mutating commands?
-- What stale-lock policy is safe for sync operations that include network calls?
+- ~~Should read-only commands take the shared lock initially, or only mutating
+  commands?~~ Resolved: read-only commands take the lock only when first-use
+  init/migrate/repair is actually needed; once the shared layout and worktree are valid
+  they read without the lock (see Post-Review Hardening H1).
+- ~~What stale-lock policy is safe for sync operations that include network calls?~~
+  Resolved for now: a fixed 35-minute timeout over a 30-minute stale window, no
+  heartbeat. Heartbeat metadata is deferred (see Post-Review Hardening H6).
 - Should `tbd doctor --fix` remove old legacy worktrees after migration, or leave them
   in place with a marker file?
 - How should backups under `$GIT_COMMON_DIR/tbd/backups/` be exposed to users?
