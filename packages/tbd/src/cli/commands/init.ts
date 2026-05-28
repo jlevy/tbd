@@ -24,6 +24,7 @@ import {
   TBD_GUIDELINES_DIR,
   TBD_TEMPLATES_DIR,
   TBD_DOCS_DIR,
+  resolveSharedTbdPaths,
 } from '../../lib/paths.js';
 import {
   initWorktree,
@@ -33,6 +34,7 @@ import {
   isInGitRepo,
   MIN_GIT_VERSION,
 } from '../../file/git.js';
+import { withSharedDataSyncLock, writeCommonDirLayout } from '../../file/common-dir-layout.js';
 
 interface InitOptions {
   prefix?: string;
@@ -111,7 +113,7 @@ class InitHandler extends BaseCommand {
     await this.execute(async () => {
       // 1. Create .tbd/ directory with config.yml
       // Note: options.prefix is validated to be non-null above
-      await initConfig(cwd, VERSION, options.prefix!);
+      const config = await initConfig(cwd, VERSION, options.prefix!);
       this.output.debug(`Created ${TBD_DIR}/config.yml with prefix '${options.prefix}'`);
 
       // 2. Create .tbd/.gitignore (idempotent)
@@ -148,8 +150,7 @@ class InitHandler extends BaseCommand {
       await mkdir(join(cwd, TBD_TEMPLATES_DIR), { recursive: true });
       this.output.debug(`Created ${TBD_DOCS_DIR}/ directories`);
 
-      // 4. Initialize the hidden worktree for tbd-sync branch
-      // This creates .tbd/data-sync-worktree/ with the sync branch checkout
+      // 4. Initialize the shared hidden worktree for tbd-sync branch
       const remote = options.remote ?? 'origin';
       const syncBranch = options.syncBranch ?? SYNC_BRANCH;
 
@@ -172,17 +173,26 @@ class InitHandler extends BaseCommand {
         this.output.debug(`Git version check skipped: ${(error as Error).message}`);
       }
 
-      const worktreeResult = await initWorktree(cwd, remote, syncBranch);
+      // Serialize first-time worktree creation + layout write under the shared
+      // lock so concurrent agents from sibling worktrees cannot race init.
+      const { worktreeResult, sharedPaths } = await withSharedDataSyncLock(cwd, async () => {
+        const result = await initWorktree(cwd, remote, syncBranch);
+        const paths = await resolveSharedTbdPaths(cwd);
+        if (result.success) {
+          await writeCommonDirLayout(paths, config);
+        }
+        return { worktreeResult: result, sharedPaths: paths };
+      });
 
       if (worktreeResult.success) {
         if (worktreeResult.created) {
-          this.output.debug(`Created hidden worktree at ${TBD_DIR}/${WORKTREE_DIR_NAME}/`);
+          this.output.debug(`Created hidden worktree at ${sharedPaths.sharedWorktreePath}`);
         } else {
-          this.output.debug(`Worktree already exists at ${TBD_DIR}/${WORKTREE_DIR_NAME}/`);
+          this.output.debug(`Worktree already exists at ${sharedPaths.sharedWorktreePath}`);
         }
 
         // Verify worktree health after creation (prevents silent failures)
-        const health = await checkWorktreeHealth(cwd);
+        const health = await checkWorktreeHealth(cwd, syncBranch);
         if (!health.valid) {
           this.output.warn(
             `Worktree created but failed verification (status: ${health.status}). ` +

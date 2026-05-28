@@ -7,29 +7,21 @@
 import { Command } from 'commander';
 
 import { BaseCommand } from '../lib/base-command.js';
-import {
-  requireInit,
-  NotInitializedError,
-  SyncError,
-  WorktreeMissingError,
-  WorktreeCorruptedError,
-  classifySyncError,
-} from '../lib/errors.js';
-import { readConfig } from '../../file/config.js';
+import { requireInit, SyncError, classifySyncError } from '../lib/errors.js';
 import { listIssues, readIssue, writeIssue } from '../../file/storage.js';
 import {
   git,
-  withIsolatedIndex,
+  gitCommit,
   mergeIssues,
   pushWithRetry,
-  checkWorktreeHealth,
-  repairWorktree,
-  ensureWorktreeAttached,
+  ensureWorktreeAttachedToBranch,
   type ConflictEntry,
   type PushResult,
 } from '../../file/git.js';
-import { resolveDataSyncDir, DATA_SYNC_DIR, WORKTREE_DIR } from '../../lib/paths.js';
+import { DATA_SYNC_DIR } from '../../lib/paths.js';
 import { join } from 'node:path';
+import { access, readFile } from 'node:fs/promises';
+import { writeFile } from 'atomically';
 import {
   type SyncSummary,
   type SyncTallies,
@@ -56,6 +48,7 @@ import {
   importFromWorkspace,
   deleteWorkspace,
 } from '../../file/workspace.js';
+import { withDataSyncContext } from '../lib/data-context.js';
 
 interface SyncOptions {
   push?: boolean;
@@ -82,6 +75,8 @@ interface SyncStatus {
 class SyncHandler extends BaseCommand {
   private dataSyncDir = '';
   private tbdRoot = '';
+  private worktreePath = '';
+  private syncBranch = '';
 
   async run(options: SyncOptions): Promise<void> {
     const tbdRoot = await requireInit();
@@ -116,80 +111,44 @@ class SyncHandler extends BaseCommand {
     }
 
     // STEP 2: Sync issues (network operations)
-    // Check worktree health before any issue sync operations
-    // See: plan-2026-01-28-sync-worktree-recovery-and-hardening.md
-    let worktreeHealth = await checkWorktreeHealth(tbdRoot);
-    if (!worktreeHealth.valid) {
-      // Auto-create worktree if it's simply missing (normal for fresh clones)
-      // Only require --fix for corrupted/prunable states that need repair
-      if (worktreeHealth.status === 'missing') {
-        // Auto-create worktree - this is the expected state on fresh clones
-        await this.doRepairWorktree(tbdRoot, 'missing');
-        worktreeHealth = await checkWorktreeHealth(tbdRoot);
-        if (!worktreeHealth.valid) {
-          throw new WorktreeCorruptedError(
-            `Failed to create worktree. Status: ${worktreeHealth.status}. Run 'tbd doctor' for diagnostics.`,
-          );
+    await withDataSyncContext(
+      tbdRoot,
+      { lock: true },
+      async ({ dataSyncDir, config, sharedPaths, repairedWorktreeStatus }) => {
+        this.dataSyncDir = dataSyncDir;
+        this.worktreePath = sharedPaths.sharedWorktreePath;
+        this.syncBranch = config.sync.branch;
+
+        const syncBranch = config.sync.branch;
+        const remote = config.sync.remote;
+
+        if (options.status) {
+          await this.showIssueStatus(syncBranch, remote);
+          return;
         }
-      } else if (options.fix) {
-        // Attempt repair when --fix is provided for corrupted/prunable states
-        await this.doRepairWorktree(tbdRoot, worktreeHealth.status as 'prunable' | 'corrupted');
-        // Re-check health after repair
-        worktreeHealth = await checkWorktreeHealth(tbdRoot);
-        if (!worktreeHealth.valid) {
-          throw new WorktreeCorruptedError(
-            `Worktree repair failed. Status: ${worktreeHealth.status}. Run 'tbd doctor' for diagnostics.`,
-          );
+
+        if (this.checkDryRun('Would sync repository', { syncBranch, remote })) {
+          return;
         }
-      } else {
-        // No --fix flag, throw appropriate error for corrupted/prunable states
-        if (worktreeHealth.status === 'prunable') {
-          throw new WorktreeMissingError(
-            "Worktree directory was deleted but git still tracks it. Run 'tbd sync --fix' or 'tbd doctor --fix' to repair.",
-          );
+
+        if (repairedWorktreeStatus) {
+          this.output.success('Worktree repaired successfully');
         }
-        if (worktreeHealth.status === 'corrupted') {
-          throw new WorktreeCorruptedError(
-            `Worktree is corrupted: ${worktreeHealth.error ?? 'unknown error'}. Run 'tbd sync --fix' or 'tbd doctor --fix' to repair.`,
-          );
+
+        if (options.pull) {
+          await this.pullChanges(syncBranch, remote);
+        } else if (options.push) {
+          await this.pushChanges(syncBranch, remote);
+        } else {
+          // Full sync: pull then push
+          await this.fullSync(syncBranch, remote, {
+            force: options.force,
+            autoSave: options.autoSave,
+            outbox: options.outbox,
+          });
         }
-      }
-    }
-
-    this.dataSyncDir = await resolveDataSyncDir(tbdRoot);
-
-    // Load config to get sync branch
-    let config;
-    try {
-      config = await readConfig(tbdRoot);
-    } catch {
-      throw new NotInitializedError('Not a tbd repository. Run `tbd init` first.');
-    }
-
-    const syncBranch = config.sync.branch;
-    const remote = config.sync.remote;
-
-    if (options.status) {
-      await this.showIssueStatus(syncBranch, remote);
-      return;
-    }
-
-    if (this.checkDryRun('Would sync repository', { syncBranch, remote })) {
-      return;
-    }
-
-    if (options.pull) {
-      await this.pullChanges(syncBranch, remote);
-    } else if (options.push) {
-      await this.pushChanges(syncBranch, remote);
-    } else {
-      // Full sync: pull then push
-      await this.fullSync(syncBranch, remote, {
-        force: options.force,
-        autoSave: options.autoSave,
-        outbox: options.outbox,
-      });
-    }
+      },
+    );
   }
 
   /**
@@ -286,37 +245,6 @@ class SyncHandler extends BaseCommand {
     }
   }
 
-  /**
-   * Attempt to repair an unhealthy worktree.
-   * See: plan-2026-01-28-sync-worktree-recovery-and-hardening.md
-   */
-  private async doRepairWorktree(
-    tbdRoot: string,
-    status: 'missing' | 'prunable' | 'corrupted',
-  ): Promise<void> {
-    const spinner = this.output.spinner(`Repairing worktree (${status})...`);
-
-    try {
-      // Use shared repairWorktree from git.ts
-      const result = await repairWorktree(tbdRoot, status);
-
-      spinner.stop();
-
-      if (!result.success) {
-        throw new WorktreeCorruptedError(`Failed to repair worktree: ${result.error}`);
-      }
-
-      if (result.backedUp) {
-        this.output.info(`Corrupted worktree backed up to: ${result.backedUp}`);
-      }
-      this.output.success('Worktree repaired successfully');
-    } catch (error) {
-      spinner.stop();
-      if (error instanceof WorktreeCorruptedError) throw error;
-      throw new WorktreeCorruptedError(`Failed to repair worktree: ${(error as Error).message}`);
-    }
-  }
-
   private async showIssueStatus(syncBranch: string, remote: string): Promise<void> {
     const status = await this.getSyncStatus(syncBranch, remote);
 
@@ -367,8 +295,7 @@ class SyncHandler extends BaseCommand {
     // Now check worktree status directly.
     // See: plan-2026-01-28-sync-worktree-recovery-and-hardening.md
     try {
-      const worktreePath = join(this.tbdRoot, WORKTREE_DIR);
-      const status = await git('-C', worktreePath, 'status', '--porcelain');
+      const status = await git('-C', this.worktreePath, 'status', '--porcelain');
       if (status) {
         for (const line of status.split('\n')) {
           if (!line) continue;
@@ -468,15 +395,8 @@ class SyncHandler extends BaseCommand {
         return;
       }
 
-      // Merge changes using isolated index
-      await withIsolatedIndex(async () => {
-        // Read the remote tree
-        await git('read-tree', `${remote}/${syncBranch}`);
-
-        // Update local branch to remote
-        const remoteCommit = await git('rev-parse', `${remote}/${syncBranch}`);
-        await git('update-ref', `refs/heads/${syncBranch}`, remoteCommit);
-      });
+      await ensureWorktreeAttachedToBranch(this.worktreePath, syncBranch);
+      await git('-C', this.worktreePath, 'merge', '--ff-only', `${remote}/${syncBranch}`);
 
       this.output.success(`Pulled ${behind} change(s) from ${remote}/${syncBranch}`);
     } catch (error) {
@@ -500,11 +420,11 @@ class SyncHandler extends BaseCommand {
     // Use tbdRoot to derive worktree path consistently
     // FIX Bug 1: Previously used process.cwd() which fails if not in repo root
     // See: plan-2026-01-28-sync-worktree-recovery-and-hardening.md
-    const worktreePath = join(this.tbdRoot, WORKTREE_DIR);
+    const worktreePath = this.worktreePath;
 
     try {
       // Ensure worktree is attached to sync branch (repair old tbd repos)
-      await ensureWorktreeAttached(worktreePath);
+      await ensureWorktreeAttachedToBranch(worktreePath, this.syncBranch);
 
       // Check for uncommitted changes (untracked, modified, or deleted)
       const status = await git('-C', worktreePath, 'status', '--porcelain');
@@ -521,10 +441,8 @@ class SyncHandler extends BaseCommand {
 
       // Commit the changes
       const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
-      await git(
-        '-C',
+      await gitCommit(
         worktreePath,
-        'commit',
         '-m',
         `tbd sync: ${timestamp} (${fileCount} file${fileCount === 1 ? '' : 's'})`,
       );
@@ -671,7 +589,7 @@ class SyncHandler extends BaseCommand {
     const summary: SyncSummary = emptySummary();
     const conflicts: ConflictEntry[] = [];
     // Use tbdRoot for consistent path resolution
-    const worktreePath = join(this.tbdRoot, WORKTREE_DIR);
+    const worktreePath = this.worktreePath;
 
     try {
       // STEP 1: Commit local changes FIRST (before pulling)
@@ -726,7 +644,6 @@ class SyncHandler extends BaseCommand {
       // This prevents conflicts when both sides add non-overlapping keys.
       // Written before every merge so existing repos get it on their next sync.
       {
-        const { access, writeFile } = await import('node:fs/promises');
         const attrPath = join(this.dataSyncDir, 'mappings', '.gitattributes');
         try {
           await access(attrPath);
@@ -734,10 +651,8 @@ class SyncHandler extends BaseCommand {
           await writeFile(attrPath, 'ids.yml merge=union\n');
           await git('-C', worktreePath, 'add', attrPath);
           try {
-            await git(
-              '-C',
+            await gitCommit(
               worktreePath,
-              'commit',
               '--no-verify',
               '-m',
               'chore: add merge=union for ids.yml',
@@ -811,10 +726,8 @@ class SyncHandler extends BaseCommand {
             // Commit the updated mapping so it's included in the push
             await git('-C', worktreePath, 'add', '-A');
             try {
-              await git(
-                '-C',
+              await gitCommit(
                 worktreePath,
-                'commit',
                 '--no-verify',
                 '-m',
                 `tbd sync: reconcile ${totalReconciled} missing ID mapping(s)`,
@@ -870,7 +783,6 @@ class SyncHandler extends BaseCommand {
             if (remoteIdsContent) {
               conflictRemoteMapping = parseIdMappingFromYaml(remoteIdsContent);
               // Read the on-disk file (which may have conflict markers) and resolve
-              const { readFile } = await import('node:fs/promises');
               const idsPath = join(this.dataSyncDir, 'mappings', 'ids.yml');
               const rawContent = await readFile(idsPath, 'utf-8');
               const localMapping = resolveIdMappingConflicts(rawContent);
@@ -938,10 +850,8 @@ class SyncHandler extends BaseCommand {
           }
 
           try {
-            await git(
-              '-C',
+            await gitCommit(
               worktreePath,
-              'commit',
               '--no-verify',
               '-m',
               'tbd sync: resolved merge conflicts',

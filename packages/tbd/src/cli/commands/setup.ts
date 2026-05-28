@@ -50,6 +50,7 @@ import {
   TBD_SHORTCUTS_STANDARD,
   TBD_GUIDELINES_DIR,
   TBD_TEMPLATES_DIR,
+  resolveSharedTbdPaths,
 } from '../../lib/paths.js';
 import {
   getClaudePaths,
@@ -62,6 +63,8 @@ import {
 } from '../../lib/integration-paths.js';
 import { initWorktree, isInGitRepo, findGitRoot, checkWorktreeHealth } from '../../file/git.js';
 import { DocCache, generateShortcutDirectory } from '../../file/doc-cache.js';
+import { withSharedDataSyncLock, writeCommonDirLayout } from '../../file/common-dir-layout.js';
+import { withDataSyncContext } from '../lib/data-context.js';
 
 /**
  * Get the shortcut and guidelines directory content for appending to installed skill files.
@@ -1290,24 +1293,27 @@ class SetupDefaultHandler extends BaseCommand {
       console.log(`  ${colors.success('✓')} tbd initialized (prefix: ${config.display.id_prefix})`);
 
       // Apply --no-gh-cli flag to config if specified
-      let needsConfigWrite = migrated;
+      let ghCliChanged = false;
       if (options.ghCli === false && config.settings.use_gh_cli !== false) {
         config.settings.use_gh_cli = false;
-        needsConfigWrite = true;
+        ghCliChanged = true;
       }
 
-      // Persist config if migrated or --no-gh-cli was applied
-      if (needsConfigWrite) {
+      if (migrated) {
+        // Initialize the shared common-dir layout under the data-sync lock.
+        // prepareDataSyncContext also persists the migrated config to disk, so
+        // we don't need a separate writeConfig() for the migration itself.
+        await withDataSyncContext(projectDir, { lock: true }, async () => undefined);
+        console.log(`  ${colors.success('✓')} Config migrated to latest format`);
+        for (const change of changes) {
+          console.log(`      ${colors.dim(change)}`);
+        }
+      }
+
+      // Persist non-migration changes (e.g., --no-gh-cli) as a single explicit write.
+      if (ghCliChanged) {
         await writeConfig(projectDir, config);
-        if (migrated) {
-          console.log(`  ${colors.success('✓')} Config migrated to latest format`);
-          for (const change of changes) {
-            console.log(`      ${colors.dim(change)}`);
-          }
-        }
-        if (options.ghCli === false) {
-          console.log(`  ${colors.success('✓')} Disabled gh CLI auto-setup`);
-        }
+        console.log(`  ${colors.success('✓')} Disabled gh CLI auto-setup`);
       }
 
       console.log('');
@@ -1598,7 +1604,7 @@ class SetupDefaultHandler extends BaseCommand {
     const colors = this.output.getColors();
 
     // 1. Create .tbd/ directory with config.yml
-    await initConfig(cwd, VERSION, prefix);
+    const config = await initConfig(cwd, VERSION, prefix);
     console.log(`  ${colors.success('✓')} Created .tbd/config.yml`);
 
     // 2. Create/update .tbd/.gitignore (idempotent)
@@ -1659,7 +1665,13 @@ class SetupDefaultHandler extends BaseCommand {
 
     // 3. Initialize worktree for sync branch
     try {
-      await initWorktree(cwd);
+      // Serialize fresh-setup worktree creation + layout write under the shared
+      // lock so concurrent agents from sibling worktrees cannot race init.
+      await withSharedDataSyncLock(cwd, async () => {
+        await initWorktree(cwd);
+        const sharedPaths = await resolveSharedTbdPaths(cwd);
+        await writeCommonDirLayout(sharedPaths, config);
+      });
 
       // Verify worktree health after creation (prevents silent failures)
       const health = await checkWorktreeHealth(cwd);

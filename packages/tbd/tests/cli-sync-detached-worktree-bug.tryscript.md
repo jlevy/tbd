@@ -58,7 +58,7 @@ $ tbd sync
 # Test: Detach the worktree HEAD (simulate old version behavior)
 
 ```console
-$ git -C .tbd/data-sync-worktree checkout --detach
+$ git -C $(git rev-parse --path-format=absolute --git-common-dir)/tbd/data-sync-worktree checkout --detach
 HEAD is now at [..]
 ? 0
 ```
@@ -66,7 +66,7 @@ HEAD is now at [..]
 # Test: Verify worktree is detached
 
 ```console
-$ git -C .tbd/data-sync-worktree branch --show-current | wc -l | tr -d ' '
+$ git -C $(git rev-parse --path-format=absolute --git-common-dir)/tbd/data-sync-worktree branch --show-current | wc -l | tr -d ' '
 0
 ? 0
 ```
@@ -106,7 +106,7 @@ $ tbd doctor --fix 2>&1 | grep -i "Data location"
 After migration, the worktree should have commit(s) for the migrated files.
 
 ```console
-$ git -C .tbd/data-sync-worktree log --oneline -1
+$ git -C $(git rev-parse --path-format=absolute --git-common-dir)/tbd/data-sync-worktree log --oneline -1
 [..]
 ? 0
 ```
@@ -135,7 +135,7 @@ ok
 # Test: FIX VERIFICATION - Worktree and branch are in sync (correct!)
 
 ```console
-$ test "$(git -C .tbd/data-sync-worktree rev-parse HEAD)" = "$(git rev-parse tbd-sync)" && echo "In sync" || echo "Worktree ahead of branch"
+$ test "$(git -C $(git rev-parse --path-format=absolute --git-common-dir)/tbd/data-sync-worktree rev-parse HEAD)" = "$(git rev-parse tbd-sync)" && echo "In sync" || echo "Worktree ahead of branch"
 In sync
 ? 0
 ```

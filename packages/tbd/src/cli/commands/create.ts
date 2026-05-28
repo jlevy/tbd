@@ -13,7 +13,6 @@ import type { Issue, IssueKindType, PriorityType } from '../../lib/types.js';
 import { generateInternalId, extractUlidFromInternalId } from '../../lib/ids.js';
 import { readIssue, writeIssue } from '../../file/storage.js';
 import {
-  loadIdMapping,
   saveIdMapping,
   generateUniqueShortId,
   addIdMapping,
@@ -21,11 +20,10 @@ import {
 } from '../../file/id-mapping.js';
 import { IssueKind } from '../../lib/schemas.js';
 import { parsePriority } from '../../lib/priority.js';
-import { resolveDataSyncDir } from '../../lib/paths.js';
 import { now } from '../../utils/time-utils.js';
-import { readConfig } from '../../file/config.js';
 import { resolveAndValidatePath, getPathErrorMessage } from '../../lib/project-paths.js';
 import { validateIssueTitle } from '../lib/issue-input-validation.js';
+import { withDataSyncContext } from '../lib/data-context.js';
 
 interface CreateOptions {
   fromFile?: string;
@@ -103,76 +101,76 @@ class CreateHandler extends BaseCommand {
     let prefix: string;
     let issue: Issue;
     await this.execute(async () => {
-      const dataSyncDir = await resolveDataSyncDir(tbdRoot);
+      await withDataSyncContext(
+        tbdRoot,
+        { lock: true },
+        async ({ dataSyncDir, config, mapping }) => {
+          prefix = config.display.id_prefix;
 
-      // Read config for display prefix
-      const config = await readConfig(tbdRoot);
-      prefix = config.display.id_prefix;
+          shortId = generateUniqueShortId(mapping);
+          addIdMapping(mapping, ulid, shortId);
 
-      // Load mapping, generate unique short ID, and save
-      const mapping = await loadIdMapping(dataSyncDir);
-      shortId = generateUniqueShortId(mapping);
-      addIdMapping(mapping, ulid, shortId);
-
-      // Resolve parent ID if provided (convert display ID to internal ID)
-      let parentId: string | undefined;
-      if (options.parent) {
-        try {
-          parentId = resolveToInternalId(options.parent, mapping);
-        } catch {
-          throw new ValidationError(`Invalid parent ID: ${options.parent}`);
-        }
-      }
-
-      // Inherit spec_path from parent if not explicitly provided
-      if (!specPath && parentId) {
-        const parentIssue = await readIssue(dataSyncDir, parentId);
-        if (parentIssue.spec_path) {
-          specPath = parentIssue.spec_path;
-        }
-      }
-
-      issue = {
-        type: 'is',
-        id,
-        version: 1,
-        title: validatedTitle!,
-        kind,
-        status: 'open',
-        priority,
-        labels: options.label ?? [],
-        dependencies: [],
-        created_at: timestamp,
-        updated_at: timestamp,
-        description: description ?? undefined,
-        assignee: options.assignee ?? undefined,
-        due_date: options.due ?? undefined,
-        deferred_until: options.defer ?? undefined,
-        parent_id: parentId,
-        spec_path: specPath,
-      };
-
-      // Write both the issue and the mapping
-      await writeIssue(dataSyncDir, issue);
-      await saveIdMapping(dataSyncDir, mapping);
-
-      // When creating with a parent, append child to parent's child_order_hints
-      if (parentId) {
-        try {
-          const parentIssue = await readIssue(dataSyncDir, parentId);
-          const hints = parentIssue.child_order_hints ?? [];
-
-          // Only append if not already in hints (shouldn't happen for new issue, but safe)
-          if (!hints.includes(id)) {
-            parentIssue.child_order_hints = [...hints, id];
-            parentIssue.version += 1;
-            parentIssue.updated_at = timestamp;
-            await writeIssue(dataSyncDir, parentIssue);
+          // Resolve parent ID if provided (convert display ID to internal ID)
+          let parentId: string | undefined;
+          if (options.parent) {
+            try {
+              parentId = resolveToInternalId(options.parent, mapping);
+            } catch {
+              throw new ValidationError(`Invalid parent ID: ${options.parent}`);
+            }
           }
-        } catch {
-          // Parent not found or other error - skip order hint update
-        }
-      }
+
+          // Inherit spec_path from parent if not explicitly provided
+          if (!specPath && parentId) {
+            const parentIssue = await readIssue(dataSyncDir, parentId);
+            if (parentIssue.spec_path) {
+              specPath = parentIssue.spec_path;
+            }
+          }
+
+          issue = {
+            type: 'is',
+            id,
+            version: 1,
+            title: validatedTitle!,
+            kind,
+            status: 'open',
+            priority,
+            labels: options.label ?? [],
+            dependencies: [],
+            created_at: timestamp,
+            updated_at: timestamp,
+            description: description ?? undefined,
+            assignee: options.assignee ?? undefined,
+            due_date: options.due ?? undefined,
+            deferred_until: options.defer ?? undefined,
+            parent_id: parentId,
+            spec_path: specPath,
+          };
+
+          // Write both the issue and the mapping
+          await writeIssue(dataSyncDir, issue);
+          await saveIdMapping(dataSyncDir, mapping);
+
+          // When creating with a parent, append child to parent's child_order_hints
+          if (parentId) {
+            try {
+              const parentIssue = await readIssue(dataSyncDir, parentId);
+              const hints = parentIssue.child_order_hints ?? [];
+
+              // Only append if not already in hints (shouldn't happen for new issue, but safe)
+              if (!hints.includes(id)) {
+                parentIssue.child_order_hints = [...hints, id];
+                parentIssue.version += 1;
+                parentIssue.updated_at = timestamp;
+                await writeIssue(dataSyncDir, parentIssue);
+              }
+            } catch {
+              // Parent not found or other error - skip order hint update
+            }
+          }
+        },
+      );
     }, 'Failed to create issue');
 
     // Output with display ID (prefix + short ID)

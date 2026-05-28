@@ -27,7 +27,7 @@ import {
   type IntegrationCheck,
 } from '../lib/sections.js';
 import { readConfig, findTbdRoot } from '../../file/config.js';
-import { WORKTREE_DIR } from '../../lib/paths.js';
+import { resolveSharedTbdPaths } from '../../lib/paths.js';
 import {
   getClaudePaths,
   getAgentsMdPath,
@@ -272,9 +272,9 @@ class StatusHandler extends BaseCommand {
     }
 
     // Check worktree health
-    const worktreePath = join(cwd, WORKTREE_DIR);
-    const worktreeHealth = await checkWorktreeHealth(cwd);
-    data.worktree_path = worktreePath;
+    const sharedPaths = await resolveSharedTbdPaths(cwd);
+    const worktreeHealth = await checkWorktreeHealth(cwd, data.sync_branch ?? undefined);
+    data.worktree_path = sharedPaths.sharedWorktreePath;
     data.worktree_healthy = worktreeHealth.valid;
 
     // Check workspaces

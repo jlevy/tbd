@@ -3,7 +3,7 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { mkdtemp, rm, readFile } from 'node:fs/promises';
+import { mkdtemp, rm, readFile, mkdir, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import {
@@ -14,6 +14,7 @@ import {
   updateLocalState,
   hasSeenWelcome,
   markWelcomeSeen,
+  IncompatibleFormatError,
 } from '../src/file/config.js';
 import { CONFIG_FILE } from '../src/lib/paths.js';
 import type { Config } from '../src/lib/types.js';
@@ -38,6 +39,7 @@ describe('config operations', () => {
 
       expect(content).toContain('tbd_version: 3.0.0');
       expect(content).toContain('branch: tbd-sync');
+      expect(content).toContain('storage: git-common-dir-v1');
       expect(content).toContain('id_prefix: test');
     });
 
@@ -65,6 +67,33 @@ describe('config operations', () => {
     it('throws when config does not exist', async () => {
       await expect(readConfig(tempDir)).rejects.toThrow();
     });
+
+    it('uses a clear newer-version message for future config formats', async () => {
+      await mkdir(join(tempDir, '.tbd'), { recursive: true });
+      await writeFile(
+        join(tempDir, CONFIG_FILE),
+        [
+          'tbd_format: f99',
+          'tbd_version: future',
+          'display:',
+          '  id_prefix: test',
+          'sync:',
+          '  branch: tbd-sync',
+          '  remote: origin',
+          'settings:',
+          '  auto_sync: false',
+          '',
+        ].join('\n'),
+      );
+
+      await expect(readConfig(tempDir)).rejects.toThrow(IncompatibleFormatError);
+      await expect(readConfig(tempDir)).rejects.toThrow(
+        'This repository requires a newer version of tbd.\n' +
+          "Config format 'f99' is from a newer tbd version.\n" +
+          "This tbd version supports up to format 'f04'.\n" +
+          'Upgrade tbd: npm install -g get-tbd@latest',
+      );
+    });
   });
 
   describe('writeConfig', () => {
@@ -74,7 +103,7 @@ describe('config operations', () => {
       const config: Config = {
         tbd_format: 'f02',
         tbd_version: '3.1.0',
-        sync: { branch: 'custom-branch', remote: 'upstream' },
+        sync: { branch: 'custom-branch', remote: 'upstream', storage: 'git-common-dir-v1' },
         display: { id_prefix: 'td' },
         settings: { auto_sync: true, doc_auto_sync_hours: 24, use_gh_cli: true },
         docs_cache: { lookup_path: ['.tbd/docs/shortcuts/system', '.tbd/docs/shortcuts/standard'] },
@@ -86,6 +115,7 @@ describe('config operations', () => {
       expect(read.tbd_version).toBe('3.1.0');
       expect(read.sync.branch).toBe('custom-branch');
       expect(read.sync.remote).toBe('upstream');
+      expect(read.sync.storage).toBe('git-common-dir-v1');
       expect(read.display.id_prefix).toBe('td');
       expect(read.settings.auto_sync).toBe(true);
     });

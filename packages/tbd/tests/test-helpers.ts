@@ -150,11 +150,14 @@ export function createTestIssue(overrides: Partial<Issue> & { id: string; title:
 
 /**
  * Check if a file path is in the correct worktree location.
- * Files should be in .tbd/data-sync-worktree/.tbd/data-sync/ NOT directly in .tbd/data-sync/.
+ * Files should be in the shared sync worktree, not directly in .tbd/data-sync/.
  */
 export function isCorrectWorktreePath(path: string): boolean {
   const normalized = path.replace(/\\/g, '/');
-  return normalized.includes('.tbd/data-sync-worktree/.tbd/data-sync/');
+  return (
+    normalized.includes('/.git/tbd/data-sync-worktree/.tbd/data-sync/') ||
+    normalized.includes('.git/tbd/data-sync-worktree/.tbd/data-sync/')
+  );
 }
 
 /**

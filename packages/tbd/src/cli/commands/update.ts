@@ -15,12 +15,11 @@ import { formatDisplayId, formatDebugId } from '../../lib/ids.js';
 import { IssueStatus, IssueKind } from '../../lib/schemas.js';
 import { parsePriority } from '../../lib/priority.js';
 import type { IssueStatusType, IssueKindType, PriorityType } from '../../lib/types.js';
-import { resolveDataSyncDir } from '../../lib/paths.js';
 import { now } from '../../utils/time-utils.js';
-import { loadIdMapping, resolveToInternalId, type IdMapping } from '../../file/id-mapping.js';
-import { readConfig } from '../../file/config.js';
+import { resolveToInternalId, type IdMapping } from '../../file/id-mapping.js';
 import { resolveAndValidatePath, getPathErrorMessage } from '../../lib/project-paths.js';
 import { validateIssueTitle } from '../lib/issue-input-validation.js';
+import { withDataSyncContext } from '../lib/data-context.js';
 
 interface UpdateOptions {
   fromFile?: string;
@@ -45,132 +44,138 @@ class UpdateHandler extends BaseCommand {
   async run(id: string, options: UpdateOptions): Promise<void> {
     const tbdRoot = await requireInit();
 
-    const dataSyncDir = await resolveDataSyncDir(tbdRoot);
+    let displayId = id;
+    let didUpdate = false;
 
-    // Load ID mapping for resolution
-    const mapping = await loadIdMapping(dataSyncDir);
-
-    // Resolve input ID to internal ID
-    let internalId: string;
-    try {
-      internalId = resolveToInternalId(id, mapping);
-    } catch {
-      throw new NotFoundError('Issue', id);
-    }
-
-    // Load existing issue
-    let issue;
-    try {
-      issue = await readIssue(dataSyncDir, internalId);
-    } catch {
-      throw new NotFoundError('Issue', id);
-    }
-
-    // Parse and validate options
-    const updates = await this.parseUpdates(options, mapping, tbdRoot);
-    if (updates === null) return;
-
-    if (this.checkDryRun('Would update issue', { id: internalId, ...updates })) {
-      return;
-    }
-
-    // Capture old spec_path before applying updates (for propagation)
-    const oldSpecPath = issue.spec_path;
-
-    // Apply updates
-    if (updates.title !== undefined) issue.title = updates.title;
-    if (updates.status !== undefined) issue.status = updates.status;
-    if (updates.kind !== undefined) issue.kind = updates.kind;
-    if (updates.priority !== undefined) issue.priority = updates.priority;
-    if (updates.assignee !== undefined) issue.assignee = updates.assignee;
-    if (updates.description !== undefined) issue.description = updates.description;
-    if (updates.notes !== undefined) issue.notes = updates.notes;
-    if (updates.due_date !== undefined) issue.due_date = updates.due_date;
-    if (updates.deferred_until !== undefined) issue.deferred_until = updates.deferred_until;
-    if (updates.parent_id !== undefined) issue.parent_id = updates.parent_id;
-    if (updates.spec_path !== undefined) issue.spec_path = updates.spec_path;
-    if (updates.child_order_hints !== undefined)
-      issue.child_order_hints = updates.child_order_hints;
-
-    // Inherit spec_path from new parent when re-parenting without explicit --spec
-    if (updates.parent_id && options.spec === undefined && !issue.spec_path) {
-      try {
-        const parentIssue = await readIssue(dataSyncDir, updates.parent_id);
-        if (parentIssue.spec_path) {
-          issue.spec_path = parentIssue.spec_path;
-        }
-      } catch {
-        // Parent not found — skip inheritance
-      }
-    }
-
-    // Handle full labels replacement (from --from-file)
-    if (updates.labels !== undefined) {
-      issue.labels = updates.labels;
-    }
-
-    // Handle label updates
-    if (updates.addLabels && updates.addLabels.length > 0) {
-      const labelsSet = new Set(issue.labels);
-      for (const label of updates.addLabels) {
-        labelsSet.add(label);
-      }
-      issue.labels = [...labelsSet];
-    }
-    if (updates.removeLabels && updates.removeLabels.length > 0) {
-      const removeSet = new Set(updates.removeLabels);
-      issue.labels = issue.labels.filter((l) => !removeSet.has(l));
-    }
-
-    // Update metadata
-    issue.version += 1;
-    issue.updated_at = now();
-
-    // Save
     await this.execute(async () => {
-      await writeIssue(dataSyncDir, issue);
+      await withDataSyncContext(
+        tbdRoot,
+        { lock: true },
+        async ({ dataSyncDir, mapping, config }) => {
+          // Resolve input ID to internal ID
+          let internalId: string;
+          try {
+            internalId = resolveToInternalId(id, mapping);
+          } catch {
+            throw new NotFoundError('Issue', id);
+          }
+
+          // Load existing issue
+          let issue;
+          try {
+            issue = await readIssue(dataSyncDir, internalId);
+          } catch {
+            throw new NotFoundError('Issue', id);
+          }
+
+          // Parse and validate options
+          const updates = await this.parseUpdates(options, mapping, tbdRoot);
+          if (updates === null) return;
+
+          if (this.checkDryRun('Would update issue', { id: internalId, ...updates })) {
+            return;
+          }
+
+          // Capture old spec_path before applying updates (for propagation)
+          const oldSpecPath = issue.spec_path;
+
+          // Apply updates
+          if (updates.title !== undefined) issue.title = updates.title;
+          if (updates.status !== undefined) issue.status = updates.status;
+          if (updates.kind !== undefined) issue.kind = updates.kind;
+          if (updates.priority !== undefined) issue.priority = updates.priority;
+          if (updates.assignee !== undefined) issue.assignee = updates.assignee;
+          if (updates.description !== undefined) issue.description = updates.description;
+          if (updates.notes !== undefined) issue.notes = updates.notes;
+          if (updates.due_date !== undefined) issue.due_date = updates.due_date;
+          if (updates.deferred_until !== undefined) issue.deferred_until = updates.deferred_until;
+          if (updates.parent_id !== undefined) issue.parent_id = updates.parent_id;
+          if (updates.spec_path !== undefined) issue.spec_path = updates.spec_path;
+          if (updates.child_order_hints !== undefined)
+            issue.child_order_hints = updates.child_order_hints;
+
+          // Inherit spec_path from new parent when re-parenting without explicit --spec
+          if (updates.parent_id && options.spec === undefined && !issue.spec_path) {
+            try {
+              const parentIssue = await readIssue(dataSyncDir, updates.parent_id);
+              if (parentIssue.spec_path) {
+                issue.spec_path = parentIssue.spec_path;
+              }
+            } catch {
+              // Parent not found — skip inheritance
+            }
+          }
+
+          // Handle full labels replacement (from --from-file)
+          if (updates.labels !== undefined) {
+            issue.labels = updates.labels;
+          }
+
+          // Handle label updates
+          if (updates.addLabels && updates.addLabels.length > 0) {
+            const labelsSet = new Set(issue.labels);
+            for (const label of updates.addLabels) {
+              labelsSet.add(label);
+            }
+            issue.labels = [...labelsSet];
+          }
+          if (updates.removeLabels && updates.removeLabels.length > 0) {
+            const removeSet = new Set(updates.removeLabels);
+            issue.labels = issue.labels.filter((l) => !removeSet.has(l));
+          }
+
+          // Update metadata
+          issue.version += 1;
+          issue.updated_at = now();
+
+          await writeIssue(dataSyncDir, issue);
+
+          // When setting a new parent, append child to parent's child_order_hints
+          if (updates.parent_id) {
+            try {
+              const parentIssue = await readIssue(dataSyncDir, updates.parent_id);
+              const hints = parentIssue.child_order_hints ?? [];
+
+              // Only append if not already in hints
+              if (!hints.includes(internalId)) {
+                parentIssue.child_order_hints = [...hints, internalId];
+                parentIssue.version += 1;
+                parentIssue.updated_at = now();
+                await writeIssue(dataSyncDir, parentIssue);
+              }
+            } catch {
+              // Parent not found or other error - skip order hint update
+            }
+          }
+
+          // Propagate spec_path to children when parent's spec changes
+          if (
+            updates.spec_path !== undefined &&
+            issue.spec_path &&
+            issue.spec_path !== oldSpecPath
+          ) {
+            const allIssues = await listIssues(dataSyncDir);
+            const children = allIssues.filter((i) => i.parent_id === issue.id);
+            const timestamp = now();
+            for (const child of children) {
+              if (!child.spec_path || child.spec_path === oldSpecPath) {
+                child.spec_path = issue.spec_path;
+                child.version += 1;
+                child.updated_at = timestamp;
+                await writeIssue(dataSyncDir, child);
+              }
+            }
+          }
+
+          displayId = this.ctx.debug
+            ? formatDebugId(issue.id, mapping, config.display.id_prefix)
+            : formatDisplayId(issue.id, mapping, config.display.id_prefix);
+          didUpdate = true;
+        },
+      );
     }, 'Failed to update issue');
 
-    // When setting a new parent, append child to parent's child_order_hints
-    if (updates.parent_id) {
-      try {
-        const parentIssue = await readIssue(dataSyncDir, updates.parent_id);
-        const hints = parentIssue.child_order_hints ?? [];
-
-        // Only append if not already in hints
-        if (!hints.includes(internalId)) {
-          parentIssue.child_order_hints = [...hints, internalId];
-          parentIssue.version += 1;
-          parentIssue.updated_at = now();
-          await writeIssue(dataSyncDir, parentIssue);
-        }
-      } catch {
-        // Parent not found or other error - skip order hint update
-      }
-    }
-
-    // Propagate spec_path to children when parent's spec changes
-    if (updates.spec_path !== undefined && issue.spec_path && issue.spec_path !== oldSpecPath) {
-      const allIssues = await listIssues(dataSyncDir);
-      const children = allIssues.filter((i) => i.parent_id === issue.id);
-      const timestamp = now();
-      for (const child of children) {
-        if (!child.spec_path || child.spec_path === oldSpecPath) {
-          child.spec_path = issue.spec_path;
-          child.version += 1;
-          child.updated_at = timestamp;
-          await writeIssue(dataSyncDir, child);
-        }
-      }
-    }
-
-    // Use already loaded mapping for display
-    const showDebug = this.ctx.debug;
-    const config = await readConfig(tbdRoot);
-    const prefix = config.display.id_prefix;
-    const displayId = showDebug
-      ? formatDebugId(issue.id, mapping, prefix)
-      : formatDisplayId(issue.id, mapping, prefix);
+    if (!didUpdate) return;
 
     this.output.data({ id: displayId, updated: true }, () => {
       this.output.success(`Updated ${displayId}`);

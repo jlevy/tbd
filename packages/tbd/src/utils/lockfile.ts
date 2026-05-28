@@ -60,6 +60,31 @@ const DEFAULT_POLL_MS = 50;
 const DEFAULT_STALE_MS = 5_000;
 
 /**
+ * Lock timing profile for shared data-sync operations.
+ *
+ * Issue sync can include fetch, merge, push, and outbox import work, so it must
+ * not use the short stale window intended for single-file writes. `timeoutMs`
+ * is kept just above `staleMs` so a crashed-process lock is always broken as
+ * stale before the timeout expires, matching the invariant documented above.
+ *
+ * Accepted trade-off (no heartbeat): a live `tbd sync` that hangs longer than
+ * `staleMs` (30 min) can have its lock broken by another process mid-operation.
+ * For current data sizes this is acceptable — single-repo sync workloads
+ * complete well under the window — and adding heartbeat metadata adds
+ * cross-process state machinery without changing the common case. If sync
+ * workloads grow or the lock-break race becomes observable in practice,
+ * revisit by adding heartbeat metadata inside the lock directory (touch mtime
+ * periodically; treat as stale only if heartbeat is older than `staleMs`).
+ * See: plan-2026-05-17-shared-common-dir-sync-worktree.md §Post-Review
+ * Hardening H6.
+ */
+export const DATA_SYNC_LOCK_OPTIONS: Required<LockfileOptions> = {
+  timeoutMs: 35 * 60_000,
+  pollMs: 250,
+  staleMs: 30 * 60_000,
+};
+
+/**
  * Error thrown when the lock cannot be acquired within the timeout.
  */
 export class LockAcquisitionError extends Error {

@@ -1,10 +1,11 @@
-tbd_format: f03
+tbd_format: f04
 tbd_version: development
 display:
   id_prefix: tbd
 sync:
   branch: tbd-sync
   remote: origin
+  storage: git-common-dir-v1
 settings:
   auto_sync: false
   doc_auto_sync_hours: 24
@@ -39,6 +40,7 @@ docs_cache:
     shortcuts/standard/coding-spike.md: internal:shortcuts/standard/coding-spike.md
     shortcuts/standard/create-or-update-pr-simple.md: internal:shortcuts/standard/create-or-update-pr-simple.md
     shortcuts/standard/create-or-update-pr-with-validation-plan.md: internal:shortcuts/standard/create-or-update-pr-with-validation-plan.md
+    shortcuts/standard/cut-release.md: internal:shortcuts/standard/cut-release.md
     shortcuts/standard/implement-beads.md: internal:shortcuts/standard/implement-beads.md
     shortcuts/standard/merge-upstream.md: internal:shortcuts/standard/merge-upstream.md
     shortcuts/standard/new-architecture-doc.md: internal:shortcuts/standard/new-architecture-doc.md
@@ -81,6 +83,7 @@ docs_cache:
     guidelines/python-rules.md: internal:guidelines/python-rules.md
     guidelines/release-notes-guidelines.md: internal:guidelines/release-notes-guidelines.md
     guidelines/supply-chain-hardening.md: internal:guidelines/supply-chain-hardening.md
+    guidelines/tbd-format-versioning.md: internal:guidelines/tbd-format-versioning.md
     guidelines/tbd-sync-troubleshooting.md: internal:guidelines/tbd-sync-troubleshooting.md
     guidelines/typescript-cli-tool-rules.md: internal:guidelines/typescript-cli-tool-rules.md
     guidelines/typescript-code-coverage.md: internal:guidelines/typescript-code-coverage.md

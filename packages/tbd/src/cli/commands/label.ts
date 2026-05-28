@@ -10,71 +10,73 @@ import { BaseCommand } from '../lib/base-command.js';
 import { requireInit, NotFoundError, NotInitializedError } from '../lib/errors.js';
 import { readIssue, writeIssue, listIssues } from '../../file/storage.js';
 import { formatDisplayId, formatDebugId } from '../../lib/ids.js';
-import { resolveDataSyncDir } from '../../lib/paths.js';
 import { now } from '../../utils/time-utils.js';
-import { loadIdMapping, resolveToInternalId } from '../../file/id-mapping.js';
-import { readConfig } from '../../file/config.js';
+import { resolveToInternalId } from '../../file/id-mapping.js';
+import { loadDataContext, withDataSyncContext } from '../lib/data-context.js';
 
 // Add label
 class LabelAddHandler extends BaseCommand {
   async run(id: string, labels: string[]): Promise<void> {
     const tbdRoot = await requireInit();
 
-    const dataSyncDir = await resolveDataSyncDir(tbdRoot);
-
-    // Load ID mapping for resolution
-    const mapping = await loadIdMapping(dataSyncDir);
-
-    // Resolve input ID to internal ID
-    let internalId: string;
-    try {
-      internalId = resolveToInternalId(id, mapping);
-    } catch {
-      throw new NotFoundError('Issue', id);
-    }
-
-    // Load existing issue
-    let issue;
-    try {
-      issue = await readIssue(dataSyncDir, internalId);
-    } catch {
-      throw new NotFoundError('Issue', id);
-    }
-
-    if (this.checkDryRun('Would add labels', { id: internalId, labels })) {
-      return;
-    }
-
-    // Add labels (avoiding duplicates)
-    const labelsSet = new Set(issue.labels);
-    let added = 0;
-    for (const label of labels) {
-      if (!labelsSet.has(label)) {
-        labelsSet.add(label);
-        added++;
-      }
-    }
-
-    if (added === 0) {
-      this.output.info('All labels already present');
-      return;
-    }
-
-    issue.labels = [...labelsSet];
-    issue.version += 1;
-    issue.updated_at = now();
+    let displayId = id;
+    let didAdd = false;
 
     await this.execute(async () => {
-      await writeIssue(dataSyncDir, issue);
+      await withDataSyncContext(
+        tbdRoot,
+        { lock: true },
+        async ({ dataSyncDir, mapping, config }) => {
+          // Resolve input ID to internal ID
+          let internalId: string;
+          try {
+            internalId = resolveToInternalId(id, mapping);
+          } catch {
+            throw new NotFoundError('Issue', id);
+          }
+
+          // Load existing issue
+          let issue;
+          try {
+            issue = await readIssue(dataSyncDir, internalId);
+          } catch {
+            throw new NotFoundError('Issue', id);
+          }
+
+          if (this.checkDryRun('Would add labels', { id: internalId, labels })) {
+            return;
+          }
+
+          // Add labels (avoiding duplicates)
+          const labelsSet = new Set(issue.labels);
+          let added = 0;
+          for (const label of labels) {
+            if (!labelsSet.has(label)) {
+              labelsSet.add(label);
+              added++;
+            }
+          }
+
+          if (added === 0) {
+            this.output.info('All labels already present');
+            return;
+          }
+
+          issue.labels = [...labelsSet];
+          issue.version += 1;
+          issue.updated_at = now();
+
+          await writeIssue(dataSyncDir, issue);
+
+          displayId = this.ctx.debug
+            ? formatDebugId(issue.id, mapping, config.display.id_prefix)
+            : formatDisplayId(issue.id, mapping, config.display.id_prefix);
+          didAdd = true;
+        },
+      );
     }, 'Failed to update issue');
 
-    // Use already loaded mapping for display
-    const showDebug = this.ctx.debug;
-    const config = await readConfig(tbdRoot);
-    const prefix = config.display.id_prefix;
-    const displayId = showDebug
-      ? formatDebugId(issue.id, mapping, prefix)
-      : formatDisplayId(issue.id, mapping, prefix);
+    if (!didAdd) return;
 
     this.output.data({ id: displayId, addedLabels: labels }, () => {
       this.output.success(`Added labels to ${displayId}: ${labels.join(', ')}`);
@@ -87,56 +89,59 @@ class LabelRemoveHandler extends BaseCommand {
   async run(id: string, labels: string[]): Promise<void> {
     const tbdRoot = await requireInit();
 
-    const dataSyncDir = await resolveDataSyncDir(tbdRoot);
-
-    // Load ID mapping for resolution
-    const mapping = await loadIdMapping(dataSyncDir);
-
-    // Resolve input ID to internal ID
-    let internalId: string;
-    try {
-      internalId = resolveToInternalId(id, mapping);
-    } catch {
-      throw new NotFoundError('Issue', id);
-    }
-
-    // Load existing issue
-    let issue;
-    try {
-      issue = await readIssue(dataSyncDir, internalId);
-    } catch {
-      throw new NotFoundError('Issue', id);
-    }
-
-    if (this.checkDryRun('Would remove labels', { id: internalId, labels })) {
-      return;
-    }
-
-    // Remove labels
-    const removeSet = new Set(labels);
-    const originalCount = issue.labels.length;
-    issue.labels = issue.labels.filter((l) => !removeSet.has(l));
-    const removed = originalCount - issue.labels.length;
-
-    if (removed === 0) {
-      this.output.info('No matching labels found');
-      return;
-    }
-
-    issue.version += 1;
-    issue.updated_at = now();
+    let displayId = id;
+    let didRemove = false;
 
     await this.execute(async () => {
-      await writeIssue(dataSyncDir, issue);
+      await withDataSyncContext(
+        tbdRoot,
+        { lock: true },
+        async ({ dataSyncDir, mapping, config }) => {
+          // Resolve input ID to internal ID
+          let internalId: string;
+          try {
+            internalId = resolveToInternalId(id, mapping);
+          } catch {
+            throw new NotFoundError('Issue', id);
+          }
+
+          // Load existing issue
+          let issue;
+          try {
+            issue = await readIssue(dataSyncDir, internalId);
+          } catch {
+            throw new NotFoundError('Issue', id);
+          }
+
+          if (this.checkDryRun('Would remove labels', { id: internalId, labels })) {
+            return;
+          }
+
+          // Remove labels
+          const removeSet = new Set(labels);
+          const originalCount = issue.labels.length;
+          issue.labels = issue.labels.filter((l) => !removeSet.has(l));
+          const removed = originalCount - issue.labels.length;
+
+          if (removed === 0) {
+            this.output.info('No matching labels found');
+            return;
+          }
+
+          issue.version += 1;
+          issue.updated_at = now();
+
+          await writeIssue(dataSyncDir, issue);
+
+          displayId = this.ctx.debug
+            ? formatDebugId(issue.id, mapping, config.display.id_prefix)
+            : formatDisplayId(issue.id, mapping, config.display.id_prefix);
+          didRemove = true;
+        },
+      );
     }, 'Failed to update issue');
 
-    // Use already loaded mapping for display
-    const showDebug = this.ctx.debug;
-    const config = await readConfig(tbdRoot);
-    const prefix = config.display.id_prefix;
-    const displayId = showDebug
-      ? formatDebugId(issue.id, mapping, prefix)
-      : formatDisplayId(issue.id, mapping, prefix);
+    if (!didRemove) return;
 
     this.output.data({ id: displayId, removedLabels: labels }, () => {
       this.output.success(`Removed labels from ${displayId}: ${labels.join(', ')}`);
@@ -149,7 +154,7 @@ class LabelListHandler extends BaseCommand {
   async run(): Promise<void> {
     const tbdRoot = await requireInit();
 
-    const dataSyncDir = await resolveDataSyncDir(tbdRoot);
+    const { dataSyncDir } = await loadDataContext(tbdRoot);
 
     // Load all issues and collect unique labels
     let issues;

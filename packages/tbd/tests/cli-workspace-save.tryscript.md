@@ -175,7 +175,7 @@ outbox          3            0       0       3
 First, let’s clear the worktree data to simulate a fresh checkout:
 
 ```console
-$ rm -rf .tbd/data-sync-worktree/.tbd/data-sync/issues/*.md
+$ rm -rf $(git rev-parse --path-format=absolute --git-common-dir)/tbd/data-sync-worktree/.tbd/data-sync/issues/*.md
 ? 0
 ```
 
@@ -221,7 +221,7 @@ $ tbd save --dir=/tmp/tbd-test-backup
 # Test: Import from arbitrary directory
 
 ```console
-$ rm -rf .tbd/data-sync-worktree/.tbd/data-sync/issues/*.md
+$ rm -rf $(git rev-parse --path-format=absolute --git-common-dir)/tbd/data-sync-worktree/.tbd/data-sync/issues/*.md
 ? 0
 ```
 
@@ -307,7 +307,7 @@ Saved 4 issue(s), 0 conflict(s)
 # Test: Import with --verbose shows operational info
 
 ```console
-$ rm -rf .tbd/data-sync-worktree/.tbd/data-sync/issues/*.md
+$ rm -rf $(git rev-parse --path-format=absolute --git-common-dir)/tbd/data-sync-worktree/.tbd/data-sync/issues/*.md
 ? 0
 ```
 

@@ -13,9 +13,9 @@ import { join } from 'node:path';
 import { BaseCommand } from '../lib/base-command.js';
 import { requireInit } from '../lib/errors.js';
 import { listIssues, type InvalidIssueFile } from '../../file/storage.js';
-import { readConfig } from '../../file/config.js';
+import { IncompatibleFormatError, readConfig } from '../../file/config.js';
 import type { Config, Issue, IssueStatusType } from '../../lib/types.js';
-import { resolveDataSyncDir, TBD_DIR, WORKTREE_DIR, DATA_SYNC_DIR } from '../../lib/paths.js';
+import { resolveSharedTbdPaths, TBD_DIR, DATA_SYNC_DIR } from '../../lib/paths.js';
 import { detectDuplicateYamlKeys } from '../../utils/yaml-utils.js';
 import {
   getClaudePaths,
@@ -42,6 +42,14 @@ import {
   initWorktree,
   countRemoteIssues,
 } from '../../file/git.js';
+import {
+  CommonDirLayoutError,
+  readCommonDirLayout,
+  validateCommonDirLayout,
+  withSharedDataSyncLock,
+  writeCommonDirLayout,
+} from '../../file/common-dir-layout.js';
+import { isCompatibleFormat } from '../../lib/tbd-format.js';
 import { type DiagnosticResult, renderDiagnostics } from '../lib/diagnostics.js';
 import { VERSION } from '../lib/version.js';
 import { formatHeading } from '../lib/output.js';
@@ -69,7 +77,7 @@ class DoctorHandler extends BaseCommand {
     const tbdRoot = await requireInit();
 
     this.cwd = tbdRoot;
-    this.dataSyncDir = await resolveDataSyncDir(tbdRoot);
+    this.dataSyncDir = (await resolveSharedTbdPaths(tbdRoot)).sharedDataSyncDir;
 
     // Load config
     try {
@@ -130,6 +138,9 @@ class DoctorHandler extends BaseCommand {
     // overwrite ids.yml, so mappings must be verified after migration.
     healthChecks.push(await this.checkWorktree(options.fix));
 
+    // Check 9b: Common-dir layout metadata against config (with fix support)
+    healthChecks.push(await this.checkCommonDirLayout(options.fix));
+
     // Check 10: Data location (issues in wrong path, with fix support)
     const dataLocationResult = await this.checkDataLocation(options.fix);
     healthChecks.push(dataLocationResult);
@@ -137,7 +148,7 @@ class DoctorHandler extends BaseCommand {
     // If data was migrated, reload issues and refresh dataSyncDir so
     // subsequent checks (especially ID mappings) see the current state.
     if (dataLocationResult.status === 'ok' && dataLocationResult.message?.includes('migrated')) {
-      this.dataSyncDir = await resolveDataSyncDir(this.cwd);
+      this.dataSyncDir = (await resolveSharedTbdPaths(this.cwd)).sharedDataSyncDir;
       try {
         this.invalidIssueFiles = [];
         this.issues = await listIssues(this.dataSyncDir, {
@@ -255,7 +266,7 @@ class DoctorHandler extends BaseCommand {
   }> {
     let gitBranch: string | null = null;
     try {
-      gitBranch = await getCurrentBranch();
+      gitBranch = await getCurrentBranch(this.cwd);
     } catch {
       // Not in a git repo or no commits
     }
@@ -314,7 +325,7 @@ class DoctorHandler extends BaseCommand {
     if (this.issues.length === 0 && this.config) {
       const remote = this.config.sync.remote ?? 'origin';
       const syncBranch = this.config.sync.branch ?? 'tbd-sync';
-      remoteTotal = await countRemoteIssues(remote, syncBranch);
+      remoteTotal = await countRemoteIssues(remote, syncBranch, this.cwd);
     }
 
     return {
@@ -379,6 +390,15 @@ class DoctorHandler extends BaseCommand {
           message: 'not found',
           path: configPath,
           suggestion: 'Run: tbd init',
+        };
+      }
+      if (error instanceof IncompatibleFormatError) {
+        return {
+          name: 'Config file',
+          status: 'error',
+          message: `requires newer tbd (found ${error.foundFormat}, supported ${error.supportedFormat})`,
+          path: configPath,
+          suggestion: 'Upgrade: npm install -g get-tbd@latest',
         };
       }
       return {
@@ -865,8 +885,10 @@ class DoctorHandler extends BaseCommand {
    * See: plan-2026-01-28-sync-worktree-recovery-and-hardening.md §4
    */
   private async checkWorktree(fix?: boolean): Promise<DiagnosticResult> {
-    const worktreePath = WORKTREE_DIR;
-    const worktreeHealth = await checkWorktreeHealth(this.cwd);
+    const worktreePath = (await resolveSharedTbdPaths(this.cwd)).sharedWorktreePath;
+    const syncBranch = this.config?.sync.branch ?? 'tbd-sync';
+    const remote = this.config?.sync.remote ?? 'origin';
+    const worktreeHealth = await checkWorktreeHealth(this.cwd, syncBranch);
 
     switch (worktreeHealth.status) {
       case 'valid':
@@ -880,7 +902,12 @@ class DoctorHandler extends BaseCommand {
       case 'corrupted': {
         // Attempt repair if --fix is provided and not in dry-run mode
         if (fix && !this.checkDryRun('Repair worktree')) {
-          const result = await repairWorktree(this.cwd, worktreeHealth.status);
+          // Serialize worktree repair under the shared lock so concurrent
+          // agents from sibling worktrees cannot race the repair.
+          const repairStatus = worktreeHealth.status;
+          const result = await withSharedDataSyncLock(this.cwd, async () =>
+            repairWorktree(this.cwd, repairStatus, remote, syncBranch),
+          );
 
           if (result.success) {
             const message = result.backedUp
@@ -937,10 +964,82 @@ class DoctorHandler extends BaseCommand {
   }
 
   /**
+   * Check $GIT_COMMON_DIR/tbd/layout.yml against the checkout config.
+   *
+   * Reports missing (initialized on next mutating command), mismatched (rewrite
+   * from config under --fix), or future-format (requires newer tbd, no fix).
+   *
+   * See: plan-2026-05-17-shared-common-dir-sync-worktree.md §Format And Layout
+   * Versioning.
+   */
+  private async checkCommonDirLayout(fix?: boolean): Promise<DiagnosticResult> {
+    if (!this.config) {
+      return { name: 'Common-dir layout', status: 'ok', message: 'skipped (no config)' };
+    }
+    const sharedPaths = await resolveSharedTbdPaths(this.cwd);
+    const layoutPath = sharedPaths.sharedLayoutPath;
+    let layout;
+    try {
+      layout = await readCommonDirLayout(layoutPath);
+    } catch (error) {
+      return {
+        name: 'Common-dir layout',
+        status: 'error',
+        message: error instanceof Error ? error.message : String(error),
+        path: layoutPath,
+      };
+    }
+    if (!layout) {
+      // Initialized lazily by the next mutating command. Not an error.
+      return {
+        name: 'Common-dir layout',
+        status: 'ok',
+        message: 'not initialized yet (created on first sync)',
+        path: layoutPath,
+      };
+    }
+    if (!isCompatibleFormat(layout.tbd_format)) {
+      return {
+        name: 'Common-dir layout',
+        status: 'error',
+        message: `requires newer tbd (found ${layout.tbd_format})`,
+        path: layoutPath,
+        suggestion: 'Upgrade: npm install -g get-tbd@latest',
+      };
+    }
+    try {
+      validateCommonDirLayout(layout, this.config);
+      return { name: 'Common-dir layout', status: 'ok', path: layoutPath };
+    } catch (error) {
+      if (!(error instanceof CommonDirLayoutError)) throw error;
+      if (fix && !this.checkDryRun('Repair common-dir layout')) {
+        const configRef = this.config;
+        await withSharedDataSyncLock(this.cwd, async () =>
+          writeCommonDirLayout(sharedPaths, configRef, layout),
+        );
+        return {
+          name: 'Common-dir layout',
+          status: 'ok',
+          message: 'rewritten from config',
+          path: layoutPath,
+        };
+      }
+      return {
+        name: 'Common-dir layout',
+        status: 'error',
+        message: 'mismatched with config',
+        path: layoutPath,
+        fixable: true,
+        suggestion: 'Run: tbd doctor --fix',
+      };
+    }
+  }
+
+  /**
    * Check for issues in wrong location.
    * See: plan-2026-01-28-sync-worktree-recovery-and-hardening.md §5
    *
-   * Issues should be in .tbd/data-sync-worktree/.tbd/data-sync/issues/
+   * Issues should be in $GIT_COMMON_DIR/tbd/data-sync-worktree/.tbd/data-sync/issues/
    * If they're in .tbd/data-sync/issues/ on main branch, the worktree was missing
    * and data was written to the fallback path - this is a bug requiring migration.
    */
@@ -965,8 +1064,11 @@ class DoctorHandler extends BaseCommand {
       // First ensure worktree exists - create it if missing
       let worktreeHealth = await checkWorktreeHealth(this.cwd);
       if (worktreeHealth.status === 'missing') {
-        // Worktree doesn't exist yet - create it for migration
-        const initResult = await initWorktree(this.cwd);
+        // Worktree doesn't exist yet - create it for migration.
+        // Serialize under the shared lock so concurrent agents cannot race.
+        const initResult = await withSharedDataSyncLock(this.cwd, async () =>
+          initWorktree(this.cwd),
+        );
         if (!initResult.success) {
           return {
             name: 'Data location',
@@ -1031,7 +1133,7 @@ class DoctorHandler extends BaseCommand {
       path: wrongIssuesPath,
       details: [
         `Found ${wrongPathIssues.length} issues in .tbd/data-sync/ (wrong)`,
-        'Issues should be in .tbd/data-sync-worktree/.tbd/data-sync/',
+        'Issues should be in $GIT_COMMON_DIR/tbd/data-sync-worktree/.tbd/data-sync/',
         'This indicates the worktree was missing when issues were created',
       ],
       fixable: true,
@@ -1045,7 +1147,7 @@ class DoctorHandler extends BaseCommand {
    */
   private async checkLocalSyncBranch(): Promise<DiagnosticResult> {
     const syncBranch = this.config?.sync.branch ?? 'tbd-sync';
-    const localHealth = await checkLocalBranchHealth(syncBranch);
+    const localHealth = await checkLocalBranchHealth(syncBranch, this.cwd);
 
     if (localHealth.exists && !localHealth.orphaned) {
       return { name: 'Local sync branch', status: 'ok', message: syncBranch };
@@ -1054,7 +1156,7 @@ class DoctorHandler extends BaseCommand {
     if (!localHealth.exists) {
       // Local branch doesn't exist - check if remote exists
       const remote = this.config?.sync.remote ?? 'origin';
-      const remoteHealth = await checkRemoteBranchHealth(remote, syncBranch);
+      const remoteHealth = await checkRemoteBranchHealth(remote, syncBranch, this.cwd);
 
       if (remoteHealth.exists) {
         // Remote exists but local doesn't - can be created from remote
@@ -1090,7 +1192,7 @@ class DoctorHandler extends BaseCommand {
   private async checkRemoteSyncBranch(): Promise<DiagnosticResult> {
     const syncBranch = this.config?.sync.branch ?? 'tbd-sync';
     const remote = this.config?.sync.remote ?? 'origin';
-    const remoteHealth = await checkRemoteBranchHealth(remote, syncBranch);
+    const remoteHealth = await checkRemoteBranchHealth(remote, syncBranch, this.cwd);
 
     if (remoteHealth.exists) {
       if (remoteHealth.diverged) {
@@ -1105,7 +1207,7 @@ class DoctorHandler extends BaseCommand {
     }
 
     // Remote branch doesn't exist
-    const localHealth = await checkLocalBranchHealth(syncBranch);
+    const localHealth = await checkLocalBranchHealth(syncBranch, this.cwd);
     if (localHealth.exists) {
       // Local exists but remote doesn't - needs push
       return {
@@ -1146,7 +1248,7 @@ class DoctorHandler extends BaseCommand {
     // Check if remote branch exists and has commits
     const syncBranch = this.config?.sync.branch ?? 'tbd-sync';
     const remote = this.config?.sync.remote ?? 'origin';
-    const remoteHealth = await checkRemoteBranchHealth(remote, syncBranch);
+    const remoteHealth = await checkRemoteBranchHealth(remote, syncBranch, this.cwd);
 
     if (!remoteHealth.exists) {
       // Remote doesn't exist - issues haven't been pushed

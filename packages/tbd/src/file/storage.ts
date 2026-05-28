@@ -2,7 +2,8 @@
  * Storage layer for issue files.
  *
  * Provides atomic file operations and issue CRUD operations.
- * All operations work on the hidden worktree at .tbd/data-sync/issues/.
+ * All operations work on the data-sync directory selected by the caller. In production
+ * that is the shared hidden worktree under $GIT_COMMON_DIR/tbd/data-sync-worktree/.
  *
  * See: tbd-design.md §3.2 Storage Layer
  */

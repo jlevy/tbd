@@ -53,7 +53,7 @@ $ tbd init --prefix=test 2>&1 | head -1
 # Test: Worktree directory created
 
 ```console
-$ test -d .tbd/data-sync-worktree && echo "exists"
+$ test -d $(git rev-parse --path-format=absolute --git-common-dir)/tbd/data-sync-worktree && echo "exists"
 exists
 ? 0
 ```
@@ -77,7 +77,7 @@ $ tbd create "Test Issue 2" --type=bug
 # Test: Issues are in worktree location (at least 2)
 
 ```console
-$ ls .tbd/data-sync-worktree/.tbd/data-sync/issues/*.md 2>/dev/null | wc -l | tr -d ' ' | awk '$1 >= 2 {print "ok"}'
+$ ls $(git rev-parse --path-format=absolute --git-common-dir)/tbd/data-sync-worktree/.tbd/data-sync/issues/*.md 2>/dev/null | wc -l | tr -d ' ' | awk '$1 >= 2 {print "ok"}'
 ok
 ? 0
 ```
@@ -117,7 +117,7 @@ Doctor should detect and fix the problem.
 # Test: Delete worktree directory
 
 ```console
-$ rm -rf .tbd/data-sync-worktree && echo "deleted"
+$ rm -rf $(git rev-parse --path-format=absolute --git-common-dir)/tbd/data-sync-worktree && echo "deleted"
 deleted
 ? 0
 ```
@@ -141,7 +141,7 @@ $ tbd sync --fix 2>&1 | head -2 | tail -1
 # Test: Worktree exists after repair
 
 ```console
-$ test -d .tbd/data-sync-worktree && echo "repaired"
+$ test -d $(git rev-parse --path-format=absolute --git-common-dir)/tbd/data-sync-worktree && echo "repaired"
 repaired
 ? 0
 ```
@@ -149,7 +149,7 @@ repaired
 # Test: Worktree has issue files after repair
 
 ```console
-$ ls .tbd/data-sync-worktree/.tbd/data-sync/issues/*.md 2>/dev/null | wc -l | tr -d ' ' | awk '$1 >= 2 {print "ok"}'
+$ ls $(git rev-parse --path-format=absolute --git-common-dir)/tbd/data-sync-worktree/.tbd/data-sync/issues/*.md 2>/dev/null | wc -l | tr -d ' ' | awk '$1 >= 2 {print "ok"}'
 ok
 ? 0
 ```
@@ -188,7 +188,7 @@ REPOSITORY
 # Test: Issue now in correct worktree location
 
 ```console
-$ test -f .tbd/data-sync-worktree/.tbd/data-sync/issues/is-00000000000000000wrongloc1.md && echo "migrated"
+$ test -f $(git rev-parse --path-format=absolute --git-common-dir)/tbd/data-sync-worktree/.tbd/data-sync/issues/is-00000000000000000wrongloc1.md && echo "migrated"
 migrated
 ? 0
 ```

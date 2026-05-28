@@ -12,7 +12,7 @@
 import { execFile } from 'node:child_process';
 import { mkdir } from 'node:fs/promises';
 import { promisify } from 'node:util';
-import { join } from 'node:path';
+import { basename, dirname, join, normalize } from 'node:path';
 
 import { writeFile } from 'atomically';
 
@@ -39,6 +39,19 @@ const GIT_MAX_BUFFER = 50 * 1024 * 1024; // 50MB
 export async function git(...args: string[]): Promise<string> {
   const { stdout } = await execFileAsync('git', args, { maxBuffer: GIT_MAX_BUFFER });
   return stdout.trim();
+}
+
+/**
+ * Run `git commit` in a worktree with gpg signing disabled at the command level.
+ *
+ * Internal tbd-sync commits are machine-generated data commits on the data branch,
+ * not user commits. They must not depend on ambient `commit.gpgsign` config: in
+ * signed-by-default environments without a usable signing key, an unguarded
+ * `git commit` fails and leaves `tbd-sync` unborn, which the f04 fail-closed
+ * health check then surfaces as "worktree corrupted" on every command.
+ */
+export async function gitCommit(workdir: string, ...args: string[]): Promise<string> {
+  return git('-c', 'commit.gpgsign=false', '-C', workdir, 'commit', ...args);
 }
 
 // =============================================================================
@@ -671,16 +684,18 @@ export async function pushWithRetry(
 /**
  * Get the current branch name.
  */
-export async function getCurrentBranch(): Promise<string> {
-  return git('rev-parse', '--abbrev-ref', 'HEAD');
+export async function getCurrentBranch(baseDir?: string): Promise<string> {
+  const dirArgs = baseDir ? ['-C', baseDir] : [];
+  return git(...dirArgs, 'rev-parse', '--abbrev-ref', 'HEAD');
 }
 
 /**
  * Check if a branch exists locally.
  */
-export async function branchExists(branch: string): Promise<boolean> {
+export async function branchExists(branch: string, baseDir?: string): Promise<boolean> {
   try {
-    await git('rev-parse', '--verify', `refs/heads/${branch}`);
+    const dirArgs = baseDir ? ['-C', baseDir] : [];
+    await git(...dirArgs, 'rev-parse', '--verify', `refs/heads/${branch}`);
     return true;
   } catch {
     return false;
@@ -690,9 +705,14 @@ export async function branchExists(branch: string): Promise<boolean> {
 /**
  * Check if a remote branch exists.
  */
-export async function remoteBranchExists(remote: string, branch: string): Promise<boolean> {
+export async function remoteBranchExists(
+  remote: string,
+  branch: string,
+  baseDir?: string,
+): Promise<boolean> {
   try {
-    await git('ls-remote', '--exit-code', remote, `refs/heads/${branch}`);
+    const dirArgs = baseDir ? ['-C', baseDir] : [];
+    await git(...dirArgs, 'ls-remote', '--exit-code', remote, `refs/heads/${branch}`);
     return true;
   } catch {
     return false;
@@ -715,20 +735,53 @@ export async function getRemoteUrl(remote: string): Promise<string | null> {
 // See: tbd-design.md §2.3 Hidden Worktree Model
 // =============================================================================
 
-import { access, rm, cp } from 'node:fs/promises';
+import { access, rm, cp, readdir, readFile, realpath } from 'node:fs/promises';
 import {
-  WORKTREE_DIR,
   WORKTREE_DIR_NAME,
+  LEGACY_WORKTREE_DIR,
   TBD_DIR,
   DATA_SYNC_DIR_NAME,
   SYNC_BRANCH,
+  resolveSharedTbdPaths,
+  type SharedTbdPaths,
 } from '../lib/paths.js';
+import { DATA_SYNC_SCHEMA_VERSION } from '../lib/schemas.js';
+import {
+  loadIdMapping,
+  mergeIdMappings,
+  resolveIdMappingConflicts,
+  saveIdMapping,
+} from './id-mapping.js';
+
+async function pathExists(path: string): Promise<boolean> {
+  try {
+    await access(path);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+async function pathsReferToSameLocation(a: string, b: string): Promise<boolean> {
+  if (normalize(a) === normalize(b)) {
+    return true;
+  }
+  try {
+    return normalize(await realpath(a)) === normalize(await realpath(b));
+  } catch {
+    return false;
+  }
+}
+
+async function getSharedPaths(baseDir: string): Promise<SharedTbdPaths> {
+  return resolveSharedTbdPaths(baseDir);
+}
 
 /**
  * Check if the hidden worktree exists and is valid.
  */
 export async function worktreeExists(baseDir: string): Promise<boolean> {
-  const worktreePath = join(baseDir, WORKTREE_DIR);
+  const { sharedWorktreePath: worktreePath } = await getSharedPaths(baseDir);
   try {
     await access(worktreePath);
     // Also verify it's a valid git worktree by checking for .git file
@@ -768,15 +821,18 @@ export interface WorktreeHealth {
  * See: tbd-design.md §2.3 Worktree Lifecycle
  * See: plan-2026-01-28-sync-worktree-recovery-and-hardening.md §3
  */
-export async function checkWorktreeHealth(baseDir: string): Promise<WorktreeHealth> {
-  const worktreePath = join(baseDir, WORKTREE_DIR);
+export async function checkWorktreeHealth(
+  baseDir: string,
+  syncBranch: string = SYNC_BRANCH,
+): Promise<WorktreeHealth> {
+  const { sharedWorktreePath: worktreePath } = await getSharedPaths(baseDir);
 
   // First check if git reports the worktree as prunable
   // This catches the case where worktree directory was deleted but git still tracks it
   try {
     const worktreeList = await git('-C', baseDir, 'worktree', 'list', '--porcelain');
 
-    // Check if our worktree path appears in the list as prunable
+    // Check if our shared worktree path appears in the list as prunable
     const lines = worktreeList.split('\n');
     let foundWorktree = false;
     let isPrunable = false;
@@ -784,7 +840,10 @@ export async function checkWorktreeHealth(baseDir: string): Promise<WorktreeHeal
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i];
       // Check if this entry is for our worktree path
-      if (line?.startsWith('worktree ') && line.includes(WORKTREE_DIR_NAME)) {
+      if (
+        line?.startsWith('worktree ') &&
+        (await pathsReferToSameLocation(line.slice('worktree '.length), worktreePath))
+      ) {
         foundWorktree = true;
         // Look for prunable marker in subsequent lines until next worktree entry
         for (let j = i + 1; j < lines.length && !lines[j]?.startsWith('worktree '); j++) {
@@ -870,12 +929,24 @@ export async function checkWorktreeHealth(baseDir: string): Promise<WorktreeHeal
     let branch: string | null = null;
 
     try {
-      // Check if we're on detached HEAD pointing to tbd-sync
       const refName = await git('-C', worktreePath, 'symbolic-ref', '-q', 'HEAD');
       branch = refName.replace('refs/heads/', '');
     } catch {
-      // Detached HEAD - expected state
       branch = null;
+    }
+
+    if (branch !== syncBranch) {
+      return {
+        exists: true,
+        valid: false,
+        status: 'corrupted',
+        branch,
+        commit,
+        error:
+          branch === null
+            ? `Shared worktree is detached; expected branch ${syncBranch}`
+            : `Shared worktree is on ${branch}; expected branch ${syncBranch}`,
+      };
     }
 
     return { exists: true, valid: true, status: 'valid', branch, commit };
@@ -891,9 +962,154 @@ export async function checkWorktreeHealth(baseDir: string): Promise<WorktreeHeal
   }
 }
 
+interface LegacyWorktreeMigrationResult {
+  success: boolean;
+  migrated: number;
+  error?: string;
+}
+
+function isLegacyDataSyncWorktreePath(path: string, sharedWorktreePath: string): boolean {
+  const normalized = normalize(path);
+  if (normalized === normalize(sharedWorktreePath)) {
+    return false;
+  }
+
+  return basename(normalized) === WORKTREE_DIR_NAME && basename(dirname(normalized)) === TBD_DIR;
+}
+
+async function listLegacyWorktreePaths(
+  baseDir: string,
+  sharedWorktreePath: string,
+): Promise<string[]> {
+  const paths = new Set<string>();
+
+  try {
+    const worktreeList = await git('-C', baseDir, 'worktree', 'list', '--porcelain');
+    for (const line of worktreeList.split('\n')) {
+      if (!line.startsWith('worktree ')) continue;
+      const worktreePath = line.slice('worktree '.length);
+      if (isLegacyDataSyncWorktreePath(worktreePath, sharedWorktreePath)) {
+        paths.add(worktreePath);
+      }
+    }
+  } catch {
+    // If git cannot list worktrees, still inspect the current checkout legacy path below.
+  }
+
+  const currentCheckoutLegacyPath = join(baseDir, LEGACY_WORKTREE_DIR);
+  if (
+    currentCheckoutLegacyPath !== sharedWorktreePath &&
+    (await pathExists(currentCheckoutLegacyPath))
+  ) {
+    paths.add(currentCheckoutLegacyPath);
+  }
+
+  return Array.from(paths);
+}
+
+async function preserveLegacyWorktreeHead(
+  baseDir: string,
+  legacyPath: string,
+  syncBranch: string,
+): Promise<void> {
+  if (!(await pathExists(join(legacyPath, '.git')))) {
+    return;
+  }
+
+  const status = await git('-C', legacyPath, 'status', '--porcelain').catch(() => '');
+  if (status.trim()) {
+    await git('-C', legacyPath, 'add', '-A');
+    await gitCommit(legacyPath, '--no-verify', '-m', 'tbd: preserve legacy sync data').catch(
+      (error) => {
+        const message = error instanceof Error ? error.message : String(error);
+        if (!message.includes('nothing to commit')) {
+          throw error;
+        }
+      },
+    );
+  }
+
+  const head = await git('-C', legacyPath, 'rev-parse', 'HEAD').catch(() => '');
+  if (!head) {
+    return;
+  }
+
+  const branchHead = await git('-C', baseDir, 'rev-parse', syncBranch).catch(() => '');
+  if (!branchHead) {
+    await git('-C', baseDir, 'branch', syncBranch, head);
+    return;
+  }
+
+  if (head === branchHead) {
+    return;
+  }
+
+  const branchIsAncestor = await git('-C', baseDir, 'merge-base', '--is-ancestor', branchHead, head)
+    .then(() => true)
+    .catch(() => false);
+  if (branchIsAncestor) {
+    await git('-C', baseDir, 'update-ref', `refs/heads/${syncBranch}`, head);
+    return;
+  }
+
+  const headIsAncestor = await git('-C', baseDir, 'merge-base', '--is-ancestor', head, branchHead)
+    .then(() => true)
+    .catch(() => false);
+  if (headIsAncestor) {
+    return;
+  }
+
+  const backupBranch = `tbd-legacy-preserve-${nowFilenameTimestamp()}`;
+  await git('-C', baseDir, 'branch', backupBranch, head);
+  throw new Error(
+    `Legacy sync worktree at ${legacyPath} diverges from ${syncBranch}. ` +
+      `Preserved its HEAD as ${backupBranch}; run 'tbd doctor --fix' after reviewing the backup branch.`,
+  );
+}
+
+/**
+ * Preserve and remove f03 per-checkout sync worktrees before creating the shared worktree.
+ */
+export async function migrateLegacyWorktreesToShared(
+  baseDir: string,
+  syncBranch: string = SYNC_BRANCH,
+): Promise<LegacyWorktreeMigrationResult> {
+  const { sharedWorktreePath } = await getSharedPaths(baseDir);
+  const legacyPaths = await listLegacyWorktreePaths(baseDir, sharedWorktreePath);
+  let migrated = 0;
+
+  try {
+    for (const legacyPath of legacyPaths) {
+      await preserveLegacyWorktreeHead(baseDir, legacyPath, syncBranch);
+      try {
+        await git('-C', baseDir, 'worktree', 'remove', legacyPath, '--force');
+      } catch {
+        await rm(legacyPath, { recursive: true, force: true });
+      }
+      migrated += 1;
+    }
+
+    if (legacyPaths.length > 0) {
+      await git('-C', baseDir, 'worktree', 'prune');
+    }
+
+    return { success: true, migrated };
+  } catch (error) {
+    return {
+      success: false,
+      migrated,
+      error: error instanceof Error ? error.message : String(error),
+    };
+  }
+}
+
 /**
  * Initialize the hidden worktree for the tbd-sync branch.
  * Follows the decision tree from tbd-design.md §2.3.
+ *
+ * MUST be called while holding `withSharedDataSyncLock` — it migrates legacy
+ * per-checkout worktrees and creates the shared attached worktree on tbd-sync,
+ * so concurrent callers can otherwise race branch ownership and migration.
  *
  * @param baseDir - The base directory of the repository
  * @param remote - The remote name (default: 'origin')
@@ -905,11 +1121,21 @@ export async function initWorktree(
   remote = 'origin',
   syncBranch: string = SYNC_BRANCH,
 ): Promise<{ success: boolean; path?: string; created?: boolean; error?: string }> {
-  const worktreePath = join(baseDir, WORKTREE_DIR);
+  const paths = await getSharedPaths(baseDir);
+  const worktreePath = paths.sharedWorktreePath;
 
   // Check if worktree already exists and is valid
   if (await worktreeExists(baseDir)) {
     return { success: true, path: worktreePath, created: false };
+  }
+
+  await mkdir(paths.sharedTbdDir, { recursive: true });
+
+  // Preserve and remove old per-checkout sync worktrees before the shared
+  // attached worktree claims the tbd-sync branch.
+  const migrationResult = await migrateLegacyWorktreesToShared(baseDir, syncBranch);
+  if (!migrationResult.success) {
+    return { success: false, error: migrationResult.error };
   }
 
   // Remove any stale worktree directory
@@ -921,7 +1147,7 @@ export async function initWorktree(
 
   try {
     // Check if local branch exists
-    const localExists = await branchExists(syncBranch);
+    const localExists = await branchExists(syncBranch, baseDir);
     if (localExists) {
       // Create worktree on local branch (no --detach, so commits update the branch)
       // Note: Don't use --detach here - we want commits to update tbd-sync branch
@@ -930,7 +1156,7 @@ export async function initWorktree(
     }
 
     // Check if remote branch exists
-    const remoteExists = await remoteBranchExists(remote, syncBranch);
+    const remoteExists = await remoteBranchExists(remote, syncBranch, baseDir);
     if (remoteExists) {
       // Fetch and create worktree from remote branch with local tracking branch
       await git('-C', baseDir, 'fetch', remote, syncBranch);
@@ -961,7 +1187,10 @@ export async function initWorktree(
     await mkdir(join(dataSyncPath, 'attic', 'conflicts'), { recursive: true });
 
     // Create initial commit in worktree
-    await writeFile(join(dataSyncPath, 'meta.yml'), 'schema_version: 1\n');
+    await writeFile(
+      join(dataSyncPath, 'meta.yml'),
+      `schema_version: ${DATA_SYNC_SCHEMA_VERSION}\n`,
+    );
     await writeFile(join(dataSyncPath, 'issues', '.gitkeep'), '');
     await writeFile(join(dataSyncPath, 'mappings', '.gitkeep'), '');
 
@@ -974,7 +1203,7 @@ export async function initWorktree(
     // Stage and commit the initial structure
     // Use --no-verify to bypass parent repo hooks (lefthook, husky, etc.)
     await git('-C', worktreePath, 'add', '.');
-    await git('-C', worktreePath, 'commit', '--no-verify', '-m', 'Initialize tbd-sync branch');
+    await gitCommit(worktreePath, '--no-verify', '-m', 'Initialize tbd-sync branch');
 
     return { success: true, path: worktreePath, created: true };
   } catch (error) {
@@ -998,7 +1227,7 @@ export async function updateWorktree(
   remote = 'origin',
   syncBranch: string = SYNC_BRANCH,
 ): Promise<{ success: boolean; error?: string }> {
-  const worktreePath = join(baseDir, WORKTREE_DIR);
+  const { sharedWorktreePath: worktreePath } = await getSharedPaths(baseDir);
 
   // Ensure worktree exists
   if (!(await worktreeExists(baseDir))) {
@@ -1009,35 +1238,22 @@ export async function updateWorktree(
   }
 
   try {
-    // Fetch latest from remote
     try {
       await git('-C', baseDir, 'fetch', remote, syncBranch);
     } catch {
       // Remote fetch may fail if offline - that's ok
     }
 
-    // Get the latest commit on the sync branch
-    let targetCommit: string;
-    try {
-      // Try local branch first
-      targetCommit = await git('-C', baseDir, 'rev-parse', `refs/heads/${syncBranch}`);
-    } catch {
-      try {
-        // Fall back to remote tracking branch
-        targetCommit = await git(
-          '-C',
-          baseDir,
-          'rev-parse',
-          `refs/remotes/${remote}/${syncBranch}`,
-        );
-      } catch {
-        // No remote either - worktree is already at latest
-        return { success: true };
-      }
-    }
+    await ensureWorktreeAttachedToBranch(worktreePath, syncBranch);
 
-    // Update worktree to that commit (detached HEAD)
-    await git('-C', worktreePath, 'checkout', '--detach', targetCommit);
+    const remoteRefExists = await git('-C', baseDir, 'rev-parse', `${remote}/${syncBranch}`)
+      .then(() => true)
+      .catch(() => false);
+    if (remoteRefExists) {
+      await git('-C', worktreePath, 'merge', '--ff-only', `${remote}/${syncBranch}`).catch(
+        () => undefined,
+      );
+    }
 
     return { success: true };
   } catch (error) {
@@ -1071,14 +1287,16 @@ export interface LocalBranchHealth {
  */
 export async function checkLocalBranchHealth(
   syncBranch: string = SYNC_BRANCH,
+  baseDir?: string,
 ): Promise<LocalBranchHealth> {
+  const dirArgs = baseDir ? ['-C', baseDir] : [];
   try {
-    const head = await git('rev-parse', `refs/heads/${syncBranch}`);
+    const head = await git(...dirArgs, 'rev-parse', `refs/heads/${syncBranch}`);
     return { exists: true, orphaned: false, head: head.trim() };
   } catch {
     // Check if branch ref exists but is orphaned (no commits)
     try {
-      await git('show-ref', '--verify', `refs/heads/${syncBranch}`);
+      await git(...dirArgs, 'show-ref', '--verify', `refs/heads/${syncBranch}`);
       return { exists: true, orphaned: true };
     } catch {
       return { exists: false, orphaned: false };
@@ -1106,17 +1324,19 @@ export interface RemoteBranchHealth {
 export async function checkRemoteBranchHealth(
   remote = 'origin',
   syncBranch: string = SYNC_BRANCH,
+  baseDir?: string,
 ): Promise<RemoteBranchHealth> {
+  const dirArgs = baseDir ? ['-C', baseDir] : [];
   try {
-    await git('fetch', remote, syncBranch);
-    const head = await git('rev-parse', `refs/remotes/${remote}/${syncBranch}`);
+    await git(...dirArgs, 'fetch', remote, syncBranch);
+    const head = await git(...dirArgs, 'rev-parse', `refs/remotes/${remote}/${syncBranch}`);
     const remoteHead = head.trim();
 
     // Check for divergence (only if local branch exists)
     let diverged = false;
     try {
-      const mergeBase = await git('merge-base', syncBranch, `${remote}/${syncBranch}`);
-      const localHead = await git('rev-parse', syncBranch);
+      const mergeBase = await git(...dirArgs, 'merge-base', syncBranch, `${remote}/${syncBranch}`);
+      const localHead = await git(...dirArgs, 'rev-parse', syncBranch);
 
       // Diverged if merge-base is neither local nor remote HEAD
       diverged = mergeBase.trim() !== localHead.trim() && mergeBase.trim() !== remoteHead;
@@ -1163,7 +1383,7 @@ export async function checkSyncConsistency(
   syncBranch: string = SYNC_BRANCH,
   remote = 'origin',
 ): Promise<SyncConsistency> {
-  const worktreePath = join(baseDir, WORKTREE_DIR);
+  const { sharedWorktreePath: worktreePath } = await getSharedPaths(baseDir);
 
   // Get worktree HEAD
   const worktreeHead = await git('-C', worktreePath, 'rev-parse', 'HEAD').catch(() => '');
@@ -1229,14 +1449,16 @@ export async function checkSyncConsistency(
 export async function countRemoteIssues(
   remote = 'origin',
   syncBranch: string = SYNC_BRANCH,
+  baseDir?: string,
 ): Promise<number | null> {
+  const dirArgs = baseDir ? ['-C', baseDir] : [];
   try {
     // Fetch the remote branch first
-    await git('fetch', remote, syncBranch);
+    await git(...dirArgs, 'fetch', remote, syncBranch);
 
     // List all files in the remote branch
     const remoteBranch = `${remote}/${syncBranch}`;
-    const output = await git('ls-tree', '-r', '--name-only', remoteBranch);
+    const output = await git(...dirArgs, 'ls-tree', '-r', '--name-only', remoteBranch);
 
     // Count issue files in the issues directory
     // Uses path constants to avoid hardcoded paths
@@ -1260,7 +1482,7 @@ export async function countRemoteIssues(
 export async function removeWorktree(
   baseDir: string,
 ): Promise<{ success: boolean; error?: string }> {
-  const worktreePath = join(baseDir, WORKTREE_DIR);
+  const { sharedWorktreePath: worktreePath } = await getSharedPaths(baseDir);
 
   try {
     // First try to properly remove via git
@@ -1291,6 +1513,10 @@ export async function removeWorktree(
  * - CORRUPTED: backup to .tbd/backups/, remove, then recreate
  * - MISSING: just create
  *
+ * MUST be called while holding `withSharedDataSyncLock` — repair mutates
+ * shared worktree and branch state and shares the same locking contract as
+ * `initWorktree`.
+ *
  * See: plan-2026-01-28-sync-worktree-recovery-and-hardening.md
  *
  * @param baseDir - The base directory of the repository
@@ -1304,7 +1530,7 @@ export async function repairWorktree(
   remote = 'origin',
   syncBranch: string = SYNC_BRANCH,
 ): Promise<{ success: boolean; path?: string; backedUp?: string; error?: string }> {
-  const worktreePath = join(baseDir, WORKTREE_DIR);
+  const { sharedWorktreePath: worktreePath, sharedBackupsDir } = await getSharedPaths(baseDir);
 
   try {
     // Always prune stale worktree entries first for missing and prunable states
@@ -1315,11 +1541,10 @@ export async function repairWorktree(
 
     // Handle corrupted status: backup before removal
     if (status === 'corrupted') {
-      const backupsDir = join(baseDir, TBD_DIR, 'backups');
-      await mkdir(backupsDir, { recursive: true });
+      await mkdir(sharedBackupsDir, { recursive: true });
 
       const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
-      const backupPath = join(backupsDir, `corrupted-worktree-backup-${timestamp}`);
+      const backupPath = join(sharedBackupsDir, `corrupted-worktree-backup-${timestamp}`);
 
       // Copy corrupted worktree to backup before removal
       try {
@@ -1358,17 +1583,25 @@ export async function repairWorktree(
  * @returns true if worktree was detached and repaired, false if already attached
  */
 export async function ensureWorktreeAttached(worktreePath: string): Promise<boolean> {
+  return ensureWorktreeAttachedToBranch(worktreePath, SYNC_BRANCH);
+}
+
+/**
+ * Ensure worktree is attached to the requested sync branch, not detached HEAD.
+ */
+export async function ensureWorktreeAttachedToBranch(
+  worktreePath: string,
+  syncBranch: string = SYNC_BRANCH,
+): Promise<boolean> {
   try {
     const currentBranch = await git('-C', worktreePath, 'branch', '--show-current').catch(() => '');
 
-    if (!currentBranch) {
-      // Detached HEAD - re-attach to sync branch
-      // This is a one-time repair for repos created with old tbd versions
-      await git('-C', worktreePath, 'checkout', SYNC_BRANCH);
+    if (currentBranch !== syncBranch) {
+      await git('-C', worktreePath, 'checkout', syncBranch);
       return true; // Was detached, now repaired
     }
 
-    return false; // Already attached
+    return false; // Already attached to the requested branch
   } catch (error) {
     // If we can't check/fix, that's a problem but don't fail the operation
     console.warn('Warning: Could not check worktree HEAD status:', error);
@@ -1401,8 +1634,11 @@ export async function migrateDataToWorktree(
   error?: string;
 }> {
   const wrongPath = join(baseDir, TBD_DIR, DATA_SYNC_DIR_NAME);
-  const correctPath = join(baseDir, WORKTREE_DIR, TBD_DIR, DATA_SYNC_DIR_NAME);
-  const worktreePath = join(baseDir, WORKTREE_DIR);
+  const {
+    sharedDataSyncDir: correctPath,
+    sharedWorktreePath: worktreePath,
+    sharedBackupsDir,
+  } = await getSharedPaths(baseDir);
 
   try {
     // Ensure worktree is attached to sync branch (repair old tbd repos)
@@ -1414,13 +1650,8 @@ export async function migrateDataToWorktree(
     let issueFiles: string[] = [];
     let mappingFiles: string[] = [];
 
-    try {
-      const { readdir } = await import('node:fs/promises');
-      issueFiles = await readdir(wrongIssuesPath).catch(() => []);
-      mappingFiles = await readdir(wrongMappingsPath).catch(() => []);
-    } catch {
-      // Directory doesn't exist
-    }
+    issueFiles = await readdir(wrongIssuesPath).catch(() => []);
+    mappingFiles = await readdir(wrongMappingsPath).catch(() => []);
 
     // Filter out .gitkeep files
     issueFiles = issueFiles.filter((f) => f !== '.gitkeep');
@@ -1431,11 +1662,10 @@ export async function migrateDataToWorktree(
     }
 
     // Step 1: Backup to .tbd/backups/
-    const backupsDir = join(baseDir, TBD_DIR, 'backups');
-    await mkdir(backupsDir, { recursive: true });
+    await mkdir(sharedBackupsDir, { recursive: true });
 
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
-    const backupPath = join(backupsDir, `data-sync-backup-${timestamp}`);
+    const backupPath = join(sharedBackupsDir, `data-sync-backup-${timestamp}`);
 
     await cp(wrongPath, backupPath, { recursive: true });
 
@@ -1455,9 +1685,6 @@ export async function migrateDataToWorktree(
     // merge utilities so both source and destination entries are preserved.
     for (const file of mappingFiles) {
       if (file === 'ids.yml') {
-        const { readFile } = await import('node:fs/promises');
-        const { loadIdMapping, mergeIdMappings, saveIdMapping, resolveIdMappingConflicts } =
-          await import('./id-mapping.js');
         const sourceContent = await readFile(join(wrongMappingsPath, file), 'utf-8');
         const sourceMapping = resolveIdMappingConflicts(sourceContent);
 
@@ -1487,10 +1714,8 @@ export async function migrateDataToWorktree(
       .catch(() => true);
 
     if (hasChanges) {
-      await git(
-        '-C',
+      await gitCommit(
         worktreePath,
-        'commit',
         '--no-verify',
         '-m',
         `tbd: migrate ${totalFiles} file(s) from incorrect location`,

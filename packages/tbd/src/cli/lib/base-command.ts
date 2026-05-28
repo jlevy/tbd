@@ -34,7 +34,6 @@ export abstract class BaseCommand {
       return await action();
     } catch (error) {
       if (error instanceof CLIError) {
-        this.output.error(error.message);
         throw error;
       }
       const originalError = error instanceof Error ? error : undefined;
