@@ -58,8 +58,8 @@ export function validateCommonDirLayout(layout: CommonDirLayout, config: Config)
     throw new CommonDirLayoutError(
       `Common-dir layout format '${layout.tbd_format}' does not match config format ` +
         `'${config.tbd_format}'. This indicates a partial migration or manual edit. ` +
-        `To recover, delete the layout file so it is rewritten from the current config: ` +
-        `rm "$(git rev-parse --git-common-dir)/tbd/layout.yml"`,
+        `Run 'tbd doctor --fix' to rewrite the layout from the current config. ` +
+        `(Manual fallback: rm "$(git rev-parse --git-common-dir)/tbd/layout.yml".)`,
     );
   }
 
@@ -69,8 +69,8 @@ export function validateCommonDirLayout(layout: CommonDirLayout, config: Config)
     throw new CommonDirLayoutError(
       `Common-dir sync storage '${layoutStorage}' does not match config storage ` +
         `'${configStorage}'. This indicates a partial migration or manual edit. ` +
-        `To recover, delete the layout file so it is rewritten from the current config: ` +
-        `rm "$(git rev-parse --git-common-dir)/tbd/layout.yml"`,
+        `Run 'tbd doctor --fix' to rewrite the layout from the current config. ` +
+        `(Manual fallback: rm "$(git rev-parse --git-common-dir)/tbd/layout.yml".)`,
     );
   }
 }

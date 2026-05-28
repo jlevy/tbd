@@ -13,7 +13,7 @@ import { join } from 'node:path';
 import { BaseCommand } from '../lib/base-command.js';
 import { requireInit } from '../lib/errors.js';
 import { listIssues, type InvalidIssueFile } from '../../file/storage.js';
-import { readConfig } from '../../file/config.js';
+import { IncompatibleFormatError, readConfig } from '../../file/config.js';
 import type { Config, Issue, IssueStatusType } from '../../lib/types.js';
 import { resolveSharedTbdPaths, TBD_DIR, DATA_SYNC_DIR } from '../../lib/paths.js';
 import { detectDuplicateYamlKeys } from '../../utils/yaml-utils.js';
@@ -42,7 +42,14 @@ import {
   initWorktree,
   countRemoteIssues,
 } from '../../file/git.js';
-import { withSharedDataSyncLock } from '../../file/common-dir-layout.js';
+import {
+  CommonDirLayoutError,
+  readCommonDirLayout,
+  validateCommonDirLayout,
+  withSharedDataSyncLock,
+  writeCommonDirLayout,
+} from '../../file/common-dir-layout.js';
+import { isCompatibleFormat } from '../../lib/tbd-format.js';
 import { type DiagnosticResult, renderDiagnostics } from '../lib/diagnostics.js';
 import { VERSION } from '../lib/version.js';
 import { formatHeading } from '../lib/output.js';
@@ -130,6 +137,9 @@ class DoctorHandler extends BaseCommand {
     // Run BEFORE ID mapping check — worktree repair and data migration can
     // overwrite ids.yml, so mappings must be verified after migration.
     healthChecks.push(await this.checkWorktree(options.fix));
+
+    // Check 9b: Common-dir layout metadata against config (with fix support)
+    healthChecks.push(await this.checkCommonDirLayout(options.fix));
 
     // Check 10: Data location (issues in wrong path, with fix support)
     const dataLocationResult = await this.checkDataLocation(options.fix);
@@ -380,6 +390,15 @@ class DoctorHandler extends BaseCommand {
           message: 'not found',
           path: configPath,
           suggestion: 'Run: tbd init',
+        };
+      }
+      if (error instanceof IncompatibleFormatError) {
+        return {
+          name: 'Config file',
+          status: 'error',
+          message: `requires newer tbd (found ${error.foundFormat}, supported ${error.supportedFormat})`,
+          path: configPath,
+          suggestion: 'Upgrade: npm install -g get-tbd@latest',
         };
       }
       return {
@@ -941,6 +960,78 @@ class DoctorHandler extends BaseCommand {
           fixable: true,
           suggestion: 'Run: tbd doctor --fix',
         };
+    }
+  }
+
+  /**
+   * Check $GIT_COMMON_DIR/tbd/layout.yml against the checkout config.
+   *
+   * Reports missing (initialized on next mutating command), mismatched (rewrite
+   * from config under --fix), or future-format (requires newer tbd, no fix).
+   *
+   * See: plan-2026-05-17-shared-common-dir-sync-worktree.md §Format And Layout
+   * Versioning.
+   */
+  private async checkCommonDirLayout(fix?: boolean): Promise<DiagnosticResult> {
+    if (!this.config) {
+      return { name: 'Common-dir layout', status: 'ok', message: 'skipped (no config)' };
+    }
+    const sharedPaths = await resolveSharedTbdPaths(this.cwd);
+    const layoutPath = sharedPaths.sharedLayoutPath;
+    let layout;
+    try {
+      layout = await readCommonDirLayout(layoutPath);
+    } catch (error) {
+      return {
+        name: 'Common-dir layout',
+        status: 'error',
+        message: error instanceof Error ? error.message : String(error),
+        path: layoutPath,
+      };
+    }
+    if (!layout) {
+      // Initialized lazily by the next mutating command. Not an error.
+      return {
+        name: 'Common-dir layout',
+        status: 'ok',
+        message: 'not initialized yet (created on first sync)',
+        path: layoutPath,
+      };
+    }
+    if (!isCompatibleFormat(layout.tbd_format)) {
+      return {
+        name: 'Common-dir layout',
+        status: 'error',
+        message: `requires newer tbd (found ${layout.tbd_format})`,
+        path: layoutPath,
+        suggestion: 'Upgrade: npm install -g get-tbd@latest',
+      };
+    }
+    try {
+      validateCommonDirLayout(layout, this.config);
+      return { name: 'Common-dir layout', status: 'ok', path: layoutPath };
+    } catch (error) {
+      if (!(error instanceof CommonDirLayoutError)) throw error;
+      if (fix && !this.checkDryRun('Repair common-dir layout')) {
+        const configRef = this.config;
+        await withSharedDataSyncLock(this.cwd, async () =>
+          writeCommonDirLayout(sharedPaths, configRef, layout),
+        );
+        return {
+          name: 'Common-dir layout',
+          status: 'ok',
+          message: 'rewritten from config',
+          path: layoutPath,
+        };
+      }
+      return {
+        name: 'Common-dir layout',
+        status: 'error',
+        message: 'mismatched with config',
+        path: layoutPath,
+        fixable: true,
+        suggestion: 'Run: tbd doctor --fix',
+      };
     }
   }
 
