@@ -114,6 +114,7 @@ HEALTH CHECKS
 ✓ Temp files (.tbd/data-sync/issues)
 ✓ Issue validity
 ✓ Worktree ([PATH])
+✓ Common-dir layout ([PATH])
 ✓ Data location
 ✓ ID mapping coverage
 ✓ Local sync branch - tbd-sync
