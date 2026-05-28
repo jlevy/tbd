@@ -879,9 +879,12 @@ backups/
 > issues could be stored directly on main without a worktree.
 > In normal operation, `data-sync/` only exists inside the worktree checkout.
 > 
-> **Note:** `backups/` on the main branch is for local backups only (corrupted
-> worktrees, data migrations).
-> This is different from `.tbd/data-sync/attic/` on the sync branch which stores merge
+> **Note:** Production repair and migration backups under the shared common-dir layout
+> live at `$GIT_COMMON_DIR/tbd/backups/`, alongside `layout.yml` and the shared
+> `data-sync-worktree/`. The legacy `.tbd/backups/` directory on the main branch is
+> gitignored and reserved for historical local backups; current `tbd doctor --fix` and
+> migration paths write to the common-dir location.
+> Both differ from `.tbd/data-sync/attic/` on the sync branch which stores merge
 > conflict losers.
 > 
 > **Note:** `workspaces/` must not be gitignored — it stores outbox data that must be
