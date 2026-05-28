@@ -3,9 +3,9 @@ type: is
 id: is-01ksng9agn362xcxea5ddx38kt
 title: "H3: Implement tbd doctor --fix for layout.yml/config mismatch + surface future-format config error"
 kind: task
-status: open
+status: closed
 priority: 1
-version: 2
+version: 4
 spec_path: docs/project/specs/active/plan-2026-05-17-shared-common-dir-sync-worktree.md
 labels: []
 dependencies:
@@ -13,7 +13,9 @@ dependencies:
     target: is-01ksnga2my9rmrq6sre0c57p3j
 parent_id: is-01ksng8cqv1885jwvg3fagcfph
 created_at: 2026-05-27T19:58:48.341Z
-updated_at: 2026-05-27T19:59:31.146Z
+updated_at: 2026-05-28T04:02:23.238Z
+closed_at: 2026-05-28T04:02:23.237Z
+close_reason: null
 ---
 CONTRACT GAP (both reviews). validateCommonDirLayout() at packages/tbd/src/file/common-dir-layout.ts:57-64 and :68-75 tells users to manually 'rm $(git rev-parse --git-common-dir)/tbd/layout.yml', but the spec's recovery contract (spec Format And Layout Versioning + Compatibility) routes repair through tbd doctor --fix. doctor.ts has NO layout.yml awareness (no readCommonDirLayout/writeCommonDirLayout/withSharedDataSyncLock).
 
