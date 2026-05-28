@@ -3,15 +3,17 @@ type: is
 id: is-01ksnga34m6xqq6msc4yp6asmx
 title: "H5: Cleanup - migrate orphaned changeset to release-notes, wire dead helper, fix backups doc"
 kind: task
-status: open
+status: closed
 priority: 2
-version: 1
+version: 3
 spec_path: docs/project/specs/active/plan-2026-05-17-shared-common-dir-sync-worktree.md
 labels: []
 dependencies: []
 parent_id: is-01ksng8cqv1885jwvg3fagcfph
 created_at: 2026-05-27T19:59:13.556Z
-updated_at: 2026-05-27T19:59:13.556Z
+updated_at: 2026-05-28T04:13:48.476Z
+closed_at: 2026-05-28T04:13:48.475Z
+close_reason: null
 ---
 Cleanups, several surfaced by merging post-#121 main (which dropped Changesets for tag-triggered releases via the new cut-release flow).
 1. The merge left an orphaned .changeset/shared-common-dir-worktree.md (main deleted .changeset/{README.md,config.json,...}). Move its content — especially the f04 old-client upgrade note ('older pre-f04 tbd clients fail closed; run npm install -g get-tbd@latest on every machine') — into release-notes.md per the new process (see packages/tbd/docs/shortcuts/standard/cut-release.md), then delete .changeset/shared-common-dir-worktree.md. NOTE: once f04 lands, the released tbd (<=0.1.30) cannot operate in a repo that has upgraded — make this prominent in release notes.
