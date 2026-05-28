@@ -63,7 +63,7 @@ import {
 } from '../../lib/integration-paths.js';
 import { initWorktree, isInGitRepo, findGitRoot, checkWorktreeHealth } from '../../file/git.js';
 import { DocCache, generateShortcutDirectory } from '../../file/doc-cache.js';
-import { writeCommonDirLayout } from '../../file/common-dir-layout.js';
+import { withSharedDataSyncLock, writeCommonDirLayout } from '../../file/common-dir-layout.js';
 import { withDataSyncContext } from '../lib/data-context.js';
 
 /**
@@ -1665,9 +1665,13 @@ class SetupDefaultHandler extends BaseCommand {
 
     // 3. Initialize worktree for sync branch
     try {
-      await initWorktree(cwd);
-      const sharedPaths = await resolveSharedTbdPaths(cwd);
-      await writeCommonDirLayout(sharedPaths, config);
+      // Serialize fresh-setup worktree creation + layout write under the shared
+      // lock so concurrent agents from sibling worktrees cannot race init.
+      await withSharedDataSyncLock(cwd, async () => {
+        await initWorktree(cwd);
+        const sharedPaths = await resolveSharedTbdPaths(cwd);
+        await writeCommonDirLayout(sharedPaths, config);
+      });
 
       // Verify worktree health after creation (prevents silent failures)
       const health = await checkWorktreeHealth(cwd);

@@ -34,7 +34,7 @@ import {
   isInGitRepo,
   MIN_GIT_VERSION,
 } from '../../file/git.js';
-import { writeCommonDirLayout } from '../../file/common-dir-layout.js';
+import { withSharedDataSyncLock, writeCommonDirLayout } from '../../file/common-dir-layout.js';
 
 interface InitOptions {
   prefix?: string;
@@ -173,12 +173,18 @@ class InitHandler extends BaseCommand {
         this.output.debug(`Git version check skipped: ${(error as Error).message}`);
       }
 
-      const worktreeResult = await initWorktree(cwd, remote, syncBranch);
+      // Serialize first-time worktree creation + layout write under the shared
+      // lock so concurrent agents from sibling worktrees cannot race init.
+      const { worktreeResult, sharedPaths } = await withSharedDataSyncLock(cwd, async () => {
+        const result = await initWorktree(cwd, remote, syncBranch);
+        const paths = await resolveSharedTbdPaths(cwd);
+        if (result.success) {
+          await writeCommonDirLayout(paths, config);
+        }
+        return { worktreeResult: result, sharedPaths: paths };
+      });
 
       if (worktreeResult.success) {
-        const sharedPaths = await resolveSharedTbdPaths(cwd);
-        await writeCommonDirLayout(sharedPaths, config);
-
         if (worktreeResult.created) {
           this.output.debug(`Created hidden worktree at ${sharedPaths.sharedWorktreePath}`);
         } else {

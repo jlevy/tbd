@@ -1107,6 +1107,10 @@ export async function migrateLegacyWorktreesToShared(
  * Initialize the hidden worktree for the tbd-sync branch.
  * Follows the decision tree from tbd-design.md §2.3.
  *
+ * MUST be called while holding `withSharedDataSyncLock` — it migrates legacy
+ * per-checkout worktrees and creates the shared attached worktree on tbd-sync,
+ * so concurrent callers can otherwise race branch ownership and migration.
+ *
  * @param baseDir - The base directory of the repository
  * @param remote - The remote name (default: 'origin')
  * @param syncBranch - The sync branch name (default: 'tbd-sync')
@@ -1508,6 +1512,10 @@ export async function removeWorktree(
  * - PRUNABLE: git worktree prune, then recreate
  * - CORRUPTED: backup to .tbd/backups/, remove, then recreate
  * - MISSING: just create
+ *
+ * MUST be called while holding `withSharedDataSyncLock` — repair mutates
+ * shared worktree and branch state and shares the same locking contract as
+ * `initWorktree`.
  *
  * See: plan-2026-01-28-sync-worktree-recovery-and-hardening.md
  *

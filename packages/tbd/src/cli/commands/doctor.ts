@@ -42,6 +42,7 @@ import {
   initWorktree,
   countRemoteIssues,
 } from '../../file/git.js';
+import { withSharedDataSyncLock } from '../../file/common-dir-layout.js';
 import { type DiagnosticResult, renderDiagnostics } from '../lib/diagnostics.js';
 import { VERSION } from '../lib/version.js';
 import { formatHeading } from '../lib/output.js';
@@ -882,7 +883,12 @@ class DoctorHandler extends BaseCommand {
       case 'corrupted': {
         // Attempt repair if --fix is provided and not in dry-run mode
         if (fix && !this.checkDryRun('Repair worktree')) {
-          const result = await repairWorktree(this.cwd, worktreeHealth.status, remote, syncBranch);
+          // Serialize worktree repair under the shared lock so concurrent
+          // agents from sibling worktrees cannot race the repair.
+          const repairStatus = worktreeHealth.status;
+          const result = await withSharedDataSyncLock(this.cwd, async () =>
+            repairWorktree(this.cwd, repairStatus, remote, syncBranch),
+          );
 
           if (result.success) {
             const message = result.backedUp
@@ -967,8 +973,11 @@ class DoctorHandler extends BaseCommand {
       // First ensure worktree exists - create it if missing
       let worktreeHealth = await checkWorktreeHealth(this.cwd);
       if (worktreeHealth.status === 'missing') {
-        // Worktree doesn't exist yet - create it for migration
-        const initResult = await initWorktree(this.cwd);
+        // Worktree doesn't exist yet - create it for migration.
+        // Serialize under the shared lock so concurrent agents cannot race.
+        const initResult = await withSharedDataSyncLock(this.cwd, async () =>
+          initWorktree(this.cwd),
+        );
         if (!initResult.success) {
           return {
             name: 'Data location',
