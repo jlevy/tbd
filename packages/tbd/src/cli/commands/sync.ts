@@ -11,6 +11,7 @@ import { requireInit, SyncError, classifySyncError } from '../lib/errors.js';
 import { listIssues, readIssue, writeIssue } from '../../file/storage.js';
 import {
   git,
+  gitCommit,
   mergeIssues,
   pushWithRetry,
   ensureWorktreeAttachedToBranch,
@@ -440,10 +441,8 @@ class SyncHandler extends BaseCommand {
 
       // Commit the changes
       const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
-      await git(
-        '-C',
+      await gitCommit(
         worktreePath,
-        'commit',
         '-m',
         `tbd sync: ${timestamp} (${fileCount} file${fileCount === 1 ? '' : 's'})`,
       );
@@ -652,10 +651,8 @@ class SyncHandler extends BaseCommand {
           await writeFile(attrPath, 'ids.yml merge=union\n');
           await git('-C', worktreePath, 'add', attrPath);
           try {
-            await git(
-              '-C',
+            await gitCommit(
               worktreePath,
-              'commit',
               '--no-verify',
               '-m',
               'chore: add merge=union for ids.yml',
@@ -729,10 +726,8 @@ class SyncHandler extends BaseCommand {
             // Commit the updated mapping so it's included in the push
             await git('-C', worktreePath, 'add', '-A');
             try {
-              await git(
-                '-C',
+              await gitCommit(
                 worktreePath,
-                'commit',
                 '--no-verify',
                 '-m',
                 `tbd sync: reconcile ${totalReconciled} missing ID mapping(s)`,
@@ -855,10 +850,8 @@ class SyncHandler extends BaseCommand {
           }
 
           try {
-            await git(
-              '-C',
+            await gitCommit(
               worktreePath,
-              'commit',
               '--no-verify',
               '-m',
               'tbd sync: resolved merge conflicts',

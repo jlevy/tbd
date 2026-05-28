@@ -41,6 +41,19 @@ export async function git(...args: string[]): Promise<string> {
   return stdout.trim();
 }
 
+/**
+ * Run `git commit` in a worktree with gpg signing disabled at the command level.
+ *
+ * Internal tbd-sync commits are machine-generated data commits on the data branch,
+ * not user commits. They must not depend on ambient `commit.gpgsign` config: in
+ * signed-by-default environments without a usable signing key, an unguarded
+ * `git commit` fails and leaves `tbd-sync` unborn, which the f04 fail-closed
+ * health check then surfaces as "worktree corrupted" on every command.
+ */
+export async function gitCommit(workdir: string, ...args: string[]): Promise<string> {
+  return git('-c', 'commit.gpgsign=false', '-C', workdir, 'commit', ...args);
+}
+
 // =============================================================================
 // Git Version Detection
 // See: plan spec §3.4 Git Integration Architecture
@@ -1006,19 +1019,14 @@ async function preserveLegacyWorktreeHead(
   const status = await git('-C', legacyPath, 'status', '--porcelain').catch(() => '');
   if (status.trim()) {
     await git('-C', legacyPath, 'add', '-A');
-    await git(
-      '-C',
-      legacyPath,
-      'commit',
-      '--no-verify',
-      '-m',
-      'tbd: preserve legacy sync data',
-    ).catch((error) => {
-      const message = error instanceof Error ? error.message : String(error);
-      if (!message.includes('nothing to commit')) {
-        throw error;
-      }
-    });
+    await gitCommit(legacyPath, '--no-verify', '-m', 'tbd: preserve legacy sync data').catch(
+      (error) => {
+        const message = error instanceof Error ? error.message : String(error);
+        if (!message.includes('nothing to commit')) {
+          throw error;
+        }
+      },
+    );
   }
 
   const head = await git('-C', legacyPath, 'rev-parse', 'HEAD').catch(() => '');
@@ -1191,7 +1199,7 @@ export async function initWorktree(
     // Stage and commit the initial structure
     // Use --no-verify to bypass parent repo hooks (lefthook, husky, etc.)
     await git('-C', worktreePath, 'add', '.');
-    await git('-C', worktreePath, 'commit', '--no-verify', '-m', 'Initialize tbd-sync branch');
+    await gitCommit(worktreePath, '--no-verify', '-m', 'Initialize tbd-sync branch');
 
     return { success: true, path: worktreePath, created: true };
   } catch (error) {
@@ -1698,10 +1706,8 @@ export async function migrateDataToWorktree(
       .catch(() => true);
 
     if (hasChanges) {
-      await git(
-        '-C',
+      await gitCommit(
         worktreePath,
-        'commit',
         '--no-verify',
         '-m',
         `tbd: migrate ${totalFiles} file(s) from incorrect location`,
