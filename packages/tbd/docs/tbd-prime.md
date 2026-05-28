@@ -118,3 +118,7 @@ tbd dep add <tests-id> <feature-id>   # Tests depend on feature
 - **Issue types**: task, bug, feature, epic
 - **Status values**: open, in_progress, closed
 - **JSON output**: Add `--json` to any command for machine-readable output
+
+<!-- This document follows common-doc-guidelines.md.
+See github.com/jlevy/practical-prose and review guidelines before editing.
+-->

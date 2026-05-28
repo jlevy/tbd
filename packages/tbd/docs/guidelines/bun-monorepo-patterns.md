@@ -2915,3 +2915,7 @@ This is a valid pattern — enable in the base, override in packages that need i
 | CI | 3-OS matrix + separate lint job |
 | Release | Tag-triggered OIDC with npm provenance |
 | Package validation | publint `^0.3.17` |
+
+<!-- This document follows common-doc-guidelines.md.
+See github.com/jlevy/practical-prose and review guidelines before editing.
+-->

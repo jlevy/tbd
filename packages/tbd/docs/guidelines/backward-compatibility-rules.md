@@ -77,3 +77,7 @@ For the following areas:
 
 - When doing normal refactoring or reorganizing code, REMOVE deprecated functions,
   methods, classes, or files completely if backward compatibility is not needed.
+
+<!-- This document follows common-doc-guidelines.md.
+See github.com/jlevy/practical-prose and review guidelines before editing.
+-->

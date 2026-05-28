@@ -107,3 +107,7 @@ Create a to-do list with the following items then perform all of them:
    - Otherwise, present the review and ask:
      - **Fix issues**: Create tbd beads for issues and begin fixing
      - **Report only**: Just output the review (no changes)
+
+<!-- This document follows common-doc-guidelines.md.
+See github.com/jlevy/practical-prose and review guidelines before editing.
+-->

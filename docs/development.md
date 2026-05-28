@@ -401,3 +401,7 @@ Run the e2e worktree scenarios:
 ```bash
 npx tryscript run tests/cli-sync-worktree-scenarios.tryscript.md
 ```
+
+<!-- This document follows common-doc-guidelines.md.
+See github.com/jlevy/practical-prose and review guidelines before editing.
+-->

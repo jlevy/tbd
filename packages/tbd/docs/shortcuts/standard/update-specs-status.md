@@ -25,3 +25,7 @@ Review all active specs and ensure tbd issues accurately reflect current progres
    `docs/project/specs/done/`
 
 5. **Sync**: Run `tbd sync` to push all changes
+
+<!-- This document follows common-doc-guidelines.md.
+See github.com/jlevy/practical-prose and review guidelines before editing.
+-->

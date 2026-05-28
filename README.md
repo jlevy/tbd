@@ -258,7 +258,7 @@ opinionated rules with concrete examples, built from months of heavy agentic cod
 Plus guidelines on [coding rules](packages/tbd/docs/guidelines/general-coding-rules.md),
 [comment quality](packages/tbd/docs/guidelines/general-comment-rules.md),
 [commit conventions](packages/tbd/docs/guidelines/commit-conventions.md), and
-[style](packages/tbd/docs/guidelines/general-style-rules.md).
+[documentation style](packages/tbd/docs/guidelines/common-doc-guidelines.md).
 
 You can also add your own team’s guidelines from any URL:
 
@@ -610,3 +610,7 @@ See [docs/development.md](docs/development.md) for build and test instructions.
 ## License
 
 MIT
+
+<!-- This document follows common-doc-guidelines.md.
+See github.com/jlevy/practical-prose and review guidelines before editing.
+-->

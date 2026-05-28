@@ -52,7 +52,7 @@ planned upgrade.
 | pnpm 11+ | `minimumReleaseAge: 20160` in `pnpm-workspace.yaml` (pnpm 11 ignores `NPM_CONFIG_*`; env prefix is `PNPM_CONFIG_*`) |
 | uv | `UV_EXCLUDE_NEWER="14 days"` |
 | pip 26.1+ | `PIP_UPLOADED_PRIOR_TO="P14D"` |
-| Cargo / Go | no native gate: commit the lockfile, pass `--locked` (Cargo) / keep `go.sum` + `-mod=readonly` (Go), and require human review before re-resolving; gate automated bumps with Renovate/Dependabot release-age policy |
+| Cargo / Go | no native gate: commit the lockfile, pass `--locked` (Cargo) / keep `go.sum` and `-mod=readonly` (Go), and require human review before re-resolving; gate automated bumps with Renovate/Dependabot release-age policy |
 
 At upgrade-decision time, `npm-check-updates --cooldown 14` (pin the `ncu` version)
 gates which upgrades are even offered.
@@ -75,8 +75,8 @@ To check one version’s age: `npm view <pkg> time.<ver>`.
 5. **Don’t update for its own sake.** The safest update is the one you skip — each bump
    is fresh attack surface.
    Bump only for a concrete reason ("show me the commit we need"); prefer fewer,
-   vendored/pinned dependencies; let audits + CVE monitoring tell you when a real update
-   is warranted.
+   vendored/pinned dependencies; let audits and CVE monitoring tell you when a real
+   update is warranted.
 6. **No unpinned zero-install runners.** Avoid `npx` / `pnpm dlx` / `bunx` / `uvx` /
    `go run <remote>` without an explicit `@version` pin and a review of the resolved
    `package@version` — they fetch and execute the latest code, bypassing the cool-off.
@@ -208,10 +208,10 @@ Reviewed <date>.`
 
 ## What This Does and Doesn’t Cover
 
-A cool-off + disabled scripts neutralizes the dominant **fast-yanked-incident** pattern.
-It does **not** stop: long-lived typosquats that survive past the window; a lockfile
-that already captured a bad version; payloads that fire on import/build rather than
-install; or **publish-pipeline compromises** (the May 2026 @antv worm shipped from
+A cool-off plus disabled scripts neutralizes the dominant **fast-yanked-incident**
+pattern. It does **not** stop: long-lived typosquats that survive past the window; a
+lockfile that already captured a bad version; payloads that fire on import/build rather
+than install; or **publish-pipeline compromises** (the May 2026 @antv worm shipped from
 legitimate CI with a forged “verified” provenance badge — a green badge is not proof).
 Those need lockfile review, typosquat checks, build-time controls, and — if you publish
 packages — the publish-side controls in the guidebook’s `hardening-ci-cd.md` (OIDC
@@ -235,3 +235,7 @@ provenance monitoring).
   StepSecurity, Socket, Unit 42).
 - Monorepo enforcement: `tbd guidelines pnpm-monorepo-patterns`,
   `tbd guidelines bun-monorepo-patterns`.
+
+<!-- This document follows common-doc-guidelines.md.
+See github.com/jlevy/practical-prose and review guidelines before editing.
+-->

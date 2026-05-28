@@ -48,3 +48,7 @@ need.
 - The `attic/` directory is gitignored—cloned repos won’t pollute your project
 - You can clone multiple repos into attic/ as needed
 - Delete cloned repos when done to save disk space
+
+<!-- This document follows common-doc-guidelines.md.
+See github.com/jlevy/practical-prose and review guidelines before editing.
+-->

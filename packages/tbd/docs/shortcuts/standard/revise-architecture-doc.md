@@ -28,3 +28,7 @@ Review and update an architecture document to ensure accuracy with current code.
 6. **Add Future Considerations section** with:
    - **Open Questions**: Possible bugs, issues, or design uncertainties
    - **Potential Improvements**: Ideas for future enhancements
+
+<!-- This document follows common-doc-guidelines.md.
+See github.com/jlevy/practical-prose and review guidelines before editing.
+-->

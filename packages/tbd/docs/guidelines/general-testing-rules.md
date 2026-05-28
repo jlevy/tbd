@@ -25,3 +25,7 @@ author: Joshua Levy (github.com/jlevy) with LLM assistance
 
 - Test edge cases and boundaries: Include tests for empty inputs, nulls, maximums,
   minimums, and error conditions—not just happy paths.
+
+<!-- This document follows common-doc-guidelines.md.
+See github.com/jlevy/practical-prose and review guidelines before editing.
+-->

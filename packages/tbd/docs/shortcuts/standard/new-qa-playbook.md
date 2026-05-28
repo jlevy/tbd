@@ -57,3 +57,7 @@ Create a to-do list with the following items then perform all of them:
    - Mark phases ✅/❌ in the status table after each run
    - Add test results with dates in the “Test Results” section
    - Archive or update playbooks when they become stale
+
+<!-- This document follows common-doc-guidelines.md.
+See github.com/jlevy/practical-prose and review guidelines before editing.
+-->

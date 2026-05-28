@@ -74,3 +74,7 @@ Create a to-do list with the following items then perform all of them:
    - Only proceed when you see all checks have passed in the final summary.
 
 8. Confirm to the user that CI has passed and the PR is ready for review.
+
+<!-- This document follows common-doc-guidelines.md.
+See github.com/jlevy/practical-prose and review guidelines before editing.
+-->

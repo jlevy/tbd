@@ -835,3 +835,7 @@ Avoid `unsafe-eval` and `unsafe-inline`.
 
 - [Launchpad #1944468: Electron applications all crash upon launch](https://bugs.launchpad.net/bugs/1944468)
   — Ubuntu-specific Electron issues
+
+<!-- This document follows common-doc-guidelines.md.
+See github.com/jlevy/practical-prose and review guidelines before editing.
+-->

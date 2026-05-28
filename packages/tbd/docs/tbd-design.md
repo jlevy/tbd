@@ -5905,3 +5905,7 @@ implement GitHub bridge later with plugin architecture for other providers.
 * * *
 
 **End of tbd Design Specification**
+
+<!-- This document follows common-doc-guidelines.md.
+See github.com/jlevy/practical-prose and review guidelines before editing.
+-->

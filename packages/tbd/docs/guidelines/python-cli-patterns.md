@@ -83,3 +83,7 @@ Use `uv-dynamic-versioning` for git-based versions:
 4. Separate handlers from command definitions for testability
 5. Use TypedDict or dataclasses for type-safe options
 6. Test with Typer’s CliRunner for isolated, fast tests
+
+<!-- This document follows common-doc-guidelines.md.
+See github.com/jlevy/practical-prose and review guidelines before editing.
+-->

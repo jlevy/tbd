@@ -208,3 +208,7 @@ So a release is just: clean commits â†’ create the GitHub release/tag `vX.Y.Z` â
 and publishes.
 See `template/docs/publishing.md` in `simple-modern-uv` for the first-time
 Trusted Publisher setup.
+
+<!-- This document follows common-doc-guidelines.md.
+See github.com/jlevy/practical-prose and review guidelines before editing.
+-->

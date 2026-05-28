@@ -57,3 +57,7 @@ References: packages/llm-pricing/ - see scripts/generate-llms-data.ts and src/_g
 
 Setup: Run `pnpm install` after pulling (new dependencies added).
 ```
+
+<!-- This document follows common-doc-guidelines.md.
+See github.com/jlevy/practical-prose and review guidelines before editing.
+-->

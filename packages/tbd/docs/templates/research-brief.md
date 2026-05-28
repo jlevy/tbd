@@ -115,3 +115,7 @@ author: Joshua Levy (github.com/jlevy) with LLM assistance
 
 - [Link 1](url)
 - [Link 2](url)
+
+<!-- This document follows common-doc-guidelines.md.
+See github.com/jlevy/practical-prose and review guidelines before editing.
+-->

@@ -67,3 +67,7 @@ For detailed troubleshooting, workspace usage, and diagnostic commands, see:
 ```bash
 tbd guidelines tbd-sync-troubleshooting
 ```
+
+<!-- This document follows common-doc-guidelines.md.
+See github.com/jlevy/practical-prose and review guidelines before editing.
+-->

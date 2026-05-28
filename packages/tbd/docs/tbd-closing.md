@@ -29,3 +29,7 @@ Every session must end with tbd in a clean state:
 **Work is not done until pushed, CI passes, and tbd is synced.**
 
 > **Tip**: Run `tbd closing` anytime for this checklist.
+
+<!-- This document follows common-doc-guidelines.md.
+See github.com/jlevy/practical-prose and review guidelines before editing.
+-->

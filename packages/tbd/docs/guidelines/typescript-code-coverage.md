@@ -7,8 +7,8 @@ author: Joshua Levy (github.com/jlevy) with LLM assistance
 
 **Last Updated**: 2026-05-21
 
-**Tracks**: Vitest `^4.1.7`, `@vitest/coverage-v8` `^4.1.7`. Vitest 5.0 is in
-beta — do not adopt yet.
+**Tracks**: Vitest `^4.1.7`, `@vitest/coverage-v8` `^4.1.7`. Vitest 5.0 is in beta — do
+not adopt yet.
 
 **Related**:
 
@@ -86,16 +86,16 @@ Low branch coverage often indicates untested error paths and edge cases.
 pnpm add -D vitest@^4.1 @vitest/coverage-v8@^4.1
 ```
 
-Follow the [14-day package-age rule](./pnpm-monorepo-patterns.md#supply-chain-mitigation)
-on every upgrade: use `ncu --cooldown 14` or
-`pnpm install --frozen-lockfile`.
+Follow the
+[14-day package-age rule](./pnpm-monorepo-patterns.md#supply-chain-mitigation) on every
+upgrade: use `ncu --cooldown 14` or `pnpm install --frozen-lockfile`.
 
 ### Vitest 4.x changes that affect coverage
 
 - **`coverage.all` was removed** in Vitest 4. Use `coverage.include` and
   `coverage.exclude` to define exactly which files are reported.
-- Coverage reporters and v8 provider now ship as part of `@vitest/coverage-v8`
-  aligned with the Vitest major version — pin them together.
+- Coverage reporters and v8 provider now ship as part of `@vitest/coverage-v8` aligned
+  with the Vitest major version — pin them together.
 
 ### Example Configuration
 
@@ -194,3 +194,7 @@ Vitest automatically fails when thresholds are not met if configured.
 - **Don’t test implementation details**: Focus on public APIs and behavior
 - **Don’t ignore branch coverage**: TypeScript’s type system creates many branches
 - **Don’t exclude too much**: Be selective about exclusions
+
+<!-- This document follows common-doc-guidelines.md.
+See github.com/jlevy/practical-prose and review guidelines before editing.
+-->

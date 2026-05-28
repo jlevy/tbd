@@ -75,3 +75,7 @@ export function formatContextMarkdown(
 4. Review existing docstrings and remove any that are redundant or obvious
 
 5. Run linting to ensure no syntax errors
+
+<!-- This document follows common-doc-guidelines.md.
+See github.com/jlevy/practical-prose and review guidelines before editing.
+-->

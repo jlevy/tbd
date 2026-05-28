@@ -812,3 +812,7 @@ Golden session testing works well alongside other testing strategies:
 - ScalaTest Matchers: https://www.scalatest.org/user_guide/using_matchers
 
 - Concordion (Java): https://concordion.org/
+
+<!-- This document follows common-doc-guidelines.md.
+See github.com/jlevy/practical-prose and review guidelines before editing.
+-->

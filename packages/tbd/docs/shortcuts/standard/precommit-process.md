@@ -62,3 +62,7 @@ Create a to-do list with the following items then perform all of them:
    (See `tbd guidelines commit-conventions` for details.)
    If all checks pass, commit directly.
    Only ask the user if there are unresolved problems.
+
+<!-- This document follows common-doc-guidelines.md.
+See github.com/jlevy/practical-prose and review guidelines before editing.
+-->

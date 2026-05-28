@@ -139,3 +139,7 @@ Create a to-do list with the following items then perform all of them:
     - List any beads created (if fixing with beads)
     - Confirm CI status
     - Provide the PR URL
+
+<!-- This document follows common-doc-guidelines.md.
+See github.com/jlevy/practical-prose and review guidelines before editing.
+-->

@@ -122,3 +122,7 @@ description: Best practices for designing TypeScript APIs including naming, type
 | `{lang}-{topic}-rules` | `typescript-cli-tool-rules` | Specialized patterns |
 | `{domain}-rules` | `convex-rules` | Framework/platform rules |
 | `general-{topic}-rules` | `general-testing-rules` | Language-agnostic rules |
+
+<!-- This document follows common-doc-guidelines.md.
+See github.com/jlevy/practical-prose and review guidelines before editing.
+-->

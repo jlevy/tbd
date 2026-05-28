@@ -32,3 +32,7 @@ Create a to-do list with the following items then perform all of them:
    - List TypeScript-specific issues found (if any) with file:line references
    - Suggest specific fixes
    - Note any TypeScript patterns that should be addressed
+
+<!-- This document follows common-doc-guidelines.md.
+See github.com/jlevy/practical-prose and review guidelines before editing.
+-->

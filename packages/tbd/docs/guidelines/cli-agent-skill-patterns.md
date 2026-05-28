@@ -1007,7 +1007,7 @@ going:
 - **Codex App-Server** — JSON-RPC (Thread/Turn/Item) decoupling Codex logic from client
   surfaces; relevant only for Codex-specific integration surfaces.
 - **Plugin marketplaces & `npx skills`** — distribution is consolidating: Claude Code
-  plugin marketplaces (official + community), Codex plugins, and Vercel’s
+  plugin marketplaces (official and community), Codex plugins, and Vercel’s
   `npx skills add` over the skills.sh directory (cross-agent symlinks).
 - **Routines / scheduled agents, background monitors, `/run` & `/verify` skills** —
   newer Claude Code capabilities for autonomous, event-triggered, and app-verifying
@@ -1174,3 +1174,7 @@ going:
 - Supply-chain / dependency currency: `tbd guidelines bun-monorepo-patterns` or
   `pnpm-monorepo-patterns`
 - Testing: `tbd guidelines general-testing-rules`
+
+<!-- This document follows common-doc-guidelines.md.
+See github.com/jlevy/practical-prose and review guidelines before editing.
+-->

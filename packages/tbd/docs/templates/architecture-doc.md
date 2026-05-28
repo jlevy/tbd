@@ -120,3 +120,7 @@ How this component scales under load.
 
 - [Related doc](url)
 - [External reference](url)
+
+<!-- This document follows common-doc-guidelines.md.
+See github.com/jlevy/practical-prose and review guidelines before editing.
+-->

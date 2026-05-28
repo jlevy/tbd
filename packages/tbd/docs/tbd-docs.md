@@ -1153,3 +1153,7 @@ tbd help <command>            # Alternative help syntax
 ```
 
 **Project Repo**: https://github.com/jlevy/tbd
+
+<!-- This document follows common-doc-guidelines.md.
+See github.com/jlevy/practical-prose and review guidelines before editing.
+-->

@@ -88,3 +88,7 @@ cycle afterwords, fixing all build or test issues.
     - Batch database queries instead of individual fetches in loops
 
     - Consolidate nested sequential queries into single `Promise.all` call
+
+<!-- This document follows common-doc-guidelines.md.
+See github.com/jlevy/practical-prose and review guidelines before editing.
+-->
