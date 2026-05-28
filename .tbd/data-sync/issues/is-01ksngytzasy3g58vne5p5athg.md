@@ -3,15 +3,17 @@ type: is
 id: is-01ksngytzasy3g58vne5p5athg
 title: "H7: tbd-sync internal commits must be signing-agnostic (gpgsign breaks worktree init)"
 kind: bug
-status: open
+status: closed
 priority: 0
-version: 3
+version: 5
 spec_path: docs/project/specs/active/plan-2026-05-17-shared-common-dir-sync-worktree.md
 labels: []
 dependencies: []
 parent_id: is-01ksng8cqv1885jwvg3fagcfph
 created_at: 2026-05-27T20:10:33.322Z
-updated_at: 2026-05-28T00:10:26.920Z
+updated_at: 2026-05-28T03:42:11.459Z
+closed_at: 2026-05-28T03:42:11.459Z
+close_reason: null
 ---
 BLOCKING for f04 (release-blocking in signed-by-default git environments). Found during review by running the merged suite; in neither GitHub review.
 
