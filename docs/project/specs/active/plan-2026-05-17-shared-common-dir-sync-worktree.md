@@ -707,6 +707,32 @@ implement heartbeat metadata inside the lock directory.
 Recommended: accept the risk for now and track heartbeat as a separate future
 enhancement, since it is non-blocking for this PR.
 
+### H7 (Blocking for f04): Make `tbd-sync` internal commits signing-agnostic
+
+Found during review by running the merged suite. tbd's machine-generated commits to the
+`tbd-sync` data branch never disable gpg signing, so with global `commit.gpgsign=true`
+and no usable key the `initWorktree` initial commit
+(`packages/tbd/src/file/git.ts:1194`, `git commit --no-verify -m "Initialize tbd-sync
+branch"`) fails and leaves `tbd-sync` unborn.
+
+This signing gap is long-standing (released f03 has the identical pattern at
+`git.ts:977`, and f03 also leaves `tbd-sync` unborn under signing), but f03 tolerated it:
+`tbd create` still wrote issue files and exited 0. f04's stricter `git rev-parse HEAD`
+health check classifies the unborn branch as corrupted and fails closed, turning the
+latent gap into a hard failure on the first command (`git init` with no remote +
+`tbd init` + `tbd create` → exit 1, "worktree corrupted"). It is also what fails the
+merged pre-push/CI suite here (28 tests across `child-order-e2e`, `spec-inherit`,
+`specs-flag`, `setup-flows`). Because f04 is what makes it break, it must be fixed as
+part of this work, not deferred.
+
+Fix (root cause): add `-c commit.gpgsign=false` to every internal `tbd-sync` commit
+(`packages/tbd/src/file/git.ts:1194`, `:1012`, `:1704`;
+`packages/tbd/src/cli/commands/sync.ts:446`, `:658`, `:735`, `:861`), ideally via one
+shared commit helper — these are automated data commits, not user commits. Secondary,
+defense in depth: have f04 init detect a failed initial commit / unborn `tbd-sync` and
+surface a clear actionable error instead of opaque "corrupted". The merge commit that
+disabled signing only in the test init helper masked this production gap.
+
 ## Testing Strategy
 
 - Unit tests for Git common-dir path resolution from:
