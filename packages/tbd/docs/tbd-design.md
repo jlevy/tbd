@@ -1657,6 +1657,10 @@ const ConfigSchema = z.object({
 > This ensures older versions fail fast rather than silently corrupting config.
 > See `tbd-format.ts` for format version history and `config.ts` for the compatibility
 > check via `isCompatibleFormat()`.
+> 
+> For the rules that govern adding a new format (idempotent migration, write order,
+> signing-agnostic commits, doctor recovery contract), see
+> `tbd guidelines tbd-format-versioning`.
 
 #### 2.7.5 MetaSchema
 
