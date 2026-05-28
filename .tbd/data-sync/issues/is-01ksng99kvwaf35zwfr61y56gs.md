@@ -3,9 +3,9 @@ type: is
 id: is-01ksng99kvwaf35zwfr61y56gs
 title: "H1: Make loadDataContext() read path truly read-only (no unlocked mutation)"
 kind: bug
-status: open
+status: closed
 priority: 0
-version: 4
+version: 6
 spec_path: docs/project/specs/active/plan-2026-05-17-shared-common-dir-sync-worktree.md
 labels: []
 dependencies:
@@ -17,7 +17,9 @@ dependencies:
     target: is-01ksnga34m6xqq6msc4yp6asmx
 parent_id: is-01ksng8cqv1885jwvg3fagcfph
 created_at: 2026-05-27T19:58:47.419Z
-updated_at: 2026-05-27T19:59:31.518Z
+updated_at: 2026-05-28T03:47:53.093Z
+closed_at: 2026-05-28T03:47:53.092Z
+close_reason: null
 ---
 BLOCKING (second review). loadDataContext() at packages/tbd/src/cli/lib/data-context.ts:164 runs withDataSyncContext(tbdRoot, { lock: false }, ...), but the prepared path prepareDataSyncContext() (data-context.ts:87-137) is NOT read-only:
 - readConfigWithMigration() migrates config in memory (data-context.ts:88).
