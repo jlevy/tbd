@@ -130,7 +130,7 @@ working branch. See `tbd guidelines tbd-sync-troubleshooting` for details.
 
 | Command | Purpose |
 | --- | --- |
-| `tbd create "title" --type task\|bug\|feature --priority=P2` | New bead (P0-P4, not “high/medium/low”) |
+| `tbd create "title" --type=bug --priority=1` | New bead; run `tbd create --help` for all types and priorities (P0-P4, not “high/medium/low”) |
 | `tbd update <id> --status in_progress` | Claim work |
 | `tbd close <id> [--reason "..."]` | Mark complete |
 
@@ -168,6 +168,6 @@ working branch. See `tbd guidelines tbd-sync-troubleshooting` for details.
 ## Quick Reference
 
 - **Priority**: P0=critical, P1=high, P2=medium (default), P3=low, P4=backlog
-- **Types**: task, bug, feature, epic
+- **Types**: issues default to `task`; run `tbd create --help` for the valid types
 - **Status**: open, in_progress, closed
 - **JSON output**: Add `--json` to any command
