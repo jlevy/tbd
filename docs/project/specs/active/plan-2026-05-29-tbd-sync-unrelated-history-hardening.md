@@ -58,14 +58,14 @@ recovery) — and locks each behavior in with tests.
 
 ### Current control flow (verified against current source, v0.2.0)
 
-**`initWorktree`** (`src/file/git.ts:1119`) decision tree:
+**`initWorktree`** (`packages/tbd/src/file/git.ts:1119`) decision tree:
 
 1. local `tbd-sync` exists → attach worktree to it.
 2. else `remoteBranchExists(remote, syncBranch)` → fetch + create tracking branch.
 3. else → `git worktree add --orphan` + seed structure + commit
    `"Initialize tbd-sync branch"`. **No push.**
 
-**`remoteBranchExists`** (`src/file/git.ts:708`):
+**`remoteBranchExists`** (`packages/tbd/src/file/git.ts:708`):
 
 ```ts
 try {
@@ -80,7 +80,7 @@ try {
 reachable, and exits with other non-zero codes (or throws) on auth/network/transient
 failure. Today both collapse to `false`.
 
-**`checkRemoteBranchHealth`** (`src/file/git.ts:1324`):
+**`checkRemoteBranchHealth`** (`packages/tbd/src/file/git.ts:1324`):
 
 ```ts
 try {
@@ -96,20 +96,21 @@ try {
 That lands in the catch and is reported as `diverged = false` — the worst case looks
 healthy.
 
-**`pushWithRetry`** (`src/file/git.ts:634`) treats `fetch first` / `rejected` /
-`non-fast-forward` as retryable, fetches + runs the field-level merge callback, and
-after `MAX_PUSH_RETRIES` (3) returns `"Remote has conflicting changes."` For unrelated
-histories the merge callback can’t help (the git merge has no base), so it burns three
-identical attempts and falls through to the outbox.
+**`pushWithRetry`** (`packages/tbd/src/file/git.ts:634`) treats `fetch first` /
+`rejected` / `non-fast-forward` as retryable, fetches + runs the field-level merge
+callback, and after `MAX_PUSH_RETRIES` (3) returns `"Remote has conflicting changes."`
+For unrelated histories the merge callback can’t help (the git merge has no base), so it
+burns three identical attempts and falls through to the outbox.
 
 **Recovery machinery that already exists** and we build on:
 
-- Safety-backup-branch idiom (`src/file/git.ts:1062`):
+- Safety-backup-branch idiom (`packages/tbd/src/file/git.ts:1062`):
   `git branch tbd-legacy-preserve-<ts> <head>` before a destructive op.
 - `repairWorktree` / corrupted-worktree backup to `sharedBackupsDir`
-  (`src/file/git.ts:1513+`).
+  (`packages/tbd/src/file/git.ts:1513+`).
 - `reconcileMappings`, `mergeIdMappings`, `resolveIdMappingConflicts`
-  (`src/file/id-mapping.ts`) and the field-level `mergeIssues` (`src/file/git.ts`).
+  (`packages/tbd/src/file/id-mapping.ts`) and the field-level `mergeIssues`
+  (`packages/tbd/src/file/git.ts`).
 - `attic/conflicts/` routing for issue-level conflicts.
 
 ### Why a file-layer rescue is safe (storage model)
@@ -124,7 +125,7 @@ merge must happen at the issue-file layer, not the git-history layer.
 
 ### #135 status (verified)
 
-`assembleDataContext` (`src/cli/lib/data-context.ts:172`) resolves with
+`assembleDataContext` (`packages/tbd/src/cli/lib/data-context.ts:172`) resolves with
 `allowFallback: false`, so a missing worktree throws `WorktreeMissingError` instead of
 silently using the gitignored `.tbd/data-sync/`. `withDataSyncContext` auto-repairs a
 `missing`/`prunable` worktree via `ensureSharedDataSyncLayout` → `repairWorktree`. So
@@ -148,13 +149,13 @@ TDD guidelines.
 
 | Area | File | Change |
 | --- | --- | --- |
-| Remote existence | `src/file/git.ts` `remoteBranchExists` | Return a tri-state result distinguishing absent / present / check-failed |
-| Init | `src/file/git.ts` `initWorktree` | Refuse orphan creation when remote check failed; push orphan immediately (best-effort) |
-| Detection | `src/file/git.ts` `checkRemoteBranchHealth` | Add `unrelated: boolean`; set it when `merge-base` finds no common ancestor (distinguish from “local branch absent”) |
-| Doctor report | `src/cli/commands/doctor.ts` | Report unrelated state as a hard finding (not healthy) and route to rescue, not plain `tbd sync` |
-| Sync messaging | `src/cli/commands/sync.ts` / `pushWithRetry` | Detect unrelated-history push rejection; emit dedicated message + remediation instead of 3 identical retries |
-| Rescue | `src/file/git.ts` (new `rescueUnrelatedHistory`) + `doctor.ts --fix` wiring | Non-destructive issue-file-layer reconciliation |
-| #135 | `tests/` | Regression test(s); small loud-failure tweak only if a gap is found |
+| Remote existence | `packages/tbd/src/file/git.ts` `remoteBranchExists` | Return a tri-state result distinguishing absent / present / check-failed |
+| Init | `packages/tbd/src/file/git.ts` `initWorktree` | Refuse orphan creation when remote check failed; push orphan immediately (best-effort) |
+| Detection | `packages/tbd/src/file/git.ts` `checkRemoteBranchHealth` | Add `unrelated: boolean`; set it when `merge-base` finds no common ancestor (distinguish from “local branch absent”) |
+| Doctor report | `packages/tbd/src/cli/commands/doctor.ts` | Report unrelated state as a hard finding (not healthy) and route to rescue, not plain `tbd sync` |
+| Sync messaging | `packages/tbd/src/cli/commands/sync.ts` (`:865` merge stage + push-failure block) / `pushWithRetry` | Detect unrelated post-fetch before file-level merge/retry; dedicated message + remediation; avoid 3 identical retries |
+| Rescue | `packages/tbd/src/file/git.ts` (new `rescueUnrelatedHistory`) + `doctor.ts --fix` wiring | Non-destructive issue-file-layer reconciliation: ULID buckets + conflict-attic, under `withSharedDataSyncLock` |
+| #135 | `packages/tbd/tests/` | Regression test(s); small loud-failure tweak only if a gap is found |
 
 ### Detailed design
 
@@ -179,8 +180,15 @@ export async function probeRemoteBranch(
 }
 ```
 
-Keep `remoteBranchExists` as a thin `=== 'present'` wrapper for existing callers
-(`uninstall`, `init`) to avoid churn.
+**Caller contract (must be unambiguous):** any path that can create a local orphan
+branch — `initWorktree` and any future writer — MUST call `probeRemoteBranch` directly
+and branch on all three states; it must never collapse `check-failed` to `false`. The
+`remoteBranchExists` boolean wrapper is retained **only** for read-only / status-style
+callers (e.g. `uninstall`, status output) where fail-closed behavior is not required,
+and is forbidden on any orphan-creating path.
+A unit test asserts `initWorktree` does not route orphan decisions through the boolean
+wrapper.
+
 In `initWorktree`, branch on the tri-state:
 
 - `present` → fetch + create tracking branch (as today).
@@ -198,10 +206,28 @@ inspect it without string-matching.
 #### Fault 1b (#137) — push the fresh orphan immediately
 
 After the orphan is created and the initial commit is made, attempt
-`git push origin tbd-sync` best-effort with transient-retry, ignoring failure
-(restricted egress / no auth must not break setup).
-This makes “first init wins” the canonical outcome and shrinks the race window from
-“until first sync” to “until setup completes”.
+`git push origin tbd-sync` with transient-retry.
+Classify the outcome rather than blanket-ignoring failure — a rejection is the race we
+are trying to close, not noise:
+
+- **Success** → “first init wins”; done.
+- **Transient failure** (restricted egress / no auth / network) → ignore best-effort;
+  setup must not break.
+  The branch is local-only for now; the race window shrinks from “until first sync” to
+  “until the first reachable sync”.
+- **Non-fast-forward / fetch-first rejection** → environment B already pushed its
+  orphan, so this is a *detected* unrelated-history race during init.
+  Handle it then and there (before any user issue writes, so it is safe and cheap):
+  `git fetch origin tbd-sync`, verify the local branch contains only the initial
+  scaffold (no user issue files under `issues/`), and if so **adopt the remote** (reset
+  local `tbd-sync` to `origin/tbd-sync`). If the local branch already has user issue
+  files, do **not** silently discard them — fail loudly with the unrelated-history
+  remediation (`tbd doctor --fix`), which routes into the Phase 2 rescue.
+
+This closes the A-probes-absent / B-pushes-first / A-push-rejected interleaving that a
+blanket best-effort push would leave behind as a local branch unrelated to the remote.
+The distinction between a non-fast-forward rejection and a transient failure relies on
+the same `exitCode`-carrying `git()` error introduced for Fault 1.
 
 #### Fault 2 — detect unrelated histories
 
@@ -221,35 +247,75 @@ try/catch so transient errors don’t masquerade as “unrelated”.
 (`"Sync histories are unrelated (no common ancestor) — push cannot succeed"`) whose
 remediation is `tbd doctor --fix` (the rescue), **not** `tbd sync`.
 
-`tbd sync` (`sync.ts` push-failure block, ~line 919): when the push fails and
-`checkRemoteBranchHealth` reports `unrelated`, replace the generic “Remote has
-conflicting changes” with the dedicated message and point at `tbd doctor --fix`.
-Optionally short-circuit `pushWithRetry` so it doesn’t burn 3 identical attempts on an
-unrelated-history rejection.
+`tbd sync` must detect the unrelated state **before** the file-level merge/conflict and
+retry machinery runs, not only in the push-failure block — otherwise sync does
+misleading work first and any diagnostics point at the wrong phase.
+Two coupled changes:
+
+- **Merge stage (`packages/tbd/src/cli/commands/sync.ts:865`)** — the current full-sync
+  path catches `fatal: refusing to merge unrelated histories` together with fetch
+  failures as “may be first sync.”
+  Split this: after the fetch, run an explicit unrelated-history check (or add a
+  dedicated branch to the merge catch keyed on that git message + `merge-base` exit
+  status). On unrelated, short-circuit to the dedicated message and `tbd doctor --fix`
+  remediation **before** file-level conflict resolution and `pushWithRetry`.
+- **Push stage (push-failure block, ~line 919)** — defense in depth: if a push still
+  fails and `checkRemoteBranchHealth` reports `unrelated`, replace the generic “Remote
+  has conflicting changes” with the same dedicated message rather than burning 3
+  identical `pushWithRetry` attempts.
+
+Net effect: an unrelated history is reported the moment it is provable (post-fetch),
+sync does no misleading merge work, and the wasted retries are avoided.
 
 #### Rescue mode — `rescueUnrelatedHistory` (non-destructive)
 
-New function invoked by `tbd doctor --fix` when `unrelated` is detected:
+New function invoked by `tbd doctor --fix` when `unrelated` is detected.
+
+**Locking and preconditions (same contract as `initWorktree` / `repairWorktree`).** The
+whole rescue runs inside `withSharedDataSyncLock` so a concurrent `tbd create` /
+`tbd sync` from a sibling worktree cannot race the reset/replay window.
+Before mutating: require a clean data-sync worktree with no merge/rebase in progress (no
+`MERGE_HEAD`/in-progress operation, no unstaged changes); if dirty, abort with guidance
+to resolve or stash first rather than resetting over uncommitted work.
 
 1. `git fetch origin tbd-sync`.
 2. Safety net: `git branch tbd-backup-<nowFilenameTimestamp()> <local tbd-sync HEAD>`
    (reuse the existing preserve-branch idiom).
    Prior local state is always recoverable.
-3. Compute the content delta keyed by ULID: issue files (and any mapping rows) present
-   on local `tbd-sync` but absent on `origin/tbd-sync`. Robust to the missing merge base
-   because it’s a file-set diff, not a git merge.
+3. **Categorize every issue file by ULID** across local `tbd-sync` and `origin/tbd-sync`
+   into four buckets (a file-set + content diff, robust to the missing merge base —
+   never a git merge):
+   - `remote-only` → already on the adopted base; nothing to do.
+   - `local-only` → re-apply onto the remote base.
+   - `both-identical` → no action.
+   - `both-different` → the **same** `is-<ulid>.md` exists on both unrelated roots with
+     differing content (reachable via copied worktrees, restored backups,
+     force-push/replacement history, or a user editing an issue present in both stores).
+     This must **not** be silently dropped: run it through the existing issue-level
+     `mergeIssues` field-merge, and on a true conflict route to `attic/conflicts/` (the
+     established conflict path) so both versions are preserved with an explicit
+     artifact.
 4. Adopt remote as canonical base: reset the worktree’s `tbd-sync` to `origin/tbd-sync`
    (preserved by step 2).
-5. Re-apply the local-only issue files; union-merge `ids.yml` via existing
-   `mergeIdMappings`; run `reconcileMappings` so every issue has a backing mapping and
-   vice-versa (closes the “62 map entries vs 57 files” inconsistency noted in #139);
-   commit `"tbd rescue: adopt remote base + reapply N local-only issue(s)"`.
+5. Apply the buckets onto the base: write `local-only` files; resolve `both-different`
+   via `mergeIssues`/conflict-attic; union-merge `ids.yml` via existing
+   `mergeIdMappings` and apply `resolveIdMappingConflicts` for divergent public-ID rows;
+   run `reconcileMappings` so every issue has a backing mapping and vice-versa (closes
+   the “62 map entries vs 57 files” inconsistency noted in #139); commit
+   `"tbd rescue: adopt remote base + reconcile N issue(s) (L local-only, D merged)"`.
 6. Return control; the normal push is now a clean fast-forward.
+
+**Failure semantics.** The only destructive step (the reset in step 4) happens *after*
+the backup branch in step 2, so any failure between backup and commit leaves the
+pre-rescue HEAD recoverable from `tbd-backup-<ts>`; the rescue is restartable.
+If the process dies mid-replay, the backup branch + the still-intact `origin/tbd-sync`
+are sufficient to redo it.
 
 Post-conditions asserted by tests:
 `git merge-base --is-ancestor origin/tbd-sync tbd-sync` is true (push fast-forwards);
-issue-file count equals id-map entry count; no duplicate public IDs; the backup branch
-exists and contains the pre-rescue HEAD.
+issue-file count equals id-map entry count; no duplicate public IDs; `local-only` beads
+survive; `both-different` issues are merged or preserved in `attic/conflicts/` (never
+dropped); the backup branch exists and contains the pre-rescue HEAD.
 
 #### #135 — verify + regression
 
@@ -263,10 +329,11 @@ if the test exposes a residual gap.
 
 ### API Changes
 
-- New exported `probeRemoteBranch` + `RemoteBranchProbe` type in `src/file/git.ts`;
-  `remoteBranchExists` retained as a wrapper.
+- New exported `probeRemoteBranch` + `RemoteBranchProbe` type in
+  `packages/tbd/src/file/git.ts`; `remoteBranchExists` retained as a wrapper.
 - `RemoteBranchHealth` gains `unrelated: boolean`.
-- New exported `rescueUnrelatedHistory` (or equivalent) in `src/file/git.ts`.
+- New exported `rescueUnrelatedHistory` (or equivalent) in
+  `packages/tbd/src/file/git.ts`.
 - `git()` wrapper / thrown error carries `exitCode` (internal).
 
 ## Implementation Plan
@@ -276,38 +343,53 @@ if the test exposes a residual gap.
 - [ ] Make the `git()` error carry `exitCode` (structural; commit separately).
 - [ ] `probeRemoteBranch` tri-state + `remoteBranchExists` wrapper; unit tests for
   absent vs check-failed (mock/stub git exit codes).
-- [ ] `initWorktree`: refuse orphan on `check-failed`; best-effort immediate push of the
-  fresh orphan. Tests cover both.
+- [ ] `initWorktree`: use `probeRemoteBranch` directly (not the boolean wrapper); refuse
+  orphan on `check-failed`; immediate orphan push that classifies success / transient /
+  non-fast-forward-rejection.
+  Test the **rejected-race interleaving** (A creates orphan, B pushes first, A’s push
+  rejected → A adopts scaffold-only remote, or fails loudly if A already has user
+  issues), plus the happy-path push and the check-failed refusal.
 - [ ] `checkRemoteBranchHealth`: add `unrelated`; tests for unrelated, genuinely
   diverged, in-sync, and no-local-branch cases.
 - [ ] `tbd doctor`: report `unrelated` as a hard finding routing to `--fix`; update
   `doctor-sync` tests / golden output.
-- [ ] `tbd sync`: dedicated unrelated-history message + remediation; avoid 3 wasted
-  retries.
+- [ ] `tbd sync`: detect unrelated post-fetch at the merge stage (`sync.ts:865`) before
+  file-level conflict/retry runs; dedicated message + remediation; defense-in-depth
+  check in the push-failure block; avoid 3 wasted retries.
 - [ ] #135 regression scenario (tryscript) — missing worktree heals/fails loudly, never
   writes to `.tbd/data-sync/`.
 
 ### Phase 2: Non-destructive rescue
 
-- [ ] `rescueUnrelatedHistory`: fetch → backup branch → file-set delta → adopt remote →
-  replay local-only issues + union ids.yml + `reconcileMappings` → commit.
+- [ ] `rescueUnrelatedHistory` under `withSharedDataSyncLock`, with clean-worktree /
+  no-merge-in-progress preconditions: fetch → backup branch → categorize by ULID
+  (local-only / remote-only / both-identical / both-different) → adopt remote → apply
+  buckets (`mergeIssues`/conflict-attic for both-different) + union ids.yml +
+  `resolveIdMappingConflicts` + `reconcileMappings` → commit.
 - [ ] Wire into `tbd doctor --fix`; after rescue, normal sync fast-forwards.
 - [ ] Tests: construct two unrelated `tbd-sync` roots in a temp repo, run rescue, assert
   fast-forward-ability, file/map consistency, no duplicate IDs, backup branch present,
   and that local-only beads survive.
+  **Same-ULID divergence cases:** identical content (no-op), differing scalar fields,
+  differing labels (field-merge), and a true conflict (preserved in `attic/conflicts/`,
+  never dropped). Plus a precondition test: rescue aborts on a dirty worktree /
+  merge-in-progress.
 - [ ] End-to-end tryscript: race → detect → `tbd doctor --fix` → `tbd sync` → in sync.
 
 ## Testing Strategy
 
-- **Unit** — `probeRemoteBranch` exit-code mapping; `checkRemoteBranchHealth` flag
-  matrix; rescue delta computation (pure where possible).
+- **Unit** — `probeRemoteBranch` exit-code mapping (absent vs check-failed);
+  `checkRemoteBranchHealth` flag matrix; rescue ULID-bucket categorization (local-only /
+  remote-only / both-identical / both-different), pure where possible.
 - **Integration** — temp-repo helpers that build two unrelated orphan roots and a
-  reachable “remote”; assert detection + rescue outcomes against real `git`.
-- **Golden/tryscript** — extend the existing `tests/cli-sync-*.tryscript.md` family (and
-  worktree-scenarios) with the race, unrelated-history doctor output, the rescue flow,
-  and the #135 missing-worktree reproduction.
-  Filter unstable fields (timestamps, ULIDs/backup-branch names) per the golden-testing
-  guideline.
+  reachable “remote”; assert detection, the init rejected-race interleaving, and rescue
+  outcomes (including same-ULID divergence and dirty-worktree precondition) against real
+  `git`.
+- **Golden/tryscript** — extend the existing
+  `packages/tbd/tests/cli-sync-*.tryscript.md` family (and worktree-scenarios) with the
+  race, unrelated-history doctor output, the rescue flow, and the #135 missing-worktree
+  reproduction. Filter unstable fields (timestamps, ULIDs/backup-branch names) per the
+  golden-testing guideline.
 - TDD: one failing test per fault before the fix; run the full (non-long) suite each
   step; keep structural and behavioral commits separate.
 
@@ -320,9 +402,10 @@ are recovered by upgrading and running `tbd doctor --fix`.
 
 ## Open Questions
 
-- Should `tbd sync` short-circuit `pushWithRetry` entirely on a detected unrelated
-  rejection, or keep one attempt for the (rare) benign-race case before reporting?
-  (Lean: detect up front, skip the wasted retries.)
+- **Resolved (per review):** `tbd sync` detects the unrelated state up front
+  (post-fetch, at the merge stage) and does not run `pushWithRetry` against an unrelated
+  remote, so no retries are wasted; the push-failure-block check remains only as defense
+  in depth.
 - Backup-branch retention: leave `tbd-backup-<ts>` branches indefinitely, or have a
   later `tbd doctor` offer to prune old ones?
   (Lean: leave them; cheap and safe.)
@@ -330,11 +413,12 @@ are recovered by upgrading and running `tbd doctor --fix`.
 ## References
 
 - Issues: #139 (detection/rescue), #137 (race/prevention), #135 (silent fallback).
-- `src/file/git.ts` — `remoteBranchExists` (708), `initWorktree` (1119),
+- `packages/tbd/src/file/git.ts` — `remoteBranchExists` (708), `initWorktree` (1119),
   `checkRemoteBranchHealth` (1324), `pushWithRetry` (634), preserve-branch idiom (1062),
   `repairWorktree` (1513+).
-- `src/cli/commands/sync.ts`, `src/cli/commands/doctor.ts`,
-  `src/cli/lib/data-context.ts`, `src/lib/paths.ts` (`resolveDataSyncDir`).
+- `packages/tbd/src/cli/commands/sync.ts`, `packages/tbd/src/cli/commands/doctor.ts`,
+  `packages/tbd/src/cli/lib/data-context.ts`, `packages/tbd/src/lib/paths.ts`
+  (`resolveDataSyncDir`).
 - Prior art: `plan-2026-01-28-sync-worktree-recovery-and-hardening.md`,
   `plan-2026-05-17-shared-common-dir-sync-worktree.md`.
 - Guideline: `tbd-sync-troubleshooting`.
