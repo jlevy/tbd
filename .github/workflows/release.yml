@@ -45,32 +45,16 @@ jobs:
       - name: Extract changelog for this version
         id: changelog
         run: |
-          # Extract the "## X.Y.Z" section out of packages/tbd/CHANGELOG.md so
-          # softprops/action-gh-release can use it as the GitHub Release body.
-          #
-          # An earlier version used the awk range pattern
-          # `/^## X\.Y\.Z$/,/^## [0-9]/`. That broke silently on every release
-          # because the start line itself ALSO matches the end pattern (a `## `
-          # followed by a digit), so the range collapses to a single line and
-          # the fallback "Release vX.Y.Z" body kicks in. Both v0.1.30 and v0.2.0
-          # were published with the empty fallback.
-          #
-          # Fix: explicitly print the start line and use a flag so the end
-          # pattern only fires on the NEXT `## [0-9]` heading.
-          VERSION="${{ steps.version.outputs.version }}"
-          ESCAPED_VERSION="${VERSION//./\\.}"
-          CHANGELOG=$(awk -v ver="^## ${ESCAPED_VERSION}\$" '
-            $0 ~ ver { flag = 1; print; next }
-            flag && /^## [0-9]/ { exit }
-            flag { print }
-          ' packages/tbd/CHANGELOG.md)
-          if [ -z "$CHANGELOG" ]; then
-            CHANGELOG="Release v${VERSION}"
-          fi
-          # Use delimiter for multiline output
-          echo "body<<EOF" >> $GITHUB_OUTPUT
-          echo "$CHANGELOG" >> $GITHUB_OUTPUT
-          echo "EOF" >> $GITHUB_OUTPUT
+          # Body extraction lives in a unit-tested script (see
+          # packages/tbd/scripts/extract-changelog.mjs and
+          # packages/tbd/tests/extract-changelog.test.ts), not inline shell, so the
+          # logic can be tested and debugged outside of CI. The shell here only wires
+          # the script output into the multiline GITHUB_OUTPUT delimiter format.
+          {
+            echo "body<<EOF"
+            node packages/tbd/scripts/extract-changelog.mjs "${{ steps.version.outputs.version }}"
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2

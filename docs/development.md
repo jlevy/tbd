@@ -247,6 +247,30 @@ publishes `get-tbd` to npm, and creates a GitHub Release whose body is the match
 For the full step-by-step (including the version-bump heuristic, supply-chain review,
 and verification), see [publishing.md](publishing.md).
 
+## CI and GitHub Actions
+
+**Keep logic out of workflow YAML.** Do not put non-trivial shell — multi-line `awk`,
+`sed`, `jq` pipelines, regex parsing, conditional logic — inline in a GitHub Actions
+`run:` step. Inline CI shell cannot be tested or debugged in isolation; the only way to
+exercise it is to push a tag or branch and wait for the runner, which is slow and
+error-prone. A real bug shipped this way: the release workflow’s inline `awk` changelog
+extractor silently produced an empty body on every release (`v0.1.30` and `v0.2.0` both
+went out with the fallback `Release vX.Y.Z` string) because it exited 0 either way.
+
+Instead, write a clean, unit-tested script and invoke it by reference:
+
+- Put the logic in `packages/tbd/scripts/*.mjs` (or a `src/` module) with a pure,
+  exported function. See `scripts/extract-changelog.mjs` and its test
+  `tests/extract-changelog.test.ts` for the pattern.
+- Cover it with a normal vitest test so the behavior is locked in and debuggable
+  locally.
+- In the workflow, the `run:` step should only call the script
+  (`node packages/tbd/scripts/extract-changelog.mjs …`) and wire its output; keep any
+  remaining shell to trivial plumbing (e.g. the `GITHUB_OUTPUT` heredoc).
+
+If you find yourself reaching for `awk`/`sed` in a workflow, that is the signal to move
+it into a script.
+
 ## Project Structure
 
 ```
