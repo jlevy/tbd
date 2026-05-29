@@ -103,6 +103,23 @@ export async function git(...args: string[]): Promise<string> {
 }
 
 /**
+ * Like {@link git} but with `GIT_TERMINAL_PROMPT=0` so a network operation
+ * (e.g. a best-effort push) fails fast instead of blocking on a credential
+ * prompt in a non-interactive environment.
+ */
+async function gitNoPrompt(...args: string[]): Promise<string> {
+  try {
+    const { stdout } = await execFileAsync('git', args, {
+      maxBuffer: GIT_MAX_BUFFER,
+      env: { ...process.env, GIT_TERMINAL_PROMPT: '0' },
+    });
+    return stdout.trim();
+  } catch (err) {
+    throw GitError.from(err, args);
+  }
+}
+
+/**
  * Run `git commit` in a worktree with gpg signing disabled at the command level.
  *
  * Internal tbd-sync commits are machine-generated data commits on the data branch,
@@ -1197,6 +1214,89 @@ export async function migrateLegacyWorktreesToShared(
 }
 
 /**
+ * Whether the given remote is configured (has a URL) in the repo at baseDir.
+ * A local-only repo (no remote) is safe to orphan and never pushes.
+ */
+async function remoteIsConfigured(remote: string, baseDir: string): Promise<boolean> {
+  try {
+    await git('-C', baseDir, 'config', '--get', `remote.${remote}.url`);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Whether the data-sync worktree carries any user issue files (is-<ulid>.md),
+ * as opposed to only the initial orphan scaffold (.gitkeep / .gitattributes).
+ */
+async function worktreeHasUserIssues(dataSyncPath: string): Promise<boolean> {
+  try {
+    const entries = await readdir(join(dataSyncPath, 'issues'));
+    return entries.some((name) => /^is-.*\.md$/.test(name));
+  } catch {
+    return false;
+  }
+}
+
+/** Whether a push failure is a non-fast-forward / rejected (the init race). */
+function isNonFastForwardRejection(err: unknown): boolean {
+  const msg = err instanceof GitError ? `${err.stderr}\n${err.message}` : String(err);
+  return /rejected|non-fast-forward|fetch first|updates were rejected/i.test(msg);
+}
+
+/**
+ * Push a freshly-created orphan tbd-sync immediately so "first init wins"
+ * (closes the #137 race window). Classifies the outcome:
+ *
+ *  - success            => pushed: true ("first init wins").
+ *  - transient/permanent network/auth failure => best-effort, ignored
+ *    (branch stays local-only until the first reachable sync).
+ *  - non-fast-forward rejection => a detected init race (environment B pushed
+ *    its own orphan first). Fetch, then:
+ *      - scaffold-only local  => adopt the remote (reset local to remote).
+ *      - local has user issues => fail loudly toward `tbd doctor --fix` so the
+ *        local work is never silently discarded.
+ *
+ * MUST be called after the orphan's initial commit, while the worktree is on
+ * syncBranch.
+ */
+export async function pushFreshOrphan(
+  baseDir: string,
+  worktreePath: string,
+  remote: string,
+  syncBranch: string,
+  dataSyncPath: string,
+): Promise<{ pushed: boolean; adopted: boolean }> {
+  try {
+    await gitNoPrompt('-C', worktreePath, 'push', remote, `HEAD:refs/heads/${syncBranch}`);
+    return { pushed: true, adopted: false };
+  } catch (err) {
+    if (!isNonFastForwardRejection(err)) {
+      // Transient / permanent (restricted egress, no auth, network) — the push
+      // is best-effort and setup must not break. The window simply shrinks to
+      // "until the first reachable sync".
+      return { pushed: false, adopted: false };
+    }
+
+    // Detected init race: the remote already has a (different) branch.
+    await gitNoPrompt('-C', baseDir, 'fetch', remote, syncBranch);
+
+    if (await worktreeHasUserIssues(dataSyncPath)) {
+      throw new Error(
+        `Detected unrelated ${remote}/${syncBranch} histories during init, and the local ` +
+          `branch already contains issues. Refusing to discard local work. ` +
+          `Run \`tbd doctor --fix\` to reconcile the histories.`,
+      );
+    }
+
+    // Scaffold-only local: adopt the remote as canonical ("first init wins").
+    await git('-C', worktreePath, 'reset', '--hard', `${remote}/${syncBranch}`);
+    return { pushed: false, adopted: true };
+  }
+}
+
+/**
  * Initialize the hidden worktree for the tbd-sync branch.
  * Follows the decision tree from tbd-design.md §2.3.
  *
@@ -1248,9 +1348,24 @@ export async function initWorktree(
       return { success: true, path: worktreePath, created: true };
     }
 
-    // Check if remote branch exists
-    const remoteExists = await remoteBranchExists(remote, syncBranch, baseDir);
-    if (remoteExists) {
+    // Probe the remote. A configured-but-unreachable remote must NOT fall
+    // through to orphan creation (that is how unrelated histories are born);
+    // a local-only repo with no remote is safe to orphan and never pushes.
+    const hasRemote = await remoteIsConfigured(remote, baseDir);
+    const probe: RemoteBranchProbe = hasRemote
+      ? await probeRemoteBranch(remote, syncBranch, baseDir)
+      : 'absent';
+
+    if (probe === 'check-failed') {
+      return {
+        success: false,
+        error:
+          `Could not verify whether ${remote}/${syncBranch} exists (remote check failed); ` +
+          `refusing to create a divergent local branch. Check connectivity/auth and retry.`,
+      };
+    }
+
+    if (probe === 'present') {
       // Fetch and create worktree from remote branch with local tracking branch
       await git('-C', baseDir, 'fetch', remote, syncBranch);
       // Use -b to create local branch tracking remote, not --detach
@@ -1268,7 +1383,7 @@ export async function initWorktree(
       return { success: true, path: worktreePath, created: true };
     }
 
-    // No branch exists - create orphan worktree (requires Git 2.42+)
+    // No branch exists (probe === 'absent') - create orphan worktree (requires Git 2.42+)
     // Syntax: git worktree add --orphan -b <branch> <path>
     await requireGitVersion();
     await git('-C', baseDir, 'worktree', 'add', '--orphan', '-b', syncBranch, worktreePath);
@@ -1297,6 +1412,13 @@ export async function initWorktree(
     // Use --no-verify to bypass parent repo hooks (lefthook, husky, etc.)
     await git('-C', worktreePath, 'add', '.');
     await gitCommit(worktreePath, '--no-verify', '-m', 'Initialize tbd-sync branch');
+
+    // Push the fresh orphan immediately so "first init wins" and the #137 race
+    // window closes. Only when a remote is configured; best-effort on transient
+    // failure, adopt-or-fail-loud on a detected rejected-race.
+    if (hasRemote) {
+      await pushFreshOrphan(baseDir, worktreePath, remote, syncBranch, dataSyncPath);
+    }
 
     return { success: true, path: worktreePath, created: true };
   } catch (error) {
