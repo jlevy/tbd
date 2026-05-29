@@ -3,9 +3,9 @@ type: is
 id: is-01kss7jdm65f61t8jnstwvxaap
 title: "checkRemoteBranchHealth: detect unrelated histories (Fault 2)"
 kind: bug
-status: in_progress
+status: closed
 priority: 1
-version: 5
+version: 6
 spec_path: docs/project/specs/active/plan-2026-05-29-tbd-sync-unrelated-history-hardening.md
 labels: []
 dependencies:
@@ -17,5 +17,7 @@ dependencies:
     target: is-01kss7jfzgth1cbt000cjbf85x
 parent_id: is-01kss7hxvj9nxnhthv6efvehg0
 created_at: 2026-05-29T06:43:26.982Z
-updated_at: 2026-05-29T16:36:42.246Z
+updated_at: 2026-05-29T16:40:54.908Z
+closed_at: 2026-05-29T16:40:54.908Z
+close_reason: null
 ---
