@@ -5,7 +5,7 @@ title: "[task] Cut and publish v0.2.0 (tag-triggered release.yml)"
 kind: task
 status: in_progress
 priority: 0
-version: 6
+version: 7
 spec_path: tests/qa/release-v0.2.0-upgrade.qa.md
 labels:
   - v0.2.0
@@ -17,8 +17,9 @@ child_order_hints:
   - is-01kss1csd6spmwvb7g6ay48yy6
   - is-01kss1cz76fp8ps6t85xp0bd2y
   - is-01kss1d6f60tssxej7gc6rgmjh
+  - is-01kss1z6j5atng0k975bqsfdc7
 created_at: 2026-05-29T01:43:43.315Z
-updated_at: 2026-05-29T04:55:44.357Z
+updated_at: 2026-05-29T05:05:34.276Z
 ---
 Final cut. Follow docs/publishing.md (after tbd-aaaa relocates the content there).
 
