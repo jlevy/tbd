@@ -3,9 +3,9 @@ type: is
 id: is-01ksrpd50dfwh6y3449a864dmq
 title: "[bug] tbd doctor exits 0 on hard ✗ findings (future-format layout, missing/invalid config)"
 kind: bug
-status: open
+status: closed
 priority: 3
-version: 2
+version: 4
 spec_path: tests/qa/release-v0.2.0-upgrade.qa.md
 labels:
   - v0.2.0
@@ -14,7 +14,9 @@ dependencies:
     target: is-01ksrpdkemmkkhh4j6egqyrvsq
 parent_id: is-01ksrpb7b8cfwrzzd34ya9874q
 created_at: 2026-05-29T01:43:28.524Z
-updated_at: 2026-05-29T01:44:13.096Z
+updated_at: 2026-05-29T02:05:38.566Z
+closed_at: 2026-05-29T02:05:38.565Z
+close_reason: doctor sets process.exitCode = 1 when any check has status === 'error'. ⚠ warnings still exit 0. Tests updated for future-format layout, future-format config, mismatched layout, and invalid issue files.
 ---
 Doctor reports '✗ Common-dir layout - requires newer tbd (found f05)' and v0.1.30 reports '✗ Config file - Invalid config file' — both with exit 0. CI/scripts cannot gate on doctor's exit code today.
 

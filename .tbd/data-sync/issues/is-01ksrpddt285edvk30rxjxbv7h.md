@@ -3,9 +3,9 @@ type: is
 id: is-01ksrpddt285edvk30rxjxbv7h
 title: "[task] Author v0.2.0 release notes (covers f04 migration, upgrade caveats, sibling-worktree behavior)"
 kind: task
-status: open
+status: closed
 priority: 1
-version: 2
+version: 4
 spec_path: tests/qa/release-v0.2.0-upgrade.qa.md
 labels:
   - v0.2.0
@@ -14,7 +14,9 @@ dependencies:
     target: is-01ksrpdkemmkkhh4j6egqyrvsq
 parent_id: is-01ksrpb7b8cfwrzzd34ya9874q
 created_at: 2026-05-29T01:43:37.537Z
-updated_at: 2026-05-29T01:44:13.299Z
+updated_at: 2026-05-29T03:53:03.885Z
+closed_at: 2026-05-29T03:53:03.884Z
+close_reason: v0.2.0 CHANGELOG section drafted and committed. Leads with the f04 format bump and upgrade contract, then features/fixes/internal sections per release-notes-guidelines. Heading '## 0.2.0' matches release.yml regex exactly.
 ---
 Prepend a '## 0.2.0' section to packages/tbd/CHANGELOG.md per packages/tbd/docs/guidelines/release-notes-guidelines.md. release.yml greps for '## 0.2.0' verbatim; the heading must match exactly.
 

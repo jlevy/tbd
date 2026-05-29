@@ -1,0 +1,18 @@
+---
+type: is
+id: is-01kss1cz76fp8ps6t85xp0bd2y
+title: doctor --fix missing-worktree init bypasses shared lock
+kind: bug
+status: open
+priority: 1
+version: 1
+spec_path: tests/qa/release-v0.2.0-upgrade.qa.md
+labels:
+  - v0.2.0
+  - release-blocker
+dependencies: []
+parent_id: is-01ksrpdkemmkkhh4j6egqyrvsq
+created_at: 2026-05-29T04:55:36.933Z
+updated_at: 2026-05-29T04:55:36.933Z
+---
+In PR #138, packages/tbd/src/cli/commands/doctor.ts calls prepareDataSyncContext(this.cwd) directly for the missing-worktree --fix path. prepareDataSyncContext/ensureSharedDataSyncLayout is documented as requiring withSharedDataSyncLock but does not acquire it itself. This undermines the f04 migration/repair lock contract under concurrent sibling worktrees. Wrap this path in withSharedDataSyncLock/withDataSyncContext({ lock: true }) and add a regression test or adjust the helper contract. Found during senior release review.
