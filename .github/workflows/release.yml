@@ -45,9 +45,25 @@ jobs:
       - name: Extract changelog for this version
         id: changelog
         run: |
-          # Extract the changelog section for this version
+          # Extract the "## X.Y.Z" section out of packages/tbd/CHANGELOG.md so
+          # softprops/action-gh-release can use it as the GitHub Release body.
+          #
+          # An earlier version used the awk range pattern
+          # `/^## X\.Y\.Z$/,/^## [0-9]/`. That broke silently on every release
+          # because the start line itself ALSO matches the end pattern (a `## `
+          # followed by a digit), so the range collapses to a single line and
+          # the fallback "Release vX.Y.Z" body kicks in. Both v0.1.30 and v0.2.0
+          # were published with the empty fallback.
+          #
+          # Fix: explicitly print the start line and use a flag so the end
+          # pattern only fires on the NEXT `## [0-9]` heading.
           VERSION="${{ steps.version.outputs.version }}"
-          CHANGELOG=$(awk "/^## ${VERSION//./\\.}$/,/^## [0-9]/" packages/tbd/CHANGELOG.md | head -n -1)
+          ESCAPED_VERSION="${VERSION//./\\.}"
+          CHANGELOG=$(awk -v ver="^## ${ESCAPED_VERSION}\$" '
+            $0 ~ ver { flag = 1; print; next }
+            flag && /^## [0-9]/ { exit }
+            flag { print }
+          ' packages/tbd/CHANGELOG.md)
           if [ -z "$CHANGELOG" ]; then
             CHANGELOG="Release v${VERSION}"
           fi
