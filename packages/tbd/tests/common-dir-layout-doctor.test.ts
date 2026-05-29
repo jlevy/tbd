@@ -121,6 +121,35 @@ describeUnlessWindows('common-dir layout via CLI', { timeout: 30000 }, () => {
     });
   });
 
+  describe('doctor --fix initializes missing worktree (tbd-nrvj)', () => {
+    it('migrates from missing to valid via doctor --fix instead of forcing the user to discover tbd sync', async () => {
+      const worktreePath = join(dir, '.git', 'tbd', 'data-sync-worktree');
+      const layoutPath = join(dir, '.git', 'tbd', 'layout.yml');
+
+      // Simulate a checkout where the worktree was never created or has been deleted.
+      // Git's worktree registry still tracks it (the prunable case) — pruning takes it
+      // back to the missing case which is what fresh f03→f04 transitions look like.
+      await rm(worktreePath, { recursive: true, force: true });
+      await rm(layoutPath, { force: true });
+      await gitIn(dir, 'worktree', 'prune');
+
+      // Without --fix, doctor must not report this as a hard error — it is a fresh
+      // state that will resolve on the next mutating command.
+      const before = runTbd(dir, ['doctor']);
+      expect(before.status).toBe(0);
+      expect(before.stdout + before.stderr).toMatch(/not created yet|not initialized/i);
+
+      // With --fix the user is asking us to repair things now. We must initialize the
+      // shared worktree and layout instead of saying "ok, run sync later".
+      const fix = runTbd(dir, ['doctor', '--fix']);
+      expect(fix.status).toBe(0);
+      expect(await exists(worktreePath)).toBe(true);
+      expect(await exists(layoutPath)).toBe(true);
+      const layout = await readFile(layoutPath, 'utf-8');
+      expect(layout).toContain('tbd_format: f04');
+    });
+  });
+
   describe('read fast-path (H1)', () => {
     it('regenerates a missing layout.yml on first read without writing direct data path', async () => {
       const layoutPath = join(dir, '.git', 'tbd', 'layout.yml');

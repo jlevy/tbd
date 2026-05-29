@@ -14,6 +14,7 @@ import { BaseCommand } from '../lib/base-command.js';
 import { requireInit } from '../lib/errors.js';
 import { listIssues, type InvalidIssueFile } from '../../file/storage.js';
 import { IncompatibleFormatError, readConfig } from '../../file/config.js';
+import { prepareDataSyncContext } from '../lib/data-context.js';
 import type { Config, Issue, IssueStatusType } from '../../lib/types.js';
 import { resolveSharedTbdPaths, TBD_DIR, DATA_SYNC_DIR } from '../../lib/paths.js';
 import { detectDuplicateYamlKeys } from '../../utils/yaml-utils.js';
@@ -895,7 +896,39 @@ class DoctorHandler extends BaseCommand {
         return { name: 'Worktree', status: 'ok', path: worktreePath };
 
       case 'missing':
-        // Worktree not existing is OK - it's created on demand
+        // Worktree not existing is OK in steady state — it gets created on the next
+        // mutating command. But with --fix the user is explicitly asking for repair,
+        // so initialize the shared data-sync layout now (this also migrates legacy
+        // per-checkout worktrees and bumps the config to the current format, the same
+        // path `tbd sync` takes).
+        if (fix && !this.checkDryRun('Initialize shared data-sync worktree')) {
+          try {
+            await prepareDataSyncContext(this.cwd);
+          } catch (error) {
+            return {
+              name: 'Worktree',
+              status: 'error',
+              message: `initialization failed: ${
+                error instanceof Error ? error.message : String(error)
+              }`,
+              path: worktreePath,
+            };
+          }
+          // Refresh config in memory so checks that run after this one (e.g.
+          // checkCommonDirLayout) see the just-bumped format instead of the stale
+          // pre-migration view.
+          try {
+            this.config = await readConfig(this.cwd);
+          } catch {
+            // Leave stale config rather than blocking the report.
+          }
+          return {
+            name: 'Worktree',
+            status: 'ok',
+            message: 'initialized',
+            path: worktreePath,
+          };
+        }
         return { name: 'Worktree', status: 'ok', message: 'not created yet', path: worktreePath };
 
       case 'prunable':
