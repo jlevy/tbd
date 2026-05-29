@@ -7,7 +7,12 @@
 import { Command } from 'commander';
 
 import { BaseCommand } from '../lib/base-command.js';
-import { requireInit, SyncError, classifySyncError } from '../lib/errors.js';
+import {
+  requireInit,
+  SyncError,
+  UnrelatedHistoriesError,
+  classifySyncError,
+} from '../lib/errors.js';
 import { listIssues, readIssue, writeIssue } from '../../file/storage.js';
 import {
   git,
@@ -15,6 +20,7 @@ import {
   mergeIssues,
   pushWithRetry,
   ensureWorktreeAttachedToBranch,
+  checkRemoteBranchHealth,
   type ConflictEntry,
   type PushResult,
 } from '../../file/git.js';
@@ -607,6 +613,14 @@ class SyncHandler extends BaseCommand {
       // STEP 2: Fetch remote
       await git('fetch', remote, syncBranch);
 
+      // Detect unrelated histories UP FRONT (post-fetch), before any merge or
+      // conflict/retry work — so sync does no misleading work, diagnostics
+      // point at the right phase, and pushWithRetry is never run against an
+      // unrelated remote (no wasted retries). The rescue is `tbd doctor --fix`.
+      if ((await checkRemoteBranchHealth(remote, syncBranch)).unrelated) {
+        throw new UnrelatedHistoriesError(remote, syncBranch);
+      }
+
       // Get file-level changes from remote using git diff
       let behindCommits = 0;
       try {
@@ -863,6 +877,12 @@ class SyncHandler extends BaseCommand {
         }
       }
     } catch (error) {
+      // Surface real sync failures (e.g. unrelated histories) instead of
+      // masking them as "first sync". A genuine first-sync fetch failure is a
+      // GitError, not a SyncError, so it is still swallowed below.
+      if (error instanceof SyncError) {
+        throw error;
+      }
       // Remote not available - that's ok for first sync
       this.output.debug(`Fetch failed (may be first sync): ${(error as Error).message}`);
     }
@@ -917,6 +937,13 @@ class SyncHandler extends BaseCommand {
 
     // Report push failure - classify error and take appropriate action
     if (pushFailed) {
+      // Defense in depth: a push can still fail with unrelated histories if the
+      // remote became unrelated after our up-front check. Surface the dedicated
+      // remediation rather than the generic "Remote has conflicting changes".
+      if ((await checkRemoteBranchHealth(remote, syncBranch)).unrelated) {
+        throw new UnrelatedHistoriesError(remote, syncBranch);
+      }
+
       // Extract meaningful error display string
       let displayError = pushError;
       const httpMatch = /HTTP (\d+)/.exec(pushError);

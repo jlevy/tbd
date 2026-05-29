@@ -79,6 +79,24 @@ export class SyncError extends CLIError {
 }
 
 /**
+ * Unrelated-history error - the local and remote tbd-sync share no common
+ * ancestor, so a push can never fast-forward and a plain git merge refuses.
+ * `tbd sync` cannot resolve this; the rescue lives in `tbd doctor --fix`.
+ * See: plan-2026-05-29-tbd-sync-unrelated-history-hardening.md
+ */
+export class UnrelatedHistoriesError extends SyncError {
+  constructor(remote = 'origin', syncBranch = 'tbd-sync') {
+    super(
+      `${remote}/${syncBranch} has an unrelated history (no common ancestor) — ` +
+        `push cannot fast-forward and a merge would refuse.\n` +
+        `Run \`tbd doctor --fix\` to reconcile the unrelated histories (non-destructive; ` +
+        `a backup branch is created first).`,
+    );
+    this.name = 'UnrelatedHistoriesError';
+  }
+}
+
+/**
  * Sync branch error - issues with the tbd-sync branch.
  * This can indicate the branch is missing, orphaned, or has diverged.
  * See: tbd-design.md §2.3.6 Worktree Error Classes
