@@ -181,11 +181,18 @@ summary to keep in sync.
 Write the `## X.X.X` CHANGELOG section following
 `tbd guidelines release-notes-guidelines`.
 
+The `## X.X.X` section you write in `CHANGELOG.md` is the single source of truth: at tag
+time `release.yml` extracts it (via `packages/tbd/scripts/extract-changelog.ts`) to
+populate the GitHub Release body.
+`release-notes.md` is a transient, git-ignored working file — regenerate it from the
+committed CHANGELOG whenever you need a `--body-file` for a PR or `gh release edit`:
+
 ```bash
 # Review changes since last release
 git log $(git describe --tags --abbrev=0 2>/dev/null || echo "HEAD~20")..HEAD --oneline
 
-# Write release notes to release-notes.md or prepare for PR body
+# Generate the PR/release body from the CHANGELOG section you just wrote
+pnpm exec tsx packages/tbd/scripts/extract-changelog.ts X.X.X > release-notes.md
 ```
 
 ### Step 6: Push and Tag
