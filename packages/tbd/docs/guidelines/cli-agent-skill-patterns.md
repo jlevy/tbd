@@ -100,6 +100,15 @@ So:
    Stop here unless you have many subcommands or need cross-session state, structured
    auth, or background services — then see §6 (CLI-as-skill) and §7 (MCP).
 
+> **The skill points; the CLI documents.** A CLI’s `--help` (and per-command
+> `mycli <cmd> --help`) is the source of truth for flags, arguments, and exact command
+> sequences. The skill’s job is to name each capability and the command that reaches it,
+> then let the agent open the CLI’s own help for the details.
+> A skill carries the focused context an agent needs to judge that the tool is relevant;
+> copying its help text, flag tables, and command recipes wholesale is the most common
+> way a CLI-backed skill goes wrong.
+> See §3.1 for why and §6.5 for how to avoid it.
+
 ### 0.3 The one-paragraph decision guide
 
 - **Prompt/instructions only** → ship a `SKILL.md`. (§3, §4)
@@ -230,6 +239,17 @@ Skills are loaded in three levels so they cost almost nothing until used:
 material (schemas, examples, scripts) in supporting files.
 Scripts execute *outside* the context window — only their output costs tokens, which is
 why bundling a script can be far cheaper than inlining instructions.
+
+**For a CLI-backed skill, the CLI itself is the Level-3 layer.** Treat `mycli --help`,
+`mycli <command> --help`, and the tool’s informational subcommands (§6.1) as the
+on-demand disclosure tier, the role supporting files play for a prompt-only skill.
+The body (Level 2) should route to them, not transcribe them.
+Inlining a command’s flags, arguments, or step-by-step usage pulls Level-3 detail up
+into Level 2, so it loads on every activation and goes stale whenever the CLI changes.
+The body names the capability and the command; the agent runs that command’s `--help` or
+`--list` when it needs the mechanics.
+This is progressive disclosure applied to a CLI: the tool documents itself, and the
+skill stays a thin pointer to it.
 
 ### 3.2 Bundled scripts and resources
 
@@ -552,6 +572,31 @@ Rules: reference commands **explicitly** (`mycli command arg`, never “see the 
   (e.g., `mycli prime`), and a “Getting Started” one-liner.
 - **A `prime` command** (dashboard, status, and rules) for session start and
   post-compact, distinct from `skill` (pure documentation).
+
+**Route, don’t restate: the skill is a thin pointer, not a copy of `--help`.** The most
+common failure when packaging a CLI as a skill is over-documentation, where the author
+(often an LLM, eagerly) copies the CLI’s help, flag lists, and command recipes wholesale
+into the skill body.
+Don’t. A self-documenting CLI already carries that detail in `mycli --help`,
+`mycli <command> --help`, and its informational subcommands (§6.1), so duplicating it
+only adds cost and drift (§3.1). The skill is a **knowledge, awareness, and routing
+layer**: it carries the focused context an agent needs to judge that the tool is
+relevant, names each key use case once, and gives the one command that reaches it, then
+trusts the agent to run that command (or its `--help`) for the specifics.
+
+| In the skill body (awareness and routing) | In the CLI’s own help (mechanics) |
+| --- | --- |
+| Each key capability or use case, named once | The full flag and argument reference |
+| The single command that reaches it (`mycli create`, `mycli guidelines <name>`) | Exact option syntax, defaults, and edge cases |
+| When to use the tool, and which command for which intent | Step-by-step recipes for a specific command |
+| Pointers: `mycli --help`, `mycli <cmd> --help`, `mycli <cmd> --list` | Examples and output formats |
+
+A quick test: if a line in the skill would become *wrong* when you add a flag or change
+behavior in the CLI, it belongs in the CLI’s help, not the skill.
+Mention every key use case, but push the “how exactly” (the sequence of commands and
+their options) down into the tool.
+Adequate beats exhaustive: a short skill that reliably routes the agent to the right
+command beats a long one that mirrors the manual.
 
 ### 6.6 Distribution & multi-agent install
 
@@ -1031,6 +1076,10 @@ going:
 - Two-part rule: *what it does* + *when to use it*; third person; front-load keywords.
 - Progressive disclosure: metadata → body → supporting files; bundle scripts
   (output-only cost).
+- Route, don’t restate: name each capability and the command to run; let the CLI’s
+  `--help` and informational subcommands hold the flags and recipes.
+  Carry the focused context an agent needs to judge that the tool is relevant, but don’t
+  blindly copy help into the skill; that wastes context and goes stale (§3.1, §6.5).
 - Respect the budget; verify the current model for your target agent (Claude Code ≈ 1%
   of context window, not a flat char count).
 
@@ -1065,6 +1114,9 @@ going:
 **Baseline (every skill)**
 - [ ] `SKILL.md` with `name` + two-part `description`
 - [ ] Body < 500 lines; bulky material in supporting files one level deep
+- [ ] Body carries the essential context to judge whether the tool is relevant and to
+  name each key use case, but routes to `mycli <cmd> --help` or `--list` for flags and
+  recipes instead of copying help wholesale
 - [ ] Third-person description, trigger keywords front-loaded
 - [ ] Installable via commit to `.agents/skills/`, Claude mirror at `.claude/skills/`,
   and/or `npx skills add`
