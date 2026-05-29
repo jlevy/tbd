@@ -42,6 +42,8 @@ import {
   migrateDataToWorktree,
   initWorktree,
   countRemoteIssues,
+  rescueUnrelatedHistory,
+  type RemoteBranchHealth,
 } from '../../file/git.js';
 import {
   CommonDirLayoutError,
@@ -53,6 +55,42 @@ import {
 import { isCompatibleFormat } from '../../lib/tbd-format.js';
 import { type DiagnosticResult, renderDiagnostics } from '../lib/diagnostics.js';
 import { VERSION } from '../lib/version.js';
+
+/**
+ * Map remote sync-branch health to a "Remote sync branch" diagnostic.
+ *
+ * Returns null when the remote branch does not exist (the caller then falls
+ * through to local-branch / new-repo handling). Unrelated histories are a hard
+ * ✗ finding routed to `tbd doctor --fix` (the rescue), NOT `tbd sync` — push
+ * can never fast-forward and a plain merge refuses, so `tbd sync` cannot help.
+ */
+export function classifyRemoteSyncHealth(
+  health: RemoteBranchHealth,
+  remote: string,
+  syncBranch: string,
+): DiagnosticResult | null {
+  if (!health.exists) {
+    return null;
+  }
+  if (health.unrelated) {
+    return {
+      name: 'Remote sync branch',
+      status: 'error',
+      fixable: true,
+      message: `${remote}/${syncBranch} histories are unrelated (no common ancestor) — push cannot succeed`,
+      suggestion: 'Run: tbd doctor --fix to reconcile the unrelated histories',
+    };
+  }
+  if (health.diverged) {
+    return {
+      name: 'Remote sync branch',
+      status: 'warn',
+      message: `${remote}/${syncBranch} has diverged`,
+      suggestion: 'Run: tbd sync to reconcile changes',
+    };
+  }
+  return { name: 'Remote sync branch', status: 'ok', message: `${remote}/${syncBranch}` };
+}
 import { formatHeading } from '../lib/output.js';
 import {
   renderRepositorySection,
@@ -172,7 +210,7 @@ class DoctorHandler extends BaseCommand {
     healthChecks.push(await this.checkLocalSyncBranch());
 
     // Check 12: Remote sync branch health
-    healthChecks.push(await this.checkRemoteSyncBranch());
+    healthChecks.push(await this.checkRemoteSyncBranch(options.fix));
 
     // Check 13: Local has data but remote empty (ai-trade-arena bug detection)
     healthChecks.push(await this.checkLocalVsRemoteData());
@@ -1240,21 +1278,41 @@ class DoctorHandler extends BaseCommand {
    * Check remote sync branch health.
    * See: plan-2026-01-28-sync-worktree-recovery-and-hardening.md §4b
    */
-  private async checkRemoteSyncBranch(): Promise<DiagnosticResult> {
+  private async checkRemoteSyncBranch(fix?: boolean): Promise<DiagnosticResult> {
     const syncBranch = this.config?.sync.branch ?? 'tbd-sync';
     const remote = this.config?.sync.remote ?? 'origin';
     const remoteHealth = await checkRemoteBranchHealth(remote, syncBranch, this.cwd);
 
-    if (remoteHealth.exists) {
-      if (remoteHealth.diverged) {
+    // Unrelated histories: with --fix, run the non-destructive rescue (adopt
+    // remote base + replay local work). Serialized under the shared lock so a
+    // concurrent create/sync from a sibling worktree cannot race the
+    // reset/replay window, matching the worktree-repair fix path.
+    if (remoteHealth.unrelated && fix && !this.checkDryRun('Rescue unrelated tbd-sync histories')) {
+      try {
+        const result = await withSharedDataSyncLock(this.cwd, async () =>
+          rescueUnrelatedHistory(this.cwd, remote, syncBranch),
+        );
         return {
           name: 'Remote sync branch',
-          status: 'warn',
-          message: `${remote}/${syncBranch} has diverged`,
-          suggestion: 'Run: tbd sync to reconcile changes',
+          status: 'ok',
+          message:
+            `rescued: adopted ${remote}/${syncBranch} base, reconciled ` +
+            `${result.localOnly} local-only + ${result.merged} merged ` +
+            `(backup: ${result.backupBranch})`,
+        };
+      } catch (error) {
+        return {
+          name: 'Remote sync branch',
+          status: 'error',
+          message: `rescue failed: ${error instanceof Error ? error.message : String(error)}`,
+          suggestion: 'Resolve manually; the pre-rescue state is on the tbd-backup-* branch',
         };
       }
-      return { name: 'Remote sync branch', status: 'ok', message: `${remote}/${syncBranch}` };
+    }
+
+    const diag = classifyRemoteSyncHealth(remoteHealth, remote, syncBranch);
+    if (diag) {
+      return diag;
     }
 
     // Remote branch doesn't exist

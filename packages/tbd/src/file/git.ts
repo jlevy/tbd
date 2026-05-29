@@ -18,8 +18,67 @@ import { writeFile } from 'atomically';
 
 import type { Issue } from '../lib/types.js';
 import { now, nowFilenameTimestamp } from '../utils/time-utils.js';
+import { parseIssue, serializeIssue } from './parser.js';
+import { listIssues, writeIssue } from './storage.js';
 
 const execFileAsync = promisify(execFile);
+
+/**
+ * Error thrown by {@link git} when a git command exits non-zero.
+ *
+ * Carries the process `exitCode` so callers can branch on git's exit status
+ * (e.g. `ls-remote --exit-code` => 2 means "ref absent", `merge-base` => 1
+ * means "no common ancestor") instead of string-matching stderr. The original
+ * message/stderr is preserved so existing message-based classifiers
+ * (classifySyncError) keep working.
+ */
+export class GitError extends Error {
+  /** Process exit code, or null for a spawn failure (e.g. git not found). */
+  readonly exitCode: number | null;
+  readonly stderr: string;
+  readonly stdout: string;
+  readonly args: string[];
+
+  constructor(
+    message: string,
+    opts: { exitCode: number | null; stderr: string; stdout: string; args: string[] },
+  ) {
+    super(message);
+    this.name = 'GitError';
+    this.exitCode = opts.exitCode;
+    this.stderr = opts.stderr;
+    this.stdout = opts.stdout;
+    this.args = opts.args;
+  }
+
+  /**
+   * Wrap a raw execFile rejection into a GitError.
+   *
+   * Node's execFile rejection carries `code` (numeric exit code for a normal
+   * exit, or a string like 'ENOENT' for a spawn failure), plus `stderr`/`stdout`.
+   */
+  static from(err: unknown, args: string[]): GitError {
+    const raw = err as {
+      message?: string;
+      code?: unknown;
+      stderr?: unknown;
+      stdout?: unknown;
+    };
+    const exitCode = typeof raw.code === 'number' ? raw.code : null;
+    const stderr = typeof raw.stderr === 'string' ? raw.stderr : '';
+    const stdout = typeof raw.stdout === 'string' ? raw.stdout : '';
+    const message = raw.message ?? `git ${args.join(' ')} failed`;
+    return new GitError(message, { exitCode, stderr, stdout, args });
+  }
+}
+
+/**
+ * Read the git exit code from a thrown value, or null if it is not a GitError
+ * (or carries no numeric code, e.g. a spawn failure).
+ */
+export function exitCodeOf(err: unknown): number | null {
+  return err instanceof GitError ? err.exitCode : null;
+}
 
 /**
  * Maximum buffer size for git command output.
@@ -37,8 +96,29 @@ const GIT_MAX_BUFFER = 50 * 1024 * 1024; // 50MB
  * Uses execFile for security - prevents shell injection attacks.
  */
 export async function git(...args: string[]): Promise<string> {
-  const { stdout } = await execFileAsync('git', args, { maxBuffer: GIT_MAX_BUFFER });
-  return stdout.trim();
+  try {
+    const { stdout } = await execFileAsync('git', args, { maxBuffer: GIT_MAX_BUFFER });
+    return stdout.trim();
+  } catch (err) {
+    throw GitError.from(err, args);
+  }
+}
+
+/**
+ * Like {@link git} but with `GIT_TERMINAL_PROMPT=0` so a network operation
+ * (e.g. a best-effort push) fails fast instead of blocking on a credential
+ * prompt in a non-interactive environment.
+ */
+async function gitNoPrompt(...args: string[]): Promise<string> {
+  try {
+    const { stdout } = await execFileAsync('git', args, {
+      maxBuffer: GIT_MAX_BUFFER,
+      env: { ...process.env, GIT_TERMINAL_PROMPT: '0' },
+    });
+    return stdout.trim();
+  } catch (err) {
+    throw GitError.from(err, args);
+  }
 }
 
 /**
@@ -598,18 +678,69 @@ export function mergeIssues(base: Issue | null, local: Issue, remote: Issue): Me
 }
 
 /**
+ * Issues bucketed by ULID/id across two (possibly unrelated) tbd-sync roots.
+ */
+export interface UlidBuckets {
+  /** Present only locally — must be re-applied onto the adopted remote base. */
+  localOnly: Issue[];
+  /** Present only on the remote — already on the adopted base; nothing to do. */
+  remoteOnly: Issue[];
+  /** Same id, substantively equal — no action (remote version kept). */
+  bothIdentical: Issue[];
+  /** Same id, differing content — must be field-merged, never dropped. */
+  bothDifferent: { local: Issue; remote: Issue }[];
+}
+
+/**
+ * Categorize issues from two unrelated tbd-sync roots by id (which embeds the
+ * globally unique ULID). Pure and git-free so the rescue is robust to the
+ * missing merge base. Substantive equality ignores version/updated_at so
+ * trivial bumps don't masquerade as conflicts.
+ */
+export function categorizeIssuesByUlid(local: Issue[], remote: Issue[]): UlidBuckets {
+  const localById = new Map(local.map((i) => [i.id, i]));
+  const remoteById = new Map(remote.map((i) => [i.id, i]));
+  const buckets: UlidBuckets = {
+    localOnly: [],
+    remoteOnly: [],
+    bothIdentical: [],
+    bothDifferent: [],
+  };
+
+  for (const [id, localIssue] of localById) {
+    const remoteIssue = remoteById.get(id);
+    if (!remoteIssue) {
+      buckets.localOnly.push(localIssue);
+    } else if (issuesSubstantivelyEqual(localIssue, remoteIssue)) {
+      buckets.bothIdentical.push(remoteIssue);
+    } else {
+      buckets.bothDifferent.push({ local: localIssue, remote: remoteIssue });
+    }
+  }
+  for (const [id, remoteIssue] of remoteById) {
+    if (!localById.has(id)) {
+      buckets.remoteOnly.push(remoteIssue);
+    }
+  }
+  return buckets;
+}
+
+/**
  * Maximum retry attempts for push operations.
  */
 const MAX_PUSH_RETRIES = 3;
 
 /**
- * Check if error is a non-fast-forward rejection.
+ * Check if error is a non-fast-forward rejection (also the init race signal).
  */
 function isNonFastForward(error: unknown): boolean {
-  const msg = error instanceof Error ? error.message : String(error);
-  return (
-    msg.includes('non-fast-forward') || msg.includes('fetch first') || msg.includes('rejected')
-  );
+  const msg =
+    error instanceof GitError
+      ? `${error.stderr}\n${error.message}`
+      : error instanceof Error
+        ? error.message
+        : String(error);
+  return /non-fast-forward|fetch first|rejected|updates were rejected/i.test(msg);
 }
 
 /**
@@ -703,20 +834,52 @@ export async function branchExists(branch: string, baseDir?: string): Promise<bo
 }
 
 /**
- * Check if a remote branch exists.
+ * Tri-state result of probing whether a remote branch exists.
+ *
+ * - `present`      ls-remote found the ref.
+ * - `absent`       remote reachable, ref missing (ls-remote --exit-code => 2).
+ * - `check-failed` the check itself failed (auth/network/transient).
+ */
+export type RemoteBranchProbe = 'present' | 'absent' | 'check-failed';
+
+/**
+ * Probe whether a remote branch exists, distinguishing a clean "absent" from a
+ * "check failed".
+ *
+ * `git ls-remote --exit-code` exits 2 when the connection succeeded but no ref
+ * matched; any other failure (auth/network/transient, or git not found) is a
+ * check failure. Orphan-creating callers MUST branch on all three states and
+ * never treat `check-failed` as `absent` — doing so risks creating a divergent
+ * local branch when the remote is merely unreachable.
+ */
+export async function probeRemoteBranch(
+  remote: string,
+  branch: string,
+  baseDir?: string,
+): Promise<RemoteBranchProbe> {
+  const dirArgs = baseDir ? ['-C', baseDir] : [];
+  try {
+    await git(...dirArgs, 'ls-remote', '--exit-code', remote, `refs/heads/${branch}`);
+    return 'present';
+  } catch (err) {
+    return exitCodeOf(err) === 2 ? 'absent' : 'check-failed';
+  }
+}
+
+/**
+ * Check if a remote branch exists (fail-closed boolean wrapper).
+ *
+ * Returns true only for a confirmed `present`; both `absent` and `check-failed`
+ * read as false. Retained for read-only / status-style callers (e.g. uninstall)
+ * where fail-closed is acceptable. Orphan-creating paths MUST use
+ * {@link probeRemoteBranch} directly so they can refuse on `check-failed`.
  */
 export async function remoteBranchExists(
   remote: string,
   branch: string,
   baseDir?: string,
 ): Promise<boolean> {
-  try {
-    const dirArgs = baseDir ? ['-C', baseDir] : [];
-    await git(...dirArgs, 'ls-remote', '--exit-code', remote, `refs/heads/${branch}`);
-    return true;
-  } catch {
-    return false;
-  }
+  return (await probeRemoteBranch(remote, branch, baseDir)) === 'present';
 }
 
 /**
@@ -740,6 +903,7 @@ import {
   WORKTREE_DIR_NAME,
   LEGACY_WORKTREE_DIR,
   TBD_DIR,
+  DATA_SYNC_DIR,
   DATA_SYNC_DIR_NAME,
   SYNC_BRANCH,
   resolveSharedTbdPaths,
@@ -749,8 +913,11 @@ import { DATA_SYNC_SCHEMA_VERSION } from '../lib/schemas.js';
 import {
   loadIdMapping,
   mergeIdMappings,
+  reconcileMappings,
+  parseIdMappingFromYaml,
   resolveIdMappingConflicts,
   saveIdMapping,
+  type IdMapping,
 } from './id-mapping.js';
 
 async function pathExists(path: string): Promise<boolean> {
@@ -1104,6 +1271,83 @@ export async function migrateLegacyWorktreesToShared(
 }
 
 /**
+ * Whether the given remote is configured (has a URL) in the repo at baseDir.
+ * A local-only repo (no remote) is safe to orphan and never pushes.
+ */
+async function remoteIsConfigured(remote: string, baseDir: string): Promise<boolean> {
+  try {
+    await git('-C', baseDir, 'config', '--get', `remote.${remote}.url`);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Whether the data-sync worktree carries any user issue files (is-<ulid>.md),
+ * as opposed to only the initial orphan scaffold (.gitkeep / .gitattributes).
+ */
+async function worktreeHasUserIssues(dataSyncPath: string): Promise<boolean> {
+  try {
+    const entries = await readdir(join(dataSyncPath, 'issues'));
+    return entries.some((name) => /^is-.*\.md$/.test(name));
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Push a freshly-created orphan tbd-sync immediately so "first init wins"
+ * (closes the #137 race window). Classifies the outcome:
+ *
+ *  - success            => pushed: true ("first init wins").
+ *  - transient/permanent network/auth failure => best-effort, ignored
+ *    (branch stays local-only until the first reachable sync).
+ *  - non-fast-forward rejection => a detected init race (environment B pushed
+ *    its own orphan first). Fetch, then:
+ *      - scaffold-only local  => adopt the remote (reset local to remote).
+ *      - local has user issues => fail loudly toward `tbd doctor --fix` so the
+ *        local work is never silently discarded.
+ *
+ * MUST be called after the orphan's initial commit, while the worktree is on
+ * syncBranch.
+ */
+export async function pushFreshOrphan(
+  baseDir: string,
+  worktreePath: string,
+  remote: string,
+  syncBranch: string,
+  dataSyncPath: string,
+): Promise<{ pushed: boolean; adopted: boolean }> {
+  try {
+    await gitNoPrompt('-C', worktreePath, 'push', remote, `HEAD:refs/heads/${syncBranch}`);
+    return { pushed: true, adopted: false };
+  } catch (err) {
+    if (!isNonFastForward(err)) {
+      // Transient / permanent (restricted egress, no auth, network) — the push
+      // is best-effort and setup must not break. The window simply shrinks to
+      // "until the first reachable sync".
+      return { pushed: false, adopted: false };
+    }
+
+    // Detected init race: the remote already has a (different) branch.
+    await gitNoPrompt('-C', baseDir, 'fetch', remote, syncBranch);
+
+    if (await worktreeHasUserIssues(dataSyncPath)) {
+      throw new Error(
+        `Detected unrelated ${remote}/${syncBranch} histories during init, and the local ` +
+          `branch already contains issues. Refusing to discard local work. ` +
+          `Run \`tbd doctor --fix\` to reconcile the histories.`,
+      );
+    }
+
+    // Scaffold-only local: adopt the remote as canonical ("first init wins").
+    await git('-C', worktreePath, 'reset', '--hard', `${remote}/${syncBranch}`);
+    return { pushed: false, adopted: true };
+  }
+}
+
+/**
  * Initialize the hidden worktree for the tbd-sync branch.
  * Follows the decision tree from tbd-design.md §2.3.
  *
@@ -1155,9 +1399,24 @@ export async function initWorktree(
       return { success: true, path: worktreePath, created: true };
     }
 
-    // Check if remote branch exists
-    const remoteExists = await remoteBranchExists(remote, syncBranch, baseDir);
-    if (remoteExists) {
+    // Probe the remote. A configured-but-unreachable remote must NOT fall
+    // through to orphan creation (that is how unrelated histories are born);
+    // a local-only repo with no remote is safe to orphan and never pushes.
+    const hasRemote = await remoteIsConfigured(remote, baseDir);
+    const probe: RemoteBranchProbe = hasRemote
+      ? await probeRemoteBranch(remote, syncBranch, baseDir)
+      : 'absent';
+
+    if (probe === 'check-failed') {
+      return {
+        success: false,
+        error:
+          `Could not verify whether ${remote}/${syncBranch} exists (remote check failed); ` +
+          `refusing to create a divergent local branch. Check connectivity/auth and retry.`,
+      };
+    }
+
+    if (probe === 'present') {
       // Fetch and create worktree from remote branch with local tracking branch
       await git('-C', baseDir, 'fetch', remote, syncBranch);
       // Use -b to create local branch tracking remote, not --detach
@@ -1175,7 +1434,7 @@ export async function initWorktree(
       return { success: true, path: worktreePath, created: true };
     }
 
-    // No branch exists - create orphan worktree (requires Git 2.42+)
+    // No branch exists (probe === 'absent') - create orphan worktree (requires Git 2.42+)
     // Syntax: git worktree add --orphan -b <branch> <path>
     await requireGitVersion();
     await git('-C', baseDir, 'worktree', 'add', '--orphan', '-b', syncBranch, worktreePath);
@@ -1204,6 +1463,13 @@ export async function initWorktree(
     // Use --no-verify to bypass parent repo hooks (lefthook, husky, etc.)
     await git('-C', worktreePath, 'add', '.');
     await gitCommit(worktreePath, '--no-verify', '-m', 'Initialize tbd-sync branch');
+
+    // Push the fresh orphan immediately so "first init wins" and the #137 race
+    // window closes. Only when a remote is configured; best-effort on transient
+    // failure, adopt-or-fail-loud on a detected rejected-race.
+    if (hasRemote) {
+      await pushFreshOrphan(baseDir, worktreePath, remote, syncBranch, dataSyncPath);
+    }
 
     return { success: true, path: worktreePath, created: true };
   } catch (error) {
@@ -1310,6 +1576,12 @@ export async function checkLocalBranchHealth(
 export interface RemoteBranchHealth {
   exists: boolean;
   diverged: boolean;
+  /**
+   * True when a local tbd-sync exists but shares no common ancestor with the
+   * remote (merge-base finds nothing). This is the #139 worst case: push can
+   * never fast-forward and a plain merge refuses. `diverged` is also true.
+   */
+  unrelated: boolean;
   head?: string;
 }
 
@@ -1332,22 +1604,33 @@ export async function checkRemoteBranchHealth(
     const head = await git(...dirArgs, 'rev-parse', `refs/remotes/${remote}/${syncBranch}`);
     const remoteHead = head.trim();
 
-    // Check for divergence (only if local branch exists)
+    // Determine divergence / unrelated state. Distinguish "no local branch"
+    // (stays false/false) from "local exists but no common ancestor" (the
+    // unrelated worst case) — the old bare catch collapsed both to false.
     let diverged = false;
-    try {
-      const mergeBase = await git(...dirArgs, 'merge-base', syncBranch, `${remote}/${syncBranch}`);
-      const localHead = await git(...dirArgs, 'rev-parse', syncBranch);
-
-      // Diverged if merge-base is neither local nor remote HEAD
-      diverged = mergeBase.trim() !== localHead.trim() && mergeBase.trim() !== remoteHead;
-    } catch {
-      // Local branch doesn't exist - can't be diverged
-      diverged = false;
+    let unrelated = false;
+    if (await branchExists(syncBranch, baseDir)) {
+      const localHead = (await git(...dirArgs, 'rev-parse', syncBranch)).trim();
+      try {
+        const mergeBase = (
+          await git(...dirArgs, 'merge-base', syncBranch, `${remote}/${syncBranch}`)
+        ).trim();
+        // Diverged if merge-base is neither local nor remote HEAD.
+        diverged = mergeBase !== localHead && mergeBase !== remoteHead;
+      } catch (err) {
+        // merge-base exits 1 with no output when the two commits share no
+        // ancestor: unrelated histories. Any other exit is a transient/unknown
+        // failure and must NOT masquerade as "unrelated".
+        if (exitCodeOf(err) === 1) {
+          unrelated = true;
+          diverged = true;
+        }
+      }
     }
 
-    return { exists: true, diverged, head: remoteHead };
+    return { exists: true, diverged, unrelated, head: remoteHead };
   } catch {
-    return { exists: false, diverged: false };
+    return { exists: false, diverged: false, unrelated: false };
   }
 }
 
@@ -1435,6 +1718,189 @@ export async function checkSyncConsistency(
     worktreeMatchesLocal: worktreeHead.trim() === localHead.trim(),
     localAhead,
     localBehind,
+  };
+}
+
+/**
+ * Outcome of a non-destructive unrelated-history rescue.
+ */
+export interface RescueResult {
+  /** Backup branch holding the pre-rescue local HEAD (always recoverable). */
+  backupBranch: string;
+  /** Number of local-only issues re-applied onto the adopted remote base. */
+  localOnly: number;
+  /** Number of same-id divergent issues field-merged. */
+  merged: number;
+  /** Number of those merges that preserved a losing version in attic/conflicts/. */
+  conflicts: number;
+  /** Total issue files after the rescue. */
+  totalIssues: number;
+}
+
+/** Read all issues from a git ref's data-sync tree (no checkout needed). */
+async function readBranchIssues(baseDir: string, ref: string): Promise<Issue[]> {
+  let listing: string;
+  try {
+    listing = await git(
+      '-C',
+      baseDir,
+      'ls-tree',
+      '-r',
+      '--name-only',
+      ref,
+      '--',
+      `${DATA_SYNC_DIR}/issues/`,
+    );
+  } catch {
+    return [];
+  }
+  const issues: Issue[] = [];
+  for (const path of listing.split('\n').filter((p) => /\/is-.*\.md$/.test(p))) {
+    try {
+      const content = await git('-C', baseDir, 'show', `${ref}:${path}`);
+      issues.push(parseIssue(content));
+    } catch {
+      // Skip unreadable/invalid issue files; rescue is best-effort per file.
+    }
+  }
+  return issues;
+}
+
+/** Read the ID mapping from a git ref's ids.yml (empty if absent). */
+async function readBranchMapping(baseDir: string, ref: string): Promise<IdMapping> {
+  try {
+    const content = await git('-C', baseDir, 'show', `${ref}:${DATA_SYNC_DIR}/mappings/ids.yml`);
+    return parseIdMappingFromYaml(content);
+  } catch {
+    return { shortToUlid: new Map(), ulidToShort: new Map() };
+  }
+}
+
+/** Preserve a losing issue version explicitly under attic/conflicts/. */
+async function preserveLosingVersion(dataSyncPath: string, loser: Issue): Promise<void> {
+  const conflictsDir = join(dataSyncPath, 'attic', 'conflicts');
+  await mkdir(conflictsDir, { recursive: true });
+  const filename = `${loser.id}__${nowFilenameTimestamp()}.md`;
+  await writeFile(join(conflictsDir, filename), serializeIssue(loser));
+}
+
+/**
+ * Non-destructively rescue an unrelated tbd-sync history (#139).
+ *
+ * Reconciles at the issue-file layer (ULIDs guarantee no collisions), never via
+ * a git history merge. Adopts the remote as the canonical base and replays
+ * local work onto it. The only destructive step (the reset) happens AFTER a
+ * backup branch is created, so the pre-rescue HEAD is always recoverable and
+ * the rescue is restartable.
+ *
+ * MUST be called while holding `withSharedDataSyncLock`. Aborts if the
+ * data-sync worktree is dirty or has a merge in progress.
+ */
+export async function rescueUnrelatedHistory(
+  baseDir: string,
+  remote = 'origin',
+  syncBranch: string = SYNC_BRANCH,
+): Promise<RescueResult> {
+  const { sharedWorktreePath: worktreePath, sharedDataSyncDir: dataSyncPath } =
+    await getSharedPaths(baseDir);
+
+  // Preconditions: never reset over uncommitted work or an in-progress merge.
+  const dirty = (await git('-C', worktreePath, 'status', '--porcelain')).trim();
+  if (dirty) {
+    throw new Error(
+      'Refusing to rescue: the tbd-sync worktree has uncommitted changes. ' +
+        'Commit or stash them, then retry.',
+    );
+  }
+  const mergeInProgress = await git('-C', worktreePath, 'rev-parse', '-q', '--verify', 'MERGE_HEAD')
+    .then(() => true)
+    .catch(() => false);
+  if (mergeInProgress) {
+    throw new Error(
+      'Refusing to rescue: a merge is in progress in the tbd-sync worktree. ' +
+        'Resolve or abort it, then retry.',
+    );
+  }
+
+  // 1. Fetch the remote so origin/<syncBranch> is current.
+  await gitNoPrompt('-C', baseDir, 'fetch', remote, syncBranch);
+
+  // Capture local state BEFORE the reset.
+  const localIssues = await listIssues(dataSyncPath);
+  const localMapping = await loadIdMapping(dataSyncPath);
+  const remoteIssues = await readBranchIssues(baseDir, `${remote}/${syncBranch}`);
+  const remoteMapping = await readBranchMapping(baseDir, `${remote}/${syncBranch}`);
+
+  // 2. Safety net: a backup branch at the pre-rescue local HEAD.
+  const localHead = (await git('-C', baseDir, 'rev-parse', syncBranch)).trim();
+  const backupBranch = `tbd-backup-${nowFilenameTimestamp()}`;
+  await git('-C', baseDir, 'branch', backupBranch, localHead);
+
+  // 3. Categorize by ULID (pure; robust to the missing merge base).
+  const buckets = categorizeIssuesByUlid(localIssues, remoteIssues);
+
+  // 4. Adopt the remote as the canonical base (the only destructive step, now
+  //    safely after the backup branch).
+  await git('-C', worktreePath, 'reset', '--hard', `${remote}/${syncBranch}`);
+
+  // 5. Replay local work onto the base.
+  let conflicts = 0;
+  for (const issue of buckets.localOnly) {
+    await writeIssue(dataSyncPath, issue);
+  }
+  for (const { local, remote: remoteIssue } of buckets.bothDifferent) {
+    // No common ancestor between unrelated roots, so mergeIssues has no
+    // trustworthy base (with equal created_at it synthesizes one from the
+    // lower-version side). Preserve EVERY substantively-different side that the
+    // merge does not keep, so an edit is never silently dropped without an
+    // attic artifact — independent of whether mergeIssues reported a field
+    // conflict.
+    const { merged } = mergeIssues(null, local, remoteIssue);
+    await writeIssue(dataSyncPath, merged);
+    for (const side of [local, remoteIssue]) {
+      if (!issuesSubstantivelyEqual(side, merged)) {
+        await preserveLosingVersion(dataSyncPath, side);
+        conflicts++;
+      }
+    }
+  }
+
+  // Union the ID mappings (additive). The remote is the adopted canonical base,
+  // so it MUST win short-ID collisions — give remoteMapping precedence so an
+  // issue already on the shared remote keeps its public ID. reconcileMappings
+  // then regenerates only the conflicting local-only mappings.
+  const mergedMapping = mergeIdMappings(remoteMapping, localMapping);
+  const allIssues = await listIssues(dataSyncPath);
+  reconcileMappings(
+    allIssues.map((i) => i.id),
+    mergedMapping,
+    remoteMapping,
+  );
+  await saveIdMapping(dataSyncPath, mergedMapping);
+
+  // 6. Commit. The push is now a clean fast-forward over origin/<syncBranch>.
+  // If adopting the remote base left nothing to reconcile (e.g. two
+  // scaffold-only roots, or identical issue sets + mappings), the reset already
+  // adopted the base successfully — skip the commit rather than failing on
+  // "nothing to commit".
+  await git('-C', worktreePath, 'add', '-A');
+  const pending = (await git('-C', worktreePath, 'status', '--porcelain')).trim();
+  if (pending) {
+    await gitCommit(
+      worktreePath,
+      '--no-verify',
+      '-m',
+      `tbd rescue: adopt remote base + reconcile ${buckets.localOnly.length + buckets.bothDifferent.length} issue(s) ` +
+        `(${buckets.localOnly.length} local-only, ${buckets.bothDifferent.length} merged)`,
+    );
+  }
+
+  return {
+    backupBranch,
+    localOnly: buckets.localOnly.length,
+    merged: buckets.bothDifferent.length,
+    conflicts,
+    totalIssues: allIssues.length,
   };
 }
 
