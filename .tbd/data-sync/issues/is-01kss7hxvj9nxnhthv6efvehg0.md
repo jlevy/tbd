@@ -5,7 +5,7 @@ title: tbd-sync unrelated-history hardening (detection, prevention, rescue)
 kind: epic
 status: open
 priority: 1
-version: 11
+version: 12
 spec_path: docs/project/specs/active/plan-2026-05-29-tbd-sync-unrelated-history-hardening.md
 labels: []
 dependencies: []
@@ -20,6 +20,7 @@ child_order_hints:
   - is-01kss7jfzgth1cbt000cjbf85x
   - is-01kss7jghvg4n33dmfrq9zzv1g
   - is-01kss7jh3y0zt94729xzgfcj6m
+  - is-01kst8pd1c6e9khrcjvwbnya4f
 created_at: 2026-05-29T06:43:10.833Z
-updated_at: 2026-05-29T06:43:30.557Z
+updated_at: 2026-05-29T16:22:20.460Z
 ---
