@@ -205,17 +205,30 @@ export async function withLockfile<T>(
         throw error;
       }
 
-      // Lock exists — check if it's stale (holder likely crashed)
+      // Lock exists — inspect it.
+      let lockStat;
       try {
-        const lockStat = await stat(lockPath);
-        if (Date.now() - lockStat.mtimeMs > staleMs) {
-          // Break atomically so concurrent waiters can't both acquire.
-          await breakStaleLock(lockPath);
-          continue; // Retry immediately after breaking stale lock
-        }
+        lockStat = await stat(lockPath);
       } catch {
         // Lock was released between our mkdir and stat — retry immediately
         continue;
+      }
+
+      // A non-directory at the lock path is unexpected filesystem state. Do not
+      // rename it aside: that would move the user's file out of the way and let the
+      // critical section run unprotected. Fail loudly instead (mirrors how an
+      // unexpected mkdir error is surfaced rather than masked as contention).
+      if (!lockStat.isDirectory()) {
+        throw new Error(
+          `Lock path exists but is not a directory: ${lockPath}. ` +
+            `Refusing to break it; remove the conflicting file and retry.`,
+        );
+      }
+
+      if (Date.now() - lockStat.mtimeMs > staleMs) {
+        // Break atomically so concurrent waiters can't both acquire.
+        await breakStaleLock(lockPath);
+        continue; // Retry immediately after breaking stale lock
       }
 
       // Lock is fresh — wait and retry

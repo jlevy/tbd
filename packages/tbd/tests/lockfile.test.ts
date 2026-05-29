@@ -6,7 +6,7 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { mkdtemp, rm, mkdir, stat } from 'node:fs/promises';
+import { mkdtemp, rm, mkdir, stat, writeFile, readFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -137,6 +137,28 @@ describe('withLockfile', () => {
     ).rejects.toMatchObject({ code: 'ENOENT' });
 
     expect(executed).toBe(false);
+  });
+
+  it('refuses to break a non-directory at the lock path and leaves it untouched', async () => {
+    const lockPath = join(tempDir, 'occupied.lock');
+    // A regular file (not the directory the lock protocol creates) sits at the path.
+    await writeFile(lockPath, 'important user data');
+
+    let executed = false;
+    await expect(
+      withLockfile(
+        lockPath,
+        () => {
+          executed = true;
+          return Promise.resolve('should-not-run');
+        },
+        { staleMs: -1, timeoutMs: 2000 }, // would mark any lock stale immediately
+      ),
+    ).rejects.toThrow('not a directory');
+
+    // The critical section never ran and the file was not moved aside.
+    expect(executed).toBe(false);
+    expect(await readFile(lockPath, 'utf-8')).toBe('important user data');
   });
 
   it('detects and breaks stale lock within timeout when staleMs < timeoutMs', async () => {

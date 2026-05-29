@@ -32,28 +32,32 @@ jobs:
 
       - run: pnpm publint
 
-      - name: Publish to npm
-        run: pnpm -r publish --access public --no-git-checks
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-          NPM_CONFIG_PROVENANCE: true
-
       - name: Extract version from tag
         id: version
         run: echo "version=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
 
+      # Resolve the release body BEFORE publishing: if the wrapper or changelog path
+      # ever fails, fail here rather than after the package is already on npm.
       - name: Extract changelog for this version
         id: changelog
         run: |
           # Body extraction lives in a unit-tested module (src/utils/changelog.ts,
           # tested in tests/extract-changelog.test.ts) invoked via a thin script, not
           # inline shell, so the logic can be tested and debugged outside of CI. The
-          # shell here only wires the script output into the GITHUB_OUTPUT heredoc.
+          # shell here only wires the script output into the GITHUB_OUTPUT heredoc,
+          # using a random delimiter so a changelog line equal to "EOF" can't corrupt it.
+          DELIM="body_$(openssl rand -hex 8)"
           {
-            echo "body<<EOF"
+            echo "body<<${DELIM}"
             pnpm exec tsx packages/tbd/scripts/extract-changelog.ts "${{ steps.version.outputs.version }}"
-            echo "EOF"
+            echo "${DELIM}"
           } >> "$GITHUB_OUTPUT"
+
+      - name: Publish to npm
+        run: pnpm -r publish --access public --no-git-checks
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          NPM_CONFIG_PROVENANCE: true
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2

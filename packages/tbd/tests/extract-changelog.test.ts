@@ -8,6 +8,12 @@
  * locks in the regression and lets the workflow invoke it by reference.
  */
 
+import { execFileSync } from 'node:child_process';
+import { mkdtempSync, writeFileSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
+
 import { describe, it, expect } from 'vitest';
 
 import { extractChangelogSection, resolveReleaseBody } from '../src/utils/changelog.js';
@@ -99,5 +105,46 @@ describe('resolveReleaseBody', () => {
 
   it('falls back to "Release v<version>" when the section is missing', () => {
     expect(resolveReleaseBody(CHANGELOG, '9.9.9')).toBe('Release v9.9.9');
+  });
+});
+
+// Smoke test the actual CLI wrapper (scripts/extract-changelog.ts), not just the pure
+// module, so the path the release workflow runs stays covered outside tag-only CI. Runs
+// the script the same way the workflow does, via tsx, but shell-free for portability.
+describe('extract-changelog.ts (CLI wrapper)', () => {
+  const scriptPath = fileURLToPath(new URL('../scripts/extract-changelog.ts', import.meta.url));
+
+  function runScript(args: string[]): string {
+    return execFileSync(process.execPath, ['--import', 'tsx', scriptPath, ...args], {
+      encoding: 'utf-8',
+    });
+  }
+
+  it('prints the changelog section for a present version', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'tbd-changelog-cli-'));
+    try {
+      const changelog = join(dir, 'CHANGELOG.md');
+      writeFileSync(
+        changelog,
+        ['## 1.2.3', '', '- A change', '', '## 1.2.2', '', '- old'].join('\n'),
+      );
+      const out = runScript(['1.2.3', changelog]);
+      expect(out).toContain('## 1.2.3');
+      expect(out).toContain('- A change');
+      expect(out).not.toContain('## 1.2.2');
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it('prints the fallback for a missing version', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'tbd-changelog-cli-'));
+    try {
+      const changelog = join(dir, 'CHANGELOG.md');
+      writeFileSync(changelog, '## 1.0.0\n\n- only release\n');
+      expect(runScript(['9.9.9', changelog]).trim()).toBe('Release v9.9.9');
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
   });
 });

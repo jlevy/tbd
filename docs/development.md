@@ -241,8 +241,12 @@ publishes `get-tbd` to npm, and creates a GitHub Release whose body is the match
    [`release-notes-guidelines`](../packages/tbd/docs/guidelines/release-notes-guidelines.md).
 3. `pnpm release:verify` (build and publint) and `pnpm test`; open the release PR; merge
    once CI is green.
-4. Tag `vX.Y.Z` on `main` and push it — the Release workflow publishes to npm and
-   creates the GitHub Release.
+4. **Gate before tagging:** wait until main CI has reached `conclusion=success` on the
+   merge commit itself (filter the run by that SHA — right after a merge an unfiltered
+   query can return the previous run).
+   Only then tag `vX.Y.Z` on that exact commit and push it — the Release workflow
+   publishes to npm and creates the GitHub Release.
+   See [publishing.md](publishing.md) §Step 6 for the exact gate commands.
 
 For the full step-by-step (including the version-bump heuristic, supply-chain review,
 and verification), see [publishing.md](publishing.md).
