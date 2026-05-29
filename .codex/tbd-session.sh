@@ -18,10 +18,10 @@ fi
 
 # Pinned zero-install fallback. Never use an unpinned runner here.
 if command -v npx &> /dev/null; then
-    npx --yes get-tbd@0.1.29 prime "$@"
+    npx --yes get-tbd@0.1.31-dev.28.3c2e7ca-dirty prime "$@"
     exit $?
 fi
 
 echo "[tbd] tbd CLI not found and npx is unavailable."
-echo "[tbd] Install it with: npm install -g get-tbd@0.1.29"
+echo "[tbd] Install it with: npm install -g get-tbd@0.1.31-dev.28.3c2e7ca-dirty"
 exit 1
