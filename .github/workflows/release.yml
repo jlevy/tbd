@@ -45,14 +45,13 @@ jobs:
       - name: Extract changelog for this version
         id: changelog
         run: |
-          # Body extraction lives in a unit-tested script (see
-          # packages/tbd/scripts/extract-changelog.mjs and
-          # packages/tbd/tests/extract-changelog.test.ts), not inline shell, so the
-          # logic can be tested and debugged outside of CI. The shell here only wires
-          # the script output into the multiline GITHUB_OUTPUT delimiter format.
+          # Body extraction lives in a unit-tested module (src/utils/changelog.ts,
+          # tested in tests/extract-changelog.test.ts) invoked via a thin script, not
+          # inline shell, so the logic can be tested and debugged outside of CI. The
+          # shell here only wires the script output into the GITHUB_OUTPUT heredoc.
           {
             echo "body<<EOF"
-            node packages/tbd/scripts/extract-changelog.mjs "${{ steps.version.outputs.version }}"
+            pnpm exec tsx packages/tbd/scripts/extract-changelog.ts "${{ steps.version.outputs.version }}"
             echo "EOF"
           } >> "$GITHUB_OUTPUT"
 

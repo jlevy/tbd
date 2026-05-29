@@ -259,14 +259,16 @@ went out with the fallback `Release vX.Y.Z` string) because it exited 0 either w
 
 Instead, write a clean, unit-tested script and invoke it by reference:
 
-- Put the logic in `packages/tbd/scripts/*.mjs` (or a `src/` module) with a pure,
-  exported function. See `scripts/extract-changelog.mjs` and its test
-  `tests/extract-changelog.test.ts` for the pattern.
+- Put the pure logic in a `src/` module with an exported function and a thin
+  `scripts/*.ts` CLI wrapper (run via `tsx`). See `src/utils/changelog.ts`, its wrapper
+  `scripts/extract-changelog.ts`, and the test `tests/extract-changelog.test.ts`. Import
+  source from tests as `../src/...js` (avoid importing `.mjs` from a test — it resolves
+  inconsistently under vitest on Windows).
 - Cover it with a normal vitest test so the behavior is locked in and debuggable
   locally.
 - In the workflow, the `run:` step should only call the script
-  (`node packages/tbd/scripts/extract-changelog.mjs …`) and wire its output; keep any
-  remaining shell to trivial plumbing (e.g. the `GITHUB_OUTPUT` heredoc).
+  (`pnpm exec tsx packages/tbd/scripts/extract-changelog.ts …`) and wire its output;
+  keep any remaining shell to trivial plumbing (e.g. the `GITHUB_OUTPUT` heredoc).
 
 If you find yourself reaching for `awk`/`sed` in a workflow, that is the signal to move
 it into a script.

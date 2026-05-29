@@ -1,5 +1,6 @@
 /**
- * Tests for the release changelog extractor used by .github/workflows/release.yml.
+ * Tests for the release changelog extractor (src/utils/changelog.ts), wrapped by
+ * scripts/extract-changelog.ts and used by .github/workflows/release.yml.
  *
  * This logic previously lived as inline awk in the workflow and broke silently on
  * every release (the start heading `## X.Y.Z` also matched the awk end pattern
@@ -9,7 +10,7 @@
 
 import { describe, it, expect } from 'vitest';
 
-import { extractChangelogSection, resolveReleaseBody } from '../scripts/extract-changelog.mjs';
+import { extractChangelogSection, resolveReleaseBody } from '../src/utils/changelog.js';
 
 const CHANGELOG = [
   '# Changelog',
