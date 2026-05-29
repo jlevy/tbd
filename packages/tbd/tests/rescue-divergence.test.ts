@@ -2,9 +2,9 @@
  * Rescue divergence matrix + precondition tests (tbd-e550).
  *
  * Same-ULID divergence across two unrelated roots must never be dropped:
- *   identical      -> no-op
- *   scalar differ  -> field-merge (lww); losing version preserved in attic/conflicts/
- *   labels differ  -> union (clean, no attic)
+ *   identical             -> no-op
+ *   same-origin field diff -> field-merge (no data discarded, no attic)
+ *   true conflict          -> losing version preserved in attic/conflicts/
  * Plus preconditions: rescue aborts on a dirty worktree or a merge in progress
  * (never resets over uncommitted work).
  *
