@@ -3,15 +3,17 @@ type: is
 id: is-01kst8pd1c6e9khrcjvwbnya4f
 title: "Phase 2 rescue tests: same-ULID divergence matrix + dirty-worktree precondition"
 kind: task
-status: in_progress
+status: closed
 priority: 1
-version: 2
+version: 3
 spec_path: docs/project/specs/active/plan-2026-05-29-tbd-sync-unrelated-history-hardening.md
 labels: []
 dependencies: []
 parent_id: is-01kss7hxvj9nxnhthv6efvehg0
 created_at: 2026-05-29T16:22:20.460Z
-updated_at: 2026-05-29T17:16:14.241Z
+updated_at: 2026-05-29T17:21:20.308Z
+closed_at: 2026-05-29T17:21:20.307Z
+close_reason: null
 ---
 Dedicated unit/integration test bead for rescueUnrelatedHistory (separate from the impl bead tbd-6l8r and the e2e tryscript tbd-xxk5), per the spec's Phase 2 'Tests:' bullet and Testing Strategy.
 
