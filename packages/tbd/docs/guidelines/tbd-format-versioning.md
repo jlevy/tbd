@@ -104,9 +104,9 @@ When bumping from `fNN` to `fNN+1`:
    stand-in client against the migrated repo).
 6. Update `checkConfig` and `checkCommonDirLayout` in `doctor.ts` if the new format
    requires new diagnostics.
-7. Document the user-visible upgrade in the next `CHANGELOG.md` entry (assembled by the
-   `cut-release` flow from commits): “every machine that touches this repo must upgrade
-   tbd to the new version, older clients will fail closed.”
+7. Document the user-visible upgrade in the next `CHANGELOG.md` entry (assembled at
+   release time from commits): “every machine that touches this repo must upgrade tbd to
+   the new version, older clients will fail closed.”
 
 ### Reference design
 

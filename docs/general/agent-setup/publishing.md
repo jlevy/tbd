@@ -3,7 +3,6 @@
 This project uses **tag-based releases** with provenance attestation to npm (no
 Changesets). Version and release notes are assembled by hand from clean conventional
 commits at release time; pushing a `v*` tag publishes automatically.
-For the guided end-to-end flow, run `tbd shortcut cut-release`.
 
 For daily development workflow, see [development.md](../../development.md).
 For release notes format and guidelines, see

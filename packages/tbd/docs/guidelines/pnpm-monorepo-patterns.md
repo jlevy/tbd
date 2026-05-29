@@ -771,9 +771,10 @@ No NPM_TOKEN needed, no “Version Packages” PR workflow.
 > conventional commits at release time (see a release-notes template), tag-triggered
 > publishing is simpler and has fewer moving parts: clean commits → bump + `## X.Y.Z`
 > CHANGELOG section → tag → auto-publish.
-> `tbd` itself uses this approach (`tbd shortcut cut-release`). Keep Changesets when you
-> publish several interdependent packages or want contributors to declare intent in each
-> PR.
+> `tbd` itself uses this approach (project-local `docs/publishing.md` for the per-repo
+> playbook; the workflow itself is the GitHub Action triggered by the `v*` tag).
+> Keep Changesets when you publish several interdependent packages or want contributors
+> to declare intent in each PR.
 
 **One-time setup**:
 

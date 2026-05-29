@@ -244,8 +244,8 @@ publishes `get-tbd` to npm, and creates a GitHub Release whose body is the match
 4. Tag `vX.Y.Z` on `main` and push it — the Release workflow publishes to npm and
    creates the GitHub Release.
 
-For the full step-by-step (including the version-bump heuristic and verification), run
-`tbd shortcut cut-release`.
+For the full step-by-step (including the version-bump heuristic, supply-chain review,
+and verification), see [publishing.md](publishing.md).
 
 ## Project Structure
 

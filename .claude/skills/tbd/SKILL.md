@@ -196,7 +196,6 @@ Run `tbd shortcut <name>` to use any of these shortcuts:
 | coding-spike | Prototype to validate a spec through hands-on implementation |
 | create-or-update-pr-simple | Create or update a pull request with a concise summary |
 | create-or-update-pr-with-validation-plan | Create or update a pull request with a detailed test/validation plan |
-| cut-release | Cut and publish a new get-tbd release — version bump, release notes, tag-triggered npm publish |
 | implement-beads | Implement beads from a spec, following TDD and project rules |
 | merge-upstream | Merge origin/main into current branch with conflict resolution |
 | new-architecture-doc | Create an architecture document for a system or component design |

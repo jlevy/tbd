@@ -692,8 +692,8 @@ it behind a generic “Invalid config file” error.
 
 - `main` dropped Changesets for tag-triggered releases; the merge left an orphaned
   `.changeset/shared-common-dir-worktree.md`. Move its content (especially the f04
-  old-client upgrade note) into `release-notes.md` per the new `cut-release` flow and
-  delete the changeset file.
+  old-client upgrade note) into `release-notes.md` per the new tag-triggered release
+  flow (see project-local `docs/publishing.md`) and delete the changeset file.
 - Wire `ensureCommonDirLayout()` into H1 so it is no longer dead code.
 - Clarify in `packages/tbd/docs/tbd-design.md` that production migration backups live
   under `$GIT_COMMON_DIR/tbd/backups/`, not `.tbd/backups/`.
