@@ -64,7 +64,8 @@ Every session must end with tbd in a clean state:
 
 ### Creating & Updating
 
-- `tbd create "title" --type task|bug|feature --priority P2` - New issue
+- `tbd create "title" --type=bug --priority=1` - New issue (run `tbd create --help` for
+  all types and priorities)
   - Priority: P0-P4 (P0=critical, P2=medium, P4=backlog).
     Do NOT use "high"/"medium"/"low"
 - `tbd update <id> --status in_progress` - Claim work
@@ -125,6 +126,6 @@ tbd dep add <tests-id> <feature-id>   # Tests depend on feature
 ## Quick Reference
 
 - **Priority levels**: 0=critical, 1=high, 2=medium (default), 3=low, 4=backlog
-- **Issue types**: task, bug, feature, epic
+- **Issue types**: default `task`; run `tbd create --help` for the valid types
 - **Status values**: open, in_progress, closed
 - **JSON output**: Add `--json` to any command for machine-readable output

@@ -572,6 +572,12 @@ Rules: reference commands **explicitly** (`mycli command arg`, never “see the 
   (e.g., `mycli prime`), and a “Getting Started” one-liner.
 - **A `prime` command** (dashboard, status, and rules) for session start and
   post-compact, distinct from `skill` (pure documentation).
+  `prime` is **read-only**: it restores context but does not rewrite project files.
+  Because a `SessionStart` hook runs it on every session (§8), have `prime` print a
+  short reminder that the agent or user can run `setup` to refresh skills and settings
+  (for example after upgrading the tool).
+  That keeps the refresh **opt-in** rather than silently mutating the repo from a hook,
+  while still nudging stale installs forward.
 
 **Route, don’t restate: the skill is a thin pointer, not a copy of `--help`.** The most
 common failure when packaging a CLI as a skill is over-documentation, where the author
@@ -705,6 +711,20 @@ hook commands (or leave a wrapper) so existing Claude hooks keep working.
 skill content evolves *will* leave older generated files in users’ repos.
 Treat generated integration files like config migrations:
 
+Reserve an `fNN` **format bump** for changes big enough to need an explicit migration: a
+different on-disk shape, a moved or renamed managed region, or a changed hook contract.
+Routine content edits (new skill text, an added shortcut, reworded guidance) are **not**
+a format change. They ship by regenerating the surface, a full overwrite on the next
+`setup` run, so they need no bump and no migration; bumping the format on every content
+tweak would force needless migrations and churn.
+
+The upgrade is also **opt-in, not silent**. A tool rewrites a user’s committed files
+only when the user or agent explicitly runs `setup`/`setup --auto`, never from a
+background hook or an ordinary read command.
+Stamping a format lets an explicit `setup` detect an older layout and offer to migrate
+it; it does not license the tool to mutate the repo on its own.
+(This is why a `SessionStart` hook should run a read-only `prime`, not `setup`.)
+
 - Version the generated surfaces with an `fNN` format code.
   Prefer **one format code for all the tool’s managed surfaces** — reuse the tool’s
   existing config/data-format version as the single source of truth (tbd stamps the
@@ -715,6 +735,16 @@ Treat generated integration files like config migrations:
   line (`<!-- BEGIN … format=fNN … -->`), the skill “DO NOT EDIT” marker, script
   headers, or an equivalent hook signature.
   Prefer one marker line over a separate metadata comment.
+- A **fully overwritten content surface** (a generated skill that is always rewritten
+  whole, never merged) does not strictly need its own stamp to upgrade cleanly: the next
+  `setup` replaces it outright.
+  It can lean on the single shared format code carried by a structural surface (such as
+  the `AGENTS.md` block).
+  But that only protects it if the forward-compatibility check runs **before** any
+  surface is written. If `setup` rewrites the skill first and only checks the `AGENTS.md`
+  format later, an older tool can partial-downgrade a newer committed skill before it
+  aborts. So either stamp and guard each generated surface, or run the format check up
+  front and write nothing until it passes.
 - On every `setup`/`setup --auto` run, **self-upgrade in place, safely and
   idempotently**: detect older formats and rewrite only the tool-owned regions (managed
   `AGENTS.md` block, generated skills, tool-owned hooks, `.codex/` config), re-running

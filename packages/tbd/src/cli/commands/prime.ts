@@ -205,6 +205,11 @@ class PrimeHandler extends BaseCommand {
     } else {
       console.log(`${colors.dim('✗')} Hooks not installed (run: tbd setup --auto)`);
     }
+    console.log(
+      colors.dim(
+        '  Run `tbd setup --auto` to refresh skills and settings (e.g. after upgrading tbd).',
+      ),
+    );
     console.log('');
 
     // === PROJECT STATUS ===
