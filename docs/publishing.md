@@ -77,7 +77,13 @@ git status  # Must be clean
 Review changes since last release:
 
 ```bash
-git log $(git describe --tags --abbrev=0 2>/dev/null || echo "HEAD~20")..HEAD --oneline
+PREV=$(git describe --tags --abbrev=0)
+git log $PREV..HEAD --oneline
+
+# Releases are not code-only: also review shipped content that users invoke
+# (bundled guidelines, skills, shortcuts, templates) — its changes belong in the notes.
+git diff --stat $PREV..HEAD -- 'packages/tbd/docs/guidelines/**' \
+  'packages/tbd/docs/shortcuts/**'
 ```
 
 Choose version bump:

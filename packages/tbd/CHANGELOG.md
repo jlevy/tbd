@@ -34,6 +34,30 @@ drifted into unrelated git histories.
   carries a `format=fNN` stamp, and `tbd setup` refuses to overwrite a skill written by
   a newer tbd (telling you to upgrade) instead of silently rolling it back.
 
+### Guidelines & skills
+
+These ship inside the package and are read by agents via `tbd guidelines …` and
+`tbd skill`:
+
+- **`cli-agent-skill-patterns` guideline — new guidance for authoring CLI-backed skills
+  and handling their upgrades:**
+  - **Route, don’t restate**: when a skill is backed by a CLI, that CLI’s own `--help`
+    and informational subcommands are the authoritative reference layer.
+    The skill should point to them rather than copying flags, types, and output formats
+    that then drift (the type-enum drift fixed above is exactly this failure mode).
+  - **When to bump the `fNN` format**: reserve a format bump for changes big enough to
+    need an explicit migration.
+    Routine content updates ship by regenerating the surface on the next `setup` — no
+    bump, no migration — so the format code does not churn on every edit.
+  - **Upgrades are opt-in, never silent**: a tool only rewrites a user’s committed files
+    on an explicit `setup`; a `SessionStart` hook should run the read-only `prime`, not
+    `setup`.
+  - **Overwritten surfaces must be guarded**: stamp and guard each generated surface (or
+    run the format check before writing anything) so an older tool cannot
+    partial-downgrade a newer committed skill.
+- The bundled **skill baseline** stops over-documenting CLI-backed commands and leans on
+  `--help` for the authoritative flag/type reference.
+
 ### Security
 
 - Lockfile is byte-identical to v0.2.0 — no manifest changes and no new advisories
