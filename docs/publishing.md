@@ -190,6 +190,24 @@ git log $(git describe --tags --abbrev=0 2>/dev/null || echo "HEAD~20")..HEAD --
 
 ### Step 6: Push and Tag
 
+**Before tagging: main CI on the merge commit MUST be conclusion=success.** “Mostly
+green” is not green.
+If a job hangs (e.g., the known `tests/lockfile.test.ts` flake on Windows), cancel and
+rerun the failed job — do not tag past it.
+
+```bash
+# Confirm main CI conclusion is success on the merge commit you are about to tag.
+gh run list --branch main --workflow=ci.yml --limit 1 \
+  --json conclusion,headSha,status,databaseId
+# Expect: status=completed, conclusion=success.
+```
+
+`release.yml` is independent of `ci.yml` (it triggers on the tag push, runs on
+`ubuntu-latest` only).
+The release will still publish successfully even if main CI is in_progress or red — but
+that is a process failure: it ships work that was not confirmed to pass tests on the
+merge commit. Wait for green.
+
 **Option A: Direct git push (local development)**
 
 ```bash
@@ -236,6 +254,13 @@ gh release edit vX.X.X -R jlevy/tbd --notes-file release-notes.md
 ```bash
 gh release view vX.X.X -R jlevy/tbd
 npm view get-tbd
+
+# The GH Release body MUST be the "## X.Y.Z" CHANGELOG section, not the
+# fallback "Release vX.Y.Z" string. v0.1.30 and v0.2.0 both shipped with the
+# fallback because release.yml's awk extractor was broken. Confirm explicitly:
+gh release view vX.X.X --json body --jq '.body' | head -5
+# If you see just "Release vX.Y.Z", the workflow regressed — fix release.yml
+# (see tbd-xk7c) and `gh release edit` the body in for the current release.
 ```
 
 ## Quick Reference
