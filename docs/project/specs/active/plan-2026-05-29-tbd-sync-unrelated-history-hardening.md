@@ -4,7 +4,7 @@
 
 **Author:** Joshua Levy (with agent assistance)
 
-**Status:** Draft
+**Status:** Implemented (PR #143, epic tbd-55sk + 12 children closed)
 
 ## Overview
 
@@ -340,41 +340,58 @@ if the test exposes a residual gap.
 
 ### Phase 1: Detection, prevention, and #135 regression
 
-- [ ] Make the `git()` error carry `exitCode` (structural; commit separately).
-- [ ] `probeRemoteBranch` tri-state + `remoteBranchExists` wrapper; unit tests for
+- [x] Make the `git()` error carry `exitCode` (structural; commit separately).
+- [x] `probeRemoteBranch` tri-state + `remoteBranchExists` wrapper; unit tests for
   absent vs check-failed (mock/stub git exit codes).
-- [ ] `initWorktree`: use `probeRemoteBranch` directly (not the boolean wrapper); refuse
+- [x] `initWorktree`: use `probeRemoteBranch` directly (not the boolean wrapper); refuse
   orphan on `check-failed`; immediate orphan push that classifies success / transient /
   non-fast-forward-rejection.
   Test the **rejected-race interleaving** (A creates orphan, B pushes first, A’s push
   rejected → A adopts scaffold-only remote, or fails loudly if A already has user
   issues), plus the happy-path push and the check-failed refusal.
-- [ ] `checkRemoteBranchHealth`: add `unrelated`; tests for unrelated, genuinely
+- [x] `checkRemoteBranchHealth`: add `unrelated`; tests for unrelated, genuinely
   diverged, in-sync, and no-local-branch cases.
-- [ ] `tbd doctor`: report `unrelated` as a hard finding routing to `--fix`; update
+- [x] `tbd doctor`: report `unrelated` as a hard finding routing to `--fix`; update
   `doctor-sync` tests / golden output.
-- [ ] `tbd sync`: detect unrelated post-fetch at the merge stage (`sync.ts:865`) before
+- [x] `tbd sync`: detect unrelated post-fetch at the merge stage (`sync.ts:865`) before
   file-level conflict/retry runs; dedicated message + remediation; defense-in-depth
   check in the push-failure block; avoid 3 wasted retries.
-- [ ] #135 regression scenario (tryscript) — missing worktree heals/fails loudly, never
+- [x] #135 regression scenario (tryscript) — missing worktree heals/fails loudly, never
   writes to `.tbd/data-sync/`.
 
 ### Phase 2: Non-destructive rescue
 
-- [ ] `rescueUnrelatedHistory` under `withSharedDataSyncLock`, with clean-worktree /
+- [x] `rescueUnrelatedHistory` under `withSharedDataSyncLock`, with clean-worktree /
   no-merge-in-progress preconditions: fetch → backup branch → categorize by ULID
   (local-only / remote-only / both-identical / both-different) → adopt remote → apply
   buckets (`mergeIssues`/conflict-attic for both-different) + union ids.yml +
   `resolveIdMappingConflicts` + `reconcileMappings` → commit.
-- [ ] Wire into `tbd doctor --fix`; after rescue, normal sync fast-forwards.
-- [ ] Tests: construct two unrelated `tbd-sync` roots in a temp repo, run rescue, assert
+- [x] Wire into `tbd doctor --fix`; after rescue, normal sync fast-forwards.
+- [x] Tests: construct two unrelated `tbd-sync` roots in a temp repo, run rescue, assert
   fast-forward-ability, file/map consistency, no duplicate IDs, backup branch present,
   and that local-only beads survive.
   **Same-ULID divergence cases:** identical content (no-op), differing scalar fields,
   differing labels (field-merge), and a true conflict (preserved in `attic/conflicts/`,
   never dropped). Plus a precondition test: rescue aborts on a dirty worktree /
   merge-in-progress.
-- [ ] End-to-end tryscript: race → detect → `tbd doctor --fix` → `tbd sync` → in sync.
+- [x] End-to-end tryscript: race → detect → `tbd doctor --fix` → `tbd sync` → in sync.
+
+### Implementation notes (refinements from senior review of PR #143)
+
+- **Rescue preserves every non-winning side.** `mergeIssues(null, …)` has no trustworthy
+  base across unrelated roots (with equal `created_at` it synthesizes one from the
+  lower-version side), so the rescue preserves to `attic/conflicts/` *every*
+  substantively-different side the merge does not keep — not only when `mergeIssues`
+  reports a field conflict.
+  This guarantees no edit is dropped without an artifact even when both roots edited the
+  same field from the same version.
+- **Remote public IDs are canonical.** The ID-map union uses
+  `mergeIdMappings(remote, local)` (remote precedence), so an issue already on the
+  shared remote keeps its public ID; only colliding local-only short IDs are regenerated
+  by `reconcileMappings`.
+- **No-op rescues succeed.** After adopting the remote base, the rescue skips the commit
+  when `git status --porcelain` is clean (e.g. scaffold-only or identical roots) rather
+  than failing on “nothing to commit”.
 
 ## Testing Strategy
 

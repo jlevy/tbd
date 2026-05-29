@@ -1849,20 +1849,27 @@ export async function rescueUnrelatedHistory(
     await writeIssue(dataSyncPath, issue);
   }
   for (const { local, remote: remoteIssue } of buckets.bothDifferent) {
-    // No common ancestor between unrelated roots -> merge with base=null.
-    const { merged, conflicts: fieldConflicts } = mergeIssues(null, local, remoteIssue);
+    // No common ancestor between unrelated roots, so mergeIssues has no
+    // trustworthy base (with equal created_at it synthesizes one from the
+    // lower-version side). Preserve EVERY substantively-different side that the
+    // merge does not keep, so an edit is never silently dropped without an
+    // attic artifact — independent of whether mergeIssues reported a field
+    // conflict.
+    const { merged } = mergeIssues(null, local, remoteIssue);
     await writeIssue(dataSyncPath, merged);
-    if (fieldConflicts.length > 0) {
-      // Preserve the losing version so nothing is silently dropped.
-      const loser = issuesSubstantivelyEqual(merged, local) ? remoteIssue : local;
-      await preserveLosingVersion(dataSyncPath, loser);
-      conflicts++;
+    for (const side of [local, remoteIssue]) {
+      if (!issuesSubstantivelyEqual(side, merged)) {
+        await preserveLosingVersion(dataSyncPath, side);
+        conflicts++;
+      }
     }
   }
 
-  // Union the ID mappings (additive) and ensure every issue has a backing
-  // mapping and vice-versa (closes the "map entries vs files" inconsistency).
-  const mergedMapping = mergeIdMappings(localMapping, remoteMapping);
+  // Union the ID mappings (additive). The remote is the adopted canonical base,
+  // so it MUST win short-ID collisions — give remoteMapping precedence so an
+  // issue already on the shared remote keeps its public ID. reconcileMappings
+  // then regenerates only the conflicting local-only mappings.
+  const mergedMapping = mergeIdMappings(remoteMapping, localMapping);
   const allIssues = await listIssues(dataSyncPath);
   reconcileMappings(
     allIssues.map((i) => i.id),
@@ -1872,14 +1879,21 @@ export async function rescueUnrelatedHistory(
   await saveIdMapping(dataSyncPath, mergedMapping);
 
   // 6. Commit. The push is now a clean fast-forward over origin/<syncBranch>.
+  // If adopting the remote base left nothing to reconcile (e.g. two
+  // scaffold-only roots, or identical issue sets + mappings), the reset already
+  // adopted the base successfully — skip the commit rather than failing on
+  // "nothing to commit".
   await git('-C', worktreePath, 'add', '-A');
-  await gitCommit(
-    worktreePath,
-    '--no-verify',
-    '-m',
-    `tbd rescue: adopt remote base + reconcile ${buckets.localOnly.length + buckets.bothDifferent.length} issue(s) ` +
-      `(${buckets.localOnly.length} local-only, ${buckets.bothDifferent.length} merged)`,
-  );
+  const pending = (await git('-C', worktreePath, 'status', '--porcelain')).trim();
+  if (pending) {
+    await gitCommit(
+      worktreePath,
+      '--no-verify',
+      '-m',
+      `tbd rescue: adopt remote base + reconcile ${buckets.localOnly.length + buckets.bothDifferent.length} issue(s) ` +
+        `(${buckets.localOnly.length} local-only, ${buckets.bothDifferent.length} merged)`,
+    );
+  }
 
   return {
     backupBranch,

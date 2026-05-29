@@ -12,7 +12,7 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { mkdir, rm, readdir, writeFile as fsWriteFile } from 'node:fs/promises';
+import { mkdir, rm, readdir, readFile, writeFile as fsWriteFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir, platform } from 'node:os';
 import { randomBytes } from 'node:crypto';
@@ -21,6 +21,7 @@ import { promisify } from 'node:util';
 
 import { initWorktree, rescueUnrelatedHistory } from '../src/file/git.js';
 import { writeIssue, readIssue } from '../src/file/storage.js';
+import { loadIdMapping, saveIdMapping, type IdMapping } from '../src/file/id-mapping.js';
 import { SYNC_BRANCH, TBD_DIR, DATA_SYNC_DIR_NAME } from '../src/lib/paths.js';
 import type { Issue } from '../src/lib/types.js';
 import { createTestIssue } from './test-helpers.js';
@@ -112,10 +113,10 @@ describeUnlessWindows('rescue divergence matrix + preconditions', () => {
     expect(await atticConflictFiles()).toHaveLength(0);
   });
 
-  it('field-merges a same-origin divergence without dropping the issue (no attic)', async () => {
+  it('preserves the dropped side in attic when a same-origin field diverges', async () => {
     // Equal created_at -> field-by-field merge against a synthetic base (the
-    // lower-version side). The higher-version side's field changes are applied;
-    // no data is discarded, so no attic artifact is created.
+    // lower-version side). The higher-version side's change is applied, but the
+    // other side's value is NOT silently dropped — it is preserved in attic.
     const created = '2026-01-01T00:00:00Z';
     await buildUnrelated(
       createTestIssue({
@@ -136,12 +137,45 @@ describeUnlessWindows('rescue divergence matrix + preconditions', () => {
 
     const result = await rescueUnrelatedHistory(workPath, 'origin', SYNC_BRANCH);
     expect(result.merged).toBe(1);
-    expect(result.conflicts).toBe(0);
-    expect(await atticConflictFiles()).toHaveLength(0);
+    // The local labels are not kept by the merge, so they are preserved.
+    expect(result.conflicts).toBeGreaterThanOrEqual(1);
 
-    // The issue survives and carries the higher-version side's labels.
     const merged = await readIssue(dataSyncPath, `is-${SHARED}`);
     expect(merged.labels).toEqual(['remote']);
+    expect(await atticConflictFiles()).toContainEqual(expect.stringContaining(`is-${SHARED}__`));
+  });
+
+  it('drops neither side when both edit the same field from the same version (issue #1)', async () => {
+    // Same id, same created_at, same version, both sides edited the same scalar.
+    // mergeIssues has no trustworthy base; the rescue must still preserve the
+    // side the merge does not keep, so neither edit is lost.
+    const created = '2026-01-01T00:00:00Z';
+    await buildUnrelated(
+      createTestIssue({ id: `is-${SHARED}`, title: 'local edit', created_at: created, version: 1 }),
+      createTestIssue({
+        id: `is-${SHARED}`,
+        title: 'remote edit',
+        created_at: created,
+        version: 1,
+      }),
+    );
+
+    const result = await rescueUnrelatedHistory(workPath, 'origin', SYNC_BRANCH);
+    expect(result.merged).toBe(1);
+    expect(result.conflicts).toBeGreaterThanOrEqual(1);
+
+    // The merged file carries one side's title; the other side is preserved.
+    const merged = await readIssue(dataSyncPath, `is-${SHARED}`);
+    const attic = await atticConflictFiles();
+    expect(attic.some((f) => f.startsWith(`is-${SHARED}__`))).toBe(true);
+
+    // Neither title is lost: one is the merged value, the other lives in attic.
+    const atticBodies = await Promise.all(
+      attic.map((f) => readFile(join(dataSyncPath, 'attic', 'conflicts', f), 'utf-8')),
+    );
+    const allTitles = [merged.title, ...atticBodies.map((b) => /title: (.*)/.exec(b)?.[1] ?? '')];
+    expect(allTitles).toContain('local edit');
+    expect(allTitles).toContain('remote edit');
   });
 
   it('preserves the losing version in attic/conflicts/ on a true conflict', async () => {
@@ -170,6 +204,85 @@ describeUnlessWindows('rescue divergence matrix + preconditions', () => {
     // The losing (remote) version is preserved as an explicit artifact.
     const attic = await atticConflictFiles();
     expect(attic.some((f) => f.startsWith(`is-${SHARED}__`))).toBe(true);
+  });
+
+  function idMap(pairs: [string, string][]): IdMapping {
+    const shortToUlid = new Map(pairs);
+    const ulidToShort = new Map(pairs.map(([s, u]) => [u, s] as [string, string]));
+    return { shortToUlid, ulidToShort };
+  }
+
+  /** Commit the given issues (+ optional ids.yml) onto the local tbd-sync. */
+  async function commitLocal(issues: Issue[], mapping?: IdMapping): Promise<void> {
+    for (const issue of issues) await writeIssue(dataSyncPath, issue);
+    if (mapping) await saveIdMapping(dataSyncPath, mapping);
+    await g(worktreePath, 'add', '-A');
+    await g(worktreePath, '-c', 'commit.gpgsign=false', 'commit', '-m', 'local');
+  }
+
+  /** Push an unrelated orphan tbd-sync (+ optional ids.yml) to the bare remote. */
+  async function pushRemoteSeed(issues: Issue[], mapping?: IdMapping): Promise<void> {
+    const seed = join(testDir, `seed-${randomBytes(3).toString('hex')}`);
+    const seedData = join(seed, TBD_DIR, DATA_SYNC_DIR_NAME);
+    await mkdir(join(seedData, 'issues'), { recursive: true });
+    await g(seed, 'init', '-b', SYNC_BRANCH);
+    await g(seed, 'config', 'user.email', 'b@b.com');
+    await g(seed, 'config', 'user.name', 'B');
+    await g(seed, 'config', 'commit.gpgsign', 'false');
+    for (const issue of issues) await writeIssue(seedData, issue);
+    if (mapping) await saveIdMapping(seedData, mapping);
+    await g(seed, 'add', '-A');
+    await g(seed, 'commit', '-m', 'env B');
+    await g(seed, 'push', barePath, `${SYNC_BRANCH}:refs/heads/${SYNC_BRANCH}`);
+    await g(workPath, 'remote', 'add', 'origin', barePath);
+  }
+
+  it('keeps the remote public ID when local and remote use the same short ID (issue #2)', async () => {
+    const localUlid = '01collidelocal000000000000';
+    const remoteUlid = '01collideremote00000000000';
+    // Both roots independently assigned the short ID "ab12" to different ULIDs.
+    await commitLocal(
+      [createTestIssue({ id: `is-${localUlid}`, title: 'local only' })],
+      idMap([['ab12', localUlid]]),
+    );
+    await pushRemoteSeed(
+      [createTestIssue({ id: `is-${remoteUlid}`, title: 'remote only' })],
+      idMap([['ab12', remoteUlid]]),
+    );
+
+    await rescueUnrelatedHistory(workPath, 'origin', SYNC_BRANCH);
+
+    const mapping = await loadIdMapping(dataSyncPath);
+    // Remote (the adopted canonical base) keeps its original public ID.
+    expect(mapping.ulidToShort.get(remoteUlid)).toBe('ab12');
+    // The colliding local-only issue is regenerated to a different short ID.
+    expect(mapping.ulidToShort.get(localUlid)).toBeDefined();
+    expect(mapping.ulidToShort.get(localUlid)).not.toBe('ab12');
+  });
+
+  it('reports success (no failure) for a no-op rescue with nothing to commit (issue #3)', async () => {
+    // Identical single issue + identical canonical ids.yml on both unrelated
+    // roots: after adopting the remote base there is nothing to reconcile or
+    // commit, but rescue must still succeed rather than fail on "nothing to commit".
+    const ulid = '01noopidentical00000000000';
+    const issue = createTestIssue({
+      id: `is-${ulid}`,
+      title: 'same',
+      created_at: '2026-01-01T00:00:00Z',
+    });
+    const mapping = idMap([['ab12', ulid]]);
+    await commitLocal([{ ...issue }], mapping);
+    await pushRemoteSeed([{ ...issue }], mapping);
+
+    const result = await rescueUnrelatedHistory(workPath, 'origin', SYNC_BRANCH);
+    expect(result.merged).toBe(0);
+    expect(result.localOnly).toBe(0);
+    expect(result.backupBranch).toMatch(/^tbd-backup-/);
+
+    // No empty commit was created: local tbd-sync equals the adopted remote base.
+    const localHead = await g(workPath, 'rev-parse', SYNC_BRANCH);
+    const remoteHead = await g(workPath, 'rev-parse', `origin/${SYNC_BRANCH}`);
+    expect(localHead).toBe(remoteHead);
   });
 
   it('aborts on a dirty worktree without resetting or creating a backup branch', async () => {
