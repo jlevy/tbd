@@ -1,5 +1,46 @@
 # get-tbd
 
+## 0.2.1
+
+A drop-in patch on top of v0.2.0. **No on-disk format change** (`f04` stays `f04`), so
+any machine already on v0.2.0 can upgrade without a migration.
+The headline is hardened recovery when a repo’s issue-sync branch and local history have
+drifted into unrelated git histories.
+
+### Features
+
+- **Unrelated-history detection and non-destructive rescue**: tbd now recognizes when
+  the local issue store and the remote `tbd-sync` branch share no common git history — a
+  corruption/misconfiguration that previously surfaced as a confusing mid-sync failure.
+  - `tbd doctor` reports it as a hard `✗` finding (and exits non-zero, matching v0.2.0’s
+    doctor contract).
+  - `tbd doctor --fix` performs a **non-destructive rescue** that preserves your issue
+    files instead of discarding either history.
+  - `tbd sync` detects the condition up front rather than failing partway through, and a
+    missing or unhealthy remote sync branch is re-established as a fresh orphan rather
+    than left broken.
+- **`tbd prime`** now reminds you that `tbd setup --auto` refreshes the installed skills
+  and settings, so a long-running agent session knows how to pick up updates.
+
+### Fixes
+
+- **Release notes come from the CHANGELOG**: the GitHub Release body is now populated
+  from this `## X.Y.Z` section instead of the old bare `Release vX.Y.Z` fallback, and
+  tag publication is gated on a green main CI run for the exact tagged commit.
+- **Skill no longer restates a drifting type list**: the bundled tbd skill stopped
+  hard-coding the issue-type enum (which had drifted from the CLI once `chore` was
+  added) and now points agents to `tbd create --help` for the authoritative list.
+- **Generated skills are protected from downgrade**: every generated `SKILL.md` now
+  carries a `format=fNN` stamp, and `tbd setup` refuses to overwrite a skill written by
+  a newer tbd (telling you to upgrade) instead of silently rolling it back.
+
+### Security
+
+- Lockfile is byte-identical to v0.2.0 — no manifest changes and no new advisories
+  (`pnpm audit --prod` clean, `pnpm check:package-age` reports 0 violations).
+
+**Full commit history**: https://github.com/jlevy/tbd/compare/v0.2.0...v0.2.1
+
 ## 0.2.0
 
 **This release ships a new on-disk format (`f03` → `f04`). Every machine that touches a
