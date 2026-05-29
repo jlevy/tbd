@@ -3,16 +3,18 @@ type: is
 id: is-01kss6er2p7pfg2v0wt4vqcjbp
 title: "[task] Release gate must be main CI green, not 'looks mostly green'; document and enforce"
 kind: task
-status: open
+status: closed
 priority: 1
-version: 1
+version: 2
 spec_path: tests/qa/release-v0.2.0-upgrade.qa.md
 labels:
   - v0.2.0
 dependencies: []
 parent_id: is-01ksrpb7b8cfwrzzd34ya9874q
 created_at: 2026-05-29T06:23:58.037Z
-updated_at: 2026-05-29T06:23:58.037Z
+updated_at: 2026-05-29T16:22:02.589Z
+closed_at: 2026-05-29T16:22:02.588Z
+close_reason: "Fixed in #140 (merged 2f5746e): release tagging gated on main CI success for the exact merge commit across all documented paths."
 ---
 Process failure during v0.2.0 cut: tagged v0.2.0 and declared the release shipped while main CI on the merge commit was still in_progress (4/5 jobs green, Windows hanging on a known flake). User correctly called this out: 'you shouldnt be able to tell me a release is pushed successfully if the CI has failed.'
 
