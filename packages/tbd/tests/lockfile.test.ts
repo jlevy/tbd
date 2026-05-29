@@ -53,11 +53,16 @@ describe('withLockfile', () => {
     const order: number[] = [];
 
     // Track how many critical sections run at once. Mutual exclusion means this
-    // never exceeds 1. (staleMs is kept well above the total runtime so the stale
-    // path is not exercised here; stale-breaking is covered by its own tests.)
+    // never exceeds 1.
+    //
+    // staleMs is comfortably above the 200ms critical section (so a live holder is
+    // never mistaken for stale) but well below the test timeout. On Windows a
+    // release rmdir can stall; a low staleMs lets the next waiter reclaim the
+    // orphaned lock within ~1s instead of hanging, while the atomic stale-break in
+    // withLockfile guarantees two waiters can't both reclaim it and run concurrently.
     let active = 0;
     let maxActive = 0;
-    const lockOpts = { timeoutMs: 30_000, pollMs: 20, staleMs: 30_000 };
+    const lockOpts = { timeoutMs: 30_000, pollMs: 20, staleMs: 1_000 };
 
     const section = (id: number) => async () => {
       active++;
@@ -85,7 +90,7 @@ describe('withLockfile', () => {
     expect(order[0]).toBe(order[1]);
     expect(order[2]).toBe(order[3]);
     expect(order[4]).toBe(order[5]);
-  });
+  }, 30_000);
 
   it('breaks stale locks', async () => {
     const lockPath = join(tempDir, 'stale.lock');
