@@ -29,11 +29,13 @@ release + post-publish + global swap).
 | Phase | Status | Notes |
 | --- | --- | --- |
 | Phase 0: Pre-flight — sync, version, decide bump | ✅ Passed | Local main FF to `3c2e7ca`; dead changeset removed; version chosen `v0.2.0` |
-| Phase 1: In-repo sanity (build, test, publint) | ✅ Passed | 1089/1089 unit tests; both f04 tryscripts; publint clean. **One snag**: stale `dist/` from May 24 made tests fail until `pnpm build` was rerun — worth a note in cut-release |
-| Phase 2: Real-repo upgrade scenarios | ✅ Passed | Done on `ai-trade-arena` (the testbed the user provided): 2.B, 2.C, 2.E, 2.F, 2.G all green. Findings below. Phase 2.D (flowmark) not yet run. |
-| Phase 3: Cut release v0.2.0 | ⏳ Pending |  |
+| Phase 1: In-repo sanity (build, test, publint) | ✅ Passed | 1091/1091 unit tests pass (added tbd-nrvj migration test, tbd-afjh sibling-bump notice test); both f04 tryscripts; publint clean. Stale `dist/` footgun fixed by tbd-zswv (global-setup now uses build-if-needed.mjs). |
+| Phase 2.B/2.C/2.E/2.F/2.G on ATA | ✅ Passed | 3548 issues migrated byte-identically on ATA. All scenarios green. See below. |
+| Phase 2.D on flowmark | ✅ Passed | Main checkout f03 → f04 migration ran cleanly (56 issues preserved). Both `/private/tmp/flowmark-pr*` siblings migrated under the shared layout: tbd-afjh notice fires once per checkout, idempotent on rerun. `tbd_version: 0.1.12` baseline exercised without surprises. |
+| Findings code fixes | ✅ Passed | tbd-nrvj (doctor --fix migrates) ✅; tbd-afjh (sibling-bump notice) ✅; tbd-r7rt (doctor exit 1 on ✗) ✅; tbd-zswv (stale-dist guard) ✅; tbd-pxxe (cut-release relocated to docs/publishing.md) ✅ |
+| Phase 3: Cut release v0.2.0 | ⏳ Pending | Awaiting CHANGELOG + release PR. |
 | Phase 4: Post-publish verification | ⏳ Pending |  |
-| Phase 5: Global swap on this machine + re-validate | ⏳ Partial | Global already swapped pre-publish (via `pnpm test:install`); `0.1.31-dev.28.3c2e7ca-dirty`. Real re-validate will happen after publish. |
+| Phase 5: Global swap on this machine + re-validate | ⏳ Partial | Pre-publish swap already done (`0.1.31-dev.34.cffb142-dirty`). Real re-validate will happen after publish. |
 
 **Status Legend**: ✅ Passed | ❌ Failed | ⏳ Pending | ⏸️ Blocked
 
@@ -74,14 +76,25 @@ release + post-publish + global swap).
   show `%G? == N` (no signature) → `gitCommit()` correctly overrides ambient
   `commit.gpgsign`.
 
+**Phase 2.D (flowmark) detail:**
+
+- Main checkout f03 → f04 migrated cleanly.
+  The tbd-afjh notice fired on the first read (`tbd list`) and config was bumped in
+  place. Idempotent on rerun.
+- Both `/private/tmp/flowmark-pr47-fresh.vvTbeB` and `/private/tmp/flowmark-pr49.BeDey9`
+  detached-HEAD siblings: shared common-dir worktree is `(healthy)`; first command from
+  each sibling fired the tbd-afjh notice once and bumped that checkout’s
+  `.tbd/config.yml` to f04. Cross-worktree consistency intact.
+- The 56 closed issues on `tbd-sync` are visible from the new worktree at the common-dir
+  location.
+
 **Next Steps:**
 
-1. Decide on the two open UX questions before cut: (a) `tbd status`/`doctor --fix`
-   migration affordance, (b) sibling-config silent bump messaging.
-2. Optionally run Phase 2.D against `flowmark` (its multi-worktree setup is more
-   aggressive — two `/private/tmp/flowmark-pr*` siblings).
-3. Phase 3: cut v0.2.0 per `tbd shortcut cut-release` once the UX decisions are settled.
-4. Phase 4 + 5 after publish.
+1. Draft v0.2.0 CHANGELOG section (tbd-9urm) — must lead with the f04 migration plus the
+   upgrade-message caveat for users on v0.1.30 specifically; document the tbd-afjh
+   notice so users with multi-worktree setups expect the per-checkout config bump.
+2. Cut release per `docs/publishing.md` (tbd-erav).
+3. Phase 4 + 5 after publish (tbd-6q93).
 
 * * *
 
@@ -195,7 +208,7 @@ cd ../..
 **Verify**:
 
 - [ ] Both tryscripts pass.
-- [ ] No mention of “format 'f04' is from a newer tbd version” inside scenarios that are
+- [ ] No mention of “format ‘f04’ is from a newer tbd version” inside scenarios that are
   *not* the rejection scenario.
 
 ### 1.3 Pack + global install dry run
@@ -630,7 +643,7 @@ tbd guidelines --list
 
 ## Troubleshooting
 
-### “format 'f04' is from a newer tbd version” when running `LOCAL_TBD`
+### “format ‘f04’ is from a newer tbd version” when running `LOCAL_TBD`
 
 You forgot to rebuild or you’re picking up a stale global `tbd` on `$PATH`. Run with the
 explicit path: `node "$LOCAL_TBD" …`. Confirm with `node "$LOCAL_TBD" --version`.
