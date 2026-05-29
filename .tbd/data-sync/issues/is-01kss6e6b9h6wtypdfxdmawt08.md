@@ -3,9 +3,9 @@ type: is
 id: is-01kss6e6b9h6wtypdfxdmawt08
 title: "[bug] release.yml CHANGELOG extraction always returns empty; releases ship with fallback body"
 kind: bug
-status: open
+status: closed
 priority: 1
-version: 1
+version: 2
 spec_path: tests/qa/release-v0.2.0-upgrade.qa.md
 labels:
   - v0.2.0
@@ -13,7 +13,9 @@ labels:
 dependencies: []
 parent_id: is-01ksrpb7b8cfwrzzd34ya9874q
 created_at: 2026-05-29T06:23:39.876Z
-updated_at: 2026-05-29T06:23:39.876Z
+updated_at: 2026-05-29T16:22:02.208Z
+closed_at: 2026-05-29T16:22:02.207Z
+close_reason: "Fixed in #140 (merged 2f5746e): changelog extraction moved to tested src/utils/changelog.ts; GH Release body now uses the ## X.Y.Z section."
 ---
 v0.2.0 and v0.1.30 (and likely every prior release) shipped with the GitHub Release body set to 'Release vX.Y.Z' instead of the '## X.Y.Z' CHANGELOG section. Diagnosed in .github/workflows/release.yml step 'Extract changelog for this version': the awk range pattern /^## X\\.Y\\.Z$/,/^## [0-9]/ collapses to a single line because the start pattern (## 0.2.0) also matches the end pattern (a ## followed by a digit). The fallback CHANGELOG=Release vVERSION then takes over silently.
 
