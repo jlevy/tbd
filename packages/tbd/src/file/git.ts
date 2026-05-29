@@ -1525,6 +1525,12 @@ export async function checkLocalBranchHealth(
 export interface RemoteBranchHealth {
   exists: boolean;
   diverged: boolean;
+  /**
+   * True when a local tbd-sync exists but shares no common ancestor with the
+   * remote (merge-base finds nothing). This is the #139 worst case: push can
+   * never fast-forward and a plain merge refuses. `diverged` is also true.
+   */
+  unrelated: boolean;
   head?: string;
 }
 
@@ -1547,22 +1553,33 @@ export async function checkRemoteBranchHealth(
     const head = await git(...dirArgs, 'rev-parse', `refs/remotes/${remote}/${syncBranch}`);
     const remoteHead = head.trim();
 
-    // Check for divergence (only if local branch exists)
+    // Determine divergence / unrelated state. Distinguish "no local branch"
+    // (stays false/false) from "local exists but no common ancestor" (the
+    // unrelated worst case) — the old bare catch collapsed both to false.
     let diverged = false;
-    try {
-      const mergeBase = await git(...dirArgs, 'merge-base', syncBranch, `${remote}/${syncBranch}`);
-      const localHead = await git(...dirArgs, 'rev-parse', syncBranch);
-
-      // Diverged if merge-base is neither local nor remote HEAD
-      diverged = mergeBase.trim() !== localHead.trim() && mergeBase.trim() !== remoteHead;
-    } catch {
-      // Local branch doesn't exist - can't be diverged
-      diverged = false;
+    let unrelated = false;
+    if (await branchExists(syncBranch, baseDir)) {
+      const localHead = (await git(...dirArgs, 'rev-parse', syncBranch)).trim();
+      try {
+        const mergeBase = (
+          await git(...dirArgs, 'merge-base', syncBranch, `${remote}/${syncBranch}`)
+        ).trim();
+        // Diverged if merge-base is neither local nor remote HEAD.
+        diverged = mergeBase !== localHead && mergeBase !== remoteHead;
+      } catch (err) {
+        // merge-base exits 1 with no output when the two commits share no
+        // ancestor: unrelated histories. Any other exit is a transient/unknown
+        // failure and must NOT masquerade as "unrelated".
+        if (exitCodeOf(err) === 1) {
+          unrelated = true;
+          diverged = true;
+        }
+      }
     }
 
-    return { exists: true, diverged, head: remoteHead };
+    return { exists: true, diverged, unrelated, head: remoteHead };
   } catch {
-    return { exists: false, diverged: false };
+    return { exists: false, diverged: false, unrelated: false };
   }
 }
 
