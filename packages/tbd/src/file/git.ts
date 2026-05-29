@@ -764,20 +764,52 @@ export async function branchExists(branch: string, baseDir?: string): Promise<bo
 }
 
 /**
- * Check if a remote branch exists.
+ * Tri-state result of probing whether a remote branch exists.
+ *
+ * - `present`      ls-remote found the ref.
+ * - `absent`       remote reachable, ref missing (ls-remote --exit-code => 2).
+ * - `check-failed` the check itself failed (auth/network/transient).
+ */
+export type RemoteBranchProbe = 'present' | 'absent' | 'check-failed';
+
+/**
+ * Probe whether a remote branch exists, distinguishing a clean "absent" from a
+ * "check failed".
+ *
+ * `git ls-remote --exit-code` exits 2 when the connection succeeded but no ref
+ * matched; any other failure (auth/network/transient, or git not found) is a
+ * check failure. Orphan-creating callers MUST branch on all three states and
+ * never treat `check-failed` as `absent` — doing so risks creating a divergent
+ * local branch when the remote is merely unreachable.
+ */
+export async function probeRemoteBranch(
+  remote: string,
+  branch: string,
+  baseDir?: string,
+): Promise<RemoteBranchProbe> {
+  const dirArgs = baseDir ? ['-C', baseDir] : [];
+  try {
+    await git(...dirArgs, 'ls-remote', '--exit-code', remote, `refs/heads/${branch}`);
+    return 'present';
+  } catch (err) {
+    return exitCodeOf(err) === 2 ? 'absent' : 'check-failed';
+  }
+}
+
+/**
+ * Check if a remote branch exists (fail-closed boolean wrapper).
+ *
+ * Returns true only for a confirmed `present`; both `absent` and `check-failed`
+ * read as false. Retained for read-only / status-style callers (e.g. uninstall)
+ * where fail-closed is acceptable. Orphan-creating paths MUST use
+ * {@link probeRemoteBranch} directly so they can refuse on `check-failed`.
  */
 export async function remoteBranchExists(
   remote: string,
   branch: string,
   baseDir?: string,
 ): Promise<boolean> {
-  try {
-    const dirArgs = baseDir ? ['-C', baseDir] : [];
-    await git(...dirArgs, 'ls-remote', '--exit-code', remote, `refs/heads/${branch}`);
-    return true;
-  } catch {
-    return false;
-  }
+  return (await probeRemoteBranch(remote, branch, baseDir)) === 'present';
 }
 
 /**
