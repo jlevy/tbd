@@ -1,5 +1,88 @@
 # get-tbd
 
+## 0.2.0
+
+**This release ships a new on-disk format (`f03` → `f04`). Every machine that touches a
+tbd-managed repository must upgrade to v0.2.0; older clients fail closed.** See
+“Upgrading” below if you have a multi-worktree setup or are coming from `v0.1.30`.
+
+### Features
+
+- **Shared common-dir sync worktree**: the local issue-sync worktree moves out of the
+  per-checkout `.tbd/data-sync-worktree/` and into the shared
+  `$GIT_COMMON_DIR/tbd/data-sync-worktree/`. Multi-worktree repos no longer hit the
+  “`tbd-sync` is already used by worktree” failure when a sibling checkout runs `tbd`.
+  All linked worktrees in a repo share one issue store, one branch checkout, and one
+  lock.
+- **`$GIT_COMMON_DIR/tbd/layout.yml`** stamps the on-disk layout with the same
+  `tbd_format` ID as the per-checkout config, so the repo-scoped state and the
+  branch-visible config are versioned independently and validated against each other on
+  every read.
+- **Migration affordance**: `tbd doctor --fix` now performs the `f03 → f04` migration
+  directly (legacy worktree migration, shared `layout.yml` write, and config bump under
+  the shared `data-sync.lock`). Before, you had to know to run `tbd sync` for the
+  migration to happen.
+- **`tbd doctor` exits non-zero on hard `✗` findings** — future-format markers, invalid
+  config, corrupted issue files.
+  Warning-level (`⚠`) findings still exit 0. CI and scripts can now gate on doctor’s
+  exit code.
+- **`tbd status` no longer says “unhealthy”** for the common “shared worktree not
+  initialized yet” case.
+  It now says `(not initialized) — Run: tbd sync (or tbd doctor --fix) to initialize`.
+
+### Upgrade contract
+
+- Every machine that touches a tbd-managed repo must upgrade.
+  Older clients running against an `f04` repo will fail closed on most commands with an
+  explicit upgrade message and exit non-zero.
+
+- **Known pre-existing quirk on `v0.1.30`**: `tbd doctor` against an `f04` repo on
+  `v0.1.30` reports `✗ Config file - Invalid config file` with exit 0 instead of the
+  clear “newer tbd version” upgrade message.
+  If you see that, run `npm install -g get-tbd@latest` — do not try `tbd doctor --fix`
+  on the older client.
+  `v0.2.0`’s `doctor` is fixed to surface the upgrade message clearly.
+
+- **Multi-worktree config bump notice**: when the first command in a checkout migrates
+  that checkout’s `.tbd/config.yml` from `f03` to `f04`, tbd now prints to stderr:
+
+  ```
+  • tbd_format f03 → f04: .tbd/config.yml updated in this checkout.
+    Commit on this branch or merge main to publish the format upgrade.
+  ```
+
+  Expect to see this once per checkout that lacks the bump commit; commit (or merge
+  `main` into) the per-branch config diff to publish.
+
+### Fixes
+
+- **Internal `tbd-sync` commits are signing-agnostic**: machine-generated commits to the
+  data-sync branch now pass `-c commit.gpgsign=false`, so users with
+  `commit.gpgsign=true` and no usable signing key no longer see “worktree corrupted” /
+  “gpg failed to sign” stalls during migration or sync.
+- **Shared-lock boundary covers init and repair**: every code path that initializes or
+  repairs the shared layout (`tbd sync`, `tbd doctor --fix`, `tbd init`, the
+  data-context read path) now runs inside `withSharedDataSyncLock`, preventing
+  concurrent agents from sibling worktrees from racing migration.
+- **Read-only commands skip the shared lock when state is steady** — locking only kicks
+  in when first-use initialization, migration, or repair is actually required.
+- **`tbd doctor --fix` repairs a layout/config `tbd_format` mismatch** by rewriting
+  `layout.yml` from the trusted config.
+  A future-format layout (e.g. a marker from a newer tbd) is surfaced as
+  `requires newer tbd` and is never silently downgraded.
+
+### Internal
+
+- Project-specific `cut-release` shortcut removed from
+  `packages/tbd/docs/shortcuts/standard/`. It described how to ship `get-tbd` itself,
+  not how to ship your project, so it was leaking dogfood content into every tbd
+  install. The flow now lives in this repo’s project-local `docs/publishing.md`.
+- Test-suite stale-`dist/` guard: `vitest` global setup now rebuilds `dist/bin.mjs` when
+  any source or config file is newer than the current build, instead of only rebuilding
+  when `dist/bin.mjs` is missing.
+  This fixes spurious test failures after `git pull` when the checked-out source no
+  longer matches the previous build.
+
 ## 0.1.30
 
 ### Patch Changes
