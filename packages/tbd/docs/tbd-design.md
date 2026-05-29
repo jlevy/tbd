@@ -1659,8 +1659,9 @@ const ConfigSchema = z.object({
 > check via `isCompatibleFormat()`.
 > 
 > For the rules that govern adding a new format (idempotent migration, write order,
-> signing-agnostic commits, doctor recovery contract), see
-> `tbd guidelines tbd-format-versioning`.
+> signing-agnostic commits, doctor recovery contract), see the project-local
+> [docs/tbd-format-versioning.md](../../../docs/tbd-format-versioning.md) contributor
+> guide.
 
 #### 2.7.5 MetaSchema
 

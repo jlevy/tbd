@@ -266,7 +266,7 @@ class DoctorHandler extends BaseCommand {
     // doesn't break. ✗ (error-level) findings — invalid config, future-format
     // layout, corrupted data, future-format on-disk markers — are hard problems
     // that scripts and CI deserve to learn about via a non-zero exit.
-    // See: tbd-format-versioning guideline.
+    // See: docs/tbd-format-versioning.md (internal contributor guide).
     if (hasErrors) {
       process.exitCode = 1;
     }

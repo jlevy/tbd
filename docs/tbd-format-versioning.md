@@ -1,9 +1,15 @@
 ---
 title: tbd On-Disk Format Versioning
-description: Rules for bumping tbd's on-disk format, handling old clients in new repos, and migrating new clients in old repos gracefully and idempotently
+description: Internal guide for bumping tbd's on-disk format, handling old clients in new repos, and migrating new clients in old repos gracefully and idempotently
 author: Joshua Levy (github.com/jlevy) with LLM assistance
 ---
-## tbd On-Disk Format Versioning
+# tbd On-Disk Format Versioning
+
+This is an internal contributor guide for the `get-tbd` codebase, not a guideline
+shipped to tbd users.
+It documents how to evolve tbd’s own on-disk format (`fNN` IDs in `.tbd/config.yml` and
+`$GIT_COMMON_DIR/tbd/layout.yml`) without breaking older clients or corrupting older
+repos.
 
 tbd uses two synchronized format markers to gate compatibility between clients of
 different versions and a repository’s on-disk state:
@@ -13,11 +19,12 @@ different versions and a repository’s on-disk state:
 - `$GIT_COMMON_DIR/tbd/layout.yml` → `tbd_format` (the repo-scoped local layout marker
   for the shared common-dir sync machinery).
 
-`packages/tbd/src/lib/tbd-format.ts` is the SINGLE SOURCE OF TRUTH: `CURRENT_FORMAT`,
-`FORMAT_HISTORY`, the per-step migrations, and `formatUpgradeMessage` all live there.
+[packages/tbd/src/lib/tbd-format.ts](../packages/tbd/src/lib/tbd-format.ts) is the
+SINGLE SOURCE OF TRUTH: `CURRENT_FORMAT`, `FORMAT_HISTORY`, the per-step migrations, and
+`formatUpgradeMessage` all live there.
 When bumping `fNN` → `fNN+1` follow the rules below.
 
-### Old client in a newer repo: fail closed, never silently downgrade
+## Old client in a newer repo: fail closed, never silently downgrade
 
 An older `tbd` (built with a smaller `CURRENT_FORMAT`) that encounters either marker
 with a future `tbd_format` MUST:
@@ -40,7 +47,7 @@ it behind a generic “invalid config” or “worktree corrupted” error.
 `checkConfig` and `checkCommonDirLayout` in `packages/tbd/src/cli/commands/doctor.ts`
 distinguish these errors and report the actionable upgrade text.
 
-### New client in an older repo: migrate gracefully and idempotently
+## New client in an older repo: migrate gracefully and idempotently
 
 When a new client loads an older repo migration runs automatically.
 It MUST:
@@ -64,9 +71,9 @@ It MUST:
    The config write is the “publish” step that locks out older clients, so it MUST be
    the final action of a successful migration.
 
-4. **Be safe to interrupt at every step.** If migration crashes before the config bump
+4. **Be safe to interrupt at every step.** If migration crashes before the config bump,
    the repo is still usable by the old client (it sees the old format).
-   If migration reaches the config bump the shared layout MUST already be valid and
+   If migration reaches the config bump, the shared layout MUST already be valid and
    self-consistent so old clients see the closed door and new clients see a complete
    layout.
 
@@ -77,9 +84,9 @@ It MUST:
    usable key a failed sign leaves migration unfinished and surfaces as a “worktree
    corrupted” failure on the next command.
 
-### Mismatch recovery: route through `tbd doctor --fix`
+## Mismatch recovery: route through `tbd doctor --fix`
 
-If the two markers disagree (partial migration, manual edit, half-applied upgrade)
+If the two markers disagree (partial migration, manual edit, half-applied upgrade),
 normal mutating commands fail closed and point the user at `tbd doctor --fix`. The
 contract:
 
@@ -91,7 +98,7 @@ contract:
   remediation; the manual `rm "$(git rev-parse --git-common-dir)/tbd/layout.yml"` hint
   is a secondary fallback.
 
-### Required pieces when adding a new format
+## Required pieces when adding a new format
 
 When bumping from `fNN` to `fNN+1`:
 
@@ -108,9 +115,9 @@ When bumping from `fNN` to `fNN+1`:
    release time from commits): “every machine that touches this repo must upgrade tbd to
    the new version, older clients will fail closed.”
 
-### Reference design
+## Reference design
 
 Implementation reference: the `f03` → `f04` migration that introduced the shared
 common-dir sync worktree
-(`docs/project/specs/active/plan-2026-05-17-shared-common-dir-sync-worktree.md`, §Format
-And Layout Versioning, §Migration And Compatibility, §Post-Review Hardening).
+([docs/project/specs/active/plan-2026-05-17-shared-common-dir-sync-worktree.md](project/specs/active/plan-2026-05-17-shared-common-dir-sync-worktree.md),
+§Format And Layout Versioning, §Migration And Compatibility, §Post-Review Hardening).

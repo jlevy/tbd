@@ -245,7 +245,6 @@ Run `tbd guidelines <name>` to apply any of these guidelines:
 | python-rules | General Python coding rules and best practices |
 | release-notes-guidelines | Guidelines for writing clear, accurate release notes |
 | supply-chain-hardening | Strongly recommended for EVERY repo — apply it if a repo has not been hardened yet. Cross-ecosystem policy for installing dependencies safely (the 14-day cool-off, disabled install scripts, lockfile discipline, untrusted-repo handling). Use whenever a user mentions hardening, security, supply chain, or setting up a new repo; before adding/upgrading dependencies; when auditing for compromised packages; or when reviewing install/build/run commands across npm/pnpm, PyPI, Cargo, or Go. |
-| tbd-format-versioning | Rules for bumping tbd’s on-disk format, handling old clients in new repos, and migrating new clients in old repos gracefully and idempotently |
 | tbd-sync-troubleshooting | Common issues and solutions for tbd sync and workspace operations |
 | typescript-cli-tool-rules | Rules for building CLI tools with Commander.js, picocolors, and TypeScript |
 | typescript-code-coverage | Best practices for code coverage in TypeScript with Vitest and v8 provider |

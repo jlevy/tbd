@@ -71,18 +71,6 @@ tbd-managed repository must upgrade to v0.2.0; older clients fail closed.** See
   A future-format layout (e.g. a marker from a newer tbd) is surfaced as
   `requires newer tbd` and is never silently downgraded.
 
-### Internal
-
-- Project-specific `cut-release` shortcut removed from
-  `packages/tbd/docs/shortcuts/standard/`. It described how to ship `get-tbd` itself,
-  not how to ship your project, so it was leaking dogfood content into every tbd
-  install. The flow now lives in this repo’s project-local `docs/publishing.md`.
-- Test-suite stale-`dist/` guard: `vitest` global setup now rebuilds `dist/bin.mjs` when
-  any source or config file is newer than the current build, instead of only rebuilding
-  when `dist/bin.mjs` is missing.
-  This fixes spurious test failures after `git pull` when the checked-out source no
-  longer matches the previous build.
-
 ## 0.1.30
 
 ### Patch Changes

@@ -152,7 +152,8 @@ async function ensureSharedDataSyncLayout(
  * worktree (and even on main) deserve to know that without having to discover the
  * diff themselves later.
  *
- * See: tbd-format-versioning guideline, plan-2026-05-17-shared-common-dir-sync-worktree.md.
+ * See: docs/tbd-format-versioning.md (internal contributor guide) and
+ * plan-2026-05-17-shared-common-dir-sync-worktree.md.
  */
 function notifyConfigMigrated(fromFormat: string | undefined, toFormat: string): void {
   if (fromFormat === toFormat) return;
