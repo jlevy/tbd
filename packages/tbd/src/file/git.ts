@@ -18,6 +18,8 @@ import { writeFile } from 'atomically';
 
 import type { Issue } from '../lib/types.js';
 import { now, nowFilenameTimestamp } from '../utils/time-utils.js';
+import { parseIssue, serializeIssue } from './parser.js';
+import { listIssues, writeIssue } from './storage.js';
 
 const execFileAsync = promisify(execFile);
 
@@ -676,6 +678,54 @@ export function mergeIssues(base: Issue | null, local: Issue, remote: Issue): Me
 }
 
 /**
+ * Issues bucketed by ULID/id across two (possibly unrelated) tbd-sync roots.
+ */
+export interface UlidBuckets {
+  /** Present only locally — must be re-applied onto the adopted remote base. */
+  localOnly: Issue[];
+  /** Present only on the remote — already on the adopted base; nothing to do. */
+  remoteOnly: Issue[];
+  /** Same id, substantively equal — no action (remote version kept). */
+  bothIdentical: Issue[];
+  /** Same id, differing content — must be field-merged, never dropped. */
+  bothDifferent: { local: Issue; remote: Issue }[];
+}
+
+/**
+ * Categorize issues from two unrelated tbd-sync roots by id (which embeds the
+ * globally unique ULID). Pure and git-free so the rescue is robust to the
+ * missing merge base. Substantive equality ignores version/updated_at so
+ * trivial bumps don't masquerade as conflicts.
+ */
+export function categorizeIssuesByUlid(local: Issue[], remote: Issue[]): UlidBuckets {
+  const localById = new Map(local.map((i) => [i.id, i]));
+  const remoteById = new Map(remote.map((i) => [i.id, i]));
+  const buckets: UlidBuckets = {
+    localOnly: [],
+    remoteOnly: [],
+    bothIdentical: [],
+    bothDifferent: [],
+  };
+
+  for (const [id, localIssue] of localById) {
+    const remoteIssue = remoteById.get(id);
+    if (!remoteIssue) {
+      buckets.localOnly.push(localIssue);
+    } else if (issuesSubstantivelyEqual(localIssue, remoteIssue)) {
+      buckets.bothIdentical.push(remoteIssue);
+    } else {
+      buckets.bothDifferent.push({ local: localIssue, remote: remoteIssue });
+    }
+  }
+  for (const [id, remoteIssue] of remoteById) {
+    if (!localById.has(id)) {
+      buckets.remoteOnly.push(remoteIssue);
+    }
+  }
+  return buckets;
+}
+
+/**
  * Maximum retry attempts for push operations.
  */
 const MAX_PUSH_RETRIES = 3;
@@ -850,6 +900,7 @@ import {
   WORKTREE_DIR_NAME,
   LEGACY_WORKTREE_DIR,
   TBD_DIR,
+  DATA_SYNC_DIR,
   DATA_SYNC_DIR_NAME,
   SYNC_BRANCH,
   resolveSharedTbdPaths,
@@ -859,8 +910,11 @@ import { DATA_SYNC_SCHEMA_VERSION } from '../lib/schemas.js';
 import {
   loadIdMapping,
   mergeIdMappings,
+  reconcileMappings,
+  parseIdMappingFromYaml,
   resolveIdMappingConflicts,
   saveIdMapping,
+  type IdMapping,
 } from './id-mapping.js';
 
 async function pathExists(path: string): Promise<boolean> {
@@ -1667,6 +1721,175 @@ export async function checkSyncConsistency(
     worktreeMatchesLocal: worktreeHead.trim() === localHead.trim(),
     localAhead,
     localBehind,
+  };
+}
+
+/**
+ * Outcome of a non-destructive unrelated-history rescue.
+ */
+export interface RescueResult {
+  /** Backup branch holding the pre-rescue local HEAD (always recoverable). */
+  backupBranch: string;
+  /** Number of local-only issues re-applied onto the adopted remote base. */
+  localOnly: number;
+  /** Number of same-id divergent issues field-merged. */
+  merged: number;
+  /** Number of those merges that preserved a losing version in attic/conflicts/. */
+  conflicts: number;
+  /** Total issue files after the rescue. */
+  totalIssues: number;
+}
+
+/** Read all issues from a git ref's data-sync tree (no checkout needed). */
+async function readBranchIssues(baseDir: string, ref: string): Promise<Issue[]> {
+  let listing: string;
+  try {
+    listing = await git(
+      '-C',
+      baseDir,
+      'ls-tree',
+      '-r',
+      '--name-only',
+      ref,
+      '--',
+      `${DATA_SYNC_DIR}/issues/`,
+    );
+  } catch {
+    return [];
+  }
+  const issues: Issue[] = [];
+  for (const path of listing.split('\n').filter((p) => /\/is-.*\.md$/.test(p))) {
+    try {
+      const content = await git('-C', baseDir, 'show', `${ref}:${path}`);
+      issues.push(parseIssue(content));
+    } catch {
+      // Skip unreadable/invalid issue files; rescue is best-effort per file.
+    }
+  }
+  return issues;
+}
+
+/** Read the ID mapping from a git ref's ids.yml (empty if absent). */
+async function readBranchMapping(baseDir: string, ref: string): Promise<IdMapping> {
+  try {
+    const content = await git('-C', baseDir, 'show', `${ref}:${DATA_SYNC_DIR}/mappings/ids.yml`);
+    return parseIdMappingFromYaml(content);
+  } catch {
+    return { shortToUlid: new Map(), ulidToShort: new Map() };
+  }
+}
+
+/** Preserve a losing issue version explicitly under attic/conflicts/. */
+async function preserveLosingVersion(dataSyncPath: string, loser: Issue): Promise<void> {
+  const conflictsDir = join(dataSyncPath, 'attic', 'conflicts');
+  await mkdir(conflictsDir, { recursive: true });
+  const filename = `${loser.id}__${nowFilenameTimestamp()}.md`;
+  await writeFile(join(conflictsDir, filename), serializeIssue(loser));
+}
+
+/**
+ * Non-destructively rescue an unrelated tbd-sync history (#139).
+ *
+ * Reconciles at the issue-file layer (ULIDs guarantee no collisions), never via
+ * a git history merge. Adopts the remote as the canonical base and replays
+ * local work onto it. The only destructive step (the reset) happens AFTER a
+ * backup branch is created, so the pre-rescue HEAD is always recoverable and
+ * the rescue is restartable.
+ *
+ * MUST be called while holding `withSharedDataSyncLock`. Aborts if the
+ * data-sync worktree is dirty or has a merge in progress.
+ */
+export async function rescueUnrelatedHistory(
+  baseDir: string,
+  remote = 'origin',
+  syncBranch: string = SYNC_BRANCH,
+): Promise<RescueResult> {
+  const { sharedWorktreePath: worktreePath, sharedDataSyncDir: dataSyncPath } =
+    await getSharedPaths(baseDir);
+
+  // Preconditions: never reset over uncommitted work or an in-progress merge.
+  const dirty = (await git('-C', worktreePath, 'status', '--porcelain')).trim();
+  if (dirty) {
+    throw new Error(
+      'Refusing to rescue: the tbd-sync worktree has uncommitted changes. ' +
+        'Commit or stash them, then retry.',
+    );
+  }
+  const mergeInProgress = await git('-C', worktreePath, 'rev-parse', '-q', '--verify', 'MERGE_HEAD')
+    .then(() => true)
+    .catch(() => false);
+  if (mergeInProgress) {
+    throw new Error(
+      'Refusing to rescue: a merge is in progress in the tbd-sync worktree. ' +
+        'Resolve or abort it, then retry.',
+    );
+  }
+
+  // 1. Fetch the remote so origin/<syncBranch> is current.
+  await gitNoPrompt('-C', baseDir, 'fetch', remote, syncBranch);
+
+  // Capture local state BEFORE the reset.
+  const localIssues = await listIssues(dataSyncPath);
+  const localMapping = await loadIdMapping(dataSyncPath);
+  const remoteIssues = await readBranchIssues(baseDir, `${remote}/${syncBranch}`);
+  const remoteMapping = await readBranchMapping(baseDir, `${remote}/${syncBranch}`);
+
+  // 2. Safety net: a backup branch at the pre-rescue local HEAD.
+  const localHead = (await git('-C', baseDir, 'rev-parse', syncBranch)).trim();
+  const backupBranch = `tbd-backup-${nowFilenameTimestamp()}`;
+  await git('-C', baseDir, 'branch', backupBranch, localHead);
+
+  // 3. Categorize by ULID (pure; robust to the missing merge base).
+  const buckets = categorizeIssuesByUlid(localIssues, remoteIssues);
+
+  // 4. Adopt the remote as the canonical base (the only destructive step, now
+  //    safely after the backup branch).
+  await git('-C', worktreePath, 'reset', '--hard', `${remote}/${syncBranch}`);
+
+  // 5. Replay local work onto the base.
+  let conflicts = 0;
+  for (const issue of buckets.localOnly) {
+    await writeIssue(dataSyncPath, issue);
+  }
+  for (const { local, remote: remoteIssue } of buckets.bothDifferent) {
+    // No common ancestor between unrelated roots -> merge with base=null.
+    const { merged, conflicts: fieldConflicts } = mergeIssues(null, local, remoteIssue);
+    await writeIssue(dataSyncPath, merged);
+    if (fieldConflicts.length > 0) {
+      // Preserve the losing version so nothing is silently dropped.
+      const loser = issuesSubstantivelyEqual(merged, local) ? remoteIssue : local;
+      await preserveLosingVersion(dataSyncPath, loser);
+      conflicts++;
+    }
+  }
+
+  // Union the ID mappings (additive) and ensure every issue has a backing
+  // mapping and vice-versa (closes the "map entries vs files" inconsistency).
+  const mergedMapping = mergeIdMappings(localMapping, remoteMapping);
+  const allIssues = await listIssues(dataSyncPath);
+  reconcileMappings(
+    allIssues.map((i) => i.id),
+    mergedMapping,
+    remoteMapping,
+  );
+  await saveIdMapping(dataSyncPath, mergedMapping);
+
+  // 6. Commit. The push is now a clean fast-forward over origin/<syncBranch>.
+  await git('-C', worktreePath, 'add', '-A');
+  await gitCommit(
+    worktreePath,
+    '--no-verify',
+    '-m',
+    `tbd rescue: adopt remote base + reconcile ${buckets.localOnly.length + buckets.bothDifferent.length} issue(s) ` +
+      `(${buckets.localOnly.length} local-only, ${buckets.bothDifferent.length} merged)`,
+  );
+
+  return {
+    backupBranch,
+    localOnly: buckets.localOnly.length,
+    merged: buckets.bothDifferent.length,
+    conflicts,
+    totalIssues: allIssues.length,
   };
 }
 
