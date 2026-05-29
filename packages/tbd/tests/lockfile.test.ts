@@ -52,46 +52,35 @@ describe('withLockfile', () => {
     const lockPath = join(tempDir, 'test.lock');
     const order: number[] = [];
 
-    // Use longer work duration (200ms) relative to poll interval.
-    // On Windows, rmdir can fail silently (leaving the lock dir behind), so
-    // we set a short staleMs to ensure stale detection breaks orphaned locks
-    // promptly rather than waiting the default 5000ms per waiter.
-    const lockOpts = { timeoutMs: 30_000, pollMs: 20, staleMs: 1_000 };
+    // Track how many critical sections run at once. Mutual exclusion means this
+    // never exceeds 1. (staleMs is kept well above the total runtime so the stale
+    // path is not exercised here; stale-breaking is covered by its own tests.)
+    let active = 0;
+    let maxActive = 0;
+    const lockOpts = { timeoutMs: 30_000, pollMs: 20, staleMs: 30_000 };
 
-    // Launch 3 concurrent critical sections
+    const section = (id: number) => async () => {
+      active++;
+      maxActive = Math.max(maxActive, active);
+      order.push(id);
+      // Simulate some work — must be long enough relative to poll interval.
+      await new Promise((r) => setTimeout(r, 200));
+      order.push(id);
+      active--;
+    };
+
+    // Launch 3 concurrent critical sections.
     await Promise.all([
-      withLockfile(
-        lockPath,
-        async () => {
-          order.push(1);
-          // Simulate some work — must be long enough relative to poll interval
-          await new Promise((r) => setTimeout(r, 200));
-          order.push(1);
-        },
-        lockOpts,
-      ),
-      withLockfile(
-        lockPath,
-        async () => {
-          order.push(2);
-          await new Promise((r) => setTimeout(r, 200));
-          order.push(2);
-        },
-        lockOpts,
-      ),
-      withLockfile(
-        lockPath,
-        async () => {
-          order.push(3);
-          await new Promise((r) => setTimeout(r, 200));
-          order.push(3);
-        },
-        lockOpts,
-      ),
+      withLockfile(lockPath, section(1), lockOpts),
+      withLockfile(lockPath, section(2), lockOpts),
+      withLockfile(lockPath, section(3), lockOpts),
     ]);
 
-    // Each critical section should run to completion before the next starts.
-    // Entries should appear in pairs: [X, X, Y, Y, Z, Z]
+    // No two critical sections ever overlapped.
+    expect(maxActive).toBe(1);
+
+    // Each critical section ran to completion before the next started.
+    // Entries appear in pairs: [X, X, Y, Y, Z, Z].
     expect(order).toHaveLength(6);
     expect(order[0]).toBe(order[1]);
     expect(order[2]).toBe(order[3]);

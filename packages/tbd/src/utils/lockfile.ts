@@ -27,10 +27,15 @@
  *
  * 1. **Acquire**: `mkdir(lockDir)` — fails with EEXIST if held by another process
  * 2. **Hold**: Execute the critical section
- * 3. **Release**: `rmdir(lockDir)` — in a finally block
+ * 3. **Release**: `rmdir(lockDir)` — in a finally block, with a bounded retry to
+ *    absorb transient Windows failures (EBUSY/EPERM from AV scanners or lingering
+ *    handles) that would otherwise orphan the lock directory.
  * 4. **Stale detection**: If lock mtime exceeds a threshold, assume the holder
- *    crashed and break the lock. This is a heuristic — safe when the critical
- *    section is short-lived (sub-second for file I/O).
+ *    crashed and break the lock. Breaking is done **atomically** by renaming the
+ *    stale directory aside (only one waiter can win the rename), so two waiters can
+ *    never both break the same lock and end up running concurrently. This is a
+ *    heuristic — safe when the critical section is short-lived (sub-second for
+ *    file I/O).
  *
  * ## Failure on timeout
  *
@@ -43,7 +48,8 @@
  * crashed processes are always detected and broken before the timeout expires.
  */
 
-import { mkdir, rmdir, stat } from 'node:fs/promises';
+import { mkdir, rename, rmdir, stat } from 'node:fs/promises';
+import { randomUUID } from 'node:crypto';
 
 /** Options for `withLockfile`. */
 export interface LockfileOptions {
@@ -96,6 +102,56 @@ export class LockAcquisitionError extends Error {
     );
     this.name = 'LockAcquisitionError';
   }
+}
+
+/** Filesystem error codes that are transient on Windows and worth retrying. */
+const TRANSIENT_RMDIR_CODES = new Set(['EBUSY', 'EPERM', 'EACCES', 'ENOTEMPTY']);
+
+/**
+ * Remove a lock directory, tolerating transient Windows failures.
+ *
+ * `rmdir` can intermittently fail with EBUSY/EPERM on Windows (antivirus scanners
+ * or lingering directory handles). A few short retries make release reliable; if it
+ * still fails, we give up and let stale detection reclaim the directory rather than
+ * throwing from a best-effort cleanup path.
+ */
+async function removeLockDir(lockPath: string, attempts = 5): Promise<void> {
+  for (let attempt = 0; attempt < attempts; attempt++) {
+    try {
+      await rmdir(lockPath);
+      return;
+    } catch (error) {
+      const code = (error as NodeJS.ErrnoException).code;
+      if (code === 'ENOENT') {
+        return; // Already gone — nothing to do.
+      }
+      if (attempt < attempts - 1 && code && TRANSIENT_RMDIR_CODES.has(code)) {
+        await new Promise((resolve) => setTimeout(resolve, 20 * (attempt + 1)));
+        continue;
+      }
+      return; // Non-transient or out of attempts: best-effort, leave for stale detection.
+    }
+  }
+}
+
+/**
+ * Atomically break a stale lock.
+ *
+ * Renames the stale directory to a unique sidecar path and removes it. `rename` is
+ * atomic, so when several waiters race to break the same stale lock only one wins the
+ * rename; the losers see ENOENT and simply retry. This prevents the classic
+ * non-atomic break race (rmdir + mkdir) where two waiters both break the lock and both
+ * acquire it, defeating mutual exclusion.
+ */
+async function breakStaleLock(lockPath: string): Promise<void> {
+  const sidecar = `${lockPath}.stale-${randomUUID()}`;
+  try {
+    await rename(lockPath, sidecar);
+  } catch {
+    // Another waiter already broke or released it, or the holder is no longer stale.
+    return;
+  }
+  await removeLockDir(sidecar);
 }
 
 /**
@@ -153,11 +209,8 @@ export async function withLockfile<T>(
       try {
         const lockStat = await stat(lockPath);
         if (Date.now() - lockStat.mtimeMs > staleMs) {
-          try {
-            await rmdir(lockPath);
-          } catch {
-            // Another process may have already broken/released it
-          }
+          // Break atomically so concurrent waiters can't both acquire.
+          await breakStaleLock(lockPath);
           continue; // Retry immediately after breaking stale lock
         }
       } catch {
@@ -177,10 +230,7 @@ export async function withLockfile<T>(
   try {
     return await fn();
   } finally {
-    try {
-      await rmdir(lockPath);
-    } catch {
-      // Best-effort cleanup; stale lock detection handles the rest
-    }
+    // Best-effort cleanup with retry; stale lock detection handles the rest.
+    await removeLockDir(lockPath);
   }
 }
