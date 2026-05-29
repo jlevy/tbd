@@ -150,6 +150,33 @@ describeUnlessWindows('common-dir layout via CLI', { timeout: 30000 }, () => {
     });
   });
 
+  describe('sibling-checkout config bump notice (tbd-afjh)', () => {
+    it('prints a one-time stderr notice when this checkout migrates .tbd/config.yml to a newer tbd_format', async () => {
+      const configPath = join(dir, '.tbd', 'config.yml');
+      const original = await readFile(configPath, 'utf-8');
+      // The setup is f04; "downgrade" the on-disk format marker so the next mutating
+      // command sees a stale per-checkout config and migrates it back in place. This
+      // matches a real sibling worktree on a branch that did not yet pick up the
+      // main checkout's f03 → f04 commit.
+      await writeFile(configPath, original.replace('tbd_format: f04', 'tbd_format: f03'));
+
+      const create = runTbd(dir, ['create', 'sibling-bump probe', '--type', 'task', '--no-sync']);
+      expect(create.status).toBe(0);
+      // The notice goes to stderr so it cannot pollute JSON output on stdout.
+      expect(create.stderr).toContain('tbd_format');
+      expect(create.stderr).toContain('→ f04');
+      expect(create.stderr).toMatch(/commit on this branch or merge main/i);
+      // The on-disk config is now back at f04 — the migration ran.
+      const after = await readFile(configPath, 'utf-8');
+      expect(after).toContain('tbd_format: f04');
+
+      // Second mutating call must NOT re-emit the notice: nothing left to migrate.
+      const second = runTbd(dir, ['create', 'sibling-bump probe 2', '--type', 'task', '--no-sync']);
+      expect(second.status).toBe(0);
+      expect(second.stderr).not.toContain('tbd_format');
+    });
+  });
+
   describe('read fast-path (H1)', () => {
     it('regenerates a missing layout.yml on first read without writing direct data path', async () => {
       const layoutPath = join(dir, '.git', 'tbd', 'layout.yml');

@@ -131,9 +131,17 @@ export async function readConfig(baseDir: string): Promise<Config> {
  *
  * @throws {IncompatibleFormatError} If config is from a newer tbd version.
  */
-export async function readConfigWithMigration(
-  baseDir: string,
-): Promise<{ config: Config; migrated: boolean; changes: string[] }> {
+export async function readConfigWithMigration(baseDir: string): Promise<{
+  config: Config;
+  migrated: boolean;
+  changes: string[];
+  /**
+   * The `tbd_format` value found in the file before migration. Useful for showing
+   * the user what was upgraded (e.g., "f03 → f04"). `undefined` for very old
+   * configs that have no `tbd_format` field.
+   */
+  fromFormat: string | undefined;
+}> {
   const configPath = join(baseDir, CONFIG_FILE);
   const content = await readFile(configPath, 'utf-8');
   const data = parseYaml(content) as RawConfig;
@@ -141,12 +149,15 @@ export async function readConfigWithMigration(
   // Check for incompatible (future) format versions first
   checkFormatCompatibility(data);
 
+  const fromFormat = data.tbd_format;
+
   if (needsMigration(data)) {
     const result = migrateToLatest(data);
     return {
       config: ConfigSchema.parse(result.config),
       migrated: result.changed,
       changes: result.changes,
+      fromFormat,
     };
   }
 
@@ -154,6 +165,7 @@ export async function readConfigWithMigration(
     config: ConfigSchema.parse(data),
     migrated: false,
     changes: [],
+    fromFormat,
   };
 }
 

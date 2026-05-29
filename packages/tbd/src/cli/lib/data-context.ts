@@ -17,6 +17,7 @@ import type { Command } from 'commander';
 import type { IdMapping } from '../../file/id-mapping.js';
 import { loadIdMapping, resolveToInternalId } from '../../file/id-mapping.js';
 import { readConfigWithMigration, writeConfig } from '../../file/config.js';
+import { CURRENT_FORMAT } from '../../lib/tbd-format.js';
 import type { Config, CommonDirLayout } from '../../lib/types.js';
 import { resolveDataSyncDir, resolveSharedTbdPaths, type SharedTbdPaths } from '../../lib/paths.js';
 import { formatDisplayId, formatDebugId } from '../../lib/ids.js';
@@ -81,6 +82,8 @@ export interface FullCommandContext extends TbdDataContext {
 interface DataSyncProbe {
   config: Config;
   migrated: boolean;
+  /** The `tbd_format` found in the on-disk config before migration ran, if any. */
+  fromFormat: string | undefined;
   sharedPaths: SharedTbdPaths;
   layout: CommonDirLayout | null;
   health: WorktreeHealth;
@@ -88,7 +91,7 @@ interface DataSyncProbe {
 }
 
 async function probeDataSyncReadiness(tbdRoot: string): Promise<DataSyncProbe> {
-  const { config, migrated } = await readConfigWithMigration(tbdRoot);
+  const { config, migrated, fromFormat } = await readConfigWithMigration(tbdRoot);
   const sharedPaths = await resolveSharedTbdPaths(tbdRoot);
   const layout = await readCommonDirLayout(sharedPaths.sharedLayoutPath);
   if (layout) {
@@ -98,7 +101,7 @@ async function probeDataSyncReadiness(tbdRoot: string): Promise<DataSyncProbe> {
   }
   const health = await checkWorktreeHealth(tbdRoot, config.sync.branch);
   const ready = !migrated && layout !== null && health.valid;
-  return { config, migrated, sharedPaths, layout, health, ready };
+  return { config, migrated, fromFormat, sharedPaths, layout, health, ready };
 }
 
 /**
@@ -137,8 +140,27 @@ async function ensureSharedDataSyncLayout(
   await ensureCommonDirLayout(probe.sharedPaths, probe.config);
   if (probe.migrated) {
     await writeConfig(tbdRoot, probe.config);
+    notifyConfigMigrated(probe.fromFormat, CURRENT_FORMAT);
   }
   return repairedWorktreeStatus;
+}
+
+/**
+ * Emit a one-time stderr notice when this checkout's `.tbd/config.yml` was migrated
+ * (typically `fXX → fYY`). The config bump is the "publish" step of the format
+ * migration and lands as a tracked diff on the current branch; users on a sibling
+ * worktree (and even on main) deserve to know that without having to discover the
+ * diff themselves later.
+ *
+ * See: tbd-format-versioning guideline, plan-2026-05-17-shared-common-dir-sync-worktree.md.
+ */
+function notifyConfigMigrated(fromFormat: string | undefined, toFormat: string): void {
+  if (fromFormat === toFormat) return;
+  const arrow = fromFormat ? `${fromFormat} → ${toFormat}` : `→ ${toFormat}`;
+  process.stderr.write(
+    `• tbd_format ${arrow}: .tbd/config.yml updated in this checkout. ` +
+      `Commit on this branch or merge main to publish the format upgrade.\n`,
+  );
 }
 
 async function assembleDataContext(
