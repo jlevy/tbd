@@ -5,7 +5,7 @@ title: "[epic] Release tbd v0.2.0 (shared common-dir worktree, f04 migration)"
 kind: epic
 status: open
 priority: 0
-version: 11
+version: 15
 spec_path: tests/qa/release-v0.2.0-upgrade.qa.md
 labels: []
 dependencies: []
@@ -20,8 +20,12 @@ child_order_hints:
   - is-01ksrpdkemmkkhh4j6egqyrvsq
   - is-01ksrpdqq35gddkbpr21xrdrqd
   - is-01kss0t446hjek1vq150eaxk89
+  - is-01kss6e6b9h6wtypdfxdmawt08
+  - is-01kss6efgnqesfd3s2v29yk79m
+  - is-01kss6er2p7pfg2v0wt4vqcjbp
+  - is-01kss6f2ydhh5k0qnnpc3eve0w
 created_at: 2026-05-29T01:42:25.383Z
-updated_at: 2026-05-29T04:45:19.365Z
+updated_at: 2026-05-29T06:24:09.160Z
 ---
 Track all remaining work to ship v0.2.0 — the first release carrying the f03→f04 on-disk format bump (shared common-dir sync worktree).
 

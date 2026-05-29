@@ -3,16 +3,18 @@ type: is
 id: is-01ksrpdqq35gddkbpr21xrdrqd
 title: "[task] Phase 5: post-publish re-validate ATA, flowmark, and this repo with published v0.2.0"
 kind: task
-status: open
+status: closed
 priority: 1
-version: 2
+version: 3
 spec_path: tests/qa/release-v0.2.0-upgrade.qa.md
 labels:
   - v0.2.0
 dependencies: []
 parent_id: is-01ksrpb7b8cfwrzzd34ya9874q
 created_at: 2026-05-29T01:43:47.682Z
-updated_at: 2026-05-29T04:24:03.199Z
+updated_at: 2026-05-29T06:31:32.518Z
+closed_at: 2026-05-29T06:31:32.512Z
+close_reason: "Phase 5 complete on published get-tbd@0.2.0 (npm install -g with --before=2099 --minimum-release-age=0 --userconfig=/dev/null override for our own release; tbd --version → 0.2.0; package at /Users/levy/.local/share/fnm/...; 30 shortcuts shipped, cut-release and tbd-format-versioning correctly absent). Validated: ATA (3548 issues, worktree healthy, sync OK); flowmark + sibling /private/tmp/flowmark-pr47-fresh (both healthy on shared layout); this repo (tbd shortcut --list / tbd guidelines --list / doctor all clean, no more f04 fail-closed). Dogfood pin refresh was a no-op — main already had 0.2.0 pins from the pre-release TBD_VERSION_OVERRIDE work. GH Release bodies for v0.2.0 and v0.1.30 both backfilled with the proper CHANGELOG sections via gh release edit; tbd-xk7c (release.yml awk fix) prevents this in future."
 ---
 Per tests/qa/release-v0.2.0-upgrade.qa.md §5.
 
