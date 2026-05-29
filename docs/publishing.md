@@ -166,7 +166,7 @@ No Changesets — bump by hand on a `claude/release-vX.X.X` branch:
 ```bash
 # 1. Set "version" in packages/tbd/package.json to X.X.X
 # 2. Prepend a section to packages/tbd/CHANGELOG.md (heading MUST be exactly "## X.X.X" —
-#    release.yml greps for it to build the GitHub Release body):
+#    release.yml's extractor matches that exact heading to build the GitHub Release body):
 #
 #    ## X.X.X
 #
@@ -190,11 +190,42 @@ git log $(git describe --tags --abbrev=0 2>/dev/null || echo "HEAD~20")..HEAD --
 
 ### Step 6: Push and Tag
 
+**Before tagging: main CI MUST have reached `conclusion=success` on the exact commit you
+are about to tag.** “Mostly green” is not green.
+If a job hangs (e.g., the known `tests/lockfile.test.ts` flake on Windows), cancel and
+rerun the failed job — do not tag past it.
+
+`release.yml` is independent of `ci.yml` (it triggers on the tag push, runs on
+`ubuntu-latest` only).
+The release will still publish successfully even if main CI is in_progress or red — but
+that is a process failure: it ships work that was not confirmed to pass tests on the
+merge commit. Wait for green **on the merge commit itself**, not just “main is usually
+green” — right after a push/merge, an unfiltered query can return the *previous* run.
+
+The gate below is written once and reused by both options.
+It always filters by `$MERGE_SHA` (the commit being tagged), verifies the run is
+actually for that SHA, and watches it to completion:
+
+```bash
+# Gate: wait for main CI success on the commit being tagged. $MERGE_SHA must be set
+# by the option below before running this.
+RUN_ID=$(gh run list -R jlevy/tbd --branch main --workflow=ci.yml \
+  --commit "$MERGE_SHA" --json databaseId,headSha --jq '.[0].databaseId')
+# If RUN_ID is empty, the run for this SHA has not been created yet — wait and retry.
+gh run watch "$RUN_ID" -R jlevy/tbd --exit-status   # nonzero exit if the run fails
+# Confirm it is the right commit and green before tagging:
+gh run view "$RUN_ID" -R jlevy/tbd --json headSha,conclusion \
+  --jq 'select(.headSha=="'"$MERGE_SHA"'" and .conclusion=="success") | "OK"'
+# Expect: "OK". Only tag if you see it.
+```
+
 **Option A: Direct git push (local development)**
 
 ```bash
 git push
-git tag vX.X.X
+MERGE_SHA=$(git rev-parse HEAD)   # the commit you just pushed to main
+# ... run the gate above (waits for main CI success on $MERGE_SHA) ...
+git tag "vX.X.X" "$MERGE_SHA"
 git push --tags
 ```
 
@@ -212,8 +243,9 @@ gh pr create -R jlevy/tbd --base main --head <branch-name> \
   --body-file release-notes.md
 gh pr merge <pr-number> -R jlevy/tbd --merge
 
-# Get merge commit SHA and create tag
+# Get the merge commit SHA, gate on its main CI, then tag
 MERGE_SHA=$(gh pr view <pr-number> -R jlevy/tbd --json mergeCommit -q '.mergeCommit.oid')
+# ... run the gate above (waits for main CI success on $MERGE_SHA) ...
 gh api repos/jlevy/tbd/git/refs -X POST \
   -f ref="refs/tags/vX.X.X" \
   -f sha="$MERGE_SHA"
@@ -236,6 +268,13 @@ gh release edit vX.X.X -R jlevy/tbd --notes-file release-notes.md
 ```bash
 gh release view vX.X.X -R jlevy/tbd
 npm view get-tbd
+
+# The GH Release body MUST be the "## X.Y.Z" CHANGELOG section, not the
+# fallback "Release vX.Y.Z" string. v0.1.30 and v0.2.0 both shipped with the
+# fallback because release.yml's awk extractor was broken. Confirm explicitly:
+gh release view vX.X.X --json body --jq '.body' | head -5
+# If you see just "Release vX.Y.Z", the workflow regressed — fix release.yml
+# (see tbd-xk7c) and `gh release edit` the body in for the current release.
 ```
 
 ## Quick Reference
@@ -254,7 +293,13 @@ pnpm audit && pnpm check:package-age
 git add . && git commit -m "chore: release get-tbd v0.2.0"
 
 # Write release notes (see release-notes-guidelines.md)
-git push && git tag v0.2.0 && git push --tags
+git push
+# GATE: wait for main CI success on the pushed commit BEFORE tagging (see Step 6).
+MERGE_SHA=$(git rev-parse HEAD)
+RUN_ID=$(gh run list -R jlevy/tbd --branch main --workflow=ci.yml \
+  --commit "$MERGE_SHA" --json databaseId --jq '.[0].databaseId')
+gh run watch "$RUN_ID" -R jlevy/tbd --exit-status   # only proceed if this succeeds
+git tag v0.2.0 "$MERGE_SHA" && git push --tags
 
 # Update GitHub release after workflow completes
 gh release edit v0.2.0 -R jlevy/tbd --notes-file release-notes.md
@@ -279,6 +324,10 @@ gh pr create -R jlevy/tbd --base main --head <branch-name> \
   --title "chore: release get-tbd v0.2.0" --body-file release-notes.md
 gh pr merge <pr-number> -R jlevy/tbd --merge
 MERGE_SHA=$(gh pr view <pr-number> -R jlevy/tbd --json mergeCommit -q '.mergeCommit.oid')
+# GATE: wait for main CI success on the merge commit BEFORE tagging (see Step 6).
+RUN_ID=$(gh run list -R jlevy/tbd --branch main --workflow=ci.yml \
+  --commit "$MERGE_SHA" --json databaseId --jq '.[0].databaseId')
+gh run watch "$RUN_ID" -R jlevy/tbd --exit-status   # only proceed if this succeeds
 gh api repos/jlevy/tbd/git/refs -X POST -f ref="refs/tags/v0.2.0" -f sha="$MERGE_SHA"
 
 # Update GitHub release after workflow completes

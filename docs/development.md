@@ -241,11 +241,41 @@ publishes `get-tbd` to npm, and creates a GitHub Release whose body is the match
    [`release-notes-guidelines`](../packages/tbd/docs/guidelines/release-notes-guidelines.md).
 3. `pnpm release:verify` (build and publint) and `pnpm test`; open the release PR; merge
    once CI is green.
-4. Tag `vX.Y.Z` on `main` and push it — the Release workflow publishes to npm and
-   creates the GitHub Release.
+4. **Gate before tagging:** wait until main CI has reached `conclusion=success` on the
+   merge commit itself (filter the run by that SHA — right after a merge an unfiltered
+   query can return the previous run).
+   Only then tag `vX.Y.Z` on that exact commit and push it — the Release workflow
+   publishes to npm and creates the GitHub Release.
+   See [publishing.md](publishing.md) §Step 6 for the exact gate commands.
 
 For the full step-by-step (including the version-bump heuristic, supply-chain review,
 and verification), see [publishing.md](publishing.md).
+
+## CI and GitHub Actions
+
+**Keep logic out of workflow YAML.** Do not put non-trivial shell — multi-line `awk`,
+`sed`, `jq` pipelines, regex parsing, conditional logic — inline in a GitHub Actions
+`run:` step. Inline CI shell cannot be tested or debugged in isolation; the only way to
+exercise it is to push a tag or branch and wait for the runner, which is slow and
+error-prone. A real bug shipped this way: the release workflow’s inline `awk` changelog
+extractor silently produced an empty body on every release (`v0.1.30` and `v0.2.0` both
+went out with the fallback `Release vX.Y.Z` string) because it exited 0 either way.
+
+Instead, write a clean, unit-tested script and invoke it by reference:
+
+- Put the pure logic in a `src/` module with an exported function and a thin
+  `scripts/*.ts` CLI wrapper (run via `tsx`). See `src/utils/changelog.ts`, its wrapper
+  `scripts/extract-changelog.ts`, and the test `tests/extract-changelog.test.ts`. Import
+  source from tests as `../src/...js` (avoid importing `.mjs` from a test — it resolves
+  inconsistently under vitest on Windows).
+- Cover it with a normal vitest test so the behavior is locked in and debuggable
+  locally.
+- In the workflow, the `run:` step should only call the script
+  (`pnpm exec tsx packages/tbd/scripts/extract-changelog.ts …`) and wire its output;
+  keep any remaining shell to trivial plumbing (e.g. the `GITHUB_OUTPUT` heredoc).
+
+If you find yourself reaching for `awk`/`sed` in a workflow, that is the signal to move
+it into a script.
 
 ## Project Structure
 

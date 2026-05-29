@@ -27,10 +27,15 @@
  *
  * 1. **Acquire**: `mkdir(lockDir)` — fails with EEXIST if held by another process
  * 2. **Hold**: Execute the critical section
- * 3. **Release**: `rmdir(lockDir)` — in a finally block
+ * 3. **Release**: `rmdir(lockDir)` — in a finally block, with a bounded retry to
+ *    absorb transient Windows failures (EBUSY/EPERM from AV scanners or lingering
+ *    handles) that would otherwise orphan the lock directory.
  * 4. **Stale detection**: If lock mtime exceeds a threshold, assume the holder
- *    crashed and break the lock. This is a heuristic — safe when the critical
- *    section is short-lived (sub-second for file I/O).
+ *    crashed and break the lock. Breaking is done **atomically** by renaming the
+ *    stale directory aside (only one waiter can win the rename), so two waiters can
+ *    never both break the same lock and end up running concurrently. This is a
+ *    heuristic — safe when the critical section is short-lived (sub-second for
+ *    file I/O).
  *
  * ## Failure on timeout
  *
@@ -43,7 +48,8 @@
  * crashed processes are always detected and broken before the timeout expires.
  */
 
-import { mkdir, rmdir, stat } from 'node:fs/promises';
+import { mkdir, rename, rmdir, stat } from 'node:fs/promises';
+import { randomUUID } from 'node:crypto';
 
 /** Options for `withLockfile`. */
 export interface LockfileOptions {
@@ -98,6 +104,56 @@ export class LockAcquisitionError extends Error {
   }
 }
 
+/** Filesystem error codes that are transient on Windows and worth retrying. */
+const TRANSIENT_RMDIR_CODES = new Set(['EBUSY', 'EPERM', 'EACCES', 'ENOTEMPTY']);
+
+/**
+ * Remove a lock directory, tolerating transient Windows failures.
+ *
+ * `rmdir` can intermittently fail with EBUSY/EPERM on Windows (antivirus scanners
+ * or lingering directory handles). A few short retries make release reliable; if it
+ * still fails, we give up and let stale detection reclaim the directory rather than
+ * throwing from a best-effort cleanup path.
+ */
+async function removeLockDir(lockPath: string, attempts = 5): Promise<void> {
+  for (let attempt = 0; attempt < attempts; attempt++) {
+    try {
+      await rmdir(lockPath);
+      return;
+    } catch (error) {
+      const code = (error as NodeJS.ErrnoException).code;
+      if (code === 'ENOENT') {
+        return; // Already gone — nothing to do.
+      }
+      if (attempt < attempts - 1 && code && TRANSIENT_RMDIR_CODES.has(code)) {
+        await new Promise((resolve) => setTimeout(resolve, 20 * (attempt + 1)));
+        continue;
+      }
+      return; // Non-transient or out of attempts: best-effort, leave for stale detection.
+    }
+  }
+}
+
+/**
+ * Atomically break a stale lock.
+ *
+ * Renames the stale directory to a unique sidecar path and removes it. `rename` is
+ * atomic, so when several waiters race to break the same stale lock only one wins the
+ * rename; the losers see ENOENT and simply retry. This prevents the classic
+ * non-atomic break race (rmdir + mkdir) where two waiters both break the lock and both
+ * acquire it, defeating mutual exclusion.
+ */
+async function breakStaleLock(lockPath: string): Promise<void> {
+  const sidecar = `${lockPath}.stale-${randomUUID()}`;
+  try {
+    await rename(lockPath, sidecar);
+  } catch {
+    // Another waiter already broke or released it, or the holder is no longer stale.
+    return;
+  }
+  await removeLockDir(sidecar);
+}
+
 /**
  * Execute `fn` while holding a lockfile.
  *
@@ -149,20 +205,30 @@ export async function withLockfile<T>(
         throw error;
       }
 
-      // Lock exists — check if it's stale (holder likely crashed)
+      // Lock exists — inspect it.
+      let lockStat;
       try {
-        const lockStat = await stat(lockPath);
-        if (Date.now() - lockStat.mtimeMs > staleMs) {
-          try {
-            await rmdir(lockPath);
-          } catch {
-            // Another process may have already broken/released it
-          }
-          continue; // Retry immediately after breaking stale lock
-        }
+        lockStat = await stat(lockPath);
       } catch {
         // Lock was released between our mkdir and stat — retry immediately
         continue;
+      }
+
+      // A non-directory at the lock path is unexpected filesystem state. Do not
+      // rename it aside: that would move the user's file out of the way and let the
+      // critical section run unprotected. Fail loudly instead (mirrors how an
+      // unexpected mkdir error is surfaced rather than masked as contention).
+      if (!lockStat.isDirectory()) {
+        throw new Error(
+          `Lock path exists but is not a directory: ${lockPath}. ` +
+            `Refusing to break it; remove the conflicting file and retry.`,
+        );
+      }
+
+      if (Date.now() - lockStat.mtimeMs > staleMs) {
+        // Break atomically so concurrent waiters can't both acquire.
+        await breakStaleLock(lockPath);
+        continue; // Retry immediately after breaking stale lock
       }
 
       // Lock is fresh — wait and retry
@@ -177,10 +243,7 @@ export async function withLockfile<T>(
   try {
     return await fn();
   } finally {
-    try {
-      await rmdir(lockPath);
-    } catch {
-      // Best-effort cleanup; stale lock detection handles the rest
-    }
+    // Best-effort cleanup with retry; stale lock detection handles the rest.
+    await removeLockDir(lockPath);
   }
 }

@@ -6,7 +6,7 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { mkdtemp, rm, mkdir, stat } from 'node:fs/promises';
+import { mkdtemp, rm, mkdir, stat, writeFile, readFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -52,51 +52,45 @@ describe('withLockfile', () => {
     const lockPath = join(tempDir, 'test.lock');
     const order: number[] = [];
 
-    // Use longer work duration (200ms) relative to poll interval.
-    // On Windows, rmdir can fail silently (leaving the lock dir behind), so
-    // we set a short staleMs to ensure stale detection breaks orphaned locks
-    // promptly rather than waiting the default 5000ms per waiter.
+    // Track how many critical sections run at once. Mutual exclusion means this
+    // never exceeds 1.
+    //
+    // staleMs is comfortably above the 200ms critical section (so a live holder is
+    // never mistaken for stale) but well below the test timeout. On Windows a
+    // release rmdir can stall; a low staleMs lets the next waiter reclaim the
+    // orphaned lock within ~1s instead of hanging, while the atomic stale-break in
+    // withLockfile guarantees two waiters can't both reclaim it and run concurrently.
+    let active = 0;
+    let maxActive = 0;
     const lockOpts = { timeoutMs: 30_000, pollMs: 20, staleMs: 1_000 };
 
-    // Launch 3 concurrent critical sections
+    const section = (id: number) => async () => {
+      active++;
+      maxActive = Math.max(maxActive, active);
+      order.push(id);
+      // Simulate some work — must be long enough relative to poll interval.
+      await new Promise((r) => setTimeout(r, 200));
+      order.push(id);
+      active--;
+    };
+
+    // Launch 3 concurrent critical sections.
     await Promise.all([
-      withLockfile(
-        lockPath,
-        async () => {
-          order.push(1);
-          // Simulate some work — must be long enough relative to poll interval
-          await new Promise((r) => setTimeout(r, 200));
-          order.push(1);
-        },
-        lockOpts,
-      ),
-      withLockfile(
-        lockPath,
-        async () => {
-          order.push(2);
-          await new Promise((r) => setTimeout(r, 200));
-          order.push(2);
-        },
-        lockOpts,
-      ),
-      withLockfile(
-        lockPath,
-        async () => {
-          order.push(3);
-          await new Promise((r) => setTimeout(r, 200));
-          order.push(3);
-        },
-        lockOpts,
-      ),
+      withLockfile(lockPath, section(1), lockOpts),
+      withLockfile(lockPath, section(2), lockOpts),
+      withLockfile(lockPath, section(3), lockOpts),
     ]);
 
-    // Each critical section should run to completion before the next starts.
-    // Entries should appear in pairs: [X, X, Y, Y, Z, Z]
+    // No two critical sections ever overlapped.
+    expect(maxActive).toBe(1);
+
+    // Each critical section ran to completion before the next started.
+    // Entries appear in pairs: [X, X, Y, Y, Z, Z].
     expect(order).toHaveLength(6);
     expect(order[0]).toBe(order[1]);
     expect(order[2]).toBe(order[3]);
     expect(order[4]).toBe(order[5]);
-  });
+  }, 30_000);
 
   it('breaks stale locks', async () => {
     const lockPath = join(tempDir, 'stale.lock');
@@ -143,6 +137,28 @@ describe('withLockfile', () => {
     ).rejects.toMatchObject({ code: 'ENOENT' });
 
     expect(executed).toBe(false);
+  });
+
+  it('refuses to break a non-directory at the lock path and leaves it untouched', async () => {
+    const lockPath = join(tempDir, 'occupied.lock');
+    // A regular file (not the directory the lock protocol creates) sits at the path.
+    await writeFile(lockPath, 'important user data');
+
+    let executed = false;
+    await expect(
+      withLockfile(
+        lockPath,
+        () => {
+          executed = true;
+          return Promise.resolve('should-not-run');
+        },
+        { staleMs: -1, timeoutMs: 2000 }, // would mark any lock stale immediately
+      ),
+    ).rejects.toThrow('not a directory');
+
+    // The critical section never ran and the file was not moved aside.
+    expect(executed).toBe(false);
+    expect(await readFile(lockPath, 'utf-8')).toBe('important user data');
   });
 
   it('detects and breaks stale lock within timeout when staleMs < timeoutMs', async () => {
