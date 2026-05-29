@@ -129,10 +129,11 @@ needing a third victim repo.
 
 - [docs/project/specs/active/plan-2026-05-17-shared-common-dir-sync-worktree.md](../../docs/project/specs/active/plan-2026-05-17-shared-common-dir-sync-worktree.md)
   — the f04 design
-- [packages/tbd/docs/guidelines/tbd-format-versioning.md](../../packages/tbd/docs/guidelines/tbd-format-versioning.md)
-  — old-client / new-client contract
-- [packages/tbd/docs/shortcuts/standard/cut-release.md](../../packages/tbd/docs/shortcuts/standard/cut-release.md)
-  — tag-triggered release flow
+- [docs/tbd-format-versioning.md](../../docs/tbd-format-versioning.md) — old-client /
+  new-client contract (project-local contributor guide; relocated out of shipped
+  guidelines in v0.2.0)
+- [docs/publishing.md](../../docs/publishing.md) — tag-triggered release flow
+  (project-local; replaced the removed `cut-release` shortcut in v0.2.0)
 - [packages/tbd/src/lib/tbd-format.ts](../../packages/tbd/src/lib/tbd-format.ts) —
   single source of truth for `CURRENT_FORMAT` and migrations
 - [packages/tbd/tests/cli-shared-common-dir-worktree.tryscript.md](../../packages/tbd/tests/cli-shared-common-dir-worktree.tryscript.md)
@@ -479,7 +480,7 @@ git config --local --unset user.signingkey
 
 ## Phase 3: Cut release v0.2.0
 
-Follow `tbd shortcut cut-release` once Phase 2 is green.
+Follow [docs/publishing.md](../../docs/publishing.md) once Phase 2 is green.
 Summary:
 
 ```bash

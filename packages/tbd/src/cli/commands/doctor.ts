@@ -914,7 +914,14 @@ class DoctorHandler extends BaseCommand {
         // path `tbd sync` takes).
         if (fix && !this.checkDryRun('Initialize shared data-sync worktree')) {
           try {
-            await prepareDataSyncContext(this.cwd);
+            // ensureSharedDataSyncLayout (inside prepareDataSyncContext) MUST run
+            // under withSharedDataSyncLock — concurrent agents from sibling worktrees
+            // must not race init/migrate/repair. Match the pattern used for the
+            // prunable/corrupted repair below.
+            // See: docs/tbd-format-versioning.md, packages/tbd/src/cli/lib/data-context.ts.
+            await withSharedDataSyncLock(this.cwd, async () => {
+              await prepareDataSyncContext(this.cwd);
+            });
           } catch (error) {
             return {
               name: 'Worktree',

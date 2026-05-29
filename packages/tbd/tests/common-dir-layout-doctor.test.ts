@@ -41,6 +41,28 @@ function runTbd(cwd: string, args: string[]): { stdout: string; stderr: string; 
   };
 }
 
+/**
+ * Async variant for tests that need real concurrent invocations (e.g. proving the
+ * shared-lock contract under racing writers). `runTbd` uses `spawnSync` and would
+ * serialize the two calls through the event loop, defeating the test.
+ */
+async function runTbdAsync(
+  cwd: string,
+  args: string[],
+): Promise<{ stdout: string; stderr: string; status: number }> {
+  try {
+    const { stdout, stderr } = await execFileAsync('node', [tbdBin, ...args], {
+      cwd,
+      encoding: 'utf-8',
+      env: { ...process.env, FORCE_COLOR: '0' },
+    });
+    return { stdout: stdout ?? '', stderr: stderr ?? '', status: 0 };
+  } catch (error) {
+    const err = error as { stdout?: string; stderr?: string; code?: number };
+    return { stdout: err.stdout ?? '', stderr: err.stderr ?? '', status: err.code ?? 1 };
+  }
+}
+
 async function setupRepo(): Promise<string> {
   const dir = await mkdtemp(join(tmpdir(), 'tbd-layout-e2e-'));
   await gitIn(dir, 'init', '--initial-branch=main');
@@ -153,6 +175,45 @@ describeUnlessWindows('common-dir layout via CLI', { timeout: 30000 }, () => {
       expect(await exists(layoutPath)).toBe(true);
       const layout = await readFile(layoutPath, 'utf-8');
       expect(layout).toContain('tbd_format: f04');
+    });
+
+    it('serializes concurrent doctor --fix init under the shared data-sync lock (tbd-p6zo)', async () => {
+      const worktreePath = join(dir, '.git', 'tbd', 'data-sync-worktree');
+      const layoutPath = join(dir, '.git', 'tbd', 'layout.yml');
+
+      // Reset to the missing-worktree state on disk and in the git registry, exactly
+      // as the f03 → f04 transition looks before the first command runs.
+      await rm(worktreePath, { recursive: true, force: true });
+      await rm(layoutPath, { force: true });
+      await gitIn(dir, 'worktree', 'prune');
+
+      // Two concurrent doctor --fix invocations against the same repo race the
+      // init/migrate/repair path. Without withSharedDataSyncLock around
+      // prepareDataSyncContext, the second runner can clobber the first writer's
+      // half-written shared layout (or its worktree registry mutation) and either
+      // process can fail. With the lock, the second runner waits on the lockfile,
+      // then re-probes inside the lock and either no-ops (ready) or finishes the
+      // init/migrate work cleanly. Both processes must exit 0 and the repo state
+      // must be exactly one shared worktree + one valid layout.
+      //
+      // runTbdAsync (vs runTbd) is required here: spawnSync blocks the event loop
+      // and would serialize the two calls, defeating the regression test.
+      const [first, second] = await Promise.all([
+        runTbdAsync(dir, ['doctor', '--fix']),
+        runTbdAsync(dir, ['doctor', '--fix']),
+      ]);
+      expect(first.status).toBe(0);
+      expect(second.status).toBe(0);
+      expect(await exists(worktreePath)).toBe(true);
+      expect(await exists(layoutPath)).toBe(true);
+      const layout = await readFile(layoutPath, 'utf-8');
+      expect(layout).toContain('tbd_format: f04');
+
+      const worktreeList = await gitIn(dir, 'worktree', 'list', '--porcelain');
+      const sharedWorktreeLines = worktreeList
+        .split('\n')
+        .filter((line) => line.startsWith('worktree ') && line.includes('data-sync-worktree'));
+      expect(sharedWorktreeLines).toHaveLength(1);
     });
   });
 
