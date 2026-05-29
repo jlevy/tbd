@@ -42,6 +42,7 @@ import {
   migrateDataToWorktree,
   initWorktree,
   countRemoteIssues,
+  type RemoteBranchHealth,
 } from '../../file/git.js';
 import {
   CommonDirLayoutError,
@@ -53,6 +54,42 @@ import {
 import { isCompatibleFormat } from '../../lib/tbd-format.js';
 import { type DiagnosticResult, renderDiagnostics } from '../lib/diagnostics.js';
 import { VERSION } from '../lib/version.js';
+
+/**
+ * Map remote sync-branch health to a "Remote sync branch" diagnostic.
+ *
+ * Returns null when the remote branch does not exist (the caller then falls
+ * through to local-branch / new-repo handling). Unrelated histories are a hard
+ * ✗ finding routed to `tbd doctor --fix` (the rescue), NOT `tbd sync` — push
+ * can never fast-forward and a plain merge refuses, so `tbd sync` cannot help.
+ */
+export function classifyRemoteSyncHealth(
+  health: RemoteBranchHealth,
+  remote: string,
+  syncBranch: string,
+): DiagnosticResult | null {
+  if (!health.exists) {
+    return null;
+  }
+  if (health.unrelated) {
+    return {
+      name: 'Remote sync branch',
+      status: 'error',
+      fixable: true,
+      message: `${remote}/${syncBranch} histories are unrelated (no common ancestor) — push cannot succeed`,
+      suggestion: 'Run: tbd doctor --fix to reconcile the unrelated histories',
+    };
+  }
+  if (health.diverged) {
+    return {
+      name: 'Remote sync branch',
+      status: 'warn',
+      message: `${remote}/${syncBranch} has diverged`,
+      suggestion: 'Run: tbd sync to reconcile changes',
+    };
+  }
+  return { name: 'Remote sync branch', status: 'ok', message: `${remote}/${syncBranch}` };
+}
 import { formatHeading } from '../lib/output.js';
 import {
   renderRepositorySection,
@@ -1245,16 +1282,9 @@ class DoctorHandler extends BaseCommand {
     const remote = this.config?.sync.remote ?? 'origin';
     const remoteHealth = await checkRemoteBranchHealth(remote, syncBranch, this.cwd);
 
-    if (remoteHealth.exists) {
-      if (remoteHealth.diverged) {
-        return {
-          name: 'Remote sync branch',
-          status: 'warn',
-          message: `${remote}/${syncBranch} has diverged`,
-          suggestion: 'Run: tbd sync to reconcile changes',
-        };
-      }
-      return { name: 'Remote sync branch', status: 'ok', message: `${remote}/${syncBranch}` };
+    const diag = classifyRemoteSyncHealth(remoteHealth, remote, syncBranch);
+    if (diag) {
+      return diag;
     }
 
     // Remote branch doesn't exist
