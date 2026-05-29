@@ -3,9 +3,9 @@ type: is
 id: is-01kss7jbwn48erek2qctyt5wbh
 title: git() wrapper/errors carry exitCode (structural)
 kind: task
-status: open
+status: closed
 priority: 1
-version: 2
+version: 4
 spec_path: docs/project/specs/active/plan-2026-05-29-tbd-sync-unrelated-history-hardening.md
 labels: []
 dependencies:
@@ -13,5 +13,7 @@ dependencies:
     target: is-01kss7jcf02jsw39z45enh5wvv
 parent_id: is-01kss7hxvj9nxnhthv6efvehg0
 created_at: 2026-05-29T06:43:25.204Z
-updated_at: 2026-05-29T06:43:43.670Z
+updated_at: 2026-05-29T16:27:28.759Z
+closed_at: 2026-05-29T16:27:28.759Z
+close_reason: null
 ---
