@@ -22,6 +22,63 @@ import { now, nowFilenameTimestamp } from '../utils/time-utils.js';
 const execFileAsync = promisify(execFile);
 
 /**
+ * Error thrown by {@link git} when a git command exits non-zero.
+ *
+ * Carries the process `exitCode` so callers can branch on git's exit status
+ * (e.g. `ls-remote --exit-code` => 2 means "ref absent", `merge-base` => 1
+ * means "no common ancestor") instead of string-matching stderr. The original
+ * message/stderr is preserved so existing message-based classifiers
+ * (classifySyncError) keep working.
+ */
+export class GitError extends Error {
+  /** Process exit code, or null for a spawn failure (e.g. git not found). */
+  readonly exitCode: number | null;
+  readonly stderr: string;
+  readonly stdout: string;
+  readonly args: string[];
+
+  constructor(
+    message: string,
+    opts: { exitCode: number | null; stderr: string; stdout: string; args: string[] },
+  ) {
+    super(message);
+    this.name = 'GitError';
+    this.exitCode = opts.exitCode;
+    this.stderr = opts.stderr;
+    this.stdout = opts.stdout;
+    this.args = opts.args;
+  }
+
+  /**
+   * Wrap a raw execFile rejection into a GitError.
+   *
+   * Node's execFile rejection carries `code` (numeric exit code for a normal
+   * exit, or a string like 'ENOENT' for a spawn failure), plus `stderr`/`stdout`.
+   */
+  static from(err: unknown, args: string[]): GitError {
+    const raw = err as {
+      message?: string;
+      code?: unknown;
+      stderr?: unknown;
+      stdout?: unknown;
+    };
+    const exitCode = typeof raw.code === 'number' ? raw.code : null;
+    const stderr = typeof raw.stderr === 'string' ? raw.stderr : '';
+    const stdout = typeof raw.stdout === 'string' ? raw.stdout : '';
+    const message = raw.message ?? `git ${args.join(' ')} failed`;
+    return new GitError(message, { exitCode, stderr, stdout, args });
+  }
+}
+
+/**
+ * Read the git exit code from a thrown value, or null if it is not a GitError
+ * (or carries no numeric code, e.g. a spawn failure).
+ */
+export function exitCodeOf(err: unknown): number | null {
+  return err instanceof GitError ? err.exitCode : null;
+}
+
+/**
  * Maximum buffer size for git command output.
  *
  * Node.js child_process.execFile() defaults to 1MB (1024 * 1024 bytes).
@@ -37,8 +94,12 @@ const GIT_MAX_BUFFER = 50 * 1024 * 1024; // 50MB
  * Uses execFile for security - prevents shell injection attacks.
  */
 export async function git(...args: string[]): Promise<string> {
-  const { stdout } = await execFileAsync('git', args, { maxBuffer: GIT_MAX_BUFFER });
-  return stdout.trim();
+  try {
+    const { stdout } = await execFileAsync('git', args, { maxBuffer: GIT_MAX_BUFFER });
+    return stdout.trim();
+  } catch (err) {
+    throw GitError.from(err, args);
+  }
 }
 
 /**
