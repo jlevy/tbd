@@ -731,13 +731,16 @@ export function categorizeIssuesByUlid(local: Issue[], remote: Issue[]): UlidBuc
 const MAX_PUSH_RETRIES = 3;
 
 /**
- * Check if error is a non-fast-forward rejection.
+ * Check if error is a non-fast-forward rejection (also the init race signal).
  */
 function isNonFastForward(error: unknown): boolean {
-  const msg = error instanceof Error ? error.message : String(error);
-  return (
-    msg.includes('non-fast-forward') || msg.includes('fetch first') || msg.includes('rejected')
-  );
+  const msg =
+    error instanceof GitError
+      ? `${error.stderr}\n${error.message}`
+      : error instanceof Error
+        ? error.message
+        : String(error);
+  return /non-fast-forward|fetch first|rejected|updates were rejected/i.test(msg);
 }
 
 /**
@@ -1293,12 +1296,6 @@ async function worktreeHasUserIssues(dataSyncPath: string): Promise<boolean> {
   }
 }
 
-/** Whether a push failure is a non-fast-forward / rejected (the init race). */
-function isNonFastForwardRejection(err: unknown): boolean {
-  const msg = err instanceof GitError ? `${err.stderr}\n${err.message}` : String(err);
-  return /rejected|non-fast-forward|fetch first|updates were rejected/i.test(msg);
-}
-
 /**
  * Push a freshly-created orphan tbd-sync immediately so "first init wins"
  * (closes the #137 race window). Classifies the outcome:
@@ -1326,7 +1323,7 @@ export async function pushFreshOrphan(
     await gitNoPrompt('-C', worktreePath, 'push', remote, `HEAD:refs/heads/${syncBranch}`);
     return { pushed: true, adopted: false };
   } catch (err) {
-    if (!isNonFastForwardRejection(err)) {
+    if (!isNonFastForward(err)) {
       // Transient / permanent (restricted egress, no auth, network) — the push
       // is best-effort and setup must not break. The window simply shrinks to
       // "until the first reachable sync".
