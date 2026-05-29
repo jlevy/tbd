@@ -40,7 +40,6 @@ docs_cache:
     shortcuts/standard/coding-spike.md: internal:shortcuts/standard/coding-spike.md
     shortcuts/standard/create-or-update-pr-simple.md: internal:shortcuts/standard/create-or-update-pr-simple.md
     shortcuts/standard/create-or-update-pr-with-validation-plan.md: internal:shortcuts/standard/create-or-update-pr-with-validation-plan.md
-    shortcuts/standard/cut-release.md: internal:shortcuts/standard/cut-release.md
     shortcuts/standard/implement-beads.md: internal:shortcuts/standard/implement-beads.md
     shortcuts/standard/merge-upstream.md: internal:shortcuts/standard/merge-upstream.md
     shortcuts/standard/new-architecture-doc.md: internal:shortcuts/standard/new-architecture-doc.md
@@ -66,6 +65,7 @@ docs_cache:
     guidelines/bun-monorepo-patterns.md: internal:guidelines/bun-monorepo-patterns.md
     guidelines/cli-agent-skill-patterns.md: internal:guidelines/cli-agent-skill-patterns.md
     guidelines/commit-conventions.md: internal:guidelines/commit-conventions.md
+    guidelines/common-doc-guidelines.md: internal:guidelines/common-doc-guidelines.md
     guidelines/convex-limits-best-practices.md: internal:guidelines/convex-limits-best-practices.md
     guidelines/convex-rules.md: internal:guidelines/convex-rules.md
     guidelines/electron-app-development-patterns.md: internal:guidelines/electron-app-development-patterns.md
@@ -73,7 +73,6 @@ docs_cache:
     guidelines/general-coding-rules.md: internal:guidelines/general-coding-rules.md
     guidelines/general-comment-rules.md: internal:guidelines/general-comment-rules.md
     guidelines/general-eng-assistant-rules.md: internal:guidelines/general-eng-assistant-rules.md
-    guidelines/general-style-rules.md: internal:guidelines/general-style-rules.md
     guidelines/general-tdd-guidelines.md: internal:guidelines/general-tdd-guidelines.md
     guidelines/general-testing-rules.md: internal:guidelines/general-testing-rules.md
     guidelines/golden-testing-guidelines.md: internal:guidelines/golden-testing-guidelines.md
@@ -83,14 +82,12 @@ docs_cache:
     guidelines/python-rules.md: internal:guidelines/python-rules.md
     guidelines/release-notes-guidelines.md: internal:guidelines/release-notes-guidelines.md
     guidelines/supply-chain-hardening.md: internal:guidelines/supply-chain-hardening.md
-    guidelines/tbd-format-versioning.md: internal:guidelines/tbd-format-versioning.md
     guidelines/tbd-sync-troubleshooting.md: internal:guidelines/tbd-sync-troubleshooting.md
     guidelines/typescript-cli-tool-rules.md: internal:guidelines/typescript-cli-tool-rules.md
     guidelines/typescript-code-coverage.md: internal:guidelines/typescript-code-coverage.md
     guidelines/typescript-rules.md: internal:guidelines/typescript-rules.md
     guidelines/typescript-sorting-patterns.md: internal:guidelines/typescript-sorting-patterns.md
     guidelines/typescript-yaml-handling-rules.md: internal:guidelines/typescript-yaml-handling-rules.md
-    guidelines/writing-style-guidelines.md: internal:guidelines/writing-style-guidelines.md
     templates/architecture-doc.md: internal:templates/architecture-doc.md
     templates/plan-spec.md: internal:templates/plan-spec.md
     templates/qa-playbook.md: internal:templates/qa-playbook.md

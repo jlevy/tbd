@@ -1,11 +1,15 @@
 # Publishing (npm)
 
+This is the get-tbd project’s own release flow.
+It is **not** a general-purpose shortcut shipped to tbd users — releasing a Node package
+is project-specific, so the content lives here in the project repo, not in
+`packages/tbd/docs/shortcuts/standard/`.
+
 This project uses **tag-based releases** with provenance attestation to npm (no
 Changesets). Version and release notes are assembled by hand from clean conventional
 commits at release time; pushing a `v*` tag publishes automatically.
-For the guided end-to-end flow, run `tbd shortcut cut-release`.
 
-For daily development workflow, see [development.md](../../development.md).
+For daily development workflow, see [development.md](development.md).
 For release notes format and guidelines, see `tbd guidelines release-notes-guidelines`.
 
 ## One-Time Setup

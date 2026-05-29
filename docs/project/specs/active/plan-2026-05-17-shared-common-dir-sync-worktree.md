@@ -692,8 +692,8 @@ it behind a generic “Invalid config file” error.
 
 - `main` dropped Changesets for tag-triggered releases; the merge left an orphaned
   `.changeset/shared-common-dir-worktree.md`. Move its content (especially the f04
-  old-client upgrade note) into `release-notes.md` per the new `cut-release` flow and
-  delete the changeset file.
+  old-client upgrade note) into `release-notes.md` per the new tag-triggered release
+  flow (see project-local `docs/publishing.md`) and delete the changeset file.
 - Wire `ensureCommonDirLayout()` into H1 so it is no longer dead code.
 - Clarify in `packages/tbd/docs/tbd-design.md` that production migration backups live
   under `$GIT_COMMON_DIR/tbd/backups/`, not `.tbd/backups/`.
@@ -709,29 +709,31 @@ enhancement, since it is non-blocking for this PR.
 
 ### H7 (Blocking for f04): Make `tbd-sync` internal commits signing-agnostic
 
-Found during review by running the merged suite. tbd's machine-generated commits to the
-`tbd-sync` data branch never disable gpg signing, so with global `commit.gpgsign=true`
-and no usable key the `initWorktree` initial commit
-(`packages/tbd/src/file/git.ts:1194`, `git commit --no-verify -m "Initialize tbd-sync
-branch"`) fails and leaves `tbd-sync` unborn.
+Found during review by running the merged suite.
+tbd’s machine-generated commits to the `tbd-sync` data branch never disable gpg signing,
+so with global `commit.gpgsign=true` and no usable key the `initWorktree` initial commit
+(`packages/tbd/src/file/git.ts:1194`,
+`git commit --no-verify -m "Initialize tbd-sync branch"`) fails and leaves `tbd-sync`
+unborn.
 
 This signing gap is long-standing (released f03 has the identical pattern at
-`git.ts:977`, and f03 also leaves `tbd-sync` unborn under signing), but f03 tolerated it:
-`tbd create` still wrote issue files and exited 0. f04's stricter `git rev-parse HEAD`
-health check classifies the unborn branch as corrupted and fails closed, turning the
-latent gap into a hard failure on the first command (`git init` with no remote +
-`tbd init` + `tbd create` → exit 1, "worktree corrupted"). It is also what fails the
-merged pre-push/CI suite here (28 tests across `child-order-e2e`, `spec-inherit`,
-`specs-flag`, `setup-flows`). Because f04 is what makes it break, it must be fixed as
-part of this work, not deferred.
+`git.ts:977`, and f03 also leaves `tbd-sync` unborn under signing), but f03 tolerated
+it: `tbd create` still wrote issue files and exited 0. f04’s stricter
+`git rev-parse HEAD` health check classifies the unborn branch as corrupted and fails
+closed, turning the latent gap into a hard failure on the first command (`git init` with
+no remote + `tbd init` + `tbd create` → exit 1, “worktree corrupted”). It is also what
+fails the merged pre-push/CI suite here (28 tests across `child-order-e2e`,
+`spec-inherit`, `specs-flag`, `setup-flows`). Because f04 is what makes it break, it
+must be fixed as part of this work, not deferred.
 
 Fix (root cause): add `-c commit.gpgsign=false` to every internal `tbd-sync` commit
 (`packages/tbd/src/file/git.ts:1194`, `:1012`, `:1704`;
 `packages/tbd/src/cli/commands/sync.ts:446`, `:658`, `:735`, `:861`), ideally via one
-shared commit helper — these are automated data commits, not user commits. Secondary,
-defense in depth: have f04 init detect a failed initial commit / unborn `tbd-sync` and
-surface a clear actionable error instead of opaque "corrupted". The merge commit that
-disabled signing only in the test init helper masked this production gap.
+shared commit helper — these are automated data commits, not user commits.
+Secondary, defense in depth: have f04 init detect a failed initial commit / unborn
+`tbd-sync` and surface a clear actionable error instead of opaque “corrupted”.
+The merge commit that disabled signing only in the test init helper masked this
+production gap.
 
 ## Testing Strategy
 

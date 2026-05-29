@@ -14,6 +14,7 @@ import { BaseCommand } from '../lib/base-command.js';
 import { requireInit } from '../lib/errors.js';
 import { listIssues, type InvalidIssueFile } from '../../file/storage.js';
 import { IncompatibleFormatError, readConfig } from '../../file/config.js';
+import { prepareDataSyncContext } from '../lib/data-context.js';
 import type { Config, Issue, IssueStatusType } from '../../lib/types.js';
 import { resolveSharedTbdPaths, TBD_DIR, DATA_SYNC_DIR } from '../../lib/paths.js';
 import { detectDuplicateYamlKeys } from '../../utils/yaml-utils.js';
@@ -200,6 +201,7 @@ class DoctorHandler extends BaseCommand {
     // Combine for overall status
     const allChecks = [...healthChecks, ...integrationChecks];
     const allOk = allChecks.every((c) => c.status === 'ok');
+    const hasErrors = allChecks.some((c) => c.status === 'error');
     const hasFixable = allChecks.some((c) => c.fixable && c.status !== 'ok');
 
     this.output.data(
@@ -258,6 +260,16 @@ class DoctorHandler extends BaseCommand {
         }
       },
     );
+
+    // Exit code. ⚠ (warn-level) findings are recoverable state and stay at exit 0
+    // so existing tooling that runs `tbd doctor` on a clean-but-incomplete repo
+    // doesn't break. ✗ (error-level) findings — invalid config, future-format
+    // layout, corrupted data, future-format on-disk markers — are hard problems
+    // that scripts and CI deserve to learn about via a non-zero exit.
+    // See: docs/tbd-format-versioning.md (internal contributor guide).
+    if (hasErrors) {
+      process.exitCode = 1;
+    }
   }
 
   private async gatherStatusInfo(): Promise<{
@@ -895,7 +907,46 @@ class DoctorHandler extends BaseCommand {
         return { name: 'Worktree', status: 'ok', path: worktreePath };
 
       case 'missing':
-        // Worktree not existing is OK - it's created on demand
+        // Worktree not existing is OK in steady state — it gets created on the next
+        // mutating command. But with --fix the user is explicitly asking for repair,
+        // so initialize the shared data-sync layout now (this also migrates legacy
+        // per-checkout worktrees and bumps the config to the current format, the same
+        // path `tbd sync` takes).
+        if (fix && !this.checkDryRun('Initialize shared data-sync worktree')) {
+          try {
+            // ensureSharedDataSyncLayout (inside prepareDataSyncContext) MUST run
+            // under withSharedDataSyncLock — concurrent agents from sibling worktrees
+            // must not race init/migrate/repair. Match the pattern used for the
+            // prunable/corrupted repair below.
+            // See: docs/tbd-format-versioning.md, packages/tbd/src/cli/lib/data-context.ts.
+            await withSharedDataSyncLock(this.cwd, async () => {
+              await prepareDataSyncContext(this.cwd);
+            });
+          } catch (error) {
+            return {
+              name: 'Worktree',
+              status: 'error',
+              message: `initialization failed: ${
+                error instanceof Error ? error.message : String(error)
+              }`,
+              path: worktreePath,
+            };
+          }
+          // Refresh config in memory so checks that run after this one (e.g.
+          // checkCommonDirLayout) see the just-bumped format instead of the stale
+          // pre-migration view.
+          try {
+            this.config = await readConfig(this.cwd);
+          } catch {
+            // Leave stale config rather than blocking the report.
+          }
+          return {
+            name: 'Worktree',
+            status: 'ok',
+            message: 'initialized',
+            path: worktreePath,
+          };
+        }
         return { name: 'Worktree', status: 'ok', message: 'not created yet', path: worktreePath };
 
       case 'prunable':

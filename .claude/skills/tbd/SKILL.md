@@ -228,6 +228,7 @@ Run `tbd guidelines <name>` to apply any of these guidelines:
 | bun-monorepo-patterns | Modern patterns for Bun-based TypeScript monorepo architecture |
 | cli-agent-skill-patterns | How to write skills and agent-integrated CLIs that work across Claude Code, Codex, and the broader coding-agent ecosystem — a simple baseline plus references for advanced, multi-subcommand tools |
 | commit-conventions | Conventional Commits format with extensions for agentic workflows |
+| common-doc-guidelines | Common cross-project standards for writing and organizing docs, code comments, and text files — how to organize, structure, write, and format documents, plus the guideline footer convention. Downstream of github.com/jlevy/practical-prose. Use whenever writing or editing any documentation, README, guideline, or design doc. |
 | convex-limits-best-practices | Comprehensive reference for Convex platform limits, workarounds, and performance best practices |
 | convex-rules | Guidelines and best practices for building Convex projects, including database schema design, queries, mutations, and real-world examples |
 | electron-app-development-patterns | Guidelines for Electron development ecosystems including npm, pnpm, and Bun, with security baselines and framework comparisons |
@@ -235,7 +236,6 @@ Run `tbd guidelines <name>` to apply any of these guidelines:
 | general-coding-rules | Rules for constants, magic numbers, and general coding practices |
 | general-comment-rules | Language-agnostic rules for writing clean, maintainable comments |
 | general-eng-assistant-rules | Rules for AI assistants acting as senior engineers, including objectivity and communication guidelines |
-| general-style-rules | Style guidelines for auto-formatting, emoji usage, and output formatting |
 | general-tdd-guidelines | Test-Driven Development methodology and best practices |
 | general-testing-rules | Rules for writing minimal, effective tests with maximum coverage |
 | golden-testing-guidelines | Guidelines for implementing golden/snapshot testing for complex systems |
@@ -251,6 +251,5 @@ Run `tbd guidelines <name>` to apply any of these guidelines:
 | typescript-rules | TypeScript coding rules and best practices |
 | typescript-sorting-patterns | Deterministic sorting patterns and comparison chains for TypeScript |
 | typescript-yaml-handling-rules | Best practices for parsing and serializing YAML in TypeScript |
-| writing-style-guidelines | Guidelines for clear, concise, and reader-friendly writing in documentation and code |
 
 <!-- END SHORTCUT DIRECTORY -->

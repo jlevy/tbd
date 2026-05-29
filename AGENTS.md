@@ -33,7 +33,7 @@ Work is NOT complete until `git push` succeeds.
 - NEVER say “ready to push when you are” - YOU must push
 - If push fails, resolve and retry until it succeeds
 
-<!-- BEGIN TBD INTEGRATION format=f03 surface=agents-md -->
+<!-- BEGIN TBD INTEGRATION format=f04 surface=agents-md -->
 ## tbd
 
 This repository uses **tbd** for git-native issue tracking (beads), spec-driven

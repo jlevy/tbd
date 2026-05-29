@@ -45,6 +45,7 @@ import {
   checkGitVersion,
   findGitRoot,
   MIN_GIT_VERSION,
+  type WorktreeStatus,
 } from '../../file/git.js';
 import { listWorkspaces } from '../../file/workspace.js';
 
@@ -69,6 +70,7 @@ interface StatusData {
   display_prefix: string | null;
   worktree_path: string | null;
   worktree_healthy: boolean | null;
+  worktree_status: WorktreeStatus | null;
   workspaces: string[];
 
   // Integrations
@@ -113,6 +115,7 @@ class StatusHandler extends BaseCommand {
       display_prefix: null,
       worktree_path: null,
       worktree_healthy: null,
+      worktree_status: null,
       workspaces: [],
       integrations: {
         portable_skill: false,
@@ -276,6 +279,7 @@ class StatusHandler extends BaseCommand {
     const worktreeHealth = await checkWorktreeHealth(cwd, data.sync_branch ?? undefined);
     data.worktree_path = sharedPaths.sharedWorktreePath;
     data.worktree_healthy = worktreeHealth.valid;
+    data.worktree_status = worktreeHealth.status;
 
     // Check workspaces
     try {
@@ -355,8 +359,8 @@ class StatusHandler extends BaseCommand {
     }
 
     // Worktree health
-    if (data.worktree_healthy !== null && data.worktree_path) {
-      renderWorktreeStatus(data.worktree_path, data.worktree_healthy, colors);
+    if (data.worktree_status !== null && data.worktree_path) {
+      renderWorktreeStatus(data.worktree_path, data.worktree_status, colors);
     }
 
     // Workspaces (only show if there are any)

@@ -1,25 +1,29 @@
 /**
- * Vitest global setup — ensures dist/bin.mjs exists before E2E tests run.
+ * Vitest global setup — ensures dist/bin.mjs exists AND is up-to-date before E2E
+ * tests run.
  *
- * Many tests spawn `node dist/bin.mjs` as a subprocess and will fail with
- * MODULE_NOT_FOUND if the binary hasn't been built. This setup runs
- * `build-if-needed.mjs` so that `pnpm test` works without a manual `pnpm build`.
+ * Many tests spawn `node dist/bin.mjs` as a subprocess. Before this guard, a
+ * stale dist/ would produce mysterious test failures because the tests run an
+ * older build than the source they appear to be testing. Now we delegate to
+ * `scripts/build-if-needed.mjs`, which compares mtimes of source/config files
+ * vs. dist/bin.mjs and only rebuilds when something is actually newer.
+ *
+ * This fixes the footgun documented in tbd-zswv.
  */
 
-import { stat } from 'node:fs/promises';
-import { join, dirname } from 'node:path';
+import { dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { execSync } from 'node:child_process';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const packageDir = dirname(__dirname);
-const buildTarget = join(packageDir, 'dist', 'bin.mjs');
 
-export async function setup() {
-  try {
-    await stat(buildTarget);
-  } catch {
-    console.log('\n[global-setup] dist/bin.mjs not found — running build...');
-    execSync('pnpm build', { cwd: packageDir, stdio: 'inherit' });
-  }
+export function setup() {
+  // build-if-needed is a no-op when dist/ is up-to-date and runs pnpm build
+  // otherwise. Inherit stdio so the user sees any build output (or errors)
+  // before tests start.
+  execSync('node scripts/build-if-needed.mjs', {
+    cwd: packageDir,
+    stdio: 'inherit',
+  });
 }

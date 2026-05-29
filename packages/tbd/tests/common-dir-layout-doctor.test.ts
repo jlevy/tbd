@@ -41,6 +41,28 @@ function runTbd(cwd: string, args: string[]): { stdout: string; stderr: string; 
   };
 }
 
+/**
+ * Async variant for tests that need real concurrent invocations (e.g. proving the
+ * shared-lock contract under racing writers). `runTbd` uses `spawnSync` and would
+ * serialize the two calls through the event loop, defeating the test.
+ */
+async function runTbdAsync(
+  cwd: string,
+  args: string[],
+): Promise<{ stdout: string; stderr: string; status: number }> {
+  try {
+    const { stdout, stderr } = await execFileAsync('node', [tbdBin, ...args], {
+      cwd,
+      encoding: 'utf-8',
+      env: { ...process.env, FORCE_COLOR: '0' },
+    });
+    return { stdout: stdout ?? '', stderr: stderr ?? '', status: 0 };
+  } catch (error) {
+    const err = error as { stdout?: string; stderr?: string; code?: number };
+    return { stdout: err.stdout ?? '', stderr: err.stderr ?? '', status: err.code ?? 1 };
+  }
+}
+
 async function setupRepo(): Promise<string> {
   const dir = await mkdtemp(join(tmpdir(), 'tbd-layout-e2e-'));
   await gitIn(dir, 'init', '--initial-branch=main');
@@ -83,12 +105,14 @@ describeUnlessWindows('common-dir layout via CLI', { timeout: 30000 }, () => {
       // Simulate a partial migration / manual edit by downgrading the layout.
       await writeFile(layoutPath, original.replace('tbd_format: f04', 'tbd_format: f03'));
 
-      // Plain doctor reports it as fixable.
+      // Plain doctor reports it as fixable. The mismatch is a ✗ finding so the
+      // exit is 1 (per tbd-r7rt).
       const diagnose = runTbd(dir, ['doctor']);
+      expect(diagnose.status).toBe(1);
       expect(diagnose.stdout + diagnose.stderr).toMatch(/Common-dir layout/i);
       expect(diagnose.stdout + diagnose.stderr).toMatch(/mismatched|doctor --fix/i);
 
-      // doctor --fix rewrites layout.yml from config.
+      // doctor --fix rewrites layout.yml from config; resulting state is clean.
       const fix = runTbd(dir, ['doctor', '--fix']);
       expect(fix.status).toBe(0);
       const repaired = await readFile(layoutPath, 'utf-8');
@@ -101,6 +125,8 @@ describeUnlessWindows('common-dir layout via CLI', { timeout: 30000 }, () => {
       await writeFile(layoutPath, original.replace('tbd_format: f04', 'tbd_format: f99'));
 
       const fix = runTbd(dir, ['doctor', '--fix']);
+      // Future-format markers are ✗ findings: scripts/CI must see exit 1 (tbd-r7rt).
+      expect(fix.status).toBe(1);
       const out = fix.stdout + fix.stderr;
       expect(out).toMatch(/newer tbd|f99/i);
       // Layout was not silently rewritten back to f04.
@@ -114,10 +140,107 @@ describeUnlessWindows('common-dir layout via CLI', { timeout: 30000 }, () => {
       await writeFile(configPath, original.replace('tbd_format: f04', 'tbd_format: f99'));
 
       const out = runTbd(dir, ['doctor']);
+      // Future-format config is a ✗ finding: exit 1 (tbd-r7rt).
+      expect(out.status).toBe(1);
       const combined = out.stdout + out.stderr;
       // checkConfig must distinguish IncompatibleFormatError from generic parse errors.
       expect(combined).toMatch(/newer tbd|f99/i);
       expect(combined).not.toMatch(/Invalid config file/i);
+    });
+  });
+
+  describe('doctor --fix initializes missing worktree (tbd-nrvj)', () => {
+    it('migrates from missing to valid via doctor --fix instead of forcing the user to discover tbd sync', async () => {
+      const worktreePath = join(dir, '.git', 'tbd', 'data-sync-worktree');
+      const layoutPath = join(dir, '.git', 'tbd', 'layout.yml');
+
+      // Simulate a checkout where the worktree was never created or has been deleted.
+      // Git's worktree registry still tracks it (the prunable case) — pruning takes it
+      // back to the missing case which is what fresh f03→f04 transitions look like.
+      await rm(worktreePath, { recursive: true, force: true });
+      await rm(layoutPath, { force: true });
+      await gitIn(dir, 'worktree', 'prune');
+
+      // Without --fix, doctor must not report this as a hard error — it is a fresh
+      // state that will resolve on the next mutating command.
+      const before = runTbd(dir, ['doctor']);
+      expect(before.status).toBe(0);
+      expect(before.stdout + before.stderr).toMatch(/not created yet|not initialized/i);
+
+      // With --fix the user is asking us to repair things now. We must initialize the
+      // shared worktree and layout instead of saying "ok, run sync later".
+      const fix = runTbd(dir, ['doctor', '--fix']);
+      expect(fix.status).toBe(0);
+      expect(await exists(worktreePath)).toBe(true);
+      expect(await exists(layoutPath)).toBe(true);
+      const layout = await readFile(layoutPath, 'utf-8');
+      expect(layout).toContain('tbd_format: f04');
+    });
+
+    it('serializes concurrent doctor --fix init under the shared data-sync lock (tbd-p6zo)', async () => {
+      const worktreePath = join(dir, '.git', 'tbd', 'data-sync-worktree');
+      const layoutPath = join(dir, '.git', 'tbd', 'layout.yml');
+
+      // Reset to the missing-worktree state on disk and in the git registry, exactly
+      // as the f03 → f04 transition looks before the first command runs.
+      await rm(worktreePath, { recursive: true, force: true });
+      await rm(layoutPath, { force: true });
+      await gitIn(dir, 'worktree', 'prune');
+
+      // Two concurrent doctor --fix invocations against the same repo race the
+      // init/migrate/repair path. Without withSharedDataSyncLock around
+      // prepareDataSyncContext, the second runner can clobber the first writer's
+      // half-written shared layout (or its worktree registry mutation) and either
+      // process can fail. With the lock, the second runner waits on the lockfile,
+      // then re-probes inside the lock and either no-ops (ready) or finishes the
+      // init/migrate work cleanly. Both processes must exit 0 and the repo state
+      // must be exactly one shared worktree + one valid layout.
+      //
+      // runTbdAsync (vs runTbd) is required here: spawnSync blocks the event loop
+      // and would serialize the two calls, defeating the regression test.
+      const [first, second] = await Promise.all([
+        runTbdAsync(dir, ['doctor', '--fix']),
+        runTbdAsync(dir, ['doctor', '--fix']),
+      ]);
+      expect(first.status).toBe(0);
+      expect(second.status).toBe(0);
+      expect(await exists(worktreePath)).toBe(true);
+      expect(await exists(layoutPath)).toBe(true);
+      const layout = await readFile(layoutPath, 'utf-8');
+      expect(layout).toContain('tbd_format: f04');
+
+      const worktreeList = await gitIn(dir, 'worktree', 'list', '--porcelain');
+      const sharedWorktreeLines = worktreeList
+        .split('\n')
+        .filter((line) => line.startsWith('worktree ') && line.includes('data-sync-worktree'));
+      expect(sharedWorktreeLines).toHaveLength(1);
+    });
+  });
+
+  describe('sibling-checkout config bump notice (tbd-afjh)', () => {
+    it('prints a one-time stderr notice when this checkout migrates .tbd/config.yml to a newer tbd_format', async () => {
+      const configPath = join(dir, '.tbd', 'config.yml');
+      const original = await readFile(configPath, 'utf-8');
+      // The setup is f04; "downgrade" the on-disk format marker so the next mutating
+      // command sees a stale per-checkout config and migrates it back in place. This
+      // matches a real sibling worktree on a branch that did not yet pick up the
+      // main checkout's f03 → f04 commit.
+      await writeFile(configPath, original.replace('tbd_format: f04', 'tbd_format: f03'));
+
+      const create = runTbd(dir, ['create', 'sibling-bump probe', '--type', 'task', '--no-sync']);
+      expect(create.status).toBe(0);
+      // The notice goes to stderr so it cannot pollute JSON output on stdout.
+      expect(create.stderr).toContain('tbd_format');
+      expect(create.stderr).toContain('→ f04');
+      expect(create.stderr).toMatch(/commit on this branch or merge main/i);
+      // The on-disk config is now back at f04 — the migration ran.
+      const after = await readFile(configPath, 'utf-8');
+      expect(after).toContain('tbd_format: f04');
+
+      // Second mutating call must NOT re-emit the notice: nothing left to migrate.
+      const second = runTbd(dir, ['create', 'sibling-bump probe 2', '--type', 'task', '--no-sync']);
+      expect(second.status).toBe(0);
+      expect(second.stderr).not.toContain('tbd_format');
     });
   });
 

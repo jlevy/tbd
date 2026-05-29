@@ -246,21 +246,33 @@ export function renderBeadsWarning(colors: ReturnType<typeof createColors>): voi
  * Used by: status
  *
  * @param path - Worktree path
- * @param healthy - Whether worktree is healthy
+ * @param status - 'valid' (healthy), 'missing' (created on next sync), or 'prunable' /
+ *   'corrupted' (truly unhealthy and needs repair)
  * @param colors - Color functions
  */
 export function renderWorktreeStatus(
   path: string,
-  healthy: boolean,
+  status: 'valid' | 'missing' | 'prunable' | 'corrupted',
   colors: ReturnType<typeof createColors>,
 ): void {
   console.log('');
-  if (healthy) {
+  if (status === 'valid') {
     console.log(`${colors.dim('Worktree:')} ${path} (healthy)`);
-  } else {
-    console.log(`${colors.warn('Worktree:')} ${path} (${colors.error('unhealthy')})`);
-    console.log('  Run: tbd doctor --fix');
+    return;
   }
+  if (status === 'missing') {
+    // The shared worktree is created on the next mutating command. Tell the user the
+    // command that performs the initialization rather than scaring them with
+    // "unhealthy". Repos with legacy per-checkout worktrees are migrated by the same
+    // path.
+    console.log(`${colors.dim('Worktree:')} ${path} (not initialized)`);
+    console.log('  Run: tbd sync (or tbd doctor --fix) to initialize');
+    return;
+  }
+  // prunable / corrupted: the worktree is in a bad state, doctor --fix is the right
+  // remediation.
+  console.log(`${colors.warn('Worktree:')} ${path} (${colors.error('unhealthy')})`);
+  console.log('  Run: tbd doctor --fix');
 }
 
 /**
