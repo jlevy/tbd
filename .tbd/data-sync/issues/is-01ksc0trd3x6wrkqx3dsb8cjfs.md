@@ -5,7 +5,7 @@ title: Validate ecosystem compatibility and release metadata
 kind: task
 status: open
 priority: 2
-version: 3
+version: 4
 spec_path: docs/project/specs/active/plan-2026-05-24-multi-agent-skills-hooks-setup.md
 labels:
   - validation
@@ -13,6 +13,6 @@ labels:
 dependencies: []
 parent_id: is-01ksc0qwt0v3pg3hgn35sh0s1e
 created_at: 2026-05-24T03:35:32.514Z
-updated_at: 2026-05-24T19:09:51.438Z
+updated_at: 2026-05-25T23:39:39.920Z
 ---
-Validate the resulting skill layout with available tools such as skills-ref and npx skills add where feasible, run repository quality gates, add a changeset if the setup behavior change should ship in the next release, and document any remaining unsupported-agent limitations.
+Run skills-ref validate skills/tbd and npx skills add . --list; smoke-test Claude Code + Codex (and Gemini/Cursor where feasible); add release notes calling out the portable .agents/skills path, Codex hooks, and the format-version guard.
