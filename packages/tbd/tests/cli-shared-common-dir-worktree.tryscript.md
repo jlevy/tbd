@@ -111,8 +111,13 @@ fatal: 'tbd-sync' is already used by worktree at [..]
 
 # Test: Main checkout create migrates legacy data and writes the new issue
 
+The first mutating command in a checkout whose `.tbd/config.yml` still says `f03` emits
+a one-time stderr notice (`tbd-afjh`) before the success line, so users see the tracked
+config bump coming rather than discovering it later as a surprise diff.
+
 ```console
 $ tbd create "Main checkout issue" --type=task
+• tbd_format f03 → f04: .tbd/config.yml updated in this checkout. Commit on this branch or merge main to publish the format upgrade.
 ✓ Created test-[SHORTID]: Main checkout issue
 ? 0
 ```
@@ -179,8 +184,13 @@ same git common dir
 
 # Test: Linked worktree create also succeeds
 
+The linked worktree’s `.tbd/config.yml` is still on `f03` because the f04 bump commit
+only landed on `main`; the first mutating command in the linked checkout therefore fires
+the same `tbd-afjh` notice as the main checkout did before bumping in place.
+
 ```console
 $ (cd agent && tbd create "Linked worktree issue" --type=bug)
+• tbd_format f03 → f04: .tbd/config.yml updated in this checkout. Commit on this branch or merge main to publish the format upgrade.
 ✓ Created test-[SHORTID]: Linked worktree issue
 ? 0
 ```
