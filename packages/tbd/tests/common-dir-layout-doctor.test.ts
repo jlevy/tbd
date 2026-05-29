@@ -83,12 +83,14 @@ describeUnlessWindows('common-dir layout via CLI', { timeout: 30000 }, () => {
       // Simulate a partial migration / manual edit by downgrading the layout.
       await writeFile(layoutPath, original.replace('tbd_format: f04', 'tbd_format: f03'));
 
-      // Plain doctor reports it as fixable.
+      // Plain doctor reports it as fixable. The mismatch is a ✗ finding so the
+      // exit is 1 (per tbd-r7rt).
       const diagnose = runTbd(dir, ['doctor']);
+      expect(diagnose.status).toBe(1);
       expect(diagnose.stdout + diagnose.stderr).toMatch(/Common-dir layout/i);
       expect(diagnose.stdout + diagnose.stderr).toMatch(/mismatched|doctor --fix/i);
 
-      // doctor --fix rewrites layout.yml from config.
+      // doctor --fix rewrites layout.yml from config; resulting state is clean.
       const fix = runTbd(dir, ['doctor', '--fix']);
       expect(fix.status).toBe(0);
       const repaired = await readFile(layoutPath, 'utf-8');
@@ -101,6 +103,8 @@ describeUnlessWindows('common-dir layout via CLI', { timeout: 30000 }, () => {
       await writeFile(layoutPath, original.replace('tbd_format: f04', 'tbd_format: f99'));
 
       const fix = runTbd(dir, ['doctor', '--fix']);
+      // Future-format markers are ✗ findings: scripts/CI must see exit 1 (tbd-r7rt).
+      expect(fix.status).toBe(1);
       const out = fix.stdout + fix.stderr;
       expect(out).toMatch(/newer tbd|f99/i);
       // Layout was not silently rewritten back to f04.
@@ -114,6 +118,8 @@ describeUnlessWindows('common-dir layout via CLI', { timeout: 30000 }, () => {
       await writeFile(configPath, original.replace('tbd_format: f04', 'tbd_format: f99'));
 
       const out = runTbd(dir, ['doctor']);
+      // Future-format config is a ✗ finding: exit 1 (tbd-r7rt).
+      expect(out.status).toBe(1);
       const combined = out.stdout + out.stderr;
       // checkConfig must distinguish IncompatibleFormatError from generic parse errors.
       expect(combined).toMatch(/newer tbd|f99/i);

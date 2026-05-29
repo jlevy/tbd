@@ -201,6 +201,7 @@ class DoctorHandler extends BaseCommand {
     // Combine for overall status
     const allChecks = [...healthChecks, ...integrationChecks];
     const allOk = allChecks.every((c) => c.status === 'ok');
+    const hasErrors = allChecks.some((c) => c.status === 'error');
     const hasFixable = allChecks.some((c) => c.fixable && c.status !== 'ok');
 
     this.output.data(
@@ -259,6 +260,16 @@ class DoctorHandler extends BaseCommand {
         }
       },
     );
+
+    // Exit code. ⚠ (warn-level) findings are recoverable state and stay at exit 0
+    // so existing tooling that runs `tbd doctor` on a clean-but-incomplete repo
+    // doesn't break. ✗ (error-level) findings — invalid config, future-format
+    // layout, corrupted data, future-format on-disk markers — are hard problems
+    // that scripts and CI deserve to learn about via a non-zero exit.
+    // See: tbd-format-versioning guideline.
+    if (hasErrors) {
+      process.exitCode = 1;
+    }
   }
 
   private async gatherStatusInfo(): Promise<{

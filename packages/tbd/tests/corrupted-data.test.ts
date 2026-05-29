@@ -169,7 +169,9 @@ dependencies: []
       expect(listResult.stderr).toContain(`Skipping invalid issue file: ${invalidId}.md: title:`);
 
       const doctorResult = runTbd(['doctor']);
-      expect(doctorResult.status).toBe(0);
+      // ✗ Issue validity is a hard error: invalid on-disk data scripts/CI should
+      // notice. Doctor exits 1 (per tbd-r7rt).
+      expect(doctorResult.status).toBe(1);
       expect(doctorResult.stderr).toContain('Issues found that may require manual intervention.');
       expect(doctorResult.stderr).not.toContain('Skipping invalid issue file');
       expect(doctorResult.stdout).toMatch(
