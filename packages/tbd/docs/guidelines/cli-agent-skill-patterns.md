@@ -5,7 +5,9 @@ author: Joshua Levy (github.com/jlevy) with LLM assistance
 ---
 # Agent Skills & CLI Integration Patterns
 
-**Last Updated**: 2026-05-23 (research verified against primary sources May 2026)
+**Last Updated**: 2026-05-31 (research verified against primary sources May 2026; added
+the L0–L3 integration ladder and §6.6.2 project-vs-global scope mechanics, informed by
+`qmd`)
 
 This guideline covers how to package a capability so AI coding agents can discover and
 use it well — from a single-file skill up to a full CLI with many subcommands exposed as
@@ -120,9 +122,10 @@ So:
   (§7)
 - **Maximum reach across many agents** → layer them: AGENTS.md, SKILL.md, CLI, and MCP.
   (§1)
-- **Self-installs into agents & ships evolving skills?** → that is the advanced Tier 2
-  pattern (self-upgrade and format versioning); most tools are Tier 1: a pure skill run
-  via a **pinned** `npx`/`uvx`. (§6.0)
+- **Self-installs into agents?** → climb the integration ladder (§6.0): L0 pure skill →
+  L1 skill + pinned `npx`/`uvx` → L2 self-install into skill dirs only (`qmd`) → L3 full
+  platform with managed `AGENTS.md`, hooks, and format versioning (`tbd`). Most tools
+  are L1; stop as low as you can.
 
 Everything below is reference material.
 You do not need most of it for most tools.
@@ -457,17 +460,23 @@ Use this when you have many capabilities, need cross-session state, or want a cu
 knowledge library the agent pulls from.
 For a single capability, the §0 baseline is better — don’t reach for this prematurely.
 
-### 6.0 Two integration tiers — pick the lighter one
+### 6.0 The integration ladder — pick the lowest rung that works
 
 Most tools should **not** self-install.
-Decide which tier you are before adding any setup machinery:
+Distribution complexity is a ladder, not a switch: each rung adds machinery (and
+maintenance) over the one below, so climb only as far as the tool genuinely needs.
+Four rungs, lightest first:
 
-- **Tier 1 — pure skill (the default for most tools).** Ship a `SKILL.md` (optionally an
-  `AGENTS.md` snippet); users install it once (commit to `.agents/skills/`,
-  `npx skills add`, or the Claude mirror).
-  Invoke the tool through a **version-pinned** zero-install runner —
-  `npx --yes pkg@<ver>`, `uvx --from pkg@<ver>`, or `pipx run pkg==<ver>` (§6.7). No
-  hooks, no managed `AGENTS.md` block, no `setup` command, no format versioning.
+- **L0 — pure prompt skill.** A `SKILL.md` and nothing else: no binary, no runtime, no
+  install command. The agent follows the body directly.
+  Garry Tan’s **gstack** (23 plain skills) is L0. Install by committing to a discovery
+  dir or `npx skills add`.
+- **L1 — skill + delegated CLI (zero-install).** Ship a `SKILL.md` that points at a CLI
+  invoked through a **version-pinned** zero-install runner — `npx --yes pkg@<ver>`,
+  `uvx --from pkg@<ver>`, or `pipx run pkg==<ver>` (§6.7). No install command, no
+  managed `AGENTS.md` block, no hooks, no format versioning.
+  The skill *delegates* execution to a package it never installs itself.
+  This is the default for most CLI-backed capabilities.
   Pinning the version here does **double duty**:
   - **Supply-chain control** — an unpinned runner (`npx pkg`, `uvx --from pkg`) silently
     re-resolves to the latest published version on every run and bypasses any cool-off
@@ -475,17 +484,29 @@ Decide which tier you are before adding any setup machinery:
   - **Consistency control** — every teammate and every agent runs the *same* tool
     version, so skill behavior is reproducible across a team and across agents rather
     than drifting as upstream publishes new releases.
-- **Tier 2 — self-installing CLI (advanced; the rest of §6).** A tool that writes its
-  own integration files into multiple agents (`.agents/skills/`, `.claude/skills/`, a
-  managed `AGENTS.md` block, hooks, `.codex/` config) **and** whose skill content
-  evolves across releases.
-  Take on this complexity only for a tool with many capabilities, cross-session state,
-  or a curated knowledge library.
-  The self-upgrade and format-versioning rules in §6.6 apply **only to this tier** — a
-  pure skill never needs them.
+- **L2 — self-installing skill, discovery-dirs only.** The tool ships an `install`
+  command (with `--project`/`--global` scope — §6.6.2) that writes its `SKILL.md` into
+  the skill-discovery directories (`.agents/skills/<tool>/`, the `.claude/skills/`
+  mirror) and **stops there**: no managed `AGENTS.md` block, no hooks, no
+  `prime`/`setup` context machinery.
+  Because it never touches a human-authored project-instruction file and always
+  full-overwrites its own generated skill, it does **not** need the §6.6 format-version
+  / migration apparatus — a re-install is just a clean overwrite.
+  **`qmd`** (Tobi Lütke’s Markdown search tool) is the reference: `qmd skill install` /
+  `--global`, an embedded skill with a build-time drift test, a
+  `.claude-plugin/marketplace.json`, and an MCP server — all without writing to
+  `AGENTS.md` at all.
+- **L3 — full self-installing CLI platform.** Everything in L2 **plus** a managed
+  `AGENTS.md` block, lifecycle hooks (`SessionStart`/`PreCompact`), `prime` and `setup`
+  commands, format-versioned migration with a forward-compatibility guard (§6.6), and
+  usually a knowledge-injection meta-skill (§6.2) backed by a path-ordered DocCache
+  (§6.3). Take this on only for a tool with many capabilities, cross-session state, or a
+  curated knowledge library.
+  **`tbd`** is the reference implementation; **Beads/`bd`** follows the same shape.
 
-If in doubt, you are Tier 1. `tbd` is a Tier-2 reference implementation; most CLIs are
-not.
+The self-upgrade and format-versioning rules in §6.6 apply **only to L3** — L0–L2 never
+need them. If in doubt, you are L1: `tbd` is an L3 reference implementation, `qmd` an L2
+one, and most CLIs are neither.
 
 ### 6.1 Two kinds of commands
 
@@ -659,8 +680,15 @@ scripts/agent/<tool>-session.sh  # shared hook script, referenced by both agents
 .claude/settings.json            # Claude hook entry → same shared script
 ```
 
-Copy (don’t symlink) the `SKILL.md` payload to both skill paths — symlinks behave
-unevenly across Windows, sandboxes, and remote worktrees.
+**Copy vs symlink the mirror.** Default to **copying** the `SKILL.md` payload to both
+skill paths: a committed copy is browsable on GitHub/skills.sh and behaves predictably
+across Windows, sandboxes, and remote worktrees, where symlinks do not.
+A **symlink** of the Claude mirror onto the canonical `.agents/skills/<tool>/` is a
+legitimate *single-machine* optimization — one source of truth, zero drift — and is what
+`qmd` and the `npx skills add` installer do.
+Reserve it for installs that stay on one developer’s machine; for anything committed or
+shared across platforms, copy.
+Whichever you pick, the two paths must carry identical content.
 Claude Code does **not** auto-load `AGENTS.md` (it reads `CLAUDE.md`), so a multi-agent
 project needs both.
 
@@ -707,8 +735,10 @@ Do not make Codex hooks call scripts stored under `.claude/` — that couples Co
 to Claude setup. If a script must move out of `.claude/scripts/`, update the tbd-owned
 hook commands (or leave a wrapper) so existing Claude hooks keep working.
 
-**Upgrade existing installs deliberately (Tier 2 only).** A self-installing tool whose
-skill content evolves *will* leave older generated files in users’ repos.
+**Upgrade existing installs deliberately (L3 only).** A self-installing tool whose skill
+content evolves *will* leave older generated files in users’ repos.
+(An L2 tool that only writes discovery-dir skills can skip all of this: a re-install is
+a clean full overwrite, with no managed `AGENTS.md` block or hooks to migrate.)
 Treat generated integration files like config migrations:
 
 Reserve an `fNN` **format bump** for changes big enough to need an explicit migration: a
@@ -785,6 +815,9 @@ Keep project-local setup separate from global/user setup.
 Writing `~/.codex/AGENTS.md`, `~/.agents/skills/`, or `~/.claude/skills/` should be an
 explicit global install command or documented manual step, not something `setup --auto`
 does silently.
+For a tool that genuinely needs **both** scopes (a general-purpose writing
+tool, linter, or formatter — most CLIs are project-only and can ignore this), §6.6.2
+codifies the concrete flag mechanics and guard rails.
 
 #### 6.6.1 Extensible skill registries (let other packages contribute skills)
 
@@ -811,6 +844,100 @@ baseline source, and an optional dynamic catalog function) and run them all thro
 gets identical frontmatter, the `DO NOT EDIT`/format marker, and deterministic output.
 This keeps the “one tool, many self-injecting commands” model open for extension without
 the core tool taking a dependency on every plugin.
+
+#### 6.6.2 Project vs user-global scope (for tools that need both)
+
+Most CLIs are project-only and can skip this section.
+But a **general-purpose** tool — a writing toolkit, a linter, a formatter, anything a
+user wants available *everywhere* and also pinned in *specific* projects — genuinely
+needs two install scopes.
+§6.6 states the principle (project-local and global must be kept separate; global must
+be explicit); this codifies the mechanics.
+The model to copy is **`git config`**: implicit scope when it is unambiguous, a hard
+error when it is not.
+
+**Explicit scope flags.**
+
+```
+mycli install [--project | --global] [--surfaces=LIST | per-agent flags]
+              [--dir DIR] [--no-repo-check] [--pin VERSION]
+```
+
+- `--project` → project-local install (the canonical `.agents/skills/<tool>/` plus the
+  Claude mirror, under the repo).
+- `--global` → user-global install under `$HOME` (`~/.agents/skills/`,
+  `~/.claude/skills/`).
+- Mutually exclusive: `--project ↔ --global`, and `--global ↔ --dir`.
+
+**Implicit-when-unambiguous, error-when-not** (the `git config` rule).
+Resolve scope *before* writing anything:
+
+| Situation | Behavior |
+| --- | --- |
+| cwd is inside a git repo and not `$HOME` | implicit `--project` |
+| cwd is `$HOME` or the filesystem root | **error**: ambiguous; pass `--project` or `--global` |
+| cwd is not in a git repo | **error**: ambiguous; pass `--project --no-repo-check` or `--global` |
+| explicit `--project` / `--global` given | honor it (subject to the `$HOME` refusal below) |
+
+This removes the footgun where `cd ~ && mycli install` silently writes into the user’s
+global agent surfaces and changes every project’s behavior.
+Warning *after* the write (what some tools do — and `qmd`, which simply defaults to cwd
+with no guard at all, does not warn) is too late; refuse *before* it.
+
+**`$HOME` is always refused in `--project` mode** — even with `--no-repo-check`,
+`--project --dir ~` is an error, because that is exactly what `--global` is for.
+Name the right flag in the message:
+
+```
+mycli install --project: refusing to install into /Users/me (home directory).
+That would write to your global agent surfaces. Use --global for a user-wide install.
+```
+
+**Print the resolved target before writing**, so the user can ctrl-c if it is wrong:
+
+```
+Installing mycli skills (project mode) into: /Users/me/myrepo
+  surfaces: portable, claude
+```
+
+(Printing the scope *after* the write — as `qmd` does — is weaker: the damage is already
+done.)
+
+**Surface selection — match the vocabulary to the surface count.** There is no single
+right answer; pick by how many surfaces you have and expect to add:
+
+- **Two or three surfaces** → terse per-agent / boolean flags read best.
+  `qmd` (canonical skill dir + Claude mirror) uses a single
+  `--skip-claude`/`--no-claude` toggle; `tbd` uses `--all` / `--claude` / `--codex` /
+  `--skip-<surface>`.
+- **Three or more surfaces, or you expect to add agents** → a `--surfaces=<comma-list>`
+  selector with an `all` alias (`--surfaces=portable,claude,agents-md,all`) scales
+  better: adding `gemini-md` or `cursor-rules` later is a no-op for the CLI shape, with
+  no flag soup. The selector vocabulary lives only in the CLI — the artifact’s identity
+  is clear from its location (a `SKILL.md` under a skill dir, or the BEGIN/END-bounded
+  block in `AGENTS.md`), so no in-file `surface=` tag is needed beyond the load-bearing
+  `format=fNN`.
+
+Either way, use a true tri-state (detection-based when unflagged; positive flag forces
+on and suppresses auto-detection; skip forces off) and avoid Commander’s `--no-<x>` for
+surfaces, which defaults the value to `true` (§6.6).
+
+**Global mode skips global `AGENTS.md` by default.** `AGENTS.md` loads on every turn;
+skills are progressive-disclosure (~100 tokens until invoked).
+Writing a global block to `~/.codex/AGENTS.md` would tax every session in every project,
+so global install should populate only the skill-discovery dirs.
+`--global --surfaces=agents-md` should **error** with a clear “we don’t support this”
+message rather than silently do it.
+(`qmd` validates this from the lighter end — it writes no `AGENTS.md` block in *any*
+scope.)
+
+**Cross-scope coexistence is the supported pattern, not a conflict.** Having a skill
+installed both globally and per-project is a feature: **project scope shadows user
+scope**, exactly like `git config`, shell `$PATH`, npm, and Python site-packages, and
+matching the path-ordered DocCache in §6.3. Codex documents the same precedence in its
+loader (`Repo` > `User` > `Admin`), and Claude Code ships `.claude/skills/` and
+`~/.claude/skills/` as deliberately separate discovery paths.
+Don’t treat a dual install as something to detect and de-duplicate.
 
 ### 6.7 Making the CLI available: global install vs. zero-install
 
@@ -1242,6 +1369,8 @@ going:
 - Anthropic skills (examples): https://github.com/anthropics/skills
 - gstack: https://github.com/garrytan/gstack
 - Beads (bd): https://github.com/gastownhall/beads
+- qmd (L2 reference: self-installing skill, discovery-dirs only, CLI + MCP + plugin):
+  https://github.com/tobi/qmd
 
 ### Security
 
