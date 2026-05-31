@@ -503,6 +503,10 @@ Four rungs, lightest first:
   (§6.3). Take this on only for a tool with many capabilities, cross-session state, or a
   curated knowledge library.
   **`tbd`** is the reference implementation; **Beads/`bd`** follows the same shape.
+  Such platforms are typically **project-only and version-pinned per repo** (§6.6.2):
+  the tool is part of the project’s reproducible toolchain, so global scope is usually
+  not worth offering. `qmd` (L2) offers global/dual scope precisely because it is a
+  general-purpose utility that carries no per-project config.
 
 The self-upgrade and format-versioning rules in §6.6 apply **only to L3** — L0–L2 never
 need them. If in doubt, you are L1: `tbd` is an L3 reference implementation, `qmd` an L2
@@ -845,14 +849,38 @@ gets identical frontmatter, the `DO NOT EDIT`/format marker, and deterministic o
 This keeps the “one tool, many self-injecting commands” model open for extension without
 the core tool taking a dependency on every plugin.
 
-#### 6.6.2 Project vs user-global scope (for tools that need both)
+#### 6.6.2 Install scope: project-pinned, global, or both
 
-Most CLIs are project-only and can skip this section.
-But a **general-purpose** tool — a writing toolkit, a linter, a formatter, anything a
-user wants available *everywhere* and also pinned in *specific* projects — genuinely
-needs two install scopes.
+**First decide which scopes the tool should even offer — most tools should not offer all
+three.** The deciding factor is whether the tool is *customized per install*; a
+secondary one is whether the user wants it as an explicit dependency of each repo.
+
+- **Customized per install → project install, version-pinned, single scope (preferred;
+  consider discouraging global).** If the tool carries per-project configuration or
+  defines how *this* repo is built, tracked, or reviewed, install it into the project
+  and pin its version there, so the whole team and every agent get identical behavior
+  and different projects can pin different versions independently.
+  For such a tool a global install is usually not worth supporting — and can be worth
+  actively discouraging — because a per-project install is almost always preferable.
+  **`tbd` is deliberately here**: pinned per project and configured per repo
+  (`.tbd/config.yml`, the issue prefix), so a global cross-repo install would be an
+  anti-pattern, not a missing feature.
+  This is the §6.0 “consistency control” argument taken to its conclusion.
+- **Not customized (a general utility) → dual-scope, for flexibility.** When there is no
+  per-project configuration to anchor the tool, offering *both* `--project` and
+  `--global` simply lets the user decide where it lives — global so it is available
+  everywhere with no explicit repo dependency, or project-local when they do want it
+  pinned. **`qmd` is here**: a Markdown search tool pointed at arbitrary collections,
+  useful across repos and configured per invocation.
+- **Global-only → rare, but conceivable.** Reserve it for a genuine *user-level
+  preference* that applies across all of a user’s projects and that the user would
+  rarely want committed into any single repo.
+  Most tools are not this; do not default to global-only.
+
+The `--project`/`--global` mechanics below apply to any tool that offers global or
+dual-scope installs.
 §6.6 states the principle (project-local and global must be kept separate; global must
-be explicit); this codifies the mechanics.
+be explicit); this codifies it.
 The model to copy is **`git config`**: implicit scope when it is unambiguous, a hard
 error when it is not.
 
