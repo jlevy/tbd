@@ -3,9 +3,9 @@ title: Convex Rules
 description: Guidelines and best practices for building Convex projects, including database schema design, queries, mutations, and real-world examples
 author: Convex team
 ---
-# Convex guidelines
+# Convex Guidelines
 
-## Function guidelines
+## Function Guidelines
 
 ### New function syntax
 
@@ -265,7 +265,7 @@ Note: `paginationOpts` is an object with the following properties:
   continueCursor (a string that represents the cursor to use to fetch the next page of
   documents)
 
-## Validator guidelines
+## Validator Guidelines
 
 - `v.bigint()` is deprecated for representing signed 64-bit integers.
   Use `v.int64()` instead.
@@ -273,7 +273,7 @@ Note: `paginationOpts` is an object with the following properties:
 - Use `v.record()` for defining a record type.
   `v.map()` and `v.set()` are not supported.
 
-## Schema guidelines
+## Schema Guidelines
 
 - Always define your schema in `convex/schema.ts`.
 
@@ -292,7 +292,7 @@ Note: `paginationOpts` is an object with the following properties:
   If you want to be able to query by “field1” then “field2” and by “field2” then
   “field1”, you must create separate indexes.
 
-## Typescript guidelines
+## TypeScript Guidelines
 
 - You can use the helper typescript type `Id` imported from ‘./\_generated/dataModel’ to
   get the type of the id for a given table.
@@ -341,7 +341,7 @@ export const exampleQuery = query({
 - Always add `@types/node` to your `package.json` when using any Node.js built-in
   modules.
 
-## Full text search guidelines
+## Full Text Search Guidelines
 
 - A query for “10 messages in channel ‘#general’ that best match the query ‘hello hi’ in
   their body” would look like:
@@ -349,7 +349,7 @@ export const exampleQuery = query({
 const messages = await ctx.db .query("messages") .withSearchIndex("search_body", (q) =>
 q.search("body", “hello hi”).eq("channel", “#general”), ) .take(10);
 
-## Query guidelines
+## Query Guidelines
 
 - Do NOT use `filter` in queries.
   Instead, define an index in the schema and use `withIndex` instead.
@@ -374,7 +374,7 @@ q.search("body", “hello hi”).eq("channel", “#general”), ) .take(10);
 - Document queries that use indexes will be ordered based on the columns in the index
   and can avoid slow table scans.
 
-## Mutation guidelines
+## Mutation Guidelines
 
 - Use `ctx.db.replace` to fully replace an existing document.
   This method will throw an error if the document does not exist.
@@ -382,7 +382,7 @@ q.search("body", “hello hi”).eq("channel", “#general”), ) .take(10);
 - Use `ctx.db.patch` to shallow merge updates into an existing document.
   This method will throw an error if the document does not exist.
 
-## Action guidelines
+## Action Guidelines
 
 - Always add `"use node";` to the top of files containing actions that use Node.js
   built-in modules.
@@ -405,7 +405,7 @@ export const exampleAction = action({
 });
 ```
 
-## Scheduling guidelines
+## Scheduling Guidelines
 
 ### Cron guidelines
 
@@ -445,7 +445,7 @@ export default crons;
 - If a cron calls an internal function, always import the `internal` object from
   ‘\_generated/api’, even if the internal function is registered in the same file.
 
-## File storage guidelines
+## File Storage Guidelines
 
 - Convex includes file storage for large files like images, videos, and PDFs.
 
@@ -485,7 +485,7 @@ export const exampleQuery = query({
 - Convex storage stores items as `Blob` objects.
   You must convert all items to/from a `Blob` when using Convex storage.
 
-# Examples:
+# Examples
 
 ## Example: chat-app
 
@@ -899,7 +899,7 @@ export default function App() {
 }
 ```
 
-## Additional guidelines
+## Additional Guidelines
 
 (These are added to the original Convex rules above.)
 

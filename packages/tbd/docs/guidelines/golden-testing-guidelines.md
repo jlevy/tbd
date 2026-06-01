@@ -7,7 +7,7 @@ author: Joshua Levy (github.com/jlevy) with LLM assistance
 
 **Related**: `tbd guidelines general-tdd-guidelines`
 
-## TL;DR (What to do)
+## TL;DR (What to Do)
 
 - Define a session schema (events) with stable vs unstable fields.
 
