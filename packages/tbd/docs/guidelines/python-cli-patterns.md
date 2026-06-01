@@ -31,7 +31,7 @@ src/myproject/
     └── options.py          # TypedDict for command options
 ```
 
-### Agent & CI Compatibility
+### Agent and CI Compatibility
 
 Support automation with explicit flags:
 - `--format text|json|jsonl`: Output format
