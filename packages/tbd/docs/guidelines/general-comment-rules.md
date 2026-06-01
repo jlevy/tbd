@@ -41,7 +41,7 @@ These are language-agnostic rules on comments:
   NEVER DO THIS: “// Step 3: Fetch the data from the cache”\
   This is fine: “// Now fetch the data from the cache”
 
-- DO NOT use emojis or special unicode characters like ① or • or – or — in comments.
+- DO NOT use emojis or special unicode characters like ① or • or – or—in comments.
 
 - DO NOT leave comments about code changes that have been completed.
   DO NOT leave comments like:

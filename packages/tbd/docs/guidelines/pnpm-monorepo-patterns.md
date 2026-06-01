@@ -24,31 +24,31 @@ author: Joshua Levy (github.com/jlevy) with LLM assistance
 
 | Tool / Package | Version | Check For Updates |
 | --- | --- | --- |
-| **Node.js** | 24 (LTS “Krypton”) | [nodejs.org/releases](https://nodejs.org/en/about/previous-releases) — Node 24 Active LTS until Oct 2026. **Node 26 Current** shipped 2026-05-05 (Temporal API enabled by default, V8 14.6, Undici 8.0). **Node 20 went EOL 2026-03-24.** Node 26 is the last release on the old two-major-per-year cadence; starting v27, all majors become LTS (one per year). |
-| **pnpm** | ^11.0.0 (11.2.x too recent) | [github.com/pnpm/pnpm/releases](https://github.com/pnpm/pnpm/releases) — **Pinned to 11.0.0 (2026-04-28) per the 14-day rule**; 11.2.0/11.2.2 shipped 2026-05-20/21 (1–2 days old today). Breaking changes: pure ESM (requires **Node 22+**); SQLite-based store (`$STORE/index.db`); **`minimumReleaseAge` defaults to 1440 minutes (1 day)** for supply-chain hygiene; **`blockExoticSubdeps` defaults to `true`**; `onlyBuiltDependencies`/`neverBuiltDependencies` removed and replaced by **`allowBuilds`**; `patchedDependencies` format simplified; experimental Rust-based `@pnpm/pacquet` engine arrives in 11.2+. v11.1 added `pnpm audit signatures`, `pnpm bugs`, `pnpm owner`. |
-| **TypeScript** | ^6.0.3 | [github.com/microsoft/TypeScript/releases](https://github.com/microsoft/TypeScript/releases) — **6.0.3 stable** (shipped 2026-03-23). 6.0 is the last JavaScript-based release; `strict: true` is now the default, ESM is the default module system, ~9 compiler settings flipped defaults. **TS 7.0 Beta** (Project Corsa, Go rewrite) shipped 2026-04-21 as `@typescript/native-preview` (binary: `tsgo`); claims ~10× type-check speed and ~3× less memory. Stable expected mid-to-late 2026. Do not adopt `tsgo` for production builds yet. |
-| **tsdown** | ^0.22.0 | [github.com/rolldown/tsdown/releases](https://github.com/rolldown/tsdown/releases) — 0.22.0 (2026-05-07). Has not reached 1.0; incremental 0.20→0.22 releases since Feb 2026; no deprecations. Requires Node.js 20.19+. |
-| **publint** | ^0.3.20 (0.3.21 too recent) | [npmjs.com/package/publint](https://www.npmjs.com/package/publint) — **Pinned to 0.3.20 (2026-05-08) per the 14-day rule**; 0.3.21 (2026-05-13) is 9 days old today. Re-enabled TS/TSX file existence checks; `exports["default"]` support; bug fixes. |
-| **@changesets/cli** | ^2.31.0 | [github.com/changesets/changesets/releases](https://github.com/changesets/changesets/releases) — 2.31.0 latest. No native Bun support added. |
-| **@types/node** | ^24.0.0 | [@types/node npm](https://www.npmjs.com/package/@types/node) — Track Node.js major version. @types/node@25.x available; @types/node@26.x will follow Node 26. |
-| **actions/checkout** | v6 | [github.com/actions/checkout/releases](https://github.com/actions/checkout/releases) — v6.0.2 (2026-01-09). Credentials now stored in `$RUNNER_TEMP` rather than `.git/config`; Node 24 runtime; requires runner ≥ 2.327.1. |
-| **actions/setup-node** | v6 | [github.com/actions/setup-node/releases](https://github.com/actions/setup-node/releases) — Supports Node 24 by default. **Note GitHub’s 2026-06-02 deadline forcing Node.js 20 actions to Node.js 24.** |
-| **pnpm/action-setup** | v6 | [github.com/pnpm/action-setup/releases](https://github.com/pnpm/action-setup/releases) — **v6 required for pnpm 11+ support.** v4 (previously documented) does not handle pnpm 11’s ESM-only distribution correctly. |
-| **changesets/action** | v1 | [github.com/changesets/action](https://github.com/changesets/action) — Still v1. No v2. |
-| **lefthook** | ^2.1.5 (2.1.7/2.1.8 too recent) | [github.com/evilmartians/lefthook/releases](https://github.com/evilmartians/lefthook/releases) — **Pinned to 2.1.5 (2026-04-06) per the 14-day rule**; 2.1.7/2.1.8 both shipped 2026-05-19. Patch-level since 2.1.1. v2 still excludes regexp `exclude` and `skip_output` from v1. |
-| **npm-check-updates** | ^22.0.0 (22.2.0 too recent) | [npmjs.com/package/npm-check-updates](https://www.npmjs.com/package/npm-check-updates) — **Major version jump from 19 to 22.** **Pinned to 22.0.0 (2026-04-25) per the 14-day rule**; 22.2.0 (2026-05-12) is 10 days old today. Now pure ESM; named imports only (`import { run } from 'npm-check-updates'`); `.ncurc.js` with `module.exports` no longer works in `"type": "module"` projects (use `.ncurc.cjs`). **Ships `--cooldown <days>` to refuse versions younger than the specified age** — primary enforcement for the 14-day package-age rule. See [Supply-Chain Mitigation](#supply-chain-mitigation). |
-| **tsx** | ^4.21.0 (4.22.x too recent) | [github.com/privatenumber/tsx/releases](https://github.com/privatenumber/tsx/releases) — **Pinned to 4.21.0 (2025-11-30) per the 14-day rule**; 4.22.0 shipped 2026-05-14 (8 days old) and 4.22.3 shipped 2026-05-19 (3 days old). Bump on next refresh once 4.22.x has aged. |
-| **prettier** | ^3.8.3 | [github.com/prettier/prettier/releases](https://github.com/prettier/prettier/releases) — 3.8.3 stable. Prettier 4.0 is in alpha (4.0.0-alpha.13, CLI performance rewrite) — **not stable yet**; do not adopt. |
+| **Node.js** | 24 (LTS “Krypton”) | [nodejs.org/releases](https://nodejs.org/en/about/previous-releases)—Node 24 Active LTS until Oct 2026. **Node 26 Current** shipped 2026-05-05 (Temporal API enabled by default, V8 14.6, Undici 8.0). **Node 20 went EOL 2026-03-24.** Node 26 is the last release on the old two-major-per-year cadence; starting v27, all majors become LTS (one per year). |
+| **pnpm** | ^11.0.0 (11.2.x too recent) | [github.com/pnpm/pnpm/releases](https://github.com/pnpm/pnpm/releases)—**Pinned to 11.0.0 (2026-04-28) per the 14-day rule**; 11.2.0/11.2.2 shipped 2026-05-20/21 (1–2 days old today). Breaking changes: pure ESM (requires **Node 22+**); SQLite-based store (`$STORE/index.db`); **`minimumReleaseAge` defaults to 1440 minutes (1 day)** for supply-chain hygiene; **`blockExoticSubdeps` defaults to `true`**; `onlyBuiltDependencies`/`neverBuiltDependencies` removed and replaced by **`allowBuilds`**; `patchedDependencies` format simplified; experimental Rust-based `@pnpm/pacquet` engine arrives in 11.2+. v11.1 added `pnpm audit signatures`, `pnpm bugs`, `pnpm owner`. |
+| **TypeScript** | ^6.0.3 | [github.com/microsoft/TypeScript/releases](https://github.com/microsoft/TypeScript/releases)—**6.0.3 stable** (shipped 2026-03-23). 6.0 is the last JavaScript-based release; `strict: true` is now the default, ESM is the default module system, ~9 compiler settings flipped defaults. **TS 7.0 Beta** (Project Corsa, Go rewrite) shipped 2026-04-21 as `@typescript/native-preview` (binary: `tsgo`); claims ~10× type-check speed and ~3× less memory. Stable expected mid-to-late 2026. Do not adopt `tsgo` for production builds yet. |
+| **tsdown** | ^0.22.0 | [github.com/rolldown/tsdown/releases](https://github.com/rolldown/tsdown/releases)—0.22.0 (2026-05-07). Has not reached 1.0; incremental 0.20→0.22 releases since Feb 2026; no deprecations. Requires Node.js 20.19+. |
+| **publint** | ^0.3.20 (0.3.21 too recent) | [npmjs.com/package/publint](https://www.npmjs.com/package/publint)—**Pinned to 0.3.20 (2026-05-08) per the 14-day rule**; 0.3.21 (2026-05-13) is 9 days old today. Re-enabled TS/TSX file existence checks; `exports["default"]` support; bug fixes. |
+| **@changesets/cli** | ^2.31.0 | [github.com/changesets/changesets/releases](https://github.com/changesets/changesets/releases)—2.31.0 latest. No native Bun support added. |
+| **@types/node** | ^24.0.0 | [@types/node npm](https://www.npmjs.com/package/@types/node)—Track Node.js major version. @types/node@25.x available; @types/node@26.x will follow Node 26. |
+| **actions/checkout** | v6 | [github.com/actions/checkout/releases](https://github.com/actions/checkout/releases)—v6.0.2 (2026-01-09). Credentials now stored in `$RUNNER_TEMP` rather than `.git/config`; Node 24 runtime; requires runner ≥ 2.327.1. |
+| **actions/setup-node** | v6 | [github.com/actions/setup-node/releases](https://github.com/actions/setup-node/releases)—Supports Node 24 by default. **Note GitHub’s 2026-06-02 deadline forcing Node.js 20 actions to Node.js 24.** |
+| **pnpm/action-setup** | v6 | [github.com/pnpm/action-setup/releases](https://github.com/pnpm/action-setup/releases)—**v6 required for pnpm 11+ support.** v4 (previously documented) does not handle pnpm 11’s ESM-only distribution correctly. |
+| **changesets/action** | v1 | [github.com/changesets/action](https://github.com/changesets/action)—Still v1. No v2. |
+| **lefthook** | ^2.1.5 (2.1.7/2.1.8 too recent) | [github.com/evilmartians/lefthook/releases](https://github.com/evilmartians/lefthook/releases)—**Pinned to 2.1.5 (2026-04-06) per the 14-day rule**; 2.1.7/2.1.8 both shipped 2026-05-19. Patch-level since 2.1.1. v2 still excludes regexp `exclude` and `skip_output` from v1. |
+| **npm-check-updates** | ^22.0.0 (22.2.0 too recent) | [npmjs.com/package/npm-check-updates](https://www.npmjs.com/package/npm-check-updates)—**Major version jump from 19 to 22.** **Pinned to 22.0.0 (2026-04-25) per the 14-day rule**; 22.2.0 (2026-05-12) is 10 days old today. Now pure ESM; named imports only (`import { run } from 'npm-check-updates'`); `.ncurc.js` with `module.exports` no longer works in `"type": "module"` projects (use `.ncurc.cjs`). **Ships `--cooldown <days>` to refuse versions younger than the specified age**—primary enforcement for the 14-day package-age rule. See [Supply-Chain Mitigation](#supply-chain-mitigation). |
+| **tsx** | ^4.21.0 (4.22.x too recent) | [github.com/privatenumber/tsx/releases](https://github.com/privatenumber/tsx/releases)—**Pinned to 4.21.0 (2025-11-30) per the 14-day rule**; 4.22.0 shipped 2026-05-14 (8 days old) and 4.22.3 shipped 2026-05-19 (3 days old). Bump on next refresh once 4.22.x has aged. |
+| **prettier** | ^3.8.3 | [github.com/prettier/prettier/releases](https://github.com/prettier/prettier/releases)—3.8.3 stable. Prettier 4.0 is in alpha (4.0.0-alpha.13, CLI performance rewrite)—**not stable yet**; do not adopt. |
 | **eslint-config-prettier** | ^10.0.0 | [github.com/prettier/eslint-config-prettier/releases](https://github.com/prettier/eslint-config-prettier/releases) |
-| **ESLint** | ^10.0.0 | [github.com/eslint/eslint/releases](https://github.com/eslint/eslint/releases) — **ESLint 10.0.0 shipped 2026-02-06.** **Breaking**: `.eslintrc.*` configuration is completely removed — flat config (`eslint.config.js`) is the only supported format. Download size reduced (11 MB → 9.4 MB). Improved JSX reference tracking. **Minimum Node.js v20.19.0.** ESLint 9.x EOL is 2026-08-06. |
-| **Vitest** | ^4.1.5 (4.1.6/4.1.7 too recent) | [github.com/vitest-dev/vitest/releases](https://github.com/vitest-dev/vitest/releases) — **Pinned to 4.1.5 (2026-04-21) per the 14-day rule**; 4.1.7 (2026-05-20) is 2 days old today. v4.1 (Mar 2026) added Vite 8 support, test tags, extended chai-style assertions for mocking. Vitest now reuses installed Vite instead of bundling. Browser Mode stable, visual regression added. `coverage.all` was removed in v4. Vitest 5.0.0-beta.3 in pre-release (requires Node 22+, Vite 6.4+) — **do not adopt yet**. |
-| **Zod** | ^4.4.3 | [github.com/colinhacks/zod/releases](https://github.com/colinhacks/zod/releases) — **Zod 4 fully stable.** 14× faster string parsing, 7× faster array parsing, 6.5× faster object parsing vs Zod 3; core bundle 2.3× smaller. New `@zod/mini` package (~1.9 KB gzipped) for tree-shakable frontend validation. Migration from Zod 3 required — see [zod.dev/v4/changelog](https://zod.dev/v4/changelog). |
-| **commander** | ^15.0.0 | [github.com/tj/commander.js/releases](https://github.com/tj/commander.js/releases) — Commander 15 shipping May 2026, **ESM-only, requires Node v22.12.0+**. Commander 14 moves to maintenance (security only) until May 2027. |
-| **picocolors** | ^1.1.1 | [npmjs.com/package/picocolors](https://www.npmjs.com/package/picocolors) — Last release October 2024. Stable; no changes expected. |
-| **dotenv** | ^17.4.2 | [npmjs.com/package/dotenv](https://www.npmjs.com/package/dotenv) — Stable. **Prefer Node.js native `--env-file` for Node ≥20.6** (production-ready since Node 24 LTS); use dotenv only when you need variable expansion, multiline values, or custom precedence logic. |
-| **atomically** | ^2.1.1 | [npmjs.com/package/atomically](https://www.npmjs.com/package/atomically) — 2.1.1 (2026-02-08). Still maintained. |
-| **yaml** | ^2.8.4 | [npmjs.com/package/yaml](https://www.npmjs.com/package/yaml) — 2.8.4 (2026-05-02). v3.0.0-1 is tagged “next” (pre-release) — do not adopt yet. |
-| **@vitest/coverage-v8** | ^4.1.7 | [npmjs.com/package/@vitest/coverage-v8](https://www.npmjs.com/package/@vitest/coverage-v8) — Track Vitest version. |
+| **ESLint** | ^10.0.0 | [github.com/eslint/eslint/releases](https://github.com/eslint/eslint/releases)—**ESLint 10.0.0 shipped 2026-02-06.** **Breaking**: `.eslintrc.*` configuration is completely removed—flat config (`eslint.config.js`) is the only supported format. Download size reduced (11 MB → 9.4 MB). Improved JSX reference tracking. **Minimum Node.js v20.19.0.** ESLint 9.x EOL is 2026-08-06. |
+| **Vitest** | ^4.1.5 (4.1.6/4.1.7 too recent) | [github.com/vitest-dev/vitest/releases](https://github.com/vitest-dev/vitest/releases)—**Pinned to 4.1.5 (2026-04-21) per the 14-day rule**; 4.1.7 (2026-05-20) is 2 days old today. v4.1 (Mar 2026) added Vite 8 support, test tags, extended chai-style assertions for mocking. Vitest now reuses installed Vite instead of bundling. Browser Mode stable, visual regression added. `coverage.all` was removed in v4. Vitest 5.0.0-beta.3 in pre-release (requires Node 22+, Vite 6.4+)—**do not adopt yet**. |
+| **Zod** | ^4.4.3 | [github.com/colinhacks/zod/releases](https://github.com/colinhacks/zod/releases)—**Zod 4 fully stable.** 14× faster string parsing, 7× faster array parsing, 6.5× faster object parsing vs Zod 3; core bundle 2.3× smaller. New `@zod/mini` package (~1.9 KB gzipped) for tree-shakable frontend validation. Migration from Zod 3 required—see [zod.dev/v4/changelog](https://zod.dev/v4/changelog). |
+| **commander** | ^15.0.0 | [github.com/tj/commander.js/releases](https://github.com/tj/commander.js/releases)—Commander 15 shipping May 2026, **ESM-only, requires Node v22.12.0+**. Commander 14 moves to maintenance (security only) until May 2027. |
+| **picocolors** | ^1.1.1 | [npmjs.com/package/picocolors](https://www.npmjs.com/package/picocolors)—Last release October 2024. Stable; no changes expected. |
+| **dotenv** | ^17.4.2 | [npmjs.com/package/dotenv](https://www.npmjs.com/package/dotenv)—Stable. **Prefer Node.js native `--env-file` for Node ≥20.6** (production-ready since Node 24 LTS); use dotenv only when you need variable expansion, multiline values, or custom precedence logic. |
+| **atomically** | ^2.1.1 | [npmjs.com/package/atomically](https://www.npmjs.com/package/atomically)—2.1.1 (2026-02-08). Still maintained. |
+| **yaml** | ^2.8.4 | [npmjs.com/package/yaml](https://www.npmjs.com/package/yaml)—2.8.4 (2026-05-02). v3.0.0-1 is tagged “next” (pre-release)—do not adopt yet. |
+| **@vitest/coverage-v8** | ^4.1.7 | [npmjs.com/package/@vitest/coverage-v8](https://www.npmjs.com/package/@vitest/coverage-v8)—Track Vitest version. |
 
 ### Reminders When Updating
 
@@ -56,7 +56,7 @@ author: Joshua Levy (github.com/jlevy) with LLM assistance
 
 2. **Update the table** with new versions and any relevant notes
 
-3. **Search and update code examples** — version numbers appear in:
+3. **Search and update code examples**—version numbers appear in:
 
    - GitHub Actions workflows (CI and Release sections)
 
@@ -68,7 +68,7 @@ author: Joshua Levy (github.com/jlevy) with LLM assistance
 
    - Appendices A, B, and D (complete examples)
 
-4. **Verify compatibility** — check that tools still work together (e.g., new
+4. **Verify compatibility**—check that tools still work together (e.g., new
    pnpm/action-setup versions may change caching behavior)
 
 5. **Update the “Last Updated” date** at the top of the document
@@ -76,9 +76,9 @@ author: Joshua Levy (github.com/jlevy) with LLM assistance
 6. **Review “Open Research Questions”** section for any resolved items
 
 7. **Honor the 14-day package-age rule** when bumping versions in code examples.
-   See [Supply-Chain Mitigation](#supply-chain-mitigation) — versions cited here should
-   be ≥14 days old at the time the table is updated, except where a clearly-noted
-   security exception applies.
+   See [Supply-Chain Mitigation](#supply-chain-mitigation)—versions cited here should be
+   ≥14 days old at the time the table is updated, except where a clearly-noted security
+   exception applies.
 
 * * *
 
@@ -157,7 +157,7 @@ recommendations from the TypeScript and JavaScript ecosystem maintainers.
 
 - **pnpm 11 (shipped 2026-04-28)** adds significant supply-chain hardening defaults:
   `minimumReleaseAge: 1440` (1 day) and `blockExoticSubdeps: true`. We recommend
-  overriding `minimumReleaseAge` to 14 days — see
+  overriding `minimumReleaseAge` to 14 days—see
   [Supply-Chain Mitigation](#supply-chain-mitigation).
 
 - **pnpm 11 is pure ESM and requires Node.js 22+.** Lifecycle script gating has moved
@@ -733,7 +733,7 @@ Changesets provides:
 
 **Assessment**: Changesets is the de facto standard for *multi-package* monorepo
 versioning and integrates seamlessly with pnpm and GitHub Actions.
-For a repo that publishes a single package, its per-PR ceremony rarely pays off — prefer
+For a repo that publishes a single package, its per-PR ceremony rarely pays off—prefer
 the tag-triggered approach below (see the LLM-era note).
 
 **References**:
@@ -1139,8 +1139,8 @@ Vite’s transformation pipeline.
   extended chai-style assertions for mocking.
   Vitest now reuses the installed Vite instead of bundling a separate dependency.
 
-- **`coverage.all` was removed in v4** — use `coverage.include` and `coverage.exclude`
-  to control which files are reported.
+- **`coverage.all` was removed in v4**—use `coverage.include` and `coverage.exclude` to
+  control which files are reported.
 
 - **Vitest 5.0.0-beta** is in pre-release (requires Node 22+ and Vite 6.4+). Stay on
   4.1.x for production until stable.
@@ -1886,13 +1886,13 @@ workflow. This makes upgrades consistent and discoverable.
 
 **Workflow**:
 
-1. **Check for updates**: `pnpm upgrade:check` — see what’s available without changing
+1. **Check for updates**: `pnpm upgrade:check`—see what’s available without changing
    anything
 
-2. **Safe upgrade**: `pnpm upgrade` — upgrade minor/patch versions and run tests to
-   verify nothing breaks
+2. **Safe upgrade**: `pnpm upgrade`—upgrade minor/patch versions and run tests to verify
+   nothing breaks
 
-3. **Major upgrades**: `pnpm upgrade:major` — interactively review major version bumps,
+3. **Major upgrades**: `pnpm upgrade:major`—interactively review major version bumps,
    select which to apply, then test and review changelogs
 
 **Key insight**: Running tests after `upgrade` catches regressions immediately.
@@ -2546,8 +2546,8 @@ than discovering them when users try to use the library in browser/edge contexts
 
 **References**:
 
-- [CLI Tool Development Rules](../../agent-rules/typescript-cli-tool-rules.md) —
-  CLI-specific patterns using Commander.js, picocolors, and @clack/prompts
+- [CLI Tool Development Rules](../../agent-rules/typescript-cli-tool-rules.md)—CLI-specific
+  patterns using Commander.js, picocolors, and @clack/prompts
 
 * * *
 
@@ -2556,7 +2556,7 @@ than discovering them when users try to use the library in browser/edge contexts
 Supply-chain hardening applies to **every repo, not just new monorepos**, so the full
 policy and hands-on enforcement now live in a standalone guideline:
 **`tbd guidelines supply-chain-hardening`**. It covers the cross-ecosystem 14-day
-cool-off plus the Node/pnpm/Bun specifics — lifecycle-script allowlists, lockfile
+cool-off plus the Node/pnpm/Bun specifics—lifecycle-script allowlists, lockfile
 discipline, `npm-check-updates --cooldown 14`, the CI audit gate, and the
 `check-package-age` pre-push guard.
 Deeper background and the named-incident watch list:
@@ -2707,7 +2707,7 @@ Deeper background and the named-incident watch list:
    `@typescript/native-preview` (binary `tsgo`). Claims ~10× type-check speed and ~3×
    less memory; passes 95%+ of the test suite.
    Available in Visual Studio 2026 18.6 Insiders by default.
-   **Do not adopt for production builds yet** — wait for stable (expected mid-to-late
+   **Do not adopt for production builds yet**—wait for stable (expected mid-to-late
    2026). Monitor for tsdown/Vitest compatibility announcements.
 
 4. **Native TypeScript Execution**: TypeScript 5.8+ supports `--erasableSyntaxOnly`,
@@ -2716,9 +2716,9 @@ Deeper background and the named-incident watch list:
    Monitor for broader tooling adoption (linters, coverage tools).
 
 5. ~~**ESLint v10**~~: **SHIPPED** 2026-02-06. `.eslintrc.*` configuration is completely
-   removed — flat config (`eslint.config.js`) is the only supported format.
+   removed—flat config (`eslint.config.js`) is the only supported format.
    Download size reduced 11 MB → 9.4 MB. Minimum Node.js v20.19.0. ESLint 9.x EOL is
-   2026-08-06 — migrate now.
+   2026-08-06—migrate now.
 
 6. ~~**pnpm 11**~~: **SHIPPED** 2026-04-28 (currently 11.2.2). Breaking changes: pure
    ESM (requires Node 22+), SQLite-based store, `minimumReleaseAge` default (1 day),
@@ -2729,7 +2729,7 @@ Deeper background and the named-incident watch list:
 7. ~~**Zod 4**~~: **SHIPPED** (currently 4.4.3). 14× faster string parsing, 7× faster
    array parsing, 6.5× faster object parsing vs Zod 3; core bundle 2.3× smaller; new
    `@zod/mini` (~1.9 KB gzipped) for tree-shakable frontend validation.
-   Migration from Zod 3 required — see
+   Migration from Zod 3 required—see
    [zod.dev/v4/changelog](https://zod.dev/v4/changelog).
 
 8. **Commander 15 (ESM-only)**: Commander 15 ships May 2026, requires Node v22.12.0+,

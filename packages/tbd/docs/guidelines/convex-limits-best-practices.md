@@ -75,25 +75,25 @@ This research synthesizes information from:
 
 ### Primary Sources
 
-- [Convex Production Limits](https://docs.convex.dev/production/state/limits) — Official
+- [Convex Production Limits](https://docs.convex.dev/production/state/limits)—Official
   limits documentation
 
-- [Convex Best Practices](https://docs.convex.dev/understanding/best-practices) —
-  Official best practices guide
+- [Convex Best Practices](https://docs.convex.dev/understanding/best-practices)—Official
+  best practices guide
 
-- [Indexes and Query Performance](https://docs.convex.dev/database/reading-data/indexes)
-  — Index optimization guide
+- [Indexes and Query Performance](https://docs.convex.dev/database/reading-data/indexes)—Index
+  optimization guide
 
-- [Pagination Guide](https://docs.convex.dev/database/pagination) — Official pagination
+- [Pagination Guide](https://docs.convex.dev/database/pagination)—Official pagination
   patterns
 
-- [Queries that Scale](https://stack.convex.dev/queries-that-scale) — Community best
+- [Queries that Scale](https://stack.convex.dev/queries-that-scale)—Community best
   practices
 
-- [Convex Aggregate Component](https://github.com/get-convex/aggregate) — Official
+- [Convex Aggregate Component](https://github.com/get-convex/aggregate)—Official
   aggregation library
 
-- [Convex Helpers](https://github.com/get-convex/convex-helpers) — Additional utilities
+- [Convex Helpers](https://github.com/get-convex/convex-helpers)—Additional utilities
   for pagination and queries
 
 * * *
@@ -503,17 +503,17 @@ basis … Usually this is only needed if your product has highly bursty traffic.
 
 **Sources**:
 
-- [Convex Runtimes](https://docs.convex.dev/functions/runtimes) — Runtime comparison and
+- [Convex Runtimes](https://docs.convex.dev/functions/runtimes)—Runtime comparison and
   `"use node";` directive
 
-- [Convex Actions](https://docs.convex.dev/functions/actions) — Action limits and
-  runtime selection
+- [Convex Actions](https://docs.convex.dev/functions/actions)—Action limits and runtime
+  selection
 
-- [Convex Limits](https://docs.convex.dev/production/state/limits) — Official limits
+- [Convex Limits](https://docs.convex.dev/production/state/limits)—Official limits
   documentation
 
-- [Convex Contact](https://docs.convex.dev/production/contact) — Support contact for
-  limit increases (support@convex.dev)
+- [Convex Contact](https://docs.convex.dev/production/contact)—Support contact for limit
+  increases (support@convex.dev)
 
 ### 4. Storage and Bandwidth Quotas
 
@@ -1402,8 +1402,8 @@ export UDF_EXECUTOR_OCC_MAX_BACKOFF_MS=5000
 
 - [Convex Aggregate Component](https://github.com/get-convex/aggregate)
 
-- [@convex-dev/workpool](https://www.npmjs.com/package/@convex-dev/workpool) — “you
-  should ensure that each step is an idempotent Convex action”
+- [@convex-dev/workpool](https://www.npmjs.com/package/@convex-dev/workpool)—“you should
+  ensure that each step is an idempotent Convex action”
 
 - Source: `crates/common/src/knobs.rs:146-155`
 
@@ -1787,7 +1787,7 @@ export const processData = internalAction({
 
 **Sources**:
 
-- [Convex Actions Documentation](https://docs.convex.dev/functions/actions) — Section on
+- [Convex Actions Documentation](https://docs.convex.dev/functions/actions)—Section on
   awaiting promises
 
 ### Pitfall 10: Nested Same-Runtime Action Calls ✅
@@ -2067,47 +2067,47 @@ problematic nested same-runtime pattern.
 
 ### Official Convex Documentation
 
-- [Convex Production Limits](https://docs.convex.dev/production/state/limits) — Complete
+- [Convex Production Limits](https://docs.convex.dev/production/state/limits)—Complete
   limits reference (verified January 2026)
 
-- [Convex Pricing](https://www.convex.dev/pricing) — Current plan limits and pricing
+- [Convex Pricing](https://www.convex.dev/pricing)—Current plan limits and pricing
 
-- [Convex Best Practices](https://docs.convex.dev/understanding/best-practices) —
-  Official best practices guide
+- [Convex Best Practices](https://docs.convex.dev/understanding/best-practices)—Official
+  best practices guide
 
-- [Convex Runtimes](https://docs.convex.dev/functions/runtimes) — Runtime comparison
+- [Convex Runtimes](https://docs.convex.dev/functions/runtimes)—Runtime comparison
   (Convex vs Node.js)
 
-- [Indexes and Query Performance](https://docs.convex.dev/database/reading-data/indexes)
-  — Index optimization and query patterns
+- [Indexes and Query Performance](https://docs.convex.dev/database/reading-data/indexes)—Index
+  optimization and query patterns
 
-- [Pagination Guide](https://docs.convex.dev/database/pagination) — Cursor-based and
+- [Pagination Guide](https://docs.convex.dev/database/pagination)—Cursor-based and
   offset pagination
 
-- [Query Functions](https://docs.convex.dev/functions/query-functions) — Query design
-  and patterns
+- [Query Functions](https://docs.convex.dev/functions/query-functions)—Query design and
+  patterns
 
-- [Full Text Search](https://docs.convex.dev/search/text-search) — Search index limits
+- [Full Text Search](https://docs.convex.dev/search/text-search)—Search index limits
 
-- [Vector Search](https://docs.convex.dev/search/vector-search) — Vector index limits
+- [Vector Search](https://docs.convex.dev/search/vector-search)—Vector index limits
 
-- [Scheduled Functions](https://docs.convex.dev/scheduling/scheduled-functions) —
-  Scheduling limits
+- [Scheduled Functions](https://docs.convex.dev/scheduling/scheduled-functions)—Scheduling
+  limits
 
-- [Environment Variables](https://docs.convex.dev/production/environment-variables) —
-  Environment variable limits
+- [Environment Variables](https://docs.convex.dev/production/environment-variables)—Environment
+  variable limits
 
 ### Community Resources
 
-- [Queries that Scale](https://stack.convex.dev/queries-that-scale) — Community article
-  on scalable query patterns (February 2024)
+- [Queries that Scale](https://stack.convex.dev/queries-that-scale)—Community article on
+  scalable query patterns (February 2024)
 
 ### Official Libraries and Tools
 
-- [Convex Aggregate Component](https://github.com/get-convex/aggregate) — Official
-  library for maintaining denormalized aggregates
+- [Convex Aggregate Component](https://github.com/get-convex/aggregate)—Official library
+  for maintaining denormalized aggregates
 
-- [Convex Helpers](https://github.com/get-convex/convex-helpers) — Utilities for
+- [Convex Helpers](https://github.com/get-convex/convex-helpers)—Utilities for
   pagination, filtering, and common patterns
 
 * * *

@@ -1,7 +1,7 @@
 # Publishing (npm)
 
 This is the get-tbd project’s own release flow.
-It is **not** a general-purpose shortcut shipped to tbd users — releasing a Node package
+It is **not** a general-purpose shortcut shipped to tbd users—releasing a Node package
 is project-specific, so the content lives here in the project repo, not in
 `packages/tbd/docs/shortcuts/standard/`.
 
@@ -57,7 +57,7 @@ This will prompt for web-based authentication in your browser.
 ## During Development
 
 Merge PRs to `main` with clean, conventional commits.
-There are no changeset files — the version bump and release notes are assembled from the
+There are no changeset files—the version bump and release notes are assembled from the
 commits at release time.
 
 ## Release Workflow
@@ -115,7 +115,7 @@ git show $PREV:pnpm-lock.yaml | sha256sum
 ```
 
 If the lockfile hash is unchanged, the resolved dependency tree is identical to the
-previous release — record this in the release notes and skip to 3c.
+previous release—record this in the release notes and skip to 3c.
 
 For each lockfile change, classify it:
 
@@ -126,8 +126,8 @@ For each lockfile change, classify it:
 - **Version bump**: skim the upstream CHANGELOG and diff between the two versions on
   https://diffs.dev or `npm diff <pkg>@<old> <pkg>@<new>`. Treat large unexpected diffs
   as a stop sign.
-- **New transitive dependency**: same scrutiny as a new direct dep — supply-chain
-  attacks often arrive through deep transitives.
+- **New transitive dependency**: same scrutiny as a new direct dep—supply-chain attacks
+  often arrive through deep transitives.
 
 #### 3b. Vulnerability audit
 
@@ -167,7 +167,7 @@ sentence ("Lockfile unchanged since vX.X.X; no new advisories.") is enough.
 
 ### Step 4: Bump Version and Update CHANGELOG
 
-No Changesets — bump by hand on a `claude/release-vX.X.X` branch:
+No Changesets—bump by hand on a `claude/release-vX.X.X` branch:
 
 ```bash
 # 1. Set "version" in packages/tbd/package.json to X.X.X
@@ -190,7 +190,7 @@ Write the `## X.X.X` CHANGELOG section following
 The `## X.X.X` section you write in `CHANGELOG.md` is the single source of truth: at tag
 time `release.yml` extracts it (via `packages/tbd/scripts/extract-changelog.ts`) to
 populate the GitHub Release body.
-`release-notes.md` is a transient, git-ignored working file — regenerate it from the
+`release-notes.md` is a transient, git-ignored working file—regenerate it from the
 committed CHANGELOG whenever you need a `--body-file` for a PR or `gh release edit`:
 
 ```bash
@@ -206,14 +206,14 @@ pnpm exec tsx packages/tbd/scripts/extract-changelog.ts X.X.X > release-notes.md
 **Before tagging: main CI MUST have reached `conclusion=success` on the exact commit you
 are about to tag.** “Mostly green” is not green.
 If a job hangs (e.g., the known `tests/lockfile.test.ts` flake on Windows), cancel and
-rerun the failed job — do not tag past it.
+rerun the failed job—do not tag past it.
 
 `release.yml` is independent of `ci.yml` (it triggers on the tag push, runs on
 `ubuntu-latest` only).
-The release will still publish successfully even if main CI is in_progress or red — but
+The release will still publish successfully even if main CI is in_progress or red—but
 that is a process failure: it ships work that was not confirmed to pass tests on the
 merge commit. Wait for green **on the merge commit itself**, not just “main is usually
-green” — right after a push/merge, an unfiltered query can return the *previous* run.
+green”—right after a push/merge, an unfiltered query can return the *previous* run.
 
 The gate below is written once and reused by both options.
 It always filters by `$MERGE_SHA` (the commit being tagged), verifies the run is

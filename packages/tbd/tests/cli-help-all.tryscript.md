@@ -277,7 +277,7 @@ $ tbd docs --list --json
     "slug": "key-design-features"
   },
   {
-    "title": "File format",
+    "title": "File Format",
     "slug": "file-format"
   },
   {

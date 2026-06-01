@@ -1,6 +1,6 @@
 ---
 title: Common Documentation Guidelines
-description: Common cross-project standards for writing and organizing docs, code comments, and text files — how to organize, structure, write, and format documents, plus the guideline footer convention. Downstream of github.com/jlevy/practical-prose. Use whenever writing or editing any documentation, README, guideline, or design doc.
+description: Common cross-project standards for writing and organizing docs, code comments, and text files—how to organize, structure, write, and format documents, plus the guideline footer convention. Downstream of github.com/jlevy/practical-prose. Use whenever writing or editing any documentation, README, guideline, or design doc.
 author: Joshua Levy (github.com/jlevy) with LLM assistance
 ---
 # Common Documentation Guidelines
@@ -219,7 +219,7 @@ Stylistically, emphasize **clarity**, **depth**, **rigor**, and **warmth**.
 
 - **Auto-formatting:** Always use auto-formatting on every file type that supports it.
   Defer to the language- or format-specific rules for exact style.
-- **Emojis:** Do not use emojis gratuitously — only when they add clarity through a
+- **Emojis:** Do not use emojis gratuitously—only when they add clarity through a
   consistent semantic vocabulary.
   Use ✅ and ❌ for success and failure (or ✔︎ and ✘ if the codebase already uses them),
   and ⚠️ and ‼️ for user-facing warnings and errors (or ∆ and ‼︎ to match an existing

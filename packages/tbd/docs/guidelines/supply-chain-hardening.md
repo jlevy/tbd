@@ -1,6 +1,6 @@
 ---
 title: Supply-Chain Hardening
-description: Strongly recommended for EVERY repo — apply it if a repo has not been hardened yet. Cross-ecosystem policy for installing dependencies safely (the 14-day cool-off, disabled install scripts, lockfile discipline, untrusted-repo handling). Use whenever a user mentions hardening, security, supply chain, or setting up a new repo; before adding/upgrading dependencies; when auditing for compromised packages; or when reviewing install/build/run commands across npm/pnpm, PyPI, Cargo, or Go.
+description: Strongly recommended for EVERY repo—apply it if a repo has not been hardened yet. Cross-ecosystem policy for installing dependencies safely (the 14-day cool-off, disabled install scripts, lockfile discipline, untrusted-repo handling). Use whenever a user mentions hardening, security, supply chain, or setting up a new repo; before adding/upgrading dependencies; when auditing for compromised packages; or when reviewing install/build/run commands across npm/pnpm, PyPI, Cargo, or Go.
 author: Joshua Levy (github.com/jlevy) with LLM assistance
 ---
 # Supply-Chain Hardening
@@ -12,8 +12,8 @@ malicious package versions are published, exfiltrate credentials or install pers
 and are usually yanked within minutes to days.
 
 **Strongly recommended for every repo.** If a project has not been hardened yet, apply
-this policy (and the per-ecosystem playbooks it links) as part of setup — it is
-especially worth doing when standing up a new repo or whenever security comes up.
+this policy (and the per-ecosystem playbooks it links) as part of setup—it is especially
+worth doing when standing up a new repo or whenever security comes up.
 
 **This is the concise policy.** For the full playbooks (per-ecosystem ten-minute setups,
 a zero-dependency audit script, a curated watch list of named incidents, CI/publish-side
@@ -23,23 +23,22 @@ see `tbd guidelines bun-monorepo-patterns` or `tbd guidelines pnpm-monorepo-patt
 
 **When to use this guideline**: before adding or upgrading any dependency; when
 hardening a workstation, repo, or CI pipeline; when assessing whether an installed
-package is compromised; or when reviewing any `install` / `build` / `run` command —
-especially in a freshly cloned third-party repo.
+package is compromised; or when reviewing any `install` / `build` / `run`
+command—especially in a freshly cloned third-party repo.
 
 ## The Default: a 14-Day Cool-Off
 
 **Never install or upgrade to a package version less than 14 days old, unless a
 documented exception applies.** This is the single most effective default.
 It works because registries and researchers detect and yank malicious versions while
-legitimate versions keep accruing age — so the only cost of waiting is slightly staler
+legitimate versions keep accruing age—so the only cost of waiting is slightly staler
 dependencies.
 
 **14 days is a floor, not a ceiling.** A 30/60/90-day window is strictly safer; machines
 with publish tokens or production access should go higher.
-Scope: applies to `dependencies`, `devDependencies` (historically *more* dangerous —
-build tooling runs with full privileges), `peer`/`optionalDependencies`, new installs,
-and upgrades.
-Pins resolved before adopting the policy are grandfathered until their next
+Scope: applies to `dependencies`, `devDependencies` (historically *more* dangerous—build
+tooling runs with full privileges), `peer`/`optionalDependencies`, new installs, and
+upgrades. Pins resolved before adopting the policy are grandfathered until their next
 planned upgrade.
 
 ### Per-ecosystem control
@@ -64,23 +63,23 @@ To check one version’s age: `npm view <pkg> time.<ver>`.
    `pip install` / `cargo install` / `go install`: confirm the package is needed, the
    name is spelled correctly (typosquats are common), and the version clears the
    cool-off (or is lockfile-pinned, or has a stated exception).
-2. **Disable install/lifecycle scripts by default** — the primary exfiltration vector in
+2. **Disable install/lifecycle scripts by default**—the primary exfiltration vector in
    worm-class attacks (`NPM_CONFIG_IGNORE_SCRIPTS=true`; pnpm `ignoreScripts: true` +
    `allowBuilds` allowlist; refuse PyPI sdist builds with
    `UV_NO_BUILD`/`PIP_ONLY_BINARY`).
 3. **Commit lockfiles; install frozen.** `pnpm install --frozen-lockfile` / `npm ci` /
    `--locked`. Never auto-update without review.
-4. **Audit after every install** — `pnpm audit` / `npm audit` / `pip-audit` /
+4. **Audit after every install**—`pnpm audit` / `npm audit` / `pip-audit` /
    `cargo audit` / `govulncheck`; address findings before continuing.
-5. **Don’t update for its own sake.** The safest update is the one you skip — each bump
-   is fresh attack surface.
+5. **Don’t update for its own sake.** The safest update is the one you skip—each bump is
+   fresh attack surface.
    Bump only for a concrete reason ("show me the commit we need"); prefer fewer,
    vendored/pinned dependencies; let audits and CVE monitoring tell you when a real
    update is warranted.
 6. **No unpinned zero-install runners.** Avoid `npx` / `pnpm dlx` / `bunx` / `uvx` /
    `go run <remote>` without an explicit `@version` pin and a review of the resolved
-   `package@version` — they fetch and execute the latest code, bypassing the cool-off.
-   (When a skill references a CLI via a runner, pin it — see
+   `package@version`—they fetch and execute the latest code, bypassing the cool-off.
+   (When a skill references a CLI via a runner, pin it—see
    `tbd guidelines cli-agent-skill-patterns` §6.7.)
 7. **No `curl | sh` from untrusted sources.** Verify the installer URL belongs to the
    documented project; check signatures/checksums where available.
@@ -96,20 +95,20 @@ yesterday), take the exception **explicitly and on the record**:
   sources (OSV, GHSA, maintainer postmortem).
 - Log it, with a follow-up to confirm the version was not yanked afterward.
 
-No exception is “trivial” — the rule exists because we don’t trust ourselves to eyeball
+No exception is “trivial”—the rule exists because we don’t trust ourselves to eyeball
 which fresh versions are safe.
 **Agents never self-approve an exception**: prepare the record and a human signs off.
 
 ### Safe-override patterns (verify, then install surgically)
 
 A release-age gate applies at **version resolution**, so `pkg@latest` (or a bare range)
-silently resolves to the newest version *outside* the window — which can mean you get a
+silently resolves to the newest version *outside* the window—which can mean you get a
 **stale** version without noticing.
 (This is the dogfood case: an `~/.npmrc` `minimum-release-age` resolved
 `npm i -g get-tbd@latest` to an older release because the newer one was still inside the
-window.) When you genuinely need the fresh version, do not weaken the global policy —
-override **surgically** for the one install, and **verify first**. The pattern is always
-*verify the publisher, timestamp, and integrity → install by an exact,
+window.) When you genuinely need the fresh version, do not weaken the global
+policy—override **surgically** for the one install, and **verify first**. The pattern is
+always *verify the publisher, timestamp, and integrity → install by an exact,
 resolution-bypassing reference → confirm afterwards.*
 
 **1. Verify before fetching** (publisher identity, publish time, integrity hash):
@@ -122,7 +121,7 @@ resolution-bypassing reference → confirm afterwards.*
 | Go | `go list -m -json <module>@<ver>` (the proxy returns the checksum DB entry) |
 
 For a package **you maintain** (the dogfood case), the strongest check is that the
-published artifact matches the git tag — confirm the commit/tag and, where the registry
+published artifact matches the git tag—confirm the commit/tag and, where the registry
 supports provenance/attestations (npm `--provenance`), that it was built from that
 source.
 
@@ -154,13 +153,12 @@ ecosystems gate at the lockfile rather than at resolution.
 global `~/.npmrc` / env / CI config; carry the same commit/PR record as any exception
 (reason, exact `pkg@version`, the verification output); and **confirm afterwards** that
 the version was not subsequently yanked.
-Never relax the global cool-off to get one fresh package — that re-exposes every
-install.
+Never relax the global cool-off to get one fresh package—that re-exposes every install.
 
 ## Node / TypeScript Enforcement (npm, pnpm, Bun)
 
 The hands-on controls for the rules above in the Node ecosystem.
-Applies to **any** repo, not just new monorepos — drop these into an existing project.
+Applies to **any** repo, not just new monorepos—drop these into an existing project.
 
 **Lifecycle-script hygiene (the highest-value control).** Block install/build scripts by
 default and allowlist only what you trust:
@@ -206,7 +204,7 @@ One root lockfile in a monorepo.
 [npm provenance attestations](https://docs.npmjs.com/generating-provenance-statements)
 (TypeScript, Vitest, Prettier, ESLint do).
 Run `pnpm audit signatures` / `npm audit signatures` periodically.
-A provenance badge is necessary, not sufficient — the @antv worm forged one.
+A provenance badge is necessary, not sufficient—the @antv worm forged one.
 
 **CI audit gate** (alongside lint/test):
 
@@ -222,7 +220,7 @@ audit:
       # errorLevel 0 logs but doesn't fail — flip to 2 once the backlog is cleared
 ```
 
-**Pre-push age guard** — a zero-dependency Node script wired into lefthook/husky:
+**Pre-push age guard**—a zero-dependency Node script wired into lefthook/husky:
 
 ```ts
 #!/usr/bin/env tsx
@@ -253,14 +251,14 @@ Reviewed <date>.`
 
 - **Treat any freshly-cloned third-party repo as untrusted.** Do not run
   `install`/`build`/`test`/`run`/`npx`/`uvx`/`cargo run`/`go run <remote>` against it on
-  a machine with ambient credentials until you’ve reviewed it — ideally in a container
-  or namespace-isolated sandbox.
+  a machine with ambient credentials until you’ve reviewed it—ideally in a container or
+  namespace-isolated sandbox.
   (`build.rs`, proc-macros, `require()`-time payloads, and test files all execute code.)
 - **Modes**: default to **Balanced** (the policy above).
   Enter **Strict** (no upgrade without reviewing the change set; build-script allowlist
   required; mandatory sandbox; CI scanners checksum-verified) when the repo declares it,
   when the repo is untrusted, or on a machine with publish tokens / production access.
-  **Emergency Exception** is a single logged per-command bypass — never self-approved by
+  **Emergency Exception** is a single logged per-command bypass—never self-approved by
   an agent.
 
 ## What This Does and Doesn’t Cover
@@ -269,11 +267,11 @@ A cool-off plus disabled scripts neutralizes the dominant **fast-yanked-incident
 pattern. It does **not** stop: long-lived typosquats that survive past the window; a
 lockfile that already captured a bad version; payloads that fire on import/build rather
 than install; or **publish-pipeline compromises** (the May 2026 @antv worm shipped from
-legitimate CI with a forged “verified” provenance badge — a green badge is not proof).
-Those need lockfile review, typosquat checks, build-time controls, and — if you publish
-packages — the publish-side controls in the guidebook’s `hardening-ci-cd.md` (OIDC
-trusted publishing, staged publishing, SHA-pinned actions, runner egress limits,
-provenance monitoring).
+legitimate CI with a forged “verified” provenance badge—a green badge is not proof).
+Those need lockfile review, typosquat checks, build-time controls, and—if you publish
+packages—the publish-side controls in the guidebook’s `hardening-ci-cd.md` (OIDC trusted
+publishing, staged publishing, SHA-pinned actions, runner egress limits, provenance
+monitoring).
 
 ## Apply It Here (tbd)
 

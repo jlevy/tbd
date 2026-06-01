@@ -32,10 +32,10 @@ Use these sections in order (omit empty sections):
 **Full commit history**: [link to compare]
 ```
 
-**Releases are not code-only.** If the project ships content — bundled guidelines,
-skills, shortcuts, prompts, or templates that users invoke — changes to that content are
-product changes. Review those diffs (not just code commits) and give them their own
-`### Guidelines & content` section.
+**Releases are not code-only.** If the project ships content—bundled guidelines, skills,
+shortcuts, prompts, or templates that users invoke—changes to that content are product
+changes. Review those diffs (not just code commits) and give them their own
+`### Guidelines and content` section.
 Reserve `### Documentation` for docs *about* the project (README, dev/internal docs);
 shipped content a user can invoke is never an “internal doc” to skip.
 
@@ -119,7 +119,7 @@ Don’t include:
 
 Do **not** treat shipped content as internal.
 Changes to guidelines, skills, shortcuts, or templates that users invoke are product
-changes — include them under `Guidelines & content` (see Structure).
+changes—include them under `Guidelines and content` (see Structure).
 
 ## Review Checklist
 

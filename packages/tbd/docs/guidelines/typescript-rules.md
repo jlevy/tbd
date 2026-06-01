@@ -11,7 +11,7 @@ alwaysApply: true
 
 **Tracks**: TypeScript `^6.0.3` (stable).
 TypeScript 7.0 Beta (`@typescript/native-preview`, binary `tsgo`) is available but **not
-yet production-ready** — do not adopt for shipped builds.
+yet production-ready**—do not adopt for shipped builds.
 
 **Related**:
 
@@ -21,7 +21,7 @@ yet production-ready** — do not adopt for shipped builds.
 - [TypeScript Code Coverage](./typescript-code-coverage.md)
 - [pnpm Monorepo Patterns](./pnpm-monorepo-patterns.md) and
   [Bun Monorepo Patterns](./bun-monorepo-patterns.md)
-- [Supply-Chain Mitigation](./pnpm-monorepo-patterns.md#supply-chain-mitigation) — the
+- [Supply-Chain Mitigation](./pnpm-monorepo-patterns.md#supply-chain-mitigation)—the
   14-day package-age rule applies to every TypeScript dependency (`zod`, `commander`,
   `vitest`, `eslint`, type packages, etc.).
 
@@ -352,7 +352,7 @@ yet production-ready** — do not adopt for shipped builds.
 
 - **Barrel files:** The rules differ for libraries vs applications.
 
-  **For libraries:** Use exactly ONE barrel file — the root `index.ts` that defines the
+  **For libraries:** Use exactly ONE barrel file—the root `index.ts` that defines the
   public API. This is essential for consumers who `import { X } from 'your-library'`. Do
   NOT create module-level barrels (like `utils/index.ts` or `harness/index.ts`).
   Internal code should import directly from source files.

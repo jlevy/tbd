@@ -235,23 +235,23 @@ on demand.
 
 tbd provides **three integrated capabilities**:
 
-1. **Task tracking (beads)** — Git-native issues, bugs, epics, and dependencies that
+1. **Task tracking (beads)**—Git-native issues, bugs, epics, and dependencies that
    persist across sessions.
    This alone is a step change in what agents can do.
-2. **Spec-driven planning** — Workflows for writing specs, breaking them into issues,
-   and implementing systematically.
-3. **Instant knowledge injection** — 17+ detailed guideline docs covering TypeScript,
-   Python, Convex, monorepo architecture, TDD, and more — injected into the agent’s
+2. **Spec-driven planning**—Workflows for writing specs, breaking them into issues, and
+   implementing systematically.
+3. **Instant knowledge injection**—17+ detailed guideline docs covering TypeScript,
+   Python, Convex, monorepo architecture, TDD, and more—injected into the agent’s
    context on demand via shortcuts, guidelines, and templates.
 
 The **issue tracking layer** has four core principles:
 
-- **Durable storage in git** — Issues are version-controlled and distributed via
-  standard git
-- **Works in almost any environment** — No daemon, no SQLite, no file locking issues on
+- **Durable storage in git**—Issues are version-controlled and distributed via standard
+  git
+- **Works in almost any environment**—No daemon, no SQLite, no file locking issues on
   network drives
-- **Simple, self-documenting CLI** — Designed for both AI agents and humans
-- **Transparent internal format** — Markdown/YAML files that are debuggable and friendly
+- **Simple, self-documenting CLI**—Designed for both AI agents and humans
+- **Transparent internal format**—Markdown/YAML files that are debuggable and friendly
   to other tooling
 
 It does *not* aim to be a full solution for real-time agent coordination.
@@ -291,17 +291,17 @@ layered on top of tbd or handled by other tools.
 
 **Related Projects:**
 
-- [Beads](https://github.com/steveyegge/beads) — The original git-backed issue tracker
-  tbd is designed to replace
-- [Agent Mail](https://github.com/Dicklesworthstone/mcp_agent_mail) — Real-time agent
+- [Beads](https://github.com/steveyegge/beads)—The original git-backed issue tracker tbd
+  is designed to replace
+- [Agent Mail](https://github.com/Dicklesworthstone/mcp_agent_mail)—Real-time agent
   messaging via MCP (complementary to tbd for coordination)
-- [Gas Town](https://github.com/steveyegge/gastown) — Multi-agent orchestration platform
+- [Gas Town](https://github.com/steveyegge/gastown)—Multi-agent orchestration platform
   (complementary to tbd for real-time coordination)
-- [ticket](https://github.com/wedow/ticket) — Bash-based Markdown+YAML tracker (~1900
+- [ticket](https://github.com/wedow/ticket)—Bash-based Markdown+YAML tracker (~1900
   tickets in production)
-- [git-bug](https://github.com/git-bug/git-bug) — Issues stored as git objects
-- [git-issue](https://github.com/dspinellis/git-issue) — Shell-based with optional
-  GitHub sync
+- [git-bug](https://github.com/git-bug/git-bug)—Issues stored as git objects
+- [git-issue](https://github.com/dspinellis/git-issue)—Shell-based with optional GitHub
+  sync
 
 ### 1.2 When to Use tbd vs Beads
 
@@ -790,10 +790,10 @@ $GIT_COMMON_DIR/tbd/
     └── meta.yml               # Metadata (schema version)
 ```
 
-> **Future: Simple Mode** — For users who don’t need multi-machine sync, tbd could
-> support a “simple mode” where `data-sync/` is committed directly to main instead of
-> using a worktree. This would be enabled by removing `data-sync` from `.tbd/.gitignore`.
-> Not implemented in V1, but the naming structure supports this future option.
+> **Future: Simple Mode**—For users who don’t need multi-machine sync, tbd could support
+> a “simple mode” where `data-sync/` is committed directly to main instead of using a
+> worktree. This would be enabled by removing `data-sync` from `.tbd/.gitignore`. Not
+> implemented in V1, but the naming structure supports this future option.
 
 **Why this structure?**
 
@@ -887,7 +887,7 @@ backups/
 > Both differ from `.tbd/data-sync/attic/` on the sync branch which stores merge
 > conflict losers.
 > 
-> **Note:** `workspaces/` must not be gitignored — it stores outbox data that must be
+> **Note:** `workspaces/` must not be gitignored—it stores outbox data that must be
 > committed to the working branch.
 
 #### .tbd/.gitattributes Contents
@@ -904,7 +904,7 @@ that directory.
 ```
 
 > **Why this is needed:** When a feature branch with outbox changes is merged back to
-> main (which has no outbox), git’s 3-way merge can delete `ids.yml` entirely — treating
+> main (which has no outbox), git’s 3-way merge can delete `ids.yml` entirely—treating
 > “no file” on main as the correct state.
 > This causes all tbd commands to crash with “No short ID mapping found”.
 > The `merge=union` built-in merge driver keeps all lines from both sides, preventing
@@ -1037,8 +1037,8 @@ async function checkWorktreeHealth(baseDir: string): Promise<{
 
 | Term | Path | Purpose |
 | --- | --- | --- |
-| **Worktree path** | `$GIT_COMMON_DIR/tbd/data-sync-worktree/.tbd/data-sync/` | **Production path** — inside hidden worktree checkout |
-| **Direct path** | `.tbd/data-sync/` | **Legacy fallback path** — gitignored on main, should NEVER contain data in production |
+| **Worktree path** | `$GIT_COMMON_DIR/tbd/data-sync-worktree/.tbd/data-sync/` | **Production path**—inside hidden worktree checkout |
+| **Direct path** | `.tbd/data-sync/` | **Legacy fallback path**—gitignored on main, should NEVER contain data in production |
 
 **Invariant:** In production, the worktree path is the ONLY correct path for issue data.
 The direct path exists ONLY for test fixtures that don’t use git.
@@ -1082,7 +1082,7 @@ async function resolveDataSyncDir(
 
 1. Production code MUST call `resolveDataSyncDir()` without `allowFallback`
 2. Only test code may use `allowFallback: true`
-3. If `.tbd/data-sync/issues/` contains data on main branch, this indicates a bug — data
+3. If `.tbd/data-sync/issues/` contains data on main branch, this indicates a bug—data
    was written to wrong location due to missing worktree
 
 #### Worktree Error Classes
@@ -1114,7 +1114,7 @@ export class SyncBranchError extends TbdError {
 Workspaces are directories under `.tbd/workspaces/` that store issue data for sync
 failure recovery, backups, and bulk editing workflows.
 
-> **Note:** `.tbd/workspaces/` must not be gitignored — outbox data must be committed to
+> **Note:** `.tbd/workspaces/` must not be gitignored—outbox data must be committed to
 > the working branch.
 
 #### Workspace Structure
@@ -2147,7 +2147,7 @@ SYNC(options):
 ```
 
 **Critical Invariant:** All operations in steps 1-6 MUST use the resolved `dataSyncDir`
-path consistently. Never read from or write to `.tbd/data-sync/` directly — always go
+path consistently. Never read from or write to `.tbd/data-sync/` directly—always go
 through the shared worktree at `$GIT_COMMON_DIR/tbd/data-sync-worktree/.tbd/data-sync/`.
 
 **Why most syncs are trivial (no merge needed):**
@@ -2374,8 +2374,8 @@ The CLI Layer provides a Beads-compatible command interface.
 
 All tbd commands require the repository to be initialized, except:
 
-- `tbd init` — Creates a new tbd repository
-- `tbd import --from-beads` — Can initialize and import in one step (auto-runs init if
+- `tbd init`—Creates a new tbd repository
+- `tbd import --from-beads`—Can initialize and import in one step (auto-runs init if
   needed)
 
 **Behavior when not initialized:**
@@ -2572,8 +2572,8 @@ Options:
 created/updated: newest first).
 The tiebreaker for issues with equal primary values is the internal ULID, which sorts
 lexicographically in chronological creation order.
-This ensures deterministic, stable ordering — issues created earlier always appear
-before issues created later within the same priority level.
+This ensures deterministic, stable ordering—issues created earlier always appear before
+issues created later within the same priority level.
 
 **Examples:**
 
@@ -3498,9 +3498,9 @@ This follows the same convention as `git`, `ls`, `grep`, and other Unix tools.
 The actor name (used for `created_by` and recorded in sync commits) is resolved in this
 order:
 
-1. `--actor <name>` CLI flag (highest priority) — *not yet implemented*
+1. `--actor <name>` CLI flag (highest priority)—*not yet implemented*
 
-2. `TBD_ACTOR` environment variable — *not yet implemented*
+2. `TBD_ACTOR` environment variable—*not yet implemented*
 
 3. Git user.email from git config
 
@@ -4571,8 +4571,8 @@ all environments including cloud sandboxes.
 
 Claude Code hooks are always installed to the **project-local** `.claude/` directory,
 adjacent to `.git/` and `.tbd/` at the git repository root.
-There is no global/user-level installation — this avoids confusion and ensures hooks
-work in any environment (local dev, Claude Code Cloud, etc.).
+There is no global/user-level installation—this avoids confusion and ensures hooks work
+in any environment (local dev, Claude Code Cloud, etc.).
 
 **A. JSON Settings Hooks** (installed to `.claude/settings.json` at project root)
 

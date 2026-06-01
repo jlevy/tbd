@@ -130,11 +130,11 @@ npx tryscript@latest --help    # CLI options
 ```
 
 **Key syntax** (see `tryscript docs` for complete reference):
-- `$ command` — command to run
-- `? N` — expected exit code (default 0)
-- `[..]` — matches any text on a single line
-- `...` — matches zero or more complete lines
-- `[PATTERN]` — custom regex patterns defined in YAML frontmatter
+- `$ command`—command to run
+- `? N`—expected exit code (default 0)
+- `[..]`—matches any text on a single line
+- `...`—matches zero or more complete lines
+- `[PATTERN]`—custom regex patterns defined in YAML frontmatter
 
 This guideline does not duplicate tryscript’s documentation.
 For pattern syntax, YAML frontmatter options, sandbox configuration, and advanced
@@ -475,11 +475,11 @@ The developer workflow for golden tests:
 
 1. **Make changes**: Modify business logic, fix bugs, add features
 
-2. **Run tests**: `pnpm test:golden` — tests fail if behavior changed
+2. **Run tests**: `pnpm test:golden`—tests fail if behavior changed
 
-3. **Regenerate**: `pnpm test:golden --update` — update golden files
+3. **Regenerate**: `pnpm test:golden --update`—update golden files
 
-4. **Review diffs**: `git diff tests/golden/` — verify changes are intentional
+4. **Review diffs**: `git diff tests/golden/`—verify changes are intentional
 
 5. **Commit**: Session files committed alongside code changes
 
