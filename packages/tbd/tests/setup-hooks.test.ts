@@ -385,6 +385,76 @@ describeUnix('setup hooks (project-local)', { timeout: 15000 }, () => {
     });
   });
 
+  describe('dry-run does not mutate state (issue #126)', () => {
+    it('setup --auto --dry-run leaves .claude/settings.json byte-for-byte unchanged', async () => {
+      const projectDir = join(tempDir, 'project');
+      await mkdir(projectDir, { recursive: true });
+      initGitRepo(projectDir);
+
+      // First do a real setup so there are installed tbd hooks present. The
+      // legacy-cleanup path historically rewrote settings.json even under
+      // --dry-run, which is exactly the regression this guards.
+      const first = runTbd(['setup', '--auto', '--prefix=test'], projectDir);
+      expect(first.status).toBe(0);
+
+      const settingsPath = join(projectDir, '.claude', 'settings.json');
+      const before = await readFile(settingsPath, 'utf-8');
+
+      // Now a dry-run. It must not touch the file at all.
+      const dry = runTbd(['setup', '--auto', '--dry-run'], projectDir);
+      expect(dry.status).toBe(0);
+
+      const after = await readFile(settingsPath, 'utf-8');
+      expect(after).toBe(before);
+    });
+
+    it('setup --auto --dry-run does not remove legacy scripts/hooks from disk', async () => {
+      const projectDir = join(tempDir, 'project');
+      await mkdir(projectDir, { recursive: true });
+      initGitRepo(projectDir);
+
+      // Plant a legacy script and a legacy-pattern hook that real setup would clean up.
+      const scriptsDir = join(projectDir, '.claude', 'scripts');
+      await mkdir(scriptsDir, { recursive: true });
+      const legacyScriptPath = join(scriptsDir, 'ensure-tbd-cli.sh');
+      await writeFile(legacyScriptPath, '#!/bin/bash\necho legacy\n');
+
+      const settingsPath = join(projectDir, '.claude', 'settings.json');
+      await writeFile(
+        settingsPath,
+        JSON.stringify(
+          {
+            hooks: {
+              SessionStart: [
+                {
+                  matcher: '',
+                  hooks: [{ type: 'command', command: 'bash .claude/scripts/ensure-tbd-cli.sh' }],
+                },
+              ],
+            },
+          },
+          null,
+          2,
+        ) + '\n',
+      );
+
+      const settingsBefore = await readFile(settingsPath, 'utf-8');
+
+      const dry = runTbd(['setup', '--auto', '--dry-run', '--prefix=test'], projectDir);
+      expect(dry.status).toBe(0);
+
+      // The legacy script must still exist and settings must be unchanged.
+      await expect(access(legacyScriptPath)).resolves.not.toThrow();
+      const settingsAfter = await readFile(settingsPath, 'utf-8');
+      expect(settingsAfter).toBe(settingsBefore);
+
+      // And the output should phrase the cleanup as hypothetical, not done.
+      const out = dry.stdout + dry.stderr;
+      expect(out).not.toContain('Cleaned up legacy');
+      expect(out).toMatch(/\[DRY-RUN\].*[Ww]ould clean up legacy/);
+    });
+  });
+
   describe('script refresh on setup', () => {
     it('tbd setup --auto refreshes tbd-session.sh with latest content', async () => {
       const projectDir = join(tempDir, 'project');

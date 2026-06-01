@@ -1765,6 +1765,11 @@ class SetupAutoHandler extends BaseCommand {
           const filename = entry.name;
           // Check against known legacy script names
           if (LEGACY_TBD_SCRIPTS.includes(filename)) {
+            // In dry-run mode, report what would be removed but don't touch disk.
+            if (this.ctx.dryRun) {
+              scriptsRemoved.push(filename);
+              continue;
+            }
             try {
               await rm(join(scriptsDir, filename));
               scriptsRemoved.push(filename);
@@ -1828,7 +1833,9 @@ class SetupAutoHandler extends BaseCommand {
           }
         }
 
-        if (modified) {
+        // In dry-run mode, return the count of hooks that would be removed but
+        // never write the mutated settings back to disk.
+        if (modified && !this.ctx.dryRun) {
           if (Object.keys(hooks).length === 0) {
             delete settings.hooks;
           }
@@ -1856,7 +1863,12 @@ class SetupAutoHandler extends BaseCommand {
       const parts = [];
       if (scriptsRemoved.length > 0) parts.push(`${scriptsRemoved.length} script(s)`);
       if (hooksRemoved > 0) parts.push(`${hooksRemoved} hook(s)`);
-      console.log(colors.dim(`Cleaned up legacy ${parts.join(' and ')}`));
+      // Past tense only when we actually wrote; otherwise make clear it's hypothetical.
+      if (this.ctx.dryRun) {
+        this.output.dryRun(`Would clean up legacy ${parts.join(' and ')}`);
+      } else {
+        console.log(colors.dim(`Cleaned up legacy ${parts.join(' and ')}`));
+      }
     }
 
     // Sync docs using DocSync
