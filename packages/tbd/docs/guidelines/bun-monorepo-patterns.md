@@ -123,7 +123,7 @@ research stock.
 
 ## Research Findings
 
-### 1. Package Manager & Workspace Structure
+### 1. Package Manager and Workspace Structure
 
 #### Bun Workspaces
 
@@ -634,7 +634,7 @@ has platform-specific issues.
 
 * * *
 
-### 4. Package Exports & Dual Module Support
+### 4. Package Exports and Dual Module Support
 
 #### Subpath Exports
 
@@ -784,7 +784,7 @@ publint is runtime-agnostic.
 
 * * *
 
-### 7. Versioning & Release Automation
+### 7. Versioning and Release Automation
 
 #### Changesets (with Bun Workarounds)
 
@@ -1062,7 +1062,7 @@ maintain.
 
 * * *
 
-### 9. Code Formatting & Linting
+### 9. Code Formatting and Linting
 
 #### Biome
 
@@ -1514,7 +1514,7 @@ timing. The Changesets Action remains simpler for projects that prefer full auto
 
 * * *
 
-### 11. Git Hooks & Local Validation
+### 11. Git Hooks and Local Validation
 
 #### Lefthook with Biome
 
@@ -2112,7 +2112,7 @@ testing features.
 
 - [publint Documentation](https://publint.dev/docs/)
 
-### Guides & Articles
+### Guides and Articles
 
 - [Building a TypeScript Library in 2026 with Bunup](https://dev.to/arshadyaseen/building-a-typescript-library-in-2026-with-bunup-3bmg)
 

@@ -605,7 +605,7 @@ Building a desktop app involves three separate decisions:
 
 1. **Framework/runtime**: Electron vs Electrobun (vs Tauri, etc.)
 2. **Package manager**: npm vs pnpm vs Bun (as a toolchain)
-3. **Packaging & updates**: electron-builder vs electron-forge vs Electrobun’s built-in
+3. **Packaging and updates**: electron-builder vs electron-forge vs Electrobun’s built-in
    pipeline
 
 The sections below address these decisions, starting with package manager choice for

@@ -137,7 +137,7 @@ recommendations from the TypeScript and JavaScript ecosystem maintainers.
 
 ## Research Findings
 
-### 1. Package Manager & Workspace Structure
+### 1. Package Manager and Workspace Structure
 
 #### pnpm Workspaces
 
@@ -469,7 +469,7 @@ Only provide dual ESM/CJS if you have confirmed CJS consumer requirements.
 
 * * *
 
-### 4. Package Exports & Dual Module Support
+### 4. Package Exports and Dual Module Support
 
 #### Subpath Exports
 
@@ -668,7 +668,7 @@ package. Essential for any published package.
 
 * * *
 
-### 7. Versioning & Release Automation
+### 7. Versioning and Release Automation
 
 #### Changesets
 
@@ -1572,7 +1572,7 @@ CI) provides the best developer experience while ensuring CI catches issues.
 
 * * *
 
-### 11. Git Hooks & Local Validation
+### 11. Git Hooks and Local Validation
 
 #### Lefthook
 
@@ -2831,7 +2831,7 @@ ready for public release.
 
 - [Node.js Releases](https://nodejs.org/en/about/previous-releases)
 
-### Guides & Articles
+### Guides and Articles
 
 - [Complete Monorepo Guide 2025](https://jsdev.space/complete-monorepo-guide/)
 
