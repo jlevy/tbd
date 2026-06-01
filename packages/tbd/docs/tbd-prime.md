@@ -52,7 +52,7 @@ Every session must end with tbd in a clean state:
 - `tbd show <id>` - Detailed issue view with dependencies
   - Auto-displays parent context for child issues (use `--no-parent` to suppress)
 
-### Creating & Updating
+### Creating and Updating
 
 - `tbd create "title" --type task|bug|feature --priority 2` - New issue
   - Priority: 0-4 (0=critical, 2=medium, 4=backlog).
@@ -63,13 +63,13 @@ Every session must end with tbd in a clean state:
 - `tbd close <id> --reason "explanation"` - Close with reason
 - **Tip**: When creating multiple issues, use parallel subagents for efficiency
 
-### Dependencies & Blocking
+### Dependencies and Blocking
 
 - `tbd dep add <issue> <depends-on>` - Add dependency (issue depends on depends-on)
 - `tbd blocked` - Show all blocked issues
 - `tbd show <id>` - See what’s blocking/blocked by this issue
 
-### Sync & Collaboration
+### Sync and Collaboration
 
 - `tbd sync` - Sync with git remote (run at session end)
 - `tbd sync --status` - Check sync status without syncing
