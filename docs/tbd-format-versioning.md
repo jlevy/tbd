@@ -24,7 +24,7 @@ SINGLE SOURCE OF TRUTH: `CURRENT_FORMAT`, `FORMAT_HISTORY`, the per-step migrati
 `formatUpgradeMessage` all live there.
 When bumping `fNN` → `fNN+1` follow the rules below.
 
-## Old client in a newer repo: fail closed, never silently downgrade
+## Old Client in a Newer Repo: Fail Closed, Never Silently Downgrade
 
 An older `tbd` (built with a smaller `CURRENT_FORMAT`) that encounters either marker
 with a future `tbd_format` MUST:
@@ -47,7 +47,7 @@ it behind a generic “invalid config” or “worktree corrupted” error.
 `checkConfig` and `checkCommonDirLayout` in `packages/tbd/src/cli/commands/doctor.ts`
 distinguish these errors and report the actionable upgrade text.
 
-## New client in an older repo: migrate gracefully and idempotently
+## New Client in an Older Repo: Migrate Gracefully and Idempotently
 
 When a new client loads an older repo migration runs automatically.
 It MUST:
@@ -84,7 +84,7 @@ It MUST:
    usable key a failed sign leaves migration unfinished and surfaces as a “worktree
    corrupted” failure on the next command.
 
-## Mismatch recovery: route through `tbd doctor --fix`
+## Mismatch Recovery: Route Through `tbd doctor --fix`
 
 If the two markers disagree (partial migration, manual edit, half-applied upgrade),
 normal mutating commands fail closed and point the user at `tbd doctor --fix`. The
@@ -98,7 +98,7 @@ contract:
   remediation; the manual `rm "$(git rev-parse --git-common-dir)/tbd/layout.yml"` hint
   is a secondary fallback.
 
-## Required pieces when adding a new format
+## Required Pieces When Adding a New Format
 
 When bumping from `fNN` to `fNN+1`:
 
@@ -115,7 +115,7 @@ When bumping from `fNN` to `fNN+1`:
    release time from commits): “every machine that touches this repo must upgrade tbd to
    the new version, older clients will fail closed.”
 
-## Reference design
+## Reference Design
 
 Implementation reference: the `f03` → `f04` migration that introduced the shared
 common-dir sync worktree

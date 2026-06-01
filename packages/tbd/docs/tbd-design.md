@@ -4674,7 +4674,7 @@ Options:
 - `tbd list --status=in_progress` - Your active work
 - `tbd show <id>` - Detailed issue view with dependencies
 
-### Creating & Updating
+### Creating and Updating
 - `tbd create "title" --type=task|bug|feature --priority=P2` - New issue
   - Priority: P0-P4 (P0=critical, P2=medium, P4=backlog)
 - `tbd update <id> --status=in_progress` - Claim work
@@ -4682,12 +4682,12 @@ Options:
 - `tbd close <id>` - Mark complete
 - `tbd close <id> --reason "explanation"` - Close with reason
 
-### Dependencies & Blocking
+### Dependencies and Blocking
 - `tbd dep add <issue> <depends-on>` - Add dependency
 - `tbd blocked` - Show all blocked issues
 - `tbd show <id>` - See what's blocking/blocked by this issue
 
-### Sync & Collaboration
+### Sync and Collaboration
 - `tbd sync` - Sync with git remote (run at session end)
 - `tbd sync --status` - Check sync status without syncing
 

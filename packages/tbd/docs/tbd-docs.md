@@ -30,7 +30,7 @@ Why a separate branch?
 - No conflicts across main or feature branches
 - Issues shared across all branches
 
-## File format
+## File Format
 
 You usually don’t need to worry about where issues are stored, but it may be comforting
 to know that internally it’s very simple and transparent.
