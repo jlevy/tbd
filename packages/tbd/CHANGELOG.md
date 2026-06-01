@@ -1,5 +1,41 @@
 # get-tbd
 
+## 0.2.2
+
+A drop-in patch on top of v0.2.1. **No on-disk format change** (`f04` stays `f04`), so
+any machine already on v0.2.0 or later can upgrade without a migration.
+
+### Fixes
+
+- **`tbd setup --auto --dry-run` is now genuinely read-only.** The legacy-cleanup pass
+  ran before any dry-run gating, so inspecting a setup with `--dry-run` could rewrite
+  `.claude/settings.json` and delete legacy tbd scripts and hooks from disk — including
+  hooks you had just installed.
+  Dry runs now compute and report what *would* change ("Would clean up legacy …")
+  without touching any files.
+  Covered by two new regression tests.
+
+### Guidelines and content
+
+These ship inside the package and are read by agents via `tbd guidelines …`:
+
+- **`supply-chain-hardening` — new “Safe-override patterns” section**: how to pull a
+  fresh package version without weakening the global 14-day cool-off
+  (verify-then-install flow with per-ecosystem verify commands, tarball-URL and git-ref
+  installs that bypass npm version resolution, exact pins for uv/cargo/go), plus the
+  dogfood footgun where an age gate silently resolves `@latest` to a *stale* version.
+- **`cli-agent-skill-patterns` — L0–L3 integration ladder and project-vs-global scope**:
+  the binary Tier-1/Tier-2 model is replaced by an L0–L3 ladder (pure prompt skill →
+  pinned-delegation skill → self-installing skill → full platform), and a new §6.6.2
+  codifies project-local vs user-global install mechanics (explicit
+  `--project`/`--global`, `$HOME` refusal in project mode, pre-write target printing,
+  cross-scope shadowing).
+
+### Documentation
+
+- Applied the common documentation guidelines to the docs shipped in this release (write
+  “and” rather than "&"/"+" in prose, headings, and cross-references).
+
 ## 0.2.1
 
 A drop-in patch on top of v0.2.0. **No on-disk format change** (`f04` stays `f04`), so

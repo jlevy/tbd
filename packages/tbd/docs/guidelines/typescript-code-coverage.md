@@ -7,14 +7,14 @@ author: Joshua Levy (github.com/jlevy) with LLM assistance
 
 **Last Updated**: 2026-05-21
 
-**Tracks**: Vitest `^4.1.7`, `@vitest/coverage-v8` `^4.1.7`. Vitest 5.0 is in beta — do
+**Tracks**: Vitest `^4.1.7`, `@vitest/coverage-v8` `^4.1.7`. Vitest 5.0 is in beta—do
 not adopt yet.
 
 **Related**:
 
-- [Companion: pnpm Monorepo Patterns — Testing](./pnpm-monorepo-patterns.md#8-testing)
-- [Supply-Chain Mitigation](./pnpm-monorepo-patterns.md#supply-chain-mitigation) —
-  follow the 14-day package-age rule when installing or upgrading `vitest` and
+- [Companion: pnpm Monorepo Patterns—Testing](./pnpm-monorepo-patterns.md#8-testing)
+- [Supply-Chain Mitigation](./pnpm-monorepo-patterns.md#supply-chain-mitigation)—follow
+  the 14-day package-age rule when installing or upgrading `vitest` and
   `@vitest/coverage-v8`.
 
 ## Coverage Metrics
@@ -95,7 +95,7 @@ upgrade: use `ncu --cooldown 14` or `pnpm install --frozen-lockfile`.
 - **`coverage.all` was removed** in Vitest 4. Use `coverage.include` and
   `coverage.exclude` to define exactly which files are reported.
 - Coverage reporters and v8 provider now ship as part of `@vitest/coverage-v8` aligned
-  with the Vitest major version — pin them together.
+  with the Vitest major version—pin them together.
 
 ### Example Configuration
 

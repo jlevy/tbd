@@ -9,14 +9,14 @@ globs: "*.ts"
 **Last Updated**: 2026-05-21
 
 **Tracks**: `yaml@^2.8.4` (latest stable; 2026-05-02). The `yaml@3.0.0-1` release is
-tagged `next` (pre-release) — do not adopt yet.
+tagged `next` (pre-release)—do not adopt yet.
 Zod 4.x is the recommended validation companion.
 
 **Related**:
 
 - [TypeScript Rules](./typescript-rules.md)
-- [Supply-Chain Mitigation](./pnpm-monorepo-patterns.md#supply-chain-mitigation) —
-  follow the 14-day package-age rule for `yaml`, `zod`, and `gray-matter`.
+- [Supply-Chain Mitigation](./pnpm-monorepo-patterns.md#supply-chain-mitigation)—follow
+  the 14-day package-age rule for `yaml`, `zod`, and `gray-matter`.
 
 These guidelines ensure consistent, safe, and readable YAML handling across TypeScript
 codebases. YAML is deceptively tricky—inconsistent quoting, serialization differences,

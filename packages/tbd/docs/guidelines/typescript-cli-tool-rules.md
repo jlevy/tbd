@@ -14,8 +14,8 @@ Commander 14 moves to security-only maintenance until May 2027.
 **Related**:
 
 - [TypeScript Rules](./typescript-rules.md)
-- [Supply-Chain Mitigation](./pnpm-monorepo-patterns.md#supply-chain-mitigation) —
-  follow the 14-day package-age rule for every CLI dependency.
+- [Supply-Chain Mitigation](./pnpm-monorepo-patterns.md#supply-chain-mitigation)—follow
+  the 14-day package-age rule for every CLI dependency.
   Bundlers and CLI dependencies that execute at install time (`postinstall` scripts) are
   a primary attack surface.
 
@@ -368,10 +368,10 @@ context, output, and error handling.
 Strict separation of data and diagnostics enables pipeline composability.
 
 - **Data to stdout:** `data()`, `success()`, `notice()`, `dryRun()`, `table()`,
-  `list()`, `count()` — all go to `console.log` (stdout).
+  `list()`, `count()`—all go to `console.log` (stdout).
 
 - **Diagnostics to stderr:** `info()`, `warn()`, `error()`, `command()`, `debug()`,
-  `spinner` — all go to `console.error` (stderr) or `process.stderr.write`.
+  `spinner`—all go to `console.error` (stderr) or `process.stderr.write`.
 
 - **JSON mode wraps diagnostics:** `warn()` outputs `{"warning": "..."}` to stderr.
   `error()` outputs `{"error": "..."}` to stderr.
@@ -579,7 +579,7 @@ seamlessly in local dev and in remote environments.
   precedence logic, or runtime conditional loading from inside the CLI).
 
 - **Use `dotenv` only when needed:** Add `dotenv` only if your CLI must load env files
-  programmatically — e.g., it reads them after parsing command-line flags, performs
+  programmatically—e.g., it reads them after parsing command-line flags, performs
   variable expansion, or supports custom file paths the user cannot pre-bake into the
   `node` invocation.
 
@@ -615,11 +615,11 @@ seamlessly in local dev and in remote environments.
 
 - **Standard environment variables to respect:**
 
-  - `NO_COLOR` — disable colors (standard)
-  - `FORCE_COLOR` — force colors
-  - `CI` — detect CI environment, force non-interactive
-  - `DEBUG` — enable debug logging (or a namespaced equivalent like `<TOOL>_DEBUG`)
-  - `PAGER` — custom pager command for long output
+  - `NO_COLOR`—disable colors (standard)
+  - `FORCE_COLOR`—force colors
+  - `CI`—detect CI environment, force non-interactive
+  - `DEBUG`—enable debug logging (or a namespaced equivalent like `<TOOL>_DEBUG`)
+  - `PAGER`—custom pager command for long output
 
 ## Sub-Command Logging for Testability
 
@@ -705,27 +705,27 @@ runtimes, Cloudflare Workers, etc.).
 
 **Key patterns:**
 
-- **Base Command Pattern** — All handlers extend `BaseCommand`, which provides
+- **Base Command Pattern**—All handlers extend `BaseCommand`, which provides
   `CommandContext`, `OutputManager`, `execute()` error wrapping, and `checkDryRun()`
 
-- **Dual Output Mode** — `OutputManager.data(data, textFormatter)` switches between JSON
+- **Dual Output Mode**—`OutputManager.data(data, textFormatter)` switches between JSON
   and text formatting based on `--json` flag
 
-- **Handler + Command Structure** — Command definition (`.option()`, `.action()`) is
+- **Handler + Command Structure**—Command definition (`.option()`, `.action()`) is
   separate from handler class implementation.
   Action handlers do `new XxxHandler(command)` then `handler.run(options)`
 
-- **Version Handling** — Prefer deterministic runtime version resolution: build-time
+- **Version Handling**—Prefer deterministic runtime version resolution: build-time
   injection first, then environment override for dev/test, then `package.json` fallback
 
-- **Global Options** — Define `--dry-run`, `--verbose`, `--quiet`, `--json`, `--color`,
+- **Global Options**—Define `--dry-run`, `--verbose`, `--quiet`, `--json`, `--color`,
   and `--debug` at program level, plus tool-specific options as needed.
   Only add `--non-interactive` and `--yes` if the CLI has interactive prompts
 
-- **Stdout/Stderr Separation** — Data to stdout, diagnostics to stderr for pipeline
+- **Stdout/Stderr Separation**—Data to stdout, diagnostics to stderr for pipeline
   compatibility. See the Stdout/Stderr Separation section above for details
 
-- **Terminal Width Management** — Cap help text and formatted output at a maximum width
+- **Terminal Width Management**—Cap help text and formatted output at a maximum width
   (e.g., 88 chars) for readability, using narrower if the terminal is smaller
 
 ## Best Practices

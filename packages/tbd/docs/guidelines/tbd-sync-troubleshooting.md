@@ -79,7 +79,7 @@ auto-saving, since the issue is likely temporary.
 
 **What tbd now does:**
 - `mergeIssues()` detects no-op merges and skips the version/timestamp bump
-- `getUpdatedIssues()` ignores `version` and `updated_at` when filtering — only issues
+- `getUpdatedIssues()` ignores `version` and `updated_at` when filtering—only issues
   with actual content changes (title, status, labels, description, etc.)
   are saved
 - When fetch fails, the cached `origin/tbd-sync` ref is used for comparison instead of
@@ -87,7 +87,7 @@ auto-saving, since the issue is likely temporary.
 
 **If you encounter this with an older version:**
 1. Update tbd: `npm install -g get-tbd@latest`
-2. If you already have a large outbox, you can safely import it — the import will merge
+2. If you already have a large outbox, you can safely import it—the import will merge
    using field-level LWW and the trivial changes will be harmless
 3. Run `tbd sync` to clear the outbox
 
@@ -123,7 +123,7 @@ auto-saving, since the issue is likely temporary.
 ### Don’t gitignore .tbd/workspaces/
 
 When `tbd sync` fails and auto-saves to `.tbd/workspaces/outbox/`, a new untracked
-directory appears. Do not add it to `.gitignore` — the outbox must be committed to your
+directory appears. Do not add it to `.gitignore`—the outbox must be committed to your
 working branch so unsynced data survives across sessions.
 
 **What to do instead:**

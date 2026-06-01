@@ -141,8 +141,8 @@ pnpm publint
 Git hooks are managed by lefthook and run automatically:
 
 - **pre-commit**: Format, lint, and typecheck staged files
-- **pre-push**: Build (if needed), run tests, and — when a `package.json` is staged —
-  enforce the 14-day package-age rule via `pnpm check:package-age`.
+- **pre-push**: Build (if needed), run tests, and—when a `package.json` is
+  staged—enforce the 14-day package-age rule via `pnpm check:package-age`.
 
 To skip hooks (emergency only):
 
@@ -221,7 +221,7 @@ chore: Update dependencies
 
 ## Creating Releases
 
-Releases are **tag-triggered** and assembled from clean conventional commits — we do
+Releases are **tag-triggered** and assembled from clean conventional commits—we do
 **not** use Changesets (no `.changeset/` files, no “Version Packages” PR). `get-tbd` is
 a single published package, so the per-PR changeset ceremony isn’t worth it; release
 notes are composed from the commits since the last tag at release time.
@@ -242,9 +242,9 @@ publishes `get-tbd` to npm, and creates a GitHub Release whose body is the match
 3. `pnpm release:verify` (build and publint) and `pnpm test`; open the release PR; merge
    once CI is green.
 4. **Gate before tagging:** wait until main CI has reached `conclusion=success` on the
-   merge commit itself (filter the run by that SHA — right after a merge an unfiltered
+   merge commit itself (filter the run by that SHA—right after a merge an unfiltered
    query can return the previous run).
-   Only then tag `vX.Y.Z` on that exact commit and push it — the Release workflow
+   Only then tag `vX.Y.Z` on that exact commit and push it—the Release workflow
    publishes to npm and creates the GitHub Release.
    See [publishing.md](publishing.md) §Step 6 for the exact gate commands.
 
@@ -253,8 +253,8 @@ and verification), see [publishing.md](publishing.md).
 
 ## CI and GitHub Actions
 
-**Keep logic out of workflow YAML.** Do not put non-trivial shell — multi-line `awk`,
-`sed`, `jq` pipelines, regex parsing, conditional logic — inline in a GitHub Actions
+**Keep logic out of workflow YAML.** Do not put non-trivial shell—multi-line `awk`,
+`sed`, `jq` pipelines, regex parsing, conditional logic—inline in a GitHub Actions
 `run:` step. Inline CI shell cannot be tested or debugged in isolation; the only way to
 exercise it is to push a tag or branch and wait for the runner, which is slow and
 error-prone. A real bug shipped this way: the release workflow’s inline `awk` changelog
@@ -266,7 +266,7 @@ Instead, write a clean, unit-tested script and invoke it by reference:
 - Put the pure logic in a `src/` module with an exported function and a thin
   `scripts/*.ts` CLI wrapper (run via `tsx`). See `src/utils/changelog.ts`, its wrapper
   `scripts/extract-changelog.ts`, and the test `tests/extract-changelog.test.ts`. Import
-  source from tests as `../src/...js` (avoid importing `.mjs` from a test — it resolves
+  source from tests as `../src/...js` (avoid importing `.mjs` from a test—it resolves
   inconsistently under vitest on Windows).
 - Cover it with a normal vitest test so the behavior is locked in and debuggable
   locally.

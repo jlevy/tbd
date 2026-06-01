@@ -13,11 +13,11 @@ lightweight alternatives.
 
 This guideline is organized in three parts:
 
-1. **Part 1: Verified Facts** — Technical details verified through direct testing,
-   source code analysis, and documented issue reports
-2. **Part 2: Third-Party Perspectives** — Community opinions and blog posts, clearly
+1. **Part 1: Verified Facts**—Technical details verified through direct testing, source
+   code analysis, and documented issue reports
+2. **Part 2: Third-Party Perspectives**—Community opinions and blog posts, clearly
    marked as such
-3. **Part 3: Analysis and Recommendations** — Decision frameworks and recommendations
+3. **Part 3: Analysis and Recommendations**—Decision frameworks and recommendations
    based on available evidence, with explicit uncertainty acknowledgment
 
 ## Research Methodology
@@ -605,8 +605,8 @@ Building a desktop app involves three separate decisions:
 
 1. **Framework/runtime**: Electron vs Electrobun (vs Tauri, etc.)
 2. **Package manager**: npm vs pnpm vs Bun (as a toolchain)
-3. **Packaging and updates**: electron-builder vs electron-forge vs Electrobun’s built-in
-   pipeline
+3. **Packaging and updates**: electron-builder vs electron-forge vs Electrobun’s
+   built-in pipeline
 
 The sections below address these decisions, starting with package manager choice for
 Electron apps, then framework choice (Electron vs Electrobun).
@@ -792,18 +792,18 @@ Avoid `unsafe-eval` and `unsafe-inline`.
 - [Bun #1588: Electron failed to install correctly](https://github.com/oven-sh/bun/issues/1588)
 - [electron-forge #3906: Use bun when bunx is used](https://github.com/electron/forge/issues/3906)
   (April 2025)
-- [Quasar #17085: Electron build error with Bun and pnpm](https://github.com/quasarframework/quasar/issues/17085)
-  — Fixed in Quasar v1.8.5, v2.0.0-beta.11, v3.12.8, v4.0.0-beta.12
+- [Quasar #17085: Electron build error with Bun and pnpm](https://github.com/quasarframework/quasar/issues/17085)—Fixed
+  in Quasar v1.8.5, v2.0.0-beta.11, v3.12.8, v4.0.0-beta.12
 
 ### GitHub Issue Reports (Electrobun)
 
 - [Bun #24876: Crash on MacBook Pro M2 Pro](https://github.com/oven-sh/bun/issues/24876)
-  (November 2025) — Closed as duplicate; resolved in Electrobun 0.1.21-beta.0+
+  (November 2025)—Closed as duplicate; resolved in Electrobun 0.1.21-beta.0+
 
 ### GitHub Discussions
 
-- [Bun #790: Desktop support (Electron replacement)](https://github.com/oven-sh/bun/discussions/790)
-  — Community discussion on Bun desktop app support
+- [Bun #790: Desktop support (Electron replacement)](https://github.com/oven-sh/bun/discussions/790)—Community
+  discussion on Bun desktop app support
 
 ### Community Resources (Stack Overflow)
 
@@ -819,22 +819,22 @@ Avoid `unsafe-eval` and `unsafe-inline`.
 
 ### Blog Posts and News (Third-Party Opinions)
 
-- [Why We Ditched Node for Bun in 2026](https://dev.to/rayenmabrouk/why-we-ditched-node-for-bun-in-2026-and-why-you-should-too-48kg)
-  — Opinion piece
+- [Why We Ditched Node for Bun in 2026](https://dev.to/rayenmabrouk/why-we-ditched-node-for-bun-in-2026-and-why-you-should-too-48kg)—Opinion
+  piece
 - [Electrobun on Hacker News](https://news.ycombinator.com/item?id=42199486)
 - [Electrobun on Brian Lovin’s HN](https://brianlovin.com/hn/42199486)
 
 ### Anthropic/Bun Acquisition (Primary Sources)
 
-- [Anthropic acquires Bun as Claude Code reaches $1B milestone](https://www.anthropic.com/news/anthropic-acquires-bun-as-claude-code-reaches-usd1b-milestone)
-  — Official Anthropic announcement (December 3, 2025)
-- [Bun is joining Anthropic](https://bun.com/blog/bun-joins-anthropic) — Bun’s
+- [Anthropic acquires Bun as Claude Code reaches $1B milestone](https://www.anthropic.com/news/anthropic-acquires-bun-as-claude-code-reaches-usd1b-milestone)—Official
+  Anthropic announcement (December 3, 2025)
+- [Bun is joining Anthropic](https://bun.com/blog/bun-joins-anthropic)—Bun’s
   announcement (December 2, 2025)
 
 ### Other Bug Reports
 
-- [Launchpad #1944468: Electron applications all crash upon launch](https://bugs.launchpad.net/bugs/1944468)
-  — Ubuntu-specific Electron issues
+- [Launchpad #1944468: Electron applications all crash upon launch](https://bugs.launchpad.net/bugs/1944468)—Ubuntu-specific
+  Electron issues
 
 <!-- This document follows common-doc-guidelines.md.
 See github.com/jlevy/practical-prose and review guidelines before editing.

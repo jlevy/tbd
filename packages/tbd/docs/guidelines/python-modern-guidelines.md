@@ -186,22 +186,22 @@ str(MyThing(file_path="/tmp/file.txt", title="Something " + "blah " * 50, url="h
 ## Releasing (tag-triggered, no changesets)
 
 For publishing Python packages to PyPI, follow the
-[`simple-modern-uv`](https://github.com/jlevy/simple-modern-uv) template’s model — it is
+[`simple-modern-uv`](https://github.com/jlevy/simple-modern-uv) template’s model—it is
 the standard for tbd’s Python projects.
 The same clean principles as the TypeScript guidance apply: no changesets, releases cut
 from clean conventional commits.
 
 - **Dynamic versioning from the git tag** via
-  [`uv-dynamic-versioning`](https://github.com/ninoseki/uv-dynamic-versioning) — the tag
+  [`uv-dynamic-versioning`](https://github.com/ninoseki/uv-dynamic-versioning)—the tag
   *is* the version (no manual `version =` bump in `pyproject.toml`, no version commit).
 - **Release/tag-triggered publish**: a `publish.yml` workflow runs on
   `on: release: types: [published]` (or a `v*` tag), builds with `uv build`, and
-  publishes with `uv publish --trusted-publishing always` — **PyPI Trusted Publishing
+  publishes with `uv publish --trusted-publishing always`—**PyPI Trusted Publishing
   (OIDC), no API token**.
 - **Supply-chain cool-off in CI**: set `UV_EXCLUDE_NEWER` to a 14-days-ago cutoff so the
   build never resolves a brand-new (potentially yanked/compromised) release.
 - **Release notes** are written per `release-notes-guidelines` from the commits since
-  the last tag — there is no per-PR changeset file.
+  the last tag—there is no per-PR changeset file.
 - Expose the version at runtime with `importlib.metadata.version("<pkg>")`.
 
 So a release is just: clean commits → create the GitHub release/tag `vX.Y.Z` → CI builds
