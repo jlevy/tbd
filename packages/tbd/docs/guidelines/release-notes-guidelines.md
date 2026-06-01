@@ -20,7 +20,7 @@ Use these sections in order (omit empty sections):
 ### Fixes
 - Bug fixes and corrections
 
-### Guidelines & content
+### Guidelines and content
 - Changes to shipped guidelines, skills, shortcuts, or templates that users invoke
 
 ### Refactoring
@@ -126,7 +126,7 @@ changes — include them under `Guidelines & content` (see Structure).
 Before finalizing release notes:
 
 - [ ] Does each item describe the aggregate delta from the previous release?
-- [ ] Are related changes (features + their fixes) consolidated under one heading?
+- [ ] Are related changes (features and their fixes) consolidated under one heading?
 - [ ] Would a user understand what’s different after upgrading?
 - [ ] Are feature names/commands in consistent format?
 - [ ] Are internal-only changes excluded?

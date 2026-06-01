@@ -1,9 +1,9 @@
 ---
-title: Agent Skills & CLI Integration Patterns
+title: Agent Skills and CLI Integration Patterns
 description: How to write skills and agent-integrated CLIs that work across Claude Code, Codex, and the broader coding-agent ecosystem — a simple baseline plus references for advanced, multi-subcommand tools
 author: Joshua Levy (github.com/jlevy) with LLM assistance
 ---
-# Agent Skills & CLI Integration Patterns
+# Agent Skills and CLI Integration Patterns
 
 **Last Updated**: 2026-05-31 (research verified against primary sources May 2026; added
 the L0–L3 integration ladder and §6.6.2 project-vs-global scope mechanics, informed by
@@ -160,13 +160,13 @@ Add agent-specific files last, and only where they buy something.
 project works: build commands, test commands, conventions, gotchas.
 It is **not** capability-specific — think of it as the README written for agents.
 
-**Governance & reach**: Originated by OpenAI (Aug 2025); since Dec 2025 stewarded by the
-**Agentic AI Foundation under the Linux Foundation** (co-founded by OpenAI, Anthropic,
-and Block; ~180 member orgs).
+**Governance and reach**: Originated by OpenAI (Aug 2025); since Dec 2025 stewarded by
+the **Agentic AI Foundation under the Linux Foundation** (co-founded by OpenAI,
+Anthropic, and Block; ~180 member orgs).
 Used by **60,000+** open-source projects.
 Canonical spec: [agents.md](https://agents.md).
 
-**Discovery & precedence** vary by agent — know your targets:
+**Discovery and precedence** vary by agent — know your targets:
 
 - **Codex**: reads global `~/.codex/AGENTS.md` (or `AGENTS.override.md`), then walks
   from repo root down to the working directory, concatenating one file per directory
@@ -629,7 +629,7 @@ their options) down into the tool.
 Adequate beats exhaustive: a short skill that reliably routes the agent to the right
 command beats a long one that mirrors the manual.
 
-### 6.6 Distribution & multi-agent install
+### 6.6 Distribution and multi-agent install
 
 A CLI can install itself into multiple agents from one `setup` run.
 Use the portable Agent Skills location as the primary project skill surface and mirror
@@ -1054,7 +1054,7 @@ configs; **CLIs** like Beads offer `brew` / `npm -g` / `curl` installers, while 
 **global install and a `SessionStart` bootstrap** as the optimization for persistent
 environments where the project wants lockfile-managed versions and warm-start speed.
 
-### 6.8 Publishing & discovery — make the skill installable
+### 6.8 Publishing and discovery — make the skill installable
 
 Most “skill registries” (May 2026) are **GitHub-repo discoverers, not gated app
 stores**. You don’t submit a form; you put a spec-compliant `SKILL.md` in a public repo
@@ -1142,7 +1142,7 @@ Worth it when an MCP server exposes *many* tools; overkill for one.
 
 * * *
 
-## 8. Hooks & Lifecycle (Cross-Agent)
+## 8. Hooks and Lifecycle (Cross-Agent)
 
 Hooks let a tool inject context or enforce invariants automatically.
 Support varies:
@@ -1187,7 +1187,7 @@ Keep injected context small — it competes with everything else.
 
 * * *
 
-## 9. Security & Supply Chain (Don’t Skip This)
+## 9. Security and Supply Chain (Don’t Skip This)
 
 Skills and instruction files are **executable influence** on an agent, which makes them
 an attack surface. Treat them with the same care as dependencies.
@@ -1222,7 +1222,7 @@ an attack surface. Treat them with the same care as dependencies.
 
 * * *
 
-## 10. Emerging & Forward-Looking (Know It Exists)
+## 10. Emerging and Forward-Looking (Know It Exists)
 
 You usually don’t need these to ship a skill, but they shape where the ecosystem is
 going:
@@ -1256,7 +1256,7 @@ going:
 - Have a CLI → make it agent-friendly (`--json`, idempotent, actionable errors) and
   point a `SKILL.md` at it.
 
-**Descriptions & disclosure**
+**Descriptions and disclosure**
 
 - Two-part rule: *what it does* + *when to use it*; third person; front-load keywords.
 - Progressive disclosure: metadata → body → supporting files; bundle scripts
@@ -1270,13 +1270,13 @@ going:
 
 **Scale up only when needed**
 
-- Many capabilities → meta-skill + informational, self-injecting subcommands (one
+- Many capabilities → meta-skill and informational, self-injecting subcommands (one
   listing slot, unbounded resources).
   This is tbd’s validated approach.
 - Path-ordered resource cache for project/user shadowing; generate `--list` dynamically.
 - Context-injection loop with explicit `cli command arg` references; depth ≤ 3.
 
-**Reach & surface**
+**Reach and surface**
 
 - Layer for reach: `AGENTS.md` + `SKILL.md` + CLI + (MCP if no CLI fits).
 - Prefer CLI over MCP when a CLI exists (cheaper, more reliable); use MCP for
@@ -1342,7 +1342,7 @@ going:
 
 ## References
 
-### Open standards & governance
+### Open standards and governance
 
 - Agent Skills standard: https://agentskills.io (spec:
   https://agentskills.io/specification)
@@ -1380,7 +1380,7 @@ going:
 - Amp: https://ampcode.com/manual
 - pi: https://github.com/badlogic/pi-mono
 
-### MCP & protocols
+### MCP and protocols
 
 - 2026 MCP roadmap: https://blog.modelcontextprotocol.io/posts/2026-mcp-roadmap/
 - Code execution with MCP: https://www.anthropic.com/engineering/code-execution-with-mcp
@@ -1389,7 +1389,7 @@ going:
 - A2A:
   https://www.linuxfoundation.org/press/a2a-protocol-surpasses-150-organizations-lands-in-major-cloud-platforms-and-sees-enterprise-production-use-in-first-year
 
-### Distribution & ecosystem
+### Distribution and ecosystem
 
 - Vercel skills / skills.sh:
   https://vercel.com/changelog/introducing-skills-the-open-agent-skills-ecosystem

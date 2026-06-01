@@ -165,7 +165,7 @@ there is anything notable (lockfile changes, new advisories, deferred fixes, new
 dependencies). If the lockfile is byte-identical and no new advisories landed, a single
 sentence ("Lockfile unchanged since vX.X.X; no new advisories.") is enough.
 
-### Step 4: Bump Version & Update CHANGELOG
+### Step 4: Bump Version and Update CHANGELOG
 
 No Changesets — bump by hand on a `claude/release-vX.X.X` branch:
 

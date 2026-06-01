@@ -249,7 +249,7 @@ leave a marker next to the pin (JSONC comment in `package.json`, or a `CHANGELOG
 note for strict JSON parsers): `// Exception: CVE-2026-XXXX patch within 14d window.
 Reviewed <date>.`
 
-## Untrusted Repos & Modes
+## Untrusted Repos and Modes
 
 - **Treat any freshly-cloned third-party repo as untrusted.** Do not run
   `install`/`build`/`test`/`run`/`npx`/`uvx`/`cargo run`/`go run <remote>` against it on
