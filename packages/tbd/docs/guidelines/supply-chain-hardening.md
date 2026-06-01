@@ -100,6 +100,63 @@ No exception is “trivial” — the rule exists because we don’t trust ourse
 which fresh versions are safe.
 **Agents never self-approve an exception**: prepare the record and a human signs off.
 
+### Safe-override patterns (verify, then install surgically)
+
+A release-age gate applies at **version resolution**, so `pkg@latest` (or a bare range)
+silently resolves to the newest version *outside* the window — which can mean you get a
+**stale** version without noticing.
+(This is the dogfood case: an `~/.npmrc` `minimum-release-age` resolved
+`npm i -g get-tbd@latest` to an older release because the newer one was still inside the
+window.) When you genuinely need the fresh version, do not weaken the global policy —
+override **surgically** for the one install, and **verify first**. The pattern is always
+*verify the publisher, timestamp, and integrity → install by an exact,
+resolution-bypassing reference → confirm afterwards.*
+
+**1. Verify before fetching** (publisher identity, publish time, integrity hash):
+
+| Ecosystem | Verify command |
+| --- | --- |
+| npm | `npm view <pkg>@<ver> _npmUser maintainers time.<ver> dist.integrity dist.tarball` |
+| PyPI | `uv pip index versions <pkg>` and inspect the file hashes on `https://pypi.org/project/<pkg>/<ver>/#files` (or `pip download --no-deps --no-binary :all:` then check the hash) |
+| Cargo | `cargo info <pkg>@<ver>` (owners, published-at); crates.io is immutable + checksummed in `Cargo.lock` |
+| Go | `go list -m -json <module>@<ver>` (the proxy returns the checksum DB entry) |
+
+For a package **you maintain** (the dogfood case), the strongest check is that the
+published artifact matches the git tag — confirm the commit/tag and, where the registry
+supports provenance/attestations (npm `--provenance`), that it was built from that
+source.
+
+**2. Install by an exact reference that bypasses version resolution**, so the gate does
+not silently re-resolve:
+
+```bash
+# npm — direct tarball URL (verified in step 1); skips before/min-release-age resolution
+npm install -g https://registry.npmjs.org/<pkg>/-/<pkg>-X.Y.Z.tgz
+
+# npm — git ref (strongest for packages you maintain: the source is auditable)
+npm install -g git+https://github.com/<org>/<repo>#vX.Y.Z
+
+# uv / pip — pin exact, with the hash recorded; --exclude-newer override is per-invocation
+uv pip install "<pkg>==X.Y.Z" --exclude-newer "$(date -u +%Y-%m-%d)"   # one-shot, not global
+
+# cargo / go — pin exact in the manifest; the committed lockfile/sum carries the checksum
+cargo add <pkg>@=X.Y.Z       # then `cargo build --locked`
+go get <module>@vX.Y.Z       # then `go mod verify`
+```
+
+A tarball-URL or git-ref install is the cleanest npm override because it never consults
+`before` / `minimum-release-age` at all (those apply only to range resolution), so you
+do not touch global config or env.
+The uv/cargo/go forms pin an exact version rather than bypassing a gate, since those
+ecosystems gate at the lockfile rather than at resolution.
+
+**3. Keep it surgical and on the record.** The override must affect **one install**, not
+global `~/.npmrc` / env / CI config; carry the same commit/PR record as any exception
+(reason, exact `pkg@version`, the verification output); and **confirm afterwards** that
+the version was not subsequently yanked.
+Never relax the global cool-off to get one fresh package — that re-exposes every
+install.
+
 ## Node / TypeScript Enforcement (npm, pnpm, Bun)
 
 The hands-on controls for the rules above in the Node ecosystem.
