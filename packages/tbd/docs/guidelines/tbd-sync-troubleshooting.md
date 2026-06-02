@@ -31,6 +31,24 @@ tbd sync
 4. Import happens automatically when you later run `tbd sync` in an environment that can
    push
 
+### Push Fails Because Histories Are Unrelated
+
+**Symptoms:**
+- `tbd sync` aborts with “`origin/tbd-sync` has an unrelated history (no common
+  ancestor)”
+- `tbd doctor` reports the remote sync branch histories are unrelated
+- Push cannot fast-forward and a merge refuses
+
+**Causes:**
+- The local `tbd-sync` branch and `origin/tbd-sync` were created independently—for
+  example, two clones each initialized their own sync branch, or the remote branch was
+  replaced—so the two have no common ancestor
+
+**Solutions:**
+1. Run `tbd doctor --fix` to reconcile the unrelated histories.
+   This is non-destructive: a backup branch is created first.
+2. Run `tbd sync` again to confirm the push succeeds.
+
 ### “Already in sync” but data not on remote
 
 **Symptoms:**
@@ -60,7 +78,8 @@ auto-saving, since the issue is likely temporary.
 1. Check network connectivity
 2. Verify remote URL: `git remote -v`
 3. Retry: `tbd sync`
-4. If persistent, manually save: `tbd save --workspace=offline-backup`
+4. If persistent, save for later: `tbd save --outbox` (auto-imports on the next
+   successful sync)
 
 ### Bulk Trivial Changes in Outbox (Version/Timestamp Only)
 
@@ -193,7 +212,8 @@ The `.tbd/.gitignore` file contains a `!workspaces/` negation pattern to prevent
 - Commands fail with worktree errors
 
 **Solutions:**
-1. Run `tbd doctor --fix` to auto-repair
+1. Run `tbd doctor --fix` to auto-repair, or `tbd sync --fix` to repair the worktree as
+   part of a sync
 2. If that fails, manually repair:
    ```bash
    rm -rf "$(git rev-parse --path-format=absolute --git-common-dir)/tbd/data-sync-worktree"
@@ -258,6 +278,8 @@ tbd sync
 **CLI Options:**
 - `--no-auto-save`: Skip automatic save to outbox on failure
 - `--no-outbox`: Skip automatic import from outbox on success
+- `--fix`: Repair an unhealthy worktree before syncing
+- `--status`: Show sync status without syncing
 
 See `tbd shortcut sync-failure-recovery` for the full workflow.
 

@@ -5,7 +5,7 @@ author: Joshua Levy (github.com/jlevy) with LLM assistance
 ---
 # TypeScript Sorting Patterns
 
-**Related**: `tbd guidelines typescript-rules`, `tbd guidelines general-testing-rules`
+**Related**: `typescript-rules`, `general-testing-rules`
 
 ## 1. Always Make Sorting Deterministic
 

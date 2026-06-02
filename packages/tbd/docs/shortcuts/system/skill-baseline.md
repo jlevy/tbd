@@ -9,7 +9,7 @@ description: Full tbd workflow guide for agents
    Drop-in replacement for `bd`.
 2. **Spec-Driven Workflows**: Plan features → break into beads → implement
    systematically.
-3. **Knowledge Injection**: 17+ engineering guidelines (TypeScript, Python, TDD,
+3. **Knowledge Injection**: 25+ engineering guidelines (TypeScript, Python, TDD,
    testing, Convex, monorepos) available on demand.
 4. **Shortcuts**: Reusable instruction templates for common workflows (code review,
    commits, PRs, cleanup, handoffs).
@@ -71,6 +71,7 @@ or want help → run `tbd shortcut welcome-user`
 | “Create a PR” / “File a PR” | `tbd shortcut create-or-update-pr-simple` |
 | “Merge main into my branch” | `tbd shortcut merge-upstream` |
 | **Guidelines & Knowledge** |  |
+| *(any engineering work)* | Load the **General engineering** group first (see below) |
 | “Use TypeScript best practices” | `tbd guidelines typescript-rules` |
 | “Use Python best practices” | `tbd guidelines python-rules` |
 | “Build a TypeScript CLI” | `tbd guidelines typescript-cli-tool-rules` |
@@ -88,6 +89,12 @@ or want help → run `tbd shortcut welcome-user`
 | “Hand off to another agent” | `tbd shortcut agent-handoff` |
 | “Check out this library’s source” | `tbd shortcut checkout-third-party-repo` |
 | *(your choice whenever appropriate)* | `tbd list`, `tbd dep add`, `tbd close`, `tbd sync`, etc. |
+
+**Loading guidelines for engineering work:** Before writing or reviewing code, load the
+**General engineering** group—the `general-*` rules plus `error-handling-rules`—since
+these apply to all code regardless of language.
+Then load the group for the language or framework in use (TypeScript, Python, Convex,
+etc.). Run `tbd guidelines --list` to see all available guidelines.
 
 **Note:** Never gitignore `.tbd/workspaces/` — the outbox must be committed to your
 working branch. See `tbd guidelines tbd-sync-troubleshooting` for details.

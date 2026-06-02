@@ -56,6 +56,7 @@ First habits. Your job is to deliver working code in small, well-tested steps.
 - Each commit should be a single logical unit; prefer small, frequent commits.
 
 - State in the message whether the commit is structural or behavioral.
+  See `commit-conventions` for the commit message format.
 
 ## Code Quality Standards
 
@@ -104,6 +105,9 @@ Always run all the tests (except long-running tests) each time.
 
 ## Project Testing Guidelines
 
+For what to test and how to keep the test set minimal, see `general-testing-rules`. For
+error-path coverage, see `error-handling-rules`.
+
 Tests in the project are broken down into three types:
 
 1. Unit—fast, focused tests for small units of business logic
@@ -138,6 +142,8 @@ Tests in the project are broken down into three types:
    - Expected session files are checked into codebase, should be complete but not
      excessively long. Golden tests confirm actual session run matches expected session,
      validating every part of the execution.
+
+   - See `golden-testing-guidelines` for details.
 
    - Typicaly part of CI builds as long as they are fast enough.
 

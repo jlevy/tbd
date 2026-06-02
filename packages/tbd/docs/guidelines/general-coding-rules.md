@@ -14,7 +14,8 @@ author: Joshua Levy (github.com/jlevy) with LLM assistance
   their purpose.
 
 - Constants should be defined in appropriate settings files (e.g., `settings.ts`) for
-  easy maintenance.
+  easy maintenance. Do not restate a constant’s value in a comment; see
+  `general-comment-rules`.
 
   ```typescript
   // BAD: Hardcoded numbers

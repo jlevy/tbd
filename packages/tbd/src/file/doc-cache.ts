@@ -393,6 +393,55 @@ const SHORTCUT_DIRECTORY_BEGIN = '<!-- BEGIN SHORTCUT DIRECTORY -->';
 const SHORTCUT_DIRECTORY_END = '<!-- END SHORTCUT DIRECTORY -->';
 
 /**
+ * Ordered guideline groups for the generated directory.
+ *
+ * Grouping is inferred from the guideline name so new guidelines are placed
+ * automatically. A guideline is assigned to the first group whose `match`
+ * returns true, so the final catch-all group must stay last.
+ */
+interface GuidelineGroup {
+  heading: string;
+  note?: string;
+  match: (name: string) => boolean;
+}
+
+const GUIDELINE_GROUPS: GuidelineGroup[] = [
+  {
+    heading: 'General engineering',
+    note: 'Read all of these for any engineering work (writing or reviewing code).',
+    match: (n) =>
+      n.startsWith('general-') ||
+      n === 'error-handling-rules' ||
+      n === 'backward-compatibility-rules' ||
+      n === 'commit-conventions' ||
+      n.includes('tdd') ||
+      n.includes('testing') ||
+      n.includes('golden'),
+  },
+  {
+    heading: 'TypeScript & JS ecosystem',
+    note: 'Also load these when working in TypeScript or JavaScript.',
+    match: (n) =>
+      n.startsWith('typescript-') || n.endsWith('monorepo-patterns') || n.startsWith('electron-'),
+  },
+  {
+    heading: 'Python',
+    note: 'Also load these when working in Python.',
+    match: (n) => n.startsWith('python-'),
+  },
+  {
+    heading: 'Convex',
+    note: 'Also load these when working with Convex.',
+    match: (n) => n.startsWith('convex-'),
+  },
+  {
+    // Catch-all — must stay last.
+    heading: 'Docs, process & tooling',
+    match: () => true,
+  },
+];
+
+/**
  * Build table rows from docs (shared helper for shortcuts and guidelines).
  */
 function buildTableRows(docs: CachedDoc[], skipNames: string[] = []): string[] {
@@ -420,7 +469,8 @@ function buildTableRows(docs: CachedDoc[], skipNames: string[] = []): string[] {
  * The output includes:
  * 1. Marker comments for incremental updates
  * 2. Available Shortcuts section with name and description
- * 3. Available Guidelines section with name and description (if provided)
+ * 3. Available Guidelines section, grouped by area (General engineering first, then
+ *    language/framework groups), with name and description (if provided)
  *
  * @param shortcuts - Array of shortcut CachedDoc objects
  * @param guidelines - Optional array of guideline CachedDoc objects
@@ -436,8 +486,12 @@ function buildTableRows(docs: CachedDoc[], skipNames: string[] = []): string[] {
  * // | code-review-and-commit | Run pre-commit checks, review changes, and commit code |
  * // ...
  * // ## Available Guidelines
+ * // ### General engineering
  * // | Name | Description |
  * // | --- | --- |
+ * // | error-handling-rules | Rules for handling errors... |
+ * // ...
+ * // ### TypeScript & JS ecosystem
  * // | typescript-rules | TypeScript coding rules and best practices |
  * // ...
  * // <!-- END SHORTCUT DIRECTORY -->
@@ -469,19 +523,42 @@ export function generateShortcutDirectory(
     lines.push(...shortcutRows);
   }
 
-  // Guidelines section (if provided)
+  // Guidelines section (if provided), organized into groups.
   if (guidelines.length > 0) {
-    const guidelineRows = buildTableRows(guidelines);
+    // Assign each guideline to the first group it matches (catch-all is last).
+    const grouped = GUIDELINE_GROUPS.map((group) => ({ group, docs: [] as CachedDoc[] }));
+    const catchAll = grouped[grouped.length - 1];
+    for (const doc of guidelines) {
+      const entry = grouped.find((g) => g.group.match(doc.name)) ?? catchAll;
+      entry?.docs.push(doc);
+    }
 
-    if (guidelineRows.length > 0) {
+    if (grouped.some((g) => g.docs.length > 0)) {
       lines.push('');
       lines.push('## Available Guidelines');
       lines.push('');
-      lines.push('Run `tbd guidelines <name>` to apply any of these guidelines:');
-      lines.push('');
-      lines.push('| Name | Description |');
-      lines.push('| --- | --- |');
-      lines.push(...guidelineRows);
+      lines.push('Run `tbd guidelines <name>` to apply any of these guidelines.');
+      lines.push(
+        'When writing or reviewing code, load the **General engineering** group first, then the group for the language or framework in use.',
+      );
+
+      for (const { group, docs } of grouped) {
+        const rows = buildTableRows(docs);
+        if (rows.length === 0) {
+          continue;
+        }
+
+        lines.push('');
+        lines.push(`### ${group.heading}`);
+        if (group.note) {
+          lines.push('');
+          lines.push(`*${group.note}*`);
+        }
+        lines.push('');
+        lines.push('| Name | Description |');
+        lines.push('| --- | --- |');
+        lines.push(...rows);
+      }
     }
   }
 
