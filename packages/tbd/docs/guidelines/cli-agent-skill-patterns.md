@@ -76,7 +76,7 @@ more—proof the baseline scales without custom tooling.
 manager:
 
 ```bash
-npx skills add owner/repo       # Vercel's skills.sh ecosystem (symlinks, 27+ agents)
+npx skills add owner/repo       # Vercel's skills.sh ecosystem (symlinks, 50+ agents)
 # or commit it to a discovery directory:
 #   .agents/skills/my-skill/SKILL.md   (cross-agent: Codex, pi, others)
 #   .claude/skills/my-skill/SKILL.md   (Claude Code, project)
@@ -1108,6 +1108,24 @@ The landscape worth targeting:
     user commits—best-in-class informed consent.
     Worth it for a tool you want broadly adopted; still optional, since a repo-local
     skill loads with none of it.
+
+**Channels at a glance** (generic; verify specifics against current docs—this space
+moves fast). The rows run from lowest effort/reach to highest trust, and they
+**compose**: a single public repo can satisfy every row at once.
+
+| Channel | User install | Discovery & reach | Trust & security | Versioning | Publish / submit |
+| --- | --- | --- | --- | --- | --- |
+| **Documented install** (README + optional installer) | A few manual steps, or one command if you ship `mytool install` | None beyond the repo’s own stars/SEO | Fully manual—user reads the source before running | Whatever your docs pin; manual re-pull | Push the repo and write the README |
+| **`npx skills add`** (skills.sh, Vercel) | `npx skills add <owner/repo>`—one command, 50+ agents, symlink or copy | High and **cross-agent**; `npx skills find`, ranked by install telemetry | Runs the `skills` CLI + your repo; review the `SKILL.md`, pin to a ref | Tracks the repo/ref; `npx skills update`; no semver | Put `skills/<name>/SKILL.md` in a public repo—auto-works. [skills.sh](https://skills.sh) · [vercel-labs/skills](https://github.com/vercel-labs/skills) |
+| **GitHub-scraping indexers** (SkillsMP, claudemarketplaces, LobeHub…) | They hand you one of the other commands | Highest *passive* top-of-funnel; free; often gated on ≥2 stars | Mostly unvetted link directories; you don’t control the listing | Inherits the underlying method | Automatic once public—no action. e.g. [claudemarketplaces.com](https://claudemarketplaces.com) |
+| **Self-hosted plugin marketplace** (Claude Code / Codex) | `/plugin marketplace add <owner/repo>`, then `/plugin install <name>@<mp>` (or the `/plugin` UI) | Inside Claude Code once added; **not** centrally indexed | Your repo’s trust only; install preview shows exactly what loads | **Best**—`version` field + SHA pin + auto-update toggle | Add `.claude-plugin/marketplace.json`. [Docs](https://code.claude.com/docs/en/plugin-marketplaces) |
+| **Anthropic official / community marketplace** | Official: auto-available (`<name>@claude-plugins-official`). Community: add `anthropics/claude-plugins-community`, then `<name>@claude-community` | Highest inside Claude Code (Discover tab, `claude.com/plugins`) | **Best**—reviewed, security-screened, SHA-pinned, install preview | SHA-pinned in the catalog; nightly-mirror updates | Official: not self-serve (Anthropic’s discretion). Community: submit at [clau.de/plugin-directory-submission](https://clau.de/plugin-directory-submission) (no PRs—auto-closed). [Docs](https://code.claude.com/docs/en/discover-plugins) |
+
+**Takeaway**: for broad cross-agent reach at near-zero effort, ship a valid `SKILL.md`
+and lean on `npx skills add` plus the scrapers; for the highest trust and
+discoverability *inside Claude Code*, additionally submit to the community marketplace.
+Reserve a self-hosted marketplace for a private/team channel or to bundle hooks, agents,
+and MCP servers alongside the skill.
 
 **The simplest publishable structure** (works for all of the above at once):
 
