@@ -538,8 +538,11 @@ export function generateShortcutDirectory(
       lines.push('## Available Guidelines');
       lines.push('');
       lines.push('Run `tbd guidelines <name>` to apply any of these guidelines.');
+      // This directory is injected into generated files that flowmark must not
+      // reformat, so keep prose paragraphs to a single line under flowmark's wrap
+      // width (~88 cols) — otherwise flowmark would re-wrap them and cause churn.
       lines.push(
-        'When writing or reviewing code, load the **General engineering** group first, then the group for the language or framework in use.',
+        'Load the **General engineering** group first, then the language or framework group.',
       );
 
       for (const { group, docs } of grouped) {
