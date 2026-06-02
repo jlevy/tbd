@@ -24,6 +24,20 @@ These may include:
 - File operations and git workflows
 - Prompts for gathering information from the user
 
+## Referencing Other Shortcuts, Guidelines, and Templates
+
+Shortcuts refer to each other by **name**, using the command that surfaces them:
+
+- Another shortcut: `tbd shortcut <name>` (e.g. `tbd shortcut precommit-process`)
+- A guideline: `tbd guidelines <name>` (e.g. `tbd guidelines typescript-rules`)
+- A template: `tbd template <name>` (e.g. `tbd template plan-spec`)
+
+Always reference by name, never by file path.
+The name is stable wherever the shortcut lives, so the reference stays valid whether the
+file is read directly, served via `tbd shortcut`, or embedded in another tool.
+File paths (and relative markdown links) break when shortcuts are flattened into the
+`.tbd` cache or relocated, so avoid them inside shortcut bodies.
+
 ## Example Workflow
 
 User: “I want to create a new research brief”
@@ -37,7 +51,8 @@ Agent:
 
 Shortcuts are loaded from directories in the doc path (searched in order):
 
-- `.tbd/docs/shortcuts/system/` - Core system docs (skill.md, etc.)
+- `.tbd/docs/shortcuts/system/` - Core system docs (skill-baseline,
+  shortcut-explanation, etc.)
 - `.tbd/docs/shortcuts/standard/` - Standard workflow shortcuts
 
 Directories earlier in the doc path take precedence.

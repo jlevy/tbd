@@ -53,6 +53,20 @@ Examples: `code-review-and-commit`, `new-plan-spec`, `review-code-typescript`
 - **Reference, don’t duplicate**: Point to `tbd shortcut/guidelines/template` commands
 - **Trust the agent**: They’ll adapt to context
 
+## Referencing Other Shortcuts
+
+Refer to other shortcuts, guidelines, and templates by **name**, using the command that
+surfaces them — never by file path:
+
+- Another shortcut: `tbd shortcut <name>` (e.g. `tbd shortcut precommit-process`)
+- A guideline: `tbd guidelines <name>` (e.g. `tbd guidelines typescript-rules`)
+- A template: `tbd template <name>` (e.g. `tbd template plan-spec`)
+
+The name stays valid wherever the file ends up — read directly, served via
+`tbd shortcut`, or embedded in another tool.
+File paths and relative markdown links break when shortcuts are flattened into the
+`.tbd` cache or relocated, so don’t use them to point at other shortcuts.
+
 ## Testing
 
 ```bash

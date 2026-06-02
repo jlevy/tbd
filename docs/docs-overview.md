@@ -25,8 +25,6 @@ General rules that apply to all projects:
 - @docs/general/agent-rules/—General rules for development best practices (general,
   pre-commit, TypeScript, Convex)
 
-- @docs/general/agent-shortcuts/—Reusable task prompts for agents
-
 - @docs/general/agent-guidelines/—Guidelines and notes on development practices
 
 - @docs/general/agent-setup/—Setup guides for tools (GitHub CLI, beads, etc.)
