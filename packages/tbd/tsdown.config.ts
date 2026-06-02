@@ -1,9 +1,22 @@
+import { readFileSync } from 'node:fs';
+
 import { defineConfig } from 'tsdown';
 
 // Import git version detection from shared script (not distributed with package)
 import { getGitVersion } from './scripts/git-version.mjs';
 
+// Full git-describe version, used for display/diagnostics (e.g. `tbd --version`).
 const version = getGitVersion();
+
+// Clean published semver from package.json, used for pinned `get-tbd@<version>`
+// fallbacks (e.g. the session script). Unlike `version`, this is never a
+// dev/dirty git-describe string — that would not be installable from npm and
+// would churn generated files on every local build.
+const pinnedVersion = (
+  JSON.parse(readFileSync(new URL('./package.json', import.meta.url), 'utf8')) as {
+    version: string;
+  }
+).version;
 
 // Common options for ESM-only build
 const commonOptions = {
@@ -14,6 +27,7 @@ const commonOptions = {
   dts: true,
   define: {
     __TBD_VERSION__: JSON.stringify(version),
+    __TBD_PINNED_VERSION__: JSON.stringify(pinnedVersion),
   },
 };
 
