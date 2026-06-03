@@ -11,8 +11,9 @@ import { execSync, spawnSync } from 'node:child_process';
 
 // Windows process spawning is significantly slower on CI
 const isWindows = platform() === 'win32';
+const setupFlowTestTimeout = isWindows ? 60000 : 15000;
 
-describe('setup flows', { timeout: isWindows ? 60000 : 15000 }, () => {
+describe('setup flows', { timeout: setupFlowTestTimeout }, () => {
   let tempDir: string;
   const tbdBin = join(__dirname, '..', 'dist', 'bin.mjs');
 
@@ -716,7 +717,7 @@ describe('setup flows', { timeout: isWindows ? 60000 : 15000 }, () => {
           h.hooks?.some((hook) => hook.command?.includes('ensure-gh-cli')),
         ),
       ).toBe(false);
-    }, 15000);
+    });
 
     it('installed script matches bundled ensure-gh-cli.sh', async () => {
       initGitRepo();
