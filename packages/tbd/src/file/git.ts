@@ -1903,14 +1903,14 @@ export async function rescueUnrelatedHistory(
   if (dirty) {
     // Defensive: this worktree only ever holds DATA_SYNC_DIR. If anything
     // outside it is dirty, do not auto-commit foreign changes — refuse clearly.
-    const foreign = dirty
-      .split('\n')
-      .map((line) => line.slice(3).trim())
-      .filter((p) => p && !p.startsWith(`${DATA_SYNC_DIR}/`));
-    if (foreign.length > 0) {
+    // Let git do the filtering (an exclude pathspec) rather than parse porcelain.
+    const foreign = (
+      await git('-C', worktreePath, 'status', '--porcelain', '--', '.', `:!${DATA_SYNC_DIR}`)
+    ).trim();
+    if (foreign) {
       throw new Error(
         'Refusing to rescue: the tbd-sync worktree has changes outside the data-sync ' +
-          `tree (${foreign.join(', ')}). Remove or commit them, then re-run \`tbd doctor --fix\`.`,
+          `tree:\n${foreign}\nRemove or commit them, then re-run \`tbd doctor --fix\`.`,
       );
     }
     await git('-C', worktreePath, 'add', '-A');
