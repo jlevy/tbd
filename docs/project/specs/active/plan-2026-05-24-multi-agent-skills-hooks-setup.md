@@ -5,12 +5,22 @@ author: Joshua Levy (github.com/jlevy) with LLM assistance
 ---
 # Feature: Modernize multi-agent skills and hooks setup
 
-**Date:** 2026-05-24 (last updated 2026-05-24)
+**Date:** 2026-05-24 (last updated 2026-06-02)
 
 **Author:** Joshua Levy (github.com/jlevy) with LLM assistance
 
-**Status:** Implemented (all beads under epic `tbd-g9x7` closed, 2026-05-26).
-Self-applied to this repo; `tbd doctor` reports all four surfaces green.
+**Status:** In progress (epic `tbd-g9x7` open).
+Partially landed: the path-model refactor (`tbd-0fhy`, closed) and an initial
+Codex/`AGENTS.md` surface.
+Still open: agent-targeting flags (`tbd-zd4h`), Codex and gh-CLI shared-script parity
+(`tbd-orup`), and pinned-runner fallbacks (`tbd-shsb`). The neutral `scripts/agent/`
+shared-script constants exist in `integration-paths.ts` but are **not yet wired up** —
+hooks still reference per-agent copies under `.claude/scripts/` and `.codex/`.
+
+**Revised 2026-06-02:** the agent-targeting design changed from per-agent flags
+(`--claude`/`--codex`/`--cursor`/`--agents-md`/`--all`) to a single
+`--surfaces=<comma-list>` selector that installs **all** surfaces by default.
+See “Setup Behavior” below and the 2026-06-02 entry under “Resolved Decisions.”
 
 ## Overview
 
@@ -121,9 +131,10 @@ or document:
 - **Codex hooks need their own path policy.** If tbd adds `.codex/hooks.json` or another
   Codex-native hook file, those hooks should reference shared or Codex-native scripts,
   not `.claude/scripts/tbd-session.sh`.
-- **Agent-targeting flags should be explicit.** pprose exposes optional AGENTS.md
-  patching; tbd should design a clearer flag taxonomy such as `--claude`, `--codex`,
-  `--cursor`, `--agents-md`, and `--all`, while preserving safe `--auto` behavior.
+- **Agent-targeting should be explicit.** pprose exposes optional AGENTS.md patching;
+  tbd needs an explicit way to choose surfaces.
+  **Resolved (2026-06-02):** a single `--surfaces=<comma-list>` selector (default = all
+  surfaces) rather than a per-agent flag taxonomy — see “Setup Behavior.”
 - **Existing unmarked AGENTS.md needs a playbook.** Status/doctor should tell users what
   it means when `AGENTS.md` exists but lacks the tbd marker block, and setup should
   preserve user content outside markers.
@@ -166,15 +177,40 @@ separate product decision.
 8. Detect old generated integration artifacts and upgrade them in place, preserving
    user-owned content and reporting every changed surface.
 
-Setup should also expose an explicit targeting model:
+Setup exposes a single explicit targeting flag, `--surfaces=<comma-list>` (revised
+2026-06-02):
 
-- `--auto` keeps the current default behavior: detect available surfaces and refresh
-  project-local integrations.
-- Future explicit flags should let users request or suppress individual surfaces, for
-  example `--claude`, `--codex`, `--cursor`, `--agents-md`, `--all`, or matching
-  `--no-*` flags.
-- The design must define how explicit flags interact with config defaults and existing
-  files before implementation.
+- **Default (flag omitted) installs every surface.** Project-local integration files are
+  cheap and harmless, and writing all of them is what makes the portable model actually
+  portable. There is no detection-based gating: `tbd setup --auto` writes all surfaces
+  unless `--surfaces` restricts the set.
+
+- `--surfaces` takes a comma-separated list of surface IDs, with `all` as an alias for
+  the full set. Surface IDs:
+  - `portable` — `.agents/skills/tbd/SKILL.md` (canonical Agent Skill, read natively by
+    Codex, Gemini, Cursor, Copilot, Amp, OpenCode, pi)
+  - `agents-md` — the `AGENTS.md` tbd-managed block (read by Codex, Cursor, Factory,
+    Amp, OpenCode, Aider, …)
+  - `claude` — `.claude/skills/tbd/SKILL.md` mirror + `.claude/settings.json` hooks
+  - `codex` — `.codex/hooks.json` + `.codex/` lifecycle scripts
+
+  Example: `tbd setup --surfaces=portable,agents-md` installs only those two.
+  `agents-md` is now its own surface, split out of the former bundled `codex` surface,
+  so the `AGENTS.md` block can be installed without Codex hooks and vice versa.
+
+- This **replaces** the earlier per-agent flag taxonomy (`--claude`, `--codex`,
+  `--cursor`, `--agents-md`, `--all`, `--skip-*`). One selector keeps the interface flat
+  and trivially extensible: a new agent is one entry in the surface registry, not a new
+  flag pair. A one-time break in the install-flag shape is acceptable — agents are always
+  instructed to read `tbd setup --help` before installing.
+
+- Orthogonal flags are unchanged: `--no-gh-cli`, `--prefix`, `--force`, `--auto`,
+  `--interactive`, `--from-beads`. The gh-CLI hook stays gated by `--no-gh-cli` /
+  `settings.use_gh_cli`, independent of surface selection.
+
+- The committed distribution copy `skills/tbd/SKILL.md` is a tbd-repo publication
+  artifact (guarded by a drift test), **not** a user-selectable `--surfaces` value: it
+  is not written into consumer repos by `tbd setup`.
 
 ### Existing Install Upgrade Model
 
@@ -289,6 +325,18 @@ fallback appropriate to the package manager:
    - `go run module/path@<version> <args>` for Go CLIs.
 3. If neither local nor pinned fallback works, stop and tell the user what install step
    is required.
+
+**Pin to the running version, not `@latest` (revised 2026-06-02).** Every version
+stamped into a generated artifact or printed as an agent-facing install hint must be the
+currently running tbd version (`PINNED_NPM_VERSION`, the clean published semver from
+`version.ts`), not `@latest`. The generated session script already does this; the
+remaining `@latest` install hints in `output.ts`, `setup.ts`, and `doctor.ts` should
+switch to `get-tbd@${PINNED_NPM_VERSION}` so a team and its agents all reinstall the
+same version they are currently using.
+The **sole** intentional exception is the forward-compatibility upgrade error in
+`tbd-format.ts`: when an artifact’s format is newer than the running tbd understands, it
+tells the user to `npm install -g get-tbd@latest` because the whole point there is to
+fetch a newer release.
 
 Never recommend an unpinned network runner from generated agent instructions unless the
 user explicitly opts into that behavior.
@@ -430,7 +478,7 @@ criteria live in each bead):
 | `tbd-jrir` | P1 | open | Shrink generated AGENTS.md block to compact bootstrap |
 | `tbd-orup` | P1 | open | Add Codex hook and gh CLI parity via shared scripts |
 | `tbd-shsb` | P1 | open | Document and emit pinned CLI runner fallbacks |
-| `tbd-zd4h` | P2 | open | Add agent-targeted setup flags |
+| `tbd-zd4h` | P2 | open | Add `--surfaces=<list>` selector (default all); replace per-agent flags |
 | `tbd-fcam` | P1 | open | Existing-install upgrade, migration and format guard |
 | `tbd-0q8h` | P1 | open | Audit gitignore policy for agent integration files |
 | `tbd-l2ym` | P1 | open | Update setup check/remove, status and doctor diagnostics |
@@ -509,6 +557,32 @@ These were open questions; resolved 2026-05-25 so the beads are unambiguous:
 - **Integration format starts at `2`**: today’s unversioned full `AGENTS.md` block is
   treated as legacy format 1, and the new compact block is format 2. (`tbd-slsp`,
   `tbd-y84j`)
+
+Revised 2026-06-02:
+
+- **Single `--surfaces=<comma-list>` selector, default all** — replaces the per-agent
+  flag taxonomy (`--claude`/`--codex`/`--cursor`/`--agents-md`/`--all`/`--skip-*`). With
+  the flag omitted, setup installs every surface; `--surfaces` restricts to a list, with
+  `all` as an alias. One flat, extensible interface beats N flag pairs; a one-time
+  install-flag break is acceptable because agents read `tbd setup --help` first.
+  (`tbd-zd4h`)
+- **`agents-md` is its own surface**, split out of the previously bundled `codex`
+  surface, so the `AGENTS.md` block and the Codex hooks install independently.
+  Surface registry IDs: `portable`, `agents-md`, `claude`, `codex`. The
+  `skills/tbd/SKILL.md` distribution copy is a tbd-repo publication artifact, not a
+  `--surfaces` value. (`tbd-zd4h`)
+- **Internals use a surface registry** — replace the fixed `{ claude, codex }` targeting
+  and the bespoke `setupClaudeIfDetected`/`setupCodexIfDetected` methods with a
+  `Surface[]` registry the run loop iterates; adding an agent becomes one descriptor.
+  (`tbd-zd4h`, `tbd-0fhy`)
+- **Wire up the neutral shared scripts** — the `scripts/agent/` constants in
+  `integration-paths.ts` are currently dead; complete `tbd-orup` by referencing them
+  from both `.claude/settings.json` and `.codex/hooks.json` (or drop them if per-agent
+  copies are kept deliberately).
+  Either way, Codex hooks must never reference `.claude/`. (`tbd-orup`)
+- **Pin agent-facing install hints to the running version** (`PINNED_NPM_VERSION`), not
+  `@latest`, except the forward-compatibility upgrade error.
+  (`tbd-shsb`)
 
 ## Self-Upgrade and Forward-Compatibility (Tier-2 behavior)
 
