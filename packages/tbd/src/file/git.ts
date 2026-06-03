@@ -384,7 +384,9 @@ const FIELD_STRATEGIES: Record<keyof Issue, MergeStrategy> = {
   priority: 'lww',
   assignee: 'lww',
   parent_id: 'lww',
-  child_order_hints: 'lww',
+  // Append-only set of child IDs (parent->child wiring). Must never lose a
+  // concurrently-added child, so union (dedupe), not LWW. See issue #155.
+  child_order_hints: 'union',
   updated_at: 'max',
   closed_at: 'lww',
   close_reason: 'lww',
@@ -644,10 +646,12 @@ export function mergeIssues(base: Issue | null, local: Issue, remote: Issue): Me
       }
 
       case 'union':
-        // Combine arrays and deduplicate
+        // Combine arrays and deduplicate. Coerce non-array values (null /
+        // undefined) to []: union fields like child_order_hints are nullable
+        // (a cleared list is null), and union ignores deletions. See #155.
         (merged as Record<string, unknown>)[key] = unionArrays(
-          localVal as unknown[],
-          remoteVal as unknown[],
+          (Array.isArray(localVal) ? localVal : []) as unknown[],
+          (Array.isArray(remoteVal) ? remoteVal : []) as unknown[],
         );
         break;
 
@@ -773,11 +777,21 @@ export async function pushWithRetry(
   // Build -C prefix args when baseDir is provided
   const dirArgs = baseDir ? ['-C', baseDir] : [];
 
+  // Field-level conflicts accumulate across retries; they are informational
+  // (the data is preserved in the attic) and must NOT abort the retry loop —
+  // the merge that produced them has been committed, so the next push can
+  // fast-forward. Surfaced on the final result for reporting.
+  const allConflicts: ConflictEntry[] = [];
+
   for (let attempt = 1; attempt <= MAX_PUSH_RETRIES; attempt++) {
     try {
       // Try to push
       await git(...dirArgs, 'push', remote, refspec);
-      return { success: true, attempt };
+      return {
+        success: true,
+        attempt,
+        conflicts: allConflicts.length > 0 ? allConflicts : undefined,
+      };
     } catch (error) {
       if (!isNonFastForward(error)) {
         // Unrecoverable error
@@ -785,6 +799,7 @@ export async function pushWithRetry(
           success: false,
           attempt,
           error: error instanceof Error ? error.message : String(error),
+          conflicts: allConflicts.length > 0 ? allConflicts : undefined,
         };
       }
 
@@ -793,19 +808,17 @@ export async function pushWithRetry(
           success: false,
           attempt,
           error: `Push failed after ${MAX_PUSH_RETRIES} attempts. Remote has conflicting changes.`,
+          conflicts: allConflicts.length > 0 ? allConflicts : undefined,
         };
       }
 
-      // Fetch and merge remote changes
+      // Fetch the advanced remote and integrate it (a real merge that commits),
+      // so the next push fast-forwards. onMergeNeeded must advance local
+      // `syncBranch` to include `${remote}/${syncBranch}`.
       await git(...dirArgs, 'fetch', remote, syncBranch);
-      const conflicts = await onMergeNeeded();
+      allConflicts.push(...(await onMergeNeeded()));
 
-      if (conflicts.length > 0) {
-        // Return conflicts but continue trying
-        return { success: false, attempt, conflicts };
-      }
-
-      // Loop to retry push
+      // Loop to retry push.
     }
   }
 
@@ -1774,6 +1787,72 @@ async function readBranchMapping(baseDir: string, ref: string): Promise<IdMappin
   } catch {
     return { shortToUlid: new Map(), ulidToShort: new Map() };
   }
+}
+
+/**
+ * Three-way merge a single bead read directly from git refs.
+ *
+ * Resolves the common ancestor with `git merge-base` and reads base/ours/theirs
+ * from committed blobs (never the working tree), so a conflict-marker-corrupted
+ * working file is never parsed. Feeds the field-level {@link mergeIssues} engine
+ * a real base, which is what lets `union` fields (e.g. child_order_hints) combine
+ * both sides instead of one side winning.
+ *
+ * Returns `null` when the bead does not exist on the `theirsRef` side (nothing to
+ * merge — keep ours). Used by sync's conflict paths in place of git's line-based
+ * text merge. See issue #155.
+ *
+ * @param repoDir - Directory to run git in (the data-sync worktree). `oursRef` and
+ *   `theirsRef` (e.g. `HEAD`/`MERGE_HEAD`, or a branch and `origin/<branch>`) must
+ *   resolve there.
+ */
+export async function mergeBeadAcrossRefs(
+  repoDir: string,
+  issueId: string,
+  oursRef: string,
+  theirsRef: string,
+): Promise<MergeResult | null> {
+  const path = `${DATA_SYNC_DIR}/issues/${issueId}.md`;
+
+  const ours = parseIssue(await git('-C', repoDir, 'show', `${oursRef}:${path}`));
+
+  // Read the other side's blob. A missing git object means the bead does not
+  // exist there (nothing to merge — keep ours). A blob that EXISTS but fails to
+  // parse is corruption (e.g. committed conflict markers) and must propagate to
+  // the fail-loud path — never be silently treated as absent. So the git read
+  // and the parse are separated: only git-object errors map to "absent". (#155)
+  let theirsContent: string;
+  try {
+    theirsContent = await git('-C', repoDir, 'show', `${theirsRef}:${path}`);
+  } catch (err) {
+    if (err instanceof GitError) return null; // bead absent on the other side
+    throw err;
+  }
+  const theirs = parseIssue(theirsContent);
+
+  let baseSha = '';
+  try {
+    baseSha = (await git('-C', repoDir, 'merge-base', oursRef, theirsRef)).trim();
+  } catch (err) {
+    // Exit 1 = the refs share no common ancestor (unrelated histories); any
+    // other exit status is a real failure and must propagate.
+    if (exitCodeOf(err) !== 1) throw err;
+  }
+
+  let base: Issue | null = null;
+  if (baseSha) {
+    let baseContent: string | null = null;
+    try {
+      baseContent = await git('-C', repoDir, 'show', `${baseSha}:${path}`);
+    } catch (err) {
+      // Bead added independently on both sides (absent at the ancestor) — no
+      // base. A non-git error is unexpected and must propagate.
+      if (!(err instanceof GitError)) throw err;
+    }
+    if (baseContent !== null) base = parseIssue(baseContent);
+  }
+
+  return mergeIssues(base, ours, theirs);
 }
 
 /** Preserve a losing issue version explicitly under attic/conflicts/. */
