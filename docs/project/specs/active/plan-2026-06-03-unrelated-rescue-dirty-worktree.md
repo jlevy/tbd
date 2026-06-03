@@ -4,7 +4,7 @@
 
 **Author:** Joshua Levy (with agent assistance)
 
-**Status:** Draft
+**Status:** Implemented (PR pending)
 
 ## Overview
 
@@ -179,23 +179,23 @@ either stays silent on the suggestion or points at `tbd doctor --fix` — never
 
 ### Phase 1: Rescue tolerates dirty worktree + break the loop
 
-- [ ] Failing test: `rescueUnrelatedHistory` against a temp repo with a **dirty** sync
+- [x] Failing test: `rescueUnrelatedHistory` against a temp repo with a **dirty** sync
   worktree succeeds (adopts remote base, replays local-only, backup branch includes the
   previously-uncommitted work); a **merge-in-progress** worktree still refuses with the
   terminating message.
   (Red.)
-- [ ] Implement the commit-first precondition + reworded merge-in-progress refusal.
+- [x] Implement the commit-first precondition + reworded merge-in-progress refusal.
   (Green.)
-- [ ] Failing test: `checkSyncConsistency` does not suggest `tbd sync` when histories
+- [x] Failing test: `checkSyncConsistency` does not suggest `tbd sync` when histories
   are unrelated. (Red → Green.)
-- [ ] e2e tryscript: unrelated histories + dirty worktree → `tbd doctor --fix` rescues
+- [x] e2e tryscript: unrelated histories + dirty worktree → `tbd doctor --fix` rescues
   in one shot; `tbd sync` → in sync.
   No `commit or stash` dead-end, no loop.
 
 ### Phase 2: Exit-code regression + soft-fail audit
 
-- [ ] Regression test: `tbd sync` exits non-zero on unrelated histories.
-- [ ] Audit the push-failure-to-outbox path; add a test that a push failure whose outbox
+- [x] Regression test: `tbd sync` exits non-zero on unrelated histories.
+- [x] Audit the push-failure-to-outbox path; add a test that a push failure whose outbox
   save also fails exits non-zero, and document the soft-fail-exit-0 contract.
 
 ## Testing Strategy
