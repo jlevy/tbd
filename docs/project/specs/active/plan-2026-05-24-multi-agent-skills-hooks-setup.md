@@ -427,7 +427,7 @@ Update `packages/tbd/docs/guidelines/cli-agent-skill-patterns.md` to match the p
 
 ### Phase 2: Setup and Integration Model
 
-- [ ] Refactor integration path constants.
+- [x] Refactor integration path constants.
 - [ ] Add canonical `.agents/skills/tbd/SKILL.md` setup.
 - [ ] Keep `.claude/skills/tbd/SKILL.md` as a mirror.
 - [ ] Add `skills/tbd/SKILL.md` distribution source.
@@ -471,7 +471,7 @@ criteria live in each bead):
 | Bead | Priority | Status | Scope |
 | --- | --- | --- | --- |
 | `tbd-t5q1` | P1 | closed | Write implementation spec for multi-agent skills setup |
-| `tbd-0fhy` | P1 | open | Refactor agent integration path model (`integration-paths.ts`) |
+| `tbd-0fhy` | P1 | closed | Refactor agent integration path model (`integration-paths.ts`) |
 | `tbd-1h9x` | P1 | open | Adopt `.agents/skills` as primary skill path with Claude mirror |
 | `tbd-qgpl` | P1 | open | Add `skills/tbd` distribution source and drift test |
 | `tbd-mjxt` | P1 | open | Define AGENTS.md scope, marker and format policy |
@@ -487,7 +487,8 @@ criteria live in each bead):
 | `tbd-m6f3` | P1 | open | Self-apply tbd setup to this repository |
 | `tbd-wha7` | P2 | open | Validate ecosystem compatibility and release metadata |
 
-Dependency outline (blocker edges; `tbd-0fhy` is the foundational unblocked task):
+Dependency outline (blocker edges; `tbd-0fhy` was the foundational path-model task and
+is now closed):
 
 - `tbd-0fhy` depends on `tbd-t5q1`.
 - `tbd-1h9x` depends on `tbd-0fhy`.
