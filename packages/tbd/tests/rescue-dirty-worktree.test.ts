@@ -122,9 +122,11 @@ describeUnlessWindows('rescueUnrelatedHistory worktree preconditions (#158)', ()
   });
 
   it('still refuses when a merge is in progress in the sync worktree', async () => {
+    // Simulate a half-finished merge by writing MERGE_HEAD directly. (Newer git
+    // refuses `update-ref MERGE_HEAD` as a pseudoref, so write the file.)
+    const gitDir = await g(worktreePath, 'rev-parse', '--absolute-git-dir');
     const head = await g(worktreePath, 'rev-parse', 'HEAD');
-    // Simulate a half-finished merge without a real conflict.
-    await g(worktreePath, 'update-ref', 'MERGE_HEAD', head);
+    await fsWriteFile(join(gitDir, 'MERGE_HEAD'), `${head}\n`);
 
     await expect(rescueUnrelatedHistory(workPath, 'origin', SYNC_BRANCH)).rejects.toThrow(
       /merge is in progress/,
