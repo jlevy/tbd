@@ -2290,7 +2290,7 @@ const issueMergeRules: MergeRules<Issue> = {
   created_by: { strategy: 'preserve_oldest' },
   closed_at: { strategy: 'lww' }, // See status/closed_at rules below
   close_reason: { strategy: 'lww' },
-  child_order_hints: { strategy: 'lww' }, // Soft ordering, LWW on concurrent edits
+  child_order_hints: { strategy: 'union' }, // Append-only set of child IDs; union (dedupe)
 };
 ```
 

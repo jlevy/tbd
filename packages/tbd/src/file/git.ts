@@ -384,7 +384,9 @@ const FIELD_STRATEGIES: Record<keyof Issue, MergeStrategy> = {
   priority: 'lww',
   assignee: 'lww',
   parent_id: 'lww',
-  child_order_hints: 'lww',
+  // Append-only set of child IDs (parent->child wiring). Must never lose a
+  // concurrently-added child, so union (dedupe), not LWW. See issue #155.
+  child_order_hints: 'union',
   updated_at: 'max',
   closed_at: 'lww',
   close_reason: 'lww',
