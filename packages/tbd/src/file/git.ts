@@ -777,11 +777,21 @@ export async function pushWithRetry(
   // Build -C prefix args when baseDir is provided
   const dirArgs = baseDir ? ['-C', baseDir] : [];
 
+  // Field-level conflicts accumulate across retries; they are informational
+  // (the data is preserved in the attic) and must NOT abort the retry loop —
+  // the merge that produced them has been committed, so the next push can
+  // fast-forward. Surfaced on the final result for reporting.
+  const allConflicts: ConflictEntry[] = [];
+
   for (let attempt = 1; attempt <= MAX_PUSH_RETRIES; attempt++) {
     try {
       // Try to push
       await git(...dirArgs, 'push', remote, refspec);
-      return { success: true, attempt };
+      return {
+        success: true,
+        attempt,
+        conflicts: allConflicts.length > 0 ? allConflicts : undefined,
+      };
     } catch (error) {
       if (!isNonFastForward(error)) {
         // Unrecoverable error
@@ -789,6 +799,7 @@ export async function pushWithRetry(
           success: false,
           attempt,
           error: error instanceof Error ? error.message : String(error),
+          conflicts: allConflicts.length > 0 ? allConflicts : undefined,
         };
       }
 
@@ -797,19 +808,17 @@ export async function pushWithRetry(
           success: false,
           attempt,
           error: `Push failed after ${MAX_PUSH_RETRIES} attempts. Remote has conflicting changes.`,
+          conflicts: allConflicts.length > 0 ? allConflicts : undefined,
         };
       }
 
-      // Fetch and merge remote changes
+      // Fetch the advanced remote and integrate it (a real merge that commits),
+      // so the next push fast-forwards. onMergeNeeded must advance local
+      // `syncBranch` to include `${remote}/${syncBranch}`.
       await git(...dirArgs, 'fetch', remote, syncBranch);
-      const conflicts = await onMergeNeeded();
+      allConflicts.push(...(await onMergeNeeded()));
 
-      if (conflicts.length > 0) {
-        // Return conflicts but continue trying
-        return { success: false, attempt, conflicts };
-      }
-
-      // Loop to retry push
+      // Loop to retry push.
     }
   }
 

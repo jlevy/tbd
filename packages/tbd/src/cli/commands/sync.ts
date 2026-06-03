@@ -540,11 +540,13 @@ class SyncHandler extends BaseCommand {
       spinner.stop();
 
       if (result.success) {
-        this.output.success(`Pushed ${ahead} commit(s) to ${remote}/${syncBranch}`);
-      } else if (result.conflicts && result.conflicts.length > 0) {
-        this.output.warn(
-          `Push completed with ${result.conflicts.length} conflict(s) (see attic for details)`,
-        );
+        if (result.conflicts && result.conflicts.length > 0) {
+          this.output.success(
+            `Pushed to ${remote}/${syncBranch} (${result.conflicts.length} conflict(s) preserved in attic)`,
+          );
+        } else {
+          this.output.success(`Pushed ${ahead} commit(s) to ${remote}/${syncBranch}`);
+        }
       } else {
         throw new SyncError(`Failed to push: ${result.error}`);
       }
@@ -555,48 +557,252 @@ class SyncHandler extends BaseCommand {
     }
   }
 
+  /**
+   * Integrate the remote sync branch into the local worktree with a real git
+   * merge, resolving bead conflicts through the structured field-level engine
+   * (never git's line-based text merge), reconciling ID mappings, committing the
+   * result, and asserting no bead was left corrupt.
+   *
+   * Shared by the pull/full-sync path and the push-retry path so both integrate
+   * the remote identically — and so a rejected push actually advances local
+   * `tbd-sync` to include the remote before retrying, instead of looping on the
+   * same non-fast-forward commit. See issue #155.
+   *
+   * @returns field-level conflict entries (the caller preserves them in attic).
+   */
+  private async mergeRemoteIntoSyncBranch(
+    syncBranch: string,
+    remote: string,
+  ): Promise<ConflictEntry[]> {
+    const worktreePath = this.worktreePath;
+    const conflicts: ConflictEntry[] = [];
+
+    // Track HEAD before merge for debug log
+    let headBeforeMerge = '';
+    try {
+      headBeforeMerge = (await git('-C', worktreePath, 'rev-parse', 'HEAD')).trim();
+    } catch {
+      // Ignore - just won't show debug log
+    }
+
+    // Merge remote into local using worktree
+    // This is a proper git merge that preserves both local and remote changes
+    try {
+      await git(
+        '-C',
+        worktreePath,
+        'merge',
+        `${remote}/${syncBranch}`,
+        '-m',
+        'tbd sync: merge remote changes',
+      );
+      this.output.debug('Merged remote changes');
+
+      // Show received commits in debug mode
+      // Use syncBranch explicitly — bare `HEAD` would resolve to the user's
+      // current working branch, not the tbd-sync branch in the worktree.
+      if (headBeforeMerge) {
+        await this.showGitLogDebug('Commits received', `${headBeforeMerge}..${syncBranch}`);
+      }
+
+      // Reconcile ID mappings after clean merge.
+      // A git merge may add issue files without corresponding ids.yml entries
+      // (e.g., when outbox issues were committed to a feature branch).
+      // Try to recover original short IDs from the remote's mapping to preserve
+      // ID stability (so existing references in docs/PRs remain valid).
+      const postMergeIssues = await listIssues(this.dataSyncDir);
+      const postMergeMapping = await loadIdMapping(this.dataSyncDir);
+
+      // Load historical mapping from remote to recover original short IDs
+      let historicalMapping: Awaited<ReturnType<typeof loadIdMapping>> | undefined;
+      try {
+        const remoteIdsContent = await git(
+          'show',
+          `${remote}/${syncBranch}:${DATA_SYNC_DIR}/mappings/ids.yml`,
+        );
+        if (remoteIdsContent) {
+          historicalMapping = parseIdMappingFromYaml(remoteIdsContent);
+        }
+      } catch {
+        // Remote mapping not available - will generate new IDs
+      }
+
+      const reconcileResult = reconcileMappings(
+        postMergeIssues.map((i) => i.id),
+        postMergeMapping,
+        historicalMapping,
+      );
+      const totalReconciled = reconcileResult.created.length + reconcileResult.recovered.length;
+      if (totalReconciled > 0) {
+        await saveIdMapping(this.dataSyncDir, postMergeMapping);
+        // Commit the updated mapping so it's included in the push
+        await git('-C', worktreePath, 'add', '-A');
+        try {
+          await gitCommit(
+            worktreePath,
+            '--no-verify',
+            '-m',
+            `tbd sync: reconcile ${totalReconciled} missing ID mapping(s)`,
+          );
+        } catch {
+          // Nothing to commit if mapping file was unchanged
+        }
+        if (reconcileResult.recovered.length > 0) {
+          this.output.debug(
+            `Recovered ${reconcileResult.recovered.length} ID mapping(s) from history`,
+          );
+        }
+        if (reconcileResult.created.length > 0) {
+          this.output.debug(
+            `Created ${reconcileResult.created.length} new ID mapping(s) (no history available)`,
+          );
+        }
+      }
+    } catch {
+      // Merge conflict - try to resolve at file level
+      this.output.info(`Merge conflict, attempting file-level resolution`);
+
+      // Resolve each conflicted bead with a structured three-way merge read
+      // from git refs (HEAD = ours, MERGE_HEAD = theirs). Reading committed
+      // blobs means a marker-corrupted working file is never parsed, and the
+      // real merge-base lets union fields (e.g. child_order_hints) combine
+      // both sides instead of one winning. See issue #155.
+      const conflictedList = await git(
+        '-C',
+        worktreePath,
+        'diff',
+        '--name-only',
+        '--diff-filter=U',
+        '--',
+        `${DATA_SYNC_DIR}/issues`,
+      );
+      const conflictedIds = conflictedList
+        .split('\n')
+        .map((f) => f.trim())
+        .filter((f) => f.endsWith('.md'))
+        .map((f) => basename(f, '.md'));
+      for (const id of conflictedIds) {
+        // The helper returns null only for a legitimately absent bead. Any
+        // thrown error is corruption (e.g. a committed bead that fails to
+        // parse) or an unexpected git failure — fail loudly rather than
+        // skip, so we never silently drop a conflicted bead. (#155 review)
+        let result: Awaited<ReturnType<typeof mergeBeadAcrossRefs>>;
+        try {
+          result = await mergeBeadAcrossRefs(worktreePath, id, 'HEAD', 'MERGE_HEAD');
+        } catch (error) {
+          throw new SyncError(
+            `Failed to merge bead ${id} during sync: ${(error as Error).message}`,
+          );
+        }
+        if (result) {
+          await writeIssue(this.dataSyncDir, result.merged);
+          conflicts.push(...result.conflicts);
+        }
+      }
+
+      // Merge ids.yml (ID mappings are always additive, so we union both sides)
+      // Also capture the remote mapping for recovery of original short IDs.
+      // The on-disk ids.yml may contain conflict markers after a failed git merge,
+      // so we resolve conflicts by extracting both sides and merging.
+      let conflictRemoteMapping: Awaited<ReturnType<typeof loadIdMapping>> | undefined;
+      try {
+        const remoteIdsContent = await git(
+          'show',
+          `${remote}/${syncBranch}:${DATA_SYNC_DIR}/mappings/ids.yml`,
+        );
+        if (remoteIdsContent) {
+          conflictRemoteMapping = parseIdMappingFromYaml(remoteIdsContent);
+          // Read the on-disk file (which may have conflict markers) and resolve
+          const idsPath = join(this.dataSyncDir, 'mappings', 'ids.yml');
+          const rawContent = await readFile(idsPath, 'utf-8');
+          const localMapping = resolveIdMappingConflicts(rawContent);
+          const mergedMapping = mergeIdMappings(localMapping, conflictRemoteMapping);
+          await saveIdMapping(this.dataSyncDir, mergedMapping);
+          this.output.debug(
+            `Merged ID mappings: ${localMapping.shortToUlid.size} local + ${conflictRemoteMapping.shortToUlid.size} remote = ${mergedMapping.shortToUlid.size} total`,
+          );
+        }
+      } catch (error) {
+        // Remote ids.yml doesn't exist or can't be parsed - keep local
+        this.output.debug(`Could not merge ids.yml: ${(error as Error).message}`);
+      }
+
+      // Reconcile any remaining issues without mappings after conflict resolution.
+      // Use the remote mapping as historical source to recover original short IDs.
+      {
+        const allIssues = await listIssues(this.dataSyncDir);
+        const currentMapping = await loadIdMapping(this.dataSyncDir);
+        const reconcileResult = reconcileMappings(
+          allIssues.map((i) => i.id),
+          currentMapping,
+          conflictRemoteMapping,
+        );
+        const totalReconciled = reconcileResult.created.length + reconcileResult.recovered.length;
+        if (totalReconciled > 0) {
+          await saveIdMapping(this.dataSyncDir, currentMapping);
+          if (reconcileResult.recovered.length > 0) {
+            this.output.debug(
+              `Recovered ${reconcileResult.recovered.length} ID mapping(s) from remote`,
+            );
+          }
+          if (reconcileResult.created.length > 0) {
+            this.output.debug(
+              `Created ${reconcileResult.created.length} new ID mapping(s) after conflict resolution`,
+            );
+          }
+        }
+      }
+
+      // Stage resolved files and complete merge
+      // Use --no-verify to bypass parent repo hooks (lefthook, husky, etc.)
+      await git('-C', worktreePath, 'add', '-A');
+
+      // SAFETY CHECK: Never commit files with unresolved merge conflict markers
+      // This prevents the bug where ids.yml or other files get committed with
+      // <<<<<<< HEAD markers still present
+      const conflictCheck = await git(
+        '-C',
+        worktreePath,
+        'diff',
+        '--cached',
+        '-S<<<<<<< ',
+        '--name-only',
+      );
+      if (conflictCheck.trim()) {
+        const conflictedFiles = conflictCheck.trim().split('\n');
+        throw new SyncError(
+          `Cannot commit: ${conflictedFiles.length} file(s) still have merge conflict markers:\n` +
+            conflictedFiles.map((f) => `  - ${f}`).join('\n') +
+            `\n\nThis is a bug in tbd sync. Please report it and manually resolve conflicts in:\n` +
+            `  ${worktreePath}`,
+        );
+      }
+
+      try {
+        await gitCommit(worktreePath, '--no-verify', '-m', 'tbd sync: resolved merge conflicts');
+      } catch {
+        // May fail if no conflicts needed resolving
+        this.output.debug('No merge commit needed (conflicts already resolved)');
+      }
+    }
+
+    // Never report a successful sync over a corrupted store: if the merge
+    // left any bead unparseable, fail loudly and name it. See issue #155.
+    await this.assertNoCorruptBeads();
+    return conflicts;
+  }
+
   private async doPushWithRetry(syncBranch: string, remote: string): Promise<PushResult> {
     return pushWithRetry(
       syncBranch,
       remote,
       async () => {
         // Merge callback — invoked when a push is rejected because the remote
-        // advanced after our fetch. Reconcile each diverging bead through the
-        // same structured engine as the pull path (ours = our branch tip,
-        // theirs = the freshly-fetched remote tip), so no path falls back to
-        // git's line-based text merge. See issue #155.
-        const conflicts: ConflictEntry[] = [];
-        const theirsRef = `${remote}/${syncBranch}`;
-
-        const diff = await git(
-          '-C',
-          this.worktreePath,
-          'diff',
-          '--name-only',
-          syncBranch,
-          theirsRef,
-          '--',
-          `${DATA_SYNC_DIR}/issues`,
-        );
-        const ids = diff
-          .split('\n')
-          .map((f) => f.trim())
-          .filter((f) => f.endsWith('.md'))
-          .map((f) => basename(f, '.md'));
-
-        for (const id of ids) {
-          try {
-            const result = await mergeBeadAcrossRefs(this.worktreePath, id, syncBranch, theirsRef);
-            if (result) {
-              await writeIssue(this.dataSyncDir, result.merged);
-              conflicts.push(...result.conflicts);
-            }
-          } catch (error) {
-            this.output.debug(`Issue ${id} merge skipped: ${(error as Error).message}`);
-          }
-        }
-
-        return conflicts;
+        // advanced after our fetch. Do a REAL merge of the remote into the local
+        // sync branch (committing the integration) via the same path the pull
+        // uses, so the retried push fast-forwards instead of being rejected
+        // again on the same non-fast-forward commit. See issue #155.
+        return this.mergeRemoteIntoSyncBranch(syncBranch, remote);
       },
       this.tbdRoot,
     );
@@ -717,224 +923,8 @@ class SyncHandler extends BaseCommand {
 
       // STEP 3: If remote has changes, merge them in
       if (behindCommits > 0) {
-        // Track HEAD before merge for debug log
-        let headBeforeMerge = '';
-        try {
-          headBeforeMerge = (await git('-C', worktreePath, 'rev-parse', 'HEAD')).trim();
-        } catch {
-          // Ignore - just won't show debug log
-        }
-
-        // Merge remote into local using worktree
-        // This is a proper git merge that preserves both local and remote changes
-        try {
-          await git(
-            '-C',
-            worktreePath,
-            'merge',
-            `${remote}/${syncBranch}`,
-            '-m',
-            'tbd sync: merge remote changes',
-          );
-          this.output.debug(`Merged ${behindCommits} commit(s) from remote`);
-
-          // Show received commits in debug mode
-          // Use syncBranch explicitly — bare `HEAD` would resolve to the user's
-          // current working branch, not the tbd-sync branch in the worktree.
-          if (headBeforeMerge) {
-            await this.showGitLogDebug('Commits received', `${headBeforeMerge}..${syncBranch}`);
-          }
-
-          // Reconcile ID mappings after clean merge.
-          // A git merge may add issue files without corresponding ids.yml entries
-          // (e.g., when outbox issues were committed to a feature branch).
-          // Try to recover original short IDs from the remote's mapping to preserve
-          // ID stability (so existing references in docs/PRs remain valid).
-          const postMergeIssues = await listIssues(this.dataSyncDir);
-          const postMergeMapping = await loadIdMapping(this.dataSyncDir);
-
-          // Load historical mapping from remote to recover original short IDs
-          let historicalMapping: Awaited<ReturnType<typeof loadIdMapping>> | undefined;
-          try {
-            const remoteIdsContent = await git(
-              'show',
-              `${remote}/${syncBranch}:${DATA_SYNC_DIR}/mappings/ids.yml`,
-            );
-            if (remoteIdsContent) {
-              historicalMapping = parseIdMappingFromYaml(remoteIdsContent);
-            }
-          } catch {
-            // Remote mapping not available - will generate new IDs
-          }
-
-          const reconcileResult = reconcileMappings(
-            postMergeIssues.map((i) => i.id),
-            postMergeMapping,
-            historicalMapping,
-          );
-          const totalReconciled = reconcileResult.created.length + reconcileResult.recovered.length;
-          if (totalReconciled > 0) {
-            await saveIdMapping(this.dataSyncDir, postMergeMapping);
-            // Commit the updated mapping so it's included in the push
-            await git('-C', worktreePath, 'add', '-A');
-            try {
-              await gitCommit(
-                worktreePath,
-                '--no-verify',
-                '-m',
-                `tbd sync: reconcile ${totalReconciled} missing ID mapping(s)`,
-              );
-            } catch {
-              // Nothing to commit if mapping file was unchanged
-            }
-            if (reconcileResult.recovered.length > 0) {
-              this.output.debug(
-                `Recovered ${reconcileResult.recovered.length} ID mapping(s) from history`,
-              );
-            }
-            if (reconcileResult.created.length > 0) {
-              this.output.debug(
-                `Created ${reconcileResult.created.length} new ID mapping(s) (no history available)`,
-              );
-            }
-          }
-        } catch {
-          // Merge conflict - try to resolve at file level
-          this.output.info(`Merge conflict, attempting file-level resolution`);
-
-          // Resolve each conflicted bead with a structured three-way merge read
-          // from git refs (HEAD = ours, MERGE_HEAD = theirs). Reading committed
-          // blobs means a marker-corrupted working file is never parsed, and the
-          // real merge-base lets union fields (e.g. child_order_hints) combine
-          // both sides instead of one winning. See issue #155.
-          const conflictedList = await git(
-            '-C',
-            worktreePath,
-            'diff',
-            '--name-only',
-            '--diff-filter=U',
-            '--',
-            `${DATA_SYNC_DIR}/issues`,
-          );
-          const conflictedIds = conflictedList
-            .split('\n')
-            .map((f) => f.trim())
-            .filter((f) => f.endsWith('.md'))
-            .map((f) => basename(f, '.md'));
-          for (const id of conflictedIds) {
-            // The helper returns null only for a legitimately absent bead. Any
-            // thrown error is corruption (e.g. a committed bead that fails to
-            // parse) or an unexpected git failure — fail loudly rather than
-            // skip, so we never silently drop a conflicted bead. (#155 review)
-            let result: Awaited<ReturnType<typeof mergeBeadAcrossRefs>>;
-            try {
-              result = await mergeBeadAcrossRefs(worktreePath, id, 'HEAD', 'MERGE_HEAD');
-            } catch (error) {
-              throw new SyncError(
-                `Failed to merge bead ${id} during sync: ${(error as Error).message}`,
-              );
-            }
-            if (result) {
-              await writeIssue(this.dataSyncDir, result.merged);
-              conflicts.push(...result.conflicts);
-            }
-          }
-
-          // Merge ids.yml (ID mappings are always additive, so we union both sides)
-          // Also capture the remote mapping for recovery of original short IDs.
-          // The on-disk ids.yml may contain conflict markers after a failed git merge,
-          // so we resolve conflicts by extracting both sides and merging.
-          let conflictRemoteMapping: Awaited<ReturnType<typeof loadIdMapping>> | undefined;
-          try {
-            const remoteIdsContent = await git(
-              'show',
-              `${remote}/${syncBranch}:${DATA_SYNC_DIR}/mappings/ids.yml`,
-            );
-            if (remoteIdsContent) {
-              conflictRemoteMapping = parseIdMappingFromYaml(remoteIdsContent);
-              // Read the on-disk file (which may have conflict markers) and resolve
-              const idsPath = join(this.dataSyncDir, 'mappings', 'ids.yml');
-              const rawContent = await readFile(idsPath, 'utf-8');
-              const localMapping = resolveIdMappingConflicts(rawContent);
-              const mergedMapping = mergeIdMappings(localMapping, conflictRemoteMapping);
-              await saveIdMapping(this.dataSyncDir, mergedMapping);
-              this.output.debug(
-                `Merged ID mappings: ${localMapping.shortToUlid.size} local + ${conflictRemoteMapping.shortToUlid.size} remote = ${mergedMapping.shortToUlid.size} total`,
-              );
-            }
-          } catch (error) {
-            // Remote ids.yml doesn't exist or can't be parsed - keep local
-            this.output.debug(`Could not merge ids.yml: ${(error as Error).message}`);
-          }
-
-          // Reconcile any remaining issues without mappings after conflict resolution.
-          // Use the remote mapping as historical source to recover original short IDs.
-          {
-            const allIssues = await listIssues(this.dataSyncDir);
-            const currentMapping = await loadIdMapping(this.dataSyncDir);
-            const reconcileResult = reconcileMappings(
-              allIssues.map((i) => i.id),
-              currentMapping,
-              conflictRemoteMapping,
-            );
-            const totalReconciled =
-              reconcileResult.created.length + reconcileResult.recovered.length;
-            if (totalReconciled > 0) {
-              await saveIdMapping(this.dataSyncDir, currentMapping);
-              if (reconcileResult.recovered.length > 0) {
-                this.output.debug(
-                  `Recovered ${reconcileResult.recovered.length} ID mapping(s) from remote`,
-                );
-              }
-              if (reconcileResult.created.length > 0) {
-                this.output.debug(
-                  `Created ${reconcileResult.created.length} new ID mapping(s) after conflict resolution`,
-                );
-              }
-            }
-          }
-
-          // Stage resolved files and complete merge
-          // Use --no-verify to bypass parent repo hooks (lefthook, husky, etc.)
-          await git('-C', worktreePath, 'add', '-A');
-
-          // SAFETY CHECK: Never commit files with unresolved merge conflict markers
-          // This prevents the bug where ids.yml or other files get committed with
-          // <<<<<<< HEAD markers still present
-          const conflictCheck = await git(
-            '-C',
-            worktreePath,
-            'diff',
-            '--cached',
-            '-S<<<<<<< ',
-            '--name-only',
-          );
-          if (conflictCheck.trim()) {
-            const conflictedFiles = conflictCheck.trim().split('\n');
-            throw new SyncError(
-              `Cannot commit: ${conflictedFiles.length} file(s) still have merge conflict markers:\n` +
-                conflictedFiles.map((f) => `  - ${f}`).join('\n') +
-                `\n\nThis is a bug in tbd sync. Please report it and manually resolve conflicts in:\n` +
-                `  ${worktreePath}`,
-            );
-          }
-
-          try {
-            await gitCommit(
-              worktreePath,
-              '--no-verify',
-              '-m',
-              'tbd sync: resolved merge conflicts',
-            );
-          } catch {
-            // May fail if no conflicts needed resolving
-            this.output.debug('No merge commit needed (conflicts already resolved)');
-          }
-        }
-
-        // Never report a successful sync over a corrupted store: if the merge
-        // left any bead unparseable, fail loudly and name it. See issue #155.
-        await this.assertNoCorruptBeads();
+        const mergeConflicts = await this.mergeRemoteIntoSyncBranch(syncBranch, remote);
+        conflicts.push(...mergeConflicts);
       }
     } catch (error) {
       // Surface real sync failures (e.g. unrelated histories) instead of
