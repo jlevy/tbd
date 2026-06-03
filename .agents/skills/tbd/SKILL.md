@@ -241,8 +241,7 @@ Load the **General engineering** group first, then the language or framework gro
 | error-handling-rules | Rules for handling errors, failures, and exceptional conditions |
 | general-coding-rules | Rules for constants, magic numbers, and general coding practices |
 | general-comment-rules | Language-agnostic rules for writing clean, maintainable comments |
-| general-eng-assistant-rules | Rules for AI assistants acting as senior engineers, including objectivity and communication guidelines |
-| general-engineering-principles | Core engineering process principles — detailed understanding, end-to-end ownership, scope discipline, tracking future work, acting versus seeking clarification, verification, and calibrated uncertainty |
+| general-eng-agent-principles | Core principles for AI agents acting as senior engineers—objectivity and communication conduct plus the engineering process (detailed understanding, verification, end-to-end ownership, scope discipline, tracking future work, and acting versus seeking clarification) |
 | general-tdd-guidelines | Test-Driven Development methodology and best practices |
 | general-testing-rules | Rules for writing minimal, effective tests with maximum coverage |
 | golden-testing-guidelines | Guidelines for implementing golden/snapshot testing for complex systems |
