@@ -822,16 +822,21 @@ class SyncHandler extends BaseCommand {
             .filter((f) => f.endsWith('.md'))
             .map((f) => basename(f, '.md'));
           for (const id of conflictedIds) {
+            // The helper returns null only for a legitimately absent bead. Any
+            // thrown error is corruption (e.g. a committed bead that fails to
+            // parse) or an unexpected git failure — fail loudly rather than
+            // skip, so we never silently drop a conflicted bead. (#155 review)
+            let result: Awaited<ReturnType<typeof mergeBeadAcrossRefs>>;
             try {
-              const result = await mergeBeadAcrossRefs(worktreePath, id, 'HEAD', 'MERGE_HEAD');
-              if (result) {
-                await writeIssue(this.dataSyncDir, result.merged);
-                conflicts.push(...result.conflicts);
-              }
+              result = await mergeBeadAcrossRefs(worktreePath, id, 'HEAD', 'MERGE_HEAD');
             } catch (error) {
-              this.output.debug(
-                `Could not resolve conflict for ${id}: ${(error as Error).message}`,
+              throw new SyncError(
+                `Failed to merge bead ${id} during sync: ${(error as Error).message}`,
               );
+            }
+            if (result) {
+              await writeIssue(this.dataSyncDir, result.merged);
+              conflicts.push(...result.conflicts);
             }
           }
 

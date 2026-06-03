@@ -154,6 +154,31 @@ describeUnlessWindows('mergeBeadAcrossRefs', () => {
     expect(result).not.toBeNull();
   });
 
+  it('propagates a parse error when a committed bead is corrupt (not treated as absent)', async () => {
+    const id = SHARED;
+    await commitBead(createTestIssue({ id, title: 'Base' }), 'base');
+
+    await git('checkout', '-b', 'ours');
+    await commitBead(
+      createTestIssue({ id, title: 'Base', version: 2, status: 'in_progress' }),
+      'ours edits',
+    );
+
+    // theirs: the bead EXISTS but its YAML is corrupt (e.g. conflict markers a
+    // prior merge left committed). This is data corruption, not an absent file,
+    // and must surface — never be silently skipped as "nothing to merge".
+    await git('checkout', 'main');
+    await git('checkout', '-b', 'theirs');
+    await writeFile(
+      join(repo, DATA_SYNC_DIR, 'issues', `${id}.md`),
+      '---\ntype: is\n<<<<<<< HEAD\nversion: 1\n=======\nversion: 2\n>>>>>>> x\n---\n',
+    );
+    await git('add', '-A');
+    await git('commit', '-m', 'theirs corrupt');
+
+    await expect(mergeBeadAcrossRefs(repo, id, 'ours', 'theirs')).rejects.toThrow();
+  });
+
   // End-to-end of the pull-path resolution as sync drives it: a real `git merge`
   // leaves conflict markers in the bead, then the structured resolution turns it
   // into a clean union with no markers. Reproduces issue #155.

@@ -1807,15 +1807,20 @@ export async function mergeBeadAcrossRefs(
 
   const ours = parseIssue(await git('-C', repoDir, 'show', `${oursRef}:${path}`));
 
-  let theirs: Issue;
+  // Read the other side's blob. A missing git object means the bead does not
+  // exist there (nothing to merge — keep ours). A blob that EXISTS but fails to
+  // parse is corruption (e.g. committed conflict markers) and must propagate to
+  // the fail-loud path — never be silently treated as absent. So the git read
+  // and the parse are separated: only git-object errors map to "absent". (#155)
+  let theirsContent: string;
   try {
-    theirs = parseIssue(await git('-C', repoDir, 'show', `${theirsRef}:${path}`));
-  } catch {
-    // Bead absent on the other side — nothing to merge, keep ours.
-    return null;
+    theirsContent = await git('-C', repoDir, 'show', `${theirsRef}:${path}`);
+  } catch (err) {
+    if (err instanceof GitError) return null; // bead absent on the other side
+    throw err;
   }
+  const theirs = parseIssue(theirsContent);
 
-  let base: Issue | null = null;
   let baseSha = '';
   try {
     baseSha = (await git('-C', repoDir, 'merge-base', oursRef, theirsRef)).trim();
@@ -1824,13 +1829,18 @@ export async function mergeBeadAcrossRefs(
     // other exit status is a real failure and must propagate.
     if (exitCodeOf(err) !== 1) throw err;
   }
+
+  let base: Issue | null = null;
   if (baseSha) {
+    let baseContent: string | null = null;
     try {
-      base = parseIssue(await git('-C', repoDir, 'show', `${baseSha}:${path}`));
-    } catch {
-      // Bead added independently on both sides (absent at the ancestor) — no base.
-      base = null;
+      baseContent = await git('-C', repoDir, 'show', `${baseSha}:${path}`);
+    } catch (err) {
+      // Bead added independently on both sides (absent at the ancestor) — no
+      // base. A non-git error is unexpected and must propagate.
+      if (!(err instanceof GitError)) throw err;
     }
+    if (baseContent !== null) base = parseIssue(baseContent);
   }
 
   return mergeIssues(base, ours, theirs);
