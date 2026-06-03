@@ -17,6 +17,7 @@ import { listIssues, readIssue, writeIssue } from '../../file/storage.js';
 import {
   git,
   gitCommit,
+  mergeBeadAcrossRefs,
   mergeIssues,
   pushWithRetry,
   ensureWorktreeAttachedToBranch,
@@ -25,7 +26,7 @@ import {
   type PushResult,
 } from '../../file/git.js';
 import { DATA_SYNC_DIR } from '../../lib/paths.js';
-import { join } from 'node:path';
+import { basename, join } from 'node:path';
 import { access, readFile } from 'node:fs/promises';
 import { writeFile } from 'atomically';
 import {
@@ -764,23 +765,36 @@ class SyncHandler extends BaseCommand {
           // Merge conflict - try to resolve at file level
           this.output.info(`Merge conflict, attempting file-level resolution`);
 
-          // For each conflicted issue, do field-level merge
-          const localIssues = await listIssues(this.dataSyncDir);
-          for (const localIssue of localIssues) {
+          // Resolve each conflicted bead with a structured three-way merge read
+          // from git refs (HEAD = ours, MERGE_HEAD = theirs). Reading committed
+          // blobs means a marker-corrupted working file is never parsed, and the
+          // real merge-base lets union fields (e.g. child_order_hints) combine
+          // both sides instead of one winning. See issue #155.
+          const conflictedList = await git(
+            '-C',
+            worktreePath,
+            'diff',
+            '--name-only',
+            '--diff-filter=U',
+            '--',
+            `${DATA_SYNC_DIR}/issues`,
+          );
+          const conflictedIds = conflictedList
+            .split('\n')
+            .map((f) => f.trim())
+            .filter((f) => f.endsWith('.md'))
+            .map((f) => basename(f, '.md'));
+          for (const id of conflictedIds) {
             try {
-              const remoteContent = await git(
-                'show',
-                `${remote}/${syncBranch}:${DATA_SYNC_DIR}/issues/${localIssue.id}.md`,
-              );
-              if (remoteContent) {
-                const remoteIssue = await readIssue(this.dataSyncDir, localIssue.id);
-                const result = mergeIssues(null, localIssue, remoteIssue);
+              const result = await mergeBeadAcrossRefs(worktreePath, id, 'HEAD', 'MERGE_HEAD');
+              if (result) {
                 await writeIssue(this.dataSyncDir, result.merged);
                 conflicts.push(...result.conflicts);
               }
-            } catch {
-              // Issue doesn't exist remotely - keep local version
-              this.output.debug(`Issue ${localIssue.id} not on remote, keeping local`);
+            } catch (error) {
+              this.output.debug(
+                `Could not resolve conflict for ${id}: ${(error as Error).message}`,
+              );
             }
           }
 
