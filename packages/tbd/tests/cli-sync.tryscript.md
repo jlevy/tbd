@@ -81,7 +81,7 @@ $ tbd sync
     • Retry:  tbd sync
     • Run 'tbd sync --status' to check status
     • Save for later:  tbd save --outbox
-? 0
+? 1
 ```
 
 # Test: After sync, no uncommitted changes remain
@@ -151,7 +151,7 @@ $ tbd sync
     • Retry:  tbd sync
     • Run 'tbd sync --status' to check status
     • Save for later:  tbd save --outbox
-? 0
+? 1
 ```
 
 # Test: All changes committed
@@ -253,7 +253,7 @@ $ tbd sync
     • Retry:  tbd sync
     • Run 'tbd sync --status' to check status
     • Save for later:  tbd save --outbox
-? 0
+? 1
 ```
 
 * * *
@@ -274,7 +274,7 @@ $ tbd sync
     • Retry:  tbd sync
     • Run 'tbd sync --status' to check status
     • Save for later:  tbd save --outbox
-? 0
+? 1
 ```
 
 ```console
@@ -287,7 +287,7 @@ $ tbd sync
     • Retry:  tbd sync
     • Run 'tbd sync --status' to check status
     • Save for later:  tbd save --outbox
-? 0
+? 1
 ```
 
 # Test: No uncommitted changes after double sync
@@ -327,7 +327,7 @@ $ tbd sync --json
   "unpushedCommits": 4,
   "errorType": "unknown"
 }
-? 0
+? 1
 ```
 
 * * *
