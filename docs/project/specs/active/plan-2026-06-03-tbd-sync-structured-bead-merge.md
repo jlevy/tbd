@@ -4,7 +4,7 @@
 
 **Author:** Joshua Levy (with agent assistance)
 
-**Status:** Draft
+**Status:** Implemented (PR #157; senior-review round folded in)
 
 ## Overview
 
@@ -32,7 +32,9 @@ success.
 ## Goals
 
 - Concurrent edits to a shared epic’s `child_order_hints` merge to the **union** of both
-  sides (deduped), and `version` to the **max** — automatically, with no manual repair.
+  sides (deduped), and `version` reconciles to the **max** of the two sides (then, per
+  the existing `mergeIssues` contract, is incremented by one when the merge produced a
+  substantive change) — automatically, with no manual repair.
 - A bead `.md` file is **never** left on disk (or committed) containing git conflict
   markers.
 - If any bead file fails to parse during or after a sync, sync **exits non-zero** and
@@ -247,33 +249,57 @@ Push callback: compute the differing bead set between `<syncBranch>` and
 
 ### Phase 1: Structured field-level merge (fixes the corruption + data loss)
 
-- [ ] Failing unit test: `mergeIssues` with a real base where both sides append distinct
+- [x] Failing unit test: `mergeIssues` with a real base where both sides append distinct
   `child_order_hints` → union (deduped); `version`/`updated_at` stay `max`. (Red.)
-- [ ] Flip `child_order_hints` → `union` in `FIELD_STRATEGIES`; update `tbd-design.md`
+- [x] Flip `child_order_hints` → `union` in `FIELD_STRATEGIES`; update `tbd-design.md`
   §3.5 and any golden output that pins the strategy table.
   (Green.)
-- [ ] Add `mergeBeadAcrossRefs` helper (merge-base + `git show` for base/ours/theirs;
+- [x] Add `mergeBeadAcrossRefs` helper (merge-base + `git show` for base/ours/theirs;
   tolerate missing base/file).
   Unit-test it against a temp repo: ancestor + two divergent appends → clean union, no
   markers; add/add (no base) → falls back to the synthetic-base behavior unchanged.
-- [ ] Rewrite the pull/merge conflict path (`sync.ts:763-877`) to enumerate
-  `--diff-filter=U` beads and resolve each via the helper (`HEAD`/`MERGE_HEAD`); keep
-  attic routing, ids.yml union, and the marker safety check.
-- [ ] Rewrite the push-retry callback (`sync.ts:531-561`) to resolve differing beads via
-  the same helper against `<syncBranch>`/`<remote>/<syncBranch>`.
-- [ ] e2e tryscript modeled on #155: two clones, concurrent `--parent` edits to one
+- [x] Rewrite the pull/merge conflict path to enumerate `--diff-filter=U` beads and
+  resolve each via the helper (`HEAD`/`MERGE_HEAD`); keep attic routing, ids.yml union,
+  and the marker safety check.
+- [x] Rewrite the push-retry callback to resolve differing beads via the same helper.
+- [x] e2e tryscript modeled on #155: two clones, concurrent `--parent` edits to one
   epic, sync → assert no markers on disk, epic present in `tbd show`,
   `child_order_hints` is the deduped union, `version` is the max.
 
 ### Phase 2: Fail loudly on corrupted beads
 
-- [ ] Failing test: a sync that would leave an unparseable bead exits non-zero, names
+- [x] Failing test: a sync that would leave an unparseable bead exits non-zero, names
   the file, and does **not** print `received N updated`. (Red.)
-- [ ] Thread `onInvalidIssue` through sync’s reads; throw `SyncError` on any post-merge
+- [x] Thread `onInvalidIssue` through sync’s reads; throw `SyncError` on any post-merge
   invalid bead; gate the success summary on a clean parse.
   (Green.)
-- [ ] Regression assertion in the tryscript: a deliberately corrupted bead makes sync
+- [x] Regression assertion in the tryscript: a deliberately corrupted bead makes sync
   fail loudly rather than reporting success.
+
+### Phase 3: Senior-review round (PR #157)
+
+Folded in after the maintainer’s review:
+
+- [x] **Push-retry actually integrates the remote.** Extracted the pull path’s real
+  `git merge` + structured resolution into one shared `mergeRemoteIntoSyncBranch()` used
+  by both paths, so a rejected push advances (and commits) local `tbd-sync` before
+  retrying; `pushWithRetry` keeps retrying after integrating (conflicts are
+  attic-preserved, not a stop signal) and the misleading “Push completed with
+  conflict(s)” message is fixed.
+  e2e: `cli-sync-push-retry-155.tryscript.md`.
+- [x] **Null-safe union.** `child_order_hints` is nullable (a cleared list is `null`);
+  the union branch now coerces non-array inputs to `[]` instead of throwing on a
+  concurrent clear-vs-append.
+  Tests for `null + array` and `undefined + array`.
+- [x] **Distinguish missing from corrupt in `mergeBeadAcrossRefs`.** A missing git
+  object → “absent” (keep ours); a committed-but-unparseable bead now propagates and the
+  sync merge loops fail loudly instead of swallowing it.
+  Test: corrupt committed bead.
+- [x] **Fail-loud CLI regression.** `cli-sync-fail-loud-155.tryscript.md` proves a sync
+  that pulls in an invalid bead exits non-zero, names the file, and prints no success
+  summary.
+- [x] Spec status/checklist updated; `version` wording reconciled to “max, then +1 on a
+  substantive merge”.
 
 ## Testing Strategy
 
@@ -303,11 +329,11 @@ markers from git refs).
 - **Resolved (per user):** `child_order_hints` becomes `union` (design doc updated to
   match), and we do the full fix (structured merge + real base + fail-loud), not just
   the strategy flip.
-- **Unify the two conflict paths?** The cleanest end state is for the push-retry path to
-  perform the same real `git merge` + structured resolution as the pull path, collapsing
-  to one merge code path.
-  Lean: route both through `mergeBeadAcrossRefs` now (low blast radius); consider fully
-  unifying `pushWithRetry` in a follow-up if the duplication proves fragile.
+- **Unify the two conflict paths?
+  — Resolved (review round).** Both the pull path and the push-retry callback now go
+  through one shared `mergeRemoteIntoSyncBranch()` that does a real `git merge` +
+  structured resolution + commit, so a rejected push integrates and advances local
+  `tbd-sync` before retrying rather than looping on the same non-fast-forward commit.
 - **Custom git merge driver for `issues/*.md`?** Rejected for now: unlike the built-in
   `merge=union` used for `ids.yml`, a custom driver must be configured per-clone in git
   config; on a fresh/ephemeral clone (tbd’s headline environment) an unconfigured driver
