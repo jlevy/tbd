@@ -13,12 +13,11 @@ import {
   UnrelatedHistoriesError,
   classifySyncError,
 } from '../lib/errors.js';
-import { listIssues, readIssue, writeIssue } from '../../file/storage.js';
+import { listIssues, writeIssue } from '../../file/storage.js';
 import {
   git,
   gitCommit,
   mergeBeadAcrossRefs,
-  mergeIssues,
   pushWithRetry,
   ensureWorktreeAttachedToBranch,
   checkRemoteBranchHealth,
@@ -530,32 +529,39 @@ class SyncHandler extends BaseCommand {
       syncBranch,
       remote,
       async () => {
-        // Merge callback - called when we need to merge remote changes
+        // Merge callback — invoked when a push is rejected because the remote
+        // advanced after our fetch. Reconcile each diverging bead through the
+        // same structured engine as the pull path (ours = our branch tip,
+        // theirs = the freshly-fetched remote tip), so no path falls back to
+        // git's line-based text merge. See issue #155.
         const conflicts: ConflictEntry[] = [];
+        const theirsRef = `${remote}/${syncBranch}`;
 
-        // Get list of issues that need merging
-        const localIssues = await listIssues(this.dataSyncDir);
+        const diff = await git(
+          '-C',
+          this.worktreePath,
+          'diff',
+          '--name-only',
+          syncBranch,
+          theirsRef,
+          '--',
+          `${DATA_SYNC_DIR}/issues`,
+        );
+        const ids = diff
+          .split('\n')
+          .map((f) => f.trim())
+          .filter((f) => f.endsWith('.md'))
+          .map((f) => basename(f, '.md'));
 
-        for (const localIssue of localIssues) {
+        for (const id of ids) {
           try {
-            // Try to get the remote version (use relative path for git show)
-            const remoteContent = await git(
-              'show',
-              `${remote}/${syncBranch}:${DATA_SYNC_DIR}/issues/${localIssue.id}.md`,
-            );
-
-            if (remoteContent) {
-              // Parse remote issue and merge
-              const remoteIssue = await readIssue(this.dataSyncDir, localIssue.id);
-              const result = mergeIssues(null, localIssue, remoteIssue);
-
-              // Write merged result
+            const result = await mergeBeadAcrossRefs(this.worktreePath, id, syncBranch, theirsRef);
+            if (result) {
               await writeIssue(this.dataSyncDir, result.merged);
               conflicts.push(...result.conflicts);
             }
-          } catch {
-            // Issue doesn't exist remotely - no merge needed
-            this.output.debug(`Issue ${localIssue.id} not on remote, no merge needed`);
+          } catch (error) {
+            this.output.debug(`Issue ${id} merge skipped: ${(error as Error).message}`);
           }
         }
 
