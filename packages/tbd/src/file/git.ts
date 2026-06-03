@@ -1778,6 +1778,62 @@ async function readBranchMapping(baseDir: string, ref: string): Promise<IdMappin
   }
 }
 
+/**
+ * Three-way merge a single bead read directly from git refs.
+ *
+ * Resolves the common ancestor with `git merge-base` and reads base/ours/theirs
+ * from committed blobs (never the working tree), so a conflict-marker-corrupted
+ * working file is never parsed. Feeds the field-level {@link mergeIssues} engine
+ * a real base, which is what lets `union` fields (e.g. child_order_hints) combine
+ * both sides instead of one side winning.
+ *
+ * Returns `null` when the bead does not exist on the `theirsRef` side (nothing to
+ * merge — keep ours). Used by sync's conflict paths in place of git's line-based
+ * text merge. See issue #155.
+ *
+ * @param repoDir - Directory to run git in (the data-sync worktree). `oursRef` and
+ *   `theirsRef` (e.g. `HEAD`/`MERGE_HEAD`, or a branch and `origin/<branch>`) must
+ *   resolve there.
+ */
+export async function mergeBeadAcrossRefs(
+  repoDir: string,
+  issueId: string,
+  oursRef: string,
+  theirsRef: string,
+): Promise<MergeResult | null> {
+  const path = `${DATA_SYNC_DIR}/issues/${issueId}.md`;
+
+  const ours = parseIssue(await git('-C', repoDir, 'show', `${oursRef}:${path}`));
+
+  let theirs: Issue;
+  try {
+    theirs = parseIssue(await git('-C', repoDir, 'show', `${theirsRef}:${path}`));
+  } catch {
+    // Bead absent on the other side — nothing to merge, keep ours.
+    return null;
+  }
+
+  let base: Issue | null = null;
+  let baseSha = '';
+  try {
+    baseSha = (await git('-C', repoDir, 'merge-base', oursRef, theirsRef)).trim();
+  } catch (err) {
+    // Exit 1 = the refs share no common ancestor (unrelated histories); any
+    // other exit status is a real failure and must propagate.
+    if (exitCodeOf(err) !== 1) throw err;
+  }
+  if (baseSha) {
+    try {
+      base = parseIssue(await git('-C', repoDir, 'show', `${baseSha}:${path}`));
+    } catch {
+      // Bead added independently on both sides (absent at the ancestor) — no base.
+      base = null;
+    }
+  }
+
+  return mergeIssues(base, ours, theirs);
+}
+
 /** Preserve a losing issue version explicitly under attic/conflicts/. */
 async function preserveLosingVersion(dataSyncPath: string, loser: Issue): Promise<void> {
   const conflictsDir = join(dataSyncPath, 'attic', 'conflicts');
