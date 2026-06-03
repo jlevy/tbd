@@ -13,7 +13,7 @@ import {
   UnrelatedHistoriesError,
   classifySyncError,
 } from '../lib/errors.js';
-import { listIssues, writeIssue } from '../../file/storage.js';
+import { listIssues, writeIssue, type InvalidIssueFile } from '../../file/storage.js';
 import {
   git,
   gitCommit,
@@ -55,6 +55,20 @@ import {
   deleteWorkspace,
 } from '../../file/workspace.js';
 import { withDataSyncContext } from '../lib/data-context.js';
+
+/**
+ * List bead files in a data-sync directory that fail to parse. Used as a
+ * post-merge guard so sync never reports success over a corrupted store (e.g. a
+ * bead left holding git conflict markers). See issue #155.
+ */
+export async function findInvalidBeads(dataSyncDir: string): Promise<InvalidIssueFile[]> {
+  const invalid: InvalidIssueFile[] = [];
+  await listIssues(dataSyncDir, {
+    warnOnInvalid: false,
+    onInvalidIssue: (entry) => invalid.push(entry),
+  });
+  return invalid;
+}
 
 interface SyncOptions {
   push?: boolean;
@@ -461,6 +475,23 @@ class SyncHandler extends BaseCommand {
         return emptyTallies();
       }
       throw error;
+    }
+  }
+
+  /**
+   * Abort the sync if any bead file fails to parse, naming the offending
+   * file(s). Prevents the silent "received N updated" success over a store left
+   * corrupted by a merge. See issue #155.
+   */
+  private async assertNoCorruptBeads(): Promise<void> {
+    const invalid = await findInvalidBeads(this.dataSyncDir);
+    if (invalid.length > 0) {
+      throw new SyncError(
+        `Sync left ${invalid.length} unreadable bead file(s):\n` +
+          invalid.map((i) => `  - ${i.file}: ${i.reason}`).join('\n') +
+          `\n\nThis is a bug in tbd sync. Please report it and resolve the file(s) in:\n` +
+          `  ${this.worktreePath}`,
+      );
     }
   }
 
@@ -895,6 +926,10 @@ class SyncHandler extends BaseCommand {
             this.output.debug('No merge commit needed (conflicts already resolved)');
           }
         }
+
+        // Never report a successful sync over a corrupted store: if the merge
+        // left any bead unparseable, fail loudly and name it. See issue #155.
+        await this.assertNoCorruptBeads();
       }
     } catch (error) {
       // Surface real sync failures (e.g. unrelated histories) instead of
