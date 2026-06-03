@@ -8,15 +8,20 @@ Maintenance: companion to the design spec
 
 ## Overview
 
-[PR #156](https://github.com/jlevy/tbd/pull/156) is a **design-lock** change: it edits
-only the spec (+90 / −16, one file, no code). This document maps the *remaining*
-implementation that the locked design implies, down to the file and function level, so
-the work can be picked up TDD-first on branch `feat/setup-surfaces-selector`.
+[PR #156](https://github.com/jlevy/tbd/pull/156) began as a design-lock (spec only) and
+now carries the **full implementation** on branch `feat/setup-surfaces-selector`
+(3 commits, 10 files, +324/−236; typecheck + eslint clean, 1146/1146 vitest pass).
 
-**Scope**: the four still-open beads the PR calls out — `tbd-zd4h` (`--surfaces`
-registry), `tbd-orup` (shared-script / Codex decoupling), `tbd-shsb` (version-pin
-hints), `tbd-l2ym` (diagnostics) — plus their tests/goldens. Out of scope: the already
-landed path-model refactor (`tbd-0fhy`) and beads not gated by this PR.
+This document is the **as-built** map of that work, down to file and function level, with
+status badges. It was originally written against the locked design and is now reconciled
+to the landed code — including how the three open decisions it flagged were resolved
+(see "Resolved Decisions" at the end). Where the implementation chose a simpler shape
+than the spec's literal wording, that is noted inline.
+
+**Scope**: the four beads the PR lands — `tbd-zd4h` (`--surfaces` + registry),
+`tbd-orup` (Codex script decoupling), `tbd-shsb` (version-pin audit), `tbd-l2ym`
+(diagnostics labels) — plus tests/goldens. The path-model refactor (`tbd-0fhy`) landed
+earlier.
 
 All paths are under `packages/tbd/` unless noted.
 
@@ -24,125 +29,130 @@ All paths are under `packages/tbd/` unless noted.
 
 | Badge | Meaning |
 | --- | --- |
-| 🆕 | Net-new file, function, or constant to create |
-| ✏️ | Modify an existing function / lines in place |
-| ♻️ | Replace / refactor an existing structure (delete-and-rewrite) |
-| 🗑️ | Remove existing code (flag, branch, method) |
-| ✅ | Already in place — reference only, no change |
-| 🧪 | Test or golden to add / update |
-| ❓ | Open decision or spec-vs-code discrepancy — resolve before coding |
+| ✅ | Landed in PR #156 (as-built) |
+| 🆕 | New symbol introduced by the PR |
+| ♻️ | Existing structure replaced / refactored |
+| 🗑️ | Removed by the PR |
+| 🧪 | Test or golden added / updated |
+| 💡 | Implementation chose a different (simpler) shape than the spec's literal wording |
 
-## Workstream A — `tbd-zd4h`: `--surfaces` selector + surface registry
+## Workstream A — `tbd-zd4h`: `--surfaces` selector + surface registry ✅
 
-Replace the fixed `{ claude, codex }` targeting and the two bespoke
-`setup*IfDetected` methods with a `Surface[]` registry the run loop iterates. Default =
-all surfaces; `--surfaces=<comma-list>` (with `all` alias) restricts. `agents-md` splits
-out of the bundled `codex` surface.
+The fixed `{ claude, codex }` targeting and the two `setup*IfDetected` methods are
+replaced by an ID-list + dispatch model the run loop iterates. Default = all surfaces;
+`--surfaces=<comma-list>` (with `all` alias) restricts; an unknown ID is a hard error.
+`agents-md` is split out of the bundled `codex` surface.
 
-### `src/cli/commands/setup.ts` ✏️♻️🗑️
+### `src/cli/commands/setup.ts`
 
-| Badge | Symbol / Location | Action |
+| Badge | Symbol / Location | As-built |
 | --- | --- | --- |
-| 🆕 | `Surface` type + `SURFACE_REGISTRY: Surface[]` (new top-level) | Define `{ id, displayName, install(cwd, ctx) }`. Four entries: `portable`, `agents-md`, `claude`, `codex`. Adding an agent = one entry. |
-| 🆕 | `parseSurfaces(value?: string): Set<SurfaceId>` | Parse comma-list, accept `all` alias, validate IDs against the registry, error on unknown IDs. Default (undefined) → all. |
-| ♻️ | `resolveTargeting()` — `SetupAutoHandler`, `setup.ts:1993-2013` | Replace `{ claude, codex }` / `SurfaceMode` resolution with selected-`Set<SurfaceId>` logic. Drop the `'on'\|'off'\|'auto'` `SurfaceMode` type (`setup.ts:1740`) — there is no detection gating anymore; default writes all. |
-| 🗑️ | `SurfaceMode` type — `setup.ts:1740` | Remove (no longer needed; install is unconditional unless restricted). |
-| ♻️ | `setupClaudeIfDetected()` — `setup.ts:2015-2075` | Fold into a `claude` registry entry's `install()`. Drop the `~/.claude` / `CLAUDE_*` auto-detection gate. |
-| ♻️ | `setupCodexIfDetected()` — `setup.ts:2077-2128` | Split into **two** registry entries: `agents-md` (AGENTS.md managed block) and `codex` (`.codex/hooks.json` + scripts). Drop the `AGENTS.md`/`CODEX_*` detection gate. |
-| ✏️ | `SetupAutoHandler.run()` — `setup.ts:1852-1926` | Replace the hand-written portable-then-Claude-then-Codex sequence with: parse `--surfaces` → `for (const s of SURFACE_REGISTRY) if (selected.has(s.id)) await s.install(...)`. Keep legacy-cleanup + docs-sync prelude. |
-| 🗑️ | Flags `--all`, `--claude`, `--codex`, `--skip-claude`, `--skip-codex` — `setup.ts:2140-2144` | Remove all five. |
-| 🆕 | Flag `--surfaces <list>` — near `setup.ts:2140` | Add single Commander option; document `all` + the four IDs. |
-| ✅ | Flags `--auto`/`--interactive`/`--from-beads`/`--prefix`/`--force`/`--no-gh-cli` — `setup.ts:2134-2139` | Unchanged (orthogonal). gh-CLI stays gated by `--no-gh-cli`/`settings.use_gh_cli`. |
-| ✏️ | Setup help/epilog — `setup.ts:2161-2184` | Rewrite the targeting section: replace per-agent flag list with `--surfaces` usage + ID glossary + default-all note. |
-| ✅ | `buildSkillPayload()` / `writeSkillFile()` / `SKILL_DO_NOT_EDIT_MARKER` — `setup.ts:108,124,137-149` | Reused unchanged by the `portable` + `claude` surface installers. |
+| 🆕💡 | `SETUP_SURFACE_IDS` (const tuple) + `SurfaceId` type + `SURFACE_DISPLAY_NAME` record, `setup.ts:~1748` | The spec said "`Surface[]` registry of `{ id, displayName, install }`"; #156 implemented the simpler **ID tuple + display-name record + `installSurface` switch**. Adding an agent = one ID + one `switch` case. Equivalent extensibility, less ceremony. |
+| 🗑️ | `SurfaceMode = 'on' \| 'off' \| 'auto'` type | Removed — detection gating is gone; default installs all. |
+| 🆕 | `resolveSurfaces(): Set<SurfaceId>` | Parses `--surfaces`; `undefined` → all; `all` alias expands; unknown ID throws `CLIError('Unknown surface …')`. (My map predicted `parseSurfaces`; shipped name is `resolveSurfaces`.) |
+| 🆕 | `installSurface(id, cwd): Promise<AutoSetupResult>` | `switch` dispatch over the four IDs. |
+| 🆕 | `installPortableSurface` / `installClaudeSurface` / `installAgentsMdSurface` / `installCodexSurface` | One installer per surface; each captures errors into `result.error` (CLIError format-guard still re-thrown as a hard stop). |
+| ♻️ | `resolveTargeting()` (was `setup.ts:1993-2013`) | Replaced by `resolveSurfaces()`. |
+| ♻️ | `setupClaudeIfDetected()` (was `:2015-2075`) | Became `installClaudeSurface()`; `~/.claude` / `CLAUDE_*` detection gate dropped. |
+| ♻️ | `setupCodexIfDetected()` (was `:2077-2128`) | Split into `installAgentsMdSurface()` + `installCodexSurface()`; `CODEX_*` detection gate dropped. |
+| ♻️ | `SetupAutoHandler.run()` loop (`:1852-1926`) | Now `for (const id of SETUP_SURFACE_IDS) if (selected.has(id)) results.push(await installSurface(...))`. Reporting changed from "Not detected (skipped)" to "Skipped (not in --surfaces)" + a `failed` section. |
+| 🗑️ | Flags `--all` / `--claude` / `--codex` / `--skip-claude` / `--skip-codex` (`:2140-2144`) | All five removed. |
+| 🆕 | Flag `--surfaces <list>` | `portable, agents-md, claude, codex (or "all"). Default: all`. |
+| ✅ | Setup help/epilog (`:2161-2184`) | Rewritten: per-agent flag lines replaced with the `--surfaces` line. |
+| 🗑️ | `GLOBAL_CLAUDE_DIR` import | Dropped (detection removed). |
 
-### `src/lib/integration-paths.ts` ✅
+### `src/cli/commands/setup.ts` — `SetupCodexHandler`
 
-| Badge | Symbol | Note |
+| Badge | Symbol | As-built |
 | --- | --- | --- |
-| ✅ | `getAgentSkillPaths()` `:202-211`; `AGENTS_SKILL_REL` `:87`; `CLAUDE_SKILL_REL` `:62`; `AGENTS_MD_REL` `:102`; `getCodexPaths()` `:218-227` | Already provide every path the four registry entries need. No change for this bead. |
+| 🆕 | `runAgentsMdOnly()` | Installs only the `AGENTS.md` managed block. |
+| 🆕 | `runCodexHooksOnly()` | Installs only `.codex/hooks.json` + scripts. Lets the two surfaces install independently. |
 
-## Workstream B — `tbd-orup`: shared scripts / Codex decoupling
+### `src/lib/integration-paths.ts`
 
-Wire the dead `scripts/agent/` constants into both agents' hook configs, **or** delete
-them deliberately. Either way, Codex hooks must never reference `.claude/`.
-
-### `src/lib/integration-paths.ts` ❓✏️
-
-| Badge | Symbol / Location | Action |
+| Badge | Symbol | As-built |
 | --- | --- | --- |
-| ❓ | `AGENT_SCRIPTS_DIR_REL` `:127`, `SHARED_SESSION_SCRIPT_REL` `:132`, `SHARED_CLOSING_REMINDER_REL` `:137`, `SHARED_GH_CLI_SCRIPT_REL` `:142`, `getSharedScriptPaths()` `:234-245` | **Currently exported but referenced by nothing.** Decision: (a) wire them in (below), or (b) `🗑️` delete them and keep per-agent copies. The spec leaves this open — pick one before coding. |
-| ✅ | `CLAUDE_SCRIPTS_DIR_REL` `:51`, `CLAUDE_SETTINGS_REL` `:41`, `CODEX_HOOKS_REL` `:112` | Reference paths for the wiring. |
+| ✅ | `getAgentSkillPaths()`, `getClaudePaths()`, `getCodexPaths()`, `AGENTS_SKILL_REL`, `CLAUDE_SKILL_REL`, `AGENTS_MD_REL` | Reused unchanged by the four installers. |
 
-### `src/cli/commands/setup.ts` ✏️
+## Workstream B — `tbd-orup`: Codex / shared-script decoupling ✅
 
-| Badge | Symbol / Location | Action |
+Resolved by **deletion**, not wiring. The dead `scripts/agent/` constants were removed;
+tbd keeps per-agent script copies (`.claude/scripts/`, `.codex/`). The load-bearing
+requirement — Codex hooks never reference `.claude/` — holds, and
+`cli-agent-skill-patterns §6.6` treats per-agent copies as a valid alternative.
+
+### `src/lib/integration-paths.ts`
+
+| Badge | Symbol | As-built |
 | --- | --- | --- |
-| ✏️ | `getCodexHooksConfig()` — `setup.ts:420-447` | If wiring shared scripts: point Codex hook commands at `scripts/agent/*` (or `.codex/`-local), **never** `.claude/scripts/`. Verify no `.claude/` path leaks into `.codex/hooks.json`. |
-| ✏️ | `installCodexHooks()` — call site `setup.ts:1015` | Ensure the scripts it writes/links live in the chosen neutral location. |
-| ✏️ | Claude hook command generation (`TBD_SESSION_SCRIPT` template `setup.ts:267,272`; `.claude/settings.json` writer) | If scripts move out of `.claude/scripts/`, update tbd-owned Claude hook commands (or leave a wrapper) so existing Claude installs keep working. |
+| 🗑️ | `AGENT_SCRIPTS_DIR_REL`, `SHARED_SESSION_SCRIPT_REL`, `SHARED_CLOSING_REMINDER_REL`, `SHARED_GH_CLI_SCRIPT_REL`, `getSharedScriptPaths()` | Removed (were exported but referenced nowhere); replaced by an explanatory comment block. |
+| ✅ | `getCodexHooksConfig()` (`setup.ts:420-447`) | Unchanged — already writes Codex-local paths, never `.claude/`. |
 
-## Workstream C — `tbd-shsb`: pin install hints to running version
+## Workstream C — `tbd-shsb`: install-hint pinning audit ✅
 
-Switch agent-facing `@latest` hints to the running version. Spec names the constant
-`PINNED_NPM_VERSION`; **the code has no such constant** — see ❓ below.
+Resolved as a **no-op with a spec correction**. An audit confirmed every remaining
+`@latest` usage is either a forward-compatibility "requires a newer tbd" error
+(`doctor.ts:451`, `doctor.ts:1096`, `setup.ts:194`, `tbd-format.ts:394`) or the
+first-install bootstrap one-liner (`output.ts:132`) — all of which *should* fetch the
+newest release. The session script is already pinned via `get-tbd@${VERSION}`. My map's
+analysis (#159) flagged exactly these as forward-compat exceptions; #156 confirmed it.
 
-| Badge | File:Location | Symbol | Action |
+| Badge | Location | As-built |
+| --- | --- | --- |
+| ✅ | `output.ts:132`, `setup.ts:194`, `doctor.ts:451/1096`, `tbd-format.ts:394` | No change — intentionally remain `@latest`. |
+| ✅ | `setup.ts:267,272` (`TBD_SESSION_SCRIPT`) | Already version-pinned. |
+| 💡 | `PINNED_NPM_VERSION` | The spec names this constant; the codebase exports `VERSION` (`version.ts:40`) and #156 did not rename. Spec wording vs. code symbol mismatch remains — cosmetic, not load-bearing. |
+
+## Workstream D — `tbd-l2ym`: diagnostics surface labels ✅
+
+The `AGENTS.md` surface is now read by many agents, not just Codex, so the diagnostic
+label drops the `Codex` prefix.
+
+| Badge | File:Location | Symbol | As-built |
 | --- | --- | --- | --- |
-| ❓ | `src/cli/lib/version.ts:40` | `VERSION` (no `PINNED_NPM_VERSION` exists) | The spec/PR reference `PINNED_NPM_VERSION`; the actual export is `VERSION` (from `getVersion()` `:20-35`). Decide: rename/alias `VERSION → PINNED_NPM_VERSION`, or treat the spec name as the existing `VERSION`. |
-| ✏️ | `src/cli/lib/output.ts:132` | `createHelpEpilog()` `:125-141` | Change `get-tbd@latest` → `get-tbd@${VERSION}`. |
-| ❓ | `src/cli/commands/setup.ts:194` | `assertNotNewerFormat()` `:188-197` | PR lists this as a hint to pin — **but it is the forward-compat "format is newer" upgrade error**, structurally identical to the `tbd-format.ts` exception that the spec says should *stay* `@latest`. Confirm intent before changing; likely it should remain `@latest`. |
-| ✅ | `src/cli/commands/setup.ts:267,272` | `TBD_SESSION_SCRIPT` template | Already pinned via `get-tbd@${VERSION}`. No change. |
-| ❓ | `src/cli/commands/doctor.ts:451,1096` | `checkConfig()` / `checkCommonDirLayout()` | Both `@latest` hints fire on `IncompatibleFormat` (on-disk format newer than client) — again the forward-compat case. Confirm whether these are "pin" targets or fall under the upgrade-error exception. |
-| ✅ | `src/lib/tbd-format.ts:394` | `formatUpgradeMessage()` `:385-396` | The spec's **sole intentional `@latest` exception** — leave unchanged. |
+| ✅ | `doctor.ts:910-928` | `checkCodexAgents()` | Label `Codex AGENTS.md` → `AGENTS.md` (3 occurrences). |
+| ✅ | `status.ts:344` | `StatusHandler` integrations | Same relabel. |
+| ✅ | `doctor.ts:859-905` | `checkPortableSkill` / `checkClaudeSkill` / `checkCodexHooks` | Unchanged — already per-surface. |
 
-## Workstream D — `tbd-l2ym`: diagnostics report the four surfaces
+## Workstream E — Tests & Goldens ✅🧪
 
-### `src/cli/commands/doctor.ts` ✏️
-
-| Badge | Symbol / Location | Action |
+| Badge | File | As-built |
 | --- | --- | --- |
-| ✅ | `checkPortableSkill()` `:859-873`, `checkClaudeSkill()` `:875-889`, `checkCodexAgents()` `:907-931`, `checkCodexHooks()` `:891-905` | Already cover the four surfaces. |
-| ✏️ | INTEGRATIONS render — `DoctorHandler.run()` `:281-283` | Report by the canonical surface IDs (`portable`, `agents-md`, `claude`, `codex`) so doctor output matches `--surfaces` vocabulary. |
-| ✏️ | `status` command (separate file) | Mirror the four-surface, ID-keyed reporting. |
+| 🧪 | `tests/setup-flows.test.ts` | `agent-targeting flags` block replaced by `--surfaces selector`: default installs all four; `--surfaces=codex` only Codex; `--surfaces=agents-md,portable` only those two; unknown ID errors. |
+| 🧪 | `tests/cli-setup-commands.tryscript.md` | Help golden re-written for `--surfaces` (option column re-wrapped). |
+| 🧪 | `tests/cli-beads.tryscript.md` | `--from-beads` grep updated for the re-wrapped option column. |
+| 🧪 | `tests/cli-orientation-golden.tryscript.md` | `Codex AGENTS.md` → `AGENTS.md` in INTEGRATIONS output. |
+| 🧪 | `tests/gitignore-policy.test.ts` | Dropped the never-written `scripts/agent/tbd-session.sh` from the must-be-tracked list. |
 
-## Workstream E — Tests & Goldens 🧪
+## Surface Registry (as built)
 
-| Badge | File | Action |
+| ID | Writes | Installer |
 | --- | --- | --- |
-| 🧪 | `tests/cli-setup-commands.tryscript.md` (`:34-50`) | Replace the `--all/--claude/--codex/--skip-*` assertions with `--surfaces` help text + ID list. |
-| 🧪 | `tests/setup-flows.test.ts` | Add cases: default installs all four surfaces; `--surfaces=portable,agents-md` installs only those; unknown ID errors; `agents-md` installs without Codex hooks and vice versa; idempotent re-run dedupes hooks. |
-| 🧪 | `tests/cli-setup.tryscript.md` | Refresh setup golden text for new flag/help shape. |
-| 🧪 | `tests/cli-help-all.tryscript.md` | Refresh — `--surfaces` must appear; removed flags must not. |
-| 🧪 | `tests/integration-files.test.ts` (`:60-79`) | Drift test for `skills/tbd/SKILL.md` ↔ `dist/docs/SKILL.md` — keep green (run `pnpm build` after any payload change). |
-| 🧪 | `tests/common-dir-layout-doctor.test.ts`, `doctor-sync.test.ts` | Update doctor goldens to the ID-keyed surface reporting. |
-
-## Surface Registry (target shape)
-
-| ID | Writes | Owner |
-| --- | --- | --- |
-| `portable` | `.agents/skills/tbd/SKILL.md` | tbd generated |
-| `agents-md` | `AGENTS.md` managed block (`<!-- BEGIN/END TBD INTEGRATION -->`) | hybrid |
-| `claude` | `.claude/skills/tbd/SKILL.md` mirror + `.claude/settings.json` hooks | tbd generated |
-| `codex` | `.codex/hooks.json` + `.codex/` lifecycle scripts | tbd generated |
+| `portable` | `.agents/skills/tbd/SKILL.md` | `installPortableSurface` |
+| `agents-md` | `AGENTS.md` managed block | `installAgentsMdSurface` → `runAgentsMdOnly` |
+| `claude` | `.claude/skills/tbd/SKILL.md` + `.claude/settings.json` hooks | `installClaudeSurface` |
+| `codex` | `.codex/hooks.json` + `.codex/` scripts | `installCodexSurface` → `runCodexHooksOnly` |
 
 `skills/tbd/SKILL.md` (repo-root distribution copy) is **not** a `--surfaces` value — it
-is a publication artifact guarded by the drift test, never written into consumer repos.
+is a publication artifact guarded by the `integration-files.test.ts` drift test.
 
-## Open Decisions (resolve before coding) ❓
+## Resolved Decisions
 
-1. **`tbd-orup` shared scripts** — wire `scripts/agent/*` into both configs, or delete
-   the dead constants and keep per-agent copies? (`integration-paths.ts:127-142`)
-2. **`PINNED_NPM_VERSION` naming** — the spec/PR name a constant that does not exist;
-   the live export is `VERSION` (`version.ts:40`). Rename/alias or treat as `VERSION`.
-3. **Forward-compat `@latest` hints** — `setup.ts:194`, `doctor.ts:451`, `doctor.ts:1096`
-   are all forward-compat upgrade errors, the same category the spec explicitly *exempts*
-   in `tbd-format.ts`. Confirm whether they are pin targets or exceptions before editing.
+The three questions this map raised against the locked design were all settled by
+PR #156's implementation:
+
+1. **`tbd-orup` shared scripts** → **Deleted** the dead `scripts/agent/` constants; kept
+   per-agent copies. Codex hooks never reference `.claude/`.
+2. **`PINNED_NPM_VERSION` naming** → No constant added; code keeps `VERSION`. Spec
+   wording is the only place the longer name appears (cosmetic).
+3. **Forward-compat `@latest` hints** → Audited and **left as `@latest`** on purpose;
+   only the self-reproducing session script is pinned. Matches this map's original call.
 
 ## References
 
 - Spec: [`plan-2026-05-24-multi-agent-skills-hooks-setup.md`](../../specs/active/plan-2026-05-24-multi-agent-skills-hooks-setup.md)
-- PR #156: https://github.com/jlevy/tbd/pull/156
+- PR #156 (implementation): https://github.com/jlevy/tbd/pull/156
+- PR #159 (this map): https://github.com/jlevy/tbd/pull/159
 - Beads: `tbd-zd4h`, `tbd-orup`, `tbd-shsb`, `tbd-l2ym` (epic `tbd-g9x7`)
 
 <!-- This document follows common-doc-guidelines.md.
