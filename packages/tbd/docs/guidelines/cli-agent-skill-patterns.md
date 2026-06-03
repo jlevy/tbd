@@ -1102,9 +1102,9 @@ The landscape worth targeting:
     Submit through the in-app form / `clau.de/plugin-directory-submission` and let the
     scan and approval run (the in-app forms feed the *community* marketplace, never the
     official one). This is the channel that buys **trust and discoverability inside
-    Claude Code**: from Claude Code v2.1.143+ the `/plugin` install view shows a
-    **Context cost** estimate (per-turn token cost), a **Last updated** date, and a
-    **Will install** breakdown (commands, agents, skills, hooks, MCP/LSP) before the
+    Claude Code**: current `/plugin` install views show a **Context cost** estimate
+    (per-turn token cost; v2.1.143+), a **Last updated** date (v2.1.144+), and a **Will
+    install** breakdown (commands, agents, skills, hooks, MCP/LSP; v2.1.145+) before the
     user commits—best-in-class informed consent.
     Worth it for a tool you want broadly adopted; still optional, since a repo-local
     skill loads with none of it.
