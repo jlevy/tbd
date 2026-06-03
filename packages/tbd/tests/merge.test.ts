@@ -247,6 +247,40 @@ describe('mergeIssues', () => {
       expect(sharedCount).toBe(1);
       expect(result.merged.child_order_hints).toContain('is-childB');
     });
+
+    it('does not throw when one side cleared the hints to null', () => {
+      // `tbd update --child-order ""` writes null. A concurrent clear vs. append
+      // must merge cleanly (union ignores deletions), not throw on null. (#155 review)
+      const base = makeIssue({ child_order_hints: ['is-common'] });
+      const local = makeIssue({
+        child_order_hints: null,
+        version: 2,
+        updated_at: '2025-01-02T00:00:00Z',
+      });
+      const remote = makeIssue({
+        child_order_hints: ['is-common', 'is-childB'],
+        version: 2,
+        updated_at: '2025-01-03T00:00:00Z',
+      });
+
+      const result = mergeIssues(base, local, remote);
+
+      expect(result.merged.child_order_hints).toEqual(['is-common', 'is-childB']);
+    });
+
+    it('does not throw when one side has undefined (legacy missing) hints', () => {
+      const base = makeIssue({ child_order_hints: ['is-common'] });
+      const local = makeIssue({ child_order_hints: undefined, version: 2 });
+      const remote = makeIssue({
+        child_order_hints: ['is-common', 'is-childB'],
+        version: 2,
+        updated_at: '2025-01-03T00:00:00Z',
+      });
+
+      const result = mergeIssues(base, local, remote);
+
+      expect(result.merged.child_order_hints).toEqual(['is-common', 'is-childB']);
+    });
   });
 
   describe('Max strategy (version)', () => {

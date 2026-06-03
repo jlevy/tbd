@@ -646,10 +646,12 @@ export function mergeIssues(base: Issue | null, local: Issue, remote: Issue): Me
       }
 
       case 'union':
-        // Combine arrays and deduplicate
+        // Combine arrays and deduplicate. Coerce non-array values (null /
+        // undefined) to []: union fields like child_order_hints are nullable
+        // (a cleared list is null), and union ignores deletions. See #155.
         (merged as Record<string, unknown>)[key] = unionArrays(
-          localVal as unknown[],
-          remoteVal as unknown[],
+          (Array.isArray(localVal) ? localVal : []) as unknown[],
+          (Array.isArray(remoteVal) ? remoteVal : []) as unknown[],
         );
         break;
 
