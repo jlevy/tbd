@@ -6,7 +6,7 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { mkdir, rm, writeFile } from 'node:fs/promises';
+import { mkdir, rm, readFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir, platform } from 'node:os';
 import { randomBytes } from 'node:crypto';
@@ -152,5 +152,71 @@ describeUnlessWindows('mergeBeadAcrossRefs', () => {
     const result = await mergeBeadAcrossRefs(repo, id, 'ours', 'theirs');
 
     expect(result).not.toBeNull();
+  });
+
+  // End-to-end of the pull-path resolution as sync drives it: a real `git merge`
+  // leaves conflict markers in the bead, then the structured resolution turns it
+  // into a clean union with no markers. Reproduces issue #155.
+  it('resolves a real git merge conflict on an epic into a clean union', async () => {
+    const id = EPIC;
+    await commitBead(
+      createTestIssue({ id, title: 'Epic', kind: 'epic', child_order_hints: [COMMON] }),
+      'base',
+    );
+
+    await git('checkout', '-b', 'ours');
+    await commitBead(
+      createTestIssue({
+        id,
+        title: 'Epic',
+        kind: 'epic',
+        version: 2,
+        child_order_hints: [COMMON, CHILD_A],
+        updated_at: '2025-01-02T00:00:00Z',
+      }),
+      'ours appends A',
+    );
+
+    await git('checkout', 'main');
+    await git('checkout', '-b', 'theirs');
+    await commitBead(
+      createTestIssue({
+        id,
+        title: 'Epic',
+        kind: 'epic',
+        version: 2,
+        child_order_hints: [COMMON, CHILD_B],
+        updated_at: '2025-01-03T00:00:00Z',
+      }),
+      'theirs appends B',
+    );
+
+    // A real git merge produces a textual conflict (markers written to disk).
+    await git('checkout', 'ours');
+    let conflicted = false;
+    try {
+      await git('merge', 'theirs');
+    } catch {
+      conflicted = true;
+    }
+    expect(conflicted).toBe(true);
+
+    // Sync enumerates conflicted beads exactly this way.
+    const { stdout: diff } = await git('diff', '--name-only', '--diff-filter=U');
+    expect(diff).toContain(`${id}.md`);
+
+    // Resolve with the mid-merge refs, write clean YAML, and complete the merge.
+    const result = await mergeBeadAcrossRefs(repo, id, 'HEAD', 'MERGE_HEAD');
+    expect(result).not.toBeNull();
+    const beadPath = join(repo, DATA_SYNC_DIR, 'issues', `${id}.md`);
+    await writeFile(beadPath, serializeIssue(result!.merged));
+    await git('add', '-A');
+    await git('commit', '--no-edit');
+
+    const finalText = await readFile(beadPath, 'utf-8');
+    expect(finalText).not.toContain('<<<<<<<');
+    expect(finalText).not.toContain('>>>>>>>');
+    expect(result!.merged.child_order_hints).toEqual([COMMON, CHILD_A, CHILD_B]);
+    expect(result!.merged.version).toBe(3);
   });
 });
