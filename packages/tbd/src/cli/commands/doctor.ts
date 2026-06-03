@@ -91,6 +91,35 @@ export function classifyRemoteSyncHealth(
   }
   return { name: 'Remote sync branch', status: 'ok', message: `${remote}/${syncBranch}` };
 }
+
+/**
+ * The "Sync consistency" finding for a branch that is both ahead and behind.
+ *
+ * When the histories are unrelated, the remediation is the rescue
+ * (`tbd doctor --fix`), NOT `tbd sync` — otherwise the unrelated-history error
+ * (which says "run doctor --fix") and this warning (which would say "run sync")
+ * point at each other in a loop with no terminating instruction. See #158.
+ */
+export function divergenceFinding(
+  ahead: number,
+  behind: number,
+  unrelated: boolean,
+): DiagnosticResult {
+  if (unrelated) {
+    return {
+      name: 'Sync consistency',
+      status: 'warn',
+      message: `diverged (${ahead} ahead, ${behind} behind) — unrelated histories`,
+      suggestion: 'Run: tbd doctor --fix to reconcile the unrelated histories',
+    };
+  }
+  return {
+    name: 'Sync consistency',
+    status: 'warn',
+    message: `diverged (${ahead} ahead, ${behind} behind)`,
+    suggestion: 'Run: tbd sync to reconcile',
+  };
+}
 import { formatHeading } from '../lib/output.js';
 import {
   renderRepositorySection,
@@ -1492,12 +1521,11 @@ class DoctorHandler extends BaseCommand {
 
       // Check ahead/behind status
       if (consistency.localAhead > 0 && consistency.localBehind > 0) {
-        return {
-          name: 'Sync consistency',
-          status: 'warn',
-          message: `diverged (${consistency.localAhead} ahead, ${consistency.localBehind} behind)`,
-          suggestion: 'Run: tbd sync to reconcile',
-        };
+        // Unrelated histories are always "diverged" (no common ancestor), but
+        // their remediation is the rescue — suggesting `tbd sync` here forms a
+        // loop with the unrelated-history error. Defer to doctor --fix. (#158)
+        const { unrelated } = await checkRemoteBranchHealth(remote, syncBranch, this.cwd);
+        return divergenceFinding(consistency.localAhead, consistency.localBehind, unrelated);
       }
 
       if (consistency.localAhead > 0) {
