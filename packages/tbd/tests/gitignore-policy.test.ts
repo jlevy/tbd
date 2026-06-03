@@ -2,10 +2,10 @@
  * Guards the gitignore policy for agent integration files.
  *
  * Generated integration artifacts that travel with the repository (the portable
- * Agent Skill, the Claude mirror, AGENTS.md, Codex hooks, shared scripts, and
- * the distribution skill) must NOT be gitignored, or `tbd setup`'s dogfooded
- * output would silently fail to be committed. Only regenerable caches may be
- * ignored.
+ * Agent Skill, the Claude mirror, AGENTS.md, Codex hooks and their per-agent
+ * scripts, and the distribution skill) must NOT be gitignored, or `tbd setup`'s
+ * dogfooded output would silently fail to be committed. Only regenerable caches
+ * may be ignored.
  */
 
 import { describe, it, expect } from 'vitest';
@@ -29,7 +29,6 @@ describe('gitignore policy for agent integration files', () => {
       'AGENTS.md',
       '.codex/hooks.json',
       '.codex/tbd-session.sh',
-      'scripts/agent/tbd-session.sh',
       'skills/tbd/SKILL.md',
     ];
     for (const path of mustBeTracked) {

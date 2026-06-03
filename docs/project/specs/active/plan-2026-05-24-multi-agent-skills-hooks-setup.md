@@ -10,12 +10,15 @@ author: Joshua Levy (github.com/jlevy) with LLM assistance
 **Author:** Joshua Levy (github.com/jlevy) with LLM assistance
 
 **Status:** In progress (epic `tbd-g9x7` open).
-Partially landed: the path-model refactor (`tbd-0fhy`, closed) and an initial
-Codex/`AGENTS.md` surface.
-Still open: agent-targeting flags (`tbd-zd4h`), Codex and gh-CLI shared-script parity
-(`tbd-orup`), and pinned-runner fallbacks (`tbd-shsb`). The neutral `scripts/agent/`
-shared-script constants exist in `integration-paths.ts` but are **not yet wired up** —
-hooks still reference per-agent copies under `.claude/scripts/` and `.codex/`.
+Landed via PR #156 (2026-06-02): the `--surfaces=<comma-list>` selector and surface
+registry (`tbd-zd4h`); the `agents-md`/`codex` surface split; Codex/gh-CLI decoupling
+(`tbd-orup`); and `status`/`doctor` surface labels (`tbd-l2ym`). Earlier: the path-model
+refactor (`tbd-0fhy`). On `tbd-orup`, tbd uses **per-agent script copies**
+(`.claude/scripts/` for Claude, `.codex/` for Codex) rather than a shared
+`scripts/agent/` copy; the unused `scripts/agent/` constants were removed.
+This keeps each surface self-contained — Codex hooks never reference `.claude/` — which
+is the load-bearing requirement (the guideline treats per-agent copies as a valid
+alternative to a shared neutral script).
 
 **Revised 2026-06-02:** the agent-targeting design changed from per-agent flags
 (`--claude`/`--codex`/`--cursor`/`--agents-md`/`--all`) to a single
@@ -326,17 +329,18 @@ fallback appropriate to the package manager:
 3. If neither local nor pinned fallback works, stop and tell the user what install step
    is required.
 
-**Pin to the running version, not `@latest` (revised 2026-06-02).** Every version
-stamped into a generated artifact or printed as an agent-facing install hint must be the
-currently running tbd version (`PINNED_NPM_VERSION`, the clean published semver from
-`version.ts`), not `@latest`. The generated session script already does this; the
-remaining `@latest` install hints in `output.ts`, `setup.ts`, and `doctor.ts` should
-switch to `get-tbd@${PINNED_NPM_VERSION}` so a team and its agents all reinstall the
-same version they are currently using.
-The **sole** intentional exception is the forward-compatibility upgrade error in
-`tbd-format.ts`: when an artifact’s format is newer than the running tbd understands, it
-tells the user to `npm install -g get-tbd@latest` because the whole point there is to
-fetch a newer release.
+**Pin reproducing invocations to the running version; keep upgrade/bootstrap hints on
+`@latest` (revised 2026-06-02).** A version printed so the tool re-runs *itself* must be
+the currently running tbd version (`PINNED_NPM_VERSION`, the clean published semver from
+`version.ts`), so a team and its agents all reproduce the same version.
+The generated session script (`.codex/tbd-session.sh`, `.claude/scripts/tbd-session.sh`)
+already does this via `npx --yes get-tbd@${PINNED_NPM_VERSION}`. An audit (2026-06-02,
+`tbd-shsb`) confirmed the remaining `@latest` usages are **all correct as-is** and must
+**not** be pinned: the forward-compatibility “requires a newer tbd” errors in
+`doctor.ts`, `setup.ts`, and `tbd-format.ts` exist precisely to fetch a newer release,
+and the first-install bootstrap one-liner in `output.ts` (Getting Started) is for a user
+who has no tbd yet. Pinning any of these to the running version would be a bug.
+So no code change is needed here beyond the already-pinned session script.
 
 Never recommend an unpinned network runner from generated agent instructions unless the
 user explicitly opts into that behavior.
@@ -576,13 +580,16 @@ Revised 2026-06-02:
   and the bespoke `setupClaudeIfDetected`/`setupCodexIfDetected` methods with a
   `Surface[]` registry the run loop iterates; adding an agent becomes one descriptor.
   (`tbd-zd4h`, `tbd-0fhy`)
-- **Wire up the neutral shared scripts** — the `scripts/agent/` constants in
-  `integration-paths.ts` are currently dead; complete `tbd-orup` by referencing them
-  from both `.claude/settings.json` and `.codex/hooks.json` (or drop them if per-agent
-  copies are kept deliberately).
-  Either way, Codex hooks must never reference `.claude/`. (`tbd-orup`)
-- **Pin agent-facing install hints to the running version** (`PINNED_NPM_VERSION`), not
-  `@latest`, except the forward-compatibility upgrade error.
+- **Per-agent script copies, not a shared neutral copy** — the `scripts/agent/`
+  constants in `integration-paths.ts` were dead code and have been **removed**. tbd
+  keeps per-agent copies (`.claude/scripts/` for Claude, `.codex/` for Codex); each
+  surface is self-contained and Codex hooks never reference `.claude/`. The guideline
+  treats this as a valid alternative to a shared neutral script.
+  (`tbd-orup`)
+- **Version pinning is already correct; no change needed** — the session script pins to
+  `PINNED_NPM_VERSION`; the remaining `@latest` usages are forward-compatibility upgrade
+  errors or the first-install bootstrap, all of which legitimately want the newest
+  release and must not be pinned.
   (`tbd-shsb`)
 
 ## Self-Upgrade and Forward-Compatibility (Tier-2 behavior)

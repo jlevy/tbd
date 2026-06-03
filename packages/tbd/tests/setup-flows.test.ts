@@ -287,50 +287,51 @@ describe('setup flows', { timeout: isWindows ? 60000 : 15000 }, () => {
     });
   });
 
-  describe('agent-targeting flags', () => {
-    it('--codex installs only the Codex surface and skips Claude', async () => {
+  describe('--surfaces selector', () => {
+    it('default (no --surfaces) installs all four surfaces', async () => {
       initGitRepo();
 
-      // Harness sets CLAUDE_CODE=1, but --codex targets Codex explicitly, so the
-      // Claude surface must be suppressed.
-      const result = runTbd(['setup', '--auto', '--prefix=test', '--codex']);
+      const result = runTbd(['setup', '--auto', '--prefix=test']);
       expect(result.status).toBe(0);
 
-      // Codex surface present.
-      await access(join(tempDir, 'AGENTS.md'));
-      await access(join(tempDir, '.codex/hooks.json'));
-      // Portable skill is always installed.
       await access(join(tempDir, '.agents/skills/tbd/SKILL.md'));
-      // Claude surface suppressed.
+      await access(join(tempDir, 'AGENTS.md'));
+      await access(join(tempDir, '.claude/settings.json'));
+      await access(join(tempDir, '.codex/hooks.json'));
+    });
+
+    it('--surfaces=codex installs only the Codex hooks surface', async () => {
+      initGitRepo();
+
+      const result = runTbd(['setup', '--auto', '--prefix=test', '--surfaces=codex']);
+      expect(result.status).toBe(0);
+
+      // Codex hooks present; every other surface suppressed.
+      await access(join(tempDir, '.codex/hooks.json'));
+      await expect(access(join(tempDir, 'AGENTS.md'))).rejects.toThrow();
+      await expect(access(join(tempDir, '.claude/settings.json'))).rejects.toThrow();
+      await expect(access(join(tempDir, '.agents/skills/tbd/SKILL.md'))).rejects.toThrow();
+    });
+
+    it('--surfaces=agents-md,portable installs only those two (codex hooks split off)', async () => {
+      initGitRepo();
+
+      const result = runTbd(['setup', '--auto', '--prefix=test', '--surfaces=agents-md,portable']);
+      expect(result.status).toBe(0);
+
+      await access(join(tempDir, 'AGENTS.md'));
+      await access(join(tempDir, '.agents/skills/tbd/SKILL.md'));
+      // agents-md is independent of the codex hooks surface.
+      await expect(access(join(tempDir, '.codex/hooks.json'))).rejects.toThrow();
       await expect(access(join(tempDir, '.claude/settings.json'))).rejects.toThrow();
     });
 
-    it('--skip-codex suppresses Codex even when CODEX_HOME is set', async () => {
+    it('rejects an unknown surface id', () => {
       initGitRepo();
 
-      const result = runTbd(['setup', '--auto', '--prefix=test', '--skip-codex'], tempDir, {
-        CODEX_HOME: tempDir,
-      });
-      expect(result.status).toBe(0);
-
-      await expect(access(join(tempDir, '.codex/hooks.json'))).rejects.toThrow();
-    });
-  });
-
-  describe('portable skill without Claude detection', () => {
-    it('writes .agents/skills even when no Claude signals are present', async () => {
-      initGitRepo();
-
-      // Clear Claude/Codex detection signals so only the unconditional portable
-      // skill install runs.
-      const result = runTbd(['setup', '--auto', '--prefix=test'], tempDir, {
-        CLAUDE_CODE: '',
-        HOME: tempDir,
-        USERPROFILE: tempDir,
-      });
-      expect(result.status).toBe(0);
-
-      await access(join(tempDir, '.agents/skills/tbd/SKILL.md'));
+      const result = runTbd(['setup', '--auto', '--prefix=test', '--surfaces=bogus']);
+      expect(result.status).not.toBe(0);
+      expect(result.stderr + result.stdout).toContain('Unknown surface');
     });
   });
 

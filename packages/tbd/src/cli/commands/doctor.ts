@@ -910,10 +910,10 @@ class DoctorHandler extends BaseCommand {
       await access(agentsPath);
       const content = await readFile(agentsPath, 'utf-8');
       if (content.includes('BEGIN TBD INTEGRATION')) {
-        return { name: 'Codex AGENTS.md', status: 'ok', path: AGENTS_MD_REL };
+        return { name: 'AGENTS.md', status: 'ok', path: AGENTS_MD_REL };
       }
       return {
-        name: 'Codex AGENTS.md',
+        name: 'AGENTS.md',
         status: 'warn',
         message: 'exists but missing tbd integration',
         path: AGENTS_MD_REL,
@@ -921,7 +921,7 @@ class DoctorHandler extends BaseCommand {
       };
     } catch {
       return {
-        name: 'Codex AGENTS.md',
+        name: 'AGENTS.md',
         status: 'warn',
         message: 'not installed',
         path: AGENTS_MD_REL,

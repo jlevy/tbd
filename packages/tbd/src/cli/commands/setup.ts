@@ -59,7 +59,6 @@ import {
   getCodexPaths,
   AGENTS_SKILL_DISPLAY,
   AGENT_INTEGRATION_FORMAT,
-  GLOBAL_CLAUDE_DIR,
 } from '../../lib/integration-paths.js';
 import { initWorktree, isInGitRepo, findGitRoot, checkWorktreeHealth } from '../../file/git.js';
 import { DocCache, generateShortcutDirectory } from '../../file/doc-cache.js';
@@ -952,6 +951,18 @@ class SetupCodexHandler extends BaseCommand {
     await this.installCodexHooks(cwd);
   }
 
+  /** Install only the AGENTS.md managed block (the `agents-md` surface). */
+  async runAgentsMdOnly(): Promise<void> {
+    const cwd = this.projectDir ?? process.cwd();
+    await this.installCodexSection(join(cwd, 'AGENTS.md'));
+  }
+
+  /** Install only the Codex lifecycle hooks (the `codex` surface). */
+  async runCodexHooksOnly(): Promise<void> {
+    const cwd = this.projectDir ?? process.cwd();
+    await this.installCodexHooks(cwd);
+  }
+
   /**
    * Read the use_gh_cli setting; defaults to true (so fresh setup installs it).
    */
@@ -1734,10 +1745,19 @@ interface AutoSetupResult {
 }
 
 /**
- * How a given agent surface should be handled by setup: forced on, forced off,
- * or detection-based (the default when no targeting flag is given).
+ * Agent integration surfaces that `tbd setup` can install, in install/report
+ * order. Each is selectable via `--surfaces=<comma-list>`; with the flag omitted,
+ * all are installed. Adding an agent is one entry here plus a case in
+ * `installSurface` — there is no per-agent flag to add.
  */
-type SurfaceMode = 'on' | 'off' | 'auto';
+const SETUP_SURFACE_IDS = ['portable', 'agents-md', 'claude', 'codex'] as const;
+type SurfaceId = (typeof SETUP_SURFACE_IDS)[number];
+const SURFACE_DISPLAY_NAME: Record<SurfaceId, string> = {
+  portable: 'Portable Agent Skill',
+  'agents-md': 'AGENTS.md',
+  claude: 'Claude Code',
+  codex: 'Codex hooks',
+};
 
 class SetupAutoHandler extends BaseCommand {
   private cmd: Command;
@@ -1874,25 +1894,23 @@ class SetupAutoHandler extends BaseCommand {
     // Sync docs using DocSync
     await this.syncDocs(cwd);
 
-    const targeting = this.resolveTargeting();
-
-    // Install the portable Agent Skill unconditionally. It is project-local and
-    // harmless, and is what makes the skill discoverable by Codex, Gemini CLI,
-    // Cursor, and other Agent Skills clients regardless of which agent is detected.
-    await this.installPortableSkill(cwd);
-
-    // Set up Claude Code (forced/skipped/auto per targeting)
-    const claudeResult = await this.setupClaudeIfDetected(cwd, targeting.claude);
-    results.push(claudeResult);
-
-    // Set up Codex/AGENTS.md (also used by Cursor since v1.6)
-    const codexResult = await this.setupCodexIfDetected(cwd, targeting.codex);
-    results.push(codexResult);
+    // Install the selected surfaces. With no --surfaces flag, all are installed;
+    // there is no detection gating — project-local integration files are cheap
+    // and harmless, and installing them all is what makes the skill portable.
+    const selected = this.resolveSurfaces();
+    const skippedSurfaces: string[] = [];
+    for (const id of SETUP_SURFACE_IDS) {
+      if (!selected.has(id)) {
+        skippedSurfaces.push(SURFACE_DISPLAY_NAME[id]);
+        continue;
+      }
+      results.push(await this.installSurface(id, cwd));
+    }
 
     // Report results
     const installed = results.filter((r) => r.installed && !r.alreadyInstalled);
     const alreadyInstalled = results.filter((r) => r.alreadyInstalled);
-    const skipped = results.filter((r) => !r.detected);
+    const failed = results.filter((r) => r.error);
 
     if (installed.length > 0) {
       console.log(colors.bold('Configured integrations:'));
@@ -1908,20 +1926,17 @@ class SetupAutoHandler extends BaseCommand {
       }
     }
 
-    if (skipped.length > 0 && (installed.length > 0 || alreadyInstalled.length > 0)) {
-      console.log(colors.dim('Not detected (skipped):'));
-      for (const r of skipped) {
-        console.log(`  ${colors.dim('-')} ${r.name}`);
+    if (skippedSurfaces.length > 0) {
+      console.log(colors.dim('Skipped (not in --surfaces):'));
+      for (const name of skippedSurfaces) {
+        console.log(`  ${colors.dim('-')} ${name}`);
       }
     }
 
-    if (installed.length === 0 && alreadyInstalled.length === 0) {
-      console.log(colors.dim('No coding agents detected.'));
-      console.log('');
-      console.log(
-        'Install a coding agent (Claude Code, Codex, or any AGENTS.md-compatible tool) and re-run:',
-      );
-      console.log('  tbd setup --auto');
+    if (failed.length > 0) {
+      for (const r of failed) {
+        console.log(colors.warn(`  ! ${r.name}: ${r.error}`));
+      }
     }
   }
 
@@ -1970,75 +1985,90 @@ class SetupAutoHandler extends BaseCommand {
   }
 
   /**
-   * Write the canonical portable Agent Skill to .agents/skills/tbd/SKILL.md.
-   * Runs for every initialized repo, independent of agent detection, so the
-   * skill is portable across Codex, Gemini CLI, Cursor, and other clients.
+   * Resolve the set of surfaces to install from `--surfaces=<comma-list>`. With
+   * the flag omitted, every surface is installed. `all` is an alias for the full
+   * set; an unknown surface ID is a hard error.
    */
-  private async installPortableSkill(cwd: string): Promise<void> {
-    const colors = this.output.getColors();
-    if (this.checkDryRun('Would install portable Agent Skill', { path: AGENTS_SKILL_DISPLAY })) {
-      return;
+  private resolveSurfaces(): Set<SurfaceId> {
+    const opts: { surfaces?: string } = this.cmd.optsWithGlobals();
+    if (opts.surfaces === undefined) {
+      return new Set(SETUP_SURFACE_IDS);
     }
-    const { portable } = getAgentSkillPaths(cwd);
-    const payload = await buildSkillPayload(this.ctx.quiet);
-    await writeSkillFile(portable, payload);
-    console.log(`  ${colors.success('✓')} Portable Agent Skill (${AGENTS_SKILL_DISPLAY})`);
+    const valid = new Set<string>(SETUP_SURFACE_IDS);
+    const requested = opts.surfaces
+      .split(',')
+      .map((s) => s.trim())
+      .filter((s) => s.length > 0);
+    const selected = new Set<SurfaceId>();
+    for (const name of requested) {
+      if (name === 'all') {
+        for (const id of SETUP_SURFACE_IDS) selected.add(id);
+        continue;
+      }
+      if (valid.has(name)) {
+        selected.add(name as SurfaceId);
+        continue;
+      }
+      throw new CLIError(
+        `Unknown surface "${name}". Valid surfaces: ${SETUP_SURFACE_IDS.join(', ')}, all.`,
+      );
+    }
+    return selected;
+  }
+
+  /** Dispatch the install for a single surface by ID. */
+  private async installSurface(id: SurfaceId, cwd: string): Promise<AutoSetupResult> {
+    switch (id) {
+      case 'portable':
+        return this.installPortableSurface(cwd);
+      case 'agents-md':
+        return this.installAgentsMdSurface(cwd);
+      case 'claude':
+        return this.installClaudeSurface(cwd);
+      case 'codex':
+        return this.installCodexSurface(cwd);
+    }
   }
 
   /**
-   * Resolve which agent surfaces to install from the explicit targeting flags.
-   * `--all`/`--claude`/`--codex` force surfaces on (and suppress auto-detection
-   * of untargeted surfaces); `--skip-claude`/`--skip-codex` force them off; with
-   * no targeting flag each surface falls back to detection-based auto behavior.
+   * Write the canonical portable Agent Skill to .agents/skills/tbd/SKILL.md.
+   * Read natively by Codex, Gemini CLI, Cursor, and other Agent Skills clients.
    */
-  private resolveTargeting(): { claude: SurfaceMode; codex: SurfaceMode } {
-    const opts: {
-      all?: boolean;
-      claude?: boolean;
-      codex?: boolean;
-      skipClaude?: boolean;
-      skipCodex?: boolean;
-    } = this.cmd.optsWithGlobals();
-    const all = opts.all === true;
-    const anyPositive = all || opts.claude === true || opts.codex === true;
-    const resolve = (on: boolean | undefined, skip: boolean | undefined): SurfaceMode => {
-      if (skip === true) return 'off';
-      if (on === true || all) return 'on';
-      return anyPositive ? 'off' : 'auto';
+  private async installPortableSurface(cwd: string): Promise<AutoSetupResult> {
+    const result: AutoSetupResult = {
+      name: SURFACE_DISPLAY_NAME.portable,
+      detected: true,
+      installed: false,
+      alreadyInstalled: false,
     };
-    return {
-      claude: resolve(opts.claude, opts.skipClaude),
-      codex: resolve(opts.codex, opts.skipCodex),
-    };
+    if (this.checkDryRun('Would install portable Agent Skill', { path: AGENTS_SKILL_DISPLAY })) {
+      return result;
+    }
+    try {
+      const { portable } = getAgentSkillPaths(cwd);
+      const payload = await buildSkillPayload(this.ctx.quiet);
+      await writeSkillFile(portable, payload);
+      result.installed = true;
+    } catch (error) {
+      // The format guard is a hard stop — surface it instead of swallowing.
+      if (error instanceof CLIError) {
+        throw error;
+      }
+      result.error = (error as Error).message;
+    }
+    return result;
   }
 
-  private async setupClaudeIfDetected(cwd: string, mode: SurfaceMode): Promise<AutoSetupResult> {
+  /** Install the Claude Code surface: skill mirror + .claude/settings.json hooks. */
+  private async installClaudeSurface(cwd: string): Promise<AutoSetupResult> {
     const result: AutoSetupResult = {
-      name: 'Claude Code',
-      detected: false,
+      name: SURFACE_DISPLAY_NAME.claude,
+      detected: true,
       installed: false,
       alreadyInstalled: false,
     };
 
-    if (mode === 'off') {
-      return result;
-    }
-
-    if (mode === 'auto') {
-      // Detect Claude Code: check for ~/.claude/ directory or CLAUDE_* env vars.
-      // We check the global dir for DETECTION only, not for installation.
-      const hasClaudeDir = await pathExists(GLOBAL_CLAUDE_DIR);
-      const hasClaudeEnv = Object.keys(process.env).some((k) => k.startsWith('CLAUDE_'));
-      if (!hasClaudeDir && !hasClaudeEnv) {
-        return result;
-      }
-    }
-
-    result.detected = true;
-
-    // Check if already installed (project-local settings - all installs are project-local)
     const claudePaths = getClaudePaths(cwd);
-
     try {
       if (await pathExists(claudePaths.settings)) {
         const content = await readFile(claudePaths.settings, 'utf-8');
@@ -2055,69 +2085,80 @@ class SetupAutoHandler extends BaseCommand {
           );
           if (hasTbdHook && (await pathExists(claudePaths.skill))) {
             result.alreadyInstalled = true;
-            // Note: We still run the handler to update the skill file content
-            // even if hooks are already installed. This ensures users get the
-            // latest skill file when running `tbd setup --auto`.
+            // Still run the handler to refresh the skill file content.
           }
         }
       }
 
-      // Install/update Claude Code setup (always runs to update skill file)
       const handler = new SetupClaudeHandler(this.cmd);
       handler.setProjectDir(cwd);
       await handler.run({});
       result.installed = true;
     } catch (error) {
+      // The format guard is a hard stop — surface it instead of swallowing.
+      if (error instanceof CLIError) {
+        throw error;
+      }
       result.error = (error as Error).message;
     }
 
     return result;
   }
 
-  private async setupCodexIfDetected(cwd: string, mode: SurfaceMode): Promise<AutoSetupResult> {
+  /** Install the AGENTS.md surface: the tbd managed block only (no Codex hooks). */
+  private async installAgentsMdSurface(cwd: string): Promise<AutoSetupResult> {
     const result: AutoSetupResult = {
-      name: 'Codex/AGENTS.md',
-      detected: false,
+      name: SURFACE_DISPLAY_NAME['agents-md'],
+      detected: true,
       installed: false,
       alreadyInstalled: false,
     };
 
-    if (mode === 'off') {
-      return result;
-    }
-
-    const agentsPath = getAgentsMdPath(cwd);
-    const hasAgentsMd = await pathExists(agentsPath);
-
-    if (mode === 'auto') {
-      // Detect Codex: check for existing AGENTS.md or CODEX_* env vars
-      const hasCodexEnv = Object.keys(process.env).some((k) => k.startsWith('CODEX_'));
-      if (!hasAgentsMd && !hasCodexEnv) {
-        return result;
-      }
-    }
-
-    result.detected = true;
-
-    // Check if already has tbd section
-    if (hasAgentsMd) {
-      const content = await readFile(agentsPath, 'utf-8');
-      if (content.includes('BEGIN TBD INTEGRATION')) {
-        result.alreadyInstalled = true;
-        // Note: We still run the handler to update the AGENTS.md content
-        // even if tbd section exists. This ensures users get the latest
-        // content when running `tbd setup --auto`.
-      }
-    }
-
     try {
-      // Install/update Codex AGENTS.md (always runs to update content)
+      const agentsPath = getAgentsMdPath(cwd);
+      if (await pathExists(agentsPath)) {
+        const content = await readFile(agentsPath, 'utf-8');
+        if (content.includes('BEGIN TBD INTEGRATION')) {
+          result.alreadyInstalled = true;
+          // Still run the handler to refresh the managed block.
+        }
+      }
+
       const handler = new SetupCodexHandler(this.cmd);
       handler.setProjectDir(cwd);
-      await handler.run({});
+      await handler.runAgentsMdOnly();
       result.installed = true;
     } catch (error) {
       // The format guard is a hard stop — surface it instead of swallowing.
+      if (error instanceof CLIError) {
+        throw error;
+      }
+      result.error = (error as Error).message;
+    }
+
+    return result;
+  }
+
+  /** Install the Codex surface: .codex/hooks.json + .codex/ lifecycle scripts. */
+  private async installCodexSurface(cwd: string): Promise<AutoSetupResult> {
+    const result: AutoSetupResult = {
+      name: SURFACE_DISPLAY_NAME.codex,
+      detected: true,
+      installed: false,
+      alreadyInstalled: false,
+    };
+
+    try {
+      if (await pathExists(getCodexPaths(cwd).hooks)) {
+        result.alreadyInstalled = true;
+        // Still run the handler to refresh the hooks and scripts.
+      }
+
+      const handler = new SetupCodexHandler(this.cmd);
+      handler.setProjectDir(cwd);
+      await handler.runCodexHooksOnly();
+      result.installed = true;
+    } catch (error) {
       if (error instanceof CLIError) {
         throw error;
       }
@@ -2137,11 +2178,10 @@ export const setupCommand = new Command('setup')
   .option('--prefix <name>', 'Project prefix for issue IDs (required for fresh setup)')
   .option('--force', 'Allow non-recommended prefix format (not 2-8 alphabetic)')
   .option('--no-gh-cli', 'Disable automatic GitHub CLI installation hook')
-  .option('--all', 'Install every supported agent surface (Claude + Codex)')
-  .option('--claude', 'Install the Claude Code surface (skill mirror + hooks)')
-  .option('--codex', 'Install the Codex surface (AGENTS.md block + .codex hooks)')
-  .option('--skip-claude', 'Skip the Claude Code surface even if detected')
-  .option('--skip-codex', 'Skip the Codex surface even if detected')
+  .option(
+    '--surfaces <list>',
+    'Comma-separated agent surfaces to install: portable, agents-md, claude, codex (or "all"). Default: all',
+  )
   .action(async (options: SetupDefaultOptions, command) => {
     // If --auto or --interactive flag is set, run the default handler
     if (options.auto || options.interactive) {
@@ -2175,6 +2215,9 @@ export const setupCommand = new Command('setup')
     console.log('  --prefix <name>     Project prefix for issue IDs (2-8 alphabetic recommended)');
     console.log('  --force             Allow non-recommended prefix format');
     console.log('  --no-gh-cli         Disable automatic GitHub CLI installation hook');
+    console.log(
+      '  --surfaces <list>   Agent surfaces to install: portable,agents-md,claude,codex,all (default: all)',
+    );
     console.log('');
     console.log('Examples:');
     console.log('  tbd setup --auto --prefix=tbd   # Full automatic setup with prefix');

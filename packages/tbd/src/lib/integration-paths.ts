@@ -116,30 +116,13 @@ export const CODEX_HOOKS_REL = '.codex/hooks.json';
  */
 export const CODEX_CONFIG_REL = '.codex/config.toml';
 
-// =============================================================================
-// Shared Agent Scripts (neutral location, referenced by every agent's hooks)
-// =============================================================================
-
-/**
- * Neutral directory for hook scripts shared across agents. Kept out of
- * `.claude/` so Codex hooks never depend on Claude Code setup.
- */
-export const AGENT_SCRIPTS_DIR_REL = 'scripts/agent';
-
-/**
- * Shared session bootstrap script (runs `tbd prime`).
- */
-export const SHARED_SESSION_SCRIPT_REL = 'scripts/agent/tbd-session.sh';
-
-/**
- * Shared close-protocol reminder script.
- */
-export const SHARED_CLOSING_REMINDER_REL = 'scripts/agent/tbd-closing-reminder.sh';
-
-/**
- * Shared gh CLI ensure script.
- */
-export const SHARED_GH_CLI_SCRIPT_REL = 'scripts/agent/ensure-gh-cli.sh';
+// Note on hook scripts: each agent surface writes its own copy of the hook
+// scripts under its own directory — Claude Code under `.claude/scripts/` and
+// Codex under `.codex/` — rather than sharing a single neutral `scripts/agent/`
+// copy. Per-agent copies keep each surface self-contained: Codex hooks never
+// reference `.claude/`, so Codex setup does not depend on Claude Code setup.
+// (See cli-agent-skill-patterns §6.6: per-agent copies are a valid alternative
+// to a shared neutral script.)
 
 // =============================================================================
 // Global Paths (for detection only - NOT for installation)
@@ -223,24 +206,6 @@ export function getCodexPaths(projectRoot: string) {
     hooks: join(projectRoot, CODEX_HOOKS_REL),
     /** .codex/config.toml */
     config: join(projectRoot, CODEX_CONFIG_REL),
-  };
-}
-
-/**
- * Get shared agent script paths (neutral location used by every agent's hooks).
- *
- * @param projectRoot - The project root directory
- */
-export function getSharedScriptPaths(projectRoot: string) {
-  return {
-    /** scripts/agent/ directory */
-    dir: join(projectRoot, AGENT_SCRIPTS_DIR_REL),
-    /** scripts/agent/tbd-session.sh */
-    sessionScript: join(projectRoot, SHARED_SESSION_SCRIPT_REL),
-    /** scripts/agent/tbd-closing-reminder.sh */
-    closingReminder: join(projectRoot, SHARED_CLOSING_REMINDER_REL),
-    /** scripts/agent/ensure-gh-cli.sh */
-    ghCliScript: join(projectRoot, SHARED_GH_CLI_SCRIPT_REL),
   };
 }
 

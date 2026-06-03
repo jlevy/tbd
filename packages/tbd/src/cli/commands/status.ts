@@ -341,7 +341,7 @@ class StatusHandler extends BaseCommand {
         path: data.integrations.claude_code_path,
       },
       {
-        name: 'Codex AGENTS.md',
+        name: 'AGENTS.md',
         installed: data.integrations.codex,
         path: data.integrations.codex_path,
       },
