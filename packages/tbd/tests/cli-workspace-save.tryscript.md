@@ -96,8 +96,12 @@ $ ls .tbd/workspaces/my-backup/issues/ | wc -l | tr -d ' '
 
 # Test: Workspace mappings contain exactly 3 entries
 
+Count by the ULID value, not the key: an all-numeric short ID (e.g. `2253`) is
+YAML-serialized as a quoted key (`"2253":`), so a `^[a-z0-9]` key match would undercount
+it (~1.8% of runs). The mapping itself is correct either way.
+
 ```console
-$ grep -c '^[a-z0-9]' .tbd/workspaces/my-backup/mappings/ids.yml
+$ grep -cE ': [0-9a-z]{26}$' .tbd/workspaces/my-backup/mappings/ids.yml
 3
 ? 0
 ```
@@ -129,8 +133,11 @@ $ ls .tbd/workspaces/outbox/issues/ | wc -l | tr -d ' '
 
 # Test: Outbox mappings contain exactly 3 entries (not all mappings)
 
+Count by the ULID value (see note above): a quoted all-numeric short-ID key must still
+be counted.
+
 ```console
-$ grep -c '^[a-z0-9]' .tbd/workspaces/outbox/mappings/ids.yml
+$ grep -cE ': [0-9a-z]{26}$' .tbd/workspaces/outbox/mappings/ids.yml
 3
 ? 0
 ```
