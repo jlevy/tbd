@@ -164,6 +164,24 @@ function notifyConfigMigrated(fromFormat: string | undefined, toFormat: string):
   );
 }
 
+/**
+ * Emit a one-line stderr notice when a data command auto-materialized a missing
+ * sync worktree at the point of use.
+ *
+ * The shared worktree can be absent in a fresh/ephemeral clone (or if it was
+ * deleted). `withDataSyncContext` heals it transparently, but a silent heal on a
+ * read/write command looks indistinguishable from "the tracker is empty" or "my
+ * issue was saved normally" — the exact confusion reported in #135. A terse
+ * stderr note keeps stdout (and JSON) clean while making the heal visible.
+ */
+export function notifyWorktreeRepaired(status: WorktreeStatus | undefined): void {
+  if (status !== 'missing' && status !== 'prunable') return;
+  process.stderr.write(
+    `• tbd-sync worktree was ${status} — auto-materialized it ` +
+      `(fresh clone, or the worktree was removed).\n`,
+  );
+}
+
 async function assembleDataContext(
   tbdRoot: string,
   probe: DataSyncProbe,
@@ -234,7 +252,11 @@ export async function withDataSyncContext<T>(
  * migration or worktree repair.
  */
 export async function loadDataContext(tbdRoot: string): Promise<TbdDataContext> {
-  return withDataSyncContext(tbdRoot, { lock: false }, async (context) => context);
+  return withDataSyncContext(tbdRoot, { lock: false }, async (context) => {
+    // Surface a silent worktree heal at the point of use (read commands). #135
+    notifyWorktreeRepaired(context.repairedWorktreeStatus);
+    return context;
+  });
 }
 
 /**

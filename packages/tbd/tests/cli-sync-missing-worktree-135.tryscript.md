@@ -86,6 +86,14 @@ worktree absent
 
 ## tbd list heals and reads the real issues (no silent fallback)
 
+# Test: tbd list announces the auto-heal at the point of use (not silent)
+
+```console
+$ tbd list 2>&1 | grep -c "auto-materialized" | tr -d ' '
+1
+? 0
+```
+
 # Test: tbd list reflects the real issues (does not silently report empty)
 
 ```console
