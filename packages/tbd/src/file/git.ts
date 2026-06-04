@@ -1872,8 +1872,10 @@ async function preserveLosingVersion(dataSyncPath: string, loser: Issue): Promis
  * backup branch is created, so the pre-rescue HEAD is always recoverable and
  * the rescue is restartable.
  *
- * MUST be called while holding `withSharedDataSyncLock`. Aborts if the
- * data-sync worktree is dirty or has a merge in progress.
+ * MUST be called while holding `withSharedDataSyncLock`. A merge in progress
+ * aborts the rescue; a merely-dirty worktree does not — its uncommitted
+ * tbd-owned data-sync changes are committed first (so the backup branch captures
+ * them), while any dirty path outside the data-sync tree aborts. See issue #158.
  */
 export async function rescueUnrelatedHistory(
   baseDir: string,
