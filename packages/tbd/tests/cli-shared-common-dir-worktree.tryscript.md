@@ -114,10 +114,13 @@ fatal: 'tbd-sync' is already used by worktree at [..]
 The first mutating command in a checkout whose `.tbd/config.yml` still says `f03` emits
 a one-time stderr notice (`tbd-afjh`) before the success line, so users see the tracked
 config bump coming rather than discovering it later as a surprise diff.
+The migration also materializes the shared worktree for the first time, which emits its
+own point-of-use notice (#135).
 
 ```console
 $ tbd create "Main checkout issue" --type=task
 • tbd_format f03 → f04: .tbd/config.yml updated in this checkout. Commit on this branch or merge main to publish the format upgrade.
+• tbd-sync worktree was missing — auto-materialized it (fresh clone, or the worktree was removed).
 ✓ Created test-[SHORTID]: Main checkout issue
 ? 0
 ```
