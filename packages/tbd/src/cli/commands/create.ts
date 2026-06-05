@@ -23,7 +23,7 @@ import { parsePriority } from '../../lib/priority.js';
 import { now } from '../../utils/time-utils.js';
 import { resolveAndValidatePath, getPathErrorMessage } from '../../lib/project-paths.js';
 import { validateIssueTitle } from '../lib/issue-input-validation.js';
-import { withDataSyncContext } from '../lib/data-context.js';
+import { withDataSyncContext, notifyWorktreeRepaired } from '../lib/data-context.js';
 
 interface CreateOptions {
   fromFile?: string;
@@ -104,7 +104,10 @@ class CreateHandler extends BaseCommand {
       await withDataSyncContext(
         tbdRoot,
         { lock: true },
-        async ({ dataSyncDir, config, mapping }) => {
+        async ({ dataSyncDir, config, mapping, repairedWorktreeStatus }) => {
+          // Surface a silent worktree heal so a write never looks like it landed
+          // normally when the worktree had to be materialized first. #135
+          notifyWorktreeRepaired(repairedWorktreeStatus);
           prefix = config.display.id_prefix;
 
           shortId = generateUniqueShortId(mapping);

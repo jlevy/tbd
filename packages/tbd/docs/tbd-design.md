@@ -18,8 +18,7 @@ agents.
   - [1. Introduction](#1-introduction)
     - [1.1 What is tbd?](#11-what-is-tbd)
     - [1.2 When to Use tbd vs Beads](#12-when-to-use-tbd-vs-beads)
-    - [1.3 Why Replace Beads?
-      (Architecture Comparison)](#13-why-replace-beads-architecture-comparison)
+    - [1.3 Why Replace Beads? (Architecture Comparison)](#13-why-replace-beads-architecture-comparison)
     - [1.4 Design Goals](#14-design-goals)
     - [1.5 Design Principles](#15-design-principles)
     - [1.6 Non-Goals](#16-non-goals)
@@ -659,6 +658,7 @@ serialization:
 > directory.
 
 > **Why canonical format?** Deterministic serialization ensures:
+> 
 > 1. Git diffs show only actual content changes (no spurious whitespace/ordering noise)
 > 2. Testing is reliable (same input produces same output)
 > 3. Future caching/deduplication can use content hashes if needed
@@ -2290,7 +2290,7 @@ const issueMergeRules: MergeRules<Issue> = {
   created_by: { strategy: 'preserve_oldest' },
   closed_at: { strategy: 'lww' }, // See status/closed_at rules below
   close_reason: { strategy: 'lww' },
-  child_order_hints: { strategy: 'lww' }, // Soft ordering, LWW on concurrent edits
+  child_order_hints: { strategy: 'union' }, // Append-only set of child IDs; union (dedupe)
 };
 ```
 

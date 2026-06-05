@@ -5,6 +5,14 @@ author: Joshua Levy (github.com/jlevy) with LLM assistance
 ---
 # Agent Skills and CLI Integration Patterns
 
+**Last Updated**: 2026-06-04 (§4.6 adds the “attention routing” framing—the slopdocs vs.
+hiding-details failure modes—as a contained section, and the §3.1 mechanism callback
+points at it. Earlier 2026-06-02: §6.8 now covers Anthropic’s official and community
+plugin marketplaces—the reviewed, gated submission channel—and the `/plugin` install
+preview; verified against code.claude.com docs.
+Earlier 2026-05-31: research verified against primary sources, added the L0–L3
+integration ladder and §6.6.2 project-vs-global scope mechanics, informed by `qmd`)
+
 This guideline covers how to package a capability so AI coding agents can discover and
 use it well—from a single-file skill up to a full CLI with many subcommands exposed as a
 skill. It is deliberately **not dogmatic**: most needs are met by a tiny `SKILL.md`, and
@@ -69,7 +77,7 @@ more—proof the baseline scales without custom tooling.
 manager:
 
 ```bash
-npx skills add owner/repo       # Vercel's skills.sh ecosystem (symlinks, 27+ agents)
+npx skills add owner/repo       # Vercel's skills.sh ecosystem (symlinks, 50+ agents)
 # or commit it to a discovery directory:
 #   .agents/skills/my-skill/SKILL.md   (cross-agent: Codex, pi, others)
 #   .claude/skills/my-skill/SKILL.md   (Claude Code, project)
@@ -1080,9 +1088,12 @@ environments where the project wants lockfile-managed versions and warm-start sp
 
 ### 6.8 Publishing and discovery—make the skill installable
 
-Most “skill registries” (May 2026) are **GitHub-repo discoverers, not gated app
-stores**. You don’t submit a form; you put a spec-compliant `SKILL.md` in a public repo
+Most “skill registries” (mid-2026) are **GitHub-repo discoverers, not gated app
+stores**: you don’t submit a form, you put a spec-compliant `SKILL.md` in a public repo
 and the ecosystem finds it.
+The exception is **Anthropic’s own plugin marketplaces**, which *are* a reviewed,
+curated channel with a real submission and security-screening flow (below)—so the
+landscape is now a spectrum from passive scrapers to a gated store, not one shape.
 The landscape worth targeting:
 
 - **`skills.sh` / `npx skills add <owner/repo>`** (Vercel)—the cross-agent “npm for
@@ -1092,16 +1103,59 @@ The landscape worth targeting:
 - **GitHub-scraping indexers** (SkillsMP ~800k skills, ClaudeSkills.info, LobeHub,
   claudemarketplaces.com)—auto-list public repos that contain a `SKILL.md` (often gated
   on ≥2 stars). You get listed for free just by being public and discoverable.
-- **Plugin marketplaces**—`.claude-plugin/marketplace.json` (Claude Code, the official
-  Anthropic channel) and `.agents/plugins/marketplace.json` (Codex; Codex reads both).
+- **Self-hosted plugin marketplaces**—`.claude-plugin/marketplace.json` (Claude Code)
+  and `.agents/plugins/marketplace.json` (Codex; Codex reads both).
   These are *plugin* channels: bundles of skills, MCP servers, hooks, and commands.
   They are **only for publishing a bundle**—a repo-local skill already loads from
   `.claude/skills/` (Claude Code) and `.agents/skills/` (Codex) **without any
   manifest**, so don’t add one just to be discovered.
+  Users add yours with `/plugin marketplace add <owner/repo>` and install with
+  `/plugin install <name>@<marketplace>`; it is not centrally indexed unless you also
+  list on the community marketplace (next bullet).
   If you *do* emit a `marketplace.json` / `.codex-plugin/plugin.json`, treat it like any
   generated artifact (§6.6): point it at the same generated `SKILL.md` payload (no body
   duplication), mark it `DO NOT EDIT`, make it deterministic so re-install is a no-op,
   and pick the same commit-vs-gitignore mode as the skill it references.
+- **Anthropic’s official and community marketplaces**—the one genuinely *gated* channel,
+  and the only place a third party gets a reviewed, security-scanned listing.
+  Two catalogs ship with Claude Code:
+  - **`claude-plugins-official`**—auto-available in every session (catalog at
+    `claude.com/plugins`); curated by Anthropic, inclusion **at its discretion, not
+    self-serve**. Install: `/plugin install <name>@claude-plugins-official`.
+  - **`anthropics/claude-plugins-community`** (install name `claude-community`)—a
+    **read-only nightly mirror of Anthropic’s internal review pipeline**. Third-party
+    plugins that pass **automated validation + security screening** get listed, each
+    **pinned to a commit SHA**. Users add it manually
+    (`/plugin marketplace add anthropics/claude-plugins-community`) then
+    `/plugin install <name>@claude-community`. **Submitting**: do *not* open a PR
+    against the repo—they are auto-closed.
+    Submit through the in-app form / `clau.de/plugin-directory-submission` and let the
+    scan and approval run (the in-app forms feed the *community* marketplace, never the
+    official one). This is the channel that buys **trust and discoverability inside
+    Claude Code**: current `/plugin` install views show a **Context cost** estimate
+    (per-turn token cost; v2.1.143+), a **Last updated** date (v2.1.144+), and a **Will
+    install** breakdown (commands, agents, skills, hooks, MCP/LSP; v2.1.145+) before the
+    user commits—best-in-class informed consent.
+    Worth it for a tool you want broadly adopted; still optional, since a repo-local
+    skill loads with none of it.
+
+**Channels at a glance** (generic; verify specifics against current docs—this space
+moves fast). The rows run from lowest effort/reach to highest trust, and they
+**compose**: a single public repo can satisfy every row at once.
+
+| Channel | User install | Discovery & reach | Trust & security | Versioning | Publish / submit |
+| --- | --- | --- | --- | --- | --- |
+| **Documented install** (README + optional installer) | A few manual steps, or one command if you ship `mytool install` | None beyond the repo’s own stars/SEO | Fully manual—user reads the source before running | Whatever your docs pin; manual re-pull | Push the repo and write the README |
+| **`npx skills add`** (skills.sh, Vercel) | `npx skills add <owner/repo>`—one command, 50+ agents, symlink or copy | High and **cross-agent**; `npx skills find`, ranked by install telemetry | Runs the `skills` CLI + your repo; review the `SKILL.md`, pin to a ref | Tracks the repo/ref; `npx skills update`; no semver | Put `skills/<name>/SKILL.md` in a public repo—auto-works. [skills.sh](https://skills.sh) · [vercel-labs/skills](https://github.com/vercel-labs/skills) |
+| **GitHub-scraping indexers** (SkillsMP, claudemarketplaces, LobeHub…) | They hand you one of the other commands | Highest *passive* top-of-funnel; free; often gated on ≥2 stars | Mostly unvetted link directories; you don’t control the listing | Inherits the underlying method | Automatic once public—no action. e.g. [claudemarketplaces.com](https://claudemarketplaces.com) |
+| **Self-hosted plugin marketplace** (Claude Code / Codex) | `/plugin marketplace add <owner/repo>`, then `/plugin install <name>@<mp>` (or the `/plugin` UI) | Inside Claude Code once added; **not** centrally indexed | Your repo’s trust only; install preview shows exactly what loads | **Best**—`version` field + SHA pin + auto-update toggle | Add `.claude-plugin/marketplace.json`. [Docs](https://code.claude.com/docs/en/plugin-marketplaces) |
+| **Anthropic official / community marketplace** | Official: auto-available (`<name>@claude-plugins-official`). Community: add `anthropics/claude-plugins-community`, then `<name>@claude-community` | Highest inside Claude Code (Discover tab, `claude.com/plugins`) | **Best**—reviewed, security-screened, SHA-pinned, install preview | SHA-pinned in the catalog; nightly-mirror updates | Official: not self-serve (Anthropic’s discretion). Community: submit at [clau.de/plugin-directory-submission](https://clau.de/plugin-directory-submission) (no PRs—auto-closed). [Docs](https://code.claude.com/docs/en/discover-plugins) |
+
+**Takeaway**: for broad cross-agent reach at near-zero effort, ship a valid `SKILL.md`
+and lean on `npx skills add` plus the scrapers; for the highest trust and
+discoverability *inside Claude Code*, additionally submit to the community marketplace.
+Reserve a self-hosted marketplace for a private/team channel or to bundle hooks, agents,
+and MCP servers alongside the skill.
 
 **The simplest publishable structure** (works for all of the above at once):
 
@@ -1423,6 +1477,13 @@ going:
   https://vercel.com/changelog/introducing-skills-the-open-agent-skills-ecosystem
 - npx skills: https://github.com/vercel-labs/skills
 - Anthropic skills (examples): https://github.com/anthropics/skills
+- Discover and install plugins (official + community marketplaces, `/plugin` install
+  preview): https://code.claude.com/docs/en/discover-plugins
+- Create and distribute a plugin marketplace:
+  https://code.claude.com/docs/en/plugin-marketplaces
+- Community marketplace + submission flow:
+  https://github.com/anthropics/claude-plugins-community (submit via
+  https://clau.de/plugin-directory-submission)
 - gstack: https://github.com/garrytan/gstack
 - Beads (bd): https://github.com/gastownhall/beads
 - qmd (L2 reference: self-installing skill, discovery-dirs only, CLI + MCP + plugin):

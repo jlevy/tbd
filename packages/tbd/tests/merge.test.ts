@@ -201,6 +201,88 @@ describe('mergeIssues', () => {
     });
   });
 
+  describe('Union strategy (child_order_hints)', () => {
+    it('unions children appended by each side from a shared base', () => {
+      // Two sessions each append a distinct child to the same epic. The wiring
+      // must survive on both sides — union, not last-writer-wins. See issue #155.
+      const base = makeIssue({ child_order_hints: ['is-common'] });
+      const local = makeIssue({
+        child_order_hints: ['is-common', 'is-childA'],
+        version: 2,
+        updated_at: '2025-01-02T00:00:00Z',
+      });
+      const remote = makeIssue({
+        child_order_hints: ['is-common', 'is-childB'],
+        version: 2,
+        updated_at: '2025-01-03T00:00:00Z',
+      });
+
+      const result = mergeIssues(base, local, remote);
+
+      expect(result.merged.child_order_hints).toEqual(['is-common', 'is-childA', 'is-childB']);
+      // Counter is monotonic: max of both sides, then bumped for the substantive merge.
+      expect(result.merged.version).toBe(3);
+      // Union never discards data, so no conflict is recorded for the field.
+      expect(result.conflicts.some((c) => c.field === 'child_order_hints')).toBe(false);
+    });
+
+    it('deduplicates a child both sides appended', () => {
+      const base = makeIssue({ child_order_hints: ['is-common'] });
+      const local = makeIssue({
+        child_order_hints: ['is-common', 'is-shared'],
+        version: 2,
+        updated_at: '2025-01-02T00:00:00Z',
+      });
+      const remote = makeIssue({
+        child_order_hints: ['is-common', 'is-shared', 'is-childB'],
+        version: 2,
+        updated_at: '2025-01-02T00:00:00Z',
+      });
+
+      const result = mergeIssues(base, local, remote);
+
+      const sharedCount = (result.merged.child_order_hints ?? []).filter(
+        (id) => id === 'is-shared',
+      ).length;
+      expect(sharedCount).toBe(1);
+      expect(result.merged.child_order_hints).toContain('is-childB');
+    });
+
+    it('does not throw when one side cleared the hints to null', () => {
+      // `tbd update --child-order ""` writes null. A concurrent clear vs. append
+      // must merge cleanly (union ignores deletions), not throw on null. (#155 review)
+      const base = makeIssue({ child_order_hints: ['is-common'] });
+      const local = makeIssue({
+        child_order_hints: null,
+        version: 2,
+        updated_at: '2025-01-02T00:00:00Z',
+      });
+      const remote = makeIssue({
+        child_order_hints: ['is-common', 'is-childB'],
+        version: 2,
+        updated_at: '2025-01-03T00:00:00Z',
+      });
+
+      const result = mergeIssues(base, local, remote);
+
+      expect(result.merged.child_order_hints).toEqual(['is-common', 'is-childB']);
+    });
+
+    it('does not throw when one side has undefined (legacy missing) hints', () => {
+      const base = makeIssue({ child_order_hints: ['is-common'] });
+      const local = makeIssue({ child_order_hints: undefined, version: 2 });
+      const remote = makeIssue({
+        child_order_hints: ['is-common', 'is-childB'],
+        version: 2,
+        updated_at: '2025-01-03T00:00:00Z',
+      });
+
+      const result = mergeIssues(base, local, remote);
+
+      expect(result.merged.child_order_hints).toEqual(['is-common', 'is-childB']);
+    });
+  });
+
   describe('Max strategy (version)', () => {
     it('returns higher version without bumping when no substantive changes', () => {
       const base = makeIssue({ version: 1 });
