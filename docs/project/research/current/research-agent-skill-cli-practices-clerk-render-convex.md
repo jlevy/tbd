@@ -1,18 +1,20 @@
 ---
-title: Agent-Skill & CLI Packaging Practices — Clerk, Render, Convex
-description: Research into how three production vendors (Clerk, Render, Convex) package their agent skills and integrate their CLIs — installation layouts, CLI agent-mode patterns, and distinctive techniques worth learning from.
+title: Agent-Skill & CLI Packaging Practices — Clerk, Render, Convex, GitLab
+description: Research into how four production vendors (Clerk, Render, Convex, GitLab) package their agent skills and integrate their CLIs — installation layouts, CLI agent-mode patterns, and distinctive techniques worth learning from.
 author: Joshua Levy (github.com/jlevy) with LLM assistance
 ---
-# Agent-Skill & CLI Packaging Practices — Clerk, Render, Convex
+# Agent-Skill & CLI Packaging Practices — Clerk, Render, Convex, GitLab
 
-**Observed:** 2026-06-03 (point-in-time snapshot; these bundles iterate quickly)
+**Observed:** 2026-06-03 (Clerk/Render/Convex), 2026-06-04 (GitLab) — point-in-time
+snapshots; these bundles iterate quickly
 
 ## Purpose
 
-Research into how three major, shipped vendor agent-skill bundles — **Clerk** (~21
-skills + `clerk` CLI), **Render** (~21 skills + `render` CLI + hosted MCP), and
-**Convex** (6 skills + `npx convex ai-files`) — actually package their agent skills and
-wire up their CLIs.
+Research into how four major, shipped vendor agent-skill bundles — **Clerk** (~21 skills
+\+ `clerk` CLI), **Render** (~21 skills + `render` CLI + hosted MCP), **Convex** (6
+skills + `npx convex ai-files`), and **GitLab** (2 bundled skills + a curated remote
+registry, all embedded in the `glab` CLI) — actually package their agent skills and wire
+up their CLIs.
 
 The aim is to learn from real production practice: how each tool structures its
 install/distribution, what agent-mode patterns its CLI uses, and which techniques are
@@ -22,10 +24,15 @@ the subject here is the **tools themselves**, not a scorecard.
 
 ## Scope and caveats
 
-- **Small, single-genre sample.** Three vendors, all infra/platform tools (auth,
-  hosting, backend). That genre shares assumptions (a hosted control plane, an existing
-  API, deploy/secret workflows), so treat any “the ecosystem does X” generalization
-  cautiously — it may be “infra vendors do X.”
+- **Small, near-single-genre sample.** Three of the four (Clerk, Render, Convex) are
+  infra/platform tools (auth, hosting, backend) that share assumptions — a hosted
+  control plane, an existing API, deploy/secret workflows — so treat any “the ecosystem
+  does X” generalization cautiously; it may be “infra vendors do X.” **GitLab (`glab`)
+  is deliberately included as a fourth, adjacent-genre data point:** a git-forge CLI
+  whose primary surface is local Git/issue/MR commands, not a remote control plane.
+  It turns out to break two of the “shared gaps” the infra trio land in (see
+  Cross-cutting patterns), which is exactly the kind of divergence a genre-crossing
+  sample exists to surface.
 - **Versions not pinned.** Observed from the bundles as installed on 2026-06-03; exact
   bundle versions/commit SHAs were not recorded.
   Specific `SKILL.md:line` cites are therefore point-in-time and may drift as vendors
@@ -36,7 +43,7 @@ the subject here is the **tools themselves**, not a scorecard.
 
 ## Installation & distribution approaches
 
-The single most striking finding: **all three install differently, and no two share a
+The single most striking finding: **all four install differently, and no two share a
 layout.**
 
 | Vendor | Canonical location | Claude mirror | Codex companion | Install command | Version/format stamp |
@@ -44,6 +51,7 @@ layout.**
 | **Clerk** | `.agents/skills/clerk*` (real dirs, committed) | `.claude/skills/clerk*` as **committed symlinks** | none | `clerk init` (`--no-skills` opt-out); `clerk skill install` | per-skill `metadata.version`, uncoordinated; no `DO NOT EDIT` |
 | **Render** | **none** — real dirs **only** in `.claude/skills/render-*` | n/a (it *is* the only copy) | none | `render skills install\|update\|list` | uniform `metadata.version` (mostly `1.0.0`); no format stamp, no `DO NOT EDIT` |
 | **Convex** | `<package>/.agents/skills/convex*` (scoped to one subdir) | **none** | **`agents/openai.yaml` on every non-router skill** | `npx convex ai-files install` (+ skills) | no `license`/`version` in frontmatter; drift tracked in sidecar `ai-files.state.json` |
+| **GitLab** | `.agents/skills/<name>` (project) / `~/.agents/skills/` (`--global`) / `--path`; **embedded in the `glab` binary** via `go:embed`, materialized on install | **none — by design** (bets on the shared `.agents/skills/` standard) | **none — same bet** (one dir is documented as serving Claude Code, Codex, Gemini CLI, GitLab Duo) | `glab skills install [name]` / `list` / `update [--all]` | no per-skill stamp, but **unnecessary**: skills version = the `glab` release; `update` re-derives a sha256 content-hash and atomically overwrites only on drift |
 
 - **Clerk** commits a portable canonical copy under `.agents/skills/` *and* a Claude
   mirror under `.claude/skills/` — but the mirror is **committed symlinks**. Symlinks
@@ -58,10 +66,26 @@ layout.**
   (which keys off `.claude/skills/`) won’t surface them from the repo root.
   The subdir scoping itself is a *smart* fit for a monorepo where Convex only applies to
   one package — the missing Claude mirror is the only real cost.
+- **GitLab** is **`.agents/`-only by conviction**: it writes real dirs to
+  `.agents/skills/` (the agentskills.io standard) and ships **no** Claude mirror and
+  **no** Codex companion — not as an omission but as a bet that the single cross-agent
+  directory is enough, with Claude Code, Codex, Gemini CLI, and GitLab Duo all
+  documented as reading from it.
+  The skills are **embedded in the `glab` binary** (`go:embed`), so there is no separate
+  skill artifact to version: the installed copy’s “version” is whichever `glab` you ran.
+  `glab skills update` then re-fetches and overwrites **only if a sha256 over the file
+  tree differs** from the source — so drift detection replaces the version/format stamp
+  the other three lack.
 
-**Synthesis:** the union of what each vendor got right — a portable `.agents/` canonical
-copy (Clerk, Convex), a Claude mirror (Clerk), and a Codex companion (Convex) — is the
-complete layout, but no single vendor ships all of it.
+**Synthesis:** the union of what the infra trio got right — a portable `.agents/`
+canonical copy (Clerk, Convex), a Claude mirror (Clerk), and a Codex companion (Convex)
+— looks like the complete layout, and no single one of them ships all of it.
+**GitLab reframes the question:** the mirror and the companion are only *necessary*
+because not every agent reads `.agents/skills/` yet.
+If the cross-agent standard holds, `glab`’s single-directory layout *is* the complete
+layout, and the mirrors are transitional scaffolding rather than the target state.
+So the honest reading is two defensible bets — “mirror per agent today” (Clerk) vs “one
+standard directory and refuse to fork” (GitLab) — not one winner.
 
 ## Per-vendor deep dives
 
@@ -197,6 +221,95 @@ complete layout, but no single vendor ships all of it.
   generated guidelines first,” pulling the full ruleset into context on *every* Convex
   task — at odds with the skills’ own on-demand model and partly redundant with them.
 
+### GitLab (`glab`) — strongest distribution engineering, leanest slot footprint
+
+GitLab ships the smallest bundle in the sample — two skills, `glab` and `glab-stack`,
+embedded directly in the `glab` binary, plus a curated registry that points at skills
+hosted in *other* gitlab.com repos.
+What stands out is not the content volume but the **packaging machinery and the
+agent-mode discipline of the one core skill.** (Observed from `gitlab-org/cli`
+`internal/commands/skills/` on 2026-06-04; the feature is marked EXPERIMENTAL — “may be
+unstable or removed.”)
+
+**Notable techniques:**
+
+- **Skills embedded in the versioned CLI binary** (`go:embed all:assets`) — the skill
+  *is* the release. This sidesteps the whole “no `version`/format stamp” problem the
+  other three share: there is no independent artifact to stamp because the `glab` you
+  ran is the version. The one validation enforced at load is that each skill’s
+  frontmatter `name` **must equal its directory name**, with full Agent-Skills-spec
+  compliance “left to hand-review.”
+- **Content-hash drift detection instead of a `DO NOT EDIT` marker.**
+  `glab skills update` re-derives a stable `sha256` over the entire `{path → bytes}`
+  tree (length-prefixed so `(path, body)` re-splits can’t collide) and overwrites
+  **only** if the on-disk hash differs from the source.
+  This is a genuinely *different* solution to the generated-artifact problem: you don’t
+  need to mark a file machine-owned if you can cheaply detect any hand-edit and
+  re-converge.
+- **Atomic, deletion-aware overwrite.** `update` writes the new tree to a sibling temp
+  dir, then `RemoveAll(skillDir)` + `Rename` — so a failed write can’t leave a partial
+  skill, *and* files removed upstream don’t linger and make the on-disk hash perpetually
+  differ. Production-grade resync hygiene none of the three documented.
+- **Default-install-ONE, opt-in for the rest** — `glab skills install` with no argument
+  installs only the core `glab` skill, with an explicit in-code rationale: doing
+  otherwise would “pollute an agent’s context with descriptions of bundled skills the
+  user may not need.” This is the **strongest answer to listing-slot economics in the
+  whole sample**: where Clerk/Render/Convex land 21/21/6 slots, `glab` lands **one** by
+  default and you add others by name.
+- **Two-source registry: bundled (offline, in-binary) + curated remote
+  (`registry.yaml`).** The remote registry is a small package-index-like file of
+  *pointers* — `{name, description, project, ref, path}` — to skills living in other
+  public gitlab.com repos (e.g. `orbit` → `gitlab-org/orbit/knowledge-graph`).
+  Installing one fetches the whole directory tree at the pinned `ref` via the public
+  Repository API (no auth), validates a `SKILL.md` is present, and merges it into the
+  same install/update machinery.
+  The registry schema is itself versioned (`version: 1`, and older binaries **refuse**
+  unknown versions rather than misread them).
+- **Per-entry ref pinning** with `latest | <tag> | <SHA>`; `latest` resolves to the
+  project’s default branch.
+  Notably this is the *one* place `glab` carries the same unpinned-`latest` smell as the
+  other three — but it’s a per-entry, hand-review decision and SHAs are first-class, so
+  a registry curator *can* pin hard.
+- **`mcpannotations.Safe` on read-only subcommands** (e.g. `skills list`) — the CLI tags
+  which commands are safe to expose over its MCP surface, a clean bridge between the CLI
+  and MCP worlds.
+- **Best-in-class agent-mode content in the core skill.** The `glab` `SKILL.md` is a
+  near-textbook agent-mode CLI doc:
+  - A deep **“Common mistakes” table** (Render-style, but sharper): `--body` is a `gh`
+    flag — `glab` uses `--description`; there is no `--state` on `mr list`; scoped
+    labels like `status::doing` auto-replace within their scope.
+  - An explicit **“these commands hang a non-interactive agent” catalogue** — the best
+    such discipline in the sample.
+    It names every command that opens `$EDITOR` or a TUI and will block: `glab ci view`
+    (interactive UI), `glab ci trace` (streams/blocks), `glab stack move`/`reorder`
+    (fuzzy-finder / editor), and `save`/`amend` *without* `-m` (prompts interactively).
+    More concrete than Convex’s “don’t run the watcher in the foreground.”
+  - **Shell-quoting-safety guidance** — prefer piping the body via stdin / a quoted
+    heredoc (`<< 'EOF'`) for MR notes so backticks, `$`, and backslashes stay literal,
+    with per-command notes on which commands read stdin vs.
+    need `glab api -F body=@file`. A distinctive agent-mode concern (safe
+    non-interactive text input) none of the other three covered.
+  - `--output json | jq` machine-readable patterns and an idempotent `--unique` note
+    post.
+
+**Gaps & rough edges:**
+
+- **Claude Code won’t auto-discover from the repo root.** Like Convex, there’s **no
+  `.claude/skills/` mirror** — `glab` bets entirely on agents adopting
+  `.agents/skills/`. That bet is reasonable and forward-looking, but today a stock
+  Claude Code install keyed to `.claude/skills/` won’t surface these without help.
+- **Tiny bundle, thin coverage.** Two skills cover MRs/issues/CI and stacked diffs;
+  everything else (releases, registries, security, deploy) is left to
+  `glab <cmd> --help`. That’s a deliberate “the CLI’s own help is the source of truth”
+  stance, but it means far less curated agent guidance than Render or Clerk for the long
+  tail.
+- **Remote fetch is unauthenticated, public-only, and not integrity-checked beyond the
+  ref** — fine for the curated gitlab.com registry as shipped, but the model has no
+  signature/checksum pinning, so trust rests entirely on the curated `registry.yaml` and
+  the chosen `ref`.
+- **EXPERIMENTAL surface** — the commands “might be unstable or removed at any time,” so
+  anything built on `glab skills` today is building on shifting ground.
+
 ## Cross-cutting patterns
 
 **Shared strengths (a rough consensus on what good looks like):** progressive disclosure
@@ -205,20 +318,36 @@ consistent); "Common Mistakes"-style tables; agent-mode CLI awareness (`--json`,
 non-interactive); bundling runnable resources (templates/assets); CLI-driven
 self-install.
 
-**Shared gaps (where all three independently land in the same place):**
+**Shared gaps — and where GitLab breaks them.** The three infra vendors independently
+land in the same place on the points below; adding `glab` (an adjacent-genre fourth)
+shows that two of these “gaps” are choices, not inevitabilities.
 
-1. **Unpinned zero-install runners** (`@latest`) — every vendor does this.
-2. **No `format=fNN` / `DO NOT EDIT` stamp** on generated skills.
-   None can mark a generated artifact as machine-owned — though the practical harm
-   depends on the update model: a vendor that *fully overwrites* on `update` needs the
-   stamp less than one that commits and hand-edits.
-3. **`allowed-tools` rarely/never scoped** (Clerk partial; Render/Convex none).
-4. **Listing-slot economics largely ignored** — Clerk 21, Render 21, Convex 6; routers
-   aid navigation but don’t reduce the slot count.
-   (As noted under Clerk, more slots also buy discoverability, so this is a trade-off
-   rather than a pure cost.)
-5. **Partial portability** — each picks one or two of {portable `.agents/` canonical,
-   `.claude/` mirror, Codex companion} and skips the rest.
+1. **Unpinned zero-install runners** (`@latest`) — all three infra vendors do this.
+   `glab` **mostly avoids it** by embedding skills in a versioned binary; the lone
+   exception is its remote-registry `ref`, which *can* be `latest` but supports tags and
+   SHAs for a curator who wants to pin hard.
+2. **No `format=fNN` / `DO NOT EDIT` stamp** on generated skills — the infra trio can’t
+   mark a generated artifact as machine-owned.
+   **`glab` dissolves the problem rather than filling the gap:** a `sha256` content-hash
+   \+ atomic full-overwrite `update` re-converges any hand-edit, so no machine-owned
+   marker is needed. (This matches the earlier note that a *full-overwrite* update model
+   needs the stamp less than a commit-and-hand-edit one.)
+3. **`allowed-tools` rarely/never scoped** (Clerk partial; Render/Convex/GitLab none) —
+   still a genuine four-way gap; `glab`’s skills carry only `name`/`description`
+   frontmatter.
+4. **Listing-slot economics** — Clerk 21, Render 21, Convex 6 install everything, and
+   routers aid navigation without reducing the slot count.
+   **`glab` is the counter-example:** it installs **one** skill by default and makes the
+   rest opt-in by name, with an explicit in-code rationale about not polluting agent
+   context. (As noted under Clerk, more slots also buy discoverability, so the right
+   footprint is a trade-off — but `glab` shows the lean end of it is reachable.)
+5. **Portability is a fork in the road, not a checklist.** The infra trio each pick one
+   or two of {portable `.agents/` canonical, `.claude/` mirror, Codex companion} and
+   skip the rest; `glab` deliberately ships *only* the `.agents/` canonical and bets the
+   mirrors are transitional.
+   So this is less “everyone is partial” and more “two coherent stances —
+   mirror-per-agent-now vs one-standard-directory — plus some genuinely incomplete
+   picks.”
 
 ## Techniques worth adopting
 
@@ -244,6 +373,23 @@ The distinctive patterns most worth lifting into our own practice:
 - **“Save big output to a file, then `jq`”** context-budget discipline (Clerk).
 - **Symmetric “When to Use / When Not to Use”** on every skill (Convex) to cut
   mis-activation.
+- **Content-hash drift detection + atomic, deletion-aware overwrite** (`glab`) —
+  re-derive a `sha256` over the file tree and overwrite only on difference, via temp-dir
+  \+ rename. An alternative to `DO NOT EDIT` / `format=fNN` stamping that also self-heals
+  upstream deletions; especially apt when skills are *generated* and *fully overwritten*
+  on resync.
+- **Default-install-one, opt-in-by-name** (`glab`) — the cleanest lever we’ve seen for
+  listing-slot economics: ship many skills but install only the core one unless asked.
+- **Curated remote skill registry embedded in the CLI** (`glab` `registry.yaml`) — a
+  versioned, schema-checked pointer list to skills hosted in *other* repos, fetched at a
+  pinned `ref`. A distribution channel for first- *and* third-party skills without
+  vendoring them into the CLI repo.
+- **An explicit “these commands hang a non-interactive agent” catalogue** (`glab`) —
+  name every `$EDITOR`/TUI/streaming command and the safe non-interactive substitute.
+  Pairs with **stdin/heredoc shell-quoting-safety guidance** for passing
+  bodies/descriptions without backtick/`$`/backslash footguns.
+- **Tagging read-only subcommands MCP-safe** (`glab` `mcpannotations.Safe`) — a tidy way
+  to let one CLI back a safe MCP surface without a second tool definition.
 
 ## Relevance to our guidelines
 
@@ -253,6 +399,13 @@ state more forcefully (pinning, generated-artifact stamping, `allowed-tools`,
 listing-slot economics, portability).
 The Render MCP-first choice is also a useful prompt to make our CLI-vs-MCP stance
 address *hosted* MCP explicitly rather than assume a local binary.
+The GitLab data point sharpens two of those rules in particular: it shows
+**generated-artifact stamping** and **listing-slot economics** each have a clean,
+shipped alternative (content-hash drift detection; default-install-one), so our
+guideline can present these as *solved problems with a known technique* rather than open
+gaps — and the `glab` “commands that hang a non-interactive agent” catalogue plus
+stdin/heredoc input guidance are concrete additions to whatever agent-mode-CLI checklist
+the guideline carries.
 Concrete edits are tracked in
 [plan-2026-06-03-tbd-agent-cli-guideline-improvements.md](../../specs/active/plan-2026-06-03-tbd-agent-cli-guideline-improvements.md);
 the guideline itself is
