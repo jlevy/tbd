@@ -1872,8 +1872,10 @@ async function preserveLosingVersion(dataSyncPath: string, loser: Issue): Promis
  * backup branch is created, so the pre-rescue HEAD is always recoverable and
  * the rescue is restartable.
  *
- * MUST be called while holding `withSharedDataSyncLock`. Aborts if the
- * data-sync worktree is dirty or has a merge in progress.
+ * MUST be called while holding `withSharedDataSyncLock`. A merge in progress
+ * aborts the rescue; a merely-dirty worktree does not — its uncommitted
+ * tbd-owned data-sync changes are committed first (so the backup branch captures
+ * them), while any dirty path outside the data-sync tree aborts. See issue #158.
  */
 export async function rescueUnrelatedHistory(
   baseDir: string,
@@ -1883,21 +1885,42 @@ export async function rescueUnrelatedHistory(
   const { sharedWorktreePath: worktreePath, sharedDataSyncDir: dataSyncPath } =
     await getSharedPaths(baseDir);
 
-  // Preconditions: never reset over uncommitted work or an in-progress merge.
-  const dirty = (await git('-C', worktreePath, 'status', '--porcelain')).trim();
-  if (dirty) {
-    throw new Error(
-      'Refusing to rescue: the tbd-sync worktree has uncommitted changes. ' +
-        'Commit or stash them, then retry.',
-    );
-  }
+  // Preconditions. A half-finished merge is a genuinely unsafe base to reset
+  // over, so refuse it. But a merely-dirty worktree is tbd's own uncommitted
+  // data-sync state (this worktree is dedicated to DATA_SYNC_DIR) — commit it
+  // first so the backup branch captures it faithfully and the reset is safe,
+  // rather than refusing and sending the user into a sync ⇄ doctor loop. (#158)
   const mergeInProgress = await git('-C', worktreePath, 'rev-parse', '-q', '--verify', 'MERGE_HEAD')
     .then(() => true)
     .catch(() => false);
   if (mergeInProgress) {
     throw new Error(
-      'Refusing to rescue: a merge is in progress in the tbd-sync worktree. ' +
-        'Resolve or abort it, then retry.',
+      'Refusing to rescue: a merge is in progress in the tbd-sync worktree at ' +
+        `${worktreePath}. Run \`git -C "${worktreePath}" merge --abort\`, then re-run ` +
+        '`tbd doctor --fix`.',
+    );
+  }
+
+  const dirty = (await git('-C', worktreePath, 'status', '--porcelain')).trim();
+  if (dirty) {
+    // Defensive: this worktree only ever holds DATA_SYNC_DIR. If anything
+    // outside it is dirty, do not auto-commit foreign changes — refuse clearly.
+    // Let git do the filtering (an exclude pathspec) rather than parse porcelain.
+    const foreign = (
+      await git('-C', worktreePath, 'status', '--porcelain', '--', '.', `:!${DATA_SYNC_DIR}`)
+    ).trim();
+    if (foreign) {
+      throw new Error(
+        'Refusing to rescue: the tbd-sync worktree has changes outside the data-sync ' +
+          `tree:\n${foreign}\nRemove or commit them, then re-run \`tbd doctor --fix\`.`,
+      );
+    }
+    await git('-C', worktreePath, 'add', '-A');
+    await gitCommit(
+      worktreePath,
+      '--no-verify',
+      '-m',
+      'tbd rescue: snapshot uncommitted data-sync state before rescue',
     );
   }
 

@@ -81,6 +81,14 @@ attached
 ? 0
 ```
 
+# Test: tbd sync exits non-zero on unrelated histories (hard failure, not exit 0)
+
+```console
+$ tbd sync > /dev/null 2>&1 && echo "UNEXPECTED-OK" || echo "failed-nonzero"
+failed-nonzero
+? 0
+```
+
 * * *
 
 ## Detection: doctor reports a hard finding routed to --fix

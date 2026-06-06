@@ -274,9 +274,16 @@ New function invoked by `tbd doctor --fix` when `unrelated` is detected.
 **Locking and preconditions (same contract as `initWorktree` / `repairWorktree`).** The
 whole rescue runs inside `withSharedDataSyncLock` so a concurrent `tbd create` /
 `tbd sync` from a sibling worktree cannot race the reset/replay window.
-Before mutating: require a clean data-sync worktree with no merge/rebase in progress (no
-`MERGE_HEAD`/in-progress operation, no unstaged changes); if dirty, abort with guidance
-to resolve or stash first rather than resetting over uncommitted work.
+Before mutating: abort on a merge/rebase in progress (`MERGE_HEAD`/in-progress
+operation).
+
+> **Superseded (2026-06-03, #158 / PR #160,
+> `plan-2026-06-03-unrelated-rescue-dirty-worktree.md`):** the original “abort on a
+> dirty data-sync worktree” precondition was relaxed.
+> A merely-dirty worktree holds tbd’s own uncommitted data-sync writes, which the rescue
+> now commits first (so the `tbd-backup-*` branch captures them) before the
+> reset/replay; only dirty paths *outside* the data-sync tree abort.
+> The merge-in-progress guard is unchanged.
 
 1. `git fetch origin tbd-sync`.
 2. Safety net: `git branch tbd-backup-<nowFilenameTimestamp()> <local tbd-sync HEAD>`

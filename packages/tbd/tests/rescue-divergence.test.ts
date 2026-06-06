@@ -5,7 +5,8 @@
  *   identical             -> no-op
  *   same-origin field diff -> field-merge (no data discarded, no attic)
  *   true conflict          -> losing version preserved in attic/conflicts/
- * Plus preconditions: rescue aborts on a dirty worktree or a merge in progress
+ * Plus preconditions: rescue tolerates a dirty worktree (commits it first) but
+ * still aborts on a merge in progress
  * (never resets over uncommitted work).
  *
  * See: plan-2026-05-29-tbd-sync-unrelated-history-hardening.md (Phase 2 tests)
@@ -19,7 +20,7 @@ import { randomBytes } from 'node:crypto';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 
-import { initWorktree, rescueUnrelatedHistory } from '../src/file/git.js';
+import { initWorktree, rescueUnrelatedHistory, branchExists } from '../src/file/git.js';
 import { writeIssue, readIssue } from '../src/file/storage.js';
 import { loadIdMapping, saveIdMapping, type IdMapping } from '../src/file/id-mapping.js';
 import { SYNC_BRANCH, TBD_DIR, DATA_SYNC_DIR_NAME } from '../src/lib/paths.js';
@@ -285,23 +286,35 @@ describeUnlessWindows('rescue divergence matrix + preconditions', () => {
     expect(localHead).toBe(remoteHead);
   });
 
-  it('aborts on a dirty worktree without resetting or creating a backup branch', async () => {
+  it('tolerates a dirty worktree by committing it first, then rescues (#158)', async () => {
     const created = '2026-01-01T00:00:00Z';
     await buildUnrelated(
       createTestIssue({ id: `is-${SHARED}`, title: 'local', created_at: created }),
       createTestIssue({ id: `is-${SHARED}`, title: 'remote', created_at: created }),
     );
-    // Uncommitted change in the worktree.
-    await fsWriteFile(join(dataSyncPath, 'issues', 'is-01dirtyuncommitted00000000.md'), 'junk\n');
-
-    const headBefore = await g(workPath, 'rev-parse', SYNC_BRANCH);
-    await expect(rescueUnrelatedHistory(workPath, 'origin', SYNC_BRANCH)).rejects.toThrow(
-      /uncommitted changes/i,
+    // tbd's own uncommitted data-sync write (e.g. a sync caught mid-flight).
+    await writeIssue(
+      dataSyncPath,
+      createTestIssue({ id: 'is-01dirtyuncommitted00000001', title: 'uncommitted' }),
     );
-    // No reset happened and no backup branch was created.
-    expect(await g(workPath, 'rev-parse', SYNC_BRANCH)).toBe(headBefore);
-    const backups = (await g(workPath, 'branch', '--list', 'tbd-backup-*')).trim();
-    expect(backups).toBe('');
+
+    const result = await rescueUnrelatedHistory(workPath, 'origin', SYNC_BRANCH);
+
+    // It no longer aborts: a backup branch is created and the rescue completes.
+    expect(await branchExists(result.backupBranch, workPath)).toBe(true);
+    // The backup captures the previously-uncommitted file faithfully.
+    await expect(
+      g(
+        workPath,
+        'cat-file',
+        '-e',
+        `${result.backupBranch}:${TBD_DIR}/${DATA_SYNC_DIR_NAME}/issues/is-01dirtyuncommitted00000001.md`,
+      ),
+    ).resolves.toBe('');
+    // Push will fast-forward over the adopted remote base.
+    await expect(
+      g(workPath, 'merge-base', '--is-ancestor', `origin/${SYNC_BRANCH}`, SYNC_BRANCH),
+    ).resolves.toBe('');
   });
 
   it('aborts when a merge is in progress in the worktree', async () => {

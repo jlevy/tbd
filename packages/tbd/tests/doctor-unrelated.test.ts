@@ -9,7 +9,7 @@
 
 import { describe, it, expect } from 'vitest';
 
-import { classifyRemoteSyncHealth } from '../src/cli/commands/doctor.js';
+import { classifyRemoteSyncHealth, divergenceFinding } from '../src/cli/commands/doctor.js';
 import type { RemoteBranchHealth } from '../src/file/git.js';
 
 const base: RemoteBranchHealth = { exists: true, diverged: false, unrelated: false };
@@ -46,5 +46,21 @@ describe('classifyRemoteSyncHealth', () => {
       'tbd-sync',
     );
     expect(diag).toBeNull();
+  });
+});
+
+describe('divergenceFinding (#158 — break the sync ⇄ doctor loop)', () => {
+  it('points a plain divergence at tbd sync', () => {
+    const diag = divergenceFinding(2, 3, false);
+    expect(diag.message).toMatch(/diverged \(2 ahead, 3 behind\)/);
+    expect(diag.suggestion).toMatch(/tbd sync/);
+  });
+
+  it('points an unrelated divergence at doctor --fix, never tbd sync', () => {
+    // For unrelated histories the remediation is the rescue; suggesting tbd sync
+    // forms a loop (sync → doctor --fix → sync).
+    const diag = divergenceFinding(2, 92, true);
+    expect(diag.suggestion).toMatch(/doctor --fix/);
+    expect(diag.suggestion).not.toMatch(/tbd sync/);
   });
 });

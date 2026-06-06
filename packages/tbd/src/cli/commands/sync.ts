@@ -1026,9 +1026,10 @@ class SyncHandler extends BaseCommand {
 
       // Handle recovery based on error type (after output.data to avoid async callback)
       // Only show options in non-JSON mode
+      let recovered = false;
       if (errorType === 'permanent' && options.autoSave !== false) {
-        // Auto-save to outbox on permanent failure
-        await this.handlePermanentFailure();
+        // Auto-save to outbox on permanent failure (data durably preserved).
+        recovered = await this.handlePermanentFailure();
       } else if (!this.ctx.json) {
         if (errorType === 'transient') {
           // Suggest retry for transient failures
@@ -1044,6 +1045,14 @@ class SyncHandler extends BaseCommand {
           console.log("    • Run 'tbd sync --status' to check status");
           console.log('    • Save for later:  tbd save --outbox');
         }
+      }
+
+      // A push failure is a hard failure that CI/scripts must be able to detect,
+      // UNLESS the changes were durably saved to the outbox (the soft-fail
+      // recovery path). Local commits remain on tbd-sync either way, but the
+      // remote was not updated. (#158)
+      if (!recovered) {
+        process.exitCode = 1;
       }
       return;
     }
@@ -1066,14 +1075,18 @@ class SyncHandler extends BaseCommand {
   /**
    * Handle permanent push failure by auto-saving to outbox.
    * Called when push fails with a permanent error (e.g., HTTP 403).
+   *
+   * @returns true if the local changes are durably safe (saved to the outbox, or
+   *   nothing needed saving); false if the auto-save itself failed. The caller
+   *   uses this to decide the process exit code. (#158)
    */
-  private async handlePermanentFailure(): Promise<void> {
+  private async handlePermanentFailure(): Promise<boolean> {
     // Count issues in worktree to see if there's anything to save
     const worktreeIssues = await listIssues(this.dataSyncDir);
     if (worktreeIssues.length === 0) {
       console.log('');
       console.log('  No unsynced issues to save (already in sync with remote).');
-      return;
+      return true;
     }
 
     // Check existing outbox count before save
@@ -1128,6 +1141,7 @@ class SyncHandler extends BaseCommand {
           '  WARNING: Do NOT add .tbd/workspaces/ to .gitignore -- that would cause data loss.',
         );
       }
+      return true;
     } catch (saveError) {
       // Auto-save failed - report both errors
       const saveErrorMsg = saveError instanceof Error ? saveError.message : String(saveError);
@@ -1135,6 +1149,7 @@ class SyncHandler extends BaseCommand {
       this.output.error(`Auto-save to outbox also failed: ${saveErrorMsg}`);
       console.log('');
       console.log("  Run 'tbd save --outbox' manually, or 'tbd doctor' to diagnose.");
+      return false;
     }
   }
 
