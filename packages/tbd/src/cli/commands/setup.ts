@@ -38,7 +38,7 @@ import {
   markWelcomeSeen,
 } from '../../file/config.js';
 import { syncDocsWithDefaults } from '../../file/doc-sync.js';
-import { VERSION } from '../lib/version.js';
+import { PINNED_NPM_VERSION, VERSION } from '../lib/version.js';
 import {
   TBD_DIR,
   TBD_DOCS_DIR,
@@ -263,12 +263,12 @@ fi
 
 # Pinned zero-install fallback. Never use an unpinned runner here.
 if command -v npx &> /dev/null; then
-    npx --yes get-tbd@${VERSION} prime "$@"
+    npx --yes get-tbd@${PINNED_NPM_VERSION} prime "$@"
     exit $?
 fi
 
 echo "[tbd] tbd CLI not found and npx is unavailable."
-echo "[tbd] Install it with: npm install -g get-tbd@${VERSION}"
+echo "[tbd] Install it with: npm install -g get-tbd@${PINNED_NPM_VERSION}"
 exit 1
 `;
 

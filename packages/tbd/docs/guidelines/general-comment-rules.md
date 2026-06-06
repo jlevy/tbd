@@ -93,7 +93,8 @@ These are language-agnostic rules on comments:
   prefer `/** ... */` comments wherever appropriate on variables, functions, methods,
   and at the top of files.
 
-- See language-specific comment rules for more details.
+- See language-specific comment rules for more details, e.g. `typescript-rules` or
+  `python-rules`.
 
 <!-- This document follows common-doc-guidelines.md.
 See github.com/jlevy/practical-prose and review guidelines before editing.

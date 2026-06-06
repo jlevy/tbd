@@ -5,6 +5,8 @@ author: Joshua Levy (github.com/jlevy) with LLM assistance
 ---
 # Python CLI Patterns
 
+**Related**: `python-rules`, `python-modern-guidelines`, and `error-handling-rules`.
+
 ## Recommended Stack
 
 - **uv** for package management, venvs, Python versions
@@ -67,6 +69,8 @@ Define custom exceptions with exit codes:
 - `UserCancelled`: User cancelled (exit code 0)
 
 Exit codes: 0 success, 1 error, 2 validation, 130 interrupted (SIGINT)
+
+See `error-handling-rules` for the principles behind exit codes and visible failures.
 
 ### Version Handling
 

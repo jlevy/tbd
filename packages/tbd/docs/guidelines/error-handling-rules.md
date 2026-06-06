@@ -131,6 +131,9 @@ For every operation that can fail:
 Failure tests are harder to write but catch the bugs that matter most—the ones where the
 system lies about its state.
 
+See `general-testing-rules` and `general-tdd-guidelines` for the broader testing
+approach.
+
 ### Principle 8: Classify Errors as Transient or Permanent
 
 Not all errors are equal.

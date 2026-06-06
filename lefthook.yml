@@ -14,14 +14,23 @@ pre-commit:
       stage_fixed: true
       priority: 1
 
-    # Format markdown with flowmark (~500ms)
+    # Format markdown with flowmark-rs (~500ms)
+    # Pinned to flowmark-rs@0.3.1 (Rust port). The --exclude-newer-package override
+    # sets this package's release-age cutoff to 2026-05-31 so the pin resolves
+    # regardless of each environment's global uv cool-off, and never relaxes the
+    # cutoff for any other package.
+    # Cool-off exception (SUPPLY-CHAIN-SECURITY.md §3): flowmark-rs is a first-party
+    # package authored and supply-chain-reviewed by the maintainer; pinned exactly.
+    # Reviewed-by: Joshua Levy (github.com/jlevy)
+    #
     # Excludes auto-generated files (.tbd/, .claude/skills/, .agents/skills/,
     # skills/tbd/, AGENTS.md) — these must match their generator byte-for-byte
-    # (guarded by drift tests), so flowmark must not reformat them.
+    # (guarded by drift tests). The generator emits flowmark-clean output, so the
+    # hook does not need to (and must not) reformat them.
     format-md:
       glob: '*.md'
       exclude: '(\.tbd/|\.claude/skills/|\.agents/skills/|skills/tbd/|AGENTS\.md)'
-      run: npx prettier --write --log-level warn {staged_files} && uvx flowmark@0.6.5 --auto {staged_files}
+      run: npx prettier --write --log-level warn {staged_files} && uvx --exclude-newer-package flowmark-rs=2026-05-31 flowmark-rs@0.3.1 --auto {staged_files}
       stage_fixed: true
       priority: 1
 

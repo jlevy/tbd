@@ -64,7 +64,10 @@ If this fails for any reason, follow the steps below.
 
 Set `GH_TOKEN` environment variable with a GitHub personal access token **before**
 starting the session.
-See `docs/general/agent-setup/github-cli-setup.md` for token creation instructions.
+Create a [Personal Access Token](https://github.com/settings/tokens?type=beta)
+(fine-grained recommended) with **Contents** and **Pull requests** read/write
+permissions, then export it (e.g. add `export GH_TOKEN=...` to your shell profile or set
+it in your agent environment).
 
 ## Quick Reference
 

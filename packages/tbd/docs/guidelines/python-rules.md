@@ -5,6 +5,9 @@ author: Joshua Levy (github.com/jlevy) with LLM assistance
 ---
 # Python Rules
 
+**Related**: `python-modern-guidelines` (uv and modern Python practices),
+`python-cli-patterns` (for CLI tools).
+
 These are general rules that *must* be followed on this project for Python code.
 
 ## Project Setup and Developer Workflows
@@ -62,6 +65,9 @@ These are general rules that *must* be followed on this project for Python code.
 - DO NOT implement additional code for backward compatiblity (such as extra methods or
   variable aliases or comments about backward compatibility) UNLESS the user has
   confirmed that it is necessary.
+
+- For the full policy on what compatibility to preserve, see
+  `backward-compatibility-rules`.
 
 ## Coding Conventions and Imports
 

@@ -13,9 +13,9 @@ Commander 14 moves to security-only maintenance until May 2027.
 
 **Related**:
 
-- [TypeScript Rules](./typescript-rules.md)
-- [Supply-Chain Mitigation](./pnpm-monorepo-patterns.md#supply-chain-mitigation)—follow
-  the 14-day package-age rule for every CLI dependency.
+- `typescript-rules`
+- `error-handling-rules`—failure paths and exit codes are part of every CLI command.
+- `supply-chain-hardening`—follow the 14-day package-age rule for every CLI dependency.
   Bundlers and CLI dependencies that execute at install time (`postinstall` scripts) are
   a primary attack surface.
 

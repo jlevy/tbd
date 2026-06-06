@@ -14,9 +14,9 @@ Zod 4.x is the recommended validation companion.
 
 **Related**:
 
-- [TypeScript Rules](./typescript-rules.md)
-- [Supply-Chain Mitigation](./pnpm-monorepo-patterns.md#supply-chain-mitigation)—follow
-  the 14-day package-age rule for `yaml`, `zod`, and `gray-matter`.
+- `typescript-rules`
+- `supply-chain-hardening`—follow the 14-day package-age rule for `yaml`, `zod`, and
+  `gray-matter`.
 
 These guidelines ensure consistent, safe, and readable YAML handling across TypeScript
 codebases. YAML is deceptively tricky—inconsistent quoting, serialization differences,
@@ -203,8 +203,8 @@ const output = `---\n${stringifyYaml(data)}---\n\n${content}`;
 
 ## Related Guidelines
 
-- For general TypeScript rules, see `tbd guidelines typescript-rules`
-- For error handling patterns, see `tbd guidelines error-handling-rules`
+- For general TypeScript rules, see `typescript-rules`
+- For error handling patterns, see `error-handling-rules`
 
 <!-- This document follows common-doc-guidelines.md.
 See github.com/jlevy/practical-prose and review guidelines before editing.

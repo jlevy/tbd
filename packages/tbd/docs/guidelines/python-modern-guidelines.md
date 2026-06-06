@@ -5,6 +5,9 @@ author: Joshua Levy (github.com/jlevy) with LLM assistance
 ---
 # Python Modern Guidelines
 
+**Related**: `python-rules` (general Python coding rules), `python-cli-patterns` (for
+CLI tools).
+
 These are rules for a modern Python project using uv.
 
 ## Support Only Modern Python Versions

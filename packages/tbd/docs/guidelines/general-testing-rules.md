@@ -25,6 +25,10 @@ author: Joshua Levy (github.com/jlevy) with LLM assistance
 
 - Test edge cases and boundaries: Include tests for empty inputs, nulls, maximums,
   minimums, and error conditions—not just happy paths.
+  For verifying failure paths and exit codes, see `error-handling-rules`.
+
+- For the red-green development workflow, see `general-tdd-guidelines`. For
+  golden/snapshot testing, see `golden-testing-guidelines`.
 
 <!-- This document follows common-doc-guidelines.md.
 See github.com/jlevy/practical-prose and review guidelines before editing.

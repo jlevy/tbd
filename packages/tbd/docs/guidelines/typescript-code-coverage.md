@@ -12,10 +12,12 @@ not adopt yet.
 
 **Related**:
 
-- [Companion: pnpm Monorepo Patterns—Testing](./pnpm-monorepo-patterns.md#8-testing)
-- [Supply-Chain Mitigation](./pnpm-monorepo-patterns.md#supply-chain-mitigation)—follow
-  the 14-day package-age rule when installing or upgrading `vitest` and
-  `@vitest/coverage-v8`.
+- `typescript-rules`
+- `general-testing-rules` and `general-tdd-guidelines`—what to test and the red-green
+  workflow that coverage measures.
+- `pnpm-monorepo-patterns`—the Testing section covers the monorepo test setup.
+- `supply-chain-hardening`—follow the 14-day package-age rule when installing or
+  upgrading `vitest` and `@vitest/coverage-v8`.
 
 ## Coverage Metrics
 

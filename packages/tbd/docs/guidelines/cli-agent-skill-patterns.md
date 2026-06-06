@@ -5,9 +5,11 @@ author: Joshua Levy (github.com/jlevy) with LLM assistance
 ---
 # Agent Skills and CLI Integration Patterns
 
-**Last Updated**: 2026-06-02 (§6.8 now covers Anthropic’s official and community plugin
-marketplaces—the reviewed, gated submission channel—and the `/plugin` install preview;
-verified against code.claude.com docs.
+**Last Updated**: 2026-06-04 (§4.6 adds the “attention routing” framing—the slopdocs vs.
+hiding-details failure modes—as a contained section, and the §3.1 mechanism callback
+points at it. Earlier 2026-06-02: §6.8 now covers Anthropic’s official and community
+plugin marketplaces—the reviewed, gated submission channel—and the `/plugin` install
+preview; verified against code.claude.com docs.
 Earlier 2026-05-31: research verified against primary sources, added the L0–L3
 integration ladder and §6.6.2 project-vs-global scope mechanics, informed by `qmd`)
 
@@ -24,12 +26,11 @@ should use—a prompt-only skill, a CLI tool, an MCP server, or a multi-agent
 integration—and you want it to work across Claude Code, Codex, Cursor, Gemini CLI, and
 others without rewriting it per agent.
 
-> **The single most important shift since 2025**: skills and project instructions are
-> now **open standards**, not per-vendor formats.
-> `AGENTS.md` is governed under the Linux Foundation’s **Agentic AI Foundation (AAIF)**;
-> the **Agent Skills (`SKILL.md`)** format is an open standard published at
-> [agentskills.io](https://agentskills.io) and implemented by 20+ agents.
-> Write to the standard once; most agents pick it up for free.
+Skills and project instructions are now **open standards**, not per-vendor formats.
+`AGENTS.md` is governed under the Linux Foundation’s **Agentic AI Foundation (AAIF)**;
+the **Agent Skills (`SKILL.md`)** format is an open standard published at
+[agentskills.io](https://agentskills.io) and implemented by 20+ agents.
+Write to the standard once; most agents pick it up for free.
 
 * * *
 
@@ -255,6 +256,9 @@ The body names the capability and the command; the agent runs that command’s `
 `--list` when it needs the mechanics.
 This is progressive disclosure applied to a CLI: the tool documents itself, and the
 skill stays a thin pointer to it.
+This is *attention routing* (§4.6) in mechanism form: each level keeps the agent aware
+that more detail exists and routes to it, without pulling the detail itself up into
+context before it is needed.
 
 ### 3.2 Bundled scripts and resources
 
@@ -382,6 +386,32 @@ it:
   Pin consumers to a commit or version, not a moving tag.
 - **Deprecation**: when removing or renaming a skill, leave a deprecation window with a
   pointer to the replacement; don’t silently delete an activation trigger users rely on.
+
+### 4.6 Attention routing—the idea behind this guide
+
+Everything above is in service of one idea.
+Route the agent’s attention through a pyramid of pointers: surface enough context around
+each pointer to show what is relevant, pull detail up only where it helps, and keep the
+upper levels lean.
+The judgment at every step is **how much to copy into the skill versus
+leave behind a link to the CLI**—which is why rules like **route, don’t restate** (§6.5)
+and **the skill points; the CLI documents** (§0.2) exist.
+There are two opposite failure modes:
+
+- **Slopdocs** (*copying too much, or unthinkingly*)—help text, flag tables, and recipes
+  copied into the skill with no judgment about what level or form belongs where.
+  Deliberate, consistent copying is fine—the multi-agent mirror in §6.6 is exactly
+  that—but thoughtless copying bloats context and dilutes attention, and breeds
+  maintenance burden and inconsistencies that drift into real errors.
+- **Hiding details** (*copying too little, or hiding details behind links too
+  dogmatically*)—pointing at the CLI or a reference without enough context to convey
+  what is there or why to look, so the agent never learns the capability is relevant.
+  Fix: pull up just enough—name each capability and the command that reaches it—so the
+  link is worth following.
+
+Push the *mechanics* (flags, recipes) down into help pages or docs, but keep enough
+*awareness* and *detail* up in the skill—each key capability described once, with the
+command that reaches it—so the agent knows whether a pointer is worth following.
 
 * * *
 
@@ -1311,7 +1341,9 @@ going:
 - Route, don’t restate: name each capability and the command to run; let the CLI’s
   `--help` and informational subcommands hold the flags and recipes.
   Carry the focused context an agent needs to judge that the tool is relevant, but don’t
-  blindly copy help into the skill; that wastes context and goes stale (§3.1, §6.5).
+  blindly copy help into the skill; that wastes context and goes stale (§3.1, §6.5). The
+  two failure modes: **slopdocs** (copying too much or unthinkingly) and **hiding
+  details** (copying too little—content hidden behind links the agent won’t follow).
 - Respect the budget; verify the current model for your target agent (Claude Code ≈ 1%
   of context window, not a flat char count).
 
@@ -1349,6 +1381,9 @@ going:
 - [ ] Body carries the essential context to judge whether the tool is relevant and to
   name each key use case, but routes to `mycli <cmd> --help` or `--list` for flags and
   recipes instead of copying help wholesale
+- [ ] No **slopdocs** (help, flags, or recipes copied in unthinkingly) and no **hiding
+  details** (capabilities behind bare links with too little context to show they are
+  worth following)
 - [ ] Third-person description, trigger keywords front-loaded
 - [ ] Installable via commit to `.agents/skills/`, Claude mirror at `.claude/skills/`,
   and/or `npx skills add`
