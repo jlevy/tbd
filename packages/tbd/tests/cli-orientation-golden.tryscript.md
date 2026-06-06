@@ -55,7 +55,7 @@ ID prefix: go-
 INTEGRATIONS
   ✗ Portable Agent Skill (./.agents/skills/tbd/SKILL.md)
   ✗ Claude Code hooks (./.claude/settings.json)
-  ✗ Codex AGENTS.md (./AGENTS.md)
+  ✗ AGENTS.md (./AGENTS.md)
   ✗ Codex hooks (./.codex/hooks.json)
 
 Run tbd setup auto to configure detected agents
@@ -98,7 +98,7 @@ INTEGRATIONS
     Run: tbd setup --auto
 ⚠ Claude Code skill - not installed (.claude/skills/tbd/SKILL.md)
     Run: tbd setup --auto
-⚠ Codex AGENTS.md - not installed (AGENTS.md)
+⚠ AGENTS.md - not installed (AGENTS.md)
     Run: tbd setup --auto
 ⚠ Codex hooks - not installed (.codex/hooks.json)
     Run: tbd setup --auto
