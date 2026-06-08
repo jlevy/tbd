@@ -115,6 +115,7 @@ HEALTH CHECKS
 ✓ Issue validity
 ✓ Worktree ([PATH])
 ✓ Common-dir layout ([PATH])
+✓ Shared lock writability ([PATH])
 ✓ Data location
 ✓ ID mapping coverage
 ✓ Local sync branch - tbd-sync
