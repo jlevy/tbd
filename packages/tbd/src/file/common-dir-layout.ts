@@ -201,8 +201,10 @@ export async function withSharedDataSyncLock<T>(tbdRoot: string, fn: () => Promi
   } catch (error) {
     // Only translate a permission failure on the lock directory itself. `fn`
     // writes issue data elsewhere (the worktree), so its errors pass through.
+    // The `.path` match relies on withLockfile surfacing the raw `mkdir`
+    // ErrnoException (which carries `.path`); revisit this guard if that changes.
     const code = lockPermissionCode(error);
-    if (code && (error as NodeJS.ErrnoException).path === paths.sharedLockPath) {
+    if (code && (error as NodeJS.ErrnoException | undefined)?.path === paths.sharedLockPath) {
       throw new SharedLockUnwritableError(code, paths, tbdRoot);
     }
     throw error;

@@ -2027,6 +2027,12 @@ class SetupAutoHandler extends BaseCommand {
         return this.installClaudeSurface(cwd);
       case 'codex':
         return this.installCodexSurface(cwd);
+      default: {
+        // Exhaustiveness guard: adding a SurfaceId without a case here is a
+        // compile-time error, not a silent `undefined` return.
+        const unhandled: never = id;
+        throw new Error(`Unhandled setup surface: ${String(unhandled)}`);
+      }
     }
   }
 

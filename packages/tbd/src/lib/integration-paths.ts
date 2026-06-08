@@ -13,7 +13,6 @@
  */
 
 import { join } from 'node:path';
-import { homedir } from 'node:os';
 import { CURRENT_FORMAT } from './tbd-format.js';
 
 /**
@@ -123,17 +122,6 @@ export const CODEX_CONFIG_REL = '.codex/config.toml';
 // reference `.claude/`, so Codex setup does not depend on Claude Code setup.
 // (See cli-agent-skill-patterns §6.6: per-agent copies are a valid alternative
 // to a shared neutral script.)
-
-// =============================================================================
-// Global Paths (for detection only - NOT for installation)
-// =============================================================================
-
-/**
- * Global Claude Code directory in user's home.
- * Used ONLY for detecting if Claude Code is installed (for agent detection).
- * All installations are project-local.
- */
-export const GLOBAL_CLAUDE_DIR = join(homedir(), '.claude');
 
 // =============================================================================
 // Path Resolution Utilities

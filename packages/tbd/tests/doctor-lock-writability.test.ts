@@ -12,7 +12,10 @@
 import { describe, it, expect } from 'vitest';
 import { join } from 'node:path';
 
-import { buildLockWritabilityFinding } from '../src/cli/commands/doctor.js';
+import {
+  buildLockWritabilityFinding,
+  type LockWritabilityProbe,
+} from '../src/cli/commands/doctor.js';
 import { SharedLockUnwritableError } from '../src/file/common-dir-layout.js';
 import { buildSharedTbdPaths, isCommonDirOutsideProject } from '../src/lib/paths.js';
 
@@ -20,7 +23,7 @@ const projectRoot = '/home/user/project';
 const insideCommonDir = join(projectRoot, '.git');
 const outsideCommonDir = '/home/user/original-repo/.git';
 
-function findingParams(code: string | undefined, gitCommonDir: string) {
+function findingParams(code: string | undefined, gitCommonDir: string): LockWritabilityProbe {
   const paths = buildSharedTbdPaths(gitCommonDir);
   return {
     code,
