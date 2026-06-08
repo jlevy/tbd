@@ -128,6 +128,21 @@ export function divergenceFinding(
 }
 
 /**
+ * Inputs for {@link buildLockWritabilityFinding}: the errno from the lock-write
+ * probe plus the resolved shared-tbd paths used to phrase the finding and its
+ * remediation.
+ */
+export interface LockWritabilityProbe {
+  /** errno from the probe `mkdir`, or undefined when the lock path is writable. */
+  code: string | undefined;
+  sharedLockPath: string;
+  sharedLocksDir: string;
+  sharedTbdDir: string;
+  gitCommonDir: string;
+  projectRoot: string;
+}
+
+/**
  * Build the "Shared lock writability" finding from a probe result.
  *
  * `code` is the errno from attempting to create a directory under the shared
@@ -138,14 +153,7 @@ export function divergenceFinding(
  * warning since it cannot be positively interpreted. Never `fixable`: tbd cannot
  * widen a sandbox or change filesystem permissions itself.
  */
-export function buildLockWritabilityFinding(params: {
-  code: string | undefined;
-  sharedLockPath: string;
-  sharedLocksDir: string;
-  sharedTbdDir: string;
-  gitCommonDir: string;
-  projectRoot: string;
-}): DiagnosticResult {
+export function buildLockWritabilityFinding(params: LockWritabilityProbe): DiagnosticResult {
   const { code, sharedLockPath, sharedLocksDir, sharedTbdDir, gitCommonDir, projectRoot } = params;
 
   if (!code) {
@@ -1281,10 +1289,14 @@ class DoctorHandler extends BaseCommand {
     const probeDir = join(paths.sharedLocksDir, `.tbd-doctor-probe-${randomUUID()}.lock`);
     let code: string | undefined;
     try {
+      // Mirrors withSharedDataSyncLock: ensuring the locks dir may create it as a
+      // side effect, which is harmless — any write command would create it anyway.
       await mkdir(paths.sharedLocksDir, { recursive: true });
       await mkdir(probeDir);
     } catch (error) {
-      code = (error as NodeJS.ErrnoException).code ?? 'UNKNOWN';
+      // The thrown value may not be an ErrnoException; optional-chain so a
+      // non-Error throw degrades to 'UNKNOWN' instead of crashing the probe.
+      code = (error as NodeJS.ErrnoException | undefined)?.code ?? 'UNKNOWN';
     } finally {
       await rmdir(probeDir).catch(() => {});
     }
