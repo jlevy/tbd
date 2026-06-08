@@ -12,12 +12,9 @@
 import { describe, it, expect } from 'vitest';
 import { join } from 'node:path';
 
-import {
-  buildLockWritabilityFinding,
-  isCommonDirOutsideProject,
-} from '../src/cli/commands/doctor.js';
+import { buildLockWritabilityFinding } from '../src/cli/commands/doctor.js';
 import { SharedLockUnwritableError } from '../src/file/common-dir-layout.js';
-import { buildSharedTbdPaths } from '../src/lib/paths.js';
+import { buildSharedTbdPaths, isCommonDirOutsideProject } from '../src/lib/paths.js';
 
 const projectRoot = '/home/user/project';
 const insideCommonDir = join(projectRoot, '.git');
@@ -97,14 +94,24 @@ describe('buildLockWritabilityFinding', () => {
 });
 
 describe('SharedLockUnwritableError', () => {
-  it('explains the failure with the lock path and remediation', () => {
+  it('uses sandbox wording when the common dir is outside the checkout', () => {
     const paths = buildSharedTbdPaths(outsideCommonDir);
-    const err = new SharedLockUnwritableError('EPERM', paths);
+    const err = new SharedLockUnwritableError('EPERM', paths, projectRoot);
     expect(err.name).toBe('SharedLockUnwritableError');
     expect(err.code).toBe('EPERM');
     expect(err.message).toContain(paths.sharedLockPath);
     expect(err.message).toContain(paths.sharedTbdDir);
-    expect(err.message).toMatch(/sandbox|writable/i);
+    expect(err.message).toMatch(/sandbox/i);
+    expect(err.message).toMatch(/writable roots/i);
+    expect(err.message).toMatch(/tbd doctor/);
+  });
+
+  it('uses filesystem-permission wording when the common dir is inside the checkout', () => {
+    const paths = buildSharedTbdPaths(insideCommonDir);
+    const err = new SharedLockUnwritableError('EACCES', paths, projectRoot);
+    expect(err.message).toContain(paths.sharedLockPath);
+    expect(err.message).toMatch(/not writable by this process|filesystem permissions/i);
+    expect(err.message).not.toMatch(/writable roots/i);
     expect(err.message).toMatch(/tbd doctor/);
   });
 });

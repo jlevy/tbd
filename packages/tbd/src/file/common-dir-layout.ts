@@ -9,7 +9,11 @@ import { parse as parseYaml } from 'yaml';
 
 import type { CommonDirLayout, Config } from '../lib/types.js';
 import { CommonDirLayoutSchema, COMMON_DIR_LAYOUT_FIELD_ORDER } from '../lib/schemas.js';
-import { resolveSharedTbdPaths, type SharedTbdPaths } from '../lib/paths.js';
+import {
+  isCommonDirOutsideProject,
+  resolveSharedTbdPaths,
+  type SharedTbdPaths,
+} from '../lib/paths.js';
 import { CURRENT_FORMAT, formatUpgradeMessage, isCompatibleFormat } from '../lib/tbd-format.js';
 import { sortKeys, stringifyYaml } from '../utils/yaml-utils.js';
 import { now } from '../utils/time-utils.js';
@@ -135,14 +139,25 @@ export class SharedLockUnwritableError extends Error {
   constructor(
     public readonly code: string,
     paths: SharedTbdPaths,
+    projectRoot: string,
   ) {
+    // Mirror the doctor finding's inside/outside classification so the wording is
+    // accurate in both the agent-sandbox case (common dir outside the checkout)
+    // and a plain filesystem-permission case (common dir inside the checkout).
+    const outside = isCommonDirOutsideProject(paths.gitCommonDir, projectRoot);
+    const cause = outside
+      ? `The checkout is writable, but the shared tbd state under ${paths.sharedTbdDir} ` +
+        `is outside this process's writable area (a common agent-sandbox shape, e.g. Codex ` +
+        `worktrees), so write commands cannot proceed.`
+      : `The shared tbd state under ${paths.sharedTbdDir} is not writable by this process, ` +
+        `so write commands cannot proceed.`;
+    const fix = outside
+      ? `Fix: grant write access to ${paths.sharedTbdDir} — in an agent sandbox such as Codex ` +
+        `add it to the writable roots, or re-run with sandbox escalation.`
+      : `Fix: ensure ${paths.sharedTbdDir} is writable by this user (check filesystem permissions).`;
     super(
       `Cannot acquire the shared tbd data-sync lock (${code}): ${paths.sharedLockPath}\n` +
-        `The checkout is writable, but the shared tbd state under ${paths.sharedTbdDir} ` +
-        `is outside this process's writable area, so write commands cannot proceed.\n` +
-        `Fix: grant write access to ${paths.sharedTbdDir} — in an agent sandbox such as ` +
-        `Codex add it to the writable roots, or re-run with sandbox escalation. ` +
-        `Run \`tbd doctor\` to confirm the diagnosis.`,
+        `${cause}\n${fix} Run \`tbd doctor\` to confirm the diagnosis.`,
     );
     this.name = 'SharedLockUnwritableError';
   }
@@ -176,7 +191,7 @@ export async function withSharedDataSyncLock<T>(tbdRoot: string, fn: () => Promi
   } catch (error) {
     const code = lockPermissionCode(error);
     if (code) {
-      throw new SharedLockUnwritableError(code, paths);
+      throw new SharedLockUnwritableError(code, paths, tbdRoot);
     }
     throw error;
   }
@@ -188,7 +203,7 @@ export async function withSharedDataSyncLock<T>(tbdRoot: string, fn: () => Promi
     // writes issue data elsewhere (the worktree), so its errors pass through.
     const code = lockPermissionCode(error);
     if (code && (error as NodeJS.ErrnoException).path === paths.sharedLockPath) {
-      throw new SharedLockUnwritableError(code, paths);
+      throw new SharedLockUnwritableError(code, paths, tbdRoot);
     }
     throw error;
   }

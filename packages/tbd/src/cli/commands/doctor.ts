@@ -8,7 +8,7 @@
 
 import { Command } from 'commander';
 import { access, mkdir, readdir, readFile, rmdir, unlink } from 'node:fs/promises';
-import { isAbsolute, join, relative, resolve, sep } from 'node:path';
+import { join } from 'node:path';
 import { randomUUID } from 'node:crypto';
 
 import { BaseCommand } from '../lib/base-command.js';
@@ -17,7 +17,12 @@ import { listIssues, type InvalidIssueFile } from '../../file/storage.js';
 import { IncompatibleFormatError, readConfig } from '../../file/config.js';
 import { prepareDataSyncContext } from '../lib/data-context.js';
 import type { Config, Issue, IssueStatusType } from '../../lib/types.js';
-import { resolveSharedTbdPaths, TBD_DIR, DATA_SYNC_DIR } from '../../lib/paths.js';
+import {
+  isCommonDirOutsideProject,
+  resolveSharedTbdPaths,
+  TBD_DIR,
+  DATA_SYNC_DIR,
+} from '../../lib/paths.js';
 import { detectDuplicateYamlKeys } from '../../utils/yaml-utils.js';
 import {
   getClaudePaths,
@@ -120,18 +125,6 @@ export function divergenceFinding(
     message: `diverged (${ahead} ahead, ${behind} behind)`,
     suggestion: 'Run: tbd sync to reconcile',
   };
-}
-
-/**
- * True when the Git common dir lives outside the project checkout — the linked
- * worktree shape that lets a checkout be writable while `$GIT_COMMON_DIR/tbd`
- * (shared sync state + lock) is not. This is the generic signal behind the
- * Codex-sandbox case in #164; it does not depend on any `CODEX_*` env var, which
- * that sandbox did not expose.
- */
-export function isCommonDirOutsideProject(gitCommonDir: string, projectRoot: string): boolean {
-  const rel = relative(resolve(projectRoot), resolve(gitCommonDir));
-  return rel === '..' || rel.startsWith(`..${sep}`) || isAbsolute(rel);
 }
 
 /**
