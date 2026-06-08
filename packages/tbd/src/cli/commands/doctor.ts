@@ -7,8 +7,9 @@
  */
 
 import { Command } from 'commander';
-import { access, readdir, readFile, unlink } from 'node:fs/promises';
+import { access, mkdir, readdir, readFile, rmdir, unlink } from 'node:fs/promises';
 import { join } from 'node:path';
+import { randomUUID } from 'node:crypto';
 
 import { BaseCommand } from '../lib/base-command.js';
 import { requireInit } from '../lib/errors.js';
@@ -16,7 +17,12 @@ import { listIssues, type InvalidIssueFile } from '../../file/storage.js';
 import { IncompatibleFormatError, readConfig } from '../../file/config.js';
 import { prepareDataSyncContext } from '../lib/data-context.js';
 import type { Config, Issue, IssueStatusType } from '../../lib/types.js';
-import { resolveSharedTbdPaths, TBD_DIR, DATA_SYNC_DIR } from '../../lib/paths.js';
+import {
+  isCommonDirOutsideProject,
+  resolveSharedTbdPaths,
+  TBD_DIR,
+  DATA_SYNC_DIR,
+} from '../../lib/paths.js';
 import { detectDuplicateYamlKeys } from '../../utils/yaml-utils.js';
 import {
   getClaudePaths,
@@ -120,6 +126,67 @@ export function divergenceFinding(
     suggestion: 'Run: tbd sync to reconcile',
   };
 }
+
+/**
+ * Build the "Shared lock writability" finding from a probe result.
+ *
+ * `code` is the errno from attempting to create a directory under the shared
+ * locks dir, or undefined on success. EPERM/EACCES is a hard error: every write
+ * command must acquire this lock, so an unwritable lock path breaks all writes
+ * (the #164 Codex-sandbox case) — and a lock tbd needs but cannot take is a
+ * fatal condition, not a soft warning. Any other probe failure is reported as a
+ * warning since it cannot be positively interpreted. Never `fixable`: tbd cannot
+ * widen a sandbox or change filesystem permissions itself.
+ */
+export function buildLockWritabilityFinding(params: {
+  code: string | undefined;
+  sharedLockPath: string;
+  sharedLocksDir: string;
+  sharedTbdDir: string;
+  gitCommonDir: string;
+  projectRoot: string;
+}): DiagnosticResult {
+  const { code, sharedLockPath, sharedLocksDir, sharedTbdDir, gitCommonDir, projectRoot } = params;
+
+  if (!code) {
+    return { name: 'Shared lock writability', status: 'ok', path: sharedLocksDir };
+  }
+
+  if (code === 'EPERM' || code === 'EACCES') {
+    const outsideProject = isCommonDirOutsideProject(gitCommonDir, projectRoot);
+    const details = [
+      `Cannot create the shared data-sync lock (${code}): ${sharedLockPath}`,
+      'Read-only commands work, but every write command (create, update, sync) needs',
+      'this lock, so they will fail until the lock path is writable.',
+    ];
+    if (outsideProject) {
+      details.push(
+        `The checkout (${projectRoot}) is writable, but the shared tbd state under`,
+        `${sharedTbdDir} lives in the Git common dir (${gitCommonDir}) outside it —`,
+        'a common situation in agent sandboxes such as Codex worktrees.',
+      );
+    }
+    const suggestion = outsideProject
+      ? `Grant write access to ${sharedTbdDir} (in an agent sandbox such as Codex, add it ` +
+        `to the writable roots), or re-run the write command with sandbox escalation.`
+      : `Ensure ${sharedTbdDir} is writable by this user (check filesystem permissions).`;
+    return {
+      name: 'Shared lock writability',
+      status: 'error',
+      message: `lock path not writable (${code})`,
+      path: sharedLockPath,
+      details,
+      suggestion,
+    };
+  }
+
+  return {
+    name: 'Shared lock writability',
+    status: 'warn',
+    message: `unable to verify (${code})`,
+    path: sharedLocksDir,
+  };
+}
 import { formatHeading } from '../lib/output.js';
 import {
   renderRepositorySection,
@@ -171,46 +238,69 @@ class DoctorHandler extends BaseCommand {
     // Gather stats info (async to check remote when local is empty)
     const statsInfo = await this.gatherStatsInfo();
 
-    // Run health checks (core system checks)
+    // Run health checks (core system checks). Each check runs under safeCheck so
+    // a single unexpected failure produces an error finding instead of aborting
+    // the whole report — doctor must list every issue it can find. (issue #164)
     const healthChecks: DiagnosticResult[] = [];
 
     // Check 1: Git version
-    healthChecks.push(await this.checkGitVersion());
+    healthChecks.push(await this.safeCheck('Git version', () => this.checkGitVersion()));
 
     // Check 2: Config directory and file
-    healthChecks.push(await this.checkConfig());
+    healthChecks.push(await this.safeCheck('Config file', () => this.checkConfig()));
 
     // Check 3: Issues directory
-    healthChecks.push(await this.checkIssuesDirectory());
+    healthChecks.push(await this.safeCheck('Issues directory', () => this.checkIssuesDirectory()));
 
     // Check 4: Orphaned dependencies
-    healthChecks.push(this.checkOrphanedDependencies(this.issues));
+    healthChecks.push(
+      await this.safeCheck('Dependencies', async () => this.checkOrphanedDependencies(this.issues)),
+    );
 
     // Check 5: Duplicate IDs
-    healthChecks.push(this.checkDuplicateIds(this.issues));
+    healthChecks.push(
+      await this.safeCheck('Unique IDs', async () => this.checkDuplicateIds(this.issues)),
+    );
 
     // Check 5b: Merge conflict markers in ids.yml
-    healthChecks.push(await this.checkIdMappingConflicts(options.fix));
+    healthChecks.push(
+      await this.safeCheck('ID mapping conflicts', () => this.checkIdMappingConflicts(options.fix)),
+    );
 
     // Check 6: Duplicate mapping keys in ids.yml
-    healthChecks.push(await this.checkIdMappingDuplicates(options.fix));
+    healthChecks.push(
+      await this.safeCheck('ID mapping keys', () => this.checkIdMappingDuplicates(options.fix)),
+    );
 
     // Check 7: Orphaned temp files
-    healthChecks.push(await this.checkTempFiles(options.fix));
+    healthChecks.push(await this.safeCheck('Temp files', () => this.checkTempFiles(options.fix)));
 
     // Check 8: Issue validity
-    healthChecks.push(this.checkIssueValidity(this.issues, this.invalidIssueFiles));
+    healthChecks.push(
+      await this.safeCheck('Issue validity', async () =>
+        this.checkIssueValidity(this.issues, this.invalidIssueFiles),
+      ),
+    );
 
     // Check 9: Worktree health (with fix support)
     // Run BEFORE ID mapping check — worktree repair and data migration can
     // overwrite ids.yml, so mappings must be verified after migration.
-    healthChecks.push(await this.checkWorktree(options.fix));
+    healthChecks.push(await this.safeCheck('Worktree', () => this.checkWorktree(options.fix)));
 
     // Check 9b: Common-dir layout metadata against config (with fix support)
-    healthChecks.push(await this.checkCommonDirLayout(options.fix));
+    healthChecks.push(
+      await this.safeCheck('Common-dir layout', () => this.checkCommonDirLayout(options.fix)),
+    );
+
+    // Check 9c: Shared data-sync lock is writable by this process
+    healthChecks.push(
+      await this.safeCheck('Shared lock writability', () => this.checkSharedLockWritability()),
+    );
 
     // Check 10: Data location (issues in wrong path, with fix support)
-    const dataLocationResult = await this.checkDataLocation(options.fix);
+    const dataLocationResult = await this.safeCheck('Data location', () =>
+      this.checkDataLocation(options.fix),
+    );
     healthChecks.push(dataLocationResult);
 
     // If data was migrated, reload issues and refresh dataSyncDir so
@@ -233,37 +323,47 @@ class DoctorHandler extends BaseCommand {
     const parsedMaxHistory = options.maxHistory ? parseInt(options.maxHistory, 10) : 50;
     const maxHistory =
       Number.isNaN(parsedMaxHistory) || parsedMaxHistory < 0 ? 50 : parsedMaxHistory;
-    healthChecks.push(await this.checkMissingMappings(options.fix, maxHistory));
+    healthChecks.push(
+      await this.safeCheck('ID mapping coverage', () =>
+        this.checkMissingMappings(options.fix, maxHistory),
+      ),
+    );
 
     // Check 11: Local sync branch health
-    healthChecks.push(await this.checkLocalSyncBranch());
+    healthChecks.push(await this.safeCheck('Local sync branch', () => this.checkLocalSyncBranch()));
 
     // Check 12: Remote sync branch health
-    healthChecks.push(await this.checkRemoteSyncBranch(options.fix));
+    healthChecks.push(
+      await this.safeCheck('Remote sync branch', () => this.checkRemoteSyncBranch(options.fix)),
+    );
 
     // Check 13: Local has data but remote empty (ai-trade-arena bug detection)
-    healthChecks.push(await this.checkLocalVsRemoteData());
+    healthChecks.push(await this.safeCheck('Sync status', () => this.checkLocalVsRemoteData()));
 
     // Check 14: Multi-user/clone scenario detection
-    healthChecks.push(await this.checkCloneScenarios());
+    healthChecks.push(await this.safeCheck('Clone status', () => this.checkCloneScenarios()));
 
     // Check 15: Sync consistency (worktree matches local, ahead/behind counts)
-    healthChecks.push(await this.checkSyncConsistency());
+    healthChecks.push(await this.safeCheck('Sync consistency', () => this.checkSyncConsistency()));
 
     // Run integration checks (optional IDE/agent integrations)
     const integrationChecks: DiagnosticResult[] = [];
 
     // Integration 1: Portable Agent Skill (.agents/skills — primary)
-    integrationChecks.push(await this.checkPortableSkill());
+    integrationChecks.push(
+      await this.safeCheck('Portable Agent Skill', () => this.checkPortableSkill()),
+    );
 
     // Integration 2: Claude Code skill mirror
-    integrationChecks.push(await this.checkClaudeSkill());
+    integrationChecks.push(
+      await this.safeCheck('Claude Code skill', () => this.checkClaudeSkill()),
+    );
 
     // Integration 3: Codex AGENTS.md (also used by Cursor since v1.6)
-    integrationChecks.push(await this.checkCodexAgents());
+    integrationChecks.push(await this.safeCheck('AGENTS.md', () => this.checkCodexAgents()));
 
     // Integration 4: Codex hooks
-    integrationChecks.push(await this.checkCodexHooks());
+    integrationChecks.push(await this.safeCheck('Codex hooks', () => this.checkCodexHooks()));
 
     // Combine for overall status
     const allChecks = [...healthChecks, ...integrationChecks];
@@ -1149,6 +1249,74 @@ class DoctorHandler extends BaseCommand {
         path: layoutPath,
         fixable: true,
         suggestion: 'Run: tbd doctor --fix',
+      };
+    }
+  }
+
+  /**
+   * Probe whether this process can create the shared data-sync lock.
+   *
+   * Read-only diagnostics never take the lock, so a checkout whose
+   * `$GIT_COMMON_DIR/tbd` is outside the writable sandbox (e.g. a Codex
+   * worktree) looks healthy here while every write command fails with EPERM on
+   * the lock mkdir. This probe mirrors `withSharedDataSyncLock`: ensure the
+   * locks dir, then create and remove a uniquely named probe directory inside
+   * it. It is fully self-contained and never throws, so it cannot abort the
+   * doctor run. See issue #164.
+   */
+  private async checkSharedLockWritability(): Promise<DiagnosticResult> {
+    let paths;
+    try {
+      paths = await resolveSharedTbdPaths(this.cwd);
+    } catch (error) {
+      return {
+        name: 'Shared lock writability',
+        status: 'warn',
+        message: `unable to resolve shared paths: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      };
+    }
+
+    const probeDir = join(paths.sharedLocksDir, `.tbd-doctor-probe-${randomUUID()}.lock`);
+    let code: string | undefined;
+    try {
+      await mkdir(paths.sharedLocksDir, { recursive: true });
+      await mkdir(probeDir);
+    } catch (error) {
+      code = (error as NodeJS.ErrnoException).code ?? 'UNKNOWN';
+    } finally {
+      await rmdir(probeDir).catch(() => {});
+    }
+
+    return buildLockWritabilityFinding({
+      code,
+      sharedLockPath: paths.sharedLockPath,
+      sharedLocksDir: paths.sharedLocksDir,
+      sharedTbdDir: paths.sharedTbdDir,
+      gitCommonDir: paths.gitCommonDir,
+      projectRoot: this.cwd,
+    });
+  }
+
+  /**
+   * Run a single diagnostic check, converting an unexpected throw into an error
+   * finding instead of letting it abort the whole `tbd doctor` run. Doctor must
+   * surface every issue it can find, not just the first failure. (issue #164)
+   */
+  private async safeCheck(
+    name: string,
+    fn: () => Promise<DiagnosticResult>,
+  ): Promise<DiagnosticResult> {
+    try {
+      return await fn();
+    } catch (error) {
+      return {
+        name,
+        status: 'error',
+        message: `check could not complete: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
       };
     }
   }

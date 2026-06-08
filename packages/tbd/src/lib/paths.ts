@@ -32,7 +32,7 @@
 
 import { execFile } from 'node:child_process';
 import { homedir } from 'node:os';
-import { isAbsolute, join, resolve } from 'node:path';
+import { isAbsolute, join, relative, resolve, sep } from 'node:path';
 import { promisify } from 'node:util';
 
 /** The tbd configuration directory on main branch */
@@ -198,6 +198,19 @@ export function buildSharedTbdPaths(gitCommonDir: string): SharedTbdPaths {
  */
 export async function resolveSharedTbdPaths(baseDir: string): Promise<SharedTbdPaths> {
   return buildSharedTbdPaths(await resolveGitCommonDir(baseDir));
+}
+
+/**
+ * True when the Git common dir lives outside the project checkout — the linked
+ * worktree shape where the checkout can be writable while `$GIT_COMMON_DIR/tbd`
+ * (shared sync state + lock) is not. This is the generic signal behind the
+ * Codex-sandbox case in #164; it does not depend on any `CODEX_*` env var, which
+ * that sandbox did not expose. Used by both the `doctor` lock-writability finding
+ * and the write-side `SharedLockUnwritableError` so their wording matches.
+ */
+export function isCommonDirOutsideProject(gitCommonDir: string, projectRoot: string): boolean {
+  const rel = relative(resolve(projectRoot), resolve(gitCommonDir));
+  return rel === '..' || rel.startsWith(`..${sep}`) || isAbsolute(rel);
 }
 
 // =============================================================================
