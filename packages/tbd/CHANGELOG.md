@@ -1,5 +1,82 @@
 # get-tbd
 
+## 0.2.3
+
+A drop-in patch on top of v0.2.2. **No on-disk format change** (`f04` stays `f04`), so
+any machine already on v0.2.0 or later can upgrade without a migration.
+The headline is hardened issue sync — a structured, field-level three-way merge of
+issues that no longer loses child wiring or silently corrupts data — plus a new
+`tbd doctor` check for an unwritable shared lock in agent sandboxes.
+
+### Features
+
+- **`tbd doctor` detects an unwritable shared data-sync lock**: every write command
+  (`create`, `update`, `sync`) must take a repo-scoped lock under the Git common dir.
+  When that path is not writable — common in agent sandboxes such as Codex worktrees,
+  where the common dir lives outside the writable checkout — read-only commands still
+  work but every write fails.
+  Doctor now probes this up front and reports it as a hard error with sandbox-aware
+  remediation, instead of letting writes fail later with a bare `EPERM`.
+- **`tbd setup --surfaces` selector**: setup replaces its per-agent flags with a single
+  `--surfaces=<list>` selector backed by a surface registry.
+  Choose any comma-separated mix of `portable`, `agents-md`, `claude`, `codex`, or `all`
+  (the default) to control exactly which integration surfaces are installed.
+  **Note:** this removes the old `--all`, `--claude`, `--codex`, `--skip-claude`, and
+  `--skip-codex` flags; scripts using them should move to `--surfaces`.
+
+### Fixes
+
+- **Structured three-way merge for issue sync (#155)**: sync now merges issues
+  field-by-field from their git refs instead of doing a line-level text merge.
+  This closes several ways a concurrent or push-retry sync could previously mangle data:
+  - `child_order_hints` are union-merged (and null-safe), so concurrent edits no longer
+    drop child-ordering wiring.
+  - A missing issue is distinguished from a corrupt one during a ref merge.
+  - Push-retry integrates the remote into the sync branch and re-runs the structured
+    merge before retrying, rather than retrying against stale state.
+  - A post-merge guard fails the sync loudly if any issue is left unparseable, instead
+    of committing corrupt data.
+- **Sync exits non-zero when a push failure isn’t parked in the outbox (#158)**: a
+  failed push that could not be saved to the outbox for later retry now surfaces as a
+  non-zero exit, so automation sees the failure instead of treating it as success.
+- **Non-destructive rescue tolerates a dirty sync worktree (#158)**: recovery from
+  unrelated histories no longer refuses when the sync worktree has uncommitted changes —
+  the rescue captures that work on a backup branch — and unrelated-history divergence no
+  longer suggests the unhelpful `tbd sync`.
+- **Worktree auto-heal is surfaced at the point of use (#135)**: when a read or create
+  re-creates a missing sync worktree, tbd now tells you it healed instead of repairing
+  invisibly.
+- **`tbd sync --status` shows the incoming remote commits**: the remote-commit lookup
+  used an invalid `git log --limit` flag that threw and was swallowed, so the list was
+  always empty; it now reports the commits the remote is ahead by.
+- **Generated session script pins the published version**: the session script now pins
+  `get-tbd@<published version>` instead of a dev/dirty `git describe` build string that
+  isn’t installable from npm and churned generated files on every local build.
+
+### Guidelines and content
+
+These ship inside the package and are read by agents via `tbd guidelines …` and
+`tbd setup`:
+
+- **New `general-eng-agent-principles` guideline**: consolidates the core engineering
+  standards — objectivity, communication, and the engineering process (understanding,
+  verification, end-to-end ownership, scope discipline) — into one document, replacing
+  the older `general-eng-assistant-rules`.
+- **`cli-agent-skill-patterns` — attention-routing framing and an L0–L3 ladder**:
+  expanded guidance on how coding agents discover and monitor CLI-backed skills, plus
+  research on agent-skill and CLI packaging practices.
+- **TypeScript guideline refresh**: clarifications across `typescript-rules`,
+  `typescript-cli-tool-rules`, `typescript-code-coverage`, and the YAML/sorting rules.
+- **`repren` agent skill** is now installed alongside the other surfaces for
+  large-scale, multi-file renames.
+
+### Security
+
+Lockfile unchanged since v0.2.2; the resolved dependency tree is byte-identical, so no
+new advisories. The only manifest change is a dev-tooling formatter swap (`flowmark` →
+first-party `flowmark-rs`, pinned with a documented cool-off exception); it is not a
+runtime dependency of the published package.
+
 ## 0.2.2
 
 A drop-in patch on top of v0.2.1. **No on-disk format change** (`f04` stays `f04`), so
@@ -99,7 +176,8 @@ These ship inside the package and are read by agents via `tbd guidelines …` an
 - Lockfile is byte-identical to v0.2.0 — no manifest changes and no new advisories
   (`pnpm audit --prod` clean, `pnpm check:package-age` reports 0 violations).
 
-**Full commit history**: https://github.com/jlevy/tbd/compare/v0.2.0...v0.2.1
+**Full commit history**:
+[https://github.com/jlevy/tbd/compare/v0.2.0 … v0.2.1](https://github.com/jlevy/tbd/compare/v0.2.0...v0.2.1)
 
 ## 0.2.0
 
