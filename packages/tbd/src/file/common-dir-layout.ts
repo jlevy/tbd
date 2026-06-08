@@ -121,10 +121,75 @@ export async function ensureCommonDirLayout(
 }
 
 /**
+ * Error thrown when the shared data-sync lock cannot be created because the lock
+ * path is not writable by this process (EPERM/EACCES).
+ *
+ * The common trigger is an agent sandbox (e.g. Codex) where the *checkout* is
+ * writable but `$GIT_COMMON_DIR/tbd` — which holds the shared sync worktree and
+ * the lock — lives in the user's original repo directory, outside the sandbox's
+ * writable boundary. Read-only commands work, but any write needs the lock and
+ * fails here. This is fatal for the command: without the lock we cannot safely
+ * mutate shared state. See issue #164.
+ */
+export class SharedLockUnwritableError extends Error {
+  constructor(
+    public readonly code: string,
+    paths: SharedTbdPaths,
+  ) {
+    super(
+      `Cannot acquire the shared tbd data-sync lock (${code}): ${paths.sharedLockPath}\n` +
+        `The checkout is writable, but the shared tbd state under ${paths.sharedTbdDir} ` +
+        `is outside this process's writable area, so write commands cannot proceed.\n` +
+        `Fix: grant write access to ${paths.sharedTbdDir} — in an agent sandbox such as ` +
+        `Codex add it to the writable roots, or re-run with sandbox escalation. ` +
+        `Run \`tbd doctor\` to confirm the diagnosis.`,
+    );
+    this.name = 'SharedLockUnwritableError';
+  }
+}
+
+/**
+ * Return the EPERM/EACCES code if `error` is a filesystem permission error,
+ * otherwise undefined. Used to translate raw lock-creation failures into a
+ * clear, actionable error.
+ */
+function lockPermissionCode(error: unknown): string | undefined {
+  const code = (error as NodeJS.ErrnoException | undefined)?.code;
+  return code === 'EPERM' || code === 'EACCES' ? code : undefined;
+}
+
+/**
  * Run a critical section while holding the repo-scoped data-sync lock.
+ *
+ * A permission failure creating either the locks directory or the lock itself
+ * is rethrown as a `SharedLockUnwritableError` with remediation. The lock-path
+ * match keeps an unrelated EPERM thrown by `fn` (e.g. writing issue data) from
+ * being misreported as a lock-writability problem.
  */
 export async function withSharedDataSyncLock<T>(tbdRoot: string, fn: () => Promise<T>): Promise<T> {
   const paths = await resolveSharedTbdPaths(tbdRoot);
-  await mkdir(paths.sharedLocksDir, { recursive: true });
-  return withLockfile(paths.sharedLockPath, fn, DATA_SYNC_LOCK_OPTIONS);
+
+  try {
+    // `mkdir(..., { recursive: true })` resolves silently when the directory
+    // already exists, so an EPERM here means the locks tree itself is unwritable.
+    await mkdir(paths.sharedLocksDir, { recursive: true });
+  } catch (error) {
+    const code = lockPermissionCode(error);
+    if (code) {
+      throw new SharedLockUnwritableError(code, paths);
+    }
+    throw error;
+  }
+
+  try {
+    return await withLockfile(paths.sharedLockPath, fn, DATA_SYNC_LOCK_OPTIONS);
+  } catch (error) {
+    // Only translate a permission failure on the lock directory itself. `fn`
+    // writes issue data elsewhere (the worktree), so its errors pass through.
+    const code = lockPermissionCode(error);
+    if (code && (error as NodeJS.ErrnoException).path === paths.sharedLockPath) {
+      throw new SharedLockUnwritableError(code, paths);
+    }
+    throw error;
+  }
 }
