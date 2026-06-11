@@ -28,15 +28,18 @@ happen, but it is too much machinery to block on.
 This spec proposes the **minimal kernel** of that vision, implementable now on the
 current f04 format with no schema break:
 
-1. **`tbd eject`** — copy any bundled doc (or all of them, or a language-relevant pack)
-   into a visible, git-tracked folder in the repo (default `docs/tbd/`). Ejected docs
-   shadow the bundled copies in all lookups, so customizing them Just Works.
-2. **`tbd uneject`** — remove an ejected copy and fall back to the bundled version,
+1. **A `tbd docs` command group** scoped to managed docs, following tbd’s existing
+   noun-verb convention (`dep add`, `label add`, `attic restore`): `tbd docs eject`
+   copies any bundled doc (or all of them, or a language-relevant pack) into a visible,
+   git-tracked folder in the repo (default `docs/tbd/`). Ejected docs shadow the bundled
+   copies in all lookups, so customizing them Just Works.
+   `tbd sync` keeps its scope (project data); `tbd docs sync` takes over cache refresh.
+2. **`tbd docs uneject`** — remove an ejected copy and fall back to the bundled version,
    refusing to discard customizations unless `--force` is given.
-3. **`tbd eject --update`** — after a tbd upgrade, pull upstream changes into ejected
-   docs: unmodified copies refresh in place; customized copies get a git three-way merge
-   that applies automatically when clean; conflicting docs are listed and only written
-   (with standard conflict markers) when you opt in with `--merge`.
+3. **`tbd docs update`** — after a tbd upgrade, pull upstream changes into ejected docs:
+   unmodified copies refresh in place; customized copies get a git three-way merge that
+   applies automatically when clean; conflicting docs are listed and only written (with
+   standard conflict markers) when you opt in with `--merge`.
 4. **A small committed manifest plus stored merge bases** (`.tbd/ejected.yml` +
    `.tbd/eject-base/`) recording, for each ejected doc, exactly which upstream content
    it forked from — making “customized?”, “stale vs upstream?”, and three-way merging
@@ -138,6 +141,42 @@ still want it.
 
 ## Design
 
+### The `tbd docs` command group
+
+All operations on managed docs consolidate under one noun-scoped group, matching tbd’s
+existing `dep`/`label`/`attic`/`config`/`workspace` convention.
+Commands are split by scope: **`tbd sync` moves project data** (issues/beads —
+unchanged), **`tbd docs` manages the doc layer** (cache + ejected files).
+Verbs-as-flags (`--update`, `--status`, …) are avoided; each operation is a subcommand:
+
+```bash
+tbd docs                      # bare = status overview of managed docs
+tbd docs list                 # all docs across kinds, with [ejected]/[customized] markers
+tbd docs show <name>          # read any doc by name, kind-agnostic
+tbd docs sync                 # refresh the gitignored cache (absorbs `tbd sync --docs`)
+tbd docs eject / uneject      # fork into the repo / return to bundled
+tbd docs update / rebase      # reconcile forks with upstream
+tbd docs diff / status        # inspect
+```
+
+Notes:
+
+- **`tbd docs sync`** takes over cache refresh; `tbd sync --docs` remains as a
+  deprecated alias until the next format cut.
+  Subcommand grammar also removes a hazard the flag design had: a doc named `update` can
+  never collide with the verb.
+- **tbd’s own docs join the system under a `tbd-` name prefix** instead of dedicated
+  viewer commands. The bundled files already carry these names (`tbd-docs.md`,
+  `tbd-design.md`); they become regular cached docs of a new kind `reference` (dir
+  `references/`), so they are listable, readable (`tbd docs show tbd-docs`), and even
+  ejectable like everything else.
+  The `tbd-` prefix is reserved for tbd self-docs (`tbd doctor` warns on user docs
+  claiming it).
+- **The old bare `tbd docs` manual viewer is repurposed**: bare `tbd docs` now shows the
+  status overview (the scope’s landing page); the CLI reference it used to display is
+  `tbd docs show tbd-docs`. The sibling viewers `tbd readme` and `tbd design` are
+  unchanged for now (candidates for the same treatment later).
+
 ### The eject directory
 
 One repo-relative directory holds all ejected (and any hand-authored) tbd docs:
@@ -162,9 +201,9 @@ docs/tbd/                  # default; configurable
 - Files are copied **verbatim** (no frontmatter injection, no stamping).
   Provenance lives in the manifest, so ejected files stay clean, diffable, and forkable.
 - A small `README.md` index is generated into the eject dir (and regenerated on every
-  eject/uneject) listing each doc with its description from frontmatter and a note that
-  the folder is managed by `tbd eject`. This makes the folder self-explanatory when
-  browsed on GitHub.
+  eject/uneject/update) listing each doc with its description from frontmatter and a
+  note that the folder is managed by `tbd docs eject`. This makes the folder
+  self-explanatory when browsed on GitHub.
 
 ### The eject manifest and stored merge bases
 
@@ -172,7 +211,7 @@ docs/tbd/                  # default; configurable
 paths, so this is tracked automatically, like `config.yml`):
 
 ```yaml
-# Managed by `tbd eject` / `tbd uneject` / `tbd eject --update`.
+# Managed by `tbd docs eject` / `uneject` / `update`.
 ejected:
   - name: python-rules
     kind: guideline
@@ -180,16 +219,16 @@ ejected:
     source: internal:guidelines/python-rules.md # or the URL for --add'ed docs
     tbd_version: 0.2.3                          # version when base was last set
     base_hash: sha256:9f2c…                     # hash of the stored base content
-    conflicted: true                            # only present after `--update --merge`
+    conflicted: true                            # only present after `update --merge`
                                                 # left conflict markers; auto-clears
 ```
 
 Alongside it, **`.tbd/eject-base/<kind>/<name>.md`** (also committed) stores a verbatim
 copy of the upstream content the fork is based on — set at eject time and advanced by
-`--update`. This is the *base* of every three-way merge:
+`tbd docs update`. This is the *base* of every three-way merge:
 
 - A hash alone cannot drive a merge; the actual base content is required, and it must be
-  committed so any collaborator (or CI) can run `tbd eject --update` later with full
+  committed so any collaborator (or CI) can run `tbd docs update` later with full
   fidelity, regardless of which tbd version originally ejected the doc.
 - `base_hash` is the SHA-256 of the LF-normalized base content (line-ending
   normalization avoids false “customized” results from `core.autocrlf` on Windows).
@@ -211,10 +250,10 @@ registries that skip it have no upgrade path at all.
 
 ### The cache stays complete
 
-`tbd setup --auto` / `tbd sync --docs` continue to install **all** docs into
-`.tbd/docs/`, including ones that are ejected.
-The cache copy is the pristine reference: it is what `--diff` and staleness compare
-against, it is the “theirs” side of every `--update` merge, and it is what serving falls
+`tbd setup --auto` / `tbd docs sync` continue to install **all** docs into `.tbd/docs/`,
+including ones that are ejected.
+The cache copy is the pristine reference: it is what `diff` and staleness compare
+against, it is the “theirs” side of every `update` merge, and it is what serving falls
 back to after `uneject`. Setup and cache sync never touch files in the eject dir —
 tracked files change only via the explicit eject/uneject/update commands.
 
@@ -251,7 +290,7 @@ Effective lookup order per kind, applied structurally (not by asking users to ha
 | `ejected` | ejected, unmodified | file hash == `base_hash` |
 | `customized` | ejected and edited locally | file hash ≠ `base_hash` |
 | `stale` | upstream changed since base was set (orthogonal to customized) | cache hash ≠ `base_hash` |
-| `conflicted` | `--update --merge` left unresolved conflict markers | manifest `conflicted` flag AND markers still present in file |
+| `conflicted` | `update --merge` left unresolved conflict markers | manifest `conflicted` flag AND markers still present in file |
 | `local` | file in eject dir with no manifest entry | file present, no entry |
 | `missing` | manifest entry but file deleted | entry present, file absent |
 | `orphaned` | manifest entry whose source no longer exists in the bundle | `internal:` source absent |
@@ -259,20 +298,19 @@ Effective lookup order per kind, applied structurally (not by asking users to ha
 `customized` and `stale` can combine (`customized+stale`): the user edited *and*
 upstream moved — exactly the case the update merge and the upstream-contribution
 playbook care about.
-The `conflicted` flag is set only by `--update --merge` and clears automatically once
-the standard markers (`<<<<<<<`/`=======`/`>>>>>>>`) are gone; scanning for markers only
-in flagged docs avoids false positives on docs that legitimately discuss merge
-conflicts.
+The `conflicted` flag is set only by `update --merge` and clears automatically once the
+standard markers (`<<<<<<<`/`=======`/`>>>>>>>`) are gone; scanning for markers only in
+flagged docs avoids false positives on docs that legitimately discuss merge conflicts.
 
 ### Updating ejected docs after a tbd upgrade
 
-The most common lifecycle event: you ejected docs, upgraded tbd (or `tbd sync --docs`
+The most common lifecycle event: you ejected docs, upgraded tbd (or `tbd docs sync`
 pulled fresh content), and the bundled versions moved.
-`tbd eject --update` reconciles ejected copies with upstream, outsourcing the merge
-itself to git (`git merge-file current base other` — works on plain files, exit code
-reports conflict count, standard markers, no repo state touched):
+`tbd docs update` reconciles ejected copies with upstream, outsourcing the merge itself
+to git (`git merge-file current base other` — works on plain files, exit code reports
+conflict count, standard markers, no repo state touched):
 
-| Doc state | `--update` (default) | `--update --merge` |
+| Doc state | `tbd docs update` (default) | `tbd docs update --merge` |
 | --- | --- | --- |
 | `ejected` (unmodified) + stale | replace file with new upstream; advance base | same |
 | `customized` + stale, three-way merge is clean | apply merged result; advance base | same |
@@ -281,7 +319,7 @@ reports conflict count, standard markers, no repo state touched):
 | `conflicted` (unresolved markers) | skip + warn: resolve first | skip + warn |
 | `orphaned` | skip + note (upstream removed the doc; keep your copy or `uneject`) | same |
 | `missing` / `local` | skip (doctor’s problem / nothing upstream) | same |
-| base file missing (manual deletion) | cannot merge; skip + point at `--rebase` | same |
+| base file missing (manual deletion) | cannot merge; skip + point at `rebase` | same |
 
 Design points:
 
@@ -293,52 +331,62 @@ Design points:
   conflicted `--merge`), the base becomes the new upstream content.
   So post-resolution, the doc is simply “a customized fork of current upstream” — states
   stay coherent with no extra bookkeeping.
-- **`tbd eject --rebase <name…|--all>`** advances the base to current upstream *without
+- **`tbd docs rebase <name…|--all>`** advances the base to current upstream *without
   touching the file* — for “I already folded the upstream changes in by hand” (or an
   agent did), and for repairing a missing base.
-  After `--rebase`, the doc is no longer stale.
+  After `rebase`, the doc is no longer stale.
 - **Only the explicit command mutates tracked files.** `tbd setup --auto` and the
   24-hour doc auto-sync refresh the gitignored cache as today and then *report* pending
-  updates (`2 ejected docs have upstream updates — run 'tbd eject --update'`), but never
+  updates (`2 ejected docs have upstream updates — run 'tbd docs update'`), but never
   write into the eject dir.
   Background paths rewriting committed files would be surprising and hard to audit.
 - **Convergence is the unfork path.** If you customized a doc, upstream later adopted
-  your change, and `--update` merges cleanly such that the file now equals upstream, the
-  doc returns to plain `ejected` (unmodified) — and `tbd uneject` works without
+  your change, and `update` merges cleanly such that the file now equals upstream, the
+  doc returns to plain `ejected` (unmodified) — and `tbd docs uneject` works without
   `--force`.
 - `--dry-run` previews all of the above, including which docs would conflict.
 
 ### CLI surface
 
 ```bash
+# Read and browse (works with zero ejected docs)
+tbd docs                                   # status overview (bare command)
+tbd docs list [--kind=guideline]           # all docs across kinds, with state markers
+tbd docs show python-rules                 # read any doc by name (kind-agnostic)
+tbd docs show tbd-docs                     # tbd's own manual, via the tbd- prefix
+tbd docs sync                              # refresh the gitignored cache
+
 # Eject
-tbd eject python-rules                     # one doc (name resolution as in `tbd guidelines`)
-tbd eject python-rules review-code         # several
-tbd eject --kind=guideline typescript      # disambiguate if a name exists in two kinds
-tbd eject --pack=python                    # curated pack (repeatable: --pack=python --pack=core)
-tbd eject --relevant                       # packs chosen by repo detection (see below)
-tbd eject --all                            # everything
-tbd eject --dry-run --all                  # preview what would be written
+tbd docs eject python-rules                # one doc (name resolution as in `tbd guidelines`)
+tbd docs eject python-rules review-code    # several
+tbd docs eject --kind=guideline typescript # disambiguate if a name exists in two kinds
+tbd docs eject --pack=python               # curated pack (repeatable: --pack=python --pack=core)
+tbd docs eject --relevant                  # packs chosen by repo detection (see below)
+tbd docs eject --all                       # everything
+tbd docs eject --all --dry-run             # preview what would be written
 
 # Inspect
-tbd eject --status                         # table of all ejected docs + states (also: bare `tbd eject`)
-tbd eject --status --json                  # machine-readable (drives the playbook)
-tbd eject --diff python-rules              # your file vs current upstream (the net fork)
-tbd eject --diff python-rules --base       # your file vs its base (what you changed)
-tbd eject --diff python-rules --upstream   # base vs current upstream (incoming changes)
+tbd docs status [--json]                   # table of all ejected docs + states
+tbd docs diff python-rules                 # your file vs current upstream (the net fork)
+tbd docs diff python-rules --base          # your file vs its base (what you changed)
+tbd docs diff python-rules --upstream      # base vs current upstream (incoming changes)
 
 # Update (after a tbd upgrade; see "Updating ejected docs" above)
-tbd eject --update                         # refresh unmodified + apply clean merges; list conflicts
-tbd eject --update python-rules            # limit to specific docs
-tbd eject --update --merge                 # also write conflict markers for conflicting docs
-tbd eject --update --dry-run               # preview, including which docs would conflict
-tbd eject --rebase python-rules            # mark upstream changes as already incorporated
+tbd docs update                            # refresh unmodified + apply clean merges; list conflicts
+tbd docs update python-rules               # limit to specific docs
+tbd docs update --merge                    # also write conflict markers for conflicting docs
+tbd docs update --dry-run                  # preview, including which docs would conflict
+tbd docs rebase python-rules               # mark upstream changes as already incorporated
 
 # Reverse
-tbd uneject python-rules                   # delete file + base + manifest entry; ERROR if customized
-tbd uneject python-rules --force           # discard customizations deliberately
-tbd uneject --all [--force]
+tbd docs uneject python-rules              # delete file + base + manifest entry; ERROR if customized
+tbd docs uneject python-rules --force      # discard customizations deliberately
+tbd docs uneject --all [--force]
 ```
+
+The existing per-kind readers (`tbd guidelines <name>`, `tbd shortcut <name>`,
+`tbd template <name>`) are unchanged — `tbd docs show` is the kind-agnostic superset
+that also reaches `reference` docs.
 
 Behavior details:
 
@@ -347,19 +395,20 @@ Behavior details:
   `--force` overwrites.
   Never silently clobber user content.
 - **Re-ejecting an already-ejected doc** is just an update: on an *unmodified* doc it
-  refreshes to current bundled content (same as `--update`); on a customized doc it
-  errors and points at `--update` / `--diff` (`--force` remains the explicit
+  refreshes to current bundled content (same as `update`); on a customized doc it errors
+  and points at `update` / `diff` (`--force` remains the explicit
   start-over-from-upstream escape hatch, discarding customizations).
 - **Uneject of a `missing` doc** cleans up the manifest entry (with a note).
 - **URL-added (`--add`) docs are ejectable too** — the manifest `source` is the URL and
-  staleness compares against the cache copy, which `tbd sync --docs` already refreshes.
+  staleness compares against the cache copy, which `tbd docs sync` already refreshes.
   No special casing.
-- All commands support `--json` and `--dry-run` per the existing CLI conventions.
+- All subcommands support `--json` and `--dry-run` per the existing CLI conventions.
 - `tbd status` gains one summary line (e.g.
-  `Docs: 4 ejected (1 customized, 2 with upstream updates — run 'tbd eject --update', 1 conflict pending)`)
+  `Docs: 4 ejected (1 customized, 2 with upstream updates — run 'tbd docs update', 1 conflict pending)`)
   and `tbd doctor` gains checks: missing files, orphaned entries, base files
-  missing/corrupt (hash mismatch), unresolved `conflicted` docs, eject dir covered by a
-  `.gitignore` (defeats the purpose — warn), manifest/dir drift.
+  missing/corrupt (hash mismatch), unresolved `conflicted` docs, reserved `tbd-` name
+  collisions, eject dir covered by a `.gitignore` (defeats the purpose — warn),
+  manifest/dir drift.
 
 ### Packs and language detection
 
@@ -385,9 +434,9 @@ there is demand.
 
 - **`tbd setup --auto`: unchanged.** Cache-only remains the default; the summary output
   gains one hint line:
-  `Docs are cached in .tbd/docs/ (gitignored). Run 'tbd eject' to copy guidelines into your repo as visible, forkable files.`
+  `Docs are cached in .tbd/docs/ (gitignored). Run 'tbd docs eject' to copy guidelines into your repo as visible, forkable files.`
   When ejected docs exist and have pending upstream updates (typically right after an
-  upgrade), the summary also reports the count and suggests `tbd eject --update` — but
+  upgrade), the summary also reports the count and suggests `tbd docs update` — but
   setup itself never modifies files in the eject dir.
 
 - **`tbd setup --interactive`** gains its first real prompt (the flag exists today but
@@ -406,8 +455,8 @@ there is demand.
 - **Agent-driven onboarding** is the more common path, so the same choice is offered
   conversationally: `welcome-user` and the skill docs instruct the agent to ask the user
   ("Do you want tbd’s guidelines visible in your repo?
-  Which languages do you use?") and then run `tbd eject --pack=… `/ `--all` itself.
-  No new setup flags needed: `tbd eject` *is* the API.
+  Which languages do you use?") and then run `tbd docs eject --pack=…` / `--all` itself.
+  No new setup flags needed: `tbd docs` *is* the API.
 
 ### Upstream-contribution playbook
 
@@ -415,9 +464,9 @@ New bundled shortcut `shortcuts/standard/suggest-upstream-improvements.md` — p
 documentation, no code.
 It instructs the agent to:
 
-1. Run `tbd eject --status --json` and collect docs in `customized` (or
-   `customized+stale`) state.
-2. For each, run `tbd eject --diff <name>` and classify hunks: generally applicable
+1. Run `tbd docs status --json` and collect docs in `customized` (or `customized+stale`)
+   state.
+2. For each, run `tbd docs diff <name>` and classify hunks: generally applicable
    improvements vs project-specific customizations.
 3. Draft an issue body: which doc, why the change is generally useful, the relevant diff
    hunks in fenced blocks, and project context.
@@ -425,19 +474,20 @@ It instructs the agent to:
    `gh issue create -R jlevy/tbd` (the `gh` integration and `use_gh_cli` setting already
    exist).
 5. Suggest the follow-up loop: once upstream ships the change and tbd is upgraded, run
-   `tbd eject --update` — if upstream adopted the customization, the merge converges,
-   the doc returns to unmodified `ejected` state, and a plain `tbd uneject` (no
+   `tbd docs update` — if upstream adopted the customization, the merge converges, the
+   doc returns to unmodified `ejected` state, and a plain `tbd docs uneject` (no
    `--force` needed) completes the unfork.
 
 The skill routing table gets matching rows, e.g.:
 
 | User says | Agent runs |
 | --- | --- |
-| “Show me / let me browse the guidelines in this repo” | `tbd eject --relevant` (after confirming) |
-| “I want to customize the Python guidelines” | `tbd eject python-rules` then edit |
-| “Put all of tbd’s docs in my repo” | `tbd eject --all` |
-| “Stop customizing X / go back to the default” | `tbd uneject X` (`--force` only after confirming) |
-| “Update the guidelines to the latest” (or after `tbd setup` reports pending updates) | `tbd eject --update`, then `--merge` + resolve conflicts if any are listed |
+| “What guidelines are there?” | `tbd docs list` |
+| “Show me / let me browse the guidelines in this repo” | `tbd docs eject --relevant` (after confirming) |
+| “I want to customize the Python guidelines” | `tbd docs eject python-rules` then edit |
+| “Put all of tbd’s docs in my repo” | `tbd docs eject --all` |
+| “Stop customizing X / go back to the default” | `tbd docs uneject X` (`--force` only after confirming) |
+| “Update the guidelines to the latest” (or after `tbd setup` reports pending updates) | `tbd docs update`, then `--merge` + resolve conflicts if any are listed |
 | “Could we contribute these improvements back?” | `tbd shortcut suggest-upstream-improvements` |
 
 ## Backward Compatibility
@@ -447,6 +497,13 @@ The skill routing table gets matching rows, e.g.:
 - **Code types, methods, and function signatures**: DO NOT MAINTAIN (internal modules;
   the `DocCache`/`DocSync` extensions may refactor freely).
 - **Library APIs**: N/A (nothing exported).
+- **CLI surface**: two deliberate 0.x changes.
+  (1) Bare `tbd docs` is repurposed from manual viewer to status overview; the manual
+  stays reachable as `tbd docs show tbd-docs` (DO NOT MAINTAIN the old bare behavior;
+  update all routing docs in the same release).
+  (2) `tbd sync --docs` becomes a deprecated alias of `tbd docs sync` (KEEP DEPRECATED
+  until the next format cut).
+  `tbd readme` / `tbd design` / per-kind readers unchanged.
 - **Server APIs**: N/A.
 - **File formats**: SUPPORT BOTH, additively.
   No format bump: stays `f04`. `docs_cache.eject_dir` is a new optional key;
@@ -480,36 +537,57 @@ ejected.
 5. **Updates without stored bases (hash-only provenance).** Smaller footprint, but a
    hash cannot drive a three-way merge, so *every* upstream change to a customized doc
    would surface as a wall-of-conflicts two-way diff — clean merges become impossible
-   and `--update` degrades to “overwrite or do it by hand.”
+   and `update` degrades to “overwrite or do it by hand.”
    Reconstructing bases from old npm versions (network, unpublished versions,
    `development` builds) or from git history (squashes, mixed commits) is unreliable.
    Rejected: committed base copies are the price of a real update story.
 6. **Auto-merging during `tbd setup --auto` or background doc auto-sync.** Tempting
    (zero extra commands) but background paths rewriting committed files is surprising
    and unauditable; doc auto-sync can trigger from any read command.
-   Rejected: setup/status only *report*; `tbd eject --update` is the single explicit
+   Rejected: setup/status only *report*; `tbd docs update` is the single explicit
    mutation point.
+7. **Verbs as flags on a top-level `tbd eject` command** (`--update`, `--status`,
+   `--rebase`, plus a separate `tbd uneject`). The original draft of this spec.
+   Rejected: flags-as-verbs is unintuitive, burns two top-level command slots, and a doc
+   named `update` would be ambiguous with the verb.
+   The noun-scoped `tbd docs` group matches existing tbd conventions
+   (`dep`/`label`/`attic`/`config`) and gives sync/show/list a coherent home.
+
+## Resolved Decisions
+
+Settled during design review (2026-06-11):
+
+1. **One noun-scoped command group, `tbd docs <verb>`**, replaces the earlier top-level
+   `tbd eject`/`tbd uneject` + verb-flags design (see Alternatives #7). Scope split:
+   `tbd sync` = project data; `tbd docs` = the doc layer.
+2. **Verb pair is `eject`/`uneject`** (not `fork`/`unfork`).
+3. **`tbd docs sync` absorbs `tbd sync --docs`** (old flag kept as a deprecated alias).
+4. **tbd self-docs use a reserved `tbd-` name prefix** as regular docs in the system
+   (kind `reference`), rather than a `tbd docs self` subcommand or dedicated viewers;
+   bare `tbd docs` becomes the status overview and the manual is
+   `tbd docs show tbd-docs`.
+5. **Update semantics**: clean three-way merges apply by default (tracked files make git
+   the undo); conflicts are listed and only written via opt-in `--merge`; tracked files
+   are mutated only by explicit `tbd docs` verbs, never by setup or background sync.
 
 ## Open Questions
 
-1. **Reverse-command naming**: `tbd uneject` (recommended — matches the user’s mental
-   model and is greppable) vs `tbd eject --remove`. Could ship both with one as alias.
-2. **Default eject dir**: `docs/tbd/` (recommended: short, clearly tbd-managed,
+1. **Default eject dir**: `docs/tbd/` (recommended: short, clearly tbd-managed,
    GitHub-browsable) vs `docs/agent/` vs top-level `tbd-docs/`. Configurable either way.
-3. **Generated README index in the eject dir**: include in v1 (recommended — it is the
+2. **Generated README index in the eject dir**: include in v1 (recommended — it is the
    “browse on GitHub” payoff) or cut to keep eject strictly file-copying?
-4. **Should `--relevant` eject ever become the fresh-setup default?** Recommended: no
+3. **Should `eject --relevant` ever become the fresh-setup default?** Recommended: no
    for now — current behavior stays default per the explicit product call; revisit with
    usage feedback.
-5. **Pack definitions in code vs doc frontmatter tags**: code const now (recommended);
+4. **Pack definitions in code vs doc frontmatter tags**: code const now (recommended);
    migrate to frontmatter `tags:` if packs grow or third-party doc sources arrive.
-6. **Verb name for “mark upstream changes as incorporated”**: `--rebase` (recommended —
-   semantically it re-bases the fork point, though it overloads a git term) vs
-   `--accept` vs `--mark-merged`.
-7. **Where base copies live**: `.tbd/eject-base/` (recommended — out of the
-   user-browsable docs tree, clearly tbd-managed) vs hidden siblings inside the eject
-   dir (e.g. `docs/tbd/.base/`). Either way they are committed; this is only about
-   placement.
+5. **Verb name for “mark upstream changes as incorporated”**: `tbd docs rebase`
+   (recommended — semantically it re-bases the fork point, though it overloads a git
+   term) vs `accept` vs `mark-merged`.
+6. **Where base copies live**: `.tbd/eject-base/` (recommended — out of the
+   user-browsable docs tree, clearly tbd-managed, next to the manifest) vs hidden
+   siblings inside the eject dir (e.g. `docs/tbd/.base/`). Either way they are
+   committed; this is only about placement.
 
 ## Implementation Plan
 
@@ -524,12 +602,15 @@ Each numbered item is intended to be one bead.
    (`ejected`/`customized`/`stale`/`conflicted`/`missing`/`orphaned`/`local`) given
    manifest + eject dir + base dir + cache.
    Pure functions; full unit coverage including the state matrix.
-2. **`tbd eject` command** (`src/cli/commands/eject.ts`): name resolution via `DocCache`
-   (reusing fuzzy-match + suggestions), `--kind`, multiple names, `--all`, `--dry-run`,
-   `--json`, overwrite refusal + `--force`, re-eject semantics, README index generation,
-   `docs_cache.eject_dir` support.
-3. **`tbd uneject` command**: single/multi/`--all`, customized refusal + `--force`,
-   base-file and missing-entry cleanup, README regeneration.
+2. **`tbd docs` group scaffolding + `eject` subcommand** (rework
+   `src/cli/commands/docs.ts` into the group; old manual-viewer behavior relocates per
+   item 16): name resolution via `DocCache` (reusing fuzzy-match + suggestions),
+   `--kind`, multiple names, `--all`, `--dry-run`, `--json`, overwrite refusal +
+   `--force`, re-eject semantics, README index generation, `docs_cache.eject_dir`
+   support. `tbd docs sync` subcommand delegating to `syncDocsWithDefaults()`
+   (`tbd sync --docs` kept as deprecated alias).
+3. **`tbd docs uneject` subcommand**: single/multi/`--all`, customized refusal +
+   `--force`, base-file and missing-entry cleanup, README regeneration.
 4. **Precedence wiring**: prepend eject-dir paths in guidelines/shortcut/template
    lookups (unifying guidelines/templates onto config-driven paths), provenance line on
    serve, `[ejected]`/`[customized]`/`[local]` markers in `--list`.
@@ -537,42 +618,49 @@ Each numbered item is intended to be one bead.
    ejected content → edit → uneject refuses → `--force` succeeds → bundled serving
    restored; `tbd setup --auto` refresh leaves ejected files untouched.
 
-### Phase 2: Status, diff, doctor
+### Phase 2: Status, browse, diff, doctor
 
-6. **`tbd eject --status` (+ bare `tbd eject`)** with `--json`; one-line summary in
+6. **`tbd docs status` (+ bare `tbd docs`)** with `--json`; one-line summary in
    `tbd status`.
-7. **`tbd eject --diff <name>`** with `--base` / `--upstream` variants
+7. **`tbd docs list` and `tbd docs show <name>`**: cross-kind listing with state
+   markers; kind-agnostic read (per-kind readers unchanged).
+8. **`tbd docs diff <name>`** with `--base` / `--upstream` variants
    (`git diff --no-index` style output against base and cache copies, no network).
-8. **`tbd doctor` checks**: missing/orphaned entries, base missing/corrupt, unresolved
-   conflicts, gitignored eject dir warning, `--fix` for manifest cleanup.
+9. **`tbd doctor` checks**: missing/orphaned entries, base missing/corrupt, unresolved
+   conflicts, reserved `tbd-` names, gitignored eject dir warning, `--fix` for manifest
+   cleanup.
 
 ### Phase 3: Update and merge
 
-9. **Merge module** (`src/file/eject-update.ts`): `git merge-file` wrapper (labels,
-   exit-code handling, dry-run via `-p`), the per-state decision logic from the update
-   table, base advancement, `conflicted` flag set/auto-clear.
-   Unit tests cover every row of the table.
-10. **`tbd eject --update` / `--merge` / `--rebase` command surface**: name filtering,
+10. **Merge module** (`src/file/eject-update.ts`): `git merge-file` wrapper (labels,
+    exit-code handling, dry-run via `-p`), the per-state decision logic from the update
+    table, base advancement, `conflicted` flag set/auto-clear.
+    Unit tests cover every row of the table.
+11. **`tbd docs update` / `update --merge` / `rebase` command surface**: name filtering,
     `--dry-run` preview with conflict listing, warning output naming `--merge`, summary
     counts; pending-update reporting wired into `tbd setup --auto` output and
     `tbd status`.
 
 ### Phase 4: Setup and packs
 
-11. **Packs + detection** (`src/file/doc-packs.ts`): pack map, `--pack`, `--relevant`,
+12. **Packs + detection** (`src/file/doc-packs.ts`): pack map, `--pack`, `--relevant`,
     detection function with unit tests.
-12. **Setup integration**: hint line in `--auto` summary; the visibility prompt in
+13. **Setup integration**: hint line in `--auto` summary; the visibility prompt in
     `--interactive` wired to the eject flows.
 
 ### Phase 5: Docs and agent surface
 
-13. **Playbook shortcut** `suggest-upstream-improvements.md` (follows `new-guideline.md`
-    conventions; references `--status --json` and `--diff`).
-14. **Agent docs**: routing rows + eject/update section in `tbd-docs.md`, skill header
+14. **Playbook shortcut** `suggest-upstream-improvements.md` (follows `new-guideline.md`
+    conventions; references `tbd docs status --json` and `tbd docs diff`).
+15. **Self-docs migration**: add kind `reference` (dir `references/`), register
+    `tbd-docs` and `tbd-design` in the cache under their existing `tbd-` names, retire
+    the bare-`tbd docs` manual viewer in favor of `tbd docs show tbd-docs`
+    (`tbd readme`/`tbd design` untouched).
+16. **Agent docs**: routing rows + eject/update section in `tbd-docs.md`, skill header
     (`install/claude-header.md`), `welcome-user` onboarding question, README section
     ("Forkable guidelines: eject them into your repo"), `tbd prime` mention if
     warranted.
-15. **CHANGELOG + release notes** per `release-notes-guidelines`.
+17. **CHANGELOG + release notes** per `release-notes-guidelines`.
 
 ## Testing Strategy
 
@@ -585,11 +673,13 @@ Each numbered item is intended to be one bead.
 - **E2E (spawn against built CLI, like `doc-add-e2e.test.ts`)**: the Phase 1 scenario
   above; precedence (ejected shadows bundled; local file with no entry is served); an
   upgrade simulation (eject → customize → mutate the cache copy to simulate a new
-  bundled version → `--update` cleanly merges non-overlapping edits, then a conflicting
+  bundled version → `update` cleanly merges non-overlapping edits, then a conflicting
   edit is listed and only merged with `--merge`, resolving markers returns the doc to
-  `customized`); convergence-unfork (upstream adopts the customization → `--update` →
-  plain `uneject` succeeds); `--relevant` in a fixture repo with `pyproject.toml`;
-  collision/overwrite refusal; doctor findings.
+  `customized`); convergence-unfork (upstream adopts the customization → `update` →
+  plain `uneject` succeeds); group surface (bare `tbd docs` shows status,
+  `tbd docs show tbd-docs` serves the manual, `tbd sync --docs` alias still works);
+  `eject --relevant` in a fixture repo with `pyproject.toml`; collision/overwrite
+  refusal; doctor findings.
 - **Docs-reference test**: extend `doc-references.test.ts` so every command named in the
   new shortcut/docs resolves.
 
@@ -600,11 +690,11 @@ design:
 
 | #117 concept | Here | Future-proofing |
 | --- | --- | --- |
-| W8 eject / G4 local override | `tbd eject` + shadowing | eject dir becomes a `local` source in f05 |
+| W8 eject / G4 local override | `tbd docs eject` + shadowing | eject dir becomes a `local` source in f05 |
 | G10 provenance / review pt. 4 “recorded override edge” | `.tbd/ejected.yml` manifest | manifest entries become f05 override edges; fields chosen to match (source, hash, version) |
-| W9 diff / G6 status | `--diff`, `--status`, doctor | states map onto f05 status vocabulary |
-| W10/W11 upstream roundtrip + unfork | playbook shortcut + convergence via `--update` + `uneject` | can later be automated as `tbd upstream` |
-| W5 sync vs. update separation; review pt. “record enough for three-way later” | cache refresh stays passive; `tbd eject --update` is the explicit advance, with stored bases enabling three-way merge now | maps onto f05’s `sync`/`source update` contract |
+| W9 diff / G6 status | `tbd docs diff`/`status`, doctor | states map onto f05 status vocabulary |
+| W10/W11 upstream roundtrip + unfork | playbook shortcut + convergence via `update` + `uneject` | can later be automated as `tbd docs upstream` |
+| W5 sync vs. update separation; review pt. “record enough for three-way later” | cache refresh stays passive (`tbd docs sync`); `tbd docs update` is the explicit advance, with stored bases enabling three-way merge now | maps onto f05’s `sync`/`source update` contract |
 | G2 local project docs | `local` files in eject dir | becomes a first-class local source |
 | Source framework, lockfiles, DocGraph/DocMap, doc types as data | **not built** | unchanged decision space; nothing here constrains Q15–Q19 |
 
