@@ -25,8 +25,8 @@ this — ordered source lists, four source types, lockfiles, a DocGraph/DocMap s
 surfaced five unresolved architectural questions (Q15–Q19). That redesign may still
 happen, but it is too much machinery to block on.
 
-This spec proposes the **minimal kernel** of that vision, implementable now on the
-current f04 format with no schema break:
+This spec proposes the **minimal kernel** of that vision, implementable now as a small
+layout revision (format `f05`, a metadata-only migration from f04):
 
 1. **A `tbd docs` command group** scoped to managed docs, following tbd’s existing
    noun-verb convention (`dep add`, `label add`, `attic restore`): `tbd docs eject`
@@ -38,8 +38,9 @@ current f04 format with no schema break:
    refusing to discard customizations unless `--force` is given.
 3. **`tbd docs update`** — after a tbd upgrade, pull upstream changes into ejected docs:
    unmodified copies refresh in place; customized copies get a git three-way merge that
-   applies automatically when clean; conflicting docs are listed and only written (with
-   standard conflict markers) when you opt in with `--merge`.
+   applies automatically when clean; conflicting docs are listed until you choose a
+   resolution: `--merge` (combine, with standard conflict markers) or `--rebase` (keep
+   your version and advance the fork point).
 4. **A small committed manifest plus stored merge bases** (`.tbd/ejected.yml` +
    `.tbd/eject-base/`) recording, for each ejected doc, exactly which upstream content
    it forked from — making “customized?”, “stale vs upstream?”, and three-way merging
@@ -84,9 +85,9 @@ lack. Everything here is forward-compatible with the larger #117 design (see
 
 ## Non-Goals
 
-- **No config format break.** We stay on f04. Additions are one optional config key and
-  one new committed file.
-  The f05 redesign (PR #117) remains future work.
+- **No data-model rework.** The f05 bump is a layout-version stamp plus new committed
+  artifacts; issue storage, sync, and the docs-cache format are untouched.
+  The larger source-framework redesign (PR #117) remains future work.
 - **No external source framework.** No new git/URL/S3 source types, no lockfiles, no
   bundle registry. `--add` URL docs keep working as today.
 - **No automated upstream PRs.** The upstream loop is a playbook the agent follows with
@@ -135,9 +136,10 @@ lack. Everything here is forward-compatible with the larger #117 design (see
 PR #117 is a design-options spec with 18 goals, 16 workflows, and 20 open questions,
 including unresolved architecture (DocGraph vs DocMap, bundle/source cardinality,
 lockfile identity). It models eject as one workflow (W8) inside a much larger source
-framework. The kernel below delivers W7–W11’s user value with ~3 small modules and zero
-format migration, and produces real usage data that will inform the bigger design if we
-still want it.
+framework.
+The kernel below delivers W7–W11’s user value with ~3 small modules and only a
+stamp-style format migration, and produces real usage data that will inform the bigger
+design if we still want it.
 
 ## Design
 
@@ -155,7 +157,7 @@ tbd docs list                 # all docs across kinds, with [ejected]/[customize
 tbd docs show <name>          # read any doc by name, kind-agnostic
 tbd docs sync                 # refresh the gitignored cache (absorbs `tbd sync --docs`)
 tbd docs eject / uneject      # fork into the repo / return to bundled
-tbd docs update / rebase      # reconcile forks with upstream
+tbd docs update               # reconcile forks with upstream (--merge / --rebase)
 tbd docs diff / status        # inspect
 ```
 
@@ -174,8 +176,10 @@ Notes:
   claiming it).
 - **The old bare `tbd docs` manual viewer is repurposed**: bare `tbd docs` now shows the
   status overview (the scope’s landing page); the CLI reference it used to display is
-  `tbd docs show tbd-docs`. The sibling viewers `tbd readme` and `tbd design` are
-  unchanged for now (candidates for the same treatment later).
+  `tbd docs show tbd-docs`, with `tbd docs manual` as a convenience alias.
+  No backward compatibility is kept for the old bare behavior.
+  The sibling viewers `tbd readme` and `tbd design` are unchanged for now (candidates
+  for the same treatment later).
 
 ### The eject directory
 
@@ -192,8 +196,9 @@ docs/tbd/                  # default; configurable
     └── plan-spec.md
 ```
 
-- Default: `docs/tbd/`. Configurable via a new optional config key
-  `docs_cache.eject_dir` (no format bump; old tbd versions ignore it).
+- Default: `docs/tbd/`. The location is surfaced as an explicit, editable customization
+  during setup (and changeable any time); a non-default choice is persisted to the new
+  config key `docs_cache.eject_dir` (part of the f05 layout).
 - Layout is `<eject_dir>/<kind-dir>/<name>.md`. The bundled
   `shortcuts/system|standard|custom` subdivision is **flattened** to `shortcuts/` on
   eject — that split is an implementation detail; the manifest preserves the original
@@ -201,9 +206,12 @@ docs/tbd/                  # default; configurable
 - Files are copied **verbatim** (no frontmatter injection, no stamping).
   Provenance lives in the manifest, so ejected files stay clean, diffable, and forkable.
 - A small `README.md` index is generated into the eject dir (and regenerated on every
-  eject/uneject/update) listing each doc with its description from frontmatter and a
-  note that the folder is managed by `tbd docs eject`. This makes the folder
-  self-explanatory when browsed on GitHub.
+  eject/uneject/update).
+  It explains what these docs are (engineering guidelines, shortcuts, and templates
+  forked from tbd’s bundled set), lists each doc with its frontmatter description, notes
+  that the folder is managed by `tbd docs eject`, and points readers at
+  `npx get-tbd@latest docs` for further info.
+  This makes the folder self-explanatory when browsed on GitHub.
 
 ### The eject manifest and stored merge bases
 
@@ -247,6 +255,24 @@ copy of the upstream content the fork is based on — set at eject time and adva
 The cost is a committed second copy of each ejected doc.
 That duplication is the price of a real update story (see Alternatives #5); shadcn-style
 registries that skip it have no upgrade path at all.
+
+### Format bump: f05
+
+The new committed layout artifacts (`.tbd/ejected.yml`, `.tbd/eject-base/`, the
+`docs_cache.eject_dir` key) constitute a layout revision, so `tbd_format` bumps to
+**f05** with a step in the existing migration chain (`src/lib/tbd-format.ts`, following
+the f03→f04 precedent):
+
+- The f04→f05 migration is metadata-only: stamp the format id and refresh the
+  `.tbd/.gitignore` template/comments.
+  No files move; eject artifacts appear only when eject is first used.
+- Older CLIs encountering an f05 repo detect the newer format id via the existing
+  compatibility machinery and prompt to upgrade — an explicit signal, rather than
+  silently serving bundled copies while upgraded teammates see customized ones.
+- Layout documentation updates alongside: format history in `tbd-format.ts`,
+  `tbd-design.md` layout sections, and the path conventions in `development.md`.
+- Naming note: PR #117’s draft called its future format “f05”; since this kernel claims
+  f05, that redesign would land as f06+.
 
 ### The cache stays complete
 
@@ -310,31 +336,38 @@ pulled fresh content), and the bundled versions moved.
 to git (`git merge-file current base other` — works on plain files, exit code reports
 conflict count, standard markers, no repo state touched):
 
-| Doc state | `tbd docs update` (default) | `tbd docs update --merge` |
-| --- | --- | --- |
-| `ejected` (unmodified) + stale | replace file with new upstream; advance base | same |
-| `customized` + stale, three-way merge is clean | apply merged result; advance base | same |
-| `customized` + stale, merge conflicts | **skip**; warn and list the docs: “use `--merge` to merge upstream changes into your locally forked docs” | write conflict markers into the file; advance base; set `conflicted` |
-| `customized`, not stale | no-op | no-op |
-| `conflicted` (unresolved markers) | skip + warn: resolve first | skip + warn |
-| `orphaned` | skip + note (upstream removed the doc; keep your copy or `uneject`) | same |
-| `missing` / `local` | skip (doctor’s problem / nothing upstream) | same |
-| base file missing (manual deletion) | cannot merge; skip + point at `rebase` | same |
+When a doc isn’t cleanly updatable, the user chooses one of two resolution strategies
+(mutually exclusive flags): **`--merge`** combines both sides, writing standard conflict
+markers to resolve by editing; **`--rebase`** keeps the local version untouched and just
+advances the fork point to current upstream (“my fork supersedes this upstream change” /
+“I already folded it in by hand”).
+
+| Doc state | `update` (default) | `update --merge` | `update --rebase` |
+| --- | --- | --- | --- |
+| `ejected` (unmodified) + stale | replace file with new upstream; advance base | same | same |
+| `customized` + stale, three-way merge is clean | apply merged result; advance base | same | keep file as-is; advance base only |
+| `customized` + stale, merge conflicts | **skip**; warn and list the docs: “re-run with `--merge` (combine, resolve markers) or `--rebase` (keep your version)” | write conflict markers into the file; advance base; set `conflicted` | keep file as-is; advance base only |
+| `customized`, not stale | no-op | no-op | no-op |
+| `conflicted` (unresolved markers) | skip + warn: resolve first | skip + warn | skip + warn |
+| `orphaned` | skip + note (upstream removed the doc; keep your copy or `uneject`) | same | same |
+| `missing` / `local` | skip (doctor’s problem / nothing upstream) | same | same |
+| base file missing (manual deletion) | cannot merge; skip + point at `--rebase` | same | re-establish base from current upstream (repair) |
 
 Design points:
 
 - **Clean merges apply by default deliberately.** The ejected file is git-tracked, so
   every auto-merge is fully visible in `git diff` and trivially revertible — git is the
-  undo. Conflicted merges are opt-in (`--merge`) because they leave the file in a
-  must-edit state.
+  undo. Conflicted docs are never touched by default; the listing names the two
+  strategies and the user (or agent) re-runs with one.
 - **Base advance happens at merge time.** After any update (replace, clean merge, or
   conflicted `--merge`), the base becomes the new upstream content.
   So post-resolution, the doc is simply “a customized fork of current upstream” — states
   stay coherent with no extra bookkeeping.
-- **`tbd docs rebase <name…|--all>`** advances the base to current upstream *without
-  touching the file* — for “I already folded the upstream changes in by hand” (or an
-  agent did), and for repairing a missing base.
-  After `rebase`, the doc is no longer stale.
+- **`--rebase` is not git-rebase content semantics** (for single files, replaying your
+  diff onto the new base is just the same three-way merge).
+  Here it means *re-base the fork point*: your content stands, upstream’s change is
+  acknowledged, staleness clears, and future updates diff against the new base.
+  It also repairs a missing base file.
 - **Only the explicit command mutates tracked files.** `tbd setup --auto` and the
   24-hour doc auto-sync refresh the gitignored cache as today and then *report* pending
   updates (`2 ejected docs have upstream updates — run 'tbd docs update'`), but never
@@ -354,6 +387,7 @@ tbd docs                                   # status overview (bare command)
 tbd docs list [--kind=guideline]           # all docs across kinds, with state markers
 tbd docs show python-rules                 # read any doc by name (kind-agnostic)
 tbd docs show tbd-docs                     # tbd's own manual, via the tbd- prefix
+tbd docs manual                            # alias for `tbd docs show tbd-docs`
 tbd docs sync                              # refresh the gitignored cache
 
 # Eject
@@ -374,9 +408,9 @@ tbd docs diff python-rules --upstream      # base vs current upstream (incoming 
 # Update (after a tbd upgrade; see "Updating ejected docs" above)
 tbd docs update                            # refresh unmodified + apply clean merges; list conflicts
 tbd docs update python-rules               # limit to specific docs
-tbd docs update --merge                    # also write conflict markers for conflicting docs
+tbd docs update --merge                    # conflicts: combine, write conflict markers to resolve
+tbd docs update --rebase                   # conflicts: keep your version, advance the fork point
 tbd docs update --dry-run                  # preview, including which docs would conflict
-tbd docs rebase python-rules               # mark upstream changes as already incorporated
 
 # Reverse
 tbd docs uneject python-rules              # delete file + base + manifest entry; ERROR if customized
@@ -487,7 +521,7 @@ The skill routing table gets matching rows, e.g.:
 | “I want to customize the Python guidelines” | `tbd docs eject python-rules` then edit |
 | “Put all of tbd’s docs in my repo” | `tbd docs eject --all` |
 | “Stop customizing X / go back to the default” | `tbd docs uneject X` (`--force` only after confirming) |
-| “Update the guidelines to the latest” (or after `tbd setup` reports pending updates) | `tbd docs update`, then `--merge` + resolve conflicts if any are listed |
+| “Update the guidelines to the latest” (or after `tbd setup` reports pending updates) | `tbd docs update`; if conflicts are listed, ask the user, then `--merge` (combine + resolve) or `--rebase` (keep ours) |
 | “Could we contribute these improvements back?” | `tbd shortcut suggest-upstream-improvements` |
 
 ## Backward Compatibility
@@ -499,20 +533,17 @@ The skill routing table gets matching rows, e.g.:
 - **Library APIs**: N/A (nothing exported).
 - **CLI surface**: two deliberate 0.x changes.
   (1) Bare `tbd docs` is repurposed from manual viewer to status overview; the manual
-  stays reachable as `tbd docs show tbd-docs` (DO NOT MAINTAIN the old bare behavior;
-  update all routing docs in the same release).
+  stays reachable as `tbd docs show tbd-docs` / `tbd docs manual` (DO NOT MAINTAIN the
+  old bare behavior — confirmed; update all routing docs in the same release).
   (2) `tbd sync --docs` becomes a deprecated alias of `tbd docs sync` (KEEP DEPRECATED
   until the next format cut).
   `tbd readme` / `tbd design` / per-kind readers unchanged.
 - **Server APIs**: N/A.
-- **File formats**: SUPPORT BOTH, additively.
-  No format bump: stays `f04`. `docs_cache.eject_dir` is a new optional key;
-  `.tbd/ejected.yml` and `.tbd/eject-base/` are new standalone, committed artifacts.
-  Older tbd versions ignore all of them and simply serve the bundled copies (a teammate
-  on an old version won’t see the team’s customizations until they upgrade — accepted,
-  documented degradation).
-  Implementation must verify the config writer round-trips the new key (and unknown keys
-  generally) rather than dropping it on rewrite.
+- **File formats**: MIGRATE. `tbd_format` bumps f04 → f05 (new committed layout
+  artifacts: `docs_cache.eject_dir`, `.tbd/ejected.yml`, `.tbd/eject-base/`) via the
+  existing one-shot migration chain — metadata-only, no file moves (see “Format bump:
+  f05”). Older CLIs detect the newer format id and prompt to upgrade, per the
+  established format-compatibility policy.
 - **Database schemas**: N/A.
 
 The default behavior of every existing command is unchanged when nothing has been
@@ -565,110 +596,120 @@ Settled during design review (2026-06-11):
 4. **tbd self-docs use a reserved `tbd-` name prefix** as regular docs in the system
    (kind `reference`), rather than a `tbd docs self` subcommand or dedicated viewers;
    bare `tbd docs` becomes the status overview and the manual is
-   `tbd docs show tbd-docs`.
+   `tbd docs show tbd-docs` (alias `tbd docs manual`). No backward compatibility for the
+   old self-doc viewer behavior.
 5. **Update semantics**: clean three-way merges apply by default (tracked files make git
-   the undo); conflicts are listed and only written via opt-in `--merge`; tracked files
-   are mutated only by explicit `tbd docs` verbs, never by setup or background sync.
+   the undo); non-clean updates require an explicit strategy — `--merge` (combine with
+   conflict markers) or `--rebase` (keep local content, advance the fork point) — and
+   tracked files are mutated only by explicit `tbd docs` verbs, never by setup or
+   background sync. The earlier standalone `rebase` subcommand is folded into
+   `update --rebase`.
+6. **Default eject dir is `docs/tbd/`**, surfaced as an editable customization during
+   setup and persisted to `docs_cache.eject_dir` when changed.
+7. **Generated README index ships in v1**: explains what the docs are, lists them, and
+   points to `npx get-tbd@latest docs` for further info.
+8. **Base copies live in `.tbd/eject-base/`.**
+9. **Format bump to f05** with a metadata-only f04→f05 migration, following the f04
+   precedent: gitignore template refresh, format-history and layout-doc updates; older
+   CLIs prompt to upgrade on encountering f05.
 
 ## Open Questions
 
-1. **Default eject dir**: `docs/tbd/` (recommended: short, clearly tbd-managed,
-   GitHub-browsable) vs `docs/agent/` vs top-level `tbd-docs/`. Configurable either way.
-2. **Generated README index in the eject dir**: include in v1 (recommended — it is the
-   “browse on GitHub” payoff) or cut to keep eject strictly file-copying?
-3. **Should `eject --relevant` ever become the fresh-setup default?** Recommended: no
+1. **Should `eject --relevant` ever become the fresh-setup default?** Recommended: no
    for now — current behavior stays default per the explicit product call; revisit with
    usage feedback.
-4. **Pack definitions in code vs doc frontmatter tags**: code const now (recommended);
+2. **Pack definitions in code vs doc frontmatter tags**: code const now (recommended);
    migrate to frontmatter `tags:` if packs grow or third-party doc sources arrive.
-5. **Verb name for “mark upstream changes as incorporated”**: `tbd docs rebase`
-   (recommended — semantically it re-bases the fork point, though it overloads a git
-   term) vs `accept` vs `mark-merged`.
-6. **Where base copies live**: `.tbd/eject-base/` (recommended — out of the
-   user-browsable docs tree, clearly tbd-managed, next to the manifest) vs hidden
-   siblings inside the eject dir (e.g. `docs/tbd/.base/`). Either way they are
-   committed; this is only about placement.
 
 ## Implementation Plan
 
 Phases are ordered so each lands independently shippable.
 Each numbered item is intended to be one bead.
 
-### Phase 1: Eject kernel
+### Phase 1: Format bump and eject kernel
 
-1. **Manifest + base module** (`src/file/eject-manifest.ts`): zod schema, read/write of
+1. **f05 format bump**: `CURRENT_FORMAT = 'f05'`, f04→f05 step in `migrateToLatest()`
+   (metadata-only: stamp + `.tbd/.gitignore` template refresh), format-history and
+   layout-doc updates (`tbd-design.md`, `development.md`), older-CLI
+   newer-format-detection behavior verified with a test.
+2. **Manifest + base module** (`src/file/eject-manifest.ts`): zod schema, read/write of
    `.tbd/ejected.yml`, base copies under `.tbd/eject-base/`, LF-normalized SHA-256
    hashing, state computation
    (`ejected`/`customized`/`stale`/`conflicted`/`missing`/`orphaned`/`local`) given
    manifest + eject dir + base dir + cache.
    Pure functions; full unit coverage including the state matrix.
-2. **`tbd docs` group scaffolding + `eject` subcommand** (rework
+3. **`tbd docs` group scaffolding + `eject` subcommand** (rework
    `src/cli/commands/docs.ts` into the group; old manual-viewer behavior relocates per
-   item 16): name resolution via `DocCache` (reusing fuzzy-match + suggestions),
+   item 17): name resolution via `DocCache` (reusing fuzzy-match + suggestions),
    `--kind`, multiple names, `--all`, `--dry-run`, `--json`, overwrite refusal +
-   `--force`, re-eject semantics, README index generation, `docs_cache.eject_dir`
-   support. `tbd docs sync` subcommand delegating to `syncDocsWithDefaults()`
-   (`tbd sync --docs` kept as deprecated alias).
-3. **`tbd docs uneject` subcommand**: single/multi/`--all`, customized refusal +
+   `--force`, re-eject semantics, README index generation (with the
+   `npx get-tbd@latest docs` pointer), `docs_cache.eject_dir` support.
+   `tbd docs sync` subcommand delegating to `syncDocsWithDefaults()` (`tbd sync --docs`
+   kept as deprecated alias).
+4. **`tbd docs uneject` subcommand**: single/multi/`--all`, customized refusal +
    `--force`, base-file and missing-entry cleanup, README regeneration.
-4. **Precedence wiring**: prepend eject-dir paths in guidelines/shortcut/template
+5. **Precedence wiring**: prepend eject-dir paths in guidelines/shortcut/template
    lookups (unifying guidelines/templates onto config-driven paths), provenance line on
    serve, `[ejected]`/`[customized]`/`[local]` markers in `--list`.
-5. **E2E tests** (pattern of `doc-add-e2e.test.ts`): eject → list marker → serve shows
+6. **E2E tests** (pattern of `doc-add-e2e.test.ts`): eject → list marker → serve shows
    ejected content → edit → uneject refuses → `--force` succeeds → bundled serving
-   restored; `tbd setup --auto` refresh leaves ejected files untouched.
+   restored; `tbd setup --auto` refresh leaves ejected files untouched; f04 repo
+   migrates to f05 on setup.
 
 ### Phase 2: Status, browse, diff, doctor
 
-6. **`tbd docs status` (+ bare `tbd docs`)** with `--json`; one-line summary in
+7. **`tbd docs status` (+ bare `tbd docs`)** with `--json`; one-line summary in
    `tbd status`.
-7. **`tbd docs list` and `tbd docs show <name>`**: cross-kind listing with state
+8. **`tbd docs list` and `tbd docs show <name>`**: cross-kind listing with state
    markers; kind-agnostic read (per-kind readers unchanged).
-8. **`tbd docs diff <name>`** with `--base` / `--upstream` variants
+9. **`tbd docs diff <name>`** with `--base` / `--upstream` variants
    (`git diff --no-index` style output against base and cache copies, no network).
-9. **`tbd doctor` checks**: missing/orphaned entries, base missing/corrupt, unresolved
-   conflicts, reserved `tbd-` names, gitignored eject dir warning, `--fix` for manifest
-   cleanup.
+10. **`tbd doctor` checks**: missing/orphaned entries, base missing/corrupt, unresolved
+    conflicts, reserved `tbd-` names, gitignored eject dir warning, `--fix` for manifest
+    cleanup.
 
 ### Phase 3: Update and merge
 
-10. **Merge module** (`src/file/eject-update.ts`): `git merge-file` wrapper (labels,
+11. **Merge module** (`src/file/eject-update.ts`): `git merge-file` wrapper (labels,
     exit-code handling, dry-run via `-p`), the per-state decision logic from the update
     table, base advancement, `conflicted` flag set/auto-clear.
-    Unit tests cover every row of the table.
-11. **`tbd docs update` / `update --merge` / `rebase` command surface**: name filtering,
-    `--dry-run` preview with conflict listing, warning output naming `--merge`, summary
-    counts; pending-update reporting wired into `tbd setup --auto` output and
-    `tbd status`.
+    Unit tests cover every row × strategy of the table.
+12. **`tbd docs update` command surface** with mutually exclusive `--merge` / `--rebase`
+    strategy flags: name filtering, `--dry-run` preview with conflict listing, the
+    skip-warning naming both strategies, summary counts; pending-update reporting wired
+    into `tbd setup --auto` output and `tbd status`.
 
 ### Phase 4: Setup and packs
 
-12. **Packs + detection** (`src/file/doc-packs.ts`): pack map, `--pack`, `--relevant`,
+13. **Packs + detection** (`src/file/doc-packs.ts`): pack map, `--pack`, `--relevant`,
     detection function with unit tests.
-13. **Setup integration**: hint line in `--auto` summary; the visibility prompt in
-    `--interactive` wired to the eject flows.
+14. **Setup integration**: hint line in `--auto` summary; the visibility prompt in
+    `--interactive` wired to the eject flows, with the eject dir shown as an editable
+    customization persisted to config.
 
 ### Phase 5: Docs and agent surface
 
-14. **Playbook shortcut** `suggest-upstream-improvements.md` (follows `new-guideline.md`
+15. **Playbook shortcut** `suggest-upstream-improvements.md` (follows `new-guideline.md`
     conventions; references `tbd docs status --json` and `tbd docs diff`).
-15. **Self-docs migration**: add kind `reference` (dir `references/`), register
+16. **Self-docs migration**: add kind `reference` (dir `references/`), register
     `tbd-docs` and `tbd-design` in the cache under their existing `tbd-` names, retire
-    the bare-`tbd docs` manual viewer in favor of `tbd docs show tbd-docs`
-    (`tbd readme`/`tbd design` untouched).
-16. **Agent docs**: routing rows + eject/update section in `tbd-docs.md`, skill header
+    the bare-`tbd docs` manual viewer in favor of `tbd docs show tbd-docs` + the
+    `tbd docs manual` alias (`tbd readme`/`tbd design` untouched).
+17. **Agent docs**: routing rows + eject/update section in `tbd-docs.md`, skill header
     (`install/claude-header.md`), `welcome-user` onboarding question, README section
     ("Forkable guidelines: eject them into your repo"), `tbd prime` mention if
     warranted.
-17. **CHANGELOG + release notes** per `release-notes-guidelines`.
+18. **CHANGELOG + release notes** per `release-notes-guidelines`.
 
 ## Testing Strategy
 
 - **Unit (vitest)**: manifest round-trip; hash normalization (CRLF/LF); the full state
   matrix as a table-driven test (base hash × file hash × cache hash × conflicted flag →
-  state); the update decision table row by row (replace, clean three-way, conflict skip,
-  `--merge` markers + base advance, conflicted-pending skip, missing base, orphaned);
-  marker auto-clear; pack detection; eject path mapping (incl.
+  state); the update decision table row by row and per strategy (replace, clean
+  three-way, conflict skip, `--merge` markers + base advance, `--rebase` keep-file +
+  base advance, strategy-flag mutual exclusion, conflicted-pending skip, missing-base
+  repair via `--rebase`, orphaned); marker auto-clear; f04→f05 migration; pack
+  detection; eject path mapping (incl.
   shortcuts flattening); README index generation.
 - **E2E (spawn against built CLI, like `doc-add-e2e.test.ts`)**: the Phase 1 scenario
   above; precedence (ejected shadows bundled; local file with no entry is served); an
@@ -685,16 +726,17 @@ Each numbered item is intended to be one bead.
 
 ## Relationship to PR #117
 
-This spec deliberately implements the smallest forward-compatible slice of the f05
-design:
+This spec deliberately implements the smallest forward-compatible slice of that redesign
+(note: #117’s draft used “f05” as its format id; this spec’s layout bump now claims f05,
+so the full framework would land as f06+):
 
 | #117 concept | Here | Future-proofing |
 | --- | --- | --- |
-| W8 eject / G4 local override | `tbd docs eject` + shadowing | eject dir becomes a `local` source in f05 |
-| G10 provenance / review pt. 4 “recorded override edge” | `.tbd/ejected.yml` manifest | manifest entries become f05 override edges; fields chosen to match (source, hash, version) |
-| W9 diff / G6 status | `tbd docs diff`/`status`, doctor | states map onto f05 status vocabulary |
+| W8 eject / G4 local override | `tbd docs eject` + shadowing | eject dir becomes a `local` source in the source framework |
+| G10 provenance / review pt. 4 “recorded override edge” | `.tbd/ejected.yml` manifest | manifest entries become the framework’s override edges; fields chosen to match (source, hash, version) |
+| W9 diff / G6 status | `tbd docs diff`/`status`, doctor | states map onto the framework’s status vocabulary |
 | W10/W11 upstream roundtrip + unfork | playbook shortcut + convergence via `update` + `uneject` | can later be automated as `tbd docs upstream` |
-| W5 sync vs. update separation; review pt. “record enough for three-way later” | cache refresh stays passive (`tbd docs sync`); `tbd docs update` is the explicit advance, with stored bases enabling three-way merge now | maps onto f05’s `sync`/`source update` contract |
+| W5 sync vs. update separation; review pt. “record enough for three-way later” | cache refresh stays passive (`tbd docs sync`); `tbd docs update` is the explicit advance, with stored bases enabling three-way merge now | maps onto the framework’s `sync`/`source update` contract |
 | G2 local project docs | `local` files in eject dir | becomes a first-class local source |
 | Source framework, lockfiles, DocGraph/DocMap, doc types as data | **not built** | unchanged decision space; nothing here constrains Q15–Q19 |
 
