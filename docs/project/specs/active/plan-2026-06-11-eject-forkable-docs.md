@@ -83,9 +83,9 @@ lack. Everything here is forward-compatible with the larger #117 design (see
   conflicts are surfaced explicitly and merged only on opt-in, and nothing is ever
   silently overwritten.
 - **G10. Open location conventions:** Source addresses and the doc index follow small,
-  documented, tool-agnostic conventions (the docref grammar; docmap’s generated-map
-  schema), shipped as bundled reference docs — so docs in locations beyond
-  bundled/ejected have a stable addressing story from day one, shared with the future
+  documented, tool-agnostic conventions (the docref grammar; the docmap inventory
+  format), shipped as bundled reference docs — so docs in locations beyond
+  bundled/ejected have a stable addressing story from day one, shared with any future
   source framework.
 
 ## Non-Goals
@@ -96,8 +96,8 @@ lack. Everything here is forward-compatible with the larger #117 design (see
 - **No multi-file external sources yet.** The docref *grammar* is adopted now for all
   source addresses, single-file `tbd docs add <docref>` generalizes today’s `--add`, and
   `docs_cache.local_dirs` serves other in-repo directories — but whole-repo/bundle
-  sources, lockfiles, and external-source sync (docmap’s manifest/write side) stay in
-  the f06+ framework.
+  sources, lockfiles, and external-source sync (“operations over docmaps”) stay in the
+  f06+ framework.
 - **No automated upstream PRs.** The upstream loop is a playbook the agent follows with
   user confirmation (filing an issue), not an automated `tbd upstream` command.
 - **No interactive merge-resolution tooling.** Updates use git’s file-level three-way
@@ -324,17 +324,20 @@ The kernel so far assumes two locations: the bundled cache and the eject dir.
 Three measured adoptions from the PR #117 branch generalize *location* without pulling
 in the source framework:
 
-**1. docref is adopted now as the universal source-address grammar.** Every “where does
-this doc come from” string — `docs_cache.files` values, the eject manifest’s `source:`
-field, `tbd docs add` arguments, `local_dirs` entries — is a docref: a single-string,
-URI-like address (`./path/`, `https://…`, `github:org/repo@ref//path`, plus
-consumer-defined schemes — tbd’s `internal:` already fits the grammar).
+**1. Rule: every document reference, everywhere, is a docref.** Any string in tbd that
+says “where a doc comes from” or “where a doc lives” — `docs_cache.files` values, the
+eject manifest’s `source:` field, `tbd docs add` arguments, `local_dirs` entries,
+provenance fields in JSON output, examples in our own docs — uses the docref grammar: a
+single-string, URI-like address (`./path/`, `https://…`, `github:org/repo@ref//path`,
+plus consumer-defined schemes — tbd’s `internal:` already fits the grammar).
+This is a hard convention with no exceptions, so there is exactly one address syntax to
+learn, parse, validate, and document.
 Adoption is nearly free: the parser is ~100 lines, standalone, already written and fully
 tested on the #117 branch (`src/docref/`), and today’s `internal:` prefixes and URLs are
 already valid docrefs.
 It also rationalizes the ad-hoc GitHub blob-URL conversion in `--add` into principled
 normalization (`https://github.com/o/r/blob/main/f.md` → `github:o/r@main//f.md`), and
-it means the f06 source framework later inherits addresses instead of migrating them.
+any future source framework inherits addresses instead of migrating them.
 
 **2. `docs_cache.local_dirs` serves docs from other directories in the repo.** An
 ordered list of local-path docrefs (`./`-prefixed) naming additional in-repo doc
@@ -354,26 +357,59 @@ there is no upstream: they already live in the repo.
 `DocCache`’s multi-directory shadowing handles this with zero new resolution code; it is
 the supported, documented form of what `lookup_path` half-allowed today.
 
-**3. docmap’s *generated-map schema* is adopted as the read contract.**
-`tbd docs list --json` and `status --json` emit entries per the docmap map schema
-(`key`, `type`, `path`, `title`/`description`, `word_count`, with tbd’s state fields as
-extensions) — docmap as a *view*, not a system.
-Agents and other tools get a stable machine-readable index of every doc tbd can serve,
-and when f06 adds docmap’s manifest/lockfile/sync half, the read side already exists.
-For v1 the `bundle` field is provisional: `tbd` for bundled-origin docs, `proj` for
-local/eject-dir-authored ones.
+**3. docmap, reduced to its essence: a doc inventory format.** The #117 draft bundles
+several ideas under the “docmap” name — source manifests, lockfiles, sync semantics,
+bundles, resolution.
+Stripped to its core, the simple, well-defined, reusable concept is just the
+*inventory*:
+
+> A **docmap** is a machine-readable inventory of a collection of documents: one entry
+> per doc, each with an identity (`type` + `name`, unique within the map), a location
+> (`path`, and/or a provenance `source` docref), and presentation metadata (`title`,
+> `description`, `word_count`). It describes a doc collection; it says nothing about how
+> the collection is assembled, fetched, or kept fresh.
+
+A sitemap for docs, with docref as its addressing primitive:
+
+```yaml
+docmap: docmap/0.1
+name: tbd-docs                                    # optional collection name
+documents:
+  - name: python-rules
+    type: guideline
+    path: guidelines/python-rules.md              # location within the collection
+    source: internal:guidelines/python-rules.md   # provenance docref (optional)
+    title: Python Coding Rules
+    description: Type hints, docstrings, exception handling, resource management
+    word_count: 2400
+```
+
+Producers may *generate* a docmap (as tbd does: `tbd docs list --json` / `status --json`
+emit exactly this, with tbd’s state fields as extension fields) or *hand-author* one.
+Consumers must ignore unknown fields.
+That producer-agnosticism is what makes the concept useful beyond tbd: any repo can
+commit a docmap to advertise its doc collection, and a future source framework would
+*discover* external docs by reading one — the inventory format becomes the interface
+between doc publishers and doc consumers, with the heavy machinery (manifests,
+lockfiles, sync — the speculative #117 layer) defined later as *operations over
+docmaps*, not as part of the format.
+v0.1 deliberately has no bundles, no lockfile fields, no sync semantics.
 
 **The line deliberately not crossed:** pulling a *directory* of docs from another repo
-(a true external bundle) requires sync, pinning, and cache identity — docmap’s write
-side — and stays in f06. Until then the supported answers are: single files via
-`tbd docs add <docref>`, in-repo directories via `local_dirs`, and (if a team must share
-a guidelines repo today) vendoring/submoduling it and pointing `local_dirs` at it.
+(a true external bundle) requires sync, pinning, and cache identity — operations over
+docmaps — and stays in the future framework.
+Until then the supported answers are: single files via `tbd docs add <docref>`, in-repo
+directories via `local_dirs`, and (if a team must share a guidelines repo today)
+vendoring/submoduling it and pointing `local_dirs` at it.
 
-Both format docs ship as bundled `reference`-kind docs (`docref-format`,
-`docmap-format`), adapted from the #117 branch with status banners — docref marked
-adopted (v0.1); docmap marked draft, with a note that tbd currently implements the map
-schema only. As regular docs they are listable, ejectable, and forkable like everything
-else — the conventions document themselves through the system they describe.
+Both formats ship as bundled `reference`-kind docs.
+`docref-format` is adapted from the #117 branch essentially as-is (marked adopted,
+v0.1). `docmap-format` is **authored fresh and minimal** for v0.1 — just the inventory
+definition above — citing the #117 draft only as exploratory background, since that PR
+is speculative and may never land in its current form.
+As regular docs they are listable, ejectable, and forkable like everything else — the
+conventions document themselves through the system they describe, and our other docs can
+cross-reference them by name.
 
 ### Doc states
 
@@ -685,11 +721,16 @@ Settled during design review (2026-06-11):
 9. **Format bump to f05** with a metadata-only f04→f05 migration, following the f04
    precedent: gitignore template refresh, format-history and layout-doc updates; older
    CLIs prompt to upgrade on encountering f05.
-10. **docref adopted now; docmap adopted read-side only.** The docref grammar is the
-    universal source-address syntax (parser ported from the #117 branch); docmap’s
-    generated-map schema becomes the `--json` output contract, while its
-    manifest/lockfile/sync write side stays in the f06+ framework.
-    Both format docs ship as bundled `reference` docs with status banners.
+10. **docref everywhere, as a hard rule.** Every document reference in tbd — config
+    values, the eject manifest, CLI arguments, JSON output, our own docs — is a docref
+    string, with no exceptions.
+    Parser ported from the #117 branch; the spec ships as a bundled `reference` doc.
+11. **docmap is redefined as a minimal inventory format** (docmap/0.1: per-doc identity,
+    location, and metadata — no bundles, lockfiles, or sync semantics).
+    The reference doc is authored fresh for this spec and does not depend on the
+    speculative #117 design, which is cited only as exploratory background.
+    `tbd docs list/status --json` emit it; hand-authored docmaps are valid; source
+    machinery is deferred as future “operations over docmaps.”
 
 ## Open Questions
 
@@ -779,10 +820,11 @@ Each numbered item is intended to be one bead.
     conventions; references `tbd docs status --json` and `tbd docs diff`).
 18. **Self-docs and format-docs migration**: add kind `reference` (dir `references/`),
     register `tbd-docs` and `tbd-design` in the cache under their existing `tbd-` names,
-    bundle `docref-format` and `docmap-format` (adapted from the #117 branch with status
-    banners) as reference docs, retire the bare-`tbd docs` manual viewer in favor of
-    `tbd docs show tbd-docs` + the `tbd docs manual` alias (`tbd readme`/`tbd design`
-    untouched).
+    bundle `docref-format` (adapted nearly as-is from the #117 branch, marked adopted)
+    and `docmap-format` (authored fresh and minimal per the design section, #117 cited
+    as exploratory background only) as reference docs, retire the bare-`tbd docs` manual
+    viewer in favor of `tbd docs show tbd-docs` + the `tbd docs manual` alias
+    (`tbd readme`/`tbd design` untouched).
 19. **Agent docs**: routing rows + eject/update section in `tbd-docs.md`, skill header
     (`install/claude-header.md`), `welcome-user` onboarding question, README section
     ("Forkable guidelines: eject them into your repo"), `tbd prime` mention if
@@ -828,7 +870,7 @@ so the full framework would land as f06+):
 | W5 sync vs. update separation; review pt. “record enough for three-way later” | cache refresh stays passive (`tbd docs sync`); `tbd docs update` is the explicit advance, with stored bases enabling three-way merge now | maps onto the framework’s `sync`/`source update` contract |
 | G2 local project docs | `local` files in eject dir + `docs_cache.local_dirs` | becomes a first-class local source |
 | docref format (design-docref-format.md) | **adopted wholesale**: parser ported, universal source-address grammar, shipped as a reference doc | the framework inherits addresses with no migration |
-| docmap format (design-docmap-format.md) | **read side adopted**: generated-map schema as the `--json` contract; shipped as a reference doc (draft banner) | manifest/lockfile/sync (write side) is the f06 framework itself |
+| docmap format (design-docmap-format.md) | **redefined and reduced**: the minimal inventory format (docmap/0.1) is extracted, freshly specced, and adopted as the `--json` contract | #117’s manifest/lockfile/sync becomes future “operations over docmaps,” consuming the same format |
 | Source framework, lockfiles, DocGraph split, doc types as data | **not built** | unchanged decision space; nothing here constrains Q15–Q19 |
 
 Recommendation: keep PR #117 open as the long-horizon design reference (or convert its
@@ -841,7 +883,7 @@ spec to `specs/future/`), and note there that the eject kernel shipped separatel
   thread.
 - `packages/tbd/docs/design-docref-format.md` and
   `packages/tbd/docs/design-docmap-format.md` (same #117 branch) — the docref grammar
-  and docmap format drafts adopted (fully / read-side) by this spec, along with the
+  and the exploratory docmap draft this spec distills into docmap/0.1, along with the
   `src/docref/` reference implementation and tests.
 - `src/file/doc-sync.ts`, `src/file/doc-cache.ts`, `src/file/doc-add.ts` — current
   cache, lookup/shadowing, and add-by-URL implementations this builds on.
