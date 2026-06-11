@@ -82,14 +82,22 @@ lack. Everything here is forward-compatible with the larger #117 design (see
   without losing customizations: trivial and cleanly mergeable updates apply by default,
   conflicts are surfaced explicitly and merged only on opt-in, and nothing is ever
   silently overwritten.
+- **G10. Open location conventions:** Source addresses and the doc index follow small,
+  documented, tool-agnostic conventions (the docref grammar; docmap’s generated-map
+  schema), shipped as bundled reference docs — so docs in locations beyond
+  bundled/ejected have a stable addressing story from day one, shared with the future
+  source framework.
 
 ## Non-Goals
 
 - **No data-model rework.** The f05 bump is a layout-version stamp plus new committed
   artifacts; issue storage, sync, and the docs-cache format are untouched.
   The larger source-framework redesign (PR #117) remains future work.
-- **No external source framework.** No new git/URL/S3 source types, no lockfiles, no
-  bundle registry. `--add` URL docs keep working as today.
+- **No multi-file external sources yet.** The docref *grammar* is adopted now for all
+  source addresses, single-file `tbd docs add <docref>` generalizes today’s `--add`, and
+  `docs_cache.local_dirs` serves other in-repo directories — but whole-repo/bundle
+  sources, lockfiles, and external-source sync (docmap’s manifest/write side) stay in
+  the f06+ framework.
 - **No automated upstream PRs.** The upstream loop is a playbook the agent follows with
   user confirmation (filing an issue), not an automated `tbd upstream` command.
 - **No interactive merge-resolution tooling.** Updates use git’s file-level three-way
@@ -156,6 +164,7 @@ tbd docs                      # bare = status overview of managed docs
 tbd docs list                 # all docs across kinds, with [ejected]/[customized] markers
 tbd docs show <name>          # read any doc by name, kind-agnostic
 tbd docs sync                 # refresh the gitignored cache (absorbs `tbd sync --docs`)
+tbd docs add <docref>         # register a single external doc (URL, github:, local path)
 tbd docs eject / uneject      # fork into the repo / return to bundled
 tbd docs update               # reconcile forks with upstream (--merge / --rebase)
 tbd docs diff / status        # inspect
@@ -259,9 +268,9 @@ registries that skip it have no upgrade path at all.
 ### Format bump: f05
 
 The new committed layout artifacts (`.tbd/ejected.yml`, `.tbd/eject-base/`, the
-`docs_cache.eject_dir` key) constitute a layout revision, so `tbd_format` bumps to
-**f05** with a step in the existing migration chain (`src/lib/tbd-format.ts`, following
-the f03→f04 precedent):
+`docs_cache.eject_dir` and `docs_cache.local_dirs` keys) constitute a layout revision,
+so `tbd_format` bumps to **f05** with a step in the existing migration chain
+(`src/lib/tbd-format.ts`, following the f03→f04 precedent):
 
 - The f04→f05 migration is metadata-only: stamp the format id and refresh the
   `.tbd/.gitignore` template/comments.
@@ -290,6 +299,7 @@ Effective lookup order per kind, applied structurally (not by asking users to ha
 
 ```
 <eject_dir>/<kind-dir>/        # ejected + hand-authored local docs (highest)
+<local_dirs entries>           # other in-repo doc dirs (optional config; see below)
 <existing lookup paths>        # .tbd/docs/... as today
 ```
 
@@ -308,6 +318,63 @@ Effective lookup order per kind, applied structurally (not by asking users to ha
   note to stderr, e.g. `(serving ejected copy: docs/tbd/guidelines/python-rules.md)`,
   and `--list` output marks such docs `[ejected]` / `[ejected, customized]` / `[local]`.
 
+### Docs in other locations: docref, `local_dirs`, and the docmap view
+
+The kernel so far assumes two locations: the bundled cache and the eject dir.
+Three measured adoptions from the PR #117 branch generalize *location* without pulling
+in the source framework:
+
+**1. docref is adopted now as the universal source-address grammar.** Every “where does
+this doc come from” string — `docs_cache.files` values, the eject manifest’s `source:`
+field, `tbd docs add` arguments, `local_dirs` entries — is a docref: a single-string,
+URI-like address (`./path/`, `https://…`, `github:org/repo@ref//path`, plus
+consumer-defined schemes — tbd’s `internal:` already fits the grammar).
+Adoption is nearly free: the parser is ~100 lines, standalone, already written and fully
+tested on the #117 branch (`src/docref/`), and today’s `internal:` prefixes and URLs are
+already valid docrefs.
+It also rationalizes the ad-hoc GitHub blob-URL conversion in `--add` into principled
+normalization (`https://github.com/o/r/blob/main/f.md` → `github:o/r@main//f.md`), and
+it means the f06 source framework later inherits addresses instead of migrating them.
+
+**2. `docs_cache.local_dirs` serves docs from other directories in the repo.** An
+ordered list of local-path docrefs (`./`-prefixed) naming additional in-repo doc
+directories:
+
+```yaml
+docs_cache:
+  eject_dir: docs/tbd
+  local_dirs:
+    - ./docs/general/agent-rules/   # e.g. a team guidelines dir that already exists
+```
+
+These slot into the effective lookup order between the eject dir and the cache (see
+above). Docs found there are first-class for reading — `list`, `show`, serving, with
+provenance notes — and report state `local`; they are not ejectable or updatable, since
+there is no upstream: they already live in the repo.
+`DocCache`’s multi-directory shadowing handles this with zero new resolution code; it is
+the supported, documented form of what `lookup_path` half-allowed today.
+
+**3. docmap’s *generated-map schema* is adopted as the read contract.**
+`tbd docs list --json` and `status --json` emit entries per the docmap map schema
+(`key`, `type`, `path`, `title`/`description`, `word_count`, with tbd’s state fields as
+extensions) — docmap as a *view*, not a system.
+Agents and other tools get a stable machine-readable index of every doc tbd can serve,
+and when f06 adds docmap’s manifest/lockfile/sync half, the read side already exists.
+For v1 the `bundle` field is provisional: `tbd` for bundled-origin docs, `proj` for
+local/eject-dir-authored ones.
+
+**The line deliberately not crossed:** pulling a *directory* of docs from another repo
+(a true external bundle) requires sync, pinning, and cache identity — docmap’s write
+side — and stays in f06. Until then the supported answers are: single files via
+`tbd docs add <docref>`, in-repo directories via `local_dirs`, and (if a team must share
+a guidelines repo today) vendoring/submoduling it and pointing `local_dirs` at it.
+
+Both format docs ship as bundled `reference`-kind docs (`docref-format`,
+`docmap-format`), adapted from the #117 branch with status banners — docref marked
+adopted (v0.1); docmap marked draft, with a note that tbd currently implements the map
+schema only. As regular docs they are listable, ejectable, and forkable like everything
+else — the conventions document themselves through the system they describe.
+
 ### Doc states
 
 | State | Meaning | Detected by |
@@ -317,7 +384,7 @@ Effective lookup order per kind, applied structurally (not by asking users to ha
 | `customized` | ejected and edited locally | file hash ≠ `base_hash` |
 | `stale` | upstream changed since base was set (orthogonal to customized) | cache hash ≠ `base_hash` |
 | `conflicted` | `update --merge` left unresolved conflict markers | manifest `conflicted` flag AND markers still present in file |
-| `local` | file in eject dir with no manifest entry | file present, no entry |
+| `local` | file in eject dir with no manifest entry, or served from a `local_dirs` directory | file present, no entry |
 | `missing` | manifest entry but file deleted | entry present, file absent |
 | `orphaned` | manifest entry whose source no longer exists in the bundle | `internal:` source absent |
 
@@ -390,6 +457,10 @@ tbd docs show tbd-docs                     # tbd's own manual, via the tbd- pref
 tbd docs manual                            # alias for `tbd docs show tbd-docs`
 tbd docs sync                              # refresh the gitignored cache
 
+# Add external docs (single files; consolidates the per-kind --add flags)
+tbd docs add https://example.com/style.md --kind=guideline --name=acme-style
+tbd docs add github:org/repo@main//docs/rules.md --kind=guideline   # any docref form
+
 # Eject
 tbd docs eject python-rules                # one doc (name resolution as in `tbd guidelines`)
 tbd docs eject python-rules review-code    # several
@@ -433,9 +504,11 @@ Behavior details:
   and points at `update` / `diff` (`--force` remains the explicit
   start-over-from-upstream escape hatch, discarding customizations).
 - **Uneject of a `missing` doc** cleans up the manifest entry (with a note).
-- **URL-added (`--add`) docs are ejectable too** — the manifest `source` is the URL and
-  staleness compares against the cache copy, which `tbd docs sync` already refreshes.
-  No special casing.
+- **Added external docs (`tbd docs add <docref>`) are ejectable too** — the manifest
+  `source` is the normalized docref and staleness compares against the cache copy, which
+  `tbd docs sync` already refreshes.
+  No special casing. The per-kind `--add`/`--name` flags remain as aliases for
+  `tbd docs add`.
 - All subcommands support `--json` and `--dry-run` per the existing CLI conventions.
 - `tbd status` gains one summary line (e.g.
   `Docs: 4 ejected (1 customized, 2 with upstream updates — run 'tbd docs update', 1 conflict pending)`)
@@ -612,6 +685,11 @@ Settled during design review (2026-06-11):
 9. **Format bump to f05** with a metadata-only f04→f05 migration, following the f04
    precedent: gitignore template refresh, format-history and layout-doc updates; older
    CLIs prompt to upgrade on encountering f05.
+10. **docref adopted now; docmap adopted read-side only.** The docref grammar is the
+    universal source-address syntax (parser ported from the #117 branch); docmap’s
+    generated-map schema becomes the `--json` output contract, while its
+    manifest/lockfile/sync write side stays in the f06+ framework.
+    Both format docs ship as bundled `reference` docs with status banners.
 
 ## Open Questions
 
@@ -632,74 +710,84 @@ Each numbered item is intended to be one bead.
    (metadata-only: stamp + `.tbd/.gitignore` template refresh), format-history and
    layout-doc updates (`tbd-design.md`, `development.md`), older-CLI
    newer-format-detection behavior verified with a test.
-2. **Manifest + base module** (`src/file/eject-manifest.ts`): zod schema, read/write of
+2. **docref module port** (`src/docref/`): bring the parser, types, and spec-mirror
+   tests over from the #117 branch (standalone, already fully covered); wire docref
+   normalization into config source strings and URL handling.
+3. **Manifest + base module** (`src/file/eject-manifest.ts`): zod schema, read/write of
    `.tbd/ejected.yml`, base copies under `.tbd/eject-base/`, LF-normalized SHA-256
    hashing, state computation
    (`ejected`/`customized`/`stale`/`conflicted`/`missing`/`orphaned`/`local`) given
    manifest + eject dir + base dir + cache.
    Pure functions; full unit coverage including the state matrix.
-3. **`tbd docs` group scaffolding + `eject` subcommand** (rework
+4. **`tbd docs` group scaffolding + `eject` subcommand** (rework
    `src/cli/commands/docs.ts` into the group; old manual-viewer behavior relocates per
-   item 17): name resolution via `DocCache` (reusing fuzzy-match + suggestions),
+   item 18): name resolution via `DocCache` (reusing fuzzy-match + suggestions),
    `--kind`, multiple names, `--all`, `--dry-run`, `--json`, overwrite refusal +
    `--force`, re-eject semantics, README index generation (with the
    `npx get-tbd@latest docs` pointer), `docs_cache.eject_dir` support.
    `tbd docs sync` subcommand delegating to `syncDocsWithDefaults()` (`tbd sync --docs`
    kept as deprecated alias).
-4. **`tbd docs uneject` subcommand**: single/multi/`--all`, customized refusal +
+5. **`tbd docs uneject` subcommand**: single/multi/`--all`, customized refusal +
    `--force`, base-file and missing-entry cleanup, README regeneration.
-5. **Precedence wiring**: prepend eject-dir paths in guidelines/shortcut/template
+6. **Precedence wiring**: prepend eject-dir paths in guidelines/shortcut/template
    lookups (unifying guidelines/templates onto config-driven paths), provenance line on
    serve, `[ejected]`/`[customized]`/`[local]` markers in `--list`.
-6. **E2E tests** (pattern of `doc-add-e2e.test.ts`): eject → list marker → serve shows
+7. **E2E tests** (pattern of `doc-add-e2e.test.ts`): eject → list marker → serve shows
    ejected content → edit → uneject refuses → `--force` succeeds → bundled serving
    restored; `tbd setup --auto` refresh leaves ejected files untouched; f04 repo
    migrates to f05 on setup.
 
 ### Phase 2: Status, browse, diff, doctor
 
-7. **`tbd docs status` (+ bare `tbd docs`)** with `--json`; one-line summary in
-   `tbd status`.
-8. **`tbd docs list` and `tbd docs show <name>`**: cross-kind listing with state
-   markers; kind-agnostic read (per-kind readers unchanged).
-9. **`tbd docs diff <name>`** with `--base` / `--upstream` variants
-   (`git diff --no-index` style output against base and cache copies, no network).
-10. **`tbd doctor` checks**: missing/orphaned entries, base missing/corrupt, unresolved
+8. **`tbd docs status` (+ bare `tbd docs`)** with `--json` per the docmap map schema;
+   one-line summary in `tbd status`.
+9. **`tbd docs list` and `tbd docs show <name>`**: cross-kind listing with state markers
+   (`--json` per the docmap map schema); kind-agnostic read (per-kind readers
+   unchanged).
+10. **`docs_cache.local_dirs` + `tbd docs add <docref>`**: local-dirs wiring into the
+    effective lookup order; `add` consolidating the per-kind `--add` flags (kept as
+    aliases) with docref normalization replacing the ad-hoc blob-URL conversion in
+    `doc-add.ts`.
+11. **`tbd docs diff <name>`** with `--base` / `--upstream` variants
+    (`git diff --no-index` style output against base and cache copies, no network).
+12. **`tbd doctor` checks**: missing/orphaned entries, base missing/corrupt, unresolved
     conflicts, reserved `tbd-` names, gitignored eject dir warning, `--fix` for manifest
     cleanup.
 
 ### Phase 3: Update and merge
 
-11. **Merge module** (`src/file/eject-update.ts`): `git merge-file` wrapper (labels,
+13. **Merge module** (`src/file/eject-update.ts`): `git merge-file` wrapper (labels,
     exit-code handling, dry-run via `-p`), the per-state decision logic from the update
     table, base advancement, `conflicted` flag set/auto-clear.
     Unit tests cover every row × strategy of the table.
-12. **`tbd docs update` command surface** with mutually exclusive `--merge` / `--rebase`
+14. **`tbd docs update` command surface** with mutually exclusive `--merge` / `--rebase`
     strategy flags: name filtering, `--dry-run` preview with conflict listing, the
     skip-warning naming both strategies, summary counts; pending-update reporting wired
     into `tbd setup --auto` output and `tbd status`.
 
 ### Phase 4: Setup and packs
 
-13. **Packs + detection** (`src/file/doc-packs.ts`): pack map, `--pack`, `--relevant`,
+15. **Packs + detection** (`src/file/doc-packs.ts`): pack map, `--pack`, `--relevant`,
     detection function with unit tests.
-14. **Setup integration**: hint line in `--auto` summary; the visibility prompt in
+16. **Setup integration**: hint line in `--auto` summary; the visibility prompt in
     `--interactive` wired to the eject flows, with the eject dir shown as an editable
     customization persisted to config.
 
 ### Phase 5: Docs and agent surface
 
-15. **Playbook shortcut** `suggest-upstream-improvements.md` (follows `new-guideline.md`
+17. **Playbook shortcut** `suggest-upstream-improvements.md` (follows `new-guideline.md`
     conventions; references `tbd docs status --json` and `tbd docs diff`).
-16. **Self-docs migration**: add kind `reference` (dir `references/`), register
-    `tbd-docs` and `tbd-design` in the cache under their existing `tbd-` names, retire
-    the bare-`tbd docs` manual viewer in favor of `tbd docs show tbd-docs` + the
-    `tbd docs manual` alias (`tbd readme`/`tbd design` untouched).
-17. **Agent docs**: routing rows + eject/update section in `tbd-docs.md`, skill header
+18. **Self-docs and format-docs migration**: add kind `reference` (dir `references/`),
+    register `tbd-docs` and `tbd-design` in the cache under their existing `tbd-` names,
+    bundle `docref-format` and `docmap-format` (adapted from the #117 branch with status
+    banners) as reference docs, retire the bare-`tbd docs` manual viewer in favor of
+    `tbd docs show tbd-docs` + the `tbd docs manual` alias (`tbd readme`/`tbd design`
+    untouched).
+19. **Agent docs**: routing rows + eject/update section in `tbd-docs.md`, skill header
     (`install/claude-header.md`), `welcome-user` onboarding question, README section
     ("Forkable guidelines: eject them into your repo"), `tbd prime` mention if
     warranted.
-18. **CHANGELOG + release notes** per `release-notes-guidelines`.
+20. **CHANGELOG + release notes** per `release-notes-guidelines`.
 
 ## Testing Strategy
 
@@ -708,8 +796,9 @@ Each numbered item is intended to be one bead.
   state); the update decision table row by row and per strategy (replace, clean
   three-way, conflict skip, `--merge` markers + base advance, `--rebase` keep-file +
   base advance, strategy-flag mutual exclusion, conflicted-pending skip, missing-base
-  repair via `--rebase`, orphaned); marker auto-clear; f04→f05 migration; pack
-  detection; eject path mapping (incl.
+  repair via `--rebase`, orphaned); marker auto-clear; f04→f05 migration; the ported
+  docref spec-mirror tests; local_dirs precedence ordering; `--json` output validating
+  against the docmap map schema; pack detection; eject path mapping (incl.
   shortcuts flattening); README index generation.
 - **E2E (spawn against built CLI, like `doc-add-e2e.test.ts`)**: the Phase 1 scenario
   above; precedence (ejected shadows bundled; local file with no entry is served); an
@@ -737,8 +826,10 @@ so the full framework would land as f06+):
 | W9 diff / G6 status | `tbd docs diff`/`status`, doctor | states map onto the framework’s status vocabulary |
 | W10/W11 upstream roundtrip + unfork | playbook shortcut + convergence via `update` + `uneject` | can later be automated as `tbd docs upstream` |
 | W5 sync vs. update separation; review pt. “record enough for three-way later” | cache refresh stays passive (`tbd docs sync`); `tbd docs update` is the explicit advance, with stored bases enabling three-way merge now | maps onto the framework’s `sync`/`source update` contract |
-| G2 local project docs | `local` files in eject dir | becomes a first-class local source |
-| Source framework, lockfiles, DocGraph/DocMap, doc types as data | **not built** | unchanged decision space; nothing here constrains Q15–Q19 |
+| G2 local project docs | `local` files in eject dir + `docs_cache.local_dirs` | becomes a first-class local source |
+| docref format (design-docref-format.md) | **adopted wholesale**: parser ported, universal source-address grammar, shipped as a reference doc | the framework inherits addresses with no migration |
+| docmap format (design-docmap-format.md) | **read side adopted**: generated-map schema as the `--json` contract; shipped as a reference doc (draft banner) | manifest/lockfile/sync (write side) is the f06 framework itself |
+| Source framework, lockfiles, DocGraph split, doc types as data | **not built** | unchanged decision space; nothing here constrains Q15–Q19 |
 
 Recommendation: keep PR #117 open as the long-horizon design reference (or convert its
 spec to `specs/future/`), and note there that the eject kernel shipped separately.
@@ -748,6 +839,10 @@ spec to `specs/future/`), and note there that the eject kernel shipped separatel
 - `docs/project/specs/active/plan-2026-05-07-docs-config-redesign.md` (PR #117 branch
   `claude/review-config-format-2wxh8`) — the full framework design and its review
   thread.
+- `packages/tbd/docs/design-docref-format.md` and
+  `packages/tbd/docs/design-docmap-format.md` (same #117 branch) — the docref grammar
+  and docmap format drafts adopted (fully / read-side) by this spec, along with the
+  `src/docref/` reference implementation and tests.
 - `src/file/doc-sync.ts`, `src/file/doc-cache.ts`, `src/file/doc-add.ts` — current
   cache, lookup/shadowing, and add-by-URL implementations this builds on.
 - Done specs: `plan-2026-01-22-doc-cache-abstraction.md`,
