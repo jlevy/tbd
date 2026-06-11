@@ -233,11 +233,18 @@ ejected:
   - name: python-rules
     kind: guideline
     path: docs/tbd/guidelines/python-rules.md   # repo-relative
-    source: internal:guidelines/python-rules.md # or the URL for --add'ed docs
+    source: internal:guidelines/python-rules.md # provenance docref (any docref form)
     tbd_version: 0.2.3                          # version when base was last set
     base_hash: sha256:9f2c…                     # hash of the stored base content
     conflicted: true                            # only present after `update --merge`
                                                 # left conflict markers; auto-clears
+  - name: acme-style
+    kind: guideline
+    path: docs/tbd/guidelines/acme-style.md
+    source: github:acme/eng-docs@main//guidelines/style.md
+    source_revision: 8f31c2d4…                  # git commit at base time (git sources)
+    source_tag: v1.4.0                          # exact/matching tag, when one exists
+    base_hash: sha256:77ab…
 ```
 
 Alongside it, **`.tbd/eject-base/<kind>/<name>.md`** (also committed) stores a verbatim
@@ -247,6 +254,13 @@ copy of the upstream content the fork is based on — set at eject time and adva
 - A hash alone cannot drive a merge; the actual base content is required, and it must be
   committed so any collaborator (or CI) can run `tbd docs update` later with full
   fidelity, regardless of which tbd version originally ejected the doc.
+- **Git provenance is recorded when the source is git-hosted.** For `github:` /
+  `gitlab:` / `git:` docrefs, eject and every base advance also record the upstream
+  commit (`source_revision`) and, when the pinned ref is a tag or the commit matches one
+  exactly, `source_tag`. Non-git sources (`internal:`, bare URLs) have no revision to
+  record — which is precisely why bases are *snapshots* rather than pointers: the stored
+  copy is the universal provenance fallback that works for every source kind, with
+  revisions as extra precision when the source can provide them.
 - `base_hash` is the SHA-256 of the LF-normalized base content (line-ending
   normalization avoids false “customized” results from `core.autocrlf` on Windows).
   `tbd doctor` verifies the base file still hashes to it.
@@ -283,7 +297,7 @@ so `tbd_format` bumps to **f05** with a step in the existing migration chain
 - Naming note: PR #117’s draft called its future format “f05”; since this kernel claims
   f05, that redesign would land as f06+.
 
-### The cache stays complete
+### The cache stays complete; sync is grouped by source
 
 `tbd setup --auto` / `tbd docs sync` continue to install **all** docs into `.tbd/docs/`,
 including ones that are ejected.
@@ -291,6 +305,27 @@ The cache copy is the pristine reference: it is what `diff` and staleness compar
 against, it is the “theirs” side of every `update` merge, and it is what serving falls
 back to after `uneject`. Setup and cache sync never touch files in the eject dir —
 tracked files change only via the explicit eject/uneject/update commands.
+
+With docref sources, docs in the cache can have different *source roots*, so sync
+operates per source group rather than per file:
+
+- **Grouping.** `docs_cache.files` entries are grouped by source root: all `internal:`
+  docs form one group (copied from the installed package); all docs sharing a git repo +
+  ref (e.g. `github:acme/eng-docs@main//…`) form one group, fetched with **one** network
+  operation per repo (a single checkout/archive at that revision, files extracted from
+  it — never N fetches for N docs); each standalone URL is its own group.
+- **Failure isolation.** A group that fails — network error, repo or ref gone, URL 404,
+  moved content — is reported in the sync summary and its docs keep serving from the
+  last-good cache copy; all other groups proceed.
+  One bad doc or one vanished source never aborts the rest of the sync.
+  Cache entries are pruned only when a doc is explicitly removed from config, never on
+  fetch failure.
+- **Update stays offline.** `tbd docs update` merges against the cache, so a source
+  being unreachable never blocks updating docs from healthy sources — it only means that
+  group’s staleness information is as fresh as its last successful sync.
+  `tbd docs status` annotates affected docs
+  (`source unreachable — serving cached copy from <date>`), and `tbd doctor` reports
+  unreachable sources per group.
 
 ### Resolution precedence
 
@@ -550,8 +585,8 @@ Behavior details:
   `Docs: 4 ejected (1 customized, 2 with upstream updates — run 'tbd docs update', 1 conflict pending)`)
   and `tbd doctor` gains checks: missing files, orphaned entries, base files
   missing/corrupt (hash mismatch), unresolved `conflicted` docs, reserved `tbd-` name
-  collisions, eject dir covered by a `.gitignore` (defeats the purpose — warn),
-  manifest/dir drift.
+  collisions, unreachable sources (per source group, serving last cached copy), eject
+  dir covered by a `.gitignore` (defeats the purpose — warn), manifest/dir drift.
 
 ### Packs and language detection
 
@@ -734,10 +769,24 @@ Settled during design review (2026-06-11):
 
 ## Open Questions
 
-1. **Should `eject --relevant` ever become the fresh-setup default?** Recommended: no
-   for now — current behavior stays default per the explicit product call; revisit with
-   usage feedback.
-2. **Pack definitions in code vs doc frontmatter tags**: code const now (recommended);
+1. **Terminology: `eject`/`uneject` + `bundled` vs `fork`/`unfork` + `upstream`.** The
+   eject vocabulary fit when every doc came from inside tbd; with docref sources, docs
+   can come from any repo or URL, and “bundled” is only accurate for the
+   `internal:`-scheme subset.
+   Candidate rename, free to do before implementation starts: verbs `fork`/`unfork`
+   (state `forked`; `docs_cache.fork_dir`; `.tbd/forked.yml`; `.tbd/fork-base/`), the
+   `bundled` state renamed `upstream` (served from its upstream via the cache), with
+   “built-in” (or narrowly “bundled”) reserved for tbd-shipped `internal:` docs only.
+   `update --rebase` reads even better under fork vocabulary (re-base the fork point).
+   For reference, shadcn names the *model* (“open code,” “copy and own”) but its verb is
+   just `add`; “eject” is create-react-app heritage and connotes a one-way escape from a
+   managed system, which no longer matches a multi-source world.
+   Recommendation: adopt fork/unfork + upstream now, keep “eject” as a routing synonym
+   in the skill table.
+2. **Should `--relevant` ever become the fresh-setup default?** Recommended: no for now
+   — current behavior stays default per the explicit product call; revisit with usage
+   feedback.
+3. **Pack definitions in code vs doc frontmatter tags**: code const now (recommended);
    migrate to frontmatter `tags:` if packs grow or third-party doc sources arrive.
 
 ## Implementation Plan
@@ -785,10 +834,12 @@ Each numbered item is intended to be one bead.
 9. **`tbd docs list` and `tbd docs show <name>`**: cross-kind listing with state markers
    (`--json` per the docmap map schema); kind-agnostic read (per-kind readers
    unchanged).
-10. **`docs_cache.local_dirs` + `tbd docs add <docref>`**: local-dirs wiring into the
-    effective lookup order; `add` consolidating the per-kind `--add` flags (kept as
-    aliases) with docref normalization replacing the ad-hoc blob-URL conversion in
-    `doc-add.ts`.
+10. **`docs_cache.local_dirs` + `tbd docs add <docref>` + grouped sync**: local-dirs
+    wiring into the effective lookup order; `add` consolidating the per-kind `--add`
+    flags (kept as aliases) with docref normalization replacing the ad-hoc blob-URL
+    conversion in `doc-add.ts`; sync refactored to group `files` entries by source root
+    (one fetch per git repo+ref; per-group failure isolation; git revision/tag capture
+    for manifest provenance; no cache pruning on fetch failure).
 11. **`tbd docs diff <name>`** with `--base` / `--upstream` variants
     (`git diff --no-index` style output against base and cache copies, no network).
 12. **`tbd doctor` checks**: missing/orphaned entries, base missing/corrupt, unresolved
@@ -839,8 +890,10 @@ Each numbered item is intended to be one bead.
   three-way, conflict skip, `--merge` markers + base advance, `--rebase` keep-file +
   base advance, strategy-flag mutual exclusion, conflicted-pending skip, missing-base
   repair via `--rebase`, orphaned); marker auto-clear; f04→f05 migration; the ported
-  docref spec-mirror tests; local_dirs precedence ordering; `--json` output validating
-  against the docmap map schema; pack detection; eject path mapping (incl.
+  docref spec-mirror tests; local_dirs precedence ordering; source-root grouping (N docs
+  from one repo → one fetch; per-group failure isolation; cache preserved on fetch
+  failure); git revision/tag capture in the manifest; `--json` output validating against
+  the docmap map schema; pack detection; eject path mapping (incl.
   shortcuts flattening); README index generation.
 - **E2E (spawn against built CLI, like `doc-add-e2e.test.ts`)**: the Phase 1 scenario
   above; precedence (ejected shadows bundled; local file with no entry is served); an
