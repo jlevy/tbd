@@ -45,9 +45,11 @@ layout revision (format `f05`, a metadata-only migration from f04):
    `.tbd/eject-base/`) recording, for each ejected doc, exactly which upstream content
    it forked from — making “customized?”, “stale vs upstream?”, and three-way merging
    cheap, exact, offline operations.
-5. **Setup opt-in** — `tbd setup --interactive` asks how visible docs should be (current
-   hidden default, eject relevant packs, or eject everything); agents are taught to ask
-   the same question during onboarding and run eject themselves.
+5. **Agent-first setup opt-in** — no interactive prompts (agents are the operators):
+   `tbd setup --auto` keeps current behavior and prints a self-documenting summary of
+   the visibility options with a repo-aware `--relevant` preview, while
+   `welcome-user`/the skill teach agents to offer the choice conversationally and run
+   eject themselves.
 6. **An upstream-contribution playbook** — a bundled shortcut that walks an agent
    through diffing customized docs against upstream and filing a GitHub issue on
    `jlevy/tbd` with the proposed improvements.
@@ -69,8 +71,9 @@ lack. Everything here is forward-compatible with the larger #117 design (see
   customized doc is an error unless forced, so customizations are never silently lost.
 - **G4. Provenance:** For every ejected doc, tbd can answer: where did it come from, has
   it been customized, and has upstream changed since eject.
-- **G5. Setup choice:** During setup, users confirm how visible they want docs to be.
-  The default remains exactly the current behavior (hidden cache).
+- **G5. Setup choice, without interactivity:** Setup surfaces how visible docs can be —
+  via self-documenting output and agent-led conversation, never prompts; the default
+  remains exactly the current behavior (hidden cache).
 - **G6. Language relevance:** Users can say what language(s) they work in and eject just
   the relevant guidelines (with auto-detection as a convenience).
 - **G7. Upstream loop:** A documented, low-ceremony path from “I improved a guideline”
@@ -189,6 +192,28 @@ Notes:
   No backward compatibility is kept for the old bare behavior.
   The sibling viewers `tbd readme` and `tbd design` are unchanged for now (candidates
   for the same treatment later).
+
+### Three kinds of sync, kept deliberately separate
+
+tbd now has three update surfaces, and they stay distinct.
+A universal “sync everything” command was considered and rejected: the three differ in
+scope, risk, and failure modes — doc updates can involve merges and tracked-file
+mutation; nothing else does:
+
+| Command | Scope | Touches | Network | Modifies tracked files? |
+| --- | --- | --- | --- | --- |
+| `tbd sync` | project data (issues/beads) | sync worktree + `tbd-sync` branch | yes | never |
+| `tbd setup --auto` | installation + integrations | skills, hooks, settings, `AGENTS.md`; invokes a docs-cache sync as a convenience | yes | only generated integration files |
+| `tbd docs sync` | doc cache | gitignored `.tbd/docs/` only | yes (grouped by source, failure-isolated) | never |
+| `tbd docs update` | your ejected docs | eject dir + bases + manifest | no (offline, against the cache) | **yes — the only doc command that does** |
+
+Disambiguation worth stating once: `tbd update <id>` is an issue operation,
+`tbd docs update` a doc operation — the noun scope always disambiguates.
+Setup may *invoke* a docs-cache sync (as it effectively does today) and *report* pending
+doc updates, but the canonical doc commands are `tbd docs sync` / `tbd docs update`, and
+only the latter ever writes tracked files.
+This table lands in `tbd-docs.md` so the taxonomy is documented for users and agents,
+not just in this spec.
 
 ### The eject directory
 
@@ -608,33 +633,37 @@ easy to extend later if we move it to frontmatter tags:
 Shortcuts/templates are not in packs v1 (eject them by name or `--all`); revisit if
 there is demand.
 
-### Setup integration
+### Setup integration (agent-first, non-interactive)
 
-- **`tbd setup --auto`: unchanged.** Cache-only remains the default; the summary output
-  gains one hint line:
-  `Docs are cached in .tbd/docs/ (gitignored). Run 'tbd docs eject' to copy guidelines into your repo as visible, forkable files.`
-  When ejected docs exist and have pending upstream updates (typically right after an
-  upgrade), the summary also reports the count and suggests `tbd docs update` — but
-  setup itself never modifies files in the eject dir.
+tbd is operated almost exclusively by agents, and agents don’t benefit from prompts — so
+there is **no interactive visibility menu**. The `--interactive` flag, which exists
+today but has never had prompts (`setup.ts:1281`), is removed rather than built out.
+Setup is instead designed to be excellent non-interactively:
 
-- **`tbd setup --interactive`** gains its first real prompt (the flag exists today but
-  has no prompts — `setup.ts:1281`):
+- **`tbd setup --auto`: unchanged behavior, self-documenting output.** Cache-only
+  remains the default.
+  The summary *is* the menu — copy-paste commands with a repo-aware preview, since pack
+  detection can run read-only during setup:
 
   ```
-  How visible do you want tbd's bundled docs (guidelines/shortcuts/templates)?
-    1. Hidden cache only (current default) — available via tbd CLI, not in git
-    2. Eject relevant guidelines into docs/tbd/ — visible, git-tracked, forkable
-    3. Eject everything into docs/tbd/
+  Docs: 37 available in cache (.tbd/docs/, gitignored); none ejected into the repo.
+    Browse:        tbd docs list
+    Make visible:  tbd docs eject --relevant    (detected: typescript, python → 13 docs into docs/tbd/)
+                   tbd docs eject --all         (everything)
+    Customize one: tbd docs eject <name>
   ```
 
-  Option 2 runs the `--relevant` flow and shows the detected packs for confirmation
-  (including the eject dir, editable).
+  When ejected docs exist with pending upstream updates (typically right after an
+  upgrade), the summary reports the count and suggests `tbd docs update` — but setup
+  itself never modifies files in the eject dir.
 
-- **Agent-driven onboarding** is the more common path, so the same choice is offered
-  conversationally: `welcome-user` and the skill docs instruct the agent to ask the user
-  ("Do you want tbd’s guidelines visible in your repo?
-  Which languages do you use?") and then run `tbd docs eject --pack=…` / `--all` itself.
-  No new setup flags needed: `tbd docs` *is* the API.
+- **Agent-led onboarding is the choice mechanism.** `welcome-user` and the skill docs
+  instruct the agent to ask the user conversationally ("Do you want tbd’s guidelines
+  visible in your repo?
+  Which languages do you use?") and then run `tbd docs eject --pack=…` / `--relevant` /
+  `--all` itself. `tbd docs eject --relevant --dry-run` gives agents a zero-risk preview
+  to show before acting.
+  No setup flags needed: `tbd docs` *is* the API.
 
 ### Upstream-contribution playbook
 
@@ -675,12 +704,14 @@ The skill routing table gets matching rows, e.g.:
 - **Code types, methods, and function signatures**: DO NOT MAINTAIN (internal modules;
   the `DocCache`/`DocSync` extensions may refactor freely).
 - **Library APIs**: N/A (nothing exported).
-- **CLI surface**: two deliberate 0.x changes.
+- **CLI surface**: three deliberate 0.x changes.
   (1) Bare `tbd docs` is repurposed from manual viewer to status overview; the manual
   stays reachable as `tbd docs show tbd-docs` / `tbd docs manual` (DO NOT MAINTAIN the
   old bare behavior — confirmed; update all routing docs in the same release).
   (2) `tbd sync --docs` becomes a deprecated alias of `tbd docs sync` (KEEP DEPRECATED
   until the next format cut).
+  (3) The `tbd setup --interactive` flag is removed (DO NOT MAINTAIN — it never had
+  prompts; setup is agent-first and non-interactive).
   `tbd readme` / `tbd design` / per-kind readers unchanged.
 - **Server APIs**: N/A.
 - **File formats**: MIGRATE. `tbd_format` bumps f04 → f05 (new committed layout
@@ -766,6 +797,16 @@ Settled during design review (2026-06-11):
     speculative #117 design, which is cited only as exploratory background.
     `tbd docs list/status --json` emit it; hand-authored docmaps are valid; source
     machinery is deferred as future “operations over docmaps.”
+12. **Three sync surfaces, no universal sync.** `tbd sync` = issues; `tbd setup` =
+    installation/integrations (may invoke a docs-cache sync and report pending doc
+    updates); `tbd docs sync`/`update` = the doc layer.
+    A combined “sync everything” command was rejected: doc updates can involve merges
+    and tracked-file mutation, unlike the others.
+    The taxonomy table is documented in `tbd-docs.md`.
+13. **No interactive setup.** The unused `--interactive` flag is removed; setup is
+    agent-first and non-interactive, with self-documenting summary output (including a
+    read-only `--relevant` detection preview) and conversational onboarding via the
+    skill and `welcome-user`.
 
 ## Open Questions
 
@@ -861,9 +902,11 @@ Each numbered item is intended to be one bead.
 
 15. **Packs + detection** (`src/file/doc-packs.ts`): pack map, `--pack`, `--relevant`,
     detection function with unit tests.
-16. **Setup integration**: hint line in `--auto` summary; the visibility prompt in
-    `--interactive` wired to the eject flows, with the eject dir shown as an editable
-    customization persisted to config.
+16. **Setup integration**: self-documenting `--auto` summary (eject options as
+    copy-paste commands with read-only pack-detection preview; pending-update count);
+    removal of the unused `--interactive` flag; the eject dir documented as a config
+    customization (`docs_cache.eject_dir`); the sync-taxonomy table added to
+    `tbd-docs.md`.
 
 ### Phase 5: Docs and agent surface
 
