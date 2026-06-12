@@ -39,7 +39,6 @@ Configure tbd integration with editors and tools
 Options:
   --auto             Non-interactive mode with smart defaults (for
                      agents/scripts)
-  --interactive      Interactive mode with prompts (for humans)
   --from-beads       Migrate from Beads to tbd
   --prefix <name>    Project prefix for issue IDs (required for fresh setup)
   --force            Allow non-recommended prefix format (not 2-8 alphabetic)
