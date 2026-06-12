@@ -3,9 +3,9 @@ type: is
 id: is-01ktxg3eqj62dhphs6dnbb30jf
 title: "Spec: Forkable Docs Workflow (f05)"
 kind: epic
-status: open
+status: closed
 priority: 2
-version: 35
+version: 36
 spec_path: docs/project/specs/active/plan-2026-06-11-forkable-docs.md
 labels: []
 dependencies: []
@@ -45,5 +45,7 @@ child_order_hints:
   - is-01ktycs71hp3sz2938fbj03m51
   - is-01ktycs7ef2md3thzbqze2z098
 created_at: 2026-06-12T08:45:13.330Z
-updated_at: 2026-06-12T17:06:26.895Z
+updated_at: 2026-06-12T22:11:26.379Z
+closed_at: 2026-06-12T22:11:26.378Z
+close_reason: "All 12 children closed. Forkable-docs spec fully implemented: Phases 0-5 shipped on PR #169 (4301220..3406821); spec golden maps recaptured from the built CLI with no phase-contract annotations remaining for shipped behavior; suite green at 1,311 unit + 881 tryscript blocks."
 ---
