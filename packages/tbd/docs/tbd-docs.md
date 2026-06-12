@@ -731,10 +731,11 @@ docs/tbd/
 
 Two rules make everything below predictable: **names are identity** (a doc is
 `<kind>/<name>.md`; nested subfolders are not scanned), and **tracking is derived, not
-stored** — every doc’s state is recomputed from content hashes (your file vs its
-recorded base vs current upstream), so no git operation can desynchronize tbd from the
-folder. Whatever you or your agent do to these files, `tbd docs status` gives a defined
-answer:
+stored** (the canonical model — copies, invariants, flows — is `tbd-design.md` §2.9;
+this table is its user-facing summary) — every doc’s state is recomputed from content
+hashes (your file vs its recorded base vs current upstream), so no git operation can
+desynchronize tbd from the folder.
+Whatever you or your agent do to these files, `tbd docs status` gives a defined answer:
 
 | You (or your agent)… | State | What happens / what to do |
 | --- | --- | --- |

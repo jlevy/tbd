@@ -309,7 +309,9 @@ publish the upgrade to your team.
 Teammates still on an older tbd then see “This repository requires a newer version of
 tbd” until they run the same two commands.
 Issue data is never touched by an upgrade, and the migration is revertible: see
-“Aborting a Format Upgrade” under Troubleshooting in `tbd docs`.
+“Aborting a Format Upgrade” under Troubleshooting in `tbd docs`. If you have forked docs
+in `docs/tbd/`, `tbd sync` prints a notice when their upstream versions moved — run
+`tbd docs update` to merge the changes in.
 
 ### Team Setup
 

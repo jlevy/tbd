@@ -1991,6 +1991,18 @@ combination of user actions safe.
 A doc’s identity is **kind + name**; paths follow fixed conventions
 (`<kind-dir>/<name>.md`, flat — nested folders are not scanned).
 
+The model follows one principle: **resolve by convention; track only what cannot be
+derived; publish the inventory as a generated view.** Lookup is a fixed search path over
+conventional locations — no registry that can drift from disk.
+The only stored tracking is the fork manifest, which records the one fact that cannot be
+recomputed from the files: each fork’s upstream source and base snapshot.
+The docmap that doc commands emit is a generated view of this state, never an input to
+resolution. (A copy-all-and-gitignore variant of the fork dir was considered and
+rejected: gitignored mirrors are invisible on GitHub and in PRs, and edits to them
+diverge silently with no team-visible artifact — `tbd docs fork --all` provides the
+all-visible posture in tracked form.
+See the spec’s Alternatives.)
+
 #### Invariants
 
 1. **Serving precedence**: the fork dir is prepended to every kind’s lookup path, so a

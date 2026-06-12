@@ -307,8 +307,9 @@ advanced by `tbd docs update`. This is the *base* of every three-way merge:
   committed so any collaborator (or CI) can run `tbd docs update` later with full
   fidelity, regardless of which tbd version originally forked the doc.
 - **Git provenance is recorded when the source is git-hosted.** For `github:` /
-  `gitlab:` / `git:` docrefs, fork and every base advance also record the upstream
-  commit (`source_revision`) and, when the pinned ref is a tag or the commit matches one
+  `gitlab:` docrefs (the git schemes in docref v0.1; additional protocols may be added
+  in future versions), fork and every base advance also record the upstream commit
+  (`source_revision`) and, when the pinned ref is a tag or the commit matches one
   exactly, `source_tag`. Non-git sources (`internal:`, bare URLs) have no revision to
   record — which is precisely why bases are *snapshots* rather than pointers: the stored
   copy is the universal provenance fallback that works for every source kind, with
@@ -486,10 +487,14 @@ Stripped to its core, the simple, well-defined, reusable concept is just the
 
 > A **docmap** is a machine-readable inventory of a collection of documents: one entry
 > per doc, each with an identity (`type` + `name`, unique within the map), a location
-> (`path`, and/or a provenance `source` docref), and presentation metadata (`title`,
-> `description`, `word_count`). It describes a doc collection; it says nothing about how
-> the collection is assembled, fetched, or kept fresh.
+> (`path`, and/or a provenance `source` docref — every entry carries at least one), and
+> presentation metadata (`title`, `description`). It describes a doc collection; it says
+> nothing about how the collection is assembled, fetched, or kept fresh — a docmap is a
+> generated *view* of a collection, never an input to resolution.
 
+For a docmap committed as a file, `path` is relative to the docmap file’s own directory
+(the sitemap convention); size metrics (`word_count`, `size_bytes`, token estimates) are
+producer extension fields, not core.
 A sitemap for docs, with docref as its addressing primitive:
 
 ```yaml
@@ -499,10 +504,9 @@ documents:
   - name: python-rules
     type: guideline
     path: guidelines/python-rules.md              # location within the collection
-    source: internal:guidelines/python-rules.md   # provenance docref (optional)
+    source: internal:guidelines/python-rules.md   # provenance docref
     title: Python Coding Rules
     description: Type hints, docstrings, exception handling, resource management
-    word_count: 2400
 ```
 
 Producers may *generate* a docmap (as tbd does: **every** list/inventory command emits
@@ -601,32 +605,45 @@ change” / “I already folded it in by hand”).
 | `orphaned` | skip + note (upstream removed the doc; keep your copy or `unfork`) | same | same |
 | `missing` / `local` | skip (doctor’s problem / nothing upstream) | same | same |
 | base file missing (manual deletion) | cannot merge; skip + point at `--keep-ours` | same | re-establish base from current upstream (repair) |
+| fork point set by a **newer tbd** (`tbd_version` > running version) | skip + warn: upgrade tbd first (this client’s bundled “upstream” is older than the fork point; updating would silently downgrade the doc) | same | same |
 
 Design points:
+
+- **Version-skew guard.** The manifest’s per-entry `tbd_version` records which tbd
+  advanced the fork point; `update` (every strategy) and a re-fork refresh both refuse
+  to act when the running tbd is older than that, since their bundled content predates
+  the fork point (re-fork accepts `--force` as the explicit downgrade escape hatch).
 
 - **Clean merges apply by default deliberately.** The forked file is git-tracked, so
   every auto-merge is fully visible in `git diff` and trivially revertible — git is the
   undo. Conflicted docs are never touched by default; the listing names the two
   strategies and the user (or agent) re-runs with one.
+
 - **Base advance happens at merge time.** After any update (replace, clean merge, or
   conflicted `--merge`), the base becomes the new upstream content.
   So post-resolution, the doc is simply “a customized fork of current upstream” — states
   stay coherent with no extra bookkeeping.
+
 - **`--keep-ours` keeps your content and advances the fork point.** For a single file
   there is no diff to replay — keeping your version *is* the operation; upstream’s
   change is acknowledged, staleness clears, and future updates diff against the new
   base. It also repairs a missing base file.
   (This was `--rebase` in an earlier draft, renamed because the operation is not
   git-rebase content semantics — it does not replay your diff, it keeps it.)
+
 - **Only the explicit command mutates tracked files.** `tbd setup --auto` and the
   24-hour doc auto-sync refresh the gitignored cache as today and then *report* pending
   updates (`2 forked docs have upstream updates — run 'tbd docs update'`), but never
   write into the fork dir.
+  `tbd sync` likewise prints a one-line drift notice (stale / conflicted / missing
+  counts) after its cache refresh — awareness only, never action.
   Background paths rewriting committed files would be surprising and hard to audit.
+
 - **Convergence is the unfork path.** If you customized a doc, upstream later adopted
   your change, and `update` merges cleanly such that the file now equals upstream, the
   doc returns to plain `forked` (unmodified) — and `tbd docs unfork` works without
   `--force`.
+
 - `--dry-run` previews all of the above, including which docs would conflict.
 
 ### CLI surface
@@ -854,16 +871,20 @@ forked.
    visibility — but every tbd upgrade churns dozens of files in user repos, generated
    and authored content become indistinguishable, and there are no fork/unfork
    semantics. Rejected.
+
 2. **Finish the PR #117 f05 framework first.** Right long-term shape, but blocked on
    five open architecture questions and a format migration; delivers user value months
    later. Rejected as the *first* step; this spec is its forward-compatible kernel.
+
 3. **Symlinks from `docs/` into `.tbd/docs/`.** Not portable (Windows), breaks on GitHub
    rendering, and git-tracking symlinked generated content is worse than either mode.
    Rejected.
+
 4. **Frontmatter provenance stamps instead of a manifest.** Self-contained files, but
    fork would modify content on copy (breaking clean diffs against upstream) and
    “customized” detection would need fragile frontmatter-stripping/normalization.
    Rejected in favor of verbatim copies + manifest.
+
 5. **Updates without stored bases (hash-only provenance).** Smaller footprint, but a
    hash cannot drive a three-way merge, so *every* upstream change to a customized doc
    would surface as a wall-of-conflicts two-way diff — clean merges become impossible
@@ -871,11 +892,13 @@ forked.
    Reconstructing bases from old npm versions (network, unpublished versions,
    `development` builds) or from git history (squashes, mixed commits) is unreliable.
    Rejected: committed base copies are the price of a real update story.
+
 6. **Auto-merging during `tbd setup --auto` or background doc auto-sync.** Tempting
    (zero extra commands) but background paths rewriting committed files is surprising
    and unauditable; doc auto-sync can trigger from any read command.
    Rejected: setup/status only *report*; `tbd docs update` is the single explicit
    mutation point.
+
 7. **Verbs as flags on a top-level `tbd eject` command** (`--update`, `--status`,
    `--rebase`, plus a separate `tbd uneject` — the original verb names; see decision
    14). The original draft of this spec.
@@ -883,6 +906,21 @@ forked.
    named `update` would be ambiguous with the verb.
    The noun-scoped `tbd docs` group matches existing tbd conventions
    (`dep`/`label`/`attic`/`config`) and gives sync/show/list a coherent home.
+
+8. **Copy *all* docs into the fork dir and gitignore the unforked ones** (fork =
+   flipping a gitignore entry).
+   Full local browsability, but it fails the actual goal: gitignored mirrors are exactly
+   as invisible on GitHub and in PRs as the cache is, so only the tracked subset gains
+   visibility either way.
+   It also creates the worst silent failure mode available — an edit to a gitignored
+   mirror is served locally (top precedence) but never reaches the team, with no
+   git-visible artifact; fork state becomes a predicate over two systems (git index +
+   ignore rules, with the classic ignored-but-tracked confusions); and cache refresh
+   would either resurrect deleted mirror files or need tombstones, contradicting
+   “nothing is ever silently re-created against the user’s deletion.”
+   `tbd docs fork --all` already provides the all-visible posture in tracked form, with
+   `unfork` as the undo.
+   Rejected.
 
 ## Resolved Decisions
 
@@ -1443,11 +1481,11 @@ $ tbd docs list --json
       "source": "internal:guidelines/python-rules.md",
       "title": "Python Coding Rules",
       "description": "Type hints, docstrings, exception handling, resource management",
-      "word_count": [..],
       "state": "customized",
       "stale": true
     }
-    [.. one entry per doc; upstream docs have state "upstream" and no fork fields ..]
+    [.. one entry per doc; upstream docs have state "upstream" and a source docref
+       (their provenance) but no path — every entry carries a location ..]
   ]
 }
 ? 0

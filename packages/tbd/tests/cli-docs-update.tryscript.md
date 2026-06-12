@@ -50,14 +50,14 @@ Updated 1 forked doc(s):
 # Test: customize the fork’s first line
 
 ```console
-$ sed -i '1c\<!-- FORK FIRST LINE -->' docs/tbd/guidelines/python-rules.md
+$ perl -pi -e '$_ = "<!-- FORK FIRST LINE -->\n" if $. == 1' docs/tbd/guidelines/python-rules.md
 ? 0
 ```
 
 # Test: change the same line upstream
 
 ```console
-$ sed -i '1c\<!-- UPSTREAM FIRST LINE -->' .tbd/docs/guidelines/python-rules.md
+$ perl -pi -e '$_ = "<!-- UPSTREAM FIRST LINE -->\n" if $. == 1' .tbd/docs/guidelines/python-rules.md
 ? 0
 ```
 
