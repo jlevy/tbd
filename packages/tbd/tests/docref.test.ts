@@ -25,17 +25,26 @@ describe('parseDocRef', () => {
     });
   });
 
-  it('parses local paths (./ , ../ , absolute, scheme-less)', () => {
+  it('parses anchored local paths (./ , ../ , absolute, drive letter)', () => {
     expect(parseDocRef('./docs/general/')).toEqual({ kind: 'local', path: './docs/general/' });
     expect(parseDocRef('../shared/rules.md')).toEqual({
       kind: 'local',
       path: '../shared/rules.md',
     });
     expect(parseDocRef('/abs/path/file.md')).toEqual({ kind: 'local', path: '/abs/path/file.md' });
-    expect(parseDocRef('guidelines/python-rules.md')).toEqual({
+    expect(parseDocRef('C:/Users/x/file.md')).toEqual({
       kind: 'local',
-      path: 'guidelines/python-rules.md',
+      path: 'C:/Users/x/file.md',
     });
+    expect(parseDocRef('c:\\docs\\file.md')).toEqual({ kind: 'local', path: 'c:\\docs\\file.md' });
+  });
+
+  it('rejects bare relative and home-relative paths (strict grammar)', () => {
+    // Bare strings are not docrefs; consumers may coerce by prepending "./" at
+    // their own boundary. Strict-now can loosen later; the reverse cannot.
+    expect(() => parseDocRef('guidelines/python-rules.md')).toThrow(DocRefError);
+    expect(() => parseDocRef('hello world')).toThrow(DocRefError);
+    expect(() => parseDocRef('~/docs/rules.md')).toThrow(/home-relative/);
   });
 
   it('parses plain URLs', () => {
@@ -66,9 +75,26 @@ describe('parseDocRef', () => {
     });
   });
 
-  it('parses gitlab: and git: schemes', () => {
+  it('parses a fragment on the path and keeps it separate', () => {
+    expect(parseDocRef('github:acme/eng-docs@main//guidelines/style.md#naming')).toEqual({
+      kind: 'git',
+      host: 'github',
+      owner: 'acme',
+      repo: 'eng-docs',
+      ref: 'main',
+      path: 'guidelines/style.md',
+      fragment: 'naming',
+    });
+  });
+
+  it('parses gitlab: scheme', () => {
     expect(parseDocRef('gitlab:org/repo@v1.0//a/b.md').kind).toBe('git');
-    expect(parseDocRef('git:org/repo@sha//a/b.md')).toMatchObject({ host: 'git', ref: 'sha' });
+  });
+
+  it('rejects the dropped git: scheme as unknown', () => {
+    // v0.1 supports github:/gitlab: only; a host-bearing git: form may be added
+    // in a future version.
+    expect(() => parseDocRef('git:org/repo@sha//a/b.md')).toThrow(/unknown scheme/);
   });
 
   it('trims surrounding whitespace', () => {
@@ -81,6 +107,7 @@ describe('parseDocRef', () => {
     expect(() => parseDocRef('github:owner-only//path.md')).toThrow(DocRefError);
     expect(() => parseDocRef('github:owner/repo/no-double-slash.md')).toThrow(DocRefError);
     expect(() => parseDocRef('github:owner/repo@main//')).toThrow(DocRefError);
+    expect(() => parseDocRef('github:owner/repo@main//#frag-only')).toThrow(DocRefError);
     expect(() => parseDocRef('mailto:someone@example.com')).toThrow(DocRefError);
   });
 });
@@ -102,8 +129,15 @@ describe('normalizeDocRef', () => {
     );
   });
 
+  it('preserves URL fragments through normalization (never silently dropped)', () => {
+    expect(normalizeDocRef('https://github.com/o/r/blob/main/f.md#testing')).toBe(
+      'github:o/r@main//f.md#testing',
+    );
+  });
+
   it('leaves non-git URLs and other forms unchanged', () => {
     expect(normalizeDocRef('https://example.com/x.md')).toBe('https://example.com/x.md');
+    expect(normalizeDocRef('https://example.com/x.md#frag')).toBe('https://example.com/x.md#frag');
     expect(normalizeDocRef('internal:a/b.md')).toBe('internal:a/b.md');
   });
 });
@@ -113,9 +147,11 @@ describe('formatDocRef round-trips', () => {
     'internal:guidelines/python-rules.md',
     './docs/general/',
     '/abs/file.md',
+    'C:/Users/x/file.md',
     'https://example.com/style.md',
     'github:acme/eng-docs@main//guidelines/style.md',
     'github:acme/eng-docs//guidelines/style.md',
+    'github:acme/eng-docs@main//guidelines/style.md#naming',
     'gitlab:org/repo@v1.0//a/b.md',
   ];
   it.each(cases)('parse->format is identity for %s', (input) => {
@@ -127,6 +163,7 @@ describe('helpers', () => {
   it('isDocRef reflects validity', () => {
     expect(isDocRef('internal:a.md')).toBe(true);
     expect(isDocRef('mailto:x@y.com')).toBe(false);
+    expect(isDocRef('bare-string.md')).toBe(false);
   });
 
   it('tryParseDocRef returns null on invalid input', () => {
@@ -136,7 +173,8 @@ describe('helpers', () => {
 
   it('docRefsEqual ignores a leading ./ on local paths', () => {
     const a = parseDocRef('./guidelines/x.md');
-    const b = parseDocRef('guidelines/x.md');
+    // A consumer-coerced bare path: equal modulo the "./" anchor.
+    const b: DocRef = { kind: 'local', path: 'guidelines/x.md' };
     expect(docRefsEqual(a, b)).toBe(true);
   });
 
