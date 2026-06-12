@@ -83,6 +83,46 @@ export async function mergeContents(
   }
 }
 
+/**
+ * Unified diff of two contents via `git diff --no-index`. Returns the diff text
+ * (empty string when identical). Uses temporary files and touches no repo state.
+ */
+export async function diffContents(
+  left: string,
+  right: string,
+  labels: { left?: string; right?: string } = {},
+): Promise<string> {
+  const dir = await mkdtemp(join(tmpdir(), 'tbd-diff-'));
+  // Name the temp files after the labels and run from the temp dir with --no-prefix
+  // so the diff header reads e.g. "--- upstream / +++ ours" instead of temp paths.
+  const leftName = labels.left ?? 'a';
+  const rightName = labels.right ?? 'b';
+  try {
+    await Promise.all([
+      writeFile(join(dir, leftName), left),
+      writeFile(join(dir, rightName), right),
+    ]);
+    return await new Promise<string>((resolve, reject) => {
+      const args = ['diff', '--no-index', '--no-color', '--no-prefix', leftName, rightName];
+      execFile('git', args, { cwd: dir, maxBuffer: MERGE_MAX_BUFFER }, (error, stdout) => {
+        if (error) {
+          const code = (error as NodeJS.ErrnoException & { code?: number }).code;
+          // git diff exits 1 when the files differ — that's the normal case.
+          if (code === 1) {
+            resolve(stdout);
+            return;
+          }
+          reject(error instanceof Error ? error : new Error('git diff failed'));
+          return;
+        }
+        resolve(stdout);
+      });
+    });
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+}
+
 /** Update strategy chosen by the user for non-clean cases. */
 export type UpdateStrategy = 'default' | 'merge' | 'keep-ours';
 

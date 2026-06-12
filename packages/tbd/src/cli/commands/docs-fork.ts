@@ -29,6 +29,7 @@ import {
 import {
   type ForkEntry,
   type ForkKind,
+  findFork,
   hashContent,
   readForkManifest,
   writeForkManifest,
@@ -44,7 +45,7 @@ import {
   readForkBase,
   ForkConflictError,
 } from '../../file/doc-fork.js';
-import { updateOne, type UpdateStrategy } from '../../file/fork-update.js';
+import { updateOne, diffContents, type UpdateStrategy } from '../../file/fork-update.js';
 import { createDocMap, type DocMapEntry } from '../../docmap/index.js';
 
 /** Kinds that can be resolved from the cache and forked today. */
@@ -456,6 +457,62 @@ class DocsUpdateHandler extends BaseCommand {
   }
 }
 
+interface DiffOptions {
+  base?: boolean;
+  upstream?: boolean;
+  kind?: string;
+}
+
+class DocsDiffHandler extends BaseCommand {
+  async run(name: string, options: DiffOptions): Promise<void> {
+    await this.execute(async () => {
+      const tbdRoot = await requireInit();
+      const manifest = await readForkManifest(tbdRoot);
+      const entry = findFork(manifest, name, options.kind as ForkKind | undefined);
+      if (!entry) {
+        throw new CLIError(`${name} is not a forked doc. Run \`tbd docs status\` to see forks.`);
+      }
+
+      const forkContent = await readForkFile(tbdRoot, FORK_DIR, entry);
+      const baseContent = await readForkBase(tbdRoot, entry);
+      const cache = await buildKindCache(entry.kind as ForkKind, tbdRoot);
+      const upstreamContent = cache.get(entry.name)?.doc.content ?? null;
+
+      // Default: your file vs current upstream (the net fork).
+      let left = upstreamContent;
+      let right = forkContent;
+      let labels = { left: 'upstream', right: 'ours' };
+      if (options.base) {
+        left = baseContent;
+        right = forkContent;
+        labels = { left: 'base', right: 'ours' };
+      } else if (options.upstream) {
+        left = baseContent;
+        right = upstreamContent;
+        labels = { left: 'base', right: 'upstream' };
+      }
+
+      if (left === null || right === null) {
+        throw new CLIError(
+          `Cannot diff ${name}: one side is unavailable ` +
+            `(forked file missing, base missing, or upstream gone).`,
+        );
+      }
+
+      const diff = await diffContents(left, right, labels);
+      if (this.ctx.json) {
+        this.output.data({ name: entry.name, kind: entry.kind, diff });
+        return;
+      }
+      if (!diff.trim()) {
+        console.log(`No differences (${labels.left} vs ${labels.right}).`);
+        return;
+      }
+      console.log(diff.trimEnd());
+    }, 'Failed to diff');
+  }
+}
+
 /**
  * Merge a subcommand's local options with globals/ancestors. The parent `docs`
  * command also declares `--all` (its manual-viewer listing), so reading the local
@@ -527,5 +584,18 @@ export function registerForkSubcommands(docs: Command): void {
         dryRun: g.dryRun === true,
         json: g.json === true,
       });
+    });
+
+  docs
+    .command('diff')
+    .description(
+      'Diff a forked doc against upstream (default), its base (--base), or incoming (--upstream)',
+    )
+    .argument('<name>', 'forked doc name')
+    .option('--base', 'diff your file against its base (what you changed)')
+    .option('--upstream', 'diff the base against current upstream (incoming changes)')
+    .option('--kind <kind>', 'restrict to a kind')
+    .action(async (name: string, options: DiffOptions, command: Command) => {
+      await new DocsDiffHandler(command).run(name, options);
     });
 }

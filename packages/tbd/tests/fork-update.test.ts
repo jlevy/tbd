@@ -4,7 +4,12 @@
 
 import { describe, it, expect } from 'vitest';
 
-import { mergeContents, updateOne, type UpdateStrategy } from '../src/file/fork-update.js';
+import {
+  mergeContents,
+  diffContents,
+  updateOne,
+  type UpdateStrategy,
+} from '../src/file/fork-update.js';
 import { type ForkEntry, hashContent, hasConflictMarkers } from '../src/file/fork-manifest.js';
 
 const BASE = 'line one\nline two\nline three\n';
@@ -35,6 +40,23 @@ describe('mergeContents', () => {
     const result = await mergeContents(ours, BASE, theirs);
     expect(result.conflicts).toBeGreaterThan(0);
     expect(hasConflictMarkers(result.merged)).toBe(true);
+  });
+});
+
+describe('diffContents', () => {
+  it('returns empty for identical content', async () => {
+    expect(await diffContents(BASE, BASE)).toBe('');
+  });
+
+  it('shows changed lines with the given labels', async () => {
+    const diff = await diffContents(BASE, 'line one\nCHANGED\nline three\n', {
+      left: 'upstream',
+      right: 'ours',
+    });
+    expect(diff).toContain('--- upstream');
+    expect(diff).toContain('+++ ours');
+    expect(diff).toContain('+CHANGED');
+    expect(diff).toContain('-line two');
   });
 });
 
