@@ -10,6 +10,11 @@ export default defineConfig({
   test: {
     include: ['tests/**/*.test.ts'],
     globalSetup: ['tests/global-setup.ts'],
+    // Strip inherited GIT_DIR (and friends) in every worker before tests spawn
+    // subprocesses, so an ambient git env (e.g. from a pre-push hook run in a
+    // linked worktree) cannot redirect fixture git/tbd onto the real repo.
+    // See tests/scrub-git-env.ts and the tbd-a1lc incident.
+    setupFiles: ['tests/scrub-git-env.ts'],
     hookTimeout: isWindows ? 30000 : 10000,
     coverage: {
       provider: 'v8',
