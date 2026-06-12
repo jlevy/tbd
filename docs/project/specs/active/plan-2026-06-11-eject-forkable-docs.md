@@ -193,6 +193,29 @@ Notes:
   The sibling viewers `tbd readme` and `tbd design` are unchanged for now (candidates
   for the same treatment later).
 
+#### Disposition of today’s `tbd docs` surface
+
+`tbd docs` already carries **four** behaviors today, and the kernel must re-home all of
+them explicitly — not just the bare viewer — so no current capability is silently
+dropped and the new `tbd docs list` verb does not collide with today’s
+`tbd docs --list`:
+
+| Today (f04) | Current behavior | Under f05 |
+| --- | --- | --- |
+| `tbd docs` (bare) | renders the full `tbd-docs.md` manual | **status overview** of managed docs (the scope’s landing page) |
+| `tbd docs <topic>` / `--section <name>` | jumps to a manual section | `tbd docs show tbd-docs --section <name>` (the manual is now a `reference` doc) |
+| `tbd docs --list` | lists the manual’s **sections** | retired as a top-level flag; `tbd docs list` now lists **docs across kinds**. Section navigation moves to `tbd docs show tbd-docs` |
+| `tbd docs --all` | the “tbd Documentation Resources” orientation card | folded into the bare `tbd docs` overview, whose “menu” block (browse / fork / learn-more pointers) carries the same orientation value |
+
+The one real hazard is the `--list` meaning flip (sections → docs).
+The f05 gate makes older CLIs refuse to run against an f05 repo (see “Format bump:
+f05”), so there is no window where a user gets the old meaning against a new layout.
+The flip is recorded in Backward Compatibility within the `tbd docs` reorganization (CLI
+change 1), and **every doc and golden test that exercised the old `tbd docs` / `--list`
+/ `--all` / `--section` surface is rewritten in the same release** — the affected tests
+are catalogued exactly in [Golden-Test Maps](#golden-test-maps), the largest single one
+being `cli-help-all.tryscript.md` (seven `tbd docs` assertions tied to the old surface).
+
 ### Three kinds of sync, kept deliberately separate
 
 tbd now has three update surfaces, and they stay distinct.
@@ -741,9 +764,13 @@ The skill routing table gets matching rows, e.g.:
   the `DocCache`/`DocSync` extensions may refactor freely).
 - **Library APIs**: N/A (nothing exported).
 - **CLI surface**: three deliberate 0.x changes.
-  (1) Bare `tbd docs` is repurposed from manual viewer to status overview; the manual
-  stays reachable as `tbd docs show tbd-docs` / `tbd docs manual` (DO NOT MAINTAIN the
-  old bare behavior — confirmed; update all routing docs in the same release).
+  (1) The whole `tbd docs` surface is reorganized (see “Disposition of today’s
+  `tbd docs` surface”): bare `tbd docs` becomes the status overview; `tbd docs <topic>`
+  / `--section` and the section-listing `--list` move onto `tbd docs show tbd-docs`;
+  `--all` folds into the overview; `tbd docs list` now lists docs across kinds.
+  DO NOT MAINTAIN any of the old `tbd docs` behaviors — confirmed; the manual stays
+  reachable as `tbd docs show tbd-docs` / `tbd docs manual`, and all routing docs and
+  goldens are updated in the same release.
   (2) `tbd sync --docs` becomes a deprecated alias of `tbd docs sync` (KEEP DEPRECATED
   until the next format cut).
   (3) The `tbd setup --interactive` flag is removed (DO NOT MAINTAIN — it never had
@@ -803,51 +830,64 @@ Settled during design review (2026-06-11):
 1. **One noun-scoped command group, `tbd docs <verb>`**, replaces the earlier top-level
    `tbd eject`/`tbd uneject` + verb-flags design (see Alternatives #7). Scope split:
    `tbd sync` = project data; `tbd docs` = the doc layer.
+
 2. **Verb pair is `fork`/`unfork`** (not shadcn-style `add`, and not the original
    `eject`/`uneject` — see decision 14 for the rename rationale).
+
 3. **`tbd docs sync` absorbs `tbd sync --docs`** (old flag kept as a deprecated alias).
+
 4. **tbd self-docs use a reserved `tbd-` name prefix** as regular docs in the system
    (kind `reference`), rather than a `tbd docs self` subcommand or dedicated viewers;
    bare `tbd docs` becomes the status overview and the manual is
    `tbd docs show tbd-docs` (alias `tbd docs manual`). No backward compatibility for the
    old self-doc viewer behavior.
+
 5. **Update semantics**: clean three-way merges apply by default (tracked files make git
    the undo); non-clean updates require an explicit strategy — `--merge` (combine with
    conflict markers) or `--rebase` (keep local content, advance the fork point) — and
    tracked files are mutated only by explicit `tbd docs` verbs, never by setup or
    background sync. The earlier standalone `rebase` subcommand is folded into
    `update --rebase`.
+
 6. **Default fork dir is `docs/tbd/`**, surfaced as an editable customization during
    setup and persisted to `docs_cache.fork_dir` when changed.
+
 7. **Generated README index ships in v1**: explains what the docs are, lists them, and
    points to `npx get-tbd@latest docs` for further info.
+
 8. **All fork state lives under one committed directory, `.tbd/doc-forks/`** —
    `forks.yml` (manifest) plus `base/` (snapshots) — revised from the earlier separate
    `.tbd/ejected.yml` + `.tbd/eject-base/` pair so the layout is self-describing and
    `.tbd/docs/` remains purely the cache.
+
 9. **Format bump to f05** with a metadata-only f04→f05 migration, following the f04
    precedent: gitignore template refresh, format-history and layout-doc updates; older
    CLIs prompt to upgrade on encountering f05.
+
 10. **docref everywhere, as a hard rule.** Every document reference in tbd — config
     values, the fork manifest, CLI arguments, JSON output, our own docs — is a docref
     string, with no exceptions.
     Parser ported from the #117 branch; the spec ships as a bundled `reference` doc.
+
 11. **docmap is redefined as a minimal inventory format** (docmap/0.1: per-doc identity,
     location, and metadata — no bundles, lockfiles, or sync semantics).
     The reference doc is authored fresh for this spec and does not depend on the
     speculative #117 design, which is cited only as exploratory background.
     `tbd docs list/status --json` emit it; hand-authored docmaps are valid; source
     machinery is deferred as future “operations over docmaps.”
+
 12. **Three sync surfaces, no universal sync.** `tbd sync` = issues; `tbd setup` =
     installation/integrations (may invoke a docs-cache sync and report pending doc
     updates); `tbd docs sync`/`update` = the doc layer.
     A combined “sync everything” command was rejected: doc updates can involve merges
     and tracked-file mutation, unlike the others.
     The taxonomy table is documented in `tbd-docs.md`.
+
 13. **No interactive setup.** The unused `--interactive` flag is removed; setup is
     agent-first and non-interactive, with self-documenting summary output (including a
     read-only `--relevant` detection preview) and conversational onboarding via the
     skill and `welcome-user`.
+
 14. **Terminology: fork/unfork, upstream, built-in.** The original `eject`/`uneject`
     vocabulary (create-react-app heritage: a one-way escape from a managed bundle) fit
     when every doc came from inside tbd; with docref sources, docs are multi-origin and
@@ -859,12 +899,33 @@ Settled during design review (2026-06-11):
     “Eject” stays as a routing synonym in the skill table.
     (For reference, shadcn names the model — “open code,” “copy and own” — but its verb
     is just `add`, with no update story.)
+
 15. **The `.tbd/` layout contract is explicit and documented in-place.** A generated
     `.tbd/README.md` (written by setup/migration) documents what each entry is — see
     “The `.tbd/` layout contract” — and the same contract lands in `tbd-docs.md` and
     `tbd-design.md`. Because the f05 gate makes older CLIs refuse to run against newer
     config dirs, this layout reorganization and the CLI-semantics changes are safe to
     ship together with no old/new coexistence hazards.
+
+16. **Phase 0 writes the doc and golden contracts first.** Before any feature code, the
+    refinement pins (a) the per-doc change map
+    ([Documentation Contract Changes](#documentation-contract-changes)) and (b) the
+    exact console output of every new/changed command
+    ([Golden-Test Maps](#golden-test-maps)), against one canonical fixture and a shared
+    console-output style contract.
+    Writing the expected output first is the design tool that keeps the command surface,
+    the docmap `--json` shape, and cross-command style consistent — and it turns the
+    `tbd docs` surface migration into a reviewed, test-backed change rather than an
+    afterthought.
+
+17. **All four of today’s `tbd docs` behaviors are re-homed explicitly** (decision 4
+    named only the bare viewer): bare → status overview; `<topic>`/`--section` and the
+    section-listing `--list` → `tbd docs show tbd-docs`; `--all` → folded into the
+    overview; `tbd docs list`/`status` take the verbs.
+    This is part of CLI change 1 in Backward Compatibility, safe because the f05 gate
+    blocks old/new coexistence.
+    The `--list` meaning flip (sections → docs) is the one behavior change to call out
+    in release notes.
 
 ## Open Questions
 
@@ -873,11 +934,72 @@ Settled during design review (2026-06-11):
    feedback.
 2. **Pack definitions in code vs doc frontmatter tags**: code const now (recommended);
    migrate to frontmatter `tags:` if packs grow or third-party doc sources arrive.
+3. **Should the per-kind list JSON migrate to docmap too?**
+   `tbd guidelines/shortcut/template --list --json` emit a flat array today.
+   Recommended: no for now — keep the array (backward-compat; it predates docmap) and
+   let `tbd docs list`/`status --json` be the docmap contract.
+   Revisit if consumers want one shape everywhere.
 
 ## Implementation Plan
 
 Phases are ordered so each lands independently shippable.
 Each numbered item is intended to be one bead.
+
+**Phase 0 comes first by design.** Before any code, we pin the two contracts the rest of
+the work implements against: (1) exactly how each tbd doc changes
+([Documentation Contract Changes](#documentation-contract-changes)), and (2) the exact
+console output every new and changed command must produce
+([Golden-Test Maps](#golden-test-maps)). Writing the expected output first is itself a
+design tool — it forces the command surface, the JSON/docmap shape, and the
+cross-command style to be consistent before they are built, and it turns each later
+phase into “make this golden block real.”
+Phase 0 is the refinement this spec asks for; Phases 1–5 then fill it in.
+
+### Phase 0: Documentation contracts and golden-test maps
+
+No production code.
+This phase produces the two reviewable contracts and updates the docs
+whose wording does not depend on the code (it does not stamp the format id — that lands
+with the f05 code in Phase 1 — but it fixes the *text* those code changes must match).
+Each item is one bead (labeled `0.1`–`0.5` so it sits before the global `1`–`20`
+numbering the later phases use):
+
+- **0.1 — Author the contracts** (this spec): the
+  [Documentation Contract Changes](#documentation-contract-changes) and
+  [Golden-Test Maps](#golden-test-maps) sections — the per-doc before/after table, the
+  console output style contract, and the per-command expected-output blocks.
+  This is the design artifact the rest of Phase 0 and all later phases consume; it is
+  the deliverable of the current refinement.
+- **0.2 — Doc edits independent of the new code** (the contract’s “Phase 0” rows):
+  rewrite `tbd-docs.md` (the `tbd docs` group, the three-sync taxonomy table, the
+  `.tbd/` layout contract, the managed-docs / fork / update / states sections, the
+  `docs_cache` config reference); update `tbd-design.md` (layout + CLI-group + format
+  narrative) and this repo’s `development.md` / `docs-overview.md` path and doc-command
+  sections. These land now because their wording is fixed by the contract, not by the
+  implementation.
+- **0.3 — New bundled reference docs** `references/docref-format.md` (adopted from the
+  #117 branch, marked adopted v0.1) and `references/docmap-format.md` (authored fresh
+  and minimal per the Design section).
+  Authoring them now lets the docmap/0.1 schema in the golden `--json` maps be reviewed
+  against its own spec before any code emits it.
+- **0.4 — New playbook shortcut** `shortcuts/standard/suggest-upstream-improvements.md`
+  (follows `new-guideline.md` conventions; references `tbd docs status --json` /
+  `tbd docs diff`). Pure documentation, so it lands in Phase 0; the skill/README routing
+  rows that point at it land with the agent surface in Phase 5 (kept together to avoid a
+  half-wired routing table).
+- **0.5 — Lock the golden-test maps against reality.** For every *existing* command the
+  maps reference unchanged (`tbd guidelines --list`, `tbd status` with zero forks, the
+  `--json` doc shape), capture the current built-CLI output and paste it verbatim into
+  the maps, so the “consistency baseline” is real output, not a guess.
+  Catalog every existing golden/tryscript test the feature will break (see
+  [Existing golden tests that change](#existing-golden-tests-that-change)) and file a
+  bead per rewrite, each blocked on the phase that ships the corresponding behavior — so
+  no golden is left silently failing.
+
+Phase 0 ships as a docs-only PR. Its only test impact is that the new reference docs and
+the new shortcut must resolve — which `doc-references.test.ts` already enforces once its
+extractor learns the `reference` kind (the extractor change itself is tracked with the
+rest of the test wiring in Phase 5).
 
 ### Phase 1: Format bump and fork kernel
 
@@ -968,6 +1090,422 @@ Each numbered item is intended to be one bead.
     ("Forkable guidelines: fork them into your repo"), `tbd prime` mention if warranted.
 20. **CHANGELOG + release notes** per `release-notes-guidelines`.
 
+## Documentation Contract Changes
+
+This is the per-doc map the user asked for: exactly what changes in each tbd doc, and
+when. “Phase 0” rows are wording fixed by this design and land in the docs-only Phase 0
+PR; “with code” rows are wording coupled to an implementation phase (e.g. a stamped
+format id) and land with that phase, but still follow the contract written here.
+Blocks already specified in the Design section (the three-sync taxonomy, the `.tbd/`
+layout contract, the doc-states table, the update decision table) are **referenced, not
+duplicated** — the contract is that those exact blocks appear in the named docs.
+
+| Doc | Lands | Contract change |
+| --- | --- | --- |
+| `packages/tbd/docs/tbd-docs.md` (the CLI manual; also the `tbd-docs` reference doc) | Phase 0 | Replace the “Documentation Commands” section with the `tbd docs` group (per “The `tbd docs` command group”); add a “Managing forked docs” section (fork/unfork/update/diff/status + the doc-states and update-decision tables); add the three-sync taxonomy table and the `.tbd/` layout contract verbatim; extend “Configuration Reference” with `docs_cache.fork_dir` and `docs_cache.local_dirs` and the note that `files`/`source`/`local_dirs` values are docrefs; cross-link `docref-format` and `docmap-format`. |
+| `packages/tbd/docs/tbd-design.md` | Phase 0 (narrative) + Phase 1 (format id) | §2 File Layer + path conventions: document `.tbd/doc-forks/` (manifest + base snapshots), the external fork dir, and the resolution precedence (fork dir → `local_dirs` → cache, first-match-wins). §4 CLI Layer: add the `tbd docs` group and the three-sync taxonomy. Format narrative: add f05 alongside f04. docref/docmap named as the addressing conventions. |
+| `packages/tbd/src/lib/tbd-format.ts` (`FORMAT_HISTORY`) | Phase 1 (with code) | Add the `f05` entry: `introduced` (next minor), description “Adds forkable-docs layout”, `changes` = [`docs_cache.fork_dir`, `docs_cache.local_dirs`, `.tbd/doc-forks/forks.yml` + `base/`, generated `.tbd/README.md`], `migration` = “metadata-only: stamp f05, refresh `.tbd/.gitignore`, write `.tbd/README.md` layout contract”. `CURRENT_FORMAT = 'f05'`. This file is the authoritative format history; its wording is the contract Phase 0 references but does not edit. |
+| `docs/development.md` (this repo) | Phase 0 | “Path Conventions” block: add `.tbd/doc-forks/` (committed) and note the fork dir lives **outside** `.tbd/` (default `docs/tbd/`). Add a “Testing forkable docs” pointer to the new e2e/tryscript files. |
+| `docs/docs-overview.md` (this repo) | Phase 0 | “tbd CLI Documentation Commands” + “Adding external docs by URL”: replace with the `tbd docs` group; `tbd docs add <docref>`; add a line on forking docs into a visible `docs/tbd/`. |
+| `README.md` | Phase 0 | “Shortcuts, Guidelines, and Templates”: add a “Forkable: see them in your repo” paragraph with a `tbd docs fork --relevant` example. “Documentation” block: `tbd docs` is now an overview; the manual is `tbd docs show tbd-docs`. Per-kind `--add` lines annotated as aliases for `tbd docs add`. |
+| `packages/tbd/docs/shortcuts/system/skill-baseline.md` (injected agent skill) | Phase 5 | Add the fork/update/upstream rows to “User Request → Agent Action” (the rows in “Upstream-contribution playbook”); add `tbd docs list` / `tbd docs fork` to the “Documentation” command table; one-line “Forkable docs” note. Kept within the skill’s size budget; lands with the rest of the agent surface so routing is never half-wired. |
+| `packages/tbd/docs/install/claude-header.md` | none | **No change.** Its `allowed-tools: Bash(tbd:*)` already covers `tbd docs`. Stated here so the audit is explicit. |
+| `packages/tbd/docs/shortcuts/standard/welcome-user.md` | Phase 5 | Add the onboarding offer after the status summary ("Want tbd’s guidelines visible in your repo? Which languages?") and a “make guidelines visible” row routing to `tbd docs fork --relevant`. |
+| `packages/tbd/docs/shortcuts/standard/suggest-upstream-improvements.md` (**new**) | Phase 0 | The upstream-contribution playbook (per “Upstream-contribution playbook”). Pure docs. |
+| `packages/tbd/docs/references/docref-format.md` (**new**) | Phase 0 | Adopted from the #117 branch, marked adopted v0.1. First doc of the new `reference` kind. |
+| `packages/tbd/docs/references/docmap-format.md` (**new**) | Phase 0 | Authored fresh, minimal (docmap/0.1 inventory only) per the Design section; #117 cited as background. |
+| Generated `.tbd/README.md` (**new**, by setup/migration) | Phase 1 (with code) | The `.tbd/` layout contract block, written in place; kept current like the gitignore. |
+| Generated `<fork_dir>/README.md` (**new**, by fork/unfork/update) | Phase 1 (with code) | The fork-dir index: what these docs are, one line per doc with its description, “managed by `tbd docs fork`”, and the `npx get-tbd@latest docs` pointer. |
+| `packages/tbd/CHANGELOG.md` + release notes | Phase 5 | f05 entry per `release-notes-guidelines`. |
+| `tbd --help` (the `docs` command `.description()` + subcommand help, in `src/cli/commands/docs.ts`) | Phase 1 (with code) | Description changes from “Display CLI documentation (use tbd sync --docs …)” to a managed-docs summary; subcommand help strings per the [Golden-Test Maps](#golden-test-maps). User-facing text, so it is part of the contract. |
+
+Two consistency points the contract pins down:
+
+- **The per-kind list JSON is unchanged.** `tbd guidelines --list --json` keeps emitting
+  a flat array (today’s shape).
+  Only `tbd docs list --json` / `tbd docs status --json` emit the new docmap object,
+  with tbd’s state fields as extension fields.
+  We deliberately do *not* migrate the per-kind arrays to docmap (backward-compat, and
+  they predate the format) — see Open Question 3.
+- **`tbd-docs.md` is both a rendered manual and a forkable `reference` doc.** Its
+  bundled source stays at the docs root (`packages/tbd/docs/tbd-docs.md`); the
+  cache/kind-dir is `references/` and the lookup name is `tbd-docs`. The doc-sync map
+  records that root-to-`references/` mapping (a small `doc-sync.ts` detail, Phase 5 item
+  18).
+
+## Golden-Test Maps
+
+These are the expected console outputs the new and changed commands must produce.
+They are written here (not as live test files) because they run against the built CLI
+and would fail until the feature ships; each block is **lift-ready** — the
+implementation phase pastes it into the named harness.
+Two harnesses are in use, matching today’s repo: **tryscript** (`*.tryscript.md`,
+`NO_COLOR=1`, `[..]` matches intra-line, `...` matches whole lines, custom `[PATTERN]`s
+for unstable fields) and **vitest inline snapshots** (`golden-output.test.ts`,
+`FORCE_COLOR=0`). All maps below are shown as captured with color disabled (the state
+the golden files store), so bold/dim render as plain text.
+
+Unstable fields use placeholders that become tryscript patterns: `[SIZE]` =
+`\([0-9.]+ .B, ~[0-9.]+k? tok\)`, `[PATH]`, `[HASH]`, `[VERSION]`. Per
+`golden-testing-guidelines`, everything else (names, kinds, states, counts, ordering) is
+shown literally — no patterns on values we control.
+
+### Console output style contract
+
+Every `tbd docs` command obeys the conventions already used across tbd (verified against
+`output.ts`, `sections.ts`, and `doc-command-handler.ts`). This is the consistency
+anchor the user asked for; the maps below are just this contract applied:
+
+- **Section headers** are `formatHeading()` — UPPERCASE, bold (`INTEGRATIONS`,
+  `HEALTH CHECKS`); bodies indent two spaces.
+  The `tbd docs` overview reuses this.
+- **Icons** come only from `ICONS` — `✓` success/closed, `✗` error, `⚠` warn, `•`
+  notice, `○` open, `◐` in_progress, `●` blocked.
+  No new glyphs are invented for doc states.
+- **Color roles** (from `createColors`): `id`=cyan for doc names, `dim` for
+  metadata/sizes/paths, `bold` for names and headers, `success`/`warn`/`error` for the
+  matching icons. Forked doc names render with the `id` role, like issue IDs.
+- **Doc-state markers are dim bracket tags** appended to the list entry, exactly like
+  the existing `[shadowed]` tag: `[forked]`, `[forked, customized]`, `[local]`. State
+  *icons* are never used for doc states — brackets are the established convention.
+  (Staleness and `conflicted` are lifecycle facts shown by `tbd docs status` / the
+  summary line, not list markers — list markers describe ownership.)
+- **Provenance on serve** is one dim line to **stderr** (so piped stdout stays clean),
+  reusing the existing stderr-note channel: `(serving forked copy: [PATH])`.
+- **Outcomes**: success → `✓ <msg>` green to stdout; refusal/error → `✗ <msg>` red to
+  stderr + non-zero exit; preview → `[DRY-RUN] <msg>` yellow (the `output.dryRun` form).
+- **`--json`** goes through `output.data(...)`: docmap object for `list`/`status`,
+  per-doc object for `show`; no ANSI; consumers ignore unknown fields.
+- **Footer** uses `renderFooter`: `Use 'cmd' for X, 'cmd' for Y.`
+- **Width** wraps at 88 columns (`getTerminalWidth`).
+- **Command/scope parallels** kept on purpose: `tbd docs` (overview/summary) is to
+  `tbd docs status` (the per-doc table) as `tbd status` is to `tbd stats`; the bare
+  overview’s “menu” block and the `tbd setup --auto` Docs summary share identical
+  wording.
+
+A single canonical fixture is used across every map below (a repo just upgraded, so
+upstream has moved):
+
+| name | kind | customized | stale | merge on update |
+| --- | --- | --- | --- | --- |
+| `python-rules` | guideline | yes | yes | clean |
+| `acme-style` | guideline | yes | yes | conflicts |
+| `review-code` | shortcut | no | yes | n/a (refresh) |
+| `tbd-docs` | reference | no | no | untouched |
+
+### `tbd docs` (bare overview)
+
+Mirrors `tbd status`: a summary plus pointers, never the full table.
+Zero-fork case is the default and stays the orientation card the old `tbd docs --all`
+provided:
+
+```text
+$ tbd docs                       # no docs forked yet
+tbd docs — managed documentation
+
+  37 available in cache (.tbd/docs/, gitignored); none forked into the repo.
+
+  Browse:        tbd docs list
+  Make visible:  tbd docs fork --relevant    (detected: typescript, python → 13 docs into docs/tbd/)
+                 tbd docs fork --all         (everything)
+  Customize one: tbd docs fork <name>
+  Learn more:    tbd docs show tbd-docs
+? 0
+```
+
+With forks present:
+
+```text
+$ tbd docs
+tbd docs — managed documentation
+
+  37 available  (33 upstream, 4 forked into docs/tbd/)
+  4 forked: 2 customized, 3 with upstream updates — run 'tbd docs update'
+
+  Inspect:    tbd docs status
+  Browse:     tbd docs list
+  Update:     tbd docs update
+  Learn more: tbd docs show tbd-docs
+? 0
+```
+
+### `tbd docs list`
+
+Grouped by kind (bold header), each entry in the established two-line form
+(`name [SIZE]` then 3-space-indented `Title: Description`), with dim ownership markers
+appended:
+
+```text
+$ tbd docs list
+guideline
+  acme-style [SIZE] [forked, customized]
+   ACME House Style: Internal style overrides for ACME repos
+  python-rules [SIZE] [forked, customized]
+   Python Coding Rules: Type hints, docstrings, exception handling, resource management
+  typescript-rules [SIZE]
+   TypeScript Rules: Strictness, module boundaries, and error handling for TypeScript
+  [.. remaining guidelines ..]
+shortcut
+  review-code [SIZE] [forked]
+   Review Code: Comprehensive code review across uncommitted, branch, or PR scopes
+  [.. remaining shortcuts ..]
+reference
+  docmap-format [SIZE]
+   Docmap Format: A minimal inventory format for a collection of documents
+  docref-format [SIZE]
+   Docref Grammar: A single-string, URI-like address for any document
+  tbd-docs [SIZE] [forked]
+   tbd CLI Documentation: Command reference for the tbd CLI
+? 0
+```
+
+`tbd docs list --kind=guideline` filters to one group (no kind header needed).
+JSON is the docmap object (see “docmap” in Design); the array form is the per-kind
+commands’ contract, not this one:
+
+```text
+$ tbd docs list --json
+{
+  "docmap": "docmap/0.1",
+  "name": "tbd-docs",
+  "documents": [
+    {
+      "name": "python-rules",
+      "type": "guideline",
+      "path": "docs/tbd/guidelines/python-rules.md",
+      "source": "internal:guidelines/python-rules.md",
+      "title": "Python Coding Rules",
+      "description": "Type hints, docstrings, exception handling, resource management",
+      "word_count": [..],
+      "state": "customized",
+      "stale": true
+    }
+    [.. one entry per doc; upstream docs have state "upstream" and no fork fields ..]
+  ]
+}
+? 0
+```
+
+### `tbd docs show` / `tbd docs manual`
+
+Kind-agnostic read; `reference` docs carry no agent header (unlike guidelines).
+The manual moves here from the old bare `tbd docs`:
+
+```text
+$ tbd docs show tbd-docs | head -3
+# tbd CLI Documentation
+
+Git-native issue tracking for AI agents and humans.
+? 0
+
+$ tbd docs manual | head -1     # alias for: tbd docs show tbd-docs
+# tbd CLI Documentation
+? 0
+
+$ tbd docs show python-rules    # serves the forked copy; provenance to stderr
+[.. forked file content on stdout ..]
+# stderr: (serving forked copy: docs/tbd/guidelines/python-rules.md)
+? 0
+```
+
+### `tbd docs fork`
+
+```text
+$ tbd docs fork python-rules
+✓ Forked python-rules → docs/tbd/guidelines/python-rules.md
+  Recorded base in .tbd/doc-forks/ (source: internal:guidelines/python-rules.md)
+  Regenerated docs/tbd/README.md
+
+Edit it in place — tbd now serves your copy everywhere it served the upstream one.
+? 0
+
+$ tbd docs fork --relevant --dry-run
+[DRY-RUN] Would fork 13 docs into docs/tbd/ (packs: core, typescript, python)
+  guideline   general-eng-agent-principles
+  guideline   general-coding-rules
+  [.. 9 more ..]
+  guideline   python-rules
+No files written. Re-run without --dry-run to apply.
+? 0
+
+$ tbd docs fork python-rules       # target exists and is not an unmodified fork
+✗ docs/tbd/guidelines/python-rules.md already exists and is not an unmodified fork.
+  Refusing to overwrite it. Options:
+    tbd docs diff python-rules           # see how it differs
+    tbd docs fork python-rules --force   # overwrite with upstream
+? 1
+```
+
+### `tbd docs unfork`
+
+```text
+$ tbd docs unfork python-rules         # customized → refuse
+✗ python-rules has local customizations (differs from its base).
+  Refusing to discard them. Options:
+    tbd docs diff python-rules             # review your changes
+    tbd docs unfork python-rules --force   # discard and fall back to upstream
+? 1
+
+$ tbd docs unfork review-code          # unmodified → succeeds
+✓ Unforked review-code — served from upstream again.
+  Removed the forked file, its base snapshot, and its manifest entry.
+  Regenerated docs/tbd/README.md
+? 0
+```
+
+### `tbd docs status`
+
+The per-doc table (dim header row, `output.table` convention).
+The closing summary line matches the bare overview and the `tbd status` Docs line
+exactly:
+
+```text
+$ tbd docs status
+NAME           KIND        STATE              SOURCE
+acme-style     guideline   customized, stale  github:acme/eng-docs@main//guidelines/style.md
+python-rules   guideline   customized, stale  internal:guidelines/python-rules.md
+review-code    shortcut    stale              internal:shortcuts/standard/review-code.md
+tbd-docs       reference   forked             internal:tbd-docs.md
+
+4 forked: 2 customized, 3 with upstream updates — run 'tbd docs update'
+? 0
+```
+
+### `tbd docs diff`
+
+Git-style, no network (`git diff --no-index` against the relevant copy):
+
+```text
+$ tbd docs diff python-rules           # your file vs current upstream (the net fork)
+--- upstream:guidelines/python-rules.md
++++ docs/tbd/guidelines/python-rules.md
+@@
+[.. unified diff hunks ..]
+? 0
+
+$ tbd docs diff python-rules --base    # your file vs its base (what you changed)
+$ tbd docs diff python-rules --upstream # base vs current upstream (incoming changes)
+```
+
+### `tbd docs update`
+
+Default run on the canonical fixture: refresh the unmodified-stale doc, apply the clean
+merge, and *list* the conflict for a decision (never touch it by default):
+
+```text
+$ tbd docs update
+Updated 2 forked docs:
+  ✓ review-code   refreshed to upstream (was unmodified)
+  ✓ python-rules  merged upstream cleanly (review with: git diff)
+
+1 doc needs a decision:
+  ⚠ acme-style    your changes conflict with upstream
+      re-run with one of:
+        tbd docs update acme-style --merge    # combine, then resolve conflict markers
+        tbd docs update acme-style --rebase   # keep your version, advance the fork point
+? 0
+
+$ tbd docs update acme-style --merge
+✓ acme-style   wrote merged content with conflict markers; base advanced.
+  Resolve the <<<<<<< / ======= / >>>>>>> markers, then the doc returns to 'customized'.
+? 0
+
+$ tbd docs update acme-style --rebase
+✓ acme-style   kept your version; fork point advanced to current upstream.
+? 0
+
+$ tbd docs update --dry-run
+[DRY-RUN] 2 docs would update (1 refresh, 1 clean merge); 1 would conflict (acme-style).
+No files written.
+? 0
+```
+
+### `tbd docs add`
+
+Aligned with today’s `--add` output, restated for docrefs and the new pointers:
+
+```text
+$ tbd docs add github:acme/eng-docs@main//guidelines/style.md --kind=guideline --name=acme-style
+Adding guideline: acme-style
+  Source: github:acme/eng-docs@main//guidelines/style.md
+✓ Added to .tbd/docs/guidelines/acme-style.md
+  Config updated (docs_cache.files): github:acme/eng-docs@main//guidelines/style.md
+
+Run 'tbd docs list' to verify, or 'tbd docs fork acme-style' to make it visible.
+? 0
+```
+
+### `tbd status` (Docs line) and `tbd setup --auto` (Docs summary)
+
+`tbd status` gains a Docs line **only when forks exist** — so with zero forks the output
+is byte-identical to today’s `cli-orientation-golden.tryscript.md` (honoring the
+“default behavior unchanged when nothing is forked” guarantee).
+When forks exist it appears after the Worktree line, before the footer:
+
+```text
+$ tbd status                      # excerpt, forks present
+[.. INTEGRATIONS, Worktree as today ..]
+
+Docs: 4 forked (2 customized, 3 with upstream updates — run 'tbd docs update')
+
+Use 'tbd stats' for issue statistics, 'tbd doctor' for health checks.
+? 0
+```
+
+`tbd setup --auto` prints the Docs summary (zero-fork = the menu; with forks = a
+pending-update report); setup never writes the fork dir:
+
+```text
+# zero forks
+Docs: 37 available in cache (.tbd/docs/, gitignored); none forked into the repo.
+  Browse:        tbd docs list
+  Make visible:  tbd docs fork --relevant    (detected: typescript, python → 13 docs into docs/tbd/)
+                 tbd docs fork --all         (everything)
+  Customize one: tbd docs fork <name>
+
+# after an upgrade, forks present
+Docs: 4 forked into docs/tbd/. 3 have upstream updates — run 'tbd docs update'.
+```
+
+### `tbd doctor` (new HEALTH CHECKS)
+
+Appended to the existing `HEALTH CHECKS` list, following doctor’s `✓`/`⚠` + `Run:`
+convention (icon at column 0, no indent):
+
+```text
+$ tbd doctor                      # excerpt
+[.. existing health checks ..]
+✓ Forked docs - 4 forked, base snapshots intact
+⚠ Forked docs - 1 unresolved merge conflict (acme-style)
+    Run: resolve the conflict markers, then re-run tbd docs update
+✓ Fork dir - docs/tbd/ tracked in git (not gitignored)
+✓ Reserved tbd- names - no user docs claim the prefix
+? 0
+```
+
+### Existing golden tests that change
+
+The plan’s original Testing Strategy listed only *new* tests.
+These *existing* goldens break and must be rewritten in the same release; each is one
+bead, blocked on the phase that ships the behavior:
+
+| Test | Change | Phase |
+| --- | --- | --- |
+| `cli-help-all.tryscript.md` (≈7 `tbd docs` blocks: `--help` `[topic]`/`--section`, `--list` sections, positional topic, `--section` content, `--list --json`, bare manual) | **Rewrite** to the new surface: `docs` subcommand help; no top-level `--section`/section-`--list`; section nav becomes `tbd docs show tbd-docs --section`. Largest single change. | 1–2 |
+| `cli-doc-output.tryscript.md` ("Docs Command" block: `tbd docs --list` → “Available documentation sections:”) | **Rewrite** to `tbd docs list` (cross-kind, state markers) + `--json` docmap. | 2 |
+| `golden-output.test.ts` (`tbd docs --all` inline snapshot) | **Replace** with the bare `tbd docs` overview snapshot (`--all` folded into the overview). | 2 |
+| `golden-output.test.ts` ("post-setup What’s Next") | **Extend** to assert the Docs menu lines. | 4 |
+| `cli-orientation-golden.tryscript.md` (`tbd status`) | **Unchanged** for zero forks (verifies the guarantee); **add** a new forked-state status golden in a fixture with a fork. | 1 |
+| `setup-flows.test.ts` | **Extend** for the Docs summary (menu + pending-update report). | 4 |
+| `doc-references.test.ts` | **Extend** the extractor: add `tbd docs <subcommand>` and the `reference` kind; remove the `reference`/`prefix:` skips so `tbd docs show tbd-docs`, `suggest-upstream-improvements`, and the new reference docs all resolve. | 5 (extractor); 0 (the new docs it must resolve) |
+| `doc-add-e2e.test.ts` | **Keep** (per-kind `--add` stays an alias) and **extend** with `tbd docs add <docref>`. | 2 |
+
+New golden/e2e files (named for the phases that add them): `fork-manifest` +
+state-matrix units (Phase 1); a `cli-docs-fork.tryscript.md` lifecycle (fork → list
+marker → serve → edit → unfork refuse → `--force`) (Phase 1); `fork-update`
+decision-table units + a `cli-docs-update.tryscript.md` upgrade/merge scenario (Phase
+3); `doc-packs` detection units + a `fork --relevant` fixture e2e (Phase 4).
+
 ## Testing Strategy
 
 - **Unit (vitest)**: manifest round-trip; hash normalization (CRLF/LF); the full state
@@ -992,7 +1530,20 @@ Each numbered item is intended to be one bead.
   `fork --relevant` in a fixture repo with `pyproject.toml`; collision/overwrite
   refusal; doctor findings.
 - **Docs-reference test**: extend `doc-references.test.ts` so every command named in the
-  new shortcut/docs resolves.
+  new shortcut/docs resolves (extractor learns `tbd docs <subcommand>` and the
+  `reference` kind; the `reference`/`prefix:` skips are removed).
+- **Golden output**: the expected console output for every new and changed command is
+  specified in [Golden-Test Maps](#golden-test-maps) (the consistency contract plus a
+  per-command map against one canonical fixture).
+  Each map is lifted into its harness (tryscript or vitest inline snapshot) by the phase
+  that ships the command.
+- **Existing goldens that break** are catalogued in
+  [Existing golden tests that change](#existing-golden-tests-that-change) — notably
+  `cli-help-all.tryscript.md`, `cli-doc-output.tryscript.md`, and the `tbd docs --all`
+  snapshot in `golden-output.test.ts`. Each rewrite is a bead blocked on the behavior’s
+  phase, so CI never carries a silently-failing golden.
+  A red-then-green pass on these (run the rewritten golden against the old binary to
+  confirm it fails, then against the new one) verifies the surface actually changed.
 
 ## Relationship to PR #117
 
