@@ -96,6 +96,72 @@ describe('forkDoc', () => {
     expect(refreshed.action).toBe('refreshed');
     expect(await readBaseContent(root, 'guideline', 'python-rules')).toBe(NEW_UPSTREAM);
   });
+
+  it('blocks a refresh when the fork point was set by a newer tbd (S4 version-skew)', async () => {
+    // The first fork records its fork point at a tbd newer than the one we now run.
+    const first = await forkDoc({
+      tbdRoot: root,
+      forkDir: FORK_DIR,
+      manifest: emptyManifest(),
+      kind: 'guideline',
+      name: 'python-rules',
+      source: 'internal:guidelines/python-rules.md',
+      content: UPSTREAM,
+      tbdVersion: '0.9.0',
+    });
+
+    const OLDER_BUNDLE = '# Python Rules\n\nOlder bundled content.\n';
+    const reForkOlder = (force = false) =>
+      forkDoc({
+        tbdRoot: root,
+        forkDir: FORK_DIR,
+        manifest: first.manifest,
+        kind: 'guideline',
+        name: 'python-rules',
+        source: 'internal:guidelines/python-rules.md',
+        content: OLDER_BUNDLE,
+        tbdVersion: '0.3.0', // older than the 0.9.0 fork point
+        force,
+      });
+
+    // Refreshing here would silently downgrade the doc to our older bundle — blocked.
+    const err = await reForkOlder().catch((e: unknown) => e);
+    expect(err).toBeInstanceOf(ForkConflictError);
+    expect((err as ForkConflictError).code).toBe('version-skew');
+    // The base snapshot is untouched by the blocked refresh.
+    expect(await readBaseContent(root, 'guideline', 'python-rules')).toBe(UPSTREAM);
+
+    // --force is the explicit downgrade escape hatch.
+    const forced = await reForkOlder(true);
+    expect(forced.action).toBe('refreshed');
+    expect(await readBaseContent(root, 'guideline', 'python-rules')).toBe(OLDER_BUNDLE);
+  });
+
+  it('allows a refresh when the running tbd is the same or newer than the fork point', async () => {
+    const first = await forkDoc({
+      tbdRoot: root,
+      forkDir: FORK_DIR,
+      manifest: emptyManifest(),
+      kind: 'guideline',
+      name: 'python-rules',
+      source: 'internal:guidelines/python-rules.md',
+      content: UPSTREAM,
+      tbdVersion: '0.9.0',
+    });
+    const NEWER = '# Python Rules\n\nNewer upstream.\n';
+    const refreshed = await forkDoc({
+      tbdRoot: root,
+      forkDir: FORK_DIR,
+      manifest: first.manifest,
+      kind: 'guideline',
+      name: 'python-rules',
+      source: 'internal:guidelines/python-rules.md',
+      content: NEWER,
+      tbdVersion: '1.0.0', // newer than the fork point
+    });
+    expect(refreshed.action).toBe('refreshed');
+    expect(await readBaseContent(root, 'guideline', 'python-rules')).toBe(NEWER);
+  });
 });
 
 describe('forkStatusFor', () => {
@@ -297,5 +363,28 @@ describe('drift helpers (local files, summary, README index)', () => {
     });
     await regenerateForkDirReadme(root, FORK_DIR, empty);
     await expect(readFile(join(root, FORK_DIR, 'README.md'), 'utf-8')).rejects.toThrow();
+  });
+
+  it('sanitizes a local doc’s blurb and link target in the README index (S6)', async () => {
+    const { manifest } = await forkOne();
+
+    // A hand-authored local doc (no manifest entry, so its name is NOT
+    // isSafeDocName-validated): a filename with a space and a frontmatter
+    // description carrying markdown/HTML/link injection.
+    const evil = '---\n' + 'description: "Evil <b>x</b> [l](http://e) | `c`"\n' + '---\n# Local\n';
+    await writeFile(join(root, FORK_DIR, 'guidelines', 'team rules.md'), evil);
+
+    await regenerateForkDirReadme(root, FORK_DIR, manifest);
+    const readme = await readFile(join(root, FORK_DIR, 'README.md'), 'utf-8');
+
+    // The blurb's structure-breaking characters are stripped: no raw HTML, no
+    // injected link/code span, no table pipe.
+    expect(readme).not.toContain('<b>');
+    expect(readme).not.toContain('</b>');
+    expect(readme).not.toContain('[l]');
+    expect(readme).not.toContain('`c`');
+    // The link target for the spaced filename is percent-encoded so it stays a
+    // single valid link.
+    expect(readme).toContain('team%20rules.md');
   });
 });
