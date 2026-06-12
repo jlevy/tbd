@@ -53,6 +53,16 @@ describe('mergeContents', () => {
     expect(result.conflicts).toBe(0);
     expect(result.merged).toBe('line ONE\nline two\nline THREE\n');
   });
+
+  it('rejects on git merge-file errors instead of reading exit 255 as a conflict count', async () => {
+    // Binary input makes git merge-file refuse with exit 255. Error exits are not
+    // conflict counts (counts are truncated to 127); misreading one would write
+    // empty merged output over the user's forked file.
+    const binary = 'line one\u0000\nline two\n';
+    await expect(mergeContents(binary, BASE, 'line one\nline two\nx\n')).rejects.toThrow(
+      /merge-file failed/,
+    );
+  });
 });
 
 describe('diffContents', () => {

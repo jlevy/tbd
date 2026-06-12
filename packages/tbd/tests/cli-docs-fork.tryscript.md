@@ -254,3 +254,47 @@ $ test ! -e docs/tbd && echo "fork dir pruned"
 fork dir pruned
 ? 0
 ```
+
+* * *
+
+## Forked shortcuts shadow the cache (serving precedence)
+
+Config persists a `lookup_path` for shortcuts, so precedence must be structural: the
+fork dir wins regardless of config (tbd-design.md §2.9 invariant 1).
+
+# Test: fork a shortcut and customize it
+
+```console
+$ tbd docs fork review-code
+✓ Forked review-code → docs/tbd/shortcuts/review-code.md
+  Regenerated docs/tbd/README.md
+...
+? 0
+```
+
+```console
+$ printf '\nFORK-SERVE-CHECK\n' >> docs/tbd/shortcuts/review-code.md
+? 0
+```
+
+# Test: the shortcut command serves the forked copy
+
+```console
+$ tbd shortcut review-code 2>/dev/null | grep FORK-SERVE-CHECK
+FORK-SERVE-CHECK
+? 0
+```
+
+# Test: unfork restores upstream serving
+
+```console
+$ tbd docs unfork review-code --force
+✓ Unforked review-code — served from upstream again.
+? 0
+```
+
+```console
+$ tbd shortcut review-code 2>/dev/null | grep -c FORK-SERVE-CHECK
+0
+? 1
+```

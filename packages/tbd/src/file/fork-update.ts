@@ -74,16 +74,21 @@ export async function mergeContents(
     ];
 
     return await new Promise<MergeResult>((resolve, reject) => {
-      execFile('git', args, { maxBuffer: MERGE_MAX_BUFFER }, (error, stdout) => {
+      execFile('git', args, { maxBuffer: MERGE_MAX_BUFFER }, (error, stdout, stderr) => {
         if (error) {
           const code = (error as NodeJS.ErrnoException & { code?: number }).code;
-          // git merge-file exits with the number of conflicts (>0); negative/other
-          // codes are real errors.
-          if (typeof code === 'number' && code > 0) {
+          // git merge-file exits with the number of conflicts, truncated to 127.
+          // Anything above that (255 = real error, e.g. binary input) must NOT be
+          // read as a conflict count: stdout is empty on errors, and writing it
+          // would clobber the forked file.
+          if (typeof code === 'number' && code > 0 && code <= 127) {
             resolve({ merged: stdout, conflicts: code });
             return;
           }
-          reject(error instanceof Error ? error : new Error('git merge-file failed'));
+          const detail = String(stderr ?? '').trim();
+          reject(
+            new Error(`git merge-file failed${detail ? `: ${detail}` : ''}`, { cause: error }),
+          );
           return;
         }
         resolve({ merged: stdout, conflicts: 0 });
@@ -139,7 +144,6 @@ export type UpdateStrategy = 'default' | 'merge' | 'keep-ours';
 
 /** What an update did (or why it was skipped) for one doc. */
 export type UpdateAction =
-  | 'noop'
   | 'replaced'
   | 'merged-clean'
   | 'merged-conflict'
