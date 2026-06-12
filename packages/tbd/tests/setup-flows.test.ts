@@ -161,7 +161,7 @@ describe('setup flows', { timeout: setupFlowTestTimeout }, () => {
       expect(result.status).toBe(0);
 
       const agents = await readFile(join(tempDir, 'AGENTS.md'), 'utf-8');
-      expect(agents).toContain('<!-- BEGIN TBD INTEGRATION format=f04 surface=agents-md -->');
+      expect(agents).toContain('<!-- BEGIN TBD INTEGRATION format=f05 surface=agents-md -->');
       expect(agents).toContain('tbd prime');
 
       const block = agents.slice(
@@ -259,7 +259,7 @@ describe('setup flows', { timeout: setupFlowTestTimeout }, () => {
 
       const agents = await readFile(join(tempDir, 'AGENTS.md'), 'utf-8');
       // Upgraded to the versioned compact block...
-      expect(agents).toContain('format=f04');
+      expect(agents).toContain('format=f05');
       // ...while preserving user content outside the managed region.
       expect(agents).toContain('## My Notes');
       expect(agents).toContain('Keep me.');

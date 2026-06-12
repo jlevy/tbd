@@ -275,7 +275,7 @@ settings:
 ```console
 $ tbd config show --json
 {
-  "tbd_format": "f04",
+  "tbd_format": "f05",
   "tbd_version": "[..]",
   "sync": {
     "branch": "tbd-sync",

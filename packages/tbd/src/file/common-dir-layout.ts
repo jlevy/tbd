@@ -14,7 +14,14 @@ import {
   resolveSharedTbdPaths,
   type SharedTbdPaths,
 } from '../lib/paths.js';
-import { CURRENT_FORMAT, formatUpgradeMessage, isCompatibleFormat } from '../lib/tbd-format.js';
+import {
+  CURRENT_FORMAT,
+  formatUpgradeMessage,
+  isCompatibleFormat,
+  isFormatCompatibleWithSupported,
+  FORMAT_HISTORY,
+  type FormatVersion,
+} from '../lib/tbd-format.js';
 import { sortKeys, stringifyYaml } from '../utils/yaml-utils.js';
 import { now } from '../utils/time-utils.js';
 import { DATA_SYNC_LOCK_OPTIONS, withLockfile } from '../utils/lockfile.js';
@@ -46,6 +53,24 @@ export async function readCommonDirLayout(layoutPath: string): Promise<CommonDir
       }`,
     );
   }
+}
+
+/**
+ * Whether an existing layout is simply from an older format than the checkout
+ * config and can be re-stamped in place. This is the normal mid-migration state
+ * (e.g. an f04 layout next to a config that just migrated to f05): the format
+ * bump's only effect on the layout is the stamp, so rewriting it from the config
+ * IS the layout migration. Anything else (future formats, storage mismatches)
+ * stays a hard validation error.
+ */
+export function isLayoutUpgradeable(layout: CommonDirLayout, config: Config): boolean {
+  return (
+    layout.tbd_format !== config.tbd_format &&
+    layout.tbd_format in FORMAT_HISTORY &&
+    config.tbd_format in FORMAT_HISTORY &&
+    isFormatCompatibleWithSupported(layout.tbd_format, config.tbd_format as FormatVersion) &&
+    layout.sync_storage === config.sync.storage
+  );
 }
 
 /**
@@ -117,6 +142,12 @@ export async function ensureCommonDirLayout(
 ): Promise<CommonDirLayout> {
   const existing = await readCommonDirLayout(paths.sharedLayoutPath);
   if (existing) {
+    // An older-format layout next to a newer-format config is the normal
+    // mid-migration state: re-stamp it from the config (preserving created_at)
+    // instead of failing validation. See isLayoutUpgradeable.
+    if (isLayoutUpgradeable(existing, config)) {
+      return writeCommonDirLayout(paths, config, existing);
+    }
     validateCommonDirLayout(existing, config);
     return existing;
   }
