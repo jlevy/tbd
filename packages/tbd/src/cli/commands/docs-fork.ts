@@ -8,7 +8,10 @@
  */
 
 import type { Command } from 'commander';
-import { join, relative, sep } from 'node:path';
+import { dirname, join, relative, sep } from 'node:path';
+import { mkdir } from 'node:fs/promises';
+
+import { writeFile } from 'atomically';
 
 import { BaseCommand } from '../lib/base-command.js';
 import { requireInit } from '../lib/errors.js';
@@ -26,10 +29,22 @@ import {
 import {
   type ForkEntry,
   type ForkKind,
+  hashContent,
   readForkManifest,
   writeForkManifest,
+  writeBaseContent,
+  upsertFork,
 } from '../../file/fork-manifest.js';
-import { forkDoc, unforkDoc, forkStatusFor, ForkConflictError } from '../../file/doc-fork.js';
+import {
+  forkDoc,
+  unforkDoc,
+  forkStatusFor,
+  forkFilePath,
+  readForkFile,
+  readForkBase,
+  ForkConflictError,
+} from '../../file/doc-fork.js';
+import { updateOne, type UpdateStrategy } from '../../file/fork-update.js';
 import { createDocMap, type DocMapEntry } from '../../docmap/index.js';
 
 /** Kinds that can be resolved from the cache and forked today. */
@@ -328,6 +343,119 @@ class DocsStatusHandler extends BaseCommand {
   }
 }
 
+interface UpdateOptions {
+  merge?: boolean;
+  keepOurs?: boolean;
+  dryRun?: boolean;
+  json?: boolean;
+}
+
+class DocsUpdateHandler extends BaseCommand {
+  async run(names: string[], options: UpdateOptions): Promise<void> {
+    await this.execute(async () => {
+      if (options.merge && options.keepOurs) {
+        throw new CLIError('--merge and --keep-ours are mutually exclusive.');
+      }
+      const strategy: UpdateStrategy = options.merge
+        ? 'merge'
+        : options.keepOurs
+          ? 'keep-ours'
+          : 'default';
+
+      const tbdRoot = await requireInit();
+      let manifest = await readForkManifest(tbdRoot);
+      const selected =
+        names.length > 0 ? manifest.forks.filter((f) => names.includes(f.name)) : manifest.forks;
+
+      const caches = new Map<ForkKind, DocCache>();
+      const upstreamFor = async (entry: ForkEntry): Promise<string | null> => {
+        const kind = entry.kind as ForkKind;
+        if (!caches.has(kind)) caches.set(kind, await buildKindCache(kind, tbdRoot));
+        return caches.get(kind)!.get(entry.name)?.doc.content ?? null;
+      };
+
+      const applied: { entry: ForkEntry; message: string }[] = [];
+      const decisions: string[] = [];
+
+      for (const entry of selected) {
+        const result = await updateOne({
+          entry,
+          forkContent: await readForkFile(tbdRoot, FORK_DIR, entry),
+          baseContent: await readForkBase(tbdRoot, entry),
+          upstreamContent: await upstreamFor(entry),
+          strategy,
+        });
+
+        const { newFileContent, newBaseContent } = result;
+        if (newFileContent === undefined && newBaseContent === undefined) {
+          if (result.needsDecision) decisions.push(result.message);
+          continue;
+        }
+
+        if (!options.dryRun) {
+          if (newFileContent !== undefined) {
+            const abs = forkFilePath(tbdRoot, FORK_DIR, entry.kind as ForkKind, entry.name);
+            await mkdir(dirname(abs), { recursive: true });
+            await writeFile(abs, newFileContent);
+          }
+          const updated: ForkEntry = { ...entry };
+          if (newBaseContent !== undefined) {
+            await writeBaseContent(tbdRoot, entry.kind, entry.name, newBaseContent);
+            updated.base_hash = hashContent(newBaseContent);
+          }
+          if (result.setConflicted) {
+            updated.conflicted = true;
+          } else {
+            delete updated.conflicted;
+          }
+          manifest = upsertFork(manifest, updated);
+        }
+        applied.push({ entry, message: result.message });
+      }
+
+      if (!options.dryRun) {
+        await writeForkManifest(tbdRoot, manifest);
+      }
+
+      if (this.ctx.json) {
+        this.output.data({
+          dryRun: Boolean(options.dryRun),
+          updated: applied.map((a) => a.entry.name),
+          needsDecision: decisions,
+        });
+        return;
+      }
+
+      const colors = this.output.getColors();
+      if (applied.length === 0 && decisions.length === 0) {
+        console.log('All forked docs are up to date.');
+        return;
+      }
+      if (applied.length > 0) {
+        const verb = options.dryRun ? 'Would update' : 'Updated';
+        console.log(`${verb} ${applied.length} forked doc(s):`);
+        for (const a of applied) {
+          console.log(`  ${colors.success('✓')} ${a.message}`);
+        }
+      }
+      if (decisions.length > 0) {
+        console.log('');
+        console.log(`${decisions.length} doc(s) need a decision:`);
+        for (const msg of decisions) {
+          console.log(`  ${colors.warn('⚠')} ${msg}`);
+        }
+        console.log('  re-run with one of:');
+        console.log(
+          '    tbd docs update <name> --merge      # combine, then resolve conflict markers',
+        );
+        console.log(
+          '    tbd docs update <name> --keep-ours  # keep your version, advance the fork point',
+        );
+      }
+    }, 'Failed to update forked docs');
+  }
+}
+
 /**
  * Merge a subcommand's local options with globals/ancestors. The parent `docs`
  * command also declares `--all` (its manual-viewer listing), so reading the local
@@ -383,5 +511,21 @@ export function registerForkSubcommands(docs: Command): void {
     .description('Show forked docs and their states')
     .action(async (_options: { json?: boolean }, command: Command) => {
       await new DocsStatusHandler(command).run({ json: command.optsWithGlobals().json === true });
+    });
+
+  docs
+    .command('update')
+    .description('Reconcile forked docs with upstream after an upgrade (--merge / --keep-ours)')
+    .argument('[names...]', 'doc name(s) to update (default: all)')
+    .option('--merge', 'on conflict: combine and write conflict markers to resolve')
+    .option('--keep-ours', 'on conflict: keep your version and advance the fork point')
+    .action(async (names: string[], options: UpdateOptions, command: Command) => {
+      const g = command.optsWithGlobals();
+      await new DocsUpdateHandler(command).run(names, {
+        merge: options.merge,
+        keepOurs: options.keepOurs,
+        dryRun: g.dryRun === true,
+        json: g.json === true,
+      });
     });
 }
