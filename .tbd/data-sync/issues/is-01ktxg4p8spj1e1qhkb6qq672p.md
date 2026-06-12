@@ -3,9 +3,9 @@ type: is
 id: is-01ktxg4p8spj1e1qhkb6qq672p
 title: "Phase 1: tbd docs group scaffolding + fork subcommand (--all/--dry-run/--json, overwrite refusal, README index)"
 kind: task
-status: in_progress
+status: closed
 priority: 1
-version: 8
+version: 9
 spec_path: docs/project/specs/active/plan-2026-06-11-forkable-docs.md
 labels: []
 dependencies:
@@ -23,5 +23,5 @@ dependencies:
     target: is-01ktxg4xzfxshrmb3besbwr2w2
 parent_id: is-01ktxg3eqj62dhphs6dnbb30jf
 created_at: 2026-06-12T08:45:53.816Z
-updated_at: 2026-06-12T09:07:10.305Z
+updated_at: 2026-06-12T09:47:49.130Z
 ---
