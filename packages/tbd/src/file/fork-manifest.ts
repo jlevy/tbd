@@ -23,6 +23,8 @@ import { parse as parseYaml } from 'yaml';
 import { z } from 'zod';
 
 import { stringifyYaml } from '../utils/yaml-utils.js';
+import { withLockfile } from '../utils/lockfile.js';
+import { resolveSharedTbdPaths } from '../lib/paths.js';
 
 /** Directory (repo-relative under `.tbd/`) holding all fork state. */
 export const DOC_FORKS_DIR = '.tbd/doc-forks';
@@ -39,11 +41,25 @@ export type ForkKind = (typeof FORK_KINDS)[number];
 // Schema
 // =============================================================================
 
+/**
+ * A safe doc name: no path separators, no `..`, no leading dot, no NUL.
+ * Names are used to build filesystem paths (and are a doc's identity), so a
+ * crafted manifest must not be able to escape the fork dir (e.g. via a
+ * `../../../../victim` name through `unfork --force`). Allows the punctuation
+ * real doc names use (letters, digits, `.`, `_`, `-`).
+ */
+const SAFE_DOC_NAME = /^[A-Za-z0-9][A-Za-z0-9._-]*$/;
+export function isSafeDocName(name: string): boolean {
+  return SAFE_DOC_NAME.test(name) && !name.includes('..') && !name.endsWith('.md');
+}
+
 export const ForkEntrySchema = z.object({
-  /** Doc name (e.g. "python-rules"). */
-  name: z.string().min(1),
-  /** Doc kind (guideline/shortcut/template/reference). */
-  kind: z.string().min(1),
+  /** Doc name (e.g. "python-rules"). Constrained so it cannot escape the fork dir. */
+  name: z.string().min(1).refine(isSafeDocName, {
+    message: 'invalid doc name (no path separators, "..", or leading dot)',
+  }),
+  /** Doc kind — must be one of the known fork kinds. */
+  kind: z.enum(FORK_KINDS),
   /** Repo-relative path of the forked file (e.g. "docs/tbd/guidelines/python-rules.md"). */
   path: z.string().min(1),
   /** Provenance docref the fork was created from. */
@@ -94,6 +110,61 @@ export function hashContent(content: string): string {
  */
 export function hasConflictMarkers(content: string): boolean {
   return /^<{7}/m.test(content) && /^={7}\s*$/m.test(content) && /^>{7}/m.test(content);
+}
+
+/**
+ * The labels tbd writes into its three-way merge conflict markers. Detection of
+ * an *unresolved* conflict keys off these specific labels (not generic marker
+ * lines) so a forked doc that legitimately contains conflict-marker examples
+ * (e.g. a git tutorial, or our own golden-testing guideline) is not stuck
+ * `conflicted` forever after one unrelated `update --merge`.
+ */
+export const CONFLICT_LABELS = {
+  ours: 'ours (your fork)',
+  base: 'base (fork point)',
+  theirs: 'theirs (upstream)',
+} as const;
+
+/** Whether `content` still carries tbd's own unresolved conflict markers. */
+export function hasUnresolvedConflict(content: string): boolean {
+  return (
+    content.includes(`<<<<<<< ${CONFLICT_LABELS.ours}`) &&
+    content.includes(`>>>>>>> ${CONFLICT_LABELS.theirs}`)
+  );
+}
+
+/**
+ * Loose semver comparison on major.minor.patch (prerelease ignored). Returns
+ * null when either version is unparseable — callers must not guard on a version
+ * they cannot parse (treat null as "do not block").
+ */
+export function compareVersionsLoose(a: string, b: string): -1 | 0 | 1 | null {
+  const parse = (v: string): [number, number, number] | null => {
+    const m = /^(\d+)\.(\d+)\.(\d+)/.exec(v.trim());
+    return m ? [Number(m[1]), Number(m[2]), Number(m[3])] : null;
+  };
+  const pa = parse(a);
+  const pb = parse(b);
+  if (!pa || !pb) return null;
+  for (let i = 0; i < 3; i++) {
+    const x = pa[i]!;
+    const y = pb[i]!;
+    if (x < y) return -1;
+    if (x > y) return 1;
+  }
+  return 0;
+}
+
+/**
+ * Run `fn` while holding the doc-forks manifest lock, serializing the
+ * read-modify-write of `forks.yml` across concurrent fork/unfork/update so
+ * entries are not lost to last-writer-wins. The lock lives in the machine-local
+ * git common dir (never committed), alongside the data-sync lock.
+ */
+export async function withForkManifestLock<T>(tbdRoot: string, fn: () => Promise<T>): Promise<T> {
+  const paths = await resolveSharedTbdPaths(tbdRoot);
+  await mkdir(paths.sharedLocksDir, { recursive: true });
+  return withLockfile(join(paths.sharedLocksDir, 'doc-forks.lock'), fn);
 }
 
 // =============================================================================
@@ -234,18 +305,48 @@ function isNotFound(err: unknown): boolean {
   return (err as NodeJS.ErrnoException | undefined)?.code === 'ENOENT';
 }
 
-/** Read the fork manifest, returning an empty manifest if none exists. */
+/** The outer manifest shape, before per-entry validation. */
+const ForkManifestEnvelopeSchema = z.object({
+  forks: z.array(z.unknown()).default([]),
+});
+
+/**
+ * Read the fork manifest, returning an empty manifest if none exists.
+ *
+ * Parsing is tolerant per entry: a malformed or unsafe entry (bad name/kind,
+ * path-traversal attempt) is dropped with a warning rather than aborting the
+ * whole read. This both fails closed on a crafted entry (it is never returned,
+ * so commands never act on it — no out-of-tree deletes) and keeps one corrupt
+ * entry from taking down status/update for every other fork.
+ */
 export async function readForkManifest(tbdRoot: string): Promise<ForkManifest> {
+  let content: string;
   try {
-    const content = await readFile(forksFilePath(tbdRoot), 'utf-8');
-    const data = parseYaml(content) as unknown;
-    return ForkManifestSchema.parse(data ?? { forks: [] });
+    content = await readFile(forksFilePath(tbdRoot), 'utf-8');
   } catch (err) {
     if (isNotFound(err)) {
       return emptyManifest();
     }
     throw err;
   }
+  const envelope = ForkManifestEnvelopeSchema.parse(parseYaml(content) ?? { forks: [] });
+  const forks: ForkEntry[] = [];
+  let dropped = 0;
+  for (const raw of envelope.forks) {
+    const parsed = ForkEntrySchema.safeParse(raw);
+    if (parsed.success) {
+      forks.push(parsed.data);
+    } else {
+      dropped++;
+    }
+  }
+  if (dropped > 0) {
+    process.stderr.write(
+      `• Ignored ${dropped} invalid fork manifest entr${dropped === 1 ? 'y' : 'ies'} ` +
+        `in ${FORKS_FILE} (bad name/kind or unsafe path). Run 'tbd doctor' to review.\n`,
+    );
+  }
+  return { forks };
 }
 
 /** Write the fork manifest (creating `.tbd/doc-forks/` as needed). */

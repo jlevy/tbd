@@ -97,26 +97,69 @@ describeUnlessWindows('common-dir layout via CLI', { timeout: 30000 }, () => {
   });
 
   describe('doctor --fix (H3)', () => {
-    it('repairs a layout/config tbd_format mismatch under the shared lock', async () => {
+    it('treats an older-format layout as a pending migration and applies it on --fix', async () => {
       const layoutPath = join(dir, '.git', 'tbd', 'layout.yml');
       const original = await readFile(layoutPath, 'utf-8');
       expect(original).toContain('tbd_format: f05');
 
-      // Simulate a partial migration / manual edit by downgrading the layout.
+      // A layout behind the config (downgraded to f03 here) is the normal
+      // mid-migration state, not a mismatch.
       await writeFile(layoutPath, original.replace('tbd_format: f05', 'tbd_format: f03'));
 
-      // Plain doctor reports it as fixable. The mismatch is a ✗ finding so the
-      // exit is 1 (per tbd-r7rt).
+      // Plain doctor reports a pending migration: a warning (exit 0, so CI on
+      // un-migrated repos is not broken), fixable.
       const diagnose = runTbd(dir, ['doctor']);
-      expect(diagnose.status).toBe(1);
+      expect(diagnose.status).toBe(0);
       expect(diagnose.stdout + diagnose.stderr).toMatch(/Common-dir layout/i);
-      expect(diagnose.stdout + diagnose.stderr).toMatch(/mismatched|doctor --fix/i);
+      expect(diagnose.stdout + diagnose.stderr).toMatch(/migration pending|doctor --fix/i);
 
-      // doctor --fix rewrites layout.yml from config; resulting state is clean.
+      // doctor --fix applies the migration; layout is re-stamped to current.
       const fix = runTbd(dir, ['doctor', '--fix']);
       expect(fix.status).toBe(0);
-      const repaired = await readFile(layoutPath, 'utf-8');
-      expect(repaired).toContain('tbd_format: f05');
+      expect(await readFile(layoutPath, 'utf-8')).toContain('tbd_format: f05');
+    });
+
+    it('does not false-positive on a healthy older repo; --fix fully migrates (never half)', async () => {
+      // Downgrade BOTH config and layout to f04: a consistent pre-migration
+      // repo, exactly what an f05 client sees before the first write.
+      const configPath = join(dir, '.tbd', 'config.yml');
+      const layoutPath = join(dir, '.git', 'tbd', 'layout.yml');
+      await writeFile(
+        configPath,
+        (await readFile(configPath, 'utf-8')).replace('tbd_format: f05', 'tbd_format: f04'),
+      );
+      await writeFile(
+        layoutPath,
+        (await readFile(layoutPath, 'utf-8')).replace('tbd_format: f05', 'tbd_format: f04'),
+      );
+
+      // Plain doctor must NOT error on a healthy un-migrated repo (was exit 1).
+      const diagnose = runTbd(dir, ['doctor']);
+      expect(diagnose.status).toBe(0);
+      // The config marker on disk is untouched by a read-only doctor run.
+      expect(await readFile(configPath, 'utf-8')).toContain('tbd_format: f04');
+
+      // --fix must produce a CONSISTENT f05 repo: BOTH config and layout
+      // migrated, never layout-only (which would lock out older clients with
+      // nothing to commit).
+      const fix = runTbd(dir, ['doctor', '--fix']);
+      expect(fix.status).toBe(0);
+      expect(await readFile(configPath, 'utf-8')).toContain('tbd_format: f05');
+      expect(await readFile(layoutPath, 'utf-8')).toContain('tbd_format: f05');
+    });
+
+    it('rewrites a corrupt layout.yml from config on --fix', async () => {
+      const layoutPath = join(dir, '.git', 'tbd', 'layout.yml');
+      await writeFile(layoutPath, 'this: is: not: valid: yaml: [\n');
+
+      // Plain doctor surfaces it as fixable with remediation (not a dead end).
+      const diagnose = runTbd(dir, ['doctor']);
+      expect(diagnose.status).toBe(1);
+      expect(diagnose.stdout + diagnose.stderr).toMatch(/doctor --fix|delete/i);
+
+      const fix = runTbd(dir, ['doctor', '--fix']);
+      expect(fix.status).toBe(0);
+      expect(await readFile(layoutPath, 'utf-8')).toContain('tbd_format: f05');
     });
 
     it('surfaces future-format layout as needing a newer tbd (no fix attempted)', async () => {

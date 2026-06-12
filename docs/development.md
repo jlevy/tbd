@@ -355,7 +355,7 @@ the full specification.
 └── backups/                        # Legacy local backups
 
 $GIT_COMMON_DIR/tbd/                # Shared by all linked worktrees of this repo
-├── layout.yml                      # Common-dir layout metadata (same f04 format ID)
+├── layout.yml                      # Common-dir layout metadata (mirrors config's tbd_format)
 ├── locks/
 │   └── data-sync.lock/             # mkdir-based repo-scoped lock
 ├── backups/                        # Shared migration/repair backups

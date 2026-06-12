@@ -39,6 +39,7 @@ import {
   writeForkManifest,
   writeBaseContent,
   upsertFork,
+  withForkManifestLock,
 } from '../../file/fork-manifest.js';
 import {
   forkDoc,
@@ -123,28 +124,30 @@ class DocsForkHandler extends BaseCommand {
         return;
       }
 
-      let manifest = await readForkManifest(tbdRoot);
       const forked: string[] = [];
-      for (const t of targets) {
-        const result = await forkDoc({
-          tbdRoot,
-          forkDir: FORK_DIR,
-          manifest,
-          kind: t.kind,
-          name: t.name,
-          source: t.source,
-          content: t.content,
-          tbdVersion: VERSION,
-          force: options.force,
-        });
-        manifest = result.manifest;
-        forked.push(result.relPath);
-        if (!this.ctx.json) {
-          this.output.success(`Forked ${t.name} → ${result.relPath}`);
+      await withForkManifestLock(tbdRoot, async () => {
+        let manifest = await readForkManifest(tbdRoot);
+        for (const t of targets) {
+          const result = await forkDoc({
+            tbdRoot,
+            forkDir: FORK_DIR,
+            manifest,
+            kind: t.kind,
+            name: t.name,
+            source: t.source,
+            content: t.content,
+            tbdVersion: VERSION,
+            force: options.force,
+          });
+          manifest = result.manifest;
+          forked.push(result.relPath);
+          if (!this.ctx.json) {
+            this.output.success(`Forked ${t.name} → ${result.relPath}`);
+          }
         }
-      }
-      await writeForkManifest(tbdRoot, manifest);
-      await regenerateForkDirReadme(tbdRoot, FORK_DIR, manifest);
+        await writeForkManifest(tbdRoot, manifest);
+        await regenerateForkDirReadme(tbdRoot, FORK_DIR, manifest);
+      });
 
       if (this.ctx.json) {
         this.output.data({ forked });
@@ -230,41 +233,43 @@ class DocsUnforkHandler extends BaseCommand {
   async run(names: string[], options: UnforkOptions): Promise<void> {
     await this.execute(async () => {
       const tbdRoot = await requireInit();
-      let manifest = await readForkManifest(tbdRoot);
-
-      const targetNames = options.all ? manifest.forks.map((f) => f.name) : names;
-      if (targetNames.length === 0) {
-        throw new CLIError('Specify a doc name to unfork, or use --all.');
-      }
-
       const removed: string[] = [];
-      for (const name of targetNames) {
-        try {
-          const result = await unforkDoc({
-            tbdRoot,
-            forkDir: FORK_DIR,
-            manifest,
-            name,
-            kind: options.kind as ForkKind | undefined,
-            force: options.force,
-          });
-          manifest = result.manifest;
-          removed.push(name);
-          if (!this.ctx.json) {
-            this.output.success(`Unforked ${name} — served from upstream again.`);
-          }
-        } catch (err) {
-          if (err instanceof ForkConflictError && err.code === 'customized') {
-            throw new CLIError(
-              `${name} has local customizations. Review with \`tbd docs status\`, then ` +
-                `re-run with --force to discard them and fall back to upstream.`,
-            );
-          }
-          throw err;
+      await withForkManifestLock(tbdRoot, async () => {
+        let manifest = await readForkManifest(tbdRoot);
+
+        const targetNames = options.all ? manifest.forks.map((f) => f.name) : names;
+        if (targetNames.length === 0) {
+          throw new CLIError('Specify a doc name to unfork, or use --all.');
         }
-      }
-      await writeForkManifest(tbdRoot, manifest);
-      await regenerateForkDirReadme(tbdRoot, FORK_DIR, manifest);
+
+        for (const name of targetNames) {
+          try {
+            const result = await unforkDoc({
+              tbdRoot,
+              forkDir: FORK_DIR,
+              manifest,
+              name,
+              kind: options.kind as ForkKind | undefined,
+              force: options.force,
+            });
+            manifest = result.manifest;
+            removed.push(name);
+            if (!this.ctx.json) {
+              this.output.success(`Unforked ${name} — served from upstream again.`);
+            }
+          } catch (err) {
+            if (err instanceof ForkConflictError && err.code === 'customized') {
+              throw new CLIError(
+                `${name} has local customizations. Review with \`tbd docs status\`, then ` +
+                  `re-run with --force to discard them and fall back to upstream.`,
+              );
+            }
+            throw err;
+          }
+        }
+        await writeForkManifest(tbdRoot, manifest);
+        await regenerateForkDirReadme(tbdRoot, FORK_DIR, manifest);
+      });
       if (this.ctx.json) {
         this.output.data({ unforked: removed });
       }
@@ -303,7 +308,7 @@ class DocsStatusHandler extends BaseCommand {
       const rows: StatusRow[] = [];
 
       for (const entry of manifest.forks) {
-        const kind = entry.kind as ForkKind;
+        const kind = entry.kind;
         if (!caches.has(kind)) caches.set(kind, await buildKindCache(kind, tbdRoot));
         const cacheHit = caches.get(kind)!.get(entry.name);
         const status = await forkStatusFor(tbdRoot, FORK_DIR, entry, cacheHit?.doc.content ?? null);
@@ -354,7 +359,7 @@ class DocsStatusHandler extends BaseCommand {
       if (rows.length === 0) {
         console.log('No docs forked into the repo.');
         console.log(
-          `Make some visible: ${colors.bold('tbd docs fork --category=general')} (and your languages)`,
+          `Make some visible: ${colors.bold('tbd docs fork <name>')} or ${colors.bold('tbd docs fork --all')}`,
         );
         return;
       }
@@ -414,76 +419,86 @@ class DocsUpdateHandler extends BaseCommand {
           : 'default';
 
       const tbdRoot = await requireInit();
-      let manifest = await readForkManifest(tbdRoot);
-      const selected =
-        names.length > 0 ? manifest.forks.filter((f) => names.includes(f.name)) : manifest.forks;
-
-      const caches = new Map<ForkKind, DocCache>();
-      const upstreamFor = async (entry: ForkEntry): Promise<string | null> => {
-        const kind = entry.kind as ForkKind;
-        if (!caches.has(kind)) caches.set(kind, await buildKindCache(kind, tbdRoot));
-        return caches.get(kind)!.get(entry.name)?.doc.content ?? null;
-      };
-
       const applied: { entry: ForkEntry; message: string }[] = [];
       const decisions: string[] = [];
+      const skipped: string[] = [];
 
-      for (const entry of selected) {
-        const result = await updateOne({
-          entry,
-          forkContent: await readForkFile(tbdRoot, FORK_DIR, entry),
-          baseContent: await readForkBase(tbdRoot, entry),
-          upstreamContent: await upstreamFor(entry),
-          strategy,
-          runningVersion: VERSION,
-        });
+      await withForkManifestLock(tbdRoot, async () => {
+        let manifest = await readForkManifest(tbdRoot);
+        const selected =
+          names.length > 0 ? manifest.forks.filter((f) => names.includes(f.name)) : manifest.forks;
 
-        const { newFileContent, newBaseContent } = result;
-        if (newFileContent === undefined && newBaseContent === undefined) {
-          if (result.needsDecision) decisions.push(result.message);
-          continue;
+        const caches = new Map<ForkKind, DocCache>();
+        const upstreamFor = async (entry: ForkEntry): Promise<string | null> => {
+          const kind = entry.kind;
+          if (!caches.has(kind)) caches.set(kind, await buildKindCache(kind, tbdRoot));
+          return caches.get(kind)!.get(entry.name)?.doc.content ?? null;
+        };
+
+        for (const entry of selected) {
+          const result = await updateOne({
+            entry,
+            forkContent: await readForkFile(tbdRoot, FORK_DIR, entry),
+            baseContent: await readForkBase(tbdRoot, entry),
+            upstreamContent: await upstreamFor(entry),
+            strategy,
+            runningVersion: VERSION,
+          });
+
+          const { newFileContent, newBaseContent } = result;
+          if (newFileContent === undefined && newBaseContent === undefined) {
+            if (result.needsDecision) {
+              decisions.push(result.message);
+            } else if (result.action !== 'skip-not-stale' && result.action !== 'noop') {
+              // Conflicted / orphaned / missing / version-skewed: actionable but
+              // not applied here — surface, never silently swallow.
+              skipped.push(result.message);
+            }
+            continue;
+          }
+
+          if (!options.dryRun) {
+            if (newFileContent !== undefined) {
+              const abs = forkFilePath(tbdRoot, FORK_DIR, entry.kind, entry.name);
+              await mkdir(dirname(abs), { recursive: true });
+              await writeFile(abs, newFileContent);
+            }
+            const updated: ForkEntry = { ...entry };
+            if (newBaseContent !== undefined) {
+              await writeBaseContent(tbdRoot, entry.kind, entry.name, newBaseContent);
+              updated.base_hash = hashContent(newBaseContent);
+              // The base records its fork point's tbd version so older clients
+              // can detect (and refuse) a downgrade — see the update guard.
+              updated.tbd_version = VERSION;
+            }
+            if (result.setConflicted) {
+              updated.conflicted = true;
+            } else {
+              delete updated.conflicted;
+            }
+            manifest = upsertFork(manifest, updated);
+          }
+          applied.push({ entry, message: result.message });
         }
 
         if (!options.dryRun) {
-          if (newFileContent !== undefined) {
-            const abs = forkFilePath(tbdRoot, FORK_DIR, entry.kind as ForkKind, entry.name);
-            await mkdir(dirname(abs), { recursive: true });
-            await writeFile(abs, newFileContent);
-          }
-          const updated: ForkEntry = { ...entry };
-          if (newBaseContent !== undefined) {
-            await writeBaseContent(tbdRoot, entry.kind, entry.name, newBaseContent);
-            updated.base_hash = hashContent(newBaseContent);
-            // The base records its fork point's tbd version so older clients
-            // can detect (and refuse) a downgrade — see the update guard.
-            updated.tbd_version = VERSION;
-          }
-          if (result.setConflicted) {
-            updated.conflicted = true;
-          } else {
-            delete updated.conflicted;
-          }
-          manifest = upsertFork(manifest, updated);
+          await writeForkManifest(tbdRoot, manifest);
+          await regenerateForkDirReadme(tbdRoot, FORK_DIR, manifest);
         }
-        applied.push({ entry, message: result.message });
-      }
-
-      if (!options.dryRun) {
-        await writeForkManifest(tbdRoot, manifest);
-        await regenerateForkDirReadme(tbdRoot, FORK_DIR, manifest);
-      }
+      }); // end withForkManifestLock
 
       if (this.ctx.json) {
         this.output.data({
           dryRun: Boolean(options.dryRun),
           updated: applied.map((a) => a.entry.name),
           needsDecision: decisions,
+          skipped,
         });
         return;
       }
 
       const colors = this.output.getColors();
-      if (applied.length === 0 && decisions.length === 0) {
+      if (applied.length === 0 && decisions.length === 0 && skipped.length === 0) {
         console.log('All forked docs are up to date.');
         return;
       }
@@ -492,6 +507,13 @@ class DocsUpdateHandler extends BaseCommand {
         console.log(`${verb} ${applied.length} forked doc(s):`);
         for (const a of applied) {
           console.log(`  ${colors.success('✓')} ${a.message}`);
+        }
+      }
+      if (skipped.length > 0) {
+        console.log('');
+        console.log(`${skipped.length} doc(s) skipped:`);
+        for (const msg of skipped) {
+          console.log(`  ${colors.warn('⚠')} ${msg}`);
         }
       }
       if (decisions.length > 0) {
@@ -622,7 +644,7 @@ class DocsDiffHandler extends BaseCommand {
 
       const forkContent = await readForkFile(tbdRoot, FORK_DIR, entry);
       const baseContent = await readForkBase(tbdRoot, entry);
-      const cache = await buildKindCache(entry.kind as ForkKind, tbdRoot);
+      const cache = await buildKindCache(entry.kind, tbdRoot);
       const upstreamContent = cache.get(entry.name)?.doc.content ?? null;
 
       // Default: your file vs current upstream (the net fork).

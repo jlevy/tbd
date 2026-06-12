@@ -29,10 +29,11 @@ import {
   type ForkKind,
   type ForkManifest,
   type ForkStatus,
+  compareVersionsLoose,
   computeForkStatus,
   findFork,
   hashContent,
-  hasConflictMarkers,
+  hasUnresolvedConflict,
   readBaseContent,
   removeBaseContent,
   upsertFork,
@@ -78,7 +79,7 @@ async function pathExists(path: string): Promise<boolean> {
 /** Error raised when a fork/unfork would lose user content; carries a reason code. */
 export class ForkConflictError extends Error {
   constructor(
-    public readonly code: 'overwrite' | 'customized' | 'not-forked',
+    public readonly code: 'overwrite' | 'customized' | 'not-forked' | 'version-skew',
     message: string,
   ) {
     super(message);
@@ -125,6 +126,22 @@ export async function forkDoc(params: ForkDocParams): Promise<ForkDocResult> {
     const current = await readFile(absPath, 'utf-8');
     const isUnmodifiedFork = hashContent(current) === existingEntry?.base_hash;
     if (isUnmodifiedFork) {
+      // Refreshing an unmodified fork advances its base to this client's cache.
+      // Refuse if the fork point was set by a NEWER tbd: refreshing would
+      // downgrade the doc to our older bundled content (the same hazard the
+      // update guard prevents). --force overrides.
+      if (
+        !force &&
+        existingEntry?.tbd_version !== undefined &&
+        params.tbdVersion !== undefined &&
+        compareVersionsLoose(params.tbdVersion, existingEntry.tbd_version) === -1
+      ) {
+        throw new ForkConflictError(
+          'version-skew',
+          `${name}: fork point was set by tbd ${existingEntry.tbd_version} (you have ` +
+            `${params.tbdVersion}) — upgrade tbd before re-forking, or use --force to downgrade`,
+        );
+      }
       action = 'refreshed';
     } else if (!force) {
       throw new ForkConflictError(
@@ -177,7 +194,7 @@ export async function unforkDoc(params: UnforkDocParams): Promise<UnforkDocResul
   if (!entry) {
     throw new ForkConflictError('not-forked', `${name} is not a forked doc`);
   }
-  const entryKind = entry.kind as ForkKind;
+  const entryKind = entry.kind;
   const absPath = forkFilePath(tbdRoot, forkDir, entryKind, name);
   const relPath = entry.path;
 
@@ -211,7 +228,7 @@ export async function forkStatusFor(
   entry: ForkEntry,
   cacheContent: string | null | undefined,
 ): Promise<ForkStatus> {
-  const kind = entry.kind as ForkKind;
+  const kind = entry.kind;
   const absPath = forkFilePath(tbdRoot, forkDir, kind, entry.name);
   let forkContent: string | null = null;
   try {
@@ -227,7 +244,7 @@ export async function forkStatusFor(
     baseHash: entry.base_hash,
     cacheHash: cacheContent == null ? undefined : hashContent(cacheContent),
     conflictedFlag: entry.conflicted,
-    markersPresent: forkContent !== null ? hasConflictMarkers(forkContent) : false,
+    markersPresent: forkContent !== null ? hasUnresolvedConflict(forkContent) : false,
   });
 }
 
@@ -238,10 +255,7 @@ export async function readForkFile(
   entry: ForkEntry,
 ): Promise<string | null> {
   try {
-    return await readFile(
-      forkFilePath(tbdRoot, forkDir, entry.kind as ForkKind, entry.name),
-      'utf-8',
-    );
+    return await readFile(forkFilePath(tbdRoot, forkDir, entry.kind, entry.name), 'utf-8');
   } catch {
     return null;
   }
@@ -356,13 +370,38 @@ export async function computeForkDriftSummary(
   return summary;
 }
 
+/**
+ * Sanitize untrusted text (a frontmatter blurb or doc name) for safe inclusion
+ * in the generated README list. The blurb comes from forked/local file content,
+ * so it must not be able to inject markdown structure, links, or raw HTML into a
+ * committed file rendered on GitHub: take the first line and strip the
+ * characters that break a single list-item context.
+ */
+function sanitizeForReadme(text: string): string {
+  const firstLine = text.split(/\r?\n/)[0] ?? '';
+  return firstLine
+    .replace(/[<>[\]`|]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, 200);
+}
+
+/** Percent-encode each path segment so odd local filenames make valid links. */
+function readmeLinkPath(relPath: string): string {
+  return relPath
+    .split('/')
+    .map((seg) => encodeURIComponent(seg))
+    .join('/');
+}
+
 /** First frontmatter description (or title) of a doc file, for the README index. */
 async function docBlurb(absPath: string): Promise<string | undefined> {
   try {
     const data = matter(await readFile(absPath, 'utf-8')).data as Record<string, unknown>;
     const description = typeof data.description === 'string' ? data.description : undefined;
     const title = typeof data.title === 'string' ? data.title : undefined;
-    return description ?? title;
+    const blurb = description ?? title;
+    return blurb ? sanitizeForReadme(blurb) : undefined;
   } catch {
     return undefined;
   }
@@ -398,7 +437,12 @@ export async function regenerateForkDirReadme(
     suffix: string;
   }
   const rows: IndexRow[] = [
-    ...manifest.forks.map((f) => ({ kind: f.kind, name: f.name, relPath: f.path, suffix: '' })),
+    ...manifest.forks.map((f) => ({
+      kind: f.kind,
+      name: f.name,
+      relPath: forkRelPath(forkDir, f.kind, f.name),
+      suffix: '',
+    })),
     ...locals.map((l) => ({ ...l, suffix: ' *(local — not from an upstream)*' })),
   ].sort((a, b) => a.kind.localeCompare(b.kind) || a.name.localeCompare(b.name));
 
@@ -427,7 +471,12 @@ export async function regenerateForkDirReadme(
     }
     const blurb = await docBlurb(join(tbdRoot, row.relPath));
     const fileName = row.relPath.split('/').slice(-2).join('/');
-    lines.push(`- [**${row.name}**](./${fileName})${blurb ? ` — ${blurb}` : ''}${row.suffix}`);
+    // Local filenames are arbitrary on disk; escape the link text and encode the
+    // link target so a name like `x<b>y.md` or `a b.md` can't break the README.
+    const label = sanitizeForReadme(row.name) || row.name.replace(/[<>[\]`|]/g, '');
+    lines.push(
+      `- [**${label}**](./${readmeLinkPath(fileName)})${blurb ? ` — ${blurb}` : ''}${row.suffix}`,
+    );
   }
   lines.push('');
   await mkdir(join(tbdRoot, forkDir), { recursive: true });

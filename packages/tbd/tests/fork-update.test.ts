@@ -41,6 +41,18 @@ describe('mergeContents', () => {
     expect(result.conflicts).toBeGreaterThan(0);
     expect(hasConflictMarkers(result.merged)).toBe(true);
   });
+
+  it('merges a CRLF fork against LF base/upstream without spurious conflict (S5)', async () => {
+    // Without LF-normalization, a CRLF fork vs an LF base/upstream makes git
+    // merge-file see every line as changed and report a whole-file conflict.
+    // Edits are on non-adjacent lines (1 and 3) so the only thing under test is
+    // the line-ending mismatch, not git's adjacent-hunk conflict behavior.
+    const ours = 'line ONE\r\nline two\r\nline three\r\n'; // CRLF, edited line 1
+    const theirs = 'line one\nline two\nline THREE\n'; // LF, edited line 3
+    const result = await mergeContents(ours, BASE, theirs);
+    expect(result.conflicts).toBe(0);
+    expect(result.merged).toBe('line ONE\nline two\nline THREE\n');
+  });
 });
 
 describe('diffContents', () => {
@@ -87,8 +99,8 @@ describe('updateOne decision table', () => {
     expect(r.action).toBe('skip-orphaned');
   });
 
-  it('skips an unresolved conflicted doc', async () => {
-    const withMarkers = '<<<<<<< ours\na\n=======\nb\n>>>>>>> theirs\n';
+  it('skips an unresolved conflicted doc (tbd-labeled markers)', async () => {
+    const withMarkers = '<<<<<<< ours (your fork)\na\n=======\nb\n>>>>>>> theirs (upstream)\n';
     const r = await updateOne({
       entry: entry({ conflicted: true }),
       forkContent: withMarkers,
@@ -97,6 +109,21 @@ describe('updateOne decision table', () => {
       strategy: 'default',
     });
     expect(r.action).toBe('skip-unresolved');
+  });
+
+  it('does NOT treat generic/legit conflict-marker text as unresolved (S7)', async () => {
+    // A doc that merely contains example markers (e.g. a git tutorial) with the
+    // conflicted flag still set must not be stuck — only tbd's own labels count.
+    const generic = '<<<<<<< HEAD\na\n=======\nb\n>>>>>>> branch\n';
+    const r = await updateOne({
+      entry: entry({ conflicted: true }),
+      forkContent: generic, // unmodified vs base
+      baseContent: generic,
+      upstreamContent: generic + 'upstream line\n', // stale, non-conflicting
+      strategy: 'default',
+    });
+    expect(r.action).not.toBe('skip-unresolved');
+    expect(r.action).toBe('replaced');
   });
 
   it('is a no-op when not stale', async () => {
@@ -271,7 +298,7 @@ describe('version-skew guard', () => {
   });
 
   it('compareVersionsLoose ignores prerelease and rejects garbage', async () => {
-    const { compareVersionsLoose } = await import('../src/file/fork-update.js');
+    const { compareVersionsLoose } = await import('../src/file/fork-manifest.js');
     expect(compareVersionsLoose('0.2.3-dev.333.abc', '0.2.3')).toBe(0);
     expect(compareVersionsLoose('0.2.3', '0.10.0')).toBe(-1);
     expect(compareVersionsLoose('1.0.0', '0.9.9')).toBe(1);

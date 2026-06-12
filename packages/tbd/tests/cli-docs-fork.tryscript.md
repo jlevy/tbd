@@ -33,7 +33,7 @@ the `doc-fork` unit tests; these blocks pin the CLI surface.
 ```console
 $ tbd docs status
 No docs forked into the repo.
-Make some visible: tbd docs fork --category=general (and your languages)
+Make some visible: tbd docs fork <name> or tbd docs fork --all
 ? 0
 ```
 

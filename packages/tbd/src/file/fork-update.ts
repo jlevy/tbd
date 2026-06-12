@@ -14,7 +14,14 @@ import { join } from 'node:path';
 
 import { writeFile } from 'atomically';
 
-import { type ForkEntry, hashContent, hasConflictMarkers } from './fork-manifest.js';
+import {
+  type ForkEntry,
+  CONFLICT_LABELS,
+  compareVersionsLoose,
+  hashContent,
+  hasUnresolvedConflict,
+  normalizeLineEndings,
+} from './fork-manifest.js';
 
 /** Result of a three-way merge. */
 export interface MergeResult {
@@ -42,21 +49,25 @@ export async function mergeContents(
   const basePath = join(dir, 'base');
   const otherPath = join(dir, 'other');
   try {
+    // Normalize line endings before the merge. Hashing is LF-normalized, so a
+    // CRLF fork file vs an LF base/upstream would otherwise make git merge-file
+    // see every line as changed and report a spurious whole-file conflict. The
+    // merged output is LF (matching the hash basis).
     await Promise.all([
-      writeFile(currentPath, current),
-      writeFile(basePath, base),
-      writeFile(otherPath, other),
+      writeFile(currentPath, normalizeLineEndings(current)),
+      writeFile(basePath, normalizeLineEndings(base)),
+      writeFile(otherPath, normalizeLineEndings(other)),
     ]);
 
     const args = [
       'merge-file',
       '-p',
       '-L',
-      labels.current ?? 'ours (your fork)',
+      labels.current ?? CONFLICT_LABELS.ours,
       '-L',
-      labels.base ?? 'base (fork point)',
+      labels.base ?? CONFLICT_LABELS.base,
       '-L',
-      labels.other ?? 'theirs (upstream)',
+      labels.other ?? CONFLICT_LABELS.theirs,
       currentPath,
       basePath,
       otherPath,
@@ -121,26 +132,6 @@ export async function diffContents(
   } finally {
     await rm(dir, { recursive: true, force: true });
   }
-}
-
-/**
- * Loose semver comparison on major.minor.patch (prerelease ignored).
- * Returns null when either version cannot be parsed — callers must not guard
- * on an unparseable version.
- */
-export function compareVersionsLoose(a: string, b: string): -1 | 0 | 1 | null {
-  const parse = (v: string): number[] | null => {
-    const m = /^(\d+)\.(\d+)\.(\d+)/.exec(v.trim());
-    return m ? [Number(m[1]), Number(m[2]), Number(m[3])] : null;
-  };
-  const pa = parse(a);
-  const pb = parse(b);
-  if (!pa || !pb) return null;
-  for (let i = 0; i < 3; i++) {
-    if (pa[i]! < pb[i]!) return -1;
-    if (pa[i]! > pb[i]!) return 1;
-  }
-  return 0;
 }
 
 /** Update strategy chosen by the user for non-clean cases. */
@@ -212,8 +203,10 @@ export async function updateOne(input: UpdateOneInput): Promise<UpdateOneResult>
       message: `${name}: upstream removed this doc — keep your copy or 'tbd docs unfork ${name}'`,
     };
   }
-  // An unresolved conflicted doc must be resolved before any update.
-  if (entry.conflicted && hasConflictMarkers(forkContent)) {
+  // An unresolved conflicted doc must be resolved before any update. Keys off
+  // tbd's own labeled markers so a doc that legitimately contains conflict-marker
+  // examples is not blocked forever.
+  if (entry.conflicted && hasUnresolvedConflict(forkContent)) {
     return {
       action: 'skip-unresolved',
       message: `${name}: unresolved conflict markers — resolve them first`,

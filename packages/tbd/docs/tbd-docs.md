@@ -1188,6 +1188,12 @@ rm -rf docs/tbd .tbd/doc-forks
 After this, the previous tbd version works again, and re-running the upgrade later is
 safe — the migration is idempotent from any of these states.
 
+Reverting `.tbd/config.yml` is enough to drop the format gate even if forks were already
+committed: compatibility is decided only by `tbd_format` in the config, not by the
+presence of `docs/tbd/` or `.tbd/doc-forks/`. Committed fork files simply become inert
+`local` docs under the older version — harmless to leave in place, so step 3 is only for
+cleanup, never required to abort.
+
 Notes:
 
 - **The migration never writes issue data**, so the recipe above cannot lose issues — it
@@ -1203,6 +1209,14 @@ Notes:
   (layout updated but not config, or config but not layout), the next command with the
   new version completes the migration; the abort recipe above also works from either
   partial state.
+- **Quiesce other tbd processes first.** The same self-healing re-stamp that completes
+  an interrupted upgrade can also undo an abort.
+  Any concurrent `tbd` write (another worktree, a background agent, an editor hook)
+  re-stamps `layout.yml` from whatever `.tbd/config.yml` currently says.
+  If you delete `layout.yml` while the config is still on the new format — or before the
+  config revert in step 1 has landed — the next write recreates the stamp and reopens
+  the migration. Stop other agents and worktrees, do step 1 (revert the config) before
+  step 2 (delete the stamp), and the abort sticks.
 - Teammates each migrate their own machine-local stamp automatically; only the
   `.tbd/config.yml` change is shared (via your branch), so reverting that commit is the
   team-wide rollback.

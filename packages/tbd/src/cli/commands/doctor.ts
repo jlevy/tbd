@@ -53,6 +53,7 @@ import {
 } from '../../file/git.js';
 import {
   CommonDirLayoutError,
+  isLayoutUpgradeable,
   readCommonDirLayout,
   validateCommonDirLayout,
   withSharedDataSyncLock,
@@ -1208,11 +1209,27 @@ class DoctorHandler extends BaseCommand {
     try {
       layout = await readCommonDirLayout(layoutPath);
     } catch (error) {
+      // A corrupt/unparseable layout is machine-local and regenerable from the
+      // config — make it fixable rather than a dead-end error.
+      if (fix && !this.checkDryRun('Rewrite corrupt common-dir layout from config')) {
+        const configRef = this.config;
+        await withSharedDataSyncLock(this.cwd, async () =>
+          writeCommonDirLayout(sharedPaths, configRef),
+        );
+        return {
+          name: 'Common-dir layout',
+          status: 'ok',
+          message: 'rewritten from config (was unreadable)',
+          path: layoutPath,
+        };
+      }
       return {
         name: 'Common-dir layout',
         status: 'error',
-        message: error instanceof Error ? error.message : String(error),
+        message: `${error instanceof Error ? error.message : String(error)}`,
         path: layoutPath,
+        fixable: true,
+        suggestion: `Run: tbd doctor --fix (rewrites it from config), or delete ${layoutPath}`,
       };
     }
     if (!layout) {
@@ -1233,6 +1250,33 @@ class DoctorHandler extends BaseCommand {
         suggestion: 'Upgrade: npm install -g get-tbd@latest',
       };
     }
+    // A layout from an older but compatible format than the (in-memory,
+    // already-migrated) config is the normal mid-migration state, not a
+    // mismatch: the format bump applies on the next data command. Surface it as
+    // an informational warning (exit 0, so CI on un-migrated f04 repos is not
+    // broken); --fix applies the FULL migration (config + layout) via the locked
+    // data-context path — never just the layout, which would half-migrate the
+    // repo and lock out older clients with nothing to commit.
+    if (isLayoutUpgradeable(layout, this.config)) {
+      if (fix && !this.checkDryRun('Apply pending format migration')) {
+        await prepareDataSyncContext(this.cwd);
+        return {
+          name: 'Common-dir layout',
+          status: 'ok',
+          message: `format migration applied (${layout.tbd_format} → ${this.config.tbd_format})`,
+          path: layoutPath,
+        };
+      }
+      return {
+        name: 'Common-dir layout',
+        status: 'warn',
+        message: `format migration pending (${layout.tbd_format} → ${this.config.tbd_format}); applies on next write or 'tbd doctor --fix'`,
+        path: layoutPath,
+        fixable: true,
+        suggestion: 'Run: tbd doctor --fix (or any write command) to apply',
+      };
+    }
+
     try {
       validateCommonDirLayout(layout, this.config);
       return { name: 'Common-dir layout', status: 'ok', path: layoutPath };
