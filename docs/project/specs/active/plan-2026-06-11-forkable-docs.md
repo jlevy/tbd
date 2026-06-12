@@ -30,9 +30,9 @@ layout revision (format `f05`, a metadata-only migration from f04):
 
 1. **A `tbd docs` command group** scoped to managed docs, following tbd’s existing
    noun-verb convention (`dep add`, `label add`, `attic restore`): `tbd docs fork`
-   copies any bundled doc (or all of them, or a language-relevant pack) into a visible,
-   git-tracked folder in the repo (default `docs/tbd/`). Forked docs shadow the bundled
-   copies in all lookups, so customizing them Just Works.
+   copies any bundled doc (one, a theme, or all of them) into a visible, git-tracked
+   folder in the repo (default `docs/tbd/`). Forked docs shadow the bundled copies in
+   all lookups, so customizing them Just Works.
    `tbd sync` keeps its scope (project data); `tbd docs sync` takes over cache refresh.
 2. **`tbd docs unfork`** — remove a forked copy and fall back to the upstream version,
    refusing to discard customizations unless `--force` is given.
@@ -47,7 +47,9 @@ layout revision (format `f05`, a metadata-only migration from f04):
    merging cheap, exact, offline operations.
 5. **Agent-first setup opt-in** — no interactive prompts (agents are the operators):
    `tbd setup --auto` keeps current behavior and prints a self-documenting summary of
-   the visibility options with a repo-aware `--relevant` preview, while
+   the two choices — *scope* (all standard guidelines active, recommended, or a subset
+   by theme) and *visibility* (leave them in the hidden cache, the “magic” path, or fork
+   into `docs/tbd/` for explicit, customizable, git-tracked copies) — while
    `welcome-user`/the skill teach agents to offer the choice conversationally and run
    fork themselves.
 6. **An upstream-contribution playbook** — a bundled shortcut that walks an agent
@@ -74,8 +76,9 @@ lack. Everything here is forward-compatible with the larger #117 design (see
 - **G5. Setup choice, without interactivity:** Setup surfaces how visible docs can be —
   via self-documenting output and agent-led conversation, never prompts; the default
   remains exactly the current behavior (hidden cache).
-- **G6. Language relevance:** Users can say what language(s) they work in and fork just
-  the relevant guidelines (with auto-detection as a convenience).
+- **G6. Theme-based selection:** Docs are organized by theme (frontmatter `category`),
+  so an agent forks the general guidelines plus the themes for the repo’s languages and
+  frameworks — from a clear list, with no auto-detection and no hard-coded pack map.
 - **G7. Upstream loop:** A documented, low-ceremony path from “I improved a guideline”
   to “an issue with the diff is filed on jlevy/tbd.”
 - **G8. Agent-operable:** Every step is a plain CLI command with `--json` output, and
@@ -551,6 +554,29 @@ The `conflicted` flag is set only by `update --merge` and clears automatically o
 standard markers (`<<<<<<<`/`=======`/`>>>>>>>`) are gone; scanning for markers only in
 flagged docs avoids false positives on docs that legitimately discuss merge conflicts.
 
+**Out-of-band deletion — the user removes a forked file (or the whole fork dir) without
+telling tbd.** This is an expected case, not an error: the fork dir is ordinary repo
+files, and people delete files.
+Because lookups fall through the precedence list, a deleted forked file **transparently
+falls back to the upstream cache copy** — the doc keeps working and
+`tbd guidelines <name>` still serves it (from upstream now, with no provenance note,
+since nothing is forked there anymore).
+The dangling manifest entry surfaces as `missing`, and tbd offers exactly two clean
+resolutions everywhere it is reported:
+
+- **restore** it — `tbd docs fork <name> --force` re-creates the file from the recorded
+  base (your fork point), or
+- **finalize** the removal — `tbd docs unfork <name>` clears the manifest entry and base
+  snapshot.
+
+`tbd docs status` lists `missing` docs with those two options; `tbd doctor` flags them
+and `tbd doctor --fix` **finalizes the unfork** (the deletion is read as intent to stop
+forking — it removes the orphaned manifest entry and base, leaving the doc served from
+upstream); `tbd docs update` skips `missing` docs.
+Deleting the entire fork dir is just this case in bulk: every entry becomes `missing`,
+all serving falls back to upstream, and `doctor --fix` clears the manifest.
+Nothing is ever silently re-created against the user’s deletion.
+
 ### Updating forked docs after a tbd upgrade
 
 The most common lifecycle event: you forked docs, upgraded tbd (or `tbd docs sync`
@@ -622,8 +648,8 @@ tbd docs add github:org/repo@main//docs/rules.md --kind=guideline   # any docref
 tbd docs fork python-rules                # one doc (name resolution as in `tbd guidelines`)
 tbd docs fork python-rules review-code    # several
 tbd docs fork --kind=guideline typescript # disambiguate if a name exists in two kinds
-tbd docs fork --pack=python               # curated pack (repeatable: --pack=python --pack=core)
-tbd docs fork --relevant                  # packs chosen by repo detection (see below)
+tbd docs fork --category=python           # a whole theme (reads frontmatter; repeatable)
+tbd docs fork --category=general --category=typescript  # general + a language
 tbd docs fork --all                       # everything
 tbd docs fork --all --dry-run             # preview what would be written
 
@@ -674,25 +700,47 @@ Behavior details:
   collisions, unreachable sources (per source group, serving last cached copy), fork dir
   covered by a `.gitignore` (defeats the purpose — warn), manifest/dir drift.
 
-### Packs and language detection
+### Doc themes and the fork recommendation
 
-A small constant map in code (e.g. `src/file/doc-packs.ts`), not config — easy to test,
-easy to extend later if we move it to frontmatter tags:
+There is **no `--relevant` flag, no repo auto-detection, and no hard-coded pack→doc
+map.** Detection rules and a central pack list both drift out of sync with the docs and
+substitute brittle logic for an agent’s judgment.
+Instead, each doc declares a **theme** via its frontmatter `category`, so a doc joins a
+theme by setting one field — nothing central to keep in sync — and the agent picks based
+on what the repo actually is.
+(This also retires the ad-hoc name-based `inferGuidelineCategory` inference, which today
+mis-files docs like `convex-rules` as `general` and has no `convex`/`electron` theme at
+all; Phase 0 curates the frontmatter so each doc lands in the right theme.)
 
-| Pack | Contents (guidelines unless noted) |
+The basic themes:
+
+| Theme (`category`) | What’s in it |
 | --- | --- |
-| `core` | general-eng-agent-principles, general-coding-rules, general-comment-rules, error-handling-rules, general-tdd-guidelines, general-testing-rules, commit-conventions, common-doc-guidelines |
-| `typescript` | typescript-rules, typescript-cli-tool-rules, typescript-sorting-patterns, typescript-yaml-handling-rules, typescript-code-coverage, pnpm-monorepo-patterns, bun-monorepo-patterns |
-| `python` | python-rules, python-modern-guidelines, python-cli-patterns |
-| `convex` | convex-rules, convex-limits-best-practices |
-| `electron` | electron-app-development-patterns |
+| **general** | The foundational guidelines that apply to every repo — the `general-*` rules plus coding, comment, error-handling, TDD/testing, commit, and doc guidelines. |
+| **typescript** | TypeScript rules, including CLI tooling (and the sorting / YAML / coverage / monorepo rules). |
+| **python** | Python rules, including CLI patterns. |
+| **convex** | Convex rules and limits / best-practices. |
+| **electron** | Electron app development patterns. |
 
-`--relevant` = `core` plus packs chosen by cheap repo detection: `package.json`/
-`tsconfig.json` → `typescript`; `pyproject.toml`/`uv.lock`/`requirements.txt` →
-`python`; `convex/` dir or `convex` dependency → `convex`; `electron` dependency →
-`electron`. Detection is a pure function over the repo root — trivially unit-testable.
-Shortcuts/templates are not in packs v1 (fork them by name or `--all`); revisit if there
-is demand.
+`tbd docs list` shows every doc grouped by theme, so the choices are visible.
+The **recommendation** — stated in the bare `tbd docs` overview, the setup summary, the
+skill, and `welcome-user`, and kept identical across all of them — is simply: **fork the
+general guidelines, plus the themes for whatever languages and frameworks the repo
+uses.** An agent that knows the project applies it directly (general + typescript for a
+TypeScript CLI; general + python + convex for a Convex/Python backend) with no detection
+table to maintain.
+
+Selection reuses the existing `category` metadata — no new construct, no central map:
+
+```bash
+tbd docs fork python-rules review-code               # by name
+tbd docs fork --category=typescript                  # a whole theme (reads frontmatter; repeatable)
+tbd docs fork --category=general --category=python   # general + a language
+tbd docs fork --all                                  # everything
+```
+
+Themes are guidelines-oriented; shortcuts and templates are forked by name or with
+`--all`.
 
 ### Setup integration (agent-first, non-interactive)
 
@@ -702,28 +750,38 @@ today but has never had prompts (`setup.ts:1281`), is removed rather than built 
 Setup is instead designed to be excellent non-interactively:
 
 - **`tbd setup --auto`: unchanged behavior, self-documenting output.** Cache-only
-  remains the default.
-  The summary *is* the menu — copy-paste commands with a repo-aware preview, since pack
-  detection can run read-only during setup:
+  remains the default (guidelines are active either way).
+  The summary *is* the menu, and it states the two choices explicitly so an agent — or a
+  user reading the output — can make them deliberately:
 
   ```
   Docs: 37 available in cache (.tbd/docs/, gitignored); none forked into the repo.
-    Browse:        tbd docs list
-    Make visible:  tbd docs fork --relevant    (detected: typescript, python → 13 docs into docs/tbd/)
-                   tbd docs fork --all         (everything)
-    Customize one: tbd docs fork <name>
+    Guidelines are active from the cache. To make them visible and customizable, fork
+    them into docs/tbd/ (same behavior — just explicit and git-tracked):
+
+    Scope:         all standard guidelines (recommended), or a theme:
+                   general, typescript, python, convex, electron
+    Make visible:  tbd docs fork --category=general --category=<your-languages>
+                   tbd docs fork --all          (everything)
+    Browse / read: tbd docs list / tbd docs show <name>
   ```
 
   When forked docs exist with pending upstream updates (typically right after an
   upgrade), the summary reports the count and suggests `tbd docs update` — but setup
   itself never modifies files in the fork dir.
 
-- **Agent-led onboarding is the choice mechanism.** `welcome-user` and the skill docs
-  instruct the agent to ask the user conversationally ("Do you want tbd’s guidelines
-  visible in your repo?
-  Which languages do you use?") and then run `tbd docs fork --pack=…` / `--relevant` /
-  `--all` itself. `tbd docs fork --relevant --dry-run` gives agents a zero-risk preview
-  to show before acting.
+- **Agent-led onboarding makes both choices explicit.** `welcome-user` and the skill
+  instruct the agent to put two questions to the user conversationally:
+  1. **Scope** — keep *all* standard guidelines active (recommended), or just the themes
+     for your stack (general plus your languages/frameworks)?
+  2. **Visibility** — leave them in tbd’s hidden cache (they just work — the “magic”
+     path), or fork them into `docs/tbd/` so they are visible on GitHub, reviewable, and
+     customizable (checked into git)?
+
+  The agent explains that forking changes nothing about how guidelines work — both paths
+  make the same guidelines active — it only makes them explicit and editable.
+  It then runs `tbd docs fork --category=…` / `--all` (or leaves the cache as-is)
+  accordingly, using `--dry-run` to preview first.
   No setup flags needed: `tbd docs` *is* the API.
 
 ### Upstream-contribution playbook
@@ -751,11 +809,11 @@ The skill routing table gets matching rows, e.g.:
 | User says | Agent runs |
 | --- | --- |
 | “What guidelines are there?” | `tbd docs list` |
-| “Show me / let me browse the guidelines in this repo” | `tbd docs fork --relevant` (after confirming) |
+| “Make the guidelines visible / put the relevant ones in my repo” | `tbd docs fork --category=general` plus the repo’s languages, after confirming scope + visibility |
 | “I want to customize the Python guidelines” | `tbd docs fork python-rules` then edit |
 | “Put all of tbd’s docs in my repo” | `tbd docs fork --all` |
 | “Stop customizing X / go back to the default” | `tbd docs unfork X` (`--force` only after confirming) |
-| “Eject the guidelines …” (legacy term) | treat as fork: `tbd docs fork …` |
+| “I deleted a forked guideline file” | `tbd docs status` shows it `missing`; `tbd docs fork X --force` to restore or `tbd docs unfork X` to finalize |
 | “Update the guidelines to the latest” (or after `tbd setup` reports pending updates) | `tbd docs update`; if conflicts are listed, ask the user, then `--merge` (combine + resolve) or `--keep-ours` (keep ours) |
 | “Could we contribute these improvements back?” | `tbd shortcut suggest-upstream-improvements` |
 
@@ -859,9 +917,9 @@ Settled during design review (2026-06-11):
    points to `npx get-tbd@latest docs` for further info.
 
 8. **All fork state lives under one committed directory, `.tbd/doc-forks/`** —
-   `forks.yml` (manifest) plus `base/` (snapshots) — revised from the earlier separate
-   `.tbd/ejected.yml` + `.tbd/eject-base/` pair so the layout is self-describing and
-   `.tbd/docs/` remains purely the cache.
+   `forks.yml` (manifest) plus `base/` (snapshots) — consolidated into one
+   self-describing directory (rather than scattered top-level files) so `.tbd/docs/`
+   remains purely the cache.
 
 9. **Format bump to f05** with a metadata-only f04→f05 migration, following the f04
    precedent: gitignore template refresh, format-history and layout-doc updates; older
@@ -887,9 +945,9 @@ Settled during design review (2026-06-11):
     The taxonomy table is documented in `tbd-docs.md`.
 
 13. **No interactive setup.** The unused `--interactive` flag is removed; setup is
-    agent-first and non-interactive, with self-documenting summary output (including a
-    read-only `--relevant` detection preview) and conversational onboarding via the
-    skill and `welcome-user`.
+    agent-first and non-interactive, with self-documenting summary output (naming the
+    scope and visibility choices) and conversational onboarding via the skill and
+    `welcome-user`.
 
 14. **Terminology: fork/unfork, upstream, built-in.** The original `eject`/`uneject`
     vocabulary (create-react-app heritage: a one-way escape from a managed bundle) fit
@@ -899,7 +957,6 @@ Settled during design review (2026-06-11):
     `docs_cache.fork_dir`; the former `bundled` state is now `upstream` (not forked;
     served from its upstream via the cache); “bundled”/“built-in” is reserved for
     tbd-shipped `internal:` docs, where it remains literally true.
-    “Eject” stays as a routing synonym in the skill table.
     (For reference, shadcn names the model — “open code,” “copy and own” — but its verb
     is just `add`, with no update story.)
 
@@ -969,17 +1026,41 @@ Settled during refinement (2026-06-12):
     (the docref parser comes over from the #117 branch already in this shape).
     tbd consumes them; they do not consume tbd.
 
+24. **No detection, no hard-coded pack map; themes are frontmatter `category`.** The
+    `--relevant` flag, repo auto-detection, and a central pack→doc list are all dropped
+    — they drift out of sync with the docs and replace agent judgment with brittle
+    rules. Each doc declares its theme in frontmatter (`general`, `typescript`, `python`,
+    `convex`, `electron`), the name-based `inferGuidelineCategory` inference is retired,
+    and the agent forks the general theme plus the repo’s languages/frameworks.
+    `tbd docs fork` accepts names, `--category`, or `--all`.
+
+25. **Onboarding presents two explicit axes: scope and visibility.** Setup and
+    `welcome-user` make clear that (a) all standard guidelines are active by default
+    (recommended; can be subset by theme), and (b) the user can keep them in the hidden
+    cache (the “magic” path) or fork them into `docs/tbd/` for explicit, customizable,
+    git-tracked copies. Both paths make the *same* guidelines active — forking only adds
+    visibility and editability — and that equivalence is stated wherever the choice is
+    offered.
+
+26. **Out-of-band deletion of a forked file is a supported state, not an error.**
+    Serving falls back to upstream automatically; `tbd docs status` reports `missing`
+    with two resolutions (restore via `fork --force`, or finalize via `unfork`);
+    `tbd doctor --fix` finalizes the unfork; deleting the whole fork dir is the same
+    case in bulk. Covered by a golden test.
+
 ## Open Questions
 
-1. **Should `--relevant` ever become the fresh-setup default?** Recommended: no for now
-   — current behavior stays default per the explicit product call; revisit with usage
-   feedback.
-2. **Pack definitions in code vs doc frontmatter tags**: code const now (recommended);
-   migrate to frontmatter `tags:` if packs grow or third-party doc sources arrive.
+The questions raised during earlier reviews are all now resolved:
 
-(The earlier OQ3 — whether the per-kind list JSON should also be docmap — is resolved:
-yes, docmap everywhere.
-See Resolved Decision 21.)
+- *Should `--relevant` become the fresh-setup default?* — Moot: the `--relevant` flag
+  and repo auto-detection are removed entirely (Resolved Decision 24); selection is by
+  theme, chosen by the agent.
+- *Pack definitions in code vs frontmatter tags?* — Resolved: themes are each doc’s
+  frontmatter `category`, with no central pack map (Resolved Decision 24).
+- *Should the per-kind list JSON also be docmap?* — Resolved: yes, docmap everywhere
+  (Resolved Decision 21).
+
+No open questions remain; new ones will be surfaced here as implementation proceeds.
 
 ## Implementation Plan
 
@@ -1080,8 +1161,9 @@ rest of the test wiring in Phase 5).
    `[forked]`/`[customized]`/`[local]` markers in `--list`.
 7. **E2E tests** (pattern of `doc-add-e2e.test.ts`): fork → list marker → serve shows
    forked content → edit → unfork refuses → `--force` succeeds → upstream serving
-   restored; `tbd setup --auto` refresh leaves forked files untouched; f04 repo migrates
-   to f05 on setup.
+   restored; **delete a forked file out-of-band → serve transparently falls back to
+   upstream and `tbd docs status` reports `missing`**; `tbd setup --auto` refresh leaves
+   forked files untouched; f04 repo migrates to f05 on setup.
 
 ### Phase 2: Status, browse, diff, doctor
 
@@ -1103,9 +1185,10 @@ rest of the test wiring in Phase 5).
     for manifest provenance; no cache pruning on fetch failure).
 11. **`tbd docs diff <name>`** with `--base` / `--upstream` variants
     (`git diff --no-index` style output against base and cache copies, no network).
-12. **`tbd doctor` checks**: missing/orphaned entries, base missing/corrupt, unresolved
-    conflicts, reserved `tbd-` names, gitignored fork dir warning, `--fix` for manifest
-    cleanup.
+12. **`tbd doctor` checks**: missing (deleted) / orphaned entries, base missing/corrupt,
+    unresolved conflicts, reserved `tbd-` names, gitignored fork dir warning; `--fix`
+    finalizes the unfork for `missing` forked files (treating an out-of-band deletion as
+    intent to stop forking) and cleans orphaned manifest entries.
 
 ### Phase 3: Update and merge
 
@@ -1118,12 +1201,19 @@ rest of the test wiring in Phase 5).
     listing, the skip-warning naming both strategies, summary counts; pending-update
     reporting wired into `tbd setup --auto` output and `tbd status`.
 
-### Phase 4: Setup and packs
+### Phase 4: Setup and themes
 
-15. **Packs + detection** (`src/file/doc-packs.ts`): pack map, `--pack`, `--relevant`,
-    detection function with unit tests.
-16. **Setup integration**: self-documenting `--auto` summary (fork options as copy-paste
-    commands with read-only pack-detection preview; pending-update count); removal of
+15. **Themes via frontmatter `category`** (no `doc-packs.ts`, no detection function):
+    curate the `category` field on the bundled docs so each lands in exactly one theme
+    (`general`, `typescript`, `python`, `convex`, `electron`), retire the name-based
+    `inferGuidelineCategory` inference in favor of the declared field, and add
+    `--category` selection to `tbd docs fork` (reusing the existing `--list --category`
+    metadata — no new map).
+    Unit tests: category-based fork selection, and that every bundled doc resolves to
+    exactly one theme.
+16. **Setup integration**: self-documenting `--auto` summary naming the two choices —
+    *scope* (all standard guidelines, recommended, or a theme subset) and *visibility*
+    (hidden cache vs fork into `docs/tbd/`) — plus the pending-update count; removal of
     the unused `--interactive` flag; the fork dir documented as a config customization
     (`docs_cache.fork_dir`); the sync-taxonomy table added to `tbd-docs.md`.
 
@@ -1138,9 +1228,13 @@ rest of the test wiring in Phase 5).
     as exploratory background only) as reference docs, retire the bare-`tbd docs` manual
     viewer in favor of `tbd docs show tbd-docs` + the `tbd docs manual` alias
     (`tbd readme`/`tbd design` untouched).
-19. **Agent docs**: routing rows + fork/update section in `tbd-docs.md`, skill header
-    (`install/claude-header.md`), `welcome-user` onboarding question, README section
-    ("Forkable guidelines: fork them into your repo"), `tbd prime` mention if warranted.
+19. **Agent docs**: routing rows (fork / update / upstream + the missing-file row) in
+    the skill (`shortcuts/system/skill-baseline.md`) and a fork/update section in
+    `tbd-docs.md`; the two-axis (*scope* + *visibility*) `welcome-user` onboarding;
+    README section ("Forkable guidelines: fork them into your repo"); `tbd prime`
+    mention if warranted.
+    (`install/claude-header.md` needs no change — `Bash(tbd:*)` already covers
+    `tbd docs`.)
 20. **CHANGELOG + release notes** per `release-notes-guidelines`.
 
 ## Documentation Contract Changes
@@ -1160,10 +1254,10 @@ duplicated** — the contract is that those exact blocks appear in the named doc
 | `packages/tbd/src/lib/tbd-format.ts` (`FORMAT_HISTORY`) | Phase 1 (with code) | Add the `f05` entry: `introduced` (next minor), description “Adds forkable-docs layout”, `changes` = [`docs_cache.fork_dir`, `docs_cache.local_dirs`, `.tbd/doc-forks/forks.yml` + `base/`, generated `.tbd/README.md`], `migration` = “metadata-only: stamp f05, refresh `.tbd/.gitignore`, write `.tbd/README.md` layout contract”. `CURRENT_FORMAT = 'f05'`. This file is the authoritative format history; its wording is the contract Phase 0 references but does not edit. |
 | `docs/development.md` (this repo) | Phase 0 | “Path Conventions” block: add `.tbd/doc-forks/` (committed) and note the fork dir lives **outside** `.tbd/` (default `docs/tbd/`). Add a “Testing forkable docs” pointer to the new e2e/tryscript files. |
 | `docs/docs-overview.md` (this repo) | Phase 0 | “tbd CLI Documentation Commands” + “Adding external docs by URL”: replace with the `tbd docs` group; `tbd docs add <docref>`; add a line on forking docs into a visible `docs/tbd/`. |
-| `README.md` | Phase 0 | “Shortcuts, Guidelines, and Templates”: add a “Forkable: see them in your repo” paragraph with a `tbd docs fork --relevant` example. “Documentation” block: `tbd docs` is now an overview; the manual is `tbd docs show tbd-docs`. Per-kind `--add` lines annotated as aliases for `tbd docs add`. |
+| `README.md` | Phase 0 | “Shortcuts, Guidelines, and Templates”: add a “Forkable: see them in your repo” paragraph with a `tbd docs fork --category=general` example. “Documentation” block: `tbd docs` is now an overview; the manual is `tbd docs show tbd-docs`. Per-kind `--add` lines annotated as aliases for `tbd docs add`. |
 | `packages/tbd/docs/shortcuts/system/skill-baseline.md` (injected agent skill) | Phase 5 | Add the fork/update/upstream rows to “User Request → Agent Action” (the rows in “Upstream-contribution playbook”); add `tbd docs list` / `tbd docs fork` to the “Documentation” command table; one-line “Forkable docs” note. Kept within the skill’s size budget; lands with the rest of the agent surface so routing is never half-wired. |
 | `packages/tbd/docs/install/claude-header.md` | none | **No change.** Its `allowed-tools: Bash(tbd:*)` already covers `tbd docs`. Stated here so the audit is explicit. |
-| `packages/tbd/docs/shortcuts/standard/welcome-user.md` | Phase 5 | Add the onboarding offer after the status summary ("Want tbd’s guidelines visible in your repo? Which languages?") and a “make guidelines visible” row routing to `tbd docs fork --relevant`. |
+| `packages/tbd/docs/shortcuts/standard/welcome-user.md` | Phase 5 | Add the two-axis onboarding offer after the status summary — *scope* (all guidelines vs a theme subset) and *visibility* (hidden cache vs forked into `docs/tbd/`) — plus a “make guidelines visible” row routing to `tbd docs fork --category=…`. |
 | `packages/tbd/docs/shortcuts/standard/suggest-upstream-improvements.md` (**new**) | Phase 0 | The upstream-contribution playbook (per “Upstream-contribution playbook”). Pure docs. |
 | `packages/tbd/docs/references/docref-format.md` (**new**) | Phase 0 | Adopted from the #117 branch, marked adopted v0.1. First doc of the new `reference` kind. |
 | `packages/tbd/docs/references/docmap-format.md` (**new**) | Phase 0 | Authored fresh, minimal (docmap/0.1 inventory only) per the Design section; #117 cited as background. |
@@ -1273,12 +1367,14 @@ $ tbd docs                       # no docs forked yet
 tbd docs — managed documentation
 
   37 available in cache (.tbd/docs/, gitignored); none forked into the repo.
+  Guidelines are active from the cache. Fork them into docs/tbd/ to make them
+  visible and customizable (same behavior — just explicit and git-tracked):
 
-  Browse:        tbd docs list
-  Make visible:  tbd docs fork --relevant    (detected: typescript, python → 13 docs into docs/tbd/)
-                 tbd docs fork --all         (everything)
-  Customize one: tbd docs fork <name>
-  Learn more:    tbd docs show tbd-docs
+  Scope:         all standard guidelines (recommended), or a theme:
+                 general, typescript, python, convex, electron
+  Make visible:  tbd docs fork --category=general --category=<your-languages>
+                 tbd docs fork --all          (everything)
+  Browse / read: tbd docs list / tbd docs show <name>
 ? 0
 ```
 
@@ -1393,11 +1489,11 @@ $ tbd docs fork python-rules
 Edit it in place — tbd now serves your copy everywhere it served the upstream one.
 ? 0
 
-$ tbd docs fork --relevant --dry-run
-[DRY-RUN] Would fork 13 docs into docs/tbd/ (packs: core, typescript, python)
+$ tbd docs fork --category=general --category=python --dry-run
+[DRY-RUN] Would fork 11 docs into docs/tbd/ (themes: general, python)
   guideline   general-eng-agent-principles
   guideline   general-coding-rules
-  [.. 9 more ..]
+  [.. 7 more ..]
   guideline   python-rules
 No files written. Re-run without --dry-run to apply.
 ? 0
@@ -1442,6 +1538,37 @@ review-code    shortcut    stale              internal:shortcuts/standard/review
 tbd-docs       reference   forked             internal:tbd-docs.md
 
 4 forked: 2 customized, 3 with upstream updates — run 'tbd docs update'
+? 0
+```
+
+### Removed forked file (out-of-band deletion)
+
+The user deletes a forked file directly (`rm docs/tbd/guidelines/review-code.md`)
+without telling tbd.
+Serving keeps working (falls back to upstream), `status` reports `missing` with both
+resolutions, and `doctor --fix` finalizes the unfork:
+
+```text
+$ rm docs/tbd/shortcuts/review-code.md
+
+$ tbd docs show review-code          # still works — falls back to upstream
+[.. upstream review-code content on stdout, no provenance note ..]
+? 0
+
+$ tbd docs status
+NAME           KIND        STATE              SOURCE
+acme-style     guideline   customized, stale  github:acme/eng-docs@main//guidelines/style.md
+python-rules   guideline   customized, stale  internal:guidelines/python-rules.md
+review-code    shortcut    missing            internal:shortcuts/standard/review-code.md
+tbd-docs       reference   forked             internal:tbd-docs.md
+
+1 doc is missing (forked file deleted):
+  review-code   restore with 'tbd docs fork review-code --force', or finalize with 'tbd docs unfork review-code'
+? 0
+
+$ tbd doctor --fix                   # excerpt
+⚠ Forked docs - 1 missing (review-code: forked file deleted)
+    Fixed: finalized unfork (removed manifest entry + base); now served from upstream
 ? 0
 ```
 
@@ -1532,10 +1659,13 @@ pending-update report); setup never writes the fork dir:
 ```text
 # zero forks
 Docs: 37 available in cache (.tbd/docs/, gitignored); none forked into the repo.
-  Browse:        tbd docs list
-  Make visible:  tbd docs fork --relevant    (detected: typescript, python → 13 docs into docs/tbd/)
-                 tbd docs fork --all         (everything)
-  Customize one: tbd docs fork <name>
+  Guidelines are active from the cache. Fork them into docs/tbd/ to make them
+  visible and customizable (same behavior — just explicit and git-tracked):
+  Scope:         all standard guidelines (recommended), or a theme:
+                 general, typescript, python, convex, electron
+  Make visible:  tbd docs fork --category=general --category=<your-languages>
+                 tbd docs fork --all          (everything)
+  Browse / read: tbd docs list / tbd docs show <name>
 
 # after an upgrade, forks present
 Docs: 4 forked into docs/tbd/. 3 have upstream updates — run 'tbd docs update'.
@@ -1579,7 +1709,9 @@ New golden/e2e files (named for the phases that add them): `fork-manifest` +
 state-matrix units (Phase 1); a `cli-docs-fork.tryscript.md` lifecycle (fork → list
 marker → serve → edit → unfork refuse → `--force`) (Phase 1); `fork-update`
 decision-table units + a `cli-docs-update.tryscript.md` upgrade/merge scenario (Phase
-3); `doc-packs` detection units + a `fork --relevant` fixture e2e (Phase 4).
+3); category-selection units + a `fork --category` e2e (Phase 4); a deleted-fork
+scenario in the Phase 1 lifecycle test (serve falls back to upstream, status `missing`,
+`doctor --fix` finalizes).
 
 ## Testing Strategy
 
@@ -1592,7 +1724,7 @@ decision-table units + a `cli-docs-update.tryscript.md` upgrade/merge scenario (
   docref spec-mirror tests; local_dirs precedence ordering; source-root grouping (N docs
   from one repo → one fetch; per-group failure isolation; cache preserved on fetch
   failure); git revision/tag capture in the manifest; `--json` output validating against
-  the docmap map schema; pack detection; fork path mapping (incl.
+  the docmap schema; category-based fork selection; fork path mapping (incl.
   shortcuts flattening); README index generation.
 - **E2E (spawn against built CLI, like `doc-add-e2e.test.ts`)**: the Phase 1 scenario
   above; precedence (forked shadows upstream; local file with no entry is served); an
@@ -1602,7 +1734,8 @@ decision-table units + a `cli-docs-update.tryscript.md` upgrade/merge scenario (
   `customized`); convergence-unfork (upstream adopts the customization → `update` →
   plain `unfork` succeeds); group surface (bare `tbd docs` shows status,
   `tbd docs show tbd-docs` serves the manual, `tbd sync --docs` alias still works);
-  `fork --relevant` in a fixture repo with `pyproject.toml`; collision/overwrite
+  `fork --category=python`; out-of-band deletion of a forked file (serve falls back to
+  upstream, status `missing`, `doctor --fix` finalizes the unfork); collision/overwrite
   refusal; doctor findings.
 - **Docs-reference test**: extend `doc-references.test.ts` so every command named in the
   new shortcut/docs resolves (extractor learns `tbd docs <subcommand>` and the
