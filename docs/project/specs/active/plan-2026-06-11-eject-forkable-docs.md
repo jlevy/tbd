@@ -39,8 +39,8 @@ layout revision (format `f05`, a metadata-only migration from f04):
 3. **`tbd docs update`** — after a tbd upgrade, pull upstream changes into forked docs:
    unmodified copies refresh in place; customized copies get a git three-way merge that
    applies automatically when clean; conflicting docs are listed until you choose a
-   resolution: `--merge` (combine, with standard conflict markers) or `--rebase` (keep
-   your version and advance the fork point).
+   resolution: `--merge` (combine, with standard conflict markers) or `--keep-ours`
+   (keep your version and advance the fork point).
 4. **A small committed manifest plus stored merge bases** (`.tbd/doc-forks/forks.yml` +
    `.tbd/doc-forks/base/`) recording, for each forked doc, exactly which upstream
    content it forked from — making “customized?”, “stale vs upstream?”, and three-way
@@ -169,7 +169,7 @@ tbd docs show <name>          # read any doc by name, kind-agnostic
 tbd docs sync                 # refresh the gitignored cache (absorbs `tbd sync --docs`)
 tbd docs add <docref>         # register a single external doc (URL, github:, local path)
 tbd docs fork / unfork      # fork into the repo / return to upstream
-tbd docs update               # reconcile forks with upstream (--merge / --rebase)
+tbd docs update               # reconcile forks with upstream (--merge / --keep-ours)
 tbd docs diff / status        # inspect
 ```
 
@@ -502,8 +502,10 @@ documents:
     word_count: 2400
 ```
 
-Producers may *generate* a docmap (as tbd does: `tbd docs list --json` / `status --json`
-emit exactly this, with tbd’s state fields as extension fields) or *hand-author* one.
+Producers may *generate* a docmap (as tbd does: **every** list/inventory command emits
+exactly this — `tbd docs list` / `tbd docs status` and the per-kind
+`tbd guidelines/shortcut/template --list`, in both `--json` and, via one shared
+renderer, text — with tbd’s state fields as extension fields) or *hand-author* one.
 Consumers must ignore unknown fields.
 That producer-agnosticism is what makes the concept useful beyond tbd: any repo can
 commit a docmap to advertise its doc collection, and a future source framework would
@@ -559,20 +561,20 @@ conflict count, standard markers, no repo state touched):
 
 When a doc isn’t cleanly updatable, the user chooses one of two resolution strategies
 (mutually exclusive flags): **`--merge`** combines both sides, writing standard conflict
-markers to resolve by editing; **`--rebase`** keeps the local version untouched and just
-advances the fork point to current upstream (“my fork supersedes this upstream change” /
-“I already folded it in by hand”).
+markers to resolve by editing; **`--keep-ours`** keeps the local version untouched and
+just advances the fork point to current upstream (“my fork supersedes this upstream
+change” / “I already folded it in by hand”).
 
-| Doc state | `update` (default) | `update --merge` | `update --rebase` |
+| Doc state | `update` (default) | `update --merge` | `update --keep-ours` |
 | --- | --- | --- | --- |
 | `forked` (unmodified) + stale | replace file with new upstream; advance base | same | same |
 | `customized` + stale, three-way merge is clean | apply merged result; advance base | same | keep file as-is; advance base only |
-| `customized` + stale, merge conflicts | **skip**; warn and list the docs: “re-run with `--merge` (combine, resolve markers) or `--rebase` (keep your version)” | write conflict markers into the file; advance base; set `conflicted` | keep file as-is; advance base only |
+| `customized` + stale, merge conflicts | **skip**; warn and list the docs: “re-run with `--merge` (combine, resolve markers) or `--keep-ours` (keep your version)” | write conflict markers into the file; advance base; set `conflicted` | keep file as-is; advance base only |
 | `customized`, not stale | no-op | no-op | no-op |
 | `conflicted` (unresolved markers) | skip + warn: resolve first | skip + warn | skip + warn |
 | `orphaned` | skip + note (upstream removed the doc; keep your copy or `unfork`) | same | same |
 | `missing` / `local` | skip (doctor’s problem / nothing upstream) | same | same |
-| base file missing (manual deletion) | cannot merge; skip + point at `--rebase` | same | re-establish base from current upstream (repair) |
+| base file missing (manual deletion) | cannot merge; skip + point at `--keep-ours` | same | re-establish base from current upstream (repair) |
 
 Design points:
 
@@ -584,11 +586,12 @@ Design points:
   conflicted `--merge`), the base becomes the new upstream content.
   So post-resolution, the doc is simply “a customized fork of current upstream” — states
   stay coherent with no extra bookkeeping.
-- **`--rebase` is not git-rebase content semantics** (for single files, replaying your
-  diff onto the new base is just the same three-way merge).
-  Here it means *re-base the fork point*: your content stands, upstream’s change is
-  acknowledged, staleness clears, and future updates diff against the new base.
-  It also repairs a missing base file.
+- **`--keep-ours` keeps your content and advances the fork point.** For a single file
+  there is no diff to replay — keeping your version *is* the operation; upstream’s
+  change is acknowledged, staleness clears, and future updates diff against the new
+  base. It also repairs a missing base file.
+  (This was `--rebase` in an earlier draft, renamed because the operation is not
+  git-rebase content semantics — it does not replay your diff, it keeps it.)
 - **Only the explicit command mutates tracked files.** `tbd setup --auto` and the
   24-hour doc auto-sync refresh the gitignored cache as today and then *report* pending
   updates (`2 forked docs have upstream updates — run 'tbd docs update'`), but never
@@ -634,7 +637,7 @@ tbd docs diff python-rules --upstream      # base vs current upstream (incoming 
 tbd docs update                            # refresh unmodified + apply clean merges; list conflicts
 tbd docs update python-rules               # limit to specific docs
 tbd docs update --merge                    # conflicts: combine, write conflict markers to resolve
-tbd docs update --rebase                   # conflicts: keep your version, advance the fork point
+tbd docs update --keep-ours                   # conflicts: keep your version, advance the fork point
 tbd docs update --dry-run                  # preview, including which docs would conflict
 
 # Reverse
@@ -753,7 +756,7 @@ The skill routing table gets matching rows, e.g.:
 | “Put all of tbd’s docs in my repo” | `tbd docs fork --all` |
 | “Stop customizing X / go back to the default” | `tbd docs unfork X` (`--force` only after confirming) |
 | “Eject the guidelines …” (legacy term) | treat as fork: `tbd docs fork …` |
-| “Update the guidelines to the latest” (or after `tbd setup` reports pending updates) | `tbd docs update`; if conflicts are listed, ask the user, then `--merge` (combine + resolve) or `--rebase` (keep ours) |
+| “Update the guidelines to the latest” (or after `tbd setup` reports pending updates) | `tbd docs update`; if conflicts are listed, ask the user, then `--merge` (combine + resolve) or `--keep-ours` (keep ours) |
 | “Could we contribute these improvements back?” | `tbd shortcut suggest-upstream-improvements` |
 
 ## Backward Compatibility
@@ -844,10 +847,10 @@ Settled during design review (2026-06-11):
 
 5. **Update semantics**: clean three-way merges apply by default (tracked files make git
    the undo); non-clean updates require an explicit strategy — `--merge` (combine with
-   conflict markers) or `--rebase` (keep local content, advance the fork point) — and
+   conflict markers) or `--keep-ours` (keep local content, advance the fork point) — and
    tracked files are mutated only by explicit `tbd docs` verbs, never by setup or
    background sync. The earlier standalone `rebase` subcommand is folded into
-   `update --rebase`.
+   `update --keep-ours`.
 
 6. **Default fork dir is `docs/tbd/`**, surfaced as an editable customization during
    setup and persisted to `docs_cache.fork_dir` when changed.
@@ -891,7 +894,7 @@ Settled during design review (2026-06-11):
 14. **Terminology: fork/unfork, upstream, built-in.** The original `eject`/`uneject`
     vocabulary (create-react-app heritage: a one-way escape from a managed bundle) fit
     when every doc came from inside tbd; with docref sources, docs are multi-origin and
-    the fork lifecycle (fork point, merge, rebase, unfork, contribute back) is the
+    the fork lifecycle (fork point, merge, advance base, unfork, contribute back) is the
     accurate model. Renames: verbs `fork`/`unfork`; state `forked`; config
     `docs_cache.fork_dir`; the former `bundled` state is now `upstream` (not forked;
     served from its upstream via the cache); “bundled”/“built-in” is reserved for
@@ -927,6 +930,45 @@ Settled during design review (2026-06-11):
     The `--list` meaning flip (sections → docs) is the one behavior change to call out
     in release notes.
 
+Settled during refinement (2026-06-12):
+
+18. **The forked-doc serve note is on by default.** When a read command serves a
+    forked/local copy it prints the one-line stderr provenance note without `--verbose`
+    (suppressed only by `--quiet`/`--json`). The extra context is deliberate — it helps
+    agents recall which docs are customized in a session.
+
+19. **`tbd docs --all` is removed, not aliased.** Its orientation value moves into the
+    bare `tbd docs` overview; no compatibility shim, since the f05 gate prevents old/new
+    confusion.
+
+20. **The update strategy flag is `--keep-ours`, not `--rebase`.** `--rebase` collided
+    with git-rebase’s meaning, while the operation simply keeps the local version and
+    advances the fork point.
+    It pairs with `--merge` (combine, with conflict markers).
+
+21. **docmap is the single data model for all doc output; no backward-compat
+    carve-out.** Every list/inventory command builds one docmap and renders it to text
+    or `--json`; the per-kind `--list --json` therefore changes from today’s flat array
+    to a docmap (accepted — no backward-compat requirement).
+    Single-doc reads emit one docmap document entry plus `content`. Text and JSON derive
+    from the same structure, so they cannot drift and any field/state addition is a
+    one-place change. This supersedes the earlier OQ3.
+
+22. **Strict output-style consistency is structural.** All doc-command rendering goes
+    through one shared rendering layer (no per-command `console.log` formatting); the
+    Console output style contract is authoritative, and a cross-command contract/golden
+    test pins it. The mandate is “everything is consistent and systematic, easy to
+    update.” Pre-existing cross-command drift *outside* the docs surface (e.g. the
+    status/doctor INTEGRATIONS divergence documented in
+    `cli-orientation-golden.tryscript.md`) is real but out of scope here; it is tracked
+    as a separate follow-up bead rather than silently folded into this spec.
+
+23. **docref and docmap ship as standalone, fully-tested, dependency-free modules**
+    (`src/docref/`, `src/docmap/`) designed for later extraction into their own package:
+    no tbd-internal imports, a public API surface, and their own spec-mirror test suites
+    (the docref parser comes over from the #117 branch already in this shape).
+    tbd consumes them; they do not consume tbd.
+
 ## Open Questions
 
 1. **Should `--relevant` ever become the fresh-setup default?** Recommended: no for now
@@ -934,11 +976,10 @@ Settled during design review (2026-06-11):
    feedback.
 2. **Pack definitions in code vs doc frontmatter tags**: code const now (recommended);
    migrate to frontmatter `tags:` if packs grow or third-party doc sources arrive.
-3. **Should the per-kind list JSON migrate to docmap too?**
-   `tbd guidelines/shortcut/template --list --json` emit a flat array today.
-   Recommended: no for now — keep the array (backward-compat; it predates docmap) and
-   let `tbd docs list`/`status --json` be the docmap contract.
-   Revisit if consumers want one shape everywhere.
+
+(The earlier OQ3 — whether the per-kind list JSON should also be docmap — is resolved:
+yes, docmap everywhere.
+See Resolved Decision 21.)
 
 ## Implementation Plan
 
@@ -1008,9 +1049,16 @@ rest of the test wiring in Phase 5).
    `.tbd/README.md` layout contract), format-history and layout-doc updates
    (`tbd-design.md`, `development.md`), older-CLI newer-format-detection behavior
    verified with a test.
-2. **docref module port** (`src/docref/`): bring the parser, types, and spec-mirror
-   tests over from the #117 branch (standalone, already fully covered); wire docref
-   normalization into config source strings and URL handling.
+2. **docref + docmap modules — standalone, fully tested, extraction-ready**
+   (`src/docref/`, `src/docmap/`): bring the docref parser, types, and spec-mirror tests
+   over from the #117 branch, and add a `src/docmap/` module (the docmap/0.1 type,
+   (de)serialize, and validate, authored against `references/docmap-format.md`). Both
+   are **dependency-free** (no tbd-internal imports), expose a small public API, and
+   carry their own full test suites — structured so they can move to a standalone
+   package later without change (Resolved Decision 23); tbd imports them, never the
+   reverse. Wire docref normalization into config source strings and the `--add` /
+   `docs add` URL handling, and make `DocMap` the type every list/inventory command
+   produces (Resolved Decisions 21–22).
 3. **Manifest + base module** (`src/file/fork-manifest.ts`): zod schema, read/write of
    `.tbd/doc-forks/forks.yml`, base copies under `.tbd/doc-forks/base/`, LF-normalized
    SHA-256 hashing, state computation
@@ -1039,9 +1087,14 @@ rest of the test wiring in Phase 5).
 
 8. **`tbd docs status` (+ bare `tbd docs`)** with `--json` per the docmap map schema;
    one-line summary in `tbd status`.
-9. **`tbd docs list` and `tbd docs show <name>`**: cross-kind listing with state markers
-   (`--json` per the docmap map schema); kind-agnostic read (per-kind readers
-   unchanged).
+9. **Shared docmap renderer + `tbd docs list` / `show <name>`**: build the single
+   rendering layer (Resolved Decision 22) that turns a `DocMap` into either text
+   (grouped list, status table, overview, single-entry read) or `--json`, then implement
+   cross-kind `list` (with state markers) and kind-agnostic `show` on top of it.
+   **Migrate the per-kind readers (`guidelines`/`shortcut`/`template`) onto the same
+   renderer**: their `--list --json` switches from the flat array to a docmap (Resolved
+   Decision 21) and their text output becomes the one canonical format.
+   The reader *commands* stay; only their shared rendering path changes.
 10. **`docs_cache.local_dirs` + `tbd docs add <docref>` + grouped sync**: local-dirs
     wiring into the effective lookup order; `add` consolidating the per-kind `--add`
     flags (kept as aliases) with docref normalization replacing the ad-hoc blob-URL
@@ -1060,10 +1113,10 @@ rest of the test wiring in Phase 5).
     exit-code handling, dry-run via `-p`), the per-state decision logic from the update
     table, base advancement, `conflicted` flag set/auto-clear.
     Unit tests cover every row × strategy of the table.
-14. **`tbd docs update` command surface** with mutually exclusive `--merge` / `--rebase`
-    strategy flags: name filtering, `--dry-run` preview with conflict listing, the
-    skip-warning naming both strategies, summary counts; pending-update reporting wired
-    into `tbd setup --auto` output and `tbd status`.
+14. **`tbd docs update` command surface** with mutually exclusive `--merge` /
+    `--keep-ours` strategy flags: name filtering, `--dry-run` preview with conflict
+    listing, the skip-warning naming both strategies, summary counts; pending-update
+    reporting wired into `tbd setup --auto` output and `tbd status`.
 
 ### Phase 4: Setup and packs
 
@@ -1121,12 +1174,19 @@ duplicated** — the contract is that those exact blocks appear in the named doc
 
 Two consistency points the contract pins down:
 
-- **The per-kind list JSON is unchanged.** `tbd guidelines --list --json` keeps emitting
-  a flat array (today’s shape).
-  Only `tbd docs list --json` / `tbd docs status --json` emit the new docmap object,
-  with tbd’s state fields as extension fields.
-  We deliberately do *not* migrate the per-kind arrays to docmap (backward-compat, and
-  they predate the format) — see Open Question 3.
+- **One data model, one renderer — docmap is it (no backward-compat carve-outs).** Every
+  command that lists or inventories docs builds a single in-memory **docmap** and then
+  renders it; `--json` serializes that docmap, and text mode runs it through one shared
+  renderer. This applies uniformly: `tbd docs list` / `tbd docs status`, the per-kind
+  `tbd guidelines/shortcut/template --list` (whose `--json` **changes** from today’s
+  flat array to a docmap — accepted, since we have no backward-compat requirement here),
+  and the bare `tbd docs` overview (a docmap rendered in summary form).
+  Single-doc reads (`tbd docs show`, the per-kind `<name>` readers) emit one docmap
+  *document entry* plus a `content` field — the same entry shape, so list and read never
+  drift. Because text and JSON derive from the same structure, they cannot disagree, and
+  adding a field or a state is a one-place change.
+  This is the systematic consistency the design optimizes for; see Resolved Decisions
+  21–22.
 - **`tbd-docs.md` is both a rendered manual and a forkable `reference` doc.** Its
   bundled source stays at the docs root (`packages/tbd/docs/tbd-docs.md`); the
   cache/kind-dir is `references/` and the lookup name is `tbd-docs`. The doc-sync map
@@ -1152,9 +1212,15 @@ shown literally — no patterns on values we control.
 
 ### Console output style contract
 
-Every `tbd docs` command obeys the conventions already used across tbd (verified against
-`output.ts`, `sections.ts`, and `doc-command-handler.ts`). This is the consistency
-anchor the user asked for; the maps below are just this contract applied:
+This contract is **authoritative and enforced structurally, not by convention**. Doc
+commands must not hand-roll `console.log` formatting; all of them route through a single
+shared rendering layer (extend `output.ts` / `sections.ts`, or a small `docs-render.ts`
+that builds on them) that owns list-entry layout, state markers, the summary line,
+tables, and the overview.
+One docmap in, one renderer out (see the consistency point above), so there is exactly
+one place to change any of these and no command can drift from another.
+Every rule below is verified against today’s `output.ts`, `sections.ts`, and
+`doc-command-handler.ts`; the maps that follow are just this contract applied:
 
 - **Section headers** are `formatHeading()` — UPPERCASE, bold (`INTEGRATIONS`,
   `HEALTH CHECKS`); bodies indent two spaces.
@@ -1171,7 +1237,10 @@ anchor the user asked for; the maps below are just this contract applied:
   (Staleness and `conflicted` are lifecycle facts shown by `tbd docs status` / the
   summary line, not list markers — list markers describe ownership.)
 - **Provenance on serve** is one dim line to **stderr** (so piped stdout stays clean),
-  reusing the existing stderr-note channel: `(serving forked copy: [PATH])`.
+  reusing the existing stderr-note channel: `(serving forked copy: [PATH])`. It is **on
+  by default** (suppressed only by `--quiet`/`--json`), deliberately not gated behind
+  `--verbose` — the small amount of extra context helps an agent remember which docs are
+  customized in a session.
 - **Outcomes**: success → `✓ <msg>` green to stdout; refusal/error → `✗ <msg>` red to
   stderr + non-zero exit; preview → `[DRY-RUN] <msg>` yellow (the `output.dryRun` form).
 - **`--json`** goes through `output.data(...)`: docmap object for `list`/`status`,
@@ -1285,6 +1354,11 @@ $ tbd docs list --json
 }
 ? 0
 ```
+
+`tbd guidelines --list --json` (and `shortcut`/`template`) emit the **same** docmap
+object, filtered to that kind — the consistency the design mandates: one shape, one
+renderer, so the only difference between these commands’ output is the set of documents
+in it.
 
 ### `tbd docs show` / `tbd docs manual`
 
@@ -1402,7 +1476,7 @@ Updated 2 forked docs:
   ⚠ acme-style    your changes conflict with upstream
       re-run with one of:
         tbd docs update acme-style --merge    # combine, then resolve conflict markers
-        tbd docs update acme-style --rebase   # keep your version, advance the fork point
+        tbd docs update acme-style --keep-ours   # keep your version, advance the fork point
 ? 0
 
 $ tbd docs update acme-style --merge
@@ -1410,7 +1484,7 @@ $ tbd docs update acme-style --merge
   Resolve the <<<<<<< / ======= / >>>>>>> markers, then the doc returns to 'customized'.
 ? 0
 
-$ tbd docs update acme-style --rebase
+$ tbd docs update acme-style --keep-ours
 ✓ acme-style   kept your version; fork point advanced to current upstream.
 ? 0
 
@@ -1493,6 +1567,7 @@ bead, blocked on the phase that ships the behavior:
 | --- | --- | --- |
 | `cli-help-all.tryscript.md` (≈7 `tbd docs` blocks: `--help` `[topic]`/`--section`, `--list` sections, positional topic, `--section` content, `--list --json`, bare manual) | **Rewrite** to the new surface: `docs` subcommand help; no top-level `--section`/section-`--list`; section nav becomes `tbd docs show tbd-docs --section`. Largest single change. | 1–2 |
 | `cli-doc-output.tryscript.md` ("Docs Command" block: `tbd docs --list` → “Available documentation sections:”) | **Rewrite** to `tbd docs list` (cross-kind, state markers) + `--json` docmap. | 2 |
+| `cli-doc-output.tryscript.md` ("Guidelines --json returns structured data" block: flat `[ { … } ]` array) | **Rewrite**: per-kind `--list --json` now emits a docmap object, not an array (Resolved Decision 21). The per-kind `--list` *text* blocks stay (same canonical format), so only the JSON assertion changes. | 2 |
 | `golden-output.test.ts` (`tbd docs --all` inline snapshot) | **Replace** with the bare `tbd docs` overview snapshot (`--all` folded into the overview). | 2 |
 | `golden-output.test.ts` ("post-setup What’s Next") | **Extend** to assert the Docs menu lines. | 4 |
 | `cli-orientation-golden.tryscript.md` (`tbd status`) | **Unchanged** for zero forks (verifies the guarantee); **add** a new forked-state status golden in a fixture with a fork. | 1 |
@@ -1511,9 +1586,9 @@ decision-table units + a `cli-docs-update.tryscript.md` upgrade/merge scenario (
 - **Unit (vitest)**: manifest round-trip; hash normalization (CRLF/LF); the full state
   matrix as a table-driven test (base hash × file hash × cache hash × conflicted flag →
   state); the update decision table row by row and per strategy (replace, clean
-  three-way, conflict skip, `--merge` markers + base advance, `--rebase` keep-file +
+  three-way, conflict skip, `--merge` markers + base advance, `--keep-ours` keep-file +
   base advance, strategy-flag mutual exclusion, conflicted-pending skip, missing-base
-  repair via `--rebase`, orphaned); marker auto-clear; f04→f05 migration; the ported
+  repair via `--keep-ours`, orphaned); marker auto-clear; f04→f05 migration; the ported
   docref spec-mirror tests; local_dirs precedence ordering; source-root grouping (N docs
   from one repo → one fetch; per-group failure isolation; cache preserved on fetch
   failure); git revision/tag capture in the manifest; `--json` output validating against
