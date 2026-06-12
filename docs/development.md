@@ -367,6 +367,11 @@ $GIT_COMMON_DIR/tbd/                # Shared by all linked worktrees of this rep
         └── meta.yml
 ```
 
+`.tbd/doc-forks/` is committed and holds only fork *tracking state*: the `forks.yml`
+manifest plus `base/` snapshots that `tbd docs update` three-way merges against.
+The doc **fork dir** itself lives deliberately *outside* `.tbd/` — default `docs/tbd/`,
+tracked in git like any other docs.
+
 **CRITICAL**: Issues must be written to the **worktree path**
 (`$GIT_COMMON_DIR/tbd/data-sync-worktree/.tbd/data-sync/issues/`), NOT the direct path
 (`.tbd/data-sync/issues/`). The direct path is gitignored and exists only as a legacy
@@ -452,6 +457,12 @@ Run the e2e worktree scenarios:
 ```bash
 npx tryscript run tests/cli-sync-worktree-scenarios.tryscript.md
 ```
+
+### Testing Forkable Docs
+
+Forkable-docs behavior (fork/unfork/update/diff/status) is covered by
+`tests/cli-docs-fork.tryscript.md`, `tests/cli-docs-update.tryscript.md`, and
+`tests/fork-cross-platform-e2e.test.ts` (run from `packages/tbd/`).
 
 <!-- This document follows common-doc-guidelines.md.
 See github.com/jlevy/practical-prose and review guidelines before editing.

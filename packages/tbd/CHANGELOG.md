@@ -1,5 +1,74 @@
 # get-tbd
 
+## Unreleased (0.3.0)
+
+The headline is **forkable docs**: every doc tbd serves (guidelines, shortcuts,
+templates, and the new reference docs) can now be forked into your repo as visible,
+git-tracked files, edited in place, and reconciled with upstream after upgrades.
+The repository format bumps `f04` → `f05`; the migration is **stamp-only** (it stamps
+`tbd_format: f05` in `.tbd/config.yml` and refreshes generated metadata — fork artifacts
+appear only when you first fork something), so upgrading is safe and revertible.
+
+### Features
+
+- **Forkable docs** (`tbd docs fork` / `unfork` / `update` / `diff` / `status`): fork
+  any managed doc into a visible fork dir (`docs/tbd/`, laid out by kind with a
+  generated `README.md` index, tracked in git).
+  Your copy shadows the hidden cache everywhere the doc is served; forking changes
+  nothing about how docs work — it only makes them explicit and editable.
+  - `tbd docs update` three-way merges upstream changes into your copies after an
+    upgrade: `--merge` combines and writes conflict markers to resolve, `--keep-ours`
+    keeps your version and advances the fork point; `--dry-run` previews and lists
+    conflicts.
+  - `tbd docs diff <name>` compares your copy against upstream (default), against its
+    recorded base (`--base`, what you changed), or base against upstream (`--upstream`,
+    incoming changes).
+  - `tbd docs status` reports every fork’s state (`forked`, `customized`, `conflicted`,
+    `missing`, plus `local` for your own files in the fork dir).
+    States are recomputed from content hashes — no git operation can desynchronize
+    tracking. Fork state lives in the committed `.tbd/doc-forks/` (a `forks.yml` manifest
+    plus `base/` snapshots); the fork dir itself stays outside `.tbd/`.
+- **The `tbd docs` surface is re-homed around managed docs**: bare `tbd docs` is now the
+  status overview, and `tbd docs list` lists all docs across kinds with
+  `[forked]`/`[customized]`/`[local]` markers.
+  The CLI manual moved to `tbd docs show tbd-docs` (alias: `tbd docs manual`); the old
+  `tbd docs --list` / `--all` / `--section` flags are retired in favor of
+  `tbd docs show tbd-docs --sections` / `--section <name>`. `tbd docs show <name>` reads
+  any doc by name, kind-agnostically.
+  `tbd docs sync` refreshes the gitignored docs cache (`tbd sync --docs` remains as a
+  deprecated alias).
+- **docref + docmap formats, and a new `reference` doc kind**: every doc source is
+  addressed by a **docref** — one URI-like grammar (`internal:…`, anchored local paths,
+  URLs, `github:owner/repo@ref//path`) used for `docs_cache.files` values and
+  fork-manifest `source` values alike — and every doc listing is one **docmap**
+  (`docmap/0.1`) rendered as text or `--json`: `tbd docs list` / `tbd docs status`, the
+  bare-`tbd docs` overview, and the per-kind `--list` (whose `--json` output changes
+  from a flat array to a docmap).
+  Both formats ship as docs of the new `reference` kind — read them with
+  `tbd docs show docref-format` and `tbd docs show docmap-format` — alongside the manual
+  (`tbd-docs`) and design doc (`tbd-design`), which are now managed docs too.
+- **Fork drift is visible, never auto-fixed**: `tbd status` gains a `Docs:` line when
+  forks exist (forked/customized counts, pending upstream updates, conflicts, missing
+  files), and `tbd sync` prints a one-line notice when forked docs are stale,
+  conflicted, or missing.
+  Only the explicit `tbd docs update` ever modifies tracked files.
+
+### Guidelines and content
+
+These ship inside the package and are read by agents via `tbd docs show …`,
+`tbd shortcut …`, and `tbd setup`:
+
+- **New `suggest-upstream-improvements` shortcut**: the playbook for reviewing fork
+  customizations (`tbd docs status --json`, `tbd docs diff <name> --base`), deciding
+  what generalizes, contributing it upstream, and re-syncing with `tbd docs update` once
+  merged.
+- **New `docref-format` and `docmap-format` reference docs**: the specifications for the
+  two formats above, forkable like any other doc.
+- **Onboarding and agent surface updated for forkable docs**: `welcome-user` now makes
+  the two-axis offer (scope: all standard guidelines or a stack subset; visibility:
+  hidden cache or forked into `docs/tbd/`), and the agent skill routes fork, update, and
+  missing-file requests to the new commands.
+
 ## 0.2.3
 
 A drop-in patch on top of v0.2.2. **No on-disk format change** (`f04` stays `f04`), so
