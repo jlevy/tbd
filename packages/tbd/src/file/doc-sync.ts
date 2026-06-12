@@ -14,6 +14,7 @@ import { fileURLToPath } from 'node:url';
 import { TBD_DOCS_DIR } from '../lib/paths.js';
 import { fetchWithGhFallback, gitDocRefToRawUrl } from './github-fetch.js';
 import { tryParseDocRef } from '../docref/index.js';
+import { gitSafeEnv } from '../lib/git-env.js';
 import { readConfig, writeConfig, updateLocalState } from './config.js';
 
 // =============================================================================
@@ -98,6 +99,7 @@ async function captureGitRevision(
     const { promisify } = await import('node:util');
     const out = await promisify(execFile)('git', ['ls-remote', repoUrl, src.ref ?? 'HEAD'], {
       timeout: 10_000,
+      env: gitSafeEnv(),
     });
     const sha = out.stdout.split('\t')[0]?.trim();
     return sha && /^[0-9a-f]{40}$/.test(sha) ? sha : null;

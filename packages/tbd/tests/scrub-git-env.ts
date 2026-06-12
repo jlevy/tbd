@@ -17,16 +17,7 @@
  * invoked. The pre-push hook also scrubs them (see lefthook.yml) as defense in
  * depth; either layer alone closes the hole, but both are cheap.
  */
-const GIT_LOCATION_VARS = [
-  'GIT_DIR',
-  'GIT_WORK_TREE',
-  'GIT_INDEX_FILE',
-  'GIT_COMMON_DIR',
-  'GIT_OBJECT_DIRECTORY',
-  'GIT_ALTERNATE_OBJECT_DIRECTORIES',
-  'GIT_PREFIX',
-  'GIT_NAMESPACE',
-];
+import { GIT_LOCATION_VARS } from '../src/lib/git-env.js';
 
 for (const name of GIT_LOCATION_VARS) {
   delete process.env[name];

@@ -31,6 +31,8 @@
  */
 
 import { execFile } from 'node:child_process';
+
+import { gitSafeEnv } from './git-env.js';
 import { homedir } from 'node:os';
 import { isAbsolute, join, relative, resolve, sep } from 'node:path';
 import { promisify } from 'node:util';
@@ -149,6 +151,7 @@ export async function resolveGitCommonDir(cwd: string): Promise<string> {
   let output: string;
   try {
     const { stdout } = await execFileAsync('git', ['-C', cwd, 'rev-parse', '--git-common-dir'], {
+      env: gitSafeEnv(),
       maxBuffer: 1024 * 1024,
     });
     output = stdout.trim();
@@ -156,7 +159,7 @@ export async function resolveGitCommonDir(cwd: string): Promise<string> {
     const { stdout } = await execFileAsync(
       'git',
       ['-C', cwd, 'rev-parse', '--path-format=absolute', '--git-common-dir'],
-      { maxBuffer: 1024 * 1024 },
+      { env: gitSafeEnv(), maxBuffer: 1024 * 1024 },
     );
     output = stdout.trim();
   }

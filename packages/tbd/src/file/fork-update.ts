@@ -8,6 +8,8 @@
  */
 
 import { execFile } from 'node:child_process';
+
+import { gitSafeEnv } from '../lib/git-env.js';
 import { mkdtemp, rm, readFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -74,25 +76,30 @@ export async function mergeContents(
     ];
 
     return await new Promise<MergeResult>((resolve, reject) => {
-      execFile('git', args, { maxBuffer: MERGE_MAX_BUFFER }, (error, stdout, stderr) => {
-        if (error) {
-          const code = (error as NodeJS.ErrnoException & { code?: number }).code;
-          // git merge-file exits with the number of conflicts, truncated to 127.
-          // Anything above that (255 = real error, e.g. binary input) must NOT be
-          // read as a conflict count: stdout is empty on errors, and writing it
-          // would clobber the forked file.
-          if (typeof code === 'number' && code > 0 && code <= 127) {
-            resolve({ merged: stdout, conflicts: code });
+      execFile(
+        'git',
+        args,
+        { maxBuffer: MERGE_MAX_BUFFER, env: gitSafeEnv() },
+        (error, stdout, stderr) => {
+          if (error) {
+            const code = (error as NodeJS.ErrnoException & { code?: number }).code;
+            // git merge-file exits with the number of conflicts, truncated to 127.
+            // Anything above that (255 = real error, e.g. binary input) must NOT be
+            // read as a conflict count: stdout is empty on errors, and writing it
+            // would clobber the forked file.
+            if (typeof code === 'number' && code > 0 && code <= 127) {
+              resolve({ merged: stdout, conflicts: code });
+              return;
+            }
+            const detail = String(stderr ?? '').trim();
+            reject(
+              new Error(`git merge-file failed${detail ? `: ${detail}` : ''}`, { cause: error }),
+            );
             return;
           }
-          const detail = String(stderr ?? '').trim();
-          reject(
-            new Error(`git merge-file failed${detail ? `: ${detail}` : ''}`, { cause: error }),
-          );
-          return;
-        }
-        resolve({ merged: stdout, conflicts: 0 });
-      });
+          resolve({ merged: stdout, conflicts: 0 });
+        },
+      );
     });
   } finally {
     await rm(dir, { recursive: true, force: true });
@@ -120,19 +127,24 @@ export async function diffContents(
     ]);
     return await new Promise<string>((resolve, reject) => {
       const args = ['diff', '--no-index', '--no-color', '--no-prefix', leftName, rightName];
-      execFile('git', args, { cwd: dir, maxBuffer: MERGE_MAX_BUFFER }, (error, stdout) => {
-        if (error) {
-          const code = (error as NodeJS.ErrnoException & { code?: number }).code;
-          // git diff exits 1 when the files differ — that's the normal case.
-          if (code === 1) {
-            resolve(stdout);
+      execFile(
+        'git',
+        args,
+        { cwd: dir, maxBuffer: MERGE_MAX_BUFFER, env: gitSafeEnv() },
+        (error, stdout) => {
+          if (error) {
+            const code = (error as NodeJS.ErrnoException & { code?: number }).code;
+            // git diff exits 1 when the files differ — that's the normal case.
+            if (code === 1) {
+              resolve(stdout);
+              return;
+            }
+            reject(error instanceof Error ? error : new Error('git diff failed'));
             return;
           }
-          reject(error instanceof Error ? error : new Error('git diff failed'));
-          return;
-        }
-        resolve(stdout);
-      });
+          resolve(stdout);
+        },
+      );
     });
   } finally {
     await rm(dir, { recursive: true, force: true });
