@@ -1096,7 +1096,29 @@ sync:
   branch: tbd-sync           # Sync branch name
   remote: origin             # Remote name
   auto_sync: true            # Auto-sync after writes
+
+docs_cache:
+  files:                     # Docs synced into the cache: destination -> docref
+    guidelines/python-rules.md: internal:guidelines/python-rules.md
+    guidelines/my-team-rules.md: github:my-org/docs@main//rules.md
+  lookup_path:               # Search paths for doc lookup (earlier wins)
+    - .tbd/docs/shortcuts/system
+    - .tbd/docs/shortcuts/standard
 ```
+
+`docs_cache.files` values — like the fork manifest’s `source` values in
+`.tbd/doc-forks/forks.yml` — are **docrefs**: one URI-like address grammar
+(`internal:…`, anchored local paths, URLs, `github:owner/repo@ref//path`). For the full
+grammar see `tbd docs show docref-format`; for the docmap structure that doc listings
+and their `--json` output follow, see `tbd docs show docmap-format`.
+
+Two further `docs_cache` keys are reserved in the f05 format era but **planned, not yet
+read**:
+
+- `docs_cache.fork_dir` — override the fork-dir location (currently fixed at
+  `docs/tbd/`).
+- `docs_cache.local_dirs` — extra local doc directories (as docrefs) served between the
+  fork dir and the cache.
 
 ## Priority Scale
 

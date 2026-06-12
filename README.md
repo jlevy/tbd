@@ -163,8 +163,8 @@ You just talk naturally.
 
 > [!NOTE]
 > For full technical details, see the [reference docs](packages/tbd/docs/tbd-docs.md)
-> (run `tbd docs`) or the full [design doc](packages/tbd/docs/tbd-design.md)
-> (`tbd design`).
+> (run `tbd docs show tbd-docs`) or the full
+> [design doc](packages/tbd/docs/tbd-design.md) (`tbd design`).
 
 - **Git-native:** Beads live in your repo, synced to a separate, dedicated `tbd-sync`
   branch. Your code history stays clean—no bead churn polluting your logs.
@@ -309,9 +309,9 @@ publish the upgrade to your team.
 Teammates still on an older tbd then see “This repository requires a newer version of
 tbd” until they run the same two commands.
 Issue data is never touched by an upgrade, and the migration is revertible: see
-“Aborting a Format Upgrade” under Troubleshooting in `tbd docs`. If you have forked docs
-in `docs/tbd/`, `tbd sync` prints a notice when their upstream versions moved — run
-`tbd docs update` to merge the changes in.
+“Aborting a Format Upgrade” under Troubleshooting in the CLI manual (`tbd docs manual`).
+If you have forked docs in `docs/tbd/`, `tbd sync` prints a notice when their upstream
+versions moved — run `tbd docs update` to merge the changes in.
 
 ### Team Setup
 
@@ -415,9 +415,19 @@ tbd template --list              # List all templates
 tbd template plan-spec           # Get a plan spec template
 
 # Add your own from any URL
+# (per-kind aliases for the upcoming unified `tbd docs add <docref>`)
 tbd guidelines --add=<url> --name=<name>
 tbd shortcut --add=<url> --name=<name>
 tbd template --add=<url> --name=<name>
+```
+
+**Forkable: see them in your repo.** By default these docs are served from a hidden,
+gitignored cache. Fork any of them into `docs/tbd/` and they become visible on GitHub,
+reviewable in PRs, and editable in place—tbd serves your copy instead, and
+`tbd docs update` merges upstream improvements into it after an upgrade:
+
+```bash
+tbd docs fork --all              # Or fork by name: tbd docs fork <name> [<name>...]
 ```
 
 **Available shortcuts:**
@@ -501,7 +511,8 @@ Every command supports these flags for automation:
 ```bash
 tbd                          # Full orientation and workflow guidance
 tbd readme                   # This file
-tbd docs                     # Full CLI reference
+tbd docs                     # Managed-docs overview (cached, forked, and local docs)
+tbd docs show tbd-docs       # Full CLI reference (the manual; alias: tbd docs manual)
 ```
 
 Or read online:
