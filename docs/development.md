@@ -345,6 +345,7 @@ the full specification.
 │ Committed to the repo:
 ├── config.yml                      # Project configuration
 ├── .gitignore                      # Controls what's gitignored below
+├── doc-forks/                      # Fork manifest + base snapshots (f05; tbd-design.md §2.9)
 ├── workspaces/                     # Persistent state (outbox, named workspaces)
 │   └── outbox/                     # Sync failure recovery data
 │

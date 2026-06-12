@@ -435,6 +435,7 @@ class DocsUpdateHandler extends BaseCommand {
           baseContent: await readForkBase(tbdRoot, entry),
           upstreamContent: await upstreamFor(entry),
           strategy,
+          runningVersion: VERSION,
         });
 
         const { newFileContent, newBaseContent } = result;
@@ -453,6 +454,9 @@ class DocsUpdateHandler extends BaseCommand {
           if (newBaseContent !== undefined) {
             await writeBaseContent(tbdRoot, entry.kind, entry.name, newBaseContent);
             updated.base_hash = hashContent(newBaseContent);
+            // The base records its fork point's tbd version so older clients
+            // can detect (and refuse) a downgrade — see the update guard.
+            updated.tbd_version = VERSION;
           }
           if (result.setConflicted) {
             updated.conflicted = true;

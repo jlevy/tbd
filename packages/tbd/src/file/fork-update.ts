@@ -123,6 +123,26 @@ export async function diffContents(
   }
 }
 
+/**
+ * Loose semver comparison on major.minor.patch (prerelease ignored).
+ * Returns null when either version cannot be parsed — callers must not guard
+ * on an unparseable version.
+ */
+export function compareVersionsLoose(a: string, b: string): -1 | 0 | 1 | null {
+  const parse = (v: string): number[] | null => {
+    const m = /^(\d+)\.(\d+)\.(\d+)/.exec(v.trim());
+    return m ? [Number(m[1]), Number(m[2]), Number(m[3])] : null;
+  };
+  const pa = parse(a);
+  const pb = parse(b);
+  if (!pa || !pb) return null;
+  for (let i = 0; i < 3; i++) {
+    if (pa[i]! < pb[i]!) return -1;
+    if (pa[i]! > pb[i]!) return 1;
+  }
+  return 0;
+}
+
 /** Update strategy chosen by the user for non-clean cases. */
 export type UpdateStrategy = 'default' | 'merge' | 'keep-ours';
 
@@ -139,7 +159,8 @@ export type UpdateAction =
   | 'skip-unresolved'
   | 'skip-orphaned'
   | 'skip-missing'
-  | 'skip-no-base';
+  | 'skip-no-base'
+  | 'skip-newer-base';
 
 export interface UpdateOneInput {
   entry: ForkEntry;
@@ -150,6 +171,13 @@ export interface UpdateOneInput {
   /** Current upstream/cache content, or null if the source is gone (orphaned). */
   upstreamContent: string | null;
   strategy: UpdateStrategy;
+  /**
+   * The running tbd version. When the entry's base was advanced by a NEWER tbd
+   * (entry.tbd_version > runningVersion), this client's "upstream" is older than
+   * the fork point and an update would silently downgrade the doc — so the doc
+   * is skipped under every strategy until the client upgrades.
+   */
+  runningVersion?: string;
 }
 
 export interface UpdateOneResult {
@@ -189,6 +217,23 @@ export async function updateOne(input: UpdateOneInput): Promise<UpdateOneResult>
     return {
       action: 'skip-unresolved',
       message: `${name}: unresolved conflict markers — resolve them first`,
+    };
+  }
+
+  // Version-skew guard: if the base was advanced by a newer tbd than this one,
+  // this client's bundled "upstream" is OLDER than the fork point. Updating
+  // would downgrade the doc (and ping-pong the base across the team), so the
+  // doc is skipped under every strategy until this client upgrades.
+  if (
+    input.runningVersion !== undefined &&
+    entry.tbd_version !== undefined &&
+    compareVersionsLoose(input.runningVersion, entry.tbd_version) === -1
+  ) {
+    return {
+      action: 'skip-newer-base',
+      message:
+        `${name}: fork point was set by tbd ${entry.tbd_version} (you have ` +
+        `${input.runningVersion}) — upgrade tbd before updating this doc`,
     };
   }
 

@@ -213,3 +213,68 @@ describe('updateOne decision table', () => {
     expect(r.newBaseContent).toBe(UPSTREAM_NONCONFLICT);
   });
 });
+
+describe('version-skew guard', () => {
+  const UPSTREAM_OLDER = 'line one\nline two\n'; // this client's (older) bundle
+
+  it('skips a doc whose base was advanced by a newer tbd, under every strategy', async () => {
+    for (const strategy of ['default', 'merge', 'keep-ours'] as const) {
+      const r = await updateOne({
+        entry: entry({ tbd_version: '0.9.0' }),
+        forkContent: BASE,
+        baseContent: BASE,
+        upstreamContent: UPSTREAM_OLDER, // differs from base -> would look "stale"
+        strategy,
+        runningVersion: '0.3.0',
+      });
+      expect(r.action).toBe('skip-newer-base');
+      expect(r.newFileContent).toBeUndefined();
+      expect(r.newBaseContent).toBeUndefined();
+      expect(r.message).toContain('upgrade tbd');
+    }
+  });
+
+  it('proceeds when the running tbd is the same or newer than the fork point', async () => {
+    for (const v of ['0.9.0', '1.0.0']) {
+      const r = await updateOne({
+        entry: entry({ tbd_version: '0.9.0' }),
+        forkContent: BASE,
+        baseContent: BASE,
+        upstreamContent: 'line one\nline two\nline three plus\n',
+        strategy: 'default',
+        runningVersion: v,
+      });
+      expect(r.action).toBe('replaced');
+    }
+  });
+
+  it('does not guard on unparseable or absent versions', async () => {
+    const noEntryVersion = await updateOne({
+      entry: entry(),
+      forkContent: BASE,
+      baseContent: BASE,
+      upstreamContent: 'changed\n',
+      strategy: 'default',
+      runningVersion: '0.3.0',
+    });
+    expect(noEntryVersion.action).toBe('replaced');
+
+    const weird = await updateOne({
+      entry: entry({ tbd_version: 'development' }),
+      forkContent: BASE,
+      baseContent: BASE,
+      upstreamContent: 'changed\n',
+      strategy: 'default',
+      runningVersion: '0.3.0',
+    });
+    expect(weird.action).toBe('replaced');
+  });
+
+  it('compareVersionsLoose ignores prerelease and rejects garbage', async () => {
+    const { compareVersionsLoose } = await import('../src/file/fork-update.js');
+    expect(compareVersionsLoose('0.2.3-dev.333.abc', '0.2.3')).toBe(0);
+    expect(compareVersionsLoose('0.2.3', '0.10.0')).toBe(-1);
+    expect(compareVersionsLoose('1.0.0', '0.9.9')).toBe(1);
+    expect(compareVersionsLoose('development', '0.1.0')).toBeNull();
+  });
+});
