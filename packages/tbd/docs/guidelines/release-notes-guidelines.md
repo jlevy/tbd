@@ -1,6 +1,7 @@
 ---
 title: Release Notes Guidelines
 description: Guidelines for writing clear, accurate release notes
+category: general
 ---
 # Release Notes Guidelines
 

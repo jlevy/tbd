@@ -2,6 +2,7 @@
 title: Agent Skills and CLI Integration Patterns
 description: How to write skills and agent-integrated CLIs that work across Claude Code, Codex, and the broader coding-agent ecosystem—a simple baseline plus references for advanced, multi-subcommand tools
 author: Joshua Levy (github.com/jlevy) with LLM assistance
+category: general
 ---
 # Agent Skills and CLI Integration Patterns
 

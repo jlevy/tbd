@@ -2,6 +2,7 @@
 title: Bun Monorepo Patterns
 description: Modern patterns for Bun-based TypeScript monorepo architecture
 author: Joshua Levy (github.com/jlevy) with LLM assistance
+category: typescript
 ---
 # Bun Monorepo Patterns
 

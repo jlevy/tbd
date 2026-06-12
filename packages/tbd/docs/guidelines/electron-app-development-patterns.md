@@ -1,6 +1,7 @@
 ---
 title: Electron App Development Patterns
 description: Guidelines for Electron development ecosystems including npm, pnpm, and Bun, with security baselines and framework comparisons
+category: electron
 ---
 # Electron App Development Patterns
 

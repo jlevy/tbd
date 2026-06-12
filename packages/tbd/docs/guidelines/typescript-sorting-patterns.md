@@ -2,6 +2,7 @@
 title: TypeScript Sorting Patterns
 description: Deterministic sorting patterns and comparison chains for TypeScript
 author: Joshua Levy (github.com/jlevy) with LLM assistance
+category: typescript
 ---
 # TypeScript Sorting Patterns
 

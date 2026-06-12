@@ -2,6 +2,7 @@
 title: Engineering Agent Principles
 description: Core principles for AI agents acting as senior engineers—objectivity and communication conduct plus the engineering process (detailed understanding, verification, end-to-end ownership, scope discipline, tracking future work, and acting versus seeking clarification)
 author: Joshua Levy (github.com/jlevy) with LLM assistance
+category: general
 ---
 # Engineering Agent Principles
 
