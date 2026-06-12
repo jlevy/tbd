@@ -71,6 +71,7 @@ describe('golden output tests', { timeout: isWindows ? 60000 : 15000 }, () => {
 
           Hidden (default):  keep the cache as-is — zero repo footprint
           Curated:           tbd docs fork <name> [...]  fork chosen docs into docs/tbd/
+                             tbd docs fork --category=<name>  (general, typescript, python, convex, electron)
           Everything:        tbd docs fork --all         all docs, visible and editable
 
           Browse / read: tbd docs list / tbd docs show <name>
@@ -100,6 +101,7 @@ describe('golden output tests', { timeout: isWindows ? 60000 : 15000 }, () => {
           '  Guidelines are active from the cache. Three postures, all serving the same docs:',
           '  Hidden (default):  keep the cache as-is — zero repo footprint',
           '  Curated:           tbd docs fork <name> [...]  fork chosen docs into docs/tbd/',
+          '                     tbd docs fork --category=<name>  (general, typescript, python, convex, electron)',
           '  Everything:        tbd docs fork --all         all docs, visible and editable',
           '  Browse / read: tbd docs list / tbd docs show <name>',
         ].join('\n'),
@@ -208,11 +210,17 @@ describe('golden output tests', { timeout: isWindows ? 60000 : 15000 }, () => {
       expect(tsResult.stdout).toContain('typescript-rules');
       expect(tsResult.stdout).not.toContain('python-rules');
 
-      // Testing category should include tdd guidelines
-      const testingResult = runTbd(['guidelines', '--list', '--category', 'testing']);
-      expect(testingResult.status).toBe(0);
-      expect(testingResult.stdout).toContain('general-tdd-guidelines');
-      expect(testingResult.stdout).not.toContain('typescript-rules');
+      // The old name-inferred 'testing' category is retired: declared
+      // frontmatter categories only, with a clear error for unknown values.
+      const retired = runTbd(['guidelines', '--list', '--category', 'testing']);
+      expect(retired.status).not.toBe(0);
+      expect(retired.stderr + retired.stdout).toContain('Unknown category');
+
+      // TDD/testing guidelines live in 'general' (declared in frontmatter).
+      const generalResult = runTbd(['guidelines', '--list', '--category', 'general']);
+      expect(generalResult.status).toBe(0);
+      expect(generalResult.stdout).toContain('general-tdd-guidelines');
+      expect(generalResult.stdout).not.toContain('typescript-rules');
     });
   });
 

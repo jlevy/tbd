@@ -83,8 +83,8 @@ GitHub blob URLs are automatically converted to raw URLs.
 If direct fetch returns HTTP 403, the system falls back to `gh api` for authenticated
 access.
 User-added shortcuts are stored in `shortcuts/custom/` to keep them separate from
-bundled docs. (A unified `tbd docs add <docref>` form is planned; the per-kind flags
-remain as aliases.)
+bundled docs. The unified form is `tbd docs add <docref>` (the per-kind flags remain as
+aliases), and `docs_cache.local_dirs` can serve additional in-repo doc directories.
 
 <!-- This document follows common-doc-guidelines.md.
 See github.com/jlevy/practical-prose and review guidelines before editing.

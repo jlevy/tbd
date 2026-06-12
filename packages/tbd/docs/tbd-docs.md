@@ -156,7 +156,6 @@ The recommended way to initialize tbd and configure agent integrations.
 
 ```bash
 tbd setup --auto                  # Full setup with auto-detection (recommended)
-tbd setup --interactive           # Interactive setup with prompts
 tbd setup --from-beads            # Migrate from existing Beads setup
 ```
 
@@ -1112,13 +1111,15 @@ docs_cache:
 grammar see `tbd docs show docref-format`; for the docmap structure that doc listings
 and their `--json` output follow, see `tbd docs show docmap-format`.
 
-Two further `docs_cache` keys are reserved in the f05 format era but **planned, not yet
-read**:
+Two further `docs_cache` keys:
 
-- `docs_cache.fork_dir` — override the fork-dir location (currently fixed at
-  `docs/tbd/`).
-- `docs_cache.local_dirs` — extra local doc directories (as docrefs) served between the
-  fork dir and the cache.
+- `docs_cache.local_dirs` — an ordered list of `./`-prefixed local docrefs naming extra
+  in-repo doc directories, served between the fork dir and the cache.
+  Docs found there are first-class for reading (`list`, `show`, the per-kind readers,
+  with a `(serving local doc: …)` note) and report state `local`; they are not forkable
+  or updatable — they already live in the repo.
+- `docs_cache.fork_dir` — reserved in the f05 format era but **planned, not yet read**:
+  the fork-dir location is currently fixed at `docs/tbd/`.
 
 ## Priority Scale
 

@@ -28,17 +28,14 @@ import {
   printForkDriftNotice,
 } from '../lib/docs-sync-output.js';
 import { syncDocsWithDefaults } from '../../file/doc-sync.js';
+import { addDoc, type DocType } from '../../file/doc-add.js';
+import { parseDocRef } from '../../docref/index.js';
 import { DocCache } from '../../file/doc-cache.js';
-import {
-  DEFAULT_GUIDELINES_PATHS,
-  DEFAULT_REFERENCE_PATHS,
-  DEFAULT_SHORTCUT_PATHS,
-  DEFAULT_TEMPLATE_PATHS,
-  FORK_DIR,
-} from '../../lib/paths.js';
+import { FORK_DIR } from '../../lib/paths.js';
 import { readForkManifest, type ForkKind } from '../../file/fork-manifest.js';
 import { computeForkDriftSummary } from '../../file/doc-fork.js';
-import { servedEntryFor, loadServeContext } from '../lib/doc-serve.js';
+import { servedEntryFor, loadServeContext, effectiveServePaths } from '../lib/doc-serve.js';
+import { docsPostureMenuLines } from '../lib/docs-menu.js';
 import { createDocMap, type DocMapEntry } from '../../docmap/index.js';
 import type { DocSection } from '../../lib/types.js';
 import GithubSlugger from 'github-slugger';
@@ -54,14 +51,6 @@ const MANUAL_DOC_NAME = 'tbd-docs';
 const BUNDLED_ROOT_DOCS: Record<string, string> = {
   [MANUAL_DOC_NAME]: 'tbd-docs.md',
   'tbd-design': 'tbd-design.md',
-};
-
-/** Serving lookup paths per kind (fork dir first, so forks shadow the cache). */
-const SHOW_PATHS: Record<ForkKind, string[]> = {
-  guideline: DEFAULT_GUIDELINES_PATHS,
-  shortcut: DEFAULT_SHORTCUT_PATHS,
-  template: DEFAULT_TEMPLATE_PATHS,
-  reference: DEFAULT_REFERENCE_PATHS,
 };
 
 /**
@@ -153,17 +142,22 @@ class DocsOverviewHandler extends BaseCommand {
       const manifest = await readForkManifest(tbdRoot);
       const drift = await computeForkDriftSummary(tbdRoot, FORK_DIR, manifest);
 
-      const { files } = await loadServeContext(tbdRoot);
+      const { files, localDirs } = await loadServeContext(tbdRoot);
       let total = 0;
       const entries: DocMapEntry[] = [];
+      const seenLocal = new Set<string>();
       for (const kind of RESOLVABLE_KINDS) {
-        const cache = new DocCache(SHOW_PATHS[kind], tbdRoot);
+        const cache = new DocCache(effectiveServePaths(kind, localDirs), tbdRoot);
         await cache.load({ quiet: true });
-        const docs = cache.list();
-        total += docs.length;
-        if (this.ctx.json) {
-          for (const doc of docs) {
-            entries.push(servedEntryFor(tbdRoot, kind, doc, manifest, files).entry);
+        for (const doc of cache.list()) {
+          // local_dirs serve every kind; inventory counts each local doc once.
+          if (localDirs.includes(doc.sourceDir)) {
+            if (seenLocal.has(doc.path)) continue;
+            seenLocal.add(doc.path);
+          }
+          total += 1;
+          if (this.ctx.json) {
+            entries.push(servedEntryFor(tbdRoot, kind, doc, manifest, files, localDirs).entry);
           }
         }
       }
@@ -183,19 +177,15 @@ class DocsOverviewHandler extends BaseCommand {
         console.log(
           `  ${total} docs available in the cache (.tbd/docs/, gitignored); none forked into the repo.`,
         );
-        console.log(
-          '  Guidelines are active from the cache. Three postures, all serving the same docs:',
-        );
+        // One menu, shared with the setup Docs summary (docs-menu.ts).
+        const [intro, ...postures] = docsPostureMenuLines();
+        console.log(`  ${intro}`);
         console.log('');
-        console.log('  Hidden (default):  keep the cache as-is — zero repo footprint');
-        console.log(
-          `  Curated:           ${colors.bold('tbd docs fork <name> [...]')}  fork chosen docs into ${FORK_DIR}/`,
-        );
-        console.log(
-          `  Everything:        ${colors.bold('tbd docs fork --all')}         all docs, visible and editable`,
-        );
+        for (const line of postures.slice(0, -1)) {
+          console.log(`  ${line}`);
+        }
         console.log('');
-        console.log(`  Browse / read: tbd docs list / tbd docs show <name>`);
+        console.log(`  ${postures[postures.length - 1]}`);
         console.log(
           `  Learn more:    tbd docs show tbd-docs   (the manual; alias: tbd docs manual)`,
         );
@@ -258,9 +248,14 @@ class DocsShowHandler extends BaseCommand {
       } else {
         const requestedKind = parseKindOption(options.kind);
         const kinds = requestedKind ? [requestedKind] : RESOLVABLE_KINDS;
+        const {
+          manifest: showManifest,
+          files: showFiles,
+          localDirs,
+        } = await loadServeContext(tbdRoot);
         const matches: { kind: ForkKind; content: string; sourceDir: string; path: string }[] = [];
         for (const kind of kinds) {
-          const cache = new DocCache(SHOW_PATHS[kind], tbdRoot);
+          const cache = new DocCache(effectiveServePaths(kind, localDirs), tbdRoot);
           await cache.load({ quiet: true });
           const hit = cache.get(name);
           if (hit) {
@@ -271,6 +266,12 @@ class DocsShowHandler extends BaseCommand {
               path: hit.doc.path,
             });
           }
+        }
+        // local_dirs serve every kind, so one local file matches under each
+        // kind probe; identical paths are one doc, not an ambiguity.
+        const uniquePaths = new Set(matches.map((m) => m.path));
+        if (uniquePaths.size === 1 && matches.length > 1) {
+          matches.length = 1;
         }
         if (matches.length === 0) {
           if (bundledFallback) {
@@ -288,19 +289,21 @@ class DocsShowHandler extends BaseCommand {
           const match = matches[0]!;
           content = match.content;
           if (this.ctx.json && !options.sections) {
-            const { manifest, files } = await loadServeContext(tbdRoot);
             const { entry } = servedEntryFor(
               tbdRoot,
               match.kind,
               { name, content, sourceDir: match.sourceDir, path: match.path },
-              manifest,
-              files,
+              showManifest,
+              showFiles,
+              localDirs,
             );
             this.output.data({ ...entry, content });
             return;
           }
           if (match.sourceDir.startsWith(FORK_DIR)) {
-            provenance = relative(tbdRoot, match.path).split('\\').join('/');
+            provenance = `(serving forked copy: ${relative(tbdRoot, match.path).split('\\').join('/')})`;
+          } else if (localDirs.includes(match.sourceDir)) {
+            provenance = `(serving local doc: ${relative(tbdRoot, match.path).split('\\').join('/')})`;
           }
         }
       }
@@ -338,7 +341,7 @@ class DocsShowHandler extends BaseCommand {
       // Provenance to stderr so piped stdout stays clean (on by default;
       // the extra context helps agents recall which docs are customized).
       if (provenance && !this.ctx.quiet && !this.ctx.json) {
-        process.stderr.write(`(serving forked copy: ${provenance})\n`);
+        process.stderr.write(`${provenance}\n`);
       }
 
       if (shouldUseInteractiveOutput(this.ctx)) {
@@ -348,6 +351,61 @@ class DocsShowHandler extends BaseCommand {
         console.log(content);
       }
     }, 'Failed to show doc');
+  }
+}
+
+interface AddOptions {
+  kind?: string;
+  name?: string;
+}
+
+/**
+ * `tbd docs add <docref>`: register an external doc in the cache. The unified
+ * form of the per-kind --add flags (which remain as aliases); the canonical
+ * docref is what config records.
+ */
+class DocsAddHandler extends BaseCommand {
+  async run(docref: string, options: AddOptions): Promise<void> {
+    await this.execute(async () => {
+      const tbdRoot = await requireInit();
+      const kind = parseKindOption(options.kind);
+      if (!kind) {
+        throw new CLIError('--kind is required (guideline|shortcut|template|reference)');
+      }
+      const inferredName = (() => {
+        const parsed = parseDocRef(docref);
+        const p =
+          parsed.kind === 'url'
+            ? new URL(parsed.url).pathname
+            : 'path' in parsed
+              ? parsed.path
+              : '';
+        const base = p.split('/').filter(Boolean).pop() ?? '';
+        return base.endsWith('.md') ? base.slice(0, -3) : base;
+      })();
+      const finalName = options.name ?? inferredName;
+      if (!finalName) {
+        throw new CLIError('--name is required when it cannot be inferred from the docref');
+      }
+
+      console.log(`Adding ${kind}: ${finalName}`);
+      const result = await addDoc(tbdRoot, {
+        url: docref,
+        name: finalName,
+        docType: kind as DocType,
+      });
+      console.log(`  Source: ${result.source}`);
+      if (result.usedGhCli) {
+        const colors = this.output.getColors();
+        console.log(colors.dim('  (fetched via gh CLI due to direct access restriction)'));
+      }
+      this.output.success(`Added to .tbd/docs/${result.destPath}`);
+      console.log(`  Config updated (docs_cache.files): ${result.source}`);
+      console.log('');
+      console.log(
+        `Run 'tbd docs list' to verify, or 'tbd docs fork ${finalName}' to make it visible.`,
+      );
+    }, 'Failed to add doc');
   }
 }
 
@@ -398,6 +456,18 @@ docsCommand
       ...options,
       section: options.section ?? topic,
     });
+  });
+
+docsCommand
+  .command('add')
+  .description(
+    'Register an external doc in the cache by docref (URL, github:o/r@ref//path, ./local)',
+  )
+  .argument('<docref>', 'source docref')
+  .option('--kind <kind>', 'doc kind (guideline|shortcut|template|reference)')
+  .option('--name <name>', 'doc name (defaults to the source filename)')
+  .action(async (docref: string, options: AddOptions, command: Command) => {
+    await new DocsAddHandler(command).run(docref, options);
   });
 
 docsCommand

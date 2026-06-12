@@ -230,6 +230,7 @@ Run `tbd shortcut <name>` to use any of these shortcuts:
 | revise-all-architecture-docs | Comprehensive revision of all current architecture documents |
 | revise-architecture-doc | Update an architecture document to reflect current codebase state |
 | setup-github-cli | Ensure GitHub CLI (gh) is installed and working |
+| suggest-upstream-improvements | Review local doc-fork customizations and contribute the generally useful changes back upstream |
 | sync-failure-recovery | Handle tbd sync failures by saving to workspace and recovering later |
 | update-specs-status | Review active specs and sync their status with tbd issues |
 | welcome-user | Welcome message for users after tbd installation or setup |

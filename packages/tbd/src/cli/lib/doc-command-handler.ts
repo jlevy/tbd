@@ -14,7 +14,7 @@ import { GUIDELINES_AGENT_HEADER } from './doc-prompts.js';
 import { requireInit } from './errors.js';
 import { DocCache, SCORE_PREFIX_MATCH, type CachedDoc } from '../../file/doc-cache.js';
 import { addDoc, type DocType } from '../../file/doc-add.js';
-import { servedEntryFor, loadServeContext } from './doc-serve.js';
+import { servedEntryFor, loadServeContext, effectiveServePaths } from './doc-serve.js';
 import { createDocMap, type DocMapEntry } from '../../docmap/index.js';
 import { FORK_DIR } from '../../lib/paths.js';
 import { relative } from 'node:path';
@@ -77,7 +77,13 @@ export abstract class DocCommandHandler extends BaseCommand {
    */
   protected async initCache(): Promise<void> {
     this.tbdRoot = await requireInit();
-    this.cache = new DocCache(this.config.paths, this.tbdRoot);
+    // local_dirs slot between the fork dir and the cache for every kind.
+    const { localDirs } = await loadServeContext(this.tbdRoot);
+    const paths =
+      localDirs.length > 0
+        ? effectiveServePaths(this.config.docType, localDirs)
+        : this.config.paths;
+    this.cache = new DocCache(paths, this.tbdRoot);
     await this.cache.load({ quiet: this.ctx.quiet });
   }
 
@@ -135,9 +141,16 @@ export abstract class DocCommandHandler extends BaseCommand {
    * with per-kind extensions (size metrics; shadowed flag when applicable).
    */
   protected async docMapEntries(docs: CachedDoc[]): Promise<DocMapEntry[]> {
-    const { manifest, files } = await loadServeContext(this.tbdRoot);
+    const { manifest, files, localDirs } = await loadServeContext(this.tbdRoot);
     return docs.map((d) => {
-      const { entry } = servedEntryFor(this.tbdRoot, this.config.docType, d, manifest, files);
+      const { entry } = servedEntryFor(
+        this.tbdRoot,
+        this.config.docType,
+        d,
+        manifest,
+        files,
+        localDirs,
+      );
       return {
         ...entry,
         sizeBytes: d.sizeBytes,
@@ -162,9 +175,14 @@ export abstract class DocCommandHandler extends BaseCommand {
       });
       return;
     }
-    if (doc.sourceDir.startsWith(FORK_DIR) && !this.ctx.quiet) {
+    const { localDirs } = await loadServeContext(this.tbdRoot);
+    if (!this.ctx.quiet) {
       const rel = relative(this.tbdRoot, doc.path).split('\\').join('/');
-      process.stderr.write(`(serving forked copy: ${rel})\n`);
+      if (doc.sourceDir.startsWith(FORK_DIR)) {
+        process.stderr.write(`(serving forked copy: ${rel})\n`);
+      } else if (localDirs.includes(doc.sourceDir)) {
+        process.stderr.write(`(serving local doc: ${rel})\n`);
+      }
     }
     await this.outputDocContent(doc.content);
   }
@@ -300,7 +318,7 @@ export abstract class DocCommandHandler extends BaseCommand {
     }
 
     console.log(pc.green(`  Added to ${result.destPath}`));
-    console.log(pc.green(`  Config updated with source: ${result.rawUrl}`));
+    console.log(pc.green(`  Config updated with source: ${result.source}`));
     console.log('');
     console.log(`Run \`tbd ${this.config.typeNamePlural} --list\` to verify.`);
   }

@@ -370,6 +370,7 @@ describe('setup flows', { timeout: setupFlowTestTimeout }, () => {
       '  Guidelines are active from the cache. Three postures, all serving the same docs:',
       '  Hidden (default):  keep the cache as-is — zero repo footprint',
       '  Curated:           tbd docs fork <name> [...]  fork chosen docs into docs/tbd/',
+      '                     tbd docs fork --category=<name>  (general, typescript, python, convex, electron)',
       '  Everything:        tbd docs fork --all         all docs, visible and editable',
       '  Browse / read: tbd docs list / tbd docs show <name>',
     ].join('\n');

@@ -24,10 +24,6 @@ import {
   CACHE_REFERENCE_PATHS,
   CACHE_SHORTCUT_PATHS,
   CACHE_TEMPLATE_PATHS,
-  DEFAULT_GUIDELINES_PATHS,
-  DEFAULT_REFERENCE_PATHS,
-  DEFAULT_SHORTCUT_PATHS,
-  DEFAULT_TEMPLATE_PATHS,
   FORK_DIR,
   TBD_DOCS_DIR,
 } from '../../lib/paths.js';
@@ -57,7 +53,8 @@ import {
 } from '../../file/doc-fork.js';
 import { updateOne, diffContents, type UpdateStrategy } from '../../file/fork-update.js';
 import { createDocMap, type DocMapEntry } from '../../docmap/index.js';
-import { servedEntryFor } from '../lib/doc-serve.js';
+import { servedEntryFor, loadServeContext, effectiveServePaths } from '../lib/doc-serve.js';
+import { docCategory, parseCategoryOption } from '../../lib/doc-categories.js';
 
 /** Kinds that can be resolved from the cache and forked today. */
 export const RESOLVABLE_KINDS: ForkKind[] = ['guideline', 'shortcut', 'template', 'reference'];
@@ -109,6 +106,7 @@ function sourceDocRef(
 interface ForkOptions {
   kind?: string;
   all?: boolean;
+  category?: string[];
   force?: boolean;
   dryRun?: boolean;
   json?: boolean;
@@ -129,7 +127,11 @@ class DocsForkHandler extends BaseCommand {
       }
 
       if (options.dryRun) {
-        this.output.dryRun(`Would fork ${targets.length} doc(s) into ${FORK_DIR}/`, {
+        const catSuffix =
+          options.category && options.category.length > 0
+            ? ` (categories: ${options.category.join(', ')})`
+            : '';
+        this.output.dryRun(`Would fork ${targets.length} doc(s) into ${FORK_DIR}/${catSuffix}`, {
           docs: targets.map((t) => `${t.kind}/${t.name}`),
         });
         if (!this.ctx.json) {
@@ -198,13 +200,17 @@ class DocsForkHandler extends BaseCommand {
     const parsedKind = parseKindOption(options.kind);
     const kinds = parsedKind ? [parsedKind] : RESOLVABLE_KINDS;
 
-    if (options.all) {
+    const categories = (options.category ?? []).map(parseCategoryOption);
+    if (options.all || categories.length > 0) {
       const targets: ResolvedDoc[] = [];
       for (const kind of kinds) {
         const cache = await buildKindCache(kind, tbdRoot);
         for (const doc of cache.list()) {
           // Skip tbd-internal system shortcuts (skill-baseline etc.).
           if (kind === 'shortcut' && doc.sourceDir.endsWith('system')) continue;
+          if (categories.length > 0 && !categories.includes(docCategory(doc.frontmatter))) {
+            continue;
+          }
           targets.push({
             kind,
             name: doc.name,
@@ -588,14 +594,6 @@ class DocsUpdateHandler extends BaseCommand {
   }
 }
 
-/** Serving lookup paths per kind (fork dir prepended, so forks are reflected). */
-const KIND_SERVE_PATHS: Record<string, string[]> = {
-  guideline: DEFAULT_GUIDELINES_PATHS,
-  shortcut: DEFAULT_SHORTCUT_PATHS,
-  template: DEFAULT_TEMPLATE_PATHS,
-  reference: DEFAULT_REFERENCE_PATHS,
-};
-
 interface ListOptions {
   kind?: string;
   json?: boolean;
@@ -605,12 +603,11 @@ class DocsListHandler extends BaseCommand {
   async run(options: ListOptions): Promise<void> {
     await this.execute(async () => {
       const tbdRoot = await requireInit();
-      const manifest = await readForkManifest(tbdRoot);
-      const config = await readConfig(tbdRoot);
-      const files = config.docs_cache?.files;
+      const { manifest, files, localDirs } = await loadServeContext(tbdRoot);
       const parsedKind = parseKindOption(options.kind);
       const kinds = parsedKind ? [parsedKind] : RESOLVABLE_KINDS;
       const colors = this.output.getColors();
+      const seenLocal = new Set<string>();
 
       interface Row {
         name: string;
@@ -625,11 +622,22 @@ class DocsListHandler extends BaseCommand {
       const docmapEntries: DocMapEntry[] = [];
 
       for (const kind of kinds) {
-        const cache = new DocCache(KIND_SERVE_PATHS[kind] ?? [], tbdRoot);
+        const cache = new DocCache(effectiveServePaths(kind, localDirs), tbdRoot);
         await cache.load({ quiet: true });
         const rows: Row[] = [];
         for (const doc of cache.list()) {
-          const { entry, state, marker } = servedEntryFor(tbdRoot, kind, doc, manifest, files);
+          if (localDirs.includes(doc.sourceDir)) {
+            if (seenLocal.has(doc.path)) continue;
+            seenLocal.add(doc.path);
+          }
+          const { entry, state, marker } = servedEntryFor(
+            tbdRoot,
+            kind,
+            doc,
+            manifest,
+            files,
+            localDirs,
+          );
           rows.push({
             name: doc.name,
             title: doc.frontmatter?.title,
@@ -729,6 +737,7 @@ function mergedForkOptions(local: ForkOptions, command: Command): ForkOptions {
   const g = command.optsWithGlobals();
   return {
     all: local.all ?? g.all,
+    category: local.category,
     kind: local.kind ?? g.kind,
     force: local.force ?? g.force,
     dryRun: local.dryRun ?? g.dryRun,
@@ -744,8 +753,13 @@ export function registerForkSubcommands(docs: Command): void {
       'Fork managed docs into the repo (default docs/tbd/) so they are visible and editable',
     )
     .argument('[names...]', 'doc name(s) to fork')
-    .option('--kind <kind>', 'restrict to a kind (guideline|shortcut|template)')
+    .option('--kind <kind>', 'restrict to a kind (guideline|shortcut|template|reference)')
     .option('--all', 'fork all available docs')
+    .option(
+      '--category <name>',
+      'fork all docs in a category (repeatable: general|typescript|python|convex|electron)',
+      (value: string, previous: string[] = []) => [...previous, value],
+    )
     .option('--force', 'overwrite an existing non-fork file')
     .action(async (names: string[], options: ForkOptions, command: Command) => {
       await new DocsForkHandler(command).run(names, mergedForkOptions(options, command));

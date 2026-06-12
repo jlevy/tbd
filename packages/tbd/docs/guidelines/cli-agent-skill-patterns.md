@@ -623,7 +623,7 @@ Rules: reference commands **explicitly** (`mycli command arg`, never “see the 
 - **`--json` on every command**—one output path that renders human or machine output.
 - **`--brief`/`--quiet`** for constrained contexts and scripts.
 - **Idempotent `setup --auto`** (non-interactive) vs.
-  `setup --interactive` for humans; never let an agent get stuck on a prompt.
+  a guided setup for humans; never let an agent get stuck on a prompt.
 - **Actionable errors** that include the next command to run.
 - **Discoverable help**: an `IMPORTANT:` epilog pointing at a context-restore command
   (e.g., `mycli prime`), and a “Getting Started” one-liner.

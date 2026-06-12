@@ -415,7 +415,7 @@ tbd template --list              # List all templates
 tbd template plan-spec           # Get a plan spec template
 
 # Add your own from any URL
-# (per-kind aliases for the upcoming unified `tbd docs add <docref>`)
+# (per-kind aliases for `tbd docs add <docref>`)
 tbd guidelines --add=<url> --name=<name>
 tbd shortcut --add=<url> --name=<name>
 tbd template --add=<url> --name=<name>

@@ -487,7 +487,7 @@ Getting Started:
 
   This initializes tbd and configures your coding agents automatically.
   To refresh setup (idempotent, safe anytime): `tbd setup --auto`
-  For interactive setup: `tbd setup --interactive`
+  For managed docs: `tbd docs`
 
 For more on tbd, see: https://github.com/jlevy/tbd
 ? 0
@@ -531,7 +531,7 @@ Getting Started:
 
   This initializes tbd and configures your coding agents automatically.
   To refresh setup (idempotent, safe anytime): `tbd setup --auto`
-  For interactive setup: `tbd setup --interactive`
+  For managed docs: `tbd docs`
 
 For more on tbd, see: https://github.com/jlevy/tbd
 ? 0
@@ -572,7 +572,7 @@ Getting Started:
 
   This initializes tbd and configures your coding agents automatically.
   To refresh setup (idempotent, safe anytime): `tbd setup --auto`
-  For interactive setup: `tbd setup --interactive`
+  For managed docs: `tbd docs`
 
 For more on tbd, see: https://github.com/jlevy/tbd
 ? 0
@@ -614,7 +614,7 @@ Getting Started:
 
   This initializes tbd and configures your coding agents automatically.
   To refresh setup (idempotent, safe anytime): `tbd setup --auto`
-  For interactive setup: `tbd setup --interactive`
+  For managed docs: `tbd docs`
 
 For more on tbd, see: https://github.com/jlevy/tbd
 ? 0

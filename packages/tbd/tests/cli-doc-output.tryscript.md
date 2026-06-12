@@ -70,8 +70,8 @@ Agent instructions: You have activated a guidelines document. If a user has aske
 title: [..]Commit[..]
 description: Conventional Commits format with extensions for agentic workflows
 author: Joshua Levy (github.com/jlevy) with LLM assistance
+category: general
 ---
-[..]
 ? 0
 ```
 

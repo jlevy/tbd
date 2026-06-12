@@ -225,3 +225,21 @@ export async function fetchWithGhFallback(
   const content = await ghCliFetch(rawUrl);
   return { content, usedGhCli: true };
 }
+
+/**
+ * Resolve a git docref (github:o/r@ref//path, gitlab:...) to a raw-content URL.
+ * The ref is required for sync determinism; callers enforce that.
+ */
+export function gitDocRefToRawUrl(ref: {
+  host: 'github' | 'gitlab';
+  owner: string;
+  repo: string;
+  ref?: string;
+  path: string;
+}): string {
+  const rev = ref.ref ?? 'main';
+  if (ref.host === 'gitlab') {
+    return `https://gitlab.com/${ref.owner}/${ref.repo}/-/raw/${rev}/${ref.path}`;
+  }
+  return `https://raw.githubusercontent.com/${ref.owner}/${ref.repo}/${rev}/${ref.path}`;
+}
