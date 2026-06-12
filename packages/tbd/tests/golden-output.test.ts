@@ -90,6 +90,21 @@ describe('golden output tests', { timeout: isWindows ? 60000 : 15000 }, () => {
 
       expect(result.status).toBe(0);
 
+      // The Docs summary precedes the completion banner: the zero-fork
+      // three-posture menu, sharing wording with the bare `tbd docs` overview
+      // (count masked — the bundled-doc inventory grows over time).
+      const masked = result.stdout.replace(/Docs: \d+ docs available/, 'Docs: [N] docs available');
+      expect(masked).toContain(
+        [
+          'Docs: [N] docs available in the cache (.tbd/docs/, gitignored); none forked into the repo.',
+          '  Guidelines are active from the cache. Three postures, all serving the same docs:',
+          '  Hidden (default):  keep the cache as-is — zero repo footprint',
+          '  Curated:           tbd docs fork <name> [...]  fork chosen docs into docs/tbd/',
+          '  Everything:        tbd docs fork --all         all docs, visible and editable',
+          '  Browse / read: tbd docs list / tbd docs show <name>',
+        ].join('\n'),
+      );
+
       // Verify What's Next section uses "what you can say" framing
       expect(result.stdout).toContain("WHAT'S NEXT");
       expect(result.stdout).toContain('Try saying things like:');
