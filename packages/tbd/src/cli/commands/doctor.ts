@@ -22,7 +22,13 @@ import {
   resolveSharedTbdPaths,
   TBD_DIR,
   DATA_SYNC_DIR,
+  FORK_DIR,
+  CACHE_GUIDELINES_PATHS,
+  CACHE_REFERENCE_PATHS,
+  CACHE_SHORTCUT_PATHS,
+  CACHE_TEMPLATE_PATHS,
 } from '../../lib/paths.js';
+import type { ForkEntry } from '../../file/fork-manifest.js';
 import { detectDuplicateYamlKeys } from '../../utils/yaml-utils.js';
 import {
   getClaudePaths,
@@ -354,6 +360,24 @@ class DoctorHandler extends BaseCommand {
 
     // Check 15: Sync consistency (worktree matches local, ahead/behind counts)
     healthChecks.push(await this.safeCheck('Sync consistency', () => this.checkSyncConsistency()));
+
+    // Check 16: Forked docs (manifest ↔ base snapshots ↔ fork dir consistency).
+    // A check *group*: contributes zero lines when nothing is forked and no
+    // fork dir exists (doctor output for non-fork users must not grow), one ✓
+    // line when all forks are healthy, and one ⚠ line per issue category
+    // otherwise. Unexpected throws degrade to one error finding (safeCheck
+    // semantics, adapted for a multi-result check).
+    try {
+      healthChecks.push(...(await this.checkForkedDocs(options.fix)));
+    } catch (error) {
+      healthChecks.push({
+        name: 'Forked docs',
+        status: 'error',
+        message: `check could not complete: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      });
+    }
 
     // Run integration checks (optional IDE/agent integrations)
     const integrationChecks: DiagnosticResult[] = [];
@@ -1781,6 +1805,305 @@ class DoctorHandler extends BaseCommand {
         message: `Unable to check: ${msg}`,
       };
     }
+  }
+
+  /**
+   * Check 16 group: Forked docs (`.tbd/doc-forks/` ↔ base snapshots ↔ fork dir).
+   *
+   * Validates the forkable-docs state per the f05 spec (Phase 2 doctor checks):
+   * manifest readability, missing forked files (--fix finalizes the unfork),
+   * orphaned entries whose upstream doc is gone (--fix removes the entry),
+   * base snapshot presence/hash integrity (no auto-fix — re-fork vs unfork is
+   * the user's call), unresolved tbd conflict markers, user docs claiming the
+   * reserved `tbd-` name prefix, and a gitignored fork dir.
+   *
+   * Returns zero findings when nothing is forked and no fork dir exists, so
+   * doctor output is byte-identical for repos that never touched forking.
+   * See: docs/project/specs/active/plan-2026-06-11-forkable-docs.md §`tbd doctor`.
+   */
+  private async checkForkedDocs(fix?: boolean): Promise<DiagnosticResult[]> {
+    const name = 'Forked docs';
+    const {
+      DOC_FORKS_DIR,
+      FORKS_FILE,
+      findFork,
+      hashContent,
+      hasUnresolvedConflict,
+      readForkManifest,
+      removeBaseContent,
+      removeFork,
+      withForkManifestLock,
+      writeForkManifest,
+    } = await import('../../file/fork-manifest.js');
+    const manifestPath = `${DOC_FORKS_DIR}/${FORKS_FILE}`;
+
+    // 16a: manifest readability. readForkManifest tolerates per-entry corruption
+    // (drops bad entries with a stderr warning) but throws on a totally
+    // unparseable file — report that instead of crashing the doctor run.
+    let manifest;
+    try {
+      manifest = await readForkManifest(this.cwd);
+    } catch (error) {
+      const reason = (error instanceof Error ? error.message : String(error)).split('\n')[0];
+      return [
+        {
+          name,
+          status: 'warn',
+          message: `fork manifest unreadable: ${reason}`,
+          path: manifestPath,
+          suggestion: `Fix or delete ${manifestPath} (forked files stay in place), then re-run tbd doctor`,
+        },
+      ];
+    }
+
+    // Zero forks and no fork dir: print nothing.
+    let forkDirExists = true;
+    try {
+      await access(join(this.cwd, FORK_DIR));
+    } catch {
+      forkDirExists = false;
+    }
+    if (manifest.forks.length === 0 && !forkDirExists) {
+      return [];
+    }
+
+    const {
+      forkStatusFor,
+      listLocalForkFiles,
+      readForkBase,
+      readForkFile,
+      regenerateForkDirReadme,
+      unforkDoc,
+    } = await import('../../file/doc-fork.js');
+    const { DocCache } = await import('../../file/doc-cache.js');
+
+    // Cache-only lookup paths per kind (the pristine upstream copies). Replica
+    // of doc-fork.ts's module-private KIND_CACHE_PATHS, which is deliberately
+    // not exported (doctor owns its own copy rather than widening that API).
+    const kindCachePaths: Record<string, string[]> = {
+      guideline: CACHE_GUIDELINES_PATHS,
+      shortcut: CACHE_SHORTCUT_PATHS,
+      template: CACHE_TEMPLATE_PATHS,
+      reference: CACHE_REFERENCE_PATHS,
+    };
+    const caches = new Map<string, InstanceType<typeof DocCache>>();
+
+    // Classify every manifest entry into at most one issue bucket
+    // (missing > orphaned > base problem), with unresolved conflict markers
+    // detected on every fork file that still exists.
+    const missing: ForkEntry[] = [];
+    const orphaned: ForkEntry[] = [];
+    const baseProblems: string[] = [];
+    const conflicted: string[] = [];
+
+    for (const entry of manifest.forks) {
+      let cache = caches.get(entry.kind);
+      if (!cache) {
+        cache = new DocCache(kindCachePaths[entry.kind] ?? [], this.cwd);
+        await cache.load({ quiet: true });
+        caches.set(entry.kind, cache);
+      }
+      const cacheContent = cache.get(entry.name)?.doc.content ?? null;
+      const status = await forkStatusFor(this.cwd, FORK_DIR, entry, cacheContent);
+
+      if (status.state === 'missing') {
+        missing.push(entry);
+        continue;
+      }
+      if (status.orphaned) {
+        orphaned.push(entry);
+        continue;
+      }
+
+      // 16d: base snapshot integrity for live forks.
+      const base = await readForkBase(this.cwd, entry);
+      if (base === null) {
+        baseProblems.push(`${entry.name}: missing`);
+      } else if (hashContent(base) !== entry.base_hash) {
+        baseProblems.push(`${entry.name}: hash mismatch`);
+      }
+
+      // 16e: unresolved tbd conflict markers (flag-independent — detect markers
+      // even when the manifest `conflicted` flag was never set or went stale).
+      const content = await readForkFile(this.cwd, FORK_DIR, entry);
+      if (content !== null && hasUnresolvedConflict(content)) {
+        conflicted.push(entry.name);
+      }
+    }
+
+    const results: DiagnosticResult[] = [];
+
+    // 16b: manifest entries whose forked file was deleted out-of-band. The
+    // deletion is read as intent to stop forking: --fix finalizes the unfork
+    // (removes manifest entry + base snapshot; the doc is served from upstream).
+    if (missing.length > 0) {
+      const message = `${missing.length} missing (${missing.map((e) => e.name).join(', ')}: forked file deleted)`;
+      if (fix && !this.checkDryRun('Finalize unfork of deleted forked docs')) {
+        try {
+          await withForkManifestLock(this.cwd, async () => {
+            let current = await readForkManifest(this.cwd);
+            for (const entry of missing) {
+              if (!findFork(current, entry.name, entry.kind)) continue;
+              const result = await unforkDoc({
+                tbdRoot: this.cwd,
+                forkDir: FORK_DIR,
+                manifest: current,
+                name: entry.name,
+                kind: entry.kind,
+              });
+              current = result.manifest;
+            }
+            await writeForkManifest(this.cwd, current);
+            await regenerateForkDirReadme(this.cwd, FORK_DIR, current);
+          });
+          results.push({
+            name,
+            status: 'warn',
+            message,
+            details: [
+              'Fixed: finalized unfork (removed manifest entry + base); now served from upstream',
+            ],
+          });
+        } catch (error) {
+          results.push({
+            name,
+            status: 'error',
+            message: `failed to finalize unfork: ${
+              error instanceof Error ? error.message : String(error)
+            }`,
+          });
+        }
+      } else {
+        results.push({
+          name,
+          status: 'warn',
+          message,
+          fixable: true,
+          suggestion:
+            'Run: tbd doctor --fix to finalize the unfork, or tbd docs fork <name> --force to restore',
+        });
+      }
+    }
+
+    // 16c: orphaned entries (upstream/cache doc no longer exists). --fix removes
+    // the manifest entry + base but keeps the file (it becomes a local doc —
+    // upstream is gone, so the file may be the only copy).
+    if (orphaned.length > 0) {
+      const message = `${orphaned.length} orphaned (${orphaned.map((e) => e.name).join(', ')}: upstream doc no longer exists)`;
+      if (fix && !this.checkDryRun('Remove orphaned fork manifest entries')) {
+        try {
+          await withForkManifestLock(this.cwd, async () => {
+            let current = await readForkManifest(this.cwd);
+            for (const entry of orphaned) {
+              current = removeFork(current, entry.name, entry.kind);
+              await removeBaseContent(this.cwd, entry.kind, entry.name);
+            }
+            await writeForkManifest(this.cwd, current);
+            await regenerateForkDirReadme(this.cwd, FORK_DIR, current);
+          });
+          results.push({
+            name,
+            status: 'warn',
+            message,
+            details: [
+              `Fixed: removed orphaned manifest entr${orphaned.length === 1 ? 'y' : 'ies'} + base; file kept as a local doc`,
+            ],
+          });
+        } catch (error) {
+          results.push({
+            name,
+            status: 'error',
+            message: `failed to remove orphaned entries: ${
+              error instanceof Error ? error.message : String(error)
+            }`,
+          });
+        }
+      } else {
+        results.push({
+          name,
+          status: 'warn',
+          message,
+          fixable: true,
+          suggestion:
+            'Run: tbd doctor --fix to remove the entry (your file is kept as a local doc)',
+        });
+      }
+    }
+
+    // 16d findings: no auto-fix — choosing between re-fork and unfork would
+    // guess at user intent.
+    if (baseProblems.length > 0) {
+      results.push({
+        name,
+        status: 'warn',
+        message: `${baseProblems.length} base snapshot problem${baseProblems.length === 1 ? '' : 's'} (${baseProblems.join(', ')})`,
+        suggestion: 'Run: tbd docs fork <name> --force to re-fork, or tbd docs unfork <name>',
+      });
+    }
+
+    // 16e findings.
+    if (conflicted.length > 0) {
+      results.push({
+        name,
+        status: 'warn',
+        message: `${conflicted.length} unresolved merge conflict${conflicted.length === 1 ? '' : 's'} (${conflicted.join(', ')})`,
+        suggestion: 'Run: resolve the conflict markers, then re-run tbd docs update',
+      });
+    }
+
+    // Healthy headline: exactly one ✓ line when forks exist and 16b–16e found
+    // nothing (reserved-name and fork-dir findings below have their own names).
+    if (manifest.forks.length > 0 && results.length === 0) {
+      results.push({
+        name,
+        status: 'ok',
+        message: `${manifest.forks.length} forked, base snapshots intact`,
+      });
+    }
+
+    // 16f: user docs claiming the reserved `tbd-` prefix (fork-dir files with
+    // no manifest entry; forked tbd self-docs legitimately keep their entry).
+    const locals = await listLocalForkFiles(this.cwd, FORK_DIR, manifest);
+    const reserved = locals.filter((l) => l.name.startsWith('tbd-'));
+    if (reserved.length > 0) {
+      results.push({
+        name: 'Reserved tbd- names',
+        status: 'warn',
+        message: `${reserved.length} user doc${reserved.length === 1 ? ' claims' : 's claim'} the reserved tbd- prefix`,
+        details: reserved.map((l) => l.relPath),
+        suggestion: 'Rename the file(s): the tbd- prefix is reserved for tbd self-docs',
+      });
+    }
+
+    // 16g: fork dir gitignored (only meaningful when forks exist — a gitignored
+    // fork dir defeats the purpose of forking: the docs would not be committed).
+    if (manifest.forks.length > 0) {
+      let ignored = false;
+      try {
+        await git('-C', this.cwd, 'check-ignore', '-q', FORK_DIR);
+        ignored = true;
+      } catch {
+        // Exit 1 = not ignored (healthy). Other failures: cannot verify; do not
+        // warn on a guess.
+        ignored = false;
+      }
+      results.push(
+        ignored
+          ? {
+              name: 'Fork dir',
+              status: 'warn',
+              message: `${FORK_DIR}/ is gitignored — forked docs will not be committed`,
+              suggestion: `Remove the .gitignore rule covering ${FORK_DIR}/ so forks are tracked in git`,
+            }
+          : {
+              name: 'Fork dir',
+              status: 'ok',
+              message: `${FORK_DIR}/ tracked in git (not gitignored)`,
+            },
+      );
+    }
+
+    return results;
   }
 }
 
