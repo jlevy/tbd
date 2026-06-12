@@ -21,9 +21,11 @@ import { readConfig } from '../../file/config.js';
 import { DocCache } from '../../file/doc-cache.js';
 import {
   CACHE_GUIDELINES_PATHS,
+  CACHE_REFERENCE_PATHS,
   CACHE_SHORTCUT_PATHS,
   CACHE_TEMPLATE_PATHS,
   DEFAULT_GUIDELINES_PATHS,
+  DEFAULT_REFERENCE_PATHS,
   DEFAULT_SHORTCUT_PATHS,
   DEFAULT_TEMPLATE_PATHS,
   FORK_DIR,
@@ -52,13 +54,13 @@ import {
   listLocalForkFiles,
   regenerateForkDirReadme,
   ForkConflictError,
-  KIND_DIR,
 } from '../../file/doc-fork.js';
 import { updateOne, diffContents, type UpdateStrategy } from '../../file/fork-update.js';
 import { createDocMap, type DocMapEntry } from '../../docmap/index.js';
+import { servedEntryFor } from '../lib/doc-serve.js';
 
 /** Kinds that can be resolved from the cache and forked today. */
-export const RESOLVABLE_KINDS: ForkKind[] = ['guideline', 'shortcut', 'template'];
+export const RESOLVABLE_KINDS: ForkKind[] = ['guideline', 'shortcut', 'template', 'reference'];
 
 /**
  * Validate a user-supplied --kind value. Without this, an unknown kind silently
@@ -72,13 +74,11 @@ export function parseKindOption(kind: string | undefined): ForkKind | undefined 
   return kind as ForkKind;
 }
 
-// 'reference' joins with Phase 5 (references/ cache dir); until then a manifest
-// entry of that kind resolves as orphaned by design, and parseKindOption keeps
-// the CLI from creating one.
 const KIND_CACHE_PATHS: Record<string, string[]> = {
   guideline: CACHE_GUIDELINES_PATHS,
   shortcut: CACHE_SHORTCUT_PATHS,
   template: CACHE_TEMPLATE_PATHS,
+  reference: CACHE_REFERENCE_PATHS,
 };
 
 interface ResolvedDoc {
@@ -593,6 +593,7 @@ const KIND_SERVE_PATHS: Record<string, string[]> = {
   guideline: DEFAULT_GUIDELINES_PATHS,
   shortcut: DEFAULT_SHORTCUT_PATHS,
   template: DEFAULT_TEMPLATE_PATHS,
+  reference: DEFAULT_REFERENCE_PATHS,
 };
 
 interface ListOptions {
@@ -628,18 +629,7 @@ class DocsListHandler extends BaseCommand {
         await cache.load({ quiet: true });
         const rows: Row[] = [];
         for (const doc of cache.list()) {
-          const fork = findFork(manifest, doc.name, kind);
-          const isLocal = !fork && doc.sourceDir.startsWith(FORK_DIR);
-          let state = 'upstream';
-          let marker = '';
-          if (fork) {
-            const customized = hashContent(doc.content) !== fork.base_hash;
-            state = customized ? 'customized' : 'forked';
-            marker = customized ? '[forked, customized]' : '[forked]';
-          } else if (isLocal) {
-            state = 'local';
-            marker = '[local]';
-          }
+          const { entry, state, marker } = servedEntryFor(tbdRoot, kind, doc, manifest, files);
           rows.push({
             name: doc.name,
             title: doc.frontmatter?.title,
@@ -647,24 +637,9 @@ class DocsListHandler extends BaseCommand {
             sizeInfo: formatDocSize(doc.sizeBytes, doc.approxTokens),
             marker,
             state,
-            path: fork?.path ?? doc.sourceDir + '/' + doc.name + '.md',
+            path: entry.path ?? doc.sourceDir + '/' + doc.name + '.md',
           });
-          // Every docmap entry must carry a location (path and/or source):
-          // forked docs have both; local files have a path but no upstream;
-          // upstream docs are located by their provenance docref.
-          const localPath = `${FORK_DIR}/${KIND_DIR[kind]}/${doc.name}.md`;
-          docmapEntries.push({
-            name: doc.name,
-            type: kind,
-            ...(fork
-              ? { path: fork.path, source: fork.source }
-              : isLocal
-                ? { path: localPath }
-                : { source: sourceDocRef(tbdRoot, files, doc.path) }),
-            title: doc.frontmatter?.title,
-            description: doc.frontmatter?.description,
-            state,
-          });
+          docmapEntries.push(entry);
         }
         grouped.push({ kind, rows });
       }

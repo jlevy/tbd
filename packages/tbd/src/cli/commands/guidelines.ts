@@ -8,6 +8,7 @@
 import { Command } from 'commander';
 import pc from 'picocolors';
 
+import { createDocMap } from '../../docmap/index.js';
 import { DocCommandHandler, type DocCommandOptions } from '../lib/doc-command-handler.js';
 import { CLIError } from '../lib/errors.js';
 import { DEFAULT_GUIDELINES_PATHS } from '../../lib/paths.js';
@@ -118,19 +119,14 @@ class GuidelinesHandler extends DocCommandHandler {
     }
 
     if (this.ctx.json) {
-      this.output.data(
-        docs.map((d) => ({
-          name: d.name,
-          title: d.frontmatter?.title,
-          description: d.frontmatter?.description,
-          category: inferGuidelineCategory(d.name),
-          path: d.path,
-          sourceDir: d.sourceDir,
-          sizeBytes: d.sizeBytes,
-          approxTokens: d.approxTokens,
-          shadowed: this.cache!.isShadowed(d),
-        })),
-      );
+      // Same docmap as `tbd docs list`, filtered to guidelines, with the
+      // category as a per-entry extension field.
+      const entries = await this.docMapEntries(docs);
+      const withCategory = entries.map((e) => ({
+        ...e,
+        category: inferGuidelineCategory(e.name),
+      }));
+      this.output.data(createDocMap(withCategory, { name: 'tbd-docs' }));
       return;
     }
 

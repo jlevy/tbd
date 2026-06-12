@@ -31,37 +31,50 @@ import { syncDocsWithDefaults } from '../../file/doc-sync.js';
 import { DocCache } from '../../file/doc-cache.js';
 import {
   DEFAULT_GUIDELINES_PATHS,
+  DEFAULT_REFERENCE_PATHS,
   DEFAULT_SHORTCUT_PATHS,
   DEFAULT_TEMPLATE_PATHS,
   FORK_DIR,
 } from '../../lib/paths.js';
 import { readForkManifest, type ForkKind } from '../../file/fork-manifest.js';
 import { computeForkDriftSummary } from '../../file/doc-fork.js';
+import { servedEntryFor, loadServeContext } from '../lib/doc-serve.js';
+import { createDocMap, type DocMapEntry } from '../../docmap/index.js';
 import type { DocSection } from '../../lib/types.js';
 import GithubSlugger from 'github-slugger';
 
-/** Reserved name that serves the bundled CLI manual (`tbd-docs.md`). */
+/** Reserved name that serves the CLI manual (`tbd-docs.md`). */
 const MANUAL_DOC_NAME = 'tbd-docs';
+
+/**
+ * Self-docs: served as `reference` docs from the cache like everything else
+ * (so forks shadow them), but with a bundled fallback so they stay readable
+ * before init or before the first cache sync.
+ */
+const BUNDLED_ROOT_DOCS: Record<string, string> = {
+  [MANUAL_DOC_NAME]: 'tbd-docs.md',
+  'tbd-design': 'tbd-design.md',
+};
 
 /** Serving lookup paths per kind (fork dir first, so forks shadow the cache). */
 const SHOW_PATHS: Record<ForkKind, string[]> = {
   guideline: DEFAULT_GUIDELINES_PATHS,
   shortcut: DEFAULT_SHORTCUT_PATHS,
   template: DEFAULT_TEMPLATE_PATHS,
-  reference: [],
+  reference: DEFAULT_REFERENCE_PATHS,
 };
 
 /**
- * Path to the bundled manual. The docs file is copied to dist/docs/ during
- * build; in development it is read from the package docs/ directory.
+ * Read a doc bundled at the docs root. Copied to dist/docs/ during build; in
+ * development read from the package docs/ directory.
  */
-async function readManualContent(): Promise<string> {
+async function readBundledRootDoc(filename: string): Promise<string> {
   const __dirname = dirname(fileURLToPath(import.meta.url));
   try {
-    return await readFile(join(__dirname, 'docs', 'tbd-docs.md'), 'utf-8');
+    return await readFile(join(__dirname, 'docs', filename), 'utf-8');
   } catch {
     try {
-      return await readFile(join(__dirname, '..', '..', '..', 'docs', 'tbd-docs.md'), 'utf-8');
+      return await readFile(join(__dirname, '..', '..', '..', 'docs', filename), 'utf-8');
     } catch {
       throw new CLIError('Documentation file not found. Please rebuild the CLI.');
     }
@@ -140,15 +153,25 @@ class DocsOverviewHandler extends BaseCommand {
       const manifest = await readForkManifest(tbdRoot);
       const drift = await computeForkDriftSummary(tbdRoot, FORK_DIR, manifest);
 
+      const { files } = await loadServeContext(tbdRoot);
       let total = 0;
+      const entries: DocMapEntry[] = [];
       for (const kind of RESOLVABLE_KINDS) {
         const cache = new DocCache(SHOW_PATHS[kind], tbdRoot);
         await cache.load({ quiet: true });
-        total += cache.list().length;
+        const docs = cache.list();
+        total += docs.length;
+        if (this.ctx.json) {
+          for (const doc of docs) {
+            entries.push(servedEntryFor(tbdRoot, kind, doc, manifest, files).entry);
+          }
+        }
       }
 
       if (this.ctx.json) {
-        this.output.data({ available: total, ...drift });
+        // The overview is the docmap rendered in summary form; --json emits
+        // the docmap itself (one data model, one renderer).
+        this.output.data(createDocMap(entries, { name: 'tbd-docs' }));
         return;
       }
 
@@ -217,10 +240,22 @@ class DocsShowHandler extends BaseCommand {
       let content: string;
       let provenance: string | null = null;
 
-      if (name === MANUAL_DOC_NAME) {
-        content = await readManualContent();
+      const bundledFallback = BUNDLED_ROOT_DOCS[name];
+      let tbdRoot: string | null = null;
+      if (bundledFallback) {
+        try {
+          tbdRoot = await requireInit();
+        } catch (err) {
+          if (!(err instanceof NotInitializedError)) throw err;
+        }
       } else {
-        const tbdRoot = await requireInit();
+        tbdRoot = await requireInit();
+      }
+
+      if (tbdRoot === null) {
+        // Self-docs stay readable before init.
+        content = await readBundledRootDoc(bundledFallback!);
+      } else {
         const requestedKind = parseKindOption(options.kind);
         const kinds = requestedKind ? [requestedKind] : RESOLVABLE_KINDS;
         const matches: { kind: ForkKind; content: string; sourceDir: string; path: string }[] = [];
@@ -238,18 +273,35 @@ class DocsShowHandler extends BaseCommand {
           }
         }
         if (matches.length === 0) {
-          throw new NotFoundError('Doc', `"${name}" (run \`tbd docs list\` to see names)`);
-        }
-        if (matches.length > 1) {
+          if (bundledFallback) {
+            // Initialized but cache not yet synced with the self-docs.
+            content = await readBundledRootDoc(bundledFallback);
+          } else {
+            throw new NotFoundError('Doc', `"${name}" (run \`tbd docs list\` to see names)`);
+          }
+        } else if (matches.length > 1) {
           const kindList = matches.map((m) => m.kind).join(', ');
           throw new CLIError(
             `"${name}" exists in multiple kinds (${kindList}). Use --kind to disambiguate.`,
           );
-        }
-        const match = matches[0]!;
-        content = match.content;
-        if (match.sourceDir.startsWith(FORK_DIR)) {
-          provenance = relative(tbdRoot, match.path).split('\\').join('/');
+        } else {
+          const match = matches[0]!;
+          content = match.content;
+          if (this.ctx.json && !options.sections) {
+            const { manifest, files } = await loadServeContext(tbdRoot);
+            const { entry } = servedEntryFor(
+              tbdRoot,
+              match.kind,
+              { name, content, sourceDir: match.sourceDir, path: match.path },
+              manifest,
+              files,
+            );
+            this.output.data({ ...entry, content });
+            return;
+          }
+          if (match.sourceDir.startsWith(FORK_DIR)) {
+            provenance = relative(tbdRoot, match.path).split('\\').join('/');
+          }
         }
       }
 

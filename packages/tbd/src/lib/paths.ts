@@ -358,6 +358,9 @@ export const BUILTIN_INSTALL_DIR = INSTALL_DIR;
 /** References directory name (tbd self-docs and format references). */
 export const REFERENCES_DIR = 'references';
 
+/** Cached reference docs directory (docref/docmap formats, tbd-docs, tbd-design). */
+export const TBD_REFERENCES_DIR = join(TBD_DOCS_DIR, REFERENCES_DIR);
+
 /**
  * Default fork directory (repo-relative), where forked docs are made visible.
  * A POSIX literal, not join()'d: this value is committed (manifest paths) and
@@ -379,6 +382,7 @@ export const FORK_REFERENCES_DIR = `${FORK_DIR}/${REFERENCES_DIR}`; // docs/tbd/
 export const CACHE_SHORTCUT_PATHS = [TBD_SHORTCUTS_SYSTEM, TBD_SHORTCUTS_STANDARD];
 export const CACHE_GUIDELINES_PATHS = [TBD_GUIDELINES_DIR];
 export const CACHE_TEMPLATE_PATHS = [TBD_TEMPLATES_DIR];
+export const CACHE_REFERENCE_PATHS = [TBD_REFERENCES_DIR];
 
 /**
  * Default shortcut lookup paths (searched in order, relative to tbd root).
@@ -405,6 +409,14 @@ export const DEFAULT_GUIDELINES_PATHS = [
 export const DEFAULT_TEMPLATE_PATHS = [
   FORK_TEMPLATES_DIR, // docs/tbd/templates/ (forked, highest precedence)
   ...CACHE_TEMPLATE_PATHS,
+];
+
+/**
+ * Default reference-doc lookup paths (relative to tbd root).
+ */
+export const DEFAULT_REFERENCE_PATHS = [
+  FORK_REFERENCES_DIR, // docs/tbd/references/ (forked, highest precedence)
+  ...CACHE_REFERENCE_PATHS,
 ];
 
 /**

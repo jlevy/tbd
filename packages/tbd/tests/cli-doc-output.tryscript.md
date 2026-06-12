@@ -47,14 +47,15 @@ backward-compatibility-rules [..]
 ? 0
 ```
 
-# Test: Guidelines --json returns structured data
+# Test: Guidelines --list --json emits a docmap (one model across all doc surfaces)
 
 ```console
-$ tbd guidelines --list --json | head -5
-[
-  {
-    "name": "backward-compatibility-rules",
-    "title": "Backward Compatibility[..]",
+$ tbd guidelines --list --json | head -6
+{
+  "docmap": "docmap/0.1",
+  "documents": [
+    {
+      "name": "backward-compatibility-rules",
 [..]
 ? 0
 ```
@@ -74,15 +75,15 @@ author: Joshua Levy (github.com/jlevy) with LLM assistance
 ? 0
 ```
 
-# Test: Guidelines query with --json returns raw content
+# Test: Guidelines query with --json returns the docmap entry plus content
 
 ```console
 $ tbd guidelines commit-conventions --json | head -5
 {
   "name": "commit-conventions",
+  "type": "guideline",
+  "source": "internal:guidelines/commit-conventions.md",
   "title": "[..]Commit[..]",
-  "score": 1,
-[..]
 ? 0
 ```
 

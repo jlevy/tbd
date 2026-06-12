@@ -23,7 +23,12 @@ settings:
 # Auto-sync: Docs are automatically synced when stale (default: every 24 hours).
 # Configure with settings.doc_auto_sync_hours (0 = disabled).
 docs_cache:
+  lookup_path:
+    - .tbd/docs/shortcuts/system
+    - .tbd/docs/shortcuts/standard
   files:
+    references/tbd-docs.md: internal:tbd-docs.md
+    references/tbd-design.md: internal:tbd-design.md
     shortcuts/system/shortcut-explanation.md: internal:shortcuts/system/shortcut-explanation.md
     shortcuts/system/skill-baseline.md: internal:shortcuts/system/skill-baseline.md
     shortcuts/system/skill-brief.md: internal:shortcuts/system/skill-brief.md
@@ -89,6 +94,5 @@ docs_cache:
     templates/plan-spec.md: internal:templates/plan-spec.md
     templates/qa-playbook.md: internal:templates/qa-playbook.md
     templates/research-brief.md: internal:templates/research-brief.md
-  lookup_path:
-    - .tbd/docs/shortcuts/system
-    - .tbd/docs/shortcuts/standard
+    references/docmap-format.md: internal:references/docmap-format.md
+    references/docref-format.md: internal:references/docref-format.md

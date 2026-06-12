@@ -338,7 +338,13 @@ export async function generateDefaultDocCacheConfig(): Promise<Record<string, st
     { subdir: 'shortcuts/standard', prefix: 'shortcuts/standard' },
     { subdir: 'guidelines', prefix: 'guidelines' },
     { subdir: 'templates', prefix: 'templates' },
+    { subdir: 'references', prefix: 'references' },
   ];
+
+  // Self-docs: bundled at the docs root, served as `reference` kind under
+  // their existing tbd- names (the manual stays a real, forkable doc).
+  config[`references/tbd-docs.md`] = `${INTERNAL_SOURCE_PREFIX}tbd-docs.md`;
+  config[`references/tbd-design.md`] = `${INTERNAL_SOURCE_PREFIX}tbd-design.md`;
 
   for (const { subdir, prefix } of scanDirs) {
     const fullDir = join(docsDir, subdir);
