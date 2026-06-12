@@ -41,9 +41,6 @@ import {
   writeBaseContent,
 } from './fork-manifest.js';
 
-/** Default fork directory, relative to the repo/tbd root. */
-export const DEFAULT_FORK_DIR = 'docs/tbd';
-
 /** Map a doc kind to its plural directory name within the fork dir. */
 export const KIND_DIR: Record<ForkKind, string> = {
   guideline: 'guidelines',

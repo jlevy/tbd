@@ -85,6 +85,10 @@ or want help → run `tbd shortcut welcome-user`
 | **Documentation** |  |
 | “Research this topic” | `tbd shortcut new-research-brief` |
 | “Document architecture” | `tbd shortcut new-architecture-doc` |
+| “What guidelines/docs are there?” | `tbd docs list` |
+| “Make the guidelines visible / customize doc X” | `tbd docs fork <name>` (or `--all`), then edit in `docs/tbd/` |
+| “Update the guidelines to the latest” | `tbd docs update`; on conflicts ask the user, then `--merge` or `--keep-ours` |
+| “I deleted a forked doc file” | `tbd docs status` shows it `missing`; restore with `tbd docs fork <name> --force` or finalize with `tbd docs unfork <name>` |
 | **Cleanup & Maintenance** |  |
 | “Clean up this code” / “Remove dead code” | `tbd shortcut code-cleanup-all` |
 | “Fix repository problems” | `tbd doctor --fix` |
@@ -174,6 +178,8 @@ working branch. See `tbd guidelines tbd-sync-troubleshooting` for details.
 | `tbd guidelines <name>` | Load coding guidelines |
 | `tbd guidelines --list` | List guidelines |
 | `tbd template <name>` | Output a template |
+| `tbd docs` / `tbd docs list` | Managed-docs overview / cross-kind list with state markers |
+| `tbd docs fork/unfork/update <name>` | Fork docs into `docs/tbd/`, return to upstream, pull upstream updates |
 
 ## Quick Reference
 

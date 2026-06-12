@@ -17,11 +17,10 @@ import {
   computeForkDriftSummary,
   regenerateForkDirReadme,
   ForkConflictError,
-  DEFAULT_FORK_DIR,
 } from '../src/file/doc-fork.js';
 import { emptyManifest, findFork, readBaseContent } from '../src/file/fork-manifest.js';
 
-const FORK_DIR = DEFAULT_FORK_DIR;
+import { FORK_DIR } from '../src/lib/paths.js';
 const UPSTREAM = '# Python Rules\n\nUpstream content.\n';
 
 describe('forkDoc', () => {

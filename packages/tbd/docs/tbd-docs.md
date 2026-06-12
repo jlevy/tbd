@@ -726,6 +726,32 @@ On HTTP 403, fetching falls back to `gh api` for authenticated access.
 User-added shortcuts go to `shortcuts/custom/` (separate from bundled
 `shortcuts/standard/`).
 
+### Managing Docs: Two Modes
+
+Every managed doc is served through one search path; where the file lives is a per-doc
+choice between two modes that serve identical content:
+
+- **Hidden cache (the default).** Docs live in the gitignored `.tbd/docs/` cache —
+  always active, zero repo footprint, refreshed by `tbd docs sync` (and by setup).
+- **Forked.** `tbd docs fork <name>` (or `--all`) copies a doc into `docs/tbd/`, tracked
+  in git: visible on GitHub, reviewable in PRs, and editable — your copy shadows the
+  cache everywhere the upstream one was served.
+  `tbd docs unfork` returns to the cache; `tbd docs update` three-way merges upstream
+  changes into your copy after an upgrade.
+
+Forking changes nothing about how docs work — it only makes them explicit and editable.
+Four update surfaces stay deliberately separate:
+
+| Command | Scope | Touches | Modifies tracked files? |
+| --- | --- | --- | --- |
+| `tbd sync` | project data (issues/beads) | sync worktree + `tbd-sync` branch; also refreshes the doc cache and *reports* fork drift | never |
+| `tbd setup --auto` | installation + integrations | skills, hooks, settings, `AGENTS.md`; invokes a docs-cache sync | only generated integration files |
+| `tbd docs sync` | doc cache | gitignored `.tbd/docs/` only | never |
+| `tbd docs update` | your forked docs | fork dir + bases + manifest (offline, against the cache) | **yes — the only doc command that does** |
+
+Disambiguation worth stating once: `tbd update <id>` is an issue operation,
+`tbd docs update` a doc operation — the noun scope always disambiguates.
+
 ### Forked Docs in Your Repo (docs/tbd/)
 
 `tbd docs fork` copies managed docs into `docs/tbd/`, laid out **by kind, flat within

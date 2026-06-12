@@ -25,6 +25,7 @@ import { z } from 'zod';
 import { stringifyYaml } from '../utils/yaml-utils.js';
 import { withLockfile } from '../utils/lockfile.js';
 import { resolveSharedTbdPaths } from '../lib/paths.js';
+import { isDocRef } from '../docref/index.js';
 
 /** Directory (repo-relative under `.tbd/`) holding all fork state. */
 export const DOC_FORKS_DIR = '.tbd/doc-forks';
@@ -62,8 +63,8 @@ export const ForkEntrySchema = z.object({
   kind: z.enum(FORK_KINDS),
   /** Repo-relative path of the forked file (e.g. "docs/tbd/guidelines/python-rules.md"). */
   path: z.string().min(1),
-  /** Provenance docref the fork was created from. */
-  source: z.string().min(1),
+  /** Provenance docref the fork was created from (docref-everywhere rule). */
+  source: z.string().min(1).refine(isDocRef, { message: 'source must be a valid docref' }),
   /** sha256: of the LF-normalized base content. */
   base_hash: z.string().min(1),
   /** tbd version when the base was last set. */
