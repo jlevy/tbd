@@ -30,7 +30,7 @@ layout revision (format `f05`, a metadata-only migration from f04):
 
 1. **A `tbd docs` command group** scoped to managed docs, following tbd’s existing
    noun-verb convention (`dep add`, `label add`, `attic restore`): `tbd docs fork`
-   copies any bundled doc (one, a theme, or all of them) into a visible, git-tracked
+   copies any bundled doc (one, a category, or all of them) into a visible, git-tracked
    folder in the repo (default `docs/tbd/`). Forked docs shadow the bundled copies in
    all lookups, so customizing them Just Works.
    `tbd sync` keeps its scope (project data); `tbd docs sync` takes over cache refresh.
@@ -48,8 +48,8 @@ layout revision (format `f05`, a metadata-only migration from f04):
 5. **Agent-first setup opt-in** — no interactive prompts (agents are the operators):
    `tbd setup --auto` keeps current behavior and prints a self-documenting summary of
    the two choices — *scope* (all standard guidelines active, recommended, or a subset
-   by theme) and *visibility* (leave them in the hidden cache, the “magic” path, or fork
-   into `docs/tbd/` for explicit, customizable, git-tracked copies) — while
+   by category) and *visibility* (leave them in the hidden cache, the “magic” path, or
+   fork into `docs/tbd/` for explicit, customizable, git-tracked copies) — while
    `welcome-user`/the skill teach agents to offer the choice conversationally and run
    fork themselves.
 6. **An upstream-contribution playbook** — a bundled shortcut that walks an agent
@@ -76,9 +76,9 @@ lack. Everything here is forward-compatible with the larger #117 design (see
 - **G5. Setup choice, without interactivity:** Setup surfaces how visible docs can be —
   via self-documenting output and agent-led conversation, never prompts; the default
   remains exactly the current behavior (hidden cache).
-- **G6. Theme-based selection:** Docs are organized by theme (frontmatter `category`),
-  so an agent forks the general guidelines plus the themes for the repo’s languages and
-  frameworks — from a clear list, with no auto-detection and no hard-coded pack map.
+- **G6. Category-based selection:** Docs are organized by their frontmatter `category`,
+  so an agent forks the general guidelines plus the categories for the repo’s languages
+  and frameworks — from a clear list, with no auto-detection and no hard-coded pack map.
 - **G7. Upstream loop:** A documented, low-ceremony path from “I improved a guideline”
   to “an issue with the diff is filed on jlevy/tbd.”
 - **G8. Agent-operable:** Every step is a plain CLI command with `--json` output, and
@@ -648,7 +648,7 @@ tbd docs add github:org/repo@main//docs/rules.md --kind=guideline   # any docref
 tbd docs fork python-rules                # one doc (name resolution as in `tbd guidelines`)
 tbd docs fork python-rules review-code    # several
 tbd docs fork --kind=guideline typescript # disambiguate if a name exists in two kinds
-tbd docs fork --category=python           # a whole theme (reads frontmatter; repeatable)
+tbd docs fork --category=python           # a whole category (reads frontmatter; repeatable)
 tbd docs fork --category=general --category=typescript  # general + a language
 tbd docs fork --all                       # everything
 tbd docs fork --all --dry-run             # preview what would be written
@@ -700,21 +700,21 @@ Behavior details:
   collisions, unreachable sources (per source group, serving last cached copy), fork dir
   covered by a `.gitignore` (defeats the purpose — warn), manifest/dir drift.
 
-### Doc themes and the fork recommendation
+### Doc categories and the fork recommendation
 
 There is **no `--relevant` flag, no repo auto-detection, and no hard-coded pack→doc
 map.** Detection rules and a central pack list both drift out of sync with the docs and
 substitute brittle logic for an agent’s judgment.
-Instead, each doc declares a **theme** via its frontmatter `category`, so a doc joins a
-theme by setting one field — nothing central to keep in sync — and the agent picks based
-on what the repo actually is.
+Instead, each doc declares its **category** in frontmatter, so a doc joins a category by
+setting one field — nothing central to keep in sync — and the agent picks based on what
+the repo actually is.
 (This also retires the ad-hoc name-based `inferGuidelineCategory` inference, which today
-mis-files docs like `convex-rules` as `general` and has no `convex`/`electron` theme at
-all; Phase 0 curates the frontmatter so each doc lands in the right theme.)
+mis-files docs like `convex-rules` as `general` and has no `convex`/`electron` category
+at all; Phase 0 curates the frontmatter so each doc lands in the right category.)
 
-The basic themes:
+The basic categories:
 
-| Theme (`category`) | What’s in it |
+| Category | What’s in it |
 | --- | --- |
 | **general** | The foundational guidelines that apply to every repo — the `general-*` rules plus coding, comment, error-handling, TDD/testing, commit, and doc guidelines. |
 | **typescript** | TypeScript rules, including CLI tooling (and the sorting / YAML / coverage / monorepo rules). |
@@ -722,10 +722,10 @@ The basic themes:
 | **convex** | Convex rules and limits / best-practices. |
 | **electron** | Electron app development patterns. |
 
-`tbd docs list` shows every doc grouped by theme, so the choices are visible.
+`tbd docs list` shows every doc grouped by category, so the choices are visible.
 The **recommendation** — stated in the bare `tbd docs` overview, the setup summary, the
 skill, and `welcome-user`, and kept identical across all of them — is simply: **fork the
-general guidelines, plus the themes for whatever languages and frameworks the repo
+general guidelines, plus the categories for whatever languages and frameworks the repo
 uses.** An agent that knows the project applies it directly (general + typescript for a
 TypeScript CLI; general + python + convex for a Convex/Python backend) with no detection
 table to maintain.
@@ -734,12 +734,12 @@ Selection reuses the existing `category` metadata — no new construct, no centr
 
 ```bash
 tbd docs fork python-rules review-code               # by name
-tbd docs fork --category=typescript                  # a whole theme (reads frontmatter; repeatable)
+tbd docs fork --category=typescript                  # a whole category (reads frontmatter; repeatable)
 tbd docs fork --category=general --category=python   # general + a language
 tbd docs fork --all                                  # everything
 ```
 
-Themes are guidelines-oriented; shortcuts and templates are forked by name or with
+Categories are guidelines-oriented; shortcuts and templates are forked by name or with
 `--all`.
 
 ### Setup integration (agent-first, non-interactive)
@@ -759,7 +759,7 @@ Setup is instead designed to be excellent non-interactively:
     Guidelines are active from the cache. To make them visible and customizable, fork
     them into docs/tbd/ (same behavior — just explicit and git-tracked):
 
-    Scope:         all standard guidelines (recommended), or a theme:
+    Scope:         all standard guidelines (recommended), or a category:
                    general, typescript, python, convex, electron
     Make visible:  tbd docs fork --category=general --category=<your-languages>
                    tbd docs fork --all          (everything)
@@ -772,8 +772,8 @@ Setup is instead designed to be excellent non-interactively:
 
 - **Agent-led onboarding makes both choices explicit.** `welcome-user` and the skill
   instruct the agent to put two questions to the user conversationally:
-  1. **Scope** — keep *all* standard guidelines active (recommended), or just the themes
-     for your stack (general plus your languages/frameworks)?
+  1. **Scope** — keep *all* standard guidelines active (recommended), or just the
+     categories for your stack (general plus your languages/frameworks)?
   2. **Visibility** — leave them in tbd’s hidden cache (they just work — the “magic”
      path), or fork them into `docs/tbd/` so they are visible on GitHub, reviewable, and
      customizable (checked into git)?
@@ -1026,21 +1026,22 @@ Settled during refinement (2026-06-12):
     (the docref parser comes over from the #117 branch already in this shape).
     tbd consumes them; they do not consume tbd.
 
-24. **No detection, no hard-coded pack map; themes are frontmatter `category`.** The
+24. **No detection, no hard-coded pack map; categories come from doc frontmatter.** The
     `--relevant` flag, repo auto-detection, and a central pack→doc list are all dropped
     — they drift out of sync with the docs and replace agent judgment with brittle
-    rules. Each doc declares its theme in frontmatter (`general`, `typescript`, `python`,
-    `convex`, `electron`), the name-based `inferGuidelineCategory` inference is retired,
-    and the agent forks the general theme plus the repo’s languages/frameworks.
+    rules. Each doc declares its category in frontmatter (`general`, `typescript`,
+    `python`, `convex`, `electron`), the name-based `inferGuidelineCategory` inference
+    is retired, and the agent forks the general category plus the repo’s
+    languages/frameworks.
     `tbd docs fork` accepts names, `--category`, or `--all`.
 
 25. **Onboarding presents two explicit axes: scope and visibility.** Setup and
     `welcome-user` make clear that (a) all standard guidelines are active by default
-    (recommended; can be subset by theme), and (b) the user can keep them in the hidden
-    cache (the “magic” path) or fork them into `docs/tbd/` for explicit, customizable,
-    git-tracked copies. Both paths make the *same* guidelines active — forking only adds
-    visibility and editability — and that equivalence is stated wherever the choice is
-    offered.
+    (recommended; can be subset by category), and (b) the user can keep them in the
+    hidden cache (the “magic” path) or fork them into `docs/tbd/` for explicit,
+    customizable, git-tracked copies.
+    Both paths make the *same* guidelines active — forking only adds visibility and
+    editability — and that equivalence is stated wherever the choice is offered.
 
 26. **Out-of-band deletion of a forked file is a supported state, not an error.**
     Serving falls back to upstream automatically; `tbd docs status` reports `missing`
@@ -1054,9 +1055,9 @@ The questions raised during earlier reviews are all now resolved:
 
 - *Should `--relevant` become the fresh-setup default?* — Moot: the `--relevant` flag
   and repo auto-detection are removed entirely (Resolved Decision 24); selection is by
-  theme, chosen by the agent.
-- *Pack definitions in code vs frontmatter tags?* — Resolved: themes are each doc’s
-  frontmatter `category`, with no central pack map (Resolved Decision 24).
+  category, chosen by the agent.
+- *Pack definitions in code vs frontmatter tags?* — Resolved: categories come from each
+  doc’s frontmatter, with no central pack map (Resolved Decision 24).
 - *Should the per-kind list JSON also be docmap?* — Resolved: yes, docmap everywhere
   (Resolved Decision 21).
 
@@ -1201,21 +1202,22 @@ rest of the test wiring in Phase 5).
     listing, the skip-warning naming both strategies, summary counts; pending-update
     reporting wired into `tbd setup --auto` output and `tbd status`.
 
-### Phase 4: Setup and themes
+### Phase 4: Setup and categories
 
-15. **Themes via frontmatter `category`** (no `doc-packs.ts`, no detection function):
-    curate the `category` field on the bundled docs so each lands in exactly one theme
-    (`general`, `typescript`, `python`, `convex`, `electron`), retire the name-based
-    `inferGuidelineCategory` inference in favor of the declared field, and add
-    `--category` selection to `tbd docs fork` (reusing the existing `--list --category`
-    metadata — no new map).
+15. **Categories from doc frontmatter** (no `doc-packs.ts`, no detection function):
+    curate the `category` field on the bundled docs so each lands in exactly one
+    category (`general`, `typescript`, `python`, `convex`, `electron`), retire the
+    name-based `inferGuidelineCategory` inference in favor of the declared field, and
+    add `--category` selection to `tbd docs fork` (reusing the existing
+    `--list --category` metadata — no new map).
     Unit tests: category-based fork selection, and that every bundled doc resolves to
-    exactly one theme.
+    exactly one category.
 16. **Setup integration**: self-documenting `--auto` summary naming the two choices —
-    *scope* (all standard guidelines, recommended, or a theme subset) and *visibility*
-    (hidden cache vs fork into `docs/tbd/`) — plus the pending-update count; removal of
-    the unused `--interactive` flag; the fork dir documented as a config customization
-    (`docs_cache.fork_dir`); the sync-taxonomy table added to `tbd-docs.md`.
+    *scope* (all standard guidelines, recommended, or a category subset) and
+    *visibility* (hidden cache vs fork into `docs/tbd/`) — plus the pending-update
+    count; removal of the unused `--interactive` flag; the fork dir documented as a
+    config customization (`docs_cache.fork_dir`); the sync-taxonomy table added to
+    `tbd-docs.md`.
 
 ### Phase 5: Docs and agent surface
 
@@ -1257,7 +1259,7 @@ duplicated** — the contract is that those exact blocks appear in the named doc
 | `README.md` | Phase 0 | “Shortcuts, Guidelines, and Templates”: add a “Forkable: see them in your repo” paragraph with a `tbd docs fork --category=general` example. “Documentation” block: `tbd docs` is now an overview; the manual is `tbd docs show tbd-docs`. Per-kind `--add` lines annotated as aliases for `tbd docs add`. |
 | `packages/tbd/docs/shortcuts/system/skill-baseline.md` (injected agent skill) | Phase 5 | Add the fork/update/upstream rows to “User Request → Agent Action” (the rows in “Upstream-contribution playbook”); add `tbd docs list` / `tbd docs fork` to the “Documentation” command table; one-line “Forkable docs” note. Kept within the skill’s size budget; lands with the rest of the agent surface so routing is never half-wired. |
 | `packages/tbd/docs/install/claude-header.md` | none | **No change.** Its `allowed-tools: Bash(tbd:*)` already covers `tbd docs`. Stated here so the audit is explicit. |
-| `packages/tbd/docs/shortcuts/standard/welcome-user.md` | Phase 5 | Add the two-axis onboarding offer after the status summary — *scope* (all guidelines vs a theme subset) and *visibility* (hidden cache vs forked into `docs/tbd/`) — plus a “make guidelines visible” row routing to `tbd docs fork --category=…`. |
+| `packages/tbd/docs/shortcuts/standard/welcome-user.md` | Phase 5 | Add the two-axis onboarding offer after the status summary — *scope* (all guidelines vs a category subset) and *visibility* (hidden cache vs forked into `docs/tbd/`) — plus a “make guidelines visible” row routing to `tbd docs fork --category=…`. |
 | `packages/tbd/docs/shortcuts/standard/suggest-upstream-improvements.md` (**new**) | Phase 0 | The upstream-contribution playbook (per “Upstream-contribution playbook”). Pure docs. |
 | `packages/tbd/docs/references/docref-format.md` (**new**) | Phase 0 | Adopted from the #117 branch, marked adopted v0.1. First doc of the new `reference` kind. |
 | `packages/tbd/docs/references/docmap-format.md` (**new**) | Phase 0 | Authored fresh, minimal (docmap/0.1 inventory only) per the Design section; #117 cited as background. |
@@ -1370,7 +1372,7 @@ tbd docs — managed documentation
   Guidelines are active from the cache. Fork them into docs/tbd/ to make them
   visible and customizable (same behavior — just explicit and git-tracked):
 
-  Scope:         all standard guidelines (recommended), or a theme:
+  Scope:         all standard guidelines (recommended), or a category:
                  general, typescript, python, convex, electron
   Make visible:  tbd docs fork --category=general --category=<your-languages>
                  tbd docs fork --all          (everything)
@@ -1490,7 +1492,7 @@ Edit it in place — tbd now serves your copy everywhere it served the upstream 
 ? 0
 
 $ tbd docs fork --category=general --category=python --dry-run
-[DRY-RUN] Would fork 11 docs into docs/tbd/ (themes: general, python)
+[DRY-RUN] Would fork 11 docs into docs/tbd/ (categories: general, python)
   guideline   general-eng-agent-principles
   guideline   general-coding-rules
   [.. 7 more ..]
@@ -1661,7 +1663,7 @@ pending-update report); setup never writes the fork dir:
 Docs: 37 available in cache (.tbd/docs/, gitignored); none forked into the repo.
   Guidelines are active from the cache. Fork them into docs/tbd/ to make them
   visible and customizable (same behavior — just explicit and git-tracked):
-  Scope:         all standard guidelines (recommended), or a theme:
+  Scope:         all standard guidelines (recommended), or a category:
                  general, typescript, python, convex, electron
   Make visible:  tbd docs fork --category=general --category=<your-languages>
                  tbd docs fork --all          (everything)
