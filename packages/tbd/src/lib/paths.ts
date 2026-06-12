@@ -351,28 +351,55 @@ export const INSTALL_DIR = 'install';
 /** Built-in install source path (relative to package docs/) */
 export const BUILTIN_INSTALL_DIR = INSTALL_DIR;
 
+// =============================================================================
+// Forkable docs: the visible, git-tracked fork directory
+// =============================================================================
+
+/** References directory name (tbd self-docs and format references). */
+export const REFERENCES_DIR = 'references';
+
+/** Default fork directory (repo-relative), where forked docs are made visible. */
+export const FORK_DIR = join(DOCS_DIR, 'tbd'); // docs/tbd/
+
+/** Fork-dir kind subdirectories (repo-relative). */
+export const FORK_SHORTCUTS_DIR = join(FORK_DIR, SHORTCUTS_DIR); // docs/tbd/shortcuts/
+export const FORK_GUIDELINES_DIR = join(FORK_DIR, GUIDELINES_DIR); // docs/tbd/guidelines/
+export const FORK_TEMPLATES_DIR = join(FORK_DIR, TEMPLATES_DIR); // docs/tbd/templates/
+export const FORK_REFERENCES_DIR = join(FORK_DIR, REFERENCES_DIR); // docs/tbd/references/
+
+/**
+ * Cache-only lookup paths (the gitignored `.tbd/docs/` cache), used when forking
+ * needs the pristine upstream content rather than a possibly-forked copy.
+ */
+export const CACHE_SHORTCUT_PATHS = [TBD_SHORTCUTS_SYSTEM, TBD_SHORTCUTS_STANDARD];
+export const CACHE_GUIDELINES_PATHS = [TBD_GUIDELINES_DIR];
+export const CACHE_TEMPLATE_PATHS = [TBD_TEMPLATES_DIR];
+
 /**
  * Default shortcut lookup paths (searched in order, relative to tbd root).
- * Earlier paths take precedence over later paths.
- * Note: Guidelines and templates are now separate top-level directories.
+ * Earlier paths take precedence: the fork dir shadows the cache, so a forked doc
+ * is served wherever the upstream one was. Missing dirs are skipped, so repos with
+ * no forks behave exactly as before.
  */
 export const DEFAULT_SHORTCUT_PATHS = [
-  TBD_SHORTCUTS_SYSTEM, // .tbd/docs/shortcuts/system/
-  TBD_SHORTCUTS_STANDARD, // .tbd/docs/shortcuts/standard/
+  FORK_SHORTCUTS_DIR, // docs/tbd/shortcuts/ (forked, highest precedence)
+  ...CACHE_SHORTCUT_PATHS,
 ];
 
 /**
  * Default guidelines lookup paths (relative to tbd root).
  */
 export const DEFAULT_GUIDELINES_PATHS = [
-  TBD_GUIDELINES_DIR, // .tbd/docs/guidelines/
+  FORK_GUIDELINES_DIR, // docs/tbd/guidelines/ (forked, highest precedence)
+  ...CACHE_GUIDELINES_PATHS,
 ];
 
 /**
  * Default template lookup paths (relative to tbd root).
  */
 export const DEFAULT_TEMPLATE_PATHS = [
-  TBD_TEMPLATES_DIR, // .tbd/docs/templates/
+  FORK_TEMPLATES_DIR, // docs/tbd/templates/ (forked, highest precedence)
+  ...CACHE_TEMPLATE_PATHS,
 ];
 
 /**

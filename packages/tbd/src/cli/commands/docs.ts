@@ -14,6 +14,7 @@ import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 
 import { BaseCommand } from '../lib/base-command.js';
+import { registerForkSubcommands } from './docs-fork.js';
 import { shouldUseInteractiveOutput } from '../lib/context.js';
 import { CLIError, NotFoundError } from '../lib/errors.js';
 import { renderMarkdown, paginateOutput } from '../lib/output.js';
@@ -247,3 +248,7 @@ export const docsCommand = new Command('docs')
     const handler = new DocsHandler(command);
     await handler.run(topic, options);
   });
+
+// Forkable-docs operations (fork / unfork / status) are added as subcommands.
+// The existing manual-viewer behavior remains the default action above.
+registerForkSubcommands(docsCommand);
