@@ -47,6 +47,8 @@ import {
   forkFilePath,
   readForkFile,
   readForkBase,
+  listLocalForkFiles,
+  regenerateForkDirReadme,
   ForkConflictError,
 } from '../../file/doc-fork.js';
 import { updateOne, diffContents, type UpdateStrategy } from '../../file/fork-update.js';
@@ -142,10 +144,13 @@ class DocsForkHandler extends BaseCommand {
         }
       }
       await writeForkManifest(tbdRoot, manifest);
+      await regenerateForkDirReadme(tbdRoot, FORK_DIR, manifest);
 
       if (this.ctx.json) {
         this.output.data({ forked });
       } else {
+        const colors = this.output.getColors();
+        console.log(colors.dim(`  Regenerated ${FORK_DIR}/README.md`));
         console.log('');
         console.log('Edit in place — tbd now serves your copy wherever it served upstream.');
       }
@@ -259,6 +264,7 @@ class DocsUnforkHandler extends BaseCommand {
         }
       }
       await writeForkManifest(tbdRoot, manifest);
+      await regenerateForkDirReadme(tbdRoot, FORK_DIR, manifest);
       if (this.ctx.json) {
         this.output.data({ unforked: removed });
       }
@@ -283,13 +289,18 @@ class DocsStatusHandler extends BaseCommand {
 
       // Resolve upstream (cache) content per entry for staleness.
       const caches = new Map<ForkKind, DocCache>();
-      const rows: {
-        entry: ForkEntry;
+      interface StatusRow {
+        name: string;
+        kind: string;
         label: string;
+        path: string;
+        source: string;
         customized: boolean;
         stale: boolean;
         conflicted: boolean;
-      }[] = [];
+        missing: boolean;
+      }
+      const rows: StatusRow[] = [];
 
       for (const entry of manifest.forks) {
         const kind = entry.kind as ForkKind;
@@ -297,20 +308,42 @@ class DocsStatusHandler extends BaseCommand {
         const cacheHit = caches.get(kind)!.get(entry.name);
         const status = await forkStatusFor(tbdRoot, FORK_DIR, entry, cacheHit?.doc.content ?? null);
         rows.push({
-          entry,
+          name: entry.name,
+          kind: entry.kind,
           label: stateLabel(status.state, status.stale),
+          path: entry.path,
+          source: entry.source,
           customized: status.customized,
           stale: status.stale,
           conflicted: status.conflicted,
+          missing: status.state === 'missing',
         });
       }
 
+      // Hand-authored fork-dir files with no manifest entry (state `local`).
+      // These cover adds, the new half of a rename, and a deleted manifest.
+      const locals = await listLocalForkFiles(tbdRoot, FORK_DIR, manifest);
+      for (const l of locals) {
+        rows.push({
+          name: l.name,
+          kind: l.kind,
+          label: 'local',
+          path: l.relPath,
+          source: '—',
+          customized: false,
+          stale: false,
+          conflicted: false,
+          missing: false,
+        });
+      }
+      rows.sort((a, b) => a.name.localeCompare(b.name));
+
       if (this.ctx.json) {
         const docs: DocMapEntry[] = rows.map((r) => ({
-          name: r.entry.name,
-          type: r.entry.kind,
-          path: r.entry.path,
-          source: r.entry.source,
+          name: r.name,
+          type: r.kind,
+          path: r.path,
+          ...(r.source !== '—' ? { source: r.source } : {}),
           state: r.label,
           stale: r.stale,
         }));
@@ -326,24 +359,37 @@ class DocsStatusHandler extends BaseCommand {
         return;
       }
 
-      const nameW = Math.max(4, ...rows.map((r) => r.entry.name.length));
-      const kindW = Math.max(4, ...rows.map((r) => r.entry.kind.length));
+      const nameW = Math.max(4, ...rows.map((r) => r.name.length));
+      const kindW = Math.max(4, ...rows.map((r) => r.kind.length));
       const stateW = Math.max(5, ...rows.map((r) => r.label.length));
       const header = `${'NAME'.padEnd(nameW)}  ${'KIND'.padEnd(kindW)}  ${'STATE'.padEnd(stateW)}  SOURCE`;
       console.log(colors.dim(header));
       for (const r of rows) {
-        const line = `${r.entry.name.padEnd(nameW)}  ${r.entry.kind.padEnd(kindW)}  ${r.label.padEnd(stateW)}  ${r.entry.source}`;
-        console.log(line);
+        const line = `${r.name.padEnd(nameW)}  ${r.kind.padEnd(kindW)}  ${r.label.padEnd(stateW)}  ${r.source}`;
+        console.log(r.label === 'local' ? colors.dim(line) : line);
       }
 
-      const customizedCount = rows.filter((r) => r.customized).length;
-      const staleCount = rows.filter((r) => r.stale).length;
-      const conflictCount = rows.filter((r) => r.conflicted).length;
+      const forkedRows = rows.filter((r) => r.label !== 'local');
+      const customizedCount = forkedRows.filter((r) => r.customized).length;
+      const staleCount = forkedRows.filter((r) => r.stale).length;
+      const conflictCount = forkedRows.filter((r) => r.conflicted).length;
+      const missingRows = forkedRows.filter((r) => r.missing);
       const parts = [`${customizedCount} customized`];
       if (staleCount > 0) parts.push(`${staleCount} with upstream updates — run 'tbd docs update'`);
       if (conflictCount > 0) parts.push(`${conflictCount} conflict pending`);
+      if (locals.length > 0) parts.push(`${locals.length} local`);
       console.log('');
-      console.log(`${rows.length} forked: ${parts.join(', ')}`);
+      console.log(`${forkedRows.length} forked: ${parts.join(', ')}`);
+
+      if (missingRows.length > 0) {
+        console.log('');
+        console.log(`${missingRows.length} doc(s) missing (forked file deleted or renamed):`);
+        for (const r of missingRows) {
+          console.log(
+            `  ${r.name}   restore with 'tbd docs fork ${r.name} --force', or finalize with 'tbd docs unfork ${r.name}'`,
+          );
+        }
+      }
     }, 'Failed to read docs status');
   }
 }
@@ -420,6 +466,7 @@ class DocsUpdateHandler extends BaseCommand {
 
       if (!options.dryRun) {
         await writeForkManifest(tbdRoot, manifest);
+        await regenerateForkDirReadme(tbdRoot, FORK_DIR, manifest);
       }
 
       if (this.ctx.json) {

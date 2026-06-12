@@ -13,6 +13,9 @@ import {
   forkStatusFor,
   forkFilePath,
   forkRelPath,
+  listLocalForkFiles,
+  computeForkDriftSummary,
+  regenerateForkDirReadme,
   ForkConflictError,
   DEFAULT_FORK_DIR,
 } from '../src/file/doc-fork.js';
@@ -214,5 +217,85 @@ describe('unforkDoc', () => {
     expect(forkRelPath(FORK_DIR, 'shortcut', 'review-code')).toBe(
       'docs/tbd/shortcuts/review-code.md',
     );
+  });
+});
+
+describe('drift helpers (local files, summary, README index)', () => {
+  let root: string;
+  beforeEach(async () => {
+    root = await mkdtemp(join(tmpdir(), 'tbd-doc-drift-'));
+    // A minimal upstream cache copy so staleness can be computed.
+    await import('node:fs/promises').then((fs) =>
+      fs.mkdir(join(root, '.tbd', 'docs', 'guidelines'), { recursive: true }),
+    );
+    await writeFile(join(root, '.tbd', 'docs', 'guidelines', 'python-rules.md'), UPSTREAM);
+  });
+  afterEach(async () => {
+    await rm(root, { recursive: true, force: true });
+  });
+
+  async function forkOne() {
+    return forkDoc({
+      tbdRoot: root,
+      forkDir: FORK_DIR,
+      manifest: emptyManifest(),
+      kind: 'guideline',
+      name: 'python-rules',
+      source: 'internal:guidelines/python-rules.md',
+      content: UPSTREAM,
+    });
+  }
+
+  it('listLocalForkFiles finds stray files but ignores nested folders', async () => {
+    const { manifest } = await forkOne();
+    const dir = join(root, FORK_DIR, 'guidelines');
+    await writeFile(join(dir, 'team-rules.md'), '# Team\n');
+    await import('node:fs/promises').then((fs) =>
+      fs.mkdir(join(dir, 'nested'), { recursive: true }),
+    );
+    await writeFile(join(dir, 'nested', 'hidden.md'), '# Hidden\n');
+
+    const locals = await listLocalForkFiles(root, FORK_DIR, manifest);
+    expect(locals).toEqual([
+      { kind: 'guideline', name: 'team-rules', relPath: 'docs/tbd/guidelines/team-rules.md' },
+    ]);
+  });
+
+  it('computeForkDriftSummary reports stale, missing, and local counts', async () => {
+    const { manifest } = await forkOne();
+
+    // Fresh fork, cache matches base: no drift.
+    let s = await computeForkDriftSummary(root, FORK_DIR, manifest);
+    expect(s).toMatchObject({ forks: 1, stale: 0, missing: 0, local: 0 });
+
+    // Upstream (cache) moves: stale.
+    await writeFile(join(root, '.tbd', 'docs', 'guidelines', 'python-rules.md'), UPSTREAM + 'v2\n');
+    s = await computeForkDriftSummary(root, FORK_DIR, manifest);
+    expect(s.stale).toBe(1);
+
+    // Forked file deleted out-of-band: missing. A stray file: local.
+    await rm(join(root, FORK_DIR, 'guidelines', 'python-rules.md'));
+    await writeFile(join(root, FORK_DIR, 'guidelines', 'team-rules.md'), '# Team\n');
+    s = await computeForkDriftSummary(root, FORK_DIR, manifest);
+    expect(s).toMatchObject({ missing: 1, local: 1 });
+  });
+
+  it('regenerateForkDirReadme writes the index and prunes when empty', async () => {
+    const { manifest } = await forkOne();
+    await regenerateForkDirReadme(root, FORK_DIR, manifest);
+    const readme = await readFile(join(root, FORK_DIR, 'README.md'), 'utf-8');
+    expect(readme).toContain('DO NOT EDIT');
+    expect(readme).toContain('python-rules');
+    expect(readme).toContain('nested\n  folders are not scanned');
+
+    // Unfork everything: README and empty dirs are pruned.
+    const { manifest: empty } = await unforkDoc({
+      tbdRoot: root,
+      forkDir: FORK_DIR,
+      manifest,
+      name: 'python-rules',
+    });
+    await regenerateForkDirReadme(root, FORK_DIR, empty);
+    await expect(readFile(join(root, FORK_DIR, 'README.md'), 'utf-8')).rejects.toThrow();
   });
 });

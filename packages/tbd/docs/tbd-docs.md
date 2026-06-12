@@ -715,6 +715,41 @@ On HTTP 403, fetching falls back to `gh api` for authenticated access.
 User-added shortcuts go to `shortcuts/custom/` (separate from bundled
 `shortcuts/standard/`).
 
+### Forked Docs in Your Repo (docs/tbd/)
+
+`tbd docs fork` copies managed docs into `docs/tbd/`, laid out **by kind, flat within
+each kind**, with a generated `README.md` index (regenerated on every
+fork/unfork/update):
+
+```
+docs/tbd/
+├── README.md        # generated index — what this folder is, one line per doc
+├── guidelines/<name>.md
+├── shortcuts/<name>.md
+└── templates/<name>.md
+```
+
+Two rules make everything below predictable: **names are identity** (a doc is
+`<kind>/<name>.md`; nested subfolders are not scanned), and **tracking is derived, not
+stored** — every doc’s state is recomputed from content hashes (your file vs its
+recorded base vs current upstream), so no git operation can desynchronize tbd from the
+folder. Whatever you or your agent do to these files, `tbd docs status` gives a defined
+answer:
+
+| You (or your agent)… | State | What happens / what to do |
+| --- | --- | --- |
+| Edit a forked file | `customized` | Served as-is; `tbd docs update` three-way merges upstream changes in |
+| Delete a forked file | `missing` | Serving falls back to upstream; restore with `tbd docs fork <name> --force` or finalize with `tbd docs unfork <name>` |
+| Rename a forked file | `missing` + `local` | A rename is delete + add: finalize the old name (`unfork`), keep the new file as `local` |
+| Add a new `.md` file | `local` | Served with top precedence; nothing to update or unfork (no upstream) |
+| Move a file into a subfolder | invisible | Subfolders are not scanned — keep files at `<kind>/<name>.md` |
+| Delete `.tbd/doc-forks/` (the manifest) | all `local` | Files keep being served; re-fork with `--force` to re-establish update tracking (overwrites with upstream — re-apply edits after) |
+| Commit / pull / merge / revert any of it | recomputed | States derive from content, so collaborators see the same answers from the same files |
+
+Awareness without surprise mutations: `tbd sync` prints a one-line notice when forked
+docs are stale, conflicted, or missing, and `tbd docs status` shows the full picture —
+but only the explicit `tbd docs update` ever modifies tracked files.
+
 ### uninstall
 
 Remove tbd from a repository.

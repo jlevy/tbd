@@ -24,7 +24,9 @@ import {
   type ConflictEntry,
   type PushResult,
 } from '../../file/git.js';
-import { DATA_SYNC_DIR } from '../../lib/paths.js';
+import { DATA_SYNC_DIR, FORK_DIR } from '../../lib/paths.js';
+import { readForkManifest } from '../../file/fork-manifest.js';
+import { computeForkDriftSummary } from '../../file/doc-fork.js';
 import { basename, join } from 'node:path';
 import { access, readFile } from 'node:fs/promises';
 import { writeFile } from 'atomically';
@@ -189,7 +191,37 @@ class SyncHandler extends BaseCommand {
 
     // Report results
     this.showDocSyncResult(result);
+    await this.notifyForkDrift();
     return result;
+  }
+
+  /**
+   * One-line awareness notice for forked docs (docs/tbd/): the cache refresh
+   * above is exactly when forks can become stale, and agents run `tbd sync`
+   * routinely — so drift is surfaced here, but never acted on (only the
+   * explicit `tbd docs update` mutates tracked files).
+   */
+  private async notifyForkDrift(): Promise<void> {
+    try {
+      const manifest = await readForkManifest(this.tbdRoot);
+      const drift = await computeForkDriftSummary(this.tbdRoot, FORK_DIR, manifest);
+      if (drift.forks === 0) return;
+      const parts: string[] = [];
+      if (drift.stale > 0) {
+        parts.push(`${drift.stale} forked doc(s) have upstream updates — run 'tbd docs update'`);
+      }
+      if (drift.conflicted > 0) {
+        parts.push(`${drift.conflicted} with unresolved conflict markers`);
+      }
+      if (drift.missing > 0) {
+        parts.push(`${drift.missing} missing (deleted/renamed) — see 'tbd docs status'`);
+      }
+      if (parts.length > 0) {
+        process.stderr.write(`• Docs: ${parts.join('; ')}\n`);
+      }
+    } catch {
+      // Drift awareness is best-effort; never fail a sync over it.
+    }
   }
 
   /**

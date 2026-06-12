@@ -11,10 +11,18 @@
  * the filesystem writes; resolving which doc/source to fork is the caller's job.
  */
 
-import { readFile, rm, mkdir } from 'node:fs/promises';
+import { readFile, readdir, rm, rmdir, mkdir } from 'node:fs/promises';
 import { dirname, join, relative } from 'node:path';
 
 import { writeFile } from 'atomically';
+import matter from 'gray-matter';
+
+import { DocCache } from './doc-cache.js';
+import {
+  CACHE_GUIDELINES_PATHS,
+  CACHE_SHORTCUT_PATHS,
+  CACHE_TEMPLATE_PATHS,
+} from '../lib/paths.js';
 
 import {
   type ForkEntry,
@@ -242,6 +250,188 @@ export async function readForkFile(
 /** Read the stored base snapshot for an entry, or null if it is missing. */
 export async function readForkBase(tbdRoot: string, entry: ForkEntry): Promise<string | null> {
   return readBaseContent(tbdRoot, entry.kind, entry.name);
+}
+
+/** A hand-authored file in the fork dir with no manifest entry (state `local`). */
+export interface LocalForkFile {
+  kind: ForkKind;
+  name: string;
+  /** Repo-relative path (POSIX separators). */
+  relPath: string;
+}
+
+/**
+ * List fork-dir files that have no manifest entry. These are served (the fork dir
+ * has top lookup precedence) but have no upstream: nothing to update or unfork.
+ * Only the flat `<fork_dir>/<kind-dir>/*.md` layout is scanned — names are
+ * identity, so nested folders are deliberately not searched (documented).
+ */
+export async function listLocalForkFiles(
+  tbdRoot: string,
+  forkDir: string,
+  manifest: ForkManifest,
+): Promise<LocalForkFile[]> {
+  const locals: LocalForkFile[] = [];
+  for (const kind of Object.keys(KIND_DIR) as ForkKind[]) {
+    let entries: string[];
+    try {
+      entries = await readdir(join(tbdRoot, forkDir, KIND_DIR[kind]));
+    } catch {
+      continue; // Kind dir absent — nothing forked or added there.
+    }
+    for (const entry of entries) {
+      if (!entry.endsWith('.md')) continue;
+      const name = entry.slice(0, -3);
+      if (!findFork(manifest, name, kind)) {
+        locals.push({ kind, name, relPath: forkRelPath(forkDir, kind, name) });
+      }
+    }
+  }
+  locals.sort((a, b) => a.kind.localeCompare(b.kind) || a.name.localeCompare(b.name));
+  return locals;
+}
+
+/** Cache-only lookup paths per kind (the pristine upstream copies). */
+const KIND_CACHE_PATHS: Record<string, string[]> = {
+  guideline: CACHE_GUIDELINES_PATHS,
+  shortcut: CACHE_SHORTCUT_PATHS,
+  template: CACHE_TEMPLATE_PATHS,
+};
+
+/** Aggregate drift counts across all forked docs, plus local files. */
+export interface ForkDriftSummary {
+  forks: number;
+  customized: number;
+  /** Upstream moved since the fork point (run `tbd docs update`). */
+  stale: number;
+  conflicted: number;
+  /** Manifest entries whose forked file was deleted out-of-band. */
+  missing: number;
+  /** Fork-dir files with no manifest entry. */
+  local: number;
+}
+
+/**
+ * Compute the drift summary for awareness surfaces (`tbd sync` notice, status).
+ * Reads the manifest, the fork dir, and the doc cache; safe to call when nothing
+ * is forked (all zeros, no cache loads).
+ */
+export async function computeForkDriftSummary(
+  tbdRoot: string,
+  forkDir: string,
+  manifest: ForkManifest,
+): Promise<ForkDriftSummary> {
+  const summary: ForkDriftSummary = {
+    forks: manifest.forks.length,
+    customized: 0,
+    stale: 0,
+    conflicted: 0,
+    missing: 0,
+    local: 0,
+  };
+  summary.local = (await listLocalForkFiles(tbdRoot, forkDir, manifest)).length;
+  if (manifest.forks.length === 0) {
+    return summary;
+  }
+
+  const caches = new Map<string, DocCache>();
+  for (const entry of manifest.forks) {
+    let cache = caches.get(entry.kind);
+    if (!cache) {
+      cache = new DocCache(KIND_CACHE_PATHS[entry.kind] ?? [], tbdRoot);
+      await cache.load({ quiet: true });
+      caches.set(entry.kind, cache);
+    }
+    const status = await forkStatusFor(
+      tbdRoot,
+      forkDir,
+      entry,
+      cache.get(entry.name)?.doc.content ?? null,
+    );
+    if (status.customized) summary.customized++;
+    if (status.stale) summary.stale++;
+    if (status.conflicted) summary.conflicted++;
+    if (status.state === 'missing') summary.missing++;
+  }
+  return summary;
+}
+
+/** First frontmatter description (or title) of a doc file, for the README index. */
+async function docBlurb(absPath: string): Promise<string | undefined> {
+  try {
+    const data = matter(await readFile(absPath, 'utf-8')).data as Record<string, unknown>;
+    const description = typeof data.description === 'string' ? data.description : undefined;
+    const title = typeof data.title === 'string' ? data.title : undefined;
+    return description ?? title;
+  } catch {
+    return undefined;
+  }
+}
+
+/**
+ * Regenerate the fork dir's `README.md` index (what this folder is, who manages
+ * it, and one line per doc). Called after every fork/unfork/update. When nothing
+ * is forked and no local files remain, the README is removed and empty kind dirs
+ * are pruned so `unfork --all` leaves the repo pristine.
+ */
+export async function regenerateForkDirReadme(
+  tbdRoot: string,
+  forkDir: string,
+  manifest: ForkManifest,
+): Promise<void> {
+  const readmePath = join(tbdRoot, forkDir, 'README.md');
+  const locals = await listLocalForkFiles(tbdRoot, forkDir, manifest);
+
+  if (manifest.forks.length === 0 && locals.length === 0) {
+    await rm(readmePath, { force: true });
+    for (const kindDir of Object.values(KIND_DIR)) {
+      await rmdir(join(tbdRoot, forkDir, kindDir)).catch(() => undefined);
+    }
+    await rmdir(join(tbdRoot, forkDir)).catch(() => undefined);
+    return;
+  }
+
+  interface IndexRow {
+    kind: string;
+    name: string;
+    relPath: string;
+    suffix: string;
+  }
+  const rows: IndexRow[] = [
+    ...manifest.forks.map((f) => ({ kind: f.kind, name: f.name, relPath: f.path, suffix: '' })),
+    ...locals.map((l) => ({ ...l, suffix: ' *(local — not from an upstream)*' })),
+  ].sort((a, b) => a.kind.localeCompare(b.kind) || a.name.localeCompare(b.name));
+
+  const lines: string[] = [
+    '<!-- DO NOT EDIT: Generated by `tbd docs fork` (regenerated on fork/unfork/update). -->',
+    '',
+    '# tbd Docs (forked into this repo)',
+    '',
+    'Engineering guidelines, shortcuts, and templates managed by',
+    '[tbd](https://github.com/jlevy/tbd), forked here so they are visible, reviewable,',
+    'and editable. tbd serves these copies instead of its built-in versions.',
+    '',
+    '- Edit any doc in place — your copy is what tbd serves.',
+    '- `tbd docs status` shows each doc’s state; `tbd docs update` pulls in upstream',
+    '  changes (three-way merge); `tbd docs unfork <name>` returns a doc to the',
+    '  built-in version.',
+    '- Keep files at `<kind>/<name>.md`: names are how tbd identifies docs, nested',
+    '  folders are not scanned, and renaming a file counts as delete + add.',
+    '',
+  ];
+  let currentKind = '';
+  for (const row of rows) {
+    if (row.kind !== currentKind) {
+      currentKind = row.kind;
+      lines.push(`## ${KIND_DIR[row.kind as ForkKind] ?? row.kind}`, '');
+    }
+    const blurb = await docBlurb(join(tbdRoot, row.relPath));
+    const fileName = row.relPath.split('/').slice(-2).join('/');
+    lines.push(`- [**${row.name}**](./${fileName})${blurb ? ` — ${blurb}` : ''}${row.suffix}`);
+  }
+  lines.push('');
+  await mkdir(join(tbdRoot, forkDir), { recursive: true });
+  await writeFile(readmePath, lines.join('\n'));
 }
 
 /** Compute the repo-relative path for a fork dir given an absolute tbd root. */
