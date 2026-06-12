@@ -16,7 +16,7 @@ import { requireInit, CLIError } from '../lib/errors.js';
 import { DocCache, SCORE_PREFIX_MATCH } from '../../file/doc-cache.js';
 import { addDoc } from '../../file/doc-add.js';
 import { readConfig } from '../../file/config.js';
-import { DEFAULT_SHORTCUT_PATHS } from '../../lib/paths.js';
+import { CACHE_SHORTCUT_PATHS, FORK_SHORTCUTS_DIR } from '../../lib/paths.js';
 import { truncate } from '../../lib/truncate.js';
 import { formatDocSize } from '../../lib/format-utils.js';
 import { getTerminalWidth } from '../lib/output.js';
@@ -73,9 +73,16 @@ class ShortcutHandler extends BaseCommand {
       // Get tbd root (supports running from subdirectories)
       const tbdRoot = await requireInit();
 
-      // Read config to get lookup paths (fall back to defaults)
+      // Read config to get lookup paths (fall back to the cache defaults). The
+      // fork dir is prepended structurally, not via config: a persisted
+      // lookup_path (setup writes one into every repo) must not be able to turn
+      // off fork shadowing (tbd-design.md §2.9 invariant 1).
       const config = await readConfig(tbdRoot);
-      const lookupPaths = config.docs_cache?.lookup_path ?? DEFAULT_SHORTCUT_PATHS;
+      const configured = config.docs_cache?.lookup_path ?? CACHE_SHORTCUT_PATHS;
+      const lookupPaths = [
+        FORK_SHORTCUTS_DIR,
+        ...configured.filter((p) => p !== FORK_SHORTCUTS_DIR),
+      ];
 
       // Create and load the doc cache with proper base directory
       const cache = new DocCache(lookupPaths, tbdRoot);

@@ -7,7 +7,6 @@
  *
  * Options:
  * - `tbd setup --auto` - Non-interactive setup (for agents/scripts)
- * - `tbd setup --interactive` - Interactive setup with prompts (for humans)
  * - `tbd setup --from-beads` - Migrate from Beads to tbd
  *
  * See: tbd-design.md §6.4.2 Claude Code Integration
@@ -46,6 +45,9 @@ import {
   DATA_SYNC_DIR_NAME,
   DEFAULT_SHORTCUT_PATHS,
   DEFAULT_GUIDELINES_PATHS,
+  DEFAULT_TEMPLATE_PATHS,
+  DEFAULT_REFERENCE_PATHS,
+  FORK_DIR,
   TBD_SHORTCUTS_SYSTEM,
   TBD_SHORTCUTS_STANDARD,
   TBD_GUIDELINES_DIR,
@@ -61,6 +63,9 @@ import {
   AGENT_INTEGRATION_FORMAT,
 } from '../../lib/integration-paths.js';
 import { initWorktree, isInGitRepo, findGitRoot, checkWorktreeHealth } from '../../file/git.js';
+import { readForkManifest } from '../../file/fork-manifest.js';
+import { computeForkDriftSummary } from '../../file/doc-fork.js';
+import { docsPostureMenuLines } from '../lib/docs-menu.js';
 import { DocCache, generateShortcutDirectory } from '../../file/doc-cache.js';
 import { withSharedDataSyncLock, writeCommonDirLayout } from '../../file/common-dir-layout.js';
 import { withDataSyncContext } from '../lib/data-context.js';
@@ -1238,12 +1243,11 @@ class SetupCodexHandler extends BaseCommand {
 }
 
 // ============================================================================
-// Setup Default Handler (for --auto and --interactive modes)
+// Setup Default Handler (for --auto mode)
 // ============================================================================
 
 interface SetupDefaultOptions {
   auto?: boolean;
-  interactive?: boolean;
   fromBeads?: boolean;
   prefix?: string;
   force?: boolean;
@@ -1251,11 +1255,10 @@ interface SetupDefaultOptions {
 }
 
 /**
- * Default handler for `tbd setup` with --auto or --interactive flags.
+ * Default handler for `tbd setup --auto`.
  *
  * This implements the unified onboarding flow:
  * - `tbd setup --auto`: Non-interactive setup with smart defaults (for agents)
- * - `tbd setup --interactive`: Interactive setup with prompts (for humans)
  *
  * Decision tree:
  * 1. Not in git repo → Error (git init first)
@@ -1278,7 +1281,6 @@ class SetupDefaultHandler extends BaseCommand {
 
     // Determine mode
     const isAutoMode = options.auto === true;
-    // Note: options.interactive will be used when we add interactive prompts
 
     // Header
     console.log(colors.bold('tbd: Git-native issue tracking for AI agents and humans'));
@@ -1938,6 +1940,61 @@ class SetupAutoHandler extends BaseCommand {
         console.log(colors.warn(`  ! ${r.name}: ${r.error}`));
       }
     }
+
+    // Docs summary: serving posture and pending upstream updates (read-only).
+    await this.printDocsSummary(cwd);
+  }
+
+  /**
+   * Print the Docs summary after the integration sections: how many docs tbd
+   * serves from the gitignored cache, or — when docs are forked into the repo —
+   * the fork count plus any pending upstream updates. Reporting only: setup
+   * never writes the fork dir (only `tbd docs update` modifies forked docs).
+   *
+   * Zero-fork wording is shared with the bare `tbd docs` overview via
+   * {@link docsPostureMenuLines} so the two menus cannot drift.
+   */
+  private async printDocsSummary(cwd: string): Promise<void> {
+    // Suppressed like the other setup summary sections.
+    if (this.ctx.quiet || this.ctx.json) {
+      return;
+    }
+
+    let lines: string[];
+    try {
+      const manifest = await readForkManifest(cwd);
+      const drift = await computeForkDriftSummary(cwd, FORK_DIR, manifest);
+
+      if (drift.forks > 0) {
+        const updates =
+          drift.stale > 0 ? ` ${drift.stale} have upstream updates — run 'tbd docs update'.` : '';
+        lines = [`Docs: ${drift.forks} forked into ${FORK_DIR}/.${updates}`];
+      } else {
+        let total = 0;
+        for (const paths of [
+          DEFAULT_GUIDELINES_PATHS,
+          DEFAULT_SHORTCUT_PATHS,
+          DEFAULT_TEMPLATE_PATHS,
+          DEFAULT_REFERENCE_PATHS,
+        ]) {
+          const cache = new DocCache(paths, cwd);
+          await cache.load({ quiet: true });
+          total += cache.list().length;
+        }
+        lines = [
+          `Docs: ${total} docs available in the cache (.tbd/docs/, gitignored); none forked into the repo.`,
+          ...docsPostureMenuLines().map((line) => `  ${line}`),
+        ];
+      }
+    } catch {
+      // Reporting only — never fail setup because the summary could not be read.
+      return;
+    }
+
+    console.log('');
+    for (const line of lines) {
+      console.log(line);
+    }
   }
 
   /**
@@ -2179,7 +2236,6 @@ class SetupAutoHandler extends BaseCommand {
 export const setupCommand = new Command('setup')
   .description('Configure tbd integration with editors and tools')
   .option('--auto', 'Non-interactive mode with smart defaults (for agents/scripts)')
-  .option('--interactive', 'Interactive mode with prompts (for humans)')
   .option('--from-beads', 'Migrate from Beads to tbd')
   .option('--prefix <name>', 'Project prefix for issue IDs (required for fresh setup)')
   .option('--force', 'Allow non-recommended prefix format (not 2-8 alphabetic)')
@@ -2189,14 +2245,14 @@ export const setupCommand = new Command('setup')
     'Comma-separated agent surfaces to install: portable, agents-md, claude, codex (or "all"). Default: all',
   )
   .action(async (options: SetupDefaultOptions, command) => {
-    // If --auto or --interactive flag is set, run the default handler
-    if (options.auto || options.interactive) {
+    // If --auto flag is set, run the default handler
+    if (options.auto) {
       const handler = new SetupDefaultHandler(command);
       await handler.run(options);
       return;
     }
 
-    // If --from-beads is set without --auto/--interactive, treat as --auto
+    // If --from-beads is set without --auto, treat as --auto
     if (options.fromBeads) {
       const handler = new SetupDefaultHandler(command);
       await handler.run({ ...options, auto: true });
@@ -2214,7 +2270,6 @@ export const setupCommand = new Command('setup')
     console.log(
       '  --auto              Non-interactive mode with smart defaults (for agents/scripts)',
     );
-    console.log('  --interactive       Interactive mode with prompts (for humans)');
     console.log('  --from-beads        Migrate from Beads to tbd (implies --auto)');
     console.log('');
     console.log('Options:');
@@ -2228,7 +2283,6 @@ export const setupCommand = new Command('setup')
     console.log('Examples:');
     console.log('  tbd setup --auto --prefix=tbd   # Full automatic setup with prefix');
     console.log('  tbd setup --from-beads          # Migrate from Beads (uses beads prefix)');
-    console.log('  tbd setup --interactive         # Interactive setup with prompts');
     console.log('');
     console.log('For surgical initialization without integrations, see: tbd init --help');
   });

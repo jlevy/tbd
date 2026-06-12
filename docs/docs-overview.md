@@ -50,17 +50,24 @@ Project-specific specifications, architecture, and research docs:
 
 ### tbd CLI Documentation Commands
 
-In addition to these repository docs, tbd provides built-in documentation via CLI:
+In addition to these repository docs, tbd provides managed documentation via the
+`tbd docs` group and per-kind readers:
 
-- `tbd shortcut --list` / `tbd shortcut <name>`—Workflow shortcuts (new-plan-spec,
-  code-review-and-commit, review-code-typescript, etc.)
-- `tbd guidelines --list` / `tbd guidelines <name>`—Coding guidelines (typescript-rules,
-  python-rules, general-tdd-guidelines, etc.)
-- `tbd template --list` / `tbd template <name>`—Document templates (plan-spec,
-  research-brief, architecture)
+- `tbd docs`—Status overview of managed docs; `tbd docs list` shows every doc across
+  kinds with `[forked]`/`[customized]`/`[local]` markers
+- `tbd docs show <name>`—Read any doc by name; `tbd docs show tbd-docs` is the CLI
+  manual (alias `tbd docs manual`)
+- `tbd shortcut <name>` / `tbd guidelines <name>` / `tbd template <name>`—Per-kind
+  readers (with `--list`)
+- `tbd docs sync`—Refresh the gitignored `.tbd/docs/` cache (also run by setup)
 
-These CLI-provided docs are installed locally in `.tbd/docs/` during `tbd setup --auto`
-and can be refreshed anytime by re-running setup.
+#### Forking docs into the repo
+
+`tbd docs fork <name>` (or `--all`) copies managed docs into a visible, git-tracked
+`docs/tbd/` folder; tbd then serves your copies everywhere it served the upstream ones.
+`tbd docs update` three-way merges upstream changes into forked copies after an upgrade;
+`tbd docs status` shows each doc’s state.
+See “Managing Docs” in `tbd docs show tbd-docs` for the full model.
 
 #### Adding external docs by URL
 
@@ -76,7 +83,8 @@ GitHub blob URLs are automatically converted to raw URLs.
 If direct fetch returns HTTP 403, the system falls back to `gh api` for authenticated
 access.
 User-added shortcuts are stored in `shortcuts/custom/` to keep them separate from
-bundled docs.
+bundled docs. The unified form is `tbd docs add <docref>` (the per-kind flags remain as
+aliases), and `docs_cache.local_dirs` can serve additional in-repo doc directories.
 
 <!-- This document follows common-doc-guidelines.md.
 See github.com/jlevy/practical-prose and review guidelines before editing.

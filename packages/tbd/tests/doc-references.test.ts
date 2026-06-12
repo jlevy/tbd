@@ -54,10 +54,11 @@ function extractDocCommands(content: string): string[] {
   // Normalize: join lines, collapse whitespace
   const normalized = content.replace(/\n/g, ' ').replace(/\s+/g, ' ');
 
-  // Match: tbd shortcut|guidelines|template|reference <name> (not --list or flags)
-  // Name can be: simple (foo-bar) or prefixed (prefix:foo-bar)
+  // Match per-kind readers (tbd shortcut|guidelines|template <name>) and the
+  // kind-agnostic reader (tbd docs show <name>). Names can be simple (foo-bar)
+  // or prefixed (prefix:foo-bar).
   const pattern =
-    /tbd (shortcut|guidelines|template|reference) ([a-z][a-z0-9-]*(?::[a-z][a-z0-9-]*)?)/g;
+    /tbd (shortcut|guidelines|template|docs show) ([a-z][a-z0-9-]*(?::[a-z][a-z0-9-]*)?)/g;
   const commands: string[] = [];
   let match;
 
@@ -69,11 +70,6 @@ function extractDocCommands(content: string): string[] {
       // Skip prefix:name syntax for now - it's documented but not yet implemented
       // TODO: Remove this check once prefix-based lookup is implemented (f04)
       if (name.includes(':')) {
-        continue;
-      }
-      // Skip reference commands - command not yet implemented (planned for f04)
-      // TODO: Remove this check once tbd reference command is implemented
-      if (cmd === 'reference') {
         continue;
       }
       commands.push(`tbd ${cmd} ${name}`);

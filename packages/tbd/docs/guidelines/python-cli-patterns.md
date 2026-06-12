@@ -2,6 +2,7 @@
 title: Python CLI Patterns
 description: Modern patterns for Python CLI application architecture
 author: Joshua Levy (github.com/jlevy) with LLM assistance
+category: python
 ---
 # Python CLI Patterns
 

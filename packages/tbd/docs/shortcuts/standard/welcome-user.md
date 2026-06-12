@@ -13,6 +13,19 @@ project.
 First, run `tbd status` to check the current state.
 Give a brief summary of the status (repository, sync status, integrations).
 
+Then make the two-axis guidelines offer — one short question per axis:
+
+1. **Scope** — keep **all** standard guidelines active (recommended), or just a subset
+   for this project’s languages and stack?
+2. **Visibility** — leave them in tbd’s hidden cache (the default — they just work), or
+   fork them into `docs/tbd/` so they are visible on GitHub, reviewable in PRs, and
+   editable (checked into git)?
+
+Explain that forking changes nothing about how guidelines work — both paths serve the
+same guidelines — it only makes them visible and customizable.
+If the user wants visible docs, run `tbd docs fork <name> [<name>...]` for the chosen
+subset or `tbd docs fork --all` for everything (preview with `--dry-run` first).
+
 Then show the welcome message:
 
 * * *
@@ -50,6 +63,7 @@ Here are examples of things you can say and what happens:
 | “I’m building a TypeScript CLI” | Applies TypeScript CLI guidelines |
 | “Help me set up better testing” | Applies testing guidelines |
 | “What are the Python best practices?” | Applies Python guidelines |
+| “Make the guidelines visible in my repo” | Forks them into `docs/tbd/` (`tbd docs fork <name>` or `tbd docs fork --all`) |
 
 **Tips:**
 

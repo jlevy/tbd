@@ -2,6 +2,7 @@
 title: pnpm Monorepo Patterns
 description: Modern patterns for pnpm-based TypeScript monorepo architecture
 author: Joshua Levy (github.com/jlevy) with LLM assistance
+category: typescript
 ---
 # pnpm Monorepo Patterns
 

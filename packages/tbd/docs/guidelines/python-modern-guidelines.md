@@ -2,6 +2,7 @@
 title: Python Modern Guidelines
 description: Guidelines for modern Python projects using uv, with a few more opinionated practices
 author: Joshua Levy (github.com/jlevy) with LLM assistance
+category: python
 ---
 # Python Modern Guidelines
 

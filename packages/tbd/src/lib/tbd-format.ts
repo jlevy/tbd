@@ -41,7 +41,7 @@
  * Current format version.
  * Bump this ONLY for breaking changes that require migration.
  */
-export const CURRENT_FORMAT = 'f04';
+export const CURRENT_FORMAT = 'f05';
 
 /**
  * Initial format version for configs that don't have tbd_format field.
@@ -98,6 +98,20 @@ export const FORMAT_HISTORY = {
     ],
     migration:
       'Initializes shared common-dir sync layout before writing config.yml with tbd_format f04',
+  },
+  f05: {
+    introduced: '0.3.0',
+    description: 'Adds the forkable-docs layout (committed fork manifest + visible fork dir)',
+    changes: [
+      'Added committed fork state under .tbd/doc-forks/ (forks.yml manifest + base/ snapshots)',
+      'Added the visible fork dir (docs/tbd/) which shadows the doc cache in lookups',
+      'Doc commands (tbd docs fork/unfork/status/update/diff/list) manage that state',
+    ],
+    migration:
+      'Metadata-only: stamps tbd_format f05 (fork artifacts appear only when fork is first ' +
+      'used). The shared common-dir layout.yml is re-stamped in place on the next data ' +
+      'command. Revert: restore .tbd/config.yml (git checkout) and delete ' +
+      '$GIT_COMMON_DIR/tbd/layout.yml; it regenerates from the config.',
   },
 } as const;
 
@@ -262,6 +276,29 @@ function migrate_f03_to_f04(config: RawConfig): MigrationResult {
   };
 }
 
+/**
+ * Migrate from f04 to f05.
+ * - Metadata-only stamp: the forkable-docs artifacts (.tbd/doc-forks/, docs/tbd/)
+ *   are created lazily by `tbd docs fork`, not by migration.
+ * - The bump gates older clients: they must not serve upstream copies of docs that
+ *   this repo has forked and customized.
+ */
+function migrate_f04_to_f05(config: RawConfig): MigrationResult {
+  const changes: string[] = [];
+  const migrated = { ...config };
+
+  migrated.tbd_format = 'f05';
+  changes.push('Updated tbd_format: f05');
+
+  return {
+    config: migrated,
+    fromFormat: 'f04',
+    toFormat: 'f05',
+    changed: changes.length > 0,
+    changes,
+  };
+}
+
 // =============================================================================
 // Public API
 // =============================================================================
@@ -336,6 +373,13 @@ export function migrateToLatest(config: RawConfig): MigrationResult {
     const result = migrate_f03_to_f04(current);
     current = result.config;
     currentFormat = 'f04' as FormatVersion;
+    allChanges.push(...result.changes);
+  }
+
+  if (currentFormat === 'f04') {
+    const result = migrate_f04_to_f05(current);
+    current = result.config;
+    currentFormat = 'f05' as FormatVersion;
     allChanges.push(...result.changes);
   }
 
@@ -415,6 +459,11 @@ export function describeMigration(fromFormat: FormatVersion): string[] {
   if (current === 'f03') {
     descriptions.push('f03 → f04: Move local sync worktree to Git common directory');
     current = 'f04';
+  }
+
+  if (current === 'f04') {
+    descriptions.push('f04 → f05: Add forkable-docs layout (stamp only)');
+    current = 'f05';
   }
 
   return descriptions;

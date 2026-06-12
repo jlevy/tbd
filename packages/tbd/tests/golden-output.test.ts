@@ -54,49 +54,28 @@ describe('golden output tests', { timeout: isWindows ? 60000 : 15000 }, () => {
     runTbd(['init', '--prefix=test']);
   }
 
-  describe('tbd docs --all', () => {
-    it('shows comprehensive documentation listing', () => {
+  describe('tbd docs (bare overview)', () => {
+    it('shows the managed-docs overview with the three postures', () => {
       initGitAndTbd();
-      const result = runTbd(['docs', '--all']);
+      const result = runTbd(['docs']);
 
       expect(result.status).toBe(0);
-      // Use inline snapshot to capture the exact format
-      expect(result.stdout).toMatchInlineSnapshot(`
-        "=== tbd Documentation Resources ===
+      // The bundled-doc count grows over time; mask it so the golden pins
+      // the format, not the inventory size.
+      const stdout = result.stdout.replace(/\d+ docs available/, '[N] docs available');
+      expect(stdout).toMatchInlineSnapshot(`
+        "tbd docs — managed documentation
 
-        Getting Started:
-          tbd                          Full orientation and project status
-          tbd prime                    Workflow context and guidance
-          tbd prime --brief            Quick reference (~35 lines)
-          tbd --help                   CLI command reference
+          [N] docs available in the cache (.tbd/docs/, gitignored); none forked into the repo.
+          Guidelines are active from the cache. Three postures, all serving the same docs:
 
-        Workflows (Shortcuts):
-          tbd shortcut --list          List all available shortcuts
-          tbd shortcut new-plan-spec   Plan a new feature
-          tbd shortcut code-review-and-commit     Commit code properly
-          tbd shortcut create-or-update-pr-simple  Create a pull request
+          Hidden (default):  keep the cache as-is — zero repo footprint
+          Curated:           tbd docs fork <name> [...]  fork chosen docs into docs/tbd/
+                             tbd docs fork --category=<name>  (general, typescript, python, convex, electron)
+          Everything:        tbd docs fork --all         all docs, visible and editable
 
-        Guidelines (Coding Standards):
-          tbd guidelines --list        List all available guidelines
-          tbd guidelines typescript-rules      TypeScript best practices
-          tbd guidelines general-tdd-guidelines  Test-driven development
-          tbd guidelines golden-testing-guidelines  Snapshot/golden testing
-
-        Templates:
-          tbd template --list          List all available templates
-          tbd template plan-spec       Feature planning template
-          tbd template architecture-doc    Architecture document template
-
-        Design & Reference:
-          tbd docs --list              List documentation sections
-          tbd design                   tbd design document
-          tbd closing                  Session closing protocol
-
-        Quick Tips:
-          - Run tbd ready to see what issues are available to work on
-          - Run tbd shortcut <name> to get step-by-step instructions
-          - Run tbd guidelines <name> to get coding standards
-          - Always run tbd sync at the end of a session
+          Browse / read: tbd docs list / tbd docs show <name>
+          Learn more:    tbd docs show tbd-docs   (the manual; alias: tbd docs manual)
         "
       `);
     });
@@ -111,6 +90,22 @@ describe('golden output tests', { timeout: isWindows ? 60000 : 15000 }, () => {
       const result = runTbd(['setup', '--auto', '--prefix=test']);
 
       expect(result.status).toBe(0);
+
+      // The Docs summary precedes the completion banner: the zero-fork
+      // three-posture menu, sharing wording with the bare `tbd docs` overview
+      // (count masked — the bundled-doc inventory grows over time).
+      const masked = result.stdout.replace(/Docs: \d+ docs available/, 'Docs: [N] docs available');
+      expect(masked).toContain(
+        [
+          'Docs: [N] docs available in the cache (.tbd/docs/, gitignored); none forked into the repo.',
+          '  Guidelines are active from the cache. Three postures, all serving the same docs:',
+          '  Hidden (default):  keep the cache as-is — zero repo footprint',
+          '  Curated:           tbd docs fork <name> [...]  fork chosen docs into docs/tbd/',
+          '                     tbd docs fork --category=<name>  (general, typescript, python, convex, electron)',
+          '  Everything:        tbd docs fork --all         all docs, visible and editable',
+          '  Browse / read: tbd docs list / tbd docs show <name>',
+        ].join('\n'),
+      );
 
       // Verify What's Next section uses "what you can say" framing
       expect(result.stdout).toContain("WHAT'S NEXT");
@@ -215,11 +210,17 @@ describe('golden output tests', { timeout: isWindows ? 60000 : 15000 }, () => {
       expect(tsResult.stdout).toContain('typescript-rules');
       expect(tsResult.stdout).not.toContain('python-rules');
 
-      // Testing category should include tdd guidelines
-      const testingResult = runTbd(['guidelines', '--list', '--category', 'testing']);
-      expect(testingResult.status).toBe(0);
-      expect(testingResult.stdout).toContain('general-tdd-guidelines');
-      expect(testingResult.stdout).not.toContain('typescript-rules');
+      // The old name-inferred 'testing' category is retired: declared
+      // frontmatter categories only, with a clear error for unknown values.
+      const retired = runTbd(['guidelines', '--list', '--category', 'testing']);
+      expect(retired.status).not.toBe(0);
+      expect(retired.stderr + retired.stdout).toContain('Unknown category');
+
+      // TDD/testing guidelines live in 'general' (declared in frontmatter).
+      const generalResult = runTbd(['guidelines', '--list', '--category', 'general']);
+      expect(generalResult.status).toBe(0);
+      expect(generalResult.stdout).toContain('general-tdd-guidelines');
+      expect(generalResult.stdout).not.toContain('typescript-rules');
     });
   });
 

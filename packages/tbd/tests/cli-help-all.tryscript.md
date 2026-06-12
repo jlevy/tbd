@@ -219,58 +219,54 @@ $ tbd import --help | grep -c "\-\-validate"
 
 ## Documentation Command Help
 
-# Test: docs --help shows topic argument
+# Test: docs --help shows the managed-docs subcommands
 
 ```console
-$ tbd docs --help | grep -c "\[topic\]"
-1
+$ tbd docs --help | grep -c "manual"
+2
 ? 0
 ```
 
-# Test: docs --help shows section option
+# Test: the old viewer flags are retired from the docs command
 
 ```console
 $ tbd docs --help | grep -c "\-\-section"
-1
-? 0
-```
-
-# Test: docs --list shows slugified IDs
-
-```console
-$ tbd docs --list | grep -c "id-system"
 0
 ? 1
 ```
 
-# Test: docs --list shows available sections
+# Test: section listing lives on show --sections
 
 ```console
-$ tbd docs --list | grep -c "Quick Reference"
+$ tbd docs show tbd-docs --sections | grep -c "id-system"
+0
+? 1
+```
+
+```console
+$ tbd docs show tbd-docs --sections | grep -c "Quick Reference"
 1
 ? 0
 ```
 
-# Test: docs positional topic argument works
+# Test: section navigation lives on show --section
 
 ```console
-$ tbd docs id-system 2>&1
-Error: Section not found: "id-system" (use --list to see available sections)
+$ tbd docs show tbd-docs --section id-system 2>&1
+Error: Section not found: "id-system" (use --sections to see available sections)
 ? 1
 ```
 
-# Test: docs --section shows filtered content
-
 ```console
-$ tbd docs --section "ID System" 2>&1
-Error: Section not found: "ID System" (use --list to see available sections)
+$ tbd docs show tbd-docs --section "ID System" 2>&1
+Error: Section not found: "ID System" (use --sections to see available sections)
 ? 1
 ```
 
-# Test: docs --list --json outputs array with slugs
+# Test: show --sections --json outputs array with slugs
 
 ```console
-$ tbd docs --list --json
+$ tbd docs show tbd-docs --sections --json
 [
   {
     "title": "Key Design Features",
@@ -344,10 +340,24 @@ $ tbd docs --list --json
 ? 0
 ```
 
-# Test: docs shows full documentation
+# Test: the manual is served by show tbd-docs and the manual alias
 
 ```console
-$ tbd docs | grep -c "tbd CLI Documentation"
+$ tbd docs show tbd-docs | grep -c "tbd CLI Documentation"
+1
+? 0
+```
+
+```console
+$ tbd docs manual | grep -c "tbd CLI Documentation"
+1
+? 0
+```
+
+# Test: bare docs is the managed-docs overview (works before init)
+
+```console
+$ tbd docs | grep -c "managed documentation"
 1
 ? 0
 ```

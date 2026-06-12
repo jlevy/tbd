@@ -2,6 +2,7 @@
 title: Commit Conventions
 description: Conventional Commits format with extensions for agentic workflows
 author: Joshua Levy (github.com/jlevy) with LLM assistance
+category: general
 ---
 # Commit Conventions
 

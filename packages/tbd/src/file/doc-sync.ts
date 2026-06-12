@@ -12,7 +12,8 @@ import { writeFile } from 'atomically';
 import { fileURLToPath } from 'node:url';
 
 import { TBD_DOCS_DIR } from '../lib/paths.js';
-import { fetchWithGhFallback } from './github-fetch.js';
+import { fetchWithGhFallback, gitDocRefToRawUrl } from './github-fetch.js';
+import { tryParseDocRef } from '../docref/index.js';
 import { readConfig, writeConfig, updateLocalState } from './config.js';
 
 // =============================================================================
@@ -23,16 +24,94 @@ import { readConfig, writeConfig, updateLocalState } from './config.js';
  * A parsed document source.
  */
 export interface DocSource {
-  /** Source type: internal bundled or external URL */
-  type: 'internal' | 'url';
-  /** The source location - either a relative path or full URL */
+  /** Source type: internal bundled, in-repo local file, or external URL */
+  type: 'internal' | 'local' | 'url';
+  /** The source location - a relative path or full URL */
   location: string;
+}
+
+/** One group of config entries sharing a source root (git repo+ref, etc.). */
+export interface SourceGroup {
+  /** Group key: 'internal', 'local', a git 'host:owner/repo@ref', or a URL origin. */
+  key: string;
+  /** Parsed git source shared by the group, when it is a git group. */
+  gitSource?: { host: 'github' | 'gitlab'; owner: string; repo: string; ref?: string };
+  /** [destPath, sourceStr] config entries in the group. */
+  entries: [string, string][];
+}
+
+/**
+ * Group docs_cache.files entries by source root: one group per git repo+ref
+ * (so failures isolate per source and revisions are captured once), with
+ * internal, local, and ad-hoc URL entries in origin-keyed groups.
+ */
+export function groupSourceEntries(config: Record<string, string>): SourceGroup[] {
+  const groups = new Map<string, SourceGroup>();
+  for (const [destPath, sourceStr] of Object.entries(config)) {
+    let key = 'url';
+    let gitSource: SourceGroup['gitSource'];
+    if (sourceStr.startsWith('internal:')) {
+      key = 'internal';
+    } else {
+      const parsed = tryParseDocRef(sourceStr);
+      if (parsed?.kind === 'git') {
+        key = `${parsed.host}:${parsed.owner}/${parsed.repo}@${parsed.ref ?? 'main'}`;
+        gitSource = {
+          host: parsed.host,
+          owner: parsed.owner,
+          repo: parsed.repo,
+          ref: parsed.ref,
+        };
+      } else if (parsed?.kind === 'local') {
+        key = 'local';
+      } else {
+        try {
+          key = new URL(sourceStr).origin;
+        } catch {
+          key = 'url';
+        }
+      }
+    }
+    let group = groups.get(key);
+    if (!group) {
+      group = { key, gitSource, entries: [] };
+      groups.set(key, group);
+    }
+    group.entries.push([destPath, sourceStr]);
+  }
+  return [...groups.values()];
+}
+
+/**
+ * Capture the current revision of a git source's ref (one ls-remote per
+ * group), for provenance. Best-effort: offline or missing git returns null.
+ */
+async function captureGitRevision(
+  src: NonNullable<SourceGroup['gitSource']>,
+): Promise<string | null> {
+  const repoUrl =
+    src.host === 'gitlab'
+      ? `https://gitlab.com/${src.owner}/${src.repo}.git`
+      : `https://github.com/${src.owner}/${src.repo}.git`;
+  try {
+    const { execFile } = await import('node:child_process');
+    const { promisify } = await import('node:util');
+    const out = await promisify(execFile)('git', ['ls-remote', repoUrl, src.ref ?? 'HEAD'], {
+      timeout: 10_000,
+    });
+    const sha = out.stdout.split('\t')[0]?.trim();
+    return sha && /^[0-9a-f]{40}$/.test(sha) ? sha : null;
+  } catch {
+    return null;
+  }
 }
 
 /**
  * Result of a sync operation.
  */
 export interface SyncResult {
+  /** Captured git revisions per source group key (provenance; best-effort). */
+  sourceRevisions: Record<string, string>;
   /** Paths of newly downloaded/copied docs */
   added: string[];
   /** Paths of updated docs (content changed) */
@@ -108,6 +187,16 @@ export class DocSync {
       };
     }
 
+    // Git docrefs (github:o/r@ref//path, gitlab:...) fetch via the host's
+    // raw-content endpoint; the canonical docref is what config stores.
+    const parsed = tryParseDocRef(source);
+    if (parsed?.kind === 'git') {
+      return { type: 'url', location: gitDocRefToRawUrl(parsed) };
+    }
+    if (parsed?.kind === 'local') {
+      return { type: 'local', location: parsed.path };
+    }
+
     // Anything else is treated as a URL
     return {
       type: 'url',
@@ -123,6 +212,10 @@ export class DocSync {
   async fetchContent(source: DocSource): Promise<string> {
     if (source.type === 'internal') {
       return this.fetchInternalContent(source.location);
+    }
+    if (source.type === 'local') {
+      // Local docref: read from the repo, relative to the tbd root.
+      return await readFile(join(this.tbdRoot, source.location), 'utf-8');
     }
     return this.fetchUrlContent(source.location);
   }
@@ -204,6 +297,7 @@ export class DocSync {
    */
   async sync(options: DocSyncOptions = {}): Promise<SyncResult> {
     const result: SyncResult = {
+      sourceRevisions: {},
       added: [],
       updated: [],
       removed: [],
@@ -215,45 +309,79 @@ export class DocSync {
     const currentPaths = await this.getCurrentState();
     const configPaths = new Set(Object.keys(this.config));
 
-    // Process each doc in config
-    for (const [destPath, sourceStr] of Object.entries(this.config)) {
-      try {
-        const source = this.parseSource(sourceStr);
-        const content = await this.fetchContent(source);
-        const fullPath = join(this.docsDir, destPath);
+    // Group entries by source root (one group per git repo+ref; internal,
+    // local, and ad-hoc URLs each form their own group). Grouping gives
+    // per-source failure isolation — one unreachable repo skips only its own
+    // entries instead of timing out on each — and one revision capture per
+    // git source for provenance.
+    const groups = groupSourceEntries(this.config);
+    const failedGroups = new Set<string>();
+    for (const group of groups) {
+      if (group.gitSource) {
+        const revision = await captureGitRevision(group.gitSource);
+        if (revision) {
+          result.sourceRevisions[group.key] = revision;
+        }
+      }
+    }
 
-        // Check if file exists and compare content
-        let exists = false;
-        let existingContent = '';
-
+    // Process each doc in config (group order; failed groups short-circuit)
+    for (const group of groups) {
+      for (const [destPath, sourceStr] of group.entries) {
+        if (failedGroups.has(group.key)) {
+          result.errors.push({
+            path: destPath,
+            error: `skipped: source group ${group.key} unreachable`,
+          });
+          result.success = false;
+          continue;
+        }
         try {
-          existingContent = await readFile(fullPath, 'utf-8');
-          exists = true;
-        } catch {
-          // File doesn't exist
-        }
+          const source = this.parseSource(sourceStr);
+          const content = await this.fetchContent(source);
+          const fullPath = join(this.docsDir, destPath);
 
-        if (!exists) {
-          // New file
-          if (!options.dryRun) {
-            await mkdir(dirname(fullPath), { recursive: true });
-            await writeFile(fullPath, content);
+          // Check if file exists and compare content
+          let exists = false;
+          let existingContent = '';
+
+          try {
+            existingContent = await readFile(fullPath, 'utf-8');
+            exists = true;
+          } catch {
+            // File doesn't exist
           }
-          result.added.push(destPath);
-        } else if (existingContent !== content) {
-          // Content changed
-          if (!options.dryRun) {
-            await writeFile(fullPath, content);
+
+          if (!exists) {
+            // New file
+            if (!options.dryRun) {
+              await mkdir(dirname(fullPath), { recursive: true });
+              await writeFile(fullPath, content);
+            }
+            result.added.push(destPath);
+          } else if (existingContent !== content) {
+            // Content changed
+            if (!options.dryRun) {
+              await writeFile(fullPath, content);
+            }
+            result.updated.push(destPath);
           }
-          result.updated.push(destPath);
+          // else: unchanged, do nothing
+        } catch (err) {
+          const message = (err as Error).message;
+          result.errors.push({ path: destPath, error: message });
+          result.success = false;
+          // Network-shaped failures poison the whole group: skip its remaining
+          // entries rather than re-timing-out per file. Cached copies are never
+          // pruned on fetch failure (removal below only applies to paths that
+          // left the config).
+          if (
+            group.gitSource &&
+            /fetch|network|ENOTFOUND|ETIMEDOUT|ECONNREFUSED|HTTP/i.test(message)
+          ) {
+            failedGroups.add(group.key);
+          }
         }
-        // else: unchanged, do nothing
-      } catch (err) {
-        result.errors.push({
-          path: destPath,
-          error: (err as Error).message,
-        });
-        result.success = false;
       }
     }
 
@@ -338,7 +466,13 @@ export async function generateDefaultDocCacheConfig(): Promise<Record<string, st
     { subdir: 'shortcuts/standard', prefix: 'shortcuts/standard' },
     { subdir: 'guidelines', prefix: 'guidelines' },
     { subdir: 'templates', prefix: 'templates' },
+    { subdir: 'references', prefix: 'references' },
   ];
+
+  // Self-docs: bundled at the docs root, served as `reference` kind under
+  // their existing tbd- names (the manual stays a real, forkable doc).
+  config[`references/tbd-docs.md`] = `${INTERNAL_SOURCE_PREFIX}tbd-docs.md`;
+  config[`references/tbd-design.md`] = `${INTERNAL_SOURCE_PREFIX}tbd-design.md`;
 
   for (const { subdir, prefix } of scanDirs) {
     const fullDir = join(docsDir, subdir);
@@ -563,6 +697,9 @@ export async function syncDocsWithDefaults(
       '.tbd/docs/shortcuts/standard',
     ];
     config.docs_cache = {
+      // Preserve sibling keys (local_dirs etc.) — the cache refresh owns only
+      // files and lookup_path, never the rest of the docs_cache section.
+      ...config.docs_cache,
       lookup_path: lookupPath,
       files: prunedConfig,
     };

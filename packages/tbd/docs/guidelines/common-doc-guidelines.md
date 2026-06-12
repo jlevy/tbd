@@ -2,6 +2,7 @@
 title: Common Documentation Guidelines
 description: Common cross-project standards for writing and organizing docs, code comments, and text files—how to organize, structure, write, and format documents, plus the guideline footer convention. Downstream of github.com/jlevy/practical-prose. Use whenever writing or editing any documentation, README, guideline, or design doc.
 author: Joshua Levy (github.com/jlevy) with LLM assistance
+category: general
 ---
 # Common Documentation Guidelines
 

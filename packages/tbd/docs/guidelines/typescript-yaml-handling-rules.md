@@ -3,6 +3,7 @@ title: TypeScript YAML Handling Rules
 description: Best practices for parsing and serializing YAML in TypeScript
 author: Joshua Levy (github.com/jlevy) with LLM assistance
 globs: "*.ts"
+category: typescript
 ---
 # TypeScript YAML Handling Rules
 

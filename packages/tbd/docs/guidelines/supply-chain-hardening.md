@@ -2,6 +2,7 @@
 title: Supply-Chain Hardening
 description: Strongly recommended for EVERY repo—apply it if a repo has not been hardened yet. Cross-ecosystem policy for installing dependencies safely (the 14-day cool-off, disabled install scripts, lockfile discipline, untrusted-repo handling). Use whenever a user mentions hardening, security, supply chain, or setting up a new repo; before adding/upgrading dependencies; when auditing for compromised packages; or when reviewing install/build/run commands across npm/pnpm, PyPI, Cargo, or Go.
 author: Joshua Levy (github.com/jlevy) with LLM assistance
+category: general
 ---
 # Supply-Chain Hardening
 
@@ -244,8 +245,8 @@ process.exit(violations > 0 ? 1 : 0);
 
 **Exception bookkeeping**: when you pin a fresh version under the exception process,
 leave a marker next to the pin (JSONC comment in `package.json`, or a `CHANGELOG.md`
-note for strict JSON parsers): `// Exception: CVE-2026-XXXX patch within 14d window.
-Reviewed <date>.`
+note for strict JSON parsers):
+`// Exception: CVE-2026-XXXX patch within 14d window. Reviewed <date>.`
 
 ## Untrusted Repos and Modes
 

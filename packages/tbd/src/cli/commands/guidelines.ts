@@ -8,52 +8,14 @@
 import { Command } from 'commander';
 import pc from 'picocolors';
 
+import { createDocMap } from '../../docmap/index.js';
 import { DocCommandHandler, type DocCommandOptions } from '../lib/doc-command-handler.js';
 import { CLIError } from '../lib/errors.js';
 import { DEFAULT_GUIDELINES_PATHS } from '../../lib/paths.js';
 import { truncate } from '../../lib/truncate.js';
+import { DOC_CATEGORIES, docCategory, parseCategoryOption } from '../../lib/doc-categories.js';
 import { formatDocSize } from '../../lib/format-utils.js';
 import { getTerminalWidth } from '../lib/output.js';
-
-/**
- * Guideline categories for filtering.
- */
-type GuidelineCategory = 'typescript' | 'python' | 'testing' | 'general';
-
-/**
- * Infer category from guideline name.
- */
-function inferGuidelineCategory(name: string): GuidelineCategory | undefined {
-  // TypeScript guidelines
-  if (name.startsWith('typescript-')) {
-    return 'typescript';
-  }
-
-  // Python guidelines
-  if (name.startsWith('python-')) {
-    return 'python';
-  }
-
-  // Testing guidelines
-  if (name.includes('tdd') || name.includes('testing') || name.includes('golden')) {
-    return 'testing';
-  }
-
-  // General guidelines (everything else starting with general- or other general rules)
-  if (
-    name.startsWith('general-') ||
-    name.includes('rules') ||
-    name.includes('patterns') ||
-    name.startsWith('backward-') ||
-    name.startsWith('convex-') ||
-    name.startsWith('release-') ||
-    name.startsWith('writing-')
-  ) {
-    return 'general';
-  }
-
-  return undefined;
-}
 
 interface GuidelinesOptions extends DocCommandOptions {
   category?: string;
@@ -109,35 +71,29 @@ class GuidelinesHandler extends DocCommandHandler {
 
     let docs = this.cache.list(includeAll);
 
-    // Filter by category if specified
+    // Filter by the declared frontmatter category (name-based inference retired)
     if (category) {
-      docs = docs.filter((d) => {
-        const docCategory = inferGuidelineCategory(d.name);
-        return docCategory === category;
-      });
+      const wanted = parseCategoryOption(category);
+      docs = docs.filter((d) => docCategory(d.frontmatter) === wanted);
     }
 
     if (this.ctx.json) {
-      this.output.data(
-        docs.map((d) => ({
-          name: d.name,
-          title: d.frontmatter?.title,
-          description: d.frontmatter?.description,
-          category: inferGuidelineCategory(d.name),
-          path: d.path,
-          sourceDir: d.sourceDir,
-          sizeBytes: d.sizeBytes,
-          approxTokens: d.approxTokens,
-          shadowed: this.cache!.isShadowed(d),
-        })),
-      );
+      // Same docmap as `tbd docs list`, filtered to guidelines, with the
+      // category as a per-entry extension field.
+      const entries = await this.docMapEntries(docs);
+      const docByName = new Map(docs.map((d) => [d.name, d]));
+      const withCategory = entries.map((e) => ({
+        ...e,
+        category: docCategory(docByName.get(e.name)?.frontmatter),
+      }));
+      this.output.data(createDocMap(withCategory, { name: 'tbd-docs' }));
       return;
     }
 
     if (docs.length === 0) {
       if (category) {
         console.log(`No guidelines found in category: ${category}`);
-        console.log('Valid categories: typescript, python, testing, general');
+        console.log(`Valid categories: ${DOC_CATEGORIES.join(', ')}`);
       } else {
         console.log('No guidelines found.');
         console.log('Run `tbd setup --auto` to install built-in guidelines.');

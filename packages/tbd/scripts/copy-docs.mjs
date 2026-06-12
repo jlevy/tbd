@@ -35,6 +35,7 @@ const SHORTCUTS_DIR = join(DOCS_DIR, 'shortcuts');
 const SHORTCUTS_SYSTEM_DIR = join(SHORTCUTS_DIR, 'system');
 const GUIDELINES_DIR = join(DOCS_DIR, 'guidelines');
 const TEMPLATES_DIR = join(DOCS_DIR, 'templates');
+const REFERENCES_DIR = join(DOCS_DIR, 'references');
 
 /**
  * Packaged documentation files (in packages/tbd/docs/).
@@ -133,6 +134,11 @@ if (phase === 'prebuild') {
   // Copy templates directory to dist/docs (top-level, not under shortcuts)
   if (existsSync(TEMPLATES_DIR)) {
     await copyDir(TEMPLATES_DIR, join(distDocs, 'templates'));
+  }
+
+  // Copy reference docs (docref/docmap formats) to dist/docs
+  if (existsSync(REFERENCES_DIR)) {
+    await copyDir(REFERENCES_DIR, join(distDocs, 'references'));
   }
 
   // Copy install directory to dist/docs (headers for composing skill files)

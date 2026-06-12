@@ -4,6 +4,7 @@ description: TypeScript coding rules and best practices
 author: Joshua Levy (github.com/jlevy) with LLM assistance
 globs: "*.ts"
 alwaysApply: true
+category: typescript
 ---
 # TypeScript Rules
 
