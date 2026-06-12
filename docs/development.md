@@ -371,6 +371,18 @@ $GIT_COMMON_DIR/tbd/                # Shared by all linked worktrees of this rep
 (`.tbd/data-sync/issues/`). The direct path is gitignored and exists only as a legacy
 diagnostic/migration location.
 
+### Format Upgrades and Rollback
+
+A `tbd_format` bump writes exactly two stamps: the tracked `.tbd/config.yml` and the
+machine-local `$GIT_COMMON_DIR/tbd/layout.yml` (plus, only when `tbd setup --auto` is
+run, the tracked agent-surface markers).
+It never touches issue data, so any upgrade can be aborted: restore the tracked files
+from git and delete `layout.yml` (it regenerates from the config).
+The full state inventory and abort recipe are user-facing in `tbd-docs.md`
+§Troubleshooting → “Aborting a Format Upgrade”; the migrate → revert → repeat loop and
+both interrupted-upgrade partial states are pinned by tests in
+`tests/common-dir-layout-doctor.test.ts` (“f04 → f05 upgrade”).
+
 ### Key Source Files
 
 - `packages/tbd/src/lib/paths.ts` - Path constants and `resolveDataSyncDir()`

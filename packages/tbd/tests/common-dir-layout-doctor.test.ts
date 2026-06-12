@@ -291,6 +291,8 @@ describeUnlessWindows('common-dir layout via CLI', { timeout: 30000 }, () => {
     it('read commands upgrade an older layout under the lock, preserving created_at', async () => {
       // Config already f05 (e.g. a teammate committed the bump) but this
       // machine's layout is still f04: a read must auto-upgrade, not error.
+      // This is also the setup-path crash window (setup writes config before
+      // the layout).
       const layoutPath = join(dir, '.git', 'tbd', 'layout.yml');
       const before = await readFile(layoutPath, 'utf-8');
       const createdAt = before.split('\n').find((l) => l.startsWith('created_at:'));
@@ -301,6 +303,49 @@ describeUnlessWindows('common-dir layout via CLI', { timeout: 30000 }, () => {
       const after = await readFile(layoutPath, 'utf-8');
       expect(after).toContain('tbd_format: f05');
       expect(after).toContain(createdAt);
+    });
+
+    it('completes an interrupted upgrade (layout already f05, config still f04)', async () => {
+      // The data-command crash window: ensureSharedDataSyncLayout re-stamps the
+      // layout BEFORE writeConfig persists the config. A crash there leaves
+      // layout f05 + config f04; the next command must finish the migration,
+      // not error on the mismatch.
+      const configPath = join(dir, '.tbd', 'config.yml');
+      await writeFile(
+        configPath,
+        (await readFile(configPath, 'utf-8')).replace('tbd_format: f05', 'tbd_format: f04'),
+      );
+      expect(await readFile(join(dir, '.git', 'tbd', 'layout.yml'), 'utf-8')).toContain(
+        'tbd_format: f05',
+      );
+
+      const create = runTbd(dir, ['create', 'resume probe', '--type', 'task', '--no-sync']);
+      expect(create.status).toBe(0);
+      expect(create.stderr).toContain('f04 → f05');
+      expect(await readFile(configPath, 'utf-8')).toContain('tbd_format: f05');
+    });
+
+    it('aborts via the documented recipe: restore config, delete layout.yml', async () => {
+      // The tbd-docs "Aborting a Format Upgrade" recipe: git-restore the config
+      // (simulated by rewriting the stamp) and delete the machine-local layout.
+      const configPath = join(dir, '.tbd', 'config.yml');
+      const layoutPath = join(dir, '.git', 'tbd', 'layout.yml');
+      await writeFile(
+        configPath,
+        (await readFile(configPath, 'utf-8')).replace('tbd_format: f05', 'tbd_format: f04'),
+      );
+      await rm(layoutPath);
+
+      // The on-disk state is now exactly pre-upgrade: an f04 config and no
+      // layout — the state an f04-era client accepts and regenerates from.
+      expect(await readFile(configPath, 'utf-8')).toContain('tbd_format: f04');
+
+      // Re-running the upgrade from the aborted state works cleanly: the next
+      // command migrates the config and regenerates the layout at f05.
+      const list = runTbd(dir, ['list', '--json']);
+      expect(list.status).toBe(0);
+      expect(await readFile(configPath, 'utf-8')).toContain('tbd_format: f05');
+      expect(await readFile(layoutPath, 'utf-8')).toContain('tbd_format: f05');
     });
   });
 

@@ -576,6 +576,7 @@ Options:
 
 > **Note:** `tbd import --from-beads` is deprecated.
 > Use `tbd setup --auto` or `tbd setup --from-beads` instead for migrating from Beads.
+
 - `--validate` - Validate existing import against Beads source
 
 ### beads
@@ -1117,6 +1118,59 @@ ls "$(git rev-parse --path-format=absolute --git-common-dir)/tbd/data-sync-workt
 # Internal IDs sort chronologically (creation order)
 ls "$(git rev-parse --path-format=absolute --git-common-dir)/tbd/data-sync-worktree/.tbd/data-sync/issues/" | sort
 ```
+
+### Aborting a Format Upgrade
+
+Upgrading tbd can bump the repository format (`tbd_format` in `.tbd/config.yml`, e.g.
+f04 → f05). The bump happens automatically on the first command after upgrading, and
+older tbd versions then refuse the repository until they are upgraded.
+If an upgrade hits unexpected bugs, you can cleanly abort and return to the previous
+version. This is everything a format upgrade can touch:
+
+| State | Location | In git? | Written by | Revert |
+| --- | --- | --- | --- | --- |
+| Project config | `.tbd/config.yml` | tracked | the migration (format stamp) | `git checkout -- .tbd/config.yml`, or `git revert` the bump commit |
+| Agent surfaces | `AGENTS.md`, `.claude/`, `.agents/`, `.codex/` | tracked | only `tbd setup --auto` (marker refresh) | `git checkout --` those paths |
+| Shared layout stamp | `$GIT_COMMON_DIR/tbd/layout.yml` | machine-local, not in git | the migration (re-stamp) | delete it — it regenerates from whatever the config says |
+| Forked docs (f05) | `docs/tbd/`, `.tbd/doc-forks/` | tracked once committed | only `tbd docs fork` | `git checkout --`/`git revert` if committed; delete if never committed |
+| Docs cache | `.tbd/docs/` | gitignored | doc sync (unchanged by migration) | none needed — always safe to delete and re-sync |
+| Issue data | `tbd-sync` branch + `$GIT_COMMON_DIR/tbd/data-sync-worktree/` | git branch | **never touched by migration** | none needed — the worktree re-materializes from the branch |
+
+**Abort recipe** (works from any state, including a crash mid-upgrade):
+
+```bash
+# 1. Restore the tracked files (or `git revert` the format-bump commit):
+git checkout -- .tbd/config.yml
+git checkout -- AGENTS.md .claude .agents .codex   # only if `tbd setup --auto` ran
+
+# 2. Delete the machine-local format stamp (regenerates from the config):
+rm "$(git rev-parse --path-format=absolute --git-common-dir)/tbd/layout.yml"
+
+# 3. Only if docs were forked and never committed:
+rm -rf docs/tbd .tbd/doc-forks
+```
+
+After this, the previous tbd version works again, and re-running the upgrade later is
+safe — the migration is idempotent from any of these states.
+
+Notes:
+
+- **The migration never writes issue data**, so the recipe above cannot lose issues — it
+  touches only the two stamps and tracked files.
+  A bigger hammer also exists: deleting the entire `$GIT_COMMON_DIR/tbd/` directory is
+  recoverable (layout and the data-sync worktree re-materialize from the config and the
+  `tbd-sync` branch on the next command, or via `tbd doctor --fix`) — **but only for
+  synced data**. Issue changes made with `--no-sync` since the last `tbd sync` live as
+  uncommitted files inside that worktree and would be lost, so run `tbd sync` first if
+  you must delete it. This is why the recipe deletes only `layout.yml`, never the whole
+  directory.
+- **Interrupted upgrades self-heal.** If the process dies between the two stamp writes
+  (layout updated but not config, or config but not layout), the next command with the
+  new version completes the migration; the abort recipe above also works from either
+  partial state.
+- Teammates each migrate their own machine-local stamp automatically; only the
+  `.tbd/config.yml` change is shared (via your branch), so reverting that commit is the
+  team-wide rollback.
 
 ### Performance
 
