@@ -23,9 +23,13 @@ import {
   CACHE_GUIDELINES_PATHS,
   CACHE_SHORTCUT_PATHS,
   CACHE_TEMPLATE_PATHS,
+  DEFAULT_GUIDELINES_PATHS,
+  DEFAULT_SHORTCUT_PATHS,
+  DEFAULT_TEMPLATE_PATHS,
   FORK_DIR,
   TBD_DOCS_DIR,
 } from '../../lib/paths.js';
+import { formatDocSize } from '../../lib/format-utils.js';
 import {
   type ForkEntry,
   type ForkKind,
@@ -457,6 +461,98 @@ class DocsUpdateHandler extends BaseCommand {
   }
 }
 
+/** Serving lookup paths per kind (fork dir prepended, so forks are reflected). */
+const KIND_SERVE_PATHS: Record<string, string[]> = {
+  guideline: DEFAULT_GUIDELINES_PATHS,
+  shortcut: DEFAULT_SHORTCUT_PATHS,
+  template: DEFAULT_TEMPLATE_PATHS,
+};
+
+interface ListOptions {
+  kind?: string;
+  json?: boolean;
+}
+
+class DocsListHandler extends BaseCommand {
+  async run(options: ListOptions): Promise<void> {
+    await this.execute(async () => {
+      const tbdRoot = await requireInit();
+      const manifest = await readForkManifest(tbdRoot);
+      const kinds = options.kind ? [options.kind as ForkKind] : RESOLVABLE_KINDS;
+      const colors = this.output.getColors();
+
+      interface Row {
+        name: string;
+        title?: string;
+        description?: string;
+        sizeInfo: string;
+        marker: string;
+        state: string;
+        path: string;
+      }
+      const grouped: { kind: ForkKind; rows: Row[] }[] = [];
+      const docmapEntries: DocMapEntry[] = [];
+
+      for (const kind of kinds) {
+        const cache = new DocCache(KIND_SERVE_PATHS[kind] ?? [], tbdRoot);
+        await cache.load({ quiet: true });
+        const rows: Row[] = [];
+        for (const doc of cache.list()) {
+          const fork = findFork(manifest, doc.name, kind);
+          const isLocal = !fork && doc.sourceDir.startsWith(FORK_DIR);
+          let state = 'upstream';
+          let marker = '';
+          if (fork) {
+            const customized = hashContent(doc.content) !== fork.base_hash;
+            state = customized ? 'customized' : 'forked';
+            marker = customized ? '[forked, customized]' : '[forked]';
+          } else if (isLocal) {
+            state = 'local';
+            marker = '[local]';
+          }
+          rows.push({
+            name: doc.name,
+            title: doc.frontmatter?.title,
+            description: doc.frontmatter?.description,
+            sizeInfo: formatDocSize(doc.sizeBytes, doc.approxTokens),
+            marker,
+            state,
+            path: fork?.path ?? doc.sourceDir + '/' + doc.name + '.md',
+          });
+          docmapEntries.push({
+            name: doc.name,
+            type: kind,
+            path: fork?.path,
+            source: fork?.source,
+            title: doc.frontmatter?.title,
+            description: doc.frontmatter?.description,
+            state,
+          });
+        }
+        grouped.push({ kind, rows });
+      }
+
+      if (this.ctx.json) {
+        this.output.data(createDocMap(docmapEntries, { name: 'tbd-docs' }));
+        return;
+      }
+
+      for (const { kind, rows } of grouped) {
+        if (rows.length === 0) continue;
+        if (!options.kind) console.log(colors.bold(kind));
+        for (const r of rows) {
+          const indent = options.kind ? '' : '  ';
+          const markerStr = r.marker ? ` ${colors.dim(r.marker)}` : '';
+          console.log(`${indent}${colors.bold(r.name)} ${colors.dim(r.sizeInfo)}${markerStr}`);
+          const desc =
+            r.title && r.description ? `${r.title}: ${r.description}` : (r.title ?? r.description);
+          if (desc) console.log(`${indent}   ${desc}`);
+        }
+      }
+    }, 'Failed to list docs');
+  }
+}
+
 interface DiffOptions {
   base?: boolean;
   upstream?: boolean;
@@ -560,6 +656,17 @@ export function registerForkSubcommands(docs: Command): void {
         kind: m.kind,
         force: m.force,
         json: m.json,
+      });
+    });
+
+  docs
+    .command('list')
+    .description('List all docs across kinds, with [forked]/[customized]/[local] markers')
+    .option('--kind <kind>', 'restrict to a kind (guideline|shortcut|template)')
+    .action(async (options: ListOptions, command: Command) => {
+      await new DocsListHandler(command).run({
+        kind: options.kind,
+        json: command.optsWithGlobals().json === true,
       });
     });
 
