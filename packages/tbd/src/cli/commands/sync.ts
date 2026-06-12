@@ -24,9 +24,12 @@ import {
   type ConflictEntry,
   type PushResult,
 } from '../../file/git.js';
-import { DATA_SYNC_DIR, FORK_DIR } from '../../lib/paths.js';
-import { readForkManifest } from '../../file/fork-manifest.js';
-import { computeForkDriftSummary } from '../../file/doc-fork.js';
+import { DATA_SYNC_DIR } from '../../lib/paths.js';
+import {
+  printDocSyncResult,
+  printDocSyncStatus,
+  printForkDriftNotice,
+} from '../lib/docs-sync-output.js';
 import { basename, join } from 'node:path';
 import { access, readFile } from 'node:fs/promises';
 import { writeFile } from 'atomically';
@@ -181,7 +184,7 @@ class SyncHandler extends BaseCommand {
     if (statusOnly) {
       // Show status without making changes
       const result = await syncDocsWithDefaults(this.tbdRoot, { dryRun: true });
-      this.showDocStatus(result);
+      printDocSyncStatus(this.output, result);
       return result;
     }
 
@@ -190,69 +193,9 @@ class SyncHandler extends BaseCommand {
     spinner.stop();
 
     // Report results
-    this.showDocSyncResult(result);
-    await this.notifyForkDrift();
+    printDocSyncResult(this.output, result);
+    await printForkDriftNotice(this.output, this.tbdRoot);
     return result;
-  }
-
-  /**
-   * One-line awareness notice for forked docs (docs/tbd/): the cache refresh
-   * above is exactly when forks can become stale, and agents run `tbd sync`
-   * routinely — so drift is surfaced here, but never acted on (only the
-   * explicit `tbd docs update` mutates tracked files).
-   */
-  private async notifyForkDrift(): Promise<void> {
-    try {
-      const manifest = await readForkManifest(this.tbdRoot);
-      const drift = await computeForkDriftSummary(this.tbdRoot, FORK_DIR, manifest);
-      if (drift.forks === 0) return;
-      const parts: string[] = [];
-      if (drift.stale > 0) {
-        parts.push(`${drift.stale} forked doc(s) have upstream updates — run 'tbd docs update'`);
-      }
-      if (drift.conflicted > 0) {
-        parts.push(`${drift.conflicted} with unresolved conflict markers`);
-      }
-      if (drift.missing > 0) {
-        parts.push(`${drift.missing} missing (deleted/renamed) — see 'tbd docs status'`);
-      }
-      if (parts.length > 0) {
-        process.stderr.write(`• Docs: ${parts.join('; ')}\n`);
-      }
-    } catch {
-      // Drift awareness is best-effort; never fail a sync over it.
-    }
-  }
-
-  /**
-   * Show doc sync status (what would change).
-   */
-  private showDocStatus(result: SyncDocsResult): void {
-    const colors = this.output.getColors();
-    const hasChanges =
-      result.added.length > 0 ||
-      result.updated.length > 0 ||
-      result.removed.length > 0 ||
-      result.pruned.length > 0;
-
-    if (!hasChanges) {
-      this.output.success('Docs up to date');
-      return;
-    }
-
-    console.log(colors.bold('Docs:'));
-    if (result.added.length > 0) {
-      console.log(`  ${colors.success(`+${result.added.length}`)} new doc(s) available`);
-    }
-    if (result.updated.length > 0) {
-      console.log(`  ${colors.warn(`~${result.updated.length}`)} doc(s) to update`);
-    }
-    if (result.removed.length > 0) {
-      console.log(`  ${colors.error(`-${result.removed.length}`)} doc(s) to remove`);
-    }
-    if (result.pruned.length > 0) {
-      console.log(`  ${colors.dim(`${result.pruned.length}`)} stale config entry/entries`);
-    }
   }
 
   /**

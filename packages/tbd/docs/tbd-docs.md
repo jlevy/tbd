@@ -675,12 +675,23 @@ and skips reinstallation.
 
 ### Documentation Commands
 
-Built-in documentation viewers:
+Managed docs (the `tbd docs` group):
+
+```bash
+tbd docs                                    # Status overview of managed docs
+tbd docs list                               # All docs across kinds, with state markers
+tbd docs show <name>                        # Read any doc by name (kind-agnostic)
+tbd docs show tbd-docs                      # The CLI manual (alias: tbd docs manual)
+tbd docs show tbd-docs --sections           # List the manual's sections
+tbd docs show tbd-docs --section <name>     # Read one manual section
+tbd docs sync                               # Refresh the gitignored docs cache
+tbd docs fork / unfork / update / diff / status   # Forked docs (see below)
+```
+
+Other built-in viewers:
 
 ```bash
 tbd readme                                  # Display README (same as GitHub landing page)
-tbd docs                                    # Display CLI reference documentation
-tbd docs --list                             # List available documentation sections
 tbd design                                  # Display design documentation
 tbd design --list                           # List design doc sections
 tbd closing                                 # Display session closing protocol reminder

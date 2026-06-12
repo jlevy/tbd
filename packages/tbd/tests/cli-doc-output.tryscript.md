@@ -118,11 +118,11 @@ description: Welcome message for users after tbd installation or setup
 
 ## Docs Command
 
-# Test: Docs command with --color=never produces clean output
+# Test: Manual section listing with --color=never produces clean output
 
 ```console
-$ tbd --color=never docs --list | head -3
-Available documentation sections:
+$ tbd --color=never docs show tbd-docs --sections | head -3
+Sections in tbd-docs:
 
 [..]
 ? 0

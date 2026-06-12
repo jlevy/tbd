@@ -56,8 +56,8 @@ Documentation:
   guidelines [options] [query]  Find and output coding guidelines
   template [options] [query]    Find and output document templates
   closing                       Display the session closing protocol reminder
-  docs [options] [topic]        Display CLI documentation (use tbd sync --docs
-                                for doc cache sync)
+  docs                          Manage tbd-served docs: browse, fork into your
+                                repo, and pull upstream updates
   design [options] [topic]      Display design documentation and Beads
                                 comparison
 

@@ -256,9 +256,10 @@ docs/tbd/                  # default; configurable
     └── plan-spec.md
 ```
 
-- Default: `docs/tbd/`. The location is surfaced as an explicit, editable customization
-  during setup (and changeable any time); a non-default choice is persisted to the new
-  config key `docs_cache.fork_dir` (part of the f05 layout).
+- Default: `docs/tbd/`, fixed for the initial f05 release.
+  Making the location configurable (persisted to a `docs_cache.fork_dir` key, surfaced
+  during setup) is planned within the f05 era as an additive, optional config key; until
+  then the constant in `paths.ts` is the single source of truth.
 - Layout is `<fork_dir>/<kind-dir>/<name>.md`. The bundled
   `shortcuts/system|standard|custom` subdivision is **flattened** to `shortcuts/` on
   fork — that split is an implementation detail; the manifest preserves the original
@@ -339,10 +340,13 @@ The new committed layout artifacts (the `.tbd/doc-forks/` directory and the
 `tbd_format` bumps to **f05** with a step in the existing migration chain
 (`src/lib/tbd-format.ts`, following the f03→f04 precedent):
 
-- The f04→f05 migration is metadata-only: stamp the format id, refresh the
-  `.tbd/.gitignore` template/comments, and write the `.tbd/README.md` layout contract
-  (below). No files move; `.tbd/docs/` is untouched and fork artifacts appear only when
-  fork is first used — the upgrade path is exactly as smooth as f03→f04.
+- The f04→f05 migration is metadata-only: stamp the format id.
+  No files move; `.tbd/docs/` is untouched and fork artifacts appear only when fork is
+  first used — the upgrade path is exactly as smooth as f03→f04. (The `.tbd/.gitignore`
+  template refresh and the generated `.tbd/README.md` layout contract are additive setup
+  outputs planned within the f05 era, not part of the migration stamp;
+  `FORMAT_HISTORY.f05` in `tbd-format.ts` is the authoritative record of what the stamp
+  does.)
 - Older CLIs encountering an f05 repo detect the newer format id via the existing
   compatibility machinery and refuse to run, prompting an upgrade — an explicit signal,
   rather than silently serving the upstream copies while upgraded teammates see
@@ -1344,6 +1348,11 @@ Unstable fields use placeholders that become tryscript patterns: `[SIZE]` =
 `golden-testing-guidelines`, everything else (names, kinds, states, counts, ordering) is
 shown literally — no patterns on values we control.
 
+Status convention: blocks for **shipped** commands are captured from the built CLI and
+match the live goldens; blocks for commands that have **not landed yet** are marked
+*(Phase N contract)* and must be re-captured against the real CLI when that phase ships
+(the Phase 0.5 discipline, applied per phase).
+
 ### Console output style contract
 
 This contract is **authoritative and enforced structurally, not by convention**. Doc
@@ -1406,17 +1415,21 @@ provided:
 $ tbd docs                       # no docs forked yet
 tbd docs — managed documentation
 
-  37 available in cache (.tbd/docs/, gitignored); none forked into the repo.
-  Guidelines are active from the cache. Fork them into docs/tbd/ to make them
-  visible and customizable (same behavior — just explicit and git-tracked):
+  [..] docs available in the cache (.tbd/docs/, gitignored); none forked into the repo.
+  Guidelines are active from the cache. Three postures, all serving the same docs:
 
-  Scope:         all standard guidelines (recommended), or a category:
-                 general, typescript, python, convex, electron
-  Make visible:  tbd docs fork --category=general --category=<your-languages>
-                 tbd docs fork --all          (everything)
+  Hidden (default):  keep the cache as-is — zero repo footprint
+  Curated:           tbd docs fork <name> [...]  fork chosen docs into docs/tbd/
+  Everything:        tbd docs fork --all         all docs, visible and editable
+
   Browse / read: tbd docs list / tbd docs show <name>
+  Learn more:    tbd docs show tbd-docs   (the manual; alias: tbd docs manual)
 ? 0
 ```
+
+When Phase 4 lands `--category`, the Curated line additionally names
+`tbd docs fork --category=<name>` with the category list — the menu must only name
+selectors that exist (the `--category` hint shipped before the flag once; never again).
 
 With forks present:
 
@@ -1424,7 +1437,7 @@ With forks present:
 $ tbd docs
 tbd docs — managed documentation
 
-  37 available  (33 upstream, 4 forked into docs/tbd/)
+  [..] available  ([..] upstream, 4 forked into docs/tbd/)
   4 forked: 2 customized, 3 with upstream updates — run 'tbd docs update'
 
   Inspect:    tbd docs status
@@ -1518,48 +1531,59 @@ $ tbd docs show python-rules    # serves the forked copy; provenance to stderr
 ? 0
 ```
 
+### `tbd docs sync`
+
+Refreshes the gitignored cache; `tbd sync --docs` remains a deprecated alias with
+identical output (both render through one shared module, `docs-sync-output.ts`):
+
+```text
+$ tbd docs sync
+✓ Docs up to date
+? 0
+
+$ tbd docs sync                  # after an upgrade changed bundled docs; forks stale
+✓ Synced docs: ~1 doc(s)
+• Docs: 1 forked doc(s) have upstream updates — run 'tbd docs update'
+? 0
+```
+
 ### `tbd docs fork`
 
 ```text
 $ tbd docs fork python-rules
 ✓ Forked python-rules → docs/tbd/guidelines/python-rules.md
-  Recorded base in .tbd/doc-forks/ (source: internal:guidelines/python-rules.md)
   Regenerated docs/tbd/README.md
 
-Edit it in place — tbd now serves your copy everywhere it served the upstream one.
+Edit in place — tbd now serves your copy wherever it served upstream.
 ? 0
 
-$ tbd docs fork --category=general --category=python --dry-run
-[DRY-RUN] Would fork 11 docs into docs/tbd/ (categories: general, python)
-  guideline   general-eng-agent-principles
-  guideline   general-coding-rules
-  [.. 7 more ..]
-  guideline   python-rules
+$ tbd docs fork --all --dry-run
+[DRY-RUN] Would fork [..] doc(s) into docs/tbd/
+...
 No files written. Re-run without --dry-run to apply.
 ? 0
 
 $ tbd docs fork python-rules       # target exists and is not an unmodified fork
-✗ docs/tbd/guidelines/python-rules.md already exists and is not an unmodified fork.
-  Refusing to overwrite it. Options:
-    tbd docs diff python-rules           # see how it differs
-    tbd docs fork python-rules --force   # overwrite with upstream
+Error: docs/tbd/guidelines/python-rules.md already exists and is not an unmodified fork. Refusing to overwrite it. Options:
+  tbd docs diff python-rules           # see how it differs
+  tbd docs fork python-rules --force   # overwrite with upstream
 ? 1
 ```
+
+*(Phase 4 contract)* `tbd docs fork --category=general --category=python --dry-run`
+previews the same way with a `(categories: general, python)` suffix on the summary line.
 
 ### `tbd docs unfork`
 
 ```text
 $ tbd docs unfork python-rules         # customized → refuse
-✗ python-rules has local customizations (differs from its base).
-  Refusing to discard them. Options:
-    tbd docs diff python-rules             # review your changes
-    tbd docs unfork python-rules --force   # discard and fall back to upstream
+Error: python-rules has local customizations (differs from its base). Refusing to discard them. Options:
+  tbd docs diff python-rules             # review your changes
+  tbd docs unfork python-rules --force   # discard and fall back to upstream
 ? 1
 
 $ tbd docs unfork review-code          # unmodified → succeeds
 ✓ Unforked review-code — served from upstream again.
-  Removed the forked file, its base snapshot, and its manifest entry.
-  Regenerated docs/tbd/README.md
 ? 0
 ```
 
@@ -1602,11 +1626,11 @@ python-rules   guideline   customized, stale  internal:guidelines/python-rules.m
 review-code    shortcut    missing            internal:shortcuts/standard/review-code.md
 tbd-docs       reference   forked             internal:tbd-docs.md
 
-1 doc is missing (forked file deleted):
+1 doc(s) missing (forked file deleted or renamed):
   review-code   restore with 'tbd docs fork review-code --force', or finalize with 'tbd docs unfork review-code'
 ? 0
 
-$ tbd doctor --fix                   # excerpt
+$ tbd doctor --fix                   # excerpt — (Phase 2 contract: doctor checks)
 ⚠ Forked docs - 1 missing (review-code: forked file deleted)
     Fixed: finalized unfork (removed manifest entry + base); now served from upstream
 ? 0
@@ -1635,33 +1659,36 @@ merge, and *list* the conflict for a decision (never touch it by default):
 
 ```text
 $ tbd docs update
-Updated 2 forked docs:
-  ✓ review-code   refreshed to upstream (was unmodified)
-  ✓ python-rules  merged upstream cleanly (review with: git diff)
+Updated 2 forked doc(s):
+  ✓ review-code: refreshed to upstream (was unmodified)
+  ✓ python-rules: merged upstream cleanly (review with: git diff)
 
-1 doc needs a decision:
-  ⚠ acme-style    your changes conflict with upstream
-      re-run with one of:
-        tbd docs update acme-style --merge    # combine, then resolve conflict markers
-        tbd docs update acme-style --keep-ours   # keep your version, advance the fork point
+1 doc(s) need a decision:
+  ⚠ acme-style: your changes conflict with upstream
+  re-run with one of:
+    tbd docs update <name> --merge      # combine, then resolve conflict markers
+    tbd docs update <name> --keep-ours  # keep your version, advance the fork point
 ? 0
 
 $ tbd docs update acme-style --merge
-✓ acme-style   wrote merged content with conflict markers; base advanced.
-  Resolve the <<<<<<< / ======= / >>>>>>> markers, then the doc returns to 'customized'.
+Updated 1 forked doc(s):
+  ✓ acme-style: wrote merged content with conflict markers; resolve them, then it returns to 'customized'
 ? 0
 
 $ tbd docs update acme-style --keep-ours
-✓ acme-style   kept your version; fork point advanced to current upstream.
+Updated 1 forked doc(s):
+  ✓ acme-style: kept your version; fork point advanced
 ? 0
 
 $ tbd docs update --dry-run
-[DRY-RUN] 2 docs would update (1 refresh, 1 clean merge); 1 would conflict (acme-style).
-No files written.
+Would update 2 forked doc(s):
+  ✓ review-code: refreshed to upstream (was unmodified)
+  ✓ python-rules: merged upstream cleanly (review with: git diff)
+...
 ? 0
 ```
 
-### `tbd docs add`
+### `tbd docs add` *(Phase 2 contract — not yet implemented)*
 
 Aligned with today’s `--add` output, restated for docrefs and the new pointers:
 
@@ -1676,7 +1703,7 @@ Run 'tbd docs list' to verify, or 'tbd docs fork acme-style' to make it visible.
 ? 0
 ```
 
-### `tbd status` (Docs line) and `tbd setup --auto` (Docs summary)
+### `tbd status` (Docs line) and `tbd setup --auto` (Docs summary) *(Phase 3/4 contracts — not yet implemented)*
 
 `tbd status` gains a Docs line **only when forks exist** — so with zero forks the output
 is byte-identical to today’s `cli-orientation-golden.tryscript.md` (honoring the
@@ -1697,21 +1724,23 @@ Use 'tbd stats' for issue statistics, 'tbd doctor' for health checks.
 pending-update report); setup never writes the fork dir:
 
 ```text
-# zero forks
-Docs: 37 available in cache (.tbd/docs/, gitignored); none forked into the repo.
-  Guidelines are active from the cache. Fork them into docs/tbd/ to make them
-  visible and customizable (same behavior — just explicit and git-tracked):
-  Scope:         all standard guidelines (recommended), or a category:
-                 general, typescript, python, convex, electron
-  Make visible:  tbd docs fork --category=general --category=<your-languages>
-                 tbd docs fork --all          (everything)
+# zero forks — same three-posture menu as the bare overview, prefixed Docs:
+Docs: [..] available in the cache (.tbd/docs/, gitignored); none forked into the repo.
+  Guidelines are active from the cache. Three postures, all serving the same docs:
+  Hidden (default):  keep the cache as-is — zero repo footprint
+  Curated:           tbd docs fork <name> [...]  fork chosen docs into docs/tbd/
+  Everything:        tbd docs fork --all         all docs, visible and editable
   Browse / read: tbd docs list / tbd docs show <name>
 
 # after an upgrade, forks present
 Docs: 4 forked into docs/tbd/. 3 have upstream updates — run 'tbd docs update'.
 ```
 
-### `tbd doctor` (new HEALTH CHECKS)
+The setup menu and the bare-overview menu share wording by construction; when Phase 4
+adds `--category` both gain the category line together (never name a selector that does
+not exist).
+
+### `tbd doctor` (new HEALTH CHECKS) *(Phase 2 contract — not yet implemented)*
 
 Appended to the existing `HEALTH CHECKS` list, following doctor’s `✓`/`⚠` + `Run:`
 convention (icon at column 0, no indent):
@@ -1735,15 +1764,15 @@ bead, blocked on the phase that ships the behavior:
 
 | Test | Change | Phase |
 | --- | --- | --- |
-| `cli-help-all.tryscript.md` (≈7 `tbd docs` blocks: `--help` `[topic]`/`--section`, `--list` sections, positional topic, `--section` content, `--list --json`, bare manual) | **Rewrite** to the new surface: `docs` subcommand help; no top-level `--section`/section-`--list`; section nav becomes `tbd docs show tbd-docs --section`. Largest single change. | 1–2 |
-| `cli-doc-output.tryscript.md` ("Docs Command" block: `tbd docs --list` → “Available documentation sections:”) | **Rewrite** to `tbd docs list` (cross-kind, state markers) + `--json` docmap. | 2 |
-| `cli-doc-output.tryscript.md` ("Guidelines --json returns structured data" block: flat `[ { … } ]` array) | **Rewrite**: per-kind `--list --json` now emits a docmap object, not an array (Resolved Decision 21). The per-kind `--list` *text* blocks stay (same canonical format), so only the JSON assertion changes. | 2 |
-| `golden-output.test.ts` (`tbd docs --all` inline snapshot) | **Replace** with the bare `tbd docs` overview snapshot (`--all` folded into the overview). | 2 |
-| `golden-output.test.ts` ("post-setup What’s Next") | **Extend** to assert the Docs menu lines. | 4 |
+| `cli-help-all.tryscript.md` (≈7 `tbd docs` blocks: `--help` `[topic]`/`--section`, `--list` sections, positional topic, `--section` content, `--list --json`, bare manual) | **Done (this PR).** Rewrite to the new surface: `docs` subcommand help; no top-level `--section`/section-`--list`; section nav becomes `tbd docs show tbd-docs --section`. Largest single change. | 1–2 |
+| `cli-doc-output.tryscript.md` ("Docs Command" block: `tbd docs --list` → “Available documentation sections:”) | **Done (this PR).** Section listing retargeted to `tbd docs show tbd-docs --sections`; the cross-kind `tbd docs list` golden lives in `cli-docs-fork.tryscript.md`. | 2 |
+| `cli-doc-output.tryscript.md` ("Guidelines --json returns structured data" block: flat `[ { … } ]` array) | **Pending (Phase 2, renderer migration).** Rewrite: per-kind `--list --json` now emits a docmap object, not an array (Resolved Decision 21). The per-kind `--list` *text* blocks stay (same canonical format), so only the JSON assertion changes. | 2 |
+| `golden-output.test.ts` (`tbd docs --all` inline snapshot) | **Done (this PR).** Replace with the bare `tbd docs` overview snapshot (`--all` folded into the overview). | 2 |
+| `golden-output.test.ts` ("post-setup What’s Next") | **Pending (Phase 4).** Extend to assert the Docs menu lines. | 4 |
 | `cli-orientation-golden.tryscript.md` (`tbd status`) | **Unchanged** for zero forks (verifies the guarantee); **add** a new forked-state status golden in a fixture with a fork. | 1 |
-| `setup-flows.test.ts` | **Extend** for the Docs summary (menu + pending-update report). | 4 |
-| `doc-references.test.ts` | **Extend** the extractor: add `tbd docs <subcommand>` and the `reference` kind; remove the `reference`/`prefix:` skips so `tbd docs show tbd-docs`, `suggest-upstream-improvements`, and the new reference docs all resolve. | 5 (extractor); 0 (the new docs it must resolve) |
-| `doc-add-e2e.test.ts` | **Keep** (per-kind `--add` stays an alias) and **extend** with `tbd docs add <docref>`. | 2 |
+| `setup-flows.test.ts` | **Pending (Phase 4).** Extend for the Docs summary (menu + pending-update report). | 4 |
+| `doc-references.test.ts` | **Pending (Phases 0/5).** Extend the extractor: add `tbd docs <subcommand>` and the `reference` kind; remove the `reference`/`prefix:` skips so `tbd docs show tbd-docs`, `suggest-upstream-improvements`, and the new reference docs all resolve. | 5 (extractor); 0 (the new docs it must resolve) |
+| `doc-add-e2e.test.ts` | **Pending (Phase 2).** Keep (per-kind `--add` stays an alias) and **extend** with `tbd docs add <docref>`. | 2 |
 
 New golden/e2e files (named for the phases that add them): `fork-manifest` +
 state-matrix units (Phase 1); a `cli-docs-fork.tryscript.md` lifecycle (fork → list

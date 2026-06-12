@@ -58,13 +58,13 @@ import { updateOne, diffContents, type UpdateStrategy } from '../../file/fork-up
 import { createDocMap, type DocMapEntry } from '../../docmap/index.js';
 
 /** Kinds that can be resolved from the cache and forked today. */
-const RESOLVABLE_KINDS: ForkKind[] = ['guideline', 'shortcut', 'template'];
+export const RESOLVABLE_KINDS: ForkKind[] = ['guideline', 'shortcut', 'template'];
 
 /**
  * Validate a user-supplied --kind value. Without this, an unknown kind silently
  * produces an empty cache and misleading "no docs" output.
  */
-function parseKindOption(kind: string | undefined): ForkKind | undefined {
+export function parseKindOption(kind: string | undefined): ForkKind | undefined {
   if (kind === undefined) return undefined;
   if (!(RESOLVABLE_KINDS as string[]).includes(kind)) {
     throw new CLIError(`Unknown kind "${kind}". Valid kinds: ${RESOLVABLE_KINDS.join(', ')}.`);
@@ -290,8 +290,10 @@ class DocsUnforkHandler extends BaseCommand {
           } catch (err) {
             if (err instanceof ForkConflictError && err.code === 'customized') {
               throw new CLIError(
-                `${name} has local customizations. Review with \`tbd docs status\`, then ` +
-                  `re-run with --force to discard them and fall back to upstream.`,
+                `${name} has local customizations (differs from its base). ` +
+                  `Refusing to discard them. Options:\n` +
+                  `  tbd docs diff ${name}             # review your changes\n` +
+                  `  tbd docs unfork ${name} --force   # discard and fall back to upstream`,
               );
             }
             throw err;
@@ -450,8 +452,8 @@ class DocsUpdateHandler extends BaseCommand {
 
       const tbdRoot = await requireInit();
       const applied: { entry: ForkEntry; message: string }[] = [];
-      const decisions: string[] = [];
-      const skipped: string[] = [];
+      const decisions: { name: string; message: string }[] = [];
+      const skipped: { name: string; message: string }[] = [];
 
       await withForkManifestLock(tbdRoot, async () => {
         let manifest = await readForkManifest(tbdRoot);
@@ -500,11 +502,11 @@ class DocsUpdateHandler extends BaseCommand {
               manifest = upsertFork(manifest, cleared);
             }
             if (result.needsDecision) {
-              decisions.push(result.message);
+              decisions.push({ name: entry.name, message: result.message });
             } else if (result.action !== 'skip-not-stale') {
               // Conflicted / orphaned / missing / version-skewed: actionable but
               // not applied here — surface, never silently swallow.
-              skipped.push(result.message);
+              skipped.push({ name: entry.name, message: result.message });
             }
             continue;
           }
@@ -564,15 +566,15 @@ class DocsUpdateHandler extends BaseCommand {
       if (skipped.length > 0) {
         console.log('');
         console.log(`${skipped.length} doc(s) skipped:`);
-        for (const msg of skipped) {
-          console.log(`  ${colors.warn('⚠')} ${msg}`);
+        for (const sk of skipped) {
+          console.log(`  ${colors.warn('⚠')} ${sk.message}`);
         }
       }
       if (decisions.length > 0) {
         console.log('');
         console.log(`${decisions.length} doc(s) need a decision:`);
-        for (const msg of decisions) {
-          console.log(`  ${colors.warn('⚠')} ${msg}`);
+        for (const d of decisions) {
+          console.log(`  ${colors.warn('⚠')} ${d.message}`);
         }
         console.log('  re-run with one of:');
         console.log(
@@ -745,9 +747,8 @@ class DocsDiffHandler extends BaseCommand {
 }
 
 /**
- * Merge a subcommand's local options with globals/ancestors. The parent `docs`
- * command also declares `--all` (its manual-viewer listing), so reading the local
- * option alone is unreliable; fall back to the merged view.
+ * Merge a subcommand's local options with globals/ancestors (e.g. the global
+ * --dry-run and --json), preferring the subcommand's own values.
  */
 function mergedForkOptions(local: ForkOptions, command: Command): ForkOptions {
   const g = command.optsWithGlobals();
