@@ -22,7 +22,6 @@ const sample = [
     source: 'internal:guidelines/python-rules.md',
     title: 'Python Coding Rules',
     description: 'Type hints, docstrings, exception handling',
-    word_count: 2400,
   },
   { name: 'review-code', type: 'shortcut', source: 'internal:shortcuts/standard/review-code.md' },
   { name: 'tbd-docs', type: 'reference', source: 'internal:tbd-docs.md' },
@@ -41,24 +40,33 @@ describe('createDocMap', () => {
     expect('name' in map).toBe(false);
   });
 
-  it('preserves extension fields (e.g. tbd state)', () => {
-    const map = createDocMap([{ name: 'x', type: 'guideline', state: 'customized', stale: true }]);
-    expect(map.documents[0]).toMatchObject({ state: 'customized', stale: true });
+  it('preserves extension fields (e.g. tbd state, size metrics)', () => {
+    const map = createDocMap([
+      {
+        name: 'x',
+        type: 'guideline',
+        source: 'internal:x.md',
+        state: 'customized',
+        stale: true,
+        word_count: 2400,
+      },
+    ]);
+    expect(map.documents[0]).toMatchObject({ state: 'customized', stale: true, word_count: 2400 });
   });
 
   it('rejects duplicate (type, name) identities', () => {
     expect(() =>
       createDocMap([
-        { name: 'dup', type: 'guideline' },
-        { name: 'dup', type: 'guideline' },
+        { name: 'dup', type: 'guideline', source: 'internal:a.md' },
+        { name: 'dup', type: 'guideline', source: 'internal:b.md' },
       ]),
     ).toThrow(DocMapError);
   });
 
   it('allows the same name under different types', () => {
     const map = createDocMap([
-      { name: 'typescript', type: 'guideline' },
-      { name: 'typescript', type: 'template' },
+      { name: 'typescript', type: 'guideline', source: 'internal:g/ts.md' },
+      { name: 'typescript', type: 'template', source: 'internal:t/ts.md' },
     ]);
     expect(map.documents).toHaveLength(2);
   });
@@ -75,17 +83,30 @@ describe('parseDocMap', () => {
     expect(() => parseDocMap({ docmap: 'sitemap/1', documents: [] })).toThrow(DocMapError);
   });
 
+  it('accepts docmap/0.x and rejects other majors', () => {
+    expect(parseDocMap({ docmap: 'docmap/0.2', documents: [] }).docmap).toBe('docmap/0.2');
+    expect(() => parseDocMap({ docmap: 'docmap/1.0', documents: [] })).toThrow(
+      /supports docmap\/0/,
+    );
+  });
+
   it('rejects entries missing identity fields', () => {
     expect(() => parseDocMap({ docmap: DOCMAP_VERSION, documents: [{ name: 'x' }] })).toThrow(
       DocMapError,
     );
   });
 
+  it('rejects entries without a location (path and/or source required)', () => {
+    expect(() =>
+      parseDocMap({ docmap: DOCMAP_VERSION, documents: [{ name: 'x', type: 'guideline' }] }),
+    ).toThrow(/location/);
+  });
+
   it('accepts and preserves unknown top-level and entry fields', () => {
     const map = parseDocMap({
       docmap: DOCMAP_VERSION,
       generated_by: 'tbd',
-      documents: [{ name: 'x', type: 'guideline', state: 'forked' }],
+      documents: [{ name: 'x', type: 'guideline', source: 'internal:x.md', state: 'forked' }],
     });
     expect(map.documents[0]).toMatchObject({ state: 'forked' });
   });

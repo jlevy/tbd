@@ -3,14 +3,20 @@
  *
  * A docmap is a "sitemap for docs": one entry per document, each with an identity
  * (`type` + `name`, unique within the map), a location (`path` and/or a provenance
- * `source` docref), and presentation metadata (`title`, `description`, `word_count`).
- * It describes a collection; it says nothing about how the collection is assembled,
- * fetched, or kept fresh.
+ * `source` docref — at least one is required), and presentation metadata (`title`,
+ * `description`). It describes a collection; it says nothing about how the
+ * collection is assembled, fetched, or kept fresh — a docmap is a generated VIEW
+ * of a collection, never an input to resolution.
+ *
+ * Path convention: for a docmap committed as a file, `path` is relative to the
+ * docmap file's own directory (the sitemap convention); generated docmaps state
+ * their collection root out of band.
  *
  * This is the docmap/0.1 format. The module is standalone and dependency-free (no
  * tbd-internal imports) so it can move to its own package later. Consumers MUST
  * ignore unknown fields, so producers (such as tbd) may attach extension fields —
- * for example tbd's `state`/`stale` — without breaking other readers.
+ * for example tbd's `state`/`stale`, or size metrics like `word_count` /
+ * `size_bytes` — without breaking other readers; core fields stay minimal.
  */
 
 import { z } from 'zod';
@@ -20,6 +26,8 @@ export const DOCMAP_VERSION = 'docmap/0.1' as const;
 
 /**
  * One document in a docmap. Unknown fields are preserved (extension fields).
+ * Every entry must carry a location: `path` and/or `source` — an inventory whose
+ * entries cannot be located is not an inventory.
  */
 export const DocMapEntrySchema = z
   .object({
@@ -27,15 +35,17 @@ export const DocMapEntrySchema = z
     name: z.string().min(1),
     /** Identity, e.g. "guideline" | "shortcut" | "template" | "reference". */
     type: z.string().min(1),
-    /** Location within the collection (repo-relative or collection-relative). */
+    /** Location within the collection (relative to the docmap's own location). */
     path: z.string().optional(),
     /** Provenance: a docref string for where the doc came from. */
     source: z.string().optional(),
     title: z.string().optional(),
     description: z.string().optional(),
-    word_count: z.number().int().nonnegative().optional(),
   })
-  .passthrough();
+  .passthrough()
+  .refine((entry) => entry.path !== undefined || entry.source !== undefined, {
+    message: 'docmap entry must have a location: path and/or source',
+  });
 
 export type DocMapEntry = z.infer<typeof DocMapEntrySchema>;
 
@@ -100,8 +110,12 @@ export function parseDocMap(value: unknown): DocMap {
     throw new DocMapError(result.error.issues.map((i) => i.message).join('; '));
   }
   const map = result.data;
-  if (!map.docmap.startsWith('docmap/')) {
-    throw new DocMapError(`unrecognized version tag ${JSON.stringify(map.docmap)}`);
+  // Readers accept docmap/0.* only: a different major may change field semantics,
+  // so failing fast beats misreading.
+  if (!map.docmap.startsWith('docmap/0.')) {
+    throw new DocMapError(
+      `unsupported docmap version ${JSON.stringify(map.docmap)} (this reader supports docmap/0.*)`,
+    );
   }
   assertUniqueIdentities(map.documents);
   return map;

@@ -35,6 +35,7 @@ import {
   type ForkKind,
   findFork,
   hashContent,
+  hasUnresolvedConflict,
   readForkManifest,
   writeForkManifest,
   writeBaseContent,
@@ -51,6 +52,7 @@ import {
   listLocalForkFiles,
   regenerateForkDirReadme,
   ForkConflictError,
+  KIND_DIR,
 } from '../../file/doc-fork.js';
 import { updateOne, diffContents, type UpdateStrategy } from '../../file/fork-update.js';
 import { createDocMap, type DocMapEntry } from '../../docmap/index.js';
@@ -58,6 +60,21 @@ import { createDocMap, type DocMapEntry } from '../../docmap/index.js';
 /** Kinds that can be resolved from the cache and forked today. */
 const RESOLVABLE_KINDS: ForkKind[] = ['guideline', 'shortcut', 'template'];
 
+/**
+ * Validate a user-supplied --kind value. Without this, an unknown kind silently
+ * produces an empty cache and misleading "no docs" output.
+ */
+function parseKindOption(kind: string | undefined): ForkKind | undefined {
+  if (kind === undefined) return undefined;
+  if (!(RESOLVABLE_KINDS as string[]).includes(kind)) {
+    throw new CLIError(`Unknown kind "${kind}". Valid kinds: ${RESOLVABLE_KINDS.join(', ')}.`);
+  }
+  return kind as ForkKind;
+}
+
+// 'reference' joins with Phase 5 (references/ cache dir); until then a manifest
+// entry of that kind resolves as orphaned by design, and parseKindOption keeps
+// the CLI from creating one.
 const KIND_CACHE_PATHS: Record<string, string[]> = {
   guideline: CACHE_GUIDELINES_PATHS,
   shortcut: CACHE_SHORTCUT_PATHS,
@@ -128,17 +145,29 @@ class DocsForkHandler extends BaseCommand {
       await withForkManifestLock(tbdRoot, async () => {
         let manifest = await readForkManifest(tbdRoot);
         for (const t of targets) {
-          const result = await forkDoc({
-            tbdRoot,
-            forkDir: FORK_DIR,
-            manifest,
-            kind: t.kind,
-            name: t.name,
-            source: t.source,
-            content: t.content,
-            tbdVersion: VERSION,
-            force: options.force,
-          });
+          let result;
+          try {
+            result = await forkDoc({
+              tbdRoot,
+              forkDir: FORK_DIR,
+              manifest,
+              kind: t.kind,
+              name: t.name,
+              source: t.source,
+              content: t.content,
+              tbdVersion: VERSION,
+              force: options.force,
+            });
+          } catch (err) {
+            if (err instanceof ForkConflictError && err.code === 'overwrite') {
+              throw new CLIError(
+                `${err.message}. Refusing to overwrite it. Options:\n` +
+                  `  tbd docs diff ${t.name}           # see how it differs\n` +
+                  `  tbd docs fork ${t.name} --force   # overwrite with upstream`,
+              );
+            }
+            throw err;
+          }
           manifest = result.manifest;
           forked.push(result.relPath);
           if (!this.ctx.json) {
@@ -166,7 +195,8 @@ class DocsForkHandler extends BaseCommand {
     names: string[],
     options: ForkOptions,
   ): Promise<ResolvedDoc[]> {
-    const kinds = options.kind ? [options.kind as ForkKind] : RESOLVABLE_KINDS;
+    const parsedKind = parseKindOption(options.kind);
+    const kinds = parsedKind ? [parsedKind] : RESOLVABLE_KINDS;
 
     if (options.all) {
       const targets: ResolvedDoc[] = [];
@@ -249,7 +279,7 @@ class DocsUnforkHandler extends BaseCommand {
               forkDir: FORK_DIR,
               manifest,
               name,
-              kind: options.kind as ForkKind | undefined,
+              kind: parseKindOption(options.kind),
               force: options.force,
             });
             manifest = result.manifest;
@@ -425,6 +455,15 @@ class DocsUpdateHandler extends BaseCommand {
 
       await withForkManifestLock(tbdRoot, async () => {
         let manifest = await readForkManifest(tbdRoot);
+        if (names.length > 0) {
+          const known = new Set(manifest.forks.map((f) => f.name));
+          const unknown = names.filter((n) => !known.has(n));
+          if (unknown.length > 0) {
+            throw new CLIError(
+              `Not forked: ${unknown.join(', ')}. Run \`tbd docs status\` to see forked docs.`,
+            );
+          }
+        }
         const selected =
           names.length > 0 ? manifest.forks.filter((f) => names.includes(f.name)) : manifest.forks;
 
@@ -436,9 +475,10 @@ class DocsUpdateHandler extends BaseCommand {
         };
 
         for (const entry of selected) {
+          const forkContent = await readForkFile(tbdRoot, FORK_DIR, entry);
           const result = await updateOne({
             entry,
-            forkContent: await readForkFile(tbdRoot, FORK_DIR, entry),
+            forkContent,
             baseContent: await readForkBase(tbdRoot, entry),
             upstreamContent: await upstreamFor(entry),
             strategy,
@@ -447,9 +487,21 @@ class DocsUpdateHandler extends BaseCommand {
 
           const { newFileContent, newBaseContent } = result;
           if (newFileContent === undefined && newBaseContent === undefined) {
+            // The conflicted flag auto-clears once markers are resolved (spec);
+            // persist the clear so the committed manifest matches computed state.
+            if (
+              !options.dryRun &&
+              entry.conflicted &&
+              forkContent !== null &&
+              !hasUnresolvedConflict(forkContent)
+            ) {
+              const cleared: ForkEntry = { ...entry };
+              delete cleared.conflicted;
+              manifest = upsertFork(manifest, cleared);
+            }
             if (result.needsDecision) {
               decisions.push(result.message);
-            } else if (result.action !== 'skip-not-stale' && result.action !== 'noop') {
+            } else if (result.action !== 'skip-not-stale') {
               // Conflicted / orphaned / missing / version-skewed: actionable but
               // not applied here — surface, never silently swallow.
               skipped.push(result.message);
@@ -551,7 +603,10 @@ class DocsListHandler extends BaseCommand {
     await this.execute(async () => {
       const tbdRoot = await requireInit();
       const manifest = await readForkManifest(tbdRoot);
-      const kinds = options.kind ? [options.kind as ForkKind] : RESOLVABLE_KINDS;
+      const config = await readConfig(tbdRoot);
+      const files = config.docs_cache?.files;
+      const parsedKind = parseKindOption(options.kind);
+      const kinds = parsedKind ? [parsedKind] : RESOLVABLE_KINDS;
       const colors = this.output.getColors();
 
       interface Row {
@@ -592,11 +647,18 @@ class DocsListHandler extends BaseCommand {
             state,
             path: fork?.path ?? doc.sourceDir + '/' + doc.name + '.md',
           });
+          // Every docmap entry must carry a location (path and/or source):
+          // forked docs have both; local files have a path but no upstream;
+          // upstream docs are located by their provenance docref.
+          const localPath = `${FORK_DIR}/${KIND_DIR[kind]}/${doc.name}.md`;
           docmapEntries.push({
             name: doc.name,
             type: kind,
-            path: fork?.path,
-            source: fork?.source,
+            ...(fork
+              ? { path: fork.path, source: fork.source }
+              : isLocal
+                ? { path: localPath }
+                : { source: sourceDocRef(tbdRoot, files, doc.path) }),
             title: doc.frontmatter?.title,
             description: doc.frontmatter?.description,
             state,
@@ -637,7 +699,7 @@ class DocsDiffHandler extends BaseCommand {
     await this.execute(async () => {
       const tbdRoot = await requireInit();
       const manifest = await readForkManifest(tbdRoot);
-      const entry = findFork(manifest, name, options.kind as ForkKind | undefined);
+      const entry = findFork(manifest, name, parseKindOption(options.kind));
       if (!entry) {
         throw new CLIError(`${name} is not a forked doc. Run \`tbd docs status\` to see forks.`);
       }
