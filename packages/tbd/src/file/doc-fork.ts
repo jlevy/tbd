@@ -11,7 +11,7 @@
  * the filesystem writes; resolving which doc/source to fork is the caller's job.
  */
 
-import { readFile, readdir, rm, rmdir, mkdir } from 'node:fs/promises';
+import { readFile, readdir, rm, rmdir, mkdir, stat } from 'node:fs/promises';
 import { dirname, join, relative } from 'node:path';
 
 import { writeFile } from 'atomically';
@@ -69,10 +69,13 @@ export function forkRelPath(forkDir: string, kind: ForkKind, name: string): stri
 
 async function pathExists(path: string): Promise<boolean> {
   try {
-    await readFile(path);
+    await stat(path);
     return true;
-  } catch {
-    return false;
+  } catch (err) {
+    if ((err as NodeJS.ErrnoException).code === 'ENOENT') {
+      return false;
+    }
+    throw err;
   }
 }
 
