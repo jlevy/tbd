@@ -3,9 +3,9 @@ type: is
 id: is-01ktyesmg1w5p3v0jzt3ryt0zs
 title: "PR #169 review: correctness and polish fixes"
 kind: epic
-status: open
+status: closed
 priority: 1
-version: 19
+version: 20
 spec_path: docs/project/specs/active/plan-2026-06-11-forkable-docs.md
 labels:
   - pr169-review
@@ -31,6 +31,8 @@ child_order_hints:
   - is-01ktyewy19dvyvs2gpm2rv04zr
   - is-01ktyewzv7j9fh8dt4n08t0547
 created_at: 2026-06-12T17:41:37.408Z
-updated_at: 2026-06-12T17:43:27.334Z
+updated_at: 2026-06-12T20:25:57.275Z
+closed_at: 2026-06-12T20:25:57.275Z
+close_reason: "All 18 children closed: 3 P0s fixed and verified, golden maps reconciled, f05 definition honest, old surface re-homed, Windows paths unified with cross-OS e2e, plus the full polish set. Commits 4301220..e5ce028 on PR #169."
 ---
 Granular fixes from the senior review of PR #169 (review comment: https://github.com/jlevy/tbd/pull/169#issuecomment-4693758177; doc: docs/project/reviews/review-2026-06-12-pr169-forkable-docs.md section 1). Each child names its phase; the spec phases are the strict validation gates for shipping the complete f05 experience in this PR.

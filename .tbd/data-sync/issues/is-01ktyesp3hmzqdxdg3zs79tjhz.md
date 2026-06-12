@@ -3,9 +3,9 @@ type: is
 id: is-01ktyesp3hmzqdxdg3zs79tjhz
 title: "PR #169 review: docs completeness for f05 release"
 kind: epic
-status: open
+status: closed
 priority: 1
-version: 8
+version: 9
 spec_path: docs/project/specs/active/plan-2026-06-11-forkable-docs.md
 labels:
   - pr169-review
@@ -20,6 +20,8 @@ child_order_hints:
   - is-01ktyeykdhe7b2xbwkad56bxzg
   - is-01ktyeyn8hpk1pxgyb4sxpcxc3
 created_at: 2026-06-12T17:41:39.056Z
-updated_at: 2026-06-12T17:44:22.033Z
+updated_at: 2026-06-12T20:25:58.779Z
+closed_at: 2026-06-12T20:25:58.779Z
+close_reason: "All 7 children closed: Managing Docs chapter, sync taxonomy, skill routing rows, docs-overview rewrite, canonical drift table cite, README upgrading line, design-rationale capture."
 ---
 Documentation catch-up so the f05 release ships docs in lockstep with commands (review section 2). Code currently leads docs: fork/unfork/status/update/diff/list exist but the manual, onboarding, and agent routing do not.
