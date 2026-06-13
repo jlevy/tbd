@@ -134,7 +134,7 @@ export async function diffContents(
         (error, stdout) => {
           if (error) {
             const code = (error as NodeJS.ErrnoException & { code?: number }).code;
-            // git diff exits 1 when the files differ — that's the normal case.
+            // git diff exits 1 when the files differ; that's the normal case.
             if (code === 1) {
               resolve(stdout);
               return;
@@ -181,7 +181,7 @@ export interface UpdateOneInput {
   /**
    * The running tbd version. When the entry's base was advanced by a NEWER tbd
    * (entry.tbd_version > runningVersion), this client's "upstream" is older than
-   * the fork point and an update would silently downgrade the doc — so the doc
+   * the fork point and an update would silently downgrade the doc, so the doc
    * is skipped under every strategy until the client upgrades.
    */
   runningVersion?: string;
@@ -216,7 +216,7 @@ export async function updateOne(input: UpdateOneInput): Promise<UpdateOneResult>
   if (upstreamContent === null) {
     return {
       action: 'skip-orphaned',
-      message: `${name}: upstream removed this doc — keep your copy or 'tbd docs unfork ${name}'`,
+      message: `${name}: upstream removed this doc; keep your copy or 'tbd docs unfork ${name}'`,
     };
   }
   // An unresolved conflicted doc must be resolved before any update. Keys off
@@ -225,7 +225,7 @@ export async function updateOne(input: UpdateOneInput): Promise<UpdateOneResult>
   if (entry.conflicted && hasUnresolvedConflict(forkContent)) {
     return {
       action: 'skip-unresolved',
-      message: `${name}: unresolved conflict markers — resolve them first`,
+      message: `${name}: unresolved conflict markers; resolve them first`,
     };
   }
 
@@ -242,7 +242,7 @@ export async function updateOne(input: UpdateOneInput): Promise<UpdateOneResult>
       action: 'skip-newer-base',
       message:
         `${name}: fork point was set by tbd ${entry.tbd_version} (you have ` +
-        `${input.runningVersion}) — upgrade tbd before updating this doc`,
+        `${input.runningVersion}); upgrade tbd before updating this doc`,
     };
   }
 
@@ -258,7 +258,7 @@ export async function updateOne(input: UpdateOneInput): Promise<UpdateOneResult>
     return {
       action: 'skip-no-base',
       needsDecision: true,
-      message: `${name}: base snapshot missing — cannot merge; re-run with --keep-ours to repair`,
+      message: `${name}: base snapshot missing: cannot merge; re-run with --keep-ours to repair`,
     };
   }
 

@@ -96,7 +96,7 @@ async function probeDataSyncReadiness(tbdRoot: string): Promise<DataSyncProbe> {
   const sharedPaths = await resolveSharedTbdPaths(tbdRoot);
   const layout = await readCommonDirLayout(sharedPaths.sharedLayoutPath);
   // A layout stamped with an older (compatible) format than the config is the
-  // normal mid-migration state — it is upgraded under the lock by
+  // normal mid-migration state; it is upgraded under the lock by
   // ensureCommonDirLayout, so it must not fail validation here, only mark the
   // probe as not ready.
   const layoutNeedsUpgrade = layout !== null && isLayoutUpgradeable(layout, config);
@@ -177,13 +177,13 @@ function notifyConfigMigrated(fromFormat: string | undefined, toFormat: string):
  * The shared worktree can be absent in a fresh/ephemeral clone (or if it was
  * deleted). `withDataSyncContext` heals it transparently, but a silent heal on a
  * read/write command looks indistinguishable from "the tracker is empty" or "my
- * issue was saved normally" — the exact confusion reported in #135. A terse
+ * issue was saved normally", the exact confusion reported in #135. A terse
  * stderr note keeps stdout (and JSON) clean while making the heal visible.
  */
 export function notifyWorktreeRepaired(status: WorktreeStatus | undefined): void {
   if (status !== 'missing' && status !== 'prunable') return;
   process.stderr.write(
-    `• tbd-sync worktree was ${status} — auto-materialized it ` +
+    `• tbd-sync worktree was ${status}; auto-materialized it ` +
       `(fresh clone, or the worktree was removed).\n`,
   );
 }

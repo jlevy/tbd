@@ -257,14 +257,14 @@ tbd setup --auto                # Refresh skills/hooks and apply any format migr
 ```
 
 If the new version bumps the repository format (`tbd_format` in `.tbd/config.yml`),
-setup migrates it automatically and prints a notice — **commit the resulting diff** to
+setup migrates it automatically and prints a notice; **commit the resulting diff** to
 publish the upgrade to your team.
 Teammates still on an older tbd then see “This repository requires a newer version of
 tbd” until they run the same two commands.
 Issue data is never touched by an upgrade, and the migration is revertible: see
 “Aborting a Format Upgrade” under Troubleshooting in the CLI manual (`tbd docs manual`).
 If you have forked docs in `docs/tbd/`, `tbd sync` prints a notice when their upstream
-versions moved — run `tbd docs update` to merge the changes in.
+versions moved; run `tbd docs update` to merge the changes in.
 
 ### Team Setup
 

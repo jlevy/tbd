@@ -66,7 +66,7 @@ export async function loadIdMapping(baseDir: string): Promise<IdMapping> {
     };
   }
 
-  // Parse tolerating duplicate keys — this handles the case where a git merge
+  // Parse tolerating duplicate keys; this handles the case where a git merge
   // conflict resolution kept entries from both sides, creating duplicate YAML keys.
   // Without this, the yaml parser throws "Map keys must be unique".
   const { data: rawData, duplicateKeys } = parseYamlToleratingDuplicateKeys<unknown>(
@@ -108,7 +108,7 @@ export async function loadIdMapping(baseDir: string): Promise<IdMapping> {
  * inside the lock. This prevents the lost-update problem when multiple `tbd create`
  * commands run in parallel.
  *
- * The merge is safe because ID mappings are append-only — entries are never
+ * The merge is safe because ID mappings are append-only; entries are never
  * intentionally removed. If the lock cannot be acquired within the timeout,
  * a LockAcquisitionError is thrown rather than proceeding without protection.
  */
@@ -131,7 +131,7 @@ export async function saveIdMapping(baseDir: string, mapping: IdMapping): Promis
         merged = mergeIdMappings(mapping, onDisk);
       }
     } catch {
-      // File doesn't exist or is unreadable — proceed with our mapping only
+      // File doesn't exist or is unreadable; proceed with our mapping only
     }
 
     // Safety check: ID mappings are append-only. If the merged result has fewer
@@ -141,7 +141,7 @@ export async function saveIdMapping(baseDir: string, mapping: IdMapping): Promis
       throw new Error(
         `Refusing to save ID mapping: would lose ${onDiskSize - merged.shortToUlid.size} entries ` +
           `(on-disk: ${onDiskSize}, proposed: ${merged.shortToUlid.size}). ` +
-          `ID mappings are append-only — this indicates a bug.`,
+          `ID mappings are append-only; this indicates a bug.`,
       );
     }
 
@@ -332,7 +332,7 @@ export function resolveToInternalId(input: string, mapping: IdMapping): Internal
  * @throws MergeConflictError if content contains merge conflict markers
  */
 export function parseIdMappingFromYaml(content: string): IdMapping {
-  // Parse tolerating duplicate keys — handles post-merge-conflict duplicates
+  // Parse tolerating duplicate keys; handles post-merge-conflict duplicates
   const { data: rawData, duplicateKeys } = parseYamlToleratingDuplicateKeys<unknown>(content);
   const data = rawData ?? {};
 
@@ -400,7 +400,7 @@ export function reconcileMappings(
       addIdMapping(mapping, ulid, historicalShortId);
       recovered.push(id);
     } else {
-      // No history available or short ID conflicts — generate new random one
+      // No history available or short ID conflicts; generate new random one
       createShortIdMapping(id, mapping);
       created.push(id);
     }

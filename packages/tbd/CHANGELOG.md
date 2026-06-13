@@ -5,9 +5,11 @@
 The headline is **forkable docs**: every doc tbd serves (guidelines, shortcuts,
 templates, and the new reference docs) can now be forked into your repo as visible,
 git-tracked files, edited in place, and reconciled with upstream after upgrades.
-The repository format bumps `f04` → `f05`; the migration is **stamp-only** (it stamps
-`tbd_format: f05` in `.tbd/config.yml` and refreshes generated metadata — fork artifacts
-appear only when you first fork something), so upgrading is safe and revertible.
+The repository format bumps `f04` → `f06` in this release: `f05` adds the forkable-docs
+layout, and `f06` adds a config upgrade history and redefines `tbd_version`. Both
+migrations are metadata-only (they update `tbd_format` in `.tbd/config.yml` and refresh
+generated metadata; fork artifacts appear only when you first fork something), so
+upgrading is safe and revertible.
 
 ### Features
 
@@ -52,6 +54,13 @@ appear only when you first fork something), so upgrading is safe and revertible.
   files), and `tbd sync` prints a one-line notice when forked docs are stale,
   conflicted, or missing.
   Only the explicit `tbd docs update` ever modifies tracked files.
+- **Config upgrade history** (format `f06`): `tbd_version` in `.tbd/config.yml` now
+  records the version that last ran `tbd setup` (previously frozen at install time), and
+  a new `tbd_upgrades` list records, oldest-first, the versions that have run setup in
+  the repo. Both are informational (functional gating stays on `tbd_format`);
+  `tbd config show` displays the history.
+  The `f05 → f06` migration seeds the first entry from the prior `tbd_version`, and each
+  setup appends the running version when it changes.
 
 ### Guidelines and content
 

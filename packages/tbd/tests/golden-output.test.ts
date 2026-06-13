@@ -64,12 +64,12 @@ describe('golden output tests', { timeout: isWindows ? 60000 : 15000 }, () => {
       // the format, not the inventory size.
       const stdout = result.stdout.replace(/\d+ docs available/, '[N] docs available');
       expect(stdout).toMatchInlineSnapshot(`
-        "tbd docs — managed documentation
+        "tbd docs: managed documentation
 
           [N] docs available in the cache (.tbd/docs/, gitignored); none forked into the repo.
           Guidelines are active from the cache. Three postures, all serving the same docs:
 
-          Hidden (default):  keep the cache as-is — zero repo footprint
+          Hidden (default):  keep the cache as-is; zero repo footprint
           Curated:           tbd docs fork <name> [...]  fork chosen docs into docs/tbd/
                              tbd docs fork --category=<name>  (general, typescript, python, convex, electron)
           Everything:        tbd docs fork --all         all docs, visible and editable
@@ -99,7 +99,7 @@ describe('golden output tests', { timeout: isWindows ? 60000 : 15000 }, () => {
         [
           'Docs: [N] docs available in the cache (.tbd/docs/, gitignored); none forked into the repo.',
           '  Guidelines are active from the cache. Three postures, all serving the same docs:',
-          '  Hidden (default):  keep the cache as-is — zero repo footprint',
+          '  Hidden (default):  keep the cache as-is; zero repo footprint',
           '  Curated:           tbd docs fork <name> [...]  fork chosen docs into docs/tbd/',
           '                     tbd docs fork --category=<name>  (general, typescript, python, convex, electron)',
           '  Everything:        tbd docs fork --all         all docs, visible and editable',

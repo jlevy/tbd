@@ -48,7 +48,7 @@ If unclear, ask the user if they want you to create a spec first using
 
 - **Parent/Child** (`--parent`): Hierarchical grouping.
   All implementation beads should be children of the epic.
-  Children inherit context from their parent — `tbd show` auto-displays the parent’s
+  Children inherit context from their parent; `tbd show` auto-displays the parent’s
   details, so child descriptions don’t need to duplicate the parent’s context.
 
 - **Blocker** (`tbd dep add`): Sequential ordering.

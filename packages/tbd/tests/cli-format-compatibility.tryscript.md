@@ -44,7 +44,7 @@ Golden tests for fail-closed format compatibility behavior.
 $ tbd list 2>&1
 Error: This repository requires a newer version of tbd.
 Config format 'f99' is from a newer tbd version.
-This tbd version supports up to format 'f05'.
+This tbd version supports up to format 'f06'.
 Upgrade tbd: npm install -g get-tbd@latest
 ? 1
 ```

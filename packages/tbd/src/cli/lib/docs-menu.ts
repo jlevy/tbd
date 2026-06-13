@@ -7,7 +7,7 @@
  * uncolored; callers add their own indentation and formatting.
  *
  * Contract note (forkable-docs spec): the menu must only name selectors that
- * exist — `--category` appears here because the flag ships with it.
+ * exist; `--category` appears here because the flag ships with it.
  */
 
 import { FORK_DIR } from '../../lib/paths.js';
@@ -21,7 +21,7 @@ import { DOC_CATEGORIES } from '../../lib/doc-categories.js';
 export function docsPostureMenuLines(): string[] {
   return [
     'Guidelines are active from the cache. Three postures, all serving the same docs:',
-    'Hidden (default):  keep the cache as-is — zero repo footprint',
+    'Hidden (default):  keep the cache as-is; zero repo footprint',
     `Curated:           tbd docs fork <name> [...]  fork chosen docs into ${FORK_DIR}/`,
     `                   tbd docs fork --category=<name>  (${DOC_CATEGORIES.join(', ')})`,
     'Everything:        tbd docs fork --all         all docs, visible and editable',

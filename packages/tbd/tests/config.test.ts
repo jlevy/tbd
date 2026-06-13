@@ -10,6 +10,7 @@ import {
   readConfig,
   writeConfig,
   initConfig,
+  stampSetupVersion,
   readLocalState,
   updateLocalState,
   hasSeenWelcome,
@@ -49,6 +50,53 @@ describe('config operations', () => {
       const { stat } = await import('node:fs/promises');
       const tbdDir = await stat(join(tempDir, '.tbd'));
       expect(tbdDir.isDirectory()).toBe(true);
+    });
+
+    it('seeds the upgrade history with the creating version', async () => {
+      await initConfig(tempDir, '3.0.0', 'test');
+
+      const config = await readConfig(tempDir);
+      expect(config.tbd_upgrades).toHaveLength(1);
+      expect(config.tbd_upgrades[0]?.version).toBe('3.0.0');
+      // The first entry created at init carries a timestamp.
+      expect(config.tbd_upgrades[0]?.at).toBeTruthy();
+    });
+  });
+
+  describe('stampSetupVersion', () => {
+    const base: Config = {
+      tbd_format: 'f06',
+      tbd_version: '0.3.0',
+      tbd_upgrades: [{ version: '0.3.0', at: '2026-06-12T00:00:00.000Z' }],
+      sync: { branch: 'tbd-sync', remote: 'origin', storage: 'git-common-dir-v1' },
+      display: { id_prefix: 'test' },
+      settings: { auto_sync: false, doc_auto_sync_hours: 24, use_gh_cli: true },
+    };
+
+    it('appends a new entry and updates tbd_version when the version changed', () => {
+      const stamped = stampSetupVersion(base, '0.3.1', '2026-06-13T00:00:00.000Z');
+
+      expect(stamped).not.toBe(base);
+      expect(stamped.tbd_version).toBe('0.3.1');
+      expect(stamped.tbd_upgrades).toEqual([
+        { version: '0.3.0', at: '2026-06-12T00:00:00.000Z' },
+        { version: '0.3.1', at: '2026-06-13T00:00:00.000Z' },
+      ]);
+    });
+
+    it('is a no-op (same reference) when the version already heads the history', () => {
+      const stamped = stampSetupVersion(base, '0.3.0', '2026-06-13T00:00:00.000Z');
+
+      expect(stamped).toBe(base);
+      expect(stamped.tbd_upgrades).toHaveLength(1);
+    });
+
+    it('seeds the first entry for a config with no history', () => {
+      const noHistory: Config = { ...base, tbd_upgrades: [] };
+      const stamped = stampSetupVersion(noHistory, '0.3.0', '2026-06-13T00:00:00.000Z');
+
+      expect(stamped.tbd_version).toBe('0.3.0');
+      expect(stamped.tbd_upgrades).toEqual([{ version: '0.3.0', at: '2026-06-13T00:00:00.000Z' }]);
     });
   });
 
@@ -90,7 +138,7 @@ describe('config operations', () => {
       await expect(readConfig(tempDir)).rejects.toThrow(
         'This repository requires a newer version of tbd.\n' +
           "Config format 'f99' is from a newer tbd version.\n" +
-          "This tbd version supports up to format 'f05'.\n" +
+          "This tbd version supports up to format 'f06'.\n" +
           'Upgrade tbd: npm install -g get-tbd@latest',
       );
     });
@@ -101,8 +149,9 @@ describe('config operations', () => {
       await initConfig(tempDir, '3.0.0', 'test');
 
       const config: Config = {
-        tbd_format: 'f02',
+        tbd_format: 'f06',
         tbd_version: '3.1.0',
+        tbd_upgrades: [{ version: '3.0.0' }, { version: '3.1.0', at: '2026-06-12T00:00:00.000Z' }],
         sync: { branch: 'custom-branch', remote: 'upstream', storage: 'git-common-dir-v1' },
         display: { id_prefix: 'td' },
         settings: { auto_sync: true, doc_auto_sync_hours: 24, use_gh_cli: true },
@@ -113,6 +162,10 @@ describe('config operations', () => {
       const read = await readConfig(tempDir);
 
       expect(read.tbd_version).toBe('3.1.0');
+      expect(read.tbd_upgrades).toEqual([
+        { version: '3.0.0' },
+        { version: '3.1.0', at: '2026-06-12T00:00:00.000Z' },
+      ]);
       expect(read.sync.branch).toBe('custom-branch');
       expect(read.sync.remote).toBe('upstream');
       expect(read.sync.storage).toBe('git-common-dir-v1');

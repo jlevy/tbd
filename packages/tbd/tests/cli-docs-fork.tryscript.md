@@ -48,7 +48,7 @@ $ tbd docs fork python-rules
 ✓ Forked python-rules → docs/tbd/guidelines/python-rules.md
   Regenerated docs/tbd/README.md
 
-Edit in place — tbd now serves your copy wherever it served upstream.
+Edit in place; tbd now serves your copy wherever it served upstream.
 ? 0
 ```
 
@@ -105,7 +105,7 @@ No files written. Re-run without --dry-run to apply.
 
 ```console
 $ tbd docs unfork python-rules
-✓ Unforked python-rules — served from upstream again.
+✓ Unforked python-rules, served from upstream again.
 ? 0
 ```
 
@@ -179,7 +179,7 @@ $ head -3 docs/tbd/README.md
 
 ```console
 $ tbd docs unfork python-rules
-✓ Unforked python-rules — served from upstream again.
+✓ Unforked python-rules, served from upstream again.
 ? 0
 ```
 
@@ -232,7 +232,7 @@ team-rules (66 B, ~19 tok) [local]
 ```console
 $ tbd sync --docs 2>&1
 ✓ Docs up to date
-• Docs: 1 missing (deleted/renamed) — see 'tbd docs status'
+• Docs: 1 missing (deleted/renamed); see 'tbd docs status'
 ? 0
 ```
 
@@ -245,7 +245,7 @@ $ rm docs/tbd/guidelines/py-rules.md docs/tbd/guidelines/team-rules.md
 
 ```console
 $ tbd docs unfork python-rules
-✓ Unforked python-rules — served from upstream again.
+✓ Unforked python-rules, served from upstream again.
 ? 0
 ```
 
@@ -289,7 +289,7 @@ FORK-SERVE-CHECK
 
 ```console
 $ tbd docs unfork review-code --force
-✓ Unforked review-code — served from upstream again.
+✓ Unforked review-code, served from upstream again.
 ? 0
 ```
 
@@ -297,4 +297,29 @@ $ tbd docs unfork review-code --force
 $ tbd shortcut review-code 2>/dev/null | grep -c FORK-SERVE-CHECK
 0
 ? 1
+```
+
+* * *
+
+## Category selection forks only guidelines (regression: tbd-o6zn)
+
+`--category` is guideline-scoped: `--category=general` must fork only the general
+guidelines, never the shortcuts/templates/references (which declare other categories or
+none, and so previously collapsed to `general` and were all swept in).
+
+# Test: --category=general forks docs
+
+```console
+$ tbd docs fork --category=general
+✓ Forked [..]
+...
+? 0
+```
+
+# Test: only the guidelines kind dir is written — no shortcuts/templates/references
+
+```console
+$ test ! -e docs/tbd/shortcuts && test ! -e docs/tbd/templates && test ! -e docs/tbd/references && test -d docs/tbd/guidelines && echo guideline-only
+guideline-only
+? 0
 ```

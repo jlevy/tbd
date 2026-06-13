@@ -1,6 +1,6 @@
 ---
 title: Docmap Format
-description: A minimal, machine-readable inventory of a collection of documents — a sitemap for docs, with docref as its addressing primitive
+description: A minimal, machine-readable inventory of a collection of documents: a sitemap for docs, with docref as its addressing primitive
 author: Joshua Levy (github.com/jlevy) with LLM assistance
 category: general
 ---
@@ -10,7 +10,7 @@ A **docmap** is a machine-readable inventory of a collection of documents: one e
 doc, each with an identity, a location, and presentation metadata.
 It describes a collection; it says nothing about how the collection is assembled,
 fetched, or kept fresh.
-A docmap is a generated **view** of a collection, never an input to resolution — tools
+A docmap is a generated **view** of a collection, never an input to resolution: tools
 that serve docs resolve by their own conventions and *emit* a docmap (as
 `tbd docs list --json` does); future machinery that consumes docmaps as sources is
 defined as operations *over* this format, not as part of it.
@@ -41,7 +41,7 @@ Rules:
   docmap file’s own directory (the sitemap convention); generated docmaps state their
   collection root out of band (tbd’s `--json` paths are repo-relative).
 - **Presentation metadata**: `title` and `description` are the core fields.
-- **Extension fields**: producers may attach anything else — tbd adds `state` and
+- **Extension fields**: producers may attach anything else; tbd adds `state` and
   `stale`; size metrics (`word_count`, `size_bytes`, token estimates) are likewise
   extensions, not core.
   **Consumers must ignore unknown fields.**
@@ -57,7 +57,7 @@ major may change field semantics, and failing fast beats misreading.
 `src/docmap/` in tbd: standalone, dependency-free schema, validation, and query helpers,
 structured for extraction into its own package.
 Producers may generate docmaps (every tbd list/inventory command emits one) or
-hand-author them — any repo can commit a docmap to advertise its doc collection.
+hand-author them; any repo can commit a docmap to advertise its doc collection.
 
 <!-- This document follows common-doc-guidelines.md.
 See github.com/jlevy/practical-prose and review guidelines before editing.
