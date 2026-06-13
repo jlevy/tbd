@@ -22,7 +22,7 @@ before: |
 ---
 # tbd CLI: Bulk Mutation
 
-Tests for variadic `tbd close` (Phase 1 agent CLI ergonomics).
+Tests for variadic `tbd close` and `tbd reopen` (Phase 1 agent CLI ergonomics).
 Single-ID behavior is covered by cli-crud; this file covers the multi-target (bulk)
 paths.
 
@@ -128,5 +128,118 @@ test-[SHORTID]
 
 ```console
 $ tbd close $(cat f.txt) $(cat g.txt) --quiet
+? 0
+```
+
+* * *
+
+## Bulk reopen
+
+# Test: Seed two issues and close them
+
+```console
+$ tbd create "Reopen A" --json | jq -r '.id' | tee ra.txt
+test-[SHORTID]
+? 0
+```
+
+```console
+$ tbd create "Reopen B" --json | jq -r '.id' | tee rb.txt
+test-[SHORTID]
+? 0
+```
+
+```console
+$ tbd close $(cat ra.txt) $(cat rb.txt) --quiet
+? 0
+```
+
+# Test: Reopen two issues at once (one summary line + visible sync hint)
+
+```console
+$ tbd reopen $(cat ra.txt) $(cat rb.txt)
+✓ Reopened 2: test-[SHORTID] test-[SHORTID]
+• Unsynced changes[..]
+? 0
+```
+
+# Test: Reopening again reports both as skipped (bulk idempotent)
+
+```console
+$ tbd reopen $(cat ra.txt) $(cat rb.txt)
+✓ Reopened 0, skipped 2 (already open): test-[SHORTID] test-[SHORTID]
+? 0
+```
+
+# Test: An unknown ID fails closed and changes nothing
+
+```console
+$ tbd reopen $(cat ra.txt) test-zzzz 2>&1
+[..]
+? 1
+```
+
+# Test: --ignore-missing reopens the known ID and reports the unknown
+
+Re-close `ra` so there is something to reopen:
+
+```console
+$ tbd close $(cat ra.txt) --quiet
+? 0
+```
+
+```console
+$ tbd reopen $(cat ra.txt) test-zzzz --ignore-missing
+✓ Reopened 1, not found 1: test-[SHORTID] test-zzzz
+• Unsynced changes[..]
+? 0
+```
+
+# Test: --json emits a structured results array and summary
+
+```console
+$ tbd create "Reopen C" --json | jq -r '.id' | tee rc.txt
+test-[SHORTID]
+? 0
+```
+
+```console
+$ tbd create "Reopen D" --json | jq -r '.id' | tee rd.txt
+test-[SHORTID]
+? 0
+```
+
+```console
+$ tbd close $(cat rc.txt) $(cat rd.txt) --quiet
+? 0
+```
+
+```console
+$ tbd reopen $(cat rc.txt) $(cat rd.txt) --json | jq -r '.summary.changed'
+2
+? 0
+```
+
+# Test: --quiet is silent on success (bulk)
+
+```console
+$ tbd create "Reopen E" --json | jq -r '.id' | tee re.txt
+test-[SHORTID]
+? 0
+```
+
+```console
+$ tbd create "Reopen F" --json | jq -r '.id' | tee rf.txt
+test-[SHORTID]
+? 0
+```
+
+```console
+$ tbd close $(cat re.txt) $(cat rf.txt) --quiet
+? 0
+```
+
+```console
+$ tbd reopen $(cat re.txt) $(cat rf.txt) --quiet
 ? 0
 ```

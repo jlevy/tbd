@@ -53,6 +53,10 @@ class CloseHandler extends BaseCommand {
             try {
               issue = await readIssue(dataSyncDir, internalId);
             } catch {
+              // Single ID preserves the legacy hard error; bulk reports it.
+              if (ids.length === 1 && !options.ignoreMissing) {
+                throw new NotFoundError('Issue', input);
+              }
               results.push({ id: input, action: 'missing', ok: false, skippedReason: 'not found' });
               continue;
             }
