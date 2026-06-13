@@ -161,7 +161,6 @@ tbd setup --from-beads            # Migrate from existing Beads setup
 
 Options:
 - `--auto` - Automatic mode: auto-detect prefix, migrate beads if present
-- `--interactive` - Interactive mode: prompt for all options
 - `--from-beads` - Migrate issues from existing Beads setup
 - `--prefix <name>` - Override auto-detected prefix
 

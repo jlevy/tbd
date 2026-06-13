@@ -1819,7 +1819,7 @@ class DoctorHandler extends BaseCommand {
    *
    * Returns zero findings when nothing is forked and no fork dir exists, so
    * doctor output is byte-identical for repos that never touched forking.
-   * See: docs/project/specs/active/plan-2026-06-11-forkable-docs.md §`tbd doctor`.
+   * See: docs/project/specs/done/plan-2026-06-11-forkable-docs.md §`tbd doctor`.
    */
   private async checkForkedDocs(fix?: boolean): Promise<DiagnosticResult[]> {
     const name = 'Forked docs';
