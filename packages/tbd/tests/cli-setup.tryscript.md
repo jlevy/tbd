@@ -69,9 +69,9 @@ Setup & Configuration:
 Working With Issues:
   create [options] [title]      Create a new issue
   show [options] <id>           Show issue details
-  update [options] <id>         Update an issue
+  update [options] <ids...>     Update one or more issues
   close [options] <ids...>      Close one or more issues
-  reopen [options] <id>         Reopen a closed issue
+  reopen [options] <ids...>     Reopen one or more closed issues
   search [options] <query>      Search issues by text
 
 Views and Filtering:

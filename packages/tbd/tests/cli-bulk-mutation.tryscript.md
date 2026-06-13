@@ -243,3 +243,102 @@ $ tbd close $(cat re.txt) $(cat rf.txt) --quiet
 $ tbd reopen $(cat re.txt) $(cat rf.txt) --quiet
 ? 0
 ```
+
+* * *
+
+## Bulk update
+
+# Test: Seed two open issues
+
+```console
+$ tbd create "Update A" --json | jq -r '.id' | tee ua.txt
+test-[SHORTID]
+? 0
+```
+
+```console
+$ tbd create "Update B" --json | jq -r '.id' | tee ub.txt
+test-[SHORTID]
+? 0
+```
+
+# Test: Bulk-set shared fields (priority + label) on both
+
+```console
+$ tbd update $(cat ua.txt) $(cat ub.txt) --priority 0 --add-label delivered
+✓ Updated 2: test-[SHORTID] test-[SHORTID]
+• Unsynced changes[..]
+? 0
+```
+
+# Test: The shared label was applied
+
+```console
+$ tbd show $(cat ua.txt) --json | jq -r '.labels[0]'
+delivered
+? 0
+```
+
+# Test: A per-ID-only flag (--title) is rejected for multiple IDs
+
+```console
+$ tbd update $(cat ua.txt) $(cat ub.txt) --title "Nope" 2>&1
+[..]
+? 1
+```
+
+# Test: --status is rejected for bulk (no bulk-close bypass)
+
+```console
+$ tbd update $(cat ua.txt) $(cat ub.txt) --status closed 2>&1
+[..]
+? 1
+```
+
+# Test: Both are still open (the rejected bulk close changed nothing)
+
+```console
+$ tbd show $(cat ua.txt) --json | jq -r '.status'
+open
+? 0
+```
+
+# Test: An unknown ID fails closed and changes nothing
+
+```console
+$ tbd update $(cat ua.txt) test-zzzz --priority 1 2>&1
+[..]
+? 1
+```
+
+# Test: --ignore-missing updates the known ID and reports the unknown
+
+```console
+$ tbd update $(cat ua.txt) test-zzzz --assignee alice --ignore-missing
+✓ Updated 1, not found 1: test-[SHORTID] test-zzzz
+• Unsynced changes[..]
+? 0
+```
+
+# Test: --json emits a structured results array and summary
+
+```console
+$ tbd update $(cat ua.txt) $(cat ub.txt) --add-label shipped --json | jq -r '.summary.changed'
+2
+? 0
+```
+
+# Test: Updating with no fields is a usage error (exit 2)
+
+```console
+$ tbd update $(cat ua.txt) $(cat ub.txt) 2>&1
+[..]
+? 2
+```
+
+# Test: --quiet is silent on success (bulk)
+
+```console
+$ tbd update $(cat ua.txt) $(cat ub.txt) --priority 2 --quiet
+? 0
+```

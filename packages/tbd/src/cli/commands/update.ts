@@ -20,6 +20,7 @@ import { resolveToInternalId, type IdMapping } from '../../file/id-mapping.js';
 import { resolveAndValidatePath, getPathErrorMessage } from '../../lib/project-paths.js';
 import { validateIssueTitle } from '../lib/issue-input-validation.js';
 import { withDataSyncContext } from '../lib/data-context.js';
+import { resolveAllIds, summarizeBulk, toJsonResult, type BulkItemResult } from '../lib/bulk.js';
 
 interface UpdateOptions {
   fromFile?: string;
@@ -38,10 +39,23 @@ interface UpdateOptions {
   parent?: string;
   spec?: string;
   childOrder?: string;
+  ignoreMissing?: boolean;
 }
 
 class UpdateHandler extends BaseCommand {
-  async run(id: string, options: UpdateOptions): Promise<void> {
+  async run(ids: string[], options: UpdateOptions): Promise<void> {
+    if (ids.length === 1) {
+      await this.runSingle(ids[0]!, options);
+      return;
+    }
+    await this.runBulk(ids, options);
+  }
+
+  /**
+   * Single-ID update preserves the full legacy behavior, including structural
+   * side effects (re-parenting, spec propagation, child ordering hints).
+   */
+  async runSingle(id: string, options: UpdateOptions): Promise<void> {
     const tbdRoot = await requireInit();
 
     let displayId = id;
@@ -179,6 +193,129 @@ class UpdateHandler extends BaseCommand {
 
     this.output.data({ id: displayId, updated: true }, () => {
       this.output.success(`Updated ${displayId}`);
+    });
+  }
+
+  /**
+   * Bulk update (2+ IDs): apply only shared fields that have no lifecycle or
+   * structural side effects. Per-ID-only flags are rejected up front, and
+   * lifecycle changes stay on `close`/`reopen` so `closed_at`/`close_reason`
+   * are never left inconsistent.
+   */
+  async runBulk(ids: string[], options: UpdateOptions): Promise<void> {
+    const perIdOnly: string[] = [];
+    if (options.fromFile) perIdOnly.push('--from-file');
+    if (options.title !== undefined) perIdOnly.push('--title');
+    if (options.description !== undefined) perIdOnly.push('--description');
+    if (options.notes !== undefined) perIdOnly.push('--notes');
+    if (options.notesFile) perIdOnly.push('--notes-file');
+    if (options.status !== undefined) perIdOnly.push('--status');
+    if (options.parent !== undefined) perIdOnly.push('--parent');
+    if (options.spec !== undefined) perIdOnly.push('--spec');
+    if (options.childOrder !== undefined) perIdOnly.push('--child-order');
+    if (perIdOnly.length > 0) {
+      throw new CLIError(
+        `Cannot use ${perIdOnly.join(', ')} when updating multiple issues. ` +
+          `These apply to a single issue; use \`tbd close\`/\`tbd reopen\` for status changes. ` +
+          `Bulk update supports shared fields: --priority, --assignee, --type, ` +
+          `--add-label, --remove-label, --due, --defer.`,
+      );
+    }
+
+    const tbdRoot = await requireInit();
+    const results: BulkItemResult[] = [];
+
+    await this.execute(async () => {
+      await withDataSyncContext(
+        tbdRoot,
+        { lock: true },
+        async ({ dataSyncDir, mapping, config }) => {
+          const updates = await this.parseUpdates(options, mapping, tbdRoot);
+          if (updates === null || Object.keys(updates).length === 0) {
+            throw new ValidationError(
+              'No fields to update. Specify at least one shared field, e.g. --priority or --add-label.',
+            );
+          }
+
+          const { resolved, missing } = resolveAllIds(ids, mapping);
+          if (missing.length > 0 && !options.ignoreMissing) {
+            throw new NotFoundError('Issue', missing.join(', '));
+          }
+
+          if (
+            this.checkDryRun(`Would update ${resolved.length} issues`, {
+              ids: resolved.map((r) => r.internalId),
+              ...updates,
+            })
+          ) {
+            return;
+          }
+
+          for (const { input, internalId } of resolved) {
+            let issue;
+            try {
+              issue = await readIssue(dataSyncDir, internalId);
+            } catch {
+              results.push({ id: input, action: 'missing', ok: false, skippedReason: 'not found' });
+              continue;
+            }
+
+            if (updates.kind !== undefined) issue.kind = updates.kind;
+            if (updates.priority !== undefined) issue.priority = updates.priority;
+            if (updates.assignee !== undefined) issue.assignee = updates.assignee;
+            if (updates.due_date !== undefined) issue.due_date = updates.due_date;
+            if (updates.deferred_until !== undefined) issue.deferred_until = updates.deferred_until;
+            if (updates.addLabels && updates.addLabels.length > 0) {
+              const labelsSet = new Set(issue.labels);
+              for (const label of updates.addLabels) labelsSet.add(label);
+              issue.labels = [...labelsSet];
+            }
+            if (updates.removeLabels && updates.removeLabels.length > 0) {
+              const removeSet = new Set(updates.removeLabels);
+              issue.labels = issue.labels.filter((l) => !removeSet.has(l));
+            }
+
+            issue.version += 1;
+            issue.updated_at = now();
+            await writeIssue(dataSyncDir, issue);
+
+            const displayId = this.ctx.debug
+              ? formatDebugId(issue.id, mapping, config.display.id_prefix)
+              : formatDisplayId(issue.id, mapping, config.display.id_prefix);
+            results.push({ id: displayId, action: 'updated', ok: true });
+          }
+
+          for (const m of missing) {
+            results.push({ id: m, action: 'missing', ok: false, skippedReason: 'not found' });
+          }
+        },
+      );
+    }, 'Failed to update issues');
+
+    if (results.length === 0) return; // dry-run or nothing to do
+    this.emitBulkSummary(results);
+  }
+
+  /** Bulk path: one summary line + structured JSON, with a visible sync hint. */
+  private emitBulkSummary(results: BulkItemResult[]): void {
+    const summary = summarizeBulk(results);
+    const syncPending = summary.changed > 0;
+    const json: Record<string, unknown> = {
+      results: results.map(toJsonResult),
+      summary,
+    };
+    if (syncPending) {
+      json.sync = { pending: true, hint: 'Run `tbd sync` to publish.' };
+    }
+
+    this.output.data(json, () => {
+      const parts = [`Updated ${summary.changed}`];
+      if (summary.missing > 0) parts.push(`not found ${summary.missing}`);
+      const idList = results.map((r) => r.id).join(' ');
+      this.output.success(`${parts.join(', ')}: ${idList}`);
+      if (syncPending) {
+        this.output.notice('Unsynced changes — run `tbd sync` to publish.');
+      }
     });
   }
 
@@ -427,8 +564,8 @@ class UpdateHandler extends BaseCommand {
 }
 
 export const updateCommand = new Command('update')
-  .description('Update an issue')
-  .argument('<id>', 'Issue ID')
+  .description('Update one or more issues')
+  .argument('<ids...>', 'Issue ID(s)')
   .option('--from-file <path>', 'Update all fields from YAML+Markdown file')
   .option('--title <text>', 'Set title')
   .option('--status <status>', 'Set status')
@@ -445,7 +582,8 @@ export const updateCommand = new Command('update')
   .option('--parent <id>', 'Set parent')
   .option('--spec <path>', 'Set or clear spec path (empty string clears)')
   .option('--child-order <ids>', 'Set child ordering hints (comma-separated IDs)')
-  .action(async (id, options, command) => {
+  .option('--ignore-missing', 'Skip unknown IDs instead of failing (bulk)')
+  .action(async (ids, options, command) => {
     const handler = new UpdateHandler(command);
-    await handler.run(id, options);
+    await handler.run(ids, options);
   });
