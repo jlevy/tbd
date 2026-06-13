@@ -211,10 +211,13 @@ pinned fallback runner) is a worthwhile, low-cost lift that does not require the
 platform.
 
 **Assessment**: Name the rung.
-Either split L2 into **L2a** (discovery-dirs only—`qmd`) and **L2b** (discovery-dirs and
-managed `AGENTS.md` block—`pprose`), or add a named sentence acknowledging the rung.
-The key correction is that **a managed `AGENTS.md` block is separable from the rest of
-the L3 platform**—it is the *one* L3 surface a small tool can adopt on its own.
+Two shapes are possible: split L2 into **L2a** (discovery-dirs only—`qmd`) and **L2b**
+(discovery-dirs and managed `AGENTS.md` block—`pprose`), or add a named sentence
+acknowledging the variant.
+**Adopted (per owner): the single named sentence**—L2b is named as a variant within L2,
+with no L2a/L2b renumber.
+The key correction holds either way: **a managed `AGENTS.md` block is separable from the
+rest of the L3 platform**—it is the *one* L3 surface a small tool can adopt on its own.
 
 * * *
 
@@ -383,9 +386,9 @@ that native per-agent dirs are multiplying.
 
 - **repo-root and skills.sh**: maximum reach, zero infra, no version control over the
   consumer—the right default and what the leaderboard rewards.
-- **plugin marketplace**: best versioning (SHA pin, install preview, bundles MCP and hooks);
-  costs a manifest and is not centrally indexed unless you also list on the community
-  marketplace.
+- **plugin marketplace**: best versioning (SHA pin, install preview, bundles MCP and
+  hooks); costs a manifest and is not centrally indexed unless you also list on the
+  community marketplace.
 - **self-installing CLI**: tracks the binary’s version and customizes per project; only
   worth it once the skill genuinely ships with a tool.
 - **managed `AGENTS.md` block**: an always-on bootstrap pointer for *every* agent; the
@@ -437,9 +440,10 @@ update the §6.6 native-scanning table (finding 9). Each tagged with its ladder 
 
 ### Alternative Approaches
 
-If splitting L2 into L2a/L2b feels heavy, a single named sentence ("L2 may optionally
-add a managed `AGENTS.md` block—the one L3 surface adoptable without the platform;
-`pprose` is the reference") captures 80% of the value with no renumbering.
+The full L2a/L2b ladder split is the heavier alternative; it was considered and **not**
+adopted. The chosen form is a single named sentence ("L2 may optionally add a managed
+`AGENTS.md` block—the one L3 surface adoptable without the platform; `pprose` is the
+reference"), which captures most of the value with no renumbering.
 
 * * *
 

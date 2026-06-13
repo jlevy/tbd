@@ -166,22 +166,23 @@ taste-skill/anthropics-skills) to the worked-examples and References lists.
 
 ## Implementation Plan
 
-### Phase 1—Guideline edits (pending owner approval of L2a/L2b vs single-sentence)
+### Phase 1—Guideline edits (done; owner chose the single named-variant form for gap 1)
 
-- [ ] §6.0: name the L2b rung (single sentence, or L2a/L2b split—see Open Questions).
-- [ ] §6.0 and §6.6: reframe format-versioning as artifact-driven, not L3-only; keep
+- [x] §6.0: name **L2b** as a single named variant within L2 (no L2a/L2b renumber)—the
+  owner chose the lighter form over a full ladder split.
+- [x] §6.0 and §6.6: reframe format-versioning as artifact-driven, not L3-only; keep
   hooks/`prime`/`setup`/DocCache L3-specific.
-- [ ] §6.7: add the generator-side dev-build pin-selection paragraph (DISCOVERY_VERSION
+- [x] §6.7: add the generator-side dev-build pin-selection paragraph (DISCOVERY_VERSION
   / is_pypi_release, with the npm analog).
-- [ ] §2 and §6.6: drop `surface=agents-md` from both examples; add the one-sentence
+- [x] §2 and §6.6: drop `surface=agents-md` from both examples; add the one-sentence
   “identify by location” note.
-- [ ] §2 or §6.6: add the multi-block-collapse sentence and the legacy-prefix-rename
+- [x] §2 or §6.6: add the multi-block-collapse sentence and the legacy-prefix-rename
   note.
-- [ ] §6.6 native-scanning table: move Cursor to native (re-verify first); add the
+- [x] §6.6 native-scanning table: move Cursor to native (re-verified); add the
   per-agent-native-dirs directional note.
-- [ ] §11 Summary and §12 Checklist: new bullets, each tagged with its rung; refresh
+- [x] §11 Summary and §12 Checklist: new bullets, each tagged with its rung; refresh
   “Last Updated”; add pprose to worked examples/References.
-- [ ] Format with flowmark (never Prettier); unspaced em dashes; keep the doc footer;
+- [x] Format with flowmark (never Prettier); unspaced em dashes; keep the doc footer;
   check all internal cross-references resolve.
 
 ### Phase 2—Follow-on (separate beads)
@@ -199,15 +200,15 @@ Re-read end-to-end: every new rule states its rung; nothing contradicts §0; the
 Confirm each claim maps to a real, cited example (the research brief is the evidence
 index). Confirm cross-references resolve and flowmark is a no-op.
 
-## Open Questions
+## Open Questions (resolved)
 
-1. **L2a/L2b split vs single sentence (gap 1)**—full ladder renumber, or one named
-   sentence? Recommendation: start with the sentence; only split if it reads cleanly in
-   §0.3 and §6.0.
-2. **tbd `surface=` cleanup (gap 4)**—do it now alongside the guideline edit, or as a
-   tracked follow-on? Recommendation: follow-on bead; keep the guideline edit pure-docs.
-3. **Cursor native-scanning**—confirm against current Cursor docs before asserting in
-   §6.6 (the audit relies on a docs summary, not a source read).
+1. **L2a/L2b split vs single sentence (gap 1)**—RESOLVED: the owner chose the single
+   named sentence. L2b is named as a variant within L2; the four-rung ladder (L0–L3) is
+   unchanged, with no L2a/L2b renumber.
+2. **tbd `surface=` cleanup (gap 4)**—RESOLVED: tracked as a Phase 2 follow-on; the
+   guideline edit stays pure-docs.
+3. **Cursor native-scanning**—RESOLVED: verified against current Cursor docs before
+   asserting native `.agents/skills/` scanning in §6.6.
 
 ## References
 

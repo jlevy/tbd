@@ -5,9 +5,9 @@
 > **2026-06-13 addendum.** This brief is foundational but now lags the shipped guideline
 > (`cli-agent-skill-patterns`), which has since added the L0–L3 integration ladder,
 > format-versioned migration, and the §6.6.2 scope mechanics.
-> For the current distribution landscape (skills.sh leaderboard reality, the L2b rung,
-> dev-build pin selection, the `surface=` drop, multi-block collapse, and native
-> per-agent skill dirs), see
+> For the current distribution landscape (skills.sh leaderboard reality, the L2b
+> variant, dev-build pin selection, the `surface=` drop, multi-block collapse, and
+> native per-agent skill dirs), see
 > [research-2026-06-13-skill-distribution-landscape.md](./research-2026-06-13-skill-distribution-landscape.md)
 > and
 > [plan-2026-06-13-cli-skill-guideline-pprose-gaps.md](../../specs/active/plan-2026-06-13-cli-skill-guideline-pprose-gaps.md).
