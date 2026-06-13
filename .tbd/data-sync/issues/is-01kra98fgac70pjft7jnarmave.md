@@ -1,11 +1,11 @@
 ---
 type: is
 id: is-01kra98fgac70pjft7jnarmave
-title: "Spec: Docs config redesign (f05)"
+title: "Spec: Docs config redesign (f06+ framework)"
 kind: epic
 status: open
 priority: 1
-version: 10
+version: 11
 spec_path: docs/project/specs/active/plan-2026-05-07-docs-config-redesign.md
 labels: []
 dependencies: []
@@ -20,7 +20,7 @@ child_order_hints:
   - is-01kra99kg4z987hjrwwrj5wh4q
   - is-01kra99kvf2ys81vcakyb8vbzz
 created_at: 2026-05-11T01:08:40.073Z
-updated_at: 2026-05-11T01:09:17.295Z
+updated_at: 2026-06-13T01:51:08.880Z
 ---
 Top-level epic for the docs config redesign (f05 schema) tracked in PR #117 (https://github.com/jlevy/tbd/pull/117).
 
@@ -38,3 +38,7 @@ Already done on branch claude/review-config-format-2wxh8 (committed, in PR):
 Remaining work is broken into three sub-epics (Phase 1/2/3) plus the open architectural questions Q15-Q20 which gate Phase 2 implementation per PR-comment from jlevy.
 
 CI: green. Status: draft PR, waiting on architectural decisions (Q15-Q20).
+
+## Notes
+
+Era correction before merging PR #169: f05 shipped as the forkable-docs workflow (specs/done/plan-2026-06-11-forkable-docs.md), which deliberately deferred this spec's scope — external bundles, lockfiles, resolver policy, operations over docmaps — to the f06+ framework (see its 'line deliberately not crossed' section and Q15-Q20 here). Retitled from (f05) so the open questions read as future work, not as a parallel claim on the shipped format.

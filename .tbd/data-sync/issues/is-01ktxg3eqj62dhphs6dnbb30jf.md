@@ -3,9 +3,9 @@ type: is
 id: is-01ktxg3eqj62dhphs6dnbb30jf
 title: "Spec: Forkable Docs Workflow (f05)"
 kind: epic
-status: open
+status: closed
 priority: 2
-version: 21
+version: 36
 spec_path: docs/project/specs/active/plan-2026-06-11-forkable-docs.md
 labels: []
 dependencies: []
@@ -30,6 +30,22 @@ child_order_hints:
   - is-01ktxg4xzfxshrmb3besbwr2w2
   - is-01ktxg4yhdnjyd8kseqafjfv2j
   - is-01ktxg4z4yms08ddwh96tz4ahg
+  - is-01ktycs1za32d2bydse5vg8cyy
+  - is-01ktycs2c6xsrxc77s991365s4
+  - is-01ktycs2swb8107h074323hwew
+  - is-01ktycs37rqvqdhsqygsdyjacg
+  - is-01ktycs3n64yhsf6jcd2qcd5d0
+  - is-01ktycs43se7t1pbz1vrtbdddx
+  - is-01ktycs4hsbbyd3ytte99a04hj
+  - is-01ktycs4z5jmeb1g8b9wdgb1t2
+  - is-01ktycs5cd4qv0q3rg3hv9pecf
+  - is-01ktycs5t1swc3rtpcaf0g4mfn
+  - is-01ktycs66v724378sxzb4sk8jm
+  - is-01ktycs6m682c7bc9ha6cpwc22
+  - is-01ktycs71hp3sz2938fbj03m51
+  - is-01ktycs7ef2md3thzbqze2z098
 created_at: 2026-06-12T08:45:13.330Z
-updated_at: 2026-06-12T08:46:02.909Z
+updated_at: 2026-06-12T22:11:26.379Z
+closed_at: 2026-06-12T22:11:26.378Z
+close_reason: "All 12 children closed. Forkable-docs spec fully implemented: Phases 0-5 shipped on PR #169 (4301220..3406821); spec golden maps recaptured from the built CLI with no phase-contract annotations remaining for shipped behavior; suite green at 1,311 unit + 881 tryscript blocks."
 ---
