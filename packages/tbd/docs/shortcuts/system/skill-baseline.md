@@ -86,7 +86,7 @@ or want help → run `tbd shortcut welcome-user`
 | “Research this topic” | `tbd shortcut new-research-brief` |
 | “Document architecture” | `tbd shortcut new-architecture-doc` |
 | “What guidelines/docs are there?” | `tbd docs list` |
-| “Make the guidelines visible / customize doc X” | `tbd docs fork <name>` (or `--all`), then edit in `docs/tbd/` |
+| “Make the guidelines visible / customize doc X” | `tbd docs fork --category=general --category=<lang>` (recommended: general + the repo’s languages), or `tbd docs fork <name>` / `--all`; then edit in `docs/tbd/` |
 | “Update the guidelines to the latest” | `tbd docs update`; on conflicts ask the user, then `--merge` or `--keep-ours` |
 | “I deleted a forked doc file” | `tbd docs status` shows it `missing`; restore with `tbd docs fork <name> --force` or finalize with `tbd docs unfork <name>` |
 | **Cleanup & Maintenance** |  |

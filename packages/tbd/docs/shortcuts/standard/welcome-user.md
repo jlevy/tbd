@@ -23,8 +23,11 @@ Then make the two-axis guidelines offer — one short question per axis:
 
 Explain that forking changes nothing about how guidelines work — both paths serve the
 same guidelines — it only makes them visible and customizable.
-If the user wants visible docs, run `tbd docs fork <name> [<name>...]` for the chosen
-subset or `tbd docs fork --all` for everything (preview with `--dry-run` first).
+If the user wants visible docs, the recommendation is to fork the general guidelines
+plus the categories for the project’s languages and frameworks:
+`tbd docs fork --category=general --category=<language>` (e.g. `--category=typescript`).
+Use `tbd docs fork --all` for everything, or `tbd docs fork <name> [<name>...]` to fork
+individual docs by name (preview with `--dry-run` first).
 
 Then show the welcome message:
 
@@ -63,7 +66,7 @@ Here are examples of things you can say and what happens:
 | “I’m building a TypeScript CLI” | Applies TypeScript CLI guidelines |
 | “Help me set up better testing” | Applies testing guidelines |
 | “What are the Python best practices?” | Applies Python guidelines |
-| “Make the guidelines visible in my repo” | Forks them into `docs/tbd/` (`tbd docs fork <name>` or `tbd docs fork --all`) |
+| “Make the guidelines visible in my repo” | Forks them into `docs/tbd/` (`tbd docs fork --category=general --category=<lang>`, or `tbd docs fork --all`) |
 
 **Tips:**
 

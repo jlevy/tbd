@@ -298,3 +298,28 @@ $ tbd shortcut review-code 2>/dev/null | grep -c FORK-SERVE-CHECK
 0
 ? 1
 ```
+
+* * *
+
+## Category selection forks only guidelines (regression: tbd-o6zn)
+
+`--category` is guideline-scoped: `--category=general` must fork only the general
+guidelines, never the shortcuts/templates/references (which declare other categories or
+none, and so previously collapsed to `general` and were all swept in).
+
+# Test: --category=general forks docs
+
+```console
+$ tbd docs fork --category=general
+✓ Forked [..]
+...
+? 0
+```
+
+# Test: only the guidelines kind dir is written — no shortcuts/templates/references
+
+```console
+$ test ! -e docs/tbd/shortcuts && test ! -e docs/tbd/templates && test ! -e docs/tbd/references && test -d docs/tbd/guidelines && echo guideline-only
+guideline-only
+? 0
+```

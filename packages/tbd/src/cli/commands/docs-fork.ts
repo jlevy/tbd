@@ -201,15 +201,22 @@ class DocsForkHandler extends BaseCommand {
     const kinds = parsedKind ? [parsedKind] : RESOLVABLE_KINDS;
 
     const categories = (options.category ?? []).map(parseCategoryOption);
-    if (options.all || categories.length > 0) {
+    const byCategory = categories.length > 0;
+    if (options.all || byCategory) {
       const targets: ResolvedDoc[] = [];
       for (const kind of kinds) {
+        // Category selection is guideline-scoped: per the forkable-docs spec,
+        // "categories are guidelines-oriented; shortcuts and templates are
+        // forked by name or with --all." So when --category is given, only
+        // guidelines participate; non-guideline kinds come via name or --all.
+        if (byCategory && kind !== 'guideline') continue;
         const cache = await buildKindCache(kind, tbdRoot);
         for (const doc of cache.list()) {
           // Skip tbd-internal system shortcuts (skill-baseline etc.).
           if (kind === 'shortcut' && doc.sourceDir.endsWith('system')) continue;
-          if (categories.length > 0 && !categories.includes(docCategory(doc.frontmatter))) {
-            continue;
+          if (byCategory) {
+            const cat = docCategory(doc.frontmatter);
+            if (cat === undefined || !categories.includes(cat)) continue;
           }
           targets.push({
             kind,
