@@ -28,12 +28,24 @@ need.
 3. **Identify the version in use**: Check `package.json`, `requirements.txt`,
    `Cargo.toml`, etc. for the exact version of the dependency you’re investigating.
 
-4. **Clone the repo**:
+4. **Reuse an existing checkout**: If `attic/<repo-name>` already exists—common when a
+   repo is consulted across sessions—use it instead of re-cloning.
+   Confirm it is clean; attic clones are read-only, so it should be, and if it is dirty,
+   stop and flag it rather than discarding changes.
+   Then update to the version you need and skip the clone step below.
+   ```bash
+   git -C attic/<repo-name> status         # Should be clean; if dirty, stop and flag
+   git -C attic/<repo-name> pull           # Update the clone...
+   # ...or, if it is pinned to a tag (detached HEAD, where plain pull fails):
+   git -C attic/<repo-name> fetch --tags && git -C attic/<repo-name> checkout <tag>
+   ```
+
+5. **Clone the repo** (if not already in `attic/`):
    ```bash
    git clone <repo-url> attic/<repo-name>
    ```
 
-5. **Checkout the matching version**: Find the tag or branch matching your project’s
+6. **Checkout the matching version**: Find the tag or branch matching your project’s
    version:
    ```bash
    cd attic/<repo-name>
@@ -41,13 +53,14 @@ need.
    git checkout <tag-or-branch>
    ```
 
-6. **Explore**: Now use standard tools (Grep, Read, Glob) to investigate the source.
+7. **Explore**: Now use standard tools (Grep, Read, Glob) to investigate the source.
 
 ## Notes
 
 - The `attic/` directory is gitignored—cloned repos won’t pollute your project
 - You can clone multiple repos into attic/ as needed
-- Delete cloned repos when done to save disk space
+- Delete cloned repos to save disk space when you no longer need them—but keep a clone
+  if you expect to consult the same repo again (reuse it via the step above)
 
 <!-- This document follows common-doc-guidelines.md.
 See github.com/jlevy/practical-prose and review guidelines before editing.
