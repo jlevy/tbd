@@ -4,8 +4,8 @@
 [![CI](https://github.com/jlevy/tbd/actions/workflows/ci.yml/badge.svg)](https://github.com/jlevy/tbd/actions/workflows/ci.yml)
 [![npm version](https://img.shields.io/npm/v/get-tbd)](https://www.npmjs.com/package/get-tbd)
 
-**A drop-in meta-skill that helps any coding agent ship higher-quality, slop-free
-code.**
+**A drop-in meta-skill that helps you and your coding agents ship higher-quality,
+slop-free code.**
 
 **tbd** (short for “To Be Done,” or “TypeScript beads” if you prefer) packages in-depth
 guidelines for good engineering, spec-driven processes, and disciplined task tracking
@@ -23,8 +23,12 @@ You don’t run `tbd` commands yourself.
 You talk to your agent in plain language, and it routes through `tbd`’s own docs and
 commands to pull in the right guidelines, follow the right process, and track the work.
 
-I use `tbd` most in Claude Code, where it installs as a skill, but it works in Cursor,
-Codex, or any agent that can run the `tbd` CLI.
+I use `tbd` in Claude Code, Codex, and other coding agents across almost all my projects
+now, because it’s strictly additive.
+The skill routes an agent to extra knowledge and task tracking when it’s appropriate, or
+when I mention tracking tasks, writing plan docs, doing research, following best
+practices, or testing more thoroughly.
+It doesn’t overly constrain agents; it just makes them smarter and more disciplined.
 
 ## What `tbd` Gives You
 
