@@ -195,7 +195,8 @@ describe('addDoc', () => {
     // Verify config was updated
     const configContent = await readFile(join(tempDir, '.tbd', 'config.yml'), 'utf-8');
     expect(configContent).toContain('modern-bun-monorepo-patterns.md');
-    expect(configContent).toContain('raw.githubusercontent.com');
+    // docref-everywhere: config stores the canonical docref, not the raw URL.
+    expect(configContent).toContain('github:org/repo@main//docs/file.md');
   });
 
   it('converts GitHub blob URL in rawUrl result', async () => {

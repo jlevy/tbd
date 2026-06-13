@@ -221,15 +221,17 @@ export const SyncStorage = z.enum(['git-common-dir-v1']);
  * Doc cache configuration - maps destination paths to source locations.
  *
  * Keys are destination paths relative to .tbd/docs/ (e.g., "shortcuts/standard/code-review-and-commit.md")
- * Values are source locations:
- * - internal: prefix for bundled docs (e.g., "internal:shortcuts/standard/code-review-and-commit.md")
- * - Full URL for external docs (e.g., "https://raw.githubusercontent.com/org/repo/main/file.md")
+ * Values are source docrefs:
+ * - internal: bundled docs (e.g., "internal:guidelines/typescript-rules.md")
+ * - git: a file in a repo (e.g., "github:owner/repo@main//docs/file.md"; gitlab: too)
+ * - url: a plain URL kept verbatim (e.g., "https://example.com/file.md")
+ * See `tbd docs show docref-format` for the full grammar.
  *
  * Example:
  * ```yaml
  * doc_cache:
  *   shortcuts/standard/code-review-and-commit.md: internal:shortcuts/standard/code-review-and-commit.md
- *   shortcuts/custom/my-shortcut.md: https://raw.githubusercontent.com/org/repo/main/shortcuts/my-shortcut.md
+ *   shortcuts/custom/my-shortcut.md: github:org/repo@main//shortcuts/my-shortcut.md
  * ```
  */
 export const DocCacheConfigSchema = z.record(z.string(), z.string());
@@ -244,9 +246,11 @@ export const DocsCacheSchema = z.object({
   /**
    * Files to sync: maps destination paths to source locations.
    * Keys are destination paths relative to .tbd/docs/
-   * Values are source locations:
-   * - internal: prefix for bundled docs (e.g., "internal:shortcuts/standard/code-review-and-commit.md")
-   * - Full URL for external docs (e.g., "https://raw.githubusercontent.com/org/repo/main/file.md")
+   * Values are source docrefs:
+   * - internal: bundled docs (e.g., "internal:guidelines/typescript-rules.md")
+   * - git: a file in a repo (e.g., "github:owner/repo@main//docs/file.md"; gitlab: too)
+   * - url: a plain URL kept verbatim (e.g., "https://example.com/file.md")
+   * See `tbd docs show docref-format` for the full grammar.
    */
   files: z.record(z.string(), z.string()).optional(),
   /**
