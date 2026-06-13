@@ -4,7 +4,7 @@
 [![CI](https://github.com/jlevy/tbd/actions/workflows/ci.yml/badge.svg)](https://github.com/jlevy/tbd/actions/workflows/ci.yml)
 [![npm version](https://img.shields.io/npm/v/get-tbd)](https://www.npmjs.com/package/get-tbd)
 
-**Knowledge, processes, and task tracking for AI coding agents—built to improve the
+**Knowledge, processes, and task tracking for AI coding agents, built to improve the
 quality of what they ship.**
 
 **tbd** (short for “To Be Done,” or “TypeScript beads” if you prefer) helps AI coding
@@ -17,13 +17,13 @@ shared across agents.
 
 Agents start every session with no memory of the last one.
 They forget your conventions, skip steps, and lose track of what’s half-done.
-`tbd` keeps the three things an agent shouldn’t have to rediscover each time—*what to
-know, how to work, and what’s left to do*—durable in your repo.
+`tbd` keeps these three things durable in your repo, so no new session has to rediscover
+them: *what to know, how to work, and what’s left to do*.
 
 The surface is simple: **`tbd` is a meta skill.** You talk to your agent in plain
 language, and the agent routes through `tbd`’s own docs and commands to decide what
 knowledge to pull in, which process to follow, and what to track.
-You don’t run `tbd` commands yourself—you describe what you want, and the agent drives.
+You don’t run `tbd` commands yourself; you describe what you want, and the agent drives.
 
 I use `tbd` most in Claude Code, where it installs as a skill, but it works in Cursor,
 Codex, or any agent that can run the `tbd` CLI.
@@ -32,19 +32,20 @@ Codex, or any agent that can run the `tbd` CLI.
 
 Three pillars, one for each lever on output quality:
 
-- **Knowledge—*what to know*.**
+- **Knowledge** (*what to know*).
   [25+ in-depth engineering guidelines](packages/tbd/docs/guidelines/): long-lived best
   practices, principles, and direction that apply across every session and every agent.
   Pre-installed topics include TypeScript and Python best practices, common agent
   pitfalls, red-green TDD, golden testing, Convex, monorepo setup, error handling,
   supply-chain hardening, and backward compatibility.
   (Use your own if you prefer.)
-- **Processes—*how to work*.** 30+ **shortcuts**: reusable instructions for recurring
+- **Processes** (*how to work*). 30+ **shortcuts**: reusable instructions for recurring
   work like code review, commits, PR creation, and writing planning specs.
   Shortcuts combine with **templates** (document scaffolds for specs, research briefs,
-  and architecture docs) to become fuller processes—for example, the `new-plan-spec`
-  shortcut drives the `plan-spec` template into a structured planning document.
-- **Tasks—*what’s left to do*.** Git-native issue tracking (**beads**) for bugs,
+  and architecture docs) to become fuller processes.
+  For example, the `new-plan-spec` shortcut drives the `plan-spec` template into a
+  structured planning document.
+- **Tasks** (*what’s left to do*). Git-native issue tracking (**beads**) for bugs,
   features, epics, and dependencies that persist across sessions.
   Beads scale an agent from a handful of ad-hoc to-dos to hundreds of structured,
   tracked items. This builds on [Beads](https://github.com/steveyegge/beads) by Steve
@@ -95,9 +96,9 @@ You can then always ask questions like: “what can I do with tbd?”
 You talk to your agent in natural language; the agent translates your requests into
 `tbd` commands. Some commands *do* things, like create or update beads; others help the
 agent get status, context, or knowledge and decide what to do next.
-This works well with voice—I now ship whole features with prompts like “use the shortcut
-to create a new plan spec that …” and “now use the shortcut to file a PR with a
-validation plan.”
+This works well with voice.
+I now ship whole features with prompts like “use the shortcut to create a new plan spec
+that …” and “now use the shortcut to file a PR with a validation plan.”
 
 | What you say | What happens | What runs |
 | --- | --- | --- |
@@ -119,7 +120,7 @@ You just talk naturally.
 
 ## Why It Works
 
-A few principles explain why this combination works—and why it keeps working as models
+A few principles explain why this combination works, and why it keeps working as models
 get stronger.
 
 **The pieces compose.** Knowledge, processes, and tasks aren’t three separate tools
@@ -133,8 +134,8 @@ Even within the document layer, a shortcut plus a template compose into a richer
 process.
 
 **Everything is available at scale, routed by attention.** `tbd` isn’t one skill or one
-giant rules file. It’s effectively dozens of focused skills—25+ guidelines, 30+
-shortcuts, and document templates—each surfaced only when it’s situationally relevant.
+giant rules file. It’s effectively dozens of focused skills (25+ guidelines, 30+
+shortcuts, and document templates), each surfaced only when it’s situationally relevant.
 The agent doesn’t carry all of it in context at once; it pulls in the one piece that
 applies, when it applies.
 That’s what lets the knowledge be deep without drowning the context window.
@@ -143,9 +144,9 @@ That’s what lets the knowledge be deep without drowning the context window.
 encode principles and direction, not rigid step-by-step rules that micromanage the
 model. That’s why they hold up across model capabilities: a more capable model applies a
 guideline more judiciously and composes shortcuts more flexibly rather than outgrowing
-them. In practice they make a clear difference even with the strongest current
-models—they help Opus 4.8 and Fable write better-structured, more maintainable code,
-because good principles amplify a good model rather than constrain it.
+them. In practice they make a clear difference even with the strongest current models:
+they help Opus 4.8 and Fable write better-structured, more maintainable code, because
+good principles amplify a good model rather than constrain it.
 
 **Batteries included, fully yours to change.** Every guideline, shortcut, and template
 ships built-in and works immediately.
@@ -160,11 +161,11 @@ Everything persists in git, which is what makes it durable across sessions and s
 across a team.
 
 **Scope.** `tbd` focuses on this durable layer today.
-It does not try to solve real-time multi-agent coordination—sub-second messaging, atomic
-claims—though that’s a direction it may grow into rather than a hard boundary.
+It does not try to solve real-time multi-agent coordination (sub-second messaging,
+atomic claims), though that’s a direction it may grow into rather than a hard boundary.
 For now, knowledge, process, and durable tracking are where the leverage is.
 
-And yes, all the code *and* all the specs of `tbd` are agent-written—see
+And yes, all the code *and* all the specs of `tbd` are agent-written; see
 [the FAQ](#was-tbd-built-with-tbd).
 
 ## Built-in Engineering Knowledge
@@ -234,10 +235,10 @@ npm install -g get-tbd@latest
 ### Setup
 
 ```bash
-# Fresh project (--prefix is REQUIRED—a short alphabetic name used as an issue ID prefix, e.g. myapp → issues like myapp-a1b2)
+# Fresh project (--prefix is REQUIRED, a short alphabetic name used as an issue ID prefix, e.g. myapp gives issues like myapp-a1b2)
 tbd setup --auto --prefix=myapp
 
-# Joining an existing tbd project (no prefix needed—reads existing config)
+# Joining an existing tbd project (no prefix needed, reads existing config)
 tbd setup --auto
 
 # Migrate from Beads (uses your existing beads prefix)
@@ -282,7 +283,7 @@ git push
 ```bash
 git clone <repo>
 npm install -g get-tbd@latest
-tbd setup --auto                    # No --prefix needed—reads existing config
+tbd setup --auto                    # No --prefix needed, reads existing config
 ```
 
 ### Claude Code Integration
@@ -290,8 +291,8 @@ tbd setup --auto                    # No --prefix needed—reads existing config
 `tbd setup --auto` configures SessionStart hooks that run at the beginning of each
 Claude Code session:
 
-- **`tbd prime`**—injects workflow context so the agent knows how to use `tbd`
-- **`ensure-gh-cli.sh`**—installs the GitHub CLI (`gh`) if not already available
+- **`tbd prime`**: injects workflow context so the agent knows how to use `tbd`
+- **`ensure-gh-cli.sh`**: installs the GitHub CLI (`gh`) if not already available
 
 **GitHub authentication:** For `gh` to work, set these environment variables before
 starting your agent session:
@@ -313,7 +314,7 @@ To disable automatic `gh` installation, pass `--no-gh-cli` during setup or set
 
 ### Migrating from Beads
 
-You can use `tbd` as a drop-in replacement for the original Beads (`bd`)—it’s largely
+You can use `tbd` as a drop-in replacement for the original Beads (`bd`); it’s largely
 compatible at the CLI level for core issue tracking.
 
 ```bash
@@ -360,15 +361,15 @@ tbd search "authentication"            # Search beads
 `tbd` bundles three types of documentation your agent can invoke on demand:
 
 ```bash
-# Shortcuts—workflow instructions
+# Shortcuts: workflow instructions
 tbd shortcut --list              # List all shortcuts
 tbd shortcut new-plan-spec       # Get the plan spec workflow
 
-# Guidelines—coding rules and best practices
+# Guidelines: coding rules and best practices
 tbd guidelines --list            # List all guidelines
 tbd guidelines typescript-rules  # Get TypeScript rules
 
-# Templates—document scaffolds
+# Templates: document scaffolds
 tbd template --list              # List all templates
 tbd template plan-spec           # Get a plan spec template
 
@@ -486,8 +487,8 @@ tbd docs show tbd-docs       # Full CLI reference (the manual; alias: tbd docs m
 ```
 
 Or read online:
-- [CLI Reference](packages/tbd/docs/tbd-docs.md)—Complete command documentation
-- [Design Doc](packages/tbd/docs/tbd-design.md)—Technical architecture
+- [CLI Reference](packages/tbd/docs/tbd-docs.md): Complete command documentation
+- [Design Doc](packages/tbd/docs/tbd-design.md): Technical architecture
 
 ## How It Works
 
@@ -495,7 +496,7 @@ Or read online:
 
 - **Beads** live on a dedicated `tbd-sync` branch.
   One Markdown file per bead means parallel creation never conflicts.
-  `tbd sync` pushes changes—no manual git operations needed.
+  `tbd sync` pushes changes, with no manual git operations needed.
 - **Documents** (shortcuts, guidelines, templates) are cached locally in `.tbd/docs/`
   during `tbd setup --auto`. Your agent reads them on demand via `tbd shortcut`,
   `tbd guidelines`, and `tbd template`, and you can fork them into `docs/tbd/` to edit
@@ -504,8 +505,8 @@ Or read online:
   command reference; `tbd prime` gives full workflow orientation.
   `tbd setup --auto` (idempotent, safe anytime) writes a skill file (SKILL.md/AGENTS.md)
   that teaches the agent all available commands, shortcuts, and guidelines.
-  This means agents can inject context—specs, engineering guidelines, workflow
-  instructions—at any point in a session, not just at startup.
+  This means agents can inject context (specs, engineering guidelines, workflow
+  instructions) at any point in a session, not just at startup.
 
 See the [design doc](packages/tbd/docs/tbd-design.md) for details.
 
@@ -514,7 +515,7 @@ See the [design doc](packages/tbd/docs/tbd-design.md) for details.
 ### How does `tbd` compare to Beads?
 
 `tbd` was inspired by [Beads](https://github.com/steveyegge/beads) by Steve Yegge, and
-I’m grateful for the idea—it genuinely changed how I work with agents.
+I’m grateful for the idea; it genuinely changed how I work with agents.
 If you’re not familiar with Beads, the core insight is that git-native issue tracking
 raises an agent’s capacity for structured work from ~5-10 to-do items to hundreds of
 beads.
@@ -543,7 +544,7 @@ I now think of iterating on a spec as the hard part; writing the code is often a
 automatic once the spec is good enough.
 
 This matters because with a good spec broken into beads, you can leave an agent running
-overnight and come back to code that’s well-structured and coherent—not a pile of
+overnight and come back to code that’s well-structured and coherent, not a pile of
 disconnected changes.
 `tbd` bakes in shortcuts for the full cycle: writing specs, breaking them into beads,
 implementing, validating, and shipping.
@@ -556,10 +557,10 @@ coding guidelines. Basically 100% of the code I now write is agent-written, plan
 tracked through specs and beads and streamlined with shortcuts.
 
 `tbd` has dozens of active and completed plan specs, such as:
-- `plan-2026-01-15-tbd-v1-implementation.md`—The original v1 design
-- `plan-2026-01-20-streamlined-init-setup-design.md`—Redesigning the setup flow
-- `plan-2026-01-26-configurable-doc-cache-sync.md`—Making the doc system configurable
-- `plan-2026-01-28-cli-add-docs-by-url.md`—Adding `--add` for external docs
+- `plan-2026-01-15-tbd-v1-implementation.md`: The original v1 design
+- `plan-2026-01-20-streamlined-init-setup-design.md`: Redesigning the setup flow
+- `plan-2026-01-26-configurable-doc-cache-sync.md`: Making the doc system configurable
+- `plan-2026-01-28-cli-add-docs-by-url.md`: Adding `--add` for external docs
 
 Features are broken into beads and worked through systematically, with dozens of open
 beads at any time (`tbd list` shows the current set).
@@ -567,7 +568,7 @@ beads at any time (`tbd list` shows the current set).
 ### Can I add my own guidelines?
 
 Yes. `tbd` comes with 25+ bundled guidelines, but you can add your own team’s docs from
-any URL and fork or replace any bundled doc—see
+any URL and fork or replace any bundled doc; see
 [Batteries included, fully yours to change](#why-it-works) and
 [Managed Docs](#managed-docs-fork-update-extend).
 
