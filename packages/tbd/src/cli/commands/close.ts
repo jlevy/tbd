@@ -1,7 +1,12 @@
 /**
- * `tbd close` - Close an issue.
+ * `tbd close` - Close one or more issues.
  *
- * See: tbd-design.md §4.4 Close
+ * A single ID preserves the legacy output exactly. Two or more IDs are a bulk
+ * operation: processed under one lock, with a one-line summary, a structured
+ * `--json` results array, and a visible unsynced-changes hint.
+ *
+ * See: tbd-design.md §4.4 Close and
+ * docs/project/specs/active/plan-2026-06-13-agent-cli-ergonomics.md
  */
 
 import { Command } from 'commander';
@@ -11,83 +16,126 @@ import { requireInit, NotFoundError } from '../lib/errors.js';
 import { readIssue, writeIssue } from '../../file/storage.js';
 import { formatDisplayId, formatDebugId } from '../../lib/ids.js';
 import { now } from '../../utils/time-utils.js';
-import { resolveToInternalId } from '../../file/id-mapping.js';
 import { withDataSyncContext } from '../lib/data-context.js';
+import { resolveAllIds, summarizeBulk, toJsonResult, type BulkItemResult } from '../lib/bulk.js';
 
 interface CloseOptions {
   reason?: string;
+  ignoreMissing?: boolean;
 }
 
 class CloseHandler extends BaseCommand {
-  async run(id: string, options: CloseOptions): Promise<void> {
+  async run(ids: string[], options: CloseOptions): Promise<void> {
     const tbdRoot = await requireInit();
-
-    let displayId = id;
-    let alreadyClosed = false;
-    let didClose = false;
+    const results: BulkItemResult[] = [];
 
     await this.execute(async () => {
       await withDataSyncContext(
         tbdRoot,
         { lock: true },
         async ({ dataSyncDir, mapping, config }) => {
-          // Resolve input ID to internal ID
-          let internalId: string;
-          try {
-            internalId = resolveToInternalId(id, mapping);
-          } catch {
-            throw new NotFoundError('Issue', id);
+          const { resolved, missing } = resolveAllIds(ids, mapping);
+
+          // Fail closed: any unknown ID aborts before writing anything, unless
+          // the caller opted into best-effort with --ignore-missing.
+          if (missing.length > 0 && !options.ignoreMissing) {
+            throw new NotFoundError('Issue', missing.join(', '));
           }
 
-          // Load existing issue
-          let issue;
-          try {
-            issue = await readIssue(dataSyncDir, internalId);
-          } catch {
-            throw new NotFoundError('Issue', id);
-          }
-
-          displayId = this.ctx.debug
-            ? formatDebugId(issue.id, mapping, config.display.id_prefix)
-            : formatDisplayId(issue.id, mapping, config.display.id_prefix);
-
-          // Idempotent: if already closed, succeed silently without modification
-          if (issue.status === 'closed') {
-            alreadyClosed = true;
-            didClose = true;
+          const dryRunMessage =
+            ids.length === 1 ? 'Would close issue' : `Would close ${resolved.length} issues`;
+          if (this.checkDryRun(dryRunMessage, { ids: resolved.map((r) => r.internalId) })) {
             return;
           }
 
-          if (this.checkDryRun('Would close issue', { id: internalId, reason: options.reason })) {
-            return;
+          for (const { input, internalId } of resolved) {
+            let issue;
+            try {
+              issue = await readIssue(dataSyncDir, internalId);
+            } catch {
+              results.push({ id: input, action: 'missing', ok: false, skippedReason: 'not found' });
+              continue;
+            }
+
+            const displayId = this.ctx.debug
+              ? formatDebugId(issue.id, mapping, config.display.id_prefix)
+              : formatDisplayId(issue.id, mapping, config.display.id_prefix);
+
+            // Idempotent: already-closed is a reported skip, not a failure.
+            if (issue.status === 'closed') {
+              results.push({
+                id: displayId,
+                action: 'skipped',
+                ok: true,
+                skippedReason: 'already closed',
+              });
+              continue;
+            }
+
+            issue.status = 'closed';
+            issue.closed_at = now();
+            issue.close_reason = options.reason ?? null;
+            issue.version += 1;
+            issue.updated_at = now();
+            await writeIssue(dataSyncDir, issue);
+            results.push({ id: displayId, action: 'closed', ok: true });
           }
 
-          // Update issue
-          issue.status = 'closed';
-          issue.closed_at = now();
-          issue.close_reason = options.reason ?? null;
-          issue.version += 1;
-          issue.updated_at = now();
-
-          await writeIssue(dataSyncDir, issue);
-          didClose = true;
+          // Report (but do not fail on) IDs skipped via --ignore-missing.
+          for (const m of missing) {
+            results.push({ id: m, action: 'missing', ok: false, skippedReason: 'not found' });
+          }
         },
       );
     }, 'Failed to close issue');
 
-    if (!didClose) return;
+    if (results.length === 0) return; // dry-run or nothing to do
 
-    this.output.data({ id: displayId, closed: true, alreadyClosed }, () => {
-      this.output.success(`Closed ${displayId}`);
+    // Single ID: preserve the exact legacy output (text + JSON).
+    if (ids.length === 1) {
+      const r = results[0]!;
+      if (r.action === 'missing') return; // --ignore-missing on a lone unknown ID
+      const alreadyClosed = r.action === 'skipped';
+      this.output.data({ id: r.id, closed: true, alreadyClosed }, () => {
+        this.output.success(`Closed ${r.id}`);
+      });
+      return;
+    }
+
+    this.emitBulkSummary(results);
+  }
+
+  /** Bulk path: one summary line + structured JSON, with a visible sync hint. */
+  private emitBulkSummary(results: BulkItemResult[]): void {
+    const summary = summarizeBulk(results);
+    const syncPending = summary.changed > 0;
+    const json: Record<string, unknown> = {
+      results: results.map(toJsonResult),
+      summary,
+    };
+    if (syncPending) {
+      json.sync = { pending: true, hint: 'Run `tbd sync` to publish.' };
+    }
+
+    this.output.data(json, () => {
+      const parts = [`Closed ${summary.changed}`];
+      if (summary.skipped > 0) parts.push(`skipped ${summary.skipped} (already closed)`);
+      if (summary.missing > 0) parts.push(`not found ${summary.missing}`);
+      const idList = results.map((r) => r.id).join(' ');
+      this.output.success(`${parts.join(', ')}: ${idList}`);
+      if (syncPending) {
+        this.output.notice('Unsynced changes — run `tbd sync` to publish.');
+      }
     });
   }
 }
 
 export const closeCommand = new Command('close')
-  .description('Close an issue')
-  .argument('<id>', 'Issue ID')
+  .description('Close one or more issues')
+  .argument('<ids...>', 'Issue ID(s)')
   .option('--reason <text>', 'Close reason')
-  .action(async (id, options, command) => {
+  .option('--ignore-missing', 'Skip unknown IDs instead of failing')
+  .action(async (ids, options, command) => {
     const handler = new CloseHandler(command);
-    await handler.run(id, options);
+    await handler.run(ids, options);
   });

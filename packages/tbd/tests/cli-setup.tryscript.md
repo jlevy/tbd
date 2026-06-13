@@ -70,7 +70,7 @@ Working With Issues:
   create [options] [title]      Create a new issue
   show [options] <id>           Show issue details
   update [options] <id>         Update an issue
-  close [options] <id>          Close an issue
+  close [options] <ids...>      Close one or more issues
   reopen [options] <id>         Reopen a closed issue
   search [options] <query>      Search issues by text
 
