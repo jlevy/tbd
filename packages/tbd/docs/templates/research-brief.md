@@ -46,7 +46,7 @@ author: Joshua Levy (github.com/jlevy) with LLM assistance
 > This section is for the “so what?”—conclusions that aren’t obvious from the individual
 > findings alone.
 
-## Comparison Matrix *(optional — for comparative research)*
+## Comparison Matrix *(optional, for comparative research)*
 
 > When evaluating multiple options or technologies, a structured comparison table is
 > often the most useful artifact.
@@ -103,7 +103,7 @@ author: Joshua Levy (github.com/jlevy) with LLM assistance
 - [ ] Action item 1
 - [ ] Action item 2
 
-## Methodology *(optional — for complex or high-stakes research)*
+## Methodology *(optional, for complex or high-stakes research)*
 
 > How the research was conducted: what searches were run, what sources were
 > cross-referenced, what information was not found or remains uncertain.

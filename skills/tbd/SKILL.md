@@ -51,7 +51,7 @@ tbd setup --auto   # Run any time to refresh setup
 tbd prime      # Restore full context on tbd after compaction
 ```
 
-## CRITICAL: You Operate tbd — The User Doesn’t
+## CRITICAL: You Operate tbd, the User Doesn’t
 
 **You are the tbd operator:** Users talk naturally; you translate their requests to tbd
 actions. DO NOT tell users to run tbd commands.
@@ -117,7 +117,7 @@ these apply to all code regardless of language.
 Then load the group for the language or framework in use (TypeScript, Python, Convex,
 etc.). Run `tbd guidelines --list` to see all available guidelines.
 
-**Note:** Never gitignore `.tbd/workspaces/` — the outbox must be committed to your
+**Note:** Never gitignore `.tbd/workspaces/`; the outbox must be committed to your
 working branch. See `tbd guidelines tbd-sync-troubleshooting` for details.
 
 ## CRITICAL: Session Closing Protocol

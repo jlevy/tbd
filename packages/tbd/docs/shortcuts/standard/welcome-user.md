@@ -13,16 +13,27 @@ project.
 First, run `tbd status` to check the current state.
 Give a brief summary of the status (repository, sync status, integrations).
 
-Then make the two-axis guidelines offer — one short question per axis:
+Then make the two-axis guidelines offer, one short question per axis:
 
-1. **Scope** — keep **all** standard guidelines active (recommended), or just a subset
+1. **Scope:** keep **all** standard guidelines active (recommended), or just a subset
    for this project’s languages and stack?
-2. **Visibility** — leave them in tbd’s hidden cache (the default — they just work), or
+   Give a few examples of what the standard set covers, such as Python guidelines,
+   TypeScript guidelines, documentation guidelines, testing guidelines, and commit
+   conventions. Note that `tbd guidelines --list` shows the full set.
+2. **Visibility:** leave them in tbd’s hidden cache (the default, which just works), or
    fork them into `docs/tbd/` so they are visible on GitHub, reviewable in PRs, and
    editable (checked into git)?
 
-Explain that forking changes nothing about how guidelines work — both paths serve the
-same guidelines — it only makes them visible and customizable.
+When explaining visibility, give this guidance: for small repos or quick work, you
+usually don’t want to fork.
+Leaving the docs in tbd’s hidden cache is the simplest start and just works.
+For larger projects with a lot of customization, forking can make sense: it gives you
+maximum control to adapt, improve, and customize every guideline.
+Either way the choice is reversible: you can tell tbd you want to fork the docs later,
+so starting with the hidden cache loses nothing.
+
+Explain that forking changes nothing about how guidelines work.
+Both paths serve the same guidelines; forking only makes them visible and customizable.
 If the user wants visible docs, the recommendation is to fork the general guidelines
 plus the categories for the project’s languages and frameworks:
 `tbd docs fork --category=general --category=<language>` (e.g. `--category=typescript`).

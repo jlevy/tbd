@@ -732,12 +732,13 @@ choice between two modes that serve identical content:
 - **Hidden cache (the default).** Docs live in the gitignored `.tbd/docs/` cache —
   always active, zero repo footprint, refreshed by `tbd docs sync` (and by setup).
 - **Forked.** `tbd docs fork <name>` (or `--all`) copies a doc into `docs/tbd/`, tracked
-  in git: visible on GitHub, reviewable in PRs, and editable — your copy shadows the
+  in git: visible on GitHub, reviewable in PRs, and editable; your copy shadows the
   cache everywhere the upstream one was served.
   `tbd docs unfork` returns to the cache; `tbd docs update` three-way merges upstream
   changes into your copy after an upgrade.
 
-Forking changes nothing about how docs work — it only makes them explicit and editable.
+Forking changes nothing about how docs work.
+It only makes them explicit and editable.
 Four update surfaces stay deliberately separate:
 
 | Command | Scope | Touches | Modifies tracked files? |
@@ -745,10 +746,10 @@ Four update surfaces stay deliberately separate:
 | `tbd sync` | project data (issues/beads) | sync worktree + `tbd-sync` branch; also refreshes the doc cache and *reports* fork drift | never |
 | `tbd setup --auto` | installation + integrations | skills, hooks, settings, `AGENTS.md`; invokes a docs-cache sync | only generated integration files |
 | `tbd docs sync` | doc cache | gitignored `.tbd/docs/` only | never |
-| `tbd docs update` | your forked docs | fork dir + bases + manifest (offline, against the cache) | **yes — the only doc command that does** |
+| `tbd docs update` | your forked docs | fork dir + bases + manifest (offline, against the cache) | **yes, the only doc command that does** |
 
 Disambiguation worth stating once: `tbd update <id>` is an issue operation,
-`tbd docs update` a doc operation — the noun scope always disambiguates.
+`tbd docs update` a doc operation; the noun scope always disambiguates.
 
 ### Forked Docs in Your Repo (docs/tbd/)
 
@@ -766,9 +767,9 @@ docs/tbd/
 
 Two rules make everything below predictable: **names are identity** (a doc is
 `<kind>/<name>.md`; nested subfolders are not scanned), and **tracking is derived, not
-stored** (the canonical model — copies, invariants, flows — is `tbd-design.md` §2.9;
-this table is its user-facing summary) — every doc’s state is recomputed from content
-hashes (your file vs its recorded base vs current upstream), so no git operation can
+stored** (the canonical model (copies, invariants, flows) is `tbd-design.md` §2.9; this
+table is its user-facing summary); every doc’s state is recomputed from content hashes
+(your file vs its recorded base vs current upstream), so no git operation can
 desynchronize tbd from the folder.
 Whatever you or your agent do to these files, `tbd docs status` gives a defined answer:
 
@@ -778,8 +779,8 @@ Whatever you or your agent do to these files, `tbd docs status` gives a defined 
 | Delete a forked file | `missing` | Serving falls back to upstream; restore with `tbd docs fork <name> --force` or finalize with `tbd docs unfork <name>` |
 | Rename a forked file | `missing` + `local` | A rename is delete + add: finalize the old name (`unfork`), keep the new file as `local` |
 | Add a new `.md` file | `local` | Served with top precedence; nothing to update or unfork (no upstream) |
-| Move a file into a subfolder | invisible | Subfolders are not scanned — keep files at `<kind>/<name>.md` |
-| Delete `.tbd/doc-forks/` (the manifest) | all `local` | Files keep being served; re-fork with `--force` to re-establish update tracking (overwrites with upstream — re-apply edits after) |
+| Move a file into a subfolder | invisible | Subfolders are not scanned; keep files at `<kind>/<name>.md` |
+| Delete `.tbd/doc-forks/` (the manifest) | all `local` | Files keep being served; re-fork with `--force` to re-establish update tracking (overwrites with upstream; re-apply edits after) |
 | Commit / pull / merge / revert any of it | recomputed | States derive from content, so collaborators see the same answers from the same files |
 
 Awareness without surprise mutations: `tbd sync` prints a one-line notice when forked
@@ -1104,20 +1105,20 @@ docs_cache:
     - .tbd/docs/shortcuts/standard
 ```
 
-`docs_cache.files` values — like the fork manifest’s `source` values in
-`.tbd/doc-forks/forks.yml` — are **docrefs**: one URI-like address grammar
-(`internal:…`, anchored local paths, URLs, `github:owner/repo@ref//path`). For the full
-grammar see `tbd docs show docref-format`; for the docmap structure that doc listings
-and their `--json` output follow, see `tbd docs show docmap-format`.
+`docs_cache.files` values, like the fork manifest’s `source` values in
+`.tbd/doc-forks/forks.yml`, are **docrefs**: one URI-like address grammar (`internal:…`,
+anchored local paths, URLs, `github:owner/repo@ref//path`). For the full grammar see
+`tbd docs show docref-format`; for the docmap structure that doc listings and their
+`--json` output follow, see `tbd docs show docmap-format`.
 
 Two further `docs_cache` keys:
 
-- `docs_cache.local_dirs` — an ordered list of `./`-prefixed local docrefs naming extra
+- `docs_cache.local_dirs`: an ordered list of `./`-prefixed local docrefs naming extra
   in-repo doc directories, served between the fork dir and the cache.
   Docs found there are first-class for reading (`list`, `show`, the per-kind readers,
   with a `(serving local doc: …)` note) and report state `local`; they are not forkable
-  or updatable — they already live in the repo.
-- `docs_cache.fork_dir` — reserved in the f05 format era but **planned, not yet read**:
+  or updatable; they already live in the repo.
+- `docs_cache.fork_dir`: reserved in the f05 format era but **planned, not yet read**:
   the fork-dir location is currently fixed at `docs/tbd/`.
 
 ## Priority Scale
@@ -1226,10 +1227,10 @@ version. This is everything a format upgrade can touch:
 | --- | --- | --- | --- | --- |
 | Project config | `.tbd/config.yml` | tracked | the migration (format stamp) | `git checkout -- .tbd/config.yml`, or `git revert` the bump commit |
 | Agent surfaces | `AGENTS.md`, `.claude/`, `.agents/`, `.codex/` | tracked | only `tbd setup --auto` (marker refresh) | `git checkout --` those paths |
-| Shared layout stamp | `$GIT_COMMON_DIR/tbd/layout.yml` | machine-local, not in git | the migration (re-stamp) | delete it — it regenerates from whatever the config says |
+| Shared layout stamp | `$GIT_COMMON_DIR/tbd/layout.yml` | machine-local, not in git | the migration (re-stamp) | delete it; it regenerates from whatever the config says |
 | Forked docs (f05) | `docs/tbd/`, `.tbd/doc-forks/` | tracked once committed | only `tbd docs fork` | `git checkout --`/`git revert` if committed; delete if never committed |
-| Docs cache | `.tbd/docs/` | gitignored | doc sync (unchanged by migration) | none needed — always safe to delete and re-sync |
-| Issue data | `tbd-sync` branch + `$GIT_COMMON_DIR/tbd/data-sync-worktree/` | git branch | **never touched by migration** | none needed — the worktree re-materializes from the branch |
+| Docs cache | `.tbd/docs/` | gitignored | doc sync (unchanged by migration) | none needed; always safe to delete and re-sync |
+| Issue data | `tbd-sync` branch + `$GIT_COMMON_DIR/tbd/data-sync-worktree/` | git branch | **never touched by migration** | none needed; the worktree re-materializes from the branch |
 
 **Abort recipe** (works from any state, including a crash mid-upgrade):
 
@@ -1246,21 +1247,21 @@ rm -rf docs/tbd .tbd/doc-forks
 ```
 
 After this, the previous tbd version works again, and re-running the upgrade later is
-safe — the migration is idempotent from any of these states.
+safe; the migration is idempotent from any of these states.
 
 Reverting `.tbd/config.yml` is enough to drop the format gate even if forks were already
 committed: compatibility is decided only by `tbd_format` in the config, not by the
 presence of `docs/tbd/` or `.tbd/doc-forks/`. Committed fork files simply become inert
-`local` docs under the older version — harmless to leave in place, so step 3 is only for
+`local` docs under the older version; harmless to leave in place, so step 3 is only for
 cleanup, never required to abort.
 
 Notes:
 
-- **The migration never writes issue data**, so the recipe above cannot lose issues — it
+- **The migration never writes issue data**, so the recipe above cannot lose issues; it
   touches only the two stamps and tracked files.
   A bigger hammer also exists: deleting the entire `$GIT_COMMON_DIR/tbd/` directory is
   recoverable (layout and the data-sync worktree re-materialize from the config and the
-  `tbd-sync` branch on the next command, or via `tbd doctor --fix`) — **but only for
+  `tbd-sync` branch on the next command, or via `tbd doctor --fix`); **but only for
   synced data**. Issue changes made with `--no-sync` since the last `tbd sync` live as
   uncommitted files inside that worktree and would be lost, so run `tbd sync` first if
   you must delete it. This is why the recipe deletes only `layout.yml`, never the whole
@@ -1273,10 +1274,10 @@ Notes:
   an interrupted upgrade can also undo an abort.
   Any concurrent `tbd` write (another worktree, a background agent, an editor hook)
   re-stamps `layout.yml` from whatever `.tbd/config.yml` currently says.
-  If you delete `layout.yml` while the config is still on the new format — or before the
-  config revert in step 1 has landed — the next write recreates the stamp and reopens
-  the migration. Stop other agents and worktrees, do step 1 (revert the config) before
-  step 2 (delete the stamp), and the abort sticks.
+  If you delete `layout.yml` while the config is still on the new format, or before the
+  config revert in step 1 has landed, the next write recreates the stamp and reopens the
+  migration. Stop other agents and worktrees, do step 1 (revert the config) before step 2
+  (delete the stamp), and the abort sticks.
 - Teammates each migrate their own machine-local stamp automatically; only the
   `.tbd/config.yml` change is shared (via your branch), so reverting that commit is the
   team-wide rollback.

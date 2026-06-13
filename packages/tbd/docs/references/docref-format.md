@@ -1,6 +1,6 @@
 ---
 title: Docref Format
-description: A single-string, URI-like address for any document — the one source-address grammar used across tbd
+description: A single-string, URI-like address for any document, the one source-address grammar used across tbd
 author: Joshua Levy (github.com/jlevy) with LLM assistance
 category: general
 ---
@@ -23,7 +23,7 @@ implementation (`src/docref/` in tbd) is standalone and dependency-free.
 | git + fragment | `github:o/r@main//f.md#naming` | Optional in-document anchor, preserved verbatim. |
 
 The `//` separator makes refs with slashes unambiguous:
-`github:o/r@feature/x//docs/f.md` pins ref `feature/x` — unlike GitHub blob URLs, where
+`github:o/r@feature/x//docs/f.md` pins ref `feature/x`. Unlike GitHub blob URLs, where
 ref and path cannot be split reliably.
 
 ## Strictness
@@ -35,8 +35,8 @@ The grammar is deliberately strict; consumers may be lenient at their own bounda
   A strict grammar plus lenient consumers composes; the reverse can never be tightened.
 - **Home-relative paths (`~/…`) are rejected** in v0.1 (no portable expansion
   semantics).
-- **Unknown schemes are rejected** (`mailto:…`, `git:…`). Additional protocols — for
-  example a host-bearing git scheme for forges beyond GitHub/GitLab — may be added in
+- **Unknown schemes are rejected** (`mailto:…`, `git:…`). Additional protocols, for
+  example a host-bearing git scheme for forges beyond GitHub/GitLab, may be added in
   future versions.
 
 ## Normalization
@@ -48,8 +48,8 @@ so one file has one address:
 - `https://raw.githubusercontent.com/o/r/main/f.md` → `github:o/r@main//f.md`
 - `https://gitlab.com/o/r/-/blob/main/f.md` → `gitlab:o/r@main//f.md`
 
-URL fragments are preserved through normalization — a normalizer must never silently
-drop data.
+URL fragments are preserved through normalization; a normalizer must never silently drop
+data.
 
 ## Equality
 
@@ -63,7 +63,7 @@ or filesystem is consulted.
 [purl](https://github.com/package-url/purl-spec) addresses *packages*
 (`pkg:type/namespace/name@version`); its identity is the package, with file paths as an
 awkward suffix. docref’s identity is the *document*, with in-repo paths and anchored
-local files as first-class forms — which is why a separate small grammar exists rather
+local files as first-class forms, which is why a separate small grammar exists rather
 than a purl profile.
 
 <!-- This document follows common-doc-guidelines.md.
