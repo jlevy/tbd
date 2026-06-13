@@ -41,17 +41,19 @@ Three pillars, one for each lever on output quality:
   Adding your own is easy, and putting a guideline into `tbd` is what gets it applied:
   the agent pulls it in when it’s relevant instead of relying on you to paste rules into
   a prompt.
-- **Spec-driven processes:** 30+ **shortcuts**, reusable instructions for recurring work
-  like code review, commits, PR creation, and writing planning specs.
-  Shortcuts combine with **templates** (scaffolds for specs, research briefs, and
-  architecture docs) to become fuller processes.
+- **Specs, planning, and code review processes:** 30+ **shortcuts**, reusable
+  instructions for recurring work like code review, commits, PR creation, and writing
+  planning specs. Shortcuts combine with **templates** (scaffolds for specs, research
+  briefs, and architecture docs) to become fuller processes.
   For example, the `new-plan-spec` shortcut drives the `plan-spec` template into a
   structured planning document.
 - **Disciplined task tracking:** git-native issue tracking (**beads**) for bugs,
   features, epics, and dependencies that persist across sessions.
   Beads scale an agent from a handful of ad-hoc to-dos to hundreds of structured,
-  tracked items. This builds on [Beads](https://github.com/steveyegge/beads) by Steve
-  Yegge, which is *unreasonably effective* at exactly this.
+  tracked items. This idea is borrowed from [Beads](https://github.com/steveyegge/beads)
+  by Steve Yegge, which is *unreasonably effective* at exactly this; in `tbd`, each bead
+  is just a Markdown file with YAML frontmatter, which is more transparent and less
+  glitchy than `bd`’s SQLite database.
 
 Four artifacts deliver these: **guidelines**, **shortcuts**, **templates**, and
 **beads**.
