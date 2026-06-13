@@ -34,6 +34,7 @@ import {
   readConfigWithMigration,
   findTbdRoot,
   writeConfig,
+  stampSetupVersion,
   markWelcomeSeen,
 } from '../../file/config.js';
 import { syncDocsWithDefaults } from '../../file/doc-sync.js';
@@ -1328,6 +1329,12 @@ class SetupDefaultHandler extends BaseCommand {
         ghCliChanged = true;
       }
 
+      // Stamp the version that ran this setup: refresh tbd_version and append to the
+      // upgrade history when the version changed (dedupe keeps re-runs quiet). Runs on
+      // every setup, including same-format upgrades where no migration fires.
+      const stamped = stampSetupVersion(config, VERSION);
+      const versionStamped = stamped !== config;
+
       if (migrated) {
         // Initialize the shared common-dir layout under the data-sync lock.
         // prepareDataSyncContext also persists the migrated config to disk, so
@@ -1339,10 +1346,14 @@ class SetupDefaultHandler extends BaseCommand {
         }
       }
 
-      // Persist non-migration changes (e.g., --no-gh-cli) as a single explicit write.
-      if (ghCliChanged) {
-        await writeConfig(projectDir, config);
-        console.log(`  ${colors.success('✓')} Disabled gh CLI auto-setup`);
+      // Persist the version stamp and any flag changes (e.g., --no-gh-cli) as a single
+      // explicit write. When migrated, this supersedes the data-context write above with
+      // the stamped config (the migration notice has already fired).
+      if (versionStamped || ghCliChanged) {
+        await writeConfig(projectDir, stamped);
+        if (ghCliChanged) {
+          console.log(`  ${colors.success('✓')} Disabled gh CLI auto-setup`);
+        }
       }
 
       console.log('');

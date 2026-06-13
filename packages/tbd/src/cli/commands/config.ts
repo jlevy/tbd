@@ -27,6 +27,13 @@ class ConfigShowHandler extends BaseCommand {
       // Output as YAML format
       const colors = this.output.getColors();
       console.log(`${colors.dim('tbd_version:')} ${config.tbd_version}`);
+      if (config.tbd_upgrades && config.tbd_upgrades.length > 0) {
+        console.log(`${colors.dim('tbd_upgrades:')}`);
+        for (const entry of config.tbd_upgrades) {
+          const when = entry.at ? ` ${colors.dim(`(${entry.at})`)}` : '';
+          console.log(`  ${colors.dim('-')} ${entry.version}${when}`);
+        }
+      }
       console.log(`${colors.dim('sync:')}`);
       console.log(`  ${colors.dim('branch:')} ${config.sync.branch}`);
       console.log(`  ${colors.dim('remote:')} ${config.sync.remote}`);

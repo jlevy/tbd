@@ -14,6 +14,7 @@ import { writeFile } from 'atomically';
 import { parse as parseYaml } from 'yaml';
 
 import { sortKeys, stringifyYaml } from '../utils/yaml-utils.js';
+import { now } from '../utils/time-utils.js';
 import type { Config, LocalState } from '../lib/types.js';
 import {
   ConfigSchema,
@@ -64,6 +65,8 @@ function createDefaultConfig(version: string, prefix: string): Config {
   return ConfigSchema.parse({
     tbd_format: CURRENT_FORMAT,
     tbd_version: version,
+    // Seed the upgrade history with the version that created this repo.
+    tbd_upgrades: [{ version, at: now() }],
     sync: {
       branch: SYNC_BRANCH,
       remote: 'origin',
@@ -96,6 +99,32 @@ export async function initConfig(
   await writeConfig(baseDir, config);
 
   return config;
+}
+
+/**
+ * Stamp the config with the version that is running `tbd setup`.
+ *
+ * Sets `tbd_version` to the running version and, when that version differs from the most
+ * recent `tbd_upgrades` entry, appends a new `{ version, at }` entry. Deduping by the
+ * last entry keeps no-op re-runs and identical dev rebuilds from spamming the history.
+ *
+ * Pure: returns the SAME object when nothing changed (so callers can skip the write via
+ * an identity check), or a new config otherwise. The caller persists the result.
+ */
+export function stampSetupVersion(config: Config, version: string, at: string = now()): Config {
+  const upgrades = config.tbd_upgrades ?? [];
+  const last = upgrades[upgrades.length - 1];
+
+  if (last?.version === version) {
+    // This version already heads the history; only ensure tbd_version reflects it.
+    return config.tbd_version === version ? config : { ...config, tbd_version: version };
+  }
+
+  return {
+    ...config,
+    tbd_version: version,
+    tbd_upgrades: [...upgrades, { version, at }],
+  };
 }
 
 /**
@@ -180,21 +209,30 @@ export async function writeConfig(baseDir: string, config: Config): Promise<void
   const sorted = sortKeys(config as unknown as Record<string, unknown>, CONFIG_FIELD_ORDER);
   const yaml = stringifyYaml(sorted, { lineWidth: 0, sortMapEntries: false });
 
-  // Add explanatory comments for docs_cache section
+  // Add explanatory comments by injecting them before each section's key. This is a
+  // simple string replace, so the anchor keys (`tbd_upgrades:`, `docs_cache:`) must stay
+  // literal. Comments are brief and point to the command that shows full details, since
+  // an agent often reads this file directly.
   let content = yaml;
+
+  if (config.tbd_upgrades && config.tbd_upgrades.length > 0) {
+    const upgradesComment = `# tbd_upgrades: tbd versions that have run \`tbd setup\` in this repo (oldest first);
+# tbd_version above is the most recent. Informational; updated automatically by setup.
+`;
+    content = content.replace('tbd_upgrades:', upgradesComment + 'tbd_upgrades:');
+  }
+
   if (config.docs_cache && Object.keys(config.docs_cache).length > 0) {
-    const docsCacheComment = `# Documentation cache configuration.
-# files: Maps destination paths (relative to .tbd/docs/) to source locations.
-#   Sources can be:
-#   - internal: prefix for bundled docs (e.g., "internal:shortcuts/standard/code-review-and-commit.md")
-#   - Full URL for external docs (e.g., "https://raw.githubusercontent.com/org/repo/main/file.md")
-# lookup_path: Search paths for doc lookup (like shell $PATH). Earlier paths take precedence.
-#
-# To sync docs: tbd sync --docs
-# To check status: tbd sync --status
-#
-# Auto-sync: Docs are automatically synced when stale (default: every 24 hours).
-# Configure with settings.doc_auto_sync_hours (0 = disabled).
+    const docsCacheComment = `# Documentation cache: the docs tbd serves (guidelines, shortcuts, templates), synced
+# into the gitignored .tbd/docs/ cache. Managed with \`tbd docs\` (run \`tbd docs --help\`).
+# files: destination path (under .tbd/docs/) -> source docref. Common source forms:
+#   - internal:<path>                          bundled with tbd (e.g. internal:guidelines/typescript-rules.md)
+#   - github:owner/repo@ref//path/to/file.md   a file in a git repo (gitlab: too; @ref optional)
+#   - https://host/path/file.md                a plain URL, kept verbatim
+#   Full docref grammar: \`tbd docs show docref-format\`.
+# lookup_path: doc lookup search order, like shell $PATH (earlier paths win).
+# Refresh the cache with \`tbd docs sync\`; it also auto-syncs when stale
+# (settings.doc_auto_sync_hours, default 24; 0 disables).
 `;
     content = content.replace('docs_cache:', docsCacheComment + 'docs_cache:');
   }
