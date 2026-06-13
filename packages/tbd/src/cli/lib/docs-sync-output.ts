@@ -79,7 +79,7 @@ export function printDocSyncStatus(output: OutputManager, result: SyncDocsResult
 
 /**
  * One-line awareness notice for forked docs: a cache refresh is exactly when
- * forks become stale, so drift is surfaced here — but never acted on (only the
+ * forks become stale, so drift is surfaced here, but never acted on (only the
  * explicit `tbd docs update` mutates tracked files). Best-effort: never fails
  * the surrounding sync.
  */
@@ -90,13 +90,13 @@ export async function printForkDriftNotice(output: OutputManager, tbdRoot: strin
     if (drift.forks === 0) return;
     const parts: string[] = [];
     if (drift.stale > 0) {
-      parts.push(`${drift.stale} forked doc(s) have upstream updates — run 'tbd docs update'`);
+      parts.push(`${drift.stale} forked doc(s) have upstream updates; run 'tbd docs update'`);
     }
     if (drift.conflicted > 0) {
       parts.push(`${drift.conflicted} with unresolved conflict markers`);
     }
     if (drift.missing > 0) {
-      parts.push(`${drift.missing} missing (deleted/renamed) — see 'tbd docs status'`);
+      parts.push(`${drift.missing} missing (deleted/renamed); see 'tbd docs status'`);
     }
     if (parts.length > 0) {
       output.notice(`Docs: ${parts.join('; ')}`);

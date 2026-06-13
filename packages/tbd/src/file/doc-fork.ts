@@ -139,7 +139,7 @@ export async function forkDoc(params: ForkDocParams): Promise<ForkDocResult> {
         throw new ForkConflictError(
           'version-skew',
           `${name}: fork point was set by tbd ${existingEntry.tbd_version} (you have ` +
-            `${params.tbdVersion}) — upgrade tbd before re-forking, or use --force to downgrade`,
+            `${params.tbdVersion}); upgrade tbd before re-forking, or use --force to downgrade`,
         );
       }
       action = 'refreshed';
@@ -277,7 +277,7 @@ export interface LocalForkFile {
 /**
  * List fork-dir files that have no manifest entry. These are served (the fork dir
  * has top lookup precedence) but have no upstream: nothing to update or unfork.
- * Only the flat `<fork_dir>/<kind-dir>/*.md` layout is scanned — names are
+ * Only the flat `<fork_dir>/<kind-dir>/*.md` layout is scanned; names are
  * identity, so nested folders are deliberately not searched (documented).
  */
 export async function listLocalForkFiles(
@@ -291,7 +291,7 @@ export async function listLocalForkFiles(
     try {
       entries = await readdir(join(tbdRoot, forkDir, KIND_DIR[kind]));
     } catch {
-      continue; // Kind dir absent — nothing forked or added there.
+      continue; // Kind dir absent; nothing forked or added there.
     }
     for (const entry of entries) {
       if (!entry.endsWith('.md')) continue;
@@ -443,7 +443,7 @@ export async function regenerateForkDirReadme(
       relPath: forkRelPath(forkDir, f.kind, f.name),
       suffix: '',
     })),
-    ...locals.map((l) => ({ ...l, suffix: ' *(local — not from an upstream)*' })),
+    ...locals.map((l) => ({ ...l, suffix: ' *(local, not from an upstream)*' })),
   ].sort((a, b) => a.kind.localeCompare(b.kind) || a.name.localeCompare(b.name));
 
   const lines: string[] = [
@@ -455,7 +455,7 @@ export async function regenerateForkDirReadme(
     '[tbd](https://github.com/jlevy/tbd), forked here so they are visible, reviewable,',
     'and editable. tbd serves these copies instead of its built-in versions.',
     '',
-    '- Edit any doc in place — your copy is what tbd serves.',
+    '- Edit any doc in place; your copy is what tbd serves.',
     '- `tbd docs status` shows each doc’s state; `tbd docs update` pulls in upstream',
     '  changes (three-way merge); `tbd docs unfork <name>` returns a doc to the',
     '  built-in version.',
@@ -475,7 +475,7 @@ export async function regenerateForkDirReadme(
     // link target so a name like `x<b>y.md` or `a b.md` can't break the README.
     const label = sanitizeForReadme(row.name) || row.name.replace(/[<>[\]`|]/g, '');
     lines.push(
-      `- [**${label}**](./${readmeLinkPath(fileName)})${blurb ? ` — ${blurb}` : ''}${row.suffix}`,
+      `- [**${label}**](./${readmeLinkPath(fileName)})${blurb ? `: ${blurb}` : ''}${row.suffix}`,
     );
   }
   lines.push('');

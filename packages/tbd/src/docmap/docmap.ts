@@ -1,11 +1,11 @@
 /**
- * docmap — a minimal, machine-readable inventory of a collection of documents.
+ * docmap: a minimal, machine-readable inventory of a collection of documents.
  *
  * A docmap is a "sitemap for docs": one entry per document, each with an identity
  * (`type` + `name`, unique within the map), a location (`path` and/or a provenance
- * `source` docref — at least one is required), and presentation metadata (`title`,
+ * `source` docref; at least one is required), and presentation metadata (`title`,
  * `description`). It describes a collection; it says nothing about how the
- * collection is assembled, fetched, or kept fresh — a docmap is a generated VIEW
+ * collection is assembled, fetched, or kept fresh; a docmap is a generated VIEW
  * of a collection, never an input to resolution.
  *
  * Path convention: for a docmap committed as a file, `path` is relative to the
@@ -14,9 +14,9 @@
  *
  * This is the docmap/0.1 format. The module is standalone and dependency-free (no
  * tbd-internal imports) so it can move to its own package later. Consumers MUST
- * ignore unknown fields, so producers (such as tbd) may attach extension fields —
+ * ignore unknown fields, so producers (such as tbd) may attach extension fields:
  * for example tbd's `state`/`stale`, or size metrics like `word_count` /
- * `size_bytes` — without breaking other readers; core fields stay minimal.
+ * `size_bytes`, without breaking other readers; core fields stay minimal.
  */
 
 import { z } from 'zod';
@@ -26,7 +26,7 @@ export const DOCMAP_VERSION = 'docmap/0.1' as const;
 
 /**
  * One document in a docmap. Unknown fields are preserved (extension fields).
- * Every entry must carry a location: `path` and/or `source` — an inventory whose
+ * Every entry must carry a location: `path` and/or `source`; an inventory whose
  * entries cannot be located is not an inventory.
  */
 export const DocMapEntrySchema = z

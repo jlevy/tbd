@@ -53,7 +53,7 @@ tbd is not yet initialized. To set it up, run:
   tbd setup --auto                   # If .tbd/ already exists (prefix already set)
 
 CRITICAL: Never guess a prefix. Always ask the user what prefix they want.
-Do NOT tell the user to run these commands — run them yourself on their behalf.
+Do NOT tell the user to run these commands; run them yourself on their behalf.
 
 After setup, run 'tbd' again to get project status and workflow guidance.
 ? 0

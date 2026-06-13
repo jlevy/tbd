@@ -1,5 +1,5 @@
 /**
- * `tbd docs` — manage tbd-served docs: browse, fork into the repo, sync the
+ * `tbd docs`, manage tbd-served docs: browse, fork into the repo, sync the
  * cache, and pull upstream updates into forks.
  *
  * Surface (the f05 reorganization of the old manual viewer):
@@ -131,7 +131,7 @@ class DocsOverviewHandler extends BaseCommand {
         // The overview stays useful before setup (the old viewer worked
         // anywhere): point at the bundled manual and at initialization.
         const colors = this.output.getColors();
-        console.log(`${colors.bold('tbd docs')} — managed documentation`);
+        console.log(`${colors.bold('tbd docs')}: managed documentation`);
         console.log('');
         console.log('  tbd is not initialized in this repo (run: tbd setup --auto).');
         console.log('  The CLI manual is bundled and always available:');
@@ -170,7 +170,7 @@ class DocsOverviewHandler extends BaseCommand {
       }
 
       const colors = this.output.getColors();
-      console.log(`${colors.bold('tbd docs')} — managed documentation`);
+      console.log(`${colors.bold('tbd docs')}: managed documentation`);
       console.log('');
 
       if (drift.forks === 0) {
@@ -198,10 +198,10 @@ class DocsOverviewHandler extends BaseCommand {
       );
       const parts = [`${drift.customized} customized`];
       if (drift.stale > 0) {
-        parts.push(`${drift.stale} with upstream updates — run 'tbd docs update'`);
+        parts.push(`${drift.stale} with upstream updates; run 'tbd docs update'`);
       }
       if (drift.conflicted > 0) parts.push(`${drift.conflicted} conflict pending`);
-      if (drift.missing > 0) parts.push(`${drift.missing} missing — see 'tbd docs status'`);
+      if (drift.missing > 0) parts.push(`${drift.missing} missing; see 'tbd docs status'`);
       if (drift.local > 0) parts.push(`${drift.local} local`);
       console.log(`  ${drift.forks} forked: ${parts.join(', ')}`);
       console.log('');

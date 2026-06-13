@@ -309,7 +309,7 @@ export const ConfigSchema = z.object({
 
   /**
    * The tbd version that last ran `tbd setup` in this repo. Updated on every setup.
-   * Informational only — functional version gating is via `tbd_format`. See
+   * Informational only; functional version gating is via `tbd_format`. See
    * `tbd_upgrades` for the full history. (As of format f06; before f06 this was the
    * install-time version and never changed.)
    */

@@ -74,7 +74,7 @@ import { VERSION } from '../lib/version.js';
  *
  * Returns null when the remote branch does not exist (the caller then falls
  * through to local-branch / new-repo handling). Unrelated histories are a hard
- * ✗ finding routed to `tbd doctor --fix` (the rescue), NOT `tbd sync` — push
+ * ✗ finding routed to `tbd doctor --fix` (the rescue), NOT `tbd sync`; push
  * can never fast-forward and a plain merge refuses, so `tbd sync` cannot help.
  */
 export function classifyRemoteSyncHealth(
@@ -90,7 +90,7 @@ export function classifyRemoteSyncHealth(
       name: 'Remote sync branch',
       status: 'error',
       fixable: true,
-      message: `${remote}/${syncBranch} histories are unrelated (no common ancestor) — push cannot succeed`,
+      message: `${remote}/${syncBranch} histories are unrelated (no common ancestor); push cannot succeed`,
       suggestion: 'Run: tbd doctor --fix to reconcile the unrelated histories',
     };
   }
@@ -109,7 +109,7 @@ export function classifyRemoteSyncHealth(
  * The "Sync consistency" finding for a branch that is both ahead and behind.
  *
  * When the histories are unrelated, the remediation is the rescue
- * (`tbd doctor --fix`), NOT `tbd sync` — otherwise the unrelated-history error
+ * (`tbd doctor --fix`), NOT `tbd sync`; otherwise the unrelated-history error
  * (which says "run doctor --fix") and this warning (which would say "run sync")
  * point at each other in a loop with no terminating instruction. See #158.
  */
@@ -122,7 +122,7 @@ export function divergenceFinding(
     return {
       name: 'Sync consistency',
       status: 'warn',
-      message: `diverged (${ahead} ahead, ${behind} behind) — unrelated histories`,
+      message: `diverged (${ahead} ahead, ${behind} behind): unrelated histories`,
       suggestion: 'Run: tbd doctor --fix to reconcile the unrelated histories',
     };
   }
@@ -155,7 +155,7 @@ export interface LockWritabilityProbe {
  * `code` is the errno from attempting to create a directory under the shared
  * locks dir, or undefined on success. EPERM/EACCES is a hard error: every write
  * command must acquire this lock, so an unwritable lock path breaks all writes
- * (the #164 Codex-sandbox case) — and a lock tbd needs but cannot take is a
+ * (the #164 Codex-sandbox case), and a lock tbd needs but cannot take is a
  * fatal condition, not a soft warning. Any other probe failure is reported as a
  * warning since it cannot be positively interpreted. Never `fixable`: tbd cannot
  * widen a sandbox or change filesystem permissions itself.
@@ -255,7 +255,7 @@ class DoctorHandler extends BaseCommand {
 
     // Run health checks (core system checks). Each check runs under safeCheck so
     // a single unexpected failure produces an error finding instead of aborting
-    // the whole report — doctor must list every issue it can find. (issue #164)
+    // the whole report; doctor must list every issue it can find. (issue #164)
     const healthChecks: DiagnosticResult[] = [];
 
     // Check 1: Git version
@@ -298,7 +298,7 @@ class DoctorHandler extends BaseCommand {
     );
 
     // Check 9: Worktree health (with fix support)
-    // Run BEFORE ID mapping check — worktree repair and data migration can
+    // Run BEFORE ID mapping check; worktree repair and data migration can
     // overwrite ids.yml, so mappings must be verified after migration.
     healthChecks.push(await this.safeCheck('Worktree', () => this.checkWorktree(options.fix)));
 
@@ -382,7 +382,7 @@ class DoctorHandler extends BaseCommand {
     // Run integration checks (optional IDE/agent integrations)
     const integrationChecks: DiagnosticResult[] = [];
 
-    // Integration 1: Portable Agent Skill (.agents/skills — primary)
+    // Integration 1: Portable Agent Skill (.agents/skills, primary)
     integrationChecks.push(
       await this.safeCheck('Portable Agent Skill', () => this.checkPortableSkill()),
     );
@@ -463,8 +463,8 @@ class DoctorHandler extends BaseCommand {
 
     // Exit code. ⚠ (warn-level) findings are recoverable state and stay at exit 0
     // so existing tooling that runs `tbd doctor` on a clean-but-incomplete repo
-    // doesn't break. ✗ (error-level) findings — invalid config, future-format
-    // layout, corrupted data, future-format on-disk markers — are hard problems
+    // doesn't break. ✗ (error-level) findings (invalid config, future-format
+    // layout, corrupted data, future-format on-disk markers) are hard problems
     // that scripts and CI deserve to learn about via a non-zero exit.
     // See: docs/tbd-format-versioning.md (internal contributor guide).
     if (hasErrors) {
@@ -761,7 +761,7 @@ class DoctorHandler extends BaseCommand {
     try {
       content = await readFile(mappingPath, 'utf-8');
     } catch {
-      // File doesn't exist — normal for repos with no issues yet
+      // File doesn't exist; normal for repos with no issues yet
       return { name: 'ID mapping keys', status: 'ok' };
     }
 
@@ -941,7 +941,7 @@ class DoctorHandler extends BaseCommand {
       // Try to recover original short IDs from git history before generating new ones.
       // Search recent commits on the tbd-sync branch that touched ids.yml, not
       // just the latest. This handles the case where a bug (e.g., migration
-      // overwrite) destroyed entries in a recent commit — the entries still exist
+      // overwrite) destroyed entries in a recent commit; the entries still exist
       // in earlier commits. Since mappings are append-only, merging all versions
       // is safe. Capped via --max-history (default 50, 0 = full history).
       const { parseIdMappingFromYaml, mergeIdMappings } = await import('../../file/id-mapping.js');
@@ -969,7 +969,7 @@ class DoctorHandler extends BaseCommand {
               }
             }
           } catch {
-            // Individual commit may be unreachable — skip
+            // Individual commit may be unreachable; skip
           }
         }
       } catch {
@@ -1107,7 +1107,7 @@ class DoctorHandler extends BaseCommand {
         return { name: 'Worktree', status: 'ok', path: worktreePath };
 
       case 'missing':
-        // Worktree not existing is OK in steady state — it gets created on the next
+        // Worktree not existing is OK in steady state; it gets created on the next
         // mutating command. But with --fix the user is explicitly asking for repair,
         // so initialize the shared data-sync layout now (this also migrates legacy
         // per-checkout worktrees and bumps the config to the current format, the same
@@ -1115,7 +1115,7 @@ class DoctorHandler extends BaseCommand {
         if (fix && !this.checkDryRun('Initialize shared data-sync worktree')) {
           try {
             // ensureSharedDataSyncLayout (inside prepareDataSyncContext) MUST run
-            // under withSharedDataSyncLock — concurrent agents from sibling worktrees
+            // under withSharedDataSyncLock; concurrent agents from sibling worktrees
             // must not race init/migrate/repair. Match the pattern used for the
             // prunable/corrupted repair below.
             // See: docs/tbd-format-versioning.md, packages/tbd/src/cli/lib/data-context.ts.
@@ -1234,7 +1234,7 @@ class DoctorHandler extends BaseCommand {
       layout = await readCommonDirLayout(layoutPath);
     } catch (error) {
       // A corrupt/unparseable layout is machine-local and regenerable from the
-      // config — make it fixable rather than a dead-end error.
+      // config; make it fixable rather than a dead-end error.
       if (fix && !this.checkDryRun('Rewrite corrupt common-dir layout from config')) {
         const configRef = this.config;
         await withSharedDataSyncLock(this.cwd, async () =>
@@ -1279,7 +1279,7 @@ class DoctorHandler extends BaseCommand {
     // mismatch: the format bump applies on the next data command. Surface it as
     // an informational warning (exit 0, so CI on un-migrated f04 repos is not
     // broken); --fix applies the FULL migration (config + layout) via the locked
-    // data-context path — never just the layout, which would half-migrate the
+    // data-context path; never just the layout, which would half-migrate the
     // repo and lock out older clients with nothing to commit.
     if (isLayoutUpgradeable(layout, this.config)) {
       if (fix && !this.checkDryRun('Apply pending format migration')) {
@@ -1358,7 +1358,7 @@ class DoctorHandler extends BaseCommand {
     let code: string | undefined;
     try {
       // Mirrors withSharedDataSyncLock: ensuring the locks dir may create it as a
-      // side effect, which is harmless — any write command would create it anyway.
+      // side effect, which is harmless; any write command would create it anyway.
       await mkdir(paths.sharedLocksDir, { recursive: true });
       await mkdir(probeDir);
     } catch (error) {
@@ -1770,7 +1770,7 @@ class DoctorHandler extends BaseCommand {
       // Check ahead/behind status
       if (consistency.localAhead > 0 && consistency.localBehind > 0) {
         // Unrelated histories are always "diverged" (no common ancestor), but
-        // their remediation is the rescue — suggesting `tbd sync` here forms a
+        // their remediation is the rescue; suggesting `tbd sync` here forms a
         // loop with the unrelated-history error. Defer to doctor --fix. (#158)
         const { unrelated } = await checkRemoteBranchHealth(remote, syncBranch, this.cwd);
         return divergenceFinding(consistency.localAhead, consistency.localBehind, unrelated);
@@ -1780,7 +1780,7 @@ class DoctorHandler extends BaseCommand {
         return {
           name: 'Sync consistency',
           status: 'ok',
-          message: `${consistency.localAhead} local commit(s) not yet pushed — run \`tbd sync\` to push`,
+          message: `${consistency.localAhead} local commit(s) not yet pushed; run \`tbd sync\` to push`,
         };
       }
 
@@ -1788,7 +1788,7 @@ class DoctorHandler extends BaseCommand {
         return {
           name: 'Sync consistency',
           status: 'ok',
-          message: `${consistency.localBehind} remote commit(s) not yet pulled — run \`tbd sync\` to pull`,
+          message: `${consistency.localBehind} remote commit(s) not yet pulled; run \`tbd sync\` to pull`,
         };
       }
 
@@ -1813,7 +1813,7 @@ class DoctorHandler extends BaseCommand {
    * Validates the forkable-docs state per the f05 spec (Phase 2 doctor checks):
    * manifest readability, missing forked files (--fix finalizes the unfork),
    * orphaned entries whose upstream doc is gone (--fix removes the entry),
-   * base snapshot presence/hash integrity (no auto-fix — re-fork vs unfork is
+   * base snapshot presence/hash integrity (no auto-fix; re-fork vs unfork is
    * the user's call), unresolved tbd conflict markers, user docs claiming the
    * reserved `tbd-` name prefix, and a gitignored fork dir.
    *
@@ -1839,7 +1839,7 @@ class DoctorHandler extends BaseCommand {
 
     // 16a: manifest readability. readForkManifest tolerates per-entry corruption
     // (drops bad entries with a stderr warning) but throws on a totally
-    // unparseable file — report that instead of crashing the doctor run.
+    // unparseable file; report that instead of crashing the doctor run.
     let manifest;
     try {
       manifest = await readForkManifest(this.cwd);
@@ -1923,7 +1923,7 @@ class DoctorHandler extends BaseCommand {
         baseProblems.push(`${entry.name}: hash mismatch`);
       }
 
-      // 16e: unresolved tbd conflict markers (flag-independent — detect markers
+      // 16e: unresolved tbd conflict markers (flag-independent; detect markers
       // even when the manifest `conflicted` flag was never set or went stale).
       const content = await readForkFile(this.cwd, FORK_DIR, entry);
       if (content !== null && hasUnresolvedConflict(content)) {
@@ -1986,7 +1986,7 @@ class DoctorHandler extends BaseCommand {
     }
 
     // 16c: orphaned entries (upstream/cache doc no longer exists). --fix removes
-    // the manifest entry + base but keeps the file (it becomes a local doc —
+    // the manifest entry + base but keeps the file (it becomes a local doc;
     // upstream is gone, so the file may be the only copy).
     if (orphaned.length > 0) {
       const message = `${orphaned.length} orphaned (${orphaned.map((e) => e.name).join(', ')}: upstream doc no longer exists)`;
@@ -2030,7 +2030,7 @@ class DoctorHandler extends BaseCommand {
       }
     }
 
-    // 16d findings: no auto-fix — choosing between re-fork and unfork would
+    // 16d findings: no auto-fix; choosing between re-fork and unfork would
     // guess at user intent.
     if (baseProblems.length > 0) {
       results.push({
@@ -2075,7 +2075,7 @@ class DoctorHandler extends BaseCommand {
       });
     }
 
-    // 16g: fork dir gitignored (only meaningful when forks exist — a gitignored
+    // 16g: fork dir gitignored (only meaningful when forks exist; a gitignored
     // fork dir defeats the purpose of forking: the docs would not be committed).
     if (manifest.forks.length > 0) {
       let ignored = false;
@@ -2092,7 +2092,7 @@ class DoctorHandler extends BaseCommand {
           ? {
               name: 'Fork dir',
               status: 'warn',
-              message: `${FORK_DIR}/ is gitignored — forked docs will not be committed`,
+              message: `${FORK_DIR}/ is gitignored; forked docs will not be committed`,
               suggestion: `Remove the .gitignore rule covering ${FORK_DIR}/ so forks are tracked in git`,
             }
           : {

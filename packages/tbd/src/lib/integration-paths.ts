@@ -21,8 +21,8 @@ import { CURRENT_FORMAT } from './tbd-format.js';
  *
  * UNIFIED with the `.tbd/` directory format (`tbd_format`): there is one format
  * code for all tbd-managed surfaces, sourced from `tbd-format.ts` (the single
- * source of truth). Bump `CURRENT_FORMAT` there when any managed surface — config
- * schema OR a generated agent surface — changes shape. A marked AGENTS.md block
+ * source of truth). Bump `CURRENT_FORMAT` there when any managed surface (config
+ * schema OR a generated agent surface) changes shape. A marked AGENTS.md block
  * with no `format=` field predates this and is treated as `f01`; a running tbd
  * that finds a HIGHER format than it knows refuses to overwrite it and tells the
  * user to upgrade tbd.
@@ -116,8 +116,8 @@ export const CODEX_HOOKS_REL = '.codex/hooks.json';
 export const CODEX_CONFIG_REL = '.codex/config.toml';
 
 // Note on hook scripts: each agent surface writes its own copy of the hook
-// scripts under its own directory — Claude Code under `.claude/scripts/` and
-// Codex under `.codex/` — rather than sharing a single neutral `scripts/agent/`
+// scripts under its own directory (Claude Code under `.claude/scripts/` and
+// Codex under `.codex/`) rather than sharing a single neutral `scripts/agent/`
 // copy. Per-agent copies keep each surface self-contained: Codex hooks never
 // reference `.claude/`, so Codex setup does not depend on Claude Code setup.
 // (See cli-agent-skill-patterns §6.6: per-agent copies are a valid alternative
@@ -172,11 +172,11 @@ export function getAgentsMdPath(projectRoot: string): string {
  */
 export function getAgentSkillPaths(projectRoot: string) {
   return {
-    /** .agents/skills/tbd/SKILL.md — canonical portable install */
+    /** .agents/skills/tbd/SKILL.md: canonical portable install */
     portable: join(projectRoot, AGENTS_SKILL_REL),
-    /** .claude/skills/tbd/SKILL.md — Claude Code mirror */
+    /** .claude/skills/tbd/SKILL.md: Claude Code mirror */
     claudeMirror: join(projectRoot, CLAUDE_SKILL_REL),
-    /** skills/tbd/SKILL.md — distribution copy */
+    /** skills/tbd/SKILL.md: distribution copy */
     distribution: join(projectRoot, SKILLS_DIST_REL),
   };
 }

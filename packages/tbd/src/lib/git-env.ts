@@ -3,7 +3,7 @@
  *
  * tbd is a repo-local tool: it discovers its `.tbd` root by walking up from
  * cwd, so its git context must come from cwd too. But git exports GIT_DIR
- * (and related vars) into hook environments — always, when a hook runs — and
+ * (and related vars) into hook environments (always, when a hook runs) and
  * an inherited *absolute* GIT_DIR overrides cwd-based discovery in every git
  * child process, `-C <dir>` included. A user running tbd inside any git hook
  * (post-merge, pre-push, …) would otherwise have tbd resolve the hook's

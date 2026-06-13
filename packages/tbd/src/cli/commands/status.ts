@@ -229,7 +229,7 @@ class StatusHandler extends BaseCommand {
       codex_hooks_path: CODEX_HOOKS_DISPLAY,
     };
 
-    // Check the portable Agent Skill (.agents/skills — primary surface)
+    // Check the portable Agent Skill (.agents/skills, primary surface)
     try {
       await access(getAgentSkillPaths(projectRoot).portable);
       result.portable_skill = true;
@@ -374,14 +374,14 @@ class StatusHandler extends BaseCommand {
       renderWorktreeStatus(data.worktree_path, data.worktree_status, colors);
     }
 
-    // Docs line — only when forks exist, so zero-fork output stays
+    // Docs line: only when forks exist, so zero-fork output stays
     // byte-identical to the pre-f05 status (the orientation golden pins it).
     if (data.docs_drift && data.docs_drift.forks > 0) {
       const d = data.docs_drift;
       const parts: string[] = [`${d.customized} customized`];
-      if (d.stale > 0) parts.push(`${d.stale} with upstream updates — run 'tbd docs update'`);
+      if (d.stale > 0) parts.push(`${d.stale} with upstream updates; run 'tbd docs update'`);
       if (d.conflicted > 0) parts.push(`${d.conflicted} conflict pending`);
-      if (d.missing > 0) parts.push(`${d.missing} missing — see 'tbd docs status'`);
+      if (d.missing > 0) parts.push(`${d.missing} missing; see 'tbd docs status'`);
       console.log('');
       console.log(`${colors.bold('Docs:')} ${d.forks} forked (${parts.join(', ')})`);
     }

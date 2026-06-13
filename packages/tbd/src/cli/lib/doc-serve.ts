@@ -1,5 +1,5 @@
 /**
- * Shared construction of docmap entries for served docs — the one-model,
+ * Shared construction of docmap entries for served docs: the one-model,
  * one-renderer contract (spec Decisions 21/22): `tbd docs list`/`show`, the
  * bare overview, and the per-kind readers all build entries here, so their
  * JSON output cannot drift.
@@ -45,7 +45,7 @@ const KIND_CACHE_DIRS: Record<ForkKind, string[]> = {
 
 /**
  * Validated repo-relative dirs from docs_cache.local_dirs (./-prefixed local
- * docrefs). Invalid entries are skipped — doctor surfaces them.
+ * docrefs). Invalid entries are skipped; doctor surfaces them.
  */
 export function sanitizeLocalDirs(localDirs: string[] | undefined): string[] {
   const out: string[] = [];
@@ -65,8 +65,8 @@ export function sanitizeLocalDirs(localDirs: string[] | undefined): string[] {
  * local doc appears once.
  */
 export function effectiveServePaths(kind: ForkKind, localDirs: string[]): string[] {
-  // localDirs arrive already sanitized (loadServeContext) — repo-relative,
-  // not raw docrefs — so they must not pass through sanitizeLocalDirs again.
+  // localDirs arrive already sanitized (loadServeContext): repo-relative,
+  // not raw docrefs; so they must not pass through sanitizeLocalDirs again.
   return [KIND_FORK_DIRS[kind], ...localDirs, ...KIND_CACHE_DIRS[kind]];
 }
 

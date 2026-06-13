@@ -690,13 +690,13 @@ export function mergeIssues(base: Issue | null, local: Issue, remote: Issue): Me
  * Issues bucketed by ULID/id across two (possibly unrelated) tbd-sync roots.
  */
 export interface UlidBuckets {
-  /** Present only locally — must be re-applied onto the adopted remote base. */
+  /** Present only locally; must be re-applied onto the adopted remote base. */
   localOnly: Issue[];
-  /** Present only on the remote — already on the adopted base; nothing to do. */
+  /** Present only on the remote; already on the adopted base; nothing to do. */
   remoteOnly: Issue[];
-  /** Same id, substantively equal — no action (remote version kept). */
+  /** Same id, substantively equal; no action (remote version kept). */
   bothIdentical: Issue[];
-  /** Same id, differing content — must be field-merged, never dropped. */
+  /** Same id, differing content; must be field-merged, never dropped. */
   bothDifferent: { local: Issue; remote: Issue }[];
 }
 
@@ -783,7 +783,7 @@ export async function pushWithRetry(
   const dirArgs = baseDir ? ['-C', baseDir] : [];
 
   // Field-level conflicts accumulate across retries; they are informational
-  // (the data is preserved in the attic) and must NOT abort the retry loop —
+  // (the data is preserved in the attic) and must NOT abort the retry loop;
   // the merge that produced them has been committed, so the next push can
   // fast-forward. Surfaced on the final result for reporting.
   const allConflicts: ConflictEntry[] = [];
@@ -867,7 +867,7 @@ export type RemoteBranchProbe = 'present' | 'absent' | 'check-failed';
  * `git ls-remote --exit-code` exits 2 when the connection succeeded but no ref
  * matched; any other failure (auth/network/transient, or git not found) is a
  * check failure. Orphan-creating callers MUST branch on all three states and
- * never treat `check-failed` as `absent` — doing so risks creating a divergent
+ * never treat `check-failed` as `absent`; doing so risks creating a divergent
  * local branch when the remote is merely unreachable.
  */
 export async function probeRemoteBranch(
@@ -1342,7 +1342,7 @@ export async function pushFreshOrphan(
     return { pushed: true, adopted: false };
   } catch (err) {
     if (!isNonFastForward(err)) {
-      // Transient / permanent (restricted egress, no auth, network) — the push
+      // Transient / permanent (restricted egress, no auth, network); the push
       // is best-effort and setup must not break. The window simply shrinks to
       // "until the first reachable sync".
       return { pushed: false, adopted: false };
@@ -1369,7 +1369,7 @@ export async function pushFreshOrphan(
  * Initialize the hidden worktree for the tbd-sync branch.
  * Follows the decision tree from tbd-design.md §2.3.
  *
- * MUST be called while holding `withSharedDataSyncLock` — it migrates legacy
+ * MUST be called while holding `withSharedDataSyncLock`; it migrates legacy
  * per-checkout worktrees and creates the shared attached worktree on tbd-sync,
  * so concurrent callers can otherwise race branch ownership and migration.
  *
@@ -1473,7 +1473,7 @@ export async function initWorktree(
 
     // Add .gitattributes for merge=union on ids.yml so concurrent additions
     // (both sides add non-overlapping keys) merge cleanly instead of conflicting.
-    // This must be inside the worktree — .gitattributes on the main branch has
+    // This must be inside the worktree; .gitattributes on the main branch has
     // no effect on merges happening on the tbd-sync branch.
     await writeFile(join(dataSyncPath, 'mappings', '.gitattributes'), 'ids.yml merge=union\n');
 
@@ -1624,7 +1624,7 @@ export async function checkRemoteBranchHealth(
 
     // Determine divergence / unrelated state. Distinguish "no local branch"
     // (stays false/false) from "local exists but no common ancestor" (the
-    // unrelated worst case) — the old bare catch collapsed both to false.
+    // unrelated worst case); the old bare catch collapsed both to false.
     let diverged = false;
     let unrelated = false;
     if (await branchExists(syncBranch, baseDir)) {
@@ -1804,7 +1804,7 @@ async function readBranchMapping(baseDir: string, ref: string): Promise<IdMappin
  * both sides instead of one side winning.
  *
  * Returns `null` when the bead does not exist on the `theirsRef` side (nothing to
- * merge — keep ours). Used by sync's conflict paths in place of git's line-based
+ * merge, keep ours). Used by sync's conflict paths in place of git's line-based
  * text merge. See issue #155.
  *
  * @param repoDir - Directory to run git in (the data-sync worktree). `oursRef` and
@@ -1822,9 +1822,9 @@ export async function mergeBeadAcrossRefs(
   const ours = parseIssue(await git('-C', repoDir, 'show', `${oursRef}:${path}`));
 
   // Read the other side's blob. A missing git object means the bead does not
-  // exist there (nothing to merge — keep ours). A blob that EXISTS but fails to
+  // exist there (nothing to merge, keep ours). A blob that EXISTS but fails to
   // parse is corruption (e.g. committed conflict markers) and must propagate to
-  // the fail-loud path — never be silently treated as absent. So the git read
+  // the fail-loud path; never be silently treated as absent. So the git read
   // and the parse are separated: only git-object errors map to "absent". (#155)
   let theirsContent: string;
   try {
@@ -1850,7 +1850,7 @@ export async function mergeBeadAcrossRefs(
     try {
       baseContent = await git('-C', repoDir, 'show', `${baseSha}:${path}`);
     } catch (err) {
-      // Bead added independently on both sides (absent at the ancestor) — no
+      // Bead added independently on both sides (absent at the ancestor); no
       // base. A non-git error is unexpected and must propagate.
       if (!(err instanceof GitError)) throw err;
     }
@@ -1878,7 +1878,7 @@ async function preserveLosingVersion(dataSyncPath: string, loser: Issue): Promis
  * the rescue is restartable.
  *
  * MUST be called while holding `withSharedDataSyncLock`. A merge in progress
- * aborts the rescue; a merely-dirty worktree does not — its uncommitted
+ * aborts the rescue; a merely-dirty worktree does not; its uncommitted
  * tbd-owned data-sync changes are committed first (so the backup branch captures
  * them), while any dirty path outside the data-sync tree aborts. See issue #158.
  */
@@ -1892,7 +1892,7 @@ export async function rescueUnrelatedHistory(
 
   // Preconditions. A half-finished merge is a genuinely unsafe base to reset
   // over, so refuse it. But a merely-dirty worktree is tbd's own uncommitted
-  // data-sync state (this worktree is dedicated to DATA_SYNC_DIR) — commit it
+  // data-sync state (this worktree is dedicated to DATA_SYNC_DIR); commit it
   // first so the backup branch captures it faithfully and the reset is safe,
   // rather than refusing and sending the user into a sync ⇄ doctor loop. (#158)
   const mergeInProgress = await git('-C', worktreePath, 'rev-parse', '-q', '--verify', 'MERGE_HEAD')
@@ -1909,7 +1909,7 @@ export async function rescueUnrelatedHistory(
   const dirty = (await git('-C', worktreePath, 'status', '--porcelain')).trim();
   if (dirty) {
     // Defensive: this worktree only ever holds DATA_SYNC_DIR. If anything
-    // outside it is dirty, do not auto-commit foreign changes — refuse clearly.
+    // outside it is dirty, do not auto-commit foreign changes; refuse clearly.
     // Let git do the filtering (an exclude pathspec) rather than parse porcelain.
     const foreign = (
       await git('-C', worktreePath, 'status', '--porcelain', '--', '.', `:!${DATA_SYNC_DIR}`)
@@ -1960,7 +1960,7 @@ export async function rescueUnrelatedHistory(
     // trustworthy base (with equal created_at it synthesizes one from the
     // lower-version side). Preserve EVERY substantively-different side that the
     // merge does not keep, so an edit is never silently dropped without an
-    // attic artifact — independent of whether mergeIssues reported a field
+    // attic artifact; independent of whether mergeIssues reported a field
     // conflict.
     const { merged } = mergeIssues(null, local, remoteIssue);
     await writeIssue(dataSyncPath, merged);
@@ -1973,7 +1973,7 @@ export async function rescueUnrelatedHistory(
   }
 
   // Union the ID mappings (additive). The remote is the adopted canonical base,
-  // so it MUST win short-ID collisions — give remoteMapping precedence so an
+  // so it MUST win short-ID collisions; give remoteMapping precedence so an
   // issue already on the shared remote keeps its public ID. reconcileMappings
   // then regenerates only the conflicting local-only mappings.
   const mergedMapping = mergeIdMappings(remoteMapping, localMapping);
@@ -1988,7 +1988,7 @@ export async function rescueUnrelatedHistory(
   // 6. Commit. The push is now a clean fast-forward over origin/<syncBranch>.
   // If adopting the remote base left nothing to reconcile (e.g. two
   // scaffold-only roots, or identical issue sets + mappings), the reset already
-  // adopted the base successfully — skip the commit rather than failing on
+  // adopted the base successfully; skip the commit rather than failing on
   // "nothing to commit".
   await git('-C', worktreePath, 'add', '-A');
   const pending = (await git('-C', worktreePath, 'status', '--porcelain')).trim();
@@ -2086,7 +2086,7 @@ export async function removeWorktree(
  * - CORRUPTED: backup to .tbd/backups/, remove, then recreate
  * - MISSING: just create
  *
- * MUST be called while holding `withSharedDataSyncLock` — repair mutates
+ * MUST be called while holding `withSharedDataSyncLock`; repair mutates
  * shared worktree and branch state and shares the same locking contract as
  * `initWorktree`.
  *
@@ -2253,7 +2253,7 @@ export async function migrateDataToWorktree(
       await cp(join(wrongIssuesPath, file), join(correctIssuesPath, file));
     }
 
-    // Merge ID mappings instead of overwriting — ids.yml is append-only, so a
+    // Merge ID mappings instead of overwriting; ids.yml is append-only, so a
     // raw cp would destroy existing entries in the worktree. Import and use the
     // merge utilities so both source and destination entries are preserved.
     for (const file of mappingFiles) {

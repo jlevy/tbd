@@ -1,5 +1,5 @@
 /**
- * `tbd docs fork` / `unfork` / `status` — the forkable-docs command handlers.
+ * `tbd docs fork` / `unfork` / `status`: the forkable-docs command handlers.
  *
  * These are added as subcommands of `tbd docs`. Resolution uses the gitignored
  * cache (the pristine upstream) so forking copies upstream content into the visible
@@ -186,7 +186,7 @@ class DocsForkHandler extends BaseCommand {
         const colors = this.output.getColors();
         console.log(colors.dim(`  Regenerated ${FORK_DIR}/README.md`));
         console.log('');
-        console.log('Edit in place — tbd now serves your copy wherever it served upstream.');
+        console.log('Edit in place; tbd now serves your copy wherever it served upstream.');
       }
     }, 'Failed to fork');
   }
@@ -298,7 +298,7 @@ class DocsUnforkHandler extends BaseCommand {
             manifest = result.manifest;
             removed.push(name);
             if (!this.ctx.json) {
-              this.output.success(`Unforked ${name} — served from upstream again.`);
+              this.output.success(`Unforked ${name}, served from upstream again.`);
             }
           } catch (err) {
             if (err instanceof ForkConflictError && err.code === 'customized') {
@@ -425,7 +425,7 @@ class DocsStatusHandler extends BaseCommand {
       const conflictCount = forkedRows.filter((r) => r.conflicted).length;
       const missingRows = forkedRows.filter((r) => r.missing);
       const parts = [`${customizedCount} customized`];
-      if (staleCount > 0) parts.push(`${staleCount} with upstream updates — run 'tbd docs update'`);
+      if (staleCount > 0) parts.push(`${staleCount} with upstream updates; run 'tbd docs update'`);
       if (conflictCount > 0) parts.push(`${conflictCount} conflict pending`);
       if (locals.length > 0) parts.push(`${locals.length} local`);
       console.log('');
@@ -518,7 +518,7 @@ class DocsUpdateHandler extends BaseCommand {
               decisions.push({ name: entry.name, message: result.message });
             } else if (result.action !== 'skip-not-stale') {
               // Conflicted / orphaned / missing / version-skewed: actionable but
-              // not applied here — surface, never silently swallow.
+              // not applied here; surface, never silently swallow.
               skipped.push({ name: entry.name, message: result.message });
             }
             continue;
@@ -535,7 +535,7 @@ class DocsUpdateHandler extends BaseCommand {
               await writeBaseContent(tbdRoot, entry.kind, entry.name, newBaseContent);
               updated.base_hash = hashContent(newBaseContent);
               // The base records its fork point's tbd version so older clients
-              // can detect (and refuse) a downgrade — see the update guard.
+              // can detect (and refuse) a downgrade; see the update guard.
               updated.tbd_version = VERSION;
             }
             if (result.setConflicted) {

@@ -368,7 +368,7 @@ describe('setup flows', { timeout: setupFlowTestTimeout }, () => {
     const zeroForkMenu = [
       'Docs: [N] docs available in the cache (.tbd/docs/, gitignored); none forked into the repo.',
       '  Guidelines are active from the cache. Three postures, all serving the same docs:',
-      '  Hidden (default):  keep the cache as-is — zero repo footprint',
+      '  Hidden (default):  keep the cache as-is; zero repo footprint',
       '  Curated:           tbd docs fork <name> [...]  fork chosen docs into docs/tbd/',
       '                     tbd docs fork --category=<name>  (general, typescript, python, convex, electron)',
       '  Everything:        tbd docs fork --all         all docs, visible and editable',
@@ -411,7 +411,7 @@ describe('setup flows', { timeout: setupFlowTestTimeout }, () => {
       const stale = runTbd(['setup', '--auto']);
       expect(stale.status).toBe(0);
       expect(stale.stdout).toContain(
-        "Docs: 1 forked into docs/tbd/. 1 have upstream updates — run 'tbd docs update'.",
+        "Docs: 1 forked into docs/tbd/. 1 have upstream updates; run 'tbd docs update'.",
       );
 
       // Reporting only: setup must never write the fork dir or its manifest.

@@ -102,7 +102,7 @@ class UpdateHandler extends BaseCommand {
                 issue.spec_path = parentIssue.spec_path;
               }
             } catch {
-              // Parent not found — skip inheritance
+              // Parent not found; skip inheritance
             }
           }
 

@@ -2,7 +2,7 @@
  * `tbd setup` - Configure tbd integration with editors and tools.
  *
  * Requires a git repository. All setup artifacts (.tbd/, .claude/) are placed
- * at the git root, adjacent to .git/. Installation is always project-local —
+ * at the git root, adjacent to .git/. Installation is always project-local;
  * there is no global/user-level install.
  *
  * Options:
@@ -144,7 +144,7 @@ async function writeSkillFile(targetPath: string, payload: string): Promise<void
   try {
     existing = await readFile(targetPath, 'utf-8');
   } catch {
-    // No existing file (first install) — nothing to guard against.
+    // No existing file (first install); nothing to guard against.
   }
   if (existing !== null) {
     assertNotNewerFormat(existing, targetPath);
@@ -155,7 +155,7 @@ async function writeSkillFile(targetPath: string, payload: string): Promise<void
 
 /**
  * AGENTS.md managed-block markers. `CODEX_BEGIN_MARKER` is the stable PREFIX of
- * the begin line — the metadata (`format=fNN surface=agents-md`) follows it on the
+ * the begin line; the metadata (`format=fNN surface=agents-md`) follows it on the
  * same line, e.g. `<!-- BEGIN TBD INTEGRATION format=f02 surface=agents-md -->`.
  * Cleanup/upgrade code matches on this prefix so it finds both legacy
  * (`<!-- BEGIN TBD INTEGRATION -->`) and current marked blocks.
@@ -187,7 +187,7 @@ function parseIntegrationFormat(content: string): string | null {
 /**
  * Forward-compatibility guard. If a generated artifact was written by a NEWER
  * tbd than this one understands, refuse to rewrite it and tell the user to
- * upgrade tbd — overwriting would downgrade a newer managed format. This is what
+ * upgrade tbd; overwriting would downgrade a newer managed format. This is what
  * makes pinning safe on a team: an older tbd fails loudly instead of clobbering.
  */
 function assertNotNewerFormat(content: string, artifact: string): void {
@@ -219,7 +219,7 @@ function getCodexTbdSection(): string {
 
 This repository uses **tbd** for git-native issue tracking (beads), spec-driven
 planning, and on-demand engineering guidelines.
-As the agent, you operate tbd on the user’s behalf — translate their requests into tbd
+As the agent, you operate tbd on the user’s behalf: translate their requests into tbd
 actions rather than telling them to run commands.
 
 - Run \`tbd prime\` to load current project state and the full tbd workflow.
@@ -1410,7 +1410,7 @@ class SetupDefaultHandler extends BaseCommand {
 
     // Ensure .tbd/.gitattributes has merge protection for outbox ids.yml
     // Placed inside .tbd/ so all tbd settings are self-contained in one directory.
-    // Git supports .gitattributes in subdirectories — patterns are relative to that directory.
+    // Git supports .gitattributes in subdirectories; patterns are relative to that directory.
     const gitattributesResult = await ensureGitignorePatterns(
       join(projectDir, TBD_DIR, '.gitattributes'),
       [
@@ -1684,7 +1684,7 @@ class SetupDefaultHandler extends BaseCommand {
 
     // 2b. Create/update .tbd/.gitattributes with merge strategies for tbd files.
     // Placed inside .tbd/ so all tbd settings are self-contained in one directory.
-    // Git supports .gitattributes in subdirectories — patterns are relative to that directory.
+    // Git supports .gitattributes in subdirectories; patterns are relative to that directory.
     // The outbox ids.yml must use "merge=union" so git never drops rows during merge.
     // Without this, AI agents resolving merge conflicts can delete the mapping file
     // (main has no outbox, so the merge considers "no file" as the correct version),
@@ -1761,7 +1761,7 @@ interface AutoSetupResult {
  * Agent integration surfaces that `tbd setup` can install, in install/report
  * order. Each is selectable via `--surfaces=<comma-list>`; with the flag omitted,
  * all are installed. Adding an agent is one entry here plus a case in
- * `installSurface` — there is no per-agent flag to add.
+ * `installSurface`; there is no per-agent flag to add.
  */
 const SETUP_SURFACE_IDS = ['portable', 'agents-md', 'claude', 'codex'] as const;
 type SurfaceId = (typeof SETUP_SURFACE_IDS)[number];
@@ -1908,7 +1908,7 @@ class SetupAutoHandler extends BaseCommand {
     await this.syncDocs(cwd);
 
     // Install the selected surfaces. With no --surfaces flag, all are installed;
-    // there is no detection gating — project-local integration files are cheap
+    // there is no detection gating; project-local integration files are cheap
     // and harmless, and installing them all is what makes the skill portable.
     const selected = this.resolveSurfaces();
     const skippedSurfaces: string[] = [];
@@ -1958,7 +1958,7 @@ class SetupAutoHandler extends BaseCommand {
 
   /**
    * Print the Docs summary after the integration sections: how many docs tbd
-   * serves from the gitignored cache, or — when docs are forked into the repo —
+   * serves from the gitignored cache, or, when docs are forked into the repo,
    * the fork count plus any pending upstream updates. Reporting only: setup
    * never writes the fork dir (only `tbd docs update` modifies forked docs).
    *
@@ -1978,7 +1978,7 @@ class SetupAutoHandler extends BaseCommand {
 
       if (drift.forks > 0) {
         const updates =
-          drift.stale > 0 ? ` ${drift.stale} have upstream updates — run 'tbd docs update'.` : '';
+          drift.stale > 0 ? ` ${drift.stale} have upstream updates; run 'tbd docs update'.` : '';
         lines = [`Docs: ${drift.forks} forked into ${FORK_DIR}/.${updates}`];
       } else {
         let total = 0;
@@ -1998,7 +1998,7 @@ class SetupAutoHandler extends BaseCommand {
         ];
       }
     } catch {
-      // Reporting only — never fail setup because the summary could not be read.
+      // Reporting only; never fail setup because the summary could not be read.
       return;
     }
 
@@ -2124,7 +2124,7 @@ class SetupAutoHandler extends BaseCommand {
       await writeSkillFile(portable, payload);
       result.installed = true;
     } catch (error) {
-      // The format guard is a hard stop — surface it instead of swallowing.
+      // The format guard is a hard stop; surface it instead of swallowing.
       if (error instanceof CLIError) {
         throw error;
       }
@@ -2169,7 +2169,7 @@ class SetupAutoHandler extends BaseCommand {
       await handler.run({});
       result.installed = true;
     } catch (error) {
-      // The format guard is a hard stop — surface it instead of swallowing.
+      // The format guard is a hard stop; surface it instead of swallowing.
       if (error instanceof CLIError) {
         throw error;
       }
@@ -2203,7 +2203,7 @@ class SetupAutoHandler extends BaseCommand {
       await handler.runAgentsMdOnly();
       result.installed = true;
     } catch (error) {
-      // The format guard is a hard stop — surface it instead of swallowing.
+      // The format guard is a hard stop; surface it instead of swallowing.
       if (error instanceof CLIError) {
         throw error;
       }

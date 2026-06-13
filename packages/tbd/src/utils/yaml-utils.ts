@@ -199,7 +199,7 @@ export function parseYamlToleratingDuplicateKeys<T = unknown>(
   const duplicateKeys = detectDuplicateYamlKeys(content);
 
   if (duplicateKeys.length === 0) {
-    // No duplicates — use standard parse for maximum safety
+    // No duplicates; use standard parse for maximum safety
     return {
       data: parseYaml(content) as T,
       duplicateKeys: [],

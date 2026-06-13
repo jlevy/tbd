@@ -313,8 +313,8 @@ export class DocSync {
 
     // Group entries by source root (one group per git repo+ref; internal,
     // local, and ad-hoc URLs each form their own group). Grouping gives
-    // per-source failure isolation — one unreachable repo skips only its own
-    // entries instead of timing out on each — and one revision capture per
+    // per-source failure isolation; one unreachable repo skips only its own
+    // entries instead of timing out on each, and one revision capture per
     // git source for provenance.
     const groups = groupSourceEntries(this.config);
     const failedGroups = new Set<string>();
@@ -699,7 +699,7 @@ export async function syncDocsWithDefaults(
       '.tbd/docs/shortcuts/standard',
     ];
     config.docs_cache = {
-      // Preserve sibling keys (local_dirs etc.) — the cache refresh owns only
+      // Preserve sibling keys (local_dirs etc.); the cache refresh owns only
       // files and lookup_path, never the rest of the docs_cache section.
       ...config.docs_cache,
       lookup_path: lookupPath,

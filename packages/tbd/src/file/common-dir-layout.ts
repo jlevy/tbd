@@ -160,8 +160,8 @@ export async function ensureCommonDirLayout(
  * path is not writable by this process (EPERM/EACCES).
  *
  * The common trigger is an agent sandbox (e.g. Codex) where the *checkout* is
- * writable but `$GIT_COMMON_DIR/tbd` — which holds the shared sync worktree and
- * the lock — lives in the user's original repo directory, outside the sandbox's
+ * writable but `$GIT_COMMON_DIR/tbd`, which holds the shared sync worktree and
+ * the lock, lives in the user's original repo directory, outside the sandbox's
  * writable boundary. Read-only commands work, but any write needs the lock and
  * fails here. This is fatal for the command: without the lock we cannot safely
  * mutate shared state. See issue #164.
@@ -183,7 +183,7 @@ export class SharedLockUnwritableError extends Error {
       : `The shared tbd state under ${paths.sharedTbdDir} is not writable by this process, ` +
         `so write commands cannot proceed.`;
     const fix = outside
-      ? `Fix: grant write access to ${paths.sharedTbdDir} — in an agent sandbox such as Codex ` +
+      ? `Fix: grant write access to ${paths.sharedTbdDir}; in an agent sandbox such as Codex ` +
         `add it to the writable roots, or re-run with sandbox escalation.`
       : `Fix: ensure ${paths.sharedTbdDir} is writable by this user (check filesystem permissions).`;
     super(

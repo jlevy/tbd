@@ -729,8 +729,8 @@ User-added shortcuts go to `shortcuts/custom/` (separate from bundled
 Every managed doc is served through one search path; where the file lives is a per-doc
 choice between two modes that serve identical content:
 
-- **Hidden cache (the default).** Docs live in the gitignored `.tbd/docs/` cache —
-  always active, zero repo footprint, refreshed by `tbd docs sync` (and by setup).
+- **Hidden cache (the default).** Docs live in the gitignored `.tbd/docs/` cache: always
+  active, zero repo footprint, refreshed by `tbd docs sync` (and by setup).
 - **Forked.** `tbd docs fork <name>` (or `--all`) copies a doc into `docs/tbd/`, tracked
   in git: visible on GitHub, reviewable in PRs, and editable; your copy shadows the
   cache everywhere the upstream one was served.
@@ -784,7 +784,7 @@ Whatever you or your agent do to these files, `tbd docs status` gives a defined 
 | Commit / pull / merge / revert any of it | recomputed | States derive from content, so collaborators see the same answers from the same files |
 
 Awareness without surprise mutations: `tbd sync` prints a one-line notice when forked
-docs are stale, conflicted, or missing, and `tbd docs status` shows the full picture —
+docs are stale, conflicted, or missing, and `tbd docs status` shows the full picture,
 but only the explicit `tbd docs update` ever modifies tracked files.
 
 ### uninstall

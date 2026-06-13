@@ -65,7 +65,7 @@ export async function loadSkillContent(): Promise<string> {
 
     const header = await readFile(headerPath, 'utf-8');
     const skill = await readFile(skillPath, 'utf-8');
-    // Strip the baseline's frontmatter — the header supplies the document
+    // Strip the baseline's frontmatter; the header supplies the document
     // frontmatter; a second `---` block mid-document is invalid and unstable.
     return header + stripFrontmatter(skill);
   } catch {
@@ -135,7 +135,7 @@ tbd is not yet initialized. To set it up, run:
   tbd setup --auto                   # If .tbd/ already exists (prefix already set)
 
 CRITICAL: Never guess a prefix. Always ask the user what prefix they want.
-Do NOT tell the user to run these commands — run them yourself on their behalf.
+Do NOT tell the user to run these commands; run them yourself on their behalf.
 
 After setup, run 'tbd' again to get project status and workflow guidance.`;
 
@@ -259,7 +259,7 @@ class PrimeHandler extends BaseCommand {
       markdownContent += '\n\n' + shortcutDir;
     }
     markdownContent +=
-      '\n\nIMPORTANT: Use tbd to help the user — do NOT tell the user to run tbd commands.\n' +
+      '\n\nIMPORTANT: Use tbd to help the user; do NOT tell the user to run tbd commands.\n' +
       'When the user asks for help or orientation, run `tbd shortcut welcome-user`.';
 
     // Output with interactive formatting (colors, pagination) when appropriate
@@ -319,7 +319,7 @@ class PrimeHandler extends BaseCommand {
     console.log('1. Welcome the user! Run `tbd shortcut welcome-user` and follow its');
     console.log('   instructions to give the user a warm orientation.');
     console.log('2. Show the user examples of what THEY can say (e.g. "there\'s a bug",');
-    console.log('   "let\'s plan a feature") — do NOT show them tbd CLI commands.');
+    console.log('   "let\'s plan a feature"); do NOT show them tbd CLI commands.');
     console.log("3. You use tbd on the user's behalf. The user talks to you naturally;");
     console.log('   you translate their requests into tbd actions.');
     console.log('');

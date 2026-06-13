@@ -120,7 +120,7 @@ own point-of-use notice (#135).
 ```console
 $ tbd create "Main checkout issue" --type=task
 • tbd_format f03 → f05: .tbd/config.yml updated in this checkout. Commit on this branch or merge main to publish the format upgrade.
-• tbd-sync worktree was missing — auto-materialized it (fresh clone, or the worktree was removed).
+• tbd-sync worktree was missing; auto-materialized it (fresh clone, or the worktree was removed).
 ✓ Created test-[SHORTID]: Main checkout issue
 ? 0
 ```
