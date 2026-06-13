@@ -7,7 +7,9 @@ author: Joshua Levy (github.com/jlevy) with LLM assistance
 
 **Date:** 2026-06-13
 
-**Status:** Draft (proposal—guideline edits not yet applied)
+**Status:** Implemented—guideline edits applied and under review in
+[PR #175](https://github.com/jlevy/tbd/pull/175). The decisions below are settled (see
+the resolved Open Questions); this spec is a record, not an open proposal.
 
 ## Overview
 
@@ -188,9 +190,30 @@ taste-skill/anthropics-skills) to the worked-examples and References lists.
 ### Phase 2—Follow-on (separate beads)
 
 - [ ] Bead: drop `surface=agents-md` from tbd’s generated `AGENTS.md` begin line
-  (`setup.ts`), keeping detection prefix-anchored; update goldens/drift tests.
+  (`setup.ts`), keeping detection prefix-anchored; emit the cleaner marker going
+  forward, accept old `surface=...` markers, collapse duplicates, and guard newer
+  `format=fNN` blocks; update goldens/drift tests.
 - [ ] Optional: have tbd’s generated artifacts demonstrate any newly recommended
   pattern, so the reference implementation stays ahead of the guideline.
+
+From the [PR #175](https://github.com/jlevy/tbd/pull/175) senior review (dogfooding
+roadmap—tracked here, intentionally not in this pure-docs PR):
+
+- [ ] Make tbd’s distribution contract explicit (docs): state that tbd is intentionally
+  L3, not the baseline for ordinary CLIs; list the surfaces tbd owns (generated skills,
+  managed `AGENTS.md` block, hooks, setup/prime, DocCache/meta-skill); name which lower
+  rungs simpler tools should prefer and why.
+- [ ] Generate and test tbd’s canonical skill from one source: ensure repo-local
+  `.agents/skills/tbd/SKILL.md` and the `.claude/skills/tbd/` mirror come from a single
+  source of truth, keep the drift test, and keep the skill small (route to `tbd prime`,
+  `tbd shortcut`, `tbd guidelines`—don’t embed the manual).
+- [ ] Make format migration artifact-driven in code and tests: test the managed
+  `AGENTS.md` block independently from hook and skill files; treat each generated
+  artifact as having its own format/migration contract; don’t imply stamps exist only
+  because a tool is L3.
+- [ ] Improve `tbd setup`/`doctor` output around rungs and surfaces: explain which
+  surfaces are installed and why tbd is L3, and reinforce that simpler tools usually
+  want L1, plain L2, or the L2b variant.
 
 ## Testing Strategy
 

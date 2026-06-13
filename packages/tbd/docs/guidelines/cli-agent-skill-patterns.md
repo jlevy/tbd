@@ -813,10 +813,14 @@ Do not make Codex hooks call scripts stored under `.claude/`—that couples Code
 Claude setup. If a script must move out of `.claude/scripts/`, update the tbd-owned hook
 commands (or leave a wrapper) so existing Claude hooks keep working.
 
-**Upgrade existing installs deliberately (L3 only).** A self-installing tool whose skill
-content evolves *will* leave older generated files in users’ repos.
-(An L2 tool that only writes discovery-dir skills can skip all of this: a re-install is
-a clean full overwrite, with no managed `AGENTS.md` block or hooks to migrate.)
+**Upgrade managed generated artifacts deliberately.** A self-installing tool whose
+generated content evolves *will* leave older artifacts in users’ repos.
+(A tool that only writes fully-overwritten discovery-dir skills—plain L2 or below—can
+skip all of this: a re-install is a clean full overwrite, with no managed `AGENTS.md`
+block or hooks to migrate.
+The L2b variant, which merges a managed `AGENTS.md` block into a human-authored file,
+**does** need the format stamp and forward-compatibility guard even though it is not
+L3—this is the artifact-driven rule from §6.0, not an L3-only one.)
 Treat generated integration files like config migrations:
 
 Reserve an `fNN` **format bump** for changes big enough to need an explicit migration: a

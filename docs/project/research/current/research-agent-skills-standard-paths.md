@@ -141,12 +141,12 @@ A mid-2026 distribution audit
 found the ecosystem growing **native per-agent skill directories** alongside the
 portable `.agents/skills/`, which shifts two facts the guideline currently states:
 
-- **Cursor now scans `.agents/skills/` natively** (Cursor mid-2026 Agent Skills docs:
-  auto-discovers `.agents/skills/`, `.cursor/skills/`, and the `~/` variants, including
-  nested monorepo dirs).
-  The guideline still describes Cursor as reaching `.agents/skills/` only “via the
-  skills.sh installer … not natively”; that is now stale.
-  Re-verify against current Cursor docs before asserting in the guideline.
+- **Cursor now scans `.agents/skills/` natively** (Cursor Agent Skills docs, verified
+  2026-06-13: native recursive discovery of `.agents/skills/` and `.cursor/skills/` plus
+  the `~/` user-level variants, including nested monorepo dirs, and compatibility
+  loading from `.claude/skills/` and `.codex/skills/`). The guideline’s older “Cursor
+  reaches `.agents/skills/` only via the skills.sh installer, not natively” is now
+  stale; it has been corrected to native (verified).
 - **Per-agent native dirs are multiplying** (community catalogs, directional): Cursor
   `.cursor/skills/`, Copilot `.github/skills/`, Gemini `.gemini/skills/`, OpenCode
   `.opencode/skills/`, Windsurf `.windsurf/skills/`, Google Antigravity
@@ -200,7 +200,7 @@ project-local path. Native paths should be mirrors or compatibility targets.
 | --- | --- | --- | --- |
 | Claude Code | `.claude/skills/<name>/SKILL.md` | `~/.claude/skills/<name>/SKILL.md` | Official docs still center `.claude/skills/`. |
 | Codex | `.agents/skills/` from CWD through repo root (`SkillScope::Repo`) | `~/.agents/skills/` (`User`); admin; plugin roots; `$CODEX_HOME/skills` | **Source-verified** (not just docs): `codex-rs/core-skills/src/loader.rs` `repo_agents_skill_roots()` reads a bare repo-root `.agents/skills/` directly — no manifest. See 2026-05-26 note. |
-| Cursor | `.agents/skills/` per skills CLI support | `~/.cursor/skills/` | Changelog and best-practices docs support Agent Skills; path docs are thinner than Claude/Gemini. |
+| Cursor | `.agents/skills/` and `.cursor/skills/` (native recursive scan) | `~/.agents/skills/` and `~/.cursor/skills/` | **Docs-verified** (Cursor Agent Skills docs, 2026-06-13): native scan, plus compatibility loading from `.claude/skills/` and `.codex/skills/`. |
 | Gemini CLI | `.gemini/skills/` or `.agents/skills/` alias | `~/.gemini/skills/` or `~/.agents/skills/` alias | Official Gemini docs explicitly mention `.agents/skills` alias. |
 | GitHub Copilot | `.agents/skills/` per skills CLI support | `~/.copilot/skills/` | Included in Vercel skills supported-agent table. |
 | Amp | `.agents/skills/` per skills CLI support | `~/.config/agents/skills/` | Included in Vercel skills supported-agent table. |
@@ -212,16 +212,20 @@ Skills as capability packages.
 
 **Native scan vs. installer reach (be precise).** The `.agents/skills/` rows above mix
 two different mechanisms, and conflating them caused a downstream confusion (see
-2026-05-26 note):
+2026-05-26 note). The bar for the first bucket is a **verified vendor-native scan**
+(source or vendor docs)—not mere presence in Vercel’s `skills` supported-agent table,
+which is evidence of installer reach, not proof a vendor’s own loader reads the path:
 
-- **Scans repo-root `.agents/skills/` natively**: Codex (verified at source) and Gemini
-  CLI (documents the alias).
-  pi/OpenCode scan project Agent Skills dirs.
-- **Reached via the `npx skills add` installer**: for Cursor, Copilot, Cline, Amp,
-  Windsurf, the installer copies `SKILL.md` into `.agents/skills/` and **symlinks it
-  into each agent’s own dir** — the *installer* binds the path, not the agent.
-  “Works with Cursor/Copilot” means “via skills.sh”, not “Cursor scans `.agents/skills/`
-  itself.”
+- **Scans `.agents/skills/` natively (verified)**: Codex (verified at source), Gemini
+  CLI (documents the alias), and **Cursor** (Cursor Agent Skills docs, 2026-06-13:
+  native recursive scan of `.agents/skills/` and `.cursor/skills/`, plus
+  `.claude`/`.codex` compatibility loading).
+- **Reached via the `npx skills add` installer** (the *installer* binds the path, not
+  the agent): Copilot, Cline, Amp, Windsurf, OpenCode—the installer copies `SKILL.md`
+  into `.agents/skills/` and **symlinks it into each agent’s own dir**. “Works with
+  Copilot” means “via skills.sh,” not “Copilot scans `.agents/skills/` itself.”
+  Treat Vercel’s supported-agent table as installer-reach evidence only, not native
+  verification.
 - **Claude Code does not scan `.agents/` at all** — only `.claude/skills/` (confirmed;
   see claude-code#31005), which is why the mirror is mandatory.
 
