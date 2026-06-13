@@ -134,6 +134,26 @@ No refreshed source changed the main recommendation: `.agents/skills/` should be
 portable project skill path, `.claude/skills/` should remain a Claude Code mirror, and
 `AGENTS.md` should remain a separate always-on instruction surface.
 
+### 2026-06-13 Refresh Notes (native per-agent skill dirs)
+
+A mid-2026 distribution audit
+([research-2026-06-13-skill-distribution-landscape.md](./research-2026-06-13-skill-distribution-landscape.md))
+found the ecosystem growing **native per-agent skill directories** alongside the
+portable `.agents/skills/`, which shifts two facts the guideline currently states:
+
+- **Cursor now scans `.agents/skills/` natively** (Cursor mid-2026 Agent Skills docs:
+  auto-discovers `.agents/skills/`, `.cursor/skills/`, and the `~/` variants, including
+  nested monorepo dirs).
+  The guideline still describes Cursor as reaching `.agents/skills/` only “via the
+  skills.sh installer … not natively”; that is now stale.
+  Re-verify against current Cursor docs before asserting in the guideline.
+- **Per-agent native dirs are multiplying** (community catalogs, directional): Cursor
+  `.cursor/skills/`, Copilot `.github/skills/`, Gemini `.gemini/skills/`, OpenCode
+  `.opencode/skills/`, Windsurf `.windsurf/skills/`, Google Antigravity
+  `.agent/skills/`. This does not change the recommendation (portable `.agents/skills/`
+  \+ Claude mirror), but it raises the value of letting the `npx skills add` installer
+  fan out per-agent mirrors rather than a tool writing each one.
+
 * * *
 
 ## Research Findings
