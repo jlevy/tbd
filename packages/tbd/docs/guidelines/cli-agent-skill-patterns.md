@@ -6,7 +6,13 @@ category: general
 ---
 # Agent Skills and CLI Integration Patterns
 
-**Last Updated**: 2026-06-04 (§4.6 adds the “attention routing” framing—the slopdocs vs.
+**Last Updated**: 2026-06-13 (issue #173: named the L2b variant—an L2 self-installer
+that also writes a managed `AGENTS.md` block, `pprose` reference—reframed
+format-versioning as artifact-driven rather than L3-only, added the §6.7 generator-side
+dev-build pin rule, dropped the redundant `surface=` tag from the marker examples, added
+multi-block collapse in §2, and refreshed §6.6 for Cursor’s native `.agents/skills/`
+scanning and the spread of native per-agent skill dirs.
+Earlier 2026-06-04: §4.6 adds the “attention routing” framing—the slopdocs vs.
 hiding-details failure modes—as a contained section, and the §3.1 mechanism callback
 points at it. Earlier 2026-06-02: §6.8 now covers Anthropic’s official and community
 plugin marketplaces—the reviewed, gated submission channel—and the `/plugin` install
@@ -127,9 +133,10 @@ So:
 - **Maximum reach across many agents** → layer them: AGENTS.md, SKILL.md, CLI, and MCP.
   (§1)
 - **Self-installs into agents?** → climb the integration ladder (§6.0): L0 pure skill →
-  L1 skill + pinned `npx`/`uvx` → L2 self-install into skill dirs only (`qmd`) → L3 full
-  platform with managed `AGENTS.md`, hooks, and format versioning (`tbd`). Most tools
-  are L1; stop as low as you can.
+  L1 skill and pinned `npx`/`uvx` → L2 self-install into skill dirs (`qmd`; its **L2b**
+  variant also writes a managed `AGENTS.md` block, `pprose`) → L3 full platform with
+  hooks, `prime`/`setup`, and format-versioned migration (`tbd`). Most tools are L1;
+  stop as low as you can.
 
 Everything below is reference material.
 You do not need most of it for most tools.
@@ -203,7 +210,7 @@ Version the managed block by carrying the format on the **begin marker line itse
 generated content without touching user-authored text:
 
 ```markdown
-<!-- BEGIN MYCLI INTEGRATION format=f02 surface=agents-md -->
+<!-- BEGIN MYCLI INTEGRATION format=f02 -->
 ## mycli
 
 - Run `mycli prime` for current project context.
@@ -215,6 +222,17 @@ generated content without touching user-authored text:
 Keep the begin/end marker *names* stable (`<!-- BEGIN MYCLI INTEGRATION`)—match on that
 prefix so detection finds both legacy blocks (no `format=`, treated as `f01`) and
 current ones. Only the `format=fNN` value changes when the block’s shape changes.
+
+The marker carries only `format=fNN`. An artifact’s type is clear from its **location**
+(a `SKILL.md` under a skill dir, or this BEGIN/END block in `AGENTS.md`), so no in-file
+`surface=` tag is needed, and the portable and Claude `SKILL.md` copies stay
+byte-identical.
+On install, if several managed blocks have accumulated (for example after
+a marker-prefix rename across versions), collapse them: replace every matching block
+with one current block at the position of the first, and preserve everything outside the
+markers.
+Collapse only finds blocks whose begin-prefix the installer recognizes, so match
+a small set of known legacy prefixes, not just the current one.
 
 * * *
 
@@ -504,7 +522,7 @@ Four rungs, lightest first:
   install command. The agent follows the body directly.
   Garry Tan’s **gstack** (23 plain skills) is L0. Install by committing to a discovery
   dir or `npx skills add`.
-- **L1—skill + delegated CLI (zero-install).** Ship a `SKILL.md` that points at a CLI
+- **L1—skill and delegated CLI (zero-install).** Ship a `SKILL.md` that points at a CLI
   invoked through a **version-pinned** zero-install runner—`npx --yes pkg@<ver>`,
   `uvx --from pkg@<ver>`, or `pipx run pkg==<ver>` (§6.7). No install command, no
   managed `AGENTS.md` block, no hooks, no format versioning.
@@ -523,26 +541,42 @@ Four rungs, lightest first:
   and **stops there**: no managed `AGENTS.md` block, no hooks, no `prime`/`setup`
   context machinery. Because it never touches a human-authored project-instruction file
   and always full-overwrites its own generated skill, it does **not** need the §6.6
-  format-version / migration apparatus—a re-install is just a clean overwrite.
-  **`qmd`** (Tobi Lütke’s Markdown search tool) is the reference: `qmd skill install` /
-  `--global`, an embedded skill with a build-time drift test, a
+  format-version and migration apparatus—a re-install is just a clean overwrite.
+  **`qmd`** (Tobi Lütke’s Markdown search tool) is the reference: `qmd skill install`
+  and `--global`, an embedded skill with a build-time drift test, a
   `.claude-plugin/marketplace.json`, and an MCP server—all without writing to
-  `AGENTS.md` at all.
+  `AGENTS.md` at all. One useful variant sits between L2 and L3—call it **L2b**: an L2
+  self-installer that *also* writes a compact managed `AGENTS.md` block (an always-on
+  bootstrap naming the tool, its trigger, and the pinned runner), but still no hooks,
+  `prime`/`setup`, or DocCache.
+  That block is the one L3 surface a small tool can adopt on its own; because it is
+  merged into a human-authored file rather than overwritten whole, an L2b tool **does**
+  need the §6.6 format-stamp and forward-compatibility guard.
+  **`pprose`** (Practical Prose) is the reference, writing `.agents/skills/`, the
+  `.claude/skills/` mirror, and a `format=fNN`-stamped `AGENTS.md` block with the same
+  refuse-to-clobber-newer guard `tbd` uses.
 - **L3—full self-installing CLI platform.** Everything in L2 **plus** a managed
   `AGENTS.md` block, lifecycle hooks (`SessionStart`/`PreCompact`), `prime` and `setup`
-  commands, format-versioned migration with a forward-compatibility guard (§6.6), and
-  usually a knowledge-injection meta-skill (§6.2) backed by a path-ordered DocCache
-  (§6.3). Take this on only for a tool with many capabilities, cross-session state, or a
-  curated knowledge library.
-  **`tbd`** is the reference implementation; **Beads/`bd`** follows the same shape.
-  Such platforms are typically **project-only and version-pinned per repo** (§6.6.2):
-  the tool is part of the project’s reproducible toolchain, so global scope is usually
-  not worth offering. `qmd` (L2) offers global/dual scope precisely because it is a
-  general-purpose utility that carries no per-project config.
+  commands, format-versioned migration across every managed surface (§6.6), and usually
+  a knowledge-injection meta-skill (§6.2) backed by a path-ordered DocCache (§6.3). Take
+  this on only for a tool with many capabilities, cross-session state, or a curated
+  knowledge library. **`tbd`** is the reference implementation; **Beads/`bd`** follows
+  the same shape. Such platforms are typically **project-only and version-pinned per
+  repo** (§6.6.2): the tool is part of the project’s reproducible toolchain, so global
+  scope is usually not worth offering.
+  `qmd` (L2) offers global/dual scope precisely because it is a general-purpose utility
+  that carries no per-project config.
 
-The self-upgrade and format-versioning rules in §6.6 apply **only to L3**—L0–L2 never
-need them. If in doubt, you are L1: `tbd` is an L3 reference implementation, `qmd` an L2
-one, and most CLIs are neither.
+Format-versioning is **artifact-driven, not rung-driven**: the §6.6 format-stamp and
+forward-compatibility guard apply to **any rung that writes a generated artifact it may
+later need to upgrade or refuse to clobber**—in practice a managed `AGENTS.md` block
+(the L2b variant, or L3) or a committed generated skill shared across tool versions.
+A tool that only overwrites its own discovery-dir skill whole (plain L0–L2) never needs
+them.
+What stays strictly L3 is the rest of the platform: hooks, `prime`/`setup`, and the
+meta-skill/DocCache machinery.
+If in doubt, you are L1: `tbd` is an L3 reference implementation, `pprose` the L2b
+variant, `qmd` a plain L2 one, and most CLIs are none of these.
 
 ### 6.1 Two kinds of commands
 
@@ -670,17 +704,25 @@ only where a target agent requires it:
 - `.agents/skills/<tool>/SKILL.md`—the portable project skill.
   **Be precise about who reads this path natively vs.
   who reaches it via an installer**, rather than claiming a flat “all agents read it”:
-  - **Scans repo-root `.agents/skills/` natively** (verified): **Codex** (source above)
-    and **Gemini CLI** (documents `.agents/skills/` as a workspace/user alias).
-    **pi** / **OpenCode** scan project Agent Skills dirs.
+  - **Scans repo-root `.agents/skills/` natively** (verified): **Codex** (source above),
+    **Cursor** (its Agent Skills docs list `.agents/skills/`, `.cursor/skills/`, and the
+    `~/` global variants, plus `.claude/skills/` and `.codex/skills/` for
+    compatibility), and **Gemini CLI** (documents `.agents/skills/` as a workspace/user
+    alias). **pi** and **OpenCode** scan project Agent Skills dirs.
   - **Reached via the cross-agent installer**: `npx skills add` copies the same
     `SKILL.md` into `.agents/skills/` and **symlinks it into each agent’s own dir**
-    (Cursor, Copilot, Cline, Amp, Windsurf, …). For those agents the *installer*, not
-    the agent, is what binds `.agents/skills/` to their native location—so “works with
-    Cursor/Copilot/…” means “via skills.sh”, not “Cursor scans `.agents/skills/`
-    itself.”
+    (Copilot, Cline, Amp, Windsurf, …). For an agent that does not scan
+    `.agents/skills/` itself, the *installer*, not the agent, binds it to that agent’s
+    native location, so “works with Copilot/…” means “via skills.sh”, not “the agent
+    scans `.agents/skills/` itself.”
   - **Claude Code does NOT scan `.agents/`** at all—it reads only `.claude/skills/`
     (next bullet), which is why the mirror is required, not optional.
+  - **Native per-agent skill dirs are multiplying** (community catalogs, mid-2026;
+    verify per agent): beyond `.claude/skills/`, agents document their own dirs such as
+    `.cursor/skills/`, `.github/skills/` (Copilot), `.gemini/skills/`,
+    `.opencode/skills/`, `.windsurf/skills/`, and `.agent/skills/` (Google Antigravity).
+    Emitting only the portable `.agents/skills/` and the Claude mirror and letting
+    `npx skills add` fan out the rest scales better than writing each one.
   - When in doubt, verify against the agent’s source/docs before asserting native
     scanning.
 - `.claude/skills/<tool>/SKILL.md`—Claude Code compatibility mirror (required: Claude
@@ -694,7 +736,7 @@ tbd should write a CLI-managed `SKILL.md` to `.agents/skills/tbd/`, mirror it to
 also feeds Cursor, Codex, and Factory), preserving user content outside the markers:
 
 ```markdown
-<!-- BEGIN MYCLI INTEGRATION format=f02 surface=agents-md -->
+<!-- BEGIN MYCLI INTEGRATION format=f02 -->
 ## mycli
 
 - Run `mycli prime` for current project context.
@@ -771,10 +813,14 @@ Do not make Codex hooks call scripts stored under `.claude/`—that couples Code
 Claude setup. If a script must move out of `.claude/scripts/`, update the tbd-owned hook
 commands (or leave a wrapper) so existing Claude hooks keep working.
 
-**Upgrade existing installs deliberately (L3 only).** A self-installing tool whose skill
-content evolves *will* leave older generated files in users’ repos.
-(An L2 tool that only writes discovery-dir skills can skip all of this: a re-install is
-a clean full overwrite, with no managed `AGENTS.md` block or hooks to migrate.)
+**Upgrade managed generated artifacts deliberately.** A self-installing tool whose
+generated content evolves *will* leave older artifacts in users’ repos.
+(A tool that only writes fully-overwritten discovery-dir skills—plain L2 or below—can
+skip all of this: a re-install is a clean full overwrite, with no managed `AGENTS.md`
+block or hooks to migrate.
+The L2b variant, which merges a managed `AGENTS.md` block into a human-authored file,
+**does** need the format stamp and forward-compatibility guard even though it is not
+L3—this is the artifact-driven rule from §6.0, not an L3-only one.)
 Treat generated integration files like config migrations:
 
 Reserve an `fNN` **format bump** for changes big enough to need an explicit migration: a
@@ -816,7 +862,8 @@ it; it does not license the tool to mutate the repo on its own.
   `AGENTS.md` block, generated skills, tool-owned hooks, `.codex/` config), re-running
   cleanly with no change when already current.
 - Treat old marked `AGENTS.md` blocks with no metadata as legacy generated content and
-  replace only the managed region.
+  replace only the managed region, collapsing any duplicate stale blocks to one current
+  block at the first block’s position (§2).
 - Detect tool-owned hook entries by command/path/signature, replace only those entries,
   and preserve unrelated user hooks.
 - **Forward-compatibility guard.** When the tool finds a generated artifact whose
@@ -1062,6 +1109,20 @@ in generated skill instructions unless the user explicitly opts into that risk.
 This is a supply-chain control, not just ergonomics: an unpinned runner re-resolves to
 the latest published version on every run and bypasses any cool-off window.
 See `tbd guidelines supply-chain-hardening` for the cross-ecosystem policy.
+
+**Bake a pin the generator can actually resolve.** The rules above are consumer-side:
+they assume the generating tool can pin to its own running version.
+A tool installing from an editable or dev checkout cannot.
+Its running version is an unpublished dev, pre-release, or local build
+(`0.1.1.dev49+abc1234`, npm `0.0.0-dev.<sha>` or `x.y.z-canary`) that `uvx pkg@<that>`
+or `npx pkg@<that>` will never resolve, so baking it ships a skill that fails the moment
+a teammate runs it—one works-on-my-machine install poisons the clone.
+Bake the running version only when it is a real, resolvable published release; otherwise
+fall back to a known-good published pin.
+`pprose` does this with a `DISCOVERY_VERSION` constant (its last real PyPI release)
+gated by a PEP 440 release check (`is_pypi_release`), and enforces at release time that
+the constant equals the release tag.
+This is the generator-side mirror of the consumer-side pin rule.
 
 **Current tooling (May 2026)**
 
@@ -1355,6 +1416,10 @@ going:
   This is tbd’s validated approach.
 - Path-ordered resource cache for project/user shadowing; generate `--list` dynamically.
 - Context-injection loop with explicit `cli command arg` references; depth ≤ 3.
+- Self-installing tools climb the §6.0 ladder and stop at the lowest rung.
+  A managed `AGENTS.md` block (the L2b variant) is the one L3 surface worth adopting
+  alone, but any rung that writes one must format-stamp it and refuse to clobber a newer
+  block.
 
 **Reach and surface**
 
@@ -1371,6 +1436,8 @@ going:
 - Scope `allowed-tools` tightly; gate destructive skills; design for sandboxes.
 - Idempotent multi-agent install with marker-bounded sections; version source files, not
   fully generated install artifacts; mark generated files “DO NOT EDIT.”
+- Pin a generated runner to a resolvable published release; never bake a dev or
+  pre-release version a teammate’s `uvx`/`npx` cannot resolve (§6.7).
 
 * * *
 
@@ -1393,15 +1460,25 @@ going:
 - [ ] `AGENTS.md` with build/test/style/conventions (concise)
 - [ ] Managed `AGENTS.md` block uses a stable begin/end marker with a `format=fNN` field
   on the begin line
+- [ ] Marker carries only `format=fNN` (artifact type is clear from location, no
+  `surface=` tag); duplicate stale blocks collapsed to one on install (the L2b variant
+  and L3)
 - [ ] `CLAUDE.md` strategy decided (symlink to `AGENTS.md`, copy, or separate)
 
 **CLI tool (if applicable)**
 - [ ] `--json` on all commands; `--brief`/`--quiet`; actionable errors
+
 - [ ] Idempotent `setup --auto`; `init` for surgical config
+
 - [ ] Help epilog with `IMPORTANT:` + Getting Started one-liner
+
 - [ ] `prime` (status/context) and `skill` (pure docs) commands
+
 - [ ] Invocation strategy chosen (§6.7): local-first plus pinned zero-install fallback
   by default, or global install + `SessionStart` bootstrap for cloud/ephemeral agents
+
+- [ ] Generated skill bakes a resolvable published pin, not the running dev or
+  pre-release version (§6.7)
 
 **Advanced (many subcommands / knowledge library)**
 - [ ] Meta-skill composition (header + baseline + dynamic directory)
@@ -1487,8 +1564,16 @@ going:
   https://clau.de/plugin-directory-submission)
 - gstack: https://github.com/garrytan/gstack
 - Beads (bd): https://github.com/gastownhall/beads
-- qmd (L2 reference: self-installing skill, discovery-dirs only, CLI + MCP + plugin):
+- qmd (L2 reference: self-installing skill, discovery-dirs only, CLI, MCP, and plugin):
   https://github.com/tobi/qmd
+- pprose (L2b variant reference: self-installing skill plus a format-stamped,
+  marker-bounded `AGENTS.md` block, no hooks/prime/setup):
+  https://github.com/jlevy/practical-prose
+- taste-skill (L0 reference: pure-prompt skill collection distributed via skills.sh, a
+  Claude plugin marketplace, `copilot-instructions.md`, and `llms.txt`):
+  https://github.com/Leonxlnx/taste-skill
+- anthropics/skills (L0 reference: skill collection bundled as Claude plugins):
+  https://github.com/anthropics/skills
 
 ### Security
 
