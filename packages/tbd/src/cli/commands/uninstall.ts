@@ -7,6 +7,8 @@
 import { Command } from 'commander';
 import { rm, access, readdir, stat } from 'node:fs/promises';
 import { execSync } from 'node:child_process';
+
+import { gitSafeEnv } from '../../lib/git-env.js';
 import { join, relative } from 'node:path';
 
 import { BaseCommand } from '../lib/base-command.js';
@@ -88,6 +90,7 @@ class UninstallHandler extends BaseCommand {
     let localBranchExists = false;
     try {
       execSync(`git rev-parse --verify ${syncBranch}`, {
+        env: gitSafeEnv(),
         encoding: 'utf-8',
         stdio: ['ignore', 'pipe', 'ignore'],
       });
@@ -104,6 +107,7 @@ class UninstallHandler extends BaseCommand {
     if (options.removeRemote) {
       try {
         execSync(`git rev-parse --verify ${remote}/${syncBranch}`, {
+          env: gitSafeEnv(),
           encoding: 'utf-8',
           stdio: ['ignore', 'pipe', 'ignore'],
         });
@@ -156,6 +160,7 @@ class UninstallHandler extends BaseCommand {
       try {
         // First try to remove the worktree through git
         execSync(`git worktree remove --force "${worktreePath}"`, {
+          env: gitSafeEnv(),
           encoding: 'utf-8',
           stdio: ['ignore', 'pipe', 'ignore'],
         });
@@ -174,6 +179,7 @@ class UninstallHandler extends BaseCommand {
     if (legacyWorktreeExists) {
       try {
         execSync(`git worktree remove --force "${legacyWorktreePath}"`, {
+          env: gitSafeEnv(),
           encoding: 'utf-8',
           stdio: ['ignore', 'pipe', 'ignore'],
         });
@@ -188,6 +194,7 @@ class UninstallHandler extends BaseCommand {
     if (localBranchExists && !options.keepBranch) {
       try {
         execSync(`git branch -D ${syncBranch}`, {
+          env: gitSafeEnv(),
           encoding: 'utf-8',
           stdio: ['ignore', 'pipe', 'ignore'],
         });
@@ -201,6 +208,7 @@ class UninstallHandler extends BaseCommand {
     if (remoteBranchExists && options.removeRemote) {
       try {
         execSync(`git push ${remote} --delete ${syncBranch}`, {
+          env: gitSafeEnv(),
           encoding: 'utf-8',
           stdio: ['ignore', 'pipe', 'ignore'],
         });

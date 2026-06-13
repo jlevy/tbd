@@ -28,6 +28,7 @@ import { checkWorktreeHealth, repairWorktree } from '../../file/git.js';
 import type { WorktreeHealth, WorktreeStatus } from '../../file/git.js';
 import {
   ensureCommonDirLayout,
+  isLayoutUpgradeable,
   readCommonDirLayout,
   validateCommonDirLayout,
   withSharedDataSyncLock,
@@ -94,13 +95,18 @@ async function probeDataSyncReadiness(tbdRoot: string): Promise<DataSyncProbe> {
   const { config, migrated, fromFormat } = await readConfigWithMigration(tbdRoot);
   const sharedPaths = await resolveSharedTbdPaths(tbdRoot);
   const layout = await readCommonDirLayout(sharedPaths.sharedLayoutPath);
-  if (layout) {
+  // A layout stamped with an older (compatible) format than the config is the
+  // normal mid-migration state — it is upgraded under the lock by
+  // ensureCommonDirLayout, so it must not fail validation here, only mark the
+  // probe as not ready.
+  const layoutNeedsUpgrade = layout !== null && isLayoutUpgradeable(layout, config);
+  if (layout && !layoutNeedsUpgrade) {
     // Validate eagerly even on the read path so future-format / mismatched
     // layouts fail closed before any I/O the caller might perform.
     validateCommonDirLayout(layout, config);
   }
   const health = await checkWorktreeHealth(tbdRoot, config.sync.branch);
-  const ready = !migrated && layout !== null && health.valid;
+  const ready = !migrated && layout !== null && !layoutNeedsUpgrade && health.valid;
   return { config, migrated, fromFormat, sharedPaths, layout, health, ready };
 }
 

@@ -71,6 +71,7 @@ agents.
       - [2.8.5 Comparison with Beads](#285-comparison-with-beads)
       - [2.8.6 Future Dependency Types](#286-future-dependency-types)
       - [2.8.7 Future: Transitive Blocking Option](#287-future-transitive-blocking-option)
+    - [2.9 Managed Docs: Copies, Forks, and Synchronization](#29-managed-docs-copies-forks-and-synchronization)
   - [3. Git Layer](#3-git-layer)
     - [3.1 Overview](#31-overview)
     - [3.2 Sync Branch Architecture](#32-sync-branch-architecture)
@@ -119,6 +120,7 @@ agents.
     - [4.10 Global Options](#410-global-options)
     - [4.11 Attic Commands](#411-attic-commands)
     - [4.12 Output Formats](#412-output-formats)
+    - [4.13 Docs Commands](#413-docs-commands)
   - [5. Beads Compatibility](#5-beads-compatibility)
     - [5.1 Import Strategy](#51-import-strategy)
       - [5.1.1 Import Command](#511-import-command)
@@ -1968,6 +1970,107 @@ Add transitive blocking as an opt-in feature if users request it after real-worl
 
 * * *
 
+### 2.9 Managed Docs: Copies, Forks, and Synchronization
+
+tbd manages documentation (guidelines, shortcuts, templates) alongside issues.
+With forkable docs (format f05, `plan-2026-06-11-forkable-docs.md`), a doc can exist as
+up to **four copies plus a manifest**, each with a distinct owner and lifecycle.
+This section is the canonical statement of that model and the invariants that make every
+combination of user actions safe.
+
+#### The copies
+
+| Copy | Location | In git? | Written by | Role |
+| --- | --- | --- | --- | --- |
+| Bundled | npm package (`dist/docs/`) | n/a (per tbd version) | tbd releases | The upstream for `internal:` docs; immutable per installed version |
+| Cache | `.tbd/docs/` | gitignored | doc sync only | Complete, pristine, machine-local mirror of all upstream docs (bundled + URL sources); disposable |
+| Fork | `docs/tbd/<kind>/<name>.md` | tracked | `tbd docs fork/update` + the user/agent | The editable copy that tbd serves; optional, per-doc |
+| Base | `.tbd/doc-forks/base/<kind>/<name>.md` | tracked | `tbd docs fork/update` | Verbatim upstream snapshot at the fork point; the three-way merge base |
+| Manifest | `.tbd/doc-forks/forks.yml` | tracked | `tbd docs fork/unfork/update` | Provenance per fork: source docref, `base_hash` (LF-normalized sha256), `tbd_version` at fork point, `conflicted` flag |
+
+A doc’s identity is **kind + name**; paths follow fixed conventions
+(`<kind-dir>/<name>.md`, flat — nested folders are not scanned).
+
+The model follows one principle: **resolve by convention; track only what cannot be
+derived; publish the inventory as a generated view.** Lookup is a fixed search path over
+conventional locations — no registry that can drift from disk.
+The only stored tracking is the fork manifest, which records the one fact that cannot be
+recomputed from the files: each fork’s upstream source and base snapshot.
+The docmap that doc commands emit is a generated view of this state, never an input to
+resolution. (A copy-all-and-gitignore variant of the fork dir was considered and
+rejected: gitignored mirrors are invisible on GitHub and in PRs, and edits to them
+diverge silently with no team-visible artifact — `tbd docs fork --all` provides the
+all-visible posture in tracked form.
+See the spec’s Alternatives.)
+
+#### Invariants
+
+1. **Serving precedence**: the fork dir is prepended to every kind’s lookup path, so a
+   forked (or hand-authored local) file shadows the cache copy by name.
+   With nothing forked, lookup paths reduce to the cache and behavior is byte-identical
+   to pre-f05.
+2. **Cache completeness**: doc sync always installs *all* upstream docs into the cache,
+   including forked ones.
+   The cache copy is the pristine reference — the staleness comparator, the “theirs”
+   side of every update merge, and the fallback after unfork.
+3. **The cache is never authored**: only doc sync writes it, nothing else reads from
+   anywhere else for upstream content, and deleting it is always safe (auto-sync
+   regenerates it on the next doc access, including on fresh clones).
+4. **Tracked files mutate only via explicit `tbd docs` verbs** (fork/unfork/update).
+   Setup, `tbd sync`, and background auto-sync refresh the cache and *report* drift but
+   never write the fork dir, bases, or manifest.
+5. **Tracking is derived, not stored**: every doc state
+   (`upstream/forked/customized/stale/conflicted/local/missing/orphaned`) is a pure
+   function of (manifest entry present?, file hash, base hash, cache hash, conflicted
+   flag, markers present).
+   There is no hidden database, so no sequence of git operations — commit, pull, merge,
+   revert, partial commits — can desynchronize tbd from the files: collaborators
+   recompute identical states from identical content.
+6. **The base is the fork point**: advanced only by fork (refresh) and update; with the
+   stored snapshot, `customized` (file ≠ base), `stale` (cache ≠ base), and three-way
+   merging are exact, offline operations for every collaborator regardless of which tbd
+   version created the fork.
+7. **The format gate**: forking bumps nothing at runtime, but the f05 `tbd_format` in
+   `config.yml` (mirrored into the machine-local common-dir `layout.yml`) makes pre-f05
+   clients refuse the repo — they would otherwise serve upstream copies of docs the team
+   has customized. Within the f05 era, the manifest’s per-entry `tbd_version` guards the
+   remaining skew: `tbd docs update` refuses to touch a doc whose fork point was
+   advanced by a newer tbd than the one running, since that client’s bundled “upstream”
+   is older than the fork point and updating would silently downgrade the doc.
+
+#### Who writes what (synchronization flows)
+
+| Flow | Reads | Writes | Tracked files touched |
+| --- | --- | --- | --- |
+| npm upgrade | — | bundle | none |
+| Doc sync (`tbd sync --docs`, auto-sync, setup) | bundle + URL sources | cache | none |
+| `tbd docs fork` | cache | fork file, base, manifest, fork-dir README | yes (explicit) |
+| `tbd docs update` | cache, base, fork file | fork file and/or base, manifest, README | yes (explicit) |
+| `tbd docs unfork` | base, fork file | removes fork artifacts, README | yes (explicit) |
+| User/agent edits | — | fork dir (any way they like) | yes (theirs) |
+| git operations | — | any tracked artifact | yes (theirs) |
+
+Staleness appears exactly when doc sync moves the cache past a fork’s base; awareness
+surfaces (`tbd docs status`, the one-line `tbd sync` drift notice) report it, and only
+the explicit `tbd docs update` acts on it.
+
+#### Drift and degraded modes
+
+Because of invariant 5, arbitrary user actions in the fork dir resolve to defined
+states: edits → `customized`; deletion → `missing` (serving falls back to the cache);
+rename → `missing` + `local`; new files → `local` (served, no upstream); deleting the
+manifest → everything `local` (serving unaffected); moving into subfolders → not scanned
+(documented). Degraded modes fail soft: an unreachable URL source keeps serving the
+last-good cache copy; an empty cache self-heals via auto-sync; a deleted base blocks
+merging only for that doc (repairable via `update --keep-ours`); the upgrade abort path
+is specified in `tbd-docs.md` §Troubleshooting.
+The drift matrix with resolutions is user-facing in `tbd-docs.md` §“Forked Docs in Your
+Repo”; the state matrix, update decision table, and drift scenarios are pinned by
+`fork-manifest`/`fork-update`/`doc-fork` unit tests and the `cli-docs-fork`/
+`cli-docs-update` golden tryscripts.
+
+* * *
+
 ## 3. Git Layer
 
 ### 3.1 Overview
@@ -2034,6 +2137,8 @@ main branch:                    tbd-sync branch:
 .tbd/.gitignore       # Controls what's gitignored below
 .tbd/.gitattributes   # Merge strategies (merge=union for ids.yml)
 .tbd/workspaces/      # Persistent state (outbox, named workspaces)
+.tbd/doc-forks/       # Fork manifest + base snapshots (see §2.9; f05+)
+docs/tbd/             # Forked docs, outside .tbd/ (see §2.9; only when fork is used)
 ```
 
 #### Files Gitignored (local only)
@@ -3657,6 +3762,42 @@ tbd attic restore proj-a1b2 2025-01-07T10-30-00Z
 - Absolute ISO8601 timestamps
 
 - Parseable by scripts
+
+* * *
+
+### 4.13 Docs Commands
+
+Operations on managed docs (see §2.9 for the data model) live under the noun-scoped
+`tbd docs` group, alongside the existing per-kind readers (`tbd guidelines`,
+`tbd shortcut`, `tbd template`, which serve forked copies transparently via lookup
+precedence):
+
+```bash
+tbd docs fork [names...] [--kind] [--all] [--force] [--dry-run]   # copy into docs/tbd/
+tbd docs unfork [names...] [--all] [--force]   # back to upstream; refuses to drop edits
+tbd docs status [--json]                       # per-doc states + missing/local hints
+tbd docs update [names...] [--merge|--keep-ours] [--dry-run]      # reconcile with upstream
+tbd docs diff <name> [--base|--upstream]       # net fork / your changes / incoming
+tbd docs list [--kind] [--json]                # cross-kind list with state markers
+```
+
+tbd has three deliberately separate update surfaces — they differ in scope, risk, and
+failure mode, and doc updates are the only one that can merge and mutate tracked files:
+
+| Command | Scope | Touches | Modifies tracked files? |
+| --- | --- | --- | --- |
+| `tbd sync` | project data (issues) | sync worktree + `tbd-sync` branch; refreshes the doc cache and *reports* fork drift | never |
+| `tbd setup --auto` | installation + integrations | skills, hooks, settings, `AGENTS.md`; invokes a docs-cache sync | only generated integration files |
+| `tbd docs update` | forked docs | fork dir + bases + manifest (offline, against the cache) | **yes — the only doc command that does** |
+
+Update semantics (the full decision table is unit-tested row by row): an unmodified
+stale fork is replaced; a customized stale fork gets a `git merge-file` three-way merge
+that applies automatically when clean; conflicts are skipped by default and listed with
+the two explicit strategies — `--merge` (combine, standard conflict markers, sets the
+`conflicted` flag until markers are resolved) and `--keep-ours` (keep the local content,
+advance the fork point).
+Forked files are git-tracked, so every applied update is reviewable in `git diff` and
+revertible — git is the undo.
 
 * * *
 

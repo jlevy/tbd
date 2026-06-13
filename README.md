@@ -37,7 +37,6 @@ will work in Cursor, Codex, or any agent environment that can use the `tbd` CLI.
 ## Quick Start
 
 > [!TIP]
-> 
 > If running on your own machine, install the `tbd` CLI yourself:
 > 
 > **`npm install -g get-tbd@latest`**
@@ -50,6 +49,11 @@ will work in Cursor, Codex, or any agent environment that can use the `tbd` CLI.
 > 
 > ***“install tbd (npm install -g get-tbd@latest) and run tbd prime for instructions to
 > set up this project”***
+> 
+> If tbd is already set up in the repo and you want the latest version, tell the agent:
+> 
+> ***“upgrade tbd (npm install -g get-tbd@latest), run tbd setup --auto, and commit the
+> changes”***
 
 That’s it.
 Running `tbd prime` gives agents full workflow context on how to use `tbd` and
@@ -122,7 +126,6 @@ agents handling different aspects that I manage) is slower, because it forces yo
 design, but it gives higher quality results.
 
 > [!NOTE]
-> 
 > We use *Beads* (capitalized) to refer to Steve Yegge’s original
 > [`bd` tool](https://github.com/steveyegge/beads).
 > Lowercase “beads” refers generically to the issues stored in `tbd` or `bd`.
@@ -160,8 +163,8 @@ You just talk naturally.
 
 > [!NOTE]
 > For full technical details, see the [reference docs](packages/tbd/docs/tbd-docs.md)
-> (run `tbd docs`) or the full [design doc](packages/tbd/docs/tbd-design.md)
-> (`tbd design`).
+> (run `tbd docs show tbd-docs`) or the full
+> [design doc](packages/tbd/docs/tbd-design.md) (`tbd design`).
 
 - **Git-native:** Beads live in your repo, synced to a separate, dedicated `tbd-sync`
   branch. Your code history stays clean—no bead churn polluting your logs.
@@ -225,7 +228,6 @@ practices. These aren’t generic tips; they’re mostly my own detailed and som
 opinionated rules with concrete examples, built from months of heavy agentic coding.
 
 > [!TIP]
-> 
 > An example: I *strongly* believe there are much better ways to do testing
 > proliferating hundreds of unit and integration tests.
 > So (with help from some Opus 4.5 and GPT-5 Pro) I wrote a multi-page brief about
@@ -291,6 +293,25 @@ tbd setup --from-beads
 
 > **Tip:** Run `tbd setup --auto` anytime to refresh skill files, hooks, and configs
 > with the latest shortcuts, guidelines, and templates.
+
+### Upgrading
+
+Upgrading an existing installation is the same two commands, run by you or your agent:
+
+```bash
+npm install -g get-tbd@latest   # Upgrade the CLI
+tbd setup --auto                # Refresh skills/hooks and apply any format migration
+```
+
+If the new version bumps the repository format (`tbd_format` in `.tbd/config.yml`),
+setup migrates it automatically and prints a notice — **commit the resulting diff** to
+publish the upgrade to your team.
+Teammates still on an older tbd then see “This repository requires a newer version of
+tbd” until they run the same two commands.
+Issue data is never touched by an upgrade, and the migration is revertible: see
+“Aborting a Format Upgrade” under Troubleshooting in the CLI manual (`tbd docs manual`).
+If you have forked docs in `docs/tbd/`, `tbd sync` prints a notice when their upstream
+versions moved — run `tbd docs update` to merge the changes in.
 
 ### Team Setup
 
@@ -394,9 +415,19 @@ tbd template --list              # List all templates
 tbd template plan-spec           # Get a plan spec template
 
 # Add your own from any URL
+# (per-kind aliases for `tbd docs add <docref>`)
 tbd guidelines --add=<url> --name=<name>
 tbd shortcut --add=<url> --name=<name>
 tbd template --add=<url> --name=<name>
+```
+
+**Forkable: see them in your repo.** By default these docs are served from a hidden,
+gitignored cache. Fork any of them into `docs/tbd/` and they become visible on GitHub,
+reviewable in PRs, and editable in place—tbd serves your copy instead, and
+`tbd docs update` merges upstream improvements into it after an upgrade:
+
+```bash
+tbd docs fork --all              # Or fork by name: tbd docs fork <name> [<name>...]
 ```
 
 **Available shortcuts:**
@@ -480,7 +511,8 @@ Every command supports these flags for automation:
 ```bash
 tbd                          # Full orientation and workflow guidance
 tbd readme                   # This file
-tbd docs                     # Full CLI reference
+tbd docs                     # Managed-docs overview (cached, forked, and local docs)
+tbd docs show tbd-docs       # Full CLI reference (the manual; alias: tbd docs manual)
 ```
 
 Or read online:

@@ -27,7 +27,9 @@ import {
   type IntegrationCheck,
 } from '../lib/sections.js';
 import { readConfig, findTbdRoot } from '../../file/config.js';
-import { resolveSharedTbdPaths } from '../../lib/paths.js';
+import { resolveSharedTbdPaths, FORK_DIR } from '../../lib/paths.js';
+import { readForkManifest } from '../../file/fork-manifest.js';
+import { computeForkDriftSummary, type ForkDriftSummary } from '../../file/doc-fork.js';
 import {
   getClaudePaths,
   getAgentsMdPath,
@@ -72,6 +74,7 @@ interface StatusData {
   worktree_healthy: boolean | null;
   worktree_status: WorktreeStatus | null;
   workspaces: string[];
+  docs_drift: ForkDriftSummary | null;
 
   // Integrations
   integrations: {
@@ -117,6 +120,7 @@ class StatusHandler extends BaseCommand {
       worktree_healthy: null,
       worktree_status: null,
       workspaces: [],
+      docs_drift: null,
       integrations: {
         portable_skill: false,
         portable_skill_path: AGENTS_SKILL_DISPLAY,
@@ -156,6 +160,12 @@ class StatusHandler extends BaseCommand {
     if (statusData.initialized && tbdRoot) {
       // Load config and issue info
       await this.loadPostInitInfo(tbdRoot, statusData);
+      try {
+        const manifest = await readForkManifest(tbdRoot);
+        statusData.docs_drift = await computeForkDriftSummary(tbdRoot, FORK_DIR, manifest);
+      } catch {
+        // Docs awareness is best-effort; never fail status over it.
+      }
     }
 
     this.output.data(statusData, () => {
@@ -329,6 +339,7 @@ class StatusHandler extends BaseCommand {
     );
 
     // INTEGRATIONS section (shared with doctor)
+    // (docs drift summary is appended after Worktree; see renderDocsLine)
     const integrationChecks: IntegrationCheck[] = [
       {
         name: 'Portable Agent Skill',
@@ -361,6 +372,18 @@ class StatusHandler extends BaseCommand {
     // Worktree health
     if (data.worktree_status !== null && data.worktree_path) {
       renderWorktreeStatus(data.worktree_path, data.worktree_status, colors);
+    }
+
+    // Docs line — only when forks exist, so zero-fork output stays
+    // byte-identical to the pre-f05 status (the orientation golden pins it).
+    if (data.docs_drift && data.docs_drift.forks > 0) {
+      const d = data.docs_drift;
+      const parts: string[] = [`${d.customized} customized`];
+      if (d.stale > 0) parts.push(`${d.stale} with upstream updates — run 'tbd docs update'`);
+      if (d.conflicted > 0) parts.push(`${d.conflicted} conflict pending`);
+      if (d.missing > 0) parts.push(`${d.missing} missing — see 'tbd docs status'`);
+      console.log('');
+      console.log(`${colors.bold('Docs:')} ${d.forks} forked (${parts.join(', ')})`);
     }
 
     // Workspaces (only show if there are any)

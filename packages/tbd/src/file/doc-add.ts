@@ -10,9 +10,12 @@ import { join, dirname } from 'node:path';
 import { mkdir } from 'node:fs/promises';
 import { writeFile } from 'atomically';
 
+import { readFile } from 'node:fs/promises';
+
 import { readConfig, writeConfig } from './config.js';
-import { githubBlobToRawUrl, fetchWithGhFallback } from './github-fetch.js';
+import { fetchWithGhFallback, gitDocRefToRawUrl } from './github-fetch.js';
 import { TBD_DOCS_DIR } from '../lib/paths.js';
+import { normalizeDocRef, parseDocRef, DocRefError } from '../docref/index.js';
 
 // =============================================================================
 // Types
@@ -21,13 +24,13 @@ import { TBD_DOCS_DIR } from '../lib/paths.js';
 /**
  * The type of document being added.
  */
-export type DocType = 'guideline' | 'shortcut' | 'template';
+export type DocType = 'guideline' | 'shortcut' | 'template' | 'reference';
 
 /**
  * Options for adding a document.
  */
 export interface AddDocOptions {
-  /** URL to fetch the document from */
+  /** Source docref (or URL — normalized to its canonical docref) to add */
   url: string;
   /** Name for the document (without .md extension) */
   name: string;
@@ -41,7 +44,9 @@ export interface AddDocOptions {
 export interface AddDocResult {
   /** The destination path relative to .tbd/docs/ */
   destPath: string;
-  /** The raw URL used to fetch the content */
+  /** The canonical docref recorded in config (docref-everywhere rule) */
+  source: string;
+  /** The raw URL used to fetch the content (or the local path read) */
   rawUrl: string;
   /** Whether gh CLI was used as fallback */
   usedGhCli: boolean;
@@ -97,6 +102,8 @@ export function getDocTypeSubdir(docType: DocType): string {
       return 'shortcuts/custom';
     case 'template':
       return 'templates';
+    case 'reference':
+      return 'references';
   }
 }
 
@@ -124,10 +131,33 @@ export async function addDoc(tbdRoot: string, options: AddDocOptions): Promise<A
   const filename = `${cleanName}.md`;
   const subdir = getDocTypeSubdir(docType);
   const destPath = `${subdir}/${filename}`;
-  const rawUrl = githubBlobToRawUrl(url);
 
-  // Fetch content
-  const { content, usedGhCli } = await fetchWithGhFallback(url);
+  // Docref normalization replaces the old ad-hoc blob-URL conversion: the
+  // canonical docref is what config records; the fetch location derives from it.
+  const source = normalizeDocRef(url);
+  const parsed = parseDocRef(source);
+  if (parsed.kind === 'internal') {
+    throw new DocRefError(url, 'bundled internal: sources cannot be added');
+  }
+  if (parsed.kind === 'git' && !parsed.ref) {
+    throw new DocRefError(
+      url,
+      `git docrefs need an explicit ref for deterministic sync — use ${parsed.host}:${parsed.owner}/${parsed.repo}@<ref>//${parsed.path}`,
+    );
+  }
+
+  let content: string;
+  let usedGhCli = false;
+  let rawUrl = source;
+  if (parsed.kind === 'local') {
+    rawUrl = parsed.path;
+    content = await readFile(join(tbdRoot, parsed.path), 'utf-8');
+  } else {
+    rawUrl = parsed.kind === 'git' ? gitDocRefToRawUrl(parsed) : parsed.url;
+    const fetched = await fetchWithGhFallback(rawUrl);
+    content = fetched.content;
+    usedGhCli = fetched.usedGhCli;
+  }
 
   // Validate content
   validateDocContent(content, cleanName);
@@ -141,7 +171,7 @@ export async function addDoc(tbdRoot: string, options: AddDocOptions): Promise<A
   const config = await readConfig(tbdRoot);
   config.docs_cache ??= { files: {}, lookup_path: [] };
   config.docs_cache.files ??= {};
-  config.docs_cache.files[destPath] = rawUrl;
+  config.docs_cache.files[destPath] = source;
 
   // Ensure the lookup_path includes the subdir
   const lookupDir = `.tbd/docs/${subdir}`;
@@ -151,5 +181,5 @@ export async function addDoc(tbdRoot: string, options: AddDocOptions): Promise<A
 
   await writeConfig(tbdRoot, config);
 
-  return { destPath, rawUrl, usedGhCli };
+  return { destPath, source, rawUrl, usedGhCli };
 }

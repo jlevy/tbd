@@ -1,4 +1,4 @@
-tbd_format: f04
+tbd_format: f05
 tbd_version: development
 display:
   id_prefix: tbd
@@ -23,10 +23,9 @@ settings:
 # Auto-sync: Docs are automatically synced when stale (default: every 24 hours).
 # Configure with settings.doc_auto_sync_hours (0 = disabled).
 docs_cache:
-  lookup_path:
-    - .tbd/docs/shortcuts/system
-    - .tbd/docs/shortcuts/standard
   files:
+    references/tbd-docs.md: internal:tbd-docs.md
+    references/tbd-design.md: internal:tbd-design.md
     shortcuts/system/shortcut-explanation.md: internal:shortcuts/system/shortcut-explanation.md
     shortcuts/system/skill-baseline.md: internal:shortcuts/system/skill-baseline.md
     shortcuts/system/skill-brief.md: internal:shortcuts/system/skill-brief.md
@@ -58,6 +57,7 @@ docs_cache:
     shortcuts/standard/revise-all-architecture-docs.md: internal:shortcuts/standard/revise-all-architecture-docs.md
     shortcuts/standard/revise-architecture-doc.md: internal:shortcuts/standard/revise-architecture-doc.md
     shortcuts/standard/setup-github-cli.md: internal:shortcuts/standard/setup-github-cli.md
+    shortcuts/standard/suggest-upstream-improvements.md: internal:shortcuts/standard/suggest-upstream-improvements.md
     shortcuts/standard/sync-failure-recovery.md: internal:shortcuts/standard/sync-failure-recovery.md
     shortcuts/standard/update-specs-status.md: internal:shortcuts/standard/update-specs-status.md
     shortcuts/standard/welcome-user.md: internal:shortcuts/standard/welcome-user.md
@@ -92,3 +92,8 @@ docs_cache:
     templates/plan-spec.md: internal:templates/plan-spec.md
     templates/qa-playbook.md: internal:templates/qa-playbook.md
     templates/research-brief.md: internal:templates/research-brief.md
+    references/docmap-format.md: internal:references/docmap-format.md
+    references/docref-format.md: internal:references/docref-format.md
+  lookup_path:
+    - .tbd/docs/shortcuts/system
+    - .tbd/docs/shortcuts/standard

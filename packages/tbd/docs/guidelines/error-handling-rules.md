@@ -2,6 +2,7 @@
 title: Error Handling Rules
 description: Rules for handling errors, failures, and exceptional conditions
 author: Joshua Levy (github.com/jlevy) with LLM assistance
+category: general
 ---
 # Error Handling Rules
 

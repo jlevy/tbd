@@ -250,6 +250,13 @@ export const DocsCacheSchema = z.object({
    */
   files: z.record(z.string(), z.string()).optional(),
   /**
+   * Ordered local-path docrefs (./-prefixed) naming additional in-repo doc
+   * directories. They slot into the effective lookup order between the fork
+   * dir and the cache; docs found there serve with state `local` and are not
+   * forkable or updatable (they already live in the repo).
+   */
+  local_dirs: z.array(z.string()).optional(),
+  /**
    * Search paths for doc lookup (like shell $PATH).
    * Earlier paths take precedence when names conflict.
    */

@@ -133,7 +133,7 @@ export function createHelpEpilog(colorOption: ColorOption = 'auto'): string {
     '',
     '  This initializes tbd and configures your coding agents automatically.',
     `  To refresh setup (idempotent, safe anytime): ${colors.green('`tbd setup --auto`')}`,
-    `  For interactive setup: ${colors.dim('`tbd setup --interactive`')}`,
+    `  For managed docs: ${colors.dim('`tbd docs`')}`,
     '',
     colors.blue('For more on tbd, see: https://github.com/jlevy/tbd'),
   ];

@@ -86,7 +86,7 @@ design:
 1. An f03 per-checkout sync worktree owns `tbd-sync`.
 2. A linked worktree cannot create its own per-checkout sync worktree because Git
    rejects the duplicate branch checkout.
-3. A new tbd write migrates the repository to the f04 common-dir layout.
+3. A new tbd write migrates the repository to the current (f05) common-dir layout.
 4. The main checkout and linked worktree both create issues through the same shared sync
    worktree.
 
@@ -119,17 +119,17 @@ own point-of-use notice (#135).
 
 ```console
 $ tbd create "Main checkout issue" --type=task
-• tbd_format f03 → f04: .tbd/config.yml updated in this checkout. Commit on this branch or merge main to publish the format upgrade.
+• tbd_format f03 → f05: .tbd/config.yml updated in this checkout. Commit on this branch or merge main to publish the format upgrade.
 • tbd-sync worktree was missing — auto-materialized it (fresh clone, or the worktree was removed).
 ✓ Created test-[SHORTID]: Main checkout issue
 ? 0
 ```
 
-# Test: Top-level config was migrated to f04 with common-dir storage
+# Test: Top-level config was migrated to f05 with common-dir storage
 
 ```console
 $ cat .tbd/config.yml
-tbd_format: f04
+tbd_format: f05
 tbd_version: legacy
 display:
   id_prefix: test
@@ -144,11 +144,11 @@ settings:
 ? 0
 ```
 
-# Test: Common-dir layout uses the same f04 format ID
+# Test: Common-dir layout uses the same f05 format ID
 
 ```console
 $ cat "$(git rev-parse --path-format=absolute --git-common-dir)/tbd/layout.yml"
-tbd_format: f04
+tbd_format: f05
 sync_storage: git-common-dir-v1
 data_sync_worktree: data-sync-worktree
 lock_profile: data-sync-v1
@@ -187,13 +187,13 @@ same git common dir
 
 # Test: Linked worktree create also succeeds
 
-The linked worktree’s `.tbd/config.yml` is still on `f03` because the f04 bump commit
+The linked worktree’s `.tbd/config.yml` is still on `f03` because the format bump commit
 only landed on `main`; the first mutating command in the linked checkout therefore fires
 the same `tbd-afjh` notice as the main checkout did before bumping in place.
 
 ```console
 $ (cd agent && tbd create "Linked worktree issue" --type=bug)
-• tbd_format f03 → f04: .tbd/config.yml updated in this checkout. Commit on this branch or merge main to publish the format upgrade.
+• tbd_format f03 → f05: .tbd/config.yml updated in this checkout. Commit on this branch or merge main to publish the format upgrade.
 ✓ Created test-[SHORTID]: Linked worktree issue
 ? 0
 ```
@@ -231,15 +231,15 @@ Main checkout issue | task | open
 
 ## Older Client Compatibility Guard
 
-# Test: An f03-era client would reject the migrated f04 repository
+# Test: An f03-era client would reject the migrated f05 repository
 
 This uses the same format ordering contract as tbd itself: a client that only supports
-up to f03 must fail closed when it sees the f04 common-dir layout.
+up to f03 must fail closed when it sees the f05 common-dir layout.
 
 ```console
 $ node -e 'const fs=require("fs"); const format=fs.readFileSync(".tbd/config.yml","utf8").match(/^tbd_format: (\S+)/m)?.[1]; const supported="f03"; if (format !== undefined && format > supported) { console.error("This repository requires a newer version of tbd."); console.error("Config format '"'"'"+format+"'"'"' is from a newer tbd version."); console.error("This tbd version supports up to format '"'"'"+supported+"'"'"'."); console.error("Upgrade tbd: npm install -g get-tbd@latest"); process.exit(1); }'
 This repository requires a newer version of tbd.
-Config format 'f04' is from a newer tbd version.
+Config format 'f05' is from a newer tbd version.
 This tbd version supports up to format 'f03'.
 Upgrade tbd: npm install -g get-tbd@latest
 ? 1

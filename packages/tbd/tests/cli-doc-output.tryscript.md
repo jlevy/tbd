@@ -47,14 +47,15 @@ backward-compatibility-rules [..]
 ? 0
 ```
 
-# Test: Guidelines --json returns structured data
+# Test: Guidelines --list --json emits a docmap (one model across all doc surfaces)
 
 ```console
-$ tbd guidelines --list --json | head -5
-[
-  {
-    "name": "backward-compatibility-rules",
-    "title": "Backward Compatibility[..]",
+$ tbd guidelines --list --json | head -6
+{
+  "docmap": "docmap/0.1",
+  "documents": [
+    {
+      "name": "backward-compatibility-rules",
 [..]
 ? 0
 ```
@@ -69,20 +70,20 @@ Agent instructions: You have activated a guidelines document. If a user has aske
 title: [..]Commit[..]
 description: Conventional Commits format with extensions for agentic workflows
 author: Joshua Levy (github.com/jlevy) with LLM assistance
+category: general
 ---
-[..]
 ? 0
 ```
 
-# Test: Guidelines query with --json returns raw content
+# Test: Guidelines query with --json returns the docmap entry plus content
 
 ```console
 $ tbd guidelines commit-conventions --json | head -5
 {
   "name": "commit-conventions",
+  "type": "guideline",
+  "source": "internal:guidelines/commit-conventions.md",
   "title": "[..]Commit[..]",
-  "score": 1,
-[..]
 ? 0
 ```
 
@@ -118,11 +119,11 @@ description: Welcome message for users after tbd installation or setup
 
 ## Docs Command
 
-# Test: Docs command with --color=never produces clean output
+# Test: Manual section listing with --color=never produces clean output
 
 ```console
-$ tbd --color=never docs --list | head -3
-Available documentation sections:
+$ tbd --color=never docs show tbd-docs --sections | head -3
+Sections in tbd-docs:
 
 [..]
 ? 0

@@ -109,7 +109,6 @@ tbd dep add <tests-id> <feature-id>   # Tests depend on feature
 ## Setup Commands
 
 - `tbd setup --auto` - Non-interactive setup with smart defaults (for agents/scripts)
-- `tbd setup --interactive` - Interactive setup with prompts (for humans)
 - `tbd setup --from-beads` - Migrate from Beads to tbd
 
 ## Quick Reference

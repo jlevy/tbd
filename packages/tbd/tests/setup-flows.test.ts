@@ -62,7 +62,17 @@ describe('setup flows', { timeout: setupFlowTestTimeout }, () => {
       const result = runTbd(['setup']);
 
       expect(result.stdout).toContain('--auto');
-      expect(result.stdout).toContain('--interactive');
+      expect(result.stdout).toContain('--from-beads');
+      // The --interactive flag was removed (never had prompts; agents are the operators).
+      expect(result.stdout).not.toContain('--interactive');
+    });
+
+    it('rejects the removed --interactive flag', () => {
+      initGitRepo();
+      const result = runTbd(['setup', '--interactive']);
+
+      expect(result.status).not.toBe(0);
+      expect(result.stderr).toContain("unknown option '--interactive'");
     });
   });
 
@@ -161,7 +171,7 @@ describe('setup flows', { timeout: setupFlowTestTimeout }, () => {
       expect(result.status).toBe(0);
 
       const agents = await readFile(join(tempDir, 'AGENTS.md'), 'utf-8');
-      expect(agents).toContain('<!-- BEGIN TBD INTEGRATION format=f04 surface=agents-md -->');
+      expect(agents).toContain('<!-- BEGIN TBD INTEGRATION format=f05 surface=agents-md -->');
       expect(agents).toContain('tbd prime');
 
       const block = agents.slice(
@@ -259,7 +269,7 @@ describe('setup flows', { timeout: setupFlowTestTimeout }, () => {
 
       const agents = await readFile(join(tempDir, 'AGENTS.md'), 'utf-8');
       // Upgraded to the versioned compact block...
-      expect(agents).toContain('format=f04');
+      expect(agents).toContain('format=f05');
       // ...while preserving user content outside the managed region.
       expect(agents).toContain('## My Notes');
       expect(agents).toContain('Keep me.');
@@ -348,6 +358,64 @@ describe('setup flows', { timeout: setupFlowTestTimeout }, () => {
 
       expect(result.status).toBe(0);
       expect(result.stdout).toContain('tbd initialized');
+    });
+  });
+
+  describe('docs summary', () => {
+    // The zero-fork menu, verbatim. Wording is shared with the bare `tbd docs`
+    // overview (src/cli/lib/docs-menu.ts); the count is masked because the
+    // bundled-doc inventory grows over time.
+    const zeroForkMenu = [
+      'Docs: [N] docs available in the cache (.tbd/docs/, gitignored); none forked into the repo.',
+      '  Guidelines are active from the cache. Three postures, all serving the same docs:',
+      '  Hidden (default):  keep the cache as-is — zero repo footprint',
+      '  Curated:           tbd docs fork <name> [...]  fork chosen docs into docs/tbd/',
+      '                     tbd docs fork --category=<name>  (general, typescript, python, convex, electron)',
+      '  Everything:        tbd docs fork --all         all docs, visible and editable',
+      '  Browse / read: tbd docs list / tbd docs show <name>',
+    ].join('\n');
+
+    it('shows the three-posture menu when nothing is forked', () => {
+      initGitRepo();
+
+      const result = runTbd(['setup', '--auto', '--prefix=test']);
+      expect(result.status).toBe(0);
+
+      const masked = result.stdout.replace(/Docs: \d+ docs available/, 'Docs: [N] docs available');
+      expect(masked).toContain(zeroForkMenu);
+    });
+
+    it('reports fork count and pending updates instead of the menu', async () => {
+      initGitRepo();
+      runTbd(['setup', '--auto', '--prefix=test']);
+
+      const forkResult = runTbd(['docs', 'fork', 'python-rules']);
+      expect(forkResult.status).toBe(0);
+
+      // Forks current: one line, no update nudge, no posture menu.
+      const current = runTbd(['setup', '--auto']);
+      expect(current.status).toBe(0);
+      expect(current.stdout).toContain('Docs: 1 forked into docs/tbd/.');
+      expect(current.stdout).not.toContain('upstream updates');
+      expect(current.stdout).not.toContain('Three postures');
+
+      // Mark the fork stale (as after a tbd upgrade): its recorded base no
+      // longer matches the cache content.
+      const manifestPath = join(tempDir, '.tbd', 'doc-forks', 'forks.yml');
+      const manifest = await readFile(manifestPath, 'utf-8');
+      await writeFile(
+        manifestPath,
+        manifest.replace(/base_hash: sha256:[0-9a-f]+/, `base_hash: sha256:${'0'.repeat(64)}`),
+      );
+
+      const stale = runTbd(['setup', '--auto']);
+      expect(stale.status).toBe(0);
+      expect(stale.stdout).toContain(
+        "Docs: 1 forked into docs/tbd/. 1 have upstream updates — run 'tbd docs update'.",
+      );
+
+      // Reporting only: setup must never write the fork dir or its manifest.
+      expect(await readFile(manifestPath, 'utf-8')).toContain(`sha256:${'0'.repeat(64)}`);
     });
   });
 

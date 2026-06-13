@@ -345,6 +345,7 @@ the full specification.
 │ Committed to the repo:
 ├── config.yml                      # Project configuration
 ├── .gitignore                      # Controls what's gitignored below
+├── doc-forks/                      # Fork manifest + base snapshots (f05; tbd-design.md §2.9)
 ├── workspaces/                     # Persistent state (outbox, named workspaces)
 │   └── outbox/                     # Sync failure recovery data
 │
@@ -354,7 +355,7 @@ the full specification.
 └── backups/                        # Legacy local backups
 
 $GIT_COMMON_DIR/tbd/                # Shared by all linked worktrees of this repo
-├── layout.yml                      # Common-dir layout metadata (same f04 format ID)
+├── layout.yml                      # Common-dir layout metadata (mirrors config's tbd_format)
 ├── locks/
 │   └── data-sync.lock/             # mkdir-based repo-scoped lock
 ├── backups/                        # Shared migration/repair backups
@@ -366,10 +367,27 @@ $GIT_COMMON_DIR/tbd/                # Shared by all linked worktrees of this rep
         └── meta.yml
 ```
 
+`.tbd/doc-forks/` is committed and holds only fork *tracking state*: the `forks.yml`
+manifest plus `base/` snapshots that `tbd docs update` three-way merges against.
+The doc **fork dir** itself lives deliberately *outside* `.tbd/` — default `docs/tbd/`,
+tracked in git like any other docs.
+
 **CRITICAL**: Issues must be written to the **worktree path**
 (`$GIT_COMMON_DIR/tbd/data-sync-worktree/.tbd/data-sync/issues/`), NOT the direct path
 (`.tbd/data-sync/issues/`). The direct path is gitignored and exists only as a legacy
 diagnostic/migration location.
+
+### Format Upgrades and Rollback
+
+A `tbd_format` bump writes exactly two stamps: the tracked `.tbd/config.yml` and the
+machine-local `$GIT_COMMON_DIR/tbd/layout.yml` (plus, only when `tbd setup --auto` is
+run, the tracked agent-surface markers).
+It never touches issue data, so any upgrade can be aborted: restore the tracked files
+from git and delete `layout.yml` (it regenerates from the config).
+The full state inventory and abort recipe are user-facing in `tbd-docs.md`
+§Troubleshooting → “Aborting a Format Upgrade”; the migrate → revert → repeat loop and
+both interrupted-upgrade partial states are pinned by tests in
+`tests/common-dir-layout-doctor.test.ts` (“f04 → f05 upgrade”).
 
 ### Key Source Files
 
@@ -439,6 +457,12 @@ Run the e2e worktree scenarios:
 ```bash
 npx tryscript run tests/cli-sync-worktree-scenarios.tryscript.md
 ```
+
+### Testing Forkable Docs
+
+Forkable-docs behavior (fork/unfork/update/diff/status) is covered by
+`tests/cli-docs-fork.tryscript.md`, `tests/cli-docs-update.tryscript.md`, and
+`tests/fork-cross-platform-e2e.test.ts` (run from `packages/tbd/`).
 
 <!-- This document follows common-doc-guidelines.md.
 See github.com/jlevy/practical-prose and review guidelines before editing.

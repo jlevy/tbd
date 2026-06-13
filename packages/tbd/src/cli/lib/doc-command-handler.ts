@@ -12,8 +12,12 @@ import { BaseCommand } from './base-command.js';
 import { shouldUseInteractiveOutput } from './context.js';
 import { GUIDELINES_AGENT_HEADER } from './doc-prompts.js';
 import { requireInit } from './errors.js';
-import { DocCache, SCORE_PREFIX_MATCH } from '../../file/doc-cache.js';
+import { DocCache, SCORE_PREFIX_MATCH, type CachedDoc } from '../../file/doc-cache.js';
 import { addDoc, type DocType } from '../../file/doc-add.js';
+import { servedEntryFor, loadServeContext, effectiveServePaths } from './doc-serve.js';
+import { createDocMap, type DocMapEntry } from '../../docmap/index.js';
+import { FORK_DIR } from '../../lib/paths.js';
+import { relative } from 'node:path';
 import { truncate } from '../../lib/truncate.js';
 import { formatDocSize } from '../../lib/format-utils.js';
 import { getTerminalWidth, renderMarkdownWithFrontmatter, paginateOutput } from './output.js';
@@ -73,7 +77,13 @@ export abstract class DocCommandHandler extends BaseCommand {
    */
   protected async initCache(): Promise<void> {
     this.tbdRoot = await requireInit();
-    this.cache = new DocCache(this.config.paths, this.tbdRoot);
+    // local_dirs slot between the fork dir and the cache for every kind.
+    const { localDirs } = await loadServeContext(this.tbdRoot);
+    const paths =
+      localDirs.length > 0
+        ? effectiveServePaths(this.config.docType, localDirs)
+        : this.config.paths;
+    this.cache = new DocCache(paths, this.tbdRoot);
     await this.cache.load({ quiet: this.ctx.quiet });
   }
 
@@ -86,18 +96,9 @@ export abstract class DocCommandHandler extends BaseCommand {
     const docs = this.cache.list(includeAll);
 
     if (this.ctx.json) {
-      this.output.data(
-        docs.map((d) => ({
-          name: d.name,
-          title: d.frontmatter?.title,
-          description: d.frontmatter?.description,
-          path: d.path,
-          sourceDir: d.sourceDir,
-          sizeBytes: d.sizeBytes,
-          approxTokens: d.approxTokens,
-          shadowed: this.cache!.isShadowed(d),
-        })),
-      );
+      // One data model: the per-kind list emits the same docmap object as
+      // `tbd docs list`, filtered to this kind (spec Decision 21).
+      this.output.data(createDocMap(await this.docMapEntries(docs), { name: 'tbd-docs' }));
       return;
     }
 
@@ -133,6 +134,57 @@ export abstract class DocCommandHandler extends BaseCommand {
         }
       }
     }
+  }
+
+  /**
+   * Build docmap entries for this kind's docs through the shared constructor,
+   * with per-kind extensions (size metrics; shadowed flag when applicable).
+   */
+  protected async docMapEntries(docs: CachedDoc[]): Promise<DocMapEntry[]> {
+    const { manifest, files, localDirs } = await loadServeContext(this.tbdRoot);
+    return docs.map((d) => {
+      const { entry } = servedEntryFor(
+        this.tbdRoot,
+        this.config.docType,
+        d,
+        manifest,
+        files,
+        localDirs,
+      );
+      return {
+        ...entry,
+        sizeBytes: d.sizeBytes,
+        approxTokens: d.approxTokens,
+        ...(this.cache!.isShadowed(d) ? { shadowed: true } : {}),
+      };
+    });
+  }
+
+  /**
+   * Emit one doc: docmap entry + content in JSON mode (the one-entry read
+   * shape, spec Decision 22); in text mode, a forked-copy provenance note on
+   * stderr (Decision 18) before the content.
+   */
+  protected async emitDoc(doc: CachedDoc, score?: number): Promise<void> {
+    if (this.ctx.json) {
+      const [entry] = await this.docMapEntries([doc]);
+      this.output.data({
+        ...entry,
+        ...(score !== undefined ? { score } : {}),
+        content: doc.content,
+      });
+      return;
+    }
+    const { localDirs } = await loadServeContext(this.tbdRoot);
+    if (!this.ctx.quiet) {
+      const rel = relative(this.tbdRoot, doc.path).split('\\').join('/');
+      if (doc.sourceDir.startsWith(FORK_DIR)) {
+        process.stderr.write(`(serving forked copy: ${rel})\n`);
+      } else if (localDirs.includes(doc.sourceDir)) {
+        process.stderr.write(`(serving local doc: ${rel})\n`);
+      }
+    }
+    await this.outputDocContent(doc.content);
   }
 
   /**
@@ -186,16 +238,7 @@ export abstract class DocCommandHandler extends BaseCommand {
     // Try exact match first
     const exactMatch = this.cache.get(query);
     if (exactMatch) {
-      if (this.ctx.json) {
-        this.output.data({
-          name: exactMatch.doc.name,
-          title: exactMatch.doc.frontmatter?.title,
-          score: exactMatch.score,
-          content: exactMatch.doc.content,
-        });
-      } else {
-        await this.outputDocContent(exactMatch.doc.content);
-      }
+      await this.emitDoc(exactMatch.doc, exactMatch.score);
       return;
     }
 
@@ -222,16 +265,7 @@ export abstract class DocCommandHandler extends BaseCommand {
     }
 
     // Good fuzzy match - output it
-    if (this.ctx.json) {
-      this.output.data({
-        name: best.doc.name,
-        title: best.doc.frontmatter?.title,
-        score: best.score,
-        content: best.doc.content,
-      });
-    } else {
-      await this.outputDocContent(best.doc.content);
-    }
+    await this.emitDoc(best.doc, best.score);
   }
 
   /**
@@ -284,7 +318,7 @@ export abstract class DocCommandHandler extends BaseCommand {
     }
 
     console.log(pc.green(`  Added to ${result.destPath}`));
-    console.log(pc.green(`  Config updated with source: ${result.rawUrl}`));
+    console.log(pc.green(`  Config updated with source: ${result.source}`));
     console.log('');
     console.log(`Run \`tbd ${this.config.typeNamePlural} --list\` to verify.`);
   }

@@ -10,6 +10,8 @@
  */
 
 import { execFile } from 'node:child_process';
+
+import { gitSafeEnv } from '../lib/git-env.js';
 import { mkdir } from 'node:fs/promises';
 import { promisify } from 'node:util';
 import { basename, dirname, join, normalize } from 'node:path';
@@ -97,7 +99,10 @@ const GIT_MAX_BUFFER = 50 * 1024 * 1024; // 50MB
  */
 export async function git(...args: string[]): Promise<string> {
   try {
-    const { stdout } = await execFileAsync('git', args, { maxBuffer: GIT_MAX_BUFFER });
+    const { stdout } = await execFileAsync('git', args, {
+      maxBuffer: GIT_MAX_BUFFER,
+      env: gitSafeEnv(),
+    });
     return stdout.trim();
   } catch (err) {
     throw GitError.from(err, args);
@@ -113,7 +118,7 @@ async function gitNoPrompt(...args: string[]): Promise<string> {
   try {
     const { stdout } = await execFileAsync('git', args, {
       maxBuffer: GIT_MAX_BUFFER,
-      env: { ...process.env, GIT_TERMINAL_PROMPT: '0' },
+      env: gitSafeEnv({ GIT_TERMINAL_PROMPT: '0' }),
     });
     return stdout.trim();
   } catch (err) {
