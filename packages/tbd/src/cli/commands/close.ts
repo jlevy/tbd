@@ -18,9 +18,11 @@ import { formatDisplayId, formatDebugId } from '../../lib/ids.js';
 import { now } from '../../utils/time-utils.js';
 import { withDataSyncContext } from '../lib/data-context.js';
 import { resolveAllIds, summarizeBulk, toJsonResult, type BulkItemResult } from '../lib/bulk.js';
+import { resolveBodyInput } from '../lib/body-input.js';
 
 interface CloseOptions {
   reason?: string;
+  reasonFile?: string;
   ignoreMissing?: boolean;
 }
 
@@ -30,6 +32,12 @@ class CloseHandler extends BaseCommand {
     const results: BulkItemResult[] = [];
 
     await this.execute(async () => {
+      const reason = await resolveBodyInput({
+        name: '--reason',
+        value: options.reason,
+        fileName: '--reason-file',
+        file: options.reasonFile,
+      });
       await withDataSyncContext(
         tbdRoot,
         { lock: true },
@@ -78,7 +86,7 @@ class CloseHandler extends BaseCommand {
 
             issue.status = 'closed';
             issue.closed_at = now();
-            issue.close_reason = options.reason ?? null;
+            issue.close_reason = reason ?? null;
             issue.version += 1;
             issue.updated_at = now();
             await writeIssue(dataSyncDir, issue);
@@ -137,7 +145,8 @@ class CloseHandler extends BaseCommand {
 export const closeCommand = new Command('close')
   .description('Close one or more issues')
   .argument('<ids...>', 'Issue ID(s)')
-  .option('--reason <text>', 'Close reason')
+  .option('--reason <text>', 'Close reason ("-" reads stdin)')
+  .option('--reason-file <path>', 'Read close reason from a file ("-" reads stdin)')
   .option('--ignore-missing', 'Skip unknown IDs instead of failing')
   .action(async (ids, options, command) => {
     const handler = new CloseHandler(command);

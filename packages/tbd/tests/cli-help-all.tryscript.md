@@ -87,7 +87,7 @@ $ tbd update --help | grep -c "\-\-priority"
 
 ```console
 $ tbd close --help | grep -c "\-\-reason"
-1
+2
 ? 0
 ```
 
@@ -95,7 +95,7 @@ $ tbd close --help | grep -c "\-\-reason"
 
 ```console
 $ tbd reopen --help | grep -c "\-\-reason"
-1
+2
 ? 0
 ```
 

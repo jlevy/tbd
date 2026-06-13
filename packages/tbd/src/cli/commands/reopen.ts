@@ -20,9 +20,11 @@ import { formatDisplayId, formatDebugId } from '../../lib/ids.js';
 import { now } from '../../utils/time-utils.js';
 import { withDataSyncContext } from '../lib/data-context.js';
 import { resolveAllIds, summarizeBulk, toJsonResult, type BulkItemResult } from '../lib/bulk.js';
+import { resolveBodyInput } from '../lib/body-input.js';
 
 interface ReopenOptions {
   reason?: string;
+  reasonFile?: string;
   ignoreMissing?: boolean;
 }
 
@@ -33,6 +35,12 @@ class ReopenHandler extends BaseCommand {
     const results: BulkItemResult[] = [];
 
     await this.execute(async () => {
+      const reason = await resolveBodyInput({
+        name: '--reason',
+        value: options.reason,
+        fileName: '--reason-file',
+        file: options.reasonFile,
+      });
       await withDataSyncContext(
         tbdRoot,
         { lock: true },
@@ -91,8 +99,8 @@ class ReopenHandler extends BaseCommand {
             issue.updated_at = now();
 
             // Optionally record the reopen reason in notes.
-            if (options.reason) {
-              const reopenNote = `Reopened: ${options.reason}`;
+            if (reason) {
+              const reopenNote = `Reopened: ${reason}`;
               issue.notes = issue.notes ? `${issue.notes}\n\n${reopenNote}` : reopenNote;
             }
 
@@ -151,7 +159,8 @@ class ReopenHandler extends BaseCommand {
 export const reopenCommand = new Command('reopen')
   .description('Reopen one or more closed issues')
   .argument('<ids...>', 'Issue ID(s)')
-  .option('--reason <text>', 'Reopen reason')
+  .option('--reason <text>', 'Reopen reason ("-" reads stdin)')
+  .option('--reason-file <path>', 'Read reopen reason from a file ("-" reads stdin)')
   .option('--ignore-missing', 'Skip unknown IDs instead of failing')
   .action(async (ids, options, command) => {
     const handler = new ReopenHandler(command);

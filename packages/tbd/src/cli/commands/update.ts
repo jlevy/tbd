@@ -21,6 +21,7 @@ import { resolveAndValidatePath, getPathErrorMessage } from '../../lib/project-p
 import { validateIssueTitle } from '../lib/issue-input-validation.js';
 import { withDataSyncContext } from '../lib/data-context.js';
 import { resolveAllIds, summarizeBulk, toJsonResult, type BulkItemResult } from '../lib/bulk.js';
+import { resolveBodyInput, type BodyInputState } from '../lib/body-input.js';
 
 interface UpdateOptions {
   fromFile?: string;
@@ -62,6 +63,10 @@ class UpdateHandler extends BaseCommand {
     let didUpdate = false;
 
     await this.execute(async () => {
+      // Resolve free-text bodies (description/notes) before the data context:
+      // the context changes cwd, so relative file paths and stdin must be read
+      // up front from the caller's working directory.
+      const resolvedOptions = await this.resolveBodyOptions(options);
       await withDataSyncContext(
         tbdRoot,
         { lock: true },
@@ -83,7 +88,7 @@ class UpdateHandler extends BaseCommand {
           }
 
           // Parse and validate options
-          const updates = await this.parseUpdates(options, mapping, tbdRoot);
+          const updates = await this.parseUpdates(resolvedOptions, mapping, tbdRoot);
           if (updates === null) return;
 
           if (this.checkDryRun('Would update issue', { id: internalId, ...updates })) {
@@ -319,6 +324,37 @@ class UpdateHandler extends BaseCommand {
     });
   }
 
+  /**
+   * Resolve free-text body flags (--description, --notes, --notes-file) to plain
+   * strings before entering the data context, so relative file paths resolve
+   * against the caller's cwd and stdin ('-') is consumed exactly once.
+   * `--from-file` carries its own body and is left untouched.
+   */
+  private async resolveBodyOptions(options: UpdateOptions): Promise<UpdateOptions> {
+    if (options.fromFile) return options;
+    const bodyState: BodyInputState = {};
+    const resolved: UpdateOptions = { ...options };
+    if (options.description !== undefined) {
+      resolved.description = await resolveBodyInput(
+        { name: '--description', value: options.description },
+        bodyState,
+      );
+    }
+    if (options.notes !== undefined || options.notesFile) {
+      resolved.notes = await resolveBodyInput(
+        {
+          name: '--notes',
+          value: options.notes,
+          fileName: '--notes-file',
+          file: options.notesFile,
+        },
+        bodyState,
+      );
+      resolved.notesFile = undefined;
+    }
+    return resolved;
+  }
+
   private async parseUpdates(
     options: UpdateOptions,
     mapping: IdMapping,
@@ -478,20 +514,14 @@ class UpdateHandler extends BaseCommand {
       updates.assignee = options.assignee || null;
     }
 
+    // Body fields are pre-resolved (inline/file/stdin) by resolveBodyOptions
+    // before the data context, so here they are already plain strings.
     if (options.description !== undefined) {
       updates.description = options.description || null;
     }
 
     if (options.notes !== undefined) {
       updates.notes = options.notes || null;
-    }
-
-    if (options.notesFile) {
-      try {
-        updates.notes = await readFile(options.notesFile, 'utf-8');
-      } catch {
-        throw new CLIError(`Failed to read notes from file: ${options.notesFile}`);
-      }
     }
 
     if (options.due !== undefined) {
