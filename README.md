@@ -4,26 +4,24 @@
 [![CI](https://github.com/jlevy/tbd/actions/workflows/ci.yml/badge.svg)](https://github.com/jlevy/tbd/actions/workflows/ci.yml)
 [![npm version](https://img.shields.io/npm/v/get-tbd)](https://www.npmjs.com/package/get-tbd)
 
-**Knowledge, processes, and task tracking for AI coding agents, built to improve the
-quality of what they ship.**
+**A drop-in meta-skill that helps any coding agent ship higher-quality, slop-free
+code.**
 
-**tbd** (short for “To Be Done,” or “TypeScript beads” if you prefer) helps AI coding
-agents do better work.
-The quality of what an agent ships comes down to three things: how good its
-**knowledge** of best practices is, how good its **processes** are, and how carefully
-its **tasks** are tracked.
-`tbd` gives an agent all three, kept in git so they persist across sessions and are
-shared across agents.
+**tbd** (short for “To Be Done,” or “TypeScript beads” if you prefer) packages in-depth
+guidelines for good engineering, spec-driven processes, and disciplined task tracking
+into a simple CLI that any agent can run.
 
-Agents start every session with no memory of the last one.
-They forget your conventions, skip steps, and lose track of what’s half-done.
-`tbd` keeps these three things durable in your repo, so no new session has to rediscover
-them: *what to know, how to work, and what’s left to do*.
+The problem isn’t just that agents forget the last session.
+Left to themselves, they skip steps, drift from your conventions, and repeat the same
+engineering mistakes, and those patterns compound over time until they degrade the
+quality of an entire repository.
+`tbd` keeps good engineering practice, reliable processes, and the state of the work
+durable in your repo, so every session and every agent starts from the same disciplined
+baseline.
 
-The surface is simple: **`tbd` is a meta skill.** You talk to your agent in plain
-language, and the agent routes through `tbd`’s own docs and commands to decide what
-knowledge to pull in, which process to follow, and what to track.
-You don’t run `tbd` commands yourself; you describe what you want, and the agent drives.
+You don’t run `tbd` commands yourself.
+You talk to your agent in plain language, and it routes through `tbd`’s own docs and
+commands to pull in the right guidelines, follow the right process, and track the work.
 
 I use `tbd` most in Claude Code, where it installs as a skill, but it works in Cursor,
 Codex, or any agent that can run the `tbd` CLI.
@@ -32,20 +30,20 @@ Codex, or any agent that can run the `tbd` CLI.
 
 Three pillars, one for each lever on output quality:
 
-- **Knowledge** (*what to know*).
-  [25+ in-depth engineering guidelines](packages/tbd/docs/guidelines/): long-lived best
-  practices, principles, and direction that apply across every session and every agent.
-  Pre-installed topics include TypeScript and Python best practices, common agent
-  pitfalls, red-green TDD, golden testing, Convex, monorepo setup, error handling,
-  supply-chain hardening, and backward compatibility.
-  (Use your own if you prefer.)
-- **Processes** (*how to work*). 30+ **shortcuts**: reusable instructions for recurring
-  work like code review, commits, PR creation, and writing planning specs.
-  Shortcuts combine with **templates** (document scaffolds for specs, research briefs,
-  and architecture docs) to become fuller processes.
+- **Engineering knowledge:** [25+ in-depth guidelines](packages/tbd/docs/guidelines/)
+  covering TypeScript, Python, TDD, golden testing, Convex, monorepo setup, error
+  handling, supply-chain hardening, and more, all long-lived best practices that apply
+  across every session and every agent.
+  Adding your own is easy, and putting a guideline into `tbd` is what gets it applied:
+  the agent pulls it in when it’s relevant instead of relying on you to paste rules into
+  a prompt.
+- **Spec-driven processes:** 30+ **shortcuts**, reusable instructions for recurring work
+  like code review, commits, PR creation, and writing planning specs.
+  Shortcuts combine with **templates** (scaffolds for specs, research briefs, and
+  architecture docs) to become fuller processes.
   For example, the `new-plan-spec` shortcut drives the `plan-spec` template into a
   structured planning document.
-- **Tasks** (*what’s left to do*). Git-native issue tracking (**beads**) for bugs,
+- **Disciplined task tracking:** git-native issue tracking (**beads**) for bugs,
   features, epics, and dependencies that persist across sessions.
   Beads scale an agent from a handful of ad-hoc to-dos to hundreds of structured,
   tracked items. This builds on [Beads](https://github.com/steveyegge/beads) by Steve
@@ -123,7 +121,7 @@ You just talk naturally.
 A few principles explain why this combination works, and why it keeps working as models
 get stronger.
 
-**The pieces compose.** Knowledge, processes, and tasks aren’t three separate tools
+**The pieces compose.** Guidelines, processes, and tracking aren’t three separate tools
 bolted together; they reinforce each other.
 A code review runs a shortcut (the consistent steps), judged against the relevant
 guidelines (real standards, not the model’s mood that day), with findings captured as
