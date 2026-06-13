@@ -811,7 +811,7 @@ tbd list --json                             # JSON output
 tbd list --quiet                            # Suppress non-essential output
 tbd list --verbose                          # Enable verbose output
 tbd create "Test" --dry-run                 # Show what would happen
-tbd close proj-a7k2 --no-sync                 # Skip automatic sync
+tbd close proj-a7k2 --no-sync               # Accepted for compat (issue writes stage locally either way)
 tbd list --debug                            # Show internal IDs
 tbd list --color=never                      # Disable colors
 ```
@@ -823,7 +823,9 @@ Options:
 - `--quiet` - Suppress non-essential output
 - `--json` - Output as JSON
 - `--color <when>` - Colorize output: auto, always, never
-- `--no-sync` - Skip automatic sync after write operations
+- `--no-sync` - Accepted for compatibility; has **no effect on issue writes**, which
+  always stage to the local `tbd-sync` worktree.
+  Run `tbd sync` to publish.
 - `--debug` - Show internal IDs alongside display IDs
 
 ## For AI Agents
@@ -1094,7 +1096,7 @@ display:
 sync:
   branch: tbd-sync           # Sync branch name
   remote: origin             # Remote name
-  auto_sync: true            # Auto-sync after writes
+  auto_sync: false           # Reserved; issue writes stage locally — run `tbd sync` to publish
 
 docs_cache:
   files:                     # Docs synced into the cache: destination -> docref
@@ -1262,10 +1264,9 @@ Notes:
   A bigger hammer also exists: deleting the entire `$GIT_COMMON_DIR/tbd/` directory is
   recoverable (layout and the data-sync worktree re-materialize from the config and the
   `tbd-sync` branch on the next command, or via `tbd doctor --fix`); **but only for
-  synced data**. Issue changes made with `--no-sync` since the last `tbd sync` live as
-  uncommitted files inside that worktree and would be lost, so run `tbd sync` first if
-  you must delete it. This is why the recipe deletes only `layout.yml`, never the whole
-  directory.
+  synced data**. Issue changes since the last `tbd sync` live as uncommitted files
+  inside that worktree and would be lost, so run `tbd sync` first if you must delete it.
+  This is why the recipe deletes only `layout.yml`, never the whole directory.
 - **Interrupted upgrades self-heal.** If the process dies between the two stamp writes
   (layout updated but not config, or config but not layout), the next command with the
   new version completes the migration; the abort recipe above also works from either

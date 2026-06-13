@@ -1621,7 +1621,7 @@ display:
 
 # Runtime settings
 settings:
-  auto_sync: false # Auto-sync after write operations
+  auto_sync: false # Reserved; not applied to issue writes (they stage locally; run `tbd sync`)
   index_enabled: true # Enable search indexing
 ```
 
@@ -1640,7 +1640,7 @@ const ConfigSchema = z.object({
     }),
   settings: z
     .object({
-      auto_sync: z.boolean().default(false),
+      auto_sync: z.boolean().default(false), // reserved; issue writes stage locally
       index_enabled: z.boolean().default(true),
     })
     .default({}),
@@ -2598,14 +2598,14 @@ Options:
   --from-file <path>        Create from YAML+Markdown file (all fields)
   --type <type>             Issue type: bug, feature, task, epic, chore (default: task)
   --priority <0-4>          Priority (0=critical, 4=lowest, default: 2)
-  --description <text>      Description
-  --file <path>             Read description from file
+  --description <text>      Description ("-" reads stdin)
+  --file <path>             Read description from file ("-" reads stdin)
   --assignee <name>         Assignee
   --due <date>              Due date (ISO8601)
   --defer <date>            Defer until date (ISO8601)
   --parent=<id>             Parent issue ID
   --label <label>           Add label (repeatable)
-  --no-sync                 Don't sync after create
+  --no-sync                 Accepted for compatibility; no effect (issue writes stage locally)
 ```
 
 > **Note on `--type` flag:** The CLI flag `--type` sets the issue’s `kind` field, NOT
@@ -2882,26 +2882,31 @@ tbd update proj-a1b2 --from-file issue.md
 #### Update
 
 ```bash
-tbd update <id> [options]
+tbd update <ids...> [options]
 
 Options:
-  --from-file <path>        Update all fields from YAML+Markdown file
-  --title <text>            Set title
-  --status <status>         Set status
+  --from-file <path>        Update all fields from YAML+Markdown file (single ID)
+  --title <text>            Set title (single ID)
+  --status <status>         Set status (single ID)
   --type <type>             Set type
   --priority <0-4>          Set priority
   --assignee <name>         Set assignee
-  --description <text>      Set description
-  --notes <text>            Set working notes
-  --notes-file <path>       Set notes from file
+  --description <text>      Set description ("-" reads stdin; single ID)
+  --notes <text>            Set working notes ("-" reads stdin; single ID)
+  --notes-file <path>       Set notes from file ("-" reads stdin; single ID)
   --due <date>              Set due date
   --defer <date>            Set deferred until date
   --add-label <label>       Add label
   --remove-label <label>    Remove label
-  --parent=<id>             Set parent
-  --child-order <ids>    Set child ordering hints (comma-separated)
-  --no-sync                 Don't sync after update
+  --parent=<id>             Set parent (single ID)
+  --child-order <ids>       Set child ordering hints (comma-separated; single ID)
+  --ignore-missing          Skip unknown IDs instead of failing (bulk)
+  --no-sync                 Accepted for compatibility; no effect (issue writes stage locally)
 ```
+
+With two or more IDs, only shared fields apply (`--type`, `--priority`, `--assignee`,
+`--add-label`, `--remove-label`, `--due`, `--defer`); per-ID and lifecycle flags are
+rejected. Use `tbd close`/`tbd reopen` for lifecycle changes.
 
 **Examples:**
 
@@ -2936,11 +2941,13 @@ tbd update proj-a1b2 --from-file issue.md
 #### Close
 
 ```bash
-tbd close <id> [options]
+tbd close <ids...> [options]
 
 Options:
-  --reason <text>           Close reason
-  --no-sync                 Don't sync after close
+  --reason <text>           Close reason ("-" reads stdin)
+  --reason-file <path>      Read close reason from a file ("-" reads stdin)
+  --ignore-missing          Skip unknown IDs instead of failing (bulk)
+  --no-sync                 Accepted for compatibility; no effect (issue writes stage locally)
 ```
 
 **Examples:**
@@ -2953,11 +2960,13 @@ tbd close proj-a1b2 --reason "Fixed in commit abc123"
 #### Reopen
 
 ```bash
-tbd reopen <id> [options]
+tbd reopen <ids...> [options]
 
 Options:
-  --reason <text>           Reopen reason
-  --no-sync                 Don't sync after reopen
+  --reason <text>           Reopen reason ("-" reads stdin)
+  --reason-file <path>      Read reopen reason from a file ("-" reads stdin)
+  --ignore-missing          Skip unknown IDs instead of failing (bulk)
+  --no-sync                 Accepted for compatibility; no effect (issue writes stage locally)
 ```
 
 #### Ready
@@ -3571,7 +3580,7 @@ Available on all commands:
 --version                   Show version
 --db <path>                 Custom .tbd directory path (Beads compat alias)
 --dir <path>                Custom .tbd directory path (preferred)
---no-sync                   Disable auto-sync (per command)
+--no-sync                   Accepted for compatibility; no effect on issue writes
 --json                      JSON output
 --color <when>              Colorize output: auto, always, never (default: auto)
 --actor <name>              Override actor name (not yet implemented)
@@ -3727,7 +3736,7 @@ tbd attic restore <id> <timestamp> [options]
 
 Options:
   --dry-run                 Show what would be restored
-  --no-sync                 Don't sync after restore
+  --no-sync                 Accepted for compat; issue writes stage locally
 ```
 
 **Example:**
@@ -3830,7 +3839,7 @@ Options:
   --from-beads [path]     Auto-detect from .beads/ directory (default: current dir)
   --branch <name>         Specific branch to import from (default: both main + sync)
   --dry-run               Show what would be imported without making changes
-  --no-sync               Don't sync after import
+  --no-sync               Accepted for compat; issue writes stage locally
   --verbose               Show detailed import progress
 ```
 
@@ -4145,7 +4154,7 @@ IMPORT_BEADS(jsonl_file):
 
   4. Report: N new, M updated, K unchanged, J skipped (tbd newer)
 
-  5. Sync (unless --no-sync)
+  5. Stage locally (publish later with `tbd sync`)
 
 extract_short_id(beads_id):
   # "tbd-100" → "100"
@@ -4511,7 +4520,7 @@ These flags/behaviors are maintained for Beads script compatibility:
 2. **No daemon**: Background sync must be manual or cron-based
 
 3. **No auto-flush**: Beads auto-syncs on write
-   - tbd syncs on `tbd sync` or with `settings.auto_sync: true` in config
+   - tbd publishes issues on `tbd sync` (per-command auto-sync is not currently enabled)
 
 4. **Tombstone issues**: Decide import behavior (skip/convert/attic)
 
@@ -5476,7 +5485,7 @@ This is sufficient for the `ready` command algorithm.
 | `--help` | `--help` | ✅ Full | Help text |
 | `--version` | `--version` | ✅ Full | Version info |
 | `--db <path>` | `--db <path>` | ✅ Full | Custom .tbd path |
-| `--no-sync` | `--no-sync` | ✅ Full | Skip auto-sync |
+| `--no-sync` | `--no-sync` | ✅ Full | Accepted; no effect on issue writes |
 | `--actor <name>` | `--actor <name>` | 🔄 Future | Override actor |
 | *(n/a)* | `--dry-run` | ✅ tbd | Preview changes |
 | *(n/a)* | `--verbose` | ✅ tbd | Debug output |
