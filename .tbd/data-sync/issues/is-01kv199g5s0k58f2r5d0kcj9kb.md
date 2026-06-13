@@ -3,9 +3,9 @@ type: is
 id: is-01kv199g5s0k58f2r5d0kcj9kb
 title: Variadic IDs for close/reopen/update (bulk mutators)
 kind: task
-status: in_progress
+status: closed
 priority: 1
-version: 12
+version: 13
 spec_path: docs/project/specs/active/plan-2026-06-13-agent-cli-ergonomics.md
 labels: []
 dependencies:
@@ -26,7 +26,9 @@ child_order_hints:
   - is-01kv1cykshfpkk9qb3ve6sffbd
   - is-01kv1cyn85975ep5zdd0s2x1nm
 created_at: 2026-06-13T20:03:09.113Z
-updated_at: 2026-06-13T21:07:08.165Z
+updated_at: 2026-06-13T22:09:45.434Z
+closed_at: 2026-06-13T22:09:45.433Z
+close_reason: "All three variadic mutators shipped: close (fc9065b), reopen (03ab2d6), update (b5ec58b). Each preserves single-ID legacy behavior; bulk = validate-all-then-apply + summary + --json + visible sync hint."
 ---
 Phase 1 core (spec API Changes; problems P1/P7). Accept <ids...> on close/reopen/update/show; single-ID behavior unchanged; process all IDs under one withDataSyncContext lock. Validate-all-then-apply atomicity: resolve every ID first and abort before writing if any is unknown (--ignore-missing downgrades to skip); already-closed is a reported skip. Reject per-ID-only flags such as --title when multiple IDs are given. Supersedes stub bead tbd-cxqm (Batch operations).
 
