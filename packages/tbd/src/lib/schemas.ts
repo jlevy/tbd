@@ -221,15 +221,17 @@ export const SyncStorage = z.enum(['git-common-dir-v1']);
  * Doc cache configuration - maps destination paths to source locations.
  *
  * Keys are destination paths relative to .tbd/docs/ (e.g., "shortcuts/standard/code-review-and-commit.md")
- * Values are source locations:
- * - internal: prefix for bundled docs (e.g., "internal:shortcuts/standard/code-review-and-commit.md")
- * - Full URL for external docs (e.g., "https://raw.githubusercontent.com/org/repo/main/file.md")
+ * Values are source docrefs:
+ * - internal: bundled docs (e.g., "internal:guidelines/typescript-rules.md")
+ * - git: a file in a repo (e.g., "github:owner/repo@main//docs/file.md"; gitlab: too)
+ * - url: a plain URL kept verbatim (e.g., "https://example.com/file.md")
+ * See `tbd docs show docref-format` for the full grammar.
  *
  * Example:
  * ```yaml
  * doc_cache:
  *   shortcuts/standard/code-review-and-commit.md: internal:shortcuts/standard/code-review-and-commit.md
- *   shortcuts/custom/my-shortcut.md: https://raw.githubusercontent.com/org/repo/main/shortcuts/my-shortcut.md
+ *   shortcuts/custom/my-shortcut.md: github:org/repo@main//shortcuts/my-shortcut.md
  * ```
  */
 export const DocCacheConfigSchema = z.record(z.string(), z.string());
@@ -244,9 +246,11 @@ export const DocsCacheSchema = z.object({
   /**
    * Files to sync: maps destination paths to source locations.
    * Keys are destination paths relative to .tbd/docs/
-   * Values are source locations:
-   * - internal: prefix for bundled docs (e.g., "internal:shortcuts/standard/code-review-and-commit.md")
-   * - Full URL for external docs (e.g., "https://raw.githubusercontent.com/org/repo/main/file.md")
+   * Values are source docrefs:
+   * - internal: bundled docs (e.g., "internal:guidelines/typescript-rules.md")
+   * - git: a file in a repo (e.g., "github:owner/repo@main//docs/file.md"; gitlab: too)
+   * - url: a plain URL kept verbatim (e.g., "https://example.com/file.md")
+   * See `tbd docs show docref-format` for the full grammar.
    */
   files: z.record(z.string(), z.string()).optional(),
   /**
@@ -285,6 +289,20 @@ export const DocsCacheSchema = z.object({
  *
  * See tbd-format.ts for format version history and migration rules.
  */
+/**
+ * One entry in the config upgrade history (`tbd_upgrades`).
+ * Records a tbd version that ran `tbd setup` in this repo.
+ */
+export const UpgradeEntrySchema = z.object({
+  /** The tbd version string (e.g. "0.3.0", or a dev build string). */
+  version: z.string(),
+  /**
+   * When this version first ran setup (ISO 8601). Optional: the entry seeded from a
+   * pre-f06 config has no timestamp because the original install time is unknown.
+   */
+  at: Timestamp.optional(),
+});
+
 export const ConfigSchema = z.object({
   /**
    * Format version for the .tbd/ directory structure.
@@ -293,7 +311,19 @@ export const ConfigSchema = z.object({
    */
   tbd_format: z.string().default('f01'),
 
+  /**
+   * The tbd version that last ran `tbd setup` in this repo. Updated on every setup.
+   * Informational only; functional version gating is via `tbd_format`. See
+   * `tbd_upgrades` for the full history. (As of format f06; before f06 this was the
+   * install-time version and never changed.)
+   */
   tbd_version: z.string(),
+  /**
+   * Ordered history (oldest first) of tbd versions that have run setup here. Appended
+   * on each setup when the version changes; informational. Seeded on the f06 migration
+   * from the prior `tbd_version` (without a timestamp). See tbd-format.ts.
+   */
+  tbd_upgrades: z.array(UpgradeEntrySchema).default([]),
   sync: z
     .object({
       branch: GitBranchName.default('tbd-sync'),
@@ -482,6 +512,7 @@ export const ISSUE_FIELD_ORDER = [
 export const CONFIG_FIELD_ORDER = [
   'tbd_format',
   'tbd_version',
+  'tbd_upgrades',
   'display',
   'sync',
   'settings',

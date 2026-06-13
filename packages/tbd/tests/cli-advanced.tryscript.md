@@ -259,6 +259,8 @@ $ tbd doctor --fix
 ```console
 $ tbd config show
 tbd_version: [..]
+tbd_upgrades:
+  - [..]
 sync:
   branch: tbd-sync
   remote: origin
@@ -275,8 +277,14 @@ settings:
 ```console
 $ tbd config show --json
 {
-  "tbd_format": "f05",
+  "tbd_format": "f06",
   "tbd_version": "[..]",
+  "tbd_upgrades": [
+    {
+      "version": "[..]",
+      "at": "[..]"
+    }
+  ],
   "sync": {
     "branch": "tbd-sync",
     "remote": "origin",

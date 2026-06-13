@@ -2,8 +2,8 @@
  * Fork manifest and base snapshots for the forkable-docs workflow.
  *
  * All fork state lives under one committed directory, `.tbd/doc-forks/`:
- *   forks.yml        — the manifest (provenance, hashes, revisions)
- *   base/<kind>/<name>.md  — verbatim base snapshots (the merge bases)
+ *   forks.yml       : the manifest (provenance, hashes, revisions)
+ *   base/<kind>/<name>.md : verbatim base snapshots (the merge bases)
  *
  * The base of every fork is a stored snapshot of the upstream content the fork
  * was created from. Together with `base_hash`, this makes "customized?",
@@ -59,7 +59,7 @@ export const ForkEntrySchema = z.object({
   name: z.string().min(1).refine(isSafeDocName, {
     message: 'invalid doc name (no path separators, "..", or leading dot)',
   }),
-  /** Doc kind — must be one of the known fork kinds. */
+  /** Doc kind: must be one of the known fork kinds. */
   kind: z.enum(FORK_KINDS),
   /** Repo-relative path of the forked file (e.g. "docs/tbd/guidelines/python-rules.md"). */
   path: z.string().min(1),
@@ -136,7 +136,7 @@ export function hasUnresolvedConflict(content: string): boolean {
 
 /**
  * Loose semver comparison on major.minor.patch (prerelease ignored). Returns
- * null when either version is unparseable — callers must not guard on a version
+ * null when either version is unparseable; callers must not guard on a version
  * they cannot parse (treat null as "do not block").
  */
 export function compareVersionsLoose(a: string, b: string): -1 | 0 | 1 | null {
@@ -213,7 +213,7 @@ export interface ForkStatus {
 }
 
 /**
- * Compute a doc's fork status from hashes and flags. Pure and total — every
+ * Compute a doc's fork status from hashes and flags. Pure and total; every
  * combination of inputs maps to exactly one {@link ForkStatus}.
  */
 export function computeForkStatus(input: ForkStatusInput): ForkStatus {
@@ -317,7 +317,7 @@ const ForkManifestEnvelopeSchema = z.object({
  * Parsing is tolerant per entry: a malformed or unsafe entry (bad name/kind,
  * path-traversal attempt) is dropped with a warning rather than aborting the
  * whole read. This both fails closed on a crafted entry (it is never returned,
- * so commands never act on it — no out-of-tree deletes) and keeps one corrupt
+ * so commands never act on it; no out-of-tree deletes) and keeps one corrupt
  * entry from taking down status/update for every other fork.
  */
 export async function readForkManifest(tbdRoot: string): Promise<ForkManifest> {

@@ -1,5 +1,5 @@
 /**
- * docref — a single-string, URI-like address for any document.
+ * docref: a single-string, URI-like address for any document.
  *
  * This module is intentionally standalone and dependency-free (no tbd-internal
  * imports) so it can move to its own package later. It is the one address syntax
@@ -9,7 +9,7 @@
  * Supported forms (docref v0.1):
  *   internal:guidelines/python-rules.md       bundled doc shipped inside the consuming
  *                                             tool (app-relative, not tbd-specific)
- *   ./docs/general/   ../shared/   /abs/f.md  local paths — must be anchored with
+ *   ./docs/general/   ../shared/   /abs/f.md  local paths; must be anchored with
  *                                             "./", "../", "/", or a Windows drive
  *                                             letter (C:/ or C:\)
  *   https://example.com/style.md              plain URL
@@ -18,7 +18,7 @@
  *
  * The grammar is deliberately strict: bare relative strings ("guidelines/x.md") and
  * home-relative paths ("~/x.md") are NOT valid docrefs. Consumers that want lenient
- * input may coerce at their own boundary (e.g. prepend "./") before parsing — a
+ * input may coerce at their own boundary (e.g. prepend "./") before parsing; a
  * strict grammar plus lenient consumers composes; the reverse cannot be tightened.
  *
  * Additional protocols (for example a host-bearing git scheme for forges beyond
@@ -126,7 +126,7 @@ function parseGitBody(host: GitHost, body: string, input: string): DocRef {
 /**
  * If `url` points at a known git host's file view, return the equivalent git
  * docref; otherwise return null (caller keeps it as a plain URL).
- * URL fragments are preserved — normalization must never silently drop data.
+ * URL fragments are preserved; normalization must never silently drop data.
  */
 function gitRefFromUrl(url: string): DocRef | null {
   let parsed: URL;
@@ -202,7 +202,7 @@ export function parseDocRef(input: string): DocRef {
     }
   }
 
-  // Web URLs — normalize known git hosts, otherwise keep as a plain URL.
+  // Web URLs: normalize known git hosts, otherwise keep as a plain URL.
   if (raw.startsWith('http://') || raw.startsWith('https://')) {
     return gitRefFromUrl(raw) ?? { kind: 'url', url: raw };
   }
@@ -268,7 +268,7 @@ export function isDocRef(input: string): boolean {
 
 /**
  * Whether two docrefs address the same document, ignoring a leading `./` on
- * local paths. Comparison is purely syntactic — no case normalization of hosts
+ * local paths. Comparison is purely syntactic; no case normalization of hosts
  * or owners. Useful for de-duping config entries.
  */
 export function docRefsEqual(a: DocRef, b: DocRef): boolean {

@@ -47,7 +47,7 @@ function getVersion(): string {
 /**
  * Clean published npm version for pinned `get-tbd@<version>` fallbacks (the
  * session script and any other generated install hint). Always the package.json
- * semver — NOT the git-describe display version, which for a local/dirty build
+ * semver, NOT the git-describe display version, which for a local/dirty build
  * is an unpublished string like `0.2.3-dev.2.abc1234-dirty` that npm cannot
  * install and that would churn generated files on every build.
  */

@@ -14,6 +14,8 @@ import { join, dirname, extname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import matter from 'gray-matter';
 
+import { docCategory } from '../src/lib/doc-categories.js';
+
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const GUIDELINES_DIR = join(__dirname, '..', 'docs', 'guidelines');
 
@@ -72,5 +74,24 @@ describe('guideline doc categories', () => {
     if (failures.length > 0) {
       expect.fail(`Guideline category failures:\n  ${failures.join('\n  ')}`);
     }
+  });
+});
+
+describe('docCategory()', () => {
+  it('returns the declared category when it is a known guideline category', () => {
+    expect(docCategory({ category: 'general' })).toBe('general');
+    expect(docCategory({ category: 'typescript' })).toBe('typescript');
+    expect(docCategory({ category: 'python' })).toBe('python');
+  });
+
+  it('returns undefined for an unknown or undeclared category (no general fallback)', () => {
+    // Regression for tbd-o6zn: non-guideline docs — e.g. a shortcut declaring
+    // `category: review`, or a doc with no category — must NOT collapse to
+    // 'general', or `tbd docs fork --category=general` over-forks every one of
+    // them (all shortcuts, templates, and references).
+    expect(docCategory({ category: 'review' })).toBeUndefined();
+    expect(docCategory({ category: 'meta' })).toBeUndefined();
+    expect(docCategory({})).toBeUndefined();
+    expect(docCategory(undefined)).toBeUndefined();
   });
 });

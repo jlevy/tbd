@@ -2,8 +2,8 @@
  * Extract a single "## X.Y.Z" section from a Keep-a-Changelog style file.
  *
  * Used by the release workflow (via scripts/extract-changelog.ts) to set the GitHub
- * Release body, and unit-tested directly. Kept as a normal source module — rather than
- * inline awk in the workflow — so the logic can be tested and debugged in isolation.
+ * Release body, and unit-tested directly. Kept as a normal source module, rather than
+ * inline awk in the workflow, so the logic can be tested and debugged in isolation.
  */
 
 /**

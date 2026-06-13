@@ -204,7 +204,7 @@ export async function resolveSharedTbdPaths(baseDir: string): Promise<SharedTbdP
 }
 
 /**
- * True when the Git common dir lives outside the project checkout — the linked
+ * True when the Git common dir lives outside the project checkout, the linked
  * worktree shape where the checkout can be writable while `$GIT_COMMON_DIR/tbd`
  * (shared sync state + lock) is not. This is the generic signal behind the
  * Codex-sandbox case in #164; it does not depend on any `CODEX_*` env var, which

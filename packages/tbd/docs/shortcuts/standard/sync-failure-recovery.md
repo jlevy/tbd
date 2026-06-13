@@ -31,7 +31,7 @@ git commit -m "tbd: save outbox"
 git push
 ```
 
-**Note:** Do not gitignore `.tbd/workspaces/` — it must be committed to your working
+**Note:** Do not gitignore `.tbd/workspaces/`; it must be committed to your working
 branch.
 
 ## Later, When Sync Works

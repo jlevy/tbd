@@ -171,7 +171,7 @@ describe('setup flows', { timeout: setupFlowTestTimeout }, () => {
       expect(result.status).toBe(0);
 
       const agents = await readFile(join(tempDir, 'AGENTS.md'), 'utf-8');
-      expect(agents).toContain('<!-- BEGIN TBD INTEGRATION format=f05 surface=agents-md -->');
+      expect(agents).toContain('<!-- BEGIN TBD INTEGRATION format=f06 surface=agents-md -->');
       expect(agents).toContain('tbd prime');
 
       const block = agents.slice(
@@ -269,7 +269,7 @@ describe('setup flows', { timeout: setupFlowTestTimeout }, () => {
 
       const agents = await readFile(join(tempDir, 'AGENTS.md'), 'utf-8');
       // Upgraded to the versioned compact block...
-      expect(agents).toContain('format=f05');
+      expect(agents).toContain('format=f06');
       // ...while preserving user content outside the managed region.
       expect(agents).toContain('## My Notes');
       expect(agents).toContain('Keep me.');
@@ -368,7 +368,7 @@ describe('setup flows', { timeout: setupFlowTestTimeout }, () => {
     const zeroForkMenu = [
       'Docs: [N] docs available in the cache (.tbd/docs/, gitignored); none forked into the repo.',
       '  Guidelines are active from the cache. Three postures, all serving the same docs:',
-      '  Hidden (default):  keep the cache as-is — zero repo footprint',
+      '  Hidden (default):  keep the cache as-is; zero repo footprint',
       '  Curated:           tbd docs fork <name> [...]  fork chosen docs into docs/tbd/',
       '                     tbd docs fork --category=<name>  (general, typescript, python, convex, electron)',
       '  Everything:        tbd docs fork --all         all docs, visible and editable',
@@ -411,7 +411,7 @@ describe('setup flows', { timeout: setupFlowTestTimeout }, () => {
       const stale = runTbd(['setup', '--auto']);
       expect(stale.status).toBe(0);
       expect(stale.stdout).toContain(
-        "Docs: 1 forked into docs/tbd/. 1 have upstream updates — run 'tbd docs update'.",
+        "Docs: 1 forked into docs/tbd/. 1 have upstream updates; run 'tbd docs update'.",
       );
 
       // Reporting only: setup must never write the fork dir or its manifest.

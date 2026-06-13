@@ -98,7 +98,10 @@ describe('doc --add end-to-end', { timeout: 90_000 }, () => {
       // Verify config was updated
       const configContent = await readFile(join(tempDir, '.tbd', 'config.yml'), 'utf-8');
       expect(configContent).toContain('modern-bun-monorepo-patterns.md');
-      expect(configContent).toContain('raw.githubusercontent.com');
+      // docref-everywhere: the raw URL is normalized to its canonical git docref in config.
+      expect(configContent).toContain(
+        'github:jlevy/tbd@413ac0b770e9ddc415f4095af30b64869cf8d0d2//docs/general/research/current/research-modern-bun-monorepo-patterns.md',
+      );
 
       // Verify it shows up in --list
       const listResult = runTbd(['guidelines', '--list']);
@@ -106,7 +109,7 @@ describe('doc --add end-to-end', { timeout: 90_000 }, () => {
       expect(listResult.stdout).toContain('modern-bun-monorepo-patterns');
     });
 
-    it('converts GitHub blob URL to raw URL when adding', async () => {
+    it('converts a GitHub blob URL to a canonical docref when adding', async () => {
       initGitAndTbd();
 
       const addResult = runTbd([
@@ -122,9 +125,11 @@ describe('doc --add end-to-end', { timeout: 90_000 }, () => {
 
       expect(addResult.status).toBe(0);
 
-      // Config should have the raw URL, not the blob URL
+      // docref-everywhere: a blob URL is normalized to its canonical git docref, not a raw URL.
       const configContent = await readFile(join(tempDir, '.tbd', 'config.yml'), 'utf-8');
-      expect(configContent).toContain('raw.githubusercontent.com');
+      expect(configContent).toContain(
+        'github:jlevy/tbd@413ac0b770e9ddc415f4095af30b64869cf8d0d2//docs/general/research/current/research-modern-bun-monorepo-patterns.md',
+      );
       expect(configContent).not.toContain('/blob/');
     });
   });

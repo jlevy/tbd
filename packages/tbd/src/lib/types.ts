@@ -161,7 +161,7 @@ export interface DocSection {
  * All methods are required. Use `noopLogger` when no logging is needed.
  */
 export interface OperationLogger {
-  /** Key milestones — drives the spinner in CLI context */
+  /** Key milestones; drives the spinner in CLI context */
   progress: (message: string) => void;
   /** Operational detail (shown with --verbose or --debug) */
   info: (message: string) => void;

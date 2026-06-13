@@ -99,7 +99,7 @@ if (phase === 'prebuild') {
   const claudeHeader = readFileSync(join(INSTALL_DIR, 'claude-header.md'), 'utf-8');
   const skillContent = readFileSync(join(SHORTCUTS_SYSTEM_DIR, 'skill-baseline.md'), 'utf-8');
   // The header provides the document frontmatter, so strip the baseline's own
-  // leading frontmatter — otherwise the composed SKILL.md carries a stray `---`
+  // leading frontmatter; otherwise the composed SKILL.md carries a stray `---`
   // block mid-document (renders wrong and is not flowmark-stable).
   const skillBody = skillContent.replace(/^\uFEFF?---\r?\n[\s\S]*?\r?\n---\r?\n+/, '');
   // Join the header frontmatter directly to the body with a single newline so the

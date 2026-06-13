@@ -30,7 +30,7 @@ export type DocType = 'guideline' | 'shortcut' | 'template' | 'reference';
  * Options for adding a document.
  */
 export interface AddDocOptions {
-  /** Source docref (or URL — normalized to its canonical docref) to add */
+  /** Source docref (or URL, normalized to its canonical docref) to add */
   url: string;
   /** Name for the document (without .md extension) */
   name: string;
@@ -142,7 +142,7 @@ export async function addDoc(tbdRoot: string, options: AddDocOptions): Promise<A
   if (parsed.kind === 'git' && !parsed.ref) {
     throw new DocRefError(
       url,
-      `git docrefs need an explicit ref for deterministic sync — use ${parsed.host}:${parsed.owner}/${parsed.repo}@<ref>//${parsed.path}`,
+      `git docrefs need an explicit ref for deterministic sync; use ${parsed.host}:${parsed.owner}/${parsed.repo}@<ref>//${parsed.path}`,
     );
   }
 

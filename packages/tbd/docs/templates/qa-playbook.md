@@ -14,6 +14,7 @@ Manual QA playbook for [brief description of what is being tested].
 > This is a kind of “manual test”: it is not a strict end-to-end integration test,
 > because it is too costly or pass/fail is not clear.
 > Goals:
+> 
 > - Document expected behavior that are difficult to capture fully in unit, integration,
 >   or end-to-end/golden tests.
 > - Make it possible for an agent to follow the instructions and evaluate if things are
@@ -54,9 +55,10 @@ Manual QA playbook for [brief description of what is being tested].
 
 * * *
 
-## Related Documentation — Read for Context
+## Related Documentation: Read for Context
 
 > Include links to relevant documentation that provides context for this test, e.g.
+> 
 > - [spec-name.md](path/to/spec) - [Brief description]
 > - [architecture-doc.md](path/to/arch) - [Brief description]
 > - [other-qa-playbook.md](path/to/qa) - [Brief description]

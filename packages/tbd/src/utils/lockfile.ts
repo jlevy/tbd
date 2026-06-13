@@ -2,7 +2,7 @@
  * Directory-based mutual exclusion for concurrent file access.
  *
  * Note: Despite the name "lockfile", this is NOT a POSIX file lock (flock/fcntl).
- * It uses mkdir to create a lock *directory* as a coordination convention — no
+ * It uses mkdir to create a lock *directory* as a coordination convention; no
  * OS-level file locking syscalls are involved. This makes it portable across all
  * filesystems, including NFS and other network mounts where flock/fcntl locks
  * are unreliable or unsupported.
@@ -25,16 +25,16 @@
  *
  * ## Lock lifecycle
  *
- * 1. **Acquire**: `mkdir(lockDir)` — fails with EEXIST if held by another process
+ * 1. **Acquire**: `mkdir(lockDir)`; fails with EEXIST if held by another process
  * 2. **Hold**: Execute the critical section
- * 3. **Release**: `rmdir(lockDir)` — in a finally block, with a bounded retry to
+ * 3. **Release**: `rmdir(lockDir)`, in a finally block, with a bounded retry to
  *    absorb transient Windows failures (EBUSY/EPERM from AV scanners or lingering
  *    handles) that would otherwise orphan the lock directory.
  * 4. **Stale detection**: If lock mtime exceeds a threshold, assume the holder
  *    crashed and break the lock. Breaking is done **atomically** by renaming the
  *    stale directory aside (only one waiter can win the rename), so two waiters can
  *    never both break the same lock and end up running concurrently. This is a
- *    heuristic — safe when the critical section is short-lived (sub-second for
+ *    heuristic; safe when the critical section is short-lived (sub-second for
  *    file I/O).
  *
  * ## Failure on timeout
@@ -75,8 +75,8 @@ const DEFAULT_STALE_MS = 5_000;
  *
  * Accepted trade-off (no heartbeat): a live `tbd sync` that hangs longer than
  * `staleMs` (30 min) can have its lock broken by another process mid-operation.
- * For current data sizes this is acceptable — single-repo sync workloads
- * complete well under the window — and adding heartbeat metadata adds
+ * For current data sizes this is acceptable; single-repo sync workloads
+ * complete well under the window, and adding heartbeat metadata adds
  * cross-process state machinery without changing the common case. If sync
  * workloads grow or the lock-break race becomes observable in practice,
  * revisit by adding heartbeat metadata inside the lock directory (touch mtime
@@ -123,7 +123,7 @@ async function removeLockDir(lockPath: string, attempts = 5): Promise<void> {
     } catch (error) {
       const code = (error as NodeJS.ErrnoException).code;
       if (code === 'ENOENT') {
-        return; // Already gone — nothing to do.
+        return; // Already gone; nothing to do.
       }
       if (attempt < attempts - 1 && code && TRANSIENT_RMDIR_CODES.has(code)) {
         await new Promise((resolve) => setTimeout(resolve, 20 * (attempt + 1)));
@@ -194,23 +194,23 @@ export async function withLockfile<T>(
 
   while (Date.now() < deadline) {
     try {
-      // mkdir is atomic per POSIX.1-2017 — fails with EEXIST if already held
+      // mkdir is atomic per POSIX.1-2017; fails with EEXIST if already held
       await mkdir(lockPath);
       acquired = true;
       break;
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code !== 'EEXIST') {
-        // Unexpected error (permissions, disk full, missing parent, etc.) —
+        // Unexpected error (permissions, disk full, missing parent, etc.):
         // preserve the original failure instead of misreporting lock contention.
         throw error;
       }
 
-      // Lock exists — inspect it.
+      // Lock exists; inspect it.
       let lockStat;
       try {
         lockStat = await stat(lockPath);
       } catch {
-        // Lock was released between our mkdir and stat — retry immediately
+        // Lock was released between our mkdir and stat; retry immediately
         continue;
       }
 
@@ -231,7 +231,7 @@ export async function withLockfile<T>(
         continue; // Retry immediately after breaking stale lock
       }
 
-      // Lock is fresh — wait and retry
+      // Lock is fresh; wait and retry
       await new Promise((resolve) => setTimeout(resolve, pollMs));
     }
   }

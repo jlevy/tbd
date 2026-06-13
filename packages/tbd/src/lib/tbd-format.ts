@@ -41,7 +41,7 @@
  * Current format version.
  * Bump this ONLY for breaking changes that require migration.
  */
-export const CURRENT_FORMAT = 'f05';
+export const CURRENT_FORMAT = 'f06';
 
 /**
  * Initial format version for configs that don't have tbd_format field.
@@ -113,6 +113,19 @@ export const FORMAT_HISTORY = {
       'command. Revert: restore .tbd/config.yml (git checkout) and delete ' +
       '$GIT_COMMON_DIR/tbd/layout.yml; it regenerates from the config.',
   },
+  f06: {
+    introduced: '0.3.0',
+    description: 'Adds the config upgrade history (tbd_upgrades) and redefines tbd_version',
+    changes: [
+      'Redefined tbd_version: now the version that last ran `tbd setup` (was install-time)',
+      'Added tbd_upgrades: ordered history of tbd versions that have run setup here',
+    ],
+    migration:
+      'Seeds tbd_upgrades from the existing tbd_version (no timestamp; the original ' +
+      'install time is unknown). Setup then stamps the running version and appends it ' +
+      'when changed. Revert: restore .tbd/config.yml (git checkout) and delete ' +
+      '$GIT_COMMON_DIR/tbd/layout.yml; it regenerates from the config.',
+  },
 } as const;
 
 export type FormatVersion = keyof typeof FORMAT_HISTORY;
@@ -128,6 +141,8 @@ export type FormatVersion = keyof typeof FORMAT_HISTORY;
 export interface RawConfig {
   tbd_format?: string;
   tbd_version?: string;
+  /** Upgrade history (f06+). Seeded on migration; appended by setup. */
+  tbd_upgrades?: { version: string; at?: string }[];
   sync?: {
     branch?: string;
     remote?: string;
@@ -299,6 +314,36 @@ function migrate_f04_to_f05(config: RawConfig): MigrationResult {
   };
 }
 
+/**
+ * Migrate from f05 to f06.
+ * - Adds the config upgrade history (`tbd_upgrades`) and redefines `tbd_version` to mean
+ *   "the version that last ran setup" (the value itself is advanced by the setup-time
+ *   stamp, which knows the running version; this pure migration does not).
+ * - Seeds the first history entry from the existing `tbd_version` (the install-time
+ *   stamp), without a timestamp because the original install time is unknown. If the
+ *   config has no `tbd_version`, the history starts empty and setup fills it in.
+ */
+function migrate_f05_to_f06(config: RawConfig): MigrationResult {
+  const changes: string[] = [];
+  const migrated = { ...config };
+
+  migrated.tbd_format = 'f06';
+  changes.push('Updated tbd_format: f06');
+
+  if (migrated.tbd_upgrades === undefined) {
+    migrated.tbd_upgrades = migrated.tbd_version ? [{ version: migrated.tbd_version }] : [];
+    changes.push('Seeded tbd_upgrades history from tbd_version');
+  }
+
+  return {
+    config: migrated,
+    fromFormat: 'f05',
+    toFormat: 'f06',
+    changed: changes.length > 0,
+    changes,
+  };
+}
+
 // =============================================================================
 // Public API
 // =============================================================================
@@ -383,6 +428,13 @@ export function migrateToLatest(config: RawConfig): MigrationResult {
     allChanges.push(...result.changes);
   }
 
+  if (currentFormat === 'f05') {
+    const result = migrate_f05_to_f06(current);
+    current = result.config;
+    currentFormat = 'f06' as FormatVersion;
+    allChanges.push(...result.changes);
+  }
+
   return {
     config: current,
     fromFormat,
@@ -464,6 +516,11 @@ export function describeMigration(fromFormat: FormatVersion): string[] {
   if (current === 'f04') {
     descriptions.push('f04 → f05: Add forkable-docs layout (stamp only)');
     current = 'f05';
+  }
+
+  if (current === 'f05') {
+    descriptions.push('f05 → f06: Add config upgrade history (tbd_upgrades)');
+    current = 'f06';
   }
 
   return descriptions;

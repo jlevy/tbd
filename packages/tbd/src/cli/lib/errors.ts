@@ -87,7 +87,7 @@ export class SyncError extends CLIError {
 export class UnrelatedHistoriesError extends SyncError {
   constructor(remote = 'origin', syncBranch = 'tbd-sync') {
     super(
-      `${remote}/${syncBranch} has an unrelated history (no common ancestor) — ` +
+      `${remote}/${syncBranch} has an unrelated history (no common ancestor); ` +
         `push cannot fast-forward and a merge would refuse.\n` +
         `Run \`tbd doctor --fix\` to reconcile the unrelated histories (non-destructive; ` +
         `a backup branch is created first).`,

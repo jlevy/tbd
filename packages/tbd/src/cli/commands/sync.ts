@@ -539,7 +539,7 @@ class SyncHandler extends BaseCommand {
    * result, and asserting no bead was left corrupt.
    *
    * Shared by the pull/full-sync path and the push-retry path so both integrate
-   * the remote identically — and so a rejected push actually advances local
+   * the remote identically, and so a rejected push actually advances local
    * `tbd-sync` to include the remote before retrying, instead of looping on the
    * same non-fast-forward commit. See issue #155.
    *
@@ -574,7 +574,7 @@ class SyncHandler extends BaseCommand {
       this.output.debug('Merged remote changes');
 
       // Show received commits in debug mode
-      // Use syncBranch explicitly — bare `HEAD` would resolve to the user's
+      // Use syncBranch explicitly; bare `HEAD` would resolve to the user's
       // current working branch, not the tbd-sync branch in the worktree.
       if (headBeforeMerge) {
         await this.showGitLogDebug('Commits received', `${headBeforeMerge}..${syncBranch}`);
@@ -659,7 +659,7 @@ class SyncHandler extends BaseCommand {
       for (const id of conflictedIds) {
         // The helper returns null only for a legitimately absent bead. Any
         // thrown error is corruption (e.g. a committed bead that fails to
-        // parse) or an unexpected git failure — fail loudly rather than
+        // parse) or an unexpected git failure; fail loudly rather than
         // skip, so we never silently drop a conflicted bead. (#155 review)
         let result: Awaited<ReturnType<typeof mergeBeadAcrossRefs>>;
         try {
@@ -772,7 +772,7 @@ class SyncHandler extends BaseCommand {
       syncBranch,
       remote,
       async () => {
-        // Merge callback — invoked when a push is rejected because the remote
+        // Merge callback, invoked when a push is rejected because the remote
         // advanced after our fetch. Do a REAL merge of the remote into the local
         // sync branch (committing the integration) via the same path the pull
         // uses, so the retried push fast-forwards instead of being rejected
@@ -833,7 +833,7 @@ class SyncHandler extends BaseCommand {
       await git('fetch', remote, syncBranch);
 
       // Detect unrelated histories UP FRONT (post-fetch), before any merge or
-      // conflict/retry work — so sync does no misleading work, diagnostics
+      // conflict/retry work, so sync does no misleading work, diagnostics
       // point at the right phase, and pushWithRetry is never run against an
       // unrelated remote (no wasted retries). The rescue is `tbd doctor --fix`.
       if ((await checkRemoteBranchHealth(remote, syncBranch)).unrelated) {
@@ -949,7 +949,7 @@ class SyncHandler extends BaseCommand {
         this.output.debug(`Push failed: ${pushError}`);
       } else {
         // Show pushed commits in debug mode
-        // Use syncBranch explicitly — bare `-N` would resolve against the user's
+        // Use syncBranch explicitly; bare `-N` would resolve against the user's
         // current working branch (HEAD), not the tbd-sync branch.
         await this.showGitLogDebug('Commits sent', syncBranch, `-${aheadCommits}`);
       }

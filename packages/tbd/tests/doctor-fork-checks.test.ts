@@ -199,7 +199,7 @@ describe('doctor fork checks e2e', { timeout: 120_000 }, () => {
     const doctor = runTbd(['doctor']);
     expect(doctor.status).toBe(0);
     expect(doctor.stdout).toContain(
-      '⚠ Fork dir - docs/tbd/ is gitignored — forked docs will not be committed',
+      '⚠ Fork dir - docs/tbd/ is gitignored; forked docs will not be committed',
     );
     expect(doctor.stdout).not.toContain('tracked in git (not gitignored)');
   });

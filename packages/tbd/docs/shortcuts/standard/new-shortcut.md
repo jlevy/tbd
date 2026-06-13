@@ -56,13 +56,13 @@ Examples: `code-review-and-commit`, `new-plan-spec`, `review-code-typescript`
 ## Referencing Other Shortcuts
 
 Refer to other shortcuts, guidelines, and templates by **name**, using the command that
-surfaces them — never by file path:
+surfaces them, never by file path:
 
 - Another shortcut: `tbd shortcut <name>` (e.g. `tbd shortcut precommit-process`)
 - A guideline: `tbd guidelines <name>` (e.g. `tbd guidelines typescript-rules`)
 - A template: `tbd template <name>` (e.g. `tbd template plan-spec`)
 
-The name stays valid wherever the file ends up — read directly, served via
+The name stays valid wherever the file ends up: read directly, served via
 `tbd shortcut`, or embedded in another tool.
 File paths and relative markdown links break when shortcuts are flattened into the
 `.tbd` cache or relocated, so don’t use them to point at other shortcuts.
@@ -80,10 +80,10 @@ For official shortcuts: `pnpm build` in packages/tbd/
 
 For official shortcuts added to `packages/tbd/docs/shortcuts/standard/`:
 
-1. **Update root README.md** — Add to the “Available shortcuts” table (grouped by
+1. **Update root README.md:** Add to the “Available shortcuts” table (grouped by
    category: Planning, Documentation, Review, Git, Cleanup, Session, Meta)
-2. **Sync docs cache** — Run `tbd setup --auto` to update `.tbd/docs/`
-3. **Rebuild** — `pnpm build` in packages/tbd/ (also copies README to package)
+2. **Sync docs cache:** Run `tbd setup --auto` to update `.tbd/docs/`
+3. **Rebuild:** `pnpm build` in packages/tbd/ (also copies README to package)
 
 ## Shortcuts vs Guidelines
 

@@ -435,7 +435,7 @@ const GUIDELINE_GROUPS: GuidelineGroup[] = [
     match: (n) => n.startsWith('convex-'),
   },
   {
-    // Catch-all — must stay last.
+    // Catch-all, must stay last.
     heading: 'Docs, process & tooling',
     match: () => true,
   },
@@ -540,7 +540,7 @@ export function generateShortcutDirectory(
       lines.push('Run `tbd guidelines <name>` to apply any of these guidelines.');
       // This directory is injected into generated files that flowmark must not
       // reformat, so keep prose paragraphs to a single line under flowmark's wrap
-      // width (~88 cols) — otherwise flowmark would re-wrap them and cause churn.
+      // width (~88 cols); otherwise flowmark would re-wrap them and cause churn.
       lines.push(
         'Load the **General engineering** group first, then the language or framework group.',
       );

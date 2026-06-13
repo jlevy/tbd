@@ -5,8 +5,8 @@ category: meta
 author: Joshua Levy (github.com/jlevy) with LLM assistance
 ---
 This shortcut reviews the docs this project has forked and customized (in `docs/tbd/`),
-decides which changes generalize beyond this project, and proposes them upstream — to
-the tbd repo for tbd’s bundled docs, or to your org’s docs repo for docs added by URL.
+decides which changes generalize beyond this project, and proposes them upstream, to the
+tbd repo for tbd’s bundled docs, or to your org’s docs repo for docs added by URL.
 
 ## When to Use
 
@@ -25,7 +25,7 @@ Create a to-do list with the following items then perform all of them:
    pending).
 
 2. **Review each diff**: For each doc, run `tbd docs diff <name> --base` (your file vs
-   its recorded base — exactly what this project changed).
+   its recorded base, exactly what this project changed).
    Classify each hunk:
    - **Generally applicable**: fixes, clarifications, better examples, rules any project
      would benefit from. Candidates for upstreaming.
@@ -51,7 +51,7 @@ Create a to-do list with the following items then perform all of them:
 
 6. **Close the loop (after upstream merges)**: Once the change ships upstream and tbd is
    upgraded, run `tbd docs update`. If upstream adopted the customization, the merge
-   converges and the doc returns to unmodified `forked` state — then a plain
+   converges and the doc returns to unmodified `forked` state, then a plain
    `tbd docs unfork <name>` (no `--force` needed) completes the cleanup, or keep the
    fork for future edits.
 
