@@ -343,10 +343,19 @@ Options:
 - `--spec <path>` - Set or clear spec path (empty string clears; validated and
   normalized). When updating a parent issue’s spec, the new value propagates to children
   whose `spec_path` was null or matched the old value.
+- `--ignore-missing` - Skip unknown IDs instead of failing the batch
+
+**Multiple IDs:** `tbd update A B C --priority 1 --add-label done` applies the same
+field updates to every issue under one lock.
+Per-ID-only flags (`--title`, `--description`, `--notes`/`--notes-file`) are rejected
+with two or more IDs, and `--status closed` is rejected in bulk — use `tbd close`.
+`--description` and `--notes` also accept `-` to read stdin.
 
 ### close
 
-Close a completed issue.
+Close one or more completed issues.
+A single ID keeps the classic one-line output; two or more run as a bulk operation — see
+**Bulk operations and the output contract** below.
 
 ```bash
 tbd close proj-a7k2                           # Close issue
@@ -354,11 +363,14 @@ tbd close proj-a7k2 --reason="Fixed in PR #42"
 ```
 
 Options:
-- `--reason <text>` - Reason for closing
+- `--reason <text>` - Reason for closing (`-` reads stdin)
+- `--reason-file <path>` - Read the close reason from a file (`-` reads stdin)
+- `--ignore-missing` - Skip unknown IDs instead of failing the batch
 
 ### reopen
 
-Reopen a closed issue.
+Reopen one or more closed issues — see **Bulk operations and the output contract**
+below.
 
 ```bash
 tbd reopen proj-a7k2                          # Reopen issue
@@ -366,7 +378,48 @@ tbd reopen proj-a7k2 --reason="Bug reappeared"
 ```
 
 Options:
-- `--reason <text>` - Reason for reopening
+- `--reason <text>` - Reason for reopening (`-` reads stdin)
+- `--reason-file <path>` - Read the reopen reason from a file (`-` reads stdin)
+- `--ignore-missing` - Skip unknown IDs instead of failing the batch
+
+### Bulk operations and the output contract
+
+`close`, `reopen`, and `update` accept multiple IDs and process them together under a
+single lock. The output is designed so agents never need `2>&1 | tail -1`:
+
+- **One summary line** on success, e.g. `✓ Closed 3, skipped 1 (already closed): …`,
+  followed by a visible `• Unsynced changes — run tbd sync to publish.` hint.
+
+- **Fail-closed validation**: if any ID is unknown the whole batch aborts before writing
+  anything and lists the bad IDs.
+  Add `--ignore-missing` to downgrade unknown IDs to skips instead.
+
+- **Single-ID behavior is unchanged**: one ID behaves exactly as before (idempotent
+  close; reopening an already-open issue still errors).
+  The “already-done is a skip” rule applies only to multi-ID batches.
+
+- **`--quiet`** is silent on success and also suppresses incidental notices (worktree
+  auto-heal, config migration), so output stays clean.
+
+- **`--json`** replaces the summary line with a machine contract:
+
+  ```json
+  {
+    "results": [{ "id": "proj-a7k2", "action": "closed", "ok": true }],
+    "summary": { "changed": 1, "skipped": 0, "missing": 0, "total": 1 },
+    "sync": { "pending": true, "hint": "Run `tbd sync` to publish." }
+  }
+  ```
+
+**Free-text bodies without quoting hazards.** Reasons, descriptions, and notes accept
+the text inline, from a file (`--reason-file`, `-f`/`--file`, `--notes-file`), or from
+stdin with the `-` convention (`--reason=-`, `-d -`, `--notes=-`), so shell-sensitive
+text (`$`, backticks, quotes) round-trips verbatim instead of being mangled by the
+shell.
+
+**Sync is stage-then-publish.** Every write lands in the local `tbd-sync` worktree
+immediately; nothing reaches the remote until you run `tbd sync`. There is no
+per-command auto-sync, and the legacy no-op `--no-sync` flag has been removed.
 
 ### ready
 

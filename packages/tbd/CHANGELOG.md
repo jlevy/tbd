@@ -13,6 +13,18 @@ upgrading is safe and revertible.
 
 ### Features
 
+- **Agent CLI ergonomics (Phase 1)**: `close`, `reopen`, and `update` now accept
+  multiple IDs and process them under one lock, printing a single summary line (or a
+  structured `--json` `{ results, summary, sync }` object) plus a visible
+  unsynced-changes hint.
+  Validation is fail-closed, with `--ignore-missing` to downgrade unknown IDs to skips;
+  single-ID behavior is unchanged.
+  Free-text bodies (`--reason`/`--reason-file`, `-d`/`-f`, `--notes`/`--notes-file`)
+  accept `-` to read stdin, so shell-sensitive text no longer needs careful quoting.
+  `--quiet` is now fully silent on success (it also suppresses incidental worktree-heal
+  and config-migration notices).
+  The legacy no-op global `--no-sync` flag has been removed — writes always stage
+  locally and `tbd sync` publishes.
 - **Forkable docs** (`tbd docs fork` / `unfork` / `update` / `diff` / `status`): fork
   any managed doc into a visible fork dir (`docs/tbd/`, laid out by kind with a
   generated `README.md` index, tracked in git).

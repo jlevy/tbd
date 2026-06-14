@@ -295,21 +295,21 @@ context (`cli/lib/context.ts`), and the data context that owns the lock
 
 ### Phase 1: Quick wins (current release)
 
-- [ ] Make `close`, `reopen`, `update` accept `<ids...>` (mutators only; **not**
+- [x] Make `close`, `reopen`, `update` accept `<ids...>` (mutators only; **not**
   `show`); single-ID behavior unchanged.
   Process all IDs under one locked data-sync context.
-- [ ] Implement the validation/atomicity policy (validate-all-then-apply; `already-X` as
+- [x] Implement the validation/atomicity policy (validate-all-then-apply; `already-X` as
   a **bulk-only** skip while single-ID `close`/`reopen` keep current behavior;
   `--ignore-missing`); reject per-ID-only flags when multiple IDs are passed.
-- [ ] Add the bulk summary line and the structured `--json` results array; emit the
+- [x] Add the bulk summary line and the structured `--json` results array; emit the
   unsynced-changes hint via `output.notice()` (visible by default), **not**
   `output.info()` (which is `import`’s verbose-only nudge).
-- [ ] Output contract (PR #176 review): keep `--quiet` **silent on success** (preserves
+- [x] Output contract (PR #176 review): keep `--quiet` **silent on success** (preserves
   the `cli-advanced.tryscript.md` quiet-create golden); default **text** mode prints the
   one-line summary; `--json` is the machine contract.
   Suppress worktree-heal and config-migration stderr notices under `--quiet` too, so
   `2>&1 | tail -1` is unnecessary.
-- [ ] Add `--reason-file` to `close`/`reopen` and the shared `-`/stdin convention for
+- [x] Add `--reason-file` to `close`/`reopen` and the shared `-`/stdin convention for
   `--reason`, `-d/--description`, and `--notes` (one shared body reader).
 - [x] Sync: **remove `--no-sync`** (and the dead `ctx.sync` field) — it was a no-op that
   only fed the `--no-sync … ; tbd sync` cargo-cult; default stays stage-only with no
@@ -318,7 +318,7 @@ context (`cli/lib/context.ts`), and the data context that owns the lock
   — no nested lock) remains possible but non-essential.
   Land the sync doc fixes in the manual, `tbd prime`, **and `tbd-design.md`** (see
   Rollout).
-- [ ] Document the output contract (one-line summary; `--json` shape; what `--quiet`
+- [x] Document the output contract (one-line summary; `--json` shape; what `--quiet`
   guarantees) in `tbd-docs.md` and the `cli-agent-skill-patterns` guideline examples.
 - [ ] (Separate, read-only, optional this release) bulk `tbd show A B C` → delimited
   text / `--json` array; no write lock, no summary/sync contract.
