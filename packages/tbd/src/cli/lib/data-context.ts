@@ -22,7 +22,7 @@ import type { Config, CommonDirLayout } from '../../lib/types.js';
 import { resolveDataSyncDir, resolveSharedTbdPaths, type SharedTbdPaths } from '../../lib/paths.js';
 import { formatDisplayId, formatDebugId } from '../../lib/ids.js';
 import type { CommandContext } from './context.js';
-import { getCommandContext } from './context.js';
+import { getCommandContext, quietNoticesActive } from './context.js';
 import { requireInit, NotFoundError } from './errors.js';
 import { checkWorktreeHealth, repairWorktree } from '../../file/git.js';
 import type { WorktreeHealth, WorktreeStatus } from '../../file/git.js';
@@ -162,6 +162,7 @@ async function ensureSharedDataSyncLayout(
  * plan-2026-05-17-shared-common-dir-sync-worktree.md.
  */
 function notifyConfigMigrated(fromFormat: string | undefined, toFormat: string): void {
+  if (quietNoticesActive()) return; // --quiet suppresses incidental notices
   if (fromFormat === toFormat) return;
   const arrow = fromFormat ? `${fromFormat} → ${toFormat}` : `→ ${toFormat}`;
   process.stderr.write(
@@ -181,6 +182,7 @@ function notifyConfigMigrated(fromFormat: string | undefined, toFormat: string):
  * stderr note keeps stdout (and JSON) clean while making the heal visible.
  */
 export function notifyWorktreeRepaired(status: WorktreeStatus | undefined): void {
+  if (quietNoticesActive()) return; // --quiet suppresses incidental notices
   if (status !== 'missing' && status !== 'prunable') return;
   process.stderr.write(
     `• tbd-sync worktree was ${status}; auto-materialized it ` +

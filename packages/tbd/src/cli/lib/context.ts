@@ -30,13 +30,35 @@ export interface CommandContext {
 }
 
 /**
+ * Process-wide mirror of the active command's `--quiet`.
+ *
+ * The low-level data layer (worktree auto-heal and config-migration stderr
+ * notices in data-context.ts) has no access to the per-command CommandContext,
+ * and threading a flag through `withDataSyncContext` and its ~18 call sites would
+ * be far noisier than the fix deserves. `--quiet` is a process-global concern set
+ * once per invocation, so getCommandContext records it here for those emitters to
+ * honor. See tbd-29k3 / plan-2026-06-13-agent-cli-ergonomics.md.
+ */
+let quietNotices = false;
+
+/** True when the active command was invoked with `--quiet`. */
+export function quietNoticesActive(): boolean {
+  return quietNotices;
+}
+
+/** Record the active command's `--quiet` for the low-level data layer. */
+export function setQuietNotices(quiet: boolean): void {
+  quietNotices = quiet;
+}
+
+/**
  * Extract command context from a Commander command.
  * Handles inheritance of global options through the command hierarchy.
  */
 export function getCommandContext(command: Command): CommandContext {
   const opts = command.optsWithGlobals();
 
-  return {
+  const context: CommandContext = {
     dryRun: opts.dryRun ?? false,
     verbose: opts.verbose ?? false,
     quiet: opts.quiet ?? false,
@@ -44,6 +66,8 @@ export function getCommandContext(command: Command): CommandContext {
     color: (opts.color as ColorOption) ?? 'auto',
     debug: opts.debug ?? false,
   };
+  setQuietNotices(context.quiet);
+  return context;
 }
 
 /**
