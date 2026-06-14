@@ -108,6 +108,16 @@ export class LockAcquisitionError extends Error {
 const TRANSIENT_RMDIR_CODES = new Set(['EBUSY', 'EPERM', 'EACCES', 'ENOTEMPTY']);
 
 /**
+ * Codes that `mkdir` can transiently raise on Windows when acquisition races a
+ * concurrent `rmdir` of the same lock directory (AV scanners, lingering handles)
+ * — the acquire-side analogue of TRANSIENT_RMDIR_CODES. Retried a small, bounded
+ * number of times; a *persistent* failure (e.g. a genuinely unwritable parent
+ * directory, which `tbd doctor` surfaces) still propagates once the budget is spent.
+ */
+const TRANSIENT_MKDIR_CODES = new Set(['EBUSY', 'EPERM', 'EACCES']);
+const MAX_TRANSIENT_ACQUIRE_RETRIES = 5;
+
+/**
  * Remove a lock directory, tolerating transient Windows failures.
  *
  * `rmdir` can intermittently fail with EBUSY/EPERM on Windows (antivirus scanners
@@ -191,6 +201,7 @@ export async function withLockfile<T>(
 
   const deadline = Date.now() + timeoutMs;
   let acquired = false;
+  let transientAcquireRetries = 0;
 
   while (Date.now() < deadline) {
     try {
@@ -199,11 +210,33 @@ export async function withLockfile<T>(
       acquired = true;
       break;
     } catch (error) {
-      if ((error as NodeJS.ErrnoException).code !== 'EEXIST') {
+      const code = (error as NodeJS.ErrnoException).code;
+      if (code !== 'EEXIST') {
+        // Windows can transiently surface EBUSY/EPERM/EACCES from mkdir when it
+        // races a concurrent rmdir of the same lock directory — the acquire-side
+        // mirror of the transient failures removeLockDir tolerates on release. A
+        // genuinely unwritable parent (the sandbox case `tbd doctor` detects)
+        // fails identically on every attempt, so retry a small, bounded number of
+        // times and only then surface the original error. Any other code (ENOENT,
+        // ENOSPC, …) is non-transient and thrown immediately.
+        if (
+          code &&
+          TRANSIENT_MKDIR_CODES.has(code) &&
+          transientAcquireRetries < MAX_TRANSIENT_ACQUIRE_RETRIES
+        ) {
+          transientAcquireRetries++;
+          await new Promise((resolve) => setTimeout(resolve, 20 * transientAcquireRetries));
+          continue;
+        }
         // Unexpected error (permissions, disk full, missing parent, etc.):
         // preserve the original failure instead of misreporting lock contention.
         throw error;
       }
+
+      // A real EEXIST means the lock is genuinely held — reset the transient
+      // acquisition budget so a long, legitimate wait punctuated by the occasional
+      // Windows race never spuriously surfaces as a permission failure.
+      transientAcquireRetries = 0;
 
       // Lock exists; inspect it.
       let lockStat;
