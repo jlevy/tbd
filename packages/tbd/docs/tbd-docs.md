@@ -811,7 +811,6 @@ tbd list --json                             # JSON output
 tbd list --quiet                            # Suppress non-essential output
 tbd list --verbose                          # Enable verbose output
 tbd create "Test" --dry-run                 # Show what would happen
-tbd close proj-a7k2 --no-sync               # Accepted for compat (issue writes stage locally either way)
 tbd list --debug                            # Show internal IDs
 tbd list --color=never                      # Disable colors
 ```
@@ -823,9 +822,6 @@ Options:
 - `--quiet` - Suppress non-essential output
 - `--json` - Output as JSON
 - `--color <when>` - Colorize output: auto, always, never
-- `--no-sync` - Accepted for compatibility; has **no effect on issue writes**, which
-  always stage to the local `tbd-sync` worktree.
-  Run `tbd sync` to publish.
 - `--debug` - Show internal IDs alongside display IDs
 
 ## For AI Agents

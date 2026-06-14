@@ -69,7 +69,6 @@ function createProgram(): Command {
     .option('--quiet', 'Suppress non-essential output')
     .option('--json', 'Output as JSON')
     .option('--color <when>', 'Colorize output: auto, always, never', 'auto')
-    .option('--no-sync', 'Accepted; issue writes stage locally')
     .option('--debug', 'Show internal IDs alongside public IDs for debugging');
 
   // Add commands in logical groups

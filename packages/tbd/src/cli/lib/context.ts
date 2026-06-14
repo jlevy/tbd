@@ -25,7 +25,6 @@ export interface CommandContext {
   quiet: boolean;
   json: boolean;
   color: ColorOption;
-  sync: boolean;
   /** Debug mode: shows internal IDs alongside public IDs */
   debug: boolean;
 }
@@ -43,7 +42,6 @@ export function getCommandContext(command: Command): CommandContext {
     quiet: opts.quiet ?? false,
     json: opts.json ?? false,
     color: (opts.color as ColorOption) ?? 'auto',
-    sync: opts.sync !== false, // --no-sync sets this to false
     debug: opts.debug ?? false,
   };
 }

@@ -71,7 +71,7 @@ async function setupRepo(): Promise<string> {
   const init = runTbd(dir, ['init', '--prefix=test']);
   expect(init.status).toBe(0);
   // Create an issue so the shared worktree is fully populated.
-  const create = runTbd(dir, ['create', 'Seed', '--type', 'task', '--json', '--no-sync']);
+  const create = runTbd(dir, ['create', 'Seed', '--type', 'task', '--json']);
   expect(create.status).toBe(0);
   return dir;
 }
@@ -270,7 +270,7 @@ describeUnlessWindows('common-dir layout via CLI', { timeout: 30000 }, () => {
       // main checkout's f03 → f04 commit.
       await writeFile(configPath, original.replace('tbd_format: f06', 'tbd_format: f03'));
 
-      const create = runTbd(dir, ['create', 'sibling-bump probe', '--type', 'task', '--no-sync']);
+      const create = runTbd(dir, ['create', 'sibling-bump probe', '--type', 'task']);
       expect(create.status).toBe(0);
       // The notice goes to stderr so it cannot pollute JSON output on stdout.
       expect(create.stderr).toContain('tbd_format');
@@ -281,7 +281,7 @@ describeUnlessWindows('common-dir layout via CLI', { timeout: 30000 }, () => {
       expect(after).toContain('tbd_format: f06');
 
       // Second mutating call must NOT re-emit the notice: nothing left to migrate.
-      const second = runTbd(dir, ['create', 'sibling-bump probe 2', '--type', 'task', '--no-sync']);
+      const second = runTbd(dir, ['create', 'sibling-bump probe 2', '--type', 'task']);
       expect(second.status).toBe(0);
       expect(second.stderr).not.toContain('tbd_format');
     });
@@ -308,13 +308,7 @@ describeUnlessWindows('common-dir layout via CLI', { timeout: 30000 }, () => {
         // A plain data command must succeed (NOT fail with a layout/config
         // mismatch), migrate the config, re-stamp the layout, and emit the
         // one-time migration notice.
-        const create = runTbd(dir, [
-          'create',
-          `upgrade probe ${round}`,
-          '--type',
-          'task',
-          '--no-sync',
-        ]);
+        const create = runTbd(dir, ['create', `upgrade probe ${round}`, '--type', 'task']);
         expect(create.status).toBe(0);
         expect(create.stderr).toContain('f04 → f06');
         expect(await readFile(configPath, 'utf-8')).toContain('tbd_format: f06');
@@ -326,7 +320,7 @@ describeUnlessWindows('common-dir layout via CLI', { timeout: 30000 }, () => {
       await migrateOnceFromF04(2);
 
       // Steady state afterwards: no further migration notices.
-      const steady = runTbd(dir, ['create', 'steady probe', '--type', 'task', '--no-sync']);
+      const steady = runTbd(dir, ['create', 'steady probe', '--type', 'task']);
       expect(steady.status).toBe(0);
       expect(steady.stderr).not.toContain('tbd_format');
     });
@@ -362,7 +356,7 @@ describeUnlessWindows('common-dir layout via CLI', { timeout: 30000 }, () => {
         'tbd_format: f06',
       );
 
-      const create = runTbd(dir, ['create', 'resume probe', '--type', 'task', '--no-sync']);
+      const create = runTbd(dir, ['create', 'resume probe', '--type', 'task']);
       expect(create.status).toBe(0);
       expect(create.stderr).toContain('f04 → f06');
       expect(await readFile(configPath, 'utf-8')).toContain('tbd_format: f06');

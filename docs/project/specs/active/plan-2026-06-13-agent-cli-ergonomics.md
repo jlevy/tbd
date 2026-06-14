@@ -239,20 +239,21 @@ context (`cli/lib/context.ts`), and the data context that owns the lock
 - **File/stdin bodies.** Add `--reason-file <path>` to `close`/`reopen`, and a shared
   `-` convention so `--reason -`, `-d -`, and `--notes -` read the body from stdin.
   This removes the P6 quoting hazard for big text without per-verb special cases.
-- **Honest sync (decided: stage + opt-in `--sync`, tri-state intent).** Keep the
+- **Honest sync (decided: stage-then-publish; `--no-sync` removed).** Keep the
   stage-then-publish model: writes land in the sync worktree and are published by
-  `tbd sync`. Phase 1 adds **no** per-command auto-sync.
-  Two implementation details the current code forces (PR #176 review):
-  - **Tri-state sync intent, not a boolean.** Today `getCommandContext()` derives
-    `sync: opts.sync !== false`, so the *absence* of `--no-sync` reads as `true`; a
-    naive `if (ctx.sync) sync()` would auto-sync every mutator and contradict this
-    decision. Model intent explicitly as `unspecified | sync | no-sync` (a per-mutator
-    `--sync` flag plus the legacy global `--no-sync`), where *unspecified* means
-    stage-only. `--no-sync` stays accepted as a documented no-op for issue writes.
-  - **Lock boundary: never nest the data-sync lock.** Apply all issue writes under one
+  `tbd sync`. There is **no** per-command auto-sync, and tbd will **not** move to an
+  always-auto-sync model.
+  - **`--no-sync` is removed outright (revised 2026-06-14).** It set a `ctx.sync` flag
+    that no mutator ever read, so it was a pure no-op that only fed the
+    `--no-sync … ; tbd sync` cargo-cult.
+    Dropping it (and the dead `ctx.sync` field) means `tbd <verb> --no-sync` now errors
+    as an unknown option — the honest signal.
+  - **A later opt-in `--sync` is possible but non-essential.** If ever added it would
+    publish once at the end of a (bulk) write, never on by default.
+    Implementation note for that day: apply all writes under one
     `withDataSyncContext({ lock: true })` pass, *release that lock*, and only then run
-    the sync path (which re-takes the same non-reentrant lock and performs network I/O).
-    `--sync` publishes once at the end, so a bulk write is a single call.
+    the sync path (which re-takes the same non-reentrant lock and performs network I/O),
+    so a bulk write is a single call with no nested lock.
 
 ### API Changes (Phase 2, sketch only)
 
@@ -310,10 +311,11 @@ context (`cli/lib/context.ts`), and the data context that owns the lock
   `2>&1 | tail -1` is unnecessary.
 - [ ] Add `--reason-file` to `close`/`reopen` and the shared `-`/stdin convention for
   `--reason`, `-d/--description`, and `--notes` (one shared body reader).
-- [ ] Sync: model intent as tri-state (`unspecified | sync | no-sync`), default
-  stage-only; add `--sync` (publish once at end), applying writes under the lock,
-  releasing it, then syncing (no nested lock).
-  Document `--no-sync` as a no-op for issue writes.
+- [x] Sync: **remove `--no-sync`** (and the dead `ctx.sync` field) — it was a no-op that
+  only fed the `--no-sync … ; tbd sync` cargo-cult; default stays stage-only with no
+  per-command auto-sync.
+  A later opt-in `--sync` (publish once at end, under the lock, released before syncing
+  — no nested lock) remains possible but non-essential.
   Land the sync doc fixes in the manual, `tbd prime`, **and `tbd-design.md`** (see
   Rollout).
 - [ ] Document the output contract (one-line summary; `--json` shape; what `--quiet`
@@ -339,8 +341,8 @@ context (`cli/lib/context.ts`), and the data context that owns the lock
   single-ID backward compatibility; `--reason-file` and stdin bodies; the `--json`
   results array shape.
   Per the PR #176 review, also lock down:
-  - `--sync` absent does **not** sync; `--sync` does; legacy `--no-sync` does not sync
-    and is a documented no-op for issue writes.
+  - `--no-sync` is **removed**: `tbd <verb> --no-sync` errors as an unknown option, and
+    no mutator auto-syncs (writes stage; `tbd sync` publishes).
   - the lock boundary around bulk-write-then-sync (no nested lock acquisition).
   - `reopen` already-open: single-ID errors (exit 1) vs bulk reports a skip.
   - `update --status closed` is rejected in bulk (or sets lifecycle metadata if ever
@@ -366,11 +368,12 @@ context (`cli/lib/context.ts`), and the data context that owns the lock
 ## Open Questions
 
 - **Sync model fork.** ~~Three options for the `--no-sync`/`auto_sync` vestige.~~
-  **Resolved 2026-06-13: option (a)** keep stage-then-publish, make it self-revealing
-  via the unsynced-changes hint, and add opt-in `--sync` for one push per batch.
-  `--no-sync` becomes a documented no-op for issue writes; no per-command auto-sync is
-  added. (Rejected: (b) per-command auto-sync behind `auto_sync`; (c) removing
-  `--no-sync` outright.)
+  **Resolved 2026-06-13 as (a), then revised 2026-06-14 to (c): remove `--no-sync`
+  outright.** Keep stage-then-publish; default stage-only; no per-command auto-sync and
+  no always-auto-sync.
+  `--no-sync` set a `ctx.sync` flag no mutator read, so it is deleted rather than kept
+  as a no-op; a later opt-in `--sync` (one push per batch) stays possible but
+  non-essential. (Rejected: (b) per-command auto-sync behind `auto_sync`.)
 - **Default atomicity for bulk writes.** ~~Fail-closed vs best-effort?~~ **Resolved (PR
   #176 review): fail-closed by default** (abort the batch on any unknown ID), with
   `--ignore-missing` as the explicit best-effort escape hatch.

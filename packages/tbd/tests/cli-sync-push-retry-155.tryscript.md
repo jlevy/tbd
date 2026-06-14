@@ -61,7 +61,7 @@ done
 # Test: Session A appends Child A locally (committed on next push, not pulled)
 
 ```console
-$ tbd create "Child A" --parent "$(cat ../epic-pr.txt)" --no-sync >/dev/null 2>&1; echo done
+$ tbd create "Child A" --parent "$(cat ../epic-pr.txt)" >/dev/null 2>&1; echo done
 done
 ? 0
 ```

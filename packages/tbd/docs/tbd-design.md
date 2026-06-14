@@ -2605,7 +2605,6 @@ Options:
   --defer <date>            Defer until date (ISO8601)
   --parent=<id>             Parent issue ID
   --label <label>           Add label (repeatable)
-  --no-sync                 Accepted for compatibility; no effect (issue writes stage locally)
 ```
 
 > **Note on `--type` flag:** The CLI flag `--type` sets the issue’s `kind` field, NOT
@@ -2901,7 +2900,6 @@ Options:
   --parent=<id>             Set parent (single ID)
   --child-order <ids>       Set child ordering hints (comma-separated; single ID)
   --ignore-missing          Skip unknown IDs instead of failing (bulk)
-  --no-sync                 Accepted for compatibility; no effect (issue writes stage locally)
 ```
 
 With two or more IDs, only shared fields apply (`--type`, `--priority`, `--assignee`,
@@ -2947,7 +2945,6 @@ Options:
   --reason <text>           Close reason ("-" reads stdin)
   --reason-file <path>      Read close reason from a file ("-" reads stdin)
   --ignore-missing          Skip unknown IDs instead of failing (bulk)
-  --no-sync                 Accepted for compatibility; no effect (issue writes stage locally)
 ```
 
 **Examples:**
@@ -2966,7 +2963,6 @@ Options:
   --reason <text>           Reopen reason ("-" reads stdin)
   --reason-file <path>      Read reopen reason from a file ("-" reads stdin)
   --ignore-missing          Skip unknown IDs instead of failing (bulk)
-  --no-sync                 Accepted for compatibility; no effect (issue writes stage locally)
 ```
 
 #### Ready
@@ -3580,7 +3576,6 @@ Available on all commands:
 --version                   Show version
 --db <path>                 Custom .tbd directory path (Beads compat alias)
 --dir <path>                Custom .tbd directory path (preferred)
---no-sync                   Accepted for compatibility; no effect on issue writes
 --json                      JSON output
 --color <when>              Colorize output: auto, always, never (default: auto)
 --actor <name>              Override actor name (not yet implemented)
@@ -3736,7 +3731,6 @@ tbd attic restore <id> <timestamp> [options]
 
 Options:
   --dry-run                 Show what would be restored
-  --no-sync                 Accepted for compat; issue writes stage locally
 ```
 
 **Example:**
@@ -3839,7 +3833,6 @@ Options:
   --from-beads [path]     Auto-detect from .beads/ directory (default: current dir)
   --branch <name>         Specific branch to import from (default: both main + sync)
   --dry-run               Show what would be imported without making changes
-  --no-sync               Accepted for compat; issue writes stage locally
   --verbose               Show detailed import progress
 ```
 
@@ -5485,7 +5478,7 @@ This is sufficient for the `ready` command algorithm.
 | `--help` | `--help` | ✅ Full | Help text |
 | `--version` | `--version` | ✅ Full | Version info |
 | `--db <path>` | `--db <path>` | ✅ Full | Custom .tbd path |
-| `--no-sync` | `--no-sync` | ✅ Full | Accepted; no effect on issue writes |
+| `--no-sync` | *(n/a)* | ❌ Dropped | Removed; issue writes always stage locally (run `tbd sync` to publish) |
 | `--actor <name>` | `--actor <name>` | 🔄 Future | Override actor |
 | *(n/a)* | `--dry-run` | ✅ tbd | Preview changes |
 | *(n/a)* | `--verbose` | ✅ tbd | Debug output |
