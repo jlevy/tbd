@@ -1,12 +1,27 @@
-import { describe, it, expect } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import {
+  emitBulkSummary,
   resolveAllIds,
   summarizeBulk,
   toJsonResult,
   type BulkItemResult,
 } from '../src/cli/lib/bulk.js';
+import type { CommandContext } from '../src/cli/lib/context.js';
+import { OutputManager } from '../src/cli/lib/output.js';
 import { addIdMapping, type IdMapping } from '../src/file/id-mapping.js';
+
+function makeCtx(over: Partial<CommandContext> = {}): CommandContext {
+  return {
+    dryRun: false,
+    verbose: false,
+    quiet: false,
+    json: false,
+    color: 'never',
+    debug: false,
+    ...over,
+  };
+}
 
 const ULID_A = 'a'.repeat(26);
 const ULID_B = 'b'.repeat(26);
@@ -77,5 +92,78 @@ describe('toJsonResult', () => {
     expect(
       toJsonResult({ id: 'a', action: 'skipped', ok: true, skippedReason: 'already closed' }),
     ).toEqual({ id: 'a', action: 'skipped', ok: true, skippedReason: 'already closed' });
+  });
+});
+
+describe('emitBulkSummary', () => {
+  afterEach(() => vi.restoreAllMocks());
+
+  it('prints one summary line (changed, skipped, missing) plus the sync hint in text mode', () => {
+    const out = new OutputManager(makeCtx());
+    const log = vi.spyOn(console, 'log').mockImplementation(() => undefined);
+    emitBulkSummary(
+      out,
+      [
+        { id: 'a', action: 'closed', ok: true },
+        { id: 'b', action: 'skipped', ok: true, skippedReason: 'already closed' },
+        { id: 'c', action: 'missing', ok: false, skippedReason: 'not found' },
+      ],
+      { verb: 'Closed', skippedNote: 'already closed' },
+    );
+    const lines = log.mock.calls.map((c) => String(c[0]));
+    expect(
+      lines.some((l) => l.includes('Closed 1, skipped 1 (already closed), not found 1: a b c')),
+    ).toBe(true);
+    expect(lines.some((l) => l.includes('Unsynced changes'))).toBe(true);
+  });
+
+  it('omits the skipped clause for verbs that never skip (update)', () => {
+    const out = new OutputManager(makeCtx());
+    const log = vi.spyOn(console, 'log').mockImplementation(() => undefined);
+    emitBulkSummary(
+      out,
+      [
+        { id: 'a', action: 'updated', ok: true },
+        { id: 'b', action: 'updated', ok: true },
+      ],
+      { verb: 'Updated', skippedNote: 'unchanged' },
+    );
+    const lines = log.mock.calls.map((c) => String(c[0]));
+    expect(lines.some((l) => l.includes('Updated 2: a b'))).toBe(true);
+    expect(lines.some((l) => l.includes('skipped'))).toBe(false);
+  });
+
+  it('emits structured results, summary, and sync.pending under --json', () => {
+    const out = new OutputManager(makeCtx({ json: true }));
+    const log = vi.spyOn(console, 'log').mockImplementation(() => undefined);
+    emitBulkSummary(
+      out,
+      [
+        { id: 'proj-a', action: 'closed', ok: true },
+        { id: 'proj-b', action: 'skipped', ok: true, skippedReason: 'already closed' },
+      ],
+      { verb: 'Closed', skippedNote: 'already closed' },
+    );
+    expect(log).toHaveBeenCalledTimes(1);
+    const payload = JSON.parse(String(log.mock.calls[0]![0]));
+    expect(payload.results).toEqual([
+      { id: 'proj-a', action: 'closed', ok: true },
+      { id: 'proj-b', action: 'skipped', ok: true, skippedReason: 'already closed' },
+    ]);
+    expect(payload.summary).toEqual({ changed: 1, skipped: 1, missing: 0, total: 2 });
+    expect(payload.sync).toEqual({ pending: true, hint: 'Run `tbd sync` to publish.' });
+  });
+
+  it('omits sync when nothing changed', () => {
+    const out = new OutputManager(makeCtx({ json: true }));
+    const log = vi.spyOn(console, 'log').mockImplementation(() => undefined);
+    emitBulkSummary(
+      out,
+      [{ id: 'a', action: 'skipped', ok: true, skippedReason: 'already closed' }],
+      { verb: 'Closed', skippedNote: 'already closed' },
+    );
+    const payload = JSON.parse(String(log.mock.calls[0]![0]));
+    expect(payload.summary.changed).toBe(0);
+    expect(payload.sync).toBeUndefined();
   });
 });
