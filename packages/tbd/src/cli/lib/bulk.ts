@@ -9,6 +9,7 @@
 
 import type { IdMapping } from '../../file/id-mapping.js';
 import { resolveToInternalId } from '../../file/id-mapping.js';
+import type { OutputManager } from './output.js';
 
 export interface ResolvedId {
   /** The ID exactly as the user typed it. */
@@ -84,4 +85,41 @@ export function toJsonResult(r: BulkItemResult): {
   return r.skippedReason
     ? { id: r.id, action: r.action, ok: r.ok, skippedReason: r.skippedReason }
     : { id: r.id, action: r.action, ok: r.ok };
+}
+
+/**
+ * Emit the shared bulk result: one deterministic summary line in text mode, the
+ * structured `results`/`summary`/`sync` object under `--json`, and a visible
+ * unsynced-changes hint via `output.notice()`. Shared by `close`, `reopen`, and
+ * `update` so the multi-target output contract stays identical across verbs.
+ *
+ * `verb` is the past-tense word for changed items (e.g. `Closed`); `skippedNote`
+ * is the parenthetical reason for skipped items (e.g. `already closed`). A verb
+ * that never skips (e.g. `update`) simply never renders the skipped clause.
+ */
+export function emitBulkSummary(
+  output: OutputManager,
+  results: BulkItemResult[],
+  opts: { verb: string; skippedNote: string },
+): void {
+  const summary = summarizeBulk(results);
+  const syncPending = summary.changed > 0;
+  const json: Record<string, unknown> = {
+    results: results.map(toJsonResult),
+    summary,
+  };
+  if (syncPending) {
+    json.sync = { pending: true, hint: 'Run `tbd sync` to publish.' };
+  }
+
+  output.data(json, () => {
+    const parts = [`${opts.verb} ${summary.changed}`];
+    if (summary.skipped > 0) parts.push(`skipped ${summary.skipped} (${opts.skippedNote})`);
+    if (summary.missing > 0) parts.push(`not found ${summary.missing}`);
+    const idList = results.map((r) => r.id).join(' ');
+    output.success(`${parts.join(', ')}: ${idList}`);
+    if (syncPending) {
+      output.notice('Unsynced changes — run `tbd sync` to publish.');
+    }
+  });
 }

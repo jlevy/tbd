@@ -20,7 +20,7 @@ import { resolveToInternalId, type IdMapping } from '../../file/id-mapping.js';
 import { resolveAndValidatePath, getPathErrorMessage } from '../../lib/project-paths.js';
 import { validateIssueTitle } from '../lib/issue-input-validation.js';
 import { withDataSyncContext } from '../lib/data-context.js';
-import { resolveAllIds, summarizeBulk, toJsonResult, type BulkItemResult } from '../lib/bulk.js';
+import { resolveAllIds, emitBulkSummary, type BulkItemResult } from '../lib/bulk.js';
 import { resolveBodyInput, type BodyInputState } from '../lib/body-input.js';
 
 interface UpdateOptions {
@@ -298,30 +298,7 @@ class UpdateHandler extends BaseCommand {
     }, 'Failed to update issues');
 
     if (results.length === 0) return; // dry-run or nothing to do
-    this.emitBulkSummary(results);
-  }
-
-  /** Bulk path: one summary line + structured JSON, with a visible sync hint. */
-  private emitBulkSummary(results: BulkItemResult[]): void {
-    const summary = summarizeBulk(results);
-    const syncPending = summary.changed > 0;
-    const json: Record<string, unknown> = {
-      results: results.map(toJsonResult),
-      summary,
-    };
-    if (syncPending) {
-      json.sync = { pending: true, hint: 'Run `tbd sync` to publish.' };
-    }
-
-    this.output.data(json, () => {
-      const parts = [`Updated ${summary.changed}`];
-      if (summary.missing > 0) parts.push(`not found ${summary.missing}`);
-      const idList = results.map((r) => r.id).join(' ');
-      this.output.success(`${parts.join(', ')}: ${idList}`);
-      if (syncPending) {
-        this.output.notice('Unsynced changes — run `tbd sync` to publish.');
-      }
-    });
+    emitBulkSummary(this.output, results, { verb: 'Updated', skippedNote: 'unchanged' });
   }
 
   /**
