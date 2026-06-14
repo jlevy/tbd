@@ -342,3 +342,27 @@ $ tbd update $(cat ua.txt) $(cat ub.txt) 2>&1
 $ tbd update $(cat ua.txt) $(cat ub.txt) --priority 2 --quiet
 ? 0
 ```
+
+* * *
+
+## Removed `--no-sync`
+
+The legacy global `--no-sync` was a no-op (it set a context flag no mutator read) and is
+gone; issue writes always stage locally and `tbd sync` publishes.
+Passing it now errors as an unknown option rather than silently doing nothing.
+
+# Test: `close` rejects the removed `--no-sync`
+
+```console
+$ tbd close test-zzzz --no-sync 2>&1
+error: unknown option '--no-sync'
+? 1
+```
+
+# Test: `update` rejects the removed `--no-sync`
+
+```console
+$ tbd update test-zzzz --priority 1 --no-sync 2>&1
+error: unknown option '--no-sync'
+? 1
+```
