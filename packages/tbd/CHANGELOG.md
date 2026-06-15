@@ -1,6 +1,6 @@
 # get-tbd
 
-## Unreleased (0.3.0)
+## 0.3.0
 
 The headline is **forkable docs**: every doc tbd serves (guidelines, shortcuts,
 templates, and the new reference docs) can now be forked into your repo as visible,
@@ -77,6 +77,25 @@ These ship inside the package and are read by agents via `tbd docs show …`,
   the two-axis offer (scope: all standard guidelines or a stack subset; visibility:
   hidden cache or forked into `docs/tbd/`), and the agent skill routes fork, update, and
   missing-file requests to the new commands.
+- **`cli-agent-skill-patterns` guideline expanded** (issues #173, #175): names the L2b
+  self-installing-tool variant and spells out how a self-installer should upgrade its
+  managed generated artifacts deliberately, bake a pin its generator can actually
+  resolve, and stamp the format/forward-compatibility guard; plus Cursor native skill
+  paths and tightened upgrade-scope guidance.
+- **`checkout-third-party-repo` shortcut reuses an existing checkout** (#168): it now
+  updates an existing `attic/<repo>` (with a clean-check and detached-HEAD/tag handling)
+  instead of re-cloning into an existing directory or working from a stale checkout.
+- **Every bundled guideline now declares a `category` in its frontmatter**, so
+  `tbd docs list` and the docmap listings group guidelines consistently.
+
+### Security
+
+Lockfile unchanged since v0.2.3; the resolved dependency tree is byte-identical (same
+`pnpm-lock.yaml` hash) and there are no manifest changes, so no new advisories.
+`pnpm audit --prod` reports no known vulnerabilities.
+
+**Full commit history**:
+[https://github.com/jlevy/tbd/compare/v0.2.3 … v0.3.0](https://github.com/jlevy/tbd/compare/v0.2.3...v0.3.0)
 
 ## 0.2.3
 
