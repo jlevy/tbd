@@ -42,8 +42,13 @@ Create a to-do list with the following items then perform all of them:
 
 7. **Push and wait for CI (CRITICAL):**
    - `git push`
-   - If the branch has a PR, run `gh pr checks <PR_NUMBER> --watch 2>&1` and wait for
-     the **final summary**—do not stop at early “passing” output
+   - If the branch has a PR, watch CI. **GitHub CLI setup** (if issues, run
+     `tbd shortcut setup-github-cli`):
+     ```
+     REPO=$(git remote get-url origin | sed -E 's#.*/git/##; s#.*github.com[:/]##; s#\.git$##')
+     ```
+   - Run `gh pr checks <PR_NUMBER> --repo $REPO --watch 2>&1` and wait for the **final
+     summary**—do not stop at early “passing” output
    - If CI fails: analyze, fix, commit, push, and restart this step
 
 8. **Close out:** run `tbd sync`, then report the merge result to the user (commits
