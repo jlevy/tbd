@@ -11,21 +11,15 @@ Instructions:
 
 Create a to-do list with the following items then perform all of them:
 
-1. Follow the `tbd shortcut precommit-process` steps to review and run pre-commit
-   checks.
+1. Follow the `tbd shortcut precommit-process` steps to review, test, and commit (it
+   ends with the commit).
+   If there are unresolved problems, ask for guidance; otherwise do NOT ask the user for
+   permission to commit.
 
-2. If there are problems, ask for guidance.
-   Otherwise, commit directly.
-   Do NOT ask the user for permission to commit unless there are problems.
-   Use conventional commit prefixes: `feat`, `fix`, `docs`, `style`, `refactor`, `test`,
-   `chore`, `plan`, `research`, `ops`, `process`. Scope is optional—only add when it
-   resolves an important ambiguity.
-   (See `tbd guidelines commit-conventions` for details.)
-
-3. If commit is successful, push to remote:
+2. If commit is successful, push to remote:
    - Run: `git push`
 
-4. If there is a PR already filed for this branch, update the PR description and **wait
+3. If there is a PR already filed for this branch, update the PR description and **wait
    for CI to pass**:
    - **GitHub CLI setup** (if issues, run `tbd shortcut setup-github-cli`):
      ```
@@ -42,6 +36,8 @@ Create a to-do list with the following items then perform all of them:
      CI watch.
    - Only proceed when you see all checks have passed.
    - Confirm to the user that CI has passed.
+
+4. Close or update beads for the committed work, then run `tbd sync`.
 
 <!-- This document follows common-doc-guidelines.md.
 See github.com/jlevy/practical-prose and review guidelines before editing.

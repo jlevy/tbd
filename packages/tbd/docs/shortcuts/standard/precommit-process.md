@@ -35,18 +35,9 @@ Create a to-do list with the following items then perform all of them:
 
 3. **Unit testing and integration testing:**
 
-   BE SURE YOU RUN ALL TESTS (npm run precommit) as this includes codegen, formatting,
-   linting, unit tests and integration tests.
-
-   Read docs/development.md for additional background on test workflows.
-
-   After any significant changes, ALWAYS run the precommit check:
-
-   ```
-   npm run precommit  # Runs: codegen, format, lint, test:unit, test:integration
-   ```
-
-   This will generate code, auto-format, lint, and run unit and integration tests.
+   Run the project’s full check suite—codegen, formatting, linting, unit tests, and
+   integration tests. See the project docs (e.g. CLAUDE.md or AGENTS.md) for the exact
+   commands.
 
    Then YOU MUST FIX all issues found.
 
