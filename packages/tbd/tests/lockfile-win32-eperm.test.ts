@@ -36,6 +36,9 @@ function epermError(path: string): NodeJS.ErrnoException {
     `EPERM: operation not permitted, mkdir '${path}'`,
   ) as NodeJS.ErrnoException;
   error.code = 'EPERM';
+  // Real mkdir ErrnoExceptions carry .path; withSharedDataSyncLock keys its
+  // SharedLockUnwritableError translation on it.
+  error.path = path;
   return error;
 }
 
@@ -100,13 +103,17 @@ describe('withLockfile EPERM handling', () => {
     expect(executed).toBe(false);
   });
 
-  it('bounds persistent EPERM on win32 with LockAcquisitionError at the deadline', async () => {
+  it('rethrows persistent EPERM raw on win32 once the retry window elapses', async () => {
     stubPlatform('win32');
     const lockPath = join(tempDir, 'test.lock');
 
-    // A real permission problem (not delete-pending) never clears.
+    // A real permission problem (not delete-pending) never clears. It must
+    // surface as the raw ErrnoException — with .path intact — well before the
+    // acquisition timeout, so withSharedDataSyncLock can translate it into
+    // SharedLockUnwritableError instead of misreporting lock contention.
     vi.mocked(mkdir).mockRejectedValue(epermError(lockPath));
 
+    const start = Date.now();
     let executed = false;
     await expect(
       withLockfile(
@@ -115,10 +122,32 @@ describe('withLockfile EPERM handling', () => {
           executed = true;
           return Promise.resolve('should-not-run');
         },
-        { timeoutMs: 150, pollMs: 10 },
+        { timeoutMs: 60_000, pollMs: 25 },
       ),
-    ).rejects.toThrow(LockAcquisitionError);
+    ).rejects.toMatchObject({ code: 'EPERM', path: lockPath });
 
+    const elapsed = Date.now() - start;
     expect(executed).toBe(false);
+    // It retried through the window (not fail-fast) but gave up long before
+    // the 60s acquisition timeout.
+    expect(vi.mocked(mkdir).mock.calls.length).toBeGreaterThan(2);
+    expect(elapsed).toBeGreaterThanOrEqual(1000);
+    expect(elapsed).toBeLessThan(10_000);
+  });
+
+  it('bounds EPERM retries with LockAcquisitionError when the deadline is shorter than the window', async () => {
+    stubPlatform('win32');
+    const lockPath = join(tempDir, 'test.lock');
+
+    vi.mocked(mkdir).mockRejectedValue(epermError(lockPath));
+
+    // With timeoutMs below the EPERM retry window, the acquisition deadline
+    // still governs: the loop exits and reports a timeout.
+    await expect(
+      withLockfile(lockPath, () => Promise.resolve('should-not-run'), {
+        timeoutMs: 150,
+        pollMs: 10,
+      }),
+    ).rejects.toThrow(LockAcquisitionError);
   });
 });
