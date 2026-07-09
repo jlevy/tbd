@@ -57,8 +57,12 @@ Create a to-do list with the following items then perform all of them:
    converges and the doc returns to unmodified `forked` state, then a plain
    `tbd docs unfork <name>` (no `--force` needed) completes the cleanup, or keep the
    fork for future edits.
-   For a `local` doc adopted upstream, verify the copies match (`tbd docs diff <name>`)
-   once the bundled version exists; the file then tracks upstream like any other fork.
+   For a `local` doc adopted upstream there is no automatic transition: once the bundled
+   version exists, run `tbd docs fork <name> --force` to convert your copy into a
+   tracked fork (this overwrites the file with the upstream version; `git diff` then
+   shows anything upstream changed relative to your copy).
+   If the copies match, a plain `tbd docs unfork <name>` completes the cleanup, or keep
+   the fork for future edits.
 
 ## Notes
 
