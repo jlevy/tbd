@@ -22,13 +22,16 @@ Create a to-do list with the following items then perform all of them:
 
 1. **Collect customizations**: Run `tbd docs status --json` and collect every doc in
    `customized` state (including customized docs that also have upstream updates
-   pending).
+   pending) **and every doc in `local` state** (new docs this project wrote that do not
+   exist upstream).
 
-2. **Review each diff**: For each doc, run `tbd docs diff <name> --base` (your file vs
-   its recorded base, exactly what this project changed).
-   Classify each hunk:
+2. **Review each change**: For each `customized` doc, run `tbd docs diff <name> --base`
+   (your file vs its recorded base, exactly what this project changed).
+   For each `local` doc there is no base: review the whole doc.
+   Classify each hunk (or, for local docs, the doc as a whole):
    - **Generally applicable**: fixes, clarifications, better examples, rules any project
      would benefit from. Candidates for upstreaming.
+     A generalizable `local` doc is proposed as a **new bundled doc**.
    - **Project-specific**: team conventions, internal links, stack-specific overrides.
      These stay in the fork; do not propose them.
 
@@ -54,6 +57,8 @@ Create a to-do list with the following items then perform all of them:
    converges and the doc returns to unmodified `forked` state, then a plain
    `tbd docs unfork <name>` (no `--force` needed) completes the cleanup, or keep the
    fork for future edits.
+   For a `local` doc adopted upstream, verify the copies match (`tbd docs diff <name>`)
+   once the bundled version exists; the file then tracks upstream like any other fork.
 
 ## Notes
 

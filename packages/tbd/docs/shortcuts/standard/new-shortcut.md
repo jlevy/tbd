@@ -9,7 +9,10 @@ Create a new shortcut for `tbd shortcut <name>`.
 ## Locations
 
 - **Official** (bundled with tbd): `packages/tbd/docs/shortcuts/standard/<name>.md`
-- **Project-level** (custom): `.tbd/docs/shortcuts/standard/<name>.md`
+- **Project-level** (custom): `<fork-dir>/shortcuts/<name>.md` in the repo’s doc-fork
+  directory (default `docs/tbd/`). Keep files flat—subfolders are not scanned.
+  No registration is needed: the file is served and listed immediately; run
+  `tbd setup --auto` to refresh the generated skill directory.
 
 ## Format
 
