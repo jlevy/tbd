@@ -438,7 +438,7 @@ tbd docs fork --all              # Or fork by name: tbd docs fork <name> [<name>
 |  | `plan-implementation-with-beads` | Break a spec into implementation beads |
 |  | `implement-beads` | Implement beads from a spec |
 |  | `new-validation-plan` | Create a test/validation plan |
-|  | `update-specs-status` | Review active specs and sync with tbd issues |
+|  | `update-specs-status` | Reconcile specs, the work index, and beads into one status map |
 | **Documentation** | `new-research-brief` | Create a research document |
 |  | `new-architecture-doc` | Create an architecture document |
 |  | `revise-architecture-doc` | Update an architecture doc to match current code |
