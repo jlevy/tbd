@@ -25,7 +25,9 @@
  *
  * ## Lock lifecycle
  *
- * 1. **Acquire**: `mkdir(lockDir)`; fails with EEXIST if held by another process
+ * 1. **Acquire**: `mkdir(lockDir)`; fails with EEXIST if held by another process.
+ *    On Windows, a concurrent release can instead surface as a transient EPERM
+ *    (NTFS delete-pending directory); this is treated as a busy lock and retried.
  * 2. **Hold**: Execute the critical section
  * 3. **Release**: `rmdir(lockDir)`, in a finally block, with a bounded retry to
  *    absorb transient Windows failures (EBUSY/EPERM from AV scanners or lingering
@@ -199,7 +201,19 @@ export async function withLockfile<T>(
       acquired = true;
       break;
     } catch (error) {
-      if ((error as NodeJS.ErrnoException).code !== 'EEXIST') {
+      const code = (error as NodeJS.ErrnoException).code;
+
+      // On Windows, mkdir can transiently fail with EPERM instead of EEXIST when
+      // the lock directory is concurrently being removed (NTFS delete-pending
+      // state — the same behavior that leads rimraf/graceful-fs to retry EPERM
+      // there). Treat it as a busy lock and retry; a genuine permission problem
+      // is still bounded by the acquisition deadline.
+      if (code === 'EPERM' && process.platform === 'win32') {
+        await new Promise((resolve) => setTimeout(resolve, pollMs));
+        continue;
+      }
+
+      if (code !== 'EEXIST') {
         // Unexpected error (permissions, disk full, missing parent, etc.):
         // preserve the original failure instead of misreporting lock contention.
         throw error;
