@@ -9,6 +9,8 @@ TypeScript-specific best practices, patterns, and antipatterns.
 
 For a **comprehensive review** that includes general coding rules, error handling,
 comment quality, and testing practices, use `tbd shortcut review-code` instead.
+For the full PR review lifecycle (publishing and addressing reviews), see
+`tbd shortcut pr-review-workflows`.
 
 Instructions:
 
