@@ -3,9 +3,9 @@ type: is
 id: is-01kx51tj4c2bv1hqq9ess6rfzt
 title: "Address review: PR #176 — agent CLI ergonomics Phase 1"
 kind: task
-status: in_progress
+status: closed
 priority: 1
-version: 18
+version: 19
 labels: []
 dependencies: []
 child_order_hints:
@@ -26,5 +26,7 @@ child_order_hints:
   - is-01kx6kae93cg2axnm3xpav1jg6
   - is-01kx6m3vxegc223hb0yhwtyth8
 created_at: 2026-07-10T03:41:00.940Z
-updated_at: 2026-07-10T18:19:54.670Z
+updated_at: 2026-07-10T19:04:14.587Z
+closed_at: 2026-07-10T19:04:14.587Z
+close_reason: "All 16 findings from the PR #176 senior review (R1-R14) plus two discovered during addressing (R15 parser bug, R16 Bugbot silent-skip) fixed, rebutted none, deferred none. Commits 3b9c247/0eafd44/75bd74c; CI green on all checks; disposition map posted on the PR."
 ---
