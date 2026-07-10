@@ -94,12 +94,14 @@ class UpdateHandler extends BaseCommand {
           }
 
           // Load existing issue. Only a genuinely absent file counts as
-          // missing; other read failures surface as errors.
+          // missing/not-found; a corrupt or unreadable file surfaces its real
+          // error (same contract as loadAllIssues in the bulk paths).
           let issue;
           try {
             issue = await readIssue(dataSyncDir, internalId);
           } catch (error) {
-            if ((error as NodeJS.ErrnoException).code === 'ENOENT' && options.ignoreMissing) {
+            if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
+            if (options.ignoreMissing) {
               loneMissing = true;
               return;
             }

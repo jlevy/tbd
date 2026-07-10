@@ -493,6 +493,15 @@ open
 ? 0
 ```
 
+# Test: A lone corrupt issue surfaces its real error from update, even with --ignore-missing
+
+```console
+$ tbd update $(cat cb2.txt) --priority 1 --ignore-missing 2>&1
+[..]front matter[..]
+[..]front matter[..]
+? 1
+```
+
 * * *
 
 ## Removed `--no-sync`
