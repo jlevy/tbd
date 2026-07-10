@@ -92,6 +92,20 @@ $ tbd close $(cat c.txt) test-zzzz --ignore-missing
 ? 0
 ```
 
+# Test: A lone unknown ID with --ignore-missing still reports the skip (not silent)
+
+```console
+$ tbd close test-zzzz --ignore-missing
+✓ Closed 0, not found 1: test-zzzz
+? 0
+```
+
+```console
+$ tbd reopen test-zzzz --ignore-missing
+✓ Reopened 0, not found 1: test-zzzz
+? 0
+```
+
 # Test: --json emits a structured results array and summary
 
 ```console

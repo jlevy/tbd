@@ -63,10 +63,10 @@ $ tbd closing | grep -c "gh pr checks"
 ? 0
 ```
 
-# Test: Close protocol contains tbd update step
+# Test: Close protocol contains the bulk tbd close step
 
 ```console
-$ tbd closing | grep -c "tbd close/update"
+$ tbd closing | grep -c "tbd close <id1> <id2>"
 1
 ? 0
 ```

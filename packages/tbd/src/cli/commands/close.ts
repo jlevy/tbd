@@ -112,10 +112,12 @@ class CloseHandler extends BaseCommand {
 
     if (results.length === 0) return; // dry-run or nothing to do
 
-    // Single ID: preserve the exact legacy output (text + JSON).
-    if (ids.length === 1) {
+    // Single ID: preserve the exact legacy output (text + JSON). A lone
+    // missing ID (only reachable with --ignore-missing, a new flag with no
+    // legacy contract) falls through to the bulk summary so the skip is
+    // reported instead of exiting silently.
+    if (ids.length === 1 && results[0]!.action !== 'missing') {
       const r = results[0]!;
-      if (r.action === 'missing') return; // --ignore-missing on a lone unknown ID
       const alreadyClosed = r.action === 'skipped';
       this.output.data({ id: r.id, closed: true, alreadyClosed }, () => {
         this.output.success(`Closed ${r.id}`);
