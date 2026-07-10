@@ -28,7 +28,12 @@ export interface BodyInputSpec {
   file?: string;
 }
 
-async function readStdin(): Promise<string> {
+async function readStdin(flagName: string): Promise<string> {
+  // Agents always pipe; a human typing `--reason -` interactively would
+  // otherwise stare at a silent hang.
+  if (process.stdin.isTTY) {
+    process.stderr.write(`Reading ${flagName} from stdin — press Ctrl+D to finish.\n`);
+  }
   const chunks: Buffer[] = [];
   for await (const chunk of process.stdin) {
     chunks.push(chunk as Buffer);
@@ -43,10 +48,14 @@ async function readStdin(): Promise<string> {
  * - a `*-file <path>` flag reads the file
  * - `-` on either flag reads stdin (at most one stdin reader per command)
  * - supplying both inline text and a file is an error
+ *
+ * `state` is required so every command with more than one body input must share
+ * one state object across its resolves — that sharing is what detects two `-`
+ * sentinels competing for the same stdin.
  */
 export async function resolveBodyInput(
   spec: BodyInputSpec,
-  state: BodyInputState = {},
+  state: BodyInputState,
 ): Promise<string | undefined> {
   const hasValue = spec.value !== undefined;
   const hasFile = spec.file !== undefined;
@@ -64,7 +73,7 @@ export async function resolveBodyInput(
       );
     }
     state.stdinUsedBy = spec.name;
-    return readStdin();
+    return readStdin(spec.name);
   }
 
   if (hasFile) {

@@ -383,6 +383,7 @@ tbd create "Title" --type=bug  # Create bead (bug/feature/task/epic/chore)
 tbd update proj-a7k2 --status=in_progress
 tbd close proj-a7k2            # Close bead
 tbd close proj-a7k2 --reason="Fixed in commit abc123"
+tbd close proj-a7k2 proj-b3m9 --reason="Sprint done"  # Bulk close (one call, no loops)
 tbd sync                       # Sync with remote (auto-commits and pushes)
 ```
 

@@ -2952,6 +2952,7 @@ Options:
 ```bash
 tbd close proj-a1b2
 tbd close proj-a1b2 --reason "Fixed in commit abc123"
+tbd close proj-a1b2 proj-c3d4 proj-e5f6 --reason "Sprint complete"  # bulk, one lock
 ```
 
 #### Reopen

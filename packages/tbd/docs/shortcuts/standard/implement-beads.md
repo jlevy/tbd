@@ -29,8 +29,10 @@ Create a to-do list with the following items then perform all of them:
    If unsure about a bead, let the user know at the end of all work which beads had
    problems.
 
-5. When the batch is done, push the branch and create or update its PR
-   (`tbd shortcut create-or-update-pr-simple`), then run `tbd sync`.
+5. When the batch is done, close any remaining completed beads in one bulk call
+   (`tbd close <id1> <id2> … --reason "..."`, not a per-ID loop), push the branch and
+   create or update its PR (`tbd shortcut create-or-update-pr-simple`), then run
+   `tbd sync`.
 
 <!-- This document follows common-doc-guidelines.md.
 See github.com/jlevy/practical-prose and review guidelines before editing.

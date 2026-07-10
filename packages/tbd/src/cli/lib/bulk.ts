@@ -7,8 +7,11 @@
  * docs/project/specs/active/plan-2026-06-13-agent-cli-ergonomics.md.
  */
 
+import type { Issue } from '../../lib/types.js';
 import type { IdMapping } from '../../file/id-mapping.js';
 import { resolveToInternalId } from '../../file/id-mapping.js';
+import { readIssue } from '../../file/storage.js';
+import { NotFoundError } from './errors.js';
 import type { OutputManager } from './output.js';
 
 export interface ResolvedId {
@@ -27,28 +30,70 @@ export interface IdResolution {
 /**
  * Resolve every input ID up front (validate-all-then-apply). Unknown inputs are
  * collected in `missing` so the caller can fail closed before any write.
+ *
+ * Duplicates are processed once: inputs resolving to an already-seen internal ID
+ * (including the same issue under alias and canonical forms) are dropped, keeping
+ * the first occurrence, so an issue is never mutated twice in one invocation.
  */
 export function resolveAllIds(inputIds: string[], mapping: IdMapping): IdResolution {
   const resolved: ResolvedId[] = [];
   const missing: string[] = [];
+  const seenInternal = new Set<string>();
+  const seenMissing = new Set<string>();
   for (const input of inputIds) {
     try {
-      resolved.push({ input, internalId: resolveToInternalId(input, mapping) });
+      const internalId = resolveToInternalId(input, mapping);
+      if (seenInternal.has(internalId)) continue;
+      seenInternal.add(internalId);
+      resolved.push({ input, internalId });
     } catch {
+      if (seenMissing.has(input)) continue;
+      seenMissing.add(input);
       missing.push(input);
     }
   }
   return { resolved, missing };
 }
 
-export type BulkAction = 'closed' | 'reopened' | 'updated' | 'skipped' | 'missing';
+export interface LoadedIssue extends ResolvedId {
+  issue: Issue;
+}
+
+/**
+ * Read every resolved issue before the caller writes anything, extending
+ * validate-all-then-apply to the read layer: an ID that resolves in the mapping
+ * but whose file cannot be read (stale mapping, corrupted file) aborts the whole
+ * batch with `NotFoundError` — unless `ignoreMissing` is set, in which case it is
+ * reported as a `missing` result and the rest of the batch proceeds.
+ */
+export async function loadAllIssues(
+  dataSyncDir: string,
+  resolved: ResolvedId[],
+  ignoreMissing: boolean,
+  results: BulkItemResult[],
+): Promise<LoadedIssue[]> {
+  const loaded: LoadedIssue[] = [];
+  for (const { input, internalId } of resolved) {
+    try {
+      loaded.push({ input, internalId, issue: await readIssue(dataSyncDir, internalId) });
+    } catch {
+      if (!ignoreMissing) {
+        throw new NotFoundError('Issue', input);
+      }
+      results.push({ id: input, action: 'missing', ok: false, skippedReason: 'not found' });
+    }
+  }
+  return loaded;
+}
+
+export type BulkAction = 'closed' | 'reopened' | 'updated' | 'skipped' | 'missing' | 'failed';
 
 export interface BulkItemResult {
   /** Display ID, or the raw input when the issue could not be resolved/read. */
   id: string;
   action: BulkAction;
   ok: boolean;
-  /** Human reason when `action` is `skipped` or `missing`. */
+  /** Human reason when `action` is `skipped`, `missing`, or `failed`. */
   skippedReason?: string;
 }
 
@@ -59,6 +104,8 @@ export interface BulkSummary {
   skipped: number;
   /** Inputs that could not be resolved (only present with `--ignore-missing`). */
   missing: number;
+  /** Items whose write failed after validation (partial application). */
+  failed: number;
   total: number;
 }
 
@@ -67,12 +114,14 @@ export function summarizeBulk(results: BulkItemResult[]): BulkSummary {
   let changed = 0;
   let skipped = 0;
   let missing = 0;
+  let failed = 0;
   for (const r of results) {
     if (r.action === 'skipped') skipped++;
     else if (r.action === 'missing') missing++;
+    else if (r.action === 'failed') failed++;
     else changed++;
   }
-  return { changed, skipped, missing, total: results.length };
+  return { changed, skipped, missing, failed, total: results.length };
 }
 
 /** The machine-readable result item shape emitted under `--json`. */
@@ -116,6 +165,7 @@ export function emitBulkSummary(
     const parts = [`${opts.verb} ${summary.changed}`];
     if (summary.skipped > 0) parts.push(`skipped ${summary.skipped} (${opts.skippedNote})`);
     if (summary.missing > 0) parts.push(`not found ${summary.missing}`);
+    if (summary.failed > 0) parts.push(`failed ${summary.failed}`);
     const idList = results.map((r) => r.id).join(' ');
     output.success(`${parts.join(', ')}: ${idList}`);
     if (syncPending) {

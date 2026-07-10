@@ -136,6 +136,19 @@ stdin $REASON `now`
 ? 0
 ```
 
+# Test: reopen --reason - reads the reason from stdin into notes
+
+```console
+$ printf '%s' 'regressed: $CASE `retest`' | tbd reopen $(cat be.txt) --reason - --quiet
+? 0
+```
+
+```console
+$ tbd show $(cat be.txt) --json | jq -r '.notes'
+Reopened: regressed: $CASE `retest`
+? 0
+```
+
 # Test: --reason and --reason-file together is rejected
 
 ```console

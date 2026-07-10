@@ -73,7 +73,7 @@ or want help → run `tbd shortcut welcome-user`
 | “Create a task/feature for …” | `tbd create "..." --type=task` or `--type=feature` |
 | “Let’s work on issues/beads” | `tbd ready` |
 | “Show me issue X” | `tbd show <id>` |
-| “Close this issue” | `tbd close <id>` |
+| “Close this issue” | `tbd close <id>` (several: `tbd close <id1> <id2> …` — one call, never a loop) |
 | “Search issues for X” | `tbd search "X"` |
 | “Add label X to issue” | `tbd label add <id> <label>` |
 | “What issues are stale?” | `tbd stale` |
@@ -128,7 +128,7 @@ working branch. See `tbd guidelines tbd-sync-troubleshooting` for details.
 [ ] 1. git add + git commit
 [ ] 2. git push
 [ ] 3. gh pr checks <PR> --watch 2>&1 (IMPORTANT: WAIT for final summary, do NOT tell user it is done until you confirm it passes CI!)
-[ ] 4. tbd close/update <id> for all beads worked on
+[ ] 4. tbd close <id1> <id2> ... --reason "..." for all beads worked on (ONE bulk call, not a per-ID loop)
 [ ] 5. tbd sync
 [ ] 6. CONFIRM CI passed (if failed: fix, run tests, re-push, restart from step 3)
 ```
@@ -161,6 +161,13 @@ working branch. See `tbd guidelines tbd-sync-troubleshooting` for details.
 | `tbd create "title" --type=bug --priority=1` | New bead; run `tbd create --help` for all types and priorities (P0-P4, not “high/medium/low”) |
 | `tbd update <id> --status in_progress` | Claim work |
 | `tbd close <id> [--reason "..."]` | Mark complete |
+| `tbd close <id1> <id2> <id3> --reason "..."` | Close several at once (always preferred over one-at-a-time) |
+| `tbd update <id1> <id2> <id3> --priority 1` | Bulk-update shared fields on several beads |
+
+**IMPORTANT:** `close`, `reopen`, and `update` accept multiple IDs in one call.
+NEVER shell-loop over single-ID calls (`for id in …; do tbd close $id; done`) — the bulk
+form runs under one lock, prints one summary line, and supports `--json` and
+`--ignore-missing`.
 
 ### Dependencies & Sync
 

@@ -6,7 +6,7 @@
 [ ] 1. Stage and commit: git add + git commit
 [ ] 2. Push to remote: git push
 [ ] 3. Start CI watch (BLOCKS until done): gh pr checks <PR> --watch 2>&1
-[ ] 4. While CI runs: tbd close/update <id> for issues worked on
+[ ] 4. While CI runs: tbd close <id1> <id2> ... --reason "..." for issues worked on (ONE bulk call, not a per-ID loop)
 [ ] 5. While CI runs: tbd sync
 [ ] 6. Return to step 3 and CONFIRM CI passed
 [ ] 7. If CI failed: fix, re-push, restart from step 3
@@ -23,7 +23,8 @@ all checks passed.
 ### tbd: Update issues and sync
 
 Every session must end with tbd in a clean state:
-- Close/update **every issue** you worked on
+- Close/update **every issue** you worked on — pass all their IDs to one
+  `tbd close`/`tbd update` call rather than looping one at a time
 - Run `tbd sync` and confirm it completed
 
 **Work is not done until pushed, CI passes, and tbd is synced.**

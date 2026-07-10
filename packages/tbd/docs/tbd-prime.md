@@ -11,7 +11,7 @@
 [ ] 1. Stage and commit: git add + git commit
 [ ] 2. Push to remote: git push
 [ ] 3. Start CI watch (BLOCKS until done): gh pr checks <PR> --watch 2>&1
-[ ] 4. While CI runs: tbd close/update <id> for issues worked on
+[ ] 4. While CI runs: tbd close <id1> <id2> ... --reason "..." for issues worked on (ONE bulk call, not a per-ID loop)
 [ ] 5. While CI runs: tbd sync
 [ ] 6. Return to step 3 and CONFIRM CI passed
 [ ] 7. If CI failed: fix, re-push, restart from step 3
@@ -61,6 +61,10 @@ Every session must end with tbd in a clean state:
 - `tbd update <id> --assignee username` - Assign to someone
 - `tbd close <id>` - Mark complete
 - `tbd close <id> --reason "explanation"` - Close with reason
+- `tbd close <id1> <id2> <id3> --reason "..."` - Close several at once (preferred)
+- `tbd update <id1> <id2> <id3> --priority 1` - Bulk-update shared fields
+- **IMPORTANT**: `close`, `reopen`, and `update` take multiple IDs — never shell-loop
+  over single-ID calls (`for id in …; do tbd close $id; done`)
 - **Tip**: When creating multiple issues, use parallel subagents for efficiency
 
 ### Dependencies and Blocking
@@ -94,8 +98,9 @@ tbd update <id> --status in_progress   # Claim it
 **Completing work:**
 
 ```bash
-tbd close <id>    # Mark complete
-tbd sync          # Push to remote
+tbd close <id>                            # Mark one complete
+tbd close <id1> <id2> --reason "done"     # Several at once — one call, never a loop
+tbd sync                                  # Push to remote
 ```
 
 **Creating dependent work:**

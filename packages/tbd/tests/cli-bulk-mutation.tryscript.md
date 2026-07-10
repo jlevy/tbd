@@ -106,9 +106,12 @@ test-[SHORTID]
 ? 0
 ```
 
+The full machine contract in one line: the per-item `results` actions, the complete
+`summary` key set, and the `sync.pending` flag.
+
 ```console
-$ tbd close $(cat d.txt) $(cat e.txt) --json | jq -r '.summary.changed'
-2
+$ tbd close $(cat d.txt) $(cat e.txt) --json | jq -r '[(.summary | keys | join(",")), (.results | map(.action) | join(",")), (.sync.pending | tostring), (.summary.changed | tostring)] | join("|")'
+changed,failed,missing,skipped,total|closed,closed|true|2
 ? 0
 ```
 
@@ -167,7 +170,7 @@ $ tbd reopen $(cat ra.txt) $(cat rb.txt)
 
 ```console
 $ tbd reopen $(cat ra.txt) $(cat rb.txt)
-✓ Reopened 0, skipped 2 (already open): test-[SHORTID] test-[SHORTID]
+✓ Reopened 0, skipped 2 (not closed): test-[SHORTID] test-[SHORTID]
 ? 0
 ```
 
@@ -355,6 +358,14 @@ Passing it now errors as an unknown option rather than silently doing nothing.
 
 ```console
 $ tbd close test-zzzz --no-sync 2>&1
+error: unknown option '--no-sync'
+? 1
+```
+
+# Test: `reopen` rejects the removed `--no-sync`
+
+```console
+$ tbd reopen test-zzzz --no-sync 2>&1
 error: unknown option '--no-sync'
 ? 1
 ```

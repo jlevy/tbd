@@ -37,7 +37,9 @@ Create a to-do list with the following items then perform all of them:
    - Only proceed when you see all checks have passed.
    - Confirm to the user that CI has passed.
 
-4. Close or update beads for the committed work, then run `tbd sync`.
+4. Close or update beads for the committed work — pass all their IDs to one bulk call
+   (`tbd close <id1> <id2> … --reason "..."`), never a per-ID loop — then run
+   `tbd sync`.
 
 <!-- This document follows common-doc-guidelines.md.
 See github.com/jlevy/practical-prose and review guidelines before editing.

@@ -7,16 +7,16 @@ import { resolveBodyInput } from '../src/cli/lib/body-input.js';
 
 describe('resolveBodyInput', () => {
   it('returns inline text unchanged', async () => {
-    expect(await resolveBodyInput({ name: '--reason', value: 'done' })).toBe('done');
+    expect(await resolveBodyInput({ name: '--reason', value: 'done' }, {})).toBe('done');
   });
 
   it('returns undefined when nothing is set', async () => {
-    expect(await resolveBodyInput({ name: '--reason' })).toBeUndefined();
+    expect(await resolveBodyInput({ name: '--reason' }, {})).toBeUndefined();
   });
 
   it('preserves shell-sensitive characters in inline text', async () => {
     const raw = 'cost is $5 `whoami` "ok" \'q\'';
-    expect(await resolveBodyInput({ name: '--reason', value: raw })).toBe(raw);
+    expect(await resolveBodyInput({ name: '--reason', value: raw }, {})).toBe(raw);
   });
 
   it('reads the body from a file verbatim', async () => {
@@ -26,7 +26,7 @@ describe('resolveBodyInput', () => {
       const body = 'multi\nline $VAR `tick` "quote"';
       await writeFile(path, body, 'utf-8');
       expect(
-        await resolveBodyInput({ name: '--reason', fileName: '--reason-file', file: path }),
+        await resolveBodyInput({ name: '--reason', fileName: '--reason-file', file: path }, {}),
       ).toBe(body);
     } finally {
       await rm(dir, { recursive: true, force: true });
@@ -35,13 +35,16 @@ describe('resolveBodyInput', () => {
 
   it('errors when both inline text and a file are given', async () => {
     await expect(
-      resolveBodyInput({ name: '--reason', value: 'x', fileName: '--reason-file', file: 'y' }),
+      resolveBodyInput({ name: '--reason', value: 'x', fileName: '--reason-file', file: 'y' }, {}),
     ).rejects.toThrow(/either --reason or --reason-file/);
   });
 
   it('errors when the file cannot be read', async () => {
     await expect(
-      resolveBodyInput({ name: '--reason', fileName: '--reason-file', file: '/no/such/file-xyz' }),
+      resolveBodyInput(
+        { name: '--reason', fileName: '--reason-file', file: '/no/such/file-xyz' },
+        {},
+      ),
     ).rejects.toThrow(/Failed to read --reason-file/);
   });
 

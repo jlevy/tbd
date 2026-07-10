@@ -12,12 +12,12 @@
 import { Command } from 'commander';
 
 import { BaseCommand } from '../lib/base-command.js';
-import { requireInit, NotFoundError } from '../lib/errors.js';
-import { readIssue, writeIssue } from '../../file/storage.js';
+import { requireInit, NotFoundError, CLIError } from '../lib/errors.js';
+import { writeIssue } from '../../file/storage.js';
 import { formatDisplayId, formatDebugId } from '../../lib/ids.js';
 import { now } from '../../utils/time-utils.js';
 import { withDataSyncContext } from '../lib/data-context.js';
-import { resolveAllIds, emitBulkSummary, type BulkItemResult } from '../lib/bulk.js';
+import { resolveAllIds, loadAllIssues, emitBulkSummary, type BulkItemResult } from '../lib/bulk.js';
 import { resolveBodyInput } from '../lib/body-input.js';
 
 interface CloseOptions {
@@ -32,12 +32,15 @@ class CloseHandler extends BaseCommand {
     const results: BulkItemResult[] = [];
 
     await this.execute(async () => {
-      const reason = await resolveBodyInput({
-        name: '--reason',
-        value: options.reason,
-        fileName: '--reason-file',
-        file: options.reasonFile,
-      });
+      const reason = await resolveBodyInput(
+        {
+          name: '--reason',
+          value: options.reason,
+          fileName: '--reason-file',
+          file: options.reasonFile,
+        },
+        {},
+      );
       await withDataSyncContext(
         tbdRoot,
         { lock: true },
@@ -56,19 +59,18 @@ class CloseHandler extends BaseCommand {
             return;
           }
 
-          for (const { input, internalId } of resolved) {
-            let issue;
-            try {
-              issue = await readIssue(dataSyncDir, internalId);
-            } catch {
-              // Single ID preserves the legacy hard error; bulk reports it.
-              if (ids.length === 1 && !options.ignoreMissing) {
-                throw new NotFoundError('Issue', input);
-              }
-              results.push({ id: input, action: 'missing', ok: false, skippedReason: 'not found' });
-              continue;
-            }
+          // Pass 1: read every issue before writing anything, so a stale mapping
+          // or unreadable file aborts the batch (unless --ignore-missing).
+          const loaded = await loadAllIssues(
+            dataSyncDir,
+            resolved,
+            options.ignoreMissing ?? false,
+            results,
+          );
 
+          // Pass 2: apply. A write failure mid-batch is captured as a `failed`
+          // result (bulk) so the caller still learns what was already written.
+          for (const { issue } of loaded) {
             const displayId = this.ctx.debug
               ? formatDebugId(issue.id, mapping, config.display.id_prefix)
               : formatDisplayId(issue.id, mapping, config.display.id_prefix);
@@ -89,7 +91,14 @@ class CloseHandler extends BaseCommand {
             issue.close_reason = reason ?? null;
             issue.version += 1;
             issue.updated_at = now();
-            await writeIssue(dataSyncDir, issue);
+            try {
+              await writeIssue(dataSyncDir, issue);
+            } catch (error) {
+              if (ids.length === 1) throw error; // legacy single-ID error path
+              const message = error instanceof Error ? error.message : String(error);
+              results.push({ id: displayId, action: 'failed', ok: false, skippedReason: message });
+              continue;
+            }
             results.push({ id: displayId, action: 'closed', ok: true });
           }
 
@@ -115,6 +124,13 @@ class CloseHandler extends BaseCommand {
     }
 
     emitBulkSummary(this.output, results, { verb: 'Closed', skippedNote: 'already closed' });
+
+    // Partial application is reported above; still exit non-zero so callers
+    // (and CI) cannot mistake a batch with write failures for success.
+    const failed = results.filter((r) => r.action === 'failed').length;
+    if (failed > 0) {
+      throw new CLIError(`${failed} of ${results.length} close writes failed`);
+    }
   }
 }
 

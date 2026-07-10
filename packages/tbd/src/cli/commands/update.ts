@@ -20,7 +20,7 @@ import { resolveToInternalId, type IdMapping } from '../../file/id-mapping.js';
 import { resolveAndValidatePath, getPathErrorMessage } from '../../lib/project-paths.js';
 import { validateIssueTitle } from '../lib/issue-input-validation.js';
 import { withDataSyncContext } from '../lib/data-context.js';
-import { resolveAllIds, emitBulkSummary, type BulkItemResult } from '../lib/bulk.js';
+import { resolveAllIds, loadAllIssues, emitBulkSummary, type BulkItemResult } from '../lib/bulk.js';
 import { resolveBodyInput, type BodyInputState } from '../lib/body-input.js';
 
 interface UpdateOptions {
@@ -256,15 +256,18 @@ class UpdateHandler extends BaseCommand {
             return;
           }
 
-          for (const { input, internalId } of resolved) {
-            let issue;
-            try {
-              issue = await readIssue(dataSyncDir, internalId);
-            } catch {
-              results.push({ id: input, action: 'missing', ok: false, skippedReason: 'not found' });
-              continue;
-            }
+          // Pass 1: read every issue before writing anything, so a stale mapping
+          // or unreadable file aborts the batch (unless --ignore-missing).
+          const loaded = await loadAllIssues(
+            dataSyncDir,
+            resolved,
+            options.ignoreMissing ?? false,
+            results,
+          );
 
+          // Pass 2: apply. A write failure mid-batch is captured as a `failed`
+          // result so the caller still learns what was already written.
+          for (const { issue } of loaded) {
             if (updates.kind !== undefined) issue.kind = updates.kind;
             if (updates.priority !== undefined) issue.priority = updates.priority;
             if (updates.assignee !== undefined) issue.assignee = updates.assignee;
@@ -282,11 +285,17 @@ class UpdateHandler extends BaseCommand {
 
             issue.version += 1;
             issue.updated_at = now();
-            await writeIssue(dataSyncDir, issue);
 
             const displayId = this.ctx.debug
               ? formatDebugId(issue.id, mapping, config.display.id_prefix)
               : formatDisplayId(issue.id, mapping, config.display.id_prefix);
+            try {
+              await writeIssue(dataSyncDir, issue);
+            } catch (error) {
+              const message = error instanceof Error ? error.message : String(error);
+              results.push({ id: displayId, action: 'failed', ok: false, skippedReason: message });
+              continue;
+            }
             results.push({ id: displayId, action: 'updated', ok: true });
           }
 
@@ -299,6 +308,13 @@ class UpdateHandler extends BaseCommand {
 
     if (results.length === 0) return; // dry-run or nothing to do
     emitBulkSummary(this.output, results, { verb: 'Updated', skippedNote: 'unchanged' });
+
+    // Partial application is reported above; still exit non-zero so callers
+    // (and CI) cannot mistake a batch with write failures for success.
+    const failed = results.filter((r) => r.action === 'failed').length;
+    if (failed > 0) {
+      throw new CLIError(`${failed} of ${results.length} update writes failed`);
+    }
   }
 
   /**

@@ -53,6 +53,26 @@ describe('resolveAllIds', () => {
     expect(resolved).toHaveLength(0);
     expect(missing).toHaveLength(0);
   });
+
+  it('processes a repeated input once, keeping the first occurrence', () => {
+    const mapping = makeMapping({ aaaa: ULID_A, bbbb: ULID_B });
+    const { resolved, missing } = resolveAllIds(['aaaa', 'aaaa', 'bbbb'], mapping);
+    expect(resolved.map((r) => r.input)).toEqual(['aaaa', 'bbbb']);
+    expect(missing).toHaveLength(0);
+  });
+
+  it('dedupes the same issue given under alias and canonical forms', () => {
+    const mapping = makeMapping({ aaaa: ULID_A });
+    const { resolved } = resolveAllIds(['aaaa', ULID_A], mapping);
+    expect(resolved).toHaveLength(1);
+    expect(resolved[0]!.input).toBe('aaaa');
+    expect(resolved[0]!.internalId).toBe(`is-${ULID_A}`);
+  });
+
+  it('reports a repeated unknown input once', () => {
+    const { missing } = resolveAllIds(['zzzz', 'zzzz'], makeMapping({}));
+    expect(missing).toEqual(['zzzz']);
+  });
 });
 
 describe('summarizeBulk', () => {
@@ -63,7 +83,13 @@ describe('summarizeBulk', () => {
       { id: 'c', action: 'skipped', ok: true, skippedReason: 'already closed' },
       { id: 'd', action: 'missing', ok: false, skippedReason: 'not found' },
     ];
-    expect(summarizeBulk(results)).toEqual({ changed: 2, skipped: 1, missing: 1, total: 4 });
+    expect(summarizeBulk(results)).toEqual({
+      changed: 2,
+      skipped: 1,
+      missing: 1,
+      failed: 0,
+      total: 4,
+    });
   });
 
   it('counts reopened and updated as changed', () => {
@@ -71,11 +97,31 @@ describe('summarizeBulk', () => {
       { id: 'a', action: 'reopened', ok: true },
       { id: 'b', action: 'updated', ok: true },
     ];
-    expect(summarizeBulk(results)).toEqual({ changed: 2, skipped: 0, missing: 0, total: 2 });
+    expect(summarizeBulk(results)).toEqual({
+      changed: 2,
+      skipped: 0,
+      missing: 0,
+      failed: 0,
+      total: 2,
+    });
+  });
+
+  it('tallies write failures separately from changed items', () => {
+    const results: BulkItemResult[] = [
+      { id: 'a', action: 'closed', ok: true },
+      { id: 'b', action: 'failed', ok: false, skippedReason: 'EACCES: permission denied' },
+    ];
+    expect(summarizeBulk(results)).toEqual({
+      changed: 1,
+      skipped: 0,
+      missing: 0,
+      failed: 1,
+      total: 2,
+    });
   });
 
   it('summarizes an empty result set', () => {
-    expect(summarizeBulk([])).toEqual({ changed: 0, skipped: 0, missing: 0, total: 0 });
+    expect(summarizeBulk([])).toEqual({ changed: 0, skipped: 0, missing: 0, failed: 0, total: 0 });
   });
 });
 
@@ -150,8 +196,46 @@ describe('emitBulkSummary', () => {
       { id: 'proj-a', action: 'closed', ok: true },
       { id: 'proj-b', action: 'skipped', ok: true, skippedReason: 'already closed' },
     ]);
-    expect(payload.summary).toEqual({ changed: 1, skipped: 1, missing: 0, total: 2 });
+    expect(payload.summary).toEqual({ changed: 1, skipped: 1, missing: 0, failed: 0, total: 2 });
     expect(payload.sync).toEqual({ pending: true, hint: 'Run `tbd sync` to publish.' });
+  });
+
+  it('carries missing and failed items (ok: false) through the --json results', () => {
+    const out = new OutputManager(makeCtx({ json: true }));
+    const log = vi.spyOn(console, 'log').mockImplementation(() => undefined);
+    emitBulkSummary(
+      out,
+      [
+        { id: 'proj-a', action: 'closed', ok: true },
+        { id: 'zzzz', action: 'missing', ok: false, skippedReason: 'not found' },
+        { id: 'proj-c', action: 'failed', ok: false, skippedReason: 'EACCES: permission denied' },
+      ],
+      { verb: 'Closed', skippedNote: 'already closed' },
+    );
+    const payload = JSON.parse(String(log.mock.calls[0]![0]));
+    expect(payload.results).toEqual([
+      { id: 'proj-a', action: 'closed', ok: true },
+      { id: 'zzzz', action: 'missing', ok: false, skippedReason: 'not found' },
+      { id: 'proj-c', action: 'failed', ok: false, skippedReason: 'EACCES: permission denied' },
+    ]);
+    expect(payload.summary).toEqual({ changed: 1, skipped: 0, missing: 1, failed: 1, total: 3 });
+    // Something DID change, so the sync hint must still be present.
+    expect(payload.sync).toEqual({ pending: true, hint: 'Run `tbd sync` to publish.' });
+  });
+
+  it('renders the failed clause in the text summary line', () => {
+    const out = new OutputManager(makeCtx());
+    const log = vi.spyOn(console, 'log').mockImplementation(() => undefined);
+    emitBulkSummary(
+      out,
+      [
+        { id: 'a', action: 'closed', ok: true },
+        { id: 'b', action: 'failed', ok: false, skippedReason: 'disk full' },
+      ],
+      { verb: 'Closed', skippedNote: 'already closed' },
+    );
+    const lines = log.mock.calls.map((c) => String(c[0]));
+    expect(lines.some((l) => l.includes('Closed 1, failed 1: a b'))).toBe(true);
   });
 
   it('omits sync when nothing changed', () => {

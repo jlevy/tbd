@@ -106,6 +106,7 @@ tbd update proj-1847 --status=in_progress    # Claim it
 
 ```bash
 tbd close proj-1847 --reason="Fixed in auth.ts, added retry logic"
+tbd close proj-1847 proj-1848 --reason="Both fixed"   # Several at once — never loop
 tbd sync                                   # Push to remote
 ```
 
@@ -348,7 +349,8 @@ Options:
 **Multiple IDs:** `tbd update A B C --priority 1 --add-label done` applies the same
 field updates to every issue under one lock.
 Per-ID-only flags (`--title`, `--description`, `--notes`/`--notes-file`) are rejected
-with two or more IDs, and `--status closed` is rejected in bulk — use `tbd close`.
+with two or more IDs, and `--status` is rejected in bulk — use `tbd close`/`tbd reopen`
+for lifecycle changes.
 `--description` and `--notes` also accept `-` to read stdin.
 
 ### close
@@ -390,9 +392,10 @@ single lock. The output is designed so agents never need `2>&1 | tail -1`:
 - **One summary line** on success, e.g. `✓ Closed 3, skipped 1 (already closed): …`,
   followed by a visible `• Unsynced changes — run tbd sync to publish.` hint.
 
-- **Fail-closed validation**: if any ID is unknown the whole batch aborts before writing
-  anything and lists the bad IDs.
+- **Fail-closed validation**: if any ID is unknown (or its issue file cannot be read)
+  the whole batch aborts before writing anything and lists the bad IDs.
   Add `--ignore-missing` to downgrade unknown IDs to skips instead.
+  Duplicate IDs in one call are processed once.
 
 - **Single-ID behavior is unchanged**: one ID behaves exactly as before (idempotent
   close; reopening an already-open issue still errors).
@@ -406,10 +409,14 @@ single lock. The output is designed so agents never need `2>&1 | tail -1`:
   ```json
   {
     "results": [{ "id": "proj-a7k2", "action": "closed", "ok": true }],
-    "summary": { "changed": 1, "skipped": 0, "missing": 0, "total": 1 },
+    "summary": { "changed": 1, "skipped": 0, "missing": 0, "failed": 0, "total": 1 },
     "sync": { "pending": true, "hint": "Run `tbd sync` to publish." }
   }
   ```
+
+  A write that fails mid-batch is reported as `{ "action": "failed", "ok": false }` with
+  the error in `skippedReason`; the command still emits the full summary (so you can see
+  exactly what was and was not written) and then exits non-zero.
 
 **Free-text bodies without quoting hazards.** Reasons, descriptions, and notes accept
 the text inline, from a file (`--reason-file`, `-f`/`--file`, `--notes-file`), or from
@@ -889,6 +896,8 @@ tbd ready --json                            # Find available work
 tbd update proj-xxxx --status=in_progress     # Claim it (advisory)
 # ... do the work ...
 tbd close proj-xxxx --reason="Fixed in commit abc123"
+# Finished several beads? Close them in ONE call — never a shell loop:
+tbd close proj-a1 proj-b2 proj-c3 --reason="Sprint work"
 tbd sync                                    # Push changes
 ```
 
@@ -924,13 +933,22 @@ tbd setup claude                            # One-time global setup
 This runs `tbd prime` at session start and before context compaction, ensuring the agent
 remembers the tbd workflow.
 
-### Closing Multiple Issues
+### Bulk Close, Update, and Reopen
 
-Close several issues at once (more efficient than one at a time):
+`close`, `reopen`, and `update` all take multiple IDs — one call, one lock, one summary
+line:
 
 ```bash
 tbd close proj-a1 proj-b2 proj-c3 --reason="Sprint complete"
+tbd update proj-a1 proj-b2 proj-c3 --priority 1 --add-label done
+tbd reopen proj-a1 proj-b2 --reason="Regression found"
+tbd close proj-a1 proj-b2 proj-gone --ignore-missing   # Unknown IDs become skips
 ```
+
+Do NOT loop over single-ID calls (`for id in …; do tbd close $id; done`): the bulk form
+is faster, validates all IDs before writing anything, and produces one clean summary (or
+a structured `--json` result) instead of N interleaved outputs.
+See [Bulk operations and the output contract](#bulk-operations-and-the-output-contract).
 
 ## Common Workflows
 

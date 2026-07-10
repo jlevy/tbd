@@ -60,12 +60,15 @@ class CreateHandler extends BaseCommand {
     const priority = this.validatePriority(options.priority ?? '2');
 
     // Resolve description from inline text, a file, or stdin ('-').
-    const description = await resolveBodyInput({
-      name: '--description',
-      value: options.description,
-      fileName: '--file',
-      file: options.file,
-    });
+    const description = await resolveBodyInput(
+      {
+        name: '--description',
+        value: options.description,
+        fileName: '--file',
+        file: options.file,
+      },
+      {},
+    );
 
     // Validate and normalize spec path if provided
     let specPath: string | undefined;

@@ -5,11 +5,11 @@ author: Joshua Levy (github.com/jlevy) with LLM assistance
 ---
 # Feature: Agent CLI Ergonomics (Bulk Ops, Output Contract, Sync Clarity)
 
-**Date:** 2026-06-13 (last updated 2026-06-13)
+**Date:** 2026-06-13 (last updated 2026-07-10)
 
 **Author:** Joshua Levy
 
-**Status:** Draft
+**Status:** Phase 1 implemented (PR #176); Phase 2 and bulk `show` deferred
 
 > **Revised 2026-06-13 after a senior engineering review on
 > [PR #176](https://github.com/jlevy/tbd/pull/176).** Phase 1 was tightened: `--sync`
@@ -236,6 +236,12 @@ context (`cli/lib/context.ts`), and the data context that owns the lock
   Route the hint through `output.notice()` (shown at the default level, suppressed by
   `--quiet` and `--json`). `--json` carries it as structured state instead:
   `{ results: [{ id, action, ok, skippedReason? }], summary: {...}, sync: { pending: true, hint: "..." } }`.
+  Refinements from the 2026-07-10 review round: duplicate IDs in one call are
+  deduplicated (processed once, first occurrence wins); validate-all-then-apply extends
+  to the read layer (all issues are read before the first write, so a stale mapping
+  aborts the batch unless `--ignore-missing`); and a write failure mid-batch is captured
+  as a `failed` result (`summary.failed`), reported in the emitted summary, and the
+  command exits non-zero — partial application is never silent.
 - **File/stdin bodies.** Add `--reason-file <path>` to `close`/`reopen`, and a shared
   `-` convention so `--reason -`, `-d -`, and `--notes -` read the body from stdin.
   This removes the P6 quoting hazard for big text without per-verb special cases.

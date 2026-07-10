@@ -17,8 +17,10 @@ upgrading is safe and revertible.
   multiple IDs and process them under one lock, printing a single summary line (or a
   structured `--json` `{ results, summary, sync }` object) plus a visible
   unsynced-changes hint.
-  Validation is fail-closed, with `--ignore-missing` to downgrade unknown IDs to skips;
-  single-ID behavior is unchanged.
+  Validation is fail-closed (including unreadable issue files), with `--ignore-missing`
+  to downgrade unknown IDs to skips; duplicate IDs are processed once; a write failure
+  mid-batch is reported as a `failed` result in the summary and the command exits
+  non-zero. Single-ID behavior is unchanged.
   Free-text bodies (`--reason`/`--reason-file`, `-d`/`-f`, `--notes`/`--notes-file`)
   accept `-` to read stdin, so shell-sensitive text no longer needs careful quoting.
   `--quiet` is now fully silent on success (it also suppresses incidental worktree-heal
