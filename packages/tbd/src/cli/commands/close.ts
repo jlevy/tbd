@@ -95,14 +95,18 @@ class CloseHandler extends BaseCommand {
 
           // Dry-run stops here — after resolution, reads, and state checks.
           // A lone already-closed ID keeps the legacy idempotent output (which
-          // never consulted dry-run), so only preview when something would change.
-          if (toMutate.length > 0 || ids.length > 1) {
-            const dryRunMessage =
-              ids.length === 1 ? 'Would close issue' : `Would close ${toMutate.length} issues`;
-            const dryRunDetail =
-              ids.length === 1
-                ? { id: toMutate[0]!.internalId, reason }
-                : { ids: toMutate.map((t) => t.internalId) };
+          // never consulted dry-run); every other shape previews, including a
+          // lone --ignore-missing skip (which mutates nothing but must not
+          // fall through to the real-run summary).
+          const loneLegacyNoop = ids.length === 1 && loaded.length === 1 && toMutate.length === 0;
+          if (!loneLegacyNoop) {
+            const loneMutation = ids.length === 1 && toMutate.length === 1;
+            const dryRunMessage = loneMutation
+              ? 'Would close issue'
+              : `Would close ${toMutate.length} issues`;
+            const dryRunDetail = loneMutation
+              ? { id: toMutate[0]!.internalId, reason }
+              : { ids: toMutate.map((t) => t.internalId) };
             if (this.checkDryRun(dryRunMessage, dryRunDetail)) {
               wasDryRun = true;
               return;

@@ -107,18 +107,20 @@ class ReopenHandler extends BaseCommand {
           }
 
           // Dry-run stops here — after resolution, reads, and state checks —
-          // so it previews exactly the writes a real run would perform.
-          if (toMutate.length > 0 || ids.length > 1) {
-            const dryRunMessage =
-              ids.length === 1 ? 'Would reopen issue' : `Would reopen ${toMutate.length} issues`;
-            const dryRunDetail =
-              ids.length === 1
-                ? { id: toMutate[0]!.internalId, reason }
-                : { ids: toMutate.map((t) => t.internalId) };
-            if (this.checkDryRun(dryRunMessage, dryRunDetail)) {
-              wasDryRun = true;
-              return;
-            }
+          // so it previews exactly the writes a real run would perform. A lone
+          // not-closed ID has already errored above, so every remaining shape
+          // previews, including a lone --ignore-missing skip (which mutates
+          // nothing but must not fall through to the real-run summary).
+          const loneMutation = ids.length === 1 && toMutate.length === 1;
+          const dryRunMessage = loneMutation
+            ? 'Would reopen issue'
+            : `Would reopen ${toMutate.length} issues`;
+          const dryRunDetail = loneMutation
+            ? { id: toMutate[0]!.internalId, reason }
+            : { ids: toMutate.map((t) => t.internalId) };
+          if (this.checkDryRun(dryRunMessage, dryRunDetail)) {
+            wasDryRun = true;
+            return;
           }
 
           // Apply. A write failure mid-batch is captured as a `failed` result

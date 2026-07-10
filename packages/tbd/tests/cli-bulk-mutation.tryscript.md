@@ -441,6 +441,26 @@ $ tbd close $(cat da.txt) $(cat db.txt) --dry-run
 ? 0
 ```
 
+# Test: Dry-run of a lone --ignore-missing skip previews instead of emitting the real-run summary
+
+```console
+$ tbd close test-zzzz --ignore-missing --dry-run
+[DRY-RUN] Would close 0 issues
+? 0
+```
+
+```console
+$ tbd reopen test-zzzz --ignore-missing --dry-run
+[DRY-RUN] Would reopen 0 issues
+? 0
+```
+
+```console
+$ tbd update test-zzzz --priority 1 --ignore-missing --dry-run
+[DRY-RUN] Would update 0 issues
+? 0
+```
+
 # Test: A corrupt issue file aborts the batch even with --ignore-missing (zero writes)
 
 ```console

@@ -214,6 +214,9 @@ class UpdateHandler extends BaseCommand {
     }, 'Failed to update issue');
 
     if (loneMissing) {
+      // A dry run must preview (matching the bulk all-missing shape), never
+      // fall through to the real-run summary.
+      if (this.checkDryRun('Would update 0 issues', { ids: [] })) return;
       emitBulkSummary(
         this.output,
         [{ id, action: 'missing', ok: false, skippedReason: 'not found' }],
