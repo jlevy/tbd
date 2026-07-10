@@ -1027,9 +1027,10 @@ tbd shortcut review-code
 tbd shortcut review-code
 # Then select "Branch work" scope
 
-# Review a specific GitHub PR
+# Review a specific GitHub PR and publish the review
 tbd shortcut review-github-pr
-# Supports commenting, CI checks, and follow-up fixes
+# Reviews and publishes only; to fix a published review:
+tbd shortcut address-pr-review
 
 # Language-specific reviews (when you want just the language rules)
 tbd shortcut review-code-typescript

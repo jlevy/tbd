@@ -1,6 +1,16 @@
 # Research Brief: CLI as Agent Skill - Best Practices for TypeScript CLIs in Claude Code
 
-**Last Updated**: 2026-05-24
+**Last Updated**: 2026-05-24 (addendum 2026-06-13)
+
+> **2026-06-13 addendum.** This brief is foundational but now lags the shipped guideline
+> (`cli-agent-skill-patterns`), which has since added the L0–L3 integration ladder,
+> format-versioned migration, and the §6.6.2 scope mechanics.
+> For the current distribution landscape (skills.sh leaderboard reality, the L2b
+> variant, dev-build pin selection, the `surface=` drop, multi-block collapse, and
+> native per-agent skill dirs), see
+> [research-2026-06-13-skill-distribution-landscape.md](./research-2026-06-13-skill-distribution-landscape.md)
+> and
+> [plan-2026-06-13-cli-skill-guideline-pprose-gaps.md](../../specs/active/plan-2026-06-13-cli-skill-guideline-pprose-gaps.md).
 
 **Related**:
 
@@ -195,7 +205,8 @@ letting agents use progressive disclosure.
 
 #### 1.3 Pinned CLI Invocation Fallbacks
 
-**Status**: Planned
+**Status**: ✅ Complete (shipped in guideline §6.7; generator-side rule open—see
+addendum)
 
 **Details**:
 
@@ -218,6 +229,18 @@ The pprose installer is a useful reference implementation: it injects a generate
 **Assessment**: tbd’s current guidance is too npm-global-specific.
 The guideline should teach pinned runner fallbacks as a supply-chain hardening pattern
 for all CLI-as-skill projects.
+(Shipped: guideline §6.7 now covers the consumer-side pinned `npx`/`uvx`/`pipx`/`go run`
+chain.)
+
+**2026-06-13 follow-up (generator-side pin selection).** A gap remains on the
+*generator* side: a tool installing from an editable/dev checkout has an unpublishable
+running version (`0.1.1.dev49+abc1234`, npm `0.0.0-dev.<sha>`) that `uvx pkg@<that>`
+cannot resolve, so the baked pin ships a broken skill.
+pprose solves it with a `DISCOVERY_VERSION` constant (last real PyPI release) gated by a
+PEP 440 release check `is_pypi_release` and a release-time guard (`install.py`
+L56/L96/L101–112). The rule: bake the running version only if it is a real, resolvable
+published release; otherwise fall back to a known-good published pin.
+This is issue #173 gap 3 — see the distribution-landscape brief.
 
 * * *
 

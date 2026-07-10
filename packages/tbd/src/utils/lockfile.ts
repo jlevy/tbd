@@ -25,7 +25,11 @@
  *
  * ## Lock lifecycle
  *
- * 1. **Acquire**: `mkdir(lockDir)`; fails with EEXIST if held by another process
+ * 1. **Acquire**: `mkdir(lockDir)`; fails with EEXIST if held by another process.
+ *    On Windows, a concurrent release can instead surface as a transient EPERM
+ *    (NTFS delete-pending directory); this is treated as a busy lock and retried
+ *    for a short window, after which the raw EPERM is rethrown (a persistent
+ *    EPERM is a genuine permission problem, not the delete-pending race).
  * 2. **Hold**: Execute the critical section
  * 3. **Release**: `rmdir(lockDir)`, in a finally block, with a bounded retry to
  *    absorb transient Windows failures (EBUSY/EPERM from AV scanners or lingering
@@ -108,14 +112,15 @@ export class LockAcquisitionError extends Error {
 const TRANSIENT_RMDIR_CODES = new Set(['EBUSY', 'EPERM', 'EACCES', 'ENOTEMPTY']);
 
 /**
- * Codes that `mkdir` can transiently raise on Windows when acquisition races a
- * concurrent `rmdir` of the same lock directory (AV scanners, lingering handles)
- * — the acquire-side analogue of TRANSIENT_RMDIR_CODES. Retried a small, bounded
- * number of times; a *persistent* failure (e.g. a genuinely unwritable parent
- * directory, which `tbd doctor` surfaces) still propagates once the budget is spent.
+ * How long consecutive EPERM failures from the acquisition mkdir are retried on
+ * Windows before the error is rethrown. A delete-pending EPERM clears as soon as
+ * the concurrent rmdir completes (milliseconds); an EPERM that persists past this
+ * window is a genuine permission problem and must surface as the raw
+ * ErrnoException — callers translate it into actionable guidance (e.g.
+ * `SharedLockUnwritableError` in withSharedDataSyncLock) rather than letting it
+ * burn the whole acquisition timeout and misreport as lock contention.
  */
-const TRANSIENT_MKDIR_CODES = new Set(['EBUSY', 'EPERM', 'EACCES']);
-const MAX_TRANSIENT_ACQUIRE_RETRIES = 5;
+const WIN32_EPERM_RETRY_WINDOW_MS = 1_000;
 
 /**
  * Remove a lock directory, tolerating transient Windows failures.
@@ -201,7 +206,7 @@ export async function withLockfile<T>(
 
   const deadline = Date.now() + timeoutMs;
   let acquired = false;
-  let transientAcquireRetries = 0;
+  let epermStreakStart: number | undefined;
 
   while (Date.now() < deadline) {
     try {
@@ -211,32 +216,28 @@ export async function withLockfile<T>(
       break;
     } catch (error) {
       const code = (error as NodeJS.ErrnoException).code;
-      if (code !== 'EEXIST') {
-        // Windows can transiently surface EBUSY/EPERM/EACCES from mkdir when it
-        // races a concurrent rmdir of the same lock directory — the acquire-side
-        // mirror of the transient failures removeLockDir tolerates on release. A
-        // genuinely unwritable parent (the sandbox case `tbd doctor` detects)
-        // fails identically on every attempt, so retry a small, bounded number of
-        // times and only then surface the original error. Any other code (ENOENT,
-        // ENOSPC, …) is non-transient and thrown immediately.
-        if (
-          code &&
-          TRANSIENT_MKDIR_CODES.has(code) &&
-          transientAcquireRetries < MAX_TRANSIENT_ACQUIRE_RETRIES
-        ) {
-          transientAcquireRetries++;
-          await new Promise((resolve) => setTimeout(resolve, 20 * transientAcquireRetries));
-          continue;
+
+      // On Windows, mkdir can transiently fail with EPERM instead of EEXIST when
+      // the lock directory is concurrently being removed (NTFS delete-pending
+      // state — the same behavior that leads rimraf/graceful-fs to retry EPERM
+      // there). Treat it as a busy lock and retry, but only for a short window
+      // of consecutive EPERM failures: one that persists is a real permission
+      // problem and must be rethrown raw for callers to translate.
+      if (code === 'EPERM' && process.platform === 'win32') {
+        epermStreakStart ??= Date.now();
+        if (Date.now() - epermStreakStart > WIN32_EPERM_RETRY_WINDOW_MS) {
+          throw error;
         }
+        await new Promise((resolve) => setTimeout(resolve, pollMs));
+        continue;
+      }
+      epermStreakStart = undefined;
+
+      if (code !== 'EEXIST') {
         // Unexpected error (permissions, disk full, missing parent, etc.):
         // preserve the original failure instead of misreporting lock contention.
         throw error;
       }
-
-      // A real EEXIST means the lock is genuinely held — reset the transient
-      // acquisition budget so a long, legitimate wait punctuated by the occasional
-      // Windows race never spuriously surfaces as a permission failure.
-      transientAcquireRetries = 0;
 
       // Lock exists; inspect it.
       let lockStat;

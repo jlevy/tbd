@@ -147,7 +147,7 @@ status or context or knowledge and know what to do next:
 | “Create a bead for the bug where …” | Agent creates and tracks a bead | `tbd create "..." --type=bug` |
 | “Let’s work on current beads” | Agent finds ready beads and starts working | `tbd ready` |
 | “Review this code” | Agent performs comprehensive code review with all guidelines | [`tbd shortcut review-code`](packages/tbd/docs/shortcuts/standard/review-code.md) |
-| “Review this PR” | Agent reviews a GitHub pull request and can comment/fix | [`tbd shortcut review-github-pr`](packages/tbd/docs/shortcuts/standard/review-github-pr.md) |
+| “Review this PR” | Agent reviews a GitHub pull request and publishes the review | [`tbd shortcut review-github-pr`](packages/tbd/docs/shortcuts/standard/review-github-pr.md) |
 | “Use the shortcut to commit” | Agent runs full pre-commit checks, code review, and commits | [`tbd shortcut code-review-and-commit`](packages/tbd/docs/shortcuts/standard/code-review-and-commit.md) |
 | “Create a PR” | Agent creates or updates the pull request | [`tbd shortcut create-or-update-pr-simple`](packages/tbd/docs/shortcuts/standard/create-or-update-pr-simple.md) |
 | “Let’s create a research brief on …” | Agent creates a research document using a template | [`tbd shortcut new-research-brief`](packages/tbd/docs/shortcuts/standard/new-research-brief.md) |
@@ -438,13 +438,15 @@ tbd docs fork --all              # Or fork by name: tbd docs fork <name> [<name>
 |  | `plan-implementation-with-beads` | Break a spec into implementation beads |
 |  | `implement-beads` | Implement beads from a spec |
 |  | `new-validation-plan` | Create a test/validation plan |
-|  | `update-specs-status` | Review active specs and sync with tbd issues |
+|  | `update-specs-status` | Reconcile specs, the work index, and beads into one status map |
 | **Documentation** | `new-research-brief` | Create a research document |
 |  | `new-architecture-doc` | Create an architecture document |
 |  | `revise-architecture-doc` | Update an architecture doc to match current code |
 |  | `revise-all-architecture-docs` | Revise all current architecture documents |
-| **Review** | `review-code` | Comprehensive code review (uncommitted, branch, or PR) |
-|  | `review-github-pr` | Review a GitHub PR with commenting and CI checks |
+| **Review** | `pr-review-workflows` | Map of the PR review lifecycle and its shortcuts |
+|  | `review-code` | Comprehensive code review (uncommitted, branch, or PR) |
+|  | `review-github-pr` | Review a GitHub PR and publish the review |
+|  | `address-pr-review` | Address a published PR review (fix, rebut, or defer each finding) |
 |  | `review-code-typescript` | TypeScript-focused code review |
 |  | `review-code-python` | Python-focused code review |
 | **Git** | `precommit-process` | Pre-commit review and testing |

@@ -42,6 +42,18 @@ The single tbd meta-skill should now be installed as a portable project skill at
 Code, and exposed as `skills/tbd/SKILL.md` for distribution.
 This keeps the meta-skill architecture while making the install path multi-agent.
 
+**2026-06-13 update**: Two corrections from the mid-2026 distribution audit
+([research-2026-06-13-skill-distribution-landscape.md](./research-2026-06-13-skill-distribution-landscape.md)).
+First, the “15K default limit” below is superseded: Claude Code now budgets the skill
+listing at roughly 1 percent of the model’s context window
+(`skillListingBudgetFraction`), truncating per-skill text at 1,536 characters, and drops
+least-recently-used descriptions on overflow.
+The meta-skill argument is unchanged and arguably stronger, since the budget is now a
+shared, contested pool.
+Second, the leaderboard supports the thesis directly: the single most-installed skill in
+the ecosystem is Vercel’s `find-skills` (a meta-skill that routes to other skills), and
+vendor knowledge skills dominate the top ranks over many-skill platforms.
+
 **Research Questions**:
 
 1. Should each tbd shortcut/guideline be a separate Claude Code skill?

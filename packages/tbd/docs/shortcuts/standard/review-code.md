@@ -8,6 +8,10 @@ This is the **core code review** shortcut.
 It performs a comprehensive review of code changes using all general and
 language-specific guidelines.
 
+It is the review *engine*: it produces findings but does not publish or fix them.
+For where it sits in the PR review lifecycle (publishing reviews, addressing them), see
+`tbd shortcut pr-review-workflows`.
+
 ## Scope Options
 
 This shortcut supports three review scopes:
@@ -84,28 +88,34 @@ Create a to-do list with the following items then perform all of them:
 
    - If changes affect behavior documented in specs (`docs/project/specs/active/`), note
      any needed updates
-   - If changes affect `docs/development.md`, note any needed updates
+   - If changes affect the project’s development docs (e.g. `docs/development.md` or
+     `docs/contexts/development.md`), note any needed updates
    - If changes affect architecture (`docs/project/architecture/`), note any needed
      updates
 
 8. **Compile the review:**
 
-   Write a structured review with:
+   Write a structured review following the review artifact format in
+   `tbd shortcut pr-review-workflows`—verdict, findings numbered with stable IDs and
+   severities (Blocker/High/Medium/Low) and `file:line` references and a concrete
+   **Fix:** suggestion each, non-blocking suggestions, false positives confirmed
+   benign—so a later agent can address it.
+   Add two engine-specific sections:
 
-   - **Summary**: Brief assessment (1-2 sentences)
    - **Design assessment**: Review architecture and pros/cons/alternatives, how this
      design fits relative to other possible approaches, its strengths and weaknesses
      relative to alternatives
-   - **Issues**: Problems found, with `file:line` references and suggested fixes
-   - **Suggestions**: Optional improvements (not blockers)
    - **Documentation**: Any docs that need updating
 
 9. **Determine next action:**
 
    - If the user specified what to do next, follow those instructions
    - If this is a precommit review, proceed to fix any issues found
+   - If this review is of a pushed PR, publishing and fixing are separate lifecycle
+     stages: `tbd shortcut review-github-pr` publishes the review, and
+     `tbd shortcut address-pr-review` addresses a published review
    - Otherwise, present the review and ask:
-     - **Fix issues**: Create tbd beads for issues and begin fixing
+     - **Fix issues**: Create tbd beads for the findings and begin fixing
      - **Report only**: Just output the review (no changes)
 
 <!-- This document follows common-doc-guidelines.md.
