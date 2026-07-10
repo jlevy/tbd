@@ -85,8 +85,12 @@ export function parseMarkdownWithFrontmatter(content: string): ParsedIssueFile {
   // Parse body - split into description and notes
   const body = parsed.content.trim();
 
-  // Find notes section
-  const notesMatch = /\n## Notes\n/i.exec(body);
+  // Find the notes section. The heading may open the body (an issue with notes
+  // but no description serializes to a body that STARTS with `## Notes`), so
+  // anchor on start-of-body as well as newline — requiring a preceding newline
+  // silently folded such notes into the description, and the next write then
+  // serialized that corrupted description plus a second `## Notes` section.
+  const notesMatch = /(^|\n)## Notes\n/i.exec(body);
   let description = body;
   let notes = '';
 

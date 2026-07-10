@@ -143,6 +143,37 @@ describe('round-trip', () => {
     expect(parsed.notes).toBe(original.notes);
   });
 
+  it('round-trips notes when the description is empty (body starts with ## Notes)', () => {
+    // Regression: the notes-section regex required a preceding newline, so an
+    // issue with notes but no description parsed its whole body as the
+    // description — the notes silently vanished and the next write serialized
+    // the corrupted description plus a second `## Notes` section.
+    const original = {
+      type: 'is' as const,
+      id: testId(TEST_ULIDS.PARSER_2),
+      version: 2,
+      kind: 'task' as const,
+      title: 'Notes without description',
+      status: 'open' as const,
+      priority: 2,
+      labels: [],
+      dependencies: [],
+      created_at: '2025-01-01T00:00:00Z',
+      updated_at: '2025-01-02T00:00:00Z',
+      notes: 'Reopened: regression found.',
+    };
+
+    const serialized = serializeIssue(original);
+    const parsed = parseIssue(serialized);
+
+    expect(parsed.notes).toBe(original.notes);
+    expect(parsed.description).toBeUndefined();
+
+    // A second write must not duplicate the section.
+    const reserialized = serializeIssue(parsed);
+    expect(reserialized.match(/## Notes/g)).toHaveLength(1);
+  });
+
   it('handles issues with null fields', () => {
     const original = {
       type: 'is' as const,
