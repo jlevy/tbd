@@ -12,8 +12,9 @@ author: Joshua Levy (github.com/jlevy) with LLM assistance
 **Status:** Phase 1 implemented (PR #176); Phase 2 and bulk `show` deferred
 
 > **Revised 2026-06-13 after a senior engineering review on
-> [PR #176](https://github.com/jlevy/tbd/pull/176).** Phase 1 was tightened: `--sync`
-> gets a tri-state intent and an explicit lock boundary, the unsynced hint must be
+> [PR #176](https://github.com/jlevy/tbd/pull/176).** Phase 1 was tightened: `--sync` is
+> *specified* with a tri-state intent and an explicit lock boundary but its execution is
+> deferred out of Phase 1 (publication stays on `tbd sync`), the unsynced hint must be
 > visible (via `output.notice()`, not the verbose-only `output.info()`), single-ID
 > `close`/`reopen` behavior is preserved (skips are bulk-only), bulk `show` is split out
 > as a separate read-only design, and `update --status closed` is excluded from bulk
@@ -29,9 +30,12 @@ These patterns are brittle, hide what happened from the user, and make multi-iss
 the most failure-prone thing an agent does with tbd.
 
 This spec catalogs the common problems, then proposes a **layered** fix that front-loads
-backward-compatible **quick wins** suitable for the current release (multi-target verbs,
-a trustworthy output contract, and an honest sync model) and maps out **broader ideas**
-(query-driven mutation, a transaction-file `apply` command) as follow-on work.
+**quick wins** for the next release (multi-target verbs, a trustworthy output contract,
+and an honest sync model) and maps out **broader ideas** (query-driven mutation, a
+transaction-file `apply` command) as follow-on work.
+Phase 1 is additive for all existing behavior with one deliberate exception: the global
+`--no-sync` flag — a no-op for issue writes — is **removed outright**, which is a
+breaking CLI-surface change for scripts that still pass it (see the sync section).
 
 It is a product/runtime change to tbd’s own CLI. It is distinct from
 [plan-2026-06-03-tbd-agent-cli-guideline-improvements.md](plan-2026-06-03-tbd-agent-cli-guideline-improvements.md),
@@ -55,12 +59,13 @@ tbd sync --quiet 2>&1 | tail -1
 ```
 
 Every awkward thing here maps to a missing tbd primitive (see Problem Catalog).
-After Phase 1 the close loop collapses to a single call:
+After Phase 1 the close loop collapses to a single call plus one explicit publish:
 
 ```bash
-# one call, one lock, one summary line, one push:
+# one call, one lock, one summary line:
 tbd close fin-iri4 fin-kq1k fin-c02g fin-xgo2 \
-  --reason "Delivered via PR #78 (merged to integration/launch 2026-06-13)" --sync
+  --reason "Delivered via PR #78 (merged to integration/launch 2026-06-13)"
+tbd sync   # publish once at the end (opt-in --sync is specified but deferred)
 ```
 
 ## Goals
@@ -75,8 +80,9 @@ tbd close fin-iri4 fin-kq1k fin-c02g fin-xgo2 \
   publish once on request.
 - **Remove the shell-quoting hazard** for large text fields (reasons, descriptions,
   notes) by supporting file and stdin bodies consistently across verbs.
-- **Prioritize backward-compatible quick wins** that can ship in the current release,
-  and map the larger ideas without committing to them yet.
+- **Prioritize quick wins** that can ship in the next release — additive except for the
+  deliberate `--no-sync` removal — and map the larger ideas without committing to them
+  yet.
 - **Establish a consistent verb spine** (`verb [ids...] --flags`) future commands
   inherit.
 
@@ -183,8 +189,8 @@ The common problems agents hit, each with the bash symptom it produces:
 
 Layer the work so value lands early and risk stays low:
 
-- **Phase 1 (quick wins, current release):** purely additive, backward-compatible
-  changes to existing verbs.
+- **Phase 1 (quick wins, next release):** additive (one breaking exception: `--no-sync`
+  removal), backward-compatible changes to existing verbs.
   Multi-target IDs, a bulk summary + accurate sync hint, file/stdin bodies for reasons,
   and an honest sync contract.
   No new top-level commands.
@@ -200,7 +206,7 @@ context (`cli/lib/context.ts`), and the data context that owns the lock
 (`cli/lib/data-context.ts`). Phase 2 adds a new `apply.ts` that generalizes the existing
 `import.ts` ingestion path.
 
-### API Changes (Phase 1, backward-compatible)
+### API Changes (Phase 1; additive except the `--no-sync` removal)
 
 - **Variadic IDs (mutators).** Change `close`/`reopen`/`update` from `<id>` to
   `<ids...>` (mutators only; **not** `show`, see below).
@@ -362,7 +368,8 @@ context (`cli/lib/context.ts`), and the data context that owns the lock
 
 ## Rollout Plan
 
-- Phase 1 is additive and backward-compatible, so it ships in the current release cycle.
+- Phase 1 ships in the next release; it is additive except the `--no-sync` removal,
+  which the release notes flag as breaking with a migration note.
   Update `packages/tbd/CHANGELOG.md`, the `tbd-docs.md` manual, `tbd prime`, the
   agent-CLI guideline examples, **and `tbd-design.md`** in the same change.
   Specifically fix the stale `--no-sync`/`auto_sync` “real issue-write behavior” claims

@@ -19,7 +19,14 @@ import { writeIssue } from '../../file/storage.js';
 import { formatDisplayId, formatDebugId } from '../../lib/ids.js';
 import { now } from '../../utils/time-utils.js';
 import { withDataSyncContext } from '../lib/data-context.js';
-import { resolveAllIds, loadAllIssues, emitBulkSummary, type BulkItemResult } from '../lib/bulk.js';
+import {
+  resolveAllIds,
+  loadAllIssues,
+  orderedResults,
+  emitBulkSummary,
+  throwOnWriteFailures,
+  type BulkItemResult,
+} from '../lib/bulk.js';
 import { resolveBodyInput } from '../lib/body-input.js';
 
 interface ReopenOptions {
@@ -32,7 +39,9 @@ class ReopenHandler extends BaseCommand {
   async run(ids: string[], options: ReopenOptions): Promise<void> {
     const tbdRoot = await requireInit();
     const isBulk = ids.length > 1;
-    const results: BulkItemResult[] = [];
+    const outcomes = new Map<string, BulkItemResult>();
+    let results: BulkItemResult[] = [];
+    let wasDryRun = false;
 
     await this.execute(async () => {
       const reason = await resolveBodyInput(
@@ -48,52 +57,76 @@ class ReopenHandler extends BaseCommand {
         tbdRoot,
         { lock: true },
         async ({ dataSyncDir, mapping, config }) => {
-          const { resolved, missing } = resolveAllIds(ids, mapping);
+          const { resolved, missing, orderedInputs } = resolveAllIds(ids, mapping);
 
           // Fail closed: any unknown ID aborts before writing anything, unless
           // the caller opted into best-effort with --ignore-missing.
           if (missing.length > 0 && !options.ignoreMissing) {
             throw new NotFoundError('Issue', missing.join(', '));
           }
-
-          const dryRunMessage =
-            ids.length === 1 ? 'Would reopen issue' : `Would reopen ${resolved.length} issues`;
-          if (this.checkDryRun(dryRunMessage, { ids: resolved.map((r) => r.internalId) })) {
-            return;
+          for (const m of missing) {
+            outcomes.set(m, { id: m, action: 'missing', ok: false, skippedReason: 'not found' });
           }
 
-          // Pass 1: read every issue before writing anything, so a stale mapping
-          // or unreadable file aborts the batch (unless --ignore-missing).
+          // Read every issue before writing anything, so stale mappings and
+          // unreadable files abort (or become skips) before any mutation.
           const loaded = await loadAllIssues(
             dataSyncDir,
             resolved,
             options.ignoreMissing ?? false,
-            results,
+            outcomes,
           );
 
-          // Pass 2: apply. A write failure mid-batch is captured as a `failed`
-          // result (bulk) so the caller still learns what was already written.
-          for (const { input, issue } of loaded) {
+          // Classify state before dry-run so a preview reflects exactly what a
+          // real run would mutate. Only closed issues can be reopened: single
+          // ID keeps the legacy hard error; bulk reports a skip so a batch
+          // reopen is idempotent.
+          const toMutate: typeof loaded = [];
+          for (const item of loaded) {
             const displayId = this.ctx.debug
-              ? formatDebugId(issue.id, mapping, config.display.id_prefix)
-              : formatDisplayId(issue.id, mapping, config.display.id_prefix);
-
-            // Only closed issues can be reopened. Single ID keeps the legacy
-            // hard error; bulk reports a skip so a batch reopen is idempotent.
-            if (issue.status !== 'closed') {
+              ? formatDebugId(item.issue.id, mapping, config.display.id_prefix)
+              : formatDisplayId(item.issue.id, mapping, config.display.id_prefix);
+            if (item.issue.status !== 'closed') {
               if (!isBulk) {
-                throw new CLIError(`Issue ${input} is not closed (status: ${issue.status})`);
+                throw new CLIError(
+                  `Issue ${item.input} is not closed (status: ${item.issue.status})`,
+                );
               }
-              results.push({
+              outcomes.set(item.input, {
                 id: displayId,
                 action: 'skipped',
                 ok: true,
                 skippedReason:
-                  issue.status === 'open' ? 'already open' : `not closed (${issue.status})`,
+                  item.issue.status === 'open'
+                    ? 'already open'
+                    : `not closed (${item.issue.status})`,
               });
               continue;
             }
+            toMutate.push(item);
+          }
 
+          // Dry-run stops here — after resolution, reads, and state checks —
+          // so it previews exactly the writes a real run would perform.
+          if (toMutate.length > 0 || ids.length > 1) {
+            const dryRunMessage =
+              ids.length === 1 ? 'Would reopen issue' : `Would reopen ${toMutate.length} issues`;
+            const dryRunDetail =
+              ids.length === 1
+                ? { id: toMutate[0]!.internalId, reason }
+                : { ids: toMutate.map((t) => t.internalId) };
+            if (this.checkDryRun(dryRunMessage, dryRunDetail)) {
+              wasDryRun = true;
+              return;
+            }
+          }
+
+          // Apply. A write failure mid-batch is captured as a `failed` result
+          // (bulk) so the caller still learns exactly what was written.
+          for (const { input, issue } of toMutate) {
+            const displayId = this.ctx.debug
+              ? formatDebugId(issue.id, mapping, config.display.id_prefix)
+              : formatDisplayId(issue.id, mapping, config.display.id_prefix);
             issue.status = 'open';
             issue.closed_at = null;
             issue.close_reason = null;
@@ -111,21 +144,23 @@ class ReopenHandler extends BaseCommand {
             } catch (error) {
               if (!isBulk) throw error; // legacy single-ID error path
               const message = error instanceof Error ? error.message : String(error);
-              results.push({ id: displayId, action: 'failed', ok: false, skippedReason: message });
+              outcomes.set(input, {
+                id: displayId,
+                action: 'failed',
+                ok: false,
+                skippedReason: message,
+              });
               continue;
             }
-            results.push({ id: displayId, action: 'reopened', ok: true });
+            outcomes.set(input, { id: displayId, action: 'reopened', ok: true });
           }
 
-          // Report (but do not fail on) IDs skipped via --ignore-missing.
-          for (const m of missing) {
-            results.push({ id: m, action: 'missing', ok: false, skippedReason: 'not found' });
-          }
+          results = orderedResults(orderedInputs, outcomes);
         },
       );
     }, 'Failed to reopen issue');
 
-    if (results.length === 0) return; // dry-run or nothing to do
+    if (wasDryRun || results.length === 0) return;
 
     // Single ID: preserve the exact legacy output (text + JSON). A lone
     // missing ID (only reachable with --ignore-missing, a new flag with no
@@ -143,12 +178,9 @@ class ReopenHandler extends BaseCommand {
     // per-item skippedReason carries the specific status.
     emitBulkSummary(this.output, results, { verb: 'Reopened', skippedNote: 'not closed' });
 
-    // Partial application is reported above; still exit non-zero so callers
-    // (and CI) cannot mistake a batch with write failures for success.
-    const failed = results.filter((r) => r.action === 'failed').length;
-    if (failed > 0) {
-      throw new CLIError(`${failed} of ${results.length} reopen writes failed`);
-    }
+    // Partial application is reported above; name every failed write on stderr
+    // (visible under --quiet too) and exit non-zero.
+    throwOnWriteFailures(results, 'reopen');
   }
 }
 

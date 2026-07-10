@@ -348,9 +348,9 @@ Options:
 
 **Multiple IDs:** `tbd update A B C --priority 1 --add-label done` applies the same
 field updates to every issue under one lock.
-Per-ID-only flags (`--title`, `--description`, `--notes`/`--notes-file`) are rejected
-with two or more IDs, and `--status` is rejected in bulk — use `tbd close`/`tbd reopen`
-for lifecycle changes.
+Per-ID-only flags (`--title`, `--description`, `--notes`/`--notes-file`, `--from-file`,
+`--parent`, `--spec`, `--child-order`) are rejected with two or more IDs, and `--status`
+is rejected in bulk — use `tbd close`/`tbd reopen` for lifecycle changes.
 `--description` and `--notes` also accept `-` to read stdin.
 
 ### close
@@ -392,10 +392,13 @@ single lock. The output is designed so agents never need `2>&1 | tail -1`:
 - **One summary line** on success, e.g. `✓ Closed 3, skipped 1 (already closed): …`,
   followed by a visible `• Unsynced changes — run tbd sync to publish.` hint.
 
-- **Fail-closed validation**: if any ID is unknown (or its issue file cannot be read)
-  the whole batch aborts before writing anything and lists the bad IDs.
-  Add `--ignore-missing` to downgrade unknown IDs to skips instead.
-  Duplicate IDs in one call are processed once.
+- **Fail-closed validation**: if any ID is unknown the whole batch aborts before writing
+  anything and lists the bad IDs; `--ignore-missing` downgrades genuinely absent issues
+  to reported skips. An unreadable or corrupt issue file always aborts the batch — even
+  with `--ignore-missing` — preserving the original error.
+  Duplicate IDs in one call are processed once, and results are reported in the order
+  the IDs were given. `--dry-run` previews after resolution, reads, and state checks, so
+  it shows exactly what a real run would write.
 
 - **Single-ID behavior is unchanged**: one ID behaves exactly as before (idempotent
   close; reopening an already-open issue still errors).
@@ -414,9 +417,11 @@ single lock. The output is designed so agents never need `2>&1 | tail -1`:
   }
   ```
 
+  The `sync` field is always present: `{ "pending": true, "hint": … }` when changes are
+  staged, `{ "pending": false }` when nothing changed.
   A write that fails mid-batch is reported as `{ "action": "failed", "ok": false }` with
-  the error in `skippedReason`; the command still emits the full summary (so you can see
-  exactly what was and was not written) and then exits non-zero.
+  the error in `skippedReason`; the command still emits the full summary, names every
+  failed ID with its error on stderr (visible under `--quiet` too), and exits non-zero.
 
 **Free-text bodies without quoting hazards.** Reasons, descriptions, and notes accept
 the text inline, from a file (`--reason-file`, `-f`/`--file`, `--notes-file`), or from
@@ -948,6 +953,8 @@ tbd close proj-a1 proj-b2 proj-gone --ignore-missing   # Unknown IDs become skip
 Do NOT loop over single-ID calls (`for id in …; do tbd close $id; done`): the bulk form
 is faster, validates all IDs before writing anything, and produces one clean summary (or
 a structured `--json` result) instead of N interleaved outputs.
+A bulk call shares one reason (and one set of field changes for `update`), so group the
+issues that share the same mutation and make one call per group.
 See [Bulk operations and the output contract](#bulk-operations-and-the-output-contract).
 
 ## Common Workflows

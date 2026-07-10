@@ -11,7 +11,7 @@ import type { Issue } from '../../lib/types.js';
 import type { IdMapping } from '../../file/id-mapping.js';
 import { resolveToInternalId } from '../../file/id-mapping.js';
 import { readIssue } from '../../file/storage.js';
-import { NotFoundError } from './errors.js';
+import { NotFoundError, CLIError } from './errors.js';
 import type { OutputManager } from './output.js';
 
 export interface ResolvedId {
@@ -25,6 +25,8 @@ export interface IdResolution {
   resolved: ResolvedId[];
   /** Inputs that did not resolve, in input order. */
   missing: string[];
+  /** Every deduplicated input in first-occurrence argv order (resolved and missing). */
+  orderedInputs: string[];
 }
 
 /**
@@ -34,10 +36,13 @@ export interface IdResolution {
  * Duplicates are processed once: inputs resolving to an already-seen internal ID
  * (including the same issue under alias and canonical forms) are dropped, keeping
  * the first occurrence, so an issue is never mutated twice in one invocation.
+ * `orderedInputs` records the surviving inputs in argv order so per-item results
+ * can be reported in the order the user asked for them.
  */
 export function resolveAllIds(inputIds: string[], mapping: IdMapping): IdResolution {
   const resolved: ResolvedId[] = [];
   const missing: string[] = [];
+  const orderedInputs: string[] = [];
   const seenInternal = new Set<string>();
   const seenMissing = new Set<string>();
   for (const input of inputIds) {
@@ -46,13 +51,15 @@ export function resolveAllIds(inputIds: string[], mapping: IdMapping): IdResolut
       if (seenInternal.has(internalId)) continue;
       seenInternal.add(internalId);
       resolved.push({ input, internalId });
+      orderedInputs.push(input);
     } catch {
       if (seenMissing.has(input)) continue;
       seenMissing.add(input);
       missing.push(input);
+      orderedInputs.push(input);
     }
   }
-  return { resolved, missing };
+  return { resolved, missing, orderedInputs };
 }
 
 export interface LoadedIssue extends ResolvedId {
@@ -61,29 +68,70 @@ export interface LoadedIssue extends ResolvedId {
 
 /**
  * Read every resolved issue before the caller writes anything, extending
- * validate-all-then-apply to the read layer: an ID that resolves in the mapping
- * but whose file cannot be read (stale mapping, corrupted file) aborts the whole
- * batch with `NotFoundError` — unless `ignoreMissing` is set, in which case it is
- * reported as a `missing` result and the rest of the batch proceeds.
+ * validate-all-then-apply to the read layer.
+ *
+ * Only a genuinely absent file (`ENOENT`, i.e. a stale mapping) counts as a
+ * missing issue: it aborts the batch with `NotFoundError`, or becomes a
+ * `missing` outcome under `ignoreMissing`. Every other read failure — malformed
+ * YAML, schema violations, permission or I/O errors — is a repository problem,
+ * not an unknown ID, and always aborts the whole batch before any write, even
+ * with `--ignore-missing`, preserving the original error.
  */
 export async function loadAllIssues(
   dataSyncDir: string,
   resolved: ResolvedId[],
   ignoreMissing: boolean,
-  results: BulkItemResult[],
+  outcomes: Map<string, BulkItemResult>,
 ): Promise<LoadedIssue[]> {
   const loaded: LoadedIssue[] = [];
   for (const { input, internalId } of resolved) {
     try {
       loaded.push({ input, internalId, issue: await readIssue(dataSyncDir, internalId) });
-    } catch {
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
+        throw error;
+      }
       if (!ignoreMissing) {
         throw new NotFoundError('Issue', input);
       }
-      results.push({ id: input, action: 'missing', ok: false, skippedReason: 'not found' });
+      outcomes.set(input, { id: input, action: 'missing', ok: false, skippedReason: 'not found' });
     }
   }
   return loaded;
+}
+
+/**
+ * Assemble per-item outcomes into first-occurrence argv order, so results (text
+ * and `--json`) always line up with what the user asked for, regardless of the
+ * order in which reads, skips, and writes happened.
+ */
+export function orderedResults(
+  orderedInputs: string[],
+  outcomes: Map<string, BulkItemResult>,
+): BulkItemResult[] {
+  const results: BulkItemResult[] = [];
+  for (const input of orderedInputs) {
+    const r = outcomes.get(input);
+    if (r) results.push(r);
+  }
+  return results;
+}
+
+/**
+ * Fail loudly after a partially-applied batch: names every failed ID with its
+ * underlying error on stderr (never suppressed, including under `--quiet`) and
+ * exits non-zero. `attempted` counts only real write attempts, not skips.
+ */
+export function throwOnWriteFailures(results: BulkItemResult[], verb: string): void {
+  const failed = results.filter((r) => r.action === 'failed');
+  if (failed.length === 0) return;
+  const changed = results.filter(
+    (r) => r.action !== 'skipped' && r.action !== 'missing' && r.action !== 'failed',
+  ).length;
+  const detail = failed.map((f) => `${f.id} (${f.skippedReason ?? 'unknown error'})`).join(', ');
+  throw new CLIError(
+    `${failed.length} of ${failed.length + changed} attempted ${verb} writes failed: ${detail}`,
+  );
 }
 
 export type BulkAction = 'closed' | 'reopened' | 'updated' | 'skipped' | 'missing' | 'failed';
@@ -156,10 +204,10 @@ export function emitBulkSummary(
   const json: Record<string, unknown> = {
     results: results.map(toJsonResult),
     summary,
+    // Always present so the machine contract has a stable top-level shape;
+    // the hint appears only when there is actually something to publish.
+    sync: syncPending ? { pending: true, hint: 'Run `tbd sync` to publish.' } : { pending: false },
   };
-  if (syncPending) {
-    json.sync = { pending: true, hint: 'Run `tbd sync` to publish.' };
-  }
 
   output.data(json, () => {
     const parts = [`${opts.verb} ${summary.changed}`];
@@ -167,7 +215,14 @@ export function emitBulkSummary(
     if (summary.missing > 0) parts.push(`not found ${summary.missing}`);
     if (summary.failed > 0) parts.push(`failed ${summary.failed}`);
     const idList = results.map((r) => r.id).join(' ');
-    output.success(`${parts.join(', ')}: ${idList}`);
+    const line = `${parts.join(', ')}: ${idList}`;
+    // A batch with write failures must not carry the success marker; the
+    // caller follows up with a per-ID error on stderr and a non-zero exit.
+    if (summary.failed > 0) {
+      output.warn(line);
+    } else {
+      output.success(line);
+    }
     if (syncPending) {
       output.notice('Unsynced changes — run `tbd sync` to publish.');
     }

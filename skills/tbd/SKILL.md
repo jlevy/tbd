@@ -128,7 +128,7 @@ working branch. See `tbd guidelines tbd-sync-troubleshooting` for details.
 [ ] 1. git add + git commit
 [ ] 2. git push
 [ ] 3. gh pr checks <PR> --watch 2>&1 (IMPORTANT: WAIT for final summary, do NOT tell user it is done until you confirm it passes CI!)
-[ ] 4. tbd close <id1> <id2> ... --reason "..." for all beads worked on (ONE bulk call, not a per-ID loop)
+[ ] 4. tbd close <id1> <id2> ... --reason "..." — one bulk call per group of beads sharing a reason (never a per-ID loop)
 [ ] 5. tbd sync
 [ ] 6. CONFIRM CI passed (if failed: fix, run tests, re-push, restart from step 3)
 ```
@@ -167,7 +167,8 @@ working branch. See `tbd guidelines tbd-sync-troubleshooting` for details.
 **IMPORTANT:** `close`, `reopen`, and `update` accept multiple IDs in one call.
 NEVER shell-loop over single-ID calls (`for id in …; do tbd close $id; done`) — the bulk
 form runs under one lock, prints one summary line, and supports `--json` and
-`--ignore-missing`.
+`--ignore-missing`. A bulk call shares one reason (and, for `update`, one set of field
+changes), so group the beads that share the same mutation and make one call per group.
 
 ### Dependencies & Sync
 

@@ -149,6 +149,37 @@ Reopened: regressed: $CASE `retest`
 ? 0
 ```
 
+# Test: reopen --reason-file reads the reason from a file into notes
+
+```console
+$ tbd close $(cat be.txt) --quiet
+? 0
+```
+
+```console
+$ printf '%s' 'file reason $X' > rr.txt
+? 0
+```
+
+```console
+$ tbd reopen $(cat be.txt) --reason-file rr.txt --quiet
+? 0
+```
+
+```console
+$ tbd show $(cat be.txt) --json | jq -r '.notes' | tail -1
+Reopened: file reason $X
+? 0
+```
+
+# Test: Two body flags cannot both read stdin (rejected before any read)
+
+```console
+$ tbd update $(cat be.txt) --description - --notes - 2>&1
+[..]Cannot read both --description and --notes from stdin[..]
+? 1
+```
+
 # Test: --reason and --reason-file together is rejected
 
 ```console

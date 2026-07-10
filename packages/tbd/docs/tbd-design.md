@@ -4782,79 +4782,12 @@ Options:
 - **Silent exit** (code 0, no stderr) if not in a tbd project
 - **Custom override**: Users can place `.tbd/PRIME.md` to fully customize output
 
-**Output** (~1-2k tokens, full command reference):
-
-```markdown
-# tbd Workflow Context
-
-> **Context Recovery**: Run `tbd prime` after compaction, clear, or new session
-> Hooks auto-call this in Claude Code when .tbd/ detected
-
-# SESSION CLOSING PROTOCOL
-
-**CRITICAL**: Before saying "done" or "complete", you MUST run this checklist:
-
-[ ] 1. git status              (check what changed)
-[ ] 2. git add <files>         (stage code changes)
-[ ] 3. tbd sync                (commit tbd changes)
-[ ] 4. git commit -m "..."     (commit code)
-[ ] 5. tbd sync                (commit any new tbd changes)
-[ ] 6. git push                (push to remote)
-
-**NEVER skip this.** Work is not done until pushed.
-
-## Core Rules
-- Track strategic work in tbd (multi-session, dependencies, discovered work)
-- Use `tbd create` for issues, TodoWrite for simple single-session execution
-- When in doubt, prefer tbd—persistence you don't need beats lost context
-- Git workflow: run `tbd sync` at session end
-- Session management: check `tbd ready` for available work
-
-## Essential Commands
-
-### Finding Work
-- `tbd ready` - Show issues ready to work (no blockers)
-- `tbd list --status open` - All open issues
-- `tbd list --status=in_progress` - Your active work
-- `tbd show <id>` - Detailed issue view with dependencies
-
-### Creating and Updating
-- `tbd create "title" --type=task|bug|feature --priority=P2` - New issue
-  - Priority: P0-P4 (P0=critical, P2=medium, P4=backlog)
-- `tbd update <id> --status=in_progress` - Claim work
-- `tbd update <id> --assignee username` - Assign to someone
-- `tbd close <id>` - Mark complete
-- `tbd close <id> --reason "explanation"` - Close with reason
-
-### Dependencies and Blocking
-- `tbd dep add <issue> <depends-on>` - Add dependency
-- `tbd blocked` - Show all blocked issues
-- `tbd show <id>` - See what's blocking/blocked by this issue
-
-### Sync and Collaboration
-- `tbd sync` - Sync with git remote (run at session end)
-- `tbd sync --status` - Check sync status without syncing
-
-### Project Health
-- `tbd stats` - Project statistics (open/closed/blocked counts)
-- `tbd doctor` - Check for issues (sync problems, health checks)
-
-## Common Workflows
-
-**Starting work:**
-tbd ready           # Find available work
-tbd show <id>       # Review issue details
-tbd update <id> --status=in_progress  # Claim it
-
-**Completing work:**
-tbd close <id>      # Mark complete
-tbd sync            # Push to remote
-
-**Creating dependent work:**
-tbd create "Implement feature X" --type=feature
-tbd create "Write tests for X" --type=task
-tbd dep add <tests-id> <feature-id>  # Tests depend on feature
-```
+**Output** (~1-2k tokens): the session-close protocol, core bead-tracking rules, the
+essential command reference (including the bulk multi-ID forms of `close`/`reopen`/
+`update` and the never-shell-loop rule), and common workflows.
+The content is composed from one canonical source — the skill baseline
+(`shortcuts/system/skill-baseline.md`, see `tbd-prime.md` for the rendered form) — so
+this document does not duplicate it; regenerate rather than hand-edit.
 
 **Custom Override:**
 

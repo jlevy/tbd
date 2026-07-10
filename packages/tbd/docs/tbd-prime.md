@@ -11,7 +11,7 @@
 [ ] 1. Stage and commit: git add + git commit
 [ ] 2. Push to remote: git push
 [ ] 3. Start CI watch (BLOCKS until done): gh pr checks <PR> --watch 2>&1
-[ ] 4. While CI runs: tbd close <id1> <id2> ... --reason "..." for issues worked on (ONE bulk call, not a per-ID loop)
+[ ] 4. While CI runs: tbd close <id1> <id2> ... --reason "..." — one bulk call per group sharing a reason (never a per-ID loop)
 [ ] 5. While CI runs: tbd sync
 [ ] 6. Return to step 3 and CONFIRM CI passed
 [ ] 7. If CI failed: fix, re-push, restart from step 3
@@ -64,7 +64,8 @@ Every session must end with tbd in a clean state:
 - `tbd close <id1> <id2> <id3> --reason "..."` - Close several at once (preferred)
 - `tbd update <id1> <id2> <id3> --priority 1` - Bulk-update shared fields
 - **IMPORTANT**: `close`, `reopen`, and `update` take multiple IDs — never shell-loop
-  over single-ID calls (`for id in …; do tbd close $id; done`)
+  over single-ID calls (`for id in …; do tbd close $id; done`). A bulk call shares one
+  reason/field-set, so group beads by shared mutation and make one call per group
 - **Tip**: When creating multiple issues, use parallel subagents for efficiency
 
 ### Dependencies and Blocking

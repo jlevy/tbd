@@ -1,12 +1,21 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
+import { mkdtemp, rm, writeFile, mkdir } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+
 import {
   emitBulkSummary,
   resolveAllIds,
+  loadAllIssues,
+  orderedResults,
   summarizeBulk,
+  throwOnWriteFailures,
   toJsonResult,
   type BulkItemResult,
 } from '../src/cli/lib/bulk.js';
+import { serializeIssue } from '../src/file/parser.js';
+import { NotFoundError } from '../src/cli/lib/errors.js';
 import type { CommandContext } from '../src/cli/lib/context.js';
 import { OutputManager } from '../src/cli/lib/output.js';
 import { addIdMapping, type IdMapping } from '../src/file/id-mapping.js';
@@ -56,9 +65,16 @@ describe('resolveAllIds', () => {
 
   it('processes a repeated input once, keeping the first occurrence', () => {
     const mapping = makeMapping({ aaaa: ULID_A, bbbb: ULID_B });
-    const { resolved, missing } = resolveAllIds(['aaaa', 'aaaa', 'bbbb'], mapping);
+    const { resolved, missing, orderedInputs } = resolveAllIds(['aaaa', 'aaaa', 'bbbb'], mapping);
     expect(resolved.map((r) => r.input)).toEqual(['aaaa', 'bbbb']);
     expect(missing).toHaveLength(0);
+    expect(orderedInputs).toEqual(['aaaa', 'bbbb']);
+  });
+
+  it('interleaves resolved and missing inputs in argv order', () => {
+    const mapping = makeMapping({ aaaa: ULID_A, bbbb: ULID_B });
+    const { orderedInputs } = resolveAllIds(['zzzz', 'aaaa', 'yyyy', 'bbbb'], mapping);
+    expect(orderedInputs).toEqual(['zzzz', 'aaaa', 'yyyy', 'bbbb']);
   });
 
   it('dedupes the same issue given under alias and canonical forms', () => {
@@ -223,9 +239,10 @@ describe('emitBulkSummary', () => {
     expect(payload.sync).toEqual({ pending: true, hint: 'Run `tbd sync` to publish.' });
   });
 
-  it('renders the failed clause in the text summary line', () => {
+  it('renders the failed clause as a warning, not a success line', () => {
     const out = new OutputManager(makeCtx());
     const log = vi.spyOn(console, 'log').mockImplementation(() => undefined);
+    const err = vi.spyOn(console, 'error').mockImplementation(() => undefined);
     emitBulkSummary(
       out,
       [
@@ -234,11 +251,13 @@ describe('emitBulkSummary', () => {
       ],
       { verb: 'Closed', skippedNote: 'already closed' },
     );
-    const lines = log.mock.calls.map((c) => String(c[0]));
-    expect(lines.some((l) => l.includes('Closed 1, failed 1: a b'))).toBe(true);
+    const errLines = err.mock.calls.map((c) => String(c[0]));
+    expect(errLines.some((l) => l.includes('Closed 1, failed 1: a b'))).toBe(true);
+    const logLines = log.mock.calls.map((c) => String(c[0]));
+    expect(logLines.some((l) => l.includes('failed 1'))).toBe(false);
   });
 
-  it('omits sync when nothing changed', () => {
+  it('keeps the sync field with pending:false when nothing changed', () => {
     const out = new OutputManager(makeCtx({ json: true }));
     const log = vi.spyOn(console, 'log').mockImplementation(() => undefined);
     emitBulkSummary(
@@ -248,6 +267,118 @@ describe('emitBulkSummary', () => {
     );
     const payload = JSON.parse(String(log.mock.calls[0]![0]));
     expect(payload.summary.changed).toBe(0);
-    expect(payload.sync).toBeUndefined();
+    expect(payload.sync).toEqual({ pending: false });
+  });
+});
+
+describe('orderedResults', () => {
+  it('assembles outcomes in first-occurrence argv order', () => {
+    const outcomes = new Map<string, BulkItemResult>([
+      ['b', { id: 'B', action: 'closed', ok: true }],
+      ['zzzz', { id: 'zzzz', action: 'missing', ok: false, skippedReason: 'not found' }],
+      ['a', { id: 'A', action: 'failed', ok: false, skippedReason: 'disk full' }],
+    ]);
+    const results = orderedResults(['zzzz', 'a', 'b'], outcomes);
+    expect(results.map((r) => r.id)).toEqual(['zzzz', 'A', 'B']);
+  });
+});
+
+describe('throwOnWriteFailures', () => {
+  it('does nothing when no writes failed', () => {
+    expect(() => {
+      throwOnWriteFailures([{ id: 'a', action: 'closed', ok: true }], 'close');
+    }).not.toThrow();
+  });
+
+  it('names every failed ID with its error and counts only attempted writes', () => {
+    const results: BulkItemResult[] = [
+      { id: 'a', action: 'closed', ok: true },
+      { id: 'b', action: 'skipped', ok: true, skippedReason: 'already closed' },
+      { id: 'c', action: 'failed', ok: false, skippedReason: 'EACCES: permission denied' },
+    ];
+    expect(() => {
+      throwOnWriteFailures(results, 'close');
+    }).toThrow('1 of 2 attempted close writes failed: c (EACCES: permission denied)');
+  });
+});
+
+describe('loadAllIssues', () => {
+  const BASE_ISSUE = {
+    type: 'is' as const,
+    id: `is-${ULID_A}`,
+    version: 1,
+    kind: 'task' as const,
+    title: 'Load test',
+    status: 'open' as const,
+    priority: 2,
+    labels: [],
+    dependencies: [],
+    created_at: '2025-01-01T00:00:00Z',
+    updated_at: '2025-01-01T00:00:00Z',
+  };
+
+  async function makeDataDir(): Promise<string> {
+    const dir = await mkdtemp(join(tmpdir(), 'bulk-load-'));
+    await mkdir(join(dir, 'issues'), { recursive: true });
+    await writeFile(join(dir, 'issues', `is-${ULID_A}.md`), serializeIssue(BASE_ISSUE), 'utf-8');
+    return dir;
+  }
+
+  it('treats an absent file as missing under ignoreMissing', async () => {
+    const dir = await makeDataDir();
+    try {
+      const outcomes = new Map<string, BulkItemResult>();
+      const loaded = await loadAllIssues(
+        dir,
+        [
+          { input: 'aaaa', internalId: `is-${ULID_A}` },
+          { input: 'gone', internalId: `is-${ULID_B}` },
+        ],
+        true,
+        outcomes,
+      );
+      expect(loaded).toHaveLength(1);
+      expect(outcomes.get('gone')).toEqual({
+        id: 'gone',
+        action: 'missing',
+        ok: false,
+        skippedReason: 'not found',
+      });
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  it('throws NotFoundError for an absent file without ignoreMissing', async () => {
+    const dir = await makeDataDir();
+    try {
+      await expect(
+        loadAllIssues(dir, [{ input: 'gone', internalId: `is-${ULID_B}` }], false, new Map()),
+      ).rejects.toThrow(NotFoundError);
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  it('aborts on a corrupt issue file even with ignoreMissing (never a skip)', async () => {
+    const dir = await makeDataDir();
+    try {
+      await writeFile(join(dir, 'issues', `is-${ULID_B}.md`), 'not: [valid', 'utf-8');
+      const outcomes = new Map<string, BulkItemResult>();
+      await expect(
+        loadAllIssues(
+          dir,
+          [
+            { input: 'aaaa', internalId: `is-${ULID_A}` },
+            { input: 'bad', internalId: `is-${ULID_B}` },
+          ],
+          true,
+          outcomes,
+        ),
+      ).rejects.toThrow();
+      expect(outcomes.size).toBe(0);
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
   });
 });

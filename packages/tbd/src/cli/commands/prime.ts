@@ -101,7 +101,7 @@ const BRIEF_SKILL_CONTENT = `## Core Workflow
 1. git add + git commit
 2. git push
 3. gh pr checks <PR> --watch  # WAIT for completion
-4. tbd close <id1> <id2> ...  # ONE bulk call for all beads, not a loop
+4. tbd close <id1> <id2> ...  # bulk call per group sharing a reason, not a loop
 5. tbd sync
 
 ## Quick Reference

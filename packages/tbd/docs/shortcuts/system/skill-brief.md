@@ -38,6 +38,7 @@ tbd sync               # Sync with remote
 
 1. Commit and push: `git add . && git commit && git push`
 2. Watch CI: `gh pr checks <PR> --watch 2>&1`
-3. Update beads: `tbd close <id1> <id2> … --reason="..."` (one bulk call, not a loop)
+3. Update beads: `tbd close <id1> <id2> … --reason="..."` (bulk per shared reason, not a
+   loop)
 4. Sync: `tbd sync`
 5. Confirm CI passed before declaring “done”

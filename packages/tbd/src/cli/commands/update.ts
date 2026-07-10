@@ -20,7 +20,14 @@ import { resolveToInternalId, type IdMapping } from '../../file/id-mapping.js';
 import { resolveAndValidatePath, getPathErrorMessage } from '../../lib/project-paths.js';
 import { validateIssueTitle } from '../lib/issue-input-validation.js';
 import { withDataSyncContext } from '../lib/data-context.js';
-import { resolveAllIds, loadAllIssues, emitBulkSummary, type BulkItemResult } from '../lib/bulk.js';
+import {
+  resolveAllIds,
+  loadAllIssues,
+  orderedResults,
+  emitBulkSummary,
+  throwOnWriteFailures,
+  type BulkItemResult,
+} from '../lib/bulk.js';
 import { resolveBodyInput, type BodyInputState } from '../lib/body-input.js';
 
 interface UpdateOptions {
@@ -61,6 +68,7 @@ class UpdateHandler extends BaseCommand {
 
     let displayId = id;
     let didUpdate = false;
+    let loneMissing = false;
 
     await this.execute(async () => {
       // Resolve free-text bodies (description/notes) before the data context:
@@ -71,19 +79,30 @@ class UpdateHandler extends BaseCommand {
         tbdRoot,
         { lock: true },
         async ({ dataSyncDir, mapping, config }) => {
-          // Resolve input ID to internal ID
+          // Resolve input ID to internal ID. A lone unknown ID under
+          // --ignore-missing becomes an explicit missing result (same contract
+          // as close/reopen) instead of a hard error.
           let internalId: string;
           try {
             internalId = resolveToInternalId(id, mapping);
           } catch {
+            if (options.ignoreMissing) {
+              loneMissing = true;
+              return;
+            }
             throw new NotFoundError('Issue', id);
           }
 
-          // Load existing issue
+          // Load existing issue. Only a genuinely absent file counts as
+          // missing; other read failures surface as errors.
           let issue;
           try {
             issue = await readIssue(dataSyncDir, internalId);
-          } catch {
+          } catch (error) {
+            if ((error as NodeJS.ErrnoException).code === 'ENOENT' && options.ignoreMissing) {
+              loneMissing = true;
+              return;
+            }
             throw new NotFoundError('Issue', id);
           }
 
@@ -194,6 +213,15 @@ class UpdateHandler extends BaseCommand {
       );
     }, 'Failed to update issue');
 
+    if (loneMissing) {
+      emitBulkSummary(
+        this.output,
+        [{ id, action: 'missing', ok: false, skippedReason: 'not found' }],
+        { verb: 'Updated', skippedNote: 'unchanged' },
+      );
+      return;
+    }
+
     if (!didUpdate) return;
 
     this.output.data({ id: displayId, updated: true }, () => {
@@ -219,7 +247,7 @@ class UpdateHandler extends BaseCommand {
     if (options.spec !== undefined) perIdOnly.push('--spec');
     if (options.childOrder !== undefined) perIdOnly.push('--child-order');
     if (perIdOnly.length > 0) {
-      throw new CLIError(
+      throw new ValidationError(
         `Cannot use ${perIdOnly.join(', ')} when updating multiple issues. ` +
           `These apply to a single issue; use \`tbd close\`/\`tbd reopen\` for status changes. ` +
           `Bulk update supports shared fields: --priority, --assignee, --type, ` +
@@ -228,7 +256,9 @@ class UpdateHandler extends BaseCommand {
     }
 
     const tbdRoot = await requireInit();
-    const results: BulkItemResult[] = [];
+    const outcomes = new Map<string, BulkItemResult>();
+    let results: BulkItemResult[] = [];
+    let wasDryRun = false;
 
     await this.execute(async () => {
       await withDataSyncContext(
@@ -242,32 +272,38 @@ class UpdateHandler extends BaseCommand {
             );
           }
 
-          const { resolved, missing } = resolveAllIds(ids, mapping);
+          const { resolved, missing, orderedInputs } = resolveAllIds(ids, mapping);
           if (missing.length > 0 && !options.ignoreMissing) {
             throw new NotFoundError('Issue', missing.join(', '));
           }
-
-          if (
-            this.checkDryRun(`Would update ${resolved.length} issues`, {
-              ids: resolved.map((r) => r.internalId),
-              ...updates,
-            })
-          ) {
-            return;
+          for (const m of missing) {
+            outcomes.set(m, { id: m, action: 'missing', ok: false, skippedReason: 'not found' });
           }
 
-          // Pass 1: read every issue before writing anything, so a stale mapping
-          // or unreadable file aborts the batch (unless --ignore-missing).
+          // Read every issue before writing anything, so stale mappings and
+          // unreadable files abort (or become skips) before any mutation.
           const loaded = await loadAllIssues(
             dataSyncDir,
             resolved,
             options.ignoreMissing ?? false,
-            results,
+            outcomes,
           );
 
-          // Pass 2: apply. A write failure mid-batch is captured as a `failed`
-          // result so the caller still learns what was already written.
-          for (const { issue } of loaded) {
+          // Dry-run stops here — after resolution and reads — so it previews
+          // exactly the writes a real run would perform.
+          if (
+            this.checkDryRun(`Would update ${loaded.length} issues`, {
+              ids: loaded.map((r) => r.internalId),
+              ...updates,
+            })
+          ) {
+            wasDryRun = true;
+            return;
+          }
+
+          // Apply. A write failure mid-batch is captured as a `failed` result
+          // so the caller still learns exactly what was written.
+          for (const { input, issue } of loaded) {
             if (updates.kind !== undefined) issue.kind = updates.kind;
             if (updates.priority !== undefined) issue.priority = updates.priority;
             if (updates.assignee !== undefined) issue.assignee = updates.assignee;
@@ -293,28 +329,28 @@ class UpdateHandler extends BaseCommand {
               await writeIssue(dataSyncDir, issue);
             } catch (error) {
               const message = error instanceof Error ? error.message : String(error);
-              results.push({ id: displayId, action: 'failed', ok: false, skippedReason: message });
+              outcomes.set(input, {
+                id: displayId,
+                action: 'failed',
+                ok: false,
+                skippedReason: message,
+              });
               continue;
             }
-            results.push({ id: displayId, action: 'updated', ok: true });
+            outcomes.set(input, { id: displayId, action: 'updated', ok: true });
           }
 
-          for (const m of missing) {
-            results.push({ id: m, action: 'missing', ok: false, skippedReason: 'not found' });
-          }
+          results = orderedResults(orderedInputs, outcomes);
         },
       );
     }, 'Failed to update issues');
 
-    if (results.length === 0) return; // dry-run or nothing to do
+    if (wasDryRun || results.length === 0) return;
     emitBulkSummary(this.output, results, { verb: 'Updated', skippedNote: 'unchanged' });
 
-    // Partial application is reported above; still exit non-zero so callers
-    // (and CI) cannot mistake a batch with write failures for success.
-    const failed = results.filter((r) => r.action === 'failed').length;
-    if (failed > 0) {
-      throw new CLIError(`${failed} of ${results.length} update writes failed`);
-    }
+    // Partial application is reported above; name every failed write on stderr
+    // (visible under --quiet too) and exit non-zero.
+    throwOnWriteFailures(results, 'update');
   }
 
   /**
@@ -325,6 +361,19 @@ class UpdateHandler extends BaseCommand {
    */
   private async resolveBodyOptions(options: UpdateOptions): Promise<UpdateOptions> {
     if (options.fromFile) return options;
+    // Prevalidate: reject two '-' sentinels before reading anything, so an
+    // interactive user is not left typing the first body only to have the
+    // second one fail afterward.
+    const stdinWanters = [
+      options.description === '-' ? '--description' : undefined,
+      options.notes === '-' ? '--notes' : undefined,
+      options.notesFile === '-' ? '--notes-file' : undefined,
+    ].filter((n): n is string => n !== undefined);
+    if (stdinWanters.length > 1) {
+      throw new CLIError(
+        `Cannot read both ${stdinWanters[0]} and ${stdinWanters[1]} from stdin ('-').`,
+      );
+    }
     const bodyState: BodyInputState = {};
     const resolved: UpdateOptions = { ...options };
     if (options.description !== undefined) {
@@ -595,9 +644,9 @@ export const updateCommand = new Command('update')
   .option('--type <type>', 'Set type')
   .option('--priority <0-4>', 'Set priority')
   .option('--assignee <name>', 'Set assignee')
-  .option('--description <text>', 'Set description')
-  .option('--notes <text>', 'Set working notes')
-  .option('--notes-file <path>', 'Set notes from file')
+  .option('--description <text>', 'Set description ("-" reads stdin)')
+  .option('--notes <text>', 'Set working notes ("-" reads stdin)')
+  .option('--notes-file <path>', 'Set notes from file ("-" reads stdin)')
   .option('--due <date>', 'Set due date')
   .option('--defer <date>', 'Set deferred until date')
   .option('--add-label <label>', 'Add label', (val, prev: string[] = []) => [...prev, val])

@@ -296,20 +296,20 @@ delivered
 ? 0
 ```
 
-# Test: A per-ID-only flag (--title) is rejected for multiple IDs
+# Test: A per-ID-only flag (--title) is rejected for multiple IDs (usage error)
 
 ```console
 $ tbd update $(cat ua.txt) $(cat ub.txt) --title "Nope" 2>&1
 [..]
-? 1
+? 2
 ```
 
-# Test: --status is rejected for bulk (no bulk-close bypass)
+# Test: --status is rejected for bulk (no bulk-close bypass; usage error)
 
 ```console
 $ tbd update $(cat ua.txt) $(cat ub.txt) --status closed 2>&1
 [..]
-? 1
+? 2
 ```
 
 # Test: Both are still open (the rejected bulk close changed nothing)
@@ -357,6 +357,119 @@ $ tbd update $(cat ua.txt) $(cat ub.txt) 2>&1
 
 ```console
 $ tbd update $(cat ua.txt) $(cat ub.txt) --priority 2 --quiet
+? 0
+```
+
+* * *
+
+## Ordering, dry-run, and fail-closed reads
+
+# Test: Results follow argv order (missing first when given first)
+
+```console
+$ tbd create "Order A" --json | jq -r '.id' | tee oa.txt
+test-[SHORTID]
+? 0
+```
+
+```console
+$ tbd close test-zzzz $(cat oa.txt) --ignore-missing --json | jq -r '[.results[].action] | join(",")'
+missing,closed
+? 0
+```
+
+# Test: The full --json object is stable (raw golden, no-op batch has sync.pending false)
+
+```console
+$ tbd close $(cat oa.txt) test-zzzz --ignore-missing --json | jq -c .
+{"results":[{"id":"test-[SHORTID]","action":"skipped","ok":true,"skippedReason":"already closed"},{"id":"test-zzzz","action":"missing","ok":false,"skippedReason":"not found"}],"summary":{"changed":0,"skipped":1,"missing":1,"failed":0,"total":2},"sync":{"pending":false}}
+? 0
+```
+
+# Test: Dry-run of a lone open issue previews without writing (legacy shape)
+
+```console
+$ tbd create "Dry A" --json | jq -r '.id' | tee da.txt
+test-[SHORTID]
+? 0
+```
+
+```console
+$ tbd close $(cat da.txt) --dry-run
+[DRY-RUN] Would close issue
+? 0
+```
+
+```console
+$ tbd show $(cat da.txt) --json | jq -r '.status'
+open
+? 0
+```
+
+# Test: Dry-run reopen of an open issue fails exactly like a real run
+
+```console
+$ tbd reopen $(cat da.txt) --dry-run 2>&1
+[..]not closed[..]
+? 1
+```
+
+# Test: Dry-run close of an already-closed issue keeps the legacy idempotent output
+
+```console
+$ tbd close $(cat da.txt) --quiet
+? 0
+```
+
+```console
+$ tbd close $(cat da.txt) --dry-run --json | jq -c .
+{"id":"test-[SHORTID]","closed":true,"alreadyClosed":true}
+? 0
+```
+
+# Test: Bulk dry-run counts only issues that would actually change
+
+```console
+$ tbd create "Dry B" --json | jq -r '.id' | tee db.txt
+test-[SHORTID]
+? 0
+```
+
+```console
+$ tbd close $(cat da.txt) $(cat db.txt) --dry-run
+[DRY-RUN] Would close 1 issues
+? 0
+```
+
+# Test: A corrupt issue file aborts the batch even with --ignore-missing (zero writes)
+
+```console
+$ tbd create "Corrupt A" --json | jq -r '.id' | tee ca2.txt
+test-[SHORTID]
+? 0
+```
+
+```console
+$ tbd create "Corrupt B" --json | jq -r '.id' | tee cb2.txt
+test-[SHORTID]
+? 0
+```
+
+```console
+$ printf '%s' 'not: [valid yaml' > $(grep -rl "title: Corrupt B" .git/tbd/data-sync-worktree/.tbd/data-sync/issues/)
+? 0
+```
+
+```console
+$ tbd close $(cat ca2.txt) $(cat cb2.txt) --ignore-missing 2>&1
+[..]front matter[..]
+[..]front matter[..]
+? 1
+```
+
+```console
+$ tbd show $(cat ca2.txt) --json | jq -r '.status'
+open
 ? 0
 ```
 
