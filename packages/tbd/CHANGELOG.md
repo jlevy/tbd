@@ -1,13 +1,13 @@
 # get-tbd
 
-## Unreleased
+## 0.4.0
 
 ### Features
 
-- **Agent CLI ergonomics (Phase 1)**: `close`, `reopen`, and `update` now accept
-  multiple IDs and process them under one lock, printing a single summary line (or a
-  structured `--json` `{ results, summary, sync }` object, with `sync` always present)
-  plus a visible unsynced-changes hint.
+- **Bulk close/reopen/update (agent CLI ergonomics Phase 1)**: `close`, `reopen`, and
+  `update` now accept multiple IDs and process them under one repository lock, printing
+  a single summary line (or a structured `--json` `{ results, summary, sync }` object,
+  with `sync` always present) plus a visible unsynced-changes hint.
   Validation is fail-closed: unknown IDs abort the batch before any write, and
   unreadable or corrupt issue files always abort, even with `--ignore-missing` (which
   downgrades only genuinely absent issues to reported skips).
@@ -17,22 +17,64 @@
   `--dry-run` previews after resolution, reads, and state checks, so it reflects exactly
   what a real run would write.
   Single-ID command behavior is unchanged.
-  Free-text bodies (`--reason`/`--reason-file`, `-d`/`-f`, `--notes`/`--notes-file`)
-  accept `-` to read stdin, so shell-sensitive text no longer needs careful quoting.
-  `--quiet` is now fully silent on success (it also suppresses incidental worktree-heal
-  and config-migration notices).
+- **Body input from files and stdin**: free-text bodies (`--reason`/`--reason-file`,
+  `-d`, `--notes`/`--notes-file`) accept `-` to read stdin, so shell-sensitive text no
+  longer needs careful quoting.
+  An interactive terminal gets an explicit “press Ctrl+D to finish” hint before any
+  blocking read, and asking two flags to read stdin at once is rejected up front.
+- **Fully silent `--quiet`**: on success, `--quiet` now also suppresses incidental
+  worktree-heal and config-migration notices, so scripted callers get clean output.
 
 ### Fixes
 
-- **Parser**: an issue with working notes but no description now round-trips correctly;
-  previously the `## Notes` section was folded into the description on read, silently
-  losing the notes and duplicating the section on the next write.
+- **Notes-only issues round-trip**: an issue with working notes but no description now
+  parses correctly; previously the `## Notes` section was folded into the description on
+  read, silently losing the notes and duplicating the section on the next write.
+- **Windows lock acquisition**: transient `EPERM` from `mkdir` during lock acquisition
+  is retried within a bounded window, so concurrent tbd invocations on Windows no longer
+  fail spuriously while real permission errors still surface immediately.
+- **Session-closing reminder hook**: `tbd setup` now generates a hook that survives real
+  checkouts — invoked via `bash` (no reliance on the executable bit), resolves the repo
+  root with `git rev-parse` (fires from subdirectories), and falls back to a pinned
+  `npx` tbd when the CLI is not on the hook’s `PATH`. Re-running `tbd setup --auto`
+  replaces an existing hook entry instead of skipping it.
+
+### Guidelines and content
+
+- **PR review lifecycle shortcuts**: new `pr-review-workflows` (how reviews are created,
+  published, and addressed across channels) and `address-pr-review` (address a received
+  review, tracking every finding to a fixed/rebutted/deferred disposition);
+  `review-github-pr` is now focused on reviewing and publishing to a chosen channel.
+- **`update-specs-status` rewritten** as a full tracking reconcile: beads, active plan
+  specs, and the top-level work index are checked against reality and each other, with
+  explicit consistency validation.
+- **Bulk-operation guidance for agents**: the tbd skill, `tbd prime`, the closing
+  checklist, and the batch shortcuts now teach the bulk verbs — group beads that share a
+  mutation and reason into one call — and explicitly warn against per-ID shell loops.
+- **Assorted shortcut fixes**: doc-fork close-out corrections, session-closing
+  discipline and branch-state checks, GitHub CLI setup in `merge-upstream`, and
+  de-hardcoded npm commands.
 
 ### BREAKING
 
 - The global `--no-sync` flag has been **removed** and is now rejected at option
   parsing. It was a no-op for issue writes (no mutator ever read it), but scripts passing
   it must drop the flag: writes always stage locally and `tbd sync` publishes.
+
+### Security
+
+- The lockfile is byte-identical to v0.3.0: no dependencies were added, removed, or
+  bumped; `pnpm check:package-age` passes with 0 violations.
+  One new moderate advisory was published against the unchanged tree:
+  quadratic-complexity DoS in `js-yaml` <3.15.0 merge-key handling
+  ([GHSA-h67p-54hq-rp68](https://github.com/advisories/GHSA-h67p-54hq-rp68), reached via
+  `gray-matter`). No patched 3.x release exists on npm yet; exposure requires
+  adversarial YAML front matter in repo-local issue files and the impact is slow
+  parsing, not code execution.
+  Tracked as tbd-zqn2 for resolution when a safe upgrade path exists.
+
+**Full commit history**:
+[https://github.com/jlevy/tbd/compare/v0.3.0 … v0.4.0](https://github.com/jlevy/tbd/compare/v0.3.0...v0.4.0)
 
 ## 0.3.0
 
