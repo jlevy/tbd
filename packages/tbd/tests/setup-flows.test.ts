@@ -628,6 +628,97 @@ describe('setup flows', { timeout: setupFlowTestTimeout }, () => {
     });
   });
 
+  describe('closing-reminder hook', () => {
+    it('invokes the hook via bash and hardens the generated script', async () => {
+      initGitRepo();
+      const result = runTbd(['setup', '--auto', '--prefix=test']);
+      expect(result.status).toBe(0);
+
+      // The PostToolUse entry must invoke via bash so the hook still runs
+      // when a checkout drops the script's executable bit.
+      const settings = JSON.parse(
+        await readFile(join(tempDir, '.claude', 'settings.json'), 'utf-8'),
+      );
+      const postToolUse = settings.hooks?.PostToolUse ?? [];
+      const commands = postToolUse.flatMap((h: { hooks?: { command?: string }[] }) =>
+        (h.hooks ?? []).map((hook) => hook.command),
+      );
+      expect(commands).toContain(
+        'bash "$CLAUDE_PROJECT_DIR"/.claude/hooks/tbd-closing-reminder.sh',
+      );
+
+      // Both generated scripts resolve the repo root before checking .tbd
+      // (the hook may start in a subdirectory) and fall back to a pinned npx
+      // runner when tbd is not on the hook's PATH.
+      for (const rel of [
+        '.claude/hooks/tbd-closing-reminder.sh',
+        '.codex/tbd-closing-reminder.sh',
+      ]) {
+        const script = await readFile(join(tempDir, rel), 'utf-8');
+        expect(script).toContain('git rev-parse --show-toplevel');
+        expect(script).toMatch(/npx --yes get-tbd@\d+\.\d+\.\d+ closing/);
+      }
+    });
+
+    it('upgrades a stale un-prefixed PostToolUse entry on repeated setup', async () => {
+      initGitRepo();
+
+      // Simulate a repo configured by an older tbd: direct-exec command plus a
+      // user-authored PostToolUse hook that must survive the upgrade.
+      const settingsDir = join(tempDir, '.claude');
+      await mkdir(settingsDir, { recursive: true });
+      await writeFile(
+        join(settingsDir, 'settings.json'),
+        JSON.stringify(
+          {
+            hooks: {
+              PostToolUse: [
+                {
+                  matcher: 'Bash',
+                  hooks: [
+                    {
+                      type: 'command',
+                      command: '"$CLAUDE_PROJECT_DIR"/.claude/hooks/tbd-closing-reminder.sh',
+                    },
+                  ],
+                },
+                {
+                  matcher: 'Bash',
+                  hooks: [{ type: 'command', command: 'echo custom-post-hook' }],
+                },
+              ],
+            },
+          },
+          null,
+          2,
+        ),
+      );
+
+      const result = runTbd(['setup', '--auto', '--prefix=test']);
+      expect(result.status).toBe(0);
+
+      const settings = JSON.parse(await readFile(join(settingsDir, 'settings.json'), 'utf-8'));
+      const postToolUse = settings.hooks?.PostToolUse ?? [];
+      const reminderCommands = postToolUse
+        .flatMap((h: { hooks?: { command?: string }[] }) =>
+          (h.hooks ?? []).map((hook) => hook.command),
+        )
+        .filter((c: string | undefined) => c?.includes('tbd-closing-reminder'));
+
+      // Exactly one entry, upgraded to the bash-prefixed command.
+      expect(reminderCommands).toEqual([
+        'bash "$CLAUDE_PROJECT_DIR"/.claude/hooks/tbd-closing-reminder.sh',
+      ]);
+
+      // The user's own PostToolUse hook is preserved.
+      expect(
+        postToolUse.some((h: { hooks?: { command?: string }[] }) =>
+          h.hooks?.some((hook) => hook.command === 'echo custom-post-hook'),
+        ),
+      ).toBe(true);
+    });
+  });
+
   describe('gh CLI setup', () => {
     it('installs ensure-gh-cli.sh script and SessionStart hook by default', async () => {
       initGitRepo();

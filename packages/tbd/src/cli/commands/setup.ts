@@ -312,7 +312,9 @@ const CLAUDE_PROJECT_HOOKS = {
         hooks: [
           {
             type: 'command',
-            command: '"$CLAUDE_PROJECT_DIR"/.claude/hooks/tbd-closing-reminder.sh',
+            // Invoke via bash (like every other hook) so the hook still runs
+            // when a checkout drops the script's executable bit.
+            command: 'bash "$CLAUDE_PROJECT_DIR"/.claude/hooks/tbd-closing-reminder.sh',
           },
         ],
       },
@@ -325,15 +327,24 @@ const CLAUDE_PROJECT_HOOKS = {
  */
 const TBD_CLOSE_PROTOCOL_SCRIPT = `#!/bin/bash
 # Remind about close protocol after git push
-# Installed by: tbd setup claude
+# Installed by: tbd setup --auto
 
 input=$(cat)
 command=$(echo "$input" | jq -r '.tool_input.command // empty')
 
 # Check if this is a git push command and .tbd exists
 if [[ "$command" == git\\ push* ]] || [[ "$command" == *"&& git push"* ]] || [[ "$command" == *"; git push"* ]]; then
+  # The hook may start in a subdirectory; check .tbd at the repo root.
+  repo_root=$(git rev-parse --show-toplevel 2>/dev/null) && cd "$repo_root"
   if [ -d ".tbd" ]; then
-    tbd closing
+    # Same local-first, version-pinned fallback as tbd-session.sh, so the
+    # reminder still fires when tbd is not on the hook's PATH.
+    export PATH="$HOME/.local/bin:$HOME/bin:/usr/local/bin:$PATH"
+    if command -v tbd &> /dev/null; then
+      tbd closing
+    elif command -v npx &> /dev/null; then
+      npx --yes get-tbd@${PINNED_NPM_VERSION} closing
+    fi
   fi
 fi
 
@@ -803,10 +814,19 @@ class SetupClaudeHandler extends BaseCommand {
         }
       }
 
-      // Merge PostToolUse hooks
+      // Merge PostToolUse hooks. Replace any existing tbd-closing-reminder
+      // entry (rather than skipping when present) so command fixes in the
+      // template propagate to already-configured repos on setup --auto.
       const projectHooks = CLAUDE_PROJECT_HOOKS.hooks as Record<string, unknown[]>;
       for (const [hookType, hookEntries] of Object.entries(projectHooks)) {
-        mergedHooks[hookType] ??= hookEntries;
+        if (mergedHooks[hookType]) {
+          const filtered = (mergedHooks[hookType] as { hooks?: { command?: string }[] }[]).filter(
+            (entry) => !entry.hooks?.some((h) => h.command?.includes('tbd-closing-reminder')),
+          );
+          mergedHooks[hookType] = [...filtered, ...hookEntries];
+        } else {
+          mergedHooks[hookType] = hookEntries;
+        }
       }
 
       settings.hooks = mergedHooks;
