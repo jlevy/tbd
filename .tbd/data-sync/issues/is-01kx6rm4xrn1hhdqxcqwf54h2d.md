@@ -3,15 +3,17 @@ type: is
 id: is-01kx6rm4xrn1hhdqxcqwf54h2d
 title: "Harden generated closing-reminder hooks: bash invocation, repo-root cwd, pinned fallback"
 kind: bug
-status: open
+status: closed
 priority: 1
-version: 1
+version: 3
 labels:
   - hooks
   - setup
 dependencies: []
 created_at: 2026-07-10T19:38:42.488Z
-updated_at: 2026-07-10T19:38:42.488Z
+updated_at: 2026-07-11T00:20:39.981Z
+closed_at: 2026-07-11T00:20:39.981Z
+close_reason: "Fixed on claude/skills-research-pr-review-3gpp1t: bash invocation, repo-root cwd, pinned fallback, settings migration"
 ---
 Bugbot review of jlevy/skills-research#1 (a repo freshly set up by `tbd setup --auto`, tbd v0.3.0) found two defects in the generated closing-reminder hooks, fixed downstream in commit 8de07e0a3d9a9419f8625937f48877f11576db9e. Both originate verbatim from tbd's templates in `packages/tbd/src/cli/commands/setup.ts`, so every consumer repo gets them. A third hardening was applied by hand earlier in the same PR and also belongs in the template.
 
