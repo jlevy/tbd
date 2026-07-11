@@ -39,7 +39,8 @@ from the top-level work index, the plan specs, and tbd beads.
    - Check code, docs, commits, PRs, CI, deploy state, or review docs as needed before
      changing status.
    - Close completed beads with a concrete reason that names what shipped and how it was
-     validated.
+     validated — group beads that share a reason into one bulk call
+     (`tbd close <id1> <id2> … --reason "..."`, one call per group), not a per-ID loop.
    - Update partial beads with current notes, blockers, dependencies, and governing spec
      paths.
    - Create beads for untracked remaining work under the correct parent epic or spec; do

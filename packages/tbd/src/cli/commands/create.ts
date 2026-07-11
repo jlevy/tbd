@@ -5,10 +5,9 @@
  */
 
 import { Command } from 'commander';
-import { readFile } from 'node:fs/promises';
 
 import { BaseCommand } from '../lib/base-command.js';
-import { requireInit, ValidationError, CLIError } from '../lib/errors.js';
+import { requireInit, ValidationError } from '../lib/errors.js';
 import type { Issue, IssueKindType, PriorityType } from '../../lib/types.js';
 import { generateInternalId, extractUlidFromInternalId } from '../../lib/ids.js';
 import { readIssue, writeIssue } from '../../file/storage.js';
@@ -24,6 +23,7 @@ import { now } from '../../utils/time-utils.js';
 import { resolveAndValidatePath, getPathErrorMessage } from '../../lib/project-paths.js';
 import { validateIssueTitle } from '../lib/issue-input-validation.js';
 import { withDataSyncContext, notifyWorktreeRepaired } from '../lib/data-context.js';
+import { resolveBodyInput } from '../lib/body-input.js';
 
 interface CreateOptions {
   fromFile?: string;
@@ -59,16 +59,16 @@ class CreateHandler extends BaseCommand {
     const kind = this.parseKind(options.type ?? 'task');
     const priority = this.validatePriority(options.priority ?? '2');
 
-    // Read description from file if specified
-    let description = options.description;
-    if (options.file) {
-      try {
-        description = await readFile(options.file, 'utf-8');
-      } catch (error) {
-        const message = error instanceof Error ? error.message : String(error);
-        throw new CLIError(`Failed to read description from file '${options.file}': ${message}`);
-      }
-    }
+    // Resolve description from inline text, a file, or stdin ('-').
+    const description = await resolveBodyInput(
+      {
+        name: '--description',
+        value: options.description,
+        fileName: '--file',
+        file: options.file,
+      },
+      {},
+    );
 
     // Validate and normalize spec path if provided
     let specPath: string | undefined;
@@ -207,8 +207,8 @@ export const createCommand = new Command('create')
   .option('--from-file <path>', 'Create from YAML+Markdown file')
   .option('-t, --type <type>', 'Issue type: bug, feature, task, epic, chore', 'task')
   .option('-p, --priority <0-4>', 'Priority (0=critical, 4=lowest)', '2')
-  .option('-d, --description <text>', 'Description')
-  .option('-f, --file <path>', 'Read description from file')
+  .option('-d, --description <text>', 'Description ("-" reads stdin)')
+  .option('-f, --file <path>', 'Read description from file ("-" reads stdin)')
   .option('--assignee <name>', 'Assignee')
   .option('--due <date>', 'Due date (ISO8601)')
   .option('--defer <date>', 'Defer until date (ISO8601)')

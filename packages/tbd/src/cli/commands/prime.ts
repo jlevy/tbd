@@ -101,7 +101,7 @@ const BRIEF_SKILL_CONTENT = `## Core Workflow
 1. git add + git commit
 2. git push
 3. gh pr checks <PR> --watch  # WAIT for completion
-4. tbd close/update <id>
+4. tbd close <id1> <id2> ...  # bulk call per group sharing a reason, not a loop
 5. tbd sync
 
 ## Quick Reference
@@ -109,7 +109,7 @@ const BRIEF_SKILL_CONTENT = `## Core Workflow
 tbd ready              Show issues ready to work
 tbd show <id>          View issue details
 tbd create "title"     Create new issue
-tbd close <id>         Mark issue complete
+tbd close <ids...>     Mark complete (bulk: pass all IDs in one call, never loop)
 tbd sync               Sync with remote
 
 For full orientation: tbd prime

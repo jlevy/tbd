@@ -1621,7 +1621,7 @@ display:
 
 # Runtime settings
 settings:
-  auto_sync: false # Auto-sync after write operations
+  auto_sync: false # Reserved; not applied to issue writes (they stage locally; run `tbd sync`)
   index_enabled: true # Enable search indexing
 ```
 
@@ -1640,7 +1640,7 @@ const ConfigSchema = z.object({
     }),
   settings: z
     .object({
-      auto_sync: z.boolean().default(false),
+      auto_sync: z.boolean().default(false), // reserved; issue writes stage locally
       index_enabled: z.boolean().default(true),
     })
     .default({}),
@@ -2598,14 +2598,13 @@ Options:
   --from-file <path>        Create from YAML+Markdown file (all fields)
   --type <type>             Issue type: bug, feature, task, epic, chore (default: task)
   --priority <0-4>          Priority (0=critical, 4=lowest, default: 2)
-  --description <text>      Description
-  --file <path>             Read description from file
+  --description <text>      Description ("-" reads stdin)
+  --file <path>             Read description from file ("-" reads stdin)
   --assignee <name>         Assignee
   --due <date>              Due date (ISO8601)
   --defer <date>            Defer until date (ISO8601)
   --parent=<id>             Parent issue ID
   --label <label>           Add label (repeatable)
-  --no-sync                 Don't sync after create
 ```
 
 > **Note on `--type` flag:** The CLI flag `--type` sets the issue’s `kind` field, NOT
@@ -2882,26 +2881,30 @@ tbd update proj-a1b2 --from-file issue.md
 #### Update
 
 ```bash
-tbd update <id> [options]
+tbd update <ids...> [options]
 
 Options:
-  --from-file <path>        Update all fields from YAML+Markdown file
-  --title <text>            Set title
-  --status <status>         Set status
+  --from-file <path>        Update all fields from YAML+Markdown file (single ID)
+  --title <text>            Set title (single ID)
+  --status <status>         Set status (single ID)
   --type <type>             Set type
   --priority <0-4>          Set priority
   --assignee <name>         Set assignee
-  --description <text>      Set description
-  --notes <text>            Set working notes
-  --notes-file <path>       Set notes from file
+  --description <text>      Set description ("-" reads stdin; single ID)
+  --notes <text>            Set working notes ("-" reads stdin; single ID)
+  --notes-file <path>       Set notes from file ("-" reads stdin; single ID)
   --due <date>              Set due date
   --defer <date>            Set deferred until date
   --add-label <label>       Add label
   --remove-label <label>    Remove label
-  --parent=<id>             Set parent
-  --child-order <ids>    Set child ordering hints (comma-separated)
-  --no-sync                 Don't sync after update
+  --parent=<id>             Set parent (single ID)
+  --child-order <ids>       Set child ordering hints (comma-separated; single ID)
+  --ignore-missing          Skip unknown IDs instead of failing (bulk)
 ```
+
+With two or more IDs, only shared fields apply (`--type`, `--priority`, `--assignee`,
+`--add-label`, `--remove-label`, `--due`, `--defer`); per-ID and lifecycle flags are
+rejected. Use `tbd close`/`tbd reopen` for lifecycle changes.
 
 **Examples:**
 
@@ -2936,11 +2939,12 @@ tbd update proj-a1b2 --from-file issue.md
 #### Close
 
 ```bash
-tbd close <id> [options]
+tbd close <ids...> [options]
 
 Options:
-  --reason <text>           Close reason
-  --no-sync                 Don't sync after close
+  --reason <text>           Close reason ("-" reads stdin)
+  --reason-file <path>      Read close reason from a file ("-" reads stdin)
+  --ignore-missing          Skip unknown IDs instead of failing (bulk)
 ```
 
 **Examples:**
@@ -2948,16 +2952,18 @@ Options:
 ```bash
 tbd close proj-a1b2
 tbd close proj-a1b2 --reason "Fixed in commit abc123"
+tbd close proj-a1b2 proj-c3d4 proj-e5f6 --reason "Sprint complete"  # bulk, one lock
 ```
 
 #### Reopen
 
 ```bash
-tbd reopen <id> [options]
+tbd reopen <ids...> [options]
 
 Options:
-  --reason <text>           Reopen reason
-  --no-sync                 Don't sync after reopen
+  --reason <text>           Reopen reason ("-" reads stdin)
+  --reason-file <path>      Read reopen reason from a file ("-" reads stdin)
+  --ignore-missing          Skip unknown IDs instead of failing (bulk)
 ```
 
 #### Ready
@@ -3571,7 +3577,6 @@ Available on all commands:
 --version                   Show version
 --db <path>                 Custom .tbd directory path (Beads compat alias)
 --dir <path>                Custom .tbd directory path (preferred)
---no-sync                   Disable auto-sync (per command)
 --json                      JSON output
 --color <when>              Colorize output: auto, always, never (default: auto)
 --actor <name>              Override actor name (not yet implemented)
@@ -3727,7 +3732,6 @@ tbd attic restore <id> <timestamp> [options]
 
 Options:
   --dry-run                 Show what would be restored
-  --no-sync                 Don't sync after restore
 ```
 
 **Example:**
@@ -3830,7 +3834,6 @@ Options:
   --from-beads [path]     Auto-detect from .beads/ directory (default: current dir)
   --branch <name>         Specific branch to import from (default: both main + sync)
   --dry-run               Show what would be imported without making changes
-  --no-sync               Don't sync after import
   --verbose               Show detailed import progress
 ```
 
@@ -4145,7 +4148,7 @@ IMPORT_BEADS(jsonl_file):
 
   4. Report: N new, M updated, K unchanged, J skipped (tbd newer)
 
-  5. Sync (unless --no-sync)
+  5. Stage locally (publish later with `tbd sync`)
 
 extract_short_id(beads_id):
   # "tbd-100" → "100"
@@ -4511,7 +4514,7 @@ These flags/behaviors are maintained for Beads script compatibility:
 2. **No daemon**: Background sync must be manual or cron-based
 
 3. **No auto-flush**: Beads auto-syncs on write
-   - tbd syncs on `tbd sync` or with `settings.auto_sync: true` in config
+   - tbd publishes issues on `tbd sync` (per-command auto-sync is not currently enabled)
 
 4. **Tombstone issues**: Decide import behavior (skip/convert/attic)
 
@@ -4779,79 +4782,12 @@ Options:
 - **Silent exit** (code 0, no stderr) if not in a tbd project
 - **Custom override**: Users can place `.tbd/PRIME.md` to fully customize output
 
-**Output** (~1-2k tokens, full command reference):
-
-```markdown
-# tbd Workflow Context
-
-> **Context Recovery**: Run `tbd prime` after compaction, clear, or new session
-> Hooks auto-call this in Claude Code when .tbd/ detected
-
-# SESSION CLOSING PROTOCOL
-
-**CRITICAL**: Before saying "done" or "complete", you MUST run this checklist:
-
-[ ] 1. git status              (check what changed)
-[ ] 2. git add <files>         (stage code changes)
-[ ] 3. tbd sync                (commit tbd changes)
-[ ] 4. git commit -m "..."     (commit code)
-[ ] 5. tbd sync                (commit any new tbd changes)
-[ ] 6. git push                (push to remote)
-
-**NEVER skip this.** Work is not done until pushed.
-
-## Core Rules
-- Track strategic work in tbd (multi-session, dependencies, discovered work)
-- Use `tbd create` for issues, TodoWrite for simple single-session execution
-- When in doubt, prefer tbd—persistence you don't need beats lost context
-- Git workflow: run `tbd sync` at session end
-- Session management: check `tbd ready` for available work
-
-## Essential Commands
-
-### Finding Work
-- `tbd ready` - Show issues ready to work (no blockers)
-- `tbd list --status open` - All open issues
-- `tbd list --status=in_progress` - Your active work
-- `tbd show <id>` - Detailed issue view with dependencies
-
-### Creating and Updating
-- `tbd create "title" --type=task|bug|feature --priority=P2` - New issue
-  - Priority: P0-P4 (P0=critical, P2=medium, P4=backlog)
-- `tbd update <id> --status=in_progress` - Claim work
-- `tbd update <id> --assignee username` - Assign to someone
-- `tbd close <id>` - Mark complete
-- `tbd close <id> --reason "explanation"` - Close with reason
-
-### Dependencies and Blocking
-- `tbd dep add <issue> <depends-on>` - Add dependency
-- `tbd blocked` - Show all blocked issues
-- `tbd show <id>` - See what's blocking/blocked by this issue
-
-### Sync and Collaboration
-- `tbd sync` - Sync with git remote (run at session end)
-- `tbd sync --status` - Check sync status without syncing
-
-### Project Health
-- `tbd stats` - Project statistics (open/closed/blocked counts)
-- `tbd doctor` - Check for issues (sync problems, health checks)
-
-## Common Workflows
-
-**Starting work:**
-tbd ready           # Find available work
-tbd show <id>       # Review issue details
-tbd update <id> --status=in_progress  # Claim it
-
-**Completing work:**
-tbd close <id>      # Mark complete
-tbd sync            # Push to remote
-
-**Creating dependent work:**
-tbd create "Implement feature X" --type=feature
-tbd create "Write tests for X" --type=task
-tbd dep add <tests-id> <feature-id>  # Tests depend on feature
-```
+**Output** (~1-2k tokens): the session-close protocol, core bead-tracking rules, the
+essential command reference (including the bulk multi-ID forms of `close`/`reopen`/
+`update` and the never-shell-loop rule), and common workflows.
+The content is composed from one canonical source — the skill baseline
+(`shortcuts/system/skill-baseline.md`, see `tbd-prime.md` for the rendered form) — so
+this document does not duplicate it; regenerate rather than hand-edit.
 
 **Custom Override:**
 
@@ -5476,7 +5412,7 @@ This is sufficient for the `ready` command algorithm.
 | `--help` | `--help` | ✅ Full | Help text |
 | `--version` | `--version` | ✅ Full | Version info |
 | `--db <path>` | `--db <path>` | ✅ Full | Custom .tbd path |
-| `--no-sync` | `--no-sync` | ✅ Full | Skip auto-sync |
+| `--no-sync` | *(n/a)* | ❌ Dropped | Removed; issue writes always stage locally (run `tbd sync` to publish) |
 | `--actor <name>` | `--actor <name>` | 🔄 Future | Override actor |
 | *(n/a)* | `--dry-run` | ✅ tbd | Preview changes |
 | *(n/a)* | `--verbose` | ✅ tbd | Debug output |

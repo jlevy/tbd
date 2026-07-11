@@ -106,6 +106,7 @@ tbd update proj-1847 --status=in_progress    # Claim it
 
 ```bash
 tbd close proj-1847 --reason="Fixed in auth.ts, added retry logic"
+tbd close proj-1847 proj-1848 --reason="Both fixed"   # Several at once — never loop
 tbd sync                                   # Push to remote
 ```
 
@@ -343,10 +344,20 @@ Options:
 - `--spec <path>` - Set or clear spec path (empty string clears; validated and
   normalized). When updating a parent issue’s spec, the new value propagates to children
   whose `spec_path` was null or matched the old value.
+- `--ignore-missing` - Skip unknown IDs instead of failing the batch
+
+**Multiple IDs:** `tbd update A B C --priority 1 --add-label done` applies the same
+field updates to every issue under one lock.
+Per-ID-only flags (`--title`, `--description`, `--notes`/`--notes-file`, `--from-file`,
+`--parent`, `--spec`, `--child-order`) are rejected with two or more IDs, and `--status`
+is rejected in bulk — use `tbd close`/`tbd reopen` for lifecycle changes.
+`--description` and `--notes` also accept `-` to read stdin.
 
 ### close
 
-Close a completed issue.
+Close one or more completed issues.
+A single ID keeps the classic one-line output; two or more run as a bulk operation — see
+**Bulk operations and the output contract** below.
 
 ```bash
 tbd close proj-a7k2                           # Close issue
@@ -354,11 +365,14 @@ tbd close proj-a7k2 --reason="Fixed in PR #42"
 ```
 
 Options:
-- `--reason <text>` - Reason for closing
+- `--reason <text>` - Reason for closing (`-` reads stdin)
+- `--reason-file <path>` - Read the close reason from a file (`-` reads stdin)
+- `--ignore-missing` - Skip unknown IDs instead of failing the batch
 
 ### reopen
 
-Reopen a closed issue.
+Reopen one or more closed issues — see **Bulk operations and the output contract**
+below.
 
 ```bash
 tbd reopen proj-a7k2                          # Reopen issue
@@ -366,7 +380,58 @@ tbd reopen proj-a7k2 --reason="Bug reappeared"
 ```
 
 Options:
-- `--reason <text>` - Reason for reopening
+- `--reason <text>` - Reason for reopening (`-` reads stdin)
+- `--reason-file <path>` - Read the reopen reason from a file (`-` reads stdin)
+- `--ignore-missing` - Skip unknown IDs instead of failing the batch
+
+### Bulk operations and the output contract
+
+`close`, `reopen`, and `update` accept multiple IDs and process them together under a
+single lock. The output is designed so agents never need `2>&1 | tail -1`:
+
+- **One summary line** on success, e.g. `✓ Closed 3, skipped 1 (already closed): …`,
+  followed by a visible `• Unsynced changes — run tbd sync to publish.` hint.
+
+- **Fail-closed validation**: if any ID is unknown the whole batch aborts before writing
+  anything and lists the bad IDs; `--ignore-missing` downgrades genuinely absent issues
+  to reported skips. An unreadable or corrupt issue file always aborts the batch — even
+  with `--ignore-missing` — preserving the original error.
+  Duplicate IDs in one call are processed once, and results are reported in the order
+  the IDs were given. `--dry-run` previews after resolution, reads, and state checks, so
+  it shows exactly what a real run would write.
+
+- **Single-ID behavior is unchanged**: one ID behaves exactly as before (idempotent
+  close; reopening an already-open issue still errors).
+  The “already-done is a skip” rule applies only to multi-ID batches.
+
+- **`--quiet`** is silent on success and also suppresses incidental notices (worktree
+  auto-heal, config migration), so output stays clean.
+
+- **`--json`** replaces the summary line with a machine contract:
+
+  ```json
+  {
+    "results": [{ "id": "proj-a7k2", "action": "closed", "ok": true }],
+    "summary": { "changed": 1, "skipped": 0, "missing": 0, "failed": 0, "total": 1 },
+    "sync": { "pending": true, "hint": "Run `tbd sync` to publish." }
+  }
+  ```
+
+  The `sync` field is always present: `{ "pending": true, "hint": … }` when changes are
+  staged, `{ "pending": false }` when nothing changed.
+  A write that fails mid-batch is reported as `{ "action": "failed", "ok": false }` with
+  the error in `skippedReason`; the command still emits the full summary, names every
+  failed ID with its error on stderr (visible under `--quiet` too), and exits non-zero.
+
+**Free-text bodies without quoting hazards.** Reasons, descriptions, and notes accept
+the text inline, from a file (`--reason-file`, `-f`/`--file`, `--notes-file`), or from
+stdin with the `-` convention (`--reason=-`, `-d -`, `--notes=-`), so shell-sensitive
+text (`$`, backticks, quotes) round-trips verbatim instead of being mangled by the
+shell.
+
+**Sync is stage-then-publish.** Every write lands in the local `tbd-sync` worktree
+immediately; nothing reaches the remote until you run `tbd sync`. There is no
+per-command auto-sync, and the legacy no-op `--no-sync` flag has been removed.
 
 ### ready
 
@@ -811,7 +876,6 @@ tbd list --json                             # JSON output
 tbd list --quiet                            # Suppress non-essential output
 tbd list --verbose                          # Enable verbose output
 tbd create "Test" --dry-run                 # Show what would happen
-tbd close proj-a7k2 --no-sync                 # Skip automatic sync
 tbd list --debug                            # Show internal IDs
 tbd list --color=never                      # Disable colors
 ```
@@ -823,7 +887,6 @@ Options:
 - `--quiet` - Suppress non-essential output
 - `--json` - Output as JSON
 - `--color <when>` - Colorize output: auto, always, never
-- `--no-sync` - Skip automatic sync after write operations
 - `--debug` - Show internal IDs alongside display IDs
 
 ## For AI Agents
@@ -838,6 +901,8 @@ tbd ready --json                            # Find available work
 tbd update proj-xxxx --status=in_progress     # Claim it (advisory)
 # ... do the work ...
 tbd close proj-xxxx --reason="Fixed in commit abc123"
+# Finished several beads? Close them in ONE call — never a shell loop:
+tbd close proj-a1 proj-b2 proj-c3 --reason="Sprint work"
 tbd sync                                    # Push changes
 ```
 
@@ -873,13 +938,24 @@ tbd setup claude                            # One-time global setup
 This runs `tbd prime` at session start and before context compaction, ensuring the agent
 remembers the tbd workflow.
 
-### Closing Multiple Issues
+### Bulk Close, Update, and Reopen
 
-Close several issues at once (more efficient than one at a time):
+`close`, `reopen`, and `update` all take multiple IDs — one call, one lock, one summary
+line:
 
 ```bash
 tbd close proj-a1 proj-b2 proj-c3 --reason="Sprint complete"
+tbd update proj-a1 proj-b2 proj-c3 --priority 1 --add-label done
+tbd reopen proj-a1 proj-b2 --reason="Regression found"
+tbd close proj-a1 proj-b2 proj-gone --ignore-missing   # Unknown IDs become skips
 ```
+
+Do NOT loop over single-ID calls (`for id in …; do tbd close $id; done`): the bulk form
+is faster, validates all IDs before writing anything, and produces one clean summary (or
+a structured `--json` result) instead of N interleaved outputs.
+A bulk call shares one reason (and one set of field changes for `update`), so group the
+issues that share the same mutation and make one call per group.
+See [Bulk operations and the output contract](#bulk-operations-and-the-output-contract).
 
 ## Common Workflows
 
@@ -1095,7 +1171,7 @@ display:
 sync:
   branch: tbd-sync           # Sync branch name
   remote: origin             # Remote name
-  auto_sync: true            # Auto-sync after writes
+  auto_sync: false           # Reserved; issue writes stage locally — run `tbd sync` to publish
 
 docs_cache:
   files:                     # Docs synced into the cache: destination -> docref
@@ -1263,10 +1339,9 @@ Notes:
   A bigger hammer also exists: deleting the entire `$GIT_COMMON_DIR/tbd/` directory is
   recoverable (layout and the data-sync worktree re-materialize from the config and the
   `tbd-sync` branch on the next command, or via `tbd doctor --fix`); **but only for
-  synced data**. Issue changes made with `--no-sync` since the last `tbd sync` live as
-  uncommitted files inside that worktree and would be lost, so run `tbd sync` first if
-  you must delete it. This is why the recipe deletes only `layout.yml`, never the whole
-  directory.
+  synced data**. Issue changes since the last `tbd sync` live as uncommitted files
+  inside that worktree and would be lost, so run `tbd sync` first if you must delete it.
+  This is why the recipe deletes only `layout.yml`, never the whole directory.
 - **Interrupted upgrades self-heal.** If the process dies between the two stamp writes
   (layout updated but not config, or config but not layout), the next command with the
   new version completes the migration; the abort recipe above also works from either

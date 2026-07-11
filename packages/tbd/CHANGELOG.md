@@ -1,5 +1,39 @@
 # get-tbd
 
+## Unreleased
+
+### Features
+
+- **Agent CLI ergonomics (Phase 1)**: `close`, `reopen`, and `update` now accept
+  multiple IDs and process them under one lock, printing a single summary line (or a
+  structured `--json` `{ results, summary, sync }` object, with `sync` always present)
+  plus a visible unsynced-changes hint.
+  Validation is fail-closed: unknown IDs abort the batch before any write, and
+  unreadable or corrupt issue files always abort, even with `--ignore-missing` (which
+  downgrades only genuinely absent issues to reported skips).
+  Duplicate IDs are processed once; results are reported in argv order; a write failure
+  mid-batch is reported as a `failed` result in the summary, each failed ID and error is
+  named on stderr, and the command exits non-zero.
+  `--dry-run` previews after resolution, reads, and state checks, so it reflects exactly
+  what a real run would write.
+  Single-ID command behavior is unchanged.
+  Free-text bodies (`--reason`/`--reason-file`, `-d`/`-f`, `--notes`/`--notes-file`)
+  accept `-` to read stdin, so shell-sensitive text no longer needs careful quoting.
+  `--quiet` is now fully silent on success (it also suppresses incidental worktree-heal
+  and config-migration notices).
+
+### Fixes
+
+- **Parser**: an issue with working notes but no description now round-trips correctly;
+  previously the `## Notes` section was folded into the description on read, silently
+  losing the notes and duplicating the section on the next write.
+
+### BREAKING
+
+- The global `--no-sync` flag has been **removed** and is now rejected at option
+  parsing. It was a no-op for issue writes (no mutator ever read it), but scripts passing
+  it must drop the flag: writes always stage locally and `tbd sync` publishes.
+
 ## 0.3.0
 
 The headline is **forkable docs**: every doc tbd serves (guidelines, shortcuts,

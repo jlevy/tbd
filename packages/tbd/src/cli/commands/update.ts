@@ -20,6 +20,15 @@ import { resolveToInternalId, type IdMapping } from '../../file/id-mapping.js';
 import { resolveAndValidatePath, getPathErrorMessage } from '../../lib/project-paths.js';
 import { validateIssueTitle } from '../lib/issue-input-validation.js';
 import { withDataSyncContext } from '../lib/data-context.js';
+import {
+  resolveAllIds,
+  loadAllIssues,
+  orderedResults,
+  emitBulkSummary,
+  throwOnWriteFailures,
+  type BulkItemResult,
+} from '../lib/bulk.js';
+import { resolveBodyInput, type BodyInputState } from '../lib/body-input.js';
 
 interface UpdateOptions {
   fromFile?: string;
@@ -38,38 +47,69 @@ interface UpdateOptions {
   parent?: string;
   spec?: string;
   childOrder?: string;
+  ignoreMissing?: boolean;
 }
 
 class UpdateHandler extends BaseCommand {
-  async run(id: string, options: UpdateOptions): Promise<void> {
+  async run(ids: string[], options: UpdateOptions): Promise<void> {
+    if (ids.length === 1) {
+      await this.runSingle(ids[0]!, options);
+      return;
+    }
+    await this.runBulk(ids, options);
+  }
+
+  /**
+   * Single-ID update preserves the full legacy behavior, including structural
+   * side effects (re-parenting, spec propagation, child ordering hints).
+   */
+  async runSingle(id: string, options: UpdateOptions): Promise<void> {
     const tbdRoot = await requireInit();
 
     let displayId = id;
     let didUpdate = false;
+    let loneMissing = false;
 
     await this.execute(async () => {
+      // Resolve free-text bodies (description/notes) before the data context:
+      // the context changes cwd, so relative file paths and stdin must be read
+      // up front from the caller's working directory.
+      const resolvedOptions = await this.resolveBodyOptions(options);
       await withDataSyncContext(
         tbdRoot,
         { lock: true },
         async ({ dataSyncDir, mapping, config }) => {
-          // Resolve input ID to internal ID
+          // Resolve input ID to internal ID. A lone unknown ID under
+          // --ignore-missing becomes an explicit missing result (same contract
+          // as close/reopen) instead of a hard error.
           let internalId: string;
           try {
             internalId = resolveToInternalId(id, mapping);
           } catch {
+            if (options.ignoreMissing) {
+              loneMissing = true;
+              return;
+            }
             throw new NotFoundError('Issue', id);
           }
 
-          // Load existing issue
+          // Load existing issue. Only a genuinely absent file counts as
+          // missing/not-found; a corrupt or unreadable file surfaces its real
+          // error (same contract as loadAllIssues in the bulk paths).
           let issue;
           try {
             issue = await readIssue(dataSyncDir, internalId);
-          } catch {
+          } catch (error) {
+            if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
+            if (options.ignoreMissing) {
+              loneMissing = true;
+              return;
+            }
             throw new NotFoundError('Issue', id);
           }
 
           // Parse and validate options
-          const updates = await this.parseUpdates(options, mapping, tbdRoot);
+          const updates = await this.parseUpdates(resolvedOptions, mapping, tbdRoot);
           if (updates === null) return;
 
           if (this.checkDryRun('Would update issue', { id: internalId, ...updates })) {
@@ -175,11 +215,191 @@ class UpdateHandler extends BaseCommand {
       );
     }, 'Failed to update issue');
 
+    if (loneMissing) {
+      // A dry run must preview (matching the bulk all-missing shape), never
+      // fall through to the real-run summary.
+      if (this.checkDryRun('Would update 0 issues', { ids: [] })) return;
+      emitBulkSummary(
+        this.output,
+        [{ id, action: 'missing', ok: false, skippedReason: 'not found' }],
+        { verb: 'Updated', skippedNote: 'unchanged' },
+      );
+      return;
+    }
+
     if (!didUpdate) return;
 
     this.output.data({ id: displayId, updated: true }, () => {
       this.output.success(`Updated ${displayId}`);
     });
+  }
+
+  /**
+   * Bulk update (2+ IDs): apply only shared fields that have no lifecycle or
+   * structural side effects. Per-ID-only flags are rejected up front, and
+   * lifecycle changes stay on `close`/`reopen` so `closed_at`/`close_reason`
+   * are never left inconsistent.
+   */
+  async runBulk(ids: string[], options: UpdateOptions): Promise<void> {
+    const perIdOnly: string[] = [];
+    if (options.fromFile) perIdOnly.push('--from-file');
+    if (options.title !== undefined) perIdOnly.push('--title');
+    if (options.description !== undefined) perIdOnly.push('--description');
+    if (options.notes !== undefined) perIdOnly.push('--notes');
+    if (options.notesFile) perIdOnly.push('--notes-file');
+    if (options.status !== undefined) perIdOnly.push('--status');
+    if (options.parent !== undefined) perIdOnly.push('--parent');
+    if (options.spec !== undefined) perIdOnly.push('--spec');
+    if (options.childOrder !== undefined) perIdOnly.push('--child-order');
+    if (perIdOnly.length > 0) {
+      throw new ValidationError(
+        `Cannot use ${perIdOnly.join(', ')} when updating multiple issues. ` +
+          `These apply to a single issue; use \`tbd close\`/\`tbd reopen\` for status changes. ` +
+          `Bulk update supports shared fields: --priority, --assignee, --type, ` +
+          `--add-label, --remove-label, --due, --defer.`,
+      );
+    }
+
+    const tbdRoot = await requireInit();
+    const outcomes = new Map<string, BulkItemResult>();
+    let results: BulkItemResult[] = [];
+    let wasDryRun = false;
+
+    await this.execute(async () => {
+      await withDataSyncContext(
+        tbdRoot,
+        { lock: true },
+        async ({ dataSyncDir, mapping, config }) => {
+          const updates = await this.parseUpdates(options, mapping, tbdRoot);
+          if (updates === null || Object.keys(updates).length === 0) {
+            throw new ValidationError(
+              'No fields to update. Specify at least one shared field, e.g. --priority or --add-label.',
+            );
+          }
+
+          const { resolved, missing, orderedInputs } = resolveAllIds(ids, mapping);
+          if (missing.length > 0 && !options.ignoreMissing) {
+            throw new NotFoundError('Issue', missing.join(', '));
+          }
+          for (const m of missing) {
+            outcomes.set(m, { id: m, action: 'missing', ok: false, skippedReason: 'not found' });
+          }
+
+          // Read every issue before writing anything, so stale mappings and
+          // unreadable files abort (or become skips) before any mutation.
+          const loaded = await loadAllIssues(
+            dataSyncDir,
+            resolved,
+            options.ignoreMissing ?? false,
+            outcomes,
+          );
+
+          // Dry-run stops here — after resolution and reads — so it previews
+          // exactly the writes a real run would perform.
+          if (
+            this.checkDryRun(`Would update ${loaded.length} issues`, {
+              ids: loaded.map((r) => r.internalId),
+              ...updates,
+            })
+          ) {
+            wasDryRun = true;
+            return;
+          }
+
+          // Apply. A write failure mid-batch is captured as a `failed` result
+          // so the caller still learns exactly what was written.
+          for (const { input, issue } of loaded) {
+            if (updates.kind !== undefined) issue.kind = updates.kind;
+            if (updates.priority !== undefined) issue.priority = updates.priority;
+            if (updates.assignee !== undefined) issue.assignee = updates.assignee;
+            if (updates.due_date !== undefined) issue.due_date = updates.due_date;
+            if (updates.deferred_until !== undefined) issue.deferred_until = updates.deferred_until;
+            if (updates.addLabels && updates.addLabels.length > 0) {
+              const labelsSet = new Set(issue.labels);
+              for (const label of updates.addLabels) labelsSet.add(label);
+              issue.labels = [...labelsSet];
+            }
+            if (updates.removeLabels && updates.removeLabels.length > 0) {
+              const removeSet = new Set(updates.removeLabels);
+              issue.labels = issue.labels.filter((l) => !removeSet.has(l));
+            }
+
+            issue.version += 1;
+            issue.updated_at = now();
+
+            const displayId = this.ctx.debug
+              ? formatDebugId(issue.id, mapping, config.display.id_prefix)
+              : formatDisplayId(issue.id, mapping, config.display.id_prefix);
+            try {
+              await writeIssue(dataSyncDir, issue);
+            } catch (error) {
+              const message = error instanceof Error ? error.message : String(error);
+              outcomes.set(input, {
+                id: displayId,
+                action: 'failed',
+                ok: false,
+                skippedReason: message,
+              });
+              continue;
+            }
+            outcomes.set(input, { id: displayId, action: 'updated', ok: true });
+          }
+
+          results = orderedResults(orderedInputs, outcomes);
+        },
+      );
+    }, 'Failed to update issues');
+
+    if (wasDryRun || results.length === 0) return;
+    emitBulkSummary(this.output, results, { verb: 'Updated', skippedNote: 'unchanged' });
+
+    // Partial application is reported above; name every failed write on stderr
+    // (visible under --quiet too) and exit non-zero.
+    throwOnWriteFailures(results, 'update');
+  }
+
+  /**
+   * Resolve free-text body flags (--description, --notes, --notes-file) to plain
+   * strings before entering the data context, so relative file paths resolve
+   * against the caller's cwd and stdin ('-') is consumed exactly once.
+   * `--from-file` carries its own body and is left untouched.
+   */
+  private async resolveBodyOptions(options: UpdateOptions): Promise<UpdateOptions> {
+    if (options.fromFile) return options;
+    // Prevalidate: reject two '-' sentinels before reading anything, so an
+    // interactive user is not left typing the first body only to have the
+    // second one fail afterward.
+    const stdinWanters = [
+      options.description === '-' ? '--description' : undefined,
+      options.notes === '-' ? '--notes' : undefined,
+      options.notesFile === '-' ? '--notes-file' : undefined,
+    ].filter((n): n is string => n !== undefined);
+    if (stdinWanters.length > 1) {
+      throw new CLIError(
+        `Cannot read both ${stdinWanters[0]} and ${stdinWanters[1]} from stdin ('-').`,
+      );
+    }
+    const bodyState: BodyInputState = {};
+    const resolved: UpdateOptions = { ...options };
+    if (options.description !== undefined) {
+      resolved.description = await resolveBodyInput(
+        { name: '--description', value: options.description },
+        bodyState,
+      );
+    }
+    if (options.notes !== undefined || options.notesFile) {
+      resolved.notes = await resolveBodyInput(
+        {
+          name: '--notes',
+          value: options.notes,
+          fileName: '--notes-file',
+          file: options.notesFile,
+        },
+        bodyState,
+      );
+      resolved.notesFile = undefined;
+    }
+    return resolved;
   }
 
   private async parseUpdates(
@@ -341,20 +561,14 @@ class UpdateHandler extends BaseCommand {
       updates.assignee = options.assignee || null;
     }
 
+    // Body fields are pre-resolved (inline/file/stdin) by resolveBodyOptions
+    // before the data context, so here they are already plain strings.
     if (options.description !== undefined) {
       updates.description = options.description || null;
     }
 
     if (options.notes !== undefined) {
       updates.notes = options.notes || null;
-    }
-
-    if (options.notesFile) {
-      try {
-        updates.notes = await readFile(options.notesFile, 'utf-8');
-      } catch {
-        throw new CLIError(`Failed to read notes from file: ${options.notesFile}`);
-      }
     }
 
     if (options.due !== undefined) {
@@ -427,17 +641,17 @@ class UpdateHandler extends BaseCommand {
 }
 
 export const updateCommand = new Command('update')
-  .description('Update an issue')
-  .argument('<id>', 'Issue ID')
+  .description('Update one or more issues')
+  .argument('<ids...>', 'Issue ID(s)')
   .option('--from-file <path>', 'Update all fields from YAML+Markdown file')
   .option('--title <text>', 'Set title')
   .option('--status <status>', 'Set status')
   .option('--type <type>', 'Set type')
   .option('--priority <0-4>', 'Set priority')
   .option('--assignee <name>', 'Set assignee')
-  .option('--description <text>', 'Set description')
-  .option('--notes <text>', 'Set working notes')
-  .option('--notes-file <path>', 'Set notes from file')
+  .option('--description <text>', 'Set description ("-" reads stdin)')
+  .option('--notes <text>', 'Set working notes ("-" reads stdin)')
+  .option('--notes-file <path>', 'Set notes from file ("-" reads stdin)')
   .option('--due <date>', 'Set due date')
   .option('--defer <date>', 'Set deferred until date')
   .option('--add-label <label>', 'Add label', (val, prev: string[] = []) => [...prev, val])
@@ -445,7 +659,8 @@ export const updateCommand = new Command('update')
   .option('--parent <id>', 'Set parent')
   .option('--spec <path>', 'Set or clear spec path (empty string clears)')
   .option('--child-order <ids>', 'Set child ordering hints (comma-separated IDs)')
-  .action(async (id, options, command) => {
+  .option('--ignore-missing', 'Skip unknown IDs instead of failing (bulk)')
+  .action(async (ids, options, command) => {
     const handler = new UpdateHandler(command);
-    await handler.run(id, options);
+    await handler.run(ids, options);
   });

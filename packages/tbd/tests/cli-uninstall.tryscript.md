@@ -49,7 +49,6 @@ Global Options:
   --quiet          Suppress non-essential output
   --json           Output as JSON
   --color <when>   Colorize output: auto, always, never (default: "auto")
-  --no-sync        Skip automatic sync after write operations
   --debug          Show internal IDs alongside public IDs for debugging
 
 IMPORTANT:

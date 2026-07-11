@@ -61,7 +61,7 @@ done
 # Test: Session A appends Child A locally without pulling B’s change
 
 ```console
-$ tbd create "Child A" --parent "$(cat ../epic.txt)" --no-sync >/dev/null 2>&1; echo done
+$ tbd create "Child A" --parent "$(cat ../epic.txt)" >/dev/null 2>&1; echo done
 done
 ? 0
 ```

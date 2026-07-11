@@ -43,7 +43,6 @@ Options:
   --json                        Output as JSON
   --color <when>                Colorize output: auto, always, never (default:
                                 "auto")
-  --no-sync                     Skip automatic sync after write operations
   --debug                       Show internal IDs alongside public IDs for
                                 debugging
   --help                        Display help for command
@@ -69,9 +68,9 @@ Setup & Configuration:
 Working With Issues:
   create [options] [title]      Create a new issue
   show [options] <id>           Show issue details
-  update [options] <id>         Update an issue
-  close [options] <id>          Close an issue
-  reopen [options] <id>         Reopen a closed issue
+  update [options] <ids...>     Update one or more issues
+  close [options] <ids...>      Close one or more issues
+  reopen [options] <ids...>     Reopen one or more closed issues
   search [options] <query>      Search issues by text
 
 Views and Filtering:
@@ -149,7 +148,6 @@ Global Options:
   --quiet               Suppress non-essential output
   --json                Output as JSON
   --color <when>        Colorize output: auto, always, never (default: "auto")
-  --no-sync             Skip automatic sync after write operations
   --debug               Show internal IDs alongside public IDs for debugging
 
 IMPORTANT:

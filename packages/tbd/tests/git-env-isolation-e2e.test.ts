@@ -79,7 +79,7 @@ describe('ambient GIT_DIR isolation (product)', { timeout: 120_000 }, () => {
       () => null,
     );
 
-    const create = runTbdHostile(['create', 'isolation probe issue', '--no-sync']);
+    const create = runTbdHostile(['create', 'isolation probe issue']);
     expect(create.status).toBe(0);
     expect(create.stderr).toContain('ignoring inherited GIT_DIR');
     // Warned once, not per git call.
