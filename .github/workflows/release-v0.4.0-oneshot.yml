@@ -35,7 +35,12 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          existing=$(gh api "repos/${GITHUB_REPOSITORY}/git/ref/tags/v${VERSION}" --jq .object.sha 2>/dev/null || true)
+          # gh api prints the error body to stdout on HTTP errors, so only trust
+          # the output when the call itself succeeded (tag exists).
+          existing=""
+          if resp=$(gh api "repos/${GITHUB_REPOSITORY}/git/ref/tags/v${VERSION}" --jq .object.sha 2>/dev/null); then
+            existing="$resp"
+          fi
           if [ -z "$existing" ]; then
             gh api "repos/${GITHUB_REPOSITORY}/git/refs" -X POST \
               -f ref="refs/tags/v${VERSION}" -f sha="${RELEASE_SHA}"
