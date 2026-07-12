@@ -84,6 +84,15 @@ jobs:
             echo "${DELIM}"
           } >> "$GITHUB_OUTPUT"
 
+      - name: Check NPM_TOKEN visibility
+        run: |
+          if [ "${{ secrets.NPM_TOKEN != '' }}" = "true" ]; then
+            echo "NPM_TOKEN: present"
+          else
+            echo "::error::NPM_TOKEN is empty or not visible to this run — publish cannot authenticate"
+            exit 1
+          fi
+
       - name: Publish to npm
         run: pnpm -r publish --access public --no-git-checks
         env:
