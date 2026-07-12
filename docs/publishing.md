@@ -5,9 +5,10 @@ It is **not** a general-purpose shortcut shipped to tbd users—releasing a Node
 is project-specific, so the content lives here in the project repo, not in
 `packages/tbd/docs/shortcuts/standard/`.
 
-This project uses **tag-based releases** with provenance attestation to npm (no
-Changesets). Version and release notes are assembled by hand from clean conventional
-commits at release time; pushing a `v*` tag publishes automatically.
+This project uses **tag-based releases** with npm **trusted publishing (OIDC)** and
+provenance attestation (no Changesets, and no npm token secret).
+Version and release notes are assembled by hand from clean conventional commits at
+release time; pushing a `v*` tag publishes automatically.
 
 For daily development workflow, see [development.md](development.md).
 For release notes format and guidelines, see `tbd guidelines release-notes-guidelines`.
@@ -40,19 +41,36 @@ npm publish --access public
 
 This will prompt for web-based authentication in your browser.
 
-### 2. Configure NPM_TOKEN Secret
+### 2. Configure npm Trusted Publishing (OIDC)
 
-1. Generate an npm access token at https://www.npmjs.com/settings/~/tokens
-   - Select “Automation” type for CI/CD use
-2. Add the token as a repository secret:
-   - Go to https://github.com/jlevy/tbd/settings/secrets/actions
-   - Add secret named `NPM_TOKEN` with the token value
+CI publishing authenticates via
+[npm trusted publishing](https://docs.npmjs.com/trusted-publishers), not a token secret.
+On npmjs.com, open the package’s Settings → Trusted Publisher, select GitHub Actions,
+and enter:
+
+- Organization or user: `jlevy`
+- Repository: `tbd`
+- Workflow filename: `release.yml`
+- Environment: leave empty
+
+No `NPM_TOKEN` repository secret exists or is needed.
+The `NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}` line in `release.yml` resolves to empty
+and is unused; publish authenticates via OIDC when no token is configured.
+
+The trust is bound to the repository plus the workflow **filename** (the git ref is
+deliberately not part of the match, so tag builds work).
+Two consequences:
+
+- A workflow under any other filename cannot publish from CI—not even in this repo with
+  `id-token: write`. It fails with `npm error need auth`.
+- Renaming `release.yml` breaks publishing until the trusted publisher config is updated
+  to match.
 
 ### 3. Verify Repository Setup
 
 - Repository must be public for provenance attestation
 - Ensure the release workflow at `.github/workflows/release.yml` has `id-token: write`
-  permission
+  permission—it is required both for trusted-publishing auth and for provenance
 
 ## During Development
 
@@ -203,6 +221,13 @@ pnpm exec tsx packages/tbd/scripts/extract-changelog.ts X.X.X > release-notes.md
 
 ### Step 6: Push and Tag
 
+**Merging the release PR publishes nothing.
+The release happens only when the `v*` tag is pushed**—`release.yml` triggers on the
+tag, not on the merge.
+A release left merged-but-untagged ships neither to npm nor to GitHub Releases; if a
+session ends after the merge, the tag push is the next required action.
+See “Release PR merged but tag never pushed” under Troubleshooting for recovery.
+
 **Before tagging: main CI MUST have reached `conclusion=success` on the exact commit you
 are about to tag.** “Mostly green” is not green.
 If a job hangs (e.g., the known `tests/lockfile.test.ts` flake on Windows), cancel and
@@ -244,7 +269,7 @@ git push --tags
 
 **Option B: Via PR and GitHub API (restricted environments)**
 
-When direct push to main is restricted:
+When direct push to main is restricted but your `gh` token can still write git refs:
 
 ```bash
 # Push to feature branch
@@ -263,6 +288,12 @@ gh api repos/jlevy/tbd/git/refs -X POST \
   -f ref="refs/tags/vX.X.X" \
   -f sha="$MERGE_SHA"
 ```
+
+**Claude Code remote sessions cannot run Option B.** The session proxy blocks tag
+pushes, `git/refs` API writes, release creation, and workflow dispatch—only pushes to
+the session’s own `claude/*` branch go through.
+From such a session, merge the release PR, then either hand the tag push to a human (one
+command, see Troubleshooting) or use the branch-local workflow recovery described there.
 
 ### Step 7: Update GitHub Release
 
@@ -349,10 +380,14 @@ gh release edit v0.2.0 -R jlevy/tbd --notes-file release-notes.md
 
 ## How Publishing Works
 
-This project uses npm token-based publishing with provenance:
+This project publishes via npm trusted publishing (OIDC) with provenance:
 
-- **NPM_TOKEN secret**: Repository secret containing npm automation token
+- **Trusted publisher**: npm is configured to trust GitHub Actions runs of `release.yml`
+  in `jlevy/tbd` (see One-Time Setup).
+  The workflow’s `id-token: write` permission lets the run mint an OIDC token that npm
+  exchanges for publish access; there is no npm token secret.
 - **Provenance attestation**: `NPM_CONFIG_PROVENANCE=true` adds signed build provenance
+  (visible as `dist.attestations` on the published version).
 
 The release workflow (`.github/workflows/release.yml`) triggers on `v*` tags and
 publishes automatically.
@@ -378,11 +413,50 @@ After pushing a tag:
 - Ensure tag format is `v*` (e.g., `v0.2.0`)
 - Check tag was pushed: `git ls-remote --tags origin`
 
-**npm publish failing with 401/403?**
+**npm publish failing with auth errors (`need auth`, 401/403)?**
 
-- Verify `NPM_TOKEN` secret is configured in repository settings
-- Check the token hasn’t expired
-- Ensure token has publish permissions for `get-tbd`
+- Confirm the failing run is `release.yml`—trusted publishing rejects any other workflow
+  filename with `npm error need auth`
+- Check the trusted publisher config on npmjs.com still matches `jlevy/tbd` +
+  `release.yml` with no environment set
+- Confirm the workflow still declares `permissions: id-token: write`
+
+**Release PR merged but tag never pushed (release stalled)?**
+
+Symptoms: `packages/tbd/package.json` and the CHANGELOG on `main` show the new version,
+but the tag, the GitHub Release, and the npm version don’t exist.
+This is how v0.4.0 stalled: the session driving the release ended after the PR merge,
+before the tag push that triggers `release.yml`.
+
+Preferred fix—anyone with push access, from any machine:
+
+```bash
+git fetch origin main --tags
+# MERGE_SHA = the release PR's merge commit; main CI must be green on it (Step 6 gate)
+git tag vX.X.X "$MERGE_SHA"
+git push origin vX.X.X
+```
+
+The tag push triggers `release.yml`, which publishes to npm and creates the GitHub
+Release. Then finish Steps 7–8.
+
+From a restricted Claude Code session (no tag/ref/release/dispatch access), run the
+release from a branch-local copy of the workflow—this is how v0.4.0 was recovered:
+
+1. On the session’s `claude/*` branch, temporarily replace
+   `.github/workflows/release.yml` with a variant that (a) triggers on pushes to that
+   branch, (b) creates or verifies the `vX.X.X` tag at the audited merge SHA via
+   `gh api "repos/$GITHUB_REPOSITORY/git/refs" -X POST` using `GITHUB_TOKEN` (requires
+   `permissions: contents: write`), then (c) checks out `refs/tags/vX.X.X` with
+   `fetch-depth: 0` and runs the same build/publish/release steps as the real workflow
+   (pass the version and tag name explicitly—`GITHUB_REF` is a branch here).
+2. Keep the filename `release.yml`: trusted publishing is bound to it, and a
+   differently-named copy fails with `npm error need auth`.
+3. The branch workflow must run the publish steps itself: a tag created with
+   `GITHUB_TOKEN` never triggers other workflows, so the real tag-triggered
+   `release.yml` will not fire for it.
+4. Revert the workflow to the `main` version in a follow-up commit immediately after the
+   release verifies (Step 8), so nothing on the branch can publish again.
 
 **First publish?**
 
