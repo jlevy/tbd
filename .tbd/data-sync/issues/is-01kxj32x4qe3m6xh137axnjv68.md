@@ -3,9 +3,9 @@ type: is
 id: is-01kxj32x4qe3m6xh137axnjv68
 title: Separate setup preview from apply and eliminate all dry-run writes
 kind: task
-status: open
+status: closed
 priority: 1
-version: 4
+version: 5
 labels:
   - setup
   - dry-run
@@ -17,7 +17,9 @@ dependencies:
     target: is-01kxj32xtn7978fy1cw6f61qca
 parent_id: is-01kxj32wgrjfa51wytr33z286r
 created_at: 2026-07-15T05:13:10.551Z
-updated_at: 2026-07-15T05:13:54.168Z
+updated_at: 2026-07-15T05:59:12.374Z
+closed_at: 2026-07-15T05:59:12.373Z
+close_reason: Dry-run now preserves project, ignored/cache, config, common-dir, cleanup, and generated-surface state while reporting the plan.
 ---
 Make the new full-state dry-run tests pass with an explicit preflight/plan/apply boundary.
 

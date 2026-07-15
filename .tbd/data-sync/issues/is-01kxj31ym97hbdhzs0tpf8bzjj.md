@@ -3,9 +3,9 @@ type: is
 id: is-01kxj31ym97hbdhzs0tpf8bzjj
 title: Correct skill distribution, registry, and pinned-runner guidance
 kind: task
-status: open
+status: closed
 priority: 1
-version: 3
+version: 4
 labels:
   - documentation
   - supply-chain
@@ -17,7 +17,9 @@ dependencies:
     target: is-01kxj32069ar3a92ajpq41n0yf
 parent_id: is-01kxj30jgtpk96nys50nr6peve
 created_at: 2026-07-15T05:12:39.304Z
-updated_at: 2026-07-15T05:13:44.300Z
+updated_at: 2026-07-15T05:59:10.834Z
+closed_at: 2026-07-15T05:59:10.833Z
+close_reason: Current skill distribution, scopes, copy/symlink behavior, and double-pinned automation documented.
 ---
 Refresh distribution guidance against the current vercel-labs/skills CLI and the project supply-chain policy.
 

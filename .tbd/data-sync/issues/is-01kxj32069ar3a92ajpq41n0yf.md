@@ -3,9 +3,9 @@ type: is
 id: is-01kxj32069ar3a92ajpq41n0yf
 title: Validate the refreshed skill guidance and bundled documentation
 kind: task
-status: open
+status: closed
 priority: 2
-version: 2
+version: 3
 labels:
   - testing
   - documentation
@@ -15,7 +15,9 @@ dependencies:
     target: is-01kxj32xtn7978fy1cw6f61qca
 parent_id: is-01kxj30jgtpk96nys50nr6peve
 created_at: 2026-07-15T05:12:40.905Z
-updated_at: 2026-07-15T05:13:46.298Z
+updated_at: 2026-07-15T05:59:13.209Z
+closed_at: 2026-07-15T05:59:13.208Z
+close_reason: Flowmark stable on second pass; links 200; local docs routes and generated mirrors verified; pnpm run ci (90 files/1373 tests) and publint pass.
 ---
 Run end-to-end validation after the structural and content tasks land.
 

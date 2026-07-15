@@ -3,9 +3,9 @@ type: is
 id: is-01kxj31zjvcsgpdtb33r37nqjc
 title: Refresh Codex skill and plugin guidance from current official docs
 kind: task
-status: open
+status: closed
 priority: 2
-version: 2
+version: 3
 labels:
   - documentation
   - codex
@@ -15,7 +15,9 @@ dependencies:
     target: is-01kxj32069ar3a92ajpq41n0yf
 parent_id: is-01kxj30jgtpk96nys50nr6peve
 created_at: 2026-07-15T05:12:40.282Z
-updated_at: 2026-07-15T05:13:45.179Z
+updated_at: 2026-07-15T05:59:11.609Z
+closed_at: 2026-07-15T05:59:11.608Z
+close_reason: Codex skill, optional openai.yaml, and plugin distribution guidance refreshed from official documentation.
 ---
 Update the Codex-specific section using current official OpenAI documentation.
 

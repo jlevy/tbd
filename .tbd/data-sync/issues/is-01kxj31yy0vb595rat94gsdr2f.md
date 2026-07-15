@@ -3,9 +3,9 @@ type: is
 id: is-01kxj31yy0vb595rat94gsdr2f
 title: Canonicalize allowed-tools and package-runner permission guidance
 kind: task
-status: open
+status: closed
 priority: 1
-version: 2
+version: 3
 labels:
   - documentation
   - security
@@ -15,7 +15,9 @@ dependencies:
     target: is-01kxj32069ar3a92ajpq41n0yf
 parent_id: is-01kxj30jgtpk96nys50nr6peve
 created_at: 2026-07-15T05:12:39.615Z
-updated_at: 2026-07-15T05:13:44.603Z
+updated_at: 2026-07-15T05:59:11.084Z
+closed_at: 2026-07-15T05:59:11.082Z
+close_reason: allowed-tools canonicalized as an experimental space-separated string with package-runner wildcard warnings and tests.
 ---
 Align the guideline and tbd dogfood artifacts with the Agent Skills specification.
 

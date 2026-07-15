@@ -3,9 +3,9 @@ type: is
 id: is-01kxj31zwqhycex8wpptw3srga
 title: Name the Know that; fetch how principle and update review vocabulary
 kind: task
-status: open
+status: closed
 priority: 2
-version: 2
+version: 3
 labels:
   - documentation
   - github-161
@@ -15,7 +15,9 @@ dependencies:
     target: is-01kxj32069ar3a92ajpq41n0yf
 parent_id: is-01kxj30jgtpk96nys50nr6peve
 created_at: 2026-07-15T05:12:40.598Z
-updated_at: 2026-07-15T05:13:45.480Z
+updated_at: 2026-07-15T05:59:11.868Z
+closed_at: 2026-07-15T05:59:11.867Z
+close_reason: Replaced the old slogan with 'Front-load orientation; retrieve procedures on demand' and added awareness-debt/context-dilution review vocabulary.
 ---
 Fold GitHub issue #161 into the refreshed concise core instead of maintaining a parallel attention-routing proposal.
 

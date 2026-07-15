@@ -3,9 +3,9 @@ type: is
 id: is-01kxj32xg2qpdfb73qsg9pnt4s
 title: Add read-only managed-surface drift diagnostics to tbd doctor
 kind: task
-status: open
+status: closed
 priority: 2
-version: 2
+version: 3
 labels:
   - doctor
   - setup
@@ -13,7 +13,9 @@ labels:
 dependencies: []
 parent_id: is-01kxj32wgrjfa51wytr33z286r
 created_at: 2026-07-15T05:13:10.913Z
-updated_at: 2026-07-15T05:13:54.452Z
+updated_at: 2026-07-15T05:59:12.673Z
+closed_at: 2026-07-15T05:59:12.672Z
+close_reason: Doctor now reports current/stale/missing/user-owned/too-new surfaces read-only with exact setup commands.
 ---
 Use the setup planning logic to report stale generated skill/hook/AGENTS.md surfaces without rewriting them.
 

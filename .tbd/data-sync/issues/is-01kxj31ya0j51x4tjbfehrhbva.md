@@ -3,9 +3,9 @@ type: is
 id: is-01kxj31ya0j51x4tjbfehrhbva
 title: Document safe multi-file bundle publication and materialization semantics
 kind: task
-status: open
+status: closed
 priority: 1
-version: 3
+version: 4
 labels:
   - documentation
   - agent-skills
@@ -16,7 +16,9 @@ dependencies:
     target: is-01kxj32069ar3a92ajpq41n0yf
 parent_id: is-01kxj30jgtpk96nys50nr6peve
 created_at: 2026-07-15T05:12:38.975Z
-updated_at: 2026-07-15T05:13:44.015Z
+updated_at: 2026-07-15T05:59:10.599Z
+closed_at: 2026-07-15T05:59:10.598Z
+close_reason: Bundle publication, materialization, ownership, rollback, and failure semantics documented.
 ---
 Add the general rules demonstrated by Flowmark PR #64 and flowmark-rs PR #78.
 

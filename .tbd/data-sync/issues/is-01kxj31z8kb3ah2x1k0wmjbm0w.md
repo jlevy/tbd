@@ -3,9 +3,9 @@ type: is
 id: is-01kxj31z8kb3ah2x1k0wmjbm0w
 title: Make the integration ladder and checklist genuinely rung-specific
 kind: task
-status: open
+status: closed
 priority: 2
-version: 2
+version: 3
 labels:
   - documentation
   - agent-skills
@@ -14,7 +14,9 @@ dependencies:
     target: is-01kxj32069ar3a92ajpq41n0yf
 parent_id: is-01kxj30jgtpk96nys50nr6peve
 created_at: 2026-07-15T05:12:39.955Z
-updated_at: 2026-07-15T05:13:44.910Z
+updated_at: 2026-07-15T05:59:11.357Z
+closed_at: 2026-07-15T05:59:11.355Z
+close_reason: L0-L3/L2b ladder and rung-specific checklists rewritten around conditional machinery.
 ---
 Remove the current contradiction between the low-rung advice and the universal CLI checklist.
 

@@ -3,9 +3,9 @@ type: is
 id: is-01kxj32wgrjfa51wytr33z286r
 title: Fix setup --dry-run whole-state mutation regression
 kind: epic
-status: open
+status: closed
 priority: 1
-version: 2
+version: 4
 labels:
   - bug
   - setup
@@ -17,7 +17,9 @@ child_order_hints:
   - is-01kxj32x4qe3m6xh137axnjv68
   - is-01kxj32xg2qpdfb73qsg9pnt4s
 created_at: 2026-07-15T05:13:09.911Z
-updated_at: 2026-07-15T05:13:47.126Z
+updated_at: 2026-07-15T05:59:12.941Z
+closed_at: 2026-07-15T05:59:12.940Z
+close_reason: Dry-run mutation regression fixed end-to-end with shared setup/doctor inspection.
 ---
 Independent operational bug confirmed while reviewing GitHub #190. Current setup stamps tbd_version/tbd_upgrades before any dry-run guard, persists config migrations, updates .tbd gitignore/gitattributes, and calls docs sync without dryRun. Existing issue #126 tests cover only legacy Claude hooks/scripts.
 

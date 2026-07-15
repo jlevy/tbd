@@ -3,9 +3,9 @@ type: is
 id: is-01kxj32wv4z74tw81f1ecf606k
 title: Add full-state regression coverage for setup dry-run
 kind: task
-status: open
+status: closed
 priority: 1
-version: 3
+version: 5
 labels:
   - testing
   - setup
@@ -15,7 +15,9 @@ dependencies:
     target: is-01kxj32x4qe3m6xh137axnjv68
 parent_id: is-01kxj32wgrjfa51wytr33z286r
 created_at: 2026-07-15T05:13:10.244Z
-updated_at: 2026-07-15T05:13:53.899Z
+updated_at: 2026-07-15T05:59:12.117Z
+closed_at: 2026-07-15T05:59:12.116Z
+close_reason: Added fresh and initialized linked-worktree whole-state dry-run regression tests.
 ---
 Create the failing behavioral tests before changing setup implementation.
 

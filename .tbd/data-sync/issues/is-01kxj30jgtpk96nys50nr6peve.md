@@ -3,9 +3,9 @@ type: is
 id: is-01kxj30jgtpk96nys50nr6peve
 title: "GitHub #190: Refresh skill-creation guidance and setup dry-run safety"
 kind: epic
-status: open
+status: in_progress
 priority: 1
-version: 16
+version: 18
 labels:
   - github-190
   - agent-skills
@@ -25,7 +25,7 @@ child_order_hints:
   - is-01kxj32wgrjfa51wytr33z286r
   - is-01kxj32xtn7978fy1cw6f61qca
 created_at: 2026-07-15T05:11:54.136Z
-updated_at: 2026-07-15T05:13:47.685Z
+updated_at: 2026-07-15T05:59:29.077Z
 ---
 Source: https://github.com/jlevy/tbd/issues/190
 
@@ -43,3 +43,7 @@ Review decisions to preserve:
 - Keep one Flowmark skill; do not proliferate per-operation skills or require per-agent plugins.
 
 The setup bug is an independent code workstream: dry-run must leave the repository, ignored cache/state, and shared git-common-dir state byte-for-byte unchanged while still reporting the planned changes.
+
+## Notes
+
+Implementation complete on codex/issue-190-skill-guidance. Core reduced from 1,594 to 349 lines; added bundle-publication, distribution, and platform-integration references; wording is 'Front-load orientation; retrieve procedures on demand.' Setup dry-run is byte-preserving across linked-worktree project/shared state; doctor uses shared inspection for skills, AGENTS.md, and hooks. Validation: Flowmark second pass no-op; 14 primary URLs returned HTTP 200; local build/setup/docs routes verified; generated portable/Claude mirrors identical; pnpm run ci passed 90 test files/1,373 tests; pnpm publint passed. The cosmetic surface= cleanup remains intentionally deferred in tbd-230y until a real format migration. GitHub #161/#190 closure is merge-gated and will be wired through the PR.

@@ -3,9 +3,9 @@ type: is
 id: is-01kxj31xy6xj3s5b2e8h485tte
 title: Restructure skill guidance into a concise core and one-level references
 kind: task
-status: open
+status: closed
 priority: 1
-version: 7
+version: 9
 labels:
   - documentation
   - agent-skills
@@ -24,7 +24,9 @@ dependencies:
     target: is-01kxj31zwqhycex8wpptw3srga
 parent_id: is-01kxj30jgtpk96nys50nr6peve
 created_at: 2026-07-15T05:12:38.597Z
-updated_at: 2026-07-15T05:13:43.740Z
+updated_at: 2026-07-15T05:59:10.349Z
+closed_at: 2026-07-15T05:59:10.348Z
+close_reason: Concise 349-line core and three one-level references implemented.
 ---
 Structurally split packages/tbd/docs/guidelines/cli-agent-skill-patterns.md before the substantive content rewrite.
 
