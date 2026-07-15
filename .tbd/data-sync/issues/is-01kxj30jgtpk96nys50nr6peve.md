@@ -5,7 +5,7 @@ title: "GitHub #190: Refresh skill-creation guidance and setup dry-run safety"
 kind: epic
 status: in_progress
 priority: 1
-version: 19
+version: 20
 labels:
   - github-190
   - agent-skills
@@ -25,7 +25,7 @@ child_order_hints:
   - is-01kxj32wgrjfa51wytr33z286r
   - is-01kxj32xtn7978fy1cw6f61qca
 created_at: 2026-07-15T05:11:54.136Z
-updated_at: 2026-07-15T06:04:28.690Z
+updated_at: 2026-07-15T06:39:49.235Z
 ---
 Source: https://github.com/jlevy/tbd/issues/190
 
@@ -46,4 +46,4 @@ The setup bug is an independent code workstream: dry-run must leave the reposito
 
 ## Notes
 
-Implementation complete in PR https://github.com/jlevy/tbd/pull/191. Core reduced from 1,594 to 358 lines; added bundle-publication, distribution, and platform-integration references; wording is 'Front-load orientation; retrieve procedures on demand.' Setup dry-run is byte-preserving across linked-worktree project/shared state; doctor uses shared inspection for skills, AGENTS.md, and hooks. Validation: Flowmark second pass no-op; 14 primary URLs returned HTTP 200; local build/setup/docs routes verified; generated portable/Claude mirrors identical; pnpm run ci passed 90 test files/1,373 tests; pnpm publint passed. The cosmetic surface= cleanup remains intentionally deferred in tbd-230y until a real format migration. PR #191 carries Closes #161 and Closes #190 for merge-time closure.
+Implementation complete in PR https://github.com/jlevy/tbd/pull/191. Core reduced from 1,594 to 358 lines; added bundle-publication, distribution, and platform-integration references; wording is 'Front-load orientation; retrieve procedures on demand.' Setup dry-run is byte-preserving across linked-worktree project/shared state; doctor uses shared inspection for skills, AGENTS.md, and hooks. Validation: Flowmark second pass no-op; 14 primary URLs returned HTTP 200; local build/setup/docs routes verified; generated portable/Claude mirrors identical; pnpm run ci and pre-push passed 90 test files/1,373 tests; pnpm publint passed; GitHub Actions run 29393711833 is green on Ubuntu, macOS, Windows, Coverage & Lint, Benchmark, and secret scanning. The cosmetic surface= cleanup remains intentionally deferred in tbd-230y until a real format migration. PR #191 carries Closes #161 and Closes #190 for merge-time closure.
