@@ -3,16 +3,16 @@ type: is
 id: is-01kss6efgnqesfd3s2v29yk79m
 title: "[bug] tests/lockfile.test.ts EPERM flake on Windows still hangs main CI for 20+ minutes"
 kind: bug
-status: closed
+status: open
 priority: 2
-version: 2
+version: 3
 spec_path: tests/qa/release-v0.2.0-upgrade.qa.md
 labels:
   - v0.2.0
 dependencies: []
 parent_id: is-01ksrpb7b8cfwrzzd34ya9874q
 created_at: 2026-05-29T06:23:49.268Z
-updated_at: 2026-05-29T16:22:02.978Z
+updated_at: 2026-07-10T01:51:21.357Z
 closed_at: 2026-05-29T16:22:02.977Z
 close_reason: "Addressed in #140 (merged 2f5746e): withLockfile atomic stale-break + resilient release + low-staleMs/timeout test hardening; Windows CI green."
 ---
@@ -26,3 +26,7 @@ Options to weigh:
 - Investigate the underlying EPERM: rmdir cleanup race on Windows runners may need a retry/backoff.
 
 Acceptance: main CI on a release merge commit consistently goes green within the typical 4-5 minutes, not 20+.
+
+## Notes
+
+Recurred 2026-07-09 after being closed as fixed by #140: Test (windows-latest) on main merge commit 0002893a (PR #184, docs-only) failed with EPERM: operation not permitted, mkdir '...\tbd-lockfile-siArjh\test.lock' at tests/lockfile.test.ts:78 (withLockfile src/utils/lockfile.ts:198). Same content passed Windows on the PR run and on the next main commit 7bafb254, so this is the same environmental flake, not caused by the docs PRs. Run: https://github.com/jlevy/tbd/actions/runs/29055804058/job/86246852126. The #140 hardening reduced but did not eliminate the race; see the options list in the description (skip-on-Windows vs proper-lockfile vs EPERM retry/backoff).
