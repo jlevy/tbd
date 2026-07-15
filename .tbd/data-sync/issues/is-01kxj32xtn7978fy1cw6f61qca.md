@@ -5,14 +5,14 @@ title: Reconcile legacy skill-guidance tracking and close delivered issues
 kind: task
 status: in_progress
 priority: 2
-version: 2
+version: 3
 labels:
   - project-hygiene
   - agent-skills
 dependencies: []
 parent_id: is-01kxj30jgtpk96nys50nr6peve
 created_at: 2026-07-15T05:13:11.252Z
-updated_at: 2026-07-15T05:59:29.364Z
+updated_at: 2026-07-15T06:04:28.973Z
 ---
 Clean up overlapping tracking after the implementation and validation work is complete.
 
@@ -26,4 +26,4 @@ Acceptance criteria:
 
 ## Notes
 
-Tracking cleanup is reconciled: June 3 and June 13 plans moved to done with final disposition; tbd-udka is superseded; tbd-230y is the explicit non-blocking future cosmetic migration; tbd-o2xt tracks the retired npm audit endpoint. Final GitHub #161/#190 closure remains merge-gated and will be linked by the PR.
+Tracking cleanup is reconciled: June 3 and June 13 plans moved to done with final disposition; tbd-udka is closed as superseded; tbd-230y is the explicit non-blocking future cosmetic migration; tbd-o2xt tracks the retired npm audit endpoint. PR https://github.com/jlevy/tbd/pull/191 carries merge-time closure for GitHub #161/#190, so this bead remains in progress only until merge confirms delivery.
