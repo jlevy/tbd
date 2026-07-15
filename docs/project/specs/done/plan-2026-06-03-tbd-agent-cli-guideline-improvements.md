@@ -9,7 +9,10 @@ author: Joshua Levy (github.com/jlevy) with LLM assistance
 
 **Author:** Joshua Levy
 
-**Status:** Draft
+**Status:** Completed—reconciled into the concise core and on-demand references for
+issue #190. The original vendor observations remain evidence, while the durable guidance
+avoids freezing vendor counts or promoting optional platform metadata to a portable
+requirement.
 
 > **tbd repo context (added on import).** This plan and its companion research doc were
 > authored in the `finterm-main` repo (where the three vendor bundles are installed) and
@@ -159,6 +162,29 @@ If we decide tbd’s own skill should demonstrate a newly recommended pattern (e
 against the tbd skill generator, not part of this guideline edit.
 
 ## Implementation Plan
+
+### Final Disposition
+
+The issue #190 rewrite incorporated the still-relevant findings as follows:
+
+- The core now requires activation boundaries, safety and escalation boundaries,
+  realistic prompt checks, narrow `allowed-tools`, published pins, and drift-tested
+  portable bundles.
+- `agent-skill-distribution` covers complete discovery directories, project/user scope,
+  copy/symlink trade-offs, double-pinned automation, package-runner permission risks,
+  and published-release fallback selection.
+- `agent-skill-bundle-publication` treats references, scripts, and assets as one logical
+  unit with ownership, forward-compatibility, failure, and stale-file tests.
+- `agent-platform-integration` covers optional evaluation fixtures, structured doctor
+  remedies, sandbox boundaries, handoff and verification, large-output materialization,
+  structured input, hooks, MCP trade-offs, and Codex metadata/plugins.
+- `agents/openai.yaml` remains optional, matching current Codex documentation; vendor
+  slot counts and changing directory matrices were deliberately replaced with stable
+  decision rules and links to current primary documentation.
+
+No untracked runtime change remains from this plan.
+Runtime behavior discovered during the issue #190 audit is tracked by the setup dry-run
+and doctor-drift beads under that epic.
 
 ### Phase 1: Revise the guideline
 

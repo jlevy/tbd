@@ -7,9 +7,9 @@ author: Joshua Levy (github.com/jlevy) with LLM assistance
 
 **Date:** 2026-06-13
 
-**Status:** Implemented—guideline edits applied and under review in
-[PR #175](https://github.com/jlevy/tbd/pull/175). The decisions below are settled (see
-the resolved Open Questions); this spec is a record, not an open proposal.
+**Status:** Completed—implemented in [PR #175](https://github.com/jlevy/tbd/pull/175)
+and reconciled with the concise core and on-demand references delivered for issue #190.
+The decisions below are settled; this spec is a historical record.
 
 ## Overview
 
