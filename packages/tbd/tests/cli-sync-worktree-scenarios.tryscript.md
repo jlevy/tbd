@@ -125,7 +125,7 @@ deleted
 # Test: Doctor detects worktree issue
 
 ```console
-$ tbd doctor 2>&1 | grep -E "(Worktree|prunable|missing)" || echo "worktree issue detected"
+$ tbd doctor 2>&1 | grep "Worktree" || echo "worktree issue detected"
 [..]
 ? 0
 ```
