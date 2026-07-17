@@ -14,6 +14,6 @@ description: >-
   code review, testing, TDD, test-driven, golden testing, snapshot testing, TypeScript, Python, Convex,
   monorepo, cleanup, dead code, refactor, handoff, research, architecture, labels, search, checkout library,
   source code review, or any workflow shortcut.
-allowed-tools: Bash(tbd:*), Read, Write
+allowed-tools: Bash(tbd:*) Read Write
 ---
 

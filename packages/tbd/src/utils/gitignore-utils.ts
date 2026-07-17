@@ -40,6 +40,7 @@ export async function ensureGitignorePatterns(
   gitignorePath: string,
   patterns: string[],
   header?: string,
+  options: { dryRun?: boolean } = {},
 ): Promise<{ added: string[]; skipped: string[]; created: boolean }> {
   // Read existing content or empty string
   let content = '';
@@ -114,8 +115,10 @@ export async function ensureGitignorePatterns(
   // Add only entries with new patterns
   newContent += linesToAppend.join('\n') + '\n';
 
-  // Atomic write
-  await writeFile(gitignorePath, newContent);
+  // A dry-run returns the same comparison result without materializing the plan.
+  if (!options.dryRun) {
+    await writeFile(gitignorePath, newContent);
+  }
 
   return { added, skipped, created };
 }

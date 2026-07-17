@@ -34,6 +34,16 @@ describe('integration file formats', () => {
       expect(frontmatter).toContain('name:');
       expect(frontmatter).toContain('description:');
     });
+
+    it('uses the canonical narrow allowed-tools form', async () => {
+      const headerPath = join(installDir, 'claude-header.md');
+      const content = await readFile(headerPath, 'utf-8');
+      const frontmatter = parseFrontmatter(content);
+
+      expect(frontmatter).toContain('allowed-tools: Bash(tbd:*) Read Write');
+      expect(frontmatter).not.toMatch(/allowed-tools:[^\n]*,/);
+      expect(frontmatter).not.toMatch(/Bash\((?:npx|uvx|pnpm):\*\)/);
+    });
   });
 
   describe('skill-baseline.md (shared skill content)', () => {
@@ -75,6 +85,7 @@ describe('integration file formats', () => {
       expect(frontmatter).not.toBeNull();
       expect(frontmatter).toContain('name:');
       expect(frontmatter).toContain('description:');
+      expect(frontmatter).toContain('allowed-tools: Bash(tbd:*) Read Write');
     });
   });
 });

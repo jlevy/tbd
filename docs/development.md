@@ -1,6 +1,6 @@
 # Development Guide
 
-This document covers development setup and workflows for `get-tbd` (the tbd CLI).
+Development setup and workflows for `get-tbd` (the tbd CLI).
 
 ## Prerequisites
 
@@ -151,7 +151,7 @@ git commit --no-verify
 git push --no-verify
 ```
 
-## Dependency Hygiene: the 14-day Package-Age Rule
+## Dependency Hygiene: The 14-Day Package-Age Rule
 
 This repo enforces the **14-day package-age rule** documented in
 [`packages/tbd/docs/guidelines/pnpm-monorepo-patterns.md`](../packages/tbd/docs/guidelines/pnpm-monorepo-patterns.md#supply-chain-mitigation):
@@ -232,9 +232,12 @@ publishes `get-tbd` to npm, and creates a GitHub Release whose body is the match
 
 ### Release process
 
-1. From clean `main`, review `git log <last-tag>..HEAD` and choose the version (a `feat`
-   → minor, `fix`/`chore` → patch, breaking → major; note for `0.x` a semver minor is
-   `0.MINOR.0`).
+1. From clean `main`, review `git log <last-tag>..HEAD` and choose the version by the
+   substance of the user-facing change, not the commit-type label: a new CLI capability
+   → minor; fixes, docs, and guidance-content changes → patch (even when a commit is
+   labeled `feat`); breaking → major.
+   Note for `0.x` a semver minor is `0.MINOR.0`. See [publishing.md](publishing.md)
+   §Step 2 for details.
 2. On a `claude/release-vX.Y.Z` branch: bump `version` in `packages/tbd/package.json`
    and prepend a `## X.Y.Z` section to `packages/tbd/CHANGELOG.md` with notes written
    per

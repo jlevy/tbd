@@ -130,7 +130,7 @@ Tests in the project are broken down into three types:
 3. Golden—tests that check behavior in a fine-grained way across known “golden”
    scenarios
 
-   - These are an essential type of test that is often neglected but very powerful!
+   - These are an essential type of test that is often neglected but powerful!
      Use whenever possible.
 
    - Work by checking input, output, and intermediate states of an execution

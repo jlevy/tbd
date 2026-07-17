@@ -96,6 +96,8 @@ export interface DocMatch {
 export interface DocCacheLoadOptions {
   /** If true, suppress auto-sync output (default: false) */
   quiet?: boolean;
+  /** If true, load the existing cache without refreshing it (default: false). */
+  skipAutoSync?: boolean;
 }
 
 /**
@@ -142,8 +144,10 @@ export class DocCache {
   async load(options?: DocCacheLoadOptions): Promise<void> {
     if (this.loaded) return;
 
-    // Check for auto-sync before loading
-    await this.checkAutoSync(options?.quiet ?? false);
+    // Preview and diagnostic callers need a strictly read-only cache load.
+    if (!options?.skipAutoSync) {
+      await this.checkAutoSync(options?.quiet ?? false);
+    }
 
     for (const relativePath of this.paths) {
       const dirPath = join(this.baseDir, relativePath);

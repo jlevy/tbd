@@ -170,7 +170,7 @@ You just talk naturally.
   branch. Your code history stays clean—no bead churn polluting your logs.
 - **Agent friendly:** JSON output, simple commands that agents understand.
   Installs itself as a skill in Claude Code.
-- **Markdown + YAML frontmatter:** One file per bead, human-readable and editable.
+- **Markdown and YAML frontmatter:** One file per bead, human-readable and editable.
   This eliminates most merge conflicts.
 - **Beads alternative:** Largely compatible with `bd` at the CLI level, but with a
   simpler architecture: no JSONL merge conflicts, no daemon modifying your working tree,
@@ -184,13 +184,13 @@ You just talk naturally.
 - **Templates:** Document templates for planning specs, research briefs, architecture
   docs.
 
-## Why is This a Good Idea?
+## Why Is This a Good Idea?
 
 Engineers are still adjusting to how fast things are changing.
 But the reality is that most of the time now, if you’re doing it right, *agents should
 write 100% of your code*.
 
-But anyone who’s coded a lot with agents knows they can be very bad or very good,
+But anyone who’s coded a lot with agents knows they can be terrible or excellent,
 depending on the situation.
 Without structure and knowledge, the results are often slop or have critical flaws or
 they don’t scale to large projects.

@@ -94,14 +94,14 @@ STATISTICS
   Total:       2
 
 INTEGRATIONS
-⚠ Portable Agent Skill - not installed (.agents/skills/tbd/SKILL.md)
-    Run: tbd setup --auto
-⚠ Claude Code skill - not installed (.claude/skills/tbd/SKILL.md)
-    Run: tbd setup --auto
-⚠ AGENTS.md - not installed (AGENTS.md)
-    Run: tbd setup --auto
-⚠ Codex hooks - not installed (.codex/hooks.json)
-    Run: tbd setup --auto
+⚠ Portable Agent Skill - missing (.agents/skills/tbd/SKILL.md)
+    Run: tbd setup --auto --surfaces=portable
+⚠ Claude Code skill - missing (.claude/skills/tbd/SKILL.md)
+    Run: tbd setup --auto --surfaces=claude
+⚠ AGENTS.md - missing (AGENTS.md)
+    Run: tbd setup --auto --surfaces=agents-md
+⚠ Codex hooks - missing (.codex/hooks.json)
+    Run: tbd setup --auto --surfaces=codex
 
 HEALTH CHECKS
 ✓ Git version - [GIT_VERSION]

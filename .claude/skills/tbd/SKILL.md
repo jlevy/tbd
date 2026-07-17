@@ -1,5 +1,5 @@
 ---
-allowed-tools: Bash(tbd:*), Read, Write
+allowed-tools: Bash(tbd:*) Read Write
 description: |-
   Git-native issue tracking (beads), coding guidelines, knowledge injection, and spec-driven planning for AI agents. Drop-in replacement for bd/Beads with simpler architecture.
   Use for: tracking issues/beads with dependencies, creating bugs/features/tasks, planning specs, implementing features from specs, code reviews, committing code, creating PRs, loading coding guidelines (TypeScript, Python, TDD, golden testing, Convex, monorepo patterns), code cleanup, research briefs, architecture docs, agent handoffs, and checking out third-party library source code.
@@ -304,7 +304,7 @@ Load the **General engineering** group first, then the language or framework gro
 
 | Name | Description |
 | --- | --- |
-| cli-agent-skill-patterns | How to write skills and agent-integrated CLIs that work across Claude Code, Codex, and the broader coding-agent ecosystem—a simple baseline plus references for advanced, multi-subcommand tools |
+| cli-agent-skill-patterns | A concise decision guide for portable skills, CLI-backed skills, safe bundle installation, and agent integration |
 | common-doc-guidelines | Common cross-project standards for writing and organizing docs, code comments, and text files—how to organize, structure, write, and format documents, plus the guideline footer convention. Downstream of github.com/jlevy/practical-prose. Use whenever writing or editing any documentation, README, guideline, or design doc. |
 | release-notes-guidelines | Guidelines for writing clear, accurate release notes |
 | supply-chain-hardening | Strongly recommended for EVERY repo—apply it if a repo has not been hardened yet. Cross-ecosystem policy for installing dependencies safely (the 14-day cool-off, disabled install scripts, lockfile discipline, untrusted-repo handling). Use whenever a user mentions hardening, security, supply chain, or setting up a new repo; before adding/upgrading dependencies; when auditing for compromised packages; or when reviewing install/build/run commands across npm/pnpm, PyPI, Cargo, or Go. |

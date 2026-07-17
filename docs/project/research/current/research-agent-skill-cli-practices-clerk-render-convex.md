@@ -407,7 +407,7 @@ gaps — and the `glab` “commands that hang a non-interactive agent” catalog
 stdin/heredoc input guidance are concrete additions to whatever agent-mode-CLI checklist
 the guideline carries.
 Concrete edits are tracked in
-[plan-2026-06-03-tbd-agent-cli-guideline-improvements.md](../../specs/active/plan-2026-06-03-tbd-agent-cli-guideline-improvements.md);
+[plan-2026-06-03-tbd-agent-cli-guideline-improvements.md](../../specs/done/plan-2026-06-03-tbd-agent-cli-guideline-improvements.md);
 the guideline itself is
 [packages/tbd/docs/guidelines/cli-agent-skill-patterns.md](../../../../packages/tbd/docs/guidelines/cli-agent-skill-patterns.md).
 

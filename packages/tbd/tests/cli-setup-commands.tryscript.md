@@ -94,7 +94,7 @@ $ tbd init --prefix=test --quiet
 # Test: Doctor warns about missing skill
 
 ```console
-$ tbd doctor 2>&1 | grep -c "Claude Code skill - not installed"
+$ tbd doctor 2>&1 | grep -c "Claude Code skill - missing"
 1
 ? 0
 ```
@@ -108,11 +108,11 @@ $ mkdir -p .claude/skills/tbd && echo "---" > .claude/skills/tbd/SKILL.md
 ? 0
 ```
 
-# Test: Doctor shows skill file OK after creation
+# Test: Doctor preserves and reports a user-owned skill file
 
 ```console
 $ tbd doctor 2>/dev/null | grep "Claude Code skill"
-✓ Claude Code skill (.claude/skills/tbd/SKILL.md)
+⚠ Claude Code skill - user-owned file (not managed by tbd) (.claude/skills/tbd/SKILL.md)
 ? 0
 ```
 
@@ -126,7 +126,7 @@ $ rm -rf .claude/skills/tbd
 # Test: Doctor warns again after removal
 
 ```console
-$ tbd doctor 2>&1 | grep -c "Claude Code skill - not installed"
+$ tbd doctor 2>&1 | grep -c "Claude Code skill - missing"
 1
 ? 0
 ```

@@ -5,10 +5,10 @@ category: electron
 ---
 # Electron App Development Patterns
 
-This guideline covers modern Electron app development, comparing package manager
-ecosystems (npm, pnpm, Bun), alternative frameworks (Electrobun, Tauri), and security
-best practices. Use this when building desktop applications with Electron or evaluating
-lightweight alternatives.
+Modern Electron app development: package manager ecosystems (npm, pnpm, Bun),
+alternative frameworks (Electrobun, Tauri), and security best practices.
+Use this when building desktop applications with Electron or evaluating lightweight
+alternatives.
 
 ## Document Structure
 

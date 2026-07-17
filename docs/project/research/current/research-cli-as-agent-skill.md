@@ -1,6 +1,12 @@
 # Research Brief: CLI as Agent Skill - Best Practices for TypeScript CLIs in Claude Code
 
-**Last Updated**: 2026-05-24 (addendum 2026-06-13)
+**Last Updated**: 2026-05-24 (addenda 2026-06-13, 2026-07-17)
+
+> **2026-07-17 addendum.** The guideline described below was rewritten for issue #190
+> (PR #191) into a concise `cli-agent-skill-patterns` core plus three on-demand
+> references (`agent-skill-bundle-publication`, `agent-skill-distribution`,
+> `agent-platform-integration`). Read those for current guidance; this brief remains the
+> underlying evidence base.
 
 > **2026-06-13 addendum.** This brief is foundational but now lags the shipped guideline
 > (`cli-agent-skill-patterns`), which has since added the L0–L3 integration ladder,
@@ -10,7 +16,7 @@
 > native per-agent skill dirs), see
 > [research-2026-06-13-skill-distribution-landscape.md](./research-2026-06-13-skill-distribution-landscape.md)
 > and
-> [plan-2026-06-13-cli-skill-guideline-pprose-gaps.md](../../specs/active/plan-2026-06-13-cli-skill-guideline-pprose-gaps.md).
+> [plan-2026-06-13-cli-skill-guideline-pprose-gaps.md](../../specs/done/plan-2026-06-13-cli-skill-guideline-pprose-gaps.md).
 
 **Related**:
 

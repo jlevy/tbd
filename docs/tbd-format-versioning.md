@@ -5,11 +5,10 @@ author: Joshua Levy (github.com/jlevy) with LLM assistance
 ---
 # tbd On-Disk Format Versioning
 
-This is an internal contributor guide for the `get-tbd` codebase, not a guideline
-shipped to tbd users.
-It documents how to evolve tbd’s own on-disk format (`fNN` IDs in `.tbd/config.yml` and
-`$GIT_COMMON_DIR/tbd/layout.yml`) without breaking older clients or corrupting older
-repos.
+An internal contributor guide for the `get-tbd` codebase, not a guideline shipped to tbd
+users. It documents how to evolve tbd’s own on-disk format (`fNN` IDs in
+`.tbd/config.yml` and `$GIT_COMMON_DIR/tbd/layout.yml`) without breaking older clients
+or corrupting older repos.
 
 tbd uses two synchronized format markers to gate compatibility between clients of
 different versions and a repository’s on-disk state:
@@ -121,3 +120,7 @@ Implementation reference: the `f03` → `f04` migration that introduced the shar
 common-dir sync worktree
 ([docs/project/specs/active/plan-2026-05-17-shared-common-dir-sync-worktree.md](project/specs/active/plan-2026-05-17-shared-common-dir-sync-worktree.md),
 §Format And Layout Versioning, §Migration And Compatibility, §Post-Review Hardening).
+
+<!-- This document follows common-doc-guidelines.md.
+See github.com/jlevy/practical-prose and review guidelines before editing.
+-->

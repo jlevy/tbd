@@ -24,7 +24,7 @@ Manual QA playbook for [brief description of what is being tested].
 
 * * *
 
-## Current Status (last update YYYY-MM-DD)
+## Current Status (Last Update YYYY-MM-DD)
 
 | Phase | Status | Notes |
 | --- | --- | --- |

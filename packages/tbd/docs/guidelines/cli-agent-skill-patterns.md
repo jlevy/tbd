@@ -1,1593 +1,370 @@
 ---
 title: Agent Skills and CLI Integration Patterns
-description: How to write skills and agent-integrated CLIs that work across Claude Code, Codex, and the broader coding-agent ecosystem—a simple baseline plus references for advanced, multi-subcommand tools
+description: A concise decision guide for portable skills, CLI-backed skills, safe bundle installation, and agent integration
 author: Joshua Levy (github.com/jlevy) with LLM assistance
 category: general
 ---
 # Agent Skills and CLI Integration Patterns
 
-**Last Updated**: 2026-06-13 (issue #173: named the L2b variant—an L2 self-installer
-that also writes a managed `AGENTS.md` block, `pprose` reference—reframed
-format-versioning as artifact-driven rather than L3-only, added the §6.7 generator-side
-dev-build pin rule, dropped the redundant `surface=` tag from the marker examples, added
-multi-block collapse in §2, and refreshed §6.6 for Cursor’s native `.agents/skills/`
-scanning and the spread of native per-agent skill dirs.
-Earlier 2026-06-04: §4.6 adds the “attention routing” framing—the slopdocs vs.
-hiding-details failure modes—as a contained section, and the §3.1 mechanism callback
-points at it. Earlier 2026-06-02: §6.8 now covers Anthropic’s official and community
-plugin marketplaces—the reviewed, gated submission channel—and the `/plugin` install
-preview; verified against code.claude.com docs.
-Earlier 2026-05-31: research verified against primary sources, added the L0–L3
-integration ladder and §6.6.2 project-vs-global scope mechanics, informed by `qmd`)
+Use this guideline when a capability should be discoverable and usable by coding agents.
+It covers the portable baseline and the decisions that determine how far to go.
+Most capabilities need one small skill, not an integration platform.
 
-This guideline covers how to package a capability so AI coding agents can discover and
-use it well—from a single-file skill up to a full CLI with many subcommands exposed as a
-skill. It is deliberately **not dogmatic**: most needs are met by a tiny `SKILL.md`, and
-the heavier patterns are opt-in for tools that genuinely need them.
+The [Agent Skills specification](https://agentskills.io/specification) defines a skill
+as a directory containing `SKILL.md` and optional `scripts/`, `references/`, and
+`assets/`. The same basic bundle can work across agents that implement the standard.
 
-The patterns draw on the current (May 2026) state of the ecosystem and on `tbd`’s own
-implementation, which serves as a reference for the advanced “CLI-as-skill” approach.
+## Front-Load Orientation; Retrieve Procedures on Demand
 
-**When to use this guideline**: when building or packaging anything an AI coding agent
-should use—a prompt-only skill, a CLI tool, an MCP server, or a multi-agent
-integration—and you want it to work across Claude Code, Codex, Cursor, Gemini CLI, and
-others without rewriting it per agent.
+The always-loaded layer should be an **orientation map**, not a manual.
+Keep enough stable information resident for the agent to recognize the capability,
+decide when it applies, and locate authoritative instructions.
+Retrieve commands, examples, and edge cases only when the current action needs them.
 
-Skills and project instructions are now **open standards**, not per-vendor formats.
-`AGENTS.md` is governed under the Linux Foundation’s **Agentic AI Foundation (AAIF)**;
-the **Agent Skills (`SKILL.md`)** format is an open standard published at
-[agentskills.io](https://agentskills.io) and implemented by 20+ agents.
-Write to the standard once; most agents pick it up for free.
+This design maximizes the **relevance density** of the working context.
+It matters even when context space is plentiful: irrelevant procedure competes with the
+information the agent is using to make the current decision.
 
-* * *
+Two failures bound the design:
 
-## 0. Start Here—The Simple Baseline
+- **Awareness debt**: the map omits a relevant capability, so the agent acts without
+  knowing that better instructions or tooling exist
+- **Context dilution**: the map embeds procedures that are irrelevant to the current
+  action, weakening the signal the agent needs
 
-Read this section first.
-For the large majority of cases, you are done after it.
+For each line, ask:
 
-### 0.1 If you just want a skill (prompt-only capability)
+1. Does the agent need this to recognize the capability or choose the next route?
+   Keep it in the resident layer.
+2. Does the agent need it only while performing a particular action?
+   Put it behind a direct route and load it at that action.
 
-Create one folder with one file:
+This is why a skill points while the CLI documents, and why a concise `AGENTS.md` block
+routes to a skill or command instead of restating it.
+Maintenance and reduced duplication are useful consequences, but better decisions are
+the primary goal.
 
-```
+## Choose the Lowest Useful Rung
+
+Start at L0 and add a rung only when a concrete requirement demands it.
+
+| Rung | Capability | Add it when |
+| --- | --- | --- |
+| L0 | Prompt-only skill | Instructions and bundled resources are the complete capability |
+| L1 | CLI-backed skill | Deterministic execution needs an existing or pinned CLI |
+| L2 | Self-installing CLI | The CLI must install or update its own skill bundle |
+| L2b | L2 plus managed project instructions | The tool also needs a compact, durable `AGENTS.md` route |
+| L3 | Agent integration platform | Many workflows require setup, migrations, hooks, and on-demand knowledge injection |
+
+Examples:
+
+- L0: a review method, writing standard, artifact template, or domain knowledge pack
+- L1: a formatter invoked locally or through a pinned zero-install runner
+- L2: a CLI that installs the same complete skill bundle at project or user scope
+- L2b: [Flowmark](https://github.com/jlevy/flowmark) and
+  [Practical Prose](https://github.com/jlevy/practical-prose)
+- L3: [tbd](https://github.com/jlevy/tbd)
+
+Do not add separate skills for each operation of one coherent tool.
+Prefer one focused skill with direct routes to operation-specific help or references.
+
+## Write the Portable Skill First
+
+### Directory Shape
+
+A minimal skill is one folder and one file:
+
+```text
 my-skill/
 └── SKILL.md
 ```
 
-```markdown
----
-name: my-skill
-description: >-
-  Analyze Excel spreadsheets, build pivot tables, and export results.
-  Use when the user mentions .xlsx files, tabular data, or spreadsheets.
----
-# My Skill
-
-Step-by-step instructions the agent should follow...
-```
-
-That is the entire artifact—no build step, no runtime, no dependencies.
-This is the **Agent Skills open standard** ([agentskills.io](https://agentskills.io)),
-and the same folder works in Claude Code, Codex CLI, Gemini CLI, GitHub Copilot, Cursor,
-Windsurf, Cline, pi, and 20+ other tools.
-Garry Tan’s **gstack** (~97K stars) is 23 skills, each a plain `SKILL.md` and nothing
-more—proof the baseline scales without custom tooling.
-
-**The only two things that matter for a basic skill:**
-
-1. A **`description`** that says *what it does* AND *when to use it* (this drives
-   activation—see §4.2).
-2. A **body under ~500 lines** of clear, imperative instructions.
-
-**Install it** by copying into a known directory, or with the cross-agent package
-manager:
-
-```bash
-npx skills add owner/repo       # Vercel's skills.sh ecosystem (symlinks, 50+ agents)
-# or commit it to a discovery directory:
-#   .agents/skills/my-skill/SKILL.md   (cross-agent: Codex, pi, others)
-#   .claude/skills/my-skill/SKILL.md   (Claude Code, project)
-#   ~/.claude/skills/my-skill/SKILL.md (Claude Code, personal)
-```
-
-The `SKILL.md` folder is the portable **authoring** format; some agents add their own
-discovery paths (Codex/pi also read `.agents/skills/`) and their own **distribution**
-layers on top (Claude Code plugins, Codex plugins)—see §5.
-
-### 0.2 If your capability is a CLI
-
-Most agents already know how to run CLIs from their training data, and benchmarks show a
-CLI is far cheaper and more reliable than an MCP server for tools that have one (§7).
-So:
-
-1. Make the CLI **agent-friendly**: a clear `--help`, a `--json` flag on every command,
-   actionable errors, and idempotent, non-interactive operation (`--yes`/`--auto`).
-2. Ship a **`SKILL.md`** (or an `AGENTS.md` snippet) that tells the agent the tool
-   exists, what it’s for, and the handful of commands to run.
-   Reference the CLI via a **pinned zero-install runner** (`npx`/`uvx <pkg>@<version>`)
-   so it works even in ephemeral/cloud environments—global install vs.
-   zero-install is its own design dimension (§6.7).
-3. That’s the baseline.
-   Stop here unless you have many subcommands or need cross-session state, structured
-   auth, or background services—then see §6 (CLI-as-skill) and §7 (MCP).
-
-> **The skill points; the CLI documents.** A CLI’s `--help` (and per-command
-> `mycli <cmd> --help`) is the source of truth for flags, arguments, and exact command
-> sequences. The skill’s job is to name each capability and the command that reaches it,
-> then let the agent open the CLI’s own help for the details.
-> A skill carries the focused context an agent needs to judge that the tool is relevant;
-> copying its help text, flag tables, and command recipes wholesale is the most common
-> way a CLI-backed skill goes wrong.
-> See §3.1 for why and §6.5 for how to avoid it.
-
-### 0.3 The one-paragraph decision guide
-
-- **Prompt/instructions only** → ship a `SKILL.md`. (§3, §4)
-- **Project-wide conventions** (build/test/style) → add an `AGENTS.md`. (§2)
-- **You have a CLI** → `SKILL.md` and an agent-friendly `--json` CLI. (§0.2, §6)
-- **Many subcommands / a knowledge library** → CLI-as-skill meta-pattern.
-  (§6)
-- **A service with no CLI, or you need OAuth / multi-tenant / audit** → MCP server.
-  (§7)
-- **Maximum reach across many agents** → layer them: AGENTS.md, SKILL.md, CLI, and MCP.
-  (§1)
-- **Self-installs into agents?** → climb the integration ladder (§6.0): L0 pure skill →
-  L1 skill and pinned `npx`/`uvx` → L2 self-install into skill dirs (`qmd`; its **L2b**
-  variant also writes a managed `AGENTS.md` block, `pprose`) → L3 full platform with
-  hooks, `prime`/`setup`, and format-versioned migration (`tbd`). Most tools are L1;
-  stop as low as you can.
-
-Everything below is reference material.
-You do not need most of it for most tools.
-
-* * *
-
-## 1. The Layered Model—“Write Once, Integrate Many”
-
-There is no single integration surface that every agent uses, but the surfaces compose
-cleanly.
-Pick the lowest layer that satisfies your need; add higher layers only for reach
-or capability.
-
-| Layer | Artifact | What it’s for | Reach (May 2026) |
-| --- | --- | --- | --- |
-| 1. Project baseline | `AGENTS.md` | Build/test/style/conventions for *this repo* | Codex, Cursor, Copilot, Gemini CLI, Windsurf, Amp, Jules, Goose, Factory, Aider, opencode, pi |
-| 2. Portable capability | `SKILL.md` (Agent Skills) | A reusable, on-demand capability | Claude Code, Codex, Gemini CLI, Copilot (VS Code), Cursor, Windsurf, Cline, pi, 20+ |
-| 3. Execution | A CLI | Efficient, composable tool the agent invokes via shell | Every agent with a shell tool |
-| 4. Structured/remote | MCP server | Services without a CLI; OAuth, multi-tenant, audit | Every major agent except Aider (native); pi via extension |
-| 5. Per-agent polish | `.cursor/rules/*.mdc`, plugin packaging, ACP, etc. | Glob-scoped activation, enterprise distribution, editor discovery | Per-agent |
-
-**Recommended default for a tool author who wants broad reach**: ship an `AGENTS.md`
-snippet (universal baseline), a `SKILL.md` (portable capability), and an agent-friendly
-CLI. Add an MCP server only when a CLI can’t serve the need.
-Add agent-specific files last, and only where they buy something.
-
-* * *
-
-## 2. AGENTS.md—The Universal Project Baseline
-
-`AGENTS.md` is a plain-Markdown file at the repo root that tells any agent how your
-project works: build commands, test commands, conventions, gotchas.
-It is **not** capability-specific—think of it as the README written for agents.
-
-**Governance and reach**: Originated by OpenAI (Aug 2025); since Dec 2025 stewarded by
-the **Agentic AI Foundation under the Linux Foundation** (co-founded by OpenAI,
-Anthropic, and Block; ~180 member orgs).
-Used by **60,000+** open-source projects.
-Canonical spec: [agents.md](https://agents.md).
-
-**Discovery and precedence** vary by agent—know your targets:
-
-- **Codex**: reads global `~/.codex/AGENTS.md` (or `AGENTS.override.md`), then walks
-  from repo root down to the working directory, concatenating one file per directory
-  (root→leaf, deeper overrides shallower).
-  Combined content is capped at `project_doc_max_bytes` (**default 32 KiB**). It does
-  **not** lazy-load nested files when reading child directories (open request).
-- **Cursor** (since v1.6), **Copilot** (since Aug 2025), **Windsurf**, **Gemini CLI**
-  (alongside `GEMINI.md`), **Amp** (falls back to `CLAUDE.md`), **Jules**, **Goose**
-  (hierarchical scoping), **Factory**, **opencode**, **pi**: all read `AGENTS.md`
-  natively.
-- **Claude Code**: as of May 2026 does **not** auto-load `AGENTS.md`; it uses
-  `CLAUDE.md`. A common pattern is to symlink `CLAUDE.md → AGENTS.md`, or to maintain
-  both. (`tbd` writes a marked section into `AGENTS.md` and lets users keep a separate
-  `CLAUDE.md`.)
-- **Aider**: uses `CONVENTIONS.md` but recommends `AGENTS.md` for interoperability.
-
-**Author tip**: keep `AGENTS.md` concise (it loads into every turn and competes for
-context).
-Put deep, on-demand material in skills or files the agent can open when needed.
-`AGENTS.override.md` lets a developer override the committed file locally without
-editing it. If a CLI writes a managed `AGENTS.md` block, keep that block as a compact
-bootstrap: name the tool, state the always-on operating rule, and point to commands such
-as `mycli prime`, `mycli skill`, `mycli shortcut --list`, and `mycli guidelines --list`.
-Do not paste the full skill body or generated resource directories into `AGENTS.md`;
-prefer less than 80-150 lines, and shorter is better.
-If `AGENTS.md` already exists without your markers, preserve the file and append a
-compact marked block instead of overwriting user content.
-Version the managed block by carrying the format on the **begin marker line itself** (an
-`fNN` string, like a config-format version) so future setup runs can upgrade old
-generated content without touching user-authored text:
-
-```markdown
-<!-- BEGIN MYCLI INTEGRATION format=f02 -->
-## mycli
-
-- Run `mycli prime` for current project context.
-- Run `mycli skill` for complete skill instructions.
-
-<!-- END MYCLI INTEGRATION -->
-```
-
-Keep the begin/end marker *names* stable (`<!-- BEGIN MYCLI INTEGRATION`)—match on that
-prefix so detection finds both legacy blocks (no `format=`, treated as `f01`) and
-current ones. Only the `format=fNN` value changes when the block’s shape changes.
-
-The marker carries only `format=fNN`. An artifact’s type is clear from its **location**
-(a `SKILL.md` under a skill dir, or this BEGIN/END block in `AGENTS.md`), so no in-file
-`surface=` tag is needed, and the portable and Claude `SKILL.md` copies stay
-byte-identical.
-On install, if several managed blocks have accumulated (for example after
-a marker-prefix rename across versions), collapse them: replace every matching block
-with one current block at the position of the first, and preserve everything outside the
-markers.
-Collapse only finds blocks whose begin-prefix the installer recognizes, so match
-a small set of known legacy prefixes, not just the current one.
-
-* * *
-
-## 3. The Agent Skills Standard (SKILL.md)
-
-**What it is**: a folder with a `SKILL.md` file (YAML frontmatter and a Markdown body),
-plus optional supporting files.
-Created by Anthropic (Dec 2025), published under Apache 2.0 at
-[agentskills.io](https://agentskills.io).
-280,000+ public skills exist as of early 2026.
-
-**Standard frontmatter** (portable across agents): `name`, `description`. Optional but
-widely recognized: `license`, `compatibility`, `metadata`, `allowed-tools`. Agents
-silently ignore frontmatter keys they don’t understand, which is what makes a single
-`SKILL.md` portable.
-
-### 3.1 Progressive disclosure (the core design principle)
-
-Skills are loaded in three levels so they cost almost nothing until used:
-
-| Level | Content | Loaded | Budget |
-| --- | --- | --- | --- |
-| 1. Discovery | `name` + `description` only | Always (in the skill listing) | ~100 tokens |
-| 2. Activation | Full `SKILL.md` body | When invoked (by user or model) | keep < ~5,000 tokens / 500 lines |
-| 3. Execution | Supporting files, scripts, references | On demand, by the model reading the filesystem | unbounded |
-
-**Constraints that matter**: keep the body **under 500 lines**; keep reference files
-**one level deep** from `SKILL.md` (avoid `SKILL.md → a.md → b.md` chains); put bulky
-material (schemas, examples, scripts) in supporting files.
-Scripts execute *outside* the context window—only their output costs tokens, which is
-why bundling a script can be far cheaper than inlining instructions.
-
-**For a CLI-backed skill, the CLI itself is the Level-3 layer.** Treat `mycli --help`,
-`mycli <command> --help`, and the tool’s informational subcommands (§6.1) as the
-on-demand disclosure tier, the role supporting files play for a prompt-only skill.
-The body (Level 2) should route to them, not transcribe them.
-Inlining a command’s flags, arguments, or step-by-step usage pulls Level-3 detail up
-into Level 2, so it loads on every activation and goes stale whenever the CLI changes.
-The body names the capability and the command; the agent runs that command’s `--help` or
-`--list` when it needs the mechanics.
-This is progressive disclosure applied to a CLI: the tool documents itself, and the
-skill stays a thin pointer to it.
-This is *attention routing* (§4.6) in mechanism form: each level keeps the agent aware
-that more detail exists and routes to it, without pulling the detail itself up into
-context before it is needed.
-
-### 3.2 Bundled scripts and resources
-
-A skill folder can ship executable helpers:
-
-```
-my-skill/
-├── SKILL.md
-├── reference.md          # loaded only when the body points to it
-├── scripts/
-│   └── transform.py      # run by the agent; only stdout enters context
-└── assets/
-    └── template.xlsx
-```
-
-In Claude Code, `${CLAUDE_SKILL_DIR}` resolves to the skill’s directory for portable
-script references. Anthropic’s own document skills (docx/pdf/pptx/xlsx) and the
-`skill-creator` skill are good worked examples of this layout.
-
-* * *
-
-## 4. Writing a Great SKILL.md
-
-### 4.1 Frontmatter: standard vs. Claude Code extensions
-
-Only `name` and `description` are required by the open standard.
-Claude Code recognizes a larger set (other agents ignore the extras):
-
-| Field | Standard? | Notes |
-| --- | --- | --- |
-| `name` | ✓ | ≤ 64 chars; lowercase, digits, hyphens; defaults to directory name |
-| `description` | ✓ | ≤ 1,024 chars in the field; see §4.2 |
-| `license`, `compatibility`, `metadata` | ✓ (optional) | Portability/metadata |
-| `allowed-tools` | ✓ (optional) | Pre-grant tools, e.g. `Bash(mycli:*), Read, Write` |
-| `when_to_use` | Claude Code | Appended to `description` in the listing (shares the cap) |
-| `argument-hint`, `arguments` | Claude Code | Autocomplete + `$name`/`$ARGUMENTS` substitution |
-| `disable-model-invocation` | Claude Code | Skill won’t auto-trigger; user/explicit only |
-| `user-invocable` | Claude Code | `false` = background knowledge, hidden from `/` menu |
-| `model`, `effort` | Claude Code | Override model / reasoning effort for the skill’s turn |
-| `context: fork`, `agent` | Claude Code | Run the skill in an isolated subagent |
-| `paths` | Claude Code | Glob patterns that gate auto-activation to matching files |
-| `hooks`, `shell` | Claude Code | Skill-scoped lifecycle hooks; `bash`/`powershell` |
-
-Keep your committed `SKILL.md` to the **standard fields plus `allowed-tools`** if you
-want maximum portability; add Claude-specific fields when you’re targeting Claude Code
-specifically.
-
-### 4.2 Description optimization (this is what makes skills activate)
-
-Activation is **pure LLM reasoning**—the model reads every installed skill’s `name` +
-`description` and decides what to invoke.
-There is no keyword matcher or embedding step.
-So the description is the single highest-leverage thing you write.
-
-**The two-part rule**—every description answers:
-
-1. **What does it do?** (capabilities)
-2. **When should it be used?** (explicit triggers, in the user’s words)
-
-```yaml
-# Anti-pattern
-description: Helps with documents
-
-# Preferred
-description: >-
-  Analyze Excel spreadsheets, create pivot tables, and export data.
-  Use when analyzing .xlsx files, working with tabular data, or when the
-  user mentions spreadsheets or Excel.
-```
-
-**Writing rules**: third person ("Processes files," not “I can help you”); front-load
-the most important trigger keywords in the first ~50 characters (descriptions can be
-truncated in large collections); state both capability and trigger.
-
-**Activation reliability** (community 650-trial sandboxed eval—directional, not
-official): vague descriptions ~20% → optimized “Use when…” descriptions ~50% → adding
-concrete examples ~72–90%. Two distinct failure modes to design against: *activation
-failure* (never invoked) and *execution failure* (invoked but steps skipped—fix with
-clearer, checklist-style instructions).
-
-### 4.3 The description budget (changed in 2026—verify against your target)
-
-Earlier guidance cited a flat ~15K-character budget.
-**Claude Code’s current model is different**:
-
-- The skill listing gets a budget of **~1% of the model’s context window** by default
-  (`skillListingBudgetFraction`, default `0.01`). When it overflows, the
-  least-recently-invoked skills lose their descriptions first.
-- Per-skill listing text (`description` and `when_to_use`) is truncated at **1,536
-  chars** (`maxSkillDescriptionChars`).
-- `SLASH_COMMAND_TOOL_CHAR_BUDGET` overrides the fraction with a fixed character count.
-- `skillOverrides` can set any skill to `on` / `name-only` / `user-invocable-only` /
-  `off` without editing the file; `/doctor` reports overflow.
-
-**Implication for tools that install many skills**: don’t. Use the **meta-skill
-pattern** (§6.2)—one skill that exposes N resources via CLI subcommands consumes a
-single listing slot instead of N. This is the strongest architectural reason to prefer
-CLI-as-skill once you have more than a handful of capabilities.
-
-### 4.4 Test the skill before publishing
-
-Because activation is probabilistic (§4.2) and the body is executable influence, test
-it:
-
-- **Positive activation**: a few realistic prompts that *should* trigger the skill—does
-  the agent invoke it?
-- **Negative activation**: nearby prompts that should *not* trigger it—no false fires?
-- **Explicit invocation**: `/skill-name` (or the agent equivalent) loads and runs
-  cleanly.
-- **Sandbox / write-denial**: the skill (and any bundled script) degrades gracefully
-  when the agent runs read-only or without network (§5, Codex/Claude Code sandboxes).
-- **CI validation**: lint the frontmatter (required `name`/`description`, length caps)
-  and check that every referenced supporting file and link resolves.
-  For a CLI-as-skill, also run every `cli guidelines/shortcut/<name>` reference and
-  assert it exists.
-
-### 4.5 Keep portable; version deliberately
-
-- **Portability**: keep the committed `SKILL.md` to the standard fields (plus
-  `allowed-tools`). Put vendor-specific behavior behind clearly labeled sections or
-  generated per-agent variants rather than non-standard frontmatter that other agents
-  silently drop.
-- **Versioning**: for packaged skills/plugins, use semantic versions, keep a changelog,
-  and state compatibility (`compatibility` field / a “requires” note).
-  Pin consumers to a commit or version, not a moving tag.
-- **Deprecation**: when removing or renaming a skill, leave a deprecation window with a
-  pointer to the replacement; don’t silently delete an activation trigger users rely on.
-
-### 4.6 Attention routing—the idea behind this guide
-
-Everything above is in service of one idea.
-Route the agent’s attention through a pyramid of pointers: surface enough context around
-each pointer to show what is relevant, pull detail up only where it helps, and keep the
-upper levels lean.
-The judgment at every step is **how much to copy into the skill versus
-leave behind a link to the CLI**—which is why rules like **route, don’t restate** (§6.5)
-and **the skill points; the CLI documents** (§0.2) exist.
-There are two opposite failure modes:
-
-- **Slopdocs** (*copying too much, or unthinkingly*)—help text, flag tables, and recipes
-  copied into the skill with no judgment about what level or form belongs where.
-  Deliberate, consistent copying is fine—the multi-agent mirror in §6.6 is exactly
-  that—but thoughtless copying bloats context and dilutes attention, and breeds
-  maintenance burden and inconsistencies that drift into real errors.
-- **Hiding details** (*copying too little, or hiding details behind links too
-  dogmatically*)—pointing at the CLI or a reference without enough context to convey
-  what is there or why to look, so the agent never learns the capability is relevant.
-  Fix: pull up just enough—name each capability and the command that reaches it—so the
-  link is worth following.
-
-Push the *mechanics* (flags, recipes) down into help pages or docs, but keep enough
-*awareness* and *detail* up in the skill—each key capability described once, with the
-command that reaches it—so the agent knows whether a pointer is worth following.
-
-* * *
-
-## 5. Per-Agent Integration Reference
-
-Targets differ.
-This matrix reflects May 2026; verify against current docs for the agents
-you care about.
-
-| Agent | Project file | Skill / rules mechanism | MCP | Hooks | Best integration path |
-| --- | --- | --- | --- | --- | --- |
-| **Claude Code** | `CLAUDE.md` | Agent Skills (`SKILL.md`), `.claude/skills/`; plugins/marketplaces | Yes (stdio + Streamable HTTP) | 29 events | SKILL.md (+ plugin for distribution) |
-| **Codex CLI** | `AGENTS.md` | `SKILL.md` skills + plugins (skills+MCP); `~/.codex/prompts` (deprecated) | Yes (stdio + Streamable HTTP) | Claude-compatible engine (`SessionStart`, `Pre/PostCompact`, `Pre/PostToolUse`, `UserPromptSubmit`, `Stop`, …) | AGENTS.md + skills/plugins + MCP |
-| **Cursor** | `.cursor/rules/*.mdc`, `AGENTS.md` | MDC rules (Always/Auto-glob/Agent-requested/Manual) | Yes | 6 events (incl. `beforeShellExecution`) | AGENTS.md + `.mdc` for glob scoping |
-| **GitHub Copilot** | `.github/copilot-instructions.md`, `AGENTS.md` | `SKILL.md` (VS Code); `.agent.md` custom agents | Yes | `preToolUse`/`postToolUse`/… | SKILL.md + MCP; enterprise-managed plugins |
-| **Gemini CLI** | `GEMINI.md` + `AGENTS.md` | Agent Skills; extensions (bundle hooks) | Yes (stdio + SSE) | ~12 events | AGENTS.md + MCP/extension |
-| **Windsurf** | `.windsurf/rules/*.md` + `AGENTS.md` | Rules with activation modes | Yes (OAuth, Streamable HTTP) | pre-hooks can **block** (exit 2) | AGENTS.md + MCP |
-| **Cline** | `.clinerules/` | Glob-scoped rules; Cline SDK plugins | Yes (mature marketplace) | SDK lifecycle events | `.clinerules` + MCP |
-| **Aider** | `CONVENTIONS.md` / `AGENTS.md` | Conventions file (read-only context) | No native (proxy only) | Git hooks only | AGENTS.md/CONVENTIONS.md |
-| **opencode** | `AGENTS.md` + `opencode.jsonc` | JS/TS plugins; skills dir | Yes | 25+ events, tool interception | Plugin + MCP |
-| **Amp** | `AGENTS.md` (→ `CLAUDE.md`) | Plugins (tools + hooks) | Yes (Sourcegraph MCP + custom) | session/turn/tool | MCP + plugin |
-| **Jules** (Google) | `AGENTS.md` | AGENTS.md only | Yes (curated, since Feb 2026) | — (cloud async) | AGENTS.md + Jules REST API |
-| **Goose** (Block) | `AGENTS.md` | Recipes; 70+ MCP extensions | Yes (deepest) | extension lifecycle | MCP (primary) |
-| **Zed** | `.rules` (reads `.cursorrules`, `CLAUDE.md`) | Rules Library | Yes (extensions) | — | MCP extension + `.rules` |
-| **Factory** | `AGENTS.md` + `.factory/droids/*.md` | Custom Droids (sub-agents) | Yes | Delegator loop | AGENTS.md + droid file |
-| **pi** | `AGENTS.md` / `CLAUDE.md`, `.pi/SYSTEM.md` | Agent Skills (`.pi/skills/`, `.agents/skills/`); TS extensions | **No (by design)**—use CLI+README or an extension | extension hooks | SKILL.md + CLI; extension for deep tool registration |
-
-**Notes on the minimal end (pi)**: pi (Mario Zechner’s `@mariozechner/pi-coding-agent`,
-~44K stars) ships four tools (read/write/edit/bash) and treats context as a scarce
-budget. It reads `AGENTS.md`/`CLAUDE.md`, supports the Agent Skills standard, and
-**deliberately omits MCP**—its docs tell authors to “build CLI tools with READMEs” or
-write a TypeScript extension (`pi.registerTool()` / `pi.registerCommand()`). This is a
-clean endorsement of the CLI-as-skill approach: a self-documenting CLI plus a `SKILL.md`
-is exactly what a minimal agent wants.
-
-**Codex specifics** (it gained a real skill system in 2026): skills are `SKILL.md`
-folders with the same progressive disclosure.
-Verified against the Codex source (`codex-rs/core-skills/src/loader.rs`, tags
-`rust-v0.130.0`…`v0.133.0`): the loader scans several **scopes**—`Repo` (every
-`<dir>/.agents/skills/` from the project root down to cwd), `User`
-(`$HOME/.agents/skills/`), `Admin`, plus plugin roots and `$CODEX_HOME/skills`. So a
-**plain repo-root `.agents/skills/<name>/SKILL.md` is read directly**, no manifest
-required. (The repo path is built by joining `.agents` and `skills` at runtime, so it
-does *not* appear as a contiguous `.agents/skills` literal in the binary—a
-`strings`-based inspection will miss it and see only `.agents/plugins/marketplace.json`;
-confirm against the source, not binary strings.)
-**Plugins** are an *additional* distribution layer (installable units bundling skills
-and MCP servers—90+ ship with Codex), declared in `.agents/plugins/marketplace.json`
-(also reads `.claude-plugin/marketplace.json`)—useful for *publishing a bundle*, but not
-needed to make a repo-local skill load.
-Codex skills may carry a richer **`agents/openai.yaml`** companion (e.g.
-`interface.display_name`, icons, `dependencies.tools[]`,
-`policy.allow_implicit_invocation`); map the portable
-`name`/`description`/`allowed-tools` onto it only when you specifically want that Codex
-polish—it’s optional.
-An experimental, off-by-default **`external_migration`** feature can import `.claude/`
-config (hooks/MCP/skills) into `.codex/`; don’t depend on it yet, but expect the
-portable duplication to shrink if it stabilizes.
-Operational config lives in `~/.codex/config.toml` (or trusted per-project
-`.codex/config.toml`): `model`, `approval_policy`
-(`untrusted`/`on-request`/`granular`/`never`), `sandbox_mode`
-(`read-only`/`workspace-write`/`danger-full-access`), and `[mcp_servers.*]`. A CLI your
-tool ships will run **inside Codex’s sandbox**—under `workspace-write`, writes are
-limited to workspace roots and network is off unless explicitly enabled.
-Design your CLI to work read-only where possible and to fail with a clear message when
-sandboxed.
-
-* * *
-
-## 6. CLI-as-Skill (Advanced)—One Tool, Many Self-Injecting Commands
-
-This is the pattern for a richer tool: a CLI that is itself a skill, exposing many
-capabilities as subcommands while costing a single description slot.
-`tbd` is the reference implementation; **Beads/`bd`** (Steve Yegge), `tbd`’s lineage,
-follows the same shape (subcommands, `AGENTS.md`, `--json`, and an optional MCP server).
-
-Use this when you have many capabilities, need cross-session state, or want a curated
-knowledge library the agent pulls from.
-For a single capability, the §0 baseline is better—don’t reach for this prematurely.
-
-### 6.0 The integration ladder—pick the lowest rung that works
-
-Most tools should **not** self-install.
-Distribution complexity is a ladder, not a switch: each rung adds machinery (and
-maintenance) over the one below, so climb only as far as the tool genuinely needs.
-Four rungs, lightest first:
-
-- **L0—pure prompt skill.** A `SKILL.md` and nothing else: no binary, no runtime, no
-  install command. The agent follows the body directly.
-  Garry Tan’s **gstack** (23 plain skills) is L0. Install by committing to a discovery
-  dir or `npx skills add`.
-- **L1—skill and delegated CLI (zero-install).** Ship a `SKILL.md` that points at a CLI
-  invoked through a **version-pinned** zero-install runner—`npx --yes pkg@<ver>`,
-  `uvx --from pkg@<ver>`, or `pipx run pkg==<ver>` (§6.7). No install command, no
-  managed `AGENTS.md` block, no hooks, no format versioning.
-  The skill *delegates* execution to a package it never installs itself.
-  This is the default for most CLI-backed capabilities.
-  Pinning the version here does **double duty**:
-  - **Supply-chain control**—an unpinned runner (`npx pkg`, `uvx --from pkg`) silently
-    re-resolves to the latest published version on every run and bypasses any cool-off
-    window. A pinned version is the artifact you actually vetted.
-  - **Consistency control**—every teammate and every agent runs the *same* tool version,
-    so skill behavior is reproducible across a team and across agents rather than
-    drifting as upstream publishes new releases.
-- **L2—self-installing skill, discovery-dirs only.** The tool ships an `install` command
-  (with `--project`/`--global` scope—§6.6.2) that writes its `SKILL.md` into the
-  skill-discovery directories (`.agents/skills/<tool>/`, the `.claude/skills/` mirror)
-  and **stops there**: no managed `AGENTS.md` block, no hooks, no `prime`/`setup`
-  context machinery. Because it never touches a human-authored project-instruction file
-  and always full-overwrites its own generated skill, it does **not** need the §6.6
-  format-version and migration apparatus—a re-install is just a clean overwrite.
-  **`qmd`** (Tobi Lütke’s Markdown search tool) is the reference: `qmd skill install`
-  and `--global`, an embedded skill with a build-time drift test, a
-  `.claude-plugin/marketplace.json`, and an MCP server—all without writing to
-  `AGENTS.md` at all. One useful variant sits between L2 and L3—call it **L2b**: an L2
-  self-installer that *also* writes a compact managed `AGENTS.md` block (an always-on
-  bootstrap naming the tool, its trigger, and the pinned runner), but still no hooks,
-  `prime`/`setup`, or DocCache.
-  That block is the one L3 surface a small tool can adopt on its own; because it is
-  merged into a human-authored file rather than overwritten whole, an L2b tool **does**
-  need the §6.6 format-stamp and forward-compatibility guard.
-  **`pprose`** (Practical Prose) is the reference, writing `.agents/skills/`, the
-  `.claude/skills/` mirror, and a `format=fNN`-stamped `AGENTS.md` block with the same
-  refuse-to-clobber-newer guard `tbd` uses.
-- **L3—full self-installing CLI platform.** Everything in L2 **plus** a managed
-  `AGENTS.md` block, lifecycle hooks (`SessionStart`/`PreCompact`), `prime` and `setup`
-  commands, format-versioned migration across every managed surface (§6.6), and usually
-  a knowledge-injection meta-skill (§6.2) backed by a path-ordered DocCache (§6.3). Take
-  this on only for a tool with many capabilities, cross-session state, or a curated
-  knowledge library. **`tbd`** is the reference implementation; **Beads/`bd`** follows
-  the same shape. Such platforms are typically **project-only and version-pinned per
-  repo** (§6.6.2): the tool is part of the project’s reproducible toolchain, so global
-  scope is usually not worth offering.
-  `qmd` (L2) offers global/dual scope precisely because it is a general-purpose utility
-  that carries no per-project config.
-
-Format-versioning is **artifact-driven, not rung-driven**: the §6.6 format-stamp and
-forward-compatibility guard apply to **any rung that writes a generated artifact it may
-later need to upgrade or refuse to clobber**—in practice a managed `AGENTS.md` block
-(the L2b variant, or L3) or a committed generated skill shared across tool versions.
-A tool that only overwrites its own discovery-dir skill whole (plain L0–L2) never needs
-them.
-What stays strictly L3 is the rest of the platform: hooks, `prime`/`setup`, and the
-meta-skill/DocCache machinery.
-If in doubt, you are L1: `tbd` is an L3 reference implementation, `pprose` the L2b
-variant, `qmd` a plain L2 one, and most CLIs are none of these.
-
-### 6.1 Two kinds of commands
-
-| Type | Purpose | Examples |
-| --- | --- | --- |
-| **Action commands** | Perform operations | `create`, `close`, `sync` |
-| **Informational commands** | Output guidance for the agent to *follow* | `guidelines <name>`, `shortcut <name>`, `template <name>` |
-
-Informational commands don’t *do* anything—they print instructions, best practices, or
-templates the agent reads and acts on.
-This is the mechanism behind tbd’s **knowledge-injection-via-subcommands**: rather than
-installing dozens of skills, tbd installs *one* meta-skill and exposes its entire
-library (`tbd guidelines --list`, `tbd guidelines typescript-rules`, …) as commands the
-agent calls just-in-time.
-
-This works well in practice and is the right answer for a many-subcommand CLI because:
-
-- **Budget**: one listing slot, unbounded resources (vs.
-  the per-skill budget in §4.3).
-- **Currency**: resources ship and version with the CLI; `--list` is generated from
-  what’s actually installed, so it never goes stale.
-- **Composability**: each resource can reference other commands, forming a
-  self-directing context loop (§6.4).
-
-### 6.2 The meta-skill composition
-
-tbd’s `skill` command composes the installed `SKILL.md` from parts so the static guide
-and the dynamic catalog stay in sync:
-
-```
-┌─────────────────────────────────────┐
-│ claude-header.md  (YAML frontmatter) │  ← name + two-part description + allowed-tools
-├─────────────────────────────────────┤
-│ skill-baseline.md (workflow guide)   │  ← the durable "how to use this tool" body
-├─────────────────────────────────────┤
-│ <!-- BEGIN SHORTCUT DIRECTORY -->    │  ← generated from the live DocCache
-│   | command | title | description |  │
-│ <!-- END SHORTCUT DIRECTORY -->      │
-└─────────────────────────────────────┘
-```
-
-Maintain **two tiers** of skill content: a full `skill-baseline.md` (~2,000 tokens, the
-default and the `skill` command) and a `skill-brief.md` (~400 tokens, for constrained or
-post-compaction contexts).
-
-### 6.3 Resource directories: show the full command
-
-When listing resources, print the command to run, not just a name—it removes a step for
-the agent.
-
-```markdown
-## Available Shortcuts
-| Command | Purpose | Description |
-|---------|---------|-------------|
-| `mycli shortcut code-review` | Commit code | Pre-commit checks and commit flow |
-| `mycli shortcut new-plan-spec` | Plan a feature | Create a planning specification |
-```
-
-Back resource lookup with a **path-ordered cache** so project- and user-level files can
-shadow built-ins (like `$PATH`): project `.mycli/docs/` → user `~/.mycli/docs/` →
-bundled. This lets teams customize without forking.
-
-### 6.4 The context-injection loop
-
-The payoff of informational commands is a self-reinforcing chain:
-
-```
-SKILL.md  ── "for TypeScript work, run `mycli guidelines typescript-rules`"
-   └──▶ guideline ── "create issues with `mycli create`; for tests see `mycli guidelines testing`"
-          └──▶ action commands / more guidelines, loaded just-in-time
-```
-
-Rules: reference commands **explicitly** (`mycli command arg`, never “see the docs”);
-**limit chain depth to 3**; make every layer end in a concrete action.
-
-### 6.5 Making the CLI agent-friendly
-
-- **`--json` on every command**—one output path that renders human or machine output.
-- **`--brief`/`--quiet`** for constrained contexts and scripts.
-- **Idempotent `setup --auto`** (non-interactive) vs.
-  a guided setup for humans; never let an agent get stuck on a prompt.
-- **Actionable errors** that include the next command to run.
-- **Discoverable help**: an `IMPORTANT:` epilog pointing at a context-restore command
-  (e.g., `mycli prime`), and a “Getting Started” one-liner.
-- **A `prime` command** (dashboard, status, and rules) for session start and
-  post-compact, distinct from `skill` (pure documentation).
-  `prime` is **read-only**: it restores context but does not rewrite project files.
-  Because a `SessionStart` hook runs it on every session (§8), have `prime` print a
-  short reminder that the agent or user can run `setup` to refresh skills and settings
-  (for example after upgrading the tool).
-  That keeps the refresh **opt-in** rather than silently mutating the repo from a hook,
-  while still nudging stale installs forward.
-
-**Route, don’t restate: the skill is a thin pointer, not a copy of `--help`.** The most
-common failure when packaging a CLI as a skill is over-documentation, where the author
-(often an LLM, eagerly) copies the CLI’s help, flag lists, and command recipes wholesale
-into the skill body.
-Don’t. A self-documenting CLI already carries that detail in `mycli --help`,
-`mycli <command> --help`, and its informational subcommands (§6.1), so duplicating it
-only adds cost and drift (§3.1). The skill is a **knowledge, awareness, and routing
-layer**: it carries the focused context an agent needs to judge that the tool is
-relevant, names each key use case once, and gives the one command that reaches it, then
-trusts the agent to run that command (or its `--help`) for the specifics.
-
-| In the skill body (awareness and routing) | In the CLI’s own help (mechanics) |
-| --- | --- |
-| Each key capability or use case, named once | The full flag and argument reference |
-| The single command that reaches it (`mycli create`, `mycli guidelines <name>`) | Exact option syntax, defaults, and edge cases |
-| When to use the tool, and which command for which intent | Step-by-step recipes for a specific command |
-| Pointers: `mycli --help`, `mycli <cmd> --help`, `mycli <cmd> --list` | Examples and output formats |
-
-A quick test: if a line in the skill would become *wrong* when you add a flag or change
-behavior in the CLI, it belongs in the CLI’s help, not the skill.
-Mention every key use case, but push the “how exactly” (the sequence of commands and
-their options) down into the tool.
-Adequate beats exhaustive: a short skill that reliably routes the agent to the right
-command beats a long one that mirrors the manual.
-
-### 6.6 Distribution and multi-agent install
-
-A CLI can install itself into multiple agents from one `setup` run.
-Use the portable Agent Skills location as the primary project skill surface and mirror
-only where a target agent requires it:
-
-- `.agents/skills/<tool>/SKILL.md`—the portable project skill.
-  **Be precise about who reads this path natively vs.
-  who reaches it via an installer**, rather than claiming a flat “all agents read it”:
-  - **Scans repo-root `.agents/skills/` natively** (verified): **Codex** (source above),
-    **Cursor** (its Agent Skills docs list `.agents/skills/`, `.cursor/skills/`, and the
-    `~/` global variants, plus `.claude/skills/` and `.codex/skills/` for
-    compatibility), and **Gemini CLI** (documents `.agents/skills/` as a workspace/user
-    alias). **pi** and **OpenCode** scan project Agent Skills dirs.
-  - **Reached via the cross-agent installer**: `npx skills add` copies the same
-    `SKILL.md` into `.agents/skills/` and **symlinks it into each agent’s own dir**
-    (Copilot, Cline, Amp, Windsurf, …). For an agent that does not scan
-    `.agents/skills/` itself, the *installer*, not the agent, binds it to that agent’s
-    native location, so “works with Copilot/…” means “via skills.sh”, not “the agent
-    scans `.agents/skills/` itself.”
-  - **Claude Code does NOT scan `.agents/`** at all—it reads only `.claude/skills/`
-    (next bullet), which is why the mirror is required, not optional.
-  - **Native per-agent skill dirs are multiplying** (community catalogs, mid-2026;
-    verify per agent): beyond `.claude/skills/`, agents document their own dirs such as
-    `.cursor/skills/`, `.github/skills/` (Copilot), `.gemini/skills/`,
-    `.opencode/skills/`, `.windsurf/skills/`, and `.agent/skills/` (Google Antigravity).
-    Emitting only the portable `.agents/skills/` and the Claude mirror and letting
-    `npx skills add` fan out the rest scales better than writing each one.
-  - When in doubt, verify against the agent’s source/docs before asserting native
-    scanning.
-- `.claude/skills/<tool>/SKILL.md`—Claude Code compatibility mirror (required: Claude
-  Code reads only this path).
-- `AGENTS.md`—compact always-on project bootstrap, not a full copy of the skill.
-- `.codex/hooks.json` or `.codex/config.toml`—Codex lifecycle automation, not policy
-  text or skill content.
-
-tbd should write a CLI-managed `SKILL.md` to `.agents/skills/tbd/`, mirror it to
-`.claude/skills/tbd/`, and maintain a **marker-bounded section** in `AGENTS.md` (which
-also feeds Cursor, Codex, and Factory), preserving user content outside the markers:
-
-```markdown
-<!-- BEGIN MYCLI INTEGRATION format=f02 -->
-## mycli
-
-- Run `mycli prime` for current project context.
-- Run `mycli skill` for the full reusable skill instructions.
-- Run `mycli shortcut --list` and `mycli guidelines --list` for on-demand resources.
-
-<!-- END MYCLI INTEGRATION -->
-```
-
-**Quick recipe for a new project** (portable-first, both agents covered):
+Add resources only when they improve the workflow:
 
 ```text
-.agents/skills/<tool>/SKILL.md   # canonical portable skill (Codex, Gemini, Cursor, …)
-.claude/skills/<tool>/SKILL.md   # identical copy — Claude Code mirror
-AGENTS.md                        # compact marked block (see above), every agent reads it
-CLAUDE.md                        # symlink → AGENTS.md, or a short separate file (Claude only)
-scripts/agent/<tool>-session.sh  # shared hook script, referenced by both agents
-.codex/hooks.json                # Codex hook entry → shared script (or inline [hooks])
-.claude/settings.json            # Claude hook entry → same shared script
+my-skill/
+├── SKILL.md
+├── references/
+│   └── project-setup.md
+├── scripts/
+│   └── validate.sh
+└── assets/
+    └── report-template.md
 ```
 
-**Copy vs symlink the mirror.** Default to **copying** the `SKILL.md` payload to both
-skill paths: a committed copy is browsable on GitHub/skills.sh and behaves predictably
-across Windows, sandboxes, and remote worktrees, where symlinks do not.
-A **symlink** of the Claude mirror onto the canonical `.agents/skills/<tool>/` is a
-legitimate *single-machine* optimization—one source of truth, zero drift—and is what
-`qmd` and the `npx skills add` installer do.
-Reserve it for installs that stay on one developer’s machine; for anything committed or
-shared across platforms, copy.
-Whichever you pick, the two paths must carry identical content.
-Claude Code does **not** auto-load `AGENTS.md` (it reads `CLAUDE.md`), so a multi-agent
-project needs both.
+Keep referenced material one level from `SKILL.md`. Every resource should say when it
+must be loaded. Avoid reference-to-reference chains that make the agent hunt for the
+actual procedure. Knowledge-heavy skills should add an explicit reading protocol: which
+reference answers which question, what order a deep pass reads them in, and when the
+resident instructions are enough on their own.
 
-**File-ownership rules**—distinguish three categories:
+### Frontmatter
 
-- **Project instruction files** (`AGENTS.md`, `CLAUDE.md`): *commit these*. They hold
-  human-authored project norms (§2). A CLI may own a **marker-bounded section** inside
-  `AGENTS.md` (regenerated on setup) while the user owns everything outside the markers.
-- **Fully generated install artifacts** (`.agents/skills/<tool>/SKILL.md`,
-  `.claude/skills/<tool>/SKILL.md`, generated hook scripts, and the like): CLI-owned;
-  mark them “DO NOT EDIT.” Pick **one of two modes** and be consistent:
-  - **Commit and dogfood** (what `tbd` does): check the generated artifacts in, and add
-    a **drift test** that regenerates them and fails if they differ.
-    Pros: browsable on GitHub / skills.sh, the repo demonstrates its own output,
-    reviewers see changes.
-    Con: a regeneration shows up as a diff to commit.
-    Keep generated output deterministic and formatter-stable (below) or the drift
-    test/commits will churn.
-  - **Gitignore and regenerate** (what `metaproc` does): add `.../skills/*/SKILL.md` to
-    `.gitignore` and let `setup`/`--install` (re)create them on demand.
-    Pros: zero commit churn, no drift to guard.
-    Con: not browsable in the repo, and no committed artifact to diff in review.
-    With this mode a format-version stamp matters less (there is no committed artifact
-    for an older tool to clobber).
-- **Source files** in the CLI package (header, baseline, brief): the canonical
-  inputs—always version-controlled.
+Portable skills universally depend on `name` and `description`:
 
-Make setup idempotent: dedupe hooks before merging, overwrite generated skills rather
-than patching them, update only the marked section of `AGENTS.md`, and clean up legacy
-files each run.
+```markdown
+---
+name: spreadsheet-analysis
+description: >-
+  Analyze spreadsheet files, build summaries, and export validated workbooks.
+  Use for .xlsx, .xls, .csv, and .tsv analysis or workbook generation.
+---
 
-**Generated output must be deterministic.** A given input state must always produce
-byte-identical output—no timestamps, no random IDs, no machine-specific paths, no
-unstable ordering. This is what makes the artifact diff-stable, drift-testable, and safe
-to regenerate. It must also be stable under whatever formatter the repo runs (e.g. emit
-the managed block in the formatter’s canonical form—sentence-aware line wrapping,
-correct quote style—so a format pass is a no-op; and don’t emit a second YAML
-frontmatter block mid-document).
-Because Codex and Claude Code now share a hook event schema (§8), prefer **one shared
-script referenced by two thin per-agent configs**: keep the logic in a neutral location
-(e.g. `scripts/agent/<tool>-session.sh`) and reference it from both
-`.claude/settings.json` and the Codex `[hooks]`/`.codex/hooks.json` entry.
-Do not make Codex hooks call scripts stored under `.claude/`—that couples Codex setup to
-Claude setup. If a script must move out of `.claude/scripts/`, update the tbd-owned hook
-commands (or leave a wrapper) so existing Claude hooks keep working.
-
-**Upgrade managed generated artifacts deliberately.** A self-installing tool whose
-generated content evolves *will* leave older artifacts in users’ repos.
-(A tool that only writes fully-overwritten discovery-dir skills—plain L2 or below—can
-skip all of this: a re-install is a clean full overwrite, with no managed `AGENTS.md`
-block or hooks to migrate.
-The L2b variant, which merges a managed `AGENTS.md` block into a human-authored file,
-**does** need the format stamp and forward-compatibility guard even though it is not
-L3—this is the artifact-driven rule from §6.0, not an L3-only one.)
-Treat generated integration files like config migrations:
-
-Reserve an `fNN` **format bump** for changes big enough to need an explicit migration: a
-different on-disk shape, a moved or renamed managed region, or a changed hook contract.
-Routine content edits (new skill text, an added shortcut, reworded guidance) are **not**
-a format change. They ship by regenerating the surface, a full overwrite on the next
-`setup` run, so they need no bump and no migration; bumping the format on every content
-tweak would force needless migrations and churn.
-
-The upgrade is also **opt-in, not silent**. A tool rewrites a user’s committed files
-only when the user or agent explicitly runs `setup`/`setup --auto`, never from a
-background hook or an ordinary read command.
-Stamping a format lets an explicit `setup` detect an older layout and offer to migrate
-it; it does not license the tool to mutate the repo on its own.
-(This is why a `SessionStart` hook should run a read-only `prime`, not `setup`.)
-
-- Version the generated surfaces with an `fNN` format code.
-  Prefer **one format code for all the tool’s managed surfaces**—reuse the tool’s
-  existing config/data-format version as the single source of truth (tbd stamps the
-  AGENTS.md block with the same `tbd_format`, currently `f03`) rather than maintaining a
-  parallel counter. Bump it when any managed surface—config schema or a generated agent
-  surface—changes shape.
-- Stamp the format on the generated artifact itself: on the `AGENTS.md` begin-marker
-  line (`<!-- BEGIN … format=fNN … -->`), the skill “DO NOT EDIT” marker, script
-  headers, or an equivalent hook signature.
-  Prefer one marker line over a separate metadata comment.
-- A **fully overwritten content surface** (a generated skill that is always rewritten
-  whole, never merged) does not strictly need its own stamp to upgrade cleanly: the next
-  `setup` replaces it outright.
-  It can lean on the single shared format code carried by a structural surface (such as
-  the `AGENTS.md` block).
-  But that only protects it if the forward-compatibility check runs **before** any
-  surface is written. If `setup` rewrites the skill first and only checks the `AGENTS.md`
-  format later, an older tool can partial-downgrade a newer committed skill before it
-  aborts. So either stamp and guard each generated surface, or run the format check up
-  front and write nothing until it passes.
-- On every `setup`/`setup --auto` run, **self-upgrade in place, safely and
-  idempotently**: detect older formats and rewrite only the tool-owned regions (managed
-  `AGENTS.md` block, generated skills, tool-owned hooks, `.codex/` config), re-running
-  cleanly with no change when already current.
-- Treat old marked `AGENTS.md` blocks with no metadata as legacy generated content and
-  replace only the managed region, collapsing any duplicate stale blocks to one current
-  block at the first block’s position (§2).
-- Detect tool-owned hook entries by command/path/signature, replace only those entries,
-  and preserve unrelated user hooks.
-- **Forward-compatibility guard.** When the tool finds a generated artifact whose
-  `integration-format` is **newer** than the running version understands, it must **stop
-  and tell the user to upgrade the tool** (e.g. `npm install -g get-tbd@latest`) rather
-  than overwrite or downgrade it.
-  This is what makes pinning safe for teams: a teammate on an older version fails loudly
-  instead of silently clobbering a newer managed block.
-- Print an itemized setup summary: current, installed, upgraded, removed legacy, skipped
-  by config, user-owned/unmarked, and format-too-new (upgrade required).
-- Test upgrades from at least the previous shipped setup layout plus partial installs,
-  and test that a too-new format string produces the upgrade-the-tool error.
-
-Recommended setup flags:
-
-| Flag | Purpose |
-| --- | --- |
-| `--auto` | Detect and refresh relevant project-local integrations |
-| `--all` | Install every supported project-local integration surface |
-| `--claude` | Install or refresh the Claude Code surface (skill mirror + hooks) |
-| `--codex` | Install or refresh the Codex surface (`AGENTS.md` block + `.codex` hooks) |
-| `--skip-<surface>` | Suppress a surface (e.g. `--skip-claude`) that auto-detection would otherwise update |
-
-Use a true tri-state: with no targeting flag a surface is detection-based; a positive
-flag forces it on (and suppresses auto-detection of untargeted surfaces); `--skip-*`
-forces it off.
-Avoid Commander’s `--no-<x>` for surfaces—it defaults the value to `true`,
-which would force-install on every run.
-(`tbd` itself ships `--all`, `--claude`, `--codex`, `--skip-claude`, `--skip-codex`;
-`AGENTS.md` installs as part of the Codex surface.)
-
-Keep project-local setup separate from global/user setup.
-Writing `~/.codex/AGENTS.md`, `~/.agents/skills/`, or `~/.claude/skills/` should be an
-explicit global install command or documented manual step, not something `setup --auto`
-does silently.
-For a tool that genuinely needs **both** scopes (a general-purpose writing
-tool, linter, or formatter—most CLIs are project-only and can ignore this), §6.6.2
-codifies the concrete flag mechanics and guard rails.
-
-#### 6.6.1 Extensible skill registries (let other packages contribute skills)
-
-A single bundled skill is enough for most tools.
-But when a tool is a **platform** that other packages extend, don’t hard-code its skill
-list—expose a **registry** so any installed package can contribute a skill that the CLI
-discovers at runtime.
-
-The clean implementation is the host language’s plugin mechanism:
-
-- **Python**: an entry-point group.
-  The host defines a group (e.g. `[project.entry-points."mytool.skills"]`); each plugin
-  package points an entry at a factory that returns a skill spec; the host enumerates
-  them with `importlib.metadata`. (`metaproc` does exactly this: a `metaproc.skills`
-  group, with `metaproc skill --list` / `--install` composing each registered skill.
-  Its `earnings_predictions` package registers an `eia-batch` skill that the core tool
-  never hard-codes.)
-- **Node/TypeScript**: a documented `package.json` key or a registration API a plugin
-  calls on load.
-
-Keep each registered skill a **spec** (name, two-part description, `allowed-tools`, a
-baseline source, and an optional dynamic catalog function) and run them all through the
-**same** `compose` and `--install` path, so every skill—first-party or third-party—gets
-identical frontmatter, the `DO NOT EDIT`/format marker, and deterministic output.
-This keeps the “one tool, many self-injecting commands” model open for extension without
-the core tool taking a dependency on every plugin.
-
-#### 6.6.2 Install scope: project-pinned, global, or both
-
-**First decide which scopes the tool should even offer—most tools should not offer all
-three.** The deciding factor is whether the tool is *customized per install*; a
-secondary one is whether the user wants it as an explicit dependency of each repo.
-
-- **Customized per install → project install, version-pinned, single scope (preferred;
-  consider discouraging global).** If the tool carries per-project configuration or
-  defines how *this* repo is built, tracked, or reviewed, install it into the project
-  and pin its version there, so the whole team and every agent get identical behavior
-  and different projects can pin different versions independently.
-  For such a tool a global install is usually not worth supporting—and can be worth
-  actively discouraging—because a per-project install is almost always preferable.
-  **`tbd` is deliberately here**: pinned per project and configured per repo
-  (`.tbd/config.yml`, the issue prefix), so a global cross-repo install would be an
-  anti-pattern, not a missing feature.
-  This is the §6.0 “consistency control” argument taken to its conclusion.
-- **Not customized (a general utility) → dual-scope, for flexibility.** When there is no
-  per-project configuration to anchor the tool, offering *both* `--project` and
-  `--global` simply lets the user decide where it lives—global so it is available
-  everywhere with no explicit repo dependency, or project-local when they do want it
-  pinned. **`qmd` is here**: a Markdown search tool pointed at arbitrary collections,
-  useful across repos and configured per invocation.
-- **Global-only → rare, but conceivable.** Reserve it for a genuine *user-level
-  preference* that applies across all of a user’s projects and that the user would
-  rarely want committed into any single repo.
-  Most tools are not this; do not default to global-only.
-
-The `--project`/`--global` mechanics below apply to any tool that offers global or
-dual-scope installs.
-§6.6 states the principle (project-local and global must be kept separate; global must
-be explicit); this codifies it.
-The model to copy is **`git config`**: implicit scope when it is unambiguous, a hard
-error when it is not.
-
-**Explicit scope flags.**
-
-```
-mycli install [--project | --global] [--surfaces=LIST | per-agent flags]
-              [--dir DIR] [--no-repo-check] [--pin VERSION]
+Inspect the input workbook, preserve its existing structure, and validate the rendered
+result before delivery.
 ```
 
-- `--project` → project-local install (the canonical `.agents/skills/<tool>/` plus the
-  Claude mirror, under the repo).
-- `--global` → user-global install under `$HOME` (`~/.agents/skills/`,
-  `~/.claude/skills/`).
-- Mutually exclusive: `--project ↔ --global`, and `--global ↔ --dir`.
+Write the description in two parts:
 
-**Implicit-when-unambiguous, error-when-not** (the `git config` rule).
-Resolve scope *before* writing anything:
+- **Capability**: what the skill does and what result it produces
+- **Activation**: the requests, artifacts, or terms that should cause it to load
 
-| Situation | Behavior |
-| --- | --- |
-| cwd is inside a git repo and not `$HOME` | implicit `--project` |
-| cwd is `$HOME` or the filesystem root | **error**: ambiguous; pass `--project` or `--global` |
-| cwd is not in a git repo | **error**: ambiguous; pass `--project --no-repo-check` or `--global` |
-| explicit `--project` / `--global` given | honor it (subject to the `$HOME` refusal below) |
+Front-load distinctive trigger terms because agents may shorten descriptions when many
+skills are available.
+Test both positive and negative prompts: the skill should load when relevant and stay
+out of unrelated tasks.
 
-This removes the footgun where `cd ~ && mycli install` silently writes into the user’s
-global agent surfaces and changes every project’s behavior.
-Warning *after* the write (what some tools do—and `qmd`, which simply defaults to cwd
-with no guard at all, does not warn) is too late; refuse *before* it.
+The specification also defines optional `license`, `compatibility`, and `metadata`
+fields. Use them when distribution terms or environment requirements matter; do not
+invent vendor-specific keys for a portable skill.
 
-**`$HOME` is always refused in `--project` mode**—even with `--no-repo-check`,
-`--project --dir ~` is an error, because that is exactly what `--global` is for.
-Name the right flag in the message:
+`allowed-tools` is optional, experimental, and implementation-dependent.
+When a target supports it, the Agent Skills specification defines it as a
+space-separated string:
 
-```
-mycli install --project: refusing to install into /Users/me (home directory).
-That would write to your global agent surfaces. Use --global for a user-wide install.
+```yaml
+allowed-tools: Bash(mycli:*) Read Write
 ```
 
-**Print the resolved target before writing**, so the user can ctrl-c if it is wrong:
+Do not assume the field works across agents.
+Where it is honored, it is a pre-approval, not a sandbox: tools outside the list stay
+available under the agent’s normal permission rules.
+Never grant wildcard access to a general package runner such as `Bash(npx:*)`,
+`Bash(uvx:*)`, or `Bash(pnpm:*)`; those permissions can execute arbitrary fetched
+packages. Prefer a narrow installed entrypoint, or omit pre-approval and let the agent
+request permission for a pinned fallback.
 
+### Body
+
+Use direct, imperative instructions.
+State:
+
+- what inputs to inspect before acting
+- the shortest correct workflow
+- the observable completion and validation criteria
+- the important failure or safety boundaries
+- when the skill should not be used or must escalate to a larger change
+- direct routes to deeper help needed by particular actions
+
+Prefer instructions over scripts.
+Add a script only when deterministic behavior, repeatability, or external tooling
+justifies executable code.
+Treat every imported skill and bundled script as code: review its provenance, commands,
+network behavior, and data access before installation.
+
+## Use `AGENTS.md` for Durable Project Orientation
+
+`AGENTS.md` is appropriate for repository-wide conventions and routes that should be
+available in every task.
+Keep it compact:
+
+```markdown
+## mycli
+
+Use `mycli` for repository formatting and validation.
+Run `mycli --help` for current commands and `.agents/skills/mycli/SKILL.md` for the
+agent workflow.
 ```
-Installing mycli skills (project mode) into: /Users/me/myrepo
-  surfaces: portable, claude
-```
 
-(Printing the scope *after* the write—as `qmd` does—is weaker: the damage is already
-done.)
+Do not paste the skill or CLI manual into `AGENTS.md`. The project file should identify
+the capability, establish the durable rule, and point to the current procedure.
 
-**Surface selection—match the vocabulary to the surface count.** There is no single
-right answer; pick by how many surfaces you have and expect to add:
+If a CLI owns the block, L2b publication rules apply: use stable markers, preserve
+user-owned content, carry a format stamp when future compatibility requires it, reject
+newer unknown formats, and collapse duplicate managed blocks.
+Load `tbd docs show agent-platform-integration` before implementing those mechanics.
 
-- **Two or three surfaces** → terse per-agent / boolean flags read best.
-  `qmd` (canonical skill dir + Claude mirror) uses a single
-  `--skip-claude`/`--no-claude` toggle; `tbd` uses `--all` / `--claude` / `--codex` /
-  `--skip-<surface>`.
-- **Three or more surfaces, or you expect to add agents** → a `--surfaces=<comma-list>`
-  selector with an `all` alias (`--surfaces=portable,claude,agents-md,all`) scales
-  better: adding `gemini-md` or `cursor-rules` later is a no-op for the CLI shape, with
-  no flag soup. The selector vocabulary lives only in the CLI—the artifact’s identity is
-  clear from its location (a `SKILL.md` under a skill dir, or the BEGIN/END-bounded
-  block in `AGENTS.md`), so no in-file `surface=` tag is needed beyond the load-bearing
-  `format=fNN`.
+## Build an L1 CLI-Backed Skill
 
-Either way, use a true tri-state (detection-based when unflagged; positive flag forces
-on and suppresses auto-detection; skip forces off) and avoid Commander’s `--no-<x>` for
-surfaces, which defaults the value to `true` (§6.6).
+An L1 skill adds deterministic execution without making the CLI an integration platform.
 
-**Global mode skips global `AGENTS.md` by default.** `AGENTS.md` loads on every turn;
-skills are progressive-disclosure (~100 tokens until invoked).
-Writing a global block to `~/.codex/AGENTS.md` would tax every session in every project,
-so global install should populate only the skill-discovery dirs.
-`--global --surfaces=agents-md` should **error** with a clear “we don’t support this”
-message rather than silently do it.
-(`qmd` validates this from the lighter end—it writes no `AGENTS.md` block in *any*
-scope.)
+### Prefer Local-First Execution
 
-**Cross-scope coexistence is the supported pattern, not a conflict.** Having a skill
-installed both globally and per-project is a feature: **project scope shadows user
-scope**, exactly like `git config`, shell `$PATH`, npm, and Python site-packages, and
-matching the path-ordered DocCache in §6.3. Codex documents the same precedence in its
-loader (`Repo` > `User` > `Admin`), and Claude Code ships `.claude/skills/` and
-`~/.claude/skills/` as deliberately separate discovery paths.
-Don’t treat a dual install as something to detect and de-duplicate.
-
-### 6.7 Making the CLI available: global install vs. zero-install
-
-A separate design dimension from §6.6 (how the CLI installs *itself into agents*) is how
-the CLI **binary** is made available so the skill can invoke it.
-Decide this explicitly and state the chosen invocation in `SKILL.md`/`AGENTS.md`.
-
-**The two ends of the spectrum** (plus a useful middle):
-
-| Approach | How | Best when |
-| --- | --- | --- |
-| **Global install** | `npm i -g pkg`, `uv tool install pkg`, `pipx install pkg`, Homebrew, prebuilt binary | Persistent dev machines; offline/perf-sensitive use; the **project pins the version** (in `package.json`/lockfile or a tool manifest) so every run is identical |
-| **Zero-install runner** | `npx pkg@x.y.z`, `bunx`, `pnpm dlx`, `uvx pkg@x.y.z`, `pipx run`, `go run mod@x.y.z` | Ephemeral/cloud agents (Claude Code Cloud, CI, fresh containers) where nothing persists; broad reach with no setup |
-| **Persistent-on-first-use** | `uv tool install` then `uvx pkg` reuses it; a `SessionStart` bootstrap that installs once if absent | You want zero-install ergonomics *and* warm-start speed within a session |
-
-**Trade-offs**
-
-- **Global install**—*Pros*: fastest invocation (no per-call resolution), works offline,
-  and version is managed by the project (lockfile / `package.json` / `uv` tool
-  manifest), so it’s auditable and reproducible.
-  *Cons*: it’s a stateful prerequisite—in ephemeral or cloud environments the global bin
-  doesn’t persist, so the CLI can be **missing at session start** unless you bootstrap
-  it.
-- **Zero-install**—*Pros*: works in any environment with no setup; nothing to persist;
-  ideal default for portability.
-  *Cons*: cold-start download/cache cost on first call (uvx cold ≈ 1s, cached ≈ tens of
-  ms; npx similar), needs network, and an **unpinned** invocation (`npx pkg`, `uvx pkg`)
-  silently pulls the newest release.
-
-**Cloud / ephemeral bootstrap.** If you choose global install but target cloud agents,
-ship a **`SessionStart` hook** (or an `ensure-installed` script) that installs/updates
-the CLI if absent before first use.
-tbd does exactly this: a `tbd-session.sh` hook ensures the `tbd` CLI is present, then
-runs `tbd prime`. Without a bootstrap, a globally-installed CLI referenced by a skill
-will fail on a fresh cloud session.
-
-**Pin the version (security).** Whichever you choose, the skill’s referenced invocation
-should pin a version so the agent can’t silently run a newer (possibly compromised)
-release—the §9 / 14-day-package-age rule applied to the runner itself:
+Use the project-installed command first.
+If zero-install execution is useful, give an exact reviewed fallback:
 
 ```bash
-uvx mytool@1.4.2  ...     # not `uvx mytool`
-npx mytool@1.4.2  ...     # not `npx mytool@latest`
+if command -v mycli >/dev/null 2>&1; then
+  mycli check README.md
+else
+  npx --yes mycli@1.4.2 check README.md
+fi
 ```
 
-Global installs get the same guarantee from the lockfile/manifest; zero-install gets it
-only from an explicit `@version`. Generated skill instructions should use a local-first,
-pinned fallback chain:
-
-1. Try `mycli <command>` if it is already on `PATH`.
-2. Fall back to a version-pinned runner:
-   - npm: `npx --yes my-package@<version> mycli <command>`
-   - uv: `uvx --from my-package@<version> mycli <command>`
-   - pipx: `pipx run my-package==<version> mycli <command>`
-   - Go: `go run module/path@<version> <args>`
-3. If the local command and pinned fallback both fail, stop and tell the user how to
-   install the CLI.
-
-Never put an unpinned network runner such as `uvx --from my-package` or `npx my-package`
-in generated skill instructions unless the user explicitly opts into that risk.
-This is a supply-chain control, not just ergonomics: an unpinned runner re-resolves to
-the latest published version on every run and bypasses any cool-off window.
-See `tbd guidelines supply-chain-hardening` for the cross-ecosystem policy.
-
-**Bake a pin the generator can actually resolve.** The rules above are consumer-side:
-they assume the generating tool can pin to its own running version.
-A tool installing from an editable or dev checkout cannot.
-Its running version is an unpublished dev, pre-release, or local build
-(`0.1.1.dev49+abc1234`, npm `0.0.0-dev.<sha>` or `x.y.z-canary`) that `uvx pkg@<that>`
-or `npx pkg@<that>` will never resolve, so baking it ships a skill that fails the moment
-a teammate runs it—one works-on-my-machine install poisons the clone.
-Bake the running version only when it is a real, resolvable published release; otherwise
-fall back to a known-good published pin.
-`pprose` does this with a `DISCOVERY_VERSION` constant (its last real PyPI release)
-gated by a PEP 440 release check (`is_pypi_release`), and enforces at release time that
-the constant equals the release tag.
-This is the generator-side mirror of the consumer-side pin rule.
-
-**Current tooling (May 2026)**
-
-- **Node / TypeScript**: zero-install via `npx <pkg>@<ver>` (`-y` to skip the prompt),
-  `bunx`, `pnpm dlx`, or `deno run`; persistent via `npm i -g` / a project
-  devDependency.
-- **Python**: `uvx --from <pkg>@<ver> <entrypoint>` (= `uv tool run`, bundled with
-  Astral’s `uv`, Rust-fast, no Python prereq) or `pipx run <pkg>==<ver>`; persistent via
-  `uv tool install` / `pipx install`. `uvx` reuses a persistent install if one exists.
-- **Go**: `go run <module>@<ver>` (compiles on the fly) or `go install`.
-- **Rust**: no first-class zero-install runner—ship **prebuilt binaries** (GitHub
-  releases and a `curl … | sh` installer) or `cargo binstall`; `cargo install` compiles.
-- **Cross-language**: a prebuilt binary and install script, or a container image (Docker
-  is emerging as the production-grade distribution for MCP servers).
-
-This mirrors how the ecosystem ships agent tooling today: **MCP servers** are most often
-referenced as `command: npx <pkg>` (Node) or `command: uvx <pkg>` (Python) in agent
-configs; **CLIs** like Beads offer `brew` / `npm -g` / `curl` installers, while tbd uses
-`npm -g` plus the bootstrap hook above.
-
-**Recommendation**: default the skill to a **pinned zero-install invocation**
-(`uvx`/`npx <pkg>@<version>`) for maximum reach across ephemeral and cloud agents; offer
-**global install and a `SessionStart` bootstrap** as the optimization for persistent
-environments where the project wants lockfile-managed versions and warm-start speed.
-
-### 6.8 Publishing and discovery—make the skill installable
-
-Most “skill registries” (mid-2026) are **GitHub-repo discoverers, not gated app
-stores**: you don’t submit a form, you put a spec-compliant `SKILL.md` in a public repo
-and the ecosystem finds it.
-The exception is **Anthropic’s own plugin marketplaces**, which *are* a reviewed,
-curated channel with a real submission and security-screening flow (below)—so the
-landscape is now a spectrum from passive scrapers to a gated store, not one shape.
-The landscape worth targeting:
-
-- **`skills.sh` / `npx skills add <owner/repo>`** (Vercel)—the cross-agent “npm for
-  skills”: one command installs into `.agents/skills/` and symlinks per agent (Claude
-  Code, Codex, Cursor, Copilot, Gemini, …). No review; ranked by install telemetry.
-  **This is the highest-leverage target** and needs zero extra infra.
-- **GitHub-scraping indexers** (SkillsMP ~800k skills, ClaudeSkills.info, LobeHub,
-  claudemarketplaces.com)—auto-list public repos that contain a `SKILL.md` (often gated
-  on ≥2 stars). You get listed for free just by being public and discoverable.
-- **Self-hosted plugin marketplaces**—`.claude-plugin/marketplace.json` (Claude Code)
-  and `.agents/plugins/marketplace.json` (Codex; Codex reads both).
-  These are *plugin* channels: bundles of skills, MCP servers, hooks, and commands.
-  They are **only for publishing a bundle**—a repo-local skill already loads from
-  `.claude/skills/` (Claude Code) and `.agents/skills/` (Codex) **without any
-  manifest**, so don’t add one just to be discovered.
-  Users add yours with `/plugin marketplace add <owner/repo>` and install with
-  `/plugin install <name>@<marketplace>`; it is not centrally indexed unless you also
-  list on the community marketplace (next bullet).
-  If you *do* emit a `marketplace.json` / `.codex-plugin/plugin.json`, treat it like any
-  generated artifact (§6.6): point it at the same generated `SKILL.md` payload (no body
-  duplication), mark it `DO NOT EDIT`, make it deterministic so re-install is a no-op,
-  and pick the same commit-vs-gitignore mode as the skill it references.
-- **Anthropic’s official and community marketplaces**—the one genuinely *gated* channel,
-  and the only place a third party gets a reviewed, security-scanned listing.
-  Two catalogs ship with Claude Code:
-  - **`claude-plugins-official`**—auto-available in every session (catalog at
-    `claude.com/plugins`); curated by Anthropic, inclusion **at its discretion, not
-    self-serve**. Install: `/plugin install <name>@claude-plugins-official`.
-  - **`anthropics/claude-plugins-community`** (install name `claude-community`)—a
-    **read-only nightly mirror of Anthropic’s internal review pipeline**. Third-party
-    plugins that pass **automated validation + security screening** get listed, each
-    **pinned to a commit SHA**. Users add it manually
-    (`/plugin marketplace add anthropics/claude-plugins-community`) then
-    `/plugin install <name>@claude-community`. **Submitting**: do *not* open a PR
-    against the repo—they are auto-closed.
-    Submit through the in-app form / `clau.de/plugin-directory-submission` and let the
-    scan and approval run (the in-app forms feed the *community* marketplace, never the
-    official one). This is the channel that buys **trust and discoverability inside
-    Claude Code**: current `/plugin` install views show a **Context cost** estimate
-    (per-turn token cost; v2.1.143+), a **Last updated** date (v2.1.144+), and a **Will
-    install** breakdown (commands, agents, skills, hooks, MCP/LSP; v2.1.145+) before the
-    user commits—best-in-class informed consent.
-    Worth it for a tool you want broadly adopted; still optional, since a repo-local
-    skill loads with none of it.
-
-**Channels at a glance** (generic; verify specifics against current docs—this space
-moves fast). The rows run from lowest effort/reach to highest trust, and they
-**compose**: a single public repo can satisfy every row at once.
-
-| Channel | User install | Discovery & reach | Trust & security | Versioning | Publish / submit |
-| --- | --- | --- | --- | --- | --- |
-| **Documented install** (README + optional installer) | A few manual steps, or one command if you ship `mytool install` | None beyond the repo’s own stars/SEO | Fully manual—user reads the source before running | Whatever your docs pin; manual re-pull | Push the repo and write the README |
-| **`npx skills add`** (skills.sh, Vercel) | `npx skills add <owner/repo>`—one command, 50+ agents, symlink or copy | High and **cross-agent**; `npx skills find`, ranked by install telemetry | Runs the `skills` CLI + your repo; review the `SKILL.md`, pin to a ref | Tracks the repo/ref; `npx skills update`; no semver | Put `skills/<name>/SKILL.md` in a public repo—auto-works. [skills.sh](https://skills.sh) · [vercel-labs/skills](https://github.com/vercel-labs/skills) |
-| **GitHub-scraping indexers** (SkillsMP, claudemarketplaces, LobeHub…) | They hand you one of the other commands | Highest *passive* top-of-funnel; free; often gated on ≥2 stars | Mostly unvetted link directories; you don’t control the listing | Inherits the underlying method | Automatic once public—no action. e.g. [claudemarketplaces.com](https://claudemarketplaces.com) |
-| **Self-hosted plugin marketplace** (Claude Code / Codex) | `/plugin marketplace add <owner/repo>`, then `/plugin install <name>@<mp>` (or the `/plugin` UI) | Inside Claude Code once added; **not** centrally indexed | Your repo’s trust only; install preview shows exactly what loads | **Best**—`version` field + SHA pin + auto-update toggle | Add `.claude-plugin/marketplace.json`. [Docs](https://code.claude.com/docs/en/plugin-marketplaces) |
-| **Anthropic official / community marketplace** | Official: auto-available (`<name>@claude-plugins-official`). Community: add `anthropics/claude-plugins-community`, then `<name>@claude-community` | Highest inside Claude Code (Discover tab, `claude.com/plugins`) | **Best**—reviewed, security-screened, SHA-pinned, install preview | SHA-pinned in the catalog; nightly-mirror updates | Official: not self-serve (Anthropic’s discretion). Community: submit at [clau.de/plugin-directory-submission](https://clau.de/plugin-directory-submission) (no PRs—auto-closed). [Docs](https://code.claude.com/docs/en/discover-plugins) |
-
-**Takeaway**: for broad cross-agent reach at near-zero effort, ship a valid `SKILL.md`
-and lean on `npx skills add` plus the scrapers; for the highest trust and
-discoverability *inside Claude Code*, additionally submit to the community marketplace.
-Reserve a self-hosted marketplace for a private/team channel or to bundle hooks, agents,
-and MCP servers alongside the skill.
-
-**The simplest publishable structure** (works for all of the above at once):
-
-```
-your-repo/
-└── skills/
-    └── <name>/
-        └── SKILL.md      # spec frontmatter: name + two-part description
-```
-
-`skills/<name>/SKILL.md` at the repo root is the universal discovery location
-(`npx skills add`, the indexers, and agent installers all scan it).
-That’s the whole publishing step—push it public.
-
-**For a CLI-backed skill** (the §6 pattern), one extra rule matters: a registry installs
-**only the Markdown**, never your binary.
-So the published `SKILL.md` must **bootstrap its own CLI**—lead with a pinned install
-line (`npm i -g <pkg>@<ver>` / `uvx --from <pkg>@<ver>`) and a one-time `setup`, and
-have commands degrade with a clear “install the CLI first” message.
-Treat the registry copy as a **landing page that installs the engine**, not the engine
-itself. Generate this distribution `SKILL.md` from the same source as your in-repo skill
-(so it can’t drift), and validate it with `npx skills-ref validate skills/<name>` before
-pushing.
-
-`tbd` does exactly this: `skills/tbd/SKILL.md` is generated at build time from the same
-baseline, carries `name: tbd` and a trigger-rich description, and opens with the
-`npm install -g get-tbd` and `tbd setup --auto` bootstrap—so `npx skills add jlevy/tbd`
-gives an agent a working landing page, and `tbd setup` then upgrades it to the full
-multi-agent install (§6.6).
-
-* * *
-
-## 7. CLI vs MCP vs Skill—Choosing the Surface
-
-These are complementary, not competing.
-Pick by need:
-
-| Need | Surface |
-| --- | --- |
-| Prompt/instructions, portable | **SKILL.md** |
-| Local processing, composable, you have/can build a CLI | **CLI** |
-| Service with no CLI; OAuth, multi-tenant, audit, remote | **MCP server** |
-| Both local convenience and structured/remote access | **CLI + MCP** |
-
-**Why CLI usually wins when one exists**: benchmarks (2026) put a CLI at ~100% task
-reliability and ~1.3K–8.7K tokens, vs.
-MCP at ~72% reliability and ~32K–82K tokens—roughly **17× cheaper** at scale—because
-LLMs already know common CLI usage and no tool schema is injected.
-Use MCP when there’s no CLI to lean on or you need its auth/permission machinery.
-
-**MCP current state (May 2026)**: governed by AAIF/Linux Foundation; two
-transports—**stdio** (local) and **Streamable HTTP** (remote; replaced legacy SSE in the
-Nov 2025 spec, supports OAuth 2.1 + PKCE). Primitives: **tools**, **resources**,
-**prompts**. Security is a real concern (a scan found 492 public servers with no
-auth)—authenticate every request, scope every tool call, validate inputs, never pass
-tokens between servers.
-
-**Code execution with MCP** ("Code Mode"): instead of exposing many MCP tools as direct
-calls (each ~550–1,400 tokens of schema), let the agent write code against a compact
-tool API in a sandbox—reported 78–99% token reduction.
-Worth it when an MCP server exposes *many* tools; overkill for one.
-
-* * *
-
-## 8. Hooks and Lifecycle (Cross-Agent)
-
-Hooks let a tool inject context or enforce invariants automatically.
-Support varies:
-
-- **Claude Code** has the richest set (~29 events incl.
-  `SessionStart`, `Setup`, `UserPromptSubmit`, `PreToolUse`, `PostToolUse`,
-  `PreCompact`/`PostCompact`, `Stop`, `SubagentStart/Stop`, `SessionEnd`). Inject
-  context via `additionalContext` (most events) or stdout
-  (`SessionStart`/`UserPromptSubmit`). Skills can declare their own scoped `hooks:`.
-- **Cursor** (6 events, incl.
-  `beforeShellExecution`/`beforeMCPExecution`), **Windsurf** (pre-hooks can **block**
-  via exit code 2), **Gemini CLI** (~12), and **opencode** (25+, with tool interception)
-  all have lifecycle hooks.
-- **Codex** (as of May 2026) ships a **Claude-style hooks engine that uses the same
-  event schema as Claude Code**—`SessionStart`, `PreCompact`/`PostCompact`,
-  `PreToolUse`/`PostToolUse`, `UserPromptSubmit`, `Stop`,
-  `SubagentStart`/`SubagentStop`, and `PermissionRequest`. Hooks load from `hooks.json`
-  **or an inline `[hooks]` table in `config.toml`** next to an active config layer
-  (`~/.codex/…` for user scope, `<repo>/.codex/…` for project scope).
-  Only **command** handlers run today; `prompt`/ `agent` handlers are parsed but
-  skipped. Because the schema matches Claude’s, a tool’s
-  `SessionStart`/`PreCompact`/`PostToolUse` hooks map almost 1:1 across both agents.
-  Repo-local hooks should resolve scripts from the git root or `.codex/`, not from
-  `.claude/`, so Codex setup stays independent of Claude Code setup.
-- **Aider**, **Jules**, **Zed** have no agent hooks (Aider integrates Git pre-commit
-  hooks only).
-
-**Common, portable use**: a `SessionStart` hook that runs your CLI’s `prime`/`skill`
-command to restore workflow context; a `PreCompact` hook that re-injects a brief
-(`skill --brief`) before the window is trimmed.
-Keep injected context small—it competes with everything else.
-
-```jsonc
-// Claude Code ~/.claude/settings.json
-{
-  "hooks": {
-    "SessionStart": [{ "matcher": "", "hooks": [{ "type": "command", "command": "mycli prime" }] }],
-    "PreCompact":  [{ "matcher": "", "hooks": [{ "type": "command", "command": "mycli skill --brief" }] }]
-  }
-}
-```
-
-* * *
-
-## 9. Security and Supply Chain (Don’t Skip This)
-
-Skills and instruction files are **executable influence** on an agent, which makes them
-an attack surface. Treat them with the same care as dependencies.
-
-- **Prompt injection via skills/instructions is real and effective**: 2026 security
-  research demonstrated up to ~80% attack success against frontier models using
-  malicious skills (instructions that exfiltrate data or escalate tool use).
-  Anything in `AGENTS.md`, `SKILL.md`, a fetched skill, or tool output is **untrusted
-  input**.
-- **Never put secrets in skill/instruction files or tool output.** `AGENTS.md`,
-  `SKILL.md`, bundled scripts, and anything a command prints get loaded into agent
-  context (and often committed)—keep credentials, tokens, and keys out of them; read
-  secrets from the environment at runtime instead.
-- **Vet third-party skills before install.** Prefer sources that scan (skills.sh runs
-  Snyk on every install).
-  Read the body and any bundled scripts—review them like dependency code.
-  Pin to a commit, not a moving tag.
-- **Scope tools tightly.** Use `allowed-tools` to grant the minimum (e.g.,
-  `Bash(mycli:*)` not blanket `Bash`). Prefer `disable-model-invocation` for
-  destructive/action-heavy skills so they require explicit invocation.
-- **Lean on sandboxing.** Claude Code’s OS-level sandbox and Codex’s
-  `read-only`/`workspace-write` modes contain damage; design your CLI to run within them
-  and degrade gracefully (clear error, no silent failure) when writes/network are
-  denied.
-- **Apply the same currency discipline** you use for packages: if your skill ships a
-  script with dependencies, the project’s supply-chain rules (e.g., the 14-day
-  package-age rule) apply—and a skill that references a zero-install runner must pin the
-  version (§6.7), since unpinned `npx`/`uvx` bypasses the cool-off.
-  See `tbd guidelines supply-chain-hardening` for the cross-ecosystem policy, or
-  `tbd guidelines bun-monorepo-patterns` / `pnpm-monorepo-patterns` for monorepo
-  specifics.
-
-* * *
-
-## 10. Emerging and Forward-Looking (Know It Exists)
-
-You usually don’t need these to ship a skill, but they shape where the ecosystem is
-going:
-
-- **ACP (Agent Client Protocol)**—Zed’s “LSP for agents” (JSON-RPC over stdio); 25+
-  agents (Claude Code, Codex, Gemini CLI, opencode) and editors (Zed, JetBrains, Kiro).
-  Complements MCP (editor↔agent, while MCP is agent↔tools).
-  Your agent runtime speaks it; a skill author doesn’t implement it.
-- **A2A (Agent2Agent)**—Google/Linux Foundation, v1.0, 150+ orgs; for enterprise
-  agent-to-agent delegation, not skill authoring.
-  Ignore unless you build autonomous multi-agent systems.
-- **Codex App-Server**—JSON-RPC (Thread/Turn/Item) decoupling Codex logic from client
-  surfaces; relevant only for Codex-specific integration surfaces.
-- **Plugin marketplaces & `npx skills`**—distribution is consolidating: Claude Code
-  plugin marketplaces (official and community), Codex plugins, and Vercel’s
-  `npx skills add` over the skills.sh directory (cross-agent symlinks).
-- **Routines / scheduled agents, background monitors, `/run` & `/verify` skills**—newer
-  Claude Code capabilities for autonomous, event-triggered, and app-verifying workflows
-  (confirm GA vs. preview for your version before relying on them).
-
-* * *
-
-## 11. Best-Practices Summary
-
-**Start simple**
-
-- One capability → one `SKILL.md` (name + two-part description + < 500-line body).
-  Stop.
-- Project conventions → `AGENTS.md` (concise; it loads every turn).
-- Have a CLI → make it agent-friendly (`--json`, idempotent, actionable errors) and
-  point a `SKILL.md` at it.
-
-**Descriptions and disclosure**
-
-- Two-part rule: *what it does* + *when to use it*; third person; front-load keywords.
-- Progressive disclosure: metadata → body → supporting files; bundle scripts
-  (output-only cost).
-- Route, don’t restate: name each capability and the command to run; let the CLI’s
-  `--help` and informational subcommands hold the flags and recipes.
-  Carry the focused context an agent needs to judge that the tool is relevant, but don’t
-  blindly copy help into the skill; that wastes context and goes stale (§3.1, §6.5). The
-  two failure modes: **slopdocs** (copying too much or unthinkingly) and **hiding
-  details** (copying too little—content hidden behind links the agent won’t follow).
-- Respect the budget; verify the current model for your target agent (Claude Code ≈ 1%
-  of context window, not a flat char count).
-
-**Scale up only when needed**
-
-- Many capabilities → meta-skill and informational, self-injecting subcommands (one
-  listing slot, unbounded resources).
-  This is tbd’s validated approach.
-- Path-ordered resource cache for project/user shadowing; generate `--list` dynamically.
-- Context-injection loop with explicit `cli command arg` references; depth ≤ 3.
-- Self-installing tools climb the §6.0 ladder and stop at the lowest rung.
-  A managed `AGENTS.md` block (the L2b variant) is the one L3 surface worth adopting
-  alone, but any rung that writes one must format-stamp it and refuse to clobber a newer
-  block.
-
-**Reach and surface**
-
-- Layer for reach: `AGENTS.md` + `SKILL.md` + CLI + (MCP if no CLI fits).
-- Prefer CLI over MCP when a CLI exists (cheaper, more reliable); use MCP for
-  auth/multi-tenant/remote; consider code-execution mode for many-tool MCP servers.
-- Add agent-specific files (`.cursor/rules`, plugins, ACP) last, only where they pay
-  off.
-
-**Operate safely**
-
-- Treat all skill/instruction content and tool output as untrusted; vet and pin
-  third-party skills.
-- Scope `allowed-tools` tightly; gate destructive skills; design for sandboxes.
-- Idempotent multi-agent install with marker-bounded sections; version source files, not
-  fully generated install artifacts; mark generated files “DO NOT EDIT.”
-- Pin a generated runner to a resolvable published release; never bake a dev or
-  pre-release version a teammate’s `uvx`/`npx` cannot resolve (§6.7).
-
-* * *
-
-## 12. Integration Checklist
-
-**Baseline (every skill)**
-- [ ] `SKILL.md` with `name` + two-part `description`
-- [ ] Body < 500 lines; bulky material in supporting files one level deep
-- [ ] Body carries the essential context to judge whether the tool is relevant and to
-  name each key use case, but routes to `mycli <cmd> --help` or `--list` for flags and
-  recipes instead of copying help wholesale
-- [ ] No **slopdocs** (help, flags, or recipes copied in unthinkingly) and no **hiding
-  details** (capabilities behind bare links with too little context to show they are
-  worth following)
-- [ ] Third-person description, trigger keywords front-loaded
-- [ ] Installable via commit to `.agents/skills/`, Claude mirror at `.claude/skills/`,
-  and/or `npx skills add`
-
-**Project**
-- [ ] `AGENTS.md` with build/test/style/conventions (concise)
-- [ ] Managed `AGENTS.md` block uses a stable begin/end marker with a `format=fNN` field
-  on the begin line
-- [ ] Marker carries only `format=fNN` (artifact type is clear from location, no
-  `surface=` tag); duplicate stale blocks collapsed to one on install (the L2b variant
-  and L3)
-- [ ] `CLAUDE.md` strategy decided (symlink to `AGENTS.md`, copy, or separate)
-
-**CLI tool (if applicable)**
-- [ ] `--json` on all commands; `--brief`/`--quiet`; actionable errors
-
-- [ ] Idempotent `setup --auto`; `init` for surgical config
-
-- [ ] Help epilog with `IMPORTANT:` + Getting Started one-liner
-
-- [ ] `prime` (status/context) and `skill` (pure docs) commands
-
-- [ ] Invocation strategy chosen (§6.7): local-first plus pinned zero-install fallback
-  by default, or global install + `SessionStart` bootstrap for cloud/ephemeral agents
-
-- [ ] Generated skill bakes a resolvable published pin, not the running dev or
-  pre-release version (§6.7)
-
-**Advanced (many subcommands / knowledge library)**
-- [ ] Meta-skill composition (header + baseline + dynamic directory)
-- [ ] Informational commands (`guidelines`/`shortcut`/`template`) with `--list`
-- [ ] Path-ordered DocCache with shadowing
-- [ ] Tiered skill files (baseline + brief)
-- [ ] Context-injection loop, explicit references, depth ≤ 3
-
-**Reach**
-- [ ] Decide target agents; add per-agent files only where needed
-- [ ] MCP server only if no CLI fits, or for OAuth/multi-tenant/remote
-- [ ] Marker-bounded multi-agent install; “DO NOT EDIT” on generated files
-- [ ] Existing installs upgrade item-by-item without rewriting user-owned content
-
-**Security**
-- [ ] Third-party skills vetted, scanned, and pinned
-- [ ] `allowed-tools` minimally scoped; destructive skills gated
-- [ ] CLI works within agent sandboxes and degrades gracefully
-
-* * *
-
-## References
-
-### Open standards and governance
-
-- Agent Skills standard: https://agentskills.io (spec:
-  https://agentskills.io/specification)
-- AGENTS.md: https://agents.md
-- Agentic AI Foundation (Linux Foundation):
-  https://www.linuxfoundation.org/press/linux-foundation-announces-the-formation-of-the-agentic-ai-foundation
-
-### Claude Code
-
-- Skills: https://code.claude.com/docs/en/skills
-- Hooks: https://code.claude.com/docs/en/hooks
-- Plugins: https://code.claude.com/docs/en/plugins
-- Skill authoring best practices:
-  https://platform.claude.com/docs/en/agents-and-tools/agent-skills/best-practices
-- Sandboxing: https://www.anthropic.com/engineering/claude-code-sandboxing
-
-### Codex
-
-- AGENTS.md: https://developers.openai.com/codex/guides/agents-md
-- Config reference: https://developers.openai.com/codex/config-reference
-- Skills: https://developers.openai.com/codex/skills
-- MCP: https://developers.openai.com/codex/mcp
-- Sandboxing: https://developers.openai.com/codex/concepts/sandboxing
-
-### Other agents
-
-- Cursor rules: https://cursor.com/docs/rules
-- GitHub Copilot custom instructions:
-  https://docs.github.com/copilot/customizing-copilot/adding-custom-instructions-for-github-copilot
-- Gemini CLI: https://geminicli.com/docs/cli/gemini-md/
-- Windsurf AGENTS.md: https://docs.windsurf.com/windsurf/cascade/agents-md
-- Cline rules: https://docs.cline.bot/customization/cline-rules
-- Aider conventions: https://aider.chat/docs/usage/conventions.html
-- opencode: https://opencode.ai/docs/rules/
-- Amp: https://ampcode.com/manual
-- pi: https://github.com/badlogic/pi-mono
-
-### MCP and protocols
-
-- 2026 MCP roadmap: https://blog.modelcontextprotocol.io/posts/2026-mcp-roadmap/
-- Code execution with MCP: https://www.anthropic.com/engineering/code-execution-with-mcp
-- CLI vs MCP benchmarks: https://www.firecrawl.dev/blog/mcp-vs-cli
-- ACP: https://zed.dev/acp
-- A2A:
-  https://www.linuxfoundation.org/press/a2a-protocol-surpasses-150-organizations-lands-in-major-cloud-platforms-and-sees-enterprise-production-use-in-first-year
-
-### Distribution and ecosystem
-
-- Vercel skills / skills.sh:
-  https://vercel.com/changelog/introducing-skills-the-open-agent-skills-ecosystem
-- npx skills: https://github.com/vercel-labs/skills
-- Anthropic skills (examples): https://github.com/anthropics/skills
-- Discover and install plugins (official + community marketplaces, `/plugin` install
-  preview): https://code.claude.com/docs/en/discover-plugins
-- Create and distribute a plugin marketplace:
-  https://code.claude.com/docs/en/plugin-marketplaces
-- Community marketplace + submission flow:
-  https://github.com/anthropics/claude-plugins-community (submit via
-  https://clau.de/plugin-directory-submission)
-- gstack: https://github.com/garrytan/gstack
-- Beads (bd): https://github.com/gastownhall/beads
-- qmd (L2 reference: self-installing skill, discovery-dirs only, CLI, MCP, and plugin):
-  https://github.com/tobi/qmd
-- pprose (L2b variant reference: self-installing skill plus a format-stamped,
-  marker-bounded `AGENTS.md` block, no hooks/prime/setup):
-  https://github.com/jlevy/practical-prose
-- taste-skill (L0 reference: pure-prompt skill collection distributed via skills.sh, a
-  Claude plugin marketplace, `copilot-instructions.md`, and `llms.txt`):
-  https://github.com/Leonxlnx/taste-skill
-- anthropics/skills (L0 reference: skill collection bundled as Claude plugins):
-  https://github.com/anthropics/skills
-
-### Security
-
-- Securing the skill ecosystem (Snyk):
-  https://snyk.io/blog/snyk-vercel-securing-agent-skill-ecosystem/
-- Malicious-skill research:
-  https://labs.reversec.com/posts/2026/05/skill-issues-compromising-claude-code-with-malicious-skills-agents-part-1
-
-## Related Guidelines
-
-- TypeScript CLI implementation: `tbd guidelines typescript-cli-tool-rules`
-- Supply-chain / dependency currency: `tbd guidelines bun-monorepo-patterns` or
-  `pnpm-monorepo-patterns`
-- Testing: `tbd guidelines general-testing-rules`
+The package and version are part of the workflow contract.
+Do not use `@latest`, a moving branch, or an unversioned `npx`, `uvx`, `pnpm dlx`, or
+`bunx` command in agent instructions.
+Follow the project supply-chain policy before selecting or changing the pin.
+
+When generated artifacts need a fallback pin, derive it from a known published release,
+not the running development build.
+A local version such as `1.5.0-dev.<sha>` may not be resolvable from the registry.
+
+### Make Failures Actionable
+
+The CLI should:
+
+- return nonzero when any requested operation fails
+- identify the exact failing input or artifact
+- preserve the original error context
+- distinguish a missing local entrypoint from a failed pinned fallback
+- state the recovery action without claiming success after partial failure
+- operate within agent sandboxes or explain the narrow permission it needs
+
+Add structured output only when output is naturally structured or automation benefits
+from it. A formatter or stream transformer does not need JSON merely because it is
+agent-facing.
+
+## Publish Multi-File Bundles as One Logical Unit
+
+Once a skill has references, scripts, or assets, independent file writes can expose a
+mixed or broken version.
+Validate and stage the complete bundle before publication.
+Prefer atomic same-filesystem directory replacement when the directory is wholly owned
+and platform semantics allow it.
+
+Publishing resources first and link-bearing `SKILL.md` last is a useful fallback for a
+new install, but it is not a transaction.
+During upgrades, old `SKILL.md` may observe new resources.
+Use versioned or backward-compatible resources, or a stronger atomic strategy, when
+mixed versions are unsafe.
+
+A command that prints `SKILL.md` is not equivalent to installing the directory.
+If the printed text has relative links, it must materialize the complete bundle, inline
+the needed content, or give the exact materialization command before asking the agent to
+follow those links.
+
+Before implementing a publisher, installer, discovery copy, or printed skill route, load
+`tbd docs show agent-skill-bundle-publication` for the publication algorithm, ownership
+rules, and failure tests.
+
+## Choose Distribution Separately from Execution
+
+A skill installer materializes the skill directory.
+It does not install the separate CLI distribution or guarantee that its entrypoint is on
+`PATH`.
+
+Valid combinations include:
+
+- L0: the installed skill directory is the complete capability
+- L1: the installed skill calls a local command or reviewed pinned runner
+- L2/L2b: the CLI can also install and update its own agent surfaces
+
+Project and user/global scope are different policy decisions.
+Default to project scope for reproducible team behavior.
+Offer user scope when the skill is a personal tool and document precedence and collision
+behavior.
+
+For current `skills add`/`skills use` behavior, reproducible installer examples,
+copy-versus-symlink tradeoffs, discovery directories, and permission guidance, load
+`tbd docs show agent-skill-distribution`.
+
+## Add Platform Machinery Only at L3
+
+L3 is justified when a tool must coordinate many on-demand workflows and evolving
+integration surfaces.
+Features such as these are L3 concerns, not universal skill requirements:
+
+- `setup`, migration orchestration, and multi-surface refresh
+- `prime` or session-start context restoration
+- lifecycle hooks
+- brief and full instruction tiers
+- a document cache, registries, or knowledge-injection commands
+- format migrations across several generated artifacts
+
+Load `tbd docs show agent-platform-integration` before implementing L2b managed blocks,
+L3 lifecycle machinery, hooks, MCP integration, or Claude Code or Codex plugin
+packaging.
+
+## Rung-Specific Checklist
+
+### Every Skill
+
+- [ ] One focused capability with explicit inputs and outputs
+- [ ] Description states capability and activation conditions
+- [ ] Body is imperative, concise, and validated with realistic prompts
+- [ ] Positive and negative activation checks pass
+- [ ] Direct, one-level resource routes say when to load each resource
+- [ ] Bundled scripts and third-party content are reviewed as code
+- [ ] Review finds neither awareness debt nor context dilution
+
+### L1 CLI-Backed Skill
+
+- [ ] Project/local entrypoint is tried first
+- [ ] Network fallback pins a reviewed package version
+- [ ] Generated pins identify a published release, not a development build
+- [ ] Failures are actionable and return accurate exit codes
+- [ ] Sandbox and permission behavior is documented
+- [ ] JSON exists only when the command’s output or automation warrants it
+
+### L2 Self-Installer
+
+- [ ] Installation publishes the complete logical bundle deterministically
+- [ ] Repeated installation is idempotent
+- [ ] Project and user scopes, precedence, and collisions are explicit
+- [ ] Every managed artifact has an ownership and forward-compatibility policy
+- [ ] Discovery and installed copies have drift tests
+- [ ] Failure tests prove that no broken entrypoint becomes visible
+
+### L2b Managed Project Instructions
+
+- [ ] Managed `AGENTS.md` content is compact and marker-bounded
+- [ ] User-owned content outside markers is byte-preserved
+- [ ] A format stamp and newer-format guard exist when evolution requires them
+- [ ] Repeated setup collapses duplicate stale managed blocks
+- [ ] Surface location identifies the artifact; do not add redundant marker metadata
+
+### L3 Integration Platform
+
+- [ ] Setup previews and diagnostics are read-only until apply is explicit
+- [ ] Setup and migrations are idempotent and failure-tested
+- [ ] Session context routes to on-demand knowledge instead of embedding it
+- [ ] Hooks are minimal, observable, and non-destructive by default
+- [ ] Brief/full tiers and document registries have a demonstrated context need
+- [ ] Generated surfaces share one source and have drift tests
+
+## Direct References
+
+Each reference is optional and one level from this core:
+
+- `tbd docs show agent-skill-bundle-publication`: load when a skill contains multiple
+  files, an installer publishes generated skills, or a command prints a skill with
+  relative links
+- `tbd docs show agent-skill-distribution`: load when choosing install scope,
+  `skills add`/`skills use`, a pinned automation form, discovery copies, or
+  `allowed-tools`
+- `tbd docs show agent-platform-integration`: load when building L2b managed
+  `AGENTS.md`, L3 setup/hooks/knowledge injection, MCP integration, or Claude/Codex
+  plugin distribution
+
+Primary standards and current platform documentation:
+
+- [Agent Skills specification](https://agentskills.io/specification)
+- [AGENTS.md](https://agents.md)
+- [Codex skills](https://learn.chatgpt.com/docs/build-skills)
+- [Codex plugins](https://learn.chatgpt.com/docs/plugins)
+- [Claude Code skills](https://code.claude.com/docs/en/skills)
+- [Claude Code plugins](https://code.claude.com/docs/en/plugins)
+- [Anthropic skill authoring best practices](https://platform.claude.com/docs/en/agents-and-tools/agent-skills/best-practices)
+- [`anthropics/skills`](https://github.com/anthropics/skills) (official examples and
+  plugin packaging)
+- [`vercel-labs/skills`](https://github.com/vercel-labs/skills)
+
+Related tbd guidance:
+
+- `tbd guidelines typescript-cli-tool-rules`
+- `tbd guidelines general-testing-rules`
+- `tbd guidelines supply-chain-hardening`
 
 <!-- This document follows common-doc-guidelines.md.
 See github.com/jlevy/practical-prose and review guidelines before editing.
