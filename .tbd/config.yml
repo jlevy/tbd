@@ -104,6 +104,9 @@ docs_cache:
     templates/plan-spec.md: internal:templates/plan-spec.md
     templates/qa-playbook.md: internal:templates/qa-playbook.md
     templates/research-brief.md: internal:templates/research-brief.md
+    references/agent-platform-integration.md: internal:references/agent-platform-integration.md
+    references/agent-skill-bundle-publication.md: internal:references/agent-skill-bundle-publication.md
+    references/agent-skill-distribution.md: internal:references/agent-skill-distribution.md
     references/docmap-format.md: internal:references/docmap-format.md
     references/docref-format.md: internal:references/docref-format.md
   lookup_path:
