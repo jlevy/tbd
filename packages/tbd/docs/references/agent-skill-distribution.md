@@ -39,6 +39,13 @@ describes these distinct operations:
 - project and global/user scope
 - copy and symlink installation modes where supported
 
+GitHub CLI ships a comparable installer,
+[`gh skill`](https://cli.github.com/manual/gh_skill_install) (currently in public
+preview): `install`, `search`, and `preview` work across many agents with `--agent` and
+`--scope` targeting, and `gh skill preview` supports reviewing skill content before
+installation. Platform plugin marketplaces (Claude Code and Codex) are a third route for
+installable distribution; see `tbd docs show agent-platform-integration`.
+
 Treat the upstream documentation as authoritative for current flags and supported
 agents.
 Do not copy changing agent counts, skill counts, stars, or marketplace statistics
@@ -101,6 +108,10 @@ If a repository publishes `skills/<name>/` for installers to discover:
 An authored directory and installed mirror may live at different paths while remaining
 the same logical bundle.
 Normalize only intentionally variable metadata in drift tests.
+The specification project publishes a reference validator
+([`skills-ref`](https://github.com/agentskills/agentskills)) that checks name,
+description, and layout rules; it is a useful publication-time check alongside the drift
+tests.
 
 ## Narrow Tool Permissions
 
@@ -112,8 +123,11 @@ It is a space-separated string, and support depends on the consuming agent:
 allowed-tools: Bash(mycli:*) Read Write
 ```
 
-Avoid comma-separated pseudo-lists.
-More importantly, do not pre-approve general package runners:
+Prefer the space-separated spec form even where an agent tolerates alternatives (Claude
+Code also accepts comma-separated strings and YAML lists).
+Where the field is honored, it is a pre-approval, not a restriction: Claude Code scopes
+the grant to the invoking turn and leaves unlisted tools available under normal
+permission rules. More importantly, do not pre-approve general package runners:
 
 ```yaml
 # Unsafe: each wildcard can fetch and execute arbitrary packages.

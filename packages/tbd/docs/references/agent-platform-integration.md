@@ -1,13 +1,14 @@
 ---
 title: Agent Platform Integration
-description: Managed AGENTS.md, L3 setup and lifecycle, hooks, MCP, and Codex-specific skill and plugin guidance
+description: Managed AGENTS.md, L3 setup and lifecycle, hooks, MCP, and current Claude Code and Codex skill and plugin guidance
 author: Joshua Levy (github.com/jlevy) with LLM assistance
 category: general
 ---
 # Agent Platform Integration
 
 Load this reference when implementing an L2b managed `AGENTS.md` block, an L3 setup or
-migration system, lifecycle hooks, MCP integration, or Codex-specific plugin packaging.
+migration system, lifecycle hooks, MCP integration, or Claude Code or Codex plugin
+packaging.
 
 ## L2b: Managed Project Orientation
 
@@ -131,6 +132,8 @@ Hooks should be:
 - non-destructive by default
 - idempotently installed and removable
 - tested for missing commands, noninteractive execution, and failure exit codes
+- written for platform trust flows: expect first-run approval prompts, and expect a
+  content change to require the user to re-approve the hook
 
 Do not use hooks to inject a full manual every session.
 A session hook may restore a small orientation map and route the agent to current
@@ -155,9 +158,32 @@ Do not add an MCP server merely to wrap a local deterministic command, and do no
 remote service work through a shell CLI when authorization and live data belong in a
 connector.
 
+## Claude Code Guidance
+
+Current [Claude Code skill documentation](https://code.claude.com/docs/en/skills) says:
+
+- skills load from enterprise managed settings, user `~/.claude/skills/`, project
+  `.claude/skills/`, and enabled plugins; higher levels shadow same-named lower ones,
+  and plugin skills are namespaced
+- every skill is also a slash command; `disable-model-invocation: true` reserves a
+  side-effect workflow for explicit user invocation
+- the always-loaded skill listing has a context budget with per-skill description
+  truncation, so front-load activation terms
+- `allowed-tools` also accepts comma-separated or YAML-list forms, and the grant is a
+  pre-approval scoped to the invoking turn; it does not restrict other tools
+- Claude-specific frontmatter (model and effort overrides, forked subagent context,
+  skill-scoped hooks, path filters) is useful locally but not portable; keep portable
+  skills on the baseline fields
+
+[Claude Code plugins](https://code.claude.com/docs/en/plugins) are the installable
+distribution unit that can bundle skills with commands, agents, hooks, and MCP
+configuration, published through git-hosted marketplaces.
+As with Codex, a plugin is a distribution decision for a real consumer beyond one
+repository, not a requirement for a portable skill.
+
 ## Codex Guidance
 
-Current [Codex skill documentation](https://developers.openai.com/codex/skills) says:
+Current [Codex skill documentation](https://learn.chatgpt.com/docs/build-skills) says:
 
 - a skill directory contains `SKILL.md` plus optional scripts and references
 - `name` and `description` are required
@@ -174,11 +200,14 @@ Codex shortens descriptions first and may omit skills when the list is too large
 Keep descriptions concise and front-load activation terms; do not treat another agent’s
 budget as the portable standard.
 
+Skills are invoked explicitly (`$skill-name`) or implicitly when a request matches the
+description; Codex has deprecated `~/.codex/prompts` custom prompts in favor of skills.
+
 Direct skill folders are appropriate for local authoring and repository workflows.
-Current [Codex plugin documentation](https://developers.openai.com/codex/plugins)
-recommends plugins for reusable distribution beyond one repository, including a single
-reusable skill, multiple skills, connectors, MCP configuration, hooks, or presentation
-assets. This is a Codex distribution recommendation, not a reason to abandon a simple
+Current [Codex plugin documentation](https://learn.chatgpt.com/docs/plugins) recommends
+plugins for reusable distribution beyond one repository, including a single reusable
+skill, multiple skills, connectors, MCP configuration, hooks, or presentation assets.
+This is a Codex distribution recommendation, not a reason to abandon a simple
 cross-agent `skills/<name>/` directory.
 
 Use the smallest combination that serves the audience:
@@ -205,15 +234,16 @@ Add each surface only for a concrete consumer or distribution need.
 - [ ] Hooks are observable, minimal, and failure-tested
 - [ ] Resident context contains orientation, not procedure dumps
 - [ ] Platform-specific details link to current official docs
-- [ ] Codex metadata and plugins are added only for a real Codex need
+- [ ] Vendor metadata and plugins are added only for a real platform need
 
 Primary references:
 
-- [Codex skills](https://developers.openai.com/codex/skills)
-- [Codex plugins](https://developers.openai.com/codex/plugins)
-- [Codex AGENTS.md](https://developers.openai.com/codex/guides/agents-md)
-- [Codex MCP](https://developers.openai.com/codex/mcp)
+- [Codex skills](https://learn.chatgpt.com/docs/build-skills)
+- [Codex plugins](https://learn.chatgpt.com/docs/plugins)
+- [Codex AGENTS.md](https://learn.chatgpt.com/docs/agent-configuration/agents-md)
+- [Codex MCP](https://learn.chatgpt.com/docs/extend/mcp)
 - [Claude Code skills](https://code.claude.com/docs/en/skills)
+- [Claude Code plugins](https://code.claude.com/docs/en/plugins)
 - [Claude Code hooks](https://code.claude.com/docs/en/hooks)
 - [AGENTS.md](https://agents.md)
 

@@ -58,7 +58,7 @@ Start at L0 and add a rung only when a concrete requirement demands it.
 
 Examples:
 
-- L0: a review method, writing standard, or artifact template
+- L0: a review method, writing standard, artifact template, or domain knowledge pack
 - L1: a formatter invoked locally or through a pinned zero-install runner
 - L2: a CLI that installs the same complete skill bundle at project or user scope
 - L2b: [Flowmark](https://github.com/jlevy/flowmark) and
@@ -94,7 +94,9 @@ my-skill/
 
 Keep referenced material one level from `SKILL.md`. Every resource should say when it
 must be loaded. Avoid reference-to-reference chains that make the agent hunt for the
-actual procedure.
+actual procedure. Knowledge-heavy skills should add an explicit reading protocol: which
+reference answers which question, what order a deep pass reads them in, and when the
+resident instructions are enough on their own.
 
 ### Frontmatter
 
@@ -122,6 +124,10 @@ skills are available.
 Test both positive and negative prompts: the skill should load when relevant and stay
 out of unrelated tasks.
 
+The specification also defines optional `license`, `compatibility`, and `metadata`
+fields. Use them when distribution terms or environment requirements matter; do not
+invent vendor-specific keys for a portable skill.
+
 `allowed-tools` is optional, experimental, and implementation-dependent.
 When a target supports it, the Agent Skills specification defines it as a
 space-separated string:
@@ -131,6 +137,8 @@ allowed-tools: Bash(mycli:*) Read Write
 ```
 
 Do not assume the field works across agents.
+Where it is honored, it is a pre-approval, not a sandbox: tools outside the list stay
+available under the agent’s normal permission rules.
 Never grant wildcard access to a general package runner such as `Bash(npx:*)`,
 `Bash(uvx:*)`, or `Bash(pnpm:*)`; those permissions can execute arbitrary fetched
 packages. Prefer a narrow installed entrypoint, or omit pre-approval and let the agent
@@ -275,7 +283,8 @@ Features such as these are L3 concerns, not universal skill requirements:
 - format migrations across several generated artifacts
 
 Load `tbd docs show agent-platform-integration` before implementing L2b managed blocks,
-L3 lifecycle machinery, hooks, MCP integration, or Codex-specific plugin packaging.
+L3 lifecycle machinery, hooks, MCP integration, or Claude Code or Codex plugin
+packaging.
 
 ## Rung-Specific Checklist
 
@@ -335,16 +344,20 @@ Each reference is optional and one level from this core:
   `skills add`/`skills use`, a pinned automation form, discovery copies, or
   `allowed-tools`
 - `tbd docs show agent-platform-integration`: load when building L2b managed
-  `AGENTS.md`, L3 setup/hooks/knowledge injection, MCP integration, or Codex plugin
-  distribution
+  `AGENTS.md`, L3 setup/hooks/knowledge injection, MCP integration, or Claude/Codex
+  plugin distribution
 
 Primary standards and current platform documentation:
 
 - [Agent Skills specification](https://agentskills.io/specification)
 - [AGENTS.md](https://agents.md)
-- [Codex skills](https://developers.openai.com/codex/skills)
-- [Codex plugins](https://developers.openai.com/codex/plugins)
+- [Codex skills](https://learn.chatgpt.com/docs/build-skills)
+- [Codex plugins](https://learn.chatgpt.com/docs/plugins)
 - [Claude Code skills](https://code.claude.com/docs/en/skills)
+- [Claude Code plugins](https://code.claude.com/docs/en/plugins)
+- [Anthropic skill authoring best practices](https://platform.claude.com/docs/en/agents-and-tools/agent-skills/best-practices)
+- [`anthropics/skills`](https://github.com/anthropics/skills) (official examples and
+  plugin packaging)
 - [`vercel-labs/skills`](https://github.com/vercel-labs/skills)
 
 Related tbd guidance:
