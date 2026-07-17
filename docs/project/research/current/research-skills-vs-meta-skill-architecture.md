@@ -1,9 +1,12 @@
 # Research Brief: Skills vs Meta-Skill Architecture for Agent-Integrated CLIs
 
-**Last Updated**: 2026-05-24
+**Last Updated**: 2026-05-24 (pointer 2026-07-17)
 
 **Status**: Complete (updated with skills.sh ecosystem, activation reliability data, and
-portable `.agents/skills/` path guidance)
+portable `.agents/skills/` path guidance).
+For current durable guidance, see `tbd guidelines cli-agent-skill-patterns` and its
+references as rewritten for issue #190 (PR #191); this brief remains the evidence
+record.
 
 **Related**:
 

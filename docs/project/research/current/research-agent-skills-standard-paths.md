@@ -1,9 +1,22 @@
 # Research Brief: Agent Skills Standard Paths
 
-**Last Updated**: 2026-05-26
+**Last Updated**: 2026-07-17 (addendum; body verified 2026-05-26)
 
 **Status**: Complete (Codex discovery source-verified against `openai/codex`
 `rust-v0.130.0`/`v0.133.0` — see the 2026-05-26 note)
+
+> **2026-07-17 addendum.** The guideline changes this brief recommended shipped as the
+> issue #190 rewrite (PR #191): a concise `cli-agent-skill-patterns` core plus the
+> `agent-skill-distribution`, `agent-skill-bundle-publication`, and
+> `agent-platform-integration` references.
+> Path facts re-verified against current vendor docs: Codex still discovers repo
+> `.agents/skills/` (docs have moved — `developers.openai.com/codex/*` now 308-redirects
+> to `learn.chatgpt.com/docs/*`, skills at
+> [learn.chatgpt.com/docs/build-skills](https://learn.chatgpt.com/docs/build-skills)),
+> and Claude Code still reads only `.claude/skills/` (plus user/enterprise/plugin
+> locations), so the `.claude/skills/` mirror remains required.
+> New since this brief: GitHub CLI `gh skill install`/`search`/`preview` (v2.90.0+,
+> public preview) installs spec skills across agents with `--agent`/`--scope` targeting.
 
 **Related**:
 

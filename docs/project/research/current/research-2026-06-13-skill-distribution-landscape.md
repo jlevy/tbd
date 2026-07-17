@@ -1,8 +1,30 @@
 # Research Brief: Agent-Skill Distribution Landscape and Popular-Skill Patterns
 
-**Last Updated**: 2026-06-13
+**Last Updated**: 2026-07-17 (addendum; body verified 2026-06-13)
 
 **Status**: Complete
+
+> **2026-07-17 addendum.** The guideline this brief informs was rewritten for issue #190
+> (PR #191); the L2b rung and the distribution corrections below are now named in the
+> shipped core and references.
+> Landscape deltas since 2026-06-13, verified against primary sources:
+> 
+> - **`gh skill` (GitHub CLI v2.90.0+, 2026-04)**: `install`/`search`/`preview` for spec
+>   skills across agents, with `--agent`/`--scope` targeting and preview-first review
+>   ([changelog](https://github.blog/changelog/2026-04-16-manage-agent-skills-with-github-cli/)).
+> - **Codex**: docs moved to `learn.chatgpt.com/docs/*`; the plugin marketplace
+>   (launched 2026-03-26, npm-backed remote plugins on by default since CLI v0.143.0) is
+>   now the recommended Codex distribution route beyond one repo; `~/.codex/prompts`
+>   custom prompts are deprecated in favor of skills.
+> - **Scale check (2026-07 snapshot)**: the `skills` installer is ~9.6M npm
+>   downloads/week with ~84K skills indexed on skills.sh; `obra/superpowers` (~256K
+>   stars) distributes as per-agent plugins; `anthropics/skills` (~162K stars) packages
+>   its skills as Claude plugin bundles via `.claude-plugin/marketplace.json`. Simple
+>   L0/L1 knowledge skills still dominate the leaderboards, consistent with this brief’s
+>   headline finding.
+> - **Claude Code**: skill listing budget and per-skill description truncation are now
+>   explicitly configurable (`skillListingBudgetFraction`, `skillListingMaxDescChars`),
+>   reinforcing the front-load-the-description guidance.
 
 **Related**:
 
@@ -426,7 +448,7 @@ that native per-agent dirs are multiplying.
 
 Fold the eight findings above into `cli-agent-skill-patterns` as targeted edits (mapped
 gap-by-gap in
-[plan-2026-06-13-cli-skill-guideline-pprose-gaps.md](../../specs/active/plan-2026-06-13-cli-skill-guideline-pprose-gaps.md)),
+[plan-2026-06-13-cli-skill-guideline-pprose-gaps.md](../../specs/done/plan-2026-06-13-cli-skill-guideline-pprose-gaps.md)),
 keep the simple baseline loud, and refresh the stale Cursor/native-dir facts.
 Track the tbd-generator `surface=` cleanup (finding 7) as a separate small bead.
 
