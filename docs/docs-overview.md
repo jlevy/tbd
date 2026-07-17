@@ -1,6 +1,6 @@
 # Human and Agent Development Docs
 
-This folder holds docs and rules for use by humans and LLMs/agents.
+Docs and rules for use by humans and LLMs/agents.
 
 Any filenames like @docs/general/agent-rules/python-rules.md are paths from the root of
 this repository.

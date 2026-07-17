@@ -42,12 +42,12 @@ stability and ensure predictable performance.
 Understanding these limits and their implications is critical for building scalable
 applications that avoid runtime errors, performance degradation, and cost overruns.
 
-This document provides a complete reference of Convex’s limits (as of January 2026),
-explains the technical constraints behind them, and documents proven workarounds and
-best practices. Key topics include: transaction read/write limits (8 MiB cap), document
-size constraints (1 MiB max), concurrency quotas, indexing strategies, pagination
-patterns, optimistic concurrency control (OCC), and the official Aggregate Component for
-maintaining statistics at scale.
+A complete reference of Convex’s limits (as of January 2026): it explains the technical
+constraints behind them, and documents proven workarounds and best practices.
+Key topics include: transaction read/write limits (8 MiB cap), document size constraints
+(1 MiB max), concurrency quotas, indexing strategies, pagination patterns, optimistic
+concurrency control (OCC), and the official Aggregate Component for maintaining
+statistics at scale.
 
 **Key Takeaway**: Applications can scale to substantial workloads within Convex by
 combining official best practices—selective indexes, pagination, aggregate components,

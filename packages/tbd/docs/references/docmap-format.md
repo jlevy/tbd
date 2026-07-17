@@ -31,7 +31,7 @@ documents:
 
 Rules:
 
-- **Identity**: `type` + `name`, unique within the map.
+- **Identity**: `type` and `name`, unique within the map.
   `type` is an open vocabulary (tbd uses `guideline` / `shortcut` / `template` /
   `reference`).
 - **Location**: every entry carries `path` and/or `source` (a

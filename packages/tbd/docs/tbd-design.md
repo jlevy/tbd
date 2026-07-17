@@ -25,7 +25,7 @@ agents.
     - [1.7 Layer Overview](#17-layer-overview)
   - [2. File Layer](#2-file-layer)
     - [2.1 Overview](#21-overview)
-      - [Markdown + YAML Front Matter Format](#markdown--yaml-front-matter-format)
+      - [Markdown and YAML Front Matter Format](#markdown-and-yaml-front-matter-format)
       - [Canonical Serialization](#canonical-serialization)
       - [Atomic File Writes](#atomic-file-writes)
     - [2.2 Directory Structure](#22-directory-structure)
@@ -158,9 +158,9 @@ agents.
       - [Decision 1: File-per-entity vs JSONL](#decision-1-file-per-entity-vs-jsonl)
       - [Decision 2: No daemon required](#decision-2-no-daemon-required)
       - [Decision 3: Sync branch instead of main](#decision-3-sync-branch-instead-of-main)
-      - [Decision 4: Dual ID system (ULID + short base36)](#decision-4-dual-id-system-ulid--short-base36)
+      - [Decision 4: Dual ID system (ULID and short base36)](#decision-4-dual-id-system-ulid-and-short-base36)
       - [Decision 5: Only “blocks” dependencies](#decision-5-only-blocks-dependencies)
-      - [Decision 6: Markdown + YAML storage](#decision-6-markdown--yaml-storage)
+      - [Decision 6: Markdown and YAML storage](#decision-6-markdown-and-yaml-storage)
       - [Decision 7: Hidden worktree for sync branch](#decision-7-hidden-worktree-for-sync-branch)
     - [7.2 Future Enhancements](#72-future-enhancements)
       - [Additional Dependency Types (High Priority)](#additional-dependency-types-high-priority)
@@ -276,7 +276,7 @@ layered on top of tbd or handled by other tools.
 
 - **Git-native**: Uses a dedicated sync branch for coordination data
 
-- **Human-readable format**: Markdown + YAML front matter - directly viewable and
+- **Human-readable format**: Markdown and YAML front matter - directly viewable and
   editable in any text editor
 
 - **File-per-entity**: Each issue is a separate `.md` file for fewer merge conflicts
@@ -334,9 +334,9 @@ tbd and Beads serve different use cases:
 
 | Aspect | tbd | Beads |
 | --- | --- | --- |
-| Architecture | 2 locations (files + sync branch) | 4 locations (SQLite, JSONL, sync, main) |
+| Architecture | 2 locations (files and sync branch) | 4 locations (SQLite, JSONL, sync, main) |
 | Daemon | Not required | Required for real-time sync |
-| Storage | Markdown + YAML files | SQLite + JSONL |
+| Storage | Markdown and YAML files | SQLite and JSONL |
 | Coordination | Advisory claims, polling | Atomic claims, real-time |
 | Workflow templates | Not supported | Molecules, wisps, protos |
 | Agent messaging | Not supported | Agent Mail |
@@ -393,10 +393,10 @@ architecture accumulated complexity:
 tbd builds on lessons from the git-native issue tracking ecosystem:
 
 - **[ticket](https://github.com/wedow/ticket)**: An elegantly simple Beads alternative
-  implemented as a single bash script (~~900 lines) with Markdown + YAML frontmatter
-  storage. Ticket demonstrates that simplicity and minimal dependencies (bash +
-  coreutils) can outperform complex architectures—it successfully manages ~~1,900
-  tickets in production and provides a `migrate-beads` command for smooth transitions.
+  implemented as a single bash script (~~900 lines) with Markdown and YAML frontmatter
+  storage. Ticket demonstrates that simplicity and minimal dependencies (bash and
+  coreutils) can outperform complex architectures—it manages ~~1,900 tickets in
+  production and provides a `migrate-beads` command for smooth transitions.
   The key insight: “You don’t need to index everything with SQLite when you have awk.”
   tbd shares this philosophy while adding TypeScript implementation, stronger conflict
   resolution, and cross-platform reliability.
@@ -454,7 +454,7 @@ tbd addresses specific requirements:
 1. **Simplicity first**: Prefer boring, well-understood approaches over clever
    optimization
 
-2. **Files as truth**: Markdown + YAML files on disk are the canonical state
+2. **Files as truth**: Markdown and YAML files on disk are the canonical state
 
 3. **Git for sync**: Standard git commands handle all distribution
 
@@ -544,7 +544,7 @@ Astro).
 
 - **Atomic writes**: Write to temp file, then atomic rename (see below)
 
-#### Markdown + YAML Front Matter Format
+#### Markdown and YAML Front Matter Format
 
 Issue files use the standard front matter pattern:
 
@@ -1975,8 +1975,8 @@ Add transitive blocking as an opt-in feature if users request it after real-worl
 tbd manages documentation (guidelines, shortcuts, templates) alongside issues.
 With forkable docs (format f05, `plan-2026-06-11-forkable-docs.md`), a doc can exist as
 up to **four copies plus a manifest**, each with a distinct owner and lifecycle.
-This section is the canonical statement of that model and the invariants that make every
-combination of user actions safe.
+This section states that model and the invariants that make every combination of user
+actions safe.
 
 #### The copies
 
@@ -1988,7 +1988,7 @@ combination of user actions safe.
 | Base | `.tbd/doc-forks/base/<kind>/<name>.md` | tracked | `tbd docs fork/update` | Verbatim upstream snapshot at the fork point; the three-way merge base |
 | Manifest | `.tbd/doc-forks/forks.yml` | tracked | `tbd docs fork/unfork/update` | Provenance per fork: source docref, `base_hash` (LF-normalized sha256), `tbd_version` at fork point, `conflicted` flag |
 
-A doc’s identity is **kind + name**; paths follow fixed conventions
+A doc’s identity is **kind and name**; paths follow fixed conventions
 (`<kind-dir>/<name>.md`, flat; nested folders are not scanned).
 
 The model follows one principle: **resolve by convention; track only what cannot be
@@ -2627,7 +2627,7 @@ tbd create --from-file new-issue.md
 
 **`--from-file` behavior:**
 
-- Reads the YAML frontmatter + Markdown body from file
+- Reads the YAML frontmatter and Markdown body from file
 
 - Validates against IssueSchema
 
@@ -2722,7 +2722,7 @@ proj-f14c  P2  ○ open  feature  Add OAuth support
 | Tree prefix | dim | `├── ` or `└── ` for children, with indentation for deeper levels |
 | ID | cyan | Display ID (e.g., `proj-a1b2`) |
 | Priority | P0=red, P1=yellow, P2+=default | Always with P prefix |
-| Status | per status | Icon + word (e.g., `✓ closed`, `◐ in_progress`) |
+| Status | per status | Icon and word (e.g., `✓ closed`, `◐ in_progress`) |
 | Type | dim | Issue kind (bug, feature, task, epic, chore) |
 | Title | default | Issue title |
 
@@ -2925,7 +2925,7 @@ tbd update proj-a1b2 --from-file issue.md
 
 **`--from-file` behavior:**
 
-- Reads the YAML frontmatter + Markdown body from file
+- Reads the YAML frontmatter and Markdown body from file
 
 - Validates against IssueSchema
 
@@ -3614,7 +3614,7 @@ order:
 
 3. Git user.email from git config
 
-4. System username + hostname (fallback)
+4. System username and hostname (fallback)
 
 Example: `TBD_ACTOR=claude-agent-1 tbd create "Fix bug"`
 
@@ -3963,9 +3963,9 @@ git cat-file -e beads-sync:.beads/issues.jsonl 2>/dev/null && echo "exists"
 
 #### 5.1.3 Multi-Source Merge Algorithm
 
-When importing from multiple sources (e.g., main + sync branch), issues are merged using
-**Last-Write-Wins (LWW)** based on `updated_at` timestamp, matching Beads’ own merge
-behavior.
+When importing from multiple sources (e.g., main and sync branches), issues are merged
+using **Last-Write-Wins (LWW)** based on `updated_at` timestamp, matching Beads’ own
+merge behavior.
 
 ```
 MERGE_JSONL_SOURCES(sources):
@@ -4190,8 +4190,7 @@ Result: is-x1y2 has both changes:
 
 #### 5.1.7 Handling Deletions and Tombstones
 
-> **Canonical reference:** This section is the authoritative specification for
-> tombstone/deletion handling.
+> **Scope:** This section specifies tombstone and deletion handling.
 > See also: §2.5.3 (Notes on tombstone status), §5.4 (Status Mapping), §5.5 (Migration
 > Gotchas).
 
@@ -4785,7 +4784,7 @@ Options:
 **Output** (~1-2k tokens): the session-close protocol, core bead-tracking rules, the
 essential command reference (including the bulk multi-ID forms of `close`/`reopen`/
 `update` and the never-shell-loop rule), and common workflows.
-The content is composed from one canonical source — the skill baseline
+The content is composed from one source — the skill baseline
 (`shortcuts/system/skill-baseline.md`, see `tbd-prime.md` for the rendered form) — so
 this document does not duplicate it; regenerate rather than hand-edit.
 
@@ -4927,7 +4926,7 @@ Use npm unless you have specific requirements.
 
 - Users must understand two branches
 
-#### Decision 4: Dual ID system (ULID + short base36)
+#### Decision 4: Dual ID system (ULID and short base36)
 
 **Choice**: Internal IDs use ULID (`is-{ulid}`), external IDs use short base36
 (`{prefix}-{short}`)
@@ -4971,7 +4970,7 @@ Use npm unless you have specific requirements.
 
 - Can’t express “related” or “discovered-from” relationships yet
 
-#### Decision 6: Markdown + YAML storage
+#### Decision 6: Markdown and YAML storage
 
 **Choice**: Markdown + YAML front matter for issue storage
 

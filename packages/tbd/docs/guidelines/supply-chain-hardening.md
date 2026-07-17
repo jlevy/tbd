@@ -27,7 +27,7 @@ hardening a workstation, repo, or CI pipeline; when assessing whether an install
 package is compromised; or when reviewing any `install` / `build` / `run`
 command—especially in a freshly cloned third-party repo.
 
-## The Default: a 14-Day Cool-Off
+## The Default: A 14-Day Cool-Off
 
 **Never install or upgrade to a package version less than 14 days old, unless a
 documented exception applies.** This is the single most effective default.

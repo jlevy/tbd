@@ -961,8 +961,8 @@ describe('processData', () => {
 **Fake timers** (added in Bun v1.3.4, Dec 2025):
 
 Bun’s test runner now supports Jest-compatible fake timers via `jest.useFakeTimers()`,
-`jest.advanceTimersByTime(ms)`, and `jest.useRealTimers()`. This was previously a major
-gap. The system time mock (`setSystemTime` from `bun:test`) has been available longer.
+`jest.advanceTimersByTime(ms)`, and `jest.useRealTimers()`. The system time mock
+(`setSystemTime` from `bun:test`) has been available longer.
 Bun v1.3.6 added further compatibility fixes for `@testing-library/react` fake timer
 detection.
 

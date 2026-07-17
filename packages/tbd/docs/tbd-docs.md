@@ -33,7 +33,7 @@ Why a separate branch?
 ## File Format
 
 You usually don’t need to worry about where issues are stored, but it may be comforting
-to know that internally it’s very simple and transparent.
+to know that internally it’s simple and transparent.
 Every issue is a Markdown file with YAML frontmatter, stored on the `tbd-sync` branch.
 
 ```markdown
@@ -808,10 +808,10 @@ Four update surfaces stay deliberately separate:
 
 | Command | Scope | Touches | Modifies tracked files? |
 | --- | --- | --- | --- |
-| `tbd sync` | project data (issues/beads) | sync worktree + `tbd-sync` branch; also refreshes the doc cache and *reports* fork drift | never |
-| `tbd setup --auto` | installation + integrations | skills, hooks, settings, `AGENTS.md`; invokes a docs-cache sync | only generated integration files |
+| `tbd sync` | project data (issues/beads) | sync worktree and `tbd-sync` branch; also refreshes the doc cache and *reports* fork drift | never |
+| `tbd setup --auto` | installation and integrations | skills, hooks, settings, `AGENTS.md`; invokes a docs-cache sync | only generated integration files |
 | `tbd docs sync` | doc cache | gitignored `.tbd/docs/` only | never |
-| `tbd docs update` | your forked docs | fork dir + bases + manifest (offline, against the cache) | **yes, the only doc command that does** |
+| `tbd docs update` | your forked docs | fork dir, bases, and manifest (offline, against the cache) | **yes, the only doc command that does** |
 
 Disambiguation worth stating once: `tbd update <id>` is an issue operation,
 `tbd docs update` a doc operation; the noun scope always disambiguates.
@@ -832,17 +832,17 @@ docs/tbd/
 
 Two rules make everything below predictable: **names are identity** (a doc is
 `<kind>/<name>.md`; nested subfolders are not scanned), and **tracking is derived, not
-stored** (the canonical model (copies, invariants, flows) is `tbd-design.md` §2.9; this
-table is its user-facing summary); every doc’s state is recomputed from content hashes
-(your file vs its recorded base vs current upstream), so no git operation can
-desynchronize tbd from the folder.
+stored** (the full model (copies, invariants, flows) is `tbd-design.md` §2.9; this table
+is its user-facing summary); every doc’s state is recomputed from content hashes (your
+file vs its recorded base vs current upstream), so no git operation can desynchronize
+tbd from the folder.
 Whatever you or your agent do to these files, `tbd docs status` gives a defined answer:
 
 | You (or your agent)… | State | What happens / what to do |
 | --- | --- | --- |
 | Edit a forked file | `customized` | Served as-is; `tbd docs update` three-way merges upstream changes in |
 | Delete a forked file | `missing` | Serving falls back to upstream; restore with `tbd docs fork <name> --force` or finalize with `tbd docs unfork <name>` |
-| Rename a forked file | `missing` + `local` | A rename is delete + add: finalize the old name (`unfork`), keep the new file as `local` |
+| Rename a forked file | `missing` and `local` | A rename is a delete and an add: finalize the old name (`unfork`), keep the new file as `local` |
 | Add a new `.md` file | `local` | Served with top precedence; nothing to update or unfork (no upstream) |
 | Move a file into a subfolder | invisible | Subfolders are not scanned; keep files at `<kind>/<name>.md` |
 | Delete `.tbd/doc-forks/` (the manifest) | all `local` | Files keep being served; re-fork with `--force` to re-establish update tracking (overwrites with upstream; re-apply edits after) |
@@ -1307,7 +1307,7 @@ version. This is everything a format upgrade can touch:
 | Shared layout stamp | `$GIT_COMMON_DIR/tbd/layout.yml` | machine-local, not in git | the migration (re-stamp) | delete it; it regenerates from whatever the config says |
 | Forked docs (f05) | `docs/tbd/`, `.tbd/doc-forks/` | tracked once committed | only `tbd docs fork` | `git checkout --`/`git revert` if committed; delete if never committed |
 | Docs cache | `.tbd/docs/` | gitignored | doc sync (unchanged by migration) | none needed; always safe to delete and re-sync |
-| Issue data | `tbd-sync` branch + `$GIT_COMMON_DIR/tbd/data-sync-worktree/` | git branch | **never touched by migration** | none needed; the worktree re-materializes from the branch |
+| Issue data | `tbd-sync` branch and `$GIT_COMMON_DIR/tbd/data-sync-worktree/` | git branch | **never touched by migration** | none needed; the worktree re-materializes from the branch |
 
 **Abort recipe** (works from any state, including a crash mid-upgrade):
 

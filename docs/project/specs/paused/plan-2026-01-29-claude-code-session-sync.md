@@ -89,7 +89,7 @@ The outbox being committed (not gitignored) provides critical benefits:
 The outbox stores only **changed issues** and **new ID mappings**, not full copies:
 
 - A project may have hundreds or thousands of issues
-- Copying all issues to outbox would create massive git diffs
+- Copying all issues to outbox would create large git diffs
 - Incremental storage keeps outbox small (typically a handful of issues)
 - Only issues that failed to sync need to be in outbox
 

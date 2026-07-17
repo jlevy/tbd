@@ -187,7 +187,7 @@ str(MyThing(file_path="/tmp/file.txt", title="Something " + "blah " * 50, url="h
 # -> "MyThing(title='Something blah blah blah blah blah blah blah blah blah blah blah…', file_path=/tmp/file.txt, url=https://www.example.com)"
 ```
 
-## Releasing (tag-triggered, no changesets)
+## Releasing (Tag-Triggered, No Changesets)
 
 For publishing Python packages to PyPI, follow the
 [`simple-modern-uv`](https://github.com/jlevy/simple-modern-uv) template’s model—it is

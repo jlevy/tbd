@@ -34,7 +34,7 @@ category: typescript
 | **@types/node** | ^24.0.0 | [@types/node npm](https://www.npmjs.com/package/@types/node)—Track Node.js major version. @types/node@25.x available; @types/node@26.x will follow Node 26. |
 | **actions/checkout** | v6 | [github.com/actions/checkout/releases](https://github.com/actions/checkout/releases)—v6.0.2 (2026-01-09). Credentials now stored in `$RUNNER_TEMP` rather than `.git/config`; Node 24 runtime; requires runner ≥ 2.327.1. |
 | **actions/setup-node** | v6 | [github.com/actions/setup-node/releases](https://github.com/actions/setup-node/releases)—Supports Node 24 by default. **Note GitHub’s 2026-06-02 deadline forcing Node.js 20 actions to Node.js 24.** |
-| **pnpm/action-setup** | v6 | [github.com/pnpm/action-setup/releases](https://github.com/pnpm/action-setup/releases)—**v6 required for pnpm 11+ support.** v4 (previously documented) does not handle pnpm 11’s ESM-only distribution correctly. |
+| **pnpm/action-setup** | v6 | [github.com/pnpm/action-setup/releases](https://github.com/pnpm/action-setup/releases)—**v6 required for pnpm 11+ support.** v4 does not handle pnpm 11’s ESM-only distribution correctly. |
 | **changesets/action** | v1 | [github.com/changesets/action](https://github.com/changesets/action)—Still v1. No v2. |
 | **lefthook** | ^2.1.5 (2.1.7/2.1.8 too recent) | [github.com/evilmartians/lefthook/releases](https://github.com/evilmartians/lefthook/releases)—**Pinned to 2.1.5 (2026-04-06) per the 14-day rule**; 2.1.7/2.1.8 both shipped 2026-05-19. Patch-level since 2.1.1. v2 still excludes regexp `exclude` and `skip_output` from v1. |
 | **npm-check-updates** | ^22.0.0 (22.2.0 too recent) | [npmjs.com/package/npm-check-updates](https://www.npmjs.com/package/npm-check-updates)—**Major version jump from 19 to 22.** **Pinned to 22.0.0 (2026-04-25) per the 14-day rule**; 22.2.0 (2026-05-12) is 10 days old today. Now pure ESM; named imports only (`import { run } from 'npm-check-updates'`); `.ncurc.js` with `module.exports` no longer works in `"type": "module"` projects (use `.ncurc.cjs`). **Ships `--cooldown <days>` to refuse versions younger than the specified age**—primary enforcement for the 14-day package-age rule. See [Supply-Chain Mitigation](#supply-chain-mitigation). |
@@ -1823,7 +1823,7 @@ pnpm add -Dw npm-check-updates
 | `-u` | Update package.json (otherwise just reports) |
 | `--errorLevel 2` | Exit non-zero when upgrades are available (useful in CI gates) |
 
-**v22 breaking changes** (versus the v19 previously documented):
+**v22 breaking changes** (versus v19):
 
 - Pure ESM. Named imports only: `import { run } from 'npm-check-updates'`. Default
   exports no longer work.

@@ -1,6 +1,6 @@
 # Publishing (npm)
 
-This is the get-tbd project’s own release flow.
+The get-tbd project’s own release flow.
 It is **not** a general-purpose shortcut shipped to tbd users—releasing a Node package
 is project-specific, so the content lives here in the project repo, not in
 `packages/tbd/docs/shortcuts/standard/`.
@@ -109,6 +109,11 @@ Choose version bump:
 - `patch` (0.1.0 → 0.1.1): Bug fixes, docs, internal changes
 - `minor` (0.1.0 → 0.2.0): New features, non-breaking changes
 - `major` (0.1.0 → 1.0.0): Breaking changes
+
+Bump by the substance of the user-facing change, not the commit-type label.
+A commit marked `feat` whose payload is documentation or guidance content (bundled
+guidelines, skills, shortcuts, templates) or internal tooling polish is still a `patch`.
+Reserve `minor` for new CLI capabilities or behavior users program against.
 
 ### Step 3: Supply-Chain Review
 
