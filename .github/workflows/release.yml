@@ -30,7 +30,12 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          existing=$(gh api "repos/${GITHUB_REPOSITORY}/git/ref/tags/${RELEASE_TAG}" --jq '.object.sha' 2>/dev/null || true)
+          # gh api prints the 404 error body to stdout, so only trust the
+          # output when the probe exits 0.
+          existing=""
+          if resp=$(gh api "repos/${GITHUB_REPOSITORY}/git/ref/tags/${RELEASE_TAG}" --jq '.object.sha' 2>/dev/null); then
+            existing="$resp"
+          fi
           if [ -z "$existing" ]; then
             gh api "repos/${GITHUB_REPOSITORY}/git/refs" -X POST \
               -f ref="refs/tags/${RELEASE_TAG}" -f sha="${RELEASE_SHA}"
