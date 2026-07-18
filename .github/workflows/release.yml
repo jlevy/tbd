@@ -1,21 +1,50 @@
+# TEMPORARY branch-local release recovery for v0.4.1 (publishing.md §stall recovery).
+# The session that drove the release cannot push tags (broker scopes pushes to
+# branches), so this variant creates the tag at the audited merge SHA and runs the
+# same publish steps as the real tag-triggered workflow. Filename must remain
+# release.yml (npm trusted publishing is bound to it). Revert to the main version
+# immediately after the release verifies.
 name: Release
 
 on:
   push:
-    tags:
-      - 'v*'
+    branches:
+      - claude/release-v0.4.1-publish
 
 permissions:
   contents: write
   pull-requests: write
   id-token: write
 
+env:
+  RELEASE_VERSION: 0.4.1
+  RELEASE_TAG: v0.4.1
+  RELEASE_SHA: 889f3c6bf14788100ecba430e372be4f26affb1a
+
 jobs:
   release:
     runs-on: ubuntu-latest
     steps:
+      - name: Create or verify tag at audited merge SHA
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          existing=$(gh api "repos/${GITHUB_REPOSITORY}/git/ref/tags/${RELEASE_TAG}" --jq '.object.sha' 2>/dev/null || true)
+          if [ -z "$existing" ]; then
+            gh api "repos/${GITHUB_REPOSITORY}/git/refs" -X POST \
+              -f ref="refs/tags/${RELEASE_TAG}" -f sha="${RELEASE_SHA}"
+            echo "Created ${RELEASE_TAG} at ${RELEASE_SHA}"
+          elif [ "$existing" = "${RELEASE_SHA}" ]; then
+            echo "${RELEASE_TAG} already exists at the audited SHA"
+          else
+            echo "::error::${RELEASE_TAG} exists at ${existing}, expected ${RELEASE_SHA}"
+            exit 1
+          fi
+
       - uses: actions/checkout@v6
         with:
+          ref: refs/tags/v0.4.1
           fetch-depth: 0
 
       - uses: pnpm/action-setup@v4
@@ -32,24 +61,16 @@ jobs:
 
       - run: pnpm publint
 
-      - name: Extract version from tag
-        id: version
-        run: echo "version=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
-
       # Resolve the release body BEFORE publishing: if the wrapper or changelog path
       # ever fails, fail here rather than after the package is already on npm.
+      # GITHUB_REF is a branch in this recovery variant, so the version is explicit.
       - name: Extract changelog for this version
         id: changelog
         run: |
-          # Body extraction lives in a unit-tested module (src/utils/changelog.ts,
-          # tested in tests/extract-changelog.test.ts) invoked via a thin script, not
-          # inline shell, so the logic can be tested and debugged outside of CI. The
-          # shell here only wires the script output into the GITHUB_OUTPUT heredoc,
-          # using a random delimiter so a changelog line equal to "EOF" can't corrupt it.
           DELIM="body_$(openssl rand -hex 8)"
           {
             echo "body<<${DELIM}"
-            pnpm exec tsx packages/tbd/scripts/extract-changelog.ts "${{ steps.version.outputs.version }}"
+            pnpm exec tsx packages/tbd/scripts/extract-changelog.ts "${RELEASE_VERSION}"
             echo "${DELIM}"
           } >> "$GITHUB_OUTPUT"
 
@@ -62,5 +83,6 @@ jobs:
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
+          tag_name: v0.4.1
           body: ${{ steps.changelog.outputs.body }}
-          prerelease: ${{ contains(steps.version.outputs.version, '-') }}
+          prerelease: false
