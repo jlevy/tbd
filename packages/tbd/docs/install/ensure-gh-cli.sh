@@ -17,6 +17,27 @@ export PATH="$HOME/.local/bin:$HOME/bin:/usr/local/bin:$PATH"
 # Pinned gh release (>=14 days old per supply-chain cool-off) and its checksums.
 GH_VERSION="2.92.0"
 
+# GitHub hosts to exempt from a session HTTPS proxy when that proxy intercepts
+# GitHub (proxied remote sessions, e.g. Claude Code cloud). Scoped and additive:
+# HTTPS_PROXY stays set for all other traffic. release-assets.githubusercontent.com
+# is the current release-binary host; objects.githubusercontent.com is its
+# predecessor and kept for compatibility.
+GITHUB_DIRECT_HOSTS="api.github.com,github.com,release-assets.githubusercontent.com,objects.githubusercontent.com,codeload.github.com,raw.githubusercontent.com,uploads.github.com"
+
+github_no_proxy() {
+    echo "${GITHUB_DIRECT_HOSTS}${NO_PROXY:+,$NO_PROXY}"
+}
+
+# Direct-egress probes can hang when the network policy blocks direct
+# connections; bound them where timeout(1) exists (absent on stock macOS).
+run_bounded() {
+    if command -v timeout &> /dev/null; then
+        timeout 20 "$@"
+    else
+        "$@"
+    fi
+}
+
 # SHA-256 checksums from gh_2.92.0_checksums.txt, keyed by asset suffix.
 checksum_for() {
     case "$1" in
@@ -64,7 +85,14 @@ else
     DOWNLOAD_URL="https://github.com/cli/cli/releases/download/v${GH_VERSION}/${ASSET}"
 
     echo "[gh] Downloading from ${DOWNLOAD_URL}..."
-    curl -fsSL -o "/tmp/${ASSET}" "$DOWNLOAD_URL"
+    if ! curl -fsSL -o "/tmp/${ASSET}" "$DOWNLOAD_URL"; then
+        # Proxied remote sessions can intercept GitHub downloads with a proxy 403.
+        # Retry once bypassing the proxy for GitHub hosts only; this succeeds when
+        # the environment's egress policy allows direct GitHub connections.
+        echo "[gh] Download failed (a session proxy may intercept GitHub); retrying with NO_PROXY for GitHub hosts..."
+        NP="$(github_no_proxy)"
+        NO_PROXY="$NP" no_proxy="$NP" curl -fsSL --connect-timeout 15 -o "/tmp/${ASSET}" "$DOWNLOAD_URL"
+    fi
 
     # Verify the download against the pinned checksum before extracting.
     if command -v sha256sum &> /dev/null; then
@@ -112,12 +140,32 @@ if [ -n "${GH_TOKEN:-}" ]; then
     if gh auth status &> /dev/null; then
         echo "[gh] Authenticated successfully"
     else
-        echo "[gh] WARNING: GH_TOKEN is set but authentication check failed"
-        echo "[gh] Token may be invalid or expired"
+        # A failed check does NOT prove the token is bad. In proxied remote
+        # sessions (HTTPS_PROXY set, e.g. Claude Code cloud) the proxy can
+        # intercept api.github.com, block the GraphQL query behind
+        # `gh auth status`, and even swap Authorization headers — gh then
+        # misreports a perfectly valid token as invalid. Retest on the direct
+        # channel (proxy bypassed for GitHub hosts only) before concluding.
+        NP="$(github_no_proxy)"
+        if [ -n "${HTTPS_PROXY:-}${https_proxy:-}" ] \
+            && NO_PROXY="$NP" no_proxy="$NP" run_bounded gh auth status &> /dev/null; then
+            echo "[gh] GH_TOKEN is VALID, but this session's proxy intercepts GitHub API calls"
+            echo "[gh] ('gh auth status' fails through the proxy and misreports the token as invalid)."
+            echo "[gh] To use gh in this session, bypass the proxy for GitHub hosts only"
+            echo "[gh] (keep HTTPS_PROXY set; never disable TLS verification):"
+            echo '[gh]   export NO_PROXY="'"${GITHUB_DIRECT_HOSTS}"'${NO_PROXY:+,$NO_PROXY}"'
+            echo '[gh]   export no_proxy="$NO_PROXY"'
+            echo "[gh] Details: tbd shortcut setup-github-cli (Proxied Remote Sessions)"
+        else
+            echo "[gh] WARNING: GH_TOKEN is set but could not be verified on any channel"
+            echo "[gh] Either the token is invalid/expired, or this session's network policy"
+            echo "[gh] blocks GitHub API access (git push and GitHub MCP tools may still work)."
+            echo "[gh] Diagnosis: tbd shortcut setup-github-cli (Proxied Remote Sessions)"
+        fi
     fi
 else
     echo "[gh] NOTE: GH_TOKEN not set - some operations may require authentication"
-    echo "[gh] See: docs/general/agent-setup/github-cli-setup.md"
+    echo "[gh] See: tbd shortcut setup-github-cli"
 fi
 
 exit 0
