@@ -88,9 +88,19 @@ the others.
 1. **git fetch/push through a local credential broker.** The origin remote is rewritten
    to a local endpoint (e.g. `http://local_proxy@127.0.0.1:<port>/git/owner/repo`) that
    injects its own credentials.
-   This channel works regardless of `GH_TOKEN`. Its credentials may be scoped: in some
-   sessions, pushes of tags or of unexpected refs are refused even though branch pushes
-   work.
+   This channel works regardless of `GH_TOKEN`, but it is ref-scoped (verified in a
+   Claude Code Cloud session):
+   - Pushes to `refs/heads/*` (any branch name) succeed.
+   - Pushes to `refs/tags/*` are refused with HTTP 403 at receive-pack.
+   - **`git push --dry-run` passes for refs the broker later refuses** (dry-run stops at
+     ref advertisement, before receive-pack), so a clean dry-run proves nothing.
+   - Ref deletions can silently no-op: the push reports “Everything up-to-date” while
+     the remote ref persists.
+     Always confirm deletions with `git ls-remote`.
+   - Remedy for all of these: do the ref operation on the direct channel instead, e.g.
+     `gh api repos/{owner}/{repo}/git/refs -f ref=refs/tags/NAME -f sha=SHA` to create a
+     tag and `gh api -X DELETE repos/{owner}/{repo}/git/refs/tags/NAME` to delete one
+     (both verified).
 
 2. **Proxied HTTPS to `api.github.com`.** The proxy may intercept GitHub and answer with
    its own 403s. Two intercept behaviors verified in Claude Code Cloud sessions:
@@ -123,8 +133,9 @@ gh auth status    # now tests your real token against real GitHub
 ```
 
 This recipe was verified end to end in an egress-enabled Claude Code Cloud session:
-`gh auth status`, `gh pr list`, `gh release list`, and the pinned-checksum binary
-download all succeed on the direct channel while the proxied channel 403s each of them.
+`gh auth status`, `gh pr list`, `gh release list`, tag creation and deletion via
+`gh api .../git/refs`, and the pinned-checksum binary download all succeed on the direct
+channel while the git broker or proxied channel refuses each of them.
 (`release-assets.githubusercontent.com` is the current release-download host;
 `objects.githubusercontent.com` is its predecessor, kept for compatibility.)
 
@@ -155,6 +166,8 @@ report the limitation — do not attempt to tunnel around network policy.
 | `Bad credentials` | Token expired or lacks permissions |
 | `Resource not accessible` | Token lacks required scopes (need repo, workflow) |
 | 403 with no `x-github-request-id` header | Proxy-manufactured response, not GitHub — see Proxied Remote Sessions |
+| Tag push 403s but branch push works | Session git broker blocks `refs/tags` — create the tag on the direct channel via `gh api .../git/refs` |
+| Ref delete reports “Everything up-to-date” but ref persists | Broker silently drops deletions — delete via `gh api -X DELETE .../git/refs/...` and confirm with `git ls-remote` |
 
 <!-- This document follows common-doc-guidelines.md.
 See github.com/jlevy/practical-prose and review guidelines before editing.
