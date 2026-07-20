@@ -435,11 +435,13 @@ mapping, GitHub `TrackerAdapter`, claim/lease primitives.
 1. **Command naming**: `tbd linear …` (pilot choice, concrete) vs.
    a generic `tbd bridge <provider> …` group now.
    Leaning provider-named until a second provider exists (rule of three).
-2. **`@linear/sdk` vs. raw GraphQL over fetch**: the SDK is typed and maintained but is a
-   runtime dependency subject to the 14-day supply-chain rule and adds weight to a CLI
-   that currently has a lean dependency profile.
-   Pilot leans raw `fetch` with a handful of typed queries; revisit if query surface
-   grows.
+2. **`@linear/sdk` vs. raw GraphQL over fetch**: the SDK is typed, maintained by Linear,
+   and brings pagination helpers; raw `fetch` keeps the CLI’s runtime dependency profile
+   lean when the pilot only needs a handful of queries and mutations.
+   (The 14-day package-age cooldown is not a factor either way — it only means pinning
+   an SDK version at least 14 days old, which any choice satisfies.)
+   Pilot leans raw `fetch` on dependency-weight grounds alone; revisit if the query
+   surface grows.
 3. **Triage state on push-create**: should `tbd linear import --create` (reverse
    direction, creating Linear issues from beads — currently out of scope) target
    `triage` or `backlog`? Deferred with the feature.
