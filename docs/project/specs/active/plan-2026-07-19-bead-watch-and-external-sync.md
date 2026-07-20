@@ -9,7 +9,7 @@ author: Joshua Levy (github.com/jlevy) with LLM assistance
 
 **Author:** Joshua Levy
 
-**Status:** Draft
+**Status:** Phase 1 implemented and validated (PR #196 pending); Phase 2 not started
 
 ## Overview
 
@@ -94,21 +94,28 @@ Two commands: a pure primitive plus a blocking wrapper.
 **`tbd changes`** — one-shot, non-blocking change report.
 
 ```bash
-tbd changes --since <commit> [selection] [--json]
+tbd changes --since <commit> [selection] [--json] [--quiet]
 ```
 
-Diffs the sync branch between a reference point and its current tip, restricted to the
-selection, and reports per-bead deltas: status, priority, labels, assignee, parent,
-dependencies, spec link, description/notes appends (as text hunks), created, closed.
+Diffs the configured local sync branch between a reference point and its current
+committed tip. It performs no fetch and never reads the hidden worktree.
+The command reports per-bead deltas for every substantive issue field in the normative
+schema, including title, kind, status, priority, labels, assignee, hierarchy,
+dependencies, spec link, scheduling, close metadata, extensions, and description/notes
+text hunks. `version` and `updated_at` are synchronization metadata and do not trigger a
+report. Created and deleted issue files are explicit change kinds; close and reopen
+operations are status-field deltas.
 Exit 0 with changes, exit 3 with none.
 This is the testable core; `tbd watch` is a loop around it.
 
 **`tbd watch`** — block until the selection changes, print what changed, exit.
 
 ```bash
-tbd watch --bead tbd-a1b2 [tbd-c3d4 ...]     # one or more beads
+tbd watch --bead tbd-a1b2 tbd-c3d4            # one or more beads
 tbd watch --label needs-agent                # any bead with the label
-tbd watch --spec plan-2026-07-19-*.md        # beads linked to a spec
+tbd watch --spec plan-2026-07-19-bead-watch-and-external-sync.md
+                                               # beads linked to a spec
+tbd watch --status blocked                   # beads entering, leaving, or changing in status
 tbd watch --ready                            # a new bead becomes ready
 tbd watch --all                              # anything in the repo graph
   [--timeout <sec>] [--interval <sec>] [--since <commit>] [--json] [--quiet]
@@ -127,27 +134,131 @@ tbd watch --all                              # anything in the repo graph
   hidden data-sync worktree lock; fetches go to a private ref or temporary clone so a
   concurrent `tbd sync` is unaffected.
 
+#### Phase 1 Detailed Contract
+
+The following rules close ambiguities that would otherwise produce incompatible
+watchers:
+
+- **Baselines:** `tbd changes` requires `--since` and resolves both endpoints to commit
+  IDs before reading their trees.
+  The tip is the configured local sync-branch ref.
+  `tbd watch` without `--since` takes the first remote tip it observes as its baseline
+  and waits only for later movement.
+  With `--since`, it immediately compares that commit with the current remote tip, so
+  callers can resume without a race.
+  A missing commit, missing remote sync branch, or baseline that is not an ancestor of
+  the tip is an error rather than an all-created or force-push-shaped report.
+
+- **Advancement:** after remote movement that does not affect the selection, watch
+  advances its baseline to that observed tip.
+  A later wake therefore describes the exact interval that triggered it rather than
+  replaying unrelated history from the start of the invocation.
+
+- **Static and dynamic selections:** `--bead` resolves IDs against the union of the two
+  snapshots’ append-only ID mappings.
+  Label, spec, and status filters reuse `tbd list` semantics: repeated labels are ANDed,
+  spec paths use gradual path matching, and filters combine with AND. A changed bead
+  matches a dynamic selection when it matched either endpoint, so entering and leaving a
+  label/status/spec selection both wake the caller.
+  `--ready` is intentionally edge-triggered: it reports only beads that match the
+  combined predicate at the tip and did not match it at the baseline.
+  This includes newly created ready beads and existing beads that become unblocked,
+  unassigned, or open.
+  `--all` is mutually exclusive with other selectors; `--bead` is mutually exclusive
+  with dynamic filters.
+  `tbd changes` defaults to all beads when no selector is given; `tbd watch` requires an
+  explicit selector, including `--all`.
+
+- **Issue snapshots:** readiness is calculated independently at both endpoints using
+  each snapshot’s complete dependency graph.
+  Invalid issue or mapping data fails the command loudly with the ref and path; it is
+  never treated as an empty snapshot.
+
+- **Determinism:** reports sort beads by internal ID and fields by normative schema
+  order. Missing optional values are represented as `null`. Arrays retain their canonical
+  stored order. Text changes use deterministic line hunks with old/new start and count
+  values plus context/add/remove lines.
+
+- **Output:** human output identifies the baseline and tip, then renders one section per
+  bead and field. JSON uses the same document for `changes` and an exit-0 `watch`:
+
+  ```json
+  {
+    "since": "<full commit id>",
+    "tip": "<full commit id>",
+    "changes": [
+      {
+        "id": "tbd-a1b2",
+        "internal_id": "is-...",
+        "title": "Example",
+        "change": "updated",
+        "fields": [
+          { "field": "status", "before": "open", "after": "closed" },
+          {
+            "field": "notes",
+            "before": "old",
+            "after": "old\nnew",
+            "hunks": [
+              {
+                "old_start": 1,
+                "old_count": 1,
+                "new_start": 1,
+                "new_count": 2,
+                "lines": [
+                  { "type": "context", "text": "old" },
+                  { "type": "add", "text": "new" }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+  ```
+
+  JSON no-change output is the same document with an empty `changes` array and exit 3. A
+  watch timeout exits 2 without stdout.
+  `--quiet` suppresses successful and no-change stdout (including JSON) so callers can
+  use exit status alone; errors remain on stderr.
+
+- **Private fetches:** every watch invocation uses a collision-resistant ref under a
+  tbd-owned private namespace, fetches the exact configured sync branch only after tip
+  movement, never writes `FETCH_HEAD` or the configured local/remote-tracking sync refs,
+  and deletes its private ref in a `finally` path.
+  It does not initialize, inspect, repair, lock, fetch through, or otherwise access the
+  hidden data-sync worktree.
+
 ### Agent Integration (Claude Code and Codex)
 
 Two sanctioned patterns, shipped as a `watch-beads` shortcut and validated on both
 platforms as part of this phase:
 
 1. **Watch-then-spawn (daemon pattern, any platform).** The watch runs *outside* the
-   agent; the expensive agent starts only on a wake:
+   agent; the expensive agent starts only on a wake.
+   The shipped `watch-beads` shortcut includes a production-ready loop that chains each
+   report’s `tip` through `--since`, avoiding a gap while the agent runs.
+   Its core is:
 
    ```bash
-   while tbd watch --ready --json > /tmp/wake.json; do
-     claude -p "New bead activity: $(cat /tmp/wake.json). Act per conventions." || true
+   wake_file=$(mktemp "${TMPDIR:-/tmp}/tbd-wake.XXXXXX")
+   since_args=()
+   while tbd watch --ready --json "${since_args[@]}" > "$wake_file"; do
+     tip=$(node -e 'const f=require("node:fs"); console.log(JSON.parse(f.readFileSync(process.argv[1], "utf8")).tip)' "$wake_file")
+     since_args=(--since "$tip")
+     claude -p "Read the tbd watch report on stdin and act per conventions." < "$wake_file" || true
    done
    # identically: codex exec "..." — the runner is agent-agnostic
    ```
 
 2. **In-session watch (interactive pattern).** An agent mid-session watches a bead it is
    collaborating on. Platform notes to validate and document:
-   - **Claude Code:** foreground Bash calls have a hard per-call timeout (10 minutes),
-     so sessions either run `tbd watch --timeout 540` in a bounded loop across tool
-     calls, or run the watch as a background task and let the harness’s completion
-     notification wake the session — the natural fit.
+   - **Claude Code:** foreground Bash defaults to two minutes and can request at most
+     ten minutes, so sessions either run `tbd watch --timeout 540` in a bounded loop
+     across tool calls, or run the watch as a background task and let the harness’s
+     completion notification wake the session.
+     Current releases also offer a Monitor tool that can interject on command output;
+     the platform validation records its availability and limits.
    - **Codex:** validate long-running command limits in Codex CLI sessions; the default
      recommendation is watch-then-spawn.
 
@@ -226,17 +337,22 @@ No breaking changes to existing commands.
 
 ### Phase 1: Bead Watching
 
-- [ ] `tbd changes`: sync-branch diff engine with selection filters and `--json`,
-  unit-tested against synthetic sync-branch histories.
-- [ ] `tbd watch`: ls-remote poll loop, selection wiring, timeout/interval/exit-code
-  contract, human and JSON reports.
-- [ ] `watch-beads` shortcut documenting both agent patterns.
-- [ ] Claude Code validation: background-task wake demo end-to-end (watch → bead update
-  from a second session → wake → agent reads the report and replies on the bead).
-- [ ] Codex validation: the watch-then-spawn demo via `codex exec`; document platform
-  limits found.
-- [ ] Cross-agent demo: two agent sessions conversing through one bead, each waking on
-  the other’s write.
+- [x] Senior engineering review: corroborate the architecture and make baseline,
+  selection, output, validation, and private-fetch semantics testable and explicit.
+- [x] `tbd changes` (`tbd-q1em`): sync-branch diff engine with selection filters and
+  `--json`, unit-tested against synthetic sync-branch histories.
+- [x] `tbd watch` (`tbd-l467`): ls-remote poll loop, selection wiring,
+  timeout/interval/exit-code contract, human and JSON reports.
+- [x] `watch-beads` shortcut (`tbd-h4tf`) documenting both agent patterns.
+- [x] Claude Code validation (`tbd-q7rf`): background-task wake demo end-to-end (watch →
+  bead update from a second session → wake → agent reads the report and replies on the
+  bead).
+- [x] Codex validation (`tbd-hb3p`): the watch-then-spawn demo via `codex exec`;
+  document platform limits found.
+- [x] Cross-agent demo (`tbd-2y7v`): two agent sessions conversing through one bead,
+  each waking on the other’s write.
+
+Validation transcript and platform limits: `valid-2026-07-19-bead-watch-phase-1.md`.
 
 ### Phase 2: External Sync
 
@@ -269,8 +385,6 @@ deny-pattern term hard-fails the push; stale watermark replay is idempotent; con
 
 ## Open Questions
 
-- Poll interval default (30s proposed) and whether `--ready` honors priority filters in
-  v1.
 - Whether GitHub Issues get a push surface alongside Linear in Phase 2, or the GitHub
   adapter stays pull-only (PRs) until there is demand.
 - Whether `tbd mirror` belongs in core or a sibling package (`@tbd/mirror`) to keep

@@ -13,6 +13,7 @@ import { requireInit, NotInitializedError, ValidationError } from '../lib/errors
 import { listIssues } from '../../file/storage.js';
 import { IssueKind } from '../../lib/schemas.js';
 import type { Issue, IssueKindType } from '../../lib/types.js';
+import { readyIssueIds } from '../../lib/issue-selection.js';
 import { formatDisplayId, formatDebugId } from '../../lib/ids.js';
 import { comparisonChain } from '../../lib/comparison-chain.js';
 import {
@@ -42,40 +43,8 @@ class ReadyHandler extends BaseCommand {
       throw new NotInitializedError('No issue store found. Run `tbd init` first.');
     }
 
-    // Build lookup map for dependency resolution
-    const issueMap = new Map(issues.map((i) => [i.id, i]));
-
-    // Build reverse lookup: which issues are blocked by which
-    // "blocks" dependency means "this issue blocks target"
-    const blockedByMap = new Map<string, string[]>();
-    for (const issue of issues) {
-      for (const dep of issue.dependencies) {
-        if (dep.type === 'blocks') {
-          const existing = blockedByMap.get(dep.target) ?? [];
-          existing.push(issue.id);
-          blockedByMap.set(dep.target, existing);
-        }
-      }
-    }
-
-    // Filter for ready issues
-    let readyIssues = issues.filter((issue) => {
-      // Must be open (not in_progress, blocked, deferred, or closed)
-      if (issue.status !== 'open') return false;
-
-      // Must not have an assignee
-      if (issue.assignee) return false;
-
-      // Must not have unresolved blocking dependencies
-      const blockers = blockedByMap.get(issue.id) ?? [];
-      const hasUnresolvedBlocker = blockers.some((blockerId) => {
-        const blocker = issueMap.get(blockerId);
-        return blocker && blocker.status !== 'closed';
-      });
-      if (hasUnresolvedBlocker) return false;
-
-      return true;
-    });
+    const readyIds = readyIssueIds(issues);
+    let readyIssues = issues.filter((issue) => readyIds.has(issue.id));
 
     // Filter by type if specified
     if (options.type) {
