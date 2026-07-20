@@ -19,6 +19,7 @@ const packageDir = fileURLToPath(new URL('..', import.meta.url));
 const tbdBin = join(packageDir, 'dist', 'bin.mjs');
 const cleanupPaths: string[] = [];
 const ISSUE_ID = testId(TEST_ULIDS.ULID_1);
+const WINDOWS_CLI_TEST_TIMEOUT_MS = 15_000;
 
 interface WatchRepo {
   repoDir: string;
@@ -110,68 +111,84 @@ afterEach(async () => {
 });
 
 describe('tbd watch', () => {
-  it('immediately reports changes after --since using the stable JSON document', async () => {
-    const fixture = await createWatchRepo(true);
-    const result = runTbd(fixture.repoDir, [
-      'watch',
-      '--all',
-      '--since',
-      fixture.since,
-      '--timeout',
-      '1',
-      '--json',
-    ]);
+  it(
+    'immediately reports changes after --since using the stable JSON document',
+    async () => {
+      const fixture = await createWatchRepo(true);
+      const result = runTbd(fixture.repoDir, [
+        'watch',
+        '--all',
+        '--since',
+        fixture.since,
+        '--timeout',
+        '1',
+        '--json',
+      ]);
 
-    expect(result.status).toBe(0);
-    expect(result.stderr).toBe('');
-    expect(JSON.parse(result.stdout)).toMatchObject({
-      since: fixture.since,
-      tip: fixture.tip,
-      changes: [
-        {
-          id: 'tbd-a1b2',
-          fields: [expect.objectContaining({ field: 'notes', after: 'before\nafter' })],
-        },
-      ],
-    });
-  });
+      expect(result.status).toBe(0);
+      expect(result.stderr).toBe('');
+      expect(JSON.parse(result.stdout)).toMatchObject({
+        since: fixture.since,
+        tip: fixture.tip,
+        changes: [
+          {
+            id: 'tbd-a1b2',
+            fields: [expect.objectContaining({ field: 'notes', after: 'before\nafter' })],
+          },
+        ],
+      });
+    },
+    WINDOWS_CLI_TEST_TIMEOUT_MS,
+  );
 
-  it('exits 2 with no stdout when the timeout elapses', async () => {
-    const fixture = await createWatchRepo(false);
-    const result = runTbd(fixture.repoDir, ['watch', '--all', '--timeout', '0', '--json']);
+  it(
+    'exits 2 with no stdout when the timeout elapses',
+    async () => {
+      const fixture = await createWatchRepo(false);
+      const result = runTbd(fixture.repoDir, ['watch', '--all', '--timeout', '0', '--json']);
 
-    expect(result.status).toBe(2);
-    expect(result.stdout).toBe('');
-    expect(result.stderr).toBe('');
-  });
+      expect(result.status).toBe(2);
+      expect(result.stdout).toBe('');
+      expect(result.stderr).toBe('');
+    },
+    WINDOWS_CLI_TEST_TIMEOUT_MS,
+  );
 
-  it('requires a selector and enforces the minimum poll interval', async () => {
-    const fixture = await createWatchRepo(false);
-    const missing = runTbd(fixture.repoDir, ['watch', '--timeout', '0']);
-    const tooFast = runTbd(fixture.repoDir, [
-      'watch',
-      '--all',
-      '--interval',
-      '1',
-      '--timeout',
-      '0',
-    ]);
+  it(
+    'requires a selector and enforces the minimum poll interval',
+    async () => {
+      const fixture = await createWatchRepo(false);
+      const missing = runTbd(fixture.repoDir, ['watch', '--timeout', '0']);
+      const tooFast = runTbd(fixture.repoDir, [
+        'watch',
+        '--all',
+        '--interval',
+        '1',
+        '--timeout',
+        '0',
+      ]);
 
-    expect(missing.status).toBe(2);
-    expect(missing.stderr).toContain('A selector is required');
-    expect(tooFast.status).toBe(2);
-    expect(tooFast.stderr).toContain('at least 10 seconds');
-  });
+      expect(missing.status).toBe(2);
+      expect(missing.stderr).toContain('A selector is required');
+      expect(tooFast.status).toBe(2);
+      expect(tooFast.stderr).toContain('at least 10 seconds');
+    },
+    WINDOWS_CLI_TEST_TIMEOUT_MS,
+  );
 
-  it('exits 1 when the configured remote branch is absent', async () => {
-    const fixture = await createWatchRepo(false);
-    await git(fixture.repoDir, 'push', 'origin', '--delete', 'tbd-sync');
-    const result = runTbd(fixture.repoDir, ['watch', '--all', '--timeout', '0', '--json']);
+  it(
+    'exits 1 when the configured remote branch is absent',
+    async () => {
+      const fixture = await createWatchRepo(false);
+      await git(fixture.repoDir, 'push', 'origin', '--delete', 'tbd-sync');
+      const result = runTbd(fixture.repoDir, ['watch', '--all', '--timeout', '0', '--json']);
 
-    expect(result.status).toBe(1);
-    expect(result.stdout).toBe('');
-    expect(JSON.parse(result.stderr)).toMatchObject({
-      error: expect.stringContaining('Failed to read remote sync tip'),
-    });
-  });
+      expect(result.status).toBe(1);
+      expect(result.stdout).toBe('');
+      expect(JSON.parse(result.stderr)).toMatchObject({
+        error: expect.stringContaining('Failed to read remote sync tip'),
+      });
+    },
+    WINDOWS_CLI_TEST_TIMEOUT_MS,
+  );
 });
