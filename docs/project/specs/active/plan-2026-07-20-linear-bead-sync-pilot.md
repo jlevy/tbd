@@ -15,11 +15,18 @@ Linear, and Linear issues (the surface humans, PMs, and other agent products lik
 already watch) are invisible to beads and to the agents that work from `tbd ready`.
 
 This spec defines a **pilot of true bidirectional sync between a linked subset of beads
-and Linear issues**, plus the first slice of the **`tbd watch` event surface** so that
-bead changes (including those originating in Linear) can wake and coordinate agents.
+and Linear issues**, composed with the **bead watch foundation** so that bead changes
+(including those originating in Linear) wake and coordinate agents.
+The watch foundation itself **shipped first as a working increment** (PR #196,
+`tbd changes` + `tbd watch`); the bridge features here are safe additions on top of it —
+see §6/§6a for the reconciliation with that plan.
 
 Design inputs, consolidated here:
 
+- **[plan-2026-07-19-bead-watch-and-external-sync.md](plan-2026-07-19-bead-watch-and-external-sync.md)**
+  — the sibling plan whose Phase 1 (watch) is implemented and validated; §6a of this
+  spec unifies its Phase 2 sketch with this design (naming, bindings, echo suppression,
+  comments model, writer model).
 - **Design doc §8.7 “External Issue Tracker Linking”**
   ([tbd-design.md](../../../../packages/tbd/docs/tbd-design.md)) — recommends designing
   the `linked` metadata structure now and implementing providers behind an adapter
@@ -73,9 +80,9 @@ changes and **base-snapshot echo suppression** in the bridge state.
   edits on both sides converge with field-level resolution and attic preservation,
   matching tbd’s existing merge philosophy.
 - **No echo loops**: the bridge never re-applies its own writes in either direction.
-- **Watch foundation**: `tbd watch --json` emits JSONL bead-change events (created /
-  updated / status_changed, with actor attribution) suitable for piping into
-  orchestration scripts, so Linear-originated changes can wake agents.
+- **Watch composition**: the shipped `tbd watch`/`tbd changes` (PR #196) wake agents on
+  Linear-originated bead changes, with `last_actor` attribution added by this spec so
+  watchers and the bridge can skip their own writes.
 - **Pilot-verifiable**: a written QA playbook exercises the full loop against a real
   Linear team: create in Linear → import → agent works the bead → close → Linear shows
   completed.
@@ -86,8 +93,10 @@ changes and **base-snapshot echo suppression** in the bridge state.
   (verified: non-localhost, 200 within 5s), which CLI/sandbox environments don’t have.
   Polling is the pilot transport; it is also the reconciliation path any future webhook
   daemon needs anyway.
-- **No comments sync.** Mapping Linear comment threads onto bead `notes` raises
-  authorship/format questions; deferred (see Open Questions).
+- **No comments sync in the pilot.** When the `comments` model from
+  [plan-2026-07-19-bead-watch-and-external-sync.md](plan-2026-07-19-bead-watch-and-external-sync.md)
+  Phase 2 lands (union-by-id, conflict-free), inbound external events land there;
+  bidirectional comment sync remains out of scope here (see §6a).
 - **No dependency / sub-issue mapping** (Linear relations ↔ bead `dependencies` /
   `parent_id`), no projects/cycles/initiatives, no attachments.
 - **No assignee push** unless a `user_map` is configured (bead `assignee` is a free
@@ -314,51 +323,87 @@ adapter. Commands no-op with a clear message when a provider’s key is unset or
 is disabled — mirroring the old epic’s `use_gh_cli` gating pattern.
 Every command supports `--json` and `--dry-run` per CLI conventions.
 
-### 6. `tbd watch` foundation and agent coordination
+### 6. Watch foundation (shipped in PR #196) and agent coordination
 
-The kernel brief’s core move — “everything should have a `watch` that emits JSONL” —
-starts here, scoped to what the pilot needs:
+**Updated 2026-07-20 after merging the watch implementation.** The watch foundation is
+no longer proposed here — it shipped as Phase 1 of
+[plan-2026-07-19-bead-watch-and-external-sync.md](plan-2026-07-19-bead-watch-and-external-sync.md)
+(PR #196, validated on Claude Code and Codex): `tbd changes --since <commit>` is the
+pure snapshot-diff primitive and `tbd watch` is the blocking one-shot — poll the remote
+tip via `git ls-remote`, fetch to a private ref on movement, report the selection’s
+per-field deltas as human text or one stable JSON document, exit 0/2/1, resume via
+`--since <tip>` chaining.
+That blocking, stateless contract supersedes this spec’s earlier streaming-JSONL sketch
+— it is strictly better for agent wake-ups (resumable, no long-lived process, already
+validated), and a streaming layer can be built over it later if needed.
+The sequencing principle (per review discussion): **the watch foundation lands first as
+a working increment, and bridge features are safe additions on top** — nothing in this
+spec modifies the shipped watch contract.
 
-```
-tbd watch --json [--interval 30s] [--types bead.updated,bead.status_changed]
-```
+What this spec still adds on top of the shipped watch:
 
-- **Mechanism**: snapshot-diff loop over the shared worktree — record
-  `(tbd-sync HEAD, per-file hashes)`, then on each tick (and after each local
-  mutation/sync under the data-sync lock) diff and emit one JSONL event per changed
-  bead. No fs-watcher dependency in the pilot; polling an on-disk worktree is cheap and
-  works in sandboxes.
-- **Event envelope** (per the kernel brief, trimmed):
-
-```json
-{"event_id":"01J…","ts":"2026-07-20T18:22:01Z","type":"bead.status_changed",
- "actor":"linear-bridge","bead":{"id":"tbd-a7k2","status":"in_progress",
- "assignee":"claude","labels":["agent:claude"],"linked":[{"provider":"linear","key":"ENG-123"}]},
- "changed":["status"],"prev":{"status":"open"}}
-```
-
-- **Actor attribution (minimum viable)**: a new optional `last_actor` frontmatter field
-  (LWW), set by every mutating command from `TBD_ACTOR` env (default: OS user; the
-  bridge sets `linear-bridge`). Watch consumers filter `actor != self` — the
-  anti-recursion convention the monitors brief identifies as the piece tbd must invent.
+- **Actor attribution (`last_actor`)**: the watch report shows *what* changed but not
+  *who* changed it — there is no anti-recursion signal yet.
+  Phase 0 adds the optional `last_actor` frontmatter field (LWW), set by every mutating
+  command from `TBD_ACTOR` (default: OS user; the bridge sets `linear-bridge`). It then
+  appears in watch reports as an ordinary field delta and lets a woken agent skip
+  changes it (or the bridge) made itself — the anti-recursion convention the monitors
+  brief identifies as the piece tbd must invent.
   (Full per-transition journaling is the coordination-kernel follow-up, not this spec.)
 - **Dispatch convention (documented, not enforced)**: `assignee` = which agent, labels =
   mode (`agent:claude`, `needs-implementation`), `status` = lifecycle.
-  This maps 1:1 onto how Copilot/Cursor/Claude Action dispatch today, and onto Linear’s
-  own delegate model later.
-- **Composition that the pilot must demonstrate** (QA playbook, not new code):
+  This maps 1:1 onto how Copilot/Cursor/Claude Action dispatch today, onto the shipped
+  watch selectors (`--label`, `--ready`, `--status`), and onto Linear’s own delegate
+  model later.
+- **The full-loop demonstration** (QA playbook, composing shipped pieces — the
+  watch-then-spawn recipe from the `watch-beads` shortcut plus `tbd bridge sync`):
 
 ```
-tbd watch --json | jq 'select(.type=="bead.created" and (.bead.labels|index("agent:claude")))' \
-  | xargs -I{} claude -p "Work bead {}; run tbd show first"
+PM files/updates an issue in Linear
+  → `tbd bridge sync` (cron or pre-agent hook) imports/updates the linked bead
+  → a `tbd watch --ready` (or `--label agent:claude`) loop wakes the agent with the delta report
+  → agent works, closes the bead, syncs
+  → `tbd bridge sync` pushes `completed` back to Linear, where the human sees it
 ```
 
-PM files/updates an issue in Linear → `tbd bridge sync` (cron or pre-agent hook)
-imports/updates the bead → `tbd watch` wakes the agent → agent works, closes the bead →
-sync pushes `completed` back to Linear, where the human sees it.
-Loop-safety: the bridge’s bead writes carry `actor: linear-bridge` and its Linear writes
-are echo-suppressed by base snapshots, so watch-driven agents and the bridge can run
-together without ping-pong.
+Loop-safety: the bridge’s bead writes carry `last_actor: linear-bridge` (visible in
+watch reports) and its Linear writes are echo-suppressed by base snapshots, so
+watch-driven agents and the bridge run together without ping-pong.
+
+### 6a. Reconciliation with plan-2026-07-19 (one plan of record for Phase 2)
+
+The two specs were written in parallel (2026-07-19 implementation-first for watch;
+2026-07-20 research-first for Linear sync) and are reconciled as follows.
+This spec is the **detailed elaboration of the external-sync phase**; the 07-19 spec
+remains the plan of record for the shipped watch:
+
+- **Command naming**: unified on **`tbd bridge`** (this spec §5) — one command group,
+  one `bridge sync` across all configured providers.
+  The 07-19 spec’s `tbd mirror pull/push/status` maps to `tbd bridge sync --pull/--push`
+  and `tbd bridge status`.
+- **Bindings**: bead-side binding is the first-class `linked` field with the
+  single-source invariant (§1), replacing the interim label-based binding the 07-19 spec
+  suggested for before per-namespace `extensions` merge.
+  The 07-19 spec’s **external-side** markers are adopted as designed: a hidden
+  `<!-- tbd:bead <id> -->` marker in the external description and (Linear) an attachment
+  URL as the per-issue idempotency key.
+- **Echo suppression**: complementary, both adopted — this spec’s per-link base tuples
+  (§2) give field-level 3-way diffs for bidirectional fields; the 07-19 spec’s content
+  hashes guard the projector-owned managed description block; its `[skip-bridge]` commit
+  marker convention is kept for bridge-authored sync commits.
+- **Comments**: the 07-19 spec’s `comments` model (union-by-id, conflict-free;
+  `tbd comment`) is adopted as the landing spot for inbound external events —
+  superseding this spec’s blanket “no comments” non-goal.
+  Full bidirectional comment sync remains out of the pilot; inbound events land as
+  comments when the model ships.
+- **Writer model**: single-writer-from-CI (07-19) is the recommended steady state;
+  manual `tbd bridge sync` from a dev machine stays supported (it serializes under the
+  existing data-sync lock and converges via base snapshots) — which is what the pilot
+  and sandbox testing need.
+- **Shared work items** (one implementation, referenced by both specs): per-namespace
+  `extensions` merge fix, and the `mirror`/`bridge` state file (kept on the sync branch
+  per §2 of this spec, holding the 07-19 spec’s watermarks and content hashes alongside
+  the base tuples).
 
 ### 7. Provider adapter seam
 
@@ -421,16 +466,20 @@ The pilot proves the seam with Linear, the harder case.
   `bridge link` on a linked bead refuses).
 - [ ] Bulk `tbd bridge import --provider linear --team … --state … --limit N`.
 
-### Phase 3 — watch + coordination pilot
+### Phase 3 — coordination pilot on the shipped watch
 
-- [ ] `tbd watch --json`: snapshot-diff loop, event envelope, `--types` filter, graceful
-  degradation when sync branch is unreachable.
-- [ ] Actor filtering baked into event stream (`actor` from `last_actor`).
+*(The watch itself shipped in PR #196 — `tbd changes` + `tbd watch`; see §6. This phase
+only composes with it.)*
+
+- [ ] Verify `last_actor` (from Phase 0) surfaces in `tbd changes`/`tbd watch` field
+  deltas so woken agents can skip their own and the bridge’s writes; add it to the
+  normative change-field list if needed.
 - [ ] QA playbook (`docs/project/specs/active/` companion or qa-playbook template): the
-  full Linear → bead → agent → Linear loop with two agents + bridge running
-  concurrently, verifying no echo/ping-pong.
-- [ ] Document the dispatch conventions (assignee/label/status) in tbd-docs and the
-  agent-facing skill docs.
+  full Linear → bead → agent → Linear loop — watch-then-spawn recipe from the
+  `watch-beads` shortcut plus `tbd bridge sync` on cron — with two agents + bridge
+  running concurrently, verifying no echo/ping-pong.
+- [ ] Document the dispatch conventions (assignee/label/status) in tbd-docs, the
+  `watch-beads` shortcut, and the agent-facing skill docs.
 
 ### Phase 4 — explicitly deferred (tracked as future beads, not in pilot)
 
@@ -465,8 +514,8 @@ seam (commands, config, state, mapping types) ships generic in the pilot.
 2. Phases 1–2 ship enabled-by-config-only (`bridges.linear.enabled`), so no behavior
    change for repos without the block; this repo becomes the pilot by linking a small
    curated subset (5–10 active beads) to a sandbox team first, then to the real team.
-3. Phase 3 `tbd watch` ships as experimental (`--json` only, documented as unstable
-   envelope) until the coordination-kernel follow-up firms up the event taxonomy.
+3. Phase 3 rides the shipped watch (PR #196) — no new watch surface; the coordination
+   conventions and QA playbook are docs + validation, gated only on Phases 0–2.
 4. Revisit after pilot: promote or adjust defaults (e.g., `sync_on_tbd_sync`), decide
    GitHub adapter priority, and spec the daemon/webhook phase with the Agents-platform
    end-state from the bridge brief §5.3.
@@ -496,12 +545,15 @@ seam (commands, config, state, mapping types) ships generic in the pilot.
 6. **Multi-repo → one Linear team**: bridge state is per-repo; two repos linking the
    same Linear issue would double-write.
    Pilot: document as unsupported; detect via a label or issue attachment later.
-7. **Watch backpressure/durability**: pilot watch is at-least-once from live diffs with
-   no replay; is a `--since <cursor>` replay (reading tbd-sync git history) needed
-   before agents rely on it for anything critical?
+7. **Watch replay depth — RESOLVED by PR #196**: the shipped `tbd changes --since` /
+   `tbd watch --since` chaining IS the replay mechanism (any historical sync-branch
+   commit works as a baseline), so no separate cursor store is needed.
 
 ## References
 
+- [plan-2026-07-19-bead-watch-and-external-sync.md](plan-2026-07-19-bead-watch-and-external-sync.md)
+  and [valid-2026-07-19-bead-watch-phase-1.md](valid-2026-07-19-bead-watch-phase-1.md) —
+  the shipped watch foundation (PR #196) this spec builds on
 - Design doc §8.7 (External Issue Tracker Linking), §3.5 (Merge Rules), §2.6 (ID
   mapping), §2.3 (worktree) —
   [tbd-design.md](../../../../packages/tbd/docs/tbd-design.md)

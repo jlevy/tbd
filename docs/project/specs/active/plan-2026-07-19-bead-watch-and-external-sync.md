@@ -392,6 +392,21 @@ deny-pattern term hard-fails the push; stale watermark replay is idempotent; con
 - Timing of the `comments` model: scheduled first in Phase 2; pull it into Phase 1 only
   if attic-shedding on notes proves noisy in the cross-agent demo.
 
+## Addendum (2026-07-20): Phase 2 elaborated in the sibling Linear-sync spec
+
+A parallel research-first plan,
+[plan-2026-07-20-linear-bead-sync-pilot.md](plan-2026-07-20-linear-bead-sync-pilot.md),
+now carries the detailed Phase 2 design (verified Linear API facts, field mapping
+tables, per-link base-snapshot state, phased implementation with beads under epic
+tbd-g305). Its §6a records the reconciliation of the two plans; the load-bearing
+unifications: the command family here called `tbd mirror` is unified as **`tbd bridge`**
+(`mirror pull/push/status` → `bridge sync --pull/--push` / `bridge status`); bead-side
+bindings use a first-class `linked` field with a one-external-source-per-bead invariant
+(the label-based interim binding is retired); this spec’s external-side markers,
+content-hash echo suppression for the managed block, `[skip-bridge]` convention,
+`comments` model, and single-writer-from-CI recommendation are all adopted as designed.
+Phase 1 (watch) is unaffected.
+
 ## References
 
 - `tbd-design.md` §3 (sync-branch architecture, merge strategies) and §8.7 (external
