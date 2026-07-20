@@ -14,10 +14,10 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { promisify } from 'node:util';
 
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { serializeIssue } from '../src/file/parser.js';
-import { createChangesReportFromRefs } from '../src/file/sync-branch-changes.js';
+import { createChangesReportFromRefs, readGitObjects } from '../src/file/sync-branch-changes.js';
 import {
   createIssueChangesReport,
   type IssueChangeSelection,
@@ -161,7 +161,7 @@ describe('createIssueChangesReport', () => {
     expect(report(snapshot([before]), snapshot([after])).changes).toEqual([]);
   });
 
-  it('reports created and deleted files with normalized null values', () => {
+  it('reports created and deleted files without null-to-null field noise', () => {
     const deleted = issue(ISSUE_A, 'Deleted', { description: 'before' });
     const created = issue(ISSUE_B, 'Created', { assignee: null, description: undefined });
 
@@ -171,10 +171,80 @@ describe('createIssueChangesReport', () => {
       [ISSUE_A, 'deleted'],
       [ISSUE_B, 'created'],
     ]);
-    const assignee = result.changes[1]!.fields.find((field) => field.field === 'assignee');
-    const description = result.changes[1]!.fields.find((field) => field.field === 'description');
-    expect(assignee).toMatchObject({ before: null, after: null });
-    expect(description).toMatchObject({ before: null, after: null });
+    expect(result.changes[1]!.fields).not.toEqual(
+      expect.arrayContaining([expect.objectContaining({ before: null, after: null })]),
+    );
+    expect(result.changes[1]!.fields.map((field) => field.field)).not.toContain('assignee');
+    expect(result.changes[1]!.fields.map((field) => field.field)).not.toContain('description');
+  });
+
+  it('bounds text hunk context and splits distant edits deterministically', () => {
+    const oldLines = Array.from({ length: 20 }, (_, index) => `line ${index + 1}`);
+    const newLines = [...oldLines];
+    newLines[1] = 'line 2 changed';
+    newLines[18] = 'line 19 changed';
+    const before = issue(ISSUE_A, 'Text hunks', { notes: oldLines.join('\n') });
+    const after = issue(ISSUE_A, 'Text hunks', { notes: newLines.join('\n') });
+
+    const notes = report(snapshot([before]), snapshot([after])).changes[0]!.fields.find(
+      (field) => field.field === 'notes',
+    );
+
+    expect(notes?.hunks).toEqual([
+      {
+        old_start: 1,
+        old_count: 5,
+        new_start: 1,
+        new_count: 5,
+        lines: [
+          { type: 'context', text: 'line 1' },
+          { type: 'remove', text: 'line 2' },
+          { type: 'add', text: 'line 2 changed' },
+          { type: 'context', text: 'line 3' },
+          { type: 'context', text: 'line 4' },
+          { type: 'context', text: 'line 5' },
+        ],
+      },
+      {
+        old_start: 16,
+        old_count: 5,
+        new_start: 16,
+        new_count: 5,
+        lines: [
+          { type: 'context', text: 'line 16' },
+          { type: 'context', text: 'line 17' },
+          { type: 'context', text: 'line 18' },
+          { type: 'remove', text: 'line 19' },
+          { type: 'add', text: 'line 19 changed' },
+          { type: 'context', text: 'line 20' },
+        ],
+      },
+    ]);
+  });
+
+  it('limits an append to the final three context lines', () => {
+    const oldLines = Array.from({ length: 500 }, (_, index) => `line ${index + 1}`);
+    const before = issue(ISSUE_A, 'Long notes', { notes: oldLines.join('\n') });
+    const after = issue(ISSUE_A, 'Long notes', { notes: [...oldLines, 'appended'].join('\n') });
+
+    const notes = report(snapshot([before]), snapshot([after])).changes[0]!.fields.find(
+      (field) => field.field === 'notes',
+    );
+
+    expect(notes?.hunks).toEqual([
+      {
+        old_start: 498,
+        old_count: 3,
+        new_start: 498,
+        new_count: 4,
+        lines: [
+          { type: 'context', text: 'line 498' },
+          { type: 'context', text: 'line 499' },
+          { type: 'context', text: 'line 500' },
+          { type: 'add', text: 'appended' },
+        ],
+      },
+    ]);
   });
 
   it('wakes dynamic filters when a changed bead enters or leaves the selection', () => {
@@ -260,6 +330,17 @@ describe('createIssueChangesReport', () => {
     expect(result.changes.map((change) => change.internal_id)).toEqual([ISSUE_B]);
   });
 
+  it('rejects unknown explicit internal IDs against the snapshot union', () => {
+    const unchanged = issue(ISSUE_A, 'Known');
+
+    expect(() =>
+      report(snapshot([unchanged]), snapshot([unchanged]), {
+        kind: 'beads',
+        ids: [ISSUE_C],
+      }),
+    ).toThrow(/Unknown issue ID/);
+  });
+
   it('sorts beads and fields deterministically', () => {
     const beforeA = issue(ISSUE_A, 'A', { priority: 2, status: 'open' });
     const afterA = issue(ISSUE_A, 'A', { priority: 1, status: 'closed' });
@@ -295,13 +376,17 @@ describe('createChangesReportFromRefs', () => {
     await git(repoDir, 'commit', '-m', `tip-${randomBytes(2).toString('hex')}`);
     const tip = await git(repoDir, 'rev-parse', 'HEAD');
 
-    const result = await createChangesReportFromRefs({
-      repoDir,
-      sinceRef: since,
-      tipRef: tip,
-      prefix: 'tbd',
-      selection: { kind: 'all' },
-    });
+    const batchReads = vi.fn(readGitObjects);
+    const result = await createChangesReportFromRefs(
+      {
+        repoDir,
+        sinceRef: since,
+        tipRef: tip,
+        prefix: 'tbd',
+        selection: { kind: 'all' },
+      },
+      { readObjects: batchReads },
+    );
 
     expect(result).toMatchObject({ since, tip });
     expect(result.changes[0]).toMatchObject({
@@ -311,6 +396,8 @@ describe('createChangesReportFromRefs', () => {
     await expect(git(repoDir, 'worktree', 'list', '--porcelain')).resolves.not.toContain(
       'data-sync-worktree',
     );
+    expect(batchReads).toHaveBeenCalledTimes(2);
+    expect(batchReads.mock.calls.every(([, objectIds]) => objectIds.length === 2)).toBe(true);
   });
 
   it('fails loudly when a committed issue is invalid', async () => {

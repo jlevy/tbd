@@ -177,6 +177,27 @@ describe('tbd watch', () => {
   );
 
   it(
+    'rejects an unknown --bead before entering the poll loop',
+    async () => {
+      const fixture = await createWatchRepo(false);
+      await git(fixture.repoDir, 'push', 'origin', '--delete', 'tbd-sync');
+      const result = runTbd(fixture.repoDir, [
+        'watch',
+        '--bead',
+        'tbd-typo',
+        '--timeout',
+        '0',
+        '--json',
+      ]);
+
+      expect(result.status).toBe(1);
+      expect(result.stdout).toBe('');
+      expect(result.stderr).toContain('Unknown issue ID: tbd-typo');
+    },
+    WINDOWS_CLI_TEST_TIMEOUT_MS,
+  );
+
+  it(
     'exits 1 when the configured remote branch is absent',
     async () => {
       const fixture = await createWatchRepo(false);

@@ -148,6 +148,9 @@ watchers:
   callers can resume without a race.
   A missing commit, missing remote sync branch, or baseline that is not an ancestor of
   the tip is an error rather than an all-created or force-push-shaped report.
+  A missing local sync-branch tip tells the caller to run `tbd sync` first.
+  If sync recovery rewrites history and invalidates a saved baseline, restart the watch
+  without `--since` to establish a new baseline.
 
 - **Advancement:** after remote movement that does not affect the selection, watch
   advances its baseline to that observed tip.
@@ -156,6 +159,10 @@ watchers:
 
 - **Static and dynamic selections:** `--bead` resolves IDs against the union of the two
   snapshots’ append-only ID mappings.
+  Without `--since`, watch validates explicit IDs against the local committed sync
+  snapshot before its first remote poll, so a typo cannot wait indefinitely.
+  With `--since`, the immediate two-snapshot report remains authoritative, including for
+  a bead deleted after the baseline.
   Label, spec, and status filters reuse `tbd list` semantics: repeated labels are ANDed,
   spec paths use gradual path matching, and filters combine with AND. A changed bead
   matches a dynamic selection when it matched either endpoint, so entering and leaving a
@@ -171,13 +178,17 @@ watchers:
 
 - **Issue snapshots:** readiness is calculated independently at both endpoints using
   each snapshot’s complete dependency graph.
-  Invalid issue or mapping data fails the command loudly with the ref and path; it is
-  never treated as an empty snapshot.
+  Each endpoint lists the committed issue tree and reads all issue and mapping blobs
+  through one `git cat-file --batch` process; snapshot size does not multiply Git
+  subprocess count. Invalid issue or mapping data fails the command loudly with the ref
+  and path; it is never treated as an empty snapshot.
 
 - **Determinism:** reports sort beads by internal ID and fields by normative schema
-  order. Missing optional values are represented as `null`. Arrays retain their canonical
-  stored order. Text changes use deterministic line hunks with old/new start and count
-  values plus context/add/remove lines.
+  order. Missing optional values are represented as `null`, but created and deleted beads
+  omit fields that are `null` at both endpoints.
+  Arrays retain their canonical stored order.
+  Text changes use deterministic line hunks with old/new start and count values plus
+  context/add/remove lines and at most three surrounding context lines.
 
 - **Output:** human output identifies the baseline and tip, then renders one section per
   bead and field. JSON uses the same document for `changes` and an exit-0 `watch`:
@@ -225,7 +236,9 @@ watchers:
 - **Private fetches:** every watch invocation uses a collision-resistant ref under a
   tbd-owned private namespace, fetches the exact configured sync branch only after tip
   movement, never writes `FETCH_HEAD` or the configured local/remote-tracking sync refs,
-  and deletes its private ref in a `finally` path.
+  and deletes its private ref on the normal `finally` path.
+  At startup it also removes private refs whose encoded watcher PID is no longer alive,
+  reclaiming refs left by signals or abrupt process termination.
   It does not initialize, inspect, repair, lock, fetch through, or otherwise access the
   hidden data-sync worktree.
 
@@ -351,11 +364,16 @@ No breaking changes to existing commands.
   document platform limits found.
 - [x] Cross-agent demo (`tbd-2y7v`): two agent sessions conversing through one bead,
   each waking on the other’s write.
+- [x] Post-review hardening (`tbd-md0g`): fail-fast ID validation, stale-ref
+  reclamation, batched snapshot reads, bounded text hunks, concise created/deleted
+  fields, selector compatibility, and actionable recovery guidance.
 
 Validation transcript and platform limits: `valid-2026-07-19-bead-watch-phase-1.md`.
 
 ### Phase 2: External Sync
 
+- [ ] Reconcile the external-sync design with the sibling plan before implementation
+  (`tbd-fuiw`): bridge versus mirror, link storage, and reconciliation state.
 - [ ] `comments` model with union-by-id merge, `tbd comment`, and concurrent-writer
   regression tests.
 - [ ] Per-namespace `extensions` merge with concurrent-writer regression tests.

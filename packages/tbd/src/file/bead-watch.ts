@@ -8,7 +8,7 @@
 import { randomUUID } from 'node:crypto';
 
 import type { IssueChangeSelection, IssueChangesReport } from '../lib/issue-changes.js';
-import { createChangesReportFromRefs } from './sync-branch-changes.js';
+import { createChangesReportFromRefs, validateBeadSelectionAtRef } from './sync-branch-changes.js';
 import { git, gitNoPrompt } from './git.js';
 
 export interface IssueWatchOptions {
@@ -30,6 +30,8 @@ export type IssueWatchResult =
 export interface IssueWatchDependencies {
   now: () => number;
   sleep: (milliseconds: number) => Promise<void>;
+  prepare?: () => Promise<void>;
+  validateSelection?: () => Promise<void>;
   getRemoteTip: () => Promise<string>;
   fetchRemoteTip: () => Promise<string>;
   createReport: (since: string, tip: string) => Promise<IssueChangesReport>;
@@ -48,11 +50,52 @@ function parseRemoteTip(output: string, remote: string, branch: string): string 
   return tip;
 }
 
+function isProcessAlive(pid: number): boolean {
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch (error) {
+    return !(
+      typeof error === 'object' &&
+      error !== null &&
+      'code' in error &&
+      error.code === 'ESRCH'
+    );
+  }
+}
+
+/** Remove private refs left by watcher processes that are no longer running. */
+export async function removeStaleWatchRefs(
+  repoDir: string,
+  processIsAlive: (pid: number) => boolean = isProcessAlive,
+): Promise<void> {
+  const output = await git('-C', repoDir, 'for-each-ref', '--format=%(refname)', 'refs/tbd/watch/');
+  for (const ref of output.split('\n').filter(Boolean)) {
+    const match = /^refs\/tbd\/watch\/(\d+)-/.exec(ref);
+    if (!match) continue;
+    const pid = Number(match[1]);
+    if (Number.isSafeInteger(pid) && pid > 0 && !processIsAlive(pid)) {
+      await git('-C', repoDir, 'update-ref', '-d', ref);
+    }
+  }
+}
+
 function createGitWatchDependencies(options: IssueWatchOptions): IssueWatchDependencies {
   const privateRef = `refs/tbd/watch/${process.pid}-${randomUUID()}`;
   return {
     now: Date.now,
     sleep,
+    prepare: () => removeStaleWatchRefs(options.repoDir),
+    validateSelection: async () => {
+      // A --since report validates against the union of both endpoints immediately,
+      // which permits watching a bead deleted after that baseline.
+      if (options.since !== null) return;
+      await validateBeadSelectionAtRef(
+        options.repoDir,
+        `refs/heads/${options.branch}`,
+        options.selection,
+      );
+    },
     getRemoteTip: async () => {
       let output;
       try {
@@ -117,6 +160,8 @@ export async function watchForIssueChanges(
   const deadline = options.timeoutMs === null ? null : startedAt + options.timeoutMs;
 
   try {
+    await dependencies.prepare?.();
+    await dependencies.validateSelection?.();
     let observedTip = await dependencies.getRemoteTip();
     let baseline = options.since ?? observedTip;
 

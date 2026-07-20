@@ -209,7 +209,7 @@ class ListHandler extends BaseCommand {
       if (
         !issueMatchesSharedFilters(issue, {
           labels: options.label ?? [],
-          spec: options.spec ?? null,
+          spec: options.spec === '' ? null : (options.spec ?? null),
           status: options.status ?? null,
         })
       ) {

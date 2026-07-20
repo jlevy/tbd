@@ -13,12 +13,22 @@
   watch-then-spawn daemon plus bounded and background in-session patterns for Claude
   Code and Codex. Live validation covers both platforms conversing through one bead.
 
+### Fixes
+
+- **Watch review hardening**: explicit bead IDs are validated before an unbounded poll,
+  fresh-clone errors point to `tbd sync`, empty spec filters retain list-compatible
+  behavior, created/deleted reports omit null-to-null fields, and text hunks retain at
+  most three context lines.
+- **Bounded snapshot subprocesses**: committed issue blobs are read through one
+  `git cat-file --batch` process per endpoint instead of one `git show` per issue.
+
 ### Security
 
 - No dependencies were added or upgraded.
   Watch fetches only after remote movement, targets a collision-resistant private ref,
   does not write `FETCH_HEAD` or configured sync refs, never accesses the hidden
-  data-sync worktree or lock, and removes its private ref in a `finally` path.
+  data-sync worktree or lock, removes its private ref on normal completion, and reclaims
+  refs orphaned by interrupted watcher processes on the next watch startup.
 
 ## 0.4.1
 

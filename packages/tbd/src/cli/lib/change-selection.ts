@@ -20,9 +20,10 @@ export function parseChangeSelection(
   requireExplicit: boolean,
 ): IssueChangeSelection {
   const hasBeads = (options.bead?.length ?? 0) > 0;
+  const spec = options.spec === '' ? null : (options.spec ?? null);
   const hasFilters =
     (options.label?.length ?? 0) > 0 ||
-    options.spec !== undefined ||
+    spec !== null ||
     options.status !== undefined ||
     options.ready === true;
 
@@ -42,7 +43,7 @@ export function parseChangeSelection(
     return {
       kind: 'filter',
       labels: options.label ?? [],
-      spec: options.spec ?? null,
+      spec,
       status: statusResult.data,
       ready: options.ready ?? false,
     };

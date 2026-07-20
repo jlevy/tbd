@@ -170,4 +170,14 @@ describe('tbd changes', () => {
     expect(result.status).toBe(2);
     expect(result.stderr).toContain('cannot be combined');
   });
+
+  it('suggests tbd sync when the local sync branch is missing', async () => {
+    const fixture = await createChangesRepo();
+    await git(fixture.repoDir, 'update-ref', '-d', 'refs/heads/tbd-sync');
+
+    const result = runTbd(fixture.repoDir, ['changes', '--since', fixture.since, '--json']);
+
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain('Run tbd sync first');
+  });
 });

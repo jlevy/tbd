@@ -34,7 +34,7 @@ export interface TextChangeLine {
   text: string;
 }
 
-/** A line-oriented text delta. Phase 1 emits one complete deterministic hunk per field. */
+/** A line-oriented text delta with bounded unified-diff-style context. */
 export interface TextChangeHunk {
   old_start: number;
   old_count: number;
@@ -101,6 +101,7 @@ const ISSUE_CHANGE_FIELDS = [
 export type IssueChangeField = (typeof ISSUE_CHANGE_FIELDS)[number];
 
 const TEXT_FIELDS: ReadonlySet<IssueChangeField> = new Set(['description', 'notes']);
+const TEXT_HUNK_CONTEXT_LINES = 3;
 
 function deepEqual(left: unknown, right: unknown): boolean {
   if (left === right) return true;
@@ -140,49 +141,122 @@ function textLines(value: unknown): string[] {
   return typeof value === 'string' && value.length > 0 ? value.split('\n') : [];
 }
 
+function diffTextLines(oldLines: readonly string[], newLines: readonly string[]): TextChangeLine[] {
+  const trace: Map<number, number>[] = [];
+  const furthestX = new Map<number, number>([[1, 0]]);
+  const maximumDistance = oldLines.length + newLines.length;
+  let finalDistance = 0;
+
+  outer: for (let distance = 0; distance <= maximumDistance; distance += 1) {
+    trace.push(new Map(furthestX));
+    for (let diagonal = -distance; diagonal <= distance; diagonal += 2) {
+      const downX = furthestX.get(diagonal + 1) ?? Number.NEGATIVE_INFINITY;
+      const rightX = furthestX.get(diagonal - 1) ?? Number.NEGATIVE_INFINITY;
+      let x =
+        diagonal === -distance || (diagonal !== distance && rightX < downX) ? downX : rightX + 1;
+      if (!Number.isFinite(x)) x = 0;
+      let y = x - diagonal;
+      while (x < oldLines.length && y < newLines.length && oldLines[x] === newLines[y]) {
+        x += 1;
+        y += 1;
+      }
+      furthestX.set(diagonal, x);
+      if (x >= oldLines.length && y >= newLines.length) {
+        finalDistance = distance;
+        break outer;
+      }
+    }
+  }
+
+  const reversed: TextChangeLine[] = [];
+  let x = oldLines.length;
+  let y = newLines.length;
+  for (let distance = finalDistance; distance >= 0; distance -= 1) {
+    const values = trace[distance]!;
+    const diagonal = x - y;
+    const downX = values.get(diagonal + 1) ?? Number.NEGATIVE_INFINITY;
+    const rightX = values.get(diagonal - 1) ?? Number.NEGATIVE_INFINITY;
+    const previousDiagonal =
+      diagonal === -distance || (diagonal !== distance && rightX < downX)
+        ? diagonal + 1
+        : diagonal - 1;
+    const previousX = values.get(previousDiagonal) ?? 0;
+    const previousY = previousX - previousDiagonal;
+
+    while (x > previousX && y > previousY) {
+      reversed.push({ type: 'context', text: oldLines[x - 1]! });
+      x -= 1;
+      y -= 1;
+    }
+    if (distance === 0) break;
+    if (x === previousX) {
+      reversed.push({ type: 'add', text: newLines[y - 1]! });
+      y -= 1;
+    } else {
+      reversed.push({ type: 'remove', text: oldLines[x - 1]! });
+      x -= 1;
+    }
+  }
+
+  const forward = reversed.reverse();
+  const canonical: TextChangeLine[] = [];
+  for (let index = 0; index < forward.length; ) {
+    const line = forward[index]!;
+    if (line.type === 'context') {
+      canonical.push(line);
+      index += 1;
+      continue;
+    }
+    const changed: TextChangeLine[] = [];
+    while (index < forward.length && forward[index]!.type !== 'context') {
+      changed.push(forward[index]!);
+      index += 1;
+    }
+    canonical.push(
+      ...changed.filter((entry) => entry.type === 'remove'),
+      ...changed.filter((entry) => entry.type === 'add'),
+    );
+  }
+  return canonical;
+}
+
 function createTextHunks(before: unknown, after: unknown): TextChangeHunk[] {
   const oldLines = textLines(before);
   const newLines = textLines(after);
-  let prefixLength = 0;
-  while (
-    prefixLength < oldLines.length &&
-    prefixLength < newLines.length &&
-    oldLines[prefixLength] === newLines[prefixLength]
-  ) {
-    prefixLength += 1;
+  const lines = diffTextLines(oldLines, newLines);
+  const positioned: (TextChangeLine & { oldLine: number; newLine: number })[] = [];
+  let oldLine = 1;
+  let newLine = 1;
+  for (const line of lines) {
+    positioned.push({ ...line, oldLine, newLine });
+    if (line.type !== 'add') oldLine += 1;
+    if (line.type !== 'remove') newLine += 1;
   }
 
-  let suffixLength = 0;
-  while (
-    suffixLength < oldLines.length - prefixLength &&
-    suffixLength < newLines.length - prefixLength &&
-    oldLines[oldLines.length - suffixLength - 1] === newLines[newLines.length - suffixLength - 1]
-  ) {
-    suffixLength += 1;
+  const ranges: { start: number; end: number }[] = [];
+  for (let index = 0; index < positioned.length; index += 1) {
+    if (positioned[index]!.type === 'context') continue;
+    const start = Math.max(0, index - TEXT_HUNK_CONTEXT_LINES);
+    const end = Math.min(positioned.length, index + TEXT_HUNK_CONTEXT_LINES + 1);
+    const previous = ranges.at(-1);
+    if (previous !== undefined && start <= previous.end) {
+      previous.end = Math.max(previous.end, end);
+    } else {
+      ranges.push({ start, end });
+    }
   }
 
-  const lines: TextChangeLine[] = [
-    ...oldLines.slice(0, prefixLength).map((text) => ({ type: 'context' as const, text })),
-    ...oldLines
-      .slice(prefixLength, oldLines.length - suffixLength)
-      .map((text) => ({ type: 'remove' as const, text })),
-    ...newLines
-      .slice(prefixLength, newLines.length - suffixLength)
-      .map((text) => ({ type: 'add' as const, text })),
-    ...oldLines
-      .slice(oldLines.length - suffixLength)
-      .map((text) => ({ type: 'context' as const, text })),
-  ];
-
-  return [
-    {
-      old_start: 1,
-      old_count: oldLines.length,
-      new_start: 1,
-      new_count: newLines.length,
-      lines,
-    },
-  ];
+  return ranges.map(({ start, end }) => {
+    const entries = positioned.slice(start, end);
+    const first = entries[0]!;
+    return {
+      old_start: first.oldLine,
+      old_count: entries.filter((line) => line.type !== 'add').length,
+      new_start: first.newLine,
+      new_count: entries.filter((line) => line.type !== 'remove').length,
+      lines: entries.map(({ type, text }) => ({ type, text })),
+    };
+  });
 }
 
 function mergeMappings(
@@ -212,18 +286,37 @@ function mergeMappings(
 function resolveBeadIds(
   ids: readonly string[],
   shortToUlid: ReadonlyMap<string, string>,
+  knownIssueIds: ReadonlySet<string>,
 ): ReadonlySet<string> {
   return new Set(
     ids.map((input) => {
       const normalized = input.toLowerCase();
-      if (isInternalId(normalized)) return normalized;
-      const shortOrUlid = extractShortId(normalized);
-      if (/^[0-9a-z]{26}$/.test(shortOrUlid)) return makeInternalId(shortOrUlid);
-      const ulid = shortToUlid.get(shortOrUlid);
-      if (ulid === undefined) throw new Error(`Unknown issue ID: ${input}`);
-      return makeInternalId(ulid);
+      let internalId: string;
+      if (isInternalId(normalized)) {
+        internalId = normalized;
+      } else {
+        const shortOrUlid = extractShortId(normalized);
+        if (/^[0-9a-z]{26}$/.test(shortOrUlid)) {
+          internalId = makeInternalId(shortOrUlid);
+        } else {
+          const ulid = shortToUlid.get(shortOrUlid);
+          if (ulid === undefined) throw new Error(`Unknown issue ID: ${input}`);
+          internalId = makeInternalId(ulid);
+        }
+      }
+      if (!knownIssueIds.has(internalId)) throw new Error(`Unknown issue ID: ${input}`);
+      return internalId;
     }),
   );
+}
+
+/** Fail fast when a static bead selection does not exist in a committed snapshot. */
+export function validateIssueChangeSelection(
+  snapshot: IssueSnapshot,
+  selection: IssueChangeSelection,
+): void {
+  if (selection.kind !== 'beads') return;
+  resolveBeadIds(selection.ids, snapshot.shortToUlid, new Set(snapshot.issues.keys()));
 }
 
 function fieldChanges(before: Issue | undefined, after: Issue | undefined): IssueFieldChange[] {
@@ -231,6 +324,7 @@ function fieldChanges(before: Issue | undefined, after: Issue | undefined): Issu
   return ISSUE_CHANGE_FIELDS.flatMap((field): IssueFieldChange[] => {
     const beforeValue = normalizeValue(before?.[field]);
     const afterValue = normalizeValue(after?.[field]);
+    if (beforeValue === null && afterValue === null) return [];
     if (!createdOrDeleted && deepEqual(beforeValue, afterValue)) return [];
     const change: IssueFieldChange = { field, before: beforeValue, after: afterValue };
     if (TEXT_FIELDS.has(field) && !deepEqual(beforeValue, afterValue)) {
@@ -263,13 +357,13 @@ export function createIssueChangesReport(
   options: CreateIssueChangesReportOptions,
 ): IssueChangesReport {
   const mapping = mergeMappings(options.before, options.after);
+  const candidateIds = new Set([...options.before.issues.keys(), ...options.after.issues.keys()]);
   const explicitIds =
     options.selection.kind === 'beads'
-      ? resolveBeadIds(options.selection.ids, mapping.shortToUlid)
+      ? resolveBeadIds(options.selection.ids, mapping.shortToUlid, candidateIds)
       : null;
   const readyBefore = readyIssueIds(options.before.issues.values());
   const readyAfter = readyIssueIds(options.after.issues.values());
-  const candidateIds = new Set([...options.before.issues.keys(), ...options.after.issues.keys()]);
   const changes: IssueChange[] = [];
 
   for (const internalId of Array.from(candidateIds).sort((left, right) =>

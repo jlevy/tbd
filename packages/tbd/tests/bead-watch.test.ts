@@ -9,7 +9,11 @@ import { promisify } from 'node:util';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { serializeIssue } from '../src/file/parser.js';
-import { watchForIssueChanges, type IssueWatchDependencies } from '../src/file/bead-watch.js';
+import {
+  removeStaleWatchRefs,
+  watchForIssueChanges,
+  type IssueWatchDependencies,
+} from '../src/file/bead-watch.js';
 import type { IssueChangesReport } from '../src/lib/issue-changes.js';
 import { stringifyYaml } from '../src/utils/yaml-utils.js';
 import { createTestIssue, testId, TEST_ULIDS } from './test-helpers.js';
@@ -45,6 +49,7 @@ function fakeDependencies(remoteTips: string[]): {
   dependencies: IssueWatchDependencies;
   fetchRemoteTip: ReturnType<typeof vi.fn>;
   createReport: ReturnType<typeof vi.fn>;
+  getRemoteTip: ReturnType<typeof vi.fn>;
   getNow: () => number;
 } {
   let now = 0;
@@ -53,6 +58,11 @@ function fakeDependencies(remoteTips: string[]): {
   const createReport = vi.fn((since: string, tip: string) =>
     Promise.resolve(emptyReport(since, tip)),
   );
+  const getRemoteTip = vi.fn(() => {
+    const tip = remoteTips[Math.min(remoteIndex, remoteTips.length - 1)]!;
+    remoteIndex += 1;
+    return Promise.resolve(tip);
+  });
   return {
     dependencies: {
       now: () => now,
@@ -60,16 +70,13 @@ function fakeDependencies(remoteTips: string[]): {
         now += milliseconds;
         return Promise.resolve();
       },
-      getRemoteTip: vi.fn(() => {
-        const tip = remoteTips[Math.min(remoteIndex, remoteTips.length - 1)]!;
-        remoteIndex += 1;
-        return Promise.resolve(tip);
-      }),
+      getRemoteTip,
       fetchRemoteTip,
       createReport,
     },
     fetchRemoteTip,
     createReport,
+    getRemoteTip,
     getNow: () => now,
   };
 }
@@ -101,6 +108,29 @@ afterEach(async () => {
 });
 
 describe('watchForIssueChanges polling', () => {
+  it('validates explicit bead IDs before reading the first remote tip', async () => {
+    const fake = fakeDependencies([SHA_A]);
+    const validationError = new Error('Unknown issue ID: tbd-typo');
+    fake.dependencies.validateSelection = vi.fn(() => Promise.reject(validationError));
+
+    await expect(
+      watchForIssueChanges(
+        {
+          repoDir: '/unused',
+          remote: 'origin',
+          branch: 'tbd-sync',
+          prefix: 'tbd',
+          selection: { kind: 'beads', ids: ['tbd-typo'] },
+          since: null,
+          intervalMs: 10,
+          timeoutMs: null,
+        },
+        fake.dependencies,
+      ),
+    ).rejects.toThrow('Unknown issue ID');
+    expect(fake.getRemoteTip).not.toHaveBeenCalled();
+  });
+
   it('takes the first remote tip as baseline and does not fetch while idle', async () => {
     const fake = fakeDependencies([SHA_A]);
 
@@ -201,6 +231,28 @@ describe('watchForIssueChanges polling', () => {
 });
 
 describe('watchForIssueChanges Git safety', () => {
+  it('reclaims private refs owned by dead watcher processes', async () => {
+    const repoDir = await mkdtemp(join(tmpdir(), 'tbd-watch-stale-ref-'));
+    cleanupPaths.push(repoDir);
+    await git(repoDir, 'init', '-b', 'main');
+    await git(repoDir, 'config', 'user.email', 'test@example.com');
+    await git(repoDir, 'config', 'user.name', 'Test User');
+    await writeFile(join(repoDir, 'README.md'), '# test\n');
+    await git(repoDir, 'add', 'README.md');
+    await git(repoDir, 'commit', '-m', 'test');
+    await git(repoDir, 'update-ref', 'refs/tbd/watch/12345-stale', 'HEAD');
+    await git(repoDir, 'update-ref', 'refs/tbd/watch/not-owned', 'HEAD');
+
+    await removeStaleWatchRefs(repoDir, () => false);
+
+    expect(await git(repoDir, 'show-ref', '--verify', 'refs/tbd/watch/not-owned')).toContain(
+      'refs/tbd/watch/not-owned',
+    );
+    await expect(
+      git(repoDir, 'show-ref', '--verify', 'refs/tbd/watch/12345-stale'),
+    ).rejects.toThrow();
+  });
+
   it('fetches through a temporary private ref and leaves sync state untouched', async () => {
     const root = await mkdtemp(join(tmpdir(), 'tbd-watch-safety-'));
     cleanupPaths.push(root);
