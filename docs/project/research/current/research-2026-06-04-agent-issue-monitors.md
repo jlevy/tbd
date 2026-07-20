@@ -517,14 +517,31 @@ dedup that nobody else has.**
 
 ## Next Steps
 
-- [ ] Socialize this brief; decide listener vs.
-  dispatcher vs. kernel positioning
-- [ ] If pursuing: spec the minimal viable event set (git-hook vs.
-  `tbd watch` vs. `repository_dispatch` bridge) — track as a bead
+- [x] Socialize this brief; decide listener vs.
+  dispatcher vs. kernel positioning — *2026-07-20: positioning chosen (dispatcher-first
+  via `tbd watch`, kernel primitives incremental); see addendum below*
+- [x] If pursuing: spec the minimal viable event set (git-hook vs.
+  `tbd watch` vs. `repository_dispatch` bridge) — *2026-07-20: specced as polling
+  `tbd watch --json` in
+  [plan-2026-07-20-linear-bead-sync-pilot.md](../../specs/active/plan-2026-07-20-linear-bead-sync-pilot.md)
+  §6, tracked as beads under the pilot epic*
 - [ ] Prototype a claim/lease field with mergeable semantics + actor-based
-  anti-recursion
+  anti-recursion — *partially: actor attribution (`last_actor` + echo suppression) is in
+  the pilot spec; claim/lease remains a follow-up*
 - [ ] Evaluate a tbd MCP server (beads/dependencies/claims toolsets)
 - [ ] Re-survey `gh aw` at GA — it is the closest thing to a reference design
+
+## Addendum (2026-07-20): pilot spec now exists
+
+The extension angle above graduated into a concrete plan:
+[plan-2026-07-20-linear-bead-sync-pilot.md](../../specs/active/plan-2026-07-20-linear-bead-sync-pilot.md)
+combines bidirectional Linear ↔ bead sync for a linked subset with the first slice of
+`tbd watch` (JSONL bead-change events + actor-based anti-recursion), because the two
+share the echo/loop-prevention invariant.
+Linear API specifics (GraphQL, webhooks-need-public-HTTPS, rate limits, Agents platform)
+were verified and recorded in
+[api-references-bridge-integrations.md §5](api-references-bridge-integrations.md).
+The claim/lease primitive and MCP server evaluation remain open follow-ups.
 
 ## Methodology
 

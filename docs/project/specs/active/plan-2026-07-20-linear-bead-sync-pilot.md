@@ -1,0 +1,479 @@
+# Feature: Linear ↔ bead bidirectional sync pilot (linked subset) + `tbd watch` foundation
+
+**Date:** 2026-07-20 (last updated 2026-07-20)
+
+**Author:** Joshua Levy (with agent assistance)
+
+**Status:** Planned (consolidates prior research; supersedes the pre-rewrite external
+issue linking epic tbd-68cw as the plan of record for external tracker sync)
+
+## Overview
+
+This project previously tracked issues in Linear; tracking has since moved to git-native
+beads in this repo. The two worlds are currently disconnected: beads are invisible in
+Linear, and Linear issues (the surface humans, PMs, and other agent products like Cursor
+already watch) are invisible to beads and to the agents that work from `tbd ready`.
+
+This spec defines a **pilot of true bidirectional sync between a linked subset of beads
+and Linear issues**, plus the first slice of the **`tbd watch` event surface** so that
+bead changes (including those originating in Linear) can wake and coordinate agents.
+
+Design inputs, consolidated here:
+
+- **Design doc §8.7 “External Issue Tracker Linking”**
+  ([tbd-design.md](../../../../packages/tbd/docs/tbd-design.md)) — recommends designing
+  the `linked` metadata structure now and implementing providers behind an adapter
+  interface. This spec is that design, with Linear (not GitHub) as the first provider
+  since it is where this project’s external tracking lived.
+- **[api-references-bridge-integrations.md](../../research/current/api-references-bridge-integrations.md)
+  §5 (Linear APIs, verified 2026-07-20)** — GraphQL endpoint, auth, rate limits, webhook
+  constraints, and the Linear Agents platform.
+- **[research-2026-06-04-agent-issue-monitors.md](../../research/current/research-2026-06-04-agent-issue-monitors.md)**
+  — how agents listen on issues today; tbd’s missing pieces are an event surface, a
+  dispatch convention, and anti-recursion.
+- **[research-agent-coordination-kernel.md](../../research/current/research-agent-coordination-kernel.md)**
+  — durable truth (git) vs.
+  live coordination (streams); `watch` emitting JSONL as the universal composition
+  point; bridges as thin, stateless adapters.
+- **[research-claude-code-orchestration-and-uis.md](../../research/current/research-claude-code-orchestration-and-uis.md)**
+  — OpenAI Symphony: a Linear-polling orchestrator daemon (per-issue workspaces,
+  reconciliation loops, tracker-driven recovery, no local database) that validates
+  polling-first architecture.
+- **The pre-rewrite external issue linking epic (bead tbd-68cw, closed 2026-02-11)** —
+  the previous codebase shipped GitHub Issues sync (`external_issue_url` field, status
+  mapping tables, a 4-phase sync order, `use_gh_cli` gating).
+  That code did not survive the v2 rewrite, but its shape (single-URL link field,
+  4-phase ordering, status mapping tables) informs this design.
+  Where this spec differs deliberately: a structured multi-entry `linked` field instead
+  of one URL string, a persisted sync-state base for real 3-way diffs instead of
+  stateless push/pull, and API-based access instead of shelling to a vendor CLI.
+
+**Why bidirectional sync and watch belong in one plan:** they share the hard invariant.
+Sync must not re-import its own writes (echo), and watch-driven agents must not
+re-trigger on their own updates (loops).
+Both are solved by the same two mechanisms introduced here: **actor attribution** on
+changes and **base-snapshot echo suppression** in the bridge state.
+
+## Goals
+
+- A bead can be **linked** to a Linear issue; the link survives sync/merge and is
+  visible in `tbd show`.
+- **Pull**: changes made in Linear (title, description, status, priority, labels) to a
+  linked issue appear on the linked bead after `tbd linear sync` (or `tbd sync` with the
+  integration enabled).
+- **Push**: the same fields changed on a linked bead propagate to the Linear issue,
+  including close ↔ completed/canceled transitions.
+- **Subset scope**: only beads with a `linked` entry participate.
+  Linking happens explicitly (`tbd linear link`, `tbd linear import`) — no implicit
+  whole-store export.
+- **Convergent and idempotent**: running sync twice in a row is a no-op; concurrent
+  edits on both sides converge with field-level resolution and attic preservation,
+  matching tbd’s existing merge philosophy.
+- **No echo loops**: the bridge never re-applies its own writes in either direction.
+- **Watch foundation**: `tbd watch --json` emits JSONL bead-change events (created /
+  updated / status_changed, with actor attribution) suitable for piping into
+  orchestration scripts, so Linear-originated changes can wake agents.
+- **Pilot-verifiable**: a written QA playbook exercises the full loop against a real
+  Linear team: create in Linear → import → agent works the bead → close → Linear shows
+  completed.
+
+## Non-Goals (pilot)
+
+- **No daemon and no webhooks.** Linear webhooks require a public HTTPS endpoint
+  (verified: non-localhost, 200 within 5s), which CLI/sandbox environments don’t have.
+  Polling is the pilot transport; it is also the reconciliation path any future webhook
+  daemon needs anyway.
+- **No comments sync.** Mapping Linear comment threads onto bead `notes` raises
+  authorship/format questions; deferred (see Open Questions).
+- **No dependency / sub-issue mapping** (Linear relations ↔ bead `dependencies` /
+  `parent_id`), no projects/cycles/initiatives, no attachments.
+- **No assignee push** unless a `user_map` is configured (bead `assignee` is a free
+  string; Linear needs a user UUID). Pull maps to the Linear user’s display name.
+- **No second provider.** A thin `TrackerAdapter` interface keeps a GitHub port
+  possible, but no GitHub implementation in the pilot.
+- **No leases/claims or agent registry.** Advisory claiming stays `status: in_progress`
+  per current docs; the coordination-kernel claim/lease primitive is a follow-up spec.
+- **No Linear Agents (AgentSession) integration.** Requires a hosted OAuth `actor=app`
+  backend; noted as the target end-state for dispatch, out of pilot scope.
+
+## Background: current state (reviewed 2026-07-20)
+
+- Current tbd (v0.4.x, post-rewrite) has **no external tracker support**: no link field,
+  no provider code, no `--external` sync scope.
+  `tbd sync` is git-only (issues + docs on the `tbd-sync` branch via the hidden
+  worktree, with the field-level merge engine from
+  [plan-2026-06-03-tbd-sync-structured-bead-merge.md](plan-2026-06-03-tbd-sync-structured-bead-merge.md)).
+- `IssueSchema` has no linkage field.
+  `BaseEntity.extensions` exists as a third-party namespace, but the implemented merge
+  strategy is whole-object LWW (`extensions: 'lww'`,
+  `packages/tbd/src/file/git.ts:407`), while the design doc §3.5 specifies
+  `deep_merge_by_key`. Concurrent writers to different namespaces would silently drop
+  one side — a data-loss hazard for any bridge metadata (Phase 0 fixes this).
+- Issue parsing uses Zod’s default strip mode: **unknown frontmatter fields are
+  discarded on parse** and therefore lost when an older CLI rewrites a bead.
+  Adding a synced `linked` field requires a compatibility gate (see Rollout).
+- No `tbd watch`, no event surface, and no per-change actor attribution exist today.
+- Research coverage was consolidated for this spec: Linear API facts were verified and
+  added as §5 of the bridge-integrations brief (2026-07-20 addendum); the monitors and
+  coordination-kernel briefs supply the watch/dispatch design language.
+
+## Design
+
+### 1. Schema: the `linked` field
+
+Add an optional top-level field to `IssueSchema` (per design doc §8.7, structured for
+multiple providers from day one):
+
+```yaml
+# bead frontmatter
+linked:
+  - provider: linear
+    id: 9cbb48f8-7a2e-4b9d-9f3e-0c1d2e3f4a5b   # provider UUID — canonical key
+    key: ENG-123                                # human identifier — display only
+    url: https://linear.app/acme/issue/ENG-123
+    linked_at: 2026-07-20T18:00:00Z
+```
+
+- `id` is the provider’s stable UUID (Linear identifiers like `ENG-123` can move teams;
+  UUIDs cannot). `key`/`url` are display conveniences refreshed on sync.
+- **Merge rule**: `merge_by_id` keyed on `(provider, id)` with per-entry LWW — the same
+  machinery as `dependencies`, so concurrent link/unlink on different providers never
+  conflicts. Schema change ships with the merge-rule table update and design-doc §2.7 /
+  §3.5 updates in the same PR.
+- Sync bookkeeping (cursors, base snapshots) deliberately does NOT live in the bead: it
+  would bump `version`/`updated_at` on every sync and spam history.
+  It lives in bridge state (next section).
+
+### 2. Bridge state (on the `tbd-sync` branch)
+
+New directory tracked on the sync branch, sibling to `issues/` and `mappings/`:
+
+```
+.tbd/data-sync/bridge/linear/
+├── state.yml        # per-link sync state
+└── meta.yml         # cached team/workspace metadata (state UUIDs by type, label map)
+```
+
+`state.yml` entry per link:
+
+```yaml
+links:
+  is-01k…:                       # bead internal id
+    linear_id: 9cbb48f8-…
+    linear_updated_at: 2026-07-20T18:04:11Z   # Linear's updatedAt at last sync
+    base:                        # canonical field tuple as of last successful sync
+      title: "Fix login retry loop"
+      status: in_progress        # tbd-side canonical value
+      priority: 1                # tbd-side canonical value
+      labels: [bug, auth]
+      description_hash: sha256:…
+    synced_at: 2026-07-20T18:04:12Z
+```
+
+- The `base` tuple is what makes sync a **true 3-way merge**: local diff = bead vs.
+  base; remote diff = mapped Linear issue vs.
+  base. This is the same shape as the bead merge engine and the doc-fork three-way model
+  already in the codebase.
+- **Echo suppression**: after a push, the bridge records Linear’s post-write `updatedAt`
+  into `linear_updated_at` and refreshes `base`, so the next pull sees “no remote diff”
+  for its own write. Symmetrically, pull-applied bead edits refresh `base` so they don’t
+  re-push. This works with plain API-key auth (no reliance on actor filtering) and is the
+  loop-prevention analog of GitHub’s `GITHUB_TOKEN` recursion rule from the monitors
+  brief.
+- Living on the sync branch makes bridge state shared and versioned: any machine can run
+  the sync, and state merges are per-bead-keyed map unions (same conflict story as
+  `mappings/ids.yml`).
+- Secrets never touch the repo: auth is `LINEAR_API_KEY` from the environment only.
+
+### 3. Field mapping (defaults; overridable in config)
+
+Canonical mapping tables, applied symmetrically (pure functions, unit-tested):
+
+**Status** (Linear `WorkflowState.type` is the mapping target — per-team state UUIDs are
+resolved by `type` and cached in `bridge/linear/meta.yml`):
+
+| tbd status | → Linear state type | ← from Linear state type |
+| --- | --- | --- |
+| `open` | `unstarted` | `triage`, `backlog`, `unstarted` → `open` |
+| `in_progress` | `started` | `started` → `in_progress` |
+| `blocked` | `started` + label `blocked` | (label `blocked` on a started issue → `blocked`) |
+| `deferred` | `backlog` + label `deferred` | (label `deferred` → `deferred`) |
+| `closed` | `completed` (or `canceled` if `close_reason` starts with `wontfix`/`canceled`) | `completed`, `canceled` → `closed` (+ `close_reason: "Canceled in Linear"` for canceled) |
+
+`blocked`/`deferred` have no Linear state type, so they round-trip via paired labels —
+lossy only if someone strips the label in Linear (LWW then resolves it).
+
+**Priority** (bijective, round-trip stable):
+
+| tbd | Linear |
+| --- | --- |
+| P0 | 1 (Urgent) |
+| P1 | 2 (High) |
+| P2 | 3 (Medium) |
+| P3 | 4 (Low) |
+| P4 | 0 (None) |
+
+**Other fields**: `title` ↔ title (LWW); `description` ↔ description (both markdown; LWW
+with attic on conflict); `labels` ↔ team labels by exact name (union on merge; missing
+Linear labels are created on push — config `create_labels: false` to disable);
+`assignee`: pull → Linear user display name, push → only via config `user_map`
+(otherwise warn-and-skip).
+Fields not listed (dependencies, parent, spec_path, notes, due dates …) do not sync in
+the pilot.
+
+### 4. Sync algorithm and ordering
+
+`tbd linear sync` (also invoked from `tbd sync` when the integration is enabled), under
+the existing data-sync lock, ordered so external changes ride the same git sync:
+
+```
+1. git pull phase        (existing tbd sync pull — beads current)
+2. external pull         For each linked bead (batched GraphQL query by ids,
+                         filtered updatedAt > linear_updated_at):
+                           remote diff vs base; apply per-field to bead
+3. external push         local diff vs base → issueUpdate mutations
+                         (stateId resolved from cached meta; refresh cache on miss)
+4. state update          refresh base tuples + linear_updated_at
+5. git push phase        (existing tbd sync push — beads + bridge state together)
+```
+
+Per-field resolution when **both** sides changed the same field differently: LWW
+comparing bead `updated_at` vs.
+Linear `updatedAt`, loser preserved to the existing attic (`conflicts/<bead-id>/…`),
+consistent with §3.5 merge rules.
+Different fields changed on different sides merge cleanly (that’s what the base
+enables).
+
+Failure containment: Linear API errors mark the run degraded and are reported per link;
+the git phases still complete (external sync failure never corrupts or blocks git sync).
+Writes to Linear honor the `X-RateLimit-*` headers with backoff; 5,000 req/hour is ample
+for a linked subset (batched pulls are 1–2 queries per run).
+
+Deletion semantics: a Linear issue that is archived/deleted → mark the link `orphaned`
+and warn (never auto-delete a bead); an unlinked or deleted bead → leave the Linear
+issue untouched (report), no auto-close.
+
+### 5. CLI surface (pilot)
+
+```
+tbd linear link <id> <ENG-123|url>     # attach existing bead ↔ existing issue
+tbd linear unlink <id>
+tbd linear import <ENG-123|url>        # create a linked bead from an issue
+tbd linear import --team ENG [--state started,unstarted] [--limit N]
+tbd linear sync [--pull|--push] [--dry-run] [--json]
+tbd linear status                      # links, drift vs base, last sync, orphans
+```
+
+Config (`.tbd/config.yml`):
+
+```yaml
+integrations:
+  linear:
+    enabled: true
+    team_key: ENG
+    sync_on_tbd_sync: true       # fold into plain `tbd sync`
+    create_labels: true
+    user_map: {}                 # tbd assignee string -> Linear user email/UUID
+    # status_map / priority_map: optional overrides of the default tables
+```
+
+All commands no-op with a clear message when `LINEAR_API_KEY` is unset or the
+integration is disabled — mirroring the old epic’s `use_gh_cli` gating pattern.
+Every command supports `--json` and `--dry-run` per CLI conventions.
+
+### 6. `tbd watch` foundation and agent coordination
+
+The kernel brief’s core move — “everything should have a `watch` that emits JSONL” —
+starts here, scoped to what the pilot needs:
+
+```
+tbd watch --json [--interval 30s] [--types bead.updated,bead.status_changed]
+```
+
+- **Mechanism**: snapshot-diff loop over the shared worktree — record
+  `(tbd-sync HEAD, per-file hashes)`, then on each tick (and after each local
+  mutation/sync under the data-sync lock) diff and emit one JSONL event per changed
+  bead. No fs-watcher dependency in the pilot; polling an on-disk worktree is cheap and
+  works in sandboxes.
+- **Event envelope** (per the kernel brief, trimmed):
+
+```json
+{"event_id":"01J…","ts":"2026-07-20T18:22:01Z","type":"bead.status_changed",
+ "actor":"linear-bridge","bead":{"id":"tbd-a7k2","status":"in_progress",
+ "assignee":"claude","labels":["agent:claude"],"linked":[{"provider":"linear","key":"ENG-123"}]},
+ "changed":["status"],"prev":{"status":"open"}}
+```
+
+- **Actor attribution (minimum viable)**: a new optional `last_actor` frontmatter field
+  (LWW), set by every mutating command from `TBD_ACTOR` env (default: OS user; the
+  bridge sets `linear-bridge`). Watch consumers filter `actor != self` — the
+  anti-recursion convention the monitors brief identifies as the piece tbd must invent.
+  (Full per-transition journaling is the coordination-kernel follow-up, not this spec.)
+- **Dispatch convention (documented, not enforced)**: `assignee` = which agent, labels =
+  mode (`agent:claude`, `needs-implementation`), `status` = lifecycle.
+  This maps 1:1 onto how Copilot/Cursor/Claude Action dispatch today, and onto Linear’s
+  own delegate model later.
+- **Composition that the pilot must demonstrate** (QA playbook, not new code):
+
+```
+tbd watch --json | jq 'select(.type=="bead.created" and (.bead.labels|index("agent:claude")))' \
+  | xargs -I{} claude -p "Work bead {}; run tbd show first"
+```
+
+PM files/updates an issue in Linear → `tbd linear sync` (cron or pre-agent hook)
+imports/updates the bead → `tbd watch` wakes the agent → agent works, closes the bead →
+sync pushes `completed` back to Linear, where the human sees it.
+Loop-safety: the bridge’s bead writes carry `actor: linear-bridge` and its Linear writes
+are echo-suppressed by base snapshots, so watch-driven agents and the bridge can run
+together without ping-pong.
+
+### 7. Provider adapter seam
+
+One internal interface, sized to what sync actually needs (not the old epic’s CLI-shaped
+one):
+
+```ts
+interface TrackerAdapter {
+  resolveRef(ref: string): Promise<ExternalRef>;          // "ENG-123" | url -> uuid
+  fetchIssues(ids: string[]): Promise<ExternalIssue[]>;   // batched, mapped-canonical
+  applyChanges(id: string, patch: CanonicalPatch): Promise<{updatedAt: string}>;
+  ensureMeta(): Promise<ProviderMeta>;                    // states by type, labels
+}
+```
+
+`ExternalIssue`/`CanonicalPatch` use tbd-canonical values (tbd status enum, P0–P4) so
+mapping tables live in one place per provider.
+GitHub becomes a second implementation later; nothing else in sync changes.
+
+## Implementation Plan
+
+### Phase 0 — prerequisites (small, independently shippable)
+
+- [ ] Fix `extensions` merge: `lww` → `deep_merge_by_key` per design §3.5
+  (`packages/tbd/src/file/git.ts:407`), with attic on per-namespace loss + tests.
+- [ ] Add `linked` field: schema, `merge_by_id (provider,id)` rule, `tbd show` display,
+  design-doc §2.7/§3.5 updates, golden tests.
+- [ ] Add `last_actor` field (LWW, from `TBD_ACTOR`) set by mutating commands.
+- [ ] Compatibility gate for the new synced fields (see Rollout).
+
+### Phase 1 — link + single-bead pull/push
+
+- [ ] `integrations.linear` config block + `LINEAR_API_KEY` gating + `tbd linear`
+  command group scaffold (all `--json`/`--dry-run` capable).
+- [ ] Linear GraphQL client (thin fetch wrapper; no SDK dependency decision yet — see
+  Open Questions; honor rate-limit headers).
+- [ ] `ensureMeta`: fetch + cache team workflow states (UUID by type) and labels.
+- [ ] `tbd linear link / unlink / import <ref>` with bridge-state creation.
+- [ ] Mapping tables as pure functions with exhaustive unit tests (status, priority,
+  labels, canceled/completed close reasons).
+- [ ] `tbd linear sync` for a single link: 3-way diff vs base, pull-apply, push, state
+  refresh, echo suppression.
+  Manual e2e against a sandbox Linear team.
+
+### Phase 2 — subset sync, conflicts, integration into `tbd sync`
+
+- [ ] Batched pull for all links (single filtered query); full push scan.
+- [ ] Per-field conflict resolution with attic entries; orphan detection
+  (archived/deleted Linear issues); `tbd linear status`.
+- [ ] Fold into `tbd sync` (5-step ordering above) behind `sync_on_tbd_sync`.
+- [ ] Mock Linear GraphQL server fixture (local HTTP, `LINEAR_API_URL` override) +
+  golden tryscript: link, sync, remote-change pull, local-change push, both-sides
+  conflict, double-run idempotency (second run is a no-op).
+- [ ] Bulk `tbd linear import --team … --state … --limit N`.
+
+### Phase 3 — watch + coordination pilot
+
+- [ ] `tbd watch --json`: snapshot-diff loop, event envelope, `--types` filter, graceful
+  degradation when sync branch is unreachable.
+- [ ] Actor filtering baked into event stream (`actor` from `last_actor`).
+- [ ] QA playbook (`docs/project/specs/active/` companion or qa-playbook template): the
+  full Linear → bead → agent → Linear loop with two agents + bridge running
+  concurrently, verifying no echo/ping-pong.
+- [ ] Document the dispatch conventions (assignee/label/status) in tbd-docs and the
+  agent-facing skill docs.
+
+### Phase 4 — explicitly deferred (tracked as future beads, not in pilot)
+
+Webhook/daemon transport (Symphony-style), Linear Agents `AgentSession` integration
+(delegate → bead → agent session activities), comments ↔ notes, dependency/sub-issue
+mapping, GitHub `TrackerAdapter`, claim/lease primitives.
+
+## Testing Strategy
+
+- **Unit**: mapping tables (bijectivity of priority map; status table incl.
+  blocked/deferred label round-trip), 3-way field differ, echo-suppression state
+  transitions, ref parsing (`ENG-123`, URLs).
+- **Golden (tryscript) with mock server**: deterministic fixture responses; covers the
+  Phase 2 checklist scenarios end to end, including `--dry-run` output and JSON mode.
+- **Property-style convergence test**: random interleavings of local/remote edits +
+  syncs converge to identical field tuples with no lost writes (attic accounts for every
+  LWW loss) — mirrors the merge-engine tests from the structured-merge spec.
+- **Manual pilot (QA playbook)**: real Linear sandbox team, API key from env; the
+  agent-coordination loop from Design §6; verify rate-limit headers respected and
+  `tbd doctor` stays clean.
+
+## Rollout Plan
+
+1. Phase 0 lands behind no flags (pure merge/schema hardening) but **bumps the
+   minimum-version gate**: because Zod strip mode silently drops unknown frontmatter on
+   rewrite, older CLIs would destroy `linked`/`last_actor` data.
+   Use the existing `tbd_format`/“repository requires a newer version of tbd” mechanism
+   so pre-pilot CLIs refuse to write once the repo opts in (config `tbd_format` bump per
+   §Format Upgrades; data migration is nil — fields are additive).
+2. Phases 1–2 ship enabled-by-config-only (`integrations.linear.enabled`), so no
+   behavior change for repos without the block; this repo becomes the pilot by linking a
+   small curated subset (5–10 active beads) to a sandbox team first, then to the real
+   team.
+3. Phase 3 `tbd watch` ships as experimental (`--json` only, documented as unstable
+   envelope) until the coordination-kernel follow-up firms up the event taxonomy.
+4. Revisit after pilot: promote or adjust defaults (e.g., `sync_on_tbd_sync`), decide
+   GitHub adapter priority, and spec the daemon/webhook phase with the Agents-platform
+   end-state from the bridge brief §5.3.
+
+## Open Questions
+
+1. **Command naming**: `tbd linear …` (pilot choice, concrete) vs.
+   a generic `tbd bridge <provider> …` group now.
+   Leaning provider-named until a second provider exists (rule of three).
+2. **`@linear/sdk` vs. raw GraphQL over fetch**: the SDK is typed and maintained but is a
+   runtime dependency subject to the 14-day supply-chain rule and adds weight to a CLI
+   that currently has a lean dependency profile.
+   Pilot leans raw `fetch` with a handful of typed queries; revisit if query surface
+   grows.
+3. **Triage state on push-create**: should `tbd linear import --create` (reverse
+   direction, creating Linear issues from beads — currently out of scope) target
+   `triage` or `backlog`? Deferred with the feature.
+4. **Description LWW granularity**: whole-field LWW with attic (pilot) vs.
+   future text-level merge; also whether to normalize markdown flavors (Linear supports
+   a subset) before hashing to avoid false drift.
+5. **`blocked`/`deferred` label names in Linear**: fixed names (`blocked`, `deferred`)
+   vs. configurable; and whether to prefix (`tbd:blocked`) to avoid colliding with
+   existing team labels.
+6. **Multi-repo → one Linear team**: bridge state is per-repo; two repos linking the
+   same Linear issue would double-write.
+   Pilot: document as unsupported; detect via a label or issue attachment later.
+7. **Watch backpressure/durability**: pilot watch is at-least-once from live diffs with
+   no replay; is a `--since <cursor>` replay (reading tbd-sync git history) needed
+   before agents rely on it for anything critical?
+
+## References
+
+- Design doc §8.7 (External Issue Tracker Linking), §3.5 (Merge Rules), §2.6 (ID
+  mapping), §2.3 (worktree) —
+  [tbd-design.md](../../../../packages/tbd/docs/tbd-design.md)
+- [api-references-bridge-integrations.md §5](../../research/current/api-references-bridge-integrations.md)
+  — Linear GraphQL/webhooks/rate limits/Agents (verified 2026-07-20)
+- [research-2026-06-04-agent-issue-monitors.md](../../research/current/research-2026-06-04-agent-issue-monitors.md)
+  — trigger surfaces, anti-recursion, the tbd extension sketch this spec implements
+- [research-agent-coordination-kernel.md](../../research/current/research-agent-coordination-kernel.md)
+  — event envelope, `watch` interface, bridge rules
+- [research-claude-code-orchestration-and-uis.md](../../research/current/research-claude-code-orchestration-and-uis.md)
+  — OpenAI Symphony architecture (polling orchestrator over Linear)
+- [plan-2026-06-03-tbd-sync-structured-bead-merge.md](plan-2026-06-03-tbd-sync-structured-bead-merge.md)
+  — the merge engine this design reuses
+- Prior art in this repo’s bead history: epic tbd-68cw and children (pre-rewrite GitHub
+  sync)
+
+<!-- This document follows common-doc-guidelines.md.
+See github.com/jlevy/practical-prose and review guidelines before editing.
+-->

@@ -1,16 +1,23 @@
 # Research Brief: API References for Bridge Integrations
 
-**Last Updated**: 2026-01-08
+**Last Updated**: 2026-07-20 (GitHub/Slack/tracker survey is a 2026-01-08 snapshot; §5
+Linear APIs added 2026-07-20)
 
 **Status**: Complete
 
 **Related**:
 
-- Architecture docs for bridge design
+- [How Coding Agents Listen On and Monitor Issues](research-2026-06-04-agent-issue-monitors.md)
+  — trigger/dispatch mechanics and the tbd extension angle
 
-- Multi-agent coordination patterns
+- [Agent Coordination Kernel](research-agent-coordination-kernel.md) — durable truth vs.
+  live coordination; `watch` as a first-class interface
 
-- Git-native issue tracking systems
+- [Claude Code Orchestration Interfaces and UIs](research-claude-code-orchestration-and-uis.md)
+  — OpenAI Symphony (Linear-polling orchestrator daemon) and related systems
+
+- [Plan: Linear ↔ bead bidirectional sync pilot](../../specs/active/plan-2026-07-20-linear-bead-sync-pilot.md)
+  — the spec that consumes §5 of this brief
 
 * * *
 
@@ -18,8 +25,9 @@
 
 This research brief compiles key API references and documentation for building bridge
 integrations between TBD (git-native issue tracker) and external platforms (GitHub,
-Slack). It also surveys existing git-native issue tracking systems and multi-agent
-coordination patterns relevant to the TBD architecture.
+Slack, and — as of the 2026-07 addendum in §5 — Linear).
+It also surveys existing git-native issue tracking systems and multi-agent coordination
+patterns relevant to the TBD architecture.
 
 **Research Questions**:
 
@@ -1319,6 +1327,148 @@ Include correlation IDs for debugging distributed operations.
 
 * * *
 
+### 5. Linear APIs (2026-07 addendum)
+
+Added 2026-07-20 to close the gap that this brief covered GitHub and Slack but not
+Linear, which is the external tracker this project previously used and the first target
+for bidirectional bead sync (see
+[plan-2026-07-20-linear-bead-sync-pilot.md](../../specs/active/plan-2026-07-20-linear-bead-sync-pilot.md)).
+Facts below were verified against Linear’s developer docs on 2026-07-20.
+
+#### 5.1 Linear GraphQL API
+
+**Status**: Complete (verified 2026-07-20)
+
+**Official Documentation**: https://linear.app/developers/graphql
+
+**Key Facts**:
+
+- **Single GraphQL endpoint**: `https://api.linear.app/graphql` (no REST API)
+
+- **Authentication**:
+
+  - Personal API key: `Authorization: <API_KEY>` header (created under Security & access
+    settings) — simplest for a CLI pilot
+
+  - OAuth2 for multi-user apps: `Authorization: Bearer <ACCESS_TOKEN>`
+
+- **Typed schema**: introspectable; official TypeScript SDK `@linear/sdk` wraps the
+  schema with typed models and pagination helpers
+
+- **Filtering**: server-side issue filters (recommended over client-side filtering),
+  including `updatedAt` comparators and team/project scoping — the primitive needed for
+  incremental “changed since last sync” polling
+
+- **Idempotent-ish writes**: mutations take UUIDs; `issueCreate` accepts a
+  client-generated `id`, which helps make create retries safe
+
+**Key entity model facts (for field mapping)**:
+
+- **Identifiers**: human identifiers are `TEAMKEY-123` (per-team sequence); every entity
+  also has a stable UUID. Store the UUID as the canonical link; display the identifier.
+
+- **Priority** is a plain integer on the issue: `0 = None`, `1 = Urgent`, `2 = High`,
+  `3 = Medium`, `4 = Low` (note: NOT ordered by severity; 0 is “none”, 1 is highest)
+
+- **Status** is a `WorkflowState` object, **per-team and user-nameable**, with a typed
+  `type` field drawn from six values: `triage`, `backlog`, `unstarted`, `started`,
+  `completed`, `canceled`. Mutating status requires the target state’s UUID (`stateId`),
+  so a bridge must query each team’s states and map by `type`, not by name.
+
+- **Descriptions** are markdown; labels are workspace/team-scoped objects with UUIDs;
+  assignee is a workspace user (UUID); `updatedAt`/`archivedAt`/`canceledAt` timestamps
+  are exposed for delta queries.
+
+**Rate limits** (https://linear.app/developers/rate-limiting, verified 2026-07-20):
+
+| Auth mode | Requests/hour | Complexity points/hour |
+| --- | --- | --- |
+| Personal API key | 5,000 | 3,000,000 |
+| OAuth app | 5,000 | 2,000,000 |
+| Unauthenticated | 600 | 100,000 |
+
+- Single query max complexity: 10,000 points
+
+- Quota exposed via `X-RateLimit-Requests-*` and `X-RateLimit-Complexity-*` headers
+  (limit/remaining/reset), plus `X-Complexity` per query — a polling bridge should read
+  these and back off
+
+**Assessment**: A single typed GraphQL endpoint with strong server-side filtering makes
+Linear *easier* to bridge than GitHub REST+GraphQL. 5,000 req/hour is ample for a
+CLI-invoked or minute-scale polling sync of a small linked subset.
+The per-team, UUID-addressed workflow states are the main mapping complexity: a bridge
+must resolve state UUIDs by `type` per team and cache them.
+
+* * *
+
+#### 5.2 Linear Webhooks
+
+**Status**: Complete (verified 2026-07-20)
+
+**Official Documentation**: https://linear.app/developers/webhooks
+
+**Key Facts**:
+
+- Data-change webhooks cover: issues, attachments, comments, labels, reactions,
+  projects, documents, initiatives, cycles, customers, users; plus issue SLA and OAuth
+  revocation events
+
+- Delivery requires a **publicly accessible HTTPS, non-localhost URL** that answers
+  `HTTP 200` within 5 seconds
+
+- **Signature verification**: HMAC-SHA256 of the raw body in the `Linear-Signature`
+  header; payloads carry `webhookTimestamp` (Unix ms) to reject replays older than ~1
+  minute
+
+- **Retries**: 3 attempts with backoff (after 1 minute, 1 hour, 6 hours); persistent
+  failures can auto-disable the webhook
+
+**Assessment**: Webhooks are the right transport for a hosted daemon but are **not
+usable from a laptop/sandbox CLI** (public HTTPS endpoint required).
+For the pilot, poll with `updatedAt` filters instead; webhook + daemon (Symphony-style)
+is a later phase. Missed-webhook recovery must be poll-based anyway (Linear retries only
+3 times), so the polling code is not throwaway — it is the reconciliation path.
+
+* * *
+
+#### 5.3 Linear Agents Platform (agent sessions)
+
+**Status**: Complete (verified 2026-07-20)
+
+**Official Documentation**: https://linear.app/developers/agents
+
+**Key Facts**:
+
+- Agents install as **app users** in a workspace (OAuth2 with `actor=app`); they can be
+  `@`-mentioned, **delegated** issues, and comment.
+  They do not consume billable seats.
+  Optional scopes: `app:assignable`, `app:mentionable`.
+
+- **Delegation model**: a user sets the agent as `delegate` while a human stays
+  `assignee` — human ownership is preserved while the agent acts
+
+- **`AgentSession`**: created automatically when an agent is mentioned or delegated an
+  issue; tracks the lifecycle of the agent task with visible state in the Linear UI
+
+- **Agent activities**: the agent responds by emitting activities (e.g., a `thought`
+  within ~10 seconds of session creation); context arrives via the session’s
+  `promptContext`
+
+- **`AgentSessionEvent` webhooks** (e.g., `created`) notify the agent’s backend that
+  work was delegated
+
+**Assessment**: This is Linear’s native answer to “assign an issue to an agent” — the
+same pattern Cursor/Copilot use (see
+[research-2026-06-04-agent-issue-monitors.md](research-2026-06-04-agent-issue-monitors.md)).
+For tbd, it is a **future phase**: a hosted tbd bridge could register as a Linear agent
+so that delegating a Linear issue creates/activates a bead and wakes a coding agent,
+with session activities streaming progress back into Linear.
+The pilot does not require it (API-key polling suffices), but the `delegate` +
+`AgentSession` model is the cleanest eventual trigger surface and should shape the
+bridge’s design (bead ↔ session correspondence).
+
+* * *
+
 ## Comparative Analysis
 
 ### GitHub API Comparison
@@ -1963,6 +2113,22 @@ For TBD bridge integrations, use modern, well-supported APIs and protocols:
 - [git-appraise GitHub Repository](https://github.com/google/git-appraise)
 
 - [git-appraise Tutorial](https://github.com/google/git-appraise/blob/master/docs/tutorial.md)
+
+### Linear Documentation (added 2026-07-20)
+
+- [Linear GraphQL API](https://linear.app/developers/graphql)
+
+- [Linear Webhooks](https://linear.app/developers/webhooks)
+
+- [Linear API Rate Limiting](https://linear.app/developers/rate-limiting)
+
+- [Linear Agents Platform](https://linear.app/developers/agents)
+
+- [Priority (Linear Docs)](https://linear.app/docs/priority)
+
+- [Issue Status / Workflows (Linear Docs)](https://linear.app/docs/configuring-workflows)
+
+- [@linear/sdk on npm](https://www.npmjs.com/package/@linear/sdk)
 
 ### Multi-Agent Systems
 
