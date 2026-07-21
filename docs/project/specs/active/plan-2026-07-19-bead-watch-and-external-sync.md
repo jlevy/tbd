@@ -407,6 +407,16 @@ content-hash echo suppression for the managed block, `[skip-bridge]` convention,
 `comments` model, and single-writer-from-CI recommendation are all adopted as designed.
 Phase 1 (watch) is unaffected.
 
+The senior review of PR #196 (formal review on the PR, findings R1–R6) produced these
+Phase 1 contract refinements, applied in the same review round: `tbd watch --bead`
+without `--since` performs one startup fetch and tip-to-tip report so unknown IDs fail
+fast instead of blocking; each watch sweeps private refs left by interrupted
+(dead-process) watches; text hunks keep at most three context lines per side;
+created/deleted reports omit fields that are `null` on both sides; an explicit empty
+`--spec` means no filter; and a missing local sync branch yields a “run `tbd sync`
+first” error. The O(2N) `git show` snapshot cost is tracked as a deferred perf item
+(tbd-293h).
+
 ## References
 
 - `tbd-design.md` §3 (sync-branch architecture, merge strategies) and §8.7 (external

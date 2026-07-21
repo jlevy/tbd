@@ -177,6 +177,29 @@ describe('tbd watch', () => {
   );
 
   it(
+    'exits 1 immediately on an unknown --bead ID instead of blocking',
+    async () => {
+      const fixture = await createWatchRepo(false);
+      // --timeout is only a regression backstop: fail-fast must reject before polling.
+      const result = runTbd(fixture.repoDir, [
+        'watch',
+        '--bead',
+        'tbd-zzzz',
+        '--timeout',
+        '5',
+        '--json',
+      ]);
+
+      expect(result.status).toBe(1);
+      expect(result.stdout).toBe('');
+      expect(JSON.parse(result.stderr)).toMatchObject({
+        error: expect.stringContaining('Unknown issue ID: tbd-zzzz'),
+      });
+    },
+    WINDOWS_CLI_TEST_TIMEOUT_MS,
+  );
+
+  it(
     'exits 1 when the configured remote branch is absent',
     async () => {
       const fixture = await createWatchRepo(false);

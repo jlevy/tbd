@@ -161,7 +161,7 @@ describe('createIssueChangesReport', () => {
     expect(report(snapshot([before]), snapshot([after])).changes).toEqual([]);
   });
 
-  it('reports created and deleted files with normalized null values', () => {
+  it('reports created and deleted files, omitting fields unset on both sides', () => {
     const deleted = issue(ISSUE_A, 'Deleted', { description: 'before' });
     const created = issue(ISSUE_B, 'Created', { assignee: null, description: undefined });
 
@@ -171,10 +171,42 @@ describe('createIssueChangesReport', () => {
       [ISSUE_A, 'deleted'],
       [ISSUE_B, 'created'],
     ]);
-    const assignee = result.changes[1]!.fields.find((field) => field.field === 'assignee');
-    const description = result.changes[1]!.fields.find((field) => field.field === 'description');
-    expect(assignee).toMatchObject({ before: null, after: null });
-    expect(description).toMatchObject({ before: null, after: null });
+    const deletedDescription = result.changes[0]!.fields.find(
+      (field) => field.field === 'description',
+    );
+    expect(deletedDescription).toMatchObject({ before: 'before', after: null });
+    // null -> null pairs carry no information and are omitted even on create/delete.
+    const createdFields = result.changes[1]!.fields.map((field) => field.field);
+    expect(createdFields).not.toContain('assignee');
+    expect(createdFields).not.toContain('description');
+    expect(createdFields).toContain('title');
+    expect(createdFields).toContain('status');
+  });
+
+  it('bounds hunk context around the changed span', () => {
+    const longPrefix = Array.from({ length: 10 }, (_, index) => `line-${index + 1}`);
+    const before = issue(ISSUE_A, 'Doc', { notes: [...longPrefix, 'tail'].join('\n') });
+    const after = issue(ISSUE_A, 'Doc', {
+      notes: [...longPrefix, 'tail', 'appended'].join('\n'),
+    });
+
+    const result = report(snapshot([before]), snapshot([after]));
+
+    const notes = result.changes[0]!.fields.find((field) => field.field === 'notes');
+    expect(notes?.hunks).toEqual([
+      {
+        old_start: 9,
+        old_count: 3,
+        new_start: 9,
+        new_count: 4,
+        lines: [
+          { type: 'context', text: 'line-9' },
+          { type: 'context', text: 'line-10' },
+          { type: 'context', text: 'tail' },
+          { type: 'add', text: 'appended' },
+        ],
+      },
+    ]);
   });
 
   it('wakes dynamic filters when a changed bead enters or leaves the selection', () => {

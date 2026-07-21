@@ -40,6 +40,45 @@ function sleep(milliseconds: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, milliseconds));
 }
 
+const WATCH_REF_NAMESPACE = 'refs/tbd/watch/';
+
+function isProcessAlive(pid: number): boolean {
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch (error) {
+    // EPERM means the process exists but belongs to another user.
+    return (error as NodeJS.ErrnoException).code === 'EPERM';
+  }
+}
+
+/**
+ * Delete leftover private watch refs whose owning process is no longer alive.
+ *
+ * An interrupted watch (SIGINT/SIGKILL) cannot run its own cleanup, so each new watch
+ * sweeps predecessors. Best-effort by design: sweep failures must never prevent the
+ * watch itself from running, and refs of live concurrent watches are left alone.
+ */
+export async function sweepStaleWatchRefs(repoDir: string): Promise<void> {
+  let listing: string;
+  try {
+    listing = await git('-C', repoDir, 'for-each-ref', '--format=%(refname)', WATCH_REF_NAMESPACE);
+  } catch {
+    return;
+  }
+  for (const refname of listing.split('\n').filter(Boolean)) {
+    const pidMatch = /^refs\/tbd\/watch\/(\d+)-/.exec(refname);
+    if (!pidMatch) continue;
+    const pid = Number(pidMatch[1]);
+    if (pid === process.pid || isProcessAlive(pid)) continue;
+    try {
+      await git('-C', repoDir, 'update-ref', '-d', refname);
+    } catch {
+      // Another sweep may have deleted it concurrently; leave it for the next watch.
+    }
+  }
+}
+
 function parseRemoteTip(output: string, remote: string, branch: string): string {
   const [tip] = output.trim().split(/\s+/);
   if (!tip || !/^[0-9a-f]{40,64}$/.test(tip)) {
@@ -49,7 +88,7 @@ function parseRemoteTip(output: string, remote: string, branch: string): string 
 }
 
 function createGitWatchDependencies(options: IssueWatchOptions): IssueWatchDependencies {
-  const privateRef = `refs/tbd/watch/${process.pid}-${randomUUID()}`;
+  const privateRef = `${WATCH_REF_NAMESPACE}${process.pid}-${randomUUID()}`;
   return {
     now: Date.now,
     sleep,
@@ -127,6 +166,14 @@ export async function watchForIssueChanges(
       if (report.changes.length > 0) return { kind: 'changed', report };
       baseline = report.tip;
       observedTip = comparisonTip;
+    } else if (options.selection.kind === 'beads') {
+      // Fail fast on unknown bead IDs: without --since there is no initial report, so a
+      // typo'd --bead would otherwise block silently until the first remote movement.
+      // A tip-to-tip report is empty by construction but resolves every requested ID.
+      const fetchedTip = await dependencies.fetchRemoteTip();
+      await dependencies.createReport(fetchedTip, fetchedTip);
+      observedTip = fetchedTip;
+      baseline = fetchedTip;
     }
 
     while (true) {

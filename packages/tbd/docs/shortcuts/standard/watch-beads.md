@@ -30,6 +30,9 @@ Exit 0 means a matching change was reported, exit 2 means `--timeout` elapsed, a
 1 means an operational error.
 The exit-0 JSON document contains `since`, `tip`, and `changes`; pass `tip` back as
 `--since` to avoid a gap between invocations.
+If the sync branch history is rewritten (for example by the unrelated-history rescue), a
+running watch exits 1 with a baseline-not-an-ancestor error by design; restart it
+without `--since` to adopt the new history.
 
 ## Watch, Then Spawn an Agent
 

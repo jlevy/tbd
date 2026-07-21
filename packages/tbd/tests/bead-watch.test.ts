@@ -9,7 +9,11 @@ import { promisify } from 'node:util';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { serializeIssue } from '../src/file/parser.js';
-import { watchForIssueChanges, type IssueWatchDependencies } from '../src/file/bead-watch.js';
+import {
+  sweepStaleWatchRefs,
+  watchForIssueChanges,
+  type IssueWatchDependencies,
+} from '../src/file/bead-watch.js';
 import type { IssueChangesReport } from '../src/lib/issue-changes.js';
 import { stringifyYaml } from '../src/utils/yaml-utils.js';
 import { createTestIssue, testId, TEST_ULIDS } from './test-helpers.js';
@@ -196,6 +200,79 @@ describe('watchForIssueChanges polling', () => {
     expect(fake.createReport.mock.calls).toEqual([
       [SHA_A, SHA_B],
       [SHA_B, SHA_C],
+    ]);
+  });
+
+  it('fails fast on unknown --bead IDs before entering the poll loop', async () => {
+    const fake = fakeDependencies([SHA_A]);
+    fake.fetchRemoteTip.mockResolvedValue(SHA_A);
+    fake.createReport.mockRejectedValue(new Error('Unknown issue ID: tbd-typo'));
+
+    await expect(
+      watchForIssueChanges(
+        {
+          repoDir: '/unused',
+          remote: 'origin',
+          branch: 'tbd-sync',
+          prefix: 'tbd',
+          selection: { kind: 'beads', ids: ['tbd-typo'] },
+          since: null,
+          intervalMs: 10,
+          timeoutMs: null,
+        },
+        fake.dependencies,
+      ),
+    ).rejects.toThrow('Unknown issue ID: tbd-typo');
+    expect(fake.createReport).toHaveBeenCalledExactlyOnceWith(SHA_A, SHA_A);
+  });
+
+  it('validates known --bead IDs with one tip-to-tip report, then keeps waiting', async () => {
+    const fake = fakeDependencies([SHA_A]);
+    fake.fetchRemoteTip.mockResolvedValue(SHA_A);
+
+    const result = await watchForIssueChanges(
+      {
+        repoDir: '/unused',
+        remote: 'origin',
+        branch: 'tbd-sync',
+        prefix: 'tbd',
+        selection: { kind: 'beads', ids: ['tbd-a1b2'] },
+        since: null,
+        intervalMs: 10,
+        timeoutMs: 25,
+      },
+      fake.dependencies,
+    );
+
+    expect(result).toEqual({ kind: 'timeout' });
+    expect(fake.createReport).toHaveBeenCalledExactlyOnceWith(SHA_A, SHA_A);
+  });
+});
+
+describe('sweepStaleWatchRefs', () => {
+  it('deletes refs owned by dead processes and keeps live and unrecognized refs', async () => {
+    const repoDir = await mkdtemp(join(tmpdir(), 'tbd-sweep-'));
+    cleanupPaths.push(repoDir);
+    await git(repoDir, 'init', '-b', 'main');
+    await git(repoDir, 'config', 'user.email', 'test@example.com');
+    await git(repoDir, 'config', 'user.name', 'Test User');
+    await git(repoDir, 'config', 'commit.gpgsign', 'false');
+    await writeFile(join(repoDir, 'file.txt'), 'x');
+    await git(repoDir, 'add', 'file.txt');
+    await git(repoDir, 'commit', '-m', 'base');
+    const sha = await git(repoDir, 'rev-parse', 'HEAD');
+    // Far above any real pid_max, so the liveness probe deterministically reports dead.
+    const deadPid = 999_999_999;
+    await git(repoDir, 'update-ref', `refs/tbd/watch/${deadPid}-dead`, sha);
+    await git(repoDir, 'update-ref', `refs/tbd/watch/${process.pid}-live`, sha);
+    await git(repoDir, 'update-ref', 'refs/tbd/watch/legacy-format', sha);
+
+    await sweepStaleWatchRefs(repoDir);
+
+    const remaining = await git(repoDir, 'for-each-ref', '--format=%(refname)', 'refs/tbd/watch/');
+    expect(remaining.split('\n').filter(Boolean).sort()).toEqual([
+      `refs/tbd/watch/${process.pid}-live`,
+      'refs/tbd/watch/legacy-format',
     ]);
   });
 });

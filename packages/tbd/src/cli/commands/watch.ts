@@ -2,7 +2,7 @@
 
 import { Command } from 'commander';
 
-import { watchForIssueChanges } from '../../file/bead-watch.js';
+import { sweepStaleWatchRefs, watchForIssueChanges } from '../../file/bead-watch.js';
 import { readConfig } from '../../file/config.js';
 import { BaseCommand } from '../lib/base-command.js';
 import { parseChangeSelection, type ChangeSelectionOptions } from '../lib/change-selection.js';
@@ -34,6 +34,7 @@ class WatchHandler extends BaseCommand {
     const timeoutMs =
       options.timeout === undefined ? null : parseSeconds(options.timeout, '--timeout', 0);
     const config = await readConfig(tbdRoot);
+    await sweepStaleWatchRefs(tbdRoot);
 
     let result;
     try {

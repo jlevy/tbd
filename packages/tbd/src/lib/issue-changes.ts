@@ -140,6 +140,14 @@ function textLines(value: unknown): string[] {
   return typeof value === 'string' && value.length > 0 ? value.split('\n') : [];
 }
 
+/**
+ * Context lines kept on each side of a text change.
+ *
+ * Reports are piped into agent prompts, so hunks must stay bounded even when a one-line
+ * edit lands in a 50KB field; unified diff's conventional three lines of context.
+ */
+const TEXT_HUNK_CONTEXT_LINES = 3;
+
 function createTextHunks(before: unknown, after: unknown): TextChangeHunk[] {
   const oldLines = textLines(before);
   const newLines = textLines(after);
@@ -161,25 +169,29 @@ function createTextHunks(before: unknown, after: unknown): TextChangeHunk[] {
     suffixLength += 1;
   }
 
+  const contextStart = Math.max(0, prefixLength - TEXT_HUNK_CONTEXT_LINES);
+  const keptSuffixLength = Math.min(suffixLength, TEXT_HUNK_CONTEXT_LINES);
+  const removed = oldLines.slice(prefixLength, oldLines.length - suffixLength);
+  const added = newLines.slice(prefixLength, newLines.length - suffixLength);
+  const keptPrefix = oldLines.slice(contextStart, prefixLength);
+  const keptSuffix = oldLines.slice(
+    oldLines.length - suffixLength,
+    oldLines.length - suffixLength + keptSuffixLength,
+  );
+
   const lines: TextChangeLine[] = [
-    ...oldLines.slice(0, prefixLength).map((text) => ({ type: 'context' as const, text })),
-    ...oldLines
-      .slice(prefixLength, oldLines.length - suffixLength)
-      .map((text) => ({ type: 'remove' as const, text })),
-    ...newLines
-      .slice(prefixLength, newLines.length - suffixLength)
-      .map((text) => ({ type: 'add' as const, text })),
-    ...oldLines
-      .slice(oldLines.length - suffixLength)
-      .map((text) => ({ type: 'context' as const, text })),
+    ...keptPrefix.map((text) => ({ type: 'context' as const, text })),
+    ...removed.map((text) => ({ type: 'remove' as const, text })),
+    ...added.map((text) => ({ type: 'add' as const, text })),
+    ...keptSuffix.map((text) => ({ type: 'context' as const, text })),
   ];
 
   return [
     {
-      old_start: 1,
-      old_count: oldLines.length,
-      new_start: 1,
-      new_count: newLines.length,
+      old_start: contextStart + 1,
+      old_count: keptPrefix.length + removed.length + keptSuffix.length,
+      new_start: contextStart + 1,
+      new_count: keptPrefix.length + added.length + keptSuffix.length,
       lines,
     },
   ];
@@ -231,6 +243,9 @@ function fieldChanges(before: Issue | undefined, after: Issue | undefined): Issu
   return ISSUE_CHANGE_FIELDS.flatMap((field): IssueFieldChange[] => {
     const beforeValue = normalizeValue(before?.[field]);
     const afterValue = normalizeValue(after?.[field]);
+    // Created/deleted reports show the full field state, except fields unset on both
+    // sides — a null -> null line carries no information.
+    if (beforeValue === null && afterValue === null) return [];
     if (!createdOrDeleted && deepEqual(beforeValue, afterValue)) return [];
     const change: IssueFieldChange = { field, before: beforeValue, after: afterValue };
     if (TEXT_FIELDS.has(field) && !deepEqual(beforeValue, afterValue)) {

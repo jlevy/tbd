@@ -20,9 +20,11 @@ export function parseChangeSelection(
   requireExplicit: boolean,
 ): IssueChangeSelection {
   const hasBeads = (options.bead?.length ?? 0) > 0;
+  // An explicit empty --spec means "no filter", matching tbd list's historic behavior.
+  const spec = options.spec !== undefined && options.spec !== '' ? options.spec : null;
   const hasFilters =
     (options.label?.length ?? 0) > 0 ||
-    options.spec !== undefined ||
+    spec !== null ||
     options.status !== undefined ||
     options.ready === true;
 
@@ -42,7 +44,7 @@ export function parseChangeSelection(
     return {
       kind: 'filter',
       labels: options.label ?? [],
-      spec: options.spec ?? null,
+      spec,
       status: statusResult.data,
       ready: options.ready ?? false,
     };

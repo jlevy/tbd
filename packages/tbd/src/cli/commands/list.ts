@@ -209,7 +209,8 @@ class ListHandler extends BaseCommand {
       if (
         !issueMatchesSharedFilters(issue, {
           labels: options.label ?? [],
-          spec: options.spec ?? null,
+          // An explicit empty --spec means "no filter" (historic behavior).
+          spec: options.spec !== undefined && options.spec !== '' ? options.spec : null,
           status: options.status ?? null,
         })
       ) {

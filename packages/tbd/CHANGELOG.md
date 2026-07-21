@@ -16,9 +16,11 @@
 ### Security
 
 - No dependencies were added or upgraded.
-  Watch fetches only after remote movement, targets a collision-resistant private ref,
-  does not write `FETCH_HEAD` or configured sync refs, never accesses the hidden
-  data-sync worktree or lock, and removes its private ref in a `finally` path.
+  Watch fetches only after remote movement (plus one startup fetch for `--bead`
+  selections so unknown IDs fail fast), targets a collision-resistant private ref, does
+  not write `FETCH_HEAD` or configured sync refs, never accesses the hidden data-sync
+  worktree or lock, removes its private ref on normal exit, and sweeps refs left behind
+  by interrupted watches whose process is gone.
 
 ## 0.4.1
 
