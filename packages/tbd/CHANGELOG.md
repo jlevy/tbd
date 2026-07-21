@@ -1,5 +1,27 @@
 # get-tbd
 
+## Unreleased
+
+### Features
+
+- **Read-only bead change detection and watching**: `tbd changes` reports deterministic,
+  per-field deltas between committed sync-branch snapshots, while `tbd watch` polls the
+  configured remote tip and exits when a bead, dynamic filter, ready set, or the whole
+  graph changes. Both commands share human and stable JSON reports; exit codes
+  distinguish changes, no changes, timeouts, usage errors, and operational failures.
+- **Agent wake recipes**: the new `watch-beads` shortcut documents a race-free
+  watch-then-spawn daemon plus bounded and background in-session patterns for Claude
+  Code and Codex. Live validation covers both platforms conversing through one bead.
+
+### Security
+
+- No dependencies were added or upgraded.
+  Watch fetches only after remote movement (plus one startup fetch for `--bead`
+  selections so unknown IDs fail fast), targets a collision-resistant private ref, does
+  not write `FETCH_HEAD` or configured sync refs, never accesses the hidden data-sync
+  worktree or lock, removes its private ref on normal exit, and sweeps refs left behind
+  by interrupted watches whose process is gone.
+
 ## 0.4.1
 
 ### Fixes

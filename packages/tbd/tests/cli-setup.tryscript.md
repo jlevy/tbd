@@ -85,6 +85,10 @@ Labels and Dependencies:
   label                         Manage issue labels
 
 Sync and Status:
+  changes [options]             Report committed bead changes since a
+                                sync-branch commit
+  watch [options]               Wait for selected bead changes on the remote
+                                sync branch
   sync [options]                Synchronize issues and docs (both by default)
   save [options]                Save issues to a workspace or directory
   status                        Show repository status and orientation

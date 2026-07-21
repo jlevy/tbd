@@ -27,7 +27,7 @@ import {
 import { parsePriority } from '../../lib/priority.js';
 import { buildIssueTree, renderIssueTree } from '../lib/tree-view.js';
 import { getTerminalWidth, type createColors } from '../lib/output.js';
-import { matchesSpecPath } from '../../lib/spec-matching.js';
+import { issueMatchesSharedFilters } from '../../lib/issue-selection.js';
 
 interface ListOptions {
   status?: IssueStatusType;
@@ -206,8 +206,14 @@ class ListHandler extends BaseCommand {
         return false;
       }
 
-      // Status filter
-      if (options.status && issue.status !== options.status) {
+      if (
+        !issueMatchesSharedFilters(issue, {
+          labels: options.label ?? [],
+          // An explicit empty --spec means "no filter" (historic behavior).
+          spec: options.spec !== undefined && options.spec !== '' ? options.spec : null,
+          status: options.status ?? null,
+        })
+      ) {
         return false;
       }
 
@@ -229,24 +235,9 @@ class ListHandler extends BaseCommand {
         return false;
       }
 
-      // Label filter (all must match)
-      if (options.label && options.label.length > 0) {
-        const hasAllLabels = options.label.every((l) => issue.labels.includes(l));
-        if (!hasAllLabels) {
-          return false;
-        }
-      }
-
       // Parent filter (compare resolved internal IDs)
       if (resolvedParentId && issue.parent_id !== resolvedParentId) {
         return false;
-      }
-
-      // Spec path filter (uses gradual matching)
-      if (options.spec) {
-        if (!issue.spec_path || !matchesSpecPath(issue.spec_path, options.spec)) {
-          return false;
-        }
       }
 
       // Deferred filter
