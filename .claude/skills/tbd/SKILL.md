@@ -243,6 +243,7 @@ Run `tbd shortcut <name>` to use any of these shortcuts:
 | suggest-upstream-improvements | Review local doc-fork customizations and contribute the generally useful changes back upstream |
 | sync-failure-recovery | Handle tbd sync failures by saving to workspace and recovering later |
 | update-specs-status | Reconcile active specs, the top-level work index (e.g. TODO.md), and tbd beads into one current status map |
+| watch-beads | Wake an agent when selected remote bead state changes |
 | welcome-user | Welcome message for users after tbd installation or setup |
 
 ## Available Guidelines
