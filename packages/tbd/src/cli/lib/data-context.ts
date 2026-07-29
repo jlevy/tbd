@@ -24,6 +24,7 @@ import { formatDisplayId, formatDebugId } from '../../lib/ids.js';
 import type { CommandContext } from './context.js';
 import { getCommandContext, quietNoticesActive } from './context.js';
 import { requireInit, NotFoundError } from './errors.js';
+import { issueNotFoundHint } from './id-suggestions.js';
 import { checkWorktreeHealth, repairWorktree } from '../../file/git.js';
 import type { WorktreeHealth, WorktreeStatus } from '../../file/git.js';
 import {
@@ -309,7 +310,11 @@ export async function loadFullContext(command: Command): Promise<FullCommandCont
       try {
         return resolveToInternalId(inputId, dataCtx.mapping);
       } catch {
-        throw new NotFoundError('Issue', inputId);
+        throw new NotFoundError(
+          'Issue',
+          inputId,
+          issueNotFoundHint([inputId], dataCtx.mapping, dataCtx.prefix),
+        );
       }
     },
   };

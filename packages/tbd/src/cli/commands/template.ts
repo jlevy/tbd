@@ -21,7 +21,7 @@ class TemplateHandler extends DocCommandHandler {
     });
   }
 
-  async run(query: string | undefined, options: DocCommandOptions): Promise<void> {
+  async run(queries: string[], options: DocCommandOptions): Promise<void> {
     await this.execute(async () => {
       // Add mode
       if (options.add) {
@@ -41,25 +41,25 @@ class TemplateHandler extends DocCommandHandler {
       }
 
       // No query: show help
-      if (!query) {
+      if (queries.length === 0) {
         await this.handleNoQuery();
         return;
       }
 
-      // Query provided: try exact match first, then fuzzy
-      await this.handleQuery(query);
+      // One or more queries: several names load as one all-or-nothing batch
+      await this.handleQueries(queries);
     }, 'Failed to find template');
   }
 }
 
 export const templateCommand = new Command('template')
   .description('Find and output document templates')
-  .argument('[query]', 'Template name or description to search for')
+  .argument('[queries...]', 'Template name(s) or description to search for')
   .option('--list', 'List all available templates')
   .option('--all', 'Include shadowed templates (use with --list)')
   .option('--add <url>', 'Add a template from a URL')
   .option('--name <name>', 'Name for the added template (required with --add)')
-  .action(async (query: string | undefined, options: DocCommandOptions, command) => {
+  .action(async (queries: string[], options: DocCommandOptions, command) => {
     const handler = new TemplateHandler(command);
-    await handler.run(query, options);
+    await handler.run(queries, options);
   });

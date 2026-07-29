@@ -58,10 +58,11 @@ or want help → run `tbd shortcut welcome-user`
 | “There’s a bug where …” | `tbd create "..." --type=bug` |
 | “Create a task/feature for …” | `tbd create "..." --type=task` or `--type=feature` |
 | “Let’s work on issues/beads” | `tbd ready` |
-| “Show me issue X” | `tbd show <id>` |
+| “Show me issue X” (or several) | `tbd show <id1> [<id2> …]` — one call, never a loop; `--max-lines <n>` caps output per issue |
+| “Where do things stand on spec X?” | `tbd list --spec <path-or-filename>` (all specs at once: `tbd list --specs`) |
 | “Close this issue” | `tbd close <id>` (several: `tbd close <id1> <id2> …` — one call, never a loop) |
-| “Search issues for X” | `tbd search "X"` |
-| “Add label X to issue” | `tbd label add <id> <label>` |
+| “Search issues for X” | `tbd search "X"` (matches content and issue IDs, so partial IDs work) |
+| “Add label X to issue” | `tbd label add <id> <label>` (several beads: `tbd update <id1> <id2> … --add-label <label>`) |
 | “What issues are stale?” | `tbd stale` |
 | **Planning & Specs** |  |
 | “Plan a new feature” / “Create a spec” | `tbd shortcut new-plan-spec` |
@@ -101,7 +102,14 @@ or want help → run `tbd shortcut welcome-user`
 **General engineering** group—the `general-*` rules plus `error-handling-rules`—since
 these apply to all code regardless of language.
 Then load the group for the language or framework in use (TypeScript, Python, Convex,
-etc.). Run `tbd guidelines --list` to see all available guidelines.
+etc.). Load a whole group in **one call** — `guidelines`, `shortcut`, `template`, and
+`docs show` all take several names:
+
+```bash
+tbd guidelines general-coding-rules general-comment-rules error-handling-rules general-testing-rules
+```
+
+Run `tbd guidelines --list` to see all available guidelines.
 
 **Note:** Never gitignore `.tbd/workspaces/`; the outbox must be committed to your
 working branch. See `tbd guidelines tbd-sync-troubleshooting` for details.
@@ -138,29 +146,36 @@ working branch. See `tbd guidelines tbd-sync-troubleshooting` for details.
 | `tbd ready` | Beads ready to work (no blockers) |
 | `tbd list --status open` | All open beads |
 | `tbd list --status in_progress` | Your active work |
-| `tbd show <id>` | Bead details with dependencies |
+| `tbd list --spec <path>` | Beads tracking a spec (filename or suffix is enough) |
+| `tbd list --sort updated --limit 10` | Recent activity; `--count` for totals |
+| `tbd show <id1> [<id2> …]` | Bead details with dependencies (bulk: delimited per issue; `--max-lines <n>` caps each) |
 
 ### Creating & Updating
 
 | Command | Purpose |
 | --- | --- |
 | `tbd create "title" --type=bug --priority=1` | New bead; run `tbd create --help` for all types and priorities (P0-P4, not “high/medium/low”) |
+| `tbd create "title" --parent <epic> --depends-on <id>` | Create fully wired: parent and blockers in one call (`--depends-on` is repeatable) |
 | `tbd update <id> --status in_progress` | Claim work |
 | `tbd close <id> [--reason "..."]` | Mark complete |
 | `tbd close <id1> <id2> <id3> --reason "..."` | Close several at once (always preferred over one-at-a-time) |
 | `tbd update <id1> <id2> <id3> --priority 1` | Bulk-update shared fields on several beads |
 
-**IMPORTANT:** `close`, `reopen`, and `update` accept multiple IDs in one call.
-NEVER shell-loop over single-ID calls (`for id in …; do tbd close $id; done`) — the bulk
-form runs under one lock, prints one summary line, and supports `--json` and
-`--ignore-missing`. A bulk call shares one reason (and, for `update`, one set of field
-changes), so group the beads that share the same mutation and make one call per group.
+**IMPORTANT — if you are about to shell-loop or pipe around tbd, stop: the bulk or
+filter form exists.** `show`, `close`, `reopen`, and `update` take multiple IDs;
+`guidelines`/`shortcut`/`template`/`docs show` take multiple names; `dep add` takes
+multiple blockers; list/search/show have `--limit`/`--count`/`--max-lines`. NEVER
+`for id in …; do tbd close $id; done` (one lock, one summary, `--json`,
+`--ignore-missing` — one call), NEVER `tbd show X | head` (use `--max-lines`), NEVER
+`tbd list | grep <id>` (use `tbd search <partial-id>`). A bulk call shares one reason
+(and, for `update`, one set of field changes), so group the beads that share the same
+mutation and make one call per group.
 
 ### Dependencies & Sync
 
 | Command | Purpose |
 | --- | --- |
-| `tbd dep add <bead> <depends-on>` | Add dependency |
+| `tbd dep add <bead> <blocker1> [<blocker2> …]` | Add blocker dependencies (one call per bead) |
 | `tbd blocked` | Show blocked beads |
 | `tbd sync` | Sync with git remote (run at session end) |
 | `tbd stats` | Project statistics |
@@ -171,8 +186,8 @@ changes), so group the beads that share the same mutation and make one call per 
 
 | Command | Purpose |
 | --- | --- |
-| `tbd search <query>` | Search issues by text |
-| `tbd label add <id> <label>` | Add label to issue |
+| `tbd search <query>` | Search issues by text or (partial) issue ID |
+| `tbd label add <id> <label>` | Add label to issue (several beads: `tbd update <ids…> --add-label`) |
 | `tbd label remove <id> <label>` | Remove label from issue |
 | `tbd label list` | List all labels in use |
 | `tbd stale` | List issues not updated recently |
@@ -183,7 +198,7 @@ changes), so group the beads that share the same mutation and make one call per 
 | --- | --- |
 | `tbd shortcut <name>` | Run a shortcut |
 | `tbd shortcut --list` | List shortcuts |
-| `tbd guidelines <name>` | Load coding guidelines |
+| `tbd guidelines <name> [<name> …]` | Load coding guidelines (a whole group in one call) |
 | `tbd guidelines --list` | List guidelines |
 | `tbd template <name>` | Output a template |
 | `tbd docs` / `tbd docs list` | Managed-docs overview / cross-kind list with state markers |

@@ -15,10 +15,11 @@ description: Condensed tbd workflow guide for agents
 
 ```bash
 tbd ready              # Find beads ready to start
-tbd show <id>          # View bead details
+tbd show <id1> [<id2> …]  # View bead details (several in one call, never a loop)
 tbd create "title"     # Create new bead
 tbd close <id>         # Mark complete
 tbd close <id1> <id2>  # Close several at once (one call, never a loop)
+tbd list --spec <path> # Where things stand on a spec
 tbd sync               # Sync with remote
 ```
 

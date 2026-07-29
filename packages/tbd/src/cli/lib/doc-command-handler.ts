@@ -11,7 +11,7 @@ import pc from 'picocolors';
 import { BaseCommand } from './base-command.js';
 import { shouldUseInteractiveOutput } from './context.js';
 import { GUIDELINES_AGENT_HEADER } from './doc-prompts.js';
-import { requireInit } from './errors.js';
+import { CLIError, requireInit } from './errors.js';
 import { DocCache, SCORE_PREFIX_MATCH, type CachedDoc } from '../../file/doc-cache.js';
 import { addDoc, type DocType } from '../../file/doc-add.js';
 import { servedEntryFor, loadServeContext, effectiveServePaths } from './doc-serve.js';
@@ -227,6 +227,81 @@ export abstract class DocCommandHandler extends BaseCommand {
     }
     // Templates and other types don't need a header
     return undefined;
+  }
+
+  /**
+   * Resolve one query with the strict rule used by multi-name reads: exact
+   * name, else a fuzzy match at high confidence. Returns undefined on a miss
+   * (no low-confidence suggestions here — a batch must not half-load).
+   */
+  private resolveQueryStrict(query: string): { doc: CachedDoc; score?: number } | undefined {
+    if (!this.cache) throw new Error('Cache not initialized');
+    const exact = this.cache.get(query);
+    if (exact) return { doc: exact.doc, score: exact.score };
+    const best = this.cache.search(query, 1)[0];
+    if (best && best.score >= SCORE_PREFIX_MATCH) {
+      return { doc: best.doc, score: best.score };
+    }
+    return undefined;
+  }
+
+  /**
+   * Handle one or more queries. A single query keeps the legacy behavior
+   * (including low-confidence suggestions). Multiple queries resolve
+   * all-or-nothing: every name must resolve before any content prints, so a
+   * typo cannot half-load a guideline group; duplicates render once.
+   */
+  protected async handleQueries(queries: string[]): Promise<void> {
+    if (queries.length === 1) {
+      await this.handleQuery(queries[0]!);
+      return;
+    }
+
+    const found: { doc: CachedDoc; score?: number }[] = [];
+    const misses: string[] = [];
+    const seen = new Set<string>();
+    for (const query of queries) {
+      const hit = this.resolveQueryStrict(query);
+      if (!hit) {
+        misses.push(query);
+        continue;
+      }
+      if (seen.has(hit.doc.name)) continue;
+      seen.add(hit.doc.name);
+      found.push(hit);
+    }
+    if (misses.length > 0) {
+      throw new CLIError(
+        `No ${this.config.typeName} found matching: ${misses.join(', ')}\n` +
+          `Run \`tbd ${this.config.typeNamePlural} --list\` to see available ${this.config.typeNamePlural}.`,
+      );
+    }
+
+    if (this.ctx.json) {
+      const entries = await this.docMapEntries(found.map((f) => f.doc));
+      this.output.data(
+        entries.map((entry, i) => ({
+          ...entry,
+          ...(found[i]!.score !== undefined ? { score: found[i]!.score } : {}),
+          content: found[i]!.doc.content,
+        })),
+      );
+      return;
+    }
+
+    const { localDirs } = await loadServeContext(this.tbdRoot);
+    if (!this.ctx.quiet) {
+      for (const { doc } of found) {
+        const rel = relative(this.tbdRoot, doc.path).split('\\').join('/');
+        if (doc.sourceDir.startsWith(FORK_DIR)) {
+          process.stderr.write(`(serving forked copy: ${rel})\n`);
+        } else if (localDirs.includes(doc.sourceDir)) {
+          process.stderr.write(`(serving local doc: ${rel})\n`);
+        }
+      }
+    }
+    // One agent header for the whole batch, then the docs in argument order.
+    await this.outputDocContent(found.map((f) => f.doc.content).join('\n\n'));
   }
 
   /**

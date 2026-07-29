@@ -2604,6 +2604,9 @@ Options:
   --due <date>              Due date (ISO8601)
   --defer <date>            Defer until date (ISO8601)
   --parent=<id>             Parent issue ID
+  --spec <path>             Link to spec (literal path, or unique filename/suffix
+                            resolved like `list --spec`)
+  --depends-on <id>         Blocker this issue depends on (repeatable)
   --label <label>           Add label (repeatable)
 ```
 
@@ -2756,14 +2759,22 @@ proj-f14c  P2  ○ open  feature  Add OAuth support
 #### Show
 
 ```bash
-tbd show <id> [options]
+tbd show <ids...> [options]
 
 Options:
   --json                    Output as JSON instead of YAML+Markdown
   --show-order              Display child_order_hints (if any)
   --no-parent               Suppress automatic parent context display
-  --max-lines <n>           Truncate output to N lines (with omission notice)
+  --max-lines <n>           Truncate output to N lines (per issue in bulk)
+  --ignore-missing          Skip unknown IDs instead of failing
 ```
+
+**Bulk reads (2+ IDs):** each issue renders under a dim `── <id> ──` delimiter in
+argument order (duplicates render once), parent context is suppressed, `--max-lines`
+applies per issue, and `--json` emits an array (a single ID keeps the object shape).
+Unknown IDs fail the whole read listing every bad ID; `--ignore-missing` renders the
+found subset, reports skips on stderr, and exits 0 — the same validate-all/fail-closed
+contract as the bulk mutators, with no lock taken (read-only).
 
 **Output:**
 
@@ -3068,14 +3079,18 @@ Dependencies use the semantics **“A depends on B”** (equivalent to **“B bl
 This matches Beads convention.
 
 ```bash
-# Add dependency: issue depends on depends-on (depends-on blocks issue)
-tbd dep add <issue> <depends-on>
+# Add dependencies: issue depends on each depends-on (each depends-on blocks issue).
+# All IDs are validated before anything is written; one call wires several blockers.
+tbd dep add <issue> <depends-on...>
 
-# Remove dependency
-tbd dep remove <issue> <depends-on>
+# Remove dependencies
+tbd dep remove <issue> <depends-on...>
 
 # List dependencies for an issue
 tbd dep list <id>
+
+# Blockers can also be declared at creation:
+tbd create "title" --depends-on <id> [--depends-on <id2>]
 ```
 
 **Argument semantics:**

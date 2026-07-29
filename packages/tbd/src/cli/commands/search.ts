@@ -78,17 +78,21 @@ class SearchHandler extends BaseCommand {
     const queryForMatch = caseSensitive ? query : query.toLowerCase();
     let results: SearchResult[] = [];
 
+    const { mapping, prefix } = dataCtx;
     for (const issue of issues) {
       // Apply status filter
       if (statusFilter && issue.status !== statusFilter) continue;
 
-      // Determine which fields to search
+      // Determine which fields to search. The display ID is a searchable
+      // field (last, so content matches keep the one-match-per-issue slot),
+      // making partial-ID lookup native: `tbd search r2zr` finds tbd-r2zr.
       const searchFields = options.field
         ? [options.field]
-        : ['title', 'description', 'notes', 'labels'];
+        : ['title', 'description', 'notes', 'labels', 'id'];
 
+      const displayId = formatDisplayId(issue.id, mapping, prefix);
       for (const field of searchFields) {
-        const match = this.searchField(issue, field, queryForMatch, caseSensitive);
+        const match = this.searchField(issue, field, queryForMatch, caseSensitive, displayId);
         if (match) {
           results.push(match);
           break; // Only one match per issue
@@ -99,7 +103,6 @@ class SearchHandler extends BaseCommand {
     // Apply limit
     results = applyLimit(results, options.limit);
 
-    const { mapping, prefix } = dataCtx;
     const showDebug = this.ctx.debug;
 
     // Format output
@@ -136,8 +139,25 @@ class SearchHandler extends BaseCommand {
     field: string,
     query: string,
     caseSensitive: boolean,
+    displayId: string,
   ): SearchResult | null {
     switch (field) {
+      case 'id': {
+        // Display IDs are lowercase; compare case-insensitively regardless of
+        // --case-sensitive so an uppercased paste still matches. A dashed
+        // query anchors to the display ID's start; a bare query matches only
+        // the random short portion — otherwise every issue would match its
+        // own prefix for common words like the project name.
+        const idQuery = query.toLowerCase();
+        const shortPortion = displayId.slice(displayId.lastIndexOf('-') + 1);
+        const matches = idQuery.includes('-')
+          ? displayId.startsWith(idQuery)
+          : shortPortion.includes(idQuery);
+        if (matches) {
+          return { issue, matchField: 'id', matchText: displayId };
+        }
+        break;
+      }
       case 'title': {
         const text = caseSensitive ? issue.title : issue.title.toLowerCase();
         if (text.includes(query)) {

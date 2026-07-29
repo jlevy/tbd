@@ -20,7 +20,13 @@ import { dirname, join, relative } from 'node:path';
 import { BaseCommand } from '../lib/base-command.js';
 import { registerForkSubcommands, parseKindOption, RESOLVABLE_KINDS } from './docs-fork.js';
 import { shouldUseInteractiveOutput } from '../lib/context.js';
-import { CLIError, NotFoundError, NotInitializedError, requireInit } from '../lib/errors.js';
+import {
+  CLIError,
+  NotFoundError,
+  NotInitializedError,
+  ValidationError,
+  requireInit,
+} from '../lib/errors.js';
 import { renderMarkdown, paginateOutput } from '../lib/output.js';
 import {
   printDocSyncResult,
@@ -220,12 +226,141 @@ interface ShowOptions {
 }
 
 /**
- * `tbd docs show <name>`: kind-agnostic read of any managed doc. The reserved
- * `tbd-docs` name serves the bundled CLI manual (with `--section` navigation,
- * relocated here from the old bare `tbd docs` viewer).
+ * `tbd docs show <names...>`: kind-agnostic read of any managed doc. The
+ * reserved `tbd-docs` name serves the bundled CLI manual (with `--section`
+ * navigation, relocated here from the old bare `tbd docs` viewer). Several
+ * names read as one all-or-nothing batch; section navigation stays
+ * single-doc.
  */
 class DocsShowHandler extends BaseCommand {
-  async run(name: string, options: ShowOptions): Promise<void> {
+  async run(names: string[], options: ShowOptions): Promise<void> {
+    if (names.length === 1) {
+      await this.runSingle(names[0]!, options);
+      return;
+    }
+    await this.runMulti(names, options);
+  }
+
+  /**
+   * Multi-name read: every name must resolve before anything prints (the same
+   * fail-closed rule as the other multi-target reads); duplicates render
+   * once. Kind caches load once per kind, not per name.
+   */
+  private async runMulti(names: string[], options: ShowOptions): Promise<void> {
+    await this.execute(async () => {
+      if (options.section !== undefined || options.sections) {
+        throw new ValidationError('--section/--sections apply to a single doc; pass one name');
+      }
+      const tbdRoot = await requireInit();
+      const requestedKind = parseKindOption(options.kind);
+      const kinds = requestedKind ? [requestedKind] : RESOLVABLE_KINDS;
+      const serveCtx = await loadServeContext(tbdRoot);
+      const caches = new Map<ForkKind, DocCache>();
+      for (const kind of kinds) {
+        const cache = new DocCache(effectiveServePaths(kind, serveCtx.localDirs), tbdRoot);
+        await cache.load({ quiet: true });
+        caches.set(kind, cache);
+      }
+
+      interface ResolvedManagedDoc {
+        name: string;
+        content: string;
+        kind?: ForkKind;
+        sourceDir: string;
+        path: string;
+      }
+      const resolvedDocs: ResolvedManagedDoc[] = [];
+      const misses: string[] = [];
+      const seenPaths = new Set<string>();
+      for (const name of names) {
+        const matches: ResolvedManagedDoc[] = [];
+        for (const kind of kinds) {
+          const hit = caches.get(kind)!.get(name);
+          if (hit) {
+            matches.push({
+              name,
+              kind,
+              content: hit.doc.content,
+              sourceDir: hit.doc.sourceDir,
+              path: hit.doc.path,
+            });
+          }
+        }
+        // local_dirs serve every kind, so one local file matches under each
+        // kind probe; identical paths are one doc, not an ambiguity.
+        const uniquePaths = new Set(matches.map((m) => m.path));
+        if (uniquePaths.size === 1 && matches.length > 1) {
+          matches.length = 1;
+        }
+        if (matches.length === 0) {
+          const bundledFallback = BUNDLED_ROOT_DOCS[name];
+          if (bundledFallback) {
+            matches.push({
+              name,
+              content: await readBundledRootDoc(bundledFallback),
+              sourceDir: '',
+              path: '',
+            });
+          } else {
+            misses.push(name);
+            continue;
+          }
+        } else if (matches.length > 1) {
+          const kindList = matches.map((m) => m.kind).join(', ');
+          throw new CLIError(
+            `"${name}" exists in multiple kinds (${kindList}). Use --kind to disambiguate.`,
+          );
+        }
+        const match = matches[0]!;
+        if (match.path) {
+          if (seenPaths.has(match.path)) continue;
+          seenPaths.add(match.path);
+        }
+        resolvedDocs.push(match);
+      }
+      if (misses.length > 0) {
+        throw new NotFoundError('Doc', `${misses.join(', ')} (run \`tbd docs list\` to see names)`);
+      }
+
+      if (this.ctx.json) {
+        this.output.data(
+          resolvedDocs.map((m) => {
+            if (!m.path || !m.kind) return { name: m.name, content: m.content };
+            const { entry } = servedEntryFor(
+              tbdRoot,
+              m.kind,
+              { name: m.name, content: m.content, sourceDir: m.sourceDir, path: m.path },
+              serveCtx.manifest,
+              serveCtx.files,
+              serveCtx.localDirs,
+            );
+            return { ...entry, content: m.content };
+          }),
+        );
+        return;
+      }
+
+      if (!this.ctx.quiet) {
+        for (const m of resolvedDocs) {
+          if (!m.path) continue;
+          const rel = relative(tbdRoot, m.path).split('\\').join('/');
+          if (m.sourceDir.startsWith(FORK_DIR)) {
+            process.stderr.write(`(serving forked copy: ${rel})\n`);
+          } else if (serveCtx.localDirs.includes(m.sourceDir)) {
+            process.stderr.write(`(serving local doc: ${rel})\n`);
+          }
+        }
+      }
+      const combined = resolvedDocs.map((m) => m.content).join('\n\n');
+      if (shouldUseInteractiveOutput(this.ctx)) {
+        await paginateOutput(renderMarkdown(combined, this.ctx.color), true);
+      } else {
+        console.log(combined);
+      }
+    }, 'Failed to show doc');
+  }
+
+  private async runSingle(name: string, options: ShowOptions): Promise<void> {
     await this.execute(async () => {
       let content: string;
       let provenance: string | null = null;
@@ -436,13 +571,13 @@ export const docsCommand = new Command('docs')
 
 docsCommand
   .command('show')
-  .description('Read any managed doc by name (tbd-docs is the CLI manual)')
-  .argument('<name>', 'doc name (e.g. python-rules, tbd-docs)')
+  .description('Read managed docs by name (tbd-docs is the CLI manual)')
+  .argument('<names...>', 'doc name(s) (e.g. python-rules, tbd-docs)')
   .option('--section <name>', 'show one section of the doc')
   .option('--sections', 'list the doc’s sections')
   .option('--kind <kind>', 'restrict to a kind (guideline|shortcut|template)')
-  .action(async (name: string, options: ShowOptions, command: Command) => {
-    await new DocsShowHandler(command).run(name, options);
+  .action(async (names: string[], options: ShowOptions, command: Command) => {
+    await new DocsShowHandler(command).run(names, options);
   });
 
 docsCommand
@@ -452,7 +587,7 @@ docsCommand
   .option('--section <name>', 'show one section of the manual')
   .option('--sections', 'list the manual’s sections')
   .action(async (topic: string | undefined, options: ShowOptions, command: Command) => {
-    await new DocsShowHandler(command).run(MANUAL_DOC_NAME, {
+    await new DocsShowHandler(command).run([MANUAL_DOC_NAME], {
       ...options,
       section: options.section ?? topic,
     });

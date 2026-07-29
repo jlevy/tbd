@@ -26,6 +26,7 @@ import {
   type BulkItemResult,
 } from '../lib/bulk.js';
 import { resolveBodyInput } from '../lib/body-input.js';
+import { issueNotFoundHint } from '../lib/id-suggestions.js';
 
 interface CloseOptions {
   reason?: string;
@@ -59,7 +60,11 @@ class CloseHandler extends BaseCommand {
           // Fail closed: any unknown ID aborts before writing anything, unless
           // the caller opted into best-effort with --ignore-missing.
           if (missing.length > 0 && !options.ignoreMissing) {
-            throw new NotFoundError('Issue', missing.join(', '));
+            throw new NotFoundError(
+              'Issue',
+              missing.join(', '),
+              issueNotFoundHint(missing, mapping, config.display.id_prefix),
+            );
           }
           for (const m of missing) {
             outcomes.set(m, { id: m, action: 'missing', ok: false, skippedReason: 'not found' });

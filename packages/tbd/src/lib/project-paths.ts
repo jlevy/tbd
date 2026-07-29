@@ -12,8 +12,10 @@
  * - Validates file existence
  */
 
-import { resolve, relative, isAbsolute, normalize, sep } from 'node:path';
-import { access, stat } from 'node:fs/promises';
+import { resolve, relative, isAbsolute, join, normalize, sep } from 'node:path';
+import { access, readdir, stat } from 'node:fs/promises';
+
+import { matchesSpecPath } from './spec-matching.js';
 
 /**
  * Result of resolving a path relative to the project root.
@@ -32,7 +34,7 @@ export interface ResolvedProjectPath {
 export class ProjectPathError extends Error {
   constructor(
     message: string,
-    public readonly code: 'OUTSIDE_PROJECT' | 'NOT_FOUND' | 'NOT_A_FILE',
+    public readonly code: 'OUTSIDE_PROJECT' | 'NOT_FOUND' | 'NOT_A_FILE' | 'AMBIGUOUS',
   ) {
     super(message);
     this.name = 'ProjectPathError';
@@ -217,4 +219,70 @@ export async function resolveAndValidatePath(
   const resolved = resolveProjectPath(inputPath, projectRoot, cwd);
   await validateFileExists(resolved);
   return resolved;
+}
+
+/**
+ * Directory searched (recursively) for spec documents when a `--spec`
+ * argument is not a literal path. Matches the Speculate docs layout that the
+ * planning shortcuts write into.
+ */
+const SPEC_SEARCH_ROOT = 'docs';
+
+/** Recursively list markdown files under a directory as repo-relative paths. */
+async function listMarkdownFilesUnder(dirAbs: string, projectRoot: string): Promise<string[]> {
+  let entries;
+  try {
+    entries = await readdir(dirAbs, { withFileTypes: true });
+  } catch {
+    return [];
+  }
+  const found: string[] = [];
+  for (const entry of entries) {
+    if (entry.name.startsWith('.')) continue;
+    const childAbs = join(dirAbs, entry.name);
+    if (entry.isDirectory()) {
+      found.push(...(await listMarkdownFilesUnder(childAbs, projectRoot)));
+    } else if (entry.isFile() && entry.name.endsWith('.md')) {
+      found.push(relative(projectRoot, childAbs).split(sep).join('/'));
+    }
+  }
+  return found;
+}
+
+/**
+ * Resolve a `--spec` argument to a repo file. A literal path (as
+ * `resolveAndValidatePath` accepts it) always wins; otherwise the input is
+ * matched against markdown files under `docs/` with the same
+ * exact/suffix/filename rules `list --spec` uses (`matchesSpecPath`), so the
+ * filename-only form works on the write side too. A unique match resolves;
+ * several matches are an explicit ambiguity error; none re-throws the
+ * original not-found error.
+ */
+export async function resolveSpecArg(
+  inputPath: string,
+  projectRoot: string,
+  cwd: string,
+): Promise<ResolvedProjectPath> {
+  let literalError: ProjectPathError;
+  try {
+    return await resolveAndValidatePath(inputPath, projectRoot, cwd);
+  } catch (error) {
+    if (!(error instanceof ProjectPathError) || error.code !== 'NOT_FOUND') {
+      throw error;
+    }
+    literalError = error;
+  }
+
+  const candidates = await listMarkdownFilesUnder(join(projectRoot, SPEC_SEARCH_ROOT), projectRoot);
+  const matches = candidates.filter((candidate) => matchesSpecPath(candidate, inputPath)).sort();
+  if (matches.length === 1) {
+    return { relativePath: matches[0]!, absolutePath: join(projectRoot, matches[0]!) };
+  }
+  if (matches.length > 1) {
+    throw new ProjectPathError(
+      `Ambiguous spec path "${inputPath}" matches: ${matches.join(', ')}`,
+      'AMBIGUOUS',
+    );
+  }
+  throw literalError;
 }

@@ -230,7 +230,12 @@ Options:
 - `--parent <id>` - Parent issue ID (for sub-issues).
   If the parent has a `spec_path` and `--spec` is not provided, the child inherits the
   parent’s `spec_path`.
-- `--spec <path>` - Link to spec document (validated, normalized to project root)
+- `--spec <path>` - Link to spec document (validated, normalized to project root).
+  A unique filename or path suffix also resolves (same matching as `list --spec`), so
+  `--spec plan-2026-01-01-feature.md` works from anywhere; ambiguity errors list every
+  candidate.
+- `--depends-on <id>` - Blocker this issue depends on (can repeat), so a bead is created
+  fully wired instead of needing follow-up `dep add` calls
 - `--label <label>` - Add label (can repeat)
 - `--from-file <path>` - Create from YAML+Markdown file
 
@@ -283,13 +288,22 @@ Options:
 
 ### show
 
-Display detailed information about an issue.
+Display detailed information about one or more issues.
 
 ```bash
 tbd show proj-a7k2                            # YAML output
 tbd show proj-a7k2 --json                     # JSON output
 tbd show proj-a7k2 --no-parent                # Suppress parent context
+tbd show proj-a7k2 proj-b3m9 proj-c1x8        # Several in one call (never a loop)
+tbd show proj-a7k2 proj-b3m9 --max-lines 40   # Cap output per issue
 ```
+
+With several IDs, each issue renders under a dim `── <id> ──` delimiter in argument
+order (duplicates render once), parent context is suppressed, `--max-lines` applies per
+issue, and `--json` emits an array.
+Unknown IDs abort the whole read listing every bad ID; `--ignore-missing` renders the
+found subset and reports skips on stderr (exit 0), the same contract the bulk mutators
+use.
 
 Output includes all fields: title, description, status, priority, labels, dependencies,
 timestamps, and working notes.
@@ -516,8 +530,9 @@ tbd dep list proj-a7k2
 ```
 
 Subcommands:
-- `add <issue> <depends-on>` - Issue depends on depends-on (depends-on blocks issue)
-- `remove <issue> <depends-on>` - Remove dependency
+- `add <issue> <depends-on...>` - Issue depends on each depends-on (one call wires
+  several blockers; all IDs validate before anything is written)
+- `remove <issue> <depends-on...>` - Remove one or more dependencies
 - `list <id>` - List dependencies for an issue (what it blocks and what blocks it)
 
 Use `tbd dep list <id>` when checking dependency direction.
@@ -955,6 +970,9 @@ is faster, validates all IDs before writing anything, and produces one clean sum
 a structured `--json` result) instead of N interleaved outputs.
 A bulk call shares one reason (and one set of field changes for `update`), so group the
 issues that share the same mutation and make one call per group.
+The read side is bulk too: `tbd show A B C` renders several issues in one call, and
+`guidelines`/`shortcut`/`template`/`docs show` load several docs in one call — if you
+are about to shell-loop or pipe around tbd, the bulk or filter form exists.
 See [Bulk operations and the output contract](#bulk-operations-and-the-output-contract).
 
 ## Common Workflows
@@ -1268,11 +1286,13 @@ tbd doctor --fix
 
 ### ID Not Found
 
-If you get “Unknown issue ID” errors:
+If you get “Issue not found” errors, the error itself suggests near-miss IDs (“Did you
+mean: …?”) when one is close.
+To look an ID up directly:
 
 ```bash
-# Verify the issue exists
-tbd list --all | grep <partial-id>
+# Search by partial or full ID (IDs are a searchable field)
+tbd search a7k2
 
 # Use --debug to see internal IDs
 tbd list --debug

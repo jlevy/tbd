@@ -43,6 +43,7 @@ All commands below require the CLI.
 
 ```bash
 tbd ready              # Find work ready to start
+tbd show <id1> [<id2> …]  # Issue details (several in one call)
 tbd create "title"     # Create new issue
 tbd close <id>         # Mark complete
 tbd sync               # Sync with remote

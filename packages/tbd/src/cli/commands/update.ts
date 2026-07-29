@@ -17,7 +17,7 @@ import { parsePriority } from '../../lib/priority.js';
 import type { IssueStatusType, IssueKindType, PriorityType } from '../../lib/types.js';
 import { now } from '../../utils/time-utils.js';
 import { resolveToInternalId, type IdMapping } from '../../file/id-mapping.js';
-import { resolveAndValidatePath, getPathErrorMessage } from '../../lib/project-paths.js';
+import { resolveSpecArg, getPathErrorMessage } from '../../lib/project-paths.js';
 import { validateIssueTitle } from '../lib/issue-input-validation.js';
 import { withDataSyncContext } from '../lib/data-context.js';
 import {
@@ -29,6 +29,7 @@ import {
   type BulkItemResult,
 } from '../lib/bulk.js';
 import { resolveBodyInput, type BodyInputState } from '../lib/body-input.js';
+import { issueNotFoundHint } from '../lib/id-suggestions.js';
 
 interface UpdateOptions {
   fromFile?: string;
@@ -279,7 +280,11 @@ class UpdateHandler extends BaseCommand {
 
           const { resolved, missing, orderedInputs } = resolveAllIds(ids, mapping);
           if (missing.length > 0 && !options.ignoreMissing) {
-            throw new NotFoundError('Issue', missing.join(', '));
+            throw new NotFoundError(
+              'Issue',
+              missing.join(', '),
+              issueNotFoundHint(missing, mapping, config.display.id_prefix),
+            );
           }
           for (const m of missing) {
             outcomes.set(m, { id: m, action: 'missing', ok: false, skippedReason: 'not found' });
@@ -496,11 +501,7 @@ class UpdateHandler extends BaseCommand {
           if (typeof frontmatter.spec_path === 'string' && frontmatter.spec_path) {
             // Validate and normalize the spec path from file
             try {
-              const resolved = await resolveAndValidatePath(
-                frontmatter.spec_path,
-                tbdRoot,
-                process.cwd(),
-              );
+              const resolved = await resolveSpecArg(frontmatter.spec_path, tbdRoot, process.cwd());
               updates.spec_path = resolved.relativePath;
             } catch (error) {
               throw new ValidationError(getPathErrorMessage(error));
@@ -595,7 +596,7 @@ class UpdateHandler extends BaseCommand {
       if (options.spec) {
         // Non-empty spec path: validate and normalize
         try {
-          const resolved = await resolveAndValidatePath(options.spec, tbdRoot, process.cwd());
+          const resolved = await resolveSpecArg(options.spec, tbdRoot, process.cwd());
           updates.spec_path = resolved.relativePath;
         } catch (error) {
           throw new ValidationError(getPathErrorMessage(error));

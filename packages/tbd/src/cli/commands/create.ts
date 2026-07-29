@@ -20,7 +20,7 @@ import {
 import { IssueKind } from '../../lib/schemas.js';
 import { parsePriority } from '../../lib/priority.js';
 import { now } from '../../utils/time-utils.js';
-import { resolveAndValidatePath, getPathErrorMessage } from '../../lib/project-paths.js';
+import { resolveSpecArg, getPathErrorMessage } from '../../lib/project-paths.js';
 import { validateIssueTitle } from '../lib/issue-input-validation.js';
 import { withDataSyncContext, notifyWorktreeRepaired } from '../lib/data-context.js';
 import { resolveBodyInput } from '../lib/body-input.js';
@@ -37,6 +37,7 @@ interface CreateOptions {
   parent?: string;
   label?: string[];
   spec?: string;
+  dependsOn?: string[];
 }
 
 class CreateHandler extends BaseCommand {
@@ -74,7 +75,7 @@ class CreateHandler extends BaseCommand {
     let specPath: string | undefined;
     if (options.spec) {
       try {
-        const resolved = await resolveAndValidatePath(options.spec, tbdRoot, process.cwd());
+        const resolved = await resolveSpecArg(options.spec, tbdRoot, process.cwd());
         specPath = resolved.relativePath;
       } catch (error) {
         throw new ValidationError(getPathErrorMessage(error));
@@ -131,6 +132,33 @@ class CreateHandler extends BaseCommand {
             }
           }
 
+          // Resolve and read all --depends-on blockers before creating the
+          // issue, so a bad blocker ID fails before anything is written.
+          const blockers: Issue[] = [];
+          if (options.dependsOn && options.dependsOn.length > 0) {
+            const missing: string[] = [];
+            const seen = new Set<string>();
+            for (const input of options.dependsOn) {
+              let blockerInternalId: string;
+              try {
+                blockerInternalId = resolveToInternalId(input, mapping);
+              } catch {
+                missing.push(input);
+                continue;
+              }
+              if (seen.has(blockerInternalId)) continue;
+              seen.add(blockerInternalId);
+              try {
+                blockers.push(await readIssue(dataSyncDir, blockerInternalId));
+              } catch {
+                missing.push(input);
+              }
+            }
+            if (missing.length > 0) {
+              throw new ValidationError(`Invalid --depends-on ID: ${missing.join(', ')}`);
+            }
+          }
+
           issue = {
             type: 'is',
             id,
@@ -154,6 +182,14 @@ class CreateHandler extends BaseCommand {
           // Write both the issue and the mapping
           await writeIssue(dataSyncDir, issue);
           await saveIdMapping(dataSyncDir, mapping);
+
+          // Wire blockers: each edge lives on the blocker's issue file.
+          for (const blockerIssue of blockers) {
+            blockerIssue.dependencies.push({ type: 'blocks', target: id });
+            blockerIssue.version += 1;
+            blockerIssue.updated_at = timestamp;
+            await writeIssue(dataSyncDir, blockerIssue);
+          }
 
           // When creating with a parent, append child to parent's child_order_hints
           if (parentId) {
@@ -218,6 +254,11 @@ export const createCommand = new Command('create')
     ...prev,
     val,
   ])
+  .option(
+    '--depends-on <id>',
+    'Blocker issue ID this issue depends on (repeatable)',
+    (val, prev: string[] = []) => [...prev, val],
+  )
   .action(async (title, options, command) => {
     const handler = new CreateHandler(command);
     await handler.run(title, options);
