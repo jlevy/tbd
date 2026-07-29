@@ -5,6 +5,8 @@
  */
 
 import type { IdMapping } from '../../file/id-mapping.js';
+import { resolveToInternalId } from '../../file/id-mapping.js';
+import { NotFoundError } from './errors.js';
 
 /**
  * Suggestion limits. Beyond MAX_SUGGESTION_DISTANCE edits a candidate is more
@@ -60,6 +62,21 @@ export function suggestSimilarIds(inputs: string[], mapping: IdMapping, prefix: 
     .sort((a, b) => a[1] - b[1] || a[0].localeCompare(b[0]))
     .slice(0, ID_SUGGESTION_LIMITS.maxSuggestions)
     .map(([displayId]) => displayId);
+}
+
+/**
+ * Resolve an issue ID or throw the standard `NotFoundError` carrying
+ * near-miss suggestions. Every single-ID CLI boundary should resolve through
+ * this (bulk paths use `resolveAllIds` and attach the hint to their
+ * fail-closed error), so recovery hints never depend on which handler
+ * happened to resolve the ID.
+ */
+export function resolveIssueId(input: string, mapping: IdMapping, prefix: string): string {
+  try {
+    return resolveToInternalId(input, mapping);
+  } catch {
+    throw new NotFoundError('Issue', input, issueNotFoundHint([input], mapping, prefix));
+  }
 }
 
 /**

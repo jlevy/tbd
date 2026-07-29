@@ -565,6 +565,7 @@ Search issues by text content.
 tbd search "login"                          # Search all fields
 tbd search "auth" --field=title             # Search only titles
 tbd search "TODO" --field=notes             # Search working notes
+tbd search a7k2                             # Partial or full issue IDs match too
 tbd search "api" --status=open              # Filter by status
 tbd search "bug" --limit=10                 # Limit results
 tbd search "Error" --case-sensitive         # Case-sensitive search
@@ -572,7 +573,7 @@ tbd search "Error" --case-sensitive         # Case-sensitive search
 
 Options:
 - `--status <status>` - Filter by status
-- `--field <field>` - Search specific field: title, description, notes, labels
+- `--field <field>` - Search specific field: title, description, notes, labels, id
 - `--limit <n>` - Limit results
 - `--no-refresh` - Skip worktree refresh
 - `--case-sensitive` - Case-sensitive search

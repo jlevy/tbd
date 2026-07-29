@@ -11,8 +11,8 @@ import { requireInit, NotFoundError, NotInitializedError } from '../lib/errors.j
 import { readIssue, writeIssue, listIssues } from '../../file/storage.js';
 import { formatDisplayId, formatDebugId } from '../../lib/ids.js';
 import { now } from '../../utils/time-utils.js';
-import { resolveToInternalId } from '../../file/id-mapping.js';
 import { loadDataContext, withDataSyncContext } from '../lib/data-context.js';
+import { resolveIssueId } from '../lib/id-suggestions.js';
 
 // Add label
 class LabelAddHandler extends BaseCommand {
@@ -28,12 +28,7 @@ class LabelAddHandler extends BaseCommand {
         { lock: true },
         async ({ dataSyncDir, mapping, config }) => {
           // Resolve input ID to internal ID
-          let internalId: string;
-          try {
-            internalId = resolveToInternalId(id, mapping);
-          } catch {
-            throw new NotFoundError('Issue', id);
-          }
+          const internalId = resolveIssueId(id, mapping, config.display.id_prefix);
 
           // Load existing issue
           let issue;
@@ -98,12 +93,7 @@ class LabelRemoveHandler extends BaseCommand {
         { lock: true },
         async ({ dataSyncDir, mapping, config }) => {
           // Resolve input ID to internal ID
-          let internalId: string;
-          try {
-            internalId = resolveToInternalId(id, mapping);
-          } catch {
-            throw new NotFoundError('Issue', id);
-          }
+          const internalId = resolveIssueId(id, mapping, config.display.id_prefix);
 
           // Load existing issue
           let issue;

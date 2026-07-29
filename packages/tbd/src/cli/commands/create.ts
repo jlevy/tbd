@@ -7,9 +7,9 @@
 import { Command } from 'commander';
 
 import { BaseCommand } from '../lib/base-command.js';
-import { requireInit, ValidationError } from '../lib/errors.js';
+import { requireInit, CLIError, ValidationError } from '../lib/errors.js';
 import type { Issue, IssueKindType, PriorityType } from '../../lib/types.js';
-import { generateInternalId, extractUlidFromInternalId } from '../../lib/ids.js';
+import { generateInternalId, extractUlidFromInternalId, formatDisplayId } from '../../lib/ids.js';
 import { readIssue, writeIssue } from '../../file/storage.js';
 import {
   saveIdMapping,
@@ -24,6 +24,7 @@ import { resolveSpecArg, getPathErrorMessage } from '../../lib/project-paths.js'
 import { validateIssueTitle } from '../lib/issue-input-validation.js';
 import { withDataSyncContext, notifyWorktreeRepaired } from '../lib/data-context.js';
 import { resolveBodyInput } from '../lib/body-input.js';
+import { applyDependencyWrites, type DependencyWriteOutcome } from '../lib/bulk.js';
 
 interface CreateOptions {
   fromFile?: string;
@@ -101,6 +102,7 @@ class CreateHandler extends BaseCommand {
     let shortId: string;
     let prefix: string;
     let issue: Issue;
+    let wireOutcome: DependencyWriteOutcome | undefined;
     await this.execute(async () => {
       await withDataSyncContext(
         tbdRoot,
@@ -150,7 +152,10 @@ class CreateHandler extends BaseCommand {
               seen.add(blockerInternalId);
               try {
                 blockers.push(await readIssue(dataSyncDir, blockerInternalId));
-              } catch {
+              } catch (error) {
+                // Only a genuinely absent file is an unknown ID; anything else
+                // (corrupt YAML, permissions) is a repository problem.
+                if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
                 missing.push(input);
               }
             }
@@ -183,12 +188,24 @@ class CreateHandler extends BaseCommand {
           await writeIssue(dataSyncDir, issue);
           await saveIdMapping(dataSyncDir, mapping);
 
-          // Wire blockers: each edge lives on the blocker's issue file.
-          for (const blockerIssue of blockers) {
-            blockerIssue.dependencies.push({ type: 'blocks', target: id });
-            blockerIssue.version += 1;
-            blockerIssue.updated_at = timestamp;
-            await writeIssue(dataSyncDir, blockerIssue);
+          // Wire blockers: each edge lives on the blocker's issue file. The
+          // new issue is durable at this point, so a blocker-write failure is
+          // reported per target (with the created ID) rather than aborting.
+          if (blockers.length > 0) {
+            wireOutcome = await applyDependencyWrites(
+              dataSyncDir,
+              blockers.map((blockerIssue) => ({
+                internalId: blockerIssue.id,
+                issue: blockerIssue,
+              })),
+              (internalId) => formatDisplayId(internalId, mapping, config.display.id_prefix),
+              (blockerIssue) => {
+                blockerIssue.dependencies.push({ type: 'blocks', target: id });
+                blockerIssue.version += 1;
+                blockerIssue.updated_at = timestamp;
+                return 'changed';
+              },
+            );
           }
 
           // When creating with a parent, append child to parent's child_order_hints
@@ -217,6 +234,20 @@ class CreateHandler extends BaseCommand {
     this.output.data({ id: displayId, internalId: id, title: validatedTitle }, () => {
       this.output.success(`Created ${displayId}: ${validatedTitle}`);
     });
+
+    // The issue exists even when blocker wiring failed, so the created ID is
+    // always revealed above; the error names the finishing command so a
+    // retry updates this bead instead of creating a duplicate.
+    if (wireOutcome && wireOutcome.failed.length > 0) {
+      const failedIds = wireOutcome.failed.map((f) => f.id);
+      const detail = wireOutcome.failed.map((f) => `${f.id} (${f.message})`).join(', ');
+      const attempted = wireOutcome.failed.length + wireOutcome.changed.length;
+      throw new CLIError(
+        `Created ${displayId}, but ${wireOutcome.failed.length} of ${attempted} --depends-on ` +
+          `edges failed to wire: ${detail}. ` +
+          `Run \`tbd dep add ${displayId} ${failedIds.join(' ')}\` to finish (do not re-run create).`,
+      );
+    }
   }
 
   private parseKind(value: string): IssueKindType {

@@ -8,6 +8,8 @@ path:
 timeout: 30000
 patterns:
   SHORTID: '[0-9a-z]{4,5}'
+  ULID: '[0-9a-z]{26}'
+  TIMESTAMP: "\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?Z"
 before: |
   # Set up a test git repository
   git init --initial-branch=main
@@ -66,6 +68,26 @@ test-[SHORTID]
 ```console
 $ tbd show $(cat a.txt) | grep -c "The parent of this bead is:"
 1
+? 0
+```
+
+# Test: Single-ID output is pinned byte-for-byte (stable fields via patterns)
+
+```console
+$ tbd show $(cat c.txt)
+---
+type: is
+id: is-[ULID]
+title: Show C standalone
+kind: task
+status: open
+priority: P2
+version: 1
+labels: []
+dependencies: []
+created_at: [TIMESTAMP]
+updated_at: [TIMESTAMP]
+---
 ? 0
 ```
 

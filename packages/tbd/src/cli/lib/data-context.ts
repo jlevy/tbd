@@ -15,7 +15,7 @@
 
 import type { Command } from 'commander';
 import type { IdMapping } from '../../file/id-mapping.js';
-import { loadIdMapping, resolveToInternalId } from '../../file/id-mapping.js';
+import { loadIdMapping } from '../../file/id-mapping.js';
 import { readConfigWithMigration, writeConfig } from '../../file/config.js';
 import { CURRENT_FORMAT } from '../../lib/tbd-format.js';
 import type { Config, CommonDirLayout } from '../../lib/types.js';
@@ -23,8 +23,8 @@ import { resolveDataSyncDir, resolveSharedTbdPaths, type SharedTbdPaths } from '
 import { formatDisplayId, formatDebugId } from '../../lib/ids.js';
 import type { CommandContext } from './context.js';
 import { getCommandContext, quietNoticesActive } from './context.js';
-import { requireInit, NotFoundError } from './errors.js';
-import { issueNotFoundHint } from './id-suggestions.js';
+import { requireInit } from './errors.js';
+import { resolveIssueId } from './id-suggestions.js';
 import { checkWorktreeHealth, repairWorktree } from '../../file/git.js';
 import type { WorktreeHealth, WorktreeStatus } from '../../file/git.js';
 import {
@@ -307,15 +307,7 @@ export async function loadFullContext(command: Command): Promise<FullCommandCont
         : formatDisplayId(internalId, dataCtx.mapping, dataCtx.prefix);
     },
     resolveId(inputId: string): string {
-      try {
-        return resolveToInternalId(inputId, dataCtx.mapping);
-      } catch {
-        throw new NotFoundError(
-          'Issue',
-          inputId,
-          issueNotFoundHint([inputId], dataCtx.mapping, dataCtx.prefix),
-        );
-      }
+      return resolveIssueId(inputId, dataCtx.mapping, dataCtx.prefix);
     },
   };
 }

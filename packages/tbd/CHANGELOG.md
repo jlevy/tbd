@@ -16,6 +16,9 @@
 - **Dependency wiring in one call**: `dep add`/`dep remove` take multiple blockers
   (`tbd dep add <issue> <b1> <b2> …`), and `create --depends-on <id>` (repeatable)
   declares blockers at creation, so a spec breakdown creates fully wired beads.
+  Multi-file dependency writes report per-target outcomes on failure — applied edges are
+  named and kept, the exact finishing command is given, and a `create` whose blocker
+  wiring fails still reveals the created ID so a retry cannot duplicate the bead.
 - **Write-side `--spec` matches like `list --spec`**: `create --spec` and
   `update --spec` resolve a unique filename or path suffix against `docs/` (ambiguity
   errors name every candidate), so the filename-only form the planning shortcuts

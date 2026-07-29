@@ -56,6 +56,42 @@ Did you mean: test-[SHORTID]? (`tbd search <text>` finds issues by content or ID
 ? 1
 ```
 
+# Test: The hint appears on single dep add with a typo’d blocker
+
+```console
+$ tbd dep add "$(cat a.txt)" "$(cat a.txt)x" 2>&1
+Error: Issue not found: test-[SHORTID]x
+Did you mean: test-[SHORTID]? (`tbd search <text>` finds issues by content or ID)
+? 1
+```
+
+# Test: The hint appears on single update
+
+```console
+$ tbd update "$(cat a.txt)x" --priority 1 2>&1
+Error: Issue not found: test-[SHORTID]x
+Did you mean: test-[SHORTID]? (`tbd search <text>` finds issues by content or ID)
+? 1
+```
+
+# Test: The hint appears on label add
+
+```console
+$ tbd label add "$(cat a.txt)x" mylabel 2>&1
+Error: Issue not found: test-[SHORTID]x
+Did you mean: test-[SHORTID]? (`tbd search <text>` finds issues by content or ID)
+? 1
+```
+
+# Test: The hint appears on dep list
+
+```console
+$ tbd dep list "$(cat a.txt)x" 2>&1
+Error: Issue not found: test-[SHORTID]x
+Did you mean: test-[SHORTID]? (`tbd search <text>` finds issues by content or ID)
+? 1
+```
+
 # Test: A distant garbage ID keeps the plain error (no wrong guesses)
 
 ```console

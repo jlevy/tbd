@@ -164,7 +164,10 @@ class ShowHandler extends BaseCommand {
     let issue;
     try {
       issue = await readIssue(ctx.dataSyncDir, internalId);
-    } catch {
+    } catch (error) {
+      // Only a genuinely absent file counts as missing; corrupt or unreadable
+      // files are repository problems and surface their real error.
+      if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
       if (options.ignoreMissing) {
         this.output.warn(`Not found: ${id}`);
         return;

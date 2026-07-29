@@ -251,7 +251,35 @@ class DocsShowHandler extends BaseCommand {
       if (options.section !== undefined || options.sections) {
         throw new ValidationError('--section/--sections apply to a single doc; pass one name');
       }
-      const tbdRoot = await requireInit();
+
+      // Self-docs stay readable before init in the multi form too: a batch
+      // made up entirely of bundled root docs never needs a repository.
+      // Mixed batches require init because managed names need the cache.
+      let tbdRoot: string;
+      try {
+        tbdRoot = await requireInit();
+      } catch (err) {
+        if (!(err instanceof NotInitializedError)) throw err;
+        if (!names.every((name) => BUNDLED_ROOT_DOCS[name])) throw err;
+        const seen = new Set<string>();
+        const bundled: { name: string; content: string }[] = [];
+        for (const name of names) {
+          if (seen.has(name)) continue;
+          seen.add(name);
+          bundled.push({ name, content: await readBundledRootDoc(BUNDLED_ROOT_DOCS[name]!) });
+        }
+        if (this.ctx.json) {
+          this.output.data(bundled);
+          return;
+        }
+        const combined = bundled.map((b) => b.content).join('\n\n');
+        if (shouldUseInteractiveOutput(this.ctx)) {
+          await paginateOutput(renderMarkdown(combined, this.ctx.color), true);
+        } else {
+          console.log(combined);
+        }
+        return;
+      }
       const requestedKind = parseKindOption(options.kind);
       const kinds = requestedKind ? [requestedKind] : RESOLVABLE_KINDS;
       const serveCtx = await loadServeContext(tbdRoot);

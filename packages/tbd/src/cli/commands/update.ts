@@ -91,7 +91,11 @@ class UpdateHandler extends BaseCommand {
               loneMissing = true;
               return;
             }
-            throw new NotFoundError('Issue', id);
+            throw new NotFoundError(
+              'Issue',
+              id,
+              issueNotFoundHint([id], mapping, config.display.id_prefix),
+            );
           }
 
           // Load existing issue. Only a genuinely absent file counts as
