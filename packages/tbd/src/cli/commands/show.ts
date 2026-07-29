@@ -268,7 +268,13 @@ class ShowHandler extends BaseCommand {
       } catch (error) {
         if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
         if (!options.ignoreMissing) {
-          throw new NotFoundError('Issue', input);
+          // The ID resolved, so a did-you-mean would just suggest the input
+          // back to itself; point at repository health instead.
+          throw new NotFoundError(
+            'Issue',
+            input,
+            'The ID resolves but its issue file is missing — run `tbd doctor` to check repository health.',
+          );
         }
         unreadable.push(input);
       }

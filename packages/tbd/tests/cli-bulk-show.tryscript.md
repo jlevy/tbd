@@ -223,3 +223,21 @@ $ tbd show $(cat a.txt) $(cat b.txt) --max-lines 3 | grep -c "^── test-"
 2
 ? 0
 ```
+
+* * *
+
+## Stale mapping
+
+# Test: A mapped ID whose file is gone points at doctor, not a self-suggestion
+
+```console
+$ rm "$(grep -rl "title: Show C standalone" .git/tbd/data-sync-worktree/.tbd/data-sync/issues/)"
+? 0
+```
+
+```console
+$ tbd show $(cat c.txt) $(cat a.txt) 2>&1
+Error: Issue not found: test-[SHORTID]
+The ID resolves but its issue file is missing — run `tbd doctor` to check repository health.
+? 1
+```

@@ -150,6 +150,14 @@ Error: Doc not found: no-such-doc-xyz (run `tbd docs list` to see names)
 ? 1
 ```
 
+# Test: Duplicate names in a docs show batch render once
+
+```console
+$ tbd docs show general-coding-rules general-coding-rules | grep -c "^title:"
+1
+? 0
+```
+
 # Test: Section navigation stays single-doc (usage error with several names)
 
 ```console

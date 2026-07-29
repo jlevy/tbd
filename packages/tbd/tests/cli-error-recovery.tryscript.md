@@ -92,6 +92,15 @@ Did you mean: test-[SHORTID]? (`tbd search <text>` finds issues by content or ID
 ? 1
 ```
 
+# Test: The hint appears on create --depends-on
+
+```console
+$ tbd create "Never born" --depends-on "$(cat a.txt)x" 2>&1
+Error: Invalid --depends-on ID: test-[SHORTID]x
+Did you mean: test-[SHORTID]? (`tbd search <text>` finds issues by content or ID)
+? 2
+```
+
 # Test: A distant garbage ID keeps the plain error (no wrong guesses)
 
 ```console

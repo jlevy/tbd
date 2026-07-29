@@ -300,7 +300,11 @@ class DocsShowHandler extends BaseCommand {
       const resolvedDocs: ResolvedManagedDoc[] = [];
       const misses: string[] = [];
       const seenPaths = new Set<string>();
+      const seenNames = new Set<string>();
       for (const name of names) {
+        // Bundled root docs carry no path, so dedupe by name as well.
+        if (seenNames.has(name)) continue;
+        seenNames.add(name);
         const matches: ResolvedManagedDoc[] = [];
         for (const kind of kinds) {
           const hit = caches.get(kind)!.get(name);

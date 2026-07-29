@@ -25,6 +25,7 @@ import { validateIssueTitle } from '../lib/issue-input-validation.js';
 import { withDataSyncContext, notifyWorktreeRepaired } from '../lib/data-context.js';
 import { resolveBodyInput } from '../lib/body-input.js';
 import { applyDependencyWrites, type DependencyWriteOutcome } from '../lib/bulk.js';
+import { issueNotFoundHint } from '../lib/id-suggestions.js';
 
 interface CreateOptions {
   fromFile?: string;
@@ -160,7 +161,10 @@ class CreateHandler extends BaseCommand {
               }
             }
             if (missing.length > 0) {
-              throw new ValidationError(`Invalid --depends-on ID: ${missing.join(', ')}`);
+              const hint = issueNotFoundHint(missing, mapping, config.display.id_prefix);
+              throw new ValidationError(
+                `Invalid --depends-on ID: ${missing.join(', ')}${hint ? `\n${hint}` : ''}`,
+              );
             }
           }
 

@@ -56,34 +56,40 @@ describe('applyDependencyWrites', () => {
     await rm(dataSyncDir, { recursive: true, force: true });
   });
 
-  it('captures a write failure after an earlier success as a per-target outcome', async () => {
-    // Make the second blocker's issue path an occupied directory so its
-    // atomic rename fails while the first write succeeds.
-    await mkdir(join(dataSyncDir, 'issues', `${ID_B}.md`, 'occupied'), { recursive: true });
+  // On Windows, atomically's EPERM retry loop on rename-over-directory spins
+  // past the test timeout, so the injection technique is POSIX-only; the
+  // reporting contract itself is platform-independent.
+  it.skipIf(process.platform === 'win32')(
+    'captures a write failure after an earlier success as a per-target outcome',
+    async () => {
+      // Make the second blocker's issue path an occupied directory so its
+      // atomic rename fails while the first write succeeds.
+      await mkdir(join(dataSyncDir, 'issues', `${ID_B}.md`, 'occupied'), { recursive: true });
 
-    const blockers = [
-      { internalId: ID_A, issue: issueOf(ID_A, 'Blocker A') },
-      { internalId: ID_B, issue: issueOf(ID_B, 'Blocker B') },
-    ];
-    const outcome = await applyDependencyWrites(
-      dataSyncDir,
-      blockers,
-      (internalId) => internalId,
-      (issue) => {
-        issue.dependencies.push({ type: 'blocks', target: TARGET });
-        return 'changed';
-      },
-    );
+      const blockers = [
+        { internalId: ID_A, issue: issueOf(ID_A, 'Blocker A') },
+        { internalId: ID_B, issue: issueOf(ID_B, 'Blocker B') },
+      ];
+      const outcome = await applyDependencyWrites(
+        dataSyncDir,
+        blockers,
+        (internalId) => internalId,
+        (issue) => {
+          issue.dependencies.push({ type: 'blocks', target: TARGET });
+          return 'changed';
+        },
+      );
 
-    expect(outcome.changed).toEqual([ID_A]);
-    expect(outcome.failed).toHaveLength(1);
-    expect(outcome.failed[0]!.id).toBe(ID_B);
-    expect(outcome.failed[0]!.message).toBeTruthy();
+      expect(outcome.changed).toEqual([ID_A]);
+      expect(outcome.failed).toHaveLength(1);
+      expect(outcome.failed[0]!.id).toBe(ID_B);
+      expect(outcome.failed[0]!.message).toBeTruthy();
 
-    // The successful edge is durable — exactly what the error report claims.
-    const written = await readIssue(dataSyncDir, ID_A);
-    expect(written.dependencies).toEqual([{ type: 'blocks', target: TARGET }]);
-  });
+      // The successful edge is durable — exactly what the error report claims.
+      const written = await readIssue(dataSyncDir, ID_A);
+      expect(written.dependencies).toEqual([{ type: 'blocks', target: TARGET }]);
+    },
+  );
 
   it('counts unchanged targets without writing them', async () => {
     const blockers = [{ internalId: ID_A, issue: issueOf(ID_A, 'Blocker A') }];
