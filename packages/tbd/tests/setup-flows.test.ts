@@ -893,5 +893,28 @@ describe('setup flows', { timeout: setupFlowTestTimeout }, () => {
 
       expect(installed).toBe(bundled);
     });
+
+    it('refreshes stale ensure-gh-cli.sh copies on re-run (upgrade path)', async () => {
+      // A repo that installed the script with an older tbd must get the current
+      // bundled script when `tbd setup --auto` runs again after an upgrade.
+      // Regression guard for jlevy/tbd#195: a stale downstream copy of this
+      // script confirmed a wrong "gh cannot work here" conclusion.
+      initGitRepo();
+      runTbd(['setup', '--auto', '--prefix=test']);
+
+      const claudeScript = join(tempDir, '.claude', 'scripts', 'ensure-gh-cli.sh');
+      const codexScript = join(tempDir, '.codex', 'ensure-gh-cli.sh');
+      const stale = '#!/bin/bash\n# stale pre-upgrade ensure-gh-cli.sh\n';
+      await writeFile(claudeScript, stale);
+      await writeFile(codexScript, stale);
+
+      const result = runTbd(['setup', '--auto']);
+      expect(result.status).toBe(0);
+
+      const bundledPath = join(__dirname, '..', 'docs', 'install', 'ensure-gh-cli.sh');
+      const bundled = await readFile(bundledPath, 'utf-8');
+      expect(await readFile(claudeScript, 'utf-8')).toBe(bundled);
+      expect(await readFile(codexScript, 'utf-8')).toBe(bundled);
+    });
   });
 });

@@ -144,6 +144,10 @@ working branch. See `tbd guidelines tbd-sync-troubleshooting` for details.
 
 **Work is not done until pushed, CI passes, and tbd is synced.**
 
+**Remote/proxied session where GitHub seems blocked?** If the environment has egress,
+`gh` works through a scoped `NO_PROXY` bypass — run `tbd shortcut setup-github-cli` and
+follow “Proxied Remote Sessions” before concluding gh is unavailable.
+
 ## Bead Tracking Rules
 
 - Track all task work not done immediately as beads (discovered work, TODOs,

@@ -155,6 +155,9 @@ if [ -n "${GH_TOKEN:-}" ]; then
             echo "[gh] (keep HTTPS_PROXY set; never disable TLS verification):"
             echo '[gh]   export NO_PROXY="'"${GITHUB_DIRECT_HOSTS}"'${NO_PROXY:+,$NO_PROXY}"'
             echo '[gh]   export no_proxy="$NO_PROXY"'
+            echo "[gh] Agent harnesses often reset shell state between tool calls; if the"
+            echo "[gh] exports do not stick, prefix each command instead:"
+            echo '[gh]   NO_PROXY="'"${GITHUB_DIRECT_HOSTS}"'" no_proxy="'"${GITHUB_DIRECT_HOSTS}"'" gh <command>'
             echo "[gh] Details: tbd shortcut setup-github-cli (Proxied Remote Sessions)"
         else
             echo "[gh] WARNING: GH_TOKEN is set but could not be verified on any channel"
