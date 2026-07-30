@@ -11,7 +11,9 @@ describe('formatZodError', () => {
     const schema = z.object({ title: z.string().min(1) });
     const result = schema.safeParse({ title: '' });
     expect(result.success).toBe(false);
-    if (result.success) return;
+    if (result.success) {
+      return;
+    }
 
     const formatted = formatZodError(result.error);
     expect(formatted).toContain('title:');
@@ -21,7 +23,9 @@ describe('formatZodError', () => {
     const schema = z.string().min(5);
     const result = schema.safeParse('hi');
     expect(result.success).toBe(false);
-    if (result.success) return;
+    if (result.success) {
+      return;
+    }
 
     const formatted = formatZodError(result.error);
     expect(formatted).toMatch(/^<root>:/);
@@ -31,7 +35,9 @@ describe('formatZodError', () => {
     const schema = z.object({ a: z.string(), b: z.number() });
     const result = schema.safeParse({ a: 1, b: 'oops' });
     expect(result.success).toBe(false);
-    if (result.success) return;
+    if (result.success) {
+      return;
+    }
 
     const formatted = formatZodError(result.error);
     expect(formatted).toContain('a:');
@@ -43,7 +49,9 @@ describe('formatZodError', () => {
     const schema = z.object({ outer: z.object({ inner: z.string() }) });
     const result = schema.safeParse({ outer: { inner: 5 } });
     expect(result.success).toBe(false);
-    if (result.success) return;
+    if (result.success) {
+      return;
+    }
 
     expect(formatZodError(result.error)).toContain('outer.inner:');
   });
@@ -54,7 +62,9 @@ describe('formatUnknownError', () => {
     const schema = z.string().max(3);
     const result = schema.safeParse('toolong');
     expect(result.success).toBe(false);
-    if (result.success) return;
+    if (result.success) {
+      return;
+    }
 
     expect(formatUnknownError(result.error)).toBe(formatZodError(result.error));
   });

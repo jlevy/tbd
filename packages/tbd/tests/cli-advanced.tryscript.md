@@ -509,25 +509,26 @@ Usage: tbd dep [options] [command]
 Manage issue dependencies
 
 Options:
-  -h, --help                   display help for command
+  -h, --help                      display help for command
 
 Global Options:
-  --version                    Show version number
-  --dry-run                    Show what would be done without making changes
-  --verbose                    Enable verbose output
-  --quiet                      Suppress non-essential output
-  --json                       Output as JSON
-  --color <when>               Colorize output: auto, always, never (default:
-                               "auto")
-  --debug                      Show internal IDs alongside public IDs for
-                               debugging
+  --version                       Show version number
+  --dry-run                       Show what would be done without making changes
+  --verbose                       Enable verbose output
+  --quiet                         Suppress non-essential output
+  --json                          Output as JSON
+  --color <when>                  Colorize output: auto, always, never (default:
+                                  "auto")
+  --debug                         Show internal IDs alongside public IDs for
+                                  debugging
 
 Commands:
-  add <issue> <depends-on>     Add dependency (issue depends on depends-on)
-  remove <issue> <depends-on>  Remove dependency (issue no longer depends on
-                               depends-on)
-  list <id>                    List dependencies for an issue
-  help [command]               display help for command
+  add <issue> <depends-on...>     Add dependencies (issue depends on each
+                                  depends-on)
+  remove <issue> <depends-on...>  Remove dependencies (issue no longer depends
+                                  on each depends-on)
+  list <id>                       List dependencies for an issue
+  help [command]                  display help for command
 
 IMPORTANT:
   Agents unfamiliar with tbd should run `tbd prime` for full workflow context.

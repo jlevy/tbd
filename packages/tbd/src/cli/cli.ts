@@ -131,7 +131,38 @@ function createProgram(): Command {
   // unlike command() which does inherit. So we must apply manually.
   applyColoredHelpToAllCommands(program);
 
+  // Same for output configuration: append redirection tips to
+  // argument-overflow errors everywhere.
+  applyArgumentOverflowTips(program);
+
   return program;
+}
+
+/**
+ * Redirection tips appended to Commander's "too many arguments" error for
+ * single-target commands agents commonly try to batch. Variadic commands
+ * (show, close, guidelines, ...) never overflow, so the map stays short.
+ */
+const ARGUMENT_OVERFLOW_TIPS: Record<string, string> = {
+  create:
+    'tip: create takes one title; run one create per bead (--parent/--depends-on wire it in the same call)',
+};
+
+/**
+ * Append per-command tips to argument-overflow errors, recursively (output
+ * configuration, like help configuration, is not inherited via addCommand).
+ */
+function applyArgumentOverflowTips(command: Command): void {
+  command.configureOutput({
+    writeErr: (str: string) => {
+      const match = /too many arguments for '([\w-]+)'/.exec(str);
+      const tip = match ? ARGUMENT_OVERFLOW_TIPS[match[1]!] : undefined;
+      process.stderr.write(tip ? `${str}${tip}\n` : str);
+    },
+  });
+  for (const sub of command.commands) {
+    applyArgumentOverflowTips(sub);
+  }
 }
 
 /**

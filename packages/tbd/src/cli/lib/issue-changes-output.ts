@@ -4,7 +4,9 @@ import type { IssueChangesReport } from '../../lib/issue-changes.js';
 import type { createColors } from './output.js';
 
 function formatValue(value: unknown): string {
-  if (typeof value === 'string') return value;
+  if (typeof value === 'string') {
+    return value;
+  }
   return JSON.stringify(value);
 }
 

@@ -234,9 +234,15 @@ export function compareVersions(a: GitVersion, b: string): number {
   const bMinor = parseInt(parts[1] ?? '0', 10);
   const bPatch = parseInt(parts[2] ?? '0', 10);
 
-  if (a.major !== bMajor) return a.major < bMajor ? -1 : 1;
-  if (a.minor !== bMinor) return a.minor < bMinor ? -1 : 1;
-  if (a.patch !== bPatch) return a.patch < bPatch ? -1 : 1;
+  if (a.major !== bMajor) {
+    return a.major < bMajor ? -1 : 1;
+  }
+  if (a.minor !== bMinor) {
+    return a.minor < bMinor ? -1 : 1;
+  }
+  if (a.patch !== bPatch) {
+    return a.patch < bPatch ? -1 : 1;
+  }
   return 0;
 }
 
@@ -445,8 +451,12 @@ const METADATA_ONLY_FIELDS: ReadonlySet<keyof Issue> = new Set(['version', 'upda
  */
 export function issuesSubstantivelyEqual(a: Issue, b: Issue): boolean {
   for (const key of Object.keys(FIELD_STRATEGIES) as (keyof Issue)[]) {
-    if (METADATA_ONLY_FIELDS.has(key)) continue;
-    if (!deepEqual(a[key], b[key])) return false;
+    if (METADATA_ONLY_FIELDS.has(key)) {
+      continue;
+    }
+    if (!deepEqual(a[key], b[key])) {
+      return false;
+    }
   }
   return true;
 }
@@ -455,19 +465,29 @@ export function issuesSubstantivelyEqual(a: Issue, b: Issue): boolean {
  * Deep equality check for values.
  */
 export function deepEqual(a: unknown, b: unknown): boolean {
-  if (a === b) return true;
-  if (a === null || b === null) return a === b;
-  if (typeof a !== typeof b) return false;
+  if (a === b) {
+    return true;
+  }
+  if (a === null || b === null) {
+    return a === b;
+  }
+  if (typeof a !== typeof b) {
+    return false;
+  }
 
   if (Array.isArray(a) && Array.isArray(b)) {
-    if (a.length !== b.length) return false;
+    if (a.length !== b.length) {
+      return false;
+    }
     return a.every((item, i) => deepEqual(item, b[i]));
   }
 
   if (typeof a === 'object' && typeof b === 'object') {
     const aKeys = Object.keys(a);
     const bKeys = Object.keys(b);
-    if (aKeys.length !== bKeys.length) return false;
+    if (aKeys.length !== bKeys.length) {
+      return false;
+    }
     return aKeys.every((key) =>
       deepEqual((a as Record<string, unknown>)[key], (b as Record<string, unknown>)[key]),
     );
@@ -1171,7 +1191,9 @@ async function listLegacyWorktreePaths(
   try {
     const worktreeList = await git('-C', baseDir, 'worktree', 'list', '--porcelain');
     for (const line of worktreeList.split('\n')) {
-      if (!line.startsWith('worktree ')) continue;
+      if (!line.startsWith('worktree ')) {
+        continue;
+      }
       const worktreePath = line.slice('worktree '.length);
       if (isLegacyDataSyncWorktreePath(worktreePath, sharedWorktreePath)) {
         paths.add(worktreePath);
@@ -1830,7 +1852,9 @@ export async function mergeBeadAcrossRefs(
   try {
     theirsContent = await git('-C', repoDir, 'show', `${theirsRef}:${path}`);
   } catch (err) {
-    if (err instanceof GitError) return null; // bead absent on the other side
+    if (err instanceof GitError) {
+      return null;
+    } // bead absent on the other side
     throw err;
   }
   const theirs = parseIssue(theirsContent);
@@ -1841,7 +1865,9 @@ export async function mergeBeadAcrossRefs(
   } catch (err) {
     // Exit 1 = the refs share no common ancestor (unrelated histories); any
     // other exit status is a real failure and must propagate.
-    if (exitCodeOf(err) !== 1) throw err;
+    if (exitCodeOf(err) !== 1) {
+      throw err;
+    }
   }
 
   let base: Issue | null = null;
@@ -1852,9 +1878,13 @@ export async function mergeBeadAcrossRefs(
     } catch (err) {
       // Bead added independently on both sides (absent at the ancestor); no
       // base. A non-git error is unexpected and must propagate.
-      if (!(err instanceof GitError)) throw err;
+      if (!(err instanceof GitError)) {
+        throw err;
+      }
     }
-    if (baseContent !== null) base = parseIssue(baseContent);
+    if (baseContent !== null) {
+      base = parseIssue(baseContent);
+    }
   }
 
   return mergeIssues(base, ours, theirs);

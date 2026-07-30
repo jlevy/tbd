@@ -49,7 +49,8 @@ Every session must end with tbd in a clean state:
 - `tbd ready` - Show issues ready to work (no blockers)
 - `tbd list --status open` - All open issues
 - `tbd list --status in_progress` - Your active work
-- `tbd show <id>` - Detailed issue view with dependencies
+- `tbd show <id1> [<id2> …]` - Detailed issue view with dependencies (several in one
+  call; `--max-lines <n>` caps output per issue)
   - Auto-displays parent context for child issues (use `--no-parent` to suppress)
 
 ### Creating and Updating
@@ -63,14 +64,18 @@ Every session must end with tbd in a clean state:
 - `tbd close <id> --reason "explanation"` - Close with reason
 - `tbd close <id1> <id2> <id3> --reason "..."` - Close several at once (preferred)
 - `tbd update <id1> <id2> <id3> --priority 1` - Bulk-update shared fields
-- **IMPORTANT**: `close`, `reopen`, and `update` take multiple IDs — never shell-loop
-  over single-ID calls (`for id in …; do tbd close $id; done`). A bulk call shares one
-  reason/field-set, so group beads by shared mutation and make one call per group
+- **IMPORTANT**: `show`, `close`, `reopen`, and `update` take multiple IDs, and
+  `guidelines`/`shortcut`/`template` take multiple names.
+  Never shell-loop over single-target calls (`for id in …; do tbd close $id; done`) and
+  never pipe to `head` (`tbd show --max-lines <n>`) or `grep` for IDs
+  (`tbd search <partial-id>`). A bulk call shares one reason/field-set, so group beads
+  by shared mutation and make one call per group
 - **Tip**: When creating multiple issues, use parallel subagents for efficiency
 
 ### Dependencies and Blocking
 
-- `tbd dep add <issue> <depends-on>` - Add dependency (issue depends on depends-on)
+- `tbd dep add <issue> <depends-on...>` - Add dependencies (issue depends on each; one
+  call wires several blockers, or use `create --depends-on <id>` at creation)
 - `tbd blocked` - Show all blocked issues
 - `tbd show <id>` - See what’s blocking/blocked by this issue
 

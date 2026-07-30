@@ -324,7 +324,9 @@ describe('watchForIssueChanges Git safety', { timeout: 15_000 }, () => {
     });
 
     expect(result.kind).toBe('changed');
-    if (result.kind === 'changed') expect(result.report.tip).toBe(remoteTip);
+    if (result.kind === 'changed') {
+      expect(result.report.tip).toBe(remoteTip);
+    }
     expect(await git(repoDir, 'rev-parse', 'refs/heads/tbd-sync')).toBe(localSyncBefore);
     expect(
       await git(repoDir, 'rev-parse', '--verify', 'refs/remotes/origin/tbd-sync').catch(() => null),

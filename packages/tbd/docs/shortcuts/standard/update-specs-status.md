@@ -86,8 +86,8 @@ from the top-level work index, the plan specs, and tbd beads.
 ## Useful Checks
 
 ```bash
+tbd list --specs
 tbd list --json
-tbd list --json | jq -r '.[] | [.id, .status, .title, (.spec_path // "")] | @tsv'
 tbd shortcut --list
 ```
 

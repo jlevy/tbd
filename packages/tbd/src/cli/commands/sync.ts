@@ -293,7 +293,9 @@ class SyncHandler extends BaseCommand {
       const status = await git('-C', this.worktreePath, 'status', '--porcelain');
       if (status) {
         for (const line of status.split('\n')) {
-          if (!line) continue;
+          if (!line) {
+            continue;
+          }
           const statusCode = line.slice(0, 2).trim();
           const file = line.slice(3);
           if (statusCode === 'M') {
@@ -527,7 +529,9 @@ class SyncHandler extends BaseCommand {
       }
     } catch (error) {
       spinner.stop();
-      if (error instanceof SyncError) throw error;
+      if (error instanceof SyncError) {
+        throw error;
+      }
       throw new SyncError(`Failed to push: ${(error as Error).message}`);
     }
   }

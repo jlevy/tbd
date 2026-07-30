@@ -21,22 +21,34 @@ const defaultCompare: Comparator<any> = (a, b) => {
   if (typeof a === 'string' && typeof b === 'string') {
     return a.localeCompare(b);
   }
-  if (a < b) return -1;
-  if (a > b) return 1;
+  if (a < b) {
+    return -1;
+  }
+  if (a > b) {
+    return 1;
+  }
   return 0;
 };
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const nullLastCompare: Comparator<any> = (a, b) => {
-  if (a == null) return b == null ? 0 : 1;
-  if (b == null) return -1;
+  if (a == null) {
+    return b == null ? 0 : 1;
+  }
+  if (b == null) {
+    return -1;
+  }
   return defaultCompare(a, b);
 };
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const nullFirstCompare: Comparator<any> = (a, b) => {
-  if (a == null) return b == null ? 0 : -1;
-  if (b == null) return 1;
+  if (a == null) {
+    return b == null ? 0 : -1;
+  }
+  if (b == null) {
+    return 1;
+  }
   return defaultCompare(a, b);
 };
 
@@ -89,8 +101,12 @@ const manualOrderComparator = <T>(order: readonly T[]): Comparator<T> => {
     const indexB = orderMap.get(b);
 
     // Values not in the manually ordered array go at the end.
-    if (indexA === undefined) return indexB === undefined ? 0 : 1;
-    if (indexB === undefined) return -1;
+    if (indexA === undefined) {
+      return indexB === undefined ? 0 : 1;
+    }
+    if (indexB === undefined) {
+      return -1;
+    }
 
     return indexA - indexB;
   };

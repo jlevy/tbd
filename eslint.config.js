@@ -59,12 +59,6 @@ export default [
   {
     files: ['**/*.ts', '**/*.tsx'],
     rules: {
-      // === Code Style ===
-      // Enforce curly braces for all control statements (prevents bugs)
-      curly: ['error', 'all'],
-      // Consistent brace style: opening on same line, closing on new line
-      'brace-style': ['error', '1tbs', { allowSingleLine: false }],
-
       // === Unused Variables ===
       // Allow underscore prefix for intentionally unused vars/args
       '@typescript-eslint/no-unused-vars': [
@@ -188,4 +182,14 @@ export default [
 
   // Prettier config must be LAST to override conflicting rules
   prettier,
+
+  // Rules that eslint-config-prettier turns off but that are safe alongside
+  // Prettier, so they must be re-asserted after it. With the 'all' option,
+  // curly only adds braces; Prettier then owns their formatting (which is why
+  // there is no brace-style rule here).
+  {
+    rules: {
+      curly: ['error', 'all'],
+    },
+  },
 ];

@@ -272,7 +272,9 @@ export function isDocRef(input: string): boolean {
  * or owners. Useful for de-duping config entries.
  */
 export function docRefsEqual(a: DocRef, b: DocRef): boolean {
-  if (a.kind !== b.kind) return false;
+  if (a.kind !== b.kind) {
+    return false;
+  }
   if (a.kind === 'local' && b.kind === 'local') {
     return tidyLocal(a.path) === tidyLocal(b.path);
   }

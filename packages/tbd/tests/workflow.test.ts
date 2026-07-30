@@ -100,8 +100,12 @@ describe('ready command logic', () => {
 
     // Filter for ready issues using same logic as command
     const readyIssues = issues.filter((issue) => {
-      if (issue.status !== 'open') return false;
-      if (issue.assignee) return false;
+      if (issue.status !== 'open') {
+        return false;
+      }
+      if (issue.assignee) {
+        return false;
+      }
       const blockers = blockedByMap.get(issue.id) ?? [];
       const hasUnresolvedBlocker = blockers.some((blockerId) => {
         const blocker = issueMap.get(blockerId);
@@ -167,8 +171,12 @@ describe('ready command logic', () => {
     const issueMap = new Map(issues.map((i) => [i.id, i]));
 
     const readyIssues = issues.filter((issue) => {
-      if (issue.status !== 'open') return false;
-      if (issue.assignee) return false;
+      if (issue.status !== 'open') {
+        return false;
+      }
+      if (issue.assignee) {
+        return false;
+      }
       // Check if any other issue blocks this one
       const blockers = blockedByMap.get(issue.id) ?? [];
       const hasUnresolvedBlocker = blockers.some((blockerIdInner) => {
@@ -401,7 +409,9 @@ describe('stale command logic', () => {
 
     // Filter to only open issues (default behavior)
     const staleOpen = issues.filter((issue) => {
-      if (issue.status !== 'open' && issue.status !== 'in_progress') return false;
+      if (issue.status !== 'open' && issue.status !== 'in_progress') {
+        return false;
+      }
       const updatedAt = new Date(issue.updated_at);
       const daysSinceUpdate = Math.floor((now.getTime() - updatedAt.getTime()) / msPerDay);
       return daysSinceUpdate >= daysThreshold;

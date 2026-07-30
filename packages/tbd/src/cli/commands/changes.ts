@@ -30,7 +30,9 @@ class ChangesHandler extends BaseCommand {
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       const wrapped = new CLIError(message);
-      if (error instanceof Error) wrapped.cause = error;
+      if (error instanceof Error) {
+        wrapped.cause = error;
+      }
       throw wrapped;
     }
 
@@ -39,7 +41,9 @@ class ChangesHandler extends BaseCommand {
         console.log(formatIssueChangesReport(report, this.output.getColors()));
       });
     }
-    if (report.changes.length === 0) process.exitCode = 3;
+    if (report.changes.length === 0) {
+      process.exitCode = 3;
+    }
   }
 }
 

@@ -72,7 +72,9 @@ export async function removeStaleWatchRefs(
   const output = await git('-C', repoDir, 'for-each-ref', '--format=%(refname)', 'refs/tbd/watch/');
   for (const ref of output.split('\n').filter(Boolean)) {
     const match = /^refs\/tbd\/watch\/(\d+)-/.exec(ref);
-    if (!match) continue;
+    if (!match) {
+      continue;
+    }
     const pid = Number(match[1]);
     if (Number.isSafeInteger(pid) && pid > 0 && !processIsAlive(pid)) {
       await git('-C', repoDir, 'update-ref', '-d', ref);
@@ -89,7 +91,9 @@ function createGitWatchDependencies(options: IssueWatchOptions): IssueWatchDepen
     validateSelection: async () => {
       // A --since report validates against the union of both endpoints immediately,
       // which permits watching a bead deleted after that baseline.
-      if (options.since !== null) return;
+      if (options.since !== null) {
+        return;
+      }
       await validateBeadSelectionAtRef(
         options.repoDir,
         `refs/heads/${options.branch}`,
@@ -169,25 +173,37 @@ export async function watchForIssueChanges(
       const comparisonTip =
         options.since === observedTip ? observedTip : await dependencies.fetchRemoteTip();
       const report = await dependencies.createReport(baseline, comparisonTip);
-      if (report.changes.length > 0) return { kind: 'changed', report };
+      if (report.changes.length > 0) {
+        return { kind: 'changed', report };
+      }
       baseline = report.tip;
       observedTip = comparisonTip;
     }
 
     while (true) {
       const remaining = deadline === null ? options.intervalMs : deadline - dependencies.now();
-      if (remaining <= 0) return { kind: 'timeout' };
+      if (remaining <= 0) {
+        return { kind: 'timeout' };
+      }
       await dependencies.sleep(Math.min(options.intervalMs, remaining));
-      if (deadline !== null && dependencies.now() >= deadline) return { kind: 'timeout' };
+      if (deadline !== null && dependencies.now() >= deadline) {
+        return { kind: 'timeout' };
+      }
 
       const nextObservedTip = await dependencies.getRemoteTip();
-      if (nextObservedTip === observedTip) continue;
+      if (nextObservedTip === observedTip) {
+        continue;
+      }
 
       const fetchedTip = await dependencies.fetchRemoteTip();
       observedTip = fetchedTip;
-      if (fetchedTip === baseline) continue;
+      if (fetchedTip === baseline) {
+        continue;
+      }
       const report = await dependencies.createReport(baseline, fetchedTip);
-      if (report.changes.length > 0) return { kind: 'changed', report };
+      if (report.changes.length > 0) {
+        return { kind: 'changed', report };
+      }
       baseline = report.tip;
     }
   } finally {

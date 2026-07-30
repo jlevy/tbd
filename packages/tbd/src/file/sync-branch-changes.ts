@@ -46,7 +46,9 @@ function parseBatchOutput(objectIds: readonly string[], output: Buffer): Map<str
   let offset = 0;
   for (const objectId of objectIds) {
     const headerEnd = output.indexOf(0x0a, offset);
-    if (headerEnd < 0) throw new Error(`Invalid git cat-file response for ${objectId}`);
+    if (headerEnd < 0) {
+      throw new Error(`Invalid git cat-file response for ${objectId}`);
+    }
     const header = output.subarray(offset, headerEnd).toString('utf8');
     const match = /^([0-9a-f]{40,64}) blob (\d+)$/.exec(header);
     if (match?.[1] !== objectId) {
@@ -61,7 +63,9 @@ function parseBatchOutput(objectIds: readonly string[], output: Buffer): Map<str
     contents.set(objectId, output.subarray(contentStart, contentEnd).toString('utf8'));
     offset = contentEnd + 1;
   }
-  if (offset !== output.length) throw new Error('Unexpected trailing git cat-file output');
+  if (offset !== output.length) {
+    throw new Error('Unexpected trailing git cat-file output');
+  }
   return contents;
 }
 
@@ -71,7 +75,9 @@ export async function readGitObjects(
   requestedObjectIds: readonly string[],
 ): Promise<ReadonlyMap<string, string>> {
   const objectIds = Array.from(new Set(requestedObjectIds));
-  if (objectIds.length === 0) return new Map();
+  if (objectIds.length === 0) {
+    return new Map();
+  }
 
   return new Promise((resolve, reject) => {
     const args = ['-C', repoDir, 'cat-file', '--batch'];
@@ -82,7 +88,9 @@ export async function readGitObjects(
     let settled = false;
 
     const fail = (error: Error): void => {
-      if (settled) return;
+      if (settled) {
+        return;
+      }
       settled = true;
       reject(error);
     };
@@ -101,7 +109,9 @@ export async function readGitObjects(
       fail(error);
     });
     child.on('close', (code) => {
-      if (settled) return;
+      if (settled) {
+        return;
+      }
       if (code !== 0) {
         const stderr = Buffer.concat(stderrChunks).toString('utf8').trim();
         fail(new Error(`git cat-file --batch failed${stderr ? `: ${stderr}` : ''}`));
@@ -198,7 +208,9 @@ async function readSnapshot(
     let issue;
     try {
       const content = objectContents.get(objectId);
-      if (content === undefined) throw new Error(`missing blob ${objectId}`);
+      if (content === undefined) {
+        throw new Error(`missing blob ${objectId}`);
+      }
       issue = parseIssue(content);
     } catch (error) {
       throw new Error(`Invalid issue at ${ref}:${path}`, { cause: error });
@@ -220,7 +232,9 @@ async function readSnapshot(
 
   try {
     const mappingContent = objectContents.get(mappingEntry.objectId);
-    if (mappingContent === undefined) throw new Error(`missing blob ${mappingEntry.objectId}`);
+    if (mappingContent === undefined) {
+      throw new Error(`missing blob ${mappingEntry.objectId}`);
+    }
     const mapping = parseIdMappingFromYaml(mappingContent);
     const snapshot = {
       issues,
@@ -259,7 +273,9 @@ export async function validateBeadSelectionAtRef(
   ref: string,
   selection: IssueChangeSelection,
 ): Promise<void> {
-  if (selection.kind !== 'beads') return;
+  if (selection.kind !== 'beads') {
+    return;
+  }
   validateIssueChangeSelection(await readIssueSnapshotFromRef(repoDir, ref), selection);
 }
 

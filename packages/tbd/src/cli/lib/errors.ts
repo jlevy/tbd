@@ -59,11 +59,12 @@ export class NotInitializedError extends CLIError {
 }
 
 /**
- * Entity not found error (issue, config, etc.).
+ * Entity not found error (issue, config, etc.). The optional hint (e.g. a
+ * did-you-mean suggestion) is appended on its own line.
  */
 export class NotFoundError extends CLIError {
-  constructor(entityType: string, id: string) {
-    super(`${entityType} not found: ${id}`, 1);
+  constructor(entityType: string, id: string, hint?: string) {
+    super(`${entityType} not found: ${id}${hint ? `\n${hint}` : ''}`, 1);
     this.name = 'NotFoundError';
   }
 }
@@ -149,7 +150,9 @@ export function classifySyncError(error: Error | string): SyncErrorType {
   ];
 
   for (const pattern of permanentPatterns) {
-    if (pattern.test(lower)) return 'permanent';
+    if (pattern.test(lower)) {
+      return 'permanent';
+    }
   }
 
   // Transient indicators - likely temporary, should retry
@@ -170,7 +173,9 @@ export function classifySyncError(error: Error | string): SyncErrorType {
   ];
 
   for (const pattern of transientPatterns) {
-    if (pattern.test(lower)) return 'transient';
+    if (pattern.test(lower)) {
+      return 'transient';
+    }
   }
 
   return 'unknown';

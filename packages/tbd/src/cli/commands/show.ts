@@ -1,19 +1,29 @@
 /**
  * `tbd show` - Show issue details.
  *
- * See: tbd-design.md §4.4 Show
+ * A single ID preserves the legacy output exactly (including automatic parent
+ * context). Two or more IDs are a bulk read: each issue renders under a dim
+ * `── <id> ──` delimiter in argument order (duplicates deduped), parent
+ * context is suppressed, `--max-lines` applies per issue, and `--json` emits
+ * an array. Unknown IDs fail closed unless `--ignore-missing` downgrades them
+ * to a stderr note.
+ *
+ * See: tbd-design.md §4.4 Show and
+ * docs/project/specs/active/plan-2026-07-28-agent-cli-bash-fallbacks.md
  */
 
 import { Command } from 'commander';
 
 import { BaseCommand } from '../lib/base-command.js';
 import { NotFoundError } from '../lib/errors.js';
-import { loadFullContext } from '../lib/data-context.js';
+import { loadFullContext, type FullCommandContext } from '../lib/data-context.js';
 import {
   formatDependencyDirectionComments,
   getDependencyDirections,
   type DependencyDirections,
 } from '../lib/dependency-format.js';
+import { resolveAllIds } from '../lib/bulk.js';
+import { issueNotFoundHint } from '../lib/id-suggestions.js';
 import { readIssue, listIssues } from '../../file/storage.js';
 import { serializeIssue } from '../../file/parser.js';
 import { formatPriority, getPriorityColor } from '../../lib/priority.js';
@@ -26,6 +36,7 @@ interface ShowOptions {
   showOrder?: boolean;
   parent?: boolean; // Commander: --no-parent sets this to false (default: true)
   maxLines?: string;
+  ignoreMissing?: boolean;
 }
 
 /**
@@ -103,18 +114,76 @@ function printWithTruncation(
   }
 }
 
+/** Print the child_order_hints block shown under `--show-order`. */
+function printOrderHints(
+  issue: Issue,
+  ctx: FullCommandContext,
+  colors: ReturnType<typeof createColors>,
+): void {
+  console.log('');
+  console.log(colors.dim('child_order_hints:'));
+  if (issue.child_order_hints && issue.child_order_hints.length > 0) {
+    for (const hintId of issue.child_order_hints) {
+      const shortId = ctx.displayId(hintId);
+      console.log(`  - ${colors.id(shortId)}`);
+    }
+  } else {
+    console.log(`  ${colors.dim('(none)')}`);
+  }
+}
+
 class ShowHandler extends BaseCommand {
-  async run(id: string, command: Command, options: ShowOptions): Promise<void> {
+  async run(ids: string[], command: Command, options: ShowOptions): Promise<void> {
     // Load unified context with data and helpers
     const ctx = await loadFullContext(command);
+    if (ids.length === 1) {
+      await this.showSingle(ctx, ids[0]!, options);
+      return;
+    }
+    await this.showBulk(ctx, ids, options);
+  }
 
+  /**
+   * A single-ID read skipped by `--ignore-missing`: warn on stderr, and in
+   * JSON mode emit null so stdout stays parseable (the bulk path likewise
+   * always emits its found-subset array, and the mutators their summary).
+   */
+  private reportSingleSkip(id: string): void {
+    this.output.warn(`Not found: ${id}`);
+    this.output.data(null);
+  }
+
+  /** Legacy single-ID path: object `--json` shape and automatic parent context. */
+  private async showSingle(
+    ctx: FullCommandContext,
+    id: string,
+    options: ShowOptions,
+  ): Promise<void> {
     // Resolve input ID to internal ID using helper
-    const internalId = ctx.resolveId(id);
+    let internalId: string;
+    try {
+      internalId = ctx.resolveId(id);
+    } catch (error) {
+      if (options.ignoreMissing) {
+        this.reportSingleSkip(id);
+        return;
+      }
+      throw error;
+    }
 
     let issue;
     try {
       issue = await readIssue(ctx.dataSyncDir, internalId);
-    } catch {
+    } catch (error) {
+      // Only a genuinely absent file counts as missing; corrupt or unreadable
+      // files are repository problems and surface their real error.
+      if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
+        throw error;
+      }
+      if (options.ignoreMissing) {
+        this.reportSingleSkip(id);
+        return;
+      }
       throw new NotFoundError('Issue', id);
     }
 
@@ -174,28 +243,99 @@ class ShowHandler extends BaseCommand {
 
       // Show child_order_hints if --show-order is specified
       if (options.showOrder) {
-        console.log('');
-        console.log(colors.dim('child_order_hints:'));
-        if (issue.child_order_hints && issue.child_order_hints.length > 0) {
-          for (const hintId of issue.child_order_hints) {
-            const shortId = ctx.displayId(hintId);
-            console.log(`  - ${colors.id(shortId)}`);
-          }
-        } else {
-          console.log(`  ${colors.dim('(none)')}`);
-        }
+        printOrderHints(issue, ctx, colors);
       }
     });
+  }
+
+  /**
+   * Bulk read path (2+ IDs): validate-all-then-render with the same
+   * fail-closed / `--ignore-missing` contract as the bulk mutators, a dim
+   * delimiter per issue, per-issue `--max-lines`, and an array `--json` shape.
+   * Parent context is suppressed (siblings would repeat the same parent).
+   */
+  private async showBulk(
+    ctx: FullCommandContext,
+    ids: string[],
+    options: ShowOptions,
+  ): Promise<void> {
+    const { resolved, missing } = resolveAllIds(ids, ctx.mapping);
+    if (missing.length > 0 && !options.ignoreMissing) {
+      throw new NotFoundError(
+        'Issue',
+        missing.join(', '),
+        issueNotFoundHint(missing, ctx.mapping, ctx.prefix),
+      );
+    }
+
+    // Read everything before rendering anything, so a stale mapping aborts
+    // (or is reported) up front. Non-ENOENT failures are repository problems
+    // and always abort, even with --ignore-missing.
+    const loaded: { issue: Issue; displayId: string }[] = [];
+    const unreadable: string[] = [];
+    for (const { input, internalId } of resolved) {
+      try {
+        const issue = await readIssue(ctx.dataSyncDir, internalId);
+        loaded.push({ issue, displayId: ctx.displayId(issue.id) });
+      } catch (error) {
+        if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
+          throw error;
+        }
+        if (!options.ignoreMissing) {
+          // The ID resolved, so a did-you-mean would just suggest the input
+          // back to itself; point at repository health instead.
+          throw new NotFoundError(
+            'Issue',
+            input,
+            'The ID resolves but its issue file is missing; run `tbd doctor` to check repository health.',
+          );
+        }
+        unreadable.push(input);
+      }
+    }
+    const notFound = [...missing, ...unreadable];
+
+    const maxLines = options.maxLines ? parseInt(options.maxLines, 10) : undefined;
+    const allIssues = ctx.cli.json ? undefined : await listIssues(ctx.dataSyncDir);
+
+    const jsonIssues = loaded.map(({ issue, displayId }) => ({ ...issue, displayId }));
+    this.output.data(jsonIssues, () => {
+      const colors = this.output.getColors();
+      loaded.forEach(({ issue, displayId }, index) => {
+        if (index > 0) {
+          console.log('');
+        }
+        console.log(colors.dim(`── ${displayId} ──`));
+        const dependencyDirections = allIssues
+          ? getDependencyDirections(issue, allIssues, (dependencyId) => ctx.displayId(dependencyId))
+          : undefined;
+        printWithTruncation(
+          renderIssueLines(issue, colors, dependencyDirections),
+          colors,
+          maxLines,
+        );
+        if (options.showOrder) {
+          printOrderHints(issue, ctx, colors);
+        }
+      });
+    });
+
+    // Reported after the rendered subset so the note is the last thing an
+    // agent reads; stderr in both text and JSON modes, exit stays 0.
+    if (notFound.length > 0) {
+      this.output.warn(`Not found: ${notFound.join(' ')}`);
+    }
   }
 }
 
 export const showCommand = new Command('show')
-  .description('Show issue details')
-  .argument('<id>', 'Issue ID')
+  .description('Show details for one or more issues')
+  .argument('<ids...>', 'Issue ID(s)')
   .option('--show-order', 'Display children ordering hints')
   .option('--no-parent', 'Suppress automatic parent context display')
-  .option('--max-lines <n>', 'Truncate output to N lines')
-  .action(async (id, options, command) => {
+  .option('--max-lines <n>', 'Truncate output to N lines (per issue in bulk)')
+  .option('--ignore-missing', 'Skip unknown IDs instead of failing')
+  .action(async (ids, options, command) => {
     const handler = new ShowHandler(command);
-    await handler.run(id, command, options);
+    await handler.run(ids, command, options);
   });

@@ -32,6 +32,38 @@
 
 ## 0.4.1
 
+### Features
+
+- **Bulk `tbd show`**: `show` now takes multiple IDs.
+  Each issue renders under a dim `── <id> ──` delimiter in argument order, parent
+  context is suppressed in bulk, `--max-lines` applies per issue, and `--json` emits an
+  array (single-ID shapes are unchanged).
+  Unknown IDs fail closed listing every bad ID; `--ignore-missing` renders the found
+  subset and reports skips on stderr, with `--json` stdout staying parseable when
+  everything is skipped (`[]` in bulk, `null` for a lone ID).
+- **Doc readers load several docs in one call**: `guidelines`, `shortcut`, `template`,
+  and `docs show` all accept multiple names, resolving all-or-nothing (a typo can’t
+  half-load a guideline group) with the agent preamble printed once.
+  Loading the General-engineering group is now one command.
+- **Dependency wiring in one call**: `dep add`/`dep remove` take multiple blockers
+  (`tbd dep add <issue> <b1> <b2> …`), and `create --depends-on <id>` (repeatable)
+  declares blockers at creation, so a spec breakdown creates fully wired beads.
+  Multi-file dependency writes report per-target outcomes on failure: applied edges are
+  named and kept, the exact finishing command is given, and a `create` whose blocker
+  wiring fails still reveals the created ID so a retry cannot duplicate the bead.
+- **Write-side `--spec` matches like `list --spec`**: `create --spec` and
+  `update --spec` resolve a unique filename or path suffix against `docs/` (ambiguity
+  errors name every candidate), so the filename-only form the planning shortcuts
+  document actually works.
+- **Errors recover the agent**: unknown-ID errors suggest near-miss IDs ("Did you mean:
+  …?") when one is close; `tbd search` matches display IDs (partial-ID lookup is
+  native); and `tbd create` with too many arguments explains the one-title contract.
+- **Agent docs advertise the bulk/filter forms at point of need**: the skill tables,
+  `tbd prime`, and the manual now show multi-ID `show`, `list --spec/--specs`,
+  `--limit/--count/--sort updated/--max-lines`, bulk labeling via `update --add-label`,
+  and a generalized never-loop rule; the jq/grep recipes in `update-specs-status` and
+  the manual’s ID-lookup troubleshooting are replaced with native commands.
+
 ### Fixes
 
 - **`tbd setup --auto --dry-run` is now strictly read-only**: a dry run previews

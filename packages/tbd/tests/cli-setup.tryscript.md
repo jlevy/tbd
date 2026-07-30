@@ -36,76 +36,83 @@ Usage: tbd [options] [command]
 Git-native issue tracking for AI agents and humans
 
 Options:
-  --version                     Show version number
-  --dry-run                     Show what would be done without making changes
-  --verbose                     Enable verbose output
-  --quiet                       Suppress non-essential output
-  --json                        Output as JSON
-  --color <when>                Colorize output: auto, always, never (default:
-                                "auto")
-  --debug                       Show internal IDs alongside public IDs for
-                                debugging
-  --help                        Display help for command
+  --version                          Show version number
+  --dry-run                          Show what would be done without making
+                                     changes
+  --verbose                          Enable verbose output
+  --quiet                            Suppress non-essential output
+  --json                             Output as JSON
+  --color <when>                     Colorize output: auto, always, never
+                                     (default: "auto")
+  --debug                            Show internal IDs alongside public IDs for
+                                     debugging
+  --help                             Display help for command
 
 Documentation:
-  readme                        Display the README (same as GitHub landing page)
-  prime [options]               Show full orientation with workflow context
-  skill [options]               Output AI agent skill file content
-  shortcut [options] [query]    Find and output documentation shortcuts
-  guidelines [options] [query]  Find and output coding guidelines
-  template [options] [query]    Find and output document templates
-  closing                       Display the session closing protocol reminder
-  docs                          Manage tbd-served docs: browse, fork into your
-                                repo, and pull upstream updates
-  design [options] [topic]      Display design documentation and Beads
-                                comparison
+  readme                             Display the README (same as GitHub landing
+                                     page)
+  prime [options]                    Show full orientation with workflow context
+  skill [options]                    Output AI agent skill file content
+  shortcut [options] [queries...]    Find and output documentation shortcuts
+  guidelines [options] [queries...]  Find and output coding guidelines
+  template [options] [queries...]    Find and output document templates
+  closing                            Display the session closing protocol
+                                     reminder
+  docs                               Manage tbd-served docs: browse, fork into
+                                     your repo, and pull upstream updates
+  design [options] [topic]           Display design documentation and Beads
+                                     comparison
 
 Setup & Configuration:
-  init [options]                Initialize tbd in a git repository
-  config                        Manage configuration
-  setup [options]               Configure tbd integration with editors and tools
+  init [options]                     Initialize tbd in a git repository
+  config                             Manage configuration
+  setup [options]                    Configure tbd integration with editors and
+                                     tools
 
 Working With Issues:
-  create [options] [title]      Create a new issue
-  show [options] <id>           Show issue details
-  update [options] <ids...>     Update one or more issues
-  close [options] <ids...>      Close one or more issues
-  reopen [options] <ids...>     Reopen one or more closed issues
-  search [options] <query>      Search issues by text
+  create [options] [title]           Create a new issue
+  show [options] <ids...>            Show details for one or more issues
+  update [options] <ids...>          Update one or more issues
+  close [options] <ids...>           Close one or more issues
+  reopen [options] <ids...>          Reopen one or more closed issues
+  search [options] <query>           Search issues by text
 
 Views and Filtering:
-  ready [options]               List issues ready to work on (open, unblocked,
-                                unclaimed)
-  list [options]                List issues
-  blocked [options]             List blocked issues
-  stale [options]               List issues not updated recently
+  ready [options]                    List issues ready to work on (open,
+                                     unblocked, unclaimed)
+  list [options]                     List issues
+  blocked [options]                  List blocked issues
+  stale [options]                    List issues not updated recently
 
 Labels and Dependencies:
-  dep                           Manage issue dependencies
-  label                         Manage issue labels
+  dep                                Manage issue dependencies
+  label                              Manage issue labels
 
 Sync and Status:
-  changes [options]             Report committed bead changes since a
-                                sync-branch commit
-  watch [options]               Wait for selected bead changes on the remote
-                                sync branch
-  sync [options]                Synchronize issues and docs (both by default)
-  save [options]                Save issues to a workspace or directory
-  status                        Show repository status and orientation
-  stats                         Show repository statistics
+  changes [options]                  Report committed bead changes since a
+                                     sync-branch commit
+  watch [options]                    Wait for selected bead changes on the
+                                     remote sync branch
+  sync [options]                     Synchronize issues and docs (both by
+                                     default)
+  save [options]                     Save issues to a workspace or directory
+  status                             Show repository status and orientation
+  stats                              Show repository statistics
 
 Maintenance:
-  doctor [options]              Diagnose and repair repository
-  attic                         Manage conflict archive (attic)
-  workspace                     Manage workspaces for sync recovery and backups
-  import [options] [file]       Import issues from JSONL file or workspace.
-                                For Beads migration, use: tbd setup --from-beads
-                                For workspace import, use: tbd import
-                                --workspace=<name> or --outbox
-  uninstall [options]           Remove tbd from this repository
+  doctor [options]                   Diagnose and repair repository
+  attic                              Manage conflict archive (attic)
+  workspace                          Manage workspaces for sync recovery and
+                                     backups
+  import [options] [file]            Import issues from JSONL file or workspace.
+                                     For Beads migration, use: tbd setup
+                                     --from-beads
+                                     For workspace import, use: tbd import
+                                     --workspace=<name> or --outbox
+  uninstall [options]                Remove tbd from this repository
 
 Commands:
-  help [command]                display help for command
+  help [command]                     display help for command
 
 IMPORTANT:
   Agents unfamiliar with tbd should run `tbd prime` for full workflow context.

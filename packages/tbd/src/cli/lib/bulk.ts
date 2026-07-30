@@ -10,7 +10,7 @@
 import type { Issue } from '../../lib/types.js';
 import type { IdMapping } from '../../file/id-mapping.js';
 import { resolveToInternalId } from '../../file/id-mapping.js';
-import { readIssue } from '../../file/storage.js';
+import { readIssue, writeIssue } from '../../file/storage.js';
 import { NotFoundError, CLIError } from './errors.js';
 import type { OutputManager } from './output.js';
 
@@ -48,12 +48,16 @@ export function resolveAllIds(inputIds: string[], mapping: IdMapping): IdResolut
   for (const input of inputIds) {
     try {
       const internalId = resolveToInternalId(input, mapping);
-      if (seenInternal.has(internalId)) continue;
+      if (seenInternal.has(internalId)) {
+        continue;
+      }
       seenInternal.add(internalId);
       resolved.push({ input, internalId });
       orderedInputs.push(input);
     } catch {
-      if (seenMissing.has(input)) continue;
+      if (seenMissing.has(input)) {
+        continue;
+      }
       seenMissing.add(input);
       missing.push(input);
       orderedInputs.push(input);
@@ -112,7 +116,9 @@ export function orderedResults(
   const results: BulkItemResult[] = [];
   for (const input of orderedInputs) {
     const r = outcomes.get(input);
-    if (r) results.push(r);
+    if (r) {
+      results.push(r);
+    }
   }
   return results;
 }
@@ -124,13 +130,79 @@ export function orderedResults(
  */
 export function throwOnWriteFailures(results: BulkItemResult[], verb: string): void {
   const failed = results.filter((r) => r.action === 'failed');
-  if (failed.length === 0) return;
+  if (failed.length === 0) {
+    return;
+  }
   const changed = results.filter(
     (r) => r.action !== 'skipped' && r.action !== 'missing' && r.action !== 'failed',
   ).length;
   const detail = failed.map((f) => `${f.id} (${f.skippedReason ?? 'unknown error'})`).join(', ');
   throw new CLIError(
     `${failed.length} of ${failed.length + changed} attempted ${verb} writes failed: ${detail}`,
+  );
+}
+
+export interface DependencyWriteOutcome {
+  /** Display IDs whose blocker file was changed and persisted, in input order. */
+  changed: string[];
+  /** Display IDs where the requested edge was already in the desired state. */
+  unchanged: string[];
+  /** Per-target write failures, in input order. */
+  failed: { id: string; message: string }[];
+}
+
+/**
+ * Apply a dependency mutation across several blocker issue files, capturing
+ * per-target write failures instead of aborting mid-batch. Multi-file
+ * dependency writes have no transaction, so a failure after earlier
+ * successes must be reported exactly (which edges landed and which did not),
+ * never as a bare error that hides the partially-applied state. Shared by
+ * `dep add`/`dep remove` (multi form) and `create --depends-on`.
+ */
+export async function applyDependencyWrites(
+  dataSyncDir: string,
+  blockers: { internalId: string; issue: Issue }[],
+  displayOf: (internalId: string) => string,
+  mutate: (issue: Issue) => 'changed' | 'unchanged',
+): Promise<DependencyWriteOutcome> {
+  const outcome: DependencyWriteOutcome = { changed: [], unchanged: [], failed: [] };
+  for (const { internalId, issue } of blockers) {
+    const displayId = displayOf(internalId);
+    if (mutate(issue) === 'unchanged') {
+      outcome.unchanged.push(displayId);
+      continue;
+    }
+    try {
+      await writeIssue(dataSyncDir, issue);
+    } catch (error) {
+      outcome.failed.push({
+        id: displayId,
+        message: error instanceof Error ? error.message : String(error),
+      });
+      continue;
+    }
+    outcome.changed.push(displayId);
+  }
+  return outcome;
+}
+
+/**
+ * Fail loudly after a partially-applied dependency batch: name every failed
+ * target with its underlying error, state that earlier writes persisted, and
+ * give the exact command that finishes the job. Exit stays non-zero.
+ */
+export function throwOnDependencyWriteFailures(
+  outcome: DependencyWriteOutcome,
+  remedyCommand: string,
+): void {
+  if (outcome.failed.length === 0) {
+    return;
+  }
+  const attempted = outcome.failed.length + outcome.changed.length;
+  const detail = outcome.failed.map((f) => `${f.id} (${f.message})`).join(', ');
+  throw new CLIError(
+    `${outcome.failed.length} of ${attempted} dependency writes failed: ${detail}. ` +
+      `Applied edges are kept; run \`${remedyCommand}\` to finish.`,
   );
 }
 
@@ -164,10 +236,15 @@ export function summarizeBulk(results: BulkItemResult[]): BulkSummary {
   let missing = 0;
   let failed = 0;
   for (const r of results) {
-    if (r.action === 'skipped') skipped++;
-    else if (r.action === 'missing') missing++;
-    else if (r.action === 'failed') failed++;
-    else changed++;
+    if (r.action === 'skipped') {
+      skipped++;
+    } else if (r.action === 'missing') {
+      missing++;
+    } else if (r.action === 'failed') {
+      failed++;
+    } else {
+      changed++;
+    }
   }
   return { changed, skipped, missing, failed, total: results.length };
 }
@@ -211,9 +288,15 @@ export function emitBulkSummary(
 
   output.data(json, () => {
     const parts = [`${opts.verb} ${summary.changed}`];
-    if (summary.skipped > 0) parts.push(`skipped ${summary.skipped} (${opts.skippedNote})`);
-    if (summary.missing > 0) parts.push(`not found ${summary.missing}`);
-    if (summary.failed > 0) parts.push(`failed ${summary.failed}`);
+    if (summary.skipped > 0) {
+      parts.push(`skipped ${summary.skipped} (${opts.skippedNote})`);
+    }
+    if (summary.missing > 0) {
+      parts.push(`not found ${summary.missing}`);
+    }
+    if (summary.failed > 0) {
+      parts.push(`failed ${summary.failed}`);
+    }
     const idList = results.map((r) => r.id).join(' ');
     const line = `${parts.join(', ')}: ${idList}`;
     // A batch with write failures must not carry the success marker; the

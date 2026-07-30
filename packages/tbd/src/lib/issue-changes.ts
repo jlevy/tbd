@@ -104,8 +104,12 @@ const TEXT_FIELDS: ReadonlySet<IssueChangeField> = new Set(['description', 'note
 const TEXT_HUNK_CONTEXT_LINES = 3;
 
 function deepEqual(left: unknown, right: unknown): boolean {
-  if (left === right) return true;
-  if (left === null || right === null || typeof left !== typeof right) return false;
+  if (left === right) {
+    return true;
+  }
+  if (left === null || right === null || typeof left !== typeof right) {
+    return false;
+  }
   if (Array.isArray(left) && Array.isArray(right)) {
     return (
       left.length === right.length && left.every((value, index) => deepEqual(value, right[index]))
@@ -125,8 +129,12 @@ function deepEqual(left: unknown, right: unknown): boolean {
 }
 
 function normalizeValue(value: unknown): unknown {
-  if (value === undefined || value === null) return null;
-  if (Array.isArray(value)) return value.map(normalizeValue);
+  if (value === undefined || value === null) {
+    return null;
+  }
+  if (Array.isArray(value)) {
+    return value.map(normalizeValue);
+  }
   if (typeof value === 'object') {
     return Object.fromEntries(
       Object.entries(value as Record<string, unknown>)
@@ -154,7 +162,9 @@ function diffTextLines(oldLines: readonly string[], newLines: readonly string[])
       const rightX = furthestX.get(diagonal - 1) ?? Number.NEGATIVE_INFINITY;
       let x =
         diagonal === -distance || (diagonal !== distance && rightX < downX) ? downX : rightX + 1;
-      if (!Number.isFinite(x)) x = 0;
+      if (!Number.isFinite(x)) {
+        x = 0;
+      }
       let y = x - diagonal;
       while (x < oldLines.length && y < newLines.length && oldLines[x] === newLines[y]) {
         x += 1;
@@ -188,7 +198,9 @@ function diffTextLines(oldLines: readonly string[], newLines: readonly string[])
       x -= 1;
       y -= 1;
     }
-    if (distance === 0) break;
+    if (distance === 0) {
+      break;
+    }
     if (x === previousX) {
       reversed.push({ type: 'add', text: newLines[y - 1]! });
       y -= 1;
@@ -229,13 +241,19 @@ function createTextHunks(before: unknown, after: unknown): TextChangeHunk[] {
   let newLine = 1;
   for (const line of lines) {
     positioned.push({ ...line, oldLine, newLine });
-    if (line.type !== 'add') oldLine += 1;
-    if (line.type !== 'remove') newLine += 1;
+    if (line.type !== 'add') {
+      oldLine += 1;
+    }
+    if (line.type !== 'remove') {
+      newLine += 1;
+    }
   }
 
   const ranges: { start: number; end: number }[] = [];
   for (let index = 0; index < positioned.length; index += 1) {
-    if (positioned[index]!.type === 'context') continue;
+    if (positioned[index]!.type === 'context') {
+      continue;
+    }
     const start = Math.max(0, index - TEXT_HUNK_CONTEXT_LINES);
     const end = Math.min(positioned.length, index + TEXT_HUNK_CONTEXT_LINES + 1);
     const previous = ranges.at(-1);
@@ -300,11 +318,15 @@ function resolveBeadIds(
           internalId = makeInternalId(shortOrUlid);
         } else {
           const ulid = shortToUlid.get(shortOrUlid);
-          if (ulid === undefined) throw new Error(`Unknown issue ID: ${input}`);
+          if (ulid === undefined) {
+            throw new Error(`Unknown issue ID: ${input}`);
+          }
           internalId = makeInternalId(ulid);
         }
       }
-      if (!knownIssueIds.has(internalId)) throw new Error(`Unknown issue ID: ${input}`);
+      if (!knownIssueIds.has(internalId)) {
+        throw new Error(`Unknown issue ID: ${input}`);
+      }
       return internalId;
     }),
   );
@@ -315,7 +337,9 @@ export function validateIssueChangeSelection(
   snapshot: IssueSnapshot,
   selection: IssueChangeSelection,
 ): void {
-  if (selection.kind !== 'beads') return;
+  if (selection.kind !== 'beads') {
+    return;
+  }
   resolveBeadIds(selection.ids, snapshot.shortToUlid, new Set(snapshot.issues.keys()));
 }
 
@@ -324,8 +348,12 @@ function fieldChanges(before: Issue | undefined, after: Issue | undefined): Issu
   return ISSUE_CHANGE_FIELDS.flatMap((field): IssueFieldChange[] => {
     const beforeValue = normalizeValue(before?.[field]);
     const afterValue = normalizeValue(after?.[field]);
-    if (beforeValue === null && afterValue === null) return [];
-    if (!createdOrDeleted && deepEqual(beforeValue, afterValue)) return [];
+    if (beforeValue === null && afterValue === null) {
+      return [];
+    }
+    if (!createdOrDeleted && deepEqual(beforeValue, afterValue)) {
+      return [];
+    }
     const change: IssueFieldChange = { field, before: beforeValue, after: afterValue };
     if (TEXT_FIELDS.has(field) && !deepEqual(beforeValue, afterValue)) {
       change.hunks = createTextHunks(beforeValue, afterValue);
@@ -339,7 +367,9 @@ function issueMatchesFilter(
   selection: Extract<IssueChangeSelection, { kind: 'filter' }>,
   readyIds: ReadonlySet<string>,
 ): boolean {
-  if (issue === undefined) return false;
+  if (issue === undefined) {
+    return false;
+  }
   if (
     !issueMatchesSharedFilters(issue, {
       labels: selection.labels,
@@ -396,7 +426,9 @@ export function createIssueChangesReport(
       }
     }
 
-    if (!selected) continue;
+    if (!selected) {
+      continue;
+    }
     const issue = after ?? before!;
     const ulid = extractUlidFromInternalId(internalId);
     const shortId = mapping.ulidToShort.get(ulid);

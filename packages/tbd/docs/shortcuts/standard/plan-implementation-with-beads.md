@@ -20,20 +20,23 @@ If unclear, ask the user if they want you to create a spec first using
    tbd create "Spec: [feature or task]" --type=epic --spec plan-YYYY-MM-DD-feature.md
    ```
 
-2. **Create child beads** for each implementation step, all under the epic:
+2. **Create child beads** for each implementation step, all under the epic.
+   Declare blockers at creation with `--depends-on` (repeatable) so each bead is fully
+   wired in one call:
 
    ```bash
    tbd create "Step 1: ..." --parent=<epic-id>
-   tbd create "Step 2: ..." --parent=<epic-id>
+   tbd create "Step 2: ..." --parent=<epic-id> --depends-on=<step1-id>
    ```
 
    - Ensure the spec has accurate context for the work, and reference details from the
      spec in beads as needed.
 
-3. **Add blocker dependencies** where beads must be completed in sequence:
+3. **Add any remaining blocker dependencies** (one call per bead, several blockers at
+   once):
 
    ```bash
-   tbd dep add <bead> <depends-on>  # bead is blocked by depends-on
+   tbd dep add <bead> <depends-on1> [<depends-on2> …]  # bead is blocked by each
    ```
 
    Use blocker dependencies when one bead cannot start until another is complete (e.g.,
