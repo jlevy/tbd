@@ -163,8 +163,12 @@ async function ensureSharedDataSyncLayout(
  * plan-2026-05-17-shared-common-dir-sync-worktree.md.
  */
 function notifyConfigMigrated(fromFormat: string | undefined, toFormat: string): void {
-  if (quietNoticesActive()) return; // --quiet suppresses incidental notices
-  if (fromFormat === toFormat) return;
+  if (quietNoticesActive()) {
+    return;
+  } // --quiet suppresses incidental notices
+  if (fromFormat === toFormat) {
+    return;
+  }
   const arrow = fromFormat ? `${fromFormat} → ${toFormat}` : `→ ${toFormat}`;
   process.stderr.write(
     `• tbd_format ${arrow}: .tbd/config.yml updated in this checkout. ` +
@@ -183,8 +187,12 @@ function notifyConfigMigrated(fromFormat: string | undefined, toFormat: string):
  * stderr note keeps stdout (and JSON) clean while making the heal visible.
  */
 export function notifyWorktreeRepaired(status: WorktreeStatus | undefined): void {
-  if (quietNoticesActive()) return; // --quiet suppresses incidental notices
-  if (status !== 'missing' && status !== 'prunable') return;
+  if (quietNoticesActive()) {
+    return;
+  } // --quiet suppresses incidental notices
+  if (status !== 'missing' && status !== 'prunable') {
+    return;
+  }
   process.stderr.write(
     `• tbd-sync worktree was ${status}; auto-materialized it ` +
       `(fresh clone, or the worktree was removed).\n`,

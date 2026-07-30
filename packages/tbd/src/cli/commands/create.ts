@@ -149,14 +149,18 @@ class CreateHandler extends BaseCommand {
                 missing.push(input);
                 continue;
               }
-              if (seen.has(blockerInternalId)) continue;
+              if (seen.has(blockerInternalId)) {
+                continue;
+              }
               seen.add(blockerInternalId);
               try {
                 blockers.push(await readIssue(dataSyncDir, blockerInternalId));
               } catch (error) {
                 // Only a genuinely absent file is an unknown ID; anything else
                 // (corrupt YAML, permissions) is a repository problem.
-                if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
+                if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
+                  throw error;
+                }
                 missing.push(input);
               }
             }

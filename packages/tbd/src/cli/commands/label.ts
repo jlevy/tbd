@@ -71,7 +71,9 @@ class LabelAddHandler extends BaseCommand {
       );
     }, 'Failed to update issue');
 
-    if (!didAdd) return;
+    if (!didAdd) {
+      return;
+    }
 
     this.output.data({ id: displayId, addedLabels: labels }, () => {
       this.output.success(`Added labels to ${displayId}: ${labels.join(', ')}`);
@@ -131,7 +133,9 @@ class LabelRemoveHandler extends BaseCommand {
       );
     }, 'Failed to update issue');
 
-    if (!didRemove) return;
+    if (!didRemove) {
+      return;
+    }
 
     this.output.data({ id: displayId, removedLabels: labels }, () => {
       this.output.success(`Removed labels from ${displayId}: ${labels.join(', ')}`);
@@ -164,7 +168,9 @@ class LabelListHandler extends BaseCommand {
 
     // Sort by count (descending), then alphabetically
     const sortedLabels = [...labelCounts.entries()].sort((a, b) => {
-      if (b[1] !== a[1]) return b[1] - a[1];
+      if (b[1] !== a[1]) {
+        return b[1] - a[1];
+      }
       return a[0].localeCompare(b[0]);
     });
 

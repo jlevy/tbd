@@ -28,7 +28,9 @@ const RECOMMENDED_MAX_LENGTH = 8;
  * - Truncates to max length
  */
 export function normalizePrefix(s: string): string {
-  if (!s) return '';
+  if (!s) {
+    return '';
+  }
 
   // Lowercase and remove invalid characters (keep alphanumeric, dot, underscore)
   const normalized = s.toLowerCase().replace(/[^a-z0-9._]/g, '');
@@ -46,14 +48,22 @@ export function normalizePrefix(s: string): string {
  * - No dashes allowed (breaks ID syntax)
  */
 export function isValidPrefix(s: string): boolean {
-  if (!s) return false;
-  if (s.length < MIN_PREFIX_LENGTH || s.length > MAX_PREFIX_LENGTH) return false;
+  if (!s) {
+    return false;
+  }
+  if (s.length < MIN_PREFIX_LENGTH || s.length > MAX_PREFIX_LENGTH) {
+    return false;
+  }
 
   // First char must be a letter
-  if (!/^[a-z]/.test(s)) return false;
+  if (!/^[a-z]/.test(s)) {
+    return false;
+  }
 
   // Last char must be alphanumeric (for length > 1)
-  if (s.length > 1 && !/[a-z0-9]$/.test(s)) return false;
+  if (s.length > 1 && !/[a-z0-9]$/.test(s)) {
+    return false;
+  }
 
   // All chars must be alphanumeric, dot, or underscore (no dashes!)
   return /^[a-z][a-z0-9._]*$/.test(s);
@@ -67,8 +77,12 @@ export function isValidPrefix(s: string): boolean {
  * Prefixes that don't match this can still be used with --force.
  */
 export function isRecommendedPrefix(s: string): boolean {
-  if (!s) return false;
-  if (s.length < RECOMMENDED_MIN_LENGTH || s.length > RECOMMENDED_MAX_LENGTH) return false;
+  if (!s) {
+    return false;
+  }
+  if (s.length < RECOMMENDED_MIN_LENGTH || s.length > RECOMMENDED_MAX_LENGTH) {
+    return false;
+  }
   return /^[a-z]+$/.test(s);
 }
 

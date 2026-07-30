@@ -81,7 +81,9 @@ class SearchHandler extends BaseCommand {
     const { mapping, prefix } = dataCtx;
     for (const issue of issues) {
       // Apply status filter
-      if (statusFilter && issue.status !== statusFilter) continue;
+      if (statusFilter && issue.status !== statusFilter) {
+        continue;
+      }
 
       // Determine which fields to search. The display ID is a searchable
       // field (last, so content matches keep the one-match-per-issue slot),
@@ -201,15 +203,21 @@ class SearchHandler extends BaseCommand {
   private extractSnippet(text: string, query: string, caseSensitive: boolean): string {
     const searchText = caseSensitive ? text : text.toLowerCase();
     const index = searchText.indexOf(query);
-    if (index === -1) return text.slice(0, 60);
+    if (index === -1) {
+      return text.slice(0, 60);
+    }
 
     // Extract snippet around match
     const start = Math.max(0, index - 20);
     const end = Math.min(text.length, index + query.length + 40);
     let snippet = text.slice(start, end);
 
-    if (start > 0) snippet = '...' + snippet;
-    if (end < text.length) snippet = snippet + '...';
+    if (start > 0) {
+      snippet = '...' + snippet;
+    }
+    if (end < text.length) {
+      snippet = snippet + '...';
+    }
 
     return snippet.replace(/\n/g, ' ');
   }

@@ -60,7 +60,9 @@ class DependsAddHandler extends BaseCommand {
           try {
             await readIssue(dataSyncDir, internalIssueId);
           } catch (error) {
-            if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
+            if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
+              throw error;
+            }
             throw new NotFoundError('Issue', issueId);
           }
 
@@ -71,7 +73,9 @@ class DependsAddHandler extends BaseCommand {
           for (const input of dependsOnIds) {
             try {
               const internalId = resolveToInternalId(input, mapping);
-              if (seen.has(internalId)) continue;
+              if (seen.has(internalId)) {
+                continue;
+              }
               seen.add(internalId);
               targets.push({ input, internalId });
             } catch {
@@ -97,7 +101,9 @@ class DependsAddHandler extends BaseCommand {
             } catch (error) {
               // Only a genuinely absent file is an unknown ID; anything else
               // (corrupt YAML, permissions) is a repository problem.
-              if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
+              if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
+                throw error;
+              }
               throw new NotFoundError('Issue', input);
             }
           }
@@ -120,7 +126,9 @@ class DependsAddHandler extends BaseCommand {
               const exists = blockerIssue.dependencies.some(
                 (dep) => dep.type === 'blocks' && dep.target === internalIssueId,
               );
-              if (exists) return 'unchanged';
+              if (exists) {
+                return 'unchanged';
+              }
               blockerIssue.dependencies.push({ type: 'blocks', target: internalIssueId });
               blockerIssue.version += 1;
               blockerIssue.updated_at = now();
@@ -133,7 +141,9 @@ class DependsAddHandler extends BaseCommand {
       );
     }, 'Failed to update issue');
 
-    if (wasDryRun) return;
+    if (wasDryRun) {
+      return;
+    }
 
     const { changed, unchanged, failed } = outcome;
     this.output.data(
@@ -146,8 +156,12 @@ class DependsAddHandler extends BaseCommand {
       },
       () => {
         const notes: string[] = [];
-        if (unchanged.length > 0) notes.push(`${unchanged.length} already existed`);
-        if (failed.length > 0) notes.push(`${failed.length} failed`);
+        if (unchanged.length > 0) {
+          notes.push(`${unchanged.length} already existed`);
+        }
+        if (failed.length > 0) {
+          notes.push(`${failed.length} failed`);
+        }
         const suffix = notes.length > 0 ? ` (${notes.join(', ')})` : '';
         const all = [...changed, ...unchanged].join(' ');
         const line = `${displayIssueId} now depends on: ${all}${suffix}`;
@@ -243,7 +257,9 @@ class DependsAddHandler extends BaseCommand {
       );
     }, 'Failed to update issue');
 
-    if (!didAdd) return;
+    if (!didAdd) {
+      return;
+    }
 
     this.output.data({ issue: displayIssueId, dependsOn: displayDependsOnId }, () => {
       this.output.success(`${displayIssueId} now depends on ${displayDependsOnId}`);
@@ -291,7 +307,9 @@ class DependsRemoveHandler extends BaseCommand {
           for (const input of dependsOnIds) {
             try {
               const internalId = resolveToInternalId(input, mapping);
-              if (seen.has(internalId)) continue;
+              if (seen.has(internalId)) {
+                continue;
+              }
               seen.add(internalId);
               targets.push({ input, internalId });
             } catch {
@@ -313,7 +331,9 @@ class DependsRemoveHandler extends BaseCommand {
             } catch (error) {
               // Only a genuinely absent file is an unknown ID; anything else
               // (corrupt YAML, permissions) is a repository problem.
-              if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
+              if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
+                throw error;
+              }
               throw new NotFoundError('Issue', input);
             }
           }
@@ -337,7 +357,9 @@ class DependsRemoveHandler extends BaseCommand {
               blockerIssue.dependencies = blockerIssue.dependencies.filter(
                 (dep) => !(dep.type === 'blocks' && dep.target === internalIssueId),
               );
-              if (blockerIssue.dependencies.length === initialLength) return 'unchanged';
+              if (blockerIssue.dependencies.length === initialLength) {
+                return 'unchanged';
+              }
               blockerIssue.version += 1;
               blockerIssue.updated_at = now();
               return 'changed';
@@ -349,7 +371,9 @@ class DependsRemoveHandler extends BaseCommand {
       );
     }, 'Failed to update issue');
 
-    if (wasDryRun) return;
+    if (wasDryRun) {
+      return;
+    }
 
     const { changed, unchanged, failed } = outcome;
     this.output.data(
@@ -361,8 +385,12 @@ class DependsRemoveHandler extends BaseCommand {
       },
       () => {
         const notes: string[] = [];
-        if (unchanged.length > 0) notes.push(`${unchanged.length} not present`);
-        if (failed.length > 0) notes.push(`${failed.length} failed`);
+        if (unchanged.length > 0) {
+          notes.push(`${unchanged.length} not present`);
+        }
+        if (failed.length > 0) {
+          notes.push(`${failed.length} failed`);
+        }
         const suffix = notes.length > 0 ? ` (${notes.join(', ')})` : '';
         const all = [...changed, ...unchanged].join(' ');
         const line = `${displayIssueId} no longer depends on: ${all}${suffix}`;
@@ -444,7 +472,9 @@ class DependsRemoveHandler extends BaseCommand {
       );
     }, 'Failed to update issue');
 
-    if (!didRemove) return;
+    if (!didRemove) {
+      return;
+    }
 
     this.output.data({ issue: displayIssueId, removed: displayDependsOnId }, () => {
       this.output.success(`${displayIssueId} no longer depends on ${displayDependsOnId}`);

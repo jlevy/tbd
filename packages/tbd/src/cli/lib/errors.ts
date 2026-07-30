@@ -150,7 +150,9 @@ export function classifySyncError(error: Error | string): SyncErrorType {
   ];
 
   for (const pattern of permanentPatterns) {
-    if (pattern.test(lower)) return 'permanent';
+    if (pattern.test(lower)) {
+      return 'permanent';
+    }
   }
 
   // Transient indicators - likely temporary, should retry
@@ -171,7 +173,9 @@ export function classifySyncError(error: Error | string): SyncErrorType {
   ];
 
   for (const pattern of transientPatterns) {
-    if (pattern.test(lower)) return 'transient';
+    if (pattern.test(lower)) {
+      return 'transient';
+    }
   }
 
   return 'unknown';

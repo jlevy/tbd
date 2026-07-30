@@ -230,7 +230,9 @@ export function hasCorrectFrontmatterFormat(content: string): boolean {
     }
   }
 
-  if (closingIndex === -1) return false;
+  if (closingIndex === -1) {
+    return false;
+  }
 
   // Check if there's an extra blank line after closing ---
   if (closingIndex + 1 < lines.length) {

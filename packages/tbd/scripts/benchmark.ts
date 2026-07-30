@@ -219,7 +219,9 @@ async function main(): Promise<void> {
       console.log(
         `${color}${status}${reset} ${result.name.padEnd(20)} ${result.duration.toFixed(0).padStart(6)}ms`,
       );
-      if (!result.passed) allPassed = false;
+      if (!result.passed) {
+        allPassed = false;
+      }
     }
 
     console.log('-'.repeat(50));

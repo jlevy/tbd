@@ -167,7 +167,9 @@ class ShowHandler extends BaseCommand {
     } catch (error) {
       // Only a genuinely absent file counts as missing; corrupt or unreadable
       // files are repository problems and surface their real error.
-      if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
+      if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
+        throw error;
+      }
       if (options.ignoreMissing) {
         this.output.warn(`Not found: ${id}`);
         return;
@@ -266,7 +268,9 @@ class ShowHandler extends BaseCommand {
         const issue = await readIssue(ctx.dataSyncDir, internalId);
         loaded.push({ issue, displayId: ctx.displayId(issue.id) });
       } catch (error) {
-        if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
+        if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
+          throw error;
+        }
         if (!options.ignoreMissing) {
           // The ID resolved, so a did-you-mean would just suggest the input
           // back to itself; point at repository health instead.
@@ -288,7 +292,9 @@ class ShowHandler extends BaseCommand {
     this.output.data(jsonIssues, () => {
       const colors = this.output.getColors();
       loaded.forEach(({ issue, displayId }, index) => {
-        if (index > 0) console.log('');
+        if (index > 0) {
+          console.log('');
+        }
         console.log(colors.dim(`── ${displayId} ──`));
         const dependencyDirections = allIssues
           ? getDependencyDirections(issue, allIssues, (dependencyId) => ctx.displayId(dependencyId))

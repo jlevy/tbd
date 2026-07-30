@@ -238,7 +238,9 @@ async function listMarkdownFilesUnder(dirAbs: string, projectRoot: string): Prom
   }
   const found: string[] = [];
   for (const entry of entries) {
-    if (entry.name.startsWith('.')) continue;
+    if (entry.name.startsWith('.')) {
+      continue;
+    }
     const childAbs = join(dirAbs, entry.name);
     if (entry.isDirectory()) {
       found.push(...(await listMarkdownFilesUnder(childAbs, projectRoot)));

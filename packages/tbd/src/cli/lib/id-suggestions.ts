@@ -90,6 +90,8 @@ export function issueNotFoundHint(
   prefix: string,
 ): string | undefined {
   const suggestions = suggestSimilarIds(inputs, mapping, prefix);
-  if (suggestions.length === 0) return undefined;
+  if (suggestions.length === 0) {
+    return undefined;
+  }
   return `Did you mean: ${suggestions.join(', ')}? (\`tbd search <text>\` finds issues by content or ID)`;
 }

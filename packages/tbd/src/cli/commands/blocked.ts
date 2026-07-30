@@ -69,7 +69,9 @@ class BlockedHandler extends BaseCommand {
 
     for (const issue of issues) {
       // Skip closed issues
-      if (issue.status === 'closed') continue;
+      if (issue.status === 'closed') {
+        continue;
+      }
 
       const unresolvedBlockers: { id: string; issue: Issue }[] = [];
 

@@ -26,10 +26,14 @@ export function nowDate(): Date {
  * Returns null if the timestamp is invalid.
  */
 export function parseDate(timestamp: string | undefined | null): Date | null {
-  if (!timestamp) return null;
+  if (!timestamp) {
+    return null;
+  }
   try {
     const date = new Date(timestamp);
-    if (isNaN(date.getTime())) return null;
+    if (isNaN(date.getTime())) {
+      return null;
+    }
     return date;
   } catch {
     return null;

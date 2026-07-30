@@ -65,7 +65,9 @@ class InitHandler extends BaseCommand {
       throw new CLIError('tbd is already initialized in this directory');
     } catch (error) {
       // Not initialized - continue (unless it's our CLIError)
-      if (error instanceof CLIError) throw error;
+      if (error instanceof CLIError) {
+        throw error;
+      }
     }
 
     // Validate prefix is provided
@@ -169,7 +171,9 @@ class InitHandler extends BaseCommand {
         this.output.debug(`Git version ${version.major}.${version.minor}.${version.patch} OK`);
       } catch (error) {
         // If git is not installed at all, let worktree init handle it
-        if (error instanceof CLIError) throw error;
+        if (error instanceof CLIError) {
+          throw error;
+        }
         this.output.debug(`Git version check skipped: ${(error as Error).message}`);
       }
 

@@ -120,7 +120,9 @@ export function parseGitStatus(statusOutput: string): SyncTallies {
   }
 
   for (const line of statusOutput.split('\n')) {
-    if (!line) continue;
+    if (!line) {
+      continue;
+    }
 
     const statusCode = line.slice(0, 2).trim();
 
@@ -156,7 +158,9 @@ export function parseGitDiff(diffOutput: string): SyncTallies {
   }
 
   for (const line of diffOutput.split('\n')) {
-    if (!line) continue;
+    if (!line) {
+      continue;
+    }
 
     const statusCode = line[0];
 

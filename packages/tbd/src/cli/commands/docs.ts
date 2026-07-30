@@ -107,7 +107,9 @@ function extractSection(content: string, sections: DocSection[], query: string):
   const sectionLines: string[] = [];
   for (const line of lines) {
     if (line.startsWith('## ')) {
-      if (inSection) break;
+      if (inSection) {
+        break;
+      }
       if (line.slice(3).trim() === matched.title) {
         inSection = true;
         sectionLines.push(line);
@@ -133,7 +135,9 @@ class DocsOverviewHandler extends BaseCommand {
       try {
         tbdRoot = await requireInit();
       } catch (err) {
-        if (!(err instanceof NotInitializedError)) throw err;
+        if (!(err instanceof NotInitializedError)) {
+          throw err;
+        }
         // The overview stays useful before setup (the old viewer worked
         // anywhere): point at the bundled manual and at initialization.
         const colors = this.output.getColors();
@@ -158,7 +162,9 @@ class DocsOverviewHandler extends BaseCommand {
         for (const doc of cache.list()) {
           // local_dirs serve every kind; inventory counts each local doc once.
           if (localDirs.includes(doc.sourceDir)) {
-            if (seenLocal.has(doc.path)) continue;
+            if (seenLocal.has(doc.path)) {
+              continue;
+            }
             seenLocal.add(doc.path);
           }
           total += 1;
@@ -206,9 +212,15 @@ class DocsOverviewHandler extends BaseCommand {
       if (drift.stale > 0) {
         parts.push(`${drift.stale} with upstream updates; run 'tbd docs update'`);
       }
-      if (drift.conflicted > 0) parts.push(`${drift.conflicted} conflict pending`);
-      if (drift.missing > 0) parts.push(`${drift.missing} missing; see 'tbd docs status'`);
-      if (drift.local > 0) parts.push(`${drift.local} local`);
+      if (drift.conflicted > 0) {
+        parts.push(`${drift.conflicted} conflict pending`);
+      }
+      if (drift.missing > 0) {
+        parts.push(`${drift.missing} missing; see 'tbd docs status'`);
+      }
+      if (drift.local > 0) {
+        parts.push(`${drift.local} local`);
+      }
       console.log(`  ${drift.forks} forked: ${parts.join(', ')}`);
       console.log('');
       console.log('  Inspect:    tbd docs status');
@@ -259,12 +271,18 @@ class DocsShowHandler extends BaseCommand {
       try {
         tbdRoot = await requireInit();
       } catch (err) {
-        if (!(err instanceof NotInitializedError)) throw err;
-        if (!names.every((name) => BUNDLED_ROOT_DOCS[name])) throw err;
+        if (!(err instanceof NotInitializedError)) {
+          throw err;
+        }
+        if (!names.every((name) => BUNDLED_ROOT_DOCS[name])) {
+          throw err;
+        }
         const seen = new Set<string>();
         const bundled: { name: string; content: string }[] = [];
         for (const name of names) {
-          if (seen.has(name)) continue;
+          if (seen.has(name)) {
+            continue;
+          }
           seen.add(name);
           bundled.push({ name, content: await readBundledRootDoc(BUNDLED_ROOT_DOCS[name]!) });
         }
@@ -303,7 +321,9 @@ class DocsShowHandler extends BaseCommand {
       const seenNames = new Set<string>();
       for (const name of names) {
         // Bundled root docs carry no path, so dedupe by name as well.
-        if (seenNames.has(name)) continue;
+        if (seenNames.has(name)) {
+          continue;
+        }
         seenNames.add(name);
         const matches: ResolvedManagedDoc[] = [];
         for (const kind of kinds) {
@@ -345,7 +365,9 @@ class DocsShowHandler extends BaseCommand {
         }
         const match = matches[0]!;
         if (match.path) {
-          if (seenPaths.has(match.path)) continue;
+          if (seenPaths.has(match.path)) {
+            continue;
+          }
           seenPaths.add(match.path);
         }
         resolvedDocs.push(match);
@@ -357,7 +379,9 @@ class DocsShowHandler extends BaseCommand {
       if (this.ctx.json) {
         this.output.data(
           resolvedDocs.map((m) => {
-            if (!m.path || !m.kind) return { name: m.name, content: m.content };
+            if (!m.path || !m.kind) {
+              return { name: m.name, content: m.content };
+            }
             const { entry } = servedEntryFor(
               tbdRoot,
               m.kind,
@@ -374,7 +398,9 @@ class DocsShowHandler extends BaseCommand {
 
       if (!this.ctx.quiet) {
         for (const m of resolvedDocs) {
-          if (!m.path) continue;
+          if (!m.path) {
+            continue;
+          }
           const rel = relative(tbdRoot, m.path).split('\\').join('/');
           if (m.sourceDir.startsWith(FORK_DIR)) {
             process.stderr.write(`(serving forked copy: ${rel})\n`);
@@ -403,7 +429,9 @@ class DocsShowHandler extends BaseCommand {
         try {
           tbdRoot = await requireInit();
         } catch (err) {
-          if (!(err instanceof NotInitializedError)) throw err;
+          if (!(err instanceof NotInitializedError)) {
+            throw err;
+          }
         }
       } else {
         tbdRoot = await requireInit();

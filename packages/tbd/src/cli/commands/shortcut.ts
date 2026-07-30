@@ -133,7 +133,9 @@ class ShortcutHandler extends BaseCommand {
         misses.push(query);
         continue;
       }
-      if (seen.has(best.doc.name)) continue;
+      if (seen.has(best.doc.name)) {
+        continue;
+      }
       seen.add(best.doc.name);
       found.push({
         name: best.doc.name,
@@ -285,7 +287,9 @@ class ShortcutHandler extends BaseCommand {
     text = text.replace(/\s+/g, ' ').trim();
 
     // Return first chunk of text (up to ~200 chars for reasonable fallback)
-    if (text.length === 0) return undefined;
+    if (text.length === 0) {
+      return undefined;
+    }
     return text.slice(0, 200);
   }
 
@@ -332,7 +336,9 @@ class ShortcutHandler extends BaseCommand {
    * Wrap text at word boundary to fit within maxWidth.
    */
   private wrapAtWord(text: string, maxWidth: number): string {
-    if (text.length <= maxWidth) return text;
+    if (text.length <= maxWidth) {
+      return text;
+    }
     const lastSpace = text.lastIndexOf(' ', maxWidth);
     if (lastSpace > 0) {
       return text.slice(0, lastSpace);

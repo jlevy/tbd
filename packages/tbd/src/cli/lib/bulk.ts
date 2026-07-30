@@ -48,12 +48,16 @@ export function resolveAllIds(inputIds: string[], mapping: IdMapping): IdResolut
   for (const input of inputIds) {
     try {
       const internalId = resolveToInternalId(input, mapping);
-      if (seenInternal.has(internalId)) continue;
+      if (seenInternal.has(internalId)) {
+        continue;
+      }
       seenInternal.add(internalId);
       resolved.push({ input, internalId });
       orderedInputs.push(input);
     } catch {
-      if (seenMissing.has(input)) continue;
+      if (seenMissing.has(input)) {
+        continue;
+      }
       seenMissing.add(input);
       missing.push(input);
       orderedInputs.push(input);
@@ -112,7 +116,9 @@ export function orderedResults(
   const results: BulkItemResult[] = [];
   for (const input of orderedInputs) {
     const r = outcomes.get(input);
-    if (r) results.push(r);
+    if (r) {
+      results.push(r);
+    }
   }
   return results;
 }
@@ -124,7 +130,9 @@ export function orderedResults(
  */
 export function throwOnWriteFailures(results: BulkItemResult[], verb: string): void {
   const failed = results.filter((r) => r.action === 'failed');
-  if (failed.length === 0) return;
+  if (failed.length === 0) {
+    return;
+  }
   const changed = results.filter(
     (r) => r.action !== 'skipped' && r.action !== 'missing' && r.action !== 'failed',
   ).length;
@@ -187,7 +195,9 @@ export function throwOnDependencyWriteFailures(
   outcome: DependencyWriteOutcome,
   remedyCommand: string,
 ): void {
-  if (outcome.failed.length === 0) return;
+  if (outcome.failed.length === 0) {
+    return;
+  }
   const attempted = outcome.failed.length + outcome.changed.length;
   const detail = outcome.failed.map((f) => `${f.id} (${f.message})`).join(', ');
   throw new CLIError(
@@ -226,10 +236,15 @@ export function summarizeBulk(results: BulkItemResult[]): BulkSummary {
   let missing = 0;
   let failed = 0;
   for (const r of results) {
-    if (r.action === 'skipped') skipped++;
-    else if (r.action === 'missing') missing++;
-    else if (r.action === 'failed') failed++;
-    else changed++;
+    if (r.action === 'skipped') {
+      skipped++;
+    } else if (r.action === 'missing') {
+      missing++;
+    } else if (r.action === 'failed') {
+      failed++;
+    } else {
+      changed++;
+    }
   }
   return { changed, skipped, missing, failed, total: results.length };
 }
@@ -273,9 +288,15 @@ export function emitBulkSummary(
 
   output.data(json, () => {
     const parts = [`${opts.verb} ${summary.changed}`];
-    if (summary.skipped > 0) parts.push(`skipped ${summary.skipped} (${opts.skippedNote})`);
-    if (summary.missing > 0) parts.push(`not found ${summary.missing}`);
-    if (summary.failed > 0) parts.push(`failed ${summary.failed}`);
+    if (summary.skipped > 0) {
+      parts.push(`skipped ${summary.skipped} (${opts.skippedNote})`);
+    }
+    if (summary.missing > 0) {
+      parts.push(`not found ${summary.missing}`);
+    }
+    if (summary.failed > 0) {
+      parts.push(`failed ${summary.failed}`);
+    }
     const idList = results.map((r) => r.id).join(' ');
     const line = `${parts.join(', ')}: ${idList}`;
     // A batch with write failures must not carry the success marker; the

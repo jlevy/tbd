@@ -68,7 +68,9 @@ class GuidelinesHandler extends DocCommandHandler {
    * Handle --list mode with optional category filtering.
    */
   private async handleListWithCategory(includeAll?: boolean, category?: string): Promise<void> {
-    if (!this.cache) throw new Error('Cache not initialized');
+    if (!this.cache) {
+      throw new Error('Cache not initialized');
+    }
 
     let docs = this.cache.list(includeAll);
 

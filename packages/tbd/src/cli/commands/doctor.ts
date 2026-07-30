@@ -1342,7 +1342,9 @@ class DoctorHandler extends BaseCommand {
       validateCommonDirLayout(layout, this.config);
       return { name: 'Common-dir layout', status: 'ok', path: layoutPath };
     } catch (error) {
-      if (!(error instanceof CommonDirLayoutError)) throw error;
+      if (!(error instanceof CommonDirLayoutError)) {
+        throw error;
+      }
       if (fix && !this.checkDryRun('Repair common-dir layout')) {
         const configRef = this.config;
         await withSharedDataSyncLock(this.cwd, async () =>
@@ -1980,7 +1982,9 @@ class DoctorHandler extends BaseCommand {
           await withForkManifestLock(this.cwd, async () => {
             let current = await readForkManifest(this.cwd);
             for (const entry of missing) {
-              if (!findFork(current, entry.name, entry.kind)) continue;
+              if (!findFork(current, entry.name, entry.kind)) {
+                continue;
+              }
               const result = await unforkDoc({
                 tbdRoot: this.cwd,
                 forkDir: FORK_DIR,

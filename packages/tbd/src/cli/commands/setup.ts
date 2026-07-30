@@ -191,7 +191,9 @@ function formatToNumber(format: string): number {
  */
 function parseIntegrationFormat(content: string): string | null {
   const format = parseManagedIntegrationFormat(content);
-  if (format) return format;
+  if (format) {
+    return format;
+  }
   return content.includes(CODEX_BEGIN_MARKER) ? 'f01' : null;
 }
 
@@ -476,7 +478,9 @@ function getCodexHooksConfig(useGhCli: boolean): { hooks: Record<string, unknown
 async function useGhCliForProject(cwd: string): Promise<boolean> {
   try {
     const tbdRoot = await findTbdRoot(cwd);
-    if (!tbdRoot) return true;
+    if (!tbdRoot) {
+      return true;
+    }
     const config = await readConfig(tbdRoot);
     return config.settings.use_gh_cli ?? true;
   } catch {
@@ -511,7 +515,9 @@ export async function inspectCodexHooksSurface(cwd: string): Promise<ManagedArti
   const actualOwned: Record<string, unknown[]> = {};
   for (const [event, entries] of Object.entries(parsed.hooks ?? {})) {
     const owned = entries.filter(isTbdOwned);
-    if (owned.length > 0) actualOwned[event] = owned;
+    if (owned.length > 0) {
+      actualOwned[event] = owned;
+    }
   }
   if (Object.keys(actualOwned).length === 0) {
     return { state: 'user-owned' };
@@ -534,7 +540,9 @@ export async function inspectCodexHooksSurface(cwd: string): Promise<ManagedArti
   }
   for (const [path, expected] of expectedScripts) {
     try {
-      if ((await readFile(path, 'utf-8')) !== expected) return { state: 'stale' };
+      if ((await readFile(path, 'utf-8')) !== expected) {
+        return { state: 'stale' };
+      }
     } catch {
       return { state: 'missing' };
     }
@@ -784,7 +792,9 @@ class SetupClaudeHandler extends BaseCommand {
 
         // Remove all tbd hooks (SessionStart, PreCompact, PostToolUse)
         const filterTbdHooks = (arr: { hooks?: { command?: string }[] }[] | undefined) => {
-          if (!arr) return undefined;
+          if (!arr) {
+            return undefined;
+          }
           return arr.filter(
             (h) =>
               !h.hooks?.some(
@@ -798,8 +808,11 @@ class SetupClaudeHandler extends BaseCommand {
 
         for (const hookType of ['PostToolUse', 'SessionStart', 'PreCompact'] as const) {
           const filtered = filterTbdHooks(hooks[hookType] as { hooks?: { command?: string }[] }[]);
-          if (filtered?.length === 0) delete hooks[hookType];
-          else if (filtered) hooks[hookType] = filtered;
+          if (filtered?.length === 0) {
+            delete hooks[hookType];
+          } else if (filtered) {
+            hooks[hookType] = filtered;
+          }
         }
 
         if (Object.keys(hooks).length === 0) {
@@ -1025,7 +1038,9 @@ class SetupClaudeHandler extends BaseCommand {
   private async getUseGhCliSetting(): Promise<boolean> {
     try {
       const tbdRoot = await findTbdRoot(process.cwd());
-      if (!tbdRoot) return true;
+      if (!tbdRoot) {
+        return true;
+      }
       const config = await readConfig(tbdRoot);
       return config.settings.use_gh_cli ?? true;
     } catch {
@@ -1078,7 +1093,9 @@ class SetupCodexHandler extends BaseCommand {
   private async getUseGhCliSetting(cwd: string): Promise<boolean> {
     try {
       const tbdRoot = await findTbdRoot(cwd);
-      if (!tbdRoot) return true;
+      if (!tbdRoot) {
+        return true;
+      }
       const config = await readConfig(tbdRoot);
       return config.settings.use_gh_cli ?? true;
     } catch {
@@ -1984,7 +2001,9 @@ class SetupAutoHandler extends BaseCommand {
     return hookList.filter((entry) => {
       // Check if any hook command matches legacy patterns
       const hasLegacyCommand = entry.hooks?.some((hook) => {
-        if (!hook.command) return false;
+        if (!hook.command) {
+          return false;
+        }
         return LEGACY_TBD_HOOK_PATTERNS.some((pattern) => pattern.test(hook.command!));
       });
       // Keep entries that DON'T have legacy commands
@@ -2016,7 +2035,9 @@ class SetupAutoHandler extends BaseCommand {
             if (filtered.length !== hookList.length) {
               hooksRemoved += hookList.length - filtered.length;
               hooks[hookType] = filtered.length > 0 ? filtered : undefined;
-              if (!hooks[hookType]) delete hooks[hookType];
+              if (!hooks[hookType]) {
+                delete hooks[hookType];
+              }
               modified = true;
             }
           }
@@ -2050,8 +2071,12 @@ class SetupAutoHandler extends BaseCommand {
     const hooksRemoved = await this.cleanupLegacyProjectHooks(cwd);
     if (scriptsRemoved.length > 0 || hooksRemoved > 0) {
       const parts = [];
-      if (scriptsRemoved.length > 0) parts.push(`${scriptsRemoved.length} script(s)`);
-      if (hooksRemoved > 0) parts.push(`${hooksRemoved} hook(s)`);
+      if (scriptsRemoved.length > 0) {
+        parts.push(`${scriptsRemoved.length} script(s)`);
+      }
+      if (hooksRemoved > 0) {
+        parts.push(`${hooksRemoved} hook(s)`);
+      }
       // Past tense only when we actually wrote; otherwise make clear it's hypothetical.
       if (this.ctx.dryRun) {
         this.output.dryRun(`Would clean up legacy ${parts.join(' and ')}`);
@@ -2252,7 +2277,9 @@ class SetupAutoHandler extends BaseCommand {
     const selected = new Set<SurfaceId>();
     for (const name of requested) {
       if (name === 'all') {
-        for (const id of SETUP_SURFACE_IDS) selected.add(id);
+        for (const id of SETUP_SURFACE_IDS) {
+          selected.add(id);
+        }
         continue;
       }
       if (valid.has(name)) {
@@ -2428,7 +2455,9 @@ class SetupAutoHandler extends BaseCommand {
       }
       if (inspection.state === 'current') {
         result.alreadyInstalled = true;
-        if (this.ctx.dryRun) return result;
+        if (this.ctx.dryRun) {
+          return result;
+        }
       } else if (this.ctx.dryRun) {
         this.output.dryRun('Would create/update AGENTS.md', { path: agentsPath });
         return result;

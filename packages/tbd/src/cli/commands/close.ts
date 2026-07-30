@@ -132,7 +132,9 @@ class CloseHandler extends BaseCommand {
             try {
               await writeIssue(dataSyncDir, issue);
             } catch (error) {
-              if (ids.length === 1) throw error; // legacy single-ID error path
+              if (ids.length === 1) {
+                throw error;
+              } // legacy single-ID error path
               const message = error instanceof Error ? error.message : String(error);
               outcomes.set(input, {
                 id: displayId,
@@ -150,7 +152,9 @@ class CloseHandler extends BaseCommand {
       );
     }, 'Failed to close issue');
 
-    if (wasDryRun || results.length === 0) return;
+    if (wasDryRun || results.length === 0) {
+      return;
+    }
 
     // Single ID: preserve the exact legacy output (text + JSON). A lone
     // missing ID (only reachable with --ignore-missing, a new flag with no

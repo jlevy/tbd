@@ -91,7 +91,9 @@ export abstract class DocCommandHandler extends BaseCommand {
    * Handle --list mode: show all available documents.
    */
   protected async handleList(includeAll?: boolean): Promise<void> {
-    if (!this.cache) throw new Error('Cache not initialized');
+    if (!this.cache) {
+      throw new Error('Cache not initialized');
+    }
 
     const docs = this.cache.list(includeAll);
 
@@ -191,7 +193,9 @@ export abstract class DocCommandHandler extends BaseCommand {
    * Handle no query: show explanation + help.
    */
   protected async handleNoQuery(): Promise<void> {
-    if (!this.cache) throw new Error('Cache not initialized');
+    if (!this.cache) {
+      throw new Error('Cache not initialized');
+    }
 
     // Try to find the explanation doc if configured
     if (this.config.noQueryDocName) {
@@ -235,9 +239,13 @@ export abstract class DocCommandHandler extends BaseCommand {
    * (no low-confidence suggestions here — a batch must not half-load).
    */
   private resolveQueryStrict(query: string): { doc: CachedDoc; score?: number } | undefined {
-    if (!this.cache) throw new Error('Cache not initialized');
+    if (!this.cache) {
+      throw new Error('Cache not initialized');
+    }
     const exact = this.cache.get(query);
-    if (exact) return { doc: exact.doc, score: exact.score };
+    if (exact) {
+      return { doc: exact.doc, score: exact.score };
+    }
     const best = this.cache.search(query, 1)[0];
     if (best && best.score >= SCORE_PREFIX_MATCH) {
       return { doc: best.doc, score: best.score };
@@ -266,7 +274,9 @@ export abstract class DocCommandHandler extends BaseCommand {
         misses.push(query);
         continue;
       }
-      if (seen.has(hit.doc.name)) continue;
+      if (seen.has(hit.doc.name)) {
+        continue;
+      }
       seen.add(hit.doc.name);
       found.push(hit);
     }
@@ -308,7 +318,9 @@ export abstract class DocCommandHandler extends BaseCommand {
    * Handle query: exact match first, then fuzzy.
    */
   protected async handleQuery(query: string): Promise<void> {
-    if (!this.cache) throw new Error('Cache not initialized');
+    if (!this.cache) {
+      throw new Error('Cache not initialized');
+    }
 
     // Try exact match first
     const exactMatch = this.cache.get(query);
@@ -426,7 +438,9 @@ export abstract class DocCommandHandler extends BaseCommand {
     text = text.replace(/\s+/g, ' ').trim();
 
     // Return first chunk of text (up to ~200 chars for reasonable fallback)
-    if (text.length === 0) return undefined;
+    if (text.length === 0) {
+      return undefined;
+    }
     return text.slice(0, 200);
   }
 
@@ -469,7 +483,9 @@ export abstract class DocCommandHandler extends BaseCommand {
    * Wrap text at word boundary to fit within maxWidth.
    */
   protected wrapAtWord(text: string, maxWidth: number): string {
-    if (text.length <= maxWidth) return text;
+    if (text.length <= maxWidth) {
+      return text;
+    }
     const lastSpace = text.lastIndexOf(' ', maxWidth);
     if (lastSpace > 0) {
       return text.slice(0, lastSpace);
