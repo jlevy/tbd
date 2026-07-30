@@ -210,9 +210,11 @@ pre-commit:
       glob: "*.{ts,tsx,js,json,css}"
       run: <formatter/fixer> {staged_files}
       stage_fixed: true
+    # Exclude generated Markdown that must match its generator byte-for-byte.
     format-markdown:
       glob: "*.md"
-      run: flowmark --auto --inplace --nobackup .
+      exclude: "(generated-dir/|SKILL\\.md)"
+      run: flowmark --auto {staged_files}
       stage_fixed: true
 
 pre-push:
@@ -223,6 +225,15 @@ pre-push:
 
 CI runs the same verify-only trio: lint (`--max-warnings 0` or `biome ci`), type check
 (`tsc --noEmit`), tests.
+
+One deliberate exception to staged-only fixing: if exclusions live in a
+`.flowmarkignore` file, run flowmark on the whole tree (`run: flowmark --auto .`,
+keeping the `*.md` glob as the trigger) instead of on `{staged_files}`. flowmark-rs
+resolves `.flowmarkignore` relative to its target argument, so passing staged subsets
+bypasses the ignore list and can damage fixtures and generated docs.
+Whole-tree runs are fast (well under a second); pick one exclusion mechanism (hook
+`exclude:` with staged files, or `.flowmarkignore` with the whole tree) and match the
+run target to it.
 
 ## Smoke-Testing the Floor
 
