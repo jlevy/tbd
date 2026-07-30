@@ -5,7 +5,7 @@ title: "Spec: Agent CLI ergonomics round 2 (bash fallbacks)"
 kind: epic
 status: open
 priority: 1
-version: 12
+version: 13
 spec_path: docs/project/specs/active/plan-2026-07-28-agent-cli-bash-fallbacks.md
 labels: []
 dependencies: []
@@ -19,8 +19,9 @@ child_order_hints:
   - is-01kyqdkenfn9rswm3s44vg11j8
   - is-01kysqv071rtzjszpag3y7ywm7
   - is-01kysqvc51zr4mkdzks2scdk5y
+  - is-01kyss4hn2a5jk59b5wh14e4wr
 created_at: 2026-07-28T06:11:15.877Z
-updated_at: 2026-07-30T14:46:26.720Z
+updated_at: 2026-07-30T15:08:55.840Z
 ---
 Epic for plan-2026-07-28-agent-cli-bash-fallbacks.md: close the remaining places agents shell out around tbd (loops, head/grep/jq pipes).
 
