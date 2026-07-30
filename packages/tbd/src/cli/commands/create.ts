@@ -289,11 +289,14 @@ export const createCommand = new Command('create')
   .option('--defer <date>', 'Defer until date (ISO8601)')
   .option('--parent <id>', 'Parent issue ID')
   .option('--spec <path>', 'Link to spec document (relative path)')
-  .option('-l, --label <label>', 'Add label (repeatable)', (val, prev: string[]) => [...prev, val])
+  .option('-l, --label <label>', 'Add label (repeatable)', (val, prev: string[] | undefined) => [
+    ...(prev ?? []),
+    val,
+  ])
   .option(
     '--depends-on <id>',
     'Blocker issue ID this issue depends on (repeatable)',
-    (val, prev: string[]) => [...prev, val],
+    (val, prev: string[] | undefined) => [...(prev ?? []), val],
   )
   .action(async (title, options, command) => {
     const handler = new CreateHandler(command);
