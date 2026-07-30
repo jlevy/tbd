@@ -294,7 +294,9 @@ export async function listLocalForkFiles(
       continue; // Kind dir absent; nothing forked or added there.
     }
     for (const entry of entries) {
-      if (!entry.endsWith('.md')) continue;
+      if (!entry.endsWith('.md')) {
+        continue;
+      }
       const name = entry.slice(0, -3);
       if (!findFork(manifest, name, kind)) {
         locals.push({ kind, name, relPath: forkRelPath(forkDir, kind, name) });
@@ -362,10 +364,18 @@ export async function computeForkDriftSummary(
       entry,
       cache.get(entry.name)?.doc.content ?? null,
     );
-    if (status.customized) summary.customized++;
-    if (status.stale) summary.stale++;
-    if (status.conflicted) summary.conflicted++;
-    if (status.state === 'missing') summary.missing++;
+    if (status.customized) {
+      summary.customized++;
+    }
+    if (status.stale) {
+      summary.stale++;
+    }
+    if (status.conflicted) {
+      summary.conflicted++;
+    }
+    if (status.state === 'missing') {
+      summary.missing++;
+    }
   }
   return summary;
 }

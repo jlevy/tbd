@@ -69,7 +69,9 @@ describe('performance tests', () => {
         await rm(tempDir, { recursive: true, force: true });
         break;
       } catch {
-        if (attempt < 2) await new Promise((r) => setTimeout(r, 100 * (attempt + 1)));
+        if (attempt < 2) {
+          await new Promise((r) => setTimeout(r, 100 * (attempt + 1)));
+        }
       }
     }
   });

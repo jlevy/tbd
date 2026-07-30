@@ -200,7 +200,9 @@ export function wrapDescription(
   maxLines: number,
   maxWidth: number,
 ): string {
-  if (!text) return '';
+  if (!text) {
+    return '';
+  }
 
   const indentStr = ' '.repeat(indent);
   const contentWidth = maxWidth - indent;

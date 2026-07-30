@@ -33,7 +33,7 @@ class GuidelinesHandler extends DocCommandHandler {
     });
   }
 
-  async run(query: string | undefined, options: GuidelinesOptions): Promise<void> {
+  async run(queries: string[], options: GuidelinesOptions): Promise<void> {
     await this.execute(async () => {
       // Add mode
       if (options.add) {
@@ -53,13 +53,14 @@ class GuidelinesHandler extends DocCommandHandler {
       }
 
       // No query: show help
-      if (!query) {
+      if (queries.length === 0) {
         await this.handleNoQuery();
         return;
       }
 
-      // Query provided: try exact match first, then fuzzy
-      await this.handleQuery(query);
+      // One or more queries: exact match first, then fuzzy; several names
+      // load as one batch (all-or-nothing) with the agent header printed once.
+      await this.handleQueries(queries);
     }, 'Failed to find guideline');
   }
 
@@ -67,7 +68,9 @@ class GuidelinesHandler extends DocCommandHandler {
    * Handle --list mode with optional category filtering.
    */
   private async handleListWithCategory(includeAll?: boolean, category?: string): Promise<void> {
-    if (!this.cache) throw new Error('Cache not initialized');
+    if (!this.cache) {
+      throw new Error('Cache not initialized');
+    }
 
     let docs = this.cache.list(includeAll);
 
@@ -128,13 +131,13 @@ class GuidelinesHandler extends DocCommandHandler {
 
 export const guidelinesCommand = new Command('guidelines')
   .description('Find and output coding guidelines')
-  .argument('[query]', 'Guideline name or description to search for')
+  .argument('[queries...]', 'Guideline name(s) or description to search for')
   .option('--list', 'List all available guidelines')
   .option('--all', 'Include shadowed guidelines (use with --list)')
   .option('--category <category>', 'Filter by category: typescript, python, testing, general')
   .option('--add <url>', 'Add a guideline from a URL')
   .option('--name <name>', 'Name for the added guideline (required with --add)')
-  .action(async (query: string | undefined, options: GuidelinesOptions, command) => {
+  .action(async (queries: string[], options: GuidelinesOptions, command) => {
     const handler = new GuidelinesHandler(command);
-    await handler.run(query, options);
+    await handler.run(queries, options);
   });

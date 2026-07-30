@@ -78,6 +78,34 @@ Error: Not a tbd repository (run 'tbd setup --auto --prefix=<name>' first)
 
 * * *
 
+## Bundled Self-Docs Before Init
+
+# Test: A single bundled self-doc reads without init
+
+```console
+$ tbd docs show tbd-docs | head -1
+[..]
+? 0
+```
+
+# Test: An all-bundled batch reads without init too (PR #198 review R4)
+
+```console
+$ tbd docs show tbd-docs tbd-design | grep -c "^# "
+[..]
+? 0
+```
+
+# Test: A batch with a managed doc still requires init
+
+```console
+$ tbd docs show tbd-docs general-coding-rules 2>&1
+Error: Not a tbd repository (run 'tbd setup --auto --prefix=<name>' first)
+? 1
+```
+
+* * *
+
 ## Init Command
 
 # Test: Init works and provides success message

@@ -112,7 +112,9 @@ function mapKind(beadsType?: string): IssueKindType {
     epic: 'epic',
     chore: 'chore',
   };
-  if (!beadsType) return 'task';
+  if (!beadsType) {
+    return 'task';
+  }
   const result = IssueKind.safeParse(kindMap[beadsType] ?? beadsType);
   return result.success ? result.data : 'task';
 }
@@ -134,7 +136,9 @@ function mapPriority(priority: unknown): number {
     const match = /^[Pp]?(\d)$/.exec(priority.trim());
     if (match) {
       const num = parseInt(match[1]!, 10);
-      if (num >= 0 && num <= 4) return num;
+      if (num >= 0 && num <= 4) {
+        return num;
+      }
     }
   }
   return 2; // Default P2

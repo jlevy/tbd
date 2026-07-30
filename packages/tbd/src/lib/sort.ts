@@ -60,9 +60,15 @@ function splitIntoChunks(str: string): [boolean, string][] {
  */
 export function naturalCompare(a: string, b: string): number {
   // Handle empty strings
-  if (!a && !b) return 0;
-  if (!a) return -1;
-  if (!b) return 1;
+  if (!a && !b) {
+    return 0;
+  }
+  if (!a) {
+    return -1;
+  }
+  if (!b) {
+    return 1;
+  }
 
   const chunksA = splitIntoChunks(a);
   const chunksB = splitIntoChunks(b);

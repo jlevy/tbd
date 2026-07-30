@@ -68,11 +68,15 @@ class StaleHandler extends BaseCommand {
 
     for (const issue of issues) {
       // Check status filter
-      if (!allowedStatuses.has(issue.status)) continue;
+      if (!allowedStatuses.has(issue.status)) {
+        continue;
+      }
 
       // Calculate days since last update
       const updatedAt = parseDate(issue.updated_at);
-      if (!updatedAt) continue;
+      if (!updatedAt) {
+        continue;
+      }
       const daysSinceUpdate = Math.floor((currentTime.getTime() - updatedAt.getTime()) / msPerDay);
 
       if (daysSinceUpdate >= daysThreshold) {

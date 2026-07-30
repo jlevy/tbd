@@ -53,9 +53,13 @@ export function gitSafeEnv(extra?: Record<string, string>): NodeJS.ProcessEnv {
  * ignored. Stderr keeps piped stdout clean; once keeps hooks readable.
  */
 export function warnIfAmbientGitEnv(): void {
-  if (warnedAmbientGitDir) return;
+  if (warnedAmbientGitDir) {
+    return;
+  }
   const ambient = process.env.GIT_DIR ?? process.env.GIT_WORK_TREE;
-  if (ambient === undefined) return;
+  if (ambient === undefined) {
+    return;
+  }
   warnedAmbientGitDir = true;
   process.stderr.write(
     `(ignoring inherited GIT_DIR: tbd operates on the repository containing the current directory)\n`,

@@ -17,7 +17,9 @@ export function hasGitignorePattern(content: string, pattern: string): boolean {
   for (const line of lines) {
     const trimmed = line.trim();
     // Skip comments and empty lines
-    if (trimmed === '' || trimmed.startsWith('#')) continue;
+    if (trimmed === '' || trimmed.startsWith('#')) {
+      continue;
+    }
 
     const normalizedLine = trimmed.replace(/\/+$/, '');
     if (normalizedLine === normalizedPattern) {

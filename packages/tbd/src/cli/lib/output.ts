@@ -479,7 +479,9 @@ export class OutputManager {
     headers: { label: string; width: number }[],
     rows: (string | { value: string; color?: (s: string) => string })[][],
   ): void {
-    if (this.ctx.json) return;
+    if (this.ctx.json) {
+      return;
+    }
 
     // Output header row
     const headerLine = headers.map((h) => h.label.padEnd(h.width)).join('');
@@ -508,7 +510,9 @@ export class OutputManager {
    * @param options - Optional indent level (default 0)
    */
   list(items: string[], options?: { indent?: number }): void {
-    if (this.ctx.json) return;
+    if (this.ctx.json) {
+      return;
+    }
 
     const indent = '  '.repeat(options?.indent ?? 0);
     for (const item of items) {
@@ -525,7 +529,9 @@ export class OutputManager {
    * @param plural - Optional plural form (defaults to singular + "s")
    */
   count(count: number, singular: string, plural?: string): void {
-    if (this.ctx.json) return;
+    if (this.ctx.json) {
+      return;
+    }
 
     const pluralForm = plural ?? `${singular}s`;
     const label = count === 1 ? singular : pluralForm;

@@ -15,7 +15,7 @@
 
 import type { Command } from 'commander';
 import type { IdMapping } from '../../file/id-mapping.js';
-import { loadIdMapping, resolveToInternalId } from '../../file/id-mapping.js';
+import { loadIdMapping } from '../../file/id-mapping.js';
 import { readConfigWithMigration, writeConfig } from '../../file/config.js';
 import { CURRENT_FORMAT } from '../../lib/tbd-format.js';
 import type { Config, CommonDirLayout } from '../../lib/types.js';
@@ -23,7 +23,8 @@ import { resolveDataSyncDir, resolveSharedTbdPaths, type SharedTbdPaths } from '
 import { formatDisplayId, formatDebugId } from '../../lib/ids.js';
 import type { CommandContext } from './context.js';
 import { getCommandContext, quietNoticesActive } from './context.js';
-import { requireInit, NotFoundError } from './errors.js';
+import { requireInit } from './errors.js';
+import { resolveIssueId } from './id-suggestions.js';
 import { checkWorktreeHealth, repairWorktree } from '../../file/git.js';
 import type { WorktreeHealth, WorktreeStatus } from '../../file/git.js';
 import {
@@ -162,8 +163,12 @@ async function ensureSharedDataSyncLayout(
  * plan-2026-05-17-shared-common-dir-sync-worktree.md.
  */
 function notifyConfigMigrated(fromFormat: string | undefined, toFormat: string): void {
-  if (quietNoticesActive()) return; // --quiet suppresses incidental notices
-  if (fromFormat === toFormat) return;
+  if (quietNoticesActive()) {
+    return;
+  } // --quiet suppresses incidental notices
+  if (fromFormat === toFormat) {
+    return;
+  }
   const arrow = fromFormat ? `${fromFormat} → ${toFormat}` : `→ ${toFormat}`;
   process.stderr.write(
     `• tbd_format ${arrow}: .tbd/config.yml updated in this checkout. ` +
@@ -182,8 +187,12 @@ function notifyConfigMigrated(fromFormat: string | undefined, toFormat: string):
  * stderr note keeps stdout (and JSON) clean while making the heal visible.
  */
 export function notifyWorktreeRepaired(status: WorktreeStatus | undefined): void {
-  if (quietNoticesActive()) return; // --quiet suppresses incidental notices
-  if (status !== 'missing' && status !== 'prunable') return;
+  if (quietNoticesActive()) {
+    return;
+  } // --quiet suppresses incidental notices
+  if (status !== 'missing' && status !== 'prunable') {
+    return;
+  }
   process.stderr.write(
     `• tbd-sync worktree was ${status}; auto-materialized it ` +
       `(fresh clone, or the worktree was removed).\n`,
@@ -306,11 +315,7 @@ export async function loadFullContext(command: Command): Promise<FullCommandCont
         : formatDisplayId(internalId, dataCtx.mapping, dataCtx.prefix);
     },
     resolveId(inputId: string): string {
-      try {
-        return resolveToInternalId(inputId, dataCtx.mapping);
-      } catch {
-        throw new NotFoundError('Issue', inputId);
-      }
+      return resolveIssueId(inputId, dataCtx.mapping, dataCtx.prefix);
     },
   };
 }

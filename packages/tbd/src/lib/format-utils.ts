@@ -57,8 +57,12 @@ export function formatDocSize(sizeBytes: number, approxTokens: number): string {
  */
 export function formatTimeAgo(date: Date): string {
   const ms = Date.now() - date.getTime();
-  if (ms < 0) return 'just now';
-  if (ms < 60000) return 'just now'; // Less than 1 minute
+  if (ms < 0) {
+    return 'just now';
+  }
+  if (ms < 60000) {
+    return 'just now';
+  } // Less than 1 minute
   return `${prettyMs(ms, { compact: true })} ago`;
 }
 
@@ -67,9 +71,13 @@ export function formatTimeAgo(date: Date): string {
  * Returns null if timestamp is invalid.
  */
 export function formatTimestampAgo(timestamp: string | undefined | null): string | null {
-  if (!timestamp) return null;
+  if (!timestamp) {
+    return null;
+  }
   const date = new Date(timestamp);
-  if (isNaN(date.getTime())) return null;
+  if (isNaN(date.getTime())) {
+    return null;
+  }
   return formatTimeAgo(date);
 }
 

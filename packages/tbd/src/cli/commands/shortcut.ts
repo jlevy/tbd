@@ -45,7 +45,7 @@ type ShortcutCategory =
   | 'meta';
 
 class ShortcutHandler extends BaseCommand {
-  async run(query: string | undefined, options: ShortcutOptions): Promise<void> {
+  async run(queries: string[], options: ShortcutOptions): Promise<void> {
     await this.execute(async () => {
       // Add mode
       if (options.add) {
@@ -101,14 +101,62 @@ class ShortcutHandler extends BaseCommand {
       }
 
       // No query: show explanation + help
-      if (!query) {
+      if (queries.length === 0) {
         await this.handleNoQuery(cache);
         return;
       }
 
-      // Query provided: try exact match first, then fuzzy
-      await this.handleQuery(cache, query);
+      // One or more queries: several names load as one all-or-nothing batch
+      await this.handleQueries(cache, queries);
     }, 'Failed to find shortcut');
+  }
+
+  /**
+   * Handle one or more queries. A single query keeps the legacy behavior
+   * (including low-confidence suggestions). Multiple queries resolve
+   * all-or-nothing before any content prints; duplicates render once and the
+   * agent header appears once for the whole batch.
+   */
+  private async handleQueries(cache: DocCache, queries: string[]): Promise<void> {
+    if (queries.length === 1) {
+      await this.handleQuery(cache, queries[0]!);
+      return;
+    }
+
+    const found: { name: string; title?: string; score: number; content: string }[] = [];
+    const misses: string[] = [];
+    const seen = new Set<string>();
+    for (const query of queries) {
+      const exact = cache.get(query);
+      const best = exact ?? cache.search(query, 1)[0];
+      if (!best || best.score < SCORE_PREFIX_MATCH) {
+        misses.push(query);
+        continue;
+      }
+      if (seen.has(best.doc.name)) {
+        continue;
+      }
+      seen.add(best.doc.name);
+      found.push({
+        name: best.doc.name,
+        title: best.doc.frontmatter?.title,
+        score: best.score,
+        content: best.doc.content,
+      });
+    }
+    if (misses.length > 0) {
+      throw new CLIError(
+        `No shortcut found matching: ${misses.join(', ')}\n` +
+          'Run `tbd shortcut --list` to see available shortcuts.',
+      );
+    }
+
+    if (this.ctx.json) {
+      this.output.data(found);
+      return;
+    }
+    console.log(SHORTCUT_AGENT_HEADER + '\n');
+    console.log(found.map((f) => f.content).join('\n\n'));
   }
 
   /**
@@ -239,7 +287,9 @@ class ShortcutHandler extends BaseCommand {
     text = text.replace(/\s+/g, ' ').trim();
 
     // Return first chunk of text (up to ~200 chars for reasonable fallback)
-    if (text.length === 0) return undefined;
+    if (text.length === 0) {
+      return undefined;
+    }
     return text.slice(0, 200);
   }
 
@@ -286,7 +336,9 @@ class ShortcutHandler extends BaseCommand {
    * Wrap text at word boundary to fit within maxWidth.
    */
   private wrapAtWord(text: string, maxWidth: number): string {
-    if (text.length <= maxWidth) return text;
+    if (text.length <= maxWidth) {
+      return text;
+    }
     const lastSpace = text.lastIndexOf(' ', maxWidth);
     if (lastSpace > 0) {
       return text.slice(0, lastSpace);
@@ -375,7 +427,7 @@ class ShortcutHandler extends BaseCommand {
 
 export const shortcutCommand = new Command('shortcut')
   .description('Find and output documentation shortcuts')
-  .argument('[query]', 'Shortcut name or description to search for')
+  .argument('[queries...]', 'Shortcut name(s) or description to search for')
   .option('--list', 'List all available shortcuts')
   .option('--all', 'Include shadowed shortcuts (use with --list)')
   .option(
@@ -386,7 +438,7 @@ export const shortcutCommand = new Command('shortcut')
   .option('--quiet', 'Suppress output (use with --refresh)')
   .option('--add <url>', 'Add a shortcut from a URL')
   .option('--name <name>', 'Name for the added shortcut (required with --add)')
-  .action(async (query: string | undefined, options: ShortcutOptions, command) => {
+  .action(async (queries: string[], options: ShortcutOptions, command) => {
     const handler = new ShortcutHandler(command);
-    await handler.run(query, options);
+    await handler.run(queries, options);
   });

@@ -215,8 +215,12 @@ describeUnlessWindows('rescue divergence matrix + preconditions', () => {
 
   /** Commit the given issues (+ optional ids.yml) onto the local tbd-sync. */
   async function commitLocal(issues: Issue[], mapping?: IdMapping): Promise<void> {
-    for (const issue of issues) await writeIssue(dataSyncPath, issue);
-    if (mapping) await saveIdMapping(dataSyncPath, mapping);
+    for (const issue of issues) {
+      await writeIssue(dataSyncPath, issue);
+    }
+    if (mapping) {
+      await saveIdMapping(dataSyncPath, mapping);
+    }
     await g(worktreePath, 'add', '-A');
     await g(worktreePath, '-c', 'commit.gpgsign=false', 'commit', '-m', 'local');
   }
@@ -230,8 +234,12 @@ describeUnlessWindows('rescue divergence matrix + preconditions', () => {
     await g(seed, 'config', 'user.email', 'b@b.com');
     await g(seed, 'config', 'user.name', 'B');
     await g(seed, 'config', 'commit.gpgsign', 'false');
-    for (const issue of issues) await writeIssue(seedData, issue);
-    if (mapping) await saveIdMapping(seedData, mapping);
+    for (const issue of issues) {
+      await writeIssue(seedData, issue);
+    }
+    if (mapping) {
+      await saveIdMapping(seedData, mapping);
+    }
     await g(seed, 'add', '-A');
     await g(seed, 'commit', '-m', 'env B');
     await g(seed, 'push', barePath, `${SYNC_BRANCH}:refs/heads/${SYNC_BRANCH}`);

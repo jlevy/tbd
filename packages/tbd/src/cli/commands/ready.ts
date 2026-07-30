@@ -61,10 +61,14 @@ class ReadyHandler extends BaseCommand {
     // Filter for ready issues
     let readyIssues = issues.filter((issue) => {
       // Must be open (not in_progress, blocked, deferred, or closed)
-      if (issue.status !== 'open') return false;
+      if (issue.status !== 'open') {
+        return false;
+      }
 
       // Must not have an assignee
-      if (issue.assignee) return false;
+      if (issue.assignee) {
+        return false;
+      }
 
       // Must not have unresolved blocking dependencies
       const blockers = blockedByMap.get(issue.id) ?? [];
@@ -72,7 +76,9 @@ class ReadyHandler extends BaseCommand {
         const blocker = issueMap.get(blockerId);
         return blocker && blocker.status !== 'closed';
       });
-      if (hasUnresolvedBlocker) return false;
+      if (hasUnresolvedBlocker) {
+        return false;
+      }
 
       return true;
     });

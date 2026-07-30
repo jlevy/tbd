@@ -142,7 +142,9 @@ export class DocCache {
    * @param options - Load options (quiet: suppress auto-sync output)
    */
   async load(options?: DocCacheLoadOptions): Promise<void> {
-    if (this.loaded) return;
+    if (this.loaded) {
+      return;
+    }
 
     // Preview and diagnostic callers need a strictly read-only cache load.
     if (!options?.skipAutoSync) {
@@ -170,7 +172,9 @@ export class DocCache {
     try {
       // Find tbd root
       const tbdRoot = await findTbdRoot(this.baseDir);
-      if (!tbdRoot) return;
+      if (!tbdRoot) {
+        return;
+      }
 
       // Read config and state
       const config = await readConfig(tbdRoot);
@@ -205,7 +209,9 @@ export class DocCache {
     }
 
     for (const entry of entries) {
-      if (!entry.endsWith('.md')) continue;
+      if (!entry.endsWith('.md')) {
+        continue;
+      }
 
       const filePath = join(dirPath, entry);
       const name = basename(entry, '.md');
@@ -277,7 +283,9 @@ export class DocCache {
     const lookupName = name.endsWith('.md') ? name.slice(0, -3) : name;
 
     const doc = this.docs.find((d) => d.name === lookupName);
-    if (!doc) return null;
+    if (!doc) {
+      return null;
+    }
 
     return { doc, score: SCORE_EXACT_MATCH };
   }
@@ -304,7 +312,9 @@ export class DocCache {
 
     // Sort by score descending, then by name for stability
     matches.sort((a, b) => {
-      if (b.score !== a.score) return b.score - a.score;
+      if (b.score !== a.score) {
+        return b.score - a.score;
+      }
       return a.doc.name.localeCompare(b.doc.name);
     });
 

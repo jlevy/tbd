@@ -28,6 +28,7 @@ import {
   type BulkItemResult,
 } from '../lib/bulk.js';
 import { resolveBodyInput } from '../lib/body-input.js';
+import { issueNotFoundHint } from '../lib/id-suggestions.js';
 
 interface ReopenOptions {
   reason?: string;
@@ -62,7 +63,11 @@ class ReopenHandler extends BaseCommand {
           // Fail closed: any unknown ID aborts before writing anything, unless
           // the caller opted into best-effort with --ignore-missing.
           if (missing.length > 0 && !options.ignoreMissing) {
-            throw new NotFoundError('Issue', missing.join(', '));
+            throw new NotFoundError(
+              'Issue',
+              missing.join(', '),
+              issueNotFoundHint(missing, mapping, config.display.id_prefix),
+            );
           }
           for (const m of missing) {
             outcomes.set(m, { id: m, action: 'missing', ok: false, skippedReason: 'not found' });
@@ -144,7 +149,9 @@ class ReopenHandler extends BaseCommand {
             try {
               await writeIssue(dataSyncDir, issue);
             } catch (error) {
-              if (!isBulk) throw error; // legacy single-ID error path
+              if (!isBulk) {
+                throw error;
+              } // legacy single-ID error path
               const message = error instanceof Error ? error.message : String(error);
               outcomes.set(input, {
                 id: displayId,
@@ -162,7 +169,9 @@ class ReopenHandler extends BaseCommand {
       );
     }, 'Failed to reopen issue');
 
-    if (wasDryRun || results.length === 0) return;
+    if (wasDryRun || results.length === 0) {
+      return;
+    }
 
     // Single ID: preserve the exact legacy output (text + JSON). A lone
     // missing ID (only reachable with --ignore-missing, a new flag with no

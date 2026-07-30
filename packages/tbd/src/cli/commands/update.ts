@@ -17,7 +17,7 @@ import { parsePriority } from '../../lib/priority.js';
 import type { IssueStatusType, IssueKindType, PriorityType } from '../../lib/types.js';
 import { now } from '../../utils/time-utils.js';
 import { resolveToInternalId, type IdMapping } from '../../file/id-mapping.js';
-import { resolveAndValidatePath, getPathErrorMessage } from '../../lib/project-paths.js';
+import { resolveSpecArg, getPathErrorMessage } from '../../lib/project-paths.js';
 import { validateIssueTitle } from '../lib/issue-input-validation.js';
 import { withDataSyncContext } from '../lib/data-context.js';
 import {
@@ -29,6 +29,7 @@ import {
   type BulkItemResult,
 } from '../lib/bulk.js';
 import { resolveBodyInput, type BodyInputState } from '../lib/body-input.js';
+import { issueNotFoundHint } from '../lib/id-suggestions.js';
 
 interface UpdateOptions {
   fromFile?: string;
@@ -90,7 +91,11 @@ class UpdateHandler extends BaseCommand {
               loneMissing = true;
               return;
             }
-            throw new NotFoundError('Issue', id);
+            throw new NotFoundError(
+              'Issue',
+              id,
+              issueNotFoundHint([id], mapping, config.display.id_prefix),
+            );
           }
 
           // Load existing issue. Only a genuinely absent file counts as
@@ -100,7 +105,9 @@ class UpdateHandler extends BaseCommand {
           try {
             issue = await readIssue(dataSyncDir, internalId);
           } catch (error) {
-            if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
+            if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
+              throw error;
+            }
             if (options.ignoreMissing) {
               loneMissing = true;
               return;
@@ -110,7 +117,9 @@ class UpdateHandler extends BaseCommand {
 
           // Parse and validate options
           const updates = await this.parseUpdates(resolvedOptions, mapping, tbdRoot);
-          if (updates === null) return;
+          if (updates === null) {
+            return;
+          }
 
           if (this.checkDryRun('Would update issue', { id: internalId, ...updates })) {
             return;
@@ -120,19 +129,42 @@ class UpdateHandler extends BaseCommand {
           const oldSpecPath = issue.spec_path;
 
           // Apply updates
-          if (updates.title !== undefined) issue.title = updates.title;
-          if (updates.status !== undefined) issue.status = updates.status;
-          if (updates.kind !== undefined) issue.kind = updates.kind;
-          if (updates.priority !== undefined) issue.priority = updates.priority;
-          if (updates.assignee !== undefined) issue.assignee = updates.assignee;
-          if (updates.description !== undefined) issue.description = updates.description;
-          if (updates.notes !== undefined) issue.notes = updates.notes;
-          if (updates.due_date !== undefined) issue.due_date = updates.due_date;
-          if (updates.deferred_until !== undefined) issue.deferred_until = updates.deferred_until;
-          if (updates.parent_id !== undefined) issue.parent_id = updates.parent_id;
-          if (updates.spec_path !== undefined) issue.spec_path = updates.spec_path;
-          if (updates.child_order_hints !== undefined)
+          if (updates.title !== undefined) {
+            issue.title = updates.title;
+          }
+          if (updates.status !== undefined) {
+            issue.status = updates.status;
+          }
+          if (updates.kind !== undefined) {
+            issue.kind = updates.kind;
+          }
+          if (updates.priority !== undefined) {
+            issue.priority = updates.priority;
+          }
+          if (updates.assignee !== undefined) {
+            issue.assignee = updates.assignee;
+          }
+          if (updates.description !== undefined) {
+            issue.description = updates.description;
+          }
+          if (updates.notes !== undefined) {
+            issue.notes = updates.notes;
+          }
+          if (updates.due_date !== undefined) {
+            issue.due_date = updates.due_date;
+          }
+          if (updates.deferred_until !== undefined) {
+            issue.deferred_until = updates.deferred_until;
+          }
+          if (updates.parent_id !== undefined) {
+            issue.parent_id = updates.parent_id;
+          }
+          if (updates.spec_path !== undefined) {
+            issue.spec_path = updates.spec_path;
+          }
+          if (updates.child_order_hints !== undefined) {
             issue.child_order_hints = updates.child_order_hints;
+          }
 
           // Inherit spec_path from new parent when re-parenting without explicit --spec
           if (updates.parent_id && options.spec === undefined && !issue.spec_path) {
@@ -218,7 +250,9 @@ class UpdateHandler extends BaseCommand {
     if (loneMissing) {
       // A dry run must preview (matching the bulk all-missing shape), never
       // fall through to the real-run summary.
-      if (this.checkDryRun('Would update 0 issues', { ids: [] })) return;
+      if (this.checkDryRun('Would update 0 issues', { ids: [] })) {
+        return;
+      }
       emitBulkSummary(
         this.output,
         [{ id, action: 'missing', ok: false, skippedReason: 'not found' }],
@@ -227,7 +261,9 @@ class UpdateHandler extends BaseCommand {
       return;
     }
 
-    if (!didUpdate) return;
+    if (!didUpdate) {
+      return;
+    }
 
     this.output.data({ id: displayId, updated: true }, () => {
       this.output.success(`Updated ${displayId}`);
@@ -242,15 +278,33 @@ class UpdateHandler extends BaseCommand {
    */
   async runBulk(ids: string[], options: UpdateOptions): Promise<void> {
     const perIdOnly: string[] = [];
-    if (options.fromFile) perIdOnly.push('--from-file');
-    if (options.title !== undefined) perIdOnly.push('--title');
-    if (options.description !== undefined) perIdOnly.push('--description');
-    if (options.notes !== undefined) perIdOnly.push('--notes');
-    if (options.notesFile) perIdOnly.push('--notes-file');
-    if (options.status !== undefined) perIdOnly.push('--status');
-    if (options.parent !== undefined) perIdOnly.push('--parent');
-    if (options.spec !== undefined) perIdOnly.push('--spec');
-    if (options.childOrder !== undefined) perIdOnly.push('--child-order');
+    if (options.fromFile) {
+      perIdOnly.push('--from-file');
+    }
+    if (options.title !== undefined) {
+      perIdOnly.push('--title');
+    }
+    if (options.description !== undefined) {
+      perIdOnly.push('--description');
+    }
+    if (options.notes !== undefined) {
+      perIdOnly.push('--notes');
+    }
+    if (options.notesFile) {
+      perIdOnly.push('--notes-file');
+    }
+    if (options.status !== undefined) {
+      perIdOnly.push('--status');
+    }
+    if (options.parent !== undefined) {
+      perIdOnly.push('--parent');
+    }
+    if (options.spec !== undefined) {
+      perIdOnly.push('--spec');
+    }
+    if (options.childOrder !== undefined) {
+      perIdOnly.push('--child-order');
+    }
     if (perIdOnly.length > 0) {
       throw new ValidationError(
         `Cannot use ${perIdOnly.join(', ')} when updating multiple issues. ` +
@@ -279,7 +333,11 @@ class UpdateHandler extends BaseCommand {
 
           const { resolved, missing, orderedInputs } = resolveAllIds(ids, mapping);
           if (missing.length > 0 && !options.ignoreMissing) {
-            throw new NotFoundError('Issue', missing.join(', '));
+            throw new NotFoundError(
+              'Issue',
+              missing.join(', '),
+              issueNotFoundHint(missing, mapping, config.display.id_prefix),
+            );
           }
           for (const m of missing) {
             outcomes.set(m, { id: m, action: 'missing', ok: false, skippedReason: 'not found' });
@@ -309,14 +367,26 @@ class UpdateHandler extends BaseCommand {
           // Apply. A write failure mid-batch is captured as a `failed` result
           // so the caller still learns exactly what was written.
           for (const { input, issue } of loaded) {
-            if (updates.kind !== undefined) issue.kind = updates.kind;
-            if (updates.priority !== undefined) issue.priority = updates.priority;
-            if (updates.assignee !== undefined) issue.assignee = updates.assignee;
-            if (updates.due_date !== undefined) issue.due_date = updates.due_date;
-            if (updates.deferred_until !== undefined) issue.deferred_until = updates.deferred_until;
+            if (updates.kind !== undefined) {
+              issue.kind = updates.kind;
+            }
+            if (updates.priority !== undefined) {
+              issue.priority = updates.priority;
+            }
+            if (updates.assignee !== undefined) {
+              issue.assignee = updates.assignee;
+            }
+            if (updates.due_date !== undefined) {
+              issue.due_date = updates.due_date;
+            }
+            if (updates.deferred_until !== undefined) {
+              issue.deferred_until = updates.deferred_until;
+            }
             if (updates.addLabels && updates.addLabels.length > 0) {
               const labelsSet = new Set(issue.labels);
-              for (const label of updates.addLabels) labelsSet.add(label);
+              for (const label of updates.addLabels) {
+                labelsSet.add(label);
+              }
               issue.labels = [...labelsSet];
             }
             if (updates.removeLabels && updates.removeLabels.length > 0) {
@@ -350,7 +420,9 @@ class UpdateHandler extends BaseCommand {
       );
     }, 'Failed to update issues');
 
-    if (wasDryRun || results.length === 0) return;
+    if (wasDryRun || results.length === 0) {
+      return;
+    }
     emitBulkSummary(this.output, results, { verb: 'Updated', skippedNote: 'unchanged' });
 
     // Partial application is reported above; name every failed write on stderr
@@ -365,7 +437,9 @@ class UpdateHandler extends BaseCommand {
    * `--from-file` carries its own body and is left untouched.
    */
   private async resolveBodyOptions(options: UpdateOptions): Promise<UpdateOptions> {
-    if (options.fromFile) return options;
+    if (options.fromFile) {
+      return options;
+    }
     // Prevalidate: reject two '-' sentinels before reading anything, so an
     // interactive user is not left typing the first body only to have the
     // second one fail afterward.
@@ -496,11 +570,7 @@ class UpdateHandler extends BaseCommand {
           if (typeof frontmatter.spec_path === 'string' && frontmatter.spec_path) {
             // Validate and normalize the spec path from file
             try {
-              const resolved = await resolveAndValidatePath(
-                frontmatter.spec_path,
-                tbdRoot,
-                process.cwd(),
-              );
+              const resolved = await resolveSpecArg(frontmatter.spec_path, tbdRoot, process.cwd());
               updates.spec_path = resolved.relativePath;
             } catch (error) {
               throw new ValidationError(getPathErrorMessage(error));
@@ -595,7 +665,7 @@ class UpdateHandler extends BaseCommand {
       if (options.spec) {
         // Non-empty spec path: validate and normalize
         try {
-          const resolved = await resolveAndValidatePath(options.spec, tbdRoot, process.cwd());
+          const resolved = await resolveSpecArg(options.spec, tbdRoot, process.cwd());
           updates.spec_path = resolved.relativePath;
         } catch (error) {
           throw new ValidationError(getPathErrorMessage(error));
@@ -624,7 +694,9 @@ class UpdateHandler extends BaseCommand {
         const shortIds = options.childOrder.split(',').map((s) => s.trim());
         const internalIds: string[] = [];
         for (const shortId of shortIds) {
-          if (!shortId) continue; // Skip empty strings
+          if (!shortId) {
+            continue;
+          } // Skip empty strings
           try {
             const internalId = resolveToInternalId(shortId, mapping);
             internalIds.push(internalId);

@@ -81,11 +81,17 @@ class ConfigSetHandler extends BaseCommand {
 
   private parseValue(value: string): unknown {
     // Parse boolean
-    if (value === 'true') return true;
-    if (value === 'false') return false;
+    if (value === 'true') {
+      return true;
+    }
+    if (value === 'false') {
+      return false;
+    }
     // Parse number
     const num = Number(value);
-    if (!isNaN(num)) return num;
+    if (!isNaN(num)) {
+      return num;
+    }
     // Return as string
     return value;
   }

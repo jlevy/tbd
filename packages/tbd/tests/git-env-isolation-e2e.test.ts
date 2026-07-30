@@ -27,7 +27,9 @@ function initRepo(dir: string, prefix: string): void {
     env: { ...process.env, FORCE_COLOR: '0', NO_COLOR: '1' },
     timeout: 60000,
   });
-  if (init.status !== 0) throw new Error(`init failed: ${init.stderr}`);
+  if (init.status !== 0) {
+    throw new Error(`init failed: ${init.stderr}`);
+  }
 }
 
 function snapshotRefs(dir: string): string {
