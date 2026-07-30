@@ -228,6 +228,58 @@ describe('watchForIssueChanges polling', () => {
       [SHA_B, SHA_C],
     ]);
   });
+
+  it('rides out transient poll failures below the consecutive cap', async () => {
+    const fake = fakeDependencies([SHA_A]);
+    fake.getRemoteTip
+      .mockResolvedValueOnce(SHA_A)
+      .mockRejectedValueOnce(new Error('ls-remote: transient DNS failure'))
+      .mockRejectedValueOnce(new Error('ls-remote: transient DNS failure'))
+      .mockResolvedValueOnce(SHA_B);
+    fake.fetchRemoteTip.mockResolvedValue(SHA_B);
+    fake.createReport.mockResolvedValue(changedReport(SHA_A, SHA_B));
+
+    const result = await watchForIssueChanges(
+      {
+        repoDir: '/unused',
+        remote: 'origin',
+        branch: 'tbd-sync',
+        prefix: 'tbd',
+        selection: { kind: 'all' },
+        since: null,
+        intervalMs: 10,
+        timeoutMs: null,
+      },
+      fake.dependencies,
+    );
+
+    expect(result).toEqual({ kind: 'changed', report: changedReport(SHA_A, SHA_B) });
+    expect(fake.getRemoteTip).toHaveBeenCalledTimes(4);
+  });
+
+  it('aborts with the last cause once consecutive poll failures reach the cap', async () => {
+    const fake = fakeDependencies([SHA_A]);
+    fake.getRemoteTip
+      .mockResolvedValueOnce(SHA_A)
+      .mockRejectedValue(new Error('ls-remote: network unreachable'));
+
+    await expect(
+      watchForIssueChanges(
+        {
+          repoDir: '/unused',
+          remote: 'origin',
+          branch: 'tbd-sync',
+          prefix: 'tbd',
+          selection: { kind: 'all' },
+          since: null,
+          intervalMs: 10,
+          timeoutMs: null,
+        },
+        fake.dependencies,
+      ),
+    ).rejects.toThrow('consecutive remote poll failures');
+    expect(fake.getRemoteTip).toHaveBeenCalledTimes(6);
+  });
 });
 
 describe('watchForIssueChanges Git safety', { timeout: 15_000 }, () => {

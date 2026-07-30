@@ -398,6 +398,33 @@ describe('createChangesReportFromRefs', () => {
     );
     expect(batchReads).toHaveBeenCalledTimes(2);
     expect(batchReads.mock.calls.every(([, objectIds]) => objectIds.length === 2)).toBe(true);
+
+    const identicalReads = vi.fn(readGitObjects);
+    const identical = await createChangesReportFromRefs(
+      {
+        repoDir,
+        sinceRef: tip,
+        tipRef: tip,
+        prefix: 'tbd',
+        selection: { kind: 'beads', ids: ['tbd-a1b2'] },
+      },
+      { readObjects: identicalReads },
+    );
+
+    expect(identical.changes).toEqual([]);
+    expect(identicalReads).toHaveBeenCalledTimes(1);
+    await expect(
+      createChangesReportFromRefs(
+        {
+          repoDir,
+          sinceRef: tip,
+          tipRef: tip,
+          prefix: 'tbd',
+          selection: { kind: 'beads', ids: ['tbd-typo'] },
+        },
+        { readObjects: vi.fn(readGitObjects) },
+      ),
+    ).rejects.toThrow('Unknown issue ID: tbd-typo');
   });
 
   it('fails loudly when a committed issue is invalid', async () => {
@@ -502,6 +529,6 @@ describe('createChangesReportFromRefs', () => {
         prefix: 'tbd',
         selection: { kind: 'all' },
       }),
-    ).rejects.toThrow(/not an ancestor/i);
+    ).rejects.toThrow(/not an ancestor .* rerun without --since/is);
   });
 });

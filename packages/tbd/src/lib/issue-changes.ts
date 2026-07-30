@@ -392,8 +392,10 @@ export function createIssueChangesReport(
     options.selection.kind === 'beads'
       ? resolveBeadIds(options.selection.ids, mapping.shortToUlid, candidateIds)
       : null;
-  const readyBefore = readyIssueIds(options.before.issues.values());
-  const readyAfter = readyIssueIds(options.after.issues.values());
+  const needsReadySets = options.selection.kind === 'filter' && options.selection.ready;
+  const emptySet: ReadonlySet<string> = new Set();
+  const readyBefore = needsReadySets ? readyIssueIds(options.before.issues.values()) : emptySet;
+  const readyAfter = needsReadySets ? readyIssueIds(options.after.issues.values()) : emptySet;
   const changes: IssueChange[] = [];
 
   for (const internalId of Array.from(candidateIds).sort((left, right) =>

@@ -26,10 +26,15 @@ Label, spec, and status watches wake when a changed bead enters, leaves, or chan
 within the selection.
 `--ready` wakes only when a bead newly becomes open, unassigned, and unblocked.
 
-Exit 0 means a matching change was reported, exit 2 means `--timeout` elapsed, and exit
-1 means an operational error.
+Exit 0 means a matching change was reported, exit 3 means `--timeout` elapsed, and exit
+1 means an operational error (usage errors exit 2, as on every tbd command).
+An established watch rides out a bounded run of failed remote polls before exiting 1, so
+brief network outages do not end an unattended watch.
 The exit-0 JSON document contains `since`, `tip`, and `changes`; pass `tip` back as
 `--since` to avoid a gap between invocations.
+If sync recovery rewrites the sync branch, a saved `--since` baseline stops being an
+ancestor of the new tip and watch exits 1; restart the watch without `--since` to
+establish a new baseline.
 
 ## Watch, Then Spawn an Agent
 
@@ -58,7 +63,7 @@ while true; do
     #   <"$wake_file" || true
   else
     watch_status=$?
-    if [ "$watch_status" -eq 2 ]; then
+    if [ "$watch_status" -eq 3 ]; then
       continue
     fi
     exit "$watch_status"

@@ -142,12 +142,12 @@ describe('tbd watch', () => {
   );
 
   it(
-    'exits 2 with no stdout when the timeout elapses',
+    'exits 3 with no stdout when the timeout elapses',
     async () => {
       const fixture = await createWatchRepo(false);
       const result = runTbd(fixture.repoDir, ['watch', '--all', '--timeout', '0', '--json']);
 
-      expect(result.status).toBe(2);
+      expect(result.status).toBe(3);
       expect(result.stdout).toBe('');
       expect(result.stderr).toBe('');
     },
@@ -193,6 +193,7 @@ describe('tbd watch', () => {
       expect(result.status).toBe(1);
       expect(result.stdout).toBe('');
       expect(result.stderr).toContain('Unknown issue ID: tbd-typo');
+      expect(result.stderr).toContain('run tbd sync first');
     },
     WINDOWS_CLI_TEST_TIMEOUT_MS,
   );

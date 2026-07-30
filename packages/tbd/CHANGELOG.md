@@ -15,6 +15,14 @@
 
 ### Fixes
 
+- **Watch exit codes disambiguated**: a watch timeout now exits 3, matching the
+  `tbd changes` no-change code, so exit 2 always means a usage error and recipes that
+  retry on “nothing happened” can never loop on a bad invocation.
+- **Watch rides out brief outages**: an established watch tolerates a bounded run of
+  consecutive failed remote polls (each failed poll waits the normal interval) before
+  exiting 1; startup validation still fails fast.
+  Baseline-invalidation and stale-snapshot errors now carry recovery hints (restart
+  without `--since`; run `tbd sync` first).
 - **Watch review hardening**: explicit bead IDs are validated before an unbounded poll,
   fresh-clone errors point to `tbd sync`, empty spec filters retain list-compatible
   behavior, created/deleted reports omit null-to-null fields, and text hunks retain at

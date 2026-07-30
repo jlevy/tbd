@@ -276,7 +276,15 @@ export async function validateBeadSelectionAtRef(
   if (selection.kind !== 'beads') {
     return;
   }
-  validateIssueChangeSelection(await readIssueSnapshotFromRef(repoDir, ref), selection);
+  const snapshot = await readIssueSnapshotFromRef(repoDir, ref);
+  try {
+    validateIssueChangeSelection(snapshot, selection);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    throw new Error(`${message}. If the bead was created since the last sync, run tbd sync first`, {
+      cause: error,
+    });
+  }
 }
 
 /** Resolve, validate, read, and diff two commits without checking either one out. */
@@ -290,12 +298,24 @@ export async function createChangesReportFromRefs(
   try {
     await runGit('-C', options.repoDir, 'merge-base', '--is-ancestor', since, tip);
   } catch (error) {
-    throw new Error(`Baseline ${since} is not an ancestor of tip ${tip}`, { cause: error });
+    throw new Error(
+      `Baseline ${since} is not an ancestor of tip ${tip}. ` +
+        'If sync recovery rewrote the sync branch, start from a new baseline ' +
+        '(for tbd watch, rerun without --since)',
+      { cause: error },
+    );
   }
-  const [before, after] = await Promise.all([
-    readSnapshot(options.repoDir, since, dependencies),
-    readSnapshot(options.repoDir, tip, dependencies),
-  ]);
+  // Identical endpoints still produce a report so selection validation runs,
+  // but one snapshot read serves both sides.
+  const [before, after] =
+    since === tip
+      ? await readSnapshot(options.repoDir, tip, dependencies).then(
+          (snapshot) => [snapshot, snapshot] as const,
+        )
+      : await Promise.all([
+          readSnapshot(options.repoDir, since, dependencies),
+          readSnapshot(options.repoDir, tip, dependencies),
+        ]);
   return createIssueChangesReport({
     since,
     tip,

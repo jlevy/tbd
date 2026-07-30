@@ -26,6 +26,13 @@ export type IssueWatchResult =
   | { kind: 'changed'; report: IssueChangesReport }
   | { kind: 'timeout' };
 
+/**
+ * Consecutive failed remote polls tolerated before an established watch aborts.
+ * Each failed poll waits the normal interval, so a brief network outage does not
+ * kill an unattended watch; startup failures still fail fast.
+ */
+const MAX_CONSECUTIVE_POLL_FAILURES = 5;
+
 /** Injectable boundaries keep polling and deadline behavior deterministic in unit tests. */
 export interface IssueWatchDependencies {
   now: () => number;
@@ -180,6 +187,7 @@ export async function watchForIssueChanges(
       observedTip = comparisonTip;
     }
 
+    let consecutivePollFailures = 0;
     while (true) {
       const remaining = deadline === null ? options.intervalMs : deadline - dependencies.now();
       if (remaining <= 0) {
@@ -190,12 +198,25 @@ export async function watchForIssueChanges(
         return { kind: 'timeout' };
       }
 
-      const nextObservedTip = await dependencies.getRemoteTip();
-      if (nextObservedTip === observedTip) {
+      let fetchedTip: string;
+      try {
+        const nextObservedTip = await dependencies.getRemoteTip();
+        if (nextObservedTip === observedTip) {
+          consecutivePollFailures = 0;
+          continue;
+        }
+        fetchedTip = await dependencies.fetchRemoteTip();
+      } catch (error) {
+        consecutivePollFailures += 1;
+        if (consecutivePollFailures >= MAX_CONSECUTIVE_POLL_FAILURES) {
+          throw new Error(
+            `Watch aborted after ${MAX_CONSECUTIVE_POLL_FAILURES} consecutive remote poll failures`,
+            { cause: error },
+          );
+        }
         continue;
       }
-
-      const fetchedTip = await dependencies.fetchRemoteTip();
+      consecutivePollFailures = 0;
       observedTip = fetchedTip;
       if (fetchedTip === baseline) {
         continue;

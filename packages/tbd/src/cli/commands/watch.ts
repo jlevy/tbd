@@ -7,6 +7,7 @@ import { readConfig } from '../../file/config.js';
 import { BaseCommand } from '../lib/base-command.js';
 import { parseChangeSelection, type ChangeSelectionOptions } from '../lib/change-selection.js';
 import { CLIError, requireInit, ValidationError } from '../lib/errors.js';
+import { EXIT_NO_MATCHING_CHANGE } from '../lib/exit-codes.js';
 import { formatIssueChangesReport } from '../lib/issue-changes-output.js';
 
 interface WatchOptions extends ChangeSelectionOptions {
@@ -57,7 +58,7 @@ class WatchHandler extends BaseCommand {
     }
 
     if (result.kind === 'timeout') {
-      process.exitCode = 2;
+      process.exitCode = EXIT_NO_MATCHING_CHANGE;
       return;
     }
     if (!this.ctx.quiet) {
@@ -81,7 +82,7 @@ export const watchCommand = new Command('watch')
   .option('--all', 'Watch all beads')
   .option('--since <commit>', 'Resume from a sync-branch commit')
   .option('--interval <seconds>', 'Remote tip poll interval (minimum 10)', '30')
-  .option('--timeout <seconds>', 'Exit 2 if no selected change occurs in this time')
+  .option('--timeout <seconds>', 'Exit 3 if no selected change occurs in this time')
   .action(async (options, command) => {
     const handler = new WatchHandler(command);
     await handler.run(options);
