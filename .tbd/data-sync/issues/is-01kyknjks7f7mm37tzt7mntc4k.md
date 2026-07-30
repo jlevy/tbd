@@ -3,9 +3,9 @@ type: is
 id: is-01kyknjks7f7mm37tzt7mntc4k
 title: "Spec: Agent CLI ergonomics round 2 (bash fallbacks)"
 kind: epic
-status: open
+status: closed
 priority: 1
-version: 13
+version: 14
 spec_path: docs/project/specs/active/plan-2026-07-28-agent-cli-bash-fallbacks.md
 labels: []
 dependencies: []
@@ -21,7 +21,9 @@ child_order_hints:
   - is-01kysqvc51zr4mkdzks2scdk5y
   - is-01kyss4hn2a5jk59b5wh14e4wr
 created_at: 2026-07-28T06:11:15.877Z
-updated_at: 2026-07-30T15:08:55.840Z
+updated_at: 2026-07-30T17:11:29.713Z
+closed_at: 2026-07-30T17:11:29.713Z
+close_reason: "PR #198 merged: agent CLI ergonomics round 2 (bulk show, variadic doc readers, variadic deps, create --depends-on, --spec suffix matching, recoverable errors, doc pass) plus review follow-ups (senior review R1-R4, Bugbot rounds, curly lint floor, em-dash guideline sweep)."
 ---
 Epic for plan-2026-07-28-agent-cli-bash-fallbacks.md: close the remaining places agents shell out around tbd (loops, head/grep/jq pipes).
 
