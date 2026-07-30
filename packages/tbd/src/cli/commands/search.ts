@@ -148,8 +148,8 @@ class SearchHandler extends BaseCommand {
         // Display IDs are lowercase; compare case-insensitively regardless of
         // --case-sensitive so an uppercased paste still matches. A dashed
         // query anchors to the display ID's start; a bare query matches only
-        // the random short portion — otherwise every issue would match its
-        // own prefix for common words like the project name.
+        // the random short portion, since otherwise every issue would match
+        // its own prefix for common words like the project name.
         const idQuery = query.toLowerCase();
         const shortPortion = displayId.slice(displayId.lastIndexOf('-') + 1);
         const matches = idQuery.includes('-')

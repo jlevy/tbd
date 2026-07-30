@@ -6,7 +6,7 @@
  * Injection works by pre-creating a non-empty directory at the second
  * blocker's issue path: the atomic rename inside `writeIssue` fails there on
  * every platform (and regardless of privilege), while the first blocker's
- * write succeeds — a true partial application using the real write path.
+ * write succeeds: a true partial application using the real write path.
  */
 
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
@@ -85,7 +85,7 @@ describe('applyDependencyWrites', () => {
       expect(outcome.failed[0]!.id).toBe(ID_B);
       expect(outcome.failed[0]!.message).toBeTruthy();
 
-      // The successful edge is durable — exactly what the error report claims.
+      // The successful edge is durable, exactly what the error report claims.
       const written = await readIssue(dataSyncDir, ID_A);
       expect(written.dependencies).toEqual([{ type: 'blocks', target: TARGET }]);
     },

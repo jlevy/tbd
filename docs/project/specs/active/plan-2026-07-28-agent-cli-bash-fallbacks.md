@@ -1,6 +1,6 @@
 ---
 title: "Agent CLI Ergonomics Round 2: Remaining Bash Fallbacks"
-description: Audit of every place agents still fall back to bash (loops, head/grep/jq pipes) instead of a native tbd call, and a plan to close the gaps — bulk show, variadic doc readers, variadic deps, and recoverable errors
+description: Audit of every place agents still fall back to bash (loops, head/grep/jq pipes) instead of a native tbd call, and a plan to close the gaps: bulk show, variadic doc readers, variadic deps, and recoverable errors
 author: Joshua Levy (github.com/jlevy) with LLM assistance
 ---
 # Feature: Agent CLI Ergonomics Round 2 (Remaining Bash Fallbacks)
@@ -16,7 +16,7 @@ author: Joshua Levy (github.com/jlevy) with LLM assistance
 [plan-2026-06-13-agent-cli-ergonomics.md](plan-2026-06-13-agent-cli-ergonomics.md)
 (Phase 1, PR #176) made `close`/`reopen`/`update` variadic and fixed the output
 contract, and the anti-loop guidance for those verbs is now in the skill, manual, and
-`tbd prime`. Field transcripts show it worked for mutations — and show exactly where
+`tbd prime`. Field transcripts show it worked for mutations, and show exactly where
 agents still drop into bash: **reads and doc loads**. This spec is a systematic audit of
 the remaining places where the obvious agent intent has no single tbd call (or has one
 that our docs never mention), plus a plan to close them.
@@ -66,7 +66,7 @@ is advertised nowhere agents look), and “where do things stand on this spec?�
 ## Non-Goals
 
 - Query-driven mutation (`--where`), the `tbd apply` transaction file, and delivery
-  provenance (`--by-pr`) — Phase 2 of the prior spec, still tracked as tbd-ja4e,
+  provenance (`--by-pr`): Phase 2 of the prior spec, still tracked as tbd-ja4e,
   tbd-t9em, tbd-71oi. Nothing here blocks on them; `apply` remains the real answer for
   batch *creation* of distinct issues.
 - Changing the mutator contracts shipped in PR #176, the output/quiet/JSON contract, or
@@ -86,15 +86,15 @@ verified against the CLI at HEAD (v0.4.0 source).
 
 | Command | Signature today | Plural intent it defeats |
 | --- | --- | --- |
-| `show <id>` ([show.ts:194](../../../../packages/tbd/src/cli/commands/show.ts)) | one ID | “status of these 5 tracking beads” — the observed loop; deferred out of PR #176 as bead tbd-r2zr, still open at P3 |
-| `guidelines [query]` ([guidelines.ts:131](../../../../packages/tbd/src/cli/commands/guidelines.ts)), `shortcut [query]` ([shortcut.ts:378](../../../../packages/tbd/src/cli/commands/shortcut.ts)), `template [query]` ([template.ts:57](../../../../packages/tbd/src/cli/commands/template.ts)), `docs show <name>` ([docs.ts:440](../../../../packages/tbd/src/cli/commands/docs.ts)) | one name per call | the skill itself instructs loading the **General engineering group — nine guidelines — before any engineering work** ([skill-baseline.md:100-104](../../../../packages/tbd/docs/shortcuts/system/skill-baseline.md)); `implement-beads` says “review relevant ones” plural. Nine sequential invocations is the *instructed* behavior |
+| `show <id>` ([show.ts:194](../../../../packages/tbd/src/cli/commands/show.ts)) | one ID | “status of these 5 tracking beads”: the observed loop; deferred out of PR #176 as bead tbd-r2zr, still open at P3 |
+| `guidelines [query]` ([guidelines.ts:131](../../../../packages/tbd/src/cli/commands/guidelines.ts)), `shortcut [query]` ([shortcut.ts:378](../../../../packages/tbd/src/cli/commands/shortcut.ts)), `template [query]` ([template.ts:57](../../../../packages/tbd/src/cli/commands/template.ts)), `docs show <name>` ([docs.ts:440](../../../../packages/tbd/src/cli/commands/docs.ts)) | one name per call | the skill itself instructs loading the **General engineering group (nine guidelines) before any engineering work** ([skill-baseline.md:100-104](../../../../packages/tbd/docs/shortcuts/system/skill-baseline.md)); `implement-beads` says “review relevant ones” plural. Nine sequential invocations is the *instructed* behavior |
 | `dep add <issue> <depends-on>` ([dep.ts:247-263](../../../../packages/tbd/src/cli/commands/dep.ts)) | one edge per call | “this bead is blocked by these three”; `plan-implementation-with-beads` step 3 generates one call per edge, so an N-step spec breakdown costs ~2N+1 tbd invocations (1 epic + N `create` + ~N `dep add`) |
-| `label add/remove <id> <labels...>` ([label.ts:200-210](../../../../packages/tbd/src/cli/commands/label.ts)) | variadic on labels, single on issues | “label these five beads” — the bulk path **already exists** as `update A B C --add-label x` ([update.ts:243-261](../../../../packages/tbd/src/cli/commands/update.ts)) but no agent-facing doc says so |
-| `create [title]` ([create.ts:206](../../../../packages/tbd/src/cli/commands/create.ts)) | one bead per call | inherent (each bead has its own title/body) — but the follow-up `dep add` calls are not: `create` has `--parent` yet no `--depends-on`, so sequenced beads always need a second wave of calls |
+| `label add/remove <id> <labels...>` ([label.ts:200-210](../../../../packages/tbd/src/cli/commands/label.ts)) | variadic on labels, single on issues | “label these five beads”: the bulk path **already exists** as `update A B C --add-label x` ([update.ts:243-261](../../../../packages/tbd/src/cli/commands/update.ts)) but no agent-facing doc says so |
+| `create [title]` ([create.ts:206](../../../../packages/tbd/src/cli/commands/create.ts)) | one bead per call | inherent (each bead has its own title/body), but the follow-up `dep add` calls are not: `create` has `--parent` yet no `--depends-on`, so sequenced beads always need a second wave of calls |
 
 Variadic arguments are already idiomatic in this codebase
 (`close`/`reopen`/`update <ids...>`, `label <labels...>`,
-`docs fork/unfork/update [names...]`) — the remaining single-target commands are
+`docs fork/unfork/update [names...]`); the remaining single-target commands are
 inconsistent, not deliberately blocked.
 
 ### B. Read-side affordances that exist but are advertised nowhere agents look
@@ -108,8 +108,8 @@ grouping, and `--pretty`
 ([list.ts:285-306](../../../../packages/tbd/src/cli/commands/list.ts)).
 
 None of these appear in the skill command tables
-([skill-baseline.md:134-190](../../../../packages/tbd/docs/shortcuts/system/skill-baseline.md))
-— the one doc every agent has in context.
+([skill-baseline.md:134-190](../../../../packages/tbd/docs/shortcuts/system/skill-baseline.md)),
+the one doc every agent has in context.
 The “Show me issue X” row teaches `tbd show <id>` singular; there is no “where do things
 stand on spec X” row at all, which is why the observed agent reached for
 `git log --since -- <spec>.md` instead of `tbd list --spec`.
@@ -122,11 +122,11 @@ Verified behaviors at HEAD:
   `error: too many arguments for 'show'. Expected 1 argument but got 2.` The only global
   courtesy is `showHelpAfterError`
   ([cli.ts:60](../../../../packages/tbd/src/cli/cli.ts)). Nothing points at a better
-  next call, so the agent’s cheapest next move is a bash loop — which is exactly what
-  the transcript shows.
+  next call, so the agent’s cheapest next move is a bash loop, which is exactly what the
+  transcript shows.
 - `tbd show tbd-zzzz` → `Error: Issue not found: tbd-zzzz`. No near-miss suggestion, no
   pointer to `tbd search`/`tbd list`.
-- `tbd search <id>` does **not** match issue IDs — searching an ID returns only issues
+- `tbd search <id>` does **not** match issue IDs: searching an ID returns only issues
   whose *text* mentions it (`--field` covers title/description/notes/labels;
   [search.ts:200-205](../../../../packages/tbd/src/cli/commands/search.ts)). There is no
   CLI-native partial-ID lookup at all, which is why the manual’s own recovery recipe for
@@ -138,15 +138,15 @@ Verified behaviors at HEAD:
   troubleshooting recipe is `tbd list --all | grep <partial-id>`.
 - [update-specs-status.md:89-91](../../../../packages/tbd/docs/shortcuts/standard/update-specs-status.md):
   instructs
-  `tbd list --json | jq -r '.[] | [.id, .status, .title, (.spec_path // "")] | @tsv'` —
+  `tbd list --json | jq -r '.[] | [.id, .status, .title, (.spec_path // "")] | @tsv'`;
   `list --specs` (grouped-by-spec view) and plain `--json` cover this without jq.
 - The NEVER-loop rule
   ([skill-baseline.md:153-157](../../../../packages/tbd/docs/shortcuts/system/skill-baseline.md),
   [tbd-prime.md:67](../../../../packages/tbd/docs/tbd-prime.md),
-  [tbd-docs.md:953](../../../../packages/tbd/docs/tbd-docs.md)) — correctly added for
-  the mutators in round 1 — is scoped to `close`/`reopen`/`update` only, so it does not
-  cover the loops agents actually still write (reads and doc loads), and cannot until
-  those verbs go variadic.
+  [tbd-docs.md:953](../../../../packages/tbd/docs/tbd-docs.md)), correctly added for the
+  mutators in round 1, is scoped to `close`/`reopen`/`update` only, so it does not cover
+  the loops agents actually still write (reads and doc loads), and cannot until those
+  verbs go variadic.
 
 ### E. `--spec` write/read asymmetry (hit while dogfooding this very spec)
 
@@ -156,7 +156,7 @@ Verified behaviors at HEAD:
 `update` ("Or use just the filename for brevity:
 `tbd create … --spec plan-YYYY-MM-DD-feature-name.md`"). But the write side
 (`create --spec`, `update --spec`) validates the argument as a literal repo-relative
-path ([project-paths.ts:181-198](../../../../packages/tbd/src/lib/project-paths.ts)) —
+path ([project-paths.ts:181-198](../../../../packages/tbd/src/lib/project-paths.ts));
 the filename form fails with `Error: File not found: plan-….md` even though the file
 exists in `docs/project/specs/active/`. Wiring this spec’s own beads hit it on the first
 try. The agent-shaped failure mode is a `find`/`ls` detour (or a silent retype) on every
@@ -187,7 +187,7 @@ unknown IDs, and downgrades to skips with `--ignore-missing`.**
 - Read-only: no write lock, no summary line, no sync hint.
 - Validate-all-then-render: resolve every ID first; any unknown aborts with the full
   list of bad IDs (fail-closed, matching mutators); `--ignore-missing` renders the found
-  subset, reports the skips on stderr, and exits 0 — the same contract the flag has on
+  subset, reports the skips on stderr, and exits 0: the same contract the flag has on
   the bulk mutators, so agents learn one rule.
 - Render in argument order, duplicates deduped (first occurrence wins).
 - Delimiter: each issue preceded by a one-line dim header (exact format fixed by the
@@ -214,13 +214,13 @@ Headline edits: skill “Show me issue X” row becomes `tbd show <id1> [<id2> �
 for “Where do things stand on spec X?” → `tbd list --spec <path>` and “label several
 beads” → `tbd update A B C --add-label x`; Finding-Work table gains
 `--limit`/`--count`/`--sort updated`/`--max-lines`; the NEVER-loop rule is generalized
-to “if you are about to loop or pipe around tbd, the bulk/filter form exists — check
+to “if you are about to loop or pipe around tbd, the bulk/filter form exists; check
 `--help` first” with `show` and `guidelines` named explicitly.
 
 ### Phase 2 components
 
 **Variadic dependencies:** `dep add <issue> <depends-on...>` and
-`dep remove <issue> <depends-on...>` — one issue gains/loses N blockers in one locked
+`dep remove <issue> <depends-on...>`: one issue gains or loses N blockers in one locked
 write (dependencies live on the issue file, so this is one read-modify-write).
 Chain-shaped breakdowns still cost one call per edge; acceptable once
 `create --depends-on` exists (below), and `apply` (tbd-t9em) remains the batch answer.
@@ -244,7 +244,7 @@ wired in one call.
   disappears; the map is polish for what’s left.
 
 **Doc purge:** replace the `| grep` ID-lookup recipe with the did-you-mean/search flow.
-(The `| jq` spec-table recipe moves to the Phase 1 doc pass instead — `list --specs` and
+(The `| jq` spec-table recipe moves to the Phase 1 doc pass instead: `list --specs` and
 `--json` already exist, so that replacement needs no new code.)
 
 ## Implementation Plan
@@ -285,7 +285,7 @@ wired in one call.
   `dep add` with 3 blockers then `dep list`; `create --depends-on` twice then `blocked`;
   unknown-ID did-you-mean output; `search` by partial display ID; overflow hint for
   `create`.
-- **vitest** for the near-miss suggester (ranking, threshold — no suggestion is better
+- **vitest** for the near-miss suggester (ranking, threshold; no suggestion is better
   than a wrong one) and the doc-reader multi-resolution (fail-closed set semantics).
 - **Backward compatibility:** every existing single-ID/single-name golden stays green
   untouched; single-ID `--json` object shape is pinned by a golden.
@@ -294,7 +294,7 @@ wired in one call.
 
 - Both phases are additive; each ships in a normal minor release with CHANGELOG entries.
 - Docs updated in the same PR as the behavior they describe: skill variants
-  (`skill-baseline.md`, `skill-brief.md`, `skill-minimal.md` — regenerated via
+  (`skill-baseline.md`, `skill-brief.md`, `skill-minimal.md`, regenerated via
   `tbd setup --auto`), `tbd-prime.md`, `tbd-docs.md`, `tbd-design.md`, and the two
   shortcuts (`plan-implementation-with-beads.md`, `update-specs-status.md`).
 - Existing beads updated rather than duplicated: tbd-r2zr (bulk show) is re-linked to
@@ -303,7 +303,7 @@ wired in one call.
 ## Open Questions
 
 **Deferred (decided 2026-07-28):** everything below is noted for future consideration
-only — none of it is in scope for Phase 1 or Phase 2, and no beads are filed for these
+only; none of it is in scope for Phase 1 or Phase 2, and no beads are filed for these
 items. The one exception is the delimiter format, which is an implementation detail
 settled by the bulk-show golden, not new scope.
 
@@ -315,7 +315,7 @@ settled by the bulk-show golden, not new scope.
 - **Read-only ID-prefix resolution?** `tbd show fin-nt` resolving an unambiguous prefix
   would be convenient and safe-ish for reads, but two resolution semantics (reads guess,
   writes don’t) may cost more confusion than it saves.
-  Default answer: no — did-you-mean plus `search` covers the need.
+  Default answer: no; did-you-mean plus `search` covers the need.
 - **`guidelines --category <cat>` printing content** (group loader) instead of being
   list-only: variadic names already collapse the loop; is the category form worth a
   second way to do it?

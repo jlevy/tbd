@@ -58,7 +58,7 @@ or want help → run `tbd shortcut welcome-user`
 | “There’s a bug where …” | `tbd create "..." --type=bug` |
 | “Create a task/feature for …” | `tbd create "..." --type=task` or `--type=feature` |
 | “Let’s work on issues/beads” | `tbd ready` |
-| “Show me issue X” (or several) | `tbd show <id1> [<id2> …]` — one call, never a loop; `--max-lines <n>` caps output per issue |
+| “Show me issue X” (or several) | `tbd show <id1> [<id2> …]` (one call, never a loop; `--max-lines <n>` caps output per issue) |
 | “Where do things stand on spec X?” | `tbd list --spec <path-or-filename>` (all specs at once: `tbd list --specs`) |
 | “Close this issue” | `tbd close <id>` (several: `tbd close <id1> <id2> …` — one call, never a loop) |
 | “Search issues for X” | `tbd search "X"` (matches content and issue IDs, so partial IDs work) |
@@ -102,7 +102,7 @@ or want help → run `tbd shortcut welcome-user`
 **General engineering** group—the `general-*` rules plus `error-handling-rules`—since
 these apply to all code regardless of language.
 Then load the group for the language or framework in use (TypeScript, Python, Convex,
-etc.). Load a whole group in **one call** — `guidelines`, `shortcut`, `template`, and
+etc.). Load a whole group in **one call**; `guidelines`, `shortcut`, `template`, and
 `docs show` all take several names:
 
 ```bash
@@ -161,12 +161,12 @@ working branch. See `tbd guidelines tbd-sync-troubleshooting` for details.
 | `tbd close <id1> <id2> <id3> --reason "..."` | Close several at once (always preferred over one-at-a-time) |
 | `tbd update <id1> <id2> <id3> --priority 1` | Bulk-update shared fields on several beads |
 
-**IMPORTANT — if you are about to shell-loop or pipe around tbd, stop: the bulk or
-filter form exists.** `show`, `close`, `reopen`, and `update` take multiple IDs;
+**IMPORTANT: if you are about to shell-loop or pipe around tbd, stop; the bulk or filter
+form exists.** `show`, `close`, `reopen`, and `update` take multiple IDs;
 `guidelines`/`shortcut`/`template`/`docs show` take multiple names; `dep add` takes
 multiple blockers; list/search/show have `--limit`/`--count`/`--max-lines`. NEVER
-`for id in …; do tbd close $id; done` (one lock, one summary, `--json`,
-`--ignore-missing` — one call), NEVER `tbd show X | head` (use `--max-lines`), NEVER
+`for id in …; do tbd close $id; done` (one call gives one lock, one summary, `--json`,
+and `--ignore-missing`), NEVER `tbd show X | head` (use `--max-lines`), NEVER
 `tbd list | grep <id>` (use `tbd search <partial-id>`). A bulk call shares one reason
 (and, for `update`, one set of field changes), so group the beads that share the same
 mutation and make one call per group.

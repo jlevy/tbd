@@ -2773,7 +2773,7 @@ Options:
 argument order (duplicates render once), parent context is suppressed, `--max-lines`
 applies per issue, and `--json` emits an array (a single ID keeps the object shape).
 Unknown IDs fail the whole read listing every bad ID; `--ignore-missing` renders the
-found subset, reports skips on stderr, and exits 0 — the same validate-all/fail-closed
+found subset, reports skips on stderr, and exits 0: the same validate-all/fail-closed
 contract as the bulk mutators, with no lock taken (read-only).
 
 **Output:**

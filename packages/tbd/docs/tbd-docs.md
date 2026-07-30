@@ -972,8 +972,8 @@ a structured `--json` result) instead of N interleaved outputs.
 A bulk call shares one reason (and one set of field changes for `update`), so group the
 issues that share the same mutation and make one call per group.
 The read side is bulk too: `tbd show A B C` renders several issues in one call, and
-`guidelines`/`shortcut`/`template`/`docs show` load several docs in one call — if you
-are about to shell-loop or pipe around tbd, the bulk or filter form exists.
+`guidelines`/`shortcut`/`template`/`docs show` load several docs in one call.
+If you are about to shell-loop or pipe around tbd, the bulk or filter form exists.
 See [Bulk operations and the output contract](#bulk-operations-and-the-output-contract).
 
 ## Common Workflows

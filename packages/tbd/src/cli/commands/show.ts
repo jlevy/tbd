@@ -277,7 +277,7 @@ class ShowHandler extends BaseCommand {
           throw new NotFoundError(
             'Issue',
             input,
-            'The ID resolves but its issue file is missing — run `tbd doctor` to check repository health.',
+            'The ID resolves but its issue file is missing; run `tbd doctor` to check repository health.',
           );
         }
         unreadable.push(input);

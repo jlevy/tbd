@@ -4,11 +4,12 @@
 
 ### Features
 
-- **Bulk `tbd show`**: `show` now takes multiple IDs — each issue renders under a dim
-  `── <id> ──` delimiter in argument order, parent context is suppressed in bulk,
-  `--max-lines` applies per issue, and `--json` emits an array (single-ID shapes are
-  unchanged). Unknown IDs fail closed listing every bad ID; `--ignore-missing` renders
-  the found subset and reports skips on stderr.
+- **Bulk `tbd show`**: `show` now takes multiple IDs.
+  Each issue renders under a dim `── <id> ──` delimiter in argument order, parent
+  context is suppressed in bulk, `--max-lines` applies per issue, and `--json` emits an
+  array (single-ID shapes are unchanged).
+  Unknown IDs fail closed listing every bad ID; `--ignore-missing` renders the found
+  subset and reports skips on stderr.
 - **Doc readers load several docs in one call**: `guidelines`, `shortcut`, `template`,
   and `docs show` all accept multiple names, resolving all-or-nothing (a typo can’t
   half-load a guideline group) with the agent preamble printed once.
@@ -16,7 +17,7 @@
 - **Dependency wiring in one call**: `dep add`/`dep remove` take multiple blockers
   (`tbd dep add <issue> <b1> <b2> …`), and `create --depends-on <id>` (repeatable)
   declares blockers at creation, so a spec breakdown creates fully wired beads.
-  Multi-file dependency writes report per-target outcomes on failure — applied edges are
+  Multi-file dependency writes report per-target outcomes on failure: applied edges are
   named and kept, the exact finishing command is given, and a `create` whose blocker
   wiring fails still reveals the created ID so a retry cannot duplicate the bead.
 - **Write-side `--spec` matches like `list --spec`**: `create --spec` and

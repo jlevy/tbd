@@ -238,6 +238,6 @@ $ rm "$(grep -rl "title: Show C standalone" .git/tbd/data-sync-worktree/.tbd/dat
 ```console
 $ tbd show $(cat c.txt) $(cat a.txt) 2>&1
 Error: Issue not found: test-[SHORTID]
-The ID resolves but its issue file is missing — run `tbd doctor` to check repository health.
+The ID resolves but its issue file is missing; run `tbd doctor` to check repository health.
 ? 1
 ```

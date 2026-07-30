@@ -236,7 +236,7 @@ export abstract class DocCommandHandler extends BaseCommand {
   /**
    * Resolve one query with the strict rule used by multi-name reads: exact
    * name, else a fuzzy match at high confidence. Returns undefined on a miss
-   * (no low-confidence suggestions here — a batch must not half-load).
+   * (no low-confidence suggestions here; a batch must not half-load).
    */
   private resolveQueryStrict(query: string): { doc: CachedDoc; score?: number } | undefined {
     if (!this.cache) {

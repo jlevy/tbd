@@ -155,7 +155,7 @@ export interface DependencyWriteOutcome {
  * Apply a dependency mutation across several blocker issue files, capturing
  * per-target write failures instead of aborting mid-batch. Multi-file
  * dependency writes have no transaction, so a failure after earlier
- * successes must be reported exactly — which edges landed and which did not —
+ * successes must be reported exactly (which edges landed and which did not),
  * never as a bare error that hides the partially-applied state. Shared by
  * `dep add`/`dep remove` (multi form) and `create --depends-on`.
  */

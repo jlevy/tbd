@@ -65,11 +65,11 @@ Every session must end with tbd in a clean state:
 - `tbd close <id1> <id2> <id3> --reason "..."` - Close several at once (preferred)
 - `tbd update <id1> <id2> <id3> --priority 1` - Bulk-update shared fields
 - **IMPORTANT**: `show`, `close`, `reopen`, and `update` take multiple IDs, and
-  `guidelines`/`shortcut`/`template` take multiple names — never shell-loop over
-  single-target calls (`for id in …; do tbd close $id; done`) and never pipe to `head`
-  (`tbd show --max-lines <n>`) or `grep` for IDs (`tbd search <partial-id>`). A bulk
-  call shares one reason/field-set, so group beads by shared mutation and make one call
-  per group
+  `guidelines`/`shortcut`/`template` take multiple names.
+  Never shell-loop over single-target calls (`for id in …; do tbd close $id; done`) and
+  never pipe to `head` (`tbd show --max-lines <n>`) or `grep` for IDs
+  (`tbd search <partial-id>`). A bulk call shares one reason/field-set, so group beads
+  by shared mutation and make one call per group
 - **Tip**: When creating multiple issues, use parallel subagents for efficiency
 
 ### Dependencies and Blocking

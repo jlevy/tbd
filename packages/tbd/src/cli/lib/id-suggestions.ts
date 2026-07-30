@@ -43,7 +43,7 @@ function editDistance(a: string, b: string): number {
  * Rank known display IDs near the unknown inputs. Distance is measured
  * against both the full display ID (`proj-ab3k`) and the bare short ID, so a
  * missing or mistyped prefix still suggests well. Empty when nothing is close
- * enough — no suggestion beats a wrong one.
+ * enough; no suggestion beats a wrong one.
  */
 export function suggestSimilarIds(inputs: string[], mapping: IdMapping, prefix: string): string[] {
   const scored = new Map<string, number>();
