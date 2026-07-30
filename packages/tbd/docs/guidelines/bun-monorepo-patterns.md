@@ -1142,6 +1142,11 @@ bun add -d @biomejs/biome
         "useConst": "error",
         "noNonNullAssertion": "warn",
         "useImportType": "error"
+      },
+      "nursery": {
+        "noFloatingPromises": "error",
+        "noMisusedPromises": "error",
+        "useAwaitThenable": "error"
       }
     }
   }
@@ -1150,13 +1155,20 @@ bun add -d @biomejs/biome
 
 **Key configuration notes**:
 
+- **The promise rules are nursery and must be enabled explicitly**: Biome’s type-domain
+  analysis is newer than typescript-eslint’s, and `noFloatingPromises` is documented for
+  TypeScript/TSX. Pin the Biome version and re-verify on upgrade.
+  `tsc --noEmit` does not diagnose floating promises, so these rules are the only static
+  promise floor in a Biome-only project; checked-JavaScript projects add the minimal
+  typescript-eslint promise overlay from `typescript-lint-format-rules`.
+
 - **`useBlockStatements: "error"` is the braces floor**: mandatory braces on every
   control statement. The recommended preset does **not** include it, so omitting this
   line means no braces enforcement at all.
   Its auto-fix is classed unsafe (it rewrites statements into blocks), so local fixing
-  uses `biome check --write --unsafe` while CI stays verify-only with `biome ci`. This
-  mirrors `curly: ['error', 'all']` in ESLint; see `typescript-lint-format-rules` for
-  the full cross-toolchain floor.
+  uses `biome check --write --unsafe` while CI stays verify-only with
+  `biome ci --error-on-warnings`. This mirrors `curly: ['error', 'all']` in ESLint; see
+  `typescript-lint-format-rules` for the full cross-toolchain floor.
 
 - **VCS integration**:
   `"vcs": { "enabled": true, "clientKind": "git", "useIgnoreFile": true }` tells Biome
@@ -1180,16 +1192,20 @@ bun add -d @biomejs/biome
     "format": "biome format --write .",
     "format:check": "biome format .",
     "lint": "biome check --write . && bun run typecheck",
-    "lint:check": "biome check . && bun run typecheck",
+    "lint:check": "biome check --error-on-warnings . && bun run typecheck",
     "check": "biome check --write .",
-    "check:ci": "biome ci ."
+    "check:ci": "biome ci --error-on-warnings ."
   }
 }
 ```
 
 **Biome `check` vs `ci`**: `biome check` runs formatting and linting in a single pass.
-Use `biome check --write .` for local development (auto-fixes issues) and `biome ci .`
-for CI (stricter: errors on any issue, cleaner output for CI logs).
+Use `biome check --write .` for local development (auto-fixes issues) and
+`biome ci --error-on-warnings .` for CI (verify-only, cleaner output for CI logs).
+The `--error-on-warnings` flag is required for the zero-warning gate: without it, both
+`biome check` and `biome ci` exit zero on warnings, and this config deliberately keeps
+some rules at `warn` severity.
+The flag makes those warnings fail the gate while staying softer in-editor.
 
 **Comparison with Prettier + ESLint**:
 
@@ -1212,14 +1228,16 @@ for CI (stricter: errors on any issue, cleaner output for CI logs).
 
 - Missing some specialized ESLint plugins (security, accessibility)
 
-**Assessment**: Biome is the natural choice for a full-Bun ecosystem.
-It provides the same quality guarantees as Prettier + ESLint with dramatically less
-configuration and better performance.
-Biome’s type inference is not full `tsc`, so promise-safety rules are best-effort; keep
-the strict `tsc --noEmit` gate alongside `biome ci` in CI
-(`typescript-lint-format-rules` defines the shared floor).
-For projects that need HTML/Markdown formatting or specialized ESLint plugins, a hybrid
-approach (Biome + targeted Prettier/ESLint) is viable.
+**Assessment**: Biome is the natural choice for a full-Bun ecosystem, with dramatically
+less configuration and better performance than Prettier + ESLint.
+Be honest about the promise floor: `tsc --noEmit` checks types but does not diagnose
+floating promises, and tests are not a static guarantee, so the nursery type-domain
+rules above are the only static promise safety in a Biome-only TypeScript project — and
+they do not cover plain JavaScript (use the typescript-eslint overlay from
+`typescript-lint-format-rules` for checked JS). Keep the strict `tsc --noEmit` gate
+alongside `biome ci --error-on-warnings` in CI. For projects that need HTML/Markdown
+formatting or specialized ESLint plugins, a hybrid approach (Biome + targeted
+Prettier/ESLint) is viable.
 
 **References**:
 
@@ -1314,11 +1332,14 @@ jobs:
       - run: bun run publint
 ```
 
-**`biome ci` vs `biome check`**: Use `biome ci .` (via `"check:ci": "biome ci ."`) in CI
-workflows instead of `biome check .`. The `biome ci` command is stricter—it errors on
-formatting issues rather than just reporting them, and produces cleaner output for CI
-logs. Use `biome check --write .` for local development (auto-fixes issues) and
-`biome ci .` in CI (fails on any issue).
+**`biome ci` vs `biome check`**: Use `biome ci --error-on-warnings .` (via
+`"check:ci": "biome ci --error-on-warnings ."`) in CI workflows instead of
+`biome check .`. The `biome ci` command is verify-only—it errors on formatting issues
+rather than fixing them, and produces cleaner output for CI logs—and
+`--error-on-warnings` makes warning-severity rules fail the gate too, which is what the
+zero-warning floor requires.
+Use `biome check --write .` for local development (auto-fixes issues) and
+`biome ci --error-on-warnings .` in CI (fails on any issue, warnings included).
 
 **Key differences from pnpm CI**:
 
@@ -1918,7 +1939,8 @@ gate yet, so enforce the 14-day cool-off with `bunx npm-check-updates --cooldown
    synchronized with build output.
 
 5. **Use Biome for formatting + linting** via a single `biome.json`. Use
-   `biome check --write` locally and `biome ci` in CI for stricter checks.
+   `biome check --write` locally and `biome ci --error-on-warnings` in CI for the
+   zero-warning gate.
 
 6. **Add `bun update` after `changeset version`** to fix workspace reference resolution
    in the lockfile.
@@ -1952,8 +1974,9 @@ gate yet, so enforce the 14-day cool-off with `bunx npm-check-updates --cooldown
 16. **Use dynamic git-based versioning** for dev builds—the pattern works identically
     with Bun, and `bun` replaces `tsx` for script execution.
 
-17. **Use `biome ci`** in CI workflows instead of `biome check`—it’s stricter and
-    produces cleaner output for CI logs.
+17. **Use `biome ci --error-on-warnings`** in CI workflows instead of `biome check`—it
+    is verify-only, fails on warnings (the zero-warning gate), and produces cleaner
+    output for CI logs.
 
 18. **Consider ESM-only output** for Bun-native CLI tools and packages targeting modern
     Node.js (>=22). Only add CJS if specific consumers require it.
@@ -2292,9 +2315,9 @@ testing features.
     "format": "biome format --write .",
     "format:check": "biome format .",
     "lint": "biome check --write . && bun run typecheck",
-    "lint:check": "biome check . && bun run typecheck",
+    "lint:check": "biome check --error-on-warnings . && bun run typecheck",
     "check": "biome check --write .",
-    "check:ci": "biome ci .",
+    "check:ci": "biome ci --error-on-warnings .",
     "changeset": "changeset",
     "version-packages": "changeset version && bun update",
     "release": "bun run build && bun run publint && bun run publish-packages",
@@ -2319,8 +2342,8 @@ testing features.
   [Supply-Chain Mitigation](#supply-chain-mitigation) policy.
   Newer releases may exist (`@biomejs/biome` 2.4.15, `lefthook` 2.1.8,
   `npm-check-updates` 22.2.0) but were too fresh at the time of this document update.
-- `"check:ci": "biome ci ."` uses `biome ci` (stricter than `biome check`—errors on
-  formatting issues)
+- `"check:ci": "biome ci --error-on-warnings ."` uses `biome ci` (verify-only: errors on
+  formatting issues) with the flag that makes warnings fail the zero-warning gate
 - `bun run --filter '*' <script>` delegates to each workspace package
 - The `@changesets/changelog-github` dependency is optional—use
   `"changelog": "@changesets/cli/changelog"` in `.changeset/config.json` for a simpler
@@ -2380,6 +2403,7 @@ testing features.
         "noConfusingVoidType": "error"
       },
       "style": {
+        "useBlockStatements": "error",
         "useConst": "error",
         "noNonNullAssertion": "warn",
         "useImportType": "error"
@@ -2388,7 +2412,9 @@ testing features.
         "noForEach": "warn"
       },
       "nursery": {
-        "noFloatingPromises": "error"
+        "noFloatingPromises": "error",
+        "noMisusedPromises": "error",
+        "useAwaitThenable": "error"
       }
     }
   },
@@ -2905,7 +2931,7 @@ Unit tests with `bun test` (co-located `*.test.ts` files) plus golden CLI tests 
 
 Uses `"vcs": { "enabled": true, "clientKind": "git", "useIgnoreFile": true }` and the
 new Biome 2.x `"assist"` API for import organization.
-`"check:ci": "biome ci ."` for strict CI checks.
+`"check:ci": "biome ci --error-on-warnings ."` for strict CI checks.
 
 **6. Intentional `isolatedDeclarations: false` at Package Level**
 

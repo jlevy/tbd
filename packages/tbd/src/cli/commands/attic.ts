@@ -83,7 +83,7 @@ async function listAtticEntries(tbdRoot: string, filterById?: string): Promise<A
     try {
       const filePath = join(atticPath, file);
       const content = await readFile(filePath, 'utf-8');
-      const rawData = parseYamlWithConflictDetection<unknown>(content, filePath);
+      const rawData = parseYamlWithConflictDetection(content, filePath);
       const entry = AtticEntrySchema.parse(rawData);
       entries.push(entry);
     } catch {
@@ -189,10 +189,10 @@ class AtticShowHandler extends BaseCommand {
       console.log(`${colors.bold('Winner:')} ${entry.winner_source}`);
       console.log(`${colors.bold('Loser:')} ${entry.loser_source}`);
       console.log('');
-      console.log(`${colors.bold('Lost value:')}`);
+      console.log(colors.bold('Lost value:'));
       console.log(entry.lost_value);
       console.log('');
-      console.log(`${colors.bold('Context:')}`);
+      console.log(colors.bold('Context:'));
       console.log(`  Local version: ${entry.context.local_version}`);
       console.log(`  Remote version: ${entry.context.remote_version}`);
       const localAgo = formatTimestampAgo(entry.context.local_updated_at);

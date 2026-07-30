@@ -1287,7 +1287,7 @@ class DoctorHandler extends BaseCommand {
       return {
         name: 'Common-dir layout',
         status: 'error',
-        message: `${error instanceof Error ? error.message : String(error)}`,
+        message: error instanceof Error ? error.message : String(error),
         path: layoutPath,
         fixable: true,
         suggestion: `Run: tbd doctor --fix (rewrites it from config), or delete ${layoutPath}`,

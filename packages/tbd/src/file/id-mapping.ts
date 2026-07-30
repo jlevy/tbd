@@ -69,10 +69,7 @@ export async function loadIdMapping(baseDir: string): Promise<IdMapping> {
   // Parse tolerating duplicate keys; this handles the case where a git merge
   // conflict resolution kept entries from both sides, creating duplicate YAML keys.
   // Without this, the yaml parser throws "Map keys must be unique".
-  const { data: rawData, duplicateKeys } = parseYamlToleratingDuplicateKeys<unknown>(
-    content,
-    filePath,
-  );
+  const { data: rawData, duplicateKeys } = parseYamlToleratingDuplicateKeys(content, filePath);
   const data = rawData ?? {};
 
   if (duplicateKeys.length > 0) {
@@ -163,7 +160,7 @@ export async function saveIdMapping(baseDir: string, mapping: IdMapping): Promis
 async function loadIdMappingRaw(filePath: string): Promise<IdMapping> {
   const content = await readFile(filePath, 'utf-8');
 
-  const { data: rawData } = parseYamlToleratingDuplicateKeys<unknown>(content, filePath);
+  const { data: rawData } = parseYamlToleratingDuplicateKeys(content, filePath);
   const data = rawData ?? {};
 
   const parseResult = IdMappingYamlSchema.safeParse(data);
@@ -333,7 +330,7 @@ export function resolveToInternalId(input: string, mapping: IdMapping): Internal
  */
 export function parseIdMappingFromYaml(content: string): IdMapping {
   // Parse tolerating duplicate keys; handles post-merge-conflict duplicates
-  const { data: rawData, duplicateKeys } = parseYamlToleratingDuplicateKeys<unknown>(content);
+  const { data: rawData, duplicateKeys } = parseYamlToleratingDuplicateKeys(content);
   const data = rawData ?? {};
 
   if (duplicateKeys.length > 0) {

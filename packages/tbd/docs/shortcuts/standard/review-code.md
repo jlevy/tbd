@@ -68,7 +68,8 @@ Create a to-do list with the following items then perform all of them:
 
 5. **Load language-specific rules based on files changed:**
 
-   - For TypeScript/JavaScript files: `tbd guidelines typescript-rules`
+   - For TypeScript/JavaScript files:
+     `tbd guidelines typescript-rules typescript-lint-format-rules`
    - For Python files: `tbd guidelines python-rules`
    - Load both if changes contain both languages
 

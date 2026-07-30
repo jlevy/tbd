@@ -22,13 +22,15 @@ Create a to-do list with the following items then perform all of them:
    - Or review specific files the user mentions
 
 2. Load TypeScript guidelines:
-   - Run `tbd guidelines typescript-rules`
+   - Run `tbd guidelines typescript-rules typescript-lint-format-rules`
 
 3. Perform a TypeScript-focused review:
    - Check TypeScript-specific patterns: types, generics, inference, null safety
    - Verify proper use of TypeScript features (interfaces, enums, utility types)
    - Identify TypeScript antipatterns (any abuse, type assertions, missing types)
    - Assess type safety and strictness
+   - If lint, format, tsconfig, or hook configs changed, check them against the
+     `typescript-lint-format-rules` floor (strict presets, zero-warning verify gates)
 
 4. Summarize findings:
    - List TypeScript-specific issues found (if any) with file:line references

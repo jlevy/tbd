@@ -419,7 +419,7 @@ class StatusHandler extends BaseCommand {
     data: StatusData,
     colors: ReturnType<typeof this.output.getColors>,
   ): void {
-    console.log(`${colors.warn('Not a tbd repository.')}`);
+    console.log(colors.warn('Not a tbd repository.'));
     console.log('');
     console.log('Detected:');
 

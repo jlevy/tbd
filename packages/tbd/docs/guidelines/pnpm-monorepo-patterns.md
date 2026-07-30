@@ -2642,12 +2642,13 @@ Deeper background and the named-incident watch list:
 11. **Keep the monorepo root private**: The root `package.json` should have
     `"private": true` and only contain workspace tooling.
 
-12. **Use type-aware ESLint**: Configure `recommendedTypeChecked` for comprehensive bug
-    detection, especially promise safety rules.
+12. **Use type-aware ESLint**: Configure `strictTypeChecked` plus `stylisticTypeChecked`
+    for comprehensive bug detection, especially promise safety rules.
     See Appendix C for detailed configuration.
 
-13. **Enforce code style consistency**: Use `curly: 'all'` and `brace-style: '1tbs'` to
-    prevent subtle bugs and improve readability.
+13. **Enforce code style consistency**: Use `curly: 'all'` to prevent subtle bugs from
+    braceless control statements.
+    Brace layout belongs to Prettier; do not add the deprecated `brace-style` rule.
 
 14. **Use fast pre-commit hooks**: Run formatting and linting with auto-fix on staged
     files only. Target 2-5 seconds total.
@@ -3015,9 +3016,9 @@ import prettier from 'eslint-config-prettier';
 // Uses TypeScript's project service for precise, cross-project type information.
 
 // Apply type-checked configs only to TypeScript files
-const typedRecommended = tseslint.configs.recommendedTypeChecked.map((cfg) => ({
+const typedStrict = tseslint.configs.strictTypeChecked.map((cfg) => ({
   ...cfg,
-  files: ['**/*.ts', '**/*.tsx'],
+  files: ['**/*.{ts,tsx,mts,cts}'],
   languageOptions: {
     ...(cfg.languageOptions ?? {}),
     parserOptions: {
@@ -3030,7 +3031,7 @@ const typedRecommended = tseslint.configs.recommendedTypeChecked.map((cfg) => ({
 
 const typedStylistic = tseslint.configs.stylisticTypeChecked.map((cfg) => ({
   ...cfg,
-  files: ['**/*.ts', '**/*.tsx'],
+  files: ['**/*.{ts,tsx,mts,cts}'],
   languageOptions: {
     ...(cfg.languageOptions ?? {}),
     parserOptions: {
@@ -3051,7 +3052,7 @@ export default [
   js.configs.recommended,
 
   // Type-aware TypeScript rules
-  ...typedRecommended,
+  ...typedStrict,
   ...typedStylistic,
 
   // eslint-config-prettier: after every preset it must neutralize, and
@@ -3062,7 +3063,7 @@ export default [
   // TypeScript-specific rules (later flat-config entries win, so these
   // override eslint-config-prettier where they overlap)
   {
-    files: ['**/*.ts', '**/*.tsx'],
+    files: ['**/*.{ts,tsx,mts,cts}'],
     rules: {
       // === Code Style ===
       // Enforce curly braces for all control statements (prevents bugs).
@@ -3158,24 +3159,32 @@ disables `curly` while `eslint --max-warnings 0` stays green.
 After any config reordering, verify the floor is still live:
 
 ```bash
-npx eslint --print-config src/index.ts | jq '.rules.curly'
+pnpm exec eslint --print-config src/index.ts | jq '.rules.curly'
 # Expect [2, "all"] or ["error", "all"]; [0] means the floor is off.
 ```
 
-See `typescript-lint-format-rules` for the full lint and formatting floor this config
+`strictTypeChecked` is opinionated, and typescript-eslint documents that preset contents
+can change outside a major release: pin the tool version, review rule diffs on upgrade,
+and tune by narrow exception (the sanctioned adjustments are listed in
+`typescript-lint-format-rules`) rather than downgrading to `recommendedTypeChecked`. See
+`typescript-lint-format-rules` for the full lint and formatting floor this config
 implements.
 
 #### ESLint Best Practices
 
 **Type-Aware vs Basic Linting**:
 
-| Aspect | `recommended` | `recommendedTypeChecked` |
+| Aspect | `recommended` | `strictTypeChecked` + `stylisticTypeChecked` |
 | --- | --- | --- |
 | Setup complexity | Simple | Requires tsconfig |
 | Performance | Fast | Slower (type analysis) |
-| Bug detection | Basic | Comprehensive |
+| Bug detection | Basic | Comprehensive (strictest standard presets) |
 | Promise safety | Limited | Full coverage |
-| Best for | Quick setup, small projects | Production code |
+| Best for | Quick setup, small projects | Production code (the floor default) |
+
+`recommendedTypeChecked` is the intermediate step; the floor default for production
+projects is `strictTypeChecked` plus `stylisticTypeChecked` (see
+`typescript-lint-format-rules`).
 
 **Key Rules Explained**:
 

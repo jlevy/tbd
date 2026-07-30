@@ -10,7 +10,7 @@ import tseslint from 'typescript-eslint';
 import prettier from 'eslint-config-prettier';
 
 // Apply type-checked configs only to TypeScript files
-const typedRecommended = tseslint.configs.recommendedTypeChecked.map((cfg) => ({
+const typedStrict = tseslint.configs.strictTypeChecked.map((cfg) => ({
   ...cfg,
   files: ['**/*.ts', '**/*.tsx'],
   languageOptions: {
@@ -53,13 +53,28 @@ export default [
   js.configs.recommended,
 
   // Type-aware TypeScript rules
-  ...typedRecommended,
+  ...typedStrict,
   ...typedStylistic,
 
   // TypeScript-specific rules
   {
     files: ['**/*.ts', '**/*.tsx'],
     rules: {
+      // === Strict-preset tuning ===
+      // Numbers and booleans interpolate unambiguously; everything else
+      // (objects, nullish, any) still errors.
+      '@typescript-eslint/restrict-template-expressions': [
+        'error',
+        { allowNumber: true, allowBoolean: true },
+      ],
+      // Deliberate exception, not debt: with noUncheckedIndexedAccess on,
+      // a postfix ! after a bounds-checked index is the sanctioned idiom.
+      '@typescript-eslint/no-non-null-assertion': 'off',
+
+      // === Ratchet (tracked debt, tbd-s9vn): existing violations predate
+      // the strictTypeChecked floor; re-enable when the backlog is cleared.
+      '@typescript-eslint/no-unnecessary-condition': 'off',
+
       // === Unused Variables ===
       // Allow underscore prefix for intentionally unused vars/args
       '@typescript-eslint/no-unused-vars': [
@@ -151,6 +166,15 @@ export default [
       '@typescript-eslint/no-unsafe-call': 'off',
       // Test files create temporary fixtures where atomic writes aren't critical
       '@typescript-eslint/no-restricted-imports': 'off',
+    },
+  },
+
+  // Env scrubbing and settings-file editing delete computed keys by design;
+  // dynamic delete is the correct operation on these plain records.
+  {
+    files: ['**/src/cli/commands/setup.ts', '**/src/lib/git-env.ts', '**/tests/scrub-git-env.ts'],
+    rules: {
+      '@typescript-eslint/no-dynamic-delete': 'off',
     },
   },
 
