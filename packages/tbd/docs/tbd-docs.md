@@ -303,7 +303,8 @@ order (duplicates render once), parent context is suppressed, `--max-lines` appl
 issue, and `--json` emits an array.
 Unknown IDs abort the whole read listing every bad ID; `--ignore-missing` renders the
 found subset and reports skips on stderr (exit 0), the same contract the bulk mutators
-use.
+use. In `--json` mode stdout stays parseable even when everything is skipped: the bulk
+form emits `[]` and the single-ID form emits `null`.
 
 Output includes all fields: title, description, status, priority, labels, dependencies,
 timestamps, and working notes.

@@ -9,7 +9,8 @@
   context is suppressed in bulk, `--max-lines` applies per issue, and `--json` emits an
   array (single-ID shapes are unchanged).
   Unknown IDs fail closed listing every bad ID; `--ignore-missing` renders the found
-  subset and reports skips on stderr.
+  subset and reports skips on stderr, with `--json` stdout staying parseable when
+  everything is skipped (`[]` in bulk, `null` for a lone ID).
 - **Doc readers load several docs in one call**: `guidelines`, `shortcut`, `template`,
   and `docs show` all accept multiple names, resolving all-or-nothing (a typo can’t
   half-load a guideline group) with the agent preamble printed once.

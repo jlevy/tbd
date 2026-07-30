@@ -176,6 +176,30 @@ $ tbd show test-zzzzzzz --ignore-missing 2>&1
 ? 0
 ```
 
+# Test: A lone skipped ID emits JSON null (stdout stays parseable)
+
+```console
+$ tbd show test-zzzzzzz --ignore-missing --json 2>/dev/null
+null
+? 0
+```
+
+# Test: The JSON-mode skip is still reported on stderr
+
+```console
+$ tbd show test-zzzzzzz --ignore-missing --json 2>&1 >/dev/null
+{"warning":"Not found: test-zzzzzzz"}
+? 0
+```
+
+# Test: Bulk --json with every ID skipped still emits an array
+
+```console
+$ tbd show test-yyyyyyy test-zzzzzzz --ignore-missing --json 2>/dev/null
+[]
+? 0
+```
+
 * * *
 
 ## JSON shapes

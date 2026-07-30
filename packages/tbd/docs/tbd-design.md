@@ -2775,6 +2775,8 @@ applies per issue, and `--json` emits an array (a single ID keeps the object sha
 Unknown IDs fail the whole read listing every bad ID; `--ignore-missing` renders the
 found subset, reports skips on stderr, and exits 0: the same validate-all/fail-closed
 contract as the bulk mutators, with no lock taken (read-only).
+In `--json` mode stdout stays parseable when everything is skipped: the bulk form emits
+`[]` and the single-ID form emits `null`.
 
 **Output:**
 

@@ -143,6 +143,16 @@ class ShowHandler extends BaseCommand {
     await this.showBulk(ctx, ids, options);
   }
 
+  /**
+   * A single-ID read skipped by `--ignore-missing`: warn on stderr, and in
+   * JSON mode emit null so stdout stays parseable (the bulk path likewise
+   * always emits its found-subset array, and the mutators their summary).
+   */
+  private reportSingleSkip(id: string): void {
+    this.output.warn(`Not found: ${id}`);
+    this.output.data(null);
+  }
+
   /** Legacy single-ID path: object `--json` shape and automatic parent context. */
   private async showSingle(
     ctx: FullCommandContext,
@@ -155,7 +165,7 @@ class ShowHandler extends BaseCommand {
       internalId = ctx.resolveId(id);
     } catch (error) {
       if (options.ignoreMissing) {
-        this.output.warn(`Not found: ${id}`);
+        this.reportSingleSkip(id);
         return;
       }
       throw error;
@@ -171,7 +181,7 @@ class ShowHandler extends BaseCommand {
         throw error;
       }
       if (options.ignoreMissing) {
-        this.output.warn(`Not found: ${id}`);
+        this.reportSingleSkip(id);
         return;
       }
       throw new NotFoundError('Issue', id);
