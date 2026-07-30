@@ -1,7 +1,8 @@
 /**
  * ESLint flat config with type-aware rules.
  *
- * See: research-modern-typescript-monorepo-patterns.md Appendix C
+ * See: `tbd guidelines pnpm-monorepo-patterns` Appendix C and
+ * `tbd guidelines typescript-lint-format-rules` for the floor this implements.
  */
 
 import js from '@eslint/js';

@@ -1138,6 +1138,7 @@ bun add -d @biomejs/biome
         "noExplicitAny": "warn"
       },
       "style": {
+        "useBlockStatements": "error",
         "useConst": "error",
         "noNonNullAssertion": "warn",
         "useImportType": "error"
@@ -1149,14 +1150,25 @@ bun add -d @biomejs/biome
 
 **Key configuration notes**:
 
+- **`useBlockStatements: "error"` is the braces floor**: mandatory braces on every
+  control statement. The recommended preset does **not** include it, so omitting this
+  line means no braces enforcement at all.
+  Its auto-fix is classed unsafe (it rewrites statements into blocks), so local fixing
+  uses `biome check --write --unsafe` while CI stays verify-only with `biome ci`. This
+  mirrors `curly: ['error', 'all']` in ESLint; see `typescript-lint-format-rules` for
+  the full cross-toolchain floor.
+
 - **VCS integration**:
   `"vcs": { "enabled": true, "clientKind": "git", "useIgnoreFile": true }` tells Biome
   to respect `.gitignore` for file exclusion, reducing config duplication.
+
 - **Import organization**: In Biome 2.x, the `"organizeImports"` top-level key is
   deprecated. Use the new `"assist"` API:
   `"assist": { "actions": { "source": { "organizeImports": "on" } } }`.
+
 - **`ignoreUnknown: true`**: Prevents Biome from erroring on file types it doesn’t
   support (e.g., images, binaries).
+
 - **`useImportType: "error"`**: Enforces `import type` for type-only imports, aligning
   with `verbatimModuleSyntax` in TypeScript.
 
@@ -1203,6 +1215,9 @@ for CI (stricter: errors on any issue, cleaner output for CI logs).
 **Assessment**: Biome is the natural choice for a full-Bun ecosystem.
 It provides the same quality guarantees as Prettier + ESLint with dramatically less
 configuration and better performance.
+Biome’s type inference is not full `tsc`, so promise-safety rules are best-effort; keep
+the strict `tsc --noEmit` gate alongside `biome ci` in CI
+(`typescript-lint-format-rules` defines the shared floor).
 For projects that need HTML/Markdown formatting or specialized ESLint plugins, a hybrid
 approach (Biome + targeted Prettier/ESLint) is viable.
 

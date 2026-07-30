@@ -49,6 +49,14 @@
 
 ### Guidelines and content
 
+- **New `typescript-lint-format-rules` guideline**: one lint and auto-formatting floor
+  for every TypeScript and JavaScript project across pnpm and Bun, with ESLint/Prettier,
+  Biome, and checked-JavaScript profiles, hook and CI gate layouts, and floor
+  verification steps. `pnpm-monorepo-patterns` Appendix C now documents the
+  eslint-config-prettier ordering trap (its list includes `curly`, so explicit project
+  rules must come after the prettier entry, verified via `eslint --print-config`), and
+  `bun-monorepo-patterns` adds the `useBlockStatements` braces floor that Biome’s
+  recommended preset omits.
 - **`cli-agent-skill-patterns` rewritten as a concise decision guide** (from a
   1,594-line manual to a 358-line orientation core) with three new on-demand references
   served by `tbd docs show`: `agent-skill-bundle-publication`,

@@ -292,6 +292,7 @@ Load the **General engineering** group first, then the language or framework gro
 | pnpm-monorepo-patterns | Modern patterns for pnpm-based TypeScript monorepo architecture |
 | typescript-cli-tool-rules | Rules for building CLI tools with Commander.js, picocolors, and TypeScript |
 | typescript-code-coverage | Best practices for code coverage in TypeScript with Vitest and v8 provider |
+| typescript-lint-format-rules | The shared lint and auto-formatting floor for all TypeScript and JavaScript projects, across pnpm and Bun and across ESLint/Prettier and Biome toolchains. Defines the rules every project enforces, the per-toolchain profiles that implement them, and the verification steps that prove the floor is real. |
 | typescript-rules | TypeScript coding rules and best practices |
 | typescript-sorting-patterns | Deterministic sorting patterns and comparison chains for TypeScript |
 | typescript-yaml-handling-rules | Best practices for parsing and serializing YAML in TypeScript |
