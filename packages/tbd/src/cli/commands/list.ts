@@ -277,8 +277,8 @@ export const listCommand = new Command('list')
   .option('--type <type>', 'Filter: bug, feature, task, epic')
   .option('--priority <0-4>', 'Filter by priority')
   .option('--assignee <name>', 'Filter by assignee')
-  .option('--label <label>', 'Filter by label (repeatable)', (val, prev: string[] = []) => [
-    ...prev,
+  .option('--label <label>', 'Filter by label (repeatable)', (val, prev: string[] | undefined) => [
+    ...(prev ?? []),
     val,
   ])
   .option('--parent <id>', 'List children of parent')

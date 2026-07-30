@@ -547,7 +547,7 @@ export async function inspectCodexHooksSurface(cwd: string): Promise<ManagedArti
       return { state: 'missing' };
     }
   }
-  if (useGhCli === false && (await pathExists(join(cwd, CODEX_GH_CLI_SCRIPT_REL)))) {
+  if (!useGhCli && (await pathExists(join(cwd, CODEX_GH_CLI_SCRIPT_REL)))) {
     return { state: 'stale' };
   }
   return { state: 'current' };
@@ -1444,7 +1444,7 @@ class SetupDefaultHandler extends BaseCommand {
 
       // Apply --no-gh-cli flag to config if specified
       let ghCliChanged = false;
-      if (options.ghCli === false && config.settings.use_gh_cli !== false) {
+      if (options.ghCli === false && config.settings.use_gh_cli) {
         config.settings.use_gh_cli = false;
         ghCliChanged = true;
       }

@@ -75,7 +75,7 @@ export function truncateMiddle(text: string, maxLength: number): string {
 
   if (maxLength === 2) {
     // Only room for one char + ellipsis
-    return text[0] + ELLIPSIS;
+    return text[0]! + ELLIPSIS;
   }
 
   // Calculate how many characters to keep on each side

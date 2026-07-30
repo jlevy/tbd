@@ -1227,7 +1227,7 @@ async function preserveLegacyWorktreeHead(
   if (status.trim()) {
     await git('-C', legacyPath, 'add', '-A');
     await gitCommit(legacyPath, '--no-verify', '-m', 'tbd: preserve legacy sync data').catch(
-      (error) => {
+      (error: unknown) => {
         const message = error instanceof Error ? error.message : String(error);
         if (!message.includes('nothing to commit')) {
           throw error;

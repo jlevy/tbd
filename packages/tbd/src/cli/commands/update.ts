@@ -726,8 +726,14 @@ export const updateCommand = new Command('update')
   .option('--notes-file <path>', 'Set notes from file ("-" reads stdin)')
   .option('--due <date>', 'Set due date')
   .option('--defer <date>', 'Set deferred until date')
-  .option('--add-label <label>', 'Add label', (val, prev: string[] = []) => [...prev, val])
-  .option('--remove-label <label>', 'Remove label', (val, prev: string[] = []) => [...prev, val])
+  .option('--add-label <label>', 'Add label', (val, prev: string[] | undefined) => [
+    ...(prev ?? []),
+    val,
+  ])
+  .option('--remove-label <label>', 'Remove label', (val, prev: string[] | undefined) => [
+    ...(prev ?? []),
+    val,
+  ])
   .option('--parent <id>', 'Set parent')
   .option('--spec <path>', 'Set or clear spec path (empty string clears)')
   .option('--child-order <ids>', 'Set child ordering hints (comma-separated IDs)')

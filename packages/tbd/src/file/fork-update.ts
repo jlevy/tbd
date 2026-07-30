@@ -91,7 +91,7 @@ export async function mergeContents(
               resolve({ merged: stdout, conflicts: code });
               return;
             }
-            const detail = String(stderr ?? '').trim();
+            const detail = (stderr ?? '').trim();
             reject(
               new Error(`git merge-file failed${detail ? `: ${detail}` : ''}`, { cause: error }),
             );

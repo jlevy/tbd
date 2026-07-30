@@ -52,10 +52,11 @@ export const changesCommand = new Command('changes')
   .description('Report committed bead changes since a sync-branch commit')
   .requiredOption('--since <commit>', 'Baseline sync-branch commit')
   .option('--bead <ids...>', 'Select one or more bead IDs')
-  .option('--label <label>', 'Filter by label (repeatable)', (value, previous: string[] = []) => [
-    ...previous,
-    value,
-  ])
+  .option(
+    '--label <label>',
+    'Filter by label (repeatable)',
+    (value, previous: string[] | undefined) => [...(previous ?? []), value],
+  )
   .option('--spec <path>', 'Filter by spec path')
   .option('--status <status>', 'Filter: open, in_progress, blocked, deferred, closed')
   .option('--ready', 'Report beads newly entering the ready set')

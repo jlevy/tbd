@@ -791,7 +791,7 @@ export function registerForkSubcommands(docs: Command): void {
     .option(
       '--category <name>',
       'fork all docs in a category (repeatable: general|typescript|python|convex|electron)',
-      (value: string, previous: string[] = []) => [...previous, value],
+      (value: string, previous: string[] | undefined) => [...(previous ?? []), value],
     )
     .option('--force', 'overwrite an existing non-fork file')
     .action(async (names: string[], options: ForkOptions, command: Command) => {

@@ -60,8 +60,8 @@ export function stringifyYamlCompact(data: unknown): string {
  * Uses ordering.manual() from comparison-chain.ts, so fields not in the
  * order array are placed at the end.
  */
-export function sortKeys<T extends Record<string, unknown>>(
-  obj: T,
+export function sortKeys(
+  obj: Record<string, unknown>,
   fieldOrder: readonly string[],
 ): Record<string, unknown> {
   const keyComparator = ordering.manual(fieldOrder);
@@ -117,7 +117,7 @@ export function hasMergeConflictMarkers(content: string): boolean {
  * @throws MergeConflictError if content has conflict markers
  * @throws Error if YAML is invalid for other reasons
  */
-export function parseYamlWithConflictDetection<T = unknown>(content: string, filePath?: string): T {
+export function parseYamlWithConflictDetection(content: string, filePath?: string): unknown {
   // Check for merge conflict markers first
   if (hasMergeConflictMarkers(content)) {
     const location = filePath ? ` in ${filePath}` : '';
@@ -129,7 +129,7 @@ export function parseYamlWithConflictDetection<T = unknown>(content: string, fil
     );
   }
 
-  return parseYaml(content) as T;
+  return parseYaml(content) as unknown;
 }
 
 /**

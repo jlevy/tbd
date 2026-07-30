@@ -72,10 +72,11 @@ class WatchHandler extends BaseCommand {
 export const watchCommand = new Command('watch')
   .description('Wait for selected bead changes on the remote sync branch')
   .option('--bead <ids...>', 'Select one or more bead IDs')
-  .option('--label <label>', 'Filter by label (repeatable)', (value, previous: string[] = []) => [
-    ...previous,
-    value,
-  ])
+  .option(
+    '--label <label>',
+    'Filter by label (repeatable)',
+    (value, previous: string[] | undefined) => [...(previous ?? []), value],
+  )
   .option('--spec <path>', 'Filter by spec path')
   .option('--status <status>', 'Filter: open, in_progress, blocked, deferred, closed')
   .option('--ready', 'Wake when a bead newly enters the ready set')
