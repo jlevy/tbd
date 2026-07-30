@@ -16,6 +16,8 @@ yet production-ready**—do not adopt for shipped builds.
 
 **Related**:
 
+- `typescript-lint-format-rules`—the lint and auto-formatting floor every TypeScript and
+  JavaScript project enforces (ESLint/Prettier and Biome profiles)
 - `typescript-cli-tool-rules`
 - `typescript-sorting-patterns`
 - `typescript-yaml-handling-rules`

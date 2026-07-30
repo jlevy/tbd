@@ -250,14 +250,6 @@ function resolveWorkspaceDir(
 }
 
 /**
- * Get the target directory for save operation.
- * @deprecated Use resolveWorkspaceDir instead
- */
-function getTargetDir(tbdRoot: string, options: SaveOptions): string {
-  return resolveWorkspaceDir(tbdRoot, options);
-}
-
-/**
  * Save issues from data-sync directory to a workspace or directory.
  *
  * Uses mergeIssues() for proper conflict detection when an issue exists
@@ -275,7 +267,7 @@ export async function saveToWorkspace(
   options: SaveOptions,
 ): Promise<SaveResult> {
   const log = options.logger ?? noopLogger;
-  const targetDir = getTargetDir(tbdRoot, options);
+  const targetDir = resolveWorkspaceDir(tbdRoot, options);
   log.debug(`Target directory: ${targetDir}`);
   log.debug(`Source directory: ${dataSyncDir}`);
 

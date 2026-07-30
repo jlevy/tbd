@@ -67,6 +67,26 @@ describe('integration file formats', () => {
     });
   });
 
+  describe('typescript-lint-format-rules routing', () => {
+    const combinedRoute = 'tbd guidelines typescript-rules typescript-lint-format-rules';
+
+    it('skill baseline routes TypeScript work through the lint/format floor', async () => {
+      const skillPath = join(shortcutsSystemDir, 'skill-baseline.md');
+      const content = await readFile(skillPath, 'utf-8');
+
+      expect(content).toContain(combinedRoute);
+      expect(content).toContain('tbd guidelines typescript-lint-format-rules');
+    });
+
+    it('review shortcuts load the lint/format floor for TS/JS changes', async () => {
+      const standardDir = join(docsDir, 'shortcuts', 'standard');
+      for (const name of ['review-code.md', 'review-code-typescript.md']) {
+        const content = await readFile(join(standardDir, name), 'utf-8');
+        expect(content, `${name} must load the TS/JS lint-format floor`).toContain(combinedRoute);
+      }
+    });
+  });
+
   describe('skills/tbd/SKILL.md (distribution copy)', () => {
     const monorepoRoot = join(__dirname, '..', '..', '..');
     const distSkillPath = join(monorepoRoot, 'skills', 'tbd', 'SKILL.md');

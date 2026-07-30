@@ -49,6 +49,27 @@
 
 ### Guidelines and content
 
+- **New `typescript-lint-format-rules` guideline**: one normative lint, format, and
+  type-check floor for every TypeScript and JavaScript project, organized as a
+  three-axis decision matrix (package manager, language, and lint engine are independent
+  choices, with a complete path for every combination).
+  It prescribes typescript-eslint `strictTypeChecked` plus `stylisticTypeChecked` as the
+  new-project default, an explicit tsconfig floor beyond `strict: true`, zero-warning
+  verify gates (`eslint --max-warnings 0`, `biome ci --error-on-warnings`), a full
+  verify-only gate (formatter and flowmark checks before lint, types, and tests) in
+  pre-push and CI, and an honest promise-safety story: Biome’s nursery type-domain rules
+  for TypeScript, and a minimal type-aware ESLint overlay for checked JavaScript.
+  The skill baseline and both code-review shortcuts now route TypeScript/JavaScript work
+  through the guideline.
+  `pnpm-monorepo-patterns` Appendix C implements the strict presets and documents the
+  eslint-config-prettier ordering trap (its list includes `curly`, so explicit project
+  rules must come after the prettier entry, verified via `eslint --print-config`), and
+  `bun-monorepo-patterns` adds the `useBlockStatements` braces floor that Biome’s
+  recommended preset omits plus the explicit nursery promise rules.
+  This repository applies the same floor: strict presets with two tracked ratchets, the
+  new tsconfig flags, sequential pre-commit hooks, a `ci:quality` verify gate in
+  pre-push and CI (including the flowmark Markdown check), and a committed ESLint
+  config-contract check that fails CI if a floor rule goes dead.
 - **`cli-agent-skill-patterns` rewritten as a concise decision guide** (from a
   1,594-line manual to a 358-line orientation core) with three new on-demand references
   served by `tbd docs show`: `agent-skill-bundle-publication`,

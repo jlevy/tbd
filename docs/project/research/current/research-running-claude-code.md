@@ -975,8 +975,7 @@ is maturing rapidly.
 ### OpenClaw (formerly Moltbot/Clawdbot)
 
 - [Moltbot Guide - DEV Community](https://dev.to/czmilo/moltbot-the-ultimate-personal-ai-assistant-guide-for-2026-d4e)
-- [What is Moltbot? -
-  DigitalOcean](https://www.digitalocean.com/resources/articles/what-is-moltbot)
+- [What is Moltbot? - DigitalOcean](https://www.digitalocean.com/resources/articles/what-is-moltbot)
 - [Moltbot Documentation](https://docs.molt.bot/)
 - [GitHub: openclaw/openclaw](https://github.com/openclaw/openclaw) — OpenClaw (renamed
   from Moltbot Jan 30, 2026)

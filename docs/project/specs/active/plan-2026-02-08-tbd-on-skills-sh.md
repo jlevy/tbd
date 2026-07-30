@@ -176,8 +176,7 @@ description: ...             # Required: 1-1024 chars, "what + when"
    planning features.”
 3. **Consider optional fields:**
    - `license: MIT` — tbd’s license
-   - `compatibility: Requires Node.js 18+ and git.
-     Install CLI: npm install -g get-tbd`
+   - `compatibility: Requires Node.js 18+ and git. Install CLI: npm install -g get-tbd`
    - `metadata.author: jlevy`
    - `metadata.version: "0.1.17"` — track which tbd version the skill was generated for
 

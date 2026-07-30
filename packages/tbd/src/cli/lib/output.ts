@@ -229,7 +229,7 @@ function renderYamlFrontmatter(frontmatter: string): string {
     // Match YAML key: value pattern
     const match = /^(\s*)([^:]+:)(.*)$/.exec(line);
     if (match) {
-      const [, indent, key, value] = match;
+      const [, indent = '', key = '', value = ''] = match;
       // Key (including colon) is dim, value is bold
       return indent + pc.dim(key) + pc.bold(value);
     }

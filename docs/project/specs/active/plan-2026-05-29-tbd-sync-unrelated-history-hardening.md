@@ -193,9 +193,8 @@ In `initWorktree`, branch on the tri-state:
 
 - `present` → fetch + create tracking branch (as today).
 - `absent` → orphan creation is safe.
-- `check-failed` → **do not** create an orphan; return a clear error (`"Could not verify
-  whether origin/tbd-sync exists (remote check failed); refusing to create a divergent
-  local branch. Check connectivity/auth and retry."`).
+- `check-failed` → **do not** create an orphan; return a clear error
+  (`"Could not verify whether origin/tbd-sync exists (remote check failed); refusing to create a divergent local branch. Check connectivity/auth and retry."`).
 
 Need a reliable way to read git’s exit code: the `git()` wrapper currently throws an
 `Error` with a message.

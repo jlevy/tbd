@@ -1,16 +1,20 @@
 # lefthook.yml
 # Git hooks for code quality
 # Pre-commit: Fast checks with auto-fix (target: 2-5 seconds)
-# Pre-push: Full test validation
+# Pre-push: Verify-only quality gate, then full test validation
 
 pre-commit:
-  parallel: true
+  # Sequential, not parallel: stage_fixed jobs each run `git add`, and
+  # concurrent adds contend on .git/index.lock. Priorities define the order
+  # (lefthook only honors priority when parallel is false or piped is true).
+  parallel: false
 
   commands:
-    # Auto-format with prettier (~500ms)
+    # Auto-format with prettier (~500ms). `pnpm exec` runs the pinned local
+    # binary and fails if missing; npx could download an unreviewed tool.
     format:
       glob: '*.{js,ts,tsx,json,yaml,yml}'
-      run: npx prettier --write --log-level warn {staged_files}
+      run: pnpm exec prettier --write --log-level warn {staged_files}
       stage_fixed: true
       priority: 1
 
@@ -30,26 +34,26 @@ pre-commit:
     format-md:
       glob: '*.md'
       exclude: '(\.tbd/|\.claude/skills/|\.agents/skills/|skills/tbd/|AGENTS\.md)'
-      run: npx prettier --write --log-level warn {staged_files} && uvx --exclude-newer-package flowmark-rs=2026-05-31 flowmark-rs@0.3.1 --auto {staged_files}
+      run: pnpm exec prettier --write --log-level warn {staged_files} && uvx --exclude-newer-package flowmark-rs=2026-05-31 flowmark-rs@0.3.1 --auto {staged_files}
       stage_fixed: true
-      priority: 1
+      priority: 2
 
     # Lint with auto-fix and caching (~1s first, ~200ms cached)
     lint:
       glob: '*.{js,ts,tsx}'
       run: >
-        npx eslint
+        pnpm exec eslint
         --cache
         --cache-location node_modules/.cache/eslint
         --fix {staged_files}
       stage_fixed: true
-      priority: 2
+      priority: 3
 
     # Type check with incremental mode (~2s)
     typecheck:
       glob: '*.{ts,tsx}'
       run: pnpm typecheck
-      priority: 3
+      priority: 4
 
 pre-push:
   # Every command runs behind scripts/scrub-git-env.mjs: git exports GIT_DIR into
@@ -58,18 +62,24 @@ pre-push:
   # repository — test fixtures then rewrite real refs and tbd data (tbd-a1lc).
   # The vitest suite self-scrubs too (tests/scrub-git-env.ts); both layers stay.
   commands:
+    # Verify-only quality gate: formatter + Markdown checks, then zero-warning
+    # lint + typecheck. Catches drift pre-commit can miss (unstaged fixups,
+    # --no-verify commits, files edited outside a commit path).
+    check:
+      run: node scripts/scrub-git-env.mjs pnpm run ci:quality
+      priority: 1
     # Build if needed - skips if dist is up-to-date (integration tests require dist/bin.mjs)
     build:
       run: node scripts/scrub-git-env.mjs pnpm build:check
-      priority: 1
+      priority: 2
     # Then run tests
     test:
       run: node scripts/scrub-git-env.mjs pnpm test
-      priority: 2
+      priority: 3
     # Enforce 14-day package-age rule on dependency pins.
     # See packages/tbd/docs/guidelines/pnpm-monorepo-patterns.md#supply-chain-mitigation
     # Only runs when a package.json is staged so day-to-day pushes aren't slowed by registry lookups.
     package-age:
       glob: '{package.json,packages/*/package.json}'
       run: node scripts/scrub-git-env.mjs pnpm check:package-age
-      priority: 3
+      priority: 4

@@ -84,8 +84,9 @@ or want help → run `tbd shortcut welcome-user`
 | “Merge main into my branch” | `tbd shortcut merge-upstream` |
 | **Guidelines & Knowledge** |  |
 | *(any engineering work)* | Load the **General engineering** group first (see below) |
-| “Use TypeScript best practices” | `tbd guidelines typescript-rules` |
+| “Use TypeScript best practices” | `tbd guidelines typescript-rules typescript-lint-format-rules` |
 | “Use Python best practices” | `tbd guidelines python-rules` |
+| “Set up TS/JS lint, format, or hooks” | `tbd guidelines typescript-lint-format-rules` |
 | “Build a TypeScript CLI” | `tbd guidelines typescript-cli-tool-rules` |
 | “Improve monorepo setup” | `tbd guidelines pnpm-monorepo-patterns` or `bun-monorepo-patterns` |
 | “Add golden/e2e testing” | `tbd guidelines golden-testing-guidelines` |
@@ -292,6 +293,7 @@ Load the **General engineering** group first, then the language or framework gro
 | pnpm-monorepo-patterns | Modern patterns for pnpm-based TypeScript monorepo architecture |
 | typescript-cli-tool-rules | Rules for building CLI tools with Commander.js, picocolors, and TypeScript |
 | typescript-code-coverage | Best practices for code coverage in TypeScript with Vitest and v8 provider |
+| typescript-lint-format-rules | The shared lint and auto-formatting floor for all TypeScript and JavaScript projects, across pnpm and Bun and across ESLint/Prettier and Biome toolchains. Defines the rules every project enforces, the per-toolchain profiles that implement them, and the verification steps that prove the floor is real. |
 | typescript-rules | TypeScript coding rules and best practices |
 | typescript-sorting-patterns | Deterministic sorting patterns and comparison chains for TypeScript |
 | typescript-yaml-handling-rules | Best practices for parsing and serializing YAML in TypeScript |
