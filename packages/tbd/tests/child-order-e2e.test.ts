@@ -12,7 +12,10 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { execSync, spawnSync } from 'node:child_process';
 
-describe('child ordering end-to-end', { timeout: 15000 }, () => {
+// Each test spawns several tbd CLI subprocesses; Windows CI runners spawn
+// slowly under parallel load, so use the same generous budget as the other
+// subprocess-heavy e2e suites (fork-cross-platform-e2e, docs-add-local-dirs-e2e).
+describe('child ordering end-to-end', { timeout: 120_000 }, () => {
   let tempDir: string;
   const tbdBin = join(__dirname, '..', 'dist', 'bin.mjs');
 
