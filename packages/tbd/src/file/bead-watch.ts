@@ -143,8 +143,10 @@ function createGitWatchDependencies(options: IssueWatchOptions): IssueWatchDepen
     cleanup: async () => {
       try {
         await git('-C', options.repoDir, 'update-ref', '-d', privateRef);
-      } catch (error) {
-        throw new Error(`Failed to remove private watch ref ${privateRef}`, { cause: error });
+      } catch {
+        // Best-effort, like the startup sweep: this runs in a `finally`, so throwing
+        // here would discard the change report the watch just produced. A ref left by
+        // a failed delete is swept by the next watch once this PID is gone.
       }
     },
   };
