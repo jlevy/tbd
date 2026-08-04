@@ -123,7 +123,7 @@ changes and **base-snapshot echo suppression** in the bridge state.
 - `IssueSchema` has no linkage field.
   `BaseEntity.extensions` exists as a third-party namespace, but the implemented merge
   strategy is whole-object LWW (`extensions: 'lww'`,
-  `packages/tbd/src/file/git.ts:407`), while the design doc §3.5 specifies
+  `packages/tbd/src/file/git.ts:413`), while the design doc §3.5 specifies
   `deep_merge_by_key`. Concurrent writers to different namespaces would silently drop
   one side — a data-loss hazard for any bridge metadata (Phase 0 fixes this).
 - Issue parsing uses Zod’s default strip mode: **unknown frontmatter fields are
@@ -432,7 +432,7 @@ The pilot proves the seam with Linear, the harder case.
 ### Phase 0 — prerequisites (small, independently shippable)
 
 - [ ] Fix `extensions` merge: `lww` → `deep_merge_by_key` per design §3.5
-  (`packages/tbd/src/file/git.ts:407`), with attic on per-namespace loss + tests.
+  (`packages/tbd/src/file/git.ts:413`), with attic on per-namespace loss + tests.
 - [ ] Add `linked` field: schema, `merge_by_id (provider,id)` rule with the
   single-source collapse rule (newest `linked_at` wins, loser to attic), `tbd show`
   display, design-doc §2.7/§3.5 updates, golden tests.
