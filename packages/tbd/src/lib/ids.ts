@@ -115,7 +115,7 @@ export function generateShortId(length = 4): string {
   let result = '';
   const bytes = randomBytes(length);
   for (let i = 0; i < length; i++) {
-    result += chars[bytes[i]! % 36];
+    result += chars[bytes[i]! % 36]!;
   }
   return result;
 }

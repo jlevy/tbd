@@ -379,9 +379,15 @@ class StatusHandler extends BaseCommand {
     if (data.docs_drift && data.docs_drift.forks > 0) {
       const d = data.docs_drift;
       const parts: string[] = [`${d.customized} customized`];
-      if (d.stale > 0) parts.push(`${d.stale} with upstream updates; run 'tbd docs update'`);
-      if (d.conflicted > 0) parts.push(`${d.conflicted} conflict pending`);
-      if (d.missing > 0) parts.push(`${d.missing} missing; see 'tbd docs status'`);
+      if (d.stale > 0) {
+        parts.push(`${d.stale} with upstream updates; run 'tbd docs update'`);
+      }
+      if (d.conflicted > 0) {
+        parts.push(`${d.conflicted} conflict pending`);
+      }
+      if (d.missing > 0) {
+        parts.push(`${d.missing} missing; see 'tbd docs status'`);
+      }
       console.log('');
       console.log(`${colors.bold('Docs:')} ${d.forks} forked (${parts.join(', ')})`);
     }
@@ -413,7 +419,7 @@ class StatusHandler extends BaseCommand {
     data: StatusData,
     colors: ReturnType<typeof this.output.getColors>,
   ): void {
-    console.log(`${colors.warn('Not a tbd repository.')}`);
+    console.log(colors.warn('Not a tbd repository.'));
     console.log('');
     console.log('Detected:');
 

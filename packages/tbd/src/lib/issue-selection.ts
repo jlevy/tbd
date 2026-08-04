@@ -14,8 +14,12 @@ export interface SharedIssueFilters {
 
 /** Match the label, spec, and status predicates shared by list and watch. */
 export function issueMatchesSharedFilters(issue: Issue, filters: SharedIssueFilters): boolean {
-  if (filters.status !== null && issue.status !== filters.status) return false;
-  if (filters.labels.some((label) => !issue.labels.includes(label))) return false;
+  if (filters.status !== null && issue.status !== filters.status) {
+    return false;
+  }
+  if (filters.labels.some((label) => !issue.labels.includes(label))) {
+    return false;
+  }
   if (
     filters.spec !== null &&
     (issue.spec_path == null || !matchesSpecPath(issue.spec_path, filters.spec))
@@ -37,7 +41,9 @@ export function readyIssueIds(issues: Iterable<Issue>): ReadonlySet<string> {
 
   for (const issue of allIssues) {
     for (const dependency of issue.dependencies) {
-      if (dependency.type !== 'blocks') continue;
+      if (dependency.type !== 'blocks') {
+        continue;
+      }
       const blockerIds = blockerIdsByTarget.get(dependency.target) ?? [];
       blockerIds.push(issue.id);
       blockerIdsByTarget.set(dependency.target, blockerIds);
@@ -47,7 +53,9 @@ export function readyIssueIds(issues: Iterable<Issue>): ReadonlySet<string> {
   return new Set(
     allIssues
       .filter((issue) => {
-        if (issue.status !== 'open' || issue.assignee) return false;
+        if (issue.status !== 'open' || issue.assignee) {
+          return false;
+        }
         const blockerIds = blockerIdsByTarget.get(issue.id) ?? [];
         return !blockerIds.some((blockerId) => issueById.get(blockerId)?.status !== 'closed');
       })

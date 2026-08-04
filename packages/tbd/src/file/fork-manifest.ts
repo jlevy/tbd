@@ -146,12 +146,18 @@ export function compareVersionsLoose(a: string, b: string): -1 | 0 | 1 | null {
   };
   const pa = parse(a);
   const pb = parse(b);
-  if (!pa || !pb) return null;
+  if (!pa || !pb) {
+    return null;
+  }
   for (let i = 0; i < 3; i++) {
     const x = pa[i]!;
     const y = pb[i]!;
-    if (x < y) return -1;
-    if (x > y) return 1;
+    if (x < y) {
+      return -1;
+    }
+    if (x > y) {
+      return 1;
+    }
   }
   return 0;
 }

@@ -38,12 +38,16 @@ export function formatPriority(priority: number): string {
  */
 export function parsePriority(input: string): number | undefined {
   const trimmed = input.trim().toUpperCase();
-  if (!trimmed) return undefined;
+  if (!trimmed) {
+    return undefined;
+  }
 
   let numStr: string;
   if (trimmed.startsWith('P')) {
     // Prefixed format: P0, P1, etc.
-    if (trimmed.length !== 2) return undefined;
+    if (trimmed.length !== 2) {
+      return undefined;
+    }
     numStr = trimmed.slice(1);
   } else {
     // Numeric format: 0, 1, etc.

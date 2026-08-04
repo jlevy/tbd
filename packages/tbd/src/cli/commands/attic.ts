@@ -40,7 +40,9 @@ function parseAtticFilename(
 ): { entityId: string; timestamp: string; field: string } | null {
   // Format: is-abc123_2025-01-07T10-30-00Z_description.yml
   const match = /^(is-[a-f0-9]+)_(.+)_([^_]+)\.yml$/.exec(filename);
-  if (!match) return null;
+  if (!match) {
+    return null;
+  }
   const [, entityId, timestamp, field] = match;
   // Convert hyphens back to colons in timestamp
   const isoTimestamp = timestamp!.replace(/T(\d{2})-(\d{2})-(\d{2})/, 'T$1:$2:$3');
@@ -64,18 +66,24 @@ async function listAtticEntries(tbdRoot: string, filterById?: string): Promise<A
   const entries: AtticEntry[] = [];
 
   for (const file of files) {
-    if (!file.endsWith('.yml')) continue;
+    if (!file.endsWith('.yml')) {
+      continue;
+    }
 
     const parsed = parseAtticFilename(file);
-    if (!parsed) continue;
+    if (!parsed) {
+      continue;
+    }
 
     // Filter by ID if specified
-    if (filterById && parsed.entityId !== filterById) continue;
+    if (filterById && parsed.entityId !== filterById) {
+      continue;
+    }
 
     try {
       const filePath = join(atticPath, file);
       const content = await readFile(filePath, 'utf-8');
-      const rawData = parseYamlWithConflictDetection<unknown>(content, filePath);
+      const rawData = parseYamlWithConflictDetection(content, filePath);
       const entry = AtticEntrySchema.parse(rawData);
       entries.push(entry);
     } catch {
@@ -181,10 +189,10 @@ class AtticShowHandler extends BaseCommand {
       console.log(`${colors.bold('Winner:')} ${entry.winner_source}`);
       console.log(`${colors.bold('Loser:')} ${entry.loser_source}`);
       console.log('');
-      console.log(`${colors.bold('Lost value:')}`);
+      console.log(colors.bold('Lost value:'));
       console.log(entry.lost_value);
       console.log('');
-      console.log(`${colors.bold('Context:')}`);
+      console.log(colors.bold('Context:'));
       console.log(`  Local version: ${entry.context.local_version}`);
       console.log(`  Remote version: ${entry.context.remote_version}`);
       const localAgo = formatTimestampAgo(entry.context.local_updated_at);

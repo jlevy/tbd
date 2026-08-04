@@ -168,8 +168,7 @@ the remote.
 - Don’t auto-save (user should retry)
 - Don’t touch outbox (preserve existing data)
 - `⚠️ Sync push failed: Connection timeout`
-- `This appears to be a temporary issue.
-  Retry: tbd sync`
+- `This appears to be a temporary issue. Retry: tbd sync`
 
 **Case 7: Repeated sync attempts in blocked environment**
 - First `tbd sync`: fails, auto-saves 3 issues to outbox

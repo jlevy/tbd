@@ -26,7 +26,9 @@ class ChangesHandler extends BaseCommand {
       const wrapped = new CLIError(
         `Local sync branch '${config.sync.branch}' not found. Run \`tbd sync\` first to create it.`,
       );
-      if (error instanceof Error) wrapped.cause = error;
+      if (error instanceof Error) {
+        wrapped.cause = error;
+      }
       throw wrapped;
     }
     let report;
@@ -41,7 +43,9 @@ class ChangesHandler extends BaseCommand {
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       const wrapped = new CLIError(message);
-      if (error instanceof Error) wrapped.cause = error;
+      if (error instanceof Error) {
+        wrapped.cause = error;
+      }
       throw wrapped;
     }
 
@@ -50,7 +54,9 @@ class ChangesHandler extends BaseCommand {
         console.log(formatIssueChangesReport(report, this.output.getColors()));
       });
     }
-    if (report.changes.length === 0) process.exitCode = 3;
+    if (report.changes.length === 0) {
+      process.exitCode = 3;
+    }
   }
 }
 
@@ -58,10 +64,11 @@ export const changesCommand = new Command('changes')
   .description('Report committed bead changes since a sync-branch commit')
   .requiredOption('--since <commit>', 'Baseline sync-branch commit')
   .option('--bead <ids...>', 'Select one or more bead IDs')
-  .option('--label <label>', 'Filter by label (repeatable)', (value, previous: string[] = []) => [
-    ...previous,
-    value,
-  ])
+  .option(
+    '--label <label>',
+    'Filter by label (repeatable)',
+    (value, previous: string[] | undefined) => [...(previous ?? []), value],
+  )
   .option('--spec <path>', 'Filter by spec path')
   .option('--status <status>', 'Filter: open, in_progress, blocked, deferred, closed')
   .option('--ready', 'Report beads newly entering the ready set')

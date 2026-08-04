@@ -1,7 +1,8 @@
 /**
  * ESLint flat config with type-aware rules.
  *
- * See: research-modern-typescript-monorepo-patterns.md Appendix C
+ * See: `tbd guidelines pnpm-monorepo-patterns` Appendix C and
+ * `tbd guidelines typescript-lint-format-rules` for the floor this implements.
  */
 
 import js from '@eslint/js';
@@ -9,7 +10,7 @@ import tseslint from 'typescript-eslint';
 import prettier from 'eslint-config-prettier';
 
 // Apply type-checked configs only to TypeScript files
-const typedRecommended = tseslint.configs.recommendedTypeChecked.map((cfg) => ({
+const typedStrict = tseslint.configs.strictTypeChecked.map((cfg) => ({
   ...cfg,
   files: ['**/*.ts', '**/*.tsx'],
   languageOptions: {
@@ -52,18 +53,27 @@ export default [
   js.configs.recommended,
 
   // Type-aware TypeScript rules
-  ...typedRecommended,
+  ...typedStrict,
   ...typedStylistic,
 
   // TypeScript-specific rules
   {
     files: ['**/*.ts', '**/*.tsx'],
     rules: {
-      // === Code Style ===
-      // Enforce curly braces for all control statements (prevents bugs)
-      curly: ['error', 'all'],
-      // Consistent brace style: opening on same line, closing on new line
-      'brace-style': ['error', '1tbs', { allowSingleLine: false }],
+      // === Strict-preset tuning ===
+      // Numbers and booleans interpolate unambiguously; everything else
+      // (objects, nullish, any) still errors.
+      '@typescript-eslint/restrict-template-expressions': [
+        'error',
+        { allowNumber: true, allowBoolean: true },
+      ],
+      // Deliberate exception, not debt: with noUncheckedIndexedAccess on,
+      // a postfix ! after a bounds-checked index is the sanctioned idiom.
+      '@typescript-eslint/no-non-null-assertion': 'off',
+
+      // === Ratchet (tracked debt, tbd-s9vn): existing violations predate
+      // the strictTypeChecked floor; re-enable when the backlog is cleared.
+      '@typescript-eslint/no-unnecessary-condition': 'off',
 
       // === Unused Variables ===
       // Allow underscore prefix for intentionally unused vars/args
@@ -159,6 +169,15 @@ export default [
     },
   },
 
+  // Env scrubbing and settings-file editing delete computed keys by design;
+  // dynamic delete is the correct operation on these plain records.
+  {
+    files: ['**/src/cli/commands/setup.ts', '**/src/lib/git-env.ts', '**/tests/scrub-git-env.ts'],
+    rules: {
+      '@typescript-eslint/no-dynamic-delete': 'off',
+    },
+  },
+
   // Relax rules for scripts/tooling
   {
     files: ['**/scripts/**/*.ts'],
@@ -188,4 +207,14 @@ export default [
 
   // Prettier config must be LAST to override conflicting rules
   prettier,
+
+  // Rules that eslint-config-prettier turns off but that are safe alongside
+  // Prettier, so they must be re-asserted after it. With the 'all' option,
+  // curly only adds braces; Prettier then owns their formatting (which is why
+  // there is no brace-style rule here).
+  {
+    rules: {
+      curly: ['error', 'all'],
+    },
+  },
 ];

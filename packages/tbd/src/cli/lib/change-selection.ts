@@ -34,8 +34,12 @@ export function parseChangeSelection(
   if (hasBeads && hasFilters) {
     throw new ValidationError('--bead cannot be combined with dynamic filters');
   }
-  if (options.all) return { kind: 'all' };
-  if (hasBeads) return { kind: 'beads', ids: options.bead! };
+  if (options.all) {
+    return { kind: 'all' };
+  }
+  if (hasBeads) {
+    return { kind: 'beads', ids: options.bead! };
+  }
   if (hasFilters) {
     const statusResult = IssueStatus.nullable().safeParse(options.status ?? null);
     if (!statusResult.success) {

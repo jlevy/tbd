@@ -96,5 +96,5 @@ export function shouldColorize(colorOption: ColorOption): boolean {
  * clean plain text without ANSI codes or pagination.
  */
 export function shouldUseInteractiveOutput(ctx: CommandContext): boolean {
-  return !ctx.json && !ctx.quiet && shouldColorize(ctx.color) && process.stdout.isTTY === true;
+  return !ctx.json && !ctx.quiet && shouldColorize(ctx.color) && process.stdout.isTTY;
 }

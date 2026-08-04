@@ -78,17 +78,23 @@ class SearchHandler extends BaseCommand {
     const queryForMatch = caseSensitive ? query : query.toLowerCase();
     let results: SearchResult[] = [];
 
+    const { mapping, prefix } = dataCtx;
     for (const issue of issues) {
       // Apply status filter
-      if (statusFilter && issue.status !== statusFilter) continue;
+      if (statusFilter && issue.status !== statusFilter) {
+        continue;
+      }
 
-      // Determine which fields to search
+      // Determine which fields to search. The display ID is a searchable
+      // field (last, so content matches keep the one-match-per-issue slot),
+      // making partial-ID lookup native: `tbd search r2zr` finds tbd-r2zr.
       const searchFields = options.field
         ? [options.field]
-        : ['title', 'description', 'notes', 'labels'];
+        : ['title', 'description', 'notes', 'labels', 'id'];
 
+      const displayId = formatDisplayId(issue.id, mapping, prefix);
       for (const field of searchFields) {
-        const match = this.searchField(issue, field, queryForMatch, caseSensitive);
+        const match = this.searchField(issue, field, queryForMatch, caseSensitive, displayId);
         if (match) {
           results.push(match);
           break; // Only one match per issue
@@ -99,7 +105,6 @@ class SearchHandler extends BaseCommand {
     // Apply limit
     results = applyLimit(results, options.limit);
 
-    const { mapping, prefix } = dataCtx;
     const showDebug = this.ctx.debug;
 
     // Format output
@@ -136,8 +141,25 @@ class SearchHandler extends BaseCommand {
     field: string,
     query: string,
     caseSensitive: boolean,
+    displayId: string,
   ): SearchResult | null {
     switch (field) {
+      case 'id': {
+        // Display IDs are lowercase; compare case-insensitively regardless of
+        // --case-sensitive so an uppercased paste still matches. A dashed
+        // query anchors to the display ID's start; a bare query matches only
+        // the random short portion, since otherwise every issue would match
+        // its own prefix for common words like the project name.
+        const idQuery = query.toLowerCase();
+        const shortPortion = displayId.slice(displayId.lastIndexOf('-') + 1);
+        const matches = idQuery.includes('-')
+          ? displayId.startsWith(idQuery)
+          : shortPortion.includes(idQuery);
+        if (matches) {
+          return { issue, matchField: 'id', matchText: displayId };
+        }
+        break;
+      }
       case 'title': {
         const text = caseSensitive ? issue.title : issue.title.toLowerCase();
         if (text.includes(query)) {
@@ -181,15 +203,21 @@ class SearchHandler extends BaseCommand {
   private extractSnippet(text: string, query: string, caseSensitive: boolean): string {
     const searchText = caseSensitive ? text : text.toLowerCase();
     const index = searchText.indexOf(query);
-    if (index === -1) return text.slice(0, 60);
+    if (index === -1) {
+      return text.slice(0, 60);
+    }
 
     // Extract snippet around match
     const start = Math.max(0, index - 20);
     const end = Math.min(text.length, index + query.length + 40);
     let snippet = text.slice(start, end);
 
-    if (start > 0) snippet = '...' + snippet;
-    if (end < text.length) snippet = snippet + '...';
+    if (start > 0) {
+      snippet = '...' + snippet;
+    }
+    if (end < text.length) {
+      snippet = snippet + '...';
+    }
 
     return snippet.replace(/\n/g, ' ');
   }
@@ -199,7 +227,7 @@ export const searchCommand = new Command('search')
   .description('Search issues by text')
   .argument('<query>', 'Search query')
   .option('--status <status>', 'Filter by status')
-  .option('--field <field>', 'Search specific field (title, description, notes, labels)')
+  .option('--field <field>', 'Search specific field (title, description, notes, labels, id)')
   .option('--limit <n>', 'Limit results')
   .option('--no-refresh', 'Skip worktree refresh')
   .option('--case-sensitive', 'Case-sensitive search')

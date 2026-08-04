@@ -28,19 +28,19 @@ class ConfigShowHandler extends BaseCommand {
       const colors = this.output.getColors();
       console.log(`${colors.dim('tbd_version:')} ${config.tbd_version}`);
       if (config.tbd_upgrades && config.tbd_upgrades.length > 0) {
-        console.log(`${colors.dim('tbd_upgrades:')}`);
+        console.log(colors.dim('tbd_upgrades:'));
         for (const entry of config.tbd_upgrades) {
           const when = entry.at ? ` ${colors.dim(`(${entry.at})`)}` : '';
           console.log(`  ${colors.dim('-')} ${entry.version}${when}`);
         }
       }
-      console.log(`${colors.dim('sync:')}`);
+      console.log(colors.dim('sync:'));
       console.log(`  ${colors.dim('branch:')} ${config.sync.branch}`);
       console.log(`  ${colors.dim('remote:')} ${config.sync.remote}`);
       console.log(`  ${colors.dim('storage:')} ${config.sync.storage}`);
-      console.log(`${colors.dim('display:')}`);
+      console.log(colors.dim('display:'));
       console.log(`  ${colors.dim('id_prefix:')} ${config.display.id_prefix}`);
-      console.log(`${colors.dim('settings:')}`);
+      console.log(colors.dim('settings:'));
       console.log(`  ${colors.dim('auto_sync:')} ${config.settings.auto_sync}`);
     });
   }
@@ -81,11 +81,17 @@ class ConfigSetHandler extends BaseCommand {
 
   private parseValue(value: string): unknown {
     // Parse boolean
-    if (value === 'true') return true;
-    if (value === 'false') return false;
+    if (value === 'true') {
+      return true;
+    }
+    if (value === 'false') {
+      return false;
+    }
     // Parse number
     const num = Number(value);
-    if (!isNaN(num)) return num;
+    if (!isNaN(num)) {
+      return num;
+    }
     // Return as string
     return value;
   }

@@ -103,8 +103,12 @@ export type IssueChangeField = (typeof ISSUE_CHANGE_FIELDS)[number];
 const TEXT_FIELDS: ReadonlySet<IssueChangeField> = new Set(['description', 'notes']);
 
 function deepEqual(left: unknown, right: unknown): boolean {
-  if (left === right) return true;
-  if (left === null || right === null || typeof left !== typeof right) return false;
+  if (left === right) {
+    return true;
+  }
+  if (left === null || right === null || typeof left !== typeof right) {
+    return false;
+  }
   if (Array.isArray(left) && Array.isArray(right)) {
     return (
       left.length === right.length && left.every((value, index) => deepEqual(value, right[index]))
@@ -124,8 +128,12 @@ function deepEqual(left: unknown, right: unknown): boolean {
 }
 
 function normalizeValue(value: unknown): unknown {
-  if (value === undefined || value === null) return null;
-  if (Array.isArray(value)) return value.map(normalizeValue);
+  if (value === undefined || value === null) {
+    return null;
+  }
+  if (Array.isArray(value)) {
+    return value.map(normalizeValue);
+  }
   if (typeof value === 'object') {
     return Object.fromEntries(
       Object.entries(value as Record<string, unknown>)
@@ -228,11 +236,17 @@ function resolveBeadIds(
   return new Set(
     ids.map((input) => {
       const normalized = input.toLowerCase();
-      if (isInternalId(normalized)) return normalized;
+      if (isInternalId(normalized)) {
+        return normalized;
+      }
       const shortOrUlid = extractShortId(normalized);
-      if (/^[0-9a-z]{26}$/.test(shortOrUlid)) return makeInternalId(shortOrUlid);
+      if (/^[0-9a-z]{26}$/.test(shortOrUlid)) {
+        return makeInternalId(shortOrUlid);
+      }
       const ulid = shortToUlid.get(shortOrUlid);
-      if (ulid === undefined) throw new Error(`Unknown issue ID: ${input}`);
+      if (ulid === undefined) {
+        throw new Error(`Unknown issue ID: ${input}`);
+      }
       return makeInternalId(ulid);
     }),
   );
@@ -245,8 +259,12 @@ function fieldChanges(before: Issue | undefined, after: Issue | undefined): Issu
     const afterValue = normalizeValue(after?.[field]);
     // Created/deleted reports show the full field state, except fields unset on both
     // sides — a null -> null line carries no information.
-    if (beforeValue === null && afterValue === null) return [];
-    if (!createdOrDeleted && deepEqual(beforeValue, afterValue)) return [];
+    if (beforeValue === null && afterValue === null) {
+      return [];
+    }
+    if (!createdOrDeleted && deepEqual(beforeValue, afterValue)) {
+      return [];
+    }
     const change: IssueFieldChange = { field, before: beforeValue, after: afterValue };
     if (TEXT_FIELDS.has(field) && !deepEqual(beforeValue, afterValue)) {
       change.hunks = createTextHunks(beforeValue, afterValue);
@@ -260,7 +278,9 @@ function issueMatchesFilter(
   selection: Extract<IssueChangeSelection, { kind: 'filter' }>,
   readyIds: ReadonlySet<string>,
 ): boolean {
-  if (issue === undefined) return false;
+  if (issue === undefined) {
+    return false;
+  }
   if (
     !issueMatchesSharedFilters(issue, {
       labels: selection.labels,
@@ -317,7 +337,9 @@ export function createIssueChangesReport(
       }
     }
 
-    if (!selected) continue;
+    if (!selected) {
+      continue;
+    }
     const issue = after ?? before!;
     const ulid = extractUlidFromInternalId(internalId);
     const shortId = mapping.ulidToShort.get(ulid);

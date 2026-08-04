@@ -87,7 +87,9 @@ export async function printForkDriftNotice(output: OutputManager, tbdRoot: strin
   try {
     const manifest = await readForkManifest(tbdRoot);
     const drift = await computeForkDriftSummary(tbdRoot, FORK_DIR, manifest);
-    if (drift.forks === 0) return;
+    if (drift.forks === 0) {
+      return;
+    }
     const parts: string[] = [];
     if (drift.stale > 0) {
       parts.push(`${drift.stale} forked doc(s) have upstream updates; run 'tbd docs update'`);

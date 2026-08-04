@@ -11,8 +11,8 @@ import { requireInit, NotFoundError, NotInitializedError } from '../lib/errors.j
 import { readIssue, writeIssue, listIssues } from '../../file/storage.js';
 import { formatDisplayId, formatDebugId } from '../../lib/ids.js';
 import { now } from '../../utils/time-utils.js';
-import { resolveToInternalId } from '../../file/id-mapping.js';
 import { loadDataContext, withDataSyncContext } from '../lib/data-context.js';
+import { resolveIssueId } from '../lib/id-suggestions.js';
 
 // Add label
 class LabelAddHandler extends BaseCommand {
@@ -28,12 +28,7 @@ class LabelAddHandler extends BaseCommand {
         { lock: true },
         async ({ dataSyncDir, mapping, config }) => {
           // Resolve input ID to internal ID
-          let internalId: string;
-          try {
-            internalId = resolveToInternalId(id, mapping);
-          } catch {
-            throw new NotFoundError('Issue', id);
-          }
+          const internalId = resolveIssueId(id, mapping, config.display.id_prefix);
 
           // Load existing issue
           let issue;
@@ -76,7 +71,9 @@ class LabelAddHandler extends BaseCommand {
       );
     }, 'Failed to update issue');
 
-    if (!didAdd) return;
+    if (!didAdd) {
+      return;
+    }
 
     this.output.data({ id: displayId, addedLabels: labels }, () => {
       this.output.success(`Added labels to ${displayId}: ${labels.join(', ')}`);
@@ -98,12 +95,7 @@ class LabelRemoveHandler extends BaseCommand {
         { lock: true },
         async ({ dataSyncDir, mapping, config }) => {
           // Resolve input ID to internal ID
-          let internalId: string;
-          try {
-            internalId = resolveToInternalId(id, mapping);
-          } catch {
-            throw new NotFoundError('Issue', id);
-          }
+          const internalId = resolveIssueId(id, mapping, config.display.id_prefix);
 
           // Load existing issue
           let issue;
@@ -141,7 +133,9 @@ class LabelRemoveHandler extends BaseCommand {
       );
     }, 'Failed to update issue');
 
-    if (!didRemove) return;
+    if (!didRemove) {
+      return;
+    }
 
     this.output.data({ id: displayId, removedLabels: labels }, () => {
       this.output.success(`Removed labels from ${displayId}: ${labels.join(', ')}`);
@@ -174,7 +168,9 @@ class LabelListHandler extends BaseCommand {
 
     // Sort by count (descending), then alphabetically
     const sortedLabels = [...labelCounts.entries()].sort((a, b) => {
-      if (b[1] !== a[1]) return b[1] - a[1];
+      if (b[1] !== a[1]) {
+        return b[1] - a[1];
+      }
       return a[0].localeCompare(b[0]);
     });
 

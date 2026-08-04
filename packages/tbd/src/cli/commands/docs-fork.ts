@@ -64,7 +64,9 @@ export const RESOLVABLE_KINDS: ForkKind[] = ['guideline', 'shortcut', 'template'
  * produces an empty cache and misleading "no docs" output.
  */
 export function parseKindOption(kind: string | undefined): ForkKind | undefined {
-  if (kind === undefined) return undefined;
+  if (kind === undefined) {
+    return undefined;
+  }
   if (!(RESOLVABLE_KINDS as string[]).includes(kind)) {
     throw new CLIError(`Unknown kind "${kind}". Valid kinds: ${RESOLVABLE_KINDS.join(', ')}.`);
   }
@@ -209,14 +211,20 @@ class DocsForkHandler extends BaseCommand {
         // "categories are guidelines-oriented; shortcuts and templates are
         // forked by name or with --all." So when --category is given, only
         // guidelines participate; non-guideline kinds come via name or --all.
-        if (byCategory && kind !== 'guideline') continue;
+        if (byCategory && kind !== 'guideline') {
+          continue;
+        }
         const cache = await buildKindCache(kind, tbdRoot);
         for (const doc of cache.list()) {
           // Skip tbd-internal system shortcuts (skill-baseline etc.).
-          if (kind === 'shortcut' && doc.sourceDir.endsWith('system')) continue;
+          if (kind === 'shortcut' && doc.sourceDir.endsWith('system')) {
+            continue;
+          }
           if (byCategory) {
             const cat = docCategory(doc.frontmatter);
-            if (cat === undefined || !categories.includes(cat)) continue;
+            if (cat === undefined || !categories.includes(cat)) {
+              continue;
+            }
           }
           targets.push({
             kind,
@@ -354,7 +362,9 @@ class DocsStatusHandler extends BaseCommand {
 
       for (const entry of manifest.forks) {
         const kind = entry.kind;
-        if (!caches.has(kind)) caches.set(kind, await buildKindCache(kind, tbdRoot));
+        if (!caches.has(kind)) {
+          caches.set(kind, await buildKindCache(kind, tbdRoot));
+        }
         const cacheHit = caches.get(kind)!.get(entry.name);
         const status = await forkStatusFor(tbdRoot, FORK_DIR, entry, cacheHit?.doc.content ?? null);
         rows.push({
@@ -425,9 +435,15 @@ class DocsStatusHandler extends BaseCommand {
       const conflictCount = forkedRows.filter((r) => r.conflicted).length;
       const missingRows = forkedRows.filter((r) => r.missing);
       const parts = [`${customizedCount} customized`];
-      if (staleCount > 0) parts.push(`${staleCount} with upstream updates; run 'tbd docs update'`);
-      if (conflictCount > 0) parts.push(`${conflictCount} conflict pending`);
-      if (locals.length > 0) parts.push(`${locals.length} local`);
+      if (staleCount > 0) {
+        parts.push(`${staleCount} with upstream updates; run 'tbd docs update'`);
+      }
+      if (conflictCount > 0) {
+        parts.push(`${conflictCount} conflict pending`);
+      }
+      if (locals.length > 0) {
+        parts.push(`${locals.length} local`);
+      }
       console.log('');
       console.log(`${forkedRows.length} forked: ${parts.join(', ')}`);
 
@@ -485,7 +501,9 @@ class DocsUpdateHandler extends BaseCommand {
         const caches = new Map<ForkKind, DocCache>();
         const upstreamFor = async (entry: ForkEntry): Promise<string | null> => {
           const kind = entry.kind;
-          if (!caches.has(kind)) caches.set(kind, await buildKindCache(kind, tbdRoot));
+          if (!caches.has(kind)) {
+            caches.set(kind, await buildKindCache(kind, tbdRoot));
+          }
           return caches.get(kind)!.get(entry.name)?.doc.content ?? null;
         };
 
@@ -634,7 +652,9 @@ class DocsListHandler extends BaseCommand {
         const rows: Row[] = [];
         for (const doc of cache.list()) {
           if (localDirs.includes(doc.sourceDir)) {
-            if (seenLocal.has(doc.path)) continue;
+            if (seenLocal.has(doc.path)) {
+              continue;
+            }
             seenLocal.add(doc.path);
           }
           const { entry, state, marker } = servedEntryFor(
@@ -665,15 +685,21 @@ class DocsListHandler extends BaseCommand {
       }
 
       for (const { kind, rows } of grouped) {
-        if (rows.length === 0) continue;
-        if (!options.kind) console.log(colors.bold(kind));
+        if (rows.length === 0) {
+          continue;
+        }
+        if (!options.kind) {
+          console.log(colors.bold(kind));
+        }
         for (const r of rows) {
           const indent = options.kind ? '' : '  ';
           const markerStr = r.marker ? ` ${colors.dim(r.marker)}` : '';
           console.log(`${indent}${colors.bold(r.name)} ${colors.dim(r.sizeInfo)}${markerStr}`);
           const desc =
             r.title && r.description ? `${r.title}: ${r.description}` : (r.title ?? r.description);
-          if (desc) console.log(`${indent}   ${desc}`);
+          if (desc) {
+            console.log(`${indent}   ${desc}`);
+          }
         }
       }
     }, 'Failed to list docs');
@@ -765,7 +791,7 @@ export function registerForkSubcommands(docs: Command): void {
     .option(
       '--category <name>',
       'fork all docs in a category (repeatable: general|typescript|python|convex|electron)',
-      (value: string, previous: string[] = []) => [...previous, value],
+      (value: string, previous: string[] | undefined) => [...(previous ?? []), value],
     )
     .option('--force', 'overwrite an existing non-fork file')
     .action(async (names: string[], options: ForkOptions, command: Command) => {

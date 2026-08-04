@@ -32,7 +32,9 @@ function findPackageJsons(root) {
     for (const name of readdirSync(packagesDir)) {
       const p = join(packagesDir, name, 'package.json');
       try {
-        if (statSync(p).isFile()) found.push(p);
+        if (statSync(p).isFile()) {
+          found.push(p);
+        }
       } catch {
         // not a file
       }

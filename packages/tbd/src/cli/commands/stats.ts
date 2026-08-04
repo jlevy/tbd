@@ -139,7 +139,9 @@ class StatsHandler extends BaseCommand {
       // Show each status with icon and color
       for (const status of STATUS_ORDER) {
         const count = stats.byStatus[status];
-        if (status === 'closed') continue; // Show closed after subtotal
+        if (status === 'closed') {
+          continue;
+        } // Show closed after subtotal
         const icon = getStatusIcon(status);
         const colorFn = getStatusColor(status, colors);
         const countStr = String(count).padStart(statusCountWidth);
@@ -170,7 +172,9 @@ class StatsHandler extends BaseCommand {
         const active = stats.byKindActive[kind];
         const closed = stats.byKindClosed[kind];
         const kindTotal = active + closed;
-        if (kindTotal === 0) continue;
+        if (kindTotal === 0) {
+          continue;
+        }
 
         const line = `  ${kind.padEnd(16)}${String(active).padStart(countWidth + 2)}${String(closed).padStart(countWidth + 2)}${String(kindTotal).padStart(countWidth + 2)}`;
         console.log(line);
@@ -185,7 +189,9 @@ class StatsHandler extends BaseCommand {
         const active = stats.byPriorityActive[i] ?? 0;
         const closed = stats.byPriorityClosed[i] ?? 0;
         const priorityTotal = active + closed;
-        if (priorityTotal === 0) continue;
+        if (priorityTotal === 0) {
+          continue;
+        }
 
         const label = `${formatPriority(i)} (${PRIORITY_LABELS[i]})`;
         const line = `  ${label.padEnd(16)}${String(active).padStart(countWidth + 2)}${String(closed).padStart(countWidth + 2)}${String(priorityTotal).padStart(countWidth + 2)}`;

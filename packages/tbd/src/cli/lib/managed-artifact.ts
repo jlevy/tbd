@@ -69,9 +69,13 @@ export function extractManagedBlock(
   endMarker: string,
 ): string {
   const start = content.indexOf(beginMarker);
-  if (start < 0) return '';
+  if (start < 0) {
+    return '';
+  }
   const endStart = content.indexOf(endMarker, start);
-  if (endStart < 0) return '';
+  if (endStart < 0) {
+    return '';
+  }
   return content.slice(start, endStart + endMarker.length).trimEnd() + '\n';
 }
 

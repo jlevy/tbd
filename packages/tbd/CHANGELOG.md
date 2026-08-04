@@ -22,6 +22,87 @@
   worktree or lock, removes its private ref on normal exit, and sweeps refs left behind
   by interrupted watches whose process is gone.
 
+## 0.4.2
+
+### Features
+
+- **Bulk `tbd show`**: `show` now takes multiple IDs.
+  Each issue renders under a dim `── <id> ──` delimiter in argument order, parent
+  context is suppressed in bulk, `--max-lines` applies per issue, and `--json` emits an
+  array (single-ID shapes are unchanged).
+  Unknown IDs fail closed listing every bad ID; `--ignore-missing` renders the found
+  subset and reports skips on stderr, with `--json` stdout staying parseable when
+  everything is skipped (`[]` in bulk, `null` for a lone ID).
+- **Doc readers load several docs in one call**: `guidelines`, `shortcut`, `template`,
+  and `docs show` all accept multiple names, resolving all-or-nothing (a typo can’t
+  half-load a guideline group) with the agent preamble printed once.
+  Loading the General-engineering group is now one command.
+- **Dependency wiring in one call**: `dep add`/`dep remove` take multiple blockers
+  (`tbd dep add <issue> <b1> <b2> …`), and `create --depends-on <id>` (repeatable)
+  declares blockers at creation, so a spec breakdown creates fully wired beads.
+  Multi-file dependency writes report per-target outcomes on failure: applied edges are
+  named and kept, the exact finishing command is given, and a `create` whose blocker
+  wiring fails still reveals the created ID so a retry cannot duplicate the bead.
+- **Write-side `--spec` matches like `list --spec`**: `create --spec` and
+  `update --spec` resolve a unique filename or path suffix against `docs/` (ambiguity
+  errors name every candidate), so the filename-only form the planning shortcuts
+  document actually works.
+- **Errors recover the agent**: unknown-ID errors suggest near-miss IDs ("Did you mean:
+  …?") when one is close; `tbd search` matches display IDs (partial-ID lookup is
+  native); and `tbd create` with too many arguments explains the one-title contract.
+- **Agent docs advertise the bulk/filter forms at point of need**: the skill tables,
+  `tbd prime`, and the manual now show multi-ID `show`, `list --spec/--specs`,
+  `--limit/--count/--sort updated/--max-lines`, bulk labeling via `update --add-label`,
+  and a generalized never-loop rule; the jq/grep recipes in `update-specs-status` and
+  the manual’s ID-lookup troubleshooting are replaced with native commands.
+
+### Guidelines and content
+
+- **New `typescript-lint-format-rules` guideline**: one normative lint, format, and
+  type-check floor for every TypeScript and JavaScript project, organized as a
+  three-axis decision matrix (package manager, language, and lint engine are independent
+  choices, with a complete path for every combination).
+  It prescribes typescript-eslint `strictTypeChecked` plus `stylisticTypeChecked` as the
+  new-project default, an explicit tsconfig floor beyond `strict: true`, zero-warning
+  verify gates (`eslint --max-warnings 0`, `biome ci --error-on-warnings`), a full
+  verify-only gate (formatter and flowmark checks before lint, types, and tests) in
+  pre-push and CI, and an honest promise-safety story: Biome’s nursery type-domain rules
+  for TypeScript, and a minimal type-aware ESLint overlay for checked JavaScript.
+  The skill baseline and both code-review shortcuts now route TypeScript/JavaScript work
+  through the guideline.
+  `pnpm-monorepo-patterns` Appendix C implements the strict presets and documents the
+  eslint-config-prettier ordering trap (its list includes `curly`, so explicit project
+  rules must come after the prettier entry, verified via `eslint --print-config`), and
+  `bun-monorepo-patterns` adds the `useBlockStatements` braces floor that Biome’s
+  recommended preset omits plus the explicit nursery promise rules.
+  This repository applies the same floor: strict presets with two tracked ratchets, the
+  new tsconfig flags, sequential pre-commit hooks, a `ci:quality` verify gate in
+  pre-push and CI (including the flowmark Markdown check), and a committed ESLint
+  config-contract check that fails CI if a floor rule goes dead.
+- **`setup-github-cli` shortcut covers proxied remote sessions**: new session-validated
+  guidance for agent environments that route HTTPS through a policy proxy (Claude Code
+  Cloud and similar). The git credential broker is ref-scoped: branch pushes succeed
+  while tag pushes are refused, ref deletions can silently no-op, and a clean
+  `git push --dry-run` proves nothing.
+  `gh auth status` can report a valid `GH_TOKEN` as invalid when the proxy intercepts
+  GraphQL. The documented remedy is a scoped `NO_PROXY` bypass for GitHub hosts plus
+  `gh api` for ref operations, with TLS verification always left on.
+
+### Security
+
+- **js-yaml advisories resolved**: the runtime parser path (`gray-matter > js-yaml`)
+  moves from 3.14.2 to 3.15.0, closing GHSA-h67p-54hq-rp68 (moderate) and
+  GHSA-52cp-r559-cp3m (high, published 2026-07-20, after v0.4.1 shipped), both
+  quadratic-CPU DoS via YAML merge keys; the dev-only eslint path moves from 4.1.1 to
+  4.3.0. Both bumps are the upstream `maxTotalMergeKeys` backports published 2026-06-26
+  by the long-time maintainer (past the 14-day cool-off, diff reviewed), the lockfile
+  delta is confined to js-yaml, and `pnpm audit --prod` is now clean.
+  This closes tbd-zqn2, deferred since v0.4.0. Remaining advisories are confined to dev
+  tooling (vite, vitest, eslint chains) and are not shipped to users.
+
+**Full commit history**:
+[https://github.com/jlevy/tbd/compare/v0.4.1 … v0.4.2](https://github.com/jlevy/tbd/compare/v0.4.1...v0.4.2)
+
 ## 0.4.1
 
 ### Fixes

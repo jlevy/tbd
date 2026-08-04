@@ -1,5 +1,5 @@
 tbd_format: f06
-tbd_version: 0.4.0
+tbd_version: 0.4.2-dev.264.31314e2-dirty
 # tbd_upgrades: tbd versions that have run `tbd setup` in this repo (oldest first);
 # tbd_version above is the most recent. Informational; updated automatically by setup.
 tbd_upgrades:
@@ -12,6 +12,10 @@ tbd_upgrades:
     at: 2026-06-15T16:37:46.614Z
   - version: 0.4.0
     at: 2026-07-12T19:25:48.595Z
+  - version: 0.4.2
+    at: 2026-07-30T22:04:21.493Z
+  - version: 0.4.2-dev.264.31314e2-dirty
+    at: 2026-08-04T23:06:17.538Z
 display:
   id_prefix: tbd
 sync:
@@ -72,6 +76,7 @@ docs_cache:
     shortcuts/standard/suggest-upstream-improvements.md: internal:shortcuts/standard/suggest-upstream-improvements.md
     shortcuts/standard/sync-failure-recovery.md: internal:shortcuts/standard/sync-failure-recovery.md
     shortcuts/standard/update-specs-status.md: internal:shortcuts/standard/update-specs-status.md
+    shortcuts/standard/watch-beads.md: internal:shortcuts/standard/watch-beads.md
     shortcuts/standard/welcome-user.md: internal:shortcuts/standard/welcome-user.md
     guidelines/backward-compatibility-rules.md: internal:guidelines/backward-compatibility-rules.md
     guidelines/bun-monorepo-patterns.md: internal:guidelines/bun-monorepo-patterns.md
@@ -97,6 +102,7 @@ docs_cache:
     guidelines/tbd-sync-troubleshooting.md: internal:guidelines/tbd-sync-troubleshooting.md
     guidelines/typescript-cli-tool-rules.md: internal:guidelines/typescript-cli-tool-rules.md
     guidelines/typescript-code-coverage.md: internal:guidelines/typescript-code-coverage.md
+    guidelines/typescript-lint-format-rules.md: internal:guidelines/typescript-lint-format-rules.md
     guidelines/typescript-rules.md: internal:guidelines/typescript-rules.md
     guidelines/typescript-sorting-patterns.md: internal:guidelines/typescript-sorting-patterns.md
     guidelines/typescript-yaml-handling-rules.md: internal:guidelines/typescript-yaml-handling-rules.md
