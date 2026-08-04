@@ -125,8 +125,12 @@ tbd watch --all                              # anything in the repo graph
   interval 30s, minimum 10s); on movement, fetch the sync branch and run the
   `tbd changes` diff; if the selection changed, print and exit 0; otherwise keep
   waiting. No fetch traffic while the tip is idle.
-- **Exit codes (gh-style):** 0 = change detected (report on stdout), 2 = timeout elapsed
-  with no change, 1 = error.
+- **Exit codes (gh-style):** 0 = change detected (report on stdout), 3 = nothing matched
+  (timeout elapsed with no change — the same code `tbd changes` uses for an empty diff),
+  2 = usage error, 1 = operational error.
+  Timeout is deliberately *not* 2: a wake loop retries on 3, so sharing a code with
+  usage errors would spin on a mistyped flag instead of surfacing it (revised
+  2026-08-04, pre-release).
   `--json` emits the report as one JSON document for programmatic consumers.
 - **Statelessness:** each invocation records nothing; `--since` lets a caller resume
   from a known commit, and the exit-0 report includes the new tip commit for chaining.
@@ -218,7 +222,7 @@ watchers:
   ```
 
   JSON no-change output is the same document with an empty `changes` array and exit 3. A
-  watch timeout exits 2 without stdout.
+  watch timeout also exits 3, without stdout.
   `--quiet` suppresses successful and no-change stdout (including JSON) so callers can
   use exit status alone; errors remain on stderr.
 

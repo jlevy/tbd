@@ -3,6 +3,15 @@
 import type { IssueChangesReport } from '../../lib/issue-changes.js';
 import type { createColors } from './output.js';
 
+/**
+ * Exit code shared by `changes` and `watch` for "the selection produced nothing":
+ * no committed deltas, or a `--timeout` that elapsed without any.
+ *
+ * Distinct from 2, which stays reserved for usage errors CLI-wide (`ValidationError`),
+ * so an agent wake loop can retry on this code without spinning on a bad flag.
+ */
+export const NO_CHANGES_EXIT_CODE = 3;
+
 function formatValue(value: unknown): string {
   if (typeof value === 'string') {
     return value;

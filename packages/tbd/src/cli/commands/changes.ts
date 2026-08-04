@@ -8,7 +8,7 @@ import { createChangesReportFromRefs } from '../../file/sync-branch-changes.js';
 import { BaseCommand } from '../lib/base-command.js';
 import { parseChangeSelection, type ChangeSelectionOptions } from '../lib/change-selection.js';
 import { CLIError, requireInit } from '../lib/errors.js';
-import { formatIssueChangesReport } from '../lib/issue-changes-output.js';
+import { formatIssueChangesReport, NO_CHANGES_EXIT_CODE } from '../lib/issue-changes-output.js';
 
 interface ChangesOptions extends ChangeSelectionOptions {
   since: string;
@@ -55,7 +55,7 @@ class ChangesHandler extends BaseCommand {
       });
     }
     if (report.changes.length === 0) {
-      process.exitCode = 3;
+      process.exitCode = NO_CHANGES_EXIT_CODE;
     }
   }
 }

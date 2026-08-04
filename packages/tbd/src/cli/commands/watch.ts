@@ -7,7 +7,7 @@ import { readConfig } from '../../file/config.js';
 import { BaseCommand } from '../lib/base-command.js';
 import { parseChangeSelection, type ChangeSelectionOptions } from '../lib/change-selection.js';
 import { CLIError, requireInit, ValidationError } from '../lib/errors.js';
-import { formatIssueChangesReport } from '../lib/issue-changes-output.js';
+import { formatIssueChangesReport, NO_CHANGES_EXIT_CODE } from '../lib/issue-changes-output.js';
 
 interface WatchOptions extends ChangeSelectionOptions {
   since?: string;
@@ -58,7 +58,10 @@ class WatchHandler extends BaseCommand {
     }
 
     if (result.kind === 'timeout') {
-      process.exitCode = 2;
+      // 3 = "nothing matched", the same meaning it has for `tbd changes`. Exit 2 stays
+      // reserved for usage errors CLI-wide, so a wake loop that retries on "no changes"
+      // cannot spin on a bad flag.
+      process.exitCode = NO_CHANGES_EXIT_CODE;
       return;
     }
     if (!this.ctx.quiet) {

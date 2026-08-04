@@ -331,7 +331,7 @@ no longer proposed here — it shipped as Phase 1 of
 (PR #196, validated on Claude Code and Codex): `tbd changes --since <commit>` is the
 pure snapshot-diff primitive and `tbd watch` is the blocking one-shot — poll the remote
 tip via `git ls-remote`, fetch to a private ref on movement, report the selection’s
-per-field deltas as human text or one stable JSON document, exit 0/2/1, resume via
+per-field deltas as human text or one stable JSON document, exit 0/3/2/1, resume via
 `--since <tip>` chaining.
 That blocking, stateless contract supersedes this spec’s earlier streaming-JSONL sketch
 — it is strictly better for agent wake-ups (resumable, no long-lived process, already

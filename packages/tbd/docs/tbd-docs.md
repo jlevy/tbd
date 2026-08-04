@@ -590,8 +590,11 @@ tbd watch --all --timeout 540 --json
 ```
 
 The default poll interval is 30 seconds; `--interval` cannot be lower than 10 seconds.
-Exit 0 means a change, exit 2 means the optional timeout elapsed, and exit 1 means an
-error. Pass an earlier report’s `tip` as `--since` to resume without a race.
+Exit 0 means a change, exit 3 means the optional timeout elapsed with nothing matching
+(the same “nothing matched” code `tbd changes` uses), exit 2 means a usage error, and
+exit 1 means an operational error.
+A wake loop should retry on 3 and stop on 2. Pass an earlier report’s `tip` as `--since`
+to resume without a race.
 Watch uses a temporary private Git ref and never touches the working tree, hidden
 data-sync worktree, its lock, `FETCH_HEAD`, or configured local and remote-tracking sync
 refs.

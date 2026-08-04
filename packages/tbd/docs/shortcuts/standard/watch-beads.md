@@ -26,8 +26,9 @@ Label, spec, and status watches wake when a changed bead enters, leaves, or chan
 within the selection.
 `--ready` wakes only when a bead newly becomes open, unassigned, and unblocked.
 
-Exit 0 means a matching change was reported, exit 2 means `--timeout` elapsed, and exit
-1 means an operational error.
+Exit 0 means a matching change was reported, exit 3 means `--timeout` elapsed with
+nothing matching, exit 2 means a usage error, and exit 1 means an operational error.
+Retry on 3; never retry on 2, which means the flags themselves are wrong.
 The exit-0 JSON document contains `since`, `tip`, and `changes`; pass `tip` back as
 `--since` to avoid a gap between invocations.
 If the sync branch history is rewritten (for example by the unrelated-history rescue), a
@@ -61,7 +62,9 @@ while true; do
     #   <"$wake_file" || true
   else
     watch_status=$?
-    if [ "$watch_status" -eq 2 ]; then
+    # 3 = timed out with nothing matching, so poll again. Any other non-zero status
+    # (2 = usage error, 1 = operational) is terminal: retrying would spin forever.
+    if [ "$watch_status" -eq 3 ]; then
       continue
     fi
     exit "$watch_status"

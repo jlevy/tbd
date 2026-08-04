@@ -142,12 +142,12 @@ describe('tbd watch', () => {
   );
 
   it(
-    'exits 2 with no stdout when the timeout elapses',
+    'exits 3 with no stdout when the timeout elapses',
     async () => {
       const fixture = await createWatchRepo(false);
       const result = runTbd(fixture.repoDir, ['watch', '--all', '--timeout', '0', '--json']);
 
-      expect(result.status).toBe(2);
+      expect(result.status).toBe(3);
       expect(result.stdout).toBe('');
       expect(result.stderr).toBe('');
     },
@@ -168,6 +168,9 @@ describe('tbd watch', () => {
         '0',
       ]);
 
+      // Usage errors must stay 2 and must NOT collide with the 3 a timeout exits with:
+      // the documented wake loop retries on 3, so a bad flag reported as 3 would spin
+      // forever instead of surfacing the mistake.
       expect(missing.status).toBe(2);
       expect(missing.stderr).toContain('A selector is required');
       expect(tooFast.status).toBe(2);

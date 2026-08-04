@@ -7,8 +7,11 @@
 - **Read-only bead change detection and watching**: `tbd changes` reports deterministic,
   per-field deltas between committed sync-branch snapshots, while `tbd watch` polls the
   configured remote tip and exits when a bead, dynamic filter, ready set, or the whole
-  graph changes. Both commands share human and stable JSON reports; exit codes
-  distinguish changes, no changes, timeouts, usage errors, and operational failures.
+  graph changes. Both commands share human and stable JSON reports and one exit-code
+  contract: 0 matched, 3 nothing matched (no deltas, or a `--timeout` that elapsed
+  without any), 2 usage error, 1 operational failure.
+  Because 3 and 2 are distinct, an agent wake loop can retry on “nothing matched”
+  without spinning on a mistyped flag.
 - **Agent wake recipes**: the new `watch-beads` shortcut documents a race-free
   watch-then-spawn daemon plus bounded and background in-session patterns for Claude
   Code and Codex. Live validation covers both platforms conversing through one bead.
@@ -19,8 +22,9 @@
   Watch fetches only after remote movement (plus one startup fetch for `--bead`
   selections so unknown IDs fail fast), targets a collision-resistant private ref, does
   not write `FETCH_HEAD` or configured sync refs, never accesses the hidden data-sync
-  worktree or lock, removes its private ref on normal exit, and sweeps refs left behind
-  by interrupted watches whose process is gone.
+  worktree or lock, removes its private ref on normal exit (best-effort, so a failed
+  delete can never discard the change report), and sweeps refs left behind by
+  interrupted watches whose process is gone.
 
 ## 0.4.2
 
