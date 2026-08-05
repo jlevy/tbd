@@ -590,16 +590,27 @@ tbd watch --all --timeout 540 --json
 ```
 
 The default poll interval is 30 seconds; `--interval` cannot be lower than 10 seconds.
-Exit 0 means a change, exit 3 means the optional timeout elapsed with nothing matching
-(the same “nothing matched” code `tbd changes` uses), exit 2 means a usage error, and
-exit 1 means an operational error.
-A wake loop should retry on 3 and stop on 2. Pass an earlier report’s `tip` as `--since`
-to resume without a race.
-Watch uses a temporary private Git ref and never touches the working tree, hidden
-data-sync worktree, its lock, `FETCH_HEAD`, or configured local and remote-tracking sync
-refs.
+Exit 0 means a change, exit 3 means the optional timeout elapsed, and exit 1 means an
+error. Pass an earlier report’s `tip` as `--since` to resume without a race.
+An established watch tolerates a bounded run of consecutive failed remote polls before
+exiting 1, so a brief network outage does not end an unattended watch.
+If sync recovery rewrites the sync branch, a saved `--since` baseline stops being an
+ancestor of the new tip and watch exits 1; restart without `--since` to establish a new
+baseline. Watch uses a temporary private Git ref and never touches the working tree,
+hidden data-sync worktree, its lock, `FETCH_HEAD`, or configured local and
+remote-tracking sync refs.
 
 See `tbd shortcut watch-beads` for watch-then-spawn and in-session agent recipes.
+
+### Change-command exit codes
+
+| Command | 0 | 1 | 2 | 3 |
+| --- | --- | --- | --- | --- |
+| `tbd changes` | matching changes reported | operational error | usage error | no matching changes |
+| `tbd watch` | matching change reported | operational error | usage error | `--timeout` elapsed |
+
+Exit 2 always means a usage error on tbd commands, so recipes can retry exit 3 (“nothing
+happened”) without ever retrying a bad invocation.
 
 ### search
 

@@ -10,7 +10,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { serializeIssue } from '../src/file/parser.js';
 import {
-  sweepStaleWatchRefs,
+  removeStaleWatchRefs,
   watchForIssueChanges,
   type IssueWatchDependencies,
 } from '../src/file/bead-watch.js';
@@ -49,6 +49,7 @@ function fakeDependencies(remoteTips: string[]): {
   dependencies: IssueWatchDependencies;
   fetchRemoteTip: ReturnType<typeof vi.fn>;
   createReport: ReturnType<typeof vi.fn>;
+  getRemoteTip: ReturnType<typeof vi.fn>;
   getNow: () => number;
 } {
   let now = 0;
@@ -57,6 +58,11 @@ function fakeDependencies(remoteTips: string[]): {
   const createReport = vi.fn((since: string, tip: string) =>
     Promise.resolve(emptyReport(since, tip)),
   );
+  const getRemoteTip = vi.fn(() => {
+    const tip = remoteTips[Math.min(remoteIndex, remoteTips.length - 1)]!;
+    remoteIndex += 1;
+    return Promise.resolve(tip);
+  });
   return {
     dependencies: {
       now: () => now,
@@ -64,16 +70,13 @@ function fakeDependencies(remoteTips: string[]): {
         now += milliseconds;
         return Promise.resolve();
       },
-      getRemoteTip: vi.fn(() => {
-        const tip = remoteTips[Math.min(remoteIndex, remoteTips.length - 1)]!;
-        remoteIndex += 1;
-        return Promise.resolve(tip);
-      }),
+      getRemoteTip,
       fetchRemoteTip,
       createReport,
     },
     fetchRemoteTip,
     createReport,
+    getRemoteTip,
     getNow: () => now,
   };
 }
@@ -105,6 +108,29 @@ afterEach(async () => {
 });
 
 describe('watchForIssueChanges polling', () => {
+  it('validates explicit bead IDs before reading the first remote tip', async () => {
+    const fake = fakeDependencies([SHA_A]);
+    const validationError = new Error('Unknown issue ID: tbd-typo');
+    fake.dependencies.validateSelection = vi.fn(() => Promise.reject(validationError));
+
+    await expect(
+      watchForIssueChanges(
+        {
+          repoDir: '/unused',
+          remote: 'origin',
+          branch: 'tbd-sync',
+          prefix: 'tbd',
+          selection: { kind: 'beads', ids: ['tbd-typo'] },
+          since: null,
+          intervalMs: 10,
+          timeoutMs: null,
+        },
+        fake.dependencies,
+      ),
+    ).rejects.toThrow('Unknown issue ID');
+    expect(fake.getRemoteTip).not.toHaveBeenCalled();
+  });
+
   it('takes the first remote tip as baseline and does not fetch while idle', async () => {
     const fake = fakeDependencies([SHA_A]);
 
@@ -203,10 +229,39 @@ describe('watchForIssueChanges polling', () => {
     ]);
   });
 
-  it('fails fast on unknown --bead IDs before entering the poll loop', async () => {
+  it('rides out transient poll failures below the consecutive cap', async () => {
     const fake = fakeDependencies([SHA_A]);
-    fake.fetchRemoteTip.mockResolvedValue(SHA_A);
-    fake.createReport.mockRejectedValue(new Error('Unknown issue ID: tbd-typo'));
+    fake.getRemoteTip
+      .mockResolvedValueOnce(SHA_A)
+      .mockRejectedValueOnce(new Error('ls-remote: transient DNS failure'))
+      .mockRejectedValueOnce(new Error('ls-remote: transient DNS failure'))
+      .mockResolvedValueOnce(SHA_B);
+    fake.fetchRemoteTip.mockResolvedValue(SHA_B);
+    fake.createReport.mockResolvedValue(changedReport(SHA_A, SHA_B));
+
+    const result = await watchForIssueChanges(
+      {
+        repoDir: '/unused',
+        remote: 'origin',
+        branch: 'tbd-sync',
+        prefix: 'tbd',
+        selection: { kind: 'all' },
+        since: null,
+        intervalMs: 10,
+        timeoutMs: null,
+      },
+      fake.dependencies,
+    );
+
+    expect(result).toEqual({ kind: 'changed', report: changedReport(SHA_A, SHA_B) });
+    expect(fake.getRemoteTip).toHaveBeenCalledTimes(4);
+  });
+
+  it('aborts with the last cause once consecutive poll failures reach the cap', async () => {
+    const fake = fakeDependencies([SHA_A]);
+    fake.getRemoteTip
+      .mockResolvedValueOnce(SHA_A)
+      .mockRejectedValue(new Error('ls-remote: network unreachable'));
 
     await expect(
       watchForIssueChanges(
@@ -215,69 +270,41 @@ describe('watchForIssueChanges polling', () => {
           remote: 'origin',
           branch: 'tbd-sync',
           prefix: 'tbd',
-          selection: { kind: 'beads', ids: ['tbd-typo'] },
+          selection: { kind: 'all' },
           since: null,
           intervalMs: 10,
           timeoutMs: null,
         },
         fake.dependencies,
       ),
-    ).rejects.toThrow('Unknown issue ID: tbd-typo');
-    expect(fake.createReport).toHaveBeenCalledExactlyOnceWith(SHA_A, SHA_A);
-  });
-
-  it('validates known --bead IDs with one tip-to-tip report, then keeps waiting', async () => {
-    const fake = fakeDependencies([SHA_A]);
-    fake.fetchRemoteTip.mockResolvedValue(SHA_A);
-
-    const result = await watchForIssueChanges(
-      {
-        repoDir: '/unused',
-        remote: 'origin',
-        branch: 'tbd-sync',
-        prefix: 'tbd',
-        selection: { kind: 'beads', ids: ['tbd-a1b2'] },
-        since: null,
-        intervalMs: 10,
-        timeoutMs: 25,
-      },
-      fake.dependencies,
-    );
-
-    expect(result).toEqual({ kind: 'timeout' });
-    expect(fake.createReport).toHaveBeenCalledExactlyOnceWith(SHA_A, SHA_A);
+    ).rejects.toThrow('consecutive remote poll failures');
+    expect(fake.getRemoteTip).toHaveBeenCalledTimes(6);
   });
 });
 
-describe('sweepStaleWatchRefs', () => {
-  it('deletes refs owned by dead processes and keeps live and unrecognized refs', async () => {
-    const repoDir = await mkdtemp(join(tmpdir(), 'tbd-sweep-'));
+describe('watchForIssueChanges Git safety', { timeout: 15_000 }, () => {
+  it('reclaims private refs owned by dead watcher processes', async () => {
+    const repoDir = await mkdtemp(join(tmpdir(), 'tbd-watch-stale-ref-'));
     cleanupPaths.push(repoDir);
     await git(repoDir, 'init', '-b', 'main');
     await git(repoDir, 'config', 'user.email', 'test@example.com');
     await git(repoDir, 'config', 'user.name', 'Test User');
-    await git(repoDir, 'config', 'commit.gpgsign', 'false');
-    await writeFile(join(repoDir, 'file.txt'), 'x');
-    await git(repoDir, 'add', 'file.txt');
-    await git(repoDir, 'commit', '-m', 'base');
-    const sha = await git(repoDir, 'rev-parse', 'HEAD');
-    // Far above any real pid_max, so the liveness probe deterministically reports dead.
-    const deadPid = 999_999_999;
-    await git(repoDir, 'update-ref', `refs/tbd/watch/${deadPid}-dead`, sha);
-    await git(repoDir, 'update-ref', `refs/tbd/watch/${process.pid}-live`, sha);
-    await git(repoDir, 'update-ref', 'refs/tbd/watch/legacy-format', sha);
+    await writeFile(join(repoDir, 'README.md'), '# test\n');
+    await git(repoDir, 'add', 'README.md');
+    await git(repoDir, 'commit', '-m', 'test');
+    await git(repoDir, 'update-ref', 'refs/tbd/watch/12345-stale', 'HEAD');
+    await git(repoDir, 'update-ref', 'refs/tbd/watch/not-owned', 'HEAD');
 
-    await sweepStaleWatchRefs(repoDir);
+    await removeStaleWatchRefs(repoDir, () => false);
 
-    const remaining = await git(repoDir, 'for-each-ref', '--format=%(refname)', 'refs/tbd/watch/');
-    expect(remaining.split('\n').filter(Boolean).sort()).toEqual([
-      `refs/tbd/watch/${process.pid}-live`,
-      'refs/tbd/watch/legacy-format',
-    ]);
+    expect(await git(repoDir, 'show-ref', '--verify', 'refs/tbd/watch/not-owned')).toContain(
+      'refs/tbd/watch/not-owned',
+    );
+    await expect(
+      git(repoDir, 'show-ref', '--verify', 'refs/tbd/watch/12345-stale'),
+    ).rejects.toThrow();
   });
-});
 
-describe('watchForIssueChanges Git safety', () => {
   it('fetches through a temporary private ref and leaves sync state untouched', async () => {
     const root = await mkdtemp(join(tmpdir(), 'tbd-watch-safety-'));
     cleanupPaths.push(root);

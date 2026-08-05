@@ -8,7 +8,7 @@
 import { randomUUID } from 'node:crypto';
 
 import type { IssueChangeSelection, IssueChangesReport } from '../lib/issue-changes.js';
-import { createChangesReportFromRefs } from './sync-branch-changes.js';
+import { createChangesReportFromRefs, validateBeadSelectionAtRef } from './sync-branch-changes.js';
 import { git, gitNoPrompt } from './git.js';
 
 export interface IssueWatchOptions {
@@ -26,10 +26,19 @@ export type IssueWatchResult =
   | { kind: 'changed'; report: IssueChangesReport }
   | { kind: 'timeout' };
 
+/**
+ * Consecutive failed remote polls tolerated before an established watch aborts.
+ * Each failed poll waits the normal interval, so a brief network outage does not
+ * kill an unattended watch; startup failures still fail fast.
+ */
+const MAX_CONSECUTIVE_POLL_FAILURES = 5;
+
 /** Injectable boundaries keep polling and deadline behavior deterministic in unit tests. */
 export interface IssueWatchDependencies {
   now: () => number;
   sleep: (milliseconds: number) => Promise<void>;
+  prepare?: () => Promise<void>;
+  validateSelection?: () => Promise<void>;
   getRemoteTip: () => Promise<string>;
   fetchRemoteTip: () => Promise<string>;
   createReport: (since: string, tip: string) => Promise<IssueChangesReport>;
@@ -40,49 +49,6 @@ function sleep(milliseconds: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, milliseconds));
 }
 
-const WATCH_REF_NAMESPACE = 'refs/tbd/watch/';
-
-function isProcessAlive(pid: number): boolean {
-  try {
-    process.kill(pid, 0);
-    return true;
-  } catch (error) {
-    // EPERM means the process exists but belongs to another user.
-    return (error as NodeJS.ErrnoException).code === 'EPERM';
-  }
-}
-
-/**
- * Delete leftover private watch refs whose owning process is no longer alive.
- *
- * An interrupted watch (SIGINT/SIGKILL) cannot run its own cleanup, so each new watch
- * sweeps predecessors. Best-effort by design: sweep failures must never prevent the
- * watch itself from running, and refs of live concurrent watches are left alone.
- */
-export async function sweepStaleWatchRefs(repoDir: string): Promise<void> {
-  let listing: string;
-  try {
-    listing = await git('-C', repoDir, 'for-each-ref', '--format=%(refname)', WATCH_REF_NAMESPACE);
-  } catch {
-    return;
-  }
-  for (const refname of listing.split('\n').filter(Boolean)) {
-    const pidMatch = /^refs\/tbd\/watch\/(\d+)-/.exec(refname);
-    if (!pidMatch) {
-      continue;
-    }
-    const pid = Number(pidMatch[1]);
-    if (pid === process.pid || isProcessAlive(pid)) {
-      continue;
-    }
-    try {
-      await git('-C', repoDir, 'update-ref', '-d', refname);
-    } catch {
-      // Another sweep may have deleted it concurrently; leave it for the next watch.
-    }
-  }
-}
-
 function parseRemoteTip(output: string, remote: string, branch: string): string {
   const [tip] = output.trim().split(/\s+/);
   if (!tip || !/^[0-9a-f]{40,64}$/.test(tip)) {
@@ -91,11 +57,56 @@ function parseRemoteTip(output: string, remote: string, branch: string): string 
   return tip;
 }
 
+function isProcessAlive(pid: number): boolean {
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch (error) {
+    return !(
+      typeof error === 'object' &&
+      error !== null &&
+      'code' in error &&
+      error.code === 'ESRCH'
+    );
+  }
+}
+
+/** Remove private refs left by watcher processes that are no longer running. */
+export async function removeStaleWatchRefs(
+  repoDir: string,
+  processIsAlive: (pid: number) => boolean = isProcessAlive,
+): Promise<void> {
+  const output = await git('-C', repoDir, 'for-each-ref', '--format=%(refname)', 'refs/tbd/watch/');
+  for (const ref of output.split('\n').filter(Boolean)) {
+    const match = /^refs\/tbd\/watch\/(\d+)-/.exec(ref);
+    if (!match) {
+      continue;
+    }
+    const pid = Number(match[1]);
+    if (Number.isSafeInteger(pid) && pid > 0 && !processIsAlive(pid)) {
+      await git('-C', repoDir, 'update-ref', '-d', ref);
+    }
+  }
+}
+
 function createGitWatchDependencies(options: IssueWatchOptions): IssueWatchDependencies {
-  const privateRef = `${WATCH_REF_NAMESPACE}${process.pid}-${randomUUID()}`;
+  const privateRef = `refs/tbd/watch/${process.pid}-${randomUUID()}`;
   return {
     now: Date.now,
     sleep,
+    prepare: () => removeStaleWatchRefs(options.repoDir),
+    validateSelection: async () => {
+      // A --since report validates against the union of both endpoints immediately,
+      // which permits watching a bead deleted after that baseline.
+      if (options.since !== null) {
+        return;
+      }
+      await validateBeadSelectionAtRef(
+        options.repoDir,
+        `refs/heads/${options.branch}`,
+        options.selection,
+      );
+    },
     getRemoteTip: async () => {
       let output;
       try {
@@ -144,9 +155,9 @@ function createGitWatchDependencies(options: IssueWatchOptions): IssueWatchDepen
       try {
         await git('-C', options.repoDir, 'update-ref', '-d', privateRef);
       } catch {
-        // Best-effort, like the startup sweep: this runs in a `finally`, so throwing
+        // Best-effort, like the startup reclaim: this runs in a `finally`, so throwing
         // here would discard the change report the watch just produced. A ref left by
-        // a failed delete is swept by the next watch once this PID is gone.
+        // a failed delete is reclaimed by the next watch once this PID is gone.
       }
     },
   };
@@ -162,6 +173,8 @@ export async function watchForIssueChanges(
   const deadline = options.timeoutMs === null ? null : startedAt + options.timeoutMs;
 
   try {
+    await dependencies.prepare?.();
+    await dependencies.validateSelection?.();
     let observedTip = await dependencies.getRemoteTip();
     let baseline = options.since ?? observedTip;
 
@@ -174,16 +187,9 @@ export async function watchForIssueChanges(
       }
       baseline = report.tip;
       observedTip = comparisonTip;
-    } else if (options.selection.kind === 'beads') {
-      // Fail fast on unknown bead IDs: without --since there is no initial report, so a
-      // typo'd --bead would otherwise block silently until the first remote movement.
-      // A tip-to-tip report is empty by construction but resolves every requested ID.
-      const fetchedTip = await dependencies.fetchRemoteTip();
-      await dependencies.createReport(fetchedTip, fetchedTip);
-      observedTip = fetchedTip;
-      baseline = fetchedTip;
     }
 
+    let consecutivePollFailures = 0;
     while (true) {
       const remaining = deadline === null ? options.intervalMs : deadline - dependencies.now();
       if (remaining <= 0) {
@@ -194,12 +200,25 @@ export async function watchForIssueChanges(
         return { kind: 'timeout' };
       }
 
-      const nextObservedTip = await dependencies.getRemoteTip();
-      if (nextObservedTip === observedTip) {
+      let fetchedTip: string;
+      try {
+        const nextObservedTip = await dependencies.getRemoteTip();
+        if (nextObservedTip === observedTip) {
+          consecutivePollFailures = 0;
+          continue;
+        }
+        fetchedTip = await dependencies.fetchRemoteTip();
+      } catch (error) {
+        consecutivePollFailures += 1;
+        if (consecutivePollFailures >= MAX_CONSECUTIVE_POLL_FAILURES) {
+          throw new Error(
+            `Watch aborted after ${MAX_CONSECUTIVE_POLL_FAILURES} consecutive remote poll failures`,
+            { cause: error },
+          );
+        }
         continue;
       }
-
-      const fetchedTip = await dependencies.fetchRemoteTip();
+      consecutivePollFailures = 0;
       observedTip = fetchedTip;
       if (fetchedTip === baseline) {
         continue;

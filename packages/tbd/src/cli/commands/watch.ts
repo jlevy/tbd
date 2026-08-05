@@ -2,12 +2,13 @@
 
 import { Command } from 'commander';
 
-import { sweepStaleWatchRefs, watchForIssueChanges } from '../../file/bead-watch.js';
+import { watchForIssueChanges } from '../../file/bead-watch.js';
 import { readConfig } from '../../file/config.js';
 import { BaseCommand } from '../lib/base-command.js';
 import { parseChangeSelection, type ChangeSelectionOptions } from '../lib/change-selection.js';
 import { CLIError, requireInit, ValidationError } from '../lib/errors.js';
-import { formatIssueChangesReport, NO_CHANGES_EXIT_CODE } from '../lib/issue-changes-output.js';
+import { EXIT_NO_MATCHING_CHANGE } from '../lib/exit-codes.js';
+import { formatIssueChangesReport } from '../lib/issue-changes-output.js';
 
 interface WatchOptions extends ChangeSelectionOptions {
   since?: string;
@@ -34,7 +35,6 @@ class WatchHandler extends BaseCommand {
     const timeoutMs =
       options.timeout === undefined ? null : parseSeconds(options.timeout, '--timeout', 0);
     const config = await readConfig(tbdRoot);
-    await sweepStaleWatchRefs(tbdRoot);
 
     let result;
     try {
@@ -58,10 +58,7 @@ class WatchHandler extends BaseCommand {
     }
 
     if (result.kind === 'timeout') {
-      // 3 = "nothing matched", the same meaning it has for `tbd changes`. Exit 2 stays
-      // reserved for usage errors CLI-wide, so a wake loop that retries on "no changes"
-      // cannot spin on a bad flag.
-      process.exitCode = NO_CHANGES_EXIT_CODE;
+      process.exitCode = EXIT_NO_MATCHING_CHANGE;
       return;
     }
     if (!this.ctx.quiet) {
@@ -86,7 +83,7 @@ export const watchCommand = new Command('watch')
   .option('--all', 'Watch all beads')
   .option('--since <commit>', 'Resume from a sync-branch commit')
   .option('--interval <seconds>', 'Remote tip poll interval (minimum 10)', '30')
-  .option('--timeout <seconds>', 'Exit 2 if no selected change occurs in this time')
+  .option('--timeout <seconds>', 'Exit 3 if no selected change occurs in this time')
   .action(async (options, command) => {
     const handler = new WatchHandler(command);
     await handler.run(options);

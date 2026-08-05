@@ -3,12 +3,12 @@
 import { Command } from 'commander';
 
 import { readConfig } from '../../file/config.js';
-import { git } from '../../file/git.js';
 import { createChangesReportFromRefs } from '../../file/sync-branch-changes.js';
 import { BaseCommand } from '../lib/base-command.js';
 import { parseChangeSelection, type ChangeSelectionOptions } from '../lib/change-selection.js';
 import { CLIError, requireInit } from '../lib/errors.js';
-import { formatIssueChangesReport, NO_CHANGES_EXIT_CODE } from '../lib/issue-changes-output.js';
+import { EXIT_NO_MATCHING_CHANGE } from '../lib/exit-codes.js';
+import { formatIssueChangesReport } from '../lib/issue-changes-output.js';
 
 interface ChangesOptions extends ChangeSelectionOptions {
   since: string;
@@ -19,24 +19,12 @@ class ChangesHandler extends BaseCommand {
     const tbdRoot = await requireInit();
     const config = await readConfig(tbdRoot);
     const selection = parseChangeSelection(options, false);
-    const tipRef = `refs/heads/${config.sync.branch}`;
-    try {
-      await git('-C', tbdRoot, 'rev-parse', '--verify', '--end-of-options', `${tipRef}^{commit}`);
-    } catch (error) {
-      const wrapped = new CLIError(
-        `Local sync branch '${config.sync.branch}' not found. Run \`tbd sync\` first to create it.`,
-      );
-      if (error instanceof Error) {
-        wrapped.cause = error;
-      }
-      throw wrapped;
-    }
     let report;
     try {
       report = await createChangesReportFromRefs({
         repoDir: tbdRoot,
         sinceRef: options.since,
-        tipRef,
+        tipRef: `refs/heads/${config.sync.branch}`,
         prefix: config.display.id_prefix,
         selection,
       });
@@ -55,7 +43,7 @@ class ChangesHandler extends BaseCommand {
       });
     }
     if (report.changes.length === 0) {
-      process.exitCode = NO_CHANGES_EXIT_CODE;
+      process.exitCode = EXIT_NO_MATCHING_CHANGE;
     }
   }
 }

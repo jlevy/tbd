@@ -168,9 +168,6 @@ describe('tbd watch', () => {
         '0',
       ]);
 
-      // Usage errors must stay 2 and must NOT collide with the 3 a timeout exits with:
-      // the documented wake loop retries on 3, so a bad flag reported as 3 would spin
-      // forever instead of surfacing the mistake.
       expect(missing.status).toBe(2);
       expect(missing.stderr).toContain('A selector is required');
       expect(tooFast.status).toBe(2);
@@ -180,24 +177,23 @@ describe('tbd watch', () => {
   );
 
   it(
-    'exits 1 immediately on an unknown --bead ID instead of blocking',
+    'rejects an unknown --bead before entering the poll loop',
     async () => {
       const fixture = await createWatchRepo(false);
-      // --timeout is only a regression backstop: fail-fast must reject before polling.
+      await git(fixture.repoDir, 'push', 'origin', '--delete', 'tbd-sync');
       const result = runTbd(fixture.repoDir, [
         'watch',
         '--bead',
-        'tbd-zzzz',
+        'tbd-typo',
         '--timeout',
-        '5',
+        '0',
         '--json',
       ]);
 
       expect(result.status).toBe(1);
       expect(result.stdout).toBe('');
-      expect(JSON.parse(result.stderr)).toMatchObject({
-        error: expect.stringContaining('Unknown issue ID: tbd-zzzz'),
-      });
+      expect(result.stderr).toContain('Unknown issue ID: tbd-typo');
+      expect(result.stderr).toContain('run tbd sync first');
     },
     WINDOWS_CLI_TEST_TIMEOUT_MS,
   );

@@ -125,15 +125,17 @@ tbd watch --all                              # anything in the repo graph
   interval 30s, minimum 10s); on movement, fetch the sync branch and run the
   `tbd changes` diff; if the selection changed, print and exit 0; otherwise keep
   waiting. No fetch traffic while the tip is idle.
-- **Exit codes (gh-style):** 0 = change detected (report on stdout), 3 = nothing matched
-  (timeout elapsed with no change — the same code `tbd changes` uses for an empty diff),
-  2 = usage error, 1 = operational error.
-  Timeout is deliberately *not* 2: a wake loop retries on 3, so sharing a code with
-  usage errors would spin on a mistyped flag instead of surfacing it (revised
-  2026-08-04, pre-release).
+- **Exit codes (gh-style):** 0 = change detected (report on stdout), 3 = timeout elapsed
+  with no change (matching the `tbd changes` no-change code), 1 = error.
+  Exit 2 stays reserved for usage errors, as on every tbd command, so recipes that retry
+  on the no-change code never retry a usage error.
   `--json` emits the report as one JSON document for programmatic consumers.
 - **Statelessness:** each invocation records nothing; `--since` lets a caller resume
   from a known commit, and the exit-0 report includes the new tip commit for chaining.
+- **Poll resilience:** an established watch tolerates a bounded run of consecutive
+  remote poll failures (each failed poll waits the normal interval) before exiting 1, so
+  a brief network outage does not kill an unattended watch.
+  Startup validation and the first remote read still fail fast.
 - **Safety:** watch is read-only — it never touches the caller’s working tree or the
   hidden data-sync worktree lock; fetches go to a private ref or temporary clone so a
   concurrent `tbd sync` is unaffected.
@@ -152,6 +154,9 @@ watchers:
   callers can resume without a race.
   A missing commit, missing remote sync branch, or baseline that is not an ancestor of
   the tip is an error rather than an all-created or force-push-shaped report.
+  A missing local sync-branch tip tells the caller to run `tbd sync` first.
+  If sync recovery rewrites history and invalidates a saved baseline, restart the watch
+  without `--since` to establish a new baseline.
 
 - **Advancement:** after remote movement that does not affect the selection, watch
   advances its baseline to that observed tip.
@@ -160,6 +165,10 @@ watchers:
 
 - **Static and dynamic selections:** `--bead` resolves IDs against the union of the two
   snapshots’ append-only ID mappings.
+  Without `--since`, watch validates explicit IDs against the local committed sync
+  snapshot before its first remote poll, so a typo cannot wait indefinitely.
+  With `--since`, the immediate two-snapshot report remains authoritative, including for
+  a bead deleted after the baseline.
   Label, spec, and status filters reuse `tbd list` semantics: repeated labels are ANDed,
   spec paths use gradual path matching, and filters combine with AND. A changed bead
   matches a dynamic selection when it matched either endpoint, so entering and leaving a
@@ -175,13 +184,17 @@ watchers:
 
 - **Issue snapshots:** readiness is calculated independently at both endpoints using
   each snapshot’s complete dependency graph.
-  Invalid issue or mapping data fails the command loudly with the ref and path; it is
-  never treated as an empty snapshot.
+  Each endpoint lists the committed issue tree and reads all issue and mapping blobs
+  through one `git cat-file --batch` process; snapshot size does not multiply Git
+  subprocess count. Invalid issue or mapping data fails the command loudly with the ref
+  and path; it is never treated as an empty snapshot.
 
 - **Determinism:** reports sort beads by internal ID and fields by normative schema
-  order. Missing optional values are represented as `null`. Arrays retain their canonical
-  stored order. Text changes use deterministic line hunks with old/new start and count
-  values plus context/add/remove lines.
+  order. Missing optional values are represented as `null`, but created and deleted beads
+  omit fields that are `null` at both endpoints.
+  Arrays retain their canonical stored order.
+  Text changes use deterministic line hunks with old/new start and count values plus
+  context/add/remove lines and at most three surrounding context lines.
 
 - **Output:** human output identifies the baseline and tip, then renders one section per
   bead and field. JSON uses the same document for `changes` and an exit-0 `watch`:
@@ -222,14 +235,16 @@ watchers:
   ```
 
   JSON no-change output is the same document with an empty `changes` array and exit 3. A
-  watch timeout also exits 3, without stdout.
+  watch timeout exits 3 without stdout.
   `--quiet` suppresses successful and no-change stdout (including JSON) so callers can
   use exit status alone; errors remain on stderr.
 
 - **Private fetches:** every watch invocation uses a collision-resistant ref under a
   tbd-owned private namespace, fetches the exact configured sync branch only after tip
   movement, never writes `FETCH_HEAD` or the configured local/remote-tracking sync refs,
-  and deletes its private ref in a `finally` path.
+  and deletes its private ref on the normal `finally` path.
+  At startup it also removes private refs whose encoded watcher PID is no longer alive,
+  reclaiming refs left by signals or abrupt process termination.
   It does not initialize, inspect, repair, lock, fetch through, or otherwise access the
   hidden data-sync worktree.
 
@@ -355,11 +370,16 @@ No breaking changes to existing commands.
   document platform limits found.
 - [x] Cross-agent demo (`tbd-2y7v`): two agent sessions conversing through one bead,
   each waking on the other’s write.
+- [x] Post-review hardening (`tbd-md0g`): fail-fast ID validation, stale-ref
+  reclamation, batched snapshot reads, bounded text hunks, concise created/deleted
+  fields, selector compatibility, and actionable recovery guidance.
 
 Validation transcript and platform limits: `valid-2026-07-19-bead-watch-phase-1.md`.
 
 ### Phase 2: External Sync
 
+- [ ] Reconcile the external-sync design with the sibling plan before implementation
+  (`tbd-fuiw`): bridge versus mirror, link storage, and reconciliation state.
 - [ ] `comments` model with union-by-id merge, `tbd comment`, and concurrent-writer
   regression tests.
 - [ ] Per-namespace `extensions` merge with concurrent-writer regression tests.
