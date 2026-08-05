@@ -20,6 +20,12 @@ const tbdBin = join(packageDir, 'dist', 'bin.mjs');
 const cleanupPaths: string[] = [];
 const ISSUE_ID = testId(TEST_ULIDS.ULID_1);
 
+/**
+ * Every case here builds a Git fixture repo and then spawns the CLI, which routinely
+ * exceeds vitest's 5s default on Windows runners. Matches cli-watch.test.ts.
+ */
+const WINDOWS_CLI_TEST_TIMEOUT_MS = 15_000;
+
 interface ChangesRepo {
   repoDir: string;
   since: string;
@@ -103,81 +109,101 @@ afterEach(async () => {
 });
 
 describe('tbd changes', () => {
-  it('emits the stable JSON document and exits zero for a matching change', async () => {
-    const fixture = await createChangesRepo();
-    const result = runTbd(fixture.repoDir, [
-      'changes',
-      '--since',
-      fixture.since,
-      '--bead',
-      'tbd-a1b2',
-      '--json',
-    ]);
+  it(
+    'emits the stable JSON document and exits zero for a matching change',
+    async () => {
+      const fixture = await createChangesRepo();
+      const result = runTbd(fixture.repoDir, [
+        'changes',
+        '--since',
+        fixture.since,
+        '--bead',
+        'tbd-a1b2',
+        '--json',
+      ]);
 
-    expect(result.status).toBe(0);
-    expect(result.stderr).toBe('');
-    expect(JSON.parse(result.stdout)).toMatchObject({
-      since: fixture.since,
-      tip: fixture.tip,
-      changes: [
-        {
-          id: 'tbd-a1b2',
-          internal_id: ISSUE_ID,
-          change: 'updated',
-          fields: [expect.objectContaining({ field: 'notes', after: 'before\nafter' })],
-        },
-      ],
-    });
-  });
+      expect(result.status).toBe(0);
+      expect(result.stderr).toBe('');
+      expect(JSON.parse(result.stdout)).toMatchObject({
+        since: fixture.since,
+        tip: fixture.tip,
+        changes: [
+          {
+            id: 'tbd-a1b2',
+            internal_id: ISSUE_ID,
+            change: 'updated',
+            fields: [expect.objectContaining({ field: 'notes', after: 'before\nafter' })],
+          },
+        ],
+      });
+    },
+    WINDOWS_CLI_TEST_TIMEOUT_MS,
+  );
 
-  it('emits an empty JSON report and exits 3 when nothing matches', async () => {
-    const fixture = await createChangesRepo();
-    const result = runTbd(fixture.repoDir, ['changes', '--since', fixture.tip, '--json']);
+  it(
+    'emits an empty JSON report and exits 3 when nothing matches',
+    async () => {
+      const fixture = await createChangesRepo();
+      const result = runTbd(fixture.repoDir, ['changes', '--since', fixture.tip, '--json']);
 
-    expect(result.status).toBe(3);
-    expect(JSON.parse(result.stdout)).toEqual({
-      since: fixture.tip,
-      tip: fixture.tip,
-      changes: [],
-    });
-  });
+      expect(result.status).toBe(3);
+      expect(JSON.parse(result.stdout)).toEqual({
+        since: fixture.tip,
+        tip: fixture.tip,
+        changes: [],
+      });
+    },
+    WINDOWS_CLI_TEST_TIMEOUT_MS,
+  );
 
-  it('renders human field hunks and honors quiet exit-status mode', async () => {
-    const fixture = await createChangesRepo();
-    const human = runTbd(fixture.repoDir, ['changes', '--since', fixture.since]);
-    const quiet = runTbd(fixture.repoDir, ['changes', '--since', fixture.since, '--quiet']);
+  it(
+    'renders human field hunks and honors quiet exit-status mode',
+    async () => {
+      const fixture = await createChangesRepo();
+      const human = runTbd(fixture.repoDir, ['changes', '--since', fixture.since]);
+      const quiet = runTbd(fixture.repoDir, ['changes', '--since', fixture.since, '--quiet']);
 
-    expect(human.status).toBe(0);
-    expect(human.stdout).toContain(`Changes ${fixture.since}..${fixture.tip}`);
-    expect(human.stdout).toContain('tbd-a1b2 [updated] CLI change');
-    expect(human.stdout).toContain('+after');
-    expect(quiet.status).toBe(0);
-    expect(quiet.stdout).toBe('');
-    expect(quiet.stderr).toBe('');
-  });
+      expect(human.status).toBe(0);
+      expect(human.stdout).toContain(`Changes ${fixture.since}..${fixture.tip}`);
+      expect(human.stdout).toContain('tbd-a1b2 [updated] CLI change');
+      expect(human.stdout).toContain('+after');
+      expect(quiet.status).toBe(0);
+      expect(quiet.stdout).toBe('');
+      expect(quiet.stderr).toBe('');
+    },
+    WINDOWS_CLI_TEST_TIMEOUT_MS,
+  );
 
-  it('rejects incompatible selectors as a usage error', async () => {
-    const fixture = await createChangesRepo();
-    const result = runTbd(fixture.repoDir, [
-      'changes',
-      '--since',
-      fixture.since,
-      '--all',
-      '--label',
-      'phase-1',
-    ]);
+  it(
+    'rejects incompatible selectors as a usage error',
+    async () => {
+      const fixture = await createChangesRepo();
+      const result = runTbd(fixture.repoDir, [
+        'changes',
+        '--since',
+        fixture.since,
+        '--all',
+        '--label',
+        'phase-1',
+      ]);
 
-    expect(result.status).toBe(2);
-    expect(result.stderr).toContain('cannot be combined');
-  });
+      expect(result.status).toBe(2);
+      expect(result.stderr).toContain('cannot be combined');
+    },
+    WINDOWS_CLI_TEST_TIMEOUT_MS,
+  );
 
-  it('suggests tbd sync when the local sync branch is missing', async () => {
-    const fixture = await createChangesRepo();
-    await git(fixture.repoDir, 'update-ref', '-d', 'refs/heads/tbd-sync');
+  it(
+    'suggests tbd sync when the local sync branch is missing',
+    async () => {
+      const fixture = await createChangesRepo();
+      await git(fixture.repoDir, 'update-ref', '-d', 'refs/heads/tbd-sync');
 
-    const result = runTbd(fixture.repoDir, ['changes', '--since', fixture.since, '--json']);
+      const result = runTbd(fixture.repoDir, ['changes', '--since', fixture.since, '--json']);
 
-    expect(result.status).toBe(1);
-    expect(result.stderr).toContain('Run tbd sync first');
-  });
+      expect(result.status).toBe(1);
+      expect(result.stderr).toContain('Run tbd sync first');
+    },
+    WINDOWS_CLI_TEST_TIMEOUT_MS,
+  );
 });
