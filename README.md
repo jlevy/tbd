@@ -385,7 +385,16 @@ tbd close proj-a7k2            # Close bead
 tbd close proj-a7k2 --reason="Fixed in commit abc123"
 tbd close proj-a7k2 proj-b3m9 --reason="Sprint done"  # Bulk close (one call, no loops)
 tbd sync                       # Sync with remote (auto-commits and pushes)
+tbd watch --ready --json       # Wait for a newly ready remote bead
+tbd watch --bead proj-a7k2     # Wait for changes to one remote bead
+tbd changes --since <commit>   # Diff committed local sync-branch state
 ```
+
+`tbd watch` is read-only and suitable for waking agents.
+It polls the remote sync-branch tip, fetches only after movement, and exits after
+reporting one matching change.
+See the [watch-beads shortcut](packages/tbd/docs/shortcuts/standard/watch-beads.md) for
+daemon, Claude Code, and Codex recipes.
 
 ### Dependencies and Labels
 

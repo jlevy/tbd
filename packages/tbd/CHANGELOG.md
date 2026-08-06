@@ -1,5 +1,47 @@
 # get-tbd
 
+## Unreleased
+
+### Features
+
+- **Read-only bead change detection and watching**: `tbd changes` reports deterministic,
+  per-field deltas between committed sync-branch snapshots, while `tbd watch` polls the
+  configured remote tip and exits when a bead, dynamic filter, ready set, or the whole
+  graph changes. Both commands share human and stable JSON reports and one exit-code
+  contract: 0 matched, 3 nothing matched (no deltas, or a `--timeout` that elapsed
+  without any), 2 usage error, 1 operational failure.
+  Because 3 and 2 are distinct, an agent wake loop can retry on “nothing matched”
+  without spinning on a mistyped flag.
+- **Agent wake recipes**: the new `watch-beads` shortcut documents a race-free
+  watch-then-spawn daemon plus bounded and background in-session patterns for Claude
+  Code and Codex. Live validation covers both platforms conversing through one bead.
+
+### Fixes
+
+- **Watch exit codes disambiguated**: a watch timeout now exits 3, matching the
+  `tbd changes` no-change code, so exit 2 always means a usage error and recipes that
+  retry on “nothing happened” can never loop on a bad invocation.
+- **Watch rides out brief outages**: an established watch tolerates a bounded run of
+  consecutive failed remote polls (each failed poll waits the normal interval) before
+  exiting 1; startup validation still fails fast.
+  Baseline-invalidation and stale-snapshot errors now carry recovery hints (restart
+  without `--since`; run `tbd sync` first).
+- **Watch review hardening**: explicit bead IDs are validated before an unbounded poll,
+  fresh-clone errors point to `tbd sync`, empty spec filters retain list-compatible
+  behavior, created/deleted reports omit null-to-null fields, and text hunks retain at
+  most three context lines.
+- **Bounded snapshot subprocesses**: committed issue blobs are read through one
+  `git cat-file --batch` process per endpoint instead of one `git show` per issue.
+
+### Security
+
+- No dependencies were added or upgraded.
+  Watch fetches only after remote movement, targets a collision-resistant private ref,
+  does not write `FETCH_HEAD` or configured sync refs, never accesses the hidden
+  data-sync worktree or lock, removes its private ref on normal completion (best-effort,
+  so a failed delete can never discard the change report), and reclaims refs orphaned by
+  interrupted watcher processes on the next watch startup.
+
 ## 0.4.2
 
 ### Features

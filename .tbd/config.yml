@@ -1,5 +1,5 @@
 tbd_format: f06
-tbd_version: 0.4.2
+tbd_version: 0.4.3-dev.4.ac597cf-dirty
 # tbd_upgrades: tbd versions that have run `tbd setup` in this repo (oldest first);
 # tbd_version above is the most recent. Informational; updated automatically by setup.
 tbd_upgrades:
@@ -14,6 +14,8 @@ tbd_upgrades:
     at: 2026-07-12T19:25:48.595Z
   - version: 0.4.2
     at: 2026-07-30T22:04:21.493Z
+  - version: 0.4.3-dev.4.ac597cf-dirty
+    at: 2026-08-06T16:32:30.897Z
 display:
   id_prefix: tbd
 sync:
@@ -74,6 +76,7 @@ docs_cache:
     shortcuts/standard/suggest-upstream-improvements.md: internal:shortcuts/standard/suggest-upstream-improvements.md
     shortcuts/standard/sync-failure-recovery.md: internal:shortcuts/standard/sync-failure-recovery.md
     shortcuts/standard/update-specs-status.md: internal:shortcuts/standard/update-specs-status.md
+    shortcuts/standard/watch-beads.md: internal:shortcuts/standard/watch-beads.md
     shortcuts/standard/welcome-user.md: internal:shortcuts/standard/welcome-user.md
     guidelines/backward-compatibility-rules.md: internal:guidelines/backward-compatibility-rules.md
     guidelines/bun-monorepo-patterns.md: internal:guidelines/bun-monorepo-patterns.md

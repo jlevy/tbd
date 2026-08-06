@@ -26,6 +26,8 @@ import { staleCommand } from './commands/stale.js';
 import { labelCommand } from './commands/label.js';
 import { depCommand } from './commands/dep.js';
 import { syncCommand } from './commands/sync.js';
+import { changesCommand } from './commands/changes.js';
+import { watchCommand } from './commands/watch.js';
 import { searchCommand } from './commands/search.js';
 import { statusCommand } from './commands/status.js';
 import { statsCommand } from './commands/stats.js';
@@ -110,6 +112,8 @@ function createProgram(): Command {
   program.addCommand(labelCommand);
 
   program.commandsGroup('Sync and Status:');
+  program.addCommand(changesCommand);
+  program.addCommand(watchCommand);
   program.addCommand(syncCommand);
   program.addCommand(saveCommand);
   program.addCommand(statusCommand);

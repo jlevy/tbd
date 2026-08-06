@@ -558,6 +558,60 @@ Options:
 - `--status` - Show sync status without syncing
 - `--force` - Force sync, overwriting conflicts
 
+### changes
+
+Report committed bead deltas between a baseline and the configured local sync-branch
+tip. This command does not fetch or read the hidden data-sync worktree.
+
+```bash
+tbd changes --since <commit>                 # All changed beads
+tbd changes --since <commit> --bead proj-a7k2 proj-b3m9
+tbd changes --since <commit> --label needs-agent --json
+tbd changes --since <commit> --ready --json  # Beads newly entering ready
+```
+
+Selectors are `--bead`, repeated `--label`, `--spec`, `--status`, `--ready`, and
+`--all`. The command defaults to `--all`. Exit 0 means matching changes and exit 3 means
+none. JSON output contains the resolved `since` and `tip` commits plus per-bead,
+per-field deltas.
+
+### watch
+
+Wait for selected bead state to change on the configured remote sync branch, report one
+change, and exit. A selector is required.
+
+```bash
+tbd watch --bead proj-a7k2 --json
+tbd watch --label needs-agent --json
+tbd watch --spec plan-feature.md --json
+tbd watch --status blocked --json
+tbd watch --ready --json
+tbd watch --all --timeout 540 --json
+```
+
+The default poll interval is 30 seconds; `--interval` cannot be lower than 10 seconds.
+Exit 0 means a change, exit 3 means the optional timeout elapsed, and exit 1 means an
+error. Pass an earlier report’s `tip` as `--since` to resume without a race.
+An established watch tolerates a bounded run of consecutive failed remote polls before
+exiting 1, so a brief network outage does not end an unattended watch.
+If sync recovery rewrites the sync branch, a saved `--since` baseline stops being an
+ancestor of the new tip and watch exits 1; restart without `--since` to establish a new
+baseline. Watch uses a temporary private Git ref and never touches the working tree,
+hidden data-sync worktree, its lock, `FETCH_HEAD`, or configured local and
+remote-tracking sync refs.
+
+See `tbd shortcut watch-beads` for watch-then-spawn and in-session agent recipes.
+
+### Change-command exit codes
+
+| Command | 0 | 1 | 2 | 3 |
+| --- | --- | --- | --- | --- |
+| `tbd changes` | matching changes reported | operational error | usage error | no matching changes |
+| `tbd watch` | matching change reported | operational error | usage error | `--timeout` elapsed |
+
+Exit 2 always means a usage error on tbd commands, so recipes can retry exit 3 (“nothing
+happened”) without ever retrying a bad invocation.
+
 ### search
 
 Search issues by text content.

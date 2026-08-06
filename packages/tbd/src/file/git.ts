@@ -114,7 +114,7 @@ export async function git(...args: string[]): Promise<string> {
  * (e.g. a best-effort push) fails fast instead of blocking on a credential
  * prompt in a non-interactive environment.
  */
-async function gitNoPrompt(...args: string[]): Promise<string> {
+export async function gitNoPrompt(...args: string[]): Promise<string> {
   try {
     const { stdout } = await execFileAsync('git', args, {
       maxBuffer: GIT_MAX_BUFFER,
