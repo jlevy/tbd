@@ -10,6 +10,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { serializeIssue } from '../src/file/parser.js';
 import {
+  createGitWatchDependencies,
   removeStaleWatchRefs,
   watchForIssueChanges,
   type IssueWatchDependencies,
@@ -233,6 +234,38 @@ describe('watchForIssueChanges polling', () => {
         (timeoutMs) => typeof timeoutMs === 'number' && timeoutMs > 0 && timeoutMs <= 30_000,
       ),
     ).toBe(true);
+  });
+
+  it('shares the fetch timeout budget with private-ref resolution', async () => {
+    let now = 1_000;
+    const runGitWithTimeout = vi.fn((_timeoutMs: number, ...args: string[]): Promise<string> => {
+      if (args.includes('fetch')) {
+        now += 75;
+        return Promise.resolve('');
+      }
+      if (args.includes('rev-parse')) {
+        return Promise.resolve(SHA_B);
+      }
+      return Promise.reject(new Error(`Unexpected Git command: ${args.join(' ')}`));
+    });
+    const dependencies = createGitWatchDependencies(
+      {
+        repoDir: '/unused',
+        remote: 'origin',
+        branch: 'tbd-sync',
+        prefix: 'tbd',
+        selection: { kind: 'all' },
+        since: null,
+        intervalMs: 100,
+        timeoutMs: 100,
+      },
+      () => now,
+      runGitWithTimeout,
+    );
+
+    await expect(dependencies.fetchRemoteTip(100)).resolves.toBe(SHA_B);
+    expect(runGitWithTimeout.mock.calls.map(([timeoutMs]) => timeoutMs)).toEqual([100, 25]);
+    expect(runGitWithTimeout.mock.calls[1]).toContain('rev-parse');
   });
 
   it('uses remaining watch time for operations started before the boundary', async () => {

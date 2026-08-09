@@ -92,10 +92,14 @@ export async function removeStaleWatchRefs(
   }
 }
 
-function createGitWatchDependencies(options: IssueWatchOptions): IssueWatchDependencies {
+export function createGitWatchDependencies(
+  options: IssueWatchOptions,
+  now: () => number = Date.now,
+  runGitWithTimeout: typeof gitNoPromptWithTimeout = gitNoPromptWithTimeout,
+): IssueWatchDependencies {
   const privateRef = `refs/tbd/watch/${process.pid}-${randomUUID()}`;
   return {
-    now: Date.now,
+    now,
     sleep,
     prepare: () => removeStaleWatchRefs(options.repoDir),
     validateSelection: async () => {
@@ -113,7 +117,7 @@ function createGitWatchDependencies(options: IssueWatchOptions): IssueWatchDepen
     getRemoteTip: async (timeoutMs) => {
       let output;
       try {
-        output = await gitNoPromptWithTimeout(
+        output = await runGitWithTimeout(
           timeoutMs,
           '-C',
           options.repoDir,
@@ -130,9 +134,10 @@ function createGitWatchDependencies(options: IssueWatchOptions): IssueWatchDepen
       return parseRemoteTip(output, options.remote, options.branch);
     },
     fetchRemoteTip: async (timeoutMs) => {
+      const fetchDeadline = now() + timeoutMs;
       try {
-        await gitNoPromptWithTimeout(
-          timeoutMs,
+        await runGitWithTimeout(
+          remainingRemotePollTime(fetchDeadline, now()),
           '-C',
           options.repoDir,
           'fetch',
@@ -141,7 +146,14 @@ function createGitWatchDependencies(options: IssueWatchOptions): IssueWatchDepen
           options.remote,
           `+refs/heads/${options.branch}:${privateRef}`,
         );
-        return await git('-C', options.repoDir, 'rev-parse', '--verify', `${privateRef}^{commit}`);
+        return await runGitWithTimeout(
+          remainingRemotePollTime(fetchDeadline, now()),
+          '-C',
+          options.repoDir,
+          'rev-parse',
+          '--verify',
+          `${privateRef}^{commit}`,
+        );
       } catch (error) {
         throw new Error(`Failed to fetch remote sync tip ${options.remote}/${options.branch}`, {
           cause: error,

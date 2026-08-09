@@ -296,7 +296,8 @@ external comment model are required for that contract.
 The 2026-08-09 follow-up added regression and contract coverage for:
 
 - a change first visible on the final timeout-boundary poll;
-- real termination of a stalled non-interactive Git subprocess;
+- real termination of a stalled non-interactive Git subprocess, with one shared deadline
+  across fetch and private-ref resolution;
 - bounded object batching and omission of pathological text hunks;
 - report `format_version: 1` and bounded human rendering;
 - a blocker deletion making its target ready, confirming that the reported missing-
@@ -316,7 +317,7 @@ resumed watch using `--since <saved-tip>`.
 The final local gates all passed:
 
 ```text
-pnpm precommit                         100 Vitest files, 1,450 tests
+pnpm precommit                         100 Vitest files, 1,451 tests
 pnpm --filter get-tbd test:tryscript  1,068 CLI transcript cases
 pnpm format:check                     passed
 pnpm lint:check                       passed (including TypeScript and ESLint contract)
