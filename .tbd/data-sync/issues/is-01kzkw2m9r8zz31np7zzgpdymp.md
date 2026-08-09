@@ -5,7 +5,7 @@ title: "Address review: PR #205 — bead watch hardening"
 kind: task
 status: in_progress
 priority: 1
-version: 12
+version: 13
 labels: []
 dependencies: []
 child_order_hints:
@@ -19,7 +19,8 @@ child_order_hints:
   - is-01kzkw3byxp6p5wdfmwa3jtjxx
   - is-01kzkw3ca57j80b2qx6cfn7p8k
   - is-01kzkxevnjgaqkz54zyjvba8n4
+  - is-01kzm0f2h25zhbt3jn81p8dt6b
 created_at: 2026-08-09T18:20:33.975Z
-updated_at: 2026-08-09T18:44:43.313Z
+updated_at: 2026-08-09T19:37:16.065Z
 ---
 Address every actionable finding and suggestion in the senior review comment https://github.com/jlevy/tbd/pull/205#issuecomment-5233034787 plus the unresolved Cursor review thread. Implement, validate, reply with a disposition map, resolve threads, push, and get CI green.
