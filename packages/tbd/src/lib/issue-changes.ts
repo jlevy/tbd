@@ -27,6 +27,10 @@ export type IssueChangeSelection =
 
 export type IssueChangeKind = 'created' | 'updated' | 'deleted';
 export type TextChangeLineType = 'context' | 'add' | 'remove';
+export type TextHunksOmittedReason = 'complexity_limit';
+
+/** Version of the machine-readable changes/watch report contract. */
+export const ISSUE_CHANGES_FORMAT_VERSION = 1 as const;
 
 /** One line in a deterministic description or notes hunk. */
 export interface TextChangeLine {
@@ -49,6 +53,7 @@ export interface IssueFieldChange {
   before: unknown;
   after: unknown;
   hunks?: TextChangeHunk[];
+  hunks_omitted?: TextHunksOmittedReason;
 }
 
 /** One bead's deterministic change report. */
@@ -62,6 +67,7 @@ export interface IssueChange {
 
 /** Stable JSON document shared by the one-shot and blocking commands. */
 export interface IssueChangesReport {
+  format_version: typeof ISSUE_CHANGES_FORMAT_VERSION;
   since: string;
   tip: string;
   changes: IssueChange[];
@@ -76,32 +82,38 @@ export interface CreateIssueChangesReportOptions {
   selection: IssueChangeSelection;
 }
 
-const ISSUE_CHANGE_FIELDS = [
-  'title',
-  'kind',
-  'status',
-  'priority',
-  'description',
-  'notes',
-  'spec_path',
-  'assignee',
-  'labels',
-  'dependencies',
-  'parent_id',
-  'child_order_hints',
-  'due_date',
-  'deferred_until',
-  'created_by',
-  'created_at',
-  'closed_at',
-  'close_reason',
-  'extensions',
-] as const satisfies readonly (keyof Issue)[];
+export type IssueChangeField = Exclude<keyof Issue, 'type' | 'id' | 'version' | 'updated_at'>;
 
-export type IssueChangeField = (typeof ISSUE_CHANGE_FIELDS)[number];
+// Object insertion order is the stable report order. Record exhaustiveness makes a new
+// substantive Issue field a type error until its change-report position is chosen.
+const ISSUE_CHANGE_FIELD_ORDER = {
+  title: true,
+  kind: true,
+  status: true,
+  priority: true,
+  description: true,
+  notes: true,
+  spec_path: true,
+  assignee: true,
+  labels: true,
+  dependencies: true,
+  parent_id: true,
+  child_order_hints: true,
+  due_date: true,
+  deferred_until: true,
+  created_by: true,
+  created_at: true,
+  closed_at: true,
+  close_reason: true,
+  extensions: true,
+} as const satisfies Record<IssueChangeField, true>;
+
+const ISSUE_CHANGE_FIELDS = Object.keys(ISSUE_CHANGE_FIELD_ORDER) as IssueChangeField[];
 
 const TEXT_FIELDS: ReadonlySet<IssueChangeField> = new Set(['description', 'notes']);
 const TEXT_HUNK_CONTEXT_LINES = 3;
+/** Caps Myers trace growth at roughly O(limit^2), independent of body line count. */
+const MAX_TEXT_DIFF_EDIT_DISTANCE = 200;
 
 function deepEqual(left: unknown, right: unknown): boolean {
   if (left === right) {
@@ -149,11 +161,15 @@ function textLines(value: unknown): string[] {
   return typeof value === 'string' && value.length > 0 ? value.split('\n') : [];
 }
 
-function diffTextLines(oldLines: readonly string[], newLines: readonly string[]): TextChangeLine[] {
+type TextLineDiff =
+  | { kind: 'complete'; lines: TextChangeLine[] }
+  | { kind: 'omitted'; reason: TextHunksOmittedReason };
+
+function diffTextLines(oldLines: readonly string[], newLines: readonly string[]): TextLineDiff {
   const trace: Map<number, number>[] = [];
   const furthestX = new Map<number, number>([[1, 0]]);
-  const maximumDistance = oldLines.length + newLines.length;
-  let finalDistance = 0;
+  const maximumDistance = Math.min(oldLines.length + newLines.length, MAX_TEXT_DIFF_EDIT_DISTANCE);
+  let finalDistance: number | null = null;
 
   outer: for (let distance = 0; distance <= maximumDistance; distance += 1) {
     trace.push(new Map(furthestX));
@@ -176,6 +192,10 @@ function diffTextLines(oldLines: readonly string[], newLines: readonly string[])
         break outer;
       }
     }
+  }
+
+  if (finalDistance === null) {
+    return { kind: 'omitted', reason: 'complexity_limit' };
   }
 
   const reversed: TextChangeLine[] = [];
@@ -229,13 +249,20 @@ function diffTextLines(oldLines: readonly string[], newLines: readonly string[])
       ...changed.filter((entry) => entry.type === 'add'),
     );
   }
-  return canonical;
+  return { kind: 'complete', lines: canonical };
 }
 
-function createTextHunks(before: unknown, after: unknown): TextChangeHunk[] {
+function createTextHunks(
+  before: unknown,
+  after: unknown,
+): Pick<IssueFieldChange, 'hunks' | 'hunks_omitted'> {
   const oldLines = textLines(before);
   const newLines = textLines(after);
-  const lines = diffTextLines(oldLines, newLines);
+  const diff = diffTextLines(oldLines, newLines);
+  if (diff.kind === 'omitted') {
+    return { hunks_omitted: diff.reason };
+  }
+  const lines = diff.lines;
   const positioned: (TextChangeLine & { oldLine: number; newLine: number })[] = [];
   let oldLine = 1;
   let newLine = 1;
@@ -264,7 +291,7 @@ function createTextHunks(before: unknown, after: unknown): TextChangeHunk[] {
     }
   }
 
-  return ranges.map(({ start, end }) => {
+  const hunks = ranges.map(({ start, end }) => {
     const entries = positioned.slice(start, end);
     const first = entries[0]!;
     return {
@@ -275,6 +302,7 @@ function createTextHunks(before: unknown, after: unknown): TextChangeHunk[] {
       lines: entries.map(({ type, text }) => ({ type, text })),
     };
   });
+  return { hunks };
 }
 
 function mergeMappings(
@@ -356,7 +384,7 @@ function fieldChanges(before: Issue | undefined, after: Issue | undefined): Issu
     }
     const change: IssueFieldChange = { field, before: beforeValue, after: afterValue };
     if (TEXT_FIELDS.has(field) && !deepEqual(beforeValue, afterValue)) {
-      change.hunks = createTextHunks(beforeValue, afterValue);
+      Object.assign(change, createTextHunks(beforeValue, afterValue));
     }
     return [change];
   });
@@ -403,23 +431,21 @@ export function createIssueChangesReport(
   )) {
     const before = options.before.issues.get(internalId);
     const after = options.after.issues.get(internalId);
-    const fields = fieldChanges(before, after);
-    const changed = fields.length > 0;
     let selected = false;
 
     switch (options.selection.kind) {
       case 'all':
-        selected = changed;
+        selected = true;
         break;
       case 'beads':
-        selected = explicitIds!.has(internalId) && changed;
+        selected = explicitIds!.has(internalId);
         break;
       case 'filter': {
         const matchedBefore = issueMatchesFilter(before, options.selection, readyBefore);
         const matchedAfter = issueMatchesFilter(after, options.selection, readyAfter);
         selected = options.selection.ready
           ? matchedAfter && !matchedBefore
-          : changed && (matchedBefore || matchedAfter);
+          : matchedBefore || matchedAfter;
         break;
       }
       default: {
@@ -429,6 +455,10 @@ export function createIssueChangesReport(
     }
 
     if (!selected) {
+      continue;
+    }
+    const fields = fieldChanges(before, after);
+    if (fields.length === 0 && !(options.selection.kind === 'filter' && options.selection.ready)) {
       continue;
     }
     const issue = after ?? before!;
@@ -446,5 +476,10 @@ export function createIssueChangesReport(
     });
   }
 
-  return { since: options.since, tip: options.tip, changes };
+  return {
+    format_version: ISSUE_CHANGES_FORMAT_VERSION,
+    since: options.since,
+    tip: options.tip,
+    changes,
+  };
 }

@@ -28,7 +28,9 @@ export function formatIssueChangesReport(
       continue;
     }
     for (const field of change.fields) {
-      if (field.hunks) {
+      if (field.hunks_omitted) {
+        lines.push(`  ${field.field}: text diff omitted (complexity limit)`);
+      } else if (field.hunks) {
         lines.push(`  ${field.field}:`);
         for (const hunk of field.hunks) {
           lines.push(

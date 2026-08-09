@@ -9,7 +9,8 @@ Codex demonstrations for Phase 1 of bead watch.
 
 ## Validation Environment
 
-- Date: 2026-07-19 to 2026-07-20, America/Los_Angeles
+- Date: 2026-07-19 to 2026-07-20, with PR #205 hardening on 2026-08-09,
+  America/Los_Angeles
 - Host: macOS, Git 2.50.1
 - Implementation: local `get-tbd` development build from PR 196
 - Claude Code: 2.1.212, Sonnet 5
@@ -39,6 +40,14 @@ The review tightened the plan before implementation in the following areas:
   runs.
 - Kept Git tree paths POSIX on Windows and restricted issue files to the normative flat
   committed layout.
+- Required a final observation at the timeout boundary and an explicit wall-time bound
+  on every network Git subprocess.
+- Bounded Myers trace growth and `cat-file` batches, made substantive field coverage
+  compile-time exhaustive, and versioned the standalone JSON report contract.
+- Upgraded the daemon recipe from best-effort delivery to a persistent, at-least-once
+  pending-report/checkpoint protocol that fails closed on worker or sync errors.
+- Corrected the coordination contract: `--notes` replaces the whole body and is not an
+  append-only conversation primitive.
 
 No dependency was needed.
 Plain Git subprocesses are sufficient and keep the supply chain unchanged.
@@ -123,6 +132,7 @@ The watcher exited 0 on the next poll and produced:
 
 ```json
 {
+  "format_version": 1,
   "since": "7023afd3e46d8b15b018b84cc3fdd176642a0190",
   "tip": "b4421b1f87c62cd25261d1712cdb869abae0ba66",
   "changes": [
@@ -141,8 +151,10 @@ The watcher exited 0 on the next poll and produced:
 }
 ```
 
-The successful Codex spawn read that report on stdin, appended its reply with
-`tbd update`, and synced:
+The successful Codex spawn read that report, pulled current state, constructed a
+complete replacement notes body containing the prior text plus its reply, wrote that
+body with `tbd update --notes`, and synced.
+The serialized demo made this read-modify-write safe; the command itself did not append:
 
 ```text
 ✓ Updated demo-520z
@@ -190,7 +202,8 @@ The background watch task is running (ID b4xf43wvm). I'll wait for its completio
 notification before proceeding with the JSON report and sync steps.
 ```
 
-While Claude was idle, Session A appended and synced:
+While Claude was idle, Session A read the current notes, added its follow-up
+client-side, wrote the complete replacement body, and synced:
 
 ```text
 Session A follow-up: Claude, please acknowledge this in-session wake.
@@ -203,16 +216,17 @@ Background command "Watch demo-520z bead for wake, with 10s interval and 60s tim
 completed (exit code 0)
 
 The watch task completed with exit code 0. Reading the JSON report now.
-The watch detected a change: another session appended a follow-up note asking Claude to
-acknowledge the wake.
+The watch detected a change: another session added a follow-up to the replacement notes
+body asking Claude to acknowledge the wake.
 ```
 
-Claude then pulled, preserved the message history, appended its reply through the tbd
-CLI, and synced:
+Claude then pulled, re-read current state, constructed another complete replacement
+notes body preserving the serialized demo history, wrote it through the tbd CLI, and
+synced:
 
 ```text
 Sync --pull: pulled 1 change from origin/tbd-sync.
-Update: appended "Claude reply: acknowledged the in-session wake."
+Update: replaced notes with prior text plus "Claude reply: acknowledged the in-session wake."
 Sync: pushed the update — "Synced: sent 1 updated."
 ```
 
@@ -243,6 +257,7 @@ only Claude’s reply:
 
 ```json
 {
+  "format_version": 1,
   "since": "5ef69ce15cdf2f7b3f5a368f868c61becb108ccd",
   "tip": "a90f31c3d0eb30817832a193cf5cde34b87674c6",
   "changes": [
@@ -270,13 +285,48 @@ Session A follow-up: Claude, please acknowledge this in-session wake.
 Claude reply: acknowledged the in-session wake.
 ```
 
-This validates two agent platforms conversing through one bead, each response published
-through `tbd update --notes` and `tbd sync`, with each wake carrying the expected
-field-level delta.
+This validates serialized, single-writer-at-a-time coordination through one bead, with
+each complete notes replacement published through `tbd update --notes` and `tbd sync`
+and each wake carrying the expected field-level delta.
+It does not validate notes as a durable concurrent transcript; child beads or an
+external comment model are required for that contract.
+
+## PR #205 Review-Hardening Validation
+
+The 2026-08-09 follow-up added regression and contract coverage for:
+
+- a change first visible on the final timeout-boundary poll;
+- real termination of a stalled non-interactive Git subprocess;
+- bounded object batching and omission of pathological text hunks;
+- report `format_version: 1` and bounded human rendering;
+- a blocker deletion making its target ready, confirming that the reported missing-
+  blocker lookup is unreachable because blocker IDs come from the same snapshot map;
+- Bash syntax and ordering invariants for pending-report persistence, pull/revalidation,
+  worker execution, final sync, checkpoint advancement, and signal exits;
+- sequential `--notes` replacement semantics; and
+- one shared source of truth for success, operational, usage, no-match, and SIGINT exit
+  codes, plus an audit that removed runtime numeric exit literals from the CLI.
+
+The executable shortcut harness injected a worker failure, verified that the pending
+report survived with no checkpoint, restarted the loop, verified the same report was
+retried, then observed final sync, checkpoint advancement, pending-file removal, and a
+resumed watch using `--since <saved-tip>`.
+
+The final local gates all passed:
+
+```text
+pnpm precommit                         100 Vitest files, 1,450 tests
+pnpm --filter get-tbd test:tryscript  1,068 CLI transcript cases
+pnpm format:check                     passed
+pnpm lint:check                       passed (including TypeScript and ESLint contract)
+pnpm publint                          passed
+pnpm check:package-age                0 violations across 31 pins
+```
+
+No dependency or lockfile changed.
 
 ## Manual Review
 
 No additional manual platform step is required for Phase 1 correctness.
-Before marking the draft PR ready, review the human output styling and the `watch-beads`
-shortcut for operator preference, then confirm whether Phase 2 should begin on the same
-PR or a later one.
+Linear/provider experiments remain separately tracked and are not a merge dependency for
+this infrastructure PR.

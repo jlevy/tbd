@@ -30,8 +30,11 @@ Exit 0 means a matching change was reported, exit 3 means `--timeout` elapsed, a
 1 means an operational error (usage errors exit 2, as on every tbd command).
 An established watch rides out a bounded run of failed remote polls before exiting 1, so
 brief network outages do not end an unattended watch.
-The exit-0 JSON document contains `since`, `tip`, and `changes`; pass `tip` back as
-`--since` to avoid a gap between invocations.
+At the timeout boundary, watch performs one final remote observation.
+Each observation, including any fetch, has one bounded poll-interval budget (at most 30
+seconds), so a stalled Git transport exits 1 instead of hanging indefinitely.
+The exit-0 JSON document contains `format_version`, `since`, `tip`, and `changes`; pass
+`tip` back as `--since` to avoid a gap between invocations.
 If sync recovery rewrites the sync branch, a saved `--since` baseline stops being an
 ancestor of the new tip and watch exits 1; restart the watch without `--since` to
 establish a new baseline.
@@ -39,37 +42,92 @@ establish a new baseline.
 ## Watch, Then Spawn an Agent
 
 This is the default unattended pattern.
-It consumes no agent tokens while the remote tip is idle, advances from each reported
-tip, and catches changes that land while the agent is working.
+It consumes no agent tokens while the remote tip is idle and catches changes that land
+while the agent is working.
+The pending report is durable and processed at least once: a failed worker or final sync
+leaves it in place for the next start, and the checkpoint advances only after both
+succeed. Use a unique `state_name` for each selection, run only one owner for that name,
+and make worker actions idempotent because a crash after an external side effect can
+replay the report.
 
 ```bash
-wake_file=$(mktemp "${TMPDIR:-/tmp}/tbd-wake.XXXXXX")
-trap 'rm -f "$wake_file"' EXIT HUP INT TERM
-since_args=()
+set -euo pipefail
+
+state_name=ready-worker
+checkpoint_file=".tbd/${state_name}.checkpoint.tmp"
+pending_file=".tbd/${state_name}.pending.tmp"
+report_tmp=".tbd/${state_name}.report.$$.tmp"
+checkpoint_tmp=".tbd/${state_name}.checkpoint.$$.tmp"
+ready_tmp=".tbd/${state_name}.ready.$$.tmp"
+
+cleanup() {
+  rm -f "$report_tmp" "$checkpoint_tmp" "$ready_tmp"
+}
+trap cleanup EXIT
+trap 'exit 129' HUP
+trap 'exit 130' INT
+trap 'exit 143' TERM
 
 while true; do
-  if tbd watch --ready --json "${since_args[@]}" >"$wake_file"; then
-    tip=$(node -e \
-      'const fs=require("node:fs"); console.log(JSON.parse(fs.readFileSync(process.argv[1], "utf8")).tip)' \
-      "$wake_file") || exit 1
-    since_args=(--since "$tip")
-
-    # Choose one runner. The report is attached on stdin.
-    claude -p \
-      "A tbd watch report follows. Read it, act under the repo conventions, and sync any bead updates." \
-      <"$wake_file" || true
-    # codex exec --profile bead-worker -C "$PWD" \
-    #   "A tbd watch report follows on stdin. Read it, act under the repo conventions, and sync any bead updates." \
-    #   <"$wake_file" || true
-  else
-    watch_status=$?
-    if [ "$watch_status" -eq 3 ]; then
-      continue
+  if [ ! -s "$pending_file" ]; then
+    since_args=()
+    if [ -s "$checkpoint_file" ]; then
+      IFS= read -r checkpoint <"$checkpoint_file"
+      since_args=(--since "$checkpoint")
     fi
-    exit "$watch_status"
+
+    if tbd watch --ready --json "${since_args[@]}" >"$report_tmp"; then
+      mv "$report_tmp" "$pending_file"
+    else
+      watch_status=$?
+      rm -f "$report_tmp"
+      if [ "$watch_status" -eq 3 ]; then
+        continue
+      fi
+      exit "$watch_status"
+    fi
   fi
+
+  tip=$(node -e \
+    'const fs=require("node:fs"); console.log(JSON.parse(fs.readFileSync(process.argv[1], "utf8")).tip)' \
+    "$pending_file") || exit 1
+
+  # A watch report is a wake signal, not permission to act on stale state.
+  if ! tbd sync --pull; then
+    echo "Pull failed; pending report preserved at $pending_file" >&2
+    exit 1
+  fi
+  if ! tbd ready --json >"$ready_tmp"; then
+    echo "Ready-set revalidation failed; pending report preserved at $pending_file" >&2
+    exit 1
+  fi
+
+  # Choose one runner. Replace this claude command with codex exec if desired.
+  if ! {
+    printf '%s\n' 'WATCH REPORT (wake signal):'
+    cat "$pending_file"
+    printf '%s\n' 'CURRENT READY SET (after tbd sync --pull):'
+    cat "$ready_tmp"
+  } | claude -p \
+    "Re-read current bead state before changing it. Act only if the wake still applies, make external actions idempotent, and follow the repo conventions."; then
+    echo "Worker failed; pending report preserved at $pending_file" >&2
+    exit 1
+  fi
+
+  if ! tbd sync; then
+    echo "Final sync failed; pending report preserved at $pending_file" >&2
+    exit 1
+  fi
+
+  printf '%s\n' "$tip" >"$checkpoint_tmp"
+  mv "$checkpoint_tmp" "$checkpoint_file"
+  rm -f "$pending_file"
 done
 ```
+
+The `.tmp` state files are covered by tbd’s `.tbd/.gitignore`. Inspect or remove a
+preserved pending report deliberately after fixing a worker failure; deleting it drops
+that wake. The example is Bash because it uses arrays and `pipefail`.
 
 Use the least agent permissions that can perform the intended action.
 In particular, non-interactive runners need network permission before they can run
@@ -79,9 +137,14 @@ directory as well as the working tree and remote.
 
 ## Watch Inside an Agent Session
 
-For cross-agent conversation, watch the shared bead directly.
-Agents write messages with `tbd update <id> --notes <message>` and then `tbd sync`;
-concurrent notes use the existing last-writer-wins-with-attic behavior.
+For cross-agent coordination, watch the shared bead directly.
+`tbd update --notes` replaces the complete notes body; it does not append a message.
+Use notes as single-writer replaceable state, and pull before constructing a
+replacement. Concurrent notes use last-writer-wins-with-attic conflict handling, which
+preserves a loser for recovery but is not a conversation log.
+For a durable multi-writer transcript, create a child bead per message/event or use an
+external system with comment IDs.
+A future union-by-ID comments model can provide that primitive directly.
 
 ### Claude Code
 

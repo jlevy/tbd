@@ -62,9 +62,11 @@ reaction time.
   Sync covers a **curated subset** with field ownership — the failure modes of naive
   bidirectional replication are well documented in beads’ own hardening history.
 - A web UI or dashboard.
-- Any schema, config-schema, or format-version change.
-  This landing is purely additive, and the Integration Layer rules keep future
-  integration experiments additive too.
+- Any issue schema, config schema, or `tbd_format` change.
+  This landing is purely additive.
+  The new change-report JSON has its own explicit `format_version: 1`, independent of
+  the repository format, so integrations can consume it without coupling their
+  experiments to tbd storage evolution.
 
 ## Background
 
@@ -135,12 +137,19 @@ tbd watch --all                              # anything in the repo graph
   Exit 2 stays reserved for usage errors, as on every tbd command, so recipes that retry
   on the no-change code never retry a usage error.
   `--json` emits the report as one JSON document for programmatic consumers.
+- **Timeout boundary:** when the wait reaches `--timeout`, watch performs one final
+  remote-tip observation before returning 3. A remote observation and its optional fetch
+  share one bounded poll-interval budget, capped at 30 seconds.
+  The command can therefore finish up to one bounded observation after the nominal
+  timeout, but a stalled Git transport exits 1 instead of hanging indefinitely or
+  falsely claiming no change.
 - **Statelessness:** each invocation records nothing; `--since` lets a caller resume
   from a known commit, and the exit-0 report includes the new tip commit for chaining.
 - **Poll resilience:** an established watch tolerates a bounded run of consecutive
   remote poll failures (each failed poll waits the normal interval) before exiting 1, so
   a brief network outage does not kill an unattended watch.
   Startup validation and the first remote read still fail fast.
+  Every network-facing Git subprocess has an explicit timeout.
 - **Safety:** watch is read-only — it never touches the caller’s working tree or the
   hidden data-sync worktree lock; fetches go to a private ref or temporary clone so a
   concurrent `tbd sync` is unaffected.
@@ -189,10 +198,12 @@ watchers:
 
 - **Issue snapshots:** readiness is calculated independently at both endpoints using
   each snapshot’s complete dependency graph.
-  Each endpoint lists the committed issue tree and reads all issue and mapping blobs
-  through one `git cat-file --batch` process; snapshot size does not multiply Git
-  subprocess count. Invalid issue or mapping data fails the command loudly with the ref
-  and path; it is never treated as an empty snapshot.
+  Each endpoint lists the committed issue tree and reads issue and mapping blobs through
+  bounded `git cat-file --batch` groups of at most 128 objects, with a 50 MB
+  process-output cap. This keeps valid large repositories independent of a single
+  aggregate output buffer while bounding each child process.
+  Invalid issue or mapping data fails the command loudly with the ref and path; it is
+  never treated as an empty snapshot.
 
 - **Determinism:** reports sort beads by internal ID and fields by normative schema
   order. Missing optional values are represented as `null`, but created and deleted beads
@@ -200,12 +211,19 @@ watchers:
   Arrays retain their canonical stored order.
   Text changes use deterministic line hunks with old/new start and count values plus
   context/add/remove lines and at most three surrounding context lines.
+  Myers trace growth is capped at edit distance 200; a larger rewrite still reports full
+  before/after field values but sets `hunks_omitted: "complexity_limit"` rather than
+  risking quadratic memory.
+  Dynamic selections are applied before text diffing, so unrelated large bodies are not
+  diffed. The substantive field-order table is compile-time exhaustive against `Issue`,
+  excluding only identity and synchronization metadata.
 
 - **Output:** human output identifies the baseline and tip, then renders one section per
   bead and field. JSON uses the same document for `changes` and an exit-0 `watch`:
 
   ```json
   {
+    "format_version": 1,
     "since": "<full commit id>",
     "tip": "<full commit id>",
     "changes": [
@@ -239,6 +257,7 @@ watchers:
   }
   ```
 
+  `format_version` versions this report document, not `.tbd/config.yml` or `tbd_format`.
   JSON no-change output is the same document with an empty `changes` array and exit 3. A
   watch timeout exits 3 without stdout.
   `--quiet` suppresses successful and no-change stdout (including JSON) so callers can
@@ -260,20 +279,14 @@ platforms as part of this phase:
 
 1. **Watch-then-spawn (daemon pattern, any platform).** The watch runs *outside* the
    agent; the expensive agent starts only on a wake.
-   The shipped `watch-beads` shortcut includes a production-ready loop that chains each
-   report’s `tip` through `--since`, avoiding a gap while the agent runs.
-   Its core is:
-
-   ```bash
-   wake_file=$(mktemp "${TMPDIR:-/tmp}/tbd-wake.XXXXXX")
-   since_args=()
-   while tbd watch --ready --json "${since_args[@]}" > "$wake_file"; do
-     tip=$(node -e 'const f=require("node:fs"); console.log(JSON.parse(f.readFileSync(process.argv[1], "utf8")).tip)' "$wake_file")
-     since_args=(--since "$tip")
-     claude -p "Read the tbd watch report on stdin and act per conventions." < "$wake_file" || true
-   done
-   # identically: codex exec "..." — the runner is agent-agnostic
-   ```
+   The shipped `watch-beads` shortcut includes the authoritative, syntax-tested Bash
+   loop. It atomically persists each report as pending before launching a worker; pulls
+   and revalidates current state; treats worker or final-sync failure as fatal while
+   retaining the pending report; and advances a durable checkpoint only after both
+   succeed. Restart therefore provides at-least-once delivery.
+   Workers must make external actions idempotent because a crash after a side effect but
+   before checkpointing can replay a report.
+   The state name has one owner; separate selections use separate names.
 
 2. **In-session watch (interactive pattern).** An agent mid-session watches a bead it is
    collaborating on. Platform notes to validate and document:
@@ -286,13 +299,18 @@ platforms as part of this phase:
    - **Codex:** validate long-running command limits in Codex CLI sessions; the default
      recommendation is watch-then-spawn.
 
-**Cross-agent communication in Phase 1** uses existing primitives: an agent writes with
-`tbd update <id> --notes ...` (or closes/labels), the change lands on the sync branch,
-and watchers wake. Concurrent note writes can shed a version to the attic; acceptable at
-current message frequency, and a conflict-free `comments` model can retire it if rates
-grow (see Open Questions).
-The watch report shows notes appends as diffs, so a woken agent reads the message
-without extra commands.
+**Cross-agent coordination in Phase 1** uses existing primitives: an agent changes
+replaceable bead state (notes, status, labels, close state), the change lands on the
+sync branch, and watchers wake.
+`tbd update --notes` replaces the whole notes body; it is not an append or comment
+operation.
+Notes are therefore safe as single-writer state after a pull, not as a durable
+multi-writer transcript.
+For a durable event/message history, agents create child beads or use an external
+tracker with stable comment IDs.
+Concurrent note replacements can shed a version to the attic for recovery, but the attic
+is not a messaging protocol.
+A union-by-ID `comments` model remains a possible later primitive.
 
 ### Integration Layer: External Sync (architecture)
 
@@ -357,9 +375,11 @@ archive-don’t-delete.
 New commands: `tbd changes` and `tbd watch`. `list` and `ready` now share their
 selection predicates with the change engine through extracted helpers; their behavior is
 unchanged and covered by existing tests.
-One internal change: `gitNoPrompt` is exported for the watch poller.
+One internal change: the watch poller uses a timeout-bearing non-interactive Git helper.
 No schema changes, no config-schema changes, no format bump, and no behavior changes to
-existing commands.
+existing commands. The report document’s independent `format_version` starts at 1. All
+stable CLI exit codes are defined in one shared module rather than split between error
+classes and change commands.
 
 ## Implementation Plan
 
@@ -382,10 +402,18 @@ existing commands.
 - [x] Post-review hardening (`tbd-md0g`): fail-fast ID validation, stale-ref
   reclamation, batched snapshot reads, bounded text hunks, concise created/deleted
   fields, selector compatibility, and actionable recovery guidance.
+- [x] PR #205 review hardening: final timeout-boundary poll, bounded network Git
+  subprocesses, bounded text-diff complexity and object batches, exhaustive substantive
+  fields, report format version 1, durable at-least-once worker recipe, and accurate
+  notes replacement semantics.
 
 Validation transcript and platform limits: `valid-2026-07-19-bead-watch-phase-1.md`.
 
 ### Integration Enablers (tracked, not part of this landing)
+
+None of these is a merge prerequisite for Phase 1. This branch’s versioned change
+report, dynamic selections, and durable worker recipe are sufficient to run disposable
+Linear experiments end to end while provider bindings and state remain outside core.
 
 - [ ] `extensions` merge: `lww` → `deep_merge_by_key` per design doc §3.5 (tbd-le2l)
 - [ ] Generic `extensions` read/write/display on the CLI (tbd-z95g)
@@ -395,16 +423,17 @@ Validation transcript and platform limits: `valid-2026-07-19-bead-watch-phase-1.
 ## Testing Strategy
 
 **Phase 1:** unit tests for `tbd changes` across synthetic histories (status flips,
-notes appends, creates/closes, selection filters); a two-session live test (session B
-updates a bead; session A’s watch exits within interval + sync latency with the correct
-delta); recorded Claude Code and Codex demos; timeout and error exit codes; watch does
-not disturb a concurrent `tbd sync`.
+notes replacements, creates/closes, selection filters); a two-session live test (session
+B updates a bead; session A’s watch exits within interval + sync latency with the
+correct delta); recorded Claude Code and Codex demos; timeout and error exit codes;
+watch does not disturb a concurrent `tbd sync`.
 
 ## Open Questions
 
 - Whether a conflict-free `comments` model (union-by-id) is needed before integrations
-  write high-frequency inbound events; notes-append with LWW-plus-attic is acceptable at
-  current cross-agent message rates.
+  write high-frequency inbound events.
+  Until then, notes remain replaceable single-writer state; child beads or an external
+  comment system carry durable multi-writer events.
 - Where a proven integration module ultimately lives: a sibling package (keeps provider
   SDK dependencies out of the base install) versus an isolated module in this repo.
   Decided per provider at promotion time, not before.

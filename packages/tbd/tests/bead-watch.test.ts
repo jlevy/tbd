@@ -26,11 +26,12 @@ const SHA_C = 'c'.repeat(40);
 const ISSUE_ID = testId(TEST_ULIDS.ULID_1);
 
 function emptyReport(since: string, tip: string): IssueChangesReport {
-  return { since, tip, changes: [] };
+  return { format_version: 1, since, tip, changes: [] };
 }
 
 function changedReport(since: string, tip: string): IssueChangesReport {
   return {
+    format_version: 1,
     since,
     tip,
     changes: [
@@ -45,39 +46,39 @@ function changedReport(since: string, tip: string): IssueChangesReport {
   };
 }
 
-function fakeDependencies(remoteTips: string[]): {
-  dependencies: IssueWatchDependencies;
-  fetchRemoteTip: ReturnType<typeof vi.fn>;
-  createReport: ReturnType<typeof vi.fn>;
-  getRemoteTip: ReturnType<typeof vi.fn>;
-  getNow: () => number;
-} {
+function fakeDependencies(remoteTips: string[]) {
   let now = 0;
   let remoteIndex = 0;
-  const fetchRemoteTip = vi.fn(() => Promise.resolve(remoteTips[Math.max(0, remoteIndex - 1)]!));
+  const fetchRemoteTip = vi.fn((_timeoutMs: number) =>
+    Promise.resolve(remoteTips[Math.max(0, remoteIndex - 1)]!),
+  );
   const createReport = vi.fn((since: string, tip: string) =>
     Promise.resolve(emptyReport(since, tip)),
   );
-  const getRemoteTip = vi.fn(() => {
+  const getRemoteTip = vi.fn((_timeoutMs: number) => {
     const tip = remoteTips[Math.min(remoteIndex, remoteTips.length - 1)]!;
     remoteIndex += 1;
     return Promise.resolve(tip);
   });
-  return {
-    dependencies: {
-      now: () => now,
-      sleep: (milliseconds) => {
-        now += milliseconds;
-        return Promise.resolve();
-      },
-      getRemoteTip,
-      fetchRemoteTip,
-      createReport,
+  const dependencies: IssueWatchDependencies = {
+    now: () => now,
+    sleep: (milliseconds) => {
+      now += milliseconds;
+      return Promise.resolve();
     },
+    getRemoteTip,
+    fetchRemoteTip,
+    createReport,
+  };
+  return {
+    dependencies,
     fetchRemoteTip,
     createReport,
     getRemoteTip,
     getNow: () => now,
+    advanceNow: (milliseconds: number) => {
+      now += milliseconds;
+    },
   };
 }
 
@@ -152,6 +153,195 @@ describe('watchForIssueChanges polling', () => {
     expect(fake.fetchRemoteTip).not.toHaveBeenCalled();
     expect(fake.createReport).not.toHaveBeenCalled();
     expect(fake.getNow()).toBe(25);
+  });
+
+  it('performs one final remote poll at the timeout boundary', async () => {
+    const fake = fakeDependencies([SHA_A, SHA_B]);
+    fake.fetchRemoteTip.mockResolvedValue(SHA_B);
+    fake.createReport.mockResolvedValue(changedReport(SHA_A, SHA_B));
+
+    const result = await watchForIssueChanges(
+      {
+        repoDir: '/unused',
+        remote: 'origin',
+        branch: 'tbd-sync',
+        prefix: 'tbd',
+        selection: { kind: 'all' },
+        since: null,
+        intervalMs: 10,
+        timeoutMs: 10,
+      },
+      fake.dependencies,
+    );
+
+    expect(result).toEqual({ kind: 'changed', report: changedReport(SHA_A, SHA_B) });
+    expect(fake.getRemoteTip).toHaveBeenCalledTimes(2);
+    expect(fake.getNow()).toBe(10);
+  });
+
+  it('performs a final remote poll after a partial polling interval', async () => {
+    const fake = fakeDependencies([SHA_A, SHA_A, SHA_A, SHA_B]);
+    fake.fetchRemoteTip.mockResolvedValue(SHA_B);
+    fake.createReport.mockResolvedValue(changedReport(SHA_A, SHA_B));
+
+    const result = await watchForIssueChanges(
+      {
+        repoDir: '/unused',
+        remote: 'origin',
+        branch: 'tbd-sync',
+        prefix: 'tbd',
+        selection: { kind: 'all' },
+        since: null,
+        intervalMs: 10,
+        timeoutMs: 25,
+      },
+      fake.dependencies,
+    );
+
+    expect(result).toEqual({ kind: 'changed', report: changedReport(SHA_A, SHA_B) });
+    expect(fake.getRemoteTip).toHaveBeenCalledTimes(4);
+    expect(fake.getNow()).toBe(25);
+  });
+
+  it('passes a bounded timeout to every remote Git operation', async () => {
+    const fake = fakeDependencies([SHA_A, SHA_B]);
+    fake.fetchRemoteTip.mockResolvedValue(SHA_B);
+    fake.createReport.mockResolvedValue(changedReport(SHA_A, SHA_B));
+
+    await watchForIssueChanges(
+      {
+        repoDir: '/unused',
+        remote: 'origin',
+        branch: 'tbd-sync',
+        prefix: 'tbd',
+        selection: { kind: 'all' },
+        since: null,
+        intervalMs: 10,
+        timeoutMs: 10,
+      },
+      fake.dependencies,
+    );
+
+    const remoteCalls = [
+      ...fake.getRemoteTip.mock.calls,
+      ...fake.fetchRemoteTip.mock.calls,
+    ] as unknown[][];
+    const timeouts = remoteCalls.map(([timeoutMs]) => timeoutMs);
+    expect(timeouts.length).toBeGreaterThan(0);
+    expect(
+      timeouts.every(
+        (timeoutMs) => typeof timeoutMs === 'number' && timeoutMs > 0 && timeoutMs <= 30_000,
+      ),
+    ).toBe(true);
+  });
+
+  it('uses remaining watch time for operations started before the boundary', async () => {
+    const fake = fakeDependencies([SHA_A]);
+
+    await watchForIssueChanges(
+      {
+        repoDir: '/unused',
+        remote: 'origin',
+        branch: 'tbd-sync',
+        prefix: 'tbd',
+        selection: { kind: 'all' },
+        since: null,
+        intervalMs: 10,
+        timeoutMs: 5,
+      },
+      fake.dependencies,
+    );
+
+    expect(fake.getRemoteTip.mock.calls.map(([timeoutMs]) => timeoutMs)).toEqual([5, 10]);
+  });
+
+  it('cleans up after a bounded startup observation fails', async () => {
+    const fake = fakeDependencies([SHA_A]);
+    const cleanup = vi.fn(() => Promise.resolve());
+    fake.dependencies.cleanup = cleanup;
+    fake.getRemoteTip.mockImplementationOnce((timeoutMs: number) => {
+      fake.advanceNow(timeoutMs);
+      return Promise.reject(new Error('startup ls-remote timed out'));
+    });
+
+    await expect(
+      watchForIssueChanges(
+        {
+          repoDir: '/unused',
+          remote: 'origin',
+          branch: 'tbd-sync',
+          prefix: 'tbd',
+          selection: { kind: 'all' },
+          since: null,
+          intervalMs: 10,
+          timeoutMs: 5,
+        },
+        fake.dependencies,
+      ),
+    ).rejects.toThrow('startup ls-remote timed out');
+    expect(fake.getRemoteTip).toHaveBeenCalledWith(5);
+    expect(cleanup).toHaveBeenCalledOnce();
+  });
+
+  it.each(['poll', 'fetch'] as const)(
+    'cleans up after a bounded established %s fails at the boundary',
+    async (operation) => {
+      const fake = fakeDependencies([SHA_A, SHA_B]);
+      const cleanup = vi.fn(() => Promise.resolve());
+      fake.dependencies.cleanup = cleanup;
+      if (operation === 'poll') {
+        fake.getRemoteTip.mockImplementationOnce(() => Promise.resolve(SHA_A));
+        fake.getRemoteTip.mockImplementationOnce((timeoutMs: number) => {
+          fake.advanceNow(timeoutMs);
+          return Promise.reject(new Error('established ls-remote timed out'));
+        });
+      } else {
+        fake.fetchRemoteTip.mockImplementationOnce((timeoutMs: number) => {
+          fake.advanceNow(timeoutMs);
+          return Promise.reject(new Error('established fetch timed out'));
+        });
+      }
+
+      await expect(
+        watchForIssueChanges(
+          {
+            repoDir: '/unused',
+            remote: 'origin',
+            branch: 'tbd-sync',
+            prefix: 'tbd',
+            selection: { kind: 'all' },
+            since: null,
+            intervalMs: 10,
+            timeoutMs: 10,
+          },
+          fake.dependencies,
+        ),
+      ).rejects.toThrow('Unable to confirm remote state at the watch timeout boundary');
+      expect(cleanup).toHaveBeenCalledOnce();
+    },
+  );
+
+  it('fails closed when the final timeout-boundary observation cannot complete', async () => {
+    const fake = fakeDependencies([SHA_A]);
+    fake.getRemoteTip
+      .mockResolvedValueOnce(SHA_A)
+      .mockRejectedValueOnce(new Error('ls-remote timed out'));
+
+    await expect(
+      watchForIssueChanges(
+        {
+          repoDir: '/unused',
+          remote: 'origin',
+          branch: 'tbd-sync',
+          prefix: 'tbd',
+          selection: { kind: 'all' },
+          since: null,
+          intervalMs: 10,
+          timeoutMs: 10,
+        },
+        fake.dependencies,
+      ),
+    ).rejects.toThrow('Unable to confirm remote state at the watch timeout boundary');
   });
 
   it('compares --since immediately and returns without sleeping when already changed', async () => {

@@ -573,7 +573,9 @@ tbd changes --since <commit> --ready --json  # Beads newly entering ready
 Selectors are `--bead`, repeated `--label`, `--spec`, `--status`, `--ready`, and
 `--all`. The command defaults to `--all`. Exit 0 means matching changes and exit 3 means
 none. JSON output contains the resolved `since` and `tip` commits plus per-bead,
-per-field deltas.
+per-field deltas and starts with `format_version: 1`. Pathological description/notes
+rewrites retain full before/after values but may set `hunks_omitted: "complexity_limit"`
+instead of allocating an unbounded line-diff trace.
 
 ### watch
 
@@ -592,6 +594,9 @@ tbd watch --all --timeout 540 --json
 The default poll interval is 30 seconds; `--interval` cannot be lower than 10 seconds.
 Exit 0 means a change, exit 3 means the optional timeout elapsed, and exit 1 means an
 error. Pass an earlier report’s `tip` as `--since` to resume without a race.
+Watch performs one final remote observation at the timeout boundary.
+Each observation and optional fetch share one poll-interval wall-time budget, capped at
+30 seconds, so a stalled Git transport exits 1 rather than hanging indefinitely.
 An established watch tolerates a bounded run of consecutive failed remote polls before
 exiting 1, so a brief network outage does not end an unattended watch.
 If sync recovery rewrites the sync branch, a saved `--since` baseline stops being an

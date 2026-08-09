@@ -12,7 +12,7 @@
 
 import { describe, it, expect } from 'vitest';
 
-import { git, GitError, exitCodeOf } from '../src/file/git.js';
+import { git, GitError, exitCodeOf, gitNoPromptWithTimeout } from '../src/file/git.js';
 
 describe('git() exit code propagation', () => {
   it('throws a GitError carrying a numeric exitCode when a command fails', async () => {
@@ -58,5 +58,25 @@ describe('git() exit code propagation', () => {
   it('git() still returns trimmed stdout on success', async () => {
     const out = await git('rev-parse', '--is-inside-work-tree');
     expect(out).toBe('true');
+  });
+
+  it('terminates a non-interactive Git command at its explicit timeout', async () => {
+    const startedAt = Date.now();
+    let captured: unknown;
+
+    try {
+      await gitNoPromptWithTimeout(
+        25,
+        '-c',
+        'alias.tbd-wait=!node -e "setTimeout(() => {}, 1000)"',
+        'tbd-wait',
+      );
+    } catch (error) {
+      captured = error;
+    }
+
+    expect(captured).toBeInstanceOf(GitError);
+    expect((captured as GitError).timedOut).toBe(true);
+    expect(Date.now() - startedAt).toBeLessThan(2_000);
   });
 });

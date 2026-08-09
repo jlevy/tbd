@@ -13,6 +13,7 @@ import { randomUUID } from 'node:crypto';
 
 import { BaseCommand } from '../lib/base-command.js';
 import { requireInit } from '../lib/errors.js';
+import { EXIT_OPERATIONAL_ERROR } from '../lib/exit-codes.js';
 import { listIssues, type InvalidIssueFile } from '../../file/storage.js';
 import { IncompatibleFormatError, readConfig } from '../../file/config.js';
 import { prepareDataSyncContext } from '../lib/data-context.js';
@@ -534,7 +535,7 @@ class DoctorHandler extends BaseCommand {
     // that scripts and CI deserve to learn about via a non-zero exit.
     // See: docs/tbd-format-versioning.md (internal contributor guide).
     if (hasErrors) {
-      process.exitCode = 1;
+      process.exitCode = EXIT_OPERATIONAL_ERROR;
     }
   }
 

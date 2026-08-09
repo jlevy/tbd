@@ -12,6 +12,7 @@ import { randomBytes } from 'node:crypto';
 import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { performance } from 'node:perf_hooks';
 import { promisify } from 'node:util';
 
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -20,10 +21,12 @@ import { serializeIssue } from '../src/file/parser.js';
 import { createChangesReportFromRefs, readGitObjects } from '../src/file/sync-branch-changes.js';
 import {
   createIssueChangesReport,
+  ISSUE_CHANGES_FORMAT_VERSION,
   type IssueChangeSelection,
   type IssueSnapshot,
 } from '../src/lib/issue-changes.js';
 import type { Issue } from '../src/lib/types.js';
+import { ISSUE_BODY_MAX_LENGTH } from '../src/lib/schemas.js';
 import { stringifyYaml } from '../src/utils/yaml-utils.js';
 import { createTestIssue, testId, TEST_ULIDS } from './test-helpers.js';
 
@@ -62,6 +65,21 @@ function report(
     prefix: 'tbd',
     selection,
   });
+}
+
+function generatedSnapshotIssues(count: number): {
+  ids: Record<string, string>;
+  internalIds: string[];
+} {
+  const ids: Record<string, string> = {};
+  const internalIds: string[] = [];
+  for (let index = 1; index <= count; index += 1) {
+    const ulid = index.toString(36).padStart(26, '0');
+    const shortId = index.toString(36).padStart(4, '0');
+    ids[shortId] = ulid;
+    internalIds.push(testId(ulid));
+  }
+  return { ids, internalIds };
 }
 
 async function git(repoDir: string, ...args: string[]): Promise<string> {
@@ -117,6 +135,7 @@ describe('createIssueChangesReport', () => {
 
     const result = report(snapshot([before]), snapshot([after]));
 
+    expect(result.format_version).toBe(ISSUE_CHANGES_FORMAT_VERSION);
     expect(result.changes).toHaveLength(1);
     expect(result.changes[0]).toMatchObject({
       id: 'tbd-a1b2',
@@ -247,6 +266,84 @@ describe('createIssueChangesReport', () => {
     ]);
   });
 
+  it('omits pathological text hunks at the documented complexity limit', () => {
+    const before = issue(ISSUE_A, 'Bounded text diff', {
+      notes: Array.from({ length: 300 }, (_, index) => `before ${index}`).join('\n'),
+    });
+    const after = issue(ISSUE_A, 'Bounded text diff', {
+      notes: Array.from({ length: 300 }, (_, index) => `after ${index}`).join('\n'),
+    });
+
+    const notes = report(snapshot([before]), snapshot([after])).changes[0]!.fields.find(
+      (field) => field.field === 'notes',
+    );
+
+    expect(notes).toMatchObject({
+      field: 'notes',
+      hunks_omitted: 'complexity_limit',
+    });
+    expect(notes?.hunks).toBeUndefined();
+  });
+
+  it('bounds a pathological diff at the maximum valid issue-body size', () => {
+    const beforeBody = 'a\n'.repeat(ISSUE_BODY_MAX_LENGTH / 2);
+    const afterBody = 'b\n'.repeat(ISSUE_BODY_MAX_LENGTH / 2);
+    const before = issue(ISSUE_A, 'Maximum body', { notes: beforeBody });
+    const after = issue(ISSUE_A, 'Maximum body', { notes: afterBody });
+
+    const startedAt = performance.now();
+    const result = report(snapshot([before]), snapshot([after]));
+    const elapsedMs = performance.now() - startedAt;
+    const notes = result.changes[0]!.fields.find((field) => field.field === 'notes');
+
+    expect(beforeBody).toHaveLength(ISSUE_BODY_MAX_LENGTH);
+    expect(afterBody).toHaveLength(ISSUE_BODY_MAX_LENGTH);
+    expect(notes?.hunks_omitted).toBe('complexity_limit');
+    expect(notes?.hunks).toBeUndefined();
+    expect(elapsedMs).toBeLessThan(2_000);
+  });
+
+  it('applies a static bead selector before diffing a large changed graph', () => {
+    const count = 1_000;
+    const { ids, internalIds } = generatedSnapshotIssues(count);
+    const beforeBody = 'a\n'.repeat(ISSUE_BODY_MAX_LENGTH / 2);
+    const afterBody = 'b\n'.repeat(ISSUE_BODY_MAX_LENGTH / 2);
+    const before = internalIds.map((id, index) =>
+      issue(id, `Issue ${index}`, { notes: index === 0 ? 'selected' : beforeBody }),
+    );
+    const after = internalIds.map((id, index) =>
+      issue(id, index === 0 ? 'Selected changed' : `Issue ${index}`, {
+        notes: index === 0 ? 'selected' : afterBody,
+      }),
+    );
+
+    const startedAt = performance.now();
+    const result = report(snapshot(before, ids), snapshot(after, ids), {
+      kind: 'beads',
+      ids: ['tbd-0001'],
+    });
+    const elapsedMs = performance.now() - startedAt;
+
+    expect(result.changes).toHaveLength(1);
+    expect(result.changes[0]!.internal_id).toBe(internalIds[0]);
+    expect(result.changes[0]!.fields.map((field) => field.field)).toEqual(['title']);
+    expect(elapsedMs).toBeLessThan(2_000);
+  });
+
+  it('reports a large all-issue graph within an explicit runtime ceiling', () => {
+    const count = 2_000;
+    const { ids, internalIds } = generatedSnapshotIssues(count);
+    const before = internalIds.map((id, index) => issue(id, `Issue ${index}`));
+    const after = internalIds.map((id, index) => issue(id, `Changed issue ${index}`));
+
+    const startedAt = performance.now();
+    const result = report(snapshot(before, ids), snapshot(after, ids));
+    const elapsedMs = performance.now() - startedAt;
+
+    expect(result.changes).toHaveLength(count);
+    expect(elapsedMs).toBeLessThan(3_000);
+  });
+
   it('wakes dynamic filters when a changed bead enters or leaves the selection', () => {
     const enteredBefore = issue(ISSUE_A, 'Entered', { labels: [] });
     const enteredAfter = issue(ISSUE_A, 'Entered', { labels: ['needs-agent'] });
@@ -317,6 +414,26 @@ describe('createIssueChangesReport', () => {
     expect(result.changes[0]!.fields).toEqual([]);
   });
 
+  it('edge-triggers ready selection when the blocking bead is deleted', () => {
+    const blocker = issue(ISSUE_A, 'Deleted blocker', {
+      dependencies: [{ type: 'blocks', target: ISSUE_B }],
+      status: 'open',
+    });
+    const blocked = issue(ISSUE_B, 'Becomes ready after deletion');
+    const selection: IssueChangeSelection = {
+      kind: 'filter',
+      labels: [],
+      spec: null,
+      status: null,
+      ready: true,
+    };
+
+    const result = report(snapshot([blocker, blocked]), snapshot([blocked]), selection);
+
+    expect(result.changes.map((change) => change.internal_id)).toEqual([ISSUE_B]);
+    expect(result.changes[0]!.fields).toEqual([]);
+  });
+
   it('resolves explicit bead IDs against the union of snapshot mappings', () => {
     const created = issue(ISSUE_B, 'Created and selected');
     const before = snapshot([], { a1b2: TEST_ULIDS.ULID_1 });
@@ -351,6 +468,27 @@ describe('createIssueChangesReport', () => {
 
     expect(result.changes.map((change) => change.internal_id)).toEqual([ISSUE_A, ISSUE_B]);
     expect(result.changes[0]!.fields.map((field) => field.field)).toEqual(['status', 'priority']);
+  });
+});
+
+describe('readGitObjects', () => {
+  it('partitions object reads into bounded batches', async () => {
+    const objectIds = Array.from({ length: 5 }, (_, index) => `${index}`.padStart(40, '0'));
+    const readBatch = vi.fn((_repoDir: string, batch: readonly string[]) =>
+      Promise.resolve(new Map(batch.map((objectId) => [objectId, `content:${objectId}`]))),
+    );
+
+    const contents = await readGitObjects('/unused', objectIds, {
+      batchSize: 2,
+      readBatch,
+    });
+
+    expect(readBatch.mock.calls.map(([, batch]) => batch)).toEqual([
+      objectIds.slice(0, 2),
+      objectIds.slice(2, 4),
+      objectIds.slice(4),
+    ]);
+    expect(Array.from(contents.keys())).toEqual(objectIds);
   });
 });
 

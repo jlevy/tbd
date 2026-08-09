@@ -40,6 +40,19 @@ interface GitTreeEntry {
 }
 
 const GIT_BATCH_MAX_BUFFER = 50 * 1024 * 1024;
+/**
+ * Valid issue blobs are at most roughly 100 KB, so this keeps normal batch output well
+ * below the 50 MB process cap while allowing repositories of any issue count.
+ */
+const GIT_OBJECT_BATCH_SIZE = 128;
+
+export interface ReadGitObjectsDependencies {
+  batchSize?: number;
+  readBatch?: (
+    repoDir: string,
+    objectIds: readonly string[],
+  ) => Promise<ReadonlyMap<string, string>>;
+}
 
 function parseBatchOutput(objectIds: readonly string[], output: Buffer): Map<string, string> {
   const contents = new Map<string, string>();
@@ -69,12 +82,10 @@ function parseBatchOutput(objectIds: readonly string[], output: Buffer): Map<str
   return contents;
 }
 
-/** Read many committed blobs through one `git cat-file --batch` subprocess. */
-export async function readGitObjects(
+async function readGitObjectBatch(
   repoDir: string,
-  requestedObjectIds: readonly string[],
+  objectIds: readonly string[],
 ): Promise<ReadonlyMap<string, string>> {
-  const objectIds = Array.from(new Set(requestedObjectIds));
   if (objectIds.length === 0) {
     return new Map();
   }
@@ -130,6 +141,33 @@ export async function readGitObjects(
     });
     child.stdin.end(`${objectIds.join('\n')}\n`);
   });
+}
+
+/** Read committed blobs through bounded `git cat-file --batch` subprocesses. */
+export async function readGitObjects(
+  repoDir: string,
+  requestedObjectIds: readonly string[],
+  dependencies: ReadGitObjectsDependencies = {},
+): Promise<ReadonlyMap<string, string>> {
+  const objectIds = Array.from(new Set(requestedObjectIds));
+  const batchSize = dependencies.batchSize ?? GIT_OBJECT_BATCH_SIZE;
+  if (!Number.isSafeInteger(batchSize) || batchSize <= 0) {
+    throw new RangeError(`Git object batch size must be a positive integer, got ${batchSize}`);
+  }
+  const readBatch = dependencies.readBatch ?? readGitObjectBatch;
+  const contents = new Map<string, string>();
+  for (let offset = 0; offset < objectIds.length; offset += batchSize) {
+    const batch = objectIds.slice(offset, offset + batchSize);
+    const batchContents = await readBatch(repoDir, batch);
+    for (const objectId of batch) {
+      const content = batchContents.get(objectId);
+      if (content === undefined) {
+        throw new Error(`Missing git cat-file response for ${objectId}`);
+      }
+      contents.set(objectId, content);
+    }
+  }
+  return contents;
 }
 
 function parseTreeEntries(listing: string, ref: string): GitTreeEntry[] {

@@ -128,6 +128,7 @@ describe('tbd watch', () => {
       expect(result.status).toBe(0);
       expect(result.stderr).toBe('');
       expect(JSON.parse(result.stdout)).toMatchObject({
+        format_version: 1,
         since: fixture.since,
         tip: fixture.tip,
         changes: [

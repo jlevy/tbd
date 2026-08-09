@@ -9,7 +9,7 @@ import { randomUUID } from 'node:crypto';
 
 import type { IssueChangeSelection, IssueChangesReport } from '../lib/issue-changes.js';
 import { createChangesReportFromRefs, validateBeadSelectionAtRef } from './sync-branch-changes.js';
-import { git, gitNoPrompt } from './git.js';
+import { git, gitNoPromptWithTimeout } from './git.js';
 
 export interface IssueWatchOptions {
   repoDir: string;
@@ -33,14 +33,17 @@ export type IssueWatchResult =
  */
 const MAX_CONSECUTIVE_POLL_FAILURES = 5;
 
+/** Maximum wall time allocated to one remote-tip observation, including its fetch. */
+const MAX_REMOTE_POLL_DURATION_MS = 30_000;
+
 /** Injectable boundaries keep polling and deadline behavior deterministic in unit tests. */
 export interface IssueWatchDependencies {
   now: () => number;
   sleep: (milliseconds: number) => Promise<void>;
   prepare?: () => Promise<void>;
   validateSelection?: () => Promise<void>;
-  getRemoteTip: () => Promise<string>;
-  fetchRemoteTip: () => Promise<string>;
+  getRemoteTip: (timeoutMs: number) => Promise<string>;
+  fetchRemoteTip: (timeoutMs: number) => Promise<string>;
   createReport: (since: string, tip: string) => Promise<IssueChangesReport>;
   cleanup?: () => Promise<void>;
 }
@@ -107,10 +110,11 @@ function createGitWatchDependencies(options: IssueWatchOptions): IssueWatchDepen
         options.selection,
       );
     },
-    getRemoteTip: async () => {
+    getRemoteTip: async (timeoutMs) => {
       let output;
       try {
-        output = await gitNoPrompt(
+        output = await gitNoPromptWithTimeout(
+          timeoutMs,
           '-C',
           options.repoDir,
           'ls-remote',
@@ -125,9 +129,10 @@ function createGitWatchDependencies(options: IssueWatchOptions): IssueWatchDepen
       }
       return parseRemoteTip(output, options.remote, options.branch);
     },
-    fetchRemoteTip: async () => {
+    fetchRemoteTip: async (timeoutMs) => {
       try {
-        await gitNoPrompt(
+        await gitNoPromptWithTimeout(
+          timeoutMs,
           '-C',
           options.repoDir,
           'fetch',
@@ -163,6 +168,24 @@ function createGitWatchDependencies(options: IssueWatchOptions): IssueWatchDepen
   };
 }
 
+function calculateRemotePollDeadline(
+  now: number,
+  watchDeadline: number | null,
+  remotePollDurationMs: number,
+): number {
+  const boundedPollDeadline = now + remotePollDurationMs;
+  // Before the watch boundary, the overall remaining time is the tighter bound.
+  // A poll that starts at the boundary is the explicit final inclusive observation
+  // and gets one bounded poll budget of its own.
+  return watchDeadline !== null && now < watchDeadline
+    ? Math.min(boundedPollDeadline, watchDeadline)
+    : boundedPollDeadline;
+}
+
+function remainingRemotePollTime(deadline: number, now: number): number {
+  return Math.max(1, deadline - now);
+}
+
 /** Poll until the selected graph changes or the optional deadline elapses. */
 export async function watchForIssueChanges(
   options: IssueWatchOptions,
@@ -171,16 +194,32 @@ export async function watchForIssueChanges(
   const dependencies = injectedDependencies ?? createGitWatchDependencies(options);
   const startedAt = dependencies.now();
   const deadline = options.timeoutMs === null ? null : startedAt + options.timeoutMs;
+  const remotePollDurationMs = Math.max(
+    1,
+    Math.min(options.intervalMs, MAX_REMOTE_POLL_DURATION_MS),
+  );
 
   try {
     await dependencies.prepare?.();
     await dependencies.validateSelection?.();
-    let observedTip = await dependencies.getRemoteTip();
+    let remotePollDeadline = calculateRemotePollDeadline(
+      dependencies.now(),
+      deadline,
+      remotePollDurationMs,
+    );
+    let observedTip = await dependencies.getRemoteTip(
+      remainingRemotePollTime(remotePollDeadline, dependencies.now()),
+    );
+    let lastRemoteObservationAt = dependencies.now();
     let baseline = options.since ?? observedTip;
 
     if (options.since !== null) {
       const comparisonTip =
-        options.since === observedTip ? observedTip : await dependencies.fetchRemoteTip();
+        options.since === observedTip
+          ? observedTip
+          : await dependencies.fetchRemoteTip(
+              remainingRemotePollTime(remotePollDeadline, dependencies.now()),
+            );
       const report = await dependencies.createReport(baseline, comparisonTip);
       if (report.changes.length > 0) {
         return { kind: 'changed', report };
@@ -191,24 +230,39 @@ export async function watchForIssueChanges(
 
     let consecutivePollFailures = 0;
     while (true) {
-      const remaining = deadline === null ? options.intervalMs : deadline - dependencies.now();
-      if (remaining <= 0) {
+      const currentTime = dependencies.now();
+      if (deadline !== null && currentTime >= deadline && lastRemoteObservationAt >= deadline) {
         return { kind: 'timeout' };
       }
-      await dependencies.sleep(Math.min(options.intervalMs, remaining));
-      if (deadline !== null && dependencies.now() >= deadline) {
-        return { kind: 'timeout' };
+      if (deadline === null || currentTime < deadline) {
+        const remaining = deadline === null ? options.intervalMs : deadline - currentTime;
+        await dependencies.sleep(Math.min(options.intervalMs, remaining));
       }
 
       let fetchedTip: string;
+      remotePollDeadline = calculateRemotePollDeadline(
+        dependencies.now(),
+        deadline,
+        remotePollDurationMs,
+      );
       try {
-        const nextObservedTip = await dependencies.getRemoteTip();
+        const nextObservedTip = await dependencies.getRemoteTip(
+          remainingRemotePollTime(remotePollDeadline, dependencies.now()),
+        );
+        lastRemoteObservationAt = dependencies.now();
         if (nextObservedTip === observedTip) {
           consecutivePollFailures = 0;
           continue;
         }
-        fetchedTip = await dependencies.fetchRemoteTip();
+        fetchedTip = await dependencies.fetchRemoteTip(
+          remainingRemotePollTime(remotePollDeadline, dependencies.now()),
+        );
       } catch (error) {
+        if (deadline !== null && dependencies.now() >= deadline) {
+          throw new Error('Unable to confirm remote state at the watch timeout boundary', {
+            cause: error,
+          });
+        }
         consecutivePollFailures += 1;
         if (consecutivePollFailures >= MAX_CONSECUTIVE_POLL_FAILURES) {
           throw new Error(
