@@ -23,12 +23,13 @@ afterEach(async () => {
   await Promise.all(cleanupPaths.splice(0).map((path) => rm(path, { recursive: true })));
 });
 
-function unattendedScript(): string {
-  const fenceStart = shortcut.indexOf('```bash\nset -euo pipefail');
-  const fenceEnd = shortcut.indexOf('\n```', fenceStart + 1);
+function unattendedScript(source: string = shortcut): string {
+  const normalized = source.replaceAll('\r\n', '\n');
+  const fenceStart = normalized.indexOf('```bash\nset -euo pipefail');
+  const fenceEnd = normalized.indexOf('\n```', fenceStart + 1);
   expect(fenceStart).toBeGreaterThanOrEqual(0);
   expect(fenceEnd).toBeGreaterThan(fenceStart);
-  return shortcut.slice(fenceStart + '```bash\n'.length, fenceEnd);
+  return normalized.slice(fenceStart + '```bash\n'.length, fenceEnd);
 }
 
 async function createHarness(): Promise<{
@@ -105,6 +106,7 @@ describe('watch-beads unattended recipe', () => {
     const syntax = spawnSync(BASH, ['-n'], { input: script, encoding: 'utf8' });
 
     expect(syntax.status, syntax.stderr).toBe(0);
+    expect(unattendedScript(shortcut.replaceAll('\n', '\r\n'))).toBe(script);
     expect(script).toContain('pending_file=');
     expect(script).toContain('watch_once()');
     expect(script).not.toContain('since_args');
