@@ -10,6 +10,7 @@ import { afterEach, beforeAll, describe, expect, it } from 'vitest';
 let shortcut = '';
 const cleanupPaths: string[] = [];
 const TIP = 'b'.repeat(40);
+const BASH = process.platform === 'win32' ? 'bash' : '/bin/bash';
 
 beforeAll(async () => {
   shortcut = await readFile(
@@ -101,10 +102,12 @@ describe('watch-beads unattended recipe', () => {
   it('is valid Bash and persists a pending report before starting the worker', () => {
     const script = unattendedScript();
 
-    const syntax = spawnSync('bash', ['-n'], { input: script, encoding: 'utf8' });
+    const syntax = spawnSync(BASH, ['-n'], { input: script, encoding: 'utf8' });
 
     expect(syntax.status, syntax.stderr).toBe(0);
     expect(script).toContain('pending_file=');
+    expect(script).toContain('watch_once()');
+    expect(script).not.toContain('since_args');
     expect(script.indexOf('mv "$report_tmp" "$pending_file"')).toBeLessThan(
       script.indexOf('claude -p'),
     );
@@ -139,7 +142,7 @@ describe('watch-beads unattended recipe', () => {
     'retries a preserved pending report after worker failure before checkpointing',
     async () => {
       const harness = await createHarness();
-      const failed = spawnSync('bash', ['-c', unattendedScript()], {
+      const failed = spawnSync(BASH, ['-c', unattendedScript()], {
         cwd: harness.cwd,
         env: { ...harness.env, HARNESS_WORKER_FAIL: '1' },
         encoding: 'utf8',
@@ -159,7 +162,7 @@ describe('watch-beads unattended recipe', () => {
         'worker',
       ]);
 
-      const retried = spawnSync('bash', ['-c', unattendedScript()], {
+      const retried = spawnSync(BASH, ['-c', unattendedScript()], {
         cwd: harness.cwd,
         env: harness.env,
         encoding: 'utf8',

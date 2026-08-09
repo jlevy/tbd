@@ -301,8 +301,9 @@ The 2026-08-09 follow-up added regression and contract coverage for:
 - report `format_version: 1` and bounded human rendering;
 - a blocker deletion making its target ready, confirming that the reported missing-
   blocker lookup is unreachable because blocker IDs come from the same snapshot map;
-- Bash syntax and ordering invariants for pending-report persistence, pull/revalidation,
-  worker execution, final sync, checkpoint advancement, and signal exits;
+- macOS system Bash 3.2 syntax and executable ordering invariants for pending-report
+  persistence, pull/revalidation, worker execution, final sync, checkpoint advancement,
+  and signal exits;
 - sequential `--notes` replacement semantics; and
 - one shared source of truth for success, operational, usage, no-match, and SIGINT exit
   codes, plus an audit that removed runtime numeric exit literals from the CLI.

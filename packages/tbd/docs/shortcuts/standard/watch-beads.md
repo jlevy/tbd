@@ -68,15 +68,19 @@ trap 'exit 129' HUP
 trap 'exit 130' INT
 trap 'exit 143' TERM
 
+watch_once() {
+  if [ -s "$checkpoint_file" ]; then
+    local checkpoint
+    IFS= read -r checkpoint <"$checkpoint_file"
+    tbd watch --ready --json --since "$checkpoint"
+  else
+    tbd watch --ready --json
+  fi
+}
+
 while true; do
   if [ ! -s "$pending_file" ]; then
-    since_args=()
-    if [ -s "$checkpoint_file" ]; then
-      IFS= read -r checkpoint <"$checkpoint_file"
-      since_args=(--since "$checkpoint")
-    fi
-
-    if tbd watch --ready --json "${since_args[@]}" >"$report_tmp"; then
+    if watch_once >"$report_tmp"; then
       mv "$report_tmp" "$pending_file"
     else
       watch_status=$?
@@ -127,7 +131,8 @@ done
 
 The `.tmp` state files are covered by tbd’s `.tbd/.gitignore`. Inspect or remove a
 preserved pending report deliberately after fixing a worker failure; deleting it drops
-that wake. The example is Bash because it uses arrays and `pipefail`.
+that wake. The example is Bash because it uses `pipefail` and function-local variables;
+the executable harness also runs under the macOS system Bash 3.2.
 
 Use the least agent permissions that can perform the intended action.
 In particular, non-interactive runners need network permission before they can run
