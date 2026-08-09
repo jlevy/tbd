@@ -106,7 +106,7 @@ describe('watch-beads unattended recipe', () => {
     const syntax = spawnSync(BASH, ['-n'], { input: script, encoding: 'utf8' });
 
     expect(syntax.status, syntax.stderr).toBe(0);
-    expect(unattendedScript(shortcut.replaceAll('\n', '\r\n'))).toBe(script);
+    expect(unattendedScript(shortcut.replace(/\r?\n/g, '\r\n'))).toBe(script);
     expect(script).toContain('pending_file=');
     expect(script).toContain('watch_once()');
     expect(script).not.toContain('since_args');
