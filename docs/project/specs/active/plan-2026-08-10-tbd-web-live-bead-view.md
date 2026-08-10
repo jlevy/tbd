@@ -87,8 +87,13 @@ not assumed.**
 
 ### Prior art: Metabrowser
 
-`github.com/jlevy/metabrowser` is a mature local-server-plus-browser tool with reliable
-live updates. Four patterns there are directly applicable and are adopted below.
+`github.com/jlevy/metabrowser` is our own mature local-server-plus-browser tool (Python,
+but the same shape: a minimal embedded server, one page, live updates).
+It is the reference implementation for this plan in four wire-level patterns listed
+here, and its serve-mode lifecycle (readiness-gated auto-open, port-range search,
+SSE-aware shutdown with clean signal handling) and client QA practices (jsdom-free
+stubbed-window behavior tests, lint and typecheck floors) are adopted in the CLI
+surface, Server engineering, Client build and packaging, and Testing sections.
 
 1. **The domain cursor is the SSE event id.** Metabrowser’s `sse.py` uses the JSONL byte
    offset as the event id, so an automatic `EventSource` reconnect resumes from the last
@@ -115,7 +120,7 @@ the File Layer and observes the Git Layer through the watch module.
 It introduces no fourth layer and no new persistent state.
 
 ```
-  browser (vanilla, no build step)
+  browser (strictly-linted TS, built by tsdown; see Client build and packaging)
       │  HTTP + SSE, loopback only
   ┌───┴──────────────────────────────────────────┐
   │ tbd web                                       │  CLI Layer
@@ -279,6 +284,19 @@ Per `typescript-cli-tool-rules`:
   which is a standing footgun.
   A CLI that might run in CI or under an agent should also not launch a browser unless
   asked.
+- **`--open` waits for HTTP-OK readiness, not a bare TCP accept.** Metabrowser’s serve
+  mode polls the index route (50ms cadence, ~10s ceiling) and opens the browser only on
+  a non-error response; on timeout it prints the URL and leaves the browser closed.
+  Same discipline here, and a failed `webbrowser`-style launch degrades to printing the
+  URL, never to a hard error.
+- **Default port starts a bounded search; explicit `--port` pins.** Also from
+  metabrowser: with no `--port`, search a small range from the default (7777 up, ~10
+  candidates) and serve the first free one, so two repos can run viewers without
+  ceremony; exhausting the range is reported as a real problem (an orphaned server), not
+  casual contention. An explicit `--port` binds exactly that port and fails with an
+  actionable message if taken.
+  Either way, the printed URL and the `--json` descriptor carry the port actually bound:
+  the printed URL must be the URL that works.
 - **Enum-like options use `Option().choices()`** so bad input fails fast with exit 2.
 - **Exit codes come from the shared `exit-codes.ts`** that PR #205 centralized.
   Clean shutdown is 0, usage error 2, operational failure 1, and Ctrl+C is 130. Since
@@ -318,15 +336,34 @@ else). The design keeps the one-toolchain, zero-new-dependency constraint:
 - **Design-system enforcement**: `bead-web-css.test.ts` retargets `src/web/styles.css`,
   where the token rules are simpler to assert than inside HTML, and keeps its current
   assertions unchanged.
+- **QA parity with metabrowser, then past it.** Metabrowser is the reference point for
+  client QA in a sibling project, and this plan must be at least as strong: it lints all
+  client JS with Biome’s recommended preset and typechecks it with `tsc --checkJs`
+  strict plus DOM libs — but its largest client files (`app.js`, `charts.js`, and
+  others) sit on the typecheck exclude list.
+  Here the client is TypeScript from the start, so 100% of it passes the repo’s
+  type-aware `strictTypeChecked` eslint floor and strict tsc with no exclusion list; the
+  check is stronger and has no carve-outs.
+- **Behavior tests without jsdom, metabrowser’s way.** Its DOM tests run under plain
+  Node with a stubbed `window`/`fetch` because the modules under test deliberately “own
+  no EventSource and no DOM” — the contracts covered are connect-then-fetch ordering,
+  delta buffering and replay, and retry without data loss.
+  Adopt the same rule as a design constraint, not a test trick: `src/web/core.ts` takes
+  `fetch`, `EventSource`, and storage as injected interfaces, so vitest covers the SSE
+  resume, wake-coalescing, and query-string contracts with stubs, and the un-injected
+  DOM glue stays too thin to need a browser.
 
 ### Server engineering
 
 Minimal, fast to start, and cheap when unused.
 
-- **No dependency.** `node:http` plus a single static page.
-  No framework, no bundler, no build step for the client.
-  This keeps the command inside the 14-day cool-off rules in `SUPPLY-CHAIN-SECURITY.md`
-  by having nothing to cool off.
+- **No dependency.** `node:http` plus one stitched static page.
+  No framework and no second bundler: the client builds through the existing tsdown
+  setup (see Client build and packaging), so there is nothing new for the 14-day
+  cool-off rules in `SUPPLY-CHAIN-SECURITY.md` to cool off.
+  Metabrowser reaches the same posture only as far as Python allows (it must carry
+  uvicorn because there is no stdlib ASGI server); Node’s `http` module lets this
+  command go all the way to zero.
 - **Lazy module load.** The server implementation is behind a dynamic `import()` inside
   the action handler, so `tbd list` and `tbd --help` never parse it.
   A UI command must not regress CLI startup time for everyone who does not use it.
@@ -339,11 +376,19 @@ Minimal, fast to start, and cheap when unused.
 - **Bounded frames and heartbeats**, following metabrowser: a per-frame byte cap and a
   comment heartbeat inside the usual 30 to 60 second idle-timeout window.
 - **Timers `unref()`'d** so the heartbeat never holds the process open.
-- **Shutdown is bounded.** `closeAllConnections()` then a short race against a timeout,
-  because idle keep-alive sockets otherwise keep `close()` pending for seconds.
-  The spike hit exactly this and stranded temporary directories until it was fixed.
-- **`EADDRINUSE` is an actionable error**, naming the port and suggesting `--port 0` for
-  an ephemeral one, not a raw stack trace.
+- **Shutdown is bounded, and signals are handled metabrowser’s way.** Open EventSource
+  streams make naive graceful shutdown hang, so the first SIGINT/SIGTERM cancels
+  in-flight SSE streams immediately (`closeAllConnections()` raced against a short
+  timeout — the spike learned this by stranding temp directories), logs nothing for the
+  expected stream cancellations, and exits 130 for Ctrl+C per the exit-code contract.
+  A second SIGINT forces immediate exit with teardown noise suppressed entirely: once
+  the operator forces exit, no teardown record is actionable.
+  Handlers are registered once (`process.once`), do nothing but start the one shutdown
+  path, and every timer is `unref()`'d so nothing holds the process open.
+- **Port failures are actionable, per the CLI-surface port policy.** An explicit
+  `--port` that is taken names the port and the fix; default-range exhaustion is
+  reported as a likely orphaned server rather than retried forever.
+  Never a raw `EADDRINUSE` stack trace.
 - **Untrusted input is validated before it reaches a subprocess argument.** Bead ids
   from query strings are matched against the public-id shape, so a value like `--help`
   cannot become a flag.
@@ -370,6 +415,10 @@ Phase 2 depends on the §1.6 amendment being accepted.
 
 - [ ] `tbd web` command as a `BaseCommand` handler: loopback bind, `--port`, `--open`,
   `--read-only`, `--interval`, `--json` descriptor, `--dry-run`, lazy server import.
+- [ ] Server lifecycle per the metabrowser-derived rules: default-port range search with
+  explicit-port pinning, readiness-gated `--open`, SSE-aware shutdown (first signal
+  cancels streams and exits 130 quietly, second forces exit), `process.once` handlers,
+  all timers `unref()`'d.
 - [ ] Board endpoint over `selectIssues`, returning light rows plus `describeQuery`.
 - [ ] Per-bead body endpoint served from the in-memory snapshot.
 - [ ] SSE stream with the tip as event id, `Last-Event-ID` resume, heartbeats, and
@@ -379,7 +428,8 @@ Phase 2 depends on the §1.6 amendment being accepted.
 - [ ] Flash-in on change, collapse on removal, `prefers-reduced-motion` honored.
 - [ ] Client rebuilt as strictly-linted TypeScript per “Client build and packaging”:
   `src/web/` sources, `tsconfig.web.json`, browser IIFE tsdown entry, postbuild
-  stitching into `dist/web/index.html`, pure-core unit tests.
+  stitching into `dist/web/index.html`, and jsdom-free behavior tests over the injected
+  `fetch`/`EventSource` core.
 - [ ] Tryscript coverage for the command surface; unit coverage for query translation
   and SSE framing.
 
@@ -408,8 +458,18 @@ Phase 2 depends on the §1.6 amendment being accepted.
 - **Security**: assert the listener binds loopback only, that writes are refused without
   the flag, and that bead ids are validated before reaching a subprocess argument.
 - **CLI conventions**: assert stdout carries only the descriptor and diagnostics go to
-  stderr, that `--dry-run` binds nothing, that a bad `--port` exits 2, that `EADDRINUSE`
-  exits 1 with an actionable message, and that Ctrl+C exits 130.
+  stderr, that `--dry-run` binds nothing, that a bad `--port` exits 2, and that Ctrl+C
+  exits 130.
+- **Port policy**: with the default port taken, the server binds the next candidate and
+  the descriptor carries the port actually bound; with an explicit `--port` taken, exit
+  1 with an actionable message; range exhaustion names the orphaned-server hypothesis.
+- **Lifecycle**: the `--open` readiness probe opens nothing until the index route
+  returns HTTP OK and degrades to printing the URL; first SIGINT closes open SSE streams
+  and exits cleanly with no error-level log records from the expected cancellations.
+- **Client behavior, jsdom-free**: `src/web/core.ts` contracts covered with injected
+  `fetch`/`EventSource` stubs — connect-then-fetch ordering, SSE resume via
+  `Last-Event-ID`, wake coalescing, delta gating on `reportDataVersion`, and
+  query-string round-tripping — following metabrowser’s stubbed-window test pattern.
 - **Startup cost**: assert that adding the command does not measurably change
   `tbd --help` or `tbd list` startup time, which is what the lazy import exists to
   protect.
@@ -450,7 +510,11 @@ Rollback is removing the command; no data migration exists to undo.
 - `packages/tbd/src/cli/lib/tree-view.ts` — `buildIssueTree` and the `tbd-5hh1` defect
 - `packages/tbd/scripts/bead-web.ts`, `bead-web.html` — the working spike
 - `github.com/jlevy/metabrowser` — `src/metabrowser/sse.py` for cursor-as-event-id and
-  bounded frames; `src/metabrowser/static/styles.css` for flash and reduced-motion
+  bounded frames; `src/metabrowser/static/styles.css` for flash and reduced-motion;
+  `src/metabrowser/cli/serve.py` for readiness-gated auto-open, port-range search, and
+  SSE-aware shutdown with suppressed cancellation noise; `tests/dom/` for the
+  stubbed-window, jsdom-free client behavior tests; `tsconfig.json`/`biome.json` for the
+  client QA floor this plan matches and exceeds
 - Beads: `tbd-5hh1` (tree depth), `tbd-q5c7` (stdout JSON contract), `tbd-w5xi`
   (`--due`)
 
