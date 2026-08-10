@@ -5,7 +5,7 @@ title: "Phase 2: External bundles and override roundtrip"
 kind: epic
 status: open
 priority: 2
-version: 18
+version: 19
 spec_path: docs/project/specs/active/plan-2026-05-07-docs-config-redesign.md
 labels: []
 dependencies:
@@ -29,12 +29,12 @@ child_order_hints:
   - is-01kra9ba2a6fbrkb1qvxeactgn
   - is-01kra9bae7t8hk71z0dg3jtztx
 created_at: 2026-05-11T01:08:51.310Z
-updated_at: 2026-08-10T19:36:34.049Z
+updated_at: 2026-08-10T21:54:03.817Z
 extensions:
   linear:
     id: 12bc0128-ab1c-407a-80be-ab0789bc537d
-    key: FIN-48
-    url: https://linear.app/finterm-ai/issue/FIN-48/phase-2-external-bundles-and-override-roundtrip
+    key: TBD-37
+    url: https://linear.app/finterm-ai/issue/TBD-37/phase-2-external-bundles-and-override-roundtrip
     linked_at: 2026-08-10T19:36:34.048Z
 ---
 Goal: external docs are first-class; users can mirror, sync, override, and round-trip changes.

@@ -5,7 +5,7 @@ title: "Phase 2: tbd docs status + bare overview + tbd status Docs line (docmap 
 kind: task
 status: in_progress
 priority: 2
-version: 5
+version: 6
 spec_path: docs/project/specs/active/plan-2026-06-11-forkable-docs.md
 labels: []
 dependencies:
@@ -13,12 +13,12 @@ dependencies:
     target: is-01ktxg4s1ng4wz60bnh3frcsc0
 parent_id: is-01ktxg3eqj62dhphs6dnbb30jf
 created_at: 2026-06-12T08:45:56.106Z
-updated_at: 2026-08-10T19:37:11.669Z
+updated_at: 2026-08-10T21:54:27.381Z
 extensions:
   linear:
     id: 73b556d4-430f-44ca-8c21-295431eba66d
-    key: FIN-70
-    url: https://linear.app/finterm-ai/issue/FIN-70/phase-2-tbd-docs-status-bare-overview-tbd-status-docs-line-docmap-json
+    key: TBD-84
+    url: https://linear.app/finterm-ai/issue/TBD-84/phase-2-tbd-docs-status-bare-overview-tbd-status-docs-line-docmap-json
     linked_at: 2026-08-10T19:37:11.668Z
 ---
 

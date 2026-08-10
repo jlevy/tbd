@@ -5,7 +5,7 @@ title: "Phase 5: Update setup command to use shared function"
 kind: task
 status: open
 priority: 2
-version: 8
+version: 9
 spec_path: docs/project/specs/active/plan-2026-01-29-unified-sync-command.md
 labels: []
 dependencies:
@@ -13,12 +13,12 @@ dependencies:
     target: is-01kg5jhee3nrrtkqa80h52p1d8
 parent_id: is-01kg5jgqscrbp94t3hb1cegr39
 created_at: 2026-01-29T19:09:03.708Z
-updated_at: 2026-08-10T19:36:23.944Z
+updated_at: 2026-08-10T21:53:52.111Z
 extensions:
   linear:
     id: 932943f1-8b90-4b7b-a13d-77f78cbf7fd5
-    key: FIN-37
-    url: https://linear.app/finterm-ai/issue/FIN-37/phase-5-update-setup-command-to-use-shared-function
+    key: TBD-48
+    url: https://linear.app/finterm-ai/issue/TBD-48/phase-5-update-setup-command-to-use-shared-function
     linked_at: 2026-08-10T19:36:23.943Z
 ---
 Update setup.ts to:

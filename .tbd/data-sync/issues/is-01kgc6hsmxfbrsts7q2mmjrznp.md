@@ -5,7 +5,7 @@ title: Improve CLI error handling and debugging
 kind: epic
 status: open
 priority: 1
-version: 13
+version: 14
 labels: []
 dependencies: []
 child_order_hints:
@@ -16,11 +16,11 @@ child_order_hints:
   - is-01kgc6yjzvfe04mk2815c86g6c
   - is-01kgc761hxdbctw6jgqgy9fjxp
 created_at: 2026-02-01T08:54:13.916Z
-updated_at: 2026-08-10T19:36:27.051Z
+updated_at: 2026-08-10T21:53:55.399Z
 extensions:
   linear:
     id: 00837078-2f8b-4960-9967-98cbd6ddff21
-    key: FIN-40
-    url: https://linear.app/finterm-ai/issue/FIN-40/improve-cli-error-handling-and-debugging
+    key: TBD-45
+    url: https://linear.app/finterm-ai/issue/TBD-45/improve-cli-error-handling-and-debugging
     linked_at: 2026-08-10T19:36:27.050Z
 ---

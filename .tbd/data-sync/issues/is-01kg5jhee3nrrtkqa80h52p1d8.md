@@ -5,18 +5,18 @@ title: "Phase 7: Testing for unified sync"
 kind: task
 status: open
 priority: 3
-version: 7
+version: 8
 spec_path: docs/project/specs/active/plan-2026-01-29-unified-sync-command.md
 labels: []
 dependencies: []
 parent_id: is-01kg5jgqscrbp94t3hb1cegr39
 created_at: 2026-01-29T19:09:04.323Z
-updated_at: 2026-08-10T19:36:26.325Z
+updated_at: 2026-08-10T21:53:53.832Z
 extensions:
   linear:
     id: 1e220fa3-d020-48a5-9131-86eabc1c9d98
-    key: FIN-39
-    url: https://linear.app/finterm-ai/issue/FIN-39/phase-7-testing-for-unified-sync
+    key: TBD-46
+    url: https://linear.app/finterm-ai/issue/TBD-46/phase-7-testing-for-unified-sync
     linked_at: 2026-08-10T19:36:26.324Z
 ---
 Add tests:

@@ -5,18 +5,18 @@ title: "Phase 2: shared docmap renderer + tbd docs list/show; migrate per-kind -
 kind: task
 status: in_progress
 priority: 2
-version: 4
+version: 5
 spec_path: docs/project/specs/active/plan-2026-06-11-forkable-docs.md
 labels: []
 dependencies: []
 parent_id: is-01ktxg3eqj62dhphs6dnbb30jf
 created_at: 2026-06-12T08:45:56.660Z
-updated_at: 2026-08-10T19:37:13.111Z
+updated_at: 2026-08-10T21:54:28.342Z
 extensions:
   linear:
     id: c5797f48-4ee8-49b0-8da9-19c3f0b0f345
-    key: FIN-71
-    url: https://linear.app/finterm-ai/issue/FIN-71/phase-2-shared-docmap-renderer-tbd-docs-listshow-migrate-per-kind-list
+    key: TBD-83
+    url: https://linear.app/finterm-ai/issue/TBD-83/phase-2-shared-docmap-renderer-tbd-docs-listshow-migrate-per-kind-list
     linked_at: 2026-08-10T19:37:13.110Z
 ---
 
