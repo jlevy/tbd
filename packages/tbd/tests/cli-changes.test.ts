@@ -125,7 +125,6 @@ describe('tbd changes', () => {
       expect(result.status).toBe(0);
       expect(result.stderr).toBe('');
       expect(JSON.parse(result.stdout)).toMatchObject({
-        format_version: 1,
         since: fixture.since,
         tip: fixture.tip,
         changes: [
@@ -149,7 +148,6 @@ describe('tbd changes', () => {
 
       expect(result.status).toBe(3);
       expect(JSON.parse(result.stdout)).toEqual({
-        format_version: 1,
         since: fixture.tip,
         tip: fixture.tip,
         changes: [],

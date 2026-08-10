@@ -66,8 +66,8 @@ reaction time.
 - A web UI or dashboard.
 - Any issue schema, config schema, or `tbd_format` change.
   This landing is purely additive.
-  The new change-report JSON has its own explicit `format_version: 1`, independent of
-  the repository format, so integrations can consume it without coupling their
+  The change-report JSON is command output, not repository state: it carries no format
+  marker and evolves by addition only, so integrations consume it without coupling their
   experiments to tbd storage evolution.
 
 ## Background
@@ -225,7 +225,6 @@ watchers:
 
   ```json
   {
-    "format_version": 1,
     "since": "<full commit id>",
     "tip": "<full commit id>",
     "changes": [
@@ -259,9 +258,10 @@ watchers:
   }
   ```
 
-  `format_version` versions this report document, not `.tbd/config.yml` or `tbd_format`.
-  JSON no-change output is the same document with an empty `changes` array and exit 3. A
-  watch timeout exits 3 without stdout.
+  The report carries no format marker; like tbd’s other JSON output it gains fields but
+  never loses or repurposes them, and `tbd_format` governs repository state rather than
+  command output. JSON no-change output is the same document with an empty `changes`
+  array and exit 3. A watch timeout exits 3 without stdout.
   `--quiet` suppresses successful and no-change stdout (including JSON) so callers can
   use exit status alone; errors remain on stderr.
 
@@ -379,9 +379,9 @@ selection predicates with the change engine through extracted helpers; their beh
 unchanged and covered by existing tests.
 One internal change: the watch poller uses a timeout-bearing non-interactive Git helper.
 No schema changes, no config-schema changes, no format bump, and no behavior changes to
-existing commands. The report document’s independent `format_version` starts at 1. All
-stable CLI exit codes are defined in one shared module rather than split between error
-classes and change commands.
+existing commands.
+All stable CLI exit codes are defined in one shared module rather than
+split between error classes and change commands.
 
 ## Implementation Plan
 
@@ -406,8 +406,8 @@ classes and change commands.
   fields, selector compatibility, and actionable recovery guidance.
 - [x] PR #205 review hardening: final timeout-boundary poll, bounded network Git
   subprocesses, bounded text-diff complexity and object batches, exhaustive substantive
-  fields, report format version 1, durable at-least-once worker recipe, and accurate
-  notes replacement semantics.
+  fields, a durable at-least-once worker recipe, and accurate notes replacement
+  semantics.
 - [x] Release smoke and validation plan (`tbd-961h`): a built-candidate, real-Git,
   two-clone executable topology; complete automated/manual coverage map; and a manual QA
   playbook. The smoke found and regressed Git refmap isolation for an existing
@@ -415,6 +415,11 @@ classes and change commands.
 - [x] Cross-platform release-smoke enforcement (`tbd-3x5y`): run the built-candidate
   topology in every operating-system CI job and cover concurrent watchers, every
   selector family, human/JSON/quiet output, and exit 0/1/2/3 over real Git history.
+- [x] Built-in documentation: the CLI manual (`tbd docs`) covers `changes`, `watch`,
+  change reports, and the repo-wide exit codes; the design doc gains §3.7 (read-only
+  remote observation) and §4.14 (change and watch commands); README and `development.md`
+  point at both; the `watch-beads` shortcut keeps the recipes and platform notes instead
+  of restating the contract.
 - [ ] Release-candidate manual QA (`tbd-t750`): exact-tag artifact rerun, credentialed
   real remote, existing-workflow coexistence, network interruption, intended runner
   permissions/idempotency, and representative platform shells.

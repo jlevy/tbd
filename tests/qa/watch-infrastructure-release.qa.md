@@ -111,7 +111,7 @@ pnpm qa:watch-release
 
 **Verify**:
 
-- [x] A selected remote update wakes a blocked watcher with `format_version: 1`.
+- [x] A selected remote update wakes a blocked watcher, which emits its change report.
 - [x] An unrelated update does not match a static bead selector.
 - [x] Two simultaneous watchers in one checkout wake from one commit without ref or
   worktree contention.

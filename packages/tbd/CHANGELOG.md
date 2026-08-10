@@ -56,8 +56,22 @@
   Because 3 and 2 are distinct, an agent wake loop can retry on “nothing matched”
   without spinning on a mistyped flag.
 - **Agent wake recipes**: the new `watch-beads` shortcut documents a race-free
-  watch-then-spawn daemon plus bounded and background in-session patterns for Claude
-  Code and Codex. Live validation covers both platforms conversing through one bead.
+  watch-then-spawn worker loop plus bounded and background in-session patterns for
+  Claude Code and Codex.
+  Live validation covers both platforms conversing through one bead.
+
+### Documentation
+
+- **`changes` and `watch` are documented in the built-in docs**: the CLI manual
+  (`tbd docs`) is authoritative for selectors, baseline commits, the report format, and
+  the repo-wide exit codes, and the design doc adds §3.7 (read-only remote observation:
+  private refs, fetch-flag isolation, bounded network calls) and §4.14 (the command
+  contract, selection semantics, and watch loop).
+  The `watch-beads` shortcut now carries the recipes and platform notes rather than
+  restating the contract.
+- **Notes semantics documented where they are used**: the manual’s `update` section
+  states that `--notes` replaces the whole body and that notes are single-writer
+  replaceable state, not a conversation log.
 
 ### Fixes
 
@@ -75,10 +89,10 @@
 - **Watch deadlines are observable and bounded**: timeout completion now includes one
   final remote-tip observation, and each network observation/fetch has an explicit
   poll-interval wall-time budget capped at 30 seconds.
-- **Stable report contract**: JSON change/watch reports declare `format_version: 1`;
-  substantive field coverage is compile-time exhaustive, and pathological text rewrites
-  report `hunks_omitted: "complexity_limit"` instead of growing an unbounded Myers
-  trace.
+- **Stable report contract**: substantive field coverage in change/watch reports is
+  compile-time exhaustive, and pathological text rewrites report
+  `hunks_omitted: "complexity_limit"` instead of growing an unbounded Myers trace.
+  Like every other tbd `--json` surface, the report evolves by addition only.
 - **Durable worker recipe**: `watch-beads` persists a pending report before spawning,
   pulls and revalidates current state, fails closed on worker/sync errors, and advances
   its checkpoint only after success.

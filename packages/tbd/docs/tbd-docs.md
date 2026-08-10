@@ -368,6 +368,13 @@ Per-ID-only flags (`--title`, `--description`, `--notes`/`--notes-file`, `--from
 is rejected in bulk — use `tbd close`/`tbd reopen` for lifecycle changes.
 `--description` and `--notes` also accept `-` to read stdin.
 
+**Notes replace, they do not append.** `--notes` sets the entire notes body, so read the
+current value first if you mean to add to it.
+Notes are single-writer replaceable state: concurrent writers resolve last-write-wins
+with the loser preserved in the attic, which is recovery, not a conversation log.
+For a durable multi-writer history, create a child bead per event or keep the transcript
+in an external system.
+
 ### close
 
 Close one or more completed issues.
@@ -560,27 +567,57 @@ Options:
 
 ### changes
 
-Report committed bead deltas between a baseline and the configured local sync-branch
-tip. This command does not fetch or read the hidden data-sync worktree.
+Report what changed between a baseline commit and the local sync branch.
+The command reads committed Git objects only: it never fetches, never reads the hidden
+data-sync worktree, and never takes the sync lock.
 
 ```bash
-tbd changes --since <commit>                 # All changed beads
+tbd changes --since <commit>                 # All changed beads (the default)
 tbd changes --since <commit> --bead proj-a7k2 proj-b3m9
 tbd changes --since <commit> --label needs-agent --json
 tbd changes --since <commit> --ready --json  # Beads newly entering ready
 ```
 
-Selectors are `--bead`, repeated `--label`, `--spec`, `--status`, `--ready`, and
-`--all`. The command defaults to `--all`. Exit 0 means matching changes and exit 3 means
-none. JSON output contains the resolved `since` and `tip` commits plus per-bead,
-per-field deltas and starts with `format_version: 1`. Pathological description/notes
-rewrites retain full before/after values but may set `hunks_omitted: "complexity_limit"`
-instead of allocating an unbounded line-diff trace.
+Options:
+- `--since <commit>` - Required baseline commit (see “Baseline commits” below)
+- `--bead <ids...>` - One or more beads
+- `--label <label>` - Beads with this label (repeatable; labels are ANDed)
+- `--spec <path>` - Beads tracking this spec (filename or suffix is enough)
+- `--status <status>` - `open`, `in_progress`, `blocked`, `deferred`, or `closed`
+- `--ready` - Beads that newly entered the ready set
+- `--all` - Every bead (the default)
+
+Exit 0 means matching changes were reported, exit 3 means none matched.
+
+Because both endpoints are commits, the result is a pure function of the pair: the same
+`since` and `tip` always produce the same report.
+The tip is the local sync branch, which advances at `tbd sync`, so local bead edits made
+since the last sync are not visible here.
+
+#### Baseline commits
+
+`--since` takes an ordinary Git commit-ish resolved in your repository, so a full or
+short SHA, `tbd-sync~3`, or a tag all work.
+It is not an issue ID, a date, or a tbd-internal counter.
+
+The commit must be on the sync branch’s history.
+A commit from a working branch such as `main` is not, and the command rejects it rather
+than guessing.
+
+Normally the baseline comes from an earlier report: every report carries the full
+`since` and `tip` it used, and passing that `tip` back as the next `--since` leaves no
+gap between invocations.
+To start cold, use any sync-branch commit, for example `git rev-parse tbd-sync`. To see
+the available history, `git log tbd-sync`.
+
+If sync recovery rewrites the sync branch, a saved baseline stops being an ancestor of
+the new tip; the command fails and you start from a fresh baseline.
 
 ### watch
 
-Wait for selected bead state to change on the configured remote sync branch, report one
-change, and exit. A selector is required.
+Block until selected bead state changes on the remote sync branch, report the change,
+and exit. Use it to wake an agent or a shell worker instead of polling in a loop.
+A selector is required, since an unqualified watch is rarely the intent.
 
 ```bash
 tbd watch --bead proj-a7k2 --json
@@ -591,31 +628,79 @@ tbd watch --ready --json
 tbd watch --all --timeout 540 --json
 ```
 
-The default poll interval is 30 seconds; `--interval` cannot be lower than 10 seconds.
-Exit 0 means a change, exit 3 means the optional timeout elapsed, and exit 1 means an
-error. Pass an earlier report’s `tip` as `--since` to resume without a race.
-Watch performs one final remote observation at the timeout boundary.
-Each observation and optional fetch share one poll-interval wall-time budget, capped at
-30 seconds, so a stalled Git transport exits 1 rather than hanging indefinitely.
-An established watch tolerates a bounded run of consecutive failed remote polls before
-exiting 1, so a brief network outage does not end an unattended watch.
-If sync recovery rewrites the sync branch, a saved `--since` baseline stops being an
-ancestor of the new tip and watch exits 1; restart without `--since` to establish a new
-baseline. Watch uses a temporary private Git ref and never touches the working tree,
-hidden data-sync worktree, its lock, `FETCH_HEAD`, or configured local and
-remote-tracking sync refs.
+Options:
+- Same selectors as `changes`, but one of them is required
+- `--since <commit>` - Resume from this commit instead of from the current remote tip
+- `--interval <seconds>` - Remote poll interval (default 30, minimum 10)
+- `--timeout <seconds>` - Exit 3 if nothing matches in this time (default: wait forever)
 
-See `tbd shortcut watch-beads` for watch-then-spawn and in-session agent recipes.
+Exit 0 means a change was reported, exit 3 means `--timeout` elapsed, exit 1 means an
+operational error.
 
-### Change-command exit codes
+Watch polls the remote tip with `git ls-remote` and only transfers objects once that tip
+moves. It is read-only with respect to shared state: fetches land in a temporary private
+ref, so the working tree, the hidden data-sync worktree, its lock, `FETCH_HEAD`, and
+both the local and remote-tracking sync refs are untouched.
+Several watchers and an ordinary `tbd sync` can run in one checkout.
 
-| Command | 0 | 1 | 2 | 3 |
-| --- | --- | --- | --- | --- |
-| `tbd changes` | matching changes reported | operational error | usage error | no matching changes |
-| `tbd watch` | matching change reported | operational error | usage error | `--timeout` elapsed |
+Operational behavior worth relying on:
 
-Exit 2 always means a usage error on tbd commands, so recipes can retry exit 3 (“nothing
-happened”) without ever retrying a bad invocation.
+- **Resume.** Pass a previous report’s `tip` as `--since` to cover the gap between runs.
+  Changes that landed while you were working are then reported immediately at startup.
+- **Timeouts.** At the `--timeout` boundary watch makes one final remote observation, so
+  a change landing exactly on the deadline is not dropped.
+- **Stalls.** Each observation and its fetch share one wall-time budget (the poll
+  interval, capped at 30 seconds), so a hung Git transport exits 1 instead of hanging.
+- **Outages.** An established watch rides out a bounded run of failed polls before
+  exiting 1, so a brief network blip does not end an unattended watch.
+
+Delivery is at least once: a caller that acts on a report and then crashes sees it again
+on restart, so make worker actions idempotent.
+A watch report is a wake signal, not a license to act on stale state.
+Pull and re-read current state before writing.
+
+See `tbd shortcut watch-beads` for the durable watch-then-spawn worker recipe and for
+in-session Claude Code and Codex patterns.
+
+### Change reports
+
+`changes` and `watch` emit the same document.
+With `--json` it prints verbatim; without it the same data is rendered for humans.
+
+```json
+{
+  "since": "3f2a…",
+  "tip": "9c81…",
+  "changes": [
+    {
+      "id": "proj-a7k2",
+      "internal_id": "is-01hx5zzkbkactav9wevgemmvrz",
+      "title": "API returns 500 on malformed input",
+      "change": "updated",
+      "fields": [{ "field": "status", "before": "open", "after": "in_progress" }]
+    }
+  ]
+}
+```
+
+- `since` and `tip` are the full resolved commit IDs.
+  `tip` is the resume point.
+- `change` is `created`, `updated`, or `deleted`.
+- `fields` lists every substantive field that differs, in a fixed order.
+  Bookkeeping fields (`id`, `type`, `version`, `updated_at`) are omitted.
+- `description` and `notes` changes also carry `hunks`, a line diff with three lines of
+  context. A rewrite too large to diff cheaply sets `hunks_omitted: "complexity_limit"`
+  instead; `before` and `after` are still complete.
+
+The report follows the same stability rule as tbd’s other `--json` output: fields are
+added, never removed or repurposed, so ignore fields you do not recognize.
+
+Selection semantics differ slightly by selector kind.
+An unknown `--bead` ID is an error rather than a silent wait.
+Label, spec, and status selections report a bead that matched *before or after*, so both
+entering and leaving the set count.
+`--ready` is edge-triggered: it reports only beads that were not ready before and are
+now, using the same definition as `tbd ready` (open, unassigned, no open blockers).
 
 ### search
 
@@ -964,6 +1049,23 @@ Options:
 - `--json` - Output as JSON
 - `--color <when>` - Colorize output: auto, always, never
 - `--debug` - Show internal IDs alongside display IDs
+
+### Exit codes
+
+Exit codes are the same across commands, so scripts and agent recipes can branch on them
+directly:
+
+| Code | Meaning |
+| --- | --- |
+| 0 | Success |
+| 1 | Operational error, such as a failed Git operation or health check |
+| 2 | Usage error: a bad flag, argument, or selector |
+| 3 | Nothing matched: `tbd changes` found no changes, or `tbd watch --timeout` elapsed |
+| 130 | Interrupted with Ctrl-C (SIGINT) |
+
+Code 3 is the only “nothing happened” result and is deliberately distinct from both
+failure codes: a recipe can retry exit 3 indefinitely while still failing fast on a
+usage error.
 
 ## For AI Agents
 
