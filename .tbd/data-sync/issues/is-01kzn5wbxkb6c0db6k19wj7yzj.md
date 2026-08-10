@@ -5,13 +5,13 @@ title: Land tbd-web spike PR (stacked on PR 205)
 kind: task
 status: in_progress
 priority: 2
-version: 4
+version: 5
 spec_path: docs/project/specs/active/plan-2026-08-10-tbd-web-live-bead-view.md
 labels:
   - viewer
 dependencies: []
 created_at: 2026-08-10T06:31:08.978Z
-updated_at: 2026-08-10T19:37:39.541Z
+updated_at: 2026-08-10T21:26:58.760Z
 extensions:
   linear:
     id: 87a13af9-a3b4-4897-873a-f8bfeb82fa65
@@ -23,4 +23,4 @@ Track the stacked PR for the bead-web viewer spike: branch claude/tbd-web-spike,
 
 ## Notes
 
-PR https://github.com/jlevy/tbd/pull/207 is fully green: Ubuntu, macOS, Windows (initial Windows failure was a cli-watch poll-budget flake on a slow runner; passed on rerun with no code change), Coverage & Lint, Benchmark, DeepSource. Cursor Bugbot left 4 medium findings on the spike file (sort tiebreak, ready-view sort order, tree ancestor injection, local-wake stale markers) - untriaged follow-up. Merge remains gated on PR 205 landing first; then rebase onto main and retarget.
+PR https://github.com/jlevy/tbd/pull/207 green on ac3b0776 (all 7 checks incl. Bugbot re-review). Review addressed: R1 ULID tiebreak, R2 ready-sort exactness, R3 context-row disclosure, R4 wake-marker coherence via reportDataVersion stamp. Threads resolved, disposition map posted. Remaining: PR 205 merges, then rebase this branch onto main and retarget.
