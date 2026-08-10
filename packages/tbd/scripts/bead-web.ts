@@ -80,6 +80,8 @@ const LOCAL_DEBOUNCE_MS = 300;
 const LOCAL_SUPPRESSION_TRAILING_MS = LOCAL_DEBOUNCE_MS * 4;
 /** SSE keep-alive, below the usual 60s idle timeout of intermediate proxies. */
 const SSE_KEEPALIVE_MS = 20_000;
+/** A client buffering more than this has stopped reading and is dropped. */
+const MAX_SSE_BUFFER_BYTES = 1024 * 1024;
 /** Upper bound on graceful shutdown, so a stuck socket cannot strand a demo topology. */
 const SHUTDOWN_TIMEOUT_MS = 3_000;
 /** Row ceiling per response. Mirrors nothing in the CLI; purely a render guard. */
@@ -236,6 +238,7 @@ interface WatchState {
 interface Board {
   issues: Issue[];
   byInternalId: Map<string, Issue>;
+  byDisplayId: Map<string, Issue>;
   displayIdByInternalId: Map<string, string>;
   ready: ReadonlySet<string>;
   mapping: IdMapping;
@@ -484,7 +487,7 @@ function describeQueryAsCommand(query: BoardQuery): { command: string; exact: bo
  * those cannot drift. The surrounding orchestration still mirrors ListHandler by hand
  * because it lives in a private method; extracting it is the first productization step.
  */
-function filterIssues(board: Board, query: BoardQuery): Issue[] {
+function filterIssues(issues: Issue[], board: Board, query: BoardQuery): Issue[] {
   let resolvedParentId: string | undefined;
   if (query.parent !== null) {
     try {
@@ -494,7 +497,7 @@ function filterIssues(board: Board, query: BoardQuery): Issue[] {
     }
   }
 
-  return board.issues.filter((issue) => {
+  return issues.filter((issue) => {
     // Default hides closed, exactly as the CLI does, unless --all or --status closed.
     if (!query.all && query.status !== 'closed' && issue.status === 'closed') {
       return false;
@@ -920,6 +923,7 @@ class BeadWebViewer {
   private board: Board = {
     issues: [],
     byInternalId: new Map(),
+    byDisplayId: new Map(),
     displayIdByInternalId: new Map(),
     ready: new Set(),
     mapping: { entries: {} } as unknown as IdMapping,
@@ -1036,6 +1040,9 @@ class BeadWebViewer {
     this.board = {
       issues,
       byInternalId: new Map(issues.map((issue) => [issue.id, issue])),
+      byDisplayId: new Map(
+        issues.map((issue) => [displayIdByInternalId.get(issue.id) ?? issue.id, issue]),
+      ),
       displayIdByInternalId,
       ready: readyIssueIds(issues),
       mapping: context.mapping,
@@ -1123,11 +1130,19 @@ class BeadWebViewer {
   /**
    * Push only the watcher state. Browsers re-query the board with their own filters,
    * which keeps every event small no matter how large the graph is.
+   *
+   * A client that stops reading must not make the server buffer without bound: past
+   * the write-buffer cap it is dropped, and its EventSource reconnects on its own.
    */
   private broadcast(): void {
-    const payload = JSON.stringify(this.state);
+    const payload = `event: state\ndata: ${JSON.stringify(this.state)}\n\n`;
     for (const client of this.clients) {
-      client.write(`event: state\ndata: ${payload}\n\n`);
+      if (client.writableLength > MAX_SSE_BUFFER_BYTES) {
+        this.clients.delete(client);
+        client.destroy();
+        continue;
+      }
+      client.write(payload);
     }
   }
 
@@ -1356,8 +1371,40 @@ class BeadWebViewer {
     await sleep(WATCH_ERROR_BACKOFF_MS);
   }
 
+  /**
+   * Loopback binding alone does not stop a hostile web page: DNS rebinding points a
+   * name the page may fetch at 127.0.0.1, and a cross-origin form POST reaches the
+   * mutation endpoint without CORS ever being consulted. Host must therefore name
+   * loopback explicitly, and when a browser supplies an Origin it must be ours.
+   */
+  private isTrustedRequest(request: IncomingMessage): boolean {
+    const host = request.headers.host ?? '';
+    const hostname = host.replace(/:\d+$/u, '');
+    if (hostname !== '127.0.0.1' && hostname !== 'localhost' && hostname !== '[::1]') {
+      return false;
+    }
+    const origin = request.headers.origin;
+    if (origin !== undefined) {
+      try {
+        const parsed = new URL(origin);
+        return (
+          parsed.hostname === '127.0.0.1' ||
+          parsed.hostname === 'localhost' ||
+          parsed.hostname === '[::1]'
+        );
+      } catch {
+        return false;
+      }
+    }
+    return true;
+  }
+
   private async handleRequest(request: IncomingMessage, response: ServerResponse): Promise<void> {
     const url = new URL(request.url ?? '/', 'http://127.0.0.1');
+    if (!this.isTrustedRequest(request)) {
+      sendJson(response, 403, { error: 'Cross-origin and non-loopback requests are refused' });
+      return;
+    }
     try {
       if (request.method === 'GET' && url.pathname === '/') {
         response.writeHead(200, {
@@ -1393,15 +1440,16 @@ class BeadWebViewer {
   /** Run one `tbd list`-equivalent query against the in-memory board. */
   private buildBoardResponse(params: URLSearchParams): unknown {
     const query = parseBoardQuery(params);
-    const filtered = sortIssues(filterIssues(this.board, query), this.board, query.sort);
+    // One sort of the whole graph serves both purposes: matches filtered from it are
+    // already in order, and in tree mode the ancestors pulled in for context land in
+    // the same order the reader asked for.
+    const ordered = sortIssues(this.board.issues, this.board, query.sort);
+    const filtered = filterIssues(ordered, this.board, query);
     const limited = applyLimit(filtered, query.limit ?? undefined);
 
     let rows: BoardRow[];
     let contextIds: string[] = [];
     if (query.pretty) {
-      // Sort the whole graph, not just the matches: ancestors pulled in for context must
-      // land in the same order the reader asked for.
-      const ordered = sortIssues(this.board.issues, this.board, query.sort);
       const context = withAncestors(limited, ordered, this.board);
       rows = orderAsTree(context.issues, this.board);
       contextIds = rows.filter((row) => !context.matched.has(row.internalId)).map((row) => row.id);
@@ -1434,9 +1482,7 @@ class BeadWebViewer {
       sendJson(response, 400, { error: 'Invalid bead id' });
       return;
     }
-    const issue = this.board.issues.find(
-      (candidate) => this.board.displayIdByInternalId.get(candidate.id) === id,
-    );
+    const issue = this.board.byDisplayId.get(id);
     if (issue === undefined) {
       sendJson(response, 404, { error: `Unknown bead ${id}` });
       return;
@@ -1487,14 +1533,35 @@ class BeadWebViewer {
       sendJson(response, 403, { error: 'Viewer is read-only; restart with --allow-write' });
       return;
     }
-    const body = await readRequestBody(request);
-    const parsed = JSON.parse(body) as { id?: string; status?: string; notes?: string };
+    // Usage errors are the caller's fault and get 4xx, mirroring the CLI's exit-2
+    // discipline; only a failure of the update or sync itself is a 500.
+    let body: string;
+    try {
+      body = await readRequestBody(request);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      sendJson(response, message.includes('too large') ? 413 : 400, { error: message });
+      return;
+    }
+    let parsed: { id?: string; status?: string; notes?: string };
+    try {
+      parsed = JSON.parse(body) as typeof parsed;
+    } catch {
+      sendJson(response, 400, { error: 'Request body is not valid JSON' });
+      return;
+    }
     if (typeof parsed.id !== 'string' || !/^[A-Za-z0-9][A-Za-z0-9-]{0,63}$/u.test(parsed.id)) {
       sendJson(response, 400, { error: 'Invalid bead id' });
       return;
     }
     const args = ['update', parsed.id];
     if (typeof parsed.status === 'string' && parsed.status !== '') {
+      if (!STATUSES.has(parsed.status)) {
+        sendJson(response, 400, {
+          error: `Invalid status; expected one of: ${[...STATUSES].join(', ')}`,
+        });
+        return;
+      }
       args.push('--status', parsed.status);
     }
     if (typeof parsed.notes === 'string') {
@@ -1616,7 +1683,22 @@ async function main(): Promise<void> {
 
   const viewer = new BeadWebViewer(candidate, state);
   const startedAt = Date.now();
-  await viewer.start(options.port);
+  try {
+    await viewer.start(options.port);
+  } catch (error) {
+    // A failed startup must not strand the disposable topology it just built, and a
+    // taken port deserves an instruction rather than a stack trace.
+    if (demoRoot !== null && !options.keep) {
+      await rm(demoRoot, { recursive: true, force: true });
+    }
+    if ((error as NodeJS.ErrnoException).code === 'EADDRINUSE') {
+      throw new Error(
+        `Port ${options.port} is already in use. Pass --port <n> to pick another ` +
+          `(another viewer may already be running).`,
+      );
+    }
+    throw error;
+  }
 
   console.log('');
   console.log(`Bead web viewer:  http://127.0.0.1:${options.port}`);
@@ -1677,5 +1759,8 @@ main().catch((error: unknown) => {
  *    An in-process path needs the data-sync lock, which loadDataContext deliberately
  *    does not take for reads.
  * 5. Bind to loopback, keep the mutation endpoint behind an explicit flag, and treat
- *    any non-loopback bind as a separate security review.
+ *    any non-loopback bind as a separate security review. Loopback alone is not the
+ *    whole story: this spike already validates Host (DNS rebinding) and Origin
+ *    (cross-origin POST), and drops SSE clients that stop reading; a shipped command
+ *    keeps all three.
  */
