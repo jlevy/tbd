@@ -1511,7 +1511,7 @@ avoids building a Linear hierarchy nobody can see.
 
 1. **Do not couple any of this to PR #205.** That PR is correct to land the
    provider-neutral primitive alone.
-   Everything here consumes `format_version: 1`.
+   Everything here consumes its JSON report, which evolves by addition only.
 2. **Pilot T2 or T3, not T4.** Both avoid field-level merge entirely, so neither needs
    `tbd-le2l` or `tbd-z95g` first.
    §7 is evidence that bidirectional sync is rare in practice for good reasons.
