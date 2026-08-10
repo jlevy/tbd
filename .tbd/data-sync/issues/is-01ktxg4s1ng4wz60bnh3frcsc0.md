@@ -12,8 +12,8 @@ dependencies: []
 parent_id: is-01ktxg3eqj62dhphs6dnbb30jf
 created_at: 2026-06-12T08:45:56.660Z
 updated_at: 2026-08-10T19:37:13.111Z
-linked:
-  - provider: linear
+extensions:
+  linear:
     id: c5797f48-4ee8-49b0-8da9-19c3f0b0f345
     key: FIN-71
     url: https://linear.app/finterm-ai/issue/FIN-71/phase-2-shared-docmap-renderer-tbd-docs-listshow-migrate-per-kind-list

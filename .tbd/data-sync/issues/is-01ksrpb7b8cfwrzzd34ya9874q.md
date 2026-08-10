@@ -26,8 +26,8 @@ child_order_hints:
   - is-01kss6f2ydhh5k0qnnpc3eve0w
 created_at: 2026-05-29T01:42:25.383Z
 updated_at: 2026-08-10T19:37:10.603Z
-linked:
-  - provider: linear
+extensions:
+  linear:
     id: 67351357-3767-492e-bde1-c8d0d986b8dd
     key: FIN-69
     url: https://linear.app/finterm-ai/issue/FIN-69/epic-release-tbd-v020-shared-common-dir-worktree-f04-migration

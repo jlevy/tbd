@@ -12,8 +12,8 @@ labels:
 dependencies: []
 created_at: 2026-08-10T06:31:08.978Z
 updated_at: 2026-08-10T19:37:39.541Z
-linked:
-  - provider: linear
+extensions:
+  linear:
     id: 87a13af9-a3b4-4897-873a-f8bfeb82fa65
     key: FIN-92
     url: https://linear.app/finterm-ai/issue/FIN-92/land-tbd-web-spike-pr-stacked-on-pr-205

@@ -11,8 +11,8 @@ labels: []
 dependencies: []
 created_at: 2026-02-16T07:06:49.583Z
 updated_at: 2026-08-10T19:36:30.627Z
-linked:
-  - provider: linear
+extensions:
+  linear:
     id: 9d43b1cf-47c7-4774-9bd6-aea5333a0e5f
     key: FIN-44
     url: https://linear.app/finterm-ai/issue/FIN-44/kdex-tbd-integration-migration-phase-3

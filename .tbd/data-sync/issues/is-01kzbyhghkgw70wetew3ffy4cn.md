@@ -15,8 +15,8 @@ dependencies:
 parent_id: is-01kxz3kfz7n7y23n9rzmy28f98
 created_at: 2026-08-06T16:29:43.335Z
 updated_at: 2026-08-10T19:37:31.505Z
-linked:
-  - provider: linear
+extensions:
+  linear:
     id: 1820450c-c0ab-461f-8df7-0a1c755a59cc
     key: FIN-85
     url: https://linear.app/finterm-ai/issue/FIN-85/rework-linear-pilot-spec-under-the-integration-layering-extensions

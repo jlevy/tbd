@@ -14,8 +14,8 @@ dependencies:
 parent_id: is-01kg5jgqscrbp94t3hb1cegr39
 created_at: 2026-01-29T19:09:03.708Z
 updated_at: 2026-08-10T19:36:23.944Z
-linked:
-  - provider: linear
+extensions:
+  linear:
     id: 932943f1-8b90-4b7b-a13d-77f78cbf7fd5
     key: FIN-37
     url: https://linear.app/finterm-ai/issue/FIN-37/phase-5-update-setup-command-to-use-shared-function

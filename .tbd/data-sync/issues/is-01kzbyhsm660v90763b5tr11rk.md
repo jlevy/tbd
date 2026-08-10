@@ -13,8 +13,8 @@ dependencies: []
 parent_id: is-01kxz3kfz7n7y23n9rzmy28f98
 created_at: 2026-08-06T16:29:52.646Z
 updated_at: 2026-08-10T19:37:32.398Z
-linked:
-  - provider: linear
+extensions:
+  linear:
     id: 267d0a07-a3e7-408a-b5ac-feb3711368d3
     key: FIN-86
     url: https://linear.app/finterm-ai/issue/FIN-86/generic-extensions-readwritedisplay-on-the-cli

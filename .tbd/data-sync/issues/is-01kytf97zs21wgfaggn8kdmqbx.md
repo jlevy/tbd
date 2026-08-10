@@ -17,8 +17,8 @@ child_order_hints:
   - is-01kytfaffw8q13xkf5vgkc8qrj
 created_at: 2026-07-30T21:35:58.456Z
 updated_at: 2026-08-10T19:37:30.598Z
-linked:
-  - provider: linear
+extensions:
+  linear:
     id: a47b5f87-b07d-42e8-8cd2-cf9d71a0f44c
     key: FIN-84
     url: https://linear.app/finterm-ai/issue/FIN-84/ship-gh-decision-rule-guidance-so-it-reaches-agents-gh-issue-195

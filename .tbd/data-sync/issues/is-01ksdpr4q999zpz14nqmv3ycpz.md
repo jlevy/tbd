@@ -16,8 +16,8 @@ dependencies:
 parent_id: is-01ksc0qwt0v3pg3hgn35sh0s1e
 created_at: 2026-05-24T19:17:49.928Z
 updated_at: 2026-08-10T19:37:03.254Z
-linked:
-  - provider: linear
+extensions:
+  linear:
     id: f7872fb4-7472-46cb-8633-9577779a690c
     key: FIN-65
     url: https://linear.app/finterm-ai/issue/FIN-65/add-surfaceslist-setup-selector-replaces-per-agent-flags

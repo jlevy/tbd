@@ -10,8 +10,8 @@ labels: []
 dependencies: []
 created_at: 2026-01-26T17:48:14.591Z
 updated_at: 2026-08-10T19:36:16.197Z
-linked:
-  - provider: linear
+extensions:
+  linear:
     id: 301e57f4-deb2-4606-8b08-8a93b9f9ff02
     key: FIN-28
     url: https://linear.app/finterm-ai/issue/FIN-28/cli-output-consistency-stats-formatting-and-status-icons

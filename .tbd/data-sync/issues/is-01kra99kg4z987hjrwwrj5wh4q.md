@@ -14,8 +14,8 @@ dependencies:
 parent_id: is-01kra98fgac70pjft7jnarmave
 created_at: 2026-05-11T01:09:16.932Z
 updated_at: 2026-08-10T19:36:39.487Z
-linked:
-  - provider: linear
+extensions:
+  linear:
     id: 0c0d0100-26fa-4991-bee8-ce9e225de7c6
     key: FIN-54
     url: https://linear.app/finterm-ai/issue/FIN-54/q19-decide-as-field-disambiguation-keep-vs-mode-discriminator-vs-kdex

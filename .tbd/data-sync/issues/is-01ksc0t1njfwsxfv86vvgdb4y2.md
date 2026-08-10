@@ -16,8 +16,8 @@ dependencies:
 parent_id: is-01ksc0qwt0v3pg3hgn35sh0s1e
 created_at: 2026-05-24T03:35:09.233Z
 updated_at: 2026-08-10T19:36:52.492Z
-linked:
-  - provider: linear
+extensions:
+  linear:
     id: d270f03b-6302-474f-936f-5456dc566200
     key: FIN-60
     url: https://linear.app/finterm-ai/issue/FIN-60/audit-gitignore-policy-for-agent-integration-files

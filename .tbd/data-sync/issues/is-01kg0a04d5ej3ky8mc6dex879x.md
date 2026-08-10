@@ -11,8 +11,8 @@ labels: []
 dependencies: []
 created_at: 2026-01-27T18:03:36.228Z
 updated_at: 2026-08-10T19:36:18.093Z
-linked:
-  - provider: linear
+extensions:
+  linear:
     id: 91057206-3418-4553-bd50-bf72f64cbea4
     key: FIN-30
     url: https://linear.app/finterm-ai/issue/FIN-30/spec-cli-output-formatting-consistency

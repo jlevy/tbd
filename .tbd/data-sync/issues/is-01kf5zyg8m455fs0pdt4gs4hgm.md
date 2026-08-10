@@ -19,14 +19,13 @@ updated_at: 2026-08-10T19:35:42.164Z
 closed_at: 2026-01-16T21:55:33.298Z
 close_reason: null
 extensions:
-  beads:
-    imported_at: 2026-01-17T12:47:42.106Z
-    original_id: tbd-1700
-linked:
-  - provider: linear
+  linear:
     id: e1fca9cb-87e7-4ee4-a3d7-7f25c7a5312b
     key: FIN-21
     url: https://linear.app/finterm-ai/issue/FIN-21/phase-16-comprehensive-tryscript-coverage
     linked_at: 2026-08-10T19:35:42.160Z
+  beads:
+    imported_at: 2026-01-17T12:47:42.106Z
+    original_id: tbd-1700
 ---
 Expand tryscript golden tests to cover all CLI commands and flags comprehensively.

@@ -27,8 +27,8 @@ dependencies:
 parent_id: is-01ksc0qwt0v3pg3hgn35sh0s1e
 created_at: 2026-05-24T19:17:56.505Z
 updated_at: 2026-08-10T19:37:05.420Z
-linked:
-  - provider: linear
+extensions:
+  linear:
     id: e29e5082-3cd5-4427-b6b9-a70c925508a3
     key: FIN-66
     url: https://linear.app/finterm-ai/issue/FIN-66/define-agentsmd-scope-and-marker-policy

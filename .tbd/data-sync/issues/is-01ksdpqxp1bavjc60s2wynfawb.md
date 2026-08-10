@@ -19,8 +19,8 @@ dependencies:
 parent_id: is-01ksc0qwt0v3pg3hgn35sh0s1e
 created_at: 2026-05-24T19:17:42.717Z
 updated_at: 2026-08-10T19:37:01.942Z
-linked:
-  - provider: linear
+extensions:
+  linear:
     id: 7c004b91-a49f-458a-9c54-5297c0910aff
     key: FIN-64
     url: https://linear.app/finterm-ai/issue/FIN-64/document-pinned-cli-runner-fallback-patterns

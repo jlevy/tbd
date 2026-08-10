@@ -17,14 +17,13 @@ updated_at: 2026-08-10T19:35:32.066Z
 closed_at: 2026-01-16T21:55:32.295Z
 close_reason: null
 extensions:
-  beads:
-    imported_at: 2026-01-17T12:47:42.004Z
-    original_id: tbd-1300
-linked:
-  - provider: linear
+  linear:
     id: 45bd6d51-3612-49a0-8674-26e1318e8703
     key: FIN-17
     url: https://linear.app/finterm-ai/issue/FIN-17/stage-5-validation
     linked_at: 2026-08-10T19:35:32.052Z
+  beads:
+    imported_at: 2026-01-17T12:47:42.004Z
+    original_id: tbd-1300
 ---
 Final validation checklist complete. All tasks done: tests pass, coverage 97.47%, performance OK, CI configured, security reviewed.

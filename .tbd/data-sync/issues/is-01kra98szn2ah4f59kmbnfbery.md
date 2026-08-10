@@ -24,8 +24,8 @@ child_order_hints:
   - is-01kra9aave6br1ysqedyccf8y5
 created_at: 2026-05-11T01:08:50.805Z
 updated_at: 2026-08-10T19:36:33.287Z
-linked:
-  - provider: linear
+extensions:
+  linear:
     id: ba931b64-4c5b-49cc-9b3f-bcaf4d36dc0c
     key: FIN-47
     url: https://linear.app/finterm-ai/issue/FIN-47/phase-1-basic-capabilities-and-migration-f06-framework-backing-impl

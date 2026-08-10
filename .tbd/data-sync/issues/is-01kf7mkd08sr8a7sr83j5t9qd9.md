@@ -11,8 +11,8 @@ labels: []
 dependencies: []
 created_at: 2026-01-18T04:07:52.583Z
 updated_at: 2026-08-10T19:36:13.704Z
-linked:
-  - provider: linear
+extensions:
+  linear:
     id: 337fd396-bb4e-45fe-8af1-97335d619e77
     key: FIN-25
     url: https://linear.app/finterm-ai/issue/FIN-25/spec-cli-output-design-system

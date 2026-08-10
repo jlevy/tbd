@@ -14,8 +14,8 @@ dependencies: []
 parent_id: is-01ksc0qwt0v3pg3hgn35sh0s1e
 created_at: 2026-05-24T03:34:39.734Z
 updated_at: 2026-08-10T19:36:44.114Z
-linked:
-  - provider: linear
+extensions:
+  linear:
     id: 29b89ec1-6792-4835-bc9f-f851eaf0fe36
     key: FIN-57
     url: https://linear.app/finterm-ai/issue/FIN-57/add-skillstbd-distribution-source

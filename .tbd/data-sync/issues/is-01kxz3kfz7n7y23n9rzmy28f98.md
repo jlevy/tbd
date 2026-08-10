@@ -23,8 +23,8 @@ child_order_hints:
   - is-01kzbyhsm660v90763b5tr11rk
 created_at: 2026-07-20T06:32:21.735Z
 updated_at: 2026-08-10T19:37:27.991Z
-linked:
-  - provider: linear
+extensions:
+  linear:
     id: 3a214faa-8f6e-45a6-b511-dfd271c5af42
     key: FIN-81
     url: https://linear.app/finterm-ai/issue/FIN-81/epic-linear-integration-pilot-design-rework-pending

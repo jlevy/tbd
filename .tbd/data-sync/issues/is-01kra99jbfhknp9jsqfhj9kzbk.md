@@ -18,8 +18,8 @@ dependencies:
 parent_id: is-01kra98fgac70pjft7jnarmave
 created_at: 2026-05-11T01:09:15.758Z
 updated_at: 2026-08-10T19:36:36.735Z
-linked:
-  - provider: linear
+extensions:
+  linear:
     id: 6ee3b84b-b2fc-49ad-be84-fefeb25c8cd0
     key: FIN-51
     url: https://linear.app/finterm-ai/issue/FIN-51/q16-decide-bundle-source-cardinality-11-vs-split

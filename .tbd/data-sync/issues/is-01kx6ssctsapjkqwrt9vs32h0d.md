@@ -11,8 +11,8 @@ labels: []
 dependencies: []
 created_at: 2026-07-10T19:59:03.000Z
 updated_at: 2026-08-10T19:37:25.342Z
-linked:
-  - provider: linear
+extensions:
+  linear:
     id: 17e7162f-5364-47ed-ae68-78a1c7167ef5
     key: FIN-79
     url: https://linear.app/finterm-ai/issue/FIN-79/consolidate-closereopenupdate-bulk-orchestration-into-a-shared

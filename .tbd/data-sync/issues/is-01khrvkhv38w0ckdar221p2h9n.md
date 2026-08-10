@@ -14,8 +14,8 @@ dependencies:
     target: is-01khrvk9vbnv3styn6hrjdxjta
 created_at: 2026-02-18T17:08:46.562Z
 updated_at: 2026-08-10T19:36:31.510Z
-linked:
-  - provider: linear
+extensions:
+  linear:
     id: 92572d6f-5a95-40a2-9f42-f5863d6a36af
     key: FIN-45
     url: https://linear.app/finterm-ai/issue/FIN-45/post-merge-id-mapping-resilience-polish-and-cleanup

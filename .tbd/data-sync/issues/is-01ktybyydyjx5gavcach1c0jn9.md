@@ -14,8 +14,8 @@ dependencies: []
 parent_id: is-01ksc0qwt0v3pg3hgn35sh0s1e
 created_at: 2026-06-12T16:52:05.692Z
 updated_at: 2026-08-10T19:37:16.887Z
-linked:
-  - provider: linear
+extensions:
+  linear:
     id: 35ca8a8f-a997-482b-b287-d2bf254b54f0
     key: FIN-74
     url: https://linear.app/finterm-ai/issue/FIN-74/pin-repren-skill-fallback-instead-of-uvx-reprenlatest

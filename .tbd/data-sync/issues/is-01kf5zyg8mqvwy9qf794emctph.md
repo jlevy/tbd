@@ -19,14 +19,13 @@ updated_at: 2026-08-10T19:35:45.243Z
 closed_at: 2026-01-16T21:55:33.641Z
 close_reason: null
 extensions:
-  beads:
-    imported_at: 2026-01-17T12:47:42.142Z
-    original_id: tbd-1800
-linked:
-  - provider: linear
+  linear:
     id: 293d9f7b-9d3a-40b8-8035-a2c4a930483b
     key: FIN-23
     url: https://linear.app/finterm-ai/issue/FIN-23/phase-17-ci-fixes-and-dependency-updates
     linked_at: 2026-08-10T19:35:45.231Z
+  beads:
+    imported_at: 2026-01-17T12:47:42.142Z
+    original_id: tbd-1800
 ---
 Fix CI workflow failures and update dependencies to latest versions.

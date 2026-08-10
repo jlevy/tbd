@@ -17,8 +17,8 @@ child_order_hints:
   - is-01kgc761hxdbctw6jgqgy9fjxp
 created_at: 2026-02-01T08:54:13.916Z
 updated_at: 2026-08-10T19:36:27.051Z
-linked:
-  - provider: linear
+extensions:
+  linear:
     id: 00837078-2f8b-4960-9967-98cbd6ddff21
     key: FIN-40
     url: https://linear.app/finterm-ai/issue/FIN-40/improve-cli-error-handling-and-debugging

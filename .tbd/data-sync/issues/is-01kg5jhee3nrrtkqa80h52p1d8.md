@@ -12,8 +12,8 @@ dependencies: []
 parent_id: is-01kg5jgqscrbp94t3hb1cegr39
 created_at: 2026-01-29T19:09:04.323Z
 updated_at: 2026-08-10T19:36:26.325Z
-linked:
-  - provider: linear
+extensions:
+  linear:
     id: 1e220fa3-d020-48a5-9131-86eabc1c9d98
     key: FIN-39
     url: https://linear.app/finterm-ai/issue/FIN-39/phase-7-testing-for-unified-sync

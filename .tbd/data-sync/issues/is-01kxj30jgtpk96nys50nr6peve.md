@@ -26,8 +26,8 @@ child_order_hints:
   - is-01kxj32xtn7978fy1cw6f61qca
 created_at: 2026-07-15T05:11:54.136Z
 updated_at: 2026-08-10T19:37:26.582Z
-linked:
-  - provider: linear
+extensions:
+  linear:
     id: 004dac38-9687-40be-ad90-11e6ba5fcef4
     key: FIN-80
     url: https://linear.app/finterm-ai/issue/FIN-80/github-190-refresh-skill-creation-guidance-and-setup-dry-run-safety

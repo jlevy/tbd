@@ -12,8 +12,8 @@ dependencies: []
 parent_id: is-01kv197ns6jwkg2q82w7awjn15
 created_at: 2026-06-13T20:03:17.740Z
 updated_at: 2026-08-10T19:37:20.245Z
-linked:
-  - provider: linear
+extensions:
+  linear:
     id: 1f760527-47c0-47a2-8e1a-01b086c6eb05
     key: FIN-76
     url: https://linear.app/finterm-ai/issue/FIN-76/query-driven-mutation-closeupdate-where-reuse-list-grammar

@@ -23,8 +23,8 @@ dependencies:
 parent_id: is-01ksc0qwt0v3pg3hgn35sh0s1e
 created_at: 2026-05-24T03:34:47.412Z
 updated_at: 2026-08-10T19:36:47.062Z
-linked:
-  - provider: linear
+extensions:
+  linear:
     id: 3cf6fe4a-7e19-4b26-acbf-a83a96bf68ca
     key: FIN-58
     url: https://linear.app/finterm-ai/issue/FIN-58/add-codex-startup-and-gh-cli-setup-parity

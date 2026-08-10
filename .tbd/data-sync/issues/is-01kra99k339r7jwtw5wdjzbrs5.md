@@ -16,8 +16,8 @@ dependencies:
 parent_id: is-01kra98fgac70pjft7jnarmave
 created_at: 2026-05-11T01:09:16.515Z
 updated_at: 2026-08-10T19:36:38.367Z
-linked:
-  - provider: linear
+extensions:
+  linear:
     id: f1363c49-cc37-4472-8edf-5f44de0bc481
     key: FIN-53
     url: https://linear.app/finterm-ai/issue/FIN-53/q18-decide-override-provenance-computed-by-name-vs-recorded-edge

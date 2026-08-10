@@ -17,8 +17,8 @@ child_order_hints:
   - is-01kyt6gxft0hnqrk43mzba890t
 created_at: 2026-07-30T17:14:37.827Z
 updated_at: 2026-08-10T19:37:29.830Z
-linked:
-  - provider: linear
+extensions:
+  linear:
     id: d5e549de-137a-401d-a810-f237c675658b
     key: FIN-83
     url: https://linear.app/finterm-ai/issue/FIN-83/guidelines-raise-and-align-the-eslintautoformatting-floor-across

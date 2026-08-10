@@ -30,8 +30,8 @@ child_order_hints:
   - is-01kra9bae7t8hk71z0dg3jtztx
 created_at: 2026-05-11T01:08:51.310Z
 updated_at: 2026-08-10T19:36:34.049Z
-linked:
-  - provider: linear
+extensions:
+  linear:
     id: 12bc0128-ab1c-407a-80be-ab0789bc537d
     key: FIN-48
     url: https://linear.app/finterm-ai/issue/FIN-48/phase-2-external-bundles-and-override-roundtrip

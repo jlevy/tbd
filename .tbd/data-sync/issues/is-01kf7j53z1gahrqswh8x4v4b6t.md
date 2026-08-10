@@ -10,8 +10,8 @@ labels: []
 dependencies: []
 created_at: 2026-01-18T03:25:07.424Z
 updated_at: 2026-08-10T19:36:11.019Z
-linked:
-  - provider: linear
+extensions:
+  linear:
     id: b946be8f-1f25-4942-b7ad-d52bd9496fb3
     key: FIN-24
     url: https://linear.app/finterm-ai/issue/FIN-24/agent-documentation-consolidation-and-cleanup

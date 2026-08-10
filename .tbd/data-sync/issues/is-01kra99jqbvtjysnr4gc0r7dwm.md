@@ -14,8 +14,8 @@ dependencies:
 parent_id: is-01kra98fgac70pjft7jnarmave
 created_at: 2026-05-11T01:09:16.139Z
 updated_at: 2026-08-10T19:36:37.577Z
-linked:
-  - provider: linear
+extensions:
+  linear:
     id: 767bd6ce-192e-418a-a2ca-3b7954ff1f7d
     key: FIN-52
     url: https://linear.app/finterm-ai/issue/FIN-52/q17-decide-lockfile-identity-docref-only-vs-source-id-vs-full-config

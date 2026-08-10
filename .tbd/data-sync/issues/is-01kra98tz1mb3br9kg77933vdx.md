@@ -21,8 +21,8 @@ child_order_hints:
   - is-01kra9brkfj969kby0dk36khzg
 created_at: 2026-05-11T01:08:51.809Z
 updated_at: 2026-08-10T19:36:34.900Z
-linked:
-  - provider: linear
+extensions:
+  linear:
     id: 7ad54ee7-74aa-4285-9edb-e7458ec25a9a
     key: FIN-49
     url: https://linear.app/finterm-ai/issue/FIN-49/phase-3-migrate-bundled-docs-to-external-repo-tbd-docs

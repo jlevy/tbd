@@ -15,8 +15,8 @@ dependencies:
 parent_id: is-01kxz3kfz7n7y23n9rzmy28f98
 created_at: 2026-07-20T06:32:34.989Z
 updated_at: 2026-08-10T19:37:28.842Z
-linked:
-  - provider: linear
+extensions:
+  linear:
     id: 6fb042cf-05ec-4bb9-b06b-ffb10b7d2dc0
     key: FIN-82
     url: https://linear.app/finterm-ai/issue/FIN-82/fix-extensions-merge-lww-deep-merge-by-key-per-design-35

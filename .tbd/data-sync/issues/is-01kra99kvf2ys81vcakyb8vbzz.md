@@ -14,8 +14,8 @@ dependencies:
 parent_id: is-01kra98fgac70pjft7jnarmave
 created_at: 2026-05-11T01:09:17.295Z
 updated_at: 2026-08-10T19:36:41.199Z
-linked:
-  - provider: linear
+extensions:
+  linear:
     id: e317500b-8de7-4581-b1fb-100d11cf3b9c
     key: FIN-55
     url: https://linear.app/finterm-ai/issue/FIN-55/q20-decide-categoriestypesfolders-glob-first-matching-cli-aliases

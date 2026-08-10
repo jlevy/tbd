@@ -19,14 +19,13 @@ updated_at: 2026-08-10T19:35:38.505Z
 closed_at: 2026-01-16T21:55:31.592Z
 close_reason: null
 extensions:
-  beads:
-    imported_at: 2026-01-17T12:47:41.937Z
-    original_id: tbd-1100
-linked:
-  - provider: linear
+  linear:
     id: afd7df47-fd30-417e-855e-6d3852ffe251
     key: FIN-19
     url: https://linear.app/finterm-ai/issue/FIN-19/phase-11-import-command
     linked_at: 2026-08-10T19:35:38.496Z
+  beads:
+    imported_at: 2026-01-17T12:47:41.937Z
+    original_id: tbd-1100
 ---
 Implement Beads import functionality for migration.

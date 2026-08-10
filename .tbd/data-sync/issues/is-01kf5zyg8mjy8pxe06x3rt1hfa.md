@@ -19,14 +19,13 @@ updated_at: 2026-08-10T19:35:43.163Z
 closed_at: 2026-01-16T21:55:33.103Z
 close_reason: null
 extensions:
-  beads:
-    imported_at: 2026-01-17T12:47:42.086Z
-    original_id: tbd-1600
-linked:
-  - provider: linear
+  linear:
     id: 244be55c-cfeb-49ad-b7f8-eaac4e99df0b
     key: FIN-22
     url: https://linear.app/finterm-ai/issue/FIN-22/phase-15-import-validation
     linked_at: 2026-08-10T19:35:43.157Z
+  beads:
+    imported_at: 2026-01-17T12:47:42.086Z
+    original_id: tbd-1600
 ---
 Add import validation command and full validation test script.

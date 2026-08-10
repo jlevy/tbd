@@ -21,8 +21,8 @@ child_order_hints:
   - is-01kra99kvf2ys81vcakyb8vbzz
 created_at: 2026-05-11T01:08:40.073Z
 updated_at: 2026-08-10T19:36:32.544Z
-linked:
-  - provider: linear
+extensions:
+  linear:
     id: 469c60b7-7a9d-4724-82a1-cd0d24d76321
     key: FIN-46
     url: https://linear.app/finterm-ai/issue/FIN-46/spec-docs-config-redesign-f06-framework

@@ -34,8 +34,8 @@ dependencies:
     target: is-01khc6fqd73ez5ymjjkw7fgpqc
 created_at: 2026-02-13T19:08:26.241Z
 updated_at: 2026-08-10T19:36:27.790Z
-linked:
-  - provider: linear
+extensions:
+  linear:
     id: bdb9a312-0ae7-41d1-adfb-4f229a1d62d5
     key: FIN-41
     url: https://linear.app/finterm-ai/issue/FIN-41/review-and-research-pass-claude-code-sub-agents-research-doc

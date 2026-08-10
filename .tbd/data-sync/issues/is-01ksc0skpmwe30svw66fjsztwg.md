@@ -16,8 +16,8 @@ dependencies:
 parent_id: is-01ksc0qwt0v3pg3hgn35sh0s1e
 created_at: 2026-05-24T03:34:54.931Z
 updated_at: 2026-08-10T19:36:49.684Z
-linked:
-  - provider: linear
+extensions:
+  linear:
     id: 0d69bd5c-f051-45cb-a8e3-ebb53025e04b
     key: FIN-59
     url: https://linear.app/finterm-ai/issue/FIN-59/update-setup-check-remove-status-and-doctor

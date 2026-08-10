@@ -16,8 +16,8 @@ child_order_hints:
   - is-01kzn515e154th2ehqthkpcv0v
 created_at: 2026-08-10T05:38:41.909Z
 updated_at: 2026-08-10T19:37:38.379Z
-linked:
-  - provider: linear
+extensions:
+  linear:
     id: ba27c535-ee1e-4f31-b613-cd1caec5fa18
     key: FIN-91
     url: https://linear.app/finterm-ai/issue/FIN-91/phase-3-github-adapter-for-issues-and-pr-links

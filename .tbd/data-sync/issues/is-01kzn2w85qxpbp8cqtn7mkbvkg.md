@@ -18,8 +18,8 @@ child_order_hints:
   - is-01kzn2wakpq2963exxqhj8xkdc
 created_at: 2026-08-10T05:38:39.414Z
 updated_at: 2026-08-10T19:34:32.066Z
-linked:
-  - provider: linear
+extensions:
+  linear:
     id: 7202337e-d1ee-4192-bb6c-c6ae42b97469
     key: FIN-11
     url: https://linear.app/finterm-ai/issue/FIN-11/epic-external-tracker-integrations-linear-first-github-next

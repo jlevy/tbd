@@ -18,8 +18,8 @@ child_order_hints:
   - is-01kzmr3vyqrttcgjfzwkbyncgh
 created_at: 2026-08-10T01:23:28.116Z
 updated_at: 2026-08-10T19:37:33.488Z
-linked:
-  - provider: linear
+extensions:
+  linear:
     id: 0c7780af-e280-430f-9356-2c1d096d9928
     key: FIN-87
     url: https://linear.app/finterm-ai/issue/FIN-87/release-validate-bead-watch-infrastructure

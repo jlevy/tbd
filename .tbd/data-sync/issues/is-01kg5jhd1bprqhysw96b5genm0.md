@@ -14,8 +14,8 @@ dependencies:
 parent_id: is-01kg5jgqscrbp94t3hb1cegr39
 created_at: 2026-01-29T19:09:02.890Z
 updated_at: 2026-08-10T19:36:21.458Z
-linked:
-  - provider: linear
+extensions:
+  linear:
     id: 61a2f1fa-3a7d-46c0-a549-375e651ed8d8
     key: FIN-34
     url: https://linear.app/finterm-ai/issue/FIN-34/phase-2-update-sync-command-with-issues-docs-flags

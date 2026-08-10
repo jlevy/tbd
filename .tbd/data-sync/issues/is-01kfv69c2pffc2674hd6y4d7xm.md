@@ -11,8 +11,8 @@ labels: []
 dependencies: []
 created_at: 2026-01-25T18:22:32.533Z
 updated_at: 2026-08-10T19:36:14.563Z
-linked:
-  - provider: linear
+extensions:
+  linear:
     id: 1f757b42-074f-4145-9c7d-84ed452f9824
     key: FIN-26
     url: https://linear.app/finterm-ai/issue/FIN-26/spec-beads-migration

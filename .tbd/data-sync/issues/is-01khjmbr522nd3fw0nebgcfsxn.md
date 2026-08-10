@@ -13,8 +13,8 @@ dependencies:
     target: is-01khjmbw2yx3pbgd1edn23ekws
 created_at: 2026-02-16T07:06:44.257Z
 updated_at: 2026-08-10T19:36:28.501Z
-linked:
-  - provider: linear
+extensions:
+  linear:
     id: 941739c1-da00-4197-91ed-1a8a11bef1cd
     key: FIN-42
     url: https://linear.app/finterm-ai/issue/FIN-42/kdex-core-store-source-resolution-phase-1

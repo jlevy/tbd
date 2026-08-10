@@ -15,8 +15,8 @@ dependencies: []
 parent_id: is-01ksc0qwt0v3pg3hgn35sh0s1e
 created_at: 2026-06-12T16:51:54.541Z
 updated_at: 2026-08-10T19:37:15.334Z
-linked:
-  - provider: linear
+extensions:
+  linear:
     id: 588e3b83-f5cd-4eb4-a2f2-89bce1d2747f
     key: FIN-73
     url: https://linear.app/finterm-ai/issue/FIN-73/generated-agent-surfaces-omit-configured-custom-shortcut-lookup-paths

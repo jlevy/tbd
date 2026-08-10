@@ -23,8 +23,8 @@ dependencies:
 parent_id: is-01ksc0qwt0v3pg3hgn35sh0s1e
 created_at: 2026-05-24T19:25:43.045Z
 updated_at: 2026-08-10T19:37:08.493Z
-linked:
-  - provider: linear
+extensions:
+  linear:
     id: c290f2a1-9b34-44d5-b151-e983ad3fabcb
     key: FIN-67
     url: https://linear.app/finterm-ai/issue/FIN-67/shrink-generated-agentsmd-block

@@ -22,8 +22,8 @@ child_order_hints:
   - is-01kv1b1bbc8zjprnm79nqyaeh4
 created_at: 2026-06-13T20:02:09.317Z
 updated_at: 2026-08-10T19:37:19.087Z
-linked:
-  - provider: linear
+extensions:
+  linear:
     id: c5c71c47-da62-4511-b39c-99f52cbc52f9
     key: FIN-75
     url: https://linear.app/finterm-ai/issue/FIN-75/spec-agent-cli-ergonomics-bulk-ops-output-contract-sync-clarity

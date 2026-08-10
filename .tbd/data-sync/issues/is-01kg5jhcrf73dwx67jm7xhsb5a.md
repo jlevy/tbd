@@ -18,8 +18,8 @@ dependencies:
 parent_id: is-01kg5jgqscrbp94t3hb1cegr39
 created_at: 2026-01-29T19:09:02.601Z
 updated_at: 2026-08-10T19:36:20.430Z
-linked:
-  - provider: linear
+extensions:
+  linear:
     id: b3fc13b3-ecc2-468c-b5fb-2df336e72f44
     key: FIN-33
     url: https://linear.app/finterm-ai/issue/FIN-33/phase-1-extract-shared-syncdocswithdefaults-function

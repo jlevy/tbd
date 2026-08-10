@@ -33,8 +33,8 @@ child_order_hints:
   - is-01ktybyydyjx5gavcach1c0jn9
 created_at: 2026-05-24T03:33:58.719Z
 updated_at: 2026-08-10T19:36:43.036Z
-linked:
-  - provider: linear
+extensions:
+  linear:
     id: 666ffd07-a190-48fe-9ce5-657967438c81
     key: FIN-56
     url: https://linear.app/finterm-ai/issue/FIN-56/modernize-multi-agent-skills-and-hooks-setup

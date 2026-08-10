@@ -14,8 +14,8 @@ dependencies: []
 parent_id: is-01ksc0qwt0v3pg3hgn35sh0s1e
 created_at: 2026-05-24T03:35:32.514Z
 updated_at: 2026-08-10T19:36:59.585Z
-linked:
-  - provider: linear
+extensions:
+  linear:
     id: bc3afdf8-1733-4996-a58b-ad81f30480f5
     key: FIN-63
     url: https://linear.app/finterm-ai/issue/FIN-63/validate-ecosystem-compatibility-and-release-metadata
