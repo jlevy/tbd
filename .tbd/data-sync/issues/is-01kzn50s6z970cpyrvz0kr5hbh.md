@@ -3,9 +3,9 @@ type: is
 id: is-01kzn50s6z970cpyrvz0kr5hbh
 title: "lib/schemas.ts + core/registry.ts: IntegrationsConfigSchema and provider registry"
 kind: task
-status: open
+status: closed
 priority: 1
-version: 3
+version: 4
 spec_path: docs/project/specs/active/plan-2026-08-10-external-tracker-integrations.md
 labels: []
 dependencies:
@@ -15,6 +15,8 @@ dependencies:
     target: is-01kzn50xxkvctdk2803abt4aaz
 parent_id: is-01kzn2w8hvc83qrgk9h70rf73y
 created_at: 2026-08-10T06:16:05.086Z
-updated_at: 2026-08-10T06:16:09.906Z
+updated_at: 2026-08-10T17:35:53.856Z
+closed_at: 2026-08-10T17:35:53.856Z
+close_reason: Implemented in claude/linear-integration (c23d14d7, 3f1354e9, eb2c5bcf). Verified by 1561 vitest tests and a live check against the Linear API.
 ---
 IntegrationsConfigSchema: { sync_on_tbd_sync, linear: { enabled, team_key, select: { kinds, statuses, labels, linked }, create_labels, max_nesting, user_map } }. Optional on ConfigSchema so existing configs are untouched. registry.ts: providerFor(refOrName) inferring provider from ref shape (FIN-123, Linear URL, owner/repo#123) and configured() listing enabled providers. Spec Component 6.

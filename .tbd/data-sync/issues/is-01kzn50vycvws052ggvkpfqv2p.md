@@ -5,7 +5,7 @@ title: "lib/schemas.ts: LinkedEntrySchema, linked and last_actor fields, format 
 kind: task
 status: open
 priority: 1
-version: 4
+version: 5
 spec_path: docs/project/specs/active/plan-2026-08-10-external-tracker-integrations.md
 labels: []
 dependencies:
@@ -17,6 +17,10 @@ dependencies:
     target: is-01kzn5121n6gc6xk9w710631cf
 parent_id: is-01kzn2w9gdhb0xt2hztn7v0aha
 created_at: 2026-08-10T06:16:07.883Z
-updated_at: 2026-08-10T06:16:14.132Z
+updated_at: 2026-08-10T17:36:02.806Z
 ---
 LinkedEntrySchema { provider, id (provider UUID, canonical), key (display), url, linked_at }. linked: optional array on IssueSchema; last_actor: optional string set from TBD_ACTOR by mutating commands. UUID is canonical because Linear identifiers move between teams. Zod strip mode discards unknown frontmatter on write, so an older CLI would silently drop these: bump tbd_format to gate. Spec Component 3.
+
+## Notes
+
+Fields, merge rules, and tbd show display are done. NOT done: the tbd_format compatibility gate. Zod strip mode means an older CLI silently drops linked/last_actor on rewrite, so the gate is required before any repo relies on these fields.
