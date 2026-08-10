@@ -1,49 +1,91 @@
 ---
 type: is
 id: is-01kzpbwxn4kkdjsaqc9tn243w5
-title: Test suites are non-deterministic under full parallel runs (vitest and tryscript)
+title: "doctor --fix: migration commit intermittently missing from the sync-branch tip"
 kind: bug
 status: open
-priority: 2
-version: 4
+priority: 1
+version: 7
 labels: []
 dependencies: []
 created_at: 2026-08-10T17:35:33.027Z
-updated_at: 2026-08-10T19:51:41.847Z
+updated_at: 2026-08-10T22:52:00.252Z
 ---
-Running `pnpm --filter get-tbd test:tryscript` on identical code produces a
-different set of failures each time.
+Root-caused as far as the evidence allows. This is **not** test flakiness in the
+usual sense, and two earlier hypotheses in this bead were wrong.
 
-Observed on branch claude/linear-integration, four consecutive runs, no code
-change between them:
+## What was ruled out
 
-| Run | Duration | Failures |
-| --- | --- | --- |
-| 1 | 2351s | 2 (cli-sync-migration-bug, cli-sync-unrelated-rescue) |
-| 2 | 346s | 3 |
-| 3 | ~380s | 0 |
-| 4 | 382s | 1 |
+- **Parallel contention between test files.** tryscript runs files serially
+  (`for (const filePath of testFiles)` in its `dist/bin.mjs`). There is no
+  cross-file parallelism to contend for.
+- **Timeouts.** The suspect files declare `timeout: 60000` and complete in about
+  6s each in isolation. The observed failures are assertion mismatches, not
+  timeouts.
+- **Leaked sandboxes or disk exhaustion.** Sandboxes are cleaned up; TMPDIR held
+  only 338M.
 
-Every failing file passes deterministically when run in isolation:
+## What actually fails
 
-    pnpm --filter get-tbd exec tryscript run tests/cli-sync-migration-bug.tryscript.md
-    pnpm --filter get-tbd exec tryscript run tests/cli-sync-unrelated-rescue.tryscript.md
+Reproduced under CPU load (8 spin loops on a 10-core machine) in
+`cli-sync-migration-bug.tryscript.md`, three assertions in one run:
 
-Both pass, 18/18 and 12/12.
+```
+✗ Check worktree git status - should have committed migration
+  @@ -1,1 +1,1 @@
+  -[..] tbd: migrate [..] file(s) from incorrect location
+  +b69a0b6 tbd sync: 2026-08-10T22-46-47 (3 files)
 
-All observed failures are in sync/worktree/git-heavy scripts. The likely cause is
-contention between parallel tryscript sandboxes doing concurrent git operations,
-but this is NOT root-caused. It should not be assumed benign: an intermittent
-failure in the sync tests could equally be masking a real race in the sync code.
+✗ Check local sync branch - should point to migration commit   (same diff)
 
-Next steps:
-- Determine whether tryscript runs files in parallel and whether the degree is
-  configurable.
-- Capture the actual assertion diff from a failing parallel run (the summary
-  output alone does not include it).
-- Check for shared state between sandboxes: global git config, TMPDIR reuse,
-  or a shared GIT_COMMON_DIR.
+✗ Check ahead count - should be at least 1 commit ahead of remote
+  Expected exit code 0, got 1
+```
+
+After `tbd doctor --fix`, the tip of the sync branch was the *setup's* sync
+commit rather than the migration commit, and the branch was not ahead of the
+remote. The preceding assertion ("migration created files in correct worktree
+location") still passed, because it is a filesystem check: the files moved, but
+the commit recording that move was not at the tip.
+
+## Lead worth pulling
+
+A clean `doctor --fix` run leaves an uncommitted change behind:
+
+```
+$ git -C <worktree> status --porcelain
+ M .tbd/data-sync/mappings/ids.yml
+```
+
+Any later operation that commits pending worktree state produces a
+`tbd sync: ...` commit. If that can interleave with, or substitute for, the
+dedicated migration commit, it explains the observed tip exactly.
+
+## Why it matters
+
+The affected code is `doctor --fix` migration and sync commit sequencing, not
+integration work. An intermittently missing commit on the sync branch means a
+migration can appear to succeed on disk while never being recorded, which is a
+correctness problem rather than a test problem.
+
+## Reproduction
+
+```
+cd packages/tbd
+# generate load: 8 background spin loops on a 10-core machine
+pnpm exec tryscript run tests/cli-sync-migration-bug.tryscript.md
+```
+
+Intermittent: roughly one run in three under load, clean without it. Full-suite
+runs on identical code have produced 2, 3, 0, 1, and 0 failures.
+
+## Note for whoever picks this up
+
+Three CI failures were initially blamed on this bead and were unrelated: they
+were deterministic golden mismatches from the integration branch (a new `tbd
+integration` command in `--help`, two new `doctor` checks, a new docs section),
+fixed in bca0cbcd. Read the diff before attributing a failure here.
 
 ## Notes
 
-Also observed in vitest, not only tryscript: two consecutive full runs on identical code gave 1 failure then 0 failures (1575 tests). Whatever the shared-state or contention problem is, it is not specific to the tryscript sandbox harness.
+IMPORTANT correction: three CI failures initially attributed to this bead were NOT flakiness. They were deterministic golden failures caused by branch claude/linear-integration (new integration command in --help, two new doctor checks, a new docs section) and are fixed in bca0cbcd. Do not assume a failure belongs to this bead without reading it: the genuine non-determinism is confined to sync/worktree-heavy scripts, and the full suite has since run 1076/1076 clean.
