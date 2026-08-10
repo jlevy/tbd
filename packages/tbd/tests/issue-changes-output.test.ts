@@ -11,7 +11,6 @@ const colors = createColors('never');
 describe('formatIssueChangesReport', () => {
   it('explains when a pathological text diff was intentionally omitted', () => {
     const report: IssueChangesReport = {
-      format_version: 1,
       since: 'a'.repeat(40),
       tip: 'b'.repeat(40),
       changes: [

@@ -68,7 +68,6 @@ interface IssueChange {
 }
 
 interface ChangeReport {
-  formatVersion: number;
   since: string;
   tip: string;
   changes: IssueChange[];
@@ -205,7 +204,6 @@ function requiredString(record: Record<string, unknown>, key: string, label: str
 function parseChangeReport(text: string, label: string): ChangeReport {
   const value = parseJson(text, label);
   assertCondition(isRecord(value), `${label} must be a JSON object`);
-  assertCondition(value.format_version === 1, `${label}.format_version must equal 1`);
   assertCondition(Array.isArray(value.changes), `${label}.changes must be an array`);
 
   const changes = value.changes.map((rawChange, changeIndex): IssueChange => {
@@ -236,7 +234,6 @@ function parseChangeReport(text: string, label: string): ChangeReport {
   });
 
   return {
-    formatVersion: value.format_version,
     since: requiredString(value, 'since', label),
     tip: requiredString(value, 'tip', label),
     changes,
@@ -572,7 +569,6 @@ async function main(): Promise<void> {
       expectExit(watched, 0, 'tbd watch');
       assertCondition(watched.stderr === '', `tbd watch wrote diagnostics: ${watched.stderr}`);
       const report = parseChangeReport(watched.stdout, 'watch report');
-      assertCondition(report.formatVersion === 1, 'Watch report format changed');
       assertCondition(
         report.since === unrelatedTip,
         'Watch did not preserve the requested resume tip',
