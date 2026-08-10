@@ -5,11 +5,11 @@ title: "doctor --fix: migration commit intermittently missing from the sync-bran
 kind: bug
 status: open
 priority: 1
-version: 7
+version: 8
 labels: []
 dependencies: []
 created_at: 2026-08-10T17:35:33.027Z
-updated_at: 2026-08-10T22:52:00.252Z
+updated_at: 2026-08-10T23:34:11.488Z
 ---
 Root-caused as far as the evidence allows. This is **not** test flakiness in the
 usual sense, and two earlier hypotheses in this bead were wrong.
@@ -88,4 +88,4 @@ fixed in bca0cbcd. Read the diff before attributing a failure here.
 
 ## Notes
 
-IMPORTANT correction: three CI failures initially attributed to this bead were NOT flakiness. They were deterministic golden failures caused by branch claude/linear-integration (new integration command in --help, two new doctor checks, a new docs section) and are fixed in bca0cbcd. Do not assume a failure belongs to this bead without reading it: the genuine non-determinism is confined to sync/worktree-heavy scripts, and the full suite has since run 1076/1076 clean.
+Partial progress in 64767eab. The silent-and-destructive failure mode is removed: migrateDataToWorktree now verifies files are recorded in the committed tree before deleting the source, and reports committed true/false rather than assuming. The intermittency itself is NOT fixed and this bead stays open. Repro harness checked in at packages/tbd/scripts/repro-migration-commit.sh; it has not yet caught the failure. Ruled out with evidence: serial test execution (no cross-file parallelism), timeouts (60s allowed vs ~6s actual), sandbox leaks/disk, and CPU load alone (load 15.98 on 10 cores, 8-10 iterations, no reproduction).
