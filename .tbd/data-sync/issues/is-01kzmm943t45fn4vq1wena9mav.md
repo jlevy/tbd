@@ -5,7 +5,7 @@ title: Add watch release smoke script and validation plan
 kind: task
 status: closed
 priority: 1
-version: 5
+version: 6
 spec_path: docs/project/specs/active/plan-2026-07-19-bead-watch-and-external-sync.md
 labels:
   - bead-watch
@@ -15,7 +15,7 @@ dependencies:
     target: is-01kzmm9dhgj1ygc3qysrehs66v
 parent_id: is-01kzmm8zqnf8q210etncddjn6h
 created_at: 2026-08-10T01:23:32.601Z
-updated_at: 2026-08-10T01:47:07.324Z
+updated_at: 2026-08-10T01:47:42.660Z
 closed_at: 2026-08-10T01:47:07.323Z
 close_reason: Added the repeatable two-clone release smoke and isolated-package entrypoint, full release validation plan, and manual QA playbook; fixed the remote-tracking refmap regression found by the smoke. Validated 18 focused tests, the source and packed-artifact smokes, precommit (100 files/1,451 tests), 1,068 tryscript cases, publint, package age, formatting, and documentation links.
 ---
@@ -23,4 +23,4 @@ Implement and execute a deterministic release-candidate smoke script over a real
 
 ## Notes
 
-Implemented packages/tbd/scripts/validate-watch-release.ts and pnpm qa:watch-release; added tests/qa/watch-infrastructure-release.qa.md and valid-2026-08-09-bead-watch-release.md; reconciled the active plan. The first two-clone safety run exposed origin/tbd-sync advancing via Git's configured refmap. Added a red/green focused regression and fixed private fetch with --refmap=. Targeted 18/18 and the full release smoke now pass. Full gates, commit, push, PR update, and exact-head CI remain.
+Completed release smoke runner, QA playbook, validation plan, active-spec reconciliation, and Git refmap isolation fix. Passed focused 18/18, source and isolated-prefix tarball smokes, precommit (100 files/1,451 tests), 1,068 tryscript cases, publint, package age, formatting, and documentation-link validation. Manual release evidence remains only on tbd-t750.
