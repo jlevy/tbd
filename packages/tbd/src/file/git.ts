@@ -554,10 +554,87 @@ function unionArrays<T>(a: T[], b: T[]): T[] {
 }
 
 /**
+ * Recorded in the attic when a namespace deletion lost to a concurrent edit.
+ * Distinguishes "the deletion was discarded" from "a null value was discarded".
+ */
+export const DELETED_NAMESPACE = '<deleted>';
+
+/**
  * A value that is a plain object (not an array, not null).
  */
 function isPlainObject(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+/**
+ * Merge `extensions` one top-level namespace at a time.
+ *
+ * Namespaces are independent: two writers touching `github` and `linear` must
+ * both survive. Only a namespace that both sides changed differently is a real
+ * conflict, and only that namespace is reported lost.
+ */
+/** Outcome for one namespace: present with a value, or intentionally absent. */
+type NamespaceResolution = { present: true; value: unknown } | { present: false };
+
+/**
+ * Merge one namespace three ways.
+ *
+ * Absence is a value here, not a gap: a namespace removed since the base was
+ * *deleted* on purpose (`tbd integration unlink`), and a two-way presence check
+ * cannot tell that apart from "the other side simply never had it". Getting this
+ * wrong silently resurrects an unlinked bead, so deletion is treated as an edit
+ * like any other.
+ */
+function resolveNamespace(
+  namespace: string,
+  base: Record<string, unknown>,
+  local: Record<string, unknown>,
+  remote: Record<string, unknown>,
+  onConflict: (namespace: string, lost: unknown, winner: unknown) => void,
+  localWins: boolean,
+): NamespaceResolution {
+  const inBase = Object.hasOwn(base, namespace);
+  const inLocal = Object.hasOwn(local, namespace);
+  const inRemote = Object.hasOwn(remote, namespace);
+
+  const localChanged = inLocal ? !deepEqual(local[namespace], base[namespace]) || !inBase : inBase;
+  const remoteChanged = inRemote
+    ? !deepEqual(remote[namespace], base[namespace]) || !inBase
+    : inBase;
+
+  // Unchanged on both sides: carry the base through untouched.
+  if (!localChanged && !remoteChanged) {
+    return inBase ? { present: true, value: base[namespace] } : { present: false };
+  }
+  // Exactly one side edited: take that edit, including a deletion.
+  if (localChanged && !remoteChanged) {
+    return inLocal ? { present: true, value: local[namespace] } : { present: false };
+  }
+  if (remoteChanged && !localChanged) {
+    return inRemote ? { present: true, value: remote[namespace] } : { present: false };
+  }
+
+  // Both edited. Agreement is not a conflict, including agreeing to delete.
+  if (!inLocal && !inRemote) {
+    return { present: false };
+  }
+  if (inLocal && inRemote && deepEqual(local[namespace], remote[namespace])) {
+    return { present: true, value: local[namespace] };
+  }
+
+  // Delete on one side, edit on the other. Keep the edit: re-deleting is cheap,
+  // whereas recovering a discarded link means hunting down the external issue.
+  // The discarded deletion is still reported so it is not silent.
+  if (!inLocal || !inRemote) {
+    const survivor = inLocal ? local[namespace] : remote[namespace];
+    onConflict(namespace, DELETED_NAMESPACE, survivor);
+    return { present: true, value: survivor };
+  }
+
+  const winner = localWins ? local[namespace] : remote[namespace];
+  const loser = localWins ? remote[namespace] : local[namespace];
+  onConflict(namespace, loser, winner);
+  return { present: true, value: winner };
 }
 
 /**
@@ -579,38 +656,16 @@ function mergeNamespaces(
   const remote = isPlainObject(remoteVal) ? remoteVal : {};
 
   const merged: Record<string, unknown> = {};
-  for (const namespace of new Set([...Object.keys(local), ...Object.keys(remote)])) {
-    const inLocal = Object.hasOwn(local, namespace);
-    const inRemote = Object.hasOwn(remote, namespace);
-
-    if (!inRemote) {
-      merged[namespace] = local[namespace];
-      continue;
+  // Base keys are included so a namespace deleted on one side is still visited.
+  for (const namespace of new Set([
+    ...Object.keys(base),
+    ...Object.keys(local),
+    ...Object.keys(remote),
+  ])) {
+    const resolution = resolveNamespace(namespace, base, local, remote, onConflict, localWins);
+    if (resolution.present) {
+      merged[namespace] = resolution.value;
     }
-    if (!inLocal) {
-      merged[namespace] = remote[namespace];
-      continue;
-    }
-    if (deepEqual(local[namespace], remote[namespace])) {
-      merged[namespace] = local[namespace];
-      continue;
-    }
-
-    // Both present and different: one side may simply be unchanged from base.
-    const baseNamespace = base[namespace];
-    if (deepEqual(local[namespace], baseNamespace)) {
-      merged[namespace] = remote[namespace];
-      continue;
-    }
-    if (deepEqual(remote[namespace], baseNamespace)) {
-      merged[namespace] = local[namespace];
-      continue;
-    }
-
-    const winner = localWins ? local[namespace] : remote[namespace];
-    const loser = localWins ? remote[namespace] : local[namespace];
-    merged[namespace] = winner;
-    onConflict(namespace, loser, winner);
   }
   return merged;
 }
