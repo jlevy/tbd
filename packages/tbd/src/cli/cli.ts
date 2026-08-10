@@ -27,6 +27,7 @@ import { labelCommand } from './commands/label.js';
 import { depCommand } from './commands/dep.js';
 import { syncCommand } from './commands/sync.js';
 import { changesCommand } from './commands/changes.js';
+import { integrationCommand } from './commands/integration.js';
 import { watchCommand } from './commands/watch.js';
 import { searchCommand } from './commands/search.js';
 import { statusCommand } from './commands/status.js';
@@ -119,6 +120,7 @@ function createProgram(): Command {
   program.addCommand(saveCommand);
   program.addCommand(statusCommand);
   program.addCommand(statsCommand);
+  program.addCommand(integrationCommand);
 
   program.commandsGroup('Maintenance:');
   program.addCommand(doctorCommand);

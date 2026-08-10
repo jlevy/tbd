@@ -42,6 +42,9 @@ import {
   AGENT_INTEGRATION_FORMAT,
 } from '../../lib/integration-paths.js';
 import { validateIssueId, extractUlidFromInternalId } from '../../lib/ids.js';
+import { findHierarchyProblems } from '../../lib/issue-hierarchy.js';
+import { integrationsInert } from '../../integrations/core/registry.js';
+import { integrationStatus } from '../../integrations/core/status.js';
 import { git } from '../../file/git.js';
 import {
   checkGitVersion,
@@ -344,10 +347,23 @@ class DoctorHandler extends BaseCommand {
       await this.safeCheck('Unique IDs', async () => this.checkDuplicateIds(this.issues)),
     );
 
+    // Check 5a: Parent hierarchy cycles. A cycle makes every ancestor walk
+    // non-terminating, so it is worth reporting even in stores written before
+    // the write-path guard existed.
+    healthChecks.push(
+      await this.safeCheck('Issue hierarchy', () =>
+        Promise.resolve(this.checkHierarchy(this.issues)),
+      ),
+    );
+
     // Check 5b: Merge conflict markers in ids.yml
     healthChecks.push(
       await this.safeCheck('ID mapping conflicts', () => this.checkIdMappingConflicts(options.fix)),
     );
+
+    // Check 5c: External integrations. Skipped entirely when none is enabled, so
+    // doctor stays green and offline for repositories that never use them.
+    healthChecks.push(await this.safeCheck('Integrations', () => this.checkIntegrations()));
 
     // Check 6: Duplicate mapping keys in ids.yml
     healthChecks.push(
@@ -728,6 +744,70 @@ class DoctorHandler extends BaseCommand {
       details: orphans,
       fixable: true,
       suggestion: 'Run: tbd doctor --fix',
+    };
+  }
+
+  /**
+   * Report `parent_id` cycles and over-deep chains.
+   *
+   * The write path now refuses to create either, but a store written by an
+   * older CLI can still contain one, and a cycle hangs every ancestor walk.
+   */
+  private checkHierarchy(issues: Issue[]): DiagnosticResult {
+    const problems = findHierarchyProblems(issues);
+    if (problems.length === 0) {
+      return { name: 'Issue hierarchy', status: 'ok' };
+    }
+
+    return {
+      name: 'Issue hierarchy',
+      status: 'error',
+      message: `${problems.length} issue(s) with a parent cycle or excessive depth`,
+      details: problems.map(
+        ({ issueId, problem }) =>
+          `${issueId}: ${problem.kind === 'cycle' ? 'parent cycle' : `nested ${problem.depth} levels`}`,
+      ),
+      suggestion: 'Clear the parent with: tbd update <id> --parent ""',
+    };
+  }
+
+  /**
+   * Report integration readiness.
+   *
+   * Returns `ok` and makes no network call when no integration is enabled, so
+   * `doctor` stays green and offline for repositories that never use one.
+   */
+  private async checkIntegrations(): Promise<DiagnosticResult> {
+    if (!this.config || integrationsInert(this.config)) {
+      return { name: 'Integrations', status: 'ok', message: 'none enabled' };
+    }
+
+    // Offline: doctor should not depend on a reachable third-party API.
+    const status = await integrationStatus({ config: this.config, repoRoot: this.cwd });
+    const problems: string[] = [];
+
+    if (status.envFile.state === 'error') {
+      problems.push(`${status.envFile.label}: ${status.envFile.detail}`);
+    }
+    for (const provider of status.providers) {
+      for (const finding of provider.findings) {
+        if (finding.state === 'error') {
+          problems.push(`${provider.provider} ${finding.label}: ${finding.detail}`);
+        }
+      }
+    }
+
+    if (problems.length === 0) {
+      const enabled = status.providers.filter((p) => p.enabled).map((p) => p.provider);
+      return { name: 'Integrations', status: 'ok', message: enabled.join(', ') };
+    }
+
+    return {
+      name: 'Integrations',
+      status: 'error',
+      message: `${problems.length} integration problem(s)`,
+      details: problems,
+      suggestion: 'Run: tbd integration status',
     };
   }
 
