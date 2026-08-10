@@ -413,7 +413,13 @@ export async function commitToSyncBranch(
 /**
  * Field-level merge strategy types.
  */
-type MergeStrategy = 'lww' | 'union' | 'max' | 'immutable';
+type MergeStrategy =
+  | 'lww'
+  | 'union'
+  | 'max'
+  | 'immutable'
+  | 'namespace_merge'
+  | 'linked_single_source';
 
 /**
  * Field-level merge strategies for Issue fields.
@@ -445,13 +451,20 @@ const FIELD_STRATEGIES: Record<keyof Issue, MergeStrategy> = {
   due_date: 'lww',
   deferred_until: 'lww',
   spec_path: 'lww',
+  last_actor: 'lww',
 
   // Union - combine arrays, deduplicate
   labels: 'union',
   dependencies: 'union',
 
-  // Extensions - LWW for whole object
-  extensions: 'lww',
+  // Merged per top-level namespace, not as one opaque value: two writers touching
+  // different namespaces must both survive. Whole-object LWW here silently
+  // dropped one side's namespace.
+  extensions: 'namespace_merge',
+
+  // At most one external source per bead. Concurrent links to different sources
+  // collapse to the newest, with the loser preserved in the attic.
+  linked: 'linked_single_source',
 };
 
 /**
@@ -548,6 +561,102 @@ function unionArrays<T>(a: T[], b: T[]): T[] {
     }
   }
   return result;
+}
+
+/**
+ * A value that is a plain object (not an array, not null).
+ */
+function isPlainObject(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+/**
+ * Merge `extensions` one top-level namespace at a time.
+ *
+ * Namespaces are independent: two writers touching `github` and `linear` must
+ * both survive. Only a namespace that both sides changed differently is a real
+ * conflict, and only that namespace is reported lost.
+ */
+function mergeNamespaces(
+  baseVal: unknown,
+  localVal: unknown,
+  remoteVal: unknown,
+  onConflict: (namespace: string, lost: unknown, winner: unknown) => void,
+  localWins: boolean,
+): Record<string, unknown> {
+  const base = isPlainObject(baseVal) ? baseVal : {};
+  const local = isPlainObject(localVal) ? localVal : {};
+  const remote = isPlainObject(remoteVal) ? remoteVal : {};
+
+  const merged: Record<string, unknown> = {};
+  for (const namespace of new Set([...Object.keys(local), ...Object.keys(remote)])) {
+    const inLocal = Object.hasOwn(local, namespace);
+    const inRemote = Object.hasOwn(remote, namespace);
+
+    if (!inRemote) {
+      merged[namespace] = local[namespace];
+      continue;
+    }
+    if (!inLocal) {
+      merged[namespace] = remote[namespace];
+      continue;
+    }
+    if (deepEqual(local[namespace], remote[namespace])) {
+      merged[namespace] = local[namespace];
+      continue;
+    }
+
+    // Both present and different: one side may simply be unchanged from base.
+    const baseNamespace = base[namespace];
+    if (deepEqual(local[namespace], baseNamespace)) {
+      merged[namespace] = remote[namespace];
+      continue;
+    }
+    if (deepEqual(remote[namespace], baseNamespace)) {
+      merged[namespace] = local[namespace];
+      continue;
+    }
+
+    const winner = localWins ? local[namespace] : remote[namespace];
+    const loser = localWins ? remote[namespace] : local[namespace];
+    merged[namespace] = winner;
+    onConflict(namespace, loser, winner);
+  }
+  return merged;
+}
+
+/**
+ * Resolve `linked` to at most one entry.
+ *
+ * A bead is attached to at most one external source so every sync is a single
+ * pair resolved against a single base. If both sides linked different sources
+ * concurrently, the newest `linked_at` wins and the loser goes to the attic.
+ */
+function collapseLinked(
+  localVal: unknown,
+  remoteVal: unknown,
+): { merged: unknown[]; lost: unknown[] } {
+  const asEntries = (value: unknown): unknown[] =>
+    Array.isArray(value) ? (value as unknown[]) : [];
+  const entries: unknown[] = [...asEntries(localVal), ...asEntries(remoteVal)];
+  // Seed from empty so duplicates within `entries` are also removed: the two
+  // sides normally carry the identical link, and that is not a conflict.
+  const unique = unionArrays<unknown>([], entries);
+  if (unique.length <= 1) {
+    return { merged: unique, lost: [] };
+  }
+
+  const linkedAt = (entry: unknown): number => {
+    const at = isPlainObject(entry) ? entry.linked_at : undefined;
+    const parsed = typeof at === 'string' ? Date.parse(at) : Number.NaN;
+    return Number.isNaN(parsed) ? 0 : parsed;
+  };
+  // Sort newest first, breaking ties deterministically so both replicas agree.
+  const sorted = [...unique].sort((a, b) => {
+    const delta = linkedAt(b) - linkedAt(a);
+    return delta !== 0 ? delta : JSON.stringify(a).localeCompare(JSON.stringify(b));
+  });
+  return { merged: sorted.slice(0, 1), lost: sorted.slice(1) };
 }
 
 /**
@@ -728,6 +837,51 @@ export function mergeIssues(base: Issue | null, local: Issue, remote: Issue): Me
           remoteVal as number,
         );
         break;
+
+      case 'namespace_merge': {
+        // Per-namespace merge; only a namespace both sides changed conflicts.
+        const nsLocalTime = new Date(local.updated_at).getTime();
+        const nsRemoteTime = new Date(remote.updated_at).getTime();
+        (merged as Record<string, unknown>)[key] = mergeNamespaces(
+          baseVal,
+          localVal,
+          remoteVal,
+          (namespace, lost, winner) => {
+            conflicts.push(
+              createConflictEntry(
+                local.id,
+                `${field}.${namespace}`,
+                lost,
+                winner,
+                local.version,
+                remote.version,
+                'lww',
+              ),
+            );
+          },
+          nsLocalTime >= nsRemoteTime,
+        );
+        break;
+      }
+
+      case 'linked_single_source': {
+        const { merged: kept, lost } = collapseLinked(localVal, remoteVal);
+        (merged as Record<string, unknown>)[key] = kept;
+        for (const loser of lost) {
+          conflicts.push(
+            createConflictEntry(
+              local.id,
+              field,
+              loser,
+              kept[0],
+              local.version,
+              remote.version,
+              'lww',
+            ),
+          );
+        }
+        break;
+      }
     }
   }
 

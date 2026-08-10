@@ -125,6 +125,27 @@ export const Dependency = z.object({
 });
 
 /**
+ * External tracker providers that a bead can be linked to.
+ */
+export const ProviderName = z.enum(['linear', 'github']);
+
+/**
+ * A link from a bead to an item in an external tracker.
+ *
+ * `id` is the provider's stable internal identifier and is the canonical key:
+ * human identifiers like Linear's `FIN-123` change when an issue moves between
+ * teams, but the UUID does not. `key` and `url` are display conveniences and are
+ * refreshed on each sync.
+ */
+export const LinkedEntry = z.object({
+  provider: ProviderName,
+  id: z.string().min(1),
+  key: z.string().min(1).nullable().optional(),
+  url: z.string().min(1).nullable().optional(),
+  linked_at: Timestamp,
+});
+
+/**
  * Full issue schema.
  *
  * Field order is canonical and mirrored by ISSUE_FIELD_ORDER below:
@@ -178,6 +199,15 @@ export const IssueSchema = BaseEntity.extend({
   created_by: z.string().nullable().optional(),
   closed_at: Timestamp.nullable().optional(),
   close_reason: z.string().nullable().optional(),
+
+  // External tracker links. At most one entry (one bead, one external source) so
+  // every sync is a single pair resolved against a single base. The array shape
+  // is kept for forward compatibility; `mergeIssues` collapses extras.
+  linked: z.array(LinkedEntry).nullable().optional(),
+
+  // Actor that last mutated this issue, from TBD_ACTOR. Lets watch consumers and
+  // the integration sync skip their own writes.
+  last_actor: z.string().nullable().optional(),
 });
 
 // =============================================================================
@@ -303,6 +333,57 @@ export const UpgradeEntrySchema = z.object({
   at: Timestamp.optional(),
 });
 
+/**
+ * Which beads an integration mirrors outward.
+ *
+ * The default is epics in an active status: the point of the mirror is the
+ * filter, so mirroring the whole store would defeat it. Explicitly linked beads
+ * are always included regardless of these predicates.
+ */
+export const IntegrationSelectSchema = z.object({
+  kinds: z.array(IssueKind).default(['epic']),
+  statuses: z.array(IssueStatus).default(['open', 'in_progress', 'blocked']),
+  labels: z.array(z.string()).default([]),
+  linked: z.boolean().default(true),
+});
+
+/**
+ * Settings shared by every provider.
+ */
+const IntegrationProviderBase = {
+  enabled: z.boolean().default(false),
+  select: IntegrationSelectSchema.default({}),
+  /**
+   * Levels of sub-issue nesting to mirror. Linear's data model nests without
+   * limit, but its views flatten past roughly two levels, so deeper structure
+   * stays in beads where `tbd dep` can render it.
+   */
+  max_nesting: z.number().int().min(1).max(5).default(2),
+};
+
+export const LinearIntegrationSchema = z.object({
+  ...IntegrationProviderBase,
+  /** Linear team key, e.g. "FIN". Required when enabled. */
+  team_key: z.string().min(1).optional(),
+  /** Create labels that do not yet exist in the team on push. */
+  create_labels: z.boolean().default(true),
+  /** Maps a tbd assignee string to a Linear user email or UUID. */
+  user_map: z.record(z.string(), z.string()).default({}),
+});
+
+export const GithubIntegrationSchema = z.object({
+  ...IntegrationProviderBase,
+  /** Repository as "owner/name". Required when enabled. */
+  repo: z.string().min(1).optional(),
+});
+
+export const IntegrationsConfigSchema = z.object({
+  /** Run enabled integrations as part of plain `tbd sync`. Off by default. */
+  sync_on_tbd_sync: z.boolean().default(false),
+  linear: LinearIntegrationSchema.optional(),
+  github: GithubIntegrationSchema.optional(),
+});
+
 export const ConfigSchema = z.object({
   /**
    * Format version for the .tbd/ directory structure.
@@ -359,6 +440,11 @@ export const ConfigSchema = z.object({
    * See DocsCacheSchema for structure details.
    */
   docs_cache: DocsCacheSchema.optional(),
+  /**
+   * External tracker integrations. Absent means no integration is configured and
+   * every integration command and check is inert.
+   */
+  integrations: IntegrationsConfigSchema.optional(),
 });
 
 // =============================================================================

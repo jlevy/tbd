@@ -105,6 +105,8 @@ const ISSUE_CHANGE_FIELD_ORDER = {
   created_at: true,
   closed_at: true,
   close_reason: true,
+  linked: true,
+  last_actor: true,
   extensions: true,
 } as const satisfies Record<IssueChangeField, true>;
 
