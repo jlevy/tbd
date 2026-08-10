@@ -16,8 +16,8 @@ author: Joshua Levy (github.com/jlevy) with LLM assistance
 A single optional command, `tbd web`, serves a loopback-only page that renders the bead
 graph and updates itself as committed state moves.
 It is a read-first view built on the watch infrastructure from
-`plan-2026-07-19-bead-watch-and-external-sync.md`: the same `format_version: 1` report
-that wakes an agent also wakes a browser tab.
+`plan-2026-07-19-bead-watch-and-external-sync.md`: the same additive-only JSON report
+that wakes an agent also wakes a browser tab (see tbd-design.md §4.14).
 
 The governing constraint is that the browser must not become a second, drifting
 implementation of `tbd list`. Every filter the UI offers is a CLI flag, evaluated by the
@@ -70,8 +70,9 @@ That non-goal is real and this plan does not pretend otherwise.
 The case for revisiting it rests on §1.5 principle 6, “Progressive enhancement: core
 works standalone, bridges/UI are optional layers,” and on what has since shipped:
 
-- The watch layer now provides a versioned, provider-neutral change report with a resume
-  tip. Before it existed, a live UI would have had to invent its own change detection.
+- The watch layer now provides an additive-only, provider-neutral change report with a
+  resume tip. Before it existed, a live UI would have had to invent its own change
+  detection.
 - `issueMatchesSharedFilters` and `readyIssueIds` were extracted specifically so that
   more than one surface could share list semantics.
   A second consumer is the test of whether that extraction was worth doing.

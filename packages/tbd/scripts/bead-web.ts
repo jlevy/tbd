@@ -164,8 +164,12 @@ interface IssueChange {
   fields: ChangeField[];
 }
 
+/**
+ * The `tbd watch --json` report. It carries no version marker: like every tbd `--json`
+ * surface it evolves by addition only, so this mirror lists just the fields the viewer
+ * consumes and ignores anything newer.
+ */
 interface ChangeReport {
-  format_version: number;
   since: string;
   tip: string;
   changes: IssueChange[];
