@@ -5,8 +5,9 @@ category: workflow
 author: Joshua Levy (github.com/jlevy) with LLM assistance
 ---
 Use `tbd watch` when an agent or shell process should block until committed bead state
-changes. The command polls the configured remote sync-branch tip without touching the
-working tree, hidden data-sync worktree, or its lock.
+changes. This shortcut covers the recipes.
+For the command contract itself (selectors, `--since` baselines, the report format, exit
+codes), see the `watch`, `changes`, and “Change reports” sections of `tbd docs`.
 
 ## Choose a Selection
 
@@ -21,23 +22,15 @@ tbd watch --ready --json
 tbd watch --all --json
 ```
 
-Repeated labels are ANDed.
-Label, spec, and status watches wake when a changed bead enters, leaves, or changes
-within the selection.
-`--ready` wakes only when a bead newly becomes open, unassigned, and unblocked.
+Pick the narrowest selection that still catches the work you care about.
+A `--bead` watch is the right default for “tell me when this one thing moves.”
+`--ready` is the right default for a worker that picks up whatever becomes available,
+because it fires only on the transition into the ready set and will not re-fire while a
+bead sits there. `--all` is for bridges and mirrors that must see everything.
 
-Exit 0 means a matching change was reported, exit 3 means `--timeout` elapsed, and exit
-1 means an operational error (usage errors exit 2, as on every tbd command).
-An established watch rides out a bounded run of failed remote polls before exiting 1, so
-brief network outages do not end an unattended watch.
-At the timeout boundary, watch performs one final remote observation.
-Each observation, including any fetch, has one bounded poll-interval budget (at most 30
-seconds), so a stalled Git transport exits 1 instead of hanging indefinitely.
-The exit-0 JSON document contains `format_version`, `since`, `tip`, and `changes`; pass
-`tip` back as `--since` to avoid a gap between invocations.
-If sync recovery rewrites the sync branch, a saved `--since` baseline stops being an
-ancestor of the new tip and watch exits 1; restart the watch without `--since` to
-establish a new baseline.
+Two habits keep a long-lived watcher honest: pass the previous report’s `tip` back as
+`--since` so nothing slips through between runs, and treat exit 3 as “keep going” rather
+than as failure.
 
 ## Watch, Then Spawn an Agent
 
@@ -143,13 +136,10 @@ directory as well as the working tree and remote.
 ## Watch Inside an Agent Session
 
 For cross-agent coordination, watch the shared bead directly.
-`tbd update --notes` replaces the complete notes body; it does not append a message.
-Use notes as single-writer replaceable state, and pull before constructing a
-replacement. Concurrent notes use last-writer-wins-with-attic conflict handling, which
-preserves a loser for recovery but is not a conversation log.
-For a durable multi-writer transcript, create a child bead per message/event or use an
-external system with comment IDs.
-A future union-by-ID comments model can provide that primitive directly.
+Coordinate through bead state rather than through notes as a message log: `--notes`
+replaces the whole body, so a second writer silently drops the first writer’s text (see
+the `update` section of `tbd docs`). Pull before composing a replacement, and give each
+writer its own child bead when several agents need a durable history.
 
 ### Claude Code
 
@@ -188,14 +178,15 @@ sandbox in the disposable demo environment.
 
 ## Inspect Without Waiting
 
-Use the pure local primitive when a caller already has a baseline commit:
+When a caller already has a baseline commit and does not want to block, use `changes`
+instead. It runs against the local sync branch with no network access:
 
 ```bash
 tbd changes --since <commit> --all --json
 ```
 
-It reads only committed objects on the configured local sync branch.
-Exit 0 means matching deltas and exit 3 means none.
+This is the debugging tool for a watcher that behaved unexpectedly: replay the same
+`since` and `tip` from its report and you get the identical report back.
 
 <!-- This document follows common-doc-guidelines.md.
 See github.com/jlevy/practical-prose and review guidelines before editing.
