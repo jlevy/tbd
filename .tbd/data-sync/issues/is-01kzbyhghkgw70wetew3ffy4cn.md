@@ -5,7 +5,7 @@ title: Rework Linear pilot spec under the integration layering (extensions-first
 kind: task
 status: open
 priority: 1
-version: 3
+version: 4
 spec_path: docs/project/specs/active/plan-2026-07-19-bead-watch-and-external-sync.md
 labels:
   - linear-sync
@@ -14,7 +14,13 @@ dependencies:
     target: is-01kxz3kfz7n7y23n9rzmy28f98
 parent_id: is-01kxz3kfz7n7y23n9rzmy28f98
 created_at: 2026-08-06T16:29:43.335Z
-updated_at: 2026-08-10T01:36:54.640Z
+updated_at: 2026-08-10T19:37:31.505Z
+linked:
+  - provider: linear
+    id: 1820450c-c0ab-461f-8df7-0a1c755a59cc
+    key: FIN-85
+    url: https://linear.app/finterm-ai/issue/FIN-85/rework-linear-pilot-spec-under-the-integration-layering-extensions
+    linked_at: 2026-08-10T19:37:31.504Z
 ---
 Rework plan-2026-07-20-linear-bead-sync-pilot.md (currently on PR #197) to conform to the integration architecture in the watch-infrastructure spec: bead-side bindings in extensions.bridge (no linked schema field, no tbd_format gate for the pilot), bridge config and state in the module's own files (not .tbd/config.yml — its strip-mode policy would force a format bump), sync as a cleanly separable module invoked explicitly (not folded into tbd sync), pilot field scope narrowed to import + status writeback. Keep: single-source invariant, base-snapshot 3-way model for the fields that need it, mapping tables, verified Linear API research. Re-gate epic tbd-g305's phase beads to the reworked plan; promotion to first-class linked field / tbd bridge command / format bump happens post-pilot with evidence.
 

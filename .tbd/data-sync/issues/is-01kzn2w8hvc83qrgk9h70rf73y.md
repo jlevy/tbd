@@ -3,9 +3,9 @@ type: is
 id: is-01kzn2w8hvc83qrgk9h70rf73y
 title: "Phase 1: integration framework, .env credentials, status and doctor checks"
 kind: task
-status: open
+status: closed
 priority: 1
-version: 6
+version: 8
 spec_path: docs/project/specs/active/plan-2026-08-10-external-tracker-integrations.md
 labels: []
 dependencies: []
@@ -17,5 +17,7 @@ child_order_hints:
   - is-01kzn50shqxerds5m8kxpwmxc4
   - is-01kzn50sw125xdztxh9rqhm5mp
 created_at: 2026-08-10T05:38:39.802Z
-updated_at: 2026-08-10T06:16:05.760Z
+updated_at: 2026-08-10T19:54:57.217Z
+closed_at: 2026-08-10T19:54:57.217Z
+close_reason: "Phase 1 complete in claude/linear-integration (5300cf30). Validated live against Linear: 82 issues mirrored into the tbd project, idempotent on re-run, bulk guard enforced."
 ---

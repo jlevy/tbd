@@ -5,7 +5,7 @@ title: "Q16: Decide bundle ↔ source cardinality (1:1 vs split)"
 kind: task
 status: open
 priority: 1
-version: 4
+version: 5
 spec_path: docs/project/specs/active/plan-2026-05-07-docs-config-redesign.md
 labels: []
 dependencies:
@@ -17,7 +17,13 @@ dependencies:
     target: is-01kra98tffpc00qar6ee3zk8tv
 parent_id: is-01kra98fgac70pjft7jnarmave
 created_at: 2026-05-11T01:09:15.758Z
-updated_at: 2026-05-11T01:11:10.238Z
+updated_at: 2026-08-10T19:36:36.735Z
+linked:
+  - provider: linear
+    id: 6ee3b84b-b2fc-49ad-be84-fefeb25c8cd0
+    key: FIN-51
+    url: https://linear.app/finterm-ai/issue/FIN-51/q16-decide-bundle-source-cardinality-11-vs-split
+    linked_at: 2026-08-10T19:36:36.734Z
 ---
 Decision required before substantive Phase 2 work; gates Q17/Q18.
 

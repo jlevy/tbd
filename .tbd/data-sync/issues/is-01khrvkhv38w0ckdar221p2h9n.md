@@ -5,7 +5,7 @@ title: "Post-merge ID mapping resilience: polish and cleanup"
 kind: epic
 status: open
 priority: 2
-version: 8
+version: 9
 labels: []
 dependencies:
   - type: blocks
@@ -13,5 +13,11 @@ dependencies:
   - type: blocks
     target: is-01khrvk9vbnv3styn6hrjdxjta
 created_at: 2026-02-18T17:08:46.562Z
-updated_at: 2026-03-09T16:12:34.505Z
+updated_at: 2026-08-10T19:36:31.510Z
+linked:
+  - provider: linear
+    id: 92572d6f-5a95-40a2-9f42-f5863d6a36af
+    key: FIN-45
+    url: https://linear.app/finterm-ai/issue/FIN-45/post-merge-id-mapping-resilience-polish-and-cleanup
+    linked_at: 2026-08-10T19:36:31.509Z
 ---

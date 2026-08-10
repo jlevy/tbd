@@ -5,7 +5,7 @@ title: Release-validate bead watch infrastructure
 kind: epic
 status: in_progress
 priority: 1
-version: 9
+version: 10
 spec_path: docs/project/specs/active/plan-2026-07-19-bead-watch-and-external-sync.md
 labels:
   - bead-watch
@@ -17,7 +17,13 @@ child_order_hints:
   - is-01kzmpyc9j5y853fnrwzvptt8q
   - is-01kzmr3vyqrttcgjfzwkbyncgh
 created_at: 2026-08-10T01:23:28.116Z
-updated_at: 2026-08-10T03:00:55.746Z
+updated_at: 2026-08-10T19:37:33.488Z
+linked:
+  - provider: linear
+    id: 0c7780af-e280-430f-9356-2c1d096d9928
+    key: FIN-87
+    url: https://linear.app/finterm-ai/issue/FIN-87/release-validate-bead-watch-infrastructure
+    linked_at: 2026-08-10T19:37:33.486Z
 ---
 Own PR #205 release validation: a repeatable two-clone smoke script, a manual QA playbook for packaged artifacts and real remotes, recorded automated evidence, compatibility and rollback checks, and explicit non-gating Linear experiment boundaries.
 

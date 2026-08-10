@@ -5,10 +5,16 @@ title: "Spec: Design Docs Review"
 kind: epic
 status: open
 priority: 2
-version: 6
+version: 7
 spec_path: docs/project/specs/active/plan-2026-01-26-design-docs-review.md
 labels: []
 dependencies: []
 created_at: 2026-01-27T18:03:36.473Z
-updated_at: 2026-03-09T16:12:33.017Z
+updated_at: 2026-08-10T19:36:18.997Z
+linked:
+  - provider: linear
+    id: 4ff97087-d7be-42d6-8ee9-55702e3bc938
+    key: FIN-31
+    url: https://linear.app/finterm-ai/issue/FIN-31/spec-design-docs-review
+    linked_at: 2026-08-10T19:36:18.997Z
 ---

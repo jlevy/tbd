@@ -5,7 +5,7 @@ title: "Phase 3: Update auto-sync in DocCache to merge defaults"
 kind: task
 status: open
 priority: 2
-version: 7
+version: 8
 spec_path: docs/project/specs/active/plan-2026-01-29-unified-sync-command.md
 labels: []
 dependencies:
@@ -13,7 +13,13 @@ dependencies:
     target: is-01kg5jhee3nrrtkqa80h52p1d8
 parent_id: is-01kg5jgqscrbp94t3hb1cegr39
 created_at: 2026-01-29T19:09:03.148Z
-updated_at: 2026-03-09T16:12:33.389Z
+updated_at: 2026-08-10T19:36:22.222Z
+linked:
+  - provider: linear
+    id: 6fca87f0-1602-46fa-9d1b-b4072ed53152
+    key: FIN-35
+    url: https://linear.app/finterm-ai/issue/FIN-35/phase-3-update-auto-sync-in-doccache-to-merge-defaults
+    linked_at: 2026-08-10T19:36:22.222Z
 ---
 Update doc-cache.ts checkAutoSync() to:
 - Use syncDocsWithDefaults() instead of direct DocSync

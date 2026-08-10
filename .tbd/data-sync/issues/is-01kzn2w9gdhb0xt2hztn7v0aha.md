@@ -3,9 +3,9 @@ type: is
 id: is-01kzn2w9gdhb0xt2hztn7v0aha
 title: "Phase 1: linked + last_actor fields, extensions per-namespace merge, parent_id cycle guard"
 kind: task
-status: open
+status: closed
 priority: 1
-version: 6
+version: 8
 spec_path: docs/project/specs/active/plan-2026-08-10-external-tracker-integrations.md
 labels: []
 dependencies: []
@@ -17,5 +17,7 @@ child_order_hints:
   - is-01kzn50x091m9cpn9qyhmd5r5d
   - is-01kzn50xevpfmk7wqkag9f8bfx
 created_at: 2026-08-10T05:38:40.780Z
-updated_at: 2026-08-10T06:16:09.434Z
+updated_at: 2026-08-10T19:54:57.235Z
+closed_at: 2026-08-10T19:54:57.235Z
+close_reason: "Phase 1 complete in claude/linear-integration (5300cf30). Validated live against Linear: 82 issues mirrored into the tbd project, idempotent on re-run, bulk guard enforced."
 ---

@@ -5,7 +5,7 @@ title: "Phase 1: Basic capabilities and migration (f06+ framework backing impl)"
 kind: epic
 status: open
 priority: 1
-version: 13
+version: 14
 spec_path: docs/project/specs/active/plan-2026-05-07-docs-config-redesign.md
 labels: []
 dependencies: []
@@ -23,7 +23,13 @@ child_order_hints:
   - is-01kra9aag4p0ec6nmg1htaa128
   - is-01kra9aave6br1ysqedyccf8y5
 created_at: 2026-05-11T01:08:50.805Z
-updated_at: 2026-06-13T01:51:09.265Z
+updated_at: 2026-08-10T19:36:33.287Z
+linked:
+  - provider: linear
+    id: ba931b64-4c5b-49cc-9b3f-bcaf4d36dc0c
+    key: FIN-47
+    url: https://linear.app/finterm-ai/issue/FIN-47/phase-1-basic-capabilities-and-migration-f06-framework-backing-impl
+    linked_at: 2026-08-10T19:36:33.286Z
 ---
 Goal: existing UX preserved; new schema and modules are the backing implementation. No new user-visible features beyond what exists today.
 

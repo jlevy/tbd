@@ -5,7 +5,7 @@ title: "Phase 2: bidirectional sync with three-way base, intents, and conflict c
 kind: task
 status: open
 priority: 2
-version: 8
+version: 9
 spec_path: docs/project/specs/active/plan-2026-08-10-external-tracker-integrations.md
 labels: []
 dependencies: []
@@ -19,5 +19,11 @@ child_order_hints:
   - is-01kzn513t5rt6bak750hcvzeta
   - is-01kzn5147yrf3sw28jc7n600r7
 created_at: 2026-08-10T05:38:41.547Z
-updated_at: 2026-08-10T06:16:16.381Z
+updated_at: 2026-08-10T19:37:36.619Z
+linked:
+  - provider: linear
+    id: 8675d876-1c1a-4672-a073-5980ff8568dc
+    key: FIN-90
+    url: https://linear.app/finterm-ai/issue/FIN-90/phase-2-bidirectional-sync-with-three-way-base-intents-and-conflict
+    linked_at: 2026-08-10T19:37:36.617Z
 ---

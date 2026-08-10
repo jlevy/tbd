@@ -5,7 +5,7 @@ title: Modernize multi-agent skills and hooks setup
 kind: epic
 status: open
 priority: 1
-version: 23
+version: 24
 spec_path: docs/project/specs/active/plan-2026-05-24-multi-agent-skills-hooks-setup.md
 labels:
   - agent-skills
@@ -32,6 +32,12 @@ child_order_hints:
   - is-01ktybykhe3b5ampe085nc87ha
   - is-01ktybyydyjx5gavcach1c0jn9
 created_at: 2026-05-24T03:33:58.719Z
-updated_at: 2026-06-12T16:52:05.692Z
+updated_at: 2026-08-10T19:36:43.036Z
+linked:
+  - provider: linear
+    id: 666ffd07-a190-48fe-9ce5-657967438c81
+    key: FIN-56
+    url: https://linear.app/finterm-ai/issue/FIN-56/modernize-multi-agent-skills-and-hooks-setup
+    linked_at: 2026-08-10T19:36:43.034Z
 ---
 Bring tbd's own setup behavior and guidelines in line with the current Agent Skills ecosystem and tbd's best practices. Scope: use .agents/skills as the portable Agent Skills install target, keep .claude/skills as a Claude Code compatibility mirror, keep AGENTS.md for always-on instructions, add/confirm Codex-compatible startup and gh CLI setup behavior, ensure generated/project integration files are not accidentally gitignored, update status/doctor/tests, and run tbd setup from the local build to refresh this repository's own checked-in agent integration files.

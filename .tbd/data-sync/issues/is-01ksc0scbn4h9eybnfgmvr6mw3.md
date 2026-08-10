@@ -5,7 +5,7 @@ title: Add Codex startup and gh CLI setup parity
 kind: task
 status: open
 priority: 1
-version: 9
+version: 10
 spec_path: docs/project/specs/active/plan-2026-05-24-multi-agent-skills-hooks-setup.md
 labels:
   - codex
@@ -22,7 +22,13 @@ dependencies:
     target: is-01ksgr45bkhqwwfhpna2xytqdz
 parent_id: is-01ksc0qwt0v3pg3hgn35sh0s1e
 created_at: 2026-05-24T03:34:47.412Z
-updated_at: 2026-05-25T23:39:40.785Z
+updated_at: 2026-08-10T19:36:47.062Z
+linked:
+  - provider: linear
+    id: 3cf6fe4a-7e19-4b26-acbf-a83a96bf68ca
+    key: FIN-58
+    url: https://linear.app/finterm-ai/issue/FIN-58/add-codex-startup-and-gh-cli-setup-parity
+    linked_at: 2026-08-10T19:36:47.061Z
 ---
 setup.ts. Add Codex hook install writing .codex/hooks.json (or inline [hooks] in .codex/config.toml): SessionStart->tbd prime, PreCompact->tbd prime --brief, PostToolUse(git push)->closing reminder, SessionStart->ensure gh. Codex uses the SAME event schema as Claude (verified May 2026; command handlers only) so the mapping is ~1:1. Relocate shared scripts from .claude/scripts/ to scripts/agent/ (TBD_SESSION_SCRIPT line 126, TBD_CLOSE_PROTOCOL_SCRIPT line 250, ensure-gh-cli.sh); update CLAUDE_SESSION_HOOKS (line 210) and CLAUDE_PROJECT_HOOKS (line 231) commands to reference shared paths (or wrapper) so existing Claude hooks keep working. Codex hooks must not reference .claude/.
 

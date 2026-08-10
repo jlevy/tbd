@@ -5,7 +5,7 @@ title: Shrink generated AGENTS.md block
 kind: task
 status: open
 priority: 1
-version: 6
+version: 7
 spec_path: docs/project/specs/active/plan-2026-05-24-multi-agent-skills-hooks-setup.md
 labels:
   - agents-md
@@ -22,6 +22,12 @@ dependencies:
     target: is-01ksc0thbsjf1629exkpyd5xn7
 parent_id: is-01ksc0qwt0v3pg3hgn35sh0s1e
 created_at: 2026-05-24T19:25:43.045Z
-updated_at: 2026-05-25T23:39:37.312Z
+updated_at: 2026-08-10T19:37:08.493Z
+linked:
+  - provider: linear
+    id: c290f2a1-9b34-44d5-b151-e983ad3fabcb
+    key: FIN-67
+    url: https://linear.app/finterm-ai/issue/FIN-67/shrink-generated-agentsmd-block
+    linked_at: 2026-08-10T19:37:08.492Z
 ---
 setup.ts getCodexTbdSection() (line 97). Stop embedding full skill body + getShortcutDirectory() output. Emit a <80-150 line bootstrap: identify tbd, instruct tbd prime, tbd skill, tbd shortcut --list, tbd guidelines --list. Keep full directory in SKILL.md only. Core self-application item (current block is ~246 lines).

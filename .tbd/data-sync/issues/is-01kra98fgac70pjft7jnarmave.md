@@ -5,7 +5,7 @@ title: "Spec: Docs config redesign (f06+ framework)"
 kind: epic
 status: open
 priority: 1
-version: 11
+version: 12
 spec_path: docs/project/specs/active/plan-2026-05-07-docs-config-redesign.md
 labels: []
 dependencies: []
@@ -20,7 +20,13 @@ child_order_hints:
   - is-01kra99kg4z987hjrwwrj5wh4q
   - is-01kra99kvf2ys81vcakyb8vbzz
 created_at: 2026-05-11T01:08:40.073Z
-updated_at: 2026-06-13T01:51:08.880Z
+updated_at: 2026-08-10T19:36:32.544Z
+linked:
+  - provider: linear
+    id: 469c60b7-7a9d-4724-82a1-cd0d24d76321
+    key: FIN-46
+    url: https://linear.app/finterm-ai/issue/FIN-46/spec-docs-config-redesign-f06-framework
+    linked_at: 2026-08-10T19:36:32.543Z
 ---
 Top-level epic for the docs config redesign (f05 schema) tracked in PR #117 (https://github.com/jlevy/tbd/pull/117).
 

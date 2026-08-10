@@ -5,7 +5,7 @@ title: "Phase 1: Core Schemas & Serialization"
 kind: epic
 status: closed
 priority: 1
-version: 6
+version: 7
 labels:
   - file-layer
   - phase-1
@@ -14,12 +14,18 @@ parent_id: null
 due_date: null
 deferred_until: null
 created_at: 2026-01-15T10:00:01.000Z
-updated_at: 2026-03-09T16:12:29.554Z
+updated_at: 2026-08-10T19:35:26.566Z
 closed_at: 2026-01-16T21:55:31.083Z
 close_reason: null
 extensions:
   beads:
     imported_at: 2026-01-17T12:47:41.891Z
     original_id: tbd-101
+linked:
+  - provider: linear
+    id: f53df50f-cbd8-4069-bb90-8d27b86cc51e
+    key: FIN-14
+    url: https://linear.app/finterm-ai/issue/FIN-14/phase-1-core-schemas-and-serialization
+    linked_at: 2026-08-10T19:35:26.513Z
 ---
 Implement the File Layer with Zod schemas and YAML+Markdown serialization.

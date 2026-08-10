@@ -5,11 +5,17 @@ title: "Phase 5: self-docs migration (reference kind, register tbd-docs/tbd-desi
 kind: task
 status: in_progress
 priority: 2
-version: 2
+version: 3
 spec_path: docs/project/specs/active/plan-2026-06-11-forkable-docs.md
 labels: []
 dependencies: []
 parent_id: is-01ktxg3eqj62dhphs6dnbb30jf
 created_at: 2026-06-12T08:46:01.710Z
-updated_at: 2026-06-12T20:50:52.341Z
+updated_at: 2026-08-10T19:37:14.015Z
+linked:
+  - provider: linear
+    id: 921619b6-8e78-46c0-9a0f-d17bd5fba362
+    key: FIN-72
+    url: https://linear.app/finterm-ai/issue/FIN-72/phase-5-self-docs-migration-reference-kind-register-tbd-docstbd-design
+    linked_at: 2026-08-10T19:37:14.013Z
 ---

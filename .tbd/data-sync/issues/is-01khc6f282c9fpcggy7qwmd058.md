@@ -5,7 +5,7 @@ title: "Review & research pass: Claude Code Sub-Agents research doc"
 kind: epic
 status: open
 priority: 2
-version: 19
+version: 20
 labels: []
 dependencies:
   - type: blocks
@@ -33,6 +33,12 @@ dependencies:
   - type: blocks
     target: is-01khc6fqd73ez5ymjjkw7fgpqc
 created_at: 2026-02-13T19:08:26.241Z
-updated_at: 2026-03-09T16:12:34.258Z
+updated_at: 2026-08-10T19:36:27.790Z
+linked:
+  - provider: linear
+    id: bdb9a312-0ae7-41d1-adfb-4f229a1d62d5
+    key: FIN-41
+    url: https://linear.app/finterm-ai/issue/FIN-41/review-and-research-pass-claude-code-sub-agents-research-doc
+    linked_at: 2026-08-10T19:36:27.788Z
 ---
 Full senior technical review and research pass on docs/project/research/current/research-claude-code-sub-agents.md. Goals: (1) Verify all claims are accurate and properly cited against current docs (Feb 2026). (2) Identify gaps, inaccuracies, or stale information. (3) Research emerging agentic workflow tooling on GitHub — trending projects for sub-agent orchestration, loops, compaction, handoffs, and multi-agent coordination. (4) Find analogs and related projects that illustrate patterns discussed in the doc (outer loops, bead-managed iterations, custom delegation, agent teams). (5) Expand references section with newly discovered projects and patterns. Each child bead covers one section of the doc.

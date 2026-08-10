@@ -1,15 +1,15 @@
 ---
 type: is
 id: is-01kzpbwxn4kkdjsaqc9tn243w5
-title: Tryscript suite is non-deterministic under full parallel runs
+title: Test suites are non-deterministic under full parallel runs (vitest and tryscript)
 kind: bug
 status: open
 priority: 2
-version: 2
+version: 4
 labels: []
 dependencies: []
 created_at: 2026-08-10T17:35:33.027Z
-updated_at: 2026-08-10T17:35:44.810Z
+updated_at: 2026-08-10T19:51:41.847Z
 ---
 Running `pnpm --filter get-tbd test:tryscript` on identical code produces a
 different set of failures each time.
@@ -43,3 +43,7 @@ Next steps:
   output alone does not include it).
 - Check for shared state between sandboxes: global git config, TMPDIR reuse,
   or a shared GIT_COMMON_DIR.
+
+## Notes
+
+Also observed in vitest, not only tryscript: two consecutive full runs on identical code gave 1 failure then 0 failures (1575 tests). Whatever the shared-state or contention problem is, it is not specific to the tryscript sandbox harness.

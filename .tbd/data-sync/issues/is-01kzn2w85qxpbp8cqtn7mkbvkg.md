@@ -5,7 +5,7 @@ title: "Epic: External tracker integrations (Linear first, GitHub next)"
 kind: epic
 status: open
 priority: 1
-version: 7
+version: 8
 spec_path: docs/project/specs/active/plan-2026-08-10-external-tracker-integrations.md
 labels: []
 dependencies: []
@@ -17,5 +17,11 @@ child_order_hints:
   - is-01kzn2wa8b53y8wjh1gegbzhhx
   - is-01kzn2wakpq2963exxqhj8xkdc
 created_at: 2026-08-10T05:38:39.414Z
-updated_at: 2026-08-10T05:38:41.909Z
+updated_at: 2026-08-10T19:34:32.066Z
+linked:
+  - provider: linear
+    id: 7202337e-d1ee-4192-bb6c-c6ae42b97469
+    key: FIN-11
+    url: https://linear.app/finterm-ai/issue/FIN-11/epic-external-tracker-integrations-linear-first-github-next
+    linked_at: 2026-08-10T19:34:32.065Z
 ---
