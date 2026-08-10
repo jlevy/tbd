@@ -1329,6 +1329,115 @@ tbd sync --status           # Check what's pending
 Note: Your normal `git push` is only for code changes.
 Issue sync is separate and automatic.
 
+## External Tracker Integrations
+
+`tbd integration` mirrors selected beads outward to an external tracker so people who do
+not clone the repo can see the work.
+Linear is the first provider; GitHub is planned.
+
+This is **one-way**: beads are the source of truth and nothing is imported back.
+That is what makes it safe to run from any agent at any time.
+There is no merge and no conflict.
+
+### Setup
+
+```yaml
+# .tbd/config.yml
+integrations:
+  linear:
+    enabled: true
+    team_key: FIN
+    project: tbd # optional: file mirrored issues under a Linear project
+    select:
+      kinds: [epic]
+      statuses: [open, in_progress, blocked]
+      specs: active
+```
+
+Set `LINEAR_API_KEY` in your environment or in a **gitignored** `.env` at the repository
+root. tbd reads it but never writes it back, and refuses to treat an unignored `.env` as
+acceptable, because that is how a key gets committed.
+
+```bash
+tbd integration status          # Is it configured, credentialed, reachable?
+tbd integration status --offline # Skip the network check
+```
+
+`tbd doctor` reports the same findings.
+Both are inert when nothing is enabled.
+
+### What to mirror
+
+**Mirror the shape of the work, not the work itself.** A useful rule of thumb is around
+**10% of your beads**: the epics someone would ask about in a status meeting, plus
+whatever carries a live plan spec.
+In this repository that is 122 of 1,372 beads, or 8%.
+
+The default policy is *open epics, or anything whose `spec_path` points into
+`specs/active/`*. Kind and spec are **alternatives**, not requirements, so both “every
+open epic” and “everything with a live spec” qualify.
+Status gates both, which is what makes finished work drop out on its own.
+A spec archived out of `active/` stops being mirrored for the same reason.
+
+None of this is fixed policy.
+Set `kinds: []` to select purely by spec, `specs: none` to select purely by kind, or add
+`labels:` to require an opt-in marker.
+If the mirror stops being the thing people actually look at, it is selecting too much.
+
+### Mirroring
+
+```bash
+tbd --dry-run integration mirror        # Preview: prints every bead id it would touch
+tbd integration mirror                  # Apply the configured policy
+```
+
+Every `list` selector works here too, and **overrides** the configured policy, so a
+staged rollout needs no config edits:
+
+```bash
+tbd integration mirror --bead tbd-abc1 tbd-def2   # Exactly these
+tbd integration mirror --type epic --limit 10     # Ten epics, deterministic order
+tbd integration mirror --spec plan-2026-08-10-x.md
+```
+
+The recommended way to start is to mirror a handful, look at the result in Linear, then
+widen.
+
+Mirroring is **idempotent**. Re-running updates in place rather than creating
+duplicates, because the bead’s attachment is keyed on a stable `tbd://bead/<id>` URL. A
+failed bead is reported and the rest still mirror.
+
+### Bulk-change safety
+
+A mis-set selector can turn “a couple of epics” into “every bead in the repo”, which is
+tedious to undo by hand.
+Runs above **20 creates** or **40 updates** need affirmation:
+
+- On a terminal, you are asked to confirm.
+- With no terminal (an agent, or CI), the run is **refused** rather than prompting, so
+  it neither hangs nor silently makes a large change.
+  Pass `--yes` to proceed, or narrow with `--bead` / `--limit`.
+
+`--dry-run` is exempt: it writes nothing, and previewing should be easy.
+
+### What lands in the tracker
+
+Linear has no custom fields, so each mirrored issue carries:
+
+- A managed `<!-- tbd:begin -->` block in the description with the bead id, status,
+  priority, child counts, and a link to the plan spec.
+  **Only that block is rewritten**, so prose a human adds around it survives.
+- An attachment keyed `tbd://bead/<id>` holding the full bead field set as structured
+  metadata.
+- An attachment linking the plan spec, as a **permalink to the branch that actually has
+  it**. Specs live on the branch that authored them, so a link built from the bare path
+  would 404 depending on who follows it.
+
+Sub-issue nesting is mirrored to `max_nesting` levels (2 by default) and deeper beads
+are skipped and reported.
+Linear’s data model nests without limit, but its views flatten past about two levels, so
+deeper structure is better left in beads where `tbd dep` renders it.
+
 ## Troubleshooting
 
 ### Sync Issues

@@ -25,7 +25,21 @@ import { withDataSyncContext } from '../lib/data-context.js';
 import { listIssues, readIssue, writeIssue } from '../../file/storage.js';
 import { formatDisplayId } from '../../lib/ids.js';
 import { now } from '../../utils/time-utils.js';
-import type { Config, ProviderNameType } from '../../lib/types.js';
+import { createInterface } from 'node:readline/promises';
+
+import { checkBulkThreshold } from '../../integrations/core/bulk-guard.js';
+import { parseRepoSlug, specPermalink } from '../../integrations/core/permalink.js';
+import { git } from '../../file/git.js';
+import { resolveToInternalId } from '../../file/id-mapping.js';
+import { matchesSpecPath } from '../../lib/spec-matching.js';
+import type {
+  Config,
+  IntegrationSelect,
+  Issue,
+  IssueKindType,
+  IssueStatusType,
+  ProviderNameType,
+} from '../../lib/types.js';
 
 /**
  * Verify a credential by making the cheapest authenticated call the provider
@@ -129,7 +143,77 @@ class StatusHandler extends BaseCommand {
 
 interface MirrorOptions {
   provider?: string;
-  dryRun?: boolean;
+  /** Explicit bead IDs. Overrides every other selector. */
+  bead?: string[];
+  type?: string;
+  status?: string;
+  label?: string[];
+  spec?: string;
+  /** Cap the number mirrored, so a rollout can be staged. */
+  limit?: string;
+  /** Affirm a run that exceeds the bulk thresholds. */
+  yes?: boolean;
+}
+
+/**
+ * Resolve which beads to mirror.
+ *
+ * Precedence is explicit over implicit: named beads win outright, then any
+ * command-line selector replaces the configured policy, and only with neither
+ * does the config's `select` apply. This keeps the staged workflow
+ * (mirror a few, then more, then everything) from requiring config edits.
+ */
+function resolveSelection(
+  options: MirrorOptions,
+  allIssues: Issue[],
+  entry: { select: IntegrationSelect; provider: ProviderNameType },
+  resolveId: (id: string) => string | undefined,
+): Issue[] {
+  if (options.bead && options.bead.length > 0) {
+    const wanted = new Map<string, string>();
+    for (const ref of options.bead) {
+      const internal = resolveId(ref);
+      if (!internal) {
+        throw new CLIError(`Unknown bead: ${ref}`);
+      }
+      wanted.set(internal, ref);
+    }
+    const found = allIssues.filter((issue) => wanted.has(issue.id));
+    if (found.length !== wanted.size) {
+      const missing = [...wanted.values()].filter(
+        (ref) => !found.some((issue) => resolveId(ref) === issue.id),
+      );
+      throw new CLIError(`Bead not found in the store: ${missing.join(', ')}`);
+    }
+    return found;
+  }
+
+  const usesFlags =
+    options.type !== undefined ||
+    options.status !== undefined ||
+    options.spec !== undefined ||
+    (options.label !== undefined && options.label.length > 0);
+
+  const select: IntegrationSelect = usesFlags
+    ? {
+        kinds: options.type ? [options.type as IssueKindType] : [],
+        statuses: options.status ? [options.status as IssueStatusType] : [],
+        labels: options.label ?? [],
+        // A --spec flag means "beads carrying a spec"; the value narrows further
+        // below via the shared matcher.
+        specs: options.spec !== undefined ? 'any' : 'none',
+        linked: false,
+      }
+    : entry.select;
+
+  let selected = mirrorSet(allIssues, select, entry.provider);
+
+  if (options.spec) {
+    selected = selected.filter(
+      (issue) => issue.spec_path != null && matchesSpecPath(issue.spec_path, options.spec!),
+    );
+  }
+  return selected;
 }
 
 class MirrorHandler extends BaseCommand {
@@ -157,6 +241,11 @@ class MirrorHandler extends BaseCommand {
       const prefix = config.display.id_prefix;
       const displayId = (id: string): string => formatDisplayId(id, context.mapping, prefix);
 
+      // Resolve spec permalinks once for the whole run. A spec lives on the
+      // branch that authored it and may not exist on main, so a link built from
+      // the bare path would 404 depending on who follows it.
+      const specLinks = await resolveSpecLinks(tbdRoot, allIssues, config.sync.branch);
+
       for (const entry of enabled) {
         if (entry.configError) {
           throw new CLIError(entry.configError);
@@ -169,7 +258,24 @@ class MirrorHandler extends BaseCommand {
         }
 
         const adapter = buildAdapter(entry.provider, credential.value, entry.target, config);
-        const selected = mirrorSet(allIssues, entry.select, entry.provider);
+
+        let selected = resolveSelection(options, allIssues, entry, (ref) => {
+          try {
+            return resolveToInternalId(ref, context.mapping);
+          } catch {
+            return undefined;
+          }
+        });
+
+        if (options.limit !== undefined) {
+          const limit = Number.parseInt(options.limit, 10);
+          if (!Number.isInteger(limit) || limit < 1) {
+            throw new CLIError(`--limit must be a positive integer, got: ${options.limit}`);
+          }
+          // Deterministic order, so staging a rollout in batches covers the set
+          // rather than re-mirroring an arbitrary subset each time.
+          selected = [...selected].sort((a, b) => a.id.localeCompare(b.id)).slice(0, limit);
+        }
 
         const plan = planMirror({
           provider: entry.provider,
@@ -177,7 +283,28 @@ class MirrorHandler extends BaseCommand {
           selected,
           displayId,
           maxNesting: entry.maxNesting,
+          specUrl: (issue) => (issue.spec_path ? specLinks.get(issue.spec_path) : undefined),
         });
+
+        if (!dryRun) {
+          // Affirm before touching a workspace at scale. A dry run is exempt:
+          // it writes nothing, and previewing is exactly what we want to be easy.
+          const decision = checkBulkThreshold(
+            { creates: plan.creates.length, updates: plan.updates.length },
+            { assumeYes: options.yes === true, interactive: process.stdin.isTTY },
+          );
+          if (decision.kind === 'refused') {
+            throw new CLIError(decision.message);
+          }
+          if (decision.kind === 'needs-confirmation') {
+            const ok = await confirm(
+              `Mirror to ${entry.provider}: ${decision.reasons.join(' and ')}. Continue?`,
+            );
+            if (!ok) {
+              throw new CLIError('Aborted.');
+            }
+          }
+        }
 
         if (dryRun) {
           reports.push({
@@ -224,6 +351,16 @@ class MirrorHandler extends BaseCommand {
           console.log(
             `${report.provider}: ${verb} ${report.created.length}, ${verb2} ${report.updated.length}, skipped ${report.skipped.length}, failed ${report.failures.length}`,
           );
+          // Dry runs print the ids so the set can be reviewed, narrowed with
+          // --bead, and mirrored in stages.
+          if (dryRun) {
+            for (const id of report.created) {
+              console.log(`  + ${id}`);
+            }
+            for (const id of report.updated) {
+              console.log(`  ~ ${id}`);
+            }
+          }
           for (const skip of report.skipped) {
             console.log(`  - ${skip.beadId}: ${skip.reason}`);
           }
@@ -237,6 +374,70 @@ class MirrorHandler extends BaseCommand {
     if (reports.some((report) => report.failures.length > 0)) {
       process.exitCode = EXIT_OPERATIONAL_ERROR;
     }
+  }
+}
+
+/**
+ * Build a permalink for every distinct spec path in the store.
+ *
+ * Returns an empty map when the repository has no GitHub remote, in which case
+ * mirrored issues simply carry no spec link rather than a broken one.
+ */
+async function resolveSpecLinks(
+  repoDir: string,
+  issues: Issue[],
+  syncBranch: string,
+): Promise<Map<string, string>> {
+  const links = new Map<string, string>();
+
+  let slug;
+  try {
+    slug = parseRepoSlug(await git('-C', repoDir, 'remote', 'get-url', 'origin'));
+  } catch {
+    return links;
+  }
+  if (!slug) {
+    return links;
+  }
+
+  let currentBranch = '';
+  try {
+    currentBranch = (await git('-C', repoDir, 'rev-parse', '--abbrev-ref', 'HEAD')).trim();
+  } catch {
+    // Detached HEAD or a fresh repo; the remaining candidates still apply.
+  }
+
+  // Prefer the branch in hand, then the usual trunks. The sync branch never
+  // holds specs, so it is not a candidate.
+  const candidates = [currentBranch, 'main', 'master'].filter(
+    (branch): branch is string => branch.length > 0 && branch !== syncBranch,
+  );
+
+  const specPaths = new Set(
+    issues.map((issue) => issue.spec_path).filter((path): path is string => Boolean(path)),
+  );
+
+  for (const specPath of specPaths) {
+    const url = await specPermalink({ repoDir, specPath, slug, candidates });
+    if (url) {
+      links.set(specPath, url);
+    }
+  }
+  return links;
+}
+
+/**
+ * Ask a yes/no question on the terminal.
+ *
+ * Only reached when stdin is a TTY, so there is a human to answer.
+ */
+async function confirm(question: string): Promise<boolean> {
+  const rl = createInterface({ input: process.stdin, output: process.stderr });
+  try {
+    const answer = await rl.question(`${question} [y/N] `);
+    return /^y(es)?$/i.test(answer.trim());
+  } finally {
+    rl.close();
   }
 }
 
@@ -257,6 +458,7 @@ function buildAdapter(
     client: new LinearClient({ apiKey: credential }),
     teamKey: target,
     createLabels: config.integrations?.linear?.create_labels ?? true,
+    project: config.integrations?.linear?.project,
   });
 }
 
@@ -274,8 +476,19 @@ export const integrationCommand = new Command('integration')
   )
   .addCommand(
     new Command('mirror')
-      .description('Project selected beads outward to a configured tracker')
+      .description('Mirror selected beads outward to a configured tracker')
       .option('--provider <name>', 'Limit to one provider')
+      .option('--bead <ids...>', 'Mirror these beads only (overrides all other selectors)')
+      .option('-t, --type <type>', 'Select by kind: bug, feature, task, epic, chore')
+      .option('--status <status>', 'Select by status')
+      .option(
+        '-l, --label <label>',
+        'Select by label (repeatable)',
+        (value: string, previous: string[] | undefined) => [...(previous ?? []), value],
+      )
+      .option('--spec <path>', 'Select beads linked to a spec path')
+      .option('--limit <n>', 'Mirror at most n beads, for a staged rollout')
+      .option('-y, --yes', 'Confirm a run that exceeds the bulk-change thresholds')
       .action(async (options, command) => {
         const handler = new MirrorHandler(command);
         await handler.run(options);

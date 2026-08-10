@@ -11,6 +11,13 @@ export const VIEWER_QUERY = `query Viewer {
   organization { id name urlKey }
 }`;
 
+/** Resolve a project by name or slug id, so mirrored issues can be filed under it. */
+export const PROJECT_QUERY = `query Projects($first: Int!) {
+  projects(first: $first) {
+    nodes { id name slugId url }
+  }
+}`;
+
 /** Resolve a team key (e.g. `FIN`) to its UUID plus states and labels. */
 export const TEAM_META_QUERY = `query TeamMeta($key: String!) {
   teams(filter: { key: { eq: $key } }, first: 1) {

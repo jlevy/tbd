@@ -31,6 +31,7 @@ import {
   ISSUE_CREATE_MUTATION,
   ISSUE_UPDATE_MUTATION,
   LABEL_CREATE_MUTATION,
+  PROJECT_QUERY,
   TEAM_META_QUERY,
 } from './queries.js';
 import { spliceManagedBlock } from '../core/managed-block.js';
@@ -54,6 +55,8 @@ export interface LinearAdapterOptions {
   teamKey: string;
   /** Create labels that do not exist yet rather than dropping them. */
   createLabels?: boolean;
+  /** Project to file mirrored issues under, by name or slug id. */
+  project?: string;
 }
 
 /** Recognizes a Linear issue URL and extracts the identifier. */
@@ -70,11 +73,48 @@ export class LinearAdapter implements TrackerAdapter {
 
   private teamId?: string;
   private meta?: ProviderMeta;
+  private readonly project?: string;
+  private projectId?: string | null;
 
   constructor(options: LinearAdapterOptions) {
     this.client = options.client;
     this.teamKey = options.teamKey;
     this.createLabels = options.createLabels ?? true;
+    this.project = options.project;
+  }
+
+  /**
+   * Resolve the configured project to its UUID, by slug id or name.
+   *
+   * Cached as null when no project is configured, so the lookup runs at most
+   * once per adapter. A configured project that does not exist is an error
+   * rather than a silent fallback to "no project": filing two dozen issues
+   * loose in a team is exactly the surprise this avoids.
+   */
+  private async resolveProjectId(): Promise<string | undefined> {
+    if (!this.project) {
+      return undefined;
+    }
+    if (this.projectId !== undefined) {
+      return this.projectId ?? undefined;
+    }
+
+    const data = await this.client.request<{
+      projects: { nodes: { id: string; name: string; slugId: string }[] };
+    }>(PROJECT_QUERY, { first: 250 });
+
+    const wanted = this.project.toLowerCase();
+    const match = data.projects.nodes.find(
+      (node) => node.slugId.toLowerCase() === wanted || node.name.toLowerCase() === wanted,
+    );
+    if (!match) {
+      const available = data.projects.nodes.map((n) => `${n.name} (${n.slugId})`).join(', ');
+      throw new Error(
+        `Linear project not found: ${this.project}. Available: ${available || 'none'}`,
+      );
+    }
+    this.projectId = match.id;
+    return match.id;
   }
 
   /**
@@ -137,6 +177,7 @@ export class LinearAdapter implements TrackerAdapter {
       input: {
         ...input,
         teamId: await this.resolveTeamId(),
+        ...((await this.resolveProjectId()) ? { projectId: await this.resolveProjectId() } : {}),
         ...(clientId ? { id: clientId } : {}),
       },
     });

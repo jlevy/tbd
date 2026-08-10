@@ -1,4 +1,4 @@
-tbd_format: f06
+tbd_format: f07
 tbd_version: 0.4.3-dev.16.3f1354e-dirty
 # tbd_upgrades: tbd versions that have run `tbd setup` in this repo (oldest first);
 # tbd_version above is the most recent. Informational; updated automatically by setup.
@@ -122,3 +122,22 @@ docs_cache:
   lookup_path:
     - .tbd/docs/shortcuts/system
     - .tbd/docs/shortcuts/standard
+integrations:
+  sync_on_tbd_sync: false
+  linear:
+    enabled: true
+    select:
+      kinds:
+        - epic
+      statuses:
+        - open
+        - in_progress
+        - blocked
+      labels: []
+      specs: active
+      linked: true
+    max_nesting: 2
+    team_key: FIN
+    project: tbd
+    create_labels: true
+    user_map: {}

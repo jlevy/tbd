@@ -65,7 +65,7 @@ describe('config operations', () => {
 
   describe('stampSetupVersion', () => {
     const base: Config = {
-      tbd_format: 'f06',
+      tbd_format: 'f07',
       tbd_version: '0.3.0',
       tbd_upgrades: [{ version: '0.3.0', at: '2026-06-12T00:00:00.000Z' }],
       sync: { branch: 'tbd-sync', remote: 'origin', storage: 'git-common-dir-v1' },
@@ -138,7 +138,7 @@ describe('config operations', () => {
       await expect(readConfig(tempDir)).rejects.toThrow(
         'This repository requires a newer version of tbd.\n' +
           "Config format 'f99' is from a newer tbd version.\n" +
-          "This tbd version supports up to format 'f06'.\n" +
+          "This tbd version supports up to format 'f07'.\n" +
           'Upgrade tbd: npm install -g get-tbd@latest',
       );
     });
@@ -149,7 +149,7 @@ describe('config operations', () => {
       await initConfig(tempDir, '3.0.0', 'test');
 
       const config: Config = {
-        tbd_format: 'f06',
+        tbd_format: 'f07',
         tbd_version: '3.1.0',
         tbd_upgrades: [{ version: '3.0.0' }, { version: '3.1.0', at: '2026-06-12T00:00:00.000Z' }],
         sync: { branch: 'custom-branch', remote: 'upstream', storage: 'git-common-dir-v1' },

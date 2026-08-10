@@ -340,10 +340,24 @@ export const UpgradeEntrySchema = z.object({
  * filter, so mirroring the whole store would defeat it. Explicitly linked beads
  * are always included regardless of these predicates.
  */
+export const SpecSelector = z.enum(['none', 'active', 'any']);
+
 export const IntegrationSelectSchema = z.object({
+  /** Kinds that qualify on their own, e.g. every open epic. */
   kinds: z.array(IssueKind).default(['epic']),
+  /**
+   * Statuses a bead must be in to qualify. Acts as a gate over `kinds` and
+   * `specs` alike, which is what keeps closed work out of the mirror.
+   */
   statuses: z.array(IssueStatus).default(['open', 'in_progress', 'blocked']),
   labels: z.array(z.string()).default([]),
+  /**
+   * Qualify a bead by its linked plan spec, independently of its kind:
+   * `active` matches only specs under a `specs/active/` directory, `any`
+   * matches any `spec_path`, and `none` disables the rule. Specs that have been
+   * archived out of `active/` stop being mirrored, which is the point.
+   */
+  specs: SpecSelector.default('none'),
   linked: z.boolean().default(true),
 });
 
@@ -365,6 +379,11 @@ export const LinearIntegrationSchema = z.object({
   ...IntegrationProviderBase,
   /** Linear team key, e.g. "FIN". Required when enabled. */
   team_key: z.string().min(1).optional(),
+  /**
+   * Linear project to file mirrored issues under, by name or slug id. Optional:
+   * without it, issues land in the team with no project.
+   */
+  project: z.string().min(1).optional(),
   /** Create labels that do not yet exist in the team on push. */
   create_labels: z.boolean().default(true),
   /** Maps a tbd assignee string to a Linear user email or UUID. */

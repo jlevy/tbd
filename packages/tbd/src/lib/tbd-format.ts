@@ -41,7 +41,7 @@
  * Current format version.
  * Bump this ONLY for breaking changes that require migration.
  */
-export const CURRENT_FORMAT = 'f06';
+export const CURRENT_FORMAT = 'f07';
 
 /**
  * Initial format version for configs that don't have tbd_format field.
@@ -125,6 +125,21 @@ export const FORMAT_HISTORY = {
       'install time is unknown). Setup then stamps the running version and appends it ' +
       'when changed. Revert: restore .tbd/config.yml (git checkout) and delete ' +
       '$GIT_COMMON_DIR/tbd/layout.yml; it regenerates from the config.',
+  },
+  f07: {
+    introduced: '0.5.0',
+    description: 'Adds external tracker integrations and the bead linkage fields',
+    changes: [
+      'Added integrations: to config.yml (Linear and GitHub provider blocks)',
+      'Added linked and last_actor to the issue schema',
+    ],
+    migration:
+      'None. Both additions are optional and absent config behaves exactly as before. ' +
+      'The bump exists for forward compatibility: ConfigSchema and IssueSchema both ' +
+      'use Zod strip mode, so a pre-f07 tbd would silently discard integrations, ' +
+      'linked, and last_actor when it rewrote a config or a bead. The gate makes an ' +
+      'older tbd refuse the repository instead. Revert: restore .tbd/config.yml and ' +
+      'delete $GIT_COMMON_DIR/tbd/layout.yml; it regenerates from the config.',
   },
 } as const;
 
@@ -315,6 +330,29 @@ function migrate_f04_to_f05(config: RawConfig): MigrationResult {
 }
 
 /**
+ * Migrate from f06 to f07.
+ *
+ * Purely a version bump: `integrations`, `linked`, and `last_actor` are all
+ * optional, so no data changes shape. The bump exists so an older tbd refuses
+ * the repository rather than silently stripping those fields on its next write.
+ */
+function migrate_f06_to_f07(config: RawConfig): MigrationResult {
+  const changes: string[] = [];
+  const migrated = { ...config };
+
+  migrated.tbd_format = 'f07';
+  changes.push('Updated tbd_format: f07');
+
+  return {
+    config: migrated,
+    fromFormat: 'f06',
+    toFormat: 'f07',
+    changed: changes.length > 0,
+    changes,
+  };
+}
+
+/**
  * Migrate from f05 to f06.
  * - Adds the config upgrade history (`tbd_upgrades`) and redefines `tbd_version` to mean
  *   "the version that last ran setup" (the value itself is advanced by the setup-time
@@ -432,6 +470,13 @@ export function migrateToLatest(config: RawConfig): MigrationResult {
     const result = migrate_f05_to_f06(current);
     current = result.config;
     currentFormat = 'f06' as FormatVersion;
+    allChanges.push(...result.changes);
+  }
+
+  if (currentFormat === 'f06') {
+    const result = migrate_f06_to_f07(current);
+    current = result.config;
+    currentFormat = 'f07' as FormatVersion;
     allChanges.push(...result.changes);
   }
 

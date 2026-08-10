@@ -121,12 +121,12 @@ describe('doctor managed agent surfaces', { timeout: 45_000 }, () => {
     );
     expect(findingNamed('AGENTS.md').finding).toMatchObject({ status: 'ok', message: 'current' });
 
-    await writeFile(skillPath, expected.replace('format=f06', 'format=f99'));
+    await writeFile(skillPath, expected.replace('format=f07', 'format=f99'));
     const tooNew = portableFinding();
     expect(tooNew.result.status).toBe(1);
     expect(tooNew.finding).toMatchObject({
       status: 'error',
-      message: 'managed file uses newer integration format f99 (supported: f06)',
+      message: 'managed file uses newer integration format f99 (supported: f07)',
       suggestion: 'Upgrade tbd to manage this file: npm install -g get-tbd@latest',
     });
   });

@@ -52,6 +52,7 @@ const DEFAULT_SELECT: IntegrationSelect = {
   kinds: ['epic'],
   statuses: ['open', 'in_progress', 'blocked'],
   labels: [],
+  specs: 'none',
   linked: true,
 };
 
@@ -226,6 +227,72 @@ describe('mirror selection', () => {
   it('treats an empty label list as no label requirement', () => {
     const bead = issue({ kind: 'epic', status: 'open', labels: [] });
     expect(mirrorSet([bead], DEFAULT_SELECT, 'linear')).toHaveLength(1);
+  });
+
+  it('selects a bead by its active spec even when its kind does not qualify', () => {
+    const select: IntegrationSelect = { ...DEFAULT_SELECT, specs: 'active' };
+    const specced = issue({
+      id: 'is-spec',
+      kind: 'task',
+      status: 'open',
+      spec_path: 'docs/project/specs/active/plan-2026-08-10-x.md',
+    });
+    expect(mirrorSet([specced], select, 'linear').map((i) => i.id)).toEqual(['is-spec']);
+  });
+
+  it('excludes a spec that has moved out of active/', () => {
+    const select: IntegrationSelect = { ...DEFAULT_SELECT, specs: 'active' };
+    const archived = issue({
+      id: 'is-old',
+      kind: 'task',
+      status: 'open',
+      spec_path: 'docs/project/specs/archive/plan-2026-01-01-x.md',
+    });
+    expect(mirrorSet([archived], select, 'linear')).toHaveLength(0);
+  });
+
+  it('treats kind and spec as alternatives, not requirements', () => {
+    const select: IntegrationSelect = { ...DEFAULT_SELECT, specs: 'active' };
+    const epicNoSpec = issue({ id: 'is-epic', kind: 'epic', status: 'open' });
+    const taskWithSpec = issue({
+      id: 'is-task',
+      kind: 'task',
+      status: 'open',
+      spec_path: 'docs/project/specs/active/plan-x.md',
+    });
+    const neither = issue({ id: 'is-plain', kind: 'task', status: 'open' });
+
+    expect(
+      mirrorSet([epicNoSpec, taskWithSpec, neither], select, 'linear').map((i) => i.id),
+    ).toEqual(['is-epic', 'is-task']);
+  });
+
+  it('keeps status as a gate over both rules, so closed spec work drops out', () => {
+    const select: IntegrationSelect = { ...DEFAULT_SELECT, specs: 'active' };
+    const closedWithSpec = issue({
+      id: 'is-done',
+      kind: 'task',
+      status: 'closed',
+      spec_path: 'docs/project/specs/active/plan-x.md',
+    });
+    expect(mirrorSet([closedWithSpec], select, 'linear')).toHaveLength(0);
+  });
+
+  it('matches any spec under the `any` rule', () => {
+    const select: IntegrationSelect = { ...DEFAULT_SELECT, kinds: [], specs: 'any' };
+    const anywhere = issue({ id: 'is-any', kind: 'task', status: 'open', spec_path: 'notes/x.md' });
+    expect(mirrorSet([anywhere], select, 'linear')).toHaveLength(1);
+  });
+
+  it('normalizes Windows separators when matching active specs', () => {
+    const select: IntegrationSelect = { ...DEFAULT_SELECT, specs: 'active' };
+    const win = issue({
+      id: 'is-win',
+      kind: 'task',
+      status: 'open',
+      spec_path: 'docs\\project\\specs\\active\\plan-x.md',
+    });
+    expect(mirrorSet([win], select, 'linear')).toHaveLength(1);
   });
 
   it('requires at least one configured label when labels are set', () => {

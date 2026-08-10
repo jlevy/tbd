@@ -2,6 +2,46 @@
 
 ## Unreleased
 
+### Added
+
+- **External tracker integrations** (`tbd integration`), with Linear as the first
+  provider. One-way mirror: beads are the source of truth and nothing is imported back.
+  - `tbd integration status` reports whether each provider is configured, credentialed,
+    and reachable, with a remedy on every failure.
+    Inert and offline when none is enabled.
+  - `tbd integration mirror` projects selected beads outward.
+    Accepts the same selectors as `list` (`--bead`, `--type`, `--status`, `--label`,
+    `--spec`) plus `--limit`, so a rollout can be staged without editing config.
+    Idempotent: re-running updates in place.
+  - Runs above 20 creates or 40 updates require affirmation.
+    Without a terminal the run is refused rather than prompted, so CI never hangs and
+    never silently makes a large change.
+    `--yes` proceeds.
+  - Credentials load from the environment or a gitignored `.env`. An unignored `.env` is
+    reported as an error.
+- `linked` and `last_actor` fields on issues, and an `integrations` config block.
+  Format bumps to **f07** so an older tbd refuses the repository rather than silently
+  stripping them.
+- `tbd doctor` gains hierarchy and integration checks.
+
+### Fixed
+
+- `extensions` merged as one opaque last-writer-wins value, so two writers touching
+  different namespaces silently lost one side.
+  Now merged per namespace.
+- Nothing prevented a `parent_id` cycle, which makes every ancestor walk
+  non-terminating. Now rejected on the write path, with a `doctor` check for existing
+  data.
+- The `engines` floor was `>=20` while `util.parseEnv` needs 20.12, so `.env` reading
+  would have thrown at runtime on 20.0-20.11.
+
+### Changed
+
+- `kind` moved into the shared issue filter, so `list`, `changes`, and `watch` evaluate
+  it identically.
+
+## Unreleased
+
 ### Features
 
 - **Read-only bead change detection and watching**: `tbd changes` reports deterministic,
