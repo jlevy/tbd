@@ -9,7 +9,8 @@ author: Joshua Levy (github.com/jlevy) with LLM assistance
 
 **Author:** Joshua Levy (github.com/jlevy) with LLM assistance
 
-**Status:** Draft
+**Status:** Approved — productionization directed by the project owner 2026-08-10; PR
+#207 merges only when `tbd web` is production-ready
 
 ## Overview
 
@@ -23,9 +24,13 @@ The governing constraint is that the browser must not become a second, drifting
 implementation of `tbd list`. Every filter the UI offers is a CLI flag, evaluated by the
 CLI’s own predicates, and each response carries the equivalent command line.
 
-A working spike exists at `packages/tbd/scripts/bead-web.ts` and
-`packages/tbd/scripts/bead-web.html`. This plan describes what it would take to promote
-it, and what must be true first.
+The delivery vehicle is PR #207, and its bar is explicit: **it merges once, when
+`tbd web` is production-ready, and not before.** The working spike
+(`packages/tbd/scripts/bead-web.ts` / `.html`) was Phase 1 of that PR — evidence the
+design works — and is complete.
+The remaining phases below productionize it on the same branch, kept current with main
+by regular merges. This document is the implementation plan of record, refined to file
+and function level.
 
 ## Goals
 
@@ -51,9 +56,8 @@ it, and what must be true first.
 - No non-loopback bind, no authentication, no multi-user session model.
   A remote-reachable surface is a separate proposal with its own security review.
 - No daemon. The server lives and dies with the foreground command.
-- No write surface beyond a deliberately narrow, flag-gated status and notes edit.
-  Bulk mutation, creation, dependency editing, and merge conflict resolution stay in the
-  CLI.
+- No write surface at all in v1 (see Writes): every mutation stays in the CLI. The
+  spike’s narrow flag-gated edit proved the path and then was cut from scope.
 - No replacement for `tbd list`, `tbd show`, or `tbd ready`. The view is additive.
 - No provider integration.
   This is orthogonal to the Linear work tracked under `tbd-vm5s`.
@@ -80,10 +84,12 @@ works standalone, bridges/UI are optional layers,” and on what has since shipp
   hierarchy. Reading that in a terminal is workable for an agent and awkward for a human.
 
 The honest framing is that §1.6 should be amended rather than quietly ignored.
-This plan proposes changing “TUI/GUI interfaces” to explicitly permit one optional,
-loopback-only, read-first view, and to keep everything else in that bullet deferred.
-**That amendment is a decision for the release owner and is listed as an open question,
-not assumed.**
+**Decided 2026-08-10: the project owner directed productionization of `tbd web` as a
+core command, so the amendment is in scope for this PR** (Phase 5): §1.6 changes to
+permit exactly one optional, loopback-only, read-first web view, keeping everything else
+in that bullet deferred.
+The amendment text lands in the PR diff, where the owner reviews it like any other
+change.
 
 ### Prior art: Metabrowser
 
@@ -142,27 +148,9 @@ class. `tbd ready` has its own path.
 `changes` and `watch` share only the label, spec, and status predicate.
 A fifth consumer would make five implementations that must agree.
 
-Extract `src/lib/issue-query.ts`:
-
-```ts
-export interface IssueQuery {
-  status: IssueStatusType | null;
-  all: boolean;
-  type: IssueKindType | null;
-  priority: string | null;
-  assignee: string | null;
-  labels: readonly string[];
-  parent: string | null;
-  spec: string | null;
-  deferred: boolean;
-  ready: boolean;
-  sort: 'priority' | 'created' | 'updated';
-  limit: string | null;
-}
-
-export function selectIssues(issues, query, context): Issue[];
-export function describeQuery(query): string;   // the equivalent `tbd list` invocation
-```
+Extract `src/lib/issue-query.ts` — precise signatures live in the module map below
+(`selectIssues(issues, query)` and `describeQuery(query)` over a fully-parsed
+`IssueQuery` whose id fields are already resolved to internal ids by the caller).
 
 `list` and `ready` are refactored onto it with no behavior change, covered by the
 existing suites plus the tryscript transcripts.
@@ -251,16 +239,20 @@ Adding one is small and would let `tbd web` drop the child entirely.
 
 ### Writes
 
-Off by default under `--repo`, on under `--demo`. When enabled, limited to status and
-notes on a single bead, and routed through the CLI rather than the file layer so they
-inherit its validation, locking, and mapping.
-`loadDataContext` deliberately does not take the data-sync lock for reads; an in-process
-write path would have to.
+**v1 ships read-only.** The spike’s flag-gated status/notes edit proved the write path
+works, but shipping it means owning a mutation endpoint’s security surface (Origin
+checks are necessary, not sufficient), an in-process write path that must take the
+data-sync lock `loadDataContext` deliberately skips for reads, and idempotency questions
+the CLI already answers.
+None of that earns its keep in v1: edits stay in the CLI, one keystroke away.
+The write endpoint does not ship; the code path is removed, not flag-hidden, so the
+production server has no mutation route to audit.
+Revisit as its own proposal if real usage asks for it.
 
 ### CLI surface
 
 ```bash
-tbd web [--port <n>] [--open] [--read-only] [--interval <seconds>]
+tbd web [--port <n>] [--open] [--interval <seconds>]
 ```
 
 Binding is `127.0.0.1` only, and there is deliberately no flag to change that.
@@ -393,45 +385,225 @@ Minimal, fast to start, and cheap when unused.
   from query strings are matched against the public-id shape, so a value like `--help`
   cannot become a flag.
 
+## Module map (file and function level)
+
+The production layout, named so the phases below can reference exact seams.
+Signatures are the intended shape; adjust mechanically in review, not structurally.
+
+### Core (Phase 2)
+
+- **`src/lib/issue-query.ts`** (new; pure and node-free, like `issue-selection.ts` and
+  `issue-stats.ts`):
+
+  ```ts
+  export type IssueSort = 'priority' | 'created' | 'updated';
+  export interface IssueQuery {
+    status: IssueStatusType | null;
+    includeClosed: boolean;          // --all
+    kind: IssueKindType | null;      // --type
+    priority: number | null;         // parsed by caller via parsePriority
+    assignee: string | null;
+    labels: readonly string[];
+    parentId: InternalIssueId | null; // resolved by caller via resolveToInternalId
+    spec: string | null;
+    deferred: boolean;
+    ready: boolean;
+    sort: IssueSort;
+    limit: number | null;
+  }
+  /** Filter + sort (ULID tiebreak) + limit; the single list/ready/web semantics. */
+  export function selectIssues(issues: readonly Issue[], query: IssueQuery): Issue[];
+  /** The equivalent CLI invocation, with exactness (tbd ready expresses only --type/--limit). */
+  export function describeQuery(query: IssueQuery): { command: string; exact: boolean };
+  ```
+
+  `list.ts` keeps flag parsing, id resolution, and rendering; its private
+  `filterIssues`/`sortIssues` bodies move here verbatim-then-verified.
+  `ready.ts` maps to `{ ready: true, sort: 'priority' }`. Readiness stays in
+  `issue-selection.ts` (`readyIssueIds`) and is consumed by `selectIssues` when
+  `query.ready`.
+
+- **`src/file/bead-watch.ts`**: `IssueWatchOptions` gains `signal?: AbortSignal`;
+  `IssueWatchResult` gains `{ kind: 'aborted' }`. The poll loop checks the signal at
+  each await point, `sleep` becomes abort-aware, and cleanup still runs in `finally`.
+  `git.ts` gains an options-object overload
+  `gitNoPromptWithTimeout({ timeoutMs, signal }, ...args)` that SIGTERMs the child on
+  abort; the existing positional form stays for current callers.
+  The CLI `watch` command passes no signal, so its behavior is unchanged.
+
+- **`src/file/sync-run.ts`** (new): the pull path `sync --pull` runs today lives in the
+  private `SyncHandler.fullSync`; extract the issues-pull entry as
+  `runIssueSync(tbdRoot, { pull: true }, logger)` so the web server wakes without
+  spawning a CLI subprocess.
+  Same move as `issue-query`; `sync.ts` refactors onto it with no behavior change.
+
+- **`src/cli/lib/tree-view.ts`**: `renderTreeNode` emits
+  `prefix + connector + issueLine` (tbd-5hh1); depth-3 golden test added.
+
+- **`src/cli/lib/output.ts`**: `OutputManager` gains a public `get isJson(): boolean`;
+  `docs-sync-output.ts#printDocSyncStatus` returns early under it (tbd-q5c7).
+
+### Server (Phase 3)
+
+- **`src/cli/commands/web.ts`**: Commander definition plus
+  `WebHandler extends BaseCommand`. Flags: `--port <n>`, `--open`,
+  `--interval <seconds>` (min 10, default 30), `--dry-run`; global `--json` emits the
+  startup descriptor `{ url, port, pid, repo, syncBranch }` on stdout.
+  The handler validates flags, resolves the repo (`requireInit`, `readConfig`), then
+  lazy-imports the server (`await import('../web/server.js')`) so no other command pays
+  for it. SIGINT/SIGTERM wiring per the lifecycle rules; exit codes from `exit-codes.ts`.
+- **`src/cli/web/server.ts`**:
+  `startWebServer(options: WebServerOptions): Promise<WebServerHandle>` where the handle
+  is `{ port, url, close(), closed: Promise<void> }`. Owns the `node:http` server, port
+  policy (`findAvailableLoopbackPort(base, count)` here, mirroring metabrowser’s
+  `server_utils.py`), readiness self-probe, and shutdown.
+- **`src/cli/web/board.ts`**: `BoardState` — the in-memory snapshot (`loadDataContext` +
+  `listIssues`), `reload()` computing `dataVersion`/`movedIds`/`removedIds`/`changedIds`
+  by `id:version` diff, `computeIssueStats`, the served `RepoStatus`, and
+  `buildBoardResponse(params)` translating query strings to `IssueQuery` and calling
+  `selectIssues`/`describeQuery` plus the tree/context-row walk over `buildIssueTree`.
+- **`src/cli/web/wake.ts`**: the two wake paths — `watchForIssueChanges` in-process with
+  the new `AbortSignal` (the spike’s child process retires), and the debounced
+  `fs.watch` on the hidden worktree with the post-write suppression window.
+  On a remote wake: `runIssueSync(root, { pull: true })`, `board.reload()`, broadcast.
+- **`src/cli/web/http.ts`**: router with Host/Origin validation, `GET /`,
+  `GET /api/board`, `GET /api/bead`, `GET /api/events` (SSE hub: event id = report tip,
+  `Last-Event-ID` resume, heartbeats, backpressure drop), `sendJson`, request body
+  limits. No mutation route exists in v1.
+
+### Client (Phase 4)
+
+- **`src/web/core.ts`** (pure; no DOM, no globals): transport-injected store.
+
+  ```ts
+  export interface Transport {
+    fetchJson(url: string): Promise<unknown>;
+    openEvents(url: string, onState: (s: unknown) => void, lastEventId?: string): { close(): void };
+  }
+  export function createClientStore(transport: Transport, onRender: () => void): ClientStore;
+  export function buildQueryString(controls: BoardControls): string;
+  export function caveatsFor(board: BoardResponse): string[];
+  export function deltasValid(watch: WatchStateView): boolean;  // reportDataVersion gate
+  export function phaseLabel(watch: WatchStateView): { label: string; help: string };
+  ```
+
+- **`src/web/client.ts`**: DOM glue only — element lookup, render, event wiring, theme
+  chooser; instantiates the store with the real `fetch`/`EventSource`.
+
+- **`src/web/index.html`** + **`src/web/styles.css`**: template with
+  `<!--STYLES-->`/`<!--SCRIPT-->` markers; the design-system rules live in the CSS.
+
+- **`tsconfig.web.json`**: extends base, `lib: ["ES2023","DOM","DOM.Iterable"]`,
+  includes only `src/web`; main `tsconfig.json` excludes `src/web`; the `typecheck`
+  script runs both projects.
+
+- **`tsdown.config.ts`**: one added entry — `platform: 'browser'`, `format: ['iife']`,
+  `dts: false`, `entry: { 'web/client': 'src/web/client.ts' }`.
+
+- **`scripts/stitch-web.mjs`** (postbuild, beside `copy-docs.mjs`): inlines
+  `dist/web/client.js` and `src/web/styles.css` into the template →
+  `dist/web/index.html`, the one artifact the server reads.
+
+### Tests (Phases 2–6)
+
+- `tests/issue-query.test.ts` — parity oracle: legacy filter/sort logic captured as a
+  test-local oracle, property-style corpus compared against `selectIssues`.
+- `tests/bead-watch.test.ts` — abort during sleep, during fetch, cleanup-on-abort.
+- `tests/tree-view.test.ts` — depth-3 golden (tbd-5hh1).
+- `tests/web-core.test.ts` — stubbed `Transport`: connect-then-fetch ordering, SSE
+  resume via `Last-Event-ID`, wake coalescing, `deltasValid` gating, query round-trip.
+- `tests/cli-web.test.ts` — spawn the built binary as `cli-watch.test.ts` does: bind,
+  descriptor shape, port policy (default searches; explicit `--port` conflict exits 1
+  actionably), Host/Origin 403s, SIGINT exits 130, no mutation route (POST → 404).
+- `tests/bead-web-css.test.ts` — retargeted to `src/web/styles.css`, assertions kept.
+- `tests/cli-web.tryscript.md` — `--help` and `--dry-run` transcripts.
+- `performance.test.ts` — board response budget on the 5,000-issue fixture.
+
 ## Implementation Plan
 
-Phase 1 is independently valuable and independently mergeable.
-Phase 2 depends on the §1.6 amendment being accepted.
+Phases are ordered to keep risk early, and each ends with the branch green through the
+full local gate and CI. Phase 2 commits are deliberately cherry-pickable to main if an
+early landing of the core refactors is ever wanted; nothing later depends on that option
+being exercised.
 
-### Phase 1: Shared query semantics and hierarchy correctness
+### Phase 1: Spike (complete)
 
-- [ ] Fix `tbd-5hh1`: ancestor prefix in `renderTreeNode`, plus a depth-3 golden test.
-- [x] Extract `src/lib/issue-stats.ts` with `computeIssueStats`; refactor `tbd stats`
-  onto it with identical output.
-  Done in the spike.
-- [ ] Extract `src/lib/issue-query.ts` with `selectIssues` and `describeQuery`.
-- [ ] Refactor `list` and `ready` onto it; assert no behavior change via the existing
-  suites and tryscript transcripts.
-- [ ] Add an `AbortSignal` to `watchForIssueChanges` and cover cancellation.
-- [ ] Fix `tbd-q5c7` so `--json` surfaces never emit a human banner on stdout, since the
-  page and any other machine consumer depend on it.
+- [x] Working server + client proving the design end to end, live-verified on this
+  repository’s 1,312-bead graph (~500ms load, ~10ms queries).
+- [x] `src/lib/issue-stats.ts` extraction with byte-identical `tbd stats` output.
+- [x] Review survived: four Bugbot findings fixed and resolved; merged with post-#205
+  main; format-marker reconciliation.
+- [x] Instrument value banked: five core defects found and filed (tbd-5hh1, tbd-q5c7,
+  tbd-w5xi, tbd-zmpo, tbd-pht1).
 
-### Phase 2: The command
+### Phase 2: Core foundations
 
-- [ ] `tbd web` command as a `BaseCommand` handler: loopback bind, `--port`, `--open`,
-  `--read-only`, `--interval`, `--json` descriptor, `--dry-run`, lazy server import.
-- [ ] Server lifecycle per the metabrowser-derived rules: default-port range search with
-  explicit-port pinning, readiness-gated `--open`, SSE-aware shutdown (first signal
-  cancels streams and exits 130 quietly, second forces exit), `process.once` handlers,
-  all timers `unref()`'d.
-- [ ] Board endpoint over `selectIssues`, returning light rows plus `describeQuery`.
-- [ ] Per-bead body endpoint served from the in-memory snapshot.
-- [ ] SSE stream with the tip as event id, `Last-Event-ID` resume, heartbeats, and
-  bounded frames.
-- [ ] Page: tree and flat modes, CLI-named filters, expandable bodies with live refresh,
-  per-field deltas including text hunks, event log.
-- [ ] Flash-in on change, collapse on removal, `prefers-reduced-motion` honored.
-- [ ] Client rebuilt as strictly-linted TypeScript per “Client build and packaging”:
-  `src/web/` sources, `tsconfig.web.json`, browser IIFE tsdown entry, postbuild
-  stitching into `dist/web/index.html`, and jsdom-free behavior tests over the injected
-  `fetch`/`EventSource` core.
-- [ ] Tryscript coverage for the command surface; unit coverage for query translation
-  and SSE framing.
+- [ ] `src/lib/issue-query.ts` per the module map; `list`/`ready` refactored onto it.
+  Exit: parity oracle green over the corpus; full suite and all 1,068 tryscript
+  transcripts byte-unchanged.
+- [ ] tbd-5hh1 fix in `tree-view.ts` plus the depth-3 golden test.
+- [ ] `AbortSignal` through `bead-watch.ts` and the `git.ts` overload, with abort
+  coverage; CLI `watch` behavior unchanged.
+- [ ] tbd-q5c7: `OutputManager.isJson` + `printDocSyncStatus` guard; transcript proves
+  `sync --status --json` emits pure JSON with a stale docs cache.
+- [ ] `src/file/sync-run.ts` extraction; `sync.ts` refactored with no behavior change.
+
+### Phase 3: Server productization
+
+- [ ] `src/cli/commands/web.ts` handler with the flag surface, descriptor, `--dry-run`,
+  and lazy import.
+- [ ] `src/cli/web/{server,board,wake,http}.ts` per the module map: in-process wake via
+  `AbortSignal` (child process retired), pull via `runIssueSync`, SSE event id = tip
+  with `Last-Event-ID` resume, port policy, readiness-gated `--open`, SSE-aware shutdown
+  and `process.once` signal handlers, all timers `unref()`'d.
+- [ ] v1 read-only: no mutation route exists.
+  Exit: `tests/cli-web.test.ts` green including lifecycle and security cases; spike
+  behaviors reproduced against the demo topology.
+
+### Phase 4: Client productization
+
+- [ ] `src/web/{core,client}.ts`, `index.html`, `styles.css`; `tsconfig.web.json`;
+  main-project exclusion; both projects in `typecheck`; eslint strictTypeChecked over
+  100% of client code with no carve-outs.
+- [ ] tsdown browser IIFE entry and `scripts/stitch-web.mjs` → `dist/web/index.html`.
+- [ ] `tests/web-core.test.ts` (stubbed transport) and the retargeted CSS test.
+  Exit: page served from the stitched artifact is behavior-identical to the spike page.
+
+### Phase 5: Documentation and design alignment
+
+- [ ] tbd-design.md: §1.6 amended (the scoped exception, owner-reviewed in this diff)
+  and a new CLI-layer section documenting `tbd web` beside §4.14.
+- [ ] Manual (`tbd-docs.md`) command section; README mention; CHANGELOG entry moved from
+  Internal to Features; `docs/development.md` spike section replaced by command usage.
+- [ ] Spike retired: `scripts/bead-web.ts`/`.html` deleted; `--demo` topology building
+  moves into `tests/`/QA tooling where it is still needed.
+
+### Phase 6: Production validation and merge
+
+- [ ] Full matrix green: suite + tryscript on Ubuntu/macOS/Windows CI.
+- [ ] Perf budget assertion on the 5,000-issue fixture.
+- [ ] Isolation assertion reusing the release-smoke snapshot pattern: a running
+  `tbd web` leaves the caller worktree, sync refs, `FETCH_HEAD`, hidden worktree, and
+  lock untouched except for the pull a wake performs.
+- [ ] Packaged proof via `pnpm test:install`: the tarball carries `dist/web/index.html`
+  and `tbd web` works from an isolated prefix.
+- [ ] Manual pass on a real repository (macOS plus one other platform): wake latency,
+  operator-readable output, theme, reduced-motion.
+- [ ] Final merge from main; PR description updated to the shipped reality.
+
+### Merge gate for PR #207
+
+All of the following, verified in the PR before merge — the PR stays in draft until they
+hold:
+
+1. Every phase checklist above complete.
+2. CI green on the final head across all three platforms; publint and package-age clean;
+   no new runtime dependency.
+3. The packaged-tarball proof (Phase 6) recorded in the PR.
+4. Spike scripts gone; no dead flag or dormant mutation code shipped.
+5. Docs complete: design doc (including the §1.6 amendment), manual, help text,
+   CHANGELOG.
+6. Owner sign-off on the §1.6 amendment diff and the final review pass.
 
 ## Testing Strategy
 
@@ -485,21 +657,23 @@ Rollback is removing the command; no data migration exists to undo.
 
 ## Open Questions
 
-- Does the release owner accept amending tbd-design.md §1.6 to permit one optional,
-  loopback-only, read-first view?
-  Everything in Phase 2 depends on this.
-  Phase 1 does not.
-- In-process watch with an `AbortSignal`, or keep the child process?
-  The child proves the CLI exit-code contract on every wake, which has real diagnostic
-  value; in-process is cleaner and cheaper.
-- Should the write path exist at all in v1? Read-only is easier to defend and a narrow
-  status edit is what makes the page feel like a tool rather than a report.
-- Does `tbd web` belong in core, or as a separate optional package that depends on tbd?
-  A separate package keeps core’s dependency surface and non-goals intact, at the cost
-  of release coordination and a second install step.
-- Is `--all` the right default watch selection for a UI? It is the most useful and the
-  most expensive; a large team on a shared remote may want the page to watch a narrower
-  selection.
+Resolved by the owner’s 2026-08-10 productionization direction:
+
+- `tbd web` ships in core through PR #207, which merges only production-ready; no
+  separate package.
+- The §1.6 amendment is in scope for this PR and reviewed in its diff.
+- The watch runs in-process behind the new `AbortSignal`; the spike’s child process was
+  scaffolding and retires in Phase 3.
+- v1 is read-only; the mutation route is removed, not hidden (see Writes).
+
+Still open, none blocking Phase 2 start:
+
+- Default watch selection: ship `--all` (matching the spike) or add a
+  `--watch <selector>` flag in v1 for large shared remotes?
+  Current plan: ship `--all`, add the flag only if real usage shows poll-cost pressure.
+- Whether Phase 2’s core commits should also land early on main via cherry-pick, or ride
+  the PR to the end. Default: ride the PR; revisit if main churn makes the merges
+  expensive.
 
 ## References
 
