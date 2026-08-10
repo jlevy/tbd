@@ -1,0 +1,29 @@
+---
+type: is
+id: is-01kzmymyeqmcbj9ffn9wk9qpf0
+title: tbd list --pretty renders grandchildren at the wrong depth
+kind: bug
+status: open
+priority: 2
+version: 2
+labels:
+  - tree-view
+dependencies: []
+created_at: 2026-08-10T04:24:45.763Z
+updated_at: 2026-08-10T04:25:01.218Z
+---
+renderTreeNode() in packages/tbd/src/cli/lib/tree-view.ts pushes the child connector without the ancestor prefix:
+
+  lines.push(colors.dim(connector) + lineWithoutPrefix);   // line 230
+
+lineWithoutPrefix strips the full childPrefix (which already contains the parent's prefix), so only 'connector + issueLine' is emitted. At depth 1 the parent prefix is empty and it looks right; at depth 2 and deeper the indentation is lost entirely and grandchildren render as siblings of their own parent.
+
+Reproduce in this repo:
+
+  tbd list --pretty --limit 40
+
+tbd-4wn0 and its siblings are children of tbd-70dj, which is itself a child of tbd-up8l. They render at the same depth as tbd-70dj. The stray mid-list └── on tbd-ns1b is the same defect: it is the last child of tbd-70dj, drawn as if it were a child of tbd-up8l.
+
+Fix: emit prefix + connector + lineWithoutPrefix. Continuation lines (lineIndex > 0) are already correct because they retain childPrefix.
+
+Worth a golden test at depth 3; existing coverage appears to stop at depth 2 where the bug is invisible.
