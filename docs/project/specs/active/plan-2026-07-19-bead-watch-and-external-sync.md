@@ -5,13 +5,15 @@ author: Joshua Levy (github.com/jlevy) with LLM assistance
 ---
 # Feature: Bead Watch Infrastructure and External Sync Layering
 
-**Date:** 2026-07-19 (last updated 2026-08-06)
+**Date:** 2026-07-19 (last updated 2026-08-09)
 
 **Author:** Joshua Levy
 
-**Status:** Phase 1 (watch infrastructure) shipped and validated; extracted from PRs
-#196/#197 as its own clean landing (this PR). External sync: architecture fixed in the
-Integration Layer section; per-provider designs tracked separately (tbd-vm5s)
+**Status:** Phase 1 (watch infrastructure) is implemented and release-smoke validated on
+PR #205, pending merge.
+Packed-artifact and credentialed-remote release QA is tracked by tbd-t750 and does not
+gate the PR merge. External sync architecture is fixed in the Integration Layer section;
+per-provider designs remain separate (tbd-vm5s).
 
 ## Overview
 
@@ -406,8 +408,18 @@ classes and change commands.
   subprocesses, bounded text-diff complexity and object batches, exhaustive substantive
   fields, report format version 1, durable at-least-once worker recipe, and accurate
   notes replacement semantics.
+- [x] Release smoke and validation plan (`tbd-961h`): a built-candidate, real-Git,
+  two-clone executable topology; complete automated/manual coverage map; and a manual QA
+  playbook. The smoke found and regressed Git refmap isolation for an existing
+  `origin/tbd-sync` ref.
+- [ ] Release-candidate manual QA (`tbd-t750`): exact-tag artifact rerun, credentialed
+  real remote, existing-workflow coexistence, network interruption, intended runner
+  permissions/idempotency, and representative platform shells.
+  This is a release promotion gate, not a PR or Linear gate.
 
-Validation transcript and platform limits: `valid-2026-07-19-bead-watch-phase-1.md`.
+Validation records and platform limits: `valid-2026-07-19-bead-watch-phase-1.md`,
+`valid-2026-08-09-bead-watch-release.md`, and
+`tests/qa/watch-infrastructure-release.qa.md`.
 
 ### Integration Enablers (tracked, not part of this landing)
 
@@ -418,15 +430,22 @@ Linear experiments end to end while provider bindings and state remain outside c
 - [ ] `extensions` merge: `lww` → `deep_merge_by_key` per design doc §3.5 (tbd-le2l)
 - [ ] Generic `extensions` read/write/display on the CLI (tbd-z95g)
 - [ ] Rework the Linear pilot design to conform to the Integration Layer rules
-  (tbd-vm5s; the detailed design currently lives on PR #197)
+  (tbd-vm5s, blocking tbd-g305). The old implementation phases are deferred; their
+  detailed design on PR #197 is reference material, not current implementation
+  authority.
 
 ## Testing Strategy
 
 **Phase 1:** unit tests for `tbd changes` across synthetic histories (status flips,
-notes replacements, creates/closes, selection filters); a two-session live test (session
-B updates a bead; session A’s watch exits within interval + sync latency with the
-correct delta); recorded Claude Code and Codex demos; timeout and error exit codes;
-watch does not disturb a concurrent `tbd sync`.
+notes replacements, creates/closes, selection filters); poll/deadline/failure tests; a
+built-candidate two-clone release smoke over a real bare remote; recorded Claude Code
+and Codex demos; timeout and error exit codes; protected Git-state snapshots; and the
+full legacy, transcript, package, supply-chain, and cross-platform CI gates.
+
+**Release QA:** run `pnpm qa:watch-release` on source and the exact packed artifact,
+then follow `tests/qa/watch-infrastructure-release.qa.md` for a credentialed real
+remote, existing-workflow coexistence, network interruption, durable-worker restart and
+idempotency, platform shells, operator output, cleanup, and evidence capture.
 
 ## Open Questions
 
@@ -440,8 +459,8 @@ watch does not disturb a concurrent `tbd sync`.
 
 ## Addendum (2026-08-06): Extracted as the Watch-Infrastructure Plan of Record
 
-Phase 1 shipped and was validated through PRs #196 and #197, then consolidated, reviewed
-over three rounds, and hardened there.
+Phase 1 was implemented and validated through PRs #196 and #197, then consolidated,
+reviewed over three rounds, and hardened there.
 This spec and the implementation were then extracted onto a clean branch from main as
 their own landing, with the detailed external-sync design removed and replaced by the
 Integration Layer architecture above.
@@ -460,6 +479,25 @@ with `tbd changes` — so exit 2 stays reserved for usage errors and wake loops 
 spin on a bad flag; private-ref cleanup is best-effort so it can never discard a report
 the watch just produced; and an established watch rides out a bounded run of failed
 remote polls.
+
+## Addendum (2026-08-09): Release Validation and Git Refmap Isolation
+
+PR #205 now includes a repeatable release smoke (`pnpm qa:watch-release`) that creates a
+bare remote and independent writer/watcher clones, publishes real sync-branch movement,
+blocks in `tbd watch`, validates the versioned report and exit codes, snapshots
+protected Git state, pulls normally, exercises legacy commands, renders `watch-beads`,
+and removes the topology.
+
+That smoke found a gap the prior real-Git fixture could not expose because the fixture
+had no existing remote-tracking sync ref.
+Git may opportunistically apply `remote.origin.fetch` even when an explicit private
+destination ref is supplied.
+The watch fetch now passes an empty `--refmap=`; the focused fixture begins with a stale
+`origin/tbd-sync`, and both it and the two-clone smoke prove that ref stays unchanged.
+
+The full release decision is recorded in `valid-2026-08-09-bead-watch-release.md`. The
+exact-tag artifact rerun and credentialed-remote execution remain tracked by tbd-t750.
+Linear experimentation remains explicitly non-gating.
 
 ## References
 

@@ -569,6 +569,9 @@ describe('watchForIssueChanges Git safety', { timeout: 15_000 }, () => {
     await git(repoDir, 'push', 'origin', 'HEAD:refs/heads/tbd-sync');
     await git(repoDir, 'checkout', 'main');
     await git(repoDir, 'update-ref', 'refs/heads/tbd-sync', since);
+    // A normal clone already has this tracking ref. Keep it deliberately stale so
+    // the private fetch proves it does not opportunistically apply remote.origin.fetch.
+    await git(repoDir, 'update-ref', 'refs/remotes/origin/tbd-sync', since);
 
     const gitDir = join(repoDir, '.git');
     const fetchHeadPath = join(gitDir, 'FETCH_HEAD');

@@ -143,6 +143,9 @@ export function createGitWatchDependencies(
           'fetch',
           '--no-write-fetch-head',
           '--no-tags',
+          // Git can still apply remote.<name>.fetch beside an explicit refspec;
+          // clearing the refmap keeps configured remote-tracking refs untouched.
+          '--refmap=',
           options.remote,
           `+refs/heads/${options.branch}:${privateRef}`,
         );

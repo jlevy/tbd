@@ -329,6 +329,11 @@ No dependency or lockfile changed.
 
 ## Manual Review
 
-No additional manual platform step is required for Phase 1 correctness.
-Linear/provider experiments remain separately tracked and are not a merge dependency for
-this infrastructure PR.
+No additional manual platform step remains a blocker for Phase 1 implementation
+correctness or the PR #205 merge decision.
+Release promotion now has an explicit packed artifact and credentialed-remote playbook
+in `valid-2026-08-09-bead-watch-release.md` and
+`tests/qa/watch-infrastructure-release.qa.md`, tracked by tbd-t750.
+
+Linear/provider experiments remain separately tracked and are not a merge or release
+dependency for this infrastructure PR.
