@@ -1,5 +1,77 @@
 # get-tbd
 
+## Unreleased
+
+### Features
+
+- **Read-only bead change detection and watching**: `tbd changes` reports deterministic,
+  per-field deltas between committed sync-branch snapshots, while `tbd watch` polls the
+  configured remote tip and exits when a bead, dynamic filter, ready set, or the whole
+  graph changes. Both commands share human and stable JSON reports and one exit-code
+  contract: 0 matched, 3 nothing matched (no deltas, or a `--timeout` that elapsed
+  without any), 2 usage error, 1 operational failure.
+  Because 3 and 2 are distinct, an agent wake loop can retry on “nothing matched”
+  without spinning on a mistyped flag.
+- **Agent wake recipes**: the new `watch-beads` shortcut documents a race-free
+  watch-then-spawn worker loop plus bounded and background in-session patterns for
+  Claude Code and Codex.
+  Live validation covers both platforms conversing through one bead.
+
+### Documentation
+
+- **`changes` and `watch` are documented in the built-in docs**: the CLI manual
+  (`tbd docs`) is authoritative for selectors, baseline commits, the report format, and
+  the repo-wide exit codes, and the design doc adds §3.7 (read-only remote observation:
+  private refs, fetch-flag isolation, bounded network calls) and §4.14 (the command
+  contract, selection semantics, and watch loop).
+  The `watch-beads` shortcut now carries the recipes and platform notes rather than
+  restating the contract.
+- **Notes semantics documented where they are used**: the manual’s `update` section
+  states that `--notes` replaces the whole body and that notes are single-writer
+  replaceable state, not a conversation log.
+
+### Fixes
+
+- **Watch exit codes disambiguated**: a watch timeout now exits 3, matching the
+  `tbd changes` no-change code, so exit 2 always means a usage error and recipes that
+  retry on “nothing happened” can never loop on a bad invocation.
+- **Centralized exit-code contract**: success (0), operational failure (1), usage error
+  (2), no matching change (3), and SIGINT (130) now live in one shared module used by
+  errors, commands, and the binary entry point.
+- **Watch rides out brief outages**: an established watch tolerates a bounded run of
+  consecutive failed remote polls (each failed poll waits the normal interval) before
+  exiting 1; startup validation still fails fast.
+  Baseline-invalidation and stale-snapshot errors now carry recovery hints (restart
+  without `--since`; run `tbd sync` first).
+- **Watch deadlines are observable and bounded**: timeout completion now includes one
+  final remote-tip observation, and each network observation/fetch has an explicit
+  poll-interval wall-time budget capped at 30 seconds.
+- **Stable report contract**: substantive field coverage in change/watch reports is
+  compile-time exhaustive, and pathological text rewrites report
+  `hunks_omitted: "complexity_limit"` instead of growing an unbounded Myers trace.
+  Like every other tbd `--json` surface, the report evolves by addition only.
+- **Durable worker recipe**: `watch-beads` persists a pending report before spawning,
+  pulls and revalidates current state, fails closed on worker/sync errors, and advances
+  its checkpoint only after success.
+  The shortcut now states the actual `--notes` replacement semantics and recommends
+  child beads or external comments for durable multi-writer history.
+- **Watch review hardening**: explicit bead IDs are validated before an unbounded poll,
+  fresh-clone errors point to `tbd sync`, empty spec filters retain list-compatible
+  behavior, created/deleted reports omit null-to-null fields, and text hunks retain at
+  most three context lines.
+- **Bounded snapshot subprocesses**: committed issue blobs are read through bounded
+  128-object `git cat-file --batch` groups instead of one `git show` per issue or one
+  graph-sized child-output buffer.
+
+### Security
+
+- No dependencies were added or upgraded.
+  Watch fetches only after remote movement, targets a collision-resistant private ref,
+  does not write `FETCH_HEAD` or configured sync refs, never accesses the hidden
+  data-sync worktree or lock, removes its private ref on normal completion (best-effort,
+  so a failed delete can never discard the change report), and reclaims refs orphaned by
+  interrupted watcher processes on the next watch startup.
+
 ## 0.4.2
 
 ### Features

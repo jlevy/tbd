@@ -60,6 +60,7 @@ import {
   deleteWorkspace,
 } from '../../file/workspace.js';
 import { withDataSyncContext } from '../lib/data-context.js';
+import { EXIT_OPERATIONAL_ERROR } from '../lib/exit-codes.js';
 
 /**
  * List bead files in a data-sync directory that fail to parse. Used as a
@@ -1031,7 +1032,7 @@ class SyncHandler extends BaseCommand {
       // recovery path). Local commits remain on tbd-sync either way, but the
       // remote was not updated. (#158)
       if (!recovered) {
-        process.exitCode = 1;
+        process.exitCode = EXIT_OPERATIONAL_ERROR;
       }
       return;
     }

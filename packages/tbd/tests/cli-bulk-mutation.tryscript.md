@@ -70,8 +70,8 @@ $ tbd close $(cat a.txt) $(cat b.txt)
 # Test: An unknown ID fails closed and changes nothing
 
 ```console
-$ tbd close $(cat c.txt) test-zzzz 2>&1
-[..]
+$ tbd close $(cat c.txt) test-zzzzzzz 2>&1
+Error: Issue not found: test-zzzzzzz
 ? 1
 ```
 
@@ -86,8 +86,8 @@ open
 # Test: --ignore-missing closes the known ID and reports the unknown
 
 ```console
-$ tbd close $(cat c.txt) test-zzzz --ignore-missing
-✓ Closed 1, not found 1: test-[SHORTID] test-zzzz
+$ tbd close $(cat c.txt) test-zzzzzzz --ignore-missing
+✓ Closed 1, not found 1: test-[SHORTID] test-zzzzzzz
 • Unsynced changes[..]
 ? 0
 ```
@@ -95,14 +95,14 @@ $ tbd close $(cat c.txt) test-zzzz --ignore-missing
 # Test: A lone unknown ID with --ignore-missing still reports the skip (not silent)
 
 ```console
-$ tbd close test-zzzz --ignore-missing
-✓ Closed 0, not found 1: test-zzzz
+$ tbd close test-zzzzzzz --ignore-missing
+✓ Closed 0, not found 1: test-zzzzzzz
 ? 0
 ```
 
 ```console
-$ tbd reopen test-zzzz --ignore-missing
-✓ Reopened 0, not found 1: test-zzzz
+$ tbd reopen test-zzzzzzz --ignore-missing
+✓ Reopened 0, not found 1: test-zzzzzzz
 ? 0
 ```
 
@@ -191,8 +191,8 @@ $ tbd reopen $(cat ra.txt) $(cat rb.txt)
 # Test: An unknown ID fails closed and changes nothing
 
 ```console
-$ tbd reopen $(cat ra.txt) test-zzzz 2>&1
-[..]
+$ tbd reopen $(cat ra.txt) test-zzzzzzz 2>&1
+Error: Issue not found: test-zzzzzzz
 ? 1
 ```
 
@@ -206,8 +206,8 @@ $ tbd close $(cat ra.txt) --quiet
 ```
 
 ```console
-$ tbd reopen $(cat ra.txt) test-zzzz --ignore-missing
-✓ Reopened 1, not found 1: test-[SHORTID] test-zzzz
+$ tbd reopen $(cat ra.txt) test-zzzzzzz --ignore-missing
+✓ Reopened 1, not found 1: test-[SHORTID] test-zzzzzzz
 • Unsynced changes[..]
 ? 0
 ```
@@ -323,16 +323,16 @@ open
 # Test: An unknown ID fails closed and changes nothing
 
 ```console
-$ tbd update $(cat ua.txt) test-zzzz --priority 1 2>&1
-[..]
+$ tbd update $(cat ua.txt) test-zzzzzzz --priority 1 2>&1
+Error: Issue not found: test-zzzzzzz
 ? 1
 ```
 
 # Test: --ignore-missing updates the known ID and reports the unknown
 
 ```console
-$ tbd update $(cat ua.txt) test-zzzz --assignee alice --ignore-missing
-✓ Updated 1, not found 1: test-[SHORTID] test-zzzz
+$ tbd update $(cat ua.txt) test-zzzzzzz --assignee alice --ignore-missing
+✓ Updated 1, not found 1: test-[SHORTID] test-zzzzzzz
 • Unsynced changes[..]
 ? 0
 ```
@@ -373,7 +373,7 @@ test-[SHORTID]
 ```
 
 ```console
-$ tbd close test-zzzz $(cat oa.txt) --ignore-missing --json | jq -r '[.results[].action] | join(",")'
+$ tbd close test-zzzzzzz $(cat oa.txt) --ignore-missing --json | jq -r '[.results[].action] | join(",")'
 missing,closed
 ? 0
 ```
@@ -381,8 +381,8 @@ missing,closed
 # Test: The full --json object is stable (raw golden, no-op batch has sync.pending false)
 
 ```console
-$ tbd close $(cat oa.txt) test-zzzz --ignore-missing --json | jq -c .
-{"results":[{"id":"test-[SHORTID]","action":"skipped","ok":true,"skippedReason":"already closed"},{"id":"test-zzzz","action":"missing","ok":false,"skippedReason":"not found"}],"summary":{"changed":0,"skipped":1,"missing":1,"failed":0,"total":2},"sync":{"pending":false}}
+$ tbd close $(cat oa.txt) test-zzzzzzz --ignore-missing --json | jq -c .
+{"results":[{"id":"test-[SHORTID]","action":"skipped","ok":true,"skippedReason":"already closed"},{"id":"test-zzzzzzz","action":"missing","ok":false,"skippedReason":"not found"}],"summary":{"changed":0,"skipped":1,"missing":1,"failed":0,"total":2},"sync":{"pending":false}}
 ? 0
 ```
 
@@ -444,19 +444,19 @@ $ tbd close $(cat da.txt) $(cat db.txt) --dry-run
 # Test: Dry-run of a lone --ignore-missing skip previews instead of emitting the real-run summary
 
 ```console
-$ tbd close test-zzzz --ignore-missing --dry-run
+$ tbd close test-zzzzzzz --ignore-missing --dry-run
 [DRY-RUN] Would close 0 issues
 ? 0
 ```
 
 ```console
-$ tbd reopen test-zzzz --ignore-missing --dry-run
+$ tbd reopen test-zzzzzzz --ignore-missing --dry-run
 [DRY-RUN] Would reopen 0 issues
 ? 0
 ```
 
 ```console
-$ tbd update test-zzzz --priority 1 --ignore-missing --dry-run
+$ tbd update test-zzzzzzz --priority 1 --ignore-missing --dry-run
 [DRY-RUN] Would update 0 issues
 ? 0
 ```
@@ -513,7 +513,7 @@ Passing it now errors as an unknown option rather than silently doing nothing.
 # Test: `close` rejects the removed `--no-sync`
 
 ```console
-$ tbd close test-zzzz --no-sync 2>&1
+$ tbd close test-zzzzzzz --no-sync 2>&1
 error: unknown option '--no-sync'
 ? 1
 ```
@@ -521,7 +521,7 @@ error: unknown option '--no-sync'
 # Test: `reopen` rejects the removed `--no-sync`
 
 ```console
-$ tbd reopen test-zzzz --no-sync 2>&1
+$ tbd reopen test-zzzzzzz --no-sync 2>&1
 error: unknown option '--no-sync'
 ? 1
 ```
@@ -529,7 +529,7 @@ error: unknown option '--no-sync'
 # Test: `update` rejects the removed `--no-sync`
 
 ```console
-$ tbd update test-zzzz --priority 1 --no-sync 2>&1
+$ tbd update test-zzzzzzz --priority 1 --no-sync 2>&1
 error: unknown option '--no-sync'
 ? 1
 ```

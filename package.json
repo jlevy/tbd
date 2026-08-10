@@ -34,6 +34,7 @@
     "upgrade": "ncu --cooldown 14 --target minor -u && pnpm install && pnpm test",
     "upgrade:major": "ncu --cooldown 14 --target latest --interactive --format group",
     "check:package-age": "node scripts/check-package-age.mjs",
+    "qa:watch-release": "pnpm --filter get-tbd qa:watch-release",
     "tbd": "TBD_DEV_VERSION=$(node packages/tbd/scripts/git-version.mjs) tsx packages/tbd/src/cli/bin.ts",
     "tbd:bin": "node packages/tbd/dist/bin.js",
     "test:install": "pnpm --filter get-tbd test:install",

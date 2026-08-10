@@ -91,6 +91,7 @@ agents.
       - [BaseEntity Merge Rules](#baseentity-merge-rules)
       - [Issue Merge Rules](#issue-merge-rules)
     - [3.6 Attic Structure](#36-attic-structure)
+    - [3.7 Read-Only Remote Observation](#37-read-only-remote-observation)
   - [4. CLI Layer](#4-cli-layer)
     - [4.1 Overview](#41-overview)
     - [4.1.1 Initialization Requirements](#411-initialization-requirements)
@@ -121,6 +122,11 @@ agents.
     - [4.11 Attic Commands](#411-attic-commands)
     - [4.12 Output Formats](#412-output-formats)
     - [4.13 Docs Commands](#413-docs-commands)
+    - [4.14 Change and Watch Commands](#414-change-and-watch-commands)
+      - [4.14.1 Baseline Commits](#4141-baseline-commits)
+      - [4.14.2 Selectors](#4142-selectors)
+      - [4.14.3 Change Report Format](#4143-change-report-format)
+      - [4.14.4 Watch Loop](#4144-watch-loop)
   - [5. Beads Compatibility](#5-beads-compatibility)
     - [5.1 Import Strategy](#51-import-strategy)
       - [5.1.1 Import Command](#511-import-command)
@@ -2457,6 +2463,66 @@ The attic preserves data lost in conflicts:
 }
 ```
 
+### 3.7 Read-Only Remote Observation
+
+Sync (§3.3) is the only operation that writes issue state.
+A second, narrower Git-layer operation exists so that a process can learn *that* state
+changed without changing anything itself: the observation path behind `tbd changes` and
+`tbd watch` (§4.14).
+
+**Invariant:** observation MUST NOT write any state another process can see.
+Concretely, it never takes the data-sync lock, never touches the hidden worktree, never
+updates the local sync branch or its remote-tracking ref, and never writes `FETCH_HEAD`.
+This is what makes it safe to run several watchers beside ordinary `tbd sync` in one
+checkout.
+
+**Reading committed snapshots.** Both commands read issues straight out of commit
+objects, never from a checkout:
+
+```bash
+# One snapshot: issue blobs plus the ID mapping, resolved from a commit
+git ls-tree -r -z <commit> -- .tbd/data-sync/issues .tbd/data-sync/mappings/ids.yml
+git cat-file --batch   # 128 object IDs per invocation
+```
+
+Blob reads are batched (128 objects per `cat-file`) so peak memory tracks the batch, not
+the repository. Each snapshot is validated on read: file names must match the issue ID
+inside, issue files must not be nested, and every issue must have a row in `ids.yml`. An
+unparseable snapshot fails the command rather than silently reporting a partial diff.
+
+Because the baseline and tip are commits, a change report is a pure function of two
+commit IDs: the same pair always yields the same report.
+
+**Observing the remote.** `tbd watch` learns the remote tip with
+`git ls-remote --exit-code <remote> refs/heads/<sync-branch>`, which transfers no
+objects.
+Only when that tip moves does it fetch, and the fetch is aimed at a private ref:
+
+```bash
+git fetch --no-write-fetch-head --no-tags --refmap= \
+  <remote> +refs/heads/<sync-branch>:refs/tbd/watch/<pid>-<uuid>
+```
+
+Each flag protects one piece of shared state:
+
+| Flag | Protects |
+| --- | --- |
+| explicit `+refs/heads/<branch>:refs/tbd/watch/...` destination | the local sync branch |
+| `--refmap=` | `refs/remotes/<remote>/<branch>`, which a configured remote refspec would otherwise advance beside the explicit one |
+| `--no-write-fetch-head` | `FETCH_HEAD`, which other tooling reads |
+| `--no-tags` | tag refs |
+
+Private refs live under `refs/tbd/watch/` and are named `<pid>-<uuid>`, so concurrent
+watchers in one checkout cannot collide.
+A watcher deletes its own ref on exit; a watcher that starts up first reclaims refs
+whose owning PID is no longer running, so a killed process leaves no permanent garbage.
+
+**Bounded network calls.** Every network-facing Git process gets a positive wall-time
+limit, so a hung transport ends the command instead of blocking an unattended worker
+forever. One remote observation plus its fetch and ref resolution share a single budget:
+the poll interval, capped at 30 seconds, and further clipped by any remaining
+`--timeout` budget.
+
 * * *
 
 ## 4. CLI Layer
@@ -3603,6 +3669,22 @@ Available on all commands:
 --debug                     Show internal IDs alongside public IDs for debugging
 ```
 
+**Exit Codes:**
+
+Exit codes are repo-wide and defined in one module, so shell and agent recipes can
+branch on them without reading command source:
+
+| Code | Meaning |
+| --- | --- |
+| 0 | Success |
+| 1 | Operational error, including unexpected errors and failed health checks |
+| 2 | Usage error: an invalid flag, argument, or selector |
+| 3 | No matching change: `tbd changes` found none, or `tbd watch --timeout` elapsed (§4.14) |
+| 130 | Interrupted by SIGINT (128 + 2) |
+
+Code 3 is the only “nothing happened” signal, and it is distinct from both failure modes
+on purpose: a recipe can retry exit 3 forever while still failing fast on exit 2.
+
 **Color Output:**
 
 The `--color` option controls ANSI color output consistently across all commands:
@@ -3784,6 +3866,8 @@ tbd attic restore proj-a1b2 2025-01-07T10-30-00Z
 
 - Parseable by scripts
 
+- `tbd changes` and `tbd watch` instead emit a versioned change report (§4.14.3)
+
 * * *
 
 ### 4.13 Docs Commands
@@ -3819,6 +3903,146 @@ the two explicit strategies: `--merge` (combine, standard conflict markers, sets
 advance the fork point).
 Forked files are git-tracked, so every applied update is reviewable in `git diff` and
 revertible; git is the undo.
+
+### 4.14 Change and Watch Commands
+
+Two commands expose the observation path of §3.7. They share one selector grammar and
+one report format, and neither mutates anything.
+
+```bash
+tbd changes --since <commit> [selectors] [--json]     # one-shot, local, pure diff
+tbd watch <selector> [--since <commit>] [--json] \    # block until a matching change
+  [--interval <seconds>] [--timeout <seconds>]
+```
+
+`tbd changes` answers “what moved since this commit?”
+against the local sync branch.
+`tbd watch` answers “tell me when something moves” against the remote sync branch.
+
+Watch reports one change and exits rather than streaming.
+That keeps the no-daemon property (§7.1, Decision 2), makes a wake composable with
+ordinary process control (a shell loop, a background task, a spawned agent), and gives
+the caller an explicit resume point instead of an open connection to babysit.
+Delivery is therefore **at least once**: a caller that acts on a report and then dies
+sees it again on restart, so worker actions must be idempotent.
+
+#### 4.14.1 Baseline Commits
+
+`--since <commit>` takes an ordinary Git commit-ish, resolved in the caller’s repository
+with `git rev-parse --verify <commit>^{commit}`. Any spelling Git accepts works: a full
+or abbreviated SHA, `tbd-sync~3`, or a tag.
+It is not an issue ID, a timestamp, or a tbd-internal sequence number.
+
+The baseline must lie on the sync branch’s history.
+Both commands check `git merge-base --is-ancestor <since> <tip>` and fail when it does
+not hold, so a commit from a working branch such as `main` is rejected.
+
+The tip differs by command:
+
+| Command | Tip | Freshness |
+| --- | --- | --- |
+| `tbd changes` | `refs/heads/<sync.branch>` | local sync branch as of the last `tbd sync`; no fetch, and unsynced edits in the hidden worktree are invisible |
+| `tbd watch` | remote tip fetched into a private ref | current remote state at the moment of the wake |
+
+In practice a baseline comes from a previous report: every report carries the full
+resolved `since` and `tip` commit IDs it used, and passing that `tip` back as `--since`
+closes the gap between invocations.
+Without a previous report, any sync-branch commit works, for example
+`git rev-parse tbd-sync`.
+
+A baseline is durable but not eternal.
+If sync recovery rewrites the sync branch, a saved baseline stops being an ancestor of
+the new tip; the command fails with that reason and the caller starts from a new
+baseline.
+
+#### 4.14.2 Selectors
+
+| Selector | Kind | Meaning |
+| --- | --- | --- |
+| `--bead <ids...>` | static | one or more named beads |
+| `--label <label>` | dynamic | beads carrying the label (repeatable, ANDed) |
+| `--spec <path>` | dynamic | beads tracking a spec (filename or suffix match) |
+| `--status <status>` | dynamic | beads in one status |
+| `--ready` | dynamic, edge-triggered | beads newly entering the ready set |
+| `--all` | dynamic | every bead |
+
+`--all` cannot be combined with anything, and `--bead` cannot be combined with the
+dynamic filters. `tbd changes` defaults to `--all`; `tbd watch` requires an explicit
+selector, since an unqualified watch is almost never the intent.
+
+Dynamic filters reuse the same predicates as `tbd list` and `tbd ready`, so a watch
+cannot drift from the list it mirrors.
+Matching rules:
+
+- **Static.** IDs resolve against the snapshot and an unknown ID is an error, so a typo
+  fails immediately instead of waiting forever.
+  A watch without `--since` validates its IDs against the local sync branch at startup;
+  with `--since` it validates against the union of both endpoints, which allows watching
+  a bead that was deleted after the baseline.
+
+- **Filters.** A bead is reported when it matches *before or after*, so entering and
+  leaving the set both wake.
+
+- **`--ready`.** A bead is reported only when it matches after and did not match before.
+  Ready means open, unassigned, and free of open blockers, the same predicate
+  `tbd ready` uses (§4.4).
+
+#### 4.14.3 Change Report Format
+
+Both commands emit the same document.
+`--json` prints it verbatim; human output renders it.
+
+```json
+{
+  "since": "3f2a…",
+  "tip": "9c81…",
+  "changes": [
+    {
+      "id": "proj-a7k2",
+      "internal_id": "is-01hx5zzkbkactav9wevgemmvrz",
+      "title": "API returns 500 on malformed input",
+      "change": "updated",
+      "fields": [{ "field": "status", "before": "open", "after": "in_progress" }]
+    }
+  ]
+}
+```
+
+- Stability follows the same contract as every other `--json` surface (§5.6): fields are
+  added, never removed or repurposed, so a consumer ignores what it does not recognize.
+  The report is command output rather than repository state, so `tbd_format` (§2.7.4)
+  does not describe it and there is no separate report version to check.
+
+- Output is deterministic: changes sort by internal ID, and fields follow one fixed
+  order. The field-order record is compile-time exhaustive, so adding a substantive
+  `Issue` field is a type error until its report position is chosen.
+
+- `change` is `created`, `updated`, or `deleted`. `fields` covers every substantive
+  issue field; `id`, `type`, `version`, and `updated_at` are excluded as bookkeeping.
+
+- `description` and `notes` changes additionally carry `hunks`, a line diff with three
+  lines of context. Past a fixed edit-distance cutoff the hunks are replaced by
+  `hunks_omitted: "complexity_limit"`; `before` and `after` remain complete, so a
+  pathological rewrite costs detail rather than unbounded work.
+
+#### 4.14.4 Watch Loop
+
+1. Reclaim private refs left by dead watchers, then validate a static selection.
+2. Read the remote tip with `ls-remote`. The baseline is `--since` when given, otherwise
+   this first observed tip.
+3. With `--since`, compare immediately, so a change that landed before startup is
+   reported instead of missed.
+4. Poll: sleep the interval (default 30 seconds, minimum 10), read the remote tip again,
+   and continue when it is unchanged.
+   When it moved, fetch into the private ref and build a report.
+   An empty report means unrelated movement: advance the baseline to that tip and keep
+   waiting. A non-empty report prints and exits 0.
+5. `--timeout` exits 3, but only after one remote observation at or after the boundary,
+   so a change landing exactly on the deadline is not dropped.
+6. An established watch rides out consecutive failed polls and aborts on the fifth, so a
+   brief outage does not kill an unattended worker.
+   Startup failures are immediate, and a failure at the timeout boundary is an
+   operational error rather than a silent timeout, since the two are not the same claim.
 
 * * *
 
@@ -4482,7 +4706,11 @@ CLI output.
 
 - JSON output schema from `--json` flag (additive changes only)
 
-- Exit codes: 0 = success, 1 = error, 2 = usage error
+- Exit codes: 0 = success, 1 = error, 2 = usage error, 3 = no matching change, 130 =
+  SIGINT (§4.10)
+
+- Change report schema from `tbd changes` and `tbd watch` (§4.14.3), under the same
+  additive-only rule as other JSON output
 
 - Initialization error: Commands in uninitialized repos exit with code 1 and message
   `Error: Not a tbd repository (run 'tbd init' or 'tbd import --from-beads' first)`
@@ -5218,13 +5446,17 @@ Post-process results to:
 
 #### Real-time Coordination
 
+Poll-based coordination already exists: `tbd watch` (§4.14) wakes a process when
+selected committed bead state changes on the remote, at remote-poll latency and with no
+daemon. What it does not provide:
+
 **Components**:
 
-- WebSocket presence service
+- Presence service (which agents are live right now)
 
-- Atomic claim leases
+- Atomic claim leases, so two agents cannot claim one bead
 
-- Live updates
+- Push delivery rather than polling
 
 **Use cases**:
 
@@ -5855,6 +6087,10 @@ data if not updated after fetch.
 
 3. Document both patterns with guidance on when to use each
 
+This is settled for read-only observation, which takes a fourth option: `tbd watch`
+fetches into a private ref and reads that, leaving both `tbd-sync` and `origin/tbd-sync`
+untouched (§3.7). The question remains open for sync itself.
+
 ### 8.2 Timestamp and Ordering
 
 **V2-012: Clock skew assumptions**
@@ -6031,6 +6267,10 @@ linked:
 
 **Recommendation:** Design the `linked` metadata structure now (even if unused),
 implement GitHub bridge later with plugin architecture for other providers.
+
+The change-detection half already exists and is provider-neutral: a bridge can consume
+change reports from `tbd watch` or `tbd changes` (§4.14.3) and keep its own resume
+checkpoint, so no provider code, credentials, or schema fields need to enter core.
 
 * * *
 

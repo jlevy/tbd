@@ -26,6 +26,8 @@ import { staleCommand } from './commands/stale.js';
 import { labelCommand } from './commands/label.js';
 import { depCommand } from './commands/dep.js';
 import { syncCommand } from './commands/sync.js';
+import { changesCommand } from './commands/changes.js';
+import { watchCommand } from './commands/watch.js';
 import { searchCommand } from './commands/search.js';
 import { statusCommand } from './commands/status.js';
 import { statsCommand } from './commands/stats.js';
@@ -47,6 +49,7 @@ import { setupCommand } from './commands/setup.js';
 import { saveCommand } from './commands/save.js';
 import { workspaceCommand } from './commands/workspace.js';
 import { CLIError } from './lib/errors.js';
+import { EXIT_INTERRUPTED, EXIT_OPERATIONAL_ERROR } from './lib/exit-codes.js';
 
 /**
  * Create and configure the CLI program.
@@ -110,6 +113,8 @@ function createProgram(): Command {
   program.addCommand(labelCommand);
 
   program.commandsGroup('Sync and Status:');
+  program.addCommand(changesCommand);
+  program.addCommand(watchCommand);
   program.addCommand(syncCommand);
   program.addCommand(saveCommand);
   program.addCommand(statusCommand);
@@ -319,12 +324,12 @@ export async function runCli(): Promise<void> {
     // Unexpected error
     const message = error instanceof Error ? error.message : String(error);
     outputError(message, error instanceof Error ? error : undefined);
-    process.exit(1);
+    process.exit(EXIT_OPERATIONAL_ERROR);
   }
 }
 
 // Handle SIGINT (Ctrl+C)
 process.on('SIGINT', () => {
   console.error('\nInterrupted');
-  process.exit(130); // 128 + SIGINT(2)
+  process.exit(EXIT_INTERRUPTED);
 });

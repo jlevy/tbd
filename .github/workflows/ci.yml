@@ -33,6 +33,9 @@ jobs:
 
       - run: pnpm --filter get-tbd test
 
+      - name: Run watch release smoke
+        run: pnpm --filter get-tbd qa:watch-release:built
+
   coverage:
     name: Coverage & Lint
     runs-on: ubuntu-latest

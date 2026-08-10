@@ -40,10 +40,21 @@ export class GitError extends Error {
   readonly stderr: string;
   readonly stdout: string;
   readonly args: string[];
+  /** True when an explicit execFile timeout terminated the command. */
+  readonly timedOut: boolean;
+  /** Configured timeout for this command, or null when no timeout was set. */
+  readonly timeoutMs: number | null;
 
   constructor(
     message: string,
-    opts: { exitCode: number | null; stderr: string; stdout: string; args: string[] },
+    opts: {
+      exitCode: number | null;
+      stderr: string;
+      stdout: string;
+      args: string[];
+      timedOut?: boolean;
+      timeoutMs?: number | null;
+    },
   ) {
     super(message);
     this.name = 'GitError';
@@ -51,6 +62,8 @@ export class GitError extends Error {
     this.stderr = opts.stderr;
     this.stdout = opts.stdout;
     this.args = opts.args;
+    this.timedOut = opts.timedOut ?? false;
+    this.timeoutMs = opts.timeoutMs ?? null;
   }
 
   /**
@@ -59,18 +72,22 @@ export class GitError extends Error {
    * Node's execFile rejection carries `code` (numeric exit code for a normal
    * exit, or a string like 'ENOENT' for a spawn failure), plus `stderr`/`stdout`.
    */
-  static from(err: unknown, args: string[]): GitError {
+  static from(err: unknown, args: string[], timeoutMs: number | null = null): GitError {
     const raw = err as {
       message?: string;
       code?: unknown;
       stderr?: unknown;
       stdout?: unknown;
+      killed?: unknown;
     };
     const exitCode = typeof raw.code === 'number' ? raw.code : null;
     const stderr = typeof raw.stderr === 'string' ? raw.stderr : '';
     const stdout = typeof raw.stdout === 'string' ? raw.stdout : '';
-    const message = raw.message ?? `git ${args.join(' ')} failed`;
-    return new GitError(message, { exitCode, stderr, stdout, args });
+    const timedOut = timeoutMs !== null && raw.killed === true;
+    const message = timedOut
+      ? `git ${args.join(' ')} timed out after ${timeoutMs} ms`
+      : (raw.message ?? `git ${args.join(' ')} failed`);
+    return new GitError(message, { exitCode, stderr, stdout, args, timedOut, timeoutMs });
   }
 }
 
@@ -114,7 +131,7 @@ export async function git(...args: string[]): Promise<string> {
  * (e.g. a best-effort push) fails fast instead of blocking on a credential
  * prompt in a non-interactive environment.
  */
-async function gitNoPrompt(...args: string[]): Promise<string> {
+export async function gitNoPrompt(...args: string[]): Promise<string> {
   try {
     const { stdout } = await execFileAsync('git', args, {
       maxBuffer: GIT_MAX_BUFFER,
@@ -123,6 +140,30 @@ async function gitNoPrompt(...args: string[]): Promise<string> {
     return stdout.trim();
   } catch (err) {
     throw GitError.from(err, args);
+  }
+}
+
+/**
+ * Like {@link gitNoPrompt}, but terminate the Git process after a positive timeout.
+ * Network-facing callers should use this variant so a stalled transport cannot block
+ * an unattended workflow forever.
+ */
+export async function gitNoPromptWithTimeout(
+  timeoutMs: number,
+  ...args: string[]
+): Promise<string> {
+  if (!Number.isSafeInteger(timeoutMs) || timeoutMs <= 0) {
+    throw new RangeError(`Git timeout must be a positive integer, got ${timeoutMs}`);
+  }
+  try {
+    const { stdout } = await execFileAsync('git', args, {
+      maxBuffer: GIT_MAX_BUFFER,
+      timeout: timeoutMs,
+      env: gitSafeEnv({ GIT_TERMINAL_PROMPT: '0' }),
+    });
+    return stdout.trim();
+  } catch (err) {
+    throw GitError.from(err, args, timeoutMs);
   }
 }
 

@@ -5,6 +5,7 @@
  */
 
 import { findTbdRoot } from '../../file/config.js';
+import { EXIT_OPERATIONAL_ERROR, EXIT_USAGE_ERROR } from './exit-codes.js';
 
 /**
  * Find and return the tbd repository root, starting from the given directory.
@@ -29,7 +30,7 @@ export async function requireInit(cwd: string = process.cwd()): Promise<string> 
 export class CLIError extends Error {
   constructor(
     message: string,
-    public exitCode = 1,
+    public exitCode = EXIT_OPERATIONAL_ERROR,
   ) {
     super(message);
     this.name = 'CLIError';
@@ -42,7 +43,7 @@ export class CLIError extends Error {
  */
 export class ValidationError extends CLIError {
   constructor(message: string) {
-    super(message, 2);
+    super(message, EXIT_USAGE_ERROR);
     this.name = 'ValidationError';
   }
 }
@@ -53,7 +54,7 @@ export class ValidationError extends CLIError {
  */
 export class NotInitializedError extends CLIError {
   constructor(message = "Not a tbd repository (run 'tbd setup --auto --prefix=<name>' first)") {
-    super(message, 1);
+    super(message, EXIT_OPERATIONAL_ERROR);
     this.name = 'NotInitializedError';
   }
 }
@@ -64,7 +65,7 @@ export class NotInitializedError extends CLIError {
  */
 export class NotFoundError extends CLIError {
   constructor(entityType: string, id: string, hint?: string) {
-    super(`${entityType} not found: ${id}${hint ? `\n${hint}` : ''}`, 1);
+    super(`${entityType} not found: ${id}${hint ? `\n${hint}` : ''}`, EXIT_OPERATIONAL_ERROR);
     this.name = 'NotFoundError';
   }
 }
@@ -74,7 +75,7 @@ export class NotFoundError extends CLIError {
  */
 export class SyncError extends CLIError {
   constructor(message: string) {
-    super(message, 1);
+    super(message, EXIT_OPERATIONAL_ERROR);
     this.name = 'SyncError';
   }
 }
@@ -104,7 +105,7 @@ export class UnrelatedHistoriesError extends SyncError {
  */
 export class SyncBranchError extends CLIError {
   constructor(message: string) {
-    super(message, 1);
+    super(message, EXIT_OPERATIONAL_ERROR);
     this.name = 'SyncBranchError';
   }
 }

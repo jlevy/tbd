@@ -215,9 +215,10 @@ desc $D `r` "s"
 ? 0
 ```
 
-# Test: update --notes-file reads shell-sensitive notes verbatim
+# Test: update --notes-file replaces existing notes with shell-sensitive text
 
-Establish a notes body first (see tbd-649r):
+Establish a notes body first so the final assertion also pins replacement, not append,
+semantics (see tbd-649r):
 
 ```console
 $ tbd update $(cat bf.txt) --notes "established" --quiet

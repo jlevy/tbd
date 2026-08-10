@@ -22,6 +22,13 @@ import {
   SyncError,
 } from '../src/cli/lib/errors.js';
 import { runCli } from '../src/cli/cli.js';
+import {
+  EXIT_INTERRUPTED,
+  EXIT_NO_MATCHING_CHANGE,
+  EXIT_OPERATIONAL_ERROR,
+  EXIT_SUCCESS,
+  EXIT_USAGE_ERROR,
+} from '../src/cli/lib/exit-codes.js';
 
 // Capture process.exit calls for testing
 let exitCode: number | null = null;
@@ -62,9 +69,25 @@ describe('exit codes', () => {
   });
 
   describe('error class exit codes', () => {
+    it('defines every stable CLI exit code in the shared module', () => {
+      expect({
+        EXIT_SUCCESS,
+        EXIT_OPERATIONAL_ERROR,
+        EXIT_USAGE_ERROR,
+        EXIT_NO_MATCHING_CHANGE,
+        EXIT_INTERRUPTED,
+      }).toEqual({
+        EXIT_SUCCESS: 0,
+        EXIT_OPERATIONAL_ERROR: 1,
+        EXIT_USAGE_ERROR: 2,
+        EXIT_NO_MATCHING_CHANGE: 3,
+        EXIT_INTERRUPTED: 130,
+      });
+    });
+
     it('CLIError has exit code 1 by default', () => {
       const error = new CLIError('test');
-      expect(error.exitCode).toBe(1);
+      expect(error.exitCode).toBe(EXIT_OPERATIONAL_ERROR);
     });
 
     it('CLIError accepts custom exit code', () => {
@@ -80,7 +103,7 @@ describe('exit codes', () => {
 
     it('ValidationError has exit code 2', () => {
       const error = new ValidationError('Invalid input');
-      expect(error.exitCode).toBe(2);
+      expect(error.exitCode).toBe(EXIT_USAGE_ERROR);
     });
 
     it('NotInitializedError has exit code 1', () => {
