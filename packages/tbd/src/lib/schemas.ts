@@ -132,6 +132,14 @@ export const ProviderName = z.enum(['linear', 'github']);
 /**
  * A link from a bead to an item in an external tracker.
  *
+ * Stored under `extensions.<provider>` rather than as a top-level issue field.
+ * `extensions` is already part of `BaseEntity` with opaque contents, so a tbd
+ * that predates this feature round-trips the link untouched instead of silently
+ * stripping it. That keeps the feature additive and needs no format bump.
+ *
+ * The namespace key IS the provider, which makes "at most one link per provider"
+ * structural rather than a rule the merge code has to enforce.
+ *
  * `id` is the provider's stable internal identifier and is the canonical key:
  * human identifiers like Linear's `FIN-123` change when an issue moves between
  * teams, but the UUID does not. `key` and `url` are display conveniences and are
@@ -199,15 +207,6 @@ export const IssueSchema = BaseEntity.extend({
   created_by: z.string().nullable().optional(),
   closed_at: Timestamp.nullable().optional(),
   close_reason: z.string().nullable().optional(),
-
-  // External tracker links. At most one entry (one bead, one external source) so
-  // every sync is a single pair resolved against a single base. The array shape
-  // is kept for forward compatibility; `mergeIssues` collapses extras.
-  linked: z.array(LinkedEntry).nullable().optional(),
-
-  // Actor that last mutated this issue, from TBD_ACTOR. Lets watch consumers and
-  // the integration sync skip their own writes.
-  last_actor: z.string().nullable().optional(),
 });
 
 // =============================================================================

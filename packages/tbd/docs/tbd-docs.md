@@ -1354,6 +1354,11 @@ integrations:
       specs: active
 ```
 
+One caveat: `tbd setup` run by a tbd version that predates this feature will drop the
+`integrations` block from `config.yml`, because config has no extensions namespace.
+The block is tracked in git, so `git checkout .tbd/config.yml` restores it, and the
+symptom is loud (the mirror stops working rather than misbehaving).
+
 Set `LINEAR_API_KEY` in your environment or in a **gitignored** `.env` at the repository
 root. tbd reads it but never writes it back, and refuses to treat an unignored `.env` as
 acceptable, because that is how a key gets committed.
@@ -1429,6 +1434,13 @@ Linear has no custom fields, so each mirrored issue carries:
   **Only that block is rewritten**, so prose a human adds around it survives.
 - An attachment keyed `tbd://bead/<id>` holding the full bead field set as structured
   metadata.
+
+The bead’s side of the link is stored under `extensions.linear` rather than as a
+top-level field, so a tbd that predates this feature reads and rewrites a linked bead
+without disturbing it.
+`tbd show` displays it as part of `extensions`. Because the namespace key is the
+provider, a bead can carry a Linear link and a GitHub link at the same time, and can
+never carry two of either.
 - An attachment linking the plan spec, as a **permalink to the branch that actually has
   it**. Specs live on the branch that authored them, so a link built from the bare path
   would 404 depending on who follows it.

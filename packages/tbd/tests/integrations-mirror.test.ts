@@ -56,7 +56,7 @@ describe('planMirror', () => {
   it('plans an update for an already-linked bead', () => {
     const bead = issue({
       id: 'is-a',
-      linked: [{ provider: 'linear', id: 'uuid-1', linked_at: '2026-08-10T00:00:00.000Z' }],
+      extensions: { linear: { id: 'uuid-1', linked_at: '2026-08-10T00:00:00.000Z' } },
     });
     const plan = planMirror({
       provider: 'linear',
@@ -73,7 +73,7 @@ describe('planMirror', () => {
   it('ignores a link belonging to a different provider', () => {
     const bead = issue({
       id: 'is-a',
-      linked: [{ provider: 'github', id: 'gh-1', linked_at: '2026-08-10T00:00:00.000Z' }],
+      extensions: { github: { id: 'gh-1', linked_at: '2026-08-10T00:00:00.000Z' } },
     });
     const plan = planMirror({
       provider: 'linear',
@@ -269,7 +269,7 @@ describe('applyMirror', () => {
     const externalId = linked[0]?.entry.id ?? '';
     const relinked = issue({
       id: 'is-a',
-      linked: [{ provider: 'linear', id: externalId, linked_at: '2026-08-10T00:00:00.000Z' }],
+      extensions: { linear: { id: externalId, linked_at: '2026-08-10T00:00:00.000Z' } },
     });
     const attachmentsAfterFirst = server.attachments.length;
 
@@ -291,7 +291,7 @@ describe('applyMirror', () => {
     const bad = issue({
       id: 'is-bad',
       // Points at an external item that does not exist, so the update fails.
-      linked: [{ provider: 'linear', id: 'missing-uuid', linked_at: '2026-08-10T00:00:00.000Z' }],
+      extensions: { linear: { id: 'missing-uuid', linked_at: '2026-08-10T00:00:00.000Z' } },
     });
 
     const plan = planMirror({

@@ -80,9 +80,6 @@ function renderIssueLines(
       output.push(`${colors.dim('title:')} ${colors.bold(line.slice(7))}`);
     } else if (line.startsWith('spec_path:')) {
       output.push(`${colors.dim('spec_path:')} ${colors.id(line.slice(11))}`);
-    } else if (line.startsWith('linked:') || line.startsWith('last_actor:')) {
-      const separator = line.indexOf(':');
-      output.push(`${colors.dim(line.slice(0, separator + 1))}${line.slice(separator + 1)}`);
     } else if (line.startsWith('## Notes')) {
       output.push(colors.bold(line));
     } else if (line.startsWith('  - ')) {

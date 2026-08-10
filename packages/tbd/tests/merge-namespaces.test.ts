@@ -1,9 +1,10 @@
 /**
- * Merge behavior for `extensions` (per-namespace) and `linked` (single source).
+ * Per-namespace merge behavior for `extensions`.
  *
  * `extensions` previously merged as one opaque last-writer-wins value, so two
- * writers touching different namespaces silently lost one side. These tests pin
- * the per-namespace behavior that replaces it.
+ * writers touching different namespaces silently lost one side. That matters
+ * more now that external tracker links live in these namespaces: losing one
+ * would orphan a mirrored issue and cause the next mirror to duplicate it.
  */
 
 import { describe, expect, it } from 'vitest';
@@ -89,67 +90,5 @@ describe('extensions per-namespace merge', () => {
 
     expect(merged.extensions).toEqual({ github: { prs: ['new'] } });
     expect(conflicts).toHaveLength(0);
-  });
-});
-
-describe('linked single-source collapse', () => {
-  it('keeps a single link untouched', () => {
-    const entry = {
-      provider: 'linear' as const,
-      id: 'uuid-1',
-      linked_at: '2026-08-10T00:00:00.000Z',
-    };
-    const base = issue();
-    const local = issue({ version: 2, linked: [entry] });
-    const remote = issue({ version: 2, linked: [entry] });
-
-    const { merged, conflicts } = mergeIssues(base, local, remote);
-
-    expect(merged.linked).toEqual([entry]);
-    expect(conflicts).toHaveLength(0);
-  });
-
-  it('collapses concurrent links to different sources, keeping the newest', () => {
-    const older = {
-      provider: 'linear' as const,
-      id: 'uuid-old',
-      linked_at: '2026-08-10T00:00:00.000Z',
-    };
-    const newer = {
-      provider: 'linear' as const,
-      id: 'uuid-new',
-      linked_at: '2026-08-10T05:00:00.000Z',
-    };
-    const base = issue();
-    const local = issue({ version: 2, linked: [older] });
-    const remote = issue({ version: 2, linked: [newer] });
-
-    const { merged, conflicts } = mergeIssues(base, local, remote);
-
-    expect(merged.linked).toEqual([newer]);
-    expect(conflicts).toHaveLength(1);
-    expect(conflicts[0]?.field).toBe('linked');
-    expect(conflicts[0]?.lost_value).toEqual(older);
-  });
-
-  it('collapses deterministically regardless of which side is local', () => {
-    const a = { provider: 'linear' as const, id: 'uuid-a', linked_at: '2026-08-10T00:00:00.000Z' };
-    const b = { provider: 'linear' as const, id: 'uuid-b', linked_at: '2026-08-10T00:00:00.000Z' };
-    const base = issue();
-
-    const forward = mergeIssues(
-      base,
-      issue({ version: 2, linked: [a] }),
-      issue({ version: 2, linked: [b] }),
-    );
-    const reverse = mergeIssues(
-      base,
-      issue({ version: 2, linked: [b] }),
-      issue({ version: 2, linked: [a] }),
-    );
-
-    // Equal timestamps must not depend on argument order, or two replicas would
-    // converge to different links.
-    expect(forward.merged.linked).toEqual(reverse.merged.linked);
   });
 });

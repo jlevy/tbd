@@ -19,9 +19,12 @@
     `--yes` proceeds.
   - Credentials load from the environment or a gitignored `.env`. An unignored `.env` is
     reported as an error.
-- `linked` and `last_actor` fields on issues, and an `integrations` config block.
-  Format bumps to **f07** so an older tbd refuses the repository rather than silently
-  stripping them.
+- An `integrations` config block.
+  **No format bump and no schema change**: the bead’s link is stored in the existing
+  `extensions.<provider>` namespace, which an older tbd round-trips untouched.
+  A top-level field would have been silently stripped on the first write from an older
+  CLI, which is what forces a format gate; using the namespace keeps the feature
+  additive and mixed-version safe.
 - `tbd doctor` gains hierarchy and integration checks.
 
 ### Fixed

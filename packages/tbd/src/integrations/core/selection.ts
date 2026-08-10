@@ -8,6 +8,7 @@
  */
 
 import type { Issue, IntegrationSelect, ProviderNameType } from '../../lib/types.js';
+import { readLink } from './link-store.js';
 
 /**
  * Directory segment marking a spec as still active.
@@ -21,7 +22,7 @@ const ACTIVE_SPEC_SEGMENT = '/specs/active/';
  * True when the bead carries a link to the given provider.
  */
 export function isLinkedTo(issue: Issue, provider: ProviderNameType): boolean {
-  return (issue.linked ?? []).some((entry) => entry.provider === provider);
+  return readLink(issue, provider) !== undefined;
 }
 
 /**

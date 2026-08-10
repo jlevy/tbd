@@ -413,13 +413,7 @@ export async function commitToSyncBranch(
 /**
  * Field-level merge strategy types.
  */
-type MergeStrategy =
-  | 'lww'
-  | 'union'
-  | 'max'
-  | 'immutable'
-  | 'namespace_merge'
-  | 'linked_single_source';
+type MergeStrategy = 'lww' | 'union' | 'max' | 'immutable' | 'namespace_merge';
 
 /**
  * Field-level merge strategies for Issue fields.
@@ -451,7 +445,6 @@ const FIELD_STRATEGIES: Record<keyof Issue, MergeStrategy> = {
   due_date: 'lww',
   deferred_until: 'lww',
   spec_path: 'lww',
-  last_actor: 'lww',
 
   // Union - combine arrays, deduplicate
   labels: 'union',
@@ -459,12 +452,9 @@ const FIELD_STRATEGIES: Record<keyof Issue, MergeStrategy> = {
 
   // Merged per top-level namespace, not as one opaque value: two writers touching
   // different namespaces must both survive. Whole-object LWW here silently
-  // dropped one side's namespace.
+  // dropped one side's namespace, which now matters more because external
+  // tracker links live in these namespaces.
   extensions: 'namespace_merge',
-
-  // At most one external source per bead. Concurrent links to different sources
-  // collapse to the newest, with the loser preserved in the attic.
-  linked: 'linked_single_source',
 };
 
 /**
@@ -623,40 +613,6 @@ function mergeNamespaces(
     onConflict(namespace, loser, winner);
   }
   return merged;
-}
-
-/**
- * Resolve `linked` to at most one entry.
- *
- * A bead is attached to at most one external source so every sync is a single
- * pair resolved against a single base. If both sides linked different sources
- * concurrently, the newest `linked_at` wins and the loser goes to the attic.
- */
-function collapseLinked(
-  localVal: unknown,
-  remoteVal: unknown,
-): { merged: unknown[]; lost: unknown[] } {
-  const asEntries = (value: unknown): unknown[] =>
-    Array.isArray(value) ? (value as unknown[]) : [];
-  const entries: unknown[] = [...asEntries(localVal), ...asEntries(remoteVal)];
-  // Seed from empty so duplicates within `entries` are also removed: the two
-  // sides normally carry the identical link, and that is not a conflict.
-  const unique = unionArrays<unknown>([], entries);
-  if (unique.length <= 1) {
-    return { merged: unique, lost: [] };
-  }
-
-  const linkedAt = (entry: unknown): number => {
-    const at = isPlainObject(entry) ? entry.linked_at : undefined;
-    const parsed = typeof at === 'string' ? Date.parse(at) : Number.NaN;
-    return Number.isNaN(parsed) ? 0 : parsed;
-  };
-  // Sort newest first, breaking ties deterministically so both replicas agree.
-  const sorted = [...unique].sort((a, b) => {
-    const delta = linkedAt(b) - linkedAt(a);
-    return delta !== 0 ? delta : JSON.stringify(a).localeCompare(JSON.stringify(b));
-  });
-  return { merged: sorted.slice(0, 1), lost: sorted.slice(1) };
 }
 
 /**
@@ -861,25 +817,6 @@ export function mergeIssues(base: Issue | null, local: Issue, remote: Issue): Me
           },
           nsLocalTime >= nsRemoteTime,
         );
-        break;
-      }
-
-      case 'linked_single_source': {
-        const { merged: kept, lost } = collapseLinked(localVal, remoteVal);
-        (merged as Record<string, unknown>)[key] = kept;
-        for (const loser of lost) {
-          conflicts.push(
-            createConflictEntry(
-              local.id,
-              field,
-              loser,
-              kept[0],
-              local.version,
-              remote.version,
-              'lww',
-            ),
-          );
-        }
         break;
       }
     }

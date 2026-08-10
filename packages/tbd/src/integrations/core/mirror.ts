@@ -10,6 +10,7 @@
 
 import type { Issue, LinkedEntryType, ProviderNameType } from '../../lib/types.js';
 import { readyIssueIds } from '../../lib/issue-selection.js';
+import { readLink } from './link-store.js';
 import { renderManagedBlock, type MirrorLinks } from './managed-block.js';
 import type {
   AttachmentSpec,
@@ -71,7 +72,7 @@ function depthWithin(
 
 /** Existing link for a provider, if any. */
 export function linkFor(issue: Issue, provider: ProviderNameType): LinkedEntryType | undefined {
-  return (issue.linked ?? []).find((entry) => entry.provider === provider);
+  return readLink(issue, provider);
 }
 
 /**

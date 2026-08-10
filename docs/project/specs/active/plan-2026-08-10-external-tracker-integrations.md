@@ -285,28 +285,50 @@ stays green and offline-safe for repositories that never use this.
 Network probes get a short timeout and degrade to “unreachable (network?)” rather than
 error.
 
-#### 3. The `linked` field (`lib/schemas.ts`, `file/git.ts`)
+#### 3. Link storage: the `extensions` namespace (`integrations/core/link-store.ts`)
 
-Adopted from PR #197, with its single-source invariant.
+The link lives under `extensions.<provider>`, which `BaseEntity` already carries.
+It is **not** a new top-level field, and that difference is not cosmetic.
 
 ```yaml
-linked:
-  - provider: linear
+extensions:
+  linear:
     id: 9cbb48f8-7a2e-4b9d-9f3e-0c1d2e3f4a5b   # provider UUID, the canonical key
     key: FIN-123                                # human identifier, display only
     url: https://linear.app/acme/issue/FIN-123
     linked_at: 2026-08-10T18:00:00Z
 ```
 
-- `LinkedEntrySchema` added to `lib/schemas.ts`; `linked` is optional on `IssueSchema`.
+Measured against tbd 0.4.2, writing each shape and then running `tbd update`:
+
+| Storage | Older tbd on write | Format bump |
+| --- | --- | --- |
+| Top-level `linked:` | **silently dropped** | required |
+| `extensions.linear` | **survives intact** | not needed |
+
+`IssueSchema` parses in Zod strip mode, so an unknown top-level field is discarded the
+first time an older CLI writes the bead.
+`extensions` is a *known* field whose contents are `z.unknown()`, so there is nothing to
+strip. The failure this avoids is specific: a dropped link means the bead forgets it is
+mirrored, so the next mirror creates a **duplicate** external issue and orphans the
+original.
+
+This is what `extensions` is for: keep the feature soft and additive now, and promote it
+to a first-class field later if it earns one, with a format bump that is actually
+justified.
+
 - The UUID is canonical because Linear identifiers move between teams; UUIDs do not.
-- **A bead links to at most one external source.** Every sync is then one pair resolved
-  against one base, never a multi-master reconciliation needing per-field provenance.
-- `FIELD_STRATEGIES` gains `linked: 'merge_by_id'` keyed on `(provider, id)`, plus a
-  collapse rule in `mergeIssues()`: if a merge yields more than one entry, keep the
-  newest `linked_at` and preserve the loser in the attic.
-- `last_actor: 'lww'` (optional string, set from `TBD_ACTOR` by mutating commands) so
-  watch consumers and the sync can attribute changes.
+- **“At most one link per provider” is structural**, not enforced: the namespace key
+  *is* the provider, so there is no second entry to collapse and no merge rule needed.
+  A bead can hold a Linear link and a GitHub link at once, each merged independently.
+- `LinkedEntry` remains in `lib/schemas.ts` as the payload shape, validated on read out
+  of the namespace rather than as a schema field.
+  A malformed namespace reads as unlinked rather than throwing, so a hand-edited bead
+  cannot break a mirror run.
+- The per-namespace `extensions` merge (`tbd-le2l`) is a **prerequisite**: whole-object
+  LWW would drop a real link when two writers touch different namespaces.
+- `last_actor` is deferred to Phase 2, where echo suppression actually needs it.
+  It will live at `extensions.tbd.last_actor` for the same reason.
 
 #### 4. Where PR and repo links live on the bead
 
@@ -537,12 +559,17 @@ no state UUIDs) plus PR linking.
 
 ### API Changes
 
-- `IssueSchema`: add `linked` (optional array) and `last_actor` (optional string).
-  Additive, but gated by `tbd_format` because Zod strip mode would otherwise let an
-  older CLI silently drop them.
+- `IssueSchema`: **unchanged**. The link lives in the existing `extensions` namespace,
+  so there is no new field and **no `tbd_format` bump**.
 - `ConfigSchema`: add the optional `integrations` block.
-- `FIELD_STRATEGIES`: `linked: 'merge_by_id'`, `last_actor: 'lww'`, and `extensions`
-  changed from `'lww'` to per-namespace merge.
+  `ConfigSchema` has no `extensions` escape hatch, so `tbd setup` on an older CLI drops
+  this block. That loss is recoverable (`config.yml` is tracked) and loud (the mirror
+  stops working), unlike the silent bead-field loss, so it does not justify a format
+  bump on its own. Giving `ConfigSchema` its own extensions namespace is tracked
+  separately.
+- `FIELD_STRATEGIES`: `extensions` changed from `'lww'` to per-namespace merge.
+  This is now a **prerequisite** rather than a cleanup: whole-object LWW would drop a
+  real link.
 - New command group: `tbd integration status | link | unlink | import | mirror | sync`.
   (`import <ref>` creates a linked bead from an external item; it is explicitly
   user-invoked, not part of `mirror`.)
@@ -596,8 +623,8 @@ concurrency exposure.
   remedies, exit codes; doctor `safeCheck('Integrations', …)`.
 - [ ] `linear/client.ts` + `linear/queries.ts` (zod-validated, rate-limit aware,
   `LINEAR_API_URL` override); `ensureMeta()` cache.
-- [ ] Schema work: `linked`, `last_actor`, merge rules, collapse rule, `tbd show`
-  display, `tbd_format` gate.
+- [ ] Link storage in `extensions.<provider>` via a read/write/clear module.
+  No schema change, no format gate; `tbd show` renders it for free through `extensions`.
 - [ ] `extensions` per-namespace merge fix (`tbd-le2l`) with attic on namespace loss.
 - [ ] `parent_id` cycle and depth validation.
 - [ ] `linear/mapping.ts` pure tables with exhaustive tests, including the deliberate

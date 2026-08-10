@@ -1,0 +1,77 @@
+/**
+ * Where a bead records its link to an external tracker.
+ *
+ * Links live under `extensions.<provider>`, not as a top-level issue field.
+ * `extensions` is already part of `BaseEntity` and its contents are opaque to
+ * the schema, so a tbd that predates this feature reads and rewrites a linked
+ * bead without touching the link. A top-level field would be silently stripped
+ * by Zod on the first write from an older CLI, which is exactly the kind of
+ * quiet data loss that forces a format bump. Using the namespace avoids both.
+ *
+ * The namespace key is the provider name, so "at most one link per provider" is
+ * structural rather than an invariant the merge code has to police.
+ */
+
+import { LinkedEntry } from '../../lib/schemas.js';
+import type { Issue, LinkedEntryType, ProviderNameType } from '../../lib/types.js';
+
+/**
+ * Read a bead's link for one provider.
+ *
+ * Returns undefined when absent or malformed. A hand-edited or
+ * foreign-written namespace should not crash a mirror run: the bead is simply
+ * treated as unlinked, and the next mirror re-establishes the link.
+ */
+export function readLink(issue: Issue, provider: ProviderNameType): LinkedEntryType | undefined {
+  const namespace = issue.extensions?.[provider];
+  if (namespace === undefined || namespace === null) {
+    return undefined;
+  }
+  const parsed = LinkedEntry.safeParse({ provider, ...(namespace as object) });
+  return parsed.success ? parsed.data : undefined;
+}
+
+/**
+ * Return a copy of the issue carrying `entry` for its provider.
+ *
+ * Other namespaces are preserved untouched, which matters because a bead can
+ * carry a Linear link and a GitHub link at once.
+ */
+export function writeLink(issue: Issue, entry: LinkedEntryType): Issue {
+  const { provider, ...payload } = entry;
+  return {
+    ...issue,
+    extensions: {
+      ...(issue.extensions ?? {}),
+      [provider]: payload,
+    },
+  };
+}
+
+/**
+ * Return a copy of the issue with one provider's link removed.
+ */
+export function clearLink(issue: Issue, provider: ProviderNameType): Issue {
+  if (!issue.extensions || !(provider in issue.extensions)) {
+    return issue;
+  }
+  // Rebuild without the key rather than deleting from a copy: a dynamic delete
+  // is both slower and, per the lint rule, easy to get wrong on inherited keys.
+  const extensions = Object.fromEntries(
+    Object.entries(issue.extensions).filter(([key]) => key !== provider),
+  );
+  return { ...issue, extensions };
+}
+
+/**
+ * Every provider this bead is linked to.
+ */
+export function linkedProviders(issue: Issue): ProviderNameType[] {
+  const providers: ProviderNameType[] = [];
+  for (const provider of ['linear', 'github'] as const) {
+    if (readLink(issue, provider)) {
+      providers.push(provider);
+    }
+  }
+  return providers;
+}

@@ -217,7 +217,7 @@ describe('mirror selection', () => {
       id: 'is-linked',
       kind: 'task',
       status: 'closed',
-      linked: [{ provider: 'linear', id: 'uuid-1', linked_at: '2026-08-10T00:00:00.000Z' }],
+      extensions: { linear: { id: 'uuid-1', linked_at: '2026-08-10T00:00:00.000Z' } },
     });
     expect(mirrorSet([linked], DEFAULT_SELECT, 'linear').map((i) => i.id)).toEqual(['is-linked']);
     expect(isLinkedTo(linked, 'linear')).toBe(true);

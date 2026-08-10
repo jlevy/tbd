@@ -29,6 +29,7 @@ import { createInterface } from 'node:readline/promises';
 
 import { checkBulkThreshold } from '../../integrations/core/bulk-guard.js';
 import { parseRepoSlug, specPermalink } from '../../integrations/core/permalink.js';
+import { writeLink } from '../../integrations/core/link-store.js';
 import { git } from '../../file/git.js';
 import { resolveToInternalId } from '../../file/id-mapping.js';
 import { matchesSpecPath } from '../../lib/spec-matching.js';
@@ -330,13 +331,10 @@ class MirrorHandler extends BaseCommand {
               // run leaves an unlinked external item rather than a link to
               // something that was never created.
               const stored = await readIssue(context.dataSyncDir, issue.id);
-              const others = (stored.linked ?? []).filter(
-                (existing) => existing.provider !== linkEntry.provider,
-              );
-              stored.linked = [...others, linkEntry];
-              stored.version += 1;
-              stored.updated_at = now();
-              await writeIssue(context.dataSyncDir, stored);
+              const linkedIssue = writeLink(stored, linkEntry);
+              linkedIssue.version += 1;
+              linkedIssue.updated_at = now();
+              await writeIssue(context.dataSyncDir, linkedIssue);
             },
           }),
         );
