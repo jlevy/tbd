@@ -36,17 +36,37 @@ export function readLink(issue: Issue, provider: ProviderNameType): LinkedEntryT
  *
  * Other namespaces are preserved untouched, which matters because a bead can
  * carry a Linear link and a GitHub link at once.
+ *
+ * The stored payload is built field by field rather than by spreading `entry`.
+ * Beads are committed to git and read by everyone with the repository, so what
+ * lands in them is a deliberate allow-list: the provider's id, the human
+ * identifier, the URL, and when the link was made. Nothing else about the
+ * external item, and never anything derived from a credential. Spreading would
+ * let a future field on `LinkedEntry` start persisting silently.
  */
 export function writeLink(issue: Issue, entry: LinkedEntryType): Issue {
-  const { provider, ...payload } = entry;
+  const payload: Record<string, unknown> = {
+    id: entry.id,
+    linked_at: entry.linked_at,
+  };
+  if (entry.key != null) {
+    payload.key = entry.key;
+  }
+  if (entry.url != null) {
+    payload.url = entry.url;
+  }
+
   return {
     ...issue,
     extensions: {
       ...(issue.extensions ?? {}),
-      [provider]: payload,
+      [entry.provider]: payload,
     },
   };
 }
+
+/** Exactly the keys `writeLink` will ever persist. Asserted by tests. */
+export const PERSISTED_LINK_KEYS = ['id', 'key', 'url', 'linked_at'] as const;
 
 /**
  * Return a copy of the issue with one provider's link removed.

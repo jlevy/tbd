@@ -1,5 +1,5 @@
 tbd_format: f06
-tbd_version: 0.4.3-dev.16.3f1354e-dirty
+tbd_version: 0.4.3-dev.27.1cbdb95-dirty
 # tbd_upgrades: tbd versions that have run `tbd setup` in this repo (oldest first);
 # tbd_version above is the most recent. Informational; updated automatically by setup.
 tbd_upgrades:
@@ -20,6 +20,10 @@ tbd_upgrades:
     at: 2026-08-10T16:26:11.666Z
   - version: 0.4.3-dev.16.3f1354e-dirty
     at: 2026-08-10T17:31:27.219Z
+  - version: 0.4.3-dev.26.b47290c-dirty
+    at: 2026-08-10T21:56:16.452Z
+  - version: 0.4.3-dev.27.1cbdb95-dirty
+    at: 2026-08-10T22:02:40.023Z
 display:
   id_prefix: tbd
 sync:
@@ -122,21 +126,3 @@ docs_cache:
   lookup_path:
     - .tbd/docs/shortcuts/system
     - .tbd/docs/shortcuts/standard
-integrations:
-  sync_on_tbd_sync: false
-  linear:
-    enabled: true
-    team_key: TBD
-    project: tbd
-    # Bead labels are deliberately not pushed: this repo has 112 distinct ones,
-    # and creating a Linear label for each pollutes a shared team namespace.
-    # They travel as structured data in the bead attachment either way.
-    mirror_labels: false
-    select:
-      kinds:
-        - epic
-      statuses:
-        - open
-        - in_progress
-        - blocked
-      specs: active

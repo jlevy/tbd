@@ -325,6 +325,10 @@ $ tbd docs show tbd-docs --sections --json
     "slug": "how-sync-works"
   },
   {
+    "title": "External Tracker Integrations",
+    "slug": "external-tracker-integrations"
+  },
+  {
     "title": "Troubleshooting",
     "slug": "troubleshooting"
   },

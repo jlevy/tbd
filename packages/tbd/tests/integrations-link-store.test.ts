@@ -15,6 +15,7 @@ import { IssueSchema } from '../src/lib/schemas.js';
 import {
   clearLink,
   linkedProviders,
+  PERSISTED_LINK_KEYS,
   readLink,
   writeLink,
 } from '../src/integrations/core/link-store.js';
@@ -126,6 +127,41 @@ describe('link store', () => {
   it('treats a non-object namespace as unlinked', () => {
     const bogus = issue({ extensions: { linear: 'just a string' } });
     expect(readLink(bogus, 'linear')).toBeUndefined();
+  });
+
+  it('persists only the allow-listed keys, never anything else', () => {
+    // Beads are committed to git and readable by everyone with the repository,
+    // so what lands in them is deliberate. This fails if a field is added to
+    // LinkedEntry and starts persisting without being considered.
+    const linked = writeLink(issue(), entry);
+    const stored = linked.extensions?.linear as Record<string, unknown>;
+
+    expect(Object.keys(stored).sort()).toEqual([...PERSISTED_LINK_KEYS].sort());
+  });
+
+  it('drops extra fields smuggled into the entry rather than storing them', () => {
+    const contaminated = {
+      ...entry,
+      apiKey: 'lin_api_secret',
+      rawResponse: { assignee: { email: 'someone@example.com' } },
+    } as unknown as LinkedEntryType;
+
+    const linked = writeLink(issue(), contaminated);
+    const serialized = JSON.stringify(linked);
+
+    expect(serialized).not.toContain('lin_api_secret');
+    expect(serialized).not.toContain('someone@example.com');
+    expect(serialized).not.toContain('rawResponse');
+  });
+
+  it('omits key and url entirely when absent, rather than writing nulls', () => {
+    const minimal = writeLink(issue(), {
+      provider: 'linear',
+      id: 'uuid-only',
+      linked_at: '2026-08-10T00:00:00.000Z',
+    });
+    const stored = minimal.extensions?.linear as Record<string, unknown>;
+    expect(Object.keys(stored).sort()).toEqual(['id', 'linked_at']);
   });
 
   it('does not mutate the input issue', () => {

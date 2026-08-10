@@ -109,7 +109,9 @@ HEALTH CHECKS
 ✓ Issues directory (.tbd/issues)
 ✓ Dependencies
 ✓ Unique IDs
+✓ Issue hierarchy
 ✓ ID mapping conflicts
+✓ Integrations - none enabled
 ✓ ID mapping keys
 ✓ Temp files (.tbd/data-sync/issues)
 ✓ Issue validity
