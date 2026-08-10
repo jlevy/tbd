@@ -1544,8 +1544,22 @@ without disturbing it.
 provider, a bead can carry a Linear link and a GitHub link at the same time, and can
 never carry two of either.
 - An attachment linking the plan spec, as a **permalink to the branch that actually has
-  it**. Specs live on the branch that authored them, so a link built from the bare path
-  would 404 depending on who follows it.
+  it**.
+
+If a mirrored issue moves to another team, Linear renumbers it (identifiers are
+team-scoped, so `FIN-11` becomes `TBD-4`). The link survives because it is keyed on the
+issue UUID, and the next mirror run refreshes the stored identifier and URL. Specs live
+on the branch that authored them, so a link built from the bare path would 404 depending
+on who follows it.
+
+**Bead labels are not pushed as tracker labels by default.** A repository can carry a
+hundred-plus distinct bead labels, and creating one Linear label for each pollutes a
+team namespace that other projects and people share.
+The labels are mirrored as structured data in the bead attachment regardless, so
+enabling `mirror_labels: true` only buys the ability to filter by them inside Linear;
+when enabled, they are prefixed `tbd:` so they stay identifiable and can be removed in
+bulk. tbd’s own status carriers (`tbd:blocked`, `tbd:deferred`) are always pushed,
+because they encode status Linear has no workflow state for.
 
 Sub-issue nesting is mirrored to `max_nesting` levels (2 by default) and deeper beads
 are skipped and reported.

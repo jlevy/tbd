@@ -284,6 +284,7 @@ class MirrorHandler extends BaseCommand {
           selected,
           displayId,
           maxNesting: entry.maxNesting,
+          mirrorLabels: config.integrations?.linear?.mirror_labels ?? false,
           specUrl: (issue) => (issue.spec_path ? specLinks.get(issue.spec_path) : undefined),
         });
 

@@ -383,6 +383,21 @@ export const LinearIntegrationSchema = z.object({
    * without it, issues land in the team with no project.
    */
   project: z.string().min(1).optional(),
+  /**
+   * Push bead labels as Linear labels.
+   *
+   * Off by default, and deliberately so. A repository can carry a hundred-plus
+   * distinct bead labels, and creating one Linear label each pollutes a shared
+   * team namespace that other people and projects also use. The labels are
+   * already mirrored as structured data in the bead attachment, so turning this
+   * on only buys the ability to filter by them inside Linear.
+   *
+   * When enabled, mirrored labels are prefixed so they are identifiable and
+   * removable in bulk. tbd's own status carriers (`tbd:blocked`,
+   * `tbd:deferred`) are pushed regardless, because they encode status Linear
+   * has no state for.
+   */
+  mirror_labels: z.boolean().default(false),
   /** Create labels that do not yet exist in the team on push. */
   create_labels: z.boolean().default(true),
   /** Maps a tbd assignee string to a Linear user email or UUID. */

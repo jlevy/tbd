@@ -21,6 +21,14 @@ import type {
   TrackerAdapter,
 } from './types.js';
 
+/**
+ * Prefix mirrored bead labels so they are identifiable as tbd's and can be
+ * removed in bulk if someone turns the option off again.
+ */
+export function prefixLabels(labels: readonly string[]): string[] {
+  return labels.map((label) => (label.startsWith('tbd:') ? label : `tbd:${label}`));
+}
+
 /** Attachment url scheme identifying a bead. Also the upsert idempotency key. */
 export function beadAttachmentUrl(displayId: string): string {
   return `tbd://bead/${displayId}`;
@@ -40,6 +48,12 @@ export interface MirrorContext {
   repoUrl?: (issue: Issue) => string | undefined;
   /** Levels of nesting to mirror. Deeper beads are skipped, not flattened. */
   maxNesting: number;
+  /**
+   * Push bead labels as tracker labels. Off by default: a repo can carry a
+   * hundred-plus distinct labels, and creating one per label pollutes a shared
+   * team namespace. They are mirrored as attachment metadata regardless.
+   */
+  mirrorLabels?: boolean;
 }
 
 /**
@@ -183,7 +197,10 @@ export function planMirror(context: MirrorContext): MirrorPlan {
       title: issue.title,
       status: issue.status,
       priority: issue.priority,
-      labels: issue.labels ?? [],
+      // Omitting `labels` entirely leaves the tracker's labels alone except for
+      // the status carriers the adapter adds. Sending [] would strip labels a
+      // human applied in the tracker, which is not ours to remove.
+      ...(context.mirrorLabels ? { labels: prefixLabels(issue.labels ?? []) } : {}),
     };
 
     const action: MirrorAction = {
@@ -270,6 +287,21 @@ export async function applyMirror(options: ApplyOptions): Promise<MirrorReport> 
       if (action.managedBlock) {
         await adapter.spliceDescription(action.externalId, action.managedBlock);
       }
+
+      // Refresh the stored human identifier and URL. Both are display-only and
+      // both change when an issue moves between teams (Linear identifiers are
+      // team-scoped: FIN-11 becomes TBD-4). The UUID is why the link still
+      // resolves at all; without this the bead would keep showing the old key.
+      const existing = linkFor(action.bead, plan.provider);
+      const [current] = await adapter.fetchIssues([action.externalId]);
+      if (existing && current && (existing.key !== current.key || existing.url !== current.url)) {
+        await options.onLinked(action.bead, {
+          ...existing,
+          key: current.key ?? null,
+          url: current.url ?? null,
+        });
+      }
+
       report.updated.push(displayId);
     } catch (error) {
       report.failures.push({ beadId: displayId, error: describeError(error) });

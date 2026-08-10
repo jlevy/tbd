@@ -14,6 +14,7 @@ import {
   beadAttachmentUrl,
   linkFor,
   planMirror,
+  prefixLabels,
 } from '../src/integrations/core/mirror.js';
 import { LinearMockServer } from './helpers/linear-mock-server.js';
 import type { Issue, LinkedEntryType } from '../src/lib/types.js';
@@ -160,6 +161,47 @@ describe('planMirror', () => {
     const block = plan.creates[0]?.managedBlock ?? '';
     // Two children, one of them ready (the other is claimed).
     expect(block).toContain('Children: 2 (1 ready)');
+  });
+});
+
+describe('label mirroring', () => {
+  it('does not push bead labels by default, so a shared team namespace stays clean', () => {
+    const bead = issue({ id: 'is-a', labels: ['backend', 'ci', 'docs'] });
+    const plan = planMirror({
+      provider: 'linear',
+      allIssues: [bead],
+      selected: [bead],
+      displayId,
+      maxNesting: 2,
+    });
+
+    // `labels` absent entirely, not []: sending an empty array would strip
+    // labels a human applied in the tracker.
+    expect(plan.creates[0]?.patch.labels).toBeUndefined();
+  });
+
+  it('pushes prefixed labels when explicitly enabled', () => {
+    const bead = issue({ id: 'is-a', labels: ['backend', 'ci'] });
+    const plan = planMirror({
+      provider: 'linear',
+      allIssues: [bead],
+      selected: [bead],
+      displayId,
+      maxNesting: 2,
+      mirrorLabels: true,
+    });
+
+    expect(plan.creates[0]?.patch.labels).toEqual(['tbd:backend', 'tbd:ci']);
+  });
+
+  it('does not double-prefix a label that already carries one', () => {
+    expect(prefixLabels(['tbd:blocked', 'ci'])).toEqual(['tbd:blocked', 'tbd:ci']);
+  });
+
+  it('still records the labels in attachment metadata regardless', () => {
+    const bead = issue({ labels: ['backend'] });
+    const [attachment] = attachmentsFor(bead, 'tbd-abcd', {}, { children: 0, ready: 0 });
+    expect(attachment?.metadata).toMatchObject({ labels: ['backend'] });
   });
 });
 
@@ -324,6 +366,63 @@ describe('applyMirror', () => {
 
     expect(report.skipped).toHaveLength(1);
     expect(report.skipped[0]?.beadId).toBe('tbd-deep');
+  });
+
+  it('refreshes a stale identifier after the issue moves team', async () => {
+    // Linear identifiers are team-scoped, so moving a project renumbers its
+    // issues. The UUID is why the link survives; the stored key must catch up.
+    server.addIssue({ id: 'uuid-moved', identifier: 'TBD-4', title: 'Moved' });
+    const bead = issue({
+      id: 'is-moved',
+      extensions: {
+        linear: {
+          id: 'uuid-moved',
+          key: 'FIN-11',
+          url: 'old',
+          linked_at: '2026-08-10T00:00:00.000Z',
+        },
+      },
+    });
+
+    const plan = planMirror({
+      provider: 'linear',
+      allIssues: [bead],
+      selected: [bead],
+      displayId,
+      maxNesting: 2,
+    });
+    await applyMirror({ adapter, plan, displayId, onLinked });
+
+    expect(linked).toHaveLength(1);
+    expect(linked[0]?.entry.key).toBe('TBD-4');
+    expect(linked[0]?.entry.id).toBe('uuid-moved');
+  });
+
+  it('does not rewrite the link when the identifier is unchanged', async () => {
+    server.addIssue({ id: 'uuid-same', identifier: 'FIN-20' });
+    const bead = issue({
+      id: 'is-same',
+      extensions: {
+        linear: {
+          id: 'uuid-same',
+          key: 'FIN-20',
+          url: 'https://linear.app/acme/issue/FIN-20',
+          linked_at: '2026-08-10T00:00:00.000Z',
+        },
+      },
+    });
+
+    const plan = planMirror({
+      provider: 'linear',
+      allIssues: [bead],
+      selected: [bead],
+      displayId,
+      maxNesting: 2,
+    });
+    await applyMirror({ adapter, plan, displayId, onLinked });
+
+    // No pointless bead rewrite, which would churn version and updated_at.
+    expect(linked).toHaveLength(0);
   });
 
   it('writes the managed block into the description', async () => {
