@@ -287,6 +287,38 @@ Per `typescript-cli-tool-rules`:
 - **`--dry-run` resolves the port and repo, prints what it would serve, and exits 0**
   without binding.
 
+### Client build and packaging
+
+The spike’s client is ~700 lines of untyped JavaScript inline in one HTML file.
+That was right for a disposable instrument and is wrong for a shipped command: client
+code must be TypeScript under the same strictTypeChecked lint floor as everything else
+in this repo, and the shipped page must land in `dist/` (the package publishes nothing
+else). The design keeps the one-toolchain, zero-new-dependency constraint:
+
+- **Source layout**: `src/web/client.ts` (thin DOM glue) plus `src/web/core.ts` (pure
+  logic: query-string assembly, command caveat text, phase labels, row classification).
+  The split is what makes the client testable without a DOM library: vitest covers
+  `core.ts` as plain functions, and the glue stays too thin to hide bugs.
+  `index.html` and `styles.css` sit beside them as templates.
+- **Type checking**: a `tsconfig.web.json` extending the base config with
+  `lib: ["ES2023", "DOM", "DOM.Iterable"]`, including only `src/web`; the main tsconfig
+  excludes `src/web` so DOM globals never leak into server code.
+  The `typecheck` script runs both projects; eslint’s `projectService` resolves each
+  file to its own project, so the existing flat config applies the full type-aware rule
+  set to the client with no new eslint configuration.
+- **Bundling**: one more tsdown config entry, `platform: 'browser'`, `format: ['iife']`,
+  `dts: false`, emitting `dist/web/client.js`. Same toolchain, same `define` versioning,
+  no Vite or other frontend stack — a second bundler would be a supply-chain surface the
+  page cannot justify.
+- **Stitching**: the postbuild step (alongside `copy-docs.mjs`) inlines
+  `dist/web/client.js` and `src/web/styles.css` into `index.html` and writes
+  `dist/web/index.html` as a single self-contained artifact.
+  The serve path stays one file read, the artifact is auditable as one document, and a
+  strict same-origin CSP remains possible because the page makes no external requests.
+- **Design-system enforcement**: `bead-web-css.test.ts` retargets `src/web/styles.css`,
+  where the token rules are simpler to assert than inside HTML, and keeps its current
+  assertions unchanged.
+
 ### Server engineering
 
 Minimal, fast to start, and cheap when unused.
@@ -345,6 +377,9 @@ Phase 2 depends on the §1.6 amendment being accepted.
 - [ ] Page: tree and flat modes, CLI-named filters, expandable bodies with live refresh,
   per-field deltas including text hunks, event log.
 - [ ] Flash-in on change, collapse on removal, `prefers-reduced-motion` honored.
+- [ ] Client rebuilt as strictly-linted TypeScript per “Client build and packaging”:
+  `src/web/` sources, `tsconfig.web.json`, browser IIFE tsdown entry, postbuild
+  stitching into `dist/web/index.html`, pure-core unit tests.
 - [ ] Tryscript coverage for the command surface; unit coverage for query translation
   and SSE framing.
 
