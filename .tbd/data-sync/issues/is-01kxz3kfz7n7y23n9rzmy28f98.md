@@ -1,12 +1,12 @@
 ---
 type: is
 id: is-01kxz3kfz7n7y23n9rzmy28f98
-title: "Epic: Linear ↔ bead bidirectional sync pilot + tbd watch foundation"
+title: "Epic: Linear integration pilot (design rework pending)"
 kind: epic
-status: open
+status: blocked
 priority: 1
-version: 10
-spec_path: docs/project/specs/active/plan-2026-07-20-linear-bead-sync-pilot.md
+version: 13
+spec_path: docs/project/specs/active/plan-2026-07-19-bead-watch-and-external-sync.md
 labels:
   - linear-sync
 dependencies: []
@@ -19,7 +19,13 @@ child_order_hints:
   - is-01kxz3mfsysxwdhm0yfwg1sfa6
   - is-01kxz3mgdhc9j6ys7brk59z96e
   - is-01kxz3mh21qe9fb5pnnraartv9
+  - is-01kzbyhghkgw70wetew3ffy4cn
+  - is-01kzbyhsm660v90763b5tr11rk
 created_at: 2026-07-20T06:32:21.735Z
-updated_at: 2026-07-20T16:57:40.323Z
+updated_at: 2026-08-10T01:37:03.111Z
 ---
-Bidirectional sync between a linked subset of beads and Linear issues, composed with the SHIPPED watch foundation (PR #196: tbd changes + tbd watch from plan-2026-07-19; watch lands first as a working increment, bridge features are safe additions on top). Unified plan of record for external sync per spec §6a: tbd bridge command group (mirror→bridge naming), first-class linked field with one-external-source-per-bead invariant, base-snapshot echo suppression + 07-19 external markers/content hashes, comments model as inbound landing spot. Consolidates design doc §8.7, agent-issue-monitors + coordination-kernel research, verified Linear API facts (bridge-integrations brief §5), and pre-rewrite GitHub sync epic tbd-68cw lessons. See spec for phases, mapping tables, rollout gates.
+Track a provider-isolated Linear experiment built on the independently mergeable PR #205 watch foundation. The provider plan on PR #197 is not current implementation authority: its core config/schema/tbd-sync coupling conflicts with the active Integration Layer rules. No provider code begins until tbd-vm5s produces a new Linear-specific plan. Generic extension merge/write foundations remain separately tracked by tbd-le2l and tbd-z95g. The pilot should begin with one-way import plus status writeback, module-owned state/checkpoints, external-ID bindings, and failure/idempotency tests.
+
+## Notes
+
+Blocked only on design rework tbd-vm5s. Legacy phase beads are deferred as superseded scope, not PR #205 or release blockers.
