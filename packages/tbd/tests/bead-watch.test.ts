@@ -27,12 +27,11 @@ const SHA_C = 'c'.repeat(40);
 const ISSUE_ID = testId(TEST_ULIDS.ULID_1);
 
 function emptyReport(since: string, tip: string): IssueChangesReport {
-  return { format_version: 1, since, tip, changes: [] };
+  return { since, tip, changes: [] };
 }
 
 function changedReport(since: string, tip: string): IssueChangesReport {
   return {
-    format_version: 1,
     since,
     tip,
     changes: [

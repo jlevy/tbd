@@ -58,7 +58,7 @@ case "\${1:-}" in
     printf '%s\n' "$count" > "$HARNESS_WATCH_COUNT"
     printf 'watch %s\n' "$*" >> "$HARNESS_LOG"
     if [ "$count" -eq 1 ]; then
-      printf '%s\n' '{"format_version":1,"since":"${'a'.repeat(40)}","tip":"${TIP}","changes":[]}'
+      printf '%s\n' '{"since":"${'a'.repeat(40)}","tip":"${TIP}","changes":[]}'
       exit 0
     fi
     exit 4

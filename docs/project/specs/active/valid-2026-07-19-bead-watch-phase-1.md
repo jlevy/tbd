@@ -132,7 +132,6 @@ The watcher exited 0 on the next poll and produced:
 
 ```json
 {
-  "format_version": 1,
   "since": "7023afd3e46d8b15b018b84cc3fdd176642a0190",
   "tip": "b4421b1f87c62cd25261d1712cdb869abae0ba66",
   "changes": [
@@ -257,7 +256,6 @@ only Claude’s reply:
 
 ```json
 {
-  "format_version": 1,
   "since": "5ef69ce15cdf2f7b3f5a368f868c61becb108ccd",
   "tip": "a90f31c3d0eb30817832a193cf5cde34b87674c6",
   "changes": [
@@ -299,7 +297,7 @@ The 2026-08-09 follow-up added regression and contract coverage for:
 - real termination of a stalled non-interactive Git subprocess, with one shared deadline
   across fetch and private-ref resolution;
 - bounded object batching and omission of pathological text hunks;
-- report `format_version: 1` and bounded human rendering;
+- bounded human rendering of every report;
 - a blocker deletion making its target ready, confirming that the reported missing-
   blocker lookup is unreachable because blocker IDs come from the same snapshot map;
 - macOS system Bash 3.2 execution, Windows CRLF Markdown extraction, and executable

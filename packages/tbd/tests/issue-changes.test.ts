@@ -21,7 +21,6 @@ import { serializeIssue } from '../src/file/parser.js';
 import { createChangesReportFromRefs, readGitObjects } from '../src/file/sync-branch-changes.js';
 import {
   createIssueChangesReport,
-  ISSUE_CHANGES_FORMAT_VERSION,
   type IssueChangeSelection,
   type IssueSnapshot,
 } from '../src/lib/issue-changes.js';
@@ -135,7 +134,6 @@ describe('createIssueChangesReport', () => {
 
     const result = report(snapshot([before]), snapshot([after]));
 
-    expect(result.format_version).toBe(ISSUE_CHANGES_FORMAT_VERSION);
     expect(result.changes).toHaveLength(1);
     expect(result.changes[0]).toMatchObject({
       id: 'tbd-a1b2',

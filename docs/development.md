@@ -490,6 +490,30 @@ Forkable-docs behavior (fork/unfork/update/diff/status) is covered by
 `tests/cli-docs-fork.tryscript.md`, `tests/cli-docs-update.tryscript.md`, and
 `tests/fork-cross-platform-e2e.test.ts` (run from `packages/tbd/`).
 
+### Testing Watch and Changes
+
+`tbd changes` and `tbd watch` are read-only observers of the sync branch (tbd-design.md
+§3.7 and §4.14). Unit coverage lives in `tests/issue-changes.test.ts` (the pure diff
+engine), `tests/bead-watch.test.ts` (the poll loop, deadlines, and private-ref
+handling), `tests/cli-changes.test.ts`, `tests/cli-watch.test.ts`, and
+`tests/watch-beads-shortcut.test.ts` (the shipped worker recipe, executed as Bash).
+
+Unit tests cannot prove Git isolation, so a real-topology smoke test does:
+
+```bash
+pnpm qa:watch-release            # builds, then runs against dist/
+TBD_QA_BIN=/path/to/tbd pnpm --filter get-tbd qa:watch-release:built   # packed candidate
+```
+
+`scripts/validate-watch-release.ts` creates a bare remote with two clones, runs
+concurrent watchers beside `sync`, `list`, and `ready`, and snapshots the caller
+worktree, sync refs, remote-tracking refs, `FETCH_HEAD`, the hidden worktree, and
+private refs before and after.
+CI runs the built-candidate form on Ubuntu, macOS, and Windows.
+Any change to fetch flags, ref naming, or timeout handling should be validated here, not
+only in unit tests: the `--refmap=` isolation bug was invisible to unit coverage.
+The manual release playbook is `tests/qa/watch-infrastructure-release.qa.md`.
+
 <!-- This document follows common-doc-guidelines.md.
 See github.com/jlevy/practical-prose and review guidelines before editing.
 -->

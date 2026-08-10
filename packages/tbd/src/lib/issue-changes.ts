@@ -29,9 +29,6 @@ export type IssueChangeKind = 'created' | 'updated' | 'deleted';
 export type TextChangeLineType = 'context' | 'add' | 'remove';
 export type TextHunksOmittedReason = 'complexity_limit';
 
-/** Version of the machine-readable changes/watch report contract. */
-export const ISSUE_CHANGES_FORMAT_VERSION = 1 as const;
-
 /** One line in a deterministic description or notes hunk. */
 export interface TextChangeLine {
   type: TextChangeLineType;
@@ -65,9 +62,13 @@ export interface IssueChange {
   fields: IssueFieldChange[];
 }
 
-/** Stable JSON document shared by the one-shot and blocking commands. */
+/**
+ * Stable JSON document shared by the one-shot and blocking commands.
+ *
+ * Like every other tbd `--json` surface, this document evolves by addition only, so
+ * consumers must ignore fields they do not recognize.
+ */
 export interface IssueChangesReport {
-  format_version: typeof ISSUE_CHANGES_FORMAT_VERSION;
   since: string;
   tip: string;
   changes: IssueChange[];
@@ -477,7 +478,6 @@ export function createIssueChangesReport(
   }
 
   return {
-    format_version: ISSUE_CHANGES_FORMAT_VERSION,
     since: options.since,
     tip: options.tip,
     changes,
