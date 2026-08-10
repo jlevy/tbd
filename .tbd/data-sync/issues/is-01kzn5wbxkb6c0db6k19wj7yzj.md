@@ -5,13 +5,13 @@ title: Land tbd-web spike PR (stacked on PR 205)
 kind: task
 status: in_progress
 priority: 2
-version: 5
+version: 6
 spec_path: docs/project/specs/active/plan-2026-08-10-tbd-web-live-bead-view.md
 labels:
   - viewer
 dependencies: []
 created_at: 2026-08-10T06:31:08.978Z
-updated_at: 2026-08-10T21:26:58.760Z
+updated_at: 2026-08-10T21:35:28.515Z
 extensions:
   linear:
     id: 87a13af9-a3b4-4897-873a-f8bfeb82fa65
@@ -23,4 +23,4 @@ Track the stacked PR for the bead-web viewer spike: branch claude/tbd-web-spike,
 
 ## Notes
 
-PR https://github.com/jlevy/tbd/pull/207 green on ac3b0776 (all 7 checks incl. Bugbot re-review). Review addressed: R1 ULID tiebreak, R2 ready-sort exactness, R3 context-row disclosure, R4 wake-marker coherence via reportDataVersion stamp. Threads resolved, disposition map posted. Remaining: PR 205 merges, then rebase this branch onto main and retarget.
+PR 205 merged (2734a61c); origin/main merged into claude/tbd-web-spike (cb3675e3, clean), base auto-retargeted to main. Semantic reconciliation 958744f9: adopted upstream 227c7ff0 dropping the report format_version marker; viewer report mirror and plan spec now state the additive-only --json contract and reference tbd-design.md 4.14. Upstream docs pass (f8e52a16) merged cleanly beside the viewer docs. Gated push green; awaiting CI on 958744f9. Remaining: merge PR 207 when ready.
