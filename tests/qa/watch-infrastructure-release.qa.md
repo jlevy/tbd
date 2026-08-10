@@ -27,7 +27,7 @@ platform and any optional Linear sandbox experiment.
 
 | Phase | Status | Notes |
 | --- | --- | --- |
-| Phase 0: Source and disposable-topology validation | ✅ Passed | Local candidate passed the focused 18-test Git-safety suite and `pnpm qa:watch-release`; full repository and CI gates are recorded in the validation plan. |
+| Phase 0: Source and disposable-topology validation | ✅ Passed | Local candidate passed the focused 18-test Git-safety suite and the expanded `pnpm qa:watch-release`; the built smoke is now part of all three operating-system CI jobs. |
 | Phase 1: Packed artifact | ✅ Passed | Current candidate passed from an isolated npm prefix with install scripts disabled; repeat at the exact release-tag SHA. |
 | Phase 2: Credentialed real remote and non-disruption | ⏳ Pending | Required before release promotion; use a disposable private remote. |
 | Phase 3: Resilience and durable worker | ⏳ Pending | Required for unattended-worker promotion; the failure/restart protocol is already executable under automation. |
@@ -42,12 +42,15 @@ platform and any optional Linear sandbox experiment.
 - `pnpm --filter get-tbd exec vitest run tests/bead-watch.test.ts` → ✅ 18/18, including
   an existing `origin/tbd-sync` ref that a private fetch must not advance.
 - `pnpm qa:watch-release` → ✅ real bare remote, two clones, blocking wake, stable JSON
-  and exit codes, Git-state isolation, normal pull/list/show/ready/sync, and rendered
-  `watch-beads` shortcut.
+  and exit codes, concurrent bead/ready watchers, every selector family,
+  human/JSON/quiet output, Git-state isolation, normal pull/list/show/ready/sync, and
+  rendered `watch-beads` shortcut.
 - Local tarball install plus `TBD_QA_BIN=<isolated-prefix>/tbd` smoke → ✅ the packaged
   CLI and bundled `watch-beads` shortcut passed without changing the global install.
 - The smoke run exposed and then verified the fix for Git’s opportunistic application of
   `remote.origin.fetch`; the watch fetch now passes an empty `--refmap=`.
+- The complete 1,068-case transcript rerun → ✅ after replacing a randomized-ID-adjacent
+  missing sentinel with a deterministic distant value (tbd-dbyj).
 
 **Next Steps:**
 
@@ -110,9 +113,20 @@ pnpm qa:watch-release
 
 - [x] A selected remote update wakes a blocked watcher with `format_version: 1`.
 - [x] An unrelated update does not match a static bead selector.
-- [x] Exit 0, 2, and 3 behavior is observed through the built CLI.
+- [x] Two simultaneous watchers in one checkout wake from one commit without ref or
+  worktree contention.
+- [x] `show`, `list`, `ready`, `sync --pull`, and `sync --status` still work while both
+  watchers are blocked and again after the final normal pull.
+- [x] The isolation assertion distinguishes normal sync effects from watch side effects:
+  state-neutral commands preserve the first snapshot; `sync --pull` advances the local
+  branch and hidden worktree; then the post-status snapshot is the watcher baseline.
+- [x] Bead, multiple-bead, label, spec, status, ready, and all-selection behavior is
+  observed through real committed history.
+- [x] Human, JSON, and quiet output plus exit 0, 1, 2, and 3 behavior is observed
+  through the built CLI.
 - [x] The caller worktree, local sync branch, `origin/tbd-sync`, `FETCH_HEAD`, hidden
-  sync worktree, and private watch refs are byte-for-byte unchanged by `tbd watch`.
+  sync worktree, lock presence, and private watch refs are byte-for-byte unchanged by
+  `tbd watch`.
 - [x] A normal `tbd sync --pull` still works afterward.
 - [x] `show`, `list`, `ready`, `sync --status`, and `shortcut watch-beads` still work.
 
@@ -142,11 +156,25 @@ pnpm check:package-age
 ### 1.1 Pack and install without changing the global CLI
 
 ```bash
+QA_SHA=$(git rev-parse HEAD)
 pnpm --filter get-tbd pack --pack-destination "$QA_ROOT"
-npm install --ignore-scripts --prefix "$QA_INSTALL" "$QA_ROOT"/get-tbd-*.tgz
+QA_TARBALL=$(find "$QA_ROOT" -maxdepth 1 -name 'get-tbd-*.tgz' -print -quit)
+test -n "$QA_TARBALL"
+node --input-type=module -e '
+  import { createHash } from "node:crypto";
+  import { readFileSync } from "node:fs";
+  const path = process.argv[1];
+  const sha256 = createHash("sha256").update(readFileSync(path)).digest("hex");
+  console.log(`${sha256}  ${path}`);
+' "$QA_TARBALL" | tee "$QA_ROOT/artifact.sha256"
+npm install --ignore-scripts --prefix "$QA_INSTALL" "$QA_TARBALL"
 export TBD_QA_BIN="$QA_INSTALL/node_modules/get-tbd/dist/bin.mjs"
 node "$TBD_QA_BIN" --version
 "$QA_INSTALL/node_modules/.bin/tbd" --version
+printf 'release_sha=%s\n' "$QA_SHA" | tee "$QA_ROOT/release-candidate.txt"
+node --version | tee -a "$QA_ROOT/release-candidate.txt"
+pnpm --version | tee -a "$QA_ROOT/release-candidate.txt"
+git --version | tee -a "$QA_ROOT/release-candidate.txt"
 ```
 
 On Windows PowerShell, use the generated `tbd.cmd` shim for the second version check.
@@ -157,6 +185,8 @@ differences do not obscure product behavior.
 
 - [x] The tarball contains the CLI, bundled standard docs, and `watch-beads` shortcut.
 - [x] `tbd --version` names the intended candidate.
+- [ ] At the release tag, record the exact Git SHA, SHA-256 artifact checksum, and
+  runtime/tool versions without credentials.
 - [x] No global package or user configuration was changed.
 
 ### 1.2 Run the same smoke against the installed artifact
@@ -211,8 +241,43 @@ cd "$QA_ROOT/watcher"
 "$TBD_QA_BIN" sync --issues --pull
 git status --short
 git rev-parse refs/heads/tbd-sync refs/remotes/origin/tbd-sync
+COMMON_DIR=$(git rev-parse --path-format=absolute --git-common-dir)
+HIDDEN_WORKTREE="$COMMON_DIR/tbd/data-sync-worktree"
+FETCH_HEAD_PATH=$(git rev-parse --path-format=absolute --git-path FETCH_HEAD)
+snapshot_watch_state() {
+  local output_path=$1
+  {
+    echo caller_status
+    git status --porcelain=v1 --untracked-files=all
+    echo local_sync_tip
+    git rev-parse refs/heads/tbd-sync
+    echo remote_tracking_tip
+    git rev-parse refs/remotes/origin/tbd-sync
+    echo fetch_head_hash
+    if test -f "$FETCH_HEAD_PATH"; then
+      git hash-object --no-filters "$FETCH_HEAD_PATH"
+    else
+      echo absent
+    fi
+    echo hidden_worktree_head
+    git -C "$HIDDEN_WORKTREE" rev-parse HEAD
+    echo hidden_worktree_status
+    git -C "$HIDDEN_WORKTREE" status --porcelain=v1 --untracked-files=all
+    echo sync_lock
+    if test -d "$COMMON_DIR/tbd/locks/data-sync.lock"; then
+      echo present
+    else
+      echo absent
+    fi
+    echo private_watch_refs
+    git for-each-ref --format='%(refname) %(objectname)' refs/tbd/watch/
+  } >"$output_path"
+}
+snapshot_watch_state "$QA_ROOT/watcher.before"
 "$TBD_QA_BIN" watch --bead "$WATCH_ID" --since "$BASE" \
   --interval 10 --timeout 90 --json
+snapshot_watch_state "$QA_ROOT/watcher.after"
+diff -u "$QA_ROOT/watcher.before" "$QA_ROOT/watcher.after"
 ```
 
 While terminal B is blocked, return to terminal A:
@@ -263,7 +328,9 @@ intervals, then restore connectivity and publish a selected update.
 - [ ] A brief established outage is retried and the later selected update wakes the
   process.
 - [ ] Five consecutive failed observations end with exit 1 and a useful diagnostic.
-- [ ] A bad remote, absent branch, or unavailable credential fails fast at startup.
+- [ ] An unavailable credential fails fast at startup.
+  The local built-candidate smoke already covers an invalid remote, and CLI tests cover
+  an absent branch.
 - [ ] A stalled transport is bounded; no Git child remains after the CLI exits.
 
 Do not change system-wide credential or firewall settings on a shared machine.
@@ -310,9 +377,11 @@ CI is the automated floor; this phase samples the actual artifact and shell inte
 
 | Item | Check | Status |
 | --- | --- | --- |
+| Cross-platform built candidate | CI runs the full disposable-topology smoke on macOS, Ubuntu, and Windows. | Automated |
+| Minimum runtime | Exact packed artifact passes under the supported Node.js 20 floor. | ⏳ |
 | macOS | Packed smoke passes; unattended recipe parses and runs under system Bash 3.2. | ⏳ |
 | Ubuntu | Packed smoke and one real-remote wake pass. | ⏳ |
-| Windows | Packed smoke passes through PowerShell/Git; CRLF docs extraction remains valid. | ⏳ |
+| Windows | Packed smoke passes through PowerShell/Git; `.cmd` shim and CRLF docs extraction remain valid. | ⏳ |
 | Human output | Baseline, tip, bead, field, and hunk are understandable without JSON. | ⏳ |
 | JSON output | One parseable document on stdout; diagnostics stay on stderr. | ⏳ |
 | Quiet mode | No output; exit status alone communicates match/no-match. | ⏳ |

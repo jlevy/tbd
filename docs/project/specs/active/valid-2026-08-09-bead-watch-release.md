@@ -27,8 +27,9 @@ Related artifacts:
 - Historical live-agent validation: `valid-2026-07-19-bead-watch-phase-1.md`
 - Manual playbook: `tests/qa/watch-infrastructure-release.qa.md`
 - Executable smoke: `packages/tbd/scripts/validate-watch-release.ts`
-- Tracking: tbd-tp6n (validation epic), tbd-961h (automated artifacts), tbd-t750
-  (remaining manual release QA)
+- Tracking: tbd-tp6n (validation epic), tbd-961h (initial automated artifacts), tbd-3x5y
+  (cross-platform CI and selector/concurrency expansion), and tbd-t750 (remaining manual
+  release QA)
 
 ## Automated Coverage Completed
 
@@ -40,12 +41,12 @@ Related artifacts:
 | Poll loop and deadlines | `bead-watch.test.ts` | Initial/resumed baselines; no idle fetch; unrelated-tip advancement; inclusive final observation; partial intervals; transient failures; failure cap; bounded startup/poll/fetch/ref-resolution budgets; cleanup on every path. |
 | Git isolation | `bead-watch.test.ts` plus release smoke | Private ref cleanup; stale-ref reclamation; no local sync ref, configured remote-tracking ref, `FETCH_HEAD`, caller worktree, hidden worktree, or lock mutation. The real two-clone smoke caught Git’s opportunistic remote-ref update and now regresses the empty `--refmap=` fix. |
 | CLI contract | `cli-changes.test.ts`, `cli-watch.test.ts`, `exit-codes.test.ts`, `git-exit-code.test.ts` | JSON/human/quiet modes; success 0; operational error 1; usage 2; no-match/timeout 3; SIGINT 130; selector validation and actionable recovery errors. |
-| Existing workflow compatibility | Shared selection/workflow/spec tests and full legacy suite | Existing `list`, `ready`, config, sync, worktree, and CLI behavior remains covered after extracting shared predicates. |
+| Existing workflow compatibility | Shared selection/workflow/spec tests, full legacy suite, and release smoke | Existing `show`, `list`, `ready`, `sync --pull`, and `sync --status` run while two watchers are active and again after a normal pull; config, sync, worktree, and CLI behavior remains covered after extracting shared predicates. |
 | Durable worker protocol | `watch-beads-shortcut.test.ts` | Bash syntax; macOS Bash 3.2; CRLF extraction; persist-before-work; pull/revalidate; injected worker failure; pending retention; restart/retry; final sync; atomic checkpoint; resume; signal exits. |
 | Scale and bounded resources | `issue-changes.test.ts`, `performance.test.ts` | 50,000-character bodies; edit-distance cutoff; 128-object `cat-file` batches; 1,000 selected beads; 2,000 all-change reports; existing 5,000-issue performance fixture. |
 | CLI breadth | Tryscript suite | End-to-end command transcripts and help surface, including new commands, across the built binary. |
-| Release-candidate topology | `pnpm qa:watch-release` | Built candidate, bare remote, two clones, real blocked wake, unrelated selection, checkpoint pull, JSON/exit codes, protected Git state, normal post-watch pull and legacy commands, bundled shortcut. |
-| Platform CI | Prior PR head plus required post-push rerun | Ubuntu, macOS, Windows, coverage/lint, benchmark, package, and security checks; the validation head must repeat them before merge. |
+| Release-candidate topology | `pnpm qa:watch-release` | Built candidate, bare remote, two clones, real blocked wake, two concurrent watchers in one checkout, bead/multiple-bead/label/spec/status/ready/all selection, checkpoint pull, human/JSON/quiet output, exit 0/1/2/3, protected Git state, active and post-watch sync, legacy commands, bundled shortcut. |
+| Platform CI | `.github/workflows/ci.yml` | The built-candidate release smoke runs after the unit suite on Ubuntu, macOS, and Windows. Coverage/lint, benchmark, package, and security checks remain independent gates. |
 
 ### Release Smoke Result
 
@@ -53,16 +54,29 @@ The new `pnpm qa:watch-release` command passed locally on macOS on 2026-08-09. I
 
 1. Builds the candidate CLI.
 2. Creates a temporary bare remote plus independent writer and watcher clones.
-3. Initializes tbd, publishes selected and unrelated beads, and proves a static
-   selection ignores unrelated movement.
+3. Initializes tbd, publishes selected, unrelated, blocker, and blocked-ready beads, and
+   proves a static selection ignores unrelated movement.
 4. Pulls a durable resume checkpoint, starts a real blocking watch, publishes a selected
    remote update, and validates the versioned report.
 5. Compares the caller worktree, local sync ref, `origin/tbd-sync`, `FETCH_HEAD`, hidden
    worktree head/status, and private watch refs before and after the watch.
-6. Exercises JSON, quiet/no-match, usage, and timeout exit behavior.
-7. Pulls normally and runs `show`, `list`, `ready`, `sync --status`, and
+6. Runs simultaneous bead and `--ready` watchers from one checkout, closes a real
+   blocker while updating status/spec/notes, runs existing read and pull workflows while
+   both watchers are blocked, validates both reports, and repeats the protected-state
+   comparison after both private fetches are cleaned up.
+7. Exercises every selector family, multiple bead IDs, human/JSON/quiet output, and
+   success, operational-error, usage-error, no-match, and timeout exit behavior.
+8. Pulls normally and runs `show`, `list`, `ready`, `sync --status`, and
    `shortcut watch-beads` afterward.
-8. Removes the disposable topology.
+9. Removes the disposable topology.
+
+The coexistence check distinguishes ownership of Git side effects.
+`show`, `list`, and `ready` must leave the protected snapshot unchanged.
+An explicit `sync --pull` must advance the local branch and hidden worktree, while
+`sync --status` performs its own normal fetch.
+The smoke verifies those expected effects and then uses the resulting local/remote refs,
+hidden-worktree head, `FETCH_HEAD`, and lock state as the baseline that the concurrent
+watchers may not change.
 
 The first safety run exposed a real gap in the earlier fixture: an explicit Git fetch to
 a private ref can still apply the configured `remote.origin.fetch` refmap and advance
@@ -77,7 +91,7 @@ Current validated results for the PR series:
 
 ```text
 pnpm --filter get-tbd exec vitest run tests/bead-watch.test.ts  18/18 passed
-pnpm qa:watch-release                                         passed
+pnpm qa:watch-release                                         expanded smoke passed
 packed tarball + isolated-prefix TBD_QA_BIN smoke             passed
 pnpm precommit                                                 100 files / 1,451 tests passed
 pnpm --filter get-tbd test:tryscript                           1,068 cases passed
@@ -85,8 +99,18 @@ pnpm publint                                                   passed
 pnpm check:package-age                                         0 violations across 31 pins
 ```
 
-The exact-head GitHub checks must be watched to completion again after this validation
-commit is pushed. No dependency or lockfile changes are part of the work.
+The full transcript run initially exposed a fixture-only nondeterminism: a randomly
+generated short ID could be similar enough to the intended missing sentinel `test-zzzz`
+to add a valid fuzzy-match suggestion.
+The sentinel is now the deliberately distant, non-generated `test-zzzzzzz`, the
+fail-closed error is asserted explicitly, and all 1,068 cases pass.
+This validation-found hardening is tracked by tbd-dbyj.
+
+The earlier validation head passed Ubuntu, macOS, Windows, coverage/lint, benchmark,
+Cursor Bugbot, and DeepSource.
+The CI-wiring commit must repeat those exact-head checks, including the new
+built-candidate smoke on all three operating systems.
+No dependency or lockfile changes are part of the work.
 
 ## Manual Validation Completed
 
@@ -118,6 +142,8 @@ The exact procedure and evidence checklist live in
 
 - [ ] Repeat the passing isolated-prefix tarball smoke at the exact release-tag SHA and
   record the artifact checksum.
+- [ ] Run that exact packed artifact under the supported Node.js 20 runtime floor; CI
+  covers the built candidate under Node.js 24.
 - [ ] Run one selected wake over a disposable private GitHub remote using the same
   SSH/HTTPS credential path as the intended operator.
 - [ ] Confirm the remote-tracking ref, local sync ref, `FETCH_HEAD`, caller worktree,
@@ -125,7 +151,8 @@ The exact procedure and evidence checklist live in
 - [ ] Run existing `create`, `update`, `list`, `ready`, `show`, and `sync` workflows
   while a watcher is active and after it exits.
 - [ ] Review human, JSON, quiet, timeout, usage-error, and operational-error output for
-  operator clarity and stdout/stderr separation.
+  operator clarity. Automated assertions already enforce parseability, silence, exit
+  classes, and stdout/stderr separation; this check is for human judgment.
 
 ### Required Before Promoting an Unattended Worker
 
@@ -142,9 +169,12 @@ The exact procedure and evidence checklist live in
 ### Platform Sampling
 
 - [ ] macOS packed artifact and system Bash 3.2 worker recipe.
+  The built-candidate smoke runs in macOS CI on every PR.
 - [ ] Ubuntu packed artifact and one real-remote wake.
+  The built-candidate smoke runs in Ubuntu CI on every PR.
 - [ ] Windows packed artifact through PowerShell/Git, including the `.cmd` shim and
   CRLF-rendered shortcut.
+  The built-candidate smoke runs in Windows CI on every PR.
 
 GitHub Actions remains the cross-platform automated gate.
 Manual sampling focuses on the packaged artifact, credentials, shell integration, and
@@ -175,6 +205,7 @@ The release owner should answer these questions from the playbook evidence:
 | A wake is lost or duplicated around worker failure | Persist pending before work; pull/revalidate; checkpoint only after worker plus sync; at-least-once delivery; idempotency requirement. | Failure/restart under the intended runner. |
 | Large graphs or rewritten bodies exhaust memory | Static selection before deltas; 128-object batches; 50 MB process cap; edit-distance cutoff; scale fixtures. | Optional representative-repo timing/soak. |
 | Notes are treated as append-only conversation state | Docs state complete replacement and single-writer semantics; examples pull and rebuild the body. | Operator review; use child beads or external comments for durable history. |
+| Concurrent watchers contend or mutate shared state | Collision-resistant per-process private refs; two simultaneous watchers in one checkout; protected-state snapshots after both finish. | Intended-runner soak with normal tbd work in parallel. |
 | Existing workflows are disrupted merely by upgrading | No command runs unless invoked; no schema/config/format/dependency change; legacy suite and post-watch compatibility smoke. | Real-repo create/update/sync exercise. |
 | Linear work becomes an accidental merge dependency | Provider-neutral report and worker boundary; separate beads/spec; no provider package, schema, config, or imports in core. | Keep optional experiment isolated and non-gating. |
 
@@ -184,6 +215,7 @@ The release owner should answer these questions from the playbook evidence:
 
 - All focused and full local gates pass.
 - The release smoke passes and protected Git state remains unchanged.
+- The built-candidate smoke passes in the Ubuntu, macOS, and Windows CI jobs.
 - Exact-head GitHub checks pass on Ubuntu, macOS, and Windows, including coverage/lint
   and benchmark.
 - All actionable PR threads are resolved.

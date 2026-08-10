@@ -412,6 +412,9 @@ classes and change commands.
   two-clone executable topology; complete automated/manual coverage map; and a manual QA
   playbook. The smoke found and regressed Git refmap isolation for an existing
   `origin/tbd-sync` ref.
+- [x] Cross-platform release-smoke enforcement (`tbd-3x5y`): run the built-candidate
+  topology in every operating-system CI job and cover concurrent watchers, every
+  selector family, human/JSON/quiet output, and exit 0/1/2/3 over real Git history.
 - [ ] Release-candidate manual QA (`tbd-t750`): exact-tag artifact rerun, credentialed
   real remote, existing-workflow coexistence, network interruption, intended runner
   permissions/idempotency, and representative platform shells.
@@ -438,9 +441,10 @@ Linear experiments end to end while provider bindings and state remain outside c
 
 **Phase 1:** unit tests for `tbd changes` across synthetic histories (status flips,
 notes replacements, creates/closes, selection filters); poll/deadline/failure tests; a
-built-candidate two-clone release smoke over a real bare remote; recorded Claude Code
-and Codex demos; timeout and error exit codes; protected Git-state snapshots; and the
-full legacy, transcript, package, supply-chain, and cross-platform CI gates.
+built-candidate two-clone release smoke over a real bare remote on Ubuntu, macOS, and
+Windows CI; concurrent static/dynamic watchers; recorded Claude Code and Codex demos;
+timeout and error exit codes; protected Git-state snapshots; and the full legacy,
+transcript, package, supply-chain, and cross-platform CI gates.
 
 **Release QA:** run `pnpm qa:watch-release` on source and the exact packed artifact,
 then follow `tests/qa/watch-infrastructure-release.qa.md` for a credentialed real
@@ -494,6 +498,15 @@ Git may opportunistically apply `remote.origin.fetch` even when an explicit priv
 destination ref is supplied.
 The watch fetch now passes an empty `--refmap=`; the focused fixture begins with a stale
 `origin/tbd-sync`, and both it and the two-clone smoke prove that ref stays unchanged.
+
+The smoke now starts concurrent bead and readiness watchers from one checkout, closes a
+real blocker while updating status, spec, and notes, exercises existing read and pull
+workflows while both watchers are blocked, and validates both reports and the
+post-cleanup protected-state snapshot.
+The test takes a new isolation baseline after `sync --pull` and `sync --status`, because
+those existing commands intentionally advance the local sync state and update normal Git
+fetch metadata. It covers every selector family, human/JSON/quiet output, and exit codes
+0/1/2/3, and runs after the unit suite in all three CI operating-system jobs.
 
 The full release decision is recorded in `valid-2026-08-09-bead-watch-release.md`. The
 exact-tag artifact rerun and credentialed-remote execution remain tracked by tbd-t750.
