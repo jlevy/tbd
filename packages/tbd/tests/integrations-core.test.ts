@@ -29,6 +29,7 @@ import {
   findHierarchyProblems,
   MAX_PARENT_DEPTH,
 } from '../src/lib/issue-hierarchy.js';
+import { LinearIntegrationSchema } from '../src/lib/schemas.js';
 import type { Issue, IntegrationSelect, IssueStatusType, PriorityType } from '../src/lib/types.js';
 
 function issue(overrides: Partial<Issue> = {}): Issue {
@@ -199,6 +200,26 @@ describe('managed block', () => {
     expect(block).toContain('plan-x.md');
     expect(block).toContain('#205');
     expect(block).toContain('7 (3 ready)');
+  });
+});
+
+describe('label-pollution guards', () => {
+  // A mirror run once created 40 Linear labels in a shared team, one per bead
+  // label. These pin the defaults that prevent it, so flipping either becomes a
+  // deliberate, visible change rather than a silent regression.
+  it('defaults mirror_labels to false', () => {
+    const parsed = LinearIntegrationSchema.parse({});
+    expect(parsed.mirror_labels).toBe(false);
+  });
+
+  it('defaults an unconfigured integration to disabled', () => {
+    expect(LinearIntegrationSchema.parse({}).enabled).toBe(false);
+  });
+
+  it('defaults selection to epics only, not every bead', () => {
+    const parsed = LinearIntegrationSchema.parse({});
+    expect(parsed.select.kinds).toEqual(['epic']);
+    expect(parsed.select.statuses).not.toContain('closed');
   });
 });
 
