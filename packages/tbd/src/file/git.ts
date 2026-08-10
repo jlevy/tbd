@@ -2422,6 +2422,8 @@ export async function migrateDataToWorktree(
   migratedCount: number;
   backupPath?: string;
   error?: string;
+  /** Whether this run recorded a commit. False when already migrated. */
+  committed?: boolean;
 }> {
   const wrongPath = join(baseDir, TBD_DIR, DATA_SYNC_DIR_NAME);
   const {
@@ -2503,6 +2505,7 @@ export async function migrateDataToWorktree(
       .then(() => false)
       .catch(() => true);
 
+    let committed = false;
     if (hasChanges) {
       await gitCommit(
         worktreePath,
@@ -2510,10 +2513,44 @@ export async function migrateDataToWorktree(
         '-m',
         `tbd: migrate ${totalFiles} file(s) from incorrect location`,
       );
+      committed = true;
+    } else {
+      // Nothing staged. That is legitimate when a previous run already migrated
+      // and committed these files, and a bug in every other case: the copy
+      // above would be unrecorded, and step 4 is about to delete the source.
+      // Verify against the committed tree rather than assuming the benign case.
+      const missing: string[] = [];
+      for (const file of issueFiles) {
+        const tracked = await git(
+          '-C',
+          worktreePath,
+          'ls-files',
+          '--error-unmatch',
+          join(TBD_DIR, DATA_SYNC_DIR_NAME, 'issues', file),
+        )
+          .then(() => true)
+          .catch(() => false);
+        if (!tracked) {
+          missing.push(file);
+        }
+      }
+      if (missing.length > 0) {
+        return {
+          success: false,
+          migratedCount: 0,
+          backupPath,
+          error:
+            `Migration copied ${totalFiles} file(s) but committed nothing, and ` +
+            `${missing.length} of them are absent from the sync branch ` +
+            `(${missing.slice(0, 3).join(', ')}). Source files were left in place. ` +
+            `The backup is at ${backupPath}.`,
+        };
+      }
     }
-    // If no changes, files were already migrated - that's fine
 
-    // Step 4: Optionally remove wrong location data
+    // Step 4: Optionally remove wrong location data. Only reached once the files
+    // are known to be recorded on the sync branch, so a failed commit cannot
+    // take the source with it.
     if (removeSource) {
       // Remove issue and mapping files, but keep directory structure
       for (const file of issueFiles) {
@@ -2528,6 +2565,7 @@ export async function migrateDataToWorktree(
       success: true,
       migratedCount: totalFiles,
       backupPath,
+      committed,
     };
   } catch (error) {
     return {
