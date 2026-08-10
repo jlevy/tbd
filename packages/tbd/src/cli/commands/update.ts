@@ -19,6 +19,7 @@ import { now } from '../../utils/time-utils.js';
 import { resolveToInternalId, type IdMapping } from '../../file/id-mapping.js';
 import { resolveSpecArg, getPathErrorMessage } from '../../lib/project-paths.js';
 import { validateIssueTitle } from '../lib/issue-input-validation.js';
+import { checkParentAssignment, describeHierarchyProblem } from '../../lib/issue-hierarchy.js';
 import { withDataSyncContext } from '../lib/data-context.js';
 import {
   resolveAllIds,
@@ -157,6 +158,23 @@ class UpdateHandler extends BaseCommand {
             issue.deferred_until = updates.deferred_until;
           }
           if (updates.parent_id !== undefined) {
+            if (updates.parent_id) {
+              // Reject a parent edge that would create a cycle or an
+              // unreasonably deep chain. A cycle makes every ancestor walk
+              // non-terminating, so it must never reach storage.
+              const all = await listIssues(dataSyncDir);
+              const parents = new Map(all.map((i) => [i.id, i.parent_id]));
+              // The issue's own pending change is not yet written; the walk
+              // starts from the proposed parent, so the stored map is correct.
+              const problem = checkParentAssignment(internalId, updates.parent_id, (id) =>
+                parents.get(id),
+              );
+              if (problem) {
+                throw new ValidationError(
+                  describeHierarchyProblem(problem, (id) => formatDisplayId(id, mapping)),
+                );
+              }
+            }
             issue.parent_id = updates.parent_id;
           }
           if (updates.spec_path !== undefined) {

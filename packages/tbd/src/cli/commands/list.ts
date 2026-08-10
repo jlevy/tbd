@@ -211,13 +211,9 @@ class ListHandler extends BaseCommand {
           labels: options.label ?? [],
           spec: options.spec === '' ? null : (options.spec ?? null),
           status: options.status ?? null,
+          kind: options.type ?? null,
         })
       ) {
-        return false;
-      }
-
-      // Type filter
-      if (options.type && issue.kind !== options.type) {
         return false;
       }
 

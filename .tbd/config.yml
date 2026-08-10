@@ -1,5 +1,5 @@
 tbd_format: f06
-tbd_version: 0.4.3-dev.14.e215ab9-dirty
+tbd_version: 0.4.3-dev.15.c23d14d
 # tbd_upgrades: tbd versions that have run `tbd setup` in this repo (oldest first);
 # tbd_version above is the most recent. Informational; updated automatically by setup.
 tbd_upgrades:
@@ -16,6 +16,8 @@ tbd_upgrades:
     at: 2026-07-30T22:04:21.493Z
   - version: 0.4.3-dev.14.e215ab9-dirty
     at: 2026-08-10T16:22:57.472Z
+  - version: 0.4.3-dev.15.c23d14d
+    at: 2026-08-10T16:26:11.666Z
 display:
   id_prefix: tbd
 sync:

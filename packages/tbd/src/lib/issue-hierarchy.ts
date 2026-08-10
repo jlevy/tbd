@@ -83,6 +83,23 @@ export function checkParentAssignment(
 }
 
 /**
+ * Render a hierarchy problem as an actionable message.
+ *
+ * `format` renders an internal id the way the user sees it, so the message names
+ * the ids they typed rather than internal ULIDs.
+ */
+export function describeHierarchyProblem(
+  problem: HierarchyProblem,
+  format: (id: string) => string,
+): string {
+  const path = problem.path.map(format).join(' -> ');
+  if (problem.kind === 'cycle') {
+    return `That parent would create a cycle (${path}). An issue cannot be its own ancestor.`;
+  }
+  return `That parent would nest ${problem.depth} levels deep, past the limit of ${MAX_PARENT_DEPTH} (${path}).`;
+}
+
+/**
  * Find every hierarchy problem in a set of issues. Used by `doctor`.
  */
 export function findHierarchyProblems(
