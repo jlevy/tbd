@@ -973,6 +973,10 @@
 
       function changeFor(id) {
         if (!watch || !watch.lastReport) return null;
+        // The report's field deltas describe one specific movement. A local wake
+        // advances dataVersion without a report, so a stale stamp means the deltas
+        // belong to an earlier remote wake and must not be shown as current.
+        if (watch.reportDataVersion !== watch.dataVersion) return null;
         return watch.lastReport.changes.find((c) => c.id === id) || null;
       }
 
@@ -1261,17 +1265,21 @@
             : board.matched + ' of ' + board.total;
         els.tippill.textContent =
           watch.remote + '/' + watch.syncBranch + ' @ ' + short(watch.localTip);
-        // The command must reproduce what is on screen or say that it cannot. `tbd ready`
-        // takes only --type and --limit, so combining ready with a label narrows the view
-        // past anything one command expresses.
+        // The command must reproduce what is on screen or say that it cannot. Each
+        // divergence names itself: filters the command cannot express (tbd ready takes
+        // only --type and --limit), free-text search, and the dimmed ancestor rows tree
+        // mode adds for context, which tbd list --pretty would not print.
         const caveats = [];
-        if (!board.commandExact) caveats.push('plus filters with no tbd ready equivalent');
+        if (!board.filtersExact) caveats.push('plus filters with no tbd ready equivalent');
         if (board.search) caveats.push('plus text search "' + board.search + '"');
+        if (board.contextCount) {
+          caveats.push('plus ' + board.contextCount + ' dimmed ancestor row(s) shown for context');
+        }
         els.cmd.textContent =
           board.command + (caveats.length ? '   (' + caveats.join('; ') + ')' : '');
         els.cmd.title = board.commandExact
           ? 'Run this to reproduce the table below.'
-          : 'The table is narrower than this command; the extra filters have no CLI equivalent.';
+          : 'This command does not exactly reproduce the table; the caveats name each difference.';
         els.pretty.className = pretty ? 'on' : '';
 
         const rows = board.rows || [];

@@ -54,7 +54,7 @@ import type { InternalIssueId } from '../src/lib/ids.js';
 import { listIssues } from '../src/file/storage.js';
 import { resolveToInternalId } from '../src/file/id-mapping.js';
 import type { IdMapping } from '../src/file/id-mapping.js';
-import { formatDisplayId } from '../src/lib/ids.js';
+import { extractUlidFromInternalId, formatDisplayId } from '../src/lib/ids.js';
 import { gitSafeEnv } from '../src/lib/git-env.js';
 import { issueMatchesSharedFilters, readyIssueIds } from '../src/lib/issue-selection.js';
 import { computeIssueStats } from '../src/lib/issue-stats.js';
@@ -213,6 +213,20 @@ interface WatchState {
   /** `tbd status`, the served subset. Resolved at startup and after each pull. */
   repoStatus: RepoStatus | null;
   lastReport: ChangeReport | null;
+  /**
+   * The dataVersion at which lastReport was applied. Local filesystem wakes advance
+   * dataVersion without producing a report, so the field-level deltas in lastReport
+   * describe the current movement only while this equals dataVersion; the client hides
+   * the delta panel otherwise instead of attributing stale remote detail to a local
+   * edit (PR #207 review R4).
+   */
+  reportDataVersion: number;
+  /**
+   * Beads changed in the latest movement, local or remote. Derived from the snapshot
+   * diff (movedIds) on every reload, never from the report alone, so the ● marker and
+   * the flash always describe the same event regardless of which wake path observed it
+   * (PR #207 review R4).
+   */
   changedIds: string[];
   /**
    * Monotonic counter, incremented only when the bead graph itself moved. The browser
@@ -436,6 +450,9 @@ function describeQueryAsCommand(query: BoardQuery): { command: string; exact: bo
       query.parent !== null ||
       query.spec !== null ||
       query.deferred ||
+      // `tbd ready` always orders by priority then internal id and exposes no --sort,
+      // so a non-default sort makes the view unreproducible too (PR #207 review R2).
+      query.sort !== 'priority' ||
       query.pretty;
     return { command: readyParts.join(' '), exact: !unsupported };
   }
@@ -558,9 +575,13 @@ function sortIssues(issues: Issue[], board: Board, sortField: string): Issue[] {
     if (delta !== 0) {
       return delta;
     }
-    const leftId = board.displayIdByInternalId.get(left.id) ?? left.id;
-    const rightId = board.displayIdByInternalId.get(right.id) ?? right.id;
-    return leftId < rightId ? -1 : leftId > rightId ? 1 : 0;
+    // Tiebreak on the internal ULID, exactly as ListHandler.sortIssues does: ULIDs are
+    // chronological and deterministic, while short display ids are random, so a
+    // display-id tiebreak would order equal-priority rows differently than the CLI
+    // for the same query (PR #207 review R1).
+    const leftUlid = extractUlidFromInternalId(left.id);
+    const rightUlid = extractUlidFromInternalId(right.id);
+    return leftUlid < rightUlid ? -1 : leftUlid > rightUlid ? 1 : 0;
   });
 }
 
@@ -1074,6 +1095,10 @@ class BeadWebViewer {
         this.state.dataVersion += 1;
         this.state.movedIds = moved;
         this.state.removedIds = removed;
+        // The ● marker follows the snapshot diff, not the report, so a local wake
+        // marks the beads that actually moved rather than leaving the previous remote
+        // wake's markers in place (PR #207 review R4).
+        this.state.changedIds = moved;
       }
     }
     this.state.totalBeads = issues.length;
@@ -1338,7 +1363,10 @@ class BeadWebViewer {
       this.endLocalSuppression();
     }
     this.state.lastReport = report;
-    this.state.changedIds = report.changes.map((change) => change.id);
+    // Stamp which movement this report describes. changedIds is left to the snapshot
+    // diff in reload(), so marker and flash stay one source of truth; the report only
+    // adds field-level detail, valid while this stamp matches dataVersion.
+    this.state.reportDataVersion = this.state.dataVersion;
     this.state.watchSince = report.tip;
     this.state.wakeCount += 1;
     this.state.watchPhase = 'watching';
@@ -1460,7 +1488,16 @@ class BeadWebViewer {
     const described = describeQueryAsCommand(query);
     return {
       command: described.command,
-      commandExact: described.exact,
+      // The ancestor rows injected for tree context are a deliberate divergence from
+      // `tbd list --pretty`, which builds its tree from the filtered set only (unmatched
+      // parents make their children roots). The view is better for it, but the command
+      // then does not reproduce the table, so exactness must say so and the client names
+      // the divergence in its caveat line (PR #207 review R3).
+      commandExact: described.exact && contextIds.length === 0,
+      // The two inexactness causes separately, so the client can name each: filters the
+      // command cannot express, and ancestor rows the command would not print.
+      filtersExact: described.exact,
+      contextCount: contextIds.length,
       search: query.search,
       total: this.board.issues.length,
       matched: limited.length,
@@ -1669,6 +1706,7 @@ async function main(): Promise<void> {
     stats: null,
     repoStatus: null,
     lastReport: null,
+    reportDataVersion: 0,
     changedIds: [],
     dataVersion: 0,
     movedIds: [],
