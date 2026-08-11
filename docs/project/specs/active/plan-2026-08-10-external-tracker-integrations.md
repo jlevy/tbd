@@ -841,11 +841,13 @@ Shipped in Phase 1:
 - `IssueSchema`: **unchanged**. The link lives in the existing `extensions` namespace,
   so there is no new field and **no `tbd_format` bump**.
 - `ConfigSchema`: the optional `integrations` block.
-  `ConfigSchema` has no `extensions` escape hatch, so `tbd setup` on an older CLI drops
-  this block — this happened once during the pilot.
-  The loss is recoverable (`config.yml` is tracked) and loud (the mirror stops working),
-  unlike the silent bead-field loss, so it does not justify a format bump on its own;
-  giving `ConfigSchema` its own extensions namespace is tracked separately.
+  `ConfigSchema` has no `extensions` escape hatch, so an older CLI rewriting config
+  drops this block — **this happened twice during the pilot**, both times restored from
+  git history. The loss is recoverable (`config.yml` is tracked) but silent at loss time
+  and loud only at use time, so Phase 2’s doctor additions include a tripwire: warn when
+  beads carry provider links but no matching integration is configured.
+  Releasing Phase 1 closes the gap for this key (it becomes known to the schema); a
+  general `ConfigSchema` extensions namespace is tracked separately.
 - `FIELD_STRATEGIES`: `extensions` changed from `'lww'` to per-namespace three-way merge
   with absence-as-value.
 - Commands: `tbd integration status | mirror`, with the bulk guard’s `--yes`.

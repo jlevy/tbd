@@ -128,3 +128,21 @@ docs_cache:
   lookup_path:
     - .tbd/docs/shortcuts/system
     - .tbd/docs/shortcuts/standard
+integrations:
+  sync_on_tbd_sync: false
+  linear:
+    enabled: true
+    team_key: TBD
+    project: tbd
+    # Bead labels are deliberately not pushed: this repo has 112 distinct ones,
+    # and creating a Linear label for each pollutes a shared team namespace.
+    # They travel as structured data in the bead attachment either way.
+    mirror_labels: false
+    select:
+      kinds:
+        - epic
+      statuses:
+        - open
+        - in_progress
+        - blocked
+      specs: active
