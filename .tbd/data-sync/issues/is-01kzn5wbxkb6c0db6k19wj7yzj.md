@@ -5,7 +5,7 @@ title: Land tbd-web spike PR (stacked on PR 205)
 kind: task
 status: in_progress
 priority: 2
-version: 13
+version: 14
 spec_path: docs/project/specs/active/plan-2026-08-10-tbd-web-live-bead-view.md
 labels:
   - viewer
@@ -15,7 +15,7 @@ child_order_hints:
   - is-01kzq7dpztf9sy32xaxf63apwg
   - is-01kzq7dqe458wkrabss0a0qewp
 created_at: 2026-08-10T06:31:08.978Z
-updated_at: 2026-08-11T04:42:46.395Z
+updated_at: 2026-08-11T05:20:45.884Z
 extensions:
   linear:
     id: 87a13af9-a3b4-4897-873a-f8bfeb82fa65
@@ -27,4 +27,4 @@ Track the stacked PR for the bead-web viewer spike: branch claude/tbd-web-spike,
 
 ## Notes
 
-Senior review + 3 Bugbot threads addressed in 6edccb89; disposition map posted; all threads resolved; R1/R2 resolved by the draft merge-gate contract, alpha-slice declined per owner directive. Phase 2 tranche 1 (e5c9360d) pushed through full gate. CI pending on new head.
+PR 207 head d984646b: Phase 2 at 4/5 (issue-query + parity oracle, tbd-5hh1, tbd-q5c7, AbortSignal), all gated, CI green. Remaining: sync-run extraction via OperationLogger, then Phase 3 (the tbd web command). This update doubles as a live remote-wake demo for the viewer.
