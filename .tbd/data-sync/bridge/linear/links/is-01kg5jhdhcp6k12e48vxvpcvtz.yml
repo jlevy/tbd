@@ -1,13 +1,13 @@
 base:
   assignee: null
-  description_hash: sha256:255411532c556868eeffebe83416cd5b6aed6eb2f61c0dcbdf75536302f9e8cd
+  description_hash: sha256:2cb1a8ec8b956ba56fddb077d65eaf5891fc7e4d92d4daaefa05d81c61a955cc
   labels: []
   priority: 2
   status: open
   title: "Phase 4: Remove docs --refresh command"
 bead_id: is-01kg5jhdhcp6k12e48vxvpcvtz
 external_id: 9e24a12c-4882-4672-a917-7f0f8bfef9cb
-remote_updated_at: 2026-08-11T06:49:22.450Z
+remote_updated_at: 2026-08-11T07:03:48.206Z
 state: linked
-synced_at: 2026-08-11T06:57:30.628Z
+synced_at: 2026-08-11T07:03:50.010Z
 type: lk

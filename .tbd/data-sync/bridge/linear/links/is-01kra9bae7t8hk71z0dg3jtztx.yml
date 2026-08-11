@@ -1,6 +1,6 @@
 base:
   assignee: null
-  description_hash: sha256:17799438395cdf8543860b6a908fdea2fd2952316a36e60efe8d9b16775f7908
+  description_hash: sha256:38199bad129271990252634ab38ecc6725c3262c08e6e28d7aa63f8ea6c451f2
   labels: []
   priority: 2
   status: open
@@ -8,7 +8,7 @@ base:
     golden, lockfile round-trip"
 bead_id: is-01kra9bae7t8hk71z0dg3jtztx
 external_id: 039bbcc8-35e4-4960-956f-a9d568610588
-remote_updated_at: 2026-08-11T06:50:40.849Z
+remote_updated_at: 2026-08-11T07:04:04.766Z
 state: linked
-synced_at: 2026-08-11T06:57:38.127Z
+synced_at: 2026-08-11T07:04:05.132Z
 type: lk
