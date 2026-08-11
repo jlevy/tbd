@@ -19,6 +19,10 @@ import { join } from 'node:path';
 const isWindows = platform() === 'win32';
 const describeUnlessWindows = isWindows ? describe.skip : describe;
 import { writeIssue, listIssues, readIssue } from '../src/file/storage.js';
+import { BoardState, MAX_BOARD_ROWS } from '../src/cli/web/board.js';
+import type { BoardStateDependencies, RepoStatus, WebState } from '../src/cli/web/board.js';
+import type { TbdDataContext } from '../src/cli/lib/data-context.js';
+import type { IdMapping } from '../src/file/id-mapping.js';
 import type { Issue } from '../src/lib/types.js';
 
 // Helper to generate test issues with valid ULID format
@@ -215,5 +219,77 @@ describe('performance tests', () => {
       expect(ms).toBeLessThan(100);
       console.log(`Sorted ${ISSUE_COUNT} issues by priority in ${ms.toFixed(2)}ms`);
     });
+  });
+});
+
+describe('web board performance', () => {
+  it('loads and renders a bounded response for 5000 issues inside the interaction budget', async () => {
+    const issueCount = 5_000;
+    const issues = Array.from({ length: issueCount }, (_, index) => generateTestIssue(index));
+    const shortToUlid = new Map(
+      issues.map((issue, index) => [`p${index.toString(36)}`, issue.id.slice(3)]),
+    );
+    const mapping: IdMapping = {
+      shortToUlid,
+      ulidToShort: new Map([...shortToUlid].map(([short, ulid]) => [ulid, short])),
+    };
+    const context = {
+      dataSyncDir: '/repo/.git/tbd/data-sync-worktree/.tbd/data-sync',
+      mapping,
+      prefix: 'perf',
+      config: { sync: { branch: 'tbd-sync', remote: 'origin' } },
+      sharedPaths: { sharedWorktreePath: '/repo/.git/tbd/data-sync-worktree' },
+    } as unknown as TbdDataContext;
+    const repoStatus: RepoStatus = {
+      tbdVersion: 'test',
+      gitBranch: 'main',
+      syncBranch: 'tbd-sync',
+      remote: 'origin',
+      displayPrefix: 'perf',
+      worktreePath: context.sharedPaths.sharedWorktreePath,
+      worktreeHealthy: true,
+      worktreeStatus: 'valid',
+      workspaces: [],
+    };
+    const dependencies: BoardStateDependencies = {
+      loadContext: () => Promise.resolve(context),
+      listIssues: () => Promise.resolve(issues),
+      readRepoStatus: () => Promise.resolve(repoStatus),
+      readLocalTip: () => Promise.resolve('a'.repeat(40)),
+      now: () => new Date('2026-08-11T12:00:00.000Z'),
+    };
+    const board = new BoardState('/repo', dependencies);
+    const loaded = await measureTime(() => board.reload());
+    const state: WebState = {
+      repoDir: '/repo',
+      syncBranch: 'tbd-sync',
+      remote: 'origin',
+      intervalSeconds: 30,
+      ...board.getSnapshotState(),
+      lastReport: null,
+      reportDataVersion: 0,
+      changedIds: [],
+      watchPhase: 'watching',
+      watchSince: 'a'.repeat(40),
+      watchError: null,
+      wakeCount: 0,
+      log: [],
+    };
+    const rendered = await measureTime(() =>
+      Promise.resolve(board.buildBoardResponse(new URLSearchParams('all=1&pretty=1'), state)),
+    );
+
+    expect(loaded.ms).toBeLessThan(1_000);
+    expect(rendered.ms).toBeLessThan(1_000);
+    expect(rendered.result).toMatchObject({
+      total: issueCount,
+      matched: issueCount,
+      truncated: issueCount,
+    });
+    expect(rendered.result.rows).toHaveLength(MAX_BOARD_ROWS);
+    expect(JSON.stringify(rendered.result)).not.toContain('Description for issue');
+    console.log(
+      `Web board loaded ${issueCount} issues in ${loaded.ms.toFixed(2)}ms and rendered in ${rendered.ms.toFixed(2)}ms`,
+    );
   });
 });

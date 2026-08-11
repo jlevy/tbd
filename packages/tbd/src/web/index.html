@@ -1,0 +1,229 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>tbd beads</title>
+    <script>
+      // Resolve a stored theme before first paint. The bundled client owns later changes.
+      try {
+        var mode = localStorage.getItem('tbd.themeMode') || 'system';
+        if (mode !== 'light' && mode !== 'dark') mode = 'system';
+        document.documentElement.setAttribute('data-theme-mode', mode);
+        if (mode !== 'system') document.documentElement.setAttribute('data-theme', mode);
+      } catch (_error) {
+        // Private mode or blocked storage: the system theme remains active.
+      }
+    </script>
+    <style>
+      /*__TBD_WEB_STYLES__*/
+    </style>
+  </head>
+  <body>
+    <header>
+      <h1>tbd beads</h1>
+      <span class="pill" id="countpill">0 beads</span>
+      <span class="grow"></span>
+      <!-- Live-state cluster: everything about the watcher sits together on the right,
+           next to the branch it is watching, so it reads as one status area. -->
+      <span class="pill" id="wakepill">0 wakes</span>
+      <span class="pill" id="watchpill" aria-live="polite"
+        ><span class="dot"></span>connecting</span
+      >
+      <span class="pill" id="tippill"></span>
+      <span id="settings">
+        <button
+          id="gear"
+          type="button"
+          aria-label="Settings"
+          aria-expanded="false"
+          aria-controls="menu"
+        >
+          <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            aria-hidden="true"
+          >
+            <path
+              d="M9.671 4.136a2.34 2.34 0 0 1 4.659 0 2.34 2.34 0 0 0 3.319 1.915 2.34 2.34 0 0 1 2.33 4.033 2.34 2.34 0 0 0 0 3.831 2.34 2.34 0 0 1-2.33 4.033 2.34 2.34 0 0 0-3.319 1.915 2.34 2.34 0 0 1-4.659 0 2.34 2.34 0 0 0-3.32-1.915 2.34 2.34 0 0 1-2.33-4.033 2.34 2.34 0 0 0 0-3.831A2.34 2.34 0 0 1 6.35 6.051a2.34 2.34 0 0 0 3.319-1.915"
+            />
+            <circle cx="12" cy="12" r="3" />
+          </svg>
+        </button>
+        <div id="menu" role="menu" hidden>
+          <div class="menu-label">Theme</div>
+          <div class="chooser" role="group" aria-label="Theme">
+            <button
+              type="button"
+              class="seg"
+              role="menuitemradio"
+              data-theme-choice="system"
+              aria-checked="false"
+              title="System theme"
+              aria-label="System theme"
+            >
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                aria-hidden="true"
+              >
+                <rect width="20" height="14" x="2" y="3" rx="2" />
+                <line x1="8" x2="16" y1="21" y2="21" />
+                <line x1="12" x2="12" y1="17" y2="21" />
+              </svg>
+            </button>
+            <button
+              type="button"
+              class="seg"
+              role="menuitemradio"
+              data-theme-choice="light"
+              aria-checked="false"
+              title="Light theme"
+              aria-label="Light theme"
+            >
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                aria-hidden="true"
+              >
+                <circle cx="12" cy="12" r="4" />
+                <path d="M12 2v2" />
+                <path d="M12 20v2" />
+                <path d="m4.93 4.93 1.41 1.41" />
+                <path d="m17.66 17.66 1.41 1.41" />
+                <path d="M2 12h2" />
+                <path d="M20 12h2" />
+                <path d="m6.34 17.66-1.41 1.41" />
+                <path d="m19.07 4.93-1.41 1.41" />
+              </svg>
+            </button>
+            <button
+              type="button"
+              class="seg"
+              role="menuitemradio"
+              data-theme-choice="dark"
+              aria-checked="false"
+              title="Dark theme"
+              aria-label="Dark theme"
+            >
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                aria-hidden="true"
+              >
+                <path
+                  d="M20.985 12.486a9 9 0 1 1-9.473-9.472c.405-.022.617.46.402.803a6 6 0 0 0 8.268 8.268c.344-.215.825-.004.803.401"
+                />
+              </svg>
+            </button>
+          </div>
+        </div>
+      </span>
+    </header>
+
+    <div id="toolbar">
+      <input
+        id="q"
+        type="search"
+        placeholder="Search id, title, label, spec"
+        aria-label="Search beads"
+        size="26"
+      />
+      <!-- Control labels stay plain words; the equivalent command below is where the
+           flags are shown, so the mapping is taught in one place rather than repeated. -->
+      <!-- One control, a bijection onto the CLI's reachable status states: active is
+           the tbd list default (closed hidden), "any" is --all, and a named status is
+           --status X (where --all would be a no-op). Two separate controls allowed
+           redundant states and made "any" a lie. -->
+      <select id="status" title="--status / --all" aria-label="Status">
+        <option value="">status: active</option>
+        <option value="any">any (incl. closed)</option>
+        <option value="open">open</option>
+        <option value="in_progress">in_progress</option>
+        <option value="blocked">blocked</option>
+        <option value="deferred">deferred</option>
+        <option value="closed">closed</option>
+      </select>
+      <select id="type" title="--type" aria-label="Type">
+        <option value="">type: any</option>
+        <option value="bug">bug</option>
+        <option value="feature">feature</option>
+        <option value="task">task</option>
+        <option value="epic">epic</option>
+        <option value="chore">chore</option>
+      </select>
+      <select id="priority" title="--priority" aria-label="Priority">
+        <option value="">priority: any</option>
+        <option value="0">P0</option>
+        <option value="1">P1</option>
+        <option value="2">P2</option>
+        <option value="3">P3</option>
+        <option value="4">P4</option>
+      </select>
+      <input id="label" placeholder="label" size="10" title="--label" aria-label="Labels" />
+      <input id="spec" placeholder="spec" size="12" title="--spec" aria-label="Spec" />
+      <select id="sort" title="--sort" aria-label="Sort">
+        <option value="priority">sort: priority</option>
+        <option value="created">sort: created</option>
+        <option value="updated">sort: updated</option>
+      </select>
+      <label class="check" title="--ready"><input type="checkbox" id="ready" /> ready</label>
+      <span class="grow"></span>
+      <button id="pretty" class="on" title="--pretty">tree</button>
+      <button id="expandall">Expand all</button>
+    </div>
+
+    <div id="cmdbar"><span>equivalent:</span><span id="cmd">tbd list --pretty</span></div>
+
+    <main>
+      <div id="tablewrap">
+        <table aria-label="Beads">
+          <thead>
+            <tr>
+              <th></th>
+              <th>ID</th>
+              <th>P</th>
+              <th>Status</th>
+              <th>Kind</th>
+              <th>Title</th>
+              <th>Labels</th>
+            </tr>
+          </thead>
+          <tbody id="rows"></tbody>
+        </table>
+        <div class="empty" id="empty" role="status" hidden>No beads match this query.</div>
+      </div>
+
+      <aside>
+        <h2>Status <span class="hint">tbd status</span></h2>
+        <dl id="statusdl"></dl>
+        <h2>Stats <span class="hint">tbd stats</span></h2>
+        <table id="stats" aria-label="Bead statistics"></table>
+        <h2>Latest watch report</h2>
+        <pre id="report" class="placeholder">Connecting to the watcher…</pre>
+        <h2>Event log</h2>
+        <ul id="log"></ul>
+      </aside>
+    </main>
+
+    <script>
+      /*__TBD_WEB_SCRIPT__*/
+    </script>
+  </body>
+</html>

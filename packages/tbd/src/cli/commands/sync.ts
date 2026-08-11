@@ -44,6 +44,7 @@ import {
   parseGitDiff,
 } from '../../lib/sync-summary.js';
 import { syncDocsWithDefaults, type SyncDocsResult } from '../../file/doc-sync.js';
+import { runIssueSync } from '../../file/sync-run.js';
 import { ValidationError } from '../lib/errors.js';
 import {
   loadIdMapping,
@@ -372,39 +373,31 @@ class SyncHandler extends BaseCommand {
   private async pullChanges(syncBranch: string, remote: string): Promise<void> {
     const spinner = this.output.spinner('Pulling from remote...');
     try {
-      await git('fetch', remote, syncBranch);
-
-      // Get list of changed files
-      let behind = 0;
-      try {
-        const behindOutput = await git(
-          'rev-list',
-          '--count',
-          `${syncBranch}..${remote}/${syncBranch}`,
-        );
-        behind = parseInt(behindOutput, 10) || 0;
-      } catch {
-        this.output.debug('Branch does not exist');
-      }
-
+      const result = await runIssueSync(
+        { worktreePath: this.worktreePath, syncBranch, remote },
+        { pull: true },
+        this.output.logger(spinner),
+      );
       spinner.stop();
-      if (behind === 0) {
-        this.output.success('Already up to date');
-        return;
+      switch (result.kind) {
+        case 'up-to-date':
+          this.output.success('Already up to date');
+          return;
+        case 'remote-missing':
+          this.output.info(`Remote branch ${remote}/${syncBranch} does not exist yet`);
+          return;
+        case 'pulled':
+          this.output.success(`Pulled ${result.commits} change(s) from ${remote}/${syncBranch}`);
+          return;
+        default: {
+          const exhaustive: never = result;
+          throw new Error(`Unhandled issue sync result: ${String(exhaustive)}`);
+        }
       }
-
-      await ensureWorktreeAttachedToBranch(this.worktreePath, syncBranch);
-      await git('-C', this.worktreePath, 'merge', '--ff-only', `${remote}/${syncBranch}`);
-
-      this.output.success(`Pulled ${behind} change(s) from ${remote}/${syncBranch}`);
     } catch (error) {
       spinner.stop();
-      const msg = (error as Error).message;
-      if (msg.includes('not found') || msg.includes('does not exist')) {
-        this.output.info(`Remote branch ${remote}/${syncBranch} does not exist yet`);
-      } else {
-        throw new SyncError(`Failed to pull: ${msg}`);
-      }
+      const message = error instanceof Error ? error.message : String(error);
+      throw new SyncError(message);
     }
   }
 

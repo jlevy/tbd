@@ -19,9 +19,9 @@ before: |
   git add README.md
   git commit -m "Initial commit"
 
-  mkdir -p ../origin.git
-  git init --bare ../origin.git
-  git remote add origin ../origin.git
+  mkdir -p "$PWD/.git/test-origin.git"
+  git init --bare "$PWD/.git/test-origin.git"
+  git remote add origin "$PWD/.git/test-origin.git"
   git push -u origin main
 
   mkdir -p .tbd

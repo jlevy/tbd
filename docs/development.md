@@ -87,28 +87,35 @@ pnpm test:uninstall
 
 This creates an npm tarball and installs from it, validating the full package structure.
 
-### Live bead web viewer (development spike)
+### Developing `tbd web`
 
-A zero-dependency local web view over the bead graph, driven by `tbd watch`. It is a
-development and QA instrument, not part of the published package (`scripts/` is excluded
-from the npm tarball):
+Build the production artifact, then run the same entry point the package publishes:
 
 ```bash
-# Serve the current repository (the server is read-only by construction)
-pnpm exec tsx packages/tbd/scripts/bead-web.ts --repo . --interval 30
-
-# Or build a disposable demo topology (bare remote + writer/watcher clones)
-pnpm build
-pnpm exec tsx packages/tbd/scripts/bead-web.ts --demo
+pnpm --filter get-tbd build
+node packages/tbd/dist/bin.mjs web --interval 30
 ```
 
-Then open `http://127.0.0.1:7777`. The page shares the CLI’s query semantics (each view
-shows its equivalent `tbd list` invocation), updates itself when the sync remote or
-local bead files change, and includes `tbd status` and `tbd stats` panels.
-`--help` lists all options; set `TBD_QA_BIN` to drive a packed or installed candidate.
-The server is read-only (it registers no mutation route), binds loopback only, and
-validates Host and Origin on every request.
-Design and productization plan:
+The command prints the selected loopback URL and stays in the foreground.
+The server implementation lives in `packages/tbd/src/cli/web/`, the Commander handler in
+`packages/tbd/src/cli/commands/web.ts`, and the strict browser client in
+`packages/tbd/src/web/`. `packages/tbd/scripts/stitch-web.mjs` inlines the browser IIFE
+and CSS into the single published `dist/web/index.html` artifact.
+
+Run the focused behavior and package proofs while iterating:
+
+```bash
+pnpm --filter get-tbd exec vitest run \
+  tests/web-*.test.ts tests/cli-web.test.ts tests/bead-web-css.test.ts
+pnpm --filter get-tbd exec tryscript run tests/cli-web.tryscript.md
+pnpm --filter get-tbd qa:web-package
+```
+
+The spawned-process acceptance test creates real writer and viewer clones, waits for a
+remote sync wake, consumes SSE, and verifies Git isolation and signal cleanup.
+The package proof launches `tbd web` from an extracted npm tarball and verifies that its
+self-contained page and APIs work.
+Design and implementation details are in
 [plan-2026-08-10-tbd-web-live-bead-view.md](project/specs/active/plan-2026-08-10-tbd-web-live-bead-view.md).
 
 ### Building

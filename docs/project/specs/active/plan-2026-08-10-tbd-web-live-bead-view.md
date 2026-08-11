@@ -5,12 +5,12 @@ author: Joshua Levy (github.com/jlevy) with LLM assistance
 ---
 # Feature: `tbd web` — Live Bead View
 
-**Date:** 2026-08-10 (last updated 2026-08-10)
+**Date:** 2026-08-10 (last updated 2026-08-11)
 
 **Author:** Joshua Levy (github.com/jlevy) with LLM assistance
 
-**Status:** Approved — productionization directed by the project owner 2026-08-10; PR
-#207 merges only when `tbd web` is production-ready
+**Status:** Implemented on PR #207; final cross-platform CI and merge validation in
+progress
 
 ## Overview
 
@@ -25,12 +25,11 @@ implementation of `tbd list`. Every filter the UI offers is a CLI flag, evaluate
 CLI’s own predicates, and each response carries the equivalent command line.
 
 The delivery vehicle is PR #207, and its bar is explicit: **it merges once, when
-`tbd web` is production-ready, and not before.** The working spike
-(`packages/tbd/scripts/bead-web.ts` / `.html`) was Phase 1 of that PR — evidence the
-design works — and is complete.
-The remaining phases below productionize it on the same branch, kept current with main
-by regular merges. This document is the implementation plan of record, refined to file
-and function level.
+`tbd web` is production-ready, and not before.** A disposable server and page proved the
+interaction in Phase 1. The production command now replaces that spike with typed,
+tested, packaged modules and the spike files have been retired.
+This document is the implementation record at file and function level; the remaining
+unchecked items are external CI and merge-state evidence, not implementation scope.
 
 ## Goals
 
@@ -216,12 +215,15 @@ Payload shape matters more than raw speed:
 Two paths, kept separate and labelled distinctly because they answer different
 questions.
 
-**Remote.** A blocking `tbd watch --all --json --since <tip>`. On exit 0 the server runs
-`tbd sync --issues --pull`, re-reads, and pushes.
-The report’s `tip` becomes the next `--since`, so no window is dropped, and it is also
-the SSE event id so a browser reconnect resumes the same way.
-Exit 3 is a normal recycle.
-Exit 1 backs off.
+**Remote.** `WakeCoordinator` calls `watchForIssueChanges` in-process with
+`selection: { kind: 'all' }`, a resume tip, and an `AbortSignal`. On a report the server
+calls `runIssueSync(..., { pull: true, signal, networkTimeoutMs })`, reloads the board,
+and publishes state.
+The report’s `tip` becomes the next `--since` only after that application succeeds, so
+transient pull failures retry the same window instead of dropping it.
+The tip is also the SSE event id so a browser reconnect resumes the same way.
+Timeout is a normal recycle; operational failures back off, and only a proven
+non-ancestor rewrite resets the cursor to the remote tip.
 
 **Local.** `fs.watch` over the hidden sync worktree’s issues directory, debounced, for
 edits made in this checkout before anyone publishes them.
@@ -230,12 +232,9 @@ only.
 
 A pull and the viewer’s own writes touch the same files a local edit does, and their
 filesystem events can outlive the operation that caused them.
-Attribution is therefore by observed state difference, not by timing.
-
-Whether the watch runs in-process or as a child process is an open question.
-`watchForIssueChanges` currently accepts no `AbortSignal`, so an in-process watcher
-cannot be cancelled without killing the process.
-Adding one is small and would let `tbd web` drop the child entirely.
+Attribution is therefore by observed `id:version` difference, not by timing.
+Reloads are serialized so a slow pre-pull read cannot replace a post-pull snapshot, and
+the watch is cancelled in-process during bounded shutdown.
 
 ### Writes
 
@@ -317,12 +316,13 @@ else). The design keeps the one-toolchain, zero-new-dependency constraint:
   file to its own project, so the existing flat config applies the full type-aware rule
   set to the client with no new eslint configuration.
 - **Bundling**: one more tsdown config entry, `platform: 'browser'`, `format: ['iife']`,
-  `dts: false`, emitting `dist/web/client.js`. Same toolchain, same `define` versioning,
-  no Vite or other frontend stack — a second bundler would be a supply-chain surface the
-  page cannot justify.
+  `dts: false`, emitting `dist/web/client.iife.js`. Same toolchain, no Vite or other
+  frontend stack — a second bundler would be a supply-chain surface the page cannot
+  justify.
 - **Stitching**: the postbuild step (alongside `copy-docs.mjs`) inlines
-  `dist/web/client.js` and `src/web/styles.css` into `index.html` and writes
-  `dist/web/index.html` as a single self-contained artifact.
+  `dist/web/client.iife.js` and `src/web/styles.css` at the `/*__TBD_WEB_SCRIPT__*/` and
+  `/*__TBD_WEB_STYLES__*/` markers, then writes `dist/web/index.html` as a single
+  self-contained artifact.
   The serve path stays one file read, the artifact is auditable as one document, and a
   strict same-origin CSP remains possible because the page makes no external requests.
 - **Design-system enforcement**: `bead-web-css.test.ts` retargets `src/web/styles.css`,
@@ -375,8 +375,9 @@ Minimal, fast to start, and cheap when unused.
   expected stream cancellations, and exits 130 for Ctrl+C per the exit-code contract.
   A second SIGINT forces immediate exit with teardown noise suppressed entirely: once
   the operator forces exit, no teardown record is actionable.
-  Handlers are registered once (`process.once`), do nothing but start the one shutdown
-  path, and every timer is `unref()`'d so nothing holds the process open.
+  Command-scoped handlers start one idempotent shutdown path, remain installed so a
+  second signal can force exit, and are removed when the command finishes.
+  Every timer is `unref()`'d so nothing holds the process open.
 - **Port failures are actionable, per the CLI-surface port policy.** An explicit
   `--port` that is taken names the port and the fix; default-range exhaustion is
   reported as a likely orphaned server rather than retried forever.
@@ -431,11 +432,13 @@ Signatures are the intended shape; adjust mechanically in review, not structural
   abort; the existing positional form stays for current callers.
   The CLI `watch` command passes no signal, so its behavior is unchanged.
 
-- **`src/file/sync-run.ts`** (new): the pull path `sync --pull` runs today lives in the
-  private `SyncHandler.fullSync`; extract the issues-pull entry as
-  `runIssueSync(tbdRoot, { pull: true }, logger)` so the web server wakes without
-  spawning a CLI subprocess.
-  Same move as `issue-query`; `sync.ts` refactors onto it with no behavior change.
+- **`src/file/sync-run.ts`**: the issues-pull path is
+  `runIssueSync({ worktreePath, syncBranch, remote }, { pull: true, signal?, networkTimeoutMs? }, logger)`,
+  which returns a structured `up-to-date`, `pulled`, or `remote-missing` result.
+  Supplying a signal or deadline selects the no-prompt bounded fetch used by embedded
+  callers; omitting both preserves interactive `sync --pull` behavior.
+  `sync.ts` translates the result into its existing presentation while the web wake path
+  uses it without spawning a CLI subprocess.
 
 - **`src/cli/lib/tree-view.ts`**: `renderTreeNode` emits
   `prefix + connector + issueLine` (tbd-5hh1); depth-3 golden test added.
@@ -465,7 +468,8 @@ Signatures are the intended shape; adjust mechanically in review, not structural
 - **`src/cli/web/wake.ts`**: the two wake paths — `watchForIssueChanges` in-process with
   the new `AbortSignal` (the spike’s child process retires), and the debounced
   `fs.watch` on the hidden worktree with the post-write suppression window.
-  On a remote wake: `runIssueSync(root, { pull: true })`, `board.reload()`, broadcast.
+  On a remote wake: bounded/cancellable `runIssueSync`, then `board.reload()` and
+  broadcast; the report cursor advances only after all three succeed.
 - **`src/cli/web/http.ts`**: router with Host/Origin validation, `GET /`,
   `GET /api/board`, `GET /api/bead`, `GET /api/events` (SSE hub: event id = report tip,
   `Last-Event-ID` resume, heartbeats, backpressure drop), `sendJson`, request body
@@ -491,7 +495,8 @@ Signatures are the intended shape; adjust mechanically in review, not structural
   chooser; instantiates the store with the real `fetch`/`EventSource`.
 
 - **`src/web/index.html`** + **`src/web/styles.css`**: template with
-  `<!--STYLES-->`/`<!--SCRIPT-->` markers; the design-system rules live in the CSS.
+  `/*__TBD_WEB_STYLES__*/` / `/*__TBD_WEB_SCRIPT__*/` markers; the design-system rules
+  live in the CSS.
 
 - **`tsconfig.web.json`**: extends base, `lib: ["ES2023","DOM","DOM.Iterable"]`,
   includes only `src/web`; main `tsconfig.json` excludes `src/web`; the `typecheck`
@@ -501,7 +506,7 @@ Signatures are the intended shape; adjust mechanically in review, not structural
   `dts: false`, `entry: { 'web/client': 'src/web/client.ts' }`.
 
 - **`scripts/stitch-web.mjs`** (postbuild, beside `copy-docs.mjs`): inlines
-  `dist/web/client.js` and `src/web/styles.css` into the template →
+  `dist/web/client.iife.js` and `src/web/styles.css` into the template →
   `dist/web/index.html`, the one artifact the server reads.
 
 ### Tests (Phases 2–6)
@@ -509,7 +514,17 @@ Signatures are the intended shape; adjust mechanically in review, not structural
 - `tests/issue-query.test.ts` — parity oracle: legacy filter/sort logic captured as a
   test-local oracle, property-style corpus compared against `selectIssues`.
 - `tests/bead-watch.test.ts` — abort during sleep, during fetch, cleanup-on-abort.
+- `tests/sync-run.test.ts` — structured pull results plus the cancellable bounded-fetch
+  path used by the web wake loop.
 - `tests/tree-view.test.ts` — depth-3 golden (tbd-5hh1).
+- `tests/web-board.test.ts` — light rows, shared queries, tree context, movement, body
+  lookup, and canonical display-id alphabets.
+- `tests/web-http.test.ts` — GET-only routing, Host/Origin security, detail isolation,
+  SSE replay, and frame bounds.
+- `tests/web-wake.test.ts` — pull-before-reload, local debounce, report retry without
+  cursor loss, rewritten-history recovery, and shutdown cancellation.
+- `tests/web-server.test.ts` — port policy, readiness, idempotent teardown, and the
+  stitched production artifact.
 - `tests/web-core.test.ts` — stubbed `Transport`: connect-then-fetch ordering, SSE
   resume via `Last-Event-ID`, wake coalescing, `deltasValid` gating, query round-trip.
 - `tests/cli-web.test.ts` — spawn the built binary as `cli-watch.test.ts` does: bind,
@@ -518,13 +533,16 @@ Signatures are the intended shape; adjust mechanically in review, not structural
 - `tests/bead-web-css.test.ts` — retargeted to `src/web/styles.css`, assertions kept.
 - `tests/cli-web.tryscript.md` — `--help` and `--dry-run` transcripts.
 - `performance.test.ts` — board response budget on the 5,000-issue fixture.
+- `scripts/validate-web-package.mjs` — pack/extract/start/fetch/stop proof for the exact
+  npm artifact, run in the OS matrix and before release publishing.
 
 ## Implementation Plan
 
-Phases are ordered to keep risk early, and each ends with the branch green through the
-full local gate and CI. Phase 2 commits are deliberately cherry-pickable to main if an
-early landing of the core refactors is ever wanted; nothing later depends on that option
-being exercised.
+Phases are ordered to keep risk early.
+Each implementation phase ended with focused tests and the local branch green; Phase 6
+records the full local gate and final CI matrix.
+The Phase 2 core refactors remain separable in the history even though the owner chose
+to land the whole command through one PR.
 
 ### Phase 1: Spike (complete)
 
@@ -546,55 +564,79 @@ being exercised.
   pre-aborted/sleep/fetch cancellation coverage; CLI `watch` behavior unchanged.
 - [x] tbd-q5c7: `OutputManager.isJson` + `printDocSyncStatus` guard with regression
   test; live-verified pure JSON with a stale docs cache (`e5c9360d`).
-- [ ] `src/file/sync-run.ts` extraction; `sync.ts` refactored with no behavior change.
-  Assessed 2026-08-10: `fullSync` is ~200 lines entangled with the handler (spinner,
-  summary tallies, conflict rendering, retries), not a thin seam.
-  The designed bridge is `OperationLogger`; the extraction takes it as a parameter and
-  is its own issue-query-sized work unit with a behavior oracle, scheduled as the next
-  Phase 2 step rather than rushed.
+- [x] `src/file/sync-run.ts` extraction; `sync.ts` refactored with no behavior change.
+  `runIssueSync` owns the fetch/count/attach/fast-forward pull sequence, returns a
+  structured result, and has injected-dependency coverage for pulled, up-to-date,
+  missing-remote, failure, bounded-fetch, and cancellation cases.
 
 ### Phase 3: Server productization
 
-- [ ] `src/cli/commands/web.ts` handler with the flag surface, descriptor, `--dry-run`,
+- [x] `src/cli/commands/web.ts` handler with the flag surface, descriptor, `--dry-run`,
   and lazy import.
-- [ ] `src/cli/web/{server,board,wake,http}.ts` per the module map: in-process wake via
+- [x] `src/cli/web/{server,board,wake,http}.ts` per the module map: in-process wake via
   `AbortSignal` (child process retired), pull via `runIssueSync`, SSE event id = tip
   with `Last-Event-ID` resume, port policy, readiness-gated `--open`, SSE-aware shutdown
-  and `process.once` signal handlers, all timers `unref()`'d.
-- [ ] v1 read-only: no mutation route exists.
-  Exit: `tests/cli-web.test.ts` green including lifecycle and security cases; spike
-  behaviors reproduced against the demo topology.
+  and command-scoped signal handlers, all timers `unref()`'d.
+- [x] v1 read-only: no mutation route exists.
+  `tests/cli-web.test.ts` covers the built artifact, lifecycle, security, Git isolation,
+  real two-clone sync/SSE wake, invalid input, and port contention.
 
 ### Phase 4: Client productization
 
-- [ ] `src/web/{core,client}.ts`, `index.html`, `styles.css`; `tsconfig.web.json`;
+- [x] `src/web/{core,client}.ts`, `index.html`, `styles.css`; `tsconfig.web.json`;
   main-project exclusion; both projects in `typecheck`; eslint strictTypeChecked over
   100% of client code with no carve-outs.
-- [ ] tsdown browser IIFE entry and `scripts/stitch-web.mjs` → `dist/web/index.html`.
-- [ ] `tests/web-core.test.ts` (stubbed transport) and the retargeted CSS test.
-  Exit: page served from the stitched artifact is behavior-identical to the spike page.
+- [x] tsdown browser IIFE entry and `scripts/stitch-web.mjs` → `dist/web/index.html`.
+- [x] `tests/web-core.test.ts` covers connect-first startup, persisted cursor resume,
+  coalescing, stale board/body success and failure suppression, and an eight-request
+  detail ceiling; the CSS test targets the production stylesheet.
+  The server artifact test proves the page is fully stitched.
 
 ### Phase 5: Documentation and design alignment
 
-- [ ] tbd-design.md: §1.6 amended (the scoped exception, owner-reviewed in this diff)
+- [x] tbd-design.md: §1.6 amended (the scoped exception, owner-directed in this diff)
   and a new CLI-layer section documenting `tbd web` beside §4.14.
-- [ ] Manual (`tbd-docs.md`) command section; README mention; CHANGELOG entry moved from
+- [x] Manual (`tbd-docs.md`) command section; README mention; CHANGELOG entry moved from
   Internal to Features; `docs/development.md` spike section replaced by command usage.
-- [ ] Spike retired: `scripts/bead-web.ts`/`.html` deleted; `--demo` topology building
-  moves into `tests/`/QA tooling where it is still needed.
+- [x] Spike retired: `scripts/bead-web.ts`/`.html` deleted; real two-clone topology
+  construction lives in `tests/cli-web.test.ts` and packed-artifact validation in
+  `scripts/validate-web-package.mjs`.
 
 ### Phase 6: Production validation and merge
 
-- [ ] Full matrix green: suite + tryscript on Ubuntu/macOS/Windows CI.
-- [ ] Perf budget assertion on the 5,000-issue fixture.
-- [ ] Isolation assertion reusing the release-smoke snapshot pattern: a running
+- [ ] Full matrix green: suite + the `tbd web` tryscript on Ubuntu/macOS/Windows CI; the
+  coverage job runs the repository-wide tryscript set on Ubuntu.
+- [x] Perf budget assertion on the 5,000-issue fixture, including the 4,000-row render
+  cap and exclusion of descriptions and notes from board rows.
+- [x] Isolation assertion reusing the release-smoke snapshot pattern: a running
   `tbd web` leaves the caller worktree, sync refs, `FETCH_HEAD`, hidden worktree, and
   lock untouched except for the pull a wake performs.
-- [ ] Packaged proof via `pnpm test:install`: the tarball carries `dist/web/index.html`
-  and `tbd web` works from an isolated prefix.
-- [ ] Manual pass on a real repository (macOS plus one other platform): wake latency,
-  operator-readable output, theme, reduced-motion.
+- [x] Packaged proof via `pnpm --filter get-tbd qa:web-package`: the tarball carries
+  `dist/web/index.html`, its published launcher starts exactly once, and the extracted
+  package serves its page and APIs before clean SIGTERM shutdown.
+- [ ] Manual/CI pass on macOS plus one other platform.
+  The macOS pass on this repository covers operator-readable output, search and ancestor
+  context, lazy detail expansion, light/dark/system themes, responsive layout, CSP, and
+  a clean browser console; the second platform is supplied by the final CI matrix.
 - [ ] Final merge from main; PR description updated to the shipped reality.
+
+### Final review finding map
+
+The final review is tracked under `tbd-o7nu`. Every implementation finding has one bead
+and one code seam; all are implemented locally and close only after the final gate.
+
+| Bead | Severity | File/function seam | Disposition |
+| --- | --- | --- | --- |
+| `tbd-x8g8` (R1) | P2 | `src/web/core.ts`: `Store.fetchBody`, `bodyRequestIsCurrent` | Gate stale success and error responses on request token plus data generation; regression covers the unresolved PR thread. |
+| `tbd-b3a3` (R2) | P2 | `src/web/core.ts`: `loadBody`, `drainBodyQueue`, `pruneBodyQueue` | Limit detail fetches to eight and discard collapsed queued work. |
+| `tbd-3w9e` (R3) | P1 | `scripts/copy-docs.mjs`: postbuild `dist/tbd` launcher | Import canonical `bin.mjs` instead of copying it as a second ESM identity; tryscript proves one action/descriptor. |
+| `tbd-oi4e` (R4) | P1 | `src/cli/web/wake.ts`: `runRemoteWatchLoop`, `handleWatchFailure` | Retry a failed report from the same cursor; reset only after a proven non-ancestor rewrite. |
+| `tbd-t7to` (R5) | P1 | `src/file/sync-run.ts`: `runIssueSync`; `src/cli/web/wake.ts`: `applyReport` | Use no-prompt bounded fetch plus the shutdown signal for embedded pulls, without changing interactive sync behavior. |
+| `tbd-urft` (R6) | P2 | `src/cli/commands/web.ts`: `WebHandler.run` | Run idempotent full teardown after either a signal or listener-first close. |
+| `tbd-t6gm` (R7) | P1 | `src/cli/web/board.ts`: `PUBLIC_ID`, `BoardState.getBead` | Accept canonical dot/underscore/hyphen display IDs while rejecting option-shaped input. |
+| `tbd-rmvx` (R8) | P2 | `tests/rescue-divergence.test.ts`: true-conflict rescue integration | Give the Git/subprocess integration case an explicit timeout after it passed alone in 0.7 seconds but reached 8.4 seconds under the full parallel suite. |
+| `tbd-ijz7` (R9) | P2 | `tests/cli-setup.tryscript.md`: top-level help golden | Pin `web` in the complete command listing as well as its dedicated help transcript. |
+| `tbd-b4m2` (R10) | P1 | five `tests/cli-sync-*.tryscript.md` fixtures: `before` remotes | Keep each bare remote inside its sandbox’s own Git directory so sync histories cannot leak between transcript files. |
 
 ### Merge gate for PR #207
 
@@ -618,8 +660,7 @@ hold:
   This is what makes the refactor safe.
 - **Aggregate parity**: `tbd stats --json` and the served stats object must be
   byte-equal for the same repository.
-  Already verified by hand against the 1,312-bead graph here; worth an assertion so it
-  stays true.
+  `web-board.test.ts` exercises the same `computeIssueStats` result through board state.
 - **Hierarchy**: depth-3 golden test for `--pretty`, and a test that the server’s row
   order matches `buildIssueTree` for the same input.
 - **Liveness**: extend the existing two-clone smoke so a headless client consumes the
@@ -632,8 +673,8 @@ hold:
 - **Isolation**: reuse the release-smoke assertions.
   Running `tbd web` must leave the caller worktree, sync refs, `FETCH_HEAD`, hidden
   worktree, and lock untouched except for the pull it performs on a wake.
-- **Security**: assert the listener binds loopback only, that writes are refused without
-  the flag, and that bead ids are validated before reaching a subprocess argument.
+- **Security**: assert the listener binds loopback only, every non-GET request is 404,
+  hostile Host and Origin headers are 403, and bead ids are validated before lookup.
 - **CLI conventions**: assert stdout carries only the descriptor and diagnostics go to
   stderr, that `--dry-run` binds nothing, that a bad `--port` exits 2, and that Ctrl+C
   exits 130.
@@ -656,29 +697,29 @@ hold:
 Additive and opt-in, with no schema, config, format, or dependency change.
 Repositories that never invoke `tbd web` see no new behavior.
 
-Phase 1 ships as a normal refactor with no user-visible change.
-Phase 2 ships behind documentation that describes it as a local view, not a service.
-Rollback is removing the command; no data migration exists to undo.
+The command and core refactors ship together after the final gate.
+Documentation calls it a local view, not a service.
+Rollback is removing the command and its additive modules; no data migration exists to
+undo.
 
-## Open Questions
+## Implementation Decisions
 
 Resolved by the owner’s 2026-08-10 productionization direction:
 
 - `tbd web` ships in core through PR #207, which merges only production-ready; no
   separate package.
+
 - The §1.6 amendment is in scope for this PR and reviewed in its diff.
+
 - The watch runs in-process behind the new `AbortSignal`; the spike’s child process was
   scaffolding and retires in Phase 3.
+
 - v1 is read-only; the mutation route is removed, not hidden (see Writes).
 
-Still open, none blocking Phase 2 start:
+- The remote watch selection is `--all`; add a selector only if production usage shows
+  poll-cost pressure.
 
-- Default watch selection: ship `--all` (matching the spike) or add a
-  `--watch <selector>` flag in v1 for large shared remotes?
-  Current plan: ship `--all`, add the flag only if real usage shows poll-cost pressure.
-- Whether Phase 2’s core commits should also land early on main via cherry-pick, or ride
-  the PR to the end. Default: ride the PR; revisit if main churn makes the merges
-  expensive.
+- The core refactors ride PR #207 rather than landing through separate cherry-picks.
 
 ## References
 
@@ -687,7 +728,7 @@ Still open, none blocking Phase 2 start:
 - `packages/tbd/docs/tbd-design.md` §1.5, §1.6, §1.7, §4.10, §4.12
 - `packages/tbd/src/lib/issue-selection.ts` — the existing shared predicates
 - `packages/tbd/src/cli/lib/tree-view.ts` — `buildIssueTree` and the `tbd-5hh1` defect
-- `packages/tbd/scripts/bead-web.ts`, `bead-web.html` — the working spike
+- PR #207’s Phase 1 commits — retired spike evidence and review history
 - `github.com/jlevy/metabrowser` — `src/metabrowser/sse.py` for cursor-as-event-id and
   bounded frames; `src/metabrowser/static/styles.css` for flash and reduced-motion;
   `src/metabrowser/cli/serve.py` for readiness-gated auto-open, port-range search, and

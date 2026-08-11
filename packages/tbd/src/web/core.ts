@@ -1,0 +1,632 @@
+/** Pure browser-state orchestration. Owns no DOM and no global EventSource/fetch. */
+
+export type IssueStatusView = 'open' | 'in_progress' | 'blocked' | 'deferred' | 'closed';
+export type IssueKindView = 'bug' | 'feature' | 'task' | 'epic' | 'chore';
+export type WatchPhaseView = 'starting' | 'watching' | 'applying' | 'error' | 'stopped';
+
+export interface BoardControls {
+  search: string;
+  status: '' | 'any' | IssueStatusView;
+  kind: '' | IssueKindView;
+  priority: '' | '0' | '1' | '2' | '3' | '4';
+  labels: string;
+  spec: string;
+  sort: 'priority' | 'created' | 'updated';
+  ready: boolean;
+  pretty: boolean;
+}
+
+export interface BoardRowView {
+  id: string;
+  internalId: string;
+  parentId: string | null;
+  title: string;
+  status: IssueStatusView;
+  kind: IssueKindView;
+  priority: number;
+  labels: string[];
+  spec_path: string | null;
+  assignee: string | null;
+  ready: boolean;
+  prefix: string;
+}
+
+export interface FieldChangeView {
+  field: string;
+  before: unknown;
+  after: unknown;
+  hunks?: {
+    lines: { type: 'context' | 'add' | 'remove'; text: string }[];
+  }[];
+}
+
+export interface IssueChangeView {
+  id: string;
+  title: string;
+  change: 'created' | 'updated' | 'deleted';
+  fields: FieldChangeView[];
+}
+
+export interface ChangeReportView {
+  since: string;
+  tip: string;
+  changes: IssueChangeView[];
+}
+
+export interface IssueStatsView {
+  total: number;
+  active: number;
+  closed: number;
+  byStatus: Record<IssueStatusView, number>;
+  byKindActive: Record<IssueKindView, number>;
+  byKindClosed: Record<IssueKindView, number>;
+  byPriorityActive: Record<string, number>;
+  byPriorityClosed: Record<string, number>;
+}
+
+export interface RepoStatusView {
+  tbdVersion: string;
+  gitBranch: string | null;
+  syncBranch: string;
+  remote: string;
+  displayPrefix: string;
+  worktreePath: string | null;
+  worktreeHealthy: boolean | null;
+  worktreeStatus: string | null;
+  workspaces: string[];
+}
+
+export interface WatchStateView {
+  repoDir: string;
+  syncBranch: string;
+  remote: string;
+  intervalSeconds: number;
+  localTip: string | null;
+  totalBeads: number;
+  stats: IssueStatsView | null;
+  repoStatus: RepoStatusView | null;
+  lastReport: ChangeReportView | null;
+  reportDataVersion: number;
+  changedIds: string[];
+  dataVersion: number;
+  movedIds: string[];
+  removedIds: string[];
+  watchPhase: WatchPhaseView;
+  watchSince: string | null;
+  watchError: string | null;
+  wakeCount: number;
+  refreshedAt: string;
+  log: { at: string; level: 'info' | 'wake' | 'error'; message: string }[];
+}
+
+export interface BoardResponse {
+  command: string;
+  commandExact: boolean;
+  filtersExact: boolean;
+  contextCount: number;
+  search: string;
+  total: number;
+  matched: number;
+  closedHidden: number;
+  rows: BoardRowView[];
+  truncated: number;
+  contextIds: string[];
+  state: WatchStateView;
+}
+
+export interface BeadBodyView {
+  id: string;
+  title?: string;
+  description?: string | null;
+  notes?: string | null;
+  spec_path?: string | null;
+  assignee?: string | null;
+  parent?: string | null;
+  dependencies?: { type: string; target: string }[];
+  due_date?: string | null;
+  deferred_until?: string | null;
+  close_reason?: string | null;
+  created_at?: string;
+  updated_at?: string;
+  version?: number;
+  [key: string]: unknown;
+}
+
+export type BodyCacheEntry =
+  | { kind: 'loaded'; body: BeadBodyView }
+  | { kind: 'error'; error: string };
+
+export interface Transport {
+  fetchJson(url: string): Promise<unknown>;
+  openEvents(
+    url: string,
+    onState: (state: unknown) => void,
+    lastEventId?: string,
+  ): { close(): void };
+}
+
+export interface ClientStorage {
+  getItem(key: string): string | null;
+  setItem(key: string, value: string): void;
+}
+
+export interface ClientView {
+  board: BoardResponse | null;
+  watch: WatchStateView | null;
+  controls: BoardControls;
+  expanded: ReadonlySet<string>;
+  bodies: ReadonlyMap<string, BodyCacheEntry>;
+  inFlightBodies: ReadonlySet<string>;
+  flashIds: ReadonlySet<string>;
+  ghostRows: readonly BoardRowView[];
+  boardError: string | null;
+}
+
+export interface ClientStore {
+  start(): Promise<void>;
+  stop(): void;
+  refresh(): Promise<void>;
+  getView(): ClientView;
+  setControls(controls: BoardControls): Promise<void>;
+  toggle(id: string): void;
+  setExpanded(ids: Iterable<string>): void;
+  clearGhostRows(): void;
+  acknowledgeDataMotion(): void;
+}
+
+export interface ClientStoreOptions {
+  storage?: ClientStorage;
+  resumeStorageKey?: string;
+  initialControls?: Partial<BoardControls>;
+}
+
+const DEFAULT_CONTROLS: BoardControls = {
+  search: '',
+  status: '',
+  kind: '',
+  priority: '',
+  labels: '',
+  spec: '',
+  sort: 'priority',
+  ready: false,
+  pretty: true,
+};
+const DEFAULT_RESUME_KEY = 'tbd.web.lastEventId';
+export const MAX_BODY_REQUEST_CONCURRENCY = 8;
+
+interface BodyRequest {
+  id: string;
+  token: number;
+  generation: number;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null;
+}
+
+function asWatchState(value: unknown): WatchStateView {
+  if (
+    !isRecord(value) ||
+    typeof value.dataVersion !== 'number' ||
+    !Array.isArray(value.movedIds) ||
+    !Array.isArray(value.removedIds) ||
+    typeof value.watchPhase !== 'string'
+  ) {
+    throw new Error('Server returned an invalid watcher state');
+  }
+  return value as unknown as WatchStateView;
+}
+
+function asBoardResponse(value: unknown): BoardResponse {
+  if (!isRecord(value) || !Array.isArray(value.rows) || !('state' in value)) {
+    throw new Error('Server returned an invalid board response');
+  }
+  asWatchState(value.state);
+  return value as unknown as BoardResponse;
+}
+
+function asBeadBody(value: unknown): BeadBodyView {
+  if (!isRecord(value) || typeof value.id !== 'string') {
+    throw new Error('Server returned an invalid bead body');
+  }
+  return value as BeadBodyView;
+}
+
+function errorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}
+
+/** Query parameter order is stable so deduplication and tests see one canonical URL. */
+export function buildQueryString(controls: BoardControls): string {
+  const params = new URLSearchParams();
+  if (controls.search.trim() !== '') {
+    params.set('q', controls.search.trim());
+  }
+  if (controls.status !== '' && controls.status !== 'any') {
+    params.set('status', controls.status);
+  }
+  if (controls.kind !== '') {
+    params.set('type', controls.kind);
+  }
+  if (controls.priority !== '') {
+    params.set('priority', controls.priority);
+  }
+  if (controls.spec.trim() !== '') {
+    params.set('spec', controls.spec.trim());
+  }
+  for (const label of controls.labels.split(/[,\s]+/u).filter(Boolean)) {
+    params.append('label', label);
+  }
+  if (controls.sort !== 'priority') {
+    params.set('sort', controls.sort);
+  }
+  if (controls.status === 'any') {
+    params.set('all', '1');
+  }
+  if (controls.ready) {
+    params.set('ready', '1');
+  }
+  if (controls.pretty) {
+    params.set('pretty', '1');
+  }
+  return params.toString();
+}
+
+export function caveatsFor(board: BoardResponse): string[] {
+  const caveats: string[] = [];
+  if (!board.filtersExact) {
+    caveats.push('filters with no exact CLI equivalent apply');
+  }
+  if (board.search !== '') {
+    caveats.push(`text search "${board.search}" applies`);
+  }
+  if (board.contextCount > 0) {
+    caveats.push(
+      `${board.contextCount} dimmed ancestor row${board.contextCount === 1 ? '' : 's'} ${
+        board.contextCount === 1 ? 'is' : 'are'
+      } shown for context`,
+    );
+  }
+  return caveats;
+}
+
+export function deltasValid(watch: WatchStateView): boolean {
+  return watch.lastReport !== null && watch.reportDataVersion === watch.dataVersion;
+}
+
+export function phaseLabel(watch: WatchStateView): { label: string; help: string } {
+  switch (watch.watchPhase) {
+    case 'starting':
+      return { label: 'starting', help: 'Establishing a baseline against the sync remote.' };
+    case 'watching':
+      return {
+        label: 'watching',
+        help:
+          `Idle and up to date. tbd watch is waiting on ${watch.remote}/${watch.syncBranch}, ` +
+          `checking every ${watch.intervalSeconds}s.`,
+      };
+    case 'applying':
+      return {
+        label: 'updating',
+        help: 'A change arrived. Pulling and re-reading before redrawing.',
+      };
+    case 'error':
+      return { label: 'error', help: watch.watchError ?? 'The watcher failed; retrying.' };
+    case 'stopped':
+      return { label: 'stopped', help: 'The viewer is shutting down.' };
+  }
+}
+
+class Store implements ClientStore {
+  private board: BoardResponse | null = null;
+  private watch: WatchStateView | null = null;
+  private controls: BoardControls;
+  private readonly expanded = new Set<string>();
+  private readonly bodies = new Map<string, BodyCacheEntry>();
+  private readonly bodyRequests = new Map<string, BodyRequest>();
+  private bodyQueue: BodyRequest[] = [];
+  private readonly flashIds = new Set<string>();
+  private ghostRows: BoardRowView[] = [];
+  private boardError: string | null = null;
+  private eventHandle: { close(): void } | null = null;
+  private refreshRequested = false;
+  private refreshRunner: Promise<void> | null = null;
+  private bodyGeneration = 0;
+  private bodyToken = 0;
+  private activeBodyFetches = 0;
+  private started = false;
+  private stopped = false;
+  private readonly storage: ClientStorage | undefined;
+  private readonly resumeStorageKey: string;
+
+  constructor(
+    private readonly transport: Transport,
+    private readonly onRender: () => void,
+    options: ClientStoreOptions,
+  ) {
+    this.controls = { ...DEFAULT_CONTROLS, ...options.initialControls };
+    this.storage = options.storage;
+    this.resumeStorageKey = options.resumeStorageKey ?? DEFAULT_RESUME_KEY;
+  }
+
+  async start(): Promise<void> {
+    if (this.started) {
+      await this.refresh();
+      return;
+    }
+    this.started = true;
+    let lastEventId: string | undefined;
+    try {
+      lastEventId = this.storage?.getItem(this.resumeStorageKey) ?? undefined;
+    } catch {
+      // Storage is optional; a blocked private-mode store cannot block the board.
+    }
+    try {
+      this.eventHandle = this.transport.openEvents(
+        '/api/events',
+        (next) => {
+          this.receiveState(next);
+        },
+        lastEventId,
+      );
+    } catch (error) {
+      this.boardError = `Live updates unavailable: ${errorMessage(error)}`;
+      this.emit();
+    }
+    await this.refresh();
+  }
+
+  stop(): void {
+    this.stopped = true;
+    this.eventHandle?.close();
+    this.eventHandle = null;
+  }
+
+  refresh(): Promise<void> {
+    if (this.stopped) {
+      return Promise.resolve();
+    }
+    this.refreshRequested = true;
+    if (this.refreshRunner === null) {
+      const runner = this.runRefreshLoop().finally(() => {
+        if (this.refreshRunner === runner) {
+          this.refreshRunner = null;
+        }
+        if (this.refreshRequested && !this.stopped) {
+          void this.refresh();
+        }
+      });
+      this.refreshRunner = runner;
+    }
+    return this.refreshRunner;
+  }
+
+  getView(): ClientView {
+    return {
+      board: this.board,
+      watch: this.watch,
+      controls: this.controls,
+      expanded: this.expanded,
+      bodies: this.bodies,
+      inFlightBodies: new Set(this.bodyRequests.keys()),
+      flashIds: this.flashIds,
+      ghostRows: this.ghostRows,
+      boardError: this.boardError,
+    };
+  }
+
+  async setControls(controls: BoardControls): Promise<void> {
+    this.controls = { ...controls };
+    await this.refresh();
+  }
+
+  toggle(id: string): void {
+    if (this.expanded.has(id)) {
+      this.expanded.delete(id);
+      this.pruneBodyQueue();
+    } else {
+      this.expanded.add(id);
+      const cached = this.bodies.get(id);
+      this.loadBody(id, cached?.kind === 'error');
+    }
+    this.emit();
+  }
+
+  setExpanded(ids: Iterable<string>): void {
+    const next = new Set(ids);
+    this.expanded.clear();
+    for (const id of next) {
+      this.expanded.add(id);
+      const cached = this.bodies.get(id);
+      this.loadBody(id, cached?.kind === 'error');
+    }
+    this.pruneBodyQueue();
+    this.emit();
+  }
+
+  clearGhostRows(): void {
+    if (this.ghostRows.length === 0) {
+      return;
+    }
+    this.ghostRows = [];
+    this.emit();
+  }
+
+  acknowledgeDataMotion(): void {
+    this.flashIds.clear();
+  }
+
+  private async runRefreshLoop(): Promise<void> {
+    while (this.refreshRequested && !this.stopped) {
+      this.refreshRequested = false;
+      const query = buildQueryString(this.controls);
+      let next: BoardResponse;
+      try {
+        next = asBoardResponse(await this.transport.fetchJson(`/api/board?${query}`));
+      } catch (error) {
+        if (!this.refreshRequested && query === buildQueryString(this.controls)) {
+          this.boardError = errorMessage(error);
+          this.emit();
+        }
+        continue;
+      }
+      if (this.stopped || this.refreshRequested || query !== buildQueryString(this.controls)) {
+        continue;
+      }
+      this.board = next;
+      this.boardError = null;
+      if (this.watch === null || next.state.dataVersion >= this.watch.dataVersion) {
+        this.watch = next.state;
+      }
+      this.emit();
+    }
+  }
+
+  private receiveState(value: unknown): void {
+    let next: WatchStateView;
+    try {
+      next = asWatchState(value);
+    } catch (error) {
+      this.boardError = errorMessage(error);
+      this.emit();
+      return;
+    }
+    if (this.watch !== null && next.dataVersion < this.watch.dataVersion) {
+      return;
+    }
+
+    const dataMoved =
+      this.watch === null ? next.dataVersion > 0 : next.dataVersion > this.watch.dataVersion;
+    const previousRows = dataMoved ? (this.board?.rows ?? []) : [];
+    this.watch = next;
+    this.persistResumeTip(next.watchSince);
+    if (!dataMoved) {
+      this.emit();
+      return;
+    }
+
+    this.flashIds.clear();
+    for (const id of next.movedIds) {
+      this.flashIds.add(id);
+    }
+    const removed = new Set(next.removedIds);
+    this.ghostRows = previousRows.filter((row) => removed.has(row.id));
+    this.bodyGeneration += 1;
+    this.bodies.clear();
+    for (const id of this.expanded) {
+      this.loadBody(id, true);
+    }
+    void this.refresh();
+    this.emit();
+  }
+
+  private loadBody(id: string, force: boolean): void {
+    const current = this.bodyRequests.get(id);
+    if (current?.generation === this.bodyGeneration) {
+      return;
+    }
+    if (!force && this.bodies.has(id)) {
+      return;
+    }
+
+    const generation = this.bodyGeneration;
+    const token = ++this.bodyToken;
+    const request = { id, token, generation };
+    this.bodyRequests.set(id, request);
+    this.bodyQueue.push(request);
+    this.drainBodyQueue();
+  }
+
+  private drainBodyQueue(): void {
+    while (
+      !this.stopped &&
+      this.activeBodyFetches < MAX_BODY_REQUEST_CONCURRENCY &&
+      this.bodyQueue.length > 0
+    ) {
+      const request = this.bodyQueue.shift();
+      if (request === undefined || !this.bodyRequestIsCurrent(request)) {
+        continue;
+      }
+      this.activeBodyFetches += 1;
+      this.fetchBody(request);
+    }
+  }
+
+  private fetchBody(request: BodyRequest): void {
+    const { id, token, generation } = request;
+    const url = `/api/bead?${new URLSearchParams({ id }).toString()}`;
+    void this.transport
+      .fetchJson(url)
+      .then((value) => {
+        if (this.bodyRequestIsCurrent(request)) {
+          this.bodies.set(id, { kind: 'loaded', body: asBeadBody(value) });
+        }
+      })
+      .catch((error: unknown) => {
+        // Generation and token checks apply to failures too. A slow pre-wake rejection
+        // must not overwrite a newer successful body (PR #207 discussion_r3755544745).
+        if (this.bodyRequestIsCurrent(request)) {
+          this.bodies.set(id, { kind: 'error', error: errorMessage(error) });
+        }
+      })
+      .finally(() => {
+        this.activeBodyFetches -= 1;
+        const active = this.bodyRequests.get(id);
+        if (active?.token === token) {
+          this.bodyRequests.delete(id);
+          if (generation === this.bodyGeneration) {
+            this.emit();
+          }
+        }
+        this.drainBodyQueue();
+      });
+  }
+
+  private bodyRequestIsCurrent(request: BodyRequest): boolean {
+    const active = this.bodyRequests.get(request.id);
+    return (
+      !this.stopped &&
+      request.generation === this.bodyGeneration &&
+      active?.token === request.token &&
+      active.generation === request.generation
+    );
+  }
+
+  private pruneBodyQueue(): void {
+    this.bodyQueue = this.bodyQueue.filter((request) => {
+      if (this.expanded.has(request.id) && this.bodyRequestIsCurrent(request)) {
+        return true;
+      }
+      const active = this.bodyRequests.get(request.id);
+      if (active?.token === request.token) {
+        this.bodyRequests.delete(request.id);
+      }
+      return false;
+    });
+  }
+
+  private persistResumeTip(tip: string | null): void {
+    if (tip === null || this.storage === undefined) {
+      return;
+    }
+    try {
+      this.storage.setItem(this.resumeStorageKey, tip);
+    } catch {
+      // Storage is best-effort; native EventSource still resumes within this page load.
+    }
+  }
+
+  private emit(): void {
+    if (!this.stopped) {
+      this.onRender();
+    }
+  }
+}
+
+export function createClientStore(
+  transport: Transport,
+  onRender: () => void,
+  options: ClientStoreOptions = {},
+): ClientStore {
+  return new Store(transport, onRender, options);
+}

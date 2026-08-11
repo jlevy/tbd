@@ -662,6 +662,42 @@ Pull and re-read current state before writing.
 See `tbd shortcut watch-beads` for the durable watch-then-spawn worker recipe and for
 in-session Claude Code and Codex patterns.
 
+### web
+
+Serve a live, read-only view of the bead graph in a local browser.
+The page uses the same filters, sorting, readiness rules, hierarchy, statistics, sync
+pull, and watch cursor as the CLI, and displays the equivalent `tbd list` or `tbd ready`
+command for the current view.
+
+```bash
+tbd web                         # Serve on the first free port in 7777-7786
+tbd web --open                  # Open the page after it is HTTP-ready
+tbd web --port 9000             # Bind exactly 127.0.0.1:9000
+tbd web --interval 10           # Check the remote tip every 10 seconds
+tbd --json web                  # Print the machine-readable startup descriptor
+tbd --dry-run web               # Resolve the repo and port without binding
+```
+
+Options:
+
+- `--port <n>` - Bind exactly this loopback port.
+  Without it, tbd searches the bounded range 7777-7786 and reports the port it selected.
+- `--open` - Open the default browser after the page passes an HTTP readiness check.
+  The default is not to launch a browser, which is safe for agents and CI.
+- `--interval <seconds>` - Remote sync-branch poll interval (default 30, minimum 10).
+
+The command stays in the foreground; press Ctrl+C to stop it.
+SIGINT exits 130 and a normal or SIGTERM shutdown exits 0. It binds only `127.0.0.1`,
+exposes no write route, and serves one self-contained page with same-origin and
+security-header checks.
+It is a local development and observation surface, not a remotely reachable service.
+
+The browser opens its live event stream before loading the board, resumes from its last
+watch tip after reconnecting, and also refreshes when local bead files change.
+Remote wakes pull current issue state before rendering.
+Descriptions and notes load only when a row is expanded, so the board remains bounded on
+large repositories.
+
 ### Change reports
 
 `changes` and `watch` emit the same document.

@@ -73,4 +73,16 @@ export default defineConfig([
     banner: '#!/usr/bin/env node',
     clean: false,
   },
+  // Browser client. It is stitched with the template and CSS after bundling so the
+  // installed CLI serves one self-contained artifact with no static-file surface.
+  {
+    format: ['iife'] as 'iife'[],
+    platform: 'browser' as const,
+    target: 'es2022' as const,
+    sourcemap: true,
+    dts: false,
+    entry: { 'web/client': 'src/web/client.ts' },
+    tsconfig: 'tsconfig.web.json',
+    clean: false,
+  },
 ]);

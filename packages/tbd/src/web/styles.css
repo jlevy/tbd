@@ -1,0 +1,685 @@
+/* ─────────────────────────────────────────────────────────────────
+   Design system — HSL tokens, no literals outside :root.
+
+   Every color is defined ONCE as a --token on the base :root and
+   referenced via var(--token) everywhere else. Literal hex / rgb /
+   hsl values must not appear anywhere else in this stylesheet,
+   including the theme override blocks. Enforced by
+   tests/bead-web-css.test.ts.
+
+   Why HSL (hsl(H S% L%)):
+
+     1. Hue encodes family. Tokens sharing a hue are meant to read
+        as related: every neutral sits on 215° so surfaces, borders,
+        and text feel like one material; wake/amber is 38°, ready/
+        green is 149°, error/red is 0°. To add a token, pick the hue
+        that places it in the right family first, not a color that
+        looks nice alone.
+
+     2. Lightness is the theme knob. Each --dark-* token holds H and
+        S roughly fixed against its light counterpart and moves L.
+        Never shift hue to dim a color; lower L.
+
+     3. Saturation is the loudness knob. Status and wake colors are
+        higher S; surfaces, borders, and body text are near-grey.
+
+     4. Typography marks data, not decoration. Chrome — labels,
+        counts, phase words, anything the UI says about itself — is
+        sans (--sans). Monospace (--mono) is reserved for data
+        values: ids, paths, branch names, SHAs, commands,
+        timestamps, and field deltas. A count is chrome even when
+        it is a number; tabular-nums keeps columns aligned without
+        pretending the count is data.
+
+   ── Motion: two families, never mixed ──────────────────────────
+
+   This is the load-bearing rule of the whole stylesheet.
+
+   DATA motion (--motion-data, `.flash` / `.leaving`) means the bead
+   graph itself moved: a bead was created, edited, or deleted, and
+   `tbd watch` or the local file watcher observed it. It is the amber
+   wake color, and it is the ONLY thing allowed to use that color for
+   movement. It fires once per data change and settles back to
+   transparent, so it reads as an event rather than a state.
+
+   UI motion (--transition-fast) means the viewer changed, not the
+   data: a filter edited, a row expanded, a control focused. It is a
+   short neutral transition and it MUST NOT use the wake color or the
+   flash keyframes. Re-slicing a filter is not news.
+
+   Conflating the two is the specific bug this rule exists to
+   prevent: highlighting rows amber because a filter revealed them
+   tells the user something changed upstream when nothing did. The
+   server decides which is which via `state.dataVersion`, so the
+   browser never infers "changed" from what happens to be on screen.
+
+   Both families collapse to 1ms under prefers-reduced-motion, which
+   keeps the amber color context while removing the movement.
+   ───────────────────────────────────────────────────────────────── */
+/* ── Theme: three states, one palette source ────────────────────
+
+   The gear picks system / light / dark, after metabrowser and kpress.
+   `data-theme-mode` records the user's choice; `data-theme` records
+   what it resolved to. "system" stamps no data-theme, so the media
+   query decides.
+
+   Both dark contexts below are pure remaps of the --dark-* tokens
+   declared once in :root. That is why no literal appears outside this
+   first block, and why the two dark blocks cannot drift apart: they
+   contain no values of their own. Enforced by
+   tests/bead-web-css.test.ts.
+   ─────────────────────────────────────────────────────────────── */
+:root {
+  /* Neutrals — one hue (215°) so every surface reads as one material.
+     --bg is pure white, so its saturation is 0 and the hue is inert; it is still
+     written as 215 so the family is legible and the dark retune lines up. */
+  --bg: hsl(215 0% 100%);
+  --panel: hsl(220 20% 97%);
+  --border: hsl(215 15% 87%);
+  --text: hsl(215 20% 10%);
+  --muted: hsl(215 9% 43%);
+
+  /* Interactive accent — links, focus rings, active toggles. */
+  --accent: hsl(220 82% 55%);
+
+  /* Semantic status. Shared with the row tags and the watch pill. */
+  --ok: hsl(149 68% 30%);
+  --err: hsl(0 64% 46%);
+
+  /* Wake family (38°, amber). Reserved for DATA motion. Nothing that
+     responds to a UI interaction may use these two tokens. */
+  --wake: hsl(38 76% 42%);
+  --row-flash-bg: hsl(43 88% 92%);
+
+  /* Dark palette. Same hues as above, lightness retuned. Compare each
+     line with its light counterpart; a differing hue is a bug. */
+  --dark-bg: hsl(215 15% 9%);
+  --dark-panel: hsl(217 16% 13%);
+  --dark-border: hsl(216 14% 21%);
+  --dark-text: hsl(215 15% 91%);
+  --dark-muted: hsl(214 12% 65%);
+  --dark-accent: hsl(220 100% 71%);
+  --dark-ok: hsl(149 52% 55%);
+  --dark-err: hsl(0 100% 73%);
+  --dark-wake: hsl(43 73% 57%);
+  --dark-row-flash-bg: hsl(41 53% 15%);
+
+  /* One family, sans only. There is deliberately no font chooser: this
+     is a dense data view, not a reading surface. */
+  --sans: system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+
+  /* UI motion: neutral, short, for view changes only. */
+  --transition-fast: 150ms ease;
+  /* DATA motion: long enough to notice across a full table, short
+     enough not to linger. Removal is faster because the row is
+     leaving and should not hold the reader. */
+  --motion-data-in: 900ms;
+  --motion-data-out: 320ms;
+
+  --radius: 6px;
+}
+@media (prefers-color-scheme: dark) {
+  /* System dark, unless the reader explicitly chose light. */
+  :root:not([data-theme='light']) {
+    --bg: var(--dark-bg);
+    --panel: var(--dark-panel);
+    --border: var(--dark-border);
+    --text: var(--dark-text);
+    --muted: var(--dark-muted);
+    --accent: var(--dark-accent);
+    --ok: var(--dark-ok);
+    --err: var(--dark-err);
+    --wake: var(--dark-wake);
+    --row-flash-bg: var(--dark-row-flash-bg);
+  }
+}
+:root[data-theme='dark'] {
+  /* Explicit dark, so the choice wins under a light system too. */
+  --bg: var(--dark-bg);
+  --panel: var(--dark-panel);
+  --border: var(--dark-border);
+  --text: var(--dark-text);
+  --muted: var(--dark-muted);
+  --accent: var(--dark-accent);
+  --ok: var(--dark-ok);
+  --err: var(--dark-err);
+  --wake: var(--dark-wake);
+  --row-flash-bg: var(--dark-row-flash-bg);
+}
+* {
+  box-sizing: border-box;
+}
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font: 14px/1.5 var(--sans);
+}
+header {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--border);
+  background: var(--panel);
+  position: sticky;
+  top: 0;
+  z-index: 3;
+}
+h1 {
+  font-size: 15px;
+  margin: 0 6px 0 0;
+  font-weight: 650;
+}
+.pill {
+  /* Chrome, not data: counts and phase words render sans like the rest of the
+     frame. Only #tippill below is monospace, because its content is a branch
+     name and commit — actual data values. */
+  font-size: 11px;
+  padding: 3px 8px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  color: var(--muted);
+  white-space: nowrap;
+  transition:
+    color var(--transition-fast),
+    border-color var(--transition-fast);
+}
+.pill.watching {
+  color: var(--ok);
+  border-color: var(--ok);
+}
+.pill.applying {
+  color: var(--wake);
+  border-color: var(--wake);
+}
+.pill.error {
+  color: var(--err);
+  border-color: var(--err);
+}
+.dot {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+  margin-right: 5px;
+  vertical-align: middle;
+}
+.pill.watching .dot {
+  animation: pulse-dot 1.8s ease-in-out infinite;
+}
+@keyframes pulse-dot {
+  0%,
+  100% {
+    opacity: 0.35;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+#tippill {
+  font-family: var(--mono);
+}
+.grow {
+  flex: 1;
+}
+/* ── Settings gear and theme chooser ────────────────────────────
+   A gear opening a segmented radio group, after metabrowser/kpress.
+   Theme only: no font chooser, because this view is sans-only. */
+#settings {
+  position: relative;
+}
+#gear {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  color: var(--muted);
+  border-radius: var(--radius);
+}
+#gear:hover,
+#gear[aria-expanded='true'] {
+  color: var(--accent);
+  border-color: var(--accent);
+}
+#gear svg {
+  width: 15px;
+  height: 15px;
+}
+#menu {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 6px);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 8px;
+  z-index: 10;
+  min-width: 150px;
+}
+#menu[hidden] {
+  display: none;
+}
+.menu-label {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--muted);
+  margin-bottom: 5px;
+}
+.chooser {
+  display: flex;
+  gap: 4px;
+}
+.seg {
+  flex: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 5px 0;
+  color: var(--muted);
+}
+.seg svg {
+  width: 15px;
+  height: 15px;
+}
+.seg[aria-checked='true'] {
+  color: var(--accent);
+  border-color: var(--accent);
+}
+#toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  padding: 9px 16px;
+  border-bottom: 1px solid var(--border);
+}
+input,
+select,
+button {
+  font: inherit;
+  color: var(--text);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 4px 8px;
+  transition: border-color var(--transition-fast);
+}
+button {
+  cursor: pointer;
+}
+button:hover,
+input:focus,
+select:focus {
+  border-color: var(--accent);
+  outline: none;
+}
+button.on {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+label.check {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 13px;
+  color: var(--muted);
+  white-space: nowrap;
+}
+#cmdbar {
+  padding: 7px 16px;
+  border-bottom: 1px solid var(--border);
+  background: var(--panel);
+  font-family: var(--mono);
+  font-size: 11.5px;
+  color: var(--muted);
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+#cmd {
+  color: var(--text);
+  user-select: all;
+  word-break: break-all;
+}
+main {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 340px;
+  align-items: start;
+}
+@media (max-width: 900px) {
+  main {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+#tablewrap {
+  overflow-x: auto;
+}
+table {
+  border-collapse: collapse;
+  width: 100%;
+  min-width: 700px;
+}
+th,
+td {
+  text-align: left;
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--border);
+  vertical-align: top;
+}
+th {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+  position: sticky;
+  top: 0;
+  background: var(--bg);
+  z-index: 1;
+}
+td.id {
+  font-family: var(--mono);
+  font-size: 12px;
+  white-space: nowrap;
+}
+td.caret {
+  width: 18px;
+  color: var(--muted);
+  user-select: none;
+  padding-right: 0;
+}
+.disclosure {
+  border: 0;
+  padding: 1px 3px;
+  color: var(--muted);
+  background: transparent;
+}
+tbody tr:not(.bodyrow) {
+  cursor: pointer;
+}
+tbody tr:not(.bodyrow):hover {
+  background: var(--panel);
+}
+tr.open > td {
+  border-bottom: none;
+  font-weight: 600;
+}
+tr.context > td:not(.caret) {
+  opacity: 0.5;
+}
+tr.bodyrow > td {
+  padding: 0 10px 12px 28px;
+  background: var(--panel);
+}
+.guide {
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--border);
+  white-space: pre;
+  user-select: none;
+}
+/* ── DATA motion ────────────────────────────────────────────────
+   Applied only when the server reports a new `dataVersion`. Never
+   applied because a filter, sort, or expand changed what is visible.
+   `.flash` is set for exactly one render and then cleared, so a row
+   that stays changed does not keep animating. */
+tr.flash > td {
+  animation: row-flash-in var(--motion-data-in) ease-out;
+}
+@keyframes row-flash-in {
+  0% {
+    background-color: var(--row-flash-bg);
+  }
+  100% {
+    background-color: transparent;
+  }
+}
+/* A deleted bead is gone from the data before the reader sees it, so
+   the row is held for one collapse and then dropped. `forwards` keeps
+   the final frame until the JS removal lands. */
+tr.leaving > td {
+  animation: row-flash-out var(--motion-data-out) ease-in forwards;
+  pointer-events: none;
+  overflow: hidden;
+}
+@keyframes row-flash-out {
+  0% {
+    background-color: var(--row-flash-bg);
+    opacity: 1;
+    max-height: 4em;
+  }
+  100% {
+    background-color: var(--row-flash-bg);
+    opacity: 0;
+    max-height: 0;
+  }
+}
+/* Persistent marker for "this bead is in the latest watch report".
+   A state, not motion, so it survives re-renders and filter changes. */
+tr.changed td.id::after {
+  content: ' ●';
+  color: var(--wake);
+}
+@media (prefers-reduced-motion: reduce) {
+  /* Keep the amber context, drop the movement. */
+  tr.flash > td,
+  tr.leaving > td {
+    animation-duration: 1ms;
+  }
+  .pill.watching .dot {
+    animation: none;
+  }
+}
+.tag {
+  display: inline-block;
+  font-size: 11px;
+  padding: 1px 6px;
+  margin: 0 3px 2px 0;
+  border-radius: 4px;
+  border: 1px solid var(--border);
+  color: var(--muted);
+}
+.tag.ready {
+  color: var(--ok);
+  border-color: var(--ok);
+}
+aside {
+  border-left: 1px solid var(--border);
+  padding: 12px 14px;
+  min-height: 60vh;
+}
+@media (max-width: 900px) {
+  aside {
+    border-left: none;
+    border-top: 1px solid var(--border);
+  }
+}
+aside h2 {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+  margin: 14px 0 6px;
+}
+aside h2:first-child {
+  margin-top: 0;
+}
+/* Each panel names the command it mirrors, the same contract as the
+   equivalent-command bar over the table. */
+.hint {
+  font-family: var(--mono);
+  font-size: 10px;
+  text-transform: none;
+  letter-spacing: 0;
+  opacity: 0.75;
+  margin-left: 4px;
+}
+#stats {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 0;
+}
+#stats td,
+#stats th {
+  border: none;
+  padding: 2px 0;
+  font-size: 12px;
+}
+#stats td.num,
+#stats th.num {
+  text-align: right;
+  /* Counts are chrome: sans, with tabular figures so columns still align. */
+  font-variant-numeric: tabular-nums;
+  font-size: 11px;
+  width: 46px;
+}
+#stats tr.group td {
+  padding-top: 9px;
+  color: var(--muted);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+#stats tr.total td {
+  border-top: 1px solid var(--border);
+  font-weight: 650;
+}
+#stats td.ico {
+  width: 14px;
+  font-family: var(--mono);
+}
+dd.bad {
+  color: var(--err);
+}
+dd.good {
+  color: var(--ok);
+}
+#report.placeholder {
+  /* Chrome, not data: the empty-state note talks about the UI itself, so it is
+     sans and wraps like prose; only an actual report is data and stays mono. */
+  font-family: var(--sans);
+  white-space: normal;
+  color: var(--muted);
+}
+pre {
+  font-family: var(--mono);
+  font-size: 11px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 8px;
+  overflow-x: auto;
+  margin: 0;
+  max-height: 300px;
+}
+.blabel {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--muted);
+  margin: 10px 0 3px;
+}
+.btext {
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-size: 13px;
+}
+.btext.mono {
+  font-family: var(--mono);
+  font-size: 11px;
+}
+.btext.err {
+  color: var(--err);
+}
+.skeleton {
+  display: inline-block;
+  width: 120px;
+  height: 0.85em;
+  background: var(--border);
+  border-radius: 4px;
+  animation: skeleton-pulse 1.6s ease-in-out infinite;
+}
+@keyframes skeleton-pulse {
+  0%,
+  100% {
+    opacity: 0.45;
+  }
+  50% {
+    opacity: 0.85;
+  }
+}
+.delta {
+  border-left: 3px solid var(--wake);
+  padding: 2px 0 6px 10px;
+  margin-top: 8px;
+}
+.dfield {
+  margin: 3px 0;
+  font-size: 12px;
+}
+.dname {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--wake);
+  margin-right: 8px;
+}
+.dval {
+  font-family: var(--mono);
+  font-size: 11px;
+  word-break: break-all;
+}
+pre.hunk {
+  margin: 3px 0 0;
+  max-height: 200px;
+}
+#log {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  font-size: 12px;
+  max-height: 280px;
+  overflow-y: auto;
+}
+#log li {
+  padding: 4px 0;
+  border-bottom: 1px solid var(--border);
+  color: var(--muted);
+}
+#log li.wake {
+  color: var(--wake);
+}
+#log li.error {
+  color: var(--err);
+}
+#log time {
+  font-family: var(--mono);
+  font-size: 10px;
+  opacity: 0.7;
+  margin-right: 6px;
+}
+dl {
+  margin: 0;
+  font-size: 12px;
+}
+dt {
+  color: var(--muted);
+  float: left;
+  clear: left;
+  width: 78px;
+}
+dd {
+  margin: 0 0 3px 84px;
+  font-family: var(--mono);
+  font-size: 11px;
+  word-break: break-all;
+}
+.empty {
+  padding: 30px 16px;
+  color: var(--muted);
+}

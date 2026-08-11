@@ -172,6 +172,8 @@ You just talk naturally.
   Installs itself as a skill in Claude Code.
 - **Markdown and YAML frontmatter:** One file per bead, human-readable and editable.
   This eliminates most merge conflicts.
+- **Live local view:** `tbd web` serves a loopback-only, read-only browser view that
+  shares the CLI’s filters and stays current as local or remote bead state changes.
 - **Beads alternative:** Largely compatible with `bd` at the CLI level, but with a
   simpler architecture: no JSONL merge conflicts, no daemon modifying your working tree,
   no SQLite file locking on network filesystems (see
@@ -385,6 +387,7 @@ tbd close proj-a7k2            # Close bead
 tbd close proj-a7k2 --reason="Fixed in commit abc123"
 tbd close proj-a7k2 proj-b3m9 --reason="Sprint done"  # Bulk close (one call, no loops)
 tbd sync                       # Sync with remote (auto-commits and pushes)
+tbd web                        # Live read-only view at http://127.0.0.1:7777
 tbd watch --ready --json       # Block until a bead newly becomes ready
 tbd watch --bead proj-a7k2     # Block until one bead changes on the remote
 tbd changes --since <commit>   # What changed since a sync-branch commit
@@ -393,6 +396,11 @@ tbd changes --since <commit>   # What changed since a sync-branch commit
 `tbd watch` wakes an agent when bead state changes, with no daemon and no background
 process. It polls the remote sync-branch tip, fetches only once that tip moves, reports
 one matching change, and exits.
+
+`tbd web` stays in the foreground and serves the same bead queries and hierarchy in a
+local browser. It binds loopback only, has no write route, and does not open a browser
+unless you pass `--open`. See the [CLI reference](packages/tbd/docs/tbd-docs.md#web) for
+port, polling, JSON, and dry-run options.
 Nothing shared is written along the way, so watchers coexist with ordinary `tbd sync` in
 the same checkout. The [CLI reference](packages/tbd/docs/tbd-docs.md) documents the
 selectors, baseline commits, and report format; the

@@ -16,6 +16,12 @@
   watch-then-spawn worker loop plus bounded and background in-session patterns for
   Claude Code and Codex.
   Live validation covers both platforms conversing through one bead.
+- **Live local bead view**: `tbd web` serves a responsive, read-only view of the bead
+  graph on loopback and refreshes from both remote sync wakes and local file changes.
+  Its filters, sorting, readiness rules, hierarchy, statistics, and displayed command
+  line come from the same implementations as the CLI. The client resumes SSE from the
+  last watch tip, lazy-loads bead bodies, and bounds requests and rendered rows for
+  large repositories. `--open` is opt-in; JSON and dry-run modes support agents and CI.
 
 ### Documentation
 
@@ -35,11 +41,11 @@
 - **Shared issue aggregation**: the `tbd stats` counting logic now lives in
   `src/lib/issue-stats.ts` (`computeIssueStats`, plus the single definition of active
   statuses and display orders), so other surfaces can report the same numbers the CLI
-  prints. `tbd stats` output is byte-identical.
-  A development-only live web viewer over the bead graph
-  (`packages/tbd/scripts/bead-web.ts`, not part of the published package) consumes it
-  and drives the watch layer end to end; see
-  `docs/project/specs/active/plan-2026-08-10-tbd-web-live-bead-view.md`.
+  prints. `tbd stats` output is byte-identical and the web view consumes the same data.
+- **Packaged web proof**: release QA packs and extracts the npm tarball, starts its
+  published launcher, fetches the self-contained page and APIs, and verifies bounded
+  shutdown. The copied `dist/tbd` executable is now a launcher for `bin.mjs`, avoiding
+  double CLI evaluation while preserving relative dynamic imports.
 
 ### Fixes
 
@@ -73,6 +79,11 @@
 - **Bounded snapshot subprocesses**: committed issue blobs are read through bounded
   128-object `git cat-file --batch` groups instead of one `git show` per issue or one
   graph-sized child-output buffer.
+- **Web final-review hardening**: remote reports advance their cursor only after a
+  successful bounded, cancellable pull; listener-first shutdown still tears down all
+  watchers and SSE clients; stale detail failures cannot overwrite a newer generation;
+  detail fetches have an eight-request ceiling; and canonical display IDs containing
+  dots, underscores, or hyphens are accepted by the detail API.
 
 ### Security
 
@@ -82,6 +93,10 @@
   data-sync worktree or lock, removes its private ref on normal completion (best-effort,
   so a failed delete can never discard the change report), and reclaims refs orphaned by
   interrupted watcher processes on the next watch startup.
+- `tbd web` binds only `127.0.0.1`, validates Host and same-origin Origin headers,
+  accepts no mutation route, serves a restrictive Content Security Policy, caps SSE
+  frames and replay buffers, drops backpressured clients, and closes open streams on a
+  bounded shutdown.
 
 ## 0.4.2
 

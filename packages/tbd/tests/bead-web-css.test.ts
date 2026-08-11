@@ -1,5 +1,5 @@
 /**
- * Enforces the design-system rules documented at the top of `scripts/bead-web.html`.
+ * Enforces the design-system rules documented at the top of `src/web/styles.css`.
  *
  * Two rules carry real weight:
  *
@@ -19,16 +19,13 @@ import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 
 const packageDir = resolve(dirname(fileURLToPath(import.meta.url)), '..');
-const pagePath = join(packageDir, 'scripts', 'bead-web.html');
+const stylePath = join(packageDir, 'src', 'web', 'styles.css');
 
 /** Hex, rgb(), or hsl() written directly in a rule rather than referenced as a token. */
 const COLOR_LITERAL = /#[0-9a-fA-F]{3,8}\b|\b(?:rgba?|hsla?)\s*\(/g;
 
 async function readStyleBlock(): Promise<string> {
-  const page = await readFile(pagePath, 'utf8');
-  const match = /<style>([\s\S]*?)<\/style>/u.exec(page);
-  expect(match, 'bead-web.html must contain a <style> block').not.toBeNull();
-  return match![1]!;
+  return readFile(stylePath, 'utf8');
 }
 
 /**
@@ -43,6 +40,29 @@ function withoutBaseRoot(css: string): string {
 
 function stripComments(css: string): string {
   return css.replace(/\/\*[\s\S]*?\*\//gu, '');
+}
+
+function blockAfter(css: string, selector: string): string | null {
+  const selectorIndex = css.indexOf(selector);
+  if (selectorIndex < 0) {
+    return null;
+  }
+  const openIndex = css.indexOf('{', selectorIndex + selector.length);
+  if (openIndex < 0) {
+    return null;
+  }
+  let depth = 1;
+  for (let index = openIndex + 1; index < css.length; index += 1) {
+    if (css[index] === '{') {
+      depth += 1;
+    } else if (css[index] === '}') {
+      depth -= 1;
+      if (depth === 0) {
+        return css.slice(openIndex + 1, index);
+      }
+    }
+  }
+  return null;
 }
 
 describe('bead-web design system', () => {
@@ -119,10 +139,10 @@ describe('bead-web design system', () => {
 
   it('lets an explicit light choice win over a dark system preference', async () => {
     const css = stripComments(await readStyleBlock());
-    const media = /@media\s*\(prefers-color-scheme:\s*dark\)\s*\{([\s\S]*?)\n {6}\}/u.exec(css);
+    const media = blockAfter(css, '@media (prefers-color-scheme: dark)');
     expect(media, 'expected a prefers-color-scheme: dark block').not.toBeNull();
     // Without the :not() guard, choosing light on a dark system would do nothing.
-    expect(media![1]).toContain(":root:not([data-theme='light'])");
+    expect(media).toContain(":root:not([data-theme='light'])");
   });
 
   it('reserves the wake color and flash keyframes for data motion', async () => {
@@ -155,11 +175,10 @@ describe('bead-web design system', () => {
 
   it('honors prefers-reduced-motion for both motion families', async () => {
     const css = stripComments(await readStyleBlock());
-    const block = /@media\s*\(prefers-reduced-motion:\s*reduce\)\s*\{([\s\S]*?)\n {6}\}/u.exec(css);
+    const block = blockAfter(css, '@media (prefers-reduced-motion: reduce)');
     expect(block, 'expected a prefers-reduced-motion block').not.toBeNull();
-    const body = block![1]!;
-    expect(body).toContain('.flash');
-    expect(body).toContain('.leaving');
+    expect(block).toContain('.flash');
+    expect(block).toContain('.leaving');
   });
 
   it('drives motion from documented duration tokens', async () => {

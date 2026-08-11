@@ -1,0 +1,298 @@
+import { describe, expect, it, vi } from 'vitest';
+
+import {
+  buildQueryString,
+  caveatsFor,
+  createClientStore,
+  deltasValid,
+  MAX_BODY_REQUEST_CONCURRENCY,
+  phaseLabel,
+} from '../src/web/core.js';
+import type {
+  BoardControls,
+  BoardResponse,
+  ClientStorage,
+  Transport,
+  WatchStateView,
+} from '../src/web/core.js';
+
+interface Deferred<T> {
+  promise: Promise<T>;
+  resolve(value: T): void;
+  reject(error: unknown): void;
+}
+
+function deferred<T>(): Deferred<T> {
+  let resolve!: (value: T) => void;
+  let reject!: (error: unknown) => void;
+  const promise = new Promise<T>((resolvePromise, rejectPromise) => {
+    resolve = resolvePromise;
+    reject = rejectPromise;
+  });
+  return { promise, resolve, reject };
+}
+
+function state(overrides: Partial<WatchStateView> = {}): WatchStateView {
+  return {
+    repoDir: '/repo',
+    syncBranch: 'tbd-sync',
+    remote: 'origin',
+    intervalSeconds: 30,
+    localTip: 'a'.repeat(40),
+    totalBeads: 1,
+    stats: null,
+    repoStatus: null,
+    lastReport: null,
+    reportDataVersion: 0,
+    changedIds: [],
+    dataVersion: 0,
+    movedIds: [],
+    removedIds: [],
+    watchPhase: 'watching',
+    watchSince: 'a'.repeat(40),
+    watchError: null,
+    wakeCount: 0,
+    refreshedAt: '2026-08-11T12:00:00.000Z',
+    log: [],
+    ...overrides,
+  };
+}
+
+function board(watch: WatchStateView, title = 'Initial'): BoardResponse {
+  return {
+    command: 'tbd list --pretty',
+    commandExact: true,
+    filtersExact: true,
+    contextCount: 0,
+    search: '',
+    total: 1,
+    matched: 1,
+    closedHidden: 0,
+    rows: [
+      {
+        id: 'web-one',
+        internalId: 'is-01aaaaaaaaaaaaaaaaaaaaaa01',
+        parentId: null,
+        title,
+        status: 'open',
+        kind: 'task',
+        priority: 2,
+        labels: [],
+        spec_path: null,
+        assignee: null,
+        ready: true,
+        prefix: '',
+      },
+    ],
+    truncated: 0,
+    contextIds: [],
+    state: watch,
+  };
+}
+
+async function flush(): Promise<void> {
+  await Promise.resolve();
+  await Promise.resolve();
+  await Promise.resolve();
+}
+
+describe('client core pure helpers', () => {
+  it('serializes controls one-to-one with CLI-shaped query parameters', () => {
+    const controls: BoardControls = {
+      search: 'release smoke',
+      status: 'any',
+      kind: 'bug',
+      priority: '1',
+      labels: 'release, urgent',
+      spec: 'plan.md',
+      sort: 'updated',
+      ready: true,
+      pretty: true,
+    };
+    expect(buildQueryString(controls)).toBe(
+      'q=release+smoke&type=bug&priority=1&spec=plan.md&label=release&label=urgent&sort=updated&all=1&ready=1&pretty=1',
+    );
+  });
+
+  it('names inexactness, watcher phases, and the report-data-version delta gate', () => {
+    const response = board(state());
+    response.filtersExact = false;
+    response.search = 'needle';
+    response.contextCount = 2;
+    expect(caveatsFor(response)).toEqual([
+      'filters with no exact CLI equivalent apply',
+      'text search "needle" applies',
+      '2 dimmed ancestor rows are shown for context',
+    ]);
+    expect(phaseLabel(state({ watchPhase: 'applying' }))).toEqual({
+      label: 'updating',
+      help: 'A change arrived. Pulling and re-reading before redrawing.',
+    });
+    expect(deltasValid(state({ lastReport: null, dataVersion: 2, reportDataVersion: 2 }))).toBe(
+      false,
+    );
+    expect(
+      deltasValid(
+        state({
+          dataVersion: 2,
+          reportDataVersion: 2,
+          lastReport: { since: 'a', tip: 'b', changes: [] },
+        }),
+      ),
+    ).toBe(true);
+  });
+});
+
+describe('createClientStore transport orchestration', () => {
+  it('connects before fetching, passes the saved resume tip, and coalesces wakes during fetch', async () => {
+    const order: string[] = [];
+    const first = deferred<unknown>();
+    const second = deferred<unknown>();
+    const requests = [first, second];
+    let onState: ((next: unknown) => void) | null = null;
+    const transport: Transport = {
+      openEvents: (_url, callback, lastEventId) => {
+        order.push(`events:${lastEventId ?? 'none'}`);
+        onState = callback;
+        return { close: vi.fn() };
+      },
+      fetchJson: (url) => {
+        order.push(`fetch:${url}`);
+        const next = requests.shift();
+        if (next === undefined) {
+          throw new Error('Unexpected fetch');
+        }
+        return next.promise;
+      },
+    };
+    const values = new Map([['tbd.web.lastEventId', 'saved-tip']]);
+    const storage: ClientStorage = {
+      getItem: (key) => values.get(key) ?? null,
+      setItem: (key, value) => {
+        values.set(key, value);
+      },
+    };
+    const render = vi.fn();
+    const store = createClientStore(transport, render, { storage });
+
+    const started = store.start();
+    expect(order[0]).toBe('events:saved-tip');
+    expect(order[1]).toMatch(/^fetch:\/api\/board\?/u);
+    expect(onState).not.toBeNull();
+    onState!(state({ dataVersion: 1, movedIds: ['web-one'], watchSince: 'b'.repeat(40) }));
+    onState!(state({ dataVersion: 2, movedIds: ['web-one'], watchSince: 'c'.repeat(40) }));
+
+    first.resolve(board(state(), 'Stale'));
+    await flush();
+    expect(order.filter((entry) => entry.startsWith('fetch:'))).toHaveLength(2);
+    second.resolve(board(state({ dataVersion: 2 }), 'Fresh'));
+    await started;
+
+    expect(store.getView().board?.rows[0]?.title).toBe('Fresh');
+    expect(store.getView().watch?.dataVersion).toBe(2);
+    expect(values.get('tbd.web.lastEventId')).toBe('c'.repeat(40));
+    store.stop();
+  });
+
+  it('does not let a stale pre-wake body rejection overwrite a fresh post-wake body', async () => {
+    let onState: ((next: unknown) => void) | null = null;
+    const bodyRequests: Deferred<unknown>[] = [];
+    const transport: Transport = {
+      openEvents: (_url, callback) => {
+        onState = callback;
+        return { close: vi.fn() };
+      },
+      fetchJson: (url) => {
+        if (url.startsWith('/api/board?')) {
+          return Promise.resolve(board(state()));
+        }
+        const request = deferred<unknown>();
+        bodyRequests.push(request);
+        return request.promise;
+      },
+    };
+    const store = createClientStore(transport, vi.fn());
+    await store.start();
+    store.toggle('web-one');
+    expect(bodyRequests).toHaveLength(1);
+
+    onState!(
+      state({
+        dataVersion: 1,
+        movedIds: ['web-one'],
+        changedIds: ['web-one'],
+        watchSince: 'b'.repeat(40),
+      }),
+    );
+    await flush();
+    expect(bodyRequests).toHaveLength(2);
+
+    bodyRequests[1]!.resolve({ id: 'web-one', notes: 'fresh body' });
+    await flush();
+    bodyRequests[0]!.reject(new Error('stale network failure'));
+    await flush();
+
+    expect(store.getView().bodies.get('web-one')).toEqual({
+      kind: 'loaded',
+      body: { id: 'web-one', notes: 'fresh body' },
+    });
+    store.stop();
+  });
+
+  it('never lets an older board-embedded state roll back a newer SSE state', async () => {
+    let onState: ((next: unknown) => void) | null = null;
+    const response = deferred<unknown>();
+    const transport: Transport = {
+      openEvents: (_url, callback) => {
+        onState = callback;
+        return { close: vi.fn() };
+      },
+      fetchJson: () => response.promise,
+    };
+    const store = createClientStore(transport, vi.fn());
+    const started = store.start();
+    onState!(state({ dataVersion: 4, watchSince: 'd'.repeat(40) }));
+    response.resolve(board(state({ dataVersion: 2 }), 'Rows can still load'));
+    await started;
+
+    expect(store.getView().board?.rows[0]?.title).toBe('Rows can still load');
+    expect(store.getView().watch?.dataVersion).toBe(4);
+    store.stop();
+  });
+
+  it('bounds detail fetches and drops queued work when rows collapse', async () => {
+    const bodyRequests: { url: string; request: Deferred<unknown> }[] = [];
+    const transport: Transport = {
+      openEvents: () => ({ close: vi.fn() }),
+      fetchJson: (url) => {
+        if (url.startsWith('/api/board?')) {
+          return Promise.resolve(board(state()));
+        }
+        const request = deferred<unknown>();
+        bodyRequests.push({ url, request });
+        return request.promise;
+      },
+    };
+    const store = createClientStore(transport, vi.fn());
+    await store.start();
+    const ids = Array.from(
+      { length: MAX_BODY_REQUEST_CONCURRENCY + 4 },
+      (_, index) => `web-${index}`,
+    );
+    store.setExpanded(ids);
+    expect(bodyRequests).toHaveLength(MAX_BODY_REQUEST_CONCURRENCY);
+
+    bodyRequests[0]!.request.resolve({ id: ids[0] });
+    await flush();
+    expect(bodyRequests).toHaveLength(MAX_BODY_REQUEST_CONCURRENCY + 1);
+
+    store.setExpanded([]);
+    for (const { url, request } of bodyRequests.slice(1)) {
+      const id = new URL(url, 'http://localhost').searchParams.get('id');
+      request.resolve({ id });
+    }
+    await flush();
+    expect(bodyRequests).toHaveLength(MAX_BODY_REQUEST_CONCURRENCY + 1);
+    store.stop();
+  });
+});

@@ -144,6 +144,11 @@ if (phase === 'prebuild') {
   // Copy install directory to dist/docs (headers for composing skill files)
   await copyDir(INSTALL_DIR, join(distDocs, 'install'));
 
-  // Copy bin.mjs to tbd for shebang-based execution (atomic write, preserve execute permission)
-  await atomicCopy(join(root, 'dist', 'bin.mjs'), join(root, 'dist', 'tbd'), true);
+  // Keep one canonical ESM identity for the CLI entry. Copying bin.mjs byte-for-byte
+  // makes `dist/tbd` and `dist/bin.mjs` distinct modules; a lazy chunk that imports
+  // ./bin.mjs would then evaluate runCli() a second time when `dist/tbd` was launched.
+  const binPath = join(root, 'dist', 'bin.mjs');
+  const launcherPath = join(root, 'dist', 'tbd');
+  await writeFile(launcherPath, "#!/usr/bin/env node\nimport './bin.mjs';\n");
+  chmodSync(launcherPath, statSync(binPath).mode);
 }

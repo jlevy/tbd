@@ -127,6 +127,7 @@ agents.
       - [4.14.2 Selectors](#4142-selectors)
       - [4.14.3 Change Report Format](#4143-change-report-format)
       - [4.14.4 Watch Loop](#4144-watch-loop)
+    - [4.15 Local Web View](#415-local-web-view)
   - [5. Beads Compatibility](#5-beads-compatibility)
     - [5.1 Import Strategy](#51-import-strategy)
       - [5.1.1 Import Command](#511-import-command)
@@ -482,7 +483,8 @@ Explicitly deferred to future versions:
 
 - Slack/Discord integration
 
-- TUI/GUI interfaces
+- General TUI/GUI interfaces beyond the optional, loopback-only, read-only `tbd web`
+  view (§4.15)
 
 - Agent messaging beyond issue comments
 
@@ -4043,6 +4045,43 @@ Both commands emit the same document.
    brief outage does not kill an unattended worker.
    Startup failures are immediate, and a failure at the timeout boundary is an
    operational error rather than a silent timeout, since the two are not the same claim.
+
+### 4.15 Local Web View
+
+`tbd web` is an optional, foreground view of the committed bead graph for people who
+need to scan a large hierarchy visually.
+It is a CLI-layer presentation over the same file, query, statistics, change-report, and
+watch implementations as the terminal commands; it does not introduce another repository
+model or persistent service.
+
+```bash
+tbd web [--port <n>] [--open] [--interval <seconds>]
+```
+
+The server binds only `127.0.0.1`. With no explicit port it searches the bounded range
+7777–7786; `--port` pins one port, `--interval` controls remote-tip polling (default 30
+seconds, minimum 10), and `--open` launches a browser only after an HTTP readiness probe
+succeeds. The command stays in the foreground and exits when interrupted; no daemon or
+background state remains.
+
+Board queries run against one in-memory snapshot and call the shared `selectIssues` and
+`describeQuery` functions.
+Responses include the equivalent CLI invocation and carry light rows only; descriptions
+and notes are fetched per bead when expanded.
+Remote movement uses the §4.14 watch cursor, pulls current issue state through the same
+sync operation as `tbd sync --pull`, and publishes bounded Server-Sent Events whose id
+is the report tip.
+A local file watch refreshes unpublished edits in the hidden worktree.
+The client opens its event stream before its first board fetch, persists the last
+acknowledged tip, coalesces refreshes, discards stale responses, and bounds concurrent
+detail requests.
+
+Version 1 is intentionally read-only: the HTTP router has no mutation endpoint.
+It accepts only `GET`, validates loopback Host and same-origin Origin headers, serves a
+self-contained page under a restrictive Content Security Policy, caps event frames and
+replay buffers, drops backpressured clients, and closes streams during bounded signal
+shutdown. A remotely reachable or writable interface remains a separate design with its
+own authentication, concurrency, and security review.
 
 * * *
 
