@@ -403,6 +403,9 @@ local browser. It binds loopback only, has no write route, and does not open a b
 unless you pass `--open`. Large results support up to 10,000 rows and render in
 1,000-row pages. Native local file events normally update it immediately, with a
 one-second reconciliation fallback for missed events.
+Changing a filter, sort, display mode, or page closes expanded row details.
+During a live update, only rows still present in the bounded response remain expanded,
+with any display-ID change reconciled before their bodies reload.
 It never fetches automatically; run `tbd sync` and the resulting local changes appear
 without a browser refresh.
 See the [CLI reference](packages/tbd/docs/tbd-docs.md#web) for port, JSON, and dry-run

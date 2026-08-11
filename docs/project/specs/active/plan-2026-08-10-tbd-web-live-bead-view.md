@@ -9,8 +9,7 @@ author: Joshua Levy (github.com/jlevy) with LLM assistance
 
 **Author:** Joshua Levy (github.com/jlevy) with LLM assistance
 
-**Status:** Local-only revision implemented and locally validated on PR #207; final
-hosted merge gate pending
+**Status:** Implementation and validation complete on PR #207; merge-ready
 
 ## Overview
 
@@ -233,7 +232,11 @@ Payload shape matters more than raw speed:
 - Bulk expansion is available only when the visible page has 100 rows or fewer.
   Individual expansion remains available at every size, but the oldest detail closes
   after 100 remain open.
-  Eight detail requests may be in flight, 200 recent bodies may remain cached, and
+  Query, sort, display-mode, and page changes close expanded details.
+  A live graph update retains an expansion only when the stable internal bead remains in
+  the current bounded response; its current display id is resolved before the body
+  reload begins. This keeps off-board or obsolete display ids from consuming the detail
+  cap. Eight detail requests may be in flight, 200 recent bodies may remain cached, and
   render notifications coalesce to one browser frame.
   A mass deletion animates at most 100 ghost rows instead of bypassing the steady-state
   page bound.
@@ -721,17 +724,22 @@ to land the whole command through one PR.
   Closed stream races are isolated to the affected SSE client.
 - [x] Revised-head local release matrix and senior review green: Flowmark/Prettier,
   strict typecheck, zero-warning lint plus TS/JS lint-contract probes, build, 109 Vitest
-  files / 1,507 tests, 1,074 tryscript checks, publint, 31 package-age pins, packed-web
+  files / 1,508 tests, 1,074 tryscript checks, publint, 31 package-age pins, packed-web
   proof (62,196-byte page), and watch release smoke.
-- [ ] Push the revised head, wait for hosted CI across the supported OS matrix, re-audit
+- [x] Push the revised head, wait for hosted CI across the supported OS matrix, re-audit
   every PR comment/thread, and confirm final mergeability.
+  Implementation head `152caa48` passed run `31547701354` on Ubuntu, macOS, Windows,
+  coverage/lint, benchmark, and secret scanning.
+  The PR was open, non-draft, `MERGEABLE`/`CLEAN`; the thread audit found 12 threads and
+  the final R24 disposition leaves all 12 resolved.
 
 ### Final review finding map
 
 The final review is tracked under `tbd-o7nu`, with the owner-directed revision and its
-follow-up findings under `tbd-ihyx`. Every implementation finding has one bead and one
-code seam; all twenty-three are implemented and locally validated.
-R14 removes the final Windows command-shim assumption from the packed proof.
+follow-up findings under `tbd-ihyx`. Every review finding has one bead and one explicit
+disposition: twenty-three are implemented and locally validated, while R24 is rejected
+with code-path evidence because the reported persistence was never part of the client
+contract. R14 removes the final Windows command-shim assumption from the packed proof.
 R15 closes the final scale-specific memory and data-motion paths after the 10,000-row
 ceiling review. R16 preserves an executable assertion on both sides of that ceiling.
 R17 bounds pretty-tree metadata by the same response slice.
@@ -744,6 +752,9 @@ R21 prevents a delayed duplicate bounded event from replacing canonical same-ver
 board state. R22 makes the constant-size local observation assertion platform-native
 after the first revised-head hosted run exposed POSIX-only expected strings on Windows.
 R23 reconciles expanded client rows by stable internal identity after display-ID remaps.
+R24 confirms that filter, display-mode, and page changes already cleared expansions
+before R23, and that live rows outside the bounded response must not retain unverifiable
+display ids or consume the detail cap.
 
 | Bead | Severity | File/function seam | Disposition |
 | --- | --- | --- | --- |
@@ -770,6 +781,7 @@ R23 reconciles expanded client rows by stable internal identity after display-ID
 | `tbd-t5ky` (R21) | P1 | `src/web/core.ts`: `Store.receiveState`; `tests/web-core.test.ts` | Reject duplicate SSE frames at an already-adopted observer state version, while preserving the deliberate same-version canonical board recovery, so bounded transport cannot overwrite complete changed-row motion. |
 | `tbd-wykg` (R22) | P1 | `tests/web-board.test.ts`: constant-size observation-surface assertion | Build expected paths with Node’s platform-native `path.join`, matching production behavior on Windows, macOS, and Linux. |
 | `tbd-qdhn` (R23) | P1 | `src/web/core.ts`: `Store.runRefreshLoop`, `Store.receiveState`, `Store.reconcileExpandedRows`; `tests/web-core.test.ts` | Wait for the canonical board after graph motion, remap expanded rows by stable internal id, drop vanished stale entries, and only then refetch bodies under current display ids. |
+| `tbd-is2r` (R24) | P2 | `src/web/client.ts`: `applyControls`, pretty-mode handler, `navigateBoardPage`; `src/web/core.ts`: `Store.reconcileExpandedRows` | No code change: query/display/page transitions cleared expansions before R23. On live motion, retaining a row absent from the bounded canonical response would preserve an unverifiable display id, recreate stale body requests, and invisibly consume `MAX_EXPANDED_ROWS`; user and design docs now state that boundary. |
 
 ### Merge gate for PR #207
 

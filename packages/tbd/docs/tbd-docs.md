@@ -710,6 +710,10 @@ Descriptions and notes load only when a row is expanded, so the board remains bo
 large repositories. A response can carry up to 10,000 rows; the browser paints them in
 1,000-row pages with sticky and end-of-page navigation.
 Above 10,000 rows, the page reports the complete count and asks for a narrower query.
+Changing a query control, display mode, or page closes expanded details.
+A live graph update retains and remaps an expansion only while that bead remains in the
+current bounded response, so an off-board or obsolete display ID cannot consume the
+detail cap or trigger a stale body request.
 Bulk expansion is available when the visible page has 100 rows or fewer; larger pages
 remain individually expandable without an accidental request fan-out.
 At most 100 detail rows remain open, and the client retains only the 200 most recently
