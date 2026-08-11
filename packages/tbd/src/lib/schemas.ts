@@ -361,11 +361,97 @@ export const IntegrationSelectSchema = z.object({
 });
 
 /**
+ * How one field of a linked pair flows between tbd and the tracker.
+ *
+ * `merge` is full three-way: either side can change it, both-sides changes
+ * conflict. `local` means tbd owns the field: it is pushed outward and a
+ * tracker-side edit is overwritten on the next sync (reported, never silent).
+ * `remote` is the reverse.
+ */
+export const FieldFlowRule = z.enum(['merge', 'local', 'remote']);
+
+/** Which direction comment sequences flow for linked pairs. */
+export const CommentsMode = z.enum(['two_way', 'inbound', 'outbound', 'off']);
+
+/** Fallback when a merge field changed on both sides with different values. */
+export const TieBreak = z.enum(['newest', 'local', 'remote']);
+
+/** What happens to unlinked tracker items that match the inbound selector. */
+export const InboundMode = z.enum(['off', 'report', 'auto']);
+
+/**
+ * The inbound creation clause: when a tracker issue should become a bead.
+ *
+ * `report` (the default) lists matching items with ready-to-run `import`
+ * commands; `auto` imports them during `sync`. `auto` stays opt-in because it
+ * lets people outside the repo create work inside it.
+ */
+export const InboundClauseSchema = z.object({
+  mode: InboundMode.default('report'),
+  /** Only items carrying one of these labels qualify (empty: any item). */
+  labels: z.array(z.string()).default([]),
+  /** Kind assigned to imported beads. */
+  as_kind: IssueKind.default('task'),
+});
+
+/**
+ * The field_sync clause: how a linked pair's fields and comments flow.
+ *
+ * Defaults: content and triage fields merge (linked pairs converge); `labels`
+ * stays local because pulling a team's label taxonomy into beads imports
+ * noise; `assignee` stays local because tracker assignees are people
+ * (names/emails) and nothing person-identifying lands in beads without an
+ * explicit `user_map` and an explicit `assignee: merge`.
+ */
+export const FieldSyncClauseSchema = z.object({
+  fields: z
+    .object({
+      title: FieldFlowRule.default('merge'),
+      description: FieldFlowRule.default('merge'),
+      status: FieldFlowRule.default('merge'),
+      priority: FieldFlowRule.default('merge'),
+      labels: FieldFlowRule.default('local'),
+      assignee: FieldFlowRule.default('local'),
+    })
+    .default({}),
+  comments: CommentsMode.default('two_way'),
+  tie_break: TieBreak.default('newest'),
+});
+
+/**
+ * A linking policy: one structured object answering, per integration, when a
+ * bead should create a tracker issue (`outbound`), when a tracker issue should
+ * become a bead (`inbound`), and how a linked pair reconciles (`field_sync`).
+ *
+ * The clause names state their direction deliberately; `sync` is reserved for
+ * the full synchronization the `tbd integration sync` command performs.
+ */
+export const PolicyDefinitionSchema = z.object({
+  outbound: IntegrationSelectSchema.default({}),
+  inbound: InboundClauseSchema.default({}),
+  field_sync: FieldSyncClauseSchema.default({}),
+});
+
+/** Named policy presets. Growing this enum is the extension point. */
+export const PolicyName = z.enum(['default']);
+
+/**
  * Settings shared by every provider.
  */
 const IntegrationProviderBase = {
   enabled: z.boolean().default(false),
+  /**
+   * Deprecated spelling of `policy.outbound`, kept so Phase 1 configs parse
+   * unchanged. When `policy` is absent, this folds into it during resolution
+   * (see integrations/core/policy.ts).
+   */
   select: IntegrationSelectSchema.default({}),
+  /**
+   * The linking policy: a preset name or an inline definition. Absent means
+   * "legacy": `select` becomes the outbound clause and everything else takes
+   * defaults, which preserves Phase 1 behavior exactly.
+   */
+  policy: z.union([PolicyName, PolicyDefinitionSchema]).optional(),
   /**
    * Levels of sub-issue nesting to mirror. Linear's data model nests without
    * limit, but its views flatten past roughly two levels, so deeper structure

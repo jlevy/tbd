@@ -5,7 +5,8 @@
  * so commands iterate providers generically rather than special-casing Linear.
  */
 
-import type { Config, IntegrationSelect, ProviderNameType } from '../../lib/types.js';
+import type { Config, PolicyDefinition, ProviderNameType } from '../../lib/types.js';
+import { resolvePolicy } from './policy.js';
 
 /** Every provider tbd knows about, in a stable display order. */
 export const PROVIDERS: readonly ProviderNameType[] = ['linear', 'github'] as const;
@@ -14,7 +15,12 @@ export const PROVIDERS: readonly ProviderNameType[] = ['linear', 'github'] as co
 export interface ProviderConfig {
   provider: ProviderNameType;
   enabled: boolean;
-  select: IntegrationSelect;
+  /**
+   * The fully resolved linking policy. Always complete: a preset expands, an
+   * inline definition fills defaults, and a legacy `select` folds into
+   * `policy.outbound`.
+   */
+  policy: PolicyDefinition;
   maxNesting: number;
   /** The provider's target: a Linear team key or a GitHub `owner/repo`. */
   target?: string;
@@ -45,7 +51,7 @@ export function providerConfig(
     return {
       provider,
       enabled: linear.enabled,
-      select: linear.select,
+      policy: resolvePolicy(linear),
       maxNesting: linear.max_nesting,
       target: linear.team_key,
       configError:
@@ -62,7 +68,7 @@ export function providerConfig(
   return {
     provider,
     enabled: github.enabled,
-    select: github.select,
+    policy: resolvePolicy(github),
     maxNesting: github.max_nesting,
     target: github.repo,
     configError:

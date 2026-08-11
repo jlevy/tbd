@@ -17,6 +17,10 @@ import type {
   ConfigSchema,
   IntegrationsConfigSchema,
   IntegrationSelectSchema,
+  InboundClauseSchema,
+  FieldSyncClauseSchema,
+  PolicyDefinitionSchema,
+  PolicyName,
   LinearIntegrationSchema,
   GithubIntegrationSchema,
   CommonDirLayoutSchema,
@@ -82,6 +86,18 @@ export type IntegrationsConfig = z.infer<typeof IntegrationsConfigSchema>;
  * Which beads an integration mirrors outward.
  */
 export type IntegrationSelect = z.infer<typeof IntegrationSelectSchema>;
+
+/** The inbound creation clause of a linking policy. */
+export type InboundClause = z.infer<typeof InboundClauseSchema>;
+
+/** The field_sync clause of a linking policy. */
+export type FieldSyncClause = z.infer<typeof FieldSyncClauseSchema>;
+
+/** A fully resolved linking policy. */
+export type PolicyDefinition = z.infer<typeof PolicyDefinitionSchema>;
+
+/** Named policy presets. */
+export type PolicyNameType = z.infer<typeof PolicyName>;
 
 /**
  * Linear-specific integration configuration.

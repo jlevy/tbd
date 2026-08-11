@@ -39,6 +39,7 @@ import type {
   Issue,
   IssueKindType,
   IssueStatusType,
+  PolicyDefinition,
   ProviderNameType,
 } from '../../lib/types.js';
 
@@ -161,13 +162,13 @@ interface MirrorOptions {
  *
  * Precedence is explicit over implicit: named beads win outright, then any
  * command-line selector replaces the configured policy, and only with neither
- * does the config's `select` apply. This keeps the staged workflow
+ * does the policy's `outbound` clause apply. This keeps the staged workflow
  * (mirror a few, then more, then everything) from requiring config edits.
  */
 function resolveSelection(
   options: MirrorOptions,
   allIssues: Issue[],
-  entry: { select: IntegrationSelect; provider: ProviderNameType },
+  entry: { policy: PolicyDefinition; provider: ProviderNameType },
   resolveId: (id: string) => string | undefined,
 ): Issue[] {
   if (options.bead && options.bead.length > 0) {
@@ -205,7 +206,7 @@ function resolveSelection(
         specs: options.spec !== undefined ? 'any' : 'none',
         linked: false,
       }
-    : entry.select;
+    : entry.policy.outbound;
 
   let selected = mirrorSet(allIssues, select, entry.provider);
 
