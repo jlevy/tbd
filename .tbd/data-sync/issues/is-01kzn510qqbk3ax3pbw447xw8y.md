@@ -3,9 +3,9 @@ type: is
 id: is-01kzn510qqbk3ax3pbw447xw8y
 title: tbd integration link / unlink / import with one-source guard
 kind: task
-status: open
+status: closed
 priority: 1
-version: 5
+version: 6
 spec_path: docs/project/specs/active/plan-2026-08-10-external-tracker-integrations.md
 labels: []
 dependencies:
@@ -13,7 +13,9 @@ dependencies:
     target: is-01kzn5117ezkyh9c1dqgr9pwty
 parent_id: is-01kzn2w9w9gx9j6h3b250jnyzf
 created_at: 2026-08-10T06:16:12.790Z
-updated_at: 2026-08-11T00:28:18.415Z
+updated_at: 2026-08-11T06:45:58.281Z
+closed_at: 2026-08-11T06:45:58.281Z
+close_reason: "Phase 2 implemented in PR #206 (96be7b34..c36dbc70): policy schema and resolution, bridge records with newest-observation merge, pure reconcile matrix, write-ahead intents (OQ7 probed live: comment client UUIDs are exactly-once), the full sync command, append-only comment sequences with union merge, link/unlink/comment with one-source guard and --take stance, doctor config-loss tripwire, sync_on_tbd_sync fold, and end-to-end coverage through the real built binary against the mock. Full suite green in the pre-push hook; live rollout gates before sync_on_tbd_sync tracked in the spec."
 extensions:
   linear:
     id: 40dd2cf9-0efc-4a66-bed8-5cb77d3376cd

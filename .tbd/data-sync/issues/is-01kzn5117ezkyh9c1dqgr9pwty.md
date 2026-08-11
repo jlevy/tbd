@@ -3,9 +3,9 @@ type: is
 id: is-01kzn5117ezkyh9c1dqgr9pwty
 title: tests/fixtures/linear-mock.ts + Phase 1 golden tryscripts
 kind: task
-status: open
+status: closed
 priority: 1
-version: 6
+version: 7
 spec_path: docs/project/specs/active/plan-2026-08-10-external-tracker-integrations.md
 labels: []
 dependencies:
@@ -15,7 +15,9 @@ dependencies:
     target: is-01kzn5147yrf3sw28jc7n600r7
 parent_id: is-01kzn2w9w9gx9j6h3b250jnyzf
 created_at: 2026-08-10T06:16:13.293Z
-updated_at: 2026-08-10T21:54:58.015Z
+updated_at: 2026-08-11T06:45:58.292Z
+closed_at: 2026-08-11T06:45:58.292Z
+close_reason: "Phase 2 implemented in PR #206 (96be7b34..c36dbc70): policy schema and resolution, bridge records with newest-observation merge, pure reconcile matrix, write-ahead intents (OQ7 probed live: comment client UUIDs are exactly-once), the full sync command, append-only comment sequences with union merge, link/unlink/comment with one-source guard and --take stance, doctor config-loss tripwire, sync_on_tbd_sync fold, and end-to-end coverage through the real built binary against the mock. Full suite green in the pre-push hook; live rollout gates before sync_on_tbd_sync tracked in the spec."
 extensions:
   linear:
     id: 66764af6-1f30-47c1-ac47-074f658618ad
