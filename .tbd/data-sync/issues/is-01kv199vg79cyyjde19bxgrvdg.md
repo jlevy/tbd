@@ -4,14 +4,14 @@ id: is-01kv199vg79cyyjde19bxgrvdg
 title: Delivery provenance (--by-pr) and documented verb [ids...] spine
 kind: task
 status: open
-priority: 4
-version: 3
+priority: 3
+version: 4
 spec_path: docs/project/specs/active/plan-2026-06-13-agent-cli-ergonomics.md
 labels: []
 dependencies: []
 parent_id: is-01kv197ns6jwkg2q82w7awjn15
 created_at: 2026-06-13T20:03:20.711Z
-updated_at: 2026-08-10T21:54:35.447Z
+updated_at: 2026-08-11T06:57:46.848Z
 extensions:
   linear:
     id: 7736131a-ed1b-4a83-bdea-6e5f7bf3c304
