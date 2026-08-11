@@ -3,14 +3,16 @@ type: is
 id: is-01kzmwk14vxs1m53edeq43q675
 title: tbd sync --status --json prints a non-JSON Docs banner on stdout
 kind: bug
-status: in_progress
+status: closed
 priority: 2
-version: 4
+version: 5
 labels:
   - json-contract
 dependencies: []
 created_at: 2026-08-10T03:48:45.850Z
-updated_at: 2026-08-11T01:34:42.905Z
+updated_at: 2026-08-11T04:42:44.442Z
+closed_at: 2026-08-11T04:42:44.442Z
+close_reason: Fixed in e5c9360d with regression tests; full suite (103 files / 1458 tests) green through the pre-push gate
 ---
 printDocSyncStatus() in packages/tbd/src/cli/lib/docs-sync-output.ts:65-77 writes to stdout with raw console.log and has no --json guard. syncDocs(statusOnly) in commands/sync.ts:188 calls it unconditionally, so 'tbd sync --status --json' can emit a human 'Docs:' block ahead of its JSON document whenever the docs cache is stale (settings.doc_auto_sync_hours).
 
