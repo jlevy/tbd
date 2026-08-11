@@ -1,6 +1,6 @@
 base:
   assignee: null
-  description_hash: sha256v2:df16415c9b6edd7207e7e1a7da7f7d40fb53d75d8aeaa3ba8005d5d1880c9a18
+  description_hash: sha256v6:df16415c9b6edd7207e7e1a7da7f7d40fb53d75d8aeaa3ba8005d5d1880c9a18
   labels:
     - agent-skills
     - setup
@@ -12,5 +12,5 @@ bead_id: is-01ksc0qwt0v3pg3hgn35sh0s1e
 external_id: 666ffd07-a190-48fe-9ce5-657967438c81
 remote_updated_at: 2026-08-11T07:03:03.702Z
 state: linked
-synced_at: 2026-08-11T07:08:07.598Z
+synced_at: 2026-08-11T07:13:56.751Z
 type: lk

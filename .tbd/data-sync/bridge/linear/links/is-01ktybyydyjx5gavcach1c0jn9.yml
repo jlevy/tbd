@@ -1,6 +1,6 @@
 base:
   assignee: null
-  description_hash: sha256v2:b806ac5ff00287f10b2818a6a3c7618095ff6dc3758f3f8359420bf9cb6b69eb
+  description_hash: sha256v6:b806ac5ff00287f10b2818a6a3c7618095ff6dc3758f3f8359420bf9cb6b69eb
   labels:
     - supply-chain
     - agent-skills
@@ -11,5 +11,5 @@ bead_id: is-01ktybyydyjx5gavcach1c0jn9
 external_id: 35ca8a8f-a997-482b-b287-d2bf254b54f0
 remote_updated_at: 2026-08-11T07:03:03.802Z
 state: linked
-synced_at: 2026-08-11T07:08:09.475Z
+synced_at: 2026-08-11T07:14:00.251Z
 type: lk

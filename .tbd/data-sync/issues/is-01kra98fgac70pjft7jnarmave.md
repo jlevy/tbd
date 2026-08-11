@@ -5,7 +5,7 @@ title: "Spec: Docs config redesign (f06+ framework)"
 kind: epic
 status: open
 priority: 1
-version: 19
+version: 21
 spec_path: docs/project/specs/active/plan-2026-05-07-docs-config-redesign.md
 labels: []
 dependencies: []
@@ -20,7 +20,7 @@ child_order_hints:
   - is-01kra99kg4z987hjrwwrj5wh4q
   - is-01kra99kvf2ys81vcakyb8vbzz
 created_at: 2026-05-11T01:08:40.073Z
-updated_at: 2026-08-11T07:07:51.120Z
+updated_at: 2026-08-11T07:10:52.443Z
 extensions:
   linear:
     id: 469c60b7-7a9d-4724-82a1-cd0d24d76321
@@ -28,33 +28,19 @@ extensions:
     url: https://linear.app/finterm-ai/issue/TBD-39/spec-docs-config-redesign-f06-framework
     linked_at: 2026-08-10T19:36:32.543Z
     comments:
-      - id: 09e779fd-4ece-4cd3-9a8e-0c71920a55a4
-        at: 2026-08-11T07:07:10.114Z
-        author: josh
-        body: |-
-          **tbd sync conflict**
-
-          Field `description` on `tbd-up8l` diverged and one value was discarded.
-
-          - Kept: `"sha256v2:c76843d39f5d8b60d3604fa14f76434c78eb25ce0d9f2bc3686496eccab379c7"`
-          - Discarded: `"sha256v2:e64e254194c3162359145370f5f2255fa9ac258109ef509381392c934ed886e6"`
-
-          The discarded value is archived at `.tbd/data-sync/attic/conflicts/is-01kra98fgac70pjft7jnarmave`.
-          Resolve this comment once the divergence has been reconciled.
 ---
-Top-level epic for the docs config redesign (f05 schema) tracked in PR #117 ([https://github.com/jlevy/tbd/pull/117](<https://github.com/jlevy/tbd/pull/117>)).
+Top-level epic for the docs config redesign (f05 schema) tracked in PR #117 (https://github.com/jlevy/tbd/pull/117).
 
 Spec: docs/project/specs/active/plan-2026-05-07-docs-config-redesign.md
 
 Already done on branch claude/review-config-format-2wxh8 (committed, in PR):
-
-* docref module: parser, types, 31 tests
-* docmap module: Zod schemas, resolution algorithm, 21 tests
-* Resolver semantics fix (priority-wins same (type, name); ambiguous across types)
-* Spec §4.4/§4.5 rewritten
-* Zod schemas .strict() everywhere
-* Cross-field validation (bundle required for non-local docrefs)
-* Plan-spec written, design docs (design-docref-format.md, design-docmap-format.md), std-doc-guidelines.md
+- docref module: parser, types, 31 tests
+- docmap module: Zod schemas, resolution algorithm, 21 tests
+- Resolver semantics fix (priority-wins same (type, name); ambiguous across types)
+- Spec §4.4/§4.5 rewritten
+- Zod schemas .strict() everywhere
+- Cross-field validation (bundle required for non-local docrefs)
+- Plan-spec written, design docs (design-docref-format.md, design-docmap-format.md), std-doc-guidelines.md
 
 Remaining work is broken into three sub-epics (Phase 1/2/3) plus the open architectural questions Q15-Q20 which gate Phase 2 implementation per PR-comment from jlevy.
 

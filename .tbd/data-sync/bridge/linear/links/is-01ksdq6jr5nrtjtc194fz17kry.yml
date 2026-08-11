@@ -1,6 +1,6 @@
 base:
   assignee: null
-  description_hash: sha256v2:7dacc8b38f0bc320b0aa26392710d39ee93d02bd1913aa8ab32a150f6bd6f4f9
+  description_hash: sha256v6:7dacc8b38f0bc320b0aa26392710d39ee93d02bd1913aa8ab32a150f6bd6f4f9
   labels:
     - agents-md
     - setup
@@ -12,5 +12,5 @@ bead_id: is-01ksdq6jr5nrtjtc194fz17kry
 external_id: c290f2a1-9b34-44d5-b151-e983ad3fabcb
 remote_updated_at: 2026-08-11T07:03:03.988Z
 state: linked
-synced_at: 2026-08-11T07:08:09.194Z
+synced_at: 2026-08-11T07:13:59.200Z
 type: lk

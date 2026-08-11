@@ -1,6 +1,6 @@
 base:
   assignee: null
-  description_hash: sha256v2:23d0112031f29e5ba5b888c987662bc575a0104e6fe3d1160d30a07a1a2ffaf2
+  description_hash: sha256v6:23d0112031f29e5ba5b888c987662bc575a0104e6fe3d1160d30a07a1a2ffaf2
   labels:
     - cli-layer
     - import
@@ -12,5 +12,5 @@ bead_id: is-01kf5zyg8kg4z3smhmh22dysry
 external_id: afd7df47-fd30-417e-855e-6d3852ffe251
 remote_updated_at: 2026-08-11T07:03:08.239Z
 state: linked
-synced_at: 2026-08-11T07:08:02.664Z
+synced_at: 2026-08-11T07:13:43.884Z
 type: lk

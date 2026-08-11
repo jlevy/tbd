@@ -5,7 +5,7 @@ title: "GitHub #190: Refresh skill-creation guidance and setup dry-run safety"
 kind: epic
 status: in_progress
 priority: 1
-version: 28
+version: 30
 labels:
   - github-190
   - agent-skills
@@ -25,7 +25,7 @@ child_order_hints:
   - is-01kxj32wgrjfa51wytr33z286r
   - is-01kxj32xtn7978fy1cw6f61qca
 created_at: 2026-07-15T05:11:54.136Z
-updated_at: 2026-08-11T07:07:56.597Z
+updated_at: 2026-08-11T07:10:52.560Z
 extensions:
   linear:
     id: 004dac38-9687-40be-ad90-11e6ba5fcef4
@@ -33,35 +33,21 @@ extensions:
     url: https://linear.app/finterm-ai/issue/TBD-81/github-190-refresh-skill-creation-guidance-and-setup-dry-run-safety
     linked_at: 2026-08-10T19:37:26.580Z
     comments:
-      - id: 673287d5-efc8-435d-b253-79cb91d2ce98
-        at: 2026-08-11T07:07:34.486Z
-        author: josh
-        body: |-
-          **tbd sync conflict**
-
-          Field `description` on `tbd-va8i` diverged and one value was discarded.
-
-          - Kept: `"sha256v2:38beaca1db1d89c2b236a0c7ba47bc703f69edb40b1a7899443d30098ce73ef2"`
-          - Discarded: `"sha256v2:653ebaa904e5477f89c4cfbbcbdf8354dfcd42b431a7c710d057bd92955a4c6d"`
-
-          The discarded value is archived at `.tbd/data-sync/attic/conflicts/is-01kxj30jgtpk96nys50nr6peve`.
-          Resolve this comment once the divergence has been reconciled.
 ---
-Source: [https://github.com/jlevy/tbd/issues/190](<https://github.com/jlevy/tbd/issues/190>)
+Source: https://github.com/jlevy/tbd/issues/190
 
 Outcome: refresh cli-agent-skill-patterns around the Flowmark L2b bundle lessons and fix the independent setup --dry-run mutation regression found during the audit.
 
 Review decisions to preserve:
-
-* Keep the current architecture as the foundation, but split the 1,594-line guideline into a concise core and one-level on-demand references.
-* Treat SKILL.md, references, scripts, and assets as one logical bundle. Prefer atomic directory replacement; dependency-first publication with SKILL.md last is failure-safe only under stated compatibility conditions and is not a transaction.
-* Distinguish printed SKILL.md text, temporary materialization, installed bundles, and separate CLI distribution.
-* Update the current skills CLI model: project and global scopes, whole-folder add, temporary whole-bundle use, copy/symlink modes, and pinned installer plus pinned source for automation.
-* Treat allowed-tools as experimental, space-separated metadata and never pre-approve wildcard package runners such as npx or uvx.
-* Make JSON, setup, prime, hooks, brief/full tiers, and DocCache conditional on the ladder rung and use case.
-* Use current Codex guidance: direct skill folders for local/repo authoring; plugins are the Codex distribution recommendation beyond one repo, while cross-agent skill-directory distribution remains valid. agents/openai.yaml stays optional.
-* Fold issue #161, Know that; fetch how, into the concise core.
-* Keep one Flowmark skill; do not proliferate per-operation skills or require per-agent plugins.
+- Keep the current architecture as the foundation, but split the 1,594-line guideline into a concise core and one-level on-demand references.
+- Treat SKILL.md, references, scripts, and assets as one logical bundle. Prefer atomic directory replacement; dependency-first publication with SKILL.md last is failure-safe only under stated compatibility conditions and is not a transaction.
+- Distinguish printed SKILL.md text, temporary materialization, installed bundles, and separate CLI distribution.
+- Update the current skills CLI model: project and global scopes, whole-folder add, temporary whole-bundle use, copy/symlink modes, and pinned installer plus pinned source for automation.
+- Treat allowed-tools as experimental, space-separated metadata and never pre-approve wildcard package runners such as npx or uvx.
+- Make JSON, setup, prime, hooks, brief/full tiers, and DocCache conditional on the ladder rung and use case.
+- Use current Codex guidance: direct skill folders for local/repo authoring; plugins are the Codex distribution recommendation beyond one repo, while cross-agent skill-directory distribution remains valid. agents/openai.yaml stays optional.
+- Fold issue #161, Know that; fetch how, into the concise core.
+- Keep one Flowmark skill; do not proliferate per-operation skills or require per-agent plugins.
 
 The setup bug is an independent code workstream: dry-run must leave the repository, ignored cache/state, and shared git-common-dir state byte-for-byte unchanged while still reporting the planned changes.
 
