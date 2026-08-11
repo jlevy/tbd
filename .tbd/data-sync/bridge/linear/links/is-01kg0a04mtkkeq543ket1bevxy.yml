@@ -1,0 +1,13 @@
+base:
+  assignee: null
+  description_hash: sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+  labels: []
+  priority: 2
+  status: open
+  title: "Spec: Design Docs Review"
+bead_id: is-01kg0a04mtkkeq543ket1bevxy
+external_id: 4ff97087-d7be-42d6-8ee9-55702e3bc938
+remote_updated_at: 2026-08-10T21:51:00.967Z
+state: linked
+synced_at: 2026-08-11T06:49:20.970Z
+type: lk

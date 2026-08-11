@@ -5,13 +5,19 @@ title: tbd doc status [<query>] — bundle-grouped output, per-doc state (A/B/C)
 kind: task
 status: open
 priority: 2
-version: 1
+version: 2
 spec_path: docs/project/specs/active/plan-2026-05-07-docs-config-redesign.md
 labels: []
 dependencies: []
 parent_id: is-01kra98tffpc00qar6ee3zk8tv
 created_at: 2026-05-11T01:10:09.985Z
-updated_at: 2026-05-11T01:10:09.985Z
+updated_at: 2026-08-11T06:50:28.911Z
+extensions:
+  linear:
+    id: 367dada7-324b-461e-80eb-797dacda995e
+    linked_at: 2026-08-11T06:50:28.911Z
+    key: TBD-105
+    url: https://linear.app/finterm-ai/issue/TBD-105/tbd-doc-status-query-bundle-grouped-output-per-doc-state-abc-staleness
 ---
 Bundle-grouped output. Per-doc state per the A/B/C model (## Doc States and Transitions line ~1118): pure local / tracked override / cached upstream. Show staleness and divergence.
 

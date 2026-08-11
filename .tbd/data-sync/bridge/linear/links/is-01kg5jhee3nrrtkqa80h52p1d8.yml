@@ -1,0 +1,13 @@
+base:
+  assignee: null
+  description_hash: sha256:60e4dfa829796410a26cf88296fc94ea32ccec03fe1366f23164754b5991a13f
+  labels: []
+  priority: 3
+  status: open
+  title: "Phase 7: Testing for unified sync"
+bead_id: is-01kg5jhee3nrrtkqa80h52p1d8
+external_id: 1e220fa3-d020-48a5-9131-86eabc1c9d98
+remote_updated_at: 2026-08-11T06:49:23.736Z
+state: linked
+synced_at: 2026-08-11T06:49:24.061Z
+type: lk

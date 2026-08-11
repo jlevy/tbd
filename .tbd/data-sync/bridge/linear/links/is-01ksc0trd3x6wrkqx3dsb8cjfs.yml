@@ -1,0 +1,15 @@
+base:
+  assignee: null
+  description_hash: sha256:50d8f0cd7c2b952771380584fb63dd194fd04ab23675dfed590eed89e56cf727
+  labels:
+    - validation
+    - release
+  priority: 2
+  status: open
+  title: Validate ecosystem compatibility and release metadata
+bead_id: is-01ksc0trd3x6wrkqx3dsb8cjfs
+external_id: bc3afdf8-1733-4996-a58b-ad81f30480f5
+remote_updated_at: 2026-08-11T06:49:37.374Z
+state: linked
+synced_at: 2026-08-11T06:49:37.576Z
+type: lk

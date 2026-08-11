@@ -1,0 +1,13 @@
+base:
+  assignee: null
+  description_hash: sha256:b35923cfe6b03c03f02aa9d28c815aea4870b2546077cc7aed058a5a25d7f690
+  labels: []
+  priority: 0
+  status: open
+  title: "[epic] Release tbd v0.2.0 (shared common-dir worktree, f04 migration)"
+bead_id: is-01ksrpb7b8cfwrzzd34ya9874q
+external_id: 67351357-3767-492e-bde1-c8d0d986b8dd
+remote_updated_at: 2026-08-11T06:49:41.099Z
+state: linked
+synced_at: 2026-08-11T06:49:41.565Z
+type: lk

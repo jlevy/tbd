@@ -1,0 +1,13 @@
+base:
+  assignee: null
+  description_hash: sha256:e5789d41a9b3bdb02848a3b152d74360cd04e4c50b900db748befdf402983daa
+  labels: []
+  priority: 2
+  status: open
+  title: Phase 2 documentation and sync golden tests
+bead_id: is-01kzn5147yrf3sw28jc7n600r7
+external_id: cb7fc720-11d6-48bf-88ad-5860f2160a4f
+remote_updated_at: 2026-08-11T06:51:02.370Z
+state: linked
+synced_at: 2026-08-11T06:51:02.616Z
+type: lk

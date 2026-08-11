@@ -1,0 +1,16 @@
+base:
+  assignee: null
+  description_hash: sha256:2690fdabf8b43d0f73070455e041b00e9e2025b52666cfd927b30687ad72532e
+  labels:
+    - agents-md
+    - codex
+    - guidelines
+  priority: 1
+  status: open
+  title: Define AGENTS.md scope and marker policy
+bead_id: is-01ksdprb4vpb3drtwwjpznbqs6
+external_id: e29e5082-3cd5-4427-b6b9-a70c925508a3
+remote_updated_at: 2026-08-11T06:49:39.738Z
+state: linked
+synced_at: 2026-08-11T06:49:39.923Z
+type: lk

@@ -1,0 +1,15 @@
+base:
+  assignee: null
+  description_hash: sha256:ad63262893b4adf4911c1c91903576e221e91aa94dcb0de0eb697d756025ec49
+  labels:
+    - setup
+    - agent-skills
+  priority: 2
+  status: open
+  title: Add --surfaces=<list> setup selector (replaces per-agent flags)
+bead_id: is-01ksdpr4q999zpz14nqmv3ycpz
+external_id: f7872fb4-7472-46cb-8633-9577779a690c
+remote_updated_at: 2026-08-11T06:49:38.994Z
+state: linked
+synced_at: 2026-08-11T06:49:39.204Z
+type: lk

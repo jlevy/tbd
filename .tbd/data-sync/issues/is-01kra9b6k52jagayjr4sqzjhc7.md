@@ -5,13 +5,19 @@ title: tbd source add/list/remove/show with bundle-name auto-suggestion + previe
 kind: task
 status: open
 priority: 2
-version: 1
+version: 2
 spec_path: docs/project/specs/active/plan-2026-05-07-docs-config-redesign.md
 labels: []
 dependencies: []
 parent_id: is-01kra98tffpc00qar6ee3zk8tv
 created_at: 2026-05-11T01:10:09.253Z
-updated_at: 2026-05-11T01:10:09.253Z
+updated_at: 2026-08-11T06:50:26.556Z
+extensions:
+  linear:
+    id: 77151309-625d-4c2b-8ae3-80585539241d
+    linked_at: 2026-08-11T06:50:26.556Z
+    key: TBD-103
+    url: https://linear.app/finterm-ai/issue/TBD-103/tbd-source-addlistremoveshow-with-bundle-name-auto-suggestion-preview
 ---
 Bundle-name auto-suggestion and confirmation preview. Dry-run inventory step is the core operation per design review.
 

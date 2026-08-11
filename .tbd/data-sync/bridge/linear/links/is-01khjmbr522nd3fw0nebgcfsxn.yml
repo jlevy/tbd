@@ -1,0 +1,13 @@
+base:
+  assignee: null
+  description_hash: sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+  labels: []
+  priority: 2
+  status: open
+  title: "kdex: Core store + source resolution (Phase 1)"
+bead_id: is-01khjmbr522nd3fw0nebgcfsxn
+external_id: 941739c1-da00-4197-91ed-1a8a11bef1cd
+remote_updated_at: 2026-08-11T00:30:43.421Z
+state: linked
+synced_at: 2026-08-11T06:49:24.716Z
+type: lk

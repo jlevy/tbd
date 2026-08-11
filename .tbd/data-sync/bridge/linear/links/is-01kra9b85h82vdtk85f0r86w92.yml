@@ -1,0 +1,14 @@
+base:
+  assignee: null
+  description_hash: sha256:424bcc0ab4ec04932a7273b55afd7ebaa836b08de45d7018c723c4745e5f9926
+  labels: []
+  priority: 2
+  status: open
+  title: "tbd source diff <key> (two-way diff: local override vs cached current;
+    unified/side-by-side flag)"
+bead_id: is-01kra9b85h82vdtk85f0r86w92
+external_id: bd6ce62a-9813-4912-b43d-441ef7a94c8a
+remote_updated_at: 2026-08-11T06:50:34.074Z
+state: linked
+synced_at: 2026-08-11T06:50:34.417Z
+type: lk

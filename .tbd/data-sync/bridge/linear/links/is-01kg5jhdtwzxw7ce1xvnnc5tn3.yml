@@ -1,0 +1,13 @@
+base:
+  assignee: null
+  description_hash: sha256:c3266ce758579513107f83bdc74192fd237d76ae8425760df335f3d415b6820c
+  labels: []
+  priority: 2
+  status: open
+  title: "Phase 5: Update setup command to use shared function"
+bead_id: is-01kg5jhdtwzxw7ce1xvnnc5tn3
+external_id: 932943f1-8b90-4b7b-a13d-77f78cbf7fd5
+remote_updated_at: 2026-08-11T06:49:22.794Z
+state: linked
+synced_at: 2026-08-11T06:49:23.005Z
+type: lk

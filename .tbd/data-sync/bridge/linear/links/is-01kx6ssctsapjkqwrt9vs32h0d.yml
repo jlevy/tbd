@@ -1,0 +1,14 @@
+base:
+  assignee: null
+  description_hash: sha256:aaab003536878626fc454fea7e45aa284d65442ec356da59929ac82fcb3b12d8
+  labels: []
+  priority: 3
+  status: open
+  title: Consolidate close/reopen/update bulk orchestration into a shared runBulkMutation
+    driver
+bead_id: is-01kx6ssctsapjkqwrt9vs32h0d
+external_id: 17e7162f-5364-47ed-ae68-78a1c7167ef5
+remote_updated_at: 2026-08-11T06:49:45.725Z
+state: linked
+synced_at: 2026-08-11T06:49:46.684Z
+type: lk

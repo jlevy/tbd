@@ -1,0 +1,16 @@
+base:
+  assignee: null
+  description_hash: sha256:38beaca1db1d89c2b236a0c7ba47bc703f69edb40b1a7899443d30098ce73ef2
+  labels:
+    - github-190
+    - agent-skills
+    - guidelines
+  priority: 1
+  status: in_progress
+  title: "GitHub #190: Refresh skill-creation guidance and setup dry-run safety"
+bead_id: is-01kxj30jgtpk96nys50nr6peve
+external_id: 004dac38-9687-40be-ad90-11e6ba5fcef4
+remote_updated_at: 2026-08-11T06:49:47.056Z
+state: linked
+synced_at: 2026-08-11T06:49:47.224Z
+type: lk

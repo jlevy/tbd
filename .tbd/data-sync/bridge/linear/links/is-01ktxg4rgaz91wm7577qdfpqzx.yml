@@ -1,0 +1,13 @@
+base:
+  assignee: null
+  description_hash: sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+  labels: []
+  priority: 2
+  status: in_progress
+  title: "Phase 2: tbd docs status + bare overview + tbd status Docs line (docmap --json)"
+bead_id: is-01ktxg4rgaz91wm7577qdfpqzx
+external_id: 73b556d4-430f-44ca-8c21-295431eba66d
+remote_updated_at: 2026-08-10T21:51:04.162Z
+state: linked
+synced_at: 2026-08-11T06:49:41.723Z
+type: lk

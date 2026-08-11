@@ -1,0 +1,13 @@
+base:
+  assignee: null
+  description_hash: sha256:ffd95f20a64f1259c7273160a3713ccb37c20920ca8fab8990c537fb38d4a52c
+  labels: []
+  priority: 2
+  status: open
+  title: "Q19: Decide as: field disambiguation (keep vs mode: discriminator vs KDEX-aligned)"
+bead_id: is-01kra99kg4z987hjrwwrj5wh4q
+external_id: 0c0d0100-26fa-4991-bee8-ce9e225de7c6
+remote_updated_at: 2026-08-11T06:49:30.341Z
+state: linked
+synced_at: 2026-08-11T06:49:30.524Z
+type: lk

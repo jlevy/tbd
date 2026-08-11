@@ -1,0 +1,13 @@
+base:
+  assignee: null
+  description_hash: sha256:7e490357e2053921bf4bbaa2e9099b74ed082d564a53b7cd8e3b0b4ec6259acc
+  labels: []
+  priority: 3
+  status: open
+  title: tbd doc new <type> <name> [--bundle <name>] (scaffold with template frontmatter)
+bead_id: is-01kra9b9nzegnnattyssv1a0jq
+external_id: f2e1256b-4fb4-4f3e-82a6-2dff23b254d4
+remote_updated_at: 2026-08-11T06:50:38.410Z
+state: linked
+synced_at: 2026-08-11T06:50:38.701Z
+type: lk

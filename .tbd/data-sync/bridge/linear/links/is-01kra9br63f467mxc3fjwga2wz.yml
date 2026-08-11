@@ -1,0 +1,13 @@
+base:
+  assignee: null
+  description_hash: sha256:1fa93706d0e7670d5c0a0a0b7b65d9cc9944db33d3154b6cfe62092478fde75c
+  labels: []
+  priority: 4
+  status: open
+  title: Update tbd-docs release notes and link from tbd's docs
+bead_id: is-01kra9br63f467mxc3fjwga2wz
+external_id: 21a0f147-b56a-4ccc-94da-ad274aca2653
+remote_updated_at: 2026-08-11T06:50:49.249Z
+state: linked
+synced_at: 2026-08-11T06:50:50.296Z
+type: lk

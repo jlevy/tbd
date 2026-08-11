@@ -1,0 +1,13 @@
+base:
+  assignee: null
+  description_hash: sha256:89a813b275aee4716577c1935ff5f18f4324cfa6b9b98e8dd18b519bc5e63916
+  labels: []
+  priority: 2
+  status: open
+  title: tbd source add/list/remove/show with bundle-name auto-suggestion + preview
+bead_id: is-01kra9b6k52jagayjr4sqzjhc7
+external_id: 77151309-625d-4c2b-8ae3-80585539241d
+remote_updated_at: 2026-08-11T06:50:27.180Z
+state: linked
+synced_at: 2026-08-11T06:50:27.370Z
+type: lk

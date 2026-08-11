@@ -3,11 +3,11 @@ base:
   description_hash: sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
   labels: []
   priority: 1
-  status: open
+  status: closed
   title: "Phase 1: Linear client, meta cache, and field mapping tables"
 bead_id: is-01kzn2w8x0c038fhk1c859248r
 external_id: 313b9c7d-fb3d-4a19-b674-1a9f6d481a21
-remote_updated_at: 2026-08-10T21:51:01.847Z
+remote_updated_at: 2026-08-11T06:49:52.007Z
 state: linked
-synced_at: 2026-08-11T06:48:34.303Z
+synced_at: 2026-08-11T06:49:52.309Z
 type: lk

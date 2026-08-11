@@ -1,0 +1,14 @@
+base:
+  assignee: null
+  description_hash: sha256:2dca01e9e8ac09ff4c44a5e894e08ea9d40f1edb207ffc6f5ffabcfc6c7f9da6
+  labels: []
+  priority: 2
+  status: open
+  title: tbd doc status [<query>] — bundle-grouped output, per-doc state (A/B/C),
+    staleness, divergence
+bead_id: is-01kra9b7a1qhwfgg7shvnka1hp
+external_id: 367dada7-324b-461e-80eb-797dacda995e
+remote_updated_at: 2026-08-11T06:50:29.594Z
+state: linked
+synced_at: 2026-08-11T06:50:29.775Z
+type: lk

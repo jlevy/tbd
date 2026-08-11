@@ -5,12 +5,18 @@ title: "Phase 2: core foundations for tbd web (issue-query, AbortSignal, sync-ru
 kind: task
 status: in_progress
 priority: 1
-version: 4
+version: 5
 spec_path: docs/project/specs/active/plan-2026-08-10-tbd-web-live-bead-view.md
 labels: []
 dependencies: []
 created_at: 2026-08-11T01:26:33.046Z
-updated_at: 2026-08-11T04:53:16.085Z
+updated_at: 2026-08-11T06:51:07.742Z
+extensions:
+  linear:
+    id: 13ad413c-ba31-4342-9daf-00c9b0887f3d
+    linked_at: 2026-08-11T06:51:07.742Z
+    key: TBD-131
+    url: https://linear.app/finterm-ai/issue/TBD-131/phase-2-core-foundations-for-tbd-web-issue-query-abortsignal-sync-run
 ---
 Phase 2 of PR 207 per the plan's module map: extract src/lib/issue-query.ts with parity oracle and refactor list/ready onto it; AbortSignal through bead-watch.ts with a git.ts options overload; src/file/sync-run.ts extraction of the pull path; plus tbd-5hh1 and tbd-q5c7 fixes.
 

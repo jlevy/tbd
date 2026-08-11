@@ -1,0 +1,15 @@
+base:
+  assignee: null
+  description_hash: sha256:e7b9f02c141d2e282502c4e54c78541f9ec81484a385ec8360d87e08ad9429d5
+  labels:
+    - dogfood
+    - setup
+  priority: 1
+  status: open
+  title: Self-apply tbd setup to this repository
+bead_id: is-01ksc0thbsjf1629exkpyd5xn7
+external_id: dcaca6c7-6b64-45aa-8dd7-095d5698f3de
+remote_updated_at: 2026-08-11T06:49:36.795Z
+state: linked
+synced_at: 2026-08-11T06:49:37.000Z
+type: lk

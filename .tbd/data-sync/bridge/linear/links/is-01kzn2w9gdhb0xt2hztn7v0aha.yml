@@ -3,12 +3,12 @@ base:
   description_hash: sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
   labels: []
   priority: 1
-  status: open
+  status: closed
   title: "Phase 1: linked + last_actor fields, extensions per-namespace merge, parent_id
     cycle guard"
 bead_id: is-01kzn2w9gdhb0xt2hztn7v0aha
 external_id: 2e8bc9de-adb5-4abf-97a6-4cb0036495d5
-remote_updated_at: 2026-08-10T21:51:02.099Z
+remote_updated_at: 2026-08-11T06:49:52.489Z
 state: linked
-synced_at: 2026-08-11T06:48:31.308Z
+synced_at: 2026-08-11T06:49:52.628Z
 type: lk

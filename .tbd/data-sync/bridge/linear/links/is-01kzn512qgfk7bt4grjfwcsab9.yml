@@ -1,0 +1,13 @@
+base:
+  assignee: null
+  description_hash: sha256:eac3fd2a99eee2582f97c46ea10e9f08af061101625e0cbc86ae7222fd1c8ba4
+  labels: []
+  priority: 2
+  status: open
+  title: "integrations/core/intents.ts: write-ahead journal and replay"
+bead_id: is-01kzn512qgfk7bt4grjfwcsab9
+external_id: 1bc76460-8812-4ce8-b3bf-5844dee9ef8b
+remote_updated_at: 2026-08-11T06:50:56.378Z
+state: linked
+synced_at: 2026-08-11T06:50:57.441Z
+type: lk

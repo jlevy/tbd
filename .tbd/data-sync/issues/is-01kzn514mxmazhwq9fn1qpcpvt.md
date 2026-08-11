@@ -5,7 +5,7 @@ title: "integrations/github/: client, adapter, mapping"
 kind: task
 status: open
 priority: 2
-version: 2
+version: 3
 spec_path: docs/project/specs/active/plan-2026-08-10-external-tracker-integrations.md
 labels: []
 dependencies:
@@ -13,6 +13,12 @@ dependencies:
     target: is-01kzn5152hkvnx553tj4gwgc28
 parent_id: is-01kzn2wakpq2963exxqhj8xkdc
 created_at: 2026-08-10T06:16:16.797Z
-updated_at: 2026-08-10T06:16:17.232Z
+updated_at: 2026-08-11T06:51:03.671Z
+extensions:
+  linear:
+    id: d4d7b290-87b0-4fba-9978-af3809155d1d
+    linked_at: 2026-08-11T06:51:03.671Z
+    key: TBD-128
+    url: https://linear.app/finterm-ai/issue/TBD-128/integrationsgithub-client-adapter-mapping
 ---
 REST over native fetch (no Octokit for a handful of endpoints). Credential via GITHUB_TOKEN then gh auth token fallback. Binary open/closed state model, much simpler than Linear: no state UUIDs to cache. Reuses every seam from Phase 1 unchanged, which is the test of whether the adapter interface was right. Spec Component 11 and Dependencies.

@@ -1,0 +1,16 @@
+base:
+  assignee: null
+  description_hash: sha256:9de094ee995b7fac9bcc7746e4ce0777da3fd4b0a5c45629ae31433af5106b73
+  labels:
+    - ci
+    - dependencies
+    - phase-17
+  priority: 1
+  status: closed
+  title: "Phase 17: CI Fixes and Dependency Updates"
+bead_id: is-01kf5zyg8mqvwy9qf794emctph
+external_id: 293d9f7b-9d3a-40b8-8035-a2c4a930483b
+remote_updated_at: 2026-08-11T06:49:18.309Z
+state: linked
+synced_at: 2026-08-11T06:49:18.585Z
+type: lk

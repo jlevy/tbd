@@ -1,0 +1,14 @@
+base:
+  assignee: null
+  description_hash: sha256:cd233aa2c087789c9ee25f9221ae87bb4434c07f65476c9918b31e2e6ab81298
+  labels:
+    - linear-sync
+  priority: 1
+  status: blocked
+  title: "Epic: Linear integration pilot (design rework pending)"
+bead_id: is-01kxz3kfz7n7y23n9rzmy28f98
+external_id: 3a214faa-8f6e-45a6-b511-dfd271c5af42
+remote_updated_at: 2026-08-11T06:49:47.782Z
+state: linked
+synced_at: 2026-08-11T06:49:47.989Z
+type: lk

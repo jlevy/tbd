@@ -1,0 +1,13 @@
+base:
+  assignee: null
+  description_hash: sha256:f79defdaf263a84afbb067940650e803c78492187f7722edb775365a903b41a2
+  labels: []
+  priority: 2
+  status: open
+  title: "integrations/github/: client, adapter, mapping"
+bead_id: is-01kzn514mxmazhwq9fn1qpcpvt
+external_id: d4d7b290-87b0-4fba-9978-af3809155d1d
+remote_updated_at: 2026-08-11T06:51:03.134Z
+state: linked
+synced_at: 2026-08-11T06:51:04.578Z
+type: lk

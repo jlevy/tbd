@@ -5,7 +5,7 @@ title: "tbd integration sync: batched pull, push, echo suppression, orphans"
 kind: task
 status: open
 priority: 2
-version: 3
+version: 4
 spec_path: docs/project/specs/active/plan-2026-08-10-external-tracker-integrations.md
 labels: []
 dependencies:
@@ -15,6 +15,12 @@ dependencies:
     target: is-01kzn5147yrf3sw28jc7n600r7
 parent_id: is-01kzn2wa8b53y8wjh1gegbzhhx
 created_at: 2026-08-10T06:16:15.548Z
-updated_at: 2026-08-10T06:16:16.381Z
+updated_at: 2026-08-11T06:50:58.832Z
+extensions:
+  linear:
+    id: 08910b15-b6fe-47d0-9668-fc74bde4b973
+    linked_at: 2026-08-11T06:50:58.832Z
+    key: TBD-125
+    url: https://linear.app/finterm-ai/issue/TBD-125/tbd-integration-sync-batched-pull-push-echo-suppression-orphans
 ---
 Batched pull filtered on updatedAt (page cap 250); push scan of local diffs. Echo suppression: after a push record the post-write updatedAt and refresh base, so the next pull sees no remote diff for tbd's own write (no actor filtering needed, works with a plain API key). Orphans: archived or deleted external item -> mark link orphaned and warn, NEVER auto-delete a bead; deleted bead -> external item untouched, reported. Failure containment: external errors mark the run degraded and are reported per link, git phases still complete, external failure never blocks or corrupts git sync. Spec Component 10.

@@ -1,0 +1,13 @@
+base:
+  assignee: null
+  description_hash: sha256:cba78856fbd2a9859aef349d3c644f06954518bcf3aa1a6bc7ae2e256dbda1b6
+  labels: []
+  priority: 3
+  status: open
+  title: "Phase 3: Migrate bundled docs to external repo (tbd-docs)"
+bead_id: is-01kra98tz1mb3br9kg77933vdx
+external_id: 7ad54ee7-74aa-4285-9edb-e7458ec25a9a
+remote_updated_at: 2026-08-11T06:49:27.422Z
+state: linked
+synced_at: 2026-08-11T06:49:27.645Z
+type: lk

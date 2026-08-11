@@ -5,7 +5,7 @@ title: tbd source eject <key> [--to <local-bundle>] (copy cached doc into local 
 kind: task
 status: open
 priority: 2
-version: 5
+version: 6
 spec_path: docs/project/specs/active/plan-2026-05-07-docs-config-redesign.md
 labels: []
 dependencies:
@@ -19,7 +19,13 @@ dependencies:
     target: is-01kra9bae7t8hk71z0dg3jtztx
 parent_id: is-01kra98tffpc00qar6ee3zk8tv
 created_at: 2026-05-11T01:10:10.404Z
-updated_at: 2026-05-11T01:11:18.159Z
+updated_at: 2026-08-11T06:50:30.035Z
+extensions:
+  linear:
+    id: 672ff69f-07fb-458f-ba4b-9ea1368a6e85
+    linked_at: 2026-08-11T06:50:30.035Z
+    key: TBD-106
+    url: https://linear.app/finterm-ai/issue/TBD-106/tbd-source-eject-key-to-local-bundle-copy-cached-doc-into-local-bundle
 ---
 Copy cached doc into a local bundle, git add.
 
