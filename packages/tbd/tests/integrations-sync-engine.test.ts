@@ -13,7 +13,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { readLink } from '../src/integrations/core/link-store.js';
 import { readComments } from '../src/integrations/core/comment-store.js';
 import { appendLocalComment } from '../src/integrations/core/comment-store.js';
-import { listIntentFiles } from '../src/integrations/core/intents.js';
+import { listIntentFiles, writeIntentFile } from '../src/integrations/core/intents.js';
 import { runSync, type SyncCallbacks } from '../src/integrations/core/sync-engine.js';
 import { LinearAdapter } from '../src/integrations/linear/adapter.js';
 import { LinearClient } from '../src/integrations/linear/client.js';
@@ -366,6 +366,28 @@ describe('the sync engine', () => {
     const item = [...server.issues.values()][0]!;
     expect(item.description ?? '').toContain('tbd:begin'); // block spliced
     expect(await listIntentFiles(dir, 'linear')).toHaveLength(0); // consumed
+  });
+
+  it("a stale replay failure does not block this run's journal cleanup", async () => {
+    // Bugbot follow-up: report.failures also carries replay failures from
+    // OLDER intent files; those must not pin the current run's journal.
+    await writeIntentFile(dir, {
+      type: 'in',
+      run_id: '01hx5zzkbkactav9wevgemstale',
+      provider: 'linear',
+      created_at: '2026-08-10T00:00:00.000Z',
+      ops: [{ kind: 'update_issue', external_id: 'missing-forever', patch: { title: 'x' } }],
+    });
+
+    const epic = bead('is-01hx5zzkbkactav9wevgemmvrz');
+    store.set(epic.id, epic);
+    const result = await run([epic]); // clean outbound create + a failing replay
+
+    expect(result.failures).toHaveLength(1); // the stale replay, reported
+    expect(result.createdOutbound).toEqual(['mvrz']); // this run's work landed
+    const remaining = await listIntentFiles(dir, 'linear');
+    // Only the stale file survives; this run's journal was consumed.
+    expect(remaining.map((f) => f.run_id)).toEqual(['01hx5zzkbkactav9wevgemstale']);
   });
 
   it('counts both directions in the bulk guard', async () => {

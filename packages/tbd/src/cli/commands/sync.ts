@@ -61,7 +61,8 @@ import {
   deleteWorkspace,
 } from '../../file/workspace.js';
 import { withDataSyncContext } from '../lib/data-context.js';
-import { readConfig } from '../../file/config.js';
+import { runEnabledIntegrations } from '../lib/integration-runner.js';
+import type { Config } from '../../lib/types.js';
 import { EXIT_OPERATIONAL_ERROR } from '../lib/exit-codes.js';
 
 /**
@@ -105,6 +106,7 @@ class SyncHandler extends BaseCommand {
   private tbdRoot = '';
   private worktreePath = '';
   private syncBranch = '';
+  private config?: Config;
 
   async run(options: SyncOptions): Promise<void> {
     const tbdRoot = await requireInit();
@@ -138,29 +140,7 @@ class SyncHandler extends BaseCommand {
       }
     }
 
-    // STEP 2: Optional integration fold, off by default. Runs BEFORE the git
-    // phases so the beads and bridge state it writes are committed and pushed
-    // by the very sync the user invoked — after the push they would strand on
-    // this machine until the next sync. A failure degrades with a warning:
-    // external trackers never block git sync. Spawned as a child so it takes
-    // and releases its own data-sync lock before ours is acquired.
-    if (!options.status && !this.ctx.dryRun) {
-      const preConfig = await readConfig(tbdRoot).catch(() => undefined);
-      if (preConfig?.integrations?.sync_on_tbd_sync === true) {
-        try {
-          const { execFileSync } = await import('node:child_process');
-          execFileSync(process.execPath, [process.argv[1] ?? '', 'integration', 'sync', '--yes'], {
-            stdio: 'inherit',
-          });
-        } catch {
-          this.output.warn(
-            'Integration sync failed; continuing with git sync. Run `tbd integration sync` directly for details.',
-          );
-        }
-      }
-    }
-
-    // STEP 3: Sync issues (network operations)
+    // STEP 2: Sync issues (network operations)
     await withDataSyncContext(
       tbdRoot,
       { lock: true },
@@ -168,6 +148,7 @@ class SyncHandler extends BaseCommand {
         this.dataSyncDir = dataSyncDir;
         this.worktreePath = sharedPaths.sharedWorktreePath;
         this.syncBranch = config.sync.branch;
+        this.config = config;
 
         const syncBranch = config.sync.branch;
         const remote = config.sync.remote;
@@ -951,6 +932,41 @@ class SyncHandler extends BaseCommand {
       }
       // Remote not available - that's ok for first sync
       this.output.debug(`Fetch failed (may be first sync): ${(error as Error).message}`);
+    }
+
+    // Integration fold, off by default. This is the one correct moment for
+    // it: AFTER pull/merge (so reconciliation sees other machines' bead
+    // changes instead of pushing stale state to the tracker) and BEFORE the
+    // push (so the beads and bridge records it writes ride this very push).
+    // A failure degrades with a warning; external trackers never block git
+    // sync. The folded run implies affirmation of the bulk thresholds — use
+    // `tbd integration sync` directly for a guarded, reviewable run.
+    if (this.config?.integrations?.sync_on_tbd_sync === true) {
+      try {
+        const reports = await runEnabledIntegrations(
+          {
+            tbdRoot: this.tbdRoot,
+            config: this.config,
+            dataSyncDir: this.dataSyncDir,
+            worktreePath: this.worktreePath,
+          },
+          { assumeYes: true, interactive: false, dryRun: false },
+        );
+        for (const report of reports) {
+          if (!report.nothingToDo) {
+            this.output.info(
+              `Integrations (${report.provider}): pushed ${report.pushed.length}, ` +
+                `pulled ${report.pulled.length}, created ${report.createdOutbound.length}, ` +
+                `conflicts ${report.conflicts.length}, failures ${report.failures.length}`,
+            );
+          }
+        }
+      } catch (error) {
+        this.output.warn(
+          `Integration sync failed; continuing with git sync. ` +
+            `Run \`tbd integration sync\` directly for details. (${(error as Error).message})`,
+        );
+      }
     }
 
     // Check how many commits we're ahead of remote (if any)

@@ -456,6 +456,16 @@ export async function runSync(options: SyncEngineOptions): Promise<SyncRunReport
       });
     }
   }
+  // Which work is covered by THIS run's journal — so cleanup can be decided
+  // by ITS failures alone, not by replay failures from older files (which
+  // keep their own files) or by pull-side failures (which are re-planned from
+  // current state and need no journal).
+  const journaledExternalIds = new Set(
+    ops.flatMap((op) => (op.kind === 'update_issue' ? [op.external_id] : [])),
+  );
+  const journaledCommentBeads = new Set(commentPushes.map((push) => push.bead.id));
+  let journalDirty = false;
+
   if (ops.length > 0) {
     await writeIntentFile(dataSyncDir, {
       type: 'in',
@@ -570,6 +580,9 @@ export async function runSync(options: SyncEngineOptions): Promise<SyncRunReport
         state: 'linked',
       });
     } catch (error) {
+      if (journaledExternalIds.has(link.id) || journaledCommentBeads.has(pair.bead.id)) {
+        journalDirty = true;
+      }
       report.failures.push({
         beadId: displayId,
         error: error instanceof Error ? error.message : String(error),
@@ -631,6 +644,7 @@ export async function runSync(options: SyncEngineOptions): Promise<SyncRunReport
       });
       report.createdOutbound.push(displayId);
     } catch (error) {
+      journalDirty = true;
       report.failures.push({
         beadId: displayId,
         error: error instanceof Error ? error.message : String(error),
@@ -655,11 +669,13 @@ export async function runSync(options: SyncEngineOptions): Promise<SyncRunReport
     }
   }
 
-  // 8. Consume the journal only when everything it covered landed. Any
-  // failure keeps the file: the next run replays it first, and every journaled
-  // op is idempotent or replay-converts, so repeating the successful ones is
-  // harmless while the failed ones get their retry.
-  if (ops.length > 0 && report.failures.length === 0) {
+  // 8. Consume the journal when everything IT covered landed. Only failures
+  // of journaled work keep the file — replay failures belong to older files
+  // (which keep themselves), and pull-side failures are re-planned from
+  // current state. Kept files replay next run; every journaled op is
+  // idempotent or replay-converts, so repeating successes is harmless while
+  // failures get their retry.
+  if (ops.length > 0 && !journalDirty) {
     await deleteIntentFile(dataSyncDir, provider, runId);
   }
 

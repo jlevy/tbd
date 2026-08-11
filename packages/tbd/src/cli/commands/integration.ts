@@ -20,16 +20,20 @@ import { LinearAdapter } from '../../integrations/linear/adapter.js';
 import { VIEWER_QUERY } from '../../integrations/linear/queries.js';
 import { applyMirror, planMirror } from '../../integrations/core/mirror.js';
 import { mirrorSet } from '../../integrations/core/selection.js';
-import { priorityToLinear } from '../../integrations/linear/mapping.js';
-import type { MirrorReport, TrackerAdapter } from '../../integrations/core/types.js';
+import type { MirrorReport } from '../../integrations/core/types.js';
 import { withDataSyncContext } from '../lib/data-context.js';
 import { listIssues, readIssue, writeIssue } from '../../file/storage.js';
 import { formatDisplayId } from '../../lib/ids.js';
 import { now } from '../../utils/time-utils.js';
-import { createInterface } from 'node:readline/promises';
 
 import { checkBulkThreshold } from '../../integrations/core/bulk-guard.js';
-import { runSync, type SyncRunReport } from '../../integrations/core/sync-engine.js';
+import {
+  buildAdapter,
+  confirm,
+  resolveSpecLinks,
+  runEnabledIntegrations,
+} from '../lib/integration-runner.js';
+import type { SyncRunReport } from '../../integrations/core/sync-engine.js';
 import { appendLocalComment } from '../../integrations/core/comment-store.js';
 import { clearLink, readLink } from '../../integrations/core/link-store.js';
 import {
@@ -39,22 +43,15 @@ import {
   listLinkRecords,
   writeLinkRecord,
 } from '../../integrations/core/bridge-state.js';
-import { gitCommit } from '../../file/git.js';
-import { addIdMapping, generateUniqueShortId, saveIdMapping } from '../../file/id-mapping.js';
-import { extractUlidFromInternalId, generateInternalId } from '../../lib/ids.js';
-import { parseRepoSlug, specPermalink } from '../../integrations/core/permalink.js';
 import { writeLink } from '../../integrations/core/link-store.js';
-import { git } from '../../file/git.js';
 import { resolveToInternalId } from '../../file/id-mapping.js';
 import { matchesSpecPath } from '../../lib/spec-matching.js';
 import type {
-  Config,
   IntegrationSelect,
   Issue,
   IssueKindType,
   IssueStatusType,
   PolicyDefinition,
-  PriorityType,
   ProviderNameType,
 } from '../../lib/types.js';
 
@@ -392,93 +389,6 @@ class MirrorHandler extends BaseCommand {
   }
 }
 
-/**
- * Build a permalink for every distinct spec path in the store.
- *
- * Returns an empty map when the repository has no GitHub remote, in which case
- * mirrored issues simply carry no spec link rather than a broken one.
- */
-async function resolveSpecLinks(
-  repoDir: string,
-  issues: Issue[],
-  syncBranch: string,
-): Promise<Map<string, string>> {
-  const links = new Map<string, string>();
-
-  let slug;
-  try {
-    slug = parseRepoSlug(await git('-C', repoDir, 'remote', 'get-url', 'origin'));
-  } catch {
-    return links;
-  }
-  if (!slug) {
-    return links;
-  }
-
-  let currentBranch = '';
-  try {
-    currentBranch = (await git('-C', repoDir, 'rev-parse', '--abbrev-ref', 'HEAD')).trim();
-  } catch {
-    // Detached HEAD or a fresh repo; the remaining candidates still apply.
-  }
-
-  // Prefer the branch in hand, then the usual trunks. The sync branch never
-  // holds specs, so it is not a candidate.
-  const candidates = [currentBranch, 'main', 'master'].filter(
-    (branch): branch is string => branch.length > 0 && branch !== syncBranch,
-  );
-
-  const specPaths = new Set(
-    issues.map((issue) => issue.spec_path).filter((path): path is string => Boolean(path)),
-  );
-
-  for (const specPath of specPaths) {
-    const url = await specPermalink({ repoDir, specPath, slug, candidates });
-    if (url) {
-      links.set(specPath, url);
-    }
-  }
-  return links;
-}
-
-/**
- * Ask a yes/no question on the terminal.
- *
- * Only reached when stdin is a TTY, so there is a human to answer.
- */
-async function confirm(question: string): Promise<boolean> {
-  const rl = createInterface({ input: process.stdin, output: process.stderr });
-  try {
-    const answer = await rl.question(`${question} [y/N] `);
-    return /^y(es)?$/i.test(answer.trim());
-  } finally {
-    rl.close();
-  }
-}
-
-/** Construct the adapter for a provider. */
-function buildAdapter(
-  provider: ProviderNameType,
-  credential: string,
-  target: string | undefined,
-  config: Config,
-): TrackerAdapter {
-  if (provider !== 'linear') {
-    throw new CLIError(`No adapter is implemented for ${provider} yet.`);
-  }
-  if (!target) {
-    throw new CLIError('integrations.linear.team_key is required.');
-  }
-  return new LinearAdapter({
-    // LINEAR_API_URL points the CLI at the mock server in golden tests; the
-    // credential is still required so the auth path stays exercised.
-    client: new LinearClient({ apiKey: credential, endpoint: process.env.LINEAR_API_URL }),
-    teamKey: target,
-    createLabels: config.integrations?.linear?.create_labels ?? true,
-    project: config.integrations?.linear?.project,
-  });
-}
-
 interface SyncOptions {
   provider?: string;
   yes?: boolean;
@@ -492,118 +402,24 @@ class IntegrationSyncHandler extends BaseCommand {
   async run(options: SyncOptions): Promise<void> {
     const tbdRoot = await requireInit();
     const config = await readConfig(tbdRoot);
-    const enabled = enabledProviders(config).filter(
-      (entry) => !options.provider || entry.provider === options.provider,
-    );
-    if (enabled.length === 0) {
-      throw new CLIError(
-        'No enabled integration to sync. Run `tbd integration status` to see what is configured.',
-      );
-    }
-
     const dryRun = this.ctx.dryRun;
-    const reports: SyncRunReport[] = [];
 
+    let reports: SyncRunReport[] = [];
     await withDataSyncContext(tbdRoot, { lock: !dryRun }, async (context) => {
-      const allIssues = await listIssues(context.dataSyncDir);
-      const prefix = config.display.id_prefix;
-      const displayId = (id: string): string => formatDisplayId(id, context.mapping, prefix);
-      const specLinks = await resolveSpecLinks(tbdRoot, allIssues, config.sync.branch);
-      const worktreePath = context.sharedPaths.sharedWorktreePath;
-
-      for (const entry of enabled) {
-        if (entry.configError) {
-          throw new CLIError(entry.configError);
-        }
-        const credential = await resolveCredential(entry.provider, tbdRoot);
-        if (!credential) {
-          throw new CLIError(
-            `${CREDENTIAL_ENV_VARS[entry.provider]} is not set. Run \`tbd integration status\` for details.`,
-          );
-        }
-        const adapter = buildAdapter(entry.provider, credential.value, entry.target, config);
-
-        const report = await runSync({
-          provider: entry.provider,
-          adapter,
-          policy: entry.policy,
+      reports = await runEnabledIntegrations(
+        {
+          tbdRoot,
+          config,
           dataSyncDir: context.dataSyncDir,
-          allIssues,
-          displayId,
-          specUrl: (issue) => (issue.spec_path ? specLinks.get(issue.spec_path) : undefined),
-          mirrorLabels: config.integrations?.linear?.mirror_labels ?? false,
-          // Linear cannot represent P4 (its 4 covers P3 and P4); without this
-          // equivalence every P4 bead would oscillate as a phantom pull.
-          equivalences: {
-            priority: (a, b) =>
-              priorityToLinear(a as PriorityType) === priorityToLinear(b as PriorityType),
-          },
-          callbacks: {
-            readBead: (id) => readIssue(context.dataSyncDir, id),
-            writeBead: (issue) => writeIssue(context.dataSyncDir, issue),
-            createBead: async (input) => {
-              const id = generateInternalId();
-              const shortId = generateUniqueShortId(context.mapping);
-              addIdMapping(context.mapping, extractUlidFromInternalId(id), shortId);
-              const timestamp = now();
-              const issue: Issue = {
-                type: 'is',
-                id,
-                version: 1,
-                title: input.title,
-                kind: input.kind,
-                status: input.status,
-                priority: input.priority,
-                labels: [],
-                dependencies: [],
-                created_at: timestamp,
-                updated_at: timestamp,
-                ...(input.description != null ? { description: input.description } : {}),
-              };
-              await writeIssue(context.dataSyncDir, issue);
-              await saveIdMapping(context.dataSyncDir, context.mapping);
-              return issue;
-            },
-            afterJournal: async () => {
-              // Durability point: the journal must be recorded before any
-              // external write, so a crash replays instead of losing track.
-              await git('-C', worktreePath, 'add', '-A');
-              await gitCommit(worktreePath, '--no-verify', '-m', 'tbd integration: journal').catch(
-                () => undefined,
-              );
-            },
-            affirmBulk: async (counts) => {
-              const decision = checkBulkThreshold(counts, {
-                assumeYes: options.yes === true,
-                interactive: process.stdin.isTTY,
-              });
-              if (decision.kind === 'refused') {
-                throw new CLIError(decision.message);
-              }
-              if (decision.kind === 'needs-confirmation') {
-                const ok = await confirm(
-                  `Sync with ${entry.provider}: ${decision.reasons.join(' and ')}. Continue?`,
-                );
-                if (!ok) {
-                  throw new CLIError('Aborted.');
-                }
-              }
-            },
-          },
+          worktreePath: context.sharedPaths.sharedWorktreePath,
+        },
+        {
+          provider: options.provider,
+          assumeYes: options.yes === true,
+          interactive: process.stdin.isTTY,
           dryRun,
-          now,
-        });
-        reports.push(report);
-      }
-
-      if (!dryRun) {
-        // Record the run: bead writes, base advances, journal cleanup — one
-        // commit, so bases never advance in git without their writes.
-        await git('-C', worktreePath, 'add', '-A');
-        await gitCommit(worktreePath, '--no-verify', '-m', 'tbd integration: sync').catch(
-          () => undefined,
-        );
-      }
+        },
+      );
     });
 
     this.output.data(reports, () => {
