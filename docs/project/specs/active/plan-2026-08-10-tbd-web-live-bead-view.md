@@ -604,6 +604,10 @@ to land the whole command through one PR.
 
 ### Phase 6: Production validation and merge
 
+- [x] Local release matrix green after final review: format, strict lint/typecheck,
+  build, 1,497 Vitest tests, 1,073 tryscript checks, publint, 31 package-age pins, watch
+  release smoke, and packed-web proof.
+  The unchanged production audit advisory is tracked separately as `tbd-6gy0`.
 - [ ] Full matrix green: suite + the `tbd web` tryscript on Ubuntu/macOS/Windows CI; the
   coverage job runs the repository-wide tryscript set on Ubuntu.
 - [x] Perf budget assertion on the 5,000-issue fixture, including the 4,000-row render
@@ -618,12 +622,13 @@ to land the whole command through one PR.
   The macOS pass on this repository covers operator-readable output, search and ancestor
   context, lazy detail expansion, light/dark/system themes, responsive layout, CSP, and
   a clean browser console; the second platform is supplied by the final CI matrix.
-- [ ] Final merge from main; PR description updated to the shipped reality.
+- [x] Current `origin/main` merged cleanly after the local release gate.
+- [ ] PR description updated to the shipped reality.
 
 ### Final review finding map
 
 The final review is tracked under `tbd-o7nu`. Every implementation finding has one bead
-and one code seam; all are implemented locally and close only after the final gate.
+and one code seam; all ten are implemented, locally validated, and closed.
 
 | Bead | Severity | File/function seam | Disposition |
 | --- | --- | --- | --- |
