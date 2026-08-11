@@ -372,6 +372,7 @@ class Store implements ClientStore {
   private bodyGeneration = 0;
   private bodyToken = 0;
   private activeBodyFetches = 0;
+  private reconcileExpandedAfterRefresh = false;
   private started = false;
   private stopped = false;
   private readonly storage: ClientStorage | undefined;
@@ -524,6 +525,11 @@ class Store implements ClientStore {
       if (this.stopped || this.refreshRequested || query !== buildQueryString(this.controls)) {
         continue;
       }
+      const reconcileExpanded = this.reconcileExpandedAfterRefresh;
+      if (reconcileExpanded) {
+        this.reconcileExpandedRows(this.board?.rows ?? [], next.rows);
+        this.reconcileExpandedAfterRefresh = false;
+      }
       this.board = next;
       this.boardError = null;
       const currentWatch = this.watch;
@@ -533,6 +539,11 @@ class Store implements ClientStore {
           next.state.dataVersion >= currentWatch.dataVersion)
       ) {
         this.watch = next.state;
+      }
+      if (reconcileExpanded) {
+        for (const id of this.expanded) {
+          this.loadBody(id, true);
+        }
       }
       this.emit();
     }
@@ -587,11 +598,37 @@ class Store implements ClientStore {
     }
     this.bodyGeneration += 1;
     this.bodies.clear();
-    for (const id of this.expanded) {
-      this.loadBody(id, true);
-    }
+    this.reconcileExpandedAfterRefresh = true;
+    this.pruneBodyQueue();
     void this.refresh();
     this.emit();
+  }
+
+  private reconcileExpandedRows(
+    previousRows: readonly BoardRowView[],
+    nextRows: readonly BoardRowView[],
+  ): void {
+    const previousInternalIds = new Map(previousRows.map((row) => [row.id, row.internalId]));
+    const nextIdsByInternalId = new Map(nextRows.map((row) => [row.internalId, row.id]));
+    const nextIds = new Set(nextRows.map((row) => row.id));
+    const reconciled = new Set<string>();
+    for (const id of this.expanded) {
+      const internalId = previousInternalIds.get(id);
+      const nextId =
+        internalId === undefined
+          ? nextIds.has(id)
+            ? id
+            : undefined
+          : nextIdsByInternalId.get(internalId);
+      if (nextId !== undefined) {
+        reconciled.add(nextId);
+      }
+    }
+    this.expanded.clear();
+    for (const id of reconciled) {
+      this.expanded.add(id);
+    }
+    this.pruneBodyQueue();
   }
 
   private loadBody(id: string, force: boolean): void {

@@ -66,7 +66,7 @@ function state(overrides: Partial<ObservationStateView> = {}): ObservationStateV
   };
 }
 
-function board(watch: ObservationStateView, title = 'Initial'): BoardResponse {
+function board(watch: ObservationStateView, title = 'Initial', id = 'web-one'): BoardResponse {
   return {
     command: 'tbd list --pretty',
     commandExact: true,
@@ -78,7 +78,7 @@ function board(watch: ObservationStateView, title = 'Initial'): BoardResponse {
     closedHidden: 0,
     rows: [
       {
-        id: 'web-one',
+        id,
         internalId: 'is-01aaaaaaaaaaaaaaaaaaaaaa01',
         parentId: null,
         title,
@@ -285,6 +285,51 @@ describe('createClientStore transport orchestration', () => {
       kind: 'loaded',
       body: { id: 'web-one', notes: 'fresh body' },
     });
+    store.stop();
+  });
+
+  it('remaps expanded rows by internal id before refetching their bodies', async () => {
+    let onState: ((next: unknown) => void) | null = null;
+    let current = board(state());
+    const bodyIds: string[] = [];
+    const transport: Transport = {
+      openEvents: (_url, callback) => {
+        onState = callback;
+        return { close: vi.fn() };
+      },
+      fetchJson: (url) => {
+        if (url.startsWith('/api/board?')) {
+          return Promise.resolve(current);
+        }
+        const id = new URL(url, 'http://localhost').searchParams.get('id');
+        if (id === null) {
+          throw new Error('Missing bead id');
+        }
+        bodyIds.push(id);
+        return Promise.resolve({ id });
+      },
+    };
+    const store = createClientStore(transport, vi.fn());
+    await store.start();
+    store.toggle('web-one');
+    await vi.waitFor(() => {
+      expect(store.getView().bodies.has('web-one')).toBe(true);
+    });
+
+    current = board(
+      state({ dataVersion: 1, movedIds: ['next-one'], localTip: 'b'.repeat(40) }),
+      'Remapped',
+      'next-one',
+    );
+    onState!(current.state);
+    await vi.waitFor(() => {
+      expect([...store.getView().expanded]).toEqual(['next-one']);
+      expect(store.getView().bodies.has('next-one')).toBe(true);
+    });
+
+    expect(bodyIds).toEqual(['web-one', 'next-one']);
+    expect(store.getView().expanded.has('web-one')).toBe(false);
+    expect(store.getView().bodies.has('web-one')).toBe(false);
     store.stop();
   });
 

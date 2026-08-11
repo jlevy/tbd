@@ -730,7 +730,7 @@ to land the whole command through one PR.
 
 The final review is tracked under `tbd-o7nu`, with the owner-directed revision and its
 follow-up findings under `tbd-ihyx`. Every implementation finding has one bead and one
-code seam; all twenty-two are implemented and locally validated.
+code seam; all twenty-three are implemented and locally validated.
 R14 removes the final Windows command-shim assumption from the packed proof.
 R15 closes the final scale-specific memory and data-motion paths after the 10,000-row
 ceiling review. R16 preserves an executable assertion on both sides of that ceiling.
@@ -743,6 +743,7 @@ closed-stream race found during the revised-head senior review.
 R21 prevents a delayed duplicate bounded event from replacing canonical same-version
 board state. R22 makes the constant-size local observation assertion platform-native
 after the first revised-head hosted run exposed POSIX-only expected strings on Windows.
+R23 reconciles expanded client rows by stable internal identity after display-ID remaps.
 
 | Bead | Severity | File/function seam | Disposition |
 | --- | --- | --- | --- |
@@ -768,6 +769,7 @@ after the first revised-head hosted run exposed POSIX-only expected strings on W
 | `tbd-xp1v` (R20) | P2 | `src/cli/web/http.ts`: `SseHub.attach`, `SseHub.write`; `tests/web-http.test.ts` | Check ended streams, catch a write-time close race, and install a per-response error handler so one disconnected client cannot escape a publish or heartbeat into the server process. |
 | `tbd-t5ky` (R21) | P1 | `src/web/core.ts`: `Store.receiveState`; `tests/web-core.test.ts` | Reject duplicate SSE frames at an already-adopted observer state version, while preserving the deliberate same-version canonical board recovery, so bounded transport cannot overwrite complete changed-row motion. |
 | `tbd-wykg` (R22) | P1 | `tests/web-board.test.ts`: constant-size observation-surface assertion | Build expected paths with Node’s platform-native `path.join`, matching production behavior on Windows, macOS, and Linux. |
+| `tbd-qdhn` (R23) | P1 | `src/web/core.ts`: `Store.runRefreshLoop`, `Store.receiveState`, `Store.reconcileExpandedRows`; `tests/web-core.test.ts` | Wait for the canonical board after graph motion, remap expanded rows by stable internal id, drop vanished stale entries, and only then refetch bodies under current display ids. |
 
 ### Merge gate for PR #207
 
