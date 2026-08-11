@@ -628,7 +628,8 @@ to land the whole command through one PR.
 ### Final review finding map
 
 The final review is tracked under `tbd-o7nu`. Every implementation finding has one bead
-and one code seam; all ten are implemented, locally validated, and closed.
+and one code seam; the first ten are implemented, locally validated, and closed.
+R11 is the final Windows-matrix correction.
 
 | Bead | Severity | File/function seam | Disposition |
 | --- | --- | --- | --- |
@@ -642,6 +643,7 @@ and one code seam; all ten are implemented, locally validated, and closed.
 | `tbd-rmvx` (R8) | P2 | `tests/rescue-divergence.test.ts`: true-conflict rescue integration | Give the Git/subprocess integration case an explicit timeout after it passed alone in 0.7 seconds but reached 8.4 seconds under the full parallel suite. |
 | `tbd-ijz7` (R9) | P2 | `tests/cli-setup.tryscript.md`: top-level help golden | Pin `web` in the complete command listing as well as its dedicated help transcript. |
 | `tbd-b4m2` (R10) | P1 | five `tests/cli-sync-*.tryscript.md` fixtures: `before` remotes | Keep each bare remote inside its sandbox’s own Git directory so sync histories cannot leak between transcript files. |
+| `tbd-snb4` (R11) | P1 | `tests/cli-web.tryscript.md`: built CLI invocation | Invoke `bin.mjs` explicitly with Node so the focused matrix transcript does not depend on Unix extensionless-command lookup. |
 
 ### Merge gate for PR #207
 
