@@ -1,0 +1,16 @@
+base:
+  assignee: null
+  description_hash: sha256v6:7fee2d70fa9a246d1d2239614d5663700b3c18d6ee041a9b6093506616cf141d
+  labels:
+    - server
+    - lifecycle
+    - web
+  priority: 1
+  status: open
+  title: "Phase 3.4: implement loopback server lifecycle, ports, readiness, and shutdown"
+bead_id: is-01kzrs8gb1ky34vpdv7qfdfv4q
+external_id: 8980c965-5f00-4dc2-b17c-0d703a2a3b0a
+remote_updated_at: 2026-08-11T16:24:49.991Z
+state: linked
+synced_at: 2026-08-11T16:24:50.253Z
+type: lk

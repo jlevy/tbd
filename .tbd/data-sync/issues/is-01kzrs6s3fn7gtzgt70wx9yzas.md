@@ -5,7 +5,7 @@ title: "Phase 5: align tbd web design, user docs, and release notes"
 kind: task
 status: open
 priority: 1
-version: 4
+version: 5
 spec_path: docs/project/specs/active/plan-2026-08-10-tbd-web-live-bead-view.md
 labels:
   - docs
@@ -19,6 +19,12 @@ child_order_hints:
   - is-01kzrs9vkh8j1vsrfytqdx3sr1
   - is-01kzrsa3b4fywmvvsxt5s4srrq
 created_at: 2026-08-11T16:06:36.398Z
-updated_at: 2026-08-11T16:08:25.188Z
+updated_at: 2026-08-11T16:24:40.731Z
+extensions:
+  linear:
+    id: b5656b13-1372-4754-9956-b26f2050c638
+    linked_at: 2026-08-11T16:24:40.731Z
+    key: TBD-137
+    url: https://linear.app/finterm-ai/issue/TBD-137/phase-5-align-tbd-web-design-user-docs-and-release-notes
 ---
 Amend tbd-design.md section 1.6 and document the CLI layer; update tbd-docs.md, README, CHANGELOG, development docs, help text, and the spec checklists to shipped reality; delete the development spike files and retain any needed topology under tests/QA.

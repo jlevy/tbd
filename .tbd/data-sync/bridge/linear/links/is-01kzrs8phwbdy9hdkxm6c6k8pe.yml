@@ -1,0 +1,16 @@
+base:
+  assignee: null
+  description_hash: sha256v6:9799683e2685775af60376e2176f6fdb83111ca972115e837556f509947af7ec
+  labels:
+    - cli
+    - lifecycle
+    - web
+  priority: 1
+  status: open
+  title: "Phase 3.5: register WebHandler CLI surface and process lifecycle"
+bead_id: is-01kzrs8phwbdy9hdkxm6c6k8pe
+external_id: 9675a81a-a8b8-4da5-9982-5b68215cf678
+remote_updated_at: 2026-08-11T16:24:51.279Z
+state: linked
+synced_at: 2026-08-11T16:24:51.616Z
+type: lk

@@ -5,7 +5,7 @@ title: "Phase 4: productize strict TypeScript web client and packaged artifact"
 kind: task
 status: open
 priority: 1
-version: 6
+version: 7
 spec_path: docs/project/specs/active/plan-2026-08-10-tbd-web-live-bead-view.md
 labels:
   - web
@@ -20,6 +20,12 @@ child_order_hints:
   - is-01kzrs9eanh9pfsh52fed3gdna
   - is-01kzrs9mb24gzv94d2mvexqnbd
 created_at: 2026-08-11T16:06:24.415Z
-updated_at: 2026-08-11T16:08:09.825Z
+updated_at: 2026-08-11T16:24:39.393Z
+extensions:
+  linear:
+    id: 0062001b-4c7f-4489-bd91-f0aef80a0d27
+    linked_at: 2026-08-11T16:24:39.393Z
+    key: TBD-136
+    url: https://linear.app/finterm-ai/issue/TBD-136/phase-4-productize-strict-typescript-web-client-and-packaged-artifact
 ---
 Move the spike client into src/web/core.ts + client.ts with injected transport tests; move template/styles to source, add strict DOM typecheck and browser IIFE build, stitch dist/web/index.html, retarget CSS tests, and retire inline untyped client behavior.

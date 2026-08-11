@@ -1,0 +1,16 @@
+base:
+  assignee: null
+  description_hash: sha256v6:efd25084d261154a59716269cf1be9dffcabe4aa88fa05aa7bc5f0ec590847c0
+  labels:
+    - validation
+    - web
+    - pr-207
+  priority: 1
+  status: open
+  title: "Phase 6: validate and land production tbd web end to end"
+bead_id: is-01kzrs779s8d2t4qmvpx310p22
+external_id: 9437aa72-43f0-46bf-87b9-cc8a023e198e
+remote_updated_at: 2026-08-11T16:24:44.008Z
+state: linked
+synced_at: 2026-08-11T16:24:44.243Z
+type: lk

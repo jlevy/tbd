@@ -1,0 +1,15 @@
+base:
+  assignee: null
+  description_hash: sha256v6:29f4acd119bf99da139c48451080d88a5c3e8911e2f21061aaed1914b2714386
+  labels:
+    - pr-207
+    - review
+  priority: 1
+  status: in_progress
+  title: "Address review: PR #207 — final Bugbot body-fetch finding"
+bead_id: is-01kzrs2jrjg3pzase83ebxdjyg
+external_id: d207b5f2-dcc4-4e68-9b30-eb80a250b892
+remote_updated_at: 2026-08-11T16:24:36.056Z
+state: linked
+synced_at: 2026-08-11T16:24:36.453Z
+type: lk

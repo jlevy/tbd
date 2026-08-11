@@ -1,0 +1,16 @@
+base:
+  assignee: null
+  description_hash: sha256v6:7a24f77521f3a6fd76db27d73f3e987af4f6a5ca706108d8043e0a55379ab335
+  labels:
+    - docs
+    - architecture
+    - web
+  priority: 1
+  status: open
+  title: "Phase 5.1: amend architecture and document shipped tbd web behavior"
+bead_id: is-01kzrs9vkh8j1vsrfytqdx3sr1
+external_id: 979c938b-b151-428d-9ea4-b2cb93f02e0f
+remote_updated_at: 2026-08-11T16:24:59.395Z
+state: linked
+synced_at: 2026-08-11T16:24:59.640Z
+type: lk

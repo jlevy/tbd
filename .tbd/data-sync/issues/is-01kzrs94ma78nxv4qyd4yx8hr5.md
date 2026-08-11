@@ -5,7 +5,7 @@ title: "Phase 4.2: move viewer DOM, template, and design system into strict sour
 kind: task
 status: open
 priority: 1
-version: 2
+version: 3
 spec_path: docs/project/specs/active/plan-2026-08-10-tbd-web-live-bead-view.md
 labels:
   - client
@@ -16,6 +16,12 @@ dependencies:
     target: is-01kzrs9eanh9pfsh52fed3gdna
 parent_id: is-01kzrs6dd1abehychzed2yc1fk
 created_at: 2026-08-11T16:07:53.737Z
-updated_at: 2026-08-11T16:08:03.667Z
+updated_at: 2026-08-11T16:24:53.514Z
+extensions:
+  linear:
+    id: 051fc604-e4b3-47e2-9db1-eed9cca757ed
+    linked_at: 2026-08-11T16:24:53.514Z
+    key: TBD-145
+    url: https://linear.app/finterm-ai/issue/TBD-145/phase-42-move-viewer-dom-template-and-design-system-into-strict
 ---
 Create packages/tbd/src/web/client.ts as thin typed DOM glue over ClientStore; move HTML shell to src/web/index.html and CSS to src/web/styles.css; preserve query controls, tree/body rendering, data-vs-UI motion, change deltas, status/stats/log panels, theme chooser, reduced motion, accessibility, and no unsafe HTML insertion. Retarget design-system tests to styles.css.

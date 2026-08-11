@@ -1,0 +1,16 @@
+base:
+  assignee: null
+  description_hash: sha256v6:aad3e5f42c7627879a697473ddcab012bf48917fc3e5f1b9fccb6c1380993ab6
+  labels:
+    - build
+    - packaging
+    - web
+  priority: 1
+  status: open
+  title: "Phase 4.3: add browser typecheck, IIFE build, and deterministic HTML stitch"
+bead_id: is-01kzrs9eanh9pfsh52fed3gdna
+external_id: 90cb1f73-b89d-4930-9721-0407747b0680
+remote_updated_at: 2026-08-11T16:24:56.345Z
+state: linked
+synced_at: 2026-08-11T16:24:56.542Z
+type: lk

@@ -3,11 +3,11 @@ base:
   description_hash: sha256v6:66bb24004f28f502cf82a22bb08fc7b56adce6c3956ead0fb28d20406245897a
   labels: []
   priority: 1
-  status: in_progress
+  status: closed
   title: "Phase 2: core foundations for tbd web (issue-query, AbortSignal, sync-run)"
 bead_id: is-01kzq6vbaqck3q21a69965ha4e
 external_id: 13ad413c-ba31-4342-9daf-00c9b0887f3d
-remote_updated_at: 2026-08-11T06:51:08.412Z
+remote_updated_at: 2026-08-11T16:24:33.521Z
 state: linked
-synced_at: 2026-08-11T07:14:08.924Z
+synced_at: 2026-08-11T16:24:33.939Z
 type: lk

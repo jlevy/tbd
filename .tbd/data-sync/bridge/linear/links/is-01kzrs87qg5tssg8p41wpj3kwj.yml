@@ -1,0 +1,16 @@
+base:
+  assignee: null
+  description_hash: sha256v6:875292b152c3da294ba954b1e003f6ca6fb5167d6ac7530bad59234b8cb81aa5
+  labels:
+    - server
+    - watch
+    - web
+  priority: 1
+  status: open
+  title: "Phase 3.3: implement in-process remote/local wake coordinator"
+bead_id: is-01kzrs87qg5tssg8p41wpj3kwj
+external_id: b5dfad0e-d667-4fe6-8b53-3d4cb58955d5
+remote_updated_at: 2026-08-11T16:24:48.301Z
+state: linked
+synced_at: 2026-08-11T16:24:48.676Z
+type: lk

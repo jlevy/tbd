@@ -1,0 +1,16 @@
+base:
+  assignee: null
+  description_hash: sha256v6:beaa02822036e86f01c168cdc247895804f9dac64cc4a4bdfaf7b1d3a8663ee0
+  labels:
+    - validation
+    - performance
+    - web
+  priority: 1
+  status: open
+  title: "Phase 6.1: run full quality matrix plus 5k performance and payload gates"
+bead_id: is-01kzrsac4r354tm2b2f89mg0ve
+external_id: 706626fd-ddbc-4090-85ba-8d3f23909c52
+remote_updated_at: 2026-08-11T16:25:03.805Z
+state: linked
+synced_at: 2026-08-11T16:25:03.977Z
+type: lk

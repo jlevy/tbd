@@ -1,0 +1,15 @@
+base:
+  assignee: null
+  description_hash: sha256v6:e178043c398feb0c064838b44c228c2625dab51035e4e9a75a4da60f7a65c559
+  labels:
+    - web
+    - pr-207
+  priority: 1
+  status: open
+  title: "Phase 4: productize strict TypeScript web client and packaged artifact"
+bead_id: is-01kzrs6dd1abehychzed2yc1fk
+external_id: 0062001b-4c7f-4489-bd91-f0aef80a0d27
+remote_updated_at: 2026-08-11T16:24:40.139Z
+state: linked
+synced_at: 2026-08-11T16:24:40.335Z
+type: lk
