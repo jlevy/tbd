@@ -18,6 +18,7 @@ import {
   git,
   gitCommit,
   mergeBeadAcrossRefs,
+  resolveBridgeConflicts,
   pushWithRetry,
   ensureWorktreeAttachedToBranch,
   checkRemoteBranchHealth,
@@ -678,6 +679,18 @@ class SyncHandler extends BaseCommand {
           await writeIssue(this.dataSyncDir, result.merged);
           conflicts.push(...result.conflicts);
         }
+      }
+
+      // Resolve conflicted bridge state (integration link records, intents,
+      // meta cache) by the newest-observation rule. Without this, a bridge
+      // conflict would trip the conflict-marker safety check below and fail
+      // the whole sync.
+      const bridgeResolution = await resolveBridgeConflicts(worktreePath);
+      if (bridgeResolution.resolved + bridgeResolution.deleted > 0) {
+        this.output.debug(
+          `Resolved ${bridgeResolution.resolved} bridge record(s), ` +
+            `${bridgeResolution.deleted} deletion(s) honored`,
+        );
       }
 
       // Merge ids.yml (ID mappings are always additive, so we union both sides)

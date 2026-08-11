@@ -1134,7 +1134,9 @@ import {
   resolveSharedTbdPaths,
   type SharedTbdPaths,
 } from '../lib/paths.js';
-import { DATA_SYNC_SCHEMA_VERSION } from '../lib/schemas.js';
+import { DATA_SYNC_SCHEMA_VERSION, LinkRecordSchema } from '../lib/schemas.js';
+import type { LinkRecord } from '../lib/types.js';
+import { parseYamlWithConflictDetection, stringifyYaml } from '../utils/yaml-utils.js';
 import {
   loadIdMapping,
   mergeIdMappings,
@@ -2075,6 +2077,135 @@ export async function mergeBeadAcrossRefs(
   }
 
   return mergeIssues(base, ours, theirs);
+}
+
+/**
+ * Pick the newer observation of a link record.
+ *
+ * Both sides of a sync-branch merge are observations of the same external
+ * truth (the tracker item), so the later observation wins outright — higher
+ * `remote_updated_at`, then `synced_at`, then ours for determinism. This is
+ * conflict-free by construction: no field-level merge, no attic, no report.
+ */
+export function pickNewestLinkRecord(ours: LinkRecord, theirs: LinkRecord): LinkRecord {
+  if (ours.remote_updated_at !== theirs.remote_updated_at) {
+    return ours.remote_updated_at > theirs.remote_updated_at ? ours : theirs;
+  }
+  if (ours.synced_at !== theirs.synced_at) {
+    return ours.synced_at > theirs.synced_at ? ours : theirs;
+  }
+  return ours;
+}
+
+/** Read and validate a bridge link record blob from a git ref, or undefined. */
+async function readLinkRecordBlob(
+  repoDir: string,
+  ref: string,
+  path: string,
+): Promise<LinkRecord | undefined> {
+  let content: string;
+  try {
+    content = await git('-C', repoDir, 'show', `${ref}:${path}`);
+  } catch (err) {
+    if (err instanceof GitError) {
+      return undefined; // absent on that side
+    }
+    throw err;
+  }
+  try {
+    const parsed = LinkRecordSchema.safeParse(parseYamlWithConflictDetection(content));
+    return parsed.success ? parsed.data : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+/**
+ * Resolve every conflicted bridge file left by a sync-branch merge.
+ *
+ * Bridge state lives under `DATA_SYNC_DIR/bridge/<provider>/`, one file per
+ * link (plus intents and a meta cache), and git's text merge cannot resolve
+ * concurrent updates to the same record. The rules, in order:
+ *
+ * - **Absence wins.** A side that deleted the file did so deliberately (an
+ *   unlink, or an intent consumed by replay); recreating it would resurrect
+ *   state someone removed. Mirrors the extensions namespace-merge rule.
+ * - **Link records** (`links/*.yml`): the newest observation wins
+ *   ({@link pickNewestLinkRecord}). An invalid side loses to a valid one; two
+ *   invalid sides resolve to deletion, and the next sync re-seeds the base.
+ * - **Anything else** (intents, meta cache): ours wins. Intent replay is
+ *   idempotent and the meta cache refreshes on demand, so either side is fine.
+ *
+ * Called while a merge is in progress (MERGE_HEAD set), before the caller's
+ * `add -A`; the conflict-marker safety check downstream would otherwise refuse
+ * to commit these files at all.
+ */
+export async function resolveBridgeConflicts(
+  worktreePath: string,
+): Promise<{ resolved: number; deleted: number }> {
+  const conflictedList = await git(
+    '-C',
+    worktreePath,
+    'diff',
+    '--name-only',
+    '--diff-filter=U',
+    '--',
+    `${DATA_SYNC_DIR}/bridge`,
+  );
+  const paths = conflictedList
+    .split('\n')
+    .map((line) => line.trim())
+    .filter((line) => line.length > 0);
+
+  let resolved = 0;
+  let deleted = 0;
+  for (const path of paths) {
+    const absolute = join(worktreePath, path);
+    const isLinkRecord = /\/links\/[^/]+\.yml$/.test(path);
+
+    if (isLinkRecord) {
+      const ours = await readLinkRecordBlob(worktreePath, 'HEAD', path);
+      const theirs = await readLinkRecordBlob(worktreePath, 'MERGE_HEAD', path);
+      // A delete/modify conflict reads the deleted side as undefined only when
+      // the blob is truly absent; distinguish "absent" from "present but
+      // invalid" via ls-files stages: stage 2 = ours, stage 3 = theirs.
+      const stages = await git('-C', worktreePath, 'ls-files', '-u', '--', path);
+      const hasOurs = /\s2\t/.test(stages);
+      const hasTheirs = /\s3\t/.test(stages);
+
+      if (!hasOurs || !hasTheirs) {
+        // Deleted on one side: absence wins.
+        await rm(absolute, { force: true });
+        deleted++;
+      } else if (ours && theirs) {
+        await writeFile(absolute, stringifyYaml(pickNewestLinkRecord(ours, theirs)));
+        resolved++;
+      } else if (ours || theirs) {
+        await writeFile(absolute, stringifyYaml(ours ?? theirs));
+        resolved++;
+      } else {
+        // Both sides present but unreadable: delete and let sync re-seed.
+        await rm(absolute, { force: true });
+        deleted++;
+      }
+      continue;
+    }
+
+    // Intents and meta: absence wins, else ours.
+    const stages = await git('-C', worktreePath, 'ls-files', '-u', '--', path);
+    const hasOurs = /\s2\t/.test(stages);
+    const hasTheirs = /\s3\t/.test(stages);
+    if (!hasOurs || !hasTheirs) {
+      await rm(absolute, { force: true });
+      deleted++;
+    } else {
+      const content = await git('-C', worktreePath, 'show', `HEAD:${path}`);
+      await writeFile(absolute, content);
+      resolved++;
+    }
+  }
+
+  return { resolved, deleted };
 }
 
 /** Preserve a losing issue version explicitly under attic/conflicts/. */
