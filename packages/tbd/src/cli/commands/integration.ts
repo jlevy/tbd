@@ -243,7 +243,7 @@ class PushHandler extends BaseCommand {
     );
     if (enabled.length === 0) {
       throw new CLIError(
-        'No enabled integration to mirror to. Run `tbd integration status` to see what is configured.',
+        'No enabled integration to push to. Run `tbd integration status` to see what is configured.',
       );
     }
 
@@ -493,7 +493,9 @@ class IntegrationCommentHandler extends BaseCommand {
       const internalId = resolveToInternalId(beadRef, context.mapping);
       const stored = await readIssue(context.dataSyncDir, internalId);
       if (!readLink(stored, provider)) {
-        throw new CLIError(`${beadRef} is not linked to ${provider}; link or mirror it first.`);
+        throw new CLIError(
+          `${beadRef} is not linked to ${provider}; link it or run \`tbd integration sync --push\` first.`,
+        );
       }
       const { issue } = appendLocalComment(stored, provider, text, now());
       issue.version += 1;

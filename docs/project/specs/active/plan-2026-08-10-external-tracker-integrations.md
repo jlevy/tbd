@@ -1224,8 +1224,8 @@ Phase 2 extends the same structure:
    - a forced both-sides conflict on the pilot resolved end-to-end through the comment
      lifecycle;
    - two-machine concurrent sync on the pilot with no echo and no ping-pong;
-   - `tbd-rdsb` resolved (or CI explicitly accepted as unreliable), since sync trusts
-     the sync-branch commit machinery;
+   - ~~`tbd-rdsb` resolved~~ **done**: root-caused as tryscript cross-contamination
+     through a shared origin repo, not a product bug; fixed with per-file origins;
    - failure-injection coverage for transport errors mid-run.
      `inbound.mode: auto` stays off by default even then — it lets people outside the
      repo create work inside it, and a repo should opt into that knowingly.
