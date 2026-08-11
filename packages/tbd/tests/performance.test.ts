@@ -282,6 +282,7 @@ describe('web board performance', () => {
     expect(loaded.ms).toBeLessThan(1_000);
     expect(rendered.ms).toBeLessThan(1_000);
     expect(rendered.result).toMatchObject({
+      commandExact: false,
       total: issueCount,
       matched: issueCount,
       truncated: issueCount,

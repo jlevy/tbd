@@ -668,11 +668,12 @@ to land the whole command through one PR.
 ### Final review finding map
 
 The final review is tracked under `tbd-o7nu`. Every implementation finding has one bead
-and one code seam; all seventeen are implemented and locally validated.
+and one code seam; all eighteen are implemented and locally validated.
 R14 removes the final Windows command-shim assumption from the packed proof.
 R15 closes the final scale-specific memory and data-motion paths after the 10,000-row
 ceiling review. R16 preserves an executable assertion on both sides of that ceiling.
 R17 bounds pretty-tree metadata by the same response slice.
+R18 marks a capped table command-inexact and names truncation in its tooltip.
 
 | Bead | Severity | File/function seam | Disposition |
 | --- | --- | --- | --- |
@@ -693,6 +694,7 @@ R17 bounds pretty-tree metadata by the same response slice.
 | `tbd-z3o9` (R15) | P2 | `src/web/core.ts`: `Store.toggle`, `setExpanded`, `cacheBody`, `receiveState`; `src/web/client.ts`: `renderBoard` | Limit open details to 100, cached bodies to 200, deletion ghosts to 100, and replace scale-sensitive row-class array scans with set lookup. |
 | `tbd-et3a` (R16) | P2 | `tests/performance.test.ts`: 10,001-issue boundary fixture | Prove that 10,000 rows are returned without exceeding the response ceiling and that `truncated` retains the full over-limit count. |
 | `tbd-6pjo` (R17) | P2 | `src/cli/web/board.ts`: `BoardState.buildBoardResponse`; `tests/web-board.test.ts` | Derive pretty-tree context ids and their count from the capped response rows, with an over-limit hierarchy regression. |
+| `tbd-wmdo` (R18) | P2 | `src/cli/web/board.ts`: `BoardState.buildBoardResponse`; `src/web/core.ts`: `caveatsFor` | Mark every capped response command-inexact and explain in the tooltip that only the returned prefix is shown. |
 
 ### Merge gate for PR #207
 

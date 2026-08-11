@@ -165,10 +165,12 @@ describe('client core pure helpers', () => {
     response.filtersExact = false;
     response.search = 'needle';
     response.contextCount = 2;
+    response.truncated = 5_000;
     expect(caveatsFor(response)).toEqual([
       'filters with no exact CLI equivalent apply',
       'text search "needle" applies',
       '2 dimmed ancestor rows are shown for context',
+      'only the first 1 of 5000 rows are shown',
     ]);
     expect(phaseLabel(state({ watchPhase: 'applying' }))).toEqual({
       label: 'updating',

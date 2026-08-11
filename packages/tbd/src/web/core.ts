@@ -322,6 +322,9 @@ export function caveatsFor(board: BoardResponse): string[] {
       } shown for context`,
     );
   }
+  if (board.truncated > 0) {
+    caveats.push(`only the first ${board.rows.length} of ${board.truncated} rows are shown`);
+  }
   return caveats;
 }
 

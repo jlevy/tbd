@@ -417,6 +417,7 @@ export class BoardState {
       const responseIds = new Set(responseRows.map((row) => row.id));
       contextIds = contextIds.filter((id) => responseIds.has(id));
     }
+    const truncated = rows.length > MAX_BOARD_ROWS ? rows.length : 0;
 
     const described = describeQuery(parsed.query, parsed.parentDisplayId ?? undefined);
     const prettySupported = !parsed.pretty || !parsed.query.ready;
@@ -426,7 +427,8 @@ export class BoardState {
 
     return {
       command,
-      commandExact: filtersExact && contextIds.length === 0 && parsed.search === '',
+      commandExact:
+        filtersExact && contextIds.length === 0 && parsed.search === '' && truncated === 0,
       filtersExact,
       contextCount: contextIds.length,
       search: parsed.search,
@@ -434,7 +436,7 @@ export class BoardState {
       matched: limited.length,
       closedHidden,
       rows: responseRows,
-      truncated: rows.length > MAX_BOARD_ROWS ? rows.length : 0,
+      truncated,
       contextIds,
       state,
     };
