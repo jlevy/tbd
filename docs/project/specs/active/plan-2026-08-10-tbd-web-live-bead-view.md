@@ -646,7 +646,7 @@ to land the whole command through one PR.
   build, 1,503 Vitest tests, 1,074 tryscript checks, publint, 31 package-age pins, watch
   release smoke, and packed-web proof.
   The unchanged production audit advisory is tracked separately as `tbd-6gy0`.
-- [ ] Full matrix green: suite + the `tbd web` tryscript on Ubuntu/macOS/Windows CI; the
+- [x] Full matrix green: suite + the `tbd web` tryscript on Ubuntu/macOS/Windows CI; the
   coverage job runs the repository-wide tryscript set on Ubuntu.
 - [x] Perf budget assertion on the 10,001-issue boundary fixture, including the
   10,000-row response cap, 5 MiB payload ceiling, exclusion of descriptions and notes,
@@ -658,7 +658,7 @@ to land the whole command through one PR.
 - [x] Packaged proof via `pnpm --filter get-tbd qa:web-package`: the tarball carries
   `dist/web/index.html`, its published launcher starts exactly once, and the extracted
   package serves its page and APIs before clean SIGTERM shutdown.
-- [ ] Manual/CI pass on macOS plus one other platform.
+- [x] Manual/CI pass on macOS plus one other platform.
   The macOS pass on this repository covers operator-readable output, search and ancestor
   context, lazy detail expansion, light/dark/system themes, responsive layout, CSP, and
   a clean browser console; the second platform is supplied by the final CI matrix.
