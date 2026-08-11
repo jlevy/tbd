@@ -94,8 +94,8 @@ development and QA instrument, not part of the published package (`scripts/` is 
 from the npm tarball):
 
 ```bash
-# Serve the current repository, read-only (recommended for real repos)
-pnpm exec tsx packages/tbd/scripts/bead-web.ts --repo . --read-only --interval 30
+# Serve the current repository (the server is read-only by construction)
+pnpm exec tsx packages/tbd/scripts/bead-web.ts --repo . --interval 30
 
 # Or build a disposable demo topology (bare remote + writer/watcher clones)
 pnpm build
@@ -106,7 +106,8 @@ Then open `http://127.0.0.1:7777`. The page shares the CLI’s query semantics (
 shows its equivalent `tbd list` invocation), updates itself when the sync remote or
 local bead files change, and includes `tbd status` and `tbd stats` panels.
 `--help` lists all options; set `TBD_QA_BIN` to drive a packed or installed candidate.
-The server binds loopback only and refuses cross-origin requests.
+The server is read-only (it registers no mutation route), binds loopback only, and
+validates Host and Origin on every request.
 Design and productization plan:
 [plan-2026-08-10-tbd-web-live-bead-view.md](project/specs/active/plan-2026-08-10-tbd-web-live-bead-view.md).
 

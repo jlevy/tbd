@@ -64,7 +64,6 @@ import type { Issue, IssueKindType, IssueStatusType } from '../src/lib/types.js'
 
 const COMMAND_TIMEOUT_MS = 120_000;
 const MAX_OUTPUT_BYTES = 32 * 1024 * 1024;
-const MAX_REQUEST_BYTES = 256 * 1024;
 const MAX_EVENT_LOG_ENTRIES = 200;
 /** Bounds each blocking watch so exit 3 and the resume path are exercised routinely. */
 const WATCH_TIMEOUT_SECONDS = 900;
@@ -111,7 +110,6 @@ interface ViewerOptions {
   demo: boolean;
   port: number;
   intervalSeconds: number;
-  allowWrite: boolean | null;
   keep: boolean;
 }
 
@@ -208,7 +206,6 @@ interface WatchState {
   syncBranch: string;
   remote: string;
   candidate: string;
-  allowWrite: boolean;
   intervalSeconds: number;
   localTip: string | null;
   totalBeads: number;
@@ -705,7 +702,6 @@ function parseViewerOptions(argv: string[]): ViewerOptions {
     demo: false,
     port: DEFAULT_PORT,
     intervalSeconds: DEFAULT_INTERVAL_SECONDS,
-    allowWrite: null,
     keep: false,
   };
 
@@ -732,12 +728,6 @@ function parseViewerOptions(argv: string[]): ViewerOptions {
         break;
       case '--interval':
         options.intervalSeconds = Number(readValue('--interval'));
-        break;
-      case '--allow-write':
-        options.allowWrite = true;
-        break;
-      case '--read-only':
-        options.allowWrite = false;
         break;
       case '--keep':
         options.keep = true;
@@ -773,8 +763,6 @@ function usage(): string {
     '  --repo <dir>       Serve an existing tbd repository (default: current directory)',
     `  --port <n>         HTTP port, bound to loopback only (default: ${DEFAULT_PORT})`,
     `  --interval <s>     tbd watch poll interval, minimum 10 (default: ${DEFAULT_INTERVAL_SECONDS})`,
-    '  --allow-write      Permit status/notes edits from the browser (default: on with --demo)',
-    '  --read-only        Refuse all writes (default: on with --repo)',
     '  --keep             Retain a --demo topology on exit instead of removing it',
     '',
     'Environment:',
@@ -1010,11 +998,14 @@ class BeadWebViewer {
   private listen(port: number): Promise<void> {
     return new Promise((resolveListen, rejectListen) => {
       const server = createServer((request, response) => {
-        void this.handleRequest(request, response);
+        this.handleRequest(request, response);
       });
       server.once('error', rejectListen);
-      // Loopback only: this exposes an entire bead graph and, with --allow-write,
-      // a mutation endpoint. It must never be reachable off the host.
+      // Loopback only, and read-only by construction: the server exposes the bead
+      // graph but registers no mutation route at all (senior review R3 / tbd-fdx4:
+      // a loopback-hostname Origin check is not same-origin, so the only safe write
+      // surface is none). Host and Origin are still validated on every request as
+      // defense in depth for the data it can read.
       server.listen(port, '127.0.0.1', () => {
         this.server = server;
         resolveListen();
@@ -1431,7 +1422,7 @@ class BeadWebViewer {
     return true;
   }
 
-  private async handleRequest(request: IncomingMessage, response: ServerResponse): Promise<void> {
+  private handleRequest(request: IncomingMessage, response: ServerResponse): void {
     const url = new URL(request.url ?? '/', 'http://127.0.0.1');
     if (!this.isTrustedRequest(request)) {
       sendJson(response, 403, { error: 'Cross-origin and non-loopback requests are refused' });
@@ -1456,10 +1447,6 @@ class BeadWebViewer {
       }
       if (request.method === 'GET' && url.pathname === '/api/events') {
         this.attachEventStream(request, response);
-        return;
-      }
-      if (request.method === 'POST' && url.pathname === '/api/update') {
-        await this.handleUpdate(request, response);
         return;
       }
       sendJson(response, 404, { error: 'Not found' });
@@ -1579,73 +1566,6 @@ class BeadWebViewer {
       this.clients.delete(response);
     });
   }
-
-  private async handleUpdate(request: IncomingMessage, response: ServerResponse): Promise<void> {
-    if (!this.state.allowWrite) {
-      sendJson(response, 403, { error: 'Viewer is read-only; restart with --allow-write' });
-      return;
-    }
-    // Usage errors are the caller's fault and get 4xx, mirroring the CLI's exit-2
-    // discipline; only a failure of the update or sync itself is a 500.
-    let body: string;
-    try {
-      body = await readRequestBody(request);
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      sendJson(response, message.includes('too large') ? 413 : 400, { error: message });
-      return;
-    }
-    let parsed: { id?: string; status?: string; notes?: string };
-    try {
-      parsed = JSON.parse(body) as typeof parsed;
-    } catch {
-      sendJson(response, 400, { error: 'Request body is not valid JSON' });
-      return;
-    }
-    if (typeof parsed.id !== 'string' || !/^[A-Za-z0-9][A-Za-z0-9-]{0,63}$/u.test(parsed.id)) {
-      sendJson(response, 400, { error: 'Invalid bead id' });
-      return;
-    }
-    const args = ['update', parsed.id];
-    if (typeof parsed.status === 'string' && parsed.status !== '') {
-      if (!STATUSES.has(parsed.status)) {
-        sendJson(response, 400, {
-          error: `Invalid status; expected one of: ${[...STATUSES].join(', ')}`,
-        });
-        return;
-      }
-      args.push('--status', parsed.status);
-    }
-    if (typeof parsed.notes === 'string') {
-      args.push('--notes', parsed.notes);
-    }
-    if (args.length === 2) {
-      sendJson(response, 400, { error: 'Nothing to update' });
-      return;
-    }
-
-    // Writes go through the CLI, not the file layer, so they take the same validation,
-    // locking, and mapping path any other tbd caller does.
-    this.suppressLocalEvents = true;
-    try {
-      const updated = await runTbd(this.candidate, this.state.repoDir, args);
-      if (updated.exitCode !== 0) {
-        sendJson(response, 500, { error: updated.stderr.trim() || 'tbd update failed' });
-        return;
-      }
-      const synced = await runTbd(this.candidate, this.state.repoDir, ['sync', '--issues']);
-      if (synced.exitCode !== 0) {
-        sendJson(response, 500, { error: synced.stderr.trim() || 'tbd sync --issues failed' });
-        return;
-      }
-      await this.reload();
-    } finally {
-      this.endLocalSuppression();
-    }
-    this.log('info', `Updated ${parsed.id} and published it to the sync remote`);
-    this.broadcast();
-    sendJson(response, 200, { ok: true });
-  }
 }
 
 function short(value: string | null): string {
@@ -1662,26 +1582,6 @@ function sendJson(response: ServerResponse, status: number, payload: unknown): v
     'cache-control': 'no-store',
   });
   response.end(JSON.stringify(payload));
-}
-
-function readRequestBody(request: IncomingMessage): Promise<string> {
-  return new Promise((resolveBody, rejectBody) => {
-    let body = '';
-    let bytes = 0;
-    request.on('data', (chunk: Buffer) => {
-      bytes += chunk.byteLength;
-      if (bytes > MAX_REQUEST_BYTES) {
-        rejectBody(new Error('Request body too large'));
-        request.destroy();
-        return;
-      }
-      body += chunk.toString('utf8');
-    });
-    request.once('end', () => {
-      resolveBody(body);
-    });
-    request.once('error', rejectBody);
-  });
 }
 
 async function main(): Promise<void> {
@@ -1707,14 +1607,12 @@ async function main(): Promise<void> {
   }
 
   const sync = await readSyncConfig(repoDir);
-  const allowWrite = options.allowWrite ?? options.demo;
   const state: WatchState = {
     repoDir,
     writerDir,
     syncBranch: sync.branch,
     remote: sync.remote,
     candidate: candidate.displayName,
-    allowWrite,
     intervalSeconds: options.intervalSeconds,
     localTip: null,
     totalBeads: 0,
@@ -1758,7 +1656,7 @@ async function main(): Promise<void> {
   console.log(`Repository:       ${repoDir}`);
   console.log(`Sync:             ${sync.remote}/${sync.branch}`);
   console.log(`Beads:            ${state.totalBeads} loaded in ${Date.now() - startedAt}ms`);
-  console.log(`Writes:           ${allowWrite ? 'enabled' : 'read-only'}`);
+  console.log('Writes:           none (read-only server; edits stay in the CLI)');
   if (writerDir !== null) {
     console.log('');
     console.log('Drive the remote wake path from a second terminal:');

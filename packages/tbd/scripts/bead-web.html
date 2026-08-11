@@ -910,7 +910,18 @@
       let ghostRows = [];
       let ghostTimer = null;
       let lastDataVersion = 0;
-      let pendingQuery = null;
+      /**
+       * Board request state (senior review R4/R5, tbd-uuo4/tbd-7wgw). One request in
+       * flight at a time; a wake or filter edit during flight queues exactly one
+       * follow-up, so a movement can never be silently dropped. Every request carries a
+       * generation, and only the latest generation's response is applied, so overlapping
+       * responses cannot finish out of order and roll the view back.
+       */
+      let boardInFlight = false;
+      let boardGeneration = 0;
+      let refreshQueued = false;
+      /** Bumped on every data wake; body responses from an older world are re-issued. */
+      let bodyGeneration = 0;
 
       const short = (v) => (v ? String(v).slice(0, 8) : 'none');
 
@@ -932,21 +943,41 @@
         return p.toString();
       }
 
-      /** One board fetch, coalesced so a burst of keystrokes issues one request. */
+      /**
+       * One board fetch at a time. A call during flight queues one follow-up rather
+       * than being dropped — the old same-query dedup meant a wake during an identical
+       * in-flight request never refetched and the "live" table sat stale (R4). On
+       * completion the follow-up also fires if the filters changed mid-flight, and only
+       * the newest generation's response is applied (R5).
+       */
       function refresh() {
+        if (boardInFlight) {
+          refreshQueued = true;
+          return;
+        }
+        boardInFlight = true;
+        const generation = ++boardGeneration;
         const qs = queryString();
-        if (pendingQuery === qs) return;
-        pendingQuery = qs;
         fetch('/api/board?' + qs)
           .then((r) => r.json())
           .then((data) => {
-            pendingQuery = null;
+            if (generation !== boardGeneration) return; // a newer request owns the view
             board = data;
-            watch = data.state;
+            // The board embeds a watch snapshot for first paint, but SSE is the
+            // authority on liveness: never let an older embedded snapshot roll back a
+            // newer dataVersion's wake markers (R5 / tbd-7wgw).
+            if (!watch || data.state.dataVersion >= watch.dataVersion) {
+              watch = data.state;
+            }
             render();
           })
-          .catch(() => {
-            pendingQuery = null;
+          .catch(() => {})
+          .finally(() => {
+            boardInFlight = false;
+            if (refreshQueued || qs !== queryString()) {
+              refreshQueued = false;
+              refresh();
+            }
           });
       }
 
@@ -954,9 +985,19 @@
         if (inFlight.has(id)) return;
         if (!force && bodies.has(id)) return;
         inFlight.add(id);
-        fetch('/api/bead?id=' + encodeURIComponent(id))
+        const generation = bodyGeneration;
+        fetch('/api/bead?' + new URLSearchParams({ id }).toString())
           .then((r) => r.json())
-          .then((record) => bodies.set(id, record))
+          .then((record) => {
+            if (generation !== bodyGeneration) {
+              // This response describes the pre-wake world; refetch instead of caching
+              // it, so an expanded row cannot stay stale forever (R6 / tbd-j3bi).
+              inFlight.delete(id);
+              if (expanded.has(id)) loadBody(id, true);
+              return;
+            }
+            bodies.set(id, record);
+          })
           .catch((error) => bodies.set(id, { error: String(error) }))
           .finally(() => {
             inFlight.delete(id);
@@ -1106,7 +1147,6 @@
             'since ' + short(watch.watchSince) + ', every ' + watch.intervalSeconds + 's',
             '',
           ],
-          ['writes', watch.allowWrite ? 'enabled' : 'read-only', watch.allowWrite ? '' : 'good'],
         ];
         if (watch.writerDir) rows.push(['writer', watch.writerDir, '']);
         for (const [k, v, cls] of rows) {
@@ -1452,8 +1492,10 @@
             }, 400);
           }
 
-          // Cached bodies are stale after a move; refetch the ones still open so an
-          // expanded bead updates in place rather than going quietly wrong.
+          // Cached bodies are stale after a move; bump the body generation so any
+          // in-flight pre-wake response is discarded and refetched (R6), then refetch
+          // the ones still open so an expanded bead updates in place.
+          bodyGeneration += 1;
           bodies.clear();
           for (const id of expanded) loadBody(id, true);
           refresh();
