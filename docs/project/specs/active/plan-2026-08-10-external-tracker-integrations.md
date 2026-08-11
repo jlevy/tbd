@@ -167,6 +167,52 @@ What is deliberately **not** internal: quoting/escaping rules of dotenv files (u
 `util.parseEnv`), markdown rendering (not needed), and OAuth flows (out of scope; API
 keys only).
 
+### Packaging: built into `get-tbd`, not a second package
+
+Decided with Phase 1 measured, not estimated (2026-08-10):
+
+| Evidence | Value |
+| --- | --- |
+| Integration source, Phase 1 (core + linear + env/hierarchy/command) | **2,942 lines**, ~8% of the package’s 37k |
+| Integration tests (incl. the mock server) | 2,307 lines |
+| Runtime dependency delta vs `main` | **zero** — the two lists are identical |
+| tbd’s entire built output | 8.7 MB |
+| `@linear/sdk` alone, unpacked | **29.3 MB** — at major version **89**, i.e. a release cadence we would be pinned to |
+| `@octokit/rest` | 4 direct deps, ~a dozen transitive packages, for what is a handful of `fetch` calls |
+
+So both criteria for building in are met, and the SDK route fails both: the code is
+small, and the “library answers” each cost more than the whole feature.
+Per SUPPLY-CHAIN-SECURITY.md, every adopted package is also a recurring audit and
+cool-off obligation; zero remains zero through Phase 2 (`yaml` and `zod` are already
+dependencies) and, by design, through Phase 3 (GitHub is REST over `fetch`; the `gh` CLI
+is an *optional, detected* fallback for tokens, never an npm dependency).
+
+The reasons beyond size, in order of weight:
+
+1. **The trust boundary stays in this repo.** Credentials are handled only by code whose
+   invariants (never `process.env`, never logged, allow-listed persistence) are enforced
+   by this repo’s own tests.
+   A separate package with credential access would widen that boundary and split the
+   security review across release trains.
+2. **The integration touches core seams** — the `extensions` merge, bridge records on
+   the sync branch, config schema, doctor.
+   Built in, those stay internal modules; split out, every one becomes public API frozen
+   at the first plugin release.
+   The version-skew matrix (plugin × core) is exactly the class of failure the
+   config-stripping incidents previewed.
+3. **One install story.** `npm install -g get-tbd` and `tbd integration status`
+   self-explains. A second package adds discovery, install docs, and a new failure mode
+   (mismatched versions) to every setup conversation.
+4. **Precedent.** The same call was recorded for `tbd web` in PR #207 (“ships in core;
+   no separate package”).
+
+**The decision rule for future providers**, so this stays a policy rather than a
+one-off: a provider ships built in iff it adds **zero runtime dependencies** and its
+verified surface stays small (roughly ≤1,500 source lines); otherwise it ships as a
+separate package behind the `TrackerAdapter` seam — and only at that point does the
+adapter interface become public API, designed deliberately rather than frozen by
+accident. Jira is the likely first case (heavy SDK, OAuth); Linear and GitHub are not.
+
 ## Design
 
 ### Approach
