@@ -5,7 +5,7 @@ title: "Phase 1: Extract shared syncDocsWithDefaults() function"
 kind: task
 status: open
 priority: 2
-version: 16
+version: 17
 spec_path: docs/project/specs/active/plan-2026-01-29-unified-sync-command.md
 labels: []
 dependencies:
@@ -17,7 +17,7 @@ dependencies:
     target: is-01kg5jhdtwzxw7ce1xvnnc5tn3
 parent_id: is-01kg5jgqscrbp94t3hb1cegr39
 created_at: 2026-01-29T19:09:02.601Z
-updated_at: 2026-08-11T07:07:04.766Z
+updated_at: 2026-08-11T07:07:50.030Z
 extensions:
   linear:
     id: b3fc13b3-ecc2-468c-b5fb-2df336e72f44
@@ -40,7 +40,8 @@ extensions:
           Resolve this comment once the divergence has been reconciled.
 ---
 Create syncDocsWithDefaults() in doc-sync.ts with:
-- Merge defaults from bundled docs
-- pruneStaleInternals() helper to remove missing internal sources
-- Config comparison and conditional write
-- Unit tests for new functions
+
+* Merge defaults from bundled docs
+* pruneStaleInternals() helper to remove missing internal sources
+* Config comparison and conditional write
+* Unit tests for new functions

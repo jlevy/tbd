@@ -5,7 +5,7 @@ title: "URL → docref normalization (GitHub/GitLab URL → github:/gitlab: form
 kind: task
 status: open
 priority: 2
-version: 8
+version: 9
 spec_path: docs/project/specs/active/plan-2026-05-07-docs-config-redesign.md
 labels: []
 dependencies:
@@ -13,7 +13,7 @@ dependencies:
     target: is-01kra9b6k52jagayjr4sqzjhc7
 parent_id: is-01kra98tffpc00qar6ee3zk8tv
 created_at: 2026-05-11T01:10:07.395Z
-updated_at: 2026-08-11T07:07:18.835Z
+updated_at: 2026-08-11T07:07:52.851Z
 extensions:
   linear:
     id: 9b8758be-d457-46b4-a649-5896d67938df
@@ -35,6 +35,6 @@ extensions:
           The discarded value is archived at `.tbd/data-sync/attic/conflicts/is-01kra9b4s31c7he5hrx9en34ck`.
           Resolve this comment once the divergence has been reconciled.
 ---
-Useful for CLI inputs (e.g. tbd source add https://github.com/...). Informative per the spec.
+Useful for CLI inputs (e.g. tbd source add [https://github.com/](<https://github.com/>)...). Informative per the spec.
 
 Spec: Phase 2 bullet 1 (line ~1639), Workflow W4.

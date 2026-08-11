@@ -5,13 +5,13 @@ title: "Phase 6: Update documentation for unified sync"
 kind: task
 status: open
 priority: 3
-version: 13
+version: 14
 spec_path: docs/project/specs/active/plan-2026-01-29-unified-sync-command.md
 labels: []
 dependencies: []
 parent_id: is-01kg5jgqscrbp94t3hb1cegr39
 created_at: 2026-01-29T19:09:04.058Z
-updated_at: 2026-08-11T07:07:08.045Z
+updated_at: 2026-08-11T07:07:50.832Z
 extensions:
   linear:
     id: 8303672a-5715-4cf5-a8fd-8d9bd682fa20
@@ -34,7 +34,8 @@ extensions:
           Resolve this comment once the divergence has been reconciled.
 ---
 Update documentation:
-- Update tbd-design.md sync section
-- Update SKILL.md sync instructions
-- Update any shortcuts referencing docs --refresh
-- Update CLI help text
+
+* Update tbd-design.md sync section
+* Update SKILL.md sync instructions
+* Update any shortcuts referencing docs --refresh
+* Update CLI help text

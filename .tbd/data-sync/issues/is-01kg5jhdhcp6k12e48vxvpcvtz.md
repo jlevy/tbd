@@ -5,7 +5,7 @@ title: "Phase 4: Remove docs --refresh command"
 kind: task
 status: open
 priority: 2
-version: 15
+version: 16
 spec_path: docs/project/specs/active/plan-2026-01-29-unified-sync-command.md
 labels: []
 dependencies:
@@ -15,7 +15,7 @@ dependencies:
     target: is-01kg5jhee3nrrtkqa80h52p1d8
 parent_id: is-01kg5jgqscrbp94t3hb1cegr39
 created_at: 2026-01-29T19:09:03.403Z
-updated_at: 2026-08-11T07:07:07.046Z
+updated_at: 2026-08-11T07:07:50.533Z
 extensions:
   linear:
     id: 9e24a12c-4882-4672-a917-7f0f8bfef9cb
@@ -38,7 +38,8 @@ extensions:
           Resolve this comment once the divergence has been reconciled.
 ---
 Update docs.ts to:
-- Remove --refresh option
-- Remove --status option (moved to sync command)
-- Remove handleRefresh() and handleStatus() methods
-- Update help text
+
+* Remove --refresh option
+* Remove --status option (moved to sync command)
+* Remove handleRefresh() and handleStatus() methods
+* Update help text

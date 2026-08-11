@@ -5,7 +5,7 @@ title: "Phase 3: Update auto-sync in DocCache to merge defaults"
 kind: task
 status: open
 priority: 2
-version: 14
+version: 15
 spec_path: docs/project/specs/active/plan-2026-01-29-unified-sync-command.md
 labels: []
 dependencies:
@@ -13,7 +13,7 @@ dependencies:
     target: is-01kg5jhee3nrrtkqa80h52p1d8
 parent_id: is-01kg5jgqscrbp94t3hb1cegr39
 created_at: 2026-01-29T19:09:03.148Z
-updated_at: 2026-08-11T07:07:06.538Z
+updated_at: 2026-08-11T07:07:50.373Z
 extensions:
   linear:
     id: 6fca87f0-1602-46fa-9d1b-b4072ed53152
@@ -36,6 +36,7 @@ extensions:
           Resolve this comment once the divergence has been reconciled.
 ---
 Update doc-cache.ts checkAutoSync() to:
-- Use syncDocsWithDefaults() instead of direct DocSync
-- Ensure auto-sync merges defaults (picks up new bundled docs)
-- Unit tests for auto-sync behavior
+
+* Use syncDocsWithDefaults() instead of direct DocSync
+* Ensure auto-sync merges defaults (picks up new bundled docs)
+* Unit tests for auto-sync behavior

@@ -5,7 +5,7 @@ title: "Phase 2: Update sync command with --issues/--docs flags"
 kind: task
 status: open
 priority: 2
-version: 14
+version: 15
 spec_path: docs/project/specs/active/plan-2026-01-29-unified-sync-command.md
 labels: []
 dependencies:
@@ -13,7 +13,7 @@ dependencies:
     target: is-01kg5jhdhcp6k12e48vxvpcvtz
 parent_id: is-01kg5jgqscrbp94t3hb1cegr39
 created_at: 2026-01-29T19:09:02.890Z
-updated_at: 2026-08-11T07:07:05.585Z
+updated_at: 2026-08-11T07:07:50.216Z
 extensions:
   linear:
     id: 61a2f1fa-3a7d-46c0-a549-375e651ed8d8
@@ -36,8 +36,9 @@ extensions:
           Resolve this comment once the divergence has been reconciled.
 ---
 Update sync.ts to:
-- Add --issues and --docs flags
-- Validate mutually exclusive flag combinations
-- Call syncDocsWithDefaults() when syncing docs
-- Update output to show both issue and doc results
-- Update --status to show both statuses
+
+* Add --issues and --docs flags
+* Validate mutually exclusive flag combinations
+* Call syncDocsWithDefaults() when syncing docs
+* Update output to show both issue and doc results
+* Update --status to show both statuses

@@ -5,7 +5,7 @@ title: Add skills/tbd distribution source
 kind: task
 status: open
 priority: 1
-version: 12
+version: 13
 spec_path: docs/project/specs/active/plan-2026-05-24-multi-agent-skills-hooks-setup.md
 labels:
   - agent-skills
@@ -13,7 +13,7 @@ labels:
 dependencies: []
 parent_id: is-01ksc0qwt0v3pg3hgn35sh0s1e
 created_at: 2026-05-24T03:34:39.734Z
-updated_at: 2026-08-11T07:07:27.940Z
+updated_at: 2026-08-11T07:07:53.851Z
 extensions:
   linear:
     id: 29b89ec1-6792-4835-bc9f-f851eaf0fe36
@@ -35,4 +35,4 @@ extensions:
           The discarded value is archived at `.tbd/data-sync/attic/conflicts/is-01ksc0s4vq2w1yyp10fybqpq8t`.
           Resolve this comment once the divergence has been reconciled.
 ---
-Generate committed repo-root skills/tbd/SKILL.md from the same payload (extend scripts/copy-docs.mjs lines 95-104). Resolved default: commit it AND add a drift test in tests/integration-files.test.ts that regenerates and compares. Enables npx skills add / skills.sh discovery.
+Generate committed repo-root skills/tbd/SKILL.md from the same payload (extend scripts/copy-docs.mjs lines 95-104). Resolved default: commit it AND add a drift test in tests/integration-files.test.ts that regenerates and compares. Enables npx skills add / [skills.sh](<http://skills.sh>) discovery.
