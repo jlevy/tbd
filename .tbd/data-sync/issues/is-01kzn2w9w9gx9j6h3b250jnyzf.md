@@ -5,7 +5,7 @@ title: "Phase 1: tbd integration mirror (epic mirror, attachments, managed descr
 kind: task
 status: closed
 priority: 1
-version: 13
+version: 14
 spec_path: docs/project/specs/active/plan-2026-08-10-external-tracker-integrations.md
 labels: []
 dependencies: []
@@ -21,7 +21,13 @@ child_order_hints:
   - is-01kzn5117ezkyh9c1dqgr9pwty
   - is-01kzn511m3x7ekbbkz2h5dcfqj
 created_at: 2026-08-10T05:38:41.160Z
-updated_at: 2026-08-10T19:54:57.244Z
+updated_at: 2026-08-11T06:48:32.278Z
 closed_at: 2026-08-10T19:54:57.244Z
 close_reason: "Phase 1 complete in claude/linear-integration (5300cf30). Validated live against Linear: 82 issues mirrored into the tbd project, idempotent on re-run, bulk guard enforced."
+extensions:
+  linear:
+    id: 308fc84e-38f5-4092-9faf-d911739c20da
+    linked_at: 2026-08-11T06:48:32.277Z
+    key: TBD-66
+    url: https://linear.app/finterm-ai/issue/TBD-66/phase-1-tbd-integration-mirror-epic-mirror-attachments-managed
 ---

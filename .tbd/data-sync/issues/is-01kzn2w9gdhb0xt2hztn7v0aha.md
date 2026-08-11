@@ -5,7 +5,7 @@ title: "Phase 1: linked + last_actor fields, extensions per-namespace merge, par
 kind: task
 status: closed
 priority: 1
-version: 8
+version: 9
 spec_path: docs/project/specs/active/plan-2026-08-10-external-tracker-integrations.md
 labels: []
 dependencies: []
@@ -17,7 +17,13 @@ child_order_hints:
   - is-01kzn50x091m9cpn9qyhmd5r5d
   - is-01kzn50xevpfmk7wqkag9f8bfx
 created_at: 2026-08-10T05:38:40.780Z
-updated_at: 2026-08-10T19:54:57.235Z
+updated_at: 2026-08-11T06:48:31.270Z
 closed_at: 2026-08-10T19:54:57.235Z
 close_reason: "Phase 1 complete in claude/linear-integration (5300cf30). Validated live against Linear: 82 issues mirrored into the tbd project, idempotent on re-run, bulk guard enforced."
+extensions:
+  linear:
+    id: 2e8bc9de-adb5-4abf-97a6-4cb0036495d5
+    linked_at: 2026-08-11T06:48:31.269Z
+    key: TBD-67
+    url: https://linear.app/finterm-ai/issue/TBD-67/phase-1-linked-last-actor-fields-extensions-per-namespace-merge-parent
 ---
