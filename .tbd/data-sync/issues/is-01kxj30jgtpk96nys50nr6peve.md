@@ -5,7 +5,7 @@ title: "GitHub #190: Refresh skill-creation guidance and setup dry-run safety"
 kind: epic
 status: in_progress
 priority: 1
-version: 26
+version: 27
 labels:
   - github-190
   - agent-skills
@@ -25,13 +25,27 @@ child_order_hints:
   - is-01kxj32wgrjfa51wytr33z286r
   - is-01kxj32xtn7978fy1cw6f61qca
 created_at: 2026-07-15T05:11:54.136Z
-updated_at: 2026-08-11T07:05:51.405Z
+updated_at: 2026-08-11T07:07:34.626Z
 extensions:
   linear:
     id: 004dac38-9687-40be-ad90-11e6ba5fcef4
     key: TBD-81
     url: https://linear.app/finterm-ai/issue/TBD-81/github-190-refresh-skill-creation-guidance-and-setup-dry-run-safety
     linked_at: 2026-08-10T19:37:26.580Z
+    comments:
+      - id: 673287d5-efc8-435d-b253-79cb91d2ce98
+        at: 2026-08-11T07:07:34.486Z
+        author: josh
+        body: |-
+          **tbd sync conflict**
+
+          Field `description` on `tbd-va8i` diverged and one value was discarded.
+
+          - Kept: `"sha256v2:38beaca1db1d89c2b236a0c7ba47bc703f69edb40b1a7899443d30098ce73ef2"`
+          - Discarded: `"sha256v2:653ebaa904e5477f89c4cfbbcbdf8354dfcd42b431a7c710d057bd92955a4c6d"`
+
+          The discarded value is archived at `.tbd/data-sync/attic/conflicts/is-01kxj30jgtpk96nys50nr6peve`.
+          Resolve this comment once the divergence has been reconciled.
 ---
 Source: https://github.com/jlevy/tbd/issues/190
 

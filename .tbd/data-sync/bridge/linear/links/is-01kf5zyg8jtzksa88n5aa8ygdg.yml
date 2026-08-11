@@ -1,6 +1,6 @@
 base:
   assignee: null
-  description_hash: sha256:1219c856ae2bb2868b79316b3d0d23410b03daffb09427556909c574b8405798
+  description_hash: sha256v2:1219c856ae2bb2868b79316b3d0d23410b03daffb09427556909c574b8405798
   labels:
     - attic
     - cli-layer
@@ -12,5 +12,5 @@ bead_id: is-01kf5zyg8jtzksa88n5aa8ygdg
 external_id: b0a3112b-18a8-497c-9206-465a7de3ad94
 remote_updated_at: 2026-08-11T07:03:08.466Z
 state: linked
-synced_at: 2026-08-11T07:04:19.483Z
+synced_at: 2026-08-11T07:07:00.431Z
 type: lk

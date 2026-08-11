@@ -1,6 +1,6 @@
 base:
   assignee: null
-  description_hash: sha256:550a23abe47e9f6138267c6c83cd1850fe8ef05043c4b784143d4fe3320bc035
+  description_hash: sha256v2:550a23abe47e9f6138267c6c83cd1850fe8ef05043c4b784143d4fe3320bc035
   labels: []
   priority: 1
   status: open
@@ -9,5 +9,5 @@ bead_id: is-01ksgr45bkhqwwfhpna2xytqdz
 external_id: db482f8e-9167-4f53-8a73-863694f262ef
 remote_updated_at: 2026-08-11T06:49:40.615Z
 state: linked
-synced_at: 2026-08-11T07:04:08.784Z
+synced_at: 2026-08-11T07:07:30.452Z
 type: lk

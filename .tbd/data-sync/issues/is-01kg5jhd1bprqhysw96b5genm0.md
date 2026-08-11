@@ -5,7 +5,7 @@ title: "Phase 2: Update sync command with --issues/--docs flags"
 kind: task
 status: open
 priority: 2
-version: 13
+version: 14
 spec_path: docs/project/specs/active/plan-2026-01-29-unified-sync-command.md
 labels: []
 dependencies:
@@ -13,13 +13,27 @@ dependencies:
     target: is-01kg5jhdhcp6k12e48vxvpcvtz
 parent_id: is-01kg5jgqscrbp94t3hb1cegr39
 created_at: 2026-01-29T19:09:02.890Z
-updated_at: 2026-08-11T07:05:51.046Z
+updated_at: 2026-08-11T07:07:05.585Z
 extensions:
   linear:
     id: 61a2f1fa-3a7d-46c0-a549-375e651ed8d8
     key: TBD-51
     url: https://linear.app/finterm-ai/issue/TBD-51/phase-2-update-sync-command-with-issues-docs-flags
     linked_at: 2026-08-10T19:36:21.458Z
+    comments:
+      - id: f1c0e1d1-ea21-41b0-aa2c-94522525099b
+        at: 2026-08-11T07:07:05.149Z
+        author: josh
+        body: |-
+          **tbd sync conflict**
+
+          Field `description` on `tbd-6zhj` diverged and one value was discarded.
+
+          - Kept: `"sha256v2:dd9f904a97773848848fb1a9a05fb6eb7c06c55704852295ef314a78f4d86bc0"`
+          - Discarded: `"sha256v2:83d0960829a972587c56b5e6a32e1070a2a222468f562e89bd81f343f72be7d0"`
+
+          The discarded value is archived at `.tbd/data-sync/attic/conflicts/is-01kg5jhd1bprqhysw96b5genm0`.
+          Resolve this comment once the divergence has been reconciled.
 ---
 Update sync.ts to:
 - Add --issues and --docs flags

@@ -1,13 +1,13 @@
 base:
   assignee: null
-  description_hash: sha256:0c078870f785d08cea8997ccef35612c9a297239b8e6a8cad1b1d5dde59207b9
+  description_hash: sha256v2:9a5b86c38120f51955e2a157717099469c44f6e979b48d73ab7848fe6ac50125
   labels: []
   priority: 3
   status: open
   title: "Phase 6: Update documentation for unified sync"
 bead_id: is-01kg5jhe5v1zx94azhqn57bnzq
 external_id: 8303672a-5715-4cf5-a8fd-8d9bd682fa20
-remote_updated_at: 2026-08-11T07:03:50.600Z
+remote_updated_at: 2026-08-11T07:07:07.721Z
 state: linked
-synced_at: 2026-08-11T07:04:21.952Z
+synced_at: 2026-08-11T07:07:08.053Z
 type: lk

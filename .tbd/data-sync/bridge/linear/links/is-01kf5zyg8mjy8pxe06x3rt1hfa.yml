@@ -1,6 +1,6 @@
 base:
   assignee: null
-  description_hash: sha256:312212e460b5f1f0c69fdf93f0e111c268b2b0fe8e2cf4216166dfa213c8e922
+  description_hash: sha256v2:312212e460b5f1f0c69fdf93f0e111c268b2b0fe8e2cf4216166dfa213c8e922
   labels:
     - import
     - phase-15
@@ -12,5 +12,5 @@ bead_id: is-01kf5zyg8mjy8pxe06x3rt1hfa
 external_id: 244be55c-cfeb-49ad-b7f8-eaac4e99df0b
 remote_updated_at: 2026-08-11T07:03:07.421Z
 state: linked
-synced_at: 2026-08-11T07:04:20.555Z
+synced_at: 2026-08-11T07:07:01.255Z
 type: lk

@@ -1,13 +1,13 @@
 base:
   assignee: null
-  description_hash: sha256:9119367c88bc0dffb18239524864120f89b32547538bbcb574f565d74e34b766
+  description_hash: sha256v2:dd9f904a97773848848fb1a9a05fb6eb7c06c55704852295ef314a78f4d86bc0
   labels: []
   priority: 2
   status: open
   title: "Phase 2: Update sync command with --issues/--docs flags"
 bead_id: is-01kg5jhd1bprqhysw96b5genm0
 external_id: 61a2f1fa-3a7d-46c0-a549-375e651ed8d8
-remote_updated_at: 2026-08-11T07:03:47.432Z
+remote_updated_at: 2026-08-11T07:07:04.950Z
 state: linked
-synced_at: 2026-08-11T07:04:21.369Z
+synced_at: 2026-08-11T07:07:05.600Z
 type: lk

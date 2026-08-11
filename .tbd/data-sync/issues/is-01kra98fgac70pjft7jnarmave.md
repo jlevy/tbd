@@ -5,7 +5,7 @@ title: "Spec: Docs config redesign (f06+ framework)"
 kind: epic
 status: open
 priority: 1
-version: 17
+version: 18
 spec_path: docs/project/specs/active/plan-2026-05-07-docs-config-redesign.md
 labels: []
 dependencies: []
@@ -20,13 +20,27 @@ child_order_hints:
   - is-01kra99kg4z987hjrwwrj5wh4q
   - is-01kra99kvf2ys81vcakyb8vbzz
 created_at: 2026-05-11T01:08:40.073Z
-updated_at: 2026-08-11T07:05:51.157Z
+updated_at: 2026-08-11T07:07:10.269Z
 extensions:
   linear:
     id: 469c60b7-7a9d-4724-82a1-cd0d24d76321
     key: TBD-39
     url: https://linear.app/finterm-ai/issue/TBD-39/spec-docs-config-redesign-f06-framework
     linked_at: 2026-08-10T19:36:32.543Z
+    comments:
+      - id: 09e779fd-4ece-4cd3-9a8e-0c71920a55a4
+        at: 2026-08-11T07:07:10.114Z
+        author: josh
+        body: |-
+          **tbd sync conflict**
+
+          Field `description` on `tbd-up8l` diverged and one value was discarded.
+
+          - Kept: `"sha256v2:c76843d39f5d8b60d3604fa14f76434c78eb25ce0d9f2bc3686496eccab379c7"`
+          - Discarded: `"sha256v2:e64e254194c3162359145370f5f2255fa9ac258109ef509381392c934ed886e6"`
+
+          The discarded value is archived at `.tbd/data-sync/attic/conflicts/is-01kra98fgac70pjft7jnarmave`.
+          Resolve this comment once the divergence has been reconciled.
 ---
 Top-level epic for the docs config redesign (f05 schema) tracked in PR #117 (https://github.com/jlevy/tbd/pull/117).
 
