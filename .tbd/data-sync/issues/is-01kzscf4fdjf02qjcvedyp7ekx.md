@@ -5,7 +5,7 @@ title: Make tbd web a local-only live view
 kind: feature
 status: in_progress
 priority: 1
-version: 10
+version: 11
 spec_path: docs/project/specs/active/plan-2026-08-10-tbd-web-live-bead-view.md
 labels:
   - viewer
@@ -18,8 +18,9 @@ child_order_hints:
   - is-01kzsgeybrzvaxynpcfpsr2mds
   - is-01kzsht4a5vje1r75mnxx475vd
   - is-01kzsjvx0n0zpjj9tdrxcj6m2p
+  - is-01kzskxqpat6jdk9ge12wmhayp
 created_at: 2026-08-11T21:43:13.132Z
-updated_at: 2026-08-11T23:35:02.932Z
+updated_at: 2026-08-11T23:53:31.593Z
 ---
 Remove all implicit remote polling and fetching from tbd web. Observe the hidden data-sync worktree through a native Node filesystem watcher with a one-second reconciliation fallback, so local tbd commands and tbd sync appear promptly. Remove the polling CLI flag and remote-watch/report state, align the UI and every design/user/validation document, test native/degraded/reconciliation behavior cross-platform, and re-run the PR merge gate.
 
