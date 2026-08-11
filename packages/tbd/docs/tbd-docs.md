@@ -1633,8 +1633,9 @@ The bulk thresholds count both directions: creates and updates to the tracker AN
 imports and updates to beads.
 
 To fold this into plain `tbd sync`, set `integrations.sync_on_tbd_sync: true` (default
-false). It runs after the git phases and a failure degrades with a warning; external
-trackers never block or corrupt git sync.
+false). It runs before the git phases so its bead and bridge writes ride the same commit
+and push, and a failure degrades with a warning; external trackers never block or
+corrupt git sync.
 
 ### Linking, unlinking, and comments
 

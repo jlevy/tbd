@@ -13,6 +13,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { readLink } from '../src/integrations/core/link-store.js';
 import { readComments } from '../src/integrations/core/comment-store.js';
 import { appendLocalComment } from '../src/integrations/core/comment-store.js';
+import { listIntentFiles } from '../src/integrations/core/intents.js';
 import { runSync, type SyncCallbacks } from '../src/integrations/core/sync-engine.js';
 import { LinearAdapter } from '../src/integrations/linear/adapter.js';
 import { LinearClient } from '../src/integrations/linear/client.js';
@@ -331,6 +332,40 @@ describe('the sync engine', () => {
 
     const second = await runWithEquivalence([store.get(epic.id)!]);
     expect(second.nothingToDo).toBe(true);
+  });
+
+  it('a crash between create and attachments replays to a complete item', async () => {
+    // Bugbot PR #206 R2: outbound creates journaled only the create, so a
+    // crash after the issue existed left it bare forever. Attachments and the
+    // managed block are journaled too, and the journal survives failures.
+    const epic = bead('is-01hx5zzkbkactav9wevgemmvrz');
+    store.set(epic.id, epic);
+
+    // First run: the create lands, the attachment upsert blows up.
+    const original = adapter.upsertAttachments.bind(adapter);
+    let calls = 0;
+    adapter.upsertAttachments = async (id, attachments) => {
+      calls += 1;
+      if (calls === 1) {
+        throw new Error('transport died');
+      }
+      return original(id, attachments);
+    };
+
+    const crashed = await run([epic]);
+    expect(crashed.failures).toHaveLength(1);
+    expect(server.issues.size).toBe(1); // the item exists...
+    expect(server.attachments).toHaveLength(0); // ...but bare
+    expect(await listIntentFiles(dir, 'linear')).toHaveLength(1); // journal kept
+
+    // Next run: replay completes the item; create recovers as duplicate.
+    const recovered = await run([store.get(epic.id)!]);
+    expect(recovered.failures).toEqual([]);
+    expect(server.issues.size).toBe(1); // no duplicate item
+    expect(server.attachments).toHaveLength(1); // attachments landed
+    const item = [...server.issues.values()][0]!;
+    expect(item.description ?? '').toContain('tbd:begin'); // block spliced
+    expect(await listIntentFiles(dir, 'linear')).toHaveLength(0); // consumed
   });
 
   it('counts both directions in the bulk guard', async () => {

@@ -402,9 +402,18 @@ export async function runSync(options: SyncEngineOptions): Promise<SyncRunReport
   const runId = ulid().toLowerCase();
   const ops: IntentOp[] = [];
   const outboundClientIds = new Map<string, string>();
+  const outboundExtras = new Map<
+    string,
+    { attachments: ReturnType<typeof attachmentsFor>; block: string | null }
+  >();
   for (const issue of outboundNew) {
     const clientId = randomUUID();
     outboundClientIds.set(issue.id, clientId);
+    const displayId = options.displayId(issue.id);
+    const links: MirrorLinks = { specUrl: options.specUrl?.(issue), repoUrl: undefined };
+    const attachments = attachmentsFor(issue, displayId, links, { children: 0, ready: 0 });
+    const block = renderManagedBlock(issue, links, { children: 0, ready: 0 }, displayId);
+    outboundExtras.set(issue.id, { attachments, block });
     ops.push({
       kind: 'create_issue',
       client_id: clientId,
@@ -416,6 +425,13 @@ export async function runSync(options: SyncEngineOptions): Promise<SyncRunReport
         priority: issue.priority,
       },
     });
+    // The client UUID IS the item's id, so the follow-up writes are journaled
+    // against it before the item exists. Both replay-safe: attachments upsert
+    // on url, the splice is idempotent on content.
+    ops.push({ kind: 'upsert_attachments', external_id: clientId, attachments });
+    if (block) {
+      ops.push({ kind: 'splice_description', external_id: clientId, block });
+    }
   }
   for (const pair of pairs) {
     if (Object.keys(pair.result.externalPatch).length > 0) {
@@ -588,14 +604,12 @@ export async function runSync(options: SyncEngineOptions): Promise<SyncRunReport
       stored.updated_at = options.now();
       await callbacks.writeBead(stored);
 
-      const links: MirrorLinks = { specUrl: options.specUrl?.(issue), repoUrl: undefined };
-      await adapter.upsertAttachments(
-        ref.id,
-        attachmentsFor(issue, displayId, links, { children: 0, ready: 0 }),
-      );
-      const block = renderManagedBlock(issue, links, { children: 0, ready: 0 }, displayId);
-      if (block) {
-        await adapter.spliceDescription(ref.id, block);
+      const extras = outboundExtras.get(issue.id);
+      if (extras) {
+        await adapter.upsertAttachments(ref.id, extras.attachments);
+        if (extras.block) {
+          await adapter.spliceDescription(ref.id, extras.block);
+        }
       }
 
       const [current] = await adapter.fetchIssues([ref.id]);
@@ -641,10 +655,11 @@ export async function runSync(options: SyncEngineOptions): Promise<SyncRunReport
     }
   }
 
-  // 8. The journal is consumed: every op either applied above or is covered by
-  // a failure entry that keeps honesty in the report. Failed pairs re-plan
-  // from current state next run, so the journal need not survive them.
-  if (ops.length > 0) {
+  // 8. Consume the journal only when everything it covered landed. Any
+  // failure keeps the file: the next run replays it first, and every journaled
+  // op is idempotent or replay-converts, so repeating the successful ones is
+  // harmless while the failed ones get their retry.
+  if (ops.length > 0 && report.failures.length === 0) {
     await deleteIntentFile(dataSyncDir, provider, runId);
   }
 

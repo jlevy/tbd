@@ -61,6 +61,7 @@ import {
   deleteWorkspace,
 } from '../../file/workspace.js';
 import { withDataSyncContext } from '../lib/data-context.js';
+import { readConfig } from '../../file/config.js';
 import { EXIT_OPERATIONAL_ERROR } from '../lib/exit-codes.js';
 
 /**
@@ -137,13 +138,33 @@ class SyncHandler extends BaseCommand {
       }
     }
 
-    // STEP 2: Sync issues (network operations)
-    let foldIntegrations = false;
+    // STEP 2: Optional integration fold, off by default. Runs BEFORE the git
+    // phases so the beads and bridge state it writes are committed and pushed
+    // by the very sync the user invoked — after the push they would strand on
+    // this machine until the next sync. A failure degrades with a warning:
+    // external trackers never block git sync. Spawned as a child so it takes
+    // and releases its own data-sync lock before ours is acquired.
+    if (!options.status && !this.ctx.dryRun) {
+      const preConfig = await readConfig(tbdRoot).catch(() => undefined);
+      if (preConfig?.integrations?.sync_on_tbd_sync === true) {
+        try {
+          const { execFileSync } = await import('node:child_process');
+          execFileSync(process.execPath, [process.argv[1] ?? '', 'integration', 'sync', '--yes'], {
+            stdio: 'inherit',
+          });
+        } catch {
+          this.output.warn(
+            'Integration sync failed; continuing with git sync. Run `tbd integration sync` directly for details.',
+          );
+        }
+      }
+    }
+
+    // STEP 3: Sync issues (network operations)
     await withDataSyncContext(
       tbdRoot,
       { lock: true },
       async ({ dataSyncDir, config, sharedPaths, repairedWorktreeStatus }) => {
-        foldIntegrations = config.integrations?.sync_on_tbd_sync === true;
         this.dataSyncDir = dataSyncDir;
         this.worktreePath = sharedPaths.sharedWorktreePath;
         this.syncBranch = config.sync.branch;
@@ -178,22 +199,6 @@ class SyncHandler extends BaseCommand {
         }
       },
     );
-
-    // Optional integration fold, off by default. Runs AFTER the git phases and
-    // outside the data-sync context above, and a failure degrades with a
-    // warning — external trackers must never block or corrupt git sync.
-    if (foldIntegrations && !options.status) {
-      try {
-        const { execFileSync } = await import('node:child_process');
-        execFileSync(process.execPath, [process.argv[1] ?? '', 'integration', 'sync', '--yes'], {
-          stdio: 'inherit',
-        });
-      } catch {
-        this.output.warn(
-          'Integration sync failed; git sync is unaffected. Run `tbd integration sync` directly for details.',
-        );
-      }
-    }
   }
 
   /**
