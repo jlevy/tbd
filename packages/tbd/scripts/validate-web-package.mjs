@@ -22,6 +22,19 @@ function invariant(condition, message) {
   }
 }
 
+async function packArchive(destination) {
+  const args = ['pack', '--pack-destination', destination];
+  if (process.platform === 'win32') {
+    // pnpm is a .cmd shim on Windows, so execFile cannot launch it directly.
+    await execFileAsync(process.env.ComSpec ?? 'cmd.exe', ['/d', '/c', 'pnpm.cmd', ...args], {
+      cwd: packageDir,
+      windowsHide: true,
+    });
+    return;
+  }
+  await execFileAsync('pnpm', args, { cwd: packageDir });
+}
+
 async function availablePort() {
   const server = createServer();
   await new Promise((resolve, reject) => {
@@ -85,7 +98,7 @@ function waitForExit(child) {
 const temporaryDir = await mkdtemp(join(tmpdir(), 'tbd-web-package-'));
 let child = null;
 try {
-  await execFileAsync('pnpm', ['pack', '--pack-destination', temporaryDir], { cwd: packageDir });
+  await packArchive(temporaryDir);
   const archives = (await readdir(temporaryDir)).filter((name) => name.endsWith('.tgz'));
   invariant(archives.length === 1, `Expected one package archive, found ${archives.length}`);
   const archive = join(temporaryDir, archives[0]);

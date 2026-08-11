@@ -629,8 +629,8 @@ to land the whole command through one PR.
 ### Final review finding map
 
 The final review is tracked under `tbd-o7nu`. Every implementation finding has one bead
-and one code seam; all thirteen are implemented and locally validated.
-R13 removes the remaining shell-specific syntax exposed by the Windows matrix.
+and one code seam; all fourteen are implemented and locally validated.
+R14 removes the final Windows command-shim assumption from the packed proof.
 
 | Bead | Severity | File/function seam | Disposition |
 | --- | --- | --- | --- |
@@ -647,6 +647,7 @@ R13 removes the remaining shell-specific syntax exposed by the Windows matrix.
 | `tbd-snb4` (R11) | P1 | `tests/cli-web.tryscript.md`: built CLI invocation | Invoke `bin.mjs` explicitly with Node so the focused matrix transcript does not depend on Unix extensionless-command lookup. |
 | `tbd-qf41` (R12) | P1 | `src/cli/web/wake.ts`: `applyReport`; `tests/web-wake.test.ts` | Treat `remote-missing` as a retryable unapplied report: do not reload or advance report/cursor state, and retry from the same baseline. |
 | `tbd-4ets` (R13) | P1 | `tests/run-built-cli.mjs`; `tests/cli-web.tryscript.md`: sandbox invocation, setup, and filters | Spawn and await the exact built entry using a Node-resolved path, assert sandbox initialization as a test, and use shell-neutral quoting for `sed`/`jq`. |
+| `tbd-wx19` (R14) | P1 | `scripts/validate-web-package.mjs`: `packArchive` | Keep direct `execFile` on POSIX; on Windows run the `pnpm.cmd` shim through `ComSpec` before continuing the exact packed-artifact proof. |
 
 ### Merge gate for PR #207
 
