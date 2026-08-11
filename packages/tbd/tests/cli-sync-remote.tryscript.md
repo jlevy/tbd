@@ -12,8 +12,9 @@ patterns:
   TIMESTAMP: "\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?Z"
 before: |
   # Create a bare git repository to serve as local "origin" remote
-  mkdir -p ../origin.git
-  git init --bare ../origin.git
+  rm -rf ../origin-sync-remote.git
+  mkdir -p ../origin-sync-remote.git
+  git init --bare ../origin-sync-remote.git
 
   # Set up a test git repository
   git init --initial-branch=main
@@ -25,7 +26,7 @@ before: |
   git commit -m "Initial commit"
 
   # Add the local bare repo as origin
-  git remote add origin ../origin.git
+  git remote add origin ../origin-sync-remote.git
   git push -u origin main
 
   # Initialize tbd and do initial sync to establish remote branch

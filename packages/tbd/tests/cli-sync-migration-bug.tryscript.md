@@ -8,8 +8,9 @@ path:
 timeout: 60000
 before: |
   # Create a bare git repository to serve as local "origin" remote
-  mkdir -p ../origin.git
-  git init --bare ../origin.git
+  rm -rf ../origin-sync-migration-bug.git
+  mkdir -p ../origin-sync-migration-bug.git
+  git init --bare ../origin-sync-migration-bug.git
 
   # Set up a test git repository (primary repo)
   git init --initial-branch=main
@@ -21,7 +22,7 @@ before: |
   git commit -m "Initial commit"
 
   # Add the local bare repo as origin and push
-  git remote add origin ../origin.git
+  git remote add origin ../origin-sync-migration-bug.git
   git push -u origin main
 ---
 # Bug Reproduction: Sync after doctor migration

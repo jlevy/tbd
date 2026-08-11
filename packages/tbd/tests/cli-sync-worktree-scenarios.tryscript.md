@@ -12,8 +12,9 @@ patterns:
   TIMESTAMP: "\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?Z"
 before: |
   # Create a bare git repository to serve as local "origin" remote
-  mkdir -p ../origin.git
-  git init --bare ../origin.git
+  rm -rf ../origin-sync-worktree-scenarios.git
+  mkdir -p ../origin-sync-worktree-scenarios.git
+  git init --bare ../origin-sync-worktree-scenarios.git
 
   # Set up a test git repository (primary repo)
   git init --initial-branch=main
@@ -25,7 +26,7 @@ before: |
   git commit -m "Initial commit"
 
   # Add the local bare repo as origin and push
-  git remote add origin ../origin.git
+  git remote add origin ../origin-sync-worktree-scenarios.git
   git push -u origin main
 ---
 # tbd CLI: Sync Worktree Scenarios

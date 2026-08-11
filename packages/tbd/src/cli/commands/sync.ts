@@ -62,6 +62,8 @@ import {
 } from '../../file/workspace.js';
 import { withDataSyncContext } from '../lib/data-context.js';
 import { runEnabledIntegrations } from '../lib/integration-runner.js';
+import { integrationsInert } from '../../integrations/core/registry.js';
+import { readConfig } from '../../file/config.js';
 import type { Config } from '../../lib/types.js';
 import { EXIT_OPERATIONAL_ERROR } from '../lib/exit-codes.js';
 
@@ -140,14 +142,20 @@ class SyncHandler extends BaseCommand {
     // than thrown: one surface failing (an expired tracker credential, say)
     // must never stop another from completing, and must never cost data that
     // a working surface would have persisted.
-    const failures: { surface: string; error: string }[] = [];
+    const attempted: string[] = [];
+    const failures: { surface: string; message: string; error: unknown }[] = [];
     const fail = (surface: string, error: unknown): void => {
-      failures.push({ surface, error: error instanceof Error ? error.message : String(error) });
+      failures.push({
+        surface,
+        message: error instanceof Error ? error.message : String(error),
+        error,
+      });
     };
 
     // SURFACE 1: docs (local, fast). First, so docs land even if the network
     // surfaces fail entirely.
     if (syncDocs) {
+      attempted.push('docs');
       try {
         await this.syncDocs(options.status);
       } catch (error) {
@@ -160,6 +168,7 @@ class SyncHandler extends BaseCommand {
     // their writes ride the same push (see fullSync).
     this.syncIntegrations = syncIntegrations;
     if (syncIssues) {
+      attempted.push('issues');
       try {
         await withDataSyncContext(
           tbdRoot,
@@ -212,38 +221,42 @@ class SyncHandler extends BaseCommand {
     // problem delays tracker work rather than losing it.
     if (syncIntegrations && !this.integrationsRan && !options.status && !this.ctx.dryRun) {
       try {
-        await withDataSyncContext(tbdRoot, { lock: true }, async (context) => {
-          if (context.config.integrations?.sync_on_tbd_sync === false) {
-            return;
-          }
-          const reports = await runEnabledIntegrations(
-            {
-              tbdRoot,
-              config: context.config,
-              dataSyncDir: context.dataSyncDir,
-              worktreePath: context.sharedPaths.sharedWorktreePath,
-            },
-            {
-              assumeYes: true,
-              interactive: false,
-              dryRun: false,
-              direction: options.pull ? 'inbound' : 'both',
-            },
-          );
-          this.reportIntegrationRun(reports);
-          if (syncIssues) {
-            this.output.info(
-              'Integration changes are committed locally; the next successful `tbd sync` pushes them.',
+        // Decide from config alone first. Opening a locked data-sync context
+        // is not free — it can repair the worktree and commit pending state —
+        // so a repo with no enabled integration must not pay for one to learn
+        // it has nothing to do.
+        const preConfig = await readConfig(tbdRoot).catch(() => undefined);
+        const inert =
+          !preConfig ||
+          preConfig.integrations?.sync_on_tbd_sync === false ||
+          integrationsInert(preConfig);
+        if (!inert) {
+          await withDataSyncContext(tbdRoot, { lock: true }, async (context) => {
+            attempted.push('integrations');
+            const reports = await runEnabledIntegrations(
+              {
+                tbdRoot,
+                config: context.config,
+                dataSyncDir: context.dataSyncDir,
+                worktreePath: context.sharedPaths.sharedWorktreePath,
+              },
+              {
+                assumeYes: true,
+                interactive: false,
+                dryRun: false,
+                direction: options.pull ? 'inbound' : 'both',
+              },
             );
-          }
-        });
-      } catch (error) {
-        // "No enabled integration" is the ordinary state for most repos, not a
-        // failure worth reporting at session end.
-        const message = error instanceof Error ? error.message : String(error);
-        if (!message.includes('No enabled integration')) {
-          fail('integrations', error);
+            this.reportIntegrationRun(reports);
+            if (syncIssues) {
+              this.output.info(
+                'Integration changes are committed locally; the next successful `tbd sync` pushes them.',
+              );
+            }
+          });
         }
+      } catch (error) {
+        fail('integrations', error);
       }
     }
 
@@ -251,14 +264,21 @@ class SyncHandler extends BaseCommand {
     // closing a session sees everything that went wrong without losing what
     // went right.
     if (failures.length > 0) {
-      for (const failure of failures) {
-        this.output.error(`${failure.surface} sync failed: ${failure.error}`);
+      // With a single surface in play there is nothing to protect it from and
+      // nothing to summarize: let the error out so the CLI reports it exactly
+      // as it always has. Containment exists to stop one surface from taking
+      // down another, not to reformat solitary failures.
+      if (attempted.length === 1) {
+        throw failures[0]!.error;
       }
-      if (failures.length < 3) {
-        const done = ['docs', 'issues', 'integrations'].filter(
-          (surface) => !failures.some((f) => f.surface === surface),
-        );
-        this.output.info(`Other surfaces completed: ${done.join(', ')}.`);
+      for (const failure of failures) {
+        this.output.error(`${failure.surface} sync failed: ${failure.message}`);
+      }
+      const done = attempted.filter(
+        (surface) => !failures.some((failure) => failure.surface === surface),
+      );
+      if (done.length > 0) {
+        this.output.info(`Completed despite that: ${done.join(', ')}.`);
       }
       process.exitCode = EXIT_OPERATIONAL_ERROR;
     }
@@ -1047,12 +1067,17 @@ class SyncHandler extends BaseCommand {
     // A failure degrades with a warning; external trackers never block git
     // sync. The folded run implies affirmation of the bulk thresholds — use
     // `tbd integration sync` directly for a guarded, reviewable run.
-    if (this.syncIntegrations && this.config?.integrations?.sync_on_tbd_sync !== false) {
+    if (
+      this.syncIntegrations &&
+      this.config &&
+      !integrationsInert(this.config) &&
+      this.config.integrations?.sync_on_tbd_sync !== false
+    ) {
       try {
         const reports = await runEnabledIntegrations(
           {
             tbdRoot: this.tbdRoot,
-            config: this.config!,
+            config: this.config,
             dataSyncDir: this.dataSyncDir,
             worktreePath: this.worktreePath,
           },
@@ -1061,19 +1086,15 @@ class SyncHandler extends BaseCommand {
         this.reportIntegrationRun(reports);
         this.integrationsRan = true;
       } catch (error) {
-        const message = error instanceof Error ? error.message : String(error);
-        if (message.includes('No enabled integration')) {
-          // Ordinary for most repos; nothing to report and nothing pending.
-          this.integrationsRan = true;
-        } else {
-          // Contained: git sync continues and completes. The failure is
-          // reported here and the surface rollup names it at the end.
-          this.output.warn(
-            `Integration sync failed; continuing with git sync. ` +
-              `Run \`tbd integration sync\` for details. (${message})`,
-          );
-          this.integrationsRan = true;
-        }
+        // Contained: git sync continues and completes. Reported here, and the
+        // surface rollup names it at the end.
+        this.output.warn(
+          `Integration sync failed; continuing with git sync. ` +
+            `Run \`tbd integration sync\` for details. ` +
+            `(${error instanceof Error ? error.message : String(error)})`,
+        );
+      } finally {
+        this.integrationsRan = true;
       }
     }
 

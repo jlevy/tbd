@@ -10,7 +10,7 @@ patterns:
   ULID: '[0-9a-z]{26}'
   SHORTID: '[0-9a-z]{4,5}'
 before: |
-  # Bare repo as local "origin". Use an isolated name (the shared ../origin.git
+  # Bare repo as local "origin". Use an isolated name (the shared ../origin-sync-missing-worktree-135.git
   # is persistent across tryscripts and would leak other scenarios' tbd-sync
   # issues into our sync, breaking exact counts).
   rm -rf ../origin-135.git
