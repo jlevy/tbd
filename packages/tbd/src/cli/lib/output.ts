@@ -364,6 +364,16 @@ export class OutputManager {
   }
 
   /**
+   * Whether `--json` is active. For renderers outside this class that write raw
+   * multi-line text to stdout (and so cannot route through `data()`): they must skip
+   * that output entirely in JSON mode rather than corrupt the machine-readable stream
+   * (tbd-q5c7).
+   */
+  get isJson(): boolean {
+    return this.ctx.json;
+  }
+
+  /**
    * Output structured data - always goes to stdout.
    * In JSON mode, outputs JSON. In text mode, calls the formatter.
    */
