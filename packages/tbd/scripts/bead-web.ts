@@ -1479,6 +1479,16 @@ class BeadWebViewer {
     const filtered = filterIssues(ordered, this.board, query);
     const limited = applyLimit(filtered, query.limit ?? undefined);
 
+    // Closed beads are hidden by default exactly as `tbd list` hides them, but a count
+    // like "244 of 1372" with no visible filter reads as a bug. Count what the closed
+    // checkbox would add under the same remaining filters, so the pill can name the
+    // one filter that is on by default.
+    let closedHidden = 0;
+    if (!query.all && query.status !== 'closed') {
+      closedHidden =
+        filterIssues(ordered, this.board, { ...query, all: true }).length - filtered.length;
+    }
+
     let rows: BoardRow[];
     let contextIds: string[] = [];
     if (query.pretty) {
@@ -1505,6 +1515,7 @@ class BeadWebViewer {
       search: query.search,
       total: this.board.issues.length,
       matched: limited.length,
+      closedHidden,
       rows: rows.slice(0, MAX_ROWS),
       truncated: rows.length > MAX_ROWS ? rows.length : 0,
       contextIds,
