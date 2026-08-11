@@ -793,8 +793,13 @@
       <input id="q" type="search" placeholder="Search id, title, label, spec" size="26" />
       <!-- Control labels stay plain words; the equivalent command below is where the
            flags are shown, so the mapping is taught in one place rather than repeated. -->
-      <select id="status" title="--status">
-        <option value="">status: any</option>
+      <!-- One control, a bijection onto the CLI's reachable status states: active is
+           the tbd list default (closed hidden), "any" is --all, and a named status is
+           --status X (where --all would be a no-op). Two separate controls allowed
+           redundant states and made "any" a lie. -->
+      <select id="status" title="--status / --all">
+        <option value="">status: active</option>
+        <option value="any">any (incl. closed)</option>
         <option value="open">open</option>
         <option value="in_progress">in_progress</option>
         <option value="blocked">blocked</option>
@@ -824,7 +829,6 @@
         <option value="created">sort: created</option>
         <option value="updated">sort: updated</option>
       </select>
-      <label class="check" title="--all"><input type="checkbox" id="all" /> closed</label>
       <label class="check" title="--ready"><input type="checkbox" id="ready" /> ready</label>
       <span class="grow"></span>
       <button id="pretty" class="on" title="--pretty">tree</button>
@@ -885,7 +889,6 @@
         label: $('label'),
         spec: $('spec'),
         sort: $('sort'),
-        all: $('all'),
         ready: $('ready'),
         pretty: $('pretty'),
         expandall: $('expandall'),
@@ -915,7 +918,7 @@
       function queryString() {
         const p = new URLSearchParams();
         if (els.q.value.trim()) p.set('q', els.q.value.trim());
-        if (els.status.value) p.set('status', els.status.value);
+        if (els.status.value && els.status.value !== 'any') p.set('status', els.status.value);
         if (els.type.value) p.set('type', els.type.value);
         if (els.priority.value) p.set('priority', els.priority.value);
         if (els.spec.value.trim()) p.set('spec', els.spec.value.trim());
@@ -923,7 +926,7 @@
           p.append('label', label);
         }
         if (els.sort.value !== 'priority') p.set('sort', els.sort.value);
-        if (els.all.checked) p.set('all', '1');
+        if (els.status.value === 'any') p.set('all', '1');
         if (els.ready.checked) p.set('ready', '1');
         if (pretty) p.set('pretty', '1');
         return p.toString();
@@ -1263,7 +1266,7 @@
             ? board.total + ' beads'
             : board.matched + ' of ' + board.total) + hiddenNote;
         els.countpill.title = board.closedHidden
-          ? 'Closed beads are hidden by default, matching tbd list. Tick "closed" to show ' +
+          ? 'Closed beads are hidden under "active", matching tbd list. Pick status "any" or "closed" to include ' +
             board.closedHidden +
             ' more.'
           : 'Beads matching the current query, out of the whole graph.';
@@ -1467,7 +1470,7 @@
         debounce = setTimeout(refresh, 120);
       };
       for (const el of [els.q, els.label, els.spec]) el.addEventListener('input', onInput);
-      for (const el of [els.status, els.type, els.priority, els.sort, els.all, els.ready]) {
+      for (const el of [els.status, els.type, els.priority, els.sort, els.ready]) {
         el.addEventListener('change', refresh);
       }
       els.pretty.addEventListener('click', () => {
