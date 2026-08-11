@@ -198,9 +198,10 @@ mutation and make one call per group.
 | Command | Purpose |
 | --- | --- |
 | `tbd integration status` | Is Linear configured, credentialed, reachable? Run before anything else |
-| `tbd --dry-run integration mirror` | Preview which beads the policy would mirror outward |
-| `tbd integration mirror` | Create/update tracker issues for policy-selected beads (idempotent) |
-| `tbd integration sync` | Full synchronization of linked pairs; converges to `nothing to do` |
+| `tbd --dry-run integration sync --push` | Preview which beads would go outward |
+| `tbd integration sync --push` | Outbound only: create/update tracker issues (idempotent) |
+| `tbd integration sync --pull` | Inbound only: tracker changes into beads, no external writes |
+| `tbd integration sync` | Both directions; converges to `nothing to do` |
 | `tbd integration link/unlink <bead> [ref]` | Bind or sever a bead and an existing tracker item |
 | `tbd integration comment <bead> "text"` | Author a comment offline; posted on next sync |
 
@@ -209,10 +210,17 @@ No API key → ask the user to create one at `linear.app/settings/api` and put i
 **gitignored** `.env` as `LINEAR_API_KEY=…` (never commit it).
 No config → add
 `integrations: { linear: { enabled: true, team_key: <THEIRS>, project: <optional>, policy: default } }`
-to `.tbd/config.yml`, re-check `status`, then `--dry-run mirror`, `mirror`, `sync`. Full
-details: the External Tracker Integrations section of `tbd docs`. Bulk runs over 20
-creates / 40 updates refuse without `--yes`. Never echo credentials into output or
-commits.
+to `.tbd/config.yml`, re-check `status`, then `--dry-run sync --push`, `sync --push`,
+`sync`. Full details: the External Tracker Integrations section of `tbd docs`. Bulk runs
+over 20 creates / 40 updates refuse without `--yes`. Never echo credentials into output
+or commits.
+
+**Direction flags mean the same thing everywhere in tbd**: bare = both directions,
+`--push` = outbound only, `--pull` = inbound only, `--status` = report only.
+Plain `tbd sync` at session end covers docs, issues, AND enabled trackers; surfaces run
+independently, so one failing (an expired key, a down remote) never stops the others,
+and every failure is reported at the end.
+Narrow with `--docs`, `--issues`, or `--integrations` for a single surface.
 
 ### Documentation
 

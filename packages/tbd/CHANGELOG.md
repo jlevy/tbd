@@ -2,21 +2,26 @@
 
 ## Unreleased
 
-- External tracker integrations (Linear): one-way mirror plus full bidirectional
-  synchronization governed by a per-integration linking policy (`outbound` / `inbound` /
-  `field_sync` clauses, `policy: default` preset).
-  New commands: `tbd integration status | mirror | sync | link | unlink | comment`.
-  Comments sync as append-only sequences; conflicts archive to the attic and post
-  resolvable tracker comments; bulk changes over 20 creates / 40 updates require
-  `--yes`. Strictly additive: repositories without an `integrations` config block are
-  unaffected, and links ride each bead’s `extensions` namespace with no format bump.
-
-## Unreleased
-
 ### Added
 
 - **External tracker integrations** (`tbd integration`), with Linear as the first
-  provider. One-way mirror: beads are the source of truth and nothing is imported back.
+  provider: a one-way outbound projection plus full bidirectional synchronization,
+  governed by a per-integration linking policy (`outbound` / `inbound` / `field_sync`
+  clauses, `policy: default` preset).
+  - `tbd integration sync` takes the same direction flags as `tbd sync` — bare is both
+    directions, `--push` is outbound only, `--pull` is inbound only — so the vocabulary
+    is identical across every surface.
+  - Plain `tbd sync` now covers docs, issues, **and** enabled trackers.
+    Surfaces run independently and failures roll up: one surface failing (an expired
+    credential, an unreachable remote) never stops another, and nothing a working
+    surface would have saved is lost.
+    Narrow with `--docs`, `--issues`, or `--integrations`.
+  - Comments sync as append-only sequences; conflicts archive to the attic and post
+    resolvable tracker comments; bulk changes over 20 creates / 40 updates require
+    `--yes` and are refused non-interactively.
+  - Strictly additive: repositories without an `integrations` config block are
+    unaffected, links ride each bead’s `extensions` namespace, and there is no format
+    bump.
   - `tbd integration status` reports whether each provider is configured, credentialed,
     and reachable, with a remedy on every failure.
     Inert and offline when none is enabled.

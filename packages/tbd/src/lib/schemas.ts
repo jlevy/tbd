@@ -557,8 +557,15 @@ export const GithubIntegrationSchema = z.object({
 });
 
 export const IntegrationsConfigSchema = z.object({
-  /** Run enabled integrations as part of plain `tbd sync`. Off by default. */
-  sync_on_tbd_sync: z.boolean().default(false),
+  /**
+   * Include enabled integrations in plain `tbd sync`.
+   *
+   * On by default: enabling an integration IS the opt-in, and a second flag
+   * only creates a state where a configured tracker silently drifts. Set false
+   * to keep an integration configured but excluded from `tbd sync`, running
+   * `tbd integration sync` by hand instead.
+   */
+  sync_on_tbd_sync: z.boolean().default(true),
   linear: LinearIntegrationSchema.optional(),
   github: GithubIntegrationSchema.optional(),
 });

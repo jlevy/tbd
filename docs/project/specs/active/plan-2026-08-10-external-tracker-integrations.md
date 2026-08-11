@@ -249,8 +249,8 @@ synchronization):
 
 | Question | Policy clause | Verb it defaults |
 | --- | --- | --- |
-| When should a bead create a tracker issue? | `outbound` — a selector over beads | `tbd integration mirror` |
-| When should a tracker issue create a bead? | `inbound` — a selector over external items, plus a mode | `tbd integration import` |
+| When should a bead create a tracker issue? | `outbound` — a selector over beads | `tbd integration sync --push` |
+| When should a tracker issue create a bead? | `inbound` — a selector over external items, plus a mode | `tbd integration sync --pull` |
 | How do a **linked** pair’s fields and comments flow when one or both sides changed? | `field_sync` — per-field flow rules, comment mode, and a conflict tie-break | `tbd integration sync` |
 | What about everything else? | Nothing happens to it — but it is **visible**: `status` reports unlinked-but-matching beads, importable items, drift, and conflicts | `tbd integration status` |
 
@@ -273,6 +273,58 @@ intents, reconcile every linked pair per `field_sync`, then handle policy-matchi
 unlinked work on both sides (create outbound, import or report inbound).
 `mirror` and `import` remain the targeted, manual forms of its two halves.
 `status` is the read-only preview of exactly the same computation.
+
+### Command vocabulary: one set of words across every surface
+
+`tbd sync` already established the vocabulary for moving data: **bare is both
+directions, `--push` is outbound only, `--pull` is inbound only, `--status` reports
+without writing**, and `--docs` / `--issues` select surfaces.
+External trackers reuse that vocabulary exactly rather than inventing a parallel one:
+
+| Surface | Both directions | Outbound only | Inbound only | Report |
+| --- | --- | --- | --- | --- |
+| Issues (git) | `tbd sync --issues` | `--issues --push` | `--issues --pull` | `tbd sync --status` |
+| Docs | `tbd sync --docs` | — (no remote) | — | `tbd sync --docs --status` |
+| Trackers | `tbd integration sync` | `tbd integration sync --push` | `tbd integration sync --pull` | `tbd integration status` |
+| Everything | `tbd sync` | `tbd sync --push` | `tbd sync --pull` | `tbd sync --status` |
+
+This replaces the earlier `mirror` and `import` verbs, which named a mechanism rather
+than a direction and left `sync` ambiguous about how much it covered.
+A reader who knows `tbd sync --pull` now knows what `tbd integration sync --pull` does,
+and `sync` means full synchronization everywhere it appears.
+
+`--push` on a tracker remains the *projection* (selected beads out, attachments and the
+managed block refreshed, nothing read back for merging) because that is what a one-way
+outbound run should do; `--pull` and the bare form run the reconciling engine.
+
+### Sync surfaces: one default, independent failures
+
+**Plain `tbd sync` covers every surface** — docs, issues, and enabled trackers — so an
+agent closing a session runs one command and the whole repository is current.
+Selectors narrow it: `--docs`, `--issues`, `--integrations`.
+
+**Surfaces run independently and failures roll up.** A missing or expired tracker
+credential must not stop docs or issues from syncing, and vice versa: each surface is
+attempted, each failure is collected with its surface name, all of them are reported
+together at the end, and the exit code is non-zero if any failed.
+Nothing a working surface would have persisted is lost because another surface broke.
+
+Ordering is deliberate rather than arbitrary:
+
+1. **Docs** first — local and fast, so they land even if the network is unusable.
+2. **Issues** over git, with the **tracker run nested between the pull/merge and the
+   push**. That position is load-bearing: after the merge the engine reconciles bead
+   state that already includes other machines’ work, and before the push its bead and
+   bridge writes ride the same push out.
+3. **Trackers standalone**, only if step 2 did not reach them (issues not selected, or
+   the git phase failed first).
+   Its writes are still committed to the sync branch, so the next successful push
+   carries them — a git problem delays tracker work, never loses it.
+
+`sync_on_tbd_sync` therefore defaults to **true**: enabling an integration is already
+the explicit opt-in, and a second flag only creates a state where a configured tracker
+silently drifts. Setting it false keeps the integration configured but excluded from
+`tbd sync`, for repositories that want to run `tbd integration sync` by hand.
 
 ### Naming
 
@@ -666,7 +718,7 @@ label, and on `tbd integration status --refresh`.
 #### 9. Mirror (`cli/commands/integration.ts` → `core/mirror.ts`)
 
 ```
-tbd integration mirror [--bead <ids...>] [-t <kind>] [--status <s>] [-l <label>]
+tbd integration sync --push [--bead <ids...>] [-t <kind>] [--status <s>] [-l <label>]
                        [--spec <path>] [--limit <n>] [--yes] [--dry-run] [--json]
 ```
 

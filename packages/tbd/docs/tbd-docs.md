@@ -1484,7 +1484,7 @@ tbd integration status --offline # Skip the network check
 `tbd doctor` reports the same findings.
 Both are inert when nothing is enabled.
 
-### What to mirror
+### What to sync
 
 **Mirror the shape of the work, not the work itself.** A useful rule of thumb is around
 **10% of your beads**: the epics someone would ask about in a status meeting, plus
@@ -1502,20 +1502,20 @@ Set `kinds: []` to select purely by spec, `specs: none` to select purely by kind
 `labels:` to require an opt-in marker.
 If the mirror stops being the thing people actually look at, it is selecting too much.
 
-### Mirroring
+### Pushing beads outward
 
 ```bash
-tbd --dry-run integration mirror        # Preview: prints every bead id it would touch
-tbd integration mirror                  # Apply the configured policy
+tbd --dry-run integration sync --push   # Preview: prints every bead id it would touch
+tbd integration sync --push             # Project the policy's outbound set
 ```
 
 Every `list` selector works here too, and **overrides** the configured policy, so a
 staged rollout needs no config edits:
 
 ```bash
-tbd integration mirror --bead tbd-abc1 tbd-def2   # Exactly these
-tbd integration mirror --type epic --limit 10     # Ten epics, deterministic order
-tbd integration mirror --spec plan-2026-08-10-x.md
+tbd integration sync --push --bead tbd-abc1 tbd-def2   # Exactly these
+tbd integration sync --push --type epic --limit 10     # Ten epics, deterministic order
+tbd integration sync --push --spec plan-2026-08-10-x.md
 ```
 
 The recommended way to start is to mirror a handful, look at the result in Linear, then
@@ -1610,9 +1610,18 @@ linked, `sync` reconciles it until it is unlinked.
 
 ```bash
 tbd --dry-run integration sync   # Preview the identical computation, write nothing
-tbd integration sync             # Reconcile every linked pair, apply the policy
+tbd integration sync             # Both directions: reconcile every linked pair
+tbd integration sync --push      # Outbound only: project beads to the tracker
+tbd integration sync --pull      # Inbound only: writes nothing to the tracker
 tbd integration sync --yes       # Affirm a run over the bulk thresholds
 ```
+
+The flags mean what they mean everywhere else in tbd: **bare is both directions,
+`--push` is outbound only, `--pull` is inbound only** — the same shape as
+`tbd sync --push` / `--pull` for issues.
+`--pull` performs **no external writes at all**, so it is the safe way to take tracker
+changes without touching the tracker; a suppressed outbound change stays pending and the
+next full sync pushes it.
 
 One run performs, in order: replay of any interrupted prior run (external writes are
 journaled before they happen, so a crash converges instead of duplicating), a pull of
@@ -1632,13 +1641,34 @@ reported — the bead is never deleted or closed automatically.
 The bulk thresholds count both directions: creates and updates to the tracker AND
 imports and updates to beads.
 
-To fold this into plain `tbd sync`, set `integrations.sync_on_tbd_sync: true` (default
-false). It runs between the git pull and the push — after the merge, so reconciliation
-sees other machines’ bead changes rather than pushing stale state; before the push, so
-its bead and bridge writes ride the same push out.
-A failure degrades with a warning (external trackers never block or corrupt git sync),
-and the folded run implies affirmation of the bulk thresholds; use
-`tbd integration sync` directly for a guarded, reviewable run.
+### One command at session end
+
+Plain `tbd sync` covers **every surface** — docs, issues, and any enabled tracker — so
+an agent closing a session runs one command and the repository is current:
+
+```bash
+tbd sync                  # Docs, issues, and trackers
+tbd sync --docs           # Only docs
+tbd sync --issues         # Only issues
+tbd sync --integrations   # Only trackers
+tbd sync --push           # Outbound only, for the network surfaces
+```
+
+**Surfaces run independently and their failures roll up.** An expired tracker credential
+does not stop docs or issues from syncing; a git remote that is down does not stop docs.
+Each surface is attempted, each failure is reported with its surface name, and the exit
+code is non-zero if any failed — while everything that worked is still saved.
+
+The tracker run happens between the git pull and push, so it reconciles bead state that
+already includes other machines’ work and its own writes ride the same push out.
+If the git phase fails before reaching it, the tracker run still happens afterward and
+records to the sync branch; the next successful push carries it.
+A git problem delays tracker work rather than losing it.
+
+Set `integrations.sync_on_tbd_sync: false` to keep an integration configured but out of
+`tbd sync`, running `tbd integration sync` by hand instead.
+It defaults to true: enabling an integration is already the opt-in, and a second switch
+only creates a state where a configured tracker silently drifts.
 
 ### Linking, unlinking, and comments
 
@@ -1681,8 +1711,8 @@ tbd integration status             # 1. Is Linear configured and reachable?
   team resolves.
 
 ```bash
-tbd --dry-run integration mirror   # 2. Preview the outbound set; stage with --bead/--limit
-tbd integration mirror             # 3. Create/update the tracker issues
+tbd --dry-run integration sync --push  # 2. Preview the outbound set; stage with --bead/--limit
+tbd integration sync --push            # 3. Create/update the tracker issues
 tbd integration sync               # 4. Reconcile from then on; repeat at session end
 ```
 

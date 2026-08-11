@@ -155,8 +155,11 @@ class StatusHandler extends BaseCommand {
   }
 }
 
-interface MirrorOptions {
+interface PushOptions {
   provider?: string;
+  /** Direction flags, shaped exactly like `tbd sync`'s. */
+  push?: boolean;
+  pull?: boolean;
   /** Explicit bead IDs. Overrides every other selector. */
   bead?: string[];
   type?: string;
@@ -178,7 +181,7 @@ interface MirrorOptions {
  * (mirror a few, then more, then everything) from requiring config edits.
  */
 function resolveSelection(
-  options: MirrorOptions,
+  options: PushOptions,
   allIssues: Issue[],
   entry: { policy: PolicyDefinition; provider: ProviderNameType },
   resolveId: (id: string) => string | undefined,
@@ -230,8 +233,8 @@ function resolveSelection(
   return selected;
 }
 
-class MirrorHandler extends BaseCommand {
-  async run(options: MirrorOptions): Promise<void> {
+class PushHandler extends BaseCommand {
+  async run(options: PushOptions): Promise<void> {
     const tbdRoot = await requireInit();
     const config = await readConfig(tbdRoot);
 
@@ -392,6 +395,10 @@ class MirrorHandler extends BaseCommand {
 interface SyncOptions {
   provider?: string;
   yes?: boolean;
+  push?: boolean;
+  pull?: boolean;
+  /** Resolved from the direction flags; `inbound` is `--pull`. */
+  direction?: 'both' | 'inbound';
 }
 
 /**
@@ -418,6 +425,7 @@ class IntegrationSyncHandler extends BaseCommand {
           assumeYes: options.yes === true,
           interactive: process.stdin.isTTY,
           dryRun,
+          direction: options.direction ?? 'both',
         },
       );
     });
@@ -663,10 +671,12 @@ export const integrationCommand = new Command('integration')
       }),
   )
   .addCommand(
-    new Command('mirror')
-      .description('Mirror selected beads outward to a configured tracker')
+    new Command('sync')
+      .description('Synchronize with a configured tracker (both directions by default)')
+      .option('--push', 'Outbound only: project selected beads to the tracker')
+      .option('--pull', 'Inbound only: pull tracker changes into beads')
       .option('--provider <name>', 'Limit to one provider')
-      .option('--bead <ids...>', 'Mirror these beads only (overrides all other selectors)')
+      .option('--bead <ids...>', 'Push these beads only (overrides all other selectors)')
       .option('-t, --type <type>', 'Select by kind: bug, feature, task, epic, chore')
       .option('--status <status>', 'Select by status')
       .option(
@@ -675,21 +685,26 @@ export const integrationCommand = new Command('integration')
         (value: string, previous: string[] | undefined) => [...(previous ?? []), value],
       )
       .option('--spec <path>', 'Select beads linked to a spec path')
-      .option('--limit <n>', 'Mirror at most n beads, for a staged rollout')
+      .option('--limit <n>', 'Push at most n beads, for a staged rollout')
       .option('-y, --yes', 'Confirm a run that exceeds the bulk-change thresholds')
-      .action(async (options, command) => {
-        const handler = new MirrorHandler(command);
-        await handler.run(options);
-      }),
-  )
-  .addCommand(
-    new Command('sync')
-      .description('Full synchronization: reconcile linked pairs and apply the linking policy')
-      .option('--provider <name>', 'Limit to one provider')
-      .option('-y, --yes', 'Confirm a run that exceeds the bulk-change thresholds')
-      .action(async (options, command) => {
+      .action(async (rawOptions, command) => {
+        const options = rawOptions as PushOptions & SyncOptions;
+        // Same shape as `tbd sync`: bare is both directions, --push is
+        // outbound only, --pull is inbound only, and the two are exclusive.
+        if (options.push && options.pull) {
+          throw new CLIError(
+            '--push and --pull are mutually exclusive; omit both for a full sync.',
+          );
+        }
+        if (options.push) {
+          // Outbound only is the projection: selected beads out, attachments
+          // and the managed block refreshed, nothing read back for merging.
+          const handler = new PushHandler(command);
+          await handler.run(options);
+          return;
+        }
         const handler = new IntegrationSyncHandler(command);
-        await handler.run(options);
+        await handler.run({ ...options, direction: options.pull ? 'inbound' : 'both' });
       }),
   )
   .addCommand(

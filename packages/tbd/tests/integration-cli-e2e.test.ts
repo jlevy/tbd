@@ -13,7 +13,12 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { promisify } from 'node:util';
 
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
+
+// Every test here spawns the real CLI binary, and the failure paths wait out
+// the client's retry backoff on purpose. The default 5s budget is for unit
+// tests; these need room, especially under full-suite parallelism.
+vi.setConfig({ testTimeout: 60_000, hookTimeout: 60_000 });
 
 import { LinearMockServer } from './helpers/linear-mock-server.js';
 
@@ -97,7 +102,7 @@ describe('tbd integration, end to end via the built binary', () => {
     const created = await cli(['create', 'An epic to mirror', '-t', 'epic']);
     expect(created.code).toBe(0);
 
-    const mirror = await cli(['integration', 'mirror']);
+    const mirror = await cli(['integration', 'sync', '--push']);
     expect(mirror.code).toBe(0);
     expect(mirror.stdout).toContain('created 1');
     expect(server.issues.size).toBe(1);
@@ -180,6 +185,27 @@ describe('tbd integration, end to end via the built binary', () => {
     expect(sync.code).toBe(0);
     // FIN-50 is unlinked and untouched; it shows up as importable instead.
     expect(sync.stdout).toContain('importable');
+  });
+
+  it('a broken tracker does not stop docs or issues from syncing', async () => {
+    // The session-end guarantee: `tbd sync` covers every surface, each runs
+    // independently, failures roll up, and nothing a working surface would
+    // have saved is lost because another surface broke.
+    const created = await cli(['create', 'Bead written while the tracker is broken']);
+    expect(created.code).toBe(0);
+
+    // Credential present but pointed at a dead endpoint: the tracker surface
+    // fails at the network, the others must not care.
+    const result = await cli(['sync'], { LINEAR_API_URL: 'http://127.0.0.1:9/graphql' });
+
+    const output = result.stdout + result.stderr;
+    // Docs and issues still did their work...
+    expect(output).toMatch(/[Dd]ocs/);
+    // ...and the tracker failure is named, not swallowed.
+    expect(output.toLowerCase()).toContain('integration');
+    // The bead itself survived: no data lost to the broken surface.
+    const list = await cli(['list', '--json']);
+    expect(list.stdout).toContain('Bead written while the tracker is broken');
   });
 
   it('missing credential fails loudly with the remedy', async () => {

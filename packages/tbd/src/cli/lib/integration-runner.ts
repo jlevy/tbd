@@ -129,6 +129,8 @@ export interface IntegrationRunOptions {
   /** Whether a terminal is available for confirmation prompts. */
   interactive: boolean;
   dryRun: boolean;
+  /** `inbound` suppresses every external write; see the engine's `direction`. */
+  direction?: 'both' | 'inbound';
 }
 
 /**
@@ -239,6 +241,7 @@ export async function runEnabledIntegrations(
           }
         },
       },
+      direction: options.direction ?? 'both',
       dryRun: options.dryRun,
       now,
     });

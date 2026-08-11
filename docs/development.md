@@ -89,24 +89,11 @@ This creates an npm tarball and installs from it, validating the full package st
 
 ### Live bead web view (`tbd web`)
 
-`tbd web` is a built-in command serving a loopback-only live view of the bead graph,
-driven by `tbd watch` and sharing the CLI’s query semantics exactly (each view shows its
-equivalent `tbd list` invocation).
-It is being productionized through [PR #207](https://github.com/jlevy/tbd/pull/207); the
-plan of record is
-[plan-2026-08-10-tbd-web-live-bead-view.md](project/specs/active/plan-2026-08-10-tbd-web-live-bead-view.md).
-
-Until that lands, the working implementation runs from `scripts/` (not part of the
-published package, and retired when `tbd web` ships):
-
-```bash
-# Serve the current repository, read-only (recommended for real repos)
-pnpm exec tsx packages/tbd/scripts/bead-web.ts --repo . --read-only --interval 30
-```
-
-Then open `http://127.0.0.1:7777`. `--help` lists all options; set `TBD_QA_BIN` to drive
-a packed or installed candidate.
-The server binds loopback only and refuses cross-origin requests.
+`tbd web` serves a loopback-only live view of the bead graph, driven by `tbd watch` and
+sharing the CLI’s query semantics.
+It is being productionized in [PR #207](https://github.com/jlevy/tbd/pull/207) against
+[plan-2026-08-10-tbd-web-live-bead-view.md](project/specs/active/plan-2026-08-10-tbd-web-live-bead-view.md);
+usage belongs in the manual once it ships, not here.
 
 ### Building
 

@@ -105,6 +105,17 @@ export interface SyncEngineOptions {
   mirrorLabels: boolean;
   /** Provider-specific field equivalences (see reconcile.ts). */
   equivalences?: FieldEquivalences;
+  /**
+   * Which half of the synchronization to apply.
+   *
+   * `both` (the default) is the full synchronization. `inbound` applies only
+   * bead-side changes — pulls, comment pulls, imports — and performs no
+   * external writes at all, which is what makes `tbd integration pull` safe to
+   * run against a tracker you do not want to touch. Reconciliation still runs
+   * in full either way; the direction gates what is APPLIED, so the report
+   * still names what the suppressed half would have done.
+   */
+  direction?: 'both' | 'inbound';
   callbacks: SyncCallbacks;
   dryRun: boolean;
   now: () => string;
@@ -181,6 +192,7 @@ function conflictReportOf(
 /** Run the full synchronization for one provider. */
 export async function runSync(options: SyncEngineOptions): Promise<SyncRunReport> {
   const { adapter, provider, policy, dataSyncDir, callbacks, dryRun } = options;
+  const inboundOnly = options.direction === 'inbound';
   const report: SyncRunReport = {
     provider,
     replayedOps: 0,
@@ -328,16 +340,23 @@ export async function runSync(options: SyncEngineOptions): Promise<SyncRunReport
       if (commentsMode !== 'outbound') {
         commentPulls.push({ bead: pair.bead, externalId: link.id });
       }
-      if (commentsMode !== 'inbound' && unpushedComments(pair.bead, provider).length > 0) {
+      if (
+        !inboundOnly &&
+        commentsMode !== 'inbound' &&
+        unpushedComments(pair.bead, provider).length > 0
+      ) {
         commentPushes.push({ bead: pair.bead, externalId: link.id });
       }
     }
   }
 
-  // Outbound-new: policy-selected beads with no link yet.
-  const outboundNew = mirrorSet(options.allIssues, policy.outbound, provider).filter(
-    (issue) => !readLink(issue, provider),
-  );
+  // Outbound-new: policy-selected beads with no link yet. An inbound-only run
+  // creates nothing outward; it reports what it declined to create instead.
+  const outboundNew = inboundOnly
+    ? []
+    : mirrorSet(options.allIssues, policy.outbound, provider).filter(
+        (issue) => !readLink(issue, provider),
+      );
 
   // Inbound: unlinked externals in scope. The delta covers recently-touched
   // items; a full scan happens only when there is no watermark yet.
@@ -484,14 +503,24 @@ export async function runSync(options: SyncEngineOptions): Promise<SyncRunReport
     try {
       let postWriteUpdatedAt = pair.remote.updatedAt;
 
-      if (Object.keys(pair.result.externalPatch).length > 0) {
+      if (!inboundOnly && Object.keys(pair.result.externalPatch).length > 0) {
         const { updatedAt } = await adapter.applyChanges(link.id, pair.result.externalPatch);
         postWriteUpdatedAt = updatedAt;
         report.pushed.push(displayId);
       }
 
-      // Conflict artifacts: a comment per conflicted field, exactly-once.
+      // Conflict artifacts: a comment per conflicted field, exactly-once. An
+      // inbound-only run writes nothing outward, so it reports the conflict
+      // without posting; the next full sync posts it.
       for (const conflict of pair.result.conflicts) {
+        if (inboundOnly) {
+          report.conflicts.push({
+            beadId: displayId,
+            field: conflict.field,
+            winner: conflict.winner,
+          });
+          continue;
+        }
         const clientId = randomUUID();
         await adapter.postConflict(
           link.id,
@@ -562,7 +591,13 @@ export async function runSync(options: SyncEngineOptions): Promise<SyncRunReport
         await callbacks.writeBead(stored);
       }
 
-      // Base advance: only now, after every write above landed.
+      // Base advance: only now, after every write above landed. An inbound-only
+      // run advances the base only when it pushed nothing that the base would
+      // then claim — a suppressed outbound change must stay pending, so the
+      // record keeps its previous base and the next full sync still pushes.
+      if (inboundOnly && Object.keys(pair.result.externalPatch).length > 0) {
+        continue;
+      }
       await writeLinkRecord(dataSyncDir, provider, {
         type: 'lk',
         bead_id: pair.bead.id,
