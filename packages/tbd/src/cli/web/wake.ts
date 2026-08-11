@@ -296,8 +296,9 @@ export class WakeCoordinator {
     this.suppressLocalEvents = true;
     let movement;
     try {
-      await this.dependencies.runIssueSync(
-        this.board.getSyncTarget(),
+      const syncTarget = this.board.getSyncTarget();
+      const syncResult = await this.dependencies.runIssueSync(
+        syncTarget,
         {
           pull: true,
           signal: this.abortController.signal,
@@ -305,6 +306,19 @@ export class WakeCoordinator {
         },
         this.logger,
       );
+      switch (syncResult.kind) {
+        case 'pulled':
+        case 'up-to-date':
+          break;
+        case 'remote-missing':
+          throw new Error(
+            `Remote issue branch ${syncTarget.remote}/${syncTarget.syncBranch} disappeared before the wake could be applied`,
+          );
+        default: {
+          const exhaustive: never = syncResult;
+          throw new Error(`Unhandled issue sync result: ${String(exhaustive)}`);
+        }
+      }
       movement = await this.board.reload();
     } finally {
       this.suppressLocalEvents = false;

@@ -274,6 +274,80 @@ describe('WakeCoordinator', () => {
     await wake.stop();
   });
 
+  it('preserves the remote cursor when the reported branch disappears before pull', async () => {
+    const { board } = boardHarness();
+    await board.reload();
+    const report: IssueChangesReport = {
+      since: 'a'.repeat(40),
+      tip: 'b'.repeat(40),
+      changes: [
+        {
+          id: 'web-wake',
+          internal_id: internalId,
+          title: 'Unapplied wake',
+          change: 'updated',
+          fields: [{ field: 'title', before: 'Wake me', after: 'Unapplied wake' }],
+        },
+      ],
+    };
+    const observedBaselines: (string | null)[] = [];
+    let watchCalls = 0;
+    const watchForIssueChanges = vi.fn((options: IssueWatchOptions) => {
+      observedBaselines.push(options.since);
+      watchCalls += 1;
+      return watchCalls === 1
+        ? Promise.resolve<IssueWatchResult>({ kind: 'changed', report })
+        : waitForAbort(options);
+    });
+    let releaseBackoff: (() => void) | undefined;
+    const sleep = vi.fn(
+      (_milliseconds: number, signal: AbortSignal): Promise<void> =>
+        new Promise((resolve) => {
+          const finish = (): void => {
+            signal.removeEventListener('abort', finish);
+            resolve();
+          };
+          releaseBackoff = finish;
+          signal.addEventListener('abort', finish, { once: true });
+        }),
+    );
+    const wake = new WakeCoordinator(
+      board,
+      { intervalSeconds: 10 },
+      {
+        watchForIssueChanges,
+        runIssueSync: () => Promise.resolve({ kind: 'remote-missing' }),
+        watchDirectory: () => ({ close: vi.fn() }),
+        sleep,
+        now: () => new Date('2026-08-11T12:00:01.000Z'),
+      },
+    );
+
+    await wake.start();
+    await eventually(() => {
+      expect(wake.getState().watchPhase).toBe('error');
+    });
+    expect(wake.getState()).toMatchObject({
+      watchSince: 'a'.repeat(40),
+      lastReport: null,
+      reportDataVersion: 0,
+      changedIds: [],
+      wakeCount: 0,
+      dataVersion: 0,
+    });
+    expect(wake.getState().watchError).toContain(
+      'Remote issue branch origin/tbd-sync disappeared before the wake could be applied',
+    );
+    expect(sleep).toHaveBeenCalledOnce();
+
+    releaseBackoff?.();
+    await eventually(() => {
+      expect(observedBaselines).toHaveLength(2);
+    });
+    expect(observedBaselines).toEqual(['a'.repeat(40), 'a'.repeat(40)]);
+    await wake.stop();
+  });
+
   it('drops the cursor only when sync history proves it is no longer an ancestor', async () => {
     const { board } = boardHarness();
     await board.reload();

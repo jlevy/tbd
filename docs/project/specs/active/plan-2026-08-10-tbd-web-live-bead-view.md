@@ -521,8 +521,9 @@ Signatures are the intended shape; adjust mechanically in review, not structural
   lookup, and canonical display-id alphabets.
 - `tests/web-http.test.ts` — GET-only routing, Host/Origin security, detail isolation,
   SSE replay, and frame bounds.
-- `tests/web-wake.test.ts` — pull-before-reload, local debounce, report retry without
-  cursor loss, rewritten-history recovery, and shutdown cancellation.
+- `tests/web-wake.test.ts` — pull-before-reload, local debounce, thrown and structured
+  pull failure retry without cursor loss, rewritten-history recovery, and shutdown
+  cancellation.
 - `tests/web-server.test.ts` — port policy, readiness, idempotent teardown, and the
   stitched production artifact.
 - `tests/web-core.test.ts` — stubbed `Transport`: connect-then-fetch ordering, SSE
@@ -623,13 +624,13 @@ to land the whole command through one PR.
   context, lazy detail expansion, light/dark/system themes, responsive layout, CSP, and
   a clean browser console; the second platform is supplied by the final CI matrix.
 - [x] Current `origin/main` merged cleanly after the local release gate.
-- [ ] PR description updated to the shipped reality.
+- [x] PR description updated to the shipped reality.
 
 ### Final review finding map
 
 The final review is tracked under `tbd-o7nu`. Every implementation finding has one bead
-and one code seam; the first ten are implemented, locally validated, and closed.
-R11 is the final Windows-matrix correction.
+and one code seam; all twelve are implemented and locally validated.
+R12 is the final remote-wake state-machine correction raised on the pushed head.
 
 | Bead | Severity | File/function seam | Disposition |
 | --- | --- | --- | --- |
@@ -644,6 +645,7 @@ R11 is the final Windows-matrix correction.
 | `tbd-ijz7` (R9) | P2 | `tests/cli-setup.tryscript.md`: top-level help golden | Pin `web` in the complete command listing as well as its dedicated help transcript. |
 | `tbd-b4m2` (R10) | P1 | five `tests/cli-sync-*.tryscript.md` fixtures: `before` remotes | Keep each bare remote inside its sandbox’s own Git directory so sync histories cannot leak between transcript files. |
 | `tbd-snb4` (R11) | P1 | `tests/cli-web.tryscript.md`: built CLI invocation | Invoke `bin.mjs` explicitly with Node so the focused matrix transcript does not depend on Unix extensionless-command lookup. |
+| `tbd-qf41` (R12) | P1 | `src/cli/web/wake.ts`: `applyReport`; `tests/web-wake.test.ts` | Treat `remote-missing` as a retryable unapplied report: do not reload or advance report/cursor state, and retry from the same baseline. |
 
 ### Merge gate for PR #207
 
