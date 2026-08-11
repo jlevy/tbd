@@ -538,15 +538,20 @@ being exercised.
 
 ### Phase 2: Core foundations
 
-- [ ] `src/lib/issue-query.ts` per the module map; `list`/`ready` refactored onto it.
-  Exit: parity oracle green over the corpus; full suite and all 1,068 tryscript
-  transcripts byte-unchanged.
-- [ ] tbd-5hh1 fix in `tree-view.ts` plus the depth-3 golden test.
-- [ ] `AbortSignal` through `bead-watch.ts` and the `git.ts` overload, with abort
-  coverage; CLI `watch` behavior unchanged.
-- [ ] tbd-q5c7: `OutputManager.isJson` + `printDocSyncStatus` guard; transcript proves
-  `sync --status --json` emits pure JSON with a stale docs cache.
+- [x] `src/lib/issue-query.ts` per the module map; `list`/`ready` refactored onto it
+  (`e5c9360d`). Parity oracle green id-sequence-exact across the query space; full suite
+  green through the gate.
+- [x] tbd-5hh1 fixed in `tree-view.ts` with depth-3 goldens (`e5c9360d`).
+- [x] `AbortSignal` through `bead-watch.ts` and the `git.ts` options overload, with
+  pre-aborted/sleep/fetch cancellation coverage; CLI `watch` behavior unchanged.
+- [x] tbd-q5c7: `OutputManager.isJson` + `printDocSyncStatus` guard with regression
+  test; live-verified pure JSON with a stale docs cache (`e5c9360d`).
 - [ ] `src/file/sync-run.ts` extraction; `sync.ts` refactored with no behavior change.
+  Assessed 2026-08-10: `fullSync` is ~200 lines entangled with the handler (spinner,
+  summary tallies, conflict rendering, retries), not a thin seam.
+  The designed bridge is `OperationLogger`; the extraction takes it as a parameter and
+  is its own issue-query-sized work unit with a behavior oracle, scheduled as the next
+  Phase 2 step rather than rushed.
 
 ### Phase 3: Server productization
 

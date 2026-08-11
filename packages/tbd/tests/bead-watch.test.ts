@@ -9,6 +9,7 @@ import { promisify } from 'node:util';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { serializeIssue } from '../src/file/parser.js';
+import type { GitTimeoutOptions } from '../src/file/git.js';
 import {
   createGitWatchDependencies,
   removeStaleWatchRefs,
@@ -237,16 +238,18 @@ describe('watchForIssueChanges polling', () => {
 
   it('shares the fetch timeout budget with private-ref resolution', async () => {
     let now = 1_000;
-    const runGitWithTimeout = vi.fn((_timeoutMs: number, ...args: string[]): Promise<string> => {
-      if (args.includes('fetch')) {
-        now += 75;
-        return Promise.resolve('');
-      }
-      if (args.includes('rev-parse')) {
-        return Promise.resolve(SHA_B);
-      }
-      return Promise.reject(new Error(`Unexpected Git command: ${args.join(' ')}`));
-    });
+    const runGitWithTimeout = vi.fn(
+      (options: number | GitTimeoutOptions, ...args: string[]): Promise<string> => {
+        if (args.includes('fetch')) {
+          now += 75;
+          return Promise.resolve('');
+        }
+        if (args.includes('rev-parse')) {
+          return Promise.resolve(SHA_B);
+        }
+        return Promise.reject(new Error(`Unexpected Git command: ${args.join(' ')}`));
+      },
+    );
     const dependencies = createGitWatchDependencies(
       {
         repoDir: '/unused',
@@ -263,7 +266,11 @@ describe('watchForIssueChanges polling', () => {
     );
 
     await expect(dependencies.fetchRemoteTip(100)).resolves.toBe(SHA_B);
-    expect(runGitWithTimeout.mock.calls.map(([timeoutMs]) => timeoutMs)).toEqual([100, 25]);
+    expect(
+      runGitWithTimeout.mock.calls.map(([options]) =>
+        typeof options === 'number' ? options : options.timeoutMs,
+      ),
+    ).toEqual([100, 25]);
     expect(runGitWithTimeout.mock.calls[1]).toContain('rev-parse');
   });
 
@@ -613,5 +620,87 @@ describe('watchForIssueChanges Git safety', { timeout: 15_000 }, () => {
     expect(await readFile(sentinelLock, 'utf8')).toBe('lock untouched');
     expect(await git(repoDir, 'for-each-ref', '--format=%(refname)', 'refs/tbd/watch/')).toBe('');
     await expect(access(join(gitDir, 'tbd', 'locks', 'data-sync.lock'))).resolves.toBeUndefined();
+  });
+});
+
+describe('watchForIssueChanges cancellation', () => {
+  const baseOptions = {
+    repoDir: '/unused',
+    remote: 'origin',
+    branch: 'tbd-sync',
+    prefix: 'tbd',
+    selection: { kind: 'all' } as const,
+    since: null,
+    intervalMs: 10,
+    timeoutMs: null,
+  };
+
+  it('returns aborted immediately for a pre-aborted signal, after cleanup', async () => {
+    const fake = fakeDependencies([SHA_A]);
+    const cleanup = vi.fn(() => Promise.resolve());
+    fake.dependencies.cleanup = cleanup;
+    const controller = new AbortController();
+    controller.abort();
+
+    const result = await watchForIssueChanges(
+      { ...baseOptions, signal: controller.signal },
+      fake.dependencies,
+    );
+
+    expect(result).toEqual({ kind: 'aborted' });
+    expect(fake.getRemoteTip).not.toHaveBeenCalled();
+    expect(cleanup).toHaveBeenCalledTimes(1);
+  });
+
+  it('wakes a sleeping watch on abort instead of waiting out the interval', async () => {
+    const fake = fakeDependencies([SHA_A]);
+    const cleanup = vi.fn(() => Promise.resolve());
+    fake.dependencies.cleanup = cleanup;
+    // A sleep that never resolves on its own: only the abort race can end it.
+    fake.dependencies.sleep = () => new Promise<void>(() => undefined);
+    const controller = new AbortController();
+    setTimeout(() => {
+      controller.abort();
+    }, 20);
+
+    const result = await watchForIssueChanges(
+      { ...baseOptions, signal: controller.signal },
+      fake.dependencies,
+    );
+
+    expect(result).toEqual({ kind: 'aborted' });
+    expect(cleanup).toHaveBeenCalledTimes(1);
+  });
+
+  it('treats an abort-killed fetch as cancellation, not a transport failure', async () => {
+    const fake = fakeDependencies([SHA_A, SHA_B]);
+    const cleanup = vi.fn(() => Promise.resolve());
+    fake.dependencies.cleanup = cleanup;
+    const controller = new AbortController();
+    // Movement is observed, then the fetch hangs until the signal kills it, the way a
+    // signal-killed git child rejects mid-flight.
+    fake.fetchRemoteTip.mockImplementation(
+      () =>
+        new Promise<string>((_resolve, reject) => {
+          controller.signal.addEventListener(
+            'abort',
+            () => {
+              reject(new Error('git fetch terminated'));
+            },
+            { once: true },
+          );
+          setTimeout(() => {
+            controller.abort();
+          }, 10);
+        }),
+    );
+
+    const result = await watchForIssueChanges(
+      { ...baseOptions, signal: controller.signal },
+      fake.dependencies,
+    );
+
+    expect(result).toEqual({ kind: 'aborted' });
+    expect(cleanup).toHaveBeenCalledTimes(1);
   });
 });

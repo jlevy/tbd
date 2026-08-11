@@ -143,27 +143,45 @@ export async function gitNoPrompt(...args: string[]): Promise<string> {
   }
 }
 
+/** Options form of {@link gitNoPromptWithTimeout} for callers that can be cancelled. */
+export interface GitTimeoutOptions {
+  /** Wall-time limit for the Git process; must be a positive integer. */
+  timeoutMs: number;
+  /**
+   * Optional cancellation. On abort the child is killed immediately and the call
+   * rejects; the caller decides whether that is an error or a clean stop.
+   */
+  signal?: AbortSignal;
+}
+
 /**
  * Like {@link gitNoPrompt}, but terminate the Git process after a positive timeout.
  * Network-facing callers should use this variant so a stalled transport cannot block
  * an unattended workflow forever.
+ *
+ * Accepts either the original positional timeout or a {@link GitTimeoutOptions} object;
+ * the options form adds an `AbortSignal` so an embedding caller (`tbd web`'s in-process
+ * watch) can cancel a poll mid-flight instead of killing its whole process.
  */
 export async function gitNoPromptWithTimeout(
-  timeoutMs: number,
+  timeoutOrOptions: number | GitTimeoutOptions,
   ...args: string[]
 ): Promise<string> {
-  if (!Number.isSafeInteger(timeoutMs) || timeoutMs <= 0) {
-    throw new RangeError(`Git timeout must be a positive integer, got ${timeoutMs}`);
+  const options: GitTimeoutOptions =
+    typeof timeoutOrOptions === 'number' ? { timeoutMs: timeoutOrOptions } : timeoutOrOptions;
+  if (!Number.isSafeInteger(options.timeoutMs) || options.timeoutMs <= 0) {
+    throw new RangeError(`Git timeout must be a positive integer, got ${options.timeoutMs}`);
   }
   try {
     const { stdout } = await execFileAsync('git', args, {
       maxBuffer: GIT_MAX_BUFFER,
-      timeout: timeoutMs,
+      timeout: options.timeoutMs,
+      signal: options.signal,
       env: gitSafeEnv({ GIT_TERMINAL_PROMPT: '0' }),
     });
     return stdout.trim();
   } catch (err) {
-    throw GitError.from(err, args, timeoutMs);
+    throw GitError.from(err, args, options.timeoutMs);
   }
 }
 
