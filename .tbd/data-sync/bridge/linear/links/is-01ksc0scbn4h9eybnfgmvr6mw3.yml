@@ -1,6 +1,6 @@
 base:
   assignee: null
-  description_hash: sha256:26bbfd70526284f0d2da0d1d1ecf8ac6acb4707cbe9098fbf838a3b9a7e2b14b
+  description_hash: sha256:9a5aba6bb3de08747a87d3eb475d51a4817237603b2640048dfd0af0fd717610
   labels:
     - codex
     - hooks
@@ -12,5 +12,5 @@ bead_id: is-01ksc0scbn4h9eybnfgmvr6mw3
 external_id: 3cf6fe4a-7e19-4b26-acbf-a83a96bf68ca
 remote_updated_at: 2026-08-11T07:04:07.108Z
 state: linked
-synced_at: 2026-08-11T07:04:07.266Z
+synced_at: 2026-08-11T07:04:24.982Z
 type: lk

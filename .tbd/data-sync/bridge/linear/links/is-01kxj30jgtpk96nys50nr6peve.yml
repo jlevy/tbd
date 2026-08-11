@@ -1,6 +1,6 @@
 base:
   assignee: null
-  description_hash: sha256:38beaca1db1d89c2b236a0c7ba47bc703f69edb40b1a7899443d30098ce73ef2
+  description_hash: sha256:9c994b370bce053a4cccc7d0172ebab741af4ebf979e55758fd5322479503777
   labels:
     - github-190
     - agent-skills
@@ -12,5 +12,5 @@ bead_id: is-01kxj30jgtpk96nys50nr6peve
 external_id: 004dac38-9687-40be-ad90-11e6ba5fcef4
 remote_updated_at: 2026-08-11T07:04:10.620Z
 state: linked
-synced_at: 2026-08-11T07:04:10.795Z
+synced_at: 2026-08-11T07:04:26.843Z
 type: lk
