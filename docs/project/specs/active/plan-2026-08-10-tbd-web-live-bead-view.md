@@ -730,7 +730,7 @@ to land the whole command through one PR.
 
 The final review is tracked under `tbd-o7nu`, with the owner-directed revision and its
 follow-up findings under `tbd-ihyx`. Every implementation finding has one bead and one
-code seam; all twenty-one are implemented and locally validated.
+code seam; all twenty-two are implemented and locally validated.
 R14 removes the final Windows command-shim assumption from the packed proof.
 R15 closes the final scale-specific memory and data-motion paths after the 10,000-row
 ceiling review. R16 preserves an executable assertion on both sides of that ceiling.
@@ -741,7 +741,8 @@ removed from the viewer, local observation becomes native plus reconciled, and a
 surfaces point users back to explicit `tbd sync`. R20 isolates the final SSE
 closed-stream race found during the revised-head senior review.
 R21 prevents a delayed duplicate bounded event from replacing canonical same-version
-board state.
+board state. R22 makes the constant-size local observation assertion platform-native
+after the first revised-head hosted run exposed POSIX-only expected strings on Windows.
 
 | Bead | Severity | File/function seam | Disposition |
 | --- | --- | --- | --- |
@@ -766,6 +767,7 @@ board state.
 | `tbd-ihyx` (R19) | P1 | `src/cli/web/{board,local-observer}.ts`; `commands/web.ts`; `web/{core,client}.ts`; all web docs/tests | Make the viewer local-only, remove the poll flag, observe native changes immediately, reconcile missed events once per second, bound local detail without losing motion, recover across observer restarts, and prove explicit `tbd sync` is the only remote path. |
 | `tbd-xp1v` (R20) | P2 | `src/cli/web/http.ts`: `SseHub.attach`, `SseHub.write`; `tests/web-http.test.ts` | Check ended streams, catch a write-time close race, and install a per-response error handler so one disconnected client cannot escape a publish or heartbeat into the server process. |
 | `tbd-t5ky` (R21) | P1 | `src/web/core.ts`: `Store.receiveState`; `tests/web-core.test.ts` | Reject duplicate SSE frames at an already-adopted observer state version, while preserving the deliberate same-version canonical board recovery, so bounded transport cannot overwrite complete changed-row motion. |
+| `tbd-wykg` (R22) | P1 | `tests/web-board.test.ts`: constant-size observation-surface assertion | Build expected paths with Node’s platform-native `path.join`, matching production behavior on Windows, macOS, and Linux. |
 
 ### Merge gate for PR #207
 

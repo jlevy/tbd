@@ -1,3 +1,5 @@
+import { join } from 'node:path';
+
 import { describe, expect, it } from 'vitest';
 
 import {
@@ -294,12 +296,12 @@ describe('BoardState', () => {
 
     expect(board.getObservationRoot()).toBe(context.dataSyncDir);
     expect(board.getObservationPaths()).toEqual([
-      '/repo/.tbd/config.yml',
-      '/repo/.tbd/workspaces',
+      join('/repo', '.tbd', 'config.yml'),
+      join('/repo', '.tbd', 'workspaces'),
       context.dataSyncDir,
-      `${context.dataSyncDir}/issues`,
-      `${context.dataSyncDir}/mappings`,
-      '/repo/.git/refs/heads/tbd-sync',
+      join(context.dataSyncDir, 'issues'),
+      join(context.dataSyncDir, 'mappings'),
+      join('/repo/.git', 'refs', 'heads', 'tbd-sync'),
     ]);
   });
 
