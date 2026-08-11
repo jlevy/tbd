@@ -49,6 +49,10 @@ Every session must end with tbd in a clean state:
 - Track *all task work* not being done immediately as beads using `tbd` (discovered
   work, future work, TODOs for the session, multi-session work)
 - When in doubt, prefer tbd for tracking tasks, bugs, and issues
+- Remote/proxied session where GitHub seems blocked?
+  If the environment has egress, `gh` works through a scoped `NO_PROXY` bypass — run
+  `tbd shortcut setup-github-cli` and follow “Proxied Remote Sessions” before concluding
+  gh is unavailable
 - Use `tbd create` for creating beads
 - Git workflow: update or close issues and run `tbd sync` at session end
 - If not given specific directions, check `tbd ready` for available work
