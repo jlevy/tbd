@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest';
 
-import { BoardState, MAX_BOARD_ROWS } from '../src/cli/web/board.js';
+import {
+  BoardState,
+  MAX_BOARD_ROWS,
+  MAX_LOCAL_CHANGE_DETAILS,
+  MAX_LOCAL_CHANGE_DETAIL_BYTES,
+} from '../src/cli/web/board.js';
 import type { BoardStateDependencies, RepoStatus, WebState } from '../src/cli/web/board.js';
 import type { TbdDataContext } from '../src/cli/lib/data-context.js';
 import type { IdMapping } from '../src/file/id-mapping.js';
@@ -29,7 +34,9 @@ const context = {
     sync: { branch: 'tbd-sync', remote: 'origin' },
   },
   sharedPaths: {
+    gitCommonDir: '/repo/.git',
     sharedWorktreePath: '/repo/.git/tbd/data-sync-worktree',
+    sharedDataSyncDir: '/repo/.git/tbd/data-sync-worktree/.tbd/data-sync',
   },
 } as unknown as TbdDataContext;
 
@@ -75,18 +82,20 @@ function fixtureIssues(): Issue[] {
 
 function stateFor(board: BoardState): WebState {
   return {
+    observerId: 'observer-1',
+    stateVersion: 0,
     repoDir: '/repo',
     syncBranch: 'tbd-sync',
     remote: 'origin',
-    intervalSeconds: 30,
     ...board.getSnapshotState(),
-    lastReport: null,
-    reportDataVersion: 0,
-    changedIds: [],
-    watchPhase: 'starting',
-    watchSince: null,
-    watchError: null,
-    wakeCount: 0,
+    latestChanges: [],
+    latestChangeTotal: 0,
+    latestChangesTruncated: false,
+    changeDataVersion: 0,
+    observationPhase: 'starting',
+    observationMode: 'unavailable',
+    observationError: null,
+    updateCount: 0,
     log: [],
   };
 }
@@ -94,12 +103,14 @@ function stateFor(board: BoardState): WebState {
 function harness(): {
   board: BoardState;
   setIssues: (next: Issue[]) => void;
+  setWorkspaces: (next: string[]) => void;
 } {
   let issues = fixtureIssues();
+  let workspaces: string[] = [];
   const dependencies: BoardStateDependencies = {
     loadContext: () => Promise.resolve(context),
     listIssues: () => Promise.resolve(issues),
-    readRepoStatus: () => Promise.resolve(repoStatus),
+    readRepoStatus: () => Promise.resolve({ ...repoStatus, workspaces }),
     readLocalTip: () => Promise.resolve('a'.repeat(40)),
     now: () => new Date('2026-08-11T12:00:00.000Z'),
   };
@@ -107,6 +118,9 @@ function harness(): {
     board: new BoardState('/repo', dependencies),
     setIssues: (next) => {
       issues = next;
+    },
+    setWorkspaces: (next) => {
+      workspaces = next;
     },
   };
 }
@@ -186,6 +200,18 @@ describe('BoardState', () => {
     setIssues([{ ...initial[0]! }, { ...initial[1]!, version: 2, title: 'Ship it' }]);
     const changed = await board.reload();
     expect(changed.moved).toBe(true);
+    expect(changed.changes).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: 'web-kid1',
+          change: 'updated',
+          fields: expect.arrayContaining([
+            expect.objectContaining({ field: 'title', before: 'Ship viewer', after: 'Ship it' }),
+          ]),
+        }),
+        expect.objectContaining({ id: 'web-leaf', change: 'deleted' }),
+      ]),
+    );
     expect(board.getSnapshotState()).toMatchObject({
       dataVersion: 1,
       movedIds: ['web-kid1', 'web-leaf'],
@@ -195,11 +221,86 @@ describe('BoardState', () => {
 
     const noChange = await board.reload();
     expect(noChange.moved).toBe(false);
+    expect(noChange.stateChanged).toBe(false);
     expect(board.getSnapshotState()).toMatchObject({
       dataVersion: 1,
       movedIds: ['web-kid1', 'web-leaf'],
       removedIds: ['web-leaf'],
     });
+  });
+
+  it('reports repository metadata movement without inventing bead movement', async () => {
+    const { board, setWorkspaces } = harness();
+    await board.reload();
+
+    setWorkspaces(['agent-a']);
+    const changed = await board.reload();
+
+    expect(changed).toMatchObject({ moved: false, stateChanged: true, changeTotal: 0 });
+    expect(board.getSnapshotState().repoStatus?.workspaces).toEqual(['agent-a']);
+  });
+
+  it('caps local field detail independently of complete graph movement', async () => {
+    const issueCount = MAX_LOCAL_CHANGE_DETAILS + 1;
+    const initial = Array.from({ length: issueCount }, (_, index) => {
+      const ulid = (index + 1).toString(36).padStart(26, '0');
+      return createTestIssue({ id: testId(ulid), title: `Before ${index}`, notes: 'before' });
+    });
+    const shortToUlid = new Map(
+      initial.map((entry, index) => [`d${index.toString(36)}`, entry.id.slice(3)]),
+    );
+    const largeContext = {
+      ...context,
+      mapping: {
+        shortToUlid,
+        ulidToShort: new Map([...shortToUlid].map(([short, ulid]) => [ulid, short])),
+      },
+    } as unknown as TbdDataContext;
+    let issues = initial;
+    const board = new BoardState('/repo', {
+      loadContext: () => Promise.resolve(largeContext),
+      listIssues: () => Promise.resolve(issues),
+      readRepoStatus: () => Promise.resolve(repoStatus),
+      readLocalTip: () => Promise.resolve('a'.repeat(40)),
+      now: () => new Date('2026-08-11T12:00:00.000Z'),
+    });
+    await board.reload();
+
+    issues = initial.map((entry, index) => ({
+      ...entry,
+      version: 2,
+      title: `After ${index}`,
+      notes: 'x'.repeat(10_000),
+    }));
+    const changed = await board.reload();
+
+    expect(changed).toMatchObject({
+      moved: true,
+      stateChanged: true,
+      changeTotal: issueCount,
+      changesTruncated: true,
+    });
+    expect(changed.movedIds).toHaveLength(issueCount);
+    expect(changed.changes.length).toBeLessThanOrEqual(MAX_LOCAL_CHANGE_DETAILS);
+    expect(Buffer.byteLength(JSON.stringify(changed.changes))).toBeLessThanOrEqual(
+      MAX_LOCAL_CHANGE_DETAIL_BYTES,
+    );
+    expect(JSON.stringify(changed.changes)).not.toContain('x'.repeat(10_000));
+  });
+
+  it('exposes a constant-size local observation surface including config and sync ref', async () => {
+    const { board } = harness();
+    await board.reload();
+
+    expect(board.getObservationRoot()).toBe(context.dataSyncDir);
+    expect(board.getObservationPaths()).toEqual([
+      '/repo/.tbd/config.yml',
+      '/repo/.tbd/workspaces',
+      context.dataSyncDir,
+      `${context.dataSyncDir}/issues`,
+      `${context.dataSyncDir}/mappings`,
+      '/repo/.git/refs/heads/tbd-sync',
+    ]);
   });
 
   it('marks free-text narrowing as intentionally inexact', async () => {

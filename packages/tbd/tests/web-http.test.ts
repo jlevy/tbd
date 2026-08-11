@@ -1,8 +1,9 @@
+import { EventEmitter } from 'node:events';
 import { createServer } from 'node:http';
-import type { IncomingHttpHeaders, IncomingMessage, Server } from 'node:http';
+import type { IncomingHttpHeaders, IncomingMessage, Server, ServerResponse } from 'node:http';
 import { request } from 'node:http';
 
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { BoardState } from '../src/cli/web/board.js';
 import type { BoardStateDependencies, WebState, RepoStatus } from '../src/cli/web/board.js';
@@ -64,18 +65,21 @@ function makeIssue(): Issue {
 
 function makeState(board: BoardState, tip = 'a'.repeat(40)): WebState {
   return {
+    observerId: 'observer-1',
+    stateVersion: 0,
     repoDir: '/repo',
     syncBranch: 'tbd-sync',
     remote: 'origin',
-    intervalSeconds: 30,
     ...board.getSnapshotState(),
-    lastReport: null,
-    reportDataVersion: 0,
-    changedIds: [],
-    watchPhase: 'watching',
-    watchSince: tip,
-    watchError: null,
-    wakeCount: 0,
+    localTip: tip,
+    latestChanges: [],
+    latestChangeTotal: 0,
+    latestChangesTruncated: false,
+    changeDataVersion: 0,
+    observationPhase: 'watching',
+    observationMode: 'native+reconcile',
+    observationError: null,
+    updateCount: 0,
     log: [],
   };
 }
@@ -247,14 +251,14 @@ describe('web HTTP router', () => {
     const first = await openSse(port);
     await first.waitFor(`id: ${'a'.repeat(40)}`);
 
-    currentState = { ...currentState, watchSince: 'b'.repeat(40), wakeCount: 1 };
+    currentState = { ...currentState, localTip: 'b'.repeat(40), updateCount: 1 };
     hub.publish(currentState);
     await first.waitFor(`id: ${'b'.repeat(40)}`);
     first.close();
 
-    currentState = { ...currentState, watchSince: 'c'.repeat(40), wakeCount: 2 };
+    currentState = { ...currentState, localTip: 'c'.repeat(40), updateCount: 2 };
     hub.publish(currentState);
-    currentState = { ...currentState, watchSince: 'd'.repeat(40), wakeCount: 3 };
+    currentState = { ...currentState, localTip: 'd'.repeat(40), updateCount: 3 };
     hub.publish(currentState);
 
     const resumeTip = 'b'.repeat(40);
@@ -267,29 +271,123 @@ describe('web HTTP router', () => {
     resumed.close();
   });
 
-  it('drops verbose report detail before an SSE frame can exceed its byte budget', () => {
+  it('resumes after the newest occurrence when a local ref reuses an older commit id', async () => {
+    const repeatedTip = 'a'.repeat(40);
+    const first = await openSse(port);
+    await first.waitFor(`id: ${repeatedTip}`);
+    first.close();
+
+    currentState = { ...currentState, localTip: 'b'.repeat(40), updateCount: 1 };
+    hub.publish(currentState);
+    currentState = { ...currentState, localTip: repeatedTip, updateCount: 2 };
+    hub.publish(currentState);
+
+    const resumed = await openSse(port, repeatedTip);
+    const replay = await resumed.waitFor('"updateCount":2');
+    expect(replay).not.toContain(`id: ${'b'.repeat(40)}`);
+    resumed.close();
+  });
+
+  it('ends replay at current state when the local sync ref no longer has an event id', async () => {
+    const first = await openSse(port);
+    await first.waitFor(`id: ${'a'.repeat(40)}`);
+    first.close();
+
+    currentState = { ...currentState, localTip: 'b'.repeat(40), stateVersion: 1 };
+    hub.publish(currentState);
+    currentState = { ...currentState, localTip: null, stateVersion: 2 };
+    hub.publish(currentState);
+
+    const resumed = await openSse(port, 'a'.repeat(40));
+    const replay = await resumed.waitFor('"stateVersion":2');
+    expect(replay).toContain(`id: ${'b'.repeat(40)}`);
+    expect(replay).toContain('"localTip":null');
+    resumed.close();
+  });
+
+  it('keeps a drain-signaling client until the explicit queued-byte ceiling is reached', () => {
+    const request = Object.assign(new EventEmitter(), { headers: {} }) as IncomingMessage;
+    let writableLength = 0;
+    const write = vi.fn((frame: string) => {
+      writableLength += Buffer.byteLength(frame);
+      return false;
+    });
+    const destroy = vi.fn();
+    const end = vi.fn();
+    const response = Object.assign(new EventEmitter(), {
+      destroyed: false,
+      writableEnded: false,
+      writeHead: vi.fn(),
+      flushHeaders: vi.fn(),
+      write,
+      destroy,
+      end,
+    }) as unknown as ServerResponse;
+    Object.defineProperty(response, 'writableLength', { get: () => writableLength });
+    const frameBytes = Buffer.byteLength(encodeStateEvent(currentState));
+    const boundedHub = new SseHub(() => currentState, {
+      heartbeatMs: 60_000,
+      maxBufferBytes: frameBytes * 2,
+    });
+
+    boundedHub.attach(request, response);
+    expect(write).toHaveBeenCalledOnce();
+    expect(destroy).not.toHaveBeenCalled();
+
+    currentState = { ...currentState, updateCount: 1 };
+    boundedHub.publish(currentState);
+    expect(write).toHaveBeenCalledTimes(2);
+    expect(destroy).not.toHaveBeenCalled();
+
+    currentState = { ...currentState, updateCount: 2 };
+    boundedHub.publish(currentState);
+    expect(destroy).toHaveBeenCalledOnce();
+    boundedHub.close();
+  });
+
+  it('isolates a closed-stream write race to the affected SSE client', () => {
+    const request = Object.assign(new EventEmitter(), { headers: {} }) as IncomingMessage;
+    const destroy = vi.fn();
+    const response = Object.assign(new EventEmitter(), {
+      destroyed: false,
+      writableEnded: false,
+      writableLength: 0,
+      writeHead: vi.fn(),
+      flushHeaders: vi.fn(),
+      write: vi.fn(() => {
+        throw new Error('socket closed during write');
+      }),
+      destroy,
+      end: vi.fn(),
+    }) as unknown as ServerResponse;
+    const boundedHub = new SseHub(() => currentState, { heartbeatMs: 60_000 });
+
+    expect(() => {
+      boundedHub.attach(request, response);
+    }).not.toThrow();
+    expect(destroy).toHaveBeenCalledOnce();
+    boundedHub.close();
+  });
+
+  it('drops verbose local-change detail before an SSE frame can exceed its byte budget', () => {
     const huge = 'x'.repeat(MAX_SSE_FRAME_BYTES * 2);
     const state: WebState = {
       ...currentState,
-      lastReport: {
-        since: 'a'.repeat(40),
-        tip: 'b'.repeat(40),
-        changes: [
-          {
-            id: 'web-bead',
-            internal_id: internalId,
-            title: 'Serve me',
-            change: 'updated',
-            fields: [{ field: 'notes', before: '', after: huge }],
-          },
-        ],
-      },
+      latestChanges: [
+        {
+          id: 'web-bead',
+          internal_id: internalId,
+          title: 'Serve me',
+          change: 'updated',
+          fields: [{ field: 'notes', before: '', after: huge }],
+        },
+      ],
     };
 
     const frame = encodeStateEvent(state);
     expect(Buffer.byteLength(frame)).toBeLessThanOrEqual(MAX_SSE_FRAME_BYTES);
     const data = /^data: (.*)$/mu.exec(frame)?.[1];
     expect(data).toBeDefined();
-    expect(JSON.parse(data!).lastReport).toBeNull();
+    expect(JSON.parse(data!).latestChanges).toEqual([]);
   });
 });

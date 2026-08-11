@@ -19,7 +19,7 @@ import type {
   BoardRowView,
   ClientStorage,
   Transport,
-  WatchStateView,
+  ObservationStateView,
 } from '../src/web/core.js';
 
 interface Deferred<T> {
@@ -38,33 +38,35 @@ function deferred<T>(): Deferred<T> {
   return { promise, resolve, reject };
 }
 
-function state(overrides: Partial<WatchStateView> = {}): WatchStateView {
+function state(overrides: Partial<ObservationStateView> = {}): ObservationStateView {
   return {
+    observerId: 'observer-1',
+    stateVersion: 0,
     repoDir: '/repo',
     syncBranch: 'tbd-sync',
     remote: 'origin',
-    intervalSeconds: 30,
     localTip: 'a'.repeat(40),
     totalBeads: 1,
     stats: null,
     repoStatus: null,
-    lastReport: null,
-    reportDataVersion: 0,
-    changedIds: [],
+    latestChanges: [],
+    latestChangeTotal: 0,
+    latestChangesTruncated: false,
+    changeDataVersion: 0,
     dataVersion: 0,
     movedIds: [],
     removedIds: [],
-    watchPhase: 'watching',
-    watchSince: 'a'.repeat(40),
-    watchError: null,
-    wakeCount: 0,
+    observationPhase: 'watching',
+    observationMode: 'native+reconcile',
+    observationError: null,
+    updateCount: 0,
     refreshedAt: '2026-08-11T12:00:00.000Z',
     log: [],
     ...overrides,
   };
 }
 
-function board(watch: WatchStateView, title = 'Initial'): BoardResponse {
+function board(watch: ObservationStateView, title = 'Initial'): BoardResponse {
   return {
     command: 'tbd list --pretty',
     commandExact: true,
@@ -160,7 +162,7 @@ describe('client core pure helpers', () => {
     );
   });
 
-  it('names inexactness, watcher phases, and the report-data-version delta gate', () => {
+  it('names inexactness, local observation modes, and the change-data-version gate', () => {
     const response = board(state());
     response.filtersExact = false;
     response.search = 'needle';
@@ -172,19 +174,19 @@ describe('client core pure helpers', () => {
       '2 dimmed ancestor rows are shown for context',
       'only the first 1 of 5000 rows are shown',
     ]);
-    expect(phaseLabel(state({ watchPhase: 'applying' }))).toEqual({
-      label: 'updating',
-      help: 'A change arrived. Pulling and re-reading before redrawing.',
+    expect(phaseLabel(state())).toEqual({
+      label: 'watching',
+      help: 'Watching the local data-sync worktree with native events and one-second reconciliation. Run tbd sync to exchange remote changes.',
     });
-    expect(deltasValid(state({ lastReport: null, dataVersion: 2, reportDataVersion: 2 }))).toBe(
+    expect(deltasValid(state({ latestChanges: [], dataVersion: 2, changeDataVersion: 2 }))).toBe(
       false,
     );
     expect(
       deltasValid(
         state({
           dataVersion: 2,
-          reportDataVersion: 2,
-          lastReport: { since: 'a', tip: 'b', changes: [] },
+          changeDataVersion: 2,
+          latestChanges: [{ id: 'web-one', title: 'One', change: 'updated', fields: [] }],
         }),
       ),
     ).toBe(true);
@@ -192,7 +194,7 @@ describe('client core pure helpers', () => {
 });
 
 describe('createClientStore transport orchestration', () => {
-  it('connects before fetching, passes the saved resume tip, and coalesces wakes during fetch', async () => {
+  it('connects before fetching, passes the saved local tip, and coalesces updates during fetch', async () => {
     const order: string[] = [];
     const first = deferred<unknown>();
     const second = deferred<unknown>();
@@ -227,8 +229,8 @@ describe('createClientStore transport orchestration', () => {
     expect(order[0]).toBe('events:saved-tip');
     expect(order[1]).toMatch(/^fetch:\/api\/board\?/u);
     expect(onState).not.toBeNull();
-    onState!(state({ dataVersion: 1, movedIds: ['web-one'], watchSince: 'b'.repeat(40) }));
-    onState!(state({ dataVersion: 2, movedIds: ['web-one'], watchSince: 'c'.repeat(40) }));
+    onState!(state({ dataVersion: 1, movedIds: ['web-one'], localTip: 'b'.repeat(40) }));
+    onState!(state({ dataVersion: 2, movedIds: ['web-one'], localTip: 'c'.repeat(40) }));
 
     first.resolve(board(state(), 'Stale'));
     await flush();
@@ -242,7 +244,7 @@ describe('createClientStore transport orchestration', () => {
     store.stop();
   });
 
-  it('does not let a stale pre-wake body rejection overwrite a fresh post-wake body', async () => {
+  it('does not let a stale pre-update body rejection overwrite a fresh post-update body', async () => {
     let onState: ((next: unknown) => void) | null = null;
     const bodyRequests: Deferred<unknown>[] = [];
     const transport: Transport = {
@@ -268,8 +270,7 @@ describe('createClientStore transport orchestration', () => {
       state({
         dataVersion: 1,
         movedIds: ['web-one'],
-        changedIds: ['web-one'],
-        watchSince: 'b'.repeat(40),
+        localTip: 'b'.repeat(40),
       }),
     );
     await flush();
@@ -287,6 +288,39 @@ describe('createClientStore transport orchestration', () => {
     store.stop();
   });
 
+  it('accepts a lower data version from a restarted observer and refreshes the board', async () => {
+    let onState: ((next: unknown) => void) | null = null;
+    let current = board(
+      state({ observerId: 'observer-old', dataVersion: 5, localTip: 'a'.repeat(40) }),
+      'Before restart',
+    );
+    const fetchJson = vi.fn(() => Promise.resolve(current));
+    const store = createClientStore(
+      {
+        openEvents: (_url, callback) => {
+          onState = callback;
+          return { close: vi.fn() };
+        },
+        fetchJson,
+      },
+      vi.fn(),
+    );
+    await store.start();
+
+    current = board(
+      state({ observerId: 'observer-new', dataVersion: 0, localTip: 'b'.repeat(40) }),
+      'After restart',
+    );
+    onState!(current.state);
+    await vi.waitFor(() => {
+      expect(store.getView().board?.rows[0]?.title).toBe('After restart');
+    });
+
+    expect(fetchJson).toHaveBeenCalledTimes(2);
+    expect(store.getView().watch).toMatchObject({ observerId: 'observer-new', dataVersion: 0 });
+    store.stop();
+  });
+
   it('never lets an older board-embedded state roll back a newer SSE state', async () => {
     let onState: ((next: unknown) => void) | null = null;
     const response = deferred<unknown>();
@@ -299,12 +333,105 @@ describe('createClientStore transport orchestration', () => {
     };
     const store = createClientStore(transport, vi.fn());
     const started = store.start();
-    onState!(state({ dataVersion: 4, watchSince: 'd'.repeat(40) }));
+    onState!(state({ dataVersion: 4, localTip: 'd'.repeat(40) }));
     response.resolve(board(state({ dataVersion: 2 }), 'Rows can still load'));
     await started;
 
     expect(store.getView().board?.rows[0]?.title).toBe('Rows can still load');
     expect(store.getView().watch?.dataVersion).toBe(4);
+    store.stop();
+  });
+
+  it('keeps newer SSE metadata when an older board response has the same graph version', async () => {
+    let onState: ((next: unknown) => void) | null = null;
+    const response = deferred<unknown>();
+    const transport: Transport = {
+      openEvents: (_url, callback) => {
+        onState = callback;
+        return { close: vi.fn() };
+      },
+      fetchJson: () => response.promise,
+    };
+    const store = createClientStore(transport, vi.fn());
+    const started = store.start();
+    const freshStatus = {
+      tbdVersion: '0.4.2',
+      gitBranch: 'feature',
+      syncBranch: 'tbd-sync',
+      remote: 'origin',
+      displayPrefix: 'web',
+      worktreePath: '/repo/.git/tbd/data-sync-worktree',
+      worktreeHealthy: true,
+      worktreeStatus: 'valid',
+      workspaces: ['fresh-workspace'],
+    };
+    onState!(state({ stateVersion: 1, dataVersion: 0, repoStatus: freshStatus, updateCount: 1 }));
+    response.resolve(board(state({ dataVersion: 0, repoStatus: null }), 'Rows still load'));
+    await started;
+
+    expect(store.getView().board?.rows[0]?.title).toBe('Rows still load');
+    expect(store.getView().watch?.repoStatus?.workspaces).toEqual(['fresh-workspace']);
+    expect(store.getView().watch?.updateCount).toBe(1);
+    store.stop();
+  });
+
+  it('accepts the canonical board state at the same observer state version', async () => {
+    let onState: ((next: unknown) => void) | null = null;
+    let current = board(state());
+    const transport: Transport = {
+      openEvents: (_url, callback) => {
+        onState = callback;
+        return { close: vi.fn() };
+      },
+      fetchJson: () => Promise.resolve(current),
+    };
+    const store = createClientStore(transport, vi.fn());
+    await store.start();
+
+    const canonical = state({
+      stateVersion: 1,
+      dataVersion: 1,
+      movedIds: ['web-one', 'web-two'],
+      latestChangeTotal: 2,
+    });
+    current = board(canonical, 'Canonical rows');
+    onState!({ ...canonical, movedIds: ['web-one'] });
+
+    await vi.waitFor(() => {
+      expect(store.getView().watch?.movedIds).toEqual(['web-one', 'web-two']);
+    });
+    expect(store.getView().board?.rows[0]?.title).toBe('Canonical rows');
+    store.stop();
+  });
+
+  it('does not let a duplicate same-version SSE frame replace canonical board state', async () => {
+    let onState: ((next: unknown) => void) | null = null;
+    let current = board(state());
+    const transport: Transport = {
+      openEvents: (_url, callback) => {
+        onState = callback;
+        return { close: vi.fn() };
+      },
+      fetchJson: () => Promise.resolve(current),
+    };
+    const store = createClientStore(transport, vi.fn());
+    await store.start();
+
+    const canonical = state({
+      stateVersion: 1,
+      dataVersion: 1,
+      movedIds: ['web-one', 'web-two'],
+      latestChangeTotal: 2,
+    });
+    const boundedEvent = { ...canonical, movedIds: ['web-one'] };
+    current = board(canonical, 'Canonical rows');
+    onState!(boundedEvent);
+    await vi.waitFor(() => {
+      expect(store.getView().watch?.movedIds).toEqual(['web-one', 'web-two']);
+    });
+
+    onState!(boundedEvent);
+    expect(store.getView().watch?.movedIds).toEqual(['web-one', 'web-two']);
     store.stop();
   });
 
@@ -403,7 +530,7 @@ describe('createClientStore transport orchestration', () => {
     store.stop();
   });
 
-  it('caps deletion ghosts when one wake removes a large board', async () => {
+  it('caps deletion ghosts when one local update removes a large board', async () => {
     let onState: ((next: unknown) => void) | null = null;
     const initial = board(state());
     const seed = initial.rows[0]!;
@@ -421,7 +548,7 @@ describe('createClientStore transport orchestration', () => {
     const store = createClientStore(transport, vi.fn());
     await store.start();
 
-    onState!(state({ dataVersion: 1, removedIds: ids, watchSince: 'b'.repeat(40) }));
+    onState!(state({ dataVersion: 1, removedIds: ids, localTip: 'b'.repeat(40) }));
     await flush();
 
     expect(store.getView().ghostRows).toHaveLength(MAX_GHOST_ROWS);

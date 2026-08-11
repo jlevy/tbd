@@ -665,15 +665,17 @@ in-session Claude Code and Codex patterns.
 ### web
 
 Serve a live, read-only view of the bead graph in a local browser.
-The page uses the same filters, sorting, readiness rules, hierarchy, statistics, sync
-pull, and watch cursor as the CLI, and displays the equivalent `tbd list` or `tbd ready`
-command for the current view.
+The page uses the same local bead state, filters, sorting, readiness rules, hierarchy,
+and statistics as the CLI, and displays the equivalent `tbd list` or `tbd ready` command
+for the current view.
+It never contacts a remote.
+Run the ordinary `tbd sync` command when you want to fetch, merge, or publish bead
+state; the page observes the resulting local changes automatically.
 
 ```bash
 tbd web                         # Serve on the first free port in 7777-7786
 tbd web --open                  # Open the page after it is HTTP-ready
 tbd web --port 9000             # Bind exactly 127.0.0.1:9000
-tbd web --interval 10           # Check the remote tip every 10 seconds
 tbd --json web                  # Print the machine-readable startup descriptor
 tbd --dry-run web               # Resolve the repo and port without binding
 ```
@@ -684,7 +686,6 @@ Options:
   Without it, tbd searches the bounded range 7777-7786 and reports the port it selected.
 - `--open` - Open the default browser after the page passes an HTTP readiness check.
   The default is not to launch a browser, which is safe for agents and CI.
-- `--interval <seconds>` - Remote sync-branch poll interval (default 30, minimum 10).
 
 The command stays in the foreground; press Ctrl+C to stop it.
 SIGINT exits 130 and a normal or SIGTERM shutdown exits 0. It binds only `127.0.0.1`,
@@ -692,9 +693,19 @@ exposes no write route, and serves one self-contained page with same-origin and
 security-header checks.
 It is a local development and observation surface, not a remotely reachable service.
 
-The browser opens its live event stream before loading the board, resumes from its last
-watch tip after reconnecting, and also refreshes when local bead files change.
-Remote wakes pull current issue state before rendering.
+The browser opens its live event stream before loading the board and refreshes whenever
+the local hidden data-sync worktree changes.
+Node’s native filesystem watcher normally delivers the update immediately.
+A constant-size metadata check once per second recovers a dropped event without
+re-reading the graph when nothing changed.
+If native recursive watching is unavailable, that check becomes the transparent
+fallback. It also observes local configuration and workspace metadata changes.
+
+This separation is intentional: `tbd web` is a view, not a second synchronization
+client. A remote change is invisible until an explicit `tbd sync` integrates it locally,
+at which point the running page updates without a browser refresh.
+Local mutating commands such as `tbd create`, `tbd update`, and `tbd close` are
+reflected the same way.
 Descriptions and notes load only when a row is expanded, so the board remains bounded on
 large repositories. A response can carry up to 10,000 rows; the browser paints them in
 1,000-row pages with sticky and end-of-page navigation.
@@ -702,7 +713,11 @@ Above 10,000 rows, the page reports the complete count and asks for a narrower q
 Bulk expansion is available when the visible page has 100 rows or fewer; larger pages
 remain individually expandable without an accidental request fan-out.
 At most 100 detail rows remain open, and the client retains only the 200 most recently
-loaded bodies.
+loaded bodies. The latest changed-row set remains complete; field-level before/after
+detail is a separate diagnostic capped at 100 changed beads and 256 KiB, with oversized
+values summarized. A browser orders graph and metadata updates with an observer-local
+state version, rejects stale equal-graph-version responses, and immediately adopts a new
+observer after the server restarts rather than waiting for old counters.
 
 ### Change reports
 

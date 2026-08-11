@@ -186,8 +186,8 @@ $ tbd search --help | grep -c "Search query"
 # Test: web --help shows its complete server surface
 
 ```console
-$ tbd web --help | grep -E -c -- "--port|--open|--interval"
-3
+$ tbd web --help | grep -E -c -- "--port|--open"
+2
 ? 0
 ```
 

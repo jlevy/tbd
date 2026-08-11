@@ -93,7 +93,7 @@ Build the production artifact, then run the same entry point the package publish
 
 ```bash
 pnpm --filter get-tbd build
-node packages/tbd/dist/bin.mjs web --interval 30
+node packages/tbd/dist/bin.mjs web
 ```
 
 The command prints the selected loopback URL and stays in the foreground.
@@ -111,8 +111,13 @@ pnpm --filter get-tbd exec tryscript run tests/cli-web.tryscript.md
 pnpm --filter get-tbd qa:web-package
 ```
 
-The spawned-process acceptance test creates real writer and viewer clones, waits for a
-remote sync wake, consumes SSE, and verifies Git isolation and signal cleanup.
+The spawned-process acceptance test creates real writer and viewer clones, proves the
+viewer does not fetch a remote change, runs explicit `tbd sync`, consumes the resulting
+local SSE update, and verifies Git isolation and signal cleanup.
+Unit coverage also proves the one-second reconciliation fallback, metadata-only
+publication, graph/state-version race ordering, ref-rewind-safe event replay, explicit
+queued-byte backpressure, closed-stream race isolation, bounded local delta detail, and
+browser recovery across an observer restart.
 The package proof launches `tbd web` from an extracted npm tarball and verifies that its
 self-contained page and APIs work.
 Design and implementation details are in

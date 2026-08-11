@@ -1,6 +1,6 @@
 ---
 title: "tbd web: Live Bead View"
-description: An optional local web view over committed bead state, driven by the watch layer and sharing the CLI's query semantics
+description: An optional local web view over the shared bead worktree, updated from local filesystem activity and sharing the CLI's query semantics
 author: Joshua Levy (github.com/jlevy) with LLM assistance
 ---
 # Feature: `tbd web` — Live Bead View
@@ -9,16 +9,18 @@ author: Joshua Levy (github.com/jlevy) with LLM assistance
 
 **Author:** Joshua Levy (github.com/jlevy) with LLM assistance
 
-**Status:** Implemented on PR #207; final cross-platform CI and merge validation in
-progress
+**Status:** Local-only revision implemented and locally validated on PR #207; final
+hosted merge gate pending
 
 ## Overview
 
-A single optional command, `tbd web`, serves a loopback-only page that renders the bead
-graph and updates itself as committed state moves.
-It is a read-first view built on the watch infrastructure from
-`plan-2026-07-19-bead-watch-and-external-sync.md`: the same additive-only JSON report
-that wakes an agent also wakes a browser tab (see tbd-design.md §4.14).
+A single optional command, `tbd web`, serves a loopback-only page that renders the local
+bead graph and updates itself when the shared hidden data-sync worktree changes.
+It is a read-only view over the same state every ordinary `tbd` command reads and
+writes. It never contacts a remote.
+`tbd sync` remains the one explicit operation that fetches, merges, and publishes bead
+state; once that command changes the local worktree, the running page observes the
+result immediately.
 
 The governing constraint is that the browser must not become a second, drifting
 implementation of `tbd list`. Every filter the UI offers is a CLI flag, evaluated by the
@@ -28,22 +30,25 @@ The delivery vehicle is PR #207, and its bar is explicit: **it merges once, when
 `tbd web` is production-ready, and not before.** A disposable server and page proved the
 interaction in Phase 1. The production command now replaces that spike with typed,
 tested, packaged modules and the spike files have been retired.
-This document is the implementation record at file and function level; the remaining
-unchecked items are external CI and merge-state evidence, not implementation scope.
+This document is the implementation record at file and function level.
+The final owner-directed revision removes the web-only remote synchronization contract
+before the external CI and merge-state gate is repeated.
 
 ## Goals
 
-- One optional command that renders committed bead state and stays current without a
-  manual refresh.
-- Exactly one query implementation shared by `list`, `ready`, `changes`, `watch`, and
-  `web`. The UI cannot express a filter the CLI cannot, and cannot evaluate one
-  differently.
+- One optional command that renders local bead state and stays current without a manual
+  browser refresh.
+- One synchronization contract across CLI and UI: only `tbd sync` contacts the remote;
+  `tbd web` reflects whatever state local `tbd` commands make visible.
+- Exactly one tabular-query implementation shared by `list`, `ready`, and `web`, while
+  `changes` and `watch` continue to share their relevant label/spec/status predicates.
+  The UI cannot evaluate a CLI-shaped filter differently.
 - Every view is reproducible from the terminal.
   The page always shows the `tbd list` invocation equivalent to what is on screen.
 - No new runtime dependency, no schema change, no `tbd_format` bump, and no behavior
   change for repositories that never run the command.
-- Legible change: when state moves, the affected rows say so, including which fields
-  changed and how.
+- Legible local change: when state moves, the affected rows say so, including which
+  fields changed and how.
 - Fast on a real graph.
   Interaction stays immediate at 5,000 to 10,000 issues, matching the performance goal
   in tbd-design.md §1.4.
@@ -55,6 +60,9 @@ unchecked items are external CI and merge-state evidence, not implementation sco
 - No non-loopback bind, no authentication, no multi-user session model.
   A remote-reachable surface is a separate proposal with its own security review.
 - No daemon. The server lives and dies with the foreground command.
+- No remote polling, implicit fetch, implicit merge, or background sync.
+  The standalone `tbd watch` and `tbd sync` commands keep their existing remote
+  semantics.
 - No write surface at all in v1 (see Writes): every mutation stays in the CLI. The
   spike’s narrow flag-gated edit proved the path and then was cut from scope.
 - No replacement for `tbd list`, `tbd show`, or `tbd ready`. The view is additive.
@@ -100,18 +108,19 @@ SSE-aware shutdown with clean signal handling) and client QA practices (jsdom-fr
 stubbed-window behavior tests, lint and typecheck floors) are adopted in the CLI
 surface, Server engineering, Client build and packaging, and Testing sections.
 
-1. **The domain cursor is the SSE event id.** Metabrowser’s `sse.py` uses the JSONL byte
-   offset as the event id, so an automatic `EventSource` reconnect resumes from the last
-   acknowledged record through `Last-Event-ID`. tbd already has the equivalent cursor:
-   the report’s `tip`. Using it as the event id makes browser reconnect use the same
-   resume mechanism as an agent restarting `tbd watch --since`.
-2. **Two tiers, coarse and focused.** Metabrowser polls a cheap whole-tree activity
-   endpoint and reserves SSE push for the view the user is actually looking at.
-   The analogue is a coarse `--all` watch for the graph plus per-row body refresh only
-   for expanded rows.
+1. **Native observation with a bounded reconciliation path.** Metabrowser selects a
+   native filesystem watcher on ordinary local filesystems and a cheap polling watcher
+   on filesystems where native notification is unreliable.
+   tbd does not need its filesystem-type dependency or platform branches: Node’s core
+   `fs.watch` maps to the native macOS/Linux/Windows facilities, while a one-second stat
+   marker over the relevant worktree directories and local ref repairs a dropped
+   notification without reloading the whole graph every second.
+2. **Two tiers, coarse and focused.** Filesystem activity is only a cheap signal.
+   The server reloads one in-memory graph after a signal and reserves per-row body
+   requests for expanded rows.
 3. **Bounded frames.** A per-batch byte cap prevents a burst from producing one enormous
-   frame, plus heartbeat comments on a ~10s cadence to keep intermediaries from dropping
-   idle streams.
+   frame, plus heartbeat comments on a 20-second cadence to keep intermediaries from
+   dropping idle streams.
 4. **Change is animated, and motion is optional.** A 900ms flash-in on changed rows, a
    320ms collapse on removal, and a `prefers-reduced-motion` block that drops
    `animation-duration` to 1ms so the color context survives without movement.
@@ -121,7 +130,7 @@ surface, Server engineering, Client build and packaging, and Testing sections.
 ### Layering
 
 `tbd web` is a CLI Layer command in the sense of tbd-design.md §1.7. It reads through
-the File Layer and observes the Git Layer through the watch module.
+the File Layer and observes the shared data-sync worktree through a local observer.
 It introduces no fourth layer and no new persistent state.
 
 ```
@@ -130,12 +139,13 @@ It introduces no fourth layer and no new persistent state.
   ┌───┴──────────────────────────────────────────┐
   │ tbd web                                       │  CLI Layer
   │   query  → shared issue-query module          │
-  │   liveness → watch module (report + tip)      │
-  └───┬───────────────────────┬───────────────────┘
-      │                       │
-  File Layer               Git Layer
-  listIssues,              watchForIssueChanges,
-  loadDataContext          sync --pull
+  │   liveness → local observer (fs event + marker)│
+  └───┬───────────────────────────────────────────┘
+      │
+  File Layer
+  listIssues, loadDataContext
+
+  Explicit operator action: tbd sync → shared worktree → local observer
 ```
 
 ### The shared query module
@@ -195,7 +205,7 @@ Reads are in-process.
 `loadDataContext` plus `listIssues` is the path `tbd list` already takes, so a refresh
 costs one directory read rather than a subprocess.
 The spike loads this repository’s 1,300+ beads in well under the §1.4 budget, and the
-same call is what a wake triggers.
+same call is what a local change triggers.
 
 Payload shape matters more than raw speed:
 
@@ -204,9 +214,14 @@ Payload shape matters more than raw speed:
   Descriptions and notes are excluded.
 - Bodies are served per bead on demand from the in-memory snapshot, so an open row costs
   one small request and a graph of long descriptions never inflates the table payload.
-- SSE frames carry watcher state only: tip, changed ids, wake count, phase, and the
-  report. Browsers re-query the board with their own filters.
-  Frame size is therefore independent of graph size.
+- SSE frames carry local-observer state only: changed ids, update count, phase, mode,
+  error, and the latest bounded local delta.
+  Browsers re-query the board with their own filters; that response carries the
+  canonical complete movement state at the same `stateVersion` if a frame had to omit
+  detail or ids to stay bounded.
+  Motion therefore remains complete after the board refresh, while field-level detail is
+  limited to 100 changed beads and 256 KiB with oversized values summarized.
+  Event-frame size is independent of graph size.
 - Filtering runs server-side so semantics come from the shared module.
   On loopback this is sub-millisecond and keystroke-responsive.
 - The server returns at most 10,000 light rows while preserving the unsliced match
@@ -224,11 +239,22 @@ Payload shape matters more than raw speed:
   page bound.
 
 The limits are independent and come from measured costs rather than one arbitrary row
-number. The server path is cheap at 10,000 representative issues: 13–22 ms to load the
-in-memory snapshot, 40–115 ms to build the response, and 2.47 MiB serialized on the
-review machine. The high end is the full parallel test-suite run; the isolated focused
-case supplied the low end.
-The original full-DOM client was the limiting resource:
+number. The server path is cheap at 10,000 representative issues: 13–23 ms to load or
+refresh the in-memory snapshot, 36–115 ms to build the response, and 2.47 MiB serialized
+on the review machine.
+The high end is the full parallel test-suite run; the isolated focused case supplied the
+low end. That fixture injects already-parsed issues, so it is not presented as a disk
+benchmark. A separate one-off check on 2026-08-11 wrote 10,000 representative files
+through production `writeIssue` and then read them twice through production
+`listIssues`; the warm parse took 1.31 seconds on the review machine.
+Fixture creation took 30.7 seconds, which is why CI layers the existing 1,000-file
+storage regression, the 10,001-item board boundary, and the browser measurements instead
+of rebuilding a 10,000-file store on every run.
+The result puts the uncommon 10,000-file boundary near the requested one-second update
+target while keeping the more plausible 4,000–5,000 range comfortably below it on the
+same approximately linear read path.
+
+The original full-DOM client was the limiting browser resource:
 
 | Served rows | Full-DOM nodes | Full-DOM paint-ready | Paged DOM nodes | Paged paint-ready |
 | ---: | ---: | ---: | ---: | ---: |
@@ -248,29 +274,50 @@ address the browser bottleneck.
 
 ### Liveness
 
-Two paths, kept separate and labelled distinctly because they answer different
-questions.
+There is one path: local observation.
+`LocalObserver` recursively watches the hidden data-sync directory with Node core
+`fs.watch`, which uses native OS notification without adding a platform dependency.
+Events are trailing-debounced so an atomic-write or sync burst produces one serialized
+`BoardState.reload()` instead of one reload per file.
 
-**Remote.** `WakeCoordinator` calls `watchForIssueChanges` in-process with
-`selection: { kind: 'all' }`, a resume tip, and an `AbortSignal`. On a report the server
-calls `runIssueSync(..., { pull: true, signal, networkTimeoutMs })`, reloads the board,
-and publishes state.
-The report’s `tip` becomes the next `--since` only after that application succeeds, so
-transient pull failures retry the same window instead of dropping it.
-The tip is also the SSE event id so a browser reconnect resumes the same way.
-Timeout is a normal recycle; operational failures back off, and only a proven
-non-ancestor rewrite resets the cursor to the remote tip.
+Native watcher queues can overflow and some filesystems do not provide reliable
+recursive events.
+A one-second reconciliation loop therefore reads a constant-size marker
+made from metadata for the issues directory, mapping directory, project config,
+workspace metadata, and local sync-branch ref.
+It reloads the board only when that marker changes; it never scans the issue files or
+re-runs the full query on an unchanged tick.
+If `fs.watch` is unavailable, the marker becomes the transparent fallback.
+If marker reads fail, native events remain active.
+The UI exposes the active mode and only enters an error phase if neither path can
+observe state or a reload itself fails.
 
-**Local.** `fs.watch` over the hidden sync worktree’s issues directory, debounced, for
-edits made in this checkout before anyone publishes them.
-This is the only part with no CLI analogue, because `tbd watch` observes the remote
-only.
+The startup sequence reads a marker, installs the native watcher, and performs one
+serialized reconciliation reload.
+This closes the gap between the server’s initial snapshot and watcher installation.
+Each later reload computes movement from the actual before/after `id:version` snapshots
+(including display-ID mapping changes), not from event timing, so duplicate/coalesced
+events are harmless.
+Shutdown closes the watcher, cancels both timers, and awaits queued reload work.
 
-A pull and the viewer’s own writes touch the same files a local edit does, and their
-filesystem events can outlive the operation that caused them.
-Attribution is therefore by observed `id:version` difference, not by timing.
-Reloads are serialized so a slow pre-pull read cannot replace a post-pull snapshot, and
-the watch is cancelled in-process during bounded shutdown.
+Every observer process carries a fresh instance id and a monotonic `stateVersion` in
+board and event state.
+The state version orders metadata-only publications as well as graph movement;
+`dataVersion` continues to identify bead-graph movement specifically.
+The client uses the instance id with both counters, so an EventSource reconnect after a
+server restart accepts the new process’s lower counters and refreshes instead of waiting
+for them to catch up.
+A board response at the same state version may replace a bounded event frame with the
+canonical complete state, while an older response cannot roll metadata back.
+Repository-status-only changes are published without pretending the bead graph moved.
+
+No code in this path calls `watchForIssueChanges`, `git fetch`, or a network API. The
+earlier in-process sync extraction and watch-cancellation plumbing were removed when
+their only web caller disappeared; `sync.ts`, `bead-watch.ts`, and `git.ts` retain their
+pre-PR contracts. A user who wants remote state runs the same `tbd sync` command they
+would without the UI. Its file/ref updates are then native local events, so the page
+redraws without a browser refresh.
+This preserves one CLI/UI contract and makes local-only or offline use unsurprising.
 
 ### Writes
 
@@ -287,7 +334,7 @@ Revisit as its own proposal if real usage asks for it.
 ### CLI surface
 
 ```bash
-tbd web [--port <n>] [--open] [--interval <seconds>]
+tbd web [--port <n>] [--open]
 ```
 
 Binding is `127.0.0.1` only, and there is deliberately no flag to change that.
@@ -299,7 +346,7 @@ Per `typescript-cli-tool-rules`:
 - **`BaseCommand`, not a bare action.** A `WebHandler extends BaseCommand` receives the
   typed `CommandContext` and `OutputManager`; the Commander action only instantiates it.
 - **All output through `OutputManager`.** The startup descriptor is data on stdout;
-  progress, warnings, and wake diagnostics are stderr.
+  progress, warnings, and local-observer diagnostics are stderr.
   No raw `console.log`, no hardcoded ANSI. Colors come from `output.getColors()`, icons
   from the shared `ICONS` constant.
 - **`--json` emits a descriptor rather than being rejected.**
@@ -325,10 +372,12 @@ Per `typescript-cli-tool-rules`:
   Either way, the printed URL and the `--json` descriptor carry the port actually bound:
   the printed URL must be the URL that works.
 - **Enum-like options use `Option().choices()`** so bad input fails fast with exit 2.
-- **Exit codes come from the shared `exit-codes.ts`** that PR #205 centralized.
-  Clean shutdown is 0, usage error 2, operational failure 1, and Ctrl+C is 130. Since
-  Ctrl+C is the normal way to stop a server, 130 on the ordinary path is worth stating
-  explicitly rather than discovering.
+- **Handler exit codes come from the shared `exit-codes.ts`** that PR #205 centralized.
+  Clean shutdown is 0, handler validation such as a bad port is 2, operational failure
+  is 1, and Ctrl+C is 130. Commander keeps the CLI’s existing exit-1 behavior for an
+  unknown option such as the removed `--interval`; the transcript pins that distinction.
+  Since Ctrl+C is the normal way to stop a server, 130 on the ordinary path is worth
+  stating explicitly rather than discovering.
 - **`--dry-run` resolves the port and repo, prints what it would serve, and exits 0**
   without binding.
 
@@ -378,8 +427,8 @@ else). The design keeps the one-toolchain, zero-new-dependency constraint:
   delta buffering and replay, and retry without data loss.
   Adopt the same rule as a design constraint, not a test trick: `src/web/core.ts` takes
   `fetch`, `EventSource`, and storage as injected interfaces, so vitest covers the SSE
-  resume, wake-coalescing, and query-string contracts with stubs, and the un-injected
-  DOM glue stays too thin to need a browser.
+  current-state recovery, update coalescing, and query-string contracts with stubs, and
+  the un-injected DOM glue stays too thin to need a browser.
 
 ### Server engineering
 
@@ -395,12 +444,15 @@ Minimal, fast to start, and cheap when unused.
 - **Lazy module load.** The server implementation is behind a dynamic `import()` inside
   the action handler, so `tbd list` and `tbd --help` never parse it.
   A UI command must not regress CLI startup time for everyone who does not use it.
-- **One in-memory snapshot.** Loaded once at startup and replaced on a wake.
+- **One in-memory snapshot.** Loaded once at startup and replaced after a local update.
   Queries run against it, so no request touches the filesystem.
-- **SSE backpressure.** `response.write()` returning false, or a rising
-  `writableLength`, means a slow client.
-  Drop that client rather than buffering without bound; the browser reconnects and
-  resumes from `Last-Event-ID`.
+- **SSE backpressure.** A false `response.write()` return only means Node crossed its
+  implementation high-water mark, which varies by supported Node release; it is not by
+  itself a failed peer.
+  Track `writableLength` against an explicit per-client byte ceiling and drop only when
+  the next frame would exceed that ceiling.
+  The browser then reconnects with `Last-Event-ID` when the local tip is available and
+  otherwise receives current state.
 - **Bounded frames and heartbeats**, following metabrowser: a per-frame byte cap and a
   comment heartbeat inside the usual 30 to 60 second idle-timeout window.
 - **Timers `unref()`'d** so the heartbeat never holds the process open.
@@ -460,21 +512,9 @@ Signatures are the intended shape; adjust mechanically in review, not structural
   `issue-selection.ts` (`readyIssueIds`) and is consumed by `selectIssues` when
   `query.ready`.
 
-- **`src/file/bead-watch.ts`**: `IssueWatchOptions` gains `signal?: AbortSignal`;
-  `IssueWatchResult` gains `{ kind: 'aborted' }`. The poll loop checks the signal at
-  each await point, `sleep` becomes abort-aware, and cleanup still runs in `finally`.
-  `git.ts` gains an options-object overload
-  `gitNoPromptWithTimeout({ timeoutMs, signal }, ...args)` that SIGTERMs the child on
-  abort; the existing positional form stays for current callers.
-  The CLI `watch` command passes no signal, so its behavior is unchanged.
-
-- **`src/file/sync-run.ts`**: the issues-pull path is
-  `runIssueSync({ worktreePath, syncBranch, remote }, { pull: true, signal?, networkTimeoutMs? }, logger)`,
-  which returns a structured `up-to-date`, `pulled`, or `remote-missing` result.
-  Supplying a signal or deadline selects the no-prompt bounded fetch used by embedded
-  callers; omitting both preserves interactive `sync --pull` behavior.
-  `sync.ts` translates the result into its existing presentation while the web wake path
-  uses it without spawning a CLI subprocess.
+- **`src/file/bead-watch.ts`, `src/file/git.ts`, `src/cli/commands/{watch,sync}.ts`**:
+  unchanged from `origin/main`. The final local-only design needs no cancellation hook,
+  in-process sync helper, or `tbd sync` rewrite.
 
 - **`src/cli/lib/tree-view.ts`**: `renderTreeNode` emits
   `prefix + connector + issueLine` (tbd-5hh1); depth-3 golden test added.
@@ -485,31 +525,32 @@ Signatures are the intended shape; adjust mechanically in review, not structural
 ### Server (Phase 3)
 
 - **`src/cli/commands/web.ts`**: Commander definition plus
-  `WebHandler extends BaseCommand`. Flags: `--port <n>`, `--open`,
-  `--interval <seconds>` (min 10, default 30), `--dry-run`; global `--json` emits the
-  startup descriptor `{ url, port, pid, repo, syncBranch }` on stdout.
-  The handler validates flags, resolves the repo (`requireInit`, `readConfig`), then
-  lazy-imports the server (`await import('../web/server.js')`) so no other command pays
-  for it. SIGINT/SIGTERM wiring per the lifecycle rules; exit codes from `exit-codes.ts`.
+  `WebHandler extends BaseCommand`. Flags: `--port <n>`, `--open`, `--dry-run`; global
+  `--json` emits the startup descriptor `{ url, port, pid, repo, syncBranch }` on
+  stdout. The handler validates flags, resolves the repo (`requireInit`, `readConfig`),
+  then lazy-imports the server (`await import('../web/server.js')`) so no other command
+  pays for it. SIGINT/SIGTERM wiring per the lifecycle rules; exit codes from
+  `exit-codes.ts`.
 - **`src/cli/web/server.ts`**:
   `startWebServer(options: WebServerOptions): Promise<WebServerHandle>` where the handle
   is `{ port, url, close(), closed: Promise<void> }`. Owns the `node:http` server, port
   policy (`findAvailableLoopbackPort(base, count)` here, mirroring metabrowser’s
   `server_utils.py`), readiness self-probe, and shutdown.
 - **`src/cli/web/board.ts`**: `BoardState` — the in-memory snapshot (`loadDataContext` +
-  `listIssues`), `reload()` computing `dataVersion`/`movedIds`/`removedIds`/`changedIds`
-  by `id:version` diff, `computeIssueStats`, the served `RepoStatus`, and
-  `buildBoardResponse(params)` translating query strings to `IssueQuery` and calling
-  `selectIssues`/`describeQuery` plus the tree/context-row walk over `buildIssueTree`.
-- **`src/cli/web/wake.ts`**: the two wake paths — `watchForIssueChanges` in-process with
-  the new `AbortSignal` (the spike’s child process retires), and the debounced
-  `fs.watch` on the hidden worktree with the post-write suppression window.
-  On a remote wake: bounded/cancellable `runIssueSync`, then `board.reload()` and
-  broadcast; the report cursor advances only after all three succeed.
+  `listIssues`), `reload()` computing `dataVersion`/`movedIds`/`removedIds` and local
+  field deltas by before/after snapshot diff with complete motion plus bounded detail,
+  `getObservationPaths()` exposing only the constant-size local marker inputs,
+  `computeIssueStats`, the served `RepoStatus`, and `buildBoardResponse(params)`
+  translating query strings to `IssueQuery` and calling `selectIssues`/`describeQuery`
+  plus the tree/context-row walk over `buildIssueTree`.
+- **`src/cli/web/local-observer.ts`**: `LocalObserver` owns recursive native `fs.watch`,
+  trailing debounce, the one-second constant-size metadata marker, serialized reloads,
+  degraded-mode reporting, the observer-local monotonic `stateVersion`, and bounded
+  shutdown. It has no network-capable dependency.
 - **`src/cli/web/http.ts`**: router with Host/Origin validation, `GET /`,
-  `GET /api/board`, `GET /api/bead`, `GET /api/events` (SSE hub: event id = report tip,
-  `Last-Event-ID` resume, heartbeats, backpressure drop), `sendJson`, request body
-  limits. No mutation route exists in v1.
+  `GET /api/board`, `GET /api/bead`, `GET /api/events` (SSE hub: local sync tip as the
+  event id when available, current-state replay, heartbeats, backpressure drop), and
+  `sendJson`. No mutation route exists in v1.
 
 ### Client (Phase 4)
 
@@ -523,8 +564,8 @@ Signatures are the intended shape; adjust mechanically in review, not structural
   export function createClientStore(transport: Transport, onRender: () => void): ClientStore;
   export function buildQueryString(controls: BoardControls): string;
   export function caveatsFor(board: BoardResponse): string[];
-  export function deltasValid(watch: WatchStateView): boolean;  // reportDataVersion gate
-  export function phaseLabel(watch: WatchStateView): { label: string; help: string };
+  export function deltasValid(watch: ObservationStateView): boolean;  // changeDataVersion gate
+  export function phaseLabel(watch: ObservationStateView): { label: string; help: string };
   ```
 
 - **`src/web/client.ts`**: DOM glue only — element lookup, render, event wiring, theme
@@ -549,28 +590,30 @@ Signatures are the intended shape; adjust mechanically in review, not structural
 
 - `tests/issue-query.test.ts` — parity oracle: legacy filter/sort logic captured as a
   test-local oracle, property-style corpus compared against `selectIssues`.
-- `tests/bead-watch.test.ts` — abort during sleep, during fetch, cleanup-on-abort.
-- `tests/sync-run.test.ts` — structured pull results plus the cancellable bounded-fetch
-  path used by the web wake loop.
 - `tests/tree-view.test.ts` — depth-3 golden (tbd-5hh1).
-- `tests/web-board.test.ts` — light rows, shared queries, tree context, movement, body
-  lookup, and canonical display-id alphabets.
+- `tests/web-board.test.ts` — light rows, shared queries, tree context, movement,
+  metadata-only updates, bounded delta detail, body lookup, and canonical display-id
+  alphabets.
 - `tests/web-http.test.ts` — GET-only routing, Host/Origin security, detail isolation,
-  SSE replay, and frame bounds.
-- `tests/web-wake.test.ts` — pull-before-reload, local debounce, thrown and structured
-  pull failure retry without cursor loss, rewritten-history recovery, and shutdown
-  cancellation.
-- `tests/web-server.test.ts` — port policy, readiness, idempotent teardown, and the
-  stitched production artifact.
+  ref-rewind-safe SSE replay, convergence after local-ref deletion, frame bounds,
+  explicit queued-byte backpressure, and closed-stream race isolation.
+- `tests/web-local-observer.test.ts` — startup gap closure, native debounce, one-second
+  marker reconciliation, native/reconciliation degradation, metadata-only publication,
+  no reload on unchanged ticks, and bounded shutdown.
+- `tests/web-server.test.ts` — port policy, readiness, idempotent and observer-failure
+  tolerant teardown, and the stitched production artifact.
 - `tests/web-core.test.ts` — stubbed `Transport`: connect-then-fetch ordering, SSE
-  resume via `Last-Event-ID`, wake coalescing, `deltasValid` gating, query round-trip.
+  current-state and observer-restart recovery, graph/state-version race ordering,
+  canonical same-version board recovery and duplicate-event protection, update
+  coalescing, `deltasValid` gating, and query round-trip.
 - `tests/cli-web.test.ts` — spawn the built binary as `cli-watch.test.ts` does: bind,
   descriptor shape, port policy (default searches; explicit `--port` conflict exits 1
   actionably), Host/Origin 403s, SIGINT exits 130, no mutation route (POST → 404).
 - `tests/bead-web-css.test.ts` — retargeted to `src/web/styles.css`, assertions kept.
 - `tests/cli-web.tryscript.md` — `--help` and `--dry-run` transcripts.
 - `performance.test.ts` — 10,001-issue boundary fixture proving the 10,000-row response
-  cap, response-time budget, and 5 MiB serialized-payload budget.
+  cap, one-change refresh and response-time budgets, and 5 MiB serialized-payload
+  budget.
 - `scripts/validate-web-package.mjs` — pack/extract/start/fetch/stop proof for the exact
   npm artifact, run in the OS matrix and before release publishing.
 
@@ -598,26 +641,24 @@ to land the whole command through one PR.
   (`e5c9360d`). Parity oracle green id-sequence-exact across the query space; full suite
   green through the gate.
 - [x] tbd-5hh1 fixed in `tree-view.ts` with depth-3 goldens (`e5c9360d`).
-- [x] `AbortSignal` through `bead-watch.ts` and the `git.ts` options overload, with
-  pre-aborted/sleep/fetch cancellation coverage; CLI `watch` behavior unchanged.
+- [x] Removed the superseded remote-web cancellation path; `bead-watch.ts`, `git.ts`,
+  and the standalone `watch` command are unchanged from the base branch.
 - [x] tbd-q5c7: `OutputManager.isJson` + `printDocSyncStatus` guard with regression
   test; live-verified pure JSON with a stale docs cache (`e5c9360d`).
-- [x] `src/file/sync-run.ts` extraction; `sync.ts` refactored with no behavior change.
-  `runIssueSync` owns the fetch/count/attach/fast-forward pull sequence, returns a
-  structured result, and has injected-dependency coverage for pulled, up-to-date,
-  missing-remote, failure, bounded-fetch, and cancellation cases.
+- [x] Removed the superseded `sync-run.ts` extraction; standard `sync.ts` is unchanged
+  from the base branch, so the local-only viewer cannot alter the CLI sync contract.
 
 ### Phase 3: Server productization
 
 - [x] `src/cli/commands/web.ts` handler with the flag surface, descriptor, `--dry-run`,
   and lazy import.
-- [x] `src/cli/web/{server,board,wake,http}.ts` per the module map: in-process wake via
-  `AbortSignal` (child process retired), pull via `runIssueSync`, SSE event id = tip
-  with `Last-Event-ID` resume, port policy, readiness-gated `--open`, SSE-aware shutdown
-  and command-scoped signal handlers, all timers `unref()`'d.
+- [x] `src/cli/web/{server,board,local-observer,http}.ts` per the module map: native
+  local events plus one-second reconciliation, local snapshot deltas, bounded SSE, port
+  policy, readiness-gated `--open`, SSE-aware shutdown, and command-scoped signal
+  handlers, all timers `unref()`'d.
 - [x] v1 read-only: no mutation route exists.
   `tests/cli-web.test.ts` covers the built artifact, lifecycle, security, Git isolation,
-  real two-clone sync/SSE wake, invalid input, and port contention.
+  explicit two-clone `tbd sync`/SSE update, invalid input, and port contention.
 
 ### Phase 4: Client productization
 
@@ -625,7 +666,7 @@ to land the whole command through one PR.
   main-project exclusion; both projects in `typecheck`; eslint strictTypeChecked over
   100% of client code with no carve-outs.
 - [x] tsdown browser IIFE entry and `scripts/stitch-web.mjs` → `dist/web/index.html`.
-- [x] `tests/web-core.test.ts` covers connect-first startup, persisted cursor resume,
+- [x] `tests/web-core.test.ts` covers connect-first startup, current-state recovery,
   coalescing, stale board/body success and failure suppression, and an eight-request
   detail ceiling; the CSS test targets the production stylesheet.
   The server artifact test proves the page is fully stitched.
@@ -654,7 +695,7 @@ to land the whole command through one PR.
   Production Chromium measurements above cover the dominant DOM/layout path.
 - [x] Isolation assertion reusing the release-smoke snapshot pattern: a running
   `tbd web` leaves the caller worktree, sync refs, `FETCH_HEAD`, hidden worktree, and
-  lock untouched except for the pull a wake performs.
+  lock untouched. A remote-only change remains invisible until explicit `tbd sync`.
 - [x] Packaged proof via `pnpm --filter get-tbd qa:web-package`: the tarball carries
   `dist/web/index.html`, its published launcher starts exactly once, and the extracted
   package serves its page and APIs before clean SIGTERM shutdown.
@@ -665,41 +706,71 @@ to land the whole command through one PR.
 - [x] Current `origin/main` merged cleanly after the local release gate.
 - [x] PR description updated to the shipped reality.
 
+### Phase 7: Local-only liveness alignment
+
+- [x] Owner contract recorded under `tbd-ihyx`: no remote polling or implicit sync;
+  ordinary `tbd sync` remains the sole remote exchange path.
+- [x] `wake.ts` and its remote loop replaced by `local-observer.ts`; the CLI interval
+  flag and all remote observer dependencies removed.
+- [x] Native events, one-second missed-event reconciliation, degraded modes, local field
+  deltas, and explicit-sync acceptance covered by focused tests.
+- [x] Final hardening bounds local detail independently of complete motion, publishes
+  metadata-only refreshes, orders them with an observer-local state version, resumes
+  correctly across ref rewinds and observer restarts, and uses an explicit queued-byte
+  ceiling instead of treating Node’s stream high-water mark as a failed client.
+  Closed stream races are isolated to the affected SSE client.
+- [x] Revised-head local release matrix and senior review green: Flowmark/Prettier,
+  strict typecheck, zero-warning lint plus TS/JS lint-contract probes, build, 109 Vitest
+  files / 1,507 tests, 1,074 tryscript checks, publint, 31 package-age pins, packed-web
+  proof (62,196-byte page), and watch release smoke.
+- [ ] Push the revised head, wait for hosted CI across the supported OS matrix, re-audit
+  every PR comment/thread, and confirm final mergeability.
+
 ### Final review finding map
 
-The final review is tracked under `tbd-o7nu`. Every implementation finding has one bead
-and one code seam; all eighteen are implemented and locally validated.
+The final review is tracked under `tbd-o7nu`, with the owner-directed revision and its
+follow-up findings under `tbd-ihyx`. Every implementation finding has one bead and one
+code seam; all twenty-one are implemented and locally validated.
 R14 removes the final Windows command-shim assumption from the packed proof.
 R15 closes the final scale-specific memory and data-motion paths after the 10,000-row
 ceiling review. R16 preserves an executable assertion on both sides of that ceiling.
 R17 bounds pretty-tree metadata by the same response slice.
 R18 marks a capped table command-inexact and names truncation in its tooltip.
+R19 is the owner-directed contract revision tracked by `tbd-ihyx`: remote liveness is
+removed from the viewer, local observation becomes native plus reconciled, and all
+surfaces point users back to explicit `tbd sync`. R20 isolates the final SSE
+closed-stream race found during the revised-head senior review.
+R21 prevents a delayed duplicate bounded event from replacing canonical same-version
+board state.
 
 | Bead | Severity | File/function seam | Disposition |
 | --- | --- | --- | --- |
 | `tbd-x8g8` (R1) | P2 | `src/web/core.ts`: `Store.fetchBody`, `bodyRequestIsCurrent` | Gate stale success and error responses on request token plus data generation; regression covers the unresolved PR thread. |
 | `tbd-b3a3` (R2) | P2 | `src/web/core.ts`: `loadBody`, `drainBodyQueue`, `pruneBodyQueue` | Limit detail fetches to eight and discard collapsed queued work. |
 | `tbd-3w9e` (R3) | P1 | `scripts/copy-docs.mjs`: postbuild `dist/tbd` launcher | Import canonical `bin.mjs` instead of copying it as a second ESM identity; tryscript proves one action/descriptor. |
-| `tbd-oi4e` (R4) | P1 | `src/cli/web/wake.ts`: `runRemoteWatchLoop`, `handleWatchFailure` | Retry a failed report from the same cursor; reset only after a proven non-ancestor rewrite. |
-| `tbd-t7to` (R5) | P1 | `src/file/sync-run.ts`: `runIssueSync`; `src/cli/web/wake.ts`: `applyReport` | Use no-prompt bounded fetch plus the shutdown signal for embedded pulls, without changing interactive sync behavior. |
+| `tbd-oi4e` (R4) | P1 | Removed remote observer | Historical fix was validated; R19 removes the web remote loop entirely, so no cursor retry remains in the viewer. |
+| `tbd-t7to` (R5) | P1 | Removed remote sync helper | R19 removes the only web caller, so the final head also removes `sync-run.ts` and restores standard `sync.ts` unchanged. |
 | `tbd-urft` (R6) | P2 | `src/cli/commands/web.ts`: `WebHandler.run` | Run idempotent full teardown after either a signal or listener-first close. |
 | `tbd-t6gm` (R7) | P1 | `src/cli/web/board.ts`: `PUBLIC_ID`, `BoardState.getBead` | Accept canonical dot/underscore/hyphen display IDs while rejecting option-shaped input. |
 | `tbd-rmvx` (R8) | P2 | `tests/rescue-divergence.test.ts`: true-conflict rescue integration | Give the Git/subprocess integration case an explicit timeout after it passed alone in 0.7 seconds but reached 8.4 seconds under the full parallel suite. |
 | `tbd-ijz7` (R9) | P2 | `tests/cli-setup.tryscript.md`: top-level help golden | Pin `web` in the complete command listing as well as its dedicated help transcript. |
 | `tbd-b4m2` (R10) | P1 | five `tests/cli-sync-*.tryscript.md` fixtures: `before` remotes | Keep each bare remote inside its sandbox’s own Git directory so sync histories cannot leak between transcript files. |
 | `tbd-snb4` (R11) | P1 | `tests/cli-web.tryscript.md`: built CLI invocation | Invoke `bin.mjs` explicitly with Node so the focused matrix transcript does not depend on Unix extensionless-command lookup. |
-| `tbd-qf41` (R12) | P1 | `src/cli/web/wake.ts`: `applyReport`; `tests/web-wake.test.ts` | Treat `remote-missing` as a retryable unapplied report: do not reload or advance report/cursor state, and retry from the same baseline. |
+| `tbd-qf41` (R12) | P1 | Removed remote observer | Historical regression was validated; R19 makes a missing remote irrelevant to `tbd web` because it performs no remote operation. |
 | `tbd-4ets` (R13) | P1 | `tests/run-built-cli.mjs`; `tests/cli-web.tryscript.md`: sandbox invocation, setup, and filters | Spawn and await the exact built entry using a Node-resolved path, assert sandbox initialization as a test, and use shell-neutral quoting for `sed`/`jq`. |
 | `tbd-wx19` (R14) | P1 | `scripts/validate-web-package.mjs`: `packArchive` | Keep direct `execFile` on POSIX; on Windows run the `pnpm.cmd` shim through `ComSpec` before continuing the exact packed-artifact proof. |
 | `tbd-z3o9` (R15) | P2 | `src/web/core.ts`: `Store.toggle`, `setExpanded`, `cacheBody`, `receiveState`; `src/web/client.ts`: `renderBoard` | Limit open details to 100, cached bodies to 200, deletion ghosts to 100, and replace scale-sensitive row-class array scans with set lookup. |
 | `tbd-et3a` (R16) | P2 | `tests/performance.test.ts`: 10,001-issue boundary fixture | Prove that 10,000 rows are returned without exceeding the response ceiling and that `truncated` retains the full over-limit count. |
 | `tbd-6pjo` (R17) | P2 | `src/cli/web/board.ts`: `BoardState.buildBoardResponse`; `tests/web-board.test.ts` | Derive pretty-tree context ids and their count from the capped response rows, with an over-limit hierarchy regression. |
 | `tbd-wmdo` (R18) | P2 | `src/cli/web/board.ts`: `BoardState.buildBoardResponse`; `src/web/core.ts`: `caveatsFor` | Mark every capped response command-inexact and explain in the tooltip that only the returned prefix is shown. |
+| `tbd-ihyx` (R19) | P1 | `src/cli/web/{board,local-observer}.ts`; `commands/web.ts`; `web/{core,client}.ts`; all web docs/tests | Make the viewer local-only, remove the poll flag, observe native changes immediately, reconcile missed events once per second, bound local detail without losing motion, recover across observer restarts, and prove explicit `tbd sync` is the only remote path. |
+| `tbd-xp1v` (R20) | P2 | `src/cli/web/http.ts`: `SseHub.attach`, `SseHub.write`; `tests/web-http.test.ts` | Check ended streams, catch a write-time close race, and install a per-response error handler so one disconnected client cannot escape a publish or heartbeat into the server process. |
+| `tbd-t5ky` (R21) | P1 | `src/web/core.ts`: `Store.receiveState`; `tests/web-core.test.ts` | Reject duplicate SSE frames at an already-adopted observer state version, while preserving the deliberate same-version canonical board recovery, so bounded transport cannot overwrite complete changed-row motion. |
 
 ### Merge gate for PR #207
 
-All of the following, verified in the PR before merge — the PR stays in draft until they
-hold:
+All of the following must be verified in the PR before merge; the PR remains unmerged
+until they hold:
 
 1. Every phase checklist above complete.
 2. CI green on the final head across all three platforms; publint and package-age clean;
@@ -721,18 +792,23 @@ hold:
   `web-board.test.ts` exercises the same `computeIssueStats` result through board state.
 - **Hierarchy**: depth-3 golden test for `--pretty`, and a test that the server’s row
   order matches `buildIssueTree` for the same input.
-- **Liveness**: extend the existing two-clone smoke so a headless client consumes the
-  SSE stream, verifying a wake arrives, the tip advances, and `Last-Event-ID` resume
-  delivers a change that landed while disconnected.
-- **Payload bounds**: assert table responses carry no description or notes text, and
-  that frame size does not grow with graph size.
+- **Liveness**: unit-test startup gap closure, trailing native debounce, unchanged
+  reconciliation ticks, marker-detected changes, native-only and reconciliation-only
+  degraded modes, recovery, and bounded shutdown.
+  The two-clone acceptance test first proves a remote commit leaves local refs,
+  `FETCH_HEAD`, files, and UI untouched; it then runs ordinary `tbd sync` and requires
+  the local result over SSE.
+- **Payload bounds**: assert table responses carry no description or notes text, local
+  motion remains complete in the canonical board state while field detail is capped at
+  100 candidates and 256 KiB, and event-frame size does not grow with graph size.
 - **Performance**: exercise a 10,001-issue boundary fixture; assert the 10,000-row cap,
   board response time and serialized size against the §1.4 budget, assert 1,000-row page
   boundaries in the pure client core, and measure the stitched page in Chromium because
   server timing does not represent DOM construction, style, layout, or paint.
 - **Isolation**: reuse the release-smoke assertions.
   Running `tbd web` must leave the caller worktree, sync refs, `FETCH_HEAD`, hidden
-  worktree, and lock untouched except for the pull it performs on a wake.
+  worktree, and lock untouched.
+  There is no viewer-owned exception.
 - **Security**: assert the listener binds loopback only, every non-GET request is 404,
   hostile Host and Origin headers are 403, and bead ids are validated before lookup.
 - **CLI conventions**: assert stdout carries only the descriptor and diagnostics go to
@@ -745,9 +821,10 @@ hold:
   returns HTTP OK and degrades to printing the URL; first SIGINT closes open SSE streams
   and exits cleanly with no error-level log records from the expected cancellations.
 - **Client behavior, jsdom-free**: `src/web/core.ts` contracts covered with injected
-  `fetch`/`EventSource` stubs — connect-then-fetch ordering, SSE resume via
-  `Last-Event-ID`, wake coalescing, delta gating on `reportDataVersion`, and
-  query-string round-tripping — following metabrowser’s stubbed-window test pattern.
+  `fetch`/`EventSource` stubs — connect-then-fetch ordering, current-state recovery,
+  observer-restart recovery, state-version ordering, canonical same-version board
+  recovery, update coalescing, delta gating on `changeDataVersion`, and query-string
+  round-tripping — following metabrowser’s stubbed-window test pattern.
 - **Startup cost**: assert that adding the command does not measurably change
   `tbd --help` or `tbd list` startup time, which is what the lazy import exists to
   protect.
@@ -764,33 +841,43 @@ undo.
 
 ## Implementation Decisions
 
-Resolved by the owner’s 2026-08-10 productionization direction:
+Resolved by the owner’s 2026-08-10 productionization direction and 2026-08-11 local-only
+liveness decision:
 
 - `tbd web` ships in core through PR #207, which merges only production-ready; no
   separate package.
 
 - The §1.6 amendment is in scope for this PR and reviewed in its diff.
 
-- The watch runs in-process behind the new `AbortSignal`; the spike’s child process was
-  scaffolding and retires in Phase 3.
+- The web observer is local-only and in-process.
+  Node core supplies native filesystem events; a one-second constant-size marker repairs
+  dropped events without a dependency or unchanged-graph reload.
+
+- Complete changed-row motion in the canonical board state is independent of bounded
+  event/detail transport; an observer instance id plus monotonic state version makes a
+  live browser resilient to server restarts and stale equal-graph-version responses.
 
 - v1 is read-only; the mutation route is removed, not hidden (see Writes).
 
-- The remote watch selection is `--all`; add a selector only if production usage shows
-  poll-cost pressure.
+- `tbd web` has no remote poll option and never performs implicit sync.
+  `tbd sync` is the sole remote exchange contract, and its local result appears
+  automatically.
 
-- The core refactors ride PR #207 rather than landing through separate cherry-picks.
+- The query, statistics, tree, and JSON-output fixes ride PR #207; remote-watch and sync
+  internals stay unchanged because the viewer no longer consumes them.
 
 ## References
 
-- `plan-2026-07-19-bead-watch-and-external-sync.md` — the watch contract this builds on
+- `plan-2026-07-19-bead-watch-and-external-sync.md` — the separate remote `watch`
+  contract that the web viewer deliberately does not embed
 - `valid-2026-08-09-bead-watch-release.md` — isolation and resource assertions to reuse
 - `packages/tbd/docs/tbd-design.md` §1.5, §1.6, §1.7, §4.10, §4.12
 - `packages/tbd/src/lib/issue-selection.ts` — the existing shared predicates
 - `packages/tbd/src/cli/lib/tree-view.ts` — `buildIssueTree` and the `tbd-5hh1` defect
 - PR #207’s Phase 1 commits — retired spike evidence and review history
-- `github.com/jlevy/metabrowser` — `src/metabrowser/sse.py` for cursor-as-event-id and
-  bounded frames; `src/metabrowser/static/styles.css` for flash and reduced-motion;
+- `github.com/jlevy/metabrowser` — `src/metabrowser/watch_backends.py` for the native
+  watcher plus bounded reconciliation architecture; `src/metabrowser/sse.py` for bounded
+  frames; `src/metabrowser/static/styles.css` for flash and reduced-motion;
   `src/metabrowser/cli/serve.py` for readiness-gated auto-open, port-range search, and
   SSE-aware shutdown with suppressed cancellation noise; `tests/dom/` for the
   stubbed-window, jsdom-free client behavior tests; `tsconfig.json`/`biome.json` for the

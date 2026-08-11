@@ -7,7 +7,7 @@
  *    place and light/dark cannot drift apart.
  * 2. Data motion and UI motion never mix. Highlighting a row amber because a filter
  *    revealed it tells the reader that something changed upstream when nothing did, so
- *    the wake color and the flash keyframes are reserved for observed data movement.
+ *    the update color and the flash keyframes are reserved for observed data movement.
  *
  * A comment saying so is not enforcement; these assertions are.
  */
@@ -145,7 +145,7 @@ describe('bead-web design system', () => {
     expect(media).toContain(":root:not([data-theme='light'])");
   });
 
-  it('reserves the wake color and flash keyframes for data motion', async () => {
+  it('reserves the update color and flash keyframes for data motion', async () => {
     const css = stripComments(await readStyleBlock());
 
     // Every rule that animates with the flash keyframes must be a data-motion selector.
@@ -160,7 +160,7 @@ describe('bead-web design system', () => {
       ).toBe(true);
     }
 
-    // The wake background must not be reachable from a hover/focus/active state, which
+    // The update background must not be reachable from a hover/focus/active state, which
     // are by definition UI interactions rather than observed data movement.
     const interactionRules = [
       ...css.matchAll(/([^{}]*:(?:hover|focus|active)[^{}]*)\{([^}]*)\}/gu),

@@ -11,7 +11,7 @@
 
      1. Hue encodes family. Tokens sharing a hue are meant to read
         as related: every neutral sits on 215° so surfaces, borders,
-        and text feel like one material; wake/amber is 38°, ready/
+        and text feel like one material; update/amber is 38°, ready/
         green is 149°, error/red is 0°. To add a token, pick the hue
         that places it in the right family first, not a color that
         looks nice alone.
@@ -20,7 +20,7 @@
         S roughly fixed against its light counterpart and moves L.
         Never shift hue to dim a color; lower L.
 
-     3. Saturation is the loudness knob. Status and wake colors are
+     3. Saturation is the loudness knob. Status and update colors are
         higher S; surfaces, borders, and body text are near-grey.
 
      4. Typography marks data, not decoration. Chrome — labels,
@@ -37,14 +37,14 @@
 
    DATA motion (--motion-data, `.flash` / `.leaving`) means the bead
    graph itself moved: a bead was created, edited, or deleted, and
-   `tbd watch` or the local file watcher observed it. It is the amber
-   wake color, and it is the ONLY thing allowed to use that color for
+   the local observer saw the graph move. It is the amber update color,
+   and it is the ONLY thing allowed to use that color for
    movement. It fires once per data change and settles back to
    transparent, so it reads as an event rather than a state.
 
    UI motion (--transition-fast) means the viewer changed, not the
    data: a filter edited, a row expanded, a control focused. It is a
-   short neutral transition and it MUST NOT use the wake color or the
+   short neutral transition and it MUST NOT use the update color or the
    flash keyframes. Re-slicing a filter is not news.
 
    Conflating the two is the specific bug this rule exists to
@@ -88,7 +88,7 @@
 
   /* Wake family (38°, amber). Reserved for DATA motion. Nothing that
      responds to a UI interaction may use these two tokens. */
-  --wake: hsl(38 76% 42%);
+  --update: hsl(38 76% 42%);
   --row-flash-bg: hsl(43 88% 92%);
 
   /* Dark palette. Same hues as above, lightness retuned. Compare each
@@ -101,7 +101,7 @@
   --dark-accent: hsl(220 100% 71%);
   --dark-ok: hsl(149 52% 55%);
   --dark-err: hsl(0 100% 73%);
-  --dark-wake: hsl(43 73% 57%);
+  --dark-update: hsl(43 73% 57%);
   --dark-row-flash-bg: hsl(41 53% 15%);
 
   /* One family, sans only. There is deliberately no font chooser: this
@@ -130,7 +130,7 @@
     --accent: var(--dark-accent);
     --ok: var(--dark-ok);
     --err: var(--dark-err);
-    --wake: var(--dark-wake);
+    --update: var(--dark-update);
     --row-flash-bg: var(--dark-row-flash-bg);
   }
 }
@@ -144,7 +144,7 @@
   --accent: var(--dark-accent);
   --ok: var(--dark-ok);
   --err: var(--dark-err);
-  --wake: var(--dark-wake);
+  --update: var(--dark-update);
   --row-flash-bg: var(--dark-row-flash-bg);
 }
 * {
@@ -190,10 +190,6 @@ h1 {
 .pill.watching {
   color: var(--ok);
   border-color: var(--ok);
-}
-.pill.applying {
-  color: var(--wake);
-  border-color: var(--wake);
 }
 .pill.error {
   color: var(--err);
@@ -497,11 +493,11 @@ tr.leaving > td {
     max-height: 0;
   }
 }
-/* Persistent marker for "this bead is in the latest watch report".
+/* Persistent marker for "this bead is in the latest local change set".
    A state, not motion, so it survives re-renders and filter changes. */
 tr.changed td.id::after {
   content: ' ●';
-  color: var(--wake);
+  color: var(--update);
 }
 @media (prefers-reduced-motion: reduce) {
   /* Keep the amber context, drop the movement. */
@@ -599,7 +595,7 @@ dd.good {
 }
 #report.placeholder {
   /* Chrome, not data: the empty-state note talks about the UI itself, so it is
-     sans and wraps like prose; only an actual report is data and stays mono. */
+     sans and wraps like prose; only an actual change set is data and stays mono. */
   font-family: var(--sans);
   white-space: normal;
   color: var(--muted);
@@ -652,7 +648,7 @@ pre {
   }
 }
 .delta {
-  border-left: 3px solid var(--wake);
+  border-left: 3px solid var(--update);
   padding: 2px 0 6px 10px;
   margin-top: 8px;
 }
@@ -663,7 +659,7 @@ pre {
 .dname {
   font-family: var(--mono);
   font-size: 11px;
-  color: var(--wake);
+  color: var(--update);
   margin-right: 8px;
 }
 .dval {
@@ -688,8 +684,8 @@ pre.hunk {
   border-bottom: 1px solid var(--border);
   color: var(--muted);
 }
-#log li.wake {
-  color: var(--wake);
+#log li.update {
+  color: var(--update);
 }
 #log li.error {
   color: var(--err);

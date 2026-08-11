@@ -4,8 +4,7 @@ import type { IncomingMessage, ServerResponse } from 'node:http';
 
 import type { BoardState, WebState } from './board.js';
 
-// Stay below Node's common 64 KiB writable high-water mark so a healthy client does
-// not get classified as backpressured merely because one frame was large.
+// Keep individual frames moderate; queued bytes have a separate per-client ceiling.
 export const MAX_SSE_FRAME_BYTES = 48 * 1024;
 const MAX_SSE_BUFFER_BYTES = 1024 * 1024;
 const DEFAULT_HEARTBEAT_MS = 20_000;
@@ -46,7 +45,7 @@ export interface WebRequestHandlerOptions {
 }
 
 function eventId(state: WebState): string | null {
-  return state.watchSince !== null && COMMIT_ID.test(state.watchSince) ? state.watchSince : null;
+  return state.localTip !== null && COMMIT_ID.test(state.localTip) ? state.localTip : null;
 }
 
 function formatStateFrame(state: WebState): string {
@@ -55,7 +54,7 @@ function formatStateFrame(state: WebState): string {
 }
 
 /**
- * Encode one state document without allowing a detailed change report or diagnostics
+ * Encode one state document without allowing detailed local changes or diagnostics
  * history to make an unbounded EventSource frame. Board data is always re-fetched.
  */
 export function encodeStateEvent(state: WebState): string {
@@ -65,7 +64,12 @@ export function encodeStateEvent(state: WebState): string {
     return frame;
   }
 
-  candidate = { ...state, lastReport: null, log: state.log.slice(0, 20) };
+  candidate = {
+    ...state,
+    latestChanges: [],
+    latestChangesTruncated: state.latestChangesTruncated || state.latestChanges.length > 0,
+    log: state.log.slice(0, 20),
+  };
   frame = formatStateFrame(candidate);
   if (Buffer.byteLength(frame) <= MAX_SSE_FRAME_BYTES) {
     return frame;
@@ -73,7 +77,6 @@ export function encodeStateEvent(state: WebState): string {
 
   candidate = {
     ...candidate,
-    changedIds: candidate.changedIds.slice(0, 1_000),
     movedIds: candidate.movedIds.slice(0, 1_000),
     removedIds: candidate.removedIds.slice(0, 1_000),
   };
@@ -84,11 +87,10 @@ export function encodeStateEvent(state: WebState): string {
 
   candidate = {
     ...candidate,
-    changedIds: [],
     movedIds: [],
     removedIds: [],
     log: [],
-    watchError: candidate.watchError?.slice(0, 2_048) ?? null,
+    observationError: candidate.observationError?.slice(0, 2_048) ?? null,
     repoStatus:
       candidate.repoStatus === null
         ? null
@@ -101,7 +103,7 @@ export function encodeStateEvent(state: WebState): string {
   return frame;
 }
 
-/** Small replay ring keyed by the domain cursor (`IssueChangesReport.tip`). */
+/** Small replay ring keyed by the local sync-branch tip when one is available. */
 export class SseHub {
   private readonly clients = new Set<ServerResponse>();
   private readonly history: StateFrame[] = [];
@@ -145,20 +147,20 @@ export class SseHub {
     const lastHeader = request.headers['last-event-id'];
     const lastEventId = (Array.isArray(lastHeader) ? lastHeader[0] : lastHeader) ?? resumeEventId;
     const replay = this.framesAfter(lastEventId);
-    let frames = replay;
-    if (frames.length === 0) {
-      const currentState = this.getState();
-      const currentFrame = encodeStateEvent(currentState);
-      const currentId = eventId(currentState);
-      if (currentId !== null) {
-        this.remember({
-          id: currentId,
-          frame: currentFrame,
-          bytes: Buffer.byteLength(currentFrame),
-        });
-      }
-      frames = [currentFrame];
+    const currentState = this.getState();
+    const currentFrame = encodeStateEvent(currentState);
+    const currentId = eventId(currentState);
+    if (currentId !== null) {
+      this.remember({
+        id: currentId,
+        frame: currentFrame,
+        bytes: Buffer.byteLength(currentFrame),
+      });
     }
+    // Replayed commit-backed frames may predate current state that has no commit id
+    // (for example, a locally deleted sync ref). Always converge on current state.
+    const frames =
+      replay.length > 0 && replay.at(-1) === currentFrame ? replay : [...replay, currentFrame];
     for (const frame of frames) {
       if (!this.write(response, frame)) {
         return;
@@ -166,6 +168,9 @@ export class SseHub {
     }
 
     this.clients.add(response);
+    response.once('error', () => {
+      this.drop(response);
+    });
     request.once('close', () => {
       this.clients.delete(response);
     });
@@ -185,7 +190,10 @@ export class SseHub {
     if (lastEventId === undefined || !COMMIT_ID.test(lastEventId)) {
       return [];
     }
-    const index = this.history.findIndex((entry) => entry.id === lastEventId);
+    // A local ref can legitimately rewind and later reuse an older commit id. Resume
+    // after its newest occurrence; replaying from the first would briefly deliver stale
+    // intermediate state before the current frame.
+    const index = this.history.findLastIndex((entry) => entry.id === lastEventId);
     return index < 0 ? [] : this.history.slice(index + 1).map((entry) => entry.frame);
   }
 
@@ -217,15 +225,23 @@ export class SseHub {
   }
 
   private write(response: ServerResponse, frame: string): boolean {
-    if (response.destroyed || response.writableLength > this.maxBufferBytes) {
+    const projectedBytes = response.writableLength + Buffer.byteLength(frame);
+    if (response.destroyed || response.writableEnded || projectedBytes > this.maxBufferBytes) {
       this.drop(response);
       return false;
     }
-    if (!response.write(frame)) {
+    // `false` means the stream crossed its implementation high-water mark, not that
+    // the peer is irrecoverably slow. Keep the client while our explicit byte ceiling
+    // still holds; a later broadcast drops it if queued data reaches that ceiling.
+    try {
+      response.write(frame);
+      return true;
+    } catch {
+      // The socket can close between the state checks above and write(). Isolate that
+      // race to this client so a publish or heartbeat cannot escape into the process.
       this.drop(response);
       return false;
     }
-    return true;
   }
 
   private drop(response: ServerResponse): void {

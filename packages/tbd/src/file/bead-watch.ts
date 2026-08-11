@@ -20,18 +20,11 @@ export interface IssueWatchOptions {
   since: string | null;
   intervalMs: number;
   timeoutMs: number | null;
-  /**
-   * Optional cancellation for embedding callers (`tbd web` runs the watch in-process).
-   * Abort resolves the watch with `{ kind: 'aborted' }` after best-effort cleanup; the
-   * CLI passes nothing and is unaffected.
-   */
-  signal?: AbortSignal;
 }
 
 export type IssueWatchResult =
   | { kind: 'changed'; report: IssueChangesReport }
-  | { kind: 'timeout' }
-  | { kind: 'aborted' };
+  | { kind: 'timeout' };
 
 /**
  * Consecutive failed remote polls tolerated before an established watch aborts.
@@ -125,7 +118,7 @@ export function createGitWatchDependencies(
       let output;
       try {
         output = await runGitWithTimeout(
-          { timeoutMs, signal: options.signal },
+          timeoutMs,
           '-C',
           options.repoDir,
           'ls-remote',
@@ -144,7 +137,7 @@ export function createGitWatchDependencies(
       const fetchDeadline = now() + timeoutMs;
       try {
         await runGitWithTimeout(
-          { timeoutMs: remainingRemotePollTime(fetchDeadline, now()), signal: options.signal },
+          remainingRemotePollTime(fetchDeadline, now()),
           '-C',
           options.repoDir,
           'fetch',
@@ -157,7 +150,7 @@ export function createGitWatchDependencies(
           `+refs/heads/${options.branch}:${privateRef}`,
         );
         return await runGitWithTimeout(
-          { timeoutMs: remainingRemotePollTime(fetchDeadline, now()), signal: options.signal },
+          remainingRemotePollTime(fetchDeadline, now()),
           '-C',
           options.repoDir,
           'rev-parse',
@@ -221,40 +214,9 @@ export async function watchForIssueChanges(
     Math.min(options.intervalMs, MAX_REMOTE_POLL_DURATION_MS),
   );
 
-  const aborted = (): boolean => options.signal?.aborted === true;
-  // One promise for the whole watch, resolved on abort, raced only against sleeps:
-  // git awaits return promptly on abort because the signal kills the child.
-  const abortWait: Promise<void> | null =
-    options.signal === undefined
-      ? null
-      : options.signal.aborted
-        ? Promise.resolve()
-        : new Promise((resolveAbort) => {
-            options.signal!.addEventListener(
-              'abort',
-              () => {
-                resolveAbort();
-              },
-              { once: true },
-            );
-          });
-  const sleepUnlessAborted = async (milliseconds: number): Promise<void> => {
-    if (abortWait === null) {
-      await dependencies.sleep(milliseconds);
-      return;
-    }
-    await Promise.race([dependencies.sleep(milliseconds), abortWait]);
-  };
-
   try {
-    if (aborted()) {
-      return { kind: 'aborted' };
-    }
     await dependencies.prepare?.();
     await dependencies.validateSelection?.();
-    if (aborted()) {
-      return { kind: 'aborted' };
-    }
     let remotePollDeadline = calculateRemotePollDeadline(
       dependencies.now(),
       deadline,
@@ -264,9 +226,6 @@ export async function watchForIssueChanges(
       remainingRemotePollTime(remotePollDeadline, dependencies.now()),
     );
     let lastRemoteObservationAt = dependencies.now();
-    if (aborted()) {
-      return { kind: 'aborted' };
-    }
     let baseline = options.since ?? observedTip;
 
     if (options.since !== null) {
@@ -292,10 +251,7 @@ export async function watchForIssueChanges(
       }
       if (deadline === null || currentTime < deadline) {
         const remaining = deadline === null ? options.intervalMs : deadline - currentTime;
-        await sleepUnlessAborted(Math.min(options.intervalMs, remaining));
-      }
-      if (aborted()) {
-        return { kind: 'aborted' };
+        await dependencies.sleep(Math.min(options.intervalMs, remaining));
       }
 
       let fetchedTip: string;
@@ -317,11 +273,6 @@ export async function watchForIssueChanges(
           remainingRemotePollTime(remotePollDeadline, dependencies.now()),
         );
       } catch (error) {
-        // A signal-killed git child surfaces here as an error; the abort is the cause,
-        // not a transport failure, so it must not count against the failure budget.
-        if (aborted()) {
-          return { kind: 'aborted' };
-        }
         if (deadline !== null && dependencies.now() >= deadline) {
           throw new Error('Unable to confirm remote state at the watch timeout boundary', {
             cause: error,
@@ -335,9 +286,6 @@ export async function watchForIssueChanges(
           );
         }
         continue;
-      }
-      if (aborted()) {
-        return { kind: 'aborted' };
       }
       consecutivePollFailures = 0;
       observedTip = fetchedTip;

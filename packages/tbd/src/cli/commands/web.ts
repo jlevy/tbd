@@ -1,4 +1,4 @@
-/** `tbd web` - serve the committed bead graph on loopback until interrupted. */
+/** `tbd web` - serve the local bead graph on loopback until interrupted. */
 
 import { Command } from 'commander';
 
@@ -14,7 +14,6 @@ import type { WebServerHandle } from '../web/server.js';
 interface WebOptions {
   port?: string;
   open?: boolean;
-  interval: string;
 }
 
 interface WebDescriptor {
@@ -39,18 +38,9 @@ function parsePort(value: string | undefined): number | undefined {
   return port;
 }
 
-function parseInterval(value: string): number {
-  const interval = Number(value);
-  if (!Number.isFinite(interval) || interval < 10) {
-    throw new ValidationError('--interval must be at least 10 seconds');
-  }
-  return interval;
-}
-
 class WebHandler extends BaseCommand {
   async run(options: WebOptions): Promise<void> {
     const port = parsePort(options.port);
-    const intervalSeconds = parseInterval(options.interval);
     const repo = await requireInit();
     const config = await readConfig(repo);
     const serverModule = await import('../web/server.js');
@@ -99,7 +89,6 @@ class WebHandler extends BaseCommand {
       const startup = serverModule.startWebServer({
         repoDir: repo,
         port,
-        intervalSeconds,
         logger,
       });
       const first = await Promise.race([
@@ -140,8 +129,8 @@ class WebHandler extends BaseCommand {
       }
 
       const outcome = await Promise.race([handle.closed.then(() => null), signaled]);
-      // `close()` is idempotent and owns the wake/SSE teardown too. Run it even if the
-      // listener closed first so an unexpected socket shutdown cannot strand watchers.
+      // `close()` is idempotent and owns the observer/SSE teardown too. Run it even if the
+      // listener closed first so an unexpected socket shutdown cannot strand observation.
       await handle.close();
       process.exitCode = outcome === null ? EXIT_SUCCESS : this.signalExitCode(outcome);
     } finally {
@@ -177,7 +166,6 @@ export const webCommand = new Command('web')
   .description('Serve a live, read-only bead view on loopback')
   .option('--port <n>', 'Bind exactly this loopback port (default: search from 7777)')
   .option('--open', 'Open the page in the default browser after HTTP readiness')
-  .option('--interval <seconds>', 'Remote tip poll interval (minimum 10)', '30')
   .action(async (options, command) => {
     const handler = new WebHandler(command);
     await handler.run(options);

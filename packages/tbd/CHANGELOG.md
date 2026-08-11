@@ -17,11 +17,15 @@
   Claude Code and Codex.
   Live validation covers both platforms conversing through one bead.
 - **Live local bead view**: `tbd web` serves a responsive, read-only view of the bead
-  graph on loopback and refreshes from both remote sync wakes and local file changes.
+  graph on loopback and refreshes from local file changes.
+  It never contacts a remote; ordinary `tbd sync` remains the explicit
+  fetch/merge/publish contract, and its local result appears automatically.
   Its filters, sorting, readiness rules, hierarchy, statistics, and displayed command
-  line come from the same implementations as the CLI. The client resumes SSE from the
-  last watch tip, lazy-loads bead bodies, and bounds requests and rendered rows for
-  large repositories. `--open` is opt-in; JSON and dry-run modes support agents and CI.
+  line come from the same implementations as the CLI. Native filesystem events normally
+  redraw immediately; a one-second constant-size metadata check repairs missed events
+  without reloading an unchanged graph.
+  The client lazy-loads bead bodies and bounds requests and rendered rows for large
+  repositories. `--open` is opt-in; JSON and dry-run modes support agents and CI.
 
 ### Documentation
 
@@ -79,9 +83,16 @@
 - **Bounded snapshot subprocesses**: committed issue blobs are read through bounded
   128-object `git cat-file --batch` groups instead of one `git show` per issue or one
   graph-sized child-output buffer.
-- **Web final-review hardening**: remote reports advance their cursor only after a
-  successful bounded, cancellable pull; listener-first shutdown still tears down all
-  watchers and SSE clients; stale detail failures cannot overwrite a newer generation;
+- **Web final-review hardening**: the viewer has one local-only contract and no poll
+  flag or implicit remote sync; native and reconciliation observation degrade
+  independently; listener-first shutdown still tears down the observer and SSE clients;
+  changed-row motion remains complete while local field detail is bounded; config-only
+  updates are published and ordered by an observer-local state version; browser clients
+  reject stale equal-graph-version responses, keep canonical board state over delayed
+  same-version event duplicates, and recover across an observer restart; ref rewinds
+  resume from the newest matching event; a stream high-water signal no longer drops a
+  client before the explicit queued-byte ceiling, while a write-time closed stream is
+  isolated to that client; stale detail failures cannot overwrite a newer generation;
   detail fetches have an eight-request ceiling; and canonical display IDs containing
   dots, underscores, or hyphens are accepted by the detail API.
 
@@ -94,9 +105,9 @@
   so a failed delete can never discard the change report), and reclaims refs orphaned by
   interrupted watcher processes on the next watch startup.
 - `tbd web` binds only `127.0.0.1`, validates Host and same-origin Origin headers,
-  accepts no mutation route, serves a restrictive Content Security Policy, caps SSE
-  frames and replay buffers, drops backpressured clients, and closes open streams on a
-  bounded shutdown.
+  accepts no mutation route, never performs network synchronization, serves a
+  restrictive Content Security Policy, caps SSE frames and replay buffers, drops
+  backpressured clients, and closes open streams on a bounded shutdown.
 
 ## 0.4.2
 

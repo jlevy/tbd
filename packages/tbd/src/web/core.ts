@@ -2,7 +2,8 @@
 
 export type IssueStatusView = 'open' | 'in_progress' | 'blocked' | 'deferred' | 'closed';
 export type IssueKindView = 'bug' | 'feature' | 'task' | 'epic' | 'chore';
-export type WatchPhaseView = 'starting' | 'watching' | 'applying' | 'error' | 'stopped';
+export type ObservationPhaseView = 'starting' | 'watching' | 'error' | 'stopped';
+export type ObservationModeView = 'native+reconcile' | 'native' | 'reconcile' | 'unavailable';
 
 export interface BoardControls {
   search: string;
@@ -47,12 +48,6 @@ export interface IssueChangeView {
   fields: FieldChangeView[];
 }
 
-export interface ChangeReportView {
-  since: string;
-  tip: string;
-  changes: IssueChangeView[];
-}
-
 export interface IssueStatsView {
   total: number;
   active: number;
@@ -76,27 +71,29 @@ export interface RepoStatusView {
   workspaces: string[];
 }
 
-export interface WatchStateView {
+export interface ObservationStateView {
+  observerId: string;
+  stateVersion: number;
   repoDir: string;
   syncBranch: string;
   remote: string;
-  intervalSeconds: number;
   localTip: string | null;
   totalBeads: number;
   stats: IssueStatsView | null;
   repoStatus: RepoStatusView | null;
-  lastReport: ChangeReportView | null;
-  reportDataVersion: number;
-  changedIds: string[];
+  latestChanges: IssueChangeView[];
+  latestChangeTotal: number;
+  latestChangesTruncated: boolean;
+  changeDataVersion: number;
   dataVersion: number;
   movedIds: string[];
   removedIds: string[];
-  watchPhase: WatchPhaseView;
-  watchSince: string | null;
-  watchError: string | null;
-  wakeCount: number;
+  observationPhase: ObservationPhaseView;
+  observationMode: ObservationModeView;
+  observationError: string | null;
+  updateCount: number;
   refreshedAt: string;
-  log: { at: string; level: 'info' | 'wake' | 'error'; message: string }[];
+  log: { at: string; level: 'info' | 'update' | 'error'; message: string }[];
 }
 
 export interface BoardResponse {
@@ -111,7 +108,7 @@ export interface BoardResponse {
   rows: BoardRowView[];
   truncated: number;
   contextIds: string[];
-  state: WatchStateView;
+  state: ObservationStateView;
 }
 
 export interface BeadBodyView {
@@ -152,7 +149,7 @@ export interface ClientStorage {
 
 export interface ClientView {
   board: BoardResponse | null;
-  watch: WatchStateView | null;
+  watch: ObservationStateView | null;
   controls: BoardControls;
   expanded: ReadonlySet<string>;
   bodies: ReadonlyMap<string, BodyCacheEntry>;
@@ -239,24 +236,26 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null;
 }
 
-function asWatchState(value: unknown): WatchStateView {
+function asObservationState(value: unknown): ObservationStateView {
   if (
     !isRecord(value) ||
+    typeof value.observerId !== 'string' ||
+    typeof value.stateVersion !== 'number' ||
     typeof value.dataVersion !== 'number' ||
     !Array.isArray(value.movedIds) ||
     !Array.isArray(value.removedIds) ||
-    typeof value.watchPhase !== 'string'
+    typeof value.observationPhase !== 'string'
   ) {
-    throw new Error('Server returned an invalid watcher state');
+    throw new Error('Server returned an invalid local-observer state');
   }
-  return value as unknown as WatchStateView;
+  return value as unknown as ObservationStateView;
 }
 
 function asBoardResponse(value: unknown): BoardResponse {
   if (!isRecord(value) || !Array.isArray(value.rows) || !('state' in value)) {
     throw new Error('Server returned an invalid board response');
   }
-  asWatchState(value.state);
+  asObservationState(value.state);
   return value as unknown as BoardResponse;
 }
 
@@ -328,28 +327,29 @@ export function caveatsFor(board: BoardResponse): string[] {
   return caveats;
 }
 
-export function deltasValid(watch: WatchStateView): boolean {
-  return watch.lastReport !== null && watch.reportDataVersion === watch.dataVersion;
+export function deltasValid(watch: ObservationStateView): boolean {
+  return watch.latestChanges.length > 0 && watch.changeDataVersion === watch.dataVersion;
 }
 
-export function phaseLabel(watch: WatchStateView): { label: string; help: string } {
-  switch (watch.watchPhase) {
+export function phaseLabel(watch: ObservationStateView): { label: string; help: string } {
+  switch (watch.observationPhase) {
     case 'starting':
-      return { label: 'starting', help: 'Establishing a baseline against the sync remote.' };
+      return { label: 'starting', help: 'Starting the local bead observer.' };
     case 'watching':
       return {
         label: 'watching',
         help:
-          `Idle and up to date. tbd watch is waiting on ${watch.remote}/${watch.syncBranch}, ` +
-          `checking every ${watch.intervalSeconds}s.`,
-      };
-    case 'applying':
-      return {
-        label: 'updating',
-        help: 'A change arrived. Pulling and re-reading before redrawing.',
+          watch.observationMode === 'native+reconcile'
+            ? 'Watching the local data-sync worktree with native events and one-second reconciliation. Run tbd sync to exchange remote changes.'
+            : watch.observationMode === 'native'
+              ? `Watching the local data-sync worktree with native events. ${watch.observationError ?? ''}`.trim()
+              : `Watching local metadata once per second. ${watch.observationError ?? ''}`.trim(),
       };
     case 'error':
-      return { label: 'error', help: watch.watchError ?? 'The watcher failed; retrying.' };
+      return {
+        label: 'error',
+        help: watch.observationError ?? 'Local observation failed; reconciliation will retry.',
+      };
     case 'stopped':
       return { label: 'stopped', help: 'The viewer is shutting down.' };
   }
@@ -357,7 +357,7 @@ export function phaseLabel(watch: WatchStateView): { label: string; help: string
 
 class Store implements ClientStore {
   private board: BoardResponse | null = null;
-  private watch: WatchStateView | null = null;
+  private watch: ObservationStateView | null = null;
   private controls: BoardControls;
   private readonly expanded = new Set<string>();
   private readonly bodies = new Map<string, BodyCacheEntry>();
@@ -526,7 +526,12 @@ class Store implements ClientStore {
       }
       this.board = next;
       this.boardError = null;
-      if (this.watch === null || next.state.dataVersion >= this.watch.dataVersion) {
+      const currentWatch = this.watch;
+      if (
+        currentWatch?.observerId !== next.state.observerId ||
+        (next.state.stateVersion >= currentWatch.stateVersion &&
+          next.state.dataVersion >= currentWatch.dataVersion)
+      ) {
         this.watch = next.state;
       }
       this.emit();
@@ -534,23 +539,33 @@ class Store implements ClientStore {
   }
 
   private receiveState(value: unknown): void {
-    let next: WatchStateView;
+    let next: ObservationStateView;
     try {
-      next = asWatchState(value);
+      next = asObservationState(value);
     } catch (error) {
       this.boardError = errorMessage(error);
       this.emit();
       return;
     }
-    if (this.watch !== null && next.dataVersion < this.watch.dataVersion) {
+    const sameObserver = this.watch !== null && next.observerId === this.watch.observerId;
+    if (
+      sameObserver &&
+      this.watch !== null &&
+      (next.stateVersion < this.watch.stateVersion ||
+        next.dataVersion < this.watch.dataVersion ||
+        (next.stateVersion === this.watch.stateVersion &&
+          next.dataVersion === this.watch.dataVersion))
+    ) {
       return;
     }
 
     const dataMoved =
-      this.watch === null ? next.dataVersion > 0 : next.dataVersion > this.watch.dataVersion;
+      this.watch === null
+        ? next.dataVersion > 0
+        : !sameObserver || next.dataVersion > this.watch.dataVersion;
     const previousRows = dataMoved ? (this.board?.rows ?? []) : [];
     this.watch = next;
-    this.persistResumeTip(next.watchSince);
+    this.persistResumeTip(next.localTip);
     if (!dataMoved) {
       this.emit();
       return;
@@ -622,7 +637,7 @@ class Store implements ClientStore {
         }
       })
       .catch((error: unknown) => {
-        // Generation and token checks apply to failures too. A slow pre-wake rejection
+        // Generation and token checks apply to failures too. A slow pre-update rejection
         // must not overwrite a newer successful body (PR #207 discussion_r3755544745).
         if (this.bodyRequestIsCurrent(request)) {
           this.cacheBody(id, { kind: 'error', error: errorMessage(error) });

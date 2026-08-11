@@ -12,7 +12,7 @@ import { noopLogger } from '../../lib/types.js';
 import { BoardState } from './board.js';
 import type { WebState } from './board.js';
 import { createWebRequestHandler, SseHub } from './http.js';
-import { WakeCoordinator } from './wake.js';
+import { LocalObserver } from './local-observer.js';
 
 export const DEFAULT_WEB_PORT = 7_777;
 export const DEFAULT_WEB_PORT_SEARCH_COUNT = 10;
@@ -24,13 +24,12 @@ export interface WebServerOptions {
   repoDir: string;
   /** Undefined searches from `defaultPort`; any number (including test-only 0) is pinned. */
   port?: number;
-  intervalSeconds: number;
   defaultPort?: number;
   portSearchCount?: number;
   logger?: OperationLogger;
 }
 
-export interface WebWakeController {
+export interface WebObserverController {
   start(): Promise<void>;
   stop(): Promise<void>;
   getState(): WebState;
@@ -40,10 +39,10 @@ export interface WebWakeController {
 export interface WebServerDependencies {
   loadPage: () => Promise<string>;
   createBoard: (repoDir: string) => BoardState;
-  createWake: (
+  createObserver: (
     board: BoardState,
-    options: { intervalSeconds: number; logger: OperationLogger },
-  ) => WebWakeController;
+    options: { logger: OperationLogger },
+  ) => WebObserverController;
   fetch: typeof globalThis.fetch;
 }
 
@@ -75,11 +74,7 @@ export async function loadWebPage(): Promise<string> {
 const defaultDependencies: WebServerDependencies = {
   loadPage: loadWebPage,
   createBoard: (repoDir) => new BoardState(repoDir),
-  createWake: (board, options) =>
-    new WakeCoordinator(board, {
-      intervalSeconds: options.intervalSeconds,
-      logger: options.logger,
-    }),
+  createObserver: (board, options) => new LocalObserver(board, { logger: options.logger }),
   fetch: globalThis.fetch,
 };
 
@@ -261,18 +256,15 @@ export async function startWebServer(
   const page = await dependencies.loadPage();
   const board = dependencies.createBoard(options.repoDir);
   await board.reload();
-  const wake = dependencies.createWake(board, {
-    intervalSeconds: options.intervalSeconds,
-    logger,
-  });
-  const events = new SseHub(() => wake.getState());
-  const unsubscribe = wake.subscribe((state) => {
+  const observer = dependencies.createObserver(board, { logger });
+  const events = new SseHub(() => observer.getState());
+  const unsubscribe = observer.subscribe((state) => {
     events.publish(state);
   });
   const listener = createWebRequestHandler({
     page,
     board,
-    getState: () => wake.getState(),
+    getState: () => observer.getState(),
     events,
   });
 
@@ -302,7 +294,12 @@ export async function startWebServer(
     }
     closing = (async () => {
       unsubscribe();
-      await Promise.race([wake.stop(), delay(SHUTDOWN_TIMEOUT_MS)]);
+      try {
+        await Promise.race([observer.stop(), delay(SHUTDOWN_TIMEOUT_MS)]);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        logger.warn(`Local observer shutdown failed: ${message}`);
+      }
       events.close();
       await Promise.race([closeHttpServer(server), delay(SHUTDOWN_TIMEOUT_MS)]);
       if (server.listening) {
@@ -313,7 +310,7 @@ export async function startWebServer(
   };
 
   try {
-    await wake.start();
+    await observer.start();
     await waitForHttpReady(url, dependencies.fetch);
   } catch (error) {
     await close();

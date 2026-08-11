@@ -4048,50 +4048,77 @@ Both commands emit the same document.
 
 ### 4.15 Local Web View
 
-`tbd web` is an optional, foreground view of the committed bead graph for people who
-need to scan a large hierarchy visually.
-It is a CLI-layer presentation over the same file, query, statistics, change-report, and
-watch implementations as the terminal commands; it does not introduce another repository
-model or persistent service.
+`tbd web` is an optional, foreground view of the local bead graph for people who need to
+scan a large hierarchy visually.
+It is a CLI-layer presentation over the same file, query, and statistics implementations
+as the terminal commands; it does not introduce another repository model,
+synchronization contract, or persistent service.
 
 ```bash
-tbd web [--port <n>] [--open] [--interval <seconds>]
+tbd web [--port <n>] [--open]
 ```
 
 The server binds only `127.0.0.1`. With no explicit port it searches the bounded range
-7777–7786; `--port` pins one port, `--interval` controls remote-tip polling (default 30
-seconds, minimum 10), and `--open` launches a browser only after an HTTP readiness probe
-succeeds. The command stays in the foreground and exits when interrupted; no daemon or
-background state remains.
+7777–7786; `--port` pins one port, and `--open` launches a browser only after an HTTP
+readiness probe succeeds.
+The command stays in the foreground and exits when interrupted; no daemon or background
+state remains.
 
 Board queries run against one in-memory snapshot and call the shared `selectIssues` and
 `describeQuery` functions.
 Responses include the equivalent CLI invocation and carry light rows only; descriptions
 and notes are fetched per bead when expanded.
-Remote movement uses the §4.14 watch cursor, pulls current issue state through the same
-sync operation as `tbd sync --pull`, and publishes bounded Server-Sent Events whose id
-is the report tip.
-A local file watch refreshes unpublished edits in the hidden worktree.
-The client opens its event stream before its first board fetch, persists the last
-acknowledged tip, coalesces refreshes, discards stale responses, and bounds concurrent
-detail requests. Board responses carry at most 10,000 light rows and retain the full
-match count when truncated.
-Pretty-tree context metadata is derived from those returned rows, so it cannot name or
-serialize context that was cut off by the response ceiling.
+Liveness is strictly local.
+A recursive Node `fs.watch` over the hidden data-sync worktree maps to native
+operating-system notifications on supported local filesystems.
+Events are trailing-debounced and trigger one serialized snapshot reload.
+A one-second, constant-size reconciliation marker covers the issue directory, mapping
+directory, project config, workspace metadata, and local sync-branch ref.
+It reloads only when metadata changes, so an unchanged tick never scans or parses the
+issue graph. If native watching is unavailable, the marker is the fallback; if marker
+reads fail, native events continue.
+The UI reports the active mode and enters an error state only when neither path works or
+a reload fails.
+
+`tbd web` never calls the remote-watch or sync implementation and never fetches, merges,
+or pushes.
+Remote exchange remains the explicit `tbd sync` contract used everywhere else.
+When that command changes the shared hidden worktree, the same local observer redraws
+the page immediately.
+This keeps CLI and browser semantics identical and makes offline use predictable.
+
+The client opens its event stream before its first board fetch, coalesces refreshes, and
+bounds concurrent detail requests.
+Each observer process has a fresh instance id and a monotonic state version, so the
+client rejects stale metadata even when the bead graph version is unchanged, accepts the
+canonical board state at the same version after a bounded event frame, and accepts a
+restarted observer’s lower counters.
+A delayed duplicate event at an already-adopted version cannot replace that canonical
+state. Board responses carry at most 10,000 light rows and retain the full match count
+when truncated. Pretty-tree context metadata is derived from those returned rows, so it
+cannot name or serialize context that was cut off by the response ceiling.
 The browser renders those rows in 1,000-row pages, exposes sticky and end-of-page
 navigation, and allows bulk detail expansion only when 100 rows or fewer are visible on
 the page. At most 100 details remain expanded, the body cache retains 200 entries, and a
 mass deletion animates at most 100 ghost rows.
-These are separate resource bounds: the response ceiling supports unusually large
-projects, while the render, expansion, cache, and motion ceilings keep DOM layout,
-memory, and detail-request work responsive.
+Changed and removed row ids remain complete in the canonical board state for the latest
+graph movement; a bounded event frame is only the notification that causes the client to
+fetch that state.
+Field-level before/after detail is diagnostic and separately bounded to
+100 changed beads and 256 KiB, with oversized values summarized rather than retained in
+the board state. These are separate resource bounds: the response ceiling supports
+unusually large projects, while the render, expansion, cache, and motion ceilings keep
+DOM layout, memory, and detail-request work responsive.
 
 Version 1 is intentionally read-only: the HTTP router has no mutation endpoint.
 It accepts only `GET`, validates loopback Host and same-origin Origin headers, serves a
 self-contained page under a restrictive Content Security Policy, caps event frames and
-replay buffers, drops backpressured clients, and closes streams during bounded signal
-shutdown. A remotely reachable or writable interface remains a separate design with its
-own authentication, concurrency, and security review.
+replay buffers, and applies an explicit queued-byte ceiling per client before dropping a
+slow connection. An ended stream or write-time close race drops only that client rather
+than escaping a publish or heartbeat into the process.
+It closes streams during bounded signal shutdown.
+A remotely reachable or writable interface remains a separate design with its own
+authentication, concurrency, and security review.
 
 * * *
 

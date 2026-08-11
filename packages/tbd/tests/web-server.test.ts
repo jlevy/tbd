@@ -12,7 +12,7 @@ import { loadWebPage, startWebServer } from '../src/cli/web/server.js';
 import type {
   WebServerDependencies,
   WebServerHandle,
-  WebWakeController,
+  WebObserverController,
 } from '../src/cli/web/server.js';
 import type { TbdDataContext } from '../src/cli/lib/data-context.js';
 import type { IdMapping } from '../src/file/id-mapping.js';
@@ -62,25 +62,27 @@ function createBoard(): BoardState {
 
 function makeState(board: BoardState): WebState {
   return {
+    observerId: 'observer-1',
+    stateVersion: 0,
     repoDir: '/repo',
     syncBranch: 'tbd-sync',
     remote: 'origin',
-    intervalSeconds: 30,
     ...board.getSnapshotState(),
-    lastReport: null,
-    reportDataVersion: 0,
-    changedIds: [],
-    watchPhase: 'watching',
-    watchSince: 'a'.repeat(40),
-    watchError: null,
-    wakeCount: 0,
+    latestChanges: [],
+    latestChangeTotal: 0,
+    latestChangesTruncated: false,
+    changeDataVersion: 0,
+    observationPhase: 'watching',
+    observationMode: 'native+reconcile',
+    observationError: null,
+    updateCount: 0,
     log: [],
   };
 }
 
 function dependencies(): {
   value: WebServerDependencies;
-  wake: WebWakeController;
+  observer: WebObserverController;
   start: ReturnType<typeof vi.fn>;
   stop: ReturnType<typeof vi.fn>;
 } {
@@ -88,7 +90,7 @@ function dependencies(): {
   const start = vi.fn(() => Promise.resolve());
   const stop = vi.fn(() => Promise.resolve());
   const listeners = new Set<(state: WebState) => void>();
-  const wake: WebWakeController = {
+  const observer: WebObserverController = {
     start,
     stop,
     getState: () => makeState(board),
@@ -103,10 +105,10 @@ function dependencies(): {
     value: {
       loadPage: () => Promise.resolve('<!doctype html><title>server test</title>'),
       createBoard: () => board,
-      createWake: () => wake,
+      createObserver: () => observer,
       fetch: globalThis.fetch,
     },
-    wake,
+    observer,
     start,
     stop,
   };
@@ -161,12 +163,9 @@ describe('startWebServer', () => {
     );
   });
 
-  it('binds loopback, waits for HTTP readiness, and closes wake plus sockets idempotently', async () => {
+  it('binds loopback, waits for HTTP readiness, and closes observer plus sockets idempotently', async () => {
     const injected = dependencies();
-    const handle = await startWebServer(
-      { repoDir: '/repo', port: 0, intervalSeconds: 30 },
-      injected.value,
-    );
+    const handle = await startWebServer({ repoDir: '/repo', port: 0 }, injected.value);
     handles.push(handle);
 
     expect(handle.url).toBe(`http://127.0.0.1:${handle.port}`);
@@ -179,6 +178,31 @@ describe('startWebServer', () => {
     expect(injected.stop).toHaveBeenCalledOnce();
   });
 
+  it('still closes sockets when observer teardown reports an error', async () => {
+    const injected = dependencies();
+    injected.stop.mockRejectedValueOnce(new Error('watcher close failed'));
+    const warn = vi.fn();
+    const handle = await startWebServer(
+      {
+        repoDir: '/repo',
+        port: 0,
+        logger: {
+          progress: vi.fn(),
+          info: vi.fn(),
+          warn,
+          debug: vi.fn(),
+        },
+      },
+      injected.value,
+    );
+    handles.push(handle);
+
+    await expect(handle.close()).resolves.toBeUndefined();
+    await handle.closed;
+    await expect(get(handle.port)).rejects.toThrow();
+    expect(warn).toHaveBeenCalledWith('Local observer shutdown failed: watcher close failed');
+  });
+
   it('searches a bounded range for a default port but never moves an explicit port', async () => {
     const blocker = createServer((_request, response) => response.end('occupied'));
     blockers.push(blocker);
@@ -188,7 +212,6 @@ describe('startWebServer', () => {
     const handle = await startWebServer(
       {
         repoDir: '/repo',
-        intervalSeconds: 30,
         defaultPort: occupied,
         portSearchCount: 2,
       },
@@ -199,7 +222,7 @@ describe('startWebServer', () => {
 
     const pinned = dependencies();
     await expect(
-      startWebServer({ repoDir: '/repo', port: occupied, intervalSeconds: 30 }, pinned.value),
+      startWebServer({ repoDir: '/repo', port: occupied }, pinned.value),
     ).rejects.toThrow(`Port ${occupied} is already in use`);
   });
 
@@ -215,10 +238,7 @@ describe('startWebServer', () => {
 
     const injected = dependencies();
     injected.value.loadPage = () => Promise.resolve(page);
-    const handle = await startWebServer(
-      { repoDir: '/repo', port: 0, intervalSeconds: 30 },
-      injected.value,
-    );
+    const handle = await startWebServer({ repoDir: '/repo', port: 0 }, injected.value);
     handles.push(handle);
     expect(await get(handle.port)).toBe(page);
   });

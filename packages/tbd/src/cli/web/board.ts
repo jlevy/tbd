@@ -12,7 +12,13 @@ import { listIssues } from '../../file/storage.js';
 import { listWorkspaces } from '../../file/workspace.js';
 import { formatDisplayId } from '../../lib/ids.js';
 import type { InternalIssueId } from '../../lib/ids.js';
-import type { IssueChangesReport } from '../../lib/issue-changes.js';
+import { createIssueChanges } from '../../lib/issue-changes.js';
+import type {
+  IssueChange,
+  IssueFieldChange,
+  IssueSnapshot,
+  TextChangeHunk,
+} from '../../lib/issue-changes.js';
 import {
   defaultIssueQuery,
   describeQuery,
@@ -29,6 +35,12 @@ import { VERSION } from '../lib/version.js';
 
 /** Hard response ceiling; the browser pages these rows into smaller render windows. */
 export const MAX_BOARD_ROWS = 10_000;
+/** Detail is diagnostic; board motion remains complete through movedIds/removedIds. */
+export const MAX_LOCAL_CHANGE_DETAILS = 100;
+export const MAX_LOCAL_CHANGE_DETAIL_BYTES = 256 * 1024;
+const MAX_LOCAL_CHANGE_VALUE_CHARS = 2_000;
+const MAX_LOCAL_HUNK_LINES = 80;
+const MAX_LOCAL_HUNK_LINE_CHARS = 500;
 
 // Prefixes allow dot/underscore, and imported ShortIds also allow dot, underscore,
 // and hyphen. Requiring the leading prefix letter still rejects option-shaped input.
@@ -93,11 +105,12 @@ export interface RepoStatus {
   workspaces: string[];
 }
 
-export type WatchPhase = 'starting' | 'watching' | 'applying' | 'error' | 'stopped';
+export type ObservationPhase = 'starting' | 'watching' | 'error' | 'stopped';
+export type ObservationMode = 'native+reconcile' | 'native' | 'reconcile' | 'unavailable';
 
 export interface EventLogEntry {
   at: string;
-  level: 'info' | 'wake' | 'error';
+  level: 'info' | 'update' | 'error';
   message: string;
 }
 
@@ -115,24 +128,32 @@ export interface BoardSnapshotState {
 export interface BoardReloadResult {
   /** True only when this particular reload observed a changed `id:version` snapshot. */
   moved: boolean;
+  /** Includes config, local-tip, and repository-status changes that should reach clients. */
+  stateChanged: boolean;
   dataVersion: number;
   movedIds: string[];
   removedIds: string[];
+  changes: IssueChange[];
+  changeTotal: number;
+  changesTruncated: boolean;
 }
 
 /** Stable additive state document carried by board responses and SSE frames. */
 export interface WebState extends BoardSnapshotState {
+  observerId: string;
+  /** Monotonic within one observer instance, including metadata-only publications. */
+  stateVersion: number;
   repoDir: string;
   syncBranch: string;
   remote: string;
-  intervalSeconds: number;
-  lastReport: IssueChangesReport | null;
-  reportDataVersion: number;
-  changedIds: string[];
-  watchPhase: WatchPhase;
-  watchSince: string | null;
-  watchError: string | null;
-  wakeCount: number;
+  latestChanges: IssueChange[];
+  latestChangeTotal: number;
+  latestChangesTruncated: boolean;
+  changeDataVersion: number;
+  observationPhase: ObservationPhase;
+  observationMode: ObservationMode;
+  observationError: string | null;
+  updateCount: number;
   log: EventLogEntry[];
 }
 
@@ -179,7 +200,117 @@ interface BoardSnapshot {
   readyIds: ReadonlySet<string>;
 }
 
+interface BoundedChanges {
+  changes: IssueChange[];
+  truncated: boolean;
+}
+
 const emptyStats = computeIssueStats([]);
+
+function repoStatusEqual(left: RepoStatus | null, right: RepoStatus | null): boolean {
+  if (left === right) {
+    return true;
+  }
+  return (
+    left !== null &&
+    right !== null &&
+    left.tbdVersion === right.tbdVersion &&
+    left.gitBranch === right.gitBranch &&
+    left.syncBranch === right.syncBranch &&
+    left.remote === right.remote &&
+    left.displayPrefix === right.displayPrefix &&
+    left.worktreePath === right.worktreePath &&
+    left.worktreeHealthy === right.worktreeHealthy &&
+    left.worktreeStatus === right.worktreeStatus &&
+    left.workspaces.length === right.workspaces.length &&
+    left.workspaces.every((workspace, index) => workspace === right.workspaces[index])
+  );
+}
+
+function truncateString(value: string, maximum: number): string {
+  if (value.length <= maximum) {
+    return value;
+  }
+  return `${value.slice(0, maximum)}… [${value.length - maximum} characters omitted from live detail]`;
+}
+
+function boundChangeValue(value: unknown): unknown {
+  if (typeof value === 'string') {
+    return truncateString(value, MAX_LOCAL_CHANGE_VALUE_CHARS);
+  }
+  const encoded = JSON.stringify(value);
+  if (encoded === undefined || encoded.length <= MAX_LOCAL_CHANGE_VALUE_CHARS) {
+    return value;
+  }
+  return `[${Buffer.byteLength(encoded)}-byte value omitted from live detail; expand the bead for its current value]`;
+}
+
+function boundHunks(hunks: readonly TextChangeHunk[] | undefined): TextChangeHunk[] | undefined {
+  if (hunks === undefined) {
+    return undefined;
+  }
+  let linesRemaining = MAX_LOCAL_HUNK_LINES;
+  const bounded: TextChangeHunk[] = [];
+  for (const hunk of hunks) {
+    if (linesRemaining === 0) {
+      break;
+    }
+    const lines = hunk.lines.slice(0, linesRemaining).map((line) => ({
+      ...line,
+      text: truncateString(line.text, MAX_LOCAL_HUNK_LINE_CHARS),
+    }));
+    linesRemaining -= lines.length;
+    bounded.push({ ...hunk, lines });
+  }
+  return bounded;
+}
+
+function boundFieldChange(field: IssueFieldChange): IssueFieldChange {
+  const hunks = boundHunks(field.hunks);
+  return {
+    ...field,
+    before: boundChangeValue(field.before),
+    after: boundChangeValue(field.after),
+    ...(hunks === undefined ? {} : { hunks }),
+  };
+}
+
+function fieldNamesOnly(change: IssueChange): IssueChange {
+  return {
+    ...change,
+    title: truncateString(change.title, MAX_LOCAL_CHANGE_VALUE_CHARS),
+    fields: change.fields.map((field) => ({
+      field: field.field,
+      before: '[detail omitted from live view]',
+      after: '[expand the bead for its current value]',
+    })),
+  };
+}
+
+function boundLocalChanges(changes: readonly IssueChange[]): BoundedChanges {
+  const bounded: IssueChange[] = [];
+  let bytes = 2; // JSON array brackets
+  for (const change of changes) {
+    let candidate: IssueChange = {
+      ...change,
+      title: truncateString(change.title, MAX_LOCAL_CHANGE_VALUE_CHARS),
+      fields: change.fields.map(boundFieldChange),
+    };
+    let candidateBytes =
+      Buffer.byteLength(JSON.stringify(candidate)) + (bounded.length > 0 ? 1 : 0);
+    if (bytes + candidateBytes > MAX_LOCAL_CHANGE_DETAIL_BYTES) {
+      candidate = fieldNamesOnly(change);
+      candidateBytes = Buffer.byteLength(JSON.stringify(candidate)) + (bounded.length > 0 ? 1 : 0);
+      if (bytes + candidateBytes <= MAX_LOCAL_CHANGE_DETAIL_BYTES) {
+        bounded.push(candidate);
+      }
+      return { changes: bounded, truncated: true };
+    }
+    bounded.push(candidate);
+    bytes += candidateBytes;
+  }
+  return { changes: bounded, truncated: false };
+}
 
 async function defaultReadRepoStatus(
   repoDir: string,
@@ -195,7 +326,7 @@ async function defaultReadRepoStatus(
   const health = await checkWorktreeHealth(repoDir, context.config.sync.branch);
   let workspaces: string[] = [];
   try {
-    workspaces = await listWorkspaces(repoDir);
+    workspaces = (await listWorkspaces(repoDir)).sort((left, right) => left.localeCompare(right));
   } catch {
     // Matches `tbd status`: workspace enumeration is diagnostic, not load-bearing.
   }
@@ -336,7 +467,7 @@ export class BoardState {
     };
   }
 
-  /** Queue every reload so a pull cannot accidentally reuse a pre-pull in-flight read. */
+  /** Queue reloads so overlapping local events cannot publish snapshots out of order. */
   reload(): Promise<BoardReloadResult> {
     const work = this.reloadTail.catch(() => undefined).then(() => this.reloadOnce());
     this.reloadTail = work.catch(() => undefined);
@@ -351,26 +482,34 @@ export class BoardState {
     };
   }
 
-  getSyncTarget(): { worktreePath: string; syncBranch: string; remote: string } {
+  getWebConfig(): { syncBranch: string; remote: string } {
     const context = this.requireContext();
     return {
-      worktreePath: context.sharedPaths.sharedWorktreePath,
       syncBranch: context.config.sync.branch,
       remote: context.config.sync.remote,
     };
   }
 
-  getWatchConfig(): { syncBranch: string; remote: string; prefix: string } {
-    const context = this.requireContext();
-    return {
-      syncBranch: context.config.sync.branch,
-      remote: context.config.sync.remote,
-      prefix: context.prefix,
-    };
+  getObservationRoot(): string {
+    return this.requireContext().dataSyncDir;
   }
 
-  getIssuesDirectory(): string {
-    return join(this.requireContext().dataSyncDir, 'issues');
+  /** Constant-size metadata inputs used to reconcile dropped filesystem events. */
+  getObservationPaths(): string[] {
+    const context = this.requireContext();
+    return [
+      join(this.repoDir, '.tbd', 'config.yml'),
+      join(this.repoDir, '.tbd', 'workspaces'),
+      context.dataSyncDir,
+      join(context.dataSyncDir, 'issues'),
+      join(context.dataSyncDir, 'mappings'),
+      join(
+        context.sharedPaths.gitCommonDir,
+        'refs',
+        'heads',
+        ...context.config.sync.branch.split('/'),
+      ),
+    ];
   }
 
   buildBoardResponse(params: URLSearchParams, state: WebState): BoardResponse {
@@ -486,6 +625,8 @@ export class BoardState {
       this.snapshot.issues.map((issue) => [issue.id, issue.version] as const),
     );
     const previousDisplayIds = this.snapshot.displayIdByInternalId;
+    const previousContext = this.context;
+    const previousState = this.snapshotState;
     const context = await this.dependencies.loadContext(this.repoDir);
     const [issues, repoStatus, localTip] = await Promise.all([
       this.dependencies.listIssues(context.dataSyncDir),
@@ -512,18 +653,30 @@ export class BoardState {
     let movedIds = this.snapshotState.movedIds;
     let removedIds = this.snapshotState.removedIds;
     let movedThisReload = false;
+    let changes: IssueChange[] = [];
+    let changeTotal = 0;
+    let changesTruncated = false;
     if (this.initialized) {
+      if (previousContext === null) {
+        throw new Error('Initialized BoardState is missing its data context');
+      }
       const moved: string[] = [];
+      const movedInternalIds: string[] = [];
       const removed: string[] = [];
       for (const issue of issues) {
-        if (previousVersions.get(issue.id) !== issue.version) {
+        if (
+          previousVersions.get(issue.id) !== issue.version ||
+          previousDisplayIds.get(issue.id) !== displayIdByInternalId.get(issue.id)
+        ) {
           moved.push(displayIdByInternalId.get(issue.id) ?? issue.id);
+          movedInternalIds.push(issue.id);
         }
       }
       for (const [internalId] of previousVersions) {
         if (!nextSnapshot.byInternalId.has(internalId)) {
           const displayId = previousDisplayIds.get(internalId) ?? internalId;
           moved.push(displayId);
+          movedInternalIds.push(internalId);
           removed.push(displayId);
         }
       }
@@ -532,8 +685,37 @@ export class BoardState {
         dataVersion += 1;
         movedIds = moved;
         removedIds = removed;
+        changeTotal = movedInternalIds.length;
+        const before: IssueSnapshot = {
+          issues: new Map(this.snapshot.issues.map((issue) => [issue.id, issue])),
+          shortToUlid: previousContext.mapping.shortToUlid,
+          ulidToShort: previousContext.mapping.ulidToShort,
+        };
+        const after: IssueSnapshot = {
+          issues: nextSnapshot.byInternalId,
+          shortToUlid: context.mapping.shortToUlid,
+          ulidToShort: context.mapping.ulidToShort,
+        };
+        const detailIds = movedInternalIds.slice(0, MAX_LOCAL_CHANGE_DETAILS);
+        const rawChanges = createIssueChanges({
+          before,
+          after,
+          prefix: context.prefix,
+          selection: { kind: 'beads', ids: detailIds },
+        });
+        const bounded = boundLocalChanges(rawChanges);
+        changes = bounded.changes;
+        changesTruncated = movedInternalIds.length > MAX_LOCAL_CHANGE_DETAILS || bounded.truncated;
       }
     }
+
+    const metadataChanged =
+      this.initialized &&
+      (previousState.localTip !== localTip ||
+        !repoStatusEqual(previousState.repoStatus, repoStatus) ||
+        previousContext?.config.sync.branch !== context.config.sync.branch ||
+        previousContext?.config.sync.remote !== context.config.sync.remote ||
+        previousContext?.prefix !== context.prefix);
 
     this.context = context;
     this.snapshot = nextSnapshot;
@@ -550,9 +732,13 @@ export class BoardState {
     this.initialized = true;
     return {
       moved: movedThisReload,
+      stateChanged: movedThisReload || metadataChanged,
       dataVersion,
       movedIds: [...movedIds],
       removedIds: [...removedIds],
+      changes,
+      changeTotal,
+      changesTruncated,
     };
   }
 

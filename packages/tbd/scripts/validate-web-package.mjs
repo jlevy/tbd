@@ -118,15 +118,11 @@ try {
   invariant(!/<script[^>]+src=/iu.test(page), 'Packed page has an external script');
 
   const port = await availablePort();
-  child = spawn(
-    process.execPath,
-    [bootstrap, '--json', 'web', '--port', String(port), '--interval', '10'],
-    {
-      cwd: repoDir,
-      env: { ...process.env, NO_COLOR: '1' },
-      stdio: ['ignore', 'pipe', 'pipe'],
-    },
-  );
+  child = spawn(process.execPath, [bootstrap, '--json', 'web', '--port', String(port)], {
+    cwd: repoDir,
+    env: { ...process.env, NO_COLOR: '1' },
+    stdio: ['ignore', 'pipe', 'pipe'],
+  });
   const descriptor = await waitForDescriptor(child);
   invariant(descriptor.url === `http://127.0.0.1:${port}`, 'Packed descriptor URL is wrong');
   const response = await fetch(descriptor.url);

@@ -61,11 +61,6 @@ class WatchHandler extends BaseCommand {
       process.exitCode = EXIT_NO_MATCHING_CHANGE;
       return;
     }
-    if (result.kind === 'aborted') {
-      // The CLI passes no AbortSignal, so this cannot occur here; the branch keeps the
-      // result contract exhaustive for the embedding callers that can abort.
-      throw new CLIError('Watch aborted before completion');
-    }
     if (!this.ctx.quiet) {
       this.output.data(result.report, () => {
         console.log(formatIssueChangesReport(result.report, this.output.getColors()));

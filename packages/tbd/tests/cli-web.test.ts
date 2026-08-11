@@ -33,9 +33,9 @@ interface WebFixture {
 }
 
 interface SseState {
-  wakeCount: number;
-  changedIds: string[];
-  watchSince: string | null;
+  updateCount: number;
+  movedIds: string[];
+  observationPhase: string;
 }
 
 interface SafetySnapshot {
@@ -299,15 +299,11 @@ describe('tbd web CLI', () => {
     const { repoDir } = await createRepo();
     const port = await availablePort();
     const safetyBefore = await safetySnapshot(repoDir);
-    const child = spawn(
-      process.execPath,
-      [tbdBin, '--json', 'web', '--port', String(port), '--interval', '10'],
-      {
-        cwd: repoDir,
-        env: { ...process.env, NO_COLOR: '1' },
-        stdio: ['ignore', 'pipe', 'pipe'],
-      },
-    );
+    const child = spawn(process.execPath, [tbdBin, '--json', 'web', '--port', String(port)], {
+      cwd: repoDir,
+      env: { ...process.env, NO_COLOR: '1' },
+      stdio: ['ignore', 'pipe', 'pipe'],
+    });
     children.add(child);
     const descriptor = await waitForDescriptor(child);
     expect(descriptor).toMatchObject({
@@ -347,7 +343,7 @@ describe('tbd web CLI', () => {
       const interruptPort = await availablePort();
       const interruptedChild = spawn(
         process.execPath,
-        [tbdBin, '--json', 'web', '--port', String(interruptPort), '--interval', '10'],
+        [tbdBin, '--json', 'web', '--port', String(interruptPort)],
         {
           cwd: repoDir,
           env: { ...process.env, NO_COLOR: '1' },
@@ -364,19 +360,15 @@ describe('tbd web CLI', () => {
     }
   }, 40_000);
 
-  it('pulls a remote bead update and publishes the new state over SSE', async () => {
+  it('leaves remote state alone until explicit tbd sync, then publishes the local result', async () => {
     const fixture = await createRepo();
     const writerDir = await createWriter(fixture);
     const port = await availablePort();
-    const child = spawn(
-      process.execPath,
-      [tbdBin, '--json', 'web', '--port', String(port), '--interval', '10'],
-      {
-        cwd: fixture.repoDir,
-        env: { ...process.env, NO_COLOR: '1' },
-        stdio: ['ignore', 'pipe', 'pipe'],
-      },
-    );
+    const child = spawn(process.execPath, [tbdBin, '--json', 'web', '--port', String(port)], {
+      cwd: fixture.repoDir,
+      env: { ...process.env, NO_COLOR: '1' },
+      stdio: ['ignore', 'pipe', 'pipe'],
+    });
     children.add(child);
     const descriptor = await waitForDescriptor(child);
     const initialBoard = (await (await fetch(`${descriptor.url}/api/board`)).json()) as {
@@ -385,20 +377,30 @@ describe('tbd web CLI', () => {
     const issue = initialBoard.rows.find((row) => row.title === 'Browser acceptance');
     expect(issue).toBeDefined();
 
+    const safetyBeforeRemoteChange = await safetySnapshot(fixture.repoDir);
+    await tbd(writerDir, '--json', 'update', issue!.id, '--notes', 'explicit sync applied');
+    await tbd(writerDir, '--json', 'sync');
+
+    // The viewer is not a second sync client. A remote commit alone cannot mutate any
+    // local ref, FETCH_HEAD, hidden-worktree file, or rendered bead.
+    await new Promise((resolve) => setTimeout(resolve, 1_250));
+    expect(await safetySnapshot(fixture.repoDir)).toEqual(safetyBeforeRemoteChange);
+    const beforeSync = await fetch(`${descriptor.url}/api/bead?id=${issue!.id}`);
+    expect(await beforeSync.json()).toMatchObject({ notes: null });
+
     const sseController = new AbortController();
-    const wake = waitForSseState(
+    const update = waitForSseState(
       descriptor.url,
-      (state) => state.wakeCount > 0 && state.changedIds.includes(issue!.id),
+      (state) => state.updateCount > 0 && state.movedIds.includes(issue!.id),
       sseController,
     );
-    await tbd(writerDir, '--json', 'update', issue!.id, '--notes', 'remote wake applied');
-    await tbd(writerDir, '--json', 'sync');
-    const wakeState = await wake;
+    await tbd(fixture.repoDir, '--json', 'sync');
+    const updateState = await update;
     sseController.abort();
-    expect(wakeState.watchSince).toMatch(/^[0-9a-f]{40}$/u);
+    expect(updateState.observationPhase).toBe('watching');
 
     const body = await fetch(`${descriptor.url}/api/bead?id=${issue!.id}`);
-    expect(await body.json()).toMatchObject({ notes: 'remote wake applied' });
+    expect(await body.json()).toMatchObject({ notes: 'explicit sync applied' });
 
     const exited = waitForExit(child);
     expect(child.kill(supportsHandledProcessSignals ? 'SIGTERM' : 'SIGKILL')).toBe(true);
@@ -412,16 +414,7 @@ describe('tbd web CLI', () => {
   it('reports deterministic dry-run metadata without binding a port', async () => {
     const { repoDir } = await createRepo();
     const port = await availablePort();
-    const output = await tbd(
-      repoDir,
-      '--json',
-      '--dry-run',
-      'web',
-      '--port',
-      String(port),
-      '--interval',
-      '10',
-    );
+    const output = await tbd(repoDir, '--json', '--dry-run', 'web', '--port', String(port));
     expect(JSON.parse(output)).toMatchObject({
       url: `http://127.0.0.1:${port}`,
       port,
@@ -433,15 +426,11 @@ describe('tbd web CLI', () => {
       server.once('error', reject);
       server.listen(port, '127.0.0.1', resolve);
     });
-    const occupied = spawnSync(
-      process.execPath,
-      [tbdBin, 'web', '--port', String(port), '--interval', '10'],
-      {
-        cwd: repoDir,
-        encoding: 'utf8',
-        env: { ...process.env, NO_COLOR: '1' },
-      },
-    );
+    const occupied = spawnSync(process.execPath, [tbdBin, 'web', '--port', String(port)], {
+      cwd: repoDir,
+      encoding: 'utf8',
+      env: { ...process.env, NO_COLOR: '1' },
+    });
     expect(occupied.status).toBe(1);
     expect(occupied.stderr).toContain(`Port ${port} is already in use`);
     await new Promise<void>((resolve) => {
@@ -450,12 +439,12 @@ describe('tbd web CLI', () => {
       });
     });
 
-    const invalid = spawnSync(process.execPath, [tbdBin, 'web', '--interval', '9'], {
+    const invalid = spawnSync(process.execPath, [tbdBin, 'web', '--interval', '10'], {
       cwd: repoDir,
       encoding: 'utf8',
       env: { ...process.env, NO_COLOR: '1' },
     });
-    expect(invalid.status).toBe(2);
-    expect(invalid.stderr).toContain('--interval must be at least 10 seconds');
+    expect(invalid.status).toBe(1);
+    expect(invalid.stderr).toContain("unknown option '--interval'");
   }, 30_000);
 });

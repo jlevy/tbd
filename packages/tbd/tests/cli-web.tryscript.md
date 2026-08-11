@@ -32,30 +32,27 @@ $ node run-built-cli.mjs init --prefix=test --quiet
 ## Help
 
 ```console
-$ node run-built-cli.mjs web --help | sed -n "1,16p"
+$ node run-built-cli.mjs web --help | sed -n "1,13p"
 Usage: tbd web [options]
 
 Serve a live, read-only bead view on loopback
 
 Options:
-  --port <n>            Bind exactly this loopback port (default: search from
-                        7777)
-  --open                Open the page in the default browser after HTTP
-                        readiness
-  --interval <seconds>  Remote tip poll interval (minimum 10) (default: "30")
-  -h, --help            display help for command
+  --port <n>      Bind exactly this loopback port (default: search from 7777)
+  --open          Open the page in the default browser after HTTP readiness
+  -h, --help      display help for command
 
 Global Options:
-  --version             Show version number
-  --dry-run             Show what would be done without making changes
-  --verbose             Enable verbose output
+  --version       Show version number
+  --dry-run       Show what would be done without making changes
+  --verbose       Enable verbose output
 ? 0
 ```
 
 ## Machine-readable dry run
 
 ```console
-$ node run-built-cli.mjs --dry-run --json web --port 17899 --interval 10 | jq -c "{url,port,syncBranch}"
+$ node run-built-cli.mjs --dry-run --json web --port 17899 | jq -c "{url,port,syncBranch}"
 {"url":"http://127.0.0.1:17899","port":17899,"syncBranch":"tbd-sync"}
 ? 0
 ```
@@ -63,9 +60,9 @@ $ node run-built-cli.mjs --dry-run --json web --port 17899 --interval 10 | jq -c
 ## Validation
 
 ```console
-$ node run-built-cli.mjs web --interval 9 2>&1
-Error: --interval must be at least 10 seconds
-? 2
+$ node run-built-cli.mjs web --interval 10 2>&1
+error: unknown option '--interval'
+? 1
 ```
 
 ```console

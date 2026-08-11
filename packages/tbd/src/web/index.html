@@ -29,10 +29,10 @@
         <button id="pagenext" type="button" aria-label="Next board page">→</button>
       </span>
       <span class="grow"></span>
-      <!-- Live-state cluster: everything about the watcher sits together on the right,
-           next to the branch it is watching, so it reads as one status area. -->
-      <span class="pill" id="wakepill">0 wakes</span>
-      <span class="pill" id="watchpill" aria-live="polite"
+      <!-- Live-state cluster: local observation and the local sync-branch tip stay
+           together so no element implies that the viewer contacts a remote. -->
+      <span class="pill" id="updatepill">0 updates</span>
+      <span class="pill" id="observerpill" aria-live="polite"
         ><span class="dot"></span>connecting</span
       >
       <span class="pill" id="tippill"></span>
@@ -220,8 +220,8 @@
         <dl id="statusdl"></dl>
         <h2>Stats <span class="hint">tbd stats</span></h2>
         <table id="stats" aria-label="Bead statistics"></table>
-        <h2>Latest watch report</h2>
-        <pre id="report" class="placeholder">Connecting to the watcher…</pre>
+        <h2>Latest local changes</h2>
+        <pre id="report" class="placeholder">Connecting to the local observer…</pre>
         <h2>Event log</h2>
         <ul id="log"></ul>
       </aside>

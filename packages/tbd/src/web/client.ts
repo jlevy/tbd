@@ -11,11 +11,11 @@ import type {
   BoardControls,
   BoardResponse,
   BoardRowView,
-  ChangeReportView,
   ClientStore,
   ClientView,
+  IssueChangeView,
   IssueStatsView,
-  WatchStateView,
+  ObservationStateView,
 } from './core.js';
 
 type ThemeMode = 'system' | 'light' | 'dark';
@@ -37,8 +37,8 @@ const elements = {
   statusList: byId('statusdl', HTMLDListElement),
   stats: byId('stats', HTMLTableElement),
   command: byId('cmd', HTMLSpanElement),
-  watchPill: byId('watchpill', HTMLSpanElement),
-  wakePill: byId('wakepill', HTMLSpanElement),
+  observerPill: byId('observerpill', HTMLSpanElement),
+  updatePill: byId('updatepill', HTMLSpanElement),
   countPill: byId('countpill', HTMLSpanElement),
   pageControls: byId('pagecontrols', HTMLSpanElement),
   pagePrevious: byId('pageprev', HTMLButtonElement),
@@ -122,22 +122,19 @@ function appendSection(
   parent.append(heading, body);
 }
 
-function findChange(
-  report: ChangeReportView | null,
-  id: string,
-): ChangeReportView['changes'][number] | null {
-  return report?.changes.find((change) => change.id === id) ?? null;
+function findChange(changes: readonly IssueChangeView[], id: string): IssueChangeView | null {
+  return changes.find((change) => change.id === id) ?? null;
 }
 
 function jsonText(value: unknown): string {
   return JSON.stringify(value) ?? 'undefined';
 }
 
-function renderDelta(parent: HTMLElement, watch: WatchStateView, id: string): void {
+function renderDelta(parent: HTMLElement, watch: ObservationStateView, id: string): void {
   if (!deltasValid(watch)) {
     return;
   }
-  const delta = findChange(watch.lastReport, id);
+  const delta = findChange(watch.latestChanges, id);
   if (delta === null) {
     return;
   }
@@ -146,7 +143,7 @@ function renderDelta(parent: HTMLElement, watch: WatchStateView, id: string): vo
   box.className = 'delta';
   const heading = document.createElement('div');
   heading.className = 'blabel';
-  heading.textContent = `Changed in the latest wake (${delta.change})`;
+  heading.textContent = `Changed in the latest local update (${delta.change})`;
   box.append(heading);
 
   for (const field of delta.fields) {
@@ -311,7 +308,7 @@ function renderRow(
   return fragment;
 }
 
-function renderStatus(watch: WatchStateView): void {
+function renderStatus(watch: ObservationStateView): void {
   const status = watch.repoStatus;
   const worktree =
     status === null
@@ -323,8 +320,9 @@ function renderStatus(watch: WatchStateView): void {
     ['repo', watch.repoDir, ''],
     ['tbd', status?.tbdVersion ?? '…', ''],
     ['branch', status?.gitBranch ?? 'detached', ''],
-    ['sync', `${watch.remote}/${watch.syncBranch}`, ''],
-    ['tip', short(watch.localTip), ''],
+    ['sync branch', watch.syncBranch, ''],
+    ['configured remote', watch.remote, ''],
+    ['local tip', short(watch.localTip), ''],
     ['prefix', status?.displayPrefix ?? '…', ''],
     ['worktree', worktree, status === null ? '' : status.worktreeHealthy === true ? 'good' : 'bad'],
     [
@@ -332,7 +330,7 @@ function renderStatus(watch: WatchStateView): void {
       status !== null && status.workspaces.length > 0 ? status.workspaces.join(', ') : 'none',
       '',
     ],
-    ['watching', `since ${short(watch.watchSince)}, every ${watch.intervalSeconds}s`, ''],
+    ['observer', watch.observationMode, watch.observationPhase === 'error' ? 'bad' : 'good'],
   ];
   elements.statusList.replaceChildren();
   for (const [key, value, className] of rows) {
@@ -436,21 +434,32 @@ function renderStats(stats: IssueStatsView | null): void {
   }
 }
 
-function renderReport(watch: WatchStateView): void {
-  if (watch.lastReport !== null) {
+function renderReport(watch: ObservationStateView): void {
+  if (watch.latestChanges.length > 0) {
     elements.report.className = '';
-    elements.report.textContent = JSON.stringify(watch.lastReport, null, 2);
+    elements.report.textContent = JSON.stringify(
+      {
+        changed_beads: watch.latestChangeTotal,
+        details_truncated: watch.latestChangesTruncated,
+        changes: watch.latestChanges,
+      },
+      null,
+      2,
+    );
     return;
   }
   elements.report.className = 'placeholder';
   elements.report.textContent =
-    watch.watchPhase === 'watching'
-      ? `No changes seen yet. Actively watching ${watch.remote}/${watch.syncBranch}, ` +
-        `checking every ${watch.intervalSeconds}s—the first report will appear here.`
-      : 'Waiting for the watcher to start…';
+    watch.latestChangeTotal > 0
+      ? watch.latestChangesTruncated
+        ? `${watch.latestChangeTotal} local bead change${watch.latestChangeTotal === 1 ? '' : 's'} detected; field-level detail was truncated. Expand a bead for its current value.`
+        : `${watch.latestChangeTotal} local bead ID or version change${watch.latestChangeTotal === 1 ? '' : 's'} had no field-level detail to display.`
+      : watch.observationPhase === 'watching'
+        ? 'No local changes seen yet. Changes made by tbd commands—including explicit tbd sync—appear here automatically.'
+        : 'Waiting for the local observer to start…';
 }
 
-function renderLog(watch: WatchStateView): void {
+function renderLog(watch: ObservationStateView): void {
   elements.log.replaceChildren();
   for (const entry of watch.log.slice(0, 60)) {
     const item = document.createElement('li');
@@ -512,7 +521,7 @@ function appendBoardPager(board: BoardResponse, pageIndex: number): void {
 
 function renderBoard(view: ClientView, board: BoardResponse): void {
   const page = paginateBoardRows(board.rows, boardPageIndex);
-  const changedIds = new Set(view.watch?.changedIds ?? []);
+  const changedIds = new Set(view.watch?.movedIds ?? []);
   const contextIds = new Set(board.contextIds);
   boardPageIndex = page.pageIndex;
   elements.pageControls.hidden = page.pageCount <= 1;
@@ -544,16 +553,16 @@ function renderBoard(view: ClientView, board: BoardResponse): void {
     : `Narrow the query to ${MAX_EXPANDED_ROWS} rows or fewer to expand them together.`;
 }
 
-function renderHeader(view: ClientView, board: BoardResponse, watch: WatchStateView): void {
+function renderHeader(view: ClientView, board: BoardResponse, watch: ObservationStateView): void {
   const phase = phaseLabel(watch);
-  elements.watchPill.replaceChildren();
+  elements.observerPill.replaceChildren();
   const dot = document.createElement('span');
   dot.className = 'dot';
-  elements.watchPill.append(dot, document.createTextNode(phase.label));
-  elements.watchPill.className = `pill ${watch.watchPhase}`;
-  elements.watchPill.title = phase.help;
-  elements.wakePill.textContent = `${watch.wakeCount} ${watch.wakeCount === 1 ? 'wake' : 'wakes'}`;
-  elements.wakePill.title = 'Graph changes observed since this viewer started.';
+  elements.observerPill.append(dot, document.createTextNode(phase.label));
+  elements.observerPill.className = `pill ${watch.observationPhase}`;
+  elements.observerPill.title = phase.help;
+  elements.updatePill.textContent = `${watch.updateCount} ${watch.updateCount === 1 ? 'update' : 'updates'}`;
+  elements.updatePill.title = 'Local graph updates observed since this viewer started.';
 
   const hidden = board.closedHidden > 0 ? ` · ${board.closedHidden} closed hidden` : '';
   elements.countPill.textContent = `${board.matched === board.total ? `${board.total} beads` : `${board.matched} of ${board.total}`}${hidden}`;
@@ -561,8 +570,9 @@ function renderHeader(view: ClientView, board: BoardResponse, watch: WatchStateV
     board.closedHidden > 0
       ? 'Closed beads are hidden under active, matching tbd list. Choose any or closed to include them.'
       : 'Beads matching the current query, out of the whole graph.';
-  elements.tipPill.textContent = `${watch.remote}/${watch.syncBranch} @ ${short(watch.localTip)}`;
-  elements.tipPill.title = `Resuming from ${short(watch.watchSince)}.`;
+  elements.tipPill.textContent = `${watch.syncBranch} @ ${short(watch.localTip)}`;
+  elements.tipPill.title =
+    'Local sync-branch tip. tbd web never fetches; run tbd sync to exchange remote changes.';
   elements.command.textContent = board.command;
   const caveats = caveatsFor(board);
   elements.command.title =
@@ -587,9 +597,10 @@ function render(): void {
 
   renderHeader(view, board, watch);
   if (disconnected) {
-    elements.watchPill.textContent = 'disconnected';
-    elements.watchPill.className = 'pill error';
-    elements.watchPill.title = 'The live connection dropped; the browser will retry automatically.';
+    elements.observerPill.textContent = 'disconnected';
+    elements.observerPill.className = 'pill error';
+    elements.observerPill.title =
+      'The live connection dropped; the browser will retry automatically.';
   }
   renderBoard(view, board);
   renderStatus(watch);
@@ -611,7 +622,7 @@ function render(): void {
   }
 }
 
-/** Coalesce a burst of body or watcher updates into at most one table paint per frame. */
+/** Coalesce a burst of body or local-observer updates into at most one paint per frame. */
 function scheduleRender(): void {
   if (renderFrame !== null) {
     return;
