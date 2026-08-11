@@ -280,7 +280,7 @@ Load the **General engineering** group first, then the language or framework gro
 | backward-compatibility-rules | Guidelines for maintaining backward compatibility across code, APIs, file formats, and database schemas |
 | commit-conventions | Conventional Commits format with extensions for agentic workflows |
 | error-handling-rules | Rules for handling errors, failures, and exceptional conditions |
-| general-coding-rules | Rules for constants, magic numbers, and general coding practices |
+| general-coding-rules | Rules for constants, magic numbers, cryptographic hash checks, and general coding practices |
 | general-comment-rules | Language-agnostic rules for writing clean, maintainable comments |
 | general-eng-agent-principles | Core principles for AI agents acting as senior engineers—objectivity and communication conduct plus the engineering process (detailed understanding, verification, end-to-end ownership, scope discipline, tracking future work, and acting versus seeking clarification) |
 | general-tdd-guidelines | Test-Driven Development methodology and best practices |
