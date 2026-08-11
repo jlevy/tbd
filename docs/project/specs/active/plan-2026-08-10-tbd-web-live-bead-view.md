@@ -629,8 +629,8 @@ to land the whole command through one PR.
 ### Final review finding map
 
 The final review is tracked under `tbd-o7nu`. Every implementation finding has one bead
-and one code seam; all twelve are implemented and locally validated.
-R12 is the final remote-wake state-machine correction raised on the pushed head.
+and one code seam; all thirteen are implemented and locally validated.
+R13 removes the remaining shell-specific syntax exposed by the Windows matrix.
 
 | Bead | Severity | File/function seam | Disposition |
 | --- | --- | --- | --- |
@@ -646,6 +646,7 @@ R12 is the final remote-wake state-machine correction raised on the pushed head.
 | `tbd-b4m2` (R10) | P1 | five `tests/cli-sync-*.tryscript.md` fixtures: `before` remotes | Keep each bare remote inside its sandbox’s own Git directory so sync histories cannot leak between transcript files. |
 | `tbd-snb4` (R11) | P1 | `tests/cli-web.tryscript.md`: built CLI invocation | Invoke `bin.mjs` explicitly with Node so the focused matrix transcript does not depend on Unix extensionless-command lookup. |
 | `tbd-qf41` (R12) | P1 | `src/cli/web/wake.ts`: `applyReport`; `tests/web-wake.test.ts` | Treat `remote-missing` as a retryable unapplied report: do not reload or advance report/cursor state, and retry from the same baseline. |
+| `tbd-4ets` (R13) | P1 | `tests/run-built-cli.mjs`; `tests/cli-web.tryscript.md`: sandbox invocation and filters | Resolve the built entry through Node’s environment instead of shell expansion, and use shell-neutral quoting for `sed`/`jq`. |
 
 ### Merge gate for PR #207
 

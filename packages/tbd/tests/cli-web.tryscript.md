@@ -1,5 +1,7 @@
 ---
 sandbox: true
+fixtures:
+  - run-built-cli.mjs
 env:
   NO_COLOR: '1'
   FORCE_COLOR: '0'
@@ -12,7 +14,7 @@ before: |
   echo "# Web test repo" > README.md
   git add README.md
   git commit -m "Initial commit"
-  node $TRYSCRIPT_TEST_DIR/../dist/bin.mjs init --prefix=test --quiet
+  node run-built-cli.mjs init --prefix=test --quiet
 ---
 # `tbd web` CLI contract
 
@@ -24,7 +26,7 @@ human-facing help, dry-run, and validation contracts.
 ## Help
 
 ```console
-$ node $TRYSCRIPT_TEST_DIR/../dist/bin.mjs web --help | sed -n '1,16p'
+$ node run-built-cli.mjs web --help | sed -n "1,16p"
 Usage: tbd web [options]
 
 Serve a live, read-only bead view on loopback
@@ -47,7 +49,7 @@ Global Options:
 ## Machine-readable dry run
 
 ```console
-$ node $TRYSCRIPT_TEST_DIR/../dist/bin.mjs --dry-run --json web --port 17899 --interval 10 | jq -c '{url,port,syncBranch}'
+$ node run-built-cli.mjs --dry-run --json web --port 17899 --interval 10 | jq -c "{url,port,syncBranch}"
 {"url":"http://127.0.0.1:17899","port":17899,"syncBranch":"tbd-sync"}
 ? 0
 ```
@@ -55,13 +57,13 @@ $ node $TRYSCRIPT_TEST_DIR/../dist/bin.mjs --dry-run --json web --port 17899 --i
 ## Validation
 
 ```console
-$ node $TRYSCRIPT_TEST_DIR/../dist/bin.mjs web --interval 9 2>&1
+$ node run-built-cli.mjs web --interval 9 2>&1
 Error: --interval must be at least 10 seconds
 ? 2
 ```
 
 ```console
-$ node $TRYSCRIPT_TEST_DIR/../dist/bin.mjs web --port nope 2>&1
+$ node run-built-cli.mjs web --port nope 2>&1
 Error: --port must be an integer between 1 and 65535
 ? 2
 ```
