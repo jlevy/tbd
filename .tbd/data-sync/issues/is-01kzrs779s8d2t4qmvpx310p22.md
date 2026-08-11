@@ -3,9 +3,9 @@ type: is
 id: is-01kzrs779s8d2t4qmvpx310p22
 title: "Phase 6: validate and land production tbd web end to end"
 kind: task
-status: closed
+status: open
 priority: 1
-version: 7
+version: 9
 spec_path: docs/project/specs/active/plan-2026-08-10-tbd-web-live-bead-view.md
 labels:
   - validation
@@ -17,10 +17,11 @@ child_order_hints:
   - is-01kzrsac4r354tm2b2f89mg0ve
   - is-01kzrsajhday2nyvfnbk2c097t
   - is-01kzrsarka5sq9h3x8v5yp7vpm
+  - is-01kzs5fg2amah8bnpy3mct8khd
 created_at: 2026-08-11T16:06:50.935Z
-updated_at: 2026-08-11T19:30:44.985Z
-closed_at: 2026-08-11T19:30:44.981Z
-close_reason: "Phase 6 complete: local and GitHub quality matrices pass; packaged tarball, watch/recovery/isolation, lifecycle/security, 5,000-issue performance, browser acceptance, and cross-platform Ubuntu/macOS/Windows proofs pass. PR #207 is ready to merge."
+updated_at: 2026-08-11T19:41:04.969Z
+closed_at: null
+close_reason: null
 extensions:
   linear:
     id: 9437aa72-43f0-46bf-87b9-cc8a023e198e
@@ -33,3 +34,5 @@ Run the full local/CI matrix, 5k performance and payload bounds, Git isolation c
 ## Notes
 
 Phase 6 complete: local and GitHub quality matrices pass; packaged tarball, watch/recovery/isolation, lifecycle/security, 5,000-issue performance, browser acceptance, and cross-platform Ubuntu/macOS/Windows proofs pass. PR #207 is ready to merge.
+
+Reopened: User requested a first-principles re-evaluation of the 4,000-row web board cap, including 5,000/10,000 browser and payload benchmarks and implementation of the highest defensible default.

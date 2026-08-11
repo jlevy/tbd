@@ -3,13 +3,15 @@ type: is
 id: is-01kzpbwxn4kkdjsaqc9tn243w5
 title: "doctor --fix: migration commit intermittently missing from the sync-branch tip"
 kind: bug
-status: open
+status: closed
 priority: 1
-version: 8
+version: 9
 labels: []
 dependencies: []
 created_at: 2026-08-10T17:35:33.027Z
-updated_at: 2026-08-10T23:34:11.488Z
+updated_at: 2026-08-11T19:55:59.822Z
+closed_at: 2026-08-11T19:55:59.820Z
+close_reason: "Root-caused and fixed in 67766818. Not a product bug and not timing: eleven sync tryscripts created their bare origin at ../origin.git, which from a sandbox is the SHARED temp parent — every run reused prior runs' origin, a later setup sync pulled the stale tbd-sync, the fixed-id test files arrived already tracked, add -A staged nothing, and migration correctly recorded nothing. Intermittency = whether a stale origin survived from any earlier run (same machine, or earlier in the same CI job — explaining the load correlation as coincidence and the CI order-dependence). Fixed with per-file origins removed before creation; migration test passes every run; full suites green. The earlier hardening (64767eab) remains valuable: verify-before-delete is what made this diagnosable instead of silently destructive."
 ---
 Root-caused as far as the evidence allows. This is **not** test flakiness in the
 usual sense, and two earlier hypotheses in this bead were wrong.
