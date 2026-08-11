@@ -182,6 +182,14 @@ describe('typography: monospace marks data, not chrome', () => {
     expect(tipRule.includes('--mono'), '#tippill carries data values and must be mono').toBe(true);
   });
 
+  it('renders the empty report state as chrome, not data', async () => {
+    const css = stripComments(await readStyleBlock());
+    const rule = /#report\.placeholder\s*\{([^}]*)\}/u.exec(css)?.[1] ?? '';
+    expect(rule, 'expected the report placeholder rule').not.toBe('');
+    expect(rule.includes('--sans'), 'the empty-state note is chrome and must be sans').toBe(true);
+    expect(rule.includes('white-space: normal'), 'chrome prose wraps').toBe(true);
+  });
+
   it('aligns stat counts with tabular figures instead of pretending they are data', async () => {
     const css = stripComments(await readStyleBlock());
     const numRule = /#stats td\.num,\s*#stats th\.num\s*\{([^}]*)\}/u.exec(css)?.[1] ?? '';

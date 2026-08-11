@@ -575,6 +575,13 @@
       dd.good {
         color: var(--ok);
       }
+      #report.placeholder {
+        /* Chrome, not data: the empty-state note talks about the UI itself, so it is
+           sans and wraps like prose; only an actual report is data and stays mono. */
+        font-family: var(--sans);
+        white-space: normal;
+        color: var(--muted);
+      }
       pre {
         font-family: var(--mono);
         font-size: 11px;
@@ -876,7 +883,7 @@
         <h2>Stats <span class="hint">tbd stats</span></h2>
         <table id="stats"></table>
         <h2>Latest watch report</h2>
-        <pre id="report">No change reported yet. The watcher is idle.</pre>
+        <pre id="report" class="placeholder">Connecting to the watcher…</pre>
         <h2>Event log</h2>
         <ul id="log"></ul>
       </aside>
@@ -1457,9 +1464,25 @@
           els.rows.appendChild(tr);
         }
 
-        els.report.textContent = watch.lastReport
-          ? JSON.stringify(watch.lastReport, null, 2)
-          : 'No change reported yet. The watcher is idle.';
+        // The report itself is data (mono JSON); the empty state is chrome talking
+        // about the UI, so it renders sans and says what is actually happening —
+        // "idle" read as either not-watching or not-running, which was the confusion.
+        if (watch.lastReport) {
+          els.report.className = '';
+          els.report.textContent = JSON.stringify(watch.lastReport, null, 2);
+        } else {
+          els.report.className = 'placeholder';
+          els.report.textContent =
+            watch.watchPhase === 'watching'
+              ? 'No changes seen yet. Actively watching ' +
+                watch.remote +
+                '/' +
+                watch.syncBranch +
+                ', checking every ' +
+                watch.intervalSeconds +
+                's — the first change report will appear here.'
+              : 'Waiting for the watcher to start…';
+        }
 
         renderStatus();
         renderStats();
