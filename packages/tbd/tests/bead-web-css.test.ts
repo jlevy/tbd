@@ -169,3 +169,24 @@ describe('bead-web design system', () => {
     expect(css).toContain('--transition-fast');
   });
 });
+
+describe('typography: monospace marks data, not chrome', () => {
+  it('keeps counts and phase pills sans; only the data pill is monospace', async () => {
+    const css = stripComments(await readStyleBlock());
+    // The generic pill (counts, phase words) must not opt into monospace...
+    const pillRule = /(?:^|\})\s*\.pill\s*\{([^}]*)\}/u.exec(css)?.[1] ?? '';
+    expect(pillRule, 'expected a .pill rule').not.toBe('');
+    expect(pillRule.includes('--mono'), '.pill is chrome and must stay sans').toBe(false);
+    // ...while the tip pill (branch @ sha — actual data) must.
+    const tipRule = /#tippill\s*\{([^}]*)\}/u.exec(css)?.[1] ?? '';
+    expect(tipRule.includes('--mono'), '#tippill carries data values and must be mono').toBe(true);
+  });
+
+  it('aligns stat counts with tabular figures instead of pretending they are data', async () => {
+    const css = stripComments(await readStyleBlock());
+    const numRule = /#stats td\.num,\s*#stats th\.num\s*\{([^}]*)\}/u.exec(css)?.[1] ?? '';
+    expect(numRule, 'expected the stats number rule').not.toBe('');
+    expect(numRule.includes('--mono')).toBe(false);
+    expect(numRule.includes('tabular-nums')).toBe(true);
+  });
+});

@@ -44,6 +44,14 @@
            3. Saturation is the loudness knob. Status and wake colors are
               higher S; surfaces, borders, and body text are near-grey.
 
+           4. Typography marks data, not decoration. Chrome — labels,
+              counts, phase words, anything the UI says about itself — is
+              sans (--sans). Monospace (--mono) is reserved for data
+              values: ids, paths, branch names, SHAs, commands,
+              timestamps, and field deltas. A count is chrome even when
+              it is a number; tabular-nums keeps columns aligned without
+              pretending the count is data.
+
          ── Motion: two families, never mixed ──────────────────────────
 
          This is the load-bearing rule of the whole stylesheet.
@@ -187,7 +195,9 @@
         font-weight: 650;
       }
       .pill {
-        font-family: var(--mono);
+        /* Chrome, not data: counts and phase words render sans like the rest of the
+           frame. Only #tippill below is monospace, because its content is a branch
+           name and commit — actual data values. */
         font-size: 11px;
         padding: 3px 8px;
         border-radius: 999px;
@@ -230,6 +240,9 @@
         50% {
           opacity: 1;
         }
+      }
+      #tippill {
+        font-family: var(--mono);
       }
       .grow {
         flex: 1;
@@ -536,7 +549,8 @@
       #stats td.num,
       #stats th.num {
         text-align: right;
-        font-family: var(--mono);
+        /* Counts are chrome: sans, with tabular figures so columns still align. */
+        font-variant-numeric: tabular-nums;
         font-size: 11px;
         width: 46px;
       }
