@@ -5,7 +5,7 @@ title: "Address review: PR #206 — Bugbot findings + owner design comments"
 kind: task
 status: open
 priority: 1
-version: 7
+version: 9
 labels: []
 dependencies: []
 child_order_hints:
@@ -14,8 +14,10 @@ child_order_hints:
   - is-01kzqmst60ewzy7mpcgrf7qt2f
   - is-01kzqmstj3m750nk9sk1yg5chh
   - is-01kzqmstyhvw4cmvy0v9pe3s6s
+  - is-01kzqwd0x3zbne15mf42kr6x4j
+  - is-01kzqwd1969akp4xrasm614n43
 created_at: 2026-08-11T05:30:04.670Z
-updated_at: 2026-08-11T05:37:34.905Z
+updated_at: 2026-08-11T07:43:12.677Z
 ---
 Tracking parent for the 2026-08-11 review round on PR #206: three unresolved Bugbot findings (R1 link-store legacy shape, R2/R3 web-spike board races) plus two owner comments (development.md web framing, policy clause naming). Disposition map posted on the PR.
 
