@@ -1,11 +1,11 @@
 ---
 type: is
 id: is-01kzn5wbxkb6c0db6k19wj7yzj
-title: Land tbd-web spike PR (stacked on PR 205)
-kind: task
+title: "Spec: tbd web — production-ready live bead view"
+kind: epic
 status: in_progress
-priority: 2
-version: 14
+priority: 1
+version: 22
 spec_path: docs/project/specs/active/plan-2026-08-10-tbd-web-live-bead-view.md
 labels:
   - viewer
@@ -14,8 +14,14 @@ child_order_hints:
   - is-01kzq6hcbgh58y4sv88g74q3n0
   - is-01kzq7dpztf9sy32xaxf63apwg
   - is-01kzq7dqe458wkrabss0a0qewp
+  - is-01kzq6vbaqck3q21a69965ha4e
+  - is-01kzrs2jrjg3pzase83ebxdjyg
+  - is-01kzrs66v8et3vwh2tpmk3v9d9
+  - is-01kzrs6dd1abehychzed2yc1fk
+  - is-01kzrs6s3fn7gtzgt70wx9yzas
+  - is-01kzrs779s8d2t4qmvpx310p22
 created_at: 2026-08-10T06:31:08.978Z
-updated_at: 2026-08-11T05:20:45.884Z
+updated_at: 2026-08-11T16:18:42.484Z
 extensions:
   linear:
     id: 87a13af9-a3b4-4897-873a-f8bfeb82fa65
@@ -23,8 +29,8 @@ extensions:
     url: https://linear.app/finterm-ai/issue/TBD-78/land-tbd-web-spike-pr-stacked-on-pr-205
     linked_at: 2026-08-10T19:37:39.540Z
 ---
-Track the stacked PR for the bead-web viewer spike: branch claude/tbd-web-spike, two commits (c4439865 spike + issue-stats extraction, 6bf3f1b9 security hardening + docs) on top of PR 205 head dc0ba559. Merge is gated on PR 205 landing first; after that lands, rebase onto main and retarget the PR. Phase 1 items from the plan spec (issue-query extraction, tbd-5hh1 fix, AbortSignal, tbd-q5c7 fix) are follow-up work, not part of this PR.
+Deliver PR #207 to the approved merge bar in docs/project/specs/active/plan-2026-08-10-tbd-web-live-bead-view.md: a packaged, loopback-only, read-only tbd web command with shared query semantics, live in-process wake handling, a strict TypeScript client, complete docs, and production validation.
 
 ## Notes
 
-PR 207 head d984646b: Phase 2 at 4/5 (issue-query + parity oracle, tbd-5hh1, tbd-q5c7, AbortSignal), all gated, CI green. Remaining: sync-run extraction via OperationLogger, then Phase 3 (the tbd web command). This update doubles as a live remote-wake demo for the viewer.
+2026-08-11 finalization pass: Phase 2 is complete. Remaining implementation is mapped as child beads through BoardState, HTTP/SSE, wake coordination, WebHandler lifecycle, typed client/build artifact, docs/spike retirement, and production/package/CI validation. Existing supply-chain audit baseline remains tracked in tbd-6gy0; this PR adds no dependency.

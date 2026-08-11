@@ -3,14 +3,23 @@ type: is
 id: is-01kzq6vbaqck3q21a69965ha4e
 title: "Phase 2: core foundations for tbd web (issue-query, AbortSignal, sync-run)"
 kind: task
-status: in_progress
+status: closed
 priority: 1
-version: 5
+version: 10
 spec_path: docs/project/specs/active/plan-2026-08-10-tbd-web-live-bead-view.md
 labels: []
-dependencies: []
+dependencies:
+  - type: blocks
+    target: is-01kzrs66v8et3vwh2tpmk3v9d9
+  - type: blocks
+    target: is-01kzrs7qw8qv2ynt64n9c2w0y6
+parent_id: is-01kzn5wbxkb6c0db6k19wj7yzj
+child_order_hints:
+  - is-01kzrs7dnqcq10ry0xeph0nsxn
 created_at: 2026-08-11T01:26:33.046Z
-updated_at: 2026-08-11T06:51:07.742Z
+updated_at: 2026-08-11T16:18:42.228Z
+closed_at: 2026-08-11T16:18:42.227Z
+close_reason: "Phase 2 complete: shared issue-query parity, hierarchy golden fix, cancellable in-process watch, JSON output guard, and reusable runIssueSync extraction are implemented and validated. The one full-suite timeout was isolated and passed; no product regression found."
 extensions:
   linear:
     id: 13ad413c-ba31-4342-9daf-00c9b0887f3d
