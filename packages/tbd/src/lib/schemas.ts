@@ -361,6 +361,30 @@ export const IntegrationSelectSchema = z.object({
 });
 
 /**
+ * One synchronized comment, as persisted in a bead's `extensions.<provider>`
+ * namespace. An allow-list, like the link payload: identity, timestamp, an
+ * author DISPLAY NAME (never an email), and a capped body. An inbound comment
+ * carries the provider's immutable `id`; a locally authored one starts with
+ * only `local_id` (a ulid) and gains `id` when pushed.
+ */
+export const CommentEntry = z
+  .object({
+    id: z.string().min(1).optional(),
+    local_id: z.string().min(1).optional(),
+    at: Timestamp,
+    author: z.string().nullable().optional(),
+    body: z.string(),
+  })
+  .refine((entry) => entry.id !== undefined || entry.local_id !== undefined, {
+    message: 'a comment entry needs an id or a local_id',
+  });
+
+/** Stored comment bodies are capped; the full text lives in the tracker. */
+export const COMMENT_BODY_CAP = 10_000;
+/** Beads keep at most this many full comment entries; older ones stub out. */
+export const COMMENTS_PER_BEAD_CAP = 50;
+
+/**
  * Canonical (tbd-space) field values at the last successful reconciliation of
  * a linked pair. Scalars are stored verbatim; the description is stored only
  * as a normalized hash — change detection needs equality, not content, and

@@ -631,10 +631,38 @@ function resolveNamespace(
     return { present: true, value: survivor };
   }
 
+  // Both sides are objects and at least one carries a `comments` array: the
+  // sequences are append-only, so they union by identity instead of one side
+  // losing. Two machines appending different comments is the NORMAL case for
+  // comment sync, not a conflict — only divergence beyond `comments` is.
+  const localNs = local[namespace];
+  const remoteNs = remote[namespace];
+  if (isPlainObject(localNs) && isPlainObject(remoteNs)) {
+    const hasComments = Array.isArray(localNs.comments) || Array.isArray(remoteNs.comments);
+    if (hasComments) {
+      const winnerNs = localWins ? localNs : remoteNs;
+      const loserNs = localWins ? remoteNs : localNs;
+      const value = {
+        ...winnerNs,
+        comments: unionCommentArrays(localNs.comments, remoteNs.comments),
+      };
+      if (!deepEqual(omitComments(localNs), omitComments(remoteNs))) {
+        onConflict(namespace, omitComments(loserNs), omitComments(winnerNs));
+      }
+      return { present: true, value };
+    }
+  }
+
   const winner = localWins ? local[namespace] : remote[namespace];
   const loser = localWins ? remote[namespace] : local[namespace];
   onConflict(namespace, loser, winner);
   return { present: true, value: winner };
+}
+
+/** A namespace value without its comments array, for beyond-comments compare. */
+function omitComments(value: Record<string, unknown>): Record<string, unknown> {
+  const { comments: _comments, ...rest } = value;
+  return rest;
 }
 
 /**
@@ -1137,6 +1165,7 @@ import {
 import { DATA_SYNC_SCHEMA_VERSION, LinkRecordSchema } from '../lib/schemas.js';
 import type { LinkRecord } from '../lib/types.js';
 import { parseYamlWithConflictDetection, stringifyYaml } from '../utils/yaml-utils.js';
+import { unionCommentArrays } from '../lib/comment-union.js';
 import {
   loadIdMapping,
   mergeIdMappings,
