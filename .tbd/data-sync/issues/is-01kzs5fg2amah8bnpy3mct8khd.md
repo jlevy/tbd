@@ -5,7 +5,7 @@ title: "Spike: benchmark and raise the tbd web board scale ceiling"
 kind: task
 status: in_progress
 priority: 1
-version: 8
+version: 9
 spec_path: docs/project/specs/active/plan-2026-08-10-tbd-web-live-bead-view.md
 labels:
   - web
@@ -17,8 +17,9 @@ child_order_hints:
   - is-01kzs6ss6gyc5y154th4bah1ch
   - is-01kzs7w3snkv7gt9dwqdrspeew
   - is-01kzs7zf54b3jc7m21sv5vq3vd
+  - is-01kzs9hy1f971yzj995exw09gd
 created_at: 2026-08-11T19:41:04.969Z
-updated_at: 2026-08-11T20:30:15.931Z
+updated_at: 2026-08-11T20:52:19.118Z
 ---
 Measure the actual end-to-end costs of 4,000, 5,000, and 10,000 board rows: BoardState selection/tree ordering, JSON serialization and payload bytes, browser JSON parsing, DOM construction, layout/paint, repeated refresh, and expansion behavior. Replace the misleading server-only 5,000-issue benchmark with a file- and function-level acceptance model, then raise MAX_BOARD_ROWS to the highest default that remains responsive and resource-bounded. Preserve the existing BoardResponse API shape; this is an additive capacity increase with no file-format or schema change.
 
