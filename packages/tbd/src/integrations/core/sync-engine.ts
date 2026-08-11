@@ -258,12 +258,27 @@ export async function runSync(options: SyncEngineOptions): Promise<SyncRunReport
       continue;
     }
     const record = recordByBead.get(bead.id);
-    const result = reconcile(
-      record?.base,
-      localViewOf(bead),
-      remoteViewOf(remote),
-      policy.field_sync,
-    );
+    // A link with no bridge record predates the sync engine (a Phase 1 mirror
+    // link, or a record lost to damage). Those links lived under a one-way
+    // regime where the bead was the truth, so the base seeds from the REMOTE
+    // snapshot: local divergence pushes, nothing pulls, and no phantom
+    // conflicts fire on the first synchronization. A tracker-side edit made
+    // during the unrecorded window is overwritten by that push — reported as
+    // an ordinary push, which matches the regime the link was created under.
+    const base =
+      record?.base ??
+      (() => {
+        const remoteProse = remoteViewOf(remote);
+        return {
+          title: remoteProse.title,
+          status: remoteProse.status,
+          priority: remoteProse.priority,
+          labels: remoteProse.labels,
+          assignee: remoteProse.assignee,
+          description_hash: descriptionHash(remote.description),
+        };
+      })();
+    const result = reconcile(base, localViewOf(bead), remoteViewOf(remote), policy.field_sync);
     pairs.push({ bead, record, remote, result });
   }
 
