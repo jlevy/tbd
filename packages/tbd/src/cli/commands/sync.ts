@@ -138,10 +138,12 @@ class SyncHandler extends BaseCommand {
     }
 
     // STEP 2: Sync issues (network operations)
+    let foldIntegrations = false;
     await withDataSyncContext(
       tbdRoot,
       { lock: true },
       async ({ dataSyncDir, config, sharedPaths, repairedWorktreeStatus }) => {
+        foldIntegrations = config.integrations?.sync_on_tbd_sync === true;
         this.dataSyncDir = dataSyncDir;
         this.worktreePath = sharedPaths.sharedWorktreePath;
         this.syncBranch = config.sync.branch;
@@ -176,6 +178,22 @@ class SyncHandler extends BaseCommand {
         }
       },
     );
+
+    // Optional integration fold, off by default. Runs AFTER the git phases and
+    // outside the data-sync context above, and a failure degrades with a
+    // warning — external trackers must never block or corrupt git sync.
+    if (foldIntegrations && !options.status) {
+      try {
+        const { execFileSync } = await import('node:child_process');
+        execFileSync(process.execPath, [process.argv[1] ?? '', 'integration', 'sync', '--yes'], {
+          stdio: 'inherit',
+        });
+      } catch {
+        this.output.warn(
+          'Integration sync failed; git sync is unaffected. Run `tbd integration sync` directly for details.',
+        );
+      }
+    }
   }
 
   /**

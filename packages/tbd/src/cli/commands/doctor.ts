@@ -779,6 +779,23 @@ class DoctorHandler extends BaseCommand {
    */
   private async checkIntegrations(): Promise<DiagnosticResult> {
     if (!this.config || integrationsInert(this.config)) {
+      // The config-loss tripwire: an older CLI rewriting config silently
+      // strips the integrations block (it happened three times during the
+      // pilot). Linked beads with no configured integration is the signature.
+      const linkedCount = this.issues.filter((issue) => {
+        const extensions = issue.extensions;
+        return extensions && ('linear' in extensions || 'github' in extensions);
+      }).length;
+      if (linkedCount > 0) {
+        return {
+          name: 'Integrations',
+          status: 'warn',
+          message:
+            `${linkedCount} bead(s) carry external tracker links but no integration is ` +
+            'configured. If the integrations block was stripped from .tbd/config.yml ' +
+            '(an older tbd rewriting config does this), restore it from git history.',
+        };
+      }
       return { name: 'Integrations', status: 'ok', message: 'none enabled' };
     }
 

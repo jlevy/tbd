@@ -28,6 +28,19 @@ import { now } from '../../utils/time-utils.js';
 import { createInterface } from 'node:readline/promises';
 
 import { checkBulkThreshold } from '../../integrations/core/bulk-guard.js';
+import { runSync, type SyncRunReport } from '../../integrations/core/sync-engine.js';
+import { appendLocalComment } from '../../integrations/core/comment-store.js';
+import { clearLink, readLink } from '../../integrations/core/link-store.js';
+import {
+  byExternalId,
+  deleteLinkRecord,
+  descriptionHash,
+  listLinkRecords,
+  writeLinkRecord,
+} from '../../integrations/core/bridge-state.js';
+import { gitCommit } from '../../file/git.js';
+import { addIdMapping, generateUniqueShortId, saveIdMapping } from '../../file/id-mapping.js';
+import { extractUlidFromInternalId, generateInternalId } from '../../lib/ids.js';
 import { parseRepoSlug, specPermalink } from '../../integrations/core/permalink.js';
 import { writeLink } from '../../integrations/core/link-store.js';
 import { git } from '../../file/git.js';
@@ -455,11 +468,361 @@ function buildAdapter(
     throw new CLIError('integrations.linear.team_key is required.');
   }
   return new LinearAdapter({
-    client: new LinearClient({ apiKey: credential }),
+    // LINEAR_API_URL points the CLI at the mock server in golden tests; the
+    // credential is still required so the auth path stays exercised.
+    client: new LinearClient({ apiKey: credential, endpoint: process.env.LINEAR_API_URL }),
     teamKey: target,
     createLabels: config.integrations?.linear?.create_labels ?? true,
     project: config.integrations?.linear?.project,
   });
+}
+
+interface SyncOptions {
+  provider?: string;
+  yes?: boolean;
+}
+
+/**
+ * `tbd integration sync` — the full synchronization: replay, reconcile every
+ * linked pair, then apply the policy's outbound and inbound clauses.
+ */
+class IntegrationSyncHandler extends BaseCommand {
+  async run(options: SyncOptions): Promise<void> {
+    const tbdRoot = await requireInit();
+    const config = await readConfig(tbdRoot);
+    const enabled = enabledProviders(config).filter(
+      (entry) => !options.provider || entry.provider === options.provider,
+    );
+    if (enabled.length === 0) {
+      throw new CLIError(
+        'No enabled integration to sync. Run `tbd integration status` to see what is configured.',
+      );
+    }
+
+    const dryRun = this.ctx.dryRun;
+    const reports: SyncRunReport[] = [];
+
+    await withDataSyncContext(tbdRoot, { lock: !dryRun }, async (context) => {
+      const allIssues = await listIssues(context.dataSyncDir);
+      const prefix = config.display.id_prefix;
+      const displayId = (id: string): string => formatDisplayId(id, context.mapping, prefix);
+      const specLinks = await resolveSpecLinks(tbdRoot, allIssues, config.sync.branch);
+      const worktreePath = context.sharedPaths.sharedWorktreePath;
+
+      for (const entry of enabled) {
+        if (entry.configError) {
+          throw new CLIError(entry.configError);
+        }
+        const credential = await resolveCredential(entry.provider, tbdRoot);
+        if (!credential) {
+          throw new CLIError(
+            `${CREDENTIAL_ENV_VARS[entry.provider]} is not set. Run \`tbd integration status\` for details.`,
+          );
+        }
+        const adapter = buildAdapter(entry.provider, credential.value, entry.target, config);
+
+        const report = await runSync({
+          provider: entry.provider,
+          adapter,
+          policy: entry.policy,
+          dataSyncDir: context.dataSyncDir,
+          allIssues,
+          displayId,
+          specUrl: (issue) => (issue.spec_path ? specLinks.get(issue.spec_path) : undefined),
+          callbacks: {
+            readBead: (id) => readIssue(context.dataSyncDir, id),
+            writeBead: (issue) => writeIssue(context.dataSyncDir, issue),
+            createBead: async (input) => {
+              const id = generateInternalId();
+              const shortId = generateUniqueShortId(context.mapping);
+              addIdMapping(context.mapping, extractUlidFromInternalId(id), shortId);
+              const timestamp = now();
+              const issue: Issue = {
+                type: 'is',
+                id,
+                version: 1,
+                title: input.title,
+                kind: input.kind,
+                status: input.status,
+                priority: input.priority,
+                labels: [],
+                dependencies: [],
+                created_at: timestamp,
+                updated_at: timestamp,
+                ...(input.description != null ? { description: input.description } : {}),
+              };
+              await writeIssue(context.dataSyncDir, issue);
+              await saveIdMapping(context.dataSyncDir, context.mapping);
+              return issue;
+            },
+            afterJournal: async () => {
+              // Durability point: the journal must be recorded before any
+              // external write, so a crash replays instead of losing track.
+              await git('-C', worktreePath, 'add', '-A');
+              await gitCommit(worktreePath, '--no-verify', '-m', 'tbd integration: journal').catch(
+                () => undefined,
+              );
+            },
+            affirmBulk: async (counts) => {
+              const decision = checkBulkThreshold(counts, {
+                assumeYes: options.yes === true,
+                interactive: process.stdin.isTTY,
+              });
+              if (decision.kind === 'refused') {
+                throw new CLIError(decision.message);
+              }
+              if (decision.kind === 'needs-confirmation') {
+                const ok = await confirm(
+                  `Sync with ${entry.provider}: ${decision.reasons.join(' and ')}. Continue?`,
+                );
+                if (!ok) {
+                  throw new CLIError('Aborted.');
+                }
+              }
+            },
+          },
+          dryRun,
+          now,
+        });
+        reports.push(report);
+      }
+
+      if (!dryRun) {
+        // Record the run: bead writes, base advances, journal cleanup — one
+        // commit, so bases never advance in git without their writes.
+        await git('-C', worktreePath, 'add', '-A');
+        await gitCommit(worktreePath, '--no-verify', '-m', 'tbd integration: sync').catch(
+          () => undefined,
+        );
+      }
+    });
+
+    this.output.data(reports, () => {
+      for (const report of reports) {
+        printSyncReport(report, dryRun);
+      }
+    });
+    if (reports.some((report) => report.failures.length > 0)) {
+      process.exitCode = EXIT_OPERATIONAL_ERROR;
+    }
+  }
+}
+
+function printSyncReport(report: SyncRunReport, dryRun: boolean): void {
+  const would = dryRun ? 'would ' : '';
+  if (report.nothingToDo) {
+    console.log(`${report.provider}: nothing to do`);
+    return;
+  }
+  const parts = [
+    report.replayedOps > 0 ? `replayed ${report.replayedOps}` : '',
+    report.pushed.length > 0 ? `${would}push ${report.pushed.length}` : '',
+    report.pulled.length > 0 ? `${would}pull ${report.pulled.length}` : '',
+    report.commentsPushed > 0 ? `comments out ${report.commentsPushed}` : '',
+    report.commentsPulled > 0 ? `comments in ${report.commentsPulled}` : '',
+    report.createdOutbound.length > 0 ? `${would}create ${report.createdOutbound.length}` : '',
+    report.importedInbound.length > 0 ? `${would}import ${report.importedInbound.length}` : '',
+    report.conflicts.length > 0 ? `conflicts ${report.conflicts.length}` : '',
+    report.orphaned.length > 0 ? `orphaned ${report.orphaned.length}` : '',
+    report.failures.length > 0 ? `failed ${report.failures.length}` : '',
+  ].filter(Boolean);
+  console.log(`${report.provider}: ${parts.join(', ')}`);
+  for (const conflict of report.conflicts) {
+    console.log(`  ! ${conflict.beadId}: ${conflict.field} diverged; ${conflict.winner} kept`);
+  }
+  for (const overwrite of report.overwrites) {
+    console.log(
+      `  ~ ${overwrite.beadId}: ${overwrite.field} ${overwrite.direction} overwrote an edit`,
+    );
+  }
+  for (const skipped of report.skippedPushes) {
+    console.log(`  - ${skipped.beadId}: ${skipped.field} push unsupported; left divergent`);
+  }
+  for (const item of report.importable) {
+    console.log(`  ? importable: ${item.key ?? item.id} ${item.title}`);
+  }
+  for (const orphan of report.orphaned) {
+    console.log(`  x ${orphan}: external item archived or trashed`);
+  }
+  for (const failure of report.failures) {
+    console.log(`  ✗ ${failure.beadId}: ${failure.error}`);
+  }
+}
+
+/** `tbd integration comment` — author a comment offline; sync pushes it. */
+class IntegrationCommentHandler extends BaseCommand {
+  async run(beadRef: string, text: string, options: { provider?: string }): Promise<void> {
+    const tbdRoot = await requireInit();
+    const config = await readConfig(tbdRoot);
+    const provider = (options.provider ?? 'linear') as ProviderNameType;
+
+    await withDataSyncContext(tbdRoot, { lock: true }, async (context) => {
+      const internalId = resolveToInternalId(beadRef, context.mapping);
+      const stored = await readIssue(context.dataSyncDir, internalId);
+      if (!readLink(stored, provider)) {
+        throw new CLIError(`${beadRef} is not linked to ${provider}; link or mirror it first.`);
+      }
+      const { issue } = appendLocalComment(stored, provider, text, now());
+      issue.version += 1;
+      issue.updated_at = now();
+      await writeIssue(context.dataSyncDir, issue);
+      this.output.success(
+        `Comment recorded on ${formatDisplayId(internalId, context.mapping, config.display.id_prefix)}; the next \`tbd integration sync\` posts it.`,
+      );
+    });
+  }
+}
+
+/** `tbd integration link` — bind a bead to an existing external item. */
+class IntegrationLinkHandler extends BaseCommand {
+  async run(
+    beadRef: string,
+    externalRef: string,
+    options: { provider?: string; take?: string },
+  ): Promise<void> {
+    const tbdRoot = await requireInit();
+    const config = await readConfig(tbdRoot);
+    const provider = (options.provider ?? 'linear') as ProviderNameType;
+    const entry = providerConfig(config, provider);
+    if (!entry?.enabled) {
+      throw new CLIError(`${provider} is not enabled.`);
+    }
+    const credential = await resolveCredential(provider, tbdRoot);
+    if (!credential) {
+      throw new CLIError(`${CREDENTIAL_ENV_VARS[provider]} is not set.`);
+    }
+    const adapter = buildAdapter(provider, credential.value, entry.target, config);
+    const take = options.take;
+    if (take !== undefined && take !== 'local' && take !== 'remote') {
+      throw new CLIError('--take must be local or remote.');
+    }
+
+    await withDataSyncContext(tbdRoot, { lock: true }, async (context) => {
+      const internalId = resolveToInternalId(beadRef, context.mapping);
+      let stored = await readIssue(context.dataSyncDir, internalId);
+
+      const existing = readLink(stored, provider);
+      if (existing) {
+        throw new CLIError(
+          `${beadRef} is already linked to ${provider} (${existing.key ?? existing.id}). Unlink first.`,
+        );
+      }
+
+      const ref = await adapter.resolveRef(externalRef);
+
+      // One source per item: no other bead in this repo may hold this item.
+      const records = await listLinkRecords(context.dataSyncDir, provider);
+      const taken = byExternalId(records).get(ref.id);
+      const allIssues = await listIssues(context.dataSyncDir);
+      const holder =
+        taken ??
+        (allIssues.find(
+          (issue) => issue.id !== internalId && readLink(issue, provider)?.id === ref.id,
+        )
+          ? { bead_id: allIssues.find((issue) => readLink(issue, provider)?.id === ref.id)!.id }
+          : undefined);
+      if (holder) {
+        throw new CLIError(
+          `${ref.key ?? ref.id} is already linked to ${formatDisplayId(holder.bead_id, context.mapping, config.display.id_prefix)}. Two beads double-writing one item is the ping-pong this guard exists to prevent.`,
+        );
+      }
+
+      const [remote] = await adapter.fetchIssues([ref.id]);
+      if (!remote) {
+        throw new CLIError(`Could not fetch ${externalRef} from ${provider}.`);
+      }
+
+      const equal =
+        remote.title === stored.title &&
+        remote.status === stored.status &&
+        remote.priority === stored.priority &&
+        descriptionHash(remote.description) === descriptionHash(stored.description ?? null);
+
+      let stance: 'local' | 'remote' | undefined = take;
+      if (!equal && !stance) {
+        if (!process.stdin.isTTY) {
+          throw new CLIError(
+            'The bead and the external item differ; pass --take local or --take remote. ' +
+              'Differing fields have no honest automatic answer at link time.',
+          );
+        }
+        const takeLocal = await confirm(
+          `Fields differ (e.g. title "${stored.title}" vs "${remote.title}"). Adopt the LOCAL bead values (they will push on the next sync)?`,
+        );
+        stance = takeLocal ? 'local' : 'remote';
+      }
+
+      if (!equal && stance === 'remote') {
+        stored = {
+          ...stored,
+          title: remote.title,
+          status: remote.status,
+          priority: remote.priority,
+          ...(remote.description != null ? { description: remote.description } : {}),
+        };
+      }
+
+      stored = writeLink(stored, {
+        provider,
+        id: ref.id,
+        key: ref.key ?? null,
+        url: ref.url ?? null,
+        linked_at: now(),
+      });
+      stored.version += 1;
+      stored.updated_at = now();
+      await writeIssue(context.dataSyncDir, stored);
+
+      // Seed the base so the next sync flows the right direction: adopting
+      // local means base := remote (local diffs push); adopting remote (or
+      // equal values) means base := the now-shared values.
+      await writeLinkRecord(context.dataSyncDir, provider, {
+        type: 'lk',
+        bead_id: internalId,
+        external_id: ref.id,
+        base: {
+          title: remote.title,
+          status: remote.status,
+          priority: remote.priority,
+          labels: remote.labels,
+          assignee: remote.assignee,
+          description_hash: descriptionHash(remote.description),
+        },
+        remote_updated_at: remote.updatedAt,
+        synced_at: now(),
+        state: 'linked',
+      });
+
+      this.output.success(
+        `Linked ${beadRef} to ${ref.key ?? ref.id}${equal ? '' : ` (took ${stance})`}.`,
+      );
+    });
+  }
+}
+
+/** `tbd integration unlink` — sever links; absence survives merges. */
+class IntegrationUnlinkHandler extends BaseCommand {
+  async run(beadRefs: string[], options: { provider?: string }): Promise<void> {
+    const tbdRoot = await requireInit();
+    const provider = (options.provider ?? 'linear') as ProviderNameType;
+
+    await withDataSyncContext(tbdRoot, { lock: true }, async (context) => {
+      for (const beadRef of beadRefs) {
+        const internalId = resolveToInternalId(beadRef, context.mapping);
+        const stored = await readIssue(context.dataSyncDir, internalId);
+        if (!readLink(stored, provider)) {
+          this.output.info(`${beadRef} is not linked to ${provider}; nothing to do.`);
+          continue;
+        }
+        const cleared = clearLink(stored, provider);
+        cleared.version += 1;
+        cleared.updated_at = now();
+        await writeIssue(context.dataSyncDir, cleared);
+        await deleteLinkRecord(context.dataSyncDir, provider, internalId);
+        this.output.success(`Unlinked ${beadRef} from ${provider}.`);
+      }
+    });
+  }
 }
 
 export const integrationCommand = new Command('integration')
@@ -492,6 +855,49 @@ export const integrationCommand = new Command('integration')
       .action(async (options, command) => {
         const handler = new MirrorHandler(command);
         await handler.run(options);
+      }),
+  )
+  .addCommand(
+    new Command('sync')
+      .description('Full synchronization: reconcile linked pairs and apply the linking policy')
+      .option('--provider <name>', 'Limit to one provider')
+      .option('-y, --yes', 'Confirm a run that exceeds the bulk-change thresholds')
+      .action(async (options, command) => {
+        const handler = new IntegrationSyncHandler(command);
+        await handler.run(options);
+      }),
+  )
+  .addCommand(
+    new Command('comment')
+      .description('Author a comment on a linked bead; the next sync posts it')
+      .argument('<bead>', 'Bead ID')
+      .argument('<text>', 'Comment text')
+      .option('--provider <name>', 'Provider the bead is linked to (default: linear)')
+      .action(async (bead, text, options, command) => {
+        const handler = new IntegrationCommentHandler(command);
+        await handler.run(bead, text, options);
+      }),
+  )
+  .addCommand(
+    new Command('link')
+      .description('Link a bead to an existing external item')
+      .argument('<bead>', 'Bead ID')
+      .argument('<ref>', 'External reference (FIN-123, linear:FIN-123, or a URL)')
+      .option('--provider <name>', 'Provider (default: linear)')
+      .option('--take <side>', 'When fields differ: adopt local or remote values')
+      .action(async (bead, ref, options, command) => {
+        const handler = new IntegrationLinkHandler(command);
+        await handler.run(bead, ref, options);
+      }),
+  )
+  .addCommand(
+    new Command('unlink')
+      .description('Remove the link between beads and their external items')
+      .argument('<beads...>', 'Bead IDs')
+      .option('--provider <name>', 'Provider (default: linear)')
+      .action(async (beads, options, command) => {
+        const handler = new IntegrationUnlinkHandler(command);
+        await handler.run(beads, options);
       }),
   );
 

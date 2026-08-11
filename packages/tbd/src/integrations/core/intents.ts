@@ -85,6 +85,7 @@ export const IntentFileSchema = z.object({
 });
 
 export type IntentOp = z.infer<typeof IntentOpSchema>;
+export type IntentPatch = z.infer<typeof CanonicalPatchSchema>;
 export type IntentFile = z.infer<typeof IntentFileSchema>;
 
 function intentPath(dataSyncDir: string, provider: ProviderNameType, runId: string): string {
