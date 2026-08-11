@@ -3,14 +3,14 @@ type: is
 id: is-01kzmymyeqmcbj9ffn9wk9qpf0
 title: tbd list --pretty renders grandchildren at the wrong depth
 kind: bug
-status: open
+status: in_progress
 priority: 2
-version: 2
+version: 3
 labels:
   - tree-view
 dependencies: []
 created_at: 2026-08-10T04:24:45.763Z
-updated_at: 2026-08-10T04:25:01.218Z
+updated_at: 2026-08-11T01:26:28.709Z
 ---
 renderTreeNode() in packages/tbd/src/cli/lib/tree-view.ts pushes the child connector without the ancestor prefix:
 

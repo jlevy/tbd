@@ -5,13 +5,15 @@ title: Land tbd-web spike PR (stacked on PR 205)
 kind: task
 status: in_progress
 priority: 2
-version: 9
+version: 10
 spec_path: docs/project/specs/active/plan-2026-08-10-tbd-web-live-bead-view.md
 labels:
   - viewer
 dependencies: []
+child_order_hints:
+  - is-01kzq6hcbgh58y4sv88g74q3n0
 created_at: 2026-08-10T06:31:08.978Z
-updated_at: 2026-08-10T23:23:30.688Z
+updated_at: 2026-08-11T01:21:06.415Z
 extensions:
   linear:
     id: 87a13af9-a3b4-4897-873a-f8bfeb82fa65
