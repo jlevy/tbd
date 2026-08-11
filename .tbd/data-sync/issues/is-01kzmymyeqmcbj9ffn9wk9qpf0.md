@@ -5,12 +5,12 @@ title: tbd list --pretty renders grandchildren at the wrong depth
 kind: bug
 status: in_progress
 priority: 2
-version: 3
+version: 4
 labels:
   - tree-view
 dependencies: []
 created_at: 2026-08-10T04:24:45.763Z
-updated_at: 2026-08-11T01:26:28.709Z
+updated_at: 2026-08-11T01:34:41.857Z
 ---
 renderTreeNode() in packages/tbd/src/cli/lib/tree-view.ts pushes the child connector without the ancestor prefix:
 
@@ -27,3 +27,7 @@ tbd-4wn0 and its siblings are children of tbd-70dj, which is itself a child of t
 Fix: emit prefix + connector + lineWithoutPrefix. Continuation lines (lineIndex > 0) are already correct because they retain childPrefix.
 
 Worth a golden test at depth 3; existing coverage appears to stop at depth 2 where the bug is invisible.
+
+## Notes
+
+Fixed on claude/tbd-web-spike: renderTreeNode re-applies the ancestor prefix; depth-3 goldens in tests/tree-view.test.ts; verified live (tbd-70dj subtree renders at true depth). Awaiting full-suite gate (deferred: disk guardrail) before close.
