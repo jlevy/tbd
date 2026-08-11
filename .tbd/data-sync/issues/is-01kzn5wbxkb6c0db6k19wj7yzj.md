@@ -3,9 +3,9 @@ type: is
 id: is-01kzn5wbxkb6c0db6k19wj7yzj
 title: "Spec: tbd web — production-ready live bead view"
 kind: epic
-status: in_progress
+status: closed
 priority: 1
-version: 22
+version: 24
 spec_path: docs/project/specs/active/plan-2026-08-10-tbd-web-live-bead-view.md
 labels:
   - viewer
@@ -21,7 +21,9 @@ child_order_hints:
   - is-01kzrs6s3fn7gtzgt70wx9yzas
   - is-01kzrs779s8d2t4qmvpx310p22
 created_at: 2026-08-10T06:31:08.978Z
-updated_at: 2026-08-11T16:18:42.484Z
+updated_at: 2026-08-11T19:30:45.759Z
+closed_at: 2026-08-11T19:30:45.757Z
+close_reason: "Production-ready tbd web implementation is complete end to end. All implementation phases and 14 final-review findings are closed; documentation and package artifacts are current; CI and external checks are green; PR #207 is non-draft, MERGEABLE, CLEAN, and ready for maintainer merge."
 extensions:
   linear:
     id: 87a13af9-a3b4-4897-873a-f8bfeb82fa65
@@ -33,4 +35,4 @@ Deliver PR #207 to the approved merge bar in docs/project/specs/active/plan-2026
 
 ## Notes
 
-2026-08-11 finalization pass: Phase 2 is complete. Remaining implementation is mapped as child beads through BoardState, HTTP/SSE, wake coordination, WebHandler lifecycle, typed client/build artifact, docs/spike retirement, and production/package/CI validation. Existing supply-chain audit baseline remains tracked in tbd-6gy0; this PR adds no dependency.
+Production-ready tbd web implementation is complete end to end. All implementation phases and 14 final-review findings are closed; documentation and package artifacts are current; CI and external checks are green; PR #207 is non-draft, MERGEABLE, CLEAN, and ready for maintainer merge.

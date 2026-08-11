@@ -3,9 +3,9 @@ type: is
 id: is-01kzrs2jrjg3pzase83ebxdjyg
 title: "Address review: PR #207 — final Bugbot body-fetch finding"
 kind: task
-status: in_progress
+status: closed
 priority: 1
-version: 18
+version: 20
 spec_path: docs/project/specs/active/plan-2026-08-10-tbd-web-live-bead-view.md
 labels:
   - pr-207
@@ -28,7 +28,9 @@ child_order_hints:
   - is-01kzs2g35k00znnx9zh7gprp9g
   - is-01kzs413qjm4aj1xtt6pbg7gp7
 created_at: 2026-08-11T16:04:18.833Z
-updated_at: 2026-08-11T19:15:45.009Z
+updated_at: 2026-08-11T19:30:43.665Z
+closed_at: 2026-08-11T19:30:43.664Z
+close_reason: "Final senior review complete on head 66a63cca: all 14 mapped findings are closed, all 9 inline review threads are resolved, all flat comments/reviews were re-audited, and a final no-blockers review was submitted. CI run 31527569977 and external checks are green."
 extensions:
   linear:
     id: d207b5f2-dcc4-4e68-9b30-eb80a250b892
@@ -37,3 +39,7 @@ extensions:
     url: https://linear.app/finterm-ai/issue/TBD-133/address-review-pr-207-final-bugbot-body-fetch-finding
 ---
 Track and close the remaining unresolved Cursor Bugbot review thread on PR #207, then complete a fresh final senior review and merge-readiness verification.
+
+## Notes
+
+Final senior review complete on head 66a63cca: all 14 mapped findings are closed, all 9 inline review threads are resolved, all flat comments/reviews were re-audited, and a final no-blockers review was submitted. CI run 31527569977 and external checks are green.
