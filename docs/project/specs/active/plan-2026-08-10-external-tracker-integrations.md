@@ -81,8 +81,11 @@ cross-branch overview of epics) with none of the distributed-systems risk.
 - **No mirroring of the whole bead store.** Only policy-selected and explicitly linked
   beads participate — typically ~10% of open work.
   The value is the filter.
-- **No comment or notes synchronization** beyond the conflict-report comments defined
-  here.
+- **No synchronization of comment edits or deletions.** Comments *do* sync — as
+  append-only sequences, which is what makes them easy (see
+  [Comments](#comments-append-only-sequences-not-merged-fields)) — but an edit or
+  deletion on either side is out of scope: the stored sequence keeps the original.
+  Notes (`notes:` on a bead) stay local-only.
 - **No multi-repo to one tracker support.** Two repos linking the same external item
   would double-write. Documented as unsupported and detected where cheap.
 - **No generated `TODO.md`** in this spec.
@@ -235,11 +238,15 @@ Three layers, each independently useful:
 Everything an integration does is one of four things, and the policy has a clause for
 each:
 
+The clause names state their direction (a review round found `mirror`/`import`/`sync`
+too vague about which way data moves, and `sync` should be reserved for the full
+synchronization):
+
 | Question | Policy clause | Verb it defaults |
 | --- | --- | --- |
-| When should a bead go to the tracker? | `mirror` — a selector over beads | `tbd integration mirror` |
-| When should a tracker issue become a bead? | `import` — a selector over external items, plus a mode | `tbd integration import` |
-| How does a **linked** pair reconcile when one or both sides changed? | `sync` — per-field flow rules and a conflict tie-break | `tbd integration sync` |
+| When should a bead create a tracker issue? | `outbound` — a selector over beads | `tbd integration mirror` |
+| When should a tracker issue create a bead? | `inbound` — a selector over external items, plus a mode | `tbd integration import` |
+| How do a **linked** pair’s fields and comments flow when one or both sides changed? | `field_sync` — per-field flow rules, comment mode, and a conflict tie-break | `tbd integration sync` |
 | What about everything else? | Nothing happens to it — but it is **visible**: `status` reports unlinked-but-matching beads, importable items, drift, and conflicts | `tbd integration status` |
 
 Two rules make this composable rather than policy-bound, both validated by the Phase 1
@@ -248,17 +255,17 @@ staged rollout:
 - **The policy is only a default.
   Explicit selectors always override it.** `mirror --bead X` mirrors X whether or not
   the policy matches it; `link` and `unlink` are always manual; `import <ref>` imports
-  regardless of the import clause.
+  regardless of the inbound clause.
   A staged rollout (3 beads, then 13, then 82) needs no config edits.
 - **Linking and syncing are separate decisions.** The policy governs when *links come
   into existence*. Once a pair is linked — by policy, by hand, or by import — `sync`
   reconciles it until it is unlinked.
-  Membership in the mirror selector is not re-checked at sync time, so un-matching a
+  Membership in the outbound selector is not re-checked at sync time, so un-matching a
   bead (say, its spec archives) stops new attention but never strands a live link.
 
-`sync` is the one verb that applies the whole policy: replay pending intents, reconcile
-every linked pair, then handle policy-matching unlinked work on both sides (create,
-import, or report, per the clauses).
+`sync` is the one verb that performs the **full synchronization**: replay pending
+intents, reconcile every linked pair per `field_sync`, then handle policy-matching
+unlinked work on both sides (create outbound, import or report inbound).
 `mirror` and `import` remain the targeted, manual forms of its two halves.
 `status` is the read-only preview of exactly the same computation.
 
@@ -416,6 +423,8 @@ to a first-class field later if it earns one, with a format bump that is actuall
 justified.
 
 - The UUID is canonical because Linear identifiers move between teams; UUIDs do not.
+- In Phase 2 the same namespace also carries the append-only `comments` entries — see
+  [Comments](#comments-append-only-sequences-not-merged-fields).
 - **“At most one link per provider” is structural**, not enforced: the namespace key
   *is* the provider, so there is no second entry to collapse and no merge rule needed.
   A bead can hold a Linear link and a GitHub link at once, each merged independently.
@@ -521,17 +530,17 @@ The inline form, shown with the values the `default` preset expands to:
 
 ```yaml
     policy:
-      mirror:                # when a bead should go to the tracker
+      outbound:              # when a bead should create a tracker issue
         kinds: [epic]
         statuses: [open, in_progress, blocked]
         labels: []
         specs: active        # none | active | any — beads whose spec is in specs/active/
         linked: true         # already-linked beads always participate
-      import:                # when a tracker issue should become a bead
+      inbound:               # when a tracker issue should create a bead
         mode: report         # off | report | auto
         labels: []           # only items carrying one of these labels (empty: any)
         as_kind: task        # kind assigned to imported beads
-      sync:                  # how a linked pair reconciles
+      field_sync:            # how a linked pair's fields and comments flow
         fields:
           title: merge       # merge | local | remote
           description: merge
@@ -539,6 +548,7 @@ The inline form, shown with the values the `default` preset expands to:
           priority: merge
           labels: local
           assignee: local
+        comments: two_way    # two_way | inbound | outbound | off — see Comments below
         tie_break: newest    # newest | local | remote — both-sides-changed fallback
 ```
 
@@ -546,23 +556,23 @@ The inline form, shown with the values the `default` preset expands to:
 `policy: z.union([PolicyName, PolicyDefinitionSchema])`. New presets are additions to an
 enum and a table, which is the whole point of naming them: a future `policy: full-sync`
 or `policy: triage-only` is one line in a repo’s config and zero migration.
-(The Phase 1 `select` key is the `mirror` clause by its old name; it is folded into
-`policy.mirror` during config load and documented as deprecated.)
+(The Phase 1 `select` key is the `outbound` clause by its old name; it is folded into
+`policy.outbound` during config load and documented as deprecated.)
 
 Clause semantics:
 
-- **`mirror`** — a selector over beads, evaluated by `mirrorSet()` which reuses the
+- **`outbound`** — a selector over beads, evaluated by `mirrorSet()` which reuses the
   predicates in `lib/issue-selection.ts` (the same module `list`/`ready`/`changes`
   share). Rules are OR’d (a bead qualifies by kind *or* by spec), then gated by
   `statuses`. The default names the recommended practice: **major epics and beads with
   active specs, typically ~10% of open work** — not the whole store.
-- **`import`** — a selector over external items in the configured team/project that are
+- **`inbound`** — a selector over external items in the configured team/project that are
   not linked to any bead.
   `mode: off` ignores them; `report` (the default) lists them in `status` and `sync`
   output with ready-to-run `import` commands; `auto` imports them during `sync`. `auto`
   is the “PM files a ticket in Linear, an agent picks it up as a bead” loop, and it
   stays opt-in because it lets people outside the repo create work inside it.
-- **`sync`** — per-field flow rules for linked pairs.
+- **`field_sync`** — flow rules for linked pairs.
   `merge` is full three-way (either side can change it; both-sides changes conflict).
   `local` means tbd owns it: pushed outward, and a tracker-side edit is overwritten on
   the next sync — **reported, never silent**. `remote` is the reverse.
@@ -570,7 +580,9 @@ Clause semantics:
   converge**; `labels` stays local because pulling a team’s label taxonomy into beads
   imports noise; `assignee` stays local because tracker assignees are people
   (names/emails), and nothing person-identifying lands in beads without an explicit
-  `user_map` and an explicit `assignee: merge`.
+  `user_map` and an explicit `assignee: merge`. The `comments` mode governs the
+  append-only comment sequences described in
+  [Comments](#comments-append-only-sequences-not-merged-fields).
 
 **Bulk-change guard.** Any run that would create more than **20** items or update more
 than **40** — in either system, in either direction — requires confirmation.
@@ -653,7 +665,7 @@ tbd integration mirror [--bead <ids...>] [-t <kind>] [--status <s>] [-l <label>]
                        [--spec <path>] [--limit <n>] [--yes] [--dry-run] [--json]
 ```
 
-With no selectors, the policy’s `mirror` clause applies; any selector overrides it
+With no selectors, the policy’s `outbound` clause applies; any selector overrides it
 wholesale. Plan/apply split so `--dry-run` is the same code path minus writes:
 
 ```ts
@@ -681,8 +693,8 @@ steady-state runs are mostly no-ops.
 
 #### 10. Sync (`core/bridge-state.ts`, `core/reconcile.ts`, `core/intents.ts`)
 
-The sync engine reconciles every linked pair, then applies the policy’s `mirror` and
-`import` clauses to unlinked work on both sides.
+The sync engine reconciles every linked pair, then applies the policy’s `outbound` and
+`inbound` clauses to unlinked work on both sides.
 It is built on four ideas, each of which earns its place by a specific failure it
 prevents:
 
@@ -755,7 +767,7 @@ Design points, in decreasing order of importance:
 ##### The reconcile algorithm (`core/reconcile.ts`, pure)
 
 For each linked pair:
-`reconcile(base, local, remote, policy.sync) → {beadPatch, externalPatch, conflicts[]}`,
+`reconcile(base, local, remote, policy.field_sync) → {beadPatch, externalPatch, conflicts[]}`,
 per field:
 
 | local vs base | remote vs base | outcome |
@@ -786,6 +798,75 @@ Description is compared **after normalization** (strip the managed block, normal
 endings and trailing whitespace) so tbd’s own splice and Linear’s markdown
 round-tripping never register as remote edits.
 Pushes re-splice the managed block around the merged body.
+
+##### Comments: append-only sequences, not merged fields
+
+<a id="comments-append-only-sequences-not-merged-fields"></a>
+
+Comments are the one kind of content whose synchronization is *easier* than fields, and
+the design leans on why: **a posted comment is immutable and has a stable id**, so both
+sides are append-only sequences.
+Synchronizing two append-only sequences needs no base, no three-way, and no conflict
+handling — the merged state is the **union by id, ordered by creation time**. Each
+comment is handled individually, in sequence.
+
+Storage rides the link namespace the bead already carries — the external payload lists
+the immutable comment ids alongside the issue UUID, and the entries carry the content:
+
+```yaml
+extensions:
+  linear:
+    id: 9cbb48f8-…                    # issue UUID (Phase 1)
+    key: TBD-12
+    url: https://linear.app/…
+    linked_at: 2026-08-10T18:00:00Z
+    comments:                         # append-only, ordered by `at`
+      - id: 41f2c3d4-…               # Linear's immutable comment UUID
+        at: 2026-08-11T02:10:00Z
+        author: "Joshua Levy"         # display name only, never an email
+        body: "Ship it after the soak."
+      - local_id: 01J4X5…             # ulid minted at authoring; no id yet = not pushed
+        at: 2026-08-11T02:12:00Z
+        author: tbd
+        body: "Blocked on the rate-limit probe."
+```
+
+- **Identity.** An inbound comment’s identity is the provider’s immutable comment UUID.
+  An outbound comment is authored with a ulid `local_id` (time-ordered, so local
+  sequence order is intrinsic); pushing it posts `commentCreate` and records the
+  returned UUID onto the entry.
+  Replay safety follows the intent rules: client-UUID dedup if the API honors it (open
+  question 7), else a `local_id` marker in the body lets replay detect an already-posted
+  comment.
+- **Merge.** The `comments` array inside a provider namespace merges by **union on
+  id/`local_id`** — the one array-typed key in the namespace with union semantics, a
+  bounded extension of the per-namespace merge.
+  Namespace deletion (unlink) still wins as absence.
+  Two machines appending different comments both survive; the same comment arriving
+  twice dedupes on its id.
+- **Flow.** `field_sync.comments: two_way` (default) pulls new external comments and
+  pushes local-authored ones each sync; `inbound` / `outbound` restrict direction; `off`
+  disables. Local authoring: `tbd integration comment <bead> "text"` appends an entry and
+  works offline — it pushes on the next sync.
+  The conflict-report comments from the field engine ride this same rail (they are
+  simply comments authored by tbd, with their resolve lifecycle tracked in the bridge).
+- **Bounds.** Stored bodies are capped (10 KB per comment, 50 comments per bead; older
+  entries collapse to `{id, at, author}` stubs with a “full text in Linear” pointer) so
+  a chatty tracker thread cannot bloat a bead file.
+  Caps are constants first, config only if someone actually needs different ones.
+- **What does not sync**: edits and deletions (append-only means the sequence keeps the
+  original; a Linear-side edit is ignored, documented), reactions, and threading (Linear
+  child comments flatten in `at` order, marked `in_reply_to` if we ever need it back).
+- **Security.** The entry shape is an allow-list like the link payload: id, timestamp,
+  author *display name*, body.
+  No emails, no avatars, no raw payloads.
+  Comment content is the one place tracker-authored prose enters the repo, and that is
+  exactly what the user asked comments sync to do — but it enters as data written by the
+  normal bead write path, never interpreted as instructions.
+
+This deliberately reuses the Phase 1 storage philosophy: comments live in `extensions`
+now, additively and with no format bump, and can be promoted to a first-class `comments`
+field later if they earn it.
 
 ##### Applying: intents, idempotency, and honest completion
 
@@ -851,8 +932,9 @@ Replay safety is per-operation, verified against the mock server:
 
 The Phase 1 security rules extend to the new surfaces, each backed by a test:
 
-- Into **beads**: canonical fields via the mapping tables plus the four-key link payload
-  — never raw API responses, actor identities, emails, or workspace metadata.
+- Into **beads**: canonical fields via the mapping tables, the four-key link payload,
+  and allow-listed comment entries (id, timestamp, author display name, capped body) —
+  never raw API responses, emails, or workspace metadata.
 - Into **bridge records** (committed to git): the shape above and nothing else — ids,
   canonical base scalars, a hash, two timestamps, a state enum.
 - Into **Linear**: bead content and the managed block — never credentials, `.env`
@@ -903,7 +985,7 @@ Shipped in Phase 1:
 Phase 2 adds:
 
 - `policy` on each provider config: preset name or inline `PolicyDefinitionSchema`;
-  Phase 1’s `select` folds into `policy.mirror` as a deprecated alias.
+  Phase 1’s `select` folds into `policy.outbound` as a deprecated alias.
 - Commands:
   `tbd integration link <bead> <ref> [--take local|remote] | unlink <bead...> | import <ref...> [--yes] | sync [--dry-run] [--yes]`.
   All honor the bulk guard in **both directions** (imports and inbound bead updates
@@ -985,8 +1067,8 @@ Build order matters: each step is testable before the next, and the pure core la
 before anything touches the network.
 
 - [ ] **`core/policy.ts`** — `PolicyDefinitionSchema`, `PolicyName` presets,
-  `resolvePolicy(config): PolicyDefinition`; fold legacy `select` into `policy.mirror`;
-  exhaustive zod round-trip tests.
+  `resolvePolicy(config): PolicyDefinition`; fold legacy `select` into
+  `policy.outbound`; exhaustive zod round-trip tests.
 - [ ] **`core/bridge-state.ts`** — `readLinkRecord`/`writeLinkRecord` on
   `bridge/<provider>/links/<bead-id>.yml`; `LinkRecordSchema` (`type: lk`); reverse
   index (`byExternalId`); normalized description hashing.
@@ -1005,8 +1087,13 @@ before anything touches the network.
   `updatedAt`-filtered batched fetch.
 - [ ] **`tbd integration sync`** — replay → pull (derived watermark, generous overlap) →
   reconcile → apply (external, then beads via the normal write path, then base advance +
-  intent cleanup, committed) → policy scan (mirror-new, import per mode) → honest
-  report. `--dry-run`, `--yes` (guard in both directions), `--json`.
+  intent cleanup, committed) → policy scan (create outbound-new, import or report
+  inbound per mode) → honest report.
+  `--dry-run`, `--yes` (guard in both directions), `--json`.
+- [ ] **Comment sequences** — union-by-id merge for the `comments` array inside a
+  provider namespace; pull/push inside `sync` per `field_sync.comments`;
+  `tbd integration comment <bead> "text"`; body/count caps with stub collapse; replay
+  dedup per open question 7.
 - [ ] **`tbd integration link / unlink / import`** (`tbd-az29`) — link stance (`--take`,
   interactive diff, non-interactive refusal); one-source guard via reverse index +
   `tbd://bead/` attachment probe (`--force` override); import as one-shot all-remote
@@ -1045,6 +1132,9 @@ Phase 2 extends the same structure:
 - **Crash replay**: `intents.test.ts` simulates a crash after every step of the apply
   sequence and asserts the next run converges without duplicates — the mock server’s
   duplicate-id and upsert behavior is what makes this provable.
+- **Comments**: two machines append different comments and merge (union, both survive);
+  the same comment pulled twice dedupes; a capped thread collapses to stubs without
+  losing ids.
 - **Echo**: push, then pull with a bumped `updatedAt` and identical fields → zero
   changes reported. This pins the “correctness never depends on timestamps” property.
 - **Guards, both directions**: >20 imports and >40 inbound bead updates refuse
@@ -1077,7 +1167,7 @@ Phase 2 extends the same structure:
    - `tbd-rdsb` resolved (or CI explicitly accepted as unreliable), since sync trusts
      the sync-branch commit machinery;
    - failure-injection coverage for transport errors mid-run.
-     `import.mode: auto` stays off by default even then — it lets people outside the
+     `inbound.mode: auto` stays off by default even then — it lets people outside the
      repo create work inside it, and a repo should opt into that knowingly.
 4. Phase 3 (GitHub) after Linear sync has run for real for a while.
 

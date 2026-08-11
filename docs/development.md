@@ -87,28 +87,26 @@ pnpm test:uninstall
 
 This creates an npm tarball and installs from it, validating the full package structure.
 
-### Live bead web viewer (development spike)
+### Live bead web view (`tbd web`)
 
-A zero-dependency local web view over the bead graph, driven by `tbd watch`. It is a
-development and QA instrument, not part of the published package (`scripts/` is excluded
-from the npm tarball):
+`tbd web` is a built-in command serving a loopback-only live view of the bead graph,
+driven by `tbd watch` and sharing the CLI’s query semantics exactly (each view shows its
+equivalent `tbd list` invocation).
+It is being productionized through [PR #207](https://github.com/jlevy/tbd/pull/207); the
+plan of record is
+[plan-2026-08-10-tbd-web-live-bead-view.md](project/specs/active/plan-2026-08-10-tbd-web-live-bead-view.md).
+
+Until that lands, the working implementation runs from `scripts/` (not part of the
+published package, and retired when `tbd web` ships):
 
 ```bash
 # Serve the current repository, read-only (recommended for real repos)
 pnpm exec tsx packages/tbd/scripts/bead-web.ts --repo . --read-only --interval 30
-
-# Or build a disposable demo topology (bare remote + writer/watcher clones)
-pnpm build
-pnpm exec tsx packages/tbd/scripts/bead-web.ts --demo
 ```
 
-Then open `http://127.0.0.1:7777`. The page shares the CLI’s query semantics (each view
-shows its equivalent `tbd list` invocation), updates itself when the sync remote or
-local bead files change, and includes `tbd status` and `tbd stats` panels.
-`--help` lists all options; set `TBD_QA_BIN` to drive a packed or installed candidate.
+Then open `http://127.0.0.1:7777`. `--help` lists all options; set `TBD_QA_BIN` to drive
+a packed or installed candidate.
 The server binds loopback only and refuses cross-origin requests.
-Design and productization plan:
-[plan-2026-08-10-tbd-web-live-bead-view.md](project/specs/active/plan-2026-08-10-tbd-web-live-bead-view.md).
 
 ### Building
 
