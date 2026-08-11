@@ -23,6 +23,11 @@
     <header>
       <h1>tbd beads</h1>
       <span class="pill" id="countpill">0 beads</span>
+      <span class="page-controls" id="pagecontrols" hidden>
+        <button id="pageprev" type="button" aria-label="Previous board page">←</button>
+        <span class="pill" id="pagepill" aria-live="polite">page 1 of 1</span>
+        <button id="pagenext" type="button" aria-label="Next board page">→</button>
+      </span>
       <span class="grow"></span>
       <!-- Live-state cluster: everything about the watcher sits together on the right,
            next to the branch it is watching, so it reads as one status area. -->

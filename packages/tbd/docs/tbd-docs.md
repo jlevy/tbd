@@ -696,7 +696,13 @@ The browser opens its live event stream before loading the board, resumes from i
 watch tip after reconnecting, and also refreshes when local bead files change.
 Remote wakes pull current issue state before rendering.
 Descriptions and notes load only when a row is expanded, so the board remains bounded on
-large repositories.
+large repositories. A response can carry up to 10,000 rows; the browser paints them in
+1,000-row pages with sticky and end-of-page navigation.
+Above 10,000 rows, the page reports the complete count and asks for a narrower query.
+Bulk expansion is available when the visible page has 100 rows or fewer; larger pages
+remain individually expandable without an accidental request fan-out.
+At most 100 detail rows remain open, and the client retains only the 200 most recently
+loaded bodies.
 
 ### Change reports
 

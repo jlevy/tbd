@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { BoardState } from '../src/cli/web/board.js';
+import { BoardState, MAX_BOARD_ROWS } from '../src/cli/web/board.js';
 import type { BoardStateDependencies, RepoStatus, WebState } from '../src/cli/web/board.js';
 import type { TbdDataContext } from '../src/cli/lib/data-context.js';
 import type { IdMapping } from '../src/file/id-mapping.js';
@@ -211,5 +211,61 @@ describe('BoardState', () => {
     expect(response.command).toBe('tbd list');
     expect(response.commandExact).toBe(false);
     expect(response.search).toBe('SSE');
+  });
+
+  it('bounds pretty-tree context metadata to rows present in a capped response', async () => {
+    const branchCount = Math.floor(MAX_BOARD_ROWS / 3) + 2;
+    let issueIndex = 0;
+    const nextId = (): string => {
+      const suffix = (issueIndex++).toString(36).padStart(8, '0');
+      return testId(`01webctx${suffix}0000000000`);
+    };
+    const issues: Issue[] = [];
+    for (let branch = 0; branch < branchCount; branch += 1) {
+      const root = createTestIssue({ id: nextId(), title: `Root ${branch}` });
+      const parent = createTestIssue({
+        id: nextId(),
+        title: `Parent ${branch}`,
+        parent_id: root.id,
+      });
+      const leaf = createTestIssue({
+        id: nextId(),
+        title: `Leaf ${branch}`,
+        parent_id: parent.id,
+        labels: ['selected'],
+      });
+      issues.push(root, parent, leaf);
+    }
+    const shortToUlid = new Map(
+      issues.map((issue, index) => [`ctx${index.toString(36)}`, issue.id.slice(3)]),
+    );
+    const largeContext = {
+      ...context,
+      mapping: {
+        shortToUlid,
+        ulidToShort: new Map([...shortToUlid].map(([short, ulid]) => [ulid, short])),
+      },
+    } as unknown as TbdDataContext;
+    const dependencies: BoardStateDependencies = {
+      loadContext: () => Promise.resolve(largeContext),
+      listIssues: () => Promise.resolve(issues),
+      readRepoStatus: () => Promise.resolve(repoStatus),
+      readLocalTip: () => Promise.resolve('a'.repeat(40)),
+      now: () => new Date('2026-08-11T12:00:00.000Z'),
+    };
+    const board = new BoardState('/repo', dependencies);
+    await board.reload();
+
+    const response = board.buildBoardResponse(
+      new URLSearchParams('all=1&label=selected&pretty=1'),
+      stateFor(board),
+    );
+
+    expect(response.rows).toHaveLength(MAX_BOARD_ROWS);
+    expect(response.truncated).toBe(issues.length);
+    const responseIds = new Set(response.rows.map((row) => row.id));
+    expect(response.contextIds.length).toBeGreaterThan(0);
+    expect(response.contextIds.every((id) => responseIds.has(id))).toBe(true);
+    expect(response.contextCount).toBe(response.contextIds.length);
   });
 });

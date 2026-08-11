@@ -1,16 +1,22 @@
 import { describe, expect, it, vi } from 'vitest';
 
 import {
+  BOARD_PAGE_SIZE,
   buildQueryString,
   caveatsFor,
   createClientStore,
   deltasValid,
+  MAX_BODY_CACHE_ENTRIES,
   MAX_BODY_REQUEST_CONCURRENCY,
+  MAX_EXPANDED_ROWS,
+  MAX_GHOST_ROWS,
+  paginateBoardRows,
   phaseLabel,
 } from '../src/web/core.js';
 import type {
   BoardControls,
   BoardResponse,
+  BoardRowView,
   ClientStorage,
   Transport,
   WatchStateView,
@@ -97,6 +103,46 @@ async function flush(): Promise<void> {
 }
 
 describe('client core pure helpers', () => {
+  it('pages a 10000-row board into bounded DOM-sized windows', () => {
+    const seed = board(state()).rows[0]!;
+    const rows: BoardRowView[] = Array.from({ length: 10_000 }, (_, index) => ({
+      ...seed,
+      id: `web-${index}`,
+    }));
+
+    const first = paginateBoardRows(rows, 0);
+    expect(first.rows).toHaveLength(BOARD_PAGE_SIZE);
+    expect(first).toMatchObject({
+      pageIndex: 0,
+      pageCount: 10,
+      start: 0,
+      end: BOARD_PAGE_SIZE,
+      total: 10_000,
+    });
+
+    const last = paginateBoardRows(rows, 999);
+    expect(last.rows).toHaveLength(BOARD_PAGE_SIZE);
+    expect(last.rows[0]?.id).toBe('web-9000');
+    expect(last).toMatchObject({
+      pageIndex: 9,
+      pageCount: 10,
+      start: 9_000,
+      end: 10_000,
+      total: 10_000,
+    });
+
+    expect(paginateBoardRows(rows, -1).pageIndex).toBe(0);
+    expect(paginateBoardRows(rows, Number.NaN).pageIndex).toBe(0);
+    expect(paginateBoardRows([], 4)).toMatchObject({
+      rows: [],
+      pageIndex: 0,
+      pageCount: 0,
+      start: 0,
+      end: 0,
+      total: 0,
+    });
+  });
+
   it('serializes controls one-to-one with CLI-shaped query parameters', () => {
     const controls: BoardControls = {
       search: 'release smoke',
@@ -293,6 +339,91 @@ describe('createClientStore transport orchestration', () => {
     }
     await flush();
     expect(bodyRequests).toHaveLength(MAX_BODY_REQUEST_CONCURRENCY + 1);
+    store.stop();
+  });
+
+  it('caps simultaneous expanded rows before scheduling detail work', async () => {
+    const bodyRequests: Deferred<unknown>[] = [];
+    const transport: Transport = {
+      openEvents: () => ({ close: vi.fn() }),
+      fetchJson: (url) => {
+        if (url.startsWith('/api/board?')) {
+          return Promise.resolve(board(state()));
+        }
+        const request = deferred<unknown>();
+        bodyRequests.push(request);
+        return request.promise;
+      },
+    };
+    const store = createClientStore(transport, vi.fn());
+    await store.start();
+    const ids = Array.from({ length: MAX_EXPANDED_ROWS + 20 }, (_, index) => `web-${index}`);
+
+    store.setExpanded(ids);
+
+    expect([...store.getView().expanded]).toEqual(ids.slice(0, MAX_EXPANDED_ROWS));
+    expect(bodyRequests).toHaveLength(MAX_BODY_REQUEST_CONCURRENCY);
+
+    store.toggle(ids[MAX_EXPANDED_ROWS]!);
+    expect([...store.getView().expanded]).toEqual(ids.slice(1, MAX_EXPANDED_ROWS + 1));
+    expect(bodyRequests).toHaveLength(MAX_BODY_REQUEST_CONCURRENCY);
+    store.stop();
+  });
+
+  it('retains only the most recent bounded body cache across collapsed batches', async () => {
+    const transport: Transport = {
+      openEvents: () => ({ close: vi.fn() }),
+      fetchJson: (url) => {
+        if (url.startsWith('/api/board?')) {
+          return Promise.resolve(board(state()));
+        }
+        return Promise.resolve({ id: new URL(url, 'http://localhost').searchParams.get('id') });
+      },
+    };
+    const store = createClientStore(transport, vi.fn());
+    await store.start();
+
+    for (let batch = 0; batch < 3; batch += 1) {
+      const ids = Array.from(
+        { length: MAX_EXPANDED_ROWS },
+        (_, index) => `batch-${batch}-${index}`,
+      );
+      store.setExpanded(ids);
+      await vi.waitFor(() => {
+        expect(store.getView().bodies.has(ids.at(-1)!)).toBe(true);
+      });
+      store.setExpanded([]);
+    }
+
+    expect(store.getView().bodies.size).toBe(MAX_BODY_CACHE_ENTRIES);
+    expect(store.getView().bodies.has('batch-0-0')).toBe(false);
+    expect(store.getView().bodies.has('batch-2-99')).toBe(true);
+    store.stop();
+  });
+
+  it('caps deletion ghosts when one wake removes a large board', async () => {
+    let onState: ((next: unknown) => void) | null = null;
+    const initial = board(state());
+    const seed = initial.rows[0]!;
+    const ids = Array.from({ length: MAX_GHOST_ROWS + 50 }, (_, index) => `web-${index}`);
+    initial.rows = ids.map((id) => ({ ...seed, id }));
+    initial.total = ids.length;
+    initial.matched = ids.length;
+    const transport: Transport = {
+      openEvents: (_url, callback) => {
+        onState = callback;
+        return { close: vi.fn() };
+      },
+      fetchJson: () => Promise.resolve(initial),
+    };
+    const store = createClientStore(transport, vi.fn());
+    await store.start();
+
+    onState!(state({ dataVersion: 1, removedIds: ids, watchSince: 'b'.repeat(40) }));
+    await flush();
+
+    expect(store.getView().ghostRows).toHaveLength(MAX_GHOST_ROWS);
+    expect(store.getView().ghostRows.map((row) => row.id)).toEqual(ids.slice(0, MAX_GHOST_ROWS));
     store.stop();
   });
 });

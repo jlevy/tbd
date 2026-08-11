@@ -1,4 +1,11 @@
-import { caveatsFor, createClientStore, deltasValid, phaseLabel } from './core.js';
+import {
+  caveatsFor,
+  createClientStore,
+  deltasValid,
+  MAX_EXPANDED_ROWS,
+  paginateBoardRows,
+  phaseLabel,
+} from './core.js';
 import type {
   BeadBodyView,
   BoardControls,
@@ -22,6 +29,7 @@ function byId<T extends HTMLElement>(id: string, constructor: new () => T): T {
 }
 
 const elements = {
+  tableWrap: byId('tablewrap', HTMLDivElement),
   rows: byId('rows', HTMLTableSectionElement),
   empty: byId('empty', HTMLDivElement),
   report: byId('report', HTMLPreElement),
@@ -32,6 +40,10 @@ const elements = {
   watchPill: byId('watchpill', HTMLSpanElement),
   wakePill: byId('wakepill', HTMLSpanElement),
   countPill: byId('countpill', HTMLSpanElement),
+  pageControls: byId('pagecontrols', HTMLSpanElement),
+  pagePrevious: byId('pageprev', HTMLButtonElement),
+  pagePill: byId('pagepill', HTMLSpanElement),
+  pageNext: byId('pagenext', HTMLButtonElement),
   tipPill: byId('tippill', HTMLSpanElement),
   search: byId('q', HTMLInputElement),
   status: byId('status', HTMLSelectElement),
@@ -55,6 +67,8 @@ const STATUS_ICON: Record<string, string> = {
   closed: '✓',
 };
 const PRIORITY_LABEL = ['Critical', 'High', 'Medium', 'Low', 'Lowest'] as const;
+let boardPageIndex = 0;
+let scrollBoardToTopAfterRender = false;
 
 function choice<T extends string>(value: string, choices: readonly T[], fallback: T): T {
   return choices.includes(value as T) ? (value as T) : fallback;
@@ -229,14 +243,19 @@ function renderGhost(row: BoardRowView): HTMLTableRowElement {
   return tableRow;
 }
 
-function renderRow(view: ClientView, board: BoardResponse, row: BoardRowView): DocumentFragment {
+function renderRow(
+  view: ClientView,
+  row: BoardRowView,
+  changedIds: ReadonlySet<string>,
+  contextIds: ReadonlySet<string>,
+): DocumentFragment {
   const fragment = document.createDocumentFragment();
   const tableRow = document.createElement('tr');
   const open = view.expanded.has(row.id);
   const classes = [
-    view.watch?.changedIds.includes(row.id) === true ? 'changed' : '',
+    changedIds.has(row.id) ? 'changed' : '',
     open ? 'open' : '',
-    board.contextIds.includes(row.id) ? 'context' : '',
+    contextIds.has(row.id) ? 'context' : '',
     view.flashIds.has(row.id) ? 'flash' : '',
   ].filter(Boolean);
   tableRow.className = classes.join(' ');
@@ -443,27 +462,86 @@ function renderLog(watch: WatchStateView): void {
   }
 }
 
+function navigateBoardPage(pageIndex: number): void {
+  boardPageIndex = pageIndex;
+  scrollBoardToTopAfterRender = true;
+  // Expanded bodies belong to the page being left. Clearing them also drops queued
+  // detail work before the next bounded render window is painted.
+  store.setExpanded([]);
+}
+
+function appendBoardPager(board: BoardResponse, pageIndex: number): void {
+  const page = paginateBoardRows(board.rows, pageIndex);
+  if (page.pageCount <= 1 && board.truncated === 0) {
+    return;
+  }
+
+  const row = document.createElement('tr');
+  row.className = 'board-page-row';
+  const cell = appendCell(row, '', 'board-page');
+  cell.colSpan = 7;
+
+  const previous = document.createElement('button');
+  previous.type = 'button';
+  previous.textContent = 'Previous';
+  previous.disabled = page.pageIndex === 0;
+  previous.addEventListener('click', () => {
+    navigateBoardPage(page.pageIndex - 1);
+  });
+
+  const summary = document.createElement('span');
+  const range =
+    page.total === 0 ? 'No rows' : `Rows ${page.start + 1}–${page.end} of ${page.total}`;
+  const serverLimit =
+    board.truncated === 0
+      ? ''
+      : ` · Server returned the first ${board.rows.length} of ${board.truncated} rows; narrow the query to reach the remainder.`;
+  summary.textContent = `${range}${serverLimit}`;
+
+  const next = document.createElement('button');
+  next.type = 'button';
+  next.textContent = 'Next';
+  next.disabled = page.pageIndex >= page.pageCount - 1;
+  next.addEventListener('click', () => {
+    navigateBoardPage(page.pageIndex + 1);
+  });
+
+  cell.append(previous, summary, next);
+  elements.rows.append(row);
+}
+
 function renderBoard(view: ClientView, board: BoardResponse): void {
+  const page = paginateBoardRows(board.rows, boardPageIndex);
+  const changedIds = new Set(view.watch?.changedIds ?? []);
+  const contextIds = new Set(board.contextIds);
+  boardPageIndex = page.pageIndex;
+  elements.pageControls.hidden = page.pageCount <= 1;
+  elements.pagePrevious.disabled = page.pageIndex === 0;
+  elements.pageNext.disabled = page.pageIndex >= page.pageCount - 1;
+  elements.pagePill.textContent = `page ${page.pageIndex + 1} of ${page.pageCount}`;
+  elements.pagePill.title =
+    page.total === 0 ? 'No rows' : `Rows ${page.start + 1}–${page.end} of ${page.total}`;
   elements.rows.replaceChildren();
   for (const row of view.ghostRows) {
     elements.rows.append(renderGhost(row));
   }
-  for (const row of board.rows) {
-    elements.rows.append(renderRow(view, board, row));
+  for (const row of page.rows) {
+    elements.rows.append(renderRow(view, row, changedIds, contextIds));
   }
-  if (board.truncated > 0) {
-    const row = document.createElement('tr');
-    const cell = appendCell(
-      row,
-      `Truncated: showing ${board.rows.length} of ${board.truncated} rows. Narrow the query.`,
-    );
-    cell.colSpan = 7;
-    elements.rows.append(row);
-  }
+  appendBoardPager(board, page.pageIndex);
   elements.empty.hidden = board.rows.length > 0 || view.ghostRows.length > 0;
   elements.empty.textContent = view.boardError ?? 'No beads match this query.';
-  const allOpen = board.rows.length > 0 && board.rows.every((row) => view.expanded.has(row.id));
-  elements.expandAll.textContent = allOpen ? 'Collapse all' : 'Expand all';
+  const canBulkExpand = page.rows.length <= MAX_EXPANDED_ROWS;
+  const allOpen = page.rows.length > 0 && page.rows.every((row) => view.expanded.has(row.id));
+  elements.expandAll.textContent = canBulkExpand
+    ? allOpen
+      ? 'Collapse page'
+      : 'Expand page'
+    : 'Expand individually';
+  elements.expandAll.disabled = page.rows.length === 0 || !canBulkExpand;
+  elements.expandAll.title = canBulkExpand
+    ? 'Expand or collapse every row on this page.'
+    : `Narrow the query to ${MAX_EXPANDED_ROWS} rows or fewer to expand them together.`;
 }
 
 function renderHeader(view: ClientView, board: BoardResponse, watch: WatchStateView): void {
@@ -497,6 +575,7 @@ function renderHeader(view: ClientView, board: BoardResponse, watch: WatchStateV
 
 let disconnected = false;
 let ghostTimer: number | null = null;
+let renderFrame: number | null = null;
 function render(): void {
   const view = store.getView();
   const { board, watch } = view;
@@ -519,12 +598,28 @@ function render(): void {
   renderLog(watch);
   store.acknowledgeDataMotion();
 
+  if (scrollBoardToTopAfterRender) {
+    scrollBoardToTopAfterRender = false;
+    elements.tableWrap.scrollIntoView({ block: 'start' });
+  }
+
   if (view.ghostRows.length > 0 && ghostTimer === null) {
     ghostTimer = window.setTimeout(() => {
       ghostTimer = null;
       store.clearGhostRows();
     }, 400);
   }
+}
+
+/** Coalesce a burst of body or watcher updates into at most one table paint per frame. */
+function scheduleRender(): void {
+  if (renderFrame !== null) {
+    return;
+  }
+  renderFrame = window.requestAnimationFrame(() => {
+    renderFrame = null;
+    render();
+  });
 }
 
 const store: ClientStore = createClientStore(
@@ -558,7 +653,7 @@ const store: ClientStore = createClientStore(
       const source = new EventSource(eventUrl);
       source.addEventListener('open', () => {
         disconnected = false;
-        render();
+        scheduleRender();
       });
       source.addEventListener('state', (event: MessageEvent<string>) => {
         disconnected = false;
@@ -566,12 +661,12 @@ const store: ClientStore = createClientStore(
           onState(JSON.parse(event.data) as unknown);
         } catch {
           disconnected = true;
-          render();
+          scheduleRender();
         }
       });
       source.addEventListener('error', () => {
         disconnected = true;
-        render();
+        scheduleRender();
       });
       return {
         close: () => {
@@ -580,12 +675,14 @@ const store: ClientStore = createClientStore(
       };
     },
   },
-  render,
+  scheduleRender,
   { storage: window.localStorage },
 );
 
 let filterTimer: number | null = null;
 function applyControls(): void {
+  boardPageIndex = 0;
+  store.setExpanded([]);
   void store.setControls(readControls(store.getView().controls.pretty));
 }
 function debounceControls(): void {
@@ -611,13 +708,27 @@ for (const input of [
 }
 elements.pretty.addEventListener('click', () => {
   const controls = store.getView().controls;
+  boardPageIndex = 0;
+  store.setExpanded([]);
   void store.setControls({ ...readControls(!controls.pretty), pretty: !controls.pretty });
 });
 elements.expandAll.addEventListener('click', () => {
   const view = store.getView();
-  const ids = view.board?.rows.map((row) => row.id) ?? [];
+  const ids =
+    view.board === null
+      ? []
+      : paginateBoardRows(view.board.rows, boardPageIndex).rows.map((row) => row.id);
+  if (ids.length > MAX_EXPANDED_ROWS) {
+    return;
+  }
   const allOpen = ids.length > 0 && ids.every((id) => view.expanded.has(id));
   store.setExpanded(allOpen ? [] : ids);
+});
+elements.pagePrevious.addEventListener('click', () => {
+  navigateBoardPage(boardPageIndex - 1);
+});
+elements.pageNext.addEventListener('click', () => {
+  navigateBoardPage(boardPageIndex + 1);
 });
 
 const themeButtons = [...document.querySelectorAll<HTMLButtonElement>('[data-theme-choice]')];

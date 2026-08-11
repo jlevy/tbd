@@ -27,8 +27,8 @@ import { parsePriority } from '../../lib/priority.js';
 import type { Issue, IssueKindType, IssueStatusType } from '../../lib/types.js';
 import { VERSION } from '../lib/version.js';
 
-/** Hard render ceiling; query counts still report the unsliced result size. */
-export const MAX_BOARD_ROWS = 4_000;
+/** Hard response ceiling; the browser pages these rows into smaller render windows. */
+export const MAX_BOARD_ROWS = 10_000;
 
 // Prefixes allow dot/underscore, and imported ShortIds also allow dot, underscore,
 // and hyphen. Requiring the leading prefix letter still rejects option-shaped input.
@@ -412,6 +412,12 @@ export class BoardState {
       rows = limited.map((issue) => this.toRow(issue, ''));
     }
 
+    const responseRows = rows.slice(0, MAX_BOARD_ROWS);
+    if (contextIds.length > 0) {
+      const responseIds = new Set(responseRows.map((row) => row.id));
+      contextIds = contextIds.filter((id) => responseIds.has(id));
+    }
+
     const described = describeQuery(parsed.query, parsed.parentDisplayId ?? undefined);
     const prettySupported = !parsed.pretty || !parsed.query.ready;
     const command =
@@ -427,7 +433,7 @@ export class BoardState {
       total: this.snapshot.issues.length,
       matched: limited.length,
       closedHidden,
-      rows: rows.slice(0, MAX_BOARD_ROWS),
+      rows: responseRows,
       truncated: rows.length > MAX_BOARD_ROWS ? rows.length : 0,
       contextIds,
       state,

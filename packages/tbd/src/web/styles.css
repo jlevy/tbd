@@ -223,6 +223,27 @@ h1 {
 #tippill {
   font-family: var(--mono);
 }
+.page-controls {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.page-controls[hidden] {
+  display: none;
+}
+.page-controls > button {
+  width: 28px;
+  height: 26px;
+  padding: 0;
+}
+.page-controls > button:disabled {
+  cursor: default;
+  opacity: 0.45;
+}
+#pagepill {
+  min-width: 82px;
+  text-align: center;
+}
 .grow {
   flex: 1;
 }
@@ -360,6 +381,7 @@ main {
 }
 #tablewrap {
   overflow-x: auto;
+  scroll-margin-top: 60px;
 }
 table {
   border-collapse: collapse;
@@ -400,10 +422,25 @@ td.caret {
   color: var(--muted);
   background: transparent;
 }
-tbody tr:not(.bodyrow) {
+tr.board-page-row > td {
+  background: var(--panel);
+  color: var(--muted);
+}
+td.board-page {
+  text-align: center;
+}
+td.board-page > span {
+  display: inline-block;
+  margin: 0 10px;
+}
+td.board-page > button:disabled {
+  cursor: default;
+  opacity: 0.45;
+}
+tbody tr:not(.bodyrow):not(.board-page-row) {
   cursor: pointer;
 }
-tbody tr:not(.bodyrow):hover {
+tbody tr:not(.bodyrow):not(.board-page-row):hover {
   background: var(--panel);
 }
 tr.open > td {

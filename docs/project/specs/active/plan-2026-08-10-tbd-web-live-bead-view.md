@@ -209,6 +209,42 @@ Payload shape matters more than raw speed:
   Frame size is therefore independent of graph size.
 - Filtering runs server-side so semantics come from the shared module.
   On loopback this is sub-millisecond and keystroke-responsive.
+- The server returns at most 10,000 light rows while preserving the unsliced match
+  count. The browser renders the response in 1,000-row pages, so all served rows remain
+  reachable without making every refresh lay out a six-figure DOM tree.
+  Pretty-tree context ids and their count describe only those returned rows.
+  Sticky and end-of-page controls navigate the pages and return the viewport to the
+  first row.
+- Bulk expansion is available only when the visible page has 100 rows or fewer.
+  Individual expansion remains available at every size, but the oldest detail closes
+  after 100 remain open.
+  Eight detail requests may be in flight, 200 recent bodies may remain cached, and
+  render notifications coalesce to one browser frame.
+  A mass deletion animates at most 100 ghost rows instead of bypassing the steady-state
+  page bound.
+
+The limits are independent and come from measured costs rather than one arbitrary row
+number. The server path is cheap at 10,000 representative issues: 13–22 ms to load the
+in-memory snapshot, 40–115 ms to build the response, and 2.47 MiB serialized on the
+review machine. The high end is the full parallel test-suite run; the isolated focused
+case supplied the low end.
+The original full-DOM client was the limiting resource:
+
+| Served rows | Full-DOM nodes | Full-DOM paint-ready | Paged DOM nodes | Paged paint-ready |
+| ---: | ---: | ---: | ---: | ---: |
+| 4,000 | 42,861 | 0.71–0.88 s | 10,870 | 0.17–0.18 s |
+| 5,000 | 53,528 | 0.86–1.00 s | 10,870 | 0.18–0.20 s |
+| 10,000 | 106,861 | 1.69–1.83 s | 10,870 | 0.19–0.20 s |
+
+Those figures are three warm Chromium navigations after one warm-up of the stitched
+production page over loopback on 2026-08-11. Network transfer was 2–15 ms; style,
+layout, and paint dominated.
+Expanding all 10,000 rows in the old client created 20,000 table rows and 156,861 DOM
+nodes in 3.89 seconds before any delayed detail response completed, after which each
+completion would have triggered another full-table render.
+This is why 10,000 is the response ceiling, not the render window or bulk-expansion
+allowance. A 5,000 ceiling would still be plausible in ordinary projects and would not
+address the browser bottleneck.
 
 ### Liveness
 
@@ -533,7 +569,8 @@ Signatures are the intended shape; adjust mechanically in review, not structural
   actionably), Host/Origin 403s, SIGINT exits 130, no mutation route (POST → 404).
 - `tests/bead-web-css.test.ts` — retargeted to `src/web/styles.css`, assertions kept.
 - `tests/cli-web.tryscript.md` — `--help` and `--dry-run` transcripts.
-- `performance.test.ts` — board response budget on the 5,000-issue fixture.
+- `performance.test.ts` — 10,001-issue boundary fixture proving the 10,000-row response
+  cap, response-time budget, and 5 MiB serialized-payload budget.
 - `scripts/validate-web-package.mjs` — pack/extract/start/fetch/stop proof for the exact
   npm artifact, run in the OS matrix and before release publishing.
 
@@ -606,13 +643,15 @@ to land the whole command through one PR.
 ### Phase 6: Production validation and merge
 
 - [x] Local release matrix green after final review: format, strict lint/typecheck,
-  build, 1,498 Vitest tests, 1,074 tryscript checks, publint, 31 package-age pins, watch
+  build, 1,503 Vitest tests, 1,074 tryscript checks, publint, 31 package-age pins, watch
   release smoke, and packed-web proof.
   The unchanged production audit advisory is tracked separately as `tbd-6gy0`.
 - [ ] Full matrix green: suite + the `tbd web` tryscript on Ubuntu/macOS/Windows CI; the
   coverage job runs the repository-wide tryscript set on Ubuntu.
-- [x] Perf budget assertion on the 5,000-issue fixture, including the 4,000-row render
-  cap and exclusion of descriptions and notes from board rows.
+- [x] Perf budget assertion on the 10,001-issue boundary fixture, including the
+  10,000-row response cap, 5 MiB payload ceiling, exclusion of descriptions and notes,
+  and the pure 1,000-row pagination contract.
+  Production Chromium measurements above cover the dominant DOM/layout path.
 - [x] Isolation assertion reusing the release-smoke snapshot pattern: a running
   `tbd web` leaves the caller worktree, sync refs, `FETCH_HEAD`, hidden worktree, and
   lock untouched except for the pull a wake performs.
@@ -629,8 +668,11 @@ to land the whole command through one PR.
 ### Final review finding map
 
 The final review is tracked under `tbd-o7nu`. Every implementation finding has one bead
-and one code seam; all fourteen are implemented and locally validated.
+and one code seam; all seventeen are implemented and locally validated.
 R14 removes the final Windows command-shim assumption from the packed proof.
+R15 closes the final scale-specific memory and data-motion paths after the 10,000-row
+ceiling review. R16 preserves an executable assertion on both sides of that ceiling.
+R17 bounds pretty-tree metadata by the same response slice.
 
 | Bead | Severity | File/function seam | Disposition |
 | --- | --- | --- | --- |
@@ -648,6 +690,9 @@ R14 removes the final Windows command-shim assumption from the packed proof.
 | `tbd-qf41` (R12) | P1 | `src/cli/web/wake.ts`: `applyReport`; `tests/web-wake.test.ts` | Treat `remote-missing` as a retryable unapplied report: do not reload or advance report/cursor state, and retry from the same baseline. |
 | `tbd-4ets` (R13) | P1 | `tests/run-built-cli.mjs`; `tests/cli-web.tryscript.md`: sandbox invocation, setup, and filters | Spawn and await the exact built entry using a Node-resolved path, assert sandbox initialization as a test, and use shell-neutral quoting for `sed`/`jq`. |
 | `tbd-wx19` (R14) | P1 | `scripts/validate-web-package.mjs`: `packArchive` | Keep direct `execFile` on POSIX; on Windows run the `pnpm.cmd` shim through `ComSpec` before continuing the exact packed-artifact proof. |
+| `tbd-z3o9` (R15) | P2 | `src/web/core.ts`: `Store.toggle`, `setExpanded`, `cacheBody`, `receiveState`; `src/web/client.ts`: `renderBoard` | Limit open details to 100, cached bodies to 200, deletion ghosts to 100, and replace scale-sensitive row-class array scans with set lookup. |
+| `tbd-et3a` (R16) | P2 | `tests/performance.test.ts`: 10,001-issue boundary fixture | Prove that 10,000 rows are returned without exceeding the response ceiling and that `truncated` retains the full over-limit count. |
+| `tbd-6pjo` (R17) | P2 | `src/cli/web/board.ts`: `BoardState.buildBoardResponse`; `tests/web-board.test.ts` | Derive pretty-tree context ids and their count from the capped response rows, with an over-limit hierarchy regression. |
 
 ### Merge gate for PR #207
 
@@ -679,8 +724,10 @@ hold:
   delivers a change that landed while disconnected.
 - **Payload bounds**: assert table responses carry no description or notes text, and
   that frame size does not grow with graph size.
-- **Performance**: reuse the existing 5,000-issue fixture; assert board response time
-  against the §1.4 budget.
+- **Performance**: exercise a 10,001-issue boundary fixture; assert the 10,000-row cap,
+  board response time and serialized size against the §1.4 budget, assert 1,000-row page
+  boundaries in the pure client core, and measure the stitched page in Chromium because
+  server timing does not represent DOM construction, style, layout, or paint.
 - **Isolation**: reuse the release-smoke assertions.
   Running `tbd web` must leave the caller worktree, sync refs, `FETCH_HEAD`, hidden
   worktree, and lock untouched except for the pull it performs on a wake.

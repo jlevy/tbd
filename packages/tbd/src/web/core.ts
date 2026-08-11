@@ -193,6 +193,41 @@ const DEFAULT_CONTROLS: BoardControls = {
 };
 const DEFAULT_RESUME_KEY = 'tbd.web.lastEventId';
 export const MAX_BODY_REQUEST_CONCURRENCY = 8;
+/** Bounds each table paint while still keeping every served row reachable. */
+export const BOARD_PAGE_SIZE = 1_000;
+/** Bounds detail DOM, requests, and retained long-form content. */
+export const MAX_EXPANDED_ROWS = 100;
+/** Keeps recently collapsed details warm without retaining a whole large project. */
+export const MAX_BODY_CACHE_ENTRIES = 200;
+/** Data-motion context is useful, but a mass deletion must not bypass DOM paging. */
+export const MAX_GHOST_ROWS = 100;
+
+export interface BoardPageView {
+  rows: readonly BoardRowView[];
+  /** Zero-based page index after invalid and out-of-range input is clamped. */
+  pageIndex: number;
+  pageCount: number;
+  /** Zero-based inclusive offset into the complete response. */
+  start: number;
+  /** Zero-based exclusive offset into the complete response. */
+  end: number;
+  total: number;
+}
+
+/** Select one bounded browser-render window from a complete board response. */
+export function paginateBoardRows(
+  rows: readonly BoardRowView[],
+  requestedPageIndex: number,
+): BoardPageView {
+  const total = rows.length;
+  const pageCount = Math.ceil(total / BOARD_PAGE_SIZE);
+  const validPageIndex =
+    Number.isSafeInteger(requestedPageIndex) && requestedPageIndex >= 0 ? requestedPageIndex : 0;
+  const pageIndex = Math.min(validPageIndex, Math.max(0, pageCount - 1));
+  const start = pageIndex * BOARD_PAGE_SIZE;
+  const end = Math.min(start + BOARD_PAGE_SIZE, total);
+  return { rows: rows.slice(start, end), pageIndex, pageCount, start, end, total };
+}
 
 interface BodyRequest {
   id: string;
@@ -425,6 +460,13 @@ class Store implements ClientStore {
       this.expanded.delete(id);
       this.pruneBodyQueue();
     } else {
+      if (this.expanded.size >= MAX_EXPANDED_ROWS) {
+        const oldest = this.expanded.values().next().value;
+        if (oldest !== undefined) {
+          this.expanded.delete(oldest);
+          this.pruneBodyQueue();
+        }
+      }
       this.expanded.add(id);
       const cached = this.bodies.get(id);
       this.loadBody(id, cached?.kind === 'error');
@@ -433,7 +475,13 @@ class Store implements ClientStore {
   }
 
   setExpanded(ids: Iterable<string>): void {
-    const next = new Set(ids);
+    const next = new Set<string>();
+    for (const id of ids) {
+      if (next.size >= MAX_EXPANDED_ROWS) {
+        break;
+      }
+      next.add(id);
+    }
     this.expanded.clear();
     for (const id of next) {
       this.expanded.add(id);
@@ -510,7 +558,15 @@ class Store implements ClientStore {
       this.flashIds.add(id);
     }
     const removed = new Set(next.removedIds);
-    this.ghostRows = previousRows.filter((row) => removed.has(row.id));
+    this.ghostRows = [];
+    for (const row of previousRows) {
+      if (removed.has(row.id)) {
+        this.ghostRows.push(row);
+        if (this.ghostRows.length >= MAX_GHOST_ROWS) {
+          break;
+        }
+      }
+    }
     this.bodyGeneration += 1;
     this.bodies.clear();
     for (const id of this.expanded) {
@@ -559,14 +615,14 @@ class Store implements ClientStore {
       .fetchJson(url)
       .then((value) => {
         if (this.bodyRequestIsCurrent(request)) {
-          this.bodies.set(id, { kind: 'loaded', body: asBeadBody(value) });
+          this.cacheBody(id, { kind: 'loaded', body: asBeadBody(value) });
         }
       })
       .catch((error: unknown) => {
         // Generation and token checks apply to failures too. A slow pre-wake rejection
         // must not overwrite a newer successful body (PR #207 discussion_r3755544745).
         if (this.bodyRequestIsCurrent(request)) {
-          this.bodies.set(id, { kind: 'error', error: errorMessage(error) });
+          this.cacheBody(id, { kind: 'error', error: errorMessage(error) });
         }
       })
       .finally(() => {
@@ -580,6 +636,24 @@ class Store implements ClientStore {
         }
         this.drainBodyQueue();
       });
+  }
+
+  private cacheBody(id: string, entry: BodyCacheEntry): void {
+    this.bodies.delete(id);
+    this.bodies.set(id, entry);
+    while (this.bodies.size > MAX_BODY_CACHE_ENTRIES) {
+      let evicted = false;
+      for (const cachedId of this.bodies.keys()) {
+        if (!this.expanded.has(cachedId)) {
+          this.bodies.delete(cachedId);
+          evicted = true;
+          break;
+        }
+      }
+      if (!evicted) {
+        return;
+      }
+    }
   }
 
   private bodyRequestIsCurrent(request: BodyRequest): boolean {

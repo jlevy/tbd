@@ -399,8 +399,9 @@ one matching change, and exits.
 
 `tbd web` stays in the foreground and serves the same bead queries and hierarchy in a
 local browser. It binds loopback only, has no write route, and does not open a browser
-unless you pass `--open`. See the [CLI reference](packages/tbd/docs/tbd-docs.md#web) for
-port, polling, JSON, and dry-run options.
+unless you pass `--open`. Large results support up to 10,000 rows and render in
+1,000-row pages. See the [CLI reference](packages/tbd/docs/tbd-docs.md#web) for port,
+polling, JSON, and dry-run options.
 Nothing shared is written along the way, so watchers coexist with ordinary `tbd sync` in
 the same checkout. The [CLI reference](packages/tbd/docs/tbd-docs.md) documents the
 selectors, baseline commits, and report format; the

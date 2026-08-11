@@ -4074,7 +4074,17 @@ is the report tip.
 A local file watch refreshes unpublished edits in the hidden worktree.
 The client opens its event stream before its first board fetch, persists the last
 acknowledged tip, coalesces refreshes, discards stale responses, and bounds concurrent
-detail requests.
+detail requests. Board responses carry at most 10,000 light rows and retain the full
+match count when truncated.
+Pretty-tree context metadata is derived from those returned rows, so it cannot name or
+serialize context that was cut off by the response ceiling.
+The browser renders those rows in 1,000-row pages, exposes sticky and end-of-page
+navigation, and allows bulk detail expansion only when 100 rows or fewer are visible on
+the page. At most 100 details remain expanded, the body cache retains 200 entries, and a
+mass deletion animates at most 100 ghost rows.
+These are separate resource bounds: the response ceiling supports unusually large
+projects, while the render, expansion, cache, and motion ceilings keep DOM layout,
+memory, and detail-request work responsive.
 
 Version 1 is intentionally read-only: the HTTP router has no mutation endpoint.
 It accepts only `GET`, validates loopback Host and same-origin Origin headers, serves a

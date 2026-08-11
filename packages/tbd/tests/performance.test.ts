@@ -223,8 +223,8 @@ describe('performance tests', () => {
 });
 
 describe('web board performance', () => {
-  it('loads and renders a bounded response for 5000 issues inside the interaction budget', async () => {
-    const issueCount = 5_000;
+  it('loads and serializes a bounded 10000-row response from an over-limit board', async () => {
+    const issueCount = MAX_BOARD_ROWS + 1;
     const issues = Array.from({ length: issueCount }, (_, index) => generateTestIssue(index));
     const shortToUlid = new Map(
       issues.map((issue, index) => [`p${index.toString(36)}`, issue.id.slice(3)]),
@@ -286,10 +286,14 @@ describe('web board performance', () => {
       matched: issueCount,
       truncated: issueCount,
     });
+    expect(MAX_BOARD_ROWS).toBe(10_000);
     expect(rendered.result.rows).toHaveLength(MAX_BOARD_ROWS);
-    expect(JSON.stringify(rendered.result)).not.toContain('Description for issue');
+    const serialized = JSON.stringify(rendered.result);
+    const serializedBytes = new TextEncoder().encode(serialized).byteLength;
+    expect(serialized).not.toContain('Description for issue');
+    expect(serializedBytes).toBeLessThan(5 * 1024 * 1024);
     console.log(
-      `Web board loaded ${issueCount} issues in ${loaded.ms.toFixed(2)}ms and rendered in ${rendered.ms.toFixed(2)}ms`,
+      `Web board loaded ${issueCount} issues in ${loaded.ms.toFixed(2)}ms and built a ${(serializedBytes / 1024 / 1024).toFixed(2)} MiB response in ${rendered.ms.toFixed(2)}ms`,
     );
   });
 });
