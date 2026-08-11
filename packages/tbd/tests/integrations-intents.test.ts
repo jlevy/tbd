@@ -1,0 +1,271 @@
+/**
+ * Write-ahead intents: journal round-trip and crash replay.
+ *
+ * The property under test: a crash after the intent commit but before the base
+ * advance converges on the next run, without duplicating anything — creates
+ * recover through client-UUID rejection, comments through the provider's
+ * comment-id dedup (verified live), updates and attachments through natural
+ * idempotency.
+ */
+
+import { mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+
+import { bridgeIntentsDir } from '../src/integrations/core/bridge-state.js';
+import {
+  deleteIntentFile,
+  listIntentFiles,
+  replayIntents,
+  writeIntentFile,
+  type IntentFile,
+} from '../src/integrations/core/intents.js';
+import { LinearAdapter } from '../src/integrations/linear/adapter.js';
+import { LinearClient } from '../src/integrations/linear/client.js';
+import { LinearMockServer } from './helpers/linear-mock-server.js';
+
+const RUN_ID = '01hx5zzkbkactav9wevgemmvrz';
+const CLIENT_UUID = '9cbb48f8-7a2e-4b9d-9f3e-0c1d2e3f4a5b';
+const COMMENT_UUID = '41f2c3d4-0000-4000-8000-000000000001';
+
+function intentFile(ops: IntentFile['ops']): IntentFile {
+  return {
+    type: 'in',
+    run_id: RUN_ID,
+    provider: 'linear',
+    created_at: '2026-08-10T22:00:00.000Z',
+    ops,
+  };
+}
+
+describe('the intent journal', () => {
+  let dir: string;
+
+  beforeEach(async () => {
+    dir = await mkdtemp(join(tmpdir(), 'tbd-intents-'));
+  });
+
+  afterEach(async () => {
+    await rm(dir, { recursive: true, force: true });
+  });
+
+  it('round-trips a file and is empty after deletion', async () => {
+    const file = intentFile([{ kind: 'update_issue', external_id: 'x', patch: { title: 'T' } }]);
+    await writeIntentFile(dir, file);
+    expect(await listIntentFiles(dir, 'linear')).toEqual([file]);
+
+    await deleteIntentFile(dir, 'linear', RUN_ID);
+    expect(await listIntentFiles(dir, 'linear')).toEqual([]);
+  });
+
+  it('skips a damaged intent file rather than wedging', async () => {
+    await writeIntentFile(dir, intentFile([]));
+    await writeFile(join(bridgeIntentsDir(dir, 'linear'), 'broken.yml'), '[');
+    const files = await listIntentFiles(dir, 'linear');
+    expect(files).toHaveLength(1);
+  });
+});
+
+describe('crash replay against the mock provider', () => {
+  let dir: string;
+  let server: LinearMockServer;
+  let adapter: LinearAdapter;
+
+  beforeEach(async () => {
+    dir = await mkdtemp(join(tmpdir(), 'tbd-intents-'));
+    server = new LinearMockServer();
+    const endpoint = await server.start();
+    const client = new LinearClient({
+      apiKey: 'lin_api_test',
+      endpoint,
+      maxAttempts: 4,
+      sleep: () => Promise.resolve(),
+    });
+    adapter = new LinearAdapter({ client, teamKey: 'FIN' });
+  });
+
+  afterEach(async () => {
+    await server.stop();
+    await rm(dir, { recursive: true, force: true });
+  });
+
+  it('replays a create that never happened, then deletes the journal', async () => {
+    await writeIntentFile(
+      dir,
+      intentFile([
+        {
+          kind: 'create_issue',
+          client_id: CLIENT_UUID,
+          bead_id: 'is-01hx5zzkbkactav9wevgemmvrz',
+          patch: { title: 'From replay' },
+        },
+      ]),
+    );
+
+    const report = await replayIntents(dir, 'linear', adapter);
+
+    expect(report.failures).toEqual([]);
+    expect(report.recoveredCreates).toEqual([
+      { beadId: 'is-01hx5zzkbkactav9wevgemmvrz', externalId: CLIENT_UUID },
+    ]);
+    expect(server.issues.get(CLIENT_UUID)?.title).toBe('From replay');
+    expect(await listIntentFiles(dir, 'linear')).toEqual([]);
+  });
+
+  it('converges when the crash happened AFTER the create reached the provider', async () => {
+    // The item already exists under the client UUID: the pre-crash attempt
+    // landed. Replay must recover it as success, not create a duplicate.
+    server.addIssue({ id: CLIENT_UUID, identifier: 'FIN-9', title: 'Already there' });
+
+    await writeIntentFile(
+      dir,
+      intentFile([
+        {
+          kind: 'create_issue',
+          client_id: CLIENT_UUID,
+          bead_id: 'is-01hx5zzkbkactav9wevgemmvrz',
+          patch: { title: 'Already there' },
+        },
+      ]),
+    );
+
+    const report = await replayIntents(dir, 'linear', adapter);
+
+    expect(report.failures).toEqual([]);
+    expect(report.recoveredCreates[0]?.externalId).toBe(CLIENT_UUID);
+    expect(server.issues.size).toBe(1); // no duplicate
+    expect(await listIntentFiles(dir, 'linear')).toEqual([]);
+  });
+
+  it('replays a comment exactly once across two replays', async () => {
+    server.addIssue({ id: 'issue-1', identifier: 'FIN-1' });
+    const file = intentFile([
+      {
+        kind: 'post_comment',
+        external_id: 'issue-1',
+        comment_client_id: COMMENT_UUID,
+        body: 'conflict report',
+      },
+    ]);
+
+    await writeIntentFile(dir, file);
+    await replayIntents(dir, 'linear', adapter);
+    // Simulate the same journal replaying again from another machine.
+    await writeIntentFile(dir, file);
+    const second = await replayIntents(dir, 'linear', adapter);
+
+    expect(second.failures).toEqual([]);
+    expect(server.comments).toHaveLength(1); // deduped by the client UUID
+    expect(server.comments[0]?.id).toBe(COMMENT_UUID);
+  });
+
+  it('keeps the journal when an op fails, and reports it', async () => {
+    await writeIntentFile(
+      dir,
+      intentFile([
+        // No such issue in the mock: the update fails.
+        { kind: 'update_issue', external_id: 'missing', patch: { title: 'T' } },
+      ]),
+    );
+
+    const report = await replayIntents(dir, 'linear', adapter);
+
+    expect(report.failures).toHaveLength(1);
+    expect(await listIntentFiles(dir, 'linear')).toHaveLength(1); // kept for retry
+  });
+
+  it('replays attachments and updates idempotently', async () => {
+    server.addIssue({ id: 'issue-1', identifier: 'FIN-1', title: 'Old' });
+    const file = intentFile([
+      { kind: 'update_issue', external_id: 'issue-1', patch: { title: 'New' } },
+      {
+        kind: 'upsert_attachments',
+        external_id: 'issue-1',
+        attachments: [{ url: 'tbd://bead/tbd-1', title: 'tbd-1 · task' }],
+      },
+    ]);
+
+    await writeIntentFile(dir, file);
+    await replayIntents(dir, 'linear', adapter);
+    await writeIntentFile(dir, file);
+    await replayIntents(dir, 'linear', adapter);
+
+    expect(server.issues.get('issue-1')?.title).toBe('New');
+    expect(server.attachments).toHaveLength(1); // upserted, not duplicated
+  });
+});
+
+describe('adapter comment and delta surfaces', () => {
+  let server: LinearMockServer;
+  let adapter: LinearAdapter;
+
+  beforeEach(async () => {
+    server = new LinearMockServer();
+    const endpoint = await server.start();
+    const client = new LinearClient({
+      apiKey: 'lin_api_test',
+      endpoint,
+      maxAttempts: 4,
+      sleep: () => Promise.resolve(),
+    });
+    adapter = new LinearAdapter({ client, teamKey: 'FIN' });
+  });
+
+  afterEach(async () => {
+    await server.stop();
+  });
+
+  it('lists comments oldest first with display-name authors only', async () => {
+    server.addIssue({ id: 'issue-1', identifier: 'FIN-1' });
+    await adapter.createComment('issue-1', 'first');
+    await adapter.createComment('issue-1', 'second');
+
+    const comments = await adapter.listComments('issue-1');
+    expect(comments.map((c) => c.body)).toEqual(['first', 'second']);
+    expect(comments[0]?.author).toBe('Mock User');
+    expect(Object.keys(comments[0]!).sort()).toEqual([
+      'author',
+      'body',
+      'createdAt',
+      'id',
+      'resolvedAt',
+    ]);
+  });
+
+  it('resolves a comment', async () => {
+    server.addIssue({ id: 'issue-1', identifier: 'FIN-1' });
+    const { commentId } = await adapter.createComment('issue-1', 'to resolve');
+    await adapter.resolveComment(commentId);
+    expect(server.comments[0]?.resolvedAt).not.toBeNull();
+  });
+
+  it('fetches only items updated after the watermark', async () => {
+    server.addIssue({
+      id: 'old',
+      identifier: 'FIN-1',
+      updatedAt: '2026-08-10T10:00:00.000Z',
+    });
+    server.addIssue({
+      id: 'new',
+      identifier: 'FIN-2',
+      updatedAt: '2026-08-10T20:00:00.000Z',
+    });
+
+    const since = await adapter.fetchUpdatedSince('2026-08-10T15:00:00.000Z');
+    expect(since.map((issue) => issue.id)).toEqual(['new']);
+  });
+
+  it('carries archived and trashed through to the canonical view', async () => {
+    server.addIssue({
+      id: 'gone',
+      identifier: 'FIN-3',
+      archivedAt: '2026-08-10T12:00:00.000Z',
+      trashed: true,
+    });
+    const [issue] = await adapter.fetchIssues(['gone']);
+    expect(issue?.archivedAt).toBe('2026-08-10T12:00:00.000Z');
+    expect(issue?.trashed).toBe(true);
+  });
+});

@@ -179,13 +179,22 @@ describe('Linear client and adapter', () => {
       expect(server.issues.get(ref.id)?.title).toBe('New');
     });
 
-    it('surfaces a duplicate client id as a distinct, non-retryable error', async () => {
+    it('recovers a duplicate client id as success — the replay contract', async () => {
+      const first = await adapter.createIssue({ title: 'First' }, 'client-uuid');
+      // The mutation is NOT idempotent in Linear, but the client id is: a
+      // retried create hits the duplicate rejection and the adapter recovers
+      // the existing item instead of failing or duplicating.
+      const second = await adapter.createIssue({ title: 'First' }, 'client-uuid');
+      expect(second.id).toBe(first.id);
+      expect(server.issues.size).toBe(1);
+    });
+
+    it('still surfaces the duplicate as an error without a client id to recover by', async () => {
+      // The raw client contract is unchanged; only the adapter converts.
       await adapter.createIssue({ title: 'First' }, 'client-uuid');
-      // A retried create with the same client id is NOT idempotent in Linear;
-      // the caller has to recognize this error and treat it as success.
-      await expect(adapter.createIssue({ title: 'First' }, 'client-uuid')).rejects.toBeInstanceOf(
-        LinearDuplicateIdError,
-      );
+      await expect(
+        client.request('mutation IssueCreate', { input: { id: 'client-uuid', title: 'First' } }),
+      ).rejects.toBeInstanceOf(LinearDuplicateIdError);
     });
   });
 

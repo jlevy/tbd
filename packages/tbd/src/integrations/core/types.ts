@@ -36,6 +36,22 @@ export interface ExternalIssue extends ExternalRef {
   assignee: string | null;
   /** The provider's own last-modified timestamp, used for echo suppression. */
   updatedAt: string;
+  /** Set when the item was archived; a linked bead becomes orphaned, never deleted. */
+  archivedAt: string | null;
+  /** True when the item is in the provider's trash. Same orphan treatment. */
+  trashed: boolean;
+}
+
+/**
+ * One comment on an external item, canonicalized. `author` is a display name
+ * only — never an email — because comment entries are persisted into beads.
+ */
+export interface ExternalComment {
+  id: string;
+  body: string;
+  author: string | null;
+  createdAt: string;
+  resolvedAt: string | null;
 }
 
 /**
@@ -153,8 +169,31 @@ export interface TrackerAdapter {
   /** Replace only the managed region of the external item's description. */
   spliceDescription(id: string, block: string): Promise<void>;
 
-  /** Post a conflict report where a human will see it. */
-  postConflict(id: string, report: ConflictReport): Promise<{ commentId: string }>;
+  /**
+   * Post a conflict report where a human will see it. `clientId` makes replay
+   * exactly-once: the provider honors client-generated comment ids and rejects
+   * duplicates (verified live), which the adapter converts to success.
+   */
+  postConflict(
+    id: string,
+    report: ConflictReport,
+    clientId?: string,
+  ): Promise<{ commentId: string }>;
+
+  /** Create a plain comment. Duplicate client ids are treated as success. */
+  createComment(id: string, body: string, clientId?: string): Promise<{ commentId: string }>;
+
+  /** Mark a comment resolved (the conflict-report lifecycle). */
+  resolveComment(commentId: string): Promise<void>;
+
+  /** All comments on an item, oldest first, canonicalized. */
+  listComments(id: string): Promise<ExternalComment[]>;
+
+  /**
+   * Every item in the configured scope touched after `since`. The delta
+   * primitive for pull: an efficiency prefilter, never a correctness input.
+   */
+  fetchUpdatedSince(since: string): Promise<ExternalIssue[]>;
 
   /** Resolve, and cache, the provider metadata needed to push. */
   ensureMeta(force?: boolean): Promise<ProviderMeta>;

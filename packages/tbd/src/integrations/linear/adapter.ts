@@ -9,6 +9,7 @@ import type {
   AttachmentSpec,
   CanonicalPatch,
   ConflictReport,
+  ExternalComment,
   ExternalIssue,
   ExternalRef,
   ProviderMeta,
@@ -16,7 +17,7 @@ import type {
 } from '../core/types.js';
 import type { ProviderNameType } from '../../lib/types.js';
 import type { LinearClient } from './client.js';
-import { MAX_PAGE_SIZE } from './client.js';
+import { LinearDuplicateIdError, MAX_PAGE_SIZE } from './client.js';
 import {
   priorityFromLinear,
   priorityToLinear,
@@ -26,8 +27,11 @@ import {
 import {
   ATTACHMENT_UPSERT_MUTATION,
   COMMENT_CREATE_MUTATION,
+  COMMENT_RESOLVE_MUTATION,
   ISSUES_BY_ID_QUERY,
+  ISSUES_UPDATED_SINCE_QUERY,
   ISSUE_BY_IDENTIFIER_QUERY,
+  ISSUE_COMMENTS_QUERY,
   ISSUE_CREATE_MUTATION,
   ISSUE_UPDATE_MUTATION,
   LABEL_CREATE_MUTATION,
@@ -48,6 +52,8 @@ interface RawIssue {
   assignee: { id: string; name: string; displayName: string } | null;
   labels: { nodes: { id: string; name: string }[] };
   parent: { id: string; identifier: string } | null;
+  archivedAt: string | null;
+  trashed: boolean | null;
 }
 
 export interface LinearAdapterOptions {
@@ -171,16 +177,30 @@ export class LinearAdapter implements TrackerAdapter {
   async createIssue(patch: CanonicalPatch, clientId?: string): Promise<ExternalRef> {
     const meta = await this.ensureMeta();
     const input = await this.toInput(patch, meta);
-    const data = await this.client.request<{
-      issueCreate: { success: boolean; issue: RawIssue | null };
-    }>(ISSUE_CREATE_MUTATION, {
-      input: {
-        ...input,
-        teamId: await this.resolveTeamId(),
-        ...((await this.resolveProjectId()) ? { projectId: await this.resolveProjectId() } : {}),
-        ...(clientId ? { id: clientId } : {}),
-      },
-    });
+    let data: { issueCreate: { success: boolean; issue: RawIssue | null } };
+    try {
+      data = await this.client.request<{
+        issueCreate: { success: boolean; issue: RawIssue | null };
+      }>(ISSUE_CREATE_MUTATION, {
+        input: {
+          ...input,
+          teamId: await this.resolveTeamId(),
+          ...((await this.resolveProjectId()) ? { projectId: await this.resolveProjectId() } : {}),
+          ...(clientId ? { id: clientId } : {}),
+        },
+      });
+    } catch (error) {
+      // A duplicate client id means a previous attempt already created this
+      // item (the mutation is not idempotent; the id IS). Recover the ref so
+      // an intent replay converges instead of failing.
+      if (clientId && error instanceof LinearDuplicateIdError) {
+        const [existing] = await this.fetchIssues([clientId]);
+        if (existing) {
+          return { provider: 'linear', id: existing.id, key: existing.key, url: existing.url };
+        }
+      }
+      throw error;
+    }
 
     const issue = data.issueCreate.issue;
     if (!data.issueCreate.success || !issue) {
@@ -241,7 +261,11 @@ export class LinearAdapter implements TrackerAdapter {
     await this.applyChanges(id, { description: spliced.result });
   }
 
-  async postConflict(id: string, report: ConflictReport): Promise<{ commentId: string }> {
+  async postConflict(
+    id: string,
+    report: ConflictReport,
+    clientId?: string,
+  ): Promise<{ commentId: string }> {
     const body = [
       '**tbd sync conflict**',
       '',
@@ -254,15 +278,93 @@ export class LinearAdapter implements TrackerAdapter {
       'Resolve this comment once the divergence has been reconciled.',
     ].join('\n');
 
-    const data = await this.client.request<{
-      commentCreate: { success: boolean; comment: { id: string } | null };
-    }>(COMMENT_CREATE_MUTATION, { input: { issueId: id, body } });
+    return this.createComment(id, body, clientId);
+  }
+
+  /**
+   * Create a comment. The provider honors client-generated comment UUIDs and
+   * rejects duplicates (verified live 2026-08-10: the duplicate arrives as an
+   * INPUT_ERROR on HTTP 200, unlike issueCreate's 400), so replay with a
+   * client id is exactly-once: the duplicate converts to success here.
+   */
+  async createComment(id: string, body: string, clientId?: string): Promise<{ commentId: string }> {
+    let data: { commentCreate: { success: boolean; comment: { id: string } | null } };
+    try {
+      data = await this.client.request<{
+        commentCreate: { success: boolean; comment: { id: string } | null };
+      }>(COMMENT_CREATE_MUTATION, {
+        input: { issueId: id, body, ...(clientId ? { id: clientId } : {}) },
+      });
+    } catch (error) {
+      if (clientId && error instanceof LinearDuplicateIdError) {
+        return { commentId: clientId };
+      }
+      throw error;
+    }
 
     const comment = data.commentCreate.comment;
     if (!data.commentCreate.success || !comment) {
-      throw new Error(`Failed to post the conflict comment on ${id}`);
+      throw new Error(`Failed to post a comment on ${id}`);
     }
     return { commentId: comment.id };
+  }
+
+  async resolveComment(commentId: string): Promise<void> {
+    const data = await this.client.request<{ commentResolve: { success: boolean } }>(
+      COMMENT_RESOLVE_MUTATION,
+      { id: commentId },
+    );
+    if (!data.commentResolve.success) {
+      throw new Error(`Failed to resolve comment ${commentId}`);
+    }
+  }
+
+  async listComments(id: string): Promise<ExternalComment[]> {
+    const data = await this.client.request<{
+      issue: {
+        comments: {
+          nodes: {
+            id: string;
+            body: string;
+            createdAt: string;
+            resolvedAt: string | null;
+            user: { name: string; displayName: string } | null;
+          }[];
+        };
+      } | null;
+    }>(ISSUE_COMMENTS_QUERY, { id, first: MAX_PAGE_SIZE });
+
+    const nodes = data.issue?.comments.nodes ?? [];
+    return nodes
+      .map((node) => ({
+        id: node.id,
+        body: node.body,
+        author: node.user?.displayName ?? node.user?.name ?? null,
+        createdAt: node.createdAt,
+        resolvedAt: node.resolvedAt ?? null,
+      }))
+      .sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+  }
+
+  /**
+   * Every issue in the team touched after `since`, oldest first. Over-fetching
+   * is harmless (base comparison discards no-ops), so callers pass a generous
+   * overlap rather than an exact watermark.
+   */
+  async fetchUpdatedSince(since: string): Promise<ExternalIssue[]> {
+    const teamId = await this.resolveTeamId();
+    const results: ExternalIssue[] = [];
+    let after: string | undefined;
+    do {
+      const data = await this.client.request<{
+        issues: { pageInfo: { hasNextPage: boolean; endCursor: string | null }; nodes: RawIssue[] };
+      }>(ISSUES_UPDATED_SINCE_QUERY, { teamId, since, first: MAX_PAGE_SIZE, after });
+      results.push(...data.issues.nodes.map((node) => this.toCanonical(node)));
+      after = data.issues.pageInfo.hasNextPage
+        ? (data.issues.pageInfo.endCursor ?? undefined)
+        : undefined;
+    } while (after);
+    return results;
   }
 
   async ensureMeta(force = false): Promise<ProviderMeta> {
@@ -330,6 +432,8 @@ export class LinearAdapter implements TrackerAdapter {
       labels,
       assignee: raw.assignee?.displayName ?? raw.assignee?.name ?? null,
       updatedAt: raw.updatedAt,
+      archivedAt: raw.archivedAt ?? null,
+      trashed: raw.trashed ?? false,
     };
   }
 

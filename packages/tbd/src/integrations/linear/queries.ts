@@ -44,6 +44,8 @@ const ISSUE_FIELDS = `
   assignee { id name displayName }
   labels(first: 50) { nodes { id name } }
   parent { id identifier }
+  archivedAt
+  trashed
 `;
 
 /** Fetch issues by UUID. Batched: one request covers a whole mirror run. */
@@ -123,4 +125,21 @@ export const LABEL_CREATE_MUTATION = `mutation LabelCreate($input: IssueLabelCre
     success
     issueLabel { id name }
   }
+}`;
+
+/** Comments on one issue, oldest first, for append-only comment sync. */
+export const ISSUE_COMMENTS_QUERY = `query IssueComments($id: String!, $first: Int!) {
+  issue(id: $id) {
+    comments(first: $first) {
+      nodes { id body createdAt resolvedAt user { name displayName } }
+    }
+  }
+}`;
+
+/**
+ * Mark a conflict-report comment handled. Gives the report a native
+ * resolved/unresolved lifecycle a human or agent can query.
+ */
+export const COMMENT_RESOLVE_MUTATION = `mutation CommentResolve($id: String!) {
+  commentResolve(id: $id) { success }
 }`;

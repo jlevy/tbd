@@ -23,6 +23,8 @@ export interface MockIssue {
   assignee: { id: string; name: string; displayName: string } | null;
   labels: { nodes: { id: string; name: string }[] };
   parent: { id: string; identifier: string } | null;
+  archivedAt: string | null;
+  trashed: boolean;
 }
 
 export interface MockAttachment {
@@ -38,6 +40,9 @@ export interface MockComment {
   id: string;
   issueId: string;
   body: string;
+  createdAt: string;
+  resolvedAt: string | null;
+  user: { name: string; displayName: string } | null;
 }
 
 export class LinearMockServer {
@@ -122,6 +127,8 @@ export class LinearMockServer {
       assignee: null,
       labels: { nodes: [] },
       parent: null,
+      archivedAt: null,
+      trashed: false,
       ...partial,
     };
     this.issues.set(issue.id, issue);
@@ -313,10 +320,34 @@ export class LinearMockServer {
 
     if (query.includes('mutation CommentCreate')) {
       const input = variables.input as Record<string, unknown>;
+      const clientId = input.id as string | undefined;
+      if (clientId && this.comments.some((c) => c.id === clientId)) {
+        // Verified live 2026-08-10: unlike issueCreate's HTTP 400, a duplicate
+        // comment id arrives as HTTP 200 with an errors array.
+        return {
+          status: 200,
+          payload: {
+            errors: [
+              {
+                message: 'conflict on insert of Comment',
+                extensions: {
+                  code: 'INPUT_ERROR',
+                  statusCode: 400,
+                  userPresentableMessage: `Entity Comment with id ${clientId} already exists.`,
+                },
+              },
+            ],
+          },
+        };
+      }
+      this.sequence += 1;
       const comment: MockComment = {
-        id: this.nextId('comment'),
+        id: clientId ?? this.nextId('comment'),
         issueId: input.issueId as string,
         body: input.body as string,
+        createdAt: new Date(1754800000000 + this.sequence * 1000).toISOString(),
+        resolvedAt: null,
+        user: { name: 'Mock User', displayName: 'Mock User' },
       };
       this.comments.push(comment);
       return {
@@ -325,9 +356,53 @@ export class LinearMockServer {
           data: {
             commentCreate: {
               success: true,
-              comment: { id: comment.id, url: 'https://linear.app/c', createdAt: 'now' },
+              comment: {
+                id: comment.id,
+                url: 'https://linear.app/c',
+                createdAt: comment.createdAt,
+              },
             },
           },
+        },
+      };
+    }
+
+    if (query.includes('mutation CommentResolve')) {
+      const id = variables.id as string;
+      const comment = this.comments.find((c) => c.id === id);
+      if (!comment) {
+        return { status: 200, payload: { errors: [{ message: `Comment not found: ${id}` }] } };
+      }
+      comment.resolvedAt = new Date(1754800000000 + this.sequence * 1000).toISOString();
+      return { status: 200, payload: { data: { commentResolve: { success: true } } } };
+    }
+
+    if (query.includes('query IssueComments')) {
+      const id = variables.id as string;
+      const nodes = this.comments
+        .filter((c) => c.issueId === id)
+        .map((c) => ({
+          id: c.id,
+          body: c.body,
+          createdAt: c.createdAt,
+          resolvedAt: c.resolvedAt,
+          user: c.user,
+        }));
+      return {
+        status: 200,
+        payload: { data: { issue: { comments: { nodes } } } },
+      };
+    }
+
+    if (query.includes('query IssuesUpdatedSince')) {
+      const since = variables.since as string;
+      const nodes = [...this.issues.values()]
+        .filter((issue) => issue.updatedAt > since)
+        .sort((a, b) => a.updatedAt.localeCompare(b.updatedAt));
+      return {
+        status: 200,
+        payload: {
+          data: { issues: { pageInfo: { hasNextPage: false, endCursor: null }, nodes } },
         },
       };
     }
