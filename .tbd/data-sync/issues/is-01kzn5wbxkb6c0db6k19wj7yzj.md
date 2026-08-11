@@ -3,9 +3,9 @@ type: is
 id: is-01kzn5wbxkb6c0db6k19wj7yzj
 title: "Spec: tbd web — production-ready live bead view"
 kind: epic
-status: open
+status: closed
 priority: 1
-version: 26
+version: 28
 spec_path: docs/project/specs/active/plan-2026-08-10-tbd-web-live-bead-view.md
 labels:
   - viewer
@@ -21,9 +21,9 @@ child_order_hints:
   - is-01kzrs6s3fn7gtzgt70wx9yzas
   - is-01kzrs779s8d2t4qmvpx310p22
 created_at: 2026-08-10T06:31:08.978Z
-updated_at: 2026-08-11T20:30:16.516Z
-closed_at: null
-close_reason: null
+updated_at: 2026-08-11T21:05:50.020Z
+closed_at: 2026-08-11T21:05:50.019Z
+close_reason: All spec phases, 18 final-review findings, validation gates, comments, and merge-readiness checks are complete.
 extensions:
   linear:
     id: 87a13af9-a3b4-4897-873a-f8bfeb82fa65
@@ -35,4 +35,4 @@ Deliver PR #207 to the approved merge bar in docs/project/specs/active/plan-2026
 
 ## Notes
 
-All original tbd web phases plus the owner-requested 10k scale follow-up are implemented. The response ceiling is 10,000 with 1,000-row pages and independently bounded detail/cache/motion work; 17 final-review findings are closed or represented by the active landing child. Exact-tree local CI and packed artifact proof pass. Awaiting the pushed-head GitHub matrix and final mergeability audit before re-closing the epic.
+PR #207 production landing is complete at 50f895fb. All phases and the owner-requested 10k scale follow-up are implemented. The board serves 10,000 rows using 1,000-row pages and independently bounded detail/cache/motion work. All 18 final-review findings are bead-mapped, implemented, and regression-tested; all 10 inline threads are resolved. Local CI passes 110 files / 1,503 tests and hosted run 31535582219 is fully green. The PR is OPEN, non-draft, MERGEABLE, CLEAN, and ready to merge.
