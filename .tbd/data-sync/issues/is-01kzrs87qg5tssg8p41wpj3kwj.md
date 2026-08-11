@@ -3,9 +3,9 @@ type: is
 id: is-01kzrs87qg5tssg8p41wpj3kwj
 title: "Phase 3.3: implement in-process remote/local wake coordinator"
 kind: task
-status: open
+status: closed
 priority: 1
-version: 3
+version: 4
 spec_path: docs/project/specs/active/plan-2026-08-10-tbd-web-live-bead-view.md
 labels:
   - server
@@ -16,7 +16,9 @@ dependencies:
     target: is-01kzrs8gb1ky34vpdv7qfdfv4q
 parent_id: is-01kzrs66v8et3vwh2tpmk3v9d9
 created_at: 2026-08-11T16:07:24.143Z
-updated_at: 2026-08-11T16:24:47.596Z
+updated_at: 2026-08-11T16:29:38.633Z
+closed_at: 2026-08-11T16:29:38.632Z
+close_reason: Implemented src/cli/web/wake.ts with in-process AbortSignal watch, runIssueSync pull-before-reload, report-tip resume state, debounced hidden-worktree observation, suppression/no-op correctness, backoff, bounded log, and two deterministic wake tests.
 extensions:
   linear:
     id: b5dfad0e-d667-4fe6-8b53-3d4cb58955d5

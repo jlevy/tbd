@@ -3,9 +3,9 @@ type: is
 id: is-01kzrs7qw8qv2ynt64n9c2w0y6
 title: "Phase 3.1: implement BoardState snapshot, query parsing, tree rows, and stats"
 kind: task
-status: in_progress
+status: closed
 priority: 1
-version: 6
+version: 7
 spec_path: docs/project/specs/active/plan-2026-08-10-tbd-web-live-bead-view.md
 labels:
   - server
@@ -19,7 +19,9 @@ dependencies:
     target: is-01kzrs8yftzrvng3a16fs26hm1
 parent_id: is-01kzrs66v8et3vwh2tpmk3v9d9
 created_at: 2026-08-11T16:07:07.911Z
-updated_at: 2026-08-11T16:24:44.568Z
+updated_at: 2026-08-11T16:29:38.247Z
+closed_at: 2026-08-11T16:29:38.246Z
+close_reason: Implemented src/cli/web/board.ts BoardState with serialized snapshot reloads, id:version movement diffing, shared selectIssues/describeQuery semantics, tree context rows, light table payloads, on-demand validated bodies, shared stats/status, and four focused tests.
 extensions:
   linear:
     id: 4adae182-5acd-4d67-9a95-b9ef4c625c27
