@@ -1437,9 +1437,17 @@ Issue sync is separate and automatic.
 not clone the repo can see the work.
 Linear is the first provider; GitHub is planned.
 
-This is **one-way**: beads are the source of truth and nothing is imported back.
-That is what makes it safe to run from any agent at any time.
-There is no merge and no conflict.
+The **mirror** is one-way: beads are the source of truth and nothing is imported back,
+which is what makes it safe to run from any agent at any time.
+Full **bidirectional synchronization** (`tbd integration sync`) is also available and is
+governed by a per-integration linking policy, described below.
+
+Everything here is **strictly additive**: a repository without an `integrations` block
+behaves exactly as before, every other tbd command is unchanged, and enabling an
+integration for one project has no effect on any other repository or on collaborators
+who never run `tbd integration` commands.
+Links live in each bead’s `extensions` namespace, which older tbd versions preserve
+untouched.
 
 ### Setup
 
@@ -1450,11 +1458,14 @@ integrations:
     enabled: true
     team_key: FIN
     project: tbd # optional: file mirrored issues under a Linear project
-    select:
-      kinds: [epic]
-      statuses: [open, in_progress, blocked]
-      specs: active
+    policy: default # or an inline policy; see below
 ```
+
+The `team_key` and `project` values are plain config: an agent asked to point a
+repository at a different Linear team or project edits `.tbd/config.yml` and runs
+`tbd integration status` to verify.
+(`select:`, the older spelling of the policy’s outbound clause, still parses and is
+folded in.)
 
 One caveat: `tbd setup` run by a tbd version that predates this feature will drop the
 `integrations` block from `config.yml`, because config has no extensions namespace.
@@ -1565,6 +1576,116 @@ Sub-issue nesting is mirrored to `max_nesting` levels (2 by default) and deeper 
 are skipped and reported.
 Linear’s data model nests without limit, but its views flatten past about two levels, so
 deeper structure is better left in beads where `tbd dep` renders it.
+
+### The linking policy
+
+`policy` answers three directional questions, as a preset name (`default`) or inline:
+
+```yaml
+policy:
+  outbound: # when a bead should CREATE a tracker issue
+    kinds: [epic]
+    statuses: [open, in_progress, blocked]
+    specs: active
+  inbound: # when a tracker issue should BECOME a bead
+    mode: report # off | report | auto
+    as_kind: task
+  field_sync: # how a LINKED pair's fields and comments flow
+    fields:
+      title: merge # merge | local | remote
+      description: merge
+      status: merge
+      priority: merge
+      labels: local
+      assignee: local
+    comments: two_way # two_way | inbound | outbound | off
+    tie_break: newest # both-sides-changed fallback: newest | local | remote
+```
+
+The policy is only a default — explicit selectors on `mirror` and explicit `link` /
+`import` always override it — and linking is separate from syncing: once a pair is
+linked, `sync` reconciles it until it is unlinked.
+
+### Full synchronization
+
+```bash
+tbd --dry-run integration sync   # Preview the identical computation, write nothing
+tbd integration sync             # Reconcile every linked pair, apply the policy
+tbd integration sync --yes       # Affirm a run over the bulk thresholds
+```
+
+One run performs, in order: replay of any interrupted prior run (external writes are
+journaled before they happen, so a crash converges instead of duplicating), a pull of
+recently changed tracker items, a per-field three-way reconciliation of every linked
+pair against its recorded base (one-sided changes flow; both-sided changes fall to
+`tie_break`, archive the losing value to the attic, and post a resolvable conflict
+comment on the tracker item), comment flows per `field_sync.comments`, and finally the
+policy’s outbound and inbound clauses for unlinked work on both sides.
+Two runs in a row with no changes report `nothing to do` — that is the expected steady
+state, and anything else is worth reading.
+
+Cosmetic tracker rewrites (bullet style, list spacing, URL auto-linkification) are
+normalized before comparison, so they never count as remote edits.
+Priorities P3 and P4 both map to Linear’s “Low”; a P4 bead stays P4 rather than
+oscillating. An archived or deleted tracker item marks its link **orphaned** and is
+reported — the bead is never deleted or closed automatically.
+The bulk thresholds count both directions: creates and updates to the tracker AND
+imports and updates to beads.
+
+To fold this into plain `tbd sync`, set `integrations.sync_on_tbd_sync: true` (default
+false). It runs after the git phases and a failure degrades with a warning; external
+trackers never block or corrupt git sync.
+
+### Linking, unlinking, and comments
+
+```bash
+tbd integration link tbd-abc1 FIN-123           # Bind a bead to an existing item
+tbd integration link tbd-abc1 FIN-123 --take remote  # Adopt its values when they differ
+tbd integration unlink tbd-abc1                 # Sever; nothing is deleted anywhere
+tbd integration comment tbd-abc1 "Blocked on the API quota decision."
+```
+
+`link` refuses when the item is already linked to another bead (two beads writing one
+item is a ping-pong machine), and when the two sides differ it requires a stance:
+`--take local` pushes the bead’s values on the next sync, `--take remote` adopts the
+item’s values now. Without a terminal and without `--take`, it refuses rather than
+guessing.
+
+`comment` works offline: the entry is recorded on the bead immediately and posted on the
+next sync, exactly once.
+Inbound comments are folded into the bead the same way — append-only, identified by the
+tracker’s immutable comment id, author recorded as a display name only.
+Bodies over 10 KB are truncated with a marker and beads keep at most 50 entries (older
+ones collapse to id-only stubs); the tracker remains the system of record for long
+threads.
+
+### For agents: synchronizing specs and beads to Linear
+
+The whole flow an agent needs when a user says “sync our specs and major beads to
+Linear”:
+
+```bash
+tbd integration status             # 1. Is Linear configured and reachable?
+```
+
+- If **no API key**: ask the user to create one at `linear.app/settings/api` and place
+  it in a **gitignored** `.env` at the repo root as `LINEAR_API_KEY=lin_api_…`, or
+  export it in the environment.
+  Never commit a key; `status` fails loudly if `.env` is not gitignored.
+- If **no config**: add the `integrations:` block above to `.tbd/config.yml` with the
+  user’s team key (and project, if they name one), then re-run `status` to verify the
+  team resolves.
+
+```bash
+tbd --dry-run integration mirror   # 2. Preview the outbound set; stage with --bead/--limit
+tbd integration mirror             # 3. Create/update the tracker issues
+tbd integration sync               # 4. Reconcile from then on; repeat at session end
+```
+
+The default policy mirrors open epics and anything with an active plan spec — the right
+starting point for “track our specs and major work”.
+Re-running any of these is safe: mirroring is idempotent and sync converges to
+`nothing to do`.
 
 ## Troubleshooting
 

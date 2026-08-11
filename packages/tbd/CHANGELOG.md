@@ -2,6 +2,17 @@
 
 ## Unreleased
 
+- External tracker integrations (Linear): one-way mirror plus full bidirectional
+  synchronization governed by a per-integration linking policy (`outbound` / `inbound` /
+  `field_sync` clauses, `policy: default` preset).
+  New commands: `tbd integration status | mirror | sync | link | unlink | comment`.
+  Comments sync as append-only sequences; conflicts archive to the attic and post
+  resolvable tracker comments; bulk changes over 20 creates / 40 updates require
+  `--yes`. Strictly additive: repositories without an `integrations` config block are
+  unaffected, and links ride each bead’s `extensions` namespace with no format bump.
+
+## Unreleased
+
 ### Added
 
 - **External tracker integrations** (`tbd integration`), with Linear as the first
