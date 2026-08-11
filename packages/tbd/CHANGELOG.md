@@ -73,6 +73,17 @@
   states that `--notes` replaces the whole body and that notes are single-writer
   replaceable state, not a conversation log.
 
+### Internal
+
+- **Shared issue aggregation**: the `tbd stats` counting logic now lives in
+  `src/lib/issue-stats.ts` (`computeIssueStats`, plus the single definition of active
+  statuses and display orders), so other surfaces can report the same numbers the CLI
+  prints. `tbd stats` output is byte-identical.
+  A development-only live web viewer over the bead graph
+  (`packages/tbd/scripts/bead-web.ts`, not part of the published package) consumes it
+  and drives the watch layer end to end; see
+  `docs/project/specs/active/plan-2026-08-10-tbd-web-live-bead-view.md`.
+
 ### Fixes
 
 - **Watch exit codes disambiguated**: a watch timeout now exits 3, matching the

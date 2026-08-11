@@ -9,31 +9,17 @@ import { Command } from 'commander';
 import { BaseCommand } from '../lib/base-command.js';
 import { requireInit, NotInitializedError } from '../lib/errors.js';
 import { listIssues } from '../../file/storage.js';
-import type { Issue, IssueStatusType, IssueKindType } from '../../lib/types.js';
+import type { Issue } from '../../lib/types.js';
 import { formatPriority } from '../../lib/priority.js';
 import { renderFooter } from '../lib/sections.js';
 import { getStatusIcon, getStatusColor } from '../../lib/status.js';
 import { loadDataContext } from '../lib/data-context.js';
-
-/**
- * Active statuses (non-closed).
- */
-const ACTIVE_STATUSES: IssueStatusType[] = ['open', 'in_progress', 'blocked', 'deferred'];
-
-/**
- * All statuses in display order.
- */
-const STATUS_ORDER: IssueStatusType[] = ['open', 'in_progress', 'blocked', 'deferred', 'closed'];
-
-/**
- * All kinds in display order.
- */
-const KIND_ORDER: IssueKindType[] = ['bug', 'feature', 'task', 'epic', 'chore'];
-
-/**
- * Priority labels for display.
- */
-const PRIORITY_LABELS = ['Critical', 'High', 'Medium', 'Low', 'Lowest'];
+import {
+  computeIssueStats,
+  KIND_ORDER,
+  PRIORITY_LABELS,
+  STATUS_ORDER,
+} from '../../lib/issue-stats.js';
 
 class StatsHandler extends BaseCommand {
   async run(): Promise<void> {
@@ -48,68 +34,10 @@ class StatsHandler extends BaseCommand {
       throw new NotInitializedError('No issue store found. Run `tbd init` first.');
     }
 
-    // Count by status
-    const byStatus: Record<IssueStatusType, number> = {
-      open: 0,
-      in_progress: 0,
-      blocked: 0,
-      deferred: 0,
-      closed: 0,
-    };
-
-    // Count by kind (active vs closed)
-    const byKindActive: Record<IssueKindType, number> = {
-      bug: 0,
-      feature: 0,
-      task: 0,
-      epic: 0,
-      chore: 0,
-    };
-    const byKindClosed: Record<IssueKindType, number> = {
-      bug: 0,
-      feature: 0,
-      task: 0,
-      epic: 0,
-      chore: 0,
-    };
-
-    // Count by priority (active vs closed)
-    const byPriorityActive: Record<number, number> = { 0: 0, 1: 0, 2: 0, 3: 0, 4: 0 };
-    const byPriorityClosed: Record<number, number> = { 0: 0, 1: 0, 2: 0, 3: 0, 4: 0 };
-
-    // Accumulate counts
-    for (const issue of issues) {
-      byStatus[issue.status]++;
-
-      const isActive = issue.status !== 'closed';
-      if (isActive) {
-        byKindActive[issue.kind]++;
-        if (issue.priority >= 0 && issue.priority <= 4) {
-          byPriorityActive[issue.priority]!++;
-        }
-      } else {
-        byKindClosed[issue.kind]++;
-        if (issue.priority >= 0 && issue.priority <= 4) {
-          byPriorityClosed[issue.priority]!++;
-        }
-      }
-    }
-
-    // Calculate totals
-    const activeTotal = ACTIVE_STATUSES.reduce((sum, s) => sum + byStatus[s], 0);
-    const closedTotal = byStatus.closed;
-    const total = issues.length;
-
-    const stats = {
-      total,
-      active: activeTotal,
-      closed: closedTotal,
-      byStatus,
-      byKindActive,
-      byKindClosed,
-      byPriorityActive,
-      byPriorityClosed,
-    };
+    const stats = computeIssueStats(issues);
+    const activeTotal = stats.active;
+    const closedTotal = stats.closed;
+    const total = stats.total;
 
     this.output.data(stats, () => {
       const colors = this.output.getColors();

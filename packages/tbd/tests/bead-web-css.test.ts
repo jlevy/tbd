@@ -1,0 +1,171 @@
+/**
+ * Enforces the design-system rules documented at the top of `scripts/bead-web.html`.
+ *
+ * Two rules carry real weight:
+ *
+ * 1. Color literals live only in the `:root` blocks, so a theme can be retuned in one
+ *    place and light/dark cannot drift apart.
+ * 2. Data motion and UI motion never mix. Highlighting a row amber because a filter
+ *    revealed it tells the reader that something changed upstream when nothing did, so
+ *    the wake color and the flash keyframes are reserved for observed data movement.
+ *
+ * A comment saying so is not enforcement; these assertions are.
+ */
+
+import { readFile } from 'node:fs/promises';
+import { dirname, join, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+import { describe, expect, it } from 'vitest';
+
+const packageDir = resolve(dirname(fileURLToPath(import.meta.url)), '..');
+const pagePath = join(packageDir, 'scripts', 'bead-web.html');
+
+/** Hex, rgb(), or hsl() written directly in a rule rather than referenced as a token. */
+const COLOR_LITERAL = /#[0-9a-fA-F]{3,8}\b|\b(?:rgba?|hsla?)\s*\(/g;
+
+async function readStyleBlock(): Promise<string> {
+  const page = await readFile(pagePath, 'utf8');
+  const match = /<style>([\s\S]*?)<\/style>/u.exec(page);
+  expect(match, 'bead-web.html must contain a <style> block').not.toBeNull();
+  return match![1]!;
+}
+
+/**
+ * Strip the base `:root` block, the one place literals are the whole point. The theme
+ * override blocks (`:root:not([data-theme='light'])`, `:root[data-theme='dark']`) are
+ * deliberately NOT stripped: they must be pure remaps of --dark-* tokens, so a literal
+ * appearing there is exactly the drift this check exists to catch.
+ */
+function withoutBaseRoot(css: string): string {
+  return css.replace(/(^|\})\s*:root\s*\{[^}]*\}/u, '$1');
+}
+
+function stripComments(css: string): string {
+  return css.replace(/\/\*[\s\S]*?\*\//gu, '');
+}
+
+describe('bead-web design system', () => {
+  it('defines every color as a token, with no literals outside the base :root', async () => {
+    const css = stripComments(await readStyleBlock());
+    const offenders = withoutBaseRoot(css).match(COLOR_LITERAL) ?? [];
+    expect(
+      offenders,
+      `Color literals must be tokens on the base :root. Found: ${offenders.join(', ')}`,
+    ).toEqual([]);
+  });
+
+  it('retunes the dark palette without changing any hue', async () => {
+    const css = stripComments(await readStyleBlock());
+    const base = /(?:^|\})\s*:root\s*\{([^}]*)\}/u.exec(css)?.[1] ?? '';
+    expect(base, 'expected a base :root block').not.toBe('');
+
+    const hues = new Map<string, string>();
+    for (const [, name, hue] of base.matchAll(/(--[\w-]+):\s*hsl\(\s*([\d.]+)/gu)) {
+      hues.set(name!, hue!);
+    }
+
+    // Lightness is the theme knob; hue encodes family and must stay put. A few points of
+    // drift is fine for legibility, a different family is a bug.
+    const drifted: string[] = [];
+    let pairs = 0;
+    for (const [name, darkHue] of hues) {
+      if (!name.startsWith('--dark-')) {
+        continue;
+      }
+      const lightHue = hues.get(`--${name.slice('--dark-'.length)}`);
+      expect(lightHue, `${name} has no light counterpart`).toBeDefined();
+      pairs += 1;
+      if (lightHue !== undefined && Math.abs(Number(lightHue) - Number(darkHue)) > 10) {
+        drifted.push(`${name}: ${lightHue} vs ${darkHue}`);
+      }
+    }
+    expect(pairs, 'expected a --dark-* counterpart palette').toBeGreaterThan(5);
+    expect(
+      drifted,
+      `Dark palette must retune lightness, not hue. Drifted: ${drifted.join('; ')}`,
+    ).toEqual([]);
+  });
+
+  it('keeps the two dark contexts identical, so a theme choice cannot drift', async () => {
+    const css = stripComments(await readStyleBlock());
+    const systemDark = /:root:not\(\[data-theme='light'\]\)\s*\{([^}]*)\}/u.exec(css)?.[1];
+    const explicitDark = /:root\[data-theme='dark'\]\s*\{([^}]*)\}/u.exec(css)?.[1];
+    expect(
+      systemDark,
+      'expected a system-dark override guarded against explicit light',
+    ).toBeDefined();
+    expect(explicitDark, 'expected an explicit-dark override').toBeDefined();
+
+    const normalize = (block: string): string[] =>
+      block
+        .split(';')
+        .map((line) => line.trim())
+        .filter(Boolean)
+        .sort();
+    expect(
+      normalize(explicitDark!),
+      'The explicit and system dark blocks must declare exactly the same remaps',
+    ).toEqual(normalize(systemDark!));
+
+    // Pure remaps only: every declaration must reference a --dark-* token.
+    for (const declaration of normalize(explicitDark!)) {
+      expect(
+        declaration,
+        `Dark overrides must remap --dark-* tokens, not restate values: "${declaration}"`,
+      ).toMatch(/var\(--dark-[\w-]+\)$/u);
+    }
+  });
+
+  it('lets an explicit light choice win over a dark system preference', async () => {
+    const css = stripComments(await readStyleBlock());
+    const media = /@media\s*\(prefers-color-scheme:\s*dark\)\s*\{([\s\S]*?)\n {6}\}/u.exec(css);
+    expect(media, 'expected a prefers-color-scheme: dark block').not.toBeNull();
+    // Without the :not() guard, choosing light on a dark system would do nothing.
+    expect(media![1]).toContain(":root:not([data-theme='light'])");
+  });
+
+  it('reserves the wake color and flash keyframes for data motion', async () => {
+    const css = stripComments(await readStyleBlock());
+
+    // Every rule that animates with the flash keyframes must be a data-motion selector.
+    const flashRules = [...css.matchAll(/([^{}]+)\{[^}]*animation:\s*row-flash-[^;]*;/gu)].map(
+      (match) => (match[1] ?? '').trim(),
+    );
+    expect(flashRules.length, 'expected the flash-in and flash-out rules').toBeGreaterThan(0);
+    for (const selector of flashRules) {
+      expect(
+        /\.flash|\.leaving/u.test(selector),
+        `Flash keyframes are data motion only; "${selector}" is not a data-motion selector`,
+      ).toBe(true);
+    }
+
+    // The wake background must not be reachable from a hover/focus/active state, which
+    // are by definition UI interactions rather than observed data movement.
+    const interactionRules = [
+      ...css.matchAll(/([^{}]*:(?:hover|focus|active)[^{}]*)\{([^}]*)\}/gu),
+    ];
+    for (const [, selector, body] of interactionRules) {
+      expect(
+        (body ?? '').includes('--row-flash-bg'),
+        `UI interaction "${(selector ?? '').trim()}" must not use the data-motion color`,
+      ).toBe(false);
+    }
+  });
+
+  it('honors prefers-reduced-motion for both motion families', async () => {
+    const css = stripComments(await readStyleBlock());
+    const block = /@media\s*\(prefers-reduced-motion:\s*reduce\)\s*\{([\s\S]*?)\n {6}\}/u.exec(css);
+    expect(block, 'expected a prefers-reduced-motion block').not.toBeNull();
+    const body = block![1]!;
+    expect(body).toContain('.flash');
+    expect(body).toContain('.leaving');
+  });
+
+  it('drives motion from documented duration tokens', async () => {
+    const css = stripComments(await readStyleBlock());
+    expect(css).toContain('--motion-data-in');
+    expect(css).toContain('--motion-data-out');
+    expect(css).toContain('--transition-fast');
+  });
+});
