@@ -3,9 +3,9 @@ type: is
 id: is-01kzrs9vkh8j1vsrfytqdx3sr1
 title: "Phase 5.1: amend architecture and document shipped tbd web behavior"
 kind: task
-status: open
+status: closed
 priority: 1
-version: 3
+version: 4
 spec_path: docs/project/specs/active/plan-2026-08-10-tbd-web-live-bead-view.md
 labels:
   - docs
@@ -16,7 +16,9 @@ dependencies:
     target: is-01kzrsa3b4fywmvvsxt5s4srrq
 parent_id: is-01kzrs6s3fn7gtzgt70wx9yzas
 created_at: 2026-08-11T16:08:17.264Z
-updated_at: 2026-08-11T16:24:58.184Z
+updated_at: 2026-08-11T18:03:04.133Z
+closed_at: 2026-08-11T18:03:04.125Z
+close_reason: Architecture/manual/README/development/changelog/spec documentation reconciled; development spike deleted and production QA topology retained under tests.
 extensions:
   linear:
     id: 979c938b-b151-428d-9ea4-b2cb93f02e0f

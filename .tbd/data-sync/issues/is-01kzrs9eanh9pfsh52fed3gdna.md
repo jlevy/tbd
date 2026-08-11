@@ -3,9 +3,9 @@ type: is
 id: is-01kzrs9eanh9pfsh52fed3gdna
 title: "Phase 4.3: add browser typecheck, IIFE build, and deterministic HTML stitch"
 kind: task
-status: open
+status: closed
 priority: 1
-version: 3
+version: 4
 spec_path: docs/project/specs/active/plan-2026-08-10-tbd-web-live-bead-view.md
 labels:
   - build
@@ -16,7 +16,9 @@ dependencies:
     target: is-01kzrs9mb24gzv94d2mvexqnbd
 parent_id: is-01kzrs6dd1abehychzed2yc1fk
 created_at: 2026-08-11T16:08:03.667Z
-updated_at: 2026-08-11T16:24:55.619Z
+updated_at: 2026-08-11T18:03:03.867Z
+closed_at: 2026-08-11T18:03:03.867Z
+close_reason: Production CLI/server/client implementation complete; lifecycle, security, race, build, browser, performance, and packaged-artifact evidence is green.
 extensions:
   linear:
     id: 90cb1f73-b89d-4930-9721-0407747b0680

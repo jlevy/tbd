@@ -3,9 +3,9 @@ type: is
 id: is-01kzrs6dd1abehychzed2yc1fk
 title: "Phase 4: productize strict TypeScript web client and packaged artifact"
 kind: task
-status: open
+status: closed
 priority: 1
-version: 7
+version: 8
 spec_path: docs/project/specs/active/plan-2026-08-10-tbd-web-live-bead-view.md
 labels:
   - web
@@ -20,7 +20,9 @@ child_order_hints:
   - is-01kzrs9eanh9pfsh52fed3gdna
   - is-01kzrs9mb24gzv94d2mvexqnbd
 created_at: 2026-08-11T16:06:24.415Z
-updated_at: 2026-08-11T16:24:39.393Z
+updated_at: 2026-08-11T18:03:13.147Z
+closed_at: 2026-08-11T18:03:13.146Z
+close_reason: All typed client, build, behavior-parity, and packaging subtasks complete and validated.
 extensions:
   linear:
     id: 0062001b-4c7f-4489-bd91-f0aef80a0d27
