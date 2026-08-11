@@ -40,42 +40,38 @@ category: general
 
 ## Cryptographic Hash Checks
 
-A cryptographic hash check (SHA-256 or similar) is a tool for verifying data across a
-trust boundary. A common agent antipattern is adding hash checks as process ceremony:
-they impose real costs in code, complexity, and failure modes while adding no assurance.
-NEVER add a hash check “for good luck”; if you cannot state what failure or tampering
-the check catches, remove it.
+Cryptographic hashes (SHA-256 and similar) verify data across a trust boundary.
+A common agent antipattern is hash checking as process ceremony: real costs in code,
+complexity, and failure modes, no benefit.
+NEVER add a hash check “for good luck”; if you cannot name the failure or tampering it
+catches, remove it.
 
-- **The test**: A hash comparison adds assurance only when the two values are computed
-  independently and the data passes outside your control in between—through another
-  party, an untrusted channel, or long-lived storage.
-  If the same trusted process computes both sides moments apart, the check can only
-  catch bugs in the check itself.
+- **The test**: A comparison adds assurance only if the two hashes are computed
+  independently, with the data outside your control in between (another party, an
+  untrusted channel, long-lived storage).
+  When one trusted process computes both sides moments apart, the check can only catch
+  bugs in the check itself.
 
-- **Appropriate uses**:
+- **Appropriate**:
 
-  - Verifying untrusted external data against a fixed, known, trusted value, such as
-    checking a downloaded artifact against a checksum pinned in your repo (see
+  - Verifying untrusted external data against a fixed, known, trusted value, such as a
+    downloaded artifact against a checksum pinned in your repo (see
     `supply-chain-hardening`).
 
-  - A hash table or content-addressed store that must be tamper-resistant, where
-    collisions must be infeasible even for adversarial inputs.
+  - A hash table or content-addressed store that must resist adversarial collisions (an
+    ordinary hash table needs only a fast non-cryptographic hash).
 
-  - Integrity manifests for large numbers of files written to disk and persisted for
-    long periods, when external verification is genuinely needed later.
+  - Integrity manifests for many files persisted long-term, when external verification
+    is genuinely needed later.
 
-- **Inappropriate uses (ceremony)**:
+- **Ceremony**:
 
-  - A trusted application saves a file, immediately reads it back, and hashes both sides
-    of its own round trip.
-    The comparison verifies nothing.
-    If corruption or truncation on disk is a real operational risk, address it
-    operationally instead: write output files atomically (write to a temp file, then
-    rename).
+  - Hashing both sides of your own save-then-read-back round trip: the comparison
+    verifies nothing. If disk corruption or truncation is a real risk, write files
+    atomically (temp file, then rename) instead of adding checks.
 
   - Content-hashing a reference to an external resource, such as a file in a GitHub
-    repository, when an exact release tag or Git revision identifies it more clearly and
-    maintainably.
+    repository, when an exact release or Git revision is the clearer, maintainable pin.
 
 <!-- This document follows common-doc-guidelines.md.
 See github.com/jlevy/practical-prose and review guidelines before editing.
