@@ -46,17 +46,51 @@ function recordPath(dataSyncDir: string, provider: ProviderNameType, beadId: str
  */
 export function normalizeDescription(text: string | null | undefined): string {
   const stripped = stripManagedBlock(text ?? '');
-  return stripped
-    .replace(/\r\n/g, '\n')
-    .split('\n')
-    .map((line) => line.replace(/[ \t]+$/, ''))
-    .join('\n')
-    .trim();
+  return (
+    stripped
+      .replace(/\r\n/g, '\n')
+      .split('\n')
+      .map((line) =>
+        line
+          .replace(/[ \t]+$/, '')
+          // Linear rewrites list bullets (`- item` comes back `* item`), which
+          // is rendering-identical markdown. Normalize the marker so bullet
+          // style never reads as a content change — observed live: without
+          // this, every bead body with a dash list ping-ponged through sync.
+          .replace(/^(\s*)[*+-] /, '$1- '),
+      )
+      .join('\n')
+      // Blank-line runs are also reflowed by the tracker; more than one blank
+      // line is rendering-identical to one.
+      .replace(/\n{3,}/g, '\n\n')
+      // The tracker turns tight lists loose: it inserts a blank line between a
+      // paragraph and a following list item — bulleted or ordered. Rendering-
+      // identical, so blank lines directly before a list item are cosmetic.
+      .replace(/\n+(?=\n(?:- |\d+[.)] ))/g, '')
+      // The tracker auto-linkifies bare URLs: `https://x` comes back as
+      // `[https://x](<https://x>)`. A link whose label IS its target is the
+      // same link; unwrap it (angle-bracketed or not) before hashing.
+      .replace(/\[([^\]\s]+)\]\(<\1>\)/g, '$1')
+      .replace(/\[([^\]\s]+)\]\(\1\)/g, '$1')
+      // Bare domains get a scheme added on top: `skills.sh` comes back as
+      // `[skills.sh](<http://skills.sh>)`. Same unwrap, scheme-tolerant.
+      .replace(/\[([^\]\s]+)\]\(<https?:\/\/\1\/?>\)/g, '$1')
+      .replace(/\[([^\]\s]+)\]\(https?:\/\/\1\/?\)/g, '$1')
+      .trim()
+  );
 }
+
+/**
+ * The hash format version. Bumped when {@link normalizeDescription} changes:
+ * a base hash from an older algorithm matches neither side and would fake a
+ * both-changed conflict, so consumers treat stale-prefixed hashes as "no
+ * recorded base" for the description field instead.
+ */
+export const DESCRIPTION_HASH_PREFIX = 'sha256v6:';
 
 /** Hash of the normalized description; equal hashes mean "unchanged". */
 export function descriptionHash(text: string | null | undefined): string {
-  return `sha256:${createHash('sha256').update(normalizeDescription(text)).digest('hex')}`;
+  return `${DESCRIPTION_HASH_PREFIX}${createHash('sha256').update(normalizeDescription(text)).digest('hex')}`;
 }
 
 /**

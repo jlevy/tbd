@@ -17,7 +17,8 @@ import { runSync, type SyncCallbacks } from '../src/integrations/core/sync-engin
 import { LinearAdapter } from '../src/integrations/linear/adapter.js';
 import { LinearClient } from '../src/integrations/linear/client.js';
 import { PolicyDefinitionSchema } from '../src/lib/schemas.js';
-import type { Issue, PolicyDefinition } from '../src/lib/types.js';
+import { priorityToLinear } from '../src/integrations/linear/mapping.js';
+import type { Issue, PolicyDefinition, PriorityType } from '../src/lib/types.js';
 import { LinearMockServer } from './helpers/linear-mock-server.js';
 
 const POLICY: PolicyDefinition = PolicyDefinitionSchema.parse({
@@ -100,6 +101,25 @@ describe('the sync engine', () => {
     await rm(dir, { recursive: true, force: true });
   });
 
+  function runWithEquivalence(allIssues: Issue[]) {
+    return runSync({
+      provider: 'linear',
+      adapter,
+      policy: POLICY,
+      dataSyncDir: dir,
+      allIssues,
+      displayId: (id) => id.slice(-4),
+      mirrorLabels: false,
+      equivalences: {
+        priority: (a, b) =>
+          priorityToLinear(a as PriorityType) === priorityToLinear(b as PriorityType),
+      },
+      callbacks,
+      dryRun: false,
+      now: () => new Date().toISOString(),
+    });
+  }
+
   function run(allIssues: Issue[], policy = POLICY, dryRun = false) {
     return runSync({
       provider: 'linear',
@@ -108,6 +128,7 @@ describe('the sync engine', () => {
       dataSyncDir: dir,
       allIssues,
       displayId: (id) => id.slice(-4),
+      mirrorLabels: false,
       callbacks,
       dryRun,
       now: () => new Date().toISOString(),
@@ -225,6 +246,28 @@ describe('the sync engine', () => {
     expect(again.commentsPushed).toBe(0);
   });
 
+  it('never pulls its own conflict-report comments back as content', async () => {
+    const epic = bead('is-01hx5zzkbkactav9wevgemmvrz');
+    store.set(epic.id, epic);
+    await run([epic]);
+    await run([store.get(epic.id)!]); // settle
+    const externalId = readLink(store.get(epic.id)!, 'linear')!.id;
+
+    await adapter.postConflict(externalId, {
+      beadId: 'mvrz',
+      field: 'title',
+      keptValue: 'a',
+      discardedValue: 'b',
+      atticPath: 'x',
+    });
+    await adapter.createComment(externalId, 'a real human comment');
+
+    const pull = await run([store.get(epic.id)!]);
+    expect(pull.commentsPulled).toBe(1); // the human one only
+    const bodies = readComments(store.get(epic.id)!, 'linear').map((c) => c.body);
+    expect(bodies).toEqual(['a real human comment']);
+  });
+
   it('reports inbound candidates and imports under auto', async () => {
     server.addIssue({
       id: 'external-only',
@@ -250,6 +293,44 @@ describe('the sync engine', () => {
     const created = [...store.values()].find((issue) => issue.title === 'Filed by a PM');
     expect(created).toBeDefined();
     expect(readLink(created!, 'linear')?.id).toBe('external-only');
+  });
+
+  it('never pushes or wipes labels when mirror_labels is off — the live incident', async () => {
+    // Found on the first production run: field_sync.labels defaults to
+    // 'local', and without the gate the engine pushed raw bead labels (one
+    // team label created per bead label) and pushed [] for label-less beads,
+    // stripping tbd's own blocked/deferred status carriers.
+    const epic = bead('is-01hx5zzkbkactav9wevgemmvrz', { labels: ['viewer', 'phase-1'] });
+    store.set(epic.id, epic);
+    await run([epic]);
+    await run([store.get(epic.id)!]); // settle
+
+    const externalId = readLink(store.get(epic.id)!, 'linear')!.id;
+    // The tracker item carries tbd's status carrier; bead labels differ.
+    const remote = server.issues.get(externalId)!;
+    remote.labels = { nodes: [{ id: 'label-carrier', name: 'tbd:blocked' }] };
+    remote.updatedAt = new Date(Date.now() + 60_000).toISOString();
+
+    const settle = await run([store.get(epic.id)!]);
+    // No label flow in either direction, no team labels created.
+    expect(server.labels.some((l) => l.name === 'viewer')).toBe(false);
+    expect(settle.overwrites.filter((o) => o.field === 'labels')).toEqual([]);
+    expect(store.get(epic.id)!.labels).toEqual(['viewer', 'phase-1']);
+  });
+
+  it('a P4 bead does not oscillate through the priority non-bijection', async () => {
+    // Linear's 4 means both P3 and P4; a pushed P4 reads back as P3 forever.
+    // The provider equivalence keeps the pair quiet and the bead at P4.
+    const epic = bead('is-01hx5zzkbkactav9wevgemmvrz', { priority: 4 });
+    store.set(epic.id, epic);
+    await runWithEquivalence([epic]);
+    const first = await runWithEquivalence([store.get(epic.id)!]);
+    expect(first.pulled).toEqual([]);
+    expect(first.conflicts).toEqual([]);
+    expect(store.get(epic.id)!.priority).toBe(4);
+
+    const second = await runWithEquivalence([store.get(epic.id)!]);
+    expect(second.nothingToDo).toBe(true);
   });
 
   it('counts both directions in the bulk guard', async () => {

@@ -23,7 +23,7 @@
 
 import type { BridgeBase, IssueStatusType, PriorityType } from '../../lib/types.js';
 import type { FieldSyncClause } from '../../lib/types.js';
-import { descriptionHash } from './bridge-state.js';
+import { DESCRIPTION_HASH_PREFIX, descriptionHash } from './bridge-state.js';
 import { stripManagedBlock } from './managed-block.js';
 import type { CanonicalPatch } from './types.js';
 
@@ -134,6 +134,15 @@ interface FieldOps {
 }
 
 /**
+ * Per-field equivalence relations beyond strict equality, supplied by the
+ * provider. The canonical case: Linear cannot represent P4 (its 4 means both
+ * P3 and P4), so a pushed P4 reads back as P3 forever; without an equivalence
+ * the pair oscillates. Values equivalent under the relation neither flow nor
+ * conflict, and the base keeps the finer local value.
+ */
+export type FieldEquivalences = Partial<Record<SyncedField, (a: unknown, b: unknown) => boolean>>;
+
+/**
  * Reconcile one linked pair. Pure.
  *
  * @param base - The recorded base, or undefined for a freshly linked pair.
@@ -143,6 +152,7 @@ export function reconcile(
   local: LocalView,
   remote: RemoteView,
   rules: FieldSyncClause,
+  equivalences: FieldEquivalences = {},
 ): ReconcileResult {
   const beadPatch: BeadPatch = {};
   const externalPatch: CanonicalPatch = {};
@@ -157,6 +167,10 @@ export function reconcile(
       : rules.tie_break === 'local';
 
   const scalarEqual = (a: unknown, b: unknown): boolean => a === b;
+  const withEquivalence =
+    (field: SyncedField, strict: (a: unknown, b: unknown) => boolean) =>
+    (a: unknown, b: unknown): boolean =>
+      strict(a, b) || (equivalences[field]?.(a, b) ?? false);
   const merged = {
     title: local.title,
     status: local.status,
@@ -186,7 +200,11 @@ export function reconcile(
       // as a change; the applied values are the real prose.
       local: descriptionHash(local.description),
       remote: descriptionHash(remoteProse),
-      base: base?.description_hash,
+      // A hash from an older normalization algorithm matches neither side and
+      // would fake a both-changed conflict; treat it as no recorded base.
+      base: base?.description_hash?.startsWith(DESCRIPTION_HASH_PREFIX)
+        ? base.description_hash
+        : undefined,
       equal: scalarEqual,
       applyLocal: () => {
         beadPatch.description = remoteProse;
@@ -215,7 +233,7 @@ export function reconcile(
       local: local.priority,
       remote: remote.priority,
       base: base?.priority,
-      equal: scalarEqual,
+      equal: withEquivalence('priority', scalarEqual),
       applyLocal: (value) => {
         beadPatch.priority = value as PriorityType;
         merged.priority = value as PriorityType;

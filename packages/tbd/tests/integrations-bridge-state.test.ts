@@ -163,6 +163,39 @@ describe('description normalization and hashing', () => {
     expect(descriptionHash('a')).not.toBe(descriptionHash('b'));
   });
 
+  it('ignores bullet-marker style — the tracker rewrites - as *', () => {
+    expect(descriptionHash('- one\n- two')).toBe(descriptionHash('* one\n* two'));
+    expect(descriptionHash('  - nested')).toBe(descriptionHash('  * nested'));
+    // But a marker is only a marker at the start of a list item.
+    expect(descriptionHash('a - b')).not.toBe(descriptionHash('a * b'));
+  });
+
+  it('ignores a blank line inserted before a list — tracker loose-listing', () => {
+    expect(descriptionHash('Adds:\n- item')).toBe(descriptionHash('Adds:\n\n- item'));
+    expect(descriptionHash('Adds:\n- item')).toBe(descriptionHash('Adds:\n\n* item'));
+    expect(descriptionHash('Goals:\n1. one')).toBe(descriptionHash('Goals:\n\n1. one'));
+  });
+
+  it('ignores tracker auto-linkification of bare URLs', () => {
+    expect(descriptionHash('see https://x.y/z now')).toBe(
+      descriptionHash('see [https://x.y/z](<https://x.y/z>) now'),
+    );
+    expect(descriptionHash('see https://x.y/z now')).toBe(
+      descriptionHash('see [https://x.y/z](https://x.y/z) now'),
+    );
+    // Bare domains get a scheme added on top of linkification.
+    expect(descriptionHash('via skills.sh discovery')).toBe(
+      descriptionHash('via [skills.sh](<http://skills.sh>) discovery'),
+    );
+    // A REAL link with a different label is content, not cosmetics.
+    expect(descriptionHash('[docs](https://x.y/z)')).not.toBe(descriptionHash('https://x.y/z'));
+  });
+
+  it('ignores blank-line runs beyond one', () => {
+    expect(descriptionHash('a\n\n\n\nb')).toBe(descriptionHash('a\n\nb'));
+    expect(descriptionHash('a\nb')).not.toBe(descriptionHash('a\n\nb'));
+  });
+
   it('normalizes but does not otherwise rewrite content', () => {
     expect(normalizeDescription('  keep leading\ninternal  spacing')).toBe(
       'keep leading\ninternal  spacing',

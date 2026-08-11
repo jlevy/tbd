@@ -39,6 +39,7 @@ import {
   TEAM_META_QUERY,
 } from './queries.js';
 import { spliceManagedBlock } from '../core/managed-block.js';
+import { CONFLICT_COMMENT_MARKER } from '../core/types.js';
 
 interface RawIssue {
   id: string;
@@ -267,7 +268,7 @@ export class LinearAdapter implements TrackerAdapter {
     clientId?: string,
   ): Promise<{ commentId: string }> {
     const body = [
-      '**tbd sync conflict**',
+      CONFLICT_COMMENT_MARKER,
       '',
       `Field \`${report.field}\` on \`${report.beadId}\` diverged and one value was discarded.`,
       '',

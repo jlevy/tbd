@@ -42,8 +42,14 @@ import {
 import { mergeExternalComments, recordPushedComment, unpushedComments } from './comment-store.js';
 import { readLink, writeLink } from './link-store.js';
 import { renderManagedBlock, type MirrorLinks } from './managed-block.js';
-import { attachmentsFor, beadAttachmentUrl } from './mirror.js';
-import { reconcile, type FieldConflict, type LocalView, type RemoteView } from './reconcile.js';
+import { attachmentsFor, beadAttachmentUrl, prefixLabels } from './mirror.js';
+import {
+  reconcile,
+  type FieldConflict,
+  type FieldEquivalences,
+  type LocalView,
+  type RemoteView,
+} from './reconcile.js';
 import { mirrorSet } from './selection.js';
 import {
   replayIntents,
@@ -52,6 +58,7 @@ import {
   type IntentOp,
   type IntentPatch,
 } from './intents.js';
+import { CONFLICT_COMMENT_MARKER } from './types.js';
 import type { ConflictReport, ExternalIssue, TrackerAdapter } from './types.js';
 
 /** Re-fetch this far behind the watermark; over-fetching costs nothing. */
@@ -88,6 +95,16 @@ export interface SyncEngineOptions {
   displayId: (id: string) => string;
   /** Spec permalink resolution, shared with the mirror. */
   specUrl?: (issue: Issue) => string | undefined;
+  /**
+   * Push bead labels as tracker labels. Off by default, exactly like the
+   * mirror: a repo can carry a hundred-plus labels, and pushing them creates
+   * one per label in a shared team namespace. When off, labels neither push
+   * nor wipe — the tracker's labels (including tbd's own status carriers) are
+   * left alone. When on, pushed labels are `tbd:`-prefixed.
+   */
+  mirrorLabels: boolean;
+  /** Provider-specific field equivalences (see reconcile.ts). */
+  equivalences?: FieldEquivalences;
   callbacks: SyncCallbacks;
   dryRun: boolean;
   now: () => string;
@@ -278,7 +295,25 @@ export async function runSync(options: SyncEngineOptions): Promise<SyncRunReport
           description_hash: descriptionHash(remote.description),
         };
       })();
-    const result = reconcile(base, localViewOf(bead), remoteViewOf(remote), policy.field_sync);
+    const result = reconcile(
+      base,
+      localViewOf(bead),
+      remoteViewOf(remote),
+      policy.field_sync,
+      options.equivalences,
+    );
+    if (!options.mirrorLabels) {
+      // Labels are inert unless explicitly mirrored: never pushed (which would
+      // create one team label per bead label AND wipe tbd's status carriers on
+      // beads without labels), never pulled, never a reportable overwrite.
+      delete result.externalPatch.labels;
+      delete result.beadPatch.labels;
+      result.overwrites = result.overwrites.filter((o) => o.field !== 'labels');
+      result.conflicts = result.conflicts.filter((c) => c.field !== 'labels');
+      result.merged.labels = bead.labels ?? [];
+    } else if (result.externalPatch.labels) {
+      result.externalPatch.labels = prefixLabels(result.externalPatch.labels);
+    }
     pairs.push({ bead, record, remote, result });
   }
 
@@ -484,7 +519,9 @@ export async function runSync(options: SyncEngineOptions): Promise<SyncRunReport
         }
       }
       if (commentPulls.some((pull) => pull.bead.id === pair.bead.id)) {
-        const external = await adapter.listComments(link.id);
+        const external = (await adapter.listComments(link.id)).filter(
+          (comment) => !comment.body.startsWith(CONFLICT_COMMENT_MARKER),
+        );
         const mergedComments = mergeExternalComments(stored, provider, external);
         if (mergedComments.added > 0) {
           stored = mergedComments.issue;

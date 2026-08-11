@@ -96,6 +96,13 @@ export interface ProviderMeta {
 }
 
 /**
+ * First line of every conflict-report comment tbd posts. The comment-pull
+ * path skips bodies starting with it: conflict reports are sync artifacts
+ * tracked in the bridge, not content to fold back into beads.
+ */
+export const CONFLICT_COMMENT_MARKER = '**tbd sync conflict**';
+
+/**
  * A report that a field diverged and one value was discarded.
  */
 export interface ConflictReport {

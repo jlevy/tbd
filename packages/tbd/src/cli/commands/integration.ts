@@ -20,6 +20,7 @@ import { LinearAdapter } from '../../integrations/linear/adapter.js';
 import { VIEWER_QUERY } from '../../integrations/linear/queries.js';
 import { applyMirror, planMirror } from '../../integrations/core/mirror.js';
 import { mirrorSet } from '../../integrations/core/selection.js';
+import { priorityToLinear } from '../../integrations/linear/mapping.js';
 import type { MirrorReport, TrackerAdapter } from '../../integrations/core/types.js';
 import { withDataSyncContext } from '../lib/data-context.js';
 import { listIssues, readIssue, writeIssue } from '../../file/storage.js';
@@ -53,6 +54,7 @@ import type {
   IssueKindType,
   IssueStatusType,
   PolicyDefinition,
+  PriorityType,
   ProviderNameType,
 } from '../../lib/types.js';
 
@@ -529,6 +531,13 @@ class IntegrationSyncHandler extends BaseCommand {
           allIssues,
           displayId,
           specUrl: (issue) => (issue.spec_path ? specLinks.get(issue.spec_path) : undefined),
+          mirrorLabels: config.integrations?.linear?.mirror_labels ?? false,
+          // Linear cannot represent P4 (its 4 covers P3 and P4); without this
+          // equivalence every P4 bead would oscillate as a phantom pull.
+          equivalences: {
+            priority: (a, b) =>
+              priorityToLinear(a as PriorityType) === priorityToLinear(b as PriorityType),
+          },
           callbacks: {
             readBead: (id) => readIssue(context.dataSyncDir, id),
             writeBead: (issue) => writeIssue(context.dataSyncDir, issue),
