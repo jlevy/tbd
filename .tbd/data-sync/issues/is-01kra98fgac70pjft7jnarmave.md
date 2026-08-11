@@ -5,7 +5,7 @@ title: "Spec: Docs config redesign (f06+ framework)"
 kind: epic
 status: open
 priority: 1
-version: 16
+version: 17
 spec_path: docs/project/specs/active/plan-2026-05-07-docs-config-redesign.md
 labels: []
 dependencies: []
@@ -20,7 +20,7 @@ child_order_hints:
   - is-01kra99kg4z987hjrwwrj5wh4q
   - is-01kra99kvf2ys81vcakyb8vbzz
 created_at: 2026-05-11T01:08:40.073Z
-updated_at: 2026-08-11T07:04:22.232Z
+updated_at: 2026-08-11T07:05:51.157Z
 extensions:
   linear:
     id: 469c60b7-7a9d-4724-82a1-cd0d24d76321
@@ -28,19 +28,18 @@ extensions:
     url: https://linear.app/finterm-ai/issue/TBD-39/spec-docs-config-redesign-f06-framework
     linked_at: 2026-08-10T19:36:32.543Z
 ---
-Top-level epic for the docs config redesign (f05 schema) tracked in PR #117 ([https://github.com/jlevy/tbd/pull/117](<https://github.com/jlevy/tbd/pull/117>)).
+Top-level epic for the docs config redesign (f05 schema) tracked in PR #117 (https://github.com/jlevy/tbd/pull/117).
 
 Spec: docs/project/specs/active/plan-2026-05-07-docs-config-redesign.md
 
 Already done on branch claude/review-config-format-2wxh8 (committed, in PR):
-
-* docref module: parser, types, 31 tests
-* docmap module: Zod schemas, resolution algorithm, 21 tests
-* Resolver semantics fix (priority-wins same (type, name); ambiguous across types)
-* Spec §4.4/§4.5 rewritten
-* Zod schemas .strict() everywhere
-* Cross-field validation (bundle required for non-local docrefs)
-* Plan-spec written, design docs (design-docref-format.md, design-docmap-format.md), std-doc-guidelines.md
+- docref module: parser, types, 31 tests
+- docmap module: Zod schemas, resolution algorithm, 21 tests
+- Resolver semantics fix (priority-wins same (type, name); ambiguous across types)
+- Spec §4.4/§4.5 rewritten
+- Zod schemas .strict() everywhere
+- Cross-field validation (bundle required for non-local docrefs)
+- Plan-spec written, design docs (design-docref-format.md, design-docmap-format.md), std-doc-guidelines.md
 
 Remaining work is broken into three sub-epics (Phase 1/2/3) plus the open architectural questions Q15-Q20 which gate Phase 2 implementation per PR-comment from jlevy.
 
