@@ -14,7 +14,6 @@ before: |
   echo "# Web test repo" > README.md
   git add README.md
   git commit -m "Initial commit"
-  node run-built-cli.mjs init --prefix=test --quiet
 ---
 # `tbd web` CLI contract
 
@@ -22,6 +21,13 @@ The long-running lifecycle is covered by `cli-web.test.ts`; this transcript fixe
 human-facing help, dry-run, and validation contracts.
 
 * * *
+
+## Sandboxed repository setup
+
+```console
+$ node run-built-cli.mjs init --prefix=test --quiet
+? 0
+```
 
 ## Help
 

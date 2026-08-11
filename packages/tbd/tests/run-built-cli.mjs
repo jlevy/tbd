@@ -1,8 +1,8 @@
 /** Shell-neutral launcher for sandboxed tryscript coverage of the built CLI. */
 
+import { spawnSync } from 'node:child_process';
 import { resolve } from 'node:path';
 import process from 'node:process';
-import { pathToFileURL } from 'node:url';
 
 const packageRoot = process.env.TRYSCRIPT_PACKAGE_ROOT;
 if (packageRoot === undefined || packageRoot === '') {
@@ -10,5 +10,11 @@ if (packageRoot === undefined || packageRoot === '') {
 }
 
 const entry = resolve(packageRoot, 'dist', 'bin.mjs');
-process.argv[1] = entry;
-await import(pathToFileURL(entry).href);
+const child = spawnSync(process.execPath, [entry, ...process.argv.slice(2)], {
+  stdio: 'inherit',
+  windowsHide: true,
+});
+if (child.error !== undefined) {
+  throw child.error;
+}
+process.exitCode = child.status ?? 1;

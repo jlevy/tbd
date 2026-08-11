@@ -606,7 +606,7 @@ to land the whole command through one PR.
 ### Phase 6: Production validation and merge
 
 - [x] Local release matrix green after final review: format, strict lint/typecheck,
-  build, 1,497 Vitest tests, 1,073 tryscript checks, publint, 31 package-age pins, watch
+  build, 1,498 Vitest tests, 1,074 tryscript checks, publint, 31 package-age pins, watch
   release smoke, and packed-web proof.
   The unchanged production audit advisory is tracked separately as `tbd-6gy0`.
 - [ ] Full matrix green: suite + the `tbd web` tryscript on Ubuntu/macOS/Windows CI; the
@@ -646,7 +646,7 @@ R13 removes the remaining shell-specific syntax exposed by the Windows matrix.
 | `tbd-b4m2` (R10) | P1 | five `tests/cli-sync-*.tryscript.md` fixtures: `before` remotes | Keep each bare remote inside its sandbox’s own Git directory so sync histories cannot leak between transcript files. |
 | `tbd-snb4` (R11) | P1 | `tests/cli-web.tryscript.md`: built CLI invocation | Invoke `bin.mjs` explicitly with Node so the focused matrix transcript does not depend on Unix extensionless-command lookup. |
 | `tbd-qf41` (R12) | P1 | `src/cli/web/wake.ts`: `applyReport`; `tests/web-wake.test.ts` | Treat `remote-missing` as a retryable unapplied report: do not reload or advance report/cursor state, and retry from the same baseline. |
-| `tbd-4ets` (R13) | P1 | `tests/run-built-cli.mjs`; `tests/cli-web.tryscript.md`: sandbox invocation and filters | Resolve the built entry through Node’s environment instead of shell expansion, and use shell-neutral quoting for `sed`/`jq`. |
+| `tbd-4ets` (R13) | P1 | `tests/run-built-cli.mjs`; `tests/cli-web.tryscript.md`: sandbox invocation, setup, and filters | Spawn and await the exact built entry using a Node-resolved path, assert sandbox initialization as a test, and use shell-neutral quoting for `sed`/`jq`. |
 
 ### Merge gate for PR #207
 
