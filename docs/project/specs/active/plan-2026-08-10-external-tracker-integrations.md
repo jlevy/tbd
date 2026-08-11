@@ -9,8 +9,13 @@ author: Joshua Levy (github.com/jlevy) with LLM assistance
 
 **Author:** Joshua Levy (github.com/jlevy) with LLM assistance
 
-**Status:** Phase 1 implemented and validated live (PR
-[#206](https://github.com/jlevy/tbd/pull/206)). Phases 2 and 3 designed here, not built.
+**Status:** Phases 1 and 2 implemented (PR
+[#206](https://github.com/jlevy/tbd/pull/206)): the one-way mirror is validated against
+a live workspace, and the full synchronization (policy, bidirectional field sync,
+append-only comments, link management) is verified against the mock provider and
+end-to-end through the built CLI. Live two-machine soak and the rollout gates below
+remain before `sync_on_tbd_sync` is enabled anywhere.
+Phase 3 (GitHub) is designed here, not built.
 
 ## Overview
 
@@ -1061,51 +1066,54 @@ Carried into Phase 2 (deliberately, not oversights): `link`/`unlink`/`import`
 (`tbd-az29`) because their semantics are the reconcile engine’s (stance on link, base
 seeding); and end-to-end tryscript goldens against the mock server (`tbd-uu08`).
 
-### Phase 2: Policy, bidirectional sync, and the remaining verbs
+### Phase 2: Policy, bidirectional sync, and the remaining verbs — ✅ implemented (PR #206)
 
 Build order matters: each step is testable before the next, and the pure core lands
 before anything touches the network.
 
-- [ ] **`core/policy.ts`** — `PolicyDefinitionSchema`, `PolicyName` presets,
+- [x] **`core/policy.ts`** — `PolicyDefinitionSchema`, `PolicyName` presets,
   `resolvePolicy(config): PolicyDefinition`; fold legacy `select` into
   `policy.outbound`; exhaustive zod round-trip tests.
-- [ ] **`core/bridge-state.ts`** — `readLinkRecord`/`writeLinkRecord` on
+- [x] **`core/bridge-state.ts`** — `readLinkRecord`/`writeLinkRecord` on
   `bridge/<provider>/links/<bead-id>.yml`; `LinkRecordSchema` (`type: lk`); reverse
   index (`byExternalId`); normalized description hashing.
-- [ ] **Bridge merge rule in `file/git.ts`** — `lk` records merge by newest observation
+- [x] **Bridge merge rule in `file/git.ts`** — `lk` records merge by newest observation
   (`remote_updated_at`, `synced_at` tie-break); multi-machine merge test with a
   constructed divergent history.
-- [ ] **`core/reconcile.ts`** — the pure field matrix:
+- [x] **`core/reconcile.ts`** — the pure field matrix:
   `reconcile(base, local, remote, rules) → {beadPatch, externalPatch, conflicts}`;
   property tests over the full changed/unchanged × owner matrix; description
   normalization (managed-block strip, line endings).
-- [ ] **`core/intents.ts`** — intent file per run under `bridge/<p>/intents/`; replay on
+- [x] **`core/intents.ts`** — intent file per run under `bridge/<p>/intents/`; replay on
   start (cross-machine safe); idempotency table backed by mock-server tests (duplicate
   create, re-update, attachment upsert, comment dedup probe).
-- [ ] **`adapter.postConflict()` + `queries.ts` additions** — `commentCreate` (client
+- [x] **`adapter.postConflict()` + `queries.ts` additions** — `commentCreate` (client
   UUID), `commentResolve`/`commentUnresolve`, archived/deleted detection for orphans,
   `updatedAt`-filtered batched fetch.
-- [ ] **`tbd integration sync`** — replay → pull (derived watermark, generous overlap) →
+- [x] **`tbd integration sync`** — replay → pull (derived watermark, generous overlap) →
   reconcile → apply (external, then beads via the normal write path, then base advance +
   intent cleanup, committed) → policy scan (create outbound-new, import or report
   inbound per mode) → honest report.
   `--dry-run`, `--yes` (guard in both directions), `--json`.
-- [ ] **Comment sequences** — union-by-id merge for the `comments` array inside a
+- [x] **Comment sequences** — union-by-id merge for the `comments` array inside a
   provider namespace; pull/push inside `sync` per `field_sync.comments`;
   `tbd integration comment <bead> "text"`; body/count caps with stub collapse; replay
   dedup per open question 7.
-- [ ] **`tbd integration link / unlink / import`** (`tbd-az29`) — link stance (`--take`,
+- [x] **`tbd integration link / unlink / import`** (`tbd-az29`) — link stance (`--take`,
   interactive diff, non-interactive refusal); one-source guard via reverse index +
   `tbd://bead/` attachment probe (`--force` override); import as one-shot all-remote
   pull; unlink clears bead + bridge.
-- [ ] **`status` additions** — linked / pending-outbound / importable / drifted /
+- [x] **`status` additions** — linked / pending-outbound / importable / drifted /
   conflicted / orphaned counts; unresolved conflict comments; `--offline` degrades to
   base-vs-local drift only.
-- [ ] **Fold into `tbd sync`** behind `sync_on_tbd_sync` (default off): runs after git
+- [x] **Fold into `tbd sync`** behind `sync_on_tbd_sync` (default off): runs after git
   phases; degraded external state never blocks or corrupts git sync.
-- [ ] **End-to-end tryscript goldens against the mock server** (`tbd-uu08`), including
-  the crash-replay and echo scenarios.
-- [ ] Phase 2 documentation.
+- [x] **End-to-end coverage against the mock server** (`tbd-uu08`) — delivered as a
+  vitest suite spawning the REAL built binary in a real repository (status, mirror,
+  sync-settle, tracker-edit pull, comment round-trip, one-source refusal, `--take`
+  refusal, credential remedy), which covers what the tryscript goldens were for with
+  simpler server lifecycle; a tryscript variant can still layer on later.
+- [x] Phase 2 documentation.
 
 ### Phase 3: GitHub adapter
 
@@ -1228,11 +1236,12 @@ semantics; the mock-server golden-test approach; and raw `fetch` over `@linear/s
    `full-sync`? `import-heavy`?), and whether user-defined named policies belong in
    config (`integrations.policies.<name>`) or stay inline.
    Decide after the default has run on the pilot for a while.
-7. **Does `commentCreate` honor a client-generated UUID** the way `issueCreate` does
-   (duplicate rejected)?
-   Determines whether conflict-comment replay is exactly-once or
-   rare-duplicate-tolerated.
-   Probe against the live API during Phase 2; the mock encodes whichever is true.
+7. ~~Does `commentCreate` honor a client-generated UUID?~~ **Answered live (2026-08-10):
+   yes.** The created comment’s id IS the client id; a duplicate is rejected with
+   `INPUT_ERROR` “already exists” — arriving on HTTP **200** with an errors array,
+   unlike `issueCreate`’s 400 — and exactly one comment results.
+   Conflict-comment replay is therefore exactly-once, and the mock encodes this
+   verbatim.
 
 ## References
 
