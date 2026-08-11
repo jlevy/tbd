@@ -73,6 +73,35 @@ function prLabel(url: string): string {
 export type SpliceResult = { result: string } | { error: 'markers-malformed' };
 
 /**
+ * Remove the managed region from a description, returning only the human
+ * prose. Used when comparing a tracker description against a bead body: tbd's
+ * own splice must never register as a remote edit.
+ *
+ * Malformed markers return the text unchanged — the comparison then sees a
+ * difference, which surfaces the problem rather than hiding it.
+ */
+export function stripManagedBlock(description: string | null | undefined): string {
+  const body = description ?? '';
+  const begin = body.indexOf(BLOCK_BEGIN);
+  if (begin === -1) {
+    return body;
+  }
+  const end = body.indexOf(BLOCK_END, begin);
+  if (end === -1) {
+    return body;
+  }
+  const before = body.slice(0, begin).trimEnd();
+  const after = body.slice(end + BLOCK_END.length).trimStart();
+  if (!before) {
+    return after;
+  }
+  if (!after) {
+    return before;
+  }
+  return `${before}\n\n${after}`;
+}
+
+/**
  * Replace the managed region of a description.
  *
  * Appends the block when no markers are present. Refuses when markers are

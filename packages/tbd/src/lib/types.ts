@@ -21,6 +21,8 @@ import type {
   FieldSyncClauseSchema,
   PolicyDefinitionSchema,
   PolicyName,
+  BridgeBaseSchema,
+  LinkRecordSchema,
   LinearIntegrationSchema,
   GithubIntegrationSchema,
   CommonDirLayoutSchema,
@@ -98,6 +100,12 @@ export type PolicyDefinition = z.infer<typeof PolicyDefinitionSchema>;
 
 /** Named policy presets. */
 export type PolicyNameType = z.infer<typeof PolicyName>;
+
+/** Canonical field values at a link's last reconciliation. */
+export type BridgeBase = z.infer<typeof BridgeBaseSchema>;
+
+/** One link's bridge record on the sync branch. */
+export type LinkRecord = z.infer<typeof LinkRecordSchema>;
 
 /**
  * Linear-specific integration configuration.

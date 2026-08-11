@@ -361,6 +361,42 @@ export const IntegrationSelectSchema = z.object({
 });
 
 /**
+ * Canonical (tbd-space) field values at the last successful reconciliation of
+ * a linked pair. Scalars are stored verbatim; the description is stored only
+ * as a normalized hash — change detection needs equality, not content, and
+ * bridge records are committed to git, where tracker prose does not belong.
+ */
+export const BridgeBaseSchema = z.object({
+  title: z.string(),
+  status: IssueStatus,
+  priority: Priority,
+  labels: z.array(z.string()).default([]),
+  assignee: z.string().nullable().optional(),
+  description_hash: z.string(),
+});
+
+/**
+ * One link's bridge record: the sync-branch state that makes reconciliation
+ * three-way. The bead carries identity (`extensions.<provider>`); this record
+ * carries dynamics (base tuple, watermarks), which churn on every sync and
+ * belong on the sync branch rather than in bead history.
+ *
+ * Records merge by newest observation (higher `remote_updated_at`, then
+ * `synced_at`): both sides of a merge are observations of the same external
+ * truth, so the later observation wins, conflict-free by construction.
+ */
+export const LinkRecordSchema = z.object({
+  type: z.literal('lk'),
+  bead_id: IssueId,
+  external_id: z.string().min(1),
+  base: BridgeBaseSchema,
+  /** The provider's clock at last sync. A fetch prefilter, never correctness. */
+  remote_updated_at: Timestamp,
+  synced_at: Timestamp,
+  state: z.enum(['linked', 'orphaned']).default('linked'),
+});
+
+/**
  * How one field of a linked pair flows between tbd and the tracker.
  *
  * `merge` is full three-way: either side can change it, both-sides changes
