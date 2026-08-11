@@ -5,12 +5,12 @@ title: "Spec: CLI Output Design System"
 kind: epic
 status: open
 priority: 2
-version: 12
+version: 13
 spec_path: docs/project/specs/active/plan-2026-01-17-cli-output-design-system.md
 labels: []
 dependencies: []
 created_at: 2026-01-18T04:07:52.583Z
-updated_at: 2026-08-11T06:57:29.440Z
+updated_at: 2026-08-11T07:02:08.121Z
 extensions:
   linear:
     id: 337fd396-bb4e-45fe-8af1-97335d619e77
@@ -23,7 +23,6 @@ Systematically review and standardize all CLI output across tbd. Establish a uni
 Reference: docs/project/specs/active/plan-2026-01-17-cli-output-design-system.md
 
 Goals:
-
 1. Document all output categories and when each should be used
 2. Standardize color semantics across all output types
 3. Define verbose vs debug mode boundaries clearly

@@ -3,9 +3,9 @@ type: is
 id: is-01kxz3kfz7n7y23n9rzmy28f98
 title: "Epic: Linear integration pilot (design rework pending)"
 kind: epic
-status: in_progress
+status: blocked
 priority: 1
-version: 16
+version: 17
 spec_path: docs/project/specs/active/plan-2026-07-19-bead-watch-and-external-sync.md
 labels:
   - linear-sync
@@ -22,7 +22,7 @@ child_order_hints:
   - is-01kzbyhghkgw70wetew3ffy4cn
   - is-01kzbyhsm660v90763b5tr11rk
 created_at: 2026-07-20T06:32:21.735Z
-updated_at: 2026-08-11T06:57:47.879Z
+updated_at: 2026-08-11T07:02:08.566Z
 extensions:
   linear:
     id: 3a214faa-8f6e-45a6-b511-dfd271c5af42
