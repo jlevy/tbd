@@ -772,7 +772,7 @@ to land the whole command through one PR.
 ### Phase 6: Production validation and merge
 
 - [x] Local release matrix green after final review: format, strict lint/typecheck,
-  build, 1,593 Vitest tests, 1,075 tryscript checks, publint, 31 package-age pins, watch
+  build, 1,594 Vitest tests, 1,075 tryscript checks, publint, 31 package-age pins, watch
   release smoke, and packed-web proof.
   The unchanged production audit advisory is tracked separately as `tbd-6gy0`.
 - [x] Full matrix green: suite + the `tbd web` tryscript on Ubuntu/macOS/Windows CI; the

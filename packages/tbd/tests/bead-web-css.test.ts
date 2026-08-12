@@ -46,7 +46,9 @@ function stripComments(css: string): string {
 }
 
 function blockAfter(css: string, selector: string): string | null {
-  const source = stripComments(css);
+  // Git may check text fixtures out with CRLF on Windows. Normalize the input so
+  // multiline selectors in these assertions have the same semantics on every host.
+  const source = stripComments(css).replace(/\r\n?/gu, '\n');
   const escapedSelector = selector.replace(/[.*+?^${}()|[\]\\]/gu, '\\$&');
   const match = new RegExp(`${escapedSelector}\\s*\\{`, 'u').exec(source);
   if (match === null) {
@@ -71,6 +73,11 @@ function blockAfter(css: string, selector: string): string | null {
 }
 
 describe('bead-web design system', () => {
+  it('finds multiline selectors in CRLF stylesheets', () => {
+    const crlf = '.one,\r\n.two {\r\n  display: flex;\r\n}\r\n';
+    expect(blockAfter(crlf, '.one,\n.two')).toContain('display: flex');
+  });
+
   it('defines every color as a token, with no literals outside the base :root', async () => {
     const css = stripComments(await readStyleBlock());
     const offenders = withoutBaseRoot(css).match(COLOR_LITERAL) ?? [];
