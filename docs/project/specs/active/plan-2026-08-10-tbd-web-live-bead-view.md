@@ -772,7 +772,7 @@ to land the whole command through one PR.
 ### Phase 6: Production validation and merge
 
 - [x] Local release matrix green after final review: format, strict lint/typecheck,
-  build, 1,594 Vitest tests, 1,075 tryscript checks, publint, 31 package-age pins, watch
+  build, 1,595 Vitest tests, 1,075 tryscript checks, publint, 31 package-age pins, watch
   release smoke, and packed-web proof.
   The unchanged production audit advisory is tracked separately as `tbd-6gy0`.
 - [x] Full matrix green: suite + the `tbd web` tryscript on Ubuntu/macOS/Windows CI; the
@@ -855,9 +855,10 @@ The original final review is tracked under `tbd-o7nu`, with the owner-directed r
 and its follow-up findings under `tbd-ihyx`. R1–R23 were implemented and validated; R24
 was rejected with code-path evidence because the reported persistence was never part of
 the client contract.
-The final concurrency review is tracked under epic `tbd-p1i5`: R25–R35 and R38–R54 are
-concrete defects, while R36–R37 are its normative design and adversarial verification
-tasks. Every item has one bead and an explicit file/function disposition.
+The final concurrency review is tracked under epic `tbd-p1i5`: R25–R35, R38–R54, and the
+late review threads R55–R56 are concrete defects, while R36–R37 are its normative design
+and adversarial verification tasks.
+Every item has one bead and an explicit file/function disposition.
 
 R14 removes the final Windows command-shim assumption from the packed proof.
 R15 closes the final scale-specific memory and data-motion paths after the 10,000-row
@@ -932,6 +933,8 @@ display ids or consume the detail cap.
 | `tbd-c4nj` (R52) | P1 | `docs/shortcuts/system/skill-{baseline,brief,minimal}.md`; `docs/shortcuts/standard/welcome-user.md`; `src/cli/commands/{setup,web}.ts`; `src/web/index.html`; README, manual, design, changelog; distribution/setup/web artifact tests | Route natural browser-view requests to an agent-run `tbd web --open`, keep mutation ownership in ordinary tbd commands, state that the live browser is not an editor, and prove generated/install/package surfaces carry the contract. |
 | `tbd-rhdp` (R53) | P2 | `docs/shortcuts/system/skill-minimal.md`; `tests/integration-files.test.ts` | Align the minimal shipped skill with the package’s Node.js 20+ engine and prevent future distribution drift. |
 | `tbd-prtc` (R54) | P1 | `src/utils/lockfile.ts`: `runWithPreparedLockGeneration`, provisional identity helpers; `tests/lockfile{,-acquisition-race}.test.ts`; design concurrency proof | Classify a raced owner-install failure by canonical generation identity, so macOS `EINVAL` after removal retries without overwriting an installed replacement while the same-generation error remains raw. Deterministic tests prove recovery, fail-closed classification, single execution, and cleanup; whole-suite concurrency revalidates the original waiter race. |
+| `tbd-7156` (R55) | P2 | `src/web/client.ts`: `renderBoard`; `tests/bead-web-css.test.ts` | Keep the concise `Expand all` / `Collapse all` labels, but state in the tooltip that the working set is the current page, matching `paginateBoardRows` and the documented bounded-detail contract. |
+| `tbd-z0j7` (R56) | P2 | `src/web/styles.css`: live-change marker; `tests/bead-web-css.test.ts` | Attach the persistent change marker to `.copy-value::after`, immediately after the literal bead ID and before the copy control’s reserved space. |
 
 ### Merge gate for PR #207
 

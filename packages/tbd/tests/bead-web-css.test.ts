@@ -544,7 +544,7 @@ describe('expanded-row emphasis', () => {
 });
 
 describe('bulk expansion affordance', () => {
-  it('shows only a working Expand all or Collapse all action', async () => {
+  it('shows only a working, accurately page-scoped Expand all or Collapse all action', async () => {
     const [client, page] = await Promise.all([
       readFile(clientPath, 'utf8'),
       readFile(pagePath, 'utf8'),
@@ -554,9 +554,22 @@ describe('bulk expansion affordance', () => {
       'elements.expandAll.hidden = page.rows.length === 0 || !canBulkExpand',
     );
     expect(client).toContain("allOpen ? 'Collapse all' : 'Expand all'");
+    expect(client).toContain("'Expand or collapse every bead on this page.'");
+    expect(client).not.toContain('every bead in the current result');
     expect(client).not.toContain('Expand individually');
     expect(client).not.toContain('Expand page');
     expect(client).not.toContain('Collapse page');
+  });
+});
+
+describe('live-change marker', () => {
+  it('keeps the marker adjacent to the literal bead ID, before reserved copy space', async () => {
+    const css = await readStyleBlock();
+    const markerRule = blockAfter(css, 'tr.changed td.id .copy-value::after');
+
+    expect(markerRule).toContain("content: ' ●'");
+    expect(markerRule).toContain('color: var(--update)');
+    expect(css).not.toContain('tr.changed td.id::after');
   });
 });
 

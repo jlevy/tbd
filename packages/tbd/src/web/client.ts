@@ -738,7 +738,7 @@ function renderBoard(view: ClientView, board: BoardResponse): void {
   elements.expandAll.hidden = page.rows.length === 0 || !canBulkExpand;
   elements.expandAll.textContent = allOpen ? 'Collapse all' : 'Expand all';
   elements.expandAll.disabled = elements.expandAll.hidden;
-  elements.expandAll.title = 'Expand or collapse every bead in the current result.';
+  elements.expandAll.title = 'Expand or collapse every bead on this page.';
 }
 
 function renderHeader(view: ClientView, board: BoardResponse, watch: ObservationStateView): void {

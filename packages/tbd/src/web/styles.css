@@ -941,7 +941,7 @@ tr.leaving > td {
 }
 /* Persistent marker for "this bead is in the latest local change set".
    A state, not motion, so it survives re-renders and filter changes. */
-tr.changed td.id::after {
+tr.changed td.id .copy-value::after {
   content: ' ●';
   color: var(--update);
 }
