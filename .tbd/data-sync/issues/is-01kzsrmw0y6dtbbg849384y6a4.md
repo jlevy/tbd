@@ -5,7 +5,7 @@ title: Final concurrency and stream-ordering review for tbd web
 kind: epic
 status: closed
 priority: 1
-version: 76
+version: 79
 spec_path: docs/project/specs/active/plan-2026-08-10-tbd-web-live-bead-view.md
 labels:
   - web
@@ -71,10 +71,11 @@ child_order_hints:
   - is-01kzvg7rjy8c7nzsyhh2yv4ed7
   - is-01kzvg7v6t0c8yrpzhd912nq1q
   - is-01kzvg7w65mdy9828pfetqs2gh
+  - is-01kzvjg4dmfp0et6f440nppjd1
 created_at: 2026-08-12T01:16:03.997Z
-updated_at: 2026-08-12T17:52:41.040Z
-closed_at: 2026-08-12T17:52:41.040Z
-close_reason: Final concurrency, stream-ordering, design-system, documentation/skill, scale, and live-browser acceptance review complete. All child findings are implemented, verified, and documented; no remaining actionable review finding.
+updated_at: 2026-08-12T18:10:09.776Z
+closed_at: 2026-08-12T18:10:09.775Z
+close_reason: null
 ---
 Audit the tbd web pipeline end to end for filesystem-event races, debounce/reconciliation ordering, serialized reload correctness, SSE fan-out/backpressure and reconnect replay, shutdown interleavings, client state monotonicity, duplicate delivery, deadlock/livelock, and contention. Track every confirmed finding as a child bead, implement all fixes, and retain adversarial regression evidence.
 
