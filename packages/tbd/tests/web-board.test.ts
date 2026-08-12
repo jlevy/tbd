@@ -22,6 +22,14 @@ function mappingFor(entries: Record<string, string>): IdMapping {
   };
 }
 
+function deferred<T>(): { promise: Promise<T>; resolve(value: T): void } {
+  let resolve!: (value: T) => void;
+  const promise = new Promise<T>((resolvePromise) => {
+    resolve = resolvePromise;
+  });
+  return { promise, resolve };
+}
+
 const mapping = mappingFor({
   root: TEST_ULIDS.ULID_1,
   kid1: TEST_ULIDS.ULID_2,
@@ -39,6 +47,8 @@ const context = {
     gitCommonDir: '/repo/.git',
     sharedWorktreePath: '/repo/.git/tbd/data-sync-worktree',
     sharedDataSyncDir: '/repo/.git/tbd/data-sync-worktree/.tbd/data-sync',
+    sharedLockPath: '/repo/.git/tbd/locks/data-sync.lock',
+    sharedDataSyncEpochPath: '/repo/.git/tbd/data-sync.epoch',
   },
 } as unknown as TbdDataContext;
 
@@ -242,6 +252,264 @@ describe('BoardState', () => {
     expect(board.getSnapshotState().repoStatus?.workspaces).toEqual(['agent-a']);
   });
 
+  it('discards a candidate snapshot when a writer overlaps its asynchronous reads', async () => {
+    let issues = fixtureIssues();
+    let writerActive = false;
+    let marker = 'marker-1';
+    let blockedRead: ReturnType<typeof deferred<Issue[]>> | null = null;
+    let readStarted: (() => void) | null = null;
+    const dependencies: BoardStateDependencies = {
+      loadContext: () => Promise.resolve(context),
+      listIssues: () => {
+        if (blockedRead === null) {
+          return Promise.resolve(issues);
+        }
+        readStarted?.();
+        return blockedRead.promise;
+      },
+      readRepoStatus: () => Promise.resolve(repoStatus),
+      readLocalTip: () => Promise.resolve('a'.repeat(40)),
+      readWriterActive: () => Promise.resolve(writerActive),
+      readSnapshotMarker: () => Promise.resolve(marker),
+      now: () => new Date('2026-08-11T12:00:00.000Z'),
+    };
+    const board = new BoardState('/repo', dependencies);
+    await board.reload();
+    expect(board.getSnapshotState().totalBeads).toBe(3);
+
+    const partial = [fixtureIssues()[0]!];
+    blockedRead = deferred<Issue[]>();
+    const started = deferred<undefined>();
+    readStarted = () => {
+      started.resolve(undefined);
+    };
+    const overlapping = board.reload();
+    await started.promise;
+    writerActive = true;
+    blockedRead.resolve(partial);
+
+    await expect(overlapping).resolves.toMatchObject({ deferred: true, moved: false });
+    expect(board.getSnapshotState()).toMatchObject({ totalBeads: 3, dataVersion: 0 });
+
+    writerActive = false;
+    marker = 'marker-2';
+    issues = partial;
+    blockedRead = null;
+    const stable = await board.reload();
+    expect(stable).toMatchObject({ deferred: false, moved: true });
+    expect(board.getSnapshotState()).toMatchObject({ totalBeads: 1, dataVersion: 1 });
+  });
+
+  it('rejects a writer that starts and finishes during a read even when metadata is unchanged', async () => {
+    let issues = fixtureIssues();
+    let epoch = 'quiescent:epoch-1';
+    let blockedRead: ReturnType<typeof deferred<Issue[]>> | null = null;
+    let readStarted: (() => void) | null = null;
+    const dependencies: BoardStateDependencies = {
+      loadContext: () => Promise.resolve(context),
+      listIssues: () => {
+        if (blockedRead === null) {
+          return Promise.resolve(issues);
+        }
+        readStarted?.();
+        return blockedRead.promise;
+      },
+      readRepoStatus: () => Promise.resolve(repoStatus),
+      readLocalTip: () => Promise.resolve('a'.repeat(40)),
+      readWriterActive: () => Promise.resolve(false),
+      readSnapshotEpoch: () => Promise.resolve(epoch),
+      // Directory timestamps can collide or be restored; they are not the proof.
+      readSnapshotMarker: () => Promise.resolve('unchanged-marker'),
+      now: () => new Date('2026-08-11T12:00:00.000Z'),
+    };
+    const board = new BoardState('/repo', dependencies, context);
+    await board.reload();
+
+    const partial = [fixtureIssues()[0]!];
+    blockedRead = deferred<Issue[]>();
+    const started = deferred<undefined>();
+    readStarted = () => {
+      started.resolve(undefined);
+    };
+    const overlapping = board.reload();
+    await started.promise;
+    // Model a complete lock acquisition, multi-file mutation, and release between
+    // the viewer's boundary checks. Only the persistent epoch records it now.
+    epoch = 'quiescent:epoch-2';
+    blockedRead.resolve(partial);
+
+    await expect(overlapping).resolves.toMatchObject({ deferred: true, moved: false });
+    expect(board.getSnapshotState()).toMatchObject({ totalBeads: 3, dataVersion: 0 });
+
+    issues = partial;
+    blockedRead = null;
+    await expect(board.reload()).resolves.toMatchObject({ deferred: false, moved: true });
+    expect(board.getSnapshotState()).toMatchObject({ totalBeads: 1, dataVersion: 1 });
+  });
+
+  it('retains the accepted snapshot while a crashed writer epoch remains active', async () => {
+    let epoch: string | null = 'quiescent:epoch-1';
+    const dependencies: BoardStateDependencies = {
+      loadContext: () => Promise.resolve(context),
+      listIssues: () => Promise.resolve(fixtureIssues()),
+      readRepoStatus: () => Promise.resolve(repoStatus),
+      readLocalTip: () => Promise.resolve('a'.repeat(40)),
+      readWriterActive: () => Promise.resolve(false),
+      readSnapshotEpoch: () => Promise.resolve(epoch),
+      readSnapshotMarker: () => Promise.resolve('marker'),
+      now: () => new Date('2026-08-11T12:00:00.000Z'),
+    };
+    const board = new BoardState('/repo', dependencies, context);
+    await board.reload();
+
+    epoch = null;
+    await expect(board.reload()).resolves.toMatchObject({ deferred: true, moved: false });
+    expect(board.getSnapshotState()).toMatchObject({ totalBeads: 3, dataVersion: 0 });
+  });
+
+  it('validates from before the context read when a writer starts and finishes inside it', async () => {
+    let issues = fixtureIssues();
+    let marker = 'marker-1';
+    let blockedContext: ReturnType<typeof deferred<TbdDataContext>> | null = null;
+    let contextReadStarted: (() => void) | null = null;
+    const dependencies: BoardStateDependencies = {
+      loadContext: () => {
+        if (blockedContext === null) {
+          return Promise.resolve(context);
+        }
+        contextReadStarted?.();
+        return blockedContext.promise;
+      },
+      listIssues: () => Promise.resolve(issues),
+      readRepoStatus: () => Promise.resolve(repoStatus),
+      readLocalTip: () => Promise.resolve('a'.repeat(40)),
+      readWriterActive: () => Promise.resolve(false),
+      readSnapshotMarker: () => Promise.resolve(marker),
+      now: () => new Date('2026-08-11T12:00:00.000Z'),
+    };
+    const board = new BoardState('/repo', dependencies, context);
+    await board.reload();
+
+    issues = [fixtureIssues()[0]!];
+    blockedContext = deferred<TbdDataContext>();
+    const started = deferred<undefined>();
+    contextReadStarted = () => {
+      started.resolve(undefined);
+    };
+    const overlapping = board.reload();
+    await started.promise;
+    marker = 'marker-2';
+    blockedContext.resolve(context);
+
+    await expect(overlapping).resolves.toMatchObject({ deferred: true, moved: false });
+    expect(board.getSnapshotState()).toMatchObject({ totalBeads: 3, dataVersion: 0 });
+
+    blockedContext = null;
+    await expect(board.reload()).resolves.toMatchObject({ deferred: false, moved: true });
+    expect(board.getSnapshotState()).toMatchObject({ totalBeads: 1, dataVersion: 1 });
+  });
+
+  it('defers a transient candidate read error caused by an overlapping writer', async () => {
+    let writerActive = false;
+    let failRead = false;
+    const dependencies: BoardStateDependencies = {
+      loadContext: () => Promise.resolve(context),
+      listIssues: () => {
+        if (failRead) {
+          writerActive = true;
+          return Promise.reject(new Error('issue disappeared during read'));
+        }
+        return Promise.resolve(fixtureIssues());
+      },
+      readRepoStatus: () => Promise.resolve(repoStatus),
+      readLocalTip: () => Promise.resolve('a'.repeat(40)),
+      readWriterActive: () => Promise.resolve(writerActive),
+      readSnapshotMarker: () => Promise.resolve('marker'),
+      now: () => new Date('2026-08-11T12:00:00.000Z'),
+    };
+    const board = new BoardState('/repo', dependencies, context);
+    await board.reload();
+
+    failRead = true;
+    await expect(board.reload()).resolves.toMatchObject({ deferred: true, moved: false });
+    expect(board.getSnapshotState()).toMatchObject({ totalBeads: 3, dataVersion: 0 });
+  });
+
+  it('discards a candidate when parsed context changes inside the marker window', async () => {
+    const remapped = {
+      ...context,
+      prefix: 'next',
+    } as TbdDataContext;
+    let contextReads = 0;
+    let stable = false;
+    const dependencies: BoardStateDependencies = {
+      loadContext: () => {
+        contextReads += 1;
+        return Promise.resolve(stable || contextReads > 1 ? remapped : context);
+      },
+      listIssues: () => Promise.resolve(fixtureIssues()),
+      readRepoStatus: () => Promise.resolve({ ...repoStatus, displayPrefix: 'next' }),
+      readLocalTip: () => Promise.resolve('a'.repeat(40)),
+      readWriterActive: () => Promise.resolve(false),
+      readSnapshotMarker: () => Promise.resolve('marker'),
+      now: () => new Date('2026-08-11T12:00:00.000Z'),
+    };
+    const board = new BoardState('/repo', dependencies, context);
+
+    await expect(board.reload()).resolves.toMatchObject({ deferred: true, moved: false });
+    expect(board.getSnapshotState().totalBeads).toBe(0);
+
+    stable = true;
+    await expect(board.reload()).resolves.toMatchObject({ deferred: false, moved: false });
+    expect(board.getSnapshotState().totalBeads).toBe(3);
+    expect(board.getBead('next-root')).toMatchObject({ kind: 'ok' });
+  });
+
+  it('commits overlapping reload candidates strictly in invocation order', async () => {
+    const initial = fixtureIssues();
+    let issues = initial;
+    let blockedRead: ReturnType<typeof deferred<Issue[]>> | null = null;
+    let readStarted: (() => void) | null = null;
+    const dependencies: BoardStateDependencies = {
+      loadContext: () => Promise.resolve(context),
+      listIssues: () => {
+        if (blockedRead === null) {
+          return Promise.resolve(issues);
+        }
+        readStarted?.();
+        return blockedRead.promise;
+      },
+      readRepoStatus: () => Promise.resolve(repoStatus),
+      readLocalTip: () => Promise.resolve('a'.repeat(40)),
+      now: () => new Date('2026-08-11T12:00:00.000Z'),
+    };
+    const board = new BoardState('/repo', dependencies);
+    await board.reload();
+
+    const versionTwo = initial.map((entry) => ({ ...entry, version: 2, title: 'Version two' }));
+    const versionThree = initial.map((entry) => ({ ...entry, version: 3, title: 'Version three' }));
+    blockedRead = deferred<Issue[]>();
+    const started = deferred<undefined>();
+    readStarted = () => {
+      started.resolve(undefined);
+    };
+    const first = board.reload();
+    await started.promise;
+    issues = versionThree;
+    const second = board.reload();
+
+    blockedRead.resolve(versionTwo);
+    blockedRead = null;
+    const [firstResult, secondResult] = await Promise.all([first, second]);
+
+    expect(firstResult).toMatchObject({ deferred: false, moved: true, dataVersion: 1 });
+    expect(secondResult).toMatchObject({ deferred: false, moved: true, dataVersion: 2 });
+    expect(board.getBead('web-root')).toMatchObject({
+      kind: 'ok',
+      body: { title: 'Version three', version: 3 },
+    });
+  });
+
   it('caps local field detail independently of complete graph movement', async () => {
     const issueCount = MAX_LOCAL_CHANGE_DETAILS + 1;
     const initial = Array.from({ length: issueCount }, (_, index) => {
@@ -301,6 +569,7 @@ describe('BoardState', () => {
       context.dataSyncDir,
       join(context.dataSyncDir, 'issues'),
       join(context.dataSyncDir, 'mappings'),
+      '/repo/.git/tbd/data-sync.epoch',
       join('/repo/.git', 'refs', 'heads', 'tbd-sync'),
     ]);
   });

@@ -128,6 +128,7 @@ agents.
       - [4.14.3 Change Report Format](#4143-change-report-format)
       - [4.14.4 Watch Loop](#4144-watch-loop)
     - [4.15 Local Web View](#415-local-web-view)
+      - [Concurrency and Snapshot Safety](#concurrency-and-snapshot-safety)
   - [5. Beads Compatibility](#5-beads-compatibility)
     - [5.1 Import Strategy](#51-import-strategy)
       - [5.1.1 Import Command](#511-import-command)
@@ -771,6 +772,7 @@ tbd uses four directory locations:
 ```
 $GIT_COMMON_DIR/tbd/
 ├── layout.yml              # Local layout metadata; uses the same f04 format ID
+├── data-sync.epoch         # Local active/quiescent writer epoch for snapshot readers
 ├── locks/
 │   └── data-sync.lock/     # mkdir-based repo-scoped lock
 ├── backups/                # Repair and migration backups
@@ -859,7 +861,9 @@ git worktree add --orphan -b tbd-sync "$(git rev-parse --path-format=absolute --
 - **Hidden location**: Inside Git’s common directory, not inside any single checkout
 
 - **Safe updates**: `tbd sync` acquires `$GIT_COMMON_DIR/tbd/locks/data-sync.lock/`
-  before mutating the worktree, committing, fetching, merging, or pushing
+  before mutating the worktree, committing, fetching, merging, or pushing.
+  The lock carries a unique owner token, heartbeats while live, and is removed only by
+  that owner, so stale-lock recovery cannot make an old holder delete its successor.
 
 #### Worktree Gitignore
 
@@ -1021,13 +1025,13 @@ async function checkWorktreeHealth(baseDir: string): Promise<{
   const { sharedWorktreePath: worktreePath } = await resolveSharedTbdPaths(baseDir);
 
   // Check directory exists
-  if (!await pathExists(worktreePath)) {
+  if (!(await pathExists(worktreePath))) {
     return { healthy: false, status: 'missing' };
   }
 
   // Check .git file exists and is valid
   const gitFile = join(worktreePath, '.git');
-  if (!await pathExists(gitFile)) {
+  if (!(await pathExists(gitFile))) {
     return { healthy: false, status: 'corrupted', details: 'Missing .git file' };
   }
 
@@ -1058,7 +1062,7 @@ The direct path exists ONLY for test fixtures that don’t use git.
 ```typescript
 async function resolveDataSyncDir(
   baseDir: string,
-  options?: { allowFallback?: boolean; repair?: boolean }
+  options?: { allowFallback?: boolean; repair?: boolean },
 ): Promise<string> {
   const worktreePath = (await resolveSharedTbdPaths(baseDir)).sharedDataSyncDir;
 
@@ -1083,7 +1087,7 @@ async function resolveDataSyncDir(
   // Fail with clear error — NEVER silently fall back in production
   throw new WorktreeMissingError(
     'Shared worktree not found under $GIT_COMMON_DIR/tbd/data-sync-worktree/. ' +
-    'Run `tbd doctor --fix` to repair.'
+      'Run `tbd doctor --fix` to repair.',
   );
 }
 ```
@@ -1277,9 +1281,9 @@ The mapping between external and internal IDs is stored in
 # short_id: ulid (without prefix)
 #
 # Imported issues preserve their original short IDs:
-100: 01hx5zzkbkactav9wevgemmvrz    # from tbd-100
-101: 01hx5zzkbkbctav9wevgemmvrz    # from tbd-101
-1823: 01hx5zzkbkcdtav9wevgemmvrz   # from tbd-1823
+100: 01hx5zzkbkactav9wevgemmvrz # from tbd-100
+101: 01hx5zzkbkbctav9wevgemmvrz # from tbd-101
+1823: 01hx5zzkbkcdtav9wevgemmvrz # from tbd-1823
 #
 # New issues get random 4-char base36 IDs:
 a7k2: 01hx5zzkbkdetav9wevgemmvrz
@@ -1593,7 +1597,6 @@ type Issue = z.infer<typeof IssueSchema>;
 - `due_date` / `deferred_until`: Beads compatibility fields.
   Stored as full ISO8601 datetime.
   CLI accepts flexible input:
-
   - Full datetime: `2025-02-15T10:00:00Z`
 
   - Date only: `2025-02-15` (normalized to `2025-02-15T00:00:00Z` UTC)
@@ -1642,10 +1645,9 @@ const ConfigSchema = z.object({
       remote: z.string().default('origin'),
     })
     .default({}),
-  display: z
-    .object({
-      id_prefix: z.string(), // Required: set during init or auto-detected from beads import
-    }),
+  display: z.object({
+    id_prefix: z.string(), // Required: set during init or auto-detected from beads import
+  }),
   settings: z
     .object({
       auto_sync: z.boolean().default(false), // reserved; issue writes stage locally
@@ -1776,7 +1778,7 @@ Parent-child relationships use the `parent_id` field for hierarchical organizati
 # Child issue
 id: is-01hx5zzkbkactav9wevgemmvrz
 title: Implement OAuth login
-parent_id: is-01hx5zzkbkbctav9wevgemmvrz  # Points to parent epic
+parent_id: is-01hx5zzkbkbctav9wevgemmvrz # Points to parent epic
 ```
 
 **Key properties:**
@@ -1901,6 +1903,7 @@ The actual behavior (from `attic/beads/internal/storage/sqlite/blocked_cache.go`
    blockage
 
 So in Beads:
+
 - Creating a task under an open epic does NOT block the task
 - If the epic itself becomes blocked (by a `blocks` dependency), children are
   transitively blocked
@@ -1955,10 +1958,11 @@ hierarchy, similar to Beads’ model.
 ```yaml
 # .tbd/config.yml
 blocking:
-  transitive_parent_child: true  # default: false
+  transitive_parent_child: true # default: false
 ```
 
 When enabled:
+
 - If a parent epic is blocked (by a `blocks` dependency), children inherit that blockage
 - Children are NOT blocked just because their parent is open
 - Closing the blocker on the parent automatically unblocks all children
@@ -2276,6 +2280,7 @@ The file-per-entity design means parallel work rarely conflicts at the git level
 Only when two agents modify the **same issue** before syncing does tbd need to perform
 field-level merging.
 This is rare in practice because:
+
 - Issues are small, focused units of work
 - Agents typically work on different issues
 - The `ready` command distributes work across agents
@@ -2300,6 +2305,7 @@ git push fails with non-fast-forward → merge needed
 ```
 
 When a push is rejected because the remote has changes, tbd:
+
 1. Fetches the remote sync branch
 2. For each local issue, checks if a remote version exists via `git show`
 3. If remote version exists and differs, triggers the merge algorithm
@@ -4087,6 +4093,208 @@ When that command changes the shared hidden worktree, the same local observer re
 the page immediately.
 This keeps CLI and browser semantics identical and makes offline use predictable.
 
+#### Concurrency and Snapshot Safety
+
+`tbd web` has no worker threads: one Node.js event loop serializes its in-process
+mutations. That fact alone is not a safety argument.
+Other `tbd` processes can mutate the shared worktree while the viewer is suspended at
+any `await`, and filesystem, timer, HTTP, and promise callbacks can arrive in any order.
+The required safety property is:
+
+> Every HTTP response and SSE state describes one complete accepted local snapshot.
+> A response may briefly be the complete state before or after a write, but never a
+> mixture assembled during that write.
+> After a standard writer completes its protocol and writes stop, every connected client
+> with at least one functioning observation path converges to the newest accepted
+> snapshot.
+
+The design establishes that property with these owners and serialization points:
+
+| State | Owner | Serialization rule |
+| --- | --- | --- |
+| Shared data-sync files | Standard `tbd` writers | Repository writer mutex plus persistent write epoch |
+| Accepted server snapshot | `BoardState` | FIFO candidate reads and one synchronous publication step |
+| Reload scheduling | `LocalObserver` | One active reload plus one coalesced pending request |
+| SSE clients/history | `SseHub` | Synchronous mutation with a bounded client set, per-client queue, and replay ring |
+| Browser state | One client store | Monotonic observer versions, one board loop, and cancellable detail generations |
+
+The proof is compact: every supported writer is mutually exclusive and brackets all
+shared mutations with one persistent unique epoch; a reader publishes only after seeing
+the same quiescent epoch, absent mutex, stable context, and stable marker on both sides
+of a strictly validated private candidate.
+That final fence is the read linearization point.
+Publication has no `await`, observer triggers collapse to one active plus one pending
+reload, and server/client versions reject late transport results.
+Consequently callbacks may be duplicated, dropped, or reordered, but they can only delay
+convergence or cause redundant work: they cannot publish a torn snapshot, roll state
+backward, or create concurrent writers.
+All waits flow writer lock to mapping lock, never through the viewer or a client, so the
+wait graph has no cycle; every queue, retry, and client set is bounded.
+
+**Cross-process snapshot fence.** The shared writer mutex prevents two standard writers
+from overlapping. It does not by itself protect a non-locking reader: a complete writer
+could acquire and release the transient lock between two reader checks.
+Therefore the central shared-lock wrapper also maintains an atomically replaced
+persistent epoch in the Git common-dir tbd state.
+On lock acquisition it writes `active:<unique-id>` before the critical section; while
+still holding the lock it writes `quiescent:<same-unique-id>` after the critical
+section, then releases the lock.
+Atomic directory creation elects the lock holder.
+It immediately writes an owner record containing a unique token, the host, and the
+process id; the brief ownerless acquisition window is never eligible for automatic
+recovery. A heartbeat remains well below the stale threshold, but time alone is not
+permission to evict a recognized owner.
+A stale same-host lock is recoverable only after the OS says its process no longer
+exists; an ownerless, alive, permission-ambiguous, or remote-host owner fails closed and
+is left in place. This matters after machine sleep or a long event-loop suspension:
+delayed heartbeats may reduce liveness, but cannot turn two live writers into concurrent
+owners.
+
+Recovery renames a dead lock to a non-empty quarantine path derived from its unique
+owner token and deliberately retains that tombstone.
+If several waiters observed the same dead generation, only the first rename can succeed;
+a delayed waiter cannot rename a successor into the already-occupied quarantine path.
+This removes the canonical-path ABA race without a timing assumption.
+Legacy ownerless or unrecognized locks remain outside this proof and require explicit
+operator recovery rather than speculative eviction.
+Ownership is checked around quiescent publication and again at release, so loss is
+surfaced and a displaced holder cannot publish success or delete its successor.
+Normal release first renames the verified generation out of the canonical path and only
+then removes its owner record, so a transient cleanup failure leaves a harmless sidecar
+rather than an ownerless lock that blocks every later writer.
+The reader’s independent lock check additionally prevents it from accepting a transient
+epoch while a recognized owner is active.
+This is a seqlock-style fence, not a polling signal.
+A crashed writer leaves an active epoch, so readers remain on their last accepted
+snapshot until a later locked preparation or writer establishes a new quiescent epoch.
+Updating the central lock wrapper covers create, update, import, and `tbd sync` without
+giving the web command a second mutation implementation.
+
+Before the listener or observer exists, startup acquires that wrapper once to
+initialize, migrate, or repair the layout and to establish a quiescent epoch.
+It owns no HTTP, watcher, timer, or SSE resource while it can wait for the writer lock.
+The long-running viewer never acquires or waits for that lock, so it cannot delay a CLI
+writer or join a cross-process lock cycle.
+
+**Optimistic read transaction.** `BoardState.reload` serializes reloads FIFO and stages
+all work in private variables.
+It reads a first epoch and requires it to be quiescent, confirms the mutex is absent,
+loads context and all issue files, and strictly validates the candidate: directory-read,
+parse, filename/ID, mapping, and context errors reject the entire candidate rather than
+silently omitting rows.
+It then reads the epoch and mutex again.
+Publication is allowed only when the second epoch is the identical quiescent value and
+the mutex is still absent.
+Configuration is atomically replaced; loading and comparing context on both sides of the
+candidate prevents a configuration or mapping change from being combined with paths
+interpreted under another context.
+The constant-size reconciliation marker remains useful for missed-event detection and as
+an additional instability check.
+It combines filesystem metadata with the bounded epoch token, so a fast complete writer
+is still visible on filesystems with coarse timestamps; the epoch equality check, not
+timestamps, is the transaction proof.
+
+The final successful fence check is the read transaction’s linearization point.
+A writer that overlaps any candidate read leaves the lock active, an active epoch, or a
+different final epoch.
+A writer that starts afterward can make the accepted snapshot old, but cannot make it
+torn. `BoardState` then computes movement and replaces context, indexes, rows, and
+summary state in one synchronous segment containing no `await`. Request handlers also
+copy the accepted board and its observer state without an intervening `await`;
+JavaScript run-to-completion therefore exposes either the complete old snapshot or the
+complete new one. Rejected candidates do not mutate served state or advance the
+observer’s reconciliation marker.
+They leave one bounded retry.
+Initial load applies the same rule for at most ten seconds and fails instead of serving
+an empty or mixed board.
+
+The fence proof covers current standard `tbd` writers.
+Atomic single-file configuration replacement is independently safe, and diagnostic
+Git/workspace fields may be from an earlier or later instant without changing bead-graph
+consistency.
+A process or older binary that bypasses the shared writer wrapper is outside
+the guarantee; supporting it would require that writer to adopt the same epoch protocol.
+The epoch detects overlapping mutation; it does not add rollback to a CLI command.
+After a command returns an error, storage-valid files it deliberately completed are
+stable local state, while malformed or missing candidate data fails closed.
+A process suspended longer than the lock’s stale threshold remains the owner while its
+same-host pid is alive; the protocol chooses safety over automatically recovering a hung
+process. PID reuse or an owner on another host can therefore delay progress, but cannot
+create concurrent writers.
+Automatic recovery assumes the owner and waiter share the supported local worktree’s OS
+PID namespace. A different host identity fails closed; deployments that deliberately
+share one worktree across PID namespaces are outside automatic recovery and require
+operator verification.
+If a process exits while its epoch is active, a later writer may quarantine that dead
+generation after the stale threshold and establish a new quiescent epoch.
+Ambiguous or legacy lock state intentionally fails closed and requires the operator to
+verify that no writer remains before removing it.
+
+**Observation and publication.** Filesystem events are wake-up hints, not an ordered
+change log. Native events use a 250 ms trailing debounce; a one-second constant-size
+metadata check repairs missed or coalesced events.
+While a reload is active, arbitrarily many triggers collapse into one pending request,
+which runs immediately afterward.
+There is no event-count promise queue.
+Movement is derived only from the two accepted `id:version` and display-ID snapshots, so
+duplicate, missing, and reordered events are harmless.
+Several completed writes inside one debounce window intentionally produce one aggregate
+transition from the last accepted state to the newest state.
+
+**Transport and browser ordering.** Publication is state convergence, not exactly-once
+event delivery. `stateVersion` increases for every publication, `dataVersion` only for
+accepted graph movement, and a fresh `observerId` starts a new ordering epoch after
+restart. SSE close/error handlers and client membership are installed before the first
+frame. Reconnect replay is a bounded chronological suffix ending in current state; a
+slow, closed, or over-budget client is removed without blocking any other client.
+
+The browser opens SSE before its initial board request.
+It rejects duplicate or older versions from the same observer, accepts a restarted
+observer’s lower counters, and lets a canonical board response replace a bounded SSE
+summary at the same version.
+One coalescing refresh loop aborts superseded board requests.
+Detail requests are capped at eight and carry both a graph generation and a per-request
+token; collapse, graph motion, or shutdown aborts them, and a late success or failure
+cannot populate the current cache.
+Thus transport duplication or response reordering can cause an extra fetch, but cannot
+roll back adopted state or create duplicate rows.
+
+**Shutdown and progress.** Shutdown stores one idempotent promise, marks the observer
+stopped before closing the watcher, cancels debounce/retry/reconciliation timers, and
+clears the pending slot.
+Completion callbacks check `stopped` after every `await`, so in-flight reads cannot
+publish late.
+The server unsubscribes first, allows the one active reload a bounded grace
+period, then closes SSE clients and HTTP connections; work that outlives the grace
+period is harmless because publication is fenced off.
+Every queue and buffer has an explicit bound, and retries are timer-driven rather than
+busy loops; the connection cap also bounds aggregate fan-out work.
+Since the live viewer takes no writer lock, writers wait for no viewer resource, SSE
+fan-out waits for no client, and shutdown waits for no writer, the wait graph is acyclic
+and has no deadlock path.
+Within writer processes the only nested data lock order is repository lock, then the
+append-only mapping-file lock; no standard path acquires them in reverse order.
+
+These cases are the compact proof obligation and the required adversarial test matrix:
+
+| Interleaving | Required result |
+| --- | --- |
+| Writer is active, or starts/finishes during a candidate read | Epoch/lock validation rejects the candidate; old accepted state remains served |
+| Live lock crosses stale windows, including machine sleep | PID liveness prevents eviction; the second writer waits or times out and no overlap occurs |
+| Several waiters retain one stale observation while a successor acquires | One owner-token quarantine wins; its retained tombstone makes every delayed rename fail without touching the successor |
+| Candidate issue, mapping, or epoch data is unreadable, corrupt, or oversized | The entire candidate fails closed; no empty or partial substitute is published |
+| Native and reconciliation callbacks overlap or repeat | One active plus one pending reload; final accepted state is published once as an aggregate transition |
+| SSE attach/close races with publication, or connection capacity is exhausted | Handlers exist before frames; current state is included; only that client is dropped or rejected |
+| Board/detail response completes after newer state or controls | Abort plus observer/version/generation checks discard it |
+| Shutdown occurs at every `await` boundary | No post-stop publication, no retained timer/watcher/client, and bounded server close |
+
+After a standard writer quiesces, native notification normally starts convergence after
+250 ms; if that hint is lost, the next one-second reconciliation check does.
+Reload time is additional and scales with the local issue count.
+The contract deliberately does not promise one animation per filesystem event or remote
+liveness: only explicit `tbd sync` changes remote state, and its locally committed
+result follows this same path.
+
 The client opens its event stream before its first board fetch, coalesces refreshes, and
 bounds concurrent detail requests.
 Each observer process has a fresh instance id and a monotonic state version, so the
@@ -4395,9 +4603,9 @@ All short IDs (imported and new) are stored in the unified mapping file:
 ```yaml
 # .tbd/data-sync/mappings/ids.yml
 # Imported issues preserve original short IDs:
-100: 01hx5zzkbkactav9wevgemmvrz    # was tbd-100
-101: 01hx5zzkbkbctav9wevgemmvrz    # was tbd-101
-1823: 01hx5zzkbkcdtav9wevgemmvrz   # was tbd-1823
+100: 01hx5zzkbkactav9wevgemmvrz # was tbd-100
+101: 01hx5zzkbkbctav9wevgemmvrz # was tbd-101
+1823: 01hx5zzkbkcdtav9wevgemmvrz # was tbd-1823
 # New issues get random 4-char base36:
 a7k2: 01hx5zzkbkdetav9wevgemmvrz
 ```
@@ -4409,7 +4617,7 @@ The `extensions.beads` field stores metadata about the import for debugging:
 ```yaml
 extensions:
   beads:
-    original_id: tbd-100           # Full original ID (for reference)
+    original_id: tbd-100 # Full original ID (for reference)
     imported_at: 2025-01-10T10:00:00Z
 ```
 
@@ -5043,18 +5251,29 @@ in any environment (local dev, Claude Code Cloud, etc.).
 ```json
 {
   "hooks": {
-    "SessionStart": [{
-      "matcher": "",
-      "hooks": [{ "type": "command", "command": "bash .claude/scripts/tbd-session.sh" }]
-    }],
-    "PreCompact": [{
-      "matcher": "",
-      "hooks": [{ "type": "command", "command": "bash .claude/scripts/tbd-session.sh --brief" }]
-    }],
-    "PostToolUse": [{
-      "matcher": "Bash",
-      "hooks": [{ "type": "command", "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/tbd-closing-reminder.sh" }]
-    }]
+    "SessionStart": [
+      {
+        "matcher": "",
+        "hooks": [{ "type": "command", "command": "bash .claude/scripts/tbd-session.sh" }]
+      }
+    ],
+    "PreCompact": [
+      {
+        "matcher": "",
+        "hooks": [{ "type": "command", "command": "bash .claude/scripts/tbd-session.sh --brief" }]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/tbd-closing-reminder.sh"
+          }
+        ]
+      }
+    ]
   }
 }
 ```
@@ -5361,19 +5580,16 @@ checkout.
 **Alternatives Considered**:
 
 1. **Isolated index (`GIT_INDEX_FILE`)**: Use git plumbing with isolated index
-
    - Pro: Minimal disk usage, no extra checkout
 
    - Con: Files not accessible to ripgrep/grep for searching
 
 2. **Sparse checkout**: Checkout only `.tbd/data-sync/` directory
-
    - Pro: Files accessible, minimal overhead
 
    - Con: Pollutes user’s working directory, shows in `git status`
 
 3. **Hidden worktree**: Separate checkout at `$GIT_COMMON_DIR/tbd/data-sync-worktree/`
-
    - Pro: Files accessible for search, isolated from user’s work
 
    - Con: Additional disk space for second checkout
@@ -5472,6 +5688,7 @@ rg -i -C 2 --type md "pattern" "$(git rev-parse --path-format=absolute --git-com
 ```
 
 Post-process results to:
+
 - Map file paths to issue IDs
 - Apply field filters (title, description, notes)
 - Apply status/type/label filters by reading matched files
@@ -6110,11 +6327,13 @@ The actor system tracks who creates and modifies issues.
 Current implementation status:
 
 **Implemented:**
+
 - Schema fields: `created_by` and `assignee` exist in IssueSchema
 - CLI option: `--assignee` can be set when creating/updating issues
 - Display: `assignee` shown in list and show commands
 
 **NOT Implemented:**
+
 - `created_by` field is never populated when creating issues
 - `--actor` CLI flag does not exist
 - `TBD_ACTOR` environment variable not checked

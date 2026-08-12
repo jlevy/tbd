@@ -9,6 +9,9 @@ import { fileURLToPath } from 'node:url';
 
 import type { OperationLogger } from '../../lib/types.js';
 import { noopLogger } from '../../lib/types.js';
+import { prepareDataSyncContext } from '../lib/data-context.js';
+import type { TbdDataContext } from '../lib/data-context.js';
+import { withSharedDataSyncLock } from '../../file/common-dir-layout.js';
 import { BoardState } from './board.js';
 import type { WebState } from './board.js';
 import { createWebRequestHandler, SseHub } from './http.js';
@@ -18,10 +21,14 @@ export const DEFAULT_WEB_PORT = 7_777;
 export const DEFAULT_WEB_PORT_SEARCH_COUNT = 10;
 const READINESS_TIMEOUT_MS = 10_000;
 const READINESS_POLL_MS = 50;
+const INITIAL_SNAPSHOT_TIMEOUT_MS = 10_000;
+const INITIAL_SNAPSHOT_RETRY_MS = 50;
 const SHUTDOWN_TIMEOUT_MS = 3_000;
 
 export interface WebServerOptions {
   repoDir: string;
+  /** Repair-capable context prepared before command-scoped signal handling begins. */
+  initialContext: TbdDataContext;
   /** Undefined searches from `defaultPort`; any number (including test-only 0) is pinned. */
   port?: number;
   defaultPort?: number;
@@ -38,7 +45,7 @@ export interface WebObserverController {
 
 export interface WebServerDependencies {
   loadPage: () => Promise<string>;
-  createBoard: (repoDir: string) => BoardState;
+  createBoard: (repoDir: string, initialContext: TbdDataContext) => BoardState;
   createObserver: (
     board: BoardState,
     options: { logger: OperationLogger },
@@ -73,16 +80,39 @@ export async function loadWebPage(): Promise<string> {
 
 const defaultDependencies: WebServerDependencies = {
   loadPage: loadWebPage,
-  createBoard: (repoDir) => new BoardState(repoDir),
+  createBoard: (repoDir, initialContext) => new BoardState(repoDir, undefined, initialContext),
   createObserver: (board, options) => new LocalObserver(board, { logger: options.logger }),
   fetch: globalThis.fetch,
 };
 
-function delay(milliseconds: number): Promise<void> {
+/** Perform any first-use initialization or repair before the long-running lifecycle. */
+export function prepareWebContext(repoDir: string): Promise<TbdDataContext> {
+  // Always take the central wrapper once: besides preparation, this establishes the
+  // persistent quiescent epoch required by the live viewer's optimistic reads.
+  return withSharedDataSyncLock(repoDir, () => prepareDataSyncContext(repoDir));
+}
+
+function delay(milliseconds: number, keepProcessAlive = false): Promise<void> {
   return new Promise((resolve) => {
     const timer = setTimeout(resolve, milliseconds);
-    timer.unref();
+    if (!keepProcessAlive) {
+      timer.unref();
+    }
   });
+}
+
+async function loadInitialBoard(board: BoardState): Promise<void> {
+  const deadline = Date.now() + INITIAL_SNAPSHOT_TIMEOUT_MS;
+  do {
+    const result = await board.reload();
+    if (!result.deferred) {
+      return;
+    }
+    await delay(INITIAL_SNAPSHOT_RETRY_MS, true);
+  } while (Date.now() < deadline);
+  throw new Error(
+    `Could not read a stable bead snapshot within ${INITIAL_SNAPSHOT_TIMEOUT_MS}ms because another tbd command is still writing`,
+  );
 }
 
 function isAddressInUse(error: unknown): boolean {
@@ -254,8 +284,8 @@ export async function startWebServer(
 ): Promise<WebServerHandle> {
   const logger = options.logger ?? noopLogger;
   const page = await dependencies.loadPage();
-  const board = dependencies.createBoard(options.repoDir);
-  await board.reload();
+  const board = dependencies.createBoard(options.repoDir, options.initialContext);
+  await loadInitialBoard(board);
   const observer = dependencies.createObserver(board, { logger });
   const events = new SseHub(() => observer.getState());
   const unsubscribe = observer.subscribe((state) => {

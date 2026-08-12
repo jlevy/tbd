@@ -244,6 +244,76 @@ describe('createClientStore transport orchestration', () => {
     store.stop();
   });
 
+  it('ignores an EventSource callback that was already queued when the client stops', async () => {
+    let onState: ((next: unknown) => void) | null = null;
+    const close = vi.fn();
+    const setItem = vi.fn();
+    const render = vi.fn();
+    const initialState = state();
+    const transport: Transport = {
+      openEvents: (_url, callback) => {
+        onState = callback;
+        return { close };
+      },
+      fetchJson: () => Promise.resolve(board(initialState)),
+    };
+    const store = createClientStore(transport, render, {
+      storage: { getItem: () => null, setItem },
+    });
+    await store.start();
+    const rendersBeforeStop = render.mock.calls.length;
+
+    store.stop();
+    onState!(state({ stateVersion: 1, dataVersion: 1, localTip: 'b'.repeat(40) }));
+
+    expect(close).toHaveBeenCalledOnce();
+    expect(store.getView().watch).toEqual(initialState);
+    expect(setItem).not.toHaveBeenCalled();
+    expect(render).toHaveBeenCalledTimes(rendersBeforeStop);
+  });
+
+  it('aborts a superseded board request before fetching the newest SSE state', async () => {
+    let onState: ((next: unknown) => void) | null = null;
+    const requests: { request: Deferred<unknown>; signal: AbortSignal }[] = [];
+    const transport: Transport = {
+      openEvents: (_url, callback) => {
+        onState = callback;
+        return { close: vi.fn() };
+      },
+      fetchJson: (_url, signal) => {
+        if (signal === undefined) {
+          throw new Error('Expected an abort signal');
+        }
+        const request = deferred<unknown>();
+        signal.addEventListener(
+          'abort',
+          () => {
+            request.reject(new Error('aborted'));
+          },
+          { once: true },
+        );
+        requests.push({ request, signal });
+        return request.promise;
+      },
+    };
+    const store = createClientStore(transport, vi.fn());
+    const started = store.start();
+    expect(requests).toHaveLength(1);
+
+    onState!(state({ stateVersion: 1, dataVersion: 1, movedIds: ['web-one'] }));
+    expect(requests[0]?.signal.aborted).toBe(true);
+    await vi.waitFor(() => {
+      expect(requests).toHaveLength(2);
+    });
+    requests[1]!.request.resolve(
+      board(state({ stateVersion: 1, dataVersion: 1 }), 'Current response'),
+    );
+    await started;
+
+    expect(store.getView().board?.rows[0]?.title).toBe('Current response');
+    store.stop();
+  });
+
   it('does not let a stale pre-update body rejection overwrite a fresh post-update body', async () => {
     let onState: ((next: unknown) => void) | null = null;
     const bodyRequests: Deferred<unknown>[] = [];
@@ -513,6 +583,61 @@ describe('createClientStore transport orchestration', () => {
     }
     await flush();
     expect(bodyRequests).toHaveLength(MAX_BODY_REQUEST_CONCURRENCY + 1);
+    store.stop();
+  });
+
+  it('aborts stale-generation detail requests so current bodies cannot be starved', async () => {
+    let onState: ((next: unknown) => void) | null = null;
+    const ids = Array.from({ length: MAX_BODY_REQUEST_CONCURRENCY }, (_, index) => `web-${index}`);
+    const initial = board(state());
+    const seed = initial.rows[0]!;
+    initial.rows = ids.map((id) => ({ ...seed, id, internalId: `internal-${id}` }));
+    let current = initial;
+    const bodyRequests: { request: Deferred<unknown>; signal: AbortSignal }[] = [];
+    const transport: Transport = {
+      openEvents: (_url, callback) => {
+        onState = callback;
+        return { close: vi.fn() };
+      },
+      fetchJson: (url, signal) => {
+        if (url.startsWith('/api/board?')) {
+          return Promise.resolve(current);
+        }
+        if (signal === undefined) {
+          throw new Error('Expected an abort signal');
+        }
+        const request = deferred<unknown>();
+        signal.addEventListener(
+          'abort',
+          () => {
+            request.reject(new Error('aborted'));
+          },
+          { once: true },
+        );
+        bodyRequests.push({ request, signal });
+        return request.promise;
+      },
+    };
+    const store = createClientStore(transport, vi.fn());
+    await store.start();
+    store.setExpanded(ids);
+    expect(bodyRequests).toHaveLength(MAX_BODY_REQUEST_CONCURRENCY);
+
+    current = { ...initial, state: state({ stateVersion: 1, dataVersion: 1, movedIds: ids }) };
+    onState!(current.state);
+    expect(
+      bodyRequests.slice(0, MAX_BODY_REQUEST_CONCURRENCY).every(({ signal }) => signal.aborted),
+    ).toBe(true);
+    await vi.waitFor(() => {
+      expect(bodyRequests).toHaveLength(MAX_BODY_REQUEST_CONCURRENCY * 2);
+    });
+
+    for (let index = MAX_BODY_REQUEST_CONCURRENCY; index < bodyRequests.length; index += 1) {
+      bodyRequests[index]!.request.resolve({ id: ids[index - MAX_BODY_REQUEST_CONCURRENCY] });
+    }
+    await vi.waitFor(() => {
+      expect(store.getView().bodies.size).toBe(MAX_BODY_REQUEST_CONCURRENCY);
+    });
     store.stop();
   });
 

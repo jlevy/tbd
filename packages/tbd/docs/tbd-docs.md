@@ -696,10 +696,19 @@ It is a local development and observation surface, not a remotely reachable serv
 The browser opens its live event stream before loading the board and refreshes whenever
 the local hidden data-sync worktree changes.
 Node’s native filesystem watcher normally delivers the update immediately.
-A constant-size metadata check once per second recovers a dropped event without
-re-reading the graph when nothing changed.
+A constant-size metadata-and-writer-epoch check once per second recovers a dropped event
+without re-reading the graph when nothing changed.
 If native recursive watching is unavailable, that check becomes the transparent
 fallback. It also observes local configuration and workspace metadata changes.
+
+The page keeps serving its last complete snapshot while another `tbd` command writes.
+Standard writers publish an active/quiescent local epoch under the existing shared
+writer lock; the viewer stages a replacement snapshot and adopts it only when the same
+quiescent epoch brackets the entire read.
+File-event bursts are coalesced, and a missed or rejected update is retried without
+blocking the writer.
+This prevents a create, update, doctor repair, or sync burst from appearing as a
+transient deletion or a mixture of old and new files.
 
 This separation is intentional: `tbd web` is a view, not a second synchronization
 client. A remote change is invisible until an explicit `tbd sync` integrates it locally,
@@ -1549,6 +1558,7 @@ version. This is everything a format upgrade can touch:
 | Project config | `.tbd/config.yml` | tracked | the migration (format stamp) | `git checkout -- .tbd/config.yml`, or `git revert` the bump commit |
 | Agent surfaces | `AGENTS.md`, `.claude/`, `.agents/`, `.codex/` | tracked | only `tbd setup --auto` (marker refresh) | `git checkout --` those paths |
 | Shared layout stamp | `$GIT_COMMON_DIR/tbd/layout.yml` | machine-local, not in git | the migration (re-stamp) | delete it; it regenerates from whatever the config says |
+| Writer epoch | `$GIT_COMMON_DIR/tbd/data-sync.epoch` | machine-local, not in git | every shared data writer | none; the next writer replaces it |
 | Forked docs (f05) | `docs/tbd/`, `.tbd/doc-forks/` | tracked once committed | only `tbd docs fork` | `git checkout --`/`git revert` if committed; delete if never committed |
 | Docs cache | `.tbd/docs/` | gitignored | doc sync (unchanged by migration) | none needed; always safe to delete and re-sync |
 | Issue data | `tbd-sync` branch and `$GIT_COMMON_DIR/tbd/data-sync-worktree/` | git branch | **never touched by migration** | none needed; the worktree re-materializes from the branch |

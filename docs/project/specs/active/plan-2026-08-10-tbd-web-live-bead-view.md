@@ -108,8 +108,8 @@ stubbed-window behavior tests, lint and typecheck floors) are adopted in the CLI
 surface, Server engineering, Client build and packaging, and Testing sections.
 
 1. **Native observation with a bounded reconciliation path.** Metabrowser selects a
-   native filesystem watcher on ordinary local filesystems and a cheap polling watcher
-   on filesystems where native notification is unreliable.
+   native filesystem watcher on ordinary local filesystems and cheap periodic metadata
+   reconciliation on filesystems where native notification is unreliable.
    tbd does not need its filesystem-type dependency or platform branches: Node’s core
    `fs.watch` maps to the native macOS/Linux/Windows facilities, while a one-second stat
    marker over the relevant worktree directories and local ref repairs a dropped
@@ -242,14 +242,16 @@ Payload shape matters more than raw speed:
   page bound.
 
 The limits are independent and come from measured costs rather than one arbitrary row
-number. The server path is cheap at 10,000 representative issues: 13–23 ms to load or
+number. The server path is cheap at 10,000 representative issues: 13–30 ms to load or
 refresh the in-memory snapshot, 36–115 ms to build the response, and 2.47 MiB serialized
 on the review machine.
 The high end is the full parallel test-suite run; the isolated focused case supplied the
-low end. That fixture injects already-parsed issues, so it is not presented as a disk
-benchmark. A separate one-off check on 2026-08-11 wrote 10,000 representative files
-through production `writeIssue` and then read them twice through production
-`listIssues`; the warm parse took 1.31 seconds on the review machine.
+low end. The final concurrency gate measured 16.44 ms initial load, 29.39 ms one-change
+refresh, and 53.71 ms response construction.
+That fixture injects already-parsed issues, so it is not presented as a disk benchmark.
+A separate one-off check on 2026-08-11 wrote 10,000 representative files through
+production `writeIssue` and then read them twice through production `listIssues`; the
+warm parse took 1.31 seconds on the review machine.
 Fixture creation took 30.7 seconds, which is why CI layers the existing 1,000-file
 storage regression, the 10,001-item board boundary, and the browser measurements instead
 of rebuilding a 10,000-file store on every run.
@@ -287,9 +289,10 @@ Native watcher queues can overflow and some filesystems do not provide reliable
 recursive events.
 A one-second reconciliation loop therefore reads a constant-size marker
 made from metadata for the issues directory, mapping directory, project config,
-workspace metadata, and local sync-branch ref.
-It reloads the board only when that marker changes; it never scans the issue files or
-re-runs the full query on an unchanged tick.
+workspace metadata, and local sync-branch ref, plus the bounded persistent writer-epoch
+token.
+It reloads the board only when that marker changes; it never scans the issue files
+or re-runs the full query on an unchanged tick.
 If `fs.watch` is unavailable, the marker becomes the transparent fallback.
 If marker reads fail, native events remain active.
 The UI exposes the active mode and only enters an error phase if neither path can
@@ -301,7 +304,8 @@ This closes the gap between the server’s initial snapshot and watcher installa
 Each later reload computes movement from the actual before/after `id:version` snapshots
 (including display-ID mapping changes), not from event timing, so duplicate/coalesced
 events are harmless.
-Shutdown closes the watcher, cancels both timers, and awaits queued reload work.
+Shutdown closes the watcher, cancels debounce, retry, and reconciliation timers, and
+fences off late completion callbacks before the server’s bounded wait expires.
 
 Every observer process carries a fresh instance id and a monotonic `stateVersion` in
 board and event state.
@@ -321,6 +325,33 @@ pre-PR contracts. A user who wants remote state runs the same `tbd sync` command
 would without the UI. Its file/ref updates are then native local events, so the page
 redraws without a browser refresh.
 This preserves one CLI/UI contract and makes local-only or offline use unsurprising.
+
+### Concurrency contract
+
+The implementation must satisfy the ownership, stable-snapshot, coalescing, transport,
+client-ordering, and shutdown invariants in `packages/tbd/docs/tbd-design.md` §4.15,
+“Concurrency and Snapshot Safety.”
+In particular, a reload stages a candidate and publishes it only when the same
+persistent quiescent writer epoch brackets the entire read and the shared writer lock is
+absent at both boundaries.
+The metadata marker is a missed-event trigger and an additional instability check, not
+the transaction proof.
+Startup context preparation initializes, migrates, or repairs under the central shared
+lock wrapper and establishes the epoch before the listener and observer exist; the
+long-running reload path never takes or waits for that lock.
+One active reload plus one pending slot bounds event bursts; an unstable candidate
+leaves both the accepted snapshot and reconciliation marker unchanged so a later retry
+cannot be suppressed.
+
+The verification matrix must force the relevant interleavings rather than infer safety
+from ordinary timing: overlapping writer transactions, a writer that starts and ends
+during a read, concurrent native and reconciliation triggers, events arriving during an
+active reload, SSE attach/close during publication, stale board and detail responses,
+observer restart with lower counters, and shutdown with work in flight.
+Assertions cover complete old-or-new snapshots, aggregate final-state convergence,
+monotonic client adoption, bounded work, isolated slow clients, and idempotent teardown.
+The contract does not require one delivery per filesystem event or expose intermediate
+writer state.
 
 ### Writes
 
@@ -534,26 +565,37 @@ Signatures are the intended shape; adjust mechanically in review, not structural
   then lazy-imports the server (`await import('../web/server.js')`) so no other command
   pays for it. SIGINT/SIGTERM wiring per the lifecycle rules; exit codes from
   `exit-codes.ts`.
-- **`src/cli/web/server.ts`**:
-  `startWebServer(options: WebServerOptions): Promise<WebServerHandle>` where the handle
-  is `{ port, url, close(), closed: Promise<void> }`. Owns the `node:http` server, port
+- **`src/cli/web/server.ts`**: `prepareWebContext(repoDir)` performs the one
+  repair-capable, epoch-establishing startup transaction before command-scoped signal
+  handling; `startWebServer(options: WebServerOptions): Promise<WebServerHandle>`
+  receives that context, where the handle is
+  `{ port, url, close(), closed: Promise<void> }`. Owns the `node:http` server, port
   policy (`findAvailableLoopbackPort(base, count)` here, mirroring metabrowser’s
-  `server_utils.py`), readiness self-probe, and shutdown.
+  `server_utils.py`), stable initial snapshot retry, readiness self-probe, and bounded
+  shutdown.
 - **`src/cli/web/board.ts`**: `BoardState` — the in-memory snapshot (`loadDataContext` +
-  `listIssues`), `reload()` computing `dataVersion`/`movedIds`/`removedIds` and local
-  field deltas by before/after snapshot diff with complete motion plus bounded detail,
-  `getObservationPaths()` exposing only the constant-size local marker inputs,
-  `computeIssueStats`, the served `RepoStatus`, and `buildBoardResponse(params)`
-  translating query strings to `IssueQuery` and calling `selectIssues`/`describeQuery`
-  plus the tree/context-row walk over `buildIssueTree`.
+  lock-free prepared-context read + strict `listIssues`), FIFO `reload()` staging a
+  candidate between identical quiescent writer epochs, then computing
+  `dataVersion`/`movedIds`/`removedIds` and local field deltas by before/after snapshot
+  diff with complete motion plus bounded detail, `getObservationPaths()` exposing only
+  the constant-size local marker inputs, `computeIssueStats`, the served `RepoStatus`,
+  and `buildBoardResponse(params)` translating query strings to `IssueQuery` and calling
+  `selectIssues`/`describeQuery` plus the tree/context-row walk over `buildIssueTree`.
+- **`src/file/data-sync-epoch.ts`** + **`src/file/common-dir-layout.ts`**: the central
+  shared writer wrapper atomically publishes `active:<uuid>` before a critical section
+  and `quiescent:<uuid>` before unlocking.
+  Every standard data-sync writer, including `tbd sync` and `doctor --fix`, therefore
+  participates without a web-specific write path.
 - **`src/cli/web/local-observer.ts`**: `LocalObserver` owns recursive native `fs.watch`,
-  trailing debounce, the one-second constant-size metadata marker, serialized reloads,
-  degraded-mode reporting, the observer-local monotonic `stateVersion`, and bounded
-  shutdown. It has no network-capable dependency.
+  trailing debounce, the one-second constant-size metadata marker, one-active plus
+  one-pending reload coalescing, bounded deferred/error retry, degraded-mode reporting,
+  the observer-local monotonic `stateVersion`, and fenced shutdown.
+  It has no network-capable dependency.
 - **`src/cli/web/http.ts`**: router with Host/Origin validation, `GET /`,
   `GET /api/board`, `GET /api/bead`, `GET /api/events` (SSE hub: local sync tip as the
-  event id when available, current-state replay, heartbeats, backpressure drop), and
-  `sendJson`. No mutation route exists in v1.
+  event id when available, bounded replay suffix ending in current state, heartbeats,
+  per-client backpressure drop, attach/close race isolation), and `sendJson`. No
+  mutation route exists in v1.
 
 ### Client (Phase 4)
 
@@ -561,7 +603,7 @@ Signatures are the intended shape; adjust mechanically in review, not structural
 
   ```ts
   export interface Transport {
-    fetchJson(url: string): Promise<unknown>;
+    fetchJson(url: string, signal?: AbortSignal): Promise<unknown>;
     openEvents(url: string, onState: (s: unknown) => void, lastEventId?: string): { close(): void };
   }
   export function createClientStore(transport: Transport, onRender: () => void): ClientStore;
@@ -595,23 +637,31 @@ Signatures are the intended shape; adjust mechanically in review, not structural
   test-local oracle, property-style corpus compared against `selectIssues`.
 - `tests/tree-view.test.ts` — depth-3 golden (tbd-5hh1).
 - `tests/web-board.test.ts` — light rows, shared queries, tree context, movement,
-  metadata-only updates, bounded delta detail, body lookup, and canonical display-id
-  alphabets.
+  metadata-only updates, bounded delta detail, body lookup, canonical display-id
+  alphabets, FIFO reloads, writer overlap, unchanged-metadata epoch races, context
+  changes, and strict candidate rejection.
+- `tests/data-sync-epoch.test.ts` — active/quiescent writer ordering, lock lifetime,
+  failed critical sections, and corrupt-epoch fail-closed behavior.
 - `tests/web-http.test.ts` — GET-only routing, Host/Origin security, detail isolation,
-  ref-rewind-safe SSE replay, convergence after local-ref deletion, frame bounds,
-  explicit queued-byte backpressure, and closed-stream race isolation.
+  ref-rewind-safe bounded SSE replay ending in current state, convergence after
+  local-ref deletion, frame bounds, explicit queued-byte backpressure, and synchronous
+  attach/header/close race isolation.
 - `tests/web-local-observer.test.ts` — startup gap closure, native debounce, one-second
-  marker reconciliation, native/reconciliation degradation, metadata-only publication,
-  no reload on unchanged ticks, and bounded shutdown.
+  marker reconciliation, one-active/one-pending burst coalescing, deferred/error retry,
+  native/reconciliation degradation, metadata-only publication, no reload on unchanged
+  ticks, and shutdown at active/late-callback boundaries.
 - `tests/web-server.test.ts` — port policy, readiness, idempotent and observer-failure
   tolerant teardown, and the stitched production artifact.
 - `tests/web-core.test.ts` — stubbed `Transport`: connect-then-fetch ordering, SSE
   current-state and observer-restart recovery, graph/state-version race ordering,
   canonical same-version board recovery and duplicate-event protection, update
-  coalescing, `deltasValid` gating, and query round-trip.
+  coalescing, aborted superseded board/detail responses, `deltasValid` gating, and query
+  round-trip.
 - `tests/cli-web.test.ts` — spawn the built binary as `cli-watch.test.ts` does: bind,
   descriptor shape, port policy (default searches; explicit `--port` conflict exits 1
-  actionably), Host/Origin 403s, SIGINT exits 130, no mutation route (POST → 404).
+  actionably), Host/Origin 403s, SIGINT exits 130, no mutation route (POST → 404),
+  explicit-sync-only remote integration, and old-snapshot service during a real held
+  writer lock.
 - `tests/bead-web-css.test.ts` — retargeted to `src/web/styles.css`, assertions kept.
 - `tests/cli-web.tryscript.md` — `--help` and `--dry-run` transcripts.
 - `performance.test.ts` — 10,001-issue boundary fixture proving the 10,000-row response
@@ -733,13 +783,35 @@ to land the whole command through one PR.
   The PR was open, non-draft, `MERGEABLE`/`CLEAN`; the thread audit found 12 threads and
   the final R24 disposition leaves all 12 resolved.
 
+### Phase 8: Concurrency proof and final revalidation
+
+- [x] Normative ownership, linearization, deadlock, convergence, and guarantee-boundary
+  analysis added to tbd-design.md §4.15 before the concurrency implementation was
+  finalized (`tbd-hv05`).
+- [x] Every confirmed finding recorded under concurrency epic `tbd-p1i5`, with the
+  file/function map in R25–R44 below.
+- [x] Central persistent writer epoch, lock-free stable-snapshot acceptance, strict
+  candidates, ownership-safe locks, single-flight observation, bounded retry/replay and
+  client fan-out, cancellation, and shutdown fences implemented with adversarial focused
+  coverage.
+- [x] Full release matrix green on the final concurrency head: Flowmark/Prettier, strict
+  typecheck and zero-warning lint, build, 112 Vitest files / 1,548 tests, 1,074
+  tryscript checks, publint, 31 package-age pins, packed-web proof (64,227-byte page),
+  watch release smoke, 5,000-issue CLI benchmark, and the 10,001-issue web boundary
+  above.
+- [ ] Final head pushed; hosted CI, all PR threads, and mergeability rechecked.
+
 ### Final review finding map
 
-The final review is tracked under `tbd-o7nu`, with the owner-directed revision and its
-follow-up findings under `tbd-ihyx`. Every review finding has one bead and one explicit
-disposition: twenty-three are implemented and locally validated, while R24 is rejected
-with code-path evidence because the reported persistence was never part of the client
-contract. R14 removes the final Windows command-shim assumption from the packed proof.
+The original final review is tracked under `tbd-o7nu`, with the owner-directed revision
+and its follow-up findings under `tbd-ihyx`. R1–R23 were implemented and validated; R24
+was rejected with code-path evidence because the reported persistence was never part of
+the client contract.
+The final concurrency review is tracked under epic `tbd-p1i5`: R25–R35 and R38–R44 are
+concrete defects, while R36–R37 are its normative design and adversarial verification
+tasks. Every item has one bead and an explicit file/function disposition.
+
+R14 removes the final Windows command-shim assumption from the packed proof.
 R15 closes the final scale-specific memory and data-motion paths after the 10,000-row
 ceiling review. R16 preserves an executable assertion on both sides of that ceiling.
 R17 bounds pretty-tree metadata by the same response slice.
@@ -782,6 +854,26 @@ display ids or consume the detail cap.
 | `tbd-wykg` (R22) | P1 | `tests/web-board.test.ts`: constant-size observation-surface assertion | Build expected paths with Node’s platform-native `path.join`, matching production behavior on Windows, macOS, and Linux. |
 | `tbd-qdhn` (R23) | P1 | `src/web/core.ts`: `Store.runRefreshLoop`, `Store.receiveState`, `Store.reconcileExpandedRows`; `tests/web-core.test.ts` | Wait for the canonical board after graph motion, remap expanded rows by stable internal id, drop vanished stale entries, and only then refetch bodies under current display ids. |
 | `tbd-is2r` (R24) | P2 | `src/web/client.ts`: `applyControls`, pretty-mode handler, `navigateBoardPage`; `src/web/core.ts`: `Store.reconcileExpandedRows` | No code change: query/display/page transitions cleared expansions before R23. On live motion, retaining a row absent from the bounded canonical response would preserve an unverifiable display id, recreate stale body requests, and invisibly consume `MAX_EXPANDED_ROWS`; user and design docs now state that boundary. |
+| `tbd-6ka1` (R25) | P1 | `src/cli/web/local-observer.ts`: `enqueueRefresh`, `drainRefreshes`, `coalesceRefresh` | Replace the unbounded promise tail with one active reload and one coalesced pending slot; burst regression proves bounded work and final-state convergence. |
+| `tbd-j6tx` (R26) | P1 | `src/file/data-sync-epoch.ts`; `src/file/common-dir-layout.ts`: `withSharedDataSyncLock`; `src/cli/web/board.ts`: `reloadOnce`, `captureQuiescentEpoch` | Add a persistent active/quiescent writer epoch and require the identical quiescent token around a privately staged candidate. A writer that starts and finishes inside a read is rejected even when metadata is unchanged. |
+| `tbd-3eti` (R27) | P2 | `src/cli/web/http.ts`: `SseHub.attach`, `write`, `drop`, `close` | Install close/error handling before headers or frames, register before replay, and make drop/close idempotent so synchronous disconnects affect one client only. |
+| `tbd-wuhe` (R28) | P2 | `src/web/core.ts`: `Transport.fetchJson`, `Store.runRefreshLoop`, `fetchBody`, `abortBodyRequests`; `src/web/client.ts`: fetch adapter | Thread `AbortSignal` through board and detail requests; abort superseded work and retain generation/token checks for transports that complete late. |
+| `tbd-blvk` (R29) | P1 | `src/cli/lib/data-context.ts`: `loadDataContext`; `src/cli/web/server.ts`: `prepareWebContext`; `src/cli/web/board.ts`: default loader | Perform repair and epoch establishment once before viewer resources exist; make every live reload strictly non-repairing and non-locking. |
+| `tbd-sofi` (R30) | P1 | `src/cli/web/local-observer.ts`: `start`, `stop`, `readMarker`, `refresh`, `handleNativeFailure` | Mark stopped before teardown and recheck it after every awaited boundary so late callbacks cannot mutate or publish state. |
+| `tbd-w6x0` (R31) | P1 | `src/cli/commands/web.ts`: `WebHandler.run` | Complete potentially long writer-lock preparation before replacing default signal behavior; interrupted startup cannot enter the viewer shutdown wait graph. |
+| `tbd-dfdv` (R32) | P1 | `src/cli/web/local-observer.ts`: `refresh`, `scheduleRefreshRetry` | Invalidate the accepted marker after a transient reload error and retain one cadence-limited retry, so recovery does not require another event and cannot busy-loop. |
+| `tbd-cvq6` (R33) | P1 | `src/cli/web/http.ts`: `framesAfter`, `replaySuffix`, `attach` | Select a chronological replay suffix within the client byte budget and always end normal production replay with current state. |
+| `tbd-ztyg` (R34) | P1 | `src/file/storage.ts`: `listIssues`; `src/cli/web/board.ts`: `readCompleteIssueSnapshot` | Report directory/read/parse failures and validate filename-to-ID identity; reject the whole candidate rather than publishing transient deletions or duplicate logical rows. |
+| `tbd-p4og` (R35) | P1 | `src/cli/commands/doctor.ts`: mapping, temp, migration, worktree/layout repair paths | Route every `doctor --fix` shared-data mutation through the central fenced wrapper and re-read stale diagnostic inputs after acquiring it. |
+| `tbd-hv05` (R36) | P1 | `packages/tbd/docs/tbd-design.md`: §4.15 “Concurrency and Snapshot Safety” | State the safety property, owners, persistent-fence proof, linearization point, bounded progress/deadlock argument, guarantee boundary, and adversarial proof obligations. |
+| `tbd-ag6j` (R37) | P1 | `tests/{data-sync-epoch,lockfile,snapshot-consistency,web-board,web-local-observer,web-http,web-core,cli-web,common-dir-layout-doctor}.test.ts` | Force writer/read, lease loss, event/reconcile, attach/close, stale response, transient failure, and shutdown interleavings; assert old-or-new snapshots, bounded work, monotonic adoption, and cleanup. |
+| `tbd-an5y` (R38) | P0 | `src/utils/lockfile.ts`: `withLockfile`, heartbeat, ownership-checked removal; `tests/lockfile{,-acquisition-race}.test.ts` | Give each lock a unique owner marker, heartbeat responsive holders, assert lease ownership before the writer epoch commits, and prevent a displaced holder or provisional acquisition cleanup from removing its successor. Regressions force a multi-stale-window hold, a renamed-holder/successor overlap, and displacement between `mkdir` and exclusive owner creation. |
+| `tbd-i6it` (R39) | P1 | `src/file/id-mapping.ts`: `loadIdMapping`, `saveIdMapping`, `replaceRecoveredIdMapping`; mapping and recovery callers; `tests/concurrent-mapping.test.ts` | Treat only `ENOENT` as an absent optional mapping, propagate all other read/parse failures, and keep explicit conflict recovery separate so an unreadable append-only mapping cannot become an empty map or be overwritten. |
+| `tbd-a8pj` (R40) | P2 | `src/file/data-sync-epoch.ts`: `readDataSyncEpoch`; `src/cli/web/snapshot-consistency.ts`; marker tests | Read at most 128 epoch bytes, strictly parse the token in both snapshot and reconciliation paths, and reject oversized machine-local state without repeated unbounded allocation. |
+| `tbd-7all` (R41) | P2 | `src/cli/web/http.ts`: `SseHub.attach`; `tests/web-http.test.ts` | Cap the aggregate SSE client set at 64 and reject excess attaches before streaming, bounding total socket buffering and synchronous fan-out work in addition to each client’s byte queue. |
+| `tbd-0w8j` (R42) | P1 | `src/cli/commands/doctor.ts`: `run`, `checkDataLocation`; `tests/common-dir-layout-doctor.test.ts` | Run misplaced-data preflight before diagnostics and keep worktree initialization/repair plus migration inside one writer epoch, so one `doctor --fix` cannot expose an empty intermediate graph. |
+| `tbd-xppg` (R43) | P1 | mutating CLI pipelines in `tests/*.tryscript.md` | Replace early-closing `head` consumers with EOF-reading `sed -n` selectors. A transcript must not terminate a writer after it publishes output but before its transaction releases the crash-recovery lock and quiesces its epoch. |
+| `tbd-4sle` (R44) | P0 | `src/utils/lockfile.ts`: acquisition, release, and stale recovery; `tests/lockfile*.test.ts` | Record token/host/pid ownership immediately after atomic directory acquisition, treat the provisional ownerless window and every ambiguous/live identity as non-recoverable, move verified releases out of the canonical path before cleanup, and quarantine each dead generation at a retained token-derived path so delayed stale observers cannot displace a successor through canonical-path ABA. |
 
 ### Merge gate for PR #207
 

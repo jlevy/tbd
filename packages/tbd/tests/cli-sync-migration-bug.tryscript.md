@@ -35,7 +35,7 @@ commit.
 # Test: Initialize tbd
 
 ```console
-$ tbd init --prefix=test 2>&1 | head -1
+$ tbd init --prefix=test 2>&1 | sed -n '1p'
 ✓ Initialized tbd repository (prefix: test)
 ? 0
 ```

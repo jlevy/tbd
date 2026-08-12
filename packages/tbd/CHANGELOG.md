@@ -95,6 +95,17 @@
   isolated to that client; stale detail failures cannot overwrite a newer generation;
   detail fetches have an eight-request ceiling; and canonical display IDs containing
   dots, underscores, or hyphens are accepted by the detail API.
+- **Web snapshot concurrency is fail-closed**: every standard shared-data writer now
+  brackets its transaction with a persistent active/quiescent epoch under the existing
+  repository mutex. The viewer publishes a privately staged graph only when the same
+  quiescent epoch and an absent mutex bracket the complete read, so create, update,
+  doctor repair, and sync bursts can expose the complete state before or after a write
+  but never a torn mixture.
+  Writer locks carry heartbeat and process ownership, retain generation-specific stale
+  quarantines to prevent ABA recovery races, and move verified releases out of the
+  canonical path before cleanup.
+  Reload, SSE, and browser queues are coalesced or explicitly bounded, with shutdown and
+  stale-response cancellation.
 
 ### Security
 

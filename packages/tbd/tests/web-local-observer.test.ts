@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 
 import { BoardState } from '../src/cli/web/board.js';
-import type { BoardStateDependencies } from '../src/cli/web/board.js';
+import type { BoardReloadResult, BoardStateDependencies } from '../src/cli/web/board.js';
 import { LocalObserver } from '../src/cli/web/local-observer.js';
 import type { LocalObserverDependencies, ScheduledTask } from '../src/cli/web/local-observer.js';
 import type { TbdDataContext } from '../src/cli/lib/data-context.js';
@@ -29,6 +29,32 @@ const context = {
 
 function issue(version: number, title = 'Local state'): Issue {
   return createTestIssue({ id: internalId, title, version });
+}
+
+function deferred<T>(): {
+  promise: Promise<T>;
+  resolve(value: T): void;
+} {
+  let resolve!: (value: T) => void;
+  const promise = new Promise<T>((resolvePromise) => {
+    resolve = resolvePromise;
+  });
+  return { promise, resolve };
+}
+
+function noMovement(board: BoardState, deferredReload = false): BoardReloadResult {
+  const state = board.getSnapshotState();
+  return {
+    deferred: deferredReload,
+    moved: false,
+    stateChanged: false,
+    dataVersion: state.dataVersion,
+    movedIds: state.movedIds,
+    removedIds: state.removedIds,
+    changes: [],
+    changeTotal: 0,
+    changesTruncated: false,
+  };
 }
 
 function boardHarness(): {
@@ -190,6 +216,9 @@ describe('LocalObserver', () => {
     await observer.stop();
     expect(close).toHaveBeenCalledOnce();
     expect(observer.getState().observationPhase).toBe('stopped');
+    const stoppedVersion = observer.getState().stateVersion;
+    onError!(new Error('late watcher error'));
+    expect(observer.getState().stateVersion).toBe(stoppedVersion);
   });
 
   it('checks a constant-size marker every second and reloads only when it changes', async () => {
@@ -375,5 +404,200 @@ describe('LocalObserver', () => {
       observationError: expect.stringContaining('watch failed'),
     });
     await observer.stop();
+  });
+
+  it('keeps at most one active and one coalesced refresh during a sustained event burst', async () => {
+    const { board } = boardHarness();
+    await board.reload();
+    const timers = scheduler();
+    let onChange: (() => void) | null = null;
+    const observer = new LocalObserver(
+      board,
+      { localDebounceMs: 25, reconcileIntervalMs: 1_000 },
+      dependencies({
+        marker: () => Promise.resolve('marker'),
+        schedule: timers.schedule,
+        watchDirectory: (_directory, change) => {
+          onChange = change;
+          return { close: vi.fn() };
+        },
+      }),
+    );
+    await observer.start();
+
+    const first = deferred<BoardReloadResult>();
+    const reload = vi
+      .spyOn(board, 'reload')
+      .mockImplementationOnce(() => first.promise)
+      .mockResolvedValue(noMovement(board));
+    onChange!();
+    await timers.runNext(25);
+    await vi.waitFor(() => {
+      expect(reload).toHaveBeenCalledOnce();
+    });
+
+    for (let index = 0; index < 8; index += 1) {
+      onChange!();
+      await timers.runNext(25);
+    }
+    expect(reload).toHaveBeenCalledOnce();
+
+    first.resolve(noMovement(board));
+    await vi.waitFor(() => {
+      expect(reload).toHaveBeenCalledTimes(2);
+    });
+    await Promise.resolve();
+    expect(reload).toHaveBeenCalledTimes(2);
+    await observer.stop();
+  });
+
+  it('retries a writer-deferred refresh without relying on another filesystem event', async () => {
+    const { board } = boardHarness();
+    await board.reload();
+    const timers = scheduler();
+    let onChange: (() => void) | null = null;
+    const observer = new LocalObserver(
+      board,
+      { localDebounceMs: 25, reconcileIntervalMs: 1_000 },
+      dependencies({
+        marker: () => Promise.resolve('marker-2'),
+        schedule: timers.schedule,
+        watchDirectory: (_directory, change) => {
+          onChange = change;
+          return { close: vi.fn() };
+        },
+      }),
+    );
+    await observer.start();
+
+    const reload = vi
+      .spyOn(board, 'reload')
+      .mockResolvedValueOnce(noMovement(board, true))
+      .mockResolvedValue(noMovement(board));
+    onChange!();
+    await timers.runNext(25);
+    await vi.waitFor(() => {
+      expect(reload).toHaveBeenCalledOnce();
+    });
+    expect(timers.pending().filter((task) => task.milliseconds === 25)).toHaveLength(1);
+
+    await timers.runNext(25);
+    await vi.waitFor(() => {
+      expect(reload).toHaveBeenCalledTimes(2);
+    });
+    expect(observer.getState().updateCount).toBe(0);
+    await observer.stop();
+  });
+
+  it('cancels pending work and waits for the active refresh before stopping', async () => {
+    const { board } = boardHarness();
+    await board.reload();
+    const timers = scheduler();
+    let onChange: (() => void) | null = null;
+    const close = vi.fn();
+    const observer = new LocalObserver(
+      board,
+      { localDebounceMs: 25, reconcileIntervalMs: 1_000 },
+      dependencies({
+        marker: () => Promise.resolve('marker'),
+        schedule: timers.schedule,
+        watchDirectory: (_directory, change) => {
+          onChange = change;
+          return { close };
+        },
+      }),
+    );
+    await observer.start();
+
+    const active = deferred<BoardReloadResult>();
+    const reload = vi.spyOn(board, 'reload').mockImplementationOnce(() => active.promise);
+    onChange!();
+    await timers.runNext(25);
+    await vi.waitFor(() => {
+      expect(reload).toHaveBeenCalledOnce();
+    });
+    const states: ReturnType<LocalObserver['getState']>[] = [];
+    observer.subscribe((state) => states.push(state));
+    onChange!();
+    const stopping = observer.stop();
+    const alsoStopping = observer.stop();
+    expect(alsoStopping).toBe(stopping);
+    expect(close).toHaveBeenCalledOnce();
+    expect(observer.getState().observationPhase).toBe('watching');
+
+    active.resolve({
+      ...noMovement(board),
+      moved: true,
+      stateChanged: true,
+      dataVersion: 1,
+      movedIds: ['web-local'],
+    });
+    await stopping;
+    expect(observer.getState().observationPhase).toBe('stopped');
+    expect(observer.getState().updateCount).toBe(0);
+    expect(states.map((state) => state.observationPhase)).toEqual(['stopped']);
+    expect(reload).toHaveBeenCalledOnce();
+    expect(timers.pending().filter((task) => task.milliseconds === 25)).toHaveLength(0);
+  });
+
+  it('retries a transient reload failure even when no marker or native event follows', async () => {
+    const { board } = boardHarness();
+    await board.reload();
+    const timers = scheduler();
+    let onChange: (() => void) | null = null;
+    const observer = new LocalObserver(
+      board,
+      { localDebounceMs: 25, reconcileIntervalMs: 1_000 },
+      dependencies({
+        marker: () => Promise.resolve('unchanged-marker'),
+        schedule: timers.schedule,
+        watchDirectory: (_directory, change) => {
+          onChange = change;
+          return { close: vi.fn() };
+        },
+      }),
+    );
+    await observer.start();
+
+    const reload = vi
+      .spyOn(board, 'reload')
+      .mockRejectedValueOnce(new Error('transient read failure'))
+      .mockResolvedValue(noMovement(board));
+    onChange!();
+    await timers.runNext(25);
+    await vi.waitFor(() => {
+      expect(observer.getState().observationPhase).toBe('error');
+    });
+
+    // The ordinary reconciliation timer observes lastMarker=null and performs the
+    // recovery; the separate bounded retry is cancelled by the successful reload.
+    await timers.runNext(1_000);
+    await vi.waitFor(() => {
+      expect(reload).toHaveBeenCalledTimes(2);
+      expect(observer.getState().observationPhase).toBe('watching');
+    });
+    expect(observer.getState().observationError).toBeNull();
+    await observer.stop();
+  });
+
+  it('does not install a watcher when shutdown wins the startup marker read', async () => {
+    const { board } = boardHarness();
+    await board.reload();
+    const marker = deferred<string>();
+    const timers = scheduler();
+    const watchDirectory = vi.fn(() => ({ close: vi.fn() }));
+    const observer = new LocalObserver(
+      board,
+      {},
+      dependencies({ marker: () => marker.promise, schedule: timers.schedule, watchDirectory }),
+    );
+
+    const starting = observer.start();
+    const stopping = observer.stop();
+    marker.resolve('marker');
+    await Promise.all([starting, stopping]);
+
+    expect(watchDirectory).not.toHaveBeenCalled();
+    expect(observer.getState().observationPhase).toBe('stopped');
   });
 });

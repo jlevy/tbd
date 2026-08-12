@@ -14,7 +14,7 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import { spawnSync } from 'node:child_process';
-import { mkdtemp, rm, readFile, writeFile, access } from 'node:fs/promises';
+import { access, cp, mkdtemp, readdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir, platform } from 'node:os';
 import { join } from 'node:path';
 
@@ -97,6 +97,73 @@ describeUnlessWindows('common-dir layout via CLI', { timeout: 30000 }, () => {
   });
 
   describe('doctor --fix (H3)', () => {
+    it('initializes and migrates misplaced data under one writer epoch', async () => {
+      const sharedRoot = join(dir, '.git', 'tbd');
+      const worktree = join(sharedRoot, 'data-sync-worktree');
+      const sharedData = join(worktree, '.tbd', 'data-sync');
+      const wrongData = join(dir, '.tbd', 'data-sync');
+      const epochPath = join(sharedRoot, 'data-sync.epoch');
+      const beforeToken = (await readFile(epochPath, 'utf8')).trim();
+      const beforeId = beforeToken.split(':')[1];
+      const issueFiles = (await readdir(join(sharedData, 'issues'))).filter((file) =>
+        file.endsWith('.md'),
+      );
+      expect(issueFiles).toHaveLength(1);
+      await cp(sharedData, wrongData, { recursive: true });
+      await gitIn(dir, 'worktree', 'remove', '--force', worktree);
+      await gitIn(dir, 'branch', '-D', 'tbd-sync');
+
+      let finished = false;
+      const observed = new Set<string>();
+      const fixing = runTbdAsync(dir, ['doctor', '--fix']).finally(() => {
+        finished = true;
+      });
+      while (!finished) {
+        try {
+          observed.add((await readFile(epochPath, 'utf8')).trim());
+        } catch {
+          // Atomic replacement may briefly race this diagnostic poll on Windows.
+        }
+        await new Promise((resolve) => setTimeout(resolve, 2));
+      }
+      const fix = await fixing;
+      const finalToken = (await readFile(epochPath, 'utf8')).trim();
+      observed.add(finalToken);
+
+      expect(fix.status).toBe(0);
+      expect(finalToken).toMatch(/^quiescent:/u);
+      const repairIds = new Set(
+        [...observed]
+          .map((token) => token.split(':')[1])
+          .filter((id): id is string => id !== undefined && id !== beforeId),
+      );
+      expect(repairIds).toEqual(new Set([finalToken.split(':')[1]!]));
+      expect(await readdir(join(sharedData, 'issues'))).toContain(issueFiles[0]);
+      expect(await readdir(join(wrongData, 'issues'))).not.toContain(issueFiles[0]);
+    });
+
+    it('brackets shared mapping and temp-file repairs with a quiescent writer epoch', async () => {
+      const sharedRoot = join(dir, '.git', 'tbd');
+      const dataSyncDir = join(sharedRoot, 'data-sync-worktree', '.tbd', 'data-sync');
+      const mappingPath = join(dataSyncDir, 'mappings', 'ids.yml');
+      const tempPath = join(dataSyncDir, 'issues', 'orphan.md.tmp-1234');
+      const epochPath = join(sharedRoot, 'data-sync.epoch');
+      const beforeEpoch = await readFile(epochPath, 'utf-8');
+
+      // Keep the issue but remove its mapping, and add an abandoned atomic-write file.
+      // Both doctor mutations must pass through the same central fenced writer wrapper.
+      await writeFile(mappingPath, '{}\n');
+      await writeFile(tempPath, 'orphaned temporary content\n');
+
+      const fix = runTbd(dir, ['doctor', '--fix']);
+      expect(fix.status).toBe(0);
+      expect(await exists(tempPath)).toBe(false);
+      expect(await readFile(mappingPath, 'utf-8')).not.toBe('{}\n');
+      const afterEpoch = await readFile(epochPath, 'utf-8');
+      expect(afterEpoch).toMatch(/^quiescent:/u);
+      expect(afterEpoch).not.toBe(beforeEpoch);
+    });
+
     it('treats an older-format layout as a pending migration and applies it on --fix', async () => {
       const layoutPath = join(dir, '.git', 'tbd', 'layout.yml');
       const original = await readFile(layoutPath, 'utf-8');

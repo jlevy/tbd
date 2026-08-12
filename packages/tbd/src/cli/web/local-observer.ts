@@ -2,7 +2,6 @@
 
 import { randomUUID } from 'node:crypto';
 import { watch as watchFilesystem } from 'node:fs';
-import { stat } from 'node:fs/promises';
 
 import { noopLogger } from '../../lib/types.js';
 import type { OperationLogger } from '../../lib/types.js';
@@ -13,6 +12,7 @@ import type {
   ObservationPhase,
   WebState,
 } from './board.js';
+import { readMetadataMarker } from './snapshot-consistency.js';
 
 const DEFAULT_LOCAL_DEBOUNCE_MS = 250;
 const DEFAULT_RECONCILE_INTERVAL_MS = 1_000;
@@ -56,6 +56,13 @@ interface MutableObservationState {
   log: EventLogEntry[];
 }
 
+type RefreshSource = 'startup' | 'native' | 'reconcile';
+
+interface RefreshRequest {
+  source: RefreshSource;
+  observedMarker: string | null | undefined;
+}
+
 function defaultWatchDirectory(
   directory: string,
   onChange: () => void,
@@ -64,32 +71,6 @@ function defaultWatchDirectory(
   const watcher = watchFilesystem(directory, { recursive: true }, onChange);
   watcher.on('error', onError);
   return watcher;
-}
-
-function isMissingPath(error: unknown): boolean {
-  return (
-    typeof error === 'object' &&
-    error !== null &&
-    'code' in error &&
-    (error.code === 'ENOENT' || error.code === 'ENOTDIR')
-  );
-}
-
-async function defaultReadMarker(paths: readonly string[]): Promise<string> {
-  const parts = await Promise.all(
-    paths.map(async (path) => {
-      try {
-        const metadata = await stat(path, { bigint: true });
-        return `${path}:${metadata.mtimeNs}:${metadata.ctimeNs}:${metadata.size}`;
-      } catch (error) {
-        if (isMissingPath(error)) {
-          return `${path}:missing`;
-        }
-        throw error;
-      }
-    }),
-  );
-  return parts.join('|');
 }
 
 function defaultSchedule(milliseconds: number, callback: () => void): ScheduledTask {
@@ -104,7 +85,7 @@ function defaultSchedule(milliseconds: number, callback: () => void): ScheduledT
 
 const defaultDependencies: LocalObserverDependencies = {
   watchDirectory: defaultWatchDirectory,
-  readMarker: defaultReadMarker,
+  readMarker: readMetadataMarker,
   schedule: defaultSchedule,
   now: () => new Date(),
 };
@@ -133,9 +114,11 @@ export class LocalObserver {
   };
   private nativeWatcher: DirectoryWatcher | null = null;
   private nativeDebounceTask: ScheduledTask | null = null;
+  private refreshRetryTask: ScheduledTask | null = null;
   private reconcileTask: ScheduledTask | null = null;
   private reconcileInFlight: Promise<void> | null = null;
-  private refreshTail: Promise<void> = Promise.resolve();
+  private refreshRunner: Promise<void> | null = null;
+  private pendingRefresh: RefreshRequest | null = null;
   private lastMarker: string | null = null;
   private nativeActive = false;
   private markerAvailable = false;
@@ -145,6 +128,7 @@ export class LocalObserver {
   private readonly observerId = randomUUID();
   private started = false;
   private stopped = false;
+  private stopping: Promise<void> | null = null;
 
   constructor(
     private readonly board: BoardState,
@@ -157,11 +141,14 @@ export class LocalObserver {
   }
 
   async start(): Promise<void> {
-    if (this.started) {
+    if (this.started || this.stopped) {
       return;
     }
     this.started = true;
     const initialMarker = await this.readMarker();
+    if (this.stopped) {
+      return;
+    }
     if (initialMarker !== null) {
       this.lastMarker = initialMarker;
     }
@@ -170,6 +157,9 @@ export class LocalObserver {
     // The server loaded once before it knew which directory to watch. Reload after the
     // native watcher is installed so a write in that startup gap cannot be missed.
     await this.enqueueRefresh('startup', initialMarker);
+    if (this.stopped) {
+      return;
+    }
     this.updateStatus();
     if (this.state.observationPhase === 'watching') {
       this.log('info', 'Watching local bead state; run tbd sync to exchange remote changes');
@@ -178,9 +168,9 @@ export class LocalObserver {
     this.scheduleReconciliation();
   }
 
-  async stop(): Promise<void> {
-    if (this.stopped) {
-      return;
+  stop(): Promise<void> {
+    if (this.stopping !== null) {
+      return this.stopping;
     }
     this.stopped = true;
     this.nativeWatcher?.close();
@@ -188,12 +178,18 @@ export class LocalObserver {
     this.nativeActive = false;
     this.nativeDebounceTask?.cancel();
     this.nativeDebounceTask = null;
+    this.refreshRetryTask?.cancel();
+    this.refreshRetryTask = null;
     this.reconcileTask?.cancel();
     this.reconcileTask = null;
-    await this.reconcileInFlight;
-    await this.refreshTail;
-    this.state.observationPhase = 'stopped';
-    this.notify();
+    this.stopping = (async () => {
+      await this.reconcileInFlight;
+      this.pendingRefresh = null;
+      await this.refreshRunner;
+      this.state.observationPhase = 'stopped';
+      this.notify();
+    })();
+    return this.stopping;
   }
 
   getState(): WebState {
@@ -243,6 +239,9 @@ export class LocalObserver {
   }
 
   private handleNativeFailure(error: unknown): void {
+    if (this.stopped) {
+      return;
+    }
     this.nativeWatcher?.close();
     this.nativeWatcher = null;
     this.nativeActive = false;
@@ -265,6 +264,16 @@ export class LocalObserver {
     this.nativeDebounceTask = this.dependencies.schedule(this.localDebounceMs, () => {
       this.nativeDebounceTask = null;
       void this.enqueueRefresh('native');
+    });
+  }
+
+  private scheduleRefreshRetry(): void {
+    if (this.stopped || this.refreshRetryTask !== null) {
+      return;
+    }
+    this.refreshRetryTask = this.dependencies.schedule(this.reconcileIntervalMs, () => {
+      this.refreshRetryTask = null;
+      void this.enqueueRefresh('reconcile');
     });
   }
 
@@ -294,26 +303,61 @@ export class LocalObserver {
     }
   }
 
-  private enqueueRefresh(
-    source: 'startup' | 'native' | 'reconcile',
-    marker?: string | null,
-  ): Promise<void> {
-    const work = this.refreshTail.catch(() => undefined).then(() => this.refresh(source, marker));
-    this.refreshTail = work.catch(() => undefined);
-    return work;
+  private enqueueRefresh(source: RefreshSource, observedMarker?: string | null): Promise<void> {
+    if (this.stopped) {
+      return Promise.resolve();
+    }
+    this.pendingRefresh = this.coalesceRefresh(this.pendingRefresh, { source, observedMarker });
+    // Deferring the drain one microtask guarantees the field is assigned before the
+    // async loop can reach its finally block, including injected zero-latency tests.
+    this.refreshRunner ??= Promise.resolve().then(() => this.drainRefreshes());
+    return this.refreshRunner;
   }
 
-  private async refresh(
-    source: 'startup' | 'native' | 'reconcile',
-    observedMarker?: string | null,
-  ): Promise<void> {
+  private async drainRefreshes(): Promise<void> {
+    try {
+      while (!this.stopped && this.pendingRefresh !== null) {
+        const request = this.pendingRefresh;
+        this.pendingRefresh = null;
+        await this.refresh(request);
+      }
+    } finally {
+      this.refreshRunner = null;
+    }
+  }
+
+  private coalesceRefresh(current: RefreshRequest | null, next: RefreshRequest): RefreshRequest {
+    const source =
+      current?.source === 'startup' || next.source === 'startup'
+        ? 'startup'
+        : current?.source === 'native' || next.source === 'native'
+          ? 'native'
+          : 'reconcile';
+    return { source, observedMarker: next.observedMarker };
+  }
+
+  private async refresh(request: RefreshRequest): Promise<void> {
     if (this.stopped) {
       return;
     }
-    const marker = observedMarker === undefined ? await this.readMarker() : observedMarker;
+    const marker = request.observedMarker ?? (await this.readMarker());
+    if (this.stopped) {
+      return;
+    }
     const previousTip = this.board.getSnapshotState().localTip;
     try {
       const movement = await this.board.reload();
+      if (this.stopped) {
+        return;
+      }
+      if (movement.deferred) {
+        // The shared writer never waits for the viewer. Retry locally after it releases
+        // even if native events or the metadata fallback are temporarily unavailable.
+        this.scheduleNativeRefresh();
+        return;
+      }
+      this.refreshRetryTask?.cancel();
+      this.refreshRetryTask = null;
       if (marker !== null) {
         this.lastMarker = marker;
       }
@@ -327,7 +371,7 @@ export class LocalObserver {
         this.state.latestChangesTruncated = movement.changesTruncated;
         this.state.changeDataVersion = movement.dataVersion;
         this.state.updateCount += 1;
-        const origin = source === 'reconcile' ? 'reconciled marker' : 'native file event';
+        const origin = request.source === 'reconcile' ? 'reconciled marker' : 'native file event';
         this.log(
           'update',
           `Local bead state changed (${movement.movedIds.length} bead${movement.movedIds.length === 1 ? '' : 's'}, ${origin})`,
@@ -340,12 +384,20 @@ export class LocalObserver {
         this.notify();
       }
     } catch (error) {
+      if (this.stopped) {
+        return;
+      }
       const message = `Local refresh failed: ${errorMessage(error)}`;
       if (this.reloadError !== message) {
         this.reloadError = message;
         this.logger.warn(message);
         this.log('error', message);
       }
+      // A transient failure may leave the metadata marker unchanged. Invalidate the
+      // accepted marker and retry at the reconciliation cadence so recovery does not
+      // depend on another filesystem event and persistent errors cannot busy-loop.
+      this.lastMarker = null;
+      this.scheduleRefreshRetry();
       this.updateStatus();
       this.notify();
     }
@@ -354,6 +406,9 @@ export class LocalObserver {
   private async readMarker(): Promise<string | null> {
     try {
       const marker = await this.dependencies.readMarker(this.board.getObservationPaths());
+      if (this.stopped) {
+        return null;
+      }
       const recovered = this.markerError !== null;
       this.markerAvailable = true;
       this.markerError = null;
@@ -366,6 +421,9 @@ export class LocalObserver {
       }
       return marker;
     } catch (error) {
+      if (this.stopped) {
+        return null;
+      }
       const message = `Local reconciliation unavailable: ${errorMessage(error)}`;
       const changed = this.markerError !== message || this.markerAvailable;
       this.markerAvailable = false;

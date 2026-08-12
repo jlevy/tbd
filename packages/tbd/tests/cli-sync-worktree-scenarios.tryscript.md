@@ -45,7 +45,7 @@ in the correct location.
 # Test: Initialize tbd
 
 ```console
-$ tbd init --prefix=test 2>&1 | head -1
+$ tbd init --prefix=test 2>&1 | sed -n '1p'
 ✓ Initialized tbd repository (prefix: test)
 ? 0
 ```
@@ -133,7 +133,7 @@ $ tbd doctor 2>&1 | grep "Worktree" || echo "worktree issue detected"
 # Test: Sync with --fix repairs the worktree
 
 ```console
-$ tbd sync --fix 2>&1 | head -2 | tail -1
+$ tbd sync --fix 2>&1 | sed -n '2p'
 ✓ Worktree repaired successfully
 ? 0
 ```
@@ -180,7 +180,7 @@ in wrong location
 # Test: Doctor --fix migrates the data
 
 ```console
-$ tbd doctor --fix 2>&1 | head -1
+$ tbd doctor --fix 2>&1 | sed -n '1p'
 REPOSITORY
 ? 0
 ```

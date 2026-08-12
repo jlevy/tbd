@@ -411,6 +411,70 @@ describe('tbd web CLI', () => {
     children.delete(child);
   }, 45_000);
 
+  it('never publishes a partial snapshot while the shared writer lock is held', async () => {
+    const fixture = await createRepo();
+    const port = await availablePort();
+    const child = spawn(process.execPath, [tbdBin, '--json', 'web', '--port', String(port)], {
+      cwd: fixture.repoDir,
+      env: { ...process.env, NO_COLOR: '1' },
+      stdio: ['ignore', 'pipe', 'pipe'],
+    });
+    children.add(child);
+    const descriptor = await waitForDescriptor(child);
+    const initialBoard = (await (await fetch(`${descriptor.url}/api/board`)).json()) as {
+      rows: { id: string; internalId: string; title: string }[];
+    };
+    const issue = initialBoard.rows.find((row) => row.title === 'Browser acceptance');
+    expect(issue).toBeDefined();
+
+    const commonDir = await git(
+      fixture.repoDir,
+      'rev-parse',
+      '--path-format=absolute',
+      '--git-common-dir',
+    );
+    const lockPath = join(commonDir, 'tbd', 'locks', 'data-sync.lock');
+    const issuePath = join(
+      commonDir,
+      'tbd',
+      'data-sync-worktree',
+      '.tbd',
+      'data-sync',
+      'issues',
+      `${issue!.internalId}.md`,
+    );
+    await mkdir(lockPath);
+    const original = await readFile(issuePath, 'utf8');
+    const changed = original
+      .replace(/^title: .*$/mu, 'title: Locked transaction')
+      .replace(/^version: 1$/mu, 'version: 2');
+    expect(changed).not.toBe(original);
+
+    const sseController = new AbortController();
+    const update = waitForSseState(
+      descriptor.url,
+      (state) => state.updateCount > 0 && state.movedIds.includes(issue!.id),
+      sseController,
+    );
+    await writeFile(issuePath, changed);
+    await new Promise((resolve) => setTimeout(resolve, 1_250));
+
+    const whileLocked = await fetch(`${descriptor.url}/api/bead?id=${issue!.id}`);
+    expect(await whileLocked.json()).toMatchObject({ title: 'Browser acceptance', version: 1 });
+
+    await rm(lockPath, { recursive: true });
+    const updateState = await update;
+    sseController.abort();
+    expect(updateState.observationPhase).toBe('watching');
+    const afterRelease = await fetch(`${descriptor.url}/api/bead?id=${issue!.id}`);
+    expect(await afterRelease.json()).toMatchObject({ title: 'Locked transaction', version: 2 });
+
+    const exited = waitForExit(child);
+    expect(child.kill(supportsHandledProcessSignals ? 'SIGTERM' : 'SIGKILL')).toBe(true);
+    await exited;
+    children.delete(child);
+  }, 45_000);
+
   it('reports deterministic dry-run metadata without binding a port', async () => {
     const { repoDir } = await createRepo();
     const port = await availablePort();

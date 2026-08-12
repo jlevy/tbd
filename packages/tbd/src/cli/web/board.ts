@@ -7,8 +7,10 @@ import { loadDataContext } from '../lib/data-context.js';
 import { buildIssueTree } from '../lib/tree-view.js';
 import type { IssueForTree, TreeNode } from '../lib/tree-view.js';
 import { checkWorktreeHealth, git } from '../../file/git.js';
+import { readDataSyncEpoch } from '../../file/data-sync-epoch.js';
 import { resolveToInternalId } from '../../file/id-mapping.js';
 import { listIssues } from '../../file/storage.js';
+import type { InvalidIssueFile } from '../../file/storage.js';
 import { listWorkspaces } from '../../file/workspace.js';
 import { formatDisplayId } from '../../lib/ids.js';
 import type { InternalIssueId } from '../../lib/ids.js';
@@ -31,7 +33,9 @@ import { computeIssueStats } from '../../lib/issue-stats.js';
 import type { IssueStats } from '../../lib/issue-stats.js';
 import { parsePriority } from '../../lib/priority.js';
 import type { Issue, IssueKindType, IssueStatusType } from '../../lib/types.js';
+import { resolveSharedTbdPaths } from '../../lib/paths.js';
 import { VERSION } from '../lib/version.js';
+import { pathExists, readMetadataMarker } from './snapshot-consistency.js';
 
 /** Hard response ceiling; the browser pages these rows into smaller render windows. */
 export const MAX_BOARD_ROWS = 10_000;
@@ -126,6 +130,8 @@ export interface BoardSnapshotState {
 }
 
 export interface BoardReloadResult {
+  /** True when a concurrent writer made this candidate unsafe to publish. */
+  deferred: boolean;
   /** True only when this particular reload observed a changed `id:version` snapshot. */
   moved: boolean;
   /** Includes config, local-tip, and repository-status changes that should reach clients. */
@@ -182,6 +188,12 @@ export interface BoardStateDependencies {
   listIssues: (dataSyncDir: string) => Promise<Issue[]>;
   readRepoStatus: (repoDir: string, context: TbdDataContext) => Promise<RepoStatus>;
   readLocalTip: (repoDir: string, branch: string) => Promise<string | null>;
+  /** Optional in tests; production uses it to avoid reading inside writer transactions. */
+  readWriterActive?: (repoDir: string, context: TbdDataContext | null) => Promise<boolean>;
+  /** Optional in tests; production validates that candidate reads span one stable token. */
+  readSnapshotMarker?: (paths: readonly string[]) => Promise<string>;
+  /** Optional in tests; production requires one unchanged quiescent writer epoch. */
+  readSnapshotEpoch?: (path: string) => Promise<string | null>;
   now: () => Date;
 }
 
@@ -224,6 +236,29 @@ function repoStatusEqual(left: RepoStatus | null, right: RepoStatus | null): boo
     left.worktreeStatus === right.worktreeStatus &&
     left.workspaces.length === right.workspaces.length &&
     left.workspaces.every((workspace, index) => workspace === right.workspaces[index])
+  );
+}
+
+function stringMapEqual(
+  left: ReadonlyMap<string, string>,
+  right: ReadonlyMap<string, string>,
+): boolean {
+  return left.size === right.size && [...left].every(([key, value]) => right.get(key) === value);
+}
+
+/** Fields loaded from disk that affect snapshot interpretation or observation paths. */
+function reloadContextEqual(left: TbdDataContext, right: TbdDataContext): boolean {
+  return (
+    left.dataSyncDir === right.dataSyncDir &&
+    left.prefix === right.prefix &&
+    left.config.sync.branch === right.config.sync.branch &&
+    left.config.sync.remote === right.config.sync.remote &&
+    left.sharedPaths.gitCommonDir === right.sharedPaths.gitCommonDir &&
+    left.sharedPaths.sharedWorktreePath === right.sharedPaths.sharedWorktreePath &&
+    left.sharedPaths.sharedLockPath === right.sharedPaths.sharedLockPath &&
+    left.sharedPaths.sharedDataSyncEpochPath === right.sharedPaths.sharedDataSyncEpochPath &&
+    stringMapEqual(left.mapping.shortToUlid, right.mapping.shortToUlid) &&
+    stringMapEqual(left.mapping.ulidToShort, right.mapping.ulidToShort)
   );
 }
 
@@ -352,11 +387,40 @@ async function defaultReadLocalTip(repoDir: string, branch: string): Promise<str
   }
 }
 
+async function readCompleteIssueSnapshot(dataSyncDir: string): Promise<Issue[]> {
+  const invalid: InvalidIssueFile[] = [];
+  const issues = await listIssues(dataSyncDir, {
+    warnOnInvalid: false,
+    validateFileName: true,
+    onInvalidIssue: (entry) => invalid.push(entry),
+  });
+  if (invalid.length > 0) {
+    const first = invalid[0]!;
+    const remainder = invalid.length === 1 ? '' : ` and ${invalid.length - 1} more invalid files`;
+    throw new Error(
+      `Cannot publish an incomplete bead snapshot: ${first.file}: ${first.reason}${remainder}`,
+    );
+  }
+  return issues;
+}
+
 const defaultDependencies: BoardStateDependencies = {
-  loadContext: loadDataContext,
-  listIssues,
+  // Server startup performs the normal repair-capable preparation once. A live
+  // observer must never enter or wait on the writer-lock graph.
+  loadContext: (repoDir) => loadDataContext(repoDir, { repair: false }),
+  listIssues: readCompleteIssueSnapshot,
   readRepoStatus: defaultReadRepoStatus,
   readLocalTip: defaultReadLocalTip,
+  readWriterActive: async (repoDir, context) => {
+    const lockPath =
+      context?.sharedPaths.sharedLockPath ?? (await resolveSharedTbdPaths(repoDir)).sharedLockPath;
+    return pathExists(lockPath);
+  },
+  readSnapshotMarker: readMetadataMarker,
+  readSnapshotEpoch: async (path) => {
+    const epoch = await readDataSyncEpoch(path);
+    return epoch.phase === 'quiescent' ? epoch.token : null;
+  },
   now: () => new Date(),
 };
 
@@ -454,7 +518,9 @@ export class BoardState {
   constructor(
     readonly repoDir: string,
     private readonly dependencies: BoardStateDependencies = defaultDependencies,
+    initialContext: TbdDataContext | null = null,
   ) {
+    this.context = initialContext;
     this.snapshotState = {
       localTip: null,
       totalBeads: 0,
@@ -496,13 +562,17 @@ export class BoardState {
 
   /** Constant-size metadata inputs used to reconcile dropped filesystem events. */
   getObservationPaths(): string[] {
-    const context = this.requireContext();
+    return this.observationPaths(this.requireContext());
+  }
+
+  private observationPaths(context: TbdDataContext): string[] {
     return [
       join(this.repoDir, '.tbd', 'config.yml'),
       join(this.repoDir, '.tbd', 'workspaces'),
       context.dataSyncDir,
       join(context.dataSyncDir, 'issues'),
       join(context.dataSyncDir, 'mappings'),
+      context.sharedPaths.sharedDataSyncEpochPath,
       join(
         context.sharedPaths.gitCommonDir,
         'refs',
@@ -621,18 +691,118 @@ export class BoardState {
   }
 
   private async reloadOnce(): Promise<BoardReloadResult> {
+    const guardContext = this.context;
+    if (await this.writerActive(guardContext)) {
+      return this.deferredReloadResult();
+    }
+    const beforeContextEpoch =
+      guardContext === null ? undefined : await this.captureQuiescentEpoch(guardContext);
+    if (beforeContextEpoch === null) {
+      return this.deferredReloadResult();
+    }
+    const beforeContextMarker =
+      guardContext === null ? undefined : await this.captureStableMarker(guardContext);
+    if (beforeContextMarker === null) {
+      return this.deferredReloadResult();
+    }
     const previousVersions = new Map(
       this.snapshot.issues.map((issue) => [issue.id, issue.version] as const),
     );
     const previousDisplayIds = this.snapshot.displayIdByInternalId;
     const previousContext = this.context;
     const previousState = this.snapshotState;
-    const context = await this.dependencies.loadContext(this.repoDir);
-    const [issues, repoStatus, localTip] = await Promise.all([
-      this.dependencies.listIssues(context.dataSyncDir),
-      this.dependencies.readRepoStatus(this.repoDir, context),
-      this.dependencies.readLocalTip(this.repoDir, context.config.sync.branch),
-    ]);
+    let context: TbdDataContext;
+    try {
+      context = await this.dependencies.loadContext(this.repoDir);
+    } catch (error) {
+      if (guardContext !== null) {
+        const afterFailureMarker = await this.captureStableMarker(guardContext);
+        if (
+          afterFailureMarker === null ||
+          (beforeContextMarker !== undefined && afterFailureMarker !== beforeContextMarker)
+        ) {
+          return this.deferredReloadResult();
+        }
+      } else if (await this.writerActive(null)) {
+        return this.deferredReloadResult();
+      }
+      throw error;
+    }
+    if (guardContext !== null) {
+      const afterContextEpoch = await this.captureQuiescentEpoch(guardContext);
+      const afterContextMarker = await this.captureStableMarker(guardContext);
+      if (
+        afterContextEpoch === null ||
+        (beforeContextEpoch !== undefined && afterContextEpoch !== beforeContextEpoch) ||
+        afterContextMarker === null ||
+        (beforeContextMarker !== undefined && afterContextMarker !== beforeContextMarker)
+      ) {
+        return this.deferredReloadResult();
+      }
+    }
+    // Context can change the sync branch whose ref participates in the snapshot.
+    // Validate the candidate's own paths around the issue/status/tip reads as well as
+    // validating the old paths around context loading.
+    const beforeCandidateEpoch = await this.captureQuiescentEpoch(context);
+    if (beforeCandidateEpoch === null) {
+      return this.deferredReloadResult();
+    }
+    const beforeCandidateMarker = await this.captureStableMarker(context);
+    if (beforeCandidateMarker === null) {
+      return this.deferredReloadResult();
+    }
+    let issues: Issue[];
+    let repoStatus: RepoStatus;
+    let localTip: string | null;
+    try {
+      [issues, repoStatus, localTip] = await Promise.all([
+        this.dependencies.listIssues(context.dataSyncDir),
+        this.dependencies.readRepoStatus(this.repoDir, context),
+        this.dependencies.readLocalTip(this.repoDir, context.config.sync.branch),
+      ]);
+    } catch (error) {
+      const afterFailureEpoch = await this.captureQuiescentEpoch(context);
+      const afterFailureMarker = await this.captureStableMarker(context);
+      if (
+        afterFailureEpoch === null ||
+        (beforeCandidateEpoch !== undefined && afterFailureEpoch !== beforeCandidateEpoch) ||
+        afterFailureMarker === null ||
+        (beforeCandidateMarker !== undefined && afterFailureMarker !== beforeCandidateMarker)
+      ) {
+        return this.deferredReloadResult();
+      }
+      throw error;
+    }
+    let verifiedContext: TbdDataContext;
+    try {
+      verifiedContext = await this.dependencies.loadContext(this.repoDir);
+    } catch (error) {
+      const afterFailureEpoch = await this.captureQuiescentEpoch(context);
+      const afterFailureMarker = await this.captureStableMarker(context);
+      if (
+        afterFailureEpoch === null ||
+        (beforeCandidateEpoch !== undefined && afterFailureEpoch !== beforeCandidateEpoch) ||
+        afterFailureMarker === null ||
+        (beforeCandidateMarker !== undefined && afterFailureMarker !== beforeCandidateMarker)
+      ) {
+        return this.deferredReloadResult();
+      }
+      throw error;
+    }
+    if (!reloadContextEqual(context, verifiedContext)) {
+      return this.deferredReloadResult();
+    }
+    context = verifiedContext;
+    const afterMarker = await this.captureStableMarker(context);
+    const afterEpoch = await this.captureQuiescentEpoch(context);
+    if (
+      afterEpoch === null ||
+      (beforeCandidateEpoch !== undefined && afterEpoch !== beforeCandidateEpoch) ||
+      afterMarker === null ||
+      (beforeCandidateMarker !== undefined && afterMarker !== beforeCandidateMarker)
+    ) {
+      return this.deferredReloadResult();
+    }
     const displayIdByInternalId = new Map(
       issues.map((issue) => [
         issue.id,
@@ -731,6 +901,7 @@ export class BoardState {
     };
     this.initialized = true;
     return {
+      deferred: false,
       moved: movedThisReload,
       stateChanged: movedThisReload || metadataChanged,
       dataVersion,
@@ -739,6 +910,53 @@ export class BoardState {
       changes,
       changeTotal,
       changesTruncated,
+    };
+  }
+
+  private async writerActive(context: TbdDataContext | null): Promise<boolean> {
+    return (await this.dependencies.readWriterActive?.(this.repoDir, context)) ?? false;
+  }
+
+  /** Return null while a writer epoch is active, otherwise its exact quiescent token. */
+  private async captureQuiescentEpoch(context: TbdDataContext): Promise<string | null | undefined> {
+    if (await this.writerActive(context)) {
+      return null;
+    }
+    const readEpoch = this.dependencies.readSnapshotEpoch;
+    if (readEpoch === undefined) {
+      return undefined;
+    }
+    const epoch = await readEpoch(context.sharedPaths.sharedDataSyncEpochPath);
+    return epoch === null || (await this.writerActive(context)) ? null : epoch;
+  }
+
+  /**
+   * Return undefined when guards are intentionally omitted by an injected test harness,
+   * null when a writer overlaps the read, and otherwise the stable metadata token.
+   */
+  private async captureStableMarker(context: TbdDataContext): Promise<string | null | undefined> {
+    if (await this.writerActive(context)) {
+      return null;
+    }
+    const readMarker = this.dependencies.readSnapshotMarker;
+    if (readMarker === undefined) {
+      return undefined;
+    }
+    const marker = await readMarker(this.observationPaths(context));
+    return (await this.writerActive(context)) ? null : marker;
+  }
+
+  private deferredReloadResult(): BoardReloadResult {
+    return {
+      deferred: true,
+      moved: false,
+      stateChanged: false,
+      dataVersion: this.snapshotState.dataVersion,
+      movedIds: [...this.snapshotState.movedIds],
+      removedIds: [...this.snapshotState.removedIds],
+      changes: [],
+      changeTotal: 0,
+      changesTruncated: false,
     };
   }
 

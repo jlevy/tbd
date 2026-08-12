@@ -305,6 +305,56 @@ describe('web HTTP router', () => {
     resumed.close();
   });
 
+  it('bounds replay to a suffix that always ends at current state', () => {
+    const request = Object.assign(new EventEmitter(), {
+      headers: { 'last-event-id': 'a'.repeat(40) },
+    }) as unknown as IncomingMessage;
+    let writableLength = 0;
+    const written: string[] = [];
+    const destroy = vi.fn();
+    const response = Object.assign(new EventEmitter(), {
+      destroyed: false,
+      writableEnded: false,
+      writeHead: vi.fn(),
+      flushHeaders: vi.fn(),
+      write: vi.fn((frame: string) => {
+        written.push(frame);
+        writableLength += Buffer.byteLength(frame);
+        return true;
+      }),
+      destroy,
+      end: vi.fn(),
+    }) as unknown as ServerResponse;
+    Object.defineProperty(response, 'writableLength', { get: () => writableLength });
+
+    const states = ['a', 'b', 'c', 'd'].map((character, index) => ({
+      ...currentState,
+      localTip: character.repeat(40),
+      stateVersion: index,
+      updateCount: index,
+    }));
+    currentState = states[0]!;
+    const twoFrameBudget =
+      Buffer.byteLength(encodeStateEvent(states[2]!)) +
+      Buffer.byteLength(encodeStateEvent(states[3]!));
+    const boundedHub = new SseHub(() => currentState, {
+      heartbeatMs: 60_000,
+      maxBufferBytes: twoFrameBudget,
+    });
+    for (const state of states) {
+      currentState = state;
+      boundedHub.publish(state);
+    }
+
+    boundedHub.attach(request, response);
+
+    expect(written).toHaveLength(2);
+    expect(written[0]).toContain(`id: ${'c'.repeat(40)}`);
+    expect(written[1]).toContain(`id: ${'d'.repeat(40)}`);
+    expect(destroy).not.toHaveBeenCalled();
+    boundedHub.close();
+  });
+
   it('keeps a drain-signaling client until the explicit queued-byte ceiling is reached', () => {
     const request = Object.assign(new EventEmitter(), { headers: {} }) as IncomingMessage;
     let writableLength = 0;
@@ -345,6 +395,52 @@ describe('web HTTP router', () => {
     boundedHub.close();
   });
 
+  it('caps aggregate SSE clients before retaining or streaming an excess connection', () => {
+    const request = Object.assign(new EventEmitter(), { headers: {} }) as IncomingMessage;
+    const acceptedWrite = vi.fn(() => true);
+    const accepted = Object.assign(new EventEmitter(), {
+      destroyed: false,
+      writableEnded: false,
+      writableLength: 0,
+      writeHead: vi.fn(),
+      flushHeaders: vi.fn(),
+      write: acceptedWrite,
+      destroy: vi.fn(),
+      end: vi.fn(),
+    }) as unknown as ServerResponse;
+    const rejectedWriteHead = vi.fn();
+    const rejectedWrite = vi.fn(() => true);
+    const rejectedEnd = vi.fn();
+    const rejected = Object.assign(new EventEmitter(), {
+      destroyed: false,
+      writableEnded: false,
+      writableLength: 0,
+      writeHead: rejectedWriteHead,
+      flushHeaders: vi.fn(),
+      write: rejectedWrite,
+      destroy: vi.fn(),
+      end: rejectedEnd,
+    }) as unknown as ServerResponse;
+    const boundedHub = new SseHub(() => currentState, {
+      heartbeatMs: 60_000,
+      maxClients: 1,
+    });
+
+    boundedHub.attach(request, accepted);
+    boundedHub.attach(request, rejected);
+    expect(rejectedWriteHead).toHaveBeenCalledWith(
+      503,
+      expect.objectContaining({ 'retry-after': '1' }),
+    );
+    expect(rejectedEnd).toHaveBeenCalledOnce();
+    expect(rejectedWrite).not.toHaveBeenCalled();
+
+    boundedHub.publish({ ...currentState, stateVersion: 1 });
+    expect(acceptedWrite).toHaveBeenCalledTimes(2);
+    expect(rejectedWrite).not.toHaveBeenCalled();
+    boundedHub.close();
+  });
+
   it('isolates a closed-stream write race to the affected SSE client', () => {
     const request = Object.assign(new EventEmitter(), { headers: {} }) as IncomingMessage;
     const destroy = vi.fn();
@@ -365,6 +461,58 @@ describe('web HTTP router', () => {
     expect(() => {
       boundedHub.attach(request, response);
     }).not.toThrow();
+    expect(destroy).toHaveBeenCalledOnce();
+    boundedHub.close();
+  });
+
+  it('does not retain a client that closes synchronously during its initial frame', () => {
+    const request = Object.assign(new EventEmitter(), { headers: {} }) as IncomingMessage;
+    const emitter = new EventEmitter();
+    const write = vi.fn(() => {
+      emitter.emit('close');
+      return true;
+    });
+    const response = Object.assign(emitter, {
+      destroyed: false,
+      writableEnded: false,
+      writableLength: 0,
+      writeHead: vi.fn(),
+      flushHeaders: vi.fn(),
+      write,
+      destroy: vi.fn(),
+      end: vi.fn(),
+    }) as unknown as ServerResponse;
+    const boundedHub = new SseHub(() => currentState, { heartbeatMs: 60_000 });
+
+    boundedHub.attach(request, response);
+    boundedHub.publish({ ...currentState, stateVersion: 1 });
+
+    expect(write).toHaveBeenCalledOnce();
+    boundedHub.close();
+  });
+
+  it('installs cleanup before flushing SSE headers', () => {
+    const request = Object.assign(new EventEmitter(), { headers: {} }) as IncomingMessage;
+    const write = vi.fn();
+    const destroy = vi.fn();
+    const response = Object.assign(new EventEmitter(), {
+      destroyed: false,
+      writableEnded: false,
+      writableLength: 0,
+      writeHead: vi.fn(),
+      flushHeaders: vi.fn(() => {
+        response.emit('close');
+      }),
+      write,
+      destroy,
+      end: vi.fn(),
+    }) as unknown as ServerResponse;
+    const boundedHub = new SseHub(() => currentState, { heartbeatMs: 60_000 });
+
+    boundedHub.attach(request, response);
+    boundedHub.publish({ ...currentState, stateVersion: currentState.stateVersion + 1 });
+
+    expect(write).not.toHaveBeenCalled();
     expect(destroy).toHaveBeenCalledOnce();
     boundedHub.close();
   });

@@ -10,6 +10,7 @@ const MAX_SSE_BUFFER_BYTES = 1024 * 1024;
 const DEFAULT_HEARTBEAT_MS = 20_000;
 const DEFAULT_HISTORY_ENTRIES = 64;
 const DEFAULT_HISTORY_BYTES = 4 * 1024 * 1024;
+export const MAX_SSE_CLIENTS = 64;
 const COMMIT_ID = /^[0-9a-f]{40,64}$/u;
 
 const SECURITY_HEADERS = {
@@ -35,6 +36,7 @@ export interface SseHubOptions {
   maxHistoryEntries?: number;
   maxHistoryBytes?: number;
   maxBufferBytes?: number;
+  maxClients?: number;
 }
 
 export interface WebRequestHandlerOptions {
@@ -111,7 +113,9 @@ export class SseHub {
   private readonly maxHistoryEntries: number;
   private readonly maxHistoryBytes: number;
   private readonly maxBufferBytes: number;
+  private readonly maxClients: number;
   private historyBytes = 0;
+  private closed = false;
 
   constructor(
     private readonly getState: () => WebState,
@@ -120,6 +124,7 @@ export class SseHub {
     this.maxHistoryEntries = options.maxHistoryEntries ?? DEFAULT_HISTORY_ENTRIES;
     this.maxHistoryBytes = options.maxHistoryBytes ?? DEFAULT_HISTORY_BYTES;
     this.maxBufferBytes = options.maxBufferBytes ?? MAX_SSE_BUFFER_BYTES;
+    this.maxClients = options.maxClients ?? MAX_SSE_CLIENTS;
     this.heartbeatTimer = setInterval(() => {
       this.broadcastFrame(': keep-alive\n\n');
     }, options.heartbeatMs ?? DEFAULT_HEARTBEAT_MS);
@@ -127,6 +132,9 @@ export class SseHub {
   }
 
   publish(state: WebState): void {
+    if (this.closed) {
+      return;
+    }
     const frame = encodeStateEvent(state);
     const id = eventId(state);
     if (id !== null) {
@@ -136,14 +144,19 @@ export class SseHub {
   }
 
   attach(request: IncomingMessage, response: ServerResponse, resumeEventId?: string): void {
-    response.writeHead(200, {
-      ...SECURITY_HEADERS,
-      'content-type': 'text/event-stream; charset=utf-8',
-      connection: 'keep-alive',
-      'x-accel-buffering': 'no',
-    });
-    response.flushHeaders();
-
+    if (this.closed) {
+      this.drop(response);
+      return;
+    }
+    if (this.clients.size >= this.maxClients) {
+      response.writeHead(503, {
+        ...SECURITY_HEADERS,
+        'content-type': 'application/json; charset=utf-8',
+        'retry-after': '1',
+      });
+      response.end(JSON.stringify({ error: 'Too many live tbd web connections' }));
+      return;
+    }
     const lastHeader = request.headers['last-event-id'];
     const lastEventId = (Array.isArray(lastHeader) ? lastHeader[0] : lastHeader) ?? resumeEventId;
     const replay = this.framesAfter(lastEventId);
@@ -159,34 +172,63 @@ export class SseHub {
     }
     // Replayed commit-backed frames may predate current state that has no commit id
     // (for example, a locally deleted sync ref). Always converge on current state.
-    const frames =
-      replay.length > 0 && replay.at(-1) === currentFrame ? replay : [...replay, currentFrame];
+    const candidates =
+      replay.at(-1)?.frame === currentFrame
+        ? replay
+        : [
+            ...replay,
+            { id: currentId ?? '', frame: currentFrame, bytes: Buffer.byteLength(currentFrame) },
+          ];
+    let closed = false;
+    response.once('error', () => {
+      closed = true;
+      this.drop(response);
+    });
+    response.once('close', () => {
+      closed = true;
+      this.clients.delete(response);
+    });
+    response.writeHead(200, {
+      ...SECURITY_HEADERS,
+      'content-type': 'text/event-stream; charset=utf-8',
+      connection: 'keep-alive',
+      'x-accel-buffering': 'no',
+    });
+    response.flushHeaders();
+    if (closed || response.destroyed || response.writableEnded) {
+      this.drop(response);
+      return;
+    }
+
+    const frames = this.replaySuffix(candidates, this.maxBufferBytes - response.writableLength);
+    this.clients.add(response);
+
     for (const frame of frames) {
-      if (!this.write(response, frame)) {
+      if (closed || !this.write(response, frame.frame)) {
         return;
       }
     }
-
-    this.clients.add(response);
-    response.once('error', () => {
-      this.drop(response);
-    });
-    request.once('close', () => {
-      this.clients.delete(response);
-    });
   }
 
   close(): void {
+    if (this.closed) {
+      return;
+    }
+    this.closed = true;
     clearInterval(this.heartbeatTimer);
     for (const client of this.clients) {
-      client.end();
+      try {
+        client.end();
+      } catch {
+        this.drop(client);
+      }
     }
     this.clients.clear();
     this.history.length = 0;
     this.historyBytes = 0;
   }
 
-  private framesAfter(lastEventId: string | undefined): string[] {
+  private framesAfter(lastEventId: string | undefined): StateFrame[] {
     if (lastEventId === undefined || !COMMIT_ID.test(lastEventId)) {
       return [];
     }
@@ -194,7 +236,22 @@ export class SseHub {
     // after its newest occurrence; replaying from the first would briefly deliver stale
     // intermediate state before the current frame.
     const index = this.history.findLastIndex((entry) => entry.id === lastEventId);
-    return index < 0 ? [] : this.history.slice(index + 1).map((entry) => entry.frame);
+    return index < 0 ? [] : this.history.slice(index + 1);
+  }
+
+  /** Keep a chronological suffix while reserving the final slot for current state. */
+  private replaySuffix(candidates: readonly StateFrame[], availableBytes: number): StateFrame[] {
+    const selected: StateFrame[] = [];
+    let bytes = 0;
+    for (let index = candidates.length - 1; index >= 0; index -= 1) {
+      const candidate = candidates[index]!;
+      if (selected.length > 0 && bytes + candidate.bytes > availableBytes) {
+        break;
+      }
+      selected.push(candidate);
+      bytes += candidate.bytes;
+    }
+    return selected.reverse();
   }
 
   private remember(next: StateFrame): void {
@@ -246,7 +303,13 @@ export class SseHub {
 
   private drop(response: ServerResponse): void {
     this.clients.delete(response);
-    response.destroy();
+    if (!response.destroyed) {
+      try {
+        response.destroy();
+      } catch {
+        // Cleanup is best-effort; the client is already detached from the hub.
+      }
+    }
   }
 }
 

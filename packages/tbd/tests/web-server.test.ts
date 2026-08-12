@@ -83,10 +83,15 @@ function makeState(board: BoardState): WebState {
 function dependencies(): {
   value: WebServerDependencies;
   observer: WebObserverController;
+  createBoardDependency: ReturnType<typeof vi.fn>;
   start: ReturnType<typeof vi.fn>;
   stop: ReturnType<typeof vi.fn>;
 } {
   const board = createBoard();
+  const createBoardDependency = vi.fn((_repoDir: string, initialContext: TbdDataContext) => {
+    expect(initialContext).toBe(context);
+    return board;
+  });
   const start = vi.fn(() => Promise.resolve());
   const stop = vi.fn(() => Promise.resolve());
   const listeners = new Set<(state: WebState) => void>();
@@ -104,11 +109,12 @@ function dependencies(): {
   return {
     value: {
       loadPage: () => Promise.resolve('<!doctype html><title>server test</title>'),
-      createBoard: () => board,
+      createBoard: createBoardDependency,
       createObserver: () => observer,
       fetch: globalThis.fetch,
     },
     observer,
+    createBoardDependency,
     start,
     stop,
   };
@@ -165,11 +171,16 @@ describe('startWebServer', () => {
 
   it('binds loopback, waits for HTTP readiness, and closes observer plus sockets idempotently', async () => {
     const injected = dependencies();
-    const handle = await startWebServer({ repoDir: '/repo', port: 0 }, injected.value);
+    const handle = await startWebServer(
+      { repoDir: '/repo', initialContext: context, port: 0 },
+      injected.value,
+    );
     handles.push(handle);
 
     expect(handle.url).toBe(`http://127.0.0.1:${handle.port}`);
     expect(await get(handle.port)).toContain('server test');
+    expect(injected.createBoardDependency).toHaveBeenCalledOnce();
+    expect(injected.createBoardDependency).toHaveBeenCalledWith('/repo', context);
     expect(injected.start).toHaveBeenCalledOnce();
 
     await handle.close();
@@ -185,6 +196,7 @@ describe('startWebServer', () => {
     const handle = await startWebServer(
       {
         repoDir: '/repo',
+        initialContext: context,
         port: 0,
         logger: {
           progress: vi.fn(),
@@ -212,6 +224,7 @@ describe('startWebServer', () => {
     const handle = await startWebServer(
       {
         repoDir: '/repo',
+        initialContext: context,
         defaultPort: occupied,
         portSearchCount: 2,
       },
@@ -222,7 +235,7 @@ describe('startWebServer', () => {
 
     const pinned = dependencies();
     await expect(
-      startWebServer({ repoDir: '/repo', port: occupied }, pinned.value),
+      startWebServer({ repoDir: '/repo', initialContext: context, port: occupied }, pinned.value),
     ).rejects.toThrow(`Port ${occupied} is already in use`);
   });
 
@@ -238,7 +251,10 @@ describe('startWebServer', () => {
 
     const injected = dependencies();
     injected.value.loadPage = () => Promise.resolve(page);
-    const handle = await startWebServer({ repoDir: '/repo', port: 0 }, injected.value);
+    const handle = await startWebServer(
+      { repoDir: '/repo', initialContext: context, port: 0 },
+      injected.value,
+    );
     handles.push(handle);
     expect(await get(handle.port)).toBe(page);
   });

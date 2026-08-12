@@ -134,7 +134,7 @@ export type BodyCacheEntry =
   | { kind: 'error'; error: string };
 
 export interface Transport {
-  fetchJson(url: string): Promise<unknown>;
+  fetchJson(url: string, signal?: AbortSignal): Promise<unknown>;
   openEvents(
     url: string,
     onState: (state: unknown) => void,
@@ -230,6 +230,7 @@ interface BodyRequest {
   id: string;
   token: number;
   generation: number;
+  controller: AbortController;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -369,6 +370,7 @@ class Store implements ClientStore {
   private eventHandle: { close(): void } | null = null;
   private refreshRequested = false;
   private refreshRunner: Promise<void> | null = null;
+  private boardRequestController: AbortController | null = null;
   private bodyGeneration = 0;
   private bodyToken = 0;
   private activeBodyFetches = 0;
@@ -417,6 +419,9 @@ class Store implements ClientStore {
 
   stop(): void {
     this.stopped = true;
+    this.boardRequestController?.abort();
+    this.boardRequestController = null;
+    this.abortBodyRequests();
     this.eventHandle?.close();
     this.eventHandle = null;
   }
@@ -456,6 +461,7 @@ class Store implements ClientStore {
 
   async setControls(controls: BoardControls): Promise<void> {
     this.controls = { ...controls };
+    this.boardRequestController?.abort();
     await this.refresh();
   }
 
@@ -513,14 +519,27 @@ class Store implements ClientStore {
       this.refreshRequested = false;
       const query = buildQueryString(this.controls);
       let next: BoardResponse;
+      const controller = new AbortController();
+      this.boardRequestController = controller;
       try {
-        next = asBoardResponse(await this.transport.fetchJson(`/api/board?${query}`));
+        next = asBoardResponse(
+          await this.transport.fetchJson(`/api/board?${query}`, controller.signal),
+        );
       } catch (error) {
-        if (!this.refreshRequested && query === buildQueryString(this.controls)) {
+        if (
+          !this.stopped &&
+          !controller.signal.aborted &&
+          !this.refreshRequested &&
+          query === buildQueryString(this.controls)
+        ) {
           this.boardError = errorMessage(error);
           this.emit();
         }
         continue;
+      } finally {
+        if (this.boardRequestController === controller) {
+          this.boardRequestController = null;
+        }
       }
       if (this.stopped || this.refreshRequested || query !== buildQueryString(this.controls)) {
         continue;
@@ -550,6 +569,9 @@ class Store implements ClientStore {
   }
 
   private receiveState(value: unknown): void {
+    if (this.stopped) {
+      return;
+    }
     let next: ObservationStateView;
     try {
       next = asObservationState(value);
@@ -597,9 +619,11 @@ class Store implements ClientStore {
       }
     }
     this.bodyGeneration += 1;
+    this.abortBodyRequests();
     this.bodies.clear();
     this.reconcileExpandedAfterRefresh = true;
     this.pruneBodyQueue();
+    this.boardRequestController?.abort();
     void this.refresh();
     this.emit();
   }
@@ -633,7 +657,7 @@ class Store implements ClientStore {
 
   private loadBody(id: string, force: boolean): void {
     const current = this.bodyRequests.get(id);
-    if (current?.generation === this.bodyGeneration) {
+    if (current?.generation === this.bodyGeneration && !current.controller.signal.aborted) {
       return;
     }
     if (!force && this.bodies.has(id)) {
@@ -642,7 +666,7 @@ class Store implements ClientStore {
 
     const generation = this.bodyGeneration;
     const token = ++this.bodyToken;
-    const request = { id, token, generation };
+    const request = { id, token, generation, controller: new AbortController() };
     this.bodyRequests.set(id, request);
     this.bodyQueue.push(request);
     this.drainBodyQueue();
@@ -667,7 +691,7 @@ class Store implements ClientStore {
     const { id, token, generation } = request;
     const url = `/api/bead?${new URLSearchParams({ id }).toString()}`;
     void this.transport
-      .fetchJson(url)
+      .fetchJson(url, request.controller.signal)
       .then((value) => {
         if (this.bodyRequestIsCurrent(request)) {
           this.cacheBody(id, { kind: 'loaded', body: asBeadBody(value) });
@@ -716,6 +740,7 @@ class Store implements ClientStore {
     return (
       !this.stopped &&
       request.generation === this.bodyGeneration &&
+      !request.controller.signal.aborted &&
       active?.token === request.token &&
       active.generation === request.generation
     );
@@ -732,6 +757,17 @@ class Store implements ClientStore {
       }
       return false;
     });
+    for (const request of this.bodyRequests.values()) {
+      if (!this.expanded.has(request.id)) {
+        request.controller.abort();
+      }
+    }
+  }
+
+  private abortBodyRequests(): void {
+    for (const request of this.bodyRequests.values()) {
+      request.controller.abort();
+    }
   }
 
   private persistResumeTip(tip: string | null): void {

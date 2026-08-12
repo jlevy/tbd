@@ -25,6 +25,7 @@ import {
 import { sortKeys, stringifyYaml } from '../utils/yaml-utils.js';
 import { now } from '../utils/time-utils.js';
 import { DATA_SYNC_LOCK_OPTIONS, withLockfile } from '../utils/lockfile.js';
+import { beginDataSyncWrite, finishDataSyncWrite } from './data-sync-epoch.js';
 
 /**
  * Error thrown when common-dir layout metadata cannot be used safely.
@@ -228,7 +229,21 @@ export async function withSharedDataSyncLock<T>(tbdRoot: string, fn: () => Promi
   }
 
   try {
-    return await withLockfile(paths.sharedLockPath, fn, DATA_SYNC_LOCK_OPTIONS);
+    return await withLockfile(
+      paths.sharedLockPath,
+      async (lease) => {
+        const epoch = await beginDataSyncWrite(paths.sharedDataSyncEpochPath);
+        try {
+          return await fn();
+        } finally {
+          // Keep this inside the mutex. If the atomic write fails, the previous active
+          // epoch remains and optimistic readers safely retain their last snapshot.
+          await lease.assertOwned();
+          await finishDataSyncWrite(paths.sharedDataSyncEpochPath, epoch);
+        }
+      },
+      DATA_SYNC_LOCK_OPTIONS,
+    );
   } catch (error) {
     // Only translate a permission failure on the lock directory itself. `fn`
     // writes issue data elsewhere (the worktree), so its errors pass through.

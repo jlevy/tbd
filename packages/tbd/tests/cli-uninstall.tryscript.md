@@ -107,7 +107,7 @@ $ tbd create "Test issue" --type=task
 # Test: Uninstall without --confirm shows preview
 
 ```console
-$ tbd uninstall | head -5
+$ tbd uninstall | sed -n '1,5p'
 The following will be removed:
 
   - Worktree: .git/tbd/data-sync-worktree [..]

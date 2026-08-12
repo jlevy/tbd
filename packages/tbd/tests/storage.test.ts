@@ -240,6 +240,27 @@ dependencies: []
       consoleWarn.mockRestore();
     }
   });
+
+  it('can reject a parsed issue whose file name does not match its id', async () => {
+    const issueId = testId(TEST_ULIDS.STORAGE_2);
+    await writeIssue(tempDir, makeIssue({ id: issueId, title: 'Canonical file' }));
+    const issuesDir = join(tempDir, 'issues');
+    const content = await readFile(join(issuesDir, `${issueId}.md`), 'utf8');
+    await fsWriteFile(join(issuesDir, 'duplicate-copy.md'), content);
+    const invalid: { file: string; reason: string }[] = [];
+
+    const issues = await listIssues(tempDir, {
+      warnOnInvalid: false,
+      validateFileName: true,
+      onInvalidIssue: (entry) => invalid.push(entry),
+    });
+
+    expect(issues).toHaveLength(1);
+    expect(issues[0]?.id).toBe(issueId);
+    expect(invalid).toEqual([
+      { file: 'duplicate-copy.md', reason: `file name does not match ${issueId}` },
+    ]);
+  });
 });
 
 describe('deleteIssue', () => {

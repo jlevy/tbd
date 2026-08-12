@@ -42,10 +42,10 @@ class WebHandler extends BaseCommand {
   async run(options: WebOptions): Promise<void> {
     const port = parsePort(options.port);
     const repo = await requireInit();
-    const config = await readConfig(repo);
     const serverModule = await import('../web/server.js');
 
     if (this.ctx.dryRun) {
+      const config = await readConfig(repo);
       const resolvedPort = await serverModule.resolveWebPort({ port });
       this.printDescriptor(
         {
@@ -59,6 +59,11 @@ class WebHandler extends BaseCommand {
       );
       return;
     }
+
+    // This may initialize, migrate, or repair under the shared writer lock. Keep the
+    // default SIGINT behavior until it finishes so an interrupted startup never waits
+    // for the long-running command's graceful-shutdown path.
+    const initialContext = await serverModule.prepareWebContext(repo);
 
     const spinner = this.output.spinner('Starting tbd web...');
     const logger: OperationLogger = this.output.logger(spinner);
@@ -88,6 +93,7 @@ class WebHandler extends BaseCommand {
     try {
       const startup = serverModule.startWebServer({
         repoDir: repo,
+        initialContext,
         port,
         logger,
       });
@@ -115,7 +121,7 @@ class WebHandler extends BaseCommand {
         port: handle.port,
         pid: process.pid,
         repo,
-        syncBranch: config.sync.branch,
+        syncBranch: initialContext.config.sync.branch,
       };
       this.printDescriptor(descriptor, false);
 

@@ -635,8 +635,11 @@ function scheduleRender(): void {
 
 const store: ClientStore = createClientStore(
   {
-    fetchJson: async (url) => {
-      const response = await fetch(url, { headers: { accept: 'application/json' } });
+    fetchJson: async (url, signal) => {
+      const response = await fetch(url, {
+        headers: { accept: 'application/json' },
+        signal,
+      });
       if (!response.ok) {
         let detail = `${response.status} ${response.statusText}`;
         try {
