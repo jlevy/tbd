@@ -187,7 +187,7 @@ import { stringifyYaml } from './yaml-utils.js';
 const matterOptions = {
   engines: {
     yaml: {
-      parse,
+      parse: (input: string) => parse(input.replace(/\r\n?/g, '\n')),
       stringify: stringifyYaml,
     },
   },
@@ -214,6 +214,10 @@ reintroduce advisories in that transitive parser.
 gray-matter also includes a JavaScript engine that evaluates explicit `---javascript`
 front matter; a YAML-only application must reject non-YAML language markers before
 calling gray-matter.
+A gray-matter closing delimiter on CRLF input can leave the preceding carriage return in
+the extracted YAML block.
+Normalize line endings in the engine input, not the Markdown body, so final plain
+scalars stay exact without rewriting body bytes.
 A wrapper preserves gray-matter’s delimiter handling without allowing call sites to
 select inconsistent YAML engines.
 

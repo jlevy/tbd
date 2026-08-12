@@ -15,7 +15,10 @@ import { stringifyYaml } from './yaml-utils.js';
 const matterOptions = {
   engines: {
     yaml: {
-      parse: (input: string): object => parseYaml(input) as object,
+      // gray-matter slices at the LF in a CRLF closing delimiter, leaving the
+      // preceding CR in the YAML block. Normalize the block, not the Markdown
+      // body, so the final plain scalar cannot acquire a trailing newline.
+      parse: (input: string): object => parseYaml(input.replace(/\r\n?/g, '\n')) as object,
       stringify: (data: object): string => stringifyYaml(data),
     },
   },

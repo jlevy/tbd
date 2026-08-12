@@ -134,11 +134,11 @@
   centralized engine configuration backed by the existing `yaml` package and rejects
   explicit non-YAML language markers before parser dispatch.
   This preserves gray-matter’s delimiter behavior, keeps date-looking YAML scalars as
-  strings, keeps its default `js-yaml` resolver out of every tbd parsing path, and makes
-  the library’s built-in JavaScript evaluator unreachable from synchronized issue or
-  document files. The shipped `gray-matter → js-yaml` advisory is availability-only and
-  remains visible to package audits, but its vulnerable `!!omap` resolver is not
-  reachable through tbd.
+  strings across LF and CRLF checkouts, keeps its default `js-yaml` resolver out of
+  every tbd parsing path, and makes the library’s built-in JavaScript evaluator
+  unreachable from synchronized issue or document files.
+  The shipped `gray-matter → js-yaml` advisory is availability-only and remains visible
+  to package audits, but its vulnerable `!!omap` resolver is not reachable through tbd.
 
 ## 0.4.2
 

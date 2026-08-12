@@ -50,6 +50,15 @@ Body.`;
     expect(parsed.content).toBe('Body.');
   });
 
+  it('normalizes CRLF inside front matter without changing the body', () => {
+    const parsed = parseMarkdownMatter(
+      '---\r\ntitle: Safe\r\ncategory: typescript\r\n---\r\nBody.\r\n',
+    );
+
+    expect(parsed.data).toEqual({ title: 'Safe', category: 'typescript' });
+    expect(parsed.content).toBe('Body.\r\n');
+  });
+
   it('keeps every production gray-matter import behind the checked boundary', async () => {
     const relativePaths = await readdir(SOURCE_ROOT, { recursive: true });
     const offenders: string[] = [];
