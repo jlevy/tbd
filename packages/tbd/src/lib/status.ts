@@ -4,7 +4,8 @@
  * Status values: open, in_progress, blocked, deferred, closed.
  */
 
-import { ICONS, type createColors } from '../cli/lib/output.js';
+import type { createColors } from '../cli/lib/output.js';
+import { STATUS_ICONS } from './status-icons.js';
 import type { IssueStatusType } from './types.js';
 
 /**
@@ -17,20 +18,7 @@ import type { IssueStatusType } from './types.js';
  * - closed: ✓ (checkmark)
  */
 export function getStatusIcon(status: IssueStatusType): string {
-  switch (status) {
-    case 'open':
-      return ICONS.OPEN;
-    case 'in_progress':
-      return ICONS.IN_PROGRESS;
-    case 'blocked':
-      return ICONS.BLOCKED;
-    case 'deferred':
-      return ICONS.DEFERRED;
-    case 'closed':
-      return ICONS.CLOSED;
-    default:
-      return '';
-  }
+  return STATUS_ICONS[status] ?? '';
 }
 
 /**

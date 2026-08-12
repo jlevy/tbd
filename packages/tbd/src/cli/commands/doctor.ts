@@ -7,7 +7,7 @@
  */
 
 import { Command } from 'commander';
-import { access, mkdir, readdir, readFile, rmdir, unlink } from 'node:fs/promises';
+import { access, mkdir, readdir, readFile, unlink } from 'node:fs/promises';
 import { join } from 'node:path';
 import { randomUUID } from 'node:crypto';
 
@@ -81,6 +81,7 @@ import {
   getCodexTbdSection,
   inspectCodexHooksSurface,
 } from './setup.js';
+import { withLockfile } from '../../utils/lockfile.js';
 
 function managedArtifactFinding(
   name: string,
@@ -207,7 +208,7 @@ export function divergenceFinding(
  * remediation.
  */
 export interface LockWritabilityProbe {
-  /** errno from the probe `mkdir`, or undefined when the lock path is writable. */
+  /** errno from the lock-lifecycle probe, or undefined when the lock path is writable. */
   code: string | undefined;
   sharedLockPath: string;
   sharedLocksDir: string;
@@ -219,8 +220,8 @@ export interface LockWritabilityProbe {
 /**
  * Build the "Shared lock writability" finding from a probe result.
  *
- * `code` is the errno from attempting to create a directory under the shared
- * locks dir, or undefined on success. EPERM/EACCES is a hard error: every write
+ * `code` is the errno from exercising a lock under the shared locks dir, or
+ * undefined on success. EPERM/EACCES is a hard error: every write
  * command must acquire this lock, so an unwritable lock path breaks all writes
  * (the #164 Codex-sandbox case), and a lock tbd needs but cannot take is a
  * fatal condition, not a soft warning. Any other probe failure is reported as a
@@ -303,6 +304,14 @@ class DoctorHandler extends BaseCommand {
       // Config may be invalid - will be caught by health checks
     }
 
+    // A misplaced-data repair may need to create the hidden worktree and then copy
+    // the legacy graph into it. Do that before loading diagnostics, under one writer
+    // epoch, so a live viewer can never accept the empty initialized worktree between
+    // those two steps. Preserve the finding for its normal output position below.
+    const earlyDataLocationResult = options.fix
+      ? await this.safeCheck('Data location', () => this.checkDataLocation(true))
+      : null;
+
     // Load issues
     try {
       this.invalidIssueFiles = [];
@@ -380,9 +389,9 @@ class DoctorHandler extends BaseCommand {
     );
 
     // Check 10: Data location (issues in wrong path, with fix support)
-    const dataLocationResult = await this.safeCheck('Data location', () =>
-      this.checkDataLocation(options.fix),
-    );
+    const dataLocationResult =
+      earlyDataLocationResult ??
+      (await this.safeCheck('Data location', () => this.checkDataLocation(false)));
     healthChecks.push(dataLocationResult);
 
     // If data was migrated, reload issues and refresh dataSyncDir so
@@ -784,10 +793,16 @@ class DoctorHandler extends BaseCommand {
 
     if (fix && !this.checkDryRun('Resolve merge conflicts in ids.yml')) {
       try {
-        const { resolveIdMappingConflicts, saveIdMapping } =
+        const { replaceRecoveredIdMapping, resolveIdMappingConflicts } =
           await import('../../file/id-mapping.js');
-        const resolved = resolveIdMappingConflicts(content);
-        await saveIdMapping(this.dataSyncDir, resolved);
+        const resolved = await withSharedDataSyncLock(this.cwd, async () => {
+          // Re-read inside the writer transaction: a create or sync may have changed
+          // the mapping after the diagnostic read but before this fix acquired the lock.
+          const current = await readFile(mappingPath, 'utf-8');
+          const next = resolveIdMappingConflicts(current);
+          await replaceRecoveredIdMapping(this.dataSyncDir, next);
+          return next;
+        });
         return {
           name: 'ID mapping conflicts',
           status: 'ok',
@@ -842,12 +857,23 @@ class DoctorHandler extends BaseCommand {
       // Load and re-save to deduplicate (Map + saveIdMapping naturally dedupes)
       try {
         const { loadIdMapping, saveIdMapping } = await import('../../file/id-mapping.js');
-        const mapping = await loadIdMapping(this.dataSyncDir);
-        await saveIdMapping(this.dataSyncDir, mapping);
+        const fixedCount = await withSharedDataSyncLock(this.cwd, async () => {
+          const current = await readFile(mappingPath, 'utf-8');
+          const currentDuplicates = detectDuplicateYamlKeys(current);
+          if (currentDuplicates.length === 0) {
+            return 0;
+          }
+          const mapping = await loadIdMapping(this.dataSyncDir);
+          await saveIdMapping(this.dataSyncDir, mapping);
+          return currentDuplicates.length;
+        });
         return {
           name: 'ID mapping keys',
           status: 'ok',
-          message: `fixed ${duplicates.length} duplicate key(s)`,
+          message:
+            fixedCount === 0
+              ? 'already fixed by another tbd command'
+              : `fixed ${fixedCount} duplicate key(s)`,
         };
       } catch (error) {
         const msg = error instanceof Error ? error.message : String(error);
@@ -891,18 +917,27 @@ class DoctorHandler extends BaseCommand {
     }
 
     if (fix && !this.checkDryRun('Clean temp files')) {
-      // Clean up temp files
-      for (const file of tempFiles) {
-        try {
-          await unlink(join(issuesDir, file));
-        } catch {
-          // Ignore errors
+      const cleaned = await withSharedDataSyncLock(this.cwd, async () => {
+        // Re-list under the transaction rather than unlinking a stale diagnostic list.
+        const currentFiles = await readdir(issuesDir).catch(() => []);
+        const currentTemps = currentFiles.filter(
+          (file) => file.endsWith('.tmp') || /\.tmp-\d+$/.test(file),
+        );
+        let count = 0;
+        for (const file of currentTemps) {
+          try {
+            await unlink(join(issuesDir, file));
+            count += 1;
+          } catch {
+            // A concurrently removed orphan is already repaired.
+          }
         }
-      }
+        return count;
+      });
       return {
         name: 'Temp files',
         status: 'ok',
-        message: `Cleaned ${tempFiles.length} temp file(s)`,
+        message: `Cleaned ${cleaned} temp file(s)`,
         path: issuesPath,
       };
     }
@@ -1005,74 +1040,90 @@ class DoctorHandler extends BaseCommand {
     }
 
     if (fix && !this.checkDryRun('Create missing ID mappings')) {
-      // Try to recover original short IDs from git history before generating new ones.
-      // Search recent commits on the tbd-sync branch that touched ids.yml, not
-      // just the latest. This handles the case where a bug (e.g., migration
-      // overwrite) destroyed entries in a recent commit; the entries still exist
-      // in earlier commits. Since mappings are append-only, merging all versions
-      // is safe. Capped via --max-history (default 50, 0 = full history).
-      const { parseIdMappingFromYaml, mergeIdMappings } = await import('../../file/id-mapping.js');
-      let historicalMapping: Awaited<ReturnType<typeof loadIdMapping>> | undefined;
-      try {
-        const config = await import('../../file/config.js').then((m) => m.readConfig(this.cwd));
-        const syncBranch = config.sync.branch;
-        // Get recent commits that touched ids.yml (most recent first, capped)
-        const logArgs = ['log', '--format=%H'];
-        if (maxHistory > 0) {
-          logArgs.push(`-${maxHistory}`);
+      return withSharedDataSyncLock(this.cwd, async () => {
+        // Re-read both sides after acquiring the lock. Otherwise a concurrent create
+        // can land between diagnosis and save and have its new mapping overwritten.
+        const currentIssues = await listIssues(this.dataSyncDir);
+        const mapping = await loadIdMapping(this.dataSyncDir);
+        const missingIds = currentIssues
+          .map((issue) => issue.id)
+          .filter((id) => !mapping.ulidToShort.has(extractUlidFromInternalId(id)));
+        if (missingIds.length === 0) {
+          return {
+            name: 'ID mapping coverage',
+            status: 'ok',
+            message: 'already fixed by another tbd command',
+          };
         }
-        logArgs.push(syncBranch, '--', `${DATA_SYNC_DIR}/mappings/ids.yml`);
-        const commitLog = await git(...logArgs);
-        const commitHashes = commitLog.trim().split('\n').filter(Boolean);
-        for (const commitHash of commitHashes) {
-          try {
-            const idsContent = await git('show', `${commitHash}:${DATA_SYNC_DIR}/mappings/ids.yml`);
-            if (idsContent) {
-              const versionMapping = parseIdMappingFromYaml(idsContent);
-              if (!historicalMapping) {
-                historicalMapping = versionMapping;
-              } else {
-                historicalMapping = mergeIdMappings(historicalMapping, versionMapping);
-              }
-            }
-          } catch {
-            // Individual commit may be unreachable; skip
+
+        // Try to recover original short IDs from git history before generating new
+        // ones. Since mappings are append-only, merging all capped versions is safe.
+        const { parseIdMappingFromYaml, mergeIdMappings } =
+          await import('../../file/id-mapping.js');
+        let historicalMapping: Awaited<ReturnType<typeof loadIdMapping>> | undefined;
+        try {
+          const config = await import('../../file/config.js').then((m) => m.readConfig(this.cwd));
+          const syncBranch = config.sync.branch;
+          const logArgs = ['log', '--format=%H'];
+          if (maxHistory > 0) {
+            logArgs.push(`-${maxHistory}`);
           }
+          logArgs.push(syncBranch, '--', `${DATA_SYNC_DIR}/mappings/ids.yml`);
+          const commitLog = await git(...logArgs);
+          const commitHashes = commitLog.trim().split('\n').filter(Boolean);
+          for (const commitHash of commitHashes) {
+            try {
+              const idsContent = await git(
+                'show',
+                `${commitHash}:${DATA_SYNC_DIR}/mappings/ids.yml`,
+              );
+              if (idsContent) {
+                const versionMapping = parseIdMappingFromYaml(idsContent);
+                historicalMapping = historicalMapping
+                  ? mergeIdMappings(historicalMapping, versionMapping)
+                  : versionMapping;
+              }
+            } catch {
+              // Individual commit may be unreachable; skip.
+            }
+          }
+        } catch {
+          // Git history is optional; generate fresh IDs when it is unavailable.
         }
-      } catch {
-        // Git history not available - will generate new IDs
-      }
 
-      const historicalCount = historicalMapping?.shortToUlid.size ?? 0;
-      const result = reconcileMappings(missingIds, mapping, historicalMapping);
-      await saveIdMapping(this.dataSyncDir, mapping);
+        const historicalCount = historicalMapping?.shortToUlid.size ?? 0;
+        const result = reconcileMappings(missingIds, mapping, historicalMapping);
+        await saveIdMapping(this.dataSyncDir, mapping);
 
-      const parts: string[] = [];
-      if (result.recovered.length > 0) {
-        parts.push(`recovered ${result.recovered.length} from git history`);
-      }
-      if (result.created.length > 0) {
-        parts.push(`created ${result.created.length} new`);
-      }
-      const details: string[] = [
-        `Scanned ${maxHistory > 0 ? `up to ${maxHistory}` : 'all'} git commits for ids.yml history`,
-        `Found ${historicalCount} historical mapping(s) to use for recovery`,
-        `${missingIds.length} issue(s) were missing short ID mappings`,
-      ];
-      if (result.recovered.length > 0) {
-        details.push(`Recovered ${result.recovered.length} original short ID(s) from git history`);
-      }
-      if (result.created.length > 0) {
-        details.push(
-          `Generated ${result.created.length} new short ID(s) (originals not found in history)`,
-        );
-      }
-      return {
-        name: 'ID mapping coverage',
-        status: 'ok',
-        message: parts.join(', '),
-        details,
-      };
+        const parts: string[] = [];
+        if (result.recovered.length > 0) {
+          parts.push(`recovered ${result.recovered.length} from git history`);
+        }
+        if (result.created.length > 0) {
+          parts.push(`created ${result.created.length} new`);
+        }
+        const details: string[] = [
+          `Scanned ${maxHistory > 0 ? `up to ${maxHistory}` : 'all'} git commits for ids.yml history`,
+          `Found ${historicalCount} historical mapping(s) to use for recovery`,
+          `${missingIds.length} issue(s) were missing short ID mappings`,
+        ];
+        if (result.recovered.length > 0) {
+          details.push(
+            `Recovered ${result.recovered.length} original short ID(s) from git history`,
+          );
+        }
+        if (result.created.length > 0) {
+          details.push(
+            `Generated ${result.created.length} new short ID(s) (originals not found in history)`,
+          );
+        }
+        return {
+          name: 'ID mapping coverage',
+          status: 'ok',
+          message: parts.join(', '),
+          details,
+        };
+      });
     }
 
     return {
@@ -1321,7 +1372,7 @@ class DoctorHandler extends BaseCommand {
     // repo and lock out older clients with nothing to commit.
     if (isLayoutUpgradeable(layout, this.config)) {
       if (fix && !this.checkDryRun('Apply pending format migration')) {
-        await prepareDataSyncContext(this.cwd);
+        await withSharedDataSyncLock(this.cwd, () => prepareDataSyncContext(this.cwd));
         return {
           name: 'Common-dir layout',
           status: 'ok',
@@ -1376,9 +1427,9 @@ class DoctorHandler extends BaseCommand {
    * `$GIT_COMMON_DIR/tbd` is outside the writable sandbox (e.g. a Codex
    * worktree) looks healthy here while every write command fails with EPERM on
    * the lock mkdir. This probe mirrors `withSharedDataSyncLock`: ensure the
-   * locks dir, then create and remove a uniquely named probe directory inside
-   * it. It is fully self-contained and never throws, so it cannot abort the
-   * doctor run. See issue #164.
+   * locks dir, then exercise the complete lock lifecycle at a uniquely named
+   * probe path inside it. It is fully self-contained and never throws, so it
+   * cannot abort the doctor run. See issue #164.
    */
   private async checkSharedLockWritability(): Promise<DiagnosticResult> {
     let paths;
@@ -1400,13 +1451,15 @@ class DoctorHandler extends BaseCommand {
       // Mirrors withSharedDataSyncLock: ensuring the locks dir may create it as a
       // side effect, which is harmless; any write command would create it anyway.
       await mkdir(paths.sharedLocksDir, { recursive: true });
-      await mkdir(probeDir);
+      await withLockfile(probeDir, () => Promise.resolve(), {
+        timeoutMs: 2_000,
+        pollMs: 20,
+        staleMs: 1_000,
+      });
     } catch (error) {
       // The thrown value may not be an ErrnoException; optional-chain so a
       // non-Error throw degrades to 'UNKNOWN' instead of crashing the probe.
       code = (error as NodeJS.ErrnoException | undefined)?.code ?? 'UNKNOWN';
-    } finally {
-      await rmdir(probeDir).catch(() => {});
     }
 
     return buildLockWritabilityFinding({
@@ -1467,42 +1520,61 @@ class DoctorHandler extends BaseCommand {
 
     // Issues found in wrong location - attempt migration if --fix and not dry-run
     if (fix && !this.checkDryRun('Migrate data to worktree')) {
-      // First ensure worktree exists - create it if missing
-      let worktreeHealth = await checkWorktreeHealth(this.cwd);
-      if (worktreeHealth.status === 'missing') {
-        // Worktree doesn't exist yet - create it for migration.
-        // Serialize under the shared lock so concurrent agents cannot race.
-        const initResult = await withSharedDataSyncLock(this.cwd, async () =>
-          initWorktree(this.cwd),
-        );
-        if (!initResult.success) {
+      return withSharedDataSyncLock(this.cwd, async () => {
+        // Recheck and, when necessary, initialize inside the same epoch as the copy.
+        // Publishing a quiescent empty worktree between these operations would make a
+        // single doctor repair appear as a transient mass deletion in tbd web.
+        let worktreeHealth = await checkWorktreeHealth(this.cwd);
+        if (worktreeHealth.status === 'missing') {
+          const initResult = await initWorktree(this.cwd);
+          if (!initResult.success) {
+            return {
+              name: 'Data location',
+              status: 'error',
+              message: `${wrongPathIssues.length} issue(s) in wrong location, failed to create worktree: ${initResult.error}`,
+              path: wrongIssuesPath,
+            };
+          }
+          worktreeHealth = await checkWorktreeHealth(this.cwd);
+        } else if (worktreeHealth.status === 'prunable' || worktreeHealth.status === 'corrupted') {
+          const repairStatus = worktreeHealth.status;
+          const repairResult = await repairWorktree(
+            this.cwd,
+            repairStatus,
+            this.config?.sync.remote ?? 'origin',
+            this.config?.sync.branch ?? 'tbd-sync',
+          );
+          if (!repairResult.success) {
+            return {
+              name: 'Data location',
+              status: 'error',
+              message: `${wrongPathIssues.length} issue(s) in wrong location, failed to repair worktree: ${repairResult.error}`,
+              path: wrongIssuesPath,
+            };
+          }
+          worktreeHealth = await checkWorktreeHealth(this.cwd);
+        }
+
+        if (worktreeHealth.status !== 'valid') {
           return {
             name: 'Data location',
             status: 'error',
-            message: `${wrongPathIssues.length} issue(s) in wrong location, failed to create worktree: ${initResult.error}`,
+            message: `${wrongPathIssues.length} issue(s) in wrong location, worktree not ready`,
+            path: wrongIssuesPath,
+            details: ['Cannot migrate: the worktree could not be initialized or repaired.'],
+          };
+        }
+
+        const result = await migrateDataToWorktree(this.cwd, true);
+        if (!result.success) {
+          return {
+            name: 'Data location',
+            status: 'error',
+            message: `migration failed: ${result.error}`,
             path: wrongIssuesPath,
           };
         }
-        worktreeHealth = await checkWorktreeHealth(this.cwd);
-      }
 
-      if (worktreeHealth.status !== 'valid') {
-        return {
-          name: 'Data location',
-          status: 'error',
-          message: `${wrongPathIssues.length} issue(s) in wrong location, worktree not ready`,
-          path: wrongIssuesPath,
-          details: [
-            'Cannot migrate: worktree must be repaired first.',
-            'The worktree repair should have run before this check.',
-          ],
-        };
-      }
-
-      // Migrate data to worktree (remove source after backup + copy)
-      const result = await migrateDataToWorktree(this.cwd, true);
-
-      if (result.success) {
         const details: string[] = [];
         if (result.backupPath) {
           details.push(`Backed up to ${result.backupPath}`);
@@ -1521,14 +1593,7 @@ class DoctorHandler extends BaseCommand {
           path: wrongIssuesPath,
           details,
         };
-      }
-
-      return {
-        name: 'Data location',
-        status: 'error',
-        message: `migration failed: ${result.error}`,
-        path: wrongIssuesPath,
-      };
+      });
     }
 
     // No --fix flag, report the issue

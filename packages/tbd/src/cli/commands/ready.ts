@@ -13,9 +13,8 @@ import { requireInit, NotInitializedError, ValidationError } from '../lib/errors
 import { listIssues } from '../../file/storage.js';
 import { IssueKind } from '../../lib/schemas.js';
 import type { Issue, IssueKindType } from '../../lib/types.js';
-import { readyIssueIds } from '../../lib/issue-selection.js';
 import { formatDisplayId, formatDebugId } from '../../lib/ids.js';
-import { comparisonChain } from '../../lib/comparison-chain.js';
+import { defaultIssueQuery, selectIssues } from '../../lib/issue-query.js';
 import {
   formatIssueLine,
   formatIssueLong,
@@ -43,26 +42,19 @@ class ReadyHandler extends BaseCommand {
       throw new NotInitializedError('No issue store found. Run `tbd init` first.');
     }
 
-    const readyIds = readyIssueIds(issues);
-    let readyIssues = issues.filter((issue) => readyIds.has(issue.id));
-
-    // Filter by type if specified
+    // Validate --type before querying, preserving the usage-error contract.
+    let kind: IssueKindType | null = null;
     if (options.type) {
       const result = IssueKind.safeParse(options.type);
       if (!result.success) {
         throw new ValidationError(`Invalid type: ${options.type}`);
       }
-      const kind: IssueKindType = result.data;
-      readyIssues = readyIssues.filter((i) => i.kind === kind);
+      kind = result.data;
     }
 
-    // Sort by priority (lowest number = highest priority), then by ID for determinism
-    readyIssues.sort(
-      comparisonChain<Issue>()
-        .compare((i) => i.priority)
-        .compare((i) => i.id)
-        .result(),
-    );
+    // Ready selection, ordering, and tiebreak all come from the shared query module,
+    // so this command and any other surface answering "what is ready" cannot disagree.
+    let readyIssues = selectIssues(issues, { ...defaultIssueQuery(), ready: true, kind });
 
     // Apply limit
     readyIssues = applyLimit(readyIssues, options.limit);

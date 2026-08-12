@@ -83,6 +83,9 @@ export interface CreateIssueChangesReportOptions {
   selection: IssueChangeSelection;
 }
 
+/** Inputs for diffing two issue snapshots without assigning commit semantics. */
+export type CreateIssueChangesOptions = Omit<CreateIssueChangesReportOptions, 'since' | 'tip'>;
+
 export type IssueChangeField = Exclude<keyof Issue, 'type' | 'id' | 'version' | 'updated_at'>;
 
 // Object insertion order is the stable report order. Record exhaustiveness makes a new
@@ -411,23 +414,25 @@ function issueMatchesFilter(
   return !selection.ready || readyIds.has(issue.id);
 }
 
-/** Create the stable report shared by `tbd changes` and an exit-0 `tbd watch`. */
-export function createIssueChangesReport(
-  options: CreateIssueChangesReportOptions,
-): IssueChangesReport {
+/** Diff two snapshots for callers that observe local, potentially uncommitted state. */
+export function createIssueChanges(options: CreateIssueChangesOptions): IssueChange[] {
   const mapping = mergeMappings(options.before, options.after);
   const candidateIds = new Set([...options.before.issues.keys(), ...options.after.issues.keys()]);
   const explicitIds =
     options.selection.kind === 'beads'
       ? resolveBeadIds(options.selection.ids, mapping.shortToUlid, candidateIds)
       : null;
+  // A static bead selection is also a performance boundary. Callers such as the web
+  // observer already know which version stamps moved, so do not deep-compare every
+  // description and notes field in a large repository just to discard almost all of it.
+  const idsToCompare = explicitIds ?? candidateIds;
   const needsReadySets = options.selection.kind === 'filter' && options.selection.ready;
   const emptySet: ReadonlySet<string> = new Set();
   const readyBefore = needsReadySets ? readyIssueIds(options.before.issues.values()) : emptySet;
   const readyAfter = needsReadySets ? readyIssueIds(options.after.issues.values()) : emptySet;
   const changes: IssueChange[] = [];
 
-  for (const internalId of Array.from(candidateIds).sort((left, right) =>
+  for (const internalId of Array.from(idsToCompare).sort((left, right) =>
     left.localeCompare(right),
   )) {
     const before = options.before.issues.get(internalId);
@@ -477,9 +482,16 @@ export function createIssueChangesReport(
     });
   }
 
+  return changes;
+}
+
+/** Create the stable committed report shared by `tbd changes` and an exit-0 `tbd watch`. */
+export function createIssueChangesReport(
+  options: CreateIssueChangesReportOptions,
+): IssueChangesReport {
   return {
     since: options.since,
     tip: options.tip,
-    changes,
+    changes: createIssueChanges(options),
   };
 }

@@ -13,6 +13,7 @@ import { spawn } from 'node:child_process';
 import type { CommandContext, ColorOption } from './context.js';
 import { shouldColorize } from './context.js';
 import { PAGINATION_LINE_THRESHOLD } from '../../lib/settings.js';
+import { STATUS_ICONS } from '../../lib/status-icons.js';
 import { parseMarkdown } from '../../utils/markdown-utils.js';
 import type { OperationLogger } from '../../lib/types.js';
 
@@ -52,11 +53,11 @@ export const ICONS = {
   NOTICE: '•', // U+2022
 
   // Status icons
-  OPEN: '○', // U+25CB
-  IN_PROGRESS: '◐', // U+25D0
-  BLOCKED: '●', // U+25CF
-  CLOSED: '✓', // U+2713 (same as SUCCESS)
-  DEFERRED: '○', // U+25CB (same as OPEN)
+  OPEN: STATUS_ICONS.open,
+  IN_PROGRESS: STATUS_ICONS.in_progress,
+  BLOCKED: STATUS_ICONS.blocked,
+  CLOSED: STATUS_ICONS.closed,
+  DEFERRED: STATUS_ICONS.deferred,
 } as const;
 
 /**
@@ -361,6 +362,16 @@ export class OutputManager {
   constructor(ctx: CommandContext) {
     this.ctx = ctx;
     this.colors = createColors(ctx.color);
+  }
+
+  /**
+   * Whether `--json` is active. For renderers outside this class that write raw
+   * multi-line text to stdout (and so cannot route through `data()`): they must skip
+   * that output entirely in JSON mode rather than corrupt the machine-readable stream
+   * (tbd-q5c7).
+   */
+  get isJson(): boolean {
+    return this.ctx.json;
   }
 
   /**

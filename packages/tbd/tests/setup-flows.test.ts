@@ -5,15 +5,12 @@
 
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { mkdtemp, rm, mkdir, writeFile, readFile, access, realpath } from 'node:fs/promises';
-import { tmpdir, platform } from 'node:os';
+import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { execSync, spawnSync } from 'node:child_process';
+import { subprocessTestTimeout } from './test-helpers.js';
 
-// Windows process spawning is significantly slower on CI
-const isWindows = platform() === 'win32';
-const setupFlowTestTimeout = isWindows ? 60000 : 15000;
-
-describe('setup flows', { timeout: setupFlowTestTimeout }, () => {
+describe('setup flows', { timeout: subprocessTestTimeout() }, () => {
   let tempDir: string;
   const tbdBin = join(__dirname, '..', 'dist', 'bin.mjs');
 
@@ -114,6 +111,7 @@ describe('setup flows', { timeout: setupFlowTestTimeout }, () => {
       expect(result.stdout).toContain('Try saying things like:');
       expect(result.stdout).toContain("There's a bug where");
       expect(result.stdout).toContain("Let's plan a new feature");
+      expect(result.stdout).toContain('Show my beads in a browser');
       expect(result.stdout).toContain('Commit this code');
     });
 
@@ -129,6 +127,10 @@ describe('setup flows', { timeout: setupFlowTestTimeout }, () => {
       const portable = await readFile(portablePath, 'utf-8');
       expect(portable).toContain('name:');
       expect(portable).toContain('DO NOT EDIT');
+      expect(portable).toContain('viewing beads in a live browser');
+      expect(portable).toContain('Show my beads in a browser');
+      expect(portable).toContain('tbd web --open');
+      expect(portable).toContain('viewer, not an editor');
 
       // The portable skill and the Claude mirror must carry the same payload.
       const mirror = await readFile(mirrorPath, 'utf-8');
@@ -419,7 +421,7 @@ describe('setup flows', { timeout: setupFlowTestTimeout }, () => {
     });
   });
 
-  describe('beads migration', { timeout: isWindows ? 60000 : 15000 }, () => {
+  describe('beads migration', { timeout: subprocessTestTimeout() }, () => {
     it('detects beads and offers migration', async () => {
       initGitRepo();
 
@@ -515,7 +517,7 @@ describe('setup flows', { timeout: setupFlowTestTimeout }, () => {
     });
   });
 
-  describe('legacy cleanup', { timeout: 30000 }, () => {
+  describe('legacy cleanup', { timeout: subprocessTestTimeout(30_000) }, () => {
     it('removes legacy tbd scripts from .claude/scripts/', async () => {
       initGitRepo();
 

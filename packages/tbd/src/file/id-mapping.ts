@@ -48,6 +48,15 @@ function getMappingPath(baseDir: string): string {
   return join(baseDir, 'mappings', 'ids.yml');
 }
 
+function serializeIdMapping(mapping: IdMapping): string {
+  const data: Record<string, string> = {};
+  const sortedKeys = naturalSort(Array.from(mapping.shortToUlid.keys()));
+  for (const key of sortedKeys) {
+    data[key] = mapping.shortToUlid.get(key)!;
+  }
+  return stringifyYaml(data);
+}
+
 /**
  * Load the ID mapping from disk.
  * Returns empty mapping if file doesn't exist.
@@ -58,8 +67,13 @@ export async function loadIdMapping(baseDir: string): Promise<IdMapping> {
   let content: string;
   try {
     content = await readFile(filePath, 'utf-8');
-  } catch {
-    // File doesn't exist - return empty mapping
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
+      throw error;
+    }
+    // An absent mapping is normal before the first issue is created. Any other
+    // read failure must remain visible; treating EACCES/EIO/EISDIR as an empty
+    // mapping can publish or write fabricated fallback display IDs.
     return {
       shortToUlid: new Map(),
       ulidToShort: new Map(),
@@ -127,8 +141,11 @@ export async function saveIdMapping(baseDir: string, mapping: IdMapping): Promis
       if (onDiskSize > 0) {
         merged = mergeIdMappings(mapping, onDisk);
       }
-    } catch {
-      // File doesn't exist or is unreadable; proceed with our mapping only
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
+        throw error;
+      }
+      // No mapping has been written yet; start from the caller's mapping.
     }
 
     // Safety check: ID mappings are append-only. If the merged result has fewer
@@ -142,15 +159,26 @@ export async function saveIdMapping(baseDir: string, mapping: IdMapping): Promis
       );
     }
 
-    const data: Record<string, string> = {};
-    const sortedKeys = naturalSort(Array.from(merged.shortToUlid.keys()));
-    for (const key of sortedKeys) {
-      data[key] = merged.shortToUlid.get(key)!;
-    }
-
-    const content = stringifyYaml(data);
-    await writeFile(filePath, content);
+    await writeFile(filePath, serializeIdMapping(merged));
   });
+}
+
+/**
+ * Replace an invalid mapping after a caller has explicitly recovered its full content.
+ *
+ * This is intentionally separate from `saveIdMapping`: ordinary saves must read and
+ * merge the append-only file or fail, never treat corruption as absence. Recovery
+ * callers first parse both conflict sides while holding the repository writer lock;
+ * this inner mapping lock then prevents a legacy low-level writer from racing the
+ * canonical replacement.
+ */
+export async function replaceRecoveredIdMapping(
+  baseDir: string,
+  recovered: IdMapping,
+): Promise<void> {
+  const filePath = getMappingPath(baseDir);
+  await mkdir(dirname(filePath), { recursive: true });
+  await withLockfile(filePath + '.lock', () => writeFile(filePath, serializeIdMapping(recovered)));
 }
 
 /**

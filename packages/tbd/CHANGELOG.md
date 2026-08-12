@@ -16,6 +16,20 @@
   watch-then-spawn worker loop plus bounded and background in-session patterns for
   Claude Code and Codex.
   Live validation covers both platforms conversing through one bead.
+- **Live local bead view**: `tbd web` serves a responsive, read-only view of the bead
+  graph on loopback and refreshes from local file changes.
+  Installed agent skills route requests such as “Show my beads in a browser” to
+  `tbd web --open`; the agent starts and keeps alive the viewer, performs every bead
+  mutation with ordinary `tbd` commands, and lets the page reflect those changes.
+  The page and startup output explicitly identify it as a viewer, not an editor.
+  It never contacts a remote; ordinary `tbd sync` remains the explicit
+  fetch/merge/publish contract, and its local result appears automatically.
+  Its filters, sorting, readiness rules, hierarchy, statistics, and displayed command
+  line come from the same implementations as the CLI. Native filesystem events normally
+  redraw immediately; a one-second constant-size metadata check repairs missed events
+  without reloading an unchanged graph.
+  The client lazy-loads bead bodies and bounds requests and rendered rows for large
+  repositories. `--open` is opt-in; JSON and dry-run modes support agents and CI.
 
 ### Documentation
 
@@ -29,6 +43,17 @@
 - **Notes semantics documented where they are used**: the manual’s `update` section
   states that `--notes` replaces the whole body and that notes are single-writer
   replaceable state, not a conversation log.
+
+### Internal
+
+- **Shared issue aggregation**: the `tbd stats` counting logic now lives in
+  `src/lib/issue-stats.ts` (`computeIssueStats`, plus the single definition of active
+  statuses and display orders), so other surfaces can report the same numbers the CLI
+  prints. `tbd stats` output is byte-identical and the web view consumes the same data.
+- **Packaged web proof**: release QA packs and extracts the npm tarball, starts its
+  published launcher, fetches the self-contained page and APIs, and verifies bounded
+  shutdown. The copied `dist/tbd` executable is now a launcher for `bin.mjs`, avoiding
+  double CLI evaluation while preserving relative dynamic imports.
 
 ### Fixes
 
@@ -62,6 +87,36 @@
 - **Bounded snapshot subprocesses**: committed issue blobs are read through bounded
   128-object `git cat-file --batch` groups instead of one `git show` per issue or one
   graph-sized child-output buffer.
+- **Web final-review hardening**: the viewer has one local-only contract and no poll
+  flag or implicit remote sync; native and reconciliation observation degrade
+  independently; listener-first shutdown still tears down the observer and SSE clients;
+  changed-row motion remains complete while local field detail is bounded; config-only
+  updates are published and ordered by an observer-local state version; browser clients
+  reject stale equal-graph-version responses, keep canonical board state over delayed
+  same-version event duplicates, and recover across an observer restart; ref rewinds
+  resume from the newest matching event; a stream high-water signal no longer drops a
+  client before the explicit queued-byte ceiling, while a write-time closed stream is
+  isolated to that client; stale detail failures cannot overwrite a newer generation;
+  detail fetches have an eight-request ceiling; and canonical display IDs containing
+  dots, underscores, or hyphens are accepted by the detail API.
+- **Web snapshot concurrency is fail-closed**: every standard shared-data writer now
+  brackets its transaction with a persistent active/quiescent epoch under the existing
+  repository mutex. The viewer publishes a privately staged graph only when the same
+  quiescent epoch and an absent mutex bracket the complete read, so create, update,
+  doctor repair, and sync bursts can expose the complete state before or after a write
+  but never a torn mixture.
+  Writer locks retain the established portable mkdir election, atomically install a
+  fully prepared non-empty process-owner generation without hard links or successor
+  overwrite, treat heartbeat touching as advisory rather than ownership, retain
+  generation-specific stale quarantines to prevent ABA recovery races, and move verified
+  releases out of the canonical path before cleanup.
+  Owner installation now fingerprints its provisional directory and classifies a raced
+  parent removal by generation identity, covering macOS `EINVAL` without masking a
+  persistent same-generation filesystem error or overwriting an installed replacement.
+  Shared-lock permission diagnostics and the doctor probe cover the complete owner
+  preparation/install lifecycle without relabeling unrelated critical-section errors.
+  Reload, SSE, and browser queues are coalesced or explicitly bounded, with shutdown and
+  stale-response cancellation.
 
 ### Security
 
@@ -71,6 +126,10 @@
   data-sync worktree or lock, removes its private ref on normal completion (best-effort,
   so a failed delete can never discard the change report), and reclaims refs orphaned by
   interrupted watcher processes on the next watch startup.
+- `tbd web` binds only `127.0.0.1`, validates Host and same-origin Origin headers,
+  accepts no mutation route, never performs network synchronization, serves a
+  restrictive Content Security Policy, caps SSE frames and replay buffers, drops
+  backpressured clients, and closes open streams on a bounded shutdown.
 
 ## 0.4.2
 

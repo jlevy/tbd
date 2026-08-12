@@ -12,8 +12,8 @@ patterns:
   TIMESTAMP: "\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?Z"
 before: |
   # Create a bare git repository to serve as local "origin" remote
-  mkdir -p ../origin.git
-  git init --bare ../origin.git
+  mkdir -p "$PWD/.git/test-origin.git"
+  git init --bare "$PWD/.git/test-origin.git"
 
   # Set up a test git repository (primary repo)
   git init --initial-branch=main
@@ -25,7 +25,7 @@ before: |
   git commit -m "Initial commit"
 
   # Add the local bare repo as origin and push
-  git remote add origin ../origin.git
+  git remote add origin "$PWD/.git/test-origin.git"
   git push -u origin main
 ---
 # tbd CLI: Sync Worktree Scenarios
@@ -45,7 +45,7 @@ in the correct location.
 # Test: Initialize tbd
 
 ```console
-$ tbd init --prefix=test 2>&1 | head -1
+$ tbd init --prefix=test 2>&1 | sed -n '1p'
 ✓ Initialized tbd repository (prefix: test)
 ? 0
 ```
@@ -133,7 +133,7 @@ $ tbd doctor 2>&1 | grep "Worktree" || echo "worktree issue detected"
 # Test: Sync with --fix repairs the worktree
 
 ```console
-$ tbd sync --fix 2>&1 | head -2 | tail -1
+$ tbd sync --fix 2>&1 | sed -n '2p'
 ✓ Worktree repaired successfully
 ? 0
 ```
@@ -180,7 +180,7 @@ in wrong location
 # Test: Doctor --fix migrates the data
 
 ```console
-$ tbd doctor --fix 2>&1 | head -1
+$ tbd doctor --fix 2>&1 | sed -n '1p'
 REPOSITORY
 ? 0
 ```

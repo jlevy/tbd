@@ -9,8 +9,8 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { mkdtemp, rm, mkdir } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
+import { mkdtemp, readFile, rm, mkdir, writeFile, utimes } from 'node:fs/promises';
+import { hostname, tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import {
@@ -18,6 +18,7 @@ import {
   saveIdMapping,
   addIdMapping,
   generateUniqueShortId,
+  replaceRecoveredIdMapping,
   type IdMapping,
 } from '../src/file/id-mapping.js';
 import { TEST_ULIDS } from './test-helpers.js';
@@ -38,6 +39,38 @@ describe('saveIdMapping concurrent safety', () => {
 
   afterEach(async () => {
     await rm(tempDir, { recursive: true, force: true });
+  });
+
+  it('rejects unexpected mapping read failures instead of inventing an empty mapping', async () => {
+    await mkdir(join(tempDir, 'mappings', 'ids.yml'), { recursive: true });
+
+    await expect(loadIdMapping(tempDir)).rejects.toThrow();
+  });
+
+  it('refuses to overwrite an unreadable or invalid on-disk mapping while saving', async () => {
+    const mappingPath = join(tempDir, 'mappings', 'ids.yml');
+    await mkdir(join(tempDir, 'mappings'), { recursive: true });
+    await writeFile(mappingPath, 'not: [valid yaml\n');
+    const proposed = emptyMapping();
+    addIdMapping(proposed, TEST_ULIDS.CONCURRENT_1, 'safe');
+
+    await expect(saveIdMapping(tempDir, proposed)).rejects.toThrow();
+    expect(await readFile(mappingPath, 'utf8')).toBe('not: [valid yaml\n');
+  });
+
+  it('allows only the explicit recovery path to replace a fully recovered mapping', async () => {
+    const mappingPath = join(tempDir, 'mappings', 'ids.yml');
+    await mkdir(join(tempDir, 'mappings'), { recursive: true });
+    await writeFile(
+      mappingPath,
+      '<<<<<<< ours\naa01: broken\n=======\nbb02: broken\n>>>>>>> theirs\n',
+    );
+    const recovered = emptyMapping();
+    addIdMapping(recovered, TEST_ULIDS.CONCURRENT_1, 'safe');
+
+    await replaceRecoveredIdMapping(tempDir, recovered);
+
+    expect((await loadIdMapping(tempDir)).shortToUlid.get('safe')).toBe(TEST_ULIDS.CONCURRENT_1);
   });
 
   it('preserves entries from concurrent writers', async () => {
@@ -226,6 +259,17 @@ describe('saveIdMapping rejects on lock contention (prevents degraded-mode data 
     const mappingsDir = join(tempDir, 'mappings');
     const lockPath = join(mappingsDir, 'ids.yml.lock');
     await mkdir(lockPath);
+    await writeFile(
+      join(lockPath, 'owner'),
+      `${JSON.stringify({
+        version: 1,
+        token: '00000000-0000-4000-8000-000000000002',
+        host: hostname(),
+        pid: 2_147_483_647,
+      })}\n`,
+    );
+    const old = new Date(Date.now() - 60_000);
+    await utimes(lockPath, old, old);
 
     // Save should succeed after detecting and breaking the stale lock
     // (default staleMs=5000, timeout=10000, so stale is detected first)

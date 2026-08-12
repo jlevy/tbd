@@ -81,6 +81,8 @@ Views and Filtering:
   ready [options]                    List issues ready to work on (open,
                                      unblocked, unclaimed)
   list [options]                     List issues
+  web [options]                      Serve a live, read-only bead view on
+                                     loopback
   blocked [options]                  List blocked issues
   stale [options]                    List issues not updated recently
 

@@ -4,9 +4,18 @@
 
 import { describe, it, expect } from 'vitest';
 import { formatStatus, getStatusIcon, getStatusColor } from '../src/lib/status.js';
+import { STATUS_ICONS } from '../src/lib/status-icons.js';
 import { ICONS, createColors } from '../src/cli/lib/output.js';
 
 describe('getStatusIcon', () => {
+  it('shares one canonical symbol map with every presentation surface', () => {
+    expect(ICONS.OPEN).toBe(STATUS_ICONS.open);
+    expect(ICONS.IN_PROGRESS).toBe(STATUS_ICONS.in_progress);
+    expect(ICONS.BLOCKED).toBe(STATUS_ICONS.blocked);
+    expect(ICONS.DEFERRED).toBe(STATUS_ICONS.deferred);
+    expect(ICONS.CLOSED).toBe(STATUS_ICONS.closed);
+  });
+
   it('returns empty circle for open', () => {
     expect(getStatusIcon('open')).toBe(ICONS.OPEN);
     expect(getStatusIcon('open')).toBe('○');

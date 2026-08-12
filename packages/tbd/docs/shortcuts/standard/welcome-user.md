@@ -58,6 +58,7 @@ Here are examples of things you can say and what happens:
 | “There’s a bug where …” | Creates and tracks a bug bead (`tbd create`) |
 | “Let’s work on current issues” | Shows ready beads to tackle (`tbd ready`) |
 | “Track this as a task” | Creates a task bead (`tbd create`) |
+| “Show my beads in a browser” | Opens the live, read-only viewer (`tbd web --open`) |
 
 ### Shortcuts and Workflows
 
@@ -86,6 +87,10 @@ Here are examples of things you can say and what happens:
 
 - Say **“Is there a shortcut for ...?”** or **“Use the shortcut to …”** and I’ll look
   for the shortcut for that workflow.
+
+- The browser is a live viewer, not an editor.
+  Ask me to create, update, close, label, or sync beads; I will run the ordinary tbd
+  commands, and the open page will show the resulting local changes automatically.
 
 * * *
 

@@ -27,7 +27,7 @@ import {
 import type { Issue } from '../src/lib/types.js';
 import { ISSUE_BODY_MAX_LENGTH } from '../src/lib/schemas.js';
 import { stringifyYaml } from '../src/utils/yaml-utils.js';
-import { createTestIssue, testId, TEST_ULIDS } from './test-helpers.js';
+import { createTestIssue, subprocessTestTimeout, testId, TEST_ULIDS } from './test-helpers.js';
 
 const execFileAsync = promisify(execFile);
 const cleanupPaths: string[] = [];
@@ -490,7 +490,7 @@ describe('readGitObjects', () => {
   });
 });
 
-describe('createChangesReportFromRefs', () => {
+describe('createChangesReportFromRefs', { timeout: subprocessTestTimeout() }, () => {
   it('reads and diffs synthetic tbd-sync history without a worktree', async () => {
     const repoDir = await mkdtemp(join(tmpdir(), 'tbd-changes-history-'));
     cleanupPaths.push(repoDir);

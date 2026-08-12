@@ -33,8 +33,15 @@ jobs:
 
       - run: pnpm --filter get-tbd test
 
+      - name: Run tbd web CLI transcript
+        working-directory: packages/tbd
+        run: pnpm exec tryscript run tests/cli-web.tryscript.md
+
       - name: Run watch release smoke
         run: pnpm --filter get-tbd qa:watch-release:built
+
+      - name: Run packed web proof
+        run: pnpm --filter get-tbd qa:web-package
 
   coverage:
     name: Coverage & Lint

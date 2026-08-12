@@ -32,6 +32,9 @@ jobs:
 
       - run: pnpm publint
 
+      - name: Verify packed web command
+        run: pnpm --filter get-tbd qa:web-package
+
       - name: Extract version from tag
         id: version
         run: echo "version=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT

@@ -87,6 +87,52 @@ pnpm test:uninstall
 
 This creates an npm tarball and installs from it, validating the full package structure.
 
+### Developing `tbd web`
+
+Build the production artifact, then run the same entry point the package publishes:
+
+```bash
+pnpm --filter get-tbd build
+node packages/tbd/dist/bin.mjs web
+```
+
+The command prints the selected loopback URL and stays in the foreground.
+The server implementation lives in `packages/tbd/src/cli/web/`, the Commander handler in
+`packages/tbd/src/cli/commands/web.ts`, and the strict browser client in
+`packages/tbd/src/web/`. `packages/tbd/scripts/stitch-web.mjs` inlines the browser IIFE
+and CSS into the single published `dist/web/index.html` artifact.
+
+Preserve the agent interaction contract across those surfaces: a natural request to see
+beads in a browser routes the installed skill to `tbd web --open`; the agent owns the
+foreground process and all ordinary tbd mutations; the page is a live viewer, not an
+editor; and starting it never performs remote exchange.
+The source skill tiers, `welcome-user`, README, CLI manual, design, setup output,
+command startup output, and browser copy must state that contract consistently.
+`integration-files.test.ts`, `setup-flows.test.ts`, `golden-output.test.ts`,
+`cli-web.tryscript.md`, and `web-server.test.ts` pin the route from packaged docs
+through installed and rendered artifacts.
+
+Run the focused behavior and package proofs while iterating:
+
+```bash
+pnpm --filter get-tbd exec vitest run \
+  tests/web-*.test.ts tests/cli-web.test.ts tests/bead-web-css.test.ts
+pnpm --filter get-tbd exec tryscript run tests/cli-web.tryscript.md
+pnpm --filter get-tbd qa:web-package
+```
+
+The spawned-process acceptance test creates real writer and viewer clones, proves the
+viewer does not fetch a remote change, runs explicit `tbd sync`, consumes the resulting
+local SSE update, and verifies Git isolation and signal cleanup.
+Unit coverage also proves the one-second reconciliation fallback, metadata-only
+publication, graph/state-version race ordering, ref-rewind-safe event replay, explicit
+queued-byte backpressure, closed-stream race isolation, bounded local delta detail, and
+browser recovery across an observer restart.
+The package proof launches `tbd web` from an extracted npm tarball and verifies that its
+self-contained page and APIs work.
+Design and implementation details are in
+[plan-2026-08-10-tbd-web-live-bead-view.md](project/specs/active/plan-2026-08-10-tbd-web-live-bead-view.md).
+
 ### Building
 
 ```bash

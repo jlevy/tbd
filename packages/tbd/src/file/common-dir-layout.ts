@@ -3,7 +3,7 @@
  */
 
 import { readFile, mkdir } from 'node:fs/promises';
-import { dirname } from 'node:path';
+import { dirname, join, sep } from 'node:path';
 import { writeFile } from 'atomically';
 import { parse as parseYaml } from 'yaml';
 
@@ -25,6 +25,7 @@ import {
 import { sortKeys, stringifyYaml } from '../utils/yaml-utils.js';
 import { now } from '../utils/time-utils.js';
 import { DATA_SYNC_LOCK_OPTIONS, withLockfile } from '../utils/lockfile.js';
+import { beginDataSyncWrite, finishDataSyncWrite } from './data-sync-epoch.js';
 
 /**
  * Error thrown when common-dir layout metadata cannot be used safely.
@@ -205,11 +206,33 @@ function lockPermissionCode(error: unknown): string | undefined {
 }
 
 /**
+ * Whether a filesystem error came from the lock protocol rather than the caller's
+ * critical section. Acquisition prepares a token-private owner generation beside the
+ * canonical lock and installs it beneath `lockPath`; Node rename errors may identify
+ * either the source (`path`) or destination (`dest`).
+ */
+function isLockProtocolPath(error: unknown, lockPath: string): boolean {
+  const errno = error as (NodeJS.ErrnoException & { dest?: unknown }) | undefined;
+  const ownerPath = join(lockPath, 'owner');
+  const preparedOwnerPrefix = `${lockPath}.owner-`;
+  const paths = [errno?.path, errno?.dest];
+
+  return paths.some(
+    (path) =>
+      typeof path === 'string' &&
+      (path === lockPath ||
+        path === ownerPath ||
+        path.startsWith(`${ownerPath}${sep}`) ||
+        path.startsWith(preparedOwnerPrefix)),
+  );
+}
+
+/**
  * Run a critical section while holding the repo-scoped data-sync lock.
  *
- * A permission failure creating either the locks directory or the lock itself
- * is rethrown as a `SharedLockUnwritableError` with remediation. The lock-path
- * match keeps an unrelated EPERM thrown by `fn` (e.g. writing issue data) from
+ * A permission failure creating the locks directory or running the lock protocol
+ * is rethrown as a `SharedLockUnwritableError` with remediation. Protocol-path
+ * matching keeps an unrelated EPERM thrown by `fn` (e.g. writing issue data) from
  * being misreported as a lock-writability problem.
  */
 export async function withSharedDataSyncLock<T>(tbdRoot: string, fn: () => Promise<T>): Promise<T> {
@@ -228,14 +251,26 @@ export async function withSharedDataSyncLock<T>(tbdRoot: string, fn: () => Promi
   }
 
   try {
-    return await withLockfile(paths.sharedLockPath, fn, DATA_SYNC_LOCK_OPTIONS);
+    return await withLockfile(
+      paths.sharedLockPath,
+      async (lease) => {
+        const epoch = await beginDataSyncWrite(paths.sharedDataSyncEpochPath);
+        try {
+          return await fn();
+        } finally {
+          // Keep this inside the mutex. If the atomic write fails, the previous active
+          // epoch remains and optimistic readers safely retain their last snapshot.
+          await lease.assertOwned();
+          await finishDataSyncWrite(paths.sharedDataSyncEpochPath, epoch);
+        }
+      },
+      DATA_SYNC_LOCK_OPTIONS,
+    );
   } catch (error) {
-    // Only translate a permission failure on the lock directory itself. `fn`
-    // writes issue data elsewhere (the worktree), so its errors pass through.
-    // The `.path` match relies on withLockfile surfacing the raw `mkdir`
-    // ErrnoException (which carries `.path`); revisit this guard if that changes.
+    // Translate only permission failures from the lock protocol. `fn` writes issue
+    // data elsewhere (the worktree), so its errors pass through unchanged.
     const code = lockPermissionCode(error);
-    if (code && (error as NodeJS.ErrnoException | undefined)?.path === paths.sharedLockPath) {
+    if (code && isLockProtocolPath(error, paths.sharedLockPath)) {
       throw new SharedLockUnwritableError(code, paths, tbdRoot);
     }
     throw error;

@@ -13,9 +13,9 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { execSync, spawnSync } from 'node:child_process';
 import { ISSUE_TITLE_MAX_LENGTH } from '../src/lib/schemas.js';
-import { TEST_ULIDS, testId } from './test-helpers.js';
+import { subprocessTestTimeout, TEST_ULIDS, testId } from './test-helpers.js';
 
-describe('corrupted data scenarios', { timeout: 15000 }, () => {
+describe('corrupted data scenarios', { timeout: subprocessTestTimeout() }, () => {
   let tempDir: string;
   const tbdBin = join(__dirname, '..', 'dist', 'bin.mjs');
 

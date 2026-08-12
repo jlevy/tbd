@@ -146,6 +146,7 @@ status or context or knowledge and know what to do next:
 | “Implement these beads” | Agent works through beads systematically | [`tbd shortcut implement-beads`](packages/tbd/docs/shortcuts/standard/implement-beads.md) |
 | “Create a bead for the bug where …” | Agent creates and tracks a bead | `tbd create "..." --type=bug` |
 | “Let’s work on current beads” | Agent finds ready beads and starts working | `tbd ready` |
+| “Show my beads in a browser” | Agent opens and keeps alive the local viewer | `tbd web --open` |
 | “Review this code” | Agent performs comprehensive code review with all guidelines | [`tbd shortcut review-code`](packages/tbd/docs/shortcuts/standard/review-code.md) |
 | “Review this PR” | Agent reviews a GitHub pull request and publishes the review | [`tbd shortcut review-github-pr`](packages/tbd/docs/shortcuts/standard/review-github-pr.md) |
 | “Use the shortcut to commit” | Agent runs full pre-commit checks, code review, and commits | [`tbd shortcut code-review-and-commit`](packages/tbd/docs/shortcuts/standard/code-review-and-commit.md) |
@@ -172,6 +173,11 @@ You just talk naturally.
   Installs itself as a skill in Claude Code.
 - **Markdown and YAML frontmatter:** One file per bead, human-readable and editable.
   This eliminates most merge conflicts.
+- **Live local view:** `tbd web` serves a loopback-only, read-only browser view that
+  shares the CLI’s filters and stays current as local bead state changes.
+  It is a viewer, not an editor: ask your agent to change beads with ordinary `tbd`
+  commands, and the open page updates automatically.
+  It never contacts a remote; explicit `tbd sync` remains the exchange step.
 - **Beads alternative:** Largely compatible with `bd` at the CLI level, but with a
   simpler architecture: no JSONL merge conflicts, no daemon modifying your working tree,
   no SQLite file locking on network filesystems (see
@@ -385,6 +391,7 @@ tbd close proj-a7k2            # Close bead
 tbd close proj-a7k2 --reason="Fixed in commit abc123"
 tbd close proj-a7k2 proj-b3m9 --reason="Sprint done"  # Bulk close (one call, no loops)
 tbd sync                       # Sync with remote (auto-commits and pushes)
+tbd web --open                 # Open the live, read-only browser viewer
 tbd watch --ready --json       # Block until a bead newly becomes ready
 tbd watch --bead proj-a7k2     # Block until one bead changes on the remote
 tbd changes --since <commit>   # What changed since a sync-branch commit
@@ -393,9 +400,28 @@ tbd changes --since <commit>   # What changed since a sync-branch commit
 `tbd watch` wakes an agent when bead state changes, with no daemon and no background
 process. It polls the remote sync-branch tip, fetches only once that tip moves, reports
 one matching change, and exits.
-Nothing shared is written along the way, so watchers coexist with ordinary `tbd sync` in
-the same checkout. The [CLI reference](packages/tbd/docs/tbd-docs.md) documents the
-selectors, baseline commits, and report format; the
+
+`tbd web` stays in the foreground and serves the same bead queries and hierarchy in a
+local browser. It binds loopback only, has no write route, and does not open a browser
+unless you pass `--open`. Large results support up to 10,000 rows and render in
+5,000-row pages. Native local file events normally update it immediately, with a
+one-second reconciliation fallback for missed events.
+When you ask an agent to show your beads in a browser, the agent should run
+`tbd web --open`, wait for the URL, give it to you, and keep the process running.
+The browser’s controls only change the view; ask the agent to create, update, close,
+label, or sync beads with ordinary `tbd` commands.
+Their local results appear on the open page automatically.
+Changing a filter, sort, display mode, or page closes expanded row details.
+During a live update, only rows still present in the bounded response remain expanded,
+with any display-ID change reconciled before their bodies reload.
+It never fetches automatically; run `tbd sync` and the resulting local changes appear
+without a browser refresh.
+See the [CLI reference](packages/tbd/docs/tbd-docs.md#web) for port, JSON, and dry-run
+options. Changed rows remain complete while verbose before/after detail is separately
+bounded. Separately, `tbd watch` writes no shared state, so remote watchers coexist with
+ordinary `tbd sync` in the same checkout.
+The [CLI reference](packages/tbd/docs/tbd-docs.md) documents the selectors, baseline
+commits, and report format; the
 [watch-beads shortcut](packages/tbd/docs/shortcuts/standard/watch-beads.md) has the
 unattended worker loop and the Claude Code and Codex recipes.
 

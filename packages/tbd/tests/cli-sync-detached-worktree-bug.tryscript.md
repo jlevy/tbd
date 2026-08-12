@@ -8,8 +8,8 @@ path:
 timeout: 60000
 before: |
   # Create a bare git repository to serve as local "origin" remote
-  mkdir -p ../origin.git
-  git init --bare ../origin.git
+  mkdir -p "$PWD/.git/test-origin.git"
+  git init --bare "$PWD/.git/test-origin.git"
 
   # Set up a test git repository (primary repo)
   git init --initial-branch=main
@@ -21,7 +21,7 @@ before: |
   git commit -m "Initial commit"
 
   # Add the local bare repo as origin and push
-  git remote add origin ../origin.git
+  git remote add origin "$PWD/.git/test-origin.git"
   git push -u origin main
 ---
 # Bug Reproduction: Detached HEAD worktree prevents sync
@@ -35,7 +35,7 @@ prevents sync from pushing.
 # Test: Initialize tbd and create initial issues
 
 ```console
-$ tbd init --prefix=test 2>&1 | head -1
+$ tbd init --prefix=test 2>&1 | sed -n '1p'
 ✓ Initialized tbd repository (prefix: test)
 ? 0
 ```

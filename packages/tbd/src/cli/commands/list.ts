@@ -12,10 +12,9 @@ import { requireInit } from '../lib/errors.js';
 import { loadDataContext } from '../lib/data-context.js';
 import type { Issue, IssueStatusType, IssueKindType } from '../../lib/types.js';
 import { listIssues } from '../../file/storage.js';
-import { formatDisplayId, formatDebugId, extractUlidFromInternalId } from '../../lib/ids.js';
+import { formatDisplayId, formatDebugId } from '../../lib/ids.js';
 import type { IdMapping } from '../../file/id-mapping.js';
 import { resolveToInternalId } from '../../file/id-mapping.js';
-import { comparisonChain, ordering } from '../../lib/comparison-chain.js';
 import {
   formatIssueLine,
   formatIssueLong,
@@ -25,9 +24,10 @@ import {
   type IssueForDisplay,
 } from '../lib/issue-format.js';
 import { parsePriority } from '../../lib/priority.js';
+import { selectIssues } from '../../lib/issue-query.js';
+import type { IssueQuery, IssueSort } from '../../lib/issue-query.js';
 import { buildIssueTree, renderIssueTree } from '../lib/tree-view.js';
 import { getTerminalWidth, type createColors } from '../lib/output.js';
-import { issueMatchesSharedFilters } from '../../lib/issue-selection.js';
 
 interface ListOptions {
   status?: IssueStatusType;
@@ -56,11 +56,10 @@ class ListHandler extends BaseCommand {
     const dataCtx = await loadDataContext(tbdRoot);
     let issues = await listIssues(dataCtx.dataSyncDir);
 
-    // Apply filters
-    issues = this.filterIssues(issues, options, dataCtx.mapping);
-
-    // Sort results (with secondary sort by short ID for stable ordering)
-    issues = this.sortIssues(issues, options.sort ?? 'priority', dataCtx.mapping);
+    // Filter and sort through the shared query module (the single semantics for
+    // list/ready/web); this handler keeps only the CLI-shaped concerns: flag parsing,
+    // id resolution, limit strings, and rendering.
+    issues = this.applyQuery(issues, options, dataCtx.mapping);
 
     // Apply limit
     issues = applyLimit(issues, options.limit);
@@ -188,85 +187,39 @@ class ListHandler extends BaseCommand {
     }
   }
 
-  private filterIssues(issues: Issue[], options: ListOptions, mapping: IdMapping): Issue[] {
+  /** Translate CLI flags into an IssueQuery and run the shared selection. */
+  private applyQuery(issues: Issue[], options: ListOptions, mapping: IdMapping): Issue[] {
     // Resolve parent filter to internal ID if provided
-    let resolvedParentId: string | undefined;
+    let parentId: string | null = null;
     if (options.parent) {
       try {
-        resolvedParentId = resolveToInternalId(options.parent, mapping);
+        parentId = resolveToInternalId(options.parent, mapping);
       } catch {
         // If parent ID cannot be resolved, no issues will match
         return [];
       }
     }
 
-    return issues.filter((issue) => {
-      // By default, exclude closed issues unless --all or --status closed
-      if (!options.all && options.status !== 'closed' && issue.status === 'closed') {
-        return false;
-      }
+    // An unparseable --priority means "no filter", preserving the legacy behavior.
+    const priority =
+      options.priority !== undefined ? (parsePriority(options.priority) ?? null) : null;
 
-      if (
-        !issueMatchesSharedFilters(issue, {
-          labels: options.label ?? [],
-          spec: options.spec === '' ? null : (options.spec ?? null),
-          status: options.status ?? null,
-        })
-      ) {
-        return false;
-      }
-
-      // Type filter
-      if (options.type && issue.kind !== options.type) {
-        return false;
-      }
-
-      // Priority filter - supports both numeric (1) and prefixed (P1) formats
-      if (options.priority !== undefined) {
-        const priority = parsePriority(options.priority);
-        if (priority !== undefined && issue.priority !== priority) {
-          return false;
-        }
-      }
-
-      // Assignee filter
-      if (options.assignee && issue.assignee !== options.assignee) {
-        return false;
-      }
-
-      // Parent filter (compare resolved internal IDs)
-      if (resolvedParentId && issue.parent_id !== resolvedParentId) {
-        return false;
-      }
-
-      // Deferred filter
-      if (options.deferred && issue.status !== 'deferred') {
-        return false;
-      }
-
-      return true;
-    });
-  }
-
-  private sortIssues(issues: Issue[], sortField: string, _mapping: IdMapping): Issue[] {
-    const primarySelector: (i: Issue) => number =
-      sortField === 'created'
-        ? (i) => new Date(i.created_at).getTime()
-        : sortField === 'updated'
-          ? (i) => new Date(i.updated_at).getTime()
-          : (i) => i.priority;
-
-    // For created/updated, reverse so newest comes first; for priority, ascending
-    const primaryOrdering =
-      sortField === 'created' || sortField === 'updated' ? ordering.reversed : ordering.default;
-
-    return [...issues].sort(
-      comparisonChain<Issue>()
-        .compare(primarySelector, primaryOrdering)
-        // Tiebreak by internal ULID (chronological and deterministic, unlike random short IDs)
-        .compare((i) => extractUlidFromInternalId(i.id))
-        .result(),
-    );
+    const query: IssueQuery = {
+      status: options.status ?? null,
+      includeClosed: options.all ?? false,
+      kind: options.type ?? null,
+      priority,
+      assignee: options.assignee ?? null,
+      labels: options.label ?? [],
+      parentId,
+      // An empty --spec means "no filter", as before.
+      spec: options.spec === '' ? null : (options.spec ?? null),
+      deferred: options.deferred ?? false,
+      ready: false,
+      sort: (options.sort ?? 'priority') as IssueSort,
+      limit: null,
+    };
+    return selectIssues(issues, query);
   }
 }
 

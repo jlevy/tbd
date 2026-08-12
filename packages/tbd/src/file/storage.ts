@@ -32,11 +32,13 @@ export interface InvalidIssueFile {
   reason: string;
 }
 
-interface ListIssuesOptions {
+export interface ListIssuesOptions {
   /** When true, emit skipped-file warnings to stderr. */
   warnOnInvalid?: boolean;
   /** Optional callback for callers that need structured skipped-file diagnostics. */
   onInvalidIssue?: (invalidIssue: InvalidIssueFile) => void;
+  /** When true, require each parsed issue to live in `<issue.id>.md`. */
+  validateFileName?: boolean;
 }
 
 /**
@@ -83,8 +85,17 @@ export async function listIssues(
   let files: string[];
   try {
     files = await readdir(issuesDir);
-  } catch {
-    // Directory doesn't exist - return empty
+  } catch (error) {
+    const code = (error as NodeJS.ErrnoException).code;
+    if (code !== 'ENOENT' && options.onInvalidIssue !== undefined) {
+      reportInvalidIssueFile(
+        { file: 'issues/', reason: `failed to read directory: ${formatUnknownError(error)}` },
+        warnOnInvalid,
+        options.onInvalidIssue,
+      );
+    }
+    // A missing issue directory represents an empty store. Other failures remain the
+    // historical empty result unless a strict caller supplied onInvalidIssue above.
     return [];
   }
 
@@ -118,6 +129,14 @@ export async function listIssues(
       }
       try {
         const issue = parseIssue(result.content);
+        if (options.validateFileName === true && result.file !== `${issue.id}.md`) {
+          reportInvalidIssueFile(
+            { file: result.file, reason: `file name does not match ${issue.id}` },
+            warnOnInvalid,
+            options.onInvalidIssue,
+          );
+          continue;
+        }
         issues.push(issue);
       } catch (error) {
         reportInvalidIssueFile(

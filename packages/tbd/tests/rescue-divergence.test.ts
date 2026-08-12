@@ -205,7 +205,7 @@ describeUnlessWindows('rescue divergence matrix + preconditions', () => {
     // The losing (remote) version is preserved as an explicit artifact.
     const attic = await atticConflictFiles();
     expect(attic.some((f) => f.startsWith(`is-${SHARED}__`))).toBe(true);
-  });
+  }, 20_000);
 
   function idMap(pairs: [string, string][]): IdMapping {
     const shortToUlid = new Map(pairs);

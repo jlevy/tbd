@@ -12,14 +12,14 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { serializeIssue } from '../src/file/parser.js';
 import { CURRENT_FORMAT } from '../src/lib/tbd-format.js';
 import { stringifyYaml } from '../src/utils/yaml-utils.js';
-import { createTestIssue, testId, TEST_ULIDS } from './test-helpers.js';
+import { createTestIssue, subprocessTestTimeout, testId, TEST_ULIDS } from './test-helpers.js';
 
 const execFileAsync = promisify(execFile);
 const packageDir = fileURLToPath(new URL('..', import.meta.url));
 const tbdBin = join(packageDir, 'dist', 'bin.mjs');
 const cleanupPaths: string[] = [];
 const ISSUE_ID = testId(TEST_ULIDS.ULID_1);
-const WINDOWS_CLI_TEST_TIMEOUT_MS = 15_000;
+const CLI_TEST_TIMEOUT_MS = subprocessTestTimeout();
 
 interface WatchRepo {
   repoDir: string;
@@ -138,7 +138,7 @@ describe('tbd watch', () => {
         ],
       });
     },
-    WINDOWS_CLI_TEST_TIMEOUT_MS,
+    CLI_TEST_TIMEOUT_MS,
   );
 
   it(
@@ -151,7 +151,7 @@ describe('tbd watch', () => {
       expect(result.stdout).toBe('');
       expect(result.stderr).toBe('');
     },
-    WINDOWS_CLI_TEST_TIMEOUT_MS,
+    CLI_TEST_TIMEOUT_MS,
   );
 
   it(
@@ -173,7 +173,7 @@ describe('tbd watch', () => {
       expect(tooFast.status).toBe(2);
       expect(tooFast.stderr).toContain('at least 10 seconds');
     },
-    WINDOWS_CLI_TEST_TIMEOUT_MS,
+    CLI_TEST_TIMEOUT_MS,
   );
 
   it(
@@ -195,7 +195,7 @@ describe('tbd watch', () => {
       expect(result.stderr).toContain('Unknown issue ID: tbd-typo');
       expect(result.stderr).toContain('run tbd sync first');
     },
-    WINDOWS_CLI_TEST_TIMEOUT_MS,
+    CLI_TEST_TIMEOUT_MS,
   );
 
   it(
@@ -211,6 +211,6 @@ describe('tbd watch', () => {
         error: expect.stringContaining('Failed to read remote sync tip'),
       });
     },
-    WINDOWS_CLI_TEST_TIMEOUT_MS,
+    CLI_TEST_TIMEOUT_MS,
   );
 });
