@@ -5,7 +5,7 @@ title: Final concurrency and stream-ordering review for tbd web
 kind: epic
 status: closed
 priority: 1
-version: 44
+version: 68
 spec_path: docs/project/specs/active/plan-2026-08-10-tbd-web-live-bead-view.md
 labels:
   - web
@@ -44,10 +44,31 @@ child_order_hints:
   - is-01kztakhjkajzh9hj9gjv6wyf6
   - is-01kzthhg94pckc5ag8txeq1bem
   - is-01kztm8q8ykq7hsr0wyq5bfdt7
+  - is-01kzvbjadd348ch672sr9zfwrr
+  - is-01kzvc3mq2399g5yn0ah1qkfnh
+  - is-01kzvcmhx1ekhfm2xjhxs6qdxp
+  - is-01kzvcny0tgwnqjqsgs2hfbd87
+  - is-01kzvcpyjh6rk9dwwny64c0syt
+  - is-01kzvd0vsb24vaxb54cds65y7t
+  - is-01kzvd0vt3z5k3prdwkxayxath
+  - is-01kzvd1d9tgj7gt932e8wgaf2c
+  - is-01kzvd918pwt3fs3a65kxbbyaq
+  - is-01kzvd91kjpt6jydw21wr0cxa9
+  - is-01kzvdd4maa35vapp0dwed7hzd
+  - is-01kzvddwyxkfhns5k90b6szd9e
+  - is-01kzvdg5qtx8e95hmd4f2e1p3s
+  - is-01kzvdq9msrp5vzmkwq7921bb4
+  - is-01kzvdryepvn3z17ctztw59bbz
+  - is-01kzvdvegnze8rh8mzt9m4msry
+  - is-01kzve129mjd23tw6x4nnf67v6
+  - is-01kzve12mwmp0jjbva56gen07x
+  - is-01kzve1v1k16v0yqykh5v6hfsz
+  - is-01kzve4ked3qj7sph0zhadrdfr
+  - is-01kzvengx0dmgsmmrb9my3gnwy
 created_at: 2026-08-12T01:16:03.997Z
-updated_at: 2026-08-12T09:47:15.193Z
-closed_at: 2026-08-12T09:47:15.192Z
-close_reason: "Completed the end-to-end concurrency, snapshot, streaming, shutdown, portability, installed-viewer, and CI reliability review: all 31 child findings are closed with file/function dispositions and adversarial evidence. Local release gates and focused post-failure verification pass; final hosted checks and PR thread audit will be verified at the pushed head."
+updated_at: 2026-08-12T17:21:53.398Z
+closed_at: 2026-08-12T17:21:53.397Z
+close_reason: Final concurrency, stream-ordering, UX/design-system, documentation, PR-comment, performance, package, and merge-readiness review complete. Existing mkdir writer lock plus persistent epoch, lock-free staged snapshots, bounded observer/SSE/client queues, monotonic adoption, abort fencing, and shutdown invariants match the normative design and adversarial tests; no open P0-P3 finding remains.
 ---
 Audit the tbd web pipeline end to end for filesystem-event races, debounce/reconciliation ordering, serialized reload correctness, SSE fan-out/backpressure and reconnect replay, shutdown interleavings, client state monotonicity, duplicate delivery, deadlock/livelock, and contention. Track every confirmed finding as a child bead, implement all fixes, and retain adversarial regression evidence.
 
