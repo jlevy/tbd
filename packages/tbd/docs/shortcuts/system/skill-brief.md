@@ -11,6 +11,15 @@ description: Condensed tbd workflow guide for agents
 3. **Shortcuts**: Reusable instruction templates for common workflows.
 4. **Guidelines**: Coding rules and best practices.
 
+Users speak naturally; you run tbd for them rather than returning commands for them to
+execute. For “Show my beads in a browser,” start `tbd web --open` with the agent
+platform’s long-running process facility, wait for its loopback URL, report that URL,
+and keep the process running.
+The browser is a live, read-only viewer, not an editor.
+Make every bead change yourself with ordinary `tbd` commands; the page updates from the
+resulting local state.
+Do not sync implicitly.
+
 ## Core Commands
 
 ```bash
@@ -21,6 +30,7 @@ tbd close <id>         # Mark complete
 tbd close <id1> <id2>  # Close several at once (one call, never a loop)
 tbd list --spec <path> # Where things stand on a spec
 tbd sync               # Sync with remote
+tbd web --open         # Open the live, read-only bead viewer
 ```
 
 ## Quick Actions
@@ -28,6 +38,7 @@ tbd sync               # Sync with remote
 | Need | Command |
 | --- | --- |
 | Found a bug | `tbd create "..." --type=bug` |
+| Show beads in a browser | `tbd web --open` (run it yourself and keep it running) |
 | Plan a feature | `tbd shortcut new-plan-spec` |
 | Commit code | `tbd shortcut code-review-and-commit` |
 | Create a PR | `tbd shortcut create-or-update-pr-simple` |

@@ -357,6 +357,7 @@ label.check {
   font-size: 11.5px;
   color: var(--muted);
   display: flex;
+  flex-wrap: wrap;
   gap: 8px;
   align-items: center;
 }
@@ -364,6 +365,10 @@ label.check {
   color: var(--text);
   user-select: all;
   word-break: break-all;
+}
+#viewernote {
+  font-family: var(--sans);
+  text-align: right;
 }
 main {
   display: grid;

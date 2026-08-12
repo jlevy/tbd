@@ -57,6 +57,15 @@ $ node run-built-cli.mjs --dry-run --json web --port 17899 | jq -c "{url,port,sy
 ? 0
 ```
 
+## Human-readable Ownership Boundary
+
+```console
+$ node run-built-cli.mjs --dry-run web --port 17898 | grep -E "TBD WEB|Access:"
+TBD WEB (DRY RUN)
+[..] Access:      loopback, live read-only viewer
+? 0
+```
+
 ## Validation
 
 ```console

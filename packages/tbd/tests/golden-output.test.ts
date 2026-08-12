@@ -113,6 +113,7 @@ describe('golden output tests', { timeout: isWindows ? 60000 : 15000 }, () => {
       expect(result.stdout).toContain("There's a bug where");
       expect(result.stdout).toContain("Let's plan a new feature");
       expect(result.stdout).toContain("Let's work on current issues");
+      expect(result.stdout).toContain('Show my beads in a browser');
       expect(result.stdout).toContain('Commit this code');
       expect(result.stdout).toContain('Review for best practices');
     });

@@ -789,17 +789,30 @@ to land the whole command through one PR.
   analysis added to tbd-design.md §4.15 before the concurrency implementation was
   finalized (`tbd-hv05`).
 - [x] Every confirmed finding recorded under concurrency epic `tbd-p1i5`, with the
-  file/function map in R25–R51 below.
+  file/function map in R25–R54 below.
 - [x] Central persistent writer epoch, lock-free stable-snapshot acceptance, strict
   candidates, ownership-safe locks, single-flight observation, bounded retry/replay and
   client fan-out, cancellation, and shutdown fences implemented with adversarial focused
   coverage.
 - [x] Full release matrix green on the final concurrency head: Flowmark/Prettier, strict
-  typecheck and zero-warning lint, build, 113 Vitest files / 1,561 tests, 1,074
-  tryscript checks, publint, 31 package-age pins, packed-web proof (64,227-byte page),
+  typecheck and zero-warning lint, build, 113 Vitest files / 1,568 tests, 1,075
+  tryscript checks, publint, 31 package-age pins, packed-web proof (64,485-byte page),
   watch release smoke, 5,000-issue CLI benchmark, and the 10,001-issue web boundary
   above.
 - [x] Final head pushed; hosted CI, all PR threads, and mergeability rechecked.
+
+### Phase 9: Installed Agent Discovery and Viewer Ownership
+
+- [x] The full, brief, and minimal shipped tbd skills route natural requests such as
+  “Show my beads in a browser” to an agent-run `tbd web --open` process.
+- [x] Setup onboarding and `welcome-user` teach the same natural-language request
+  without transferring CLI operation to the user.
+- [x] README, CLI manual, design, changelog, startup output, and the rendered page state
+  one ownership contract: the browser is a live viewer, never an editor; the agent makes
+  changes through ordinary tbd commands; local results appear automatically; remote
+  exchange remains explicit `tbd sync`.
+- [x] Built-distribution and setup-flow regressions prove the guidance reaches the npm
+  artifact and generated `.agents`/`.claude` skill mirrors.
 
 ### Final review finding map
 
@@ -807,7 +820,7 @@ The original final review is tracked under `tbd-o7nu`, with the owner-directed r
 and its follow-up findings under `tbd-ihyx`. R1–R23 were implemented and validated; R24
 was rejected with code-path evidence because the reported persistence was never part of
 the client contract.
-The final concurrency review is tracked under epic `tbd-p1i5`: R25–R35 and R38–R51 are
+The final concurrency review is tracked under epic `tbd-p1i5`: R25–R35 and R38–R54 are
 concrete defects, while R36–R37 are its normative design and adversarial verification
 tasks. Every item has one bead and an explicit file/function disposition.
 
@@ -881,6 +894,9 @@ display ids or consume the detail cap.
 | `tbd-qhiq` (R49) | P2 | `src/utils/lockfile.ts`: failed owner-generation install classification; `tests/lockfile-acquisition-race.test.ts` | After failed install, distinguish a raced canonical parent from a vanished token-private source. Retry only while the prepared generation still exists; otherwise clean an empty reservation and surface the original error instead of looping until timeout. |
 | `tbd-pt35` (R50) | P2 | `src/utils/lockfile.ts`: `breakStaleLock`, stale acquisition branch; `tests/lockfile-acquisition-race.test.ts` | Return whether deterministic quarantine rename made progress. Retry immediately only after the canonical dead generation moved; an occupied retained quarantine remains fail-closed on the ordinary poll cadence instead of spinning. |
 | `tbd-81j0` (R51) | P1 | `src/file/common-dir-layout.ts`: `withSharedDataSyncLock`; `src/cli/commands/doctor.ts`: `checkSharedLockWritability`; `tests/shared-lock-permission.test.ts` | Classify EPERM/EACCES from canonical, token-private, and nested owner paths as shared-lock failures while preserving unrelated critical-section errors. Exercise the complete lock lifecycle in doctor and force each new permission boundary in focused regressions. |
+| `tbd-c4nj` (R52) | P1 | `docs/shortcuts/system/skill-{baseline,brief,minimal}.md`; `docs/shortcuts/standard/welcome-user.md`; `src/cli/commands/{setup,web}.ts`; `src/web/index.html`; README, manual, design, changelog; distribution/setup/web artifact tests | Route natural browser-view requests to an agent-run `tbd web --open`, keep mutation ownership in ordinary tbd commands, state that the live browser is not an editor, and prove generated/install/package surfaces carry the contract. |
+| `tbd-rhdp` (R53) | P2 | `docs/shortcuts/system/skill-minimal.md`; `tests/integration-files.test.ts` | Align the minimal shipped skill with the package’s Node.js 20+ engine and prevent future distribution drift. |
+| `tbd-prtc` (R54) | P1 | `src/utils/lockfile.ts`: `runWithPreparedLockGeneration`, provisional identity helpers; `tests/lockfile{,-acquisition-race}.test.ts`; design concurrency proof | Classify a raced owner-install failure by canonical generation identity, so macOS `EINVAL` after removal retries without overwriting an installed replacement while the same-generation error remains raw. Deterministic tests prove recovery, fail-closed classification, single execution, and cleanup; whole-suite concurrency revalidates the original waiter race. |
 
 ### Merge gate for PR #207
 
@@ -892,8 +908,9 @@ until they hold:
    no new runtime dependency.
 3. The packaged-tarball proof (Phase 6) recorded in the PR.
 4. Spike scripts gone; no dead flag or dormant mutation code shipped.
-5. Docs complete: design doc (including the §1.6 amendment), manual, help text,
-   CHANGELOG.
+5. Docs complete: installed skill tiers, setup and welcome onboarding, design doc
+   (including the §1.6 amendment), manual, README, help/startup text, browser ownership
+   copy, and CHANGELOG.
 6. Owner sign-off on the §1.6 amendment diff and the final review pass.
 
 ## Testing Strategy
@@ -977,6 +994,10 @@ liveness decision:
 - `tbd web` has no remote poll option and never performs implicit sync.
   `tbd sync` is the sole remote exchange contract, and its local result appears
   automatically.
+
+- In agent sessions, natural browser requests route to agent-run `tbd web --open`. The
+  browser changes presentation only; the agent remains the sole tbd operator for
+  mutations and remote exchange.
 
 - The query, statistics, tree, and JSON-output fixes ride PR #207; remote-watch and sync
   internals stay unchanged because the viewer no longer consumes them.

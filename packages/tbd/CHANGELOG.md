@@ -18,6 +18,10 @@
   Live validation covers both platforms conversing through one bead.
 - **Live local bead view**: `tbd web` serves a responsive, read-only view of the bead
   graph on loopback and refreshes from local file changes.
+  Installed agent skills route requests such as “Show my beads in a browser” to
+  `tbd web --open`; the agent starts and keeps alive the viewer, performs every bead
+  mutation with ordinary `tbd` commands, and lets the page reflect those changes.
+  The page and startup output explicitly identify it as a viewer, not an editor.
   It never contacts a remote; ordinary `tbd sync` remains the explicit
   fetch/merge/publish contract, and its local result appears automatically.
   Its filters, sorting, readiness rules, hierarchy, statistics, and displayed command
@@ -106,6 +110,9 @@
   overwrite, treat heartbeat touching as advisory rather than ownership, retain
   generation-specific stale quarantines to prevent ABA recovery races, and move verified
   releases out of the canonical path before cleanup.
+  Owner installation now fingerprints its provisional directory and classifies a raced
+  parent removal by generation identity, covering macOS `EINVAL` without masking a
+  persistent same-generation filesystem error or overwriting an installed replacement.
   Shared-lock permission diagnostics and the doctor probe cover the complete owner
   preparation/install lifecycle without relabeling unrelated critical-section errors.
   Reload, SSE, and browser queues are coalesced or explicitly bounded, with shutdown and

@@ -31,6 +31,11 @@
  *    another process. The winner atomically renames the prepared generation to
  *    `lockDir/owner` before entering the critical section. An installed generation is
  *    non-empty, so a delayed installer cannot overwrite a successor.
+ *    The winner fingerprints its provisional directory. If stale recovery removes or
+ *    replaces that directory while owner installation is in flight, the winner retries
+ *    based on the changed directory identity rather than an OS-specific rename errno.
+ *    A same-generation unexpected error is preserved, so persistent failures cannot
+ *    turn into contention spins.
  *    On Windows, a concurrent release can instead surface as a transient EPERM
  *    (NTFS delete-pending directory); this is treated as a busy lock and retried
  *    for a short window, after which the raw EPERM is rethrown (a persistent
@@ -142,6 +147,11 @@ interface LockOwnerRecord {
   pid: number;
 }
 
+interface LockDirectoryIdentity {
+  dev: number;
+  ino: number;
+}
+
 /** Lease passed to advanced critical sections that publish their own commit marker. */
 export interface LockLease {
   /** Fail if stale recovery displaced this holder. */
@@ -161,6 +171,26 @@ function isMissing(error: unknown): boolean {
 
 function asError(error: unknown): Error {
   return error instanceof Error ? error : new Error(String(error));
+}
+
+/** Identify one canonical-path generation without opening a persistent handle. */
+async function readLockDirectoryIdentity(path: string): Promise<LockDirectoryIdentity | null> {
+  try {
+    const value = await stat(path);
+    return { dev: value.dev, ino: value.ino };
+  } catch (error) {
+    if (isMissing(error)) {
+      return null;
+    }
+    throw error;
+  }
+}
+
+function isSameLockDirectory(
+  left: LockDirectoryIdentity,
+  right: LockDirectoryIdentity | null,
+): boolean {
+  return right !== null && left.dev === right.dev && left.ino === right.ino;
 }
 
 async function readBoundedOwnerRecord(path: string): Promise<string | null> {
@@ -579,12 +609,19 @@ async function runWithPreparedLockGeneration<T>(
       // mkdir is the established atomic election. Owner metadata is already complete,
       // but the winner does not enter its critical section until installation succeeds.
       await mkdir(lockPath);
+      const provisionalIdentity = await readLockDirectoryIdentity(lockPath);
+      if (provisionalIdentity === null) {
+        // A zero-stale waiter can remove the empty reservation before this process can
+        // fingerprint it. No owner was installed and the private generation is intact.
+        continue;
+      }
       try {
         await rename(preparedOwnerPath, join(lockPath, LOCK_OWNER_FILE));
       } catch (error) {
         // Account for an ambiguous network-filesystem rename result before deciding the
-        // installation failed. Otherwise remove only our still-empty provisional lock;
-        // a displaced successor's non-empty generation cannot be removed or overwritten.
+        // installation failed. Empty-only cleanup is attempted only for the same
+        // observed reservation; an installed successor is non-empty and cannot be
+        // removed or overwritten even if the path changes after that observation.
         const observedOwner = await readLockOwner(lockPath);
         if (observedOwner === owner) {
           acquired = true;
@@ -608,12 +645,22 @@ async function runWithPreparedLockGeneration<T>(
             throw statError;
           }
         }
-        await removeEmptyLockDir(lockPath);
+        const currentIdentity = await readLockDirectoryIdentity(lockPath);
+        const generationChanged = !isSameLockDirectory(provisionalIdentity, currentIdentity);
+        if (!generationChanged) {
+          await removeEmptyLockDir(lockPath);
+        }
         if (!preparedOwnerExists) {
           throw error;
         }
         const code = (error as NodeJS.ErrnoException).code;
-        if (ownerEntryExists || code === 'EEXIST' || code === 'ENOTEMPTY' || code === 'ENOENT') {
+        if (
+          ownerEntryExists ||
+          generationChanged ||
+          code === 'EEXIST' ||
+          code === 'ENOTEMPTY' ||
+          code === 'ENOENT'
+        ) {
           continue;
         }
         throw error;

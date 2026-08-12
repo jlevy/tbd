@@ -155,9 +155,12 @@ class WebHandler extends BaseCommand {
       console.log(`${ICONS.NOTICE} URL:        ${descriptor.url}`);
       console.log(`${ICONS.NOTICE} Repository: ${descriptor.repo}`);
       console.log(`${ICONS.NOTICE} Sync branch: ${descriptor.syncBranch}`);
-      console.log(`${ICONS.NOTICE} Access:      loopback, read-only`);
+      console.log(`${ICONS.NOTICE} Access:      loopback, live read-only viewer`);
       if (!dryRun) {
         console.log('');
+        console.log(
+          colors.dim('Ask your agent to change beads; ordinary tbd commands update this page.'),
+        );
         console.log(colors.dim('Press Ctrl+C to stop.'));
       }
     });

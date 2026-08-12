@@ -102,6 +102,16 @@ The server implementation lives in `packages/tbd/src/cli/web/`, the Commander ha
 `packages/tbd/src/web/`. `packages/tbd/scripts/stitch-web.mjs` inlines the browser IIFE
 and CSS into the single published `dist/web/index.html` artifact.
 
+Preserve the agent interaction contract across those surfaces: a natural request to see
+beads in a browser routes the installed skill to `tbd web --open`; the agent owns the
+foreground process and all ordinary tbd mutations; the page is a live viewer, not an
+editor; and starting it never performs remote exchange.
+The source skill tiers, `welcome-user`, README, CLI manual, design, setup output,
+command startup output, and browser copy must state that contract consistently.
+`integration-files.test.ts`, `setup-flows.test.ts`, `golden-output.test.ts`,
+`cli-web.tryscript.md`, and `web-server.test.ts` pin the route from packaged docs
+through installed and rendered artifacts.
+
 Run the focused behavior and package proofs while iterating:
 
 ```bash

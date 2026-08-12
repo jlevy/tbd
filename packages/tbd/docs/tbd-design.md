@@ -4060,6 +4060,15 @@ It is a CLI-layer presentation over the same file, query, and statistics impleme
 as the terminal commands; it does not introduce another repository model,
 synchronization contract, or persistent service.
 
+The interaction boundary is deliberate.
+In an agent session, the human asks to see the beads and the agent starts
+`tbd web --open`, reports the ready URL, and owns the long-running process.
+Browser controls select and arrange data but never mutate it.
+The human asks the agent for changes; the agent uses the same ordinary `tbd` mutation
+commands it would use without a browser, and the live viewer reflects the resulting
+local state. The server is therefore a presentation surface, not an editor or an
+alternate agent API.
+
 ```bash
 tbd web [--port <n>] [--open]
 ```
@@ -4149,6 +4158,23 @@ Because an installed owner generation is non-empty, a delayed installer cannot r
 successor’s generation on macOS, Linux, or Windows.
 Owner-record open or write failure therefore occurs before the canonical directory
 exists; a failed install removes only an empty provisional directory.
+Immediately after winning `mkdir`, the contender records the provisional directory’s
+filesystem identity (`dev`, `ino`). If owner installation reports failure, it first
+checks for ambiguous success by comparing the installed owner token, then verifies that
+its token-private prepared generation still exists and compares the canonical identity.
+If the canonical reservation vanished or changed, stale recovery or another contender
+made concrete progress; the contender does no cleanup and retries.
+If the same reservation remains, it attempts only `rmdir` cleanup and surfaces an
+unexpected error unchanged.
+A last-instant path replacement can therefore make another empty contender retry, but
+`rmdir` cannot remove its non-empty installed owner generation.
+This state-based classification covers macOS reporting `EINVAL` when an empty parent is
+removed during `rename`, without treating a persistent same-generation `EINVAL` or
+permission failure as contention.
+Directory identity is only a retry/liveness discriminator: an unavailable or
+conservatively equal identity can make acquisition fail, but the installed owner token
+and non-empty generation still enforce mutual exclusion.
+No filesystem handle or mutex is held across these checks.
 The shared-data wrapper recognizes permission failures at the canonical lock,
 token-private preparation, and nested owner-install paths, while permission errors from
 the caller’s critical section pass through unchanged.
@@ -4303,6 +4329,7 @@ These cases are the compact proof obligation and the required adversarial test m
 | Writer is active, or starts/finishes during a candidate read | Epoch/lock validation rejects the candidate; old accepted state remains served |
 | Live lock crosses stale windows, including machine sleep | PID liveness prevents eviction; the second writer waits or times out and no overlap occurs |
 | Owner-record preparation or installation fails | Preparation fails before canonical acquisition; installation cleanup removes only an empty provisional reservation and never overwrites a successor |
+| Empty reservation is removed while owner rename is in flight, including macOS `EINVAL` | Changed directory identity proves generation movement; the private owner source remains intact, no cleanup is attempted against the observed replacement, and acquisition retries. The same error against the same generation is surfaced instead of spun |
 | Hard links are unsupported | The established mkdir election plus same-filesystem directory rename still acquires; no hard-link syscall is used |
 | Stale ownerless lock is unexpectedly non-empty | Empty-only recovery makes no progress and the contender waits on its bounded polling cadence; it neither removes unknown data nor spins |
 | Prepared owner generation disappears during install | Empty-only cleanup preserves any successor, then acquisition fails immediately because retry cannot make progress without its token-private source |

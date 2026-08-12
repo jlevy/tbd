@@ -668,6 +668,12 @@ Serve a live, read-only view of the bead graph in a local browser.
 The page uses the same local bead state, filters, sorting, readiness rules, hierarchy,
 and statistics as the CLI, and displays the equivalent `tbd list` or `tbd ready` command
 for the current view.
+In an agent session, ask naturally: “Show my beads in a browser.”
+The agent should run `tbd web --open`, wait for the startup URL, give you that URL, and
+keep the foreground process alive.
+The page is a viewer, not an editor.
+Its controls change only the query and presentation; ask the agent to make bead changes
+with ordinary `tbd` commands, and their local results appear automatically.
 It never contacts a remote.
 Run the ordinary `tbd sync` command when you want to fetch, merge, or publish bead
 state; the page observes the resulting local changes automatically.

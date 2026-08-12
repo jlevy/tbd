@@ -13,7 +13,7 @@ import {
   writeFile,
 } from 'node:fs/promises';
 import { hostname, tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 
 import type * as fsPromises from 'node:fs/promises';
 
@@ -30,6 +30,7 @@ const ownerInstall = vi.hoisted(() => ({
   release: Promise.resolve(),
   failuresRemaining: 0,
   failureCode: 'EIO',
+  removeDestinationParentOnFailure: false,
   removeSourceOnFailure: false,
 }));
 const hardLink = vi.hoisted(() => ({ attempts: 0 }));
@@ -94,6 +95,9 @@ vi.mock('node:fs/promises', async (importOriginal) => {
       }
       if (destination === ownerInstall.destination && ownerInstall.failuresRemaining > 0) {
         ownerInstall.failuresRemaining -= 1;
+        if (ownerInstall.removeDestinationParentOnFailure) {
+          await actual.rmdir(dirname(destination));
+        }
         if (ownerInstall.removeSourceOnFailure) {
           await actual.rm(source, { recursive: true, force: true });
         }
@@ -173,6 +177,7 @@ describe('withLockfile acquisition ownership race', () => {
     ownerInstall.release = Promise.resolve();
     ownerInstall.failuresRemaining = 0;
     ownerInstall.failureCode = 'EIO';
+    ownerInstall.removeDestinationParentOnFailure = false;
     ownerInstall.removeSourceOnFailure = false;
     hardLink.attempts = 0;
     staleRename.source = '';
@@ -267,6 +272,45 @@ describe('withLockfile acquisition ownership race', () => {
         return Promise.resolve();
       }),
     ).rejects.toMatchObject({ code: 'EIO' });
+
+    expect(executed).toBe(false);
+    await expect(stat(lockPath)).rejects.toMatchObject({ code: 'ENOENT' });
+    expect(await readdir(tempDir)).toEqual([]);
+  });
+
+  it('retries an install EINVAL after its provisional reservation is removed', async () => {
+    const lockPath = join(tempDir, 'removed-install-parent.lock');
+    ownerInstall.destination = join(lockPath, 'owner');
+    ownerInstall.failuresRemaining = 1;
+    ownerInstall.failureCode = 'EINVAL';
+    ownerInstall.removeDestinationParentOnFailure = true;
+    let executions = 0;
+
+    await expect(
+      withLockfile(lockPath, () => {
+        executions += 1;
+        return Promise.resolve('done');
+      }),
+    ).resolves.toBe('done');
+
+    expect(executions).toBe(1);
+    await expect(stat(lockPath)).rejects.toMatchObject({ code: 'ENOENT' });
+    expect(await readdir(tempDir)).toEqual([]);
+  });
+
+  it('preserves an install EINVAL while the same provisional reservation remains', async () => {
+    const lockPath = join(tempDir, 'persistent-install-einval.lock');
+    ownerInstall.destination = join(lockPath, 'owner');
+    ownerInstall.failuresRemaining = 1;
+    ownerInstall.failureCode = 'EINVAL';
+    let executed = false;
+
+    await expect(
+      withLockfile(lockPath, () => {
+        executed = true;
+        return Promise.resolve('should-not-run');
+      }),
+    ).rejects.toMatchObject({ code: 'EINVAL' });
 
     expect(executed).toBe(false);
     await expect(stat(lockPath)).rejects.toMatchObject({ code: 'ENOENT' });

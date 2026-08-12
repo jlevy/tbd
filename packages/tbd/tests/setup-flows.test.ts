@@ -114,6 +114,7 @@ describe('setup flows', { timeout: setupFlowTestTimeout }, () => {
       expect(result.stdout).toContain('Try saying things like:');
       expect(result.stdout).toContain("There's a bug where");
       expect(result.stdout).toContain("Let's plan a new feature");
+      expect(result.stdout).toContain('Show my beads in a browser');
       expect(result.stdout).toContain('Commit this code');
     });
 
@@ -129,6 +130,10 @@ describe('setup flows', { timeout: setupFlowTestTimeout }, () => {
       const portable = await readFile(portablePath, 'utf-8');
       expect(portable).toContain('name:');
       expect(portable).toContain('DO NOT EDIT');
+      expect(portable).toContain('viewing beads in a live browser');
+      expect(portable).toContain('Show my beads in a browser');
+      expect(portable).toContain('tbd web --open');
+      expect(portable).toContain('viewer, not an editor');
 
       // The portable skill and the Claude mirror must carry the same payload.
       const mirror = await readFile(mirrorPath, 'utf-8');

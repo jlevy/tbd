@@ -146,6 +146,7 @@ status or context or knowledge and know what to do next:
 | “Implement these beads” | Agent works through beads systematically | [`tbd shortcut implement-beads`](packages/tbd/docs/shortcuts/standard/implement-beads.md) |
 | “Create a bead for the bug where …” | Agent creates and tracks a bead | `tbd create "..." --type=bug` |
 | “Let’s work on current beads” | Agent finds ready beads and starts working | `tbd ready` |
+| “Show my beads in a browser” | Agent opens and keeps alive the local viewer | `tbd web --open` |
 | “Review this code” | Agent performs comprehensive code review with all guidelines | [`tbd shortcut review-code`](packages/tbd/docs/shortcuts/standard/review-code.md) |
 | “Review this PR” | Agent reviews a GitHub pull request and publishes the review | [`tbd shortcut review-github-pr`](packages/tbd/docs/shortcuts/standard/review-github-pr.md) |
 | “Use the shortcut to commit” | Agent runs full pre-commit checks, code review, and commits | [`tbd shortcut code-review-and-commit`](packages/tbd/docs/shortcuts/standard/code-review-and-commit.md) |
@@ -174,7 +175,9 @@ You just talk naturally.
   This eliminates most merge conflicts.
 - **Live local view:** `tbd web` serves a loopback-only, read-only browser view that
   shares the CLI’s filters and stays current as local bead state changes.
-  It never contacts a remote; ordinary `tbd sync` remains the explicit exchange step.
+  It is a viewer, not an editor: ask your agent to change beads with ordinary `tbd`
+  commands, and the open page updates automatically.
+  It never contacts a remote; explicit `tbd sync` remains the exchange step.
 - **Beads alternative:** Largely compatible with `bd` at the CLI level, but with a
   simpler architecture: no JSONL merge conflicts, no daemon modifying your working tree,
   no SQLite file locking on network filesystems (see
@@ -388,7 +391,7 @@ tbd close proj-a7k2            # Close bead
 tbd close proj-a7k2 --reason="Fixed in commit abc123"
 tbd close proj-a7k2 proj-b3m9 --reason="Sprint done"  # Bulk close (one call, no loops)
 tbd sync                       # Sync with remote (auto-commits and pushes)
-tbd web                        # Live read-only view at http://127.0.0.1:7777
+tbd web --open                 # Open the live, read-only browser viewer
 tbd watch --ready --json       # Block until a bead newly becomes ready
 tbd watch --bead proj-a7k2     # Block until one bead changes on the remote
 tbd changes --since <commit>   # What changed since a sync-branch commit
@@ -403,6 +406,11 @@ local browser. It binds loopback only, has no write route, and does not open a b
 unless you pass `--open`. Large results support up to 10,000 rows and render in
 1,000-row pages. Native local file events normally update it immediately, with a
 one-second reconciliation fallback for missed events.
+When you ask an agent to show your beads in a browser, the agent should run
+`tbd web --open`, wait for the URL, give it to you, and keep the process running.
+The browser’s controls only change the view; ask the agent to create, update, close,
+label, or sync beads with ordinary `tbd` commands.
+Their local results appear on the open page automatically.
 Changing a filter, sort, display mode, or page closes expanded row details.
 During a live update, only rows still present in the bounded response remain expanded,
 with any display-ID change reconciled before their bodies reload.

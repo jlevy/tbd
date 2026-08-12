@@ -243,6 +243,8 @@ describe('startWebServer', () => {
     const page = await loadWebPage();
     expect(page).toBe(await readFile(join(packageDir, 'dist', 'web', 'index.html'), 'utf8'));
     expect(page).toContain('<!doctype html>');
+    expect(page).toContain('Live read-only viewer');
+    expect(page).toContain('Ask your agent to change beads');
     expect(page).toContain('new EventSource');
     expect(page).toContain(':root');
     expect(page).not.toContain('__TBD_WEB_');
