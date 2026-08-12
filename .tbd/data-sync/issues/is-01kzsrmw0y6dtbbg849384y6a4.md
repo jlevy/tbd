@@ -5,7 +5,7 @@ title: Final concurrency and stream-ordering review for tbd web
 kind: epic
 status: closed
 priority: 1
-version: 27
+version: 34
 spec_path: docs/project/specs/active/plan-2026-08-10-tbd-web-live-bead-view.md
 labels:
   - web
@@ -35,13 +35,20 @@ child_order_hints:
   - is-01kzt26j5jfvsg9fs2t5j64gae
   - is-01kzt557vdgx7sm5c0z7pkmnyf
   - is-01kzt558cyrfc0jdz1m85nzjtj
+  - is-01kzt77cb9bjsemwev2d6v9s8h
+  - is-01kzt7x3p2xzab83j6wdyz490j
+  - is-01kzt816bxs150d1bnaw4qceej
+  - is-01kzt83s73w8jes74dwg675qke
+  - is-01kzt86tq1ykb1n42vffhga4et
 created_at: 2026-08-12T01:16:03.997Z
-updated_at: 2026-08-12T05:09:22.141Z
-closed_at: 2026-08-12T05:09:22.140Z
-close_reason: Completed end-to-end concurrency review and all 22 tracked findings, including the two post-push Bugbot lock-liveness findings. Design proof, file/function map, adversarial tests, full release gates, and local packaging validation are green.
+updated_at: 2026-08-12T06:08:44.039Z
+closed_at: 2026-08-12T06:08:44.038Z
+close_reason: Completed the end-to-end concurrency review and all 27 tracked child findings. The design proof, portable ownership protocol, stable snapshots, bounded observer/SSE/client queues, shutdown fencing, and adversarial regressions pass 113 Vitest files (1,561 tests), 1,074 transcripts, artifact smoke tests, lint/type/format, publint, and package-age checks.
 ---
 Audit the tbd web pipeline end to end for filesystem-event races, debounce/reconciliation ordering, serialized reload correctness, SSE fan-out/backpressure and reconnect replay, shutdown interleavings, client state monotonicity, duplicate delivery, deadlock/livelock, and contention. Track every confirmed finding as a child bead, implement all fixes, and retain adversarial regression evidence.
 
 ## Notes
 
 Reopened: Two valid post-push Bugbot lock-liveness findings arrived; reopening for tracked follow-up.
+
+Reopened: Final-head Bugbot portability finding: hard-link owner installation can fail on otherwise supported filesystems; reopening for a portable atomic owner-generation protocol.
