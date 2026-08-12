@@ -723,7 +723,7 @@ Local mutating commands such as `tbd create`, `tbd update`, and `tbd close` are
 reflected the same way.
 Descriptions and notes load only when a row is expanded, so the board remains bounded on
 large repositories. A response can carry up to 10,000 rows; the browser paints them in
-1,000-row pages with sticky and end-of-page navigation.
+5,000-row pages with sticky and end-of-page navigation.
 Above 10,000 rows, the page reports the complete count and asks for a narrower query.
 Changing a query control, display mode, or page closes expanded details.
 A live graph update retains and remaps an expansion only while that bead remains in the

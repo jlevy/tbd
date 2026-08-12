@@ -300,9 +300,11 @@ describe('chevron icon system', () => {
     const disclosureRule = blockAfter(css, '.disclosure');
 
     expect(css).toContain('--board-row-line-height: 18px');
+    expect(css).toContain('--row-disclosure-offset-y: 1px');
     expect(cellRule).toContain('vertical-align: baseline');
     expect(caretRule).toContain('vertical-align: top');
     expect(disclosureRule).toContain('height: var(--board-row-line-height)');
+    expect(disclosureRule).toContain('transform: translateY(var(--row-disclosure-offset-y))');
   });
 
   it('keeps icon-only controls quiet until hover, focus, or open state', async () => {
@@ -446,7 +448,7 @@ describe('semantic color and component roles', () => {
 });
 
 describe('tree-title layout', () => {
-  it('wraps title text after the complete tree guide instead of under it', async () => {
+  it('wraps after the tree guide and continues only ancestor verticals', async () => {
     const [css, client] = await Promise.all([readStyleBlock(), readFile(clientPath, 'utf8')]);
     const contentRule = blockAfter(css, '.title-content');
     const textRule = blockAfter(css, '.title-text');
@@ -455,7 +457,11 @@ describe('tree-title layout', () => {
     expect(textRule, 'expected a separately wrapping title span').not.toBeNull();
     expect(textRule).toContain('min-width: 0');
     expect(blockAfter(css, '.guide')).toContain('color: var(--muted)');
+    const continuationRule = blockAfter(css, '.tree-continuation');
+    expect(continuationRule).toContain('top: var(--board-row-line-height)');
+    expect(continuationRule).toContain('border-left: 1px solid var(--muted)');
     expect(client).toContain("titleContent.className = 'title-content'");
+    expect(client).toContain('treeContinuationColumns(row.prefix)');
     expect(client).toContain("titleText.className = 'title-text'");
     expect(client).not.toContain('title.append(document.createTextNode(row.title))');
   });
@@ -512,16 +518,38 @@ describe('chrome ownership', () => {
 });
 
 describe('expanded-row emphasis', () => {
-  it('bolds only bead identity and leaves expanded rows on the base surface', async () => {
+  it('bolds only the bead ID and aligns detail to its structural column', async () => {
     const [css, client] = await Promise.all([readStyleBlock(), readFile(clientPath, 'utf8')]);
-    const openIdentityRule = blockAfter(css, 'tr.open > td.id,\ntr.open > td.title');
+    const openIdentityRule = blockAfter(css, 'tr.open > td.id');
     const openRowRule = blockAfter(css, 'tr.open > td');
-    const bodyRule = blockAfter(css, 'tr.bodyrow > td');
+    const bodyRule = blockAfter(css, 'tr.bodyrow > td.body-cell');
 
     expect(openIdentityRule).toContain('font-weight: var(--weight-strong)');
+    expect(css).not.toContain('tr.open > td.title');
     expect(openRowRule).not.toContain('font-weight:');
     expect(bodyRule).not.toContain('background: var(--panel)');
+    expect(bodyRule).toContain('padding-left: 10px');
+    expect(client).toContain("appendCell(bodyRow, '', 'caret')");
+    expect(client).toContain("appendCell(bodyRow, '', 'body-cell')");
+    expect(client).toContain('cell.colSpan = 6');
     expect(client).toContain("const title = appendCell(tableRow, '', 'title')");
+  });
+});
+
+describe('bulk expansion affordance', () => {
+  it('shows only a working Expand all or Collapse all action', async () => {
+    const [client, page] = await Promise.all([
+      readFile(clientPath, 'utf8'),
+      readFile(pagePath, 'utf8'),
+    ]);
+    expect(page).toContain('<button id="expandall" hidden>Expand all</button>');
+    expect(client).toContain(
+      'elements.expandAll.hidden = page.rows.length === 0 || !canBulkExpand',
+    );
+    expect(client).toContain("allOpen ? 'Collapse all' : 'Expand all'");
+    expect(client).not.toContain('Expand individually');
+    expect(client).not.toContain('Expand page');
+    expect(client).not.toContain('Collapse page');
   });
 });
 

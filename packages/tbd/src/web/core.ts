@@ -191,7 +191,7 @@ const DEFAULT_CONTROLS: BoardControls = {
 const DEFAULT_RESUME_KEY = 'tbd.web.lastEventId';
 export const MAX_BODY_REQUEST_CONCURRENCY = 8;
 /** Bounds each table paint while still keeping every served row reachable. */
-export const BOARD_PAGE_SIZE = 1_000;
+export const BOARD_PAGE_SIZE = 5_000;
 /** Bounds detail DOM, requests, and retained long-form content. */
 export const MAX_EXPANDED_ROWS = 100;
 /** Keeps recently collapsed details warm without retaining a whole large project. */
@@ -224,6 +224,25 @@ export function paginateBoardRows(
   const start = pageIndex * BOARD_PAGE_SIZE;
   const end = Math.min(start + BOARD_PAGE_SIZE, total);
   return { rows: rows.slice(start, end), pageIndex, pageCount, start, end, total };
+}
+
+/**
+ * Return character columns whose ancestor tree bars continue through a wrapped title.
+ *
+ * Pretty prefixes are made from four-character ancestor segments followed by one
+ * four-character terminal connector. The terminal `├── ` or `└── ` belongs only to
+ * the current bead; only ancestor `│   ` segments continue below the first line.
+ */
+export function treeContinuationColumns(prefix: string): number[] {
+  const terminalConnectorWidth = 4;
+  const ancestorEnd = Math.max(0, prefix.length - terminalConnectorWidth);
+  const columns: number[] = [];
+  for (let index = 0; index < ancestorEnd; index += 1) {
+    if (prefix[index] === '│') {
+      columns.push(index);
+    }
+  }
+  return columns;
 }
 
 interface BodyRequest {

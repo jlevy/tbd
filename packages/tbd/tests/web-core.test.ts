@@ -12,6 +12,7 @@ import {
   MAX_GHOST_ROWS,
   paginateBoardRows,
   phaseLabel,
+  treeContinuationColumns,
 } from '../src/web/core.js';
 import type {
   BoardControls,
@@ -105,7 +106,7 @@ async function flush(): Promise<void> {
 }
 
 describe('client core pure helpers', () => {
-  it('pages a 10000-row board into bounded DOM-sized windows', () => {
+  it('pages 10000 rows only at the 5000-row last-resort boundary', () => {
     const seed = board(state()).rows[0]!;
     const rows: BoardRowView[] = Array.from({ length: 10_000 }, (_, index) => ({
       ...seed,
@@ -116,7 +117,7 @@ describe('client core pure helpers', () => {
     expect(first.rows).toHaveLength(BOARD_PAGE_SIZE);
     expect(first).toMatchObject({
       pageIndex: 0,
-      pageCount: 10,
+      pageCount: 2,
       start: 0,
       end: BOARD_PAGE_SIZE,
       total: 10_000,
@@ -124,11 +125,11 @@ describe('client core pure helpers', () => {
 
     const last = paginateBoardRows(rows, 999);
     expect(last.rows).toHaveLength(BOARD_PAGE_SIZE);
-    expect(last.rows[0]?.id).toBe('web-9000');
+    expect(last.rows[0]?.id).toBe('web-5000');
     expect(last).toMatchObject({
-      pageIndex: 9,
-      pageCount: 10,
-      start: 9_000,
+      pageIndex: 1,
+      pageCount: 2,
+      start: 5_000,
       end: 10_000,
       total: 10_000,
     });
@@ -143,6 +144,15 @@ describe('client core pure helpers', () => {
       end: 0,
       total: 0,
     });
+  });
+
+  it('continues only ancestor verticals through wrapped pretty titles', () => {
+    expect(treeContinuationColumns('')).toEqual([]);
+    expect(treeContinuationColumns('├── ')).toEqual([]);
+    expect(treeContinuationColumns('└── ')).toEqual([]);
+    expect(treeContinuationColumns('│   ├── ')).toEqual([0]);
+    expect(treeContinuationColumns('    │   └── ')).toEqual([4]);
+    expect(treeContinuationColumns('│   │   └── ')).toEqual([0, 4]);
   });
 
   it('serializes controls one-to-one with CLI-shaped query parameters', () => {

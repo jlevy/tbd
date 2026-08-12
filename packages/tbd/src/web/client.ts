@@ -6,6 +6,7 @@ import {
   MAX_EXPANDED_ROWS,
   paginateBoardRows,
   phaseLabel,
+  treeContinuationColumns,
 } from './core.js';
 import type {
   BeadBodyView,
@@ -452,6 +453,13 @@ function renderRow(
     guide.className = 'guide';
     guide.textContent = row.prefix;
     titleContent.append(guide);
+    for (const column of treeContinuationColumns(row.prefix)) {
+      const continuation = document.createElement('span');
+      continuation.className = 'tree-continuation';
+      continuation.style.setProperty('--tree-guide-offset', `${column + 0.5}ch`);
+      continuation.setAttribute('aria-hidden', 'true');
+      titleContent.append(continuation);
+    }
   }
   const titleText = document.createElement('span');
   titleText.className = 'title-text';
@@ -480,8 +488,9 @@ function renderRow(
   if (open) {
     const bodyRow = document.createElement('tr');
     bodyRow.className = 'bodyrow';
-    const cell = appendCell(bodyRow, '');
-    cell.colSpan = 7;
+    appendCell(bodyRow, '', 'caret');
+    const cell = appendCell(bodyRow, '', 'body-cell');
+    cell.colSpan = 6;
     cell.append(renderBody(view, row.id));
     fragment.append(bodyRow);
   }
@@ -726,15 +735,10 @@ function renderBoard(view: ClientView, board: BoardResponse): void {
   elements.empty.textContent = view.boardError ?? 'No beads match this query.';
   const canBulkExpand = page.rows.length <= MAX_EXPANDED_ROWS;
   const allOpen = page.rows.length > 0 && page.rows.every((row) => view.expanded.has(row.id));
-  elements.expandAll.textContent = canBulkExpand
-    ? allOpen
-      ? 'Collapse page'
-      : 'Expand page'
-    : 'Expand individually';
-  elements.expandAll.disabled = page.rows.length === 0 || !canBulkExpand;
-  elements.expandAll.title = canBulkExpand
-    ? 'Expand or collapse every row on this page.'
-    : `Narrow the query to ${MAX_EXPANDED_ROWS} rows or fewer to expand them together.`;
+  elements.expandAll.hidden = page.rows.length === 0 || !canBulkExpand;
+  elements.expandAll.textContent = allOpen ? 'Collapse all' : 'Expand all';
+  elements.expandAll.disabled = elements.expandAll.hidden;
+  elements.expandAll.title = 'Expand or collapse every bead in the current result.';
 }
 
 function renderHeader(view: ClientView, board: BoardResponse, watch: ObservationStateView): void {

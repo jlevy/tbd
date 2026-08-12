@@ -4360,10 +4360,14 @@ A delayed duplicate event at an already-adopted version cannot replace that cano
 state. Board responses carry at most 10,000 light rows and retain the full match count
 when truncated. Pretty-tree context metadata is derived from those returned rows, so it
 cannot name or serialize context that was cut off by the response ceiling.
-The browser renders those rows in 1,000-row pages, exposes sticky and end-of-page
+The browser renders those rows in 5,000-row pages, exposes sticky and end-of-page
 navigation, and allows bulk detail expansion only when 100 rows or fewer are visible on
-the page. At most 100 details remain expanded, the body cache retains 200 entries, and a
-mass deletion animates at most 100 ghost rows.
+the page. This threshold is empirical rather than round-number preference: a production
+Chromium stress page measured 93,323 elements and 1.71–2.55 seconds at 5,000 rows,
+versus 186,380 elements and 2.81–5.50 seconds at 10,000. The former is a usable
+last-resort page; the latter adds substantial layout and garbage-collection variance.
+At most 100 details remain expanded, the body cache retains 200 entries, and a mass
+deletion animates at most 100 ghost rows.
 Changed and removed row ids remain complete in the canonical board state for the latest
 graph movement; a bounded event frame is only the notification that causes the client to
 fetch that state.

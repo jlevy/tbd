@@ -224,7 +224,7 @@ Payload shape matters more than raw speed:
 - Filtering runs server-side so semantics come from the shared module.
   On loopback this is sub-millisecond and keystroke-responsive.
 - The server returns at most 10,000 light rows while preserving the unsliced match
-  count. The browser renders the response in 1,000-row pages, so all served rows remain
+  count. The browser renders the response in 5,000-row pages, so all served rows remain
   reachable without making every refresh lay out a six-figure DOM tree.
   Pretty-tree context ids and their count describe only those returned rows.
   Sticky and end-of-page controls navigate the pages and return the viewport to the
@@ -289,8 +289,28 @@ cushion. The copy primitive keeps one real focusable button per literal but rend
 normal and checked states as CSS masks and delegates events at the document: compared
 with the first inline-SVG implementation, this sample avoids 3,045 SVG elements and
 replaces roughly 4,060 per-target listeners with three shared listeners.
-The working set therefore remains bounded by the 1,000-row page—not the 10,000-row
-response—while retaining keyboard and screen-reader access.
+
+The pagination threshold was then reconsidered from first principles against the
+production bundle rather than retained at 1,000 by convention.
+A separate loopback fixture exercised the complete stitched UI with long titles,
+semantic states, labels, ready markers, copy controls, and nested pretty prefixes:
+
+| Visible rows | Total elements | Copy buttons | Paint-ready navigation |
+| ---: | ---: | ---: | ---: |
+| 5,000 | 93,323 | 5,014 | 1.71–2.55 s |
+| 10,000 | 186,380 | 10,014 | 2.81–5.50 s |
+
+These are three to four warm Chromium navigations on 2026-08-12, each requiring the last
+row to exist plus a 20 ms postcondition cushion.
+The near-linear node count and the larger repeat-run variance at 10,000 show that
+garbage collection and layout—not API transfer—become the boundary.
+Five thousand is therefore the largest clean default: ordinary repositories through
+5,000 beads avoid pagination, while the uncommon 5,001–10,000 range pays one page
+transition instead of forcing every local update to replace roughly 186,000 elements.
+The 1,000-row measurement remains the normal-scale latency reference, not the page
+limit.
+The working set is bounded by the 5,000-row page—not the 10,000-row response—while
+retaining keyboard and screen-reader access.
 
 ### Liveness
 
@@ -752,14 +772,14 @@ to land the whole command through one PR.
 ### Phase 6: Production validation and merge
 
 - [x] Local release matrix green after final review: format, strict lint/typecheck,
-  build, 1,503 Vitest tests, 1,074 tryscript checks, publint, 31 package-age pins, watch
+  build, 1,593 Vitest tests, 1,075 tryscript checks, publint, 31 package-age pins, watch
   release smoke, and packed-web proof.
   The unchanged production audit advisory is tracked separately as `tbd-6gy0`.
 - [x] Full matrix green: suite + the `tbd web` tryscript on Ubuntu/macOS/Windows CI; the
   coverage job runs the repository-wide tryscript set on Ubuntu.
 - [x] Perf budget assertion on the 10,001-issue boundary fixture, including the
   10,000-row response cap, 5 MiB payload ceiling, exclusion of descriptions and notes,
-  and the pure 1,000-row pagination contract.
+  and the pure 5,000-row pagination contract.
   Production Chromium measurements above cover the dominant DOM/layout path.
 - [x] Isolation assertion reusing the release-smoke snapshot pattern: a running
   `tbd web` leaves the caller worktree, sync refs, `FETCH_HEAD`, hidden worktree, and
@@ -949,7 +969,7 @@ until they hold:
   motion remains complete in the canonical board state while field detail is capped at
   100 candidates and 256 KiB, and event-frame size does not grow with graph size.
 - **Performance**: exercise a 10,001-issue boundary fixture; assert the 10,000-row cap,
-  board response time and serialized size against the §1.4 budget, assert 1,000-row page
+  board response time and serialized size against the §1.4 budget, assert 5,000-row page
   boundaries in the pure client core, and measure the stitched page in Chromium because
   server timing does not represent DOM construction, style, layout, or paint.
 - **Isolation**: reuse the release-smoke assertions.

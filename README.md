@@ -404,7 +404,7 @@ one matching change, and exits.
 `tbd web` stays in the foreground and serves the same bead queries and hierarchy in a
 local browser. It binds loopback only, has no write route, and does not open a browser
 unless you pass `--open`. Large results support up to 10,000 rows and render in
-1,000-row pages. Native local file events normally update it immediately, with a
+5,000-row pages. Native local file events normally update it immediately, with a
 one-second reconciliation fallback for missed events.
 When you ask an agent to show your beads in a browser, the agent should run
 `tbd web --open`, wait for the URL, give it to you, and keep the process running.

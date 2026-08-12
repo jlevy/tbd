@@ -89,18 +89,22 @@
        still green. Glyphs are CSS masks and events are delegated, leaving one
        accessible button—but no SVG subtree or private listeners—per literal.
 
-     Tree structure (.guide, .title-content)
+     Tree structure (.guide, .tree-continuation, .title-content)
        Line-drawing characters are structural text, so they reuse the
        --muted auxiliary-text token rather than the fainter border color.
-       Wrapped titles keep a hanging indent after the entire guide.
+       Wrapped titles keep a hanging indent after the entire guide. Only
+       ancestor verticals continue through wrapped lines; the terminal
+       branch or elbow belongs to the first line and never continues.
 
      Typography and expansion (--weight-medium, --weight-strong)
        The complete type scale is 15px page title, 14px body/content, and one
        12px compact size for chrome and dense data—never ad-hoc intermediate
        sizes. Base text is regular. Repeated small-cap labels use medium; major
-       headings and an expanded bead's ID/title use strong. Expansion never
+       headings and an expanded bead's ID use strong. Expansion never
        changes the weight of status, priority, kind, or tags, and it adds no
-       persistent surface color. The muted panel wash is hover feedback only.
+       persistent surface color or title-width reflow. The muted panel wash
+       is hover feedback only. Expanded detail starts on the ID grid line;
+       the disclosure column always stands alone.
 
      Scrollbars (--scrollbar-*)
        Every scroll container uses one subtle native-compatible geometry.
@@ -222,6 +226,7 @@
   --select-chevron-padding: 36px;
   --row-disclosure-width: 20px;
   --board-row-line-height: 18px;
+  --row-disclosure-offset-y: 1px;
   --icon-glyph-size: 15px;
   --icon-button-size: 28px;
   --copy-button-size: 18px;
@@ -827,6 +832,7 @@ td.caret {
   padding: 0;
   color: var(--muted);
   background: transparent;
+  transform: translateY(var(--row-disclosure-offset-y));
 }
 tr.board-page-row > td {
   background: var(--panel);
@@ -853,15 +859,21 @@ tbody tr:not(.bodyrow):not(.board-page-row):hover {
 tr.open > td {
   border-bottom: none;
 }
-tr.open > td.id,
-tr.open > td.title {
+tr.open > td.id {
   font-weight: var(--weight-strong);
 }
 tr.context > td:not(.caret) {
   opacity: 0.5;
 }
 tr.bodyrow > td {
-  padding: 0 10px 12px 28px;
+  padding-top: 0;
+  padding-bottom: 12px;
+}
+tr.bodyrow > td.caret {
+  padding-right: 0;
+}
+tr.bodyrow > td.body-cell {
+  padding-left: 10px;
 }
 .guide {
   font-family: var(--mono);
@@ -875,6 +887,17 @@ tr.bodyrow > td {
   display: flex;
   align-items: baseline;
   min-width: 0;
+  position: relative;
+}
+.tree-continuation {
+  position: absolute;
+  top: var(--board-row-line-height);
+  bottom: 0;
+  left: var(--tree-guide-offset);
+  border-left: 1px solid var(--muted);
+  font-family: var(--mono);
+  font-size: var(--font-size-small);
+  pointer-events: none;
 }
 .title-text {
   flex: 1 1 auto;
