@@ -5,7 +5,7 @@ title: Final concurrency and stream-ordering review for tbd web
 kind: epic
 status: closed
 priority: 1
-version: 68
+version: 76
 spec_path: docs/project/specs/active/plan-2026-08-10-tbd-web-live-bead-view.md
 labels:
   - web
@@ -65,10 +65,16 @@ child_order_hints:
   - is-01kzve1v1k16v0yqykh5v6hfsz
   - is-01kzve4ked3qj7sph0zhadrdfr
   - is-01kzvengx0dmgsmmrb9my3gnwy
+  - is-01kzvg7e6xrsjjg13ya1e8mgk8
+  - is-01kzvg7erezahwkze1bb9dt8kp
+  - is-01kzvg7mzrhqy5m7a70qw0gn6e
+  - is-01kzvg7rjy8c7nzsyhh2yv4ed7
+  - is-01kzvg7v6t0c8yrpzhd912nq1q
+  - is-01kzvg7w65mdy9828pfetqs2gh
 created_at: 2026-08-12T01:16:03.997Z
-updated_at: 2026-08-12T17:21:53.398Z
-closed_at: 2026-08-12T17:21:53.397Z
-close_reason: Final concurrency, stream-ordering, UX/design-system, documentation, PR-comment, performance, package, and merge-readiness review complete. Existing mkdir writer lock plus persistent epoch, lock-free staged snapshots, bounded observer/SSE/client queues, monotonic adoption, abort fencing, and shutdown invariants match the normative design and adversarial tests; no open P0-P3 finding remains.
+updated_at: 2026-08-12T17:52:41.040Z
+closed_at: 2026-08-12T17:52:41.040Z
+close_reason: Final concurrency, stream-ordering, design-system, documentation/skill, scale, and live-browser acceptance review complete. All child findings are implemented, verified, and documented; no remaining actionable review finding.
 ---
 Audit the tbd web pipeline end to end for filesystem-event races, debounce/reconciliation ordering, serialized reload correctness, SSE fan-out/backpressure and reconnect replay, shutdown interleavings, client state monotonicity, duplicate delivery, deadlock/livelock, and contention. Track every confirmed finding as a child bead, implement all fixes, and retain adversarial regression evidence.
 
@@ -79,3 +85,5 @@ Reopened: Two valid post-push Bugbot lock-liveness findings arrived; reopening f
 Reopened: Final-head Bugbot portability finding: hard-link owner installation can fail on otherwise supported filesystems; reopening for a portable atomic owner-generation protocol.
 
 Reopened: Final installation-surface audit found missing natural-language web-view routing and viewer ownership guidance in the shipped agent skill and onboarding docs.
+
+Reopened: Additional live-browser acceptance feedback after the first design-system commit: bulk-expand affordance, expanded identity/body alignment, and evidence-based pagination threshold require follow-up before push.
