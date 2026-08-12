@@ -3,9 +3,9 @@ type: is
 id: is-01kzn5wbxkb6c0db6k19wj7yzj
 title: "Spec: tbd web — production-ready live bead view"
 kind: epic
-status: open
+status: closed
 priority: 1
-version: 30
+version: 32
 spec_path: docs/project/specs/active/plan-2026-08-10-tbd-web-live-bead-view.md
 labels:
   - viewer
@@ -21,9 +21,9 @@ child_order_hints:
   - is-01kzrs6s3fn7gtzgt70wx9yzas
   - is-01kzrs779s8d2t4qmvpx310p22
 created_at: 2026-08-10T06:31:08.978Z
-updated_at: 2026-08-11T23:05:15.939Z
-closed_at: null
-close_reason: null
+updated_at: 2026-08-12T00:09:11.480Z
+closed_at: 2026-08-12T00:09:11.479Z
+close_reason: "PR #207 production implementation and all review/validation work complete; ready to merge."
 extensions:
   linear:
     id: 87a13af9-a3b4-4897-873a-f8bfeb82fa65
@@ -35,6 +35,4 @@ Deliver PR #207 to the approved merge bar in docs/project/specs/active/plan-2026
 
 ## Notes
 
-PR #207 production landing is complete at 50f895fb. All phases and the owner-requested 10k scale follow-up are implemented. The board serves 10,000 rows using 1,000-row pages and independently bounded detail/cache/motion work. All 18 final-review findings are bead-mapped, implemented, and regression-tested; all 10 inline threads are resolved. Local CI passes 110 files / 1,503 tests and hosted run 31535582219 is fully green. The PR is OPEN, non-draft, MERGEABLE, CLEAN, and ready to merge.
-
-Reopened: Owner-directed contract revision: make tbd web local-only and move all remote synchronization back to standard tbd sync.
+PR #207 satisfies the production merge bar on final head 2a7a7d44. The shipped command is loopback-only, read-only, local-only, dependency-free, and shares CLI query/stat/tree semantics. Native events plus one-second reconciliation make local commands and explicit tbd sync visible promptly. The response ceiling is 10,000 rows with 1,000-row pages and independently bounded detail/SSE/motion state. All 24 review findings have bead/file/function dispositions: 23 implemented, R24 rejected with evidence and documented. Local and hosted gates are green; 12/12 review threads resolved; PR is OPEN, non-draft, MERGEABLE, CLEAN and ready to merge.
