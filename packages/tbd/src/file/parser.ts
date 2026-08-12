@@ -17,26 +17,11 @@
  * See: tbd-design.md §2.1 Markdown + YAML Front Matter Format
  */
 
-import matter from 'gray-matter';
-import { parse as parseYaml } from 'yaml';
-
+import { hasMarkdownFrontmatter, parseMarkdownMatter } from '../utils/gray-matter.js';
 import { normalizeLineEndings } from '../utils/markdown-utils.js';
 import { sortKeys, stringifyYaml } from '../utils/yaml-utils.js';
 import type { Issue } from '../lib/types.js';
 import { IssueSchema, ISSUE_FIELD_ORDER } from '../lib/schemas.js';
-
-/**
- * gray-matter options using the 'yaml' package as engine.
- * This preserves date strings instead of converting them to Date objects.
- */
-export const matterOptions = {
-  engines: {
-    yaml: {
-      parse: (str: string): object => parseYaml(str) as object,
-      stringify: (obj: object): string => stringifyYaml(obj),
-    },
-  },
-};
 
 /**
  * Parsed issue file content.
@@ -57,11 +42,11 @@ export function parseMarkdownWithFrontmatter(content: string): ParsedIssueFile {
   const normalizedContent = normalizeLineEndings(content);
 
   // Check for valid frontmatter
-  if (!matter.test(normalizedContent)) {
+  if (!hasMarkdownFrontmatter(normalizedContent)) {
     throw new Error('Invalid format: missing front matter opening delimiter');
   }
 
-  const parsed = matter(normalizedContent, matterOptions);
+  const parsed = parseMarkdownMatter(normalizedContent);
 
   // gray-matter returns empty object if no closing delimiter found
   // but the raw matter string will be empty if parsing failed

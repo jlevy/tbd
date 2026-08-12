@@ -12,11 +12,11 @@
 
 import { readdir, readFile } from 'node:fs/promises';
 import { join, basename } from 'node:path';
-import matter from 'gray-matter';
 
 import { readConfig, readLocalState, findTbdRoot } from './config.js';
 import { isDocsStale, syncDocsWithDefaults } from './doc-sync.js';
 import { estimateTokens } from '../lib/format-utils.js';
+import { hasMarkdownFrontmatter, parseMarkdownMatter } from '../utils/gray-matter.js';
 
 // =============================================================================
 // Scoring Constants
@@ -249,15 +249,15 @@ export class DocCache {
 
   /**
    * Parse YAML frontmatter from content and return typed data.
-   * Uses gray-matter for consistent frontmatter parsing.
+   * Uses the centralized gray-matter boundary for consistent YAML parsing.
    */
   private parseFrontmatterData(content: string): DocFrontmatter | undefined {
-    if (!matter.test(content)) {
+    if (!hasMarkdownFrontmatter(content)) {
       return undefined;
     }
 
     try {
-      const parsed = matter(content).data as Record<string, unknown>;
+      const parsed = parseMarkdownMatter(content).data as Record<string, unknown>;
       return {
         title: typeof parsed.title === 'string' ? parsed.title : undefined,
         description: typeof parsed.description === 'string' ? parsed.description : undefined,

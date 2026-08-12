@@ -5621,7 +5621,9 @@ We adopt this approach.
 
 **Mitigations**:
 
-- Use established libraries (gray-matter, js-yaml)
+- Use gray-matter for front-matter delimiters and the `yaml` package for all YAML
+  parsing and serialization, behind one wrapper that rejects non-YAML language markers
+  before gray-matter can select its built-in JavaScript evaluator
 
 - Canonical serialization rules ensure consistency
 

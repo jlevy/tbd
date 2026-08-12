@@ -95,6 +95,16 @@ Description.`;
     expect(frontmatter).toContain('- frontend');
   });
 
+  it('preserves YAML date scalars as strings', () => {
+    const content = `---
+released: 2025-01-01
+---
+
+Body.`;
+
+    expect(parseFrontmatter(content)).toBe('released: 2025-01-01');
+  });
+
   it('handles values containing colons (YAML special chars)', () => {
     // This is the critical bug: values with "Use for: something" patterns
     // must be quoted or they appear as separate YAML keys when re-parsed

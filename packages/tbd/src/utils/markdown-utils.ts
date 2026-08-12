@@ -1,12 +1,11 @@
 /**
  * Markdown utilities for processing markdown content.
  *
- * Uses gray-matter for parsing and centralized yaml-utils for stringify to ensure
- * proper handling of special YAML characters (colons, quotes, etc.).
+ * Uses the centralized gray-matter boundary for delimiter handling and yaml-utils
+ * for serialization, ensuring consistent YAML semantics everywhere.
  */
 
-import matter from 'gray-matter';
-
+import { hasMarkdownFrontmatter, parseMarkdownMatter } from './gray-matter.js';
 import { stringifyYamlCompact } from './yaml-utils.js';
 
 export interface ParsedMarkdown {
@@ -32,12 +31,12 @@ export function normalizeLineEndings(content: string): string {
 export function parseMarkdown(content: string): ParsedMarkdown {
   const normalized = normalizeLineEndings(content);
 
-  if (!matter.test(normalized)) {
+  if (!hasMarkdownFrontmatter(normalized)) {
     return { frontmatter: null, body: content };
   }
 
   try {
-    const parsed = matter(normalized);
+    const parsed = parseMarkdownMatter(normalized);
 
     // Extract frontmatter from parsed.data by stringifying back to YAML
     // The matter property is unreliable, so we reconstruct from data

@@ -7,10 +7,9 @@ category: typescript
 ---
 # TypeScript YAML Handling Rules
 
-**Last Updated**: 2026-05-21
+**Last Updated**: 2026-08-12
 
-**Tracks**: `yaml@^2.8.4` (latest stable; 2026-05-02). The `yaml@3.0.0-1` release is
-tagged `next` (pre-release)—do not adopt yet.
+**Tracks**: `yaml` 2.x. Follow the package-age rule before adopting a newer release.
 Zod 4.x is the recommended validation companion.
 
 **Related**:
@@ -180,13 +179,43 @@ const config = ConfigSchema.parse(parse(content));
 import matter from 'gray-matter';
 const output = matter.stringify(body, frontmatter);
 
-// Good: Use gray-matter for parsing, yaml package for serialization
+// Good: Centralize gray-matter and route both parsing and serialization through yaml
 import matter from 'gray-matter';
+import { parse } from 'yaml';
 import { stringifyYaml } from './yaml-utils.js';
 
-const { data, content } = matter(input);
+const matterOptions = {
+  engines: {
+    yaml: {
+      parse,
+      stringify: stringifyYaml,
+    },
+  },
+};
+
+function parseMarkdownMatter(input: string) {
+  if (matter.test(input, matterOptions)) {
+    const language = matter.language(input, matterOptions).name.toLowerCase();
+    if (language !== '' && language !== 'yaml' && language !== 'yml') {
+      throw new Error(`Unsupported front-matter language: ${language}`);
+    }
+  }
+  return matter(input, matterOptions);
+}
+
+const { data, content } = parseMarkdownMatter(input);
 const output = `---\n${stringifyYaml(data)}---\n\n${content}`;
 ```
+
+Keep this option object and the gray-matter call in one wrapper module.
+Direct calls silently fall back to gray-matter’s legacy `js-yaml` engine, which changes
+YAML semantics such as converting date-looking scalars to `Date` objects and can
+reintroduce advisories in that transitive parser.
+gray-matter also includes a JavaScript engine that evaluates explicit `---javascript`
+front matter; a YAML-only application must reject non-YAML language markers before
+calling gray-matter.
+A wrapper preserves gray-matter’s delimiter handling without allowing call sites to
+select inconsistent YAML engines.
 
 ## Testing YAML Output
 
