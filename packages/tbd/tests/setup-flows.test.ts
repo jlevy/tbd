@@ -5,15 +5,12 @@
 
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { mkdtemp, rm, mkdir, writeFile, readFile, access, realpath } from 'node:fs/promises';
-import { tmpdir, platform } from 'node:os';
+import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { execSync, spawnSync } from 'node:child_process';
+import { subprocessTestTimeout } from './test-helpers.js';
 
-// Windows process spawning is significantly slower on CI
-const isWindows = platform() === 'win32';
-const setupFlowTestTimeout = isWindows ? 60000 : 15000;
-
-describe('setup flows', { timeout: setupFlowTestTimeout }, () => {
+describe('setup flows', { timeout: subprocessTestTimeout() }, () => {
   let tempDir: string;
   const tbdBin = join(__dirname, '..', 'dist', 'bin.mjs');
 
@@ -424,7 +421,7 @@ describe('setup flows', { timeout: setupFlowTestTimeout }, () => {
     });
   });
 
-  describe('beads migration', { timeout: isWindows ? 60000 : 15000 }, () => {
+  describe('beads migration', { timeout: subprocessTestTimeout() }, () => {
     it('detects beads and offers migration', async () => {
       initGitRepo();
 
@@ -520,7 +517,7 @@ describe('setup flows', { timeout: setupFlowTestTimeout }, () => {
     });
   });
 
-  describe('legacy cleanup', { timeout: 30000 }, () => {
+  describe('legacy cleanup', { timeout: subprocessTestTimeout(30_000) }, () => {
     it('removes legacy tbd scripts from .claude/scripts/', async () => {
       initGitRepo();
 

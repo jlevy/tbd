@@ -11,6 +11,8 @@ import { promisify } from 'node:util';
 
 import { afterEach, describe, expect, it } from 'vitest';
 
+import { subprocessTestTimeout } from './test-helpers.js';
+
 const execFileAsync = promisify(execFile);
 const packageDir = fileURLToPath(new URL('..', import.meta.url));
 const tbdBin = join(packageDir, 'dist', 'bin.mjs');
@@ -182,7 +184,7 @@ function waitForDescriptor(child: ChildProcess): Promise<WebDescriptor> {
       reject(
         new Error(`Timed out waiting for tbd web readiness\nstdout: ${stdout}\nstderr: ${stderr}`),
       );
-    }, 15_000);
+    }, subprocessTestTimeout());
     child.stdout?.setEncoding('utf8');
     child.stderr?.setEncoding('utf8');
     child.stderr?.on('data', (chunk: string) => {
@@ -294,7 +296,7 @@ afterEach(async () => {
   );
 });
 
-describe('tbd web CLI', () => {
+describe('tbd web CLI', { timeout: subprocessTestTimeout(30_000) }, () => {
   it('serves the packaged page and APIs with isolated, platform-safe lifecycle cleanup', async () => {
     const { repoDir } = await createRepo();
     const port = await availablePort();
@@ -510,5 +512,5 @@ describe('tbd web CLI', () => {
     });
     expect(invalid.status).toBe(1);
     expect(invalid.stderr).toContain("unknown option '--interval'");
-  }, 30_000);
+  });
 });

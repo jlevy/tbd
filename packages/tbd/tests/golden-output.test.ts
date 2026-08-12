@@ -6,14 +6,15 @@
 
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { mkdtemp, rm, readFile } from 'node:fs/promises';
-import { tmpdir, platform } from 'node:os';
+import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { execSync, spawnSync } from 'node:child_process';
 
-// Windows process spawning is significantly slower on CI
-const isWindows = platform() === 'win32';
+import { subprocessTestTimeout } from './test-helpers.js';
 
-describe('golden output tests', { timeout: isWindows ? 60000 : 15000 }, () => {
+const REMOTE_TIMEOUT = subprocessTestTimeout(30_000);
+
+describe('golden output tests', { timeout: subprocessTestTimeout() }, () => {
   let tempDir: string;
   const tbdBin = join(__dirname, '..', 'dist', 'bin.mjs');
 
@@ -225,7 +226,7 @@ describe('golden output tests', { timeout: isWindows ? 60000 : 15000 }, () => {
     });
   });
 
-  describe('fresh clone with remote tbd-sync data (tbd-n6ra)', { timeout: 30000 }, () => {
+  describe('fresh clone with remote tbd-sync data (tbd-n6ra)', { timeout: REMOTE_TIMEOUT }, () => {
     let bareRepo: string;
     let cloneDir: string;
 
