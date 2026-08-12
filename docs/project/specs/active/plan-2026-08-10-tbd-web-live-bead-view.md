@@ -277,6 +277,21 @@ This is why 10,000 is the response ceiling, not the render window or bulk-expans
 allowance. A 5,000 ceiling would still be plausible in ordinary projects and would not
 address the browser bottleneck.
 
+The design-system refinement intentionally adds semantic text wrappers and accessible
+copy controls, so the earlier 10,870-node paged figure is a baseline rather than a
+permanent node budget.
+A fresh 2026-08-12 measurement of the current production page rendered 1,000 rows from a
+1,499-bead repository in 18,640 total elements, including 1,015 copy buttons and zero
+inline SVG descendants.
+Three automated active-to-all filter transactions reached the settled 1,000-row DOM in
+282–315 ms end to end, including browser-control overhead and a 20 ms postcondition
+cushion. The copy primitive keeps one real focusable button per literal but renders its
+normal and checked states as CSS masks and delegates events at the document: compared
+with the first inline-SVG implementation, this sample avoids 3,045 SVG elements and
+replaces roughly 4,060 per-target listeners with three shared listeners.
+The working set therefore remains bounded by the 1,000-row page—not the 10,000-row
+response—while retaining keyboard and screen-reader access.
+
 ### Liveness
 
 There is one path: local observation.

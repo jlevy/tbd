@@ -1,3 +1,4 @@
+import { STATUS_ICONS } from '../lib/status-icons.js';
 import {
   caveatsFor,
   createClientStore,
@@ -14,6 +15,7 @@ import type {
   ClientStore,
   ClientView,
   IssueChangeView,
+  IssueStatusView,
   IssueStatsView,
   ObservationStateView,
 } from './core.js';
@@ -38,8 +40,7 @@ const elements = {
   stats: byId('stats', HTMLTableElement),
   command: byId('cmd', HTMLSpanElement),
   observerPill: byId('observerpill', HTMLSpanElement),
-  updatePill: byId('updatepill', HTMLSpanElement),
-  countPill: byId('countpill', HTMLSpanElement),
+  countMeta: byId('countmeta', HTMLSpanElement),
   pageControls: byId('pagecontrols', HTMLSpanElement),
   pagePrevious: byId('pageprev', HTMLButtonElement),
   pagePill: byId('pagepill', HTMLSpanElement),
@@ -53,19 +54,14 @@ const elements = {
   spec: byId('spec', HTMLInputElement),
   sort: byId('sort', HTMLSelectElement),
   ready: byId('ready', HTMLInputElement),
-  pretty: byId('pretty', HTMLButtonElement),
+  pretty: byId('pretty', HTMLInputElement),
   expandAll: byId('expandall', HTMLButtonElement),
   gear: byId('gear', HTMLButtonElement),
   menu: byId('menu', HTMLDivElement),
 };
 
-const STATUS_ICON: Record<string, string> = {
-  open: '○',
-  in_progress: '◐',
-  blocked: '●',
-  deferred: '○',
-  closed: '✓',
-};
+const ISSUE_STATUSES = ['open', 'in_progress', 'blocked', 'deferred', 'closed'] as const;
+const ISSUE_PRIORITIES = ['0', '1', '2', '3', '4'] as const;
 const PRIORITY_LABEL = ['Critical', 'High', 'Medium', 'Low', 'Lowest'] as const;
 let boardPageIndex = 0;
 let scrollBoardToTopAfterRender = false;
@@ -74,21 +70,50 @@ function choice<T extends string>(value: string, choices: readonly T[], fallback
   return choices.includes(value as T) ? (value as T) : fallback;
 }
 
-function readControls(pretty: boolean): BoardControls {
+function isIssueStatus(value: string): value is IssueStatusView {
+  return ISSUE_STATUSES.includes(value as IssueStatusView);
+}
+
+for (const option of elements.status.options) {
+  if (isIssueStatus(option.value)) {
+    option.textContent = `${STATUS_ICONS[option.value]} ${option.value}`;
+    option.classList.add(`status-${option.value}`);
+  }
+}
+for (const option of elements.priority.options) {
+  if (ISSUE_PRIORITIES.includes(option.value as (typeof ISSUE_PRIORITIES)[number])) {
+    option.classList.add(`priority-${option.value}`);
+  }
+}
+for (const option of elements.kind.options) {
+  option.classList.add('kind-choice');
+}
+
+function syncChooserSemantics(): void {
+  for (const status of ISSUE_STATUSES) {
+    elements.status.classList.toggle(`status-${status}`, elements.status.value === status);
+  }
+  for (const priority of ISSUE_PRIORITIES) {
+    elements.priority.classList.toggle(
+      `priority-${priority}`,
+      elements.priority.value === priority,
+    );
+  }
+}
+
+syncChooserSemantics();
+
+function readControls(): BoardControls {
   return {
     search: elements.search.value,
-    status: choice(
-      elements.status.value,
-      ['', 'any', 'open', 'in_progress', 'blocked', 'deferred', 'closed'] as const,
-      '',
-    ),
+    status: choice(elements.status.value, ['', 'any', ...ISSUE_STATUSES] as const, ''),
     kind: choice(elements.kind.value, ['', 'bug', 'feature', 'task', 'epic', 'chore'] as const, ''),
     priority: choice(elements.priority.value, ['', '0', '1', '2', '3', '4'] as const, ''),
     labels: elements.labels.value,
     spec: elements.spec.value,
     sort: choice(elements.sort.value, ['priority', 'created', 'updated'] as const, 'priority'),
     ready: elements.ready.checked,
-    pretty,
+    pretty: elements.pretty.checked,
   };
 }
 
@@ -101,6 +126,138 @@ function appendCell(row: HTMLTableRowElement, text: string, className = ''): HTM
   cell.textContent = text;
   cell.className = className;
   row.append(cell);
+  return cell;
+}
+
+function copyButton(label: string): HTMLButtonElement {
+  const button = document.createElement('button');
+  button.type = 'button';
+  button.className = 'copy-button';
+  button.title = `Copy ${label}`;
+  button.setAttribute('aria-label', `Copy ${label}`);
+  button.dataset.copyLabel = label;
+  return button;
+}
+
+function copyButtonFrom(target: EventTarget | null): HTMLButtonElement | null {
+  return target instanceof Element ? target.closest<HTMLButtonElement>('.copy-button') : null;
+}
+
+function finishCopy(button: HTMLButtonElement, succeeded: boolean): void {
+  button.classList.remove('copied', 'copy-failed', 'copy-suppressed');
+  // Restart confirmation when the same value is copied twice in quick succession.
+  void button.offsetWidth;
+  button.classList.toggle('copied', succeeded);
+  button.classList.toggle('copy-failed', !succeeded);
+  const feedback = succeeded ? 'Copied' : 'Copy failed';
+  const label = button.dataset.copyLabel ?? 'value';
+  button.title = feedback;
+  button.setAttribute('aria-label', `${feedback}: ${label}`);
+}
+
+function copyValueFor(button: HTMLButtonElement): string {
+  const value = button.previousElementSibling;
+  return value?.classList.contains('copy-value') === true ? (value.textContent ?? '') : '';
+}
+
+function copyableText(value: string, label: string): HTMLSpanElement {
+  const wrapper = document.createElement('span');
+  wrapper.className = 'copyable';
+  const text = document.createElement('span');
+  text.className = 'copy-value';
+  text.textContent = value;
+  const button = copyButton(label);
+  wrapper.append(text, button);
+  return wrapper;
+}
+
+function setCopyableText(parent: HTMLElement, value: string, label: string): void {
+  parent.replaceChildren(copyableText(value, label));
+}
+
+function setCopyableBlock(parent: HTMLElement, value: string, label: string): void {
+  parent.classList.add('copy-surface');
+  const text = document.createElement('span');
+  text.className = 'copy-value';
+  text.textContent = value;
+  const button = copyButton(label);
+  parent.replaceChildren(text, button);
+}
+
+for (const element of document.querySelectorAll<HTMLElement>('[data-copy-value]')) {
+  const value = element.dataset.copyValue;
+  if (value !== undefined) {
+    setCopyableText(element, value, element.dataset.copyLabel ?? 'value');
+  }
+}
+
+// One delegated copy pipeline keeps large boards light: each literal needs one
+// accessible button, but no inline SVG subtree, captured value, or private listeners.
+document.addEventListener(
+  'click',
+  (event) => {
+    const button = copyButtonFrom(event.target);
+    if (button === null) {
+      return;
+    }
+    // Capture prevents the owning bead row from seeing the same click.
+    event.preventDefault();
+    event.stopPropagation();
+    if (navigator.clipboard === undefined) {
+      finishCopy(button, false);
+      return;
+    }
+    void navigator.clipboard.writeText(copyValueFor(button)).then(
+      () => {
+        finishCopy(button, true);
+      },
+      () => {
+        finishCopy(button, false);
+      },
+    );
+  },
+  { capture: true },
+);
+
+document.addEventListener('animationend', (event) => {
+  const button = copyButtonFrom(event.target);
+  if (
+    button === null ||
+    event.animationName !== 'copy-feedback' ||
+    (!button.classList.contains('copied') && !button.classList.contains('copy-failed'))
+  ) {
+    return;
+  }
+  button.classList.remove('copied', 'copy-failed');
+  button.classList.add('copy-suppressed');
+  const label = button.dataset.copyLabel ?? 'value';
+  button.title = `Copy ${label}`;
+  button.setAttribute('aria-label', `Copy ${label}`);
+});
+
+function revealCopyButton(event: PointerEvent | FocusEvent): void {
+  const target = event.target instanceof Element ? event.target : null;
+  const surface = target?.closest<HTMLElement>('.copyable, .copy-surface');
+  if (surface === null || surface === undefined) {
+    return;
+  }
+  if (event.relatedTarget instanceof Node && surface.contains(event.relatedTarget)) {
+    return;
+  }
+  surface
+    .querySelector<HTMLButtonElement>(':scope > .copy-button')
+    ?.classList.remove('copy-suppressed');
+}
+document.addEventListener('pointerover', revealCopyButton);
+document.addEventListener('focusin', revealCopyButton);
+
+function appendStatusCell(row: HTMLTableRowElement, status: IssueStatusView): HTMLTableCellElement {
+  const cell = appendCell(row, '', `issue-status status-${status}`);
+  const icon = document.createElement('span');
+  icon.className = 'status-icon';
+  icon.setAttribute('aria-hidden', 'true');
+  icon.textContent = STATUS_ICONS[status];
+  cell.append(icon, document.createTextNode(` ${status}`));
   return cell;
 }
 
@@ -118,7 +275,11 @@ function appendSection(
   heading.textContent = label;
   const body = document.createElement('div');
   body.className = monospace ? 'btext mono' : 'btext';
-  body.textContent = String(value);
+  if (monospace) {
+    setCopyableText(body, String(value), label.toLowerCase());
+  } else {
+    body.textContent = String(value);
+  }
   parent.append(heading, body);
 }
 
@@ -156,7 +317,7 @@ function renderDelta(parent: HTMLElement, watch: ObservationStateView, id: strin
     if (field.hunks !== undefined && field.hunks.length > 0) {
       const hunk = document.createElement('pre');
       hunk.className = 'hunk';
-      hunk.textContent = field.hunks
+      const text = field.hunks
         .map((part) =>
           part.lines
             .map((entry) => {
@@ -166,11 +327,16 @@ function renderDelta(parent: HTMLElement, watch: ObservationStateView, id: strin
             .join('\n'),
         )
         .join('\n...\n');
+      setCopyableBlock(hunk, text, `${field.field} change`);
       line.append(hunk);
     } else {
       const values = document.createElement('span');
       values.className = 'dval';
-      values.textContent = `${jsonText(field.before)}  →  ${jsonText(field.after)}`;
+      setCopyableText(
+        values,
+        `${jsonText(field.before)}  →  ${jsonText(field.after)}`,
+        `${field.field} change`,
+      );
       line.append(values);
     }
     box.append(line);
@@ -231,12 +397,13 @@ function renderGhost(row: BoardRowView): HTMLTableRowElement {
   const tableRow = document.createElement('tr');
   tableRow.className = 'leaving';
   appendCell(tableRow, '', 'caret');
-  appendCell(tableRow, row.id, 'id');
-  appendCell(tableRow, `P${row.priority}`);
-  appendCell(tableRow, 'deleted');
-  appendCell(tableRow, row.kind);
-  appendCell(tableRow, row.title);
-  appendCell(tableRow, '');
+  const idCell = appendCell(tableRow, '', 'id');
+  setCopyableText(idCell, row.id, 'bead ID');
+  appendCell(tableRow, `P${row.priority}`, `priority priority-${row.priority}`);
+  appendCell(tableRow, 'deleted', 'status-deferred');
+  appendCell(tableRow, row.kind, 'kind');
+  appendCell(tableRow, row.title, 'title');
+  appendCell(tableRow, '', 'labels');
   return tableRow;
 }
 
@@ -256,6 +423,9 @@ function renderRow(
     view.flashIds.has(row.id) ? 'flash' : '',
   ].filter(Boolean);
   tableRow.className = classes.join(' ');
+  tableRow.addEventListener('click', () => {
+    store.toggle(row.id);
+  });
 
   const caretCell = appendCell(tableRow, '', 'caret');
   const disclosure = document.createElement('button');
@@ -263,38 +433,48 @@ function renderRow(
   disclosure.className = 'disclosure';
   disclosure.setAttribute('aria-expanded', String(open));
   disclosure.setAttribute('aria-label', `${open ? 'Collapse' : 'Expand'} ${row.id}`);
-  disclosure.textContent = open ? '▾' : '▸';
-  disclosure.addEventListener('click', () => {
-    store.toggle(row.id);
-  });
+  const chevron = document.createElement('span');
+  chevron.className = `chevron chevron-${open ? 'down' : 'right'}`;
+  chevron.setAttribute('aria-hidden', 'true');
+  disclosure.append(chevron);
   caretCell.append(disclosure);
-  appendCell(tableRow, row.id, 'id');
-  appendCell(tableRow, `P${row.priority}`);
-  appendCell(tableRow, row.status);
-  appendCell(tableRow, row.kind);
+  const idCell = appendCell(tableRow, '', 'id');
+  setCopyableText(idCell, row.id, 'bead ID');
+  appendCell(tableRow, `P${row.priority}`, `priority priority-${row.priority}`);
+  appendStatusCell(tableRow, row.status);
+  appendCell(tableRow, row.kind, 'kind');
 
-  const title = appendCell(tableRow, '');
+  const title = appendCell(tableRow, '', 'title');
+  const titleContent = document.createElement('span');
+  titleContent.className = 'title-content';
   if (row.prefix !== '') {
     const guide = document.createElement('span');
     guide.className = 'guide';
     guide.textContent = row.prefix;
-    title.append(guide);
+    titleContent.append(guide);
   }
-  title.append(document.createTextNode(row.title));
+  const titleText = document.createElement('span');
+  titleText.className = 'title-text';
+  titleText.textContent = row.title;
+  titleContent.append(titleText);
+  title.append(titleContent);
 
-  const tags = appendCell(tableRow, '');
+  const tags = appendCell(tableRow, '', 'labels');
+  const cluster = document.createElement('span');
+  cluster.className = 'tag-cluster';
   if (row.ready) {
     const ready = document.createElement('span');
     ready.className = 'tag ready';
     ready.textContent = 'ready';
-    tags.append(ready);
+    cluster.append(ready);
   }
   for (const label of row.labels) {
     const tag = document.createElement('span');
     tag.className = 'tag';
     tag.textContent = label;
-    tags.append(tag);
+    cluster.append(tag);
   }
+  tags.append(cluster);
   fragment.append(tableRow);
 
   if (open) {
@@ -338,7 +518,7 @@ function renderStatus(watch: ObservationStateView): void {
     term.textContent = key;
     const description = document.createElement('dd');
     description.className = className;
-    description.textContent = value;
+    setCopyableText(description, value, 'repository status value');
     elements.statusList.append(term, description);
   }
 }
@@ -366,8 +546,8 @@ function renderStats(stats: IssueStatsView | null): void {
   );
   for (const key of ['open', 'in_progress', 'blocked', 'deferred'] as const) {
     appendStatsRow([
-      [STATUS_ICON[key] ?? '', 'ico'],
-      [key, ''],
+      [STATUS_ICONS[key], `ico status-${key}`],
+      [key, `status-${key}`],
       [String(stats.byStatus[key]), 'num'],
     ]);
   }
@@ -380,8 +560,8 @@ function renderStats(stats: IssueStatsView | null): void {
     'total',
   );
   appendStatsRow([
-    [STATUS_ICON.closed ?? '', 'ico'],
-    ['closed', ''],
+    [STATUS_ICONS.closed, 'ico status-closed'],
+    ['closed', 'status-closed'],
     [String(stats.closed), 'num'],
   ]);
   appendStatsRow(
@@ -426,7 +606,7 @@ function renderStats(stats: IssueStatsView | null): void {
     const closed = stats.byPriorityClosed[String(priority)] ?? 0;
     if (active + closed > 0) {
       appendStatsRow([
-        [`P${priority} ${PRIORITY_LABEL[priority] ?? ''}`, ''],
+        [`P${priority} ${PRIORITY_LABEL[priority] ?? ''}`, `priority priority-${priority}`],
         [String(active), 'num'],
         [String(closed), 'num'],
       ]);
@@ -437,14 +617,18 @@ function renderStats(stats: IssueStatsView | null): void {
 function renderReport(watch: ObservationStateView): void {
   if (watch.latestChanges.length > 0) {
     elements.report.className = '';
-    elements.report.textContent = JSON.stringify(
-      {
-        changed_beads: watch.latestChangeTotal,
-        details_truncated: watch.latestChangesTruncated,
-        changes: watch.latestChanges,
-      },
-      null,
-      2,
+    setCopyableBlock(
+      elements.report,
+      JSON.stringify(
+        {
+          changed_beads: watch.latestChangeTotal,
+          details_truncated: watch.latestChangesTruncated,
+          changes: watch.latestChanges,
+        },
+        null,
+        2,
+      ),
+      'latest local changes',
     );
     return;
   }
@@ -560,26 +744,28 @@ function renderHeader(view: ClientView, board: BoardResponse, watch: Observation
   dot.className = 'dot';
   elements.observerPill.append(dot, document.createTextNode(phase.label));
   elements.observerPill.className = `pill ${watch.observationPhase}`;
-  elements.observerPill.title = phase.help;
-  elements.updatePill.textContent = `${watch.updateCount} ${watch.updateCount === 1 ? 'update' : 'updates'}`;
-  elements.updatePill.title = 'Local graph updates observed since this viewer started.';
+  elements.observerPill.title = `Connected to the viewer server. ${phase.help}`;
 
   const hidden = board.closedHidden > 0 ? ` · ${board.closedHidden} closed hidden` : '';
-  elements.countPill.textContent = `${board.matched === board.total ? `${board.total} beads` : `${board.matched} of ${board.total}`}${hidden}`;
-  elements.countPill.title =
+  elements.countMeta.textContent = `${board.matched === board.total ? `${board.total} beads` : `${board.matched} of ${board.total}`}${hidden}`;
+  elements.countMeta.title =
     board.closedHidden > 0
       ? 'Closed beads are hidden under active, matching tbd list. Choose any or closed to include them.'
       : 'Beads matching the current query, out of the whole graph.';
-  elements.tipPill.textContent = `${watch.syncBranch} @ ${short(watch.localTip)}`;
+  setCopyableText(
+    elements.tipPill,
+    `${watch.syncBranch} @ ${short(watch.localTip)}`,
+    'local sync-branch tip',
+  );
   elements.tipPill.title =
     'Local sync-branch tip. tbd web never fetches; run tbd sync to exchange remote changes.';
-  elements.command.textContent = board.command;
+  setCopyableText(elements.command, board.command, 'command');
   const caveats = caveatsFor(board);
   elements.command.title =
     board.commandExact && caveats.length === 0
       ? 'Run this to reproduce the table below.'
       : `Close but not exact: ${caveats.join('; ')}.`;
-  elements.pretty.classList.toggle('on', view.controls.pretty);
+  elements.pretty.checked = view.controls.pretty;
   document.title = `tbd beads (${watch.totalBeads})`;
 }
 
@@ -599,8 +785,7 @@ function render(): void {
   if (disconnected) {
     elements.observerPill.textContent = 'disconnected';
     elements.observerPill.className = 'pill error';
-    elements.observerPill.title =
-      'The live connection dropped; the browser will retry automatically.';
+    elements.observerPill.title = `The live connection dropped; the browser will retry automatically. Last server state: ${phaseLabel(watch).help}`;
   }
   renderBoard(view, board);
   renderStatus(watch);
@@ -697,7 +882,8 @@ let filterTimer: number | null = null;
 function applyControls(): void {
   boardPageIndex = 0;
   store.setExpanded([]);
-  void store.setControls(readControls(store.getView().controls.pretty));
+  syncChooserSemantics();
+  void store.setControls(readControls());
 }
 function debounceControls(): void {
   if (filterTimer !== null) {
@@ -717,15 +903,10 @@ for (const input of [
   elements.priority,
   elements.sort,
   elements.ready,
+  elements.pretty,
 ]) {
   input.addEventListener('change', applyControls);
 }
-elements.pretty.addEventListener('click', () => {
-  const controls = store.getView().controls;
-  boardPageIndex = 0;
-  store.setExpanded([]);
-  void store.setControls({ ...readControls(!controls.pretty), pretty: !controls.pretty });
-});
 elements.expandAll.addEventListener('click', () => {
   const view = store.getView();
   const ids =

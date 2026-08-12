@@ -176,7 +176,7 @@ describe('client core pure helpers', () => {
     ]);
     expect(phaseLabel(state())).toEqual({
       label: 'watching',
-      help: 'Watching the local data-sync worktree with native events and one-second reconciliation. Run tbd sync to exchange remote changes.',
+      help: 'Watching the local data-sync worktree with native events and one-second reconciliation. Run tbd sync to exchange remote changes. 0 local graph updates observed since this viewer started.',
     });
     expect(deltasValid(state({ latestChanges: [], dataVersion: 2, changeDataVersion: 2 }))).toBe(
       false,

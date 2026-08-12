@@ -333,26 +333,28 @@ export function deltasValid(watch: ObservationStateView): boolean {
 }
 
 export function phaseLabel(watch: ObservationStateView): { label: string; help: string } {
+  const updates = `${watch.updateCount} local graph update${watch.updateCount === 1 ? '' : 's'} observed since this viewer started.`;
   switch (watch.observationPhase) {
     case 'starting':
-      return { label: 'starting', help: 'Starting the local bead observer.' };
+      return { label: 'starting', help: `Starting the local bead observer. ${updates}` };
     case 'watching':
       return {
         label: 'watching',
-        help:
+        help: `${
           watch.observationMode === 'native+reconcile'
             ? 'Watching the local data-sync worktree with native events and one-second reconciliation. Run tbd sync to exchange remote changes.'
             : watch.observationMode === 'native'
               ? `Watching the local data-sync worktree with native events. ${watch.observationError ?? ''}`.trim()
-              : `Watching local metadata once per second. ${watch.observationError ?? ''}`.trim(),
+              : `Watching local metadata once per second. ${watch.observationError ?? ''}`.trim()
+        } ${updates}`,
       };
     case 'error':
       return {
         label: 'error',
-        help: watch.observationError ?? 'Local observation failed; reconciliation will retry.',
+        help: `${watch.observationError ?? 'Local observation failed; reconciliation will retry.'} ${updates}`,
       };
     case 'stopped':
-      return { label: 'stopped', help: 'The viewer is shutting down.' };
+      return { label: 'stopped', help: `The viewer is shutting down. ${updates}` };
   }
 }
 

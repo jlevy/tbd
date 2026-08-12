@@ -11,7 +11,7 @@
 
      1. Hue encodes family. Tokens sharing a hue are meant to read
         as related: every neutral sits on 215° so surfaces, borders,
-        and text feel like one material; update/amber is 38°, ready/
+        and text feel like one material; warning/amber is 38°, success/
         green is 149°, error/red is 0°. To add a token, pick the hue
         that places it in the right family first, not a color that
         looks nice alone.
@@ -30,6 +30,90 @@
         timestamps, and field deltas. A count is chrome even when
         it is a number; tabular-nums keeps columns aligned without
         pretending the count is data.
+
+   ── Component and color roles: the complete inventory ───────────
+
+   This list is authoritative. As in MetaBrowser, repeated meanings use
+   one primitive; add a role here before inventing a one-off treatment.
+
+     Plain metadata (.header-meta, .num)
+       Aggregate prose and counts are unboxed, neutral sans text. Use
+       tabular numerals for alignment. A count is not a pill.
+
+     Section headings (.section-heading, .hint)
+       Every UI chunk has a small-cap sans name. When a faithful CLI
+       equivalent exists, place that live command beside it as a monospace
+       hint (BEADS / tbd list, STATUS / tbd status, STATS / tbd stats).
+       Omit the hint rather than inventing a misleading command.
+
+     Lifecycle status (.issue-status, .status-*)
+       Always pair tbd's canonical symbol with its CLI color family:
+       ○ open=info blue, ◐ in_progress=success green,
+       ● blocked=error red, ○ deferred=muted, ✓ closed=muted.
+       Status is colored text, not a bordered tag, so one row has one
+       strong semantic cue rather than a row of competing enclosures.
+
+     Priority (.priority-*)
+       Match the CLI: P0=error red, P1=warning amber, P2–P4=neutral.
+       Priority is compact text, never an icon or pill.
+
+     Tags (.tag)
+       Bordered tags are categorical attributes. User labels stay
+       neutral because tbd does not know their semantics. `.ready` uses
+       success green because it is a computed actionable state, not a
+       lifecycle status. Kind stays neutral auxiliary text.
+
+     Operational badges (.pill)
+       Pills are reserved for bounded viewer state: observer phase,
+       update activity, page position, and sync-branch tip. They are not
+       a generic way to decorate text.
+
+     Controls (.select-control, .chooser) and icons (.chevron, .icon-button)
+       Native controls keep native behavior but share spacing, focus,
+       and one CSS chevron geometry. Disclosure and dropdown chevrons
+       are the same mark at different orientations. Lifecycle symbols
+       come only from `src/lib/status-icons.ts`; decorative controls use
+       stroked SVG/CSS icons and never borrow status glyphs. Icon-only
+       buttons are bare at rest and surface a border/background only on
+       hover, keyboard focus, or an open state. Semantic filter values
+       reuse the exact status, priority, and kind roles from table cells.
+       Boolean flags are checkboxes named for their CLI flag; verbs that
+       perform an action are buttons.
+
+     Literal copy (.copyable, .copy-surface, .copy-button)
+       Monospace values and faithful commands expose one small muted copy
+       icon on container hover or keyboard focus. Inline values reserve its
+       space; scrollable blocks use an opaque overlay. Copy clicks never
+       trigger their owning row. The success glyph preserves the copy outline
+       and adds a check to its front square; it holds green, then fades while
+       still green. Glyphs are CSS masks and events are delegated, leaving one
+       accessible button—but no SVG subtree or private listeners—per literal.
+
+     Tree structure (.guide, .title-content)
+       Line-drawing characters are structural text, so they reuse the
+       --muted auxiliary-text token rather than the fainter border color.
+       Wrapped titles keep a hanging indent after the entire guide.
+
+     Typography and expansion (--weight-medium, --weight-strong)
+       The complete type scale is 15px page title, 14px body/content, and one
+       12px compact size for chrome and dense data—never ad-hoc intermediate
+       sizes. Base text is regular. Repeated small-cap labels use medium; major
+       headings and an expanded bead's ID/title use strong. Expansion never
+       changes the weight of status, priority, kind, or tags, and it adds no
+       persistent surface color. The muted panel wash is hover feedback only.
+
+     Scrollbars (--scrollbar-*)
+       Every scroll container uses one subtle native-compatible geometry.
+       Thumb and hover colors reuse border/muted; each surface supplies its
+       own --scrollbar-bg so tracks and thumb padding blend in both themes.
+
+   Color is semantic, never decorative. Interactive accent is reserved
+   for focus and selected controls; amber data-update motion has its own
+   token even though it shares the warning hue. Titles, ids, kind, user
+   labels, and ordinary prose remain neutral unless color adds meaning.
+   Auxiliary text resolves directly to --muted: never lower its opacity to
+   invent another gray. Opacity is reserved for actual state transitions
+   (disabled, context-only, loading, pulsing, entering, or leaving).
 
    ── Motion: two families, never mixed ──────────────────────────
 
@@ -82,9 +166,12 @@
   /* Interactive accent — links, focus rings, active toggles. */
   --accent: hsl(220 82% 55%);
 
-  /* Semantic status. Shared with the row tags and the watch pill. */
-  --ok: hsl(149 68% 30%);
-  --err: hsl(0 64% 46%);
+  /* Semantic families mirror terminal output. Presentation roles below map
+     lifecycle status and priority onto these rather than choosing local hues. */
+  --info: hsl(211 72% 42%);
+  --success: hsl(149 68% 30%);
+  --warning: hsl(38 82% 36%);
+  --error: hsl(0 64% 46%);
 
   /* Wake family (38°, amber). Reserved for DATA motion. Nothing that
      responds to a UI interaction may use these two tokens. */
@@ -99,8 +186,10 @@
   --dark-text: hsl(215 15% 91%);
   --dark-muted: hsl(214 12% 65%);
   --dark-accent: hsl(220 100% 71%);
-  --dark-ok: hsl(149 52% 55%);
-  --dark-err: hsl(0 100% 73%);
+  --dark-info: hsl(211 86% 70%);
+  --dark-success: hsl(149 52% 55%);
+  --dark-warning: hsl(38 82% 64%);
+  --dark-error: hsl(0 100% 73%);
   --dark-update: hsl(43 73% 57%);
   --dark-row-flash-bg: hsl(41 53% 15%);
 
@@ -108,9 +197,16 @@
      is a dense data view, not a reading surface. */
   --sans: system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
   --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  --font-size-title: 15px;
+  --font-size-body: 14px;
+  --font-size-small: 12px;
+  --weight-medium: 500;
+  --weight-strong: 650;
 
   /* UI motion: neutral, short, for view changes only. */
-  --transition-fast: 150ms ease;
+  --motion-fast-duration: 150ms;
+  --motion-standard-easing: ease;
+  --transition-fast: var(--motion-fast-duration) var(--motion-standard-easing);
   /* DATA motion: long enough to notice across a full table, short
      enough not to linger. Removal is faster because the row is
      leaving and should not hold the reader. */
@@ -118,6 +214,30 @@
   --motion-data-out: 320ms;
 
   --radius: 6px;
+
+  /* One chevron geometry for dropdowns and row disclosure controls. */
+  --chevron-size: 7px;
+  --chevron-stroke: 1.5px;
+  --select-chevron-inset: 14px;
+  --select-chevron-padding: 36px;
+  --row-disclosure-width: 20px;
+  --board-row-line-height: 18px;
+  --icon-glyph-size: 15px;
+  --icon-button-size: 28px;
+  --copy-button-size: 18px;
+  --copy-glyph-size: 9px;
+  --copy-feedback-duration: 1500ms;
+  --copy-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect width='14' height='14' x='8' y='8' rx='2'/%3E%3Cpath d='M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2'/%3E%3C/svg%3E");
+  --copy-complete-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect width='14' height='14' x='8' y='8' rx='2'/%3E%3Cpath d='M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2M11 15l2 2 5-5'/%3E%3C/svg%3E");
+
+  /* The visible thumb is narrower than its usable track because the matching
+     background border becomes optical padding, following MetaBrowser. */
+  --scrollbar-thumb: var(--border);
+  --scrollbar-thumb-hover: var(--muted);
+  --scrollbar-width: 10px;
+  --scrollbar-thumb-border-width: 2px;
+  --scrollbar-thumb-radius: 5px;
+  --scrollbar-bg: var(--bg);
 }
 @media (prefers-color-scheme: dark) {
   /* System dark, unless the reader explicitly chose light. */
@@ -128,8 +248,10 @@
     --text: var(--dark-text);
     --muted: var(--dark-muted);
     --accent: var(--dark-accent);
-    --ok: var(--dark-ok);
-    --err: var(--dark-err);
+    --info: var(--dark-info);
+    --success: var(--dark-success);
+    --warning: var(--dark-warning);
+    --error: var(--dark-error);
     --update: var(--dark-update);
     --row-flash-bg: var(--dark-row-flash-bg);
   }
@@ -142,19 +264,47 @@
   --text: var(--dark-text);
   --muted: var(--dark-muted);
   --accent: var(--dark-accent);
-  --ok: var(--dark-ok);
-  --err: var(--dark-err);
+  --info: var(--dark-info);
+  --success: var(--dark-success);
+  --warning: var(--dark-warning);
+  --error: var(--dark-error);
   --update: var(--dark-update);
   --row-flash-bg: var(--dark-row-flash-bg);
 }
 * {
   box-sizing: border-box;
+  scrollbar-width: thin;
+  scrollbar-color: var(--scrollbar-thumb) var(--scrollbar-bg);
+}
+*::-webkit-scrollbar {
+  width: var(--scrollbar-width);
+  height: var(--scrollbar-width);
+  background: var(--scrollbar-bg);
+}
+*::-webkit-scrollbar-track {
+  background: var(--scrollbar-bg);
+  border: none;
+  box-shadow: none;
+}
+*::-webkit-scrollbar-thumb {
+  background: var(--scrollbar-thumb);
+  border: var(--scrollbar-thumb-border-width) solid var(--scrollbar-bg);
+  border-radius: var(--scrollbar-thumb-radius);
+  transition: background-color var(--transition-fast);
+}
+*::-webkit-scrollbar-thumb:hover {
+  background: var(--scrollbar-thumb-hover);
+}
+*::-webkit-scrollbar-corner {
+  background: var(--scrollbar-bg);
 }
 body {
   margin: 0;
   background: var(--bg);
   color: var(--text);
-  font: 14px/1.5 var(--sans);
+  font-family: var(--sans);
+  font-size: var(--font-size-body);
+  line-height: 1.5;
 }
 header {
   display: flex;
@@ -169,15 +319,33 @@ header {
   z-index: 3;
 }
 h1 {
-  font-size: 15px;
-  margin: 0 6px 0 0;
-  font-weight: 650;
+  font-size: var(--font-size-title);
+  margin: 0;
+  font-weight: var(--weight-strong);
+}
+.header-identity {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  align-items: flex-start;
+}
+.header-title-line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  column-gap: 10px;
+  row-gap: 4px;
+}
+.header-meta {
+  font-size: var(--font-size-small);
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
 }
 .pill {
-  /* Chrome, not data: counts and phase words render sans like the rest of the
-     frame. Only #tippill below is monospace, because its content is a branch
-     name and commit — actual data values. */
-  font-size: 11px;
+  /* Bounded operational state, not a generic text enclosure. Only #tippill is
+     monospace because its content is a branch name and commit — actual data. */
+  font-size: var(--font-size-small);
   padding: 3px 8px;
   border-radius: 999px;
   border: 1px solid var(--border);
@@ -185,15 +353,16 @@ h1 {
   white-space: nowrap;
   transition:
     color var(--transition-fast),
-    border-color var(--transition-fast);
+    border-color var(--transition-fast),
+    background-color var(--transition-fast);
 }
 .pill.watching {
-  color: var(--ok);
-  border-color: var(--ok);
+  color: var(--success);
+  border-color: var(--success);
 }
 .pill.error {
-  color: var(--err);
-  border-color: var(--err);
+  color: var(--error);
+  border-color: var(--error);
 }
 .dot {
   display: inline-block;
@@ -222,6 +391,7 @@ h1 {
 .page-controls {
   display: inline-flex;
   align-items: center;
+  align-self: center;
   gap: 4px;
 }
 .page-controls[hidden] {
@@ -249,25 +419,6 @@ h1 {
 #settings {
   position: relative;
 }
-#gear {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 28px;
-  height: 28px;
-  padding: 0;
-  color: var(--muted);
-  border-radius: var(--radius);
-}
-#gear:hover,
-#gear[aria-expanded='true'] {
-  color: var(--accent);
-  border-color: var(--accent);
-}
-#gear svg {
-  width: 15px;
-  height: 15px;
-}
 #menu {
   position: absolute;
   right: 0;
@@ -278,12 +429,28 @@ h1 {
   padding: 8px;
   z-index: 10;
   min-width: 150px;
+  opacity: 1;
+  visibility: visible;
+  transform: translateY(0);
+  transform-origin: top right;
+  transition:
+    opacity var(--transition-fast),
+    transform var(--transition-fast),
+    visibility 0s linear 0s;
 }
 #menu[hidden] {
-  display: none;
+  display: block;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transform: translateY(-4px);
+  transition:
+    opacity var(--transition-fast),
+    transform var(--transition-fast),
+    visibility 0s linear var(--motion-fast-duration);
 }
 .menu-label {
-  font-size: 10px;
+  font-size: var(--font-size-small);
   text-transform: uppercase;
   letter-spacing: 0.05em;
   color: var(--muted);
@@ -291,23 +458,34 @@ h1 {
 }
 .chooser {
   display: flex;
-  gap: 4px;
+  gap: 2px;
 }
 .seg {
   flex: 1;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  padding: 5px 0;
+  height: 30px;
+  padding: 0;
+  border: 0;
+  background: transparent;
   color: var(--muted);
+  transition:
+    color var(--transition-fast),
+    background-color var(--transition-fast);
+}
+.seg:hover,
+.seg:focus-visible {
+  color: var(--text);
+  background: var(--panel);
 }
 .seg svg {
-  width: 15px;
-  height: 15px;
+  width: 16px;
+  height: 16px;
 }
 .seg[aria-checked='true'] {
   color: var(--accent);
-  border-color: var(--accent);
+  background: var(--panel);
 }
 #toolbar {
   display: flex;
@@ -315,6 +493,8 @@ h1 {
   gap: 8px;
   align-items: center;
   padding: 9px 16px;
+}
+#controls {
   border-bottom: 1px solid var(--border);
 }
 input,
@@ -326,49 +506,217 @@ button {
   border: 1px solid var(--border);
   border-radius: var(--radius);
   padding: 4px 8px;
-  transition: border-color var(--transition-fast);
+  transition:
+    opacity var(--transition-fast),
+    color var(--transition-fast),
+    background-color var(--transition-fast),
+    border-color var(--transition-fast);
+}
+.icon-button {
+  display: inline-flex;
+  width: var(--icon-button-size);
+  height: var(--icon-button-size);
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  padding: 4px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--muted);
+  transition:
+    opacity var(--transition-fast),
+    color var(--transition-fast),
+    background-color var(--transition-fast),
+    border-color var(--transition-fast);
+}
+.icon-button:hover,
+.icon-button:focus-visible,
+.icon-button[aria-expanded='true'] {
+  color: var(--text);
+  background: var(--panel);
+  border-color: var(--border);
+}
+.icon-button svg {
+  width: var(--icon-glyph-size);
+  height: var(--icon-glyph-size);
+}
+.chevron {
+  display: block;
+  width: var(--chevron-size);
+  height: var(--chevron-size);
+  flex: none;
+  border-right: var(--chevron-stroke) solid currentColor;
+  border-bottom: var(--chevron-stroke) solid currentColor;
+  transform-origin: center;
+  transition:
+    color var(--transition-fast),
+    transform var(--transition-fast);
+}
+.chevron-right {
+  transform: rotate(-45deg);
+}
+.chevron-down {
+  transform: rotate(45deg);
+}
+.select-control {
+  position: relative;
+  display: inline-flex;
+  color: var(--muted);
+  transition: color var(--transition-fast);
+}
+.semantic-chooser,
+.kind-choice {
+  color: var(--muted);
+}
+.select-control > select {
+  appearance: none;
+  width: 100%;
+  padding-right: var(--select-chevron-padding);
+}
+.select-control > .chevron {
+  position: absolute;
+  top: 50%;
+  right: var(--select-chevron-inset);
+  pointer-events: none;
+  transform: translateY(-50%) rotate(45deg);
+}
+.select-control:hover {
+  color: var(--text);
+}
+.select-control:focus-within {
+  color: var(--accent);
 }
 button {
   cursor: pointer;
 }
 button:hover,
-input:focus,
-select:focus {
-  border-color: var(--accent);
-  outline: none;
+input:hover,
+select:hover {
+  border-color: var(--muted);
 }
-button.on {
+button:focus-visible,
+input:focus-visible,
+select:focus-visible {
   border-color: var(--accent);
-  color: var(--accent);
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
 }
 label.check {
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  font-size: 13px;
+  font-size: var(--font-size-small);
   color: var(--muted);
   white-space: nowrap;
 }
-#cmdbar {
-  padding: 7px 16px;
-  border-bottom: 1px solid var(--border);
-  background: var(--panel);
-  font-family: var(--mono);
-  font-size: 11.5px;
-  color: var(--muted);
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  align-items: center;
+#boardheading {
+  margin: 0;
+  padding: 0 16px 7px;
 }
 #cmd {
-  color: var(--text);
+  font-family: var(--mono);
   user-select: all;
   word-break: break-all;
 }
 #viewernote {
   font-family: var(--sans);
-  text-align: right;
+  color: var(--muted);
+  font-size: var(--font-size-small);
+  line-height: 1.35;
+}
+.copyable {
+  display: inline-flex;
+  max-width: 100%;
+  min-width: 0;
+  align-items: flex-start;
+  gap: 2px;
+}
+.copy-value {
+  min-width: 0;
+  white-space: inherit;
+  overflow-wrap: inherit;
+}
+.copy-button {
+  --copy-active-icon: var(--copy-icon);
+  position: relative;
+  display: inline-flex;
+  width: var(--copy-button-size);
+  height: var(--copy-button-size);
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--muted);
+  opacity: 0;
+  pointer-events: none;
+  transition:
+    opacity var(--transition-fast),
+    color var(--transition-fast),
+    background-color var(--transition-fast),
+    border-color var(--transition-fast);
+}
+.copy-button::before {
+  content: '';
+  width: var(--copy-glyph-size);
+  height: var(--copy-glyph-size);
+  background: currentColor;
+  -webkit-mask: var(--copy-active-icon) center / contain no-repeat;
+  mask: var(--copy-active-icon) center / contain no-repeat;
+}
+.copyable:hover > .copy-button,
+.copyable:focus-within > .copy-button,
+.copy-button.copied,
+.copy-button.copy-failed {
+  opacity: 1;
+  pointer-events: auto;
+}
+.copy-button:hover,
+.copy-button:focus-visible {
+  color: var(--text);
+  background: var(--panel);
+  border-color: var(--border);
+}
+.copy-button.copied {
+  --copy-active-icon: var(--copy-complete-icon);
+  color: var(--success);
+  animation: copy-feedback var(--copy-feedback-duration) var(--motion-standard-easing) forwards;
+}
+.copy-button.copy-failed {
+  color: var(--error);
+  animation: copy-feedback var(--copy-feedback-duration) var(--motion-standard-easing) forwards;
+}
+.copyable:hover > .copy-button.copy-suppressed,
+.copyable:focus-within > .copy-button.copy-suppressed,
+.copy-surface:hover > .copy-button.copy-suppressed,
+.copy-surface:focus-within > .copy-button.copy-suppressed {
+  opacity: 0;
+  pointer-events: none;
+}
+@keyframes copy-feedback {
+  0%,
+  67% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+.copy-surface {
+  position: relative;
+  padding-right: calc(var(--copy-button-size) + 8px);
+}
+.copy-surface > .copy-button {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  background: var(--scrollbar-bg);
+}
+.copy-surface:hover > .copy-button,
+.copy-surface:focus-within > .copy-button {
+  opacity: 1;
+  pointer-events: auto;
 }
 main {
   display: grid;
@@ -394,10 +742,10 @@ td {
   text-align: left;
   padding: 6px 10px;
   border-bottom: 1px solid var(--border);
-  vertical-align: top;
+  vertical-align: baseline;
 }
 th {
-  font-size: 11px;
+  font-size: var(--font-size-small);
   text-transform: uppercase;
   letter-spacing: 0.04em;
   color: var(--muted);
@@ -405,21 +753,78 @@ th {
   top: 0;
   background: var(--bg);
   z-index: 1;
+  font-weight: var(--weight-medium);
+}
+th.labels,
+td.labels {
+  width: 160px;
+  min-width: 160px;
 }
 td.id {
   font-family: var(--mono);
-  font-size: 12px;
+  font-size: var(--font-size-small);
   white-space: nowrap;
+}
+td.priority {
+  font-size: var(--font-size-small);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.priority-0 {
+  color: var(--error);
+  font-weight: var(--weight-strong);
+}
+.priority-1 {
+  color: var(--warning);
+  font-weight: var(--weight-strong);
+}
+.priority-2,
+.priority-3,
+.priority-4 {
+  color: var(--text);
+}
+.issue-status {
+  font-size: var(--font-size-small);
+  font-weight: var(--weight-medium);
+  white-space: nowrap;
+}
+.status-icon {
+  display: inline-block;
+  width: 1em;
+  text-align: center;
+}
+.status-open {
+  color: var(--info);
+}
+.status-in_progress {
+  color: var(--success);
+}
+.status-blocked {
+  color: var(--error);
+}
+.status-deferred {
+  color: var(--muted);
+}
+.status-closed {
+  color: var(--muted);
+}
+td.kind {
+  color: var(--muted);
 }
 td.caret {
   width: 18px;
   color: var(--muted);
   user-select: none;
   padding-right: 0;
+  vertical-align: top;
 }
 .disclosure {
   border: 0;
-  padding: 1px 3px;
+  display: grid;
+  place-items: center;
+  width: var(--row-disclosure-width);
+  height: var(--board-row-line-height);
+  padding: 0;
   color: var(--muted);
   background: transparent;
 }
@@ -440,27 +845,40 @@ td.board-page > button:disabled {
 }
 tbody tr:not(.bodyrow):not(.board-page-row) {
   cursor: pointer;
+  transition: background-color var(--transition-fast);
 }
 tbody tr:not(.bodyrow):not(.board-page-row):hover {
   background: var(--panel);
 }
 tr.open > td {
   border-bottom: none;
-  font-weight: 600;
+}
+tr.open > td.id,
+tr.open > td.title {
+  font-weight: var(--weight-strong);
 }
 tr.context > td:not(.caret) {
   opacity: 0.5;
 }
 tr.bodyrow > td {
   padding: 0 10px 12px 28px;
-  background: var(--panel);
 }
 .guide {
   font-family: var(--mono);
-  font-size: 12px;
-  color: var(--border);
+  font-size: var(--font-size-small);
+  color: var(--muted);
   white-space: pre;
   user-select: none;
+  flex: none;
+}
+.title-content {
+  display: flex;
+  align-items: baseline;
+  min-width: 0;
+}
+.title-text {
+  flex: 1 1 auto;
+  min-width: 0;
 }
 /* ── DATA motion ────────────────────────────────────────────────
    Applied only when the server reports a new `dataVersion`. Never
@@ -505,6 +923,10 @@ tr.changed td.id::after {
   color: var(--update);
 }
 @media (prefers-reduced-motion: reduce) {
+  :root {
+    --motion-fast-duration: 1ms;
+    --copy-feedback-duration: 1ms;
+  }
   /* Keep the amber context, drop the movement. */
   tr.flash > td,
   tr.leaving > td {
@@ -516,16 +938,23 @@ tr.changed td.id::after {
 }
 .tag {
   display: inline-block;
-  font-size: 11px;
+  font-size: var(--font-size-small);
   padding: 1px 6px;
-  margin: 0 3px 2px 0;
+  margin: 0;
   border-radius: 4px;
   border: 1px solid var(--border);
   color: var(--muted);
+  white-space: nowrap;
+}
+.tag-cluster {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 3px;
 }
 .tag.ready {
-  color: var(--ok);
-  border-color: var(--ok);
+  color: var(--success);
+  border-color: var(--success);
 }
 aside {
   border-left: 1px solid var(--border);
@@ -538,24 +967,27 @@ aside {
     border-top: 1px solid var(--border);
   }
 }
-aside h2 {
-  font-size: 11px;
+.section-heading {
+  font-family: var(--sans);
+  font-size: var(--font-size-small);
   text-transform: uppercase;
   letter-spacing: 0.04em;
   color: var(--muted);
+  font-weight: var(--weight-medium);
+}
+aside .section-heading {
   margin: 14px 0 6px;
 }
-aside h2:first-child {
+aside .section-heading:first-child {
   margin-top: 0;
 }
-/* Each panel names the command it mirrors, the same contract as the
-   equivalent-command bar over the table. */
+/* A command hint is data within the shared section-heading vocabulary. */
 .hint {
   font-family: var(--mono);
-  font-size: 10px;
+  font-size: var(--font-size-small);
   text-transform: none;
   letter-spacing: 0;
-  opacity: 0.75;
+  color: var(--muted);
   margin-left: 4px;
 }
 #stats {
@@ -567,36 +999,37 @@ aside h2:first-child {
 #stats th {
   border: none;
   padding: 2px 0;
-  font-size: 12px;
+  font-size: var(--font-size-small);
 }
 #stats td.num,
 #stats th.num {
   text-align: right;
   /* Counts are chrome: sans, with tabular figures so columns still align. */
   font-variant-numeric: tabular-nums;
-  font-size: 11px;
+  font-size: var(--font-size-small);
   width: 46px;
 }
 #stats tr.group td {
   padding-top: 9px;
   color: var(--muted);
-  font-size: 10px;
+  font-size: var(--font-size-small);
   text-transform: uppercase;
   letter-spacing: 0.04em;
+  font-weight: var(--weight-medium);
 }
 #stats tr.total td {
   border-top: 1px solid var(--border);
-  font-weight: 650;
+  font-weight: var(--weight-strong);
 }
 #stats td.ico {
   width: 14px;
   font-family: var(--mono);
 }
 dd.bad {
-  color: var(--err);
+  color: var(--error);
 }
 dd.good {
-  color: var(--ok);
+  color: var(--success);
 }
 #report.placeholder {
   /* Chrome, not data: the empty-state note talks about the UI itself, so it is
@@ -606,8 +1039,9 @@ dd.good {
   color: var(--muted);
 }
 pre {
+  --scrollbar-bg: var(--panel);
   font-family: var(--mono);
-  font-size: 11px;
+  font-size: var(--font-size-small);
   background: var(--panel);
   border: 1px solid var(--border);
   border-radius: var(--radius);
@@ -617,7 +1051,8 @@ pre {
   max-height: 300px;
 }
 .blabel {
-  font-size: 10px;
+  font-size: var(--font-size-small);
+  font-weight: var(--weight-medium);
   text-transform: uppercase;
   letter-spacing: 0.05em;
   color: var(--muted);
@@ -626,14 +1061,14 @@ pre {
 .btext {
   white-space: pre-wrap;
   word-break: break-word;
-  font-size: 13px;
+  font-size: var(--font-size-body);
 }
 .btext.mono {
   font-family: var(--mono);
-  font-size: 11px;
+  font-size: var(--font-size-small);
 }
 .btext.err {
-  color: var(--err);
+  color: var(--error);
 }
 .skeleton {
   display: inline-block;
@@ -659,17 +1094,17 @@ pre {
 }
 .dfield {
   margin: 3px 0;
-  font-size: 12px;
+  font-size: var(--font-size-small);
 }
 .dname {
   font-family: var(--mono);
-  font-size: 11px;
+  font-size: var(--font-size-small);
   color: var(--update);
   margin-right: 8px;
 }
 .dval {
   font-family: var(--mono);
-  font-size: 11px;
+  font-size: var(--font-size-small);
   word-break: break-all;
 }
 pre.hunk {
@@ -680,7 +1115,7 @@ pre.hunk {
   list-style: none;
   margin: 0;
   padding: 0;
-  font-size: 12px;
+  font-size: var(--font-size-small);
   max-height: 280px;
   overflow-y: auto;
 }
@@ -693,28 +1128,32 @@ pre.hunk {
   color: var(--update);
 }
 #log li.error {
-  color: var(--err);
+  color: var(--error);
 }
 #log time {
   font-family: var(--mono);
-  font-size: 10px;
-  opacity: 0.7;
+  font-size: var(--font-size-small);
+  color: var(--muted);
   margin-right: 6px;
 }
-dl {
+#statusdl {
+  display: grid;
+  grid-template-columns: 112px minmax(0, 1fr);
+  column-gap: 6px;
+  row-gap: 3px;
+  align-items: baseline;
   margin: 0;
-  font-size: 12px;
+  font-size: var(--font-size-small);
 }
-dt {
+#statusdl dt {
   color: var(--muted);
-  float: left;
-  clear: left;
-  width: 78px;
+  float: none;
+  margin: 0;
 }
-dd {
-  margin: 0 0 3px 84px;
+#statusdl dd {
+  margin: 0;
   font-family: var(--mono);
-  font-size: 11px;
+  font-size: var(--font-size-small);
   word-break: break-all;
 }
 .empty {
