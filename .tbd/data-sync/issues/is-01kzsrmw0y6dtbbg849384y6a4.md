@@ -5,7 +5,7 @@ title: Final concurrency and stream-ordering review for tbd web
 kind: epic
 status: closed
 priority: 1
-version: 23
+version: 27
 spec_path: docs/project/specs/active/plan-2026-08-10-tbd-web-live-bead-view.md
 labels:
   - web
@@ -33,9 +33,15 @@ child_order_hints:
   - is-01kzsynkh82v55b35pw3gw3dc7
   - is-01kzt12xjzw3v4zh19v6rza4y8
   - is-01kzt26j5jfvsg9fs2t5j64gae
+  - is-01kzt557vdgx7sm5c0z7pkmnyf
+  - is-01kzt558cyrfc0jdz1m85nzjtj
 created_at: 2026-08-12T01:16:03.997Z
-updated_at: 2026-08-12T04:38:51.394Z
-closed_at: 2026-08-12T04:38:51.393Z
-close_reason: "Final thread/concurrency systems review complete: every finding mapped, implemented, documented, and validated end to end."
+updated_at: 2026-08-12T05:09:22.141Z
+closed_at: 2026-08-12T05:09:22.140Z
+close_reason: Completed end-to-end concurrency review and all 22 tracked findings, including the two post-push Bugbot lock-liveness findings. Design proof, file/function map, adversarial tests, full release gates, and local packaging validation are green.
 ---
 Audit the tbd web pipeline end to end for filesystem-event races, debounce/reconciliation ordering, serialized reload correctness, SSE fan-out/backpressure and reconnect replay, shutdown interleavings, client state monotonicity, duplicate delivery, deadlock/livelock, and contention. Track every confirmed finding as a child bead, implement all fixes, and retain adversarial regression evidence.
+
+## Notes
+
+Reopened: Two valid post-push Bugbot lock-liveness findings arrived; reopening for tracked follow-up.
