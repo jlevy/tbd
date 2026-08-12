@@ -5,7 +5,7 @@ title: Final concurrency and stream-ordering review for tbd web
 kind: epic
 status: closed
 priority: 1
-version: 34
+version: 39
 spec_path: docs/project/specs/active/plan-2026-08-10-tbd-web-live-bead-view.md
 labels:
   - web
@@ -40,10 +40,13 @@ child_order_hints:
   - is-01kzt816bxs150d1bnaw4qceej
   - is-01kzt83s73w8jes74dwg675qke
   - is-01kzt86tq1ykb1n42vffhga4et
+  - is-01kztafk7n89b2jsbcwrdz677v
+  - is-01kztakhjkajzh9hj9gjv6wyf6
+  - is-01kzthhg94pckc5ag8txeq1bem
 created_at: 2026-08-12T01:16:03.997Z
-updated_at: 2026-08-12T06:08:44.039Z
-closed_at: 2026-08-12T06:08:44.038Z
-close_reason: Completed the end-to-end concurrency review and all 27 tracked child findings. The design proof, portable ownership protocol, stable snapshots, bounded observer/SSE/client queues, shutdown fencing, and adversarial regressions pass 113 Vitest files (1,561 tests), 1,074 transcripts, artifact smoke tests, lint/type/format, publint, and package-age checks.
+updated_at: 2026-08-12T08:57:21.294Z
+closed_at: 2026-08-12T08:57:21.293Z
+close_reason: "Completed the end-to-end concurrency, snapshot, streaming, shutdown, portability, and installed-viewer audit: all 30 child findings (R25-R54) are closed with file/function dispositions and adversarial coverage. Final local gate passes 113 Vitest files / 1,568 tests, 1,075 transcripts, strict formatting/typecheck/lint/build, publint, 31 package-age pins, packed-web and watch-release proofs, plus 5,000/10,001 scale boundaries. PR audit has 15/15 review threads resolved and no pending comments."
 ---
 Audit the tbd web pipeline end to end for filesystem-event races, debounce/reconciliation ordering, serialized reload correctness, SSE fan-out/backpressure and reconnect replay, shutdown interleavings, client state monotonicity, duplicate delivery, deadlock/livelock, and contention. Track every confirmed finding as a child bead, implement all fixes, and retain adversarial regression evidence.
 
@@ -52,3 +55,5 @@ Audit the tbd web pipeline end to end for filesystem-event races, debounce/recon
 Reopened: Two valid post-push Bugbot lock-liveness findings arrived; reopening for tracked follow-up.
 
 Reopened: Final-head Bugbot portability finding: hard-link owner installation can fail on otherwise supported filesystems; reopening for a portable atomic owner-generation protocol.
+
+Reopened: Final installation-surface audit found missing natural-language web-view routing and viewer ownership guidance in the shipped agent skill and onboarding docs.
