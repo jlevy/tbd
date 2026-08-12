@@ -855,10 +855,9 @@ The original final review is tracked under `tbd-o7nu`, with the owner-directed r
 and its follow-up findings under `tbd-ihyx`. R1–R23 were implemented and validated; R24
 was rejected with code-path evidence because the reported persistence was never part of
 the client contract.
-The final concurrency review is tracked under epic `tbd-p1i5`: R25–R35, R38–R54, and the
-late review threads R55–R56 are concrete defects, while R36–R37 are its normative design
-and adversarial verification tasks.
-Every item has one bead and an explicit file/function disposition.
+The final concurrency review is tracked under epic `tbd-p1i5`: R25–R35 and R38–R57 are
+concrete defects, while R36–R37 are its normative design and adversarial verification
+tasks. Every item has one bead and an explicit file/function disposition.
 
 R14 removes the final Windows command-shim assumption from the packed proof.
 R15 closes the final scale-specific memory and data-motion paths after the 10,000-row
@@ -935,6 +934,7 @@ display ids or consume the detail cap.
 | `tbd-prtc` (R54) | P1 | `src/utils/lockfile.ts`: `runWithPreparedLockGeneration`, provisional identity helpers; `tests/lockfile{,-acquisition-race}.test.ts`; design concurrency proof | Classify a raced owner-install failure by canonical generation identity, so macOS `EINVAL` after removal retries without overwriting an installed replacement while the same-generation error remains raw. Deterministic tests prove recovery, fail-closed classification, single execution, and cleanup; whole-suite concurrency revalidates the original waiter race. |
 | `tbd-7156` (R55) | P2 | `src/web/client.ts`: `renderBoard`; `tests/bead-web-css.test.ts` | Keep the concise `Expand all` / `Collapse all` labels, but state in the tooltip that the working set is the current page, matching `paginateBoardRows` and the documented bounded-detail contract. |
 | `tbd-z0j7` (R56) | P2 | `src/web/styles.css`: live-change marker; `tests/bead-web-css.test.ts` | Attach the persistent change marker to `.copy-value::after`, immediately after the literal bead ID and before the copy control’s reserved space. |
+| `tbd-z1za` (R57) | P1 | `tests/issue-changes.test.ts`: `createChangesReportFromRefs` describe; `tests/test-helpers.ts`: `subprocessTestTimeout` | Apply the standard 30-second integration budget with a 60-second Windows floor to the synthetic Git-history block. Parallel Windows load can no longer trip Vitest’s 5-second unit default and begin teardown while Git still owns the temp repository. |
 
 ### Merge gate for PR #207
 
