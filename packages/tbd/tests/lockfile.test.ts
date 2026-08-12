@@ -261,6 +261,23 @@ describe('withLockfile', () => {
     await rm(lockPath, { recursive: true, force: true });
   });
 
+  it('recovers an abandoned ownerless mkdir generation only after it is stale', async () => {
+    const lockPath = join(tempDir, 'ownerless-stale.lock');
+    await mkdir(lockPath);
+    const old = new Date(Date.now() - 60_000);
+    await utimes(lockPath, old, old);
+
+    await expect(
+      withLockfile(lockPath, () => Promise.resolve('recovered'), {
+        timeoutMs: 2_000,
+        pollMs: 5,
+        staleMs: 50,
+      }),
+    ).resolves.toBe('recovered');
+
+    await expect(stat(lockPath)).rejects.toMatchObject({ code: 'ENOENT' });
+  });
+
   it('preserves unexpected filesystem errors instead of masking them as lock contention', async () => {
     let executed = false;
 

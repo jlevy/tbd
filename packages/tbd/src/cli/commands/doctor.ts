@@ -7,7 +7,7 @@
  */
 
 import { Command } from 'commander';
-import { access, mkdir, readdir, readFile, rmdir, unlink } from 'node:fs/promises';
+import { access, mkdir, readdir, readFile, unlink } from 'node:fs/promises';
 import { join } from 'node:path';
 import { randomUUID } from 'node:crypto';
 
@@ -81,6 +81,7 @@ import {
   getCodexTbdSection,
   inspectCodexHooksSurface,
 } from './setup.js';
+import { withLockfile } from '../../utils/lockfile.js';
 
 function managedArtifactFinding(
   name: string,
@@ -207,7 +208,7 @@ export function divergenceFinding(
  * remediation.
  */
 export interface LockWritabilityProbe {
-  /** errno from the probe `mkdir`, or undefined when the lock path is writable. */
+  /** errno from the lock-lifecycle probe, or undefined when the lock path is writable. */
   code: string | undefined;
   sharedLockPath: string;
   sharedLocksDir: string;
@@ -219,8 +220,8 @@ export interface LockWritabilityProbe {
 /**
  * Build the "Shared lock writability" finding from a probe result.
  *
- * `code` is the errno from attempting to create a directory under the shared
- * locks dir, or undefined on success. EPERM/EACCES is a hard error: every write
+ * `code` is the errno from exercising a lock under the shared locks dir, or
+ * undefined on success. EPERM/EACCES is a hard error: every write
  * command must acquire this lock, so an unwritable lock path breaks all writes
  * (the #164 Codex-sandbox case), and a lock tbd needs but cannot take is a
  * fatal condition, not a soft warning. Any other probe failure is reported as a
@@ -1426,9 +1427,9 @@ class DoctorHandler extends BaseCommand {
    * `$GIT_COMMON_DIR/tbd` is outside the writable sandbox (e.g. a Codex
    * worktree) looks healthy here while every write command fails with EPERM on
    * the lock mkdir. This probe mirrors `withSharedDataSyncLock`: ensure the
-   * locks dir, then create and remove a uniquely named probe directory inside
-   * it. It is fully self-contained and never throws, so it cannot abort the
-   * doctor run. See issue #164.
+   * locks dir, then exercise the complete lock lifecycle at a uniquely named
+   * probe path inside it. It is fully self-contained and never throws, so it
+   * cannot abort the doctor run. See issue #164.
    */
   private async checkSharedLockWritability(): Promise<DiagnosticResult> {
     let paths;
@@ -1450,13 +1451,15 @@ class DoctorHandler extends BaseCommand {
       // Mirrors withSharedDataSyncLock: ensuring the locks dir may create it as a
       // side effect, which is harmless; any write command would create it anyway.
       await mkdir(paths.sharedLocksDir, { recursive: true });
-      await mkdir(probeDir);
+      await withLockfile(probeDir, () => Promise.resolve(), {
+        timeoutMs: 2_000,
+        pollMs: 20,
+        staleMs: 1_000,
+      });
     } catch (error) {
       // The thrown value may not be an ErrnoException; optional-chain so a
       // non-Error throw degrades to 'UNKNOWN' instead of crashing the probe.
       code = (error as NodeJS.ErrnoException | undefined)?.code ?? 'UNKNOWN';
-    } finally {
-      await rmdir(probeDir).catch(() => {});
     }
 
     return buildLockWritabilityFinding({

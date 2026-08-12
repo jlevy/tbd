@@ -7,8 +7,8 @@
  * https://github.com/jlevy/tbd/issues/186. withLockfile must treat this as a busy
  * lock and retry, not throw.
  *
- * mkdir is mocked and process.platform is stubbed so both the win32 and non-win32
- * paths are exercised deterministically on every host platform.
+ * The canonical lock mkdir is fault-injected and process.platform is stubbed so both
+ * the win32 and non-win32 paths are exercised deterministically on every host platform.
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
@@ -18,29 +18,38 @@ import { join } from 'node:path';
 
 import type * as fsPromises from 'node:fs/promises';
 
+const canonicalMkdir = vi.hoisted(() => ({
+  target: '',
+  failuresRemaining: 0,
+  attempts: 0,
+}));
+
 vi.mock('node:fs/promises', async (importOriginal) => {
   const actual = await importOriginal<typeof fsPromises>();
   return {
     ...actual,
-    mkdir: vi.fn(actual.mkdir),
+    mkdir: vi.fn(async (...args: Parameters<typeof actual.mkdir>) => {
+      const path = String(args[0]);
+      if (path === canonicalMkdir.target) {
+        canonicalMkdir.attempts += 1;
+        if (canonicalMkdir.failuresRemaining > 0) {
+          if (Number.isFinite(canonicalMkdir.failuresRemaining)) {
+            canonicalMkdir.failuresRemaining -= 1;
+          }
+          const error = new Error(
+            `EPERM: operation not permitted, mkdir '${path}'`,
+          ) as NodeJS.ErrnoException;
+          error.code = 'EPERM';
+          error.path = path;
+          throw error;
+        }
+      }
+      return actual.mkdir(...args);
+    }),
   };
 });
 
-// Import the mocked mkdir to queue failures per test.
-import { mkdir } from 'node:fs/promises';
-
 import { withLockfile, LockAcquisitionError } from '../src/utils/lockfile.js';
-
-function epermError(path: string): NodeJS.ErrnoException {
-  const error = new Error(
-    `EPERM: operation not permitted, mkdir '${path}'`,
-  ) as NodeJS.ErrnoException;
-  error.code = 'EPERM';
-  // Real mkdir ErrnoExceptions carry .path; withSharedDataSyncLock keys its
-  // SharedLockUnwritableError translation on it.
-  error.path = path;
-  return error;
-}
 
 function stubPlatform(platform: NodeJS.Platform): void {
   Object.defineProperty(process, 'platform', { value: platform, configurable: true });
@@ -51,14 +60,17 @@ describe('withLockfile EPERM handling', () => {
   let tempDir: string;
 
   beforeEach(async () => {
-    // Restores the real mkdir implementation wrapped by vi.fn above.
-    vi.mocked(mkdir).mockReset();
+    canonicalMkdir.target = '';
+    canonicalMkdir.failuresRemaining = 0;
+    canonicalMkdir.attempts = 0;
     tempDir = await mkdtemp(join(tmpdir(), 'tbd-lockfile-eperm-'));
   });
 
   afterEach(async () => {
     stubPlatform(realPlatform);
-    vi.mocked(mkdir).mockReset();
+    canonicalMkdir.target = '';
+    canonicalMkdir.failuresRemaining = 0;
+    canonicalMkdir.attempts = 0;
     await rm(tempDir, { recursive: true, force: true });
   });
 
@@ -66,10 +78,10 @@ describe('withLockfile EPERM handling', () => {
     stubPlatform('win32');
     const lockPath = join(tempDir, 'test.lock');
 
-    // Two delete-pending failures, then the real mkdir succeeds.
-    vi.mocked(mkdir)
-      .mockRejectedValueOnce(epermError(lockPath))
-      .mockRejectedValueOnce(epermError(lockPath));
+    // Two delete-pending failures, then the real canonical mkdir succeeds. Private
+    // owner-generation preparation is deliberately unaffected.
+    canonicalMkdir.target = lockPath;
+    canonicalMkdir.failuresRemaining = 2;
 
     const result = await withLockfile(lockPath, () => Promise.resolve('acquired'), {
       timeoutMs: 5000,
@@ -77,14 +89,15 @@ describe('withLockfile EPERM handling', () => {
     });
 
     expect(result).toBe('acquired');
-    expect(vi.mocked(mkdir)).toHaveBeenCalledTimes(3);
+    expect(canonicalMkdir.attempts).toBe(3);
   });
 
   it('throws EPERM immediately on non-Windows platforms', async () => {
     stubPlatform('linux');
     const lockPath = join(tempDir, 'test.lock');
 
-    vi.mocked(mkdir).mockRejectedValue(epermError(lockPath));
+    canonicalMkdir.target = lockPath;
+    canonicalMkdir.failuresRemaining = Number.POSITIVE_INFINITY;
 
     let executed = false;
     await expect(
@@ -99,7 +112,7 @@ describe('withLockfile EPERM handling', () => {
     ).rejects.toMatchObject({ code: 'EPERM' });
 
     // A genuine POSIX permission error must fail fast, without retries.
-    expect(vi.mocked(mkdir)).toHaveBeenCalledTimes(1);
+    expect(canonicalMkdir.attempts).toBe(1);
     expect(executed).toBe(false);
   });
 
@@ -111,7 +124,8 @@ describe('withLockfile EPERM handling', () => {
     // surface as the raw ErrnoException — with .path intact — well before the
     // acquisition timeout, so withSharedDataSyncLock can translate it into
     // SharedLockUnwritableError instead of misreporting lock contention.
-    vi.mocked(mkdir).mockRejectedValue(epermError(lockPath));
+    canonicalMkdir.target = lockPath;
+    canonicalMkdir.failuresRemaining = Number.POSITIVE_INFINITY;
 
     const start = Date.now();
     let executed = false;
@@ -130,7 +144,7 @@ describe('withLockfile EPERM handling', () => {
     expect(executed).toBe(false);
     // It retried through the window (not fail-fast) but gave up long before
     // the 60s acquisition timeout.
-    expect(vi.mocked(mkdir).mock.calls.length).toBeGreaterThan(2);
+    expect(canonicalMkdir.attempts).toBeGreaterThan(2);
     expect(elapsed).toBeGreaterThanOrEqual(1000);
     expect(elapsed).toBeLessThan(10_000);
   });
@@ -139,7 +153,8 @@ describe('withLockfile EPERM handling', () => {
     stubPlatform('win32');
     const lockPath = join(tempDir, 'test.lock');
 
-    vi.mocked(mkdir).mockRejectedValue(epermError(lockPath));
+    canonicalMkdir.target = lockPath;
+    canonicalMkdir.failuresRemaining = Number.POSITIVE_INFINITY;
 
     // With timeoutMs below the EPERM retry window, the acquisition deadline
     // still governs: the loop exits and reports a timeout.

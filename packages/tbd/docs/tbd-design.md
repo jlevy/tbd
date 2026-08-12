@@ -4139,21 +4139,34 @@ persistent epoch in the Git common-dir tbd state.
 On lock acquisition it writes `active:<unique-id>` before the critical section; while
 still holding the lock it writes `quiescent:<same-unique-id>` after the critical
 section, then releases the lock.
-Before contending, a writer prepares a complete owner record containing a unique token,
-the host, and the process id in a sibling file.
-Atomic directory creation elects the lock holder, then an exclusive hard link installs
-that prepared record without permitting a delayed acquirer to overwrite a successor’s
-owner. Owner-file open or write failure therefore occurs before the canonical directory
+Before contending, a writer prepares a complete, non-empty owner-generation directory
+containing a unique token, the host, and the process id.
+The established atomic `mkdir` remains the sole lock election.
+Its winner renames the prepared generation to `lock/owner` before entering the critical
+section. This uses the same portable same-filesystem directory-rename primitive already
+required for release and stale recovery, not hard links or a second lock mechanism.
+Because an installed owner generation is non-empty, a delayed installer cannot replace a
+successor’s generation on macOS, Linux, or Windows.
+Owner-record open or write failure therefore occurs before the canonical directory
 exists; a failed install removes only an empty provisional directory.
-The remaining brief `mkdir`-to-link ownerless crash window is never eligible for
-automatic recovery. A best-effort heartbeat remains well below the stale threshold, but
-time alone is not permission to evict a recognized owner.
-A stale same-host lock is recoverable only after the OS says its process no longer
-exists; an ownerless, alive, permission-ambiguous, or remote-host owner fails closed and
-is left in place. This matters after machine sleep or a long event-loop suspension:
-delayed heartbeats may reduce liveness, but cannot turn two live writers into concurrent
-owners. Heartbeat timestamp or read failure disables that advisory optimization for the
-current generation; it does not poison the lease.
+The shared-data wrapper recognizes permission failures at the canonical lock,
+token-private preparation, and nested owner-install paths, while permission errors from
+the caller’s critical section pass through unchanged.
+The doctor writability check exercises this same complete lifecycle at a unique probe
+path rather than testing only the canonical `mkdir`. A crash in the remaining brief
+`mkdir`-to-install window leaves no active critical section.
+The empty reservation is recoverable after the stale threshold by `rmdir`, which also
+preserves the historical mkdir-only recovery contract; a fresh ownerless or non-empty
+unrecognized generation fails closed.
+A best-effort heartbeat remains well below the stale threshold, but time alone is not
+permission to evict a recognized owner.
+A stale recognized same-host lock is recoverable only after the OS says its process no
+longer exists; an alive, permission-ambiguous, remote-host, or non-empty unrecognized
+owner fails closed and is left in place.
+This matters after machine sleep or a long event-loop suspension: delayed heartbeats may
+reduce liveness, but cannot turn two live writers into concurrent owners.
+Heartbeat timestamp or read failure disables that advisory optimization for the current
+generation; it does not poison the lease.
 Commit and release re-read the unique owner record directly, while same-host process
 liveness continues to prevent eviction.
 
@@ -4162,8 +4175,9 @@ owner token and deliberately retains that tombstone.
 If several waiters observed the same dead generation, only the first rename can succeed;
 a delayed waiter cannot rename a successor into the already-occupied quarantine path.
 This removes the canonical-path ABA race without a timing assumption.
-Legacy ownerless or unrecognized locks remain outside this proof and require explicit
-operator recovery rather than speculative eviction.
+Legacy ownerless locks remain outside the strengthened token/PID proof.
+They retain the historical behavior: only a stale directory that is still empty can be
+removed; a non-empty unrecognized generation requires explicit operator recovery.
 Ownership is checked around quiescent publication and again at release, so loss is
 surfaced and a displaced holder cannot publish success or delete its successor.
 Normal release first renames the verified generation out of the canonical path and only
@@ -4288,7 +4302,12 @@ These cases are the compact proof obligation and the required adversarial test m
 | --- | --- |
 | Writer is active, or starts/finishes during a candidate read | Epoch/lock validation rejects the candidate; old accepted state remains served |
 | Live lock crosses stale windows, including machine sleep | PID liveness prevents eviction; the second writer waits or times out and no overlap occurs |
-| Owner-record preparation or installation fails | Preparation fails before canonical acquisition; installation removes only an empty provisional generation and never overwrites a successor |
+| Owner-record preparation or installation fails | Preparation fails before canonical acquisition; installation cleanup removes only an empty provisional reservation and never overwrites a successor |
+| Hard links are unsupported | The established mkdir election plus same-filesystem directory rename still acquires; no hard-link syscall is used |
+| Stale ownerless lock is unexpectedly non-empty | Empty-only recovery makes no progress and the contender waits on its bounded polling cadence; it neither removes unknown data nor spins |
+| Prepared owner generation disappears during install | Empty-only cleanup preserves any successor, then acquisition fails immediately because retry cannot make progress without its token-private source |
+| Owner preparation or installation is not writable | The shared writer reports the actionable shared-lock error, doctor reproduces the complete lifecycle, and an unrelated critical-section permission error is not relabeled |
+| Dead-generation quarantine is already occupied | No canonical generation moves and the contender waits on its bounded polling cadence; retained data and mutual exclusion remain intact |
 | Heartbeat metadata update fails while ownership remains valid | The direct owner fence still quiesces and releases the generation; no active epoch or canonical lock is stranded |
 | Several waiters retain one stale observation while a successor acquires | One owner-token quarantine wins; its retained tombstone makes every delayed rename fail without touching the successor |
 | Candidate issue, mapping, or epoch data is unreadable, corrupt, or oversized | The entire candidate fails closed; no empty or partial substitute is published |

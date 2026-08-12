@@ -101,10 +101,13 @@
   quiescent epoch and an absent mutex bracket the complete read, so create, update,
   doctor repair, and sync bursts can expose the complete state before or after a write
   but never a torn mixture.
-  Writer locks install a fully prepared process owner record without overwriting a
-  successor, treat heartbeat touching as advisory rather than ownership, retain
+  Writer locks retain the established portable mkdir election, atomically install a
+  fully prepared non-empty process-owner generation without hard links or successor
+  overwrite, treat heartbeat touching as advisory rather than ownership, retain
   generation-specific stale quarantines to prevent ABA recovery races, and move verified
   releases out of the canonical path before cleanup.
+  Shared-lock permission diagnostics and the doctor probe cover the complete owner
+  preparation/install lifecycle without relabeling unrelated critical-section errors.
   Reload, SSE, and browser queues are coalesced or explicitly bounded, with shutdown and
   stale-response cancellation.
 

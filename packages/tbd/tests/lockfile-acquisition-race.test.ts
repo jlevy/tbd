@@ -23,15 +23,20 @@ const preparedOwnerOpen = vi.hoisted(() => ({
   failuresRemaining: 0,
   attempts: 0,
 }));
-const ownerLink = vi.hoisted(() => ({
+const ownerInstall = vi.hoisted(() => ({
   destination: '',
   armed: false,
   entered: (): void => undefined,
   release: Promise.resolve(),
+  failuresRemaining: 0,
+  failureCode: 'EIO',
+  removeSourceOnFailure: false,
 }));
+const hardLink = vi.hoisted(() => ({ attempts: 0 }));
 const staleRename = vi.hoisted(() => ({
   source: '',
   destination: '',
+  attempts: 0,
   armed: false,
   entered: (): void => undefined,
   release: Promise.resolve(),
@@ -46,6 +51,10 @@ const heartbeatTouch = vi.hoisted(() => ({
   failuresRemaining: 0,
   attempts: 0,
   failed: (): void => undefined,
+}));
+const emptyRemoval = vi.hoisted(() => ({
+  target: '',
+  attempts: 0,
 }));
 
 vi.mock('node:fs/promises', async (importOriginal) => {
@@ -71,15 +80,27 @@ vi.mock('node:fs/promises', async (importOriginal) => {
       }
       return actual.open(path, flags, mode);
     }),
-    link: vi.fn(async (source: string, destination: string) => {
-      if (ownerLink.armed && destination === ownerLink.destination) {
-        ownerLink.armed = false;
-        ownerLink.entered();
-        await ownerLink.release;
-      }
-      return actual.link(source, destination);
+    link: vi.fn(() => {
+      hardLink.attempts += 1;
+      const error = new Error('hard links unsupported') as NodeJS.ErrnoException;
+      error.code = 'ENOTSUP';
+      return Promise.reject(error);
     }),
     rename: vi.fn(async (source: string, destination: string) => {
+      if (ownerInstall.armed && destination === ownerInstall.destination) {
+        ownerInstall.armed = false;
+        ownerInstall.entered();
+        await ownerInstall.release;
+      }
+      if (destination === ownerInstall.destination && ownerInstall.failuresRemaining > 0) {
+        ownerInstall.failuresRemaining -= 1;
+        if (ownerInstall.removeSourceOnFailure) {
+          await actual.rm(source, { recursive: true, force: true });
+        }
+        const error = new Error('owner installation failed') as NodeJS.ErrnoException;
+        error.code = ownerInstall.failureCode;
+        throw error;
+      }
       if (
         source === releaseRename.source &&
         destination.startsWith(`${releaseRename.source}.released-`)
@@ -92,16 +113,21 @@ vi.mock('node:fs/promises', async (importOriginal) => {
           throw error;
         }
       }
-      if (
-        staleRename.armed &&
-        source === staleRename.source &&
-        destination === staleRename.destination
-      ) {
-        staleRename.armed = false;
-        staleRename.entered();
-        await staleRename.release;
+      if (source === staleRename.source && destination === staleRename.destination) {
+        staleRename.attempts += 1;
+        if (staleRename.armed) {
+          staleRename.armed = false;
+          staleRename.entered();
+          await staleRename.release;
+        }
       }
       return actual.rename(source, destination);
+    }),
+    rmdir: vi.fn(async (path: string) => {
+      if (path === emptyRemoval.target) {
+        emptyRemoval.attempts += 1;
+      }
+      return actual.rmdir(path);
     }),
     utimes: vi.fn(async (path: string, atime: Date | number, mtime: Date | number) => {
       if (path === heartbeatTouch.target) {
@@ -141,12 +167,17 @@ describe('withLockfile acquisition ownership race', () => {
     preparedOwnerOpen.failureStage = 'open';
     preparedOwnerOpen.failuresRemaining = 0;
     preparedOwnerOpen.attempts = 0;
-    ownerLink.destination = '';
-    ownerLink.armed = false;
-    ownerLink.entered = (): void => undefined;
-    ownerLink.release = Promise.resolve();
+    ownerInstall.destination = '';
+    ownerInstall.armed = false;
+    ownerInstall.entered = (): void => undefined;
+    ownerInstall.release = Promise.resolve();
+    ownerInstall.failuresRemaining = 0;
+    ownerInstall.failureCode = 'EIO';
+    ownerInstall.removeSourceOnFailure = false;
+    hardLink.attempts = 0;
     staleRename.source = '';
     staleRename.destination = '';
+    staleRename.attempts = 0;
     staleRename.armed = false;
     staleRename.entered = (): void => undefined;
     staleRename.release = Promise.resolve();
@@ -157,30 +188,32 @@ describe('withLockfile acquisition ownership race', () => {
     heartbeatTouch.failuresRemaining = 0;
     heartbeatTouch.attempts = 0;
     heartbeatTouch.failed = (): void => undefined;
+    emptyRemoval.target = '';
+    emptyRemoval.attempts = 0;
     await rm(tempDir, { recursive: true, force: true });
   });
 
   it('does not overwrite a successor when provisional owner installation loses its directory', async () => {
     const lockPath = join(tempDir, 'shared.lock');
     const displacedPath = join(tempDir, 'shared.displaced');
-    const firstAtOwnerLink = deferred();
-    const releaseFirstOwnerLink = deferred();
+    const firstAtOwnerInstall = deferred();
+    const releaseFirstOwnerInstall = deferred();
     const secondStarted = deferred();
     const releaseSecond = deferred();
     let firstExecuted = false;
 
-    ownerLink.destination = join(lockPath, 'owner');
-    ownerLink.armed = true;
-    ownerLink.entered = () => {
-      firstAtOwnerLink.resolve();
+    ownerInstall.destination = join(lockPath, 'owner');
+    ownerInstall.armed = true;
+    ownerInstall.entered = () => {
+      firstAtOwnerInstall.resolve();
     };
-    ownerLink.release = releaseFirstOwnerLink.promise;
+    ownerInstall.release = releaseFirstOwnerInstall.promise;
 
     const first = withLockfile(lockPath, () => {
       firstExecuted = true;
       return Promise.resolve('first');
     });
-    await firstAtOwnerLink.promise;
+    await firstAtOwnerInstall.promise;
 
     // Model stale recovery during the provisional mkdir -> owner-file window.
     await rename(lockPath, displacedPath);
@@ -191,14 +224,16 @@ describe('withLockfile acquisition ownership race', () => {
     });
     await secondStarted.promise;
 
-    // The resumed first acquisition uses an exclusive hard link and sees EEXIST at the
-    // successor's complete owner record. It leaves that generation untouched and
-    // returns to the acquisition loop without entering its own critical section.
-    releaseFirstOwnerLink.resolve();
+    // The resumed first acquisition cannot rename its non-empty generation over the
+    // successor's non-empty owner directory. It leaves that generation untouched and
+    // returns to the mkdir loop without entering its own critical section.
+    releaseFirstOwnerInstall.resolve();
     await new Promise((resolve) => setTimeout(resolve, 75));
     expect(firstExecuted).toBe(false);
     await expect(stat(lockPath)).resolves.toMatchObject({});
-    const successorOwner = JSON.parse(await readFile(join(lockPath, 'owner'), 'utf8')) as {
+    const successorOwner = JSON.parse(
+      await readFile(join(lockPath, 'owner', 'record'), 'utf8'),
+    ) as {
       token: string;
       pid: number;
     };
@@ -209,6 +244,50 @@ describe('withLockfile acquisition ownership race', () => {
     await expect(second).resolves.toBe('second');
     await expect(first).resolves.toBe('first');
     await expect(stat(lockPath)).rejects.toMatchObject({ code: 'ENOENT' });
+  });
+
+  it('keeps mkdir acquisition working when hard links are unsupported', async () => {
+    const lockPath = join(tempDir, 'no-hard-links.lock');
+
+    await expect(withLockfile(lockPath, () => Promise.resolve('done'))).resolves.toBe('done');
+
+    expect(hardLink.attempts).toBe(0);
+    await expect(stat(lockPath)).rejects.toMatchObject({ code: 'ENOENT' });
+  });
+
+  it('does not strand the canonical lock when owner-generation install fails', async () => {
+    const lockPath = join(tempDir, 'owner-install-failure.lock');
+    ownerInstall.destination = join(lockPath, 'owner');
+    ownerInstall.failuresRemaining = 1;
+    let executed = false;
+
+    await expect(
+      withLockfile(lockPath, () => {
+        executed = true;
+        return Promise.resolve();
+      }),
+    ).rejects.toMatchObject({ code: 'EIO' });
+
+    expect(executed).toBe(false);
+    await expect(stat(lockPath)).rejects.toMatchObject({ code: 'ENOENT' });
+    expect(await readdir(tempDir)).toEqual([]);
+  });
+
+  it('fails without retrying when its private owner generation disappears', async () => {
+    const lockPath = join(tempDir, 'owner-generation-missing.lock');
+    ownerInstall.destination = join(lockPath, 'owner');
+    ownerInstall.failuresRemaining = 1;
+    ownerInstall.failureCode = 'ENOENT';
+    ownerInstall.removeSourceOnFailure = true;
+
+    const startedAt = Date.now();
+    await expect(
+      withLockfile(lockPath, () => Promise.resolve('should-not-run')),
+    ).rejects.toMatchObject({ code: 'ENOENT' });
+
+    expect(Date.now() - startedAt).toBeLessThan(1_000);
+    await expect(stat(lockPath)).rejects.toMatchObject({ code: 'ENOENT' });
+    expect(await readdir(tempDir)).toEqual([]);
   });
 
   it.each(['open', 'write'] as const)(
@@ -262,6 +341,28 @@ describe('withLockfile acquisition ownership race', () => {
     await expect(work).resolves.toBe('done');
     expect(heartbeatTouch.attempts).toBe(1);
     await expect(stat(lockPath)).rejects.toMatchObject({ code: 'ENOENT' });
+  });
+
+  it('polls instead of spinning on a stale non-empty ownerless lock', async () => {
+    const lockPath = join(tempDir, 'malformed-ownerless.lock');
+    await mkdir(lockPath);
+    await writeFile(join(lockPath, 'sentinel'), 'unexpected');
+    const old = new Date(Date.now() - 60_000);
+    await utimes(lockPath, old, old);
+    emptyRemoval.target = lockPath;
+
+    const startedAt = Date.now();
+    await expect(
+      withLockfile(lockPath, () => Promise.resolve('should-not-run'), {
+        timeoutMs: 120,
+        pollMs: 20,
+        staleMs: 0,
+      }),
+    ).rejects.toThrow('Failed to acquire lock');
+
+    expect(Date.now() - startedAt).toBeGreaterThanOrEqual(100);
+    expect(emptyRemoval.attempts).toBeGreaterThan(1);
+    expect(emptyRemoval.attempts).toBeLessThanOrEqual(8);
   });
 
   it('does not let a delayed stale observer quarantine a successor generation', async () => {
@@ -328,6 +429,42 @@ describe('withLockfile acquisition ownership race', () => {
     releaseSecond.resolve();
     await expect(second).resolves.toBe('second');
     await expect(first).resolves.toBe('first');
+  });
+
+  it('polls when a stale generation cannot enter its occupied quarantine', async () => {
+    const lockPath = join(tempDir, 'occupied-quarantine.lock');
+    const deadToken = '00000000-0000-4000-8000-000000000004';
+    const stalePath = `${lockPath}.stale-${deadToken}`;
+    await mkdir(lockPath);
+    await writeFile(
+      join(lockPath, 'owner'),
+      `${JSON.stringify({
+        version: 1,
+        token: deadToken,
+        host: hostname(),
+        pid: 2_147_483_647,
+      })}\n`,
+    );
+    await mkdir(stalePath);
+    await writeFile(join(stalePath, 'sentinel'), 'retained');
+    const old = new Date(Date.now() - 60_000);
+    await utimes(lockPath, old, old);
+    staleRename.source = lockPath;
+    staleRename.destination = stalePath;
+
+    const startedAt = Date.now();
+    await expect(
+      withLockfile(lockPath, () => Promise.resolve('should-not-run'), {
+        timeoutMs: 120,
+        pollMs: 20,
+        staleMs: 0,
+      }),
+    ).rejects.toThrow('Failed to acquire lock');
+
+    expect(Date.now() - startedAt).toBeGreaterThanOrEqual(100);
+    expect(staleRename.attempts).toBeGreaterThan(1);
+    expect(staleRename.attempts).toBeLessThanOrEqual(8);
+    expect(await readFile(join(stalePath, 'sentinel'), 'utf8')).toBe('retained');
   });
 
   it('retries transient release renames without exposing a second owner', async () => {
