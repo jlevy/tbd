@@ -26,13 +26,16 @@
  *
  * ## Lock lifecycle
  *
- * 1. **Acquire**: `mkdir(lockDir)`; fails with EEXIST if held by another process.
+ * 1. **Acquire**: Prepare a complete token/host/pid owner file, then
+ *    `mkdir(lockDir)`; mkdir fails with EEXIST if held by another process. Install the
+ *    prepared record with an exclusive hard link, so setup failure cannot strand a
+ *    canonical directory and a delayed installer cannot overwrite a successor.
  *    On Windows, a concurrent release can instead surface as a transient EPERM
  *    (NTFS delete-pending directory); this is treated as a busy lock and retried
  *    for a short window, after which the raw EPERM is rethrown (a persistent
  *    EPERM is a genuine permission problem, not the delete-pending race).
- * 2. **Hold**: Write a token/host/pid owner record, heartbeat the directory mtime, and
- *    execute the critical section.
+ * 2. **Hold**: Best-effort heartbeat the directory mtime and execute the critical
+ *    section. The owner token and PID, not heartbeat success, are authoritative.
  * 3. **Release**: Verify the same owner record, rename that generation out of the
  *    canonical path, then remove the sidecar with bounded Windows retries. A cleanup
  *    failure cannot strand an ownerless canonical lock or delete a successor.
@@ -55,7 +58,7 @@
  * liveness cannot be proved.
  */
 
-import { mkdir, open, rename, rmdir, stat, unlink, utimes } from 'node:fs/promises';
+import { link, mkdir, open, rename, rmdir, stat, unlink, utimes } from 'node:fs/promises';
 import { randomUUID } from 'node:crypto';
 import { hostname } from 'node:os';
 import { join } from 'node:path';
@@ -262,18 +265,13 @@ interface LockHeartbeat {
 function startLockHeartbeat(lockPath: string, owner: string, staleMs: number): LockHeartbeat {
   const intervalMs = Math.max(1, Math.min(MAX_HEARTBEAT_INTERVAL_MS, Math.floor(staleMs / 3)));
   let stopped = false;
+  let disabled = false;
   let timer: NodeJS.Timeout | null = null;
   let inFlight = Promise.resolve();
-  let failure: Error | undefined;
 
-  const assertOwned = async (): Promise<void> => {
-    if (failure !== undefined) {
-      throw failure;
-    }
-    await assertLockOwner(lockPath, owner);
-  };
+  const assertOwned = (): Promise<void> => assertLockOwner(lockPath, owner);
   const schedule = (): void => {
-    if (stopped || failure !== undefined) {
+    if (stopped || disabled) {
       return;
     }
     timer = setTimeout(() => {
@@ -283,8 +281,12 @@ function startLockHeartbeat(lockPath: string, owner: string, staleMs: number): L
         const now = new Date();
         await utimes(lockPath, now, now);
       })()
-        .catch((error: unknown) => {
-          failure = asError(error);
+        .catch(() => {
+          // Heartbeats reduce unnecessary stale-owner probes; they do not establish
+          // ownership. A timestamp/read failure disables this advisory optimization,
+          // while the direct token check at commit/release remains authoritative.
+          // Same-host PID liveness still prevents a live holder from being evicted.
+          disabled = true;
         })
         .finally(schedule);
     }, intervalMs);
@@ -301,11 +303,53 @@ function startLockHeartbeat(lockPath: string, owner: string, staleMs: number): L
         timer = null;
       }
       await inFlight;
-      if (failure !== undefined) {
-        throw failure;
-      }
     },
   };
+}
+
+/** Write a complete owner record before the canonical lock directory can exist. */
+async function prepareLockOwnerFile(
+  lockPath: string,
+  owner: LockOwnerRecord,
+  encodedOwner: string,
+): Promise<string> {
+  const preparedPath = `${lockPath}.owner-${owner.token}`;
+  let created = false;
+  try {
+    const handle = await open(preparedPath, 'wx');
+    created = true;
+    try {
+      await handle.writeFile(`${encodedOwner}\n`);
+    } finally {
+      await handle.close();
+    }
+  } catch (error) {
+    if (created) {
+      await unlink(preparedPath).catch(() => undefined);
+    }
+    throw error;
+  }
+  return preparedPath;
+}
+
+/** Remove only an empty provisional directory; never unlink a successor's owner. */
+async function removeEmptyLockDir(lockPath: string, attempts = 5): Promise<void> {
+  for (let attempt = 0; attempt < attempts; attempt += 1) {
+    try {
+      await rmdir(lockPath);
+      return;
+    } catch (error) {
+      const code = (error as NodeJS.ErrnoException).code;
+      if (code === 'ENOENT' || code === 'ENOTEMPTY') {
+        return;
+      }
+      if (attempt < attempts - 1 && code !== undefined && TRANSIENT_RMDIR_CODES.has(code)) {
+        await new Promise((resolve) => setTimeout(resolve, 20 * (attempt + 1)));
+        continue;
+      }
+      return;
+    }
+  }
 }
 
 /**
@@ -448,13 +492,31 @@ export async function withLockfile<T>(
   fn: (lease: LockLease) => Promise<T>,
   options?: LockfileOptions,
 ): Promise<T> {
+  const ownerRecord = createLockOwner();
+  const owner = encodeLockOwner(ownerRecord);
+  const preparedOwnerPath = await prepareLockOwnerFile(lockPath, ownerRecord, owner);
+  try {
+    return await runWithPreparedLockfile(lockPath, fn, owner, preparedOwnerPath, options);
+  } finally {
+    // The canonical owner is a hard link to this complete record. Removing the
+    // preparation name cannot change the installed record or a successor lock.
+    await unlink(preparedOwnerPath).catch(() => undefined);
+  }
+}
+
+async function runWithPreparedLockfile<T>(
+  lockPath: string,
+  fn: (lease: LockLease) => Promise<T>,
+  owner: string,
+  preparedOwnerPath: string,
+  options?: LockfileOptions,
+): Promise<T> {
   const timeoutMs = options?.timeoutMs ?? DEFAULT_TIMEOUT_MS;
   const pollMs = options?.pollMs ?? DEFAULT_POLL_MS;
   const staleMs = options?.staleMs ?? DEFAULT_STALE_MS;
 
   const deadline = Date.now() + timeoutMs;
   let acquired = false;
-  let owner: string | null = null;
   let epermStreakStart: number | undefined;
 
   while (Date.now() < deadline) {
@@ -462,20 +524,15 @@ export async function withLockfile<T>(
       // mkdir is the atomic acquisition point. The brief ownerless interval is
       // deliberately fail-closed by stale recovery below.
       await mkdir(lockPath);
-      const ownerRecord = createLockOwner();
-      owner = encodeLockOwner(ownerRecord);
       try {
-        const ownerFile = await open(join(lockPath, LOCK_OWNER_FILE), 'wx');
-        try {
-          await ownerFile.writeFile(`${owner}\n`);
-        } finally {
-          await ownerFile.close();
-        }
+        // link is exclusive: a delayed provisional acquirer cannot overwrite an
+        // owner record installed by a successor after out-of-protocol recovery.
+        await link(preparedOwnerPath, join(lockPath, LOCK_OWNER_FILE));
       } catch (error) {
-        // Stale recovery from an older implementation or explicit operator action may
-        // have renamed our provisional directory. Only clean a canonical path that now
-        // contains our exact owner record; otherwise it belongs to a successor.
-        await removeLockDir(lockPath, owner);
+        // Owner preparation happened before mkdir, so an ordinary setup failure cannot
+        // strand the canonical path. If installation fails, remove only an empty
+        // provisional directory; a successor's non-empty generation is untouched.
+        await removeEmptyLockDir(lockPath);
         throw error;
       }
       acquired = true;
@@ -540,10 +597,6 @@ export async function withLockfile<T>(
 
   if (!acquired) {
     throw new LockAcquisitionError(lockPath, timeoutMs);
-  }
-
-  if (owner === null) {
-    throw new Error(`Acquired lock at ${lockPath} without an owner record`);
   }
 
   const heartbeat = startLockHeartbeat(lockPath, owner, staleMs);

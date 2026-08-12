@@ -1,14 +1,30 @@
 /** Adversarial ownership test for the mkdir-to-owner acquisition boundary. */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { mkdtemp, mkdir, readFile, rename, rm, stat, utimes, writeFile } from 'node:fs/promises';
+import {
+  mkdtemp,
+  mkdir,
+  readFile,
+  readdir,
+  rename,
+  rm,
+  stat,
+  utimes,
+  writeFile,
+} from 'node:fs/promises';
 import { hostname, tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import type * as fsPromises from 'node:fs/promises';
 
-const ownerOpen = vi.hoisted(() => ({
-  target: '',
+const preparedOwnerOpen = vi.hoisted(() => ({
+  prefix: '',
+  failureStage: 'open' as 'open' | 'write',
+  failuresRemaining: 0,
+  attempts: 0,
+}));
+const ownerLink = vi.hoisted(() => ({
+  destination: '',
   armed: false,
   entered: (): void => undefined,
   release: Promise.resolve(),
@@ -25,18 +41,43 @@ const releaseRename = vi.hoisted(() => ({
   failuresRemaining: 0,
   attempts: 0,
 }));
+const heartbeatTouch = vi.hoisted(() => ({
+  target: '',
+  failuresRemaining: 0,
+  attempts: 0,
+  failed: (): void => undefined,
+}));
 
 vi.mock('node:fs/promises', async (importOriginal) => {
   const actual = await importOriginal<typeof fsPromises>();
   return {
     ...actual,
     open: vi.fn(async (path: string, flags: string | number, mode?: number | string) => {
-      if (ownerOpen.armed && path === ownerOpen.target) {
-        ownerOpen.armed = false;
-        ownerOpen.entered();
-        await ownerOpen.release;
+      if (preparedOwnerOpen.prefix !== '' && path.startsWith(preparedOwnerOpen.prefix)) {
+        preparedOwnerOpen.attempts += 1;
+        if (preparedOwnerOpen.failuresRemaining > 0) {
+          preparedOwnerOpen.failuresRemaining -= 1;
+          const error = new Error('owner preparation failed') as NodeJS.ErrnoException;
+          error.code = 'ENOSPC';
+          if (preparedOwnerOpen.failureStage === 'open') {
+            throw error;
+          }
+          const handle = await actual.open(path, flags, mode);
+          return {
+            writeFile: () => Promise.reject(error),
+            close: () => handle.close(),
+          } as unknown as Awaited<ReturnType<typeof actual.open>>;
+        }
       }
       return actual.open(path, flags, mode);
+    }),
+    link: vi.fn(async (source: string, destination: string) => {
+      if (ownerLink.armed && destination === ownerLink.destination) {
+        ownerLink.armed = false;
+        ownerLink.entered();
+        await ownerLink.release;
+      }
+      return actual.link(source, destination);
     }),
     rename: vi.fn(async (source: string, destination: string) => {
       if (
@@ -62,6 +103,19 @@ vi.mock('node:fs/promises', async (importOriginal) => {
       }
       return actual.rename(source, destination);
     }),
+    utimes: vi.fn(async (path: string, atime: Date | number, mtime: Date | number) => {
+      if (path === heartbeatTouch.target) {
+        heartbeatTouch.attempts += 1;
+        if (heartbeatTouch.failuresRemaining > 0) {
+          heartbeatTouch.failuresRemaining -= 1;
+          heartbeatTouch.failed();
+          const error = new Error('heartbeat timestamp failed') as NodeJS.ErrnoException;
+          error.code = 'EIO';
+          throw error;
+        }
+      }
+      return actual.utimes(path, atime, mtime);
+    }),
   };
 });
 
@@ -83,10 +137,14 @@ describe('withLockfile acquisition ownership race', () => {
   });
 
   afterEach(async () => {
-    ownerOpen.target = '';
-    ownerOpen.armed = false;
-    ownerOpen.entered = (): void => undefined;
-    ownerOpen.release = Promise.resolve();
+    preparedOwnerOpen.prefix = '';
+    preparedOwnerOpen.failureStage = 'open';
+    preparedOwnerOpen.failuresRemaining = 0;
+    preparedOwnerOpen.attempts = 0;
+    ownerLink.destination = '';
+    ownerLink.armed = false;
+    ownerLink.entered = (): void => undefined;
+    ownerLink.release = Promise.resolve();
     staleRename.source = '';
     staleRename.destination = '';
     staleRename.armed = false;
@@ -95,30 +153,34 @@ describe('withLockfile acquisition ownership race', () => {
     releaseRename.source = '';
     releaseRename.failuresRemaining = 0;
     releaseRename.attempts = 0;
+    heartbeatTouch.target = '';
+    heartbeatTouch.failuresRemaining = 0;
+    heartbeatTouch.attempts = 0;
+    heartbeatTouch.failed = (): void => undefined;
     await rm(tempDir, { recursive: true, force: true });
   });
 
-  it('does not remove a successor when provisional owner creation loses its directory', async () => {
+  it('does not overwrite a successor when provisional owner installation loses its directory', async () => {
     const lockPath = join(tempDir, 'shared.lock');
     const displacedPath = join(tempDir, 'shared.displaced');
-    const firstAtOwnerOpen = deferred();
-    const releaseFirstOwnerOpen = deferred();
+    const firstAtOwnerLink = deferred();
+    const releaseFirstOwnerLink = deferred();
     const secondStarted = deferred();
     const releaseSecond = deferred();
     let firstExecuted = false;
 
-    ownerOpen.target = join(lockPath, 'owner');
-    ownerOpen.armed = true;
-    ownerOpen.entered = () => {
-      firstAtOwnerOpen.resolve();
+    ownerLink.destination = join(lockPath, 'owner');
+    ownerLink.armed = true;
+    ownerLink.entered = () => {
+      firstAtOwnerLink.resolve();
     };
-    ownerOpen.release = releaseFirstOwnerOpen.promise;
+    ownerLink.release = releaseFirstOwnerLink.promise;
 
     const first = withLockfile(lockPath, () => {
       firstExecuted = true;
       return Promise.resolve('first');
     });
-    await firstAtOwnerOpen.promise;
+    await firstAtOwnerLink.promise;
 
     // Model stale recovery during the provisional mkdir -> owner-file window.
     await rename(lockPath, displacedPath);
@@ -129,10 +191,10 @@ describe('withLockfile acquisition ownership race', () => {
     });
     await secondStarted.promise;
 
-    // The resumed first acquisition sees EEXIST at the successor's owner file. Its
-    // failure cleanup must compare owner tokens, leave the successor untouched, and
-    // return to the acquisition loop without entering its own critical section.
-    releaseFirstOwnerOpen.resolve();
+    // The resumed first acquisition uses an exclusive hard link and sees EEXIST at the
+    // successor's complete owner record. It leaves that generation untouched and
+    // returns to the acquisition loop without entering its own critical section.
+    releaseFirstOwnerLink.resolve();
     await new Promise((resolve) => setTimeout(resolve, 75));
     expect(firstExecuted).toBe(false);
     await expect(stat(lockPath)).resolves.toMatchObject({});
@@ -146,6 +208,59 @@ describe('withLockfile acquisition ownership race', () => {
     releaseSecond.resolve();
     await expect(second).resolves.toBe('second');
     await expect(first).resolves.toBe('first');
+    await expect(stat(lockPath)).rejects.toMatchObject({ code: 'ENOENT' });
+  });
+
+  it.each(['open', 'write'] as const)(
+    'does not create the canonical lock when owner-record %s fails',
+    async (failureStage) => {
+      const lockPath = join(tempDir, 'owner-setup-failure.lock');
+      preparedOwnerOpen.prefix = `${lockPath}.owner-`;
+      preparedOwnerOpen.failureStage = failureStage;
+      preparedOwnerOpen.failuresRemaining = 1;
+      let executed = false;
+
+      await expect(
+        withLockfile(lockPath, () => {
+          executed = true;
+          return Promise.resolve();
+        }),
+      ).rejects.toMatchObject({ code: 'ENOSPC' });
+
+      expect(executed).toBe(false);
+      expect(preparedOwnerOpen.attempts).toBe(1);
+      await expect(stat(lockPath)).rejects.toMatchObject({ code: 'ENOENT' });
+      expect(await readdir(tempDir)).toEqual([]);
+    },
+  );
+
+  it('quiesces and releases a still-owned lock after heartbeat maintenance fails', async () => {
+    const lockPath = join(tempDir, 'heartbeat-failure.lock');
+    const started = deferred();
+    const release = deferred();
+    const heartbeatFailed = deferred();
+    heartbeatTouch.target = lockPath;
+    heartbeatTouch.failuresRemaining = 1;
+    heartbeatTouch.failed = () => {
+      heartbeatFailed.resolve();
+    };
+
+    const work = withLockfile(
+      lockPath,
+      async (lease) => {
+        started.resolve();
+        await release.promise;
+        await lease.assertOwned();
+        return 'done';
+      },
+      { timeoutMs: 2_000, pollMs: 5, staleMs: 30 },
+    );
+    await started.promise;
+    await heartbeatFailed.promise;
+
+    release.resolve();
+    await expect(work).resolves.toBe('done');
+    expect(heartbeatTouch.attempts).toBe(1);
     await expect(stat(lockPath)).rejects.toMatchObject({ code: 'ENOENT' });
   });
 

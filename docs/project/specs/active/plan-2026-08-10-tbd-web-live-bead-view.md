@@ -789,13 +789,13 @@ to land the whole command through one PR.
   analysis added to tbd-design.md §4.15 before the concurrency implementation was
   finalized (`tbd-hv05`).
 - [x] Every confirmed finding recorded under concurrency epic `tbd-p1i5`, with the
-  file/function map in R25–R44 below.
+  file/function map in R25–R46 below.
 - [x] Central persistent writer epoch, lock-free stable-snapshot acceptance, strict
   candidates, ownership-safe locks, single-flight observation, bounded retry/replay and
   client fan-out, cancellation, and shutdown fences implemented with adversarial focused
   coverage.
 - [x] Full release matrix green on the final concurrency head: Flowmark/Prettier, strict
-  typecheck and zero-warning lint, build, 112 Vitest files / 1,548 tests, 1,074
+  typecheck and zero-warning lint, build, 112 Vitest files / 1,551 tests, 1,074
   tryscript checks, publint, 31 package-age pins, packed-web proof (64,227-byte page),
   watch release smoke, 5,000-issue CLI benchmark, and the 10,001-issue web boundary
   above.
@@ -807,7 +807,7 @@ The original final review is tracked under `tbd-o7nu`, with the owner-directed r
 and its follow-up findings under `tbd-ihyx`. R1–R23 were implemented and validated; R24
 was rejected with code-path evidence because the reported persistence was never part of
 the client contract.
-The final concurrency review is tracked under epic `tbd-p1i5`: R25–R35 and R38–R44 are
+The final concurrency review is tracked under epic `tbd-p1i5`: R25–R35 and R38–R46 are
 concrete defects, while R36–R37 are its normative design and adversarial verification
 tasks. Every item has one bead and an explicit file/function disposition.
 
@@ -867,13 +867,15 @@ display ids or consume the detail cap.
 | `tbd-p4og` (R35) | P1 | `src/cli/commands/doctor.ts`: mapping, temp, migration, worktree/layout repair paths | Route every `doctor --fix` shared-data mutation through the central fenced wrapper and re-read stale diagnostic inputs after acquiring it. |
 | `tbd-hv05` (R36) | P1 | `packages/tbd/docs/tbd-design.md`: §4.15 “Concurrency and Snapshot Safety” | State the safety property, owners, persistent-fence proof, linearization point, bounded progress/deadlock argument, guarantee boundary, and adversarial proof obligations. |
 | `tbd-ag6j` (R37) | P1 | `tests/{data-sync-epoch,lockfile,snapshot-consistency,web-board,web-local-observer,web-http,web-core,cli-web,common-dir-layout-doctor}.test.ts` | Force writer/read, lease loss, event/reconcile, attach/close, stale response, transient failure, and shutdown interleavings; assert old-or-new snapshots, bounded work, monotonic adoption, and cleanup. |
-| `tbd-an5y` (R38) | P0 | `src/utils/lockfile.ts`: `withLockfile`, heartbeat, ownership-checked removal; `tests/lockfile{,-acquisition-race}.test.ts` | Give each lock a unique owner marker, heartbeat responsive holders, assert lease ownership before the writer epoch commits, and prevent a displaced holder or provisional acquisition cleanup from removing its successor. Regressions force a multi-stale-window hold, a renamed-holder/successor overlap, and displacement between `mkdir` and exclusive owner creation. |
+| `tbd-an5y` (R38) | P0 | `src/utils/lockfile.ts`: `withLockfile`, heartbeat, ownership-checked removal; `tests/lockfile{,-acquisition-race}.test.ts` | Give each lock a unique owner marker, heartbeat responsive holders, assert lease ownership before the writer epoch commits, and prevent a displaced holder or provisional acquisition cleanup from removing its successor. Regressions force a multi-stale-window hold, a renamed-holder/successor overlap, and displacement between `mkdir` and exclusive owner installation. |
 | `tbd-i6it` (R39) | P1 | `src/file/id-mapping.ts`: `loadIdMapping`, `saveIdMapping`, `replaceRecoveredIdMapping`; mapping and recovery callers; `tests/concurrent-mapping.test.ts` | Treat only `ENOENT` as an absent optional mapping, propagate all other read/parse failures, and keep explicit conflict recovery separate so an unreadable append-only mapping cannot become an empty map or be overwritten. |
 | `tbd-a8pj` (R40) | P2 | `src/file/data-sync-epoch.ts`: `readDataSyncEpoch`; `src/cli/web/snapshot-consistency.ts`; marker tests | Read at most 128 epoch bytes, strictly parse the token in both snapshot and reconciliation paths, and reject oversized machine-local state without repeated unbounded allocation. |
 | `tbd-7all` (R41) | P2 | `src/cli/web/http.ts`: `SseHub.attach`; `tests/web-http.test.ts` | Cap the aggregate SSE client set at 64 and reject excess attaches before streaming, bounding total socket buffering and synchronous fan-out work in addition to each client’s byte queue. |
 | `tbd-0w8j` (R42) | P1 | `src/cli/commands/doctor.ts`: `run`, `checkDataLocation`; `tests/common-dir-layout-doctor.test.ts` | Run misplaced-data preflight before diagnostics and keep worktree initialization/repair plus migration inside one writer epoch, so one `doctor --fix` cannot expose an empty intermediate graph. |
 | `tbd-xppg` (R43) | P1 | mutating CLI pipelines in `tests/*.tryscript.md` | Replace early-closing `head` consumers with EOF-reading `sed -n` selectors. A transcript must not terminate a writer after it publishes output but before its transaction releases the crash-recovery lock and quiesces its epoch. |
 | `tbd-4sle` (R44) | P0 | `src/utils/lockfile.ts`: acquisition, release, and stale recovery; `tests/lockfile*.test.ts` | Record token/host/pid ownership immediately after atomic directory acquisition, treat the provisional ownerless window and every ambiguous/live identity as non-recoverable, move verified releases out of the canonical path before cleanup, and quarantine each dead generation at a retained token-derived path so delayed stale observers cannot displace a successor through canonical-path ABA. |
+| `tbd-wvns` (R45) | P1 | `src/utils/lockfile.ts`: `startLockHeartbeat`, final ownership/release fence; `tests/lockfile-acquisition-race.test.ts` | Keep heartbeat timestamp maintenance advisory: failure disables further touches but direct token checks remain authoritative, so a valid owner still quiesces its writer epoch and releases instead of stranding active state. |
+| `tbd-8kpc` (R46) | P2 | `src/utils/lockfile.ts`: `prepareLockOwnerFile`, acquisition install; `tests/lockfile-acquisition-race.test.ts` | Write and close the complete owner record before canonical `mkdir`, install it with an exclusive hard link, and remove only an empty failed provisional directory. Forced open/write failure leaves no canonical lock, while a delayed installer cannot overwrite a successor. |
 
 ### Merge gate for PR #207
 

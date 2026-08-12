@@ -4139,16 +4139,23 @@ persistent epoch in the Git common-dir tbd state.
 On lock acquisition it writes `active:<unique-id>` before the critical section; while
 still holding the lock it writes `quiescent:<same-unique-id>` after the critical
 section, then releases the lock.
-Atomic directory creation elects the lock holder.
-It immediately writes an owner record containing a unique token, the host, and the
-process id; the brief ownerless acquisition window is never eligible for automatic
-recovery. A heartbeat remains well below the stale threshold, but time alone is not
-permission to evict a recognized owner.
+Before contending, a writer prepares a complete owner record containing a unique token,
+the host, and the process id in a sibling file.
+Atomic directory creation elects the lock holder, then an exclusive hard link installs
+that prepared record without permitting a delayed acquirer to overwrite a successor’s
+owner. Owner-file open or write failure therefore occurs before the canonical directory
+exists; a failed install removes only an empty provisional directory.
+The remaining brief `mkdir`-to-link ownerless crash window is never eligible for
+automatic recovery. A best-effort heartbeat remains well below the stale threshold, but
+time alone is not permission to evict a recognized owner.
 A stale same-host lock is recoverable only after the OS says its process no longer
 exists; an ownerless, alive, permission-ambiguous, or remote-host owner fails closed and
 is left in place. This matters after machine sleep or a long event-loop suspension:
 delayed heartbeats may reduce liveness, but cannot turn two live writers into concurrent
-owners.
+owners. Heartbeat timestamp or read failure disables that advisory optimization for the
+current generation; it does not poison the lease.
+Commit and release re-read the unique owner record directly, while same-host process
+liveness continues to prevent eviction.
 
 Recovery renames a dead lock to a non-empty quarantine path derived from its unique
 owner token and deliberately retains that tombstone.
@@ -4281,6 +4288,8 @@ These cases are the compact proof obligation and the required adversarial test m
 | --- | --- |
 | Writer is active, or starts/finishes during a candidate read | Epoch/lock validation rejects the candidate; old accepted state remains served |
 | Live lock crosses stale windows, including machine sleep | PID liveness prevents eviction; the second writer waits or times out and no overlap occurs |
+| Owner-record preparation or installation fails | Preparation fails before canonical acquisition; installation removes only an empty provisional generation and never overwrites a successor |
+| Heartbeat metadata update fails while ownership remains valid | The direct owner fence still quiesces and releases the generation; no active epoch or canonical lock is stranded |
 | Several waiters retain one stale observation while a successor acquires | One owner-token quarantine wins; its retained tombstone makes every delayed rename fail without touching the successor |
 | Candidate issue, mapping, or epoch data is unreadable, corrupt, or oversized | The entire candidate fails closed; no empty or partial substitute is published |
 | Native and reconciliation callbacks overlap or repeat | One active plus one pending reload; final accepted state is published once as an aggregate transition |
