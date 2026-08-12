@@ -5,7 +5,7 @@ title: Final concurrency and stream-ordering review for tbd web
 kind: epic
 status: closed
 priority: 1
-version: 39
+version: 42
 spec_path: docs/project/specs/active/plan-2026-08-10-tbd-web-live-bead-view.md
 labels:
   - web
@@ -43,10 +43,11 @@ child_order_hints:
   - is-01kztafk7n89b2jsbcwrdz677v
   - is-01kztakhjkajzh9hj9gjv6wyf6
   - is-01kzthhg94pckc5ag8txeq1bem
+  - is-01kztm8q8ykq7hsr0wyq5bfdt7
 created_at: 2026-08-12T01:16:03.997Z
-updated_at: 2026-08-12T08:57:21.294Z
-closed_at: 2026-08-12T08:57:21.293Z
-close_reason: "Completed the end-to-end concurrency, snapshot, streaming, shutdown, portability, and installed-viewer audit: all 30 child findings (R25-R54) are closed with file/function dispositions and adversarial coverage. Final local gate passes 113 Vitest files / 1,568 tests, 1,075 transcripts, strict formatting/typecheck/lint/build, publint, 31 package-age pins, packed-web and watch-release proofs, plus 5,000/10,001 scale boundaries. PR audit has 15/15 review threads resolved and no pending comments."
+updated_at: 2026-08-12T09:37:54.911Z
+closed_at: 2026-08-12T09:37:54.906Z
+close_reason: "Completed the end-to-end concurrency, snapshot, streaming, shutdown, portability, installed-viewer, and final CI reliability review: all 31 child findings (R25-R54 plus hosted Windows hardening) are closed with file/function dispositions and adversarial evidence. Final local gates pass 113 Vitest files / 1,568 tests, 1,075 transcripts, strict formatting/typecheck/lint/build, publint, 31 package-age pins, packed-web and watch-release proofs, plus 5,000/10,001 scale boundaries. Final hosted checks and PR thread audit will be verified at the pushed head."
 ---
 Audit the tbd web pipeline end to end for filesystem-event races, debounce/reconciliation ordering, serialized reload correctness, SSE fan-out/backpressure and reconnect replay, shutdown interleavings, client state monotonicity, duplicate delivery, deadlock/livelock, and contention. Track every confirmed finding as a child bead, implement all fixes, and retain adversarial regression evidence.
 
