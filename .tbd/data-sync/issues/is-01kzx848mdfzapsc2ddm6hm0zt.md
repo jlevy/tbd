@@ -5,7 +5,7 @@ title: Merge v0.5.0 main and assess Linear release candidate
 kind: task
 status: in_progress
 priority: 1
-version: 29
+version: 32
 spec_path: docs/project/specs/active/plan-2026-08-10-external-tracker-integrations.md
 labels:
   - integration
@@ -39,11 +39,13 @@ child_order_hints:
   - is-01kzxdxac80d28zhp2khjsh2bf
   - is-01kzxdxapyjqr703ty8mknwwqk
   - is-01kzxdxb1mhthgn46vfxtawv01
+  - is-01kzxg35z6xqe2s5j3wr6n315h
+  - is-01kzxhw9w2xj03bfz4de3kxvpb
 created_at: 2026-08-13T09:44:20.358Z
-updated_at: 2026-08-13T11:49:49.089Z
+updated_at: 2026-08-13T12:34:45.246Z
 ---
 Merge origin/main into claude/linear-integration using the merge-upstream shortcut. Audit every overlapping sync/storage/schema/web surface for semantic conflicts, reconcile stale Phase 2 bead state, revise the plan with file/function-level Linear RC, GitHub, and web work, validate the built CLI and live Linear pilot end to end, run the full quality gates, push PR #206, and watch CI to a final result.
 
 ## Notes
 
-Upstream v0.5.0 main merged semantically; Linear live phases 1-6 passed; final review findings implemented; authoritative Phase 3 GitHub and Phase 4 web maps are in docs/project/specs/active/plan-2026-08-10-external-tracker-integrations.md. Local RC gates green: format/lint/typecheck/build, 1,919 Vitest, 1,084 Tryscript, publint, packaged web, watch release smoke. Remaining: push, resolve/reply to five PR threads, hosted CI, final RC disposition.
+origin/main v0.5.0 merged semantically; Linear live phases 1-6 passed; all six final PR findings fixed with TDD (including tbd-5p9k comment replay identity); Phase 3 GitHub and Phase 4 web maps are authoritative in the active spec. Local gates at final head: format/lint/typecheck/build, 1,921 Vitest, 1,084 Tryscript, publint, package-age, packaged web/watch proofs. Remaining: commit/push latest review fix, resolve thread, hosted CI, final RC closure.
