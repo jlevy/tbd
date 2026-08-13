@@ -542,6 +542,85 @@ describe('the sync engine', () => {
     expect(server.comments).toEqual([]);
   });
 
+  it('discards every stale provider write after its bead is unlinked', async () => {
+    const beadId = 'is-01hx5zzkbkactav9wevgemmvrz';
+    const formerExternalId = 'unlinked-item';
+    server.addIssue({
+      id: formerExternalId,
+      identifier: 'FIN-92',
+      title: 'Remote must stay unchanged',
+      description: 'Remote body',
+    });
+    const unlinked = bead(beadId, { kind: 'task', title: 'Former local pair' });
+    store.set(unlinked.id, unlinked);
+    await writeIntentFile(dir, {
+      type: 'in',
+      run_id: '01hx5zzkbkactav9wevunlink2',
+      provider: 'linear',
+      created_at: '2026-08-10T00:00:00.000Z',
+      ops: [
+        {
+          kind: 'create_issue',
+          client_id: '41f2c3d4-0000-4000-8000-000000000009',
+          bead_id: beadId,
+          patch: { title: 'Must not be recreated' },
+        },
+        {
+          kind: 'update_issue',
+          bead_id: beadId,
+          external_id: formerExternalId,
+          patch: { title: 'must not land' },
+        },
+        {
+          kind: 'upsert_attachments',
+          bead_id: beadId,
+          external_id: formerExternalId,
+          attachments: [{ url: 'tbd://bead/stale', title: 'must not land' }],
+        },
+        {
+          kind: 'splice_description',
+          bead_id: beadId,
+          external_id: formerExternalId,
+          block: 'must not land',
+        },
+        {
+          kind: 'post_comment',
+          external_id: formerExternalId,
+          bead_id: beadId,
+          local_id: '01hx5zzkbkactav9wevgemstale',
+          comment_client_id: '41f2c3d4-0000-4000-8000-000000000010',
+          body: 'must not land',
+        },
+        {
+          kind: 'post_conflict',
+          bead_id: beadId,
+          external_id: formerExternalId,
+          comment_client_id: '41f2c3d4-0000-4000-8000-000000000011',
+          report: {
+            beadId: 'mvrz',
+            field: 'title',
+            keptValue: 'kept',
+            discardedValue: 'discarded',
+            atticPath: '.tbd/data-sync/attic/stale.yml',
+          },
+        },
+      ],
+    });
+
+    const recovered = await run([unlinked]);
+
+    expect(recovered.failures).toEqual([]);
+    expect(recovered.replayedOps).toBe(0);
+    expect(server.issues.has('41f2c3d4-0000-4000-8000-000000000009')).toBe(false);
+    expect(server.issues.get(formerExternalId)).toMatchObject({
+      title: 'Remote must stay unchanged',
+      description: 'Remote body',
+    });
+    expect(server.attachments).toEqual([]);
+    expect(server.comments).toEqual([]);
+    expect(await listIntentFiles(dir, 'linear')).toEqual([]);
+  });
+
   it('discards a stale comment journal after its local entry was already recorded', async () => {
     server.addIssue({ id: 'linked-item', identifier: 'FIN-91', title: 'Still paired' });
     const linked = writeLink(
@@ -851,20 +930,62 @@ describe('the sync engine', () => {
     expect(await listIntentFiles(dir, 'linear')).toHaveLength(0); // consumed
   });
 
+  it('persists a provisional create link before provider I/O so replay has a live claim', async () => {
+    const epic = bead('is-01hx5zzkbkactav9wevgemmvrz');
+    store.set(epic.id, epic);
+    callbacks.afterJournal = () => Promise.reject(new Error('simulated crash after journal'));
+
+    await expect(run([epic])).rejects.toThrow('simulated crash after journal');
+
+    const pendingLink = readLink(store.get(epic.id)!, 'linear');
+    expect(pendingLink?.id).toBeDefined();
+    expect(server.issues.size).toBe(0);
+    expect(await listIntentFiles(dir, 'linear')).toHaveLength(1);
+
+    callbacks.afterJournal = () => Promise.resolve();
+    const recovered = await run([store.get(epic.id)!]);
+
+    expect(recovered.failures).toEqual([]);
+    expect(recovered.replayedOps).toBe(3);
+    expect(server.issues.size).toBe(1);
+    expect(readLink(store.get(epic.id)!, 'linear')).toMatchObject({
+      id: pendingLink!.id,
+      key: expect.any(String),
+      url: expect.any(String),
+    });
+    expect(await listIntentFiles(dir, 'linear')).toEqual([]);
+  });
+
   it("a stale replay failure does not block this run's journal cleanup", async () => {
     // Bugbot follow-up: report.failures also carries replay failures from
     // OLDER intent files; those must not pin the current run's journal.
+    const staleBead = writeLink(
+      bead('is-01hx5zzkbkactav9wevgemmvry', { kind: 'task', title: 'Stale pair' }),
+      {
+        provider: 'linear',
+        id: 'missing-forever',
+        linked_at: '2026-08-10T00:00:00.000Z',
+      },
+    );
+    store.set(staleBead.id, staleBead);
     await writeIntentFile(dir, {
       type: 'in',
       run_id: '01hx5zzkbkactav9wevgemstale',
       provider: 'linear',
       created_at: '2026-08-10T00:00:00.000Z',
-      ops: [{ kind: 'update_issue', external_id: 'missing-forever', patch: { title: 'x' } }],
+      ops: [
+        {
+          kind: 'update_issue',
+          bead_id: staleBead.id,
+          external_id: 'missing-forever',
+          patch: { title: 'x' },
+        },
+      ],
     });
 
     const epic = bead('is-01hx5zzkbkactav9wevgemmvrz');
     store.set(epic.id, epic);
-    const result = await run([epic]); // clean outbound create + a failing replay
+    const result = await run([staleBead, epic]); // clean outbound create + a failing replay
 
     expect(result.failures).toHaveLength(1); // the stale replay, reported
     expect(result.createdOutbound).toEqual(['mvrz']); // this run's work landed
@@ -874,6 +995,15 @@ describe('the sync engine', () => {
   });
 
   it('leaves outbound intents pending and the provider untouched during an inbound-only run', async () => {
+    const linked = writeLink(
+      bead('is-01hx5zzkbkactav9wevgemmvrz', { kind: 'task', title: 'Pending outbound' }),
+      {
+        provider: 'linear',
+        id: 'pending-outbound',
+        linked_at: '2026-08-10T00:00:00.000Z',
+      },
+    );
+    store.set(linked.id, linked);
     server.addIssue({
       id: 'pending-outbound',
       identifier: 'FIN-80',
@@ -886,7 +1016,12 @@ describe('the sync engine', () => {
       provider: 'linear',
       created_at: '2026-08-10T00:00:00.000Z',
       ops: [
-        { kind: 'update_issue', external_id: 'pending-outbound', patch: { title: 'Must wait' } },
+        {
+          kind: 'update_issue',
+          bead_id: linked.id,
+          external_id: 'pending-outbound',
+          patch: { title: 'Must wait' },
+        },
       ],
     });
     const offPolicy = PolicyDefinitionSchema.parse({
@@ -899,7 +1034,7 @@ describe('the sync engine', () => {
       adapter,
       policy: offPolicy,
       dataSyncDir: dir,
-      allIssues: [],
+      allIssues: [linked],
       displayId: (id) => id.slice(-4),
       mirrorLabels: false,
       callbacks,

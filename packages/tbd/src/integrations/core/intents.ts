@@ -47,11 +47,13 @@ const IntentOpSchema = z.discriminatedUnion('kind', [
   }),
   z.object({
     kind: z.literal('update_issue'),
+    bead_id: z.string().min(1),
     external_id: z.string().min(1),
     patch: CanonicalPatchSchema,
   }),
   z.object({
     kind: z.literal('upsert_attachments'),
+    bead_id: z.string().min(1),
     external_id: z.string().min(1),
     attachments: z.array(
       z.object({
@@ -64,6 +66,7 @@ const IntentOpSchema = z.discriminatedUnion('kind', [
   }),
   z.object({
     kind: z.literal('splice_description'),
+    bead_id: z.string().min(1),
     external_id: z.string().min(1),
     block: z.string(),
   }),
@@ -79,6 +82,7 @@ const IntentOpSchema = z.discriminatedUnion('kind', [
   }),
   z.object({
     kind: z.literal('post_conflict'),
+    bead_id: z.string().min(1),
     external_id: z.string().min(1),
     /** Client UUID; the provider's dedup makes crash replay exactly-once. */
     comment_client_id: z.string().min(1),
@@ -220,11 +224,12 @@ export interface ReplaySafetyFilter {
   blockedExternalIds: ReadonlySet<string>;
   blockedBeadIds: ReadonlySet<string>;
   /**
-   * A comment is replayable only while its bead remains linked to the same
-   * external item and its local entry is still waiting for a provider id.
-   * False means an unlink or an already-recorded recovery superseded the op.
+   * Every operation is replayable only while its owning bead retains the same
+   * external relationship. Comments additionally require their exact local
+   * entry to remain unpushed. False means unlink or newer durable state
+   * superseded the operation, so consuming it is successful cancellation.
    */
-  shouldReplayComment?: (op: Extract<IntentOp, { kind: 'post_comment' }>) => boolean;
+  shouldReplay?: (op: IntentOp) => boolean;
 }
 
 function blockedReplayTarget(op: IntentOp, safety: ReplaySafetyFilter | undefined): string | null {
@@ -282,16 +287,10 @@ export async function replayIntents(
         });
         continue;
       }
-      if (
-        op.kind === 'post_comment' &&
-        safety?.shouldReplayComment &&
-        !safety.shouldReplayComment(op)
-      ) {
-        // The durable bead is the source of truth for whether an outbound
-        // comment still exists. Unlink removes that claim; a previously
-        // recovered entry already carrying an id also supersedes its journal.
-        // In both cases consuming the stale op is successful cancellation,
-        // not a retryable provider failure.
+      if (safety?.shouldReplay && !safety.shouldReplay(op)) {
+        // The durable bead/link is the authority for every provider write.
+        // Unlink or a newer relationship consumes stale work without provider
+        // I/O; a comment already carrying its provider id does the same.
         continue;
       }
       try {

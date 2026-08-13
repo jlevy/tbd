@@ -6659,6 +6659,14 @@ merge.
 `sync` uses a per-link base record on the sync branch for true field-wise three-way
 reconciliation. Write-ahead intents are committed before provider writes and replayed
 idempotently after a crash.
+Every intent operation carries its owning bead id.
+Replay performs provider I/O only while that bead still names the operation’s exact
+provider id; a user comment must also retain the exact unpushed local entry.
+A create’s client UUID is its future provider id, so sync commits it as a provisional
+bead link with the journal before provider I/O. A pre-commit crash made no provider
+write; a post-commit crash has the durable claim needed for safe replay.
+Unlink or relink makes an old journal successful cancellation, not work that may touch
+the former provider item.
 Append-only comments union by immutable identity.
 When both sides change a merge-owned field differently, the configured winner is kept,
 the loser is archived before either side is overwritten, and the archive path plus a
@@ -6692,6 +6700,14 @@ Recovery is explicit `tbd integration unlink` until one holder remains.
 Pending operations for the ambiguous external id are discarded—the durable surviving
 bead re-plans current state after repair—so a stale former holder cannot write after
 unlink.
+
+Unlink is a cancellation-first transaction under the shared data-sync lock: prune every
+pending operation for the bead or external item, clear the bead namespace, then delete
+the bridge record last.
+A journal read/parse/write failure leaves the link intact and the command retryable.
+If execution stops after the bead clears, the bridge record retains the external id for
+the retry. Replay provides the independent cross-machine guard: any journal merged later
+is consumed without provider I/O because its live link claim is gone.
 
 An absent intent directory means there is nothing to replay.
 Any present journal that cannot be read, parsed, or validated fails the sync closed

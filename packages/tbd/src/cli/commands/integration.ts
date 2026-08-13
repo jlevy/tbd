@@ -39,6 +39,7 @@ import {
   deleteLinkRecord,
   descriptionHash,
   listLinkRecords,
+  readLinkRecord,
   writeLinkRecord,
 } from '../../integrations/core/bridge-state.js';
 import { writeLink } from '../../integrations/core/link-store.js';
@@ -503,7 +504,14 @@ class IntegrationLinkHandler extends BaseCommand {
         run_id: claimRunId,
         provider,
         created_at: now(),
-        ops: [{ kind: 'upsert_attachments', external_id: ref.id, attachments: [claim] }],
+        ops: [
+          {
+            kind: 'upsert_attachments',
+            bead_id: internalId,
+            external_id: ref.id,
+            attachments: [claim],
+          },
+        ],
       });
       await adapter.upsertAttachments(ref.id, [claim]);
       await deleteIntentFile(context.dataSyncDir, provider, claimRunId);
@@ -526,25 +534,30 @@ class IntegrationUnlinkHandler extends BaseCommand {
         const internalId = resolveToInternalId(beadRef, context.mapping);
         const stored = await readIssue(context.dataSyncDir, internalId);
         const link = readLink(stored, provider);
-        if (!link) {
+        const record = await readLinkRecord(context.dataSyncDir, provider, internalId);
+        const externalId = link?.id ?? record?.external_id;
+        if (!externalId) {
           this.output.info(`${beadRef} is not linked to ${provider}; nothing to do.`);
           continue;
         }
-        const cleared = clearLink(stored, provider);
-        cleared.version += 1;
-        cleared.updated_at = now();
-        await writeIssue(context.dataSyncDir, cleared);
-        await deleteLinkRecord(context.dataSyncDir, provider, internalId);
         // Unlink is a cancellation boundary: no write planned for the former
-        // pair may reach the provider afterward. The replay engine applies the
-        // same rule from current bead state, covering a crash between these
-        // steps and journals merged in from another machine.
+        // pair may reach the provider afterward. Cancellation happens before
+        // the durable identity is cleared: a failure or crash therefore leaves
+        // unlink retryable. Replay independently validates every op against
+        // current bead state, covering later cross-machine journal merges.
         await discardIntentOps(context.dataSyncDir, provider, (op) => {
-          if (op.kind === 'create_issue') {
-            return op.bead_id === internalId || op.client_id === link.id;
-          }
-          return op.external_id === link.id;
+          const target = op.kind === 'create_issue' ? op.client_id : op.external_id;
+          return op.bead_id === internalId || target === externalId;
         });
+        if (link) {
+          const cleared = clearLink(stored, provider);
+          cleared.version += 1;
+          cleared.updated_at = now();
+          await writeIssue(context.dataSyncDir, cleared);
+        }
+        // If a crash happens after the bead clears, this record preserves the
+        // external identity so a repeated unlink can finish cancellation.
+        await deleteLinkRecord(context.dataSyncDir, provider, internalId);
         this.output.success(`Unlinked ${beadRef} from ${provider}.`);
       }
     });

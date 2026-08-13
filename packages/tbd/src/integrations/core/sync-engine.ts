@@ -270,10 +270,14 @@ export async function runSync(options: SyncEngineOptions): Promise<SyncRunReport
       {
         blockedExternalIds,
         blockedBeadIds,
-        shouldReplayComment: (op) => {
+        shouldReplay: (op) => {
           const bead = issuesById.get(op.bead_id);
-          if (!bead || readLink(bead, provider)?.id !== op.external_id) {
+          const externalId = op.kind === 'create_issue' ? op.client_id : op.external_id;
+          if (!bead || readLink(bead, provider)?.id !== externalId) {
             return false;
+          }
+          if (op.kind !== 'post_comment') {
+            return true;
           }
           const entry = readComments(bead, provider).find(
             (comment) => comment.local_id === op.local_id,
@@ -285,20 +289,26 @@ export async function runSync(options: SyncEngineOptions): Promise<SyncRunReport
         let recoveryDirty = false;
         for (const recovered of recoveredCreates) {
           const bead = await callbacks.readBead(recovered.beadId).catch(() => undefined);
-          if (bead && !readLink(bead, provider)) {
+          const existingLink = bead ? readLink(bead, provider) : undefined;
+          if (bead && (!existingLink || existingLink.id === recovered.externalId)) {
             const [current] = await adapter.fetchIssues([recovered.externalId]);
             const repaired = writeLink(bead, {
               provider,
               id: recovered.externalId,
-              key: current?.key ?? null,
-              url: current?.url ?? null,
-              linked_at: options.now(),
+              key: current?.key ?? existingLink?.key ?? null,
+              url: current?.url ?? existingLink?.url ?? null,
+              linked_at: existingLink?.linked_at ?? options.now(),
             });
-            repaired.version += 1;
-            repaired.updated_at = options.now();
-            await callbacks.writeBead(repaired);
+            if (
+              JSON.stringify(repaired.extensions?.[provider]) !==
+              JSON.stringify(bead.extensions?.[provider])
+            ) {
+              repaired.version += 1;
+              repaired.updated_at = options.now();
+              await callbacks.writeBead(repaired);
+              recoveryDirty = true;
+            }
             issuesById.set(repaired.id, repaired);
-            recoveryDirty = true;
           } else if (bead) {
             issuesById.set(bead.id, bead);
           }
@@ -596,6 +606,7 @@ export async function runSync(options: SyncEngineOptions): Promise<SyncRunReport
           const link = readLink(pair.bead, provider)!;
           deferredConflictOps.push({
             kind: 'post_conflict',
+            bead_id: pair.bead.id,
             external_id: link.id,
             comment_client_id: clientId,
             report: conflictReport,
@@ -657,9 +668,14 @@ export async function runSync(options: SyncEngineOptions): Promise<SyncRunReport
     // The client UUID IS the item's id, so the follow-up writes are journaled
     // against it before the item exists. Both replay-safe: attachments upsert
     // on url, the splice is idempotent on content.
-    ops.push({ kind: 'upsert_attachments', external_id: clientId, attachments });
+    ops.push({
+      kind: 'upsert_attachments',
+      bead_id: issue.id,
+      external_id: clientId,
+      attachments,
+    });
     if (block) {
-      ops.push({ kind: 'splice_description', external_id: clientId, block });
+      ops.push({ kind: 'splice_description', bead_id: issue.id, external_id: clientId, block });
     }
   }
   for (const pair of executablePairs) {
@@ -667,6 +683,7 @@ export async function runSync(options: SyncEngineOptions): Promise<SyncRunReport
       const link = readLink(pair.bead, provider)!;
       ops.push({
         kind: 'update_issue',
+        bead_id: pair.bead.id,
         external_id: link.id,
         patch: pair.result.externalPatch as IntentPatch,
       });
@@ -676,6 +693,7 @@ export async function runSync(options: SyncEngineOptions): Promise<SyncRunReport
       if (plan.needsPost) {
         ops.push({
           kind: 'post_conflict',
+          bead_id: pair.bead.id,
           external_id: link.id,
           comment_client_id: plan.clientId!,
           report: plan.report,
@@ -720,6 +738,23 @@ export async function runSync(options: SyncEngineOptions): Promise<SyncRunReport
       created_at: options.now(),
       ops,
     });
+    // A create's client UUID is already its future external id. Persist that
+    // provisional relationship in the same journal epoch before provider I/O:
+    // replay can then distinguish a live pending create from one superseded by
+    // explicit unlink, including after a cross-machine journal merge.
+    for (const issue of outboundNew) {
+      const clientId = outboundClientIds.get(issue.id)!;
+      let stored = await callbacks.readBead(issue.id);
+      stored = writeLink(stored, {
+        provider,
+        id: clientId,
+        linked_at: options.now(),
+      });
+      stored.version += 1;
+      stored.updated_at = options.now();
+      await callbacks.writeBead(stored);
+      issuesById.set(stored.id, stored);
+    }
     await callbacks.afterJournal();
   }
 
@@ -1018,7 +1053,14 @@ async function importExternal(
     run_id: claimRunId,
     provider,
     created_at: options.now(),
-    ops: [{ kind: 'upsert_attachments', external_id: candidate.id, attachments: [claim] }],
+    ops: [
+      {
+        kind: 'upsert_attachments',
+        bead_id: created.id,
+        external_id: candidate.id,
+        attachments: [claim],
+      },
+    ],
   });
   await options.callbacks.afterJournal();
 

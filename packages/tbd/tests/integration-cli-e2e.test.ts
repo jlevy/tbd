@@ -22,6 +22,7 @@ vi.setConfig({ testTimeout: 60_000, hookTimeout: 60_000 });
 
 import { LinearMockServer } from './helpers/linear-mock-server.js';
 import { clearLink, readLink, writeLink } from '../src/integrations/core/link-store.js';
+import { bridgeIntentsDir } from '../src/integrations/core/bridge-state.js';
 import { listIntentFiles, writeIntentFile } from '../src/integrations/core/intents.js';
 import { readIssue, writeIssue } from '../src/file/storage.js';
 
@@ -381,8 +382,26 @@ describe('tbd integration, end to end via the built binary', () => {
       run_id: '01hx5zzkbkactav9wevunlink1',
       provider: 'linear',
       created_at: '2026-08-10T00:00:00.000Z',
-      ops: [{ kind: 'update_issue', external_id: link.id, patch: { title: 'must not land' } }],
+      ops: [
+        {
+          kind: 'update_issue',
+          bead_id: bead.internalId,
+          external_id: link.id,
+          patch: { title: 'must not land' },
+        },
+      ],
     });
+
+    // A malformed second journal makes cancellation fail closed. The unlink
+    // itself must remain retryable instead of clearing its only relationship
+    // identity before the cancellation phase succeeds.
+    const damagedIntent = join(bridgeIntentsDir(dataSyncDir, 'linear'), 'damaged.yml');
+    await writeFile(damagedIntent, '[');
+    const interrupted = await cli(['integration', 'unlink', bead.id]);
+    expect(interrupted.code).not.toBe(0);
+    expect(readLink(await readIssue(dataSyncDir, bead.internalId), 'linear')?.id).toBe(link.id);
+    expect(server.issues.get(link.id)?.title).toBe(remoteTitle);
+    await rm(damagedIntent);
 
     const unlink = await cli(['integration', 'unlink', bead.id]);
     expect(unlink.code).toBe(0);

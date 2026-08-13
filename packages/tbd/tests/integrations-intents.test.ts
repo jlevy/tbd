@@ -28,6 +28,7 @@ import { LinearClient } from '../src/integrations/linear/client.js';
 import { LinearMockServer } from './helpers/linear-mock-server.js';
 
 const RUN_ID = '01hx5zzkbkactav9wevgemmvrz';
+const BEAD_ID = 'is-01hx5zzkbkactav9wevgemmvrz';
 const CLIENT_UUID = '9cbb48f8-7a2e-4b9d-9f3e-0c1d2e3f4a5b';
 const COMMENT_UUID = '41f2c3d4-0000-4000-8000-000000000001';
 
@@ -53,7 +54,9 @@ describe('the intent journal', () => {
   });
 
   it('round-trips a file and is empty after deletion', async () => {
-    const file = intentFile([{ kind: 'update_issue', external_id: 'x', patch: { title: 'T' } }]);
+    const file = intentFile([
+      { kind: 'update_issue', bead_id: BEAD_ID, external_id: 'x', patch: { title: 'T' } },
+    ]);
     await writeIntentFile(dir, file);
     expect(await listIntentFiles(dir, 'linear')).toEqual([file]);
 
@@ -62,11 +65,21 @@ describe('the intent journal', () => {
   });
 
   it('removes only matching operations and deletes journals left empty', async () => {
-    const keep = { kind: 'update_issue' as const, external_id: 'keep', patch: { title: 'Keep' } };
+    const keep = {
+      kind: 'update_issue' as const,
+      bead_id: BEAD_ID,
+      external_id: 'keep',
+      patch: { title: 'Keep' },
+    };
     await writeIntentFile(
       dir,
       intentFile([
-        { kind: 'update_issue', external_id: 'remove', patch: { title: 'Remove' } },
+        {
+          kind: 'update_issue',
+          bead_id: BEAD_ID,
+          external_id: 'remove',
+          patch: { title: 'Remove' },
+        },
         keep,
       ]),
     );
@@ -222,7 +235,7 @@ describe('crash replay against the mock provider', () => {
     const report = await replayIntents(dir, 'linear', adapter, {
       blockedExternalIds: new Set(),
       blockedBeadIds: new Set(),
-      shouldReplayComment: () => false,
+      shouldReplay: () => false,
     });
 
     expect(report.failures).toEqual([]);
@@ -278,7 +291,12 @@ describe('crash replay against the mock provider', () => {
       dir,
       intentFile([
         // No such issue in the mock: the update fails.
-        { kind: 'update_issue', external_id: 'missing', patch: { title: 'T' } },
+        {
+          kind: 'update_issue',
+          bead_id: BEAD_ID,
+          external_id: 'missing',
+          patch: { title: 'T' },
+        },
       ]),
     );
 
@@ -291,9 +309,15 @@ describe('crash replay against the mock provider', () => {
   it('replays attachments and updates idempotently', async () => {
     server.addIssue({ id: 'issue-1', identifier: 'FIN-1', title: 'Old' });
     const file = intentFile([
-      { kind: 'update_issue', external_id: 'issue-1', patch: { title: 'New' } },
+      {
+        kind: 'update_issue',
+        bead_id: BEAD_ID,
+        external_id: 'issue-1',
+        patch: { title: 'New' },
+      },
       {
         kind: 'upsert_attachments',
+        bead_id: BEAD_ID,
         external_id: 'issue-1',
         attachments: [{ url: 'tbd://bead/tbd-1', title: 'tbd-1 · task' }],
       },
@@ -314,8 +338,18 @@ describe('crash replay against the mock provider', () => {
     await writeIntentFile(
       dir,
       intentFile([
-        { kind: 'update_issue', external_id: 'duplicate-item', patch: { title: 'Unsafe new' } },
-        { kind: 'update_issue', external_id: 'safe-item', patch: { title: 'Safe new' } },
+        {
+          kind: 'update_issue',
+          bead_id: BEAD_ID,
+          external_id: 'duplicate-item',
+          patch: { title: 'Unsafe new' },
+        },
+        {
+          kind: 'update_issue',
+          bead_id: BEAD_ID,
+          external_id: 'safe-item',
+          patch: { title: 'Safe new' },
+        },
       ]),
     );
 

@@ -1850,6 +1850,17 @@ unrelated links continue normally.
 Pending writes for the ambiguous item are discarded; the durable surviving bead re-plans
 current state after repair, preventing a stale former holder from writing after unlink.
 
+Every pending provider write is tied to its bead and exact provider id.
+Before replay, tbd checks that the relationship still exists; comment writes also
+require the exact unpushed local entry.
+A new outbound item records its client UUID as a provisional link with the journal
+before any network call, so crash recovery cannot confuse live creation with work
+canceled by unlink. `unlink` removes matching pending writes first, clears the bead link
+second, and deletes the bridge record last.
+If cancellation cannot complete, the link remains intact and a repeated unlink can
+safely finish; stale journals merged from another machine are consumed without touching
+the former provider item.
+
 `comment` works offline: the entry is recorded on the bead immediately and posted on the
 next sync, exactly once.
 Inbound comments are folded into the bead the same way — append-only, identified by the
