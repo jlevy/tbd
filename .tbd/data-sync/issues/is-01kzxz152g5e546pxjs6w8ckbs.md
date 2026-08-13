@@ -5,7 +5,7 @@ title: Add comprehensive API-driven live Linear round-trip QA
 kind: task
 status: closed
 priority: 1
-version: 5
+version: 7
 spec_path: docs/project/specs/active/plan-2026-08-10-external-tracker-integrations.md
 labels:
   - linear
@@ -15,8 +15,9 @@ dependencies: []
 parent_id: is-01kzxxj27abvbje3nesecgsk3z
 child_order_hints:
   - is-01kzy1taxvxgk86npza1zbkb06
+  - is-01kzy4ta89d2wv8vpsfptzy2gy
 created_at: 2026-08-13T16:24:35.663Z
-updated_at: 2026-08-13T17:56:04.363Z
+updated_at: 2026-08-13T18:09:19.256Z
 closed_at: 2026-08-13T17:56:04.363Z
 close_reason: "Compatibility review is complete: implementation gaps are fixed, all findings are mapped in the authoritative matrix, product/design/development/skill docs agree, deterministic CI is green (132 files, 1,956 tests), and the API-driven Linear gate passed all 11 scenarios with verified cleanup."
 ---
@@ -24,4 +25,4 @@ Make direct Linear API mutation and verification the primary live QA gate, with 
 
 ## Notes
 
-Added packages/tbd/scripts/validate-linear-integration-live.ts and the qa:linear-live package command. The provider API is both driver and oracle while the built candidate runs in a disposable git repository with its credential removed from child environments. Stable contract now has 11 scenarios: setup, explicit import, deferred claim replay, fields/comments/assignee both ways, provider hierarchy, automatic project scope, conflict recovery, exact-once settle, orphan detection, and cleanup. Documented command passed live against team TBD/project tbd on 2026-08-13 and archived all fixtures.
+The API-driven gate now uses an import-safe provider-neutral checklist. Live validation passed all 11 scenarios on 2026-08-13 after the final mapped-assignee import/pull and project-scope changes, and archived every fixture.
