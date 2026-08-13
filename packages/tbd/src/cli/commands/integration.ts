@@ -45,7 +45,11 @@ import { writeLink } from '../../integrations/core/link-store.js';
 import { resolveToInternalId } from '../../file/id-mapping.js';
 import { assertExternalUnclaimed } from '../../integrations/core/link-guard.js';
 import { beadAttachmentUrl } from '../../integrations/core/mirror.js';
-import { deleteIntentFile, writeIntentFile } from '../../integrations/core/intents.js';
+import {
+  deleteIntentFile,
+  discardIntentOps,
+  writeIntentFile,
+} from '../../integrations/core/intents.js';
 import type { ProviderNameType } from '../../lib/types.js';
 
 /**
@@ -521,7 +525,8 @@ class IntegrationUnlinkHandler extends BaseCommand {
       for (const beadRef of beadRefs) {
         const internalId = resolveToInternalId(beadRef, context.mapping);
         const stored = await readIssue(context.dataSyncDir, internalId);
-        if (!readLink(stored, provider)) {
+        const link = readLink(stored, provider);
+        if (!link) {
           this.output.info(`${beadRef} is not linked to ${provider}; nothing to do.`);
           continue;
         }
@@ -530,6 +535,16 @@ class IntegrationUnlinkHandler extends BaseCommand {
         cleared.updated_at = now();
         await writeIssue(context.dataSyncDir, cleared);
         await deleteLinkRecord(context.dataSyncDir, provider, internalId);
+        // Unlink is a cancellation boundary: no write planned for the former
+        // pair may reach the provider afterward. The replay engine applies the
+        // same rule from current bead state, covering a crash between these
+        // steps and journals merged in from another machine.
+        await discardIntentOps(context.dataSyncDir, provider, (op) => {
+          if (op.kind === 'create_issue') {
+            return op.bead_id === internalId || op.client_id === link.id;
+          }
+          return op.external_id === link.id;
+        });
         this.output.success(`Unlinked ${beadRef} from ${provider}.`);
       }
     });

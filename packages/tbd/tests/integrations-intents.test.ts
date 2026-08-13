@@ -17,6 +17,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { bridgeIntentsDir } from '../src/integrations/core/bridge-state.js';
 import {
   deleteIntentFile,
+  discardIntentOps,
   listIntentFiles,
   replayIntents,
   writeIntentFile,
@@ -58,6 +59,39 @@ describe('the intent journal', () => {
 
     await deleteIntentFile(dir, 'linear', RUN_ID);
     expect(await listIntentFiles(dir, 'linear')).toEqual([]);
+  });
+
+  it('removes only matching operations and deletes journals left empty', async () => {
+    const keep = { kind: 'update_issue' as const, external_id: 'keep', patch: { title: 'Keep' } };
+    await writeIntentFile(
+      dir,
+      intentFile([
+        { kind: 'update_issue', external_id: 'remove', patch: { title: 'Remove' } },
+        keep,
+      ]),
+    );
+    await writeIntentFile(dir, {
+      ...intentFile([
+        {
+          kind: 'post_comment',
+          external_id: 'remove',
+          bead_id: 'bead',
+          local_id: 'local',
+          comment_client_id: COMMENT_UUID,
+          body: 'pending',
+        },
+      ]),
+      run_id: '01hx5zzkbkactav9wevgemother',
+    });
+
+    const removed = await discardIntentOps(
+      dir,
+      'linear',
+      (op) => 'external_id' in op && op.external_id === 'remove',
+    );
+
+    expect(removed).toBe(2);
+    expect(await listIntentFiles(dir, 'linear')).toEqual([intentFile([keep])]);
   });
 
   it('fails closed on damaged YAML rather than losing a write-ahead operation', async () => {
@@ -169,6 +203,32 @@ describe('crash replay against the mock provider', () => {
     expect(second.failures).toEqual([]);
     expect(server.comments).toHaveLength(1); // deduped by the client UUID
     expect(server.comments[0]?.id).toBe(COMMENT_UUID);
+  });
+
+  it('discards a comment replay whose local claim is no longer live', async () => {
+    server.addIssue({ id: 'issue-1', identifier: 'FIN-1' });
+    const file = intentFile([
+      {
+        kind: 'post_comment',
+        external_id: 'issue-1',
+        bead_id: 'is-01hx5zzkbkactav9wevgemmvrz',
+        local_id: '01hx5zzkbkactav9wevgemmvrz',
+        comment_client_id: COMMENT_UUID,
+        body: 'must not outlive unlink',
+      },
+    ]);
+    await writeIntentFile(dir, file);
+
+    const report = await replayIntents(dir, 'linear', adapter, {
+      blockedExternalIds: new Set(),
+      blockedBeadIds: new Set(),
+      shouldReplayComment: () => false,
+    });
+
+    expect(report.failures).toEqual([]);
+    expect(report.replayedOps).toBe(0);
+    expect(server.comments).toEqual([]);
+    expect(await listIntentFiles(dir, 'linear')).toEqual([]);
   });
 
   it('keeps a replayed comment intent until its local identity is recorded', async () => {

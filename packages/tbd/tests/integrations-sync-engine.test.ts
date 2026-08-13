@@ -10,9 +10,9 @@ import { join } from 'node:path';
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-import { readLink, writeLink } from '../src/integrations/core/link-store.js';
+import { clearLink, readLink, writeLink } from '../src/integrations/core/link-store.js';
 import { readComments } from '../src/integrations/core/comment-store.js';
-import { appendLocalComment } from '../src/integrations/core/comment-store.js';
+import { appendLocalComment, recordPushedComment } from '../src/integrations/core/comment-store.js';
 import { listIntentFiles, writeIntentFile } from '../src/integrations/core/intents.js';
 import { runSync, type SyncCallbacks } from '../src/integrations/core/sync-engine.js';
 import { LinearAdapter } from '../src/integrations/linear/adapter.js';
@@ -492,6 +492,103 @@ describe('the sync engine', () => {
     const quiet = await run([store.get(epic.id)!]);
     expect(quiet.commentsPushed).toBe(0);
     expect(server.comments.filter((comment) => comment.issueId === externalId)).toHaveLength(1);
+  });
+
+  it('discards a pending comment write after the bead is unlinked', async () => {
+    server.addIssue({ id: 'unlinked-item', identifier: 'FIN-90', title: 'Former pair' });
+    const linked = writeLink(
+      bead('is-01hx5zzkbkactav9wevgemmvrz', { kind: 'task', title: 'Former pair' }),
+      {
+        provider: 'linear',
+        id: 'unlinked-item',
+        key: 'FIN-90',
+        linked_at: '2026-08-10T00:00:00.000Z',
+      },
+    );
+    const { issue: withComment, entry } = appendLocalComment(
+      linked,
+      'linear',
+      'must be cancelled by unlink',
+      new Date().toISOString(),
+    );
+    const unlinked = clearLink(withComment, 'linear');
+    store.set(unlinked.id, unlinked);
+    await writeIntentFile(dir, {
+      type: 'in',
+      run_id: '01hx5zzkbkactav9wevunlink1',
+      provider: 'linear',
+      created_at: '2026-08-10T00:00:00.000Z',
+      ops: [
+        {
+          kind: 'post_comment',
+          external_id: 'unlinked-item',
+          bead_id: unlinked.id,
+          local_id: entry.local_id!,
+          comment_client_id: '41f2c3d4-0000-4000-8000-000000000001',
+          body: entry.body,
+        },
+      ],
+    });
+
+    const recovered = await run([unlinked]);
+
+    expect(recovered.failures).toEqual([]);
+    expect(recovered.replayedOps).toBe(0);
+    expect(server.comments).toEqual([]);
+    expect(await listIntentFiles(dir, 'linear')).toEqual([]);
+
+    const quiet = await run([store.get(unlinked.id)!]);
+    expect(quiet.failures).toEqual([]);
+    expect(server.comments).toEqual([]);
+  });
+
+  it('discards a stale comment journal after its local entry was already recorded', async () => {
+    server.addIssue({ id: 'linked-item', identifier: 'FIN-91', title: 'Still paired' });
+    const linked = writeLink(
+      bead('is-01hx5zzkbkactav9wevgemmvrz', { kind: 'task', title: 'Still paired' }),
+      {
+        provider: 'linear',
+        id: 'linked-item',
+        key: 'FIN-91',
+        linked_at: '2026-08-10T00:00:00.000Z',
+      },
+    );
+    const { issue: withComment, entry } = appendLocalComment(
+      linked,
+      'linear',
+      'already accounted for locally',
+      new Date().toISOString(),
+    );
+    const recorded = recordPushedComment(
+      withComment,
+      'linear',
+      entry.local_id!,
+      'provider-comment-id',
+    );
+    store.set(recorded.id, recorded);
+    await writeIntentFile(dir, {
+      type: 'in',
+      run_id: '01hx5zzkbkactav9wevalready',
+      provider: 'linear',
+      created_at: '2026-08-10T00:00:00.000Z',
+      ops: [
+        {
+          kind: 'post_comment',
+          external_id: 'linked-item',
+          bead_id: recorded.id,
+          local_id: entry.local_id!,
+          comment_client_id: '41f2c3d4-0000-4000-8000-000000000002',
+          body: entry.body,
+        },
+      ],
+    });
+
+    const recovered = await run([recorded]);
+
+    expect(recovered.failures).toEqual([]);
+    expect(recovered.replayedOps).toBe(0);
+    expect(server.comments).toEqual([]);
+    expect(await listIntentFiles(dir, 'linear')).toEqual([]);
   });
 
   it('never pulls its own conflict-report comments back as content', async () => {

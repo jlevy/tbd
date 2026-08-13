@@ -22,7 +22,7 @@ vi.setConfig({ testTimeout: 60_000, hookTimeout: 60_000 });
 
 import { LinearMockServer } from './helpers/linear-mock-server.js';
 import { clearLink, readLink, writeLink } from '../src/integrations/core/link-store.js';
-import { listIntentFiles } from '../src/integrations/core/intents.js';
+import { listIntentFiles, writeIntentFile } from '../src/integrations/core/intents.js';
 import { readIssue, writeIssue } from '../src/file/storage.js';
 
 const execFileAsync = promisify(execFile);
@@ -363,15 +363,34 @@ describe('tbd integration, end to end via the built binary', () => {
     ).toHaveLength(1);
   });
 
-  it('unlink severs the pair and sync leaves it alone', async () => {
-    const list = await cli(['list', '--json']);
-    const ids = [...list.stdout.matchAll(/"id":\s*"([^"]+)"/g)].map((m) => m[1]!);
+  it('unlink cancels pending writes, severs the pair, and sync leaves it alone', async () => {
+    const rows = JSON.parse((await cli(['list', '--json'])).stdout) as {
+      id: string;
+      internalId: string;
+      title: string;
+    }[];
+    const bead = rows.find((row) => row.title === 'Manual claim retry')!;
+    const status = JSON.parse((await cli(['status', '--json'])).stdout) as {
+      worktree_path: string;
+    };
+    const dataSyncDir = join(status.worktree_path, '.tbd', 'data-sync');
+    const link = readLink(await readIssue(dataSyncDir, bead.internalId), 'linear')!;
+    const remoteTitle = server.issues.get(link.id)?.title;
+    await writeIntentFile(dataSyncDir, {
+      type: 'in',
+      run_id: '01hx5zzkbkactav9wevunlink1',
+      provider: 'linear',
+      created_at: '2026-08-10T00:00:00.000Z',
+      ops: [{ kind: 'update_issue', external_id: link.id, patch: { title: 'must not land' } }],
+    });
 
-    const unlink = await cli(['integration', 'unlink', ids.at(-1)!]);
+    const unlink = await cli(['integration', 'unlink', bead.id]);
     expect(unlink.code).toBe(0);
+    expect(await listIntentFiles(dataSyncDir, 'linear')).toEqual([]);
 
     const sync = await cli(['integration', 'sync']);
     expect(sync.code).toBe(0);
+    expect(server.issues.get(link.id)?.title).toBe(remoteTitle);
     // FIN-50 is unlinked and untouched; it shows up as importable instead.
     expect(sync.stdout).toContain('importable');
   });

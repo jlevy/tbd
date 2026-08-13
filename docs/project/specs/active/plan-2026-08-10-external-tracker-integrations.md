@@ -409,7 +409,7 @@ carry the full function-level test cases.
 | Linear direction | `tbd-qc17`, `tbd-hfwb`, `tbd-c863`, `tbd-0lt1`, `tbd-5s77` | `cli/commands/integration.ts` `pushOnlySelector()`; `cli/lib/integration-runner.ts` `runEnabledIntegrationPushes()`; `cli/commands/sync.ts` `runIntegrationPushInPosition()`; `core/sync-engine.ts` replay/inbound gates | Outbound selectors fail without `--push`; both top-level and integration `--push` use the outbound projection; `--pull` performs no provider mutation or newly journaled suppressed write, even for inbound creation or pending crash journals |
 | Linear linking/inbound | `tbd-pr5e`, `tbd-utuy`, `tbd-pqi6`, `tbd-f3uc` | `integration.ts` `IntegrationLinkHandler` and `--external`/`--force`; `integration-runner.ts` ref resolution; `core/link-guard.ts`; `sync-engine.ts` `importExternal()`; `TrackerAdapter.listAttachmentUrls()`; Linear attachment query | Named refs bypass inbound policy under `--pull`; duplicate refs collapse; foreign claims fail before local creation; manual and inbound ownership upserts have durable intents; attachment failure replays without a duplicate bead or link |
 | Journal integrity | `tbd-bd8z` | `core/intents.ts` `listIntentFiles()` / `replayIntents()` | A missing journal directory is empty; unreadable, malformed, or schema-invalid journal files fail closed with their filename before any provider mutation, preserving create client UUIDs and preventing duplicates |
-| Comment replay integrity | `tbd-5p9k` | `core/intents.ts` `post_comment` identity and `replayIntents()` recovery callback; `core/sync-engine.ts` recovered working set; `comment-store.ts` `recordPushedComment()` | A crash after the provider accepts a comment cannot cause the recovery run to mint a second UUID: the journal carries bead and local-comment ids, replay records the provider id and commits it while the journal remains durable, and planning sees that recovered bead |
+| Comment replay integrity | `tbd-5p9k`, `tbd-ufu3` | `core/intents.ts` `post_comment` identity, `discardIntentOps()`, and `replayIntents()` recovery/cancellation; `core/sync-engine.ts` live-comment guard and recovered working set; `integration.ts` `IntegrationUnlinkHandler`; `comment-store.ts` `recordPushedComment()` | A crash after provider acceptance reuses and records the same UUID; unlink cancels pending writes for the former pair; stale or cross-machine comment journals are consumed without provider I/O once their exact bead/link/local-entry claim no longer exists |
 | Folded sync integrity | `tbd-yp81`, `tbd-dc77` | `cli/commands/sync.ts` `assertIntegrationReportsHealthy()`, surface rollup, and config preflight | Thrown and per-item tracker failures both let independent docs/issues finish but force a non-zero aggregate result; malformed config never turns integrations silently inert |
 | Conflict durability | `tbd-l50w`, `tbd-ofwz`, `tbd-jemr` | `file/attic-entry.ts`; `SyncCallbacks.archiveConflict()`; `intents.ts` `post_conflict`; `sync-engine.ts` archive-before-journal-before-write ordering | The exact losing prose is archived before either side changes; crash and inbound-only deferral reuse the same archive/comment UUID and settle exactly once |
 | Attic recovery | `tbd-anx3`, `tbd-z7n8`, `tbd-vzt1`, `tbd-y45b` | `attic.ts` `parseAtticFilename()`, `resolveAtticIssueId()`, `decodeAtticTextValue()`, `buildRestorationAtticEntry()` | Real ULID filenames and display IDs work; JSON/legacy/null values restore exactly; the displaced winner is reverse-archived first |
@@ -827,6 +827,10 @@ prevents:
    When replay recovers an external identity (an issue id or posted-comment id), it
    records and commits that identity locally while the journal is still present, then
    removes the journal.
+   Replay also revalidates a user-comment intent against the current bead, link, and
+   unpushed local entry.
+   An unlink or already-recorded entry supersedes the stale intent, which is consumed
+   without contacting the provider.
    A crash at any boundary thus either completes or repeats harmlessly without losing
    the local↔external identity.
 4. **The base advances only after the work is recorded** — the `tbd-rdsb` lesson, where
@@ -961,7 +965,12 @@ extensions:
   provider UUID dedup, then records that returned UUID on the exact local entry and
   commits the recovery while the intent still exists.
   The recovered bead replaces the stale input in the current run’s working set, so the
-  same run cannot re-plan that comment with a fresh UUID.
+  same run cannot re-plan that comment with a fresh UUID. Before replay, the engine
+  revalidates that the bead still links the same external item and that the exact local
+  entry is still unpushed.
+  A missing link/entry or an entry that already carries a provider id means the durable
+  bead has superseded the journal; the stale operation is consumed without a provider
+  call.
 - **Merge.** The `comments` array inside a provider namespace merges by **union on
   id/`local_id`** — the one array-typed key in the namespace with union semantics, a
   bounded extension of the per-namespace merge.
@@ -1001,6 +1010,9 @@ Apply order per run, under the existing data-sync lock:
    Recover issue links and pushed-comment ids into their beads, commit those identities
    while the intent remains durable, then delete the completed intent.
    Planning uses this recovered working set, not the stale caller snapshot.
+   For user comments, replay first requires the current bead to retain the same link and
+   the same unpushed `local_id`; otherwise explicit unlink or prior recovery has
+   canceled the operation and replay deletes it without provider I/O.
 2. **Archive conflict losers, then write intents** for every planned external write,
    with client-generated UUIDs for creates and conflict comments; commit the archives
    and journal to the sync branch together.
@@ -1020,7 +1032,7 @@ Replay safety is per-operation, verified against the mock server:
 | `issueCreate` (client UUID) | duplicate-id error ⇒ treat as success, fetch by id, recover the link if the bead missed it |
 | `issueUpdate` | idempotent (same values) |
 | `attachmentCreate` | true upsert on `url` |
-| `commentCreate` (user comments) | journal carries bead id + local id + client UUID; provider dedup returns that UUID; replay commits it onto the local entry before intent cleanup and current-run planning |
+| `commentCreate` (user comments) | journal carries bead id + local id + client UUID; replay requires the exact live bead/link/unpushed-entry claim; provider dedup returns the UUID; replay commits it onto the local entry before cleanup/planning; unlink or prior recovery consumes the stale op without provider I/O |
 | `commentCreate` (conflict reports) | journaled report plus client-UUID dedup; replay reuses the committed archive path and does not re-plan a remote-win report in the recovery run |
 
 ##### Linking and inbound creation: where a pair begins
@@ -1052,6 +1064,11 @@ Replay safety is per-operation, verified against the mock server:
 ##### Unlink, orphans, and deletion — absence is never silently undone
 
 - **`unlink`** removes `extensions.<provider>` from the bead and the bridge record.
+  Under the same shared lock it removes every pending journal operation targeting that
+  bead/item while preserving unrelated operations in the same files.
+  Replay independently applies the current-state guard, so a crash during unlink or a
+  journal merged from another machine still cannot write to the former relationship or
+  pin every later sync.
   The per-namespace merge treats absence as a value (Phase 1), so a concurrent writer
   cannot resurrect the link; a later `sync --push` would create a *new* item only if the
   policy still selects the bead, and says so.
@@ -1349,6 +1366,9 @@ Phase 2 extends the same structure:
   The engine test also crashes immediately after a user comment lands but before its
   local entry is marked, then proves replay records the original UUID, plans no second
   push, consumes the intent, and leaves the following run quiet.
+  Complementary tests unlink with a pending comment or update intent and prove command-
+  time pruning plus replay-time live-claim validation perform no provider write, consume
+  the journal, preserve unrelated operations, and leave the next run healthy.
 - **Comments**: two machines append different comments and merge (union, both survive);
   the same comment pulled twice dedupes; a capped thread collapses to stubs without
   losing ids.

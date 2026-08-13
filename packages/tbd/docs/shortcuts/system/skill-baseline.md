@@ -225,7 +225,7 @@ mutation and make one call per group.
 | `tbd integration sync --pull` | Inbound only: tracker changes into beads, no external writes |
 | `tbd integration sync --pull --external <ref...>` | Create beads from exactly named tracker items, independent of policy |
 | `tbd integration sync` | Both directions; converges to `nothing to do` |
-| `tbd integration link/unlink <bead> [ref]` | Bind or sever a bead and an existing tracker item |
+| `tbd integration link/unlink <bead> [ref]` | Bind or sever a bead and an existing tracker item; unlink cancels pending writes for that pair |
 | `tbd integration comment <bead> "text"` | Author a comment offline; posted on next sync |
 
 When a user asks to “sync our specs and beads to Linear”: run `status` first.

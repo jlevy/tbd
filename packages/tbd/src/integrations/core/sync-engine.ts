@@ -267,7 +267,20 @@ export async function runSync(options: SyncEngineOptions): Promise<SyncRunReport
       dataSyncDir,
       provider,
       adapter,
-      { blockedExternalIds, blockedBeadIds },
+      {
+        blockedExternalIds,
+        blockedBeadIds,
+        shouldReplayComment: (op) => {
+          const bead = issuesById.get(op.bead_id);
+          if (!bead || readLink(bead, provider)?.id !== op.external_id) {
+            return false;
+          }
+          const entry = readComments(bead, provider).find(
+            (comment) => comment.local_id === op.local_id,
+          );
+          return entry !== undefined && entry.id === undefined;
+        },
+      },
       async ({ recoveredCreates, recoveredComments }) => {
         let recoveryDirty = false;
         for (const recovered of recoveredCreates) {

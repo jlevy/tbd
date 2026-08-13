@@ -164,6 +164,40 @@ export async function deleteIntentFile(
   await rm(intentPath(dataSyncDir, provider, runId), { force: true });
 }
 
+/**
+ * Remove obsolete operations from every pending journal for one provider.
+ *
+ * Unlink uses this while holding the shared data-sync lock: an explicit
+ * severance cancels writes that were planned for the former relationship.
+ * Journals containing unrelated work are rewritten atomically; empty ones
+ * are deleted.
+ */
+export async function discardIntentOps(
+  dataSyncDir: string,
+  provider: ProviderNameType,
+  shouldDiscard: (op: IntentOp) => boolean,
+): Promise<number> {
+  let removed = 0;
+  for (const file of await listIntentFiles(dataSyncDir, provider)) {
+    const kept = file.ops.filter((op) => {
+      if (!shouldDiscard(op)) {
+        return true;
+      }
+      removed += 1;
+      return false;
+    });
+    if (kept.length === file.ops.length) {
+      continue;
+    }
+    if (kept.length === 0) {
+      await deleteIntentFile(dataSyncDir, provider, file.run_id);
+    } else {
+      await writeIntentFile(dataSyncDir, { ...file, ops: kept });
+    }
+  }
+  return removed;
+}
+
 export interface ReplayReport {
   replayedRuns: number;
   replayedOps: number;
@@ -185,6 +219,12 @@ export interface ReplayRecovery {
 export interface ReplaySafetyFilter {
   blockedExternalIds: ReadonlySet<string>;
   blockedBeadIds: ReadonlySet<string>;
+  /**
+   * A comment is replayable only while its bead remains linked to the same
+   * external item and its local entry is still waiting for a provider id.
+   * False means an unlink or an already-recorded recovery superseded the op.
+   */
+  shouldReplayComment?: (op: Extract<IntentOp, { kind: 'post_comment' }>) => boolean;
 }
 
 function blockedReplayTarget(op: IntentOp, safety: ReplaySafetyFilter | undefined): string | null {
@@ -240,6 +280,18 @@ export async function replayIntents(
           op,
           error: `Discarded replay for ${blockedTarget}: duplicate link integrity guard`,
         });
+        continue;
+      }
+      if (
+        op.kind === 'post_comment' &&
+        safety?.shouldReplayComment &&
+        !safety.shouldReplayComment(op)
+      ) {
+        // The durable bead is the source of truth for whether an outbound
+        // comment still exists. Unlink removes that claim; a previously
+        // recovered entry already carrying an id also supersedes its journal.
+        // In both cases consuming the stale op is successful cancellation,
+        // not a retryable provider failure.
         continue;
       }
       try {

@@ -68,6 +68,10 @@
 - Malformed or unreadable integration intent journals now fail synchronization closed
   with the damaged filename instead of silently discarding the client UUID that prevents
   duplicate external creation.
+- Unlink now cancels pending provider writes for the former pair, and crash replay
+  revalidates comment intents against the current bead, link, and unpushed local entry.
+  A stale or cross-machine journal can no longer post after unlink or repeatedly block
+  future synchronization.
 - Top-level `tbd sync --push` now uses the same outbound-only tracker projection as
   `tbd integration sync --push`; it no longer runs bidirectional reconciliation and pull
   remote tracker edits under a push-only command.
