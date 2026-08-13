@@ -5,7 +5,7 @@ title: Audit Linear comment synchronization completeness
 kind: task
 status: in_progress
 priority: 1
-version: 4
+version: 5
 spec_path: docs/project/specs/active/plan-2026-08-10-external-tracker-integrations.md
 labels:
   - linear
@@ -13,8 +13,10 @@ labels:
   - comments
 dependencies: []
 parent_id: is-01kzxxj27abvbje3nesecgsk3z
+child_order_hints:
+  - is-01kzxyaajyhadgprx4ws1gz7mk
 created_at: 2026-08-13T16:10:05.990Z
-updated_at: 2026-08-13T16:11:12.743Z
+updated_at: 2026-08-13T16:12:07.645Z
 extensions:
   linear:
     id: 39aeb027-34ef-42d1-89bd-98f45318844e
