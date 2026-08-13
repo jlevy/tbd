@@ -5,7 +5,7 @@ title: "Spec: tbd web — production-ready live bead view"
 kind: epic
 status: closed
 priority: 1
-version: 32
+version: 33
 spec_path: docs/project/specs/active/plan-2026-08-10-tbd-web-live-bead-view.md
 labels:
   - viewer
@@ -21,15 +21,15 @@ child_order_hints:
   - is-01kzrs6s3fn7gtzgt70wx9yzas
   - is-01kzrs779s8d2t4qmvpx310p22
 created_at: 2026-08-10T06:31:08.978Z
-updated_at: 2026-08-12T00:09:11.480Z
+updated_at: 2026-08-13T20:12:15.020Z
 closed_at: 2026-08-12T00:09:11.479Z
 close_reason: "PR #207 production implementation and all review/validation work complete; ready to merge."
 extensions:
   linear:
     id: 87a13af9-a3b4-4897-873a-f8bfeb82fa65
-    key: TBD-78
-    url: https://linear.app/finterm-ai/issue/TBD-78/land-tbd-web-spike-pr-stacked-on-pr-205
     linked_at: 2026-08-10T19:37:39.540Z
+    key: TBD-78
+    url: https://linear.app/finterm-ai/issue/TBD-78/spec-tbd-web-production-ready-live-bead-view
 ---
 Deliver PR #207 to the approved merge bar in docs/project/specs/active/plan-2026-08-10-tbd-web-live-bead-view.md: a packaged, loopback-only, read-only tbd web command with shared query semantics, strictly local native-plus-reconciled liveness, a strict TypeScript client, complete docs, and production validation. Ordinary tbd sync remains the only remote exchange contract.
 
