@@ -5,7 +5,7 @@ title: Polish web table time and column layout
 kind: epic
 status: closed
 priority: 1
-version: 22
+version: 41
 labels:
   - web
   - release-readiness
@@ -24,17 +24,30 @@ child_order_hints:
   - is-01kzwfnmysbzgmvne4sk4tm2py
   - is-01kzwfnmytmhxaeacngc8dj94h
   - is-01kzwh1kn32yy2c68xex09h9kz
+  - is-01kzwhjmqn2ze00p37sajpg061
+  - is-01kzwhnrwjwft3jxnmtcfe4r1c
+  - is-01kzwhqdqw1pctnke33z07ffbh
+  - is-01kzwhqw5tdp3hkrxt2yy3tw9q
+  - is-01kzwhtrz43jsna99fmma7vcyg
+  - is-01kzwhzjtedsjb2p5bs1qgx3qj
+  - is-01kzwj3a66jtae68g448dn8cph
+  - is-01kzwj40j5ws6dgganzmg24etj
+  - is-01kzwj62hcm12f1gw1mg1pk8tb
+  - is-01kzwj7jw5w3qs8yvartsrapbt
+  - is-01kzwjy79znqd0j5b2tv3k2dmz
+  - is-01kzwk0xk5t3h24fjtav4d6gxc
+  - is-01kzwk40tw6g8yamztkd90h0tf
+  - is-01kzwkc7r2x86tqs16dxe7gchp
+  - is-01kzwkc85hwnegxgv0bsk0fa8j
+  - is-01kzwkf94ttfwv36p51yvb0ypx
+  - is-01kzwkh4wffsgaazgq9q8857j5
 created_at: 2026-08-13T00:04:20.821Z
-updated_at: 2026-08-13T03:07:01.937Z
-closed_at: 2026-08-13T03:07:01.936Z
-close_reason: "All 13 release-readiness children are implemented, documented, reviewed, tested, benchmarked, and live-browser validated on PR #209, including the final chronological Updated-sort review finding."
+updated_at: 2026-08-13T04:06:23.212Z
+closed_at: 2026-08-13T04:06:23.211Z
+close_reason: All 30 tracked release-readiness children are complete. The final design preserves exact filters, Pretty across sorting, subtree Updated rollups at outermost parent groups, official child order, bounded rendering, conditional facets, and the polished live read-only UI; full CI and live-browser validation passed.
 ---
 Polish the live read-only bead table before the next minor release. Scope: add a standard relative updated-time column with exact timestamp hover and semantic blue age ramp; freeze table column geometry across collapsed and expanded rows; and rebalance title versus label widths so titles wrap cleanly while tags receive useful space. Update the authoritative design-system comments in packages/tbd/src/web/styles.css and verify behavior in the live browser.
 
 ## Notes
 
-Implementation started on codex/release-readiness-0.5.0 for PR #209. MetaBrowser reference: static/app.js::formatAge/formatTimestamp and static/styles.css file-age tier design. tbd adaptation keeps the same deterministic tier boundaries while using a blue-only age family; fixed table geometry will use a semantic colgroup and table-layout fixed.
-
-Reopened: A final automated review found a boundary-rounding defect in the new relative-age formatter; reopening the epic to track and fix it before merge.
-
-Reopened: Two additional live-browser findings need release-readiness work: consistent wrapped tree continuation glyphs and a dynamic counted label multi-chooser.
+Reopened after live validation found that some wrapped titles still omit active pretty-tree ancestor verticals. A dedicated child bug tracks exhaustive zero/one/multiple-bar continuation geometry.
