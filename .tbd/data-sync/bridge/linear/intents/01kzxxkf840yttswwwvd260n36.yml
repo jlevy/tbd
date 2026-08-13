@@ -1,0 +1,659 @@
+created_at: 2026-08-13T15:59:38.758Z
+ops:
+  - bead_id: is-01kzx8kn4vtndb0t84345snpy5
+    client_id: 0e08d8c7-a478-49f2-aedf-db9934fc6f5a
+    kind: create_issue
+    patch:
+      description: "Exercise the provider-generic paths in cli/commands/integration.ts and
+        integrations/core/{mirror,sync-engine,intents,reconcile,link-store,link-guard}.\
+        ts with the GitHub adapter: link and unlink an existing owner/repo#N issue,
+        create a bead through sync --pull --external, policy-selected sync --push,
+        inbound/outbound/two-way title-description-status-priority-label mapping,
+        append-only issue comments, crash replay and strict pull deferral, bulk guards,
+        orphan handling, local and cross-repository duplicate refusal, and deterministic
+        second-run no-op. Add real built-CLI E2E coverage and ensure Linear behavior
+        remains unchanged."
+      priority: 2
+      status: open
+      title: Implement GitHub issue link, explicit inbound selection, outbound projection, and
+        bidirectional sync
+  - attachments:
+      - metadata:
+          assignee: null
+          bead_id: tbd-tnks
+          children: 0
+          created_at: 2026-08-13T09:52:44.698Z
+          dependencies:
+            - target: is-01kzx8knkqyxmghreewwsy16h9
+              type: blocks
+            - target: is-01kzn515e154th2ehqthkpcv0v
+              type: blocks
+          internal_id: is-01kzx8kn4vtndb0t84345snpy5
+          kind: feature
+          labels:
+            - github
+            - integration
+          parent_id: is-01kzn2wakpq2963exxqhj8xkdc
+          priority: 2
+          ready_children: 0
+          spec_path: docs/project/specs/active/plan-2026-08-10-external-tracker-integrations.md
+          status: open
+          updated_at: 2026-08-13T11:05:24.136Z
+        subtitle: open · P2
+        title: tbd-tnks · feature
+        url: tbd://bead/tbd-tnks
+      - subtitle: plan spec
+        title: plan-2026-08-10-external-tracker-integrations.md
+        url: https://github.com/jlevy/tbd/blob/claude/linear-integration/docs/project/specs/active/plan-2026-08-10-external-tracker-integrations.md
+    bead_id: is-01kzx8kn4vtndb0t84345snpy5
+    external_id: 0e08d8c7-a478-49f2-aedf-db9934fc6f5a
+    kind: upsert_attachments
+  - bead_id: is-01kzx8kn4vtndb0t84345snpy5
+    block: |-
+      <!-- tbd:begin -->
+      `tbd-tnks` · feature · open · P2
+      Spec: [plan-2026-08-10-external-tracker-integrations.md](https://github.com/jlevy/tbd/blob/claude/linear-integration/docs/project/specs/active/plan-2026-08-10-external-tracker-integrations.md)
+      Children: 0 (0 ready)
+      Bead: `tbd show tbd-tnks`
+
+      Mirrored by tbd. Edits inside this block are overwritten.
+      <!-- tbd:end -->
+    external_id: 0e08d8c7-a478-49f2-aedf-db9934fc6f5a
+    kind: splice_description
+  - bead_id: is-01kzx8knkqyxmghreewwsy16h9
+    client_id: 4fb64dc7-d929-4ac3-81d2-f9040582f16c
+    kind: create_issue
+    patch:
+      description: After the GitHub adapter, issue lifecycle, and PR-association work land,
+        run mock-server real-binary E2E plus a bounded live pilot against a disposable
+        GitHub issue and PR. Prove status and gh-token fallback, link, sync --pull
+        --external, sync --push, full sync, comments, unlink, PR association and Linear
+        attachment rendering, crash replay, strict pull deferral, local and remote
+        duplicate guards, rate-limit and permission remedies, cross-clone convergence,
+        and no mutation of PR content. Audit and clean up the pilot, then run the full
+        quality and package gates.
+      priority: 2
+      status: open
+      title: Validate GitHub integration through the built CLI and a live pilot repository
+  - attachments:
+      - metadata:
+          assignee: null
+          bead_id: tbd-v1u1
+          children: 0
+          created_at: 2026-08-13T09:52:45.174Z
+          dependencies:
+            - target: is-01kzn515e154th2ehqthkpcv0v
+              type: blocks
+          internal_id: is-01kzx8knkqyxmghreewwsy16h9
+          kind: task
+          labels:
+            - github
+            - integration
+            - release-candidate
+          parent_id: is-01kzn2wakpq2963exxqhj8xkdc
+          priority: 2
+          ready_children: 0
+          spec_path: docs/project/specs/active/plan-2026-08-10-external-tracker-integrations.md
+          status: open
+          updated_at: 2026-08-13T11:05:24.665Z
+        subtitle: open · P2
+        title: tbd-v1u1 · task
+        url: tbd://bead/tbd-v1u1
+      - subtitle: plan spec
+        title: plan-2026-08-10-external-tracker-integrations.md
+        url: https://github.com/jlevy/tbd/blob/claude/linear-integration/docs/project/specs/active/plan-2026-08-10-external-tracker-integrations.md
+    bead_id: is-01kzx8knkqyxmghreewwsy16h9
+    external_id: 4fb64dc7-d929-4ac3-81d2-f9040582f16c
+    kind: upsert_attachments
+  - bead_id: is-01kzx8knkqyxmghreewwsy16h9
+    block: |-
+      <!-- tbd:begin -->
+      `tbd-v1u1` · task · open · P2
+      Spec: [plan-2026-08-10-external-tracker-integrations.md](https://github.com/jlevy/tbd/blob/claude/linear-integration/docs/project/specs/active/plan-2026-08-10-external-tracker-integrations.md)
+      Children: 0 (0 ready)
+      Bead: `tbd show tbd-v1u1`
+
+      Mirrored by tbd. Edits inside this block are overwritten.
+      <!-- tbd:end -->
+    external_id: 4fb64dc7-d929-4ac3-81d2-f9040582f16c
+    kind: splice_description
+  - bead_id: is-01kzx8mkeyergsd0hmq8zj1zd7
+    client_id: 0cb014de-860c-4ac4-9fa1-ca66d0b1e65e
+    kind: create_issue
+    patch:
+      description: Expose provider links as a first-class, read-only projection in tbd web
+        without making the browser an editor or adding remote polling. The board must
+        show safe Linear and GitHub link metadata prominently, navigate directly to
+        external items, share exact provider-filter semantics with the CLI, update
+        immediately after ordinary tbd integration/link/unlink/sync writes, preserve the
+        current bounded rendering/performance model, and document the visual/data
+        contract in the existing CSS design-system inventory and integration spec.
+      priority: 2
+      status: open
+      title: "Phase 4: external tracker links and facets in tbd web"
+  - attachments:
+      - metadata:
+          assignee: null
+          bead_id: tbd-b4qm
+          children: 0
+          created_at: 2026-08-13T09:53:15.741Z
+          dependencies: []
+          internal_id: is-01kzx8mkeyergsd0hmq8zj1zd7
+          kind: feature
+          labels:
+            - web
+            - integration
+          parent_id: is-01kzn2w85qxpbp8cqtn7mkbvkg
+          priority: 2
+          ready_children: 0
+          spec_path: docs/project/specs/active/plan-2026-08-10-external-tracker-integrations.md
+          status: open
+          updated_at: 2026-08-13T09:53:41.279Z
+        subtitle: open · P2
+        title: tbd-b4qm · feature
+        url: tbd://bead/tbd-b4qm
+      - subtitle: plan spec
+        title: plan-2026-08-10-external-tracker-integrations.md
+        url: https://github.com/jlevy/tbd/blob/claude/linear-integration/docs/project/specs/active/plan-2026-08-10-external-tracker-integrations.md
+    bead_id: is-01kzx8mkeyergsd0hmq8zj1zd7
+    external_id: 0cb014de-860c-4ac4-9fa1-ca66d0b1e65e
+    kind: upsert_attachments
+  - bead_id: is-01kzx8mkeyergsd0hmq8zj1zd7
+    block: |-
+      <!-- tbd:begin -->
+      `tbd-b4qm` · feature · open · P2
+      Spec: [plan-2026-08-10-external-tracker-integrations.md](https://github.com/jlevy/tbd/blob/claude/linear-integration/docs/project/specs/active/plan-2026-08-10-external-tracker-integrations.md)
+      Children: 0 (0 ready)
+      Bead: `tbd show tbd-b4qm`
+
+      Mirrored by tbd. Edits inside this block are overwritten.
+      <!-- tbd:end -->
+    external_id: 0cb014de-860c-4ac4-9fa1-ca66d0b1e65e
+    kind: splice_description
+  - bead_id: is-01kzx8nbbf8rybrp5sp6t9y7h4
+    client_id: 114dc6cf-4e88-45b1-9ec1-193123311384
+    kind: create_issue
+    patch:
+      description: Extend lib/issue-query.ts IssueQuery, defaultIssueQuery(), filterIssues(),
+        and describeQuery() with linked=any|linear|github|none; add cli/commands/list.ts
+        --linked so every browser filter has an honest equivalent command. In
+        cli/web/board.ts parseBoardQuery() and BoardState.buildBoardResponse(), compute
+        an External chooser with All, Linked, Linear, GitHub, and Unlinked options.
+        Counts must be conditional on every other active filter, zero-count unselected
+        options hidden, selected options retained, and the selected All label must omit
+        a redundant tally. TDD in issue-query.test.ts, list CLI tests,
+        web-board.test.ts, and web-core.test.ts.
+      priority: 2
+      status: open
+      title: Add shared external-link query and conditional facet semantics
+  - attachments:
+      - metadata:
+          assignee: null
+          bead_id: tbd-qsda
+          children: 0
+          created_at: 2026-08-13T09:53:40.206Z
+          dependencies:
+            - target: is-01kzx8ncczb69sp1bgyk20pyt5
+              type: blocks
+          internal_id: is-01kzx8nbbf8rybrp5sp6t9y7h4
+          kind: task
+          labels:
+            - web
+            - integration
+          parent_id: is-01kzx8mkeyergsd0hmq8zj1zd7
+          priority: 2
+          ready_children: 0
+          spec_path: docs/project/specs/active/plan-2026-08-10-external-tracker-integrations.md
+          status: open
+          updated_at: 2026-08-13T09:53:52.007Z
+        subtitle: open · P2
+        title: tbd-qsda · task
+        url: tbd://bead/tbd-qsda
+      - subtitle: plan spec
+        title: plan-2026-08-10-external-tracker-integrations.md
+        url: https://github.com/jlevy/tbd/blob/claude/linear-integration/docs/project/specs/active/plan-2026-08-10-external-tracker-integrations.md
+    bead_id: is-01kzx8nbbf8rybrp5sp6t9y7h4
+    external_id: 114dc6cf-4e88-45b1-9ec1-193123311384
+    kind: upsert_attachments
+  - bead_id: is-01kzx8nbbf8rybrp5sp6t9y7h4
+    block: |-
+      <!-- tbd:begin -->
+      `tbd-qsda` · task · open · P2
+      Spec: [plan-2026-08-10-external-tracker-integrations.md](https://github.com/jlevy/tbd/blob/claude/linear-integration/docs/project/specs/active/plan-2026-08-10-external-tracker-integrations.md)
+      Children: 0 (0 ready)
+      Bead: `tbd show tbd-qsda`
+
+      Mirrored by tbd. Edits inside this block are overwritten.
+      <!-- tbd:end -->
+    external_id: 114dc6cf-4e88-45b1-9ec1-193123311384
+    kind: splice_description
+  - bead_id: is-01kzx8nbpvpfdv6vme31s7qyq2
+    client_id: 40f5fc06-fa0e-4aa4-a8cf-297cd9216a59
+    kind: create_issue
+    patch:
+      description: Add one pure projection based on integrations/core/link-store.ts
+        readLink()/linkedProviders() and use it from cli/web/board.ts BoardRow,
+        BeadBody, BoardState.buildBoardResponse(), and getBead(). Return only provider,
+        stable id, human key, and validated http(s) URL; never expose arbitrary
+        extensions or bridge state. Preserve additive response compatibility, snapshot
+        consistency, MAX_BOARD_ROWS, lazy body loading, and local-observer behavior so
+        link/unlink/sync writes appear through the existing graph-version/SSE path
+        without network access. Cover malformed namespaces, missing URLs, dual-provider
+        beads, live updates, and JSON serialization.
+      priority: 2
+      status: open
+      title: Project allow-listed external links into web board and bead detail responses
+  - attachments:
+      - metadata:
+          assignee: null
+          bead_id: tbd-6yxi
+          children: 0
+          created_at: 2026-08-13T09:53:40.570Z
+          dependencies:
+            - target: is-01kzx8nc1vetjsc86by8085sg1
+              type: blocks
+            - target: is-01kzx8ncczb69sp1bgyk20pyt5
+              type: blocks
+          internal_id: is-01kzx8nbpvpfdv6vme31s7qyq2
+          kind: task
+          labels:
+            - web
+            - integration
+          parent_id: is-01kzx8mkeyergsd0hmq8zj1zd7
+          priority: 2
+          ready_children: 0
+          spec_path: docs/project/specs/active/plan-2026-08-10-external-tracker-integrations.md
+          status: open
+          updated_at: 2026-08-13T09:53:52.016Z
+        subtitle: open · P2
+        title: tbd-6yxi · task
+        url: tbd://bead/tbd-6yxi
+      - subtitle: plan spec
+        title: plan-2026-08-10-external-tracker-integrations.md
+        url: https://github.com/jlevy/tbd/blob/claude/linear-integration/docs/project/specs/active/plan-2026-08-10-external-tracker-integrations.md
+    bead_id: is-01kzx8nbpvpfdv6vme31s7qyq2
+    external_id: 40f5fc06-fa0e-4aa4-a8cf-297cd9216a59
+    kind: upsert_attachments
+  - bead_id: is-01kzx8nbpvpfdv6vme31s7qyq2
+    block: |-
+      <!-- tbd:begin -->
+      `tbd-6yxi` · task · open · P2
+      Spec: [plan-2026-08-10-external-tracker-integrations.md](https://github.com/jlevy/tbd/blob/claude/linear-integration/docs/project/specs/active/plan-2026-08-10-external-tracker-integrations.md)
+      Children: 0 (0 ready)
+      Bead: `tbd show tbd-6yxi`
+
+      Mirrored by tbd. Edits inside this block are overwritten.
+      <!-- tbd:end -->
+    external_id: 40f5fc06-fa0e-4aa4-a8cf-297cd9216a59
+    kind: splice_description
+  - bead_id: is-01kzx8nc1vetjsc86by8085sg1
+    client_id: d3e91620-a20f-4d0f-aec7-ce509ea7082f
+    kind: create_issue
+    patch:
+      description: In src/web/core.ts add strict ExternalLinkView parsing and state types; in
+        src/web/client.ts renderExternalLinks() from renderRow() and renderLoadedBody().
+        Use one compact Links column with recognizable inline GitHub and Linear SVG
+        marks, provider-semantic tooltip and accessible name, key on hover/focus, direct
+        target=_blank links with rel=noopener noreferrer, and click propagation stopped
+        so navigation does not expand the bead. In styles.css reuse design tokens for
+        icon weight, muted/hover/focus states, dark mode, motion, and table widths; no
+        icon library or per-row duplicate SVG DOM. Expanded/collapsed rows must retain
+        fixed column widths. Pin DOM, accessibility, CSS, copy, and performance behavior
+        in web client/core/CSS tests.
+      priority: 2
+      status: open
+      title: Render accessible Linear and GitHub link marks in bead rows and details
+  - attachments:
+      - metadata:
+          assignee: null
+          bead_id: tbd-6k5g
+          children: 0
+          created_at: 2026-08-13T09:53:40.922Z
+          dependencies:
+            - target: is-01kzx8ncczb69sp1bgyk20pyt5
+              type: blocks
+          internal_id: is-01kzx8nc1vetjsc86by8085sg1
+          kind: feature
+          labels:
+            - web
+            - integration
+          parent_id: is-01kzx8mkeyergsd0hmq8zj1zd7
+          priority: 2
+          ready_children: 0
+          spec_path: docs/project/specs/active/plan-2026-08-10-external-tracker-integrations.md
+          status: open
+          updated_at: 2026-08-13T09:53:52.022Z
+        subtitle: open · P2
+        title: tbd-6k5g · feature
+        url: tbd://bead/tbd-6k5g
+      - subtitle: plan spec
+        title: plan-2026-08-10-external-tracker-integrations.md
+        url: https://github.com/jlevy/tbd/blob/claude/linear-integration/docs/project/specs/active/plan-2026-08-10-external-tracker-integrations.md
+    bead_id: is-01kzx8nc1vetjsc86by8085sg1
+    external_id: d3e91620-a20f-4d0f-aec7-ce509ea7082f
+    kind: upsert_attachments
+  - bead_id: is-01kzx8nc1vetjsc86by8085sg1
+    block: |-
+      <!-- tbd:begin -->
+      `tbd-6k5g` · feature · open · P2
+      Spec: [plan-2026-08-10-external-tracker-integrations.md](https://github.com/jlevy/tbd/blob/claude/linear-integration/docs/project/specs/active/plan-2026-08-10-external-tracker-integrations.md)
+      Children: 0 (0 ready)
+      Bead: `tbd show tbd-6k5g`
+
+      Mirrored by tbd. Edits inside this block are overwritten.
+      <!-- tbd:end -->
+    external_id: d3e91620-a20f-4d0f-aec7-ce509ea7082f
+    kind: splice_description
+  - bead_id: is-01kzx8ncczb69sp1bgyk20pyt5
+    client_id: 691dcef9-0896-4e6b-8168-8c93a6372a93
+    kind: create_issue
+    patch:
+      description: Update the authoritative design-system inventory in src/web/styles.css plus
+        tbd-design.md, tbd-docs.md, README.md, docs/development.md, CHANGELOG.md, and
+        installed skill tiers. State that the browser only displays/navigates provider
+        links, agents perform link/unlink/sync through tbd commands, provider filtering
+        is shared CLI semantics, and no web request contacts Linear or GitHub. Extend
+        generated-doc, package stitch, web-package, empty-repo, and installed-skill
+        tests so the new SVG/CSS/data assets ship in the single self-contained page.
+      priority: 3
+      status: open
+      title: Document and package the web external-link design contract
+  - attachments:
+      - metadata:
+          assignee: null
+          bead_id: tbd-35mn
+          children: 0
+          created_at: 2026-08-13T09:53:41.279Z
+          dependencies: []
+          internal_id: is-01kzx8ncczb69sp1bgyk20pyt5
+          kind: task
+          labels:
+            - web
+            - integration
+          parent_id: is-01kzx8mkeyergsd0hmq8zj1zd7
+          priority: 3
+          ready_children: 0
+          spec_path: docs/project/specs/active/plan-2026-08-10-external-tracker-integrations.md
+          status: open
+          updated_at: 2026-08-13T09:53:41.279Z
+        subtitle: open · P3
+        title: tbd-35mn · task
+        url: tbd://bead/tbd-35mn
+      - subtitle: plan spec
+        title: plan-2026-08-10-external-tracker-integrations.md
+        url: https://github.com/jlevy/tbd/blob/claude/linear-integration/docs/project/specs/active/plan-2026-08-10-external-tracker-integrations.md
+    bead_id: is-01kzx8ncczb69sp1bgyk20pyt5
+    external_id: 691dcef9-0896-4e6b-8168-8c93a6372a93
+    kind: upsert_attachments
+  - bead_id: is-01kzx8ncczb69sp1bgyk20pyt5
+    block: |-
+      <!-- tbd:begin -->
+      `tbd-35mn` · task · open · P3
+      Spec: [plan-2026-08-10-external-tracker-integrations.md](https://github.com/jlevy/tbd/blob/claude/linear-integration/docs/project/specs/active/plan-2026-08-10-external-tracker-integrations.md)
+      Children: 0 (0 ready)
+      Bead: `tbd show tbd-35mn`
+
+      Mirrored by tbd. Edits inside this block are overwritten.
+      <!-- tbd:end -->
+    external_id: 691dcef9-0896-4e6b-8168-8c93a6372a93
+    kind: splice_description
+  - bead_id: is-01kzxxj27abvbje3nesecgsk3z
+    client_id: 583ad9a1-b8fa-4261-bfd6-a5c43fdec4a8
+    kind: create_issue
+    patch:
+      description: "Exercise the live Linear adapter against this 1,626-bead repository:
+        verify connectivity and selection policy, inspect a dry-run disposition, perform
+        bidirectional synchronization, prove a second run converges, persist tracker
+        state, and expose the live read-only web view for comparison."
+      priority: 1
+      status: in_progress
+      title: Dogfood Linear synchronization against the legacy tbd repository
+  - attachments:
+      - metadata:
+          assignee: null
+          bead_id: tbd-3xng
+          children: 0
+          created_at: 2026-08-13T15:58:52.645Z
+          dependencies: []
+          internal_id: is-01kzxxj27abvbje3nesecgsk3z
+          kind: task
+          labels:
+            - integration
+            - dogfood
+          parent_id: is-01kzn2w85qxpbp8cqtn7mkbvkg
+          priority: 1
+          ready_children: 0
+          spec_path: docs/project/specs/active/plan-2026-08-10-external-tracker-integrations.md
+          status: in_progress
+          updated_at: 2026-08-13T15:58:58.566Z
+        subtitle: in_progress · P1
+        title: tbd-3xng · task
+        url: tbd://bead/tbd-3xng
+      - subtitle: plan spec
+        title: plan-2026-08-10-external-tracker-integrations.md
+        url: https://github.com/jlevy/tbd/blob/claude/linear-integration/docs/project/specs/active/plan-2026-08-10-external-tracker-integrations.md
+    bead_id: is-01kzxxj27abvbje3nesecgsk3z
+    external_id: 583ad9a1-b8fa-4261-bfd6-a5c43fdec4a8
+    kind: upsert_attachments
+  - bead_id: is-01kzxxj27abvbje3nesecgsk3z
+    block: |-
+      <!-- tbd:begin -->
+      `tbd-3xng` · task · in_progress · P1
+      Spec: [plan-2026-08-10-external-tracker-integrations.md](https://github.com/jlevy/tbd/blob/claude/linear-integration/docs/project/specs/active/plan-2026-08-10-external-tracker-integrations.md)
+      Children: 0 (0 ready)
+      Bead: `tbd show tbd-3xng`
+
+      Mirrored by tbd. Edits inside this block are overwritten.
+      <!-- tbd:end -->
+    external_id: 583ad9a1-b8fa-4261-bfd6-a5c43fdec4a8
+    kind: splice_description
+  - bead_id: is-01kzn5121n6gc6xk9w710631cf
+    external_id: 4a8e905a-4ca4-4752-8b44-c9429f93bde0
+    kind: update_issue
+    patch:
+      status: closed
+  - bead_id: is-01kzn512cr6x4z2bb5yns27mn0
+    external_id: 3c59726b-a627-44e5-add4-787d72fb078b
+    kind: update_issue
+    patch:
+      status: closed
+  - bead_id: is-01kzn512qgfk7bt4grjfwcsab9
+    external_id: 1bc76460-8812-4ce8-b3bf-5844dee9ef8b
+    kind: update_issue
+    patch:
+      status: closed
+  - bead_id: is-01kzn5132f7f1gntqbg68wg2hv
+    external_id: 5454db30-4257-4fac-a0d5-5e1daffadbd7
+    kind: update_issue
+    patch:
+      status: closed
+  - bead_id: is-01kzn513dx5caz86bq89cm502s
+    external_id: 08910b15-b6fe-47d0-9668-fc74bde4b973
+    kind: update_issue
+    patch:
+      status: closed
+  - bead_id: is-01kzn513t5rt6bak750hcvzeta
+    external_id: 490f9047-fbe4-4065-92bf-9cf61aad7c3f
+    kind: update_issue
+    patch:
+      status: closed
+  - bead_id: is-01kzn5147yrf3sw28jc7n600r7
+    external_id: cb7fc720-11d6-48bf-88ad-5860f2160a4f
+    kind: update_issue
+    patch:
+      status: closed
+  - bead_id: is-01kzn514mxmazhwq9fn1qpcpvt
+    external_id: d4d7b290-87b0-4fba-9978-af3809155d1d
+    kind: update_issue
+    patch:
+      description: "Implement packages/tbd/src/integrations/github/client.ts, adapter.ts,
+        queries.ts, and mapping.ts behind the existing TrackerAdapter seam. Use native
+        fetch and GitHub REST endpoints only: resolve owner/repo#N and canonical URLs,
+        batch issue reads, updated-since pagination, create/update issue fields, labels,
+        comments, and stable repository targeting. Resolve credentials through
+        integrations/core/credentials.ts using GITHUB_TOKEN then the existing gh auth
+        token fallback without process.env mutation. Extend registry/config/status so
+        repository and owner are validated offline and probed online. TDD with a
+        faithful GitHub mock plus mapping/client/registry/status cases; no new
+        dependency."
+  - bead_id: is-01kzn5152hkvnx553tj4gwgc28
+    external_id: e4a2e265-ed0d-439d-9db3-51186d517dcf
+    kind: update_issue
+    patch:
+      description: "Define pull requests as implementation relationships, not generic
+        issue-sync targets: GitHub issues participate in outbound projection, explicit
+        inbound creation, and two-way sync, while PRs are read-only associations stored
+        in extensions.github.prs with stable repo/number/url and refreshed display
+        metadata. Add provider-generic helpers that preserve the existing
+        extensions.github issue-link payload, CLI verbs to link/unlink/list PR
+        associations without changing PR title/body/state, and Linear
+        attachmentLinkGitHubPR/attachmentLinkGitHubIssue upserts keyed by URL. Cover
+        namespace merges, stale/closed PR refresh, duplicate association idempotency,
+        and coexistence with a GitHub issue link."
+  - bead_id: is-01kzn515e154th2ehqthkpcv0v
+    external_id: 82fd6e26-c98b-4c92-a2c2-f0b7a23d94d8
+    kind: update_issue
+    patch:
+      description: Update README.md, packages/tbd/docs/tbd-docs.md, tbd-design.md,
+        docs/development.md, CHANGELOG.md, and all installed tbd skill tiers with the
+        GitHub issue-sync and PR-association contract. Document config, target
+        resolution, credential precedence, policy and field mappings, link/unlink,
+        explicit inbound selection, outbound projection, PR-link verbs, permissions,
+        failure recovery, duplicate guards, strict pull semantics, and the deliberate
+        rule that PR metadata is read-only. Add generated-doc and installed-skill tests,
+        then keep package artifacts synchronized.
+  - bead_id: is-01kzn5wbxkb6c0db6k19wj7yzj
+    external_id: 87a13af9-a3b4-4897-873a-f8bfeb82fa65
+    kind: update_issue
+    patch:
+      description: "Deliver PR #207 to the approved merge bar in
+        docs/project/specs/active/plan-2026-08-10-tbd-web-live-bead-view.md: a packaged,
+        loopback-only, read-only tbd web command with shared query semantics, strictly
+        local native-plus-reconciled liveness, a strict TypeScript client, complete
+        docs, and production validation. Ordinary tbd sync remains the only remote
+        exchange contract."
+      status: closed
+  - bead_id: is-01kzqs9ax4x2jc12zca4j441px
+    external_id: d81f3bf1-4d78-41a5-81ae-f5254dcd6d89
+    kind: update_issue
+    patch:
+      description: Release blocker. Add one provider-generic duplicate-link validator shared
+        by integrations/core/link-store.ts, runSync() in
+        integrations/core/sync-engine.ts, and checkIntegrations() in
+        cli/commands/doctor.ts. Before any replay, fetch, push, import, or base advance,
+        group valid extensions.<provider>.id values and reject every holder of an
+        external id owned by more than one bead; report provider, external ref, and all
+        deterministic display IDs while allowing unrelated links to continue. TDD in
+        integrations-link-store.test.ts, integrations-sync-engine.test.ts,
+        integration-cli-e2e.test.ts, and doctor coverage must prove pre-existing corrupt
+        links cannot double-write, all holders are skipped, unrelated pairs still
+        converge, and human/JSON remedies are actionable.
+      priority: 1
+      status: closed
+  - bead_id: is-01kzrs2jrjg3pzase83ebxdjyg
+    external_id: d207b5f2-dcc4-4e68-9b30-eb80a250b892
+    kind: update_issue
+    patch:
+      status: closed
+  - bead_id: is-01kzrs2sz9ebbjwz2a3w2s70af
+    external_id: 9098e057-0eff-4c26-b459-5c9b9827b1f2
+    kind: update_issue
+    patch:
+      status: closed
+  - bead_id: is-01kzrs66v8et3vwh2tpmk3v9d9
+    external_id: 32667d91-8875-4b6d-9aa7-4e93f91d3d03
+    kind: update_issue
+    patch:
+      status: closed
+  - bead_id: is-01kzrs6dd1abehychzed2yc1fk
+    external_id: 0062001b-4c7f-4489-bd91-f0aef80a0d27
+    kind: update_issue
+    patch:
+      status: closed
+  - bead_id: is-01kzrs6s3fn7gtzgt70wx9yzas
+    external_id: b5656b13-1372-4754-9956-b26f2050c638
+    kind: update_issue
+    patch:
+      status: closed
+  - bead_id: is-01kzrs779s8d2t4qmvpx310p22
+    external_id: 9437aa72-43f0-46bf-87b9-cc8a023e198e
+    kind: update_issue
+    patch:
+      description: Run the full local and hosted matrix, 10,000-row performance and payload
+        bounds, Git isolation checks, packed-tarball proof, lifecycle/manual smoke,
+        final base integration, PR metadata update, final review disposition, comment
+        audit, and merge-readiness verification.
+      status: closed
+  - bead_id: is-01kzrs7qw8qv2ynt64n9c2w0y6
+    external_id: 4adae182-5acd-4d67-9a95-b9ef4c625c27
+    kind: update_issue
+    patch:
+      status: closed
+  - bead_id: is-01kzrs7yrc2hjjks6qc38mhc2y
+    external_id: a3abf765-1007-4147-9f68-b11f8fa6b651
+    kind: update_issue
+    patch:
+      status: closed
+  - bead_id: is-01kzrs87qg5tssg8p41wpj3kwj
+    external_id: b5dfad0e-d667-4fe6-8b53-3d4cb58955d5
+    kind: update_issue
+    patch:
+      status: closed
+  - bead_id: is-01kzrs8gb1ky34vpdv7qfdfv4q
+    external_id: 8980c965-5f00-4dc2-b17c-0d703a2a3b0a
+    kind: update_issue
+    patch:
+      status: closed
+  - bead_id: is-01kzrs8phwbdy9hdkxm6c6k8pe
+    external_id: 9675a81a-a8b8-4da5-9982-5b68215cf678
+    kind: update_issue
+    patch:
+      status: closed
+  - bead_id: is-01kzrs8yftzrvng3a16fs26hm1
+    external_id: 36a1280d-99c2-4389-84d3-17967abd13e4
+    kind: update_issue
+    patch:
+      status: closed
+  - bead_id: is-01kzrs94ma78nxv4qyd4yx8hr5
+    external_id: 051fc604-e4b3-47e2-9db1-eed9cca757ed
+    kind: update_issue
+    patch:
+      status: closed
+  - bead_id: is-01kzrs9eanh9pfsh52fed3gdna
+    external_id: 90cb1f73-b89d-4930-9721-0407747b0680
+    kind: update_issue
+    patch:
+      status: closed
+  - bead_id: is-01kzrs9mb24gzv94d2mvexqnbd
+    external_id: 67d4faa8-fbfc-46d4-ac48-d59b086c3380
+    kind: update_issue
+    patch:
+      status: closed
+  - bead_id: is-01kzrs9vkh8j1vsrfytqdx3sr1
+    external_id: 979c938b-b151-428d-9ea4-b2cb93f02e0f
+    kind: update_issue
+    patch:
+      status: closed
+  - bead_id: is-01kzrsa3b4fywmvvsxt5s4srrq
+    external_id: 9c286db2-62f0-45e8-a147-30497157ddb1
+    kind: update_issue
+    patch:
+      status: closed
+  - bead_id: is-01kzrsac4r354tm2b2f89mg0ve
+    external_id: 706626fd-ddbc-4090-85ba-8d3f23909c52
+    kind: update_issue
+    patch:
+      status: closed
+  - bead_id: is-01kzrsajhday2nyvfnbk2c097t
+    external_id: 6a507fb2-ddf1-4fa0-a230-2feef233958b
+    kind: update_issue
+    patch:
+      status: closed
+  - bead_id: is-01kzrsarka5sq9h3x8v5yp7vpm
+    external_id: 46b57237-ce1e-4e32-8bef-24946dd12ea7
+    kind: update_issue
+    patch:
+      status: closed
+provider: linear
+run_id: 01kzxxkf840yttswwwvd260n36
+type: in

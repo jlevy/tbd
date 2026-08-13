@@ -5,7 +5,7 @@ title: Implement GitHub issue link, explicit inbound selection, outbound project
 kind: feature
 status: open
 priority: 2
-version: 4
+version: 5
 spec_path: docs/project/specs/active/plan-2026-08-10-external-tracker-integrations.md
 labels:
   - github
@@ -17,6 +17,10 @@ dependencies:
     target: is-01kzn515e154th2ehqthkpcv0v
 parent_id: is-01kzn2wakpq2963exxqhj8xkdc
 created_at: 2026-08-13T09:52:44.698Z
-updated_at: 2026-08-13T11:05:24.136Z
+updated_at: 2026-08-13T15:59:38.775Z
+extensions:
+  linear:
+    id: 0e08d8c7-a478-49f2-aedf-db9934fc6f5a
+    linked_at: 2026-08-13T15:59:38.775Z
 ---
 Exercise the provider-generic paths in cli/commands/integration.ts and integrations/core/{mirror,sync-engine,intents,reconcile,link-store,link-guard}.ts with the GitHub adapter: link and unlink an existing owner/repo#N issue, create a bead through sync --pull --external, policy-selected sync --push, inbound/outbound/two-way title-description-status-priority-label mapping, append-only issue comments, crash replay and strict pull deferral, bulk guards, orphan handling, local and cross-repository duplicate refusal, and deterministic second-run no-op. Add real built-CLI E2E coverage and ensure Linear behavior remains unchanged.

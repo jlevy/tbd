@@ -5,7 +5,7 @@ title: "Phase 4: external tracker links and facets in tbd web"
 kind: feature
 status: open
 priority: 2
-version: 5
+version: 6
 spec_path: docs/project/specs/active/plan-2026-08-10-external-tracker-integrations.md
 labels:
   - web
@@ -18,6 +18,10 @@ child_order_hints:
   - is-01kzx8nc1vetjsc86by8085sg1
   - is-01kzx8ncczb69sp1bgyk20pyt5
 created_at: 2026-08-13T09:53:15.741Z
-updated_at: 2026-08-13T09:53:41.279Z
+updated_at: 2026-08-13T15:59:38.800Z
+extensions:
+  linear:
+    id: 0cb014de-860c-4ac4-9fa1-ca66d0b1e65e
+    linked_at: 2026-08-13T15:59:38.800Z
 ---
 Expose provider links as a first-class, read-only projection in tbd web without making the browser an editor or adding remote polling. The board must show safe Linear and GitHub link metadata prominently, navigate directly to external items, share exact provider-filter semantics with the CLI, update immediately after ordinary tbd integration/link/unlink/sync writes, preserve the current bounded rendering/performance model, and document the visual/data contract in the existing CSS design-system inventory and integration spec.
