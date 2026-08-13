@@ -265,6 +265,12 @@ describe('BoardState', () => {
     expect(response.labelFacets).toHaveLength(32);
     expect(response.labelFacets).toContainEqual({ label: 'tag-34', count: 1 });
     expect(response.labelFacets.map((facet) => facet.label)).not.toContain('tag-31');
+
+    const searched = board.buildBoardResponse(
+      new URLSearchParams('labelq=tag-34'),
+      stateFor(board),
+    );
+    expect(searched.labelFacets).toEqual([{ label: 'tag-34', count: 1 }]);
   });
 
   it('recounts label facets as iterative conjunctions and restores them when unchecked', async () => {
@@ -370,7 +376,10 @@ describe('BoardState', () => {
 
     expect(response.rows.map((row) => row.id)).toEqual(['web-kid1', 'web-root', 'web-leaf']);
     expect(response.commandExact).toBe(false);
-    expect(response.filtersExact).toBe(false);
+    expect(response.filtersExact).toBe(true);
+    expect(response.orderingCaveat).toBe(
+      'Browser column sort: Priority ↑ then Updated ↓; flat mode applies the stack to individual rows',
+    );
   });
 
   it('orders mixed-precision updated timestamps chronologically in either direction', async () => {

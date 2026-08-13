@@ -98,11 +98,13 @@
 
      Dynamic labels (.label-chooser-menu, .label-choice)
        Label facets come from the complete local snapshot, ranked by bead count
-       then name, and capped at 32 while retaining selected values. The menu is
-       a keyboard-operable multi-chooser: a fixed check column, the same neutral
-       `.tag` primitive used in rows, and a tabular sans tally. Selection stays
-       open for composition; Any clears the set. Repeated labels retain the CLI's
-       AND contract, and the control's accessible name states that requirement.
+       then name. The unsearched menu shows the first 32; its search field queries
+       the complete label vocabulary and returns up to 32 matches while retaining
+       selected values. The menu is a keyboard-operable multi-chooser: a fixed check
+       column, the same neutral `.tag` primitive used in rows, and a tabular sans
+       tally. Selection stays open for composition; Any clears the set. Repeated
+       labels retain the CLI's AND contract, and the control's accessible name states
+       that requirement.
 
      Facet tallies (.semantic-chooser option, .label-choice-count)
        Every finite categorical filter shows counts. Status, Type, and Priority
@@ -129,6 +131,7 @@
        fast fade, viewport clamping, Escape/scroll dismissal, and no per-target
        listeners or repeated tooltip DOM. Text is compact sans chrome unless
        the revealed value is explicitly marked as a literal (exact ISO time).
+       Render completion dismisses the tooltip if its anchor left the document.
        Essential labels remain visible or accessible outside the tooltip.
 
      Tree structure (.guide, .title-content)
@@ -156,11 +159,21 @@
        Every data header is one unboxed button. The arrow and ordinal expose the
        two-key sort stack: the latest clicked column is primary, the prior primary
        is its sole tie-breaker, and only clicking the current primary reverses it.
-       The default is Pretty with Updated descending then Priority ascending; Reset
-       restores that complete state. In Pretty, sorts move only outermost visible
+       The default sort stack is Updated descending then Priority ascending; Reset
+       restores that stack without changing Pretty. In Pretty, sorts move only outermost visible
        parent groups. Updated uses the latest timestamp across each complete visible
        subtree, regardless of parent kind, while children always retain official
-       child_order_hints order. Flat mode applies the same stack globally.
+       child_order_hints order. Flat mode applies the same stack globally. The
+       equivalent-command tooltip names this browser-only ordering rather than
+       implying that the adjacent CLI command reproduces it.
+
+     Live board interaction (.board-table tbody, .disclosure)
+       One delegated tbody click handler owns row expansion. A non-collapsed text
+       selection suppresses expansion, copy controls stop propagation, and keyboard
+       activation remains native to the disclosure button. Live replacement restores
+       focus by stable bead ID and control role; label choices restore focus by label.
+       Refresh failures keep the last successful rows visible and change the persistent
+       observer pill to an error state until a successful board response clears it.
 
      Typography and expansion (--weight-medium, --weight-strong)
        The complete type scale is 15px page title, 14px body/content, and one
@@ -754,6 +767,13 @@ button {
     transform var(--transition-fast),
     visibility 0s linear 0s;
 }
+.label-search {
+  width: 100%;
+  margin-bottom: 4px;
+}
+#labelchoices {
+  display: grid;
+}
 .label-chooser-menu[hidden] {
   display: grid;
   opacity: 0;
@@ -1219,11 +1239,13 @@ tr.bodyrow > td.body-cell {
   overflow: hidden;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 4;
+  line-clamp: 4;
 }
 tr.open .title-text {
   display: block;
   overflow: visible;
   -webkit-line-clamp: unset;
+  line-clamp: unset;
 }
 /* ── DATA motion ────────────────────────────────────────────────
    Applied only when the server reports a new `dataVersion`. Never

@@ -67,6 +67,8 @@ const elements = {
   labelTrigger: byId('labeltrigger', HTMLButtonElement),
   labelSummary: byId('labelsummary', HTMLSpanElement),
   labelMenu: byId('labelmenu', HTMLDivElement),
+  labelSearch: byId('labelsearch', HTMLInputElement),
+  labelChoices: byId('labelchoices', HTMLDivElement),
   spec: byId('spec', HTMLInputElement),
   ready: byId('ready', HTMLInputElement),
   pretty: byId('pretty', HTMLInputElement),
@@ -359,6 +361,7 @@ function renderCategoricalFacets(board: BoardResponse): void {
 function readControls(): BoardControls {
   return {
     search: elements.search.value,
+    labelSearch: elements.labelSearch.value,
     status: choice(elements.status.value, ['', 'any', ...ISSUE_STATUSES] as const, ''),
     kind: choice(elements.kind.value, ['', 'bug', 'feature', 'task', 'epic', 'chore'] as const, ''),
     priority: choice(elements.priority.value, ['', '0', '1', '2', '3', '4'] as const, ''),
@@ -415,7 +418,33 @@ function labelChoice(
   return row;
 }
 
-function renderLabelChooser(facets: readonly LabelFacetView[], labels: readonly string[]): void {
+function activeLabelChoiceFocus(): string | null {
+  const active = document.activeElement;
+  if (!(active instanceof HTMLButtonElement) || !elements.labelChoices.contains(active)) {
+    return null;
+  }
+  return active.hasAttribute('data-label-any') ? '' : (active.dataset.labelChoice ?? null);
+}
+
+function restoreLabelChoiceFocus(requested: string | null): void {
+  if (requested === null) {
+    return;
+  }
+  const choice = [
+    ...elements.labelChoices.querySelectorAll<HTMLButtonElement>('.label-choice'),
+  ].find((row) =>
+    requested === '' ? row.hasAttribute('data-label-any') : row.dataset.labelChoice === requested,
+  );
+  choice?.focus();
+}
+
+function renderLabelChooser(
+  facets: readonly LabelFacetView[],
+  labels: readonly string[],
+  labelSearch: string,
+): void {
+  const labelFocus = pendingLabelFocus ?? activeLabelChoiceFocus();
+  pendingLabelFocus = null;
   selectedLabels.clear();
   for (const label of labels) {
     selectedLabels.add(label);
@@ -428,6 +457,9 @@ function renderLabelChooser(facets: readonly LabelFacetView[], labels: readonly 
         ? selected[0]!
         : `${selected[0]} +${selected.length - 1}`;
   elements.labelTrigger.dataset.active = String(selected.length > 0);
+  if (elements.labelSearch.value !== labelSearch) {
+    elements.labelSearch.value = labelSearch;
+  }
 
   const signature = JSON.stringify([selected, facets]);
   if (signature !== labelRenderSignature) {
@@ -435,21 +467,11 @@ function renderLabelChooser(facets: readonly LabelFacetView[], labels: readonly 
     for (const facet of facets) {
       choices.push(labelChoice(facet.label, facet.count, selectedLabels.has(facet.label)));
     }
-    elements.labelMenu.replaceChildren(...choices);
+    elements.labelChoices.replaceChildren(...choices);
     labelRenderSignature = signature;
   }
   setLabelMenuOpen(labelMenuOpen);
-
-  if (pendingLabelFocus !== null) {
-    const requested = pendingLabelFocus;
-    pendingLabelFocus = null;
-    const choice = [
-      ...elements.labelMenu.querySelectorAll<HTMLButtonElement>('.label-choice'),
-    ].find((row) =>
-      requested === '' ? row.hasAttribute('data-label-any') : row.dataset.labelChoice === requested,
-    );
-    choice?.focus();
-  }
+  restoreLabelChoiceFocus(labelFocus);
 }
 
 function renderSortHeaders(sorts: readonly BoardSortView[], pretty: boolean): void {
@@ -833,6 +855,51 @@ function renderGhost(row: BoardRowView): HTMLTableRowElement {
   return tableRow;
 }
 
+interface BoardFocusIdentity {
+  beadId: string;
+  role: 'disclosure' | 'copy';
+  copyLabel: string | null;
+}
+
+function captureBoardFocus(): BoardFocusIdentity | null {
+  const active = document.activeElement;
+  if (!(active instanceof HTMLButtonElement)) {
+    return null;
+  }
+  const row = active.closest<HTMLTableRowElement>('tr[data-bead-id]');
+  const beadId = row?.dataset.beadId;
+  if (beadId === undefined) {
+    return null;
+  }
+  if (active.classList.contains('disclosure')) {
+    return { beadId, role: 'disclosure', copyLabel: null };
+  }
+  if (active.classList.contains('copy-button')) {
+    return { beadId, role: 'copy', copyLabel: active.dataset.copyLabel ?? null };
+  }
+  return null;
+}
+
+function restoreBoardFocus(identity: BoardFocusIdentity | null): void {
+  if (identity === null) {
+    return;
+  }
+  const row = [...elements.rows.querySelectorAll<HTMLTableRowElement>('tr[data-bead-id]')].find(
+    (candidate) => candidate.dataset.beadId === identity.beadId,
+  );
+  if (row === undefined) {
+    return;
+  }
+  if (identity.role === 'disclosure') {
+    row.querySelector<HTMLButtonElement>('.disclosure')?.focus();
+    return;
+  }
+  const button = [...row.querySelectorAll<HTMLButtonElement>('.copy-button')].find(
+    (candidate) => candidate.dataset.copyLabel === identity.copyLabel,
+  );
+  button?.focus();
+}
+
 function renderRow(
   view: ClientView,
   row: BoardRowView,
@@ -840,6 +907,7 @@ function renderRow(
 ): DocumentFragment {
   const fragment = document.createDocumentFragment();
   const tableRow = document.createElement('tr');
+  tableRow.dataset.beadId = row.id;
   const open = view.expanded.has(row.id);
   const classes = [
     changedIds.has(row.id) ? 'changed' : '',
@@ -847,10 +915,6 @@ function renderRow(
     view.flashIds.has(row.id) ? 'flash' : '',
   ].filter(Boolean);
   tableRow.className = classes.join(' ');
-  tableRow.addEventListener('click', () => {
-    store.toggle(row.id);
-  });
-
   const caretCell = appendCell(tableRow, '', 'caret');
   const disclosure = document.createElement('button');
   disclosure.type = 'button';
@@ -1132,6 +1196,7 @@ function appendBoardPager(board: BoardResponse, pageIndex: number): void {
 }
 
 function renderBoard(view: ClientView, board: BoardResponse): void {
+  const boardFocus = captureBoardFocus();
   const page = paginateBoardRows(board.rows, boardPageIndex);
   const changedIds = new Set(view.watch?.movedIds ?? []);
   boardPageIndex = page.pageIndex;
@@ -1143,9 +1208,6 @@ function renderBoard(view: ClientView, board: BoardResponse): void {
     elements.pagePill,
     page.total === 0 ? 'No rows' : `Rows ${page.start + 1}–${page.end} of ${page.total}`,
   );
-  if (activeTooltipTarget !== null && elements.rows.contains(activeTooltipTarget)) {
-    hideTooltip();
-  }
   elements.rows.replaceChildren();
   for (const row of view.ghostRows) {
     elements.rows.append(renderGhost(row));
@@ -1154,6 +1216,7 @@ function renderBoard(view: ClientView, board: BoardResponse): void {
     elements.rows.append(renderRow(view, row, changedIds));
   }
   appendBoardPager(board, page.pageIndex);
+  restoreBoardFocus(boardFocus);
   elements.empty.hidden = board.rows.length > 0 || view.ghostRows.length > 0;
   elements.empty.textContent = view.boardError ?? 'No beads match this query.';
   const canBulkExpand = page.rows.length <= MAX_EXPANDED_ROWS;
@@ -1204,10 +1267,10 @@ function renderHeader(view: ClientView, board: BoardResponse, watch: Observation
   );
   elements.pretty.checked = view.controls.pretty;
   activeSorts = view.controls.sorts.map((sort) => ({ ...sort }));
-  elements.sortReset.hidden = isDefaultBoardSort(view.controls.sorts, view.controls.pretty);
+  elements.sortReset.hidden = isDefaultBoardSort(view.controls.sorts);
   renderSortHeaders(view.controls.sorts, view.controls.pretty);
   renderCategoricalFacets(board);
-  renderLabelChooser(board.labelFacets, view.controls.labels);
+  renderLabelChooser(board.labelFacets, view.controls.labels, view.controls.labelSearch);
   document.title = `tbd beads (${watch.totalBeads})`;
 }
 
@@ -1224,7 +1287,14 @@ function render(): void {
   }
 
   renderHeader(view, board, watch);
-  if (disconnected) {
+  if (view.boardError !== null) {
+    elements.observerPill.textContent = 'refresh error';
+    elements.observerPill.className = 'pill error';
+    setTooltip(
+      elements.observerPill,
+      `Board refresh failed: ${view.boardError}. Showing the last successful board while the viewer retries.`,
+    );
+  } else if (disconnected) {
     elements.observerPill.textContent = 'disconnected';
     elements.observerPill.className = 'pill error';
     setTooltip(
@@ -1237,6 +1307,9 @@ function render(): void {
   renderStats(watch.stats);
   renderReport(watch);
   renderLog(watch);
+  if (activeTooltipTarget !== null && !document.contains(activeTooltipTarget)) {
+    hideTooltip();
+  }
   store.acknowledgeDataMotion();
 
   if (scrollBoardToTopAfterRender) {
@@ -1339,6 +1412,15 @@ function debounceControls(): void {
     applyControls();
   }, 120);
 }
+function debounceLabelSearch(): void {
+  if (filterTimer !== null) {
+    window.clearTimeout(filterTimer);
+  }
+  filterTimer = window.setTimeout(() => {
+    filterTimer = null;
+    void store.setControls(readControls());
+  }, 120);
+}
 for (const input of [elements.search, elements.spec]) {
   input.addEventListener('input', debounceControls);
 }
@@ -1350,20 +1432,19 @@ elements.pretty.addEventListener('change', () => {
 });
 elements.sortReset.addEventListener('click', () => {
   activeSorts = DEFAULT_BOARD_SORTS.map((sort) => ({ ...sort }));
-  elements.pretty.checked = true;
   applyControls();
 });
 elements.labelTrigger.addEventListener('click', () => {
   setLabelMenuOpen(!labelMenuOpen);
   if (labelMenuOpen) {
-    elements.labelMenu.querySelector<HTMLButtonElement>('.label-choice')?.focus();
+    elements.labelSearch.focus();
   }
 });
 elements.labelTrigger.addEventListener('keydown', (event) => {
   if (event.key === 'ArrowDown') {
     event.preventDefault();
     setLabelMenuOpen(true);
-    elements.labelMenu.querySelector<HTMLButtonElement>('.label-choice')?.focus();
+    elements.labelSearch.focus();
   }
 });
 elements.labelMenu.addEventListener('click', (event) => {
@@ -1392,7 +1473,7 @@ elements.labelMenu.addEventListener('click', (event) => {
   applyControls();
 });
 elements.labelMenu.addEventListener('keydown', (event) => {
-  const rows = [...elements.labelMenu.querySelectorAll<HTMLButtonElement>('.label-choice')];
+  const rows = [...elements.labelChoices.querySelectorAll<HTMLButtonElement>('.label-choice')];
   const current = rows.indexOf(document.activeElement as HTMLButtonElement);
   let next = -1;
   if (event.key === 'ArrowDown') {
@@ -1412,6 +1493,24 @@ elements.labelMenu.addEventListener('keydown', (event) => {
   if (next >= 0) {
     event.preventDefault();
     rows[next]?.focus();
+  }
+});
+elements.labelSearch.addEventListener('input', debounceLabelSearch);
+elements.rows.addEventListener('click', (event) => {
+  const target = event.target instanceof Element ? event.target : null;
+  if (target === null) {
+    return;
+  }
+  const row = target.closest<HTMLTableRowElement>('tr[data-bead-id]');
+  const suppressForSelection =
+    target.closest<HTMLButtonElement>('.disclosure') === null &&
+    !(window.getSelection()?.isCollapsed ?? true);
+  if (row === null || suppressForSelection) {
+    return;
+  }
+  const id = row.dataset.beadId;
+  if (id !== undefined) {
+    store.toggle(id);
   }
 });
 document.addEventListener('pointerdown', (event) => {

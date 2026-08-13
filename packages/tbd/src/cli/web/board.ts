@@ -206,6 +206,7 @@ export interface BoardResponse {
   kindFacets: ValueFacet<IssueKindType>[];
   priorityFacets: ValueFacet<number>[];
   labelFacets: LabelFacet[];
+  orderingCaveat: string | null;
   rows: BoardRow[];
   truncated: number;
   state: WebState;
@@ -235,6 +236,7 @@ interface ParsedBoardQuery {
   parentDisplayId: string | null;
   pretty: boolean;
   search: string;
+  labelSearch: string;
   sorts: BoardSort[];
 }
 
@@ -547,8 +549,27 @@ function parseBoardQuery(params: URLSearchParams, context: TbdDataContext): Pars
     parentDisplayId,
     pretty: flag(params, 'pretty'),
     search: params.get('q')?.trim() ?? '',
+    labelSearch: params.get('labelq')?.trim() ?? '',
     sorts: parseBoardSorts(params),
   };
+}
+
+function describeBoardOrdering(sorts: readonly BoardSort[], pretty: boolean): string | null {
+  if (sorts.length === 0) {
+    return null;
+  }
+  const title = (key: BoardSortKey): string =>
+    key === 'id' ? 'ID' : `${key[0]!.toUpperCase()}${key.slice(1)}`;
+  const stack = sorts
+    .map((sort) => `${title(sort.key)} ${sort.direction === 'asc' ? '↑' : '↓'}`)
+    .join(' then ');
+  if (!pretty) {
+    return `Browser column sort: ${stack}; flat mode applies the stack to individual rows`;
+  }
+  const groupRule = sorts.some((sort) => sort.key === 'updated')
+    ? "Pretty orders outermost groups by each visible subtree's latest update and keeps children in official order"
+    : 'Pretty orders outermost groups and keeps children in official order';
+  return `Browser column sort: ${stack}; ${groupRule}`;
 }
 
 function compareText(left: string, right: string): number {
@@ -727,11 +748,12 @@ export class BoardState {
     const prettySupported = !pretty || !parsed.query.ready;
     const command =
       pretty && !parsed.query.ready ? `${described.command} --pretty` : described.command;
-    const filtersExact = described.exact && prettySupported && parsed.sorts.length === 0;
+    const filtersExact = described.exact && prettySupported;
 
     return {
       command,
-      commandExact: filtersExact && parsed.search === '' && truncated === 0,
+      commandExact:
+        filtersExact && parsed.sorts.length === 0 && parsed.search === '' && truncated === 0,
       filtersExact,
       search: parsed.search,
       total: this.snapshot.issues.length,
@@ -744,7 +766,8 @@ export class BoardState {
         PRIORITY_VALUES,
         (issue) => issue.priority,
       ),
-      labelFacets: this.buildLabelFacets(labelFacetPool, parsed.query.labels),
+      labelFacets: this.buildLabelFacets(labelFacetPool, parsed.query.labels, parsed.labelSearch),
+      orderingCaveat: describeBoardOrdering(parsed.sorts, pretty),
       rows: responseRows,
       truncated,
       state,
@@ -1092,6 +1115,7 @@ export class BoardState {
   private buildLabelFacets(
     candidates: readonly Issue[],
     selectedLabels: readonly string[],
+    labelSearch: string,
   ): LabelFacet[] {
     const selected = new Set(selectedLabels.filter(Boolean));
     const intersection = candidates.filter((issue) =>
@@ -1109,7 +1133,16 @@ export class BoardState {
     const ranked = [...counts].map(([label, count]) => ({ label, count }));
     ranked.sort((left, right) => right.count - left.count || compareText(left.label, right.label));
 
-    const kept = ranked.slice(0, MAX_LABEL_FACETS);
+    const normalizedSearch = labelSearch.normalize('NFKC').toLocaleLowerCase('en-US');
+    const discoverable =
+      normalizedSearch === ''
+        ? ranked
+        : ranked.filter(
+            (facet) =>
+              selected.has(facet.label) ||
+              facet.label.normalize('NFKC').toLocaleLowerCase('en-US').includes(normalizedSearch),
+          );
+    const kept = discoverable.slice(0, MAX_LABEL_FACETS);
     const keptLabels = new Set(kept.map((facet) => facet.label));
     const rank = new Map(ranked.map((facet, index) => [facet.label, index]));
     const selectedFacets = [...selected]

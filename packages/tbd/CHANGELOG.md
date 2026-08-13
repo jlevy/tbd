@@ -31,9 +31,9 @@
   metadata check repairs missed events without reloading an unchanged graph.
   The client lazy-loads bead bodies and bounds requests and rendered rows for large
   repositories. Counted multi-label filtering, relative update ages, four-line collapsed
-  titles, and composable sortable column headers keep dense boards scannable; entering a
-  global column sort switches from the hierarchy to a flat view, and Pretty restores the
-  CLI tree and default priority order.
+  titles, and composable sortable column headers keep dense boards scannable.
+  Sorting never disables Pretty: it reorders outermost tree groups while official child
+  order remains intact; flat mode applies the same stack to individual rows.
   `--open` is opt-in; JSON and dry-run modes support agents and CI.
 
 ### Documentation
@@ -142,6 +142,9 @@
   strings across LF and CRLF checkouts, keeps its default `js-yaml` resolver out of
   every tbd parsing path, and makes the library’s built-in JavaScript evaluator
   unreachable from synchronized issue or document files.
+  On document and skill paths, YAML 1.2 keeps date-looking and sexagesimal-looking
+  scalars as strings, interprets leading-zero integers as decimal rather than legacy
+  octal, and continues to keep `yes`/`no`/`on`/`off` as strings.
   The shipped `gray-matter → js-yaml` advisory is availability-only and remains visible
   to package audits, but its vulnerable `!!omap` resolver is not reachable through tbd.
 

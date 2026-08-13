@@ -214,6 +214,8 @@ Payload shape matters more than raw speed:
 - Each board response carries conditional Status, Type, and Priority facets plus at most
   32 label facets. Counts apply search and all other active dimensions rather than global
   standalone totals; unselected zero-count values are omitted.
+  Label search queries the complete vocabulary before the response cap, so lower-ranked
+  labels remain reachable.
   Label candidates additionally apply the current repeated-label intersection, retaining
   selected values for removal and preserving CLI `--label` AND semantics.
 - Bodies are served per bead on demand from the in-memory snapshot, so an open row costs
@@ -238,7 +240,10 @@ Payload shape matters more than raw speed:
   official `child_order_hints` order.
   Each non-root browser row renders one `└──` elbow at its hierarchy indentation;
   ancestor levels are spaces, never vertical bars, and sibling position never selects a
-  tee. Flat mode applies the stack globally, and Reset restores the complete default.
+  tee. Flat mode applies the stack globally, and Reset restores the default sort stack
+  without changing Pretty.
+  The equivalent-command tooltip names browser-only ordering that the adjacent CLI
+  command does not reproduce.
   Filtered-out ancestors are never reinserted; matching descendants become roots,
   exactly as in `tbd list --pretty`.
 - Expanded updated beads show 80-character middle-ellipsis previews for each scalar
@@ -1073,6 +1078,12 @@ liveness decision:
   Pretty reorders only outermost visible groups using each complete visible subtree’s
   maximum Updated timestamp while preserving official child order; Flat applies the same
   bounded stack to individual rows.
+
+- Live rendering delegates row expansion to one table-body listener, ignores clicks that
+  finish a non-collapsed text selection, restores keyboard focus by stable identity, and
+  dismisses tooltips whose anchors were replaced.
+  A board-refresh failure retains the last successful rows and remains visible in the
+  observer indicator until recovery.
 
 ## References
 

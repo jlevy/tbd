@@ -4089,10 +4089,13 @@ Rows expose the derived state as quiet unboxed text after their real labels; it 
 useful scan information, but is neither a lifecycle status nor a user label and must not
 be styled as either.
 The response carries conditional Status, Type, and Priority facets plus at most 32 label
-facets.
-Every tally applies search and all other active dimensions; unselected zero-count
-values are omitted. Label candidates additionally apply every selected label, retaining
-selected values for removal and preserving the CLI’s repeated-label AND semantics.
+facets per response.
+An empty label search returns the highest-ranked choices; a search queries the complete
+label vocabulary before applying the response cap, so every label remains reachable.
+Every tally applies search and all other active dimensions; unselected zero-count values
+are omitted.
+Label candidates additionally apply every selected label, retaining selected
+values for removal and preserving the CLI’s repeated-label AND semantics.
 The client clamps collapsed titles at four lines, renders sans relative update ages with
 exact literal tooltips, and exposes every data column as an ordered sort key.
 The default is Pretty with Updated descending then Priority ascending.
@@ -4105,7 +4108,9 @@ The browser deliberately uses a simpler visual grammar than terminal tree output
 non-root row has exactly one `└──` elbow at its hierarchy indentation, with spaces for
 ancestor levels and no tee or vertical-bar variants.
 Flat mode applies the stack globally.
-Reset restores the complete default.
+Reset restores the default sort stack without changing Pretty.
+Because browser ordering is not an exact CLI filter, the response supplies a concise
+ordering caveat beside the equivalent command.
 Pretty never reinserts a bead excluded by Status, labels, search, or another filter; a
 matching descendant whose parent is absent becomes a root, exactly as in
 `tbd list --pretty`.
@@ -4114,6 +4119,13 @@ Expanded updated beads show field deltas with an 80-character middle-ellipsis pr
 per scalar side. Copy preserves the bounded full values, before is muted historical
 context, and after uses normal text.
 Created beads omit null-to-current-value deltas as redundant with the expanded body.
+The client delegates row expansion to one table-body listener and ignores clicks that
+finish a non-collapsed text selection.
+Each render restores keyboard focus by stable bead ID and control role, or by label
+value inside the chooser.
+A failed board refresh keeps the last successful rows visible and changes the persistent
+observer indicator to an error state until a successful response clears it.
+Render completion also dismisses any tooltip whose anchor was replaced.
 These component and semantic rules are maintained in the co-located design-system
 inventory in `src/web/styles.css`. Status-panel field names use standard-size sans
 chrome and literal values use standard-size monospace; neither side shrinks merely

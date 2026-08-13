@@ -44,9 +44,20 @@ Body.`;
   });
 
   it.each(['', 'yaml', 'yml'])('accepts the %s YAML language marker', (language) => {
-    const parsed = parseMarkdownMatter(`---${language}\ntitle: Safe\n---\nBody.`);
+    const parsed = parseMarkdownMatter(`---${language}
+released: 2025-01-01
+legacy_octal: 012
+sexagesimal: 1:20
+booleanish: yes
+---
+Body.`);
 
-    expect(parsed.data).toEqual({ title: 'Safe' });
+    expect(parsed.data).toEqual({
+      released: '2025-01-01',
+      legacy_octal: 12,
+      sexagesimal: '1:20',
+      booleanish: 'yes',
+    });
     expect(parsed.content).toBe('Body.');
   });
 

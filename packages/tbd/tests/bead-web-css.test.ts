@@ -297,9 +297,29 @@ describe('chevron icon system', () => {
 
   it('routes every board-row click through one toggle path', async () => {
     const client = await readFile(clientPath, 'utf8');
-    expect(client).toContain("tableRow.addEventListener('click', () => {");
-    expect(client).toContain('store.toggle(row.id)');
+    expect(client).toContain('tableRow.dataset.beadId = row.id');
+    expect(client).toContain("elements.rows.addEventListener('click', (event) => {");
+    expect(client).toContain("target.closest<HTMLTableRowElement>('tr[data-bead-id]')");
+    expect(client).toContain('window.getSelection()?.isCollapsed ?? true');
+    expect(client).toContain("target.closest<HTMLButtonElement>('.disclosure') === null");
+    expect(client).toContain('store.toggle(id)');
+    expect(client).not.toContain("tableRow.addEventListener('click'");
     expect(client).not.toContain("disclosure.addEventListener('click'");
+  });
+
+  it('cleans detached tooltips and restores stable board and label focus after rerenders', async () => {
+    const client = await readFile(clientPath, 'utf8');
+    expect(client).toContain('captureBoardFocus()');
+    expect(client).toContain('restoreBoardFocus(boardFocus)');
+    expect(client).toContain('!document.contains(activeTooltipTarget)');
+    expect(client).toContain('activeLabelChoiceFocus()');
+    expect(client).toContain('restoreLabelChoiceFocus(labelFocus)');
+  });
+
+  it('surfaces a failed board refresh even while stale rows remain visible', async () => {
+    const client = await readFile(clientPath, 'utf8');
+    expect(client).toContain("elements.observerPill.textContent = 'refresh error'");
+    expect(client).toContain('Showing the last successful board');
   });
 
   it('baseline-aligns mixed row typography and centers disclosure in the shared line box', async () => {
@@ -493,8 +513,10 @@ describe('tree-title layout', () => {
     const textRule = blockAfter(css, '.title-text');
     const openTextRule = blockAfter(css, 'tr.open .title-text');
     expect(textRule).toContain('-webkit-line-clamp: 4');
+    expect(textRule).toContain('line-clamp: 4');
     expect(textRule).toContain('overflow: hidden');
     expect(openTextRule).toContain('-webkit-line-clamp: unset');
+    expect(openTextRule).toContain('line-clamp: unset');
     expect(openTextRule).toContain('overflow: visible');
   });
 });
@@ -587,6 +609,8 @@ describe('dynamic label chooser', () => {
     expect(page).toContain('id="labelchooser"');
     expect(page).toContain('id="labeltrigger"');
     expect(page).toContain('id="labelmenu"');
+    expect(page).toContain('id="labelsearch"');
+    expect(page).toContain('id="labelchoices"');
     expect(page).not.toContain('<input id="label"');
     expect(page).toContain('aria-label="Labels; all selected labels are required"');
     expect(page).toContain('aria-label="Filter by every selected label"');
@@ -594,6 +618,7 @@ describe('dynamic label chooser', () => {
     expect(client).toContain("count.className = 'label-choice-count'");
     expect(client).toContain("name.className = 'tag label-choice-tag'");
     expect(client).toContain('selectedLabels');
+    expect(client).toContain('labelSearch: elements.labelSearch.value');
     expect(blockAfter(css, '.label-chooser-menu')).toContain('max-height: 320px');
     expect(blockAfter(css, '.label-choice-count')).toContain('font-variant-numeric: tabular-nums');
   });
@@ -614,12 +639,12 @@ describe('composable board sorting', () => {
     expect(client).not.toContain('elements.pretty.checked = false');
     expect(client).not.toContain('activeSorts = []');
     expect(client).toContain('activeSorts = DEFAULT_BOARD_SORTS.map');
-    expect(client).toContain('elements.pretty.checked = true');
     expect(client).toContain(
       'Pretty moves outermost groups by the latest update in each visible subtree; children keep official order.',
     );
-    expect(client).toContain('isDefaultBoardSort(view.controls.sorts, view.controls.pretty)');
+    expect(client).toContain('isDefaultBoardSort(view.controls.sorts)');
     expect(page).toContain('id="sortreset"');
+    expect(client).not.toContain('elements.pretty.checked = true');
     expect(client).toMatch(/header\.setAttribute\(\s*'aria-sort'/u);
     expect(blockAfter(css, '.sort-button')).toContain('font: inherit');
     expect(blockAfter(css, '.sort-indicator')).toContain('font-variant-numeric: tabular-nums');

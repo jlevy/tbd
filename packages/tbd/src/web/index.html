@@ -234,7 +234,7 @@
             id="labeltrigger"
             data-tooltip="--label is repeatable; beads must have every selected label"
             aria-label="Labels; all selected labels are required"
-            aria-haspopup="menu"
+            aria-haspopup="dialog"
             aria-controls="labelmenu"
             aria-expanded="false"
           >
@@ -244,10 +244,20 @@
           <div
             class="label-chooser-menu"
             id="labelmenu"
-            role="menu"
+            role="dialog"
             aria-label="Filter by every selected label"
             hidden
-          ></div>
+          >
+            <input
+              id="labelsearch"
+              class="label-search"
+              type="search"
+              placeholder="Find a label"
+              aria-label="Find a label"
+              autocomplete="off"
+            />
+            <div id="labelchoices" role="menu" aria-label="Available labels"></div>
+          </div>
         </span>
         <input id="spec" placeholder="spec" size="12" data-tooltip="--spec" aria-label="Spec" />
         <label class="check" data-tooltip="--ready"

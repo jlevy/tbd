@@ -100,6 +100,7 @@ function board(watch: ObservationStateView, title = 'Initial', id = 'web-one'): 
       count: value === 2 ? 1 : 0,
     })),
     labelFacets: [],
+    orderingCaveat: null,
     rows: [
       {
         id,
@@ -218,8 +219,8 @@ describe('client core pure helpers', () => {
       { key: 'title', direction: 'asc' },
       { key: 'updated', direction: 'desc' },
     ]);
-    expect(isDefaultBoardSort(DEFAULT_BOARD_SORTS, true)).toBe(true);
-    expect(isDefaultBoardSort(DEFAULT_BOARD_SORTS, false)).toBe(false);
+    expect(isDefaultBoardSort(DEFAULT_BOARD_SORTS)).toBe(true);
+    expect(isDefaultBoardSort([{ key: 'updated', direction: 'desc' }])).toBe(false);
   });
 
   it('formats updated timestamps with deterministic MetaBrowser age tiers', () => {
@@ -258,6 +259,7 @@ describe('client core pure helpers', () => {
       status: 'any',
       kind: 'bug',
       priority: '1',
+      labelSearch: 'rare label',
       labels: ['release', 'urgent'],
       spec: 'plan.md',
       sorts: [
@@ -268,17 +270,20 @@ describe('client core pure helpers', () => {
       pretty: true,
     };
     expect(buildQueryString(controls)).toBe(
-      'q=release+smoke&type=bug&priority=1&spec=plan.md&label=release&label=urgent&order=priority%3Aasc&order=updated%3Adesc&all=1&ready=1&pretty=1',
+      'q=release+smoke&labelq=rare+label&type=bug&priority=1&spec=plan.md&label=release&label=urgent&order=priority%3Aasc&order=updated%3Adesc&all=1&ready=1&pretty=1',
     );
   });
 
   it('names inexactness, local observation modes, and the change-data-version gate', () => {
     const response = board(state());
     response.filtersExact = false;
+    response.orderingCaveat =
+      'Browser column sort: Updated ↓ then Priority ↑; Pretty orders outermost groups and keeps children in official order';
     response.search = 'needle';
     response.truncated = 5_000;
     expect(caveatsFor(response)).toEqual([
       'filters or ordering with no exact CLI equivalent apply',
+      'Browser column sort: Updated ↓ then Priority ↑; Pretty orders outermost groups and keeps children in official order',
       'text search "needle" applies',
       'only the first 1 of 5000 rows are shown',
     ]);
@@ -302,6 +307,32 @@ describe('client core pure helpers', () => {
 });
 
 describe('createClientStore transport orchestration', () => {
+  it('keeps the last successful board visible across a failed refresh and clears the error', async () => {
+    let fail = false;
+    let title = 'Initial';
+    const transport: Transport = {
+      openEvents: () => ({ close: vi.fn() }),
+      fetchJson: () =>
+        fail
+          ? Promise.reject(new Error('temporary board failure'))
+          : Promise.resolve(board(state(), title)),
+    };
+    const store = createClientStore(transport, vi.fn());
+    await store.start();
+
+    fail = true;
+    await store.setControls({ ...store.getView().controls, search: 'failing query' });
+    expect(store.getView().board?.rows[0]?.title).toBe('Initial');
+    expect(store.getView().boardError).toBe('temporary board failure');
+
+    fail = false;
+    title = 'Recovered';
+    await store.setControls({ ...store.getView().controls, search: 'working query' });
+    expect(store.getView().board?.rows[0]?.title).toBe('Recovered');
+    expect(store.getView().boardError).toBeNull();
+    store.stop();
+  });
+
   it('keeps default Pretty and the composed sort across a live data refresh', async () => {
     let onState: ((next: unknown) => void) | null = null;
     let current = board(state());

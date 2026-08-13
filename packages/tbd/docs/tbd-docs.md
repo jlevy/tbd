@@ -747,8 +747,9 @@ Descriptions and notes load only when a row is expanded, so the board remains bo
 large repositories. A response can carry up to 10,000 rows; the browser paints them in
 5,000-row pages with sticky and end-of-page navigation.
 Above 10,000 rows, the page reports the complete count and asks for a narrower query.
-Status, Type, Priority, and the bounded 32-label chooser show conditional tallies after
-every other active filter.
+Status, Type, Priority, and the label chooser show conditional tallies after every other
+active filter. The menu shows up to 32 labels at once; its search field queries the
+complete label vocabulary and retains selected labels.
 Unselected zero-count choices are hidden; a selected zero-count value remains visible so
 it can be removed. Label candidates additionally show the next repeated-label
 intersection and preserve the CLI’s AND semantics.
@@ -762,7 +763,9 @@ tie-breaker; clicking the current primary reverses it without changing Pretty.
 Pretty moves whole outermost visible groups, rolling Updated up from every visible
 descendant while retaining official child order.
 Flat mode applies the stack to rows.
-Reset sort restores Pretty and the default two-key stack.
+Reset sort restores the default two-key stack without changing Pretty.
+The equivalent-command tooltip names browser-only ordering that the displayed CLI
+command does not reproduce.
 Changing a query control, display mode, or page closes expanded details.
 A live graph update retains and remaps an expansion only while that bead remains in the
 current bounded response, so an off-board or obsolete display ID cannot consume the

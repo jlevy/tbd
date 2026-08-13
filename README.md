@@ -413,19 +413,23 @@ When you ask an agent to show your beads in a browser, the agent should run
 The browser’s controls only change the view; ask the agent to create, update, close,
 label, or sync beads with ordinary `tbd` commands.
 Their local results appear on the open page automatically.
-Status, Type, Priority, and the 32-label chooser show counts after every other active
+Status, Type, Priority, and the label chooser show counts after every other active
 filter. Zero-result unselected choices disappear.
+The label menu shows up to 32 choices at once; searching it queries the complete label
+vocabulary, so lower-ranked labels remain reachable.
 Label choices iteratively show the next intersection; selecting more than one retains
 the CLI’s repeatable `--label` behavior, so every selected label is required.
 Collapsed titles use at most four lines and expand in full, while Updated shows a
 compact sans relative age with the exact timestamp in a fast tooltip.
 The board defaults to Pretty with Updated descending, then Priority ascending.
 Clicking a data-column header makes it primary and retains only the previous primary as
-its tie-breaker; Reset sort restores the default.
+its tie-breaker; Reset sort restores the default stack without changing Pretty.
 Sorting never disables Pretty.
 In Pretty mode it reorders only outermost visible parent groups, using the latest
 Updated timestamp in each complete visible subtree while preserving official child
 order. Flat mode applies the sort stack to individual rows.
+The equivalent-command tooltip identifies browser-only ordering that the displayed CLI
+command does not reproduce.
 Each non-root row uses one `└──` elbow at its hierarchy indentation; deeper levels use
 spaces rather than ancestor bars, and sibling position never introduces a tee.
 Changing a filter, sort, display mode, or page closes expanded row details.

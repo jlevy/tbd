@@ -23,6 +23,8 @@ export interface BoardSortView {
 
 export interface BoardControls {
   search: string;
+  /** Presentation-only search used to discover labels beyond the bounded facet menu. */
+  labelSearch: string;
   status: '' | 'any' | IssueStatusView;
   kind: '' | IssueKindView;
   priority: '' | '0' | '1' | '2' | '3' | '4';
@@ -143,6 +145,8 @@ export interface BoardResponse {
   kindFacets: ValueFacetView<IssueKindView>[];
   priorityFacets: ValueFacetView<number>[];
   labelFacets: LabelFacetView[];
+  /** Honest description of browser-only ordering omitted from the equivalent CLI command. */
+  orderingCaveat: string | null;
   rows: BoardRowView[];
   truncated: number;
   state: ObservationStateView;
@@ -221,6 +225,7 @@ export const DEFAULT_BOARD_SORTS: readonly BoardSortView[] = [
 
 const DEFAULT_CONTROLS: BoardControls = {
   search: '',
+  labelSearch: '',
   status: '',
   kind: '',
   priority: '',
@@ -361,9 +366,8 @@ export function promoteBoardSort(
   return [{ key, direction }, ...current.filter((sort) => sort.key !== key)].slice(0, 2);
 }
 
-export function isDefaultBoardSort(sorts: readonly BoardSortView[], pretty: boolean): boolean {
+export function isDefaultBoardSort(sorts: readonly BoardSortView[]): boolean {
   return (
-    pretty &&
     sorts.length === DEFAULT_BOARD_SORTS.length &&
     sorts.every(
       (sort, index) =>
@@ -432,6 +436,9 @@ export function buildQueryString(controls: BoardControls): string {
   if (controls.search.trim() !== '') {
     params.set('q', controls.search.trim());
   }
+  if (controls.labelSearch.trim() !== '') {
+    params.set('labelq', controls.labelSearch.trim());
+  }
   if (controls.status !== '' && controls.status !== 'any') {
     params.set('status', controls.status);
   }
@@ -466,6 +473,9 @@ export function caveatsFor(board: BoardResponse): string[] {
   const caveats: string[] = [];
   if (!board.filtersExact) {
     caveats.push('filters or ordering with no exact CLI equivalent apply');
+  }
+  if (board.orderingCaveat !== null) {
+    caveats.push(board.orderingCaveat);
   }
   if (board.search !== '') {
     caveats.push(`text search "${board.search}" applies`);
