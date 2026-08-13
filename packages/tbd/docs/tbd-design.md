@@ -6666,6 +6666,15 @@ to `open` while remaining visible instead of aborting or silently fabricating a 
 `sync` uses a per-link base record on the sync branch for true field-wise three-way
 reconciliation. Write-ahead intents are committed before provider writes and replayed
 idempotently after a crash.
+Description projection has one authoritative writer delimiter pair in
+`core/managed-block.ts`: `⟦tbd⟧` and `⟦/tbd⟧`. These visible plain-text delimiters have
+no Markdown or HTML semantics.
+Readers also accept the former HTML-comment pair; the next outbound splice migrates it
+without changing human prose around the managed region or registering a remote
+description edit. Full sync renders the block from the reconciled canonical values, so a
+pulled or conflict-winning field and its provider-visible summary cannot diverge for one
+cycle. Mixed, incomplete, reversed, or duplicate markers fail closed and leave the
+provider description untouched.
 Every intent operation carries its owning bead id.
 Replay performs provider I/O only while that bead still names the operation’s exact
 provider id; a user comment must also retain the exact unpushed local entry.

@@ -337,7 +337,7 @@ export class LinearAdapter implements TrackerAdapter {
    * Replace only the managed region of the description, leaving human prose
    * intact. Refuses rather than guessing when the markers are malformed.
    */
-  async spliceDescription(id: string, block: string): Promise<void> {
+  async spliceDescription(id: string, block: string): Promise<{ updatedAt: string } | null> {
     const current = await this.fetchIssues([id]);
     const existing = current[0]?.description ?? null;
 
@@ -348,9 +348,9 @@ export class LinearAdapter implements TrackerAdapter {
       );
     }
     if (spliced.result === existing) {
-      return;
+      return null;
     }
-    await this.applyChanges(id, { description: spliced.result });
+    return this.applyChanges(id, { description: spliced.result });
   }
 
   async postConflict(

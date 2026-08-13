@@ -1685,9 +1685,11 @@ Runs above **20 creates** or **40 updates** need affirmation:
 
 Linear has no custom fields, so each mirrored issue carries:
 
-- A managed `<!-- tbd:begin -->` block in the description with the bead id, status,
+- A managed `⟦tbd⟧` … `⟦/tbd⟧` region in the description with the bead id, status,
   priority, child counts, and a link to the plan spec.
-  **Only that block is rewritten**, so prose a human adds around it survives.
+  **Only that region is rewritten**, so prose a human adds around it survives.
+  tbd also recognizes the former HTML-comment delimiters and upgrades them on the next
+  outbound sync; malformed or mixed delimiters are reported and left untouched.
 - An attachment keyed `tbd://bead/<id>` holding the full bead field set as structured
   metadata.
 

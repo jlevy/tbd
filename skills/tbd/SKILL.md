@@ -264,6 +264,9 @@ with a safe warning, preserving local divergence until mapping recovers.
 Linear sub-issues import parent-first and never flatten; `max_nesting` limits only new
 outbound creation. Comments are append-only and paginated; edits, deletions, reactions,
 and thread shape are not synchronized.
+Linear descriptions carry a tbd-owned `⟦tbd⟧` … `⟦/tbd⟧` region.
+Human prose outside it is preserved; legacy HTML-comment delimiters are upgraded on the
+next outbound sync. Never hand-edit the managed region—change the bead and sync instead.
 
 **Direction flags mean the same thing everywhere in tbd**: bare = both directions,
 `--push` = outbound only, `--pull` = inbound only, `--status` = report only.

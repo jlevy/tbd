@@ -9,8 +9,31 @@
 
 import type { Issue } from '../../lib/types.js';
 
-export const BLOCK_BEGIN = '<!-- tbd:begin -->';
-export const BLOCK_END = '<!-- tbd:end -->';
+/** Stable, Markdown-inert boundaries for tbd-owned description content. */
+export const MANAGED_BLOCK_MARKERS = {
+  begin: '⟦tbd⟧',
+  end: '⟦/tbd⟧',
+} as const;
+
+/** Read-only compatibility pair for descriptions written before the plain-text format. */
+const LEGACY_MANAGED_BLOCK_MARKERS = {
+  begin: '<!-- tbd:begin -->',
+  end: '<!-- tbd:end -->',
+} as const;
+
+const READABLE_MANAGED_BLOCK_MARKERS = [
+  MANAGED_BLOCK_MARKERS,
+  LEGACY_MANAGED_BLOCK_MARKERS,
+] as const;
+
+interface LocatedManagedBlock {
+  kind: 'valid';
+  begin: number;
+  end: number;
+  endMarkerLength: number;
+}
+
+type ManagedBlockLocation = LocatedManagedBlock | { kind: 'none' } | { kind: 'malformed' };
 
 export interface MirrorLinks {
   /** Permalink to the linked plan spec, if the bead has one. */
@@ -40,7 +63,7 @@ export function renderManagedBlock(
 ): string {
   const id = displayId ?? issue.id;
   const lines: string[] = [
-    BLOCK_BEGIN,
+    MANAGED_BLOCK_MARKERS.begin,
     `\`${id}\` · ${issue.kind} · ${issue.status} · P${issue.priority}`,
   ];
 
@@ -60,7 +83,11 @@ export function renderManagedBlock(
     lines.push(`Bead: \`tbd show ${id}\``);
   }
 
-  lines.push('', 'Mirrored by tbd. Edits inside this block are overwritten.', BLOCK_END);
+  lines.push(
+    '',
+    'Mirrored by tbd. Edits inside this block are overwritten.',
+    MANAGED_BLOCK_MARKERS.end,
+  );
   return lines.join('\n');
 }
 
@@ -82,16 +109,12 @@ export type SpliceResult = { result: string } | { error: 'markers-malformed' };
  */
 export function stripManagedBlock(description: string | null | undefined): string {
   const body = description ?? '';
-  const begin = body.indexOf(BLOCK_BEGIN);
-  if (begin === -1) {
+  const location = locateManagedBlock(body);
+  if (location.kind !== 'valid') {
     return body;
   }
-  const end = body.indexOf(BLOCK_END, begin);
-  if (end === -1) {
-    return body;
-  }
-  const before = body.slice(0, begin).trimEnd();
-  const after = body.slice(end + BLOCK_END.length).trimStart();
+  const before = body.slice(0, location.begin).trimEnd();
+  const after = body.slice(location.end + location.endMarkerLength).trimStart();
   if (!before) {
     return after;
   }
@@ -111,28 +134,45 @@ export function stripManagedBlock(description: string | null | undefined): strin
  */
 export function spliceManagedBlock(description: string | null, block: string): SpliceResult {
   const body = description ?? '';
+  const location = locateManagedBlock(body);
 
-  const beginCount = countOccurrences(body, BLOCK_BEGIN);
-  const endCount = countOccurrences(body, BLOCK_END);
-
-  if (beginCount === 0 && endCount === 0) {
+  if (location.kind === 'none') {
     const separator = body.trim().length > 0 ? '\n\n' : '';
     return { result: `${body.trimEnd()}${separator}${block}` };
   }
 
-  if (beginCount !== 1 || endCount !== 1) {
+  if (location.kind === 'malformed') {
     return { error: 'markers-malformed' };
   }
 
-  const begin = body.indexOf(BLOCK_BEGIN);
-  const end = body.indexOf(BLOCK_END);
-  if (end < begin) {
-    return { error: 'markers-malformed' };
-  }
-
-  const before = body.slice(0, begin);
-  const after = body.slice(end + BLOCK_END.length);
+  const before = body.slice(0, location.begin);
+  const after = body.slice(location.end + location.endMarkerLength);
   return { result: `${before}${block}${after}` };
+}
+
+/** Locate one supported marker pair without guessing across malformed formats. */
+function locateManagedBlock(body: string): ManagedBlockLocation {
+  let found: LocatedManagedBlock | undefined;
+
+  for (const markers of READABLE_MANAGED_BLOCK_MARKERS) {
+    const beginCount = countOccurrences(body, markers.begin);
+    const endCount = countOccurrences(body, markers.end);
+    if (beginCount === 0 && endCount === 0) {
+      continue;
+    }
+    if (found || beginCount !== 1 || endCount !== 1) {
+      return { kind: 'malformed' };
+    }
+
+    const begin = body.indexOf(markers.begin);
+    const end = body.indexOf(markers.end);
+    if (end < begin) {
+      return { kind: 'malformed' };
+    }
+    found = { kind: 'valid', begin, end, endMarkerLength: markers.end.length };
+  }
+
+  return found ?? { kind: 'none' };
 }
 
 function countOccurrences(haystack: string, needle: string): number {

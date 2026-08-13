@@ -41,10 +41,10 @@ and retains no successful result marker.
 | `setup` | Resolve viewer, team, project, and workflow-state UUIDs | Initialize a disposable repository, configure the candidate, and prove `integration status` reaches the provider |
 | `explicit-import` | Create one isolated root item | `sync --pull --external` creates one canonical bead and performs no provider write |
 | `deferred-claim-replay` | Read attachments directly | A full sync replays the pull-only ownership intent exactly once |
-| `tbd-to-provider-fields-comments-assignee` | Read native state, priority, assignee, description, and comments | Change canonical fields and author a comment locally; full sync produces the exact provider values once |
+| `tbd-to-provider-fields-comments-assignee` | Read native state, priority, assignee, description, and comments | Change canonical fields and author a comment locally; full sync produces the exact provider values once, emits the current `⟦tbd⟧` / `⟦/tbd⟧` region, and leaves no legacy HTML-comment delimiter |
 | `provider-to-tbd-fields-comments-assignee` | Mutate fields, clear the assignee, and add a comment through GraphQL | Pull-only produces the expected canonical bead, preserves comment identity, and persists no email |
 | `provider-created-hierarchy` | Create a sub-issue under the root | Explicit pull imports it under the linked local parent without flattening or changing the provider parent |
-| `automatic-inbound-scope` | Create one same-team item inside the configured project and one outside it | Automatic discovery reports the in-project item and excludes the outside-project sentinel; providers without a narrower configured scope record the scenario as not applicable |
+| `automatic-inbound-scope` | Create one same-team item inside the configured project and one outside it | Automatic discovery reports the in-project item and excludes the outside-project sentinel. The runner evaluates those owned sentinels from structured output even when unrelated real project items produce report-level failures; providers without a narrower configured scope record the scenario as not applicable |
 | `concurrent-conflict-recovery` | Make a provider edit while tbd has a different edit | Full sync applies the configured tie-break, archives the loser, and posts one conflict report |
 | `exact-once-settle` | Count comments before and after | The next full sync reports `nothing to do` and adds no duplicate comment |
 | `orphan-detection` | Archive the child through GraphQL | Pull-only reports the linked item orphaned and leaves its bead intact |
@@ -63,7 +63,8 @@ scenarios; it does not rename or weaken this shared contract.
 The live runner is the final layer, not the entire test strategy:
 
 1. Pure tests prove mapping, selection, three-way field outcomes, hierarchy ordering,
-   comment union, and format invariants.
+   comment union, the exact current managed-block delimiters, legacy migration, and
+   malformed-marker failure behavior.
 2. The HTTP mock proves pagination, API quirks, rate-limit handling, direction modes,
    partial failures, crash replay, and exact-once recovery deterministically.
 3. Built-CLI tests prove argument parsing, config loading, credentials, exit codes, bulk

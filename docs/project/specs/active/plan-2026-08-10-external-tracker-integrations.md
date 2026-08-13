@@ -137,7 +137,7 @@ The dispositions are:
 | Case | Canonical contract and Linear disposition | Implementation | Automated and live evidence |
 | --- | --- | --- | --- |
 | Title | **Supported**, three-way `merge` by default | `core/reconcile.ts`; `linear/adapter.ts` | Reconcile matrix; engine push/pull/conflict; live `tbd-to-provider-fields-comments-assignee`, `provider-to-tbd-fields-comments-assignee`, and `concurrent-conflict-recovery` |
-| Description | **Supported** after managed-block stripping and whitespace normalization; malformed markers fail closed | `core/managed-block.ts`; `core/bridge-state.ts`; `core/reconcile.ts` | Managed-block and reconcile tests; live bidirectional field scenarios and conflict |
+| Description | **Supported** after dual-format managed-block stripping and whitespace normalization. Writers emit the plain-text `⟦tbd⟧` / `⟦/tbd⟧` pair; readers also accept the legacy HTML-comment pair and migrate it on the next outbound write. Mixed, incomplete, reversed, or duplicate markers fail closed | `core/managed-block.ts`; `core/bridge-state.ts`; `core/reconcile.ts` | Exact marker, migration, malformed-marker, and reconcile tests; live bidirectional field scenarios assert the current pair reaches Linear and the legacy pair does not |
 | Status | **Supported** through stable Linear state `type`; blocked/deferred use exclusive `tbd:` carrier labels | `linear/mapping.ts`; `LinearAdapter.applyChanges()` | Mapping and stale-carrier tests; live bidirectional field scenarios |
 | Unknown Linear state type | **Bounded**: canonicalize to `open` and report the unknown type; never crash or invent a tbd status | `linear/mapping.ts`; sync report boundary | Adapter fixture and sync-report regression |
 | Priority | **Supported** with an explicit non-bijection: Linear unset → P2; P4 and P3 are equivalent after push | `linear/mapping.ts`; reconcile equivalences | Mapping and no-oscillation engine tests; live bidirectional field scenarios |
@@ -702,21 +702,36 @@ on `url` — the one naturally idempotent, retry-safe write in the API:
 
 ```ts
 // core/managed-block.ts
+export const MANAGED_BLOCK_MARKERS = {
+  begin: '⟦tbd⟧',
+  end: '⟦/tbd⟧',
+} as const;
+
 export function renderManagedBlock(bead: Issue, links: MirrorLinks): string;
 export function spliceManagedBlock(description: string, block: string):
   { result: string } | { error: 'markers-malformed' };
 ```
 
 ```markdown
-<!-- tbd:begin -->
+⟦tbd⟧
 `tbd-gvju` · epic · in_progress · P1
 Spec: [plan-2026-08-10-external-tracker-integrations.md](<permalink>)
 PRs: #205 · Children: 7 (3 ready) · `tbd show tbd-gvju`
-<!-- tbd:end -->
+⟦/tbd⟧
 ```
 
-Only the region between markers is rewritten, so human prose outside it survives.
-Missing markers → append; malformed markers → **report and skip**, never guess.
+The plain-text delimiters are deliberate.
+Linear accepts Markdown but stores and renders it through a rich-text model; HTML
+comments and custom HTML elements therefore depend on renderer and sanitizer behavior,
+while these delimiters are visible, compact, and have no Markdown or HTML semantics.
+`MANAGED_BLOCK_MARKERS` is the one authoritative writer setting.
+
+Only the region between the two delimiters is rewritten, so human prose on either side
+survives byte-for-byte apart from boundary whitespace normalization.
+Readers also accept the former `<!-- tbd:begin -->` / `<!-- tbd:end -->` pair, and the
+next successful outbound splice upgrades that region to the current pair.
+Missing markers → append; mixed formats, incomplete pairs, reversed pairs, or duplicates
+→ **report and skip**, never guess.
 
 **Spec permalinks** (`core/permalink.ts`): `spec_path` is a path into a branch-local
 file (15 specs on this branch, 11 on `main` — four exist on only one branch).
@@ -1034,10 +1049,13 @@ Every conflict, regardless of winner, produces both durable artifacts:
   queryable state for humans and agents; `status` counts them, and the bridge record
   keeps the comment id.
 
-Description is compared **after normalization** (strip the managed block, normalize line
-endings and trailing whitespace) so tbd’s own splice and Linear’s markdown
-round-tripping never register as remote edits.
-Pushes re-splice the managed block around the merged body.
+Description is compared **after normalization** (strip either supported managed-block
+format, normalize line endings and trailing whitespace) so tbd’s own splice and Linear’s
+Markdown round-tripping never register as remote edits.
+Pushes always re-splice the current plain-text format around the merged body, which
+makes legacy migration idempotent and transparent to three-way merge state.
+Projected fields such as status and priority come from the reconcile result—not the
+pre-sync bead—so a remote-winning change and its managed summary converge in one run.
 
 ##### Comments: append-only sequences, not merged fields
 

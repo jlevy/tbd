@@ -11,6 +11,7 @@ import {
   LinearApiError,
   MAX_PAGE_SIZE,
 } from '../src/integrations/linear/client.js';
+import { MANAGED_BLOCK_MARKERS } from '../src/integrations/core/managed-block.js';
 import { LinearAdapter } from '../src/integrations/linear/adapter.js';
 import { BLOCKED_LABEL } from '../src/integrations/linear/mapping.js';
 import { LinearMockServer } from './helpers/linear-mock-server.js';
@@ -439,28 +440,31 @@ describe('Linear client and adapter', () => {
   describe('spliceDescription', () => {
     it('appends the managed block and preserves the human prose', async () => {
       server.addIssue({ id: 'uuid-7', identifier: 'FIN-7', description: 'Human context.' });
+      const block = `${MANAGED_BLOCK_MARKERS.begin}\nblock\n${MANAGED_BLOCK_MARKERS.end}`;
 
-      await adapter.spliceDescription('uuid-7', '<!-- tbd:begin -->\nblock\n<!-- tbd:end -->');
+      await adapter.spliceDescription('uuid-7', block);
 
       const description = server.issues.get('uuid-7')?.description ?? '';
       expect(description).toContain('Human context.');
       expect(description).toContain('block');
     });
 
-    it('replaces only the managed region on a second run', async () => {
+    it('migrates a legacy region without changing surrounding prose', async () => {
       server.addIssue({
         id: 'uuid-8',
         identifier: 'FIN-8',
         description: 'Top.\n\n<!-- tbd:begin -->\nold\n<!-- tbd:end -->\n\nBottom.',
       });
+      const block = `${MANAGED_BLOCK_MARKERS.begin}\nnew\n${MANAGED_BLOCK_MARKERS.end}`;
 
-      await adapter.spliceDescription('uuid-8', '<!-- tbd:begin -->\nnew\n<!-- tbd:end -->');
+      await adapter.spliceDescription('uuid-8', block);
 
       const description = server.issues.get('uuid-8')?.description ?? '';
       expect(description).toContain('Top.');
       expect(description).toContain('Bottom.');
       expect(description).toContain('new');
       expect(description).not.toContain('old');
+      expect(description).not.toContain('<!-- tbd:');
     });
 
     it('refuses to rewrite a description with malformed markers', async () => {
@@ -474,7 +478,7 @@ describe('Linear client and adapter', () => {
     });
 
     it('does not write when the description is already correct', async () => {
-      const block = '<!-- tbd:begin -->\nsame\n<!-- tbd:end -->';
+      const block = `${MANAGED_BLOCK_MARKERS.begin}\nsame\n${MANAGED_BLOCK_MARKERS.end}`;
       server.addIssue({ id: 'uuid-10', identifier: 'FIN-10', description: block });
 
       const before = server.requests.length;

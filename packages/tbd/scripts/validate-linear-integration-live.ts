@@ -22,11 +22,13 @@ import { fileURLToPath } from 'node:url';
 import { parse, stringify } from 'yaml';
 import { writeFile } from 'atomically';
 
+import { MANAGED_BLOCK_MARKERS } from '../src/integrations/core/managed-block.js';
 import { LiveCompatibilityChecklist } from './provider-live-qa-contract.js';
 import { parseLinearLiveQaArgs } from './linear-live-qa-options.js';
 
 const COMMAND_TIMEOUT_MS = 90_000;
 const MAX_OUTPUT_BYTES = 5 * 1024 * 1024;
+const LEGACY_MANAGED_BLOCK_PREFIX = '<!-- tbd:';
 const packageDir = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const invocationDir = process.cwd();
 
@@ -186,6 +188,14 @@ function runCommand(
 function expectSuccess(result: CommandResult, label: string): string {
   assertCondition(
     result.exitCode === 0,
+    `${label} exited ${result.exitCode}\nstdout:\n${result.stdout}\nstderr:\n${result.stderr}`,
+  );
+  return result.stdout;
+}
+
+function expectReportOutput(result: CommandResult, label: string): string {
+  assertCondition(
+    result.exitCode === 0 || result.exitCode === 1,
     `${label} exited ${result.exitCode}\nstdout:\n${result.stdout}\nstderr:\n${result.stderr}`,
   );
   return result.stdout;
@@ -562,9 +572,19 @@ async function main(): Promise<void> {
       assertCondition(remote.stateType === 'started', 'Linear state did not map in_progress');
       assertCondition(remote.priority === 2, 'Linear priority did not map P1 to High');
       assertCondition(remote.assigneeId === context.viewerId, 'Mapped assignee did not round-trip');
+      const remoteDescription = remote.description ?? '';
       assertCondition(
-        remote.description?.includes(`${token} local description`),
+        remoteDescription.includes(`${token} local description`),
         'Description missing',
+      );
+      assertCondition(
+        remoteDescription.includes(MANAGED_BLOCK_MARKERS.begin) &&
+          remoteDescription.includes(MANAGED_BLOCK_MARKERS.end),
+        'Description missing the current managed-block delimiters',
+      );
+      assertCondition(
+        !remoteDescription.includes(LEGACY_MANAGED_BLOCK_PREFIX),
+        'Description retained a legacy managed-block delimiter',
       );
       assertCondition(
         remote.commentBodies.filter((body) => body === localComment).length === 1,
@@ -640,11 +660,14 @@ async function main(): Promise<void> {
       config.integrations.linear.policy.inbound.labels = [];
       await writeFile(configPath, stringify(config));
       try {
+        // This is a real configured project, not a disposable provider scope.
+        // Unrelated items can legitimately make the report exit 1 (for example,
+        // an unlinked child whose parent is unavailable in this temporary repo).
+        // The scenario owns only its two sentinels, so validate those from the
+        // structured report rather than requiring every ambient item to import.
+        const result = await tbd(['--json', 'integration', 'sync', '--pull']);
         const reports = parseJson(
-          expectSuccess(
-            await tbd(['--json', 'integration', 'sync', '--pull']),
-            'project-scoped inbound report',
-          ),
+          expectReportOutput(result, 'project-scoped inbound report'),
           'project-scoped inbound report',
         ) as { provider: string; importable: { id: string; title: string }[] }[];
         const report = reports.find((candidateReport) => candidateReport.provider === 'linear');

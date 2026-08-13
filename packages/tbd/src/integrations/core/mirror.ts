@@ -46,7 +46,7 @@ export interface MirrorContext {
   specUrl?: (issue: Issue) => string | undefined;
   /** Permalink for the bead file itself. */
   repoUrl?: (issue: Issue) => string | undefined;
-  /** Levels of nesting to mirror. Deeper beads are skipped, not flattened. */
+  /** Levels of nesting to create. Already-linked beads remain synchronizable. */
   maxNesting: number;
   /**
    * Push bead labels as tracker labels. Off by default: a repo can carry a
@@ -199,7 +199,7 @@ export function planMirror(context: MirrorContext): MirrorPlan {
     const displayId = context.displayId(issue.id);
     const depth = depthWithinSelection(issue, selectedIds, byId);
 
-    if (depth > context.maxNesting) {
+    if (depth > context.maxNesting && !linkFor(issue, context.provider)) {
       plan.skips.push({
         bead: issue,
         patch: {},

@@ -188,8 +188,8 @@ export interface TrackerAdapter {
   /** Attachment URLs currently on an item, used for the cross-repo link guard. */
   listAttachmentUrls(id: string): Promise<string[]>;
 
-  /** Replace only the managed region of the external item's description. */
-  spliceDescription(id: string, block: string): Promise<void>;
+  /** Replace only the managed region and return the provider write timestamp, if changed. */
+  spliceDescription(id: string, block: string): Promise<{ updatedAt: string } | null>;
 
   /**
    * Post a conflict report where a human will see it. `clientId` makes replay
