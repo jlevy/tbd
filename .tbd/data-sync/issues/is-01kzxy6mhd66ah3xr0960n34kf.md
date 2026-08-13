@@ -5,7 +5,7 @@ title: Linear sync pilot — outbound round 1
 kind: task
 status: blocked
 priority: 3
-version: 7
+version: 8
 spec_path: docs/project/specs/active/plan-2026-08-10-external-tracker-integrations.md
 labels:
   - linear
@@ -14,8 +14,10 @@ labels:
   - qa-linear-outbound
 dependencies: []
 parent_id: is-01kzxxj27abvbje3nesecgsk3z
+child_order_hints:
+  - is-01kzxymnqytjk2thcq4teskrbj
 created_at: 2026-08-13T16:10:06.764Z
-updated_at: 2026-08-13T16:12:39.877Z
+updated_at: 2026-08-13T16:17:46.749Z
 extensions:
   linear:
     id: 66bec061-2896-4c20-a8c8-2938ca8781dd
