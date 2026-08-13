@@ -5,11 +5,11 @@ author: Joshua Levy (github.com/jlevy) with LLM assistance
 ---
 # Feature: `tbd web` — Live Bead View
 
-**Date:** 2026-08-10 (last updated 2026-08-11)
+**Date:** 2026-08-10 (last updated 2026-08-13)
 
 **Author:** Joshua Levy (github.com/jlevy) with LLM assistance
 
-**Status:** Implementation and validation complete on PR #207; merge-ready
+**Status:** Released in get-tbd v0.5.0 through PRs #207 and #209
 
 ## Overview
 

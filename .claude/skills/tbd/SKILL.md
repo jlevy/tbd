@@ -59,6 +59,8 @@ That’s your job.
 **Live browser requests:** When the user asks to see, show, open, or view beads in a
 browser, start `tbd web --open` yourself with the agent platform’s long-running process
 facility. Do not merely print the command.
+If the requested project is outside your current working directory, start
+`tbd web <path> --open`; the path may be its repository root or any subdirectory.
 Wait for the startup descriptor, give the user its loopback URL, and leave the process
 running until they ask you to stop it or the session environment requires cleanup.
 
