@@ -1234,8 +1234,11 @@ Lexicographically Sortable Identifier):
   `display.id_prefix`
   - Set during `tbd init --prefix=<name>` or automatically from beads import
   - Recommended: 2-8 alphabetic characters (use `--force` for other formats)
+  - Hard grammar: 1-20 lowercase characters; starts with a letter; contains letters,
+    digits, dots, or underscores; ends with a letter or digit
   - Must not contain dashes (would conflict with ID separator)
-- **Short code**: 1+ alphanumeric characters (a-z, 0-9)
+- **Short code**: New IDs use base36; imported IDs may also contain dots, underscores,
+  or dashes
   - Imported issues: Preserve original short ID (e.g., `100` from `tbd-100`)
   - New issues: Generate random 4-char base36
 - **Immutable mapping**: Once assigned, never changes
@@ -1305,11 +1308,10 @@ When a user provides an ID:
 
 ```typescript
 async function resolveId(input: string, storage: Storage): Promise<string> {
-  // Strip display prefix if present (e.g., "proj-a7k2" → "a7k2")
-  const shortId = input.replace(/^[a-z]+-/, '');
-
-  // Look up in mapping file
   const mapping = await storage.loadIdMapping();
+  // Imported short IDs may contain a dash. Exact stored IDs win before the
+  // shared display-prefix grammar strips a syntactic prefix.
+  const shortId = mapping.has(input) ? input : splitPrefixedDisplayId(input)?.shortId ?? input;
   const ulid = mapping.get(shortId);
 
   if (!ulid) {
@@ -1421,14 +1423,21 @@ const Timestamp = z.string().datetime();
 // Example: is-01hx5zzkbkactav9wevgemmvrz
 const InternalIssueId = z.string().regex(/^is-[0-9a-z]{26}$/);
 
-// Short ID: 1+ alphanumeric chars (used in external/display IDs)
+// Short ID: 1+ lowercase alphanumeric, dot, underscore, or dash characters
+// (used in external/display IDs)
 // For imports: preserved from source (e.g., "100" from "tbd-100")
 // For new issues: random 4-char base36 (e.g., "a7k2")
-const ShortId = z.string().regex(/^[0-9a-z]+$/);
+const ShortId = z.string().regex(/^[0-9a-z._-]+$/);
 
-// External Issue ID input: accepts {prefix}-{short} or just {short}
-// Example: bd-100, bd-a7k2, 100, a7k2
-const ExternalIssueIdInput = z.string().regex(/^([a-z]+-)?[0-9a-z]+$/);
+// External Issue ID input: accepts {prefix}-{short} or just {short}.
+// Prefixes are 1-20 lowercase characters, start with a letter, may contain
+// alphanumerics, dots, or underscores, and end with an alphanumeric. Hyphen is
+// reserved as the prefix separator. Imported short IDs may contain separators
+// but cannot end with a hyphen.
+// Example: bd-100, e2e-a7k2, proj.v2-stat-in_progress, 100, a7k2
+const ExternalIssueIdInput = z.string().regex(
+  /^(?:[a-z](?:[a-z0-9._]{0,18}[a-z0-9])?-)?[0-9a-z._-]*[0-9a-z._]$/,
+);
 
 // Edit counter - incremented on every local change
 // IMPORTANT: Version is NOT used for conflict detection (Git push rejection is used).
@@ -6620,71 +6629,104 @@ single-source-of-truth model while adding convenience.
 
 ### 8.7 External Issue Tracker Linking
 
-**Linking tbd issues to GitHub issues (and other providers)**
+External trackers use one provider-generic command group and adapter interface.
+Linear is the first implementation; GitHub issues are the next.
+A repository opts in through `integrations` config.
+With no enabled provider, the registry, doctor check, and ordinary `tbd sync` path
+remain inert and make no provider request.
 
-A common workflow need is linking tbd issues to external issue trackers like GitHub
-Issues, Jira, Linear, etc.
-This would enable bidirectional sync of status and comments.
-
-**ID Convention Approach:**
-
-If all issue systems use clean, identifiable prefixes with unique patterns, linking
-could be convention-based:
-
-- tbd: `is-a1b2c3` internal, `proj-a1b2c3` display (configurable prefix)
-
-- GitHub: `github#456` or `gh#456`
-
-- Jira: `PROJ-123`
-
-- Linear: `LIN-abc`
-
-These patterns are recognizable via regex, allowing automatic detection and linking when
-referenced in descriptions, comments, or commit messages.
-
-**Metadata Model:**
-
-Issues could have a `linked` field (or use `extensions`) to store external references:
+Each bead has at most one issue link per provider under the existing opaque namespace:
 
 ```yaml
-linked:
-  - provider: github
-    repo: owner/repo
-    issue: 456
-    synced_at: 2025-01-10T10:00:00Z
-  - provider: jira
-    project: PROJ
-    key: PROJ-123
+extensions:
+  linear:
+    id: 7202337e-d1ee-4192-bb6c-c6ae42b97469 # stable provider identity
+    key: TBD-3 # display only; may change
+    url: https://linear.app/example/issue/TBD-3/example
+    linked_at: 2026-08-10T19:34:32.065Z
 ```
 
-**Sync Behaviors:**
+There is no top-level schema change or format bump.
+Older tbd versions round-trip `extensions` untouched.
+The persisted payload is an allow-list; credentials, raw API responses, emails, and
+workspace metadata never enter a bead.
+Different extension namespaces merge independently.
+A namespace deletion is an edit, so unlink is not silently resurrected by a concurrent
+merge.
 
-- Closing a tbd issue could automatically close the linked GitHub issue (or vice versa)
+`TrackerAdapter` maps every provider into canonical tbd fields.
+`integration sync --push` is the one-way projection.
+`sync` uses a per-link base record on the sync branch for true field-wise three-way
+reconciliation. Write-ahead intents are committed before provider writes and replayed
+idempotently after a crash.
+Append-only comments union by immutable identity.
+When both sides change a merge-owned field differently, the configured winner is kept,
+the loser is archived before either side is overwritten, and the archive path plus a
+client-UUID conflict comment are journaled together.
+Replay reuses both, making the resolution visible exactly once without ever advertising
+a missing archive.
 
-- Comments could sync bidirectionally
+Bare `integration sync` reconciles every linked pair.
+Outbound selectors are accepted only with `--push`; using `--bead`, `--type`,
+`--status`, `--label`, `--spec`, or `--limit` without it fails as a usage error rather
+than silently widening a staged run.
+`--pull --external <ref...>` is the explicit inbound selector and bypasses the inbound
+policy. `--pull` performs no provider writes, including intent replay; remote attachment
+claims and conflict notices are journaled locally for the next full sync.
+In every direction, inbound creation persists the bead, bridge record, and attachment
+intent before provider I/O; successful full sync removes the intent only after the
+idempotent claim upsert lands.
 
-- Status changes could propagate
+One external item must never have multiple bead writers.
+`link` and inbound creation prevent creating that state with both local reverse indexes
+and a provider attachment probe.
+An existing `tbd://bead/…` claim refuses the operation unless `--force` is explicit;
+this prevents sequential mistakes but is not an atomic cross-repository lock.
+Manual link and inbound-create workflows persist the local link/base plus an idempotent
+attachment intent before attempting the provider claim; transport failure therefore
+replays without creating another bead or another link.
+`sync` and `doctor` also detect pre-existing corruption from migrations, imports, or
+hand edits: every holder of the duplicated provider id is reported, those pairs are
+excluded before intent replay or provider I/O, and unrelated pairs continue.
+Recovery is explicit `tbd integration unlink` until one holder remains.
+Pending operations for the ambiguous external id are discarded—the durable surviving
+bead re-plans current state after repair—so a stale former holder cannot write after
+unlink.
 
-- Labels/tags could map between systems
+An absent intent directory means there is nothing to replay.
+Any present journal that cannot be read, parsed, or validated fails the sync closed
+before provider mutation; silently skipping a create intent would lose its client UUID
+and permit duplication.
 
-**Implementation Considerations:**
+Plain `tbd sync` runs enabled trackers after git pull/merge and before push, alongside
+docs and issues. Surface failures roll up without discarding successful work.
+`tbd sync --push` calls the same outbound projection as `tbd integration sync --push`
+while holding the data-sync lock, then commits its writes before the git push; it never
+invokes inbound reconciliation.
+Provider reports with contained item failures and invalid integration config both fail
+the tracker surface closed and produce a non-zero aggregate result, while independent
+surfaces still complete.
+An explicit `integrations.sync_on_tbd_sync: false` keeps a configured tracker manual.
+There are no webhooks or background provider polling; remote exchange is always an
+ordinary explicit tbd command.
 
-- Provider plugins/adapters for different external systems
+GitHub pull requests have a narrower role than GitHub issues.
+Issues implement the full adapter lifecycle.
+PRs are read-only implementation associations: tbd may store, show, refresh, link,
+unlink, and attach their identity, but it does not rewrite PR title, body, review state,
+merge state, or branches.
 
-- Conflict resolution when both sides change
+The live browser remains a viewer.
+It may project allow-listed provider keys and URLs, offer shared provider filters, and
+navigate to external items; it never holds a credential, calls a provider, edits a link,
+or changes sync semantics.
+Agents perform link, unlink, explicit inbound selection, outbound projection, and full
+sync with the CLI, and the existing local observer publishes those bead changes
+immediately.
 
-- Rate limiting and API authentication
-
-- Webhook-driven vs polling sync
-
-- Which system is authoritative for which fields
-
-**Recommendation:** Design the `linked` metadata structure now (even if unused),
-implement GitHub bridge later with plugin architecture for other providers.
-
-The change-detection half already exists and is provider-neutral: a bridge can consume
-change reports from `tbd watch` or `tbd changes` (§4.14.3) and keep its own resume
-checkpoint, so no provider code, credentials, or schema fields need to enter core.
+The full policy, bridge layout, state machine, rollout gates, GitHub work map, and web
+projection contract live in
+`docs/project/specs/active/plan-2026-08-10-external-tracker-integrations.md`.
 
 * * *
 

@@ -41,8 +41,9 @@ import {
   CODEX_HOOKS_REL,
   AGENT_INTEGRATION_FORMAT,
 } from '../../lib/integration-paths.js';
-import { validateIssueId, extractUlidFromInternalId } from '../../lib/ids.js';
+import { validateIssueId, extractUlidFromInternalId, formatDisplayId } from '../../lib/ids.js';
 import { findHierarchyProblems } from '../../lib/issue-hierarchy.js';
+import { duplicateExternalLinks } from '../../integrations/core/link-store.js';
 import { integrationsInert } from '../../integrations/core/registry.js';
 import { integrationStatus } from '../../integrations/core/status.js';
 import { git } from '../../file/git.js';
@@ -811,6 +812,21 @@ class DoctorHandler extends BaseCommand {
     // Offline: doctor should not depend on a reachable third-party API.
     const status = await integrationStatus({ config: this.config, repoRoot: this.cwd });
     const problems: string[] = [];
+
+    const { loadIdMapping } = await import('../../file/id-mapping.js');
+    const mapping = await loadIdMapping(this.dataSyncDir);
+    const displayPrefix = this.config.display.id_prefix;
+    for (const provider of ['linear', 'github'] as const) {
+      for (const duplicate of duplicateExternalLinks(this.issues, provider)) {
+        const holders = duplicate.beadIds
+          .map((id) => formatDisplayId(id, mapping, displayPrefix))
+          .sort();
+        problems.push(
+          `${provider} ${duplicate.externalKey ?? duplicate.externalId} is linked by multiple ` +
+            `beads: ${holders.join(', ')}. Unlink until exactly one remains.`,
+        );
+      }
+    }
 
     if (status.envFile.state === 'error') {
       problems.push(`${status.envFile.label}: ${status.envFile.detail}`);

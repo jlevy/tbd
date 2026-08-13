@@ -32,6 +32,7 @@ import {
   ISSUES_UPDATED_SINCE_QUERY,
   ISSUE_BY_IDENTIFIER_QUERY,
   ISSUE_COMMENTS_QUERY,
+  ISSUE_ATTACHMENTS_QUERY,
   ISSUE_CREATE_MUTATION,
   ISSUE_UPDATE_MUTATION,
   LABEL_CREATE_MUTATION,
@@ -240,6 +241,13 @@ export class LinearAdapter implements TrackerAdapter {
         },
       });
     }
+  }
+
+  async listAttachmentUrls(id: string): Promise<string[]> {
+    const data = await this.client.request<{
+      issue: { attachments: { nodes: { url: string }[] } } | null;
+    }>(ISSUE_ATTACHMENTS_QUERY, { id, first: MAX_PAGE_SIZE });
+    return data.issue?.attachments.nodes.map((attachment) => attachment.url) ?? [];
   }
 
   /**

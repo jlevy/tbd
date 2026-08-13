@@ -240,6 +240,29 @@ describe('description semantics', () => {
     const result = reconcile(base(), local({ description: 'Edited body' }), remote(), RULES);
     expect(result.externalPatch.description).toBe('Edited body');
   });
+
+  it('reports recoverable prose rather than internal hashes on conflict', () => {
+    const result = reconcile(
+      base(),
+      local({
+        description: 'Local prose',
+        updated_at: '2026-08-10T15:00:00.000Z',
+      }),
+      remote({
+        description: `Remote prose\n\n${BLOCK_BEGIN}\nmachine\n${BLOCK_END}`,
+        updatedAt: '2026-08-10T14:00:00.000Z',
+      }),
+      RULES,
+    );
+
+    expect(result.conflicts[0]).toEqual(
+      expect.objectContaining({
+        field: 'description',
+        localValue: 'Local prose',
+        remoteValue: 'Remote prose',
+      }),
+    );
+  });
 });
 
 describe('labels compare as sets', () => {

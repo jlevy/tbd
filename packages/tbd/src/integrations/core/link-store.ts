@@ -95,3 +95,47 @@ export function linkedProviders(issue: Issue): ProviderNameType[] {
   }
   return providers;
 }
+
+export interface DuplicateExternalLink {
+  externalId: string;
+  externalKey: string | null;
+  beadIds: string[];
+}
+
+/**
+ * Find corrupt many-beads-to-one-item links already present in the store.
+ *
+ * The normal link command prevents these, but imports, hand edits, and older
+ * migrations can predate that guard. Keep this pure so sync and doctor enforce
+ * exactly the same invariant.
+ */
+export function duplicateExternalLinks(
+  issues: readonly Issue[],
+  provider: ProviderNameType,
+): DuplicateExternalLink[] {
+  const byExternal = new Map<string, { beadId: string; key: string | null }[]>();
+  for (const issue of issues) {
+    const link = readLink(issue, provider);
+    if (!link) {
+      continue;
+    }
+    const holders = byExternal.get(link.id) ?? [];
+    holders.push({ beadId: issue.id, key: link.key ?? null });
+    byExternal.set(link.id, holders);
+  }
+
+  const duplicates: DuplicateExternalLink[] = [];
+  for (const [externalId, holders] of byExternal) {
+    if (holders.length < 2) {
+      continue;
+    }
+    holders.sort((left, right) => left.beadId.localeCompare(right.beadId));
+    duplicates.push({
+      externalId,
+      externalKey: holders.find((holder) => holder.key !== null)?.key ?? null,
+      beadIds: holders.map((holder) => holder.beadId),
+    });
+  }
+  duplicates.sort((left, right) => left.externalId.localeCompare(right.externalId));
+  return duplicates;
+}

@@ -223,6 +223,7 @@ mutation and make one call per group.
 | `tbd --dry-run integration sync --push` | Preview which beads would go outward |
 | `tbd integration sync --push` | Outbound only: create/update tracker issues (idempotent) |
 | `tbd integration sync --pull` | Inbound only: tracker changes into beads, no external writes |
+| `tbd integration sync --pull --external <ref...>` | Create beads from exactly named tracker items, independent of policy |
 | `tbd integration sync` | Both directions; converges to `nothing to do` |
 | `tbd integration link/unlink <bead> [ref]` | Bind or sever a bead and an existing tracker item |
 | `tbd integration comment <bead> "text"` | Author a comment offline; posted on next sync |
@@ -235,7 +236,10 @@ No config → add
 to `.tbd/config.yml`, re-check `status`, then `--dry-run sync --push`, `sync --push`,
 `sync`. Full details: the External Tracker Integrations section of `tbd docs`. Bulk runs
 over 20 creates / 40 updates refuse without `--yes`. Never echo credentials into output
-or commits.
+or commits. `--pull` never replays or performs provider writes; deferred claims and
+conflict notices remain journaled until the next full sync.
+Link/inbound creation refuse a remote `tbd://bead/…` claim unless `--force` is explicit
+and the old claim was verified stale.
 
 **Direction flags mean the same thing everywhere in tbd**: bare = both directions,
 `--push` = outbound only, `--pull` = inbound only, `--status` = report only.

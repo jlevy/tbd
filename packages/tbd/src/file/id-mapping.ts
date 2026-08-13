@@ -333,6 +333,13 @@ export function resolveToInternalId(input: string, mapping: IdMapping): Internal
     return asInternalId(lower);
   }
 
+  // Imported short IDs may themselves contain a hyphen. Prefer an exact
+  // mapping before interpreting the leading segment as a display prefix.
+  const exactUlid = mapping.shortToUlid.get(lower);
+  if (exactUlid) {
+    return makeInternalId(exactUlid);
+  }
+
   // Extract the short ID portion (strips any prefix like "bd-" or "is-")
   const shortId = extractShortId(lower);
 

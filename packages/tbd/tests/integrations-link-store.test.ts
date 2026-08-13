@@ -14,6 +14,7 @@ import { describe, expect, it } from 'vitest';
 import { IssueSchema } from '../src/lib/schemas.js';
 import {
   clearLink,
+  duplicateExternalLinks,
   linkedProviders,
   PERSISTED_LINK_KEYS,
   readLink,
@@ -168,5 +169,30 @@ describe('link store', () => {
     const original = issue();
     writeLink(original, entry);
     expect(original.extensions).toBeUndefined();
+  });
+
+  it('groups every holder of a duplicate external item deterministically', () => {
+    const later = writeLink(issue({ id: 'is-01hx5zzkbkactav9wevgemmvsa' }), entry);
+    const earlier = writeLink(issue({ id: 'is-01hx5zzkbkactav9wevgemmvra' }), {
+      ...entry,
+      key: 'FIN-11-renamed',
+    });
+    const unrelated = writeLink(issue({ id: 'is-01hx5zzkbkactav9wevgemmvtz' }), {
+      ...entry,
+      id: 'other-uuid',
+      key: 'FIN-12',
+    });
+    const malformed = issue({
+      id: 'is-01hx5zzkbkactav9wevgemmvzz',
+      extensions: { linear: { id: 12 } },
+    });
+
+    expect(duplicateExternalLinks([later, unrelated, malformed, earlier], 'linear')).toEqual([
+      {
+        externalId: entry.id,
+        externalKey: 'FIN-11-renamed',
+        beadIds: [earlier.id, later.id],
+      },
+    ]);
   });
 });

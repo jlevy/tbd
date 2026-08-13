@@ -10,7 +10,7 @@ import { join } from 'node:path';
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-import { readLink } from '../src/integrations/core/link-store.js';
+import { readLink, writeLink } from '../src/integrations/core/link-store.js';
 import { readComments } from '../src/integrations/core/comment-store.js';
 import { appendLocalComment } from '../src/integrations/core/comment-store.js';
 import { listIntentFiles, writeIntentFile } from '../src/integrations/core/intents.js';
@@ -50,6 +50,7 @@ describe('the sync engine', () => {
   let store: Map<string, Issue>;
   let callbacks: SyncCallbacks;
   let affirmed: { creates: number; updates: number }[];
+  let archived: Parameters<SyncCallbacks['archiveConflict']>[0][];
 
   beforeEach(async () => {
     dir = await mkdtemp(join(tmpdir(), 'tbd-engine-'));
@@ -66,6 +67,7 @@ describe('the sync engine', () => {
     });
     store = new Map();
     affirmed = [];
+    archived = [];
     callbacks = {
       readBead: (id) => {
         const issue = store.get(id);
@@ -90,6 +92,10 @@ describe('the sync engine', () => {
         return Promise.resolve(issue);
       },
       afterJournal: () => Promise.resolve(),
+      archiveConflict: (conflict) => {
+        archived.push(conflict);
+        return Promise.resolve(`.tbd/data-sync/attic/${conflict.beadId}_${conflict.field}.yml`);
+      },
       affirmBulk: (counts) => {
         affirmed.push(counts);
         return Promise.resolve();
@@ -156,6 +162,46 @@ describe('the sync engine', () => {
     expect(second.createdOutbound).toEqual([]);
   });
 
+  it('fails duplicate external links closed while unrelated pairs still converge', async () => {
+    server.addIssue({ id: 'duplicate-item', identifier: 'FIN-10', title: 'Remote duplicate' });
+    server.addIssue({ id: 'safe-item', identifier: 'FIN-11', title: 'Remote safe' });
+    const linkedAt = '2026-08-10T00:00:00.000Z';
+    const duplicateA = writeLink(bead('is-01hx5zzkbkactav9wevgemmvra', { title: 'Bad A' }), {
+      provider: 'linear',
+      id: 'duplicate-item',
+      key: 'FIN-10',
+      linked_at: linkedAt,
+    });
+    const duplicateB = writeLink(bead('is-01hx5zzkbkactav9wevgemmvrb', { title: 'Bad B' }), {
+      provider: 'linear',
+      id: 'duplicate-item',
+      key: 'FIN-10',
+      linked_at: linkedAt,
+    });
+    const safe = writeLink(bead('is-01hx5zzkbkactav9wevgemmvrc', { title: 'Safe local' }), {
+      provider: 'linear',
+      id: 'safe-item',
+      key: 'FIN-11',
+      linked_at: linkedAt,
+    });
+    for (const issue of [duplicateA, duplicateB, safe]) {
+      store.set(issue.id, issue);
+    }
+
+    const result = await run([duplicateB, safe, duplicateA]);
+
+    expect(server.issues.get('duplicate-item')?.title).toBe('Remote duplicate');
+    expect(server.issues.get('safe-item')?.title).toBe('Safe local');
+    expect(result.pushed).toEqual(['mvrc']);
+    expect(result.failures).toHaveLength(2);
+    expect(result.failures.map((failure) => failure.beadId).sort()).toEqual(['mvra', 'mvrb']);
+    for (const failure of result.failures) {
+      expect(failure.error).toContain('FIN-10');
+      expect(failure.error).toContain('mvra, mvrb');
+      expect(failure.error).toContain('integration unlink');
+    }
+  });
+
   it('pushes local edits and pulls remote edits after linking', async () => {
     const epic = bead('is-01hx5zzkbkactav9wevgemmvrz');
     store.set(epic.id, epic);
@@ -186,6 +232,24 @@ describe('the sync engine', () => {
     expect(store.get(epic.id)!.title).toBe('Edited in the tracker');
   });
 
+  it('detects a quiet archived item through the linked-item liveness fetch', async () => {
+    const epic = bead('is-01hx5zzkbkactav9wevgemmvrz');
+    store.set(epic.id, epic);
+    await run([epic]);
+    await run([store.get(epic.id)!]);
+    const linked = store.get(epic.id)!;
+    const externalId = readLink(linked, 'linear')!.id;
+    const remote = server.issues.get(externalId)!;
+
+    // Linear archive does not bump updatedAt; it therefore stays outside the
+    // watermark delta and can only be observed by the targeted liveness read.
+    remote.archivedAt = '2026-08-10T16:00:00.000Z';
+    const archived = await run([linked]);
+
+    expect(archived.orphaned).toEqual(['mvrz']);
+    expect(store.get(epic.id)?.status).toBe('open');
+  });
+
   it('reports a conflict once, posts the comment, and both sides converge', async () => {
     const epic = bead('is-01hx5zzkbkactav9wevgemmvrz');
     store.set(epic.id, epic);
@@ -206,11 +270,144 @@ describe('the sync engine', () => {
 
     const conflictRun = await run([localEdit]);
     expect(conflictRun.conflicts).toEqual([{ beadId: 'mvrz', field: 'title', winner: 'local' }]);
+    expect(archived).toEqual([
+      expect.objectContaining({
+        beadId: epic.id,
+        field: 'title',
+        lostValue: 'Tracker title',
+        winnerSource: 'local',
+      }),
+    ]);
     expect(server.issues.get(externalId)?.title).toBe('Bead title');
-    expect(server.comments.some((c) => c.body.includes('tbd sync conflict'))).toBe(true);
+    expect(
+      server.comments.some(
+        (c) =>
+          c.body.includes('tbd sync conflict') &&
+          c.body.includes(`.tbd/data-sync/attic/${epic.id}_title.yml`),
+      ),
+    ).toBe(true);
 
     const settle = await run([store.get(epic.id)!]);
     expect(settle.conflicts).toEqual([]);
+  });
+
+  it('does not overwrite either side when archiving the conflict fails', async () => {
+    const epic = bead('is-01hx5zzkbkactav9wevgemmvrz');
+    store.set(epic.id, epic);
+    await run([epic]);
+    await run([store.get(epic.id)!]);
+    const linked = store.get(epic.id)!;
+    const externalId = readLink(linked, 'linear')!.id;
+    const remote = server.issues.get(externalId)!;
+    remote.title = 'Tracker wins';
+    remote.updatedAt = '2026-08-10T15:00:00.000Z';
+    const localEdit = {
+      ...linked,
+      title: 'Bead loses',
+      updated_at: '2026-08-10T14:00:00.000Z',
+    };
+    store.set(localEdit.id, localEdit);
+    callbacks.archiveConflict = () => Promise.reject(new Error('disk full'));
+
+    const failed = await run([localEdit]);
+
+    expect(failed.failures).toEqual([
+      expect.objectContaining({ beadId: 'mvrz', error: expect.stringContaining('disk full') }),
+    ]);
+    expect(store.get(epic.id)?.title).toBe('Bead loses');
+    expect(server.issues.get(externalId)?.title).toBe('Tracker wins');
+    expect(server.comments).toHaveLength(0);
+  });
+
+  it('replays a journaled remote-win conflict exactly once after a crash', async () => {
+    const epic = bead('is-01hx5zzkbkactav9wevgemmvrz');
+    store.set(epic.id, epic);
+    await run([epic]);
+    await run([store.get(epic.id)!]);
+    const linked = store.get(epic.id)!;
+    const externalId = readLink(linked, 'linear')!.id;
+    const remote = server.issues.get(externalId)!;
+    remote.title = 'Tracker wins after crash';
+    remote.updatedAt = '2026-08-10T15:00:00.000Z';
+    const localEdit = {
+      ...linked,
+      title: 'Bead loses after crash',
+      updated_at: '2026-08-10T14:00:00.000Z',
+    };
+    store.set(localEdit.id, localEdit);
+    callbacks.afterJournal = () => Promise.reject(new Error('simulated crash'));
+
+    await expect(run([localEdit])).rejects.toThrow('simulated crash');
+    expect(await listIntentFiles(dir, 'linear')).toHaveLength(1);
+    expect(archived).toHaveLength(1);
+    expect(server.comments).toHaveLength(0);
+
+    callbacks.afterJournal = () => Promise.resolve();
+    const recovered = await run([store.get(epic.id)!]);
+
+    expect(recovered.replayedOps).toBe(1);
+    expect(recovered.conflicts).toEqual([{ beadId: 'mvrz', field: 'title', winner: 'remote' }]);
+    expect(store.get(epic.id)?.title).toBe('Tracker wins after crash');
+    expect(
+      server.comments.filter((comment) => comment.body.includes('tbd sync conflict')),
+    ).toHaveLength(1);
+    expect(archived).toHaveLength(1);
+    expect(await listIntentFiles(dir, 'linear')).toHaveLength(0);
+
+    await run([store.get(epic.id)!]);
+    expect(
+      server.comments.filter((comment) => comment.body.includes('tbd sync conflict')),
+    ).toHaveLength(1);
+  });
+
+  it('defers an inbound-only conflict notice and posts it once on the next full sync', async () => {
+    const epic = bead('is-01hx5zzkbkactav9wevgemmvrz');
+    store.set(epic.id, epic);
+    await run([epic]);
+    await run([store.get(epic.id)!]);
+    const linked = store.get(epic.id)!;
+    const externalId = readLink(linked, 'linear')!.id;
+    const remote = server.issues.get(externalId)!;
+    remote.title = 'Remote winner under pull';
+    remote.updatedAt = '2026-08-10T15:00:00.000Z';
+    const localEdit = {
+      ...linked,
+      title: 'Local loser under pull',
+      updated_at: '2026-08-10T14:00:00.000Z',
+    };
+    store.set(localEdit.id, localEdit);
+
+    const inbound = await runSync({
+      provider: 'linear',
+      adapter,
+      policy: POLICY,
+      dataSyncDir: dir,
+      allIssues: [localEdit],
+      displayId: (id) => id.slice(-4),
+      mirrorLabels: false,
+      callbacks,
+      direction: 'inbound',
+      dryRun: false,
+      now: () => new Date().toISOString(),
+    });
+
+    expect(inbound.conflicts).toEqual([{ beadId: 'mvrz', field: 'title', winner: 'remote' }]);
+    expect(store.get(epic.id)?.title).toBe('Remote winner under pull');
+    expect(server.comments).toHaveLength(0);
+    expect(await listIntentFiles(dir, 'linear')).toHaveLength(1);
+
+    const full = await run([store.get(epic.id)!]);
+    expect(full.replayedOps).toBe(1);
+    expect(full.conflicts).toEqual([]);
+    expect(
+      server.comments.filter((comment) => comment.body.includes('tbd sync conflict')),
+    ).toHaveLength(1);
+    expect(await listIntentFiles(dir, 'linear')).toHaveLength(0);
+
+    await run([store.get(epic.id)!]);
+    expect(
+      server.comments.filter((comment) => comment.body.includes('tbd sync conflict')),
+    ).toHaveLength(1);
   });
 
   it('syncs comments both ways and dedups across runs', async () => {
@@ -294,6 +491,145 @@ describe('the sync engine', () => {
     const created = [...store.values()].find((issue) => issue.title === 'Filed by a PM');
     expect(created).toBeDefined();
     expect(readLink(created!, 'linear')?.id).toBe('external-only');
+  });
+
+  it('replays a failed inbound ownership claim without duplicating the bead', async () => {
+    server.addIssue({
+      id: 'claim-retry',
+      identifier: 'FIN-78',
+      title: 'Needs a durable claim',
+      updatedAt: new Date().toISOString(),
+    });
+    const autoPolicy = PolicyDefinitionSchema.parse({
+      outbound: { kinds: [], statuses: [], specs: 'none', linked: true },
+      inbound: { mode: 'auto', as_kind: 'task' },
+    });
+    const original = adapter.upsertAttachments.bind(adapter);
+    let attempts = 0;
+    adapter.upsertAttachments = async (id, attachments) => {
+      attempts += 1;
+      if (attempts === 1) {
+        throw new Error('claim transport died');
+      }
+      return original(id, attachments);
+    };
+
+    const interrupted = await run([], autoPolicy);
+    expect(interrupted.importedInbound).toEqual([]);
+    expect(interrupted.failures[0]?.error).toContain('claim transport died');
+    expect(
+      [...store.values()].filter((issue) => issue.title === 'Needs a durable claim'),
+    ).toHaveLength(1);
+    expect(server.attachments).toHaveLength(0);
+    const pending = await listIntentFiles(dir, 'linear');
+    expect(pending).toHaveLength(1);
+    expect(pending[0]?.ops).toEqual([
+      expect.objectContaining({ kind: 'upsert_attachments', external_id: 'claim-retry' }),
+    ]);
+
+    const linked = [...store.values()];
+    const recovered = await run(linked, autoPolicy);
+    expect(recovered.failures).toEqual([]);
+    expect(recovered.replayedOps).toBe(1);
+    expect(
+      [...store.values()].filter((issue) => issue.title === 'Needs a durable claim'),
+    ).toHaveLength(1);
+    expect(server.attachments).toHaveLength(1);
+    expect(await listIntentFiles(dir, 'linear')).toHaveLength(0);
+  });
+
+  it('imports an explicitly selected external item under --pull without external writes', async () => {
+    server.addIssue({
+      id: 'explicit-external',
+      identifier: 'FIN-78',
+      title: 'Explicitly selected',
+      updatedAt: new Date().toISOString(),
+    });
+    const offPolicy = PolicyDefinitionSchema.parse({
+      outbound: { kinds: [], statuses: [], specs: 'none', linked: true },
+      inbound: { mode: 'off', as_kind: 'feature' },
+    });
+
+    const imported = await runSync({
+      provider: 'linear',
+      adapter,
+      policy: offPolicy,
+      dataSyncDir: dir,
+      allIssues: [],
+      displayId: (id) => id.slice(-4),
+      mirrorLabels: false,
+      callbacks,
+      direction: 'inbound',
+      externalIssueIds: ['explicit-external'],
+      dryRun: false,
+      now: () => new Date().toISOString(),
+    });
+
+    expect(imported.importedInbound).toHaveLength(1);
+    expect([...store.values()].find((issue) => issue.title === 'Explicitly selected')?.kind).toBe(
+      'feature',
+    );
+    expect(server.attachments).toHaveLength(0);
+    expect(server.comments).toHaveLength(0);
+    const pending = await listIntentFiles(dir, 'linear');
+    expect(pending).toHaveLength(1);
+    expect(pending[0]?.ops[0]).toMatchObject({
+      kind: 'upsert_attachments',
+      external_id: 'explicit-external',
+    });
+
+    const importedBead = [...store.values()].find(
+      (issue) => issue.title === 'Explicitly selected',
+    )!;
+    const full = await runSync({
+      provider: 'linear',
+      adapter,
+      policy: offPolicy,
+      dataSyncDir: dir,
+      allIssues: [importedBead],
+      displayId: (id) => id.slice(-4),
+      mirrorLabels: false,
+      callbacks,
+      dryRun: false,
+      now: () => new Date().toISOString(),
+    });
+    expect(full.replayedOps).toBe(1);
+    expect(server.attachments).toHaveLength(1);
+    expect(await listIntentFiles(dir, 'linear')).toHaveLength(0);
+  });
+
+  it('refuses to import an item already claimed by another tbd repository', async () => {
+    server.addIssue({
+      id: 'claimed-external',
+      identifier: 'FIN-79',
+      title: 'Already claimed',
+      updatedAt: new Date().toISOString(),
+    });
+    server.attachments.push({
+      id: 'claim',
+      issueId: 'claimed-external',
+      url: 'tbd://bead/other-1234',
+      title: 'other-1234',
+    });
+
+    const result = await runSync({
+      provider: 'linear',
+      adapter,
+      policy: POLICY,
+      dataSyncDir: dir,
+      allIssues: [],
+      displayId: (id) => id.slice(-4),
+      mirrorLabels: false,
+      callbacks,
+      direction: 'inbound',
+      externalIssueIds: ['claimed-external'],
+      dryRun: false,
+      now: () => new Date().toISOString(),
+    });
+
+    expect(result.importedInbound).toEqual([]);
+    expect(result.failures[0]?.error).toContain('already linked by another tbd repository');
+    expect(store.size).toBe(0);
   });
 
   it('never pushes or wipes labels when mirror_labels is off — the live incident', async () => {
@@ -388,6 +724,86 @@ describe('the sync engine', () => {
     const remaining = await listIntentFiles(dir, 'linear');
     // Only the stale file survives; this run's journal was consumed.
     expect(remaining.map((f) => f.run_id)).toEqual(['01hx5zzkbkactav9wevgemstale']);
+  });
+
+  it('leaves outbound intents pending and the provider untouched during an inbound-only run', async () => {
+    server.addIssue({
+      id: 'pending-outbound',
+      identifier: 'FIN-80',
+      title: 'Remote before',
+      updatedAt: '2026-08-10T00:00:00.000Z',
+    });
+    await writeIntentFile(dir, {
+      type: 'in',
+      run_id: '01hx5zzkbkactav9wevgempull1',
+      provider: 'linear',
+      created_at: '2026-08-10T00:00:00.000Z',
+      ops: [
+        { kind: 'update_issue', external_id: 'pending-outbound', patch: { title: 'Must wait' } },
+      ],
+    });
+    const offPolicy = PolicyDefinitionSchema.parse({
+      outbound: { kinds: [], statuses: [], specs: 'none', linked: true },
+      inbound: { mode: 'off' },
+    });
+
+    const result = await runSync({
+      provider: 'linear',
+      adapter,
+      policy: offPolicy,
+      dataSyncDir: dir,
+      allIssues: [],
+      displayId: (id) => id.slice(-4),
+      mirrorLabels: false,
+      callbacks,
+      direction: 'inbound',
+      dryRun: false,
+      now: () => new Date().toISOString(),
+    });
+
+    expect(result.replayedOps).toBe(0);
+    expect(server.issues.get('pending-outbound')?.title).toBe('Remote before');
+    expect(await listIntentFiles(dir, 'linear')).toHaveLength(1);
+  });
+
+  it('does not journal a newly suppressed outbound edit during an inbound-only run', async () => {
+    const epic = bead('is-01hx5zzkbkactav9wevgemmvrz');
+    store.set(epic.id, epic);
+    await run([epic]);
+    await run([store.get(epic.id)!]);
+    const linked = store.get(epic.id)!;
+    const externalId = readLink(linked, 'linear')!.id;
+    const localEdit = {
+      ...linked,
+      title: 'Local edit must wait',
+      version: linked.version + 1,
+      updated_at: new Date(Date.now() + 60_000).toISOString(),
+    };
+    store.set(epic.id, localEdit);
+    callbacks.afterJournal = () => Promise.reject(new Error('pull planned an outbound journal'));
+
+    const pulled = await runSync({
+      provider: 'linear',
+      adapter,
+      policy: POLICY,
+      dataSyncDir: dir,
+      allIssues: [localEdit],
+      displayId: (id) => id.slice(-4),
+      mirrorLabels: false,
+      callbacks,
+      direction: 'inbound',
+      dryRun: false,
+      now: () => new Date().toISOString(),
+    });
+
+    expect(pulled.failures).toEqual([]);
+    expect(server.issues.get(externalId)?.title).toBe('An epic');
+    expect(await listIntentFiles(dir, 'linear')).toEqual([]);
+
+    callbacks.afterJournal = () => Promise.resolve();
+    const full = await run([store.get(epic.id)!]);
+    expect(full.pushed).toEqual(['mvrz']);
+    expect(server.issues.get(externalId)?.title).toBe('Local edit must wait');
   });
 
   it('counts both directions in the bulk guard', async () => {

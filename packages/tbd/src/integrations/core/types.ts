@@ -173,6 +173,9 @@ export interface TrackerAdapter {
   /** Upsert attachments, keyed by url. Idempotent. */
   upsertAttachments(id: string, attachments: AttachmentSpec[]): Promise<void>;
 
+  /** Attachment URLs currently on an item, used for the cross-repo link guard. */
+  listAttachmentUrls(id: string): Promise<string[]>;
+
   /** Replace only the managed region of the external item's description. */
   spliceDescription(id: string, block: string): Promise<void>;
 

@@ -8,7 +8,7 @@
  */
 
 import { execFile } from 'node:child_process';
-import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { promisify } from 'node:util';
@@ -21,6 +21,9 @@ import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 vi.setConfig({ testTimeout: 60_000, hookTimeout: 60_000 });
 
 import { LinearMockServer } from './helpers/linear-mock-server.js';
+import { clearLink, readLink, writeLink } from '../src/integrations/core/link-store.js';
+import { listIntentFiles } from '../src/integrations/core/intents.js';
+import { readIssue, writeIssue } from '../src/file/storage.js';
 
 const execFileAsync = promisify(execFile);
 const BIN = join(import.meta.dirname, '..', 'dist', 'bin.mjs');
@@ -33,6 +36,7 @@ interface CliResult {
 
 describe('tbd integration, end to end via the built binary', () => {
   let dir: string;
+  let remoteDir: string;
   let server: LinearMockServer;
 
   async function cli(args: string[], env: Record<string, string> = {}): Promise<CliResult> {
@@ -58,9 +62,11 @@ describe('tbd integration, end to end via the built binary', () => {
     await server.start();
 
     dir = await mkdtemp(join(tmpdir(), 'tbd-cli-e2e-'));
+    remoteDir = await mkdtemp(join(tmpdir(), 'tbd-cli-e2e-origin-'));
     const sh = async (cmd: string, args: string[]): Promise<void> => {
       await execFileAsync(cmd, args, { cwd: dir });
     };
+    await execFileAsync('git', ['init', '--bare', '-q', remoteDir]);
     await sh('git', ['init', '-q', '--initial-branch=main']);
     await sh('git', ['config', 'user.email', 't@e.com']);
     await sh('git', ['config', 'user.name', 'T']);
@@ -69,10 +75,14 @@ describe('tbd integration, end to end via the built binary', () => {
     await writeFile(join(dir, '.gitignore'), '.env\n');
     await sh('git', ['add', '-A']);
     await sh('git', ['commit', '-q', '-m', 'init']);
+    await sh('git', ['remote', 'add', 'origin', remoteDir]);
+    await sh('git', ['push', '-q', '-u', 'origin', 'main']);
 
     // Everything from here goes through the CLI, exactly as a user would; the
     // CLI materializes its own sync worktree on first use.
-    const init = await cli(['init', '--prefix=ee', '--force']);
+    // Digits are valid in a forced prefix; every command must parse the same
+    // display IDs that init emits.
+    const init = await cli(['init', '--prefix=e2e', '--force']);
     expect(init.code).toBe(0);
 
     // Enable the integration; the mock's team is FIN.
@@ -89,6 +99,7 @@ describe('tbd integration, end to end via the built binary', () => {
   afterAll(async () => {
     await server.stop();
     await rm(dir, { recursive: true, force: true });
+    await rm(remoteDir, { recursive: true, force: true });
   });
 
   it('status reaches the mock provider and reports the team', async () => {
@@ -98,21 +109,64 @@ describe('tbd integration, end to end via the built binary', () => {
     expect(result.stdout).toContain('team FIN');
   });
 
-  it('mirrors an epic, then sync settles to nothing-to-do', async () => {
-    const created = await cli(['create', 'An epic to mirror', '-t', 'epic']);
-    expect(created.code).toBe(0);
+  it('rejects outbound selectors unless --push is present', async () => {
+    const result = await cli(['--dry-run', 'integration', 'sync', '--limit', '1']);
 
-    const mirror = await cli(['integration', 'sync', '--push']);
+    expect(result.code).not.toBe(0);
+    expect(result.stderr).toContain('--limit is only valid with --push');
+  });
+
+  it('mirrors exactly a named bead, then full sync settles to nothing-to-do', async () => {
+    const first = await cli(['create', 'An epic to mirror', '-t', 'epic']);
+    const second = await cli(['create', 'A second epic outside the staged push', '-t', 'epic']);
+    expect(first.code).toBe(0);
+    expect(second.code).toBe(0);
+    const list = JSON.parse((await cli(['list', '--json'])).stdout) as {
+      id: string;
+      title: string;
+    }[];
+    const firstId = list.find((row) => row.title === 'An epic to mirror')!.id;
+
+    const mirror = await cli(['integration', 'sync', '--push', '--bead', firstId]);
     expect(mirror.code).toBe(0);
     expect(mirror.stdout).toContain('created 1');
     expect(server.issues.size).toBe(1);
 
+    // The configured policy picks up the second epic only when the ordinary
+    // full synchronization runs; the explicit staged projection touched one.
     const sync = await cli(['integration', 'sync']);
     expect(sync.code).toBe(0);
+    expect(server.issues.size).toBe(2);
 
     const settle = await cli(['integration', 'sync']);
     expect(settle.code).toBe(0);
     expect(settle.stdout).toContain('nothing to do');
+  });
+
+  it('keeps tbd sync --push outbound-only for integrations', async () => {
+    expect((await cli(['create', 'Push direction sentinel', '-t', 'epic'])).code).toBe(0);
+    const rows = JSON.parse((await cli(['list', '--json'])).stdout) as {
+      id: string;
+      title: string;
+    }[];
+    const bead = rows.find((row) => row.title === 'Push direction sentinel')!;
+    expect((await cli(['integration', 'sync', '--push', '--bead', bead.id])).code).toBe(0);
+    expect((await cli(['integration', 'sync'])).code).toBe(0);
+    const remote = [...server.issues.values()].find(
+      (issue) => issue.title === 'Push direction sentinel',
+    )!;
+    remote.title = 'Remote edit must not pull';
+    remote.updatedAt = new Date(Date.now() + 60_000).toISOString();
+
+    const pushed = await cli(['sync', '--push']);
+
+    expect(pushed.code).toBe(0);
+    const after = JSON.parse((await cli(['list', '--json'])).stdout) as {
+      id: string;
+      title: string;
+    }[];
+    expect(after.find((row) => row.id === bead.id)?.title).toBe('Push direction sentinel');
+    expect(server.issues.get(remote.id)?.title).toBe('Push direction sentinel');
   });
 
   it('pulls a tracker-side edit into the bead through the full CLI path', async () => {
@@ -125,6 +179,25 @@ describe('tbd integration, end to end via the built binary', () => {
 
     const list = await cli(['list', '--json']);
     expect(list.stdout).toContain('Retitled in the tracker');
+  });
+
+  it('imports exactly named external items with --pull --external and writes nothing outward', async () => {
+    server.addIssue({
+      id: 'external-selected',
+      identifier: 'FIN-88',
+      title: 'Selected inbound issue',
+      updatedAt: new Date(Date.now() + 120_000).toISOString(),
+    });
+    const attachmentsBefore = server.attachments.length;
+    const commentsBefore = server.comments.length;
+
+    const result = await cli(['integration', 'sync', '--pull', '--external', 'FIN-88']);
+
+    expect(result.code).toBe(0);
+    expect(result.stdout).toContain('import 1');
+    expect((await cli(['list', '--json'])).stdout).toContain('Selected inbound issue');
+    expect(server.attachments).toHaveLength(attachmentsBefore);
+    expect(server.comments).toHaveLength(commentsBefore);
   });
 
   it('authors a comment offline and posts it on the next sync', async () => {
@@ -153,6 +226,38 @@ describe('tbd integration, end to end via the built binary', () => {
     expect(link.stderr).toContain('already linked');
   });
 
+  it('doctor and sync fail pre-existing duplicate links closed with a clear remedy', async () => {
+    const status = await cli(['status', '--json']);
+    const worktreePath = (JSON.parse(status.stdout) as { worktree_path: string }).worktree_path;
+    const dataSyncDir = join(worktreePath, '.tbd', 'data-sync');
+    const list = await cli(['list', '--json']);
+    const rows = JSON.parse(list.stdout) as { id: string; internalId: string; title: string }[];
+    const linkedRow = rows.find((row) => row.title === 'Retitled in the tracker')!;
+    const secondRow = rows.find((row) => row.title === 'Another bead')!;
+    const linkedIssue = await readIssue(dataSyncDir, linkedRow.internalId);
+    const secondIssue = await readIssue(dataSyncDir, secondRow.internalId);
+    const externalLink = readLink(linkedIssue, 'linear')!;
+
+    await writeIssue(dataSyncDir, writeLink(secondIssue, externalLink));
+    try {
+      const doctor = await cli(['doctor', '--json']);
+      expect(doctor.code).not.toBe(0);
+      expect(doctor.stdout).toContain('linked by multiple beads');
+      expect(doctor.stdout).toContain(linkedRow.id);
+      expect(doctor.stdout).toContain(secondRow.id);
+
+      const before = server.issues.get(externalLink.id)?.title;
+      const sync = await cli(['integration', 'sync']);
+      expect(sync.code).not.toBe(0);
+      expect(sync.stdout).toContain('integration unlink');
+      expect(sync.stdout).toContain(linkedRow.id);
+      expect(sync.stdout).toContain(secondRow.id);
+      expect(server.issues.get(externalLink.id)?.title).toBe(before);
+    } finally {
+      await writeIssue(dataSyncDir, clearLink(secondIssue, 'linear'));
+    }
+  });
+
   it('refuses a differing link non-interactively without --take', async () => {
     server.addIssue({
       id: 'other-uuid',
@@ -172,6 +277,90 @@ describe('tbd integration, end to end via the built binary', () => {
 
     const show = await cli(['list', '--json']);
     expect(show.stdout).toContain('A very different title');
+  });
+
+  it('refuses a remote tbd claim unless link --force is explicit', async () => {
+    server.addIssue({
+      id: 'claimed-for-link',
+      identifier: 'FIN-51',
+      title: 'Claimed elsewhere',
+      updatedAt: new Date().toISOString(),
+    });
+    server.attachments.push({
+      id: 'foreign-claim',
+      issueId: 'claimed-for-link',
+      url: 'tbd://bead/other-9999',
+      title: 'other-9999',
+    });
+    const created = await cli(['create', 'Local counterpart']);
+    expect(created.code).toBe(0);
+    const rows = JSON.parse((await cli(['list', '--json'])).stdout) as {
+      id: string;
+      title: string;
+    }[];
+    const beadId = rows.find((row) => row.title === 'Local counterpart')!.id;
+
+    const refused = await cli(['integration', 'link', beadId, 'FIN-51', '--take', 'remote']);
+    expect(refused.code).not.toBe(0);
+    expect(refused.stderr).toContain('another tbd repository');
+
+    const forced = await cli([
+      'integration',
+      'link',
+      beadId,
+      'FIN-51',
+      '--take',
+      'remote',
+      '--force',
+    ]);
+    expect(forced.code).toBe(0);
+    expect(
+      server.attachments.some(
+        (attachment) =>
+          attachment.issueId === 'claimed-for-link' && attachment.url === `tbd://bead/${beadId}`,
+      ),
+    ).toBe(true);
+  });
+
+  it('replays a failed manual-link claim without losing or duplicating the link', async () => {
+    server.addIssue({
+      id: 'claim-retry-link',
+      identifier: 'FIN-52',
+      title: 'Manual claim retry',
+      updatedAt: new Date().toISOString(),
+    });
+    expect((await cli(['create', 'Manual claim retry'])).code).toBe(0);
+    const rows = JSON.parse((await cli(['list', '--json'])).stdout) as {
+      id: string;
+      internalId: string;
+      title: string;
+    }[];
+    const bead = rows.find((row) => row.title === 'Manual claim retry')!;
+    server.attachmentFailures = 1;
+
+    const interrupted = await cli(['integration', 'link', bead.id, 'FIN-52']);
+    expect(interrupted.code).not.toBe(0);
+    expect(interrupted.stderr).toContain('attachment transport died');
+
+    const status = JSON.parse((await cli(['status', '--json'])).stdout) as {
+      worktree_path: string;
+    };
+    const dataSyncDir = join(status.worktree_path, '.tbd', 'data-sync');
+    expect(readLink(await readIssue(dataSyncDir, bead.internalId), 'linear')?.id).toBe(
+      'claim-retry-link',
+    );
+    expect(await listIntentFiles(dataSyncDir, 'linear')).toHaveLength(1);
+    expect(
+      server.attachments.filter((attachment) => attachment.issueId === 'claim-retry-link'),
+    ).toHaveLength(0);
+
+    const recovered = await cli(['integration', 'sync']);
+    expect(recovered.code).toBe(0);
+    expect(recovered.stdout).toContain('replayed 1');
+    expect(await listIntentFiles(dataSyncDir, 'linear')).toHaveLength(0);
+    expect(
+      server.attachments.filter((attachment) => attachment.issueId === 'claim-retry-link'),
+    ).toHaveLength(1);
   });
 
   it('unlink severs the pair and sync leaves it alone', async () => {
@@ -199,6 +388,7 @@ describe('tbd integration, end to end via the built binary', () => {
     const result = await cli(['sync'], { LINEAR_API_URL: 'http://127.0.0.1:9/graphql' });
 
     const output = result.stdout + result.stderr;
+    expect(result.code).not.toBe(0);
     // Docs and issues still did their work...
     expect(output).toMatch(/[Dd]ocs/);
     // ...and the tracker failure is named, not swallowed.
@@ -206,6 +396,20 @@ describe('tbd integration, end to end via the built binary', () => {
     // The bead itself survived: no data lost to the broken surface.
     const list = await cli(['list', '--json']);
     expect(list.stdout).toContain('Bead written while the tracker is broken');
+  });
+
+  it('fails closed when integration config cannot be parsed', async () => {
+    const configPath = join(dir, '.tbd', 'config.yml');
+    const config = await readFile(configPath, 'utf8');
+    try {
+      await writeFile(configPath, 'integrations: [unterminated\n');
+      const result = await cli(['sync', '--integrations']);
+
+      expect(result.code).not.toBe(0);
+      expect(result.stdout + result.stderr).toMatch(/parse|yaml|flow sequence/i);
+    } finally {
+      await writeFile(configPath, config);
+    }
   });
 
   it('missing credential fails loudly with the remedy', async () => {

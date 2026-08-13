@@ -68,6 +68,9 @@ describe('ExternalIssueIdInput', () => {
   it('accepts valid external input IDs', () => {
     expect(ExternalIssueIdInput.safeParse('bd-a7k2').success).toBe(true);
     expect(ExternalIssueIdInput.safeParse('proj-a7k2').success).toBe(true);
+    expect(ExternalIssueIdInput.safeParse('e2e-a7k2').success).toBe(true);
+    expect(ExternalIssueIdInput.safeParse('proj.v2-a7k2').success).toBe(true);
+    expect(ExternalIssueIdInput.safeParse('my_app1-a7k2').success).toBe(true);
     expect(ExternalIssueIdInput.safeParse('a7k2').success).toBe(true);
     expect(ExternalIssueIdInput.safeParse('a7k2x').success).toBe(true); // 5 chars
   });
@@ -78,6 +81,7 @@ describe('ExternalIssueIdInput', () => {
     expect(ExternalIssueIdInput.safeParse('bd-abc').success).toBe(true);
     expect(ExternalIssueIdInput.safeParse('bd-abcdef').success).toBe(true);
     expect(ExternalIssueIdInput.safeParse('100').success).toBe(true);
+    expect(ExternalIssueIdInput.safeParse('proj-stat-in_progress').success).toBe(true);
   });
 
   it('rejects invalid external input IDs', () => {

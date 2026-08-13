@@ -8,7 +8,7 @@
  * idempotency.
  */
 
-import { mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -60,11 +60,19 @@ describe('the intent journal', () => {
     expect(await listIntentFiles(dir, 'linear')).toEqual([]);
   });
 
-  it('skips a damaged intent file rather than wedging', async () => {
+  it('fails closed on damaged YAML rather than losing a write-ahead operation', async () => {
     await writeIntentFile(dir, intentFile([]));
     await writeFile(join(bridgeIntentsDir(dir, 'linear'), 'broken.yml'), '[');
-    const files = await listIntentFiles(dir, 'linear');
-    expect(files).toHaveLength(1);
+    await expect(listIntentFiles(dir, 'linear')).rejects.toThrow('broken.yml');
+  });
+
+  it('fails closed on a schema-invalid intent rather than silently skipping it', async () => {
+    await mkdir(bridgeIntentsDir(dir, 'linear'), { recursive: true });
+    await writeFile(
+      join(bridgeIntentsDir(dir, 'linear'), 'invalid.yml'),
+      'type: in\nrun_id: lost-client-id\nprovider: linear\ncreated_at: now\nops:\n  - kind: create_issue\n',
+    );
+    await expect(listIntentFiles(dir, 'linear')).rejects.toThrow('invalid.yml');
   });
 });
 
@@ -194,6 +202,33 @@ describe('crash replay against the mock provider', () => {
 
     expect(server.issues.get('issue-1')?.title).toBe('New');
     expect(server.attachments).toHaveLength(1); // upserted, not duplicated
+  });
+
+  it('discards unsafe duplicate-link operations while replaying unrelated work', async () => {
+    server.addIssue({ id: 'duplicate-item', identifier: 'FIN-1', title: 'Unsafe old' });
+    server.addIssue({ id: 'safe-item', identifier: 'FIN-2', title: 'Safe old' });
+    await writeIntentFile(
+      dir,
+      intentFile([
+        { kind: 'update_issue', external_id: 'duplicate-item', patch: { title: 'Unsafe new' } },
+        { kind: 'update_issue', external_id: 'safe-item', patch: { title: 'Safe new' } },
+      ]),
+    );
+
+    const report = await replayIntents(dir, 'linear', adapter, {
+      blockedExternalIds: new Set(['duplicate-item']),
+      blockedBeadIds: new Set(),
+    });
+
+    expect(server.issues.get('duplicate-item')?.title).toBe('Unsafe old');
+    expect(server.issues.get('safe-item')?.title).toBe('Safe new');
+    expect(report.replayedOps).toBe(1);
+    expect(report.failures).toEqual([
+      expect.objectContaining({ error: expect.stringContaining('duplicate link') }),
+    ]);
+    // The bead is durable and will re-plan after unlink. Retaining this stale
+    // op would let an unknown former holder write after the repair.
+    expect(await listIntentFiles(dir, 'linear')).toHaveLength(0);
   });
 });
 

@@ -24,7 +24,7 @@ import { z } from 'zod';
 import type { ProviderNameType } from '../../lib/types.js';
 import { parseYamlWithConflictDetection, stringifyYaml } from '../../utils/yaml-utils.js';
 import { bridgeIntentsDir } from './bridge-state.js';
-import type { AttachmentSpec, CanonicalPatch, TrackerAdapter } from './types.js';
+import type { AttachmentSpec, CanonicalPatch, ConflictReport, TrackerAdapter } from './types.js';
 
 const CanonicalPatchSchema = z
   .object({
@@ -74,6 +74,19 @@ const IntentOpSchema = z.discriminatedUnion('kind', [
     comment_client_id: z.string().min(1),
     body: z.string(),
   }),
+  z.object({
+    kind: z.literal('post_conflict'),
+    external_id: z.string().min(1),
+    /** Client UUID; the provider's dedup makes crash replay exactly-once. */
+    comment_client_id: z.string().min(1),
+    report: z.object({
+      beadId: z.string().min(1),
+      field: z.string().min(1),
+      keptValue: z.unknown(),
+      discardedValue: z.unknown(),
+      atticPath: z.string().min(1),
+    }),
+  }),
 ]);
 
 export const IntentFileSchema = z.object({
@@ -107,22 +120,34 @@ export async function listIntentFiles(
   let names: string[];
   try {
     names = await readdir(bridgeIntentsDir(dataSyncDir, provider));
-  } catch {
-    return [];
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
+      return [];
+    }
+    throw new Error(`Could not read ${provider} integration intent directory`, { cause: error });
   }
   const files: IntentFile[] = [];
   for (const name of names.filter((n) => n.endsWith('.yml')).sort()) {
+    let content: string;
     try {
-      const content = await readFile(join(bridgeIntentsDir(dataSyncDir, provider), name), 'utf8');
-      const parsed = IntentFileSchema.safeParse(parseYamlWithConflictDetection(content));
-      if (parsed.success) {
-        files.push(parsed.data);
-      }
-    } catch {
-      // A damaged intent file cannot be replayed; skip it rather than wedge
-      // every future sync. The operations it described either happened (and
-      // are idempotent to re-plan) or will be re-planned from current state.
+      content = await readFile(join(bridgeIntentsDir(dataSyncDir, provider), name), 'utf8');
+    } catch (error) {
+      throw new Error(`Could not read ${provider} integration intent ${name}`, { cause: error });
     }
+    let decoded: unknown;
+    try {
+      decoded = parseYamlWithConflictDetection(content);
+    } catch (error) {
+      throw new Error(`Could not parse ${provider} integration intent ${name}`, { cause: error });
+    }
+    const parsed = IntentFileSchema.safeParse(decoded);
+    if (!parsed.success) {
+      const details = parsed.error.issues
+        .map((issue) => `${issue.path.join('.') || '<root>'}: ${issue.message}`)
+        .join('; ');
+      throw new Error(`Invalid ${provider} integration intent ${name}: ${details}`);
+    }
+    files.push(parsed.data);
   }
   return files;
 }
@@ -141,7 +166,26 @@ export interface ReplayReport {
   replayedOps: number;
   /** A recovered create: the item existed already; the link may need writing. */
   recoveredCreates: { beadId: string; externalId: string }[];
+  /** Reports that replay already posted, used to avoid re-planning them this run. */
+  replayedConflicts: ConflictReport[];
   failures: { runId: string; op: IntentOp; error: string }[];
+}
+
+export interface ReplaySafetyFilter {
+  blockedExternalIds: ReadonlySet<string>;
+  blockedBeadIds: ReadonlySet<string>;
+}
+
+function blockedReplayTarget(op: IntentOp, safety: ReplaySafetyFilter | undefined): string | null {
+  if (!safety) {
+    return null;
+  }
+  if (op.kind === 'create_issue') {
+    return safety.blockedBeadIds.has(op.bead_id) || safety.blockedExternalIds.has(op.client_id)
+      ? op.client_id
+      : null;
+  }
+  return safety.blockedExternalIds.has(op.external_id) ? op.external_id : null;
 }
 
 /**
@@ -154,11 +198,13 @@ export async function replayIntents(
   dataSyncDir: string,
   provider: ProviderNameType,
   adapter: TrackerAdapter,
+  safety?: ReplaySafetyFilter,
 ): Promise<ReplayReport> {
   const report: ReplayReport = {
     replayedRuns: 0,
     replayedOps: 0,
     recoveredCreates: [],
+    replayedConflicts: [],
     failures: [],
   };
 
@@ -167,6 +213,19 @@ export async function replayIntents(
     let failed = false;
 
     for (const op of file.ops) {
+      const blockedTarget = blockedReplayTarget(op, safety);
+      if (blockedTarget) {
+        // The durable bead remains the source for re-planning once the link
+        // corruption is repaired. Keeping this stale op would replay an
+        // unknown holder's write after unlink, so discard it explicitly while
+        // retaining an honest failure in this run's report.
+        report.failures.push({
+          runId: file.run_id,
+          op,
+          error: `Discarded replay for ${blockedTarget}: duplicate link integrity guard`,
+        });
+        continue;
+      }
       try {
         switch (op.kind) {
           case 'create_issue': {
@@ -185,6 +244,14 @@ export async function replayIntents(
             break;
           case 'post_comment':
             await adapter.createComment(op.external_id, op.body, op.comment_client_id);
+            break;
+          case 'post_conflict':
+            await adapter.postConflict(
+              op.external_id,
+              op.report as ConflictReport,
+              op.comment_client_id,
+            );
+            report.replayedConflicts.push(op.report as ConflictReport);
             break;
         }
         report.replayedOps += 1;

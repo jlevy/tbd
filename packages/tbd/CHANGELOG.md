@@ -11,6 +11,8 @@
   - `tbd integration sync` takes the same direction flags as `tbd sync` — bare is both
     directions, `--push` is outbound only, `--pull` is inbound only — so the vocabulary
     is identical across every surface.
+    `--pull --external <ref...>` creates exactly named inbound beads independent of the
+    policy; it remains externally read-only.
   - Plain `tbd sync` now covers docs, issues, **and** enabled trackers.
     Surfaces run independently and failures roll up: one surface failing (an expired
     credential, an unreachable remote) never stops another, and nothing a working
@@ -25,7 +27,7 @@
   - `tbd integration status` reports whether each provider is configured, credentialed,
     and reachable, with a remedy on every failure.
     Inert and offline when none is enabled.
-  - `tbd integration mirror` projects selected beads outward.
+  - `tbd integration sync --push` projects selected beads outward.
     Accepts the same selectors as `list` (`--bead`, `--type`, `--status`, `--label`,
     `--spec`) plus `--limit`, so a rollout can be staged without editing config.
     Idempotent: re-running updates in place.
@@ -45,6 +47,41 @@
 
 ### Fixed
 
+- Every display prefix accepted by `init` and `setup --force` (including digits, dots,
+  and underscores) is now parsed by issue and integration commands.
+  Exact imported short IDs win before prefix stripping, preserving short IDs that
+  contain hyphens.
+- Sync and doctor now detect pre-existing multiple-beads-to-one-external-item links.
+  Every holder fails closed before journal replay or provider writes, with an unlink
+  remedy, while unrelated linked pairs continue to converge.
+  Ambiguous pending writes are discarded so a stale former holder cannot replay after
+  repair.
+- Link and inbound creation now probe `tbd://bead/…` attachment claims before allowing a
+  second repository to bind the same tracker item; `--force` is the deliberate stale-
+  claim override. Manual links persist their bead link, bridge base, and attachment
+  intent before the provider write, so a failed claim upsert replays safely.
+- `tbd integration sync --pull` no longer replays provider-write journals or writes an
+  inbound bead attachment.
+  Every inbound ownership claim is journaled before provider I/O, so an attachment
+  failure retries without creating a duplicate bead; pull-only claims and conflict
+  notices remain local and post exactly once on the next full sync.
+- Malformed or unreadable integration intent journals now fail synchronization closed
+  with the damaged filename instead of silently discarding the client UUID that prevents
+  duplicate external creation.
+- Top-level `tbd sync --push` now uses the same outbound-only tracker projection as
+  `tbd integration sync --push`; it no longer runs bidirectional reconciliation and pull
+  remote tracker edits under a push-only command.
+- Folded tracker item failures and integration config parse/read failures now propagate
+  to `tbd sync`’s aggregate non-zero exit status after independent docs and issue work
+  completes, instead of being reduced to a warning or silently treated as inert config.
+- Tracker conflicts now archive the exact losing value before either side is overwritten
+  and journal the conflict comment with its archive path.
+  Crash replay reuses both.
+- Attic list/show/restore now accept mapped display IDs and real base32 ULID filenames,
+  decode canonical JSON text without breaking legacy entries, and reverse-archive the
+  displaced winner before a restore.
+- Linked Linear issues are liveness-checked even outside the update watermark, so an
+  archive or deletion marks the link orphaned without deleting or closing the bead.
 - `extensions` merged as one opaque last-writer-wins value, so two writers touching
   different namespaces silently lost one side.
   Now merged per namespace.

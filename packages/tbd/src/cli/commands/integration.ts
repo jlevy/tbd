@@ -1,13 +1,14 @@
 /** `tbd integration` - Manage external tracker integrations. */
 
 import { Command } from 'commander';
+import { ulid } from 'ulid';
 
 import { readConfig } from '../../file/config.js';
 import { BaseCommand } from '../lib/base-command.js';
 import { CLIError, requireInit } from '../lib/errors.js';
 import { EXIT_OPERATIONAL_ERROR } from '../lib/exit-codes.js';
 import { CREDENTIAL_ENV_VARS, resolveCredential } from '../../integrations/core/credentials.js';
-import { enabledProviders, providerConfig } from '../../integrations/core/registry.js';
+import { providerConfig } from '../../integrations/core/registry.js';
 import {
   hasErrors,
   integrationStatus,
@@ -18,19 +19,16 @@ import {
 import { LinearClient } from '../../integrations/linear/client.js';
 import { LinearAdapter } from '../../integrations/linear/adapter.js';
 import { VIEWER_QUERY } from '../../integrations/linear/queries.js';
-import { applyMirror, planMirror } from '../../integrations/core/mirror.js';
-import { mirrorSet } from '../../integrations/core/selection.js';
 import type { MirrorReport } from '../../integrations/core/types.js';
 import { withDataSyncContext } from '../lib/data-context.js';
 import { listIssues, readIssue, writeIssue } from '../../file/storage.js';
 import { formatDisplayId } from '../../lib/ids.js';
 import { now } from '../../utils/time-utils.js';
 
-import { checkBulkThreshold } from '../../integrations/core/bulk-guard.js';
 import {
   buildAdapter,
   confirm,
-  resolveSpecLinks,
+  runEnabledIntegrationPushes,
   runEnabledIntegrations,
 } from '../lib/integration-runner.js';
 import type { SyncRunReport } from '../../integrations/core/sync-engine.js';
@@ -45,15 +43,10 @@ import {
 } from '../../integrations/core/bridge-state.js';
 import { writeLink } from '../../integrations/core/link-store.js';
 import { resolveToInternalId } from '../../file/id-mapping.js';
-import { matchesSpecPath } from '../../lib/spec-matching.js';
-import type {
-  IntegrationSelect,
-  Issue,
-  IssueKindType,
-  IssueStatusType,
-  PolicyDefinition,
-  ProviderNameType,
-} from '../../lib/types.js';
+import { assertExternalUnclaimed } from '../../integrations/core/link-guard.js';
+import { beadAttachmentUrl } from '../../integrations/core/mirror.js';
+import { deleteIntentFile, writeIntentFile } from '../../integrations/core/intents.js';
+import type { ProviderNameType } from '../../lib/types.js';
 
 /**
  * Verify a credential by making the cheapest authenticated call the provider
@@ -172,190 +165,43 @@ interface PushOptions {
   yes?: boolean;
 }
 
-/**
- * Resolve which beads to mirror.
- *
- * Precedence is explicit over implicit: named beads win outright, then any
- * command-line selector replaces the configured policy, and only with neither
- * does the policy's `outbound` clause apply. This keeps the staged workflow
- * (mirror a few, then more, then everything) from requiring config edits.
- */
-function resolveSelection(
-  options: PushOptions,
-  allIssues: Issue[],
-  entry: { policy: PolicyDefinition; provider: ProviderNameType },
-  resolveId: (id: string) => string | undefined,
-): Issue[] {
-  if (options.bead && options.bead.length > 0) {
-    const wanted = new Map<string, string>();
-    for (const ref of options.bead) {
-      const internal = resolveId(ref);
-      if (!internal) {
-        throw new CLIError(`Unknown bead: ${ref}`);
-      }
-      wanted.set(internal, ref);
-    }
-    const found = allIssues.filter((issue) => wanted.has(issue.id));
-    if (found.length !== wanted.size) {
-      const missing = [...wanted.values()].filter(
-        (ref) => !found.some((issue) => resolveId(ref) === issue.id),
-      );
-      throw new CLIError(`Bead not found in the store: ${missing.join(', ')}`);
-    }
-    return found;
-  }
-
-  const usesFlags =
-    options.type !== undefined ||
-    options.status !== undefined ||
-    options.spec !== undefined ||
-    (options.label !== undefined && options.label.length > 0);
-
-  const select: IntegrationSelect = usesFlags
-    ? {
-        kinds: options.type ? [options.type as IssueKindType] : [],
-        statuses: options.status ? [options.status as IssueStatusType] : [],
-        labels: options.label ?? [],
-        // A --spec flag means "beads carrying a spec"; the value narrows further
-        // below via the shared matcher.
-        specs: options.spec !== undefined ? 'any' : 'none',
-        linked: false,
-      }
-    : entry.policy.outbound;
-
-  let selected = mirrorSet(allIssues, select, entry.provider);
-
-  if (options.spec) {
-    selected = selected.filter(
-      (issue) => issue.spec_path != null && matchesSpecPath(issue.spec_path, options.spec!),
-    );
-  }
-  return selected;
+function pushOnlySelector(options: PushOptions): string | undefined {
+  const selectors: [flag: string, present: boolean][] = [
+    ['--bead', Boolean(options.bead?.length)],
+    ['--type', options.type !== undefined],
+    ['--status', options.status !== undefined],
+    ['--label', Boolean(options.label?.length)],
+    ['--spec', options.spec !== undefined],
+    ['--limit', options.limit !== undefined],
+  ];
+  return selectors.find(([, present]) => present)?.[0];
 }
 
 class PushHandler extends BaseCommand {
   async run(options: PushOptions): Promise<void> {
     const tbdRoot = await requireInit();
     const config = await readConfig(tbdRoot);
-
-    const enabled = enabledProviders(config).filter(
-      (entry) => !options.provider || entry.provider === options.provider,
-    );
-    if (enabled.length === 0) {
-      throw new CLIError(
-        'No enabled integration to push to. Run `tbd integration status` to see what is configured.',
-      );
-    }
-
     const dryRun = this.ctx.dryRun;
-    const reports: MirrorReport[] = [];
+    let reports: MirrorReport[] = [];
 
     // The lock is held for the whole run: mirroring reads every bead and writes
     // link fields back, so a concurrent mutation would produce a plan that no
     // longer matches the store it is applied against.
     await withDataSyncContext(tbdRoot, { lock: !dryRun }, async (context) => {
-      const allIssues = await listIssues(context.dataSyncDir);
-      const prefix = config.display.id_prefix;
-      const displayId = (id: string): string => formatDisplayId(id, context.mapping, prefix);
-
-      // Resolve spec permalinks once for the whole run. A spec lives on the
-      // branch that authored it and may not exist on main, so a link built from
-      // the bare path would 404 depending on who follows it.
-      const specLinks = await resolveSpecLinks(tbdRoot, allIssues, config.sync.branch);
-
-      for (const entry of enabled) {
-        if (entry.configError) {
-          throw new CLIError(entry.configError);
-        }
-        const credential = await resolveCredential(entry.provider, tbdRoot);
-        if (!credential) {
-          throw new CLIError(
-            `${CREDENTIAL_ENV_VARS[entry.provider]} is not set. Run \`tbd integration status\` for details.`,
-          );
-        }
-
-        const adapter = buildAdapter(entry.provider, credential.value, entry.target, config);
-
-        let selected = resolveSelection(options, allIssues, entry, (ref) => {
-          try {
-            return resolveToInternalId(ref, context.mapping);
-          } catch {
-            return undefined;
-          }
-        });
-
-        if (options.limit !== undefined) {
-          const limit = Number.parseInt(options.limit, 10);
-          if (!Number.isInteger(limit) || limit < 1) {
-            throw new CLIError(`--limit must be a positive integer, got: ${options.limit}`);
-          }
-          // Deterministic order, so staging a rollout in batches covers the set
-          // rather than re-mirroring an arbitrary subset each time.
-          selected = [...selected].sort((a, b) => a.id.localeCompare(b.id)).slice(0, limit);
-        }
-
-        const plan = planMirror({
-          provider: entry.provider,
-          allIssues,
-          selected,
-          displayId,
-          maxNesting: entry.maxNesting,
-          mirrorLabels: config.integrations?.linear?.mirror_labels ?? false,
-          specUrl: (issue) => (issue.spec_path ? specLinks.get(issue.spec_path) : undefined),
-        });
-
-        if (!dryRun) {
-          // Affirm before touching a workspace at scale. A dry run is exempt:
-          // it writes nothing, and previewing is exactly what we want to be easy.
-          const decision = checkBulkThreshold(
-            { creates: plan.creates.length, updates: plan.updates.length },
-            { assumeYes: options.yes === true, interactive: process.stdin.isTTY },
-          );
-          if (decision.kind === 'refused') {
-            throw new CLIError(decision.message);
-          }
-          if (decision.kind === 'needs-confirmation') {
-            const ok = await confirm(
-              `Mirror to ${entry.provider}: ${decision.reasons.join(' and ')}. Continue?`,
-            );
-            if (!ok) {
-              throw new CLIError('Aborted.');
-            }
-          }
-        }
-
-        if (dryRun) {
-          reports.push({
-            provider: entry.provider,
-            created: plan.creates.map((a) => displayId(a.bead.id)),
-            updated: plan.updates.map((a) => displayId(a.bead.id)),
-            skipped: plan.skips.map((a) => ({
-              beadId: displayId(a.bead.id),
-              reason: a.skipReason ?? 'skipped',
-            })),
-            failures: [],
-          });
-          continue;
-        }
-
-        reports.push(
-          await applyMirror({
-            adapter,
-            plan,
-            displayId,
-            onLinked: async (issue, linkEntry) => {
-              // Written only after the external item exists, so an interrupted
-              // run leaves an unlinked external item rather than a link to
-              // something that was never created.
-              const stored = await readIssue(context.dataSyncDir, issue.id);
-              const linkedIssue = writeLink(stored, linkEntry);
-              linkedIssue.version += 1;
-              linkedIssue.updated_at = now();
-              await writeIssue(context.dataSyncDir, linkedIssue);
-            },
-          }),
-        );
-      }
+      reports = await runEnabledIntegrationPushes(
+        {
+          tbdRoot,
+          config,
+          dataSyncDir: context.dataSyncDir,
+          worktreePath: context.sharedPaths.sharedWorktreePath,
+        },
+        {
+          ...options,
+          assumeYes: options.yes === true,
+          interactive: process.stdin.isTTY,
+          dryRun,
+        },
+      );
     });
 
     if (!this.ctx.quiet) {
@@ -399,6 +245,8 @@ interface SyncOptions {
   pull?: boolean;
   /** Resolved from the direction flags; `inbound` is `--pull`. */
   direction?: 'both' | 'inbound';
+  external?: string[];
+  force?: boolean;
 }
 
 /**
@@ -426,6 +274,8 @@ class IntegrationSyncHandler extends BaseCommand {
           interactive: process.stdin.isTTY,
           dryRun,
           direction: options.direction ?? 'both',
+          externalRefs: options.external,
+          allowClaimedExternal: options.force,
         },
       );
     });
@@ -513,7 +363,7 @@ class IntegrationLinkHandler extends BaseCommand {
   async run(
     beadRef: string,
     externalRef: string,
-    options: { provider?: string; take?: string },
+    options: { provider?: string; take?: string; force?: boolean },
   ): Promise<void> {
     const tbdRoot = await requireInit();
     const config = await readConfig(tbdRoot);
@@ -544,7 +394,6 @@ class IntegrationLinkHandler extends BaseCommand {
       }
 
       const ref = await adapter.resolveRef(externalRef);
-
       // One source per item: no other bead in this repo may hold this item.
       const records = await listLinkRecords(context.dataSyncDir, provider);
       const taken = byExternalId(records).get(ref.id);
@@ -561,6 +410,12 @@ class IntegrationLinkHandler extends BaseCommand {
           `${ref.key ?? ref.id} is already linked to ${formatDisplayId(holder.bead_id, context.mapping, config.display.id_prefix)}. Two beads double-writing one item is the ping-pong this guard exists to prevent.`,
         );
       }
+      await assertExternalUnclaimed(
+        adapter,
+        ref.id,
+        ref.key ?? externalRef,
+        options.force === true,
+      );
 
       const [remote] = await adapter.fetchIssues([ref.id]);
       if (!remote) {
@@ -604,6 +459,13 @@ class IntegrationLinkHandler extends BaseCommand {
         url: ref.url ?? null,
         linked_at: now(),
       });
+
+      const displayId = formatDisplayId(internalId, context.mapping, config.display.id_prefix);
+      const claim = {
+        url: beadAttachmentUrl(displayId),
+        title: `${displayId} · ${stored.kind}`,
+        subtitle: `${stored.status} · P${stored.priority}`,
+      };
       stored.version += 1;
       stored.updated_at = now();
       await writeIssue(context.dataSyncDir, stored);
@@ -627,6 +489,20 @@ class IntegrationLinkHandler extends BaseCommand {
         synced_at: now(),
         state: 'linked',
       });
+
+      // Persist the complete local link and its replayable ownership claim
+      // before mutating the provider. A failed upsert leaves one linked bead
+      // and one idempotent intent for the next full synchronization.
+      const claimRunId = ulid().toLowerCase();
+      await writeIntentFile(context.dataSyncDir, {
+        type: 'in',
+        run_id: claimRunId,
+        provider,
+        created_at: now(),
+        ops: [{ kind: 'upsert_attachments', external_id: ref.id, attachments: [claim] }],
+      });
+      await adapter.upsertAttachments(ref.id, [claim]);
+      await deleteIntentFile(context.dataSyncDir, provider, claimRunId);
 
       this.output.success(
         `Linked ${beadRef} to ${ref.key ?? ref.id}${equal ? '' : ` (took ${stance})`}.`,
@@ -677,17 +553,19 @@ export const integrationCommand = new Command('integration')
       .description('Synchronize with a configured tracker (both directions by default)')
       .option('--push', 'Outbound only: project selected beads to the tracker')
       .option('--pull', 'Inbound only: pull tracker changes into beads')
+      .option('--external <refs...>', 'With --pull, import exactly these external references')
+      .option('--force', 'With --pull --external, ignore a stale remote tbd link claim')
       .option('--provider <name>', 'Limit to one provider')
-      .option('--bead <ids...>', 'Push these beads only (overrides all other selectors)')
-      .option('-t, --type <type>', 'Select by kind: bug, feature, task, epic, chore')
-      .option('--status <status>', 'Select by status')
+      .option('--bead <ids...>', 'With --push, select these beads only')
+      .option('-t, --type <type>', 'With --push, select by kind')
+      .option('--status <status>', 'With --push, select by status')
       .option(
         '-l, --label <label>',
-        'Select by label (repeatable)',
+        'With --push, select by label (repeatable)',
         (value: string, previous: string[] | undefined) => [...(previous ?? []), value],
       )
-      .option('--spec <path>', 'Select beads linked to a spec path')
-      .option('--limit <n>', 'Push at most n beads, for a staged rollout')
+      .option('--spec <path>', 'With --push, select beads linked to a spec path')
+      .option('--limit <n>', 'With --push, select at most n beads')
       .option('-y, --yes', 'Confirm a run that exceeds the bulk-change thresholds')
       .action(async (rawOptions, command) => {
         const options = rawOptions as PushOptions & SyncOptions;
@@ -697,6 +575,16 @@ export const integrationCommand = new Command('integration')
           throw new CLIError(
             '--push and --pull are mutually exclusive; omit both for a full sync.',
           );
+        }
+        if (options.external?.length && !options.pull) {
+          throw new CLIError('--external is only valid with --pull.');
+        }
+        if (options.force && (!options.pull || !options.external?.length)) {
+          throw new CLIError('--force is only valid with --pull --external.');
+        }
+        const invalidSelector = pushOnlySelector(options);
+        if (!options.push && invalidSelector) {
+          throw new CLIError(`${invalidSelector} is only valid with --push.`);
         }
         if (options.push) {
           // Outbound only is the projection: selected beads out, attachments
@@ -727,6 +615,7 @@ export const integrationCommand = new Command('integration')
       .argument('<ref>', 'External reference (FIN-123, linear:FIN-123, or a URL)')
       .option('--provider <name>', 'Provider (default: linear)')
       .option('--take <side>', 'When fields differ: adopt local or remote values')
+      .option('--force', 'Ignore a stale tbd link claim from another repository')
       .action(async (bead, ref, options, command) => {
         const handler = new IntegrationLinkHandler(command);
         await handler.run(bead, ref, options);

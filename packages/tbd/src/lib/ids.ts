@@ -13,6 +13,8 @@
 import { monotonicFactory } from 'ulid';
 import { randomBytes } from 'node:crypto';
 
+import { splitPrefixedDisplayId } from './display-id.js';
+
 // Monotonic factory ensures ULIDs are strictly increasing even within the same
 // millisecond. This guarantees that lexicographic sort = creation order, which
 // is critical for deterministic list output (the tiebreaker sort is by ULID).
@@ -177,7 +179,8 @@ export function isShortId(input: string): boolean {
  *   "100" -> "100"
  */
 export function extractShortId(externalId: string): string {
-  return externalId.toLowerCase().replace(/^[a-z]+-/, '');
+  const normalized = externalId.toLowerCase();
+  return splitPrefixedDisplayId(normalized)?.shortId ?? normalized;
 }
 
 /**
@@ -191,8 +194,7 @@ export function extractShortId(externalId: string): string {
  *   "100" -> null (no prefix)
  */
 export function extractPrefix(externalId: string): string | null {
-  const match = /^([a-zA-Z]+)-/.exec(externalId);
-  return match?.[1]?.toLowerCase() ?? null;
+  return splitPrefixedDisplayId(externalId)?.prefix ?? null;
 }
 
 /**

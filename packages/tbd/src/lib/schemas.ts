@@ -7,6 +7,8 @@
 
 import { z } from 'zod';
 
+import { DISPLAY_PREFIX_PATTERN_SOURCE, EXTERNAL_SHORT_ID_PATTERN_SOURCE } from './display-id.js';
+
 // =============================================================================
 // Common Types (§2.6.1)
 // =============================================================================
@@ -43,7 +45,9 @@ export const Ulid = z.string().regex(/^[0-9a-z]{26}$/);
  * External Issue ID input: accepts {prefix}-{short} or just {short}.
  * Examples: bd-a7k2, a7k2, bd-100, 100
  */
-export const ExternalIssueIdInput = z.string().regex(/^([a-z]+-)?[0-9a-z]+$/);
+export const ExternalIssueIdInput = z
+  .string()
+  .regex(new RegExp(`^(?:${DISPLAY_PREFIX_PATTERN_SOURCE}-)?${EXTERNAL_SHORT_ID_PATTERN_SOURCE}$`));
 
 /**
  * Edit counter - incremented on every local change.

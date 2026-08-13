@@ -124,6 +124,9 @@ function labelsEqual(a: readonly string[], b: readonly string[]): boolean {
 interface FieldOps {
   local: unknown;
   remote: unknown;
+  /** Human-recoverable values when comparison uses a normalized representation. */
+  reportLocal?: unknown;
+  reportRemote?: unknown;
   /** The recorded base value; undefined means "no base" (freshly linked). */
   base: unknown;
   equal: (a: unknown, b: unknown) => boolean;
@@ -200,6 +203,8 @@ export function reconcile(
       // as a change; the applied values are the real prose.
       local: descriptionHash(local.description),
       remote: descriptionHash(remoteProse),
+      reportLocal: local.description,
+      reportRemote: remoteProse,
       // A hash from an older normalization algorithm matches neither side and
       // would fake a both-changed conflict; treat it as no recorded base.
       base: base?.description_hash?.startsWith(DESCRIPTION_HASH_PREFIX)
@@ -366,8 +371,8 @@ function resolveConflict(
   }
   conflicts.push({
     field,
-    localValue: ops.local,
-    remoteValue: ops.remote,
+    localValue: ops.reportLocal ?? ops.local,
+    remoteValue: ops.reportRemote ?? ops.remote,
     winner: localWins ? 'local' : 'remote',
     decidedBy,
   });

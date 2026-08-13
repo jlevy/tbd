@@ -50,7 +50,7 @@ const ISSUE_FIELDS = `
 
 /** Fetch issues by UUID. Batched: one request covers a whole mirror run. */
 export const ISSUES_BY_ID_QUERY = `query IssuesById($ids: [ID!], $first: Int!, $after: String) {
-  issues(filter: { id: { in: $ids } }, first: $first, after: $after) {
+  issues(filter: { id: { in: $ids } }, includeArchived: true, first: $first, after: $after) {
     pageInfo { hasNextPage endCursor }
     nodes {${ISSUE_FIELDS}}
   }
@@ -133,6 +133,13 @@ export const ISSUE_COMMENTS_QUERY = `query IssueComments($id: String!, $first: I
     comments(first: $first) {
       nodes { id body createdAt resolvedAt user { name displayName } }
     }
+  }
+}`;
+
+/** Attachment URLs on one issue, used to detect another tbd repository's claim. */
+export const ISSUE_ATTACHMENTS_QUERY = `query IssueAttachments($id: String!, $first: Int!) {
+  issue(id: $id) {
+    attachments(first: $first) { nodes { url } }
   }
 }`;
 

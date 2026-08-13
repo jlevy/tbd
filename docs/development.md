@@ -140,6 +140,31 @@ self-contained page and APIs work.
 Design and implementation details are in
 [plan-2026-08-10-tbd-web-live-bead-view.md](project/specs/done/plan-2026-08-10-tbd-web-live-bead-view.md).
 
+### Developing external tracker integrations
+
+Build first and exercise the published entry point; integration acceptance tests spawn
+that same binary in a real repository:
+
+```bash
+pnpm --filter get-tbd build
+pnpm --filter get-tbd exec vitest run tests/integrations-*.test.ts
+pnpm --filter get-tbd exec vitest run tests/integration-cli-e2e.test.ts
+node packages/tbd/dist/bin.mjs integration status --offline
+```
+
+Provider-neutral policy, links, reconciliation, intents, and orchestration live in
+`packages/tbd/src/integrations/core/`; provider transports and mappings live below
+`integrations/<provider>/`; `packages/tbd/src/cli/commands/integration.ts` owns CLI
+translation only. The engine must validate duplicate external IDs before journal replay
+or provider I/O, quarantine every holder, and continue unrelated pairs.
+Never put a credential in `process.env`, committed bridge state, output, or a test
+fixture.
+
+Live Linear validation follows `packages/tbd/tests/qa/linear-integration.qa.md` with
+designated pilot items, records the final state, and restores a coherent project.
+The complete Linear RC, GitHub issue/PR, and read-only web projection work map is
+[plan-2026-08-10-external-tracker-integrations.md](project/specs/active/plan-2026-08-10-external-tracker-integrations.md).
+
 ### Building
 
 ```bash

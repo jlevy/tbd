@@ -4,7 +4,8 @@
  * Order matters and each step is deliberate:
  *
  * 1. **Replay** pending intents (this machine's or another's) so nothing is in
- *    flight before new work is planned.
+ *    flight before new work is planned. Inbound-only runs deliberately leave
+ *    them pending because replay would violate their no-provider-writes contract.
  * 2. **Pull** the remote delta (watermark minus a generous overlap — an
  *    efficiency prefilter, never a correctness input) plus targeted fetches
  *    for linked pairs with local-only changes.
@@ -40,7 +41,8 @@ import {
   writeLinkRecord,
 } from './bridge-state.js';
 import { mergeExternalComments, recordPushedComment, unpushedComments } from './comment-store.js';
-import { readLink, writeLink } from './link-store.js';
+import { duplicateExternalLinks, readLink, writeLink } from './link-store.js';
+import { assertExternalUnclaimed } from './link-guard.js';
 import { renderManagedBlock, type MirrorLinks } from './managed-block.js';
 import { attachmentsFor, beadAttachmentUrl, prefixLabels } from './mirror.js';
 import {
@@ -79,6 +81,16 @@ export interface SyncCallbacks {
   }): Promise<Issue>;
   /** Commit the journaled intents before any external write happens. */
   afterJournal(): Promise<void>;
+  /** Preserve a losing tracker-conflict value and return its repo-relative path. */
+  archiveConflict(input: {
+    beadId: string;
+    field: string;
+    lostValue: unknown;
+    winnerSource: 'local' | 'remote';
+    localVersion: number;
+    localUpdatedAt: string;
+    remoteUpdatedAt: string;
+  }): Promise<string>;
   /**
    * Enforce the bulk guard. Throws to abort the run; returns to proceed.
    * Counts cover both directions.
@@ -116,6 +128,10 @@ export interface SyncEngineOptions {
    * still names what the suppressed half would have done.
    */
   direction?: 'both' | 'inbound';
+  /** Explicit provider ids selected by `sync --pull --external`, independent of policy. */
+  externalIssueIds?: string[];
+  /** Deliberate override for a stale cross-repository tbd attachment claim. */
+  allowClaimedExternal?: boolean;
   callbacks: SyncCallbacks;
   dryRun: boolean;
   now: () => string;
@@ -189,6 +205,10 @@ function conflictReportOf(
   return { beadId, field: conflict.field, keptValue: kept, discardedValue: discarded, atticPath };
 }
 
+function conflictSignature(report: ConflictReport): string {
+  return JSON.stringify([report.beadId, report.field, report.keptValue, report.discardedValue]);
+}
+
 /** Run the full synchronization for one provider. */
 export async function runSync(options: SyncEngineOptions): Promise<SyncRunReport> {
   const { adapter, provider, policy, dataSyncDir, callbacks, dryRun } = options;
@@ -211,11 +231,40 @@ export async function runSync(options: SyncEngineOptions): Promise<SyncRunReport
     nothingToDo: false,
   };
 
+  // Corrupt legacy/manual state can bypass the link command's one-source
+  // guard. Identify every holder before replaying a journal or contacting the
+  // provider, then quarantine only those pairs so unrelated work can proceed.
+  const duplicateLinks = duplicateExternalLinks(options.allIssues, provider);
+  const blockedBeadIds = new Set(duplicateLinks.flatMap((duplicate) => duplicate.beadIds));
+  const blockedExternalIds = new Set(duplicateLinks.map((duplicate) => duplicate.externalId));
+  const replayedConflictReports = new Map<string, ConflictReport>();
+  for (const duplicate of duplicateLinks) {
+    const displayIds = duplicate.beadIds.map(options.displayId).sort();
+    const externalRef = duplicate.externalKey ?? duplicate.externalId;
+    for (const beadId of displayIds) {
+      report.failures.push({
+        beadId,
+        error:
+          `${provider} item ${externalRef} is linked by multiple beads: ` +
+          `${displayIds.join(', ')}. Run \`tbd integration unlink\` until exactly one link remains.`,
+      });
+    }
+  }
+
   // 1. Replay anything a crashed run left behind. Never during a dry run: a
   // preview must not perform writes, even convergent ones.
-  if (!dryRun) {
-    const replay = await replayIntents(dataSyncDir, provider, adapter);
+  // `--pull` is a hard no-external-writes boundary. Pending outbound intents
+  // remain durable and replay on the next full sync; replaying them here would
+  // make an apparently inbound-only command mutate the provider.
+  if (!dryRun && !inboundOnly) {
+    const replay = await replayIntents(dataSyncDir, provider, adapter, {
+      blockedExternalIds,
+      blockedBeadIds,
+    });
     report.replayedOps = replay.replayedOps;
+    for (const conflict of replay.replayedConflicts) {
+      replayedConflictReports.set(conflictSignature(conflict), conflict);
+    }
     for (const recovered of replay.recoveredCreates) {
       // A recovered create may have beaten the link write; repair it.
       const bead = await callbacks.readBead(recovered.beadId).catch(() => undefined);
@@ -239,7 +288,8 @@ export async function runSync(options: SyncEngineOptions): Promise<SyncRunReport
   }
 
   // 2. Assemble the linked set and the remote view.
-  const linked = options.allIssues.filter((issue) => readLink(issue, provider));
+  const allLinked = options.allIssues.filter((issue) => readLink(issue, provider));
+  const linked = allLinked.filter((issue) => !blockedBeadIds.has(issue.id));
   const records = await listLinkRecords(dataSyncDir, provider);
   const recordByBead = new Map(records.map((record) => [record.bead_id, record]));
 
@@ -247,22 +297,14 @@ export async function runSync(options: SyncEngineOptions): Promise<SyncRunReport
   const delta = since ? await adapter.fetchUpdatedSince(since) : [];
   const remoteById = new Map(delta.map((issue) => [issue.id, issue]));
 
-  // Linked pairs whose remote is not in the delta still need their current
-  // remote when the local side moved (or no base exists to compare against).
+  // Every linked pair absent from the delta gets one batched liveness fetch.
+  // Linear does not advance `updatedAt` when an item is archived, and ordinary
+  // connection queries omit archived items, so checking only locally-moved
+  // pairs would leave a quiet archived/deleted link invisible forever.
   const missingIds: string[] = [];
   for (const bead of linked) {
     const link = readLink(bead, provider)!;
-    if (remoteById.has(link.id)) {
-      continue;
-    }
-    const record = recordByBead.get(bead.id);
-    const localMoved =
-      record?.base.title !== bead.title ||
-      record.base.status !== bead.status ||
-      record.base.priority !== bead.priority ||
-      record.base.description_hash !== descriptionHash(bead.description ?? null) ||
-      unpushedComments(bead, provider).length > 0;
-    if (localMoved) {
+    if (!remoteById.has(link.id)) {
       missingIds.push(link.id);
     }
   }
@@ -276,7 +318,12 @@ export async function runSync(options: SyncEngineOptions): Promise<SyncRunReport
     const link = readLink(bead, provider)!;
     const remote = remoteById.get(link.id);
     if (!remote) {
-      continue; // untouched on both sides
+      const record = recordByBead.get(bead.id);
+      if (!dryRun && record && record.state !== 'orphaned') {
+        await writeLinkRecord(dataSyncDir, provider, { ...record, state: 'orphaned' });
+      }
+      report.orphaned.push(options.displayId(bead.id));
+      continue;
     }
     if (remote.archivedAt || remote.trashed) {
       const record = recordByBead.get(bead.id);
@@ -362,26 +409,52 @@ export async function runSync(options: SyncEngineOptions): Promise<SyncRunReport
   // items; a full scan happens only when there is no watermark yet.
   const inbound = policy.inbound;
   const linkedExternalIds = new Set(
-    linked.map((bead) => readLink(bead, provider)!.id).concat(records.map((r) => r.external_id)),
+    allLinked.map((bead) => readLink(bead, provider)!.id).concat(records.map((r) => r.external_id)),
   );
-  const inboundCandidates =
-    inbound.mode === 'off'
+  const explicitlySelected = options.externalIssueIds !== undefined;
+  const effectiveInboundMode = explicitlySelected ? 'auto' : inbound.mode;
+  const inboundPool = explicitlySelected
+    ? await adapter.fetchIssues([...new Set(options.externalIssueIds)])
+    : inbound.mode === 'off'
       ? []
-      : (since ? delta : await adapter.fetchUpdatedSince('1970-01-01T00:00:00.000Z')).filter(
-          (issue) =>
-            !linkedExternalIds.has(issue.id) &&
-            !issue.archivedAt &&
-            !issue.trashed &&
-            (inbound.labels.length === 0 ||
-              issue.labels.some((label) => inbound.labels.includes(label))),
+      : since
+        ? delta
+        : await adapter.fetchUpdatedSince('1970-01-01T00:00:00.000Z');
+  const inboundCandidates = inboundPool.filter(
+    (issue) =>
+      !linkedExternalIds.has(issue.id) &&
+      !issue.archivedAt &&
+      !issue.trashed &&
+      (explicitlySelected ||
+        inbound.labels.length === 0 ||
+        issue.labels.some((label) => inbound.labels.includes(label))),
+  );
+  const importCandidates: ExternalIssue[] = [];
+  if (effectiveInboundMode === 'auto') {
+    for (const candidate of inboundCandidates) {
+      try {
+        await assertExternalUnclaimed(
+          adapter,
+          candidate.id,
+          candidate.key ?? candidate.id,
+          options.allowClaimedExternal === true,
         );
+        importCandidates.push(candidate);
+      } catch (error) {
+        report.failures.push({
+          beadId: candidate.key ?? candidate.id,
+          error: error instanceof Error ? error.message : String(error),
+        });
+      }
+    }
+  }
 
   // 4. The guard counts both directions.
   const externalUpdates = pairs.filter(
     (pair) => Object.keys(pair.result.externalPatch).length > 0,
   ).length;
   const beadUpdates = pairs.filter((pair) => Object.keys(pair.result.beadPatch).length > 0).length;
-  const creates = outboundNew.length + (inbound.mode === 'auto' ? inboundCandidates.length : 0);
+  const creates = outboundNew.length + importCandidates.length;
   const updates = externalUpdates + beadUpdates + commentPushes.length;
   if (!dryRun && (creates > 0 || updates > 0)) {
     await callbacks.affirmBulk({ creates, updates });
@@ -402,8 +475,10 @@ export async function runSync(options: SyncEngineOptions): Promise<SyncRunReport
       }
     }
     report.createdOutbound = outboundNew.map((issue) => options.displayId(issue.id));
-    if (inbound.mode !== 'off') {
-      report.importable = inboundCandidates.map((issue) => ({
+    if (effectiveInboundMode !== 'off') {
+      report.importable = (
+        effectiveInboundMode === 'auto' ? importCandidates : inboundCandidates
+      ).map((issue) => ({
         id: issue.id,
         key: issue.key,
         title: issue.title,
@@ -413,8 +488,77 @@ export async function runSync(options: SyncEngineOptions): Promise<SyncRunReport
       report.pushed.length + report.pulled.length + report.conflicts.length === 0 &&
       report.createdOutbound.length === 0 &&
       report.importable.length === 0 &&
+      report.failures.length === 0 &&
       commentPulls.length + commentPushes.length === 0;
     return report;
+  }
+
+  // A conflict must be recoverable before either side is overwritten or a
+  // provider comment advertises the archive path. Replayed remote-win reports
+  // reuse their already-committed archive and client-id-deduped comment rather
+  // than creating a second artifact/comment before this run advances the base.
+  const conflictPlans = new Map<
+    string,
+    { report: ConflictReport; clientId?: string; needsPost: boolean }[]
+  >();
+  const deferredConflictOps: IntentOp[] = [];
+  const executablePairs: PlannedPair[] = [];
+  for (const pair of pairs) {
+    const displayId = options.displayId(pair.bead.id);
+    try {
+      const plans: { report: ConflictReport; clientId?: string; needsPost: boolean }[] = [];
+      for (const conflict of pair.result.conflicts) {
+        const provisional = conflictReportOf(displayId, conflict, 'pending');
+        const replayed = replayedConflictReports.get(conflictSignature(provisional));
+        if (replayed) {
+          plans.push({ report: replayed, needsPost: false });
+          continue;
+        }
+        const lostValue = conflict.winner === 'local' ? conflict.remoteValue : conflict.localValue;
+        const atticPath = await callbacks.archiveConflict({
+          beadId: pair.bead.id,
+          field: conflict.field,
+          lostValue,
+          winnerSource: conflict.winner,
+          localVersion: pair.bead.version,
+          localUpdatedAt: pair.bead.updated_at,
+          remoteUpdatedAt: pair.remote.updatedAt,
+        });
+        const conflictReport = conflictReportOf(displayId, conflict, atticPath);
+        const clientId = randomUUID();
+        if (inboundOnly) {
+          const link = readLink(pair.bead, provider)!;
+          deferredConflictOps.push({
+            kind: 'post_conflict',
+            external_id: link.id,
+            comment_client_id: clientId,
+            report: conflictReport,
+          });
+        }
+        plans.push({
+          report: conflictReport,
+          clientId,
+          needsPost: !inboundOnly,
+        });
+      }
+      conflictPlans.set(pair.bead.id, plans);
+      executablePairs.push(pair);
+    } catch (error) {
+      report.failures.push({
+        beadId: displayId,
+        error: `Could not archive tracker conflict: ${error instanceof Error ? error.message : String(error)}`,
+      });
+    }
+  }
+
+  if (deferredConflictOps.length > 0) {
+    await writeIntentFile(dataSyncDir, {
+      type: 'in',
+      run_id: ulid().toLowerCase(),
+      provider,
+      created_at: options.now(),
+      ops: deferredConflictOps,
+    });
   }
 
   // 5. Journal every planned external write.
@@ -452,8 +596,8 @@ export async function runSync(options: SyncEngineOptions): Promise<SyncRunReport
       ops.push({ kind: 'splice_description', external_id: clientId, block });
     }
   }
-  for (const pair of pairs) {
-    if (Object.keys(pair.result.externalPatch).length > 0) {
+  for (const pair of executablePairs) {
+    if (!inboundOnly && Object.keys(pair.result.externalPatch).length > 0) {
       const link = readLink(pair.bead, provider)!;
       ops.push({
         kind: 'update_issue',
@@ -461,9 +605,24 @@ export async function runSync(options: SyncEngineOptions): Promise<SyncRunReport
         patch: pair.result.externalPatch as IntentPatch,
       });
     }
+    const link = readLink(pair.bead, provider)!;
+    for (const plan of conflictPlans.get(pair.bead.id) ?? []) {
+      if (plan.needsPost) {
+        ops.push({
+          kind: 'post_conflict',
+          external_id: link.id,
+          comment_client_id: plan.clientId!,
+          report: plan.report,
+        });
+      }
+    }
   }
   const commentClientIds = new Map<string, string>();
+  const executableBeadIds = new Set(executablePairs.map((pair) => pair.bead.id));
   for (const push of commentPushes) {
+    if (!executableBeadIds.has(push.bead.id)) {
+      continue;
+    }
     for (const entry of unpushedComments(push.bead, provider)) {
       const clientId = randomUUID();
       commentClientIds.set(`${push.bead.id}:${entry.local_id}`, clientId);
@@ -480,7 +639,7 @@ export async function runSync(options: SyncEngineOptions): Promise<SyncRunReport
   // keep their own files) or by pull-side failures (which are re-planned from
   // current state and need no journal).
   const journaledExternalIds = new Set(
-    ops.flatMap((op) => (op.kind === 'update_issue' ? [op.external_id] : [])),
+    ops.flatMap((op) => ('external_id' in op ? [op.external_id] : [])),
   );
   const journaledCommentBeads = new Set(commentPushes.map((push) => push.bead.id));
   let journalDirty = false;
@@ -497,7 +656,7 @@ export async function runSync(options: SyncEngineOptions): Promise<SyncRunReport
   }
 
   // 6. Apply, per-pair containment.
-  for (const pair of pairs) {
+  for (const pair of executablePairs) {
     const displayId = options.displayId(pair.bead.id);
     const link = readLink(pair.bead, provider)!;
     try {
@@ -512,7 +671,7 @@ export async function runSync(options: SyncEngineOptions): Promise<SyncRunReport
       // Conflict artifacts: a comment per conflicted field, exactly-once. An
       // inbound-only run writes nothing outward, so it reports the conflict
       // without posting; the next full sync posts it.
-      for (const conflict of pair.result.conflicts) {
+      for (const [index, conflict] of pair.result.conflicts.entries()) {
         if (inboundOnly) {
           report.conflicts.push({
             beadId: displayId,
@@ -521,12 +680,13 @@ export async function runSync(options: SyncEngineOptions): Promise<SyncRunReport
           });
           continue;
         }
-        const clientId = randomUUID();
-        await adapter.postConflict(
-          link.id,
-          conflictReportOf(displayId, conflict, `.tbd/data-sync/attic/conflicts/${pair.bead.id}`),
-          clientId,
-        );
+        const plan = conflictPlans.get(pair.bead.id)?.[index];
+        if (!plan) {
+          throw new Error(`Missing archived conflict plan for ${conflict.field}`);
+        }
+        if (plan.needsPost) {
+          await adapter.postConflict(link.id, plan.report, plan.clientId);
+        }
         report.conflicts.push({
           beadId: displayId,
           field: conflict.field,
@@ -688,13 +848,13 @@ export async function runSync(options: SyncEngineOptions): Promise<SyncRunReport
   }
 
   // 7b. Inbound: import or report.
-  for (const candidate of inboundCandidates) {
-    if (inbound.mode === 'report') {
+  for (const candidate of effectiveInboundMode === 'auto' ? importCandidates : inboundCandidates) {
+    if (effectiveInboundMode === 'report') {
       report.importable.push({ id: candidate.id, key: candidate.key, title: candidate.title });
       continue;
     }
     try {
-      const created = await importExternal(candidate, inbound, provider, options);
+      const created = await importExternal(candidate, inbound, provider, options, !inboundOnly);
       report.importedInbound.push(options.displayId(created.id));
     } catch (error) {
       report.failures.push({
@@ -736,6 +896,7 @@ async function importExternal(
   inbound: InboundClause,
   provider: ProviderNameType,
   options: SyncEngineOptions,
+  writeExternalClaim: boolean,
 ): Promise<Issue> {
   const created = await options.callbacks.createBead({
     title: candidate.title,
@@ -756,14 +917,11 @@ async function importExternal(
   stored.updated_at = options.now();
   await options.callbacks.writeBead(stored);
 
-  await options.adapter.upsertAttachments(candidate.id, [
-    {
-      url: beadAttachmentUrl(options.displayId(created.id)),
-      title: `${options.displayId(created.id)} · ${inbound.as_kind}`,
-      subtitle: `${candidate.status} · P${candidate.priority}`,
-    },
-  ]);
-
+  const claim = {
+    url: beadAttachmentUrl(options.displayId(created.id)),
+    title: `${options.displayId(created.id)} · ${inbound.as_kind}`,
+    subtitle: `${candidate.status} · P${candidate.priority}`,
+  };
   await writeLinkRecord(options.dataSyncDir, provider, {
     type: 'lk',
     bead_id: created.id,
@@ -780,5 +938,25 @@ async function importExternal(
     synced_at: options.now(),
     state: 'linked',
   });
+
+  // The ownership marker is part of the import transaction, including for a
+  // normal full sync. Persist the bead, link record, and claim intent before
+  // touching the provider so a transport failure is replayable without
+  // creating a second bead. Pull-only runs intentionally leave this same
+  // intent for the next full sync, preserving their no-provider-writes rule.
+  const claimRunId = ulid().toLowerCase();
+  await writeIntentFile(options.dataSyncDir, {
+    type: 'in',
+    run_id: claimRunId,
+    provider,
+    created_at: options.now(),
+    ops: [{ kind: 'upsert_attachments', external_id: candidate.id, attachments: [claim] }],
+  });
+  await options.callbacks.afterJournal();
+
+  if (writeExternalClaim) {
+    await options.adapter.upsertAttachments(candidate.id, [claim]);
+    await deleteIntentFile(options.dataSyncDir, provider, claimRunId);
+  }
   return stored;
 }

@@ -106,8 +106,12 @@ describe('integration file formats', () => {
 
     it('keeps the minimal skill runtime requirement aligned with the package', async () => {
       const content = await readFile(join(shortcutsSystemDir, 'skill-minimal.md'), 'utf-8');
-      expect(content).toContain('Requires Node.js 20+ and git');
-      expect(content).not.toContain('Requires Node.js 18+');
+      const packageJson = JSON.parse(
+        await readFile(join(__dirname, '..', 'package.json'), 'utf-8'),
+      ) as { engines: { node: string } };
+      const minimumNode = packageJson.engines.node.replace(/^>=/u, '');
+
+      expect(content).toContain(`Requires Node.js ${minimumNode}+ and git`);
     });
 
     it('includes the natural-language browser request in installed onboarding', async () => {

@@ -62,10 +62,11 @@ import {
   deleteWorkspace,
 } from '../../file/workspace.js';
 import { withDataSyncContext } from '../lib/data-context.js';
-import { runEnabledIntegrations } from '../lib/integration-runner.js';
+import { runEnabledIntegrationPushes, runEnabledIntegrations } from '../lib/integration-runner.js';
 import { integrationsInert } from '../../integrations/core/registry.js';
 import { readConfig } from '../../file/config.js';
 import type { Config } from '../../lib/types.js';
+import type { MirrorReport } from '../../integrations/core/types.js';
 import { EXIT_OPERATIONAL_ERROR } from '../lib/exit-codes.js';
 
 /**
@@ -115,6 +116,8 @@ class SyncHandler extends BaseCommand {
   private syncIntegrations = false;
   /** Set once the in-position (inside fullSync) integration run has happened. */
   private integrationsRan = false;
+  /** Captured so the issue surface can finish while the outer rollup still fails honestly. */
+  private integrationFailure: unknown;
 
   async run(options: SyncOptions): Promise<void> {
     const tbdRoot = await requireInit();
@@ -199,6 +202,7 @@ class SyncHandler extends BaseCommand {
             if (options.pull) {
               await this.pullChanges(syncBranch, remote);
             } else if (options.push) {
+              await this.runIntegrationPushInPosition();
               await this.pushChanges(syncBranch, remote);
             } else {
               // Full sync: pull then push
@@ -215,6 +219,13 @@ class SyncHandler extends BaseCommand {
       }
     }
 
+    if (this.integrationsRan) {
+      attempted.push('integrations');
+      if (this.integrationFailure !== undefined) {
+        fail('integrations', this.integrationFailure);
+      }
+    }
+
     // SURFACE 3: external trackers, when they did not already run in position
     // above — because issues were not selected, or the issue phase failed
     // before reaching them. Running here still records everything on the sync
@@ -226,29 +237,36 @@ class SyncHandler extends BaseCommand {
         // is not free — it can repair the worktree and commit pending state —
         // so a repo with no enabled integration must not pay for one to learn
         // it has nothing to do.
-        const preConfig = await readConfig(tbdRoot).catch(() => undefined);
+        const preConfig = await readConfig(tbdRoot);
         const inert =
-          !preConfig ||
-          preConfig.integrations?.sync_on_tbd_sync === false ||
-          integrationsInert(preConfig);
+          preConfig.integrations?.sync_on_tbd_sync === false || integrationsInert(preConfig);
         if (!inert) {
           await withDataSyncContext(tbdRoot, { lock: true }, async (context) => {
             attempted.push('integrations');
-            const reports = await runEnabledIntegrations(
-              {
-                tbdRoot,
-                config: context.config,
-                dataSyncDir: context.dataSyncDir,
-                worktreePath: context.sharedPaths.sharedWorktreePath,
-              },
-              {
+            const integrationContext = {
+              tbdRoot,
+              config: context.config,
+              dataSyncDir: context.dataSyncDir,
+              worktreePath: context.sharedPaths.sharedWorktreePath,
+            };
+            if (options.push) {
+              const reports = await runEnabledIntegrationPushes(integrationContext, {
+                assumeYes: true,
+                interactive: false,
+                dryRun: false,
+              });
+              this.reportIntegrationPush(reports);
+              this.assertIntegrationReportsHealthy(reports);
+            } else {
+              const reports = await runEnabledIntegrations(integrationContext, {
                 assumeYes: true,
                 interactive: false,
                 dryRun: false,
                 direction: options.pull ? 'inbound' : 'both',
-              },
-            );
-            this.reportIntegrationRun(reports);
+              });
+              this.reportIntegrationRun(reports);
+              this.assertIntegrationReportsHealthy(reports);
+            }
             if (syncIssues) {
               this.output.info(
                 'Integration changes are committed locally; the next successful `tbd sync` pushes them.',
@@ -257,6 +275,9 @@ class SyncHandler extends BaseCommand {
           });
         }
       } catch (error) {
+        if (!attempted.includes('integrations')) {
+          attempted.push('integrations');
+        }
         fail('integrations', error);
       }
     }
@@ -306,6 +327,76 @@ class SyncHandler extends BaseCommand {
           `pulled ${report.pulled.length}, created ${report.createdOutbound.length}, ` +
           `conflicts ${report.conflicts.length}, failures ${report.failures.length}`,
       );
+    }
+  }
+
+  /** Print one line per provider for the outbound-only projection. */
+  private reportIntegrationPush(reports: MirrorReport[]): void {
+    for (const report of reports) {
+      this.output.info(
+        `Integrations (${report.provider}): created ${report.created.length}, ` +
+          `updated ${report.updated.length}, skipped ${report.skipped.length}, ` +
+          `failures ${report.failures.length}`,
+      );
+    }
+  }
+
+  /** Convert contained per-item failures into one surface-level failure. */
+  private assertIntegrationReportsHealthy(
+    reports: { provider: string; failures: { beadId: string; error: string }[] }[],
+  ): void {
+    const failed = reports.flatMap((report) =>
+      report.failures.map((failure) => ({ provider: report.provider, ...failure })),
+    );
+    if (failed.length === 0) {
+      return;
+    }
+
+    const first = failed[0]!;
+    const suffix = failed.length === 1 ? '' : `; ${failed.length - 1} more failure(s)`;
+    throw new Error(
+      `${failed.length} integration item operation(s) failed: ` +
+        `${first.provider}/${first.beadId}: ${first.error}${suffix}`,
+    );
+  }
+
+  /**
+   * Run an outbound-only tracker projection after the caller has taken the
+   * data-sync lock and before `pushChanges` commits and sends the sync branch.
+   * Failure is contained here so git still completes, then surfaced by the
+   * outer multi-surface rollup with a non-zero exit.
+   */
+  private async runIntegrationPushInPosition(): Promise<void> {
+    if (
+      !this.syncIntegrations ||
+      !this.config ||
+      integrationsInert(this.config) ||
+      this.config.integrations?.sync_on_tbd_sync === false
+    ) {
+      return;
+    }
+
+    try {
+      const reports = await runEnabledIntegrationPushes(
+        {
+          tbdRoot: this.tbdRoot,
+          config: this.config,
+          dataSyncDir: this.dataSyncDir,
+          worktreePath: this.worktreePath,
+        },
+        { assumeYes: true, interactive: false, dryRun: false },
+      );
+      this.reportIntegrationPush(reports);
+      this.assertIntegrationReportsHealthy(reports);
+    } catch (error) {
+      this.integrationFailure = error;
+      this.output.warn(
+        `Integration push failed; continuing with git sync. ` +
+          `Run \`tbd integration sync --push\` for details. ` +
+          `(${error instanceof Error ? error.message : String(error)})`,
+      );
+    } finally {
+      this.integrationsRan = true;
     }
   }
 
@@ -1065,9 +1156,10 @@ class SyncHandler extends BaseCommand {
     // it: AFTER pull/merge (so reconciliation sees other machines' bead
     // changes instead of pushing stale state to the tracker) and BEFORE the
     // push (so the beads and bridge records it writes ride this very push).
-    // A failure degrades with a warning; external trackers never block git
-    // sync. The folded run implies affirmation of the bulk thresholds — use
-    // `tbd integration sync` directly for a guarded, reviewable run.
+    // A failure is contained until git sync finishes, then the outer surface
+    // rollup returns a non-zero exit. The folded run implies affirmation of
+    // the bulk thresholds — use `tbd integration sync` directly for a guarded,
+    // reviewable run.
     if (
       this.syncIntegrations &&
       this.config &&
@@ -1085,10 +1177,11 @@ class SyncHandler extends BaseCommand {
           { assumeYes: true, interactive: false, dryRun: false },
         );
         this.reportIntegrationRun(reports);
-        this.integrationsRan = true;
+        this.assertIntegrationReportsHealthy(reports);
       } catch (error) {
         // Contained: git sync continues and completes. Reported here, and the
         // surface rollup names it at the end.
+        this.integrationFailure = error;
         this.output.warn(
           `Integration sync failed; continuing with git sync. ` +
             `Run \`tbd integration sync\` for details. ` +

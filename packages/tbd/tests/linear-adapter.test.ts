@@ -258,6 +258,18 @@ describe('Linear client and adapter', () => {
       expect(server.attachments).toHaveLength(1);
       expect(server.attachments[0]?.title).toBe('v2');
     });
+
+    it('lists attachment URLs for the cross-repository one-source guard', async () => {
+      await adapter.upsertAttachments('uuid-6', [
+        { url: 'tbd://bead/other-1234', title: 'other-1234' },
+        { url: 'https://example.com/spec', title: 'spec' },
+      ]);
+
+      await expect(adapter.listAttachmentUrls('uuid-6')).resolves.toEqual([
+        'tbd://bead/other-1234',
+        'https://example.com/spec',
+      ]);
+    });
   });
 
   describe('spliceDescription', () => {

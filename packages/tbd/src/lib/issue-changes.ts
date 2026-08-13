@@ -345,7 +345,9 @@ function resolveBeadIds(
       if (isInternalId(normalized)) {
         internalId = normalized;
       } else {
-        const shortOrUlid = extractShortId(normalized);
+        // Preserve imported short IDs containing a hyphen before treating the
+        // leading segment as a display prefix.
+        const shortOrUlid = shortToUlid.has(normalized) ? normalized : extractShortId(normalized);
         if (/^[0-9a-z]{26}$/.test(shortOrUlid)) {
           internalId = makeInternalId(shortOrUlid);
         } else {

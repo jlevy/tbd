@@ -59,6 +59,8 @@ export class LinearMockServer {
   rateLimitFailures = 0;
   /** Number of requests to fail with a 500 before succeeding. */
   serverFailures = 0;
+  /** Number of attachment upserts to reject without retry. */
+  attachmentFailures = 0;
 
   readonly states = [
     { id: 'state-backlog', name: 'Backlog', type: 'backlog', position: 0 },
@@ -289,6 +291,13 @@ export class LinearMockServer {
     }
 
     if (query.includes('mutation AttachmentUpsert')) {
+      if (this.attachmentFailures > 0) {
+        this.attachmentFailures -= 1;
+        return {
+          status: 200,
+          payload: { errors: [{ message: 'attachment transport died' }] },
+        };
+      }
       const input = variables.input as Record<string, unknown>;
       const url = input.url as string;
       const issueId = input.issueId as string;
@@ -391,6 +400,17 @@ export class LinearMockServer {
       return {
         status: 200,
         payload: { data: { issue: { comments: { nodes } } } },
+      };
+    }
+
+    if (query.includes('query IssueAttachments')) {
+      const id = variables.id as string;
+      const nodes = this.attachments
+        .filter((attachment) => attachment.issueId === id)
+        .map((attachment) => ({ url: attachment.url }));
+      return {
+        status: 200,
+        payload: { data: { issue: this.issues.has(id) ? { attachments: { nodes } } : null } },
       };
     }
 

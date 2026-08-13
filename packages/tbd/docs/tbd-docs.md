@@ -74,7 +74,7 @@ but these map to unique ULID-based internal IDs for reliable sorting and storage
 
 **Requirements:**
 
-- Node.js 20+
+- Node.js 20.12+
 - Git 2.42+ (for orphan worktree support)
 
 ```bash
@@ -1730,9 +1730,9 @@ policy:
     tie_break: newest # both-sides-changed fallback: newest | local | remote
 ```
 
-The policy is only a default — explicit selectors on `mirror` and explicit `link` /
-`import` always override it — and linking is separate from syncing: once a pair is
-linked, `sync` reconciles it until it is unlinked.
+The policy is only a default — explicit `sync --push` selectors,
+`sync --pull --external`, and `link` always override it — and linking is separate from
+syncing: once a pair is linked, `sync` reconciles it until it is unlinked.
 
 ### Full synchronization
 
@@ -1741,25 +1741,45 @@ tbd --dry-run integration sync   # Preview the identical computation, write noth
 tbd integration sync             # Both directions: reconcile every linked pair
 tbd integration sync --push      # Outbound only: project beads to the tracker
 tbd integration sync --pull      # Inbound only: writes nothing to the tracker
+tbd integration sync --pull --external FIN-123 # Create one bead, regardless of policy
 tbd integration sync --yes       # Affirm a run over the bulk thresholds
 ```
 
 The flags mean what they mean everywhere else in tbd: **bare is both directions,
 `--push` is outbound only, `--pull` is inbound only** — the same shape as
 `tbd sync --push` / `--pull` for issues.
-`--pull` performs **no external writes at all**, so it is the safe way to take tracker
-changes without touching the tracker; a suppressed outbound change stays pending and the
-next full sync pushes it.
+`--pull` performs **no external writes at all**, including replay of a pending outbound
+journal, so it is the safe way to take tracker changes without touching the tracker.
+A suppressed outbound change stays pending and the next full sync pushes it.
+Top-level `tbd sync --push` uses this same outbound-only projection before it commits
+and pushes the sync branch; it does not pull tracker fields or replay the bidirectional
+engine. Every inbound attachment claim is journaled before provider I/O; a full sync
+removes the intent only after the upsert succeeds.
+Under `--pull`, attachment claims and conflict notices remain local until the next full
+sync posts them idempotently.
+Outbound selectors (`--bead`, `--type`, `--status`, `--label`, `--spec`, and `--limit`)
+are valid only with `--push`. Bare sync deliberately reconciles every linked pair;
+supplying a push-only selector without `--push` is a usage error rather than a silently
+broader run.
 
-One run performs, in order: replay of any interrupted prior run (external writes are
-journaled before they happen, so a crash converges instead of duplicating), a pull of
-recently changed tracker items, a per-field three-way reconciliation of every linked
+One full run performs, in order: replay of any interrupted prior run (external writes
+are journaled before they happen, so a crash converges instead of duplicating), a pull
+of recently changed tracker items, a per-field three-way reconciliation of every linked
 pair against its recorded base (one-sided changes flow; both-sided changes fall to
 `tie_break`, archive the losing value to the attic, and post a resolvable conflict
 comment on the tracker item), comment flows per `field_sync.comments`, and finally the
 policy’s outbound and inbound clauses for unlinked work on both sides.
+The attic entry is written before either side is overwritten, and its exact path plus
+the conflict comment’s client UUID ride the same write-ahead journal; a crash can
+neither advertise a missing archive nor duplicate the comment on replay.
 Two runs in a row with no changes report `nothing to do` — that is the expected steady
 state, and anything else is worth reading.
+
+Intent recovery is fail-closed.
+A missing journal directory is an empty queue, but a present journal that is unreadable,
+malformed, or invalid stops synchronization with the filename before any provider write.
+Repair or recover that tracked file rather than deleting it blindly: it may contain the
+stable client UUID preventing a duplicate item.
 
 Cosmetic tracker rewrites (bullet style, list spacing, URL auto-linkification) are
 normalized before comparison, so they never count as remote edits.
@@ -1767,7 +1787,7 @@ Priorities P3 and P4 both map to Linear’s “Low”; a P4 bead stays P4 rather
 oscillating. An archived or deleted tracker item marks its link **orphaned** and is
 reported — the bead is never deleted or closed automatically.
 The bulk thresholds count both directions: creates and updates to the tracker AND
-imports and updates to beads.
+inbound creations and updates to beads.
 
 ### One command at session end
 
@@ -1786,6 +1806,9 @@ tbd sync --push           # Outbound only, for the network surfaces
 does not stop docs or issues from syncing; a git remote that is down does not stop docs.
 Each surface is attempted, each failure is reported with its surface name, and the exit
 code is non-zero if any failed — while everything that worked is still saved.
+This includes provider operations returned as per-item failures, not only thrown network
+errors. An unreadable or invalid integration config also fails closed instead of making
+the tracker surface appear unconfigured.
 
 The tracker run happens between the git pull and push, so it reconciles bead state that
 already includes other machines’ work and its own writes ride the same push out.
@@ -1803,15 +1826,29 @@ only creates a state where a configured tracker silently drifts.
 ```bash
 tbd integration link tbd-abc1 FIN-123           # Bind a bead to an existing item
 tbd integration link tbd-abc1 FIN-123 --take remote  # Adopt its values when they differ
+tbd integration sync --pull --external FIN-124  # Create a bead from exactly this item
 tbd integration unlink tbd-abc1                 # Sever; nothing is deleted anywhere
 tbd integration comment tbd-abc1 "Blocked on the API quota decision."
 ```
 
-`link` refuses when the item is already linked to another bead (two beads writing one
-item is a ping-pong machine), and when the two sides differ it requires a stance:
-`--take local` pushes the bead’s values on the next sync, `--take remote` adopts the
-item’s values now. Without a terminal and without `--take`, it refuses rather than
-guessing.
+`link` and explicit inbound creation refuse when the item is already linked locally or
+carries another repository’s `tbd://bead/…` attachment (two bead writers make a
+ping-pong machine).
+`--force` is the explicit override for a verified stale remote claim;
+the probe prevents ordinary sequential duplication but is not an atomic distributed
+lock. When the two sides differ, `link` requires a stance: `--take local` pushes the
+bead’s values on the next sync, `--take remote` adopts the item’s values now.
+Without a terminal and without `--take`, it refuses rather than guessing.
+Both manual linking and inbound creation persist the local link/base and an idempotent
+attachment intent before attempting the remote claim, so an interrupted claim upsert
+replays without duplicating the bead or the link.
+`sync` and `doctor` also scan links already present from an older migration, import, or
+hand edit.
+If multiple beads name one external item, every holder is reported and none of
+them is replayed, pulled, pushed, or base-advanced until `unlink` leaves exactly one;
+unrelated links continue normally.
+Pending writes for the ambiguous item are discarded; the durable surviving bead re-plans
+current state after repair, preventing a stale former holder from writing after unlink.
 
 `comment` works offline: the entry is recorded on the bead immediately and posted on the
 next sync, exactly once.
