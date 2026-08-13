@@ -3,9 +3,9 @@ name: tbd
 description: >-
   Git-native issue tracking, coding guidelines, and workflow shortcuts for AI
   coding agents. Use when managing tasks, committing code, following engineering
-  best practices, or planning features.
+  best practices, planning features, or viewing beads in a live browser.
 license: MIT
-compatibility: Requires Node.js 18+ and git. Install CLI first: npm install -g get-tbd@latest
+compatibility: Requires Node.js 20+ and git. Install CLI first: npm install -g get-tbd@latest
 metadata:
   author: jlevy
   repository: https://github.com/jlevy/tbd
@@ -15,6 +15,15 @@ metadata:
 **Git-native issue tracking, coding guidelines, and workflow shortcuts.**
 
 tbd helps humans and agents ship code with greater speed, quality, and discipline.
+
+Users speak naturally; run tbd commands for them rather than telling them what to run.
+For “Show my beads in a browser,” start `tbd web --open`, wait for its loopback URL,
+report that URL, and keep the long-running process alive.
+For a project outside the current working directory, use `tbd web <path> --open`; the
+path may be the repository or one of its subdirectories.
+The browser is a live, read-only viewer, not an editor.
+Make requested changes yourself with ordinary `tbd` commands; the page updates from
+local state. Never sync merely because the viewer started.
 
 ## Prerequisites
 
@@ -47,6 +56,7 @@ tbd show <id1> [<id2> …]  # Issue details (several in one call)
 tbd create "title"     # Create new issue
 tbd close <id>         # Mark complete
 tbd sync               # Sync with remote
+tbd web --open         # Open the live, read-only bead viewer
 tbd status             # Project status
 ```
 

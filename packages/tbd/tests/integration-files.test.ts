@@ -44,6 +44,15 @@ describe('integration file formats', () => {
       expect(frontmatter).not.toMatch(/allowed-tools:[^\n]*,/);
       expect(frontmatter).not.toMatch(/Bash\((?:npx|uvx|pnpm):\*\)/);
     });
+
+    it('activates for natural requests to view beads in a browser', async () => {
+      const headerPath = join(installDir, 'claude-header.md');
+      const content = await readFile(headerPath, 'utf-8');
+      const frontmatter = parseFrontmatter(content);
+
+      expect(frontmatter).toContain('viewing beads in a live browser');
+      expect(frontmatter).toContain('web, browser,');
+    });
   });
 
   describe('skill-baseline.md (shared skill content)', () => {
@@ -64,6 +73,51 @@ describe('integration file formats', () => {
       expect(content).toContain('tbd ready');
       expect(content).toContain('tbd create');
       expect(content).toContain('tbd close');
+    });
+  });
+
+  describe('live web viewer routing', () => {
+    it('teaches the full installed skill to open and operate the viewer for the user', async () => {
+      const skillPath = join(shortcutsSystemDir, 'skill-baseline.md');
+      const content = await readFile(skillPath, 'utf-8');
+
+      expect(content).toContain('Show my beads in a browser');
+      expect(content).toContain('tbd web --open');
+      expect(content).toContain('tbd web <path> --open');
+      expect(content).toContain('viewer, not an editor');
+      expect(content).toMatch(/ordinary `tbd`\s+commands/u);
+    });
+
+    it('keeps the browser route and ownership boundary in both compact skill tiers', async () => {
+      for (const name of ['skill-brief.md', 'shortcuts/system/skill-minimal.md']) {
+        const content = await readFile(join(docsDir, name), 'utf-8');
+        expect(content, `${name} must route browser requests`).toContain('tbd web --open');
+        expect(content, `${name} must support another working directory`).toContain(
+          'tbd web <path> --open',
+        );
+        expect(content, `${name} must identify a viewer rather than an editor`).toContain(
+          'viewer, not an editor',
+        );
+        expect(content, `${name} must preserve agent-owned mutation`).toMatch(
+          /ordinary `tbd`\s+commands/u,
+        );
+      }
+    });
+
+    it('keeps the minimal skill runtime requirement aligned with the package', async () => {
+      const content = await readFile(join(shortcutsSystemDir, 'skill-minimal.md'), 'utf-8');
+      expect(content).toContain('Requires Node.js 20+ and git');
+      expect(content).not.toContain('Requires Node.js 18+');
+    });
+
+    it('includes the natural-language browser request in installed onboarding', async () => {
+      const content = await readFile(
+        join(docsDir, 'shortcuts', 'standard', 'welcome-user.md'),
+        'utf-8',
+      );
+      expect(content).toContain('Show my beads in a browser');
+      expect(content).toContain('tbd web --open');
+      expect(content).toContain('not an editor');
     });
   });
 

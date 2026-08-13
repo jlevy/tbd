@@ -75,7 +75,7 @@ sync:
 # Test: Create issue stores file in worktree data-sync directory
 
 ```console
-$ tbd create "Test issue for location" --json | head -1
+$ tbd create "Test issue for location" --json | sed -n '1p'
 {
 ? 0
 ```

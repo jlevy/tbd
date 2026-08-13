@@ -5,15 +5,12 @@
 
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { mkdtemp, rm, mkdir, writeFile, readFile, access, realpath } from 'node:fs/promises';
-import { tmpdir, platform } from 'node:os';
+import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { execSync, spawnSync } from 'node:child_process';
+import { subprocessTestTimeout } from './test-helpers.js';
 
-// Windows process spawning is significantly slower on CI
-const isWindows = platform() === 'win32';
-const setupFlowTestTimeout = isWindows ? 60000 : 15000;
-
-describe('setup flows', { timeout: setupFlowTestTimeout }, () => {
+describe('setup flows', { timeout: subprocessTestTimeout() }, () => {
   let tempDir: string;
   const tbdBin = join(__dirname, '..', 'dist', 'bin.mjs');
 
@@ -114,6 +111,7 @@ describe('setup flows', { timeout: setupFlowTestTimeout }, () => {
       expect(result.stdout).toContain('Try saying things like:');
       expect(result.stdout).toContain("There's a bug where");
       expect(result.stdout).toContain("Let's plan a new feature");
+      expect(result.stdout).toContain('Show my beads in a browser');
       expect(result.stdout).toContain('Commit this code');
     });
 
@@ -129,6 +127,11 @@ describe('setup flows', { timeout: setupFlowTestTimeout }, () => {
       const portable = await readFile(portablePath, 'utf-8');
       expect(portable).toContain('name:');
       expect(portable).toContain('DO NOT EDIT');
+      expect(portable).toContain('viewing beads in a live browser');
+      expect(portable).toContain('Show my beads in a browser');
+      expect(portable).toContain('tbd web --open');
+      expect(portable).toContain('tbd web <path> --open');
+      expect(portable).toContain('viewer, not an editor');
 
       // The portable skill and the Claude mirror must carry the same payload.
       const mirror = await readFile(mirrorPath, 'utf-8');
@@ -419,7 +422,7 @@ describe('setup flows', { timeout: setupFlowTestTimeout }, () => {
     });
   });
 
-  describe('beads migration', { timeout: isWindows ? 60000 : 15000 }, () => {
+  describe('beads migration', { timeout: subprocessTestTimeout() }, () => {
     it('detects beads and offers migration', async () => {
       initGitRepo();
 
@@ -515,7 +518,7 @@ describe('setup flows', { timeout: setupFlowTestTimeout }, () => {
     });
   });
 
-  describe('legacy cleanup', { timeout: 30000 }, () => {
+  describe('legacy cleanup', { timeout: subprocessTestTimeout(30_000) }, () => {
     it('removes legacy tbd scripts from .claude/scripts/', async () => {
       initGitRepo();
 
@@ -892,6 +895,29 @@ describe('setup flows', { timeout: setupFlowTestTimeout }, () => {
       const bundled = await readFile(bundledPath, 'utf-8');
 
       expect(installed).toBe(bundled);
+    });
+
+    it('refreshes stale ensure-gh-cli.sh copies on re-run (upgrade path)', async () => {
+      // A repo that installed the script with an older tbd must get the current
+      // bundled script when `tbd setup --auto` runs again after an upgrade.
+      // Regression guard for jlevy/tbd#195: a stale downstream copy of this
+      // script confirmed a wrong "gh cannot work here" conclusion.
+      initGitRepo();
+      runTbd(['setup', '--auto', '--prefix=test']);
+
+      const claudeScript = join(tempDir, '.claude', 'scripts', 'ensure-gh-cli.sh');
+      const codexScript = join(tempDir, '.codex', 'ensure-gh-cli.sh');
+      const stale = '#!/bin/bash\n# stale pre-upgrade ensure-gh-cli.sh\n';
+      await writeFile(claudeScript, stale);
+      await writeFile(codexScript, stale);
+
+      const result = runTbd(['setup', '--auto']);
+      expect(result.status).toBe(0);
+
+      const bundledPath = join(__dirname, '..', 'docs', 'install', 'ensure-gh-cli.sh');
+      const bundled = await readFile(bundledPath, 'utf-8');
+      expect(await readFile(claudeScript, 'utf-8')).toBe(bundled);
+      expect(await readFile(codexScript, 'utf-8')).toBe(bundled);
     });
   });
 });

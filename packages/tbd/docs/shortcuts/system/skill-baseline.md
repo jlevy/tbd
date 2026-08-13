@@ -35,6 +35,7 @@ tbd doctor    # If there are problems
 
 tbd setup --auto   # Run any time to refresh setup
 tbd prime      # Restore full context on tbd after compaction
+tbd web --open # Open the live, read-only bead viewer
 ```
 
 ## CRITICAL: You Operate tbd, the User Doesn’t
@@ -47,6 +48,22 @@ That’s your job.
 
 - **RIGHT**: *(you run `tbd create` yourself and tell the user it’s tracked)*
 
+**Live browser requests:** When the user asks to see, show, open, or view beads in a
+browser, start `tbd web --open` yourself with the agent platform’s long-running process
+facility. Do not merely print the command.
+If the requested project is outside your current working directory, start
+`tbd web <path> --open`; the path may be its repository root or any subdirectory.
+Wait for the startup descriptor, give the user its loopback URL, and leave the process
+running until they ask you to stop it or the session environment requires cleanup.
+
+The page is a live, read-only viewer, not an editor.
+You remain the tbd operator: make every requested bead change with ordinary `tbd`
+commands, and the running page observes the resulting local state automatically.
+Browser filters change only the presentation.
+Starting the viewer never justifies an implicit fetch, merge, or push; run `tbd sync`
+only when the user asks to exchange remote bead state, after which its local result also
+appears automatically.
+
 **Welcoming a user:** When users ask “what is tbd?”
 or want help → run `tbd shortcut welcome-user`
 
@@ -58,6 +75,7 @@ or want help → run `tbd shortcut welcome-user`
 | “There’s a bug where …” | `tbd create "..." --type=bug` |
 | “Create a task/feature for …” | `tbd create "..." --type=task` or `--type=feature` |
 | “Let’s work on issues/beads” | `tbd ready` |
+| “Show my beads in a browser” | Start `tbd web --open` yourself, wait for its URL, and keep it running |
 | “Show me issue X” (or several) | `tbd show <id1> [<id2> …]` (one call, never a loop; `--max-lines <n>` caps output per issue) |
 | “Where do things stand on spec X?” | `tbd list --spec <path-or-filename>` (all specs at once: `tbd list --specs`) |
 | “Close this issue” | `tbd close <id>` (several: `tbd close <id1> <id2> …` — one call, never a loop) |
@@ -129,6 +147,10 @@ working branch. See `tbd guidelines tbd-sync-troubleshooting` for details.
 ```
 
 **Work is not done until pushed, CI passes, and tbd is synced.**
+
+**Remote/proxied session where GitHub seems blocked?** If the environment has egress,
+`gh` works through a scoped `NO_PROXY` bypass — run `tbd shortcut setup-github-cli` and
+follow “Proxied Remote Sessions” before concluding gh is unavailable.
 
 ## Bead Tracking Rules
 

@@ -662,6 +662,134 @@ Pull and re-read current state before writing.
 See `tbd shortcut watch-beads` for the durable watch-then-spawn worker recipe and for
 in-session Claude Code and Codex patterns.
 
+### web
+
+Serve a live, read-only view of the bead graph in a local browser.
+The page uses the same local bead state, filter semantics, readiness rules, hierarchy,
+and statistics as the CLI, and displays the equivalent `tbd list` or `tbd ready` command
+for the current view.
+The Ready checkbox is the exact `tbd ready` predicate—open, unassigned, and with no open
+blocker. A quiet unboxed row marker exposes that derived state while scanning; it is
+intentionally distinct from user labels.
+Pretty is on by default and never changes when a column sort changes.
+In Pretty mode, the two-key sort moves only outermost visible parent groups.
+Updated is rolled up to the latest timestamp in each complete visible subtree for every
+parent kind; children keep their official `child_order_hints` order.
+Every non-root browser row uses one `└──` elbow at its hierarchy indentation.
+Deeper levels use spaces instead of ancestor bars, and siblings never switch to a tee.
+Flat mode applies the stack to individual rows.
+Filters remain exact in both modes: a filtered-out parent is not reinserted, and a
+matching child simply becomes a root.
+Browser-only column composition is identified as inexact beside that command.
+In an agent session, ask naturally: “Show my beads in a browser.”
+The agent should run `tbd web --open`, wait for the startup URL, give you that URL, and
+keep the foreground process alive.
+The page is a viewer, not an editor.
+Its controls change only the query and presentation; ask the agent to make bead changes
+with ordinary `tbd` commands, and their local results appear automatically.
+It never contacts a remote.
+Run the ordinary `tbd sync` command when you want to fetch, merge, or publish bead
+state; the page observes the resulting local changes automatically.
+
+Expanded updated beads show compact field deltas.
+Each scalar before/after side uses an 80-character middle-ellipsis preview so both the
+start and appended tail remain useful; the copy control retains the bounded full values.
+Historical before text is muted and the after text is normal.
+Newly created beads omit the redundant null-to-current-value delta because their
+expanded body already shows the current data.
+Status-panel field names use normal-size sans text, and literal values use normal-size
+monospace, keeping their baseline readable and consistent with board rows.
+
+```bash
+tbd web                         # Serve on the first free port in 7777-7786
+tbd web --open                  # Open the page after it is HTTP-ready
+tbd web ../another-repo --open  # View a repository from another directory
+tbd web --port 9000             # Bind exactly 127.0.0.1:9000
+tbd --json web                  # Print the machine-readable startup descriptor
+tbd --dry-run web               # Resolve the repo and port without binding
+```
+
+Options:
+
+- `[path]` - Resolve this repository or subdirectory instead of the current directory.
+  Relative paths are resolved from the caller’s current directory; the startup
+  descriptor reports the canonical repository root.
+
+- `--port <n>` - Bind exactly this loopback port.
+  Without it, tbd searches the bounded range 7777-7786 and reports the port it selected.
+
+- `--open` - Open the default browser after the page passes an HTTP readiness check.
+  The default is not to launch a browser, which is safe for agents and CI.
+
+The command stays in the foreground; press Ctrl+C to stop it.
+An initialized repository with zero beads is valid and renders the ordinary empty board.
+A missing or non-directory path is a usage error; an existing directory outside an
+initialized tbd repository reports the standard “Not a tbd repository” error used by
+other commands. SIGINT exits 130 and a normal or SIGTERM shutdown exits 0. It binds only
+`127.0.0.1`, exposes no write route, and serves one self-contained page with same-origin
+and security-header checks.
+It is a local development and observation surface, not a remotely reachable service.
+
+The browser opens its live event stream before loading the board and refreshes whenever
+the local hidden data-sync worktree changes.
+Node’s native filesystem watcher normally delivers the update immediately.
+A constant-size metadata-and-writer-epoch check once per second recovers a dropped event
+without re-reading the graph when nothing changed.
+If native recursive watching is unavailable, that check becomes the transparent
+fallback. It also observes local configuration and workspace metadata changes.
+
+The page keeps serving its last complete snapshot while another `tbd` command writes.
+Standard writers publish an active/quiescent local epoch under the existing shared
+writer lock; the viewer stages a replacement snapshot and adopts it only when the same
+quiescent epoch brackets the entire read.
+File-event bursts are coalesced, and a missed or rejected update is retried without
+blocking the writer.
+This prevents a create, update, doctor repair, or sync burst from appearing as a
+transient deletion or a mixture of old and new files.
+
+This separation is intentional: `tbd web` is a view, not a second synchronization
+client. A remote change is invisible until an explicit `tbd sync` integrates it locally,
+at which point the running page updates without a browser refresh.
+Local mutating commands such as `tbd create`, `tbd update`, and `tbd close` are
+reflected the same way.
+Descriptions and notes load only when a row is expanded, so the board remains bounded on
+large repositories. A response can carry up to 10,000 rows; the browser paints them in
+5,000-row pages with sticky and end-of-page navigation.
+Above 10,000 rows, the page reports the complete count and asks for a narrower query.
+Status, Type, Priority, and the label chooser show conditional tallies after every other
+active filter. The menu shows up to 32 labels at once; its search field queries the
+complete label vocabulary and retains selected labels.
+Typing is stable across live updates; Home and End move the search caret while that
+field has focus and navigate the choices otherwise.
+Unselected zero-count choices are hidden; a selected zero-count value remains visible so
+it can be removed. Label candidates additionally show the next repeated-label
+intersection and preserve the CLI’s AND semantics.
+Collapsed titles use at most four lines and expand in full.
+The Updated column shows a compact sans relative age and exposes the exact monospace ISO
+timestamp in the shared fast tooltip.
+Every data-column header is sortable.
+Pretty is enabled by default with Updated descending, then Priority ascending.
+A click makes that column primary and retains only the previous primary as its
+tie-breaker; clicking the current primary reverses it without changing Pretty.
+Pretty moves whole outermost visible groups, rolling Updated up from every visible
+descendant while retaining official child order.
+Flat mode applies the stack to rows.
+Reset sort restores the default two-key stack without changing Pretty.
+The equivalent-command tooltip names browser-only ordering that the displayed CLI
+command does not reproduce.
+Changing a query control, display mode, or page closes expanded details.
+A live graph update retains and remaps an expansion only while that bead remains in the
+current bounded response, so an off-board or obsolete display ID cannot consume the
+detail cap or trigger a stale body request.
+Bulk expansion is available when the visible page has 100 rows or fewer; larger pages
+remain individually expandable without an accidental request fan-out.
+At most 100 detail rows remain open, and the client retains only the 200 most recently
+loaded bodies. The latest changed-row set remains complete; field-level before/after
+detail is a separate diagnostic capped at 100 changed beads and 256 KiB, with oversized
+values summarized. A browser orders graph and metadata updates with an observer-local
+state version, rejects stale equal-graph-version responses, and immediately adopts a new
+observer after the server restarts rather than waiting for old counters.
+
 ### Change reports
 
 `changes` and `watch` emit the same document.
@@ -1778,6 +1906,7 @@ version. This is everything a format upgrade can touch:
 | Project config | `.tbd/config.yml` | tracked | the migration (format stamp) | `git checkout -- .tbd/config.yml`, or `git revert` the bump commit |
 | Agent surfaces | `AGENTS.md`, `.claude/`, `.agents/`, `.codex/` | tracked | only `tbd setup --auto` (marker refresh) | `git checkout --` those paths |
 | Shared layout stamp | `$GIT_COMMON_DIR/tbd/layout.yml` | machine-local, not in git | the migration (re-stamp) | delete it; it regenerates from whatever the config says |
+| Writer epoch | `$GIT_COMMON_DIR/tbd/data-sync.epoch` | machine-local, not in git | every shared data writer | none; the next writer replaces it |
 | Forked docs (f05) | `docs/tbd/`, `.tbd/doc-forks/` | tracked once committed | only `tbd docs fork` | `git checkout --`/`git revert` if committed; delete if never committed |
 | Docs cache | `.tbd/docs/` | gitignored | doc sync (unchanged by migration) | none needed; always safe to delete and re-sync |
 | Issue data | `tbd-sync` branch and `$GIT_COMMON_DIR/tbd/data-sync-worktree/` | git branch | **never touched by migration** | none needed; the worktree re-materializes from the branch |

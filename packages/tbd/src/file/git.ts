@@ -1171,6 +1171,7 @@ import {
   mergeIdMappings,
   reconcileMappings,
   parseIdMappingFromYaml,
+  replaceRecoveredIdMapping,
   resolveIdMappingConflicts,
   saveIdMapping,
   type IdMapping,
@@ -2649,7 +2650,7 @@ export async function migrateDataToWorktree(
         }
 
         const merged = mergeIdMappings(targetMapping, sourceMapping);
-        await saveIdMapping(correctPath, merged);
+        await replaceRecoveredIdMapping(correctPath, merged);
       } else {
         await cp(join(wrongMappingsPath, file), join(correctMappingsPath, file));
       }

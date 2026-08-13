@@ -8,8 +8,9 @@ import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { execSync, spawnSync } from 'node:child_process';
+import { subprocessTestTimeout } from './test-helpers.js';
 
-describe('prime command', { timeout: 15000 }, () => {
+describe('prime command', { timeout: subprocessTestTimeout() }, () => {
   let tempDir: string;
   const tbdBin = join(__dirname, '..', 'dist', 'bin.mjs');
 

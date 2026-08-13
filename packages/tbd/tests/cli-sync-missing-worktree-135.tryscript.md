@@ -45,7 +45,7 @@ See: plan-2026-05-29-tbd-sync-unrelated-history-hardening.md (#135 verification)
 # Test: Initialize tbd
 
 ```console
-$ tbd init --prefix=test 2>&1 | head -1
+$ tbd init --prefix=test 2>&1 | sed -n '1p'
 ✓ Initialized tbd repository (prefix: test)
 ? 0
 ```
@@ -125,7 +125,7 @@ $ ls .tbd/data-sync/issues/*.md 2>/dev/null | wc -l | tr -d ' '
 # Test: Create another issue after the heal
 
 ```console
-$ tbd create "Issue C" --type=task 2>&1 | head -1
+$ tbd create "Issue C" --type=task 2>&1 | sed -n '1p'
 ✓ Created [..]
 ? 0
 ```

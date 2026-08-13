@@ -225,9 +225,11 @@ function renderTreeNode(
     // Process lines: first line gets connector, others keep childPrefix
     childLines.forEach((line, lineIndex) => {
       if (lineIndex === 0) {
-        // Replace childPrefix with connector for the first line
+        // Replace childPrefix with this node's own prefix plus the connector. The
+        // ancestor prefix must be re-applied here: dropping it renders every
+        // grandchild at depth 1, drawing deep subtrees as siblings (tbd-5hh1).
         const lineWithoutPrefix = line.slice(childPrefix.length);
-        lines.push(colors.dim(connector) + lineWithoutPrefix);
+        lines.push(prefix + colors.dim(connector) + lineWithoutPrefix);
       } else {
         // Keep childPrefix for continuation lines (already included)
         lines.push(line);

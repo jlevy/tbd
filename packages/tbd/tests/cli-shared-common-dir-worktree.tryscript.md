@@ -19,10 +19,9 @@ before: |
   git add README.md
   git commit -m "Initial commit"
 
-  rm -rf ../origin-shared-common-dir-worktree.git
-  mkdir -p ../origin-shared-common-dir-worktree.git
-  git init --bare ../origin-shared-common-dir-worktree.git
-  git remote add origin ../origin-shared-common-dir-worktree.git
+  mkdir -p "$PWD/.git/test-origin.git"
+  git init --bare "$PWD/.git/test-origin.git"
+  git remote add origin "$PWD/.git/test-origin.git"
   git push -u origin main
 
   mkdir -p .tbd

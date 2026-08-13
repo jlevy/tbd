@@ -233,6 +233,17 @@ A release left merged-but-untagged ships neither to npm nor to GitHub Releases; 
 session ends after the merge, the tag push is the next required action.
 See “Release PR merged but tag never pushed” under Troubleshooting for recovery.
 
+**The tag also fixes the release’s content: the published package is built from the
+tagged commit’s tree, and the npm publish timestamp is only when the tag was pushed—not
+a content cutoff.** Anything merged to `main` after the release PR’s merge commit is not
+in the release, even when it merges before the tag push.
+(This happened with v0.4.1: PR #194’s gh guidance merged 8 hours after the release-PR
+merge and 16 hours before the tag push, and shipped in neither the tarball nor the
+Release—see issue #195.) Before tagging, check
+`git log $MERGE_SHA..origin/main --oneline`; if user-facing content has landed since the
+release PR merged, decide deliberately: let it ship in the next release, or cut a fresh
+release PR from current main.
+
 **Before tagging: main CI MUST have reached `conclusion=success` on the exact commit you
 are about to tag.** “Mostly green” is not green.
 If a job hangs (e.g., the known `tests/lockfile.test.ts` flake on Windows), cancel and

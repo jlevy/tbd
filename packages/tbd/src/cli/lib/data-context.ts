@@ -53,6 +53,14 @@ export interface TbdDataContext {
   repairedWorktreeStatus?: WorktreeStatus;
 }
 
+export interface LoadDataContextOptions {
+  /**
+   * Whether first-use initialization, migration, or repair may take the shared writer
+   * lock. Defaults to true. Long-running observers set this to false after startup.
+   */
+  repair?: boolean;
+}
+
 /**
  * Full command context combining CLI options with data context.
  * Provides unified access to all command needs with helper methods.
@@ -268,7 +276,19 @@ export async function withDataSyncContext<T>(
  * the lock and runs the ensure path so concurrent readers cannot race
  * migration or worktree repair.
  */
-export async function loadDataContext(tbdRoot: string): Promise<TbdDataContext> {
+export async function loadDataContext(
+  tbdRoot: string,
+  options: LoadDataContextOptions = {},
+): Promise<TbdDataContext> {
+  if (options.repair === false) {
+    const probe = await probeDataSyncReadiness(tbdRoot);
+    if (!probe.ready) {
+      throw new Error(
+        "Shared data-sync state is not ready for a lock-free read. Run 'tbd doctor --fix' or restart the command to prepare it.",
+      );
+    }
+    return assembleDataContext(tbdRoot, probe);
+  }
   return withDataSyncContext(tbdRoot, { lock: false }, async (context) => {
     // Surface a silent worktree heal at the point of use (read commands). #135
     notifyWorktreeRepaired(context.repairedWorktreeStatus);

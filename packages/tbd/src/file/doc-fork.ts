@@ -15,7 +15,6 @@ import { readFile, readdir, rm, rmdir, mkdir, stat } from 'node:fs/promises';
 import { dirname, join, relative } from 'node:path';
 
 import { writeFile } from 'atomically';
-import matter from 'gray-matter';
 
 import { DocCache } from './doc-cache.js';
 import {
@@ -40,6 +39,7 @@ import {
   removeFork,
   writeBaseContent,
 } from './fork-manifest.js';
+import { parseMarkdownMatter } from '../utils/gray-matter.js';
 
 /** Map a doc kind to its plural directory name within the fork dir. */
 export const KIND_DIR: Record<ForkKind, string> = {
@@ -407,7 +407,10 @@ function readmeLinkPath(relPath: string): string {
 /** First frontmatter description (or title) of a doc file, for the README index. */
 async function docBlurb(absPath: string): Promise<string | undefined> {
   try {
-    const data = matter(await readFile(absPath, 'utf-8')).data as Record<string, unknown>;
+    const data = parseMarkdownMatter(await readFile(absPath, 'utf-8')).data as Record<
+      string,
+      unknown
+    >;
     const description = typeof data.description === 'string' ? data.description : undefined;
     const title = typeof data.title === 'string' ? data.title : undefined;
     const blurb = description ?? title;

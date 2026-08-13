@@ -52,6 +52,7 @@ import {
   mergeIdMappings,
   parseIdMappingFromYaml,
   reconcileMappings,
+  replaceRecoveredIdMapping,
   resolveIdMappingConflicts,
 } from '../../file/id-mapping.js';
 import {
@@ -840,7 +841,7 @@ class SyncHandler extends BaseCommand {
           const rawContent = await readFile(idsPath, 'utf-8');
           const localMapping = resolveIdMappingConflicts(rawContent);
           const mergedMapping = mergeIdMappings(localMapping, conflictRemoteMapping);
-          await saveIdMapping(this.dataSyncDir, mergedMapping);
+          await replaceRecoveredIdMapping(this.dataSyncDir, mergedMapping);
           this.output.debug(
             `Merged ID mappings: ${localMapping.shortToUlid.size} local + ${conflictRemoteMapping.shortToUlid.size} remote = ${mergedMapping.shortToUlid.size} total`,
           );

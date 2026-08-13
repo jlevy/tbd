@@ -17,7 +17,7 @@ import {
 } from '../src/file/bead-watch.js';
 import type { IssueChangesReport } from '../src/lib/issue-changes.js';
 import { stringifyYaml } from '../src/utils/yaml-utils.js';
-import { createTestIssue, testId, TEST_ULIDS } from './test-helpers.js';
+import { createTestIssue, subprocessTestTimeout, testId, TEST_ULIDS } from './test-helpers.js';
 
 const execFileAsync = promisify(execFile);
 const cleanupPaths: string[] = [];
@@ -504,7 +504,7 @@ describe('watchForIssueChanges polling', () => {
   });
 });
 
-describe('watchForIssueChanges Git safety', { timeout: 15_000 }, () => {
+describe('watchForIssueChanges Git safety', { timeout: subprocessTestTimeout() }, () => {
   it('reclaims private refs owned by dead watcher processes', async () => {
     const repoDir = await mkdtemp(join(tmpdir(), 'tbd-watch-stale-ref-'));
     cleanupPaths.push(repoDir);

@@ -12,7 +12,7 @@ import { afterEach, beforeAll, describe, expect, it } from 'vitest';
 import { serializeIssue } from '../src/file/parser.js';
 import { CURRENT_FORMAT } from '../src/lib/tbd-format.js';
 import { stringifyYaml } from '../src/utils/yaml-utils.js';
-import { createTestIssue, testId, TEST_ULIDS } from './test-helpers.js';
+import { createTestIssue, subprocessTestTimeout, testId, TEST_ULIDS } from './test-helpers.js';
 
 const execFileAsync = promisify(execFile);
 const packageDir = fileURLToPath(new URL('..', import.meta.url));
@@ -20,11 +20,7 @@ const tbdBin = join(packageDir, 'dist', 'bin.mjs');
 const cleanupPaths: string[] = [];
 const ISSUE_ID = testId(TEST_ULIDS.ULID_1);
 
-/**
- * Every case here builds a Git fixture repo and then spawns the CLI, which routinely
- * exceeds vitest's 5s default on Windows runners. Matches cli-watch.test.ts.
- */
-const WINDOWS_CLI_TEST_TIMEOUT_MS = 15_000;
+const CLI_TEST_TIMEOUT_MS = subprocessTestTimeout();
 
 interface ChangesRepo {
   repoDir: string;
@@ -137,7 +133,7 @@ describe('tbd changes', () => {
         ],
       });
     },
-    WINDOWS_CLI_TEST_TIMEOUT_MS,
+    CLI_TEST_TIMEOUT_MS,
   );
 
   it(
@@ -153,7 +149,7 @@ describe('tbd changes', () => {
         changes: [],
       });
     },
-    WINDOWS_CLI_TEST_TIMEOUT_MS,
+    CLI_TEST_TIMEOUT_MS,
   );
 
   it(
@@ -171,7 +167,7 @@ describe('tbd changes', () => {
       expect(quiet.stdout).toBe('');
       expect(quiet.stderr).toBe('');
     },
-    WINDOWS_CLI_TEST_TIMEOUT_MS,
+    CLI_TEST_TIMEOUT_MS,
   );
 
   it(
@@ -190,7 +186,7 @@ describe('tbd changes', () => {
       expect(result.status).toBe(2);
       expect(result.stderr).toContain('cannot be combined');
     },
-    WINDOWS_CLI_TEST_TIMEOUT_MS,
+    CLI_TEST_TIMEOUT_MS,
   );
 
   it(
@@ -204,6 +200,6 @@ describe('tbd changes', () => {
       expect(result.status).toBe(1);
       expect(result.stderr).toContain('Run tbd sync first');
     },
-    WINDOWS_CLI_TEST_TIMEOUT_MS,
+    CLI_TEST_TIMEOUT_MS,
   );
 });

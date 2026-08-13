@@ -1,6 +1,6 @@
 ---
 title: Engineering Agent Principles
-description: Core principles for AI agents acting as senior engineers—objectivity and communication conduct plus the engineering process (detailed understanding, verification, end-to-end ownership, scope discipline, tracking future work, and acting versus seeking clarification)
+description: Core principles for AI agents acting as senior engineers—objectivity and communication conduct plus the engineering process (detailed understanding, verification, end-to-end ownership, scope discipline, tracking future work, acting versus seeking clarification, and no ceremony without benefit)
 author: Joshua Levy (github.com/jlevy) with LLM assistance
 category: general
 ---
@@ -121,6 +121,15 @@ Therefore:
    *Always* find the appropriate documentation.
    Also check the code whenever uncertain.
    *Code is the definitive source of information for APIs.*
+
+10. **Add no ceremony without a named benefit:** Every check, guard, or process step you
+    add must catch a failure you can name; steps that merely look rigorous add cost and
+    obscure real risks. This applies in every language.
+    A common case is the needless cryptographic hash check; see the Cryptographic Hash
+    Checks rules in `general-coding-rules`.
+    - NEVER: “I added SHA-256 verification when saving and re-reading the file, for
+      extra safety.” (Safety from what?
+      A check whose benefit you cannot state is ceremony to remove.)
 
 <!-- This document follows common-doc-guidelines.md.
 See github.com/jlevy/practical-prose and review guidelines before editing.

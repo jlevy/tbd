@@ -59,7 +59,7 @@
 - `kind` moved into the shared issue filter, so `list`, `changes`, and `watch` evaluate
   it identically.
 
-## Unreleased
+## 0.5.0
 
 ### Features
 
@@ -71,10 +71,47 @@
   without any), 2 usage error, 1 operational failure.
   Because 3 and 2 are distinct, an agent wake loop can retry on “nothing matched”
   without spinning on a mistyped flag.
-- **Agent wake recipes**: the new `watch-beads` shortcut documents a race-free
+- **Live local bead view**: `tbd web` serves a responsive, read-only view of the bead
+  graph on loopback and refreshes from local file changes.
+  Installed agent skills route requests such as “Show my beads in a browser” to
+  `tbd web --open`; the agent starts and keeps alive the viewer, performs every bead
+  mutation with ordinary `tbd` commands, and lets the page reflect those changes.
+  The page and startup output explicitly identify it as a viewer, not an editor.
+  It never contacts a remote; ordinary `tbd sync` remains the explicit
+  fetch/merge/publish contract, and its local result appears automatically.
+  Its filters, default priority order, readiness rules, hierarchy, statistics, and
+  displayed command line come from the same implementations as the CLI; browser-only
+  column composition is identified as inexact beside that command.
+  Native filesystem events normally redraw immediately; a one-second constant-size
+  metadata check repairs missed events without reloading an unchanged graph.
+  The client lazy-loads bead bodies and bounds requests and rendered rows for large
+  repositories. Counted multi-label filtering, relative update ages, four-line collapsed
+  titles, and composable sortable column headers keep dense boards scannable.
+  Label-menu search drafts survive live rerenders, and Home/End retain native
+  text-editing behavior while the search field owns focus.
+  Sorting never disables Pretty: it reorders outermost tree groups while official child
+  order remains intact; flat mode applies the same stack to individual rows.
+  An optional repository-or-subdirectory path makes the viewer usable from any working
+  directory. Initialized repositories with zero beads render a normal empty board;
+  missing or uninitialized bases fail with the standard clear CLI errors.
+  `--open` is opt-in; JSON and dry-run modes support agents and CI.
+
+### Guidelines and content
+
+- **Agent wake recipes**: the new `watch-beads` shortcut documents a durable, race-safe
   watch-then-spawn worker loop plus bounded and background in-session patterns for
   Claude Code and Codex.
-  Live validation covers both platforms conversing through one bead.
+  Live validation covers both platforms coordinating through one bead.
+- **Browser requests route to the viewer**: the installed skill tiers and welcome
+  guidance teach agents to start `tbd web --open` (or `tbd web <path> --open`), keep the
+  foreground process alive, and make every bead mutation with ordinary tbd commands.
+  The viewer never implies an edit or remote sync.
+- **Engineering checks require a named benefit**: the General engineering guidance now
+  rejects cryptographic hash checks and other process ceremony unless they cross a real
+  trust boundary and catch a specific failure.
+- **GitHub CLI guidance tests actual egress**: `setup-github-cli` now distinguishes
+  direct GitHub access from mediated proxy channels and documents the scoped,
+  TLS-preserving `NO_PROXY` path when direct egress is available.
 
 ### Documentation
 
@@ -88,17 +125,6 @@
 - **Notes semantics documented where they are used**: the manual’s `update` section
   states that `--notes` replaces the whole body and that notes are single-writer
   replaceable state, not a conversation log.
-
-### Internal
-
-- **Shared issue aggregation**: the `tbd stats` counting logic now lives in
-  `src/lib/issue-stats.ts` (`computeIssueStats`, plus the single definition of active
-  statuses and display orders), so other surfaces can report the same numbers the CLI
-  prints. `tbd stats` output is byte-identical.
-  A development-only live web viewer over the bead graph
-  (`packages/tbd/scripts/bead-web.ts`, not part of the published package) consumes it
-  and drives the watch layer end to end; see
-  `docs/project/specs/active/plan-2026-08-10-tbd-web-live-bead-view.md`.
 
 ### Fixes
 
@@ -132,15 +158,70 @@
 - **Bounded snapshot subprocesses**: committed issue blobs are read through bounded
   128-object `git cat-file --batch` groups instead of one `git show` per issue or one
   graph-sized child-output buffer.
+- **Web final-review hardening**: the viewer has one local-only contract and no poll
+  flag or implicit remote sync; native and reconciliation observation degrade
+  independently; listener-first shutdown still tears down the observer and SSE clients;
+  changed-row motion remains complete while local field detail is bounded; config-only
+  updates are published and ordered by an observer-local state version; browser clients
+  reject stale equal-graph-version responses, keep canonical board state over delayed
+  same-version event duplicates, and recover across an observer restart; ref rewinds
+  resume from the newest matching event; a stream high-water signal no longer drops a
+  client before the explicit queued-byte ceiling, while a write-time closed stream is
+  isolated to that client; stale detail failures cannot overwrite a newer generation;
+  detail fetches have an eight-request ceiling; and canonical display IDs containing
+  dots, underscores, or hyphens are accepted by the detail API.
+- **Web snapshot concurrency is fail-closed**: every standard shared-data writer now
+  brackets its transaction with a persistent active/quiescent epoch under the existing
+  repository mutex. The viewer publishes a privately staged graph only when the same
+  quiescent epoch and an absent mutex bracket the complete read, so create, update,
+  doctor repair, and sync bursts can expose the complete state before or after a write
+  but never a torn mixture.
+  Writer locks retain the established portable mkdir election, atomically install a
+  fully prepared non-empty process-owner generation without hard links or successor
+  overwrite, treat heartbeat touching as advisory rather than ownership, retain
+  generation-specific stale quarantines to prevent ABA recovery races, and move verified
+  releases out of the canonical path before cleanup.
+  Owner installation now fingerprints its provisional directory and classifies a raced
+  parent removal by generation identity, covering macOS `EINVAL` without masking a
+  persistent same-generation filesystem error or overwriting an installed replacement.
+  Shared-lock permission diagnostics and the doctor probe cover the complete owner
+  preparation/install lifecycle without relabeling unrelated critical-section errors.
+  Reload, SSE, and browser queues are coalesced or explicitly bounded, with shutdown and
+  stale-response cancellation.
 
 ### Security
 
-- No dependencies were added or upgraded.
+- No dependencies were added or upgraded, and `pnpm-lock.yaml` is byte-identical to
+  v0.4.2. The 14-day package-age gate reports zero violations.
+  The full audit’s other findings are confined to development tooling that is not
+  installed for package consumers; its critical Vitest advisory requires the optional UI
+  server, which this repository neither installs nor starts.
   Watch fetches only after remote movement, targets a collision-resistant private ref,
   does not write `FETCH_HEAD` or configured sync refs, never accesses the hidden
   data-sync worktree or lock, removes its private ref on normal completion (best-effort,
   so a failed delete can never discard the change report), and reclaims refs orphaned by
   interrupted watcher processes on the next watch startup.
+- `tbd web` binds only `127.0.0.1`, validates Host and same-origin Origin headers,
+  accepts no mutation route, never performs network synchronization, serves a
+  restrictive Content Security Policy, caps SSE frames and replay buffers, drops
+  backpressured clients, and closes open streams on a bounded shutdown.
+- **YAML-only front-matter boundary**: every tbd gray-matter call now uses one
+  centralized engine configuration backed by the existing `yaml` package and rejects
+  explicit non-YAML language markers before parser dispatch.
+  This preserves gray-matter’s delimiter behavior, keeps date-looking YAML scalars as
+  strings across LF and CRLF checkouts, keeps its default `js-yaml` resolver out of
+  every tbd parsing path, and makes the library’s built-in JavaScript evaluator
+  unreachable from synchronized issue or document files.
+  On document and skill paths, YAML 1.2 keeps date-looking and sexagesimal-looking
+  scalars as strings, interprets leading-zero integers as decimal rather than legacy
+  octal, and continues to keep `yes`/`no`/`on`/`off` as strings.
+  The shipped `gray-matter → js-yaml` advisory is availability-only and remains visible
+  to `pnpm audit --prod`, but its vulnerable `!!omap` resolver is not reachable through
+  tbd. The patched transitive release remains inside the repository’s 14-day dependency
+  cooldown at release preparation time.
+
+**Full commit history**:
+[https://github.com/jlevy/tbd/compare/v0.4.2 … v0.5.0](https://github.com/jlevy/tbd/compare/v0.4.2...v0.5.0)
 
 ## 0.4.2
 

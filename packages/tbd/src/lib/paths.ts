@@ -16,6 +16,7 @@
  * In the Git common dir shared by all linked worktrees:
  *   $GIT_COMMON_DIR/tbd/
  *     layout.yml              - Shared layout metadata
+ *     data-sync.epoch         - Persistent active/quiescent writer epoch
  *     locks/data-sync.lock/   - Repo-scoped lock directory
  *     backups/                - Local repair/migration backups
  *     data-sync-worktree/     - Hidden worktree checkout of tbd-sync branch
@@ -122,6 +123,9 @@ export const SHARED_BACKUPS_DIR_NAME = 'backups';
 /** Directory-lock name for shared data-sync operations. */
 export const DATA_SYNC_LOCK_DIR_NAME = 'data-sync.lock';
 
+/** Persistent writer epoch used by non-blocking snapshot readers. */
+export const DATA_SYNC_EPOCH_FILE_NAME = 'data-sync.epoch';
+
 /**
  * Resolved Git common-dir paths for the repo-scoped sync layout.
  */
@@ -140,6 +144,8 @@ export interface SharedTbdPaths {
   sharedLocksDir: string;
   /** Absolute data-sync lock path. */
   sharedLockPath: string;
+  /** Absolute persistent writer-epoch path. */
+  sharedDataSyncEpochPath: string;
   /** Absolute shared backups directory. */
   sharedBackupsDir: string;
 }
@@ -182,6 +188,7 @@ export function buildSharedTbdPaths(gitCommonDir: string): SharedTbdPaths {
   const sharedLayoutPath = join(sharedTbdDir, COMMON_DIR_LAYOUT_FILE_NAME);
   const sharedLocksDir = join(sharedTbdDir, SHARED_LOCKS_DIR_NAME);
   const sharedLockPath = join(sharedLocksDir, DATA_SYNC_LOCK_DIR_NAME);
+  const sharedDataSyncEpochPath = join(sharedTbdDir, DATA_SYNC_EPOCH_FILE_NAME);
   const sharedBackupsDir = join(sharedTbdDir, SHARED_BACKUPS_DIR_NAME);
 
   return {
@@ -192,6 +199,7 @@ export function buildSharedTbdPaths(gitCommonDir: string): SharedTbdPaths {
     sharedLayoutPath,
     sharedLocksDir,
     sharedLockPath,
+    sharedDataSyncEpochPath,
     sharedBackupsDir,
   };
 }

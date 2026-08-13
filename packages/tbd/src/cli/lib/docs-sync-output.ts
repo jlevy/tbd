@@ -50,6 +50,13 @@ export function printDocSyncResult(output: OutputManager, result: SyncDocsResult
 
 /** Print what a docs-cache sync would change (dry-run / status view). */
 export function printDocSyncStatus(output: OutputManager, result: SyncDocsResult): void {
+  // This renderer writes a raw multi-line block to stdout, which under --json would
+  // corrupt the machine-readable stream with a human banner whenever the docs cache
+  // is stale (tbd-q5c7). The JSON document carries the sync state; the banner is
+  // text-mode only.
+  if (output.isJson) {
+    return;
+  }
   const colors = output.getColors();
   const hasChanges =
     result.added.length > 0 ||

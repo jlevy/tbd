@@ -29,6 +29,7 @@ import { syncCommand } from './commands/sync.js';
 import { changesCommand } from './commands/changes.js';
 import { integrationCommand } from './commands/integration.js';
 import { watchCommand } from './commands/watch.js';
+import { webCommand } from './commands/web.js';
 import { searchCommand } from './commands/search.js';
 import { statusCommand } from './commands/status.js';
 import { statsCommand } from './commands/stats.js';
@@ -50,7 +51,8 @@ import { setupCommand } from './commands/setup.js';
 import { saveCommand } from './commands/save.js';
 import { workspaceCommand } from './commands/workspace.js';
 import { CLIError } from './lib/errors.js';
-import { EXIT_INTERRUPTED, EXIT_OPERATIONAL_ERROR } from './lib/exit-codes.js';
+import { EXIT_OPERATIONAL_ERROR } from './lib/exit-codes.js';
+import { installDefaultInterruptHandler } from './lib/signal-handling.js';
 
 /**
  * Create and configure the CLI program.
@@ -106,6 +108,7 @@ function createProgram(): Command {
   program.commandsGroup('Views and Filtering:');
   program.addCommand(readyCommand);
   program.addCommand(listCommand);
+  program.addCommand(webCommand);
   program.addCommand(blockedCommand);
   program.addCommand(staleCommand);
 
@@ -330,8 +333,4 @@ export async function runCli(): Promise<void> {
   }
 }
 
-// Handle SIGINT (Ctrl+C)
-process.on('SIGINT', () => {
-  console.error('\nInterrupted');
-  process.exit(EXIT_INTERRUPTED);
-});
+installDefaultInterruptHandler();

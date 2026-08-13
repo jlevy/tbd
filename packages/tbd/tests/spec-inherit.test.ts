@@ -14,8 +14,9 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { execSync, spawnSync } from 'node:child_process';
 import { writeFile } from 'atomically';
+import { subprocessTestTimeout } from './test-helpers.js';
 
-describe('spec_path inheritance', { timeout: 15000 }, () => {
+describe('spec_path inheritance', { timeout: subprocessTestTimeout() }, () => {
   let tempDir: string;
   const tbdBin = join(__dirname, '..', 'dist', 'bin.mjs');
 

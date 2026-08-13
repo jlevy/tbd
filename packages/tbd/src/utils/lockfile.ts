@@ -3,9 +3,10 @@
  *
  * Note: Despite the name "lockfile", this is NOT a POSIX file lock (flock/fcntl).
  * It uses mkdir to create a lock *directory* as a coordination convention; no
- * OS-level file locking syscalls are involved. This makes it portable across all
- * filesystems, including NFS and other network mounts where flock/fcntl locks
- * are unreliable or unsupported.
+ * OS-level file locking syscalls are involved. Atomic acquisition is portable across
+ * common local and network filesystems. Automatic stale recovery is deliberately
+ * narrower: it requires the recorded owner and waiter to share one host identity and
+ * OS PID namespace; other cases retain mutual exclusion but fail closed on recovery.
  *
  * This is the same strategy used by:
  *
@@ -25,21 +26,34 @@
  *
  * ## Lock lifecycle
  *
- * 1. **Acquire**: `mkdir(lockDir)`; fails with EEXIST if held by another process.
+ * 1. **Acquire**: Prepare a complete token/host/pid owner-generation directory, then
+ *    `mkdir(lockDir)`; mkdir remains the sole election and fails with EEXIST if held by
+ *    another process. The winner atomically renames the prepared generation to
+ *    `lockDir/owner` before entering the critical section. An installed generation is
+ *    non-empty, so a delayed installer cannot overwrite a successor.
+ *    The winner fingerprints its provisional directory. If stale recovery removes or
+ *    replaces that directory while owner installation is in flight, the winner retries
+ *    based on the changed directory identity rather than an OS-specific rename errno.
+ *    A same-generation unexpected error is preserved, so persistent failures cannot
+ *    turn into contention spins.
  *    On Windows, a concurrent release can instead surface as a transient EPERM
  *    (NTFS delete-pending directory); this is treated as a busy lock and retried
  *    for a short window, after which the raw EPERM is rethrown (a persistent
  *    EPERM is a genuine permission problem, not the delete-pending race).
- * 2. **Hold**: Execute the critical section
- * 3. **Release**: `rmdir(lockDir)`, in a finally block, with a bounded retry to
- *    absorb transient Windows failures (EBUSY/EPERM from AV scanners or lingering
- *    handles) that would otherwise orphan the lock directory.
- * 4. **Stale detection**: If lock mtime exceeds a threshold, assume the holder
- *    crashed and break the lock. Breaking is done **atomically** by renaming the
- *    stale directory aside (only one waiter can win the rename), so two waiters can
- *    never both break the same lock and end up running concurrently. This is a
- *    heuristic; safe when the critical section is short-lived (sub-second for
- *    file I/O).
+ * 2. **Hold**: Best-effort heartbeat the directory mtime and execute the critical
+ *    section. The owner token and PID, not heartbeat success, are authoritative.
+ * 3. **Release**: Verify the same owner record, rename that generation out of the
+ *    canonical path, then remove the sidecar with bounded Windows retries. A cleanup
+ *    failure cannot strand an ownerless canonical lock or delete a successor.
+ * 4. **Stale detection**: Age only makes a lock eligible for inspection. A recognized
+ *    same-host owner is recoverable only when its pid is definitely absent; ambiguous,
+ *    remote, and non-empty unrecognized generations fail closed. A stale empty
+ *    ownerless directory uses the historical mkdir-lock recovery rule and can be
+ *    removed because the new protocol never enters its critical section ownerless.
+ *    A dead recognized generation is renamed to a retained token-derived quarantine
+ *    path. That non-empty tombstone prevents a delayed waiter from renaming a successor
+ *    through canonical-path ABA. A live holder's heartbeat normally avoids the
+ *    liveness check altogether.
  *
  * ## Failure on timeout
  *
@@ -48,12 +62,15 @@
  * runs without mutual exclusion, which can cause data loss (e.g., lost ID
  * mappings during concurrent `tbd create`).
  *
- * IMPORTANT: `timeoutMs` must be greater than `staleMs` so stale locks from
- * crashed processes are always detected and broken before the timeout expires.
+ * IMPORTANT: `timeoutMs` should be greater than `staleMs` so a definitely dead owner
+ * can be quarantined before timeout. Safety takes precedence over recovery when owner
+ * liveness cannot be proved.
  */
 
-import { mkdir, rename, rmdir, stat } from 'node:fs/promises';
+import { mkdir, open, rename, rmdir, stat, unlink, utimes } from 'node:fs/promises';
 import { randomUUID } from 'node:crypto';
+import { hostname } from 'node:os';
+import { join } from 'node:path';
 
 /** Options for `withLockfile`. */
 export interface LockfileOptions {
@@ -77,16 +94,10 @@ const DEFAULT_STALE_MS = 5_000;
  * is kept just above `staleMs` so a crashed-process lock is always broken as
  * stale before the timeout expires, matching the invariant documented above.
  *
- * Accepted trade-off (no heartbeat): a live `tbd sync` that hangs longer than
- * `staleMs` (30 min) can have its lock broken by another process mid-operation.
- * For current data sizes this is acceptable; single-repo sync workloads
- * complete well under the window, and adding heartbeat metadata adds
- * cross-process state machinery without changing the common case. If sync
- * workloads grow or the lock-break race becomes observable in practice,
- * revisit by adding heartbeat metadata inside the lock directory (touch mtime
- * periodically; treat as stale only if heartbeat is older than `staleMs`).
- * See: plan-2026-05-17-shared-common-dir-sync-worktree.md §Post-Review
- * Hardening H6.
+ * A unique owner record and one-minute-or-faster heartbeat keep normal live operations
+ * from crossing the 30-minute stale threshold. PID liveness keeps a suspended process
+ * owned even after that threshold; release checks the record, so an externally
+ * displaced holder cannot remove its successor's lock.
  */
 export const DATA_SYNC_LOCK_OPTIONS: Required<LockfileOptions> = {
   timeoutMs: 35 * 60_000,
@@ -102,7 +113,7 @@ export class LockAcquisitionError extends Error {
     super(
       `Failed to acquire lock at ${lockPath} within ${timeoutMs}ms. ` +
         `Another process may be holding the lock. If this persists, ` +
-        `delete the lock directory manually and retry.`,
+        `verify that no process is writing before removing the lock directory and retrying.`,
     );
     this.name = 'LockAcquisitionError';
   }
@@ -110,6 +121,7 @@ export class LockAcquisitionError extends Error {
 
 /** Filesystem error codes that are transient on Windows and worth retrying. */
 const TRANSIENT_RMDIR_CODES = new Set(['EBUSY', 'EPERM', 'EACCES', 'ENOTEMPTY']);
+const TRANSIENT_RENAME_CODES = new Set(['EBUSY', 'EPERM', 'EACCES']);
 
 /**
  * How long consecutive EPERM failures from the acquisition mkdir are retried on
@@ -121,18 +133,344 @@ const TRANSIENT_RMDIR_CODES = new Set(['EBUSY', 'EPERM', 'EACCES', 'ENOTEMPTY'])
  * burn the whole acquisition timeout and misreport as lock contention.
  */
 const WIN32_EPERM_RETRY_WINDOW_MS = 1_000;
+const LOCK_OWNER_FILE = 'owner';
+const LOCK_OWNER_RECORD_FILE = 'record';
+const LOCK_OWNER_VERSION = 1;
+const MAX_LOCK_OWNER_BYTES = 1_024;
+const MAX_HEARTBEAT_INTERVAL_MS = 60_000;
+const UUID_V4 = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/u;
+
+interface LockOwnerRecord {
+  version: typeof LOCK_OWNER_VERSION;
+  token: string;
+  host: string;
+  pid: number;
+}
+
+interface LockDirectoryIdentity {
+  dev: number;
+  ino: number;
+}
+
+/** Lease passed to advanced critical sections that publish their own commit marker. */
+export interface LockLease {
+  /** Fail if stale recovery displaced this holder. */
+  assertOwned(): Promise<void>;
+}
+
+class LockOwnershipLostError extends Error {
+  constructor(lockPath: string) {
+    super(`Lost ownership of lock at ${lockPath} while its critical section was running`);
+    this.name = 'LockOwnershipLostError';
+  }
+}
+
+function isMissing(error: unknown): boolean {
+  return (error as NodeJS.ErrnoException).code === 'ENOENT';
+}
+
+function asError(error: unknown): Error {
+  return error instanceof Error ? error : new Error(String(error));
+}
+
+/** Identify one canonical-path generation without opening a persistent handle. */
+async function readLockDirectoryIdentity(path: string): Promise<LockDirectoryIdentity | null> {
+  try {
+    const value = await stat(path);
+    return { dev: value.dev, ino: value.ino };
+  } catch (error) {
+    if (isMissing(error)) {
+      return null;
+    }
+    throw error;
+  }
+}
+
+function isSameLockDirectory(
+  left: LockDirectoryIdentity,
+  right: LockDirectoryIdentity | null,
+): boolean {
+  return right !== null && left.dev === right.dev && left.ino === right.ino;
+}
+
+async function readBoundedOwnerRecord(path: string): Promise<string | null> {
+  let handle;
+  try {
+    handle = await open(path, 'r');
+  } catch (error) {
+    if (isMissing(error)) {
+      return null;
+    }
+    throw error;
+  }
+  try {
+    const buffer = Buffer.allocUnsafe(MAX_LOCK_OWNER_BYTES + 1);
+    const { bytesRead } = await handle.read(buffer, 0, buffer.length, 0);
+    if (bytesRead > MAX_LOCK_OWNER_BYTES) {
+      throw new Error(`Lock owner record at ${path} exceeds ${MAX_LOCK_OWNER_BYTES} bytes`);
+    }
+    return buffer.subarray(0, bytesRead).toString('utf8').trim();
+  } finally {
+    await handle.close();
+  }
+}
+
+/** Read the portable owner-directory layout, with legacy owner-file compatibility. */
+async function readLockOwner(lockPath: string): Promise<string | null> {
+  const ownerPath = join(lockPath, LOCK_OWNER_FILE);
+  let ownerStat;
+  try {
+    ownerStat = await stat(ownerPath);
+  } catch (error) {
+    if (isMissing(error)) {
+      return null;
+    }
+    throw error;
+  }
+  return readBoundedOwnerRecord(
+    ownerStat.isDirectory() ? join(ownerPath, LOCK_OWNER_RECORD_FILE) : ownerPath,
+  );
+}
+
+function createLockOwner(): LockOwnerRecord {
+  return {
+    version: LOCK_OWNER_VERSION,
+    token: randomUUID(),
+    host: hostname(),
+    pid: process.pid,
+  };
+}
+
+function encodeLockOwner(owner: LockOwnerRecord): string {
+  return JSON.stringify(owner);
+}
+
+function parseLockOwner(value: string): LockOwnerRecord | null {
+  try {
+    const candidate: unknown = JSON.parse(value);
+    if (
+      typeof candidate !== 'object' ||
+      candidate === null ||
+      !('version' in candidate) ||
+      candidate.version !== LOCK_OWNER_VERSION ||
+      !('token' in candidate) ||
+      typeof candidate.token !== 'string' ||
+      !UUID_V4.test(candidate.token) ||
+      !('host' in candidate) ||
+      typeof candidate.host !== 'string' ||
+      candidate.host.length === 0 ||
+      !('pid' in candidate) ||
+      typeof candidate.pid !== 'number' ||
+      !Number.isSafeInteger(candidate.pid) ||
+      candidate.pid <= 0
+    ) {
+      return null;
+    }
+    return candidate as LockOwnerRecord;
+  } catch {
+    return null;
+  }
+}
+
+/** True only when this host can prove that the recorded owner process has exited. */
+function ownerIsDefinitelyDead(owner: LockOwnerRecord): boolean {
+  if (owner.host !== hostname()) {
+    return false;
+  }
+  try {
+    process.kill(owner.pid, 0);
+    return false;
+  } catch (error) {
+    // EPERM means the process exists but this user cannot signal it. Every ambiguous
+    // result fails closed; only ESRCH is proof that the pid is absent on this host.
+    return (error as NodeJS.ErrnoException).code === 'ESRCH';
+  }
+}
+
+/** Read the same recognized owner before and after the age/liveness decision. */
+async function captureDefinitelyDeadOwner(lockPath: string): Promise<LockOwnerRecord | null> {
+  const before = await readLockOwner(lockPath);
+  if (before === null) {
+    return null;
+  }
+  const owner = parseLockOwner(before);
+  if (owner === null || !ownerIsDefinitelyDead(owner)) {
+    return null;
+  }
+  return (await readLockOwner(lockPath)) === before ? owner : null;
+}
+
+async function assertLockOwner(lockPath: string, owner: string): Promise<void> {
+  if ((await readLockOwner(lockPath)) !== owner) {
+    throw new LockOwnershipLostError(lockPath);
+  }
+}
+
+interface LockHeartbeat {
+  lease: LockLease;
+  stop(): Promise<void>;
+}
+
+/** Refresh a live lock well before stale recovery can consider it abandoned. */
+function startLockHeartbeat(lockPath: string, owner: string, staleMs: number): LockHeartbeat {
+  const intervalMs = Math.max(1, Math.min(MAX_HEARTBEAT_INTERVAL_MS, Math.floor(staleMs / 3)));
+  let stopped = false;
+  let disabled = false;
+  let timer: NodeJS.Timeout | null = null;
+  let inFlight = Promise.resolve();
+
+  const assertOwned = (): Promise<void> => assertLockOwner(lockPath, owner);
+  const schedule = (): void => {
+    if (stopped || disabled) {
+      return;
+    }
+    timer = setTimeout(() => {
+      timer = null;
+      inFlight = (async () => {
+        await assertLockOwner(lockPath, owner);
+        const now = new Date();
+        await utimes(lockPath, now, now);
+      })()
+        .catch(() => {
+          // Heartbeats reduce unnecessary stale-owner probes; they do not establish
+          // ownership. A timestamp/read failure disables this advisory optimization,
+          // while the direct token check at commit/release remains authoritative.
+          // Same-host PID liveness still prevents a live holder from being evicted.
+          disabled = true;
+        })
+        .finally(schedule);
+    }, intervalMs);
+    timer.unref();
+  };
+  schedule();
+
+  return {
+    lease: { assertOwned },
+    stop: async () => {
+      stopped = true;
+      if (timer !== null) {
+        clearTimeout(timer);
+        timer = null;
+      }
+      await inFlight;
+    },
+  };
+}
+
+/** Build a complete non-empty owner generation before contending for the lock. */
+async function prepareLockOwnerGeneration(
+  lockPath: string,
+  owner: LockOwnerRecord,
+  encodedOwner: string,
+): Promise<string> {
+  const preparedPath = `${lockPath}.owner-${owner.token}`;
+  let created = false;
+  try {
+    await mkdir(preparedPath);
+    created = true;
+    const handle = await open(join(preparedPath, LOCK_OWNER_RECORD_FILE), 'wx');
+    try {
+      await handle.writeFile(`${encodedOwner}\n`);
+    } finally {
+      await handle.close();
+    }
+  } catch (error) {
+    if (created) {
+      await removeOwnerGenerationDir(preparedPath);
+    }
+    throw error;
+  }
+  return preparedPath;
+}
+
+/** Best-effort cleanup for an uninstalled or already-detached owner generation. */
+async function removeOwnerGenerationDir(path: string, attempts = 5): Promise<void> {
+  let recordRemoved = false;
+  for (let attempt = 0; attempt < attempts; attempt += 1) {
+    try {
+      if (!recordRemoved) {
+        await unlink(join(path, LOCK_OWNER_RECORD_FILE)).catch((error: unknown) => {
+          if (!isMissing(error)) {
+            throw error;
+          }
+        });
+        recordRemoved = true;
+      }
+      await rmdir(path);
+      return;
+    } catch (error) {
+      const code = (error as NodeJS.ErrnoException).code;
+      if (code === 'ENOENT') {
+        return;
+      }
+      if (attempt < attempts - 1 && code !== undefined && TRANSIENT_RMDIR_CODES.has(code)) {
+        await new Promise((resolve) => setTimeout(resolve, 20 * (attempt + 1)));
+        continue;
+      }
+      return;
+    }
+  }
+}
+
+/** Remove only an empty provisional lock; never unlink an installed owner generation. */
+async function removeEmptyLockDir(lockPath: string, attempts = 5): Promise<boolean> {
+  for (let attempt = 0; attempt < attempts; attempt += 1) {
+    try {
+      await rmdir(lockPath);
+      return true;
+    } catch (error) {
+      const code = (error as NodeJS.ErrnoException).code;
+      if (code === 'ENOENT') {
+        return true;
+      }
+      if (code === 'ENOTEMPTY') {
+        return false;
+      }
+      if (attempt < attempts - 1 && code !== undefined && TRANSIENT_RMDIR_CODES.has(code)) {
+        await new Promise((resolve) => setTimeout(resolve, 20 * (attempt + 1)));
+        continue;
+      }
+      return false;
+    }
+  }
+  return false;
+}
 
 /**
  * Remove a lock directory, tolerating transient Windows failures.
  *
  * `rmdir` can intermittently fail with EBUSY/EPERM on Windows (antivirus scanners
  * or lingering directory handles). A few short retries make release reliable; if it
- * still fails, we give up and let stale detection reclaim the directory rather than
- * throwing from a best-effort cleanup path.
+ * still fails, we leave the sidecar for filesystem maintenance rather than throwing
+ * from a best-effort cleanup path. Canonical acquisition never depends on a release
+ * sidecar being removed.
  */
-async function removeLockDir(lockPath: string, attempts = 5): Promise<void> {
+async function removeLockDir(lockPath: string, expectedOwner: string, attempts = 5): Promise<void> {
+  let ownerRemoved = false;
   for (let attempt = 0; attempt < attempts; attempt++) {
     try {
+      if (!ownerRemoved) {
+        if ((await readLockOwner(lockPath)) !== expectedOwner) {
+          return;
+        }
+        const ownerPath = join(lockPath, LOCK_OWNER_FILE);
+        const ownerStat = await stat(ownerPath);
+        if (ownerStat.isDirectory()) {
+          await removeOwnerGenerationDir(ownerPath);
+          try {
+            await stat(ownerPath);
+            return;
+          } catch (error) {
+            if (!isMissing(error)) {
+              throw error;
+            }
+          }
+        } else {
+          // Compatibility with locks created by the legacy owner-file layout.
+          await unlink(ownerPath);
+        }
+        ownerRemoved = true;
+      }
       await rmdir(lockPath);
       return;
     } catch (error) {
@@ -152,21 +490,60 @@ async function removeLockDir(lockPath: string, attempts = 5): Promise<void> {
 /**
  * Atomically break a stale lock.
  *
- * Renames the stale directory to a unique sidecar path and removes it. `rename` is
- * atomic, so when several waiters race to break the same stale lock only one wins the
- * rename; the losers see ENOENT and simply retry. This prevents the classic
- * non-atomic break race (rmdir + mkdir) where two waiters both break the lock and both
- * acquire it, defeating mutual exclusion.
+ * Renames the stale directory to a deterministic sidecar for that owner generation.
+ * The sidecar is intentionally retained and non-empty. If a delayed waiter acts after
+ * a successor has acquired the canonical path, its rename still targets the occupied
+ * old-generation sidecar and fails without moving the successor. This is the ABA-safe
+ * part of recovery; using a fresh random sidecar for each waiter would not be safe.
  */
-async function breakStaleLock(lockPath: string): Promise<void> {
-  const sidecar = `${lockPath}.stale-${randomUUID()}`;
+async function breakStaleLock(lockPath: string, owner: LockOwnerRecord): Promise<boolean> {
+  const sidecar = `${lockPath}.stale-${owner.token}`;
   try {
     await rename(lockPath, sidecar);
   } catch {
-    // Another waiter already broke or released it, or the holder is no longer stale.
-    return;
+    // Another waiter already quarantined this exact generation, the holder released,
+    // or a successor owns the canonical path. The retained, non-empty sidecar makes a
+    // delayed rename for the old token fail instead of displacing that successor.
+    return false;
   }
-  await removeLockDir(sidecar);
+  return true;
+}
+
+/** Move a verified live generation out of the canonical path before best-effort cleanup. */
+async function releaseOwnedLock(lockPath: string, encodedOwner: string): Promise<void> {
+  const owner = parseLockOwner(encodedOwner);
+  if (owner === null) {
+    throw new Error(`Cannot release lock at ${lockPath} with an invalid owner record`);
+  }
+  const sidecar = `${lockPath}.released-${owner.token}`;
+  let renamed = false;
+  for (let attempt = 0; attempt < 5; attempt += 1) {
+    await assertLockOwner(lockPath, encodedOwner);
+    try {
+      await rename(lockPath, sidecar);
+      renamed = true;
+      break;
+    } catch (error) {
+      if (isMissing(error)) {
+        throw new LockOwnershipLostError(lockPath);
+      }
+      const code = (error as NodeJS.ErrnoException).code;
+      if (attempt < 4 && code !== undefined && TRANSIENT_RENAME_CODES.has(code)) {
+        await new Promise((resolve) => setTimeout(resolve, 20 * (attempt + 1)));
+        continue;
+      }
+      throw error;
+    }
+  }
+  if (!renamed) {
+    throw new Error(`Failed to release lock generation at ${lockPath}`);
+  }
+  if ((await readLockOwner(sidecar)) !== encodedOwner) {
+    throw new LockOwnershipLostError(lockPath);
+  }
+  // Cleanup can be retried by ordinary filesystem maintenance if Windows keeps a
+  // transient handle open. The canonical lock path is already safely available.
+  await removeLockDir(sidecar, encodedOwner);
 }
 
 /**
@@ -197,7 +574,26 @@ async function breakStaleLock(lockPath: string): Promise<void> {
  */
 export async function withLockfile<T>(
   lockPath: string,
-  fn: () => Promise<T>,
+  fn: (lease: LockLease) => Promise<T>,
+  options?: LockfileOptions,
+): Promise<T> {
+  const ownerRecord = createLockOwner();
+  const owner = encodeLockOwner(ownerRecord);
+  const preparedOwnerPath = await prepareLockOwnerGeneration(lockPath, ownerRecord, owner);
+  try {
+    return await runWithPreparedLockGeneration(lockPath, fn, owner, preparedOwnerPath, options);
+  } finally {
+    // A successful rename consumed this path. On failure, this removes only our
+    // token-derived private generation and cannot affect the canonical owner.
+    await removeOwnerGenerationDir(preparedOwnerPath);
+  }
+}
+
+async function runWithPreparedLockGeneration<T>(
+  lockPath: string,
+  fn: (lease: LockLease) => Promise<T>,
+  owner: string,
+  preparedOwnerPath: string,
   options?: LockfileOptions,
 ): Promise<T> {
   const timeoutMs = options?.timeoutMs ?? DEFAULT_TIMEOUT_MS;
@@ -210,8 +606,65 @@ export async function withLockfile<T>(
 
   while (Date.now() < deadline) {
     try {
-      // mkdir is atomic per POSIX.1-2017; fails with EEXIST if already held
+      // mkdir is the established atomic election. Owner metadata is already complete,
+      // but the winner does not enter its critical section until installation succeeds.
       await mkdir(lockPath);
+      const provisionalIdentity = await readLockDirectoryIdentity(lockPath);
+      if (provisionalIdentity === null) {
+        // A zero-stale waiter can remove the empty reservation before this process can
+        // fingerprint it. No owner was installed and the private generation is intact.
+        continue;
+      }
+      try {
+        await rename(preparedOwnerPath, join(lockPath, LOCK_OWNER_FILE));
+      } catch (error) {
+        // Account for an ambiguous network-filesystem rename result before deciding the
+        // installation failed. Empty-only cleanup is attempted only for the same
+        // observed reservation; an installed successor is non-empty and cannot be
+        // removed or overwritten even if the path changes after that observation.
+        const observedOwner = await readLockOwner(lockPath);
+        if (observedOwner === owner) {
+          acquired = true;
+          break;
+        }
+        let ownerEntryExists = false;
+        try {
+          await stat(join(lockPath, LOCK_OWNER_FILE));
+          ownerEntryExists = true;
+        } catch (statError) {
+          if (!isMissing(statError)) {
+            throw statError;
+          }
+        }
+        let preparedOwnerExists = false;
+        try {
+          await stat(preparedOwnerPath);
+          preparedOwnerExists = true;
+        } catch (statError) {
+          if (!isMissing(statError)) {
+            throw statError;
+          }
+        }
+        const currentIdentity = await readLockDirectoryIdentity(lockPath);
+        const generationChanged = !isSameLockDirectory(provisionalIdentity, currentIdentity);
+        if (!generationChanged) {
+          await removeEmptyLockDir(lockPath);
+        }
+        if (!preparedOwnerExists) {
+          throw error;
+        }
+        const code = (error as NodeJS.ErrnoException).code;
+        if (
+          ownerEntryExists ||
+          generationChanged ||
+          code === 'EEXIST' ||
+          code === 'ENOTEMPTY' ||
+          code === 'ENOENT'
+        ) {
+          continue;
+        }
+        throw error;
+      }
       acquired = true;
       break;
     } catch (error) {
@@ -243,15 +696,16 @@ export async function withLockfile<T>(
       let lockStat;
       try {
         lockStat = await stat(lockPath);
-      } catch {
-        // Lock was released between our mkdir and stat; retry immediately
-        continue;
+      } catch (statError) {
+        if (isMissing(statError)) {
+          continue;
+        }
+        throw statError;
       }
 
       // A non-directory at the lock path is unexpected filesystem state. Do not
       // rename it aside: that would move the user's file out of the way and let the
-      // critical section run unprotected. Fail loudly instead (mirrors how an
-      // unexpected mkdir error is surfaced rather than masked as contention).
+      // critical section run unprotected.
       if (!lockStat.isDirectory()) {
         throw new Error(
           `Lock path exists but is not a directory: ${lockPath}. ` +
@@ -260,12 +714,22 @@ export async function withLockfile<T>(
       }
 
       if (Date.now() - lockStat.mtimeMs > staleMs) {
-        // Break atomically so concurrent waiters can't both acquire.
-        await breakStaleLock(lockPath);
-        continue; // Retry immediately after breaking stale lock
+        const encodedHolder = await readLockOwner(lockPath);
+        if (encodedHolder === null) {
+          // Compatibility with the historical mkdir-only generation and recovery for a
+          // crash in the new mkdir-to-owner-install window. Waiting for staleMs preserves
+          // the legacy safety contract; rmdir succeeds only while the directory is empty.
+          if (await removeEmptyLockDir(lockPath)) {
+            continue;
+          }
+        }
+        const holder = await captureDefinitelyDeadOwner(lockPath);
+        if (holder !== null && (await breakStaleLock(lockPath, holder))) {
+          continue;
+        }
       }
 
-      // Lock is fresh; wait and retry
+      // Lock is fresh, live, or ambiguous; wait and retry.
       await new Promise((resolve) => setTimeout(resolve, pollMs));
     }
   }
@@ -274,10 +738,45 @@ export async function withLockfile<T>(
     throw new LockAcquisitionError(lockPath, timeoutMs);
   }
 
+  const heartbeat = startLockHeartbeat(lockPath, owner, staleMs);
+  let result: T | undefined;
+  let criticalError: Error | undefined;
   try {
-    return await fn();
-  } finally {
-    // Best-effort cleanup with retry; stale lock detection handles the rest.
-    await removeLockDir(lockPath);
+    await heartbeat.lease.assertOwned();
+    result = await fn(heartbeat.lease);
+  } catch (error) {
+    criticalError = asError(error);
   }
+
+  let ownershipError: Error | undefined;
+  try {
+    await heartbeat.stop();
+    await heartbeat.lease.assertOwned();
+  } catch (error) {
+    ownershipError = asError(error);
+  }
+  // Once ownership loss is visible, the canonical path is not ours to touch. On the
+  // normal path, move our verified generation aside atomically before cleanup so a
+  // transient cleanup failure cannot strand an ownerless canonical lock directory.
+  if (ownershipError === undefined) {
+    try {
+      await releaseOwnedLock(lockPath, owner);
+    } catch (error) {
+      ownershipError = asError(error);
+    }
+  }
+
+  if (criticalError !== undefined && ownershipError !== undefined) {
+    throw new AggregateError(
+      [criticalError, ownershipError],
+      `Critical section failed after losing lock ownership at ${lockPath}`,
+    );
+  }
+  if (criticalError !== undefined) {
+    throw criticalError;
+  }
+  if (ownershipError !== undefined) {
+    throw ownershipError;
+  }
+  return result as T;
 }

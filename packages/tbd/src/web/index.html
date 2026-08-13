@@ -1,0 +1,368 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>tbd beads</title>
+    <script>
+      // Resolve a stored theme before first paint. The bundled client owns later changes.
+      try {
+        var mode = localStorage.getItem('tbd.themeMode') || 'system';
+        if (mode !== 'light' && mode !== 'dark') mode = 'system';
+        document.documentElement.setAttribute('data-theme-mode', mode);
+        if (mode !== 'system') document.documentElement.setAttribute('data-theme', mode);
+      } catch (_error) {
+        // Private mode or blocked storage: the system theme remains active.
+      }
+    </script>
+    <style>
+      /*__TBD_WEB_STYLES__*/
+    </style>
+  </head>
+  <body>
+    <header>
+      <div class="header-identity">
+        <div class="header-title-line">
+          <h1>tbd beads</h1>
+          <span class="header-meta" id="countmeta">0 beads</span>
+          <span class="page-controls" id="pagecontrols" hidden>
+            <button
+              class="icon-button"
+              id="pageprev"
+              type="button"
+              aria-label="Previous board page"
+            >
+              ←
+            </button>
+            <span class="pill" id="pagepill" aria-live="polite">page 1 of 1</span>
+            <button class="icon-button" id="pagenext" type="button" aria-label="Next board page">
+              →
+            </button>
+          </span>
+        </div>
+        <span id="viewernote"
+          >Live read-only viewer. Ask your agent to change beads; updates appear
+          automatically.</span
+        >
+      </div>
+      <span class="grow"></span>
+      <!-- Live-state cluster: local observation and the local sync-branch tip stay
+           together so no element implies that the viewer contacts a remote. -->
+      <span class="pill" id="observerpill" aria-live="polite"
+        ><span class="dot"></span>connecting</span
+      >
+      <span class="pill" id="tippill"></span>
+      <span id="settings">
+        <button
+          class="icon-button"
+          id="gear"
+          type="button"
+          data-tooltip="Settings"
+          aria-label="Settings"
+          aria-expanded="false"
+          aria-controls="menu"
+        >
+          <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            aria-hidden="true"
+          >
+            <path
+              d="M9.671 4.136a2.34 2.34 0 0 1 4.659 0 2.34 2.34 0 0 0 3.319 1.915 2.34 2.34 0 0 1 2.33 4.033 2.34 2.34 0 0 0 0 3.831 2.34 2.34 0 0 1-2.33 4.033 2.34 2.34 0 0 0-3.319 1.915 2.34 2.34 0 0 1-4.659 0 2.34 2.34 0 0 0-3.32-1.915 2.34 2.34 0 0 1-2.33-4.033 2.34 2.34 0 0 0 0-3.831A2.34 2.34 0 0 1 6.35 6.051a2.34 2.34 0 0 0 3.319-1.915"
+            />
+            <circle cx="12" cy="12" r="3" />
+          </svg>
+        </button>
+        <div id="menu" role="menu" hidden>
+          <div class="menu-label">Theme</div>
+          <div class="chooser" role="group" aria-label="Theme">
+            <button
+              type="button"
+              class="seg"
+              role="menuitemradio"
+              data-theme-choice="system"
+              aria-checked="false"
+              data-tooltip="System theme"
+              aria-label="System theme"
+            >
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                aria-hidden="true"
+              >
+                <rect width="20" height="14" x="2" y="3" rx="2" />
+                <line x1="8" x2="16" y1="21" y2="21" />
+                <line x1="12" x2="12" y1="17" y2="21" />
+              </svg>
+            </button>
+            <button
+              type="button"
+              class="seg"
+              role="menuitemradio"
+              data-theme-choice="light"
+              aria-checked="false"
+              data-tooltip="Light theme"
+              aria-label="Light theme"
+            >
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                aria-hidden="true"
+              >
+                <circle cx="12" cy="12" r="4" />
+                <path d="M12 2v2" />
+                <path d="M12 20v2" />
+                <path d="m4.93 4.93 1.41 1.41" />
+                <path d="m17.66 17.66 1.41 1.41" />
+                <path d="M2 12h2" />
+                <path d="M20 12h2" />
+                <path d="m6.34 17.66-1.41 1.41" />
+                <path d="m19.07 4.93-1.41 1.41" />
+              </svg>
+            </button>
+            <button
+              type="button"
+              class="seg"
+              role="menuitemradio"
+              data-theme-choice="dark"
+              aria-checked="false"
+              data-tooltip="Dark theme"
+              aria-label="Dark theme"
+            >
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                aria-hidden="true"
+              >
+                <path
+                  d="M20.985 12.486a9 9 0 1 1-9.473-9.472c.405-.022.617.46.402.803a6 6 0 0 0 8.268 8.268c.344-.215.825-.004.803.401"
+                />
+              </svg>
+            </button>
+          </div>
+        </div>
+      </span>
+    </header>
+
+    <section id="controls" aria-label="Bead filters">
+      <div id="toolbar">
+        <input
+          id="q"
+          type="search"
+          placeholder="Search id, title, label, spec"
+          aria-label="Search beads"
+          size="26"
+        />
+        <!-- Control labels stay plain words; the equivalent command below is where the
+           flags are shown, so the mapping is taught in one place rather than repeated. -->
+        <!-- One control, a bijection onto the CLI's reachable status states: active is
+           the tbd list default (closed hidden), "any" is --all, and a named status is
+           --status X (where --all would be a no-op). Two separate controls allowed
+           redundant states and made "any" a lie. -->
+        <span class="select-control">
+          <select
+            id="status"
+            class="semantic-chooser"
+            data-tooltip="--status / --all"
+            aria-label="Status"
+          >
+            <option value="">status: active</option>
+            <option value="any">any (incl. closed)</option>
+            <option value="open">open</option>
+            <option value="in_progress">in_progress</option>
+            <option value="blocked">blocked</option>
+            <option value="deferred">deferred</option>
+            <option value="closed">closed</option>
+          </select>
+          <span id="statusvalue" class="select-value" aria-hidden="true">status: active</span>
+          <span class="chevron chevron-down" aria-hidden="true"></span>
+        </span>
+        <span class="select-control">
+          <select
+            id="type"
+            class="semantic-chooser kind-choice"
+            data-tooltip="--type"
+            aria-label="Type"
+          >
+            <option value="">type: any</option>
+            <option value="bug">bug</option>
+            <option value="feature">feature</option>
+            <option value="task">task</option>
+            <option value="epic">epic</option>
+            <option value="chore">chore</option>
+          </select>
+          <span id="typevalue" class="select-value" aria-hidden="true">type: any</span>
+          <span class="chevron chevron-down" aria-hidden="true"></span>
+        </span>
+        <span class="select-control">
+          <select
+            id="priority"
+            class="semantic-chooser"
+            data-tooltip="--priority"
+            aria-label="Priority"
+          >
+            <option value="">priority: any</option>
+            <option value="0">P0</option>
+            <option value="1">P1</option>
+            <option value="2">P2</option>
+            <option value="3">P3</option>
+            <option value="4">P4</option>
+          </select>
+          <span id="priorityvalue" class="select-value" aria-hidden="true">priority: any</span>
+          <span class="chevron chevron-down" aria-hidden="true"></span>
+        </span>
+        <span class="label-chooser" id="labelchooser">
+          <button
+            type="button"
+            class="label-chooser-trigger"
+            id="labeltrigger"
+            data-tooltip="--label is repeatable; beads must have every selected label"
+            aria-label="Labels; all selected labels are required"
+            aria-haspopup="dialog"
+            aria-controls="labelmenu"
+            aria-expanded="false"
+          >
+            <span id="labelsummary">labels: any</span>
+            <span class="chevron chevron-down" aria-hidden="true"></span>
+          </button>
+          <div
+            class="label-chooser-menu"
+            id="labelmenu"
+            role="dialog"
+            aria-label="Filter by every selected label"
+            hidden
+          >
+            <input
+              id="labelsearch"
+              class="label-search"
+              type="search"
+              placeholder="Find a label"
+              aria-label="Find a label"
+              autocomplete="off"
+            />
+            <div id="labelchoices" role="menu" aria-label="Available labels"></div>
+          </div>
+        </span>
+        <input id="spec" placeholder="spec" size="12" data-tooltip="--spec" aria-label="Spec" />
+        <label class="check" data-tooltip="--ready"
+          ><input type="checkbox" id="ready" /> ready</label
+        >
+        <label class="check" data-tooltip="--pretty"
+          ><input type="checkbox" id="pretty" checked /> pretty</label
+        >
+        <button
+          type="button"
+          class="sort-reset"
+          id="sortreset"
+          data-tooltip="Restore Updated descending, then Priority ascending"
+          hidden
+        >
+          reset sort
+        </button>
+        <button id="expandall" hidden>Expand all</button>
+      </div>
+
+      <h2 id="boardheading" class="section-heading">
+        Beads <span class="hint" id="cmd">tbd list --pretty</span>
+      </h2>
+    </section>
+
+    <main>
+      <div id="tablewrap">
+        <table class="board-table" aria-label="Beads">
+          <colgroup>
+            <col class="board-col-disclosure" />
+            <col class="board-col-id" />
+            <col class="board-col-priority" />
+            <col class="board-col-status" />
+            <col class="board-col-kind" />
+            <col class="board-col-title" />
+            <col class="board-col-updated" />
+            <col class="board-col-labels" />
+          </colgroup>
+          <thead>
+            <tr>
+              <th></th>
+              <th data-sort-key="id">
+                <button type="button" class="sort-button" data-sort-key="id">
+                  ID<span class="sort-indicator" aria-hidden="true"></span>
+                </button>
+              </th>
+              <th data-sort-key="priority">
+                <button type="button" class="sort-button" data-sort-key="priority">
+                  P<span class="sort-indicator" aria-hidden="true"></span>
+                </button>
+              </th>
+              <th data-sort-key="status">
+                <button type="button" class="sort-button" data-sort-key="status">
+                  Status<span class="sort-indicator" aria-hidden="true"></span>
+                </button>
+              </th>
+              <th data-sort-key="kind">
+                <button type="button" class="sort-button" data-sort-key="kind">
+                  Kind<span class="sort-indicator" aria-hidden="true"></span>
+                </button>
+              </th>
+              <th data-sort-key="title">
+                <button type="button" class="sort-button" data-sort-key="title">
+                  Title<span class="sort-indicator" aria-hidden="true"></span>
+                </button>
+              </th>
+              <th class="updated" data-sort-key="updated">
+                <button type="button" class="sort-button" data-sort-key="updated">
+                  Updated<span class="sort-indicator" aria-hidden="true"></span>
+                </button>
+              </th>
+              <th class="labels" data-sort-key="labels">
+                <button type="button" class="sort-button" data-sort-key="labels">
+                  Labels<span class="sort-indicator" aria-hidden="true"></span>
+                </button>
+              </th>
+            </tr>
+          </thead>
+          <tbody id="rows"></tbody>
+        </table>
+        <div class="empty" id="empty" role="status" hidden>No beads match this query.</div>
+      </div>
+
+      <aside>
+        <h2 class="section-heading">
+          Status
+          <span class="hint" data-copy-value="tbd status" data-copy-label="command"
+            >tbd status</span
+          >
+        </h2>
+        <dl id="statusdl"></dl>
+        <h2 class="section-heading">
+          Stats
+          <span class="hint" data-copy-value="tbd stats" data-copy-label="command">tbd stats</span>
+        </h2>
+        <table id="stats" aria-label="Bead statistics"></table>
+        <h2 class="section-heading">Latest local changes</h2>
+        <pre id="report" class="placeholder">Connecting to the local observer…</pre>
+        <h2 class="section-heading">Event log</h2>
+        <ul id="log"></ul>
+      </aside>
+    </main>
+
+    <script>
+      /*__TBD_WEB_SCRIPT__*/
+    </script>
+  </body>
+</html>

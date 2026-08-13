@@ -43,7 +43,7 @@ cross-branch overview of epics) with none of the distributed-systems risk.
 - **PR [#197](https://github.com/jlevy/tbd/pull/197)** and its
   `plan-2026-07-20-linear-bead-sync-pilot.md` — substantial prior design, much of it
   adopted here. See [Relationship to PR #197](#relationship-to-pr-197).
-- [plan-2026-08-10-tbd-web-live-bead-view.md](plan-2026-08-10-tbd-web-live-bead-view.md)
+- [plan-2026-08-10-tbd-web-live-bead-view.md](../done/plan-2026-08-10-tbd-web-live-bead-view.md)
   — the local web view.
   It is the higher priority and is **not** part of this spec.
 - PR [#205](https://github.com/jlevy/tbd/pull/205) — `tbd changes` / `tbd watch`, the

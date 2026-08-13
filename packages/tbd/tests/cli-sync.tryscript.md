@@ -362,7 +362,7 @@ Sync first syncs docs, then issues.
 Head -3 captures doc sync + worktree repair.
 
 ```console
-$ tbd sync 2>&1 | head -3
+$ tbd sync 2>&1 | sed -n '1,3p'
 ✓ Docs up to date
 ✓ Worktree repaired successfully
 ✗ Push failed: [..]

@@ -1,0 +1,1539 @@
+/* ─────────────────────────────────────────────────────────────────
+   Design system — HSL tokens, no literals outside :root.
+
+   Every color is defined ONCE as a --token on the base :root and
+   referenced via var(--token) everywhere else. Literal hex / rgb /
+   hsl values must not appear anywhere else in this stylesheet,
+   including the theme override blocks. Enforced by
+   tests/bead-web-css.test.ts.
+
+   Why HSL (hsl(H S% L%)):
+
+     1. Hue encodes family. Tokens sharing a hue are meant to read
+        as related: every neutral sits on 215° so surfaces, borders,
+        and text feel like one material; warning/amber is 38°, success/
+        green is 149°, error/red is 0°. To add a token, pick the hue
+        that places it in the right family first, not a color that
+        looks nice alone.
+
+     2. Lightness is the theme knob. Each --dark-* token holds H and
+        S roughly fixed against its light counterpart and moves L.
+        Never shift hue to dim a color; lower L.
+
+     3. Saturation is the loudness knob. Status and update colors are
+        higher S; surfaces, borders, and body text are near-grey.
+
+     4. Typography marks data, not decoration. Chrome — labels,
+        counts, phase words, anything the UI says about itself — is
+        sans (--sans). Monospace (--mono) is reserved for data
+        values: ids, paths, branch names, SHAs, commands,
+        timestamps, and field deltas. A count is chrome even when
+        it is a number; tabular-nums keeps columns aligned without
+        pretending the count is data.
+
+   ── Component and color roles: the complete inventory ───────────
+
+   This list is authoritative. As in MetaBrowser, repeated meanings use
+   one primitive; add a role here before inventing a one-off treatment.
+
+     Plain metadata (.header-meta, .num)
+       Aggregate prose and counts are unboxed, neutral sans text. Use
+       tabular numerals for alignment. A count is not a pill.
+
+     Repository metadata (#statusdl)
+       Status-panel terms are sans chrome and values are monospace literals, but
+       both use the standard 14px body scale. The compact 12px scale is reserved
+       for genuinely dense secondary chrome, not primary field/value rows.
+
+     Section headings (.section-heading, .hint)
+       Every UI chunk has a small-cap sans name. When a faithful CLI
+       equivalent exists, place that live command beside it as a monospace
+       hint (BEADS / tbd list, STATUS / tbd status, STATS / tbd stats).
+       Omit the hint rather than inventing a misleading command.
+
+     Lifecycle status (.issue-status, .status-*)
+       Always pair tbd's canonical symbol with its CLI color family:
+       ○ open=info blue, ◐ in_progress=success green,
+       ● blocked=error red, ○ deferred=muted, ✓ closed=muted.
+       Status is colored text, not a bordered tag, so one row has one
+       strong semantic cue rather than a row of competing enclosures.
+
+     Priority (.priority-*)
+       Match the CLI: P0=error red, P1=warning amber, P2–P4=neutral.
+       Priority is compact text, never an icon or pill.
+
+     Updated age (.updated-age, .age-*)
+       Relative timestamps use tbd's compact "ago" vocabulary and
+       MetaBrowser's six freshness tiers; hover reveals exact ISO time.
+       The relative age is derived compact sans chrome; the tooltip's exact
+       ISO timestamp is a monospace literal. Both use the one compact size.
+       All tiers stay in one blue hue band: newer is darker/saturated in
+       light mode and brighter/saturated in dark mode, while older recedes.
+       Blue therefore means age only; priority keeps red/amber/neutral and
+       lifecycle state keeps its terminal-aligned semantic families.
+
+     Tags (.tag)
+       Bordered tags are categorical attributes. User labels stay neutral
+       because tbd does not know their semantics. Ready is not a label: its
+       quiet, unboxed marker follows real labels and uses success green because
+       it is a computed actionable state, not a lifecycle status. Kind stays
+       neutral auxiliary text.
+
+     Operational badges (.pill)
+       Pills are reserved for bounded viewer state: observer phase,
+       update activity, page position, and sync-branch tip. They are not
+       a generic way to decorate text.
+
+     Controls (.select-control, .chooser, .label-chooser) and icons (.chevron, .icon-button)
+       Native controls keep native behavior but share spacing, focus,
+       and one CSS chevron geometry. Disclosure and dropdown chevrons
+       are the same mark at different orientations. Lifecycle symbols
+       come only from `src/lib/status-icons.ts`; decorative controls use
+       stroked SVG/CSS icons and never borrow status glyphs. Icon-only
+       buttons are bare at rest and surface a border/background only on
+       hover, keyboard focus, or an open state. Semantic filter values
+       reuse the exact status, priority, and kind roles from table cells.
+       Boolean flags are checkboxes named for their CLI flag; verbs that
+       perform an action are buttons.
+
+     Dynamic labels (.label-chooser-menu, .label-choice)
+       Label facets come from the complete local snapshot, ranked by bead count
+       then name. The unsearched menu shows the first 32; its search field queries
+       the complete label vocabulary and returns up to 32 matches while retaining
+       selected values. The menu is a keyboard-operable multi-chooser: a fixed check
+       column, the same neutral `.tag` primitive used in rows, and a tabular sans
+       tally. Selection stays open for composition; Any clears the set. Repeated
+       labels retain the CLI's AND contract, and the control's accessible name states
+       that requirement.
+
+     Facet tallies (.semantic-chooser option, .label-choice-count)
+       Every finite categorical filter shows counts. Status, Type, and Priority
+       counts apply search plus every other active filter while omitting their
+       own dimension, so switching remains possible. Labels instead show the
+       next repeated-label AND intersection. Unselected zero-count choices are
+       hidden; a selected zero-count choice stays visible so its constraint can
+       be removed. Aggregate choices keep their contextual count in the open
+       menu, but their closed chooser face omits it to avoid repeating the same
+       total across controls. Search and Spec have no finite vocabulary and no tally.
+
+     Literal copy (.copyable, .copy-surface, .copy-button)
+       Monospace values and faithful commands expose one small muted copy
+       icon on container hover or keyboard focus. Inline values reserve its
+       space; scrollable blocks use an opaque overlay. Copy clicks never
+       trigger their owning row. The success glyph preserves the copy outline
+       and adds a check to its front square; it holds green, then fades while
+       still green. Glyphs are CSS masks and events are delegated, leaving one
+       accessible button—but no SVG subtree or private listeners—per literal.
+
+     Tooltips (.viewer-tooltip, [data-tooltip])
+       One body-level, delegated tooltip replaces slow native title bubbles.
+       Pointer and keyboard focus share a 250ms deliberate reveal, the standard
+       fast fade, viewport clamping, Escape/scroll dismissal, and no per-target
+       listeners or repeated tooltip DOM. Text is compact sans chrome unless
+       the revealed value is explicitly marked as a literal (exact ISO time).
+       Render completion dismisses the tooltip if its anchor left the document.
+       Essential labels remain visible or accessible outside the tooltip.
+
+     Tree structure (.guide, .title-content)
+       Every non-root bead has exactly one `└──` elbow at its depth indentation;
+       sibling position never changes it to a tee and ancestor levels use spaces,
+       never vertical bars. The elbow reuses the --muted auxiliary-text token.
+       Wrapped lines keep a clean hanging indent after the entire guide and never
+       synthesize continuation rules. Only `.title-text` wraps; disclosure remains
+       in its own column.
+
+     Local field deltas (.delta-before, .delta-after)
+       Each scalar side uses an 80-character middle-ellipsis preview so appended
+       changes remain visible; Copy retains the bounded full value. Before is
+       muted historical context and after is normal text. Creation emits no
+       redundant null-to-value detail in an expanded bead.
+
+     Board columns (.board-table, .board-col-*)
+       One fixed semantic colgroup owns geometry for header, rows, expanded
+       detail, ghosts, and paging. Content never participates in column sizing,
+       so expansion cannot shift the table. Title gets a bounded proportional
+       share and wraps; labels get a larger share and wrap only between tags.
+       Collapsed titles clamp at four lines; expanding restores the full title.
+
+     Column sorting (.sort-button, .sort-indicator)
+       Every data header is one unboxed button. The arrow and ordinal expose the
+       two-key sort stack: the latest clicked column is primary, the prior primary
+       is its sole tie-breaker, and only clicking the current primary reverses it.
+       The default sort stack is Updated descending then Priority ascending; Reset
+       restores that stack without changing Pretty. In Pretty, sorts move only outermost visible
+       parent groups. Updated uses the latest timestamp across each complete visible
+       subtree, regardless of parent kind, while children always retain official
+       child_order_hints order. Flat mode applies the same stack globally. The
+       equivalent-command tooltip names this browser-only ordering rather than
+       implying that the adjacent CLI command reproduces it.
+
+     Live board interaction (.board-table tbody, .disclosure)
+       One delegated tbody click handler owns row expansion. A non-collapsed text
+       selection suppresses expansion, copy controls stop propagation, and keyboard
+       activation remains native to the disclosure button. Live replacement restores
+       focus by stable bead ID and control role; label choices restore focus by label.
+       Refresh failures keep the last successful rows visible and change the persistent
+       observer pill to an error state until a successful board response clears it.
+
+     Typography and expansion (--weight-medium, --weight-strong)
+       The complete type scale is 15px page title, 14px body/content, and one
+       12px compact size for chrome and dense data—never ad-hoc intermediate
+       sizes. Base text is regular. Repeated small-cap labels use medium; major
+       headings and an expanded bead's ID use strong. Expansion never
+       changes the weight of status, priority, kind, or tags, and it adds no
+       persistent surface color or title-width reflow. The muted panel wash
+       is hover feedback only. Expanded detail starts on the ID grid line;
+       the disclosure column always stands alone.
+
+     Scrollbars (--scrollbar-*)
+       Every scroll container uses one subtle native-compatible geometry.
+       Thumb and hover colors reuse border/muted; each surface supplies its
+       own --scrollbar-bg so tracks and thumb padding blend in both themes.
+
+   Color is semantic, never decorative. Interactive accent is reserved
+   for focus and selected controls; amber data-update motion has its own
+   token even though it shares the warning hue. Titles, ids, kind, user
+   labels, and ordinary prose remain neutral unless color adds meaning.
+   Auxiliary text resolves directly to --muted: never lower its opacity to
+   invent another gray. Opacity is reserved for actual state transitions
+   (disabled, context-only, loading, pulsing, entering, or leaving).
+
+   ── Motion: two families, never mixed ──────────────────────────
+
+   This is the load-bearing rule of the whole stylesheet.
+
+   DATA motion (--motion-data, `.flash` / `.leaving`) means the bead
+   graph itself moved: a bead was created, edited, or deleted, and
+   the local observer saw the graph move. It is the amber update color,
+   and it is the ONLY thing allowed to use that color for
+   movement. It fires once per data change and settles back to
+   transparent, so it reads as an event rather than a state.
+
+   UI motion (--transition-fast) means the viewer changed, not the
+   data: a filter edited, a row expanded, a control focused. It is a
+   short neutral transition and it MUST NOT use the update color or the
+   flash keyframes. Re-slicing a filter is not news.
+
+   Conflating the two is the specific bug this rule exists to
+   prevent: highlighting rows amber because a filter revealed them
+   tells the user something changed upstream when nothing did. The
+   server decides which is which via `state.dataVersion`, so the
+   browser never infers "changed" from what happens to be on screen.
+
+   Both families collapse to 1ms under prefers-reduced-motion, which
+   keeps the amber color context while removing the movement.
+   ───────────────────────────────────────────────────────────────── */
+/* ── Theme: three states, one palette source ────────────────────
+
+   The gear picks system / light / dark, after metabrowser and kpress.
+   `data-theme-mode` records the user's choice; `data-theme` records
+   what it resolved to. "system" stamps no data-theme, so the media
+   query decides.
+
+   Both dark contexts below are pure remaps of the --dark-* tokens
+   declared once in :root. That is why no literal appears outside this
+   first block, and why the two dark blocks cannot drift apart: they
+   contain no values of their own. Enforced by
+   tests/bead-web-css.test.ts.
+   ─────────────────────────────────────────────────────────────── */
+:root {
+  /* Neutrals — one hue (215°) so every surface reads as one material.
+     --bg is pure white, so its saturation is 0 and the hue is inert; it is still
+     written as 215 so the family is legible and the dark retune lines up. */
+  --bg: hsl(215 0% 100%);
+  --panel: hsl(220 20% 97%);
+  --border: hsl(215 15% 87%);
+  --text: hsl(215 20% 10%);
+  --muted: hsl(215 9% 43%);
+
+  /* Interactive accent — links, focus rings, active toggles. */
+  --accent: hsl(220 82% 55%);
+
+  /* Semantic families mirror terminal output. Presentation roles below map
+     lifecycle status and priority onto these rather than choosing local hues. */
+  --info: hsl(211 72% 42%);
+  --success: hsl(149 68% 30%);
+  --warning: hsl(38 82% 36%);
+  --error: hsl(0 64% 46%);
+
+  /* Updated-age ramp. This adapts MetaBrowser's freshness tiers but keeps
+     every stop in blue so age cannot be confused with priority or status. */
+  --age-sec: hsl(211 82% 38%);
+  --age-min: hsl(213 72% 42%);
+  --age-hr: hsl(215 58% 46%);
+  --age-day: hsl(217 46% 48%);
+  --age-wk: hsl(219 32% 46%);
+  --age-old: hsl(221 18% 44%);
+
+  /* Wake family (38°, amber). Reserved for DATA motion. Nothing that
+     responds to a UI interaction may use these two tokens. */
+  --update: hsl(38 76% 42%);
+  --row-flash-bg: hsl(43 88% 92%);
+
+  /* Dark palette. Same hues as above, lightness retuned. Compare each
+     line with its light counterpart; a differing hue is a bug. */
+  --dark-bg: hsl(215 15% 9%);
+  --dark-panel: hsl(217 16% 13%);
+  --dark-border: hsl(216 14% 21%);
+  --dark-text: hsl(215 15% 91%);
+  --dark-muted: hsl(214 12% 65%);
+  --dark-accent: hsl(220 100% 71%);
+  --dark-info: hsl(211 86% 70%);
+  --dark-success: hsl(149 52% 55%);
+  --dark-warning: hsl(38 82% 64%);
+  --dark-error: hsl(0 100% 73%);
+  --dark-age-sec: hsl(211 82% 74%);
+  --dark-age-min: hsl(213 72% 71%);
+  --dark-age-hr: hsl(215 58% 68%);
+  --dark-age-day: hsl(217 46% 65%);
+  --dark-age-wk: hsl(219 32% 62%);
+  --dark-age-old: hsl(221 18% 59%);
+  --dark-update: hsl(43 73% 57%);
+  --dark-row-flash-bg: hsl(41 53% 15%);
+
+  /* One family, sans only. There is deliberately no font chooser: this
+     is a dense data view, not a reading surface. */
+  --sans: system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  --font-size-title: 15px;
+  --font-size-body: 14px;
+  --font-size-small: 12px;
+  --weight-medium: 500;
+  --weight-strong: 650;
+
+  /* UI motion: neutral, short, for view changes only. */
+  --motion-fast-duration: 150ms;
+  --motion-standard-easing: ease;
+  --transition-fast: var(--motion-fast-duration) var(--motion-standard-easing);
+  --tooltip-show-delay: 250ms;
+  --z-tooltip: 100;
+  /* DATA motion: long enough to notice across a full table, short
+     enough not to linger. Removal is faster because the row is
+     leaving and should not hold the reader. */
+  --motion-data-in: 900ms;
+  --motion-data-out: 320ms;
+
+  --radius: 6px;
+
+  /* One chevron geometry for dropdowns and row disclosure controls. */
+  --chevron-size: 7px;
+  --chevron-stroke: 1.5px;
+  --select-chevron-inset: 14px;
+  --select-chevron-padding: 36px;
+  --row-disclosure-width: 20px;
+  --board-row-line-height: 18px;
+  --row-disclosure-offset-y: 1px;
+  /* Fixed board grid. Percentages total 100%; the 24/22 title-to-label split
+     deliberately keeps long descriptions from starving categorical tags. */
+  --board-disclosure-column-width: 3%;
+  --board-id-column-width: 11%;
+  --board-priority-column-width: 7%;
+  --board-status-column-width: 12%;
+  --board-kind-column-width: 8%;
+  --board-title-column-width: 24%;
+  --board-updated-column-width: 13%;
+  --board-labels-column-width: 22%;
+  --icon-glyph-size: 15px;
+  --icon-button-size: 28px;
+  --copy-button-size: 18px;
+  --copy-glyph-size: 9px;
+  --copy-feedback-duration: 1500ms;
+  --copy-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect width='14' height='14' x='8' y='8' rx='2'/%3E%3Cpath d='M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2'/%3E%3C/svg%3E");
+  --copy-complete-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect width='14' height='14' x='8' y='8' rx='2'/%3E%3Cpath d='M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2M11 15l2 2 5-5'/%3E%3C/svg%3E");
+
+  /* The visible thumb is narrower than its usable track because the matching
+     background border becomes optical padding, following MetaBrowser. */
+  --scrollbar-thumb: var(--border);
+  --scrollbar-thumb-hover: var(--muted);
+  --scrollbar-width: 10px;
+  --scrollbar-thumb-border-width: 2px;
+  --scrollbar-thumb-radius: 5px;
+  --scrollbar-bg: var(--bg);
+}
+@media (prefers-color-scheme: dark) {
+  /* System dark, unless the reader explicitly chose light. */
+  :root:not([data-theme='light']) {
+    --bg: var(--dark-bg);
+    --panel: var(--dark-panel);
+    --border: var(--dark-border);
+    --text: var(--dark-text);
+    --muted: var(--dark-muted);
+    --accent: var(--dark-accent);
+    --info: var(--dark-info);
+    --success: var(--dark-success);
+    --warning: var(--dark-warning);
+    --error: var(--dark-error);
+    --age-sec: var(--dark-age-sec);
+    --age-min: var(--dark-age-min);
+    --age-hr: var(--dark-age-hr);
+    --age-day: var(--dark-age-day);
+    --age-wk: var(--dark-age-wk);
+    --age-old: var(--dark-age-old);
+    --update: var(--dark-update);
+    --row-flash-bg: var(--dark-row-flash-bg);
+  }
+}
+:root[data-theme='dark'] {
+  /* Explicit dark, so the choice wins under a light system too. */
+  --bg: var(--dark-bg);
+  --panel: var(--dark-panel);
+  --border: var(--dark-border);
+  --text: var(--dark-text);
+  --muted: var(--dark-muted);
+  --accent: var(--dark-accent);
+  --info: var(--dark-info);
+  --success: var(--dark-success);
+  --warning: var(--dark-warning);
+  --error: var(--dark-error);
+  --age-sec: var(--dark-age-sec);
+  --age-min: var(--dark-age-min);
+  --age-hr: var(--dark-age-hr);
+  --age-day: var(--dark-age-day);
+  --age-wk: var(--dark-age-wk);
+  --age-old: var(--dark-age-old);
+  --update: var(--dark-update);
+  --row-flash-bg: var(--dark-row-flash-bg);
+}
+* {
+  box-sizing: border-box;
+  scrollbar-width: thin;
+  scrollbar-color: var(--scrollbar-thumb) var(--scrollbar-bg);
+}
+*::-webkit-scrollbar {
+  width: var(--scrollbar-width);
+  height: var(--scrollbar-width);
+  background: var(--scrollbar-bg);
+}
+*::-webkit-scrollbar-track {
+  background: var(--scrollbar-bg);
+  border: none;
+  box-shadow: none;
+}
+*::-webkit-scrollbar-thumb {
+  background: var(--scrollbar-thumb);
+  border: var(--scrollbar-thumb-border-width) solid var(--scrollbar-bg);
+  border-radius: var(--scrollbar-thumb-radius);
+  transition: background-color var(--transition-fast);
+}
+*::-webkit-scrollbar-thumb:hover {
+  background: var(--scrollbar-thumb-hover);
+}
+*::-webkit-scrollbar-corner {
+  background: var(--scrollbar-bg);
+}
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--sans);
+  font-size: var(--font-size-body);
+  line-height: 1.5;
+}
+header {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--border);
+  background: var(--panel);
+  position: sticky;
+  top: 0;
+  z-index: 3;
+}
+h1 {
+  font-size: var(--font-size-title);
+  margin: 0;
+  font-weight: var(--weight-strong);
+}
+.header-identity {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  align-items: flex-start;
+}
+.header-title-line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  column-gap: 10px;
+  row-gap: 4px;
+}
+.header-meta {
+  font-size: var(--font-size-small);
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.pill {
+  /* Bounded operational state, not a generic text enclosure. Only #tippill is
+     monospace because its content is a branch name and commit — actual data. */
+  font-size: var(--font-size-small);
+  padding: 3px 8px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  color: var(--muted);
+  white-space: nowrap;
+  transition:
+    color var(--transition-fast),
+    border-color var(--transition-fast),
+    background-color var(--transition-fast);
+}
+.pill.watching {
+  color: var(--success);
+  border-color: var(--success);
+}
+.pill.error {
+  color: var(--error);
+  border-color: var(--error);
+}
+.dot {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+  margin-right: 5px;
+  vertical-align: middle;
+}
+.pill.watching .dot {
+  animation: pulse-dot 1.8s ease-in-out infinite;
+}
+@keyframes pulse-dot {
+  0%,
+  100% {
+    opacity: 0.35;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+#tippill {
+  font-family: var(--mono);
+}
+.page-controls {
+  display: inline-flex;
+  align-items: center;
+  align-self: center;
+  gap: 4px;
+}
+.page-controls[hidden] {
+  display: none;
+}
+.page-controls > button {
+  width: 28px;
+  height: 26px;
+  padding: 0;
+}
+.page-controls > button:disabled {
+  cursor: default;
+  opacity: 0.45;
+}
+#pagepill {
+  min-width: 82px;
+  text-align: center;
+}
+.grow {
+  flex: 1;
+}
+/* ── Settings gear and theme chooser ────────────────────────────
+   A gear opening a segmented radio group, after metabrowser/kpress.
+   Theme only: no font chooser, because this view is sans-only. */
+#settings {
+  position: relative;
+}
+#menu {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 6px);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 8px;
+  z-index: 10;
+  min-width: 150px;
+  opacity: 1;
+  visibility: visible;
+  transform: translateY(0);
+  transform-origin: top right;
+  transition:
+    opacity var(--transition-fast),
+    transform var(--transition-fast),
+    visibility 0s linear 0s;
+}
+#menu[hidden] {
+  display: block;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transform: translateY(-4px);
+  transition:
+    opacity var(--transition-fast),
+    transform var(--transition-fast),
+    visibility 0s linear var(--motion-fast-duration);
+}
+.menu-label {
+  font-size: var(--font-size-small);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--muted);
+  margin-bottom: 5px;
+}
+.chooser {
+  display: flex;
+  gap: 2px;
+}
+.seg {
+  flex: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 30px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  transition:
+    color var(--transition-fast),
+    background-color var(--transition-fast);
+}
+.seg:hover,
+.seg:focus-visible {
+  color: var(--text);
+  background: var(--panel);
+}
+.seg svg {
+  width: 16px;
+  height: 16px;
+}
+.seg[aria-checked='true'] {
+  color: var(--accent);
+  background: var(--panel);
+}
+#toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  padding: 9px 16px;
+}
+#controls {
+  border-bottom: 1px solid var(--border);
+}
+input,
+select,
+button {
+  font: inherit;
+  color: var(--text);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 4px 8px;
+  transition:
+    opacity var(--transition-fast),
+    color var(--transition-fast),
+    background-color var(--transition-fast),
+    border-color var(--transition-fast);
+}
+.icon-button {
+  display: inline-flex;
+  width: var(--icon-button-size);
+  height: var(--icon-button-size);
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  padding: 4px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--muted);
+  transition:
+    opacity var(--transition-fast),
+    color var(--transition-fast),
+    background-color var(--transition-fast),
+    border-color var(--transition-fast);
+}
+.icon-button:hover,
+.icon-button:focus-visible,
+.icon-button[aria-expanded='true'] {
+  color: var(--text);
+  background: var(--panel);
+  border-color: var(--border);
+}
+.icon-button svg {
+  width: var(--icon-glyph-size);
+  height: var(--icon-glyph-size);
+}
+.chevron {
+  display: block;
+  width: var(--chevron-size);
+  height: var(--chevron-size);
+  flex: none;
+  border-right: var(--chevron-stroke) solid currentColor;
+  border-bottom: var(--chevron-stroke) solid currentColor;
+  transform-origin: center;
+  transition:
+    color var(--transition-fast),
+    transform var(--transition-fast);
+}
+.chevron-right {
+  transform: rotate(-45deg);
+}
+.chevron-down {
+  transform: rotate(45deg);
+}
+.select-control {
+  position: relative;
+  display: inline-flex;
+  color: var(--muted);
+  transition: color var(--transition-fast);
+}
+.semantic-chooser,
+.kind-choice {
+  color: var(--muted);
+}
+.select-control > select {
+  appearance: none;
+  width: 100%;
+  padding-right: var(--select-chevron-padding);
+}
+.select-value {
+  position: absolute;
+  inset: 1px var(--select-chevron-padding) 1px 1px;
+  display: flex;
+  align-items: center;
+  padding-left: 7px;
+  overflow: hidden;
+  background: var(--bg);
+  color: var(--muted);
+  pointer-events: none;
+  white-space: nowrap;
+}
+.select-value[hidden] {
+  display: none;
+}
+.select-control > .chevron {
+  position: absolute;
+  top: 50%;
+  right: var(--select-chevron-inset);
+  pointer-events: none;
+  transform: translateY(-50%) rotate(45deg);
+}
+.select-control:hover {
+  color: var(--text);
+}
+.select-control:focus-within {
+  color: var(--accent);
+}
+.label-chooser {
+  position: relative;
+  display: inline-flex;
+}
+.label-chooser-trigger {
+  display: inline-flex;
+  min-width: 112px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  color: var(--muted);
+}
+.label-chooser-trigger[data-active='true'],
+.label-chooser[data-open] > .label-chooser-trigger {
+  color: var(--text);
+}
+.label-chooser[data-open] > .label-chooser-trigger > .chevron {
+  transform: rotate(225deg);
+}
+.label-chooser-menu {
+  position: absolute;
+  top: calc(100% + 5px);
+  left: 0;
+  z-index: 10;
+  display: grid;
+  min-width: 190px;
+  max-width: 300px;
+  max-height: 320px;
+  overflow-y: auto;
+  padding: 4px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: 0 5px 16px var(--border);
+  opacity: 1;
+  visibility: visible;
+  transform: translateY(0);
+  transform-origin: top left;
+  transition:
+    opacity var(--transition-fast),
+    transform var(--transition-fast),
+    visibility 0s linear 0s;
+}
+.label-search {
+  width: 100%;
+  margin-bottom: 4px;
+}
+#labelchoices {
+  display: grid;
+}
+.label-chooser-menu[hidden] {
+  display: grid;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transform: translateY(-4px);
+  transition:
+    opacity var(--transition-fast),
+    transform var(--transition-fast),
+    visibility 0s linear var(--motion-fast-duration);
+}
+.label-choice {
+  display: grid;
+  grid-template-columns: 16px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  padding: 5px 6px;
+  border: 0;
+  background: transparent;
+  text-align: left;
+}
+.label-choice:hover,
+.label-choice:focus-visible {
+  background: var(--panel);
+}
+.label-choice-check {
+  color: var(--accent);
+  text-align: center;
+}
+.label-choice-any {
+  color: var(--muted);
+}
+.label-choice-tag {
+  justify-self: start;
+  overflow: hidden;
+  max-width: 100%;
+  text-overflow: ellipsis;
+}
+.label-choice-count {
+  color: var(--muted);
+  font-size: var(--font-size-small);
+  font-variant-numeric: tabular-nums;
+}
+.sort-reset {
+  padding: 2px 4px;
+  border-color: transparent;
+  background: transparent;
+  color: var(--muted);
+  font-size: var(--font-size-small);
+}
+.sort-reset:hover,
+.sort-reset:focus-visible {
+  color: var(--text);
+  background: var(--panel);
+  border-color: var(--border);
+}
+.viewer-tooltip {
+  position: fixed;
+  z-index: var(--z-tooltip);
+  visibility: hidden;
+  max-width: 360px;
+  padding: 6px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--panel);
+  box-shadow: 0 5px 16px var(--border);
+  color: var(--text);
+  font-family: var(--sans);
+  font-size: var(--font-size-small);
+  line-height: 1.4;
+  pointer-events: none;
+  opacity: 0;
+  transition:
+    opacity var(--transition-fast),
+    visibility 0s linear var(--motion-fast-duration);
+}
+.viewer-tooltip.visible {
+  visibility: visible;
+  opacity: 1;
+  transition-delay: var(--tooltip-show-delay), 0s;
+}
+.viewer-tooltip.literal {
+  font-family: var(--mono);
+}
+button {
+  cursor: pointer;
+}
+button:hover,
+input:hover,
+select:hover {
+  border-color: var(--muted);
+}
+button:focus-visible,
+input:focus-visible,
+select:focus-visible {
+  border-color: var(--accent);
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+label.check {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: var(--font-size-small);
+  color: var(--muted);
+  white-space: nowrap;
+}
+#boardheading {
+  margin: 0;
+  padding: 0 16px 7px;
+}
+#cmd {
+  font-family: var(--mono);
+  user-select: all;
+  word-break: break-all;
+}
+#viewernote {
+  font-family: var(--sans);
+  color: var(--muted);
+  font-size: var(--font-size-small);
+  line-height: 1.35;
+}
+.copyable {
+  display: inline-flex;
+  max-width: 100%;
+  min-width: 0;
+  align-items: flex-start;
+  gap: 2px;
+}
+.copy-value {
+  min-width: 0;
+  white-space: inherit;
+  overflow-wrap: inherit;
+}
+.copy-button {
+  --copy-active-icon: var(--copy-icon);
+  position: relative;
+  display: inline-flex;
+  width: var(--copy-button-size);
+  height: var(--copy-button-size);
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--muted);
+  opacity: 0;
+  pointer-events: none;
+  transition:
+    opacity var(--transition-fast),
+    color var(--transition-fast),
+    background-color var(--transition-fast),
+    border-color var(--transition-fast);
+}
+.copy-button::before {
+  content: '';
+  width: var(--copy-glyph-size);
+  height: var(--copy-glyph-size);
+  background: currentColor;
+  -webkit-mask: var(--copy-active-icon) center / contain no-repeat;
+  mask: var(--copy-active-icon) center / contain no-repeat;
+}
+.copyable:hover > .copy-button,
+.copyable:focus-within > .copy-button,
+.copy-button.copied,
+.copy-button.copy-failed {
+  opacity: 1;
+  pointer-events: auto;
+}
+.copy-button:hover,
+.copy-button:focus-visible {
+  color: var(--text);
+  background: var(--panel);
+  border-color: var(--border);
+}
+.copy-button.copied {
+  --copy-active-icon: var(--copy-complete-icon);
+  color: var(--success);
+  animation: copy-feedback var(--copy-feedback-duration) var(--motion-standard-easing) forwards;
+}
+.copy-button.copy-failed {
+  color: var(--error);
+  animation: copy-feedback var(--copy-feedback-duration) var(--motion-standard-easing) forwards;
+}
+.copyable:hover > .copy-button.copy-suppressed,
+.copyable:focus-within > .copy-button.copy-suppressed,
+.copy-surface:hover > .copy-button.copy-suppressed,
+.copy-surface:focus-within > .copy-button.copy-suppressed {
+  opacity: 0;
+  pointer-events: none;
+}
+@keyframes copy-feedback {
+  0%,
+  67% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+.copy-surface {
+  position: relative;
+  padding-right: calc(var(--copy-button-size) + 8px);
+}
+.copy-surface > .copy-button {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  background: var(--scrollbar-bg);
+}
+.copy-surface:hover > .copy-button,
+.copy-surface:focus-within > .copy-button {
+  opacity: 1;
+  pointer-events: auto;
+}
+main {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 340px;
+  /* Stretch both grid areas so the sidebar's rule spans the full board height. */
+  align-items: stretch;
+}
+@media (max-width: 900px) {
+  main {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+#tablewrap {
+  overflow-x: auto;
+  scroll-margin-top: 60px;
+}
+table {
+  border-collapse: collapse;
+  width: 100%;
+  min-width: 700px;
+}
+.board-table {
+  table-layout: fixed;
+  min-width: 820px;
+}
+.board-col-disclosure {
+  width: var(--board-disclosure-column-width);
+}
+.board-col-id {
+  width: var(--board-id-column-width);
+}
+.board-col-priority {
+  width: var(--board-priority-column-width);
+}
+.board-col-status {
+  width: var(--board-status-column-width);
+}
+.board-col-kind {
+  width: var(--board-kind-column-width);
+}
+.board-col-title {
+  width: var(--board-title-column-width);
+}
+.board-col-updated {
+  width: var(--board-updated-column-width);
+}
+.board-col-labels {
+  width: var(--board-labels-column-width);
+}
+th,
+td {
+  text-align: left;
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--border);
+  vertical-align: baseline;
+}
+th {
+  font-size: var(--font-size-small);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+  position: sticky;
+  top: 0;
+  background: var(--bg);
+  z-index: 1;
+  font-weight: var(--weight-medium);
+}
+.sort-button {
+  display: inline-flex;
+  max-width: 100%;
+  align-items: baseline;
+  gap: 4px;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-transform: inherit;
+  letter-spacing: inherit;
+}
+.sort-button:hover,
+.sort-button:focus-visible {
+  color: var(--text);
+  border-color: transparent;
+}
+.sort-indicator {
+  color: var(--accent);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+td.id {
+  font-family: var(--mono);
+  font-size: var(--font-size-small);
+  white-space: nowrap;
+}
+td.priority {
+  font-size: var(--font-size-small);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.priority-0 {
+  color: var(--error);
+  font-weight: var(--weight-strong);
+}
+.priority-1 {
+  color: var(--warning);
+  font-weight: var(--weight-strong);
+}
+.priority-2,
+.priority-3,
+.priority-4 {
+  color: var(--text);
+}
+.issue-status {
+  font-size: var(--font-size-small);
+  font-weight: var(--weight-medium);
+  white-space: nowrap;
+}
+.status-icon {
+  display: inline-block;
+  width: 1em;
+  text-align: center;
+}
+.status-open {
+  color: var(--info);
+}
+.status-in_progress {
+  color: var(--success);
+}
+.status-blocked {
+  color: var(--error);
+}
+.status-deferred {
+  color: var(--muted);
+}
+.status-closed {
+  color: var(--muted);
+}
+td.kind {
+  color: var(--muted);
+}
+td.title {
+  overflow-wrap: anywhere;
+}
+th.updated,
+td.updated {
+  white-space: nowrap;
+}
+.updated-age {
+  font-family: var(--sans);
+  font-size: var(--font-size-small);
+  font-variant-numeric: tabular-nums;
+  font-weight: var(--weight-medium);
+}
+.age-sec {
+  color: var(--age-sec);
+}
+.age-min {
+  color: var(--age-min);
+}
+.age-hr {
+  color: var(--age-hr);
+}
+.age-day {
+  color: var(--age-day);
+}
+.age-wk {
+  color: var(--age-wk);
+}
+.age-old {
+  color: var(--age-old);
+}
+td.caret {
+  color: var(--muted);
+  user-select: none;
+  padding-right: 0;
+  vertical-align: top;
+}
+.disclosure {
+  border: 0;
+  display: grid;
+  place-items: center;
+  width: var(--row-disclosure-width);
+  height: var(--board-row-line-height);
+  padding: 0;
+  color: var(--muted);
+  background: transparent;
+  transform: translateY(var(--row-disclosure-offset-y));
+}
+tr.board-page-row > td {
+  background: var(--panel);
+  color: var(--muted);
+}
+td.board-page {
+  text-align: center;
+}
+td.board-page > span {
+  display: inline-block;
+  margin: 0 10px;
+}
+td.board-page > button:disabled {
+  cursor: default;
+  opacity: 0.45;
+}
+tbody tr:not(.bodyrow):not(.board-page-row) {
+  cursor: pointer;
+  transition: background-color var(--transition-fast);
+}
+tbody tr:not(.bodyrow):not(.board-page-row):hover {
+  background: var(--panel);
+}
+tr.open > td {
+  border-bottom: none;
+}
+tr.open > td.id {
+  font-weight: var(--weight-strong);
+}
+tr.bodyrow > td {
+  padding-top: 0;
+  padding-bottom: 12px;
+}
+tr.bodyrow > td.caret {
+  padding-right: 0;
+}
+tr.bodyrow > td.body-cell {
+  padding-left: 10px;
+}
+.guide {
+  font-family: var(--mono);
+  font-size: var(--font-size-small);
+  color: var(--muted);
+  white-space: pre;
+  user-select: none;
+  flex: none;
+}
+.title-content {
+  display: flex;
+  align-items: baseline;
+  min-width: 0;
+  position: relative;
+}
+.title-text {
+  display: -webkit-box;
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 4;
+  line-clamp: 4;
+}
+tr.open .title-text {
+  display: block;
+  overflow: visible;
+  -webkit-line-clamp: unset;
+  line-clamp: unset;
+}
+/* ── DATA motion ────────────────────────────────────────────────
+   Applied only when the server reports a new `dataVersion`. Never
+   applied because a filter, sort, or expand changed what is visible.
+   `.flash` is set for exactly one render and then cleared, so a row
+   that stays changed does not keep animating. */
+tr.flash > td {
+  animation: row-flash-in var(--motion-data-in) ease-out;
+}
+@keyframes row-flash-in {
+  0% {
+    background-color: var(--row-flash-bg);
+  }
+  100% {
+    background-color: transparent;
+  }
+}
+/* A deleted bead is gone from the data before the reader sees it, so
+   the row is held for one collapse and then dropped. `forwards` keeps
+   the final frame until the JS removal lands. */
+tr.leaving > td {
+  animation: row-flash-out var(--motion-data-out) ease-in forwards;
+  pointer-events: none;
+  overflow: hidden;
+}
+@keyframes row-flash-out {
+  0% {
+    background-color: var(--row-flash-bg);
+    opacity: 1;
+    max-height: 4em;
+  }
+  100% {
+    background-color: var(--row-flash-bg);
+    opacity: 0;
+    max-height: 0;
+  }
+}
+/* Persistent marker for "this bead is in the latest local change set".
+   A state, not motion, so it survives re-renders and filter changes. */
+tr.changed td.id .copy-value::after {
+  content: ' ●';
+  color: var(--update);
+}
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --motion-fast-duration: 1ms;
+    --tooltip-show-delay: 0ms;
+    --copy-feedback-duration: 1ms;
+  }
+  /* Keep the amber context, drop the movement. */
+  tr.flash > td,
+  tr.leaving > td {
+    animation-duration: 1ms;
+  }
+  .pill.watching .dot {
+    animation: none;
+  }
+}
+.tag {
+  display: inline-block;
+  font-size: var(--font-size-small);
+  padding: 1px 6px;
+  margin: 0;
+  border-radius: 4px;
+  border: 1px solid var(--border);
+  color: var(--muted);
+  white-space: nowrap;
+}
+.tag-cluster {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 3px;
+}
+.ready-marker {
+  align-self: center;
+  font-size: var(--font-size-small);
+  color: var(--success);
+  white-space: nowrap;
+}
+aside {
+  border-left: 1px solid var(--border);
+  padding: 12px 14px;
+  min-height: 60vh;
+}
+@media (max-width: 900px) {
+  aside {
+    border-left: none;
+    border-top: 1px solid var(--border);
+  }
+}
+.section-heading {
+  font-family: var(--sans);
+  font-size: var(--font-size-small);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+  font-weight: var(--weight-medium);
+}
+aside .section-heading {
+  margin: 14px 0 6px;
+}
+aside .section-heading:first-child {
+  margin-top: 0;
+}
+/* A command hint is data within the shared section-heading vocabulary. */
+.hint {
+  font-family: var(--mono);
+  font-size: var(--font-size-small);
+  text-transform: none;
+  letter-spacing: 0;
+  color: var(--muted);
+  margin-left: 4px;
+}
+#stats {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 0;
+}
+#stats td,
+#stats th {
+  border: none;
+  padding: 2px 0;
+  font-size: var(--font-size-small);
+}
+#stats td.num,
+#stats th.num {
+  text-align: right;
+  /* Counts are chrome: sans, with tabular figures so columns still align. */
+  font-variant-numeric: tabular-nums;
+  font-size: var(--font-size-small);
+  width: 46px;
+}
+#stats tr.group td {
+  padding-top: 9px;
+  color: var(--muted);
+  font-size: var(--font-size-small);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  font-weight: var(--weight-medium);
+}
+#stats tr.total td {
+  border-top: 1px solid var(--border);
+  font-weight: var(--weight-strong);
+}
+#stats td.ico {
+  width: 14px;
+  font-family: var(--mono);
+}
+dd.bad {
+  color: var(--error);
+}
+dd.good {
+  color: var(--success);
+}
+#report.placeholder {
+  /* Chrome, not data: the empty-state note talks about the UI itself, so it is
+     sans and wraps like prose; only an actual change set is data and stays mono. */
+  font-family: var(--sans);
+  white-space: normal;
+  color: var(--muted);
+}
+pre {
+  --scrollbar-bg: var(--panel);
+  font-family: var(--mono);
+  font-size: var(--font-size-small);
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 8px;
+  overflow-x: auto;
+  margin: 0;
+  max-height: 300px;
+}
+.blabel {
+  font-size: var(--font-size-small);
+  font-weight: var(--weight-medium);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--muted);
+  margin: 10px 0 3px;
+}
+.btext {
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-size: var(--font-size-body);
+}
+.btext.mono {
+  font-family: var(--mono);
+  font-size: var(--font-size-small);
+}
+.btext.err {
+  color: var(--error);
+}
+.skeleton {
+  display: inline-block;
+  width: 120px;
+  height: 0.85em;
+  background: var(--border);
+  border-radius: 4px;
+  animation: skeleton-pulse 1.6s ease-in-out infinite;
+}
+@keyframes skeleton-pulse {
+  0%,
+  100% {
+    opacity: 0.45;
+  }
+  50% {
+    opacity: 0.85;
+  }
+}
+.delta {
+  border-left: 3px solid var(--update);
+  padding: 2px 0 6px 10px;
+  margin-top: 8px;
+}
+.dfield {
+  margin: 3px 0;
+  font-size: var(--font-size-small);
+}
+.dname {
+  font-family: var(--mono);
+  font-size: var(--font-size-small);
+  color: var(--update);
+  margin-right: 8px;
+}
+.dval {
+  font-family: var(--mono);
+  font-size: var(--font-size-small);
+  word-break: break-all;
+}
+.delta-before,
+.delta-arrow {
+  color: var(--muted);
+}
+.delta-after {
+  color: var(--text);
+}
+pre.hunk {
+  margin: 3px 0 0;
+  max-height: 200px;
+}
+#log {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  font-size: var(--font-size-small);
+  max-height: 280px;
+  overflow-y: auto;
+}
+#log li {
+  padding: 4px 0;
+  border-bottom: 1px solid var(--border);
+  color: var(--muted);
+}
+#log li.update {
+  color: var(--update);
+}
+#log li.error {
+  color: var(--error);
+}
+#log time {
+  font-family: var(--mono);
+  font-size: var(--font-size-small);
+  color: var(--muted);
+  margin-right: 6px;
+}
+#statusdl {
+  display: grid;
+  grid-template-columns: 112px minmax(0, 1fr);
+  column-gap: 6px;
+  row-gap: 3px;
+  align-items: baseline;
+  margin: 0;
+  font-size: var(--font-size-body);
+}
+#statusdl dt {
+  color: var(--muted);
+  float: none;
+  margin: 0;
+}
+#statusdl dd {
+  margin: 0;
+  font-family: var(--mono);
+  font-size: var(--font-size-body);
+  word-break: break-all;
+}
+.empty {
+  padding: 30px 16px;
+  color: var(--muted);
+}

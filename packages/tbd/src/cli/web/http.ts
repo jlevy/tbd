@@ -1,0 +1,427 @@
+/** Read-only loopback HTTP router and bounded resumable SSE transport. */
+
+import type { IncomingMessage, ServerResponse } from 'node:http';
+
+import type { BoardState, WebState } from './board.js';
+
+// Keep individual frames moderate; queued bytes have a separate per-client ceiling.
+export const MAX_SSE_FRAME_BYTES = 48 * 1024;
+const MAX_SSE_BUFFER_BYTES = 1024 * 1024;
+const DEFAULT_HEARTBEAT_MS = 20_000;
+const DEFAULT_HISTORY_ENTRIES = 64;
+const DEFAULT_HISTORY_BYTES = 4 * 1024 * 1024;
+export const MAX_SSE_CLIENTS = 64;
+const COMMIT_ID = /^[0-9a-f]{40,64}$/u;
+
+const SECURITY_HEADERS = {
+  'cache-control': 'no-store',
+  'content-security-policy':
+    "default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; " +
+    "connect-src 'self'; img-src 'self' data:; base-uri 'none'; form-action 'none'; " +
+    "frame-ancestors 'none'",
+  'cross-origin-resource-policy': 'same-origin',
+  'referrer-policy': 'no-referrer',
+  'x-content-type-options': 'nosniff',
+  'x-frame-options': 'DENY',
+} as const;
+
+interface StateFrame {
+  id: string;
+  frame: string;
+  bytes: number;
+}
+
+export interface SseHubOptions {
+  heartbeatMs?: number;
+  maxHistoryEntries?: number;
+  maxHistoryBytes?: number;
+  maxBufferBytes?: number;
+  maxClients?: number;
+}
+
+export interface WebRequestHandlerOptions {
+  page: string;
+  board: BoardState;
+  getState: () => WebState;
+  events: SseHub;
+}
+
+function eventId(state: WebState): string | null {
+  return state.localTip !== null && COMMIT_ID.test(state.localTip) ? state.localTip : null;
+}
+
+function formatStateFrame(state: WebState): string {
+  const id = eventId(state);
+  return `${id === null ? '' : `id: ${id}\n`}event: state\ndata: ${JSON.stringify(state)}\n\n`;
+}
+
+/**
+ * Encode one state document without allowing detailed local changes or diagnostics
+ * history to make an unbounded EventSource frame. Board data is always re-fetched.
+ */
+export function encodeStateEvent(state: WebState): string {
+  let candidate = state;
+  let frame = formatStateFrame(candidate);
+  if (Buffer.byteLength(frame) <= MAX_SSE_FRAME_BYTES) {
+    return frame;
+  }
+
+  candidate = {
+    ...state,
+    latestChanges: [],
+    latestChangesTruncated: state.latestChangesTruncated || state.latestChanges.length > 0,
+    log: state.log.slice(0, 20),
+  };
+  frame = formatStateFrame(candidate);
+  if (Buffer.byteLength(frame) <= MAX_SSE_FRAME_BYTES) {
+    return frame;
+  }
+
+  candidate = {
+    ...candidate,
+    movedIds: candidate.movedIds.slice(0, 1_000),
+    removedIds: candidate.removedIds.slice(0, 1_000),
+  };
+  frame = formatStateFrame(candidate);
+  if (Buffer.byteLength(frame) <= MAX_SSE_FRAME_BYTES) {
+    return frame;
+  }
+
+  candidate = {
+    ...candidate,
+    movedIds: [],
+    removedIds: [],
+    log: [],
+    observationError: candidate.observationError?.slice(0, 2_048) ?? null,
+    repoStatus:
+      candidate.repoStatus === null
+        ? null
+        : { ...candidate.repoStatus, workspaces: candidate.repoStatus.workspaces.slice(0, 100) },
+  };
+  frame = formatStateFrame(candidate);
+  if (Buffer.byteLength(frame) > MAX_SSE_FRAME_BYTES) {
+    throw new Error('Unable to encode web state inside the SSE frame budget');
+  }
+  return frame;
+}
+
+/** Small replay ring keyed by the local sync-branch tip when one is available. */
+export class SseHub {
+  private readonly clients = new Set<ServerResponse>();
+  private readonly history: StateFrame[] = [];
+  private readonly heartbeatTimer: NodeJS.Timeout;
+  private readonly maxHistoryEntries: number;
+  private readonly maxHistoryBytes: number;
+  private readonly maxBufferBytes: number;
+  private readonly maxClients: number;
+  private historyBytes = 0;
+  private closed = false;
+
+  constructor(
+    private readonly getState: () => WebState,
+    options: SseHubOptions = {},
+  ) {
+    this.maxHistoryEntries = options.maxHistoryEntries ?? DEFAULT_HISTORY_ENTRIES;
+    this.maxHistoryBytes = options.maxHistoryBytes ?? DEFAULT_HISTORY_BYTES;
+    this.maxBufferBytes = options.maxBufferBytes ?? MAX_SSE_BUFFER_BYTES;
+    this.maxClients = options.maxClients ?? MAX_SSE_CLIENTS;
+    this.heartbeatTimer = setInterval(() => {
+      this.broadcastFrame(': keep-alive\n\n');
+    }, options.heartbeatMs ?? DEFAULT_HEARTBEAT_MS);
+    this.heartbeatTimer.unref();
+  }
+
+  publish(state: WebState): void {
+    if (this.closed) {
+      return;
+    }
+    const frame = encodeStateEvent(state);
+    const id = eventId(state);
+    if (id !== null) {
+      this.remember({ id, frame, bytes: Buffer.byteLength(frame) });
+    }
+    this.broadcastFrame(frame);
+  }
+
+  attach(request: IncomingMessage, response: ServerResponse, resumeEventId?: string): void {
+    if (this.closed) {
+      this.drop(response);
+      return;
+    }
+    if (this.clients.size >= this.maxClients) {
+      response.writeHead(503, {
+        ...SECURITY_HEADERS,
+        'content-type': 'application/json; charset=utf-8',
+        'retry-after': '1',
+      });
+      response.end(JSON.stringify({ error: 'Too many live tbd web connections' }));
+      return;
+    }
+    const lastHeader = request.headers['last-event-id'];
+    const lastEventId = (Array.isArray(lastHeader) ? lastHeader[0] : lastHeader) ?? resumeEventId;
+    const replay = this.framesAfter(lastEventId);
+    const currentState = this.getState();
+    const currentFrame = encodeStateEvent(currentState);
+    const currentId = eventId(currentState);
+    if (currentId !== null) {
+      this.remember({
+        id: currentId,
+        frame: currentFrame,
+        bytes: Buffer.byteLength(currentFrame),
+      });
+    }
+    // Replayed commit-backed frames may predate current state that has no commit id
+    // (for example, a locally deleted sync ref). Always converge on current state.
+    const candidates =
+      replay.at(-1)?.frame === currentFrame
+        ? replay
+        : [
+            ...replay,
+            { id: currentId ?? '', frame: currentFrame, bytes: Buffer.byteLength(currentFrame) },
+          ];
+    let closed = false;
+    response.once('error', () => {
+      closed = true;
+      this.drop(response);
+    });
+    response.once('close', () => {
+      closed = true;
+      this.clients.delete(response);
+    });
+    response.writeHead(200, {
+      ...SECURITY_HEADERS,
+      'content-type': 'text/event-stream; charset=utf-8',
+      connection: 'keep-alive',
+      'x-accel-buffering': 'no',
+    });
+    response.flushHeaders();
+    if (closed || response.destroyed || response.writableEnded) {
+      this.drop(response);
+      return;
+    }
+
+    const frames = this.replaySuffix(candidates, this.maxBufferBytes - response.writableLength);
+    this.clients.add(response);
+
+    for (const frame of frames) {
+      if (closed || !this.write(response, frame.frame)) {
+        return;
+      }
+    }
+  }
+
+  close(): void {
+    if (this.closed) {
+      return;
+    }
+    this.closed = true;
+    clearInterval(this.heartbeatTimer);
+    for (const client of this.clients) {
+      try {
+        client.end();
+      } catch {
+        this.drop(client);
+      }
+    }
+    this.clients.clear();
+    this.history.length = 0;
+    this.historyBytes = 0;
+  }
+
+  private framesAfter(lastEventId: string | undefined): StateFrame[] {
+    if (lastEventId === undefined || !COMMIT_ID.test(lastEventId)) {
+      return [];
+    }
+    // A local ref can legitimately rewind and later reuse an older commit id. Resume
+    // after its newest occurrence; replaying from the first would briefly deliver stale
+    // intermediate state before the current frame.
+    const index = this.history.findLastIndex((entry) => entry.id === lastEventId);
+    return index < 0 ? [] : this.history.slice(index + 1);
+  }
+
+  /** Keep a chronological suffix while reserving the final slot for current state. */
+  private replaySuffix(candidates: readonly StateFrame[], availableBytes: number): StateFrame[] {
+    const selected: StateFrame[] = [];
+    let bytes = 0;
+    for (let index = candidates.length - 1; index >= 0; index -= 1) {
+      const candidate = candidates[index]!;
+      if (selected.length > 0 && bytes + candidate.bytes > availableBytes) {
+        break;
+      }
+      selected.push(candidate);
+      bytes += candidate.bytes;
+    }
+    return selected.reverse();
+  }
+
+  private remember(next: StateFrame): void {
+    const previous = this.history.at(-1);
+    if (previous?.id === next.id) {
+      this.historyBytes -= previous.bytes;
+      this.history[this.history.length - 1] = next;
+      this.historyBytes += next.bytes;
+    } else {
+      this.history.push(next);
+      this.historyBytes += next.bytes;
+    }
+    while (
+      this.history.length > this.maxHistoryEntries ||
+      this.historyBytes > this.maxHistoryBytes
+    ) {
+      const removed = this.history.shift();
+      if (removed !== undefined) {
+        this.historyBytes -= removed.bytes;
+      }
+    }
+  }
+
+  private broadcastFrame(frame: string): void {
+    for (const client of this.clients) {
+      this.write(client, frame);
+    }
+  }
+
+  private write(response: ServerResponse, frame: string): boolean {
+    const projectedBytes = response.writableLength + Buffer.byteLength(frame);
+    if (response.destroyed || response.writableEnded || projectedBytes > this.maxBufferBytes) {
+      this.drop(response);
+      return false;
+    }
+    // `false` means the stream crossed its implementation high-water mark, not that
+    // the peer is irrecoverably slow. Keep the client while our explicit byte ceiling
+    // still holds; a later broadcast drops it if queued data reaches that ceiling.
+    try {
+      response.write(frame);
+      return true;
+    } catch {
+      // The socket can close between the state checks above and write(). Isolate that
+      // race to this client so a publish or heartbeat cannot escape into the process.
+      this.drop(response);
+      return false;
+    }
+  }
+
+  private drop(response: ServerResponse): void {
+    this.clients.delete(response);
+    if (!response.destroyed) {
+      try {
+        response.destroy();
+      } catch {
+        // Cleanup is best-effort; the client is already detached from the hub.
+      }
+    }
+  }
+}
+
+function trustedRequestOrigin(request: IncomingMessage): boolean {
+  const host = request.headers.host;
+  if (host === undefined) {
+    return false;
+  }
+
+  let requestOrigin: URL;
+  try {
+    requestOrigin = new URL(`http://${host}`);
+  } catch {
+    return false;
+  }
+  if (
+    requestOrigin.username !== '' ||
+    requestOrigin.password !== '' ||
+    requestOrigin.pathname !== '/' ||
+    requestOrigin.search !== '' ||
+    requestOrigin.hash !== ''
+  ) {
+    return false;
+  }
+  if (
+    requestOrigin.hostname !== '127.0.0.1' &&
+    requestOrigin.hostname !== 'localhost' &&
+    requestOrigin.hostname !== '[::1]'
+  ) {
+    return false;
+  }
+
+  const originHeader = request.headers.origin;
+  if (originHeader === undefined) {
+    return true;
+  }
+  try {
+    return new URL(originHeader).origin === requestOrigin.origin;
+  } catch {
+    return false;
+  }
+}
+
+export function sendJson(response: ServerResponse, status: number, payload: unknown): void {
+  response.writeHead(status, {
+    ...SECURITY_HEADERS,
+    'content-type': 'application/json; charset=utf-8',
+  });
+  response.end(JSON.stringify(payload));
+}
+
+/** Build the GET-only application router. No mutation route exists by construction. */
+export function createWebRequestHandler(
+  options: WebRequestHandlerOptions,
+): (request: IncomingMessage, response: ServerResponse) => void {
+  return (request, response) => {
+    if (!trustedRequestOrigin(request)) {
+      sendJson(response, 403, { error: 'Cross-origin and non-loopback requests are refused' });
+      return;
+    }
+
+    let url: URL;
+    try {
+      url = new URL(request.url ?? '/', 'http://127.0.0.1');
+    } catch {
+      sendJson(response, 400, { error: 'Invalid request URL' });
+      return;
+    }
+
+    try {
+      if (request.method === 'GET' && url.pathname === '/') {
+        response.writeHead(200, {
+          ...SECURITY_HEADERS,
+          'content-type': 'text/html; charset=utf-8',
+        });
+        response.end(options.page);
+        return;
+      }
+      if (request.method === 'GET' && url.pathname === '/api/board') {
+        sendJson(
+          response,
+          200,
+          options.board.buildBoardResponse(url.searchParams, options.getState()),
+        );
+        return;
+      }
+      if (request.method === 'GET' && url.pathname === '/api/bead') {
+        const id = url.searchParams.get('id') ?? '';
+        const result = options.board.getBead(id);
+        if (result.kind === 'invalid') {
+          sendJson(response, 400, { error: 'Invalid bead id' });
+        } else if (result.kind === 'not-found') {
+          sendJson(response, 404, { error: `Unknown bead ${id}` });
+        } else {
+          sendJson(response, 200, result.body);
+        }
+        return;
+      }
+      if (request.method === 'GET' && url.pathname === '/api/events') {
+        options.events.attach(request, response, url.searchParams.get('lastEventId') ?? undefined);
+        return;
+      }
+      request.resume();
+      sendJson(response, 404, { error: 'Not found' });
+    } catch (error) {
+      if (response.headersSent) {
+        response.destroy();
+        return;
+      }
+      sendJson(response, 500, {
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
+  };
+}
