@@ -1,0 +1,15 @@
+base:
+  assignee: null
+  description_hash: sha256v6:82d2cdf84ee9517587ec58b915958513fa9617a7fb9c58ecf00a33146ec10c1a
+  labels:
+    - web
+    - integration
+  priority: 3
+  status: open
+  title: Document and package the web external-link design contract
+bead_id: is-01kzx8ncczb69sp1bgyk20pyt5
+external_id: 691dcef9-0896-4e6b-8168-8c93a6372a93
+remote_updated_at: 2026-08-13T16:00:51.684Z
+state: linked
+synced_at: 2026-08-13T16:00:51.904Z
+type: lk

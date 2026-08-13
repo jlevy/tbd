@@ -1,0 +1,16 @@
+base:
+  assignee: null
+  description_hash: sha256v6:fa9910885fb9029ec380d149b88a712a0746fd59e041104c8282ba1f2240d328
+  labels:
+    - github
+    - integration
+    - release-candidate
+  priority: 2
+  status: open
+  title: Validate GitHub integration through the built CLI and a live pilot repository
+bead_id: is-01kzx8knkqyxmghreewwsy16h9
+external_id: 4fb64dc7-d929-4ac3-81d2-f9040582f16c
+remote_updated_at: 2026-08-13T16:00:42.955Z
+state: linked
+synced_at: 2026-08-13T16:00:43.159Z
+type: lk

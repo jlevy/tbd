@@ -1,13 +1,15 @@
 base:
   assignee: null
-  description_hash: sha256v6:a488d8a21088b2bed026f04410cb7cdd467d7e842d2d9c618a0df1cdc5f27a60
-  labels: []
+  description_hash: sha256v6:bc478a01b62a904d53770d9f434ebd8d380d1d3b51230e9fa193dd882c6ab0ed
+  labels:
+    - github
+    - integration
   priority: 3
   status: open
   title: Phase 3 documentation
 bead_id: is-01kzn515e154th2ehqthkpcv0v
 external_id: 82fd6e26-c98b-4c92-a2c2-f0b7a23d94d8
-remote_updated_at: 2026-08-11T06:51:07.238Z
+remote_updated_at: 2026-08-13T16:00:20.960Z
 state: linked
-synced_at: 2026-08-11T07:14:08.219Z
+synced_at: 2026-08-13T16:00:21.480Z
 type: lk
