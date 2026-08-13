@@ -6668,9 +6668,10 @@ provider id; a user comment must also retain the exact unpushed local entry.
 A create’s client UUID is its future provider id, so sync commits it as a provisional
 bead link with the journal before provider I/O. A pre-commit crash made no provider
 write; a post-commit crash has the durable claim needed for safe replay.
-The matching durable create intent classifies that relationship as pending, so linked-
-item liveness does not fetch or report it as orphaned—even during pull-only runs that
-intentionally defer replay.
+The matching durable create intent makes liveness distinguish two cases: an item that
+already exists is fetched and reconciled normally even if follow-up journal work
+remains; a confirmed absence is pending rather than orphaned—even during pull-only runs
+that intentionally defer replay.
 Unlink or relink makes an old journal successful cancellation, not work that may touch
 the former provider item.
 Append-only comments union by immutable identity.

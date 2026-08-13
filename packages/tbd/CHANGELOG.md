@@ -72,11 +72,12 @@
   bead to retain the exact provider relationship; comments additionally require their
   unpushed local entry.
   New creates persist their client UUID as a provisional link before provider I/O. A
-  matching durable create intent now keeps that relationship pending rather than
-  misreporting the not-yet-created item as orphaned, including under `--pull`; enriching
-  the provisional link preserves comments and future provider-namespace siblings.
-  Unlink cancels pending writes before clearing that identity and keeps the bridge
-  record until cleanup finishes, so failures remain retryable and a stale or
+  matching durable create intent now keeps a confirmed-absent relationship pending
+  rather than misreporting it as orphaned, including under `--pull`; an already-live
+  item still reconciles while follow-up journal work remains.
+  Enriching the provisional link preserves comments and future provider-namespace
+  siblings. Unlink cancels pending writes before clearing that identity and keeps the
+  bridge record until cleanup finishes, so failures remain retryable and a stale or
   cross-machine journal cannot write after unlink or pin future synchronization.
 - Top-level `tbd sync --push` now uses the same outbound-only tracker projection as
   `tbd integration sync --push`; it no longer runs bidirectional reconciliation and pull

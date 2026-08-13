@@ -397,7 +397,7 @@ export async function runSync(options: SyncEngineOptions): Promise<SyncRunReport
   const missingIds: string[] = [];
   for (const bead of linked) {
     const link = readLink(bead, provider)!;
-    if (!remoteById.has(link.id) && !isPendingCreate(bead, link.id)) {
+    if (!remoteById.has(link.id)) {
       missingIds.push(link.id);
     }
   }

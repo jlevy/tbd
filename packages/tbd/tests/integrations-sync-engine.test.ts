@@ -1010,6 +1010,66 @@ describe('the sync engine', () => {
     expect(await listIntentFiles(dir, 'linear')).toHaveLength(1);
   });
 
+  it('reconciles a live item even while its create journal retains follow-up work', async () => {
+    const epic = bead('is-01hx5zzkbkactav9wevgemmvrz');
+    store.set(epic.id, epic);
+    await run([epic]);
+    await run([store.get(epic.id)!]);
+    const linked = store.get(epic.id)!;
+    const externalId = readLink(linked, 'linear')!.id;
+
+    // A create journal remains whole when a later attachment or splice fails.
+    // The create itself can therefore name an already-live provider item.
+    await writeIntentFile(dir, {
+      type: 'in',
+      run_id: '01hx5zzkbkactav9wevfollow1',
+      provider: 'linear',
+      created_at: '2026-08-10T00:00:00.000Z',
+      ops: [
+        {
+          kind: 'create_issue',
+          client_id: externalId,
+          bead_id: epic.id,
+          patch: { title: epic.title },
+        },
+        {
+          kind: 'upsert_attachments',
+          bead_id: epic.id,
+          external_id: externalId,
+          attachments: [{ url: 'tbd://bead/pending-follow-up', title: 'pending follow-up' }],
+        },
+      ],
+    });
+    const remote = server.issues.get(externalId)!;
+    remote.title = 'Remote edit behind retained create journal';
+    remote.updatedAt = '2026-08-10T15:00:00.000Z';
+    // Force the pair through targeted liveness rather than the broad delta.
+    adapter.fetchUpdatedSince = () => Promise.resolve([]);
+
+    const inboundOnly = await runSync({
+      provider: 'linear',
+      adapter,
+      policy: POLICY,
+      dataSyncDir: dir,
+      allIssues: [linked],
+      displayId: (id) => id.slice(-4),
+      mirrorLabels: false,
+      callbacks,
+      direction: 'inbound',
+      dryRun: false,
+      now: () => new Date().toISOString(),
+    });
+
+    expect(inboundOnly.failures).toEqual([]);
+    expect(inboundOnly.pulled).toEqual(['mvrz']);
+    expect(store.get(epic.id)?.title).toBe('Remote edit behind retained create journal');
+    // Pull-only reconciled local state but still performed no provider writes.
+    expect(server.attachments.some((item) => item.url === 'tbd://bead/pending-follow-up')).toBe(
+      false,
+    );
+    expect(await listIntentFiles(dir, 'linear')).toHaveLength(1);
+  });
+
   it("a stale replay failure does not block this run's journal cleanup", async () => {
     // Bugbot follow-up: report.failures also carries replay failures from
     // OLDER intent files; those must not pin the current run's journal.

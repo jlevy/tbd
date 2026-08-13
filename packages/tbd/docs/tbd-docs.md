@@ -1856,9 +1856,10 @@ require the exact unpushed local entry.
 A new outbound item records its client UUID as a provisional link with the journal
 before any network call, so crash recovery cannot confuse live creation with work
 canceled by unlink.
-While that exact create journal remains, tbd reports the relationship
-as pending rather than incorrectly calling the not-yet-created item orphaned, including
-under `--pull`. Filling in the created item’s key and URL preserves comments and other
+While that exact create journal remains, tbd still checks the item: a
+live item reconciles normally even if attachment or managed-content work remains, while
+a confirmed absence is pending rather than incorrectly orphaned, including under
+`--pull`. Filling in the created item’s key and URL preserves comments and other
 provider state already recorded beside the link.
 `unlink` removes matching pending writes first, clears the bead link second, and deletes
 the bridge record last.
