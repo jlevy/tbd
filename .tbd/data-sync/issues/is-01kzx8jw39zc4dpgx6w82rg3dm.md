@@ -3,9 +3,9 @@ type: is
 id: is-01kzx8jw39zc4dpgx6w82rg3dm
 title: Complete Linear RC package, docs, review, and CI gate
 kind: task
-status: in_progress
+status: closed
 priority: 1
-version: 7
+version: 9
 spec_path: docs/project/specs/active/plan-2026-08-10-external-tracker-integrations.md
 labels:
   - integration
@@ -17,12 +17,12 @@ child_order_hints:
   - is-01kzy622568vqnwmx33pwqr6h6
   - is-01kzy7773hjpwkaamyhtcj7z8k
 created_at: 2026-08-13T09:52:19.048Z
-updated_at: 2026-08-13T18:47:42.960Z
-closed_at: 2026-08-13T15:07:57.613Z
-close_reason: Linear release-candidate gate complete. Main v0.5.0 merged semantically; package/docs/installed skill/spec aligned; disposable live Linear matrix passed; all 13 review findings fixed with thread replies and resolutions; 1,931 Vitest and 1,084 Tryscript checks pass; all hosted Ubuntu/macOS/Windows/coverage/benchmark/security/review checks green on 8e00e188.
+updated_at: 2026-08-13T19:12:03.306Z
+closed_at: 2026-08-13T19:12:03.304Z
+close_reason: "Complete: PR #206 merged as 43334c85 with all 16 findings fixed, 41/41 threads resolved, live Linear QA green, and PR plus post-merge main CI green end to end."
 ---
 After the integrity guard and live soak, review PR #206 thread-by-thread; verify CHANGELOG Unreleased scope, README/manual/design/development/installed skill consistency, package contents, npm dry-run, secret hygiene, no-integration inert behavior, and backward compatibility. Run format, lint, typecheck, build, focused integration/web seam tests, full unit and tryscript suites, publint, and package QA; push the branch and require hosted checks to reach a final green result before assigning the release-candidate disposition.
 
 ## Notes
 
-Post-push Bugbot review on 6e75b1bf added two actionable threads: unmapped Linear assignees can leak display names into linked beads/bases, and the live project-scope scenario can be counted without --project. Reopened for one tracked child per finding and another full gate.
+Final gate complete. PR #206 merged to main as 43334c85 after 16 fixed findings, 0 rebutted, 0 deferred. All 41 inline threads resolved with originating-channel replies and the PR has a complete disposition map. Live Linear QA passed 11/11 with verified cleanup. Local and push gates passed 134 files / 1,966 tests plus format, Markdown, lint, typecheck, build, publint, dependency-age, performance, and diff checks. Hosted PR checks and post-merge main CI run 31733954186 passed on Ubuntu, macOS, Windows, coverage/lint, benchmark, web/watch/packed smoke, automated review, and secrets. Branch tree equals merged main tree. User config and stash preserved.
