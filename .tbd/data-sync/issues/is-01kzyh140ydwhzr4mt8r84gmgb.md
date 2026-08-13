@@ -5,11 +5,12 @@ title: "Consolidate --push onto the sync engine: two engines behind one flag voc
 kind: task
 status: open
 priority: 1
-version: 1
+version: 4
 labels: []
 dependencies: []
+parent_id: is-01kzymcx5gjwfra1z0s3rz1g05
 created_at: 2026-08-13T21:39:08.958Z
-updated_at: 2026-08-13T21:39:08.958Z
+updated_at: 2026-08-13T22:48:26.411Z
 ---
 'tbd integration sync --push' and 'tbd sync --push' route to runEnabledIntegrationPushes -> planMirror/applyMirror (the Phase 1 one-way mirror). Bare sync and --pull route to runSync. runSync has no outbound-only mode (direction?: 'both' | 'inbound', sync-engine.ts:143).
 
@@ -22,3 +23,7 @@ Fix (pick one):
 (b) Keep both engines, document the divergence honestly, stop recommending --push as the onboarding default.
 
 The doc half of (b) landed in the review branch. (a) is the real fix.
+
+## Notes
+
+Deferred from PR #212: consolidating --push onto runSync is the preferred fix, but it replaces a complete engine and changes conflict, journal, comment, and base semantics beyond the managed-marker patch. Keep as the dedicated P1 follow-up.
