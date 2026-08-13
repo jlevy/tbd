@@ -434,10 +434,17 @@ Revisit as its own proposal if real usage asks for it.
 ### CLI surface
 
 ```bash
-tbd web [--port <n>] [--open]
+tbd web [path] [--port <n>] [--open]
 ```
 
 Binding is `127.0.0.1` only, and there is deliberately no flag to change that.
+
+`path` may identify an initialized repository or any directory inside one and is
+resolved relative to the caller before ordinary repository discovery.
+This makes the viewer usable from an unrelated working directory without changing its
+data model. An initialized repository with zero beads is a valid empty board.
+A missing path is a usage error, while an existing directory without tbd metadata uses
+the same `NotInitializedError` contract as other repository commands.
 
 `tbd web` is a long-running foreground command, which is unusual for this CLI, so it
 follows the existing conventions rather than inventing server-specific ones.
@@ -1082,6 +1089,8 @@ liveness decision:
 - Live rendering delegates row expansion to one table-body listener, ignores clicks that
   finish a non-collapsed text selection, restores keyboard focus by stable identity, and
   dismisses tooltips whose anchors were replaced.
+  Label-search drafts survive intervening live renders until their debounce lands, and
+  Home/End preserve native caret movement while that field owns focus.
   A board-refresh failure retains the last successful rows and remains visible in the
   observer indicator until recovery.
 

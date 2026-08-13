@@ -703,6 +703,7 @@ monospace, keeping their baseline readable and consistent with board rows.
 ```bash
 tbd web                         # Serve on the first free port in 7777-7786
 tbd web --open                  # Open the page after it is HTTP-ready
+tbd web ../another-repo --open  # View a repository from another directory
 tbd web --port 9000             # Bind exactly 127.0.0.1:9000
 tbd --json web                  # Print the machine-readable startup descriptor
 tbd --dry-run web               # Resolve the repo and port without binding
@@ -710,15 +711,23 @@ tbd --dry-run web               # Resolve the repo and port without binding
 
 Options:
 
+- `[path]` - Resolve this repository or subdirectory instead of the current directory.
+  Relative paths are resolved from the caller’s current directory; the startup
+  descriptor reports the canonical repository root.
+
 - `--port <n>` - Bind exactly this loopback port.
   Without it, tbd searches the bounded range 7777-7786 and reports the port it selected.
+
 - `--open` - Open the default browser after the page passes an HTTP readiness check.
   The default is not to launch a browser, which is safe for agents and CI.
 
 The command stays in the foreground; press Ctrl+C to stop it.
-SIGINT exits 130 and a normal or SIGTERM shutdown exits 0. It binds only `127.0.0.1`,
-exposes no write route, and serves one self-contained page with same-origin and
-security-header checks.
+An initialized repository with zero beads is valid and renders the ordinary empty board.
+A missing or non-directory path is a usage error; an existing directory outside an
+initialized tbd repository reports the standard “Not a tbd repository” error used by
+other commands. SIGINT exits 130 and a normal or SIGTERM shutdown exits 0. It binds only
+`127.0.0.1`, exposes no write route, and serves one self-contained page with same-origin
+and security-header checks.
 It is a local development and observation surface, not a remotely reachable service.
 
 The browser opens its live event stream before loading the board and refreshes whenever
@@ -750,6 +759,8 @@ Above 10,000 rows, the page reports the complete count and asks for a narrower q
 Status, Type, Priority, and the label chooser show conditional tallies after every other
 active filter. The menu shows up to 32 labels at once; its search field queries the
 complete label vocabulary and retains selected labels.
+Typing is stable across live updates; Home and End move the search caret while that
+field has focus and navigate the choices otherwise.
 Unselected zero-count choices are hidden; a selected zero-count value remains visible so
 it can be removed. Label candidates additionally show the next repeated-label
 intersection and preserve the CLI’s AND semantics.

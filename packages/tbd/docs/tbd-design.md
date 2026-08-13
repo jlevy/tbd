@@ -4070,8 +4070,16 @@ local state. The server is therefore a presentation surface, not an editor or an
 alternate agent API.
 
 ```bash
-tbd web [--port <n>] [--open]
+tbd web [path] [--port <n>] [--open]
 ```
+
+The optional path is a repository or any subdirectory within it and is resolved from the
+caller’s current directory to a canonical repository root before startup.
+Omitting it preserves the normal current-directory discovery contract.
+An initialized repository with no beads is a valid empty snapshot.
+Missing/non-directory paths are usage errors; existing paths without tbd metadata flow
+through the shared `requireInit` error path so `web` does not invent a different
+repository contract.
 
 The server binds only `127.0.0.1`. With no explicit port it searches the bounded range
 7777–7786; `--port` pins one port, and `--open` launches a browser only after an HTTP
@@ -4092,6 +4100,10 @@ The response carries conditional Status, Type, and Priority facets plus at most 
 facets per response.
 An empty label search returns the highest-ranked choices; a search queries the complete
 label vocabulary before applying the response cap, so every label remains reachable.
+While the search field owns focus, its live draft remains authoritative across observer
+and request renders until the debounce publishes it.
+Home and End retain native caret movement there; the same keys navigate to the first and
+last choices only when focus is elsewhere in the menu.
 Every tally applies search and all other active dimensions; unselected zero-count values
 are omitted.
 Label candidates additionally apply every selected label, retaining selected

@@ -109,6 +109,10 @@ Preserve the agent interaction contract across those surfaces: a natural request
 beads in a browser routes the installed skill to `tbd web --open`; the agent owns the
 foreground process and all ordinary tbd mutations; the page is a live viewer, not an
 editor; and starting it never performs remote exchange.
+When the target project is outside the agent’s current working directory, the skill must
+use `tbd web <path> --open`. The CLI accepts a repository or subdirectory, supports an
+initialized repository with no beads, and applies the standard initialization error to
+an existing non-tbd directory.
 The source skill tiers, `welcome-user`, README, CLI manual, design, setup output,
 command startup output, and browser copy must state that contract consistently.
 `integration-files.test.ts`, `setup-flows.test.ts`, `golden-output.test.ts`,

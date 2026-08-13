@@ -7,9 +7,11 @@ import {
   formatDeltaValue,
   formatRelativeAge,
   isDefaultBoardSort,
+  labelSearchValueForRender,
   MAX_EXPANDED_ROWS,
   paginateBoardRows,
   phaseLabel,
+  preserveLabelSearchEditingKey,
   promoteBoardSort,
   resolvedBoardSorts,
 } from './core.js';
@@ -457,8 +459,13 @@ function renderLabelChooser(
         ? selected[0]!
         : `${selected[0]} +${selected.length - 1}`;
   elements.labelTrigger.dataset.active = String(selected.length > 0);
-  if (elements.labelSearch.value !== labelSearch) {
-    elements.labelSearch.value = labelSearch;
+  const renderedLabelSearch = labelSearchValueForRender(
+    elements.labelSearch.value,
+    labelSearch,
+    document.activeElement === elements.labelSearch,
+  );
+  if (elements.labelSearch.value !== renderedLabelSearch) {
+    elements.labelSearch.value = renderedLabelSearch;
   }
 
   const signature = JSON.stringify([selected, facets]);
@@ -1473,6 +1480,9 @@ elements.labelMenu.addEventListener('click', (event) => {
   applyControls();
 });
 elements.labelMenu.addEventListener('keydown', (event) => {
+  if (preserveLabelSearchEditingKey(event.key, document.activeElement === elements.labelSearch)) {
+    return;
+  }
   const rows = [...elements.labelChoices.querySelectorAll<HTMLButtonElement>('.label-choice')];
   const current = rows.indexOf(document.activeElement as HTMLButtonElement);
   let next = -1;

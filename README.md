@@ -394,6 +394,7 @@ tbd close proj-a7k2 --reason="Fixed in commit abc123"
 tbd close proj-a7k2 proj-b3m9 --reason="Sprint done"  # Bulk close (one call, no loops)
 tbd sync                       # Sync with remote (auto-commits and pushes)
 tbd web --open                 # Open the live, read-only browser viewer
+tbd web ../another-repo --open # View another initialized repository
 tbd watch --ready --json       # Block until a bead newly becomes ready
 tbd watch --bead proj-a7k2     # Block until one bead changes on the remote
 tbd changes --since <commit>   # What changed since a sync-branch commit
@@ -408,6 +409,11 @@ local browser. It binds loopback only, has no write route, and does not open a b
 unless you pass `--open`. Large results support up to 10,000 rows and render in
 5,000-row pages. Native local file events normally update it immediately, with a
 one-second reconciliation fallback for missed events.
+An optional path may name an initialized repository or any directory inside one, so the
+viewer can be started from elsewhere.
+An initialized repository with no beads shows a normal empty board.
+A missing path or a directory that has not been initialized reports the same clear
+repository error as other tbd commands.
 When you ask an agent to show your beads in a browser, the agent should run
 `tbd web --open`, wait for the URL, give it to you, and keep the process running.
 The browser’s controls only change the view; ask the agent to create, update, close,

@@ -114,7 +114,7 @@ async function tbd(repoDir: string, ...args: string[]): Promise<string> {
   return stdout;
 }
 
-async function createRepo(): Promise<WebFixture> {
+async function createRepo(options: { withIssue?: boolean } = {}): Promise<WebFixture> {
   const root = await mkdtemp(join(tmpdir(), 'tbd-web-cli-'));
   cleanupPaths.push(root);
   const remoteDir = join(root, 'remote.git');
@@ -134,17 +134,19 @@ async function createRepo(): Promise<WebFixture> {
   await git(repoDir, 'add', '.tbd/config.yml');
   await git(repoDir, 'commit', '-m', 'configure tbd');
   await git(repoDir, 'push', '--set-upstream', 'origin', 'main');
-  await tbd(
-    repoDir,
-    '--json',
-    'create',
-    'Browser acceptance',
-    '--description',
-    'Loaded only from the detail endpoint',
-    '--label',
-    'acceptance',
-  );
-  await tbd(repoDir, '--json', 'sync');
+  if (options.withIssue !== false) {
+    await tbd(
+      repoDir,
+      '--json',
+      'create',
+      'Browser acceptance',
+      '--description',
+      'Loaded only from the detail endpoint',
+      '--label',
+      'acceptance',
+    );
+    await tbd(repoDir, '--json', 'sync');
+  }
   return { root, remoteDir, repoDir: await realpath(repoDir) };
 }
 
@@ -297,6 +299,97 @@ afterEach(async () => {
 });
 
 describe('tbd web CLI', { timeout: subprocessTestTimeout(30_000) }, () => {
+  it('serves a clean empty state from an initialized repository with zero beads', async () => {
+    const { repoDir } = await createRepo({ withIssue: false });
+    const port = await availablePort();
+    const child = spawn(process.execPath, [tbdBin, '--json', 'web', '--port', String(port)], {
+      cwd: repoDir,
+      env: { ...process.env, NO_COLOR: '1' },
+      stdio: ['ignore', 'pipe', 'pipe'],
+    });
+    children.add(child);
+    const descriptor = await waitForDescriptor(child);
+
+    const board = await fetch(`${descriptor.url}/api/board?pretty=1`);
+    expect(await board.json()).toMatchObject({
+      total: 0,
+      matched: 0,
+      closedHidden: 0,
+      rows: [],
+      labelFacets: [],
+    });
+    const page = await fetch(descriptor.url);
+    expect(await page.text()).toContain('No beads match this query.');
+
+    const exited = waitForExit(child);
+    expect(child.kill(supportsHandledProcessSignals ? 'SIGTERM' : 'SIGKILL')).toBe(true);
+    if (supportsHandledProcessSignals) {
+      await expect(exited).resolves.toEqual({ code: 0, signal: null });
+    } else {
+      await exited;
+    }
+    children.delete(child);
+  });
+
+  it('accepts an explicit repository subdirectory from an arbitrary working directory', async () => {
+    const fixture = await createRepo();
+    const callerDir = join(fixture.root, 'caller');
+    const repoSubdir = join(fixture.repoDir, 'nested', 'deeper');
+    await mkdir(callerDir);
+    await mkdir(repoSubdir, { recursive: true });
+    const port = await availablePort();
+    const child = spawn(
+      process.execPath,
+      [tbdBin, '--json', 'web', repoSubdir, '--port', String(port)],
+      {
+        cwd: callerDir,
+        env: { ...process.env, NO_COLOR: '1' },
+        stdio: ['ignore', 'pipe', 'pipe'],
+      },
+    );
+    children.add(child);
+    const descriptor = await waitForDescriptor(child);
+    expect(descriptor.repo).toBe(fixture.repoDir);
+    const board = await fetch(`${descriptor.url}/api/board`);
+    expect(await board.json()).toMatchObject({ rows: [{ title: 'Browser acceptance' }] });
+
+    const exited = waitForExit(child);
+    expect(child.kill(supportsHandledProcessSignals ? 'SIGTERM' : 'SIGKILL')).toBe(true);
+    await exited;
+    children.delete(child);
+  });
+
+  it('reports standard uninitialized errors and a clear invalid-base-path error', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'tbd-web-errors-'));
+    cleanupPaths.push(root);
+    const uninitializedRepo = join(root, 'repo');
+    const plainDirectory = join(root, 'plain');
+    await mkdir(uninitializedRepo);
+    await mkdir(plainDirectory);
+    await git(uninitializedRepo, 'init', '-b', 'main');
+
+    for (const cwd of [uninitializedRepo, plainDirectory]) {
+      const result = spawnSync(process.execPath, [tbdBin, 'web'], {
+        cwd,
+        encoding: 'utf8',
+        env: { ...process.env, NO_COLOR: '1' },
+      });
+      expect(result.status).toBe(1);
+      expect(result.stderr).toContain(
+        "Not a tbd repository (run 'tbd setup --auto --prefix=<name>' first)",
+      );
+    }
+
+    const missing = join(root, 'does-not-exist');
+    const invalidPath = spawnSync(process.execPath, [tbdBin, 'web', missing], {
+      cwd: plainDirectory,
+      encoding: 'utf8',
+      env: { ...process.env, NO_COLOR: '1' },
+    });
+    expect(invalidPath.status).toBe(2);
+    expect(invalidPath.stderr).toContain(`Base directory does not exist: ${missing}`);
+  });
+
   it('serves the packaged page and APIs with isolated, platform-safe lifecycle cleanup', async () => {
     const { repoDir } = await createRepo();
     const port = await availablePort();

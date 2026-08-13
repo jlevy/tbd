@@ -32,8 +32,13 @@
   The client lazy-loads bead bodies and bounds requests and rendered rows for large
   repositories. Counted multi-label filtering, relative update ages, four-line collapsed
   titles, and composable sortable column headers keep dense boards scannable.
+  Label-menu search drafts survive live rerenders, and Home/End retain native
+  text-editing behavior while the search field owns focus.
   Sorting never disables Pretty: it reorders outermost tree groups while official child
   order remains intact; flat mode applies the same stack to individual rows.
+  An optional repository-or-subdirectory path makes the viewer usable from any working
+  directory. Initialized repositories with zero beads render a normal empty board;
+  missing or uninitialized bases fail with the standard clear CLI errors.
   `--open` is opt-in; JSON and dry-run modes support agents and CI.
 
 ### Documentation

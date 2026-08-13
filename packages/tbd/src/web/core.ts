@@ -248,6 +248,20 @@ export const MAX_GHOST_ROWS = 100;
 /** Maximum visible characters for each scalar side of an expanded local field delta. */
 export const DELTA_VALUE_PREVIEW_CHARS = 80;
 
+/** Keep a focused search draft authoritative until its debounced control update lands. */
+export function labelSearchValueForRender(
+  currentValue: string,
+  storedValue: string,
+  searchOwnsFocus: boolean,
+): string {
+  return searchOwnsFocus ? currentValue : storedValue;
+}
+
+/** Home/End edit a focused search query; elsewhere they navigate the label menu. */
+export function preserveLabelSearchEditingKey(key: string, searchOwnsFocus: boolean): boolean {
+  return searchOwnsFocus && (key === 'Home' || key === 'End');
+}
+
 export interface BoardPageView {
   rows: readonly BoardRowView[];
   /** Zero-based page index after invalid and out-of-range input is clamped. */

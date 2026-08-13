@@ -15,8 +15,10 @@ import {
   MAX_GHOST_ROWS,
   formatRelativeAge,
   isDefaultBoardSort,
+  labelSearchValueForRender,
   paginateBoardRows,
   phaseLabel,
+  preserveLabelSearchEditingKey,
   promoteBoardSort,
 } from '../src/web/core.js';
 import type {
@@ -130,6 +132,19 @@ async function flush(): Promise<void> {
 }
 
 describe('client core pure helpers', () => {
+  it('preserves an in-progress label query across renders until its debounce lands', () => {
+    expect(labelSearchValueForRender('rare la', 'rare', true)).toBe('rare la');
+    expect(labelSearchValueForRender('rare', 'rare', true)).toBe('rare');
+    expect(labelSearchValueForRender('stale', 'canonical', false)).toBe('canonical');
+  });
+
+  it('keeps Home and End as editing keys while the label search owns focus', () => {
+    expect(preserveLabelSearchEditingKey('Home', true)).toBe(true);
+    expect(preserveLabelSearchEditingKey('End', true)).toBe(true);
+    expect(preserveLabelSearchEditingKey('ArrowDown', true)).toBe(false);
+    expect(preserveLabelSearchEditingKey('Home', false)).toBe(false);
+  });
+
   it('pages 10000 rows only at the 5000-row last-resort boundary', () => {
     const seed = board(state()).rows[0]!;
     const rows: BoardRowView[] = Array.from({ length: 10_000 }, (_, index) => ({
