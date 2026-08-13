@@ -3,9 +3,9 @@ type: is
 id: is-01kzx848mdfzapsc2ddm6hm0zt
 title: Merge v0.5.0 main and assess Linear release candidate
 kind: task
-status: in_progress
+status: closed
 priority: 1
-version: 42
+version: 45
 spec_path: docs/project/specs/active/plan-2026-08-10-external-tracker-integrations.md
 labels:
   - integration
@@ -48,11 +48,14 @@ child_order_hints:
   - is-01kzxp8m8fn9vyrd0qfghkgtx2
   - is-01kzxp8mkfq99eamm3d3kw7a9e
   - is-01kzxr09hgvy5ef29f7j5s5950
+  - is-01kzxs98k1zjrykyet7px33hn2
 created_at: 2026-08-13T09:44:20.358Z
-updated_at: 2026-08-13T14:30:53.978Z
+updated_at: 2026-08-13T15:07:57.866Z
+closed_at: 2026-08-13T15:07:57.865Z
+close_reason: "PR #206 final senior review complete and ready to merge. origin/main f2d0a5e4 is integrated without semantic conflict, live Linear behavior converges end to end, every review thread is resolved, all local and hosted release gates are green on 8e00e188, and GitHub/web follow-up phases remain explicitly mapped under the open integration epic."
 ---
 Merge origin/main into claude/linear-integration using the merge-upstream shortcut. Audit every overlapping sync/storage/schema/web surface for semantic conflicts, reconcile stale Phase 2 bead state, revise the plan with file/function-level Linear RC, GitHub, and web work, validate the built CLI and live Linear pilot end to end, run the full quality gates, push PR #206, and watch CI to a final result.
 
 ## Notes
 
-origin/main v0.5.0 is merged semantically; live Linear phases 1-6 passed. Twelve PR review findings are fixed with TDD. The final retained-create edge case (tbd-huhy) now always performs targeted liveness: live items reconcile, while only confirmed-absent exact create claims remain pending instead of orphaned. Authoritative spec/design/user docs/changelog/generated skills are current. Final local gates at the pending head: format/Markdown/lint/typecheck/build; 1,930 Vitest; 1,084 Tryscript; focused integration 61/61; publint; package-age 31 pins/0 violations; packed web and native-watch proofs from the preceding head (unaffected surfaces). Known gray-matter/js-yaml advisory remains narrowly unreachable and tracked as tbd-6gy0. Remaining: commit/push, resolve the final thread, replacement hosted CI, final disposition and RC closure.
+Final thread-aware sweep after d22 found Bugbot thread PRRT_kwDOQ109P86Y-I6F (tracked tbd-swh3): a provider-accepted create with failed follow-up and no first bridge base could hide intervening remote edits. Claim reproduced red and fixed using the journaled creation snapshot as the initial three-way base. Local full gates pass at 1,931 Vitest and 1,084 Tryscript; awaiting push/hosted CI and final zero-thread sweep.
