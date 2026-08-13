@@ -177,6 +177,8 @@ You just talk naturally.
   shares the CLI’s filters and stays current as local bead state changes.
   It is a viewer, not an editor: ask your agent to change beads with ordinary `tbd`
   commands, and the open page updates automatically.
+  Cross-filtered facet tallies, relative update times, bounded title summaries, and
+  two-key column sorting keep large boards scannable without changing bead semantics.
   It never contacts a remote; explicit `tbd sync` remains the exchange step.
 - **Beads alternative:** Largely compatible with `bd` at the CLI level, but with a
   simpler architecture: no JSONL merge conflicts, no daemon modifying your working tree,
@@ -392,6 +394,7 @@ tbd close proj-a7k2 --reason="Fixed in commit abc123"
 tbd close proj-a7k2 proj-b3m9 --reason="Sprint done"  # Bulk close (one call, no loops)
 tbd sync                       # Sync with remote (auto-commits and pushes)
 tbd web --open                 # Open the live, read-only browser viewer
+tbd web ../another-repo --open # View another initialized repository
 tbd watch --ready --json       # Block until a bead newly becomes ready
 tbd watch --bead proj-a7k2     # Block until one bead changes on the remote
 tbd changes --since <commit>   # What changed since a sync-branch commit
@@ -406,11 +409,35 @@ local browser. It binds loopback only, has no write route, and does not open a b
 unless you pass `--open`. Large results support up to 10,000 rows and render in
 5,000-row pages. Native local file events normally update it immediately, with a
 one-second reconciliation fallback for missed events.
+An optional path may name an initialized repository or any directory inside one, so the
+viewer can be started from elsewhere.
+An initialized repository with no beads shows a normal empty board.
+A missing path or a directory that has not been initialized reports the same clear
+repository error as other tbd commands.
 When you ask an agent to show your beads in a browser, the agent should run
 `tbd web --open`, wait for the URL, give it to you, and keep the process running.
 The browser’s controls only change the view; ask the agent to create, update, close,
 label, or sync beads with ordinary `tbd` commands.
 Their local results appear on the open page automatically.
+Status, Type, Priority, and the label chooser show counts after every other active
+filter. Zero-result unselected choices disappear.
+The label menu shows up to 32 choices at once; searching it queries the complete label
+vocabulary, so lower-ranked labels remain reachable.
+Label choices iteratively show the next intersection; selecting more than one retains
+the CLI’s repeatable `--label` behavior, so every selected label is required.
+Collapsed titles use at most four lines and expand in full, while Updated shows a
+compact sans relative age with the exact timestamp in a fast tooltip.
+The board defaults to Pretty with Updated descending, then Priority ascending.
+Clicking a data-column header makes it primary and retains only the previous primary as
+its tie-breaker; Reset sort restores the default stack without changing Pretty.
+Sorting never disables Pretty.
+In Pretty mode it reorders only outermost visible parent groups, using the latest
+Updated timestamp in each complete visible subtree while preserving official child
+order. Flat mode applies the sort stack to individual rows.
+The equivalent-command tooltip identifies browser-only ordering that the displayed CLI
+command does not reproduce.
+Each non-root row uses one `└──` elbow at its hierarchy indentation; deeper levels use
+spaces rather than ancestor bars, and sibling position never introduces a tee.
 Changing a filter, sort, display mode, or page closes expanded row details.
 During a live update, only rows still present in the bounded response remain expanded,
 with any display-ID change reconciled before their bodies reload.

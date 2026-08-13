@@ -101,11 +101,18 @@ The server implementation lives in `packages/tbd/src/cli/web/`, the Commander ha
 `packages/tbd/src/cli/commands/web.ts`, and the strict browser client in
 `packages/tbd/src/web/`. `packages/tbd/scripts/stitch-web.mjs` inlines the browser IIFE
 and CSS into the single published `dist/web/index.html` artifact.
+The component, typography, color, tree, conditional-facet, tooltip, and bounded-sort
+rules are documented beside their implementations in the authoritative design-system
+inventory at the top of `packages/tbd/src/web/styles.css`.
 
 Preserve the agent interaction contract across those surfaces: a natural request to see
 beads in a browser routes the installed skill to `tbd web --open`; the agent owns the
 foreground process and all ordinary tbd mutations; the page is a live viewer, not an
 editor; and starting it never performs remote exchange.
+When the target project is outside the agent’s current working directory, the skill must
+use `tbd web <path> --open`. The CLI accepts a repository or subdirectory, supports an
+initialized repository with no beads, and applies the standard initialization error to
+an existing non-tbd directory.
 The source skill tiers, `welcome-user`, README, CLI manual, design, setup output,
 command startup output, and browser copy must state that contract consistently.
 `integration-files.test.ts`, `setup-flows.test.ts`, `golden-output.test.ts`,

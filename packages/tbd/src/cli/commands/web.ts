@@ -1,6 +1,8 @@
 /** `tbd web` - serve the local bead graph on loopback until interrupted. */
 
 import { Command } from 'commander';
+import { realpath, stat } from 'node:fs/promises';
+import { resolve } from 'node:path';
 
 import { readConfig } from '../../file/config.js';
 import type { OperationLogger } from '../../lib/types.js';
@@ -38,10 +40,35 @@ function parsePort(value: string | undefined): number | undefined {
   return port;
 }
 
+async function resolveBaseDirectory(value: string | undefined): Promise<string> {
+  const requested = resolve(value ?? '.');
+  try {
+    const canonical = await realpath(requested);
+    if (!(await stat(canonical)).isDirectory()) {
+      throw new ValidationError(`Base path is not a directory: ${requested}`);
+    }
+    return canonical;
+  } catch (error) {
+    if (error instanceof ValidationError) {
+      throw error;
+    }
+    if (
+      typeof error === 'object' &&
+      error !== null &&
+      'code' in error &&
+      (error.code === 'ENOENT' || error.code === 'ENOTDIR')
+    ) {
+      throw new ValidationError(`Base directory does not exist: ${requested}`);
+    }
+    const detail = error instanceof Error ? error.message : String(error);
+    throw new ValidationError(`Cannot access base directory ${requested}: ${detail}`);
+  }
+}
+
 class WebHandler extends BaseCommand {
-  async run(options: WebOptions): Promise<void> {
+  async run(baseDir: string | undefined, options: WebOptions): Promise<void> {
     const port = parsePort(options.port);
-    const repo = await requireInit();
+    const repo = await requireInit(await resolveBaseDirectory(baseDir));
     const serverModule = await import('../web/server.js');
 
     if (this.ctx.dryRun) {
@@ -173,9 +200,10 @@ class WebHandler extends BaseCommand {
 
 export const webCommand = new Command('web')
   .description('Serve a live, read-only bead view on loopback')
+  .argument('[path]', 'Repository or subdirectory to view (default: current directory)')
   .option('--port <n>', 'Bind exactly this loopback port (default: search from 7777)')
   .option('--open', 'Open the page in the default browser after HTTP readiness')
-  .action(async (options, command) => {
+  .action(async (path: string | undefined, options: WebOptions, command: Command) => {
     const handler = new WebHandler(command);
-    await handler.run(options);
+    await handler.run(path, options);
   });

@@ -665,9 +665,22 @@ in-session Claude Code and Codex patterns.
 ### web
 
 Serve a live, read-only view of the bead graph in a local browser.
-The page uses the same local bead state, filters, sorting, readiness rules, hierarchy,
+The page uses the same local bead state, filter semantics, readiness rules, hierarchy,
 and statistics as the CLI, and displays the equivalent `tbd list` or `tbd ready` command
 for the current view.
+The Ready checkbox is the exact `tbd ready` predicate—open, unassigned, and with no open
+blocker. A quiet unboxed row marker exposes that derived state while scanning; it is
+intentionally distinct from user labels.
+Pretty is on by default and never changes when a column sort changes.
+In Pretty mode, the two-key sort moves only outermost visible parent groups.
+Updated is rolled up to the latest timestamp in each complete visible subtree for every
+parent kind; children keep their official `child_order_hints` order.
+Every non-root browser row uses one `└──` elbow at its hierarchy indentation.
+Deeper levels use spaces instead of ancestor bars, and siblings never switch to a tee.
+Flat mode applies the stack to individual rows.
+Filters remain exact in both modes: a filtered-out parent is not reinserted, and a
+matching child simply becomes a root.
+Browser-only column composition is identified as inexact beside that command.
 In an agent session, ask naturally: “Show my beads in a browser.”
 The agent should run `tbd web --open`, wait for the startup URL, give you that URL, and
 keep the foreground process alive.
@@ -678,9 +691,19 @@ It never contacts a remote.
 Run the ordinary `tbd sync` command when you want to fetch, merge, or publish bead
 state; the page observes the resulting local changes automatically.
 
+Expanded updated beads show compact field deltas.
+Each scalar before/after side uses an 80-character middle-ellipsis preview so both the
+start and appended tail remain useful; the copy control retains the bounded full values.
+Historical before text is muted and the after text is normal.
+Newly created beads omit the redundant null-to-current-value delta because their
+expanded body already shows the current data.
+Status-panel field names use normal-size sans text, and literal values use normal-size
+monospace, keeping their baseline readable and consistent with board rows.
+
 ```bash
 tbd web                         # Serve on the first free port in 7777-7786
 tbd web --open                  # Open the page after it is HTTP-ready
+tbd web ../another-repo --open  # View a repository from another directory
 tbd web --port 9000             # Bind exactly 127.0.0.1:9000
 tbd --json web                  # Print the machine-readable startup descriptor
 tbd --dry-run web               # Resolve the repo and port without binding
@@ -688,15 +711,23 @@ tbd --dry-run web               # Resolve the repo and port without binding
 
 Options:
 
+- `[path]` - Resolve this repository or subdirectory instead of the current directory.
+  Relative paths are resolved from the caller’s current directory; the startup
+  descriptor reports the canonical repository root.
+
 - `--port <n>` - Bind exactly this loopback port.
   Without it, tbd searches the bounded range 7777-7786 and reports the port it selected.
+
 - `--open` - Open the default browser after the page passes an HTTP readiness check.
   The default is not to launch a browser, which is safe for agents and CI.
 
 The command stays in the foreground; press Ctrl+C to stop it.
-SIGINT exits 130 and a normal or SIGTERM shutdown exits 0. It binds only `127.0.0.1`,
-exposes no write route, and serves one self-contained page with same-origin and
-security-header checks.
+An initialized repository with zero beads is valid and renders the ordinary empty board.
+A missing or non-directory path is a usage error; an existing directory outside an
+initialized tbd repository reports the standard “Not a tbd repository” error used by
+other commands. SIGINT exits 130 and a normal or SIGTERM shutdown exits 0. It binds only
+`127.0.0.1`, exposes no write route, and serves one self-contained page with same-origin
+and security-header checks.
 It is a local development and observation surface, not a remotely reachable service.
 
 The browser opens its live event stream before loading the board and refreshes whenever
@@ -725,6 +756,27 @@ Descriptions and notes load only when a row is expanded, so the board remains bo
 large repositories. A response can carry up to 10,000 rows; the browser paints them in
 5,000-row pages with sticky and end-of-page navigation.
 Above 10,000 rows, the page reports the complete count and asks for a narrower query.
+Status, Type, Priority, and the label chooser show conditional tallies after every other
+active filter. The menu shows up to 32 labels at once; its search field queries the
+complete label vocabulary and retains selected labels.
+Typing is stable across live updates; Home and End move the search caret while that
+field has focus and navigate the choices otherwise.
+Unselected zero-count choices are hidden; a selected zero-count value remains visible so
+it can be removed. Label candidates additionally show the next repeated-label
+intersection and preserve the CLI’s AND semantics.
+Collapsed titles use at most four lines and expand in full.
+The Updated column shows a compact sans relative age and exposes the exact monospace ISO
+timestamp in the shared fast tooltip.
+Every data-column header is sortable.
+Pretty is enabled by default with Updated descending, then Priority ascending.
+A click makes that column primary and retains only the previous primary as its
+tie-breaker; clicking the current primary reverses it without changing Pretty.
+Pretty moves whole outermost visible groups, rolling Updated up from every visible
+descendant while retaining official child order.
+Flat mode applies the stack to rows.
+Reset sort restores the default two-key stack without changing Pretty.
+The equivalent-command tooltip names browser-only ordering that the displayed CLI
+command does not reproduce.
 Changing a query control, display mode, or page closes expanded details.
 A live graph update retains and remaps an expansion only while that bead remains in the
 current bounded response, so an off-board or obsolete display ID cannot consume the

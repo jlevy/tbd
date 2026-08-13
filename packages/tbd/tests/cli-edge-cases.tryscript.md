@@ -122,11 +122,11 @@ Error: Issue not found: invalid!!!
 ? 1
 ```
 
-# Test: Non-existent short ID
+# Test: Distant non-existent ID does not get a near-miss suggestion
 
 ```console
-$ tbd show "zzzz" 2>&1
-Error: Issue not found: zzzz
+$ tbd show "test-zzzzzzz" 2>&1
+Error: Issue not found: test-zzzzzzz
 ? 1
 ```
 

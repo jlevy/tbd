@@ -77,9 +77,16 @@ export function defaultIssueQuery(): IssueQuery {
  * display ids).
  */
 export function selectIssues(issues: readonly Issue[], query: IssueQuery): Issue[] {
+  const filtered = filterIssues(issues, query);
+  const sorted = sortIssues(filtered, query.sort);
+  return query.limit === null ? sorted : sorted.slice(0, query.limit);
+}
+
+/** Apply shared CLI query predicates without paying for ordering when only facets need rows. */
+export function filterIssues(issues: readonly Issue[], query: IssueQuery): Issue[] {
   const readyIds = query.ready ? readyIssueIds(issues) : null;
 
-  const filtered = issues.filter((issue) => {
+  return issues.filter((issue) => {
     // By default, exclude closed issues unless --all or --status closed
     if (!query.includeClosed && query.status !== 'closed' && issue.status === 'closed') {
       return false;
@@ -113,9 +120,6 @@ export function selectIssues(issues: readonly Issue[], query: IssueQuery): Issue
     }
     return true;
   });
-
-  const sorted = sortIssues(filtered, query.sort);
-  return query.limit === null ? sorted : sorted.slice(0, query.limit);
 }
 
 /** Sort per `tbd list --sort`, ULID tiebreak. Exported for callers that sort supersets. */

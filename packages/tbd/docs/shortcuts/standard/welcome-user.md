@@ -60,6 +60,9 @@ Here are examples of things you can say and what happens:
 | “Track this as a task” | Creates a task bead (`tbd create`) |
 | “Show my beads in a browser” | Opens the live, read-only viewer (`tbd web --open`) |
 
+For a project outside the agent’s current working directory, it can use
+`tbd web <path> --open`; the path may be the repository or one of its subdirectories.
+
 ### Shortcuts and Workflows
 
 | What You Can Say | What Happens |

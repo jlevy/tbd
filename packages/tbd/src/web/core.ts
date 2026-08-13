@@ -1,18 +1,36 @@
 /** Pure browser-state orchestration. Owns no DOM and no global EventSource/fetch. */
 
+import { truncateMiddle } from '../lib/truncate.js';
+
 export type IssueStatusView = 'open' | 'in_progress' | 'blocked' | 'deferred' | 'closed';
 export type IssueKindView = 'bug' | 'feature' | 'task' | 'epic' | 'chore';
 export type ObservationPhaseView = 'starting' | 'watching' | 'error' | 'stopped';
 export type ObservationModeView = 'native+reconcile' | 'native' | 'reconcile' | 'unavailable';
+export type BoardSortKeyView =
+  | 'id'
+  | 'priority'
+  | 'status'
+  | 'kind'
+  | 'title'
+  | 'updated'
+  | 'labels';
+export type BoardSortDirectionView = 'asc' | 'desc';
+
+export interface BoardSortView {
+  key: BoardSortKeyView;
+  direction: BoardSortDirectionView;
+}
 
 export interface BoardControls {
   search: string;
+  /** Presentation-only search used to discover labels beyond the bounded facet menu. */
+  labelSearch: string;
   status: '' | 'any' | IssueStatusView;
   kind: '' | IssueKindView;
   priority: '' | '0' | '1' | '2' | '3' | '4';
-  labels: string;
+  labels: string[];
   spec: string;
-  sort: 'priority' | 'created' | 'updated';
+  sorts: BoardSortView[];
   ready: boolean;
   pretty: boolean;
 }
@@ -29,7 +47,26 @@ export interface BoardRowView {
   spec_path: string | null;
   assignee: string | null;
   ready: boolean;
+  updated_at: string;
   prefix: string;
+}
+
+export type AgeTierView = 'sec' | 'min' | 'hr' | 'day' | 'wk' | 'old';
+
+export interface RelativeAgeView {
+  exact: string;
+  label: string;
+  tier: AgeTierView;
+}
+
+export interface LabelFacetView {
+  label: string;
+  count: number;
+}
+
+export interface ValueFacetView<T extends string | number> {
+  value: T;
+  count: number;
 }
 
 export interface FieldChangeView {
@@ -100,14 +137,18 @@ export interface BoardResponse {
   command: string;
   commandExact: boolean;
   filtersExact: boolean;
-  contextCount: number;
   search: string;
   total: number;
   matched: number;
   closedHidden: number;
+  statusFacets: ValueFacetView<IssueStatusView>[];
+  kindFacets: ValueFacetView<IssueKindView>[];
+  priorityFacets: ValueFacetView<number>[];
+  labelFacets: LabelFacetView[];
+  /** Honest description of browser-only ordering omitted from the equivalent CLI command. */
+  orderingCaveat: string | null;
   rows: BoardRowView[];
   truncated: number;
-  contextIds: string[];
   state: ObservationStateView;
 }
 
@@ -177,14 +218,20 @@ export interface ClientStoreOptions {
   initialControls?: Partial<BoardControls>;
 }
 
+export const DEFAULT_BOARD_SORTS: readonly BoardSortView[] = [
+  { key: 'updated', direction: 'desc' },
+  { key: 'priority', direction: 'asc' },
+];
+
 const DEFAULT_CONTROLS: BoardControls = {
   search: '',
+  labelSearch: '',
   status: '',
   kind: '',
   priority: '',
-  labels: '',
+  labels: [],
   spec: '',
-  sort: 'priority',
+  sorts: [...DEFAULT_BOARD_SORTS],
   ready: false,
   pretty: true,
 };
@@ -198,6 +245,22 @@ export const MAX_EXPANDED_ROWS = 100;
 export const MAX_BODY_CACHE_ENTRIES = 200;
 /** Data-motion context is useful, but a mass deletion must not bypass DOM paging. */
 export const MAX_GHOST_ROWS = 100;
+/** Maximum visible characters for each scalar side of an expanded local field delta. */
+export const DELTA_VALUE_PREVIEW_CHARS = 80;
+
+/** Keep a focused search draft authoritative until its debounced control update lands. */
+export function labelSearchValueForRender(
+  currentValue: string,
+  storedValue: string,
+  searchOwnsFocus: boolean,
+): string {
+  return searchOwnsFocus ? currentValue : storedValue;
+}
+
+/** Home/End edit a focused search query; elsewhere they navigate the label menu. */
+export function preserveLabelSearchEditingKey(key: string, searchOwnsFocus: boolean): boolean {
+  return searchOwnsFocus && (key === 'Home' || key === 'End');
+}
 
 export interface BoardPageView {
   rows: readonly BoardRowView[];
@@ -209,6 +272,60 @@ export interface BoardPageView {
   /** Zero-based exclusive offset into the complete response. */
   end: number;
   total: number;
+}
+
+const MINUTE_MS = 60 * 1_000;
+const HOUR_MS = 60 * MINUTE_MS;
+const DAY_MS = 24 * HOUR_MS;
+const WEEK_MS = 7 * DAY_MS;
+const MONTH_MS = 30 * DAY_MS;
+const YEAR_MS = 365 * DAY_MS;
+
+/**
+ * Format one ISO timestamp using tbd's compact "ago" vocabulary and MetaBrowser's
+ * deterministic minute/hour/day/week/month/year boundaries.
+ */
+export function formatRelativeAge(timestamp: string, nowMs = Date.now()): RelativeAgeView | null {
+  const date = new Date(timestamp);
+  const timestampMs = date.getTime();
+  if (!Number.isFinite(timestampMs)) {
+    return null;
+  }
+
+  const ageMs = Math.max(0, nowMs - timestampMs);
+  let tier: AgeTierView;
+  if (ageMs < MINUTE_MS) {
+    tier = 'sec';
+  } else if (ageMs < HOUR_MS) {
+    tier = 'min';
+  } else if (ageMs < DAY_MS) {
+    tier = 'hr';
+  } else if (ageMs < WEEK_MS) {
+    tier = 'day';
+  } else if (ageMs < MONTH_MS) {
+    tier = 'wk';
+  } else {
+    tier = 'old';
+  }
+
+  const steps: readonly [suffix: string, milliseconds: number][] = [
+    ['y', YEAR_MS],
+    ['mo', MONTH_MS],
+    ['w', WEEK_MS],
+    ['d', DAY_MS],
+    ['h', HOUR_MS],
+    ['m', MINUTE_MS],
+  ];
+  let label = 'just now';
+  for (const [suffix, milliseconds] of steps) {
+    if (ageMs >= milliseconds) {
+      // Floor keeps the label inside the same threshold bucket as its color tier:
+      // 59m stays 59m until the formatter switches both label and tier to 1h.
+      label = `${Math.floor(ageMs / milliseconds)}${suffix} ago`;
+      break;
+    }
+  }
+  return { exact: date.toISOString(), label, tier };
 }
 
 /** Select one bounded browser-render window from a complete board response. */
@@ -226,23 +343,52 @@ export function paginateBoardRows(
   return { rows: rows.slice(start, end), pageIndex, pageCount, start, end, total };
 }
 
-/**
- * Return character columns whose ancestor tree bars continue through a wrapped title.
- *
- * Pretty prefixes are made from four-character ancestor segments followed by one
- * four-character terminal connector. The terminal `├── ` or `└── ` belongs only to
- * the current bead; only ancestor `│   ` segments continue below the first line.
- */
-export function treeContinuationColumns(prefix: string): number[] {
-  const terminalConnectorWidth = 4;
-  const ancestorEnd = Math.max(0, prefix.length - terminalConnectorWidth);
-  const columns: number[] = [];
-  for (let index = 0; index < ancestorEnd; index += 1) {
-    if (prefix[index] === '│') {
-      columns.push(index);
-    }
-  }
-  return columns;
+/** Format a bounded, middle-ellipsized field-delta preview without losing copy data. */
+export function formatDeltaValue(value: unknown): { full: string; preview: string } {
+  const full = JSON.stringify(value) ?? 'undefined';
+  return { full, preview: truncateMiddle(full, DELTA_VALUE_PREVIEW_CHARS) };
+}
+
+const DEFAULT_SORT_DIRECTIONS: Readonly<Record<BoardSortKeyView, BoardSortDirectionView>> = {
+  id: 'asc',
+  priority: 'asc',
+  status: 'asc',
+  kind: 'asc',
+  title: 'asc',
+  updated: 'desc',
+  labels: 'asc',
+};
+
+/** The unsent sort stack is the exact `tbd list` default: priority ascending. */
+export function resolvedBoardSorts(sorts: readonly BoardSortView[]): readonly BoardSortView[] {
+  return sorts.length === 0 ? [{ key: 'priority', direction: 'asc' }] : sorts;
+}
+
+/** Promote a column to primary; toggle it in place and retain at most one tie-breaker. */
+export function promoteBoardSort(
+  sorts: readonly BoardSortView[],
+  key: BoardSortKeyView,
+): BoardSortView[] {
+  const current = resolvedBoardSorts(sorts);
+  const existing = current.find((sort) => sort.key === key);
+  const direction =
+    current[0]?.key === key
+      ? current[0].direction === 'asc'
+        ? 'desc'
+        : 'asc'
+      : (existing?.direction ?? DEFAULT_SORT_DIRECTIONS[key]);
+  return [{ key, direction }, ...current.filter((sort) => sort.key !== key)].slice(0, 2);
+}
+
+export function isDefaultBoardSort(sorts: readonly BoardSortView[]): boolean {
+  return (
+    sorts.length === DEFAULT_BOARD_SORTS.length &&
+    sorts.every(
+      (sort, index) =>
+        sort.key === DEFAULT_BOARD_SORTS[index]?.key &&
+        sort.direction === DEFAULT_BOARD_SORTS[index]?.direction,
+    )
+  );
 }
 
 interface BodyRequest {
@@ -272,7 +418,15 @@ function asObservationState(value: unknown): ObservationStateView {
 }
 
 function asBoardResponse(value: unknown): BoardResponse {
-  if (!isRecord(value) || !Array.isArray(value.rows) || !('state' in value)) {
+  if (
+    !isRecord(value) ||
+    !Array.isArray(value.rows) ||
+    !Array.isArray(value.statusFacets) ||
+    !Array.isArray(value.kindFacets) ||
+    !Array.isArray(value.priorityFacets) ||
+    !Array.isArray(value.labelFacets) ||
+    !('state' in value)
+  ) {
     throw new Error('Server returned an invalid board response');
   }
   asObservationState(value.state);
@@ -296,6 +450,9 @@ export function buildQueryString(controls: BoardControls): string {
   if (controls.search.trim() !== '') {
     params.set('q', controls.search.trim());
   }
+  if (controls.labelSearch.trim() !== '') {
+    params.set('labelq', controls.labelSearch.trim());
+  }
   if (controls.status !== '' && controls.status !== 'any') {
     params.set('status', controls.status);
   }
@@ -308,11 +465,11 @@ export function buildQueryString(controls: BoardControls): string {
   if (controls.spec.trim() !== '') {
     params.set('spec', controls.spec.trim());
   }
-  for (const label of controls.labels.split(/[,\s]+/u).filter(Boolean)) {
+  for (const label of controls.labels.filter(Boolean)) {
     params.append('label', label);
   }
-  if (controls.sort !== 'priority') {
-    params.set('sort', controls.sort);
+  for (const sort of controls.sorts) {
+    params.append('order', `${sort.key}:${sort.direction}`);
   }
   if (controls.status === 'any') {
     params.set('all', '1');
@@ -329,17 +486,13 @@ export function buildQueryString(controls: BoardControls): string {
 export function caveatsFor(board: BoardResponse): string[] {
   const caveats: string[] = [];
   if (!board.filtersExact) {
-    caveats.push('filters with no exact CLI equivalent apply');
+    caveats.push('filters or ordering with no exact CLI equivalent apply');
+  }
+  if (board.orderingCaveat !== null) {
+    caveats.push(board.orderingCaveat);
   }
   if (board.search !== '') {
     caveats.push(`text search "${board.search}" applies`);
-  }
-  if (board.contextCount > 0) {
-    caveats.push(
-      `${board.contextCount} dimmed ancestor row${board.contextCount === 1 ? '' : 's'} ${
-        board.contextCount === 1 ? 'is' : 'are'
-      } shown for context`,
-    );
   }
   if (board.truncated > 0) {
     caveats.push(`only the first ${board.rows.length} of ${board.truncated} rows are shown`);
@@ -406,7 +559,12 @@ class Store implements ClientStore {
     private readonly onRender: () => void,
     options: ClientStoreOptions,
   ) {
-    this.controls = { ...DEFAULT_CONTROLS, ...options.initialControls };
+    this.controls = {
+      ...DEFAULT_CONTROLS,
+      ...options.initialControls,
+      labels: [...(options.initialControls?.labels ?? DEFAULT_CONTROLS.labels)],
+      sorts: [...(options.initialControls?.sorts ?? DEFAULT_CONTROLS.sorts)],
+    };
     this.storage = options.storage;
     this.resumeStorageKey = options.resumeStorageKey ?? DEFAULT_RESUME_KEY;
   }
@@ -481,7 +639,7 @@ class Store implements ClientStore {
   }
 
   async setControls(controls: BoardControls): Promise<void> {
-    this.controls = { ...controls };
+    this.controls = { ...controls, labels: [...controls.labels], sorts: [...controls.sorts] };
     this.boardRequestController?.abort();
     await this.refresh();
   }

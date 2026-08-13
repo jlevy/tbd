@@ -130,6 +130,7 @@ describe('setup flows', { timeout: subprocessTestTimeout() }, () => {
       expect(portable).toContain('viewing beads in a live browser');
       expect(portable).toContain('Show my beads in a browser');
       expect(portable).toContain('tbd web --open');
+      expect(portable).toContain('tbd web <path> --open');
       expect(portable).toContain('viewer, not an editor');
 
       // The portable skill and the Claude mirror must carry the same payload.

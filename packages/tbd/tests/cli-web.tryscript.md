@@ -32,10 +32,14 @@ $ node run-built-cli.mjs init --prefix=test --quiet
 ## Help
 
 ```console
-$ node run-built-cli.mjs web --help | sed -n "1,13p"
-Usage: tbd web [options]
+$ node run-built-cli.mjs web --help | sed -n "1,17p"
+Usage: tbd web [options] [path]
 
 Serve a live, read-only bead view on loopback
+
+Arguments:
+  path            Repository or subdirectory to view (default: current
+                  directory)
 
 Options:
   --port <n>      Bind exactly this loopback port (default: search from 7777)
@@ -46,6 +50,14 @@ Global Options:
   --version       Show version number
   --dry-run       Show what would be done without making changes
   --verbose       Enable verbose output
+? 0
+```
+
+## Explicit repository path
+
+```console
+$ node run-built-cli.mjs --dry-run --json web .tbd | jq -c "{repo,port}"
+{"repo":"[..]","port":7777}
 ? 0
 ```
 

@@ -15,6 +15,8 @@ Users speak naturally; you run tbd for them rather than returning commands for t
 execute. For “Show my beads in a browser,” start `tbd web --open` with the agent
 platform’s long-running process facility, wait for its loopback URL, report that URL,
 and keep the process running.
+For a project outside the current working directory, use `tbd web <path> --open`; the
+path may be the repository or one of its subdirectories.
 The browser is a live, read-only viewer, not an editor.
 Make every bead change yourself with ordinary `tbd` commands; the page updates from the
 resulting local state.

@@ -24,8 +24,8 @@ import type {
 import {
   defaultIssueQuery,
   describeQuery,
+  filterIssues,
   selectIssues,
-  sortIssues,
 } from '../../lib/issue-query.js';
 import type { IssueQuery, IssueSort } from '../../lib/issue-query.js';
 import { readyIssueIds } from '../../lib/issue-selection.js';
@@ -39,6 +39,8 @@ import { pathExists, readMetadataMarker } from './snapshot-consistency.js';
 
 /** Hard response ceiling; the browser pages these rows into smaller render windows. */
 export const MAX_BOARD_ROWS = 10_000;
+/** Keep dynamic label menus bounded while retaining every selected value. */
+export const MAX_LABEL_FACETS = 32;
 /** Detail is diagnostic; board motion remains complete through movedIds/removedIds. */
 export const MAX_LOCAL_CHANGE_DETAILS = 100;
 export const MAX_LOCAL_CHANGE_DETAIL_BYTES = 256 * 1024;
@@ -49,14 +51,24 @@ const MAX_LOCAL_HUNK_LINE_CHARS = 500;
 // Prefixes allow dot/underscore, and imported ShortIds also allow dot, underscore,
 // and hyphen. Requiring the leading prefix letter still rejects option-shaped input.
 const PUBLIC_ID = /^[A-Za-z][A-Za-z0-9._]{0,19}-[0-9a-z._-]+$/u;
-const STATUSES = new Set<IssueStatusType>(['open', 'in_progress', 'blocked', 'deferred', 'closed']);
-const KINDS = new Set<IssueKindType>(['bug', 'feature', 'task', 'epic', 'chore']);
+const STATUS_VALUES = ['open', 'in_progress', 'blocked', 'deferred', 'closed'] as const;
+const KIND_VALUES = ['bug', 'feature', 'task', 'epic', 'chore'] as const;
+const PRIORITY_VALUES = [0, 1, 2, 3, 4] as const;
+const STATUSES = new Set<IssueStatusType>(STATUS_VALUES);
+const KINDS = new Set<IssueKindType>(KIND_VALUES);
 const SORTS = new Set<IssueSort>(['priority', 'created', 'updated']);
+const BOARD_SORT_KEYS = new Set<BoardSortKey>([
+  'id',
+  'priority',
+  'status',
+  'kind',
+  'title',
+  'updated',
+  'labels',
+]);
 const TREE_CHARS = {
-  branch: '├── ',
-  last: '└── ',
-  vertical: '│   ',
-  space: '    ',
+  child: '└── ',
+  indent: '    ',
 } as const;
 
 export interface BoardRow {
@@ -71,8 +83,27 @@ export interface BoardRow {
   spec_path: string | null;
   assignee: string | null;
   ready: boolean;
+  updated_at: string;
   /** Tree guide string, empty in flat mode. */
   prefix: string;
+}
+
+export type BoardSortKey = 'id' | 'priority' | 'status' | 'kind' | 'title' | 'updated' | 'labels';
+export type BoardSortDirection = 'asc' | 'desc';
+
+export interface BoardSort {
+  key: BoardSortKey;
+  direction: BoardSortDirection;
+}
+
+export interface LabelFacet {
+  label: string;
+  count: number;
+}
+
+export interface ValueFacet<T extends string | number> {
+  value: T;
+  count: number;
 }
 
 export interface BeadBody {
@@ -167,14 +198,17 @@ export interface BoardResponse {
   command: string;
   commandExact: boolean;
   filtersExact: boolean;
-  contextCount: number;
   search: string;
   total: number;
   matched: number;
   closedHidden: number;
+  statusFacets: ValueFacet<IssueStatusType>[];
+  kindFacets: ValueFacet<IssueKindType>[];
+  priorityFacets: ValueFacet<number>[];
+  labelFacets: LabelFacet[];
+  orderingCaveat: string | null;
   rows: BoardRow[];
   truncated: number;
-  contextIds: string[];
   state: WebState;
 }
 
@@ -202,6 +236,8 @@ interface ParsedBoardQuery {
   parentDisplayId: string | null;
   pretty: boolean;
   search: string;
+  labelSearch: string;
+  sorts: BoardSort[];
 }
 
 interface BoardSnapshot {
@@ -442,6 +478,31 @@ function parseLimit(value: string | null): number | null {
   return Number.isSafeInteger(parsed) && parsed > 0 ? parsed : null;
 }
 
+function parseBoardSorts(params: URLSearchParams): BoardSort[] {
+  const sorts: BoardSort[] = [];
+  const seen = new Set<BoardSortKey>();
+  for (const value of params.getAll('order')) {
+    const [rawKey, rawDirection, ...remainder] = value.split(':');
+    if (
+      remainder.length > 0 ||
+      rawKey === undefined ||
+      !BOARD_SORT_KEYS.has(rawKey as BoardSortKey) ||
+      (rawDirection !== 'asc' && rawDirection !== 'desc')
+    ) {
+      continue;
+    }
+    const key = rawKey as BoardSortKey;
+    if (!seen.has(key)) {
+      sorts.push({ key, direction: rawDirection });
+      seen.add(key);
+    }
+    if (sorts.length >= BOARD_SORT_KEYS.size) {
+      break;
+    }
+  }
+  return sorts;
+}
+
 function parseBoardQuery(params: URLSearchParams, context: TbdDataContext): ParsedBoardQuery {
   const statusValue = optional(params, 'status');
   const kindValue = optional(params, 'type');
@@ -488,7 +549,47 @@ function parseBoardQuery(params: URLSearchParams, context: TbdDataContext): Pars
     parentDisplayId,
     pretty: flag(params, 'pretty'),
     search: params.get('q')?.trim() ?? '',
+    labelSearch: params.get('labelq')?.trim() ?? '',
+    sorts: parseBoardSorts(params),
   };
+}
+
+function describeBoardOrdering(sorts: readonly BoardSort[], pretty: boolean): string | null {
+  if (sorts.length === 0) {
+    return null;
+  }
+  const title = (key: BoardSortKey): string =>
+    key === 'id' ? 'ID' : `${key[0]!.toUpperCase()}${key.slice(1)}`;
+  const stack = sorts
+    .map((sort) => `${title(sort.key)} ${sort.direction === 'asc' ? '↑' : '↓'}`)
+    .join(' then ');
+  if (!pretty) {
+    return `Browser column sort: ${stack}; flat mode applies the stack to individual rows`;
+  }
+  const groupRule = sorts.some((sort) => sort.key === 'updated')
+    ? "Pretty orders outermost groups by each visible subtree's latest update and keeps children in official order"
+    : 'Pretty orders outermost groups and keeps children in official order';
+  return `Browser column sort: ${stack}; ${groupRule}`;
+}
+
+function compareText(left: string, right: string): number {
+  const normalizedLeft = left.normalize('NFKC').toLocaleLowerCase('en-US');
+  const normalizedRight = right.normalize('NFKC').toLocaleLowerCase('en-US');
+  if (normalizedLeft !== normalizedRight) {
+    return normalizedLeft < normalizedRight ? -1 : 1;
+  }
+  const exactLeft = left.normalize('NFKC');
+  const exactRight = right.normalize('NFKC');
+  return exactLeft < exactRight ? -1 : exactLeft > exactRight ? 1 : 0;
+}
+
+function compareTimestamps(left: string, right: string): number {
+  const leftTime = Date.parse(left);
+  const rightTime = Date.parse(right);
+  if (Number.isFinite(leftTime) && Number.isFinite(rightTime)) {
+    return leftTime - rightTime;
+  }
+  return compareText(left, right);
 }
 
 function matchesSearch(issue: Issue, displayId: string, search: string): boolean {
@@ -586,6 +687,14 @@ export class BoardState {
     const context = this.requireContext();
     const parsed = parseBoardQuery(params, context);
     const queryWithoutLimit = { ...parsed.query, limit: null };
+    const filterFacetPool = (query: IssueQuery): Issue[] =>
+      filterIssues(this.snapshot.issues, query).filter((issue) =>
+        matchesSearch(
+          issue,
+          this.snapshot.displayIdByInternalId.get(issue.id) ?? issue.id,
+          parsed.search,
+        ),
+      );
     const selected = selectIssues(this.snapshot.issues, queryWithoutLimit).filter((issue) =>
       matchesSearch(
         issue,
@@ -593,7 +702,18 @@ export class BoardState {
         parsed.search,
       ),
     );
-    const limited = parsed.query.limit === null ? selected : selected.slice(0, parsed.query.limit);
+    const labelFacetPool = filterFacetPool({ ...queryWithoutLimit, labels: [] });
+    const statusFacetPool = filterFacetPool({
+      ...queryWithoutLimit,
+      status: null,
+      includeClosed: true,
+    });
+    const kindFacetPool = filterFacetPool({ ...queryWithoutLimit, kind: null });
+    const priorityFacetPool = filterFacetPool({ ...queryWithoutLimit, priority: null });
+    const orderedSelected =
+      parsed.sorts.length === 0 ? selected : this.sortIssuesByColumns(selected, parsed.sorts);
+    const limited =
+      parsed.query.limit === null ? orderedSelected : orderedSelected.slice(0, parsed.query.limit);
 
     let closedHidden = 0;
     if (!parsed.query.includeClosed && parsed.query.status !== 'closed') {
@@ -611,42 +731,45 @@ export class BoardState {
     }
 
     let rows: BoardRow[];
-    let contextIds: string[] = [];
-    if (parsed.pretty) {
-      const ordered = sortIssues(this.snapshot.issues, parsed.query.sort);
-      const context = this.withAncestors(limited, ordered);
-      rows = this.orderAsTree(context.issues);
-      contextIds = rows.filter((row) => !context.matched.has(row.internalId)).map((row) => row.id);
+    const pretty = parsed.pretty;
+    if (pretty) {
+      // A filtered-out parent stays out, exactly as in `tbd list --pretty`; its
+      // matching descendants become roots. Column sorts order only those outermost
+      // visible groups, while buildIssueTree retains official ordering within them.
+      rows = this.orderAsTree(limited, parsed.sorts);
     } else {
       rows = limited.map((issue) => this.toRow(issue, ''));
     }
 
     const responseRows = rows.slice(0, MAX_BOARD_ROWS);
-    if (contextIds.length > 0) {
-      const responseIds = new Set(responseRows.map((row) => row.id));
-      contextIds = contextIds.filter((id) => responseIds.has(id));
-    }
     const truncated = rows.length > MAX_BOARD_ROWS ? rows.length : 0;
 
     const described = describeQuery(parsed.query, parsed.parentDisplayId ?? undefined);
-    const prettySupported = !parsed.pretty || !parsed.query.ready;
+    const prettySupported = !pretty || !parsed.query.ready;
     const command =
-      parsed.pretty && !parsed.query.ready ? `${described.command} --pretty` : described.command;
+      pretty && !parsed.query.ready ? `${described.command} --pretty` : described.command;
     const filtersExact = described.exact && prettySupported;
 
     return {
       command,
       commandExact:
-        filtersExact && contextIds.length === 0 && parsed.search === '' && truncated === 0,
+        filtersExact && parsed.sorts.length === 0 && parsed.search === '' && truncated === 0,
       filtersExact,
-      contextCount: contextIds.length,
       search: parsed.search,
       total: this.snapshot.issues.length,
       matched: limited.length,
       closedHidden,
+      statusFacets: this.buildValueFacets(statusFacetPool, STATUS_VALUES, (issue) => issue.status),
+      kindFacets: this.buildValueFacets(kindFacetPool, KIND_VALUES, (issue) => issue.kind),
+      priorityFacets: this.buildValueFacets(
+        priorityFacetPool,
+        PRIORITY_VALUES,
+        (issue) => issue.priority,
+      ),
+      labelFacets: this.buildLabelFacets(labelFacetPool, parsed.query.labels, parsed.labelSearch),
+      orderingCaveat: describeBoardOrdering(parsed.sorts, pretty),
       rows: responseRows,
       truncated,
-      contextIds,
       state,
     };
   }
@@ -984,11 +1107,138 @@ export class BoardState {
       spec_path: issue.spec_path ?? null,
       assignee: issue.assignee ?? null,
       ready: this.snapshot.readyIds.has(issue.id),
+      updated_at: issue.updated_at,
       prefix,
     };
   }
 
-  private orderAsTree(issues: Issue[]): BoardRow[] {
+  private buildLabelFacets(
+    candidates: readonly Issue[],
+    selectedLabels: readonly string[],
+    labelSearch: string,
+  ): LabelFacet[] {
+    const selected = new Set(selectedLabels.filter(Boolean));
+    const intersection = candidates.filter((issue) =>
+      [...selected].every((label) => issue.labels.includes(label)),
+    );
+    const counts = new Map<string, number>();
+    for (const issue of intersection) {
+      for (const label of new Set(issue.labels)) {
+        counts.set(label, (counts.get(label) ?? 0) + 1);
+      }
+    }
+    for (const label of selected) {
+      counts.set(label, intersection.length);
+    }
+    const ranked = [...counts].map(([label, count]) => ({ label, count }));
+    ranked.sort((left, right) => right.count - left.count || compareText(left.label, right.label));
+
+    const normalizedSearch = labelSearch.normalize('NFKC').toLocaleLowerCase('en-US');
+    const discoverable =
+      normalizedSearch === ''
+        ? ranked
+        : ranked.filter(
+            (facet) =>
+              selected.has(facet.label) ||
+              facet.label.normalize('NFKC').toLocaleLowerCase('en-US').includes(normalizedSearch),
+          );
+    const kept = discoverable.slice(0, MAX_LABEL_FACETS);
+    const keptLabels = new Set(kept.map((facet) => facet.label));
+    const rank = new Map(ranked.map((facet, index) => [facet.label, index]));
+    const selectedFacets = [...selected]
+      .map((label) => ({ label, count: counts.get(label) ?? 0 }))
+      .sort(
+        (left, right) =>
+          (rank.get(left.label) ?? Number.MAX_SAFE_INTEGER) -
+            (rank.get(right.label) ?? Number.MAX_SAFE_INTEGER) ||
+          compareText(left.label, right.label),
+      );
+    for (const facet of selectedFacets) {
+      if (keptLabels.has(facet.label)) {
+        continue;
+      }
+      const eviction = kept.findLastIndex((candidate) => !selected.has(candidate.label));
+      if (eviction < 0) {
+        break;
+      }
+      keptLabels.delete(kept[eviction]!.label);
+      kept.splice(eviction, 1, facet);
+      keptLabels.add(facet.label);
+    }
+    kept.sort(
+      (left, right) =>
+        (rank.get(left.label) ?? Number.MAX_SAFE_INTEGER) -
+          (rank.get(right.label) ?? Number.MAX_SAFE_INTEGER) ||
+        compareText(left.label, right.label),
+    );
+    return kept;
+  }
+
+  private buildValueFacets<T extends string | number>(
+    candidates: readonly Issue[],
+    values: readonly T[],
+    select: (issue: Issue) => T,
+  ): ValueFacet<T>[] {
+    const counts = new Map<T, number>();
+    for (const issue of candidates) {
+      const value = select(issue);
+      counts.set(value, (counts.get(value) ?? 0) + 1);
+    }
+    return values.map((value) => ({ value, count: counts.get(value) ?? 0 }));
+  }
+
+  private compareIssuesByColumns(
+    left: Issue,
+    right: Issue,
+    sorts: readonly BoardSort[],
+    effectiveUpdatedAt?: ReadonlyMap<string, string>,
+  ): number {
+    const displayId = (issue: Issue): string =>
+      this.snapshot.displayIdByInternalId.get(issue.id) ?? issue.id;
+    const labels = (issue: Issue): string => [...issue.labels].sort(compareText).join('\u0000');
+    const textValue = (
+      issue: Issue,
+      key: Exclude<BoardSortKey, 'priority' | 'updated'>,
+    ): string => {
+      switch (key) {
+        case 'id':
+          return displayId(issue);
+        case 'status':
+          return issue.status;
+        case 'kind':
+          return issue.kind;
+        case 'title':
+          return issue.title;
+        case 'labels':
+          return labels(issue);
+        default: {
+          const exhaustive: never = key;
+          throw new Error('Unsupported board sort key', { cause: exhaustive });
+        }
+      }
+    };
+    for (const sort of sorts) {
+      const compared =
+        sort.key === 'priority'
+          ? left.priority - right.priority
+          : sort.key === 'updated'
+            ? compareTimestamps(
+                effectiveUpdatedAt?.get(left.id) ?? left.updated_at,
+                effectiveUpdatedAt?.get(right.id) ?? right.updated_at,
+              )
+            : compareText(textValue(left, sort.key), textValue(right, sort.key));
+      if (compared !== 0) {
+        return sort.direction === 'asc' ? compared : -compared;
+      }
+    }
+    return compareText(displayId(left), displayId(right));
+  }
+
+  private sortIssuesByColumns(issues: readonly Issue[], sorts: readonly BoardSort[]): Issue[] {
+    return [...issues].sort((left, right) => this.compareIssuesByColumns(left, right, sorts));
+  }
+
+  private orderAsTree(issues: Issue[], sorts: readonly BoardSort[]): BoardRow[] {
     const forTree: IssueForTree[] = issues.map((issue) => ({
       id: this.snapshot.displayIdByInternalId.get(issue.id) ?? issue.id,
       internalId: issue.id as InternalIssueId,
@@ -1005,45 +1255,53 @@ export class BoardState {
     const issueByDisplayId = new Map(
       issues.map((issue) => [this.snapshot.displayIdByInternalId.get(issue.id) ?? issue.id, issue]),
     );
+    const roots = buildIssueTree(forTree);
+    if (sorts.length > 0) {
+      // Sorting a pretty tree moves whole outermost groups. Every parent kind rolls
+      // Updated up from its complete visible subtree; child arrays remain untouched so
+      // buildIssueTree's official child_order_hints contract always wins within a group.
+      const effectiveUpdatedAt = new Map<string, string>();
+      const rollUpUpdatedAt = (node: TreeNode): string => {
+        const issue = issueByDisplayId.get(node.issue.id);
+        let latest = issue?.updated_at ?? '';
+        for (const child of node.children) {
+          const childLatest = rollUpUpdatedAt(child);
+          if (latest === '' || compareTimestamps(childLatest, latest) > 0) {
+            latest = childLatest;
+          }
+        }
+        if (issue !== undefined) {
+          effectiveUpdatedAt.set(issue.id, latest);
+        }
+        return latest;
+      };
+      for (const root of roots) {
+        rollUpUpdatedAt(root);
+      }
+      roots.sort((left, right) =>
+        this.compareIssuesByColumns(
+          issueByDisplayId.get(left.issue.id)!,
+          issueByDisplayId.get(right.issue.id)!,
+          sorts,
+          effectiveUpdatedAt,
+        ),
+      );
+    }
+
     const rows: BoardRow[] = [];
-    const walk = (node: TreeNode, prefix: string, connector: string, isLast: boolean): void => {
+    const walk = (node: TreeNode, depth: number): void => {
       const issue = issueByDisplayId.get(node.issue.id);
       if (issue !== undefined) {
-        rows.push(this.toRow(issue, prefix + connector));
+        const prefix = depth === 0 ? '' : TREE_CHARS.indent.repeat(depth - 1) + TREE_CHARS.child;
+        rows.push(this.toRow(issue, prefix));
       }
-      const childPrefix =
-        connector === '' ? '' : prefix + (isLast ? TREE_CHARS.space : TREE_CHARS.vertical);
-      node.children.forEach((child, index) => {
-        const last = index === node.children.length - 1;
-        walk(child, childPrefix, last ? TREE_CHARS.last : TREE_CHARS.branch, last);
+      node.children.forEach((child) => {
+        walk(child, depth + 1);
       });
     };
-    for (const root of buildIssueTree(forTree)) {
-      walk(root, '', '', true);
+    for (const root of roots) {
+      walk(root, 0);
     }
     return rows;
-  }
-
-  private withAncestors(
-    matched: Issue[],
-    ordered: Issue[],
-  ): { issues: Issue[]; matched: Set<string> } {
-    const matchedIds = new Set(matched.map((issue) => issue.id));
-    const keep = new Set(matchedIds);
-    for (const issue of matched) {
-      let cursor: Issue | undefined = issue;
-      while (cursor?.parent_id != null && !keep.has(cursor.parent_id)) {
-        const parent = this.snapshot.byInternalId.get(cursor.parent_id);
-        if (parent === undefined) {
-          break;
-        }
-        keep.add(parent.id);
-        cursor = parent;
-      }
-    }
-    return {
-      issues: ordered.filter((issue) => keep.has(issue.id)),
-      matched: matchedIds,
-    };
   }
 }

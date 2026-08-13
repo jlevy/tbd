@@ -83,6 +83,7 @@ describe('integration file formats', () => {
 
       expect(content).toContain('Show my beads in a browser');
       expect(content).toContain('tbd web --open');
+      expect(content).toContain('tbd web <path> --open');
       expect(content).toContain('viewer, not an editor');
       expect(content).toMatch(/ordinary `tbd`\s+commands/u);
     });
@@ -91,6 +92,9 @@ describe('integration file formats', () => {
       for (const name of ['skill-brief.md', 'shortcuts/system/skill-minimal.md']) {
         const content = await readFile(join(docsDir, name), 'utf-8');
         expect(content, `${name} must route browser requests`).toContain('tbd web --open');
+        expect(content, `${name} must support another working directory`).toContain(
+          'tbd web <path> --open',
+        );
         expect(content, `${name} must identify a viewer rather than an editor`).toContain(
           'viewer, not an editor',
         );

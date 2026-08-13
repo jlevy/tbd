@@ -138,7 +138,7 @@ function harness(): {
 }
 
 describe('BoardState', () => {
-  it('serves shared query semantics as light rows and retains tree ancestors as context', async () => {
+  it('serves shared query semantics as light rows without reinserting filtered ancestors', async () => {
     const { board } = harness();
     await board.reload();
 
@@ -147,16 +147,276 @@ describe('BoardState', () => {
       stateFor(board),
     );
 
-    expect(response.rows.map((row) => row.id)).toEqual(['web-root', 'web-kid1', 'web-leaf']);
-    expect(response.contextIds).toEqual(['web-root']);
+    expect(response.rows.map((row) => row.id)).toEqual(['web-kid1', 'web-leaf']);
     expect(response.command).toBe('tbd list --label viewer --pretty');
+    expect(response.commandExact).toBe(true);
+    expect(response.filtersExact).toBe(true);
+    expect(response.statusFacets).toEqual([
+      { value: 'open', count: 2 },
+      { value: 'in_progress', count: 0 },
+      { value: 'blocked', count: 0 },
+      { value: 'deferred', count: 0 },
+      { value: 'closed', count: 0 },
+    ]);
+    expect(response.kindFacets).toEqual([
+      { value: 'bug', count: 0 },
+      { value: 'feature', count: 0 },
+      { value: 'task', count: 2 },
+      { value: 'epic', count: 0 },
+      { value: 'chore', count: 0 },
+    ]);
+    expect(response.priorityFacets).toEqual([
+      { value: 0, count: 1 },
+      { value: 1, count: 1 },
+      { value: 2, count: 0 },
+      { value: 3, count: 0 },
+      { value: 4, count: 0 },
+    ]);
+    expect(response.labelFacets).toEqual([{ label: 'viewer', count: 2 }]);
+    expect(response.closedHidden).toBe(0);
+    expect(response.rows[0]).not.toHaveProperty('description');
+    expect(response.rows[0]).not.toHaveProperty('notes');
+    expect(response.rows[0]?.updated_at).toBe('2025-01-01T00:00:00Z');
+    expect(response.rows[1]?.prefix).toBe('└── ');
+    expect(response.state.stats.total).toBe(3);
+  });
+
+  it('keeps closed parents out of the default Active pretty tree', async () => {
+    const { board } = harness();
+    await board.reload();
+
+    const response = board.buildBoardResponse(new URLSearchParams('pretty=1'), stateFor(board));
+
+    expect(response.rows.map((row) => row.id)).toEqual(['web-kid1', 'web-leaf']);
+    expect(response.rows.every((row) => row.status !== 'closed')).toBe(true);
+  });
+
+  it('sorts outermost pretty groups by the latest timestamp in each visible subtree', async () => {
+    const { board, setIssues } = harness();
+    const [root, child, leaf] = fixtureIssues();
+    setIssues([
+      { ...root!, status: 'open', updated_at: '2026-01-01T00:00:00Z' },
+      { ...child!, updated_at: '2026-01-10T00:00:00Z' },
+      {
+        ...leaf!,
+        parent_id: testId('01zzzzzzzzzzzzzzzzzzzzzzzz'),
+        updated_at: '2026-01-09T00:00:00Z',
+      },
+    ]);
+    await board.reload();
+
+    const response = board.buildBoardResponse(
+      new URLSearchParams('pretty=1&order=updated:desc&order=priority:asc'),
+      stateFor(board),
+    );
+
+    expect(response.rows.map((row) => row.id)).toEqual(['web-root', 'web-kid1', 'web-leaf']);
+    expect(response.rows.map((row) => row.prefix)).toEqual(['', '└── ', '']);
+  });
+
+  it('retains official child ordering inside a sorted pretty group', async () => {
+    const { board, setIssues } = harness();
+    const [root, child, leaf] = fixtureIssues();
+    setIssues([
+      { ...root!, status: 'open', child_order_hints: [leaf!.id, child!.id] },
+      { ...child!, parent_id: root!.id, updated_at: '2026-01-10T00:00:00Z' },
+      { ...leaf!, parent_id: root!.id, updated_at: '2026-01-01T00:00:00Z' },
+    ]);
+    await board.reload();
+
+    const response = board.buildBoardResponse(
+      new URLSearchParams('pretty=1&order=updated:desc'),
+      stateFor(board),
+    );
+
+    expect(response.rows.map((row) => row.id)).toEqual(['web-root', 'web-leaf', 'web-kid1']);
+    expect(response.rows.map((row) => row.prefix)).toEqual(['', '└── ', '└── ']);
+  });
+
+  it('uses one elbow at the correct indentation for every pretty child', async () => {
+    const { board, setIssues } = harness();
+    const [root, child, leaf] = fixtureIssues();
+    setIssues([{ ...root!, status: 'open' }, child!, leaf!]);
+    await board.reload();
+
+    const response = board.buildBoardResponse(
+      new URLSearchParams('pretty=1&order=updated:desc'),
+      stateFor(board),
+    );
+
+    expect(response.rows.map((row) => row.id)).toEqual(['web-root', 'web-kid1', 'web-leaf']);
+    expect(response.rows.map((row) => row.prefix)).toEqual(['', '└── ', '    └── ']);
+    expect(
+      response.rows.every((row) => !row.prefix.includes('│') && !row.prefix.includes('├')),
+    ).toBe(true);
+  });
+
+  it('caps label facets at 32 while retaining a selected lower-ranked label', async () => {
+    const { board, setIssues } = harness();
+    const labels = Array.from(
+      { length: 35 },
+      (_, index) => `tag-${String(index).padStart(2, '0')}`,
+    );
+    setIssues([{ ...fixtureIssues()[0]!, status: 'open', labels }]);
+    await board.reload();
+
+    const response = board.buildBoardResponse(new URLSearchParams('label=tag-34'), stateFor(board));
+
+    expect(response.labelFacets).toHaveLength(32);
+    expect(response.labelFacets).toContainEqual({ label: 'tag-34', count: 1 });
+    expect(response.labelFacets.map((facet) => facet.label)).not.toContain('tag-31');
+
+    const searched = board.buildBoardResponse(
+      new URLSearchParams('labelq=tag-34'),
+      stateFor(board),
+    );
+    expect(searched.labelFacets).toEqual([{ label: 'tag-34', count: 1 }]);
+  });
+
+  it('recounts label facets as iterative conjunctions and restores them when unchecked', async () => {
+    const { board, setIssues } = harness();
+    const [root, child, leaf] = fixtureIssues();
+    setIssues([
+      { ...root!, status: 'open', labels: ['alpha', 'common'] },
+      { ...child!, labels: ['alpha', 'beta', 'common'] },
+      { ...leaf!, labels: ['alpha', 'gamma'] },
+    ]);
+    await board.reload();
+
+    const facets = (labels: string) =>
+      board.buildBoardResponse(new URLSearchParams(labels), stateFor(board)).labelFacets;
+
+    expect(facets('all=1')).toEqual([
+      { label: 'alpha', count: 3 },
+      { label: 'common', count: 2 },
+      { label: 'beta', count: 1 },
+      { label: 'gamma', count: 1 },
+    ]);
+    expect(facets('all=1&label=common')).toEqual([
+      { label: 'alpha', count: 2 },
+      { label: 'common', count: 2 },
+      { label: 'beta', count: 1 },
+    ]);
+    expect(facets('all=1&label=common&label=beta')).toEqual([
+      { label: 'alpha', count: 1 },
+      { label: 'beta', count: 1 },
+      { label: 'common', count: 1 },
+    ]);
+    expect(facets('all=1&label=beta')).toEqual([
+      { label: 'alpha', count: 1 },
+      { label: 'beta', count: 1 },
+      { label: 'common', count: 1 },
+    ]);
+    expect(facets('all=1&label=missing')).toEqual([{ label: 'missing', count: 0 }]);
+  });
+
+  it('counts each categorical facet inside every other active filter', async () => {
+    const { board, setIssues } = harness();
+    const [root, child, leaf] = fixtureIssues();
+    setIssues([
+      { ...root!, status: 'open', priority: 2, labels: ['alpha', 'common'] },
+      {
+        ...child!,
+        status: 'blocked',
+        kind: 'bug',
+        priority: 1,
+        labels: ['alpha', 'beta', 'common'],
+      },
+      { ...leaf!, status: 'open', kind: 'task', priority: 1, labels: ['alpha', 'gamma'] },
+    ]);
+    await board.reload();
+
+    const response = board.buildBoardResponse(
+      new URLSearchParams('all=1&status=open&priority=1&label=alpha'),
+      stateFor(board),
+    );
+
+    expect(response.rows.map((row) => row.id)).toEqual(['web-leaf']);
+    expect(response.statusFacets).toEqual([
+      { value: 'open', count: 1 },
+      { value: 'in_progress', count: 0 },
+      { value: 'blocked', count: 1 },
+      { value: 'deferred', count: 0 },
+      { value: 'closed', count: 0 },
+    ]);
+    expect(response.kindFacets).toEqual([
+      { value: 'bug', count: 0 },
+      { value: 'feature', count: 0 },
+      { value: 'task', count: 1 },
+      { value: 'epic', count: 0 },
+      { value: 'chore', count: 0 },
+    ]);
+    expect(response.priorityFacets).toEqual([
+      { value: 0, count: 0 },
+      { value: 1, count: 1 },
+      { value: 2, count: 1 },
+      { value: 3, count: 0 },
+      { value: 4, count: 0 },
+    ]);
+    expect(response.labelFacets).toEqual([
+      { label: 'alpha', count: 1 },
+      { label: 'gamma', count: 1 },
+    ]);
+  });
+
+  it('composes column ordering with the newest clicked key primary', async () => {
+    const { board, setIssues } = harness();
+    const [root, child, leaf] = fixtureIssues();
+    setIssues([
+      { ...root!, status: 'open', priority: 1, updated_at: '2026-01-03T00:00:00Z' },
+      { ...child!, priority: 0, updated_at: '2026-01-01T00:00:00Z' },
+      { ...leaf!, priority: 1, updated_at: '2026-01-02T00:00:00Z' },
+    ]);
+    await board.reload();
+
+    const response = board.buildBoardResponse(
+      new URLSearchParams('all=1&order=priority:asc&order=updated:desc'),
+      stateFor(board),
+    );
+
+    expect(response.rows.map((row) => row.id)).toEqual(['web-kid1', 'web-root', 'web-leaf']);
     expect(response.commandExact).toBe(false);
     expect(response.filtersExact).toBe(true);
-    expect(response.closedHidden).toBe(0);
-    expect(response.rows[1]).not.toHaveProperty('description');
-    expect(response.rows[1]).not.toHaveProperty('notes');
-    expect(response.rows[2]?.prefix).toBe('    └── ');
-    expect(response.state.stats.total).toBe(3);
+    expect(response.orderingCaveat).toBe(
+      'Browser column sort: Priority ↑ then Updated ↓; flat mode applies the stack to individual rows',
+    );
+  });
+
+  it('orders mixed-precision updated timestamps chronologically in either direction', async () => {
+    const { board, setIssues } = harness();
+    const [root, child, leaf] = fixtureIssues();
+    setIssues([
+      { ...root!, status: 'open', updated_at: '2026-01-01T00:00:00.100Z' },
+      { ...child!, updated_at: '2026-01-01T00:00:00Z' },
+      { ...leaf!, updated_at: '2026-01-01T00:00:00.050Z' },
+    ]);
+    await board.reload();
+
+    const orderedIds = (direction: 'asc' | 'desc') =>
+      board
+        .buildBoardResponse(
+          new URLSearchParams(`all=1&order=updated:${direction}`),
+          stateFor(board),
+        )
+        .rows.map((row) => row.id);
+
+    expect(orderedIds('asc')).toEqual(['web-kid1', 'web-leaf', 'web-root']);
+    expect(orderedIds('desc')).toEqual(['web-root', 'web-leaf', 'web-kid1']);
+  });
+
+  it('orders every textual table column lexicographically with a display-id tie-break', async () => {
+    const { board } = harness();
+    await board.reload();
+    const orderedIds = (order: string) =>
+      board
+        .buildBoardResponse(new URLSearchParams(`all=1&order=${order}`), stateFor(board))
+        .rows.map((row) => row.id);
+
+    expect(orderedIds('id:asc')).toEqual(['web-kid1', 'web-leaf', 'web-root']);
+    expect(orderedIds('status:asc')).toEqual(['web-root', 'web-kid1', 'web-leaf']);
+    expect(orderedIds('kind:asc')).toEqual(['web-root', 'web-kid1', 'web-leaf']);
+    expect(orderedIds('title:asc')).toEqual(['web-root', 'web-kid1', 'web-leaf']);
+    expect(orderedIds('labels:desc')).toEqual(['web-kid1', 'web-leaf', 'web-root']);
   });
 
   it('serves full bodies only for validated public ids', async () => {
@@ -585,7 +845,7 @@ describe('BoardState', () => {
     expect(response.search).toBe('SSE');
   });
 
-  it('bounds pretty-tree context metadata to rows present in a capped response', async () => {
+  it('does not let a large filtered pretty tree bypass exact filtering through context', async () => {
     const branchCount = Math.floor(MAX_BOARD_ROWS / 3) + 2;
     let issueIndex = 0;
     const nextId = (): string => {
@@ -633,11 +893,8 @@ describe('BoardState', () => {
       stateFor(board),
     );
 
-    expect(response.rows).toHaveLength(MAX_BOARD_ROWS);
-    expect(response.truncated).toBe(issues.length);
-    const responseIds = new Set(response.rows.map((row) => row.id));
-    expect(response.contextIds.length).toBeGreaterThan(0);
-    expect(response.contextIds.every((id) => responseIds.has(id))).toBe(true);
-    expect(response.contextCount).toBe(response.contextIds.length);
+    expect(response.rows).toHaveLength(branchCount);
+    expect(response.truncated).toBe(0);
+    expect(response.rows.every((row) => row.prefix === '')).toBe(true);
   });
 });

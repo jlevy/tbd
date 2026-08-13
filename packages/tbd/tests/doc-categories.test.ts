@@ -12,9 +12,9 @@ import { describe, it, expect } from 'vitest';
 import { readFile, readdir } from 'node:fs/promises';
 import { join, dirname, extname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import matter from 'gray-matter';
 
 import { docCategory } from '../src/lib/doc-categories.js';
+import { parseMarkdownMatter } from '../src/utils/gray-matter.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const GUIDELINES_DIR = join(__dirname, '..', 'docs', 'guidelines');
@@ -48,9 +48,9 @@ describe('guideline doc categories', () => {
 
       let category: unknown;
       try {
-        // gray-matter (js-yaml) rejects duplicated keys, so a doc declaring
+        // The centralized YAML engine rejects duplicated keys, so a doc declaring
         // `category:` twice fails here rather than silently picking one.
-        const parsed = matter(raw);
+        const parsed = parseMarkdownMatter(raw);
         category = parsed.data.category;
       } catch (error) {
         failures.push(`${file}: frontmatter failed to parse (${(error as Error).message})`);

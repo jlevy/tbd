@@ -288,11 +288,20 @@ describe('web board performance', () => {
     const rendered = await measureTime(() =>
       Promise.resolve(board.buildBoardResponse(new URLSearchParams('all=1&pretty=1'), state)),
     );
+    const sorted = await measureTime(() =>
+      Promise.resolve(
+        board.buildBoardResponse(
+          new URLSearchParams('all=1&order=priority:asc&order=updated:desc'),
+          state,
+        ),
+      ),
+    );
 
     expect(loaded.ms).toBeLessThan(1_000);
     expect(refreshed.ms).toBeLessThan(1_000);
     expect(refreshed.result).toMatchObject({ moved: true, changeTotal: 1 });
     expect(rendered.ms).toBeLessThan(1_000);
+    expect(sorted.ms).toBeLessThan(1_000);
     expect(rendered.result).toMatchObject({
       commandExact: false,
       total: issueCount,
@@ -301,12 +310,13 @@ describe('web board performance', () => {
     });
     expect(MAX_BOARD_ROWS).toBe(10_000);
     expect(rendered.result.rows).toHaveLength(MAX_BOARD_ROWS);
+    expect(sorted.result.rows).toHaveLength(MAX_BOARD_ROWS);
     const serialized = JSON.stringify(rendered.result);
     const serializedBytes = new TextEncoder().encode(serialized).byteLength;
     expect(serialized).not.toContain('Description for issue');
     expect(serializedBytes).toBeLessThan(5 * 1024 * 1024);
     console.log(
-      `Web board loaded ${issueCount} issues in ${loaded.ms.toFixed(2)}ms, refreshed one local change in ${refreshed.ms.toFixed(2)}ms, and built a ${(serializedBytes / 1024 / 1024).toFixed(2)} MiB response in ${rendered.ms.toFixed(2)}ms`,
+      `Web board loaded ${issueCount} issues in ${loaded.ms.toFixed(2)}ms, refreshed one local change in ${refreshed.ms.toFixed(2)}ms, built a ${(serializedBytes / 1024 / 1024).toFixed(2)} MiB response in ${rendered.ms.toFixed(2)}ms, and composed two column sorts in ${sorted.ms.toFixed(2)}ms`,
     );
   });
 });

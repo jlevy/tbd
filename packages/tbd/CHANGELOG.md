@@ -24,12 +24,22 @@
   The page and startup output explicitly identify it as a viewer, not an editor.
   It never contacts a remote; ordinary `tbd sync` remains the explicit
   fetch/merge/publish contract, and its local result appears automatically.
-  Its filters, sorting, readiness rules, hierarchy, statistics, and displayed command
-  line come from the same implementations as the CLI. Native filesystem events normally
-  redraw immediately; a one-second constant-size metadata check repairs missed events
-  without reloading an unchanged graph.
+  Its filters, default priority order, readiness rules, hierarchy, statistics, and
+  displayed command line come from the same implementations as the CLI; browser-only
+  column composition is identified as inexact beside that command.
+  Native filesystem events normally redraw immediately; a one-second constant-size
+  metadata check repairs missed events without reloading an unchanged graph.
   The client lazy-loads bead bodies and bounds requests and rendered rows for large
-  repositories. `--open` is opt-in; JSON and dry-run modes support agents and CI.
+  repositories. Counted multi-label filtering, relative update ages, four-line collapsed
+  titles, and composable sortable column headers keep dense boards scannable.
+  Label-menu search drafts survive live rerenders, and Home/End retain native
+  text-editing behavior while the search field owns focus.
+  Sorting never disables Pretty: it reorders outermost tree groups while official child
+  order remains intact; flat mode applies the same stack to individual rows.
+  An optional repository-or-subdirectory path makes the viewer usable from any working
+  directory. Initialized repositories with zero beads render a normal empty board;
+  missing or uninitialized bases fail with the standard clear CLI errors.
+  `--open` is opt-in; JSON and dry-run modes support agents and CI.
 
 ### Documentation
 
@@ -130,6 +140,18 @@
   accepts no mutation route, never performs network synchronization, serves a
   restrictive Content Security Policy, caps SSE frames and replay buffers, drops
   backpressured clients, and closes open streams on a bounded shutdown.
+- **YAML-only front-matter boundary**: every tbd gray-matter call now uses one
+  centralized engine configuration backed by the existing `yaml` package and rejects
+  explicit non-YAML language markers before parser dispatch.
+  This preserves gray-matter’s delimiter behavior, keeps date-looking YAML scalars as
+  strings across LF and CRLF checkouts, keeps its default `js-yaml` resolver out of
+  every tbd parsing path, and makes the library’s built-in JavaScript evaluator
+  unreachable from synchronized issue or document files.
+  On document and skill paths, YAML 1.2 keeps date-looking and sexagesimal-looking
+  scalars as strings, interprets leading-zero integers as decimal rather than legacy
+  octal, and continues to keep `yes`/`no`/`on`/`off` as strings.
+  The shipped `gray-matter → js-yaml` advisory is availability-only and remains visible
+  to package audits, but its vulnerable `!!omap` resolver is not reachable through tbd.
 
 ## 0.4.2
 

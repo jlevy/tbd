@@ -4070,8 +4070,16 @@ local state. The server is therefore a presentation surface, not an editor or an
 alternate agent API.
 
 ```bash
-tbd web [--port <n>] [--open]
+tbd web [path] [--port <n>] [--open]
 ```
+
+The optional path is a repository or any subdirectory within it and is resolved from the
+caller’s current directory to a canonical repository root before startup.
+Omitting it preserves the normal current-directory discovery contract.
+An initialized repository with no beads is a valid empty snapshot.
+Missing/non-directory paths are usage errors; existing paths without tbd metadata flow
+through the shared `requireInit` error path so `web` does not invent a different
+repository contract.
 
 The server binds only `127.0.0.1`. With no explicit port it searches the bounded range
 7777–7786; `--port` pins one port, and `--open` launches a browser only after an HTTP
@@ -4083,6 +4091,57 @@ Board queries run against one in-memory snapshot and call the shared `selectIssu
 `describeQuery` functions.
 Responses include the equivalent CLI invocation and carry light rows only; descriptions
 and notes are fetched per bead when expanded.
+Ready retains one definition on every surface: open, unassigned, and without an open
+blocker. The checkbox selects that exact `tbd ready` set.
+Rows expose the derived state as quiet unboxed text after their real labels; it is
+useful scan information, but is neither a lifecycle status nor a user label and must not
+be styled as either.
+The response carries conditional Status, Type, and Priority facets plus at most 32 label
+facets per response.
+An empty label search returns the highest-ranked choices; a search queries the complete
+label vocabulary before applying the response cap, so every label remains reachable.
+While the search field owns focus, its live draft remains authoritative across observer
+and request renders until the debounce publishes it.
+Home and End retain native caret movement there; the same keys navigate to the first and
+last choices only when focus is elsewhere in the menu.
+Every tally applies search and all other active dimensions; unselected zero-count values
+are omitted.
+Label candidates additionally apply every selected label, retaining selected
+values for removal and preserving the CLI’s repeated-label AND semantics.
+The client clamps collapsed titles at four lines, renders sans relative update ages with
+exact literal tooltips, and exposes every data column as an ordered sort key.
+The default is Pretty with Updated descending then Priority ascending.
+The newest clicked key is primary, only the prior primary remains as a tie-breaker, and
+sorting never clears Pretty.
+In Pretty, the stack orders only outermost visible parent groups; Updated compares the
+maximum timestamp across each entire visible subtree for every parent kind, while
+children retain `child_order_hints` order and its deterministic fallback.
+The browser deliberately uses a simpler visual grammar than terminal tree output: every
+non-root row has exactly one `└──` elbow at its hierarchy indentation, with spaces for
+ancestor levels and no tee or vertical-bar variants.
+Flat mode applies the stack globally.
+Reset restores the default sort stack without changing Pretty.
+Because browser ordering is not an exact CLI filter, the response supplies a concise
+ordering caveat beside the equivalent command.
+Pretty never reinserts a bead excluded by Status, labels, search, or another filter; a
+matching descendant whose parent is absent becomes a root, exactly as in
+`tbd list --pretty`.
+
+Expanded updated beads show field deltas with an 80-character middle-ellipsis preview
+per scalar side. Copy preserves the bounded full values, before is muted historical
+context, and after uses normal text.
+Created beads omit null-to-current-value deltas as redundant with the expanded body.
+The client delegates row expansion to one table-body listener and ignores clicks that
+finish a non-collapsed text selection.
+Each render restores keyboard focus by stable bead ID and control role, or by label
+value inside the chooser.
+A failed board refresh keeps the last successful rows visible and changes the persistent
+observer indicator to an error state until a successful response clears it.
+Render completion also dismisses any tooltip whose anchor was replaced.
+These component and semantic rules are maintained in the co-located design-system
+inventory in `src/web/styles.css`. Status-panel field names use standard-size sans
+chrome and literal values use standard-size monospace; neither side shrinks merely
+because the panel is narrow.
 Liveness is strictly local.
 A recursive Node `fs.watch` over the hidden data-sync worktree maps to native
 operating-system notifications on supported local filesystems.
@@ -4358,8 +4417,7 @@ canonical board state at the same version after a bounded event frame, and accep
 restarted observer’s lower counters.
 A delayed duplicate event at an already-adopted version cannot replace that canonical
 state. Board responses carry at most 10,000 light rows and retain the full match count
-when truncated. Pretty-tree context metadata is derived from those returned rows, so it
-cannot name or serialize context that was cut off by the response ceiling.
+when truncated. Pretty never bypasses filters by serializing ancestors as extra context.
 The browser renders those rows in 5,000-row pages, exposes sticky and end-of-page
 navigation, and allows bulk detail expansion only when 100 rows or fewer are visible on
 the page. This threshold is empirical rather than round-number preference: a production
@@ -5621,7 +5679,9 @@ We adopt this approach.
 
 **Mitigations**:
 
-- Use established libraries (gray-matter, js-yaml)
+- Use gray-matter for front-matter delimiters and the `yaml` package for all YAML
+  parsing and serialization, behind one wrapper that rejects non-YAML language markers
+  before gray-matter can select its built-in JavaScript evaluator
 
 - Canonical serialization rules ensure consistency
 

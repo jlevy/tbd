@@ -256,6 +256,8 @@ describe('typography: monospace marks data, not chrome', () => {
     const termRule = blockAfter(css, '#statusdl dt');
     expect(listRule).toContain('display: grid');
     expect(listRule).toContain('align-items: baseline');
+    expect(listRule).toContain('font-size: var(--font-size-body)');
+    expect(blockAfter(css, '#statusdl dd')).toContain('font-size: var(--font-size-body)');
     expect(termRule).toContain('float: none');
     expect(termRule).toContain('margin: 0');
   });
@@ -286,7 +288,7 @@ describe('chevron icon system', () => {
     expect(disclosureRule, 'expected a stable disclosure line box').not.toBeNull();
     expect(disclosureRule).toContain('place-items: center');
 
-    expect(page.match(/class="select-control"/gu)).toHaveLength(4);
+    expect(page.match(/class="select-control"/gu)).toHaveLength(3);
     expect(page.match(/class="chevron chevron-down"/gu)).toHaveLength(4);
     expect(client).toContain("disclosure.setAttribute('aria-expanded', String(open))");
     expect(client).toContain("chevron.className = `chevron chevron-${open ? 'down' : 'right'}`");
@@ -295,9 +297,29 @@ describe('chevron icon system', () => {
 
   it('routes every board-row click through one toggle path', async () => {
     const client = await readFile(clientPath, 'utf8');
-    expect(client).toContain("tableRow.addEventListener('click', () => {");
-    expect(client).toContain('store.toggle(row.id)');
+    expect(client).toContain('tableRow.dataset.beadId = row.id');
+    expect(client).toContain("elements.rows.addEventListener('click', (event) => {");
+    expect(client).toContain("target.closest<HTMLTableRowElement>('tr[data-bead-id]')");
+    expect(client).toContain('window.getSelection()?.isCollapsed ?? true');
+    expect(client).toContain("target.closest<HTMLButtonElement>('.disclosure') === null");
+    expect(client).toContain('store.toggle(id)');
+    expect(client).not.toContain("tableRow.addEventListener('click'");
     expect(client).not.toContain("disclosure.addEventListener('click'");
+  });
+
+  it('cleans detached tooltips and restores stable board and label focus after rerenders', async () => {
+    const client = await readFile(clientPath, 'utf8');
+    expect(client).toContain('captureBoardFocus()');
+    expect(client).toContain('restoreBoardFocus(boardFocus)');
+    expect(client).toContain('!document.contains(activeTooltipTarget)');
+    expect(client).toContain('activeLabelChoiceFocus()');
+    expect(client).toContain('restoreLabelChoiceFocus(labelFocus)');
+  });
+
+  it('surfaces a failed board refresh even while stale rows remain visible', async () => {
+    const client = await readFile(clientPath, 'utf8');
+    expect(client).toContain("elements.observerPill.textContent = 'refresh error'");
+    expect(client).toContain('Showing the last successful board');
   });
 
   it('baseline-aligns mixed row typography and centers disclosure in the shared line box', async () => {
@@ -414,7 +436,20 @@ describe('semantic color and component roles', () => {
     expect(blockAfter(css, '.status-closed')).toContain('color: var(--muted)');
     expect(blockAfter(css, '.priority-0')).toContain('color: var(--error)');
     expect(blockAfter(css, '.priority-1')).toContain('color: var(--warning)');
-    expect(blockAfter(css, '.tag.ready')).toContain('color: var(--success)');
+    expect(blockAfter(css, '.ready-marker')).toContain('color: var(--success)');
+    expect(blockAfter(css, '.ready-marker')).not.toContain('border');
+  });
+
+  it('keeps readiness useful without presenting the derived state as a label', async () => {
+    const client = await readFile(clientPath, 'utf8');
+    expect(client).toContain("ready.className = 'ready-marker'");
+    expect(client).toContain(
+      "ready.dataset.tooltip = 'Open, unassigned, and has no open blockers'",
+    );
+    expect(client).not.toContain("ready.className = 'tag ready'");
+    expect(client.indexOf('for (const label of row.labels)')).toBeLessThan(
+      client.indexOf('if (row.ready)'),
+    );
   });
 
   it('reuses table semantic classes in the native filter choosers', async () => {
@@ -441,6 +476,7 @@ describe('semantic color and component roles', () => {
     expect(page).toContain('<span class="header-meta" id="countmeta">0 beads</span>');
     expect(page).not.toContain('class="pill" id="countpill"');
     expect(client).toContain("countMeta: byId('countmeta', HTMLSpanElement)");
+    expect(client).toContain('`${board.matched} of ${board.total} shown`');
   });
 
   it('does not manufacture extra auxiliary-text grays with opacity', async () => {
@@ -455,7 +491,7 @@ describe('semantic color and component roles', () => {
 });
 
 describe('tree-title layout', () => {
-  it('wraps after the tree guide and continues only ancestor verticals', async () => {
+  it('keeps first-line Unicode guides and a clean hanging indent without synthetic bars', async () => {
     const [css, client] = await Promise.all([readStyleBlock(), readFile(clientPath, 'utf8')]);
     const contentRule = blockAfter(css, '.title-content');
     const textRule = blockAfter(css, '.title-text');
@@ -464,33 +500,154 @@ describe('tree-title layout', () => {
     expect(textRule, 'expected a separately wrapping title span').not.toBeNull();
     expect(textRule).toContain('min-width: 0');
     expect(blockAfter(css, '.guide')).toContain('color: var(--muted)');
-    const continuationRule = blockAfter(css, '.tree-continuation');
-    expect(continuationRule).toContain('top: var(--board-row-line-height)');
-    expect(continuationRule).toContain('border-left: 1px solid var(--muted)');
     expect(client).toContain("titleContent.className = 'title-content'");
-    expect(client).toContain('treeContinuationColumns(row.prefix)');
+    expect(client).toContain('guide.textContent = row.prefix');
+    expect(client).not.toContain('treeContinuationColumns');
+    expect(css).not.toContain('.tree-continuation');
     expect(client).toContain("titleText.className = 'title-text'");
     expect(client).not.toContain('title.append(document.createTextNode(row.title))');
+  });
+
+  it('clamps collapsed summaries at four lines and reveals the full title when open', async () => {
+    const css = await readStyleBlock();
+    const textRule = blockAfter(css, '.title-text');
+    const openTextRule = blockAfter(css, 'tr.open .title-text');
+    expect(textRule).toContain('-webkit-line-clamp: 4');
+    expect(textRule).toContain('line-clamp: 4');
+    expect(textRule).toContain('overflow: hidden');
+    expect(openTextRule).toContain('-webkit-line-clamp: unset');
+    expect(openTextRule).toContain('line-clamp: unset');
+    expect(openTextRule).toContain('overflow: visible');
+  });
+});
+
+describe('expanded local field deltas', () => {
+  it('uses bounded previews, preserves full copy data, and omits redundant creation diffs', async () => {
+    const [css, client] = await Promise.all([readStyleBlock(), readFile(clientPath, 'utf8')]);
+    expect(client).toContain("delta.change === 'created'");
+    expect(client).toContain('const before = formatDeltaValue(field.before)');
+    expect(client).toContain('const after = formatDeltaValue(field.after)');
+    expect(client).toContain('const copyValue = `${before.full}  →  ${after.full}`');
+    expect(client).toContain('literal.dataset.copyValue = copyValue');
+    expect(client).toContain("beforeText.className = 'delta-before'");
+    expect(client).toContain("afterText.className = 'delta-after'");
+    expect(blockAfter(css, '.delta-before,\n.delta-arrow')).toContain('color: var(--muted)');
+    expect(blockAfter(css, '.delta-after')).toContain('color: var(--text)');
   });
 });
 
 describe('tag-column layout', () => {
-  it('keeps ready with labels while wrapping only complete tags in a wider column', async () => {
+  it('keeps the quiet ready marker after labels while wrapping complete tags', async () => {
     const [css, client, page] = await Promise.all([
       readStyleBlock(),
       readFile(clientPath, 'utf8'),
       readFile(pagePath, 'utf8'),
     ]);
-    const labelsRule = blockAfter(css, 'th.labels,\ntd.labels');
+    const labelsColumnRule = blockAfter(css, '.board-col-labels');
+    const titleColumnRule = blockAfter(css, '.board-col-title');
     const clusterRule = blockAfter(css, '.tag-cluster');
     const tagRule = blockAfter(css, '.tag');
-    expect(labelsRule).toContain('min-width: 160px');
+    expect(labelsColumnRule).toContain('width: var(--board-labels-column-width)');
+    expect(titleColumnRule).toContain('width: var(--board-title-column-width)');
+    expect(css).toContain('--board-priority-column-width: 7%');
+    expect(css).toContain('--board-title-column-width: 24%');
+    expect(css).toContain('--board-updated-column-width: 13%');
+    expect(css).toContain('--board-labels-column-width: 22%');
     expect(clusterRule).toContain('display: flex');
     expect(clusterRule).toContain('flex-wrap: wrap');
     expect(tagRule).toContain('white-space: nowrap');
     expect(client).toContain("appendCell(tableRow, '', 'labels')");
     expect(client).toContain("cluster.className = 'tag-cluster'");
-    expect(page).toContain('<th class="labels">Labels</th>');
+    expect(page).toContain('<th class="labels" data-sort-key="labels">');
+  });
+});
+
+describe('updated-time and fixed-column system', () => {
+  it('renders one semantic updated column with exact time metadata and blue age tiers', async () => {
+    const [css, client, page] = await Promise.all([
+      readStyleBlock(),
+      readFile(clientPath, 'utf8'),
+      readFile(pagePath, 'utf8'),
+    ]);
+    const boardRule = blockAfter(css, '.board-table');
+    expect(boardRule).toContain('table-layout: fixed');
+    expect(boardRule).toContain('min-width: 820px');
+    expect(page).toContain('<colgroup>');
+    expect(page).toContain('<col class="board-col-title" />');
+    expect(page).toContain('<col class="board-col-updated" />');
+    expect(page).toContain('<col class="board-col-labels" />');
+    expect(page).toContain('<th class="updated" data-sort-key="updated">');
+    expect(client).toContain('time.className = `updated-age age-${age.tier}`');
+    expect(client).toContain('time.dateTime = age.exact');
+    expect(client).toContain('setTooltip(time, age.exact)');
+    expect(client).toContain("time.dataset.tooltipLiteral = ''");
+    expect(client).toContain('window.setInterval(updateRelativeTimes, RELATIVE_TIME_REFRESH_MS)');
+    expect(blockAfter(css, '.updated-age')).toContain('font-family: var(--sans)');
+    expect(blockAfter(css, '.viewer-tooltip.literal')).toContain('font-family: var(--mono)');
+    for (const tier of ['sec', 'min', 'hr', 'day', 'wk', 'old']) {
+      expect(css).toContain(`--age-${tier}: hsl(`);
+      expect(css).toContain(`--dark-age-${tier}: hsl(`);
+      expect(blockAfter(css, `.age-${tier}`)).toContain(`color: var(--age-${tier})`);
+    }
+  });
+
+  it('keeps expansion and paging inside the complete eight-column grid', async () => {
+    const client = await readFile(clientPath, 'utf8');
+    expect(client).toContain('cell.colSpan = 7');
+    expect(client).toContain('cell.colSpan = 8');
+    expect(client).not.toContain('cell.colSpan = 6');
+  });
+});
+
+describe('dynamic label chooser', () => {
+  it('renders a counted accessible multi-chooser capped by the server at 32 facets', async () => {
+    const [css, client, page] = await Promise.all([
+      readStyleBlock(),
+      readFile(clientPath, 'utf8'),
+      readFile(pagePath, 'utf8'),
+    ]);
+    expect(page).toContain('id="labelchooser"');
+    expect(page).toContain('id="labeltrigger"');
+    expect(page).toContain('id="labelmenu"');
+    expect(page).toContain('id="labelsearch"');
+    expect(page).toContain('id="labelchoices"');
+    expect(page).not.toContain('<input id="label"');
+    expect(page).toContain('aria-label="Labels; all selected labels are required"');
+    expect(page).toContain('aria-label="Filter by every selected label"');
+    expect(client).toContain("row.setAttribute('role', 'menuitemcheckbox')");
+    expect(client).toContain("count.className = 'label-choice-count'");
+    expect(client).toContain("name.className = 'tag label-choice-tag'");
+    expect(client).toContain('selectedLabels');
+    expect(client).toContain('labelSearch: elements.labelSearch.value');
+    expect(blockAfter(css, '.label-chooser-menu')).toContain('max-height: 320px');
+    expect(blockAfter(css, '.label-choice-count')).toContain('font-variant-numeric: tabular-nums');
+  });
+});
+
+describe('composable board sorting', () => {
+  it('makes every data-column header an accessible sort control and removes the old chooser', async () => {
+    const [css, client, page] = await Promise.all([
+      readStyleBlock(),
+      readFile(clientPath, 'utf8'),
+      readFile(pagePath, 'utf8'),
+    ]);
+    for (const key of ['id', 'priority', 'status', 'kind', 'title', 'updated', 'labels']) {
+      expect(page).toContain(`data-sort-key="${key}"`);
+    }
+    expect(page).not.toContain('id="sort"');
+    expect(client).toContain('promoteBoardSort(view.controls.sorts, key)');
+    expect(client).not.toContain('elements.pretty.checked = false');
+    expect(client).not.toContain('activeSorts = []');
+    expect(client).toContain('activeSorts = DEFAULT_BOARD_SORTS.map');
+    expect(client).toContain(
+      'Pretty moves outermost groups by the latest update in each visible subtree; children keep official order.',
+    );
+    expect(client).toContain('isDefaultBoardSort(view.controls.sorts)');
+    expect(page).toContain('id="sortreset"');
+    expect(client).not.toContain('elements.pretty.checked = true');
+    expect(client).toMatch(/header\.setAttribute\(\s*'aria-sort'/u);
+    expect(blockAfter(css, '.sort-button')).toContain('font: inherit');
+    expect(blockAfter(css, '.sort-indicator')).toContain('font-variant-numeric: tabular-nums');
   });
 });
 
@@ -538,7 +695,7 @@ describe('expanded-row emphasis', () => {
     expect(bodyRule).toContain('padding-left: 10px');
     expect(client).toContain("appendCell(bodyRow, '', 'caret')");
     expect(client).toContain("appendCell(bodyRow, '', 'body-cell')");
-    expect(client).toContain('cell.colSpan = 6');
+    expect(client).toContain('cell.colSpan = 7');
     expect(client).toContain("const title = appendCell(tableRow, '', 'title')");
   });
 });
@@ -618,6 +775,73 @@ describe('observer header status', () => {
   });
 });
 
+describe('delegated tooltip system', () => {
+  it('uses one fast viewport-aware tooltip and no native title attributes', async () => {
+    const [css, client, page] = await Promise.all([
+      readStyleBlock(),
+      readFile(clientPath, 'utf8'),
+      readFile(pagePath, 'utf8'),
+    ]);
+    expect(page).not.toMatch(/\stitle=/u);
+    expect(page).toContain('data-tooltip="System theme"');
+    expect(client).toContain("tooltip.id = 'viewer-tooltip'");
+    expect(client.match(/document\.body\.append\(tooltip\)/gu)).toHaveLength(1);
+    expect(client).toContain("target.closest<HTMLElement>('[data-tooltip]')");
+    expect(client).toContain("document.addEventListener('pointerover'");
+    expect(client).toContain("document.addEventListener('focusin'");
+    expect(client).toContain("window.addEventListener('scroll', hideTooltip, true)");
+    expect(css).toContain('--tooltip-show-delay: 250ms');
+    expect(blockAfter(css, '.viewer-tooltip')).toContain('pointer-events: none');
+    expect(blockAfter(css, '.viewer-tooltip.visible')).toContain(
+      'transition-delay: var(--tooltip-show-delay), 0s',
+    );
+  });
+});
+
+describe('conditional categorical facets', () => {
+  it('renders cross-filtered tallies and hides only zero-count unselected options', async () => {
+    const [client, page] = await Promise.all([
+      readFile(clientPath, 'utf8'),
+      readFile(pagePath, 'utf8'),
+    ]);
+    expect(client).toContain('renderCategoricalFacets(board)');
+    expect(client).toContain('option.textContent = `${label} · ${count}`');
+    expect(client).toContain('const unavailable = count === 0 && option.value !== selectedValue');
+    expect(client).toContain('option.hidden = unavailable');
+    expect(page).toMatch(/id="status"\s+class="semantic-chooser"/u);
+    expect(page).toMatch(/id="type"\s+class="semantic-chooser kind-choice"/u);
+    expect(page).toMatch(/id="priority"\s+class="semantic-chooser"/u);
+  });
+
+  it('keeps aggregate counts in menus but removes them from closed chooser faces', async () => {
+    const [client, page, css] = await Promise.all([
+      readFile(clientPath, 'utf8'),
+      readFile(pagePath, 'utf8'),
+      readStyleBlock(),
+    ]);
+    expect(client).toContain('syncAggregateChooserLabel(elements.status, elements.statusValue');
+    expect(client).toContain("any: 'any (incl. closed)'");
+    expect(client).toContain('syncAggregateChooserLabel(elements.kind, elements.kindValue');
+    expect(client).toContain('syncAggregateChooserLabel(elements.priority, elements.priorityValue');
+    expect(page).toContain('id="statusvalue" class="select-value"');
+    expect(page).toContain('id="typevalue" class="select-value"');
+    expect(page).toContain('id="priorityvalue" class="select-value"');
+    expect(blockAfter(css, '.select-value')).toContain('pointer-events: none');
+    expect(blockAfter(css, '.select-value[hidden]')).toContain('display: none');
+  });
+});
+
+describe('board and status-panel divider', () => {
+  it('stretches one continuous divider and switches it to horizontal when stacked', async () => {
+    const css = await readStyleBlock();
+    expect(blockAfter(css, 'main')).toContain('align-items: stretch');
+    expect(blockAfter(css, 'aside')).toContain('border-left: 1px solid var(--border)');
+    expect(css).toMatch(
+      /@media \(max-width: 900px\)[\s\S]*?aside\s*\{[\s\S]*?border-left: none;[\s\S]*?border-top: 1px solid var\(--border\);/u,
+    );
+  });
+});
+
 describe('Boolean controls', () => {
   it('renders --pretty as a checkbox while leaving actions as buttons', async () => {
     const [client, page] = await Promise.all([
@@ -625,7 +849,7 @@ describe('Boolean controls', () => {
       readFile(pagePath, 'utf8'),
     ]);
     expect(page).toMatch(
-      /<label class="check" title="--pretty"[\s\S]*?<input type="checkbox" id="pretty" checked \/> pretty[\s\S]*?<\/label\s*>/u,
+      /<label class="check" data-tooltip="--pretty"[\s\S]*?<input type="checkbox" id="pretty" checked \/> pretty[\s\S]*?<\/label\s*>/u,
     );
     expect(page).not.toContain('id="pretty" class="on"');
     expect(page).not.toMatch(/id="ready"[\s\S]*?class="grow"[\s\S]*?id="pretty"/u);

@@ -5,14 +5,21 @@ import {
   buildQueryString,
   caveatsFor,
   createClientStore,
+  DEFAULT_BOARD_SORTS,
+  DELTA_VALUE_PREVIEW_CHARS,
   deltasValid,
+  formatDeltaValue,
   MAX_BODY_CACHE_ENTRIES,
   MAX_BODY_REQUEST_CONCURRENCY,
   MAX_EXPANDED_ROWS,
   MAX_GHOST_ROWS,
+  formatRelativeAge,
+  isDefaultBoardSort,
+  labelSearchValueForRender,
   paginateBoardRows,
   phaseLabel,
-  treeContinuationColumns,
+  preserveLabelSearchEditingKey,
+  promoteBoardSort,
 } from '../src/web/core.js';
 import type {
   BoardControls,
@@ -72,11 +79,30 @@ function board(watch: ObservationStateView, title = 'Initial', id = 'web-one'): 
     command: 'tbd list --pretty',
     commandExact: true,
     filtersExact: true,
-    contextCount: 0,
     search: '',
     total: 1,
     matched: 1,
     closedHidden: 0,
+    statusFacets: [
+      { value: 'open', count: 1 },
+      { value: 'in_progress', count: 0 },
+      { value: 'blocked', count: 0 },
+      { value: 'deferred', count: 0 },
+      { value: 'closed', count: 0 },
+    ],
+    kindFacets: [
+      { value: 'bug', count: 0 },
+      { value: 'feature', count: 0 },
+      { value: 'task', count: 1 },
+      { value: 'epic', count: 0 },
+      { value: 'chore', count: 0 },
+    ],
+    priorityFacets: [0, 1, 2, 3, 4].map((value) => ({
+      value,
+      count: value === 2 ? 1 : 0,
+    })),
+    labelFacets: [],
+    orderingCaveat: null,
     rows: [
       {
         id,
@@ -91,10 +117,10 @@ function board(watch: ObservationStateView, title = 'Initial', id = 'web-one'): 
         assignee: null,
         ready: true,
         prefix: '',
+        updated_at: '2026-08-11T11:55:00.000Z',
       },
     ],
     truncated: 0,
-    contextIds: [],
     state: watch,
   };
 }
@@ -106,6 +132,19 @@ async function flush(): Promise<void> {
 }
 
 describe('client core pure helpers', () => {
+  it('preserves an in-progress label query across renders until its debounce lands', () => {
+    expect(labelSearchValueForRender('rare la', 'rare', true)).toBe('rare la');
+    expect(labelSearchValueForRender('rare', 'rare', true)).toBe('rare');
+    expect(labelSearchValueForRender('stale', 'canonical', false)).toBe('canonical');
+  });
+
+  it('keeps Home and End as editing keys while the label search owns focus', () => {
+    expect(preserveLabelSearchEditingKey('Home', true)).toBe(true);
+    expect(preserveLabelSearchEditingKey('End', true)).toBe(true);
+    expect(preserveLabelSearchEditingKey('ArrowDown', true)).toBe(false);
+    expect(preserveLabelSearchEditingKey('Home', false)).toBe(false);
+  });
+
   it('pages 10000 rows only at the 5000-row last-resort boundary', () => {
     const seed = board(state()).rows[0]!;
     const rows: BoardRowView[] = Array.from({ length: 10_000 }, (_, index) => ({
@@ -146,13 +185,87 @@ describe('client core pure helpers', () => {
     });
   });
 
-  it('continues only ancestor verticals through wrapped pretty titles', () => {
-    expect(treeContinuationColumns('')).toEqual([]);
-    expect(treeContinuationColumns('├── ')).toEqual([]);
-    expect(treeContinuationColumns('└── ')).toEqual([]);
-    expect(treeContinuationColumns('│   ├── ')).toEqual([0]);
-    expect(treeContinuationColumns('    │   └── ')).toEqual([4]);
-    expect(treeContinuationColumns('│   │   └── ')).toEqual([0, 4]);
+  it('middle-ellipsizes long scalar deltas at one documented boundary', () => {
+    const boundary = formatDeltaValue('x'.repeat(DELTA_VALUE_PREVIEW_CHARS - 2));
+    expect(boundary.preview).toBe(boundary.full);
+    expect(boundary.preview).toHaveLength(DELTA_VALUE_PREVIEW_CHARS);
+
+    const long = formatDeltaValue(`prefix-${'x'.repeat(100)}-suffix`);
+    expect(long.full).toBe(JSON.stringify(`prefix-${'x'.repeat(100)}-suffix`));
+    expect(long.preview).toHaveLength(DELTA_VALUE_PREVIEW_CHARS);
+    expect(long.preview).toMatch(/^"prefix-/u);
+    expect(long.preview).toMatch(/-suffix"$/u);
+    expect(long.preview).toContain('…');
+  });
+
+  it('promotes clicked columns into a deterministic composable sort stack', () => {
+    expect(promoteBoardSort([], 'updated')).toEqual([
+      { key: 'updated', direction: 'desc' },
+      { key: 'priority', direction: 'asc' },
+    ]);
+    expect(promoteBoardSort([{ key: 'updated', direction: 'desc' }], 'priority')).toEqual([
+      { key: 'priority', direction: 'asc' },
+      { key: 'updated', direction: 'desc' },
+    ]);
+    expect(
+      promoteBoardSort(
+        [
+          { key: 'priority', direction: 'asc' },
+          { key: 'updated', direction: 'desc' },
+        ],
+        'updated',
+      ),
+    ).toEqual([
+      { key: 'updated', direction: 'desc' },
+      { key: 'priority', direction: 'asc' },
+    ]);
+    expect(promoteBoardSort([{ key: 'title', direction: 'asc' }], 'title')).toEqual([
+      { key: 'title', direction: 'desc' },
+    ]);
+    expect(
+      promoteBoardSort(
+        [
+          { key: 'updated', direction: 'desc' },
+          { key: 'priority', direction: 'asc' },
+        ],
+        'title',
+      ),
+    ).toEqual([
+      { key: 'title', direction: 'asc' },
+      { key: 'updated', direction: 'desc' },
+    ]);
+    expect(isDefaultBoardSort(DEFAULT_BOARD_SORTS)).toBe(true);
+    expect(isDefaultBoardSort([{ key: 'updated', direction: 'desc' }])).toBe(false);
+  });
+
+  it('formats updated timestamps with deterministic MetaBrowser age tiers', () => {
+    const now = Date.parse('2026-08-11T12:00:00.000Z');
+    const age = (millisecondsAgo: number) =>
+      formatRelativeAge(new Date(now - millisecondsAgo).toISOString(), now);
+
+    expect(age(30_000)).toEqual({
+      exact: '2026-08-11T11:59:30.000Z',
+      label: 'just now',
+      tier: 'sec',
+    });
+    expect(age(5 * 60_000)).toMatchObject({ label: '5m ago', tier: 'min' });
+    expect(age(2 * 60 * 60_000)).toMatchObject({ label: '2h ago', tier: 'hr' });
+    expect(age(3 * 24 * 60 * 60_000)).toMatchObject({ label: '3d ago', tier: 'day' });
+    expect(age(2 * 7 * 24 * 60 * 60_000)).toMatchObject({ label: '2w ago', tier: 'wk' });
+    expect(age(60 * 24 * 60 * 60_000)).toMatchObject({ label: '2mo ago', tier: 'old' });
+    expect(age(2 * 365 * 24 * 60 * 60_000)).toMatchObject({ label: '2y ago', tier: 'old' });
+    expect(formatRelativeAge('not-a-date', now)).toBeNull();
+    expect(formatRelativeAge('2026-08-11T12:05:00.000Z', now)).toMatchObject({
+      label: 'just now',
+      tier: 'sec',
+    });
+
+    expect(age(60 * 60_000 - 1)).toMatchObject({ label: '59m ago', tier: 'min' });
+    expect(age(60 * 60_000)).toMatchObject({ label: '1h ago', tier: 'hr' });
+    expect(age(24 * 60 * 60_000 - 1)).toMatchObject({ label: '23h ago', tier: 'hr' });
+    expect(age(24 * 60 * 60_000)).toMatchObject({ label: '1d ago', tier: 'day' });
+    expect(age(7 * 24 * 60 * 60_000 - 1)).toMatchObject({ label: '6d ago', tier: 'day' });
+    expect(age(7 * 24 * 60 * 60_000)).toMatchObject({ label: '1w ago', tier: 'wk' });
   });
 
   it('serializes controls one-to-one with CLI-shaped query parameters', () => {
@@ -161,27 +274,32 @@ describe('client core pure helpers', () => {
       status: 'any',
       kind: 'bug',
       priority: '1',
-      labels: 'release, urgent',
+      labelSearch: 'rare label',
+      labels: ['release', 'urgent'],
       spec: 'plan.md',
-      sort: 'updated',
+      sorts: [
+        { key: 'priority', direction: 'asc' },
+        { key: 'updated', direction: 'desc' },
+      ],
       ready: true,
       pretty: true,
     };
     expect(buildQueryString(controls)).toBe(
-      'q=release+smoke&type=bug&priority=1&spec=plan.md&label=release&label=urgent&sort=updated&all=1&ready=1&pretty=1',
+      'q=release+smoke&labelq=rare+label&type=bug&priority=1&spec=plan.md&label=release&label=urgent&order=priority%3Aasc&order=updated%3Adesc&all=1&ready=1&pretty=1',
     );
   });
 
   it('names inexactness, local observation modes, and the change-data-version gate', () => {
     const response = board(state());
     response.filtersExact = false;
+    response.orderingCaveat =
+      'Browser column sort: Updated ↓ then Priority ↑; Pretty orders outermost groups and keeps children in official order';
     response.search = 'needle';
-    response.contextCount = 2;
     response.truncated = 5_000;
     expect(caveatsFor(response)).toEqual([
-      'filters with no exact CLI equivalent apply',
+      'filters or ordering with no exact CLI equivalent apply',
+      'Browser column sort: Updated ↓ then Priority ↑; Pretty orders outermost groups and keeps children in official order',
       'text search "needle" applies',
-      '2 dimmed ancestor rows are shown for context',
       'only the first 1 of 5000 rows are shown',
     ]);
     expect(phaseLabel(state())).toEqual({
@@ -204,6 +322,67 @@ describe('client core pure helpers', () => {
 });
 
 describe('createClientStore transport orchestration', () => {
+  it('keeps the last successful board visible across a failed refresh and clears the error', async () => {
+    let fail = false;
+    let title = 'Initial';
+    const transport: Transport = {
+      openEvents: () => ({ close: vi.fn() }),
+      fetchJson: () =>
+        fail
+          ? Promise.reject(new Error('temporary board failure'))
+          : Promise.resolve(board(state(), title)),
+    };
+    const store = createClientStore(transport, vi.fn());
+    await store.start();
+
+    fail = true;
+    await store.setControls({ ...store.getView().controls, search: 'failing query' });
+    expect(store.getView().board?.rows[0]?.title).toBe('Initial');
+    expect(store.getView().boardError).toBe('temporary board failure');
+
+    fail = false;
+    title = 'Recovered';
+    await store.setControls({ ...store.getView().controls, search: 'working query' });
+    expect(store.getView().board?.rows[0]?.title).toBe('Recovered');
+    expect(store.getView().boardError).toBeNull();
+    store.stop();
+  });
+
+  it('keeps default Pretty and the composed sort across a live data refresh', async () => {
+    let onState: ((next: unknown) => void) | null = null;
+    let current = board(state());
+    const requests: string[] = [];
+    const transport: Transport = {
+      openEvents: (_url, callback) => {
+        onState = callback;
+        return { close: vi.fn() };
+      },
+      fetchJson: (url) => {
+        requests.push(url);
+        return Promise.resolve(current);
+      },
+    };
+    const store = createClientStore(transport, vi.fn());
+    await store.start();
+
+    current = board(state({ stateVersion: 1, dataVersion: 1 }), 'Updated live');
+    onState!(current.state);
+    await vi.waitFor(() => {
+      expect(store.getView().board?.rows[0]?.title).toBe('Updated live');
+    });
+
+    expect(store.getView().controls).toMatchObject({
+      pretty: true,
+      sorts: DEFAULT_BOARD_SORTS,
+    });
+    expect(requests).toHaveLength(2);
+    for (const request of requests) {
+      expect(request).toContain('order=updated%3Adesc&order=priority%3Aasc');
+      expect(request).toContain('pretty=1');
+    }
+    store.stop();
+  });
+
   it('connects before fetching, passes the saved local tip, and coalesces updates during fetch', async () => {
     const order: string[] = [];
     const first = deferred<unknown>();
