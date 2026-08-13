@@ -4,15 +4,29 @@ export type IssueStatusView = 'open' | 'in_progress' | 'blocked' | 'deferred' | 
 export type IssueKindView = 'bug' | 'feature' | 'task' | 'epic' | 'chore';
 export type ObservationPhaseView = 'starting' | 'watching' | 'error' | 'stopped';
 export type ObservationModeView = 'native+reconcile' | 'native' | 'reconcile' | 'unavailable';
+export type BoardSortKeyView =
+  | 'id'
+  | 'priority'
+  | 'status'
+  | 'kind'
+  | 'title'
+  | 'updated'
+  | 'labels';
+export type BoardSortDirectionView = 'asc' | 'desc';
+
+export interface BoardSortView {
+  key: BoardSortKeyView;
+  direction: BoardSortDirectionView;
+}
 
 export interface BoardControls {
   search: string;
   status: '' | 'any' | IssueStatusView;
   kind: '' | IssueKindView;
   priority: '' | '0' | '1' | '2' | '3' | '4';
-  labels: string;
+  labels: string[];
   spec: string;
-  sort: 'priority' | 'created' | 'updated';
+  sorts: BoardSortView[];
   ready: boolean;
   pretty: boolean;
 }
@@ -39,6 +53,11 @@ export interface RelativeAgeView {
   exact: string;
   label: string;
   tier: AgeTierView;
+}
+
+export interface LabelFacetView {
+  label: string;
+  count: number;
 }
 
 export interface FieldChangeView {
@@ -114,6 +133,7 @@ export interface BoardResponse {
   total: number;
   matched: number;
   closedHidden: number;
+  labelFacets: LabelFacetView[];
   rows: BoardRowView[];
   truncated: number;
   contextIds: string[];
@@ -191,9 +211,9 @@ const DEFAULT_CONTROLS: BoardControls = {
   status: '',
   kind: '',
   priority: '',
-  labels: '',
+  labels: [],
   spec: '',
-  sort: 'priority',
+  sorts: [],
   ready: false,
   pretty: true,
 };
@@ -308,6 +328,50 @@ export function treeContinuationColumns(prefix: string): number[] {
   return columns;
 }
 
+/**
+ * Remove first-line ancestor bars when one continuous CSS line owns that column.
+ * Terminal branch/elbow glyphs stay textual because they belong only to this bead.
+ */
+export function treeGuideText(prefix: string): string {
+  let text = prefix;
+  for (const column of treeContinuationColumns(prefix)) {
+    // Pretty prefixes contain only single-code-unit spaces and box-drawing marks.
+    text = `${text.slice(0, column)} ${text.slice(column + 1)}`;
+  }
+  return text;
+}
+
+const DEFAULT_SORT_DIRECTIONS: Readonly<Record<BoardSortKeyView, BoardSortDirectionView>> = {
+  id: 'asc',
+  priority: 'asc',
+  status: 'asc',
+  kind: 'asc',
+  title: 'asc',
+  updated: 'desc',
+  labels: 'asc',
+};
+
+/** The unsent sort stack is the exact `tbd list` default: priority ascending. */
+export function resolvedBoardSorts(sorts: readonly BoardSortView[]): readonly BoardSortView[] {
+  return sorts.length === 0 ? [{ key: 'priority', direction: 'asc' }] : sorts;
+}
+
+/** Promote a column to primary; only clicking the current primary toggles direction. */
+export function promoteBoardSort(
+  sorts: readonly BoardSortView[],
+  key: BoardSortKeyView,
+): BoardSortView[] {
+  const current = resolvedBoardSorts(sorts);
+  const existing = current.find((sort) => sort.key === key);
+  const direction =
+    current[0]?.key === key
+      ? current[0].direction === 'asc'
+        ? 'desc'
+        : 'asc'
+      : (existing?.direction ?? DEFAULT_SORT_DIRECTIONS[key]);
+  return [{ key, direction }, ...current.filter((sort) => sort.key !== key)];
+}
+
 interface BodyRequest {
   id: string;
   token: number;
@@ -335,7 +399,12 @@ function asObservationState(value: unknown): ObservationStateView {
 }
 
 function asBoardResponse(value: unknown): BoardResponse {
-  if (!isRecord(value) || !Array.isArray(value.rows) || !('state' in value)) {
+  if (
+    !isRecord(value) ||
+    !Array.isArray(value.rows) ||
+    !Array.isArray(value.labelFacets) ||
+    !('state' in value)
+  ) {
     throw new Error('Server returned an invalid board response');
   }
   asObservationState(value.state);
@@ -371,11 +440,11 @@ export function buildQueryString(controls: BoardControls): string {
   if (controls.spec.trim() !== '') {
     params.set('spec', controls.spec.trim());
   }
-  for (const label of controls.labels.split(/[,\s]+/u).filter(Boolean)) {
+  for (const label of controls.labels.filter(Boolean)) {
     params.append('label', label);
   }
-  if (controls.sort !== 'priority') {
-    params.set('sort', controls.sort);
+  for (const sort of controls.sorts) {
+    params.append('order', `${sort.key}:${sort.direction}`);
   }
   if (controls.status === 'any') {
     params.set('all', '1');
@@ -392,7 +461,7 @@ export function buildQueryString(controls: BoardControls): string {
 export function caveatsFor(board: BoardResponse): string[] {
   const caveats: string[] = [];
   if (!board.filtersExact) {
-    caveats.push('filters with no exact CLI equivalent apply');
+    caveats.push('filters or ordering with no exact CLI equivalent apply');
   }
   if (board.search !== '') {
     caveats.push(`text search "${board.search}" applies`);
@@ -469,7 +538,12 @@ class Store implements ClientStore {
     private readonly onRender: () => void,
     options: ClientStoreOptions,
   ) {
-    this.controls = { ...DEFAULT_CONTROLS, ...options.initialControls };
+    this.controls = {
+      ...DEFAULT_CONTROLS,
+      ...options.initialControls,
+      labels: [...(options.initialControls?.labels ?? DEFAULT_CONTROLS.labels)],
+      sorts: [...(options.initialControls?.sorts ?? DEFAULT_CONTROLS.sorts)],
+    };
     this.storage = options.storage;
     this.resumeStorageKey = options.resumeStorageKey ?? DEFAULT_RESUME_KEY;
   }
@@ -544,7 +618,7 @@ class Store implements ClientStore {
   }
 
   async setControls(controls: BoardControls): Promise<void> {
-    this.controls = { ...controls };
+    this.controls = { ...controls, labels: [...controls.labels], sorts: [...controls.sorts] };
     this.boardRequestController?.abort();
     await this.refresh();
   }

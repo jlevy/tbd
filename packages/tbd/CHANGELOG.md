@@ -24,12 +24,17 @@
   The page and startup output explicitly identify it as a viewer, not an editor.
   It never contacts a remote; ordinary `tbd sync` remains the explicit
   fetch/merge/publish contract, and its local result appears automatically.
-  Its filters, sorting, readiness rules, hierarchy, statistics, and displayed command
-  line come from the same implementations as the CLI. Native filesystem events normally
-  redraw immediately; a one-second constant-size metadata check repairs missed events
-  without reloading an unchanged graph.
+  Its filters, default priority order, readiness rules, hierarchy, statistics, and
+  displayed command line come from the same implementations as the CLI; browser-only
+  column composition is identified as inexact beside that command.
+  Native filesystem events normally redraw immediately; a one-second constant-size
+  metadata check repairs missed events without reloading an unchanged graph.
   The client lazy-loads bead bodies and bounds requests and rendered rows for large
-  repositories. `--open` is opt-in; JSON and dry-run modes support agents and CI.
+  repositories. Counted multi-label filtering, relative update ages, four-line collapsed
+  titles, and composable sortable column headers keep dense boards scannable; entering a
+  global column sort switches from the hierarchy to a flat view, and Pretty restores the
+  CLI tree and default priority order.
+  `--open` is opt-in; JSON and dry-run modes support agents and CI.
 
 ### Documentation
 

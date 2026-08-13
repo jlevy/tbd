@@ -13,6 +13,8 @@ import {
   formatRelativeAge,
   paginateBoardRows,
   phaseLabel,
+  promoteBoardSort,
+  treeGuideText,
   treeContinuationColumns,
 } from '../src/web/core.js';
 import type {
@@ -78,6 +80,7 @@ function board(watch: ObservationStateView, title = 'Initial', id = 'web-one'): 
     total: 1,
     matched: 1,
     closedHidden: 0,
+    labelFacets: [],
     rows: [
       {
         id,
@@ -155,6 +158,33 @@ describe('client core pure helpers', () => {
     expect(treeContinuationColumns('│   ├── ')).toEqual([0]);
     expect(treeContinuationColumns('    │   └── ')).toEqual([4]);
     expect(treeContinuationColumns('│   │   └── ')).toEqual([0, 4]);
+    expect(treeGuideText('│   │   └── ')).toBe('        └── ');
+  });
+
+  it('promotes clicked columns into a deterministic composable sort stack', () => {
+    expect(promoteBoardSort([], 'updated')).toEqual([
+      { key: 'updated', direction: 'desc' },
+      { key: 'priority', direction: 'asc' },
+    ]);
+    expect(promoteBoardSort([{ key: 'updated', direction: 'desc' }], 'priority')).toEqual([
+      { key: 'priority', direction: 'asc' },
+      { key: 'updated', direction: 'desc' },
+    ]);
+    expect(
+      promoteBoardSort(
+        [
+          { key: 'priority', direction: 'asc' },
+          { key: 'updated', direction: 'desc' },
+        ],
+        'updated',
+      ),
+    ).toEqual([
+      { key: 'updated', direction: 'desc' },
+      { key: 'priority', direction: 'asc' },
+    ]);
+    expect(promoteBoardSort([{ key: 'title', direction: 'asc' }], 'title')).toEqual([
+      { key: 'title', direction: 'desc' },
+    ]);
   });
 
   it('formats updated timestamps with deterministic MetaBrowser age tiers', () => {
@@ -193,14 +223,17 @@ describe('client core pure helpers', () => {
       status: 'any',
       kind: 'bug',
       priority: '1',
-      labels: 'release, urgent',
+      labels: ['release', 'urgent'],
       spec: 'plan.md',
-      sort: 'updated',
+      sorts: [
+        { key: 'priority', direction: 'asc' },
+        { key: 'updated', direction: 'desc' },
+      ],
       ready: true,
       pretty: true,
     };
     expect(buildQueryString(controls)).toBe(
-      'q=release+smoke&type=bug&priority=1&spec=plan.md&label=release&label=urgent&sort=updated&all=1&ready=1&pretty=1',
+      'q=release+smoke&type=bug&priority=1&spec=plan.md&label=release&label=urgent&order=priority%3Aasc&order=updated%3Adesc&all=1&ready=1&pretty=1',
     );
   });
 
@@ -211,7 +244,7 @@ describe('client core pure helpers', () => {
     response.contextCount = 2;
     response.truncated = 5_000;
     expect(caveatsFor(response)).toEqual([
-      'filters with no exact CLI equivalent apply',
+      'filters or ordering with no exact CLI equivalent apply',
       'text search "needle" applies',
       '2 dimmed ancestor rows are shown for context',
       'only the first 1 of 5000 rows are shown',

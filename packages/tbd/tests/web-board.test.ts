@@ -152,12 +152,67 @@ describe('BoardState', () => {
     expect(response.command).toBe('tbd list --label viewer --pretty');
     expect(response.commandExact).toBe(false);
     expect(response.filtersExact).toBe(true);
+    expect(response.labelFacets).toEqual([
+      { label: 'viewer', count: 2 },
+      { label: 'release', count: 1 },
+    ]);
     expect(response.closedHidden).toBe(0);
     expect(response.rows[1]).not.toHaveProperty('description');
     expect(response.rows[1]).not.toHaveProperty('notes');
     expect(response.rows[1]?.updated_at).toBe('2025-01-01T00:00:00Z');
     expect(response.rows[2]?.prefix).toBe('    └── ');
     expect(response.state.stats.total).toBe(3);
+  });
+
+  it('caps label facets at 32 while retaining a selected lower-ranked label', async () => {
+    const { board, setIssues } = harness();
+    const labels = Array.from(
+      { length: 35 },
+      (_, index) => `tag-${String(index).padStart(2, '0')}`,
+    );
+    setIssues([{ ...fixtureIssues()[0]!, status: 'open', labels }]);
+    await board.reload();
+
+    const response = board.buildBoardResponse(new URLSearchParams('label=tag-34'), stateFor(board));
+
+    expect(response.labelFacets).toHaveLength(32);
+    expect(response.labelFacets).toContainEqual({ label: 'tag-34', count: 1 });
+    expect(response.labelFacets.map((facet) => facet.label)).not.toContain('tag-31');
+  });
+
+  it('composes column ordering with the newest clicked key primary', async () => {
+    const { board, setIssues } = harness();
+    const [root, child, leaf] = fixtureIssues();
+    setIssues([
+      { ...root!, status: 'open', priority: 1, updated_at: '2026-01-03T00:00:00Z' },
+      { ...child!, priority: 0, updated_at: '2026-01-01T00:00:00Z' },
+      { ...leaf!, priority: 1, updated_at: '2026-01-02T00:00:00Z' },
+    ]);
+    await board.reload();
+
+    const response = board.buildBoardResponse(
+      new URLSearchParams('all=1&order=priority:asc&order=updated:desc'),
+      stateFor(board),
+    );
+
+    expect(response.rows.map((row) => row.id)).toEqual(['web-kid1', 'web-root', 'web-leaf']);
+    expect(response.commandExact).toBe(false);
+    expect(response.filtersExact).toBe(false);
+  });
+
+  it('orders every textual table column lexicographically with a display-id tie-break', async () => {
+    const { board } = harness();
+    await board.reload();
+    const orderedIds = (order: string) =>
+      board
+        .buildBoardResponse(new URLSearchParams(`all=1&order=${order}`), stateFor(board))
+        .rows.map((row) => row.id);
+
+    expect(orderedIds('id:asc')).toEqual(['web-kid1', 'web-leaf', 'web-root']);
+    expect(orderedIds('status:asc')).toEqual(['web-root', 'web-kid1', 'web-leaf']);
+    expect(orderedIds('kind:asc')).toEqual(['web-root', 'web-kid1', 'web-leaf']);
+    expect(orderedIds('title:asc')).toEqual(['web-root', 'web-kid1', 'web-leaf']);
+    expect(orderedIds('labels:desc')).toEqual(['web-kid1', 'web-leaf', 'web-root']);
   });
 
   it('serves full bodies only for validated public ids', async () => {

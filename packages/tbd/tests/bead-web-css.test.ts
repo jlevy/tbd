@@ -286,7 +286,7 @@ describe('chevron icon system', () => {
     expect(disclosureRule, 'expected a stable disclosure line box').not.toBeNull();
     expect(disclosureRule).toContain('place-items: center');
 
-    expect(page.match(/class="select-control"/gu)).toHaveLength(4);
+    expect(page.match(/class="select-control"/gu)).toHaveLength(3);
     expect(page.match(/class="chevron chevron-down"/gu)).toHaveLength(4);
     expect(client).toContain("disclosure.setAttribute('aria-expanded', String(open))");
     expect(client).toContain("chevron.className = `chevron chevron-${open ? 'down' : 'right'}`");
@@ -455,7 +455,7 @@ describe('semantic color and component roles', () => {
 });
 
 describe('tree-title layout', () => {
-  it('wraps after the tree guide and continues only ancestor verticals', async () => {
+  it('uses one continuous glyph geometry for first-line and wrapped ancestor verticals', async () => {
     const [css, client] = await Promise.all([readStyleBlock(), readFile(clientPath, 'utf8')]);
     const contentRule = blockAfter(css, '.title-content');
     const textRule = blockAfter(css, '.title-text');
@@ -465,12 +465,23 @@ describe('tree-title layout', () => {
     expect(textRule).toContain('min-width: 0');
     expect(blockAfter(css, '.guide')).toContain('color: var(--muted)');
     const continuationRule = blockAfter(css, '.tree-continuation');
-    expect(continuationRule).toContain('top: var(--board-row-line-height)');
+    expect(continuationRule).toContain('top: 0');
     expect(continuationRule).toContain('border-left: 1px solid var(--muted)');
     expect(client).toContain("titleContent.className = 'title-content'");
     expect(client).toContain('treeContinuationColumns(row.prefix)');
+    expect(client).toContain('guide.textContent = treeGuideText(row.prefix)');
     expect(client).toContain("titleText.className = 'title-text'");
     expect(client).not.toContain('title.append(document.createTextNode(row.title))');
+  });
+
+  it('clamps collapsed summaries at four lines and reveals the full title when open', async () => {
+    const css = await readStyleBlock();
+    const textRule = blockAfter(css, '.title-text');
+    const openTextRule = blockAfter(css, 'tr.open .title-text');
+    expect(textRule).toContain('-webkit-line-clamp: 4');
+    expect(textRule).toContain('overflow: hidden');
+    expect(openTextRule).toContain('-webkit-line-clamp: unset');
+    expect(openTextRule).toContain('overflow: visible');
   });
 });
 
@@ -494,7 +505,7 @@ describe('tag-column layout', () => {
     expect(tagRule).toContain('white-space: nowrap');
     expect(client).toContain("appendCell(tableRow, '', 'labels')");
     expect(client).toContain("cluster.className = 'tag-cluster'");
-    expect(page).toContain('<th class="labels">Labels</th>');
+    expect(page).toContain('<th class="labels" data-sort-key="labels">');
   });
 });
 
@@ -512,11 +523,12 @@ describe('updated-time and fixed-column system', () => {
     expect(page).toContain('<col class="board-col-title" />');
     expect(page).toContain('<col class="board-col-updated" />');
     expect(page).toContain('<col class="board-col-labels" />');
-    expect(page).toContain('<th class="updated">Updated</th>');
+    expect(page).toContain('<th class="updated" data-sort-key="updated">');
     expect(client).toContain('time.className = `updated-age age-${age.tier}`');
     expect(client).toContain('time.dateTime = age.exact');
     expect(client).toContain('time.title = age.exact');
     expect(client).toContain('window.setInterval(updateRelativeTimes, RELATIVE_TIME_REFRESH_MS)');
+    expect(blockAfter(css, '.updated-age')).toContain('font-family: var(--mono)');
     for (const tier of ['sec', 'min', 'hr', 'day', 'wk', 'old']) {
       expect(css).toContain(`--age-${tier}: hsl(`);
       expect(css).toContain(`--dark-age-${tier}: hsl(`);
@@ -529,6 +541,49 @@ describe('updated-time and fixed-column system', () => {
     expect(client).toContain('cell.colSpan = 7');
     expect(client).toContain('cell.colSpan = 8');
     expect(client).not.toContain('cell.colSpan = 6');
+  });
+});
+
+describe('dynamic label chooser', () => {
+  it('renders a counted accessible multi-chooser capped by the server at 32 facets', async () => {
+    const [css, client, page] = await Promise.all([
+      readStyleBlock(),
+      readFile(clientPath, 'utf8'),
+      readFile(pagePath, 'utf8'),
+    ]);
+    expect(page).toContain('id="labelchooser"');
+    expect(page).toContain('id="labeltrigger"');
+    expect(page).toContain('id="labelmenu"');
+    expect(page).not.toContain('<input id="label"');
+    expect(page).toContain('aria-label="Labels; all selected labels are required"');
+    expect(page).toContain('aria-label="Filter by every selected label"');
+    expect(client).toContain("row.setAttribute('role', 'menuitemcheckbox')");
+    expect(client).toContain("count.className = 'label-choice-count'");
+    expect(client).toContain("name.className = 'tag label-choice-tag'");
+    expect(client).toContain('selectedLabels');
+    expect(blockAfter(css, '.label-chooser-menu')).toContain('max-height: 320px');
+    expect(blockAfter(css, '.label-choice-count')).toContain('font-variant-numeric: tabular-nums');
+  });
+});
+
+describe('composable board sorting', () => {
+  it('makes every data-column header an accessible sort control and removes the old chooser', async () => {
+    const [css, client, page] = await Promise.all([
+      readStyleBlock(),
+      readFile(clientPath, 'utf8'),
+      readFile(pagePath, 'utf8'),
+    ]);
+    for (const key of ['id', 'priority', 'status', 'kind', 'title', 'updated', 'labels']) {
+      expect(page).toContain(`data-sort-key="${key}"`);
+    }
+    expect(page).not.toContain('id="sort"');
+    expect(client).toContain('promoteBoardSort(view.controls.sorts, key)');
+    expect(client).toContain('elements.pretty.checked = false');
+    expect(client).toContain('if (elements.pretty.checked)');
+    expect(client).toContain('activeSorts = []');
+    expect(client).toMatch(/header\.setAttribute\(\s*'aria-sort'/u);
+    expect(blockAfter(css, '.sort-button')).toContain('font: inherit');
+    expect(blockAfter(css, '.sort-indicator')).toContain('font-variant-numeric: tabular-nums');
   });
 });
 

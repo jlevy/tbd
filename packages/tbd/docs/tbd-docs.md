@@ -665,9 +665,10 @@ in-session Claude Code and Codex patterns.
 ### web
 
 Serve a live, read-only view of the bead graph in a local browser.
-The page uses the same local bead state, filters, sorting, readiness rules, hierarchy,
-and statistics as the CLI, and displays the equivalent `tbd list` or `tbd ready` command
-for the current view.
+The page uses the same local bead state, filters, default sorting, readiness rules,
+hierarchy, and statistics as the CLI, and displays the equivalent `tbd list` or
+`tbd ready` command for the current view.
+Browser-only column composition is identified as inexact beside that command.
 In an agent session, ask naturally: “Show my beads in a browser.”
 The agent should run `tbd web --open`, wait for the startup URL, give you that URL, and
 keep the foreground process alive.
@@ -725,6 +726,16 @@ Descriptions and notes load only when a row is expanded, so the board remains bo
 large repositories. A response can carry up to 10,000 rows; the browser paints them in
 5,000-row pages with sticky and end-of-page navigation.
 Above 10,000 rows, the page reports the complete count and asks for a narrower query.
+The label chooser ranks the 32 most common labels by bead count and preserves the CLI’s
+AND semantics for repeated `--label` filters.
+Collapsed titles use at most four lines and expand in full.
+The Updated column shows a compact relative age in monospace and exposes the exact
+timestamp on hover. Every data-column header is sortable.
+A click makes that column primary and retains prior columns as ordered tie-breakers;
+clicking the current primary reverses it.
+Global column ordering is a flat-table operation, so it clears Pretty.
+Re-enabling Pretty clears the custom sort stack and restores the CLI hierarchy and
+default priority order.
 Changing a query control, display mode, or page closes expanded details.
 A live graph update retains and remaps an expansion only while that bead remains in the
 current bounded response, so an off-board or obsolete display ID cannot consume the

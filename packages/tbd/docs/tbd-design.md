@@ -4083,7 +4083,16 @@ Board queries run against one in-memory snapshot and call the shared `selectIssu
 `describeQuery` functions.
 Responses include the equivalent CLI invocation and carry light rows only; descriptions
 and notes are fetched per bead when expanded.
-Liveness is strictly local.
+The response also carries at most 32 label facets ranked by bead count and name, while
+retaining selected values within that bound.
+Repeated labels keep the CLI’s AND semantics.
+The client clamps collapsed titles at four lines, renders exact-hover relative update
+ages, and exposes every data column as an ordered sort key.
+The newest clicked key is primary and earlier keys remain tie-breakers.
+Since global order and parent-first tree order cannot both hold, column sorting selects
+the flat list; selecting Pretty clears the custom stack and restores the CLI hierarchy
+and priority order. These component and semantic rules are maintained in the co-located
+design-system inventory in `src/web/styles.css`. Liveness is strictly local.
 A recursive Node `fs.watch` over the hidden data-sync worktree maps to native
 operating-system notifications on supported local filesystems.
 Events are trailing-debounced and trigger one serialized snapshot reload.

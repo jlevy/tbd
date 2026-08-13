@@ -39,6 +39,8 @@ import { pathExists, readMetadataMarker } from './snapshot-consistency.js';
 
 /** Hard response ceiling; the browser pages these rows into smaller render windows. */
 export const MAX_BOARD_ROWS = 10_000;
+/** Keep dynamic label menus bounded while retaining every selected value. */
+export const MAX_LABEL_FACETS = 32;
 /** Detail is diagnostic; board motion remains complete through movedIds/removedIds. */
 export const MAX_LOCAL_CHANGE_DETAILS = 100;
 export const MAX_LOCAL_CHANGE_DETAIL_BYTES = 256 * 1024;
@@ -52,6 +54,15 @@ const PUBLIC_ID = /^[A-Za-z][A-Za-z0-9._]{0,19}-[0-9a-z._-]+$/u;
 const STATUSES = new Set<IssueStatusType>(['open', 'in_progress', 'blocked', 'deferred', 'closed']);
 const KINDS = new Set<IssueKindType>(['bug', 'feature', 'task', 'epic', 'chore']);
 const SORTS = new Set<IssueSort>(['priority', 'created', 'updated']);
+const BOARD_SORT_KEYS = new Set<BoardSortKey>([
+  'id',
+  'priority',
+  'status',
+  'kind',
+  'title',
+  'updated',
+  'labels',
+]);
 const TREE_CHARS = {
   branch: '├── ',
   last: '└── ',
@@ -74,6 +85,19 @@ export interface BoardRow {
   updated_at: string;
   /** Tree guide string, empty in flat mode. */
   prefix: string;
+}
+
+export type BoardSortKey = 'id' | 'priority' | 'status' | 'kind' | 'title' | 'updated' | 'labels';
+export type BoardSortDirection = 'asc' | 'desc';
+
+export interface BoardSort {
+  key: BoardSortKey;
+  direction: BoardSortDirection;
+}
+
+export interface LabelFacet {
+  label: string;
+  count: number;
 }
 
 export interface BeadBody {
@@ -173,6 +197,7 @@ export interface BoardResponse {
   total: number;
   matched: number;
   closedHidden: number;
+  labelFacets: LabelFacet[];
   rows: BoardRow[];
   truncated: number;
   contextIds: string[];
@@ -203,6 +228,7 @@ interface ParsedBoardQuery {
   parentDisplayId: string | null;
   pretty: boolean;
   search: string;
+  sorts: BoardSort[];
 }
 
 interface BoardSnapshot {
@@ -443,6 +469,31 @@ function parseLimit(value: string | null): number | null {
   return Number.isSafeInteger(parsed) && parsed > 0 ? parsed : null;
 }
 
+function parseBoardSorts(params: URLSearchParams): BoardSort[] {
+  const sorts: BoardSort[] = [];
+  const seen = new Set<BoardSortKey>();
+  for (const value of params.getAll('order')) {
+    const [rawKey, rawDirection, ...remainder] = value.split(':');
+    if (
+      remainder.length > 0 ||
+      rawKey === undefined ||
+      !BOARD_SORT_KEYS.has(rawKey as BoardSortKey) ||
+      (rawDirection !== 'asc' && rawDirection !== 'desc')
+    ) {
+      continue;
+    }
+    const key = rawKey as BoardSortKey;
+    if (!seen.has(key)) {
+      sorts.push({ key, direction: rawDirection });
+      seen.add(key);
+    }
+    if (sorts.length >= BOARD_SORT_KEYS.size) {
+      break;
+    }
+  }
+  return sorts;
+}
+
 function parseBoardQuery(params: URLSearchParams, context: TbdDataContext): ParsedBoardQuery {
   const statusValue = optional(params, 'status');
   const kindValue = optional(params, 'type');
@@ -489,7 +540,19 @@ function parseBoardQuery(params: URLSearchParams, context: TbdDataContext): Pars
     parentDisplayId,
     pretty: flag(params, 'pretty'),
     search: params.get('q')?.trim() ?? '',
+    sorts: parseBoardSorts(params),
   };
+}
+
+function compareText(left: string, right: string): number {
+  const normalizedLeft = left.normalize('NFKC').toLocaleLowerCase('en-US');
+  const normalizedRight = right.normalize('NFKC').toLocaleLowerCase('en-US');
+  if (normalizedLeft !== normalizedRight) {
+    return normalizedLeft < normalizedRight ? -1 : 1;
+  }
+  const exactLeft = left.normalize('NFKC');
+  const exactRight = right.normalize('NFKC');
+  return exactLeft < exactRight ? -1 : exactLeft > exactRight ? 1 : 0;
 }
 
 function matchesSearch(issue: Issue, displayId: string, search: string): boolean {
@@ -594,7 +657,10 @@ export class BoardState {
         parsed.search,
       ),
     );
-    const limited = parsed.query.limit === null ? selected : selected.slice(0, parsed.query.limit);
+    const orderedSelected =
+      parsed.sorts.length === 0 ? selected : this.sortIssuesByColumns(selected, parsed.sorts);
+    const limited =
+      parsed.query.limit === null ? orderedSelected : orderedSelected.slice(0, parsed.query.limit);
 
     let closedHidden = 0;
     if (!parsed.query.includeClosed && parsed.query.status !== 'closed') {
@@ -613,7 +679,8 @@ export class BoardState {
 
     let rows: BoardRow[];
     let contextIds: string[] = [];
-    if (parsed.pretty) {
+    const pretty = parsed.pretty && parsed.sorts.length === 0;
+    if (pretty) {
       const ordered = sortIssues(this.snapshot.issues, parsed.query.sort);
       const context = this.withAncestors(limited, ordered);
       rows = this.orderAsTree(context.issues);
@@ -630,10 +697,10 @@ export class BoardState {
     const truncated = rows.length > MAX_BOARD_ROWS ? rows.length : 0;
 
     const described = describeQuery(parsed.query, parsed.parentDisplayId ?? undefined);
-    const prettySupported = !parsed.pretty || !parsed.query.ready;
+    const prettySupported = !pretty || !parsed.query.ready;
     const command =
-      parsed.pretty && !parsed.query.ready ? `${described.command} --pretty` : described.command;
-    const filtersExact = described.exact && prettySupported;
+      pretty && !parsed.query.ready ? `${described.command} --pretty` : described.command;
+    const filtersExact = described.exact && prettySupported && parsed.sorts.length === 0;
 
     return {
       command,
@@ -645,6 +712,7 @@ export class BoardState {
       total: this.snapshot.issues.length,
       matched: limited.length,
       closedHidden,
+      labelFacets: this.buildLabelFacets(parsed.query.labels),
       rows: responseRows,
       truncated,
       contextIds,
@@ -988,6 +1056,87 @@ export class BoardState {
       updated_at: issue.updated_at,
       prefix,
     };
+  }
+
+  private buildLabelFacets(selectedLabels: readonly string[]): LabelFacet[] {
+    const counts = new Map<string, number>();
+    for (const issue of this.snapshot.issues) {
+      for (const label of new Set(issue.labels)) {
+        counts.set(label, (counts.get(label) ?? 0) + 1);
+      }
+    }
+    const ranked = [...counts].map(([label, count]) => ({ label, count }));
+    ranked.sort((left, right) => right.count - left.count || compareText(left.label, right.label));
+
+    const selected = new Set(selectedLabels.filter(Boolean));
+    const kept = ranked.slice(0, MAX_LABEL_FACETS);
+    const keptLabels = new Set(kept.map((facet) => facet.label));
+    const rank = new Map(ranked.map((facet, index) => [facet.label, index]));
+    const selectedFacets = [...selected]
+      .map((label) => ({ label, count: counts.get(label) ?? 0 }))
+      .sort(
+        (left, right) =>
+          (rank.get(left.label) ?? Number.MAX_SAFE_INTEGER) -
+            (rank.get(right.label) ?? Number.MAX_SAFE_INTEGER) ||
+          compareText(left.label, right.label),
+      );
+    for (const facet of selectedFacets) {
+      if (keptLabels.has(facet.label)) {
+        continue;
+      }
+      const eviction = kept.findLastIndex((candidate) => !selected.has(candidate.label));
+      if (eviction < 0) {
+        break;
+      }
+      keptLabels.delete(kept[eviction]!.label);
+      kept.splice(eviction, 1, facet);
+      keptLabels.add(facet.label);
+    }
+    kept.sort(
+      (left, right) =>
+        (rank.get(left.label) ?? Number.MAX_SAFE_INTEGER) -
+          (rank.get(right.label) ?? Number.MAX_SAFE_INTEGER) ||
+        compareText(left.label, right.label),
+    );
+    return kept;
+  }
+
+  private sortIssuesByColumns(issues: readonly Issue[], sorts: readonly BoardSort[]): Issue[] {
+    const displayId = (issue: Issue): string =>
+      this.snapshot.displayIdByInternalId.get(issue.id) ?? issue.id;
+    const labels = (issue: Issue): string => [...issue.labels].sort(compareText).join('\u0000');
+    const textValue = (issue: Issue, key: Exclude<BoardSortKey, 'priority'>): string => {
+      switch (key) {
+        case 'id':
+          return displayId(issue);
+        case 'status':
+          return issue.status;
+        case 'kind':
+          return issue.kind;
+        case 'title':
+          return issue.title;
+        case 'updated':
+          return issue.updated_at;
+        case 'labels':
+          return labels(issue);
+        default: {
+          const exhaustive: never = key;
+          throw new Error('Unsupported board sort key', { cause: exhaustive });
+        }
+      }
+    };
+    return [...issues].sort((left, right) => {
+      for (const sort of sorts) {
+        const compared =
+          sort.key === 'priority'
+            ? left.priority - right.priority
+            : compareText(textValue(left, sort.key), textValue(right, sort.key));
+        if (compared !== 0) {
+          return sort.direction === 'asc' ? compared : -compared;
+        }
+      }
+      return compareText(displayId(left), displayId(right));
+    });
   }
 
   private orderAsTree(issues: Issue[]): BoardRow[] {

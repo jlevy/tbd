@@ -101,6 +101,9 @@ The server implementation lives in `packages/tbd/src/cli/web/`, the Commander ha
 `packages/tbd/src/cli/commands/web.ts`, and the strict browser client in
 `packages/tbd/src/web/`. `packages/tbd/scripts/stitch-web.mjs` inlines the browser IIFE
 and CSS into the single published `dist/web/index.html` artifact.
+The component, typography, color, tree, label-facet, and ordered-column-sort rules are
+documented beside their implementations in the authoritative design-system inventory at
+the top of `packages/tbd/src/web/styles.css`.
 
 Preserve the agent interaction contract across those surfaces: a natural request to see
 beads in a browser routes the installed skill to `tbd web --open`; the agent owns the

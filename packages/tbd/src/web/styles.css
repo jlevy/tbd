@@ -76,7 +76,7 @@
        update activity, page position, and sync-branch tip. They are not
        a generic way to decorate text.
 
-     Controls (.select-control, .chooser) and icons (.chevron, .icon-button)
+     Controls (.select-control, .chooser, .label-chooser) and icons (.chevron, .icon-button)
        Native controls keep native behavior but share spacing, focus,
        and one CSS chevron geometry. Disclosure and dropdown chevrons
        are the same mark at different orientations. Lifecycle symbols
@@ -87,6 +87,14 @@
        reuse the exact status, priority, and kind roles from table cells.
        Boolean flags are checkboxes named for their CLI flag; verbs that
        perform an action are buttons.
+
+     Dynamic labels (.label-chooser-menu, .label-choice)
+       Label facets come from the complete local snapshot, ranked by bead count
+       then name, and capped at 32 while retaining selected values. The menu is
+       a keyboard-operable multi-chooser: a fixed check column, the same neutral
+       `.tag` primitive used in rows, and a tabular sans tally. Selection stays
+       open for composition; Any clears the set. Repeated labels retain the CLI's
+       AND contract, and the control's accessible name states that requirement.
 
      Literal copy (.copyable, .copy-surface, .copy-button)
        Monospace values and faithful commands expose one small muted copy
@@ -101,14 +109,25 @@
        Line-drawing characters are structural text, so they reuse the
        --muted auxiliary-text token rather than the fainter border color.
        Wrapped titles keep a hanging indent after the entire guide. Only
-       ancestor verticals continue through wrapped lines; the terminal
-       branch or elbow belongs to the first line and never continues.
+       one continuous CSS stroke owns each ancestor vertical from the first
+       line through every wrapped line. The matching first-line text glyph is
+       blanked so color, width, and geometry cannot diverge at the wrap. The
+       terminal branch or elbow remains text on the first line only.
 
      Board columns (.board-table, .board-col-*)
        One fixed semantic colgroup owns geometry for header, rows, expanded
        detail, ghosts, and paging. Content never participates in column sizing,
        so expansion cannot shift the table. Title gets a bounded proportional
        share and wraps; labels get a larger share and wrap only between tags.
+       Collapsed titles clamp at four lines; expanding restores the full title.
+
+     Column sorting (.sort-button, .sort-indicator)
+       Every data header is one unboxed button. The arrow and ordinal expose the
+       ordered sort stack: the latest clicked column is primary and earlier keys
+       remain tie-breakers; only clicking the current primary reverses it. A
+       global column order cannot also preserve parent-first hierarchy, so a
+       header click explicitly activates the flat view by clearing Pretty;
+       re-enabling Pretty clears the custom stack and restores CLI priority order.
 
      Typography and expansion (--weight-medium, --weight-strong)
        The complete type scale is 15px page title, 14px body/content, and one
@@ -642,6 +661,93 @@ button {
 .select-control:focus-within {
   color: var(--accent);
 }
+.label-chooser {
+  position: relative;
+  display: inline-flex;
+}
+.label-chooser-trigger {
+  display: inline-flex;
+  min-width: 112px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  color: var(--muted);
+}
+.label-chooser-trigger[data-active='true'],
+.label-chooser[data-open] > .label-chooser-trigger {
+  color: var(--text);
+}
+.label-chooser[data-open] > .label-chooser-trigger > .chevron {
+  transform: rotate(225deg);
+}
+.label-chooser-menu {
+  position: absolute;
+  top: calc(100% + 5px);
+  left: 0;
+  z-index: 10;
+  display: grid;
+  min-width: 190px;
+  max-width: 300px;
+  max-height: 320px;
+  overflow-y: auto;
+  padding: 4px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: 0 5px 16px var(--border);
+  opacity: 1;
+  visibility: visible;
+  transform: translateY(0);
+  transform-origin: top left;
+  transition:
+    opacity var(--transition-fast),
+    transform var(--transition-fast),
+    visibility 0s linear 0s;
+}
+.label-chooser-menu[hidden] {
+  display: grid;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transform: translateY(-4px);
+  transition:
+    opacity var(--transition-fast),
+    transform var(--transition-fast),
+    visibility 0s linear var(--motion-fast-duration);
+}
+.label-choice {
+  display: grid;
+  grid-template-columns: 16px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  padding: 5px 6px;
+  border: 0;
+  background: transparent;
+  text-align: left;
+}
+.label-choice:hover,
+.label-choice:focus-visible {
+  background: var(--panel);
+}
+.label-choice-check {
+  color: var(--accent);
+  text-align: center;
+}
+.label-choice-any {
+  color: var(--muted);
+}
+.label-choice-tag {
+  justify-self: start;
+  overflow: hidden;
+  max-width: 100%;
+  text-overflow: ellipsis;
+}
+.label-choice-count {
+  color: var(--muted);
+  font-size: var(--font-size-small);
+  font-variant-numeric: tabular-nums;
+}
 button {
   cursor: pointer;
 }
@@ -839,6 +945,30 @@ th {
   z-index: 1;
   font-weight: var(--weight-medium);
 }
+.sort-button {
+  display: inline-flex;
+  max-width: 100%;
+  align-items: baseline;
+  gap: 4px;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-transform: inherit;
+  letter-spacing: inherit;
+}
+.sort-button:hover,
+.sort-button:focus-visible {
+  color: var(--text);
+  border-color: transparent;
+}
+.sort-indicator {
+  color: var(--accent);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
 td.id {
   font-family: var(--mono);
   font-size: var(--font-size-small);
@@ -898,6 +1028,7 @@ td.updated {
   white-space: nowrap;
 }
 .updated-age {
+  font-family: var(--mono);
   font-size: var(--font-size-small);
   font-variant-numeric: tabular-nums;
   font-weight: var(--weight-medium);
@@ -994,7 +1125,7 @@ tr.bodyrow > td.body-cell {
 }
 .tree-continuation {
   position: absolute;
-  top: var(--board-row-line-height);
+  top: 0;
   bottom: 0;
   left: var(--tree-guide-offset);
   border-left: 1px solid var(--muted);
@@ -1003,8 +1134,17 @@ tr.bodyrow > td.body-cell {
   pointer-events: none;
 }
 .title-text {
+  display: -webkit-box;
   flex: 1 1 auto;
   min-width: 0;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 4;
+}
+tr.open .title-text {
+  display: block;
+  overflow: visible;
+  -webkit-line-clamp: unset;
 }
 /* ── DATA motion ────────────────────────────────────────────────
    Applied only when the server reports a new `dataVersion`. Never

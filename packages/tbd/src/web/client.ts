@@ -7,6 +7,9 @@ import {
   MAX_EXPANDED_ROWS,
   paginateBoardRows,
   phaseLabel,
+  promoteBoardSort,
+  resolvedBoardSorts,
+  treeGuideText,
   treeContinuationColumns,
 } from './core.js';
 import type {
@@ -14,11 +17,14 @@ import type {
   BoardControls,
   BoardResponse,
   BoardRowView,
+  BoardSortKeyView,
+  BoardSortView,
   ClientStore,
   ClientView,
   IssueChangeView,
   IssueStatusView,
   IssueStatsView,
+  LabelFacetView,
   ObservationStateView,
 } from './core.js';
 
@@ -52,9 +58,11 @@ const elements = {
   status: byId('status', HTMLSelectElement),
   kind: byId('type', HTMLSelectElement),
   priority: byId('priority', HTMLSelectElement),
-  labels: byId('label', HTMLInputElement),
+  labelChooser: byId('labelchooser', HTMLSpanElement),
+  labelTrigger: byId('labeltrigger', HTMLButtonElement),
+  labelSummary: byId('labelsummary', HTMLSpanElement),
+  labelMenu: byId('labelmenu', HTMLDivElement),
   spec: byId('spec', HTMLInputElement),
-  sort: byId('sort', HTMLSelectElement),
   ready: byId('ready', HTMLInputElement),
   pretty: byId('pretty', HTMLInputElement),
   expandAll: byId('expandall', HTMLButtonElement),
@@ -68,6 +76,11 @@ const PRIORITY_LABEL = ['Critical', 'High', 'Medium', 'Low', 'Lowest'] as const;
 const RELATIVE_TIME_REFRESH_MS = 30_000;
 let boardPageIndex = 0;
 let scrollBoardToTopAfterRender = false;
+let labelMenuOpen = false;
+let pendingLabelFocus: string | null = null;
+let labelRenderSignature = '';
+const selectedLabels = new Set<string>();
+let activeSorts: BoardSortView[] = [];
 
 function choice<T extends string>(value: string, choices: readonly T[], fallback: T): T {
   return choices.includes(value as T) ? (value as T) : fallback;
@@ -75,6 +88,13 @@ function choice<T extends string>(value: string, choices: readonly T[], fallback
 
 function isIssueStatus(value: string): value is IssueStatusView {
   return ISSUE_STATUSES.includes(value as IssueStatusView);
+}
+
+function isBoardSortKey(value: string | undefined): value is BoardSortKeyView {
+  return (
+    value !== undefined &&
+    ['id', 'priority', 'status', 'kind', 'title', 'updated', 'labels'].includes(value)
+  );
 }
 
 for (const option of elements.status.options) {
@@ -112,12 +132,126 @@ function readControls(): BoardControls {
     status: choice(elements.status.value, ['', 'any', ...ISSUE_STATUSES] as const, ''),
     kind: choice(elements.kind.value, ['', 'bug', 'feature', 'task', 'epic', 'chore'] as const, ''),
     priority: choice(elements.priority.value, ['', '0', '1', '2', '3', '4'] as const, ''),
-    labels: elements.labels.value,
+    labels: [...selectedLabels].sort(),
     spec: elements.spec.value,
-    sort: choice(elements.sort.value, ['priority', 'created', 'updated'] as const, 'priority'),
+    sorts: activeSorts.map((sort) => ({ ...sort })),
     ready: elements.ready.checked,
     pretty: elements.pretty.checked,
   };
+}
+
+function setLabelMenuOpen(open: boolean): void {
+  labelMenuOpen = open;
+  elements.labelMenu.hidden = !open;
+  elements.labelTrigger.setAttribute('aria-expanded', String(open));
+  elements.labelChooser.toggleAttribute('data-open', open);
+}
+
+function labelChoice(
+  label: string | null,
+  countValue: number | null,
+  selected: boolean,
+): HTMLButtonElement {
+  const row = document.createElement('button');
+  row.type = 'button';
+  row.tabIndex = -1;
+  row.className = 'label-choice';
+  row.setAttribute('role', 'menuitemcheckbox');
+  row.setAttribute('aria-checked', String(selected));
+  if (label === null) {
+    row.dataset.labelAny = '';
+  } else {
+    row.dataset.labelChoice = label;
+  }
+
+  const check = document.createElement('span');
+  check.className = 'label-choice-check';
+  check.setAttribute('aria-hidden', 'true');
+  check.textContent = selected ? '✓' : '';
+  const name = document.createElement('span');
+  if (label === null) {
+    name.className = 'label-choice-any';
+  } else {
+    name.className = 'tag label-choice-tag';
+  }
+  name.textContent = label ?? 'labels: any';
+  row.append(check, name);
+  if (countValue !== null) {
+    const count = document.createElement('span');
+    count.className = 'label-choice-count';
+    count.textContent = String(countValue);
+    row.append(count);
+  }
+  return row;
+}
+
+function renderLabelChooser(facets: readonly LabelFacetView[], labels: readonly string[]): void {
+  selectedLabels.clear();
+  for (const label of labels) {
+    selectedLabels.add(label);
+  }
+  const selected = [...selectedLabels].sort();
+  elements.labelSummary.textContent =
+    selected.length === 0
+      ? 'labels: any'
+      : selected.length === 1
+        ? selected[0]!
+        : `${selected[0]} +${selected.length - 1}`;
+  elements.labelTrigger.dataset.active = String(selected.length > 0);
+
+  const signature = JSON.stringify([selected, facets]);
+  if (signature !== labelRenderSignature) {
+    const choices: HTMLButtonElement[] = [labelChoice(null, null, selected.length === 0)];
+    for (const facet of facets) {
+      choices.push(labelChoice(facet.label, facet.count, selectedLabels.has(facet.label)));
+    }
+    elements.labelMenu.replaceChildren(...choices);
+    labelRenderSignature = signature;
+  }
+  setLabelMenuOpen(labelMenuOpen);
+
+  if (pendingLabelFocus !== null) {
+    const requested = pendingLabelFocus;
+    pendingLabelFocus = null;
+    const choice = [
+      ...elements.labelMenu.querySelectorAll<HTMLButtonElement>('.label-choice'),
+    ].find((row) =>
+      requested === '' ? row.hasAttribute('data-label-any') : row.dataset.labelChoice === requested,
+    );
+    choice?.focus();
+  }
+}
+
+function renderSortHeaders(sorts: readonly BoardSortView[]): void {
+  const resolved = resolvedBoardSorts(sorts);
+  for (const header of document.querySelectorAll<HTMLTableCellElement>('th[data-sort-key]')) {
+    const key = header.dataset.sortKey;
+    if (!isBoardSortKey(key)) {
+      continue;
+    }
+    const precedence = resolved.findIndex((sort) => sort.key === key);
+    const sort = precedence < 0 ? undefined : resolved[precedence];
+    header.setAttribute(
+      'aria-sort',
+      precedence === 0 ? (sort?.direction === 'desc' ? 'descending' : 'ascending') : 'none',
+    );
+    const button = header.querySelector<HTMLButtonElement>('.sort-button');
+    const indicator = header.querySelector<HTMLElement>('.sort-indicator');
+    if (indicator !== null) {
+      indicator.textContent =
+        sort === undefined ? '' : `${sort.direction === 'asc' ? '↑' : '↓'}${precedence + 1}`;
+    }
+    if (button !== null) {
+      const current =
+        sort === undefined
+          ? 'not in the sort stack'
+          : `${sort.direction === 'asc' ? 'ascending' : 'descending'}, precedence ${precedence + 1}`;
+      button.setAttribute(
+        'aria-label',
+        `Sort by ${key}; currently ${current}. Clicking makes it primary${precedence === 0 ? ' and reverses its direction' : ''}.`,
+      );
+    }
+  }
 }
 
 function short(value: string | null): string {
@@ -484,7 +618,7 @@ function renderRow(
   if (row.prefix !== '') {
     const guide = document.createElement('span');
     guide.className = 'guide';
-    guide.textContent = row.prefix;
+    guide.textContent = treeGuideText(row.prefix);
     titleContent.append(guide);
     for (const column of treeContinuationColumns(row.prefix)) {
       const continuation = document.createElement('span');
@@ -805,6 +939,9 @@ function renderHeader(view: ClientView, board: BoardResponse, watch: Observation
       ? 'Run this to reproduce the table below.'
       : `Close but not exact: ${caveats.join('; ')}.`;
   elements.pretty.checked = view.controls.pretty;
+  activeSorts = view.controls.sorts.map((sort) => ({ ...sort }));
+  renderSortHeaders(view.controls.sorts);
+  renderLabelChooser(board.labelFacets, view.controls.labels);
   document.title = `tbd beads (${watch.totalBeads})`;
 }
 
@@ -933,18 +1070,98 @@ function debounceControls(): void {
     applyControls();
   }, 120);
 }
-for (const input of [elements.search, elements.labels, elements.spec]) {
+for (const input of [elements.search, elements.spec]) {
   input.addEventListener('input', debounceControls);
 }
-for (const input of [
-  elements.status,
-  elements.kind,
-  elements.priority,
-  elements.sort,
-  elements.ready,
-  elements.pretty,
-]) {
+for (const input of [elements.status, elements.kind, elements.priority, elements.ready]) {
   input.addEventListener('change', applyControls);
+}
+elements.pretty.addEventListener('change', () => {
+  if (elements.pretty.checked) {
+    // Pretty restores the exact hierarchical CLI view and its priority order.
+    activeSorts = [];
+  }
+  applyControls();
+});
+elements.labelTrigger.addEventListener('click', () => {
+  setLabelMenuOpen(!labelMenuOpen);
+  if (labelMenuOpen) {
+    elements.labelMenu.querySelector<HTMLButtonElement>('.label-choice')?.focus();
+  }
+});
+elements.labelTrigger.addEventListener('keydown', (event) => {
+  if (event.key === 'ArrowDown') {
+    event.preventDefault();
+    setLabelMenuOpen(true);
+    elements.labelMenu.querySelector<HTMLButtonElement>('.label-choice')?.focus();
+  }
+});
+elements.labelMenu.addEventListener('click', (event) => {
+  const row =
+    event.target instanceof Element
+      ? event.target.closest<HTMLButtonElement>('.label-choice')
+      : null;
+  if (row === null) {
+    return;
+  }
+  if (row.hasAttribute('data-label-any')) {
+    selectedLabels.clear();
+    pendingLabelFocus = '';
+  } else {
+    const label = row.dataset.labelChoice;
+    if (label === undefined) {
+      return;
+    }
+    if (selectedLabels.has(label)) {
+      selectedLabels.delete(label);
+    } else {
+      selectedLabels.add(label);
+    }
+    pendingLabelFocus = label;
+  }
+  applyControls();
+});
+elements.labelMenu.addEventListener('keydown', (event) => {
+  const rows = [...elements.labelMenu.querySelectorAll<HTMLButtonElement>('.label-choice')];
+  const current = rows.indexOf(document.activeElement as HTMLButtonElement);
+  let next = -1;
+  if (event.key === 'ArrowDown') {
+    next = current < 0 ? 0 : (current + 1) % rows.length;
+  } else if (event.key === 'ArrowUp') {
+    next = current < 0 ? rows.length - 1 : (current - 1 + rows.length) % rows.length;
+  } else if (event.key === 'Home') {
+    next = 0;
+  } else if (event.key === 'End') {
+    next = rows.length - 1;
+  } else if (event.key === 'Escape') {
+    event.preventDefault();
+    setLabelMenuOpen(false);
+    elements.labelTrigger.focus();
+    return;
+  }
+  if (next >= 0) {
+    event.preventDefault();
+    rows[next]?.focus();
+  }
+});
+document.addEventListener('pointerdown', (event) => {
+  if (event.target instanceof Node && !elements.labelChooser.contains(event.target)) {
+    setLabelMenuOpen(false);
+  }
+});
+for (const button of document.querySelectorAll<HTMLButtonElement>('.sort-button[data-sort-key]')) {
+  button.addEventListener('click', () => {
+    const key = button.dataset.sortKey;
+    if (!isBoardSortKey(key)) {
+      return;
+    }
+    const view = store.getView();
+    activeSorts = promoteBoardSort(view.controls.sorts, key);
+    // A globally sorted table and a parent-first tree are contradictory views.
+    // Column sorting therefore activates the flat list while keeping Pretty explicit.
+    elements.pretty.checked = false;
+    applyControls();
+  });
 }
 elements.expandAll.addEventListener('click', () => {
   const view = store.getView();
@@ -1003,6 +1220,7 @@ document.addEventListener('click', closeMenu);
 document.addEventListener('keydown', (event) => {
   if (event.key === 'Escape') {
     closeMenu();
+    setLabelMenuOpen(false);
   }
 });
 for (const button of themeButtons) {

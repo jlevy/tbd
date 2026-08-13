@@ -211,6 +211,9 @@ Payload shape matters more than raw speed:
 - The table receives light rows only: ids, title, status, kind, priority, labels, spec,
   assignee, readiness, and the tree prefix.
   Descriptions and notes are excluded.
+- Each board response carries at most 32 label facets ranked by full-snapshot bead count
+  and name, retaining selected values within that bound.
+  Repeated label filters remain ANDed exactly like repeatable CLI `--label` flags.
 - Bodies are served per bead on demand from the in-memory snapshot, so an open row costs
   one small request and a graph of long descriptions never inflates the table payload.
 - SSE frames carry local-observer state only: changed ids, update count, phase, mode,
@@ -223,6 +226,13 @@ Payload shape matters more than raw speed:
   Event-frame size is independent of graph size.
 - Filtering runs server-side so semantics come from the shared module.
   On loopback this is sub-millisecond and keystroke-responsive.
+- Collapsed titles use at most four lines and restore their full text on expansion.
+  Updated values use compact relative ages with exact timestamp hover.
+  Every displayed data column is an ordered sort key: the latest click becomes primary
+  and prior keys remain tie-breakers.
+  A global order uses the flat list because it cannot preserve the parent-first tree
+  simultaneously; re-enabling Pretty clears the custom stack and restores CLI
+  priority/tree order.
 - The server returns at most 10,000 light rows while preserving the unsliced match
   count. The browser renders the response in 5,000-row pages, so all served rows remain
   reachable without making every refresh lay out a six-figure DOM tree.
@@ -248,6 +258,8 @@ on the review machine.
 The high end is the full parallel test-suite run; the isolated focused case supplied the
 low end. The final concurrency gate measured 16.44 ms initial load, 29.39 ms one-change
 refresh, and 53.71 ms response construction.
+The final facet-and-sort slice measured a 10,001-issue, 2.85 MiB bounded response at
+38.70 ms and a two-column composition over the same board at 13.63 ms.
 That fixture injects already-parsed issues, so it is not presented as a disk benchmark.
 A separate one-off check on 2026-08-11 wrote 10,000 representative files through
 production `writeIssue` and then read them twice through production `listIssues`; the
@@ -1039,6 +1051,11 @@ liveness decision:
 
 - The query, statistics, tree, and JSON-output fixes ride PR #207; remote-watch and sync
   internals stay unchanged because the viewer no longer consumes them.
+
+- Dense-board presentation uses counted label facets, four-line collapsed titles,
+  relative update ages, and ordered header sorts.
+  Column sorts select the flat view; Pretty restores the exact CLI hierarchy and default
+  priority order.
 
 ## References
 

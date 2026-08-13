@@ -208,16 +208,29 @@
           </select>
           <span class="chevron chevron-down" aria-hidden="true"></span>
         </span>
-        <input id="label" placeholder="label" size="10" title="--label" aria-label="Labels" />
-        <input id="spec" placeholder="spec" size="12" title="--spec" aria-label="Spec" />
-        <span class="select-control">
-          <select id="sort" title="--sort" aria-label="Sort">
-            <option value="priority">sort: priority</option>
-            <option value="created">sort: created</option>
-            <option value="updated">sort: updated</option>
-          </select>
-          <span class="chevron chevron-down" aria-hidden="true"></span>
+        <span class="label-chooser" id="labelchooser">
+          <button
+            type="button"
+            class="label-chooser-trigger"
+            id="labeltrigger"
+            title="--label is repeatable; beads must have every selected label"
+            aria-label="Labels; all selected labels are required"
+            aria-haspopup="menu"
+            aria-controls="labelmenu"
+            aria-expanded="false"
+          >
+            <span id="labelsummary">labels: any</span>
+            <span class="chevron chevron-down" aria-hidden="true"></span>
+          </button>
+          <div
+            class="label-chooser-menu"
+            id="labelmenu"
+            role="menu"
+            aria-label="Filter by every selected label"
+            hidden
+          ></div>
         </span>
+        <input id="spec" placeholder="spec" size="12" title="--spec" aria-label="Spec" />
         <label class="check" title="--ready"><input type="checkbox" id="ready" /> ready</label>
         <label class="check" title="--pretty"
           ><input type="checkbox" id="pretty" checked /> pretty</label
@@ -246,13 +259,41 @@
           <thead>
             <tr>
               <th></th>
-              <th>ID</th>
-              <th>P</th>
-              <th>Status</th>
-              <th>Kind</th>
-              <th>Title</th>
-              <th class="updated">Updated</th>
-              <th class="labels">Labels</th>
+              <th data-sort-key="id">
+                <button type="button" class="sort-button" data-sort-key="id">
+                  ID<span class="sort-indicator" aria-hidden="true"></span>
+                </button>
+              </th>
+              <th data-sort-key="priority">
+                <button type="button" class="sort-button" data-sort-key="priority">
+                  P<span class="sort-indicator" aria-hidden="true"></span>
+                </button>
+              </th>
+              <th data-sort-key="status">
+                <button type="button" class="sort-button" data-sort-key="status">
+                  Status<span class="sort-indicator" aria-hidden="true"></span>
+                </button>
+              </th>
+              <th data-sort-key="kind">
+                <button type="button" class="sort-button" data-sort-key="kind">
+                  Kind<span class="sort-indicator" aria-hidden="true"></span>
+                </button>
+              </th>
+              <th data-sort-key="title">
+                <button type="button" class="sort-button" data-sort-key="title">
+                  Title<span class="sort-indicator" aria-hidden="true"></span>
+                </button>
+              </th>
+              <th class="updated" data-sort-key="updated">
+                <button type="button" class="sort-button" data-sort-key="updated">
+                  Updated<span class="sort-indicator" aria-hidden="true"></span>
+                </button>
+              </th>
+              <th class="labels" data-sort-key="labels">
+                <button type="button" class="sort-button" data-sort-key="labels">
+                  Labels<span class="sort-indicator" aria-hidden="true"></span>
+                </button>
+              </th>
             </tr>
           </thead>
           <tbody id="rows"></tbody>
