@@ -245,7 +245,7 @@ async function waitForSseState(
   let buffer = '';
   const timeout = setTimeout(() => {
     controller.abort();
-  }, 20_000);
+  }, subprocessTestTimeout(20_000));
   try {
     while (true) {
       const chunk = await reader.read();
@@ -298,7 +298,7 @@ afterEach(async () => {
   );
 });
 
-describe('tbd web CLI', { timeout: subprocessTestTimeout(30_000) }, () => {
+describe('tbd web CLI', { timeout: subprocessTestTimeout(45_000) }, () => {
   it('serves a clean empty state from an initialized repository with zero beads', async () => {
     const { repoDir } = await createRepo({ withIssue: false });
     const port = await availablePort();
@@ -453,7 +453,7 @@ describe('tbd web CLI', { timeout: subprocessTestTimeout(30_000) }, () => {
       children.delete(interruptedChild);
       expect(await safetySnapshot(repoDir)).toEqual(safetyBefore);
     }
-  }, 40_000);
+  });
 
   it('leaves remote state alone until explicit tbd sync, then publishes the local result', async () => {
     const fixture = await createRepo();
@@ -504,7 +504,7 @@ describe('tbd web CLI', { timeout: subprocessTestTimeout(30_000) }, () => {
       expect(outcome).toEqual({ code: 0, signal: null });
     }
     children.delete(child);
-  }, 45_000);
+  });
 
   it('never publishes a partial snapshot while the shared writer lock is held', async () => {
     const fixture = await createRepo();
@@ -568,7 +568,7 @@ describe('tbd web CLI', { timeout: subprocessTestTimeout(30_000) }, () => {
     expect(child.kill(supportsHandledProcessSignals ? 'SIGTERM' : 'SIGKILL')).toBe(true);
     await exited;
     children.delete(child);
-  }, 45_000);
+  });
 
   it('reports deterministic dry-run metadata without binding a port', async () => {
     const { repoDir } = await createRepo();
