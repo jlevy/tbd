@@ -142,7 +142,7 @@ The dispositions are:
 | Unknown Linear state type | **Bounded**: canonicalize to `open` and report the unknown type; never crash or invent a tbd status | `linear/mapping.ts`; sync report boundary | Adapter fixture and sync-report regression |
 | Priority | **Supported** with an explicit non-bijection: Linear unset → P2; P4 and P3 are equivalent after push | `linear/mapping.ts`; reconcile equivalences | Mapping and no-oscillation engine tests; live bidirectional field scenarios |
 | Labels | **Supported when `mirror_labels` is enabled**; exact tbd labels use a `tbd:` prefix and status carriers remain provider-owned metadata | `core/mirror.ts`; `linear/adapter.ts` | Mirror/status-carrier tests; paginated-label adapter tests |
-| Assignee | **Supported only through non-empty `user_map`**. UUID/email resolves to a canonical alias on initial import and linked sync; unknown identities remain visible as skipped pushes; emails never persist | `TrackerAdapter.canPushAssignee()`; `core/reconcile.ts`; `importExternal()`; `linear/adapter.ts` | Reconcile, adapter, import, and engine round-trip tests; live bidirectional field scenarios |
+| Assignee | **Supported only through non-empty `user_map`**. UUID/email resolves to a canonical alias on initial import and linked sync. Unknown local aliases remain visible as skipped pushes; unknown provider identities freeze the field with a safe warning and no raw identity persistence | `ExternalIssue.assigneeSyncable`; `TrackerAdapter.canPushAssignee()`; `core/reconcile.ts`; `importExternal()`; `linear/adapter.ts` | Adapter privacy test; linked no-overwrite/base-scrub engine test; import and bidirectional live scenarios |
 | Kind, spec, dependencies, counts | **Supported as read-only projection**, not native Linear workflow fields | `core/managed-block.ts`; `core/mirror.ts` attachments | Managed-block, attachment, and package tests |
 | Notes | **Unsupported** and local-only | Selection of canonical synced fields | Schema/reconcile field-list tests |
 
@@ -1568,6 +1568,7 @@ Phase 2 extends the same structure:
      converged without echo or ping-pong;
    - ✅ the reusable API gate passes all 11 stable scenarios, including mapped assignee,
      inbound hierarchy, project isolation, exact-once settling, and verified cleanup;
+     the Linear gate requires `--project`, so isolation can never pass as a no-op;
    - ~~`tbd-rdsb` resolved~~ **done**: root-caused as tryscript cross-contamination
      through a shared origin repo, not a product bug; fixed with per-file origins;
    - ✅ failure-injection coverage protects transport errors mid-run, durable retries,

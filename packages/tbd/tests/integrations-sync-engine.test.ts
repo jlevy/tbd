@@ -11,6 +11,7 @@ import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { clearLink, readLink, writeLink } from '../src/integrations/core/link-store.js';
+import { readLinkRecord } from '../src/integrations/core/bridge-state.js';
 import { readComments } from '../src/integrations/core/comment-store.js';
 import { appendLocalComment, recordPushedComment } from '../src/integrations/core/comment-store.js';
 import { listIntentFiles, writeIntentFile } from '../src/integrations/core/intents.js';
@@ -379,6 +380,52 @@ describe('the sync engine', () => {
     expect(quiet.pushed).toEqual([]);
     expect(quiet.pulled).toEqual([]);
     expect(store.get(epic.id)?.assignee).toBe('josh');
+  });
+
+  it('leaves linked assignee state untouched when the Linear identity is unmapped', async () => {
+    adapter = new LinearAdapter({
+      client: new LinearClient({
+        apiKey: 'lin_api_test',
+        endpoint: server.endpoint,
+        maxAttempts: 4,
+        sleep: () => Promise.resolve(),
+      }),
+      teamKey: 'FIN',
+      userMap: { josh: 'josh@example.com' },
+    });
+    const policy = PolicyDefinitionSchema.parse({
+      outbound: { kinds: ['epic'], statuses: ['open'], specs: 'none', linked: true },
+      field_sync: { fields: { assignee: 'merge' } },
+    });
+    const epic = bead('is-01hx5zzkbkactav9wevgemmvrz', { assignee: 'josh' });
+    store.set(epic.id, epic);
+    await run([epic], policy);
+    const linked = store.get(epic.id)!;
+    const externalId = readLink(linked, 'linear')!.id;
+    await run([linked], policy);
+
+    const remote = server.issues.get(externalId)!;
+    remote.assignee = {
+      id: 'user-outside-map',
+      name: 'Outside Person',
+      displayName: 'Outside Person',
+      email: 'outside@example.com',
+    };
+    remote.updatedAt = new Date(Date.now() + 60_000).toISOString();
+
+    const result = await run([store.get(epic.id)!], policy);
+    const record = await readLinkRecord(dir, 'linear', epic.id);
+
+    expect(result.pushed).toEqual([]);
+    expect(result.pulled).toEqual([]);
+    expect(result.warnings.map((warning) => warning.message)).toContain(
+      'Linear assignee is not present in user_map; assignee synchronization skipped.',
+    );
+    expect(store.get(epic.id)?.assignee).toBe('josh');
+    expect(record?.base.assignee).toBe('josh');
+    expect(remote.assignee.email).toBe('outside@example.com');
+    expect(JSON.stringify(store.get(epic.id))).not.toContain('Outside Person');
+    expect(JSON.stringify(record)).not.toContain('Outside Person');
   });
 
   it('detects a quiet archived item through the linked-item liveness fetch', async () => {

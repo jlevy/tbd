@@ -570,6 +570,16 @@ export class LinearAdapter implements TrackerAdapter {
           ? this.assigneeByExternalIdentity.get(raw.assignee.email.toLowerCase())
           : undefined))
       : undefined;
+    const assigneeSyncable = raw.assignee === null || mappedAssignee !== undefined;
+    const mappingWarnings: string[] = [];
+    if (!KNOWN_STATE_TYPES.includes(stateType as (typeof KNOWN_STATE_TYPES)[number])) {
+      mappingWarnings.push(`Unknown Linear workflow state type "${stateType}"; mapped to open.`);
+    }
+    if (!assigneeSyncable) {
+      mappingWarnings.push(
+        'Linear assignee is not present in user_map; assignee synchronization skipped.',
+      );
+    }
     return {
       provider: 'linear',
       id: raw.id,
@@ -580,16 +590,13 @@ export class LinearAdapter implements TrackerAdapter {
       status: statusFromLinear(stateType, labels),
       priority: priorityFromLinear(raw.priority),
       labels,
-      assignee: mappedAssignee ?? raw.assignee?.displayName ?? raw.assignee?.name ?? null,
+      assignee: mappedAssignee ?? null,
+      assigneeSyncable,
       parent: raw.parent ? { id: raw.parent.id, key: raw.parent.identifier } : null,
       updatedAt: raw.updatedAt,
       archivedAt: raw.archivedAt ?? null,
       trashed: raw.trashed ?? false,
-      ...(KNOWN_STATE_TYPES.includes(stateType as (typeof KNOWN_STATE_TYPES)[number])
-        ? {}
-        : {
-            mappingWarnings: [`Unknown Linear workflow state type "${stateType}"; mapped to open.`],
-          }),
+      ...(mappingWarnings.length > 0 ? { mappingWarnings } : {}),
     };
   }
 

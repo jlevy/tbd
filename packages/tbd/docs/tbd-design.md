@@ -6712,8 +6712,9 @@ Linear `project` configuration scopes both outbound creation and automatic inbou
 discovery. Explicit `--pull --external` is identity-directed and intentionally bypasses
 that scan scope. Assignee writes are enabled only by a non-empty `user_map`: local beads
 persist canonical aliases, configured email/UUID targets resolve at runtime, safely
-mapped aliases seed inbound-created beads, unknown identities stay visibly divergent,
-and emails never cross the persistence boundary.
+mapped aliases seed inbound-created beads, and an unknown provider identity freezes that
+field with a safe warning until it is mapped.
+Provider display names and emails never cross the persistence boundary.
 
 One external item must never have multiple bead writers.
 `link` and inbound creation prevent creating that state with both local reverse indexes

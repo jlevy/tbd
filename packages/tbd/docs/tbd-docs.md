@@ -1604,8 +1604,10 @@ raw Linear user enters bead or bridge data.
 Unmapped local assignees remain unchanged and are reported as skipped pushes; inbound
 mapped users become the alias, including when an assigned Linear issue first becomes a
 bead.
-(`select:`, the older spelling of the policy’s outbound clause, still parses and is
-folded in.)
+If Linear names a user outside `user_map`, sync leaves the bead assignee unchanged,
+emits a safe warning, and stores neither the display name nor email in the bead or
+bridge. (`select:`, the older spelling of the policy’s outbound clause, still parses and
+is folded in.)
 
 One caveat: `tbd setup` run by a tbd version that predates this feature will drop the
 `integrations` block from `config.yml`, because config has no extensions namespace.

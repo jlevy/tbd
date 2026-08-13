@@ -7,8 +7,9 @@
  * built tbd CLI in a disposable repository. The same named scenario sequence is the
  * contract a future GitHub driver must implement.
  *
- * Required: LINEAR_API_KEY and --team <key>. Optional: --project <name-or-slug>,
- * TBD_QA_BIN (packed/installed candidate), and TBD_QA_KEEP=1 (retain the temp repo).
+ * Required: LINEAR_API_KEY, --team <key>, and --project <name-or-slug>.
+ * Optional: TBD_QA_BIN (packed/installed candidate) and TBD_QA_KEEP=1 (retain the
+ * temp repo).
  */
 
 import { spawn } from 'node:child_process';
@@ -22,6 +23,7 @@ import { parse, stringify } from 'yaml';
 import { writeFile } from 'atomically';
 
 import { LiveCompatibilityChecklist } from './provider-live-qa-contract.js';
+import { parseLinearLiveQaArgs } from './linear-live-qa-options.js';
 
 const COMMAND_TIMEOUT_MS = 90_000;
 const MAX_OUTPUT_BYTES = 5 * 1024 * 1024;
@@ -41,14 +43,9 @@ interface CandidateCommand {
   pathToCheck: string | null;
 }
 
-interface Args {
-  team: string;
-  project?: string;
-}
-
 interface LinearContext {
   teamId: string;
-  projectId?: string;
+  projectId: string;
   viewerId: string;
   stateIdsByType: Record<string, string>;
 }
@@ -110,29 +107,6 @@ function errorText(error: unknown): string {
   } catch {
     return 'Unserializable non-Error failure';
   }
-}
-
-function parseArgs(argv: string[]): Args {
-  let team: string | undefined;
-  let project: string | undefined;
-  for (let index = 0; index < argv.length; index += 1) {
-    const arg = argv[index];
-    if (arg === '--') {
-      continue;
-    }
-    if (arg === '--team') {
-      team = argv[index + 1];
-      index += 1;
-    } else if (arg === '--project') {
-      project = argv[index + 1];
-      index += 1;
-    } else {
-      throw new Error(`Unknown argument: ${arg}`);
-    }
-  }
-  const normalizedTeam = team?.trim();
-  assertCondition(normalizedTeam, 'Usage: validate-linear-integration-live.ts --team <key>');
-  return { team: normalizedTeam, ...(project?.trim() ? { project } : {}) };
 }
 
 function resolveCandidateCommand(): CandidateCommand {
@@ -245,7 +219,7 @@ class LinearApi {
     return payload.data;
   }
 
-  async context(teamKey: string, projectName?: string): Promise<LinearContext> {
+  async context(teamKey: string, projectName: string): Promise<LinearContext> {
     const data = await this.request<{
       viewer: { id: string };
       teams: {
@@ -273,7 +247,7 @@ class LinearApi {
     assertCondition(stateIdsByType.started, `Linear team ${teamKey} has no started state`);
     const projects: { id: string; name: string; slugId: string }[] = [];
     let projectsAfter: string | undefined;
-    while (projectName) {
+    do {
       const page = await this.request<{
         projects: {
           pageInfo: { hasNextPage: boolean; endCursor: string | null };
@@ -295,22 +269,18 @@ class LinearApi {
       if (!projectsAfter) {
         break;
       }
-    }
-    const project = projectName
-      ? projects.find(
-          (candidate) =>
-            candidate.name.toLowerCase() === projectName.toLowerCase() ||
-            candidate.slugId.toLowerCase() === projectName.toLowerCase(),
-        )
-      : undefined;
-    if (projectName) {
-      assertCondition(project, `Linear project not found: ${projectName}`);
-    }
+    } while (projectsAfter);
+    const project = projects.find(
+      (candidate) =>
+        candidate.name.toLowerCase() === projectName.toLowerCase() ||
+        candidate.slugId.toLowerCase() === projectName.toLowerCase(),
+    );
+    assertCondition(project, `Linear project not found: ${projectName}`);
     return {
       teamId: team.id,
       viewerId: data.viewer.id,
       stateIdsByType,
-      ...(project ? { projectId: project.id } : {}),
+      projectId: project.id,
     };
   }
 
@@ -430,7 +400,7 @@ class LinearApi {
 }
 
 async function main(): Promise<void> {
-  const args = parseArgs(process.argv.slice(2));
+  const args = parseLinearLiveQaArgs(process.argv.slice(2));
   const apiKey = process.env.LINEAR_API_KEY?.trim();
   assertCondition(apiKey, 'LINEAR_API_KEY is required. Load it from a gitignored .env file.');
   const candidate = resolveCandidateCommand();
@@ -655,9 +625,6 @@ async function main(): Promise<void> {
     });
 
     await checklist.run('automatic-inbound-scope', async () => {
-      if (!context.projectId) {
-        return;
-      }
       const insideTitle = `${token} automatic project candidate`;
       const outsideTitle = `${token} automatic outside-project sentinel`;
       const inside = await api.createIssue(context, insideTitle, `${token} inside project`);

@@ -34,6 +34,8 @@ export interface ExternalIssue extends ExternalRef {
   priority: PriorityType;
   labels: string[];
   assignee: string | null;
+  /** False when a provider assignee exists but has no safe canonical mapping. */
+  assigneeSyncable?: boolean;
   /** Safe, provider-authored mapping diagnostics to surface in the sync report. */
   mappingWarnings?: string[];
   /** Provider parent identity. Missing or null means this item is a root. */

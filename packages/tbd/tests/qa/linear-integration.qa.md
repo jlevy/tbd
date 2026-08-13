@@ -19,6 +19,10 @@ Load `LINEAR_API_KEY` from a gitignored `.env`, then run:
 pnpm --filter get-tbd qa:linear-live -- --team TBD --project tbd
 ```
 
+Both `--team` and `--project` are mandatory release-gate inputs.
+Omitting either fails before setup, so `automatic-inbound-scope` can never be counted
+without exercising an actual configured project boundary.
+
 Set `TBD_QA_BIN` to a packed or globally installed candidate to validate exactly what a
 user will execute. Set `TBD_QA_KEEP=1` only while investigating a failure; otherwise the
 runner removes its disposable repository.

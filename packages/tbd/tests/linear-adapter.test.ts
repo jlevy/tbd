@@ -224,6 +224,29 @@ describe('Linear client and adapter', () => {
       ]);
     });
 
+    it('quarantines an unmapped assignee without exposing provider identity', async () => {
+      server.addIssue({
+        id: 'uuid-unmapped-user',
+        identifier: 'FIN-405',
+        assignee: {
+          id: 'user-outside-map',
+          name: 'Outside Person',
+          displayName: 'Outside Person',
+          email: 'outside@example.com',
+        },
+      });
+
+      const [issue] = await adapter.fetchIssues(['uuid-unmapped-user']);
+
+      expect(issue?.assignee).toBeNull();
+      expect(issue?.assigneeSyncable).toBe(false);
+      expect(issue?.mappingWarnings).toContain(
+        'Linear assignee is not present in user_map; assignee synchronization skipped.',
+      );
+      expect(JSON.stringify(issue)).not.toContain('Outside Person');
+      expect(JSON.stringify(issue)).not.toContain('outside@example.com');
+    });
+
     it('paginates issue labels beyond the nested connection page', async () => {
       const labels = Array.from({ length: 51 }, (_, index) => ({
         id: `issue-label-${index}`,

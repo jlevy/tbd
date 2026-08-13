@@ -148,6 +148,8 @@ export type FieldEquivalences = Partial<Record<SyncedField, (a: unknown, b: unkn
 /** Provider write capabilities that depend on configuration or field value. */
 export interface ReconcileCapabilities {
   assignee?: boolean;
+  /** False when the remote identity cannot safely enter canonical state. */
+  assigneePull?: boolean;
 }
 
 /**
@@ -294,6 +296,9 @@ export function reconcile(
   };
 
   for (const field of SYNCED_FIELDS) {
+    if (field === 'assignee' && capabilities.assigneePull === false) {
+      continue;
+    }
     const ops = fields[field];
     const rule = rules.fields[field];
     const valuesEqual = ops.equal(ops.local, ops.remote);

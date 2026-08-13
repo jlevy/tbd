@@ -615,7 +615,10 @@ export async function runSync(options: SyncEngineOptions): Promise<SyncRunReport
       remoteViewOf(remote),
       policy.field_sync,
       options.equivalences,
-      { assignee: adapter.canPushAssignee(bead.assignee ?? null) },
+      {
+        assignee: adapter.canPushAssignee(bead.assignee ?? null),
+        assigneePull: remote.assigneeSyncable !== false,
+      },
     );
     if (!options.mirrorLabels) {
       // Labels are inert unless explicitly mirrored: never pushed (which would
