@@ -5,7 +5,7 @@ title: "Epic: External tracker integrations (Linear first, GitHub next)"
 kind: epic
 status: open
 priority: 1
-version: 23
+version: 24
 spec_path: docs/project/specs/active/plan-2026-08-10-external-tracker-integrations.md
 labels: []
 dependencies: []
@@ -28,8 +28,9 @@ child_order_hints:
   - is-01kzx848mdfzapsc2ddm6hm0zt
   - is-01kzx8mkeyergsd0hmq8zj1zd7
   - is-01kzxxj27abvbje3nesecgsk3z
+  - is-01kzy93y91gssqs5nbv6zga00g
 created_at: 2026-08-10T05:38:39.414Z
-updated_at: 2026-08-13T15:58:52.645Z
+updated_at: 2026-08-13T19:20:52.767Z
 extensions:
   linear:
     id: 7202337e-d1ee-4192-bb6c-c6ae42b97469
