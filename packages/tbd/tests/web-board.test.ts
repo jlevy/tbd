@@ -200,6 +200,28 @@ describe('BoardState', () => {
     expect(response.filtersExact).toBe(false);
   });
 
+  it('orders mixed-precision updated timestamps chronologically in either direction', async () => {
+    const { board, setIssues } = harness();
+    const [root, child, leaf] = fixtureIssues();
+    setIssues([
+      { ...root!, status: 'open', updated_at: '2026-01-01T00:00:00.100Z' },
+      { ...child!, updated_at: '2026-01-01T00:00:00Z' },
+      { ...leaf!, updated_at: '2026-01-01T00:00:00.050Z' },
+    ]);
+    await board.reload();
+
+    const orderedIds = (direction: 'asc' | 'desc') =>
+      board
+        .buildBoardResponse(
+          new URLSearchParams(`all=1&order=updated:${direction}`),
+          stateFor(board),
+        )
+        .rows.map((row) => row.id);
+
+    expect(orderedIds('asc')).toEqual(['web-kid1', 'web-leaf', 'web-root']);
+    expect(orderedIds('desc')).toEqual(['web-root', 'web-leaf', 'web-kid1']);
+  });
+
   it('orders every textual table column lexicographically with a display-id tie-break', async () => {
     const { board } = harness();
     await board.reload();

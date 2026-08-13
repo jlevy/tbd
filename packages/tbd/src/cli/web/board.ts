@@ -555,6 +555,15 @@ function compareText(left: string, right: string): number {
   return exactLeft < exactRight ? -1 : exactLeft > exactRight ? 1 : 0;
 }
 
+function compareTimestamps(left: string, right: string): number {
+  const leftTime = Date.parse(left);
+  const rightTime = Date.parse(right);
+  if (Number.isFinite(leftTime) && Number.isFinite(rightTime)) {
+    return leftTime - rightTime;
+  }
+  return compareText(left, right);
+}
+
 function matchesSearch(issue: Issue, displayId: string, search: string): boolean {
   if (search === '') {
     return true;
@@ -1105,7 +1114,10 @@ export class BoardState {
     const displayId = (issue: Issue): string =>
       this.snapshot.displayIdByInternalId.get(issue.id) ?? issue.id;
     const labels = (issue: Issue): string => [...issue.labels].sort(compareText).join('\u0000');
-    const textValue = (issue: Issue, key: Exclude<BoardSortKey, 'priority'>): string => {
+    const textValue = (
+      issue: Issue,
+      key: Exclude<BoardSortKey, 'priority' | 'updated'>,
+    ): string => {
       switch (key) {
         case 'id':
           return displayId(issue);
@@ -1115,8 +1127,6 @@ export class BoardState {
           return issue.kind;
         case 'title':
           return issue.title;
-        case 'updated':
-          return issue.updated_at;
         case 'labels':
           return labels(issue);
         default: {
@@ -1130,7 +1140,9 @@ export class BoardState {
         const compared =
           sort.key === 'priority'
             ? left.priority - right.priority
-            : compareText(textValue(left, sort.key), textValue(right, sort.key));
+            : sort.key === 'updated'
+              ? compareTimestamps(left.updated_at, right.updated_at)
+              : compareText(textValue(left, sort.key), textValue(right, sort.key));
         if (compared !== 0) {
           return sort.direction === 'asc' ? compared : -compared;
         }
