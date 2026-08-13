@@ -20,12 +20,16 @@ export interface MockIssue {
   priority: number;
   updatedAt: string;
   state: { id: string; name: string; type: string };
-  assignee: { id: string; name: string; displayName: string } | null;
+  assignee: { id: string; name: string; displayName: string; email?: string } | null;
   labels: { nodes: { id: string; name: string }[] };
   parent: { id: string; identifier: string } | null;
   archivedAt: string | null;
   trashed: boolean;
+  projectId: string | null;
 }
+
+const ISSUE_LABEL_PAGE_SIZE = 50;
+const MAX_PAGE_SIZE = 250;
 
 export interface MockAttachment {
   id: string;
@@ -54,6 +58,11 @@ export class LinearMockServer {
   readonly attachments: MockAttachment[] = [];
   readonly comments: MockComment[] = [];
   readonly requests: { query: string; variables: Record<string, unknown> }[] = [];
+  readonly users = [
+    { id: 'user-1', name: 'Josh', displayName: 'Josh', email: 'josh@example.com' },
+    { id: 'user-2', name: 'Test User', displayName: 'Test User', email: 'test@example.com' },
+  ];
+  readonly projects: { id: string; name: string; slugId: string }[] = [];
 
   /** Number of requests to fail with RATELIMITED before succeeding. */
   rateLimitFailures = 0;
@@ -131,6 +140,7 @@ export class LinearMockServer {
       parent: null,
       archivedAt: null,
       trashed: false,
+      projectId: null,
       ...partial,
     };
     this.issues.set(issue.id, issue);
@@ -140,6 +150,26 @@ export class LinearMockServer {
   private nextId(prefix: string): string {
     this.sequence += 1;
     return `${prefix}-${this.sequence}`;
+  }
+
+  private issueResponse(issue: MockIssue): MockIssue & {
+    labels: {
+      pageInfo: { hasNextPage: boolean; endCursor: string | null };
+      nodes: { id: string; name: string }[];
+    };
+  } {
+    const nodes = issue.labels.nodes.slice(0, ISSUE_LABEL_PAGE_SIZE);
+    const hasNextPage = nodes.length < issue.labels.nodes.length;
+    return {
+      ...issue,
+      labels: {
+        pageInfo: {
+          hasNextPage,
+          endCursor: hasNextPage ? String(nodes.length) : null,
+        },
+        nodes,
+      },
+    };
   }
 
   private handle(body: string): { status: number; payload: unknown } {
@@ -192,7 +222,13 @@ export class LinearMockServer {
                   key: 'FIN',
                   name: 'Finance',
                   states: { nodes: this.states },
-                  labels: { nodes: this.labels },
+                  labels: {
+                    pageInfo: {
+                      hasNextPage: this.labels.length > MAX_PAGE_SIZE,
+                      endCursor: this.labels.length > MAX_PAGE_SIZE ? String(MAX_PAGE_SIZE) : null,
+                    },
+                    nodes: this.labels.slice(0, MAX_PAGE_SIZE),
+                  },
                 },
               ],
             },
@@ -201,15 +237,103 @@ export class LinearMockServer {
       };
     }
 
+    if (query.includes('query Projects')) {
+      const first = variables.first as number;
+      const offset = Number(variables.after ?? 0);
+      const nodes = this.projects.slice(offset, offset + first);
+      const nextOffset = offset + nodes.length;
+      const hasNextPage = nextOffset < this.projects.length;
+      return {
+        status: 200,
+        payload: {
+          data: {
+            projects: {
+              pageInfo: {
+                hasNextPage,
+                endCursor: hasNextPage ? String(nextOffset) : null,
+              },
+              nodes,
+            },
+          },
+        },
+      };
+    }
+
+    if (query.includes('query UsersByEmail')) {
+      const email = (variables.email as string).toLowerCase();
+      const nodes = this.users.filter((user) => user.email.toLowerCase() === email);
+      return { status: 200, payload: { data: { users: { nodes } } } };
+    }
+
+    if (query.includes('query TeamLabels')) {
+      const offset = Number(variables.after ?? 0);
+      const first = variables.first as number;
+      const nodes = this.labels.slice(offset, offset + first);
+      const nextOffset = offset + nodes.length;
+      const hasNextPage = nextOffset < this.labels.length;
+      return {
+        status: 200,
+        payload: {
+          data: {
+            team:
+              variables.id === 'team-1'
+                ? {
+                    labels: {
+                      pageInfo: {
+                        hasNextPage,
+                        endCursor: hasNextPage ? String(nextOffset) : null,
+                      },
+                      nodes,
+                    },
+                  }
+                : null,
+          },
+        },
+      };
+    }
+
+    if (query.includes('query IssueLabels')) {
+      const issue = this.issues.get(variables.id as string);
+      const offset = Number(variables.after ?? 0);
+      const first = variables.first as number;
+      const nodes = issue?.labels.nodes.slice(offset, offset + first) ?? [];
+      const nextOffset = offset + nodes.length;
+      const hasNextPage = nextOffset < (issue?.labels.nodes.length ?? 0);
+      return {
+        status: 200,
+        payload: {
+          data: {
+            issue: issue
+              ? {
+                  labels: {
+                    pageInfo: {
+                      hasNextPage,
+                      endCursor: hasNextPage ? String(nextOffset) : null,
+                    },
+                    nodes,
+                  },
+                }
+              : null,
+          },
+        },
+      };
+    }
+
     if (query.includes('query IssueByIdentifier')) {
       const identifier = variables.id as string;
       const issue = [...this.issues.values()].find((i) => i.identifier === identifier);
-      return { status: 200, payload: { data: { issue: issue ?? null } } };
+      return {
+        status: 200,
+        payload: { data: { issue: issue ? this.issueResponse(issue) : null } },
+      };
     }
 
     if (query.includes('query IssuesById')) {
       const ids = (variables.ids as string[]) ?? [];
-      const nodes = ids.map((id) => this.issues.get(id)).filter(Boolean);
+      const nodes = ids
+        .map((id) => this.issues.get(id))
+        .filter((issue): issue is MockIssue => Boolean(issue))
+        .map((issue) => this.issueResponse(issue));
       return {
         status: 200,
         payload: {
@@ -248,6 +372,18 @@ export class LinearMockServer {
         title: (input.title as string) ?? 'Untitled',
         description: (input.description as string | null) ?? null,
         priority: (input.priority as number) ?? 0,
+        projectId: typeof input.projectId === 'string' ? input.projectId : null,
+        assignee:
+          typeof input.assigneeId === 'string'
+            ? (this.users.find((user) => user.id === input.assigneeId) ?? null)
+            : null,
+        parent:
+          typeof input.parentId === 'string'
+            ? (() => {
+                const parent = this.issues.get(input.parentId);
+                return parent ? { id: parent.id, identifier: parent.identifier } : null;
+              })()
+            : null,
         updatedAt: new Date(Date.now() + this.sequence * 1000).toISOString(),
       });
       return {
@@ -277,6 +413,17 @@ export class LinearMockServer {
         if (state) {
           issue.state = state;
         }
+      }
+      if ('parentId' in input) {
+        const parent =
+          typeof input.parentId === 'string' ? this.issues.get(input.parentId) : undefined;
+        issue.parent = parent ? { id: parent.id, identifier: parent.identifier } : null;
+      }
+      if ('assigneeId' in input) {
+        issue.assignee =
+          typeof input.assigneeId === 'string'
+            ? (this.users.find((user) => user.id === input.assigneeId) ?? null)
+            : null;
       }
       if (Array.isArray(input.labelIds)) {
         issue.labels = {
@@ -388,7 +535,9 @@ export class LinearMockServer {
 
     if (query.includes('query IssueComments')) {
       const id = variables.id as string;
-      const nodes = this.comments
+      const first = variables.first as number;
+      const offset = Number(variables.after ?? 0);
+      const allComments = this.comments
         .filter((c) => c.issueId === id)
         .map((c) => ({
           id: c.id,
@@ -397,28 +546,66 @@ export class LinearMockServer {
           resolvedAt: c.resolvedAt,
           user: c.user,
         }));
+      const nodes = allComments.slice(offset, offset + first);
+      const nextOffset = offset + nodes.length;
+      const hasNextPage = nextOffset < allComments.length;
       return {
         status: 200,
-        payload: { data: { issue: { comments: { nodes } } } },
+        payload: {
+          data: {
+            issue: this.issues.has(id)
+              ? {
+                  comments: {
+                    pageInfo: {
+                      hasNextPage,
+                      endCursor: hasNextPage ? String(nextOffset) : null,
+                    },
+                    nodes,
+                  },
+                }
+              : null,
+          },
+        },
       };
     }
 
     if (query.includes('query IssueAttachments')) {
       const id = variables.id as string;
-      const nodes = this.attachments
+      const first = variables.first as number;
+      const offset = Number(variables.after ?? 0);
+      const allAttachments = this.attachments
         .filter((attachment) => attachment.issueId === id)
         .map((attachment) => ({ url: attachment.url }));
+      const nodes = allAttachments.slice(offset, offset + first);
+      const nextOffset = offset + nodes.length;
+      const hasNextPage = nextOffset < allAttachments.length;
       return {
         status: 200,
-        payload: { data: { issue: this.issues.has(id) ? { attachments: { nodes } } : null } },
+        payload: {
+          data: {
+            issue: this.issues.has(id)
+              ? {
+                  attachments: {
+                    pageInfo: {
+                      hasNextPage,
+                      endCursor: hasNextPage ? String(nextOffset) : null,
+                    },
+                    nodes,
+                  },
+                }
+              : null,
+          },
+        },
       };
     }
 
     if (query.includes('query IssuesUpdatedSince')) {
       const since = variables.since as string;
+      const projectId = variables.projectId as string | undefined;
       const nodes = [...this.issues.values()]
-        .filter((issue) => issue.updatedAt > since)
-        .sort((a, b) => a.updatedAt.localeCompare(b.updatedAt));
+        .filter((issue) => issue.updatedAt > since && (!projectId || issue.projectId === projectId))
+        .sort((a, b) => a.updatedAt.localeCompare(b.updatedAt))
+        .map((issue) => this.issueResponse(issue));
       return {
         status: 200,
         payload: {

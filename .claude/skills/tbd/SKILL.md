@@ -240,7 +240,7 @@ When a user asks to “sync our specs and beads to Linear”: run `status` first
 No API key → ask the user to create one at `linear.app/settings/api` and put it in a
 **gitignored** `.env` as `LINEAR_API_KEY=…` (never commit it).
 No config → add
-`integrations: { linear: { enabled: true, team_key: <THEIRS>, project: <optional>, policy: default } }`
+`integrations: { linear: { enabled: true, team_key: <THEIRS>, project: <optional>, user_map: <optional alias-to-email-or-UUID map>, policy: default } }`
 to `.tbd/config.yml`, re-check `status`, then `--dry-run sync --push`, `sync --push`,
 `sync`. Full details: the External Tracker Integrations section of `tbd docs`. Bulk runs
 over 20 creates / 40 updates refuse without `--yes`. Never echo credentials into output
@@ -248,6 +248,14 @@ or commits. `--pull` never replays or performs provider writes; deferred claims 
 conflict notices remain journaled until the next full sync.
 Link/inbound creation refuse a remote `tbd://bead/…` claim unless `--force` is explicit
 and the old claim was verified stale.
+Configured `project` scopes both creates and automatic inbound scans; an explicit
+`--external` import bypasses that scan scope.
+Assignees sync only through `user_map`: beads retain aliases (including on initial
+import), runtime email/UUID targets never persist, and unmapped values are reported
+rather than guessed.
+Linear sub-issues import parent-first and never flatten; `max_nesting` limits only new
+outbound creation. Comments are append-only and paginated; edits, deletions, reactions,
+and thread shape are not synchronized.
 
 **Direction flags mean the same thing everywhere in tbd**: bare = both directions,
 `--push` = outbound only, `--pull` = inbound only, `--status` = report only.

@@ -54,6 +54,8 @@ export interface MirrorContext {
    * team namespace. They are mirrored as attachment metadata regardless.
    */
   mirrorLabels?: boolean;
+  /** Provider/config capability for projecting a canonical assignee. */
+  canPushAssignee?: (assignee: string | null) => boolean;
 }
 
 /**
@@ -62,7 +64,7 @@ export interface MirrorContext {
  * Depth is measured within the selected set: a bead whose parent is not mirrored
  * is itself a root, since mirroring it under an absent parent is meaningless.
  */
-function depthWithin(
+export function depthWithinSelection(
   issue: Issue,
   selectedIds: ReadonlySet<string>,
   byId: Map<string, Issue>,
@@ -82,6 +84,32 @@ function depthWithin(
     current = byId.get(current)?.parent_id ?? null;
   }
   return depth;
+}
+
+/** Stable parent-before-child order within the selected projection. */
+function orderSelectedParentFirst(selected: readonly Issue[]): Issue[] {
+  const byId = new Map(selected.map((issue) => [issue.id, issue]));
+  const visited = new Set<string>();
+  const visiting = new Set<string>();
+  const ordered: Issue[] = [];
+
+  const visit = (issue: Issue): void => {
+    if (visited.has(issue.id) || visiting.has(issue.id)) {
+      return;
+    }
+    visiting.add(issue.id);
+    const parent = issue.parent_id ? byId.get(issue.parent_id) : undefined;
+    if (parent) {
+      visit(parent);
+    }
+    visiting.delete(issue.id);
+    visited.add(issue.id);
+    ordered.push(issue);
+  };
+  for (const issue of selected) {
+    visit(issue);
+  }
+  return ordered;
 }
 
 /** Existing link for a provider, if any. */
@@ -167,9 +195,9 @@ export function planMirror(context: MirrorContext): MirrorPlan {
 
   const plan: MirrorPlan = { provider: context.provider, creates: [], updates: [], skips: [] };
 
-  for (const issue of context.selected) {
+  for (const issue of orderSelectedParentFirst(context.selected)) {
     const displayId = context.displayId(issue.id);
-    const depth = depthWithin(issue, selectedIds, byId);
+    const depth = depthWithinSelection(issue, selectedIds, byId);
 
     if (depth > context.maxNesting) {
       plan.skips.push({
@@ -193,18 +221,28 @@ export function planMirror(context: MirrorContext): MirrorPlan {
       repoUrl: context.repoUrl?.(issue),
     };
 
+    const parentBeadId =
+      issue.parent_id && selectedIds.has(issue.parent_id) ? issue.parent_id : undefined;
+    const parentLink = parentBeadId
+      ? linkFor(byId.get(parentBeadId)!, context.provider)
+      : undefined;
     const patch: CanonicalPatch = {
       title: issue.title,
       status: issue.status,
       priority: issue.priority,
+      parentId: parentLink?.id ?? null,
       // Omitting `labels` entirely leaves the tracker's labels alone except for
       // the status carriers the adapter adds. Sending [] would strip labels a
       // human applied in the tracker, which is not ours to remove.
       ...(context.mirrorLabels ? { labels: prefixLabels(issue.labels ?? []) } : {}),
+      ...(context.canPushAssignee?.(issue.assignee ?? null)
+        ? { assignee: issue.assignee ?? null }
+        : {}),
     };
 
     const action: MirrorAction = {
       bead: issue,
+      ...(parentBeadId ? { parentBeadId } : {}),
       externalId: linkFor(issue, context.provider)?.id,
       patch,
       attachments: attachmentsFor(issue, displayId, links, counts),
@@ -254,11 +292,19 @@ export async function applyMirror(options: ApplyOptions): Promise<MirrorReport> 
     })),
     failures: [],
   };
+  const createdExternalIds = new Map<string, string>();
 
   for (const action of plan.creates) {
     const displayId = options.displayId(action.bead.id);
     try {
-      const ref = await adapter.createIssue(action.patch);
+      const parentId = action.parentBeadId
+        ? (action.patch.parentId ?? createdExternalIds.get(action.parentBeadId))
+        : action.patch.parentId;
+      if (action.parentBeadId && !parentId) {
+        throw new Error(`parent ${options.displayId(action.parentBeadId)} was not mirrored`);
+      }
+      const ref = await adapter.createIssue({ ...action.patch, parentId });
+      createdExternalIds.set(action.bead.id, ref.id);
       await options.onLinked(action.bead, {
         provider: plan.provider,
         id: ref.id,
@@ -282,7 +328,13 @@ export async function applyMirror(options: ApplyOptions): Promise<MirrorReport> 
       continue;
     }
     try {
-      await adapter.applyChanges(action.externalId, action.patch);
+      const parentId = action.parentBeadId
+        ? (action.patch.parentId ?? createdExternalIds.get(action.parentBeadId))
+        : action.patch.parentId;
+      if (action.parentBeadId && !parentId) {
+        throw new Error(`parent ${options.displayId(action.parentBeadId)} was not mirrored`);
+      }
+      await adapter.applyChanges(action.externalId, { ...action.patch, parentId });
       await adapter.upsertAttachments(action.externalId, action.attachments);
       if (action.managedBlock) {
         await adapter.spliceDescription(action.externalId, action.managedBlock);

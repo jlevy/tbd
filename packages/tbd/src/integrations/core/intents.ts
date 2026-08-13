@@ -33,6 +33,7 @@ const CanonicalPatchSchema = z
     status: z.string().optional(),
     priority: z.number().optional(),
     labels: z.array(z.string()).optional(),
+    assignee: z.string().nullable().optional(),
     parentId: z.string().nullable().optional(),
   })
   .passthrough();

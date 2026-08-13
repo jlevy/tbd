@@ -145,6 +145,11 @@ interface FieldOps {
  */
 export type FieldEquivalences = Partial<Record<SyncedField, (a: unknown, b: unknown) => boolean>>;
 
+/** Provider write capabilities that depend on configuration or field value. */
+export interface ReconcileCapabilities {
+  assignee?: boolean;
+}
+
 /**
  * Reconcile one linked pair. Pure.
  *
@@ -156,6 +161,7 @@ export function reconcile(
   remote: RemoteView,
   rules: FieldSyncClause,
   equivalences: FieldEquivalences = {},
+  capabilities: ReconcileCapabilities = {},
 ): ReconcileResult {
   const beadPatch: BeadPatch = {};
   const externalPatch: CanonicalPatch = {};
@@ -271,10 +277,10 @@ export function reconcile(
         beadPatch.assignee = value as string | null;
         merged.assignee = value as string | null;
       },
-      applyRemote: () => {
-        // Unreachable: canPush is false, so push sites divert to skippedPushes.
+      applyRemote: (value) => {
+        externalPatch.assignee = value as string | null;
       },
-      canPush: false,
+      canPush: capabilities.assignee ?? false,
     },
   };
 

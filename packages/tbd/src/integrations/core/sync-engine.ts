@@ -49,7 +49,7 @@ import {
 import { duplicateExternalLinks, readLink, writeLink } from './link-store.js';
 import { assertExternalUnclaimed } from './link-guard.js';
 import { renderManagedBlock, type MirrorLinks } from './managed-block.js';
-import { attachmentsFor, beadAttachmentUrl, prefixLabels } from './mirror.js';
+import { attachmentsFor, beadAttachmentUrl, depthWithinSelection, prefixLabels } from './mirror.js';
 import {
   reconcile,
   type FieldConflict,
@@ -84,6 +84,10 @@ export interface SyncCallbacks {
     status: Issue['status'];
     priority: Issue['priority'];
     kind: Issue['kind'];
+    /** Local bead id resolved from the provider parent's stable identity. */
+    parentId?: string;
+    /** Canonical alias only when the adapter confirms an explicit identity mapping. */
+    assignee?: string;
   }): Promise<Issue>;
   /** Commit the journaled intents before any external write happens. */
   afterJournal(): Promise<void>;
@@ -121,6 +125,8 @@ export interface SyncEngineOptions {
    * left alone. When on, pushed labels are `tbd:`-prefixed.
    */
   mirrorLabels: boolean;
+  /** Levels of the selected outbound hierarchy that may exist in the provider. */
+  maxNesting?: number;
   /** Provider-specific field equivalences (see reconcile.ts). */
   equivalences?: FieldEquivalences;
   /**
@@ -151,10 +157,13 @@ export interface SyncRunReport {
   conflicts: { beadId: string; field: string; winner: string }[];
   overwrites: { beadId: string; field: string; direction: string }[];
   skippedPushes: { beadId: string; field: string }[];
+  /** Safe provider-to-canonical mapping diagnostics, deduplicated per external item. */
+  warnings: { externalId: string; externalKey?: string; message: string }[];
   commentsPulled: number;
   commentsPushed: number;
   orphaned: string[];
   createdOutbound: string[];
+  skippedOutbound: { beadId: string; reason: string }[];
   importedInbound: string[];
   /** Inbound items reported but not imported (mode: report). */
   importable: { id: string; key?: string; title: string }[];
@@ -168,6 +177,8 @@ interface PlannedPair {
   record: LinkRecord | undefined;
   remote: ExternalIssue;
   result: ReturnType<typeof reconcile>;
+  /** Parent relationships are tbd-owned and intentionally not three-way merged. */
+  parentOverwrite: boolean;
 }
 
 function localViewOf(bead: Issue): LocalView {
@@ -215,6 +226,104 @@ function conflictSignature(report: ConflictReport): string {
   return JSON.stringify([report.beadId, report.field, report.keptValue, report.discardedValue]);
 }
 
+function externalName(issue: ExternalIssue): string {
+  return issue.key ?? issue.id;
+}
+
+function unavailableParentError(issue: ExternalIssue): string {
+  const parent = issue.parent;
+  return (
+    `Cannot import ${externalName(issue)} without its parent ${parent?.key ?? parent?.id ?? 'unknown'}. ` +
+    'Import or link the parent in this repository first.'
+  );
+}
+
+/** Topologically order imports and reject missing/cyclic parent relationships. */
+function orderInboundCandidates(
+  candidates: ExternalIssue[],
+  linkedExternalIds: ReadonlySet<string>,
+): {
+  ordered: ExternalIssue[];
+  failures: { candidate: ExternalIssue; error: string }[];
+} {
+  const byId = new Map(candidates.map((candidate) => [candidate.id, candidate]));
+  const state = new Map<string, 'visiting' | 'ordered' | 'failed'>();
+  const ordered: ExternalIssue[] = [];
+  const failures: { candidate: ExternalIssue; error: string }[] = [];
+
+  const fail = (candidate: ExternalIssue, error: string): false => {
+    if (state.get(candidate.id) !== 'failed') {
+      state.set(candidate.id, 'failed');
+      failures.push({ candidate, error });
+    }
+    return false;
+  };
+
+  const visit = (candidate: ExternalIssue, path: string[]): boolean => {
+    const currentState = state.get(candidate.id);
+    if (currentState === 'ordered') {
+      return true;
+    }
+    if (currentState === 'failed') {
+      return false;
+    }
+    if (currentState === 'visiting') {
+      const cycle = [...path, externalName(candidate)].join(' -> ');
+      return fail(candidate, `Cannot import cyclic provider hierarchy: ${cycle}.`);
+    }
+
+    state.set(candidate.id, 'visiting');
+    const parent = candidate.parent;
+    if (parent && !linkedExternalIds.has(parent.id)) {
+      const parentCandidate = byId.get(parent.id);
+      if (!parentCandidate) {
+        return fail(candidate, unavailableParentError(candidate));
+      }
+      if (!visit(parentCandidate, [...path, externalName(candidate)])) {
+        return fail(candidate, unavailableParentError(candidate));
+      }
+    }
+    if (state.get(candidate.id) === 'failed') {
+      return false;
+    }
+    state.set(candidate.id, 'ordered');
+    ordered.push(candidate);
+    return true;
+  };
+
+  for (const candidate of candidates) {
+    visit(candidate, []);
+  }
+  return { ordered, failures };
+}
+
+/** Stable parent-before-child ordering for a valid local bead hierarchy. */
+function orderBeadsParentFirst(issues: Issue[]): Issue[] {
+  const byId = new Map(issues.map((issue) => [issue.id, issue]));
+  const visited = new Set<string>();
+  const visiting = new Set<string>();
+  const ordered: Issue[] = [];
+
+  const visit = (issue: Issue): void => {
+    if (visited.has(issue.id) || visiting.has(issue.id)) {
+      return;
+    }
+    visiting.add(issue.id);
+    const parent = issue.parent_id ? byId.get(issue.parent_id) : undefined;
+    if (parent) {
+      visit(parent);
+    }
+    visiting.delete(issue.id);
+    visited.add(issue.id);
+    ordered.push(issue);
+  };
+
+  for (const issue of issues) {
+    visit(issue);
+  }
+  return ordered;
+}
+
 /** Run the full synchronization for one provider. */
 export async function runSync(options: SyncEngineOptions): Promise<SyncRunReport> {
   const { adapter, provider, policy, dataSyncDir, callbacks, dryRun } = options;
@@ -227,14 +336,33 @@ export async function runSync(options: SyncEngineOptions): Promise<SyncRunReport
     conflicts: [],
     overwrites: [],
     skippedPushes: [],
+    warnings: [],
     commentsPulled: 0,
     commentsPushed: 0,
     orphaned: [],
     createdOutbound: [],
+    skippedOutbound: [],
     importedInbound: [],
     importable: [],
     failures: [],
     nothingToDo: false,
+  };
+  const warningKeys = new Set<string>();
+  const recordMappingWarnings = (issues: readonly ExternalIssue[]): void => {
+    for (const issue of issues) {
+      for (const message of issue.mappingWarnings ?? []) {
+        const identity = JSON.stringify([issue.id, message]);
+        if (warningKeys.has(identity)) {
+          continue;
+        }
+        warningKeys.add(identity);
+        report.warnings.push({
+          externalId: issue.id,
+          ...(issue.key ? { externalKey: issue.key } : {}),
+          message,
+        });
+      }
+    }
   };
   const issuesById = new Map(options.allIssues.map((issue) => [issue.id, issue]));
 
@@ -292,7 +420,9 @@ export async function runSync(options: SyncEngineOptions): Promise<SyncRunReport
           const bead = await callbacks.readBead(recovered.beadId).catch(() => undefined);
           const existingLink = bead ? readLink(bead, provider) : undefined;
           if (bead && (!existingLink || existingLink.id === recovered.externalId)) {
-            const [current] = await adapter.fetchIssues([recovered.externalId]);
+            const recoveredIssues = await adapter.fetchIssues([recovered.externalId]);
+            recordMappingWarnings(recoveredIssues);
+            const [current] = recoveredIssues;
             const repaired = writeLink(bead, {
               provider,
               id: recovered.externalId,
@@ -381,6 +511,15 @@ export async function runSync(options: SyncEngineOptions): Promise<SyncRunReport
 
   // 2. Assemble the linked set and the remote view.
   const currentIssues = [...issuesById.values()];
+  const outboundSelected = mirrorSet(currentIssues, policy.outbound, provider);
+  const outboundSelectedIds = new Set(outboundSelected.map((issue) => issue.id));
+  const maxNesting = options.maxNesting ?? 2;
+  const outboundDepth = new Map(
+    outboundSelected.map((issue) => [
+      issue.id,
+      depthWithinSelection(issue, outboundSelectedIds, issuesById),
+    ]),
+  );
   const allLinked = currentIssues.filter((issue) => readLink(issue, provider));
   const linked = allLinked.filter((issue) => !blockedBeadIds.has(issue.id));
   const records = await listLinkRecords(dataSyncDir, provider);
@@ -388,6 +527,7 @@ export async function runSync(options: SyncEngineOptions): Promise<SyncRunReport
 
   const since = overlappedWatermark(pullWatermark(records));
   const delta = since ? await adapter.fetchUpdatedSince(since) : [];
+  recordMappingWarnings(delta);
   const remoteById = new Map(delta.map((issue) => [issue.id, issue]));
 
   // Every linked pair absent from the delta gets one batched liveness fetch.
@@ -401,7 +541,9 @@ export async function runSync(options: SyncEngineOptions): Promise<SyncRunReport
       missingIds.push(link.id);
     }
   }
-  for (const issue of await adapter.fetchIssues(missingIds)) {
+  const missingIssues = await adapter.fetchIssues(missingIds);
+  recordMappingWarnings(missingIssues);
+  for (const issue of missingIssues) {
     remoteById.set(issue.id, issue);
   }
 
@@ -473,6 +615,7 @@ export async function runSync(options: SyncEngineOptions): Promise<SyncRunReport
       remoteViewOf(remote),
       policy.field_sync,
       options.equivalences,
+      { assignee: adapter.canPushAssignee(bead.assignee ?? null) },
     );
     if (!options.mirrorLabels) {
       // Labels are inert unless explicitly mirrored: never pushed (which would
@@ -486,7 +629,18 @@ export async function runSync(options: SyncEngineOptions): Promise<SyncRunReport
     } else if (result.externalPatch.labels) {
       result.externalPatch.labels = prefixLabels(result.externalPatch.labels);
     }
-    pairs.push({ bead, record, remote, result });
+    let parentOverwrite = false;
+    const localParent = bead.parent_id ? issuesById.get(bead.parent_id) : undefined;
+    const expectedParentId = bead.parent_id
+      ? localParent && !blockedBeadIds.has(localParent.id)
+        ? readLink(localParent, provider)?.id
+        : undefined
+      : null;
+    if (expectedParentId !== undefined && expectedParentId !== (remote.parent?.id ?? null)) {
+      result.externalPatch.parentId = expectedParentId;
+      parentOverwrite = true;
+    }
+    pairs.push({ bead, record, remote, result, parentOverwrite });
   }
 
   // Comment planning. All linked pairs with a remote in hand participate;
@@ -512,11 +666,22 @@ export async function runSync(options: SyncEngineOptions): Promise<SyncRunReport
 
   // Outbound-new: policy-selected beads with no link yet. An inbound-only run
   // creates nothing outward; it reports what it declined to create instead.
+  const skippedOutbound = inboundOnly
+    ? []
+    : outboundSelected.filter(
+        (issue) => !readLink(issue, provider) && (outboundDepth.get(issue.id) ?? 1) > maxNesting,
+      );
   const outboundNew = inboundOnly
     ? []
-    : mirrorSet(currentIssues, policy.outbound, provider).filter(
-        (issue) => !readLink(issue, provider),
+    : orderBeadsParentFirst(
+        outboundSelected.filter(
+          (issue) => !readLink(issue, provider) && (outboundDepth.get(issue.id) ?? 1) <= maxNesting,
+        ),
       );
+  report.skippedOutbound = skippedOutbound.map((issue) => ({
+    beadId: options.displayId(issue.id),
+    reason: `nested ${outboundDepth.get(issue.id)} levels, past max_nesting ${maxNesting}`,
+  }));
 
   // Inbound: unlinked externals in scope. The delta covers recently-touched
   // items; a full scan happens only when there is no watermark yet.
@@ -533,6 +698,7 @@ export async function runSync(options: SyncEngineOptions): Promise<SyncRunReport
       : since
         ? delta
         : await adapter.fetchUpdatedSince('1970-01-01T00:00:00.000Z');
+  recordMappingWarnings(inboundPool);
   const inboundCandidates = inboundPool.filter(
     (issue) =>
       !linkedExternalIds.has(issue.id) &&
@@ -562,12 +728,25 @@ export async function runSync(options: SyncEngineOptions): Promise<SyncRunReport
     }
   }
 
+  const existingParentLinks = new Map(
+    linked.map((bead) => [readLink(bead, provider)!.id, bead.id] as const),
+  );
+  const candidates = effectiveInboundMode === 'auto' ? importCandidates : inboundCandidates;
+  const importPlan = orderInboundCandidates(candidates, new Set(existingParentLinks.keys()));
+  for (const failure of importPlan.failures) {
+    report.failures.push({
+      beadId: failure.candidate.key ?? failure.candidate.id,
+      error: failure.error,
+    });
+  }
+
   // 4. The guard counts both directions.
   const externalUpdates = pairs.filter(
     (pair) => Object.keys(pair.result.externalPatch).length > 0,
   ).length;
   const beadUpdates = pairs.filter((pair) => Object.keys(pair.result.beadPatch).length > 0).length;
-  const creates = outboundNew.length + importCandidates.length;
+  const creates =
+    outboundNew.length + (effectiveInboundMode === 'auto' ? importPlan.ordered.length : 0);
   const updates = externalUpdates + beadUpdates + commentPushes.length;
   if (!dryRun && (creates > 0 || updates > 0)) {
     await callbacks.affirmBulk({ creates, updates });
@@ -586,12 +765,36 @@ export async function runSync(options: SyncEngineOptions): Promise<SyncRunReport
       for (const conflict of pair.result.conflicts) {
         report.conflicts.push({ beadId: id, field: conflict.field, winner: conflict.winner });
       }
+      for (const overwrite of pair.result.overwrites) {
+        report.overwrites.push({
+          beadId: id,
+          field: overwrite.field,
+          direction: overwrite.direction,
+        });
+      }
+      if (pair.parentOverwrite) {
+        report.overwrites.push({ beadId: id, field: 'parent', direction: 'push' });
+      }
+    }
+    for (const push of commentPushes) {
+      report.commentsPushed += unpushedComments(push.bead, provider).length;
+    }
+    for (const pull of commentPulls) {
+      try {
+        const external = (await adapter.listComments(pull.externalId)).filter(
+          (comment) => !comment.body.startsWith(CONFLICT_COMMENT_MARKER),
+        );
+        report.commentsPulled += mergeExternalComments(pull.bead, provider, external).added;
+      } catch (error) {
+        report.failures.push({
+          beadId: options.displayId(pull.bead.id),
+          error: `Could not preview tracker comments: ${error instanceof Error ? error.message : String(error)}`,
+        });
+      }
     }
     report.createdOutbound = outboundNew.map((issue) => options.displayId(issue.id));
     if (effectiveInboundMode !== 'off') {
-      report.importable = (
-        effectiveInboundMode === 'auto' ? importCandidates : inboundCandidates
-      ).map((issue) => ({
+      report.importable = importPlan.ordered.map((issue) => ({
         id: issue.id,
         key: issue.key,
         title: issue.title,
@@ -602,7 +805,9 @@ export async function runSync(options: SyncEngineOptions): Promise<SyncRunReport
       report.createdOutbound.length === 0 &&
       report.importable.length === 0 &&
       report.failures.length === 0 &&
-      commentPulls.length + commentPushes.length === 0;
+      report.warnings.length === 0 &&
+      report.skippedOutbound.length === 0 &&
+      report.commentsPulled + report.commentsPushed === 0;
     return report;
   }
 
@@ -679,13 +884,25 @@ export async function runSync(options: SyncEngineOptions): Promise<SyncRunReport
   const runId = ulid().toLowerCase();
   const ops: IntentOp[] = [];
   const outboundClientIds = new Map<string, string>();
+  const outboundParentIds = new Map<string, string>();
   const outboundExtras = new Map<
     string,
     { attachments: ReturnType<typeof attachmentsFor>; block: string | null }
   >();
   for (const issue of outboundNew) {
-    const clientId = randomUUID();
-    outboundClientIds.set(issue.id, clientId);
+    outboundClientIds.set(issue.id, randomUUID());
+  }
+  for (const issue of outboundNew) {
+    const parent = issue.parent_id ? issuesById.get(issue.parent_id) : undefined;
+    const parentExternalId = parent
+      ? (readLink(parent, provider)?.id ?? outboundClientIds.get(parent.id))
+      : undefined;
+    if (parentExternalId) {
+      outboundParentIds.set(issue.id, parentExternalId);
+    }
+  }
+  for (const issue of outboundNew) {
+    const clientId = outboundClientIds.get(issue.id)!;
     const displayId = options.displayId(issue.id);
     const links: MirrorLinks = { specUrl: options.specUrl?.(issue), repoUrl: undefined };
     const attachments = attachmentsFor(issue, displayId, links, { children: 0, ready: 0 });
@@ -700,6 +917,10 @@ export async function runSync(options: SyncEngineOptions): Promise<SyncRunReport
         ...(issue.description != null ? { description: issue.description } : {}),
         status: issue.status,
         priority: issue.priority,
+        ...(adapter.canPushAssignee(issue.assignee ?? null)
+          ? { assignee: issue.assignee ?? null }
+          : {}),
+        ...(outboundParentIds.has(issue.id) ? { parentId: outboundParentIds.get(issue.id) } : {}),
       },
     });
     // The client UUID IS the item's id, so the follow-up writes are journaled
@@ -834,11 +1055,17 @@ export async function runSync(options: SyncEngineOptions): Promise<SyncRunReport
         });
       }
       for (const overwrite of pair.result.overwrites) {
+        if (inboundOnly && overwrite.direction === 'push') {
+          continue;
+        }
         report.overwrites.push({
           beadId: displayId,
           field: overwrite.field,
           direction: overwrite.direction,
         });
+      }
+      if (pair.parentOverwrite && !inboundOnly) {
+        report.overwrites.push({ beadId: displayId, field: 'parent', direction: 'push' });
       }
       for (const skipped of pair.result.skippedPushes) {
         report.skippedPushes.push({ beadId: displayId, field: skipped.field });
@@ -930,12 +1157,17 @@ export async function runSync(options: SyncEngineOptions): Promise<SyncRunReport
     const displayId = options.displayId(issue.id);
     try {
       const clientId = outboundClientIds.get(issue.id);
+      const parentExternalId = outboundParentIds.get(issue.id);
       const ref = await adapter.createIssue(
         {
           title: issue.title,
           ...(issue.description != null ? { description: issue.description } : {}),
           status: issue.status,
           priority: issue.priority,
+          ...(adapter.canPushAssignee(issue.assignee ?? null)
+            ? { assignee: issue.assignee ?? null }
+            : {}),
+          ...(parentExternalId ? { parentId: parentExternalId } : {}),
         },
         clientId,
       );
@@ -970,7 +1202,7 @@ export async function runSync(options: SyncEngineOptions): Promise<SyncRunReport
           status: issue.status,
           priority: issue.priority,
           labels: issue.labels ?? [],
-          assignee: issue.assignee ?? null,
+          assignee: current?.assignee ?? null,
           description_hash: descriptionHash(issue.description ?? null),
         },
         remote_updated_at: current?.updatedAt ?? options.now(),
@@ -987,15 +1219,35 @@ export async function runSync(options: SyncEngineOptions): Promise<SyncRunReport
     }
   }
 
-  // 7b. Inbound: import or report.
-  for (const candidate of effectiveInboundMode === 'auto' ? importCandidates : inboundCandidates) {
+  // 7b. Inbound: preserve provider hierarchy. A child is never silently
+  // flattened: its parent must already be linked locally or be imported first
+  // in this same batch.
+  for (const candidate of importPlan.ordered) {
     if (effectiveInboundMode === 'report') {
       report.importable.push({ id: candidate.id, key: candidate.key, title: candidate.title });
       continue;
     }
+    const localParentId = candidate.parent
+      ? existingParentLinks.get(candidate.parent.id)
+      : undefined;
+    if (candidate.parent && !localParentId) {
+      report.failures.push({
+        beadId: candidate.key ?? candidate.id,
+        error: unavailableParentError(candidate),
+      });
+      continue;
+    }
     try {
-      const created = await importExternal(candidate, inbound, provider, options, !inboundOnly);
+      const created = await importExternal(
+        candidate,
+        inbound,
+        provider,
+        options,
+        !inboundOnly,
+        localParentId,
+      );
       report.importedInbound.push(options.displayId(created.id));
+      existingParentLinks.set(candidate.id, created.id);
     } catch (error) {
       report.failures.push({
         beadId: candidate.key ?? candidate.id,
@@ -1025,6 +1277,8 @@ export async function runSync(options: SyncEngineOptions): Promise<SyncRunReport
       report.createdOutbound.length +
       report.importedInbound.length +
       report.importable.length +
+      report.skippedOutbound.length +
+      report.warnings.length +
       report.failures.length ===
       0;
   return report;
@@ -1037,6 +1291,7 @@ async function importExternal(
   provider: ProviderNameType,
   options: SyncEngineOptions,
   writeExternalClaim: boolean,
+  parentId?: string,
 ): Promise<Issue> {
   const created = await options.callbacks.createBead({
     title: candidate.title,
@@ -1044,6 +1299,10 @@ async function importExternal(
     status: candidate.status,
     priority: candidate.priority,
     kind: inbound.as_kind,
+    parentId,
+    ...(candidate.assignee !== null && options.adapter.canPushAssignee(candidate.assignee)
+      ? { assignee: candidate.assignee }
+      : {}),
   });
 
   const stored = writeLink(created, {
@@ -1071,7 +1330,10 @@ async function importExternal(
       status: candidate.status,
       priority: candidate.priority,
       labels: [],
-      assignee: null,
+      assignee:
+        candidate.assignee !== null && options.adapter.canPushAssignee(candidate.assignee)
+          ? candidate.assignee
+          : null,
       description_hash: descriptionHash(candidate.description),
     },
     remote_updated_at: candidate.updatedAt,

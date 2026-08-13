@@ -24,7 +24,7 @@ import {
   type IntentFile,
 } from '../src/integrations/core/intents.js';
 import { LinearAdapter } from '../src/integrations/linear/adapter.js';
-import { LinearClient } from '../src/integrations/linear/client.js';
+import { LinearClient, MAX_PAGE_SIZE } from '../src/integrations/linear/client.js';
 import { LinearMockServer } from './helpers/linear-mock-server.js';
 
 const RUN_ID = '01hx5zzkbkactav9wevgemmvrz';
@@ -405,6 +405,29 @@ describe('adapter comment and delta surfaces', () => {
       'id',
       'resolvedAt',
     ]);
+  });
+
+  it('paginates through every comment on a Linear issue', async () => {
+    server.addIssue({ id: 'issue-many-comments', identifier: 'FIN-250' });
+    for (let index = 0; index <= MAX_PAGE_SIZE; index += 1) {
+      server.comments.push({
+        id: `comment-${index}`,
+        issueId: 'issue-many-comments',
+        body: `body-${index}`,
+        createdAt: new Date(Date.UTC(2026, 7, 10, 0, 0, index)).toISOString(),
+        resolvedAt: null,
+        user: { name: 'Mock User', displayName: 'Mock User' },
+      });
+    }
+
+    const comments = await adapter.listComments('issue-many-comments');
+
+    expect(comments).toHaveLength(MAX_PAGE_SIZE + 1);
+    expect(comments.at(0)?.body).toBe('body-0');
+    expect(comments.at(-1)?.body).toBe(`body-${MAX_PAGE_SIZE}`);
+    expect(
+      server.requests.filter((request) => request.query.includes('query IssueComments')),
+    ).toHaveLength(2);
   });
 
   it('resolves a comment', async () => {

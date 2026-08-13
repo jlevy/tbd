@@ -48,6 +48,7 @@ import type {
 } from '../../lib/types.js';
 import { now } from '../../utils/time-utils.js';
 import { CLIError } from './errors.js';
+import { checkParentAssignment, describeHierarchyProblem } from '../../lib/issue-hierarchy.js';
 
 /** Construct the adapter for a provider. */
 export function buildAdapter(
@@ -69,6 +70,7 @@ export function buildAdapter(
     teamKey: target,
     createLabels: config.integrations?.linear?.create_labels ?? true,
     project: config.integrations?.linear?.project,
+    userMap: config.integrations?.linear?.user_map,
   });
 }
 
@@ -264,8 +266,9 @@ export async function runEnabledIntegrationPushes(
       allIssues,
       selected,
       displayId,
-      maxNesting: entry.maxNesting,
       mirrorLabels: config.integrations?.linear?.mirror_labels ?? false,
+      maxNesting: entry.maxNesting,
+      canPushAssignee: (assignee) => adapter.canPushAssignee(assignee),
       specUrl: (issue) => (issue.spec_path ? specLinks.get(issue.spec_path) : undefined),
     });
     if (!options.dryRun) {
@@ -396,6 +399,23 @@ export async function runEnabledIntegrations(
           const shortId = generateUniqueShortId(mapping);
           addIdMapping(mapping, extractUlidFromInternalId(id), shortId);
           const timestamp = now();
+          let parent: Issue | undefined;
+          if (input.parentId) {
+            const currentIssues = await listIssues(dataSyncDir);
+            const byId = new Map(currentIssues.map((issue) => [issue.id, issue]));
+            parent = byId.get(input.parentId);
+            if (!parent) {
+              throw new CLIError(`Cannot import under missing parent ${input.parentId}.`);
+            }
+            const problem = checkParentAssignment(
+              id,
+              parent.id,
+              (issueId) => byId.get(issueId)?.parent_id,
+            );
+            if (problem) {
+              throw new CLIError(describeHierarchyProblem(problem, displayId));
+            }
+          }
           const issue: Issue = {
             type: 'is',
             id,
@@ -409,8 +429,17 @@ export async function runEnabledIntegrations(
             created_at: timestamp,
             updated_at: timestamp,
             ...(input.description != null ? { description: input.description } : {}),
+            ...(input.parentId ? { parent_id: input.parentId } : {}),
+            ...(input.assignee ? { assignee: input.assignee } : {}),
+            ...(parent?.spec_path ? { spec_path: parent.spec_path } : {}),
           };
           await writeIssue(dataSyncDir, issue);
+          if (parent && !parent.child_order_hints?.includes(id)) {
+            parent.child_order_hints = [...(parent.child_order_hints ?? []), id];
+            parent.version += 1;
+            parent.updated_at = timestamp;
+            await writeIssue(dataSyncDir, parent);
+          }
           await saveIdMapping(dataSyncDir, mapping);
           return issue;
         },

@@ -87,6 +87,8 @@ describe('the sync engine', () => {
           status: input.status,
           priority: input.priority,
           description: input.description ?? undefined,
+          parent_id: input.parentId,
+          assignee: input.assignee,
         });
         store.set(issue.id, issue);
         return Promise.resolve(issue);
@@ -162,6 +164,125 @@ describe('the sync engine', () => {
     expect(second.createdOutbound).toEqual([]);
   });
 
+  it('reports provider mapping warnings once even when an item appears in multiple fetches', async () => {
+    const epic = bead('is-01hx5zzkbkactav9wevgemmvrz');
+    store.set(epic.id, epic);
+    await run([epic]);
+    const linked = store.get(epic.id)!;
+    const externalId = readLink(linked, 'linear')!.id;
+    const remote = server.issues.get(externalId)!;
+    remote.state = { id: 'state-custom', name: 'Needs Triage', type: 'custom_triage' };
+    remote.updatedAt = new Date(Date.now() + 60_000).toISOString();
+
+    const result = await run([linked]);
+
+    expect(result.warnings).toEqual([
+      {
+        externalId,
+        externalKey: remote.identifier,
+        message: 'Unknown Linear workflow state type "custom_triage"; mapped to open.',
+      },
+    ]);
+    expect(result.nothingToDo).toBe(false);
+  });
+
+  it('creates an outbound parent before its child and preserves Linear hierarchy', async () => {
+    const parent = bead('is-01hx5zzkbkactav9wevgemmvra', { title: 'Local parent' });
+    const child = bead('is-01hx5zzkbkactav9wevgemmvrb', {
+      title: 'Local child',
+      parent_id: parent.id,
+    });
+    store.set(parent.id, parent);
+    store.set(child.id, child);
+
+    const result = await run([child, parent]);
+
+    const linkedParent = readLink(store.get(parent.id)!, 'linear');
+    const linkedChild = readLink(store.get(child.id)!, 'linear');
+    expect(result.failures).toEqual([]);
+    expect(result.createdOutbound).toEqual(['mvra', 'mvrb']);
+    expect(server.issues.get(linkedChild!.id)?.parent?.id).toBe(linkedParent?.id);
+  });
+
+  it('skips new outbound beads beyond max_nesting instead of flattening them', async () => {
+    const root = bead('is-01hx5zzkbkactav9wevgemmvra', { title: 'Root' });
+    const middle = bead('is-01hx5zzkbkactav9wevgemmvrb', {
+      title: 'Middle',
+      parent_id: root.id,
+    });
+    const deep = bead('is-01hx5zzkbkactav9wevgemmvrc', {
+      title: 'Deep',
+      parent_id: middle.id,
+    });
+    for (const issue of [root, middle, deep]) {
+      store.set(issue.id, issue);
+    }
+
+    const result = await runSync({
+      provider: 'linear',
+      adapter,
+      policy: POLICY,
+      dataSyncDir: dir,
+      allIssues: [deep, middle, root],
+      displayId: (id) => id.slice(-4),
+      mirrorLabels: false,
+      maxNesting: 2,
+      callbacks,
+      dryRun: false,
+      now: () => new Date().toISOString(),
+    });
+
+    expect(result.createdOutbound).toEqual(['mvra', 'mvrb']);
+    expect(result.skippedOutbound).toEqual([
+      { beadId: 'mvrc', reason: 'nested 3 levels, past max_nesting 2' },
+    ]);
+    expect(readLink(store.get(deep.id)!, 'linear')).toBeUndefined();
+  });
+
+  it('restores the tbd-owned parent relationship after a linked Linear issue is reparented', async () => {
+    const parent = bead('is-01hx5zzkbkactav9wevgemmvra', { title: 'Local parent' });
+    const child = bead('is-01hx5zzkbkactav9wevgemmvrb', {
+      title: 'Local child',
+      parent_id: parent.id,
+    });
+    store.set(parent.id, parent);
+    store.set(child.id, child);
+    await run([child, parent]);
+    await run([store.get(child.id)!, store.get(parent.id)!]);
+    const parentLink = readLink(store.get(parent.id)!, 'linear')!;
+    const childLink = readLink(store.get(child.id)!, 'linear')!;
+    const remoteChild = server.issues.get(childLink.id)!;
+    remoteChild.parent = null;
+    remoteChild.updatedAt = new Date(Date.now() + 60_000).toISOString();
+
+    const pullOnly = await runSync({
+      provider: 'linear',
+      adapter,
+      policy: POLICY,
+      dataSyncDir: dir,
+      allIssues: [store.get(child.id)!, store.get(parent.id)!],
+      displayId: (id) => id.slice(-4),
+      mirrorLabels: false,
+      callbacks,
+      direction: 'inbound',
+      dryRun: false,
+      now: () => new Date().toISOString(),
+    });
+    expect(pullOnly.pushed).toEqual([]);
+    expect(pullOnly.overwrites).toEqual([]);
+    expect(remoteChild.parent).toBeNull();
+
+    const result = await run([store.get(child.id)!, store.get(parent.id)!]);
+
+    expect(result.pushed).toContain('mvrb');
+    expect(result.overwrites).toContainEqual({
+      beadId: 'mvrb',
+      field: 'parent',
+      direction: 'push',
+    });
+    expect(server.issues.get(childLink.id)?.parent?.id).toBe(parentLink.id);
+  });
+
   it('fails duplicate external links closed while unrelated pairs still converge', async () => {
     server.addIssue({ id: 'duplicate-item', identifier: 'FIN-10', title: 'Remote duplicate' });
     server.addIssue({ id: 'safe-item', identifier: 'FIN-11', title: 'Remote safe' });
@@ -230,6 +351,34 @@ describe('the sync engine', () => {
     const pullRun = await run([store.get(epic.id)!]);
     expect(pullRun.pulled).toEqual(['mvrz']);
     expect(store.get(epic.id)!.title).toBe('Edited in the tracker');
+  });
+
+  it('round-trips assignees only through an explicit user_map identity', async () => {
+    adapter = new LinearAdapter({
+      client: new LinearClient({
+        apiKey: 'lin_api_test',
+        endpoint: server.endpoint,
+        sleep: () => Promise.resolve(),
+      }),
+      teamKey: 'FIN',
+      userMap: { josh: 'josh@example.com' },
+    });
+    const epic = bead('is-01hx5zzkbkactav9wevgemmvrz', { assignee: 'josh' });
+    store.set(epic.id, epic);
+
+    await run([epic]);
+    const linked = store.get(epic.id)!;
+    const externalId = readLink(linked, 'linear')!.id;
+    expect(
+      server.requests.find((request) => request.query.includes('mutation IssueCreate'))?.variables,
+    ).toMatchObject({ input: { assigneeId: 'user-1' } });
+    expect(server.issues.get(externalId)?.assignee?.email).toBe('josh@example.com');
+
+    const quiet = await run([linked]);
+    expect(quiet.skippedPushes).toEqual([]);
+    expect(quiet.pushed).toEqual([]);
+    expect(quiet.pulled).toEqual([]);
+    expect(store.get(epic.id)?.assignee).toBe('josh');
   });
 
   it('detects a quiet archived item through the linked-item liveness fetch', async () => {
@@ -442,6 +591,131 @@ describe('the sync engine', () => {
     const again = await run([store.get(epic.id)!]);
     expect(again.commentsPulled).toBe(0);
     expect(again.commentsPushed).toBe(0);
+  });
+
+  it.each([
+    { mode: 'inbound' as const, pushed: 0, pulled: 1, localBodies: ['from the tracker'] },
+    { mode: 'outbound' as const, pushed: 1, pulled: 0, localBodies: ['from the bead'] },
+    { mode: 'off' as const, pushed: 0, pulled: 0, localBodies: [] },
+  ])('enforces the $mode comment-flow boundary', async ({ mode, pushed, pulled, localBodies }) => {
+    const epic = bead('is-01hx5zzkbkactav9wevgemmvrz');
+    store.set(epic.id, epic);
+    await run([epic]);
+    await run([store.get(epic.id)!]);
+    const externalId = readLink(store.get(epic.id)!, 'linear')!.id;
+    const { issue: withComment } = appendLocalComment(
+      store.get(epic.id)!,
+      'linear',
+      'from the bead',
+      new Date().toISOString(),
+    );
+    store.set(withComment.id, withComment);
+    await adapter.createComment(externalId, 'from the tracker');
+    const policy = PolicyDefinitionSchema.parse({
+      ...POLICY,
+      field_sync: { ...POLICY.field_sync, comments: mode },
+    });
+
+    const result = await run([withComment], policy);
+
+    expect(result.commentsPushed).toBe(pushed);
+    expect(result.commentsPulled).toBe(pulled);
+    expect(
+      readComments(store.get(epic.id)!, 'linear')
+        .filter((entry) => entry.id !== undefined)
+        .map((entry) => entry.body),
+    ).toEqual(localBodies);
+    expect(server.comments.map((entry) => entry.body).sort()).toEqual(
+      (pushed === 1 ? ['from the bead', 'from the tracker'] : ['from the tracker']).sort(),
+    );
+  });
+
+  it('defers a pending local comment during pull-only and posts it on the next full sync', async () => {
+    const epic = bead('is-01hx5zzkbkactav9wevgemmvrz');
+    store.set(epic.id, epic);
+    await run([epic]);
+    await run([store.get(epic.id)!]);
+    const externalId = readLink(store.get(epic.id)!, 'linear')!.id;
+    const { issue: withComment } = appendLocalComment(
+      store.get(epic.id)!,
+      'linear',
+      'local waits for a full sync',
+      new Date().toISOString(),
+    );
+    store.set(withComment.id, withComment);
+    await adapter.createComment(externalId, 'remote arrives under pull-only');
+
+    const pull = await runSync({
+      provider: 'linear',
+      adapter,
+      policy: POLICY,
+      dataSyncDir: dir,
+      allIssues: [withComment],
+      displayId: (id) => id.slice(-4),
+      mirrorLabels: false,
+      callbacks,
+      direction: 'inbound',
+      dryRun: false,
+      now: () => new Date().toISOString(),
+    });
+
+    expect(pull.commentsPulled).toBe(1);
+    expect(pull.commentsPushed).toBe(0);
+    expect(server.comments.map((entry) => entry.body)).toEqual(['remote arrives under pull-only']);
+    const afterPull = readComments(store.get(epic.id)!, 'linear');
+    expect(
+      afterPull.find((entry) => entry.body === 'local waits for a full sync')?.id,
+    ).toBeUndefined();
+    expect(afterPull.find((entry) => entry.body === 'remote arrives under pull-only')?.id).toEqual(
+      expect.any(String),
+    );
+
+    const full = await run([store.get(epic.id)!]);
+    expect(full.commentsPushed).toBe(1);
+    expect(full.commentsPulled).toBe(0);
+    expect(server.comments.map((entry) => entry.body).sort()).toEqual([
+      'local waits for a full sync',
+      'remote arrives under pull-only',
+    ]);
+
+    const quiet = await run([store.get(epic.id)!]);
+    expect(quiet.commentsPushed).toBe(0);
+    expect(quiet.commentsPulled).toBe(0);
+  });
+
+  it('previews actual comment work without mutating either side', async () => {
+    const epic = bead('is-01hx5zzkbkactav9wevgemmvrz');
+    store.set(epic.id, epic);
+    await run([epic]);
+    await run([store.get(epic.id)!]);
+    const externalId = readLink(store.get(epic.id)!, 'linear')!.id;
+
+    const { issue: withComment } = appendLocalComment(
+      store.get(epic.id)!,
+      'linear',
+      'local comment waiting to push',
+      new Date().toISOString(),
+    );
+    store.set(withComment.id, withComment);
+    await adapter.createComment(externalId, 'remote comment waiting to pull');
+    const remoteBefore = structuredClone(server.comments);
+    const localBefore = readComments(store.get(epic.id)!, 'linear');
+
+    const preview = await run([withComment], POLICY, true);
+    expect(preview.commentsPushed).toBe(1);
+    expect(preview.commentsPulled).toBe(1);
+    expect(preview.nothingToDo).toBe(false);
+    expect(server.comments).toEqual(remoteBefore);
+    expect(readComments(store.get(epic.id)!, 'linear')).toEqual(localBefore);
+
+    const applied = await run([withComment]);
+    expect(applied.commentsPushed).toBe(1);
+    expect(applied.commentsPulled).toBe(1);
+
+    const quietPreview = await run([store.get(epic.id)!], POLICY, true);
+    expect(quietPreview.commentsPushed).toBe(0);
+    expect(quietPreview.commentsPulled).toBe(0);
+    expect(quietPreview.nothingToDo).toBe(true);
   });
 
   it('records a replayed comment before planning so a crash cannot duplicate it', async () => {
@@ -719,6 +993,38 @@ describe('the sync engine', () => {
     expect(readLink(created!, 'linear')?.id).toBe('external-only');
   });
 
+  it('seeds an inbound bead with a safely mapped assignee alias', async () => {
+    adapter = new LinearAdapter({
+      client: new LinearClient({
+        apiKey: 'lin_api_test',
+        endpoint: server.endpoint,
+        maxAttempts: 4,
+        sleep: () => Promise.resolve(),
+      }),
+      teamKey: 'FIN',
+      userMap: { josh: 'josh@example.com' },
+    });
+    server.addIssue({
+      id: 'assigned-external',
+      identifier: 'FIN-79',
+      title: 'Assigned by a PM',
+      assignee: server.users[0]!,
+      updatedAt: new Date().toISOString(),
+    });
+    const autoPolicy = PolicyDefinitionSchema.parse({
+      outbound: { kinds: [], statuses: [], specs: 'none', linked: true },
+      inbound: { mode: 'auto', as_kind: 'task' },
+      field_sync: { fields: { assignee: 'merge' } },
+    });
+
+    const imported = await run([], autoPolicy);
+
+    expect(imported.failures).toEqual([]);
+    const created = [...store.values()].find((issue) => issue.title === 'Assigned by a PM');
+    expect(created?.assignee).toBe('josh');
+    expect(JSON.stringify(created)).not.toContain('josh@example.com');
+  });
+
   it('replays a failed inbound ownership claim without duplicating the bead', async () => {
     server.addIssue({
       id: 'claim-retry',
@@ -822,6 +1128,77 @@ describe('the sync engine', () => {
     expect(full.replayedOps).toBe(1);
     expect(server.attachments).toHaveLength(1);
     expect(await listIntentFiles(dir, 'linear')).toHaveLength(0);
+  });
+
+  it('imports an explicitly selected Linear parent before its child and preserves hierarchy', async () => {
+    server.addIssue({
+      id: 'external-parent',
+      identifier: 'FIN-201',
+      title: 'External parent',
+      updatedAt: new Date().toISOString(),
+    });
+    server.addIssue({
+      id: 'external-child',
+      identifier: 'FIN-202',
+      title: 'External child',
+      parent: { id: 'external-parent', identifier: 'FIN-201' },
+      updatedAt: new Date().toISOString(),
+    });
+
+    const result = await runSync({
+      provider: 'linear',
+      adapter,
+      policy: POLICY,
+      dataSyncDir: dir,
+      allIssues: [],
+      displayId: (id) => id.slice(-4),
+      mirrorLabels: false,
+      callbacks,
+      direction: 'inbound',
+      externalIssueIds: ['external-child', 'external-parent'],
+      dryRun: false,
+      now: () => new Date().toISOString(),
+    });
+
+    const importedParent = [...store.values()].find((issue) => issue.title === 'External parent');
+    const importedChild = [...store.values()].find((issue) => issue.title === 'External child');
+    expect(result.failures).toEqual([]);
+    expect(result.importedInbound).toHaveLength(2);
+    expect(importedChild?.parent_id).toBe(importedParent?.id);
+  });
+
+  it('refuses to flatten an inbound sub-issue whose Linear parent is unavailable', async () => {
+    server.addIssue({
+      id: 'external-child-only',
+      identifier: 'FIN-204',
+      title: 'External child without its parent',
+      parent: { id: 'external-missing-parent', identifier: 'FIN-203' },
+      updatedAt: new Date().toISOString(),
+    });
+
+    const result = await runSync({
+      provider: 'linear',
+      adapter,
+      policy: POLICY,
+      dataSyncDir: dir,
+      allIssues: [],
+      displayId: (id) => id.slice(-4),
+      mirrorLabels: false,
+      callbacks,
+      direction: 'inbound',
+      externalIssueIds: ['external-child-only'],
+      dryRun: false,
+      now: () => new Date().toISOString(),
+    });
+
+    expect(result.importedInbound).toEqual([]);
+    expect(result.failures).toEqual([
+      expect.objectContaining({
+        beadId: 'FIN-204',
+        error: expect.stringContaining('parent FIN-203'),
+      }),
+    ]);
+    expect(store.size).toBe(0);
   });
 
   it('refuses to import an item already claimed by another tbd repository', async () => {

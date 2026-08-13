@@ -297,6 +297,26 @@ describe('applyMirror', () => {
     expect(server.attachments.length).toBeGreaterThan(0);
   });
 
+  it('creates selected parents before children and preserves provider hierarchy', async () => {
+    const parent = issue({ id: 'is-parent', title: 'Parent' });
+    const child = issue({ id: 'is-child', title: 'Child', parent_id: parent.id });
+    const plan = planMirror({
+      provider: 'linear',
+      allIssues: [child, parent],
+      selected: [child, parent],
+      displayId,
+      maxNesting: 2,
+    });
+
+    const report = await applyMirror({ adapter, plan, displayId, onLinked });
+
+    const parentRef = linked.find((item) => item.issue.id === parent.id)?.entry;
+    const childRef = linked.find((item) => item.issue.id === child.id)?.entry;
+    expect(report.created).toEqual(['tbd-parent', 'tbd-child']);
+    expect(report.failures).toEqual([]);
+    expect(server.issues.get(childRef!.id)?.parent?.id).toBe(parentRef?.id);
+  });
+
   it('is idempotent on a second run: attachments upsert rather than duplicate', async () => {
     const bead = issue({ id: 'is-a' });
     const first = planMirror({

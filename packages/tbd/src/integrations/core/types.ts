@@ -34,6 +34,10 @@ export interface ExternalIssue extends ExternalRef {
   priority: PriorityType;
   labels: string[];
   assignee: string | null;
+  /** Safe, provider-authored mapping diagnostics to surface in the sync report. */
+  mappingWarnings?: string[];
+  /** Provider parent identity. Missing or null means this item is a root. */
+  parent?: Pick<ExternalRef, 'id' | 'key'> | null;
   /** The provider's own last-modified timestamp, used for echo suppression. */
   updatedAt: string;
   /** Set when the item was archived; a linked bead becomes orphaned, never deleted. */
@@ -63,6 +67,7 @@ export interface CanonicalPatch {
   status?: IssueStatusType;
   priority?: PriorityType;
   labels?: string[];
+  assignee?: string | null;
   parentId?: string | null;
 }
 
@@ -119,6 +124,8 @@ export interface ConflictReport {
  */
 export interface MirrorAction {
   bead: Issue;
+  /** Selected local parent whose provider identity must exist before this action. */
+  parentBeadId?: string;
   /** Absent when the bead has no external item yet and one must be created. */
   externalId?: string;
   patch: CanonicalPatch;
@@ -157,6 +164,9 @@ export interface MirrorReport {
  */
 export interface TrackerAdapter {
   readonly provider: ProviderNameType;
+
+  /** Whether this canonical assignee has an explicit, safe provider mapping. */
+  canPushAssignee(assignee: string | null): boolean;
 
   /** Parse `FIN-123`, a provider URL, or `owner/repo#12` into a ref. */
   resolveRef(ref: string): Promise<ExternalRef>;

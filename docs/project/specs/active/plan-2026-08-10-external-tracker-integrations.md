@@ -9,11 +9,13 @@ author: Joshua Levy (github.com/jlevy) with LLM assistance
 
 **Author:** Joshua Levy (github.com/jlevy) with LLM assistance
 
-**Status:** Phases 1 and 2 are implemented in PR
-[#206](https://github.com/jlevy/tbd/pull/206), now merged with the published v0.5.0
-`main`. The built CLI and a disposable live Linear issue have passed outbound creation,
-inbound and outbound comments, forced conflict recovery, archived-item detection, and a
-two-clone alternating-sync soak.
+**Status:** Phases 1 and 2 are implemented on PR
+[#206](https://github.com/jlevy/tbd/pull/206), rebased onto the published v0.5.0 `main`.
+The built CLI and disposable live Linear fixtures pass the 11-scenario API compatibility
+gate: explicit import, deferred claim replay, fields and comments in both directions,
+mapped assignees, provider-created hierarchy, project-scope isolation, forced conflict
+recovery, exact-once settling, orphan detection, and verified cleanup.
+The earlier two-clone alternating-sync soak also passed.
 The post-v0.5 review added fail-closed duplicate-link handling, exact conflict
 archive/replay, strict read-only pulls, explicit inbound selection, cross-repository
 link claims, live-claim validation for every replayed provider write, and retryable
@@ -110,6 +112,98 @@ cross-branch overview of epics) with none of the distributed-systems risk.
 - **No generated `TODO.md`** in this spec.
   Deferred deliberately: the format is unsettled, and a second generated to-do surface
   risks agents disagreeing about which list is authoritative.
+
+## Compatibility Contract and Evidence Matrix
+
+Every provider implements the same canonical tbd contract.
+Provider vocabulary is translated at the adapter boundary; selection, reconciliation,
+journaling, linking, comments, and failure handling stay provider-neutral.
+A provider is release-ready only when every applicable row below has an explicit
+disposition and the combined contract has evidence at three levels: pure or mock-backed
+tests, the built-CLI lifecycle, and the bounded live API runner.
+Each row names the layers that materially prove it; API behavior that cannot be
+manufactured safely in a live workspace remains a deterministic fixture test.
+UI editing is a parity check, not the source of live test mutations.
+
+The dispositions are:
+
+- **Supported**: part of the compatibility contract and a release gate
+- **Bounded**: supported within a documented limit; exceeding it is visible and safe
+- **Unsupported**: deliberately retained or ignored without pretending to synchronize
+- **Deferred**: designed but unavailable until the named provider phase lands
+
+### Fields and Content
+
+| Case | Canonical contract and Linear disposition | Implementation | Automated and live evidence |
+| --- | --- | --- | --- |
+| Title | **Supported**, three-way `merge` by default | `core/reconcile.ts`; `linear/adapter.ts` | Reconcile matrix; engine push/pull/conflict; live `tbd-to-provider-fields-comments-assignee`, `provider-to-tbd-fields-comments-assignee`, and `concurrent-conflict-recovery` |
+| Description | **Supported** after managed-block stripping and whitespace normalization; malformed markers fail closed | `core/managed-block.ts`; `core/bridge-state.ts`; `core/reconcile.ts` | Managed-block and reconcile tests; live bidirectional field scenarios and conflict |
+| Status | **Supported** through stable Linear state `type`; blocked/deferred use exclusive `tbd:` carrier labels | `linear/mapping.ts`; `LinearAdapter.applyChanges()` | Mapping and stale-carrier tests; live bidirectional field scenarios |
+| Unknown Linear state type | **Bounded**: canonicalize to `open` and report the unknown type; never crash or invent a tbd status | `linear/mapping.ts`; sync report boundary | Adapter fixture and sync-report regression |
+| Priority | **Supported** with an explicit non-bijection: Linear unset → P2; P4 and P3 are equivalent after push | `linear/mapping.ts`; reconcile equivalences | Mapping and no-oscillation engine tests; live bidirectional field scenarios |
+| Labels | **Supported when `mirror_labels` is enabled**; exact tbd labels use a `tbd:` prefix and status carriers remain provider-owned metadata | `core/mirror.ts`; `linear/adapter.ts` | Mirror/status-carrier tests; paginated-label adapter tests |
+| Assignee | **Supported only through non-empty `user_map`**. UUID/email resolves to a canonical alias on initial import and linked sync; unknown identities remain visible as skipped pushes; emails never persist | `TrackerAdapter.canPushAssignee()`; `core/reconcile.ts`; `importExternal()`; `linear/adapter.ts` | Reconcile, adapter, import, and engine round-trip tests; live bidirectional field scenarios |
+| Kind, spec, dependencies, counts | **Supported as read-only projection**, not native Linear workflow fields | `core/managed-block.ts`; `core/mirror.ts` attachments | Managed-block, attachment, and package tests |
+| Notes | **Unsupported** and local-only | Selection of canonical synced fields | Schema/reconcile field-list tests |
+
+### Identity, Hierarchy, and Lifecycle
+
+| Case | Canonical contract and Linear disposition | Implementation | Automated and live evidence |
+| --- | --- | --- | --- |
+| Stable identity | **Supported** by provider UUID; human key and URL are refreshable display data | `core/link-store.ts`; `linear/adapter.ts` | Team-move/key-refresh tests and live pilot |
+| Project scan scope | **Supported**: configured project scopes outbound creation and automatic inbound discovery; explicit identity import bypasses scan scope | `LinearAdapter.resolveProject()`; project-filtered updated-since query | Adapter project-scope test; live `automatic-inbound-scope` sentinel pair |
+| Duplicate local links | **Supported fail-closed**: quarantine every holder before provider writes while unrelated pairs continue | `core/link-store.ts`; `core/sync-engine.ts` | Integrity unit and built-CLI tests |
+| Cross-repository claim | **Bounded** by paginated `tbd://bead/` attachment probes; sequential duplicate writers are refused, simultaneous first claims remain a documented race | `core/link-guard.ts`; `LinearAdapter.listAttachmentUrls()` | Guard and >250-attachment tests; built-CLI foreign-claim refusal |
+| Outbound parent/child | **Supported**, parent created before child with stable `parentId` | `core/mirror.ts`; `core/sync-engine.ts` | Mirror, engine, and built-CLI hierarchy tests |
+| Inbound sub-issue | **Supported**, parent must already be linked or import in the same batch; never flatten silently | `orderInboundCandidates()`; runner `createBead()` | Engine and built-CLI parent/spec/order-hint tests; live `provider-created-hierarchy` |
+| Reparenting | **Supported with tbd ownership** for linked pairs; pull-only reports no unapplied overwrite and the next full sync restores the local parent | `core/sync-engine.ts` parent reconciliation | Engine reparent and direction tests |
+| Cycles and missing parents | **Supported fail-closed** with a per-item error; no unbounded walk | `lib/issue-hierarchy.ts`; inbound ordering | Hierarchy unit, engine, doctor, and CLI tests |
+| Nesting depth | **Bounded** for new outbound projection by `max_nesting`; inbound and already-linked relationships retain their true parents | `depthWithinSelection()`; `skippedOutbound` | Mirror/engine depth tests |
+| Remote archive/delete | **Supported as orphan detection**; never delete or close the bead automatically | `core/sync-engine.ts` liveness fetch | Quiet-archive engine test and live `orphan-detection` |
+| Local close/delete | Close is **supported** as a status change; provider deletion is **unsupported**. A missing local bead cancels stale intents rather than deleting external data | Reconcile/status mapping; replay safety filter | Status, unlink, and stale-intent tests |
+| Link/unlink/relink | **Supported** with explicit stance for ambiguous first links and cancellation-first unlink | `cli/commands/integration.ts`; `core/intents.ts` | Built-CLI stance, unlink, crash, and replay tests |
+
+### Comments, Direction, and Concurrency
+
+| Case | Canonical contract and Linear disposition | Implementation | Automated and live evidence |
+| --- | --- | --- | --- |
+| Comment append | **Supported** in both directions as union by immutable provider id/local id and creation-time order | `core/comment-store.ts`; `core/sync-engine.ts` | Merge, engine, and built-CLI round trips; live bidirectional field/comment scenarios |
+| Comment replay | **Supported exactly once** with client UUIDs and identity recovery committed before journal cleanup | `core/intents.ts`; `LinearAdapter.createComment()` | Crash-after-write and duplicate-id tests; live `exact-once-settle` |
+| Comment modes | **Supported** for `two_way`, `inbound`, `outbound`, and `off`; `--pull` never writes a pending local comment | `core/policy.ts`; `core/sync-engine.ts` | Mode table and pull-then-full-sync tests |
+| Long discussions | **Supported** with complete provider pagination. All identities remain; only the newest 50 provider-held entries retain full local prose and bodies cap at 10 KiB. Pending outbound prose is never truncated | `LinearAdapter.listComments()`; `core/comment-store.ts` | 251-comment and cap/pending-body tests |
+| Comment edits, deletions, reactions, threads | **Unsupported**. Original entries remain append-only; threads flatten by creation time | Comment-store allow-list and sync union | No-update behavior tests; documented live observation |
+| Author identity | **Supported as display text only**; emails, avatars, and raw user payloads are excluded | `ExternalComment`; `LinearAdapter.listComments()` | Serialization/privacy tests and live bead inspection |
+| Direction flags | **Supported**: bare is both, `--push` writes provider only, `--pull` writes local only and may defer provider intents | CLI and `SyncEngineOptions.direction` | Built-CLI direction and deferred-intent tests |
+| Three-way conflict | **Supported** per field; archive the exact loser before applying, post one resolvable provider comment, then converge | `core/reconcile.ts`; `core/sync-engine.ts`; `core/intents.ts` | Full matrix, failure injection, replay, and live `concurrent-conflict-recovery` |
+| Two machines | **Supported** through per-link bridge files, git merge rules, repo-scoped local locks, and idempotent provider writes | `core/bridge-state.ts`; `file/git.ts`; `core/intents.ts` | Divergent-history merge and two-clone live soak |
+| Partial provider failure | **Supported** with per-pair containment and durable retries; completed pairs are not replayed as duplicates | Sync engine and intent journal | Failure-injection and built-CLI degraded-run tests |
+| Rate limits and pagination | **Supported** with bounded retry of Linear’s HTTP 400 `RATELIMITED`; all correctness-sensitive connections paginate | `linear/client.ts`; `linear/adapter.ts`; `linear/queries.ts` | Transport plus comments/labels/attachments pagination tests |
+| Bulk mutation | **Bounded**: over 20 creates or 40 updates requires an interactive confirmation or explicit `--yes` | `core/bulk-guard.ts` | Unit and built-CLI refusal tests |
+| Credentials and data minimization | **Supported fail-closed**: credentials remain explicit values, never enter git subprocess environment, output, beads, bridge files, or fixtures | `core/credentials.ts`; adapter allow-lists | Secret-hygiene, schema, and live inspection checks |
+
+### Reusable Provider QA Contract
+
+`packages/tbd/scripts/provider-live-qa-contract.ts` defines the import-safe,
+completion-enforced provider scenario checklist.
+The Linear playbook at `packages/tbd/tests/qa/linear-integration.qa.md` defines the
+concrete API driver and assertions.
+Each future provider supplies a driver for the same lifecycle:
+
+1. create an isolated provider item through the provider API;
+2. import it into a disposable tbd repository and verify the canonical snapshot;
+3. mutate tbd fields and comments, sync, and verify through the provider API;
+4. mutate provider fields, comments, and hierarchy through the API, pull, and verify
+   through the built tbd CLI;
+5. force a concurrent edit and verify conflict recovery;
+6. repeat until quiet, inject one recoverable failure, and verify exact-once replay;
+7. archive the provider fixtures and remove the disposable repository.
+
+The provider’s web UI is checked once for parity with the API result.
+It is not a test driver because UI timing, browser state, and manual actions are neither
+reproducible nor sufficient for release evidence.
+GitHub Phase 3 must implement these same scenario names against disposable issues and a
+pull request, then add only GitHub-specific rows for PR associations, permissions, and
+repository transfers.
 
 ## Background
 
@@ -423,6 +517,9 @@ carry the full function-level test cases.
 | Link liveness | `tbd-q0yh` | Linear `ISSUES_BY_ID_QUERY`; `sync-engine.ts` linked-item liveness fetch and orphan transition | Quiet archive/delete is detected outside the watermark; no bead is deleted or closed; repair remains explicit |
 | Source hygiene | `tbd-sl7f`, `tbd-xu8f` | `cli/commands/attic.ts` optional-field restoration; `lib/comment-union.ts` canonical key separator | Static optional-field deletion satisfies type-domain lint; source contains an escaped NUL spelling rather than a literal binary byte while runtime keys remain unchanged |
 | Linear live gate | `tbd-40el` | Built CLI plus `tests/qa/linear-integration.qa.md`; bridge link and intent records | Link/take/unlink/relink, comments, deliberate conflict, and two-clone convergence pass against the pilot |
+| Comment compatibility | `tbd-b6mv`, `tbd-ridy`, `tbd-n8th`, `tbd-ckek`, `tbd-xypz` | `core/comment-store.ts`; `core/sync-engine.ts`; Linear comment query; built CLI comment command | Empty input fails; dry-run reports real work; all pages are read; pending prose remains intact; every direction mode converges exactly once |
+| Hierarchy and identity compatibility | `tbd-4ztt`, `tbd-u09d`, `tbd-kvf7`, `tbd-b4jt`, `tbd-s7t7` | `core/{mirror,sync-engine,reconcile,types}.ts`; `linear/{adapter,queries,mapping}.ts`; runner import callback | Parent-first create/import/reparent behavior, mapped assignees, complete pagination, project-scoped discovery, and visible unknown-state fallback pass focused and built-CLI tests |
+| Compatibility contract and API gate | `tbd-96kk`, `tbd-bazn`, `tbd-xcu2`, `tbd-ynf7`, `tbd-dsl2` | This matrix; import-safe `scripts/provider-live-qa-contract.ts`; `scripts/validate-linear-integration-live.ts`; `tests/qa/linear-integration.qa.md`; packaged docs and skills | Every applicable case has a disposition and code/test seam; provider drivers reuse one completion-enforced scenario contract; the documented command passes all stable live scenarios and proves fixture cleanup |
 | Linear RC decision | `tbd-jud3` | Package, docs, installed skills, PR #206 review and hosted checks | All local and hosted release gates are final green with an explicit RC disposition |
 | GitHub transport | `tbd-lmo9` | New `integrations/github/{client,queries,mapping,adapter}.ts`; `credentials.ts`; `registry.ts`; `status.ts` | Mock API contract, credential fallback, mapping, pagination, permission and rate-limit tests pass |
 | GitHub issues | `tbd-tnks` | Existing `integration.ts`; `core/{mirror,sync-engine,intents,reconcile,link-store,link-guard}.ts` through the GitHub adapter | Link, explicit inbound selection, outbound projection, two-way sync, comments, and unlink settle to a second-run no-op |
@@ -1072,8 +1169,9 @@ Replay safety is per-operation, verified against the mock server:
 - **`sync --pull --external <ref>`** (item → new bead): a link plus a one-shot
   all-`remote` pull, independent of the configured inbound selector.
   The bead gets canonical fields only — title, mapped status and priority, description
-  (managed-block-stripped), `as_kind` from the policy.
-  No labels, no assignee, no raw payload.
+  (managed-block-stripped), `as_kind` from the policy, and an assignee alias only when
+  `user_map` proves its identity.
+  No labels, unmapped assignee, email, or raw payload.
   Base := the imported values.
 - **`link <bead> <ref>`** (both exist — the only ambiguous case): equal fields converge
   silently; for differing fields there is no honest automatic answer, so the command
@@ -1426,16 +1524,20 @@ Phase 2 extends the same structure:
   non-interactively without `--yes`, same as outbound.
 - **Secret and data hygiene**: no credential substring in any output or error path
   (Phase 1, extended to new commands); bridge records contain **only** the `lk` schema
-  keys; imported beads contain only canonical fields (assert the absence of assignee,
-  emails, and unknown keys).
+  keys; imported beads contain only canonical fields (assert mapped aliases or absent
+  assignees, never emails or unknown keys).
 - **Built-CLI lifecycle against the mock server** (`tbd-uu08`): status → push → re-push
   no-op → link stance refusal → sync pull/push → forced both-sides conflict (attic +
   comment) → orphan report → rate-limit backoff → degraded run.
 - **Offline/unconfigured**: every subcommand and doctor behave correctly with no
   credential and no network.
-- **Manual QA playbook** (`tests/qa/`): full loop against the pilot Linear project,
-  including two machines running sync concurrently with no echo or ping-pong, and a
-  deliberate both-sides conflict resolved through the comment lifecycle.
+- **API-driven live QA** (`tests/qa/`, `scripts/provider-live-qa-contract.ts`, and
+  `scripts/validate-linear-integration-live.ts`): the built CLI runs in a disposable git
+  repository while direct GraphQL mutations and reads drive and verify the shared,
+  completion-enforced provider scenarios.
+  UI testing is parity-only.
+  The extended two-clone soak remains the concurrency release gate for bridge or intent
+  changes.
 - **Integrity gates added after the live pilot finding**: corrupt pre-existing data with
   two beads linked to one external id must fail closed before any external write, name
   every holder, and allow unrelated pairs to continue.
@@ -1464,9 +1566,12 @@ Phase 2 extends the same structure:
    - ✅ `tbd-40el` live evidence: forced conflict/archive recovery, inbound and outbound
      comments, quiet archive/orphan detection, and alternating two-clone sync all
      converged without echo or ping-pong;
+   - ✅ the reusable API gate passes all 11 stable scenarios, including mapped assignee,
+     inbound hierarchy, project isolation, exact-once settling, and verified cleanup;
    - ~~`tbd-rdsb` resolved~~ **done**: root-caused as tryscript cross-contamination
      through a shared origin repo, not a product bug; fixed with per-file origins;
-   - failure-injection coverage for transport errors mid-run.
+   - ✅ failure-injection coverage protects transport errors mid-run, durable retries,
+     and per-pair continuation.
      `inbound.mode: auto` stays off by default even then — it lets people outside the
      repo create work inside it, and a repo should opt into that knowingly.
 4. Phase 3 adds GitHub issues first, then read-only PR associations.

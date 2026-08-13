@@ -201,6 +201,55 @@ describe('tbd integration, end to end via the built binary', () => {
     expect(server.comments).toHaveLength(commentsBefore);
   });
 
+  it('imports a Linear sub-issue under its linked bead parent with inherited spec and order', async () => {
+    await mkdir(join(dir, 'docs'), { recursive: true });
+    await writeFile(join(dir, 'docs', 'hierarchy.md'), '# Hierarchy\n');
+    expect(
+      (
+        await cli([
+          'create',
+          'Linked hierarchy parent',
+          '-t',
+          'epic',
+          '--spec',
+          'docs/hierarchy.md',
+        ])
+      ).code,
+    ).toBe(0);
+    let rows = JSON.parse((await cli(['list', '--json'])).stdout) as {
+      id: string;
+      internalId: string;
+      title: string;
+      parentId?: string;
+      spec_path?: string;
+      child_order_hints?: string[];
+    }[];
+    const parent = rows.find((row) => row.title === 'Linked hierarchy parent')!;
+    expect((await cli(['integration', 'sync', '--push', '--bead', parent.id, '--yes'])).code).toBe(
+      0,
+    );
+    const remoteParent = [...server.issues.values()].find(
+      (issue) => issue.title === 'Linked hierarchy parent',
+    )!;
+    server.addIssue({
+      id: 'external-hierarchy-child',
+      identifier: 'FIN-89',
+      title: 'Imported hierarchy child',
+      parent: { id: remoteParent.id, identifier: remoteParent.identifier },
+      updatedAt: new Date(Date.now() + 180_000).toISOString(),
+    });
+
+    const imported = await cli(['integration', 'sync', '--pull', '--external', 'FIN-89', '--yes']);
+
+    expect(imported.code).toBe(0);
+    rows = JSON.parse((await cli(['list', '--json'])).stdout) as typeof rows;
+    const child = rows.find((row) => row.title === 'Imported hierarchy child')!;
+    const updatedParent = rows.find((row) => row.id === parent.id)!;
+    expect(child.parentId).toBe(parent.id);
+    expect(child.spec_path).toBe('docs/hierarchy.md');
+    expect(updatedParent.child_order_hints).toContain(child.internalId);
+  });
+
   it('authors a comment offline and posts it on the next sync', async () => {
     const list = await cli(['list', '--json']);
     const match = /"id":\s*"([^"]+)"/.exec(list.stdout);
@@ -213,6 +262,18 @@ describe('tbd integration, end to end via the built binary', () => {
     const sync = await cli(['integration', 'sync']);
     expect(sync.code).toBe(0);
     expect(server.comments.some((c) => c.body === 'from the CLI')).toBe(true);
+  });
+
+  it('rejects an empty local comment before recording it', async () => {
+    expect((await cli(['create', 'Empty comment sentinel'])).code).toBe(0);
+    const list = await cli(['list', '--json']);
+    const rows = JSON.parse(list.stdout) as { id: string; title: string }[];
+    const bead = rows.find((row) => row.title === 'Empty comment sentinel');
+    expect(bead).toBeDefined();
+
+    const result = await cli(['integration', 'comment', bead!.id, '   ']);
+    expect(result.code).not.toBe(0);
+    expect(result.stderr).toContain('Comment text cannot be empty');
   });
 
   it('refuses to link the same external item to a second bead', async () => {

@@ -310,8 +310,10 @@ function printSyncReport(report: SyncRunReport, dryRun: boolean): void {
     report.commentsPulled > 0 ? `comments in ${report.commentsPulled}` : '',
     report.createdOutbound.length > 0 ? `${would}create ${report.createdOutbound.length}` : '',
     report.importedInbound.length > 0 ? `${would}import ${report.importedInbound.length}` : '',
+    report.skippedOutbound.length > 0 ? `skipped ${report.skippedOutbound.length}` : '',
     report.conflicts.length > 0 ? `conflicts ${report.conflicts.length}` : '',
     report.orphaned.length > 0 ? `orphaned ${report.orphaned.length}` : '',
+    report.warnings.length > 0 ? `warnings ${report.warnings.length}` : '',
     report.failures.length > 0 ? `failed ${report.failures.length}` : '',
   ].filter(Boolean);
   console.log(`${report.provider}: ${parts.join(', ')}`);
@@ -325,6 +327,12 @@ function printSyncReport(report: SyncRunReport, dryRun: boolean): void {
   }
   for (const skipped of report.skippedPushes) {
     console.log(`  - ${skipped.beadId}: ${skipped.field} push unsupported; left divergent`);
+  }
+  for (const skipped of report.skippedOutbound) {
+    console.log(`  - ${skipped.beadId}: ${skipped.reason}`);
+  }
+  for (const warning of report.warnings) {
+    console.log(`  ! ${warning.externalKey ?? warning.externalId}: ${warning.message}`);
   }
   for (const item of report.importable) {
     console.log(`  ? importable: ${item.key ?? item.id} ${item.title}`);
@@ -340,6 +348,9 @@ function printSyncReport(report: SyncRunReport, dryRun: boolean): void {
 /** `tbd integration comment` — author a comment offline; sync pushes it. */
 class IntegrationCommentHandler extends BaseCommand {
   async run(beadRef: string, text: string, options: { provider?: string }): Promise<void> {
+    if (text.trim().length === 0) {
+      throw new CLIError('Comment text cannot be empty.');
+    }
     const tbdRoot = await requireInit();
     const config = await readConfig(tbdRoot);
     const provider = (options.provider ?? 'linear') as ProviderNameType;

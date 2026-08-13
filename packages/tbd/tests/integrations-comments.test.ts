@@ -72,6 +72,15 @@ describe('the comment store', () => {
     expect(readComments(pushed, 'linear')[0]?.local_id).toBe(entry.local_id);
   });
 
+  it('keeps unpushed prose whole until the provider holds the original', () => {
+    const original = 'x'.repeat(COMMENT_BODY_CAP + 5);
+    const { issue, entry } = appendLocalComment(bead(), 'linear', original, NOW);
+    expect(readComments(issue, 'linear')[0]?.body).toBe(original);
+
+    const pushed = recordPushedComment(issue, 'linear', entry.local_id!, 'provider-uuid');
+    expect(readComments(pushed, 'linear')[0]?.body).toContain('truncated');
+  });
+
   it('merges external comments once, with allow-listed fields only', () => {
     const external = [
       {

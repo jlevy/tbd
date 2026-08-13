@@ -19,6 +19,9 @@ import type { ProviderNameType } from '../../lib/types.js';
 import type { LinearClient } from './client.js';
 import { LinearDuplicateIdError, MAX_PAGE_SIZE } from './client.js';
 import {
+  BLOCKED_LABEL,
+  DEFERRED_LABEL,
+  KNOWN_STATE_TYPES,
   priorityFromLinear,
   priorityToLinear,
   statusFromLinear,
@@ -30,14 +33,18 @@ import {
   COMMENT_RESOLVE_MUTATION,
   ISSUES_BY_ID_QUERY,
   ISSUES_UPDATED_SINCE_QUERY,
+  ISSUES_UPDATED_SINCE_IN_PROJECT_QUERY,
   ISSUE_BY_IDENTIFIER_QUERY,
   ISSUE_COMMENTS_QUERY,
   ISSUE_ATTACHMENTS_QUERY,
   ISSUE_CREATE_MUTATION,
+  ISSUE_LABELS_QUERY,
   ISSUE_UPDATE_MUTATION,
   LABEL_CREATE_MUTATION,
   PROJECT_QUERY,
   TEAM_META_QUERY,
+  TEAM_LABELS_QUERY,
+  USERS_BY_EMAIL_QUERY,
 } from './queries.js';
 import { spliceManagedBlock } from '../core/managed-block.js';
 import { CONFLICT_COMMENT_MARKER } from '../core/types.js';
@@ -51,8 +58,11 @@ interface RawIssue {
   priority: number;
   updatedAt: string;
   state: { id: string; name: string; type: string } | null;
-  assignee: { id: string; name: string; displayName: string } | null;
-  labels: { nodes: { id: string; name: string }[] };
+  assignee: { id: string; name: string; displayName: string; email?: string } | null;
+  labels: {
+    pageInfo?: { hasNextPage: boolean; endCursor: string | null };
+    nodes: { id: string; name: string }[];
+  };
   parent: { id: string; identifier: string } | null;
   archivedAt: string | null;
   trashed: boolean | null;
@@ -65,12 +75,16 @@ export interface LinearAdapterOptions {
   createLabels?: boolean;
   /** Project to file mirrored issues under, by name or slug id. */
   project?: string;
+  /** Maps canonical tbd assignee aliases to a Linear user UUID or email. */
+  userMap?: Record<string, string>;
 }
 
 /** Recognizes a Linear issue URL and extracts the identifier. */
 const LINEAR_URL_RE = /linear\.app\/[^/]+\/issue\/([A-Za-z0-9]+-\d+)/;
 /** Recognizes a bare human identifier such as `FIN-123`. */
 const IDENTIFIER_RE = /^[A-Za-z][A-Za-z0-9]*-\d+$/;
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const EMAIL_RE = /^[^@\s]+@[^@\s]+$/;
 
 export class LinearAdapter implements TrackerAdapter {
   readonly provider: ProviderNameType = 'linear';
@@ -78,6 +92,9 @@ export class LinearAdapter implements TrackerAdapter {
   private readonly client: LinearClient;
   private readonly teamKey: string;
   private readonly createLabels: boolean;
+  private readonly userMap: ReadonlyMap<string, string>;
+  private readonly assigneeByExternalIdentity: ReadonlyMap<string, string>;
+  private readonly resolvedUserIds = new Map<string, string>();
 
   private teamId?: string;
   private meta?: ProviderMeta;
@@ -89,6 +106,32 @@ export class LinearAdapter implements TrackerAdapter {
     this.teamKey = options.teamKey;
     this.createLabels = options.createLabels ?? true;
     this.project = options.project;
+    const configuredUsers = Object.entries(options.userMap ?? {});
+    const reverse = new Map<string, string>();
+    for (const [assignee, identity] of configuredUsers) {
+      if (!assignee.trim()) {
+        throw new Error('integrations.linear.user_map contains an empty tbd assignee.');
+      }
+      if (!UUID_RE.test(identity) && !EMAIL_RE.test(identity)) {
+        throw new Error(
+          `integrations.linear.user_map.${assignee} must be a Linear user UUID or email.`,
+        );
+      }
+      const normalized = identity.toLowerCase();
+      const existing = reverse.get(normalized);
+      if (existing) {
+        throw new Error(
+          `integrations.linear.user_map maps both ${existing} and ${assignee} to the same Linear user.`,
+        );
+      }
+      reverse.set(normalized, assignee);
+    }
+    this.userMap = new Map(configuredUsers);
+    this.assigneeByExternalIdentity = reverse;
+  }
+
+  canPushAssignee(assignee: string | null): boolean {
+    return this.userMap.size > 0 && (assignee === null || this.userMap.has(assignee));
   }
 
   /**
@@ -107,16 +150,27 @@ export class LinearAdapter implements TrackerAdapter {
       return this.projectId ?? undefined;
     }
 
-    const data = await this.client.request<{
-      projects: { nodes: { id: string; name: string; slugId: string }[] };
-    }>(PROJECT_QUERY, { first: 250 });
+    const projects: { id: string; name: string; slugId: string }[] = [];
+    let after: string | undefined;
+    do {
+      const data = await this.client.request<{
+        projects: {
+          pageInfo: { hasNextPage: boolean; endCursor: string | null };
+          nodes: { id: string; name: string; slugId: string }[];
+        };
+      }>(PROJECT_QUERY, { first: MAX_PAGE_SIZE, after });
+      projects.push(...data.projects.nodes);
+      after = data.projects.pageInfo.hasNextPage
+        ? (data.projects.pageInfo.endCursor ?? undefined)
+        : undefined;
+    } while (after);
 
     const wanted = this.project.toLowerCase();
-    const match = data.projects.nodes.find(
+    const match = projects.find(
       (node) => node.slugId.toLowerCase() === wanted || node.name.toLowerCase() === wanted,
     );
     if (!match) {
-      const available = data.projects.nodes.map((n) => `${n.name} (${n.slugId})`).join(', ');
+      const available = projects.map((node) => `${node.name} (${node.slugId})`).join(', ');
       throw new Error(
         `Linear project not found: ${this.project}. Available: ${available || 'none'}`,
       );
@@ -167,7 +221,12 @@ export class LinearAdapter implements TrackerAdapter {
         issues: { pageInfo: { hasNextPage: boolean; endCursor: string | null }; nodes: RawIssue[] };
       }>(ISSUES_BY_ID_QUERY, { ids, first: MAX_PAGE_SIZE, after });
 
-      results.push(...data.issues.nodes.map((node) => this.toCanonical(node)));
+      const page = await Promise.all(
+        data.issues.nodes.map(async (node) =>
+          this.toCanonical(await this.withAllIssueLabels(node)),
+        ),
+      );
+      results.push(...page);
       after = data.issues.pageInfo.hasNextPage
         ? (data.issues.pageInfo.endCursor ?? undefined)
         : undefined;
@@ -213,7 +272,14 @@ export class LinearAdapter implements TrackerAdapter {
 
   async applyChanges(id: string, patch: CanonicalPatch): Promise<{ updatedAt: string }> {
     const meta = await this.ensureMeta();
-    const input = await this.toInput(patch, meta);
+    let preservedLabels: string[] | undefined;
+    if (patch.status !== undefined && patch.labels === undefined) {
+      const [current] = await this.fetchIssues([id]);
+      preservedLabels = current?.labels.filter(
+        (label) => label !== BLOCKED_LABEL && label !== DEFERRED_LABEL,
+      );
+    }
+    const input = await this.toInput(patch, meta, preservedLabels);
     const data = await this.client.request<{
       issueUpdate: { success: boolean; issue: { updatedAt: string } | null };
     }>(ISSUE_UPDATE_MUTATION, { id, input });
@@ -244,10 +310,27 @@ export class LinearAdapter implements TrackerAdapter {
   }
 
   async listAttachmentUrls(id: string): Promise<string[]> {
-    const data = await this.client.request<{
-      issue: { attachments: { nodes: { url: string }[] } } | null;
-    }>(ISSUE_ATTACHMENTS_QUERY, { id, first: MAX_PAGE_SIZE });
-    return data.issue?.attachments.nodes.map((attachment) => attachment.url) ?? [];
+    const urls: string[] = [];
+    let after: string | undefined;
+    do {
+      const data = await this.client.request<{
+        issue: {
+          attachments: {
+            pageInfo: { hasNextPage: boolean; endCursor: string | null };
+            nodes: { url: string }[];
+          };
+        } | null;
+      }>(ISSUE_ATTACHMENTS_QUERY, { id, first: MAX_PAGE_SIZE, after });
+      const attachments = data.issue?.attachments;
+      if (!attachments) {
+        break;
+      }
+      urls.push(...attachments.nodes.map((attachment) => attachment.url));
+      after = attachments.pageInfo.hasNextPage
+        ? (attachments.pageInfo.endCursor ?? undefined)
+        : undefined;
+    } while (after);
+    return urls;
   }
 
   /**
@@ -329,21 +412,35 @@ export class LinearAdapter implements TrackerAdapter {
   }
 
   async listComments(id: string): Promise<ExternalComment[]> {
-    const data = await this.client.request<{
-      issue: {
-        comments: {
-          nodes: {
-            id: string;
-            body: string;
-            createdAt: string;
-            resolvedAt: string | null;
-            user: { name: string; displayName: string } | null;
-          }[];
-        };
-      } | null;
-    }>(ISSUE_COMMENTS_QUERY, { id, first: MAX_PAGE_SIZE });
+    interface RawComment {
+      id: string;
+      body: string;
+      createdAt: string;
+      resolvedAt: string | null;
+      user: { name: string; displayName: string } | null;
+    }
+    const nodes: RawComment[] = [];
+    let after: string | undefined;
+    do {
+      const data = await this.client.request<{
+        issue: {
+          comments: {
+            pageInfo: { hasNextPage: boolean; endCursor: string | null };
+            nodes: RawComment[];
+          };
+        } | null;
+      }>(ISSUE_COMMENTS_QUERY, { id, first: MAX_PAGE_SIZE, after });
 
-    const nodes = data.issue?.comments.nodes ?? [];
+      const comments = data.issue?.comments;
+      if (!comments) {
+        break;
+      }
+      nodes.push(...comments.nodes);
+      after = comments.pageInfo.hasNextPage
+        ? (comments.pageInfo.endCursor ?? undefined)
+        : undefined;
+    } while (after);
+
     return nodes
       .map((node) => ({
         id: node.id,
@@ -362,13 +459,25 @@ export class LinearAdapter implements TrackerAdapter {
    */
   async fetchUpdatedSince(since: string): Promise<ExternalIssue[]> {
     const teamId = await this.resolveTeamId();
+    const projectId = await this.resolveProjectId();
     const results: ExternalIssue[] = [];
     let after: string | undefined;
     do {
       const data = await this.client.request<{
         issues: { pageInfo: { hasNextPage: boolean; endCursor: string | null }; nodes: RawIssue[] };
-      }>(ISSUES_UPDATED_SINCE_QUERY, { teamId, since, first: MAX_PAGE_SIZE, after });
-      results.push(...data.issues.nodes.map((node) => this.toCanonical(node)));
+      }>(projectId ? ISSUES_UPDATED_SINCE_IN_PROJECT_QUERY : ISSUES_UPDATED_SINCE_QUERY, {
+        teamId,
+        ...(projectId ? { projectId } : {}),
+        since,
+        first: MAX_PAGE_SIZE,
+        after,
+      });
+      const page = await Promise.all(
+        data.issues.nodes.map(async (node) =>
+          this.toCanonical(await this.withAllIssueLabels(node)),
+        ),
+      );
+      results.push(...page);
       after = data.issues.pageInfo.hasNextPage
         ? (data.issues.pageInfo.endCursor ?? undefined)
         : undefined;
@@ -387,7 +496,10 @@ export class LinearAdapter implements TrackerAdapter {
           id: string;
           key: string;
           states: { nodes: { id: string; name: string; type: string; position: number }[] };
-          labels: { nodes: { id: string; name: string }[] };
+          labels: {
+            pageInfo: { hasNextPage: boolean; endCursor: string | null };
+            nodes: { id: string; name: string }[];
+          };
         }[];
       };
     }>(TEAM_META_QUERY, { key: this.teamKey });
@@ -409,9 +521,31 @@ export class LinearAdapter implements TrackerAdapter {
       }
     }
 
+    const labels = [...team.labels.nodes];
+    let labelsAfter = team.labels.pageInfo.hasNextPage
+      ? (team.labels.pageInfo.endCursor ?? undefined)
+      : undefined;
+    while (labelsAfter) {
+      const page = await this.client.request<{
+        team: {
+          labels: {
+            pageInfo: { hasNextPage: boolean; endCursor: string | null };
+            nodes: { id: string; name: string }[];
+          };
+        } | null;
+      }>(TEAM_LABELS_QUERY, { id: team.id, first: MAX_PAGE_SIZE, after: labelsAfter });
+      if (!page.team) {
+        throw new Error(`Linear team disappeared while reading labels: ${this.teamKey}`);
+      }
+      labels.push(...page.team.labels.nodes);
+      labelsAfter = page.team.labels.pageInfo.hasNextPage
+        ? (page.team.labels.pageInfo.endCursor ?? undefined)
+        : undefined;
+    }
+
     this.meta = {
       stateIdsByType: Object.fromEntries([...byType].map(([type, v]) => [type, v.id])),
-      labelIdsByName: Object.fromEntries(team.labels.nodes.map((l) => [l.name, l.id])),
+      labelIdsByName: Object.fromEntries(labels.map((label) => [label.name, label.id])),
       fetchedAt: new Date().toISOString(),
     };
     return this.meta;
@@ -429,6 +563,13 @@ export class LinearAdapter implements TrackerAdapter {
 
   private toCanonical(raw: RawIssue): ExternalIssue {
     const labels = raw.labels.nodes.map((l) => l.name);
+    const stateType = raw.state?.type ?? 'unstarted';
+    const mappedAssignee = raw.assignee
+      ? (this.assigneeByExternalIdentity.get(raw.assignee.id.toLowerCase()) ??
+        (raw.assignee.email
+          ? this.assigneeByExternalIdentity.get(raw.assignee.email.toLowerCase())
+          : undefined))
+      : undefined;
     return {
       provider: 'linear',
       id: raw.id,
@@ -436,14 +577,52 @@ export class LinearAdapter implements TrackerAdapter {
       url: raw.url,
       title: raw.title,
       description: raw.description,
-      status: statusFromLinear(raw.state?.type ?? 'unstarted', labels),
+      status: statusFromLinear(stateType, labels),
       priority: priorityFromLinear(raw.priority),
       labels,
-      assignee: raw.assignee?.displayName ?? raw.assignee?.name ?? null,
+      assignee: mappedAssignee ?? raw.assignee?.displayName ?? raw.assignee?.name ?? null,
+      parent: raw.parent ? { id: raw.parent.id, key: raw.parent.identifier } : null,
       updatedAt: raw.updatedAt,
       archivedAt: raw.archivedAt ?? null,
       trashed: raw.trashed ?? false,
+      ...(KNOWN_STATE_TYPES.includes(stateType as (typeof KNOWN_STATE_TYPES)[number])
+        ? {}
+        : {
+            mappingWarnings: [`Unknown Linear workflow state type "${stateType}"; mapped to open.`],
+          }),
     };
+  }
+
+  private async withAllIssueLabels(raw: RawIssue): Promise<RawIssue> {
+    let after = raw.labels.pageInfo?.hasNextPage
+      ? (raw.labels.pageInfo.endCursor ?? undefined)
+      : undefined;
+    if (!after) {
+      return raw;
+    }
+    const nodes = [...raw.labels.nodes];
+    while (after) {
+      const response: {
+        issue: {
+          labels: {
+            pageInfo: { hasNextPage: boolean; endCursor: string | null };
+            nodes: { id: string; name: string }[];
+          };
+        } | null;
+      } = await this.client.request(ISSUE_LABELS_QUERY, {
+        id: raw.id,
+        first: MAX_PAGE_SIZE,
+        after,
+      });
+      if (!response.issue) {
+        throw new Error(`Linear issue disappeared while reading labels: ${raw.id}`);
+      }
+      nodes.push(...response.issue.labels.nodes);
+      after = response.issue.labels.pageInfo.hasNextPage
+        ? (response.issue.labels.pageInfo.endCursor ?? undefined)
+        : undefined;
+    }
+    return { ...raw, labels: { nodes } };
   }
 
   /**
@@ -455,6 +634,7 @@ export class LinearAdapter implements TrackerAdapter {
   private async toInput(
     patch: CanonicalPatch,
     meta: ProviderMeta,
+    preservedLabels?: string[],
   ): Promise<Record<string, unknown>> {
     const input: Record<string, unknown> = {};
 
@@ -470,6 +650,9 @@ export class LinearAdapter implements TrackerAdapter {
     if (patch.parentId !== undefined) {
       input.parentId = patch.parentId;
     }
+    if (patch.assignee !== undefined) {
+      input.assigneeId = patch.assignee === null ? null : await this.resolveUserId(patch.assignee);
+    }
 
     let statusLabels: string[] = [];
     if (patch.status !== undefined) {
@@ -481,8 +664,9 @@ export class LinearAdapter implements TrackerAdapter {
       statusLabels = target.labels;
     }
 
-    if (patch.labels !== undefined || statusLabels.length > 0) {
-      const names = [...new Set([...(patch.labels ?? []), ...statusLabels])];
+    const baseLabels = patch.labels ?? preservedLabels;
+    if (baseLabels !== undefined || statusLabels.length > 0) {
+      const names = [...new Set([...(baseLabels ?? []), ...statusLabels])];
       input.labelIds = await this.resolveLabelIds(names, meta);
     }
 
@@ -518,5 +702,28 @@ export class LinearAdapter implements TrackerAdapter {
       }
     }
     return ids;
+  }
+
+  private async resolveUserId(assignee: string): Promise<string> {
+    const identity = this.userMap.get(assignee);
+    if (!identity) {
+      throw new Error(`No Linear user mapping is configured for tbd assignee ${assignee}.`);
+    }
+    if (UUID_RE.test(identity)) {
+      return identity;
+    }
+    const cached = this.resolvedUserIds.get(identity.toLowerCase());
+    if (cached) {
+      return cached;
+    }
+    const data = await this.client.request<{
+      users: { nodes: { id: string; email: string }[] };
+    }>(USERS_BY_EMAIL_QUERY, { email: identity });
+    if (data.users.nodes.length !== 1) {
+      throw new Error(`Linear user mapping for ${assignee} did not resolve exactly one user.`);
+    }
+    const id = data.users.nodes[0]!.id;
+    this.resolvedUserIds.set(identity.toLowerCase(), id);
+    return id;
   }
 }

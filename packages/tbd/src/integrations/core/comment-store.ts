@@ -70,19 +70,23 @@ function writeEntries(
  */
 export function capEntries(entries: readonly CommentEntryType[]): CommentEntryType[] {
   const bounded = entries.map((entry) =>
-    entry.body.length > COMMENT_BODY_CAP
+    entry.id !== undefined && entry.body.length > COMMENT_BODY_CAP
       ? {
           ...entry,
           body: `${entry.body.slice(0, COMMENT_BODY_CAP)}\n… (truncated; full text in the tracker)`,
         }
       : entry,
   );
-  const overflow = bounded.length - COMMENTS_PER_BEAD_CAP;
+  const providerHeldIndexes = bounded.flatMap((entry, index) =>
+    entry.id === undefined ? [] : [index],
+  );
+  const overflow = providerHeldIndexes.length - COMMENTS_PER_BEAD_CAP;
   if (overflow <= 0) {
     return bounded;
   }
+  const collapsedIndexes = new Set(providerHeldIndexes.slice(0, overflow));
   return bounded.map((entry, index) =>
-    index < overflow && entry.body !== '' ? { ...entry, body: '' } : entry,
+    collapsedIndexes.has(index) && entry.body !== '' ? { ...entry, body: '' } : entry,
   );
 }
 

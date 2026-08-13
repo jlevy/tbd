@@ -1,161 +1,93 @@
 ---
 title: 'QA Playbook: Linear Integration'
-description: Manual validation of the Linear integration against a real workspace, covering what automated tests cannot reach
+description: Repeatable API-driven release validation for the provider-generic external tracker compatibility contract
 author: Joshua Levy (github.com/jlevy) with LLM assistance
 ---
 # QA Playbook: Linear Integration
 
-Manual QA for the external tracker integration (Linear) — the surfaces only a real
-workspace exercises.
-Everything else is automated; see the split in PR
-[#206](https://github.com/jlevy/tbd/pull/206)’s validation plan.
-Reference docs: `tbd docs` → *External Tracker Integrations* (setup, policy, agent
-recipe), and the rollout gates in
-`docs/project/specs/active/plan-2026-08-10-external-tracker-integrations.md`.
+This playbook validates the compatibility matrix in
+`plan-2026-08-10-external-tracker-integrations.md`. Direct provider API mutations and
+reads are the live test driver and oracle.
+The built tbd CLI runs in a disposable git repository.
+Linear’s web UI is one final parity check, not a substitute for repeatable round trips.
 
-**Purpose**: prove the loop converges against real Linear (real markdown normalization,
-real labels, real comment lifecycle), and that the two rollout gates — a forced
-both-sides conflict and a two-machine soak — hold.
+## Release Gate
 
-**Estimated Time**: ~30 minutes (Phases 1–4 and 6), +20 for the two-machine soak.
+Load `LINEAR_API_KEY` from a gitignored `.env`, then run:
 
-**Prerequisites**: a Linear workspace and team you can write to; a personal API key
-(`linear.app/settings/api`) in a **gitignored** `.env` as `LINEAR_API_KEY=…`; the
-`integrations:` block in `.tbd/config.yml` per the manual.
-Use a scratch team or the pilot project — the bulk guard and `--dry-run` are your safety
-rails.
+```bash
+pnpm --filter get-tbd qa:linear-live -- --team TBD --project tbd
+```
 
-* * *
+Set `TBD_QA_BIN` to a packed or globally installed candidate to validate exactly what a
+user will execute. Set `TBD_QA_KEEP=1` only while investigating a failure; otherwise the
+runner removes its disposable repository.
+The runner never prints the credential, removes it from child-process environments,
+gives the candidate a private gitignored `.env`, and archives every Linear fixture
+during cleanup.
 
-## Current Status (Last Update 2026-08-13)
+A passing run prints one line for each stable scenario id and a final count.
+A failure exits nonzero, names the failed assertion, still attempts provider cleanup,
+and retains no successful result marker.
 
-| Phase | Status | Notes |
+## Scenario Contract
+
+| Scenario | Provider API action | tbd action and assertion |
 | --- | --- | --- |
-| Phase 1: Setup & convergence | ✅ Passed | Built CLI and live disposable issue, 2026-08-13 |
-| Phase 2: Comment round-trip | ✅ Passed | Live inbound and outbound, exact-once |
-| Phase 3: Forced conflict (rollout gate) | ✅ Passed | Exact loser archived; comment posted once |
-| Phase 4: Orphan handling | ✅ Passed | Quiet Linear archive detected outside watermark |
-| Phase 5: Two-machine soak (rollout gate) | ✅ Passed | Alternating two-clone sync converged quietly |
-| Phase 6: Explicit inbound/read-only pull | ✅ Passed | `TBD-154`; deferred claim replayed on full sync |
-| Automated RC regression gate | ✅ Passed | Real built CLI + local HTTP provider: direction, crash replay, config and failure rollup |
+| `setup` | Resolve viewer, team, project, and workflow-state UUIDs | Initialize a disposable repository, configure the candidate, and prove `integration status` reaches the provider |
+| `explicit-import` | Create one isolated root item | `sync --pull --external` creates one canonical bead and performs no provider write |
+| `deferred-claim-replay` | Read attachments directly | A full sync replays the pull-only ownership intent exactly once |
+| `tbd-to-provider-fields-comments-assignee` | Read native state, priority, assignee, description, and comments | Change canonical fields and author a comment locally; full sync produces the exact provider values once |
+| `provider-to-tbd-fields-comments-assignee` | Mutate fields, clear the assignee, and add a comment through GraphQL | Pull-only produces the expected canonical bead, preserves comment identity, and persists no email |
+| `provider-created-hierarchy` | Create a sub-issue under the root | Explicit pull imports it under the linked local parent without flattening or changing the provider parent |
+| `automatic-inbound-scope` | Create one same-team item inside the configured project and one outside it | Automatic discovery reports the in-project item and excludes the outside-project sentinel; providers without a narrower configured scope record the scenario as not applicable |
+| `concurrent-conflict-recovery` | Make a provider edit while tbd has a different edit | Full sync applies the configured tie-break, archives the loser, and posts one conflict report |
+| `exact-once-settle` | Count comments before and after | The next full sync reports `nothing to do` and adds no duplicate comment |
+| `orphan-detection` | Archive the child through GraphQL | Pull-only reports the linked item orphaned and leaves its bead intact |
+| `cleanup` | Archive every remaining fixture | Remove the disposable repository unless explicitly retained |
 
-**Status Legend**: ✅ Passed | ❌ Failed | ⏳ Pending | ⏸️ Blocked
+The import-safe `scripts/provider-live-qa-contract.ts` module owns these scenario ids
+and the completion checklist.
+The Linear script supplies only its provider API driver and assertions.
+A GitHub driver must reuse the same checklist against disposable issues and a repository
+or project scope appropriate to GitHub.
+GitHub-only behavior, such as read-only PR association and permission scopes, adds
+scenarios; it does not rename or weaken this shared contract.
 
-* * *
+## Evidence Layers
 
-## Phase 1: Setup and convergence
+The live runner is the final layer, not the entire test strategy:
 
-```bash
-tbd integration status              # every probe ✓, team resolves
-tbd --dry-run integration sync      # review the plan; nothing is written
-tbd integration sync --yes          # apply
-tbd integration sync                # MUST print: linear: nothing to do
-tbd integration sync                # and again — steady state is quiet
-```
+1. Pure tests prove mapping, selection, three-way field outcomes, hierarchy ordering,
+   comment union, and format invariants.
+2. The HTTP mock proves pagination, API quirks, rate-limit handling, direction modes,
+   partial failures, crash replay, and exact-once recovery deterministically.
+3. Built-CLI tests prove argument parsing, config loading, credentials, exit codes, bulk
+   refusal, and real git/worktree behavior.
+4. The live runner proves those layers match the current provider API.
+5. A human opens the root fixture before cleanup only when visual parity needs review;
+   the API assertions remain the release evidence.
 
-- [x] `status` shows configured / credentialed / reachable, and the team name
-- [x] The dry-run plan matches what you expect from the policy (default: open epics +
-  active-spec beads, ~10% of open work)
-- [x] Two consecutive syncs report `nothing to do`
-- [x] Spot-check one issue in Linear: managed block present, `tbd://bead/<id>`
-  attachment present, human prose outside the block untouched
+Failures in any applicable compatibility-matrix row block release.
+Intentional boundaries—comment edits/deletes, reactions, threaded layout, provider-side
+deletion, and simultaneous cross-repository first claims—must remain explicit in the
+matrix and must never be reported as synchronized.
 
-**Trouble**: credential problems → `status` names the remedy.
-A first sync against pre-existing links pushes description convergence once; a second
-sync must be quiet — if it is not, capture both runs’ output and file a bug (this exact
-loop caught five defect classes during development).
+## Extended Concurrency Soak
 
-## Phase 2: Comment round-trip
+Run the established two-clone soak before a provider release candidate when sync-engine,
+bridge-merge, or intent semantics change:
 
-```bash
-tbd integration comment <bead> "QA round-trip $(date +%s)"
-tbd integration sync                # posts it
-```
+1. Clone A changes a field and syncs.
+2. Clone B, without first pulling A, authors a different comment and syncs.
+3. Alternate two more full syncs from both clones.
+4. Verify both clones and Linear contain both operations once, bridge files have no
+   conflict markers, and the final runs are quiet.
 
-Then reply to that comment **in Linear**, and:
+The 2026-08-13 Linear release-candidate run passed this soak along with forced conflict
+recovery, archived-item detection, explicit read-only import, and comment exact-once
+replay.
 
-```bash
-tbd integration sync                # pulls the reply
-tbd show <bead>                     # extensions.linear.comments has both entries
-tbd integration sync                # quiet again
-```
-
-- [x] Outbound comment appears once in Linear (re-syncing does not duplicate it)
-- [x] Inbound reply lands as one entry: id, timestamp, author display name, body
-- [x] No emails or extraneous tracker data anywhere in the bead
-
-## Phase 3: Forced both-sides conflict — rollout gate
-
-Pick a low-stakes linked bead.
-Without syncing in between: retitle it in Linear, then give the bead a *different* new
-title locally (`tbd update <bead> --title …`), then:
-
-```bash
-tbd integration sync                # reports: title diverged; <winner> kept
-```
-
-- [x] Exactly one conflict reported, winner per `tie_break` (default: newest)
-- [x] A **tbd sync conflict** comment appears on the Linear issue, naming both values
-- [x] The exact losing value is in `.tbd/data-sync/attic/`, regardless of which side
-  lost
-- [x] Resolve the comment in Linear; next sync is quiet; the comment is NOT pulled into
-  the bead (conflict reports are bridge artifacts, not content)
-
-## Phase 4: Orphan handling
-
-Archive one linked issue in Linear, then `tbd integration sync`:
-
-- [x] The link is reported orphaned; the bead is **not** deleted or closed
-- [x] `tbd integration unlink <bead>` clears it; sync stays quiet afterward
-
-## Phase 5: Two-machine soak — rollout gate
-
-Two clones of the repo (or two machines), both configured with the key:
-
-1. Clone A: `tbd update <bead1> --title "from A"` → `tbd sync`
-2. Clone B (without pulling first): `tbd integration comment <bead2> "from B"` →
-   `tbd sync`
-3. Both clones: `tbd sync` twice more, alternating.
-
-- [x] No echo: neither clone re-pushes or re-pulls the other’s already-applied change
-- [x] No ping-pong: three alternating syncs end with both clones quiet
-- [x] Bridge records merged cleanly (no conflict markers under `.tbd/data-sync/bridge/`
-  on the sync branch)
-- [x] Comments from both clones appear exactly once on both sides
-
-## Phase 6: Explicit inbound selection and read-only pull
-
-Create one disposable Linear issue, then in a disposable initialized tbd repository:
-
-```bash
-tbd integration sync --pull --external TBD-154 # creates one bead, no Linear writes
-tbd integration sync                           # replays one attachment claim
-tbd integration sync                           # nothing to do
-```
-
-- [x] Explicit selection bypasses `inbound.mode: report` without broadening the scan
-- [x] The pull performs no provider mutation and leaves one local attachment intent
-- [x] The next full sync creates exactly one `tbd://bead/<id>` attachment
-- [x] A following full sync is quiet
-- [x] Cleanup complete: local link removed, `TBD-154` archived, disposable repo in Trash
-
-## Cleanup
-
-Delete any QA comments/issues created in Linear; `tbd integration unlink` any scratch
-links. Nothing else persists — beads touched during QA carry only their normal history.
-
-## Automated RC regression gate
-
-`integration-cli-e2e.test.ts` runs the built binary against a real local git remote and
-HTTP mock provider. It proves the command-level cases that should not consume live pilot
-data: `tbd sync --push` is outbound-only, per-item/provider outages still let docs and
-git finish but exit non-zero, unreadable config fails closed, failed ownership claims
-replay once, and duplicate links quarantine every ambiguous writer.
-
-## Related
-
-- Automated coverage this playbook deliberately does not repeat: the engine matrix,
-  crash replay, merge-layer, and real-binary e2e suites under `packages/tbd/tests/` (see
-  `integrations-*.test.ts`, `integration-cli-e2e.test.ts`).
-- `scripts/repro-migration-commit.sh` — historical repro harness for the (now closed)
-  sync-migration flake.
+<!-- This document follows common-doc-guidelines.md.
+See github.com/jlevy/practical-prose and review guidelines before editing.
+-->

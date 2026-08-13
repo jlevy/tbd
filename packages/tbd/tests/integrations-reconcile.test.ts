@@ -191,7 +191,7 @@ describe('ownership rules', () => {
   });
 });
 
-describe('assignee is pull-only until user_map lands', () => {
+describe('assignee capability gating', () => {
   it('skips an outbound assignee and keeps the divergence visible', () => {
     const result = reconcile(base(), local({ assignee: 'josh' }), remote(), RULES);
     expect(result.skippedPushes).toEqual([{ field: 'assignee', localValue: 'josh' }]);
@@ -204,6 +204,19 @@ describe('assignee is pull-only until user_map lands', () => {
     const rules = FieldSyncClauseSchema.parse({ fields: { assignee: 'remote' } });
     const result = reconcile(base(), local(), remote({ assignee: 'PM' }), rules);
     expect(result.beadPatch.assignee).toBe('PM');
+  });
+
+  it('pushes an assignee when the provider confirms a configured identity mapping', () => {
+    const result = reconcile(
+      base(),
+      local({ assignee: 'josh' }),
+      remote(),
+      RULES,
+      {},
+      { assignee: true },
+    );
+    expect(result.externalPatch.assignee).toBe('josh');
+    expect(result.skippedPushes).toEqual([]);
   });
 });
 

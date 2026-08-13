@@ -6658,6 +6658,10 @@ state. The writer never spreads new fields from a link input, so sibling preserv
 does not weaken the credential/raw-payload boundary.
 
 `TrackerAdapter` maps every provider into canonical tbd fields.
+Each canonicalized issue may carry safe mapping warnings.
+The sync engine deduplicates them by provider id and message and exposes them in human
+and JSON reports; for example, an unknown Linear workflow-state type maps conservatively
+to `open` while remaining visible instead of aborting or silently fabricating a status.
 `integration sync --push` is the one-way projection.
 `sync` uses a per-link base record on the sync branch for true field-wise three-way
 reconciliation. Write-ahead intents are committed before provider writes and replayed
@@ -6678,6 +6682,10 @@ intentionally defer replay.
 Unlink or relink makes an old journal successful cancellation, not work that may touch
 the former provider item.
 Append-only comments union by immutable identity.
+Provider comment connections paginate completely.
+Every identity is retained for deduplication, while storage bounds only provider-held
+prose (newest 50 entries, 10 KiB per body); pending local prose is never collapsed
+before its provider identity lands.
 When both sides change a merge-owned field differently, the configured winner is kept,
 the loser is archived before either side is overwritten, and the archive path plus a
 client-UUID conflict comment are journaled together.
@@ -6694,6 +6702,18 @@ claims and conflict notices are journaled locally for the next full sync.
 In every direction, inbound creation persists the bead, bridge record, and attachment
 intent before provider I/O; successful full sync removes the intent only after the
 idempotent claim upsert lands.
+Provider-created hierarchy is imported parent-first.
+A child is accepted only when its parent is already linked or belongs to the same import
+batch; otherwise it fails closed instead of flattening.
+`max_nesting` limits only creation of new outbound projection; inbound and
+already-linked items retain their true parent.
+
+Linear `project` configuration scopes both outbound creation and automatic inbound
+discovery. Explicit `--pull --external` is identity-directed and intentionally bypasses
+that scan scope. Assignee writes are enabled only by a non-empty `user_map`: local beads
+persist canonical aliases, configured email/UUID targets resolve at runtime, safely
+mapped aliases seed inbound-created beads, unknown identities stay visibly divergent,
+and emails never cross the persistence boundary.
 
 One external item must never have multiple bead writers.
 `link` and inbound creation prevent creating that state with both local reverse indexes
@@ -6752,7 +6772,14 @@ immediately.
 
 The full policy, bridge layout, state machine, rollout gates, GitHub work map, and web
 projection contract live in
-`docs/project/specs/active/plan-2026-08-10-external-tracker-integrations.md`.
+`docs/project/specs/active/plan-2026-08-10-external-tracker-integrations.md`. That plan
+contains the authoritative compatibility/evidence matrix.
+The provider-independent live scenario contract and completion check live in the
+import-safe `scripts/provider-live-qa-contract.ts` module.
+Linear supplies the concrete API driver through
+`scripts/validate-linear-integration-live.ts`, documented in
+`tests/qa/linear-integration.qa.md`; future GitHub validation reuses the same scenario
+IDs and adds only provider-specific cases.
 
 * * *
 

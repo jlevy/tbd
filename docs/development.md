@@ -160,8 +160,13 @@ or provider I/O, quarantine every holder, and continue unrelated pairs.
 Never put a credential in `process.env`, committed bridge state, output, or a test
 fixture.
 
-Live Linear validation follows `packages/tbd/tests/qa/linear-integration.qa.md` with
-designated pilot items, records the final state, and restores a coherent project.
+Live Linear validation is API-driven and follows
+`packages/tbd/tests/qa/linear-integration.qa.md`. Run
+`pnpm --filter get-tbd qa:linear-live -- --team <KEY> --project <NAME>` with a
+gitignored `LINEAR_API_KEY`; the runner exercises the built CLI in a disposable git
+repository, archives its provider fixtures, and emits the stable scenario IDs enforced
+by the import-safe `scripts/provider-live-qa-contract.ts` checklist shared by future
+provider drivers. Manual UI testing is a parity check, not release evidence.
 The complete Linear RC, GitHub issue/PR, and read-only web projection work map is
 [plan-2026-08-10-external-tracker-integrations.md](project/specs/active/plan-2026-08-10-external-tracker-integrations.md).
 

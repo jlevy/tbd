@@ -12,8 +12,9 @@ export const VIEWER_QUERY = `query Viewer {
 }`;
 
 /** Resolve a project by name or slug id, so mirrored issues can be filed under it. */
-export const PROJECT_QUERY = `query Projects($first: Int!) {
-  projects(first: $first) {
+export const PROJECT_QUERY = `query Projects($first: Int!, $after: String) {
+  projects(first: $first, after: $after) {
+    pageInfo { hasNextPage endCursor }
     nodes { id name slugId url }
   }
 }`;
@@ -26,7 +27,7 @@ export const TEAM_META_QUERY = `query TeamMeta($key: String!) {
       key
       name
       states(first: 50) { nodes { id name type position } }
-      labels(first: 250) { nodes { id name } }
+      labels(first: 250) { pageInfo { hasNextPage endCursor } nodes { id name } }
     }
   }
 }`;
@@ -41,8 +42,8 @@ const ISSUE_FIELDS = `
   priority
   updatedAt
   state { id name type }
-  assignee { id name displayName }
-  labels(first: 50) { nodes { id name } }
+  assignee { id name displayName email }
+  labels(first: 50) { pageInfo { hasNextPage endCursor } nodes { id name } }
   parent { id identifier }
   archivedAt
   trashed
@@ -84,6 +85,29 @@ export const ISSUES_UPDATED_SINCE_QUERY = `query IssuesUpdatedSince(
   }
 }`;
 
+/** Incremental pull restricted to the configured Linear project. */
+export const ISSUES_UPDATED_SINCE_IN_PROJECT_QUERY = `query IssuesUpdatedSinceInProject(
+  $teamId: ID!
+  $projectId: ID!
+  $since: DateTimeOrDuration!
+  $first: Int!
+  $after: String
+) {
+  issues(
+    filter: {
+      team: { id: { eq: $teamId } }
+      project: { id: { eq: $projectId } }
+      updatedAt: { gt: $since }
+    }
+    orderBy: updatedAt
+    first: $first
+    after: $after
+  ) {
+    pageInfo { hasNextPage endCursor }
+    nodes {${ISSUE_FIELDS}}
+  }
+}`;
+
 export const ISSUE_CREATE_MUTATION = `mutation IssueCreate($input: IssueCreateInput!) {
   issueCreate(input: $input) {
     success
@@ -95,6 +119,33 @@ export const ISSUE_UPDATE_MUTATION = `mutation IssueUpdate($id: String!, $input:
   issueUpdate(id: $id, input: $input) {
     success
     issue { id identifier url updatedAt }
+  }
+}`;
+
+/** Resolve a configured assignee email to its stable Linear user UUID. */
+export const USERS_BY_EMAIL_QUERY = `query UsersByEmail($email: String!) {
+  users(filter: { email: { eq: $email } }, first: 2) {
+    nodes { id email }
+  }
+}`;
+
+/** Remaining labels for one issue when its nested first page is full. */
+export const ISSUE_LABELS_QUERY = `query IssueLabels($id: String!, $first: Int!, $after: String) {
+  issue(id: $id) {
+    labels(first: $first, after: $after) {
+      pageInfo { hasNextPage endCursor }
+      nodes { id name }
+    }
+  }
+}`;
+
+/** Remaining labels in a team namespace after the metadata query's first page. */
+export const TEAM_LABELS_QUERY = `query TeamLabels($id: String!, $first: Int!, $after: String) {
+  team(id: $id) {
+    labels(first: $first, after: $after) {
+      pageInfo { hasNextPage endCursor }
+      nodes { id name }
+    }
   }
 }`;
 
@@ -128,18 +179,22 @@ export const LABEL_CREATE_MUTATION = `mutation LabelCreate($input: IssueLabelCre
 }`;
 
 /** Comments on one issue, oldest first, for append-only comment sync. */
-export const ISSUE_COMMENTS_QUERY = `query IssueComments($id: String!, $first: Int!) {
+export const ISSUE_COMMENTS_QUERY = `query IssueComments($id: String!, $first: Int!, $after: String) {
   issue(id: $id) {
-    comments(first: $first) {
+    comments(first: $first, after: $after) {
+      pageInfo { hasNextPage endCursor }
       nodes { id body createdAt resolvedAt user { name displayName } }
     }
   }
 }`;
 
 /** Attachment URLs on one issue, used to detect another tbd repository's claim. */
-export const ISSUE_ATTACHMENTS_QUERY = `query IssueAttachments($id: String!, $first: Int!) {
+export const ISSUE_ATTACHMENTS_QUERY = `query IssueAttachments($id: String!, $first: Int!, $after: String) {
   issue(id: $id) {
-    attachments(first: $first) { nodes { url } }
+    attachments(first: $first, after: $after) {
+      pageInfo { hasNextPage endCursor }
+      nodes { url }
+    }
   }
 }`;
 

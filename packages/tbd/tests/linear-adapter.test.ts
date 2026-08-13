@@ -9,6 +9,7 @@ import {
   LinearClient,
   LinearDuplicateIdError,
   LinearApiError,
+  MAX_PAGE_SIZE,
 } from '../src/integrations/linear/client.js';
 import { LinearAdapter } from '../src/integrations/linear/adapter.js';
 import { BLOCKED_LABEL } from '../src/integrations/linear/mapping.js';
@@ -34,6 +35,30 @@ describe('Linear client and adapter', () => {
 
   afterEach(async () => {
     await server.stop();
+  });
+
+  describe('user_map validation', () => {
+    it('rejects identities that are neither Linear UUIDs nor emails', () => {
+      expect(
+        () =>
+          new LinearAdapter({
+            client,
+            teamKey: 'FIN',
+            userMap: { josh: 'display-name-only' },
+          }),
+      ).toThrow(/must be a Linear user UUID or email/);
+    });
+
+    it('rejects two aliases that target the same Linear identity', () => {
+      expect(
+        () =>
+          new LinearAdapter({
+            client,
+            teamKey: 'FIN',
+            userMap: { josh: 'josh@example.com', jlevy: 'JOSH@example.com' },
+          }),
+      ).toThrow(/maps both josh and jlevy to the same Linear user/);
+    });
   });
 
   describe('transport', () => {
@@ -103,6 +128,19 @@ describe('Linear client and adapter', () => {
       const other = new LinearAdapter({ client, teamKey: 'NOPE' });
       await expect(other.ensureMeta()).rejects.toThrow(/team not found/i);
     });
+
+    it('paginates the complete team label namespace', async () => {
+      for (let index = server.labels.length; index <= MAX_PAGE_SIZE; index += 1) {
+        server.labels.push({ id: `label-${index}`, name: `Label ${index}` });
+      }
+
+      const meta = await adapter.ensureMeta();
+
+      expect(Object.keys(meta.labelIdsByName)).toHaveLength(MAX_PAGE_SIZE + 1);
+      expect(server.requests.some((request) => request.query.includes('query TeamLabels'))).toBe(
+        true,
+      );
+    });
   });
 
   describe('resolveRef', () => {
@@ -170,6 +208,58 @@ describe('Linear client and adapter', () => {
       const [issue] = await adapter.fetchIssues(['uuid-4']);
       expect(issue?.priority).toBe(2);
     });
+
+    it('maps an unknown workflow state to open and carries a visible warning', async () => {
+      server.addIssue({
+        id: 'uuid-unknown-state',
+        identifier: 'FIN-404',
+        state: { id: 'state-custom', name: 'Needs Triage', type: 'custom_triage' },
+      });
+
+      const [issue] = await adapter.fetchIssues(['uuid-unknown-state']);
+
+      expect(issue?.status).toBe('open');
+      expect(issue?.mappingWarnings).toEqual([
+        'Unknown Linear workflow state type "custom_triage"; mapped to open.',
+      ]);
+    });
+
+    it('paginates issue labels beyond the nested connection page', async () => {
+      const labels = Array.from({ length: 51 }, (_, index) => ({
+        id: `issue-label-${index}`,
+        name: `Issue Label ${index}`,
+      }));
+      server.addIssue({
+        id: 'uuid-labels',
+        identifier: 'FIN-50',
+        labels: { nodes: labels },
+      });
+
+      const [issue] = await adapter.fetchIssues(['uuid-labels']);
+
+      expect(issue?.labels).toHaveLength(51);
+      expect(server.requests.some((request) => request.query.includes('query IssueLabels'))).toBe(
+        true,
+      );
+    });
+  });
+
+  describe('fetchUpdatedSince', () => {
+    it('limits automatic inbound discovery to the configured project', async () => {
+      server.projects.push({ id: 'project-a', name: 'Alpha', slugId: 'alpha' });
+      server.addIssue({ id: 'in-project', identifier: 'FIN-60', projectId: 'project-a' });
+      server.addIssue({ id: 'other-project', identifier: 'FIN-61', projectId: null });
+      adapter = new LinearAdapter({ client, teamKey: 'FIN', project: 'Alpha' });
+
+      const issues = await adapter.fetchUpdatedSince('2026-08-09T00:00:00.000Z');
+
+      expect(issues.map((issue) => issue.id)).toEqual(['in-project']);
+      expect(
+        server.requests.some((request) =>
+          request.query.includes('query IssuesUpdatedSinceInProject'),
+        ),
+      ).toBe(true);
+    });
   });
 
   describe('createIssue', () => {
@@ -226,6 +316,39 @@ describe('Linear client and adapter', () => {
       await adapter.applyChanges('uuid-5', { status: 'deferred' });
       expect(server.labels.length).toBeGreaterThan(before);
     });
+
+    it('replaces stale status carriers while preserving human Linear labels', async () => {
+      server.labels.push(
+        { id: 'label-blocked', name: BLOCKED_LABEL },
+        { id: 'label-human', name: 'customer-visible' },
+      );
+      const issue = server.issues.get('uuid-5')!;
+      issue.labels = {
+        nodes: [
+          { id: 'label-blocked', name: BLOCKED_LABEL },
+          { id: 'label-human', name: 'customer-visible' },
+        ],
+      };
+
+      await adapter.applyChanges('uuid-5', { status: 'open' });
+
+      expect(issue.labels.nodes.map((label) => label.name)).toEqual(['customer-visible']);
+    });
+
+    it('maps configured tbd assignees to Linear users without persisting email', async () => {
+      adapter = new LinearAdapter({
+        client,
+        teamKey: 'FIN',
+        userMap: { josh: 'josh@example.com' },
+      });
+
+      await adapter.applyChanges('uuid-5', { assignee: 'josh' });
+      const [canonical] = await adapter.fetchIssues(['uuid-5']);
+
+      expect(server.issues.get('uuid-5')?.assignee?.email).toBe('josh@example.com');
+      expect(canonical?.assignee).toBe('josh');
+      expect(JSON.stringify(canonical)).not.toContain('josh@example.com');
+    });
   });
 
   describe('upsertAttachments', () => {
@@ -269,6 +392,24 @@ describe('Linear client and adapter', () => {
         'tbd://bead/other-1234',
         'https://example.com/spec',
       ]);
+    });
+
+    it('paginates every attachment before checking repository ownership', async () => {
+      for (let index = 0; index <= MAX_PAGE_SIZE; index += 1) {
+        server.attachments.push({
+          id: `attachment-${index}`,
+          issueId: 'uuid-6',
+          title: `Attachment ${index}`,
+          url: `https://example.com/${index}`,
+        });
+      }
+
+      const urls = await adapter.listAttachmentUrls('uuid-6');
+
+      expect(urls).toHaveLength(MAX_PAGE_SIZE + 1);
+      expect(
+        server.requests.filter((request) => request.query.includes('query IssueAttachments')),
+      ).toHaveLength(2);
     });
   });
 

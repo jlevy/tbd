@@ -1585,13 +1585,25 @@ integrations:
   linear:
     enabled: true
     team_key: FIN
-    project: tbd # optional: file mirrored issues under a Linear project
+    project: tbd # optional: scope creates and automatic inbound discovery
+    user_map: # optional: the only identities tbd may push as assignees
+      jlevy: josh@example.com # UUIDs are accepted too
     policy: default # or an inline policy; see below
 ```
 
 The `team_key` and `project` values are plain config: an agent asked to point a
 repository at a different Linear team or project edits `.tbd/config.yml` and runs
 `tbd integration status` to verify.
+When `project` is set, new outbound issues are filed there and automatic inbound scans
+are limited to that project.
+Explicit `sync --pull --external` remains an intentional override and can import a named
+team issue from outside it.
+`user_map` is deliberately closed: a bead stores the stable alias (`jlevy` above), the
+adapter resolves its configured email or UUID at runtime, and neither the email nor a
+raw Linear user enters bead or bridge data.
+Unmapped local assignees remain unchanged and are reported as skipped pushes; inbound
+mapped users become the alias, including when an assigned Linear issue first becomes a
+bead.
 (`select:`, the older spelling of the policy’s outbound clause, still parses and is
 folded in.)
 
@@ -1700,8 +1712,10 @@ when enabled, they are prefixed `tbd:` so they stay identifiable and can be remo
 bulk. tbd’s own status carriers (`tbd:blocked`, `tbd:deferred`) are always pushed,
 because they encode status Linear has no workflow state for.
 
-Sub-issue nesting is mirrored to `max_nesting` levels (2 by default) and deeper beads
-are skipped and reported.
+New outbound sub-issues are mirrored to `max_nesting` levels (2 by default) and deeper
+new beads are skipped and reported.
+Existing links and inbound Linear sub-issues always retain their true parent
+relationship; the presentation limit never flattens source data.
 Linear’s data model nests without limit, but its views flatten past about two levels, so
 deeper structure is better left in beads where `tbd dep` renders it.
 
@@ -1786,6 +1800,9 @@ normalized before comparison, so they never count as remote edits.
 Priorities P3 and P4 both map to Linear’s “Low”; a P4 bead stays P4 rather than
 oscillating. An archived or deleted tracker item marks its link **orphaned** and is
 reported — the bead is never deleted or closed automatically.
+An unfamiliar Linear workflow-state type maps conservatively to `open` and produces a
+visible sync warning naming the provider item and unknown type; it never crashes the run
+or silently invents a tbd status.
 The bulk thresholds count both directions: creates and updates to the tracker AND
 inbound creations and updates to beads.
 
@@ -1874,9 +1891,18 @@ the former provider item.
 next sync, exactly once.
 Inbound comments are folded into the bead the same way — append-only, identified by the
 tracker’s immutable comment id, author recorded as a display name only.
-Bodies over 10 KB are truncated with a marker and beads keep at most 50 entries (older
-ones collapse to id-only stubs); the tracker remains the system of record for long
-threads.
+Bodies over 10 KB are truncated with a marker.
+Every provider comment identity remains for deduplication, while only the newest 50
+provider-held entries keep full local prose and older ones collapse to id-only stubs.
+An unpushed local comment is never truncated or collapsed before its provider id is
+recorded; the tracker remains the system of record for long threads.
+Comment edits, deletion, reactions, and thread shape are not synchronized.
+
+The authoritative support/boundary matrix and its code/test traceability live in the
+active external-tracker integration plan.
+Maintainers run the API-driven live gate in `tests/qa/linear-integration.qa.md`; its
+stable scenarios are the compatibility contract that a GitHub driver must reuse rather
+than redesign.
 
 ### For agents: synchronizing specs and beads to Linear
 
