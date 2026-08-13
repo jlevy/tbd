@@ -6670,8 +6670,11 @@ bead link with the journal before provider I/O. A pre-commit crash made no provi
 write; a post-commit crash has the durable claim needed for safe replay.
 The matching durable create intent makes liveness distinguish two cases: an item that
 already exists is fetched and reconciled normally even if follow-up journal work
-remains; a confirmed absence is pending rather than orphaned—even during pull-only runs
-that intentionally defer replay.
+remains; when the first bridge record does not exist yet, the journaled creation patch
+is the three-way base, so a provider edit during that failure window still pulls or
+conflicts correctly.
+A confirmed absence is pending rather than orphaned—even during pull-only runs that
+intentionally defer replay.
 Unlink or relink makes an old journal successful cancellation, not work that may touch
 the former provider item.
 Append-only comments union by immutable identity.

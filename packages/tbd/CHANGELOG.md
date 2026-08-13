@@ -75,6 +75,9 @@
   matching durable create intent now keeps a confirmed-absent relationship pending
   rather than misreporting it as orphaned, including under `--pull`; an already-live
   item still reconciles while follow-up journal work remains.
+  If that work failed before the first bridge record, the journaled creation snapshot
+  supplies the three-way base, so intervening tracker edits pull or conflict correctly
+  rather than being overwritten.
   Enriching the provisional link preserves comments and future provider-namespace
   siblings. Unlink cancels pending writes before clearing that identity and keeps the
   bridge record until cleanup finishes, so failures remain retryable and a stale or

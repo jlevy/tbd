@@ -368,16 +368,16 @@ export async function runSync(options: SyncEngineOptions): Promise<SyncRunReport
   // deliberately does not replay provider writes) and after a failed replay.
   // Derive it from the durable journal under the shared data-sync lock rather
   // than inventing a second provisional-state flag in the bead or bridge.
-  const pendingCreateClaims = new Set<string>();
+  const pendingCreateClaims = new Map<string, IntentPatch>();
   for (const file of await listIntentFiles(dataSyncDir, provider)) {
     for (const op of file.ops) {
       if (op.kind === 'create_issue') {
-        pendingCreateClaims.add(JSON.stringify([op.bead_id, op.client_id]));
+        pendingCreateClaims.set(JSON.stringify([op.bead_id, op.client_id]), op.patch);
       }
     }
   }
-  const isPendingCreate = (bead: Issue, externalId: string): boolean =>
-    pendingCreateClaims.has(JSON.stringify([bead.id, externalId]));
+  const pendingCreatePatch = (bead: Issue, externalId: string): IntentPatch | undefined =>
+    pendingCreateClaims.get(JSON.stringify([bead.id, externalId]));
 
   // 2. Assemble the linked set and the remote view.
   const currentIssues = [...issuesById.values()];
@@ -411,7 +411,7 @@ export async function runSync(options: SyncEngineOptions): Promise<SyncRunReport
     const link = readLink(bead, provider)!;
     const remote = remoteById.get(link.id);
     if (!remote) {
-      if (isPendingCreate(bead, link.id)) {
+      if (pendingCreatePatch(bead, link.id)) {
         continue;
       }
       const record = recordByBead.get(bead.id);
@@ -430,15 +430,32 @@ export async function runSync(options: SyncEngineOptions): Promise<SyncRunReport
       continue;
     }
     const record = recordByBead.get(bead.id);
-    // A link with no bridge record predates the sync engine (a Phase 1 mirror
-    // link, or a record lost to damage). Those links lived under a one-way
-    // regime where the bead was the truth, so the base seeds from the REMOTE
-    // snapshot: local divergence pushes, nothing pulls, and no phantom
-    // conflicts fire on the first synchronization. A tracker-side edit made
-    // during the unrecorded window is overwritten by that push — reported as
-    // an ordinary push, which matches the regime the link was created under.
+    // A live pending create has an exact creation snapshot in its journal even
+    // before the first bridge record exists. Use that snapshot as the base so
+    // tracker edits made during an attachment/splice failure window still pull
+    // (or conflict) correctly. Fields the create surface does not write use
+    // their known creation defaults, not a possibly edited first observation.
+    const createPatch = pendingCreatePatch(bead, link.id);
+    const pendingCreateBase: LinkRecord['base'] | undefined = createPatch
+      ? {
+          title: createPatch.title ?? remote.title,
+          status: (createPatch.status as Issue['status'] | undefined) ?? remote.status,
+          priority: createPatch.priority ?? remote.priority,
+          labels: createPatch.labels ?? [],
+          assignee: null,
+          description_hash: descriptionHash(
+            Object.hasOwn(createPatch, 'description') ? (createPatch.description ?? null) : null,
+          ),
+        }
+      : undefined;
+    // Any other link with no bridge record predates the sync engine (a Phase 1
+    // mirror link, or a record lost to damage). Those links lived under a
+    // one-way regime where the bead was the truth, so the base seeds from the
+    // REMOTE snapshot: local divergence pushes, nothing pulls, and no phantom
+    // conflicts fire on the first synchronization.
     const base =
       record?.base ??
+      pendingCreateBase ??
       (() => {
         const remoteProse = remoteViewOf(remote);
         return {

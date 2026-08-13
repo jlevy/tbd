@@ -20,6 +20,9 @@ link claims, live-claim validation for every replayed provider write, and retrya
 cancellation-first unlink.
 Follow-up review also made provisional creates distinct from orphans and made link
 enrichment preserve comments and future provider-namespace state.
+If the provider accepted a create but follow-up work failed before the first bridge
+record, reconciliation now uses the journal’s exact creation snapshot as the three-way
+base, so an intervening tracker edit still pulls or conflicts correctly.
 The pilot keeps `sync_on_tbd_sync: false` until PR review and hosted CI are final green;
 this is an operational rollout switch, not an unresolved design dependency.
 Phase 3 (GitHub issue sync plus read-only PR associations) and Phase 4 (external links
@@ -413,7 +416,7 @@ carry the full function-level test cases.
 | Linear direction | `tbd-qc17`, `tbd-hfwb`, `tbd-c863`, `tbd-0lt1`, `tbd-5s77` | `cli/commands/integration.ts` `pushOnlySelector()`; `cli/lib/integration-runner.ts` `runEnabledIntegrationPushes()`; `cli/commands/sync.ts` `runIntegrationPushInPosition()`; `core/sync-engine.ts` replay/inbound gates | Outbound selectors fail without `--push`; both top-level and integration `--push` use the outbound projection; `--pull` performs no provider mutation or newly journaled suppressed write, even for inbound creation or pending crash journals |
 | Linear linking/inbound | `tbd-pr5e`, `tbd-utuy`, `tbd-pqi6`, `tbd-f3uc` | `integration.ts` `IntegrationLinkHandler` and `--external`/`--force`; `integration-runner.ts` ref resolution; `core/link-guard.ts`; `sync-engine.ts` `importExternal()`; `TrackerAdapter.listAttachmentUrls()`; Linear attachment query | Named refs bypass inbound policy under `--pull`; duplicate refs collapse; foreign claims fail before local creation; manual and inbound ownership upserts have durable intents; attachment failure replays without a duplicate bead or link |
 | Journal integrity | `tbd-bd8z` | `core/intents.ts` `listIntentFiles()` / `replayIntents()` | A missing journal directory is empty; unreadable, malformed, or schema-invalid journal files fail closed with their filename before any provider mutation, preserving create client UUIDs and preventing duplicates |
-| Intent replay integrity | `tbd-5p9k`, `tbd-ufu3`, `tbd-eqp5`, `tbd-n8b3`, `tbd-8npr`, `tbd-a1hv`, `tbd-huhy` | `core/intents.ts` per-operation bead identity, `discardIntentOps()`, and `replayIntents()` recovery/cancellation; `core/sync-engine.ts` live-link guard, provisional-create journal classification, and recovered working set; `core/link-store.ts` `writeLink()` sibling preservation; `integration.ts` `IntegrationUnlinkHandler`; `comment-store.ts` comment recovery | A crash after provider acceptance reuses and records the same UUID; every replayed write still requires the same bead/provider identity; a confirmed-absent pending create is not orphaned while an already-live item still reconciles; enrichment preserves comments and future sibling state; unlink cancels before clearing identity and remains retryable; stale journals are consumed without provider I/O once their claim no longer exists |
+| Intent replay integrity | `tbd-5p9k`, `tbd-ufu3`, `tbd-eqp5`, `tbd-n8b3`, `tbd-8npr`, `tbd-a1hv`, `tbd-huhy`, `tbd-swh3` | `core/intents.ts` per-operation bead identity, `discardIntentOps()`, and `replayIntents()` recovery/cancellation; `core/sync-engine.ts` live-link guard, provisional-create journal classification and creation-snapshot base, and recovered working set; `core/link-store.ts` `writeLink()` sibling preservation; `integration.ts` `IntegrationUnlinkHandler`; `comment-store.ts` comment recovery | A crash after provider acceptance reuses and records the same UUID; every replayed write still requires the same bead/provider identity; a confirmed-absent pending create is not orphaned while an already-live item still reconciles from its journaled creation base before a bridge exists; enrichment preserves comments and future sibling state; unlink cancels before clearing identity and remains retryable; stale journals are consumed without provider I/O once their claim no longer exists |
 | Folded sync integrity | `tbd-yp81`, `tbd-dc77` | `cli/commands/sync.ts` `assertIntegrationReportsHealthy()`, surface rollup, and config preflight | Thrown and per-item tracker failures both let independent docs/issues finish but force a non-zero aggregate result; malformed config never turns integrations silently inert |
 | Conflict durability | `tbd-l50w`, `tbd-ofwz`, `tbd-jemr` | `file/attic-entry.ts`; `SyncCallbacks.archiveConflict()`; `intents.ts` `post_conflict`; `sync-engine.ts` archive-before-journal-before-write ordering | The exact losing prose is archived before either side changes; crash and inbound-only deferral reuse the same archive/comment UUID and settle exactly once |
 | Attic recovery | `tbd-anx3`, `tbd-z7n8`, `tbd-vzt1`, `tbd-y45b` | `attic.ts` `parseAtticFilename()`, `resolveAtticIssueId()`, `decodeAtticTextValue()`, `buildRestorationAtticEntry()` | Real ULID filenames and display IDs work; JSON/legacy/null values restore exactly; the displaced winner is reverse-archived first |
@@ -1037,8 +1040,11 @@ Apply order per run, under the existing data-sync lock:
    provider write; a crash afterward leaves the durable identity replay needs to
    distinguish live work from an unlinked stale journal.
    While that matching create intent remains, liveness still checks whether the provider
-   item exists. A live item reconciles normally; a confirmed absence is treated as
-   pending—not orphaned—even in pull-only mode, which does not replay provider writes.
+   item exists. A live item reconciles normally; before its first bridge record, the
+   journaled creation patch is the base, so provider changes made during failed
+   follow-up work are not mistaken for local outbound changes.
+   A confirmed absence is treated as pending—not orphaned—even in pull-only mode, which
+   does not replay provider writes.
 3. **Apply external writes**, per-pair failure containment (one unreachable item marks
    the run degraded, the rest proceed).
 4. **Apply bead patches** through the normal issue write path — version bump,
@@ -1104,7 +1110,9 @@ Replay safety is per-operation, verified against the mock server:
   `unlink` or `link` to a new item clears it.
   A provisional link whose exact create intent is still durable is checked for liveness.
   If the provider item exists, it reconciles normally even when follow-up journal work
-  remains; if absent, it is omitted from orphan output until create replay succeeds or
+  remains. The create patch supplies the first base when no bridge record exists, so an
+  intervening provider edit pulls or conflicts instead of being overwritten.
+  If absent, the link is omitted from orphan output until create replay succeeds or
   unlink cancels it.
 - **Bead deleted or closed** → the external item is updated (closed maps to
   `completed`/`canceled`) but never deleted.
@@ -1405,6 +1413,10 @@ Phase 2 extends the same structure:
   identity. Follow-up cases keep a failed provisional create out of orphan reporting in
   full and pull-only runs, and add a comment between provisional commit and create
   recovery to prove link enrichment cannot erase provider-namespace siblings.
+  A provider-accepted create whose attachment fails before the first bridge record then
+  receives a remote edit; pull-only uses the journaled creation snapshot to take that
+  edit without provider I/O, and the following full run completes and consumes the
+  original journal without reverting it.
 - **Comments**: two machines append different comments and merge (union, both survive);
   the same comment pulled twice dedupes; a capped thread collapses to stubs without
   losing ids.

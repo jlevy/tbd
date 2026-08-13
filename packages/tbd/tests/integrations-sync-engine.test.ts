@@ -1070,6 +1070,64 @@ describe('the sync engine', () => {
     expect(await listIntentFiles(dir, 'linear')).toHaveLength(1);
   });
 
+  it('pulls a live pending create before its first bridge record exists', async () => {
+    const epic = bead('is-01hx5zzkbkactav9wevgemmvrz');
+    store.set(epic.id, epic);
+
+    // The provider create lands and the provisional link is durable, but the
+    // first follow-up fails before the engine can write its three-way base.
+    const upsertAttachments = adapter.upsertAttachments.bind(adapter);
+    adapter.upsertAttachments = () => Promise.reject(new Error('attachment unavailable'));
+    const interrupted = await run([epic]);
+    expect(interrupted.failures).toEqual([
+      expect.objectContaining({ beadId: 'mvrz', error: 'attachment unavailable' }),
+    ]);
+    const pending = store.get(epic.id)!;
+    const externalId = readLink(pending, 'linear')!.id;
+    expect(server.issues.has(externalId)).toBe(true);
+    expect(await listIntentFiles(dir, 'linear')).toHaveLength(1);
+
+    adapter.upsertAttachments = upsertAttachments;
+    const remote = server.issues.get(externalId)!;
+    remote.title = 'Remote edit before the first bridge base';
+    remote.description = 'Remote prose before the first bridge base';
+    remote.state = server.states.find((state) => state.type === 'started')!;
+    remote.priority = 1;
+    remote.updatedAt = '2026-08-10T15:00:00.000Z';
+    // Force the pair through targeted liveness rather than the broad delta.
+    adapter.fetchUpdatedSince = () => Promise.resolve([]);
+
+    const inboundOnly = await runSync({
+      provider: 'linear',
+      adapter,
+      policy: POLICY,
+      dataSyncDir: dir,
+      allIssues: [pending],
+      displayId: (id) => id.slice(-4),
+      mirrorLabels: false,
+      callbacks,
+      direction: 'inbound',
+      dryRun: false,
+      now: () => new Date().toISOString(),
+    });
+
+    expect(inboundOnly.failures).toEqual([]);
+    expect(inboundOnly.pulled).toEqual(['mvrz']);
+    expect(store.get(epic.id)?.title).toBe('Remote edit before the first bridge base');
+    expect(store.get(epic.id)?.description).toBe('Remote prose before the first bridge base');
+    expect(store.get(epic.id)?.status).toBe('in_progress');
+    expect(store.get(epic.id)?.priority).toBe(0);
+    // Pull-only neither replays the follow-up nor consumes its journal.
+    expect(server.attachments).toEqual([]);
+    expect(await listIntentFiles(dir, 'linear')).toHaveLength(1);
+
+    const completed = await run([store.get(epic.id)!]);
+    expect(completed.failures).toEqual([]);
+    expect(store.get(epic.id)?.title).toBe('Remote edit before the first bridge base');
+    expect(server.attachments.length).toBeGreaterThan(0);
+    expect(await listIntentFiles(dir, 'linear')).toEqual([]);
+  });
+
   it("a stale replay failure does not block this run's journal cleanup", async () => {
     // Bugbot follow-up: report.failures also carries replay failures from
     // OLDER intent files; those must not pin the current run's journal.

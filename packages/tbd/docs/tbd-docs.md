@@ -1859,8 +1859,11 @@ canceled by unlink.
 While that exact create journal remains, tbd still checks the item: a
 live item reconciles normally even if attachment or managed-content work remains, while
 a confirmed absence is pending rather than incorrectly orphaned, including under
-`--pull`. Filling in the created item’s key and URL preserves comments and other
-provider state already recorded beside the link.
+`--pull`. If the item is live but follow-up work failed before its first bridge record,
+the journaled creation values are the base; tracker edits made in that interval still
+pull or conflict instead of being mistaken for outbound bead changes.
+Filling in the created item’s key and URL preserves comments and other provider state
+already recorded beside the link.
 `unlink` removes matching pending writes first, clears the bead link second, and deletes
 the bridge record last.
 If cancellation cannot complete, the link remains intact and a repeated unlink can
