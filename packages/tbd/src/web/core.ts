@@ -265,7 +265,9 @@ export function formatRelativeAge(timestamp: string, nowMs = Date.now()): Relati
   let label = 'just now';
   for (const [suffix, milliseconds] of steps) {
     if (ageMs >= milliseconds) {
-      label = `${Math.round(ageMs / milliseconds)}${suffix} ago`;
+      // Floor keeps the label inside the same threshold bucket as its color tier:
+      // 59m stays 59m until the formatter switches both label and tier to 1h.
+      label = `${Math.floor(ageMs / milliseconds)}${suffix} ago`;
       break;
     }
   }

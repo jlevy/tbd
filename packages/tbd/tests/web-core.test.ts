@@ -178,6 +178,13 @@ describe('client core pure helpers', () => {
       label: 'just now',
       tier: 'sec',
     });
+
+    expect(age(60 * 60_000 - 1)).toMatchObject({ label: '59m ago', tier: 'min' });
+    expect(age(60 * 60_000)).toMatchObject({ label: '1h ago', tier: 'hr' });
+    expect(age(24 * 60 * 60_000 - 1)).toMatchObject({ label: '23h ago', tier: 'hr' });
+    expect(age(24 * 60 * 60_000)).toMatchObject({ label: '1d ago', tier: 'day' });
+    expect(age(7 * 24 * 60 * 60_000 - 1)).toMatchObject({ label: '6d ago', tier: 'day' });
+    expect(age(7 * 24 * 60 * 60_000)).toMatchObject({ label: '1w ago', tier: 'wk' });
   });
 
   it('serializes controls one-to-one with CLI-shaped query parameters', () => {
