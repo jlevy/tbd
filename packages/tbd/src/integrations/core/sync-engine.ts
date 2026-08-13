@@ -1111,9 +1111,9 @@ export async function runSync(options: SyncEngineOptions): Promise<SyncRunReport
         const result = await adapter.spliceDescription(link.id, managedBlock);
         if (result) {
           postWriteUpdatedAt = result.updatedAt;
-        }
-        if (!hasExternalPatch) {
-          report.pushed.push(displayId);
+          if (!hasExternalPatch) {
+            report.pushed.push(displayId);
+          }
         }
       }
 

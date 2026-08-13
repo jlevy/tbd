@@ -669,9 +669,29 @@ async function main(): Promise<void> {
         const reports = parseJson(
           expectReportOutput(result, 'project-scoped inbound report'),
           'project-scoped inbound report',
-        ) as { provider: string; importable: { id: string; title: string }[] }[];
+        ) as {
+          provider: string;
+          importable: { id: string; title: string }[];
+          failures: { beadId: string; error: string }[];
+        }[];
         const report = reports.find((candidateReport) => candidateReport.provider === 'linear');
         assertCondition(report, 'Linear scope report was missing');
+        const ownedSentinels = [
+          inside.id,
+          inside.key,
+          insideTitle,
+          outside.id,
+          outside.key,
+          outsideTitle,
+        ];
+        const ownedFailure = report.failures.find((failure) => {
+          const serialized = JSON.stringify(failure);
+          return ownedSentinels.some((sentinel) => serialized.includes(sentinel));
+        });
+        assertCondition(
+          !ownedFailure,
+          `Project-scoped inbound sync failed for a scenario-owned sentinel: ${JSON.stringify(ownedFailure)}`,
+        );
         assertCondition(
           report.importable.some((candidateIssue) => candidateIssue.id === inside.id),
           'Automatic inbound scan missed an issue inside the configured project',

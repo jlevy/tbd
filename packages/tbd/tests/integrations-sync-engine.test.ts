@@ -8,7 +8,7 @@ import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { clearLink, readLink, writeLink } from '../src/integrations/core/link-store.js';
 import { readLinkRecord } from '../src/integrations/core/bridge-state.js';
@@ -207,6 +207,34 @@ describe('the sync engine', () => {
     expect(description).toContain('Revised human prose');
     expect(description.split(MANAGED_BLOCK_MARKERS.begin)).toHaveLength(2);
     expect(description.split(MANAGED_BLOCK_MARKERS.end)).toHaveLength(2);
+  });
+
+  it('does not report a push when the managed-block splice is already satisfied', async () => {
+    server.addIssue({
+      id: 'linked-item',
+      identifier: 'FIN-10',
+      title: 'Linked issue',
+      description: 'Human prose',
+    });
+    const linked = writeLink(
+      bead('is-01hx5zzkbkactav9wevgemmvrz', {
+        title: 'Linked issue',
+        description: 'Human prose',
+      }),
+      {
+        provider: 'linear',
+        id: 'linked-item',
+        key: 'FIN-10',
+        linked_at: '2026-08-10T00:00:00.000Z',
+      },
+    );
+    store.set(linked.id, linked);
+    vi.spyOn(adapter, 'spliceDescription').mockResolvedValue(null);
+
+    const result = await run([linked]);
+
+    expect(result.failures).toEqual([]);
+    expect(result.pushed).toEqual([]);
   });
 
   it('renders the managed block from values pulled during the same sync', async () => {

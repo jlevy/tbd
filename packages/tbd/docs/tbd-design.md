@@ -6673,8 +6673,11 @@ Readers also accept the former HTML-comment pair; the next outbound splice migra
 without changing human prose around the managed region or registering a remote
 description edit. Full sync renders the block from the reconciled canonical values, so a
 pulled or conflict-winning field and its provider-visible summary cannot diverge for one
-cycle. Mixed, incomplete, reversed, or duplicate markers fail closed and leave the
-provider description untouched.
+cycle. A bead-prose push writes the prose first and appends the managed region in a
+separate splice, so a region placed in the middle of a provider description moves to the
+end; delimiter-only refreshes preserve its position.
+Mixed, incomplete, reversed, or duplicate markers fail closed and leave the provider
+description untouched.
 Every intent operation carries its owning bead id.
 Replay performs provider I/O only while that bead still names the operation’s exact
 provider id; a user comment must also retain the exact unpushed local entry.

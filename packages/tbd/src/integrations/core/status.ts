@@ -76,10 +76,18 @@ function describeSource(source: CredentialSource): string {
 async function envFileFinding(repoRoot: string): Promise<StatusFinding> {
   const status = await checkEnvIgnored(repoRoot);
   if (!status.exists) {
+    if (!status.ignored) {
+      return {
+        label: ENV_FILE_NAME,
+        state: 'warn',
+        detail: 'not present and not gitignored',
+        remedy: `Add ${ENV_FILE_NAME} to .gitignore before creating it or putting any credential in it.`,
+      };
+    }
     return {
       label: ENV_FILE_NAME,
       state: 'ok',
-      detail: 'not present',
+      detail: 'not present and gitignored',
     };
   }
   if (!status.ignored) {

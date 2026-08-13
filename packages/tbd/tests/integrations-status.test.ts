@@ -88,6 +88,24 @@ describe('integration status', () => {
     expect(hasErrors(status)).toBe(true);
   });
 
+  it('warns before an absent .env would be tracked', async () => {
+    const status = await integrationStatus({ config: config(), repoRoot: dir });
+
+    expect(status.envFile.state).toBe('warn');
+    expect(status.envFile.detail).toContain('not gitignored');
+    expect(status.envFile.remedy).toMatch(/gitignore/i);
+    expect(hasErrors(status)).toBe(false);
+  });
+
+  it('accepts an absent .env when git would ignore it', async () => {
+    await writeFile(join(dir, '.gitignore'), '.env\n');
+
+    const status = await integrationStatus({ config: config(), repoRoot: dir });
+
+    expect(status.envFile.state).toBe('ok');
+    expect(status.envFile.detail).toContain('not present');
+  });
+
   it('accepts a gitignored .env', async () => {
     await writeFile(join(dir, '.env'), `LINEAR_API_KEY=${SECRET}\n`);
     await writeFile(join(dir, '.gitignore'), '.env\n');

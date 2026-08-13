@@ -728,6 +728,10 @@ while these delimiters are visible, compact, and have no Markdown or HTML semant
 
 Only the region between the two delimiters is rewritten, so human prose on either side
 survives byte-for-byte apart from boundary whitespace normalization.
+When bead prose itself is pushed, the adapter writes that prose and then appends the
+managed region in a separate splice.
+A region that was in the middle of the provider description therefore moves to the end;
+delimiter-only refreshes preserve its position.
 Readers also accept the former `<!-- tbd:begin -->` / `<!-- tbd:end -->` pair, and the
 next successful outbound splice upgrades that region to the current pair.
 Missing markers → append; mixed formats, incomplete pairs, reversed pairs, or duplicates
