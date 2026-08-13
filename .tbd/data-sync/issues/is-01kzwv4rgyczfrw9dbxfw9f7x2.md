@@ -5,7 +5,7 @@ title: "Address review: PR #209 — final release-readiness review"
 kind: task
 status: in_progress
 priority: 1
-version: 29
+version: 30
 labels:
   - review
   - release-readiness
@@ -35,8 +35,9 @@ child_order_hints:
   - is-01kzwxncwfac3cb7dwq0mwcyz4
   - is-01kzwz4atct5y527y9tx2mxbms
   - is-01kzwz4b7a8w3ekcx9r6yx85k6
+  - is-01kzx0g7w12vqnv0b8a8svx851
 created_at: 2026-08-13T05:57:25.149Z
-updated_at: 2026-08-13T07:16:17.785Z
+updated_at: 2026-08-13T07:31:04.192Z
 ---
 Monitor every PR #209 review channel for new formal reviews, inline threads, PR comments, linked issues, or review docs. When feedback arrives, follow tbd shortcut address-pr-review: deduplicate and track every finding as a child bead; fix, rebut, or defer each explicitly; validate and push; publish a disposition map; resolve threads; and confirm hosted CI.
 
