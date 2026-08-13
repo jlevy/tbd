@@ -5,7 +5,7 @@ title: Merge v0.5.0 main and assess Linear release candidate
 kind: task
 status: in_progress
 priority: 1
-version: 32
+version: 34
 spec_path: docs/project/specs/active/plan-2026-08-10-external-tracker-integrations.md
 labels:
   - integration
@@ -41,8 +41,10 @@ child_order_hints:
   - is-01kzxdxb1mhthgn46vfxtawv01
   - is-01kzxg35z6xqe2s5j3wr6n315h
   - is-01kzxhw9w2xj03bfz4de3kxvpb
+  - is-01kzxk660qk999gpapm6j74rgg
+  - is-01kzxkvemtgka7w0kezxky6tac
 created_at: 2026-08-13T09:44:20.358Z
-updated_at: 2026-08-13T12:34:45.246Z
+updated_at: 2026-08-13T13:09:14.517Z
 ---
 Merge origin/main into claude/linear-integration using the merge-upstream shortcut. Audit every overlapping sync/storage/schema/web surface for semantic conflicts, reconcile stale Phase 2 bead state, revise the plan with file/function-level Linear RC, GitHub, and web work, validate the built CLI and live Linear pilot end to end, run the full quality gates, push PR #206, and watch CI to a final result.
 
