@@ -391,7 +391,7 @@ describe('the sync engine', () => {
         sleep: () => Promise.resolve(),
       }),
       teamKey: 'FIN',
-      userMap: { josh: 'josh@example.com' },
+      userMap: { josh: 'josh@example.com', riley: 'test@example.com' },
     });
     const policy = PolicyDefinitionSchema.parse({
       outbound: { kinds: ['epic'], statuses: ['open'], specs: 'none', linked: true },
@@ -413,7 +413,15 @@ describe('the sync engine', () => {
     };
     remote.updatedAt = new Date(Date.now() + 60_000).toISOString();
 
-    const result = await run([store.get(epic.id)!], policy);
+    const locallyEdited = {
+      ...store.get(epic.id)!,
+      assignee: 'riley',
+      version: store.get(epic.id)!.version + 1,
+      updated_at: new Date(Date.now() + 120_000).toISOString(),
+    };
+    store.set(epic.id, locallyEdited);
+
+    const result = await run([locallyEdited], policy);
     const record = await readLinkRecord(dir, 'linear', epic.id);
 
     expect(result.pushed).toEqual([]);
@@ -421,11 +429,20 @@ describe('the sync engine', () => {
     expect(result.warnings.map((warning) => warning.message)).toContain(
       'Linear assignee is not present in user_map; assignee synchronization skipped.',
     );
-    expect(store.get(epic.id)?.assignee).toBe('josh');
+    expect(store.get(epic.id)?.assignee).toBe('riley');
     expect(record?.base.assignee).toBe('josh');
     expect(remote.assignee.email).toBe('outside@example.com');
     expect(JSON.stringify(store.get(epic.id))).not.toContain('Outside Person');
     expect(JSON.stringify(record)).not.toContain('Outside Person');
+
+    remote.assignee = server.users[0]!;
+    remote.updatedAt = new Date(Date.now() + 180_000).toISOString();
+    const recovered = await run([store.get(epic.id)!], policy);
+
+    expect(recovered.pushed).toEqual(['mvrz']);
+    expect(recovered.pulled).toEqual([]);
+    expect(server.issues.get(externalId)?.assignee?.email).toBe('test@example.com');
+    expect((await readLinkRecord(dir, 'linear', epic.id))?.base.assignee).toBe('riley');
   });
 
   it('detects a quiet archived item through the linked-item liveness fetch', async () => {

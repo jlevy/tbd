@@ -6714,6 +6714,8 @@ that scan scope. Assignee writes are enabled only by a non-empty `user_map`: loc
 persist canonical aliases, configured email/UUID targets resolve at runtime, safely
 mapped aliases seed inbound-created beads, and an unknown provider identity freezes that
 field with a safe warning until it is mapped.
+The bridge retains its prior canonical base during that freeze, so concurrent local
+edits remain divergent and recoverable.
 Provider display names and emails never cross the persistence boundary.
 
 One external item must never have multiple bead writers.

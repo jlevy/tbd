@@ -244,7 +244,8 @@ Configured `project` scopes both creates and automatic inbound scans; an explici
 `--external` import bypasses that scan scope.
 Assignees sync only through `user_map`: beads retain aliases (including on initial
 import), runtime email/UUID targets never persist, unmapped local aliases are reported,
-and an unmapped provider identity leaves the local field unchanged with a safe warning.
+and an unmapped provider identity leaves the local field and prior bridge base unchanged
+with a safe warning, preserving local divergence until mapping recovers.
 Linear sub-issues import parent-first and never flatten; `max_nesting` limits only new
 outbound creation. Comments are append-only and paginated; edits, deletions, reactions,
 and thread shape are not synchronized.

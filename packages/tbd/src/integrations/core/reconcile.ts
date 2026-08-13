@@ -297,6 +297,10 @@ export function reconcile(
 
   for (const field of SYNCED_FIELDS) {
     if (field === 'assignee' && capabilities.assigneePull === false) {
+      // Neither side can safely win while the provider identity has no canonical
+      // alias. Keep the prior base so local edits remain divergent and are
+      // reconsidered once the remote identity becomes syncable.
+      merged.assignee = base?.assignee ?? null;
       continue;
     }
     const ops = fields[field];
