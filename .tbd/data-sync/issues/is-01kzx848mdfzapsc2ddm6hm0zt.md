@@ -5,7 +5,7 @@ title: Merge v0.5.0 main and assess Linear release candidate
 kind: task
 status: in_progress
 priority: 1
-version: 37
+version: 40
 spec_path: docs/project/specs/active/plan-2026-08-10-external-tracker-integrations.md
 labels:
   - integration
@@ -45,11 +45,13 @@ child_order_hints:
   - is-01kzxkvemtgka7w0kezxky6tac
   - is-01kzxmc1fwdgshnbsne64fha22
   - is-01kzxmc219typjnb46kwsm83k3
+  - is-01kzxp8m8fn9vyrd0qfghkgtx2
+  - is-01kzxp8mkfq99eamm3d3kw7a9e
 created_at: 2026-08-13T09:44:20.358Z
-updated_at: 2026-08-13T13:38:45.815Z
+updated_at: 2026-08-13T14:07:00.584Z
 ---
 Merge origin/main into claude/linear-integration using the merge-upstream shortcut. Audit every overlapping sync/storage/schema/web surface for semantic conflicts, reconcile stale Phase 2 bead state, revise the plan with file/function-level Linear RC, GitHub, and web work, validate the built CLI and live Linear pilot end to end, run the full quality gates, push PR #206, and watch CI to a final result.
 
 ## Notes
 
-origin/main v0.5.0 merged semantically; Linear live phases 1-6 passed. Nine PR review findings are now fixed with TDD, including provider-neutral live-claim replay cancellation (tbd-eqp5) and cancellation-first retryable unlink (tbd-n8b3). Authoritative spec/design/user docs/changelog/generated skills are current. Final local gates at the pending head: format/Markdown/lint/typecheck/build, 1,927 Vitest, 1,084 Tryscript, publint, package-age 31 pins/0 violations, 5k/10k performance coverage, packed web proof, and native watch RC. Known gray-matter/js-yaml advisory remains narrowly unreachable and tracked as tbd-6gy0. Remaining: commit/push, resolve the two originating threads, final hosted CI, comprehensive disposition, and RC closure.
+origin/main v0.5.0 is merged semantically; live Linear phases 1-6 passed. Eleven PR review findings are fixed with TDD, including provider-neutral replay cancellation, cancellation-first unlink, pending-create/orphan distinction (tbd-8npr), and provider-namespace preservation during provisional-link enrichment (tbd-a1hv). Authoritative spec/design/user docs/changelog/generated skills are current. Final local gates at a91c1254: format/Markdown/lint/typecheck/build; 1,929 Vitest; 1,084 Tryscript; publint; package-age 31 pins/0 violations; 5k/10k performance coverage; packed web proof; native watch RC. Known gray-matter/js-yaml advisory remains narrowly unreachable and tracked as tbd-6gy0. Remaining: push, resolve two originating threads, replacement hosted CI, final thread sweep and disposition, then RC closure.
