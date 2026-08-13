@@ -84,6 +84,8 @@ describe('prime command', { timeout: subprocessTestTimeout() }, () => {
       expect(result.stdout).not.toContain('Essential Commands');
       // Should point to full orientation
       expect(result.stdout).toContain('tbd prime');
+      // Keep the optional tracker setup route visible in constrained contexts.
+      expect(result.stdout).toContain('tbd shortcut setup-linear');
     });
 
     it('tbd (no args) shows help with agent guidance', () => {

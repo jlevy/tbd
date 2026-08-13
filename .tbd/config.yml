@@ -85,6 +85,7 @@ docs_cache:
     shortcuts/standard/revise-all-architecture-docs.md: internal:shortcuts/standard/revise-all-architecture-docs.md
     shortcuts/standard/revise-architecture-doc.md: internal:shortcuts/standard/revise-architecture-doc.md
     shortcuts/standard/setup-github-cli.md: internal:shortcuts/standard/setup-github-cli.md
+    shortcuts/standard/setup-linear.md: internal:shortcuts/standard/setup-linear.md
     shortcuts/standard/suggest-upstream-improvements.md: internal:shortcuts/standard/suggest-upstream-improvements.md
     shortcuts/standard/sync-failure-recovery.md: internal:shortcuts/standard/sync-failure-recovery.md
     shortcuts/standard/update-specs-status.md: internal:shortcuts/standard/update-specs-status.md

@@ -10,8 +10,19 @@ project.
 
 ## Instructions
 
-First, run `tbd status` to check the current state.
-Give a brief summary of the status (repository, sync status, integrations).
+First, run `tbd status` to check the repository and sync state.
+Then run `tbd integration status --offline` separately to inspect external-tracker
+configuration and local credentials without making a network request.
+A missing credential makes the second command diagnostic rather than successful; still
+read and summarize its output.
+
+If Linear is **configured but missing a credential**, explain that the team setup is
+already present and this user needs only their personal key.
+Offer `tbd shortcut setup-linear`—do not make them hunt for it or imply that they should
+edit the shared team/project configuration.
+If no tracker is configured, mention optional Linear setup without derailing the
+welcome. If all offline checks pass, say that Linear is configured locally and the user
+can ask for a live verification.
 
 Then make the two-axis guidelines offer, one short question per axis:
 
@@ -73,6 +84,7 @@ For a project outside the agent’s current working directory, it can use
 | “Commit this code” | Reviews changes and commits properly (`tbd shortcut code-review-and-commit`) |
 | “Create a PR” | Creates a pull request with summary (`tbd shortcut create-or-update-pr-simple`) |
 | “Review this for best practices” | Performs a code review with guidelines |
+| “Set up Linear” / “Add my Linear key” | Walks through connecting this repo to Linear (`tbd shortcut setup-linear`) |
 
 ### Guidelines
 

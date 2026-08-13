@@ -111,6 +111,7 @@ tbd show <id>          View issue details
 tbd create "title"     Create new issue
 tbd close <ids...>     Mark complete (bulk: pass all IDs in one call, never loop)
 tbd sync               Sync with remote
+tbd shortcut setup-linear  Configure shared Linear setup or add a personal Linear key
 
 For full orientation: tbd prime
 

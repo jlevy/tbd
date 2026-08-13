@@ -101,6 +101,7 @@ function printStatus(status: IntegrationStatus): void {
     console.log('      team_key: FIN');
     console.log('');
     console.log(`Then set ${CREDENTIAL_ENV_VARS.linear} in your environment or a gitignored .env.`);
+    console.log('For guided setup: tbd shortcut setup-linear');
     return;
   }
 
@@ -118,6 +119,16 @@ function printStatus(status: IntegrationStatus): void {
     for (const finding of provider.findings) {
       line(finding, '  ');
     }
+  }
+
+  const needsCredential = status.providers.some((provider) =>
+    provider.findings.some(
+      (finding) => finding.label === 'credential' && finding.state === 'error',
+    ),
+  );
+  if (needsCredential) {
+    console.log('');
+    console.log('Guided personal-key setup: tbd shortcut setup-linear');
   }
 }
 

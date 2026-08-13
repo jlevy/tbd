@@ -27,6 +27,10 @@
   - `tbd integration status` reports whether each provider is configured, credentialed,
     and reachable, with a remedy on every failure.
     Inert and offline when none is enabled.
+  - `tbd shortcut setup-linear` now guides both first-time repository configuration and
+    the common teammate path where shared config already exists but a personal key is
+    missing. Setup output, welcome guidance, README onboarding, and every installed skill
+    tier route natural “Set up Linear” and “Add my Linear key” requests to it.
   - `tbd integration sync --push` projects selected beads outward.
     Accepts the same selectors as `list` (`--bead`, `--type`, `--status`, `--label`,
     `--spec`) plus `--limit`, so a rollout can be staged without editing config.

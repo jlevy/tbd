@@ -125,6 +125,71 @@ describe('integration file formats', () => {
     });
   });
 
+  describe('Linear onboarding routing', () => {
+    it('activates the installed skill for natural Linear setup requests', async () => {
+      const header = await readFile(join(installDir, 'claude-header.md'), 'utf-8');
+      const frontmatter = parseFrontmatter(header);
+
+      expect(frontmatter).toContain('Linear');
+      expect(frontmatter).toContain('API key');
+    });
+
+    it('routes Linear setup through the dedicated shortcut in every skill tier', async () => {
+      const skillFiles = [
+        join(shortcutsSystemDir, 'skill-baseline.md'),
+        join(docsDir, 'skill-brief.md'),
+        join(shortcutsSystemDir, 'skill-minimal.md'),
+      ];
+
+      for (const skillFile of skillFiles) {
+        const content = await readFile(skillFile, 'utf-8');
+        expect(content, `${skillFile} must route Linear setup`).toContain(
+          'tbd shortcut setup-linear',
+        );
+        expect(content, `${skillFile} must recognize a personal-key request`).toContain(
+          'Linear key',
+        );
+      }
+    });
+
+    it('ships a two-path setup shortcut with the credential safety boundary', async () => {
+      const content = await readFile(
+        join(docsDir, 'shortcuts', 'standard', 'setup-linear.md'),
+        'utf-8',
+      );
+
+      expect(content).toContain('First-time setup');
+      expect(content).toContain('Joining a configured repo');
+      expect(content).toContain('tbd integration status --offline');
+      expect(content).toContain('Settings > Account > Security & Access');
+      expect(content).toContain('Do not ask the user to paste');
+      expect(content).toContain('tbd sync');
+      expect(content).toContain('.tbd/config.yml');
+      expect(content).toContain('gitignored');
+    });
+
+    it('surfaces optional Linear setup in onboarding and the user manual', async () => {
+      const welcome = await readFile(
+        join(docsDir, 'shortcuts', 'standard', 'welcome-user.md'),
+        'utf-8',
+      );
+      expect(welcome).toContain('tbd integration status --offline');
+      expect(welcome).toContain('tbd shortcut setup-linear');
+      expect(welcome).toContain('Add my Linear key');
+
+      const manual = await readFile(join(docsDir, 'tbd-docs.md'), 'utf-8');
+      expect(manual).toContain('tbd shortcut setup-linear');
+      expect(manual).toContain('Joining a repository that already syncs');
+      expect(manual).toContain('First-time setup for a repository');
+
+      const readme = await readFile(join(__dirname, '..', '..', '..', 'README.md'), 'utf-8');
+      expect(readme).toContain('Optional Linear Setup');
+      expect(readme).toContain('tbd shortcut setup-linear');
+      expect(readme).toContain('.agents/');
+      expect(readme).toContain('.codex/');
+    });
+  });
+
   describe('typescript-lint-format-rules routing', () => {
     const combinedRoute = 'tbd guidelines typescript-rules typescript-lint-format-rules';
 

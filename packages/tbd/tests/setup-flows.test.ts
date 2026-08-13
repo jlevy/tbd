@@ -113,6 +113,12 @@ describe('setup flows', { timeout: subprocessTestTimeout() }, () => {
       expect(result.stdout).toContain("Let's plan a new feature");
       expect(result.stdout).toContain('Show my beads in a browser');
       expect(result.stdout).toContain('Commit this code');
+      expect(result.stdout).toContain('Set up Linear');
+      expect(result.stdout).toContain('Add my Linear key');
+
+      const integrationStatus = runTbd(['integration', 'status', '--offline']);
+      expect(integrationStatus.status).toBe(0);
+      expect(integrationStatus.stdout).toContain('tbd shortcut setup-linear');
     });
 
     it('installs the portable Agent Skill identical to the Claude mirror', async () => {
@@ -132,6 +138,8 @@ describe('setup flows', { timeout: subprocessTestTimeout() }, () => {
       expect(portable).toContain('tbd web --open');
       expect(portable).toContain('tbd web <path> --open');
       expect(portable).toContain('viewer, not an editor');
+      expect(portable).toContain('tbd shortcut setup-linear');
+      expect(portable).toContain('Add my Linear key');
 
       // The portable skill and the Claude mirror must carry the same payload.
       const mirror = await readFile(mirrorPath, 'utf-8');

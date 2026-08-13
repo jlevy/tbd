@@ -1809,6 +1809,7 @@ class SetupDefaultHandler extends BaseCommand {
     console.log('    "Let\'s plan a new feature"      → Walks through a planning spec');
     console.log('    "Let\'s work on current issues"  → Shows ready issues to tackle');
     console.log('    "Show my beads in a browser"    → Opens the live, read-only viewer');
+    console.log('    "Set up Linear" / "Add my Linear key" → Guided team or personal setup');
     console.log('    "Commit this code"               → Reviews and commits properly');
     console.log('    "Review for best practices"      → Code review with guidelines');
     console.log('');

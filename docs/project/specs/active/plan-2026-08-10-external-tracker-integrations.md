@@ -1382,10 +1382,20 @@ Docs ship with the phase that makes them true, in the same PR as the code:
 - `packages/tbd/CHANGELOG.md` — entry per landed PR.
 - `docs/docs-overview.md` — index the new spec and research doc if not already listed.
 
-**Phase 2:** tbd-docs.md policy reference (presets, clauses, the “policy is only a
-default” rule) and sync semantics (base, conflicts, the comment contract and its
-`commentResolve` lifecycle); a note in the `watch-beads` shortcut that sync-originated
-changes appear in watch reports as ordinary field deltas.
+**Phase 2:**
+
+- `tbd-docs.md` policy reference (presets, clauses, the “policy is only a default” rule)
+  and sync semantics (base, conflicts, the comment contract and its `commentResolve`
+  lifecycle); a note in the `watch-beads` shortcut that sync-originated changes appear
+  in watch reports as ordinary field deltas.
+- `tbd shortcut setup-linear` as the guided path for both first-time repository setup
+  and a teammate adding only their personal key to shared configuration; the welcome
+  shortcut detects and routes the latter case with offline status.
+- README onboarding and every installed skill tier distinguish committed
+  `.tbd/config.yml` from a personal `LINEAR_API_KEY`, activate on natural Linear/key
+  requests, and point to the guided shortcut.
+  Setup output exposes those same natural phrases so the path is discoverable
+  immediately after installation.
 
 **Phase 3:** GitHub provider docs in the same sections; `tbd shortcut setup-github-cli`
 cross-reference for the `gh auth token` path.

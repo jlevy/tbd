@@ -3,7 +3,8 @@ name: tbd
 description: >-
   Git-native issue tracking, coding guidelines, and workflow shortcuts for AI
   coding agents. Use when managing tasks, committing code, following engineering
-  best practices, planning features, or viewing beads in a live browser.
+  best practices, planning features, setting up a Linear/external tracker integration
+  or personal Linear API key, or viewing beads in a live browser.
 license: MIT
 compatibility: Requires Node.js 20.12+ and git. Install CLI first: npm install -g get-tbd@latest
 metadata:
@@ -67,6 +68,7 @@ tbd status             # Project status
 | `tbd shortcut code-review-and-commit` | Pre-commit checks and commit |
 | `tbd shortcut create-or-update-pr-simple` | Create or update a PR |
 | `tbd shortcut new-plan-spec` | Plan a new feature |
+| `tbd shortcut setup-linear` | Set up Linear or add a personal Linear key |
 | `tbd shortcut review-code` | Comprehensive code review |
 | `tbd shortcut implement-beads` | Implement from a spec |
 | `tbd shortcut merge-upstream` | Merge main into branch |
