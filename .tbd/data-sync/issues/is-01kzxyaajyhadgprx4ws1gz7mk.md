@@ -3,9 +3,9 @@ type: is
 id: is-01kzxyaajyhadgprx4ws1gz7mk
 title: Report planned comment work accurately in integration dry-runs
 kind: bug
-status: open
+status: closed
 priority: 1
-version: 3
+version: 4
 spec_path: docs/project/specs/active/plan-2026-08-10-external-tracker-integrations.md
 labels:
   - linear
@@ -14,7 +14,9 @@ labels:
 dependencies: []
 parent_id: is-01kzxy6ks7pd36nnzrppfdspq6
 created_at: 2026-08-13T16:12:07.645Z
-updated_at: 2026-08-13T16:12:40.355Z
+updated_at: 2026-08-13T17:55:55.852Z
+closed_at: 2026-08-13T17:55:55.851Z
+close_reason: "Comment synchronization is complete and verified: accurate dry-run reporting, complete pagination, preservation of pending local prose, and all four flow modes have focused tests, built-CLI coverage, documented boundaries, and live bidirectional/exact-once evidence."
 extensions:
   linear:
     id: 530ad79d-73ce-485b-9700-b2f14295ce87

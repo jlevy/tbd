@@ -5,7 +5,7 @@ title: Dogfood Linear synchronization against the legacy tbd repository
 kind: task
 status: in_progress
 priority: 1
-version: 11
+version: 15
 spec_path: docs/project/specs/active/plan-2026-08-10-external-tracker-integrations.md
 labels:
   - integration
@@ -18,8 +18,9 @@ child_order_hints:
   - is-01kzxz14pf4fb6fxsh7qddvy1p
   - is-01kzxz152g5e546pxjs6w8ckbs
   - is-01kzxz1e815hsxmyhykdabhcxr
+  - is-01kzxzx6e1dekec0pdbtxqqcpk
 created_at: 2026-08-13T15:58:52.645Z
-updated_at: 2026-08-13T16:24:45.056Z
+updated_at: 2026-08-13T17:56:09.938Z
 extensions:
   linear:
     id: 583ad9a1-b8fa-4261-bfd6-a5c43fdec4a8
@@ -42,4 +43,4 @@ This was edited by Josh
 
 ## Notes
 
-Dogfood target: local 1,627-bead repository after creating this task. Configured Linear team TBD/project tbd; policy selects active-spec epics and their first two hierarchy levels plus already-linked records; sync_on_tbd_sync remains intentionally disabled. 2026-08-13 preview and live run both proposed/completed 32 linked updates plus 8 outbound creates (TBD-155..TBD-162), with zero pulls, conflicts, overwrites, orphaned links, comment mutations, or failures. Immediate second full bidirectional run converged with nothingToDo=true.
+Implementation and dogfood validation are complete locally. Final closure is intentionally held until PR #206 hosted CI passes after this commit and the PR is merged; no product or test blocker remains.
