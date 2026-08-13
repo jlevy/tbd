@@ -1,6 +1,6 @@
 # get-tbd
 
-## Unreleased
+## 0.5.0
 
 ### Features
 
@@ -12,10 +12,6 @@
   without any), 2 usage error, 1 operational failure.
   Because 3 and 2 are distinct, an agent wake loop can retry on “nothing matched”
   without spinning on a mistyped flag.
-- **Agent wake recipes**: the new `watch-beads` shortcut documents a race-free
-  watch-then-spawn worker loop plus bounded and background in-session patterns for
-  Claude Code and Codex.
-  Live validation covers both platforms conversing through one bead.
 - **Live local bead view**: `tbd web` serves a responsive, read-only view of the bead
   graph on loopback and refreshes from local file changes.
   Installed agent skills route requests such as “Show my beads in a browser” to
@@ -41,6 +37,23 @@
   missing or uninitialized bases fail with the standard clear CLI errors.
   `--open` is opt-in; JSON and dry-run modes support agents and CI.
 
+### Guidelines and content
+
+- **Agent wake recipes**: the new `watch-beads` shortcut documents a durable, race-safe
+  watch-then-spawn worker loop plus bounded and background in-session patterns for
+  Claude Code and Codex.
+  Live validation covers both platforms coordinating through one bead.
+- **Browser requests route to the viewer**: the installed skill tiers and welcome
+  guidance teach agents to start `tbd web --open` (or `tbd web <path> --open`), keep the
+  foreground process alive, and make every bead mutation with ordinary tbd commands.
+  The viewer never implies an edit or remote sync.
+- **Engineering checks require a named benefit**: the General engineering guidance now
+  rejects cryptographic hash checks and other process ceremony unless they cross a real
+  trust boundary and catch a specific failure.
+- **GitHub CLI guidance tests actual egress**: `setup-github-cli` now distinguishes
+  direct GitHub access from mediated proxy channels and documents the scoped,
+  TLS-preserving `NO_PROXY` path when direct egress is available.
+
 ### Documentation
 
 - **`changes` and `watch` are documented in the built-in docs**: the CLI manual
@@ -53,17 +66,6 @@
 - **Notes semantics documented where they are used**: the manual’s `update` section
   states that `--notes` replaces the whole body and that notes are single-writer
   replaceable state, not a conversation log.
-
-### Internal
-
-- **Shared issue aggregation**: the `tbd stats` counting logic now lives in
-  `src/lib/issue-stats.ts` (`computeIssueStats`, plus the single definition of active
-  statuses and display orders), so other surfaces can report the same numbers the CLI
-  prints. `tbd stats` output is byte-identical and the web view consumes the same data.
-- **Packaged web proof**: release QA packs and extracts the npm tarball, starts its
-  published launcher, fetches the self-contained page and APIs, and verifies bounded
-  shutdown. The copied `dist/tbd` executable is now a launcher for `bin.mjs`, avoiding
-  double CLI evaluation while preserving relative dynamic imports.
 
 ### Fixes
 
@@ -130,7 +132,11 @@
 
 ### Security
 
-- No dependencies were added or upgraded.
+- No dependencies were added or upgraded, and `pnpm-lock.yaml` is byte-identical to
+  v0.4.2. The 14-day package-age gate reports zero violations.
+  The full audit’s other findings are confined to development tooling that is not
+  installed for package consumers; its critical Vitest advisory requires the optional UI
+  server, which this repository neither installs nor starts.
   Watch fetches only after remote movement, targets a collision-resistant private ref,
   does not write `FETCH_HEAD` or configured sync refs, never accesses the hidden
   data-sync worktree or lock, removes its private ref on normal completion (best-effort,
@@ -151,7 +157,12 @@
   scalars as strings, interprets leading-zero integers as decimal rather than legacy
   octal, and continues to keep `yes`/`no`/`on`/`off` as strings.
   The shipped `gray-matter → js-yaml` advisory is availability-only and remains visible
-  to package audits, but its vulnerable `!!omap` resolver is not reachable through tbd.
+  to `pnpm audit --prod`, but its vulnerable `!!omap` resolver is not reachable through
+  tbd. The patched transitive release remains inside the repository’s 14-day dependency
+  cooldown at release preparation time.
+
+**Full commit history**:
+[https://github.com/jlevy/tbd/compare/v0.4.2 … v0.5.0](https://github.com/jlevy/tbd/compare/v0.4.2...v0.5.0)
 
 ## 0.4.2
 
