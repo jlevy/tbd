@@ -1,0 +1,15 @@
+base:
+  assignee: null
+  description_hash: sha256v6:df968831e7c5db494e29891ea8cd4370030af5463ca9ccd00d02dc899e500c5a
+  labels:
+    - web
+    - integration
+  priority: 2
+  status: open
+  title: "Phase 4: external tracker links and facets in tbd web"
+bead_id: is-01kzx8mkeyergsd0hmq8zj1zd7
+external_id: 0cb014de-860c-4ac4-9fa1-ca66d0b1e65e
+remote_updated_at: 2026-08-13T16:00:44.312Z
+state: linked
+synced_at: 2026-08-13T16:21:11.417Z
+type: lk
