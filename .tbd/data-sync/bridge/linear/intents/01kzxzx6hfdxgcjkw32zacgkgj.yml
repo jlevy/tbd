@@ -1,0 +1,12 @@
+created_at: 2026-08-13T16:39:54.671Z
+ops:
+  - attachments:
+      - subtitle: open · P2
+        title: tbd-78k2 · task
+        url: tbd://bead/tbd-78k2
+    bead_id: is-01kzxzx6e1dekec0pdbtxqqcpk
+    external_id: 10610293-33d6-4e35-844f-d6c32d066752
+    kind: upsert_attachments
+provider: linear
+run_id: 01kzxzx6hfdxgcjkw32zacgkgj
+type: in
