@@ -62,6 +62,7 @@ import {
   replayIntents,
   writeIntentFile,
   deleteIntentFile,
+  listIntentFiles,
   type IntentOp,
   type IntentPatch,
 } from './intents.js';
@@ -362,6 +363,22 @@ export async function runSync(options: SyncEngineOptions): Promise<SyncRunReport
     }
   }
 
+  // A create intent plus the bead's matching client-UUID link is a pending
+  // relationship, not an orphan. This remains true in pull-only mode (which
+  // deliberately does not replay provider writes) and after a failed replay.
+  // Derive it from the durable journal under the shared data-sync lock rather
+  // than inventing a second provisional-state flag in the bead or bridge.
+  const pendingCreateClaims = new Set<string>();
+  for (const file of await listIntentFiles(dataSyncDir, provider)) {
+    for (const op of file.ops) {
+      if (op.kind === 'create_issue') {
+        pendingCreateClaims.add(JSON.stringify([op.bead_id, op.client_id]));
+      }
+    }
+  }
+  const isPendingCreate = (bead: Issue, externalId: string): boolean =>
+    pendingCreateClaims.has(JSON.stringify([bead.id, externalId]));
+
   // 2. Assemble the linked set and the remote view.
   const currentIssues = [...issuesById.values()];
   const allLinked = currentIssues.filter((issue) => readLink(issue, provider));
@@ -380,7 +397,7 @@ export async function runSync(options: SyncEngineOptions): Promise<SyncRunReport
   const missingIds: string[] = [];
   for (const bead of linked) {
     const link = readLink(bead, provider)!;
-    if (!remoteById.has(link.id)) {
+    if (!remoteById.has(link.id) && !isPendingCreate(bead, link.id)) {
       missingIds.push(link.id);
     }
   }
@@ -394,6 +411,9 @@ export async function runSync(options: SyncEngineOptions): Promise<SyncRunReport
     const link = readLink(bead, provider)!;
     const remote = remoteById.get(link.id);
     if (!remote) {
+      if (isPendingCreate(bead, link.id)) {
+        continue;
+      }
       const record = recordByBead.get(bead.id);
       if (!dryRun && record && record.state !== 'orphaned') {
         await writeLinkRecord(dataSyncDir, provider, { ...record, state: 'orphaned' });

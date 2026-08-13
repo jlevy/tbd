@@ -942,6 +942,14 @@ describe('the sync engine', () => {
     expect(server.issues.size).toBe(0);
     expect(await listIntentFiles(dir, 'linear')).toHaveLength(1);
 
+    const withComment = appendLocalComment(
+      store.get(epic.id)!,
+      'linear',
+      'Authored after the provisional link commit',
+      '2026-08-10T01:00:00.000Z',
+    ).issue;
+    store.set(epic.id, withComment);
+
     callbacks.afterJournal = () => Promise.resolve();
     const recovered = await run([store.get(epic.id)!]);
 
@@ -953,7 +961,53 @@ describe('the sync engine', () => {
       key: expect.any(String),
       url: expect.any(String),
     });
+    expect(readComments(store.get(epic.id)!, 'linear')).toEqual([
+      expect.objectContaining({
+        body: 'Authored after the provisional link commit',
+        id: expect.any(String),
+      }),
+    ]);
+    expect(server.comments).toEqual([
+      expect.objectContaining({ body: 'Authored after the provisional link commit' }),
+    ]);
     expect(await listIntentFiles(dir, 'linear')).toEqual([]);
+  });
+
+  it('keeps an uncreated provisional link pending instead of reporting it orphaned', async () => {
+    const epic = bead('is-01hx5zzkbkactav9wevgemmvrz');
+    store.set(epic.id, epic);
+    callbacks.afterJournal = () => Promise.reject(new Error('simulated crash after journal'));
+
+    await expect(run([epic])).rejects.toThrow('simulated crash after journal');
+    const pending = store.get(epic.id)!;
+    expect(readLink(pending, 'linear')?.id).toBeDefined();
+    expect(await listIntentFiles(dir, 'linear')).toHaveLength(1);
+
+    callbacks.afterJournal = () => Promise.resolve();
+    adapter.createIssue = () => Promise.reject(new Error('provider unavailable'));
+    const failedReplay = await run([pending]);
+
+    expect(failedReplay.failures.length).toBeGreaterThan(0);
+    expect(failedReplay.orphaned).toEqual([]);
+    expect(await listIntentFiles(dir, 'linear')).toHaveLength(1);
+
+    const inboundOnly = await runSync({
+      provider: 'linear',
+      adapter,
+      policy: POLICY,
+      dataSyncDir: dir,
+      allIssues: [store.get(epic.id)!],
+      displayId: (id) => id.slice(-4),
+      mirrorLabels: false,
+      callbacks,
+      direction: 'inbound',
+      dryRun: false,
+      now: () => new Date().toISOString(),
+    });
+
+    expect(inboundOnly.failures).toEqual([]);
+    expect(inboundOnly.orphaned).toEqual([]);
+    expect(await listIntentFiles(dir, 'linear')).toHaveLength(1);
   });
 
   it("a stale replay failure does not block this run's journal cleanup", async () => {

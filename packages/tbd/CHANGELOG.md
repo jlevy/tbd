@@ -71,7 +71,10 @@
 - Every replayed provider write now carries its owning bead id and requires the current
   bead to retain the exact provider relationship; comments additionally require their
   unpushed local entry.
-  New creates persist their client UUID as a provisional link before provider I/O.
+  New creates persist their client UUID as a provisional link before provider I/O. A
+  matching durable create intent now keeps that relationship pending rather than
+  misreporting the not-yet-created item as orphaned, including under `--pull`; enriching
+  the provisional link preserves comments and future provider-namespace siblings.
   Unlink cancels pending writes before clearing that identity and keeps the bridge
   record until cleanup finishes, so failures remain retryable and a stale or
   cross-machine journal cannot write after unlink or pin future synchronization.

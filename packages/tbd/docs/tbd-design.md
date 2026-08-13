@@ -6652,7 +6652,10 @@ The persisted payload is an allow-list; credentials, raw API responses, emails, 
 workspace metadata never enter a bead.
 Different extension namespaces merge independently.
 A namespace deletion is an edit, so unlink is not silently resurrected by a concurrent
-merge.
+merge. Within a provider namespace, link writes replace only the allow-listed link keys
+and preserve already-durable siblings such as comments or future additive provider
+state. The writer never spreads new fields from a link input, so sibling preservation
+does not weaken the credential/raw-payload boundary.
 
 `TrackerAdapter` maps every provider into canonical tbd fields.
 `integration sync --push` is the one-way projection.
@@ -6665,6 +6668,9 @@ provider id; a user comment must also retain the exact unpushed local entry.
 A create’s client UUID is its future provider id, so sync commits it as a provisional
 bead link with the journal before provider I/O. A pre-commit crash made no provider
 write; a post-commit crash has the durable claim needed for safe replay.
+The matching durable create intent classifies that relationship as pending, so linked-
+item liveness does not fetch or report it as orphaned—even during pull-only runs that
+intentionally defer replay.
 Unlink or relink makes an old journal successful cancellation, not work that may touch
 the former provider item.
 Append-only comments union by immutable identity.

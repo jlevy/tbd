@@ -92,6 +92,45 @@ describe('link store', () => {
     expect(linkedProviders(second)).toEqual(['linear']);
   });
 
+  it('replaces only link fields while preserving sibling provider state', () => {
+    const withProviderState = issue({
+      extensions: {
+        linear: {
+          id: 'old-uuid',
+          key: 'OLD-1',
+          url: 'https://linear.app/acme/issue/OLD-1',
+          linked_at: '2026-08-09T00:00:00.000Z',
+          comments: [
+            {
+              id: 'comment-1',
+              at: '2026-08-10T01:00:00.000Z',
+              author: 'A Reviewer',
+              body: 'Keep me',
+            },
+          ],
+          future_state: { cursor: 'opaque-but-owned-by-the-provider-namespace' },
+        },
+      },
+    });
+
+    const linked = writeLink(withProviderState, {
+      provider: 'linear',
+      id: 'new-uuid',
+      linked_at: '2026-08-10T02:00:00.000Z',
+    });
+    const namespace = linked.extensions?.linear as Record<string, unknown>;
+
+    expect(readLink(linked, 'linear')).toMatchObject({ id: 'new-uuid' });
+    expect(namespace).not.toHaveProperty('key');
+    expect(namespace).not.toHaveProperty('url');
+    expect(namespace.comments).toEqual(
+      expect.arrayContaining([expect.objectContaining({ id: 'comment-1', body: 'Keep me' })]),
+    );
+    expect(namespace.future_state).toEqual({
+      cursor: 'opaque-but-owned-by-the-provider-namespace',
+    });
+  });
+
   it('preserves unrelated namespaces when writing', () => {
     const withOther = issue({ extensions: { someTool: { data: 1 } } });
     const linked = writeLink(withOther, entry);

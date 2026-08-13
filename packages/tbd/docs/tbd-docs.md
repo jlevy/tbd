@@ -1855,8 +1855,13 @@ Before replay, tbd checks that the relationship still exists; comment writes als
 require the exact unpushed local entry.
 A new outbound item records its client UUID as a provisional link with the journal
 before any network call, so crash recovery cannot confuse live creation with work
-canceled by unlink. `unlink` removes matching pending writes first, clears the bead link
-second, and deletes the bridge record last.
+canceled by unlink.
+While that exact create journal remains, tbd reports the relationship
+as pending rather than incorrectly calling the not-yet-created item orphaned, including
+under `--pull`. Filling in the created item’s key and URL preserves comments and other
+provider state already recorded beside the link.
+`unlink` removes matching pending writes first, clears the bead link second, and deletes
+the bridge record last.
 If cancellation cannot complete, the link remains intact and a repeated unlink can
 safely finish; stale journals merged from another machine are consumed without touching
 the former provider item.

@@ -15,6 +15,9 @@
 import { LinkedEntry } from '../../lib/schemas.js';
 import type { Issue, LinkedEntryType, ProviderNameType } from '../../lib/types.js';
 
+/** Exactly the link keys `writeLink` will ever create from its input entry. */
+export const PERSISTED_LINK_KEYS = ['id', 'key', 'url', 'linked_at'] as const;
+
 /**
  * Read a bead's link for one provider.
  *
@@ -34,17 +37,28 @@ export function readLink(issue: Issue, provider: ProviderNameType): LinkedEntryT
 /**
  * Return a copy of the issue carrying `entry` for its provider.
  *
- * Other namespaces are preserved untouched, which matters because a bead can
- * carry a Linear link and a GitHub link at once.
+ * Other namespaces and non-link siblings inside this provider namespace are
+ * preserved untouched. The latter matters because comments (and future
+ * provider-owned state) live beside the link identity.
  *
  * The stored payload is built field by field rather than by spreading `entry`.
  * Beads are committed to git and read by everyone with the repository, so what
- * lands in them is a deliberate allow-list: the provider's id, the human
- * identifier, the URL, and when the link was made. Nothing else about the
- * external item, and never anything derived from a credential. Spreading would
- * let a future field on `LinkedEntry` start persisting silently.
+ * lands in them from `entry` is a deliberate allow-list: the provider's id,
+ * the human identifier, the URL, and when the link was made. Nothing else
+ * about the external item, and never anything derived from a credential.
+ * Pre-existing opaque siblings are retained for mixed-version compatibility;
+ * spreading `entry` would instead let a future field start persisting silently.
  */
 export function writeLink(issue: Issue, entry: LinkedEntryType): Issue {
+  const current = issue.extensions?.[entry.provider];
+  const siblings =
+    typeof current === 'object' && current !== null && !Array.isArray(current)
+      ? Object.fromEntries(
+          Object.entries(current).filter(
+            ([key]) => !PERSISTED_LINK_KEYS.includes(key as (typeof PERSISTED_LINK_KEYS)[number]),
+          ),
+        )
+      : {};
   const payload: Record<string, unknown> = {
     id: entry.id,
     linked_at: entry.linked_at,
@@ -60,13 +74,10 @@ export function writeLink(issue: Issue, entry: LinkedEntryType): Issue {
     ...issue,
     extensions: {
       ...(issue.extensions ?? {}),
-      [entry.provider]: payload,
+      [entry.provider]: { ...siblings, ...payload },
     },
   };
 }
-
-/** Exactly the keys `writeLink` will ever persist. Asserted by tests. */
-export const PERSISTED_LINK_KEYS = ['id', 'key', 'url', 'linked_at'] as const;
 
 /**
  * Return a copy of the issue with one provider's link removed.
