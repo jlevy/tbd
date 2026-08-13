@@ -5,7 +5,7 @@ title: Polish web table time and column layout
 kind: epic
 status: closed
 priority: 1
-version: 41
+version: 44
 labels:
   - web
   - release-readiness
@@ -41,13 +41,14 @@ child_order_hints:
   - is-01kzwkc85hwnegxgv0bsk0fa8j
   - is-01kzwkf94ttfwv36p51yvb0ypx
   - is-01kzwkh4wffsgaazgq9q8857j5
+  - is-01kzwncnacxdgc25p0e4ycrhf8
 created_at: 2026-08-13T00:04:20.821Z
-updated_at: 2026-08-13T04:06:23.212Z
-closed_at: 2026-08-13T04:06:23.211Z
-close_reason: All 30 tracked release-readiness children are complete. The final design preserves exact filters, Pretty across sorting, subtree Updated rollups at outermost parent groups, official child order, bounded rendering, conditional facets, and the polished live read-only UI; full CI and live-browser validation passed.
+updated_at: 2026-08-13T05:15:39.249Z
+closed_at: 2026-08-13T05:15:39.248Z
+close_reason: All 31 tracked web-polish children are complete. Final live validation confirms the simplified single-elbow hierarchy, exact Pretty/filter/sort behavior, and the complete documented design system.
 ---
 Polish the live read-only bead table before the next minor release. Scope: add a standard relative updated-time column with exact timestamp hover and semantic blue age ramp; freeze table column geometry across collapsed and expanded rows; and rebalance title versus label widths so titles wrap cleanly while tags receive useful space. Update the authoritative design-system comments in packages/tbd/src/web/styles.css and verify behavior in the live browser.
 
 ## Notes
 
-Reopened after live validation found that some wrapped titles still omit active pretty-tree ancestor verticals. A dedicated child bug tracks exhaustive zero/one/multiple-bar continuation geometry.
+Reopened after final live review: simplify the browser Pretty prefix to one elbow at the correct indentation for every child, with no ancestor vertical bars and no tee variants.
