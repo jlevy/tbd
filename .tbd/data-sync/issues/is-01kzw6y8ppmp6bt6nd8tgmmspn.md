@@ -5,7 +5,7 @@ title: Polish web table time and column layout
 kind: epic
 status: closed
 priority: 1
-version: 19
+version: 22
 labels:
   - web
   - release-readiness
@@ -23,10 +23,11 @@ child_order_hints:
   - is-01kzwfnmyscjkk1g4p1hh99r8j
   - is-01kzwfnmysbzgmvne4sk4tm2py
   - is-01kzwfnmytmhxaeacngc8dj94h
+  - is-01kzwh1kn32yy2c68xex09h9kz
 created_at: 2026-08-13T00:04:20.821Z
-updated_at: 2026-08-13T02:43:38.984Z
-closed_at: 2026-08-13T02:43:38.983Z
-close_reason: "All 12 release-readiness children are implemented, documented, reviewed, tested, benchmarked, and live-browser validated on PR #209."
+updated_at: 2026-08-13T03:07:01.937Z
+closed_at: 2026-08-13T03:07:01.936Z
+close_reason: "All 13 release-readiness children are implemented, documented, reviewed, tested, benchmarked, and live-browser validated on PR #209, including the final chronological Updated-sort review finding."
 ---
 Polish the live read-only bead table before the next minor release. Scope: add a standard relative updated-time column with exact timestamp hover and semantic blue age ramp; freeze table column geometry across collapsed and expanded rows; and rebalance title versus label widths so titles wrap cleanly while tags receive useful space. Update the authoritative design-system comments in packages/tbd/src/web/styles.css and verify behavior in the live browser.
 
