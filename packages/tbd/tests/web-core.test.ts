@@ -10,6 +10,7 @@ import {
   MAX_BODY_REQUEST_CONCURRENCY,
   MAX_EXPANDED_ROWS,
   MAX_GHOST_ROWS,
+  formatRelativeAge,
   paginateBoardRows,
   phaseLabel,
   treeContinuationColumns,
@@ -91,6 +92,7 @@ function board(watch: ObservationStateView, title = 'Initial', id = 'web-one'): 
         assignee: null,
         ready: true,
         prefix: '',
+        updated_at: '2026-08-11T11:55:00.000Z',
       },
     ],
     truncated: 0,
@@ -153,6 +155,29 @@ describe('client core pure helpers', () => {
     expect(treeContinuationColumns('│   ├── ')).toEqual([0]);
     expect(treeContinuationColumns('    │   └── ')).toEqual([4]);
     expect(treeContinuationColumns('│   │   └── ')).toEqual([0, 4]);
+  });
+
+  it('formats updated timestamps with deterministic MetaBrowser age tiers', () => {
+    const now = Date.parse('2026-08-11T12:00:00.000Z');
+    const age = (millisecondsAgo: number) =>
+      formatRelativeAge(new Date(now - millisecondsAgo).toISOString(), now);
+
+    expect(age(30_000)).toEqual({
+      exact: '2026-08-11T11:59:30.000Z',
+      label: 'just now',
+      tier: 'sec',
+    });
+    expect(age(5 * 60_000)).toMatchObject({ label: '5m ago', tier: 'min' });
+    expect(age(2 * 60 * 60_000)).toMatchObject({ label: '2h ago', tier: 'hr' });
+    expect(age(3 * 24 * 60 * 60_000)).toMatchObject({ label: '3d ago', tier: 'day' });
+    expect(age(2 * 7 * 24 * 60 * 60_000)).toMatchObject({ label: '2w ago', tier: 'wk' });
+    expect(age(60 * 24 * 60 * 60_000)).toMatchObject({ label: '2mo ago', tier: 'old' });
+    expect(age(2 * 365 * 24 * 60 * 60_000)).toMatchObject({ label: '2y ago', tier: 'old' });
+    expect(formatRelativeAge('not-a-date', now)).toBeNull();
+    expect(formatRelativeAge('2026-08-11T12:05:00.000Z', now)).toMatchObject({
+      label: 'just now',
+      tier: 'sec',
+    });
   });
 
   it('serializes controls one-to-one with CLI-shaped query parameters', () => {

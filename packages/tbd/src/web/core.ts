@@ -29,7 +29,16 @@ export interface BoardRowView {
   spec_path: string | null;
   assignee: string | null;
   ready: boolean;
+  updated_at: string;
   prefix: string;
+}
+
+export type AgeTierView = 'sec' | 'min' | 'hr' | 'day' | 'wk' | 'old';
+
+export interface RelativeAgeView {
+  exact: string;
+  label: string;
+  tier: AgeTierView;
 }
 
 export interface FieldChangeView {
@@ -209,6 +218,58 @@ export interface BoardPageView {
   /** Zero-based exclusive offset into the complete response. */
   end: number;
   total: number;
+}
+
+const MINUTE_MS = 60 * 1_000;
+const HOUR_MS = 60 * MINUTE_MS;
+const DAY_MS = 24 * HOUR_MS;
+const WEEK_MS = 7 * DAY_MS;
+const MONTH_MS = 30 * DAY_MS;
+const YEAR_MS = 365 * DAY_MS;
+
+/**
+ * Format one ISO timestamp using tbd's compact "ago" vocabulary and MetaBrowser's
+ * deterministic minute/hour/day/week/month/year boundaries.
+ */
+export function formatRelativeAge(timestamp: string, nowMs = Date.now()): RelativeAgeView | null {
+  const date = new Date(timestamp);
+  const timestampMs = date.getTime();
+  if (!Number.isFinite(timestampMs)) {
+    return null;
+  }
+
+  const ageMs = Math.max(0, nowMs - timestampMs);
+  let tier: AgeTierView;
+  if (ageMs < MINUTE_MS) {
+    tier = 'sec';
+  } else if (ageMs < HOUR_MS) {
+    tier = 'min';
+  } else if (ageMs < DAY_MS) {
+    tier = 'hr';
+  } else if (ageMs < WEEK_MS) {
+    tier = 'day';
+  } else if (ageMs < MONTH_MS) {
+    tier = 'wk';
+  } else {
+    tier = 'old';
+  }
+
+  const steps: readonly [suffix: string, milliseconds: number][] = [
+    ['y', YEAR_MS],
+    ['mo', MONTH_MS],
+    ['w', WEEK_MS],
+    ['d', DAY_MS],
+    ['h', HOUR_MS],
+    ['m', MINUTE_MS],
+  ];
+  let label = 'just now';
+  for (const [suffix, milliseconds] of steps) {
+    if (ageMs >= milliseconds) {
+      label = `${Math.round(ageMs / milliseconds)}${suffix} ago`;
+      break;
+    }
+  }
+  return { exact: date.toISOString(), label, tier };
 }
 
 /** Select one bounded browser-render window from a complete board response. */

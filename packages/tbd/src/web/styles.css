@@ -57,6 +57,14 @@
        Match the CLI: P0=error red, P1=warning amber, P2–P4=neutral.
        Priority is compact text, never an icon or pill.
 
+     Updated age (.updated-age, .age-*)
+       Relative timestamps use tbd's compact "ago" vocabulary and
+       MetaBrowser's six freshness tiers; hover reveals exact ISO time.
+       All tiers stay in one blue hue band: newer is darker/saturated in
+       light mode and brighter/saturated in dark mode, while older recedes.
+       Blue therefore means age only; priority keeps red/amber/neutral and
+       lifecycle state keeps its terminal-aligned semantic families.
+
      Tags (.tag)
        Bordered tags are categorical attributes. User labels stay
        neutral because tbd does not know their semantics. `.ready` uses
@@ -95,6 +103,12 @@
        Wrapped titles keep a hanging indent after the entire guide. Only
        ancestor verticals continue through wrapped lines; the terminal
        branch or elbow belongs to the first line and never continues.
+
+     Board columns (.board-table, .board-col-*)
+       One fixed semantic colgroup owns geometry for header, rows, expanded
+       detail, ghosts, and paging. Content never participates in column sizing,
+       so expansion cannot shift the table. Title gets a bounded proportional
+       share and wraps; labels get a larger share and wrap only between tags.
 
      Typography and expansion (--weight-medium, --weight-strong)
        The complete type scale is 15px page title, 14px body/content, and one
@@ -177,6 +191,15 @@
   --warning: hsl(38 82% 36%);
   --error: hsl(0 64% 46%);
 
+  /* Updated-age ramp. This adapts MetaBrowser's freshness tiers but keeps
+     every stop in blue so age cannot be confused with priority or status. */
+  --age-sec: hsl(211 82% 38%);
+  --age-min: hsl(213 72% 42%);
+  --age-hr: hsl(215 58% 46%);
+  --age-day: hsl(217 46% 48%);
+  --age-wk: hsl(219 32% 46%);
+  --age-old: hsl(221 18% 44%);
+
   /* Wake family (38°, amber). Reserved for DATA motion. Nothing that
      responds to a UI interaction may use these two tokens. */
   --update: hsl(38 76% 42%);
@@ -194,6 +217,12 @@
   --dark-success: hsl(149 52% 55%);
   --dark-warning: hsl(38 82% 64%);
   --dark-error: hsl(0 100% 73%);
+  --dark-age-sec: hsl(211 82% 74%);
+  --dark-age-min: hsl(213 72% 71%);
+  --dark-age-hr: hsl(215 58% 68%);
+  --dark-age-day: hsl(217 46% 65%);
+  --dark-age-wk: hsl(219 32% 62%);
+  --dark-age-old: hsl(221 18% 59%);
   --dark-update: hsl(43 73% 57%);
   --dark-row-flash-bg: hsl(41 53% 15%);
 
@@ -227,6 +256,16 @@
   --row-disclosure-width: 20px;
   --board-row-line-height: 18px;
   --row-disclosure-offset-y: 1px;
+  /* Fixed board grid. Percentages total 100%; the 29/22 title-to-label split
+     deliberately keeps long descriptions from starving categorical tags. */
+  --board-disclosure-column-width: 3%;
+  --board-id-column-width: 11%;
+  --board-priority-column-width: 5%;
+  --board-status-column-width: 12%;
+  --board-kind-column-width: 8%;
+  --board-title-column-width: 29%;
+  --board-updated-column-width: 10%;
+  --board-labels-column-width: 22%;
   --icon-glyph-size: 15px;
   --icon-button-size: 28px;
   --copy-button-size: 18px;
@@ -257,6 +296,12 @@
     --success: var(--dark-success);
     --warning: var(--dark-warning);
     --error: var(--dark-error);
+    --age-sec: var(--dark-age-sec);
+    --age-min: var(--dark-age-min);
+    --age-hr: var(--dark-age-hr);
+    --age-day: var(--dark-age-day);
+    --age-wk: var(--dark-age-wk);
+    --age-old: var(--dark-age-old);
     --update: var(--dark-update);
     --row-flash-bg: var(--dark-row-flash-bg);
   }
@@ -273,6 +318,12 @@
   --success: var(--dark-success);
   --warning: var(--dark-warning);
   --error: var(--dark-error);
+  --age-sec: var(--dark-age-sec);
+  --age-min: var(--dark-age-min);
+  --age-hr: var(--dark-age-hr);
+  --age-day: var(--dark-age-day);
+  --age-wk: var(--dark-age-wk);
+  --age-old: var(--dark-age-old);
   --update: var(--dark-update);
   --row-flash-bg: var(--dark-row-flash-bg);
 }
@@ -742,6 +793,34 @@ table {
   width: 100%;
   min-width: 700px;
 }
+.board-table {
+  table-layout: fixed;
+  min-width: 820px;
+}
+.board-col-disclosure {
+  width: var(--board-disclosure-column-width);
+}
+.board-col-id {
+  width: var(--board-id-column-width);
+}
+.board-col-priority {
+  width: var(--board-priority-column-width);
+}
+.board-col-status {
+  width: var(--board-status-column-width);
+}
+.board-col-kind {
+  width: var(--board-kind-column-width);
+}
+.board-col-title {
+  width: var(--board-title-column-width);
+}
+.board-col-updated {
+  width: var(--board-updated-column-width);
+}
+.board-col-labels {
+  width: var(--board-labels-column-width);
+}
 th,
 td {
   text-align: left;
@@ -759,11 +838,6 @@ th {
   background: var(--bg);
   z-index: 1;
   font-weight: var(--weight-medium);
-}
-th.labels,
-td.labels {
-  width: 160px;
-  min-width: 160px;
 }
 td.id {
   font-family: var(--mono);
@@ -816,8 +890,37 @@ td.priority {
 td.kind {
   color: var(--muted);
 }
+td.title {
+  overflow-wrap: anywhere;
+}
+th.updated,
+td.updated {
+  white-space: nowrap;
+}
+.updated-age {
+  font-size: var(--font-size-small);
+  font-variant-numeric: tabular-nums;
+  font-weight: var(--weight-medium);
+}
+.age-sec {
+  color: var(--age-sec);
+}
+.age-min {
+  color: var(--age-min);
+}
+.age-hr {
+  color: var(--age-hr);
+}
+.age-day {
+  color: var(--age-day);
+}
+.age-wk {
+  color: var(--age-wk);
+}
+.age-old {
+  color: var(--age-old);
+}
 td.caret {
-  width: 18px;
   color: var(--muted);
   user-select: none;
   padding-right: 0;

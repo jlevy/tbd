@@ -155,6 +155,7 @@ describe('BoardState', () => {
     expect(response.closedHidden).toBe(0);
     expect(response.rows[1]).not.toHaveProperty('description');
     expect(response.rows[1]).not.toHaveProperty('notes');
+    expect(response.rows[1]?.updated_at).toBe('2025-01-01T00:00:00Z');
     expect(response.rows[2]?.prefix).toBe('    └── ');
     expect(response.state.stats.total).toBe(3);
   });

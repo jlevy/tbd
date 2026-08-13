@@ -232,7 +232,17 @@
 
     <main>
       <div id="tablewrap">
-        <table aria-label="Beads">
+        <table class="board-table" aria-label="Beads">
+          <colgroup>
+            <col class="board-col-disclosure" />
+            <col class="board-col-id" />
+            <col class="board-col-priority" />
+            <col class="board-col-status" />
+            <col class="board-col-kind" />
+            <col class="board-col-title" />
+            <col class="board-col-updated" />
+            <col class="board-col-labels" />
+          </colgroup>
           <thead>
             <tr>
               <th></th>
@@ -241,6 +251,7 @@
               <th>Status</th>
               <th>Kind</th>
               <th>Title</th>
+              <th class="updated">Updated</th>
               <th class="labels">Labels</th>
             </tr>
           </thead>

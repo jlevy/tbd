@@ -3,6 +3,7 @@ import {
   caveatsFor,
   createClientStore,
   deltasValid,
+  formatRelativeAge,
   MAX_EXPANDED_ROWS,
   paginateBoardRows,
   phaseLabel,
@@ -64,6 +65,7 @@ const elements = {
 const ISSUE_STATUSES = ['open', 'in_progress', 'blocked', 'deferred', 'closed'] as const;
 const ISSUE_PRIORITIES = ['0', '1', '2', '3', '4'] as const;
 const PRIORITY_LABEL = ['Critical', 'High', 'Medium', 'Low', 'Lowest'] as const;
+const RELATIVE_TIME_REFRESH_MS = 30_000;
 let boardPageIndex = 0;
 let scrollBoardToTopAfterRender = false;
 
@@ -128,6 +130,36 @@ function appendCell(row: HTMLTableRowElement, text: string, className = ''): HTM
   cell.className = className;
   row.append(cell);
   return cell;
+}
+
+function updateRelativeTime(time: HTMLTimeElement, nowMs = Date.now()): void {
+  const age = formatRelativeAge(time.dateTime, nowMs);
+  if (age === null) {
+    time.className = 'updated-age';
+    time.textContent = 'unknown';
+    time.removeAttribute('title');
+    return;
+  }
+  time.className = `updated-age age-${age.tier}`;
+  time.dateTime = age.exact;
+  time.title = age.exact;
+  time.textContent = age.label;
+}
+
+function appendUpdatedCell(row: HTMLTableRowElement, timestamp: string): void {
+  const cell = appendCell(row, '', 'updated');
+  const time = document.createElement('time');
+  time.dateTime = timestamp;
+  time.dataset.relativeTime = '';
+  updateRelativeTime(time);
+  cell.append(time);
+}
+
+function updateRelativeTimes(): void {
+  const nowMs = Date.now();
+  for (const time of document.querySelectorAll<HTMLTimeElement>('time[data-relative-time]')) {
+    updateRelativeTime(time, nowMs);
+  }
 }
 
 function copyButton(label: string): HTMLButtonElement {
@@ -404,6 +436,7 @@ function renderGhost(row: BoardRowView): HTMLTableRowElement {
   appendCell(tableRow, 'deleted', 'status-deferred');
   appendCell(tableRow, row.kind, 'kind');
   appendCell(tableRow, row.title, 'title');
+  appendUpdatedCell(tableRow, row.updated_at);
   appendCell(tableRow, '', 'labels');
   return tableRow;
 }
@@ -467,6 +500,8 @@ function renderRow(
   titleContent.append(titleText);
   title.append(titleContent);
 
+  appendUpdatedCell(tableRow, row.updated_at);
+
   const tags = appendCell(tableRow, '', 'labels');
   const cluster = document.createElement('span');
   cluster.className = 'tag-cluster';
@@ -490,7 +525,7 @@ function renderRow(
     bodyRow.className = 'bodyrow';
     appendCell(bodyRow, '', 'caret');
     const cell = appendCell(bodyRow, '', 'body-cell');
-    cell.colSpan = 6;
+    cell.colSpan = 7;
     cell.append(renderBody(view, row.id));
     fragment.append(bodyRow);
   }
@@ -681,7 +716,7 @@ function appendBoardPager(board: BoardResponse, pageIndex: number): void {
   const row = document.createElement('tr');
   row.className = 'board-page-row';
   const cell = appendCell(row, '', 'board-page');
-  cell.colSpan = 7;
+  cell.colSpan = 8;
 
   const previous = document.createElement('button');
   previous.type = 'button';
@@ -982,7 +1017,9 @@ window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () 
 });
 applyTheme(themeMode(document.documentElement.dataset.themeMode), false);
 
+const relativeTimeTimer = window.setInterval(updateRelativeTimes, RELATIVE_TIME_REFRESH_MS);
 window.addEventListener('beforeunload', () => {
+  window.clearInterval(relativeTimeTimer);
   store.stop();
 });
 void store.start();

@@ -481,16 +481,54 @@ describe('tag-column layout', () => {
       readFile(clientPath, 'utf8'),
       readFile(pagePath, 'utf8'),
     ]);
-    const labelsRule = blockAfter(css, 'th.labels,\ntd.labels');
+    const labelsColumnRule = blockAfter(css, '.board-col-labels');
+    const titleColumnRule = blockAfter(css, '.board-col-title');
     const clusterRule = blockAfter(css, '.tag-cluster');
     const tagRule = blockAfter(css, '.tag');
-    expect(labelsRule).toContain('min-width: 160px');
+    expect(labelsColumnRule).toContain('width: var(--board-labels-column-width)');
+    expect(titleColumnRule).toContain('width: var(--board-title-column-width)');
+    expect(css).toContain('--board-title-column-width: 29%');
+    expect(css).toContain('--board-labels-column-width: 22%');
     expect(clusterRule).toContain('display: flex');
     expect(clusterRule).toContain('flex-wrap: wrap');
     expect(tagRule).toContain('white-space: nowrap');
     expect(client).toContain("appendCell(tableRow, '', 'labels')");
     expect(client).toContain("cluster.className = 'tag-cluster'");
     expect(page).toContain('<th class="labels">Labels</th>');
+  });
+});
+
+describe('updated-time and fixed-column system', () => {
+  it('renders one semantic updated column with exact time metadata and blue age tiers', async () => {
+    const [css, client, page] = await Promise.all([
+      readStyleBlock(),
+      readFile(clientPath, 'utf8'),
+      readFile(pagePath, 'utf8'),
+    ]);
+    const boardRule = blockAfter(css, '.board-table');
+    expect(boardRule).toContain('table-layout: fixed');
+    expect(boardRule).toContain('min-width: 820px');
+    expect(page).toContain('<colgroup>');
+    expect(page).toContain('<col class="board-col-title" />');
+    expect(page).toContain('<col class="board-col-updated" />');
+    expect(page).toContain('<col class="board-col-labels" />');
+    expect(page).toContain('<th class="updated">Updated</th>');
+    expect(client).toContain('time.className = `updated-age age-${age.tier}`');
+    expect(client).toContain('time.dateTime = age.exact');
+    expect(client).toContain('time.title = age.exact');
+    expect(client).toContain('window.setInterval(updateRelativeTimes, RELATIVE_TIME_REFRESH_MS)');
+    for (const tier of ['sec', 'min', 'hr', 'day', 'wk', 'old']) {
+      expect(css).toContain(`--age-${tier}: hsl(`);
+      expect(css).toContain(`--dark-age-${tier}: hsl(`);
+      expect(blockAfter(css, `.age-${tier}`)).toContain(`color: var(--age-${tier})`);
+    }
+  });
+
+  it('keeps expansion and paging inside the complete eight-column grid', async () => {
+    const client = await readFile(clientPath, 'utf8');
+    expect(client).toContain('cell.colSpan = 7');
+    expect(client).toContain('cell.colSpan = 8');
+    expect(client).not.toContain('cell.colSpan = 6');
   });
 });
 
@@ -538,7 +576,7 @@ describe('expanded-row emphasis', () => {
     expect(bodyRule).toContain('padding-left: 10px');
     expect(client).toContain("appendCell(bodyRow, '', 'caret')");
     expect(client).toContain("appendCell(bodyRow, '', 'body-cell')");
-    expect(client).toContain('cell.colSpan = 6');
+    expect(client).toContain('cell.colSpan = 7');
     expect(client).toContain("const title = appendCell(tableRow, '', 'title')");
   });
 });

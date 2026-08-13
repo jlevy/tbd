@@ -71,6 +71,7 @@ export interface BoardRow {
   spec_path: string | null;
   assignee: string | null;
   ready: boolean;
+  updated_at: string;
   /** Tree guide string, empty in flat mode. */
   prefix: string;
 }
@@ -984,6 +985,7 @@ export class BoardState {
       spec_path: issue.spec_path ?? null,
       assignee: issue.assignee ?? null,
       ready: this.snapshot.readyIds.has(issue.id),
+      updated_at: issue.updated_at,
       prefix,
     };
   }
