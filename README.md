@@ -177,8 +177,8 @@ You just talk naturally.
   shares the CLI’s filters and stays current as local bead state changes.
   It is a viewer, not an editor: ask your agent to change beads with ordinary `tbd`
   commands, and the open page updates automatically.
-  Counted label filters, relative update times, bounded title summaries, and composable
-  column sorting keep large boards scannable without changing bead semantics.
+  Cross-filtered facet tallies, relative update times, bounded title summaries, and
+  two-key column sorting keep large boards scannable without changing bead semantics.
   It never contacts a remote; explicit `tbd sync` remains the exchange step.
 - **Beads alternative:** Largely compatible with `bd` at the CLI level, but with a
   simpler architecture: no JSONL merge conflicts, no daemon modifying your working tree,
@@ -413,15 +413,20 @@ When you ask an agent to show your beads in a browser, the agent should run
 The browser’s controls only change the view; ask the agent to create, update, close,
 label, or sync beads with ordinary `tbd` commands.
 Their local results appear on the open page automatically.
-The label chooser shows the 32 most common labels with bead counts; selecting more than
-one retains the CLI’s repeatable `--label` behavior, so every selected label is
-required.
-Collapsed titles use at most four lines and expand in full, while Updated shows
-a compact relative age with the exact timestamp on hover.
-Clicking a data-column header makes it the primary sort and retains earlier columns as
-tie-breakers. Because global table order conflicts with parent-first hierarchy, a header
-sort switches Pretty off; re-enabling Pretty clears that stack and restores the CLI
-tree. Changing a filter, sort, display mode, or page closes expanded row details.
+Status, Type, Priority, and the 32-label chooser show counts after every other active
+filter. Zero-result unselected choices disappear.
+Label choices iteratively show the next intersection; selecting more than one retains
+the CLI’s repeatable `--label` behavior, so every selected label is required.
+Collapsed titles use at most four lines and expand in full, while Updated shows a
+compact sans relative age with the exact timestamp in a fast tooltip.
+The board defaults to Pretty with Updated descending, then Priority ascending.
+Clicking a data-column header makes it primary and retains only the previous primary as
+its tie-breaker; Reset sort restores the default.
+Sorting never disables Pretty.
+In Pretty mode it reorders only outermost visible parent groups, using the latest
+Updated timestamp in each complete visible subtree while preserving official child
+order. Flat mode applies the sort stack to individual rows.
+Changing a filter, sort, display mode, or page closes expanded row details.
 During a live update, only rows still present in the bounded response remain expanded,
 with any display-ID change reconciled before their bodies reload.
 It never fetches automatically; run `tbd sync` and the resulting local changes appear

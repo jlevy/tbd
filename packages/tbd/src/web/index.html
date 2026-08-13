@@ -57,6 +57,7 @@
           class="icon-button"
           id="gear"
           type="button"
+          data-tooltip="Settings"
           aria-label="Settings"
           aria-expanded="false"
           aria-controls="menu"
@@ -85,7 +86,7 @@
               role="menuitemradio"
               data-theme-choice="system"
               aria-checked="false"
-              title="System theme"
+              data-tooltip="System theme"
               aria-label="System theme"
             >
               <svg
@@ -108,7 +109,7 @@
               role="menuitemradio"
               data-theme-choice="light"
               aria-checked="false"
-              title="Light theme"
+              data-tooltip="Light theme"
               aria-label="Light theme"
             >
               <svg
@@ -137,7 +138,7 @@
               role="menuitemradio"
               data-theme-choice="dark"
               aria-checked="false"
-              title="Dark theme"
+              data-tooltip="Dark theme"
               aria-label="Dark theme"
             >
               <svg
@@ -175,7 +176,12 @@
            --status X (where --all would be a no-op). Two separate controls allowed
            redundant states and made "any" a lie. -->
         <span class="select-control">
-          <select id="status" class="semantic-chooser" title="--status / --all" aria-label="Status">
+          <select
+            id="status"
+            class="semantic-chooser"
+            data-tooltip="--status / --all"
+            aria-label="Status"
+          >
             <option value="">status: active</option>
             <option value="any">any (incl. closed)</option>
             <option value="open">open</option>
@@ -184,10 +190,16 @@
             <option value="deferred">deferred</option>
             <option value="closed">closed</option>
           </select>
+          <span id="statusvalue" class="select-value" aria-hidden="true">status: active</span>
           <span class="chevron chevron-down" aria-hidden="true"></span>
         </span>
         <span class="select-control">
-          <select id="type" class="semantic-chooser kind-choice" title="--type" aria-label="Type">
+          <select
+            id="type"
+            class="semantic-chooser kind-choice"
+            data-tooltip="--type"
+            aria-label="Type"
+          >
             <option value="">type: any</option>
             <option value="bug">bug</option>
             <option value="feature">feature</option>
@@ -195,10 +207,16 @@
             <option value="epic">epic</option>
             <option value="chore">chore</option>
           </select>
+          <span id="typevalue" class="select-value" aria-hidden="true">type: any</span>
           <span class="chevron chevron-down" aria-hidden="true"></span>
         </span>
         <span class="select-control">
-          <select id="priority" class="semantic-chooser" title="--priority" aria-label="Priority">
+          <select
+            id="priority"
+            class="semantic-chooser"
+            data-tooltip="--priority"
+            aria-label="Priority"
+          >
             <option value="">priority: any</option>
             <option value="0">P0</option>
             <option value="1">P1</option>
@@ -206,6 +224,7 @@
             <option value="3">P3</option>
             <option value="4">P4</option>
           </select>
+          <span id="priorityvalue" class="select-value" aria-hidden="true">priority: any</span>
           <span class="chevron chevron-down" aria-hidden="true"></span>
         </span>
         <span class="label-chooser" id="labelchooser">
@@ -213,7 +232,7 @@
             type="button"
             class="label-chooser-trigger"
             id="labeltrigger"
-            title="--label is repeatable; beads must have every selected label"
+            data-tooltip="--label is repeatable; beads must have every selected label"
             aria-label="Labels; all selected labels are required"
             aria-haspopup="menu"
             aria-controls="labelmenu"
@@ -230,11 +249,22 @@
             hidden
           ></div>
         </span>
-        <input id="spec" placeholder="spec" size="12" title="--spec" aria-label="Spec" />
-        <label class="check" title="--ready"><input type="checkbox" id="ready" /> ready</label>
-        <label class="check" title="--pretty"
+        <input id="spec" placeholder="spec" size="12" data-tooltip="--spec" aria-label="Spec" />
+        <label class="check" data-tooltip="--ready"
+          ><input type="checkbox" id="ready" /> ready</label
+        >
+        <label class="check" data-tooltip="--pretty"
           ><input type="checkbox" id="pretty" checked /> pretty</label
         >
+        <button
+          type="button"
+          class="sort-reset"
+          id="sortreset"
+          data-tooltip="Restore Updated descending, then Priority ascending"
+          hidden
+        >
+          reset sort
+        </button>
         <button id="expandall" hidden>Expand all</button>
       </div>
 

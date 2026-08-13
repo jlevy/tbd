@@ -40,6 +40,11 @@
        Aggregate prose and counts are unboxed, neutral sans text. Use
        tabular numerals for alignment. A count is not a pill.
 
+     Repository metadata (#statusdl)
+       Status-panel terms are sans chrome and values are monospace literals, but
+       both use the standard 14px body scale. The compact 12px scale is reserved
+       for genuinely dense secondary chrome, not primary field/value rows.
+
      Section headings (.section-heading, .hint)
        Every UI chunk has a small-cap sans name. When a faithful CLI
        equivalent exists, place that live command beside it as a monospace
@@ -60,16 +65,19 @@
      Updated age (.updated-age, .age-*)
        Relative timestamps use tbd's compact "ago" vocabulary and
        MetaBrowser's six freshness tiers; hover reveals exact ISO time.
+       The relative age is derived compact sans chrome; the tooltip's exact
+       ISO timestamp is a monospace literal. Both use the one compact size.
        All tiers stay in one blue hue band: newer is darker/saturated in
        light mode and brighter/saturated in dark mode, while older recedes.
        Blue therefore means age only; priority keeps red/amber/neutral and
        lifecycle state keeps its terminal-aligned semantic families.
 
      Tags (.tag)
-       Bordered tags are categorical attributes. User labels stay
-       neutral because tbd does not know their semantics. `.ready` uses
-       success green because it is a computed actionable state, not a
-       lifecycle status. Kind stays neutral auxiliary text.
+       Bordered tags are categorical attributes. User labels stay neutral
+       because tbd does not know their semantics. Ready is not a label: its
+       quiet, unboxed marker follows real labels and uses success green because
+       it is a computed actionable state, not a lifecycle status. Kind stays
+       neutral auxiliary text.
 
      Operational badges (.pill)
        Pills are reserved for bounded viewer state: observer phase,
@@ -96,6 +104,16 @@
        open for composition; Any clears the set. Repeated labels retain the CLI's
        AND contract, and the control's accessible name states that requirement.
 
+     Facet tallies (.semantic-chooser option, .label-choice-count)
+       Every finite categorical filter shows counts. Status, Type, and Priority
+       counts apply search plus every other active filter while omitting their
+       own dimension, so switching remains possible. Labels instead show the
+       next repeated-label AND intersection. Unselected zero-count choices are
+       hidden; a selected zero-count choice stays visible so its constraint can
+       be removed. Aggregate choices keep their contextual count in the open
+       menu, but their closed chooser face omits it to avoid repeating the same
+       total across controls. Search and Spec have no finite vocabulary and no tally.
+
      Literal copy (.copyable, .copy-surface, .copy-button)
        Monospace values and faithful commands expose one small muted copy
        icon on container hover or keyboard focus. Inline values reserve its
@@ -105,14 +123,26 @@
        still green. Glyphs are CSS masks and events are delegated, leaving one
        accessible button—but no SVG subtree or private listeners—per literal.
 
-     Tree structure (.guide, .tree-continuation, .title-content)
-       Line-drawing characters are structural text, so they reuse the
-       --muted auxiliary-text token rather than the fainter border color.
-       Wrapped titles keep a hanging indent after the entire guide. Only
-       one continuous CSS stroke owns each ancestor vertical from the first
-       line through every wrapped line. The matching first-line text glyph is
-       blanked so color, width, and geometry cannot diverge at the wrap. The
-       terminal branch or elbow remains text on the first line only.
+     Tooltips (.viewer-tooltip, [data-tooltip])
+       One body-level, delegated tooltip replaces slow native title bubbles.
+       Pointer and keyboard focus share a 250ms deliberate reveal, the standard
+       fast fade, viewport clamping, Escape/scroll dismissal, and no per-target
+       listeners or repeated tooltip DOM. Text is compact sans chrome unless
+       the revealed value is explicitly marked as a literal (exact ISO time).
+       Essential labels remain visible or accessible outside the tooltip.
+
+     Tree structure (.guide, .title-content)
+       First-line box-drawing characters reuse the --muted auxiliary-text
+       token. Wrapped lines keep a clean hanging indent after the entire guide;
+       they do not synthesize vertical rules whose geometry can disagree with
+       the font's Unicode bars. Only `.title-text` wraps; disclosure remains in
+       its own column.
+
+     Local field deltas (.delta-before, .delta-after)
+       Each scalar side uses an 80-character middle-ellipsis preview so appended
+       changes remain visible; Copy retains the bounded full value. Before is
+       muted historical context and after is normal text. Creation emits no
+       redundant null-to-value detail in an expanded bead.
 
      Board columns (.board-table, .board-col-*)
        One fixed semantic colgroup owns geometry for header, rows, expanded
@@ -123,11 +153,13 @@
 
      Column sorting (.sort-button, .sort-indicator)
        Every data header is one unboxed button. The arrow and ordinal expose the
-       ordered sort stack: the latest clicked column is primary and earlier keys
-       remain tie-breakers; only clicking the current primary reverses it. A
-       global column order cannot also preserve parent-first hierarchy, so a
-       header click explicitly activates the flat view by clearing Pretty;
-       re-enabling Pretty clears the custom stack and restores CLI priority order.
+       two-key sort stack: the latest clicked column is primary, the prior primary
+       is its sole tie-breaker, and only clicking the current primary reverses it.
+       The default is Pretty with Updated descending then Priority ascending; Reset
+       restores that complete state. In Pretty, sorts move only outermost visible
+       parent groups. Updated uses the latest timestamp across each complete visible
+       subtree, regardless of parent kind, while children always retain official
+       child_order_hints order. Flat mode applies the same stack globally.
 
      Typography and expansion (--weight-medium, --weight-strong)
        The complete type scale is 15px page title, 14px body/content, and one
@@ -259,6 +291,8 @@
   --motion-fast-duration: 150ms;
   --motion-standard-easing: ease;
   --transition-fast: var(--motion-fast-duration) var(--motion-standard-easing);
+  --tooltip-show-delay: 250ms;
+  --z-tooltip: 100;
   /* DATA motion: long enough to notice across a full table, short
      enough not to linger. Removal is faster because the row is
      leaving and should not hold the reader. */
@@ -275,15 +309,15 @@
   --row-disclosure-width: 20px;
   --board-row-line-height: 18px;
   --row-disclosure-offset-y: 1px;
-  /* Fixed board grid. Percentages total 100%; the 29/22 title-to-label split
+  /* Fixed board grid. Percentages total 100%; the 24/22 title-to-label split
      deliberately keeps long descriptions from starving categorical tags. */
   --board-disclosure-column-width: 3%;
   --board-id-column-width: 11%;
-  --board-priority-column-width: 5%;
+  --board-priority-column-width: 7%;
   --board-status-column-width: 12%;
   --board-kind-column-width: 8%;
-  --board-title-column-width: 29%;
-  --board-updated-column-width: 10%;
+  --board-title-column-width: 24%;
+  --board-updated-column-width: 13%;
   --board-labels-column-width: 22%;
   --icon-glyph-size: 15px;
   --icon-button-size: 28px;
@@ -648,6 +682,21 @@ button {
   width: 100%;
   padding-right: var(--select-chevron-padding);
 }
+.select-value {
+  position: absolute;
+  inset: 1px var(--select-chevron-padding) 1px 1px;
+  display: flex;
+  align-items: center;
+  padding-left: 7px;
+  overflow: hidden;
+  background: var(--bg);
+  color: var(--muted);
+  pointer-events: none;
+  white-space: nowrap;
+}
+.select-value[hidden] {
+  display: none;
+}
 .select-control > .chevron {
   position: absolute;
   top: 50%;
@@ -747,6 +796,47 @@ button {
   color: var(--muted);
   font-size: var(--font-size-small);
   font-variant-numeric: tabular-nums;
+}
+.sort-reset {
+  padding: 2px 4px;
+  border-color: transparent;
+  background: transparent;
+  color: var(--muted);
+  font-size: var(--font-size-small);
+}
+.sort-reset:hover,
+.sort-reset:focus-visible {
+  color: var(--text);
+  background: var(--panel);
+  border-color: var(--border);
+}
+.viewer-tooltip {
+  position: fixed;
+  z-index: var(--z-tooltip);
+  visibility: hidden;
+  max-width: 360px;
+  padding: 6px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--panel);
+  box-shadow: 0 5px 16px var(--border);
+  color: var(--text);
+  font-family: var(--sans);
+  font-size: var(--font-size-small);
+  line-height: 1.4;
+  pointer-events: none;
+  opacity: 0;
+  transition:
+    opacity var(--transition-fast),
+    visibility 0s linear var(--motion-fast-duration);
+}
+.viewer-tooltip.visible {
+  visibility: visible;
+  opacity: 1;
+  transition-delay: var(--tooltip-show-delay), 0s;
+}
+.viewer-tooltip.literal {
+  font-family: var(--mono);
 }
 button {
   cursor: pointer;
@@ -883,7 +973,8 @@ label.check {
 main {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 340px;
-  align-items: start;
+  /* Stretch both grid areas so the sidebar's rule spans the full board height. */
+  align-items: stretch;
 }
 @media (max-width: 900px) {
   main {
@@ -1028,7 +1119,7 @@ td.updated {
   white-space: nowrap;
 }
 .updated-age {
-  font-family: var(--mono);
+  font-family: var(--sans);
   font-size: var(--font-size-small);
   font-variant-numeric: tabular-nums;
   font-weight: var(--weight-medium);
@@ -1096,9 +1187,6 @@ tr.open > td {
 tr.open > td.id {
   font-weight: var(--weight-strong);
 }
-tr.context > td:not(.caret) {
-  opacity: 0.5;
-}
 tr.bodyrow > td {
   padding-top: 0;
   padding-bottom: 12px;
@@ -1122,16 +1210,6 @@ tr.bodyrow > td.body-cell {
   align-items: baseline;
   min-width: 0;
   position: relative;
-}
-.tree-continuation {
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  left: var(--tree-guide-offset);
-  border-left: 1px solid var(--muted);
-  font-family: var(--mono);
-  font-size: var(--font-size-small);
-  pointer-events: none;
 }
 .title-text {
   display: -webkit-box;
@@ -1191,6 +1269,7 @@ tr.changed td.id .copy-value::after {
 @media (prefers-reduced-motion: reduce) {
   :root {
     --motion-fast-duration: 1ms;
+    --tooltip-show-delay: 0ms;
     --copy-feedback-duration: 1ms;
   }
   /* Keep the amber context, drop the movement. */
@@ -1218,9 +1297,11 @@ tr.changed td.id .copy-value::after {
   align-items: flex-start;
   gap: 3px;
 }
-.tag.ready {
+.ready-marker {
+  align-self: center;
+  font-size: var(--font-size-small);
   color: var(--success);
-  border-color: var(--success);
+  white-space: nowrap;
 }
 aside {
   border-left: 1px solid var(--border);
@@ -1373,6 +1454,13 @@ pre {
   font-size: var(--font-size-small);
   word-break: break-all;
 }
+.delta-before,
+.delta-arrow {
+  color: var(--muted);
+}
+.delta-after {
+  color: var(--text);
+}
 pre.hunk {
   margin: 3px 0 0;
   max-height: 200px;
@@ -1409,7 +1497,7 @@ pre.hunk {
   row-gap: 3px;
   align-items: baseline;
   margin: 0;
-  font-size: var(--font-size-small);
+  font-size: var(--font-size-body);
 }
 #statusdl dt {
   color: var(--muted);
@@ -1419,7 +1507,7 @@ pre.hunk {
 #statusdl dd {
   margin: 0;
   font-family: var(--mono);
-  font-size: var(--font-size-small);
+  font-size: var(--font-size-body);
   word-break: break-all;
 }
 .empty {

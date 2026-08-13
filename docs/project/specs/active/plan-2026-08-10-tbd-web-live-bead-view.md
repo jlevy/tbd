@@ -211,9 +211,11 @@ Payload shape matters more than raw speed:
 - The table receives light rows only: ids, title, status, kind, priority, labels, spec,
   assignee, readiness, and the tree prefix.
   Descriptions and notes are excluded.
-- Each board response carries at most 32 label facets ranked by full-snapshot bead count
-  and name, retaining selected values within that bound.
-  Repeated label filters remain ANDed exactly like repeatable CLI `--label` flags.
+- Each board response carries conditional Status, Type, and Priority facets plus at most
+  32 label facets. Counts apply search and all other active dimensions rather than global
+  standalone totals; unselected zero-count values are omitted.
+  Label candidates additionally apply the current repeated-label intersection, retaining
+  selected values for removal and preserving CLI `--label` AND semantics.
 - Bodies are served per bead on demand from the in-memory snapshot, so an open row costs
   one small request and a graph of long descriptions never inflates the table payload.
 - SSE frames carry local-observer state only: changed ids, update count, phase, mode,
@@ -227,16 +229,23 @@ Payload shape matters more than raw speed:
 - Filtering runs server-side so semantics come from the shared module.
   On loopback this is sub-millisecond and keystroke-responsive.
 - Collapsed titles use at most four lines and restore their full text on expansion.
-  Updated values use compact relative ages with exact timestamp hover.
-  Every displayed data column is an ordered sort key: the latest click becomes primary
-  and prior keys remain tie-breakers.
-  A global order uses the flat list because it cannot preserve the parent-first tree
-  simultaneously; re-enabling Pretty clears the custom stack and restores CLI
-  priority/tree order.
+  Updated values use compact sans relative ages with exact monospace timestamp tooltips.
+  The default is Pretty with Updated descending then Priority ascending.
+  Every displayed data column is an ordered sort key: the latest click becomes primary,
+  the prior primary is the sole tie-breaker, and sorting never clears Pretty.
+  Pretty sorts outermost visible parent groups only; Updated rolls up the latest
+  timestamp in each complete visible subtree for every parent kind, while children keep
+  official `child_order_hints` order.
+  Flat mode applies the stack globally, and Reset restores the complete default.
+  Filtered-out ancestors are never reinserted; matching descendants become roots,
+  exactly as in `tbd list --pretty`.
+- Expanded updated beads show 80-character middle-ellipsis previews for each scalar
+  before/after value while Copy retains bounded full data.
+  Before is muted, after is normal text, and created beads suppress redundant
+  null-to-current-value deltas.
 - The server returns at most 10,000 light rows while preserving the unsliced match
   count. The browser renders the response in 5,000-row pages, so all served rows remain
   reachable without making every refresh lay out a six-figure DOM tree.
-  Pretty-tree context ids and their count describe only those returned rows.
   Sticky and end-of-page controls navigate the pages and return the viewport to the
   first row.
 - Bulk expansion is available only when the visible page has 100 rows or fewer.
@@ -305,7 +314,10 @@ replaces roughly 4,060 per-target listeners with three shared listeners.
 The pagination threshold was then reconsidered from first principles against the
 production bundle rather than retained at 1,000 by convention.
 A separate loopback fixture exercised the complete stitched UI with long titles,
-semantic states, labels, ready markers, copy controls, and nested pretty prefixes:
+semantic states, labels, quiet derived-ready markers, copy controls, and nested pretty
+prefixes. Ready remains the exact open + unassigned + unblocked `tbd ready` predicate;
+the filter is a primary work-discovery control, while the row marker is deliberately
+unboxed so it cannot be mistaken for a user label:
 
 | Visible rows | Total elements | Copy buttons | Paint-ready navigation |
 | ---: | ---: | ---: | ---: |
@@ -627,7 +639,7 @@ Signatures are the intended shape; adjust mechanically in review, not structural
   diff with complete motion plus bounded detail, `getObservationPaths()` exposing only
   the constant-size local marker inputs, `computeIssueStats`, the served `RepoStatus`,
   and `buildBoardResponse(params)` translating query strings to `IssueQuery` and calling
-  `selectIssues`/`describeQuery` plus the tree/context-row walk over `buildIssueTree`.
+  `selectIssues`/`describeQuery` plus the filter-exact tree walk over `buildIssueTree`.
 - **`src/file/data-sync-epoch.ts`** + **`src/file/common-dir-layout.ts`**: the central
   shared writer wrapper atomically publishes `active:<uuid>` before a critical section
   and `quiescent:<uuid>` before unlocking.
@@ -683,10 +695,10 @@ Signatures are the intended shape; adjust mechanically in review, not structural
 - `tests/issue-query.test.ts` — parity oracle: legacy filter/sort logic captured as a
   test-local oracle, property-style corpus compared against `selectIssues`.
 - `tests/tree-view.test.ts` — depth-3 golden (tbd-5hh1).
-- `tests/web-board.test.ts` — light rows, shared queries, tree context, movement,
-  metadata-only updates, bounded delta detail, body lookup, canonical display-id
-  alphabets, FIFO reloads, writer overlap, unchanged-metadata epoch races, context
-  changes, and strict candidate rejection.
+- `tests/web-board.test.ts` — light rows, shared queries, exact-filter trees and root
+  roll-up ordering, movement, metadata-only updates, bounded delta detail, body lookup,
+  canonical display-id alphabets, FIFO reloads, writer overlap, unchanged-metadata epoch
+  races, repository context changes, and strict candidate rejection.
 - `tests/data-sync-epoch.test.ts` — active/quiescent writer ordering, lock lifetime,
   failed critical sections, and corrupt-epoch fail-closed behavior.
 - `tests/web-http.test.ts` — GET-only routing, Host/Origin security, detail isolation,
@@ -906,7 +918,7 @@ display ids or consume the detail cap.
 | `tbd-wx19` (R14) | P1 | `scripts/validate-web-package.mjs`: `packArchive` | Keep direct `execFile` on POSIX; on Windows run the `pnpm.cmd` shim through `ComSpec` before continuing the exact packed-artifact proof. |
 | `tbd-z3o9` (R15) | P2 | `src/web/core.ts`: `Store.toggle`, `setExpanded`, `cacheBody`, `receiveState`; `src/web/client.ts`: `renderBoard` | Limit open details to 100, cached bodies to 200, deletion ghosts to 100, and replace scale-sensitive row-class array scans with set lookup. |
 | `tbd-et3a` (R16) | P2 | `tests/performance.test.ts`: 10,001-issue boundary fixture | Prove that 10,000 rows are returned without exceeding the response ceiling and that `truncated` retains the full over-limit count. |
-| `tbd-6pjo` (R17) | P2 | `src/cli/web/board.ts`: `BoardState.buildBoardResponse`; `tests/web-board.test.ts` | Derive pretty-tree context ids and their count from the capped response rows, with an over-limit hierarchy regression. |
+| `tbd-6pjo` (R17) | P2 | Superseded pretty-tree ancestor context | Historical capped-context fix was validated; the final exact-filter design removes injected ancestor rows entirely, so Active and every other filter match `tbd list --pretty`. |
 | `tbd-wmdo` (R18) | P2 | `src/cli/web/board.ts`: `BoardState.buildBoardResponse`; `src/web/core.ts`: `caveatsFor` | Mark every capped response command-inexact and explain in the tooltip that only the returned prefix is shown. |
 | `tbd-ihyx` (R19) | P1 | `src/cli/web/{board,local-observer}.ts`; `commands/web.ts`; `web/{core,client}.ts`; all web docs/tests | Make the viewer local-only, remove the poll flag, observe native changes immediately, reconcile missed events once per second, bound local detail without losing motion, recover across observer restarts, and prove explicit `tbd sync` is the only remote path. |
 | `tbd-xp1v` (R20) | P2 | `src/cli/web/http.ts`: `SseHub.attach`, `SseHub.write`; `tests/web-http.test.ts` | Check ended streams, catch a write-time close race, and install a per-response error handler so one disconnected client cannot escape a publish or heartbeat into the server process. |
@@ -1052,10 +1064,13 @@ liveness decision:
 - The query, statistics, tree, and JSON-output fixes ride PR #207; remote-watch and sync
   internals stay unchanged because the viewer no longer consumes them.
 
-- Dense-board presentation uses counted label facets, four-line collapsed titles,
-  relative update ages, and ordered header sorts.
-  Column sorts select the flat view; Pretty restores the exact CLI hierarchy and default
-  priority order.
+- Dense-board presentation uses cross-filtered categorical facets, four-line collapsed
+  titles, relative update ages, fast delegated tooltips, and bounded two-key header
+  sorts defaulting to Updated descending then Priority ascending.
+  Sorting never changes Pretty.
+  Pretty reorders only outermost visible groups using each complete visible subtree’s
+  maximum Updated timestamp while preserving official child order; Flat applies the same
+  bounded stack to individual rows.
 
 ## References
 

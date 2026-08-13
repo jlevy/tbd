@@ -256,6 +256,8 @@ describe('typography: monospace marks data, not chrome', () => {
     const termRule = blockAfter(css, '#statusdl dt');
     expect(listRule).toContain('display: grid');
     expect(listRule).toContain('align-items: baseline');
+    expect(listRule).toContain('font-size: var(--font-size-body)');
+    expect(blockAfter(css, '#statusdl dd')).toContain('font-size: var(--font-size-body)');
     expect(termRule).toContain('float: none');
     expect(termRule).toContain('margin: 0');
   });
@@ -414,7 +416,20 @@ describe('semantic color and component roles', () => {
     expect(blockAfter(css, '.status-closed')).toContain('color: var(--muted)');
     expect(blockAfter(css, '.priority-0')).toContain('color: var(--error)');
     expect(blockAfter(css, '.priority-1')).toContain('color: var(--warning)');
-    expect(blockAfter(css, '.tag.ready')).toContain('color: var(--success)');
+    expect(blockAfter(css, '.ready-marker')).toContain('color: var(--success)');
+    expect(blockAfter(css, '.ready-marker')).not.toContain('border');
+  });
+
+  it('keeps readiness useful without presenting the derived state as a label', async () => {
+    const client = await readFile(clientPath, 'utf8');
+    expect(client).toContain("ready.className = 'ready-marker'");
+    expect(client).toContain(
+      "ready.dataset.tooltip = 'Open, unassigned, and has no open blockers'",
+    );
+    expect(client).not.toContain("ready.className = 'tag ready'");
+    expect(client.indexOf('for (const label of row.labels)')).toBeLessThan(
+      client.indexOf('if (row.ready)'),
+    );
   });
 
   it('reuses table semantic classes in the native filter choosers', async () => {
@@ -441,6 +456,7 @@ describe('semantic color and component roles', () => {
     expect(page).toContain('<span class="header-meta" id="countmeta">0 beads</span>');
     expect(page).not.toContain('class="pill" id="countpill"');
     expect(client).toContain("countMeta: byId('countmeta', HTMLSpanElement)");
+    expect(client).toContain('`${board.matched} of ${board.total} shown`');
   });
 
   it('does not manufacture extra auxiliary-text grays with opacity', async () => {
@@ -455,7 +471,7 @@ describe('semantic color and component roles', () => {
 });
 
 describe('tree-title layout', () => {
-  it('uses one continuous glyph geometry for first-line and wrapped ancestor verticals', async () => {
+  it('keeps first-line Unicode guides and a clean hanging indent without synthetic bars', async () => {
     const [css, client] = await Promise.all([readStyleBlock(), readFile(clientPath, 'utf8')]);
     const contentRule = blockAfter(css, '.title-content');
     const textRule = blockAfter(css, '.title-text');
@@ -464,12 +480,10 @@ describe('tree-title layout', () => {
     expect(textRule, 'expected a separately wrapping title span').not.toBeNull();
     expect(textRule).toContain('min-width: 0');
     expect(blockAfter(css, '.guide')).toContain('color: var(--muted)');
-    const continuationRule = blockAfter(css, '.tree-continuation');
-    expect(continuationRule).toContain('top: 0');
-    expect(continuationRule).toContain('border-left: 1px solid var(--muted)');
     expect(client).toContain("titleContent.className = 'title-content'");
-    expect(client).toContain('treeContinuationColumns(row.prefix)');
-    expect(client).toContain('guide.textContent = treeGuideText(row.prefix)');
+    expect(client).toContain('guide.textContent = row.prefix');
+    expect(client).not.toContain('treeContinuationColumns');
+    expect(css).not.toContain('.tree-continuation');
     expect(client).toContain("titleText.className = 'title-text'");
     expect(client).not.toContain('title.append(document.createTextNode(row.title))');
   });
@@ -485,8 +499,23 @@ describe('tree-title layout', () => {
   });
 });
 
+describe('expanded local field deltas', () => {
+  it('uses bounded previews, preserves full copy data, and omits redundant creation diffs', async () => {
+    const [css, client] = await Promise.all([readStyleBlock(), readFile(clientPath, 'utf8')]);
+    expect(client).toContain("delta.change === 'created'");
+    expect(client).toContain('const before = formatDeltaValue(field.before)');
+    expect(client).toContain('const after = formatDeltaValue(field.after)');
+    expect(client).toContain('const copyValue = `${before.full}  →  ${after.full}`');
+    expect(client).toContain('literal.dataset.copyValue = copyValue');
+    expect(client).toContain("beforeText.className = 'delta-before'");
+    expect(client).toContain("afterText.className = 'delta-after'");
+    expect(blockAfter(css, '.delta-before,\n.delta-arrow')).toContain('color: var(--muted)');
+    expect(blockAfter(css, '.delta-after')).toContain('color: var(--text)');
+  });
+});
+
 describe('tag-column layout', () => {
-  it('keeps ready with labels while wrapping only complete tags in a wider column', async () => {
+  it('keeps the quiet ready marker after labels while wrapping complete tags', async () => {
     const [css, client, page] = await Promise.all([
       readStyleBlock(),
       readFile(clientPath, 'utf8'),
@@ -498,7 +527,9 @@ describe('tag-column layout', () => {
     const tagRule = blockAfter(css, '.tag');
     expect(labelsColumnRule).toContain('width: var(--board-labels-column-width)');
     expect(titleColumnRule).toContain('width: var(--board-title-column-width)');
-    expect(css).toContain('--board-title-column-width: 29%');
+    expect(css).toContain('--board-priority-column-width: 7%');
+    expect(css).toContain('--board-title-column-width: 24%');
+    expect(css).toContain('--board-updated-column-width: 13%');
     expect(css).toContain('--board-labels-column-width: 22%');
     expect(clusterRule).toContain('display: flex');
     expect(clusterRule).toContain('flex-wrap: wrap');
@@ -526,9 +557,11 @@ describe('updated-time and fixed-column system', () => {
     expect(page).toContain('<th class="updated" data-sort-key="updated">');
     expect(client).toContain('time.className = `updated-age age-${age.tier}`');
     expect(client).toContain('time.dateTime = age.exact');
-    expect(client).toContain('time.title = age.exact');
+    expect(client).toContain('setTooltip(time, age.exact)');
+    expect(client).toContain("time.dataset.tooltipLiteral = ''");
     expect(client).toContain('window.setInterval(updateRelativeTimes, RELATIVE_TIME_REFRESH_MS)');
-    expect(blockAfter(css, '.updated-age')).toContain('font-family: var(--mono)');
+    expect(blockAfter(css, '.updated-age')).toContain('font-family: var(--sans)');
+    expect(blockAfter(css, '.viewer-tooltip.literal')).toContain('font-family: var(--mono)');
     for (const tier of ['sec', 'min', 'hr', 'day', 'wk', 'old']) {
       expect(css).toContain(`--age-${tier}: hsl(`);
       expect(css).toContain(`--dark-age-${tier}: hsl(`);
@@ -578,9 +611,15 @@ describe('composable board sorting', () => {
     }
     expect(page).not.toContain('id="sort"');
     expect(client).toContain('promoteBoardSort(view.controls.sorts, key)');
-    expect(client).toContain('elements.pretty.checked = false');
-    expect(client).toContain('if (elements.pretty.checked)');
-    expect(client).toContain('activeSorts = []');
+    expect(client).not.toContain('elements.pretty.checked = false');
+    expect(client).not.toContain('activeSorts = []');
+    expect(client).toContain('activeSorts = DEFAULT_BOARD_SORTS.map');
+    expect(client).toContain('elements.pretty.checked = true');
+    expect(client).toContain(
+      'Pretty moves outermost groups by the latest update in each visible subtree; children keep official order.',
+    );
+    expect(client).toContain('isDefaultBoardSort(view.controls.sorts, view.controls.pretty)');
+    expect(page).toContain('id="sortreset"');
     expect(client).toMatch(/header\.setAttribute\(\s*'aria-sort'/u);
     expect(blockAfter(css, '.sort-button')).toContain('font: inherit');
     expect(blockAfter(css, '.sort-indicator')).toContain('font-variant-numeric: tabular-nums');
@@ -711,6 +750,73 @@ describe('observer header status', () => {
   });
 });
 
+describe('delegated tooltip system', () => {
+  it('uses one fast viewport-aware tooltip and no native title attributes', async () => {
+    const [css, client, page] = await Promise.all([
+      readStyleBlock(),
+      readFile(clientPath, 'utf8'),
+      readFile(pagePath, 'utf8'),
+    ]);
+    expect(page).not.toMatch(/\stitle=/u);
+    expect(page).toContain('data-tooltip="System theme"');
+    expect(client).toContain("tooltip.id = 'viewer-tooltip'");
+    expect(client.match(/document\.body\.append\(tooltip\)/gu)).toHaveLength(1);
+    expect(client).toContain("target.closest<HTMLElement>('[data-tooltip]')");
+    expect(client).toContain("document.addEventListener('pointerover'");
+    expect(client).toContain("document.addEventListener('focusin'");
+    expect(client).toContain("window.addEventListener('scroll', hideTooltip, true)");
+    expect(css).toContain('--tooltip-show-delay: 250ms');
+    expect(blockAfter(css, '.viewer-tooltip')).toContain('pointer-events: none');
+    expect(blockAfter(css, '.viewer-tooltip.visible')).toContain(
+      'transition-delay: var(--tooltip-show-delay), 0s',
+    );
+  });
+});
+
+describe('conditional categorical facets', () => {
+  it('renders cross-filtered tallies and hides only zero-count unselected options', async () => {
+    const [client, page] = await Promise.all([
+      readFile(clientPath, 'utf8'),
+      readFile(pagePath, 'utf8'),
+    ]);
+    expect(client).toContain('renderCategoricalFacets(board)');
+    expect(client).toContain('option.textContent = `${label} · ${count}`');
+    expect(client).toContain('const unavailable = count === 0 && option.value !== selectedValue');
+    expect(client).toContain('option.hidden = unavailable');
+    expect(page).toMatch(/id="status"\s+class="semantic-chooser"/u);
+    expect(page).toMatch(/id="type"\s+class="semantic-chooser kind-choice"/u);
+    expect(page).toMatch(/id="priority"\s+class="semantic-chooser"/u);
+  });
+
+  it('keeps aggregate counts in menus but removes them from closed chooser faces', async () => {
+    const [client, page, css] = await Promise.all([
+      readFile(clientPath, 'utf8'),
+      readFile(pagePath, 'utf8'),
+      readStyleBlock(),
+    ]);
+    expect(client).toContain('syncAggregateChooserLabel(elements.status, elements.statusValue');
+    expect(client).toContain("any: 'any (incl. closed)'");
+    expect(client).toContain('syncAggregateChooserLabel(elements.kind, elements.kindValue');
+    expect(client).toContain('syncAggregateChooserLabel(elements.priority, elements.priorityValue');
+    expect(page).toContain('id="statusvalue" class="select-value"');
+    expect(page).toContain('id="typevalue" class="select-value"');
+    expect(page).toContain('id="priorityvalue" class="select-value"');
+    expect(blockAfter(css, '.select-value')).toContain('pointer-events: none');
+    expect(blockAfter(css, '.select-value[hidden]')).toContain('display: none');
+  });
+});
+
+describe('board and status-panel divider', () => {
+  it('stretches one continuous divider and switches it to horizontal when stacked', async () => {
+    const css = await readStyleBlock();
+    expect(blockAfter(css, 'main')).toContain('align-items: stretch');
+    expect(blockAfter(css, 'aside')).toContain('border-left: 1px solid var(--border)');
+    expect(css).toMatch(
+      /@media \(max-width: 900px\)[\s\S]*?aside\s*\{[\s\S]*?border-left: none;[\s\S]*?border-top: 1px solid var\(--border\);/u,
+    );
+  });
+});
+
 describe('Boolean controls', () => {
   it('renders --pretty as a checkbox while leaving actions as buttons', async () => {
     const [client, page] = await Promise.all([
@@ -718,7 +824,7 @@ describe('Boolean controls', () => {
       readFile(pagePath, 'utf8'),
     ]);
     expect(page).toMatch(
-      /<label class="check" title="--pretty"[\s\S]*?<input type="checkbox" id="pretty" checked \/> pretty[\s\S]*?<\/label\s*>/u,
+      /<label class="check" data-tooltip="--pretty"[\s\S]*?<input type="checkbox" id="pretty" checked \/> pretty[\s\S]*?<\/label\s*>/u,
     );
     expect(page).not.toContain('id="pretty" class="on"');
     expect(page).not.toMatch(/id="ready"[\s\S]*?class="grow"[\s\S]*?id="pretty"/u);

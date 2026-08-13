@@ -665,9 +665,19 @@ in-session Claude Code and Codex patterns.
 ### web
 
 Serve a live, read-only view of the bead graph in a local browser.
-The page uses the same local bead state, filters, default sorting, readiness rules,
-hierarchy, and statistics as the CLI, and displays the equivalent `tbd list` or
-`tbd ready` command for the current view.
+The page uses the same local bead state, filter semantics, readiness rules, hierarchy,
+and statistics as the CLI, and displays the equivalent `tbd list` or `tbd ready` command
+for the current view.
+The Ready checkbox is the exact `tbd ready` predicate—open, unassigned, and with no open
+blocker. A quiet unboxed row marker exposes that derived state while scanning; it is
+intentionally distinct from user labels.
+Pretty is on by default and never changes when a column sort changes.
+In Pretty mode, the two-key sort moves only outermost visible parent groups.
+Updated is rolled up to the latest timestamp in each complete visible subtree for every
+parent kind; children keep their official `child_order_hints` order.
+Flat mode applies the stack to individual rows.
+Filters remain exact in both modes: a filtered-out parent is not reinserted, and a
+matching child simply becomes a root.
 Browser-only column composition is identified as inexact beside that command.
 In an agent session, ask naturally: “Show my beads in a browser.”
 The agent should run `tbd web --open`, wait for the startup URL, give you that URL, and
@@ -678,6 +688,15 @@ with ordinary `tbd` commands, and their local results appear automatically.
 It never contacts a remote.
 Run the ordinary `tbd sync` command when you want to fetch, merge, or publish bead
 state; the page observes the resulting local changes automatically.
+
+Expanded updated beads show compact field deltas.
+Each scalar before/after side uses an 80-character middle-ellipsis preview so both the
+start and appended tail remain useful; the copy control retains the bounded full values.
+Historical before text is muted and the after text is normal.
+Newly created beads omit the redundant null-to-current-value delta because their
+expanded body already shows the current data.
+Status-panel field names use normal-size sans text, and literal values use normal-size
+monospace, keeping their baseline readable and consistent with board rows.
 
 ```bash
 tbd web                         # Serve on the first free port in 7777-7786
@@ -726,16 +745,22 @@ Descriptions and notes load only when a row is expanded, so the board remains bo
 large repositories. A response can carry up to 10,000 rows; the browser paints them in
 5,000-row pages with sticky and end-of-page navigation.
 Above 10,000 rows, the page reports the complete count and asks for a narrower query.
-The label chooser ranks the 32 most common labels by bead count and preserves the CLI’s
-AND semantics for repeated `--label` filters.
+Status, Type, Priority, and the bounded 32-label chooser show conditional tallies after
+every other active filter.
+Unselected zero-count choices are hidden; a selected zero-count value remains visible so
+it can be removed. Label candidates additionally show the next repeated-label
+intersection and preserve the CLI’s AND semantics.
 Collapsed titles use at most four lines and expand in full.
-The Updated column shows a compact relative age in monospace and exposes the exact
-timestamp on hover. Every data-column header is sortable.
-A click makes that column primary and retains prior columns as ordered tie-breakers;
-clicking the current primary reverses it.
-Global column ordering is a flat-table operation, so it clears Pretty.
-Re-enabling Pretty clears the custom sort stack and restores the CLI hierarchy and
-default priority order.
+The Updated column shows a compact sans relative age and exposes the exact monospace ISO
+timestamp in the shared fast tooltip.
+Every data-column header is sortable.
+Pretty is enabled by default with Updated descending, then Priority ascending.
+A click makes that column primary and retains only the previous primary as its
+tie-breaker; clicking the current primary reverses it without changing Pretty.
+Pretty moves whole outermost visible groups, rolling Updated up from every visible
+descendant while retaining official child order.
+Flat mode applies the stack to rows.
+Reset sort restores Pretty and the default two-key stack.
 Changing a query control, display mode, or page closes expanded details.
 A live graph update retains and remaps an expansion only while that bead remains in the
 current bounded response, so an off-board or obsolete display ID cannot consume the

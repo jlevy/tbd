@@ -1,5 +1,7 @@
 /** Pure browser-state orchestration. Owns no DOM and no global EventSource/fetch. */
 
+import { truncateMiddle } from '../lib/truncate.js';
+
 export type IssueStatusView = 'open' | 'in_progress' | 'blocked' | 'deferred' | 'closed';
 export type IssueKindView = 'bug' | 'feature' | 'task' | 'epic' | 'chore';
 export type ObservationPhaseView = 'starting' | 'watching' | 'error' | 'stopped';
@@ -57,6 +59,11 @@ export interface RelativeAgeView {
 
 export interface LabelFacetView {
   label: string;
+  count: number;
+}
+
+export interface ValueFacetView<T extends string | number> {
+  value: T;
   count: number;
 }
 
@@ -128,15 +135,16 @@ export interface BoardResponse {
   command: string;
   commandExact: boolean;
   filtersExact: boolean;
-  contextCount: number;
   search: string;
   total: number;
   matched: number;
   closedHidden: number;
+  statusFacets: ValueFacetView<IssueStatusView>[];
+  kindFacets: ValueFacetView<IssueKindView>[];
+  priorityFacets: ValueFacetView<number>[];
   labelFacets: LabelFacetView[];
   rows: BoardRowView[];
   truncated: number;
-  contextIds: string[];
   state: ObservationStateView;
 }
 
@@ -206,6 +214,11 @@ export interface ClientStoreOptions {
   initialControls?: Partial<BoardControls>;
 }
 
+export const DEFAULT_BOARD_SORTS: readonly BoardSortView[] = [
+  { key: 'updated', direction: 'desc' },
+  { key: 'priority', direction: 'asc' },
+];
+
 const DEFAULT_CONTROLS: BoardControls = {
   search: '',
   status: '',
@@ -213,7 +226,7 @@ const DEFAULT_CONTROLS: BoardControls = {
   priority: '',
   labels: [],
   spec: '',
-  sorts: [],
+  sorts: [...DEFAULT_BOARD_SORTS],
   ready: false,
   pretty: true,
 };
@@ -227,6 +240,8 @@ export const MAX_EXPANDED_ROWS = 100;
 export const MAX_BODY_CACHE_ENTRIES = 200;
 /** Data-motion context is useful, but a mass deletion must not bypass DOM paging. */
 export const MAX_GHOST_ROWS = 100;
+/** Maximum visible characters for each scalar side of an expanded local field delta. */
+export const DELTA_VALUE_PREVIEW_CHARS = 80;
 
 export interface BoardPageView {
   rows: readonly BoardRowView[];
@@ -309,36 +324,10 @@ export function paginateBoardRows(
   return { rows: rows.slice(start, end), pageIndex, pageCount, start, end, total };
 }
 
-/**
- * Return character columns whose ancestor tree bars continue through a wrapped title.
- *
- * Pretty prefixes are made from four-character ancestor segments followed by one
- * four-character terminal connector. The terminal `├── ` or `└── ` belongs only to
- * the current bead; only ancestor `│   ` segments continue below the first line.
- */
-export function treeContinuationColumns(prefix: string): number[] {
-  const terminalConnectorWidth = 4;
-  const ancestorEnd = Math.max(0, prefix.length - terminalConnectorWidth);
-  const columns: number[] = [];
-  for (let index = 0; index < ancestorEnd; index += 1) {
-    if (prefix[index] === '│') {
-      columns.push(index);
-    }
-  }
-  return columns;
-}
-
-/**
- * Remove first-line ancestor bars when one continuous CSS line owns that column.
- * Terminal branch/elbow glyphs stay textual because they belong only to this bead.
- */
-export function treeGuideText(prefix: string): string {
-  let text = prefix;
-  for (const column of treeContinuationColumns(prefix)) {
-    // Pretty prefixes contain only single-code-unit spaces and box-drawing marks.
-    text = `${text.slice(0, column)} ${text.slice(column + 1)}`;
-  }
-  return text;
+/** Format a bounded, middle-ellipsized field-delta preview without losing copy data. */
+export function formatDeltaValue(value: unknown): { full: string; preview: string } {
+  const full = JSON.stringify(value) ?? 'undefined';
+  return { full, preview: truncateMiddle(full, DELTA_VALUE_PREVIEW_CHARS) };
 }
 
 const DEFAULT_SORT_DIRECTIONS: Readonly<Record<BoardSortKeyView, BoardSortDirectionView>> = {
@@ -356,7 +345,7 @@ export function resolvedBoardSorts(sorts: readonly BoardSortView[]): readonly Bo
   return sorts.length === 0 ? [{ key: 'priority', direction: 'asc' }] : sorts;
 }
 
-/** Promote a column to primary; only clicking the current primary toggles direction. */
+/** Promote a column to primary; toggle it in place and retain at most one tie-breaker. */
 export function promoteBoardSort(
   sorts: readonly BoardSortView[],
   key: BoardSortKeyView,
@@ -369,7 +358,19 @@ export function promoteBoardSort(
         ? 'desc'
         : 'asc'
       : (existing?.direction ?? DEFAULT_SORT_DIRECTIONS[key]);
-  return [{ key, direction }, ...current.filter((sort) => sort.key !== key)];
+  return [{ key, direction }, ...current.filter((sort) => sort.key !== key)].slice(0, 2);
+}
+
+export function isDefaultBoardSort(sorts: readonly BoardSortView[], pretty: boolean): boolean {
+  return (
+    pretty &&
+    sorts.length === DEFAULT_BOARD_SORTS.length &&
+    sorts.every(
+      (sort, index) =>
+        sort.key === DEFAULT_BOARD_SORTS[index]?.key &&
+        sort.direction === DEFAULT_BOARD_SORTS[index]?.direction,
+    )
+  );
 }
 
 interface BodyRequest {
@@ -402,6 +403,9 @@ function asBoardResponse(value: unknown): BoardResponse {
   if (
     !isRecord(value) ||
     !Array.isArray(value.rows) ||
+    !Array.isArray(value.statusFacets) ||
+    !Array.isArray(value.kindFacets) ||
+    !Array.isArray(value.priorityFacets) ||
     !Array.isArray(value.labelFacets) ||
     !('state' in value)
   ) {
@@ -465,13 +469,6 @@ export function caveatsFor(board: BoardResponse): string[] {
   }
   if (board.search !== '') {
     caveats.push(`text search "${board.search}" applies`);
-  }
-  if (board.contextCount > 0) {
-    caveats.push(
-      `${board.contextCount} dimmed ancestor row${board.contextCount === 1 ? '' : 's'} ${
-        board.contextCount === 1 ? 'is' : 'are'
-      } shown for context`,
-    );
   }
   if (board.truncated > 0) {
     caveats.push(`only the first ${board.rows.length} of ${board.truncated} rows are shown`);

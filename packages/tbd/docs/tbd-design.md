@@ -4083,16 +4083,39 @@ Board queries run against one in-memory snapshot and call the shared `selectIssu
 `describeQuery` functions.
 Responses include the equivalent CLI invocation and carry light rows only; descriptions
 and notes are fetched per bead when expanded.
-The response also carries at most 32 label facets ranked by bead count and name, while
-retaining selected values within that bound.
-Repeated labels keep the CLI’s AND semantics.
-The client clamps collapsed titles at four lines, renders exact-hover relative update
-ages, and exposes every data column as an ordered sort key.
-The newest clicked key is primary and earlier keys remain tie-breakers.
-Since global order and parent-first tree order cannot both hold, column sorting selects
-the flat list; selecting Pretty clears the custom stack and restores the CLI hierarchy
-and priority order. These component and semantic rules are maintained in the co-located
-design-system inventory in `src/web/styles.css`. Liveness is strictly local.
+Ready retains one definition on every surface: open, unassigned, and without an open
+blocker. The checkbox selects that exact `tbd ready` set.
+Rows expose the derived state as quiet unboxed text after their real labels; it is
+useful scan information, but is neither a lifecycle status nor a user label and must not
+be styled as either.
+The response carries conditional Status, Type, and Priority facets plus at most 32 label
+facets.
+Every tally applies search and all other active dimensions; unselected zero-count
+values are omitted. Label candidates additionally apply every selected label, retaining
+selected values for removal and preserving the CLI’s repeated-label AND semantics.
+The client clamps collapsed titles at four lines, renders sans relative update ages with
+exact literal tooltips, and exposes every data column as an ordered sort key.
+The default is Pretty with Updated descending then Priority ascending.
+The newest clicked key is primary, only the prior primary remains as a tie-breaker, and
+sorting never clears Pretty.
+In Pretty, the stack orders only outermost visible parent groups; Updated compares the
+maximum timestamp across each entire visible subtree for every parent kind, while
+children retain `child_order_hints` order and its deterministic fallback.
+Flat mode applies the stack globally.
+Reset restores the complete default.
+Pretty never reinserts a bead excluded by Status, labels, search, or another filter; a
+matching descendant whose parent is absent becomes a root, exactly as in
+`tbd list --pretty`.
+
+Expanded updated beads show field deltas with an 80-character middle-ellipsis preview
+per scalar side. Copy preserves the bounded full values, before is muted historical
+context, and after uses normal text.
+Created beads omit null-to-current-value deltas as redundant with the expanded body.
+These component and semantic rules are maintained in the co-located design-system
+inventory in `src/web/styles.css`. Status-panel field names use standard-size sans
+chrome and literal values use standard-size monospace; neither side shrinks merely
+because the panel is narrow.
+Liveness is strictly local.
 A recursive Node `fs.watch` over the hidden data-sync worktree maps to native
 operating-system notifications on supported local filesystems.
 Events are trailing-debounced and trigger one serialized snapshot reload.
@@ -4367,8 +4390,7 @@ canonical board state at the same version after a bounded event frame, and accep
 restarted observer’s lower counters.
 A delayed duplicate event at an already-adopted version cannot replace that canonical
 state. Board responses carry at most 10,000 light rows and retain the full match count
-when truncated. Pretty-tree context metadata is derived from those returned rows, so it
-cannot name or serialize context that was cut off by the response ceiling.
+when truncated. Pretty never bypasses filters by serializing ancestors as extra context.
 The browser renders those rows in 5,000-row pages, exposes sticky and end-of-page
 navigation, and allows bulk detail expansion only when 100 rows or fewer are visible on
 the page. This threshold is empirical rather than round-number preference: a production

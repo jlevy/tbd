@@ -5,17 +5,19 @@ import {
   buildQueryString,
   caveatsFor,
   createClientStore,
+  DEFAULT_BOARD_SORTS,
+  DELTA_VALUE_PREVIEW_CHARS,
   deltasValid,
+  formatDeltaValue,
   MAX_BODY_CACHE_ENTRIES,
   MAX_BODY_REQUEST_CONCURRENCY,
   MAX_EXPANDED_ROWS,
   MAX_GHOST_ROWS,
   formatRelativeAge,
+  isDefaultBoardSort,
   paginateBoardRows,
   phaseLabel,
   promoteBoardSort,
-  treeGuideText,
-  treeContinuationColumns,
 } from '../src/web/core.js';
 import type {
   BoardControls,
@@ -75,11 +77,28 @@ function board(watch: ObservationStateView, title = 'Initial', id = 'web-one'): 
     command: 'tbd list --pretty',
     commandExact: true,
     filtersExact: true,
-    contextCount: 0,
     search: '',
     total: 1,
     matched: 1,
     closedHidden: 0,
+    statusFacets: [
+      { value: 'open', count: 1 },
+      { value: 'in_progress', count: 0 },
+      { value: 'blocked', count: 0 },
+      { value: 'deferred', count: 0 },
+      { value: 'closed', count: 0 },
+    ],
+    kindFacets: [
+      { value: 'bug', count: 0 },
+      { value: 'feature', count: 0 },
+      { value: 'task', count: 1 },
+      { value: 'epic', count: 0 },
+      { value: 'chore', count: 0 },
+    ],
+    priorityFacets: [0, 1, 2, 3, 4].map((value) => ({
+      value,
+      count: value === 2 ? 1 : 0,
+    })),
     labelFacets: [],
     rows: [
       {
@@ -99,7 +118,6 @@ function board(watch: ObservationStateView, title = 'Initial', id = 'web-one'): 
       },
     ],
     truncated: 0,
-    contextIds: [],
     state: watch,
   };
 }
@@ -151,14 +169,17 @@ describe('client core pure helpers', () => {
     });
   });
 
-  it('continues only ancestor verticals through wrapped pretty titles', () => {
-    expect(treeContinuationColumns('')).toEqual([]);
-    expect(treeContinuationColumns('├── ')).toEqual([]);
-    expect(treeContinuationColumns('└── ')).toEqual([]);
-    expect(treeContinuationColumns('│   ├── ')).toEqual([0]);
-    expect(treeContinuationColumns('    │   └── ')).toEqual([4]);
-    expect(treeContinuationColumns('│   │   └── ')).toEqual([0, 4]);
-    expect(treeGuideText('│   │   └── ')).toBe('        └── ');
+  it('middle-ellipsizes long scalar deltas at one documented boundary', () => {
+    const boundary = formatDeltaValue('x'.repeat(DELTA_VALUE_PREVIEW_CHARS - 2));
+    expect(boundary.preview).toBe(boundary.full);
+    expect(boundary.preview).toHaveLength(DELTA_VALUE_PREVIEW_CHARS);
+
+    const long = formatDeltaValue(`prefix-${'x'.repeat(100)}-suffix`);
+    expect(long.full).toBe(JSON.stringify(`prefix-${'x'.repeat(100)}-suffix`));
+    expect(long.preview).toHaveLength(DELTA_VALUE_PREVIEW_CHARS);
+    expect(long.preview).toMatch(/^"prefix-/u);
+    expect(long.preview).toMatch(/-suffix"$/u);
+    expect(long.preview).toContain('…');
   });
 
   it('promotes clicked columns into a deterministic composable sort stack', () => {
@@ -185,6 +206,20 @@ describe('client core pure helpers', () => {
     expect(promoteBoardSort([{ key: 'title', direction: 'asc' }], 'title')).toEqual([
       { key: 'title', direction: 'desc' },
     ]);
+    expect(
+      promoteBoardSort(
+        [
+          { key: 'updated', direction: 'desc' },
+          { key: 'priority', direction: 'asc' },
+        ],
+        'title',
+      ),
+    ).toEqual([
+      { key: 'title', direction: 'asc' },
+      { key: 'updated', direction: 'desc' },
+    ]);
+    expect(isDefaultBoardSort(DEFAULT_BOARD_SORTS, true)).toBe(true);
+    expect(isDefaultBoardSort(DEFAULT_BOARD_SORTS, false)).toBe(false);
   });
 
   it('formats updated timestamps with deterministic MetaBrowser age tiers', () => {
@@ -241,12 +276,10 @@ describe('client core pure helpers', () => {
     const response = board(state());
     response.filtersExact = false;
     response.search = 'needle';
-    response.contextCount = 2;
     response.truncated = 5_000;
     expect(caveatsFor(response)).toEqual([
       'filters or ordering with no exact CLI equivalent apply',
       'text search "needle" applies',
-      '2 dimmed ancestor rows are shown for context',
       'only the first 1 of 5000 rows are shown',
     ]);
     expect(phaseLabel(state())).toEqual({
@@ -269,6 +302,41 @@ describe('client core pure helpers', () => {
 });
 
 describe('createClientStore transport orchestration', () => {
+  it('keeps default Pretty and the composed sort across a live data refresh', async () => {
+    let onState: ((next: unknown) => void) | null = null;
+    let current = board(state());
+    const requests: string[] = [];
+    const transport: Transport = {
+      openEvents: (_url, callback) => {
+        onState = callback;
+        return { close: vi.fn() };
+      },
+      fetchJson: (url) => {
+        requests.push(url);
+        return Promise.resolve(current);
+      },
+    };
+    const store = createClientStore(transport, vi.fn());
+    await store.start();
+
+    current = board(state({ stateVersion: 1, dataVersion: 1 }), 'Updated live');
+    onState!(current.state);
+    await vi.waitFor(() => {
+      expect(store.getView().board?.rows[0]?.title).toBe('Updated live');
+    });
+
+    expect(store.getView().controls).toMatchObject({
+      pretty: true,
+      sorts: DEFAULT_BOARD_SORTS,
+    });
+    expect(requests).toHaveLength(2);
+    for (const request of requests) {
+      expect(request).toContain('order=updated%3Adesc&order=priority%3Aasc');
+      expect(request).toContain('pretty=1');
+    }
+    store.stop();
+  });
+
   it('connects before fetching, passes the saved local tip, and coalesces updates during fetch', async () => {
     const order: string[] = [];
     const first = deferred<unknown>();
