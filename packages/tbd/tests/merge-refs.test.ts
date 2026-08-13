@@ -58,7 +58,12 @@ describeUnlessWindows('mergeBeadAcrossRefs', () => {
   });
 
   afterEach(async () => {
-    await rm(repo, { recursive: true, force: true });
+    await rm(repo, {
+      recursive: true,
+      force: true,
+      maxRetries: 5,
+      retryDelay: 100,
+    });
   });
 
   it('unions children appended on each branch from a shared base', async () => {
