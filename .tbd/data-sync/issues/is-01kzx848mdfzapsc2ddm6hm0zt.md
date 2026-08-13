@@ -5,7 +5,7 @@ title: Merge v0.5.0 main and assess Linear release candidate
 kind: task
 status: in_progress
 priority: 1
-version: 40
+version: 42
 spec_path: docs/project/specs/active/plan-2026-08-10-external-tracker-integrations.md
 labels:
   - integration
@@ -47,11 +47,12 @@ child_order_hints:
   - is-01kzxmc219typjnb46kwsm83k3
   - is-01kzxp8m8fn9vyrd0qfghkgtx2
   - is-01kzxp8mkfq99eamm3d3kw7a9e
+  - is-01kzxr09hgvy5ef29f7j5s5950
 created_at: 2026-08-13T09:44:20.358Z
-updated_at: 2026-08-13T14:07:00.584Z
+updated_at: 2026-08-13T14:30:53.978Z
 ---
 Merge origin/main into claude/linear-integration using the merge-upstream shortcut. Audit every overlapping sync/storage/schema/web surface for semantic conflicts, reconcile stale Phase 2 bead state, revise the plan with file/function-level Linear RC, GitHub, and web work, validate the built CLI and live Linear pilot end to end, run the full quality gates, push PR #206, and watch CI to a final result.
 
 ## Notes
 
-origin/main v0.5.0 is merged semantically; live Linear phases 1-6 passed. Eleven PR review findings are fixed with TDD, including provider-neutral replay cancellation, cancellation-first unlink, pending-create/orphan distinction (tbd-8npr), and provider-namespace preservation during provisional-link enrichment (tbd-a1hv). Authoritative spec/design/user docs/changelog/generated skills are current. Final local gates at a91c1254: format/Markdown/lint/typecheck/build; 1,929 Vitest; 1,084 Tryscript; publint; package-age 31 pins/0 violations; 5k/10k performance coverage; packed web proof; native watch RC. Known gray-matter/js-yaml advisory remains narrowly unreachable and tracked as tbd-6gy0. Remaining: push, resolve two originating threads, replacement hosted CI, final thread sweep and disposition, then RC closure.
+origin/main v0.5.0 is merged semantically; live Linear phases 1-6 passed. Twelve PR review findings are fixed with TDD. The final retained-create edge case (tbd-huhy) now always performs targeted liveness: live items reconcile, while only confirmed-absent exact create claims remain pending instead of orphaned. Authoritative spec/design/user docs/changelog/generated skills are current. Final local gates at the pending head: format/Markdown/lint/typecheck/build; 1,930 Vitest; 1,084 Tryscript; focused integration 61/61; publint; package-age 31 pins/0 violations; packed web and native-watch proofs from the preceding head (unaffected surfaces). Known gray-matter/js-yaml advisory remains narrowly unreachable and tracked as tbd-6gy0. Remaining: commit/push, resolve the final thread, replacement hosted CI, final disposition and RC closure.
