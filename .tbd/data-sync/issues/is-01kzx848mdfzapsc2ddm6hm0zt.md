@@ -5,7 +5,7 @@ title: Merge v0.5.0 main and assess Linear release candidate
 kind: task
 status: in_progress
 priority: 1
-version: 34
+version: 37
 spec_path: docs/project/specs/active/plan-2026-08-10-external-tracker-integrations.md
 labels:
   - integration
@@ -43,11 +43,13 @@ child_order_hints:
   - is-01kzxhw9w2xj03bfz4de3kxvpb
   - is-01kzxk660qk999gpapm6j74rgg
   - is-01kzxkvemtgka7w0kezxky6tac
+  - is-01kzxmc1fwdgshnbsne64fha22
+  - is-01kzxmc219typjnb46kwsm83k3
 created_at: 2026-08-13T09:44:20.358Z
-updated_at: 2026-08-13T13:09:14.517Z
+updated_at: 2026-08-13T13:38:45.815Z
 ---
 Merge origin/main into claude/linear-integration using the merge-upstream shortcut. Audit every overlapping sync/storage/schema/web surface for semantic conflicts, reconcile stale Phase 2 bead state, revise the plan with file/function-level Linear RC, GitHub, and web work, validate the built CLI and live Linear pilot end to end, run the full quality gates, push PR #206, and watch CI to a final result.
 
 ## Notes
 
-origin/main v0.5.0 merged semantically; Linear live phases 1-6 passed; all six final PR findings fixed with TDD (including tbd-5p9k comment replay identity); Phase 3 GitHub and Phase 4 web maps are authoritative in the active spec. Local gates at final head: format/lint/typecheck/build, 1,921 Vitest, 1,084 Tryscript, publint, package-age, packaged web/watch proofs. Remaining: commit/push latest review fix, resolve thread, hosted CI, final RC closure.
+origin/main v0.5.0 merged semantically; Linear live phases 1-6 passed. Nine PR review findings are now fixed with TDD, including provider-neutral live-claim replay cancellation (tbd-eqp5) and cancellation-first retryable unlink (tbd-n8b3). Authoritative spec/design/user docs/changelog/generated skills are current. Final local gates at the pending head: format/Markdown/lint/typecheck/build, 1,927 Vitest, 1,084 Tryscript, publint, package-age 31 pins/0 violations, 5k/10k performance coverage, packed web proof, and native watch RC. Known gray-matter/js-yaml advisory remains narrowly unreachable and tracked as tbd-6gy0. Remaining: commit/push, resolve the two originating threads, final hosted CI, comprehensive disposition, and RC closure.
