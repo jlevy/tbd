@@ -153,6 +153,8 @@ describe('crash replay against the mock provider', () => {
       {
         kind: 'post_comment',
         external_id: 'issue-1',
+        bead_id: 'is-01hx5zzkbkactav9wevgemmvrz',
+        local_id: '01hx5zzkbkactav9wevgemmvrz',
         comment_client_id: COMMENT_UUID,
         body: 'conflict report',
       },
@@ -167,6 +169,48 @@ describe('crash replay against the mock provider', () => {
     expect(second.failures).toEqual([]);
     expect(server.comments).toHaveLength(1); // deduped by the client UUID
     expect(server.comments[0]?.id).toBe(COMMENT_UUID);
+  });
+
+  it('keeps a replayed comment intent until its local identity is recorded', async () => {
+    server.addIssue({ id: 'issue-1', identifier: 'FIN-1' });
+    const file = intentFile([
+      {
+        kind: 'post_comment',
+        external_id: 'issue-1',
+        bead_id: 'is-01hx5zzkbkactav9wevgemmvrz',
+        local_id: '01hx5zzkbkactav9wevgemmvrz',
+        comment_client_id: COMMENT_UUID,
+        body: 'survives local recovery failure',
+      },
+    ]);
+    await writeIntentFile(dir, file);
+
+    await expect(
+      replayIntents(dir, 'linear', adapter, undefined, () =>
+        Promise.reject(new Error('local commit failed')),
+      ),
+    ).rejects.toThrow('local commit failed');
+    expect(server.comments).toHaveLength(1);
+    expect(await listIntentFiles(dir, 'linear')).toEqual([file]);
+
+    const recoveries: unknown[] = [];
+    await replayIntents(dir, 'linear', adapter, undefined, (recovery) => {
+      recoveries.push(recovery);
+      return Promise.resolve();
+    });
+    expect(server.comments).toHaveLength(1);
+    expect(recoveries).toEqual([
+      expect.objectContaining({
+        recoveredComments: [
+          {
+            beadId: 'is-01hx5zzkbkactav9wevgemmvrz',
+            localId: '01hx5zzkbkactav9wevgemmvrz',
+            commentId: COMMENT_UUID,
+          },
+        ],
+      }),
+    ]);
+    expect(await listIntentFiles(dir, 'linear')).toEqual([]);
   });
 
   it('keeps the journal when an op fails, and reports it', async () => {

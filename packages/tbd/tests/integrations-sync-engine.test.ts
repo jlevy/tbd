@@ -444,6 +444,56 @@ describe('the sync engine', () => {
     expect(again.commentsPushed).toBe(0);
   });
 
+  it('records a replayed comment before planning so a crash cannot duplicate it', async () => {
+    const epic = bead('is-01hx5zzkbkactav9wevgemmvrz');
+    store.set(epic.id, epic);
+    await run([epic]);
+    await run([store.get(epic.id)!]);
+    const externalId = readLink(store.get(epic.id)!, 'linear')!.id;
+    const { issue: withComment } = appendLocalComment(
+      store.get(epic.id)!,
+      'linear',
+      'landed immediately before the process died',
+      new Date().toISOString(),
+    );
+    store.set(withComment.id, withComment);
+
+    const createComment = adapter.createComment.bind(adapter);
+    let simulateCrash = true;
+    adapter.createComment = async (id, body, clientId) => {
+      const result = await createComment(id, body, clientId);
+      if (simulateCrash) {
+        simulateCrash = false;
+        throw new Error('simulated crash after provider comment write');
+      }
+      return result;
+    };
+
+    const interrupted = await run([withComment]);
+    expect(interrupted.failures).toEqual([
+      expect.objectContaining({ error: expect.stringContaining('simulated crash') }),
+    ]);
+    expect(server.comments.filter((comment) => comment.issueId === externalId)).toHaveLength(1);
+    expect(await listIntentFiles(dir, 'linear')).toHaveLength(1);
+
+    const recovered = await run([store.get(epic.id)!]);
+    expect(recovered.failures).toEqual([]);
+    expect(recovered.replayedOps).toBe(1);
+    expect(recovered.commentsPushed).toBe(0);
+    expect(server.comments.filter((comment) => comment.issueId === externalId)).toHaveLength(1);
+    expect(readComments(store.get(epic.id)!, 'linear')).toEqual([
+      expect.objectContaining({
+        body: 'landed immediately before the process died',
+        id: server.comments[0]?.id,
+      }),
+    ]);
+    expect(await listIntentFiles(dir, 'linear')).toHaveLength(0);
+
+    const quiet = await run([store.get(epic.id)!]);
+    expect(quiet.commentsPushed).toBe(0);
+    expect(server.comments.filter((comment) => comment.issueId === externalId)).toHaveLength(1);
+  });
+
   it('never pulls its own conflict-report comments back as content', async () => {
     const epic = bead('is-01hx5zzkbkactav9wevgemmvrz');
     store.set(epic.id, epic);

@@ -40,7 +40,12 @@ import {
   pullWatermark,
   writeLinkRecord,
 } from './bridge-state.js';
-import { mergeExternalComments, recordPushedComment, unpushedComments } from './comment-store.js';
+import {
+  mergeExternalComments,
+  readComments,
+  recordPushedComment,
+  unpushedComments,
+} from './comment-store.js';
 import { duplicateExternalLinks, readLink, writeLink } from './link-store.js';
 import { assertExternalUnclaimed } from './link-guard.js';
 import { renderManagedBlock, type MirrorLinks } from './managed-block.js';
@@ -230,6 +235,7 @@ export async function runSync(options: SyncEngineOptions): Promise<SyncRunReport
     failures: [],
     nothingToDo: false,
   };
+  const issuesById = new Map(options.allIssues.map((issue) => [issue.id, issue]));
 
   // Corrupt legacy/manual state can bypass the link command's one-source
   // guard. Identify every holder before replaying a journal or contacting the
@@ -257,30 +263,76 @@ export async function runSync(options: SyncEngineOptions): Promise<SyncRunReport
   // remain durable and replay on the next full sync; replaying them here would
   // make an apparently inbound-only command mutate the provider.
   if (!dryRun && !inboundOnly) {
-    const replay = await replayIntents(dataSyncDir, provider, adapter, {
-      blockedExternalIds,
-      blockedBeadIds,
-    });
+    const replay = await replayIntents(
+      dataSyncDir,
+      provider,
+      adapter,
+      { blockedExternalIds, blockedBeadIds },
+      async ({ recoveredCreates, recoveredComments }) => {
+        let recoveryDirty = false;
+        for (const recovered of recoveredCreates) {
+          const bead = await callbacks.readBead(recovered.beadId).catch(() => undefined);
+          if (bead && !readLink(bead, provider)) {
+            const [current] = await adapter.fetchIssues([recovered.externalId]);
+            const repaired = writeLink(bead, {
+              provider,
+              id: recovered.externalId,
+              key: current?.key ?? null,
+              url: current?.url ?? null,
+              linked_at: options.now(),
+            });
+            repaired.version += 1;
+            repaired.updated_at = options.now();
+            await callbacks.writeBead(repaired);
+            issuesById.set(repaired.id, repaired);
+            recoveryDirty = true;
+          } else if (bead) {
+            issuesById.set(bead.id, bead);
+          }
+        }
+        for (const recovered of recoveredComments) {
+          const bead = await callbacks.readBead(recovered.beadId);
+          const entry = readComments(bead, provider).find(
+            (comment) => comment.local_id === recovered.localId,
+          );
+          if (!entry) {
+            throw new Error(
+              `Could not record replayed ${provider} comment ${recovered.localId}: local entry is missing`,
+            );
+          }
+          if (entry.id && entry.id !== recovered.commentId) {
+            throw new Error(
+              `Could not record replayed ${provider} comment ${recovered.localId}: ` +
+                `local entry already points to ${entry.id}`,
+            );
+          }
+          if (entry.id === recovered.commentId) {
+            issuesById.set(bead.id, bead);
+            continue;
+          }
+          const repaired = recordPushedComment(
+            bead,
+            provider,
+            recovered.localId,
+            recovered.commentId,
+          );
+          repaired.version += 1;
+          repaired.updated_at = options.now();
+          await callbacks.writeBead(repaired);
+          issuesById.set(repaired.id, repaired);
+          recoveryDirty = true;
+        }
+        if (recoveryDirty) {
+          // Commit the recovered local identities while the write-ahead file
+          // still exists. A crash before cleanup therefore replays safely;
+          // it can never lose the only mapping back to the local comment.
+          await callbacks.afterJournal();
+        }
+      },
+    );
     report.replayedOps = replay.replayedOps;
     for (const conflict of replay.replayedConflicts) {
       replayedConflictReports.set(conflictSignature(conflict), conflict);
-    }
-    for (const recovered of replay.recoveredCreates) {
-      // A recovered create may have beaten the link write; repair it.
-      const bead = await callbacks.readBead(recovered.beadId).catch(() => undefined);
-      if (bead && !readLink(bead, provider)) {
-        const [current] = await adapter.fetchIssues([recovered.externalId]);
-        const repaired = writeLink(bead, {
-          provider,
-          id: recovered.externalId,
-          key: current?.key ?? null,
-          url: current?.url ?? null,
-          linked_at: options.now(),
-        });
-        repaired.version += 1;
-        repaired.updated_at = options.now();
-        await callbacks.writeBead(repaired);
-      }
     }
     for (const failure of replay.failures) {
       report.failures.push({ beadId: failure.runId, error: failure.error });
@@ -288,7 +340,8 @@ export async function runSync(options: SyncEngineOptions): Promise<SyncRunReport
   }
 
   // 2. Assemble the linked set and the remote view.
-  const allLinked = options.allIssues.filter((issue) => readLink(issue, provider));
+  const currentIssues = [...issuesById.values()];
+  const allLinked = currentIssues.filter((issue) => readLink(issue, provider));
   const linked = allLinked.filter((issue) => !blockedBeadIds.has(issue.id));
   const records = await listLinkRecords(dataSyncDir, provider);
   const recordByBead = new Map(records.map((record) => [record.bead_id, record]));
@@ -401,7 +454,7 @@ export async function runSync(options: SyncEngineOptions): Promise<SyncRunReport
   // creates nothing outward; it reports what it declined to create instead.
   const outboundNew = inboundOnly
     ? []
-    : mirrorSet(options.allIssues, policy.outbound, provider).filter(
+    : mirrorSet(currentIssues, policy.outbound, provider).filter(
         (issue) => !readLink(issue, provider),
       );
 
@@ -629,6 +682,8 @@ export async function runSync(options: SyncEngineOptions): Promise<SyncRunReport
       ops.push({
         kind: 'post_comment',
         external_id: push.externalId,
+        bead_id: push.bead.id,
+        local_id: entry.local_id!,
         comment_client_id: clientId,
         body: entry.body,
       });

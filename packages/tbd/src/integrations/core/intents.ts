@@ -70,6 +70,9 @@ const IntentOpSchema = z.discriminatedUnion('kind', [
   z.object({
     kind: z.literal('post_comment'),
     external_id: z.string().min(1),
+    /** Durable local identity: replay must mark this entry as pushed. */
+    bead_id: z.string().min(1),
+    local_id: z.string().min(1),
     /** Client UUID; the provider's dedup makes replay exactly-once. */
     comment_client_id: z.string().min(1),
     body: z.string(),
@@ -168,7 +171,15 @@ export interface ReplayReport {
   recoveredCreates: { beadId: string; externalId: string }[];
   /** Reports that replay already posted, used to avoid re-planning them this run. */
   replayedConflicts: ConflictReport[];
+  /** Comments that landed and must be reconciled into their durable bead entry. */
+  recoveredComments: { beadId: string; localId: string; commentId: string }[];
   failures: { runId: string; op: IntentOp; error: string }[];
+}
+
+export interface ReplayRecovery {
+  runId: string;
+  recoveredCreates: ReplayReport['recoveredCreates'];
+  recoveredComments: ReplayReport['recoveredComments'];
 }
 
 export interface ReplaySafetyFilter {
@@ -199,18 +210,23 @@ export async function replayIntents(
   provider: ProviderNameType,
   adapter: TrackerAdapter,
   safety?: ReplaySafetyFilter,
+  /** Persist recovered local identities before their intent file is removed. */
+  recordRecovery?: (recovery: ReplayRecovery) => Promise<void>,
 ): Promise<ReplayReport> {
   const report: ReplayReport = {
     replayedRuns: 0,
     replayedOps: 0,
     recoveredCreates: [],
     replayedConflicts: [],
+    recoveredComments: [],
     failures: [],
   };
 
   for (const file of await listIntentFiles(dataSyncDir, provider)) {
     report.replayedRuns += 1;
     let failed = false;
+    const recoveredCreates: ReplayReport['recoveredCreates'] = [];
+    const recoveredComments: ReplayReport['recoveredComments'] = [];
 
     for (const op of file.ops) {
       const blockedTarget = blockedReplayTarget(op, safety);
@@ -230,7 +246,9 @@ export async function replayIntents(
         switch (op.kind) {
           case 'create_issue': {
             const ref = await adapter.createIssue(op.patch as CanonicalPatch, op.client_id);
-            report.recoveredCreates.push({ beadId: op.bead_id, externalId: ref.id });
+            const recovered = { beadId: op.bead_id, externalId: ref.id };
+            recoveredCreates.push(recovered);
+            report.recoveredCreates.push(recovered);
             break;
           }
           case 'update_issue':
@@ -242,9 +260,17 @@ export async function replayIntents(
           case 'splice_description':
             await adapter.spliceDescription(op.external_id, op.block);
             break;
-          case 'post_comment':
-            await adapter.createComment(op.external_id, op.body, op.comment_client_id);
+          case 'post_comment': {
+            const { commentId } = await adapter.createComment(
+              op.external_id,
+              op.body,
+              op.comment_client_id,
+            );
+            const recovered = { beadId: op.bead_id, localId: op.local_id, commentId };
+            recoveredComments.push(recovered);
+            report.recoveredComments.push(recovered);
             break;
+          }
           case 'post_conflict':
             await adapter.postConflict(
               op.external_id,
@@ -265,6 +291,12 @@ export async function replayIntents(
       }
     }
 
+    if (recoveredCreates.length > 0 || recoveredComments.length > 0) {
+      // The external operation and its local identity are one recoverable
+      // unit. Persist the local half while the journal is still durable; if
+      // that callback or its commit fails, the file remains for safe replay.
+      await recordRecovery?.({ runId: file.run_id, recoveredCreates, recoveredComments });
+    }
     if (!failed) {
       await deleteIntentFile(dataSyncDir, provider, file.run_id);
     }
