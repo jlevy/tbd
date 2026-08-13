@@ -5,7 +5,7 @@ title: Complete Linear RC package, docs, review, and CI gate
 kind: task
 status: in_progress
 priority: 1
-version: 6
+version: 7
 spec_path: docs/project/specs/active/plan-2026-08-10-external-tracker-integrations.md
 labels:
   - integration
@@ -15,8 +15,9 @@ parent_id: is-01kzx848mdfzapsc2ddm6hm0zt
 child_order_hints:
   - is-01kzy621rv7w39vyzctfznr88y
   - is-01kzy622568vqnwmx33pwqr6h6
+  - is-01kzy7773hjpwkaamyhtcj7z8k
 created_at: 2026-08-13T09:52:19.048Z
-updated_at: 2026-08-13T18:27:25.477Z
+updated_at: 2026-08-13T18:47:42.960Z
 closed_at: 2026-08-13T15:07:57.613Z
 close_reason: Linear release-candidate gate complete. Main v0.5.0 merged semantically; package/docs/installed skill/spec aligned; disposable live Linear matrix passed; all 13 review findings fixed with thread replies and resolutions; 1,931 Vitest and 1,084 Tryscript checks pass; all hosted Ubuntu/macOS/Windows/coverage/benchmark/security/review checks green on 8e00e188.
 ---
