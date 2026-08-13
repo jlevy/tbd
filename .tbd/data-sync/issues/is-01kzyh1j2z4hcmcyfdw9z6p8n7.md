@@ -1,0 +1,16 @@
+---
+type: is
+id: is-01kzyh1j2z4hcmcyfdw9z6p8n7
+title: Retire the legacy HTML-comment managed-block reader
+kind: task
+status: open
+priority: 3
+version: 1
+labels: []
+dependencies: []
+created_at: 2026-08-13T21:39:23.358Z
+updated_at: 2026-08-13T21:39:23.358Z
+---
+PR #212 made readers dual-format (current plain-text pair plus the legacy HTML-comment pair) with no removal plan, so LEGACY_MANAGED_BLOCK_MARKERS in core/managed-block.ts is load-bearing indefinitely.
+
+The PR reports all 163 currently linked Linear issues already backfilled to the current format, independently audited through GraphQL. After a release or two, drop the legacy branch from locateManagedBlock and delete the constant; keep the malformed/mixed fail-closed behavior.
