@@ -117,6 +117,9 @@ or want help → run `tbd shortcut welcome-user`
 | “Make the guidelines visible / customize doc X” | `tbd docs fork --category=general --category=<lang>` (recommended: general + the repo’s languages), or `tbd docs fork <name>` / `--all`; then edit in `docs/tbd/` |
 | “Update the guidelines to the latest” | `tbd docs update`; on conflicts ask the user, then `--merge` or `--keep-ours` |
 | “I deleted a forked doc file” | `tbd docs status` shows it `missing`; restore with `tbd docs fork <name> --force` or finalize with `tbd docs unfork <name>` |
+| **External Trackers** |  |
+| “Set up Linear” / “Connect this repo to Linear” | `tbd shortcut setup-linear` |
+| “My Linear sync isn’t working” / “Add my Linear key” | `tbd shortcut setup-linear` |
 | **Cleanup & Maintenance** |  |
 | “Clean up this code” / “Remove dead code” | `tbd shortcut code-cleanup-all` |
 | “Fix repository problems” | `tbd doctor --fix` |
@@ -236,16 +239,23 @@ mutation and make one call per group.
 | `tbd integration link/unlink <bead> [ref]` | Bind or sever a bead and an existing tracker item; unlink safely cancels pending writes for that pair before clearing the link |
 | `tbd integration comment <bead> "text"` | Author a comment offline; posted on next sync |
 
-When a user asks to “sync our specs and beads to Linear”: run `status` first.
-No API key → ask the user to create one at `linear.app/settings/api` and put it in a
-**gitignored** `.env` as `LINEAR_API_KEY=…` (never commit it).
-No config → add
-`integrations: { linear: { enabled: true, team_key: <THEIRS>, project: <optional>, user_map: <optional alias-to-email-or-UUID map>, policy: default } }`
-to `.tbd/config.yml`, re-check `status`, then `--dry-run sync --push`, `sync --push`,
-`sync`. Full details: the External Tracker Integrations section of `tbd docs`. Bulk runs
-over 20 creates / 40 updates refuse without `--yes`. Never echo credentials into output
-or commits. `--pull` never replays or performs provider writes; deferred claims and
-conflict notices remain journaled until the next full sync.
+**Setting Linear up at all — including “add my key” — is `tbd shortcut setup-linear`.**
+Run it rather than improvising; it detects which case applies and walks the user through
+only that case.
+
+The mental model it encodes: **config is shared, credentials are personal.** The
+`integrations` block in `.tbd/config.yml` (team, project, policy) is committed, so a
+teammate who clones already has it; `LINEAR_API_KEY` lives in the environment or a
+**gitignored** `.env` and is never committed.
+So a user joining a repo whose team already syncs needs *only* a key—never a config
+edit, and never `sync --push` (their links arrived with the clone; a full `sync` is the
+correct first command).
+Run `status` first in every case.
+Full details: the External Tracker Integrations section of `tbd docs`. Bulk runs over 20
+creates / 40 updates refuse without `--yes`. Never echo credentials into output or
+commits.
+`--pull` never replays or performs provider writes; deferred claims and conflict
+notices remain journaled until the next full sync.
 Link/inbound creation refuse a remote `tbd://bead/…` claim unless `--force` is explicit
 and the old claim was verified stale.
 Configured `project` scopes both creates and automatic inbound scans; an explicit
@@ -323,6 +333,7 @@ Run `tbd shortcut <name>` to use any of these shortcuts:
 | revise-all-architecture-docs | Comprehensive revision of all current architecture documents |
 | revise-architecture-doc | Update an architecture document to reflect current codebase state |
 | setup-github-cli | Ensure GitHub CLI (gh) is installed and working |
+| setup-linear | Set up the Linear integration end to end—first-time configuration for a repository, or adding your own API key to a repository your team already configured |
 | suggest-upstream-improvements | Review local doc-fork customizations and contribute the generally useful changes back upstream |
 | sync-failure-recovery | Handle tbd sync failures by saving to workspace and recovering later |
 | update-specs-status | Reconcile active specs, the top-level work index (e.g. TODO.md), and tbd beads into one current status map |

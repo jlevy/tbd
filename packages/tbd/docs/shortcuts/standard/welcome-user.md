@@ -13,6 +13,13 @@ project.
 First, run `tbd status` to check the current state.
 Give a brief summary of the status (repository, sync status, integrations).
 
+If the summary shows an external tracker (Linear) **configured but missing a
+credential**, that means this project already syncs to Linear and the user just needs
+their own API key.
+Say so and offer `tbd shortcut setup-linear`—do not make them hunt for
+it. Mention it as an option, without derailing the welcome, if no tracker is configured
+at all.
+
 Then make the two-axis guidelines offer, one short question per axis:
 
 1. **Scope:** keep **all** standard guidelines active (recommended), or just a subset
@@ -73,6 +80,7 @@ For a project outside the agent’s current working directory, it can use
 | “Commit this code” | Reviews changes and commits properly (`tbd shortcut code-review-and-commit`) |
 | “Create a PR” | Creates a pull request with summary (`tbd shortcut create-or-update-pr-simple`) |
 | “Review this for best practices” | Performs a code review with guidelines |
+| “Set up Linear” / “Add my Linear key” | Walks through connecting this repo to Linear (`tbd shortcut setup-linear`) |
 
 ### Guidelines
 
