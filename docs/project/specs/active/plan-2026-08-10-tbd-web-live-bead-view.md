@@ -236,7 +236,9 @@ Payload shape matters more than raw speed:
   Pretty sorts outermost visible parent groups only; Updated rolls up the latest
   timestamp in each complete visible subtree for every parent kind, while children keep
   official `child_order_hints` order.
-  Flat mode applies the stack globally, and Reset restores the complete default.
+  Each non-root browser row renders one `└──` elbow at its hierarchy indentation;
+  ancestor levels are spaces, never vertical bars, and sibling position never selects a
+  tee. Flat mode applies the stack globally, and Reset restores the complete default.
   Filtered-out ancestors are never reinserted; matching descendants become roots,
   exactly as in `tbd list --pretty`.
 - Expanded updated beads show 80-character middle-ellipsis previews for each scalar

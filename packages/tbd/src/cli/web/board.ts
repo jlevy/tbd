@@ -67,10 +67,8 @@ const BOARD_SORT_KEYS = new Set<BoardSortKey>([
   'labels',
 ]);
 const TREE_CHARS = {
-  branch: '├── ',
-  last: '└── ',
-  vertical: '│   ',
-  space: '    ',
+  child: '└── ',
+  indent: '    ',
 } as const;
 
 export interface BoardRow {
@@ -1258,20 +1256,18 @@ export class BoardState {
     }
 
     const rows: BoardRow[] = [];
-    const walk = (node: TreeNode, prefix: string, connector: string, isLast: boolean): void => {
+    const walk = (node: TreeNode, depth: number): void => {
       const issue = issueByDisplayId.get(node.issue.id);
       if (issue !== undefined) {
-        rows.push(this.toRow(issue, prefix + connector));
+        const prefix = depth === 0 ? '' : TREE_CHARS.indent.repeat(depth - 1) + TREE_CHARS.child;
+        rows.push(this.toRow(issue, prefix));
       }
-      const childPrefix =
-        connector === '' ? '' : prefix + (isLast ? TREE_CHARS.space : TREE_CHARS.vertical);
-      node.children.forEach((child, index) => {
-        const last = index === node.children.length - 1;
-        walk(child, childPrefix, last ? TREE_CHARS.last : TREE_CHARS.branch, last);
+      node.children.forEach((child) => {
+        walk(child, depth + 1);
       });
     };
     for (const root of roots) {
-      walk(root, '', '', true);
+      walk(root, 0);
     }
     return rows;
   }

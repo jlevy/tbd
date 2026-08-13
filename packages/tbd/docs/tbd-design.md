@@ -4101,6 +4101,9 @@ sorting never clears Pretty.
 In Pretty, the stack orders only outermost visible parent groups; Updated compares the
 maximum timestamp across each entire visible subtree for every parent kind, while
 children retain `child_order_hints` order and its deterministic fallback.
+The browser deliberately uses a simpler visual grammar than terminal tree output: every
+non-root row has exactly one `└──` elbow at its hierarchy indentation, with spaces for
+ancestor levels and no tee or vertical-bar variants.
 Flat mode applies the stack globally.
 Reset restores the complete default.
 Pretty never reinserts a bead excluded by Status, labels, search, or another filter; a

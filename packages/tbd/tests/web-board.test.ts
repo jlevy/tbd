@@ -230,7 +230,25 @@ describe('BoardState', () => {
     );
 
     expect(response.rows.map((row) => row.id)).toEqual(['web-root', 'web-leaf', 'web-kid1']);
-    expect(response.rows.map((row) => row.prefix)).toEqual(['', '├── ', '└── ']);
+    expect(response.rows.map((row) => row.prefix)).toEqual(['', '└── ', '└── ']);
+  });
+
+  it('uses one elbow at the correct indentation for every pretty child', async () => {
+    const { board, setIssues } = harness();
+    const [root, child, leaf] = fixtureIssues();
+    setIssues([{ ...root!, status: 'open' }, child!, leaf!]);
+    await board.reload();
+
+    const response = board.buildBoardResponse(
+      new URLSearchParams('pretty=1&order=updated:desc'),
+      stateFor(board),
+    );
+
+    expect(response.rows.map((row) => row.id)).toEqual(['web-root', 'web-kid1', 'web-leaf']);
+    expect(response.rows.map((row) => row.prefix)).toEqual(['', '└── ', '    └── ']);
+    expect(
+      response.rows.every((row) => !row.prefix.includes('│') && !row.prefix.includes('├')),
+    ).toBe(true);
   });
 
   it('caps label facets at 32 while retaining a selected lower-ranked label', async () => {

@@ -132,11 +132,12 @@
        Essential labels remain visible or accessible outside the tooltip.
 
      Tree structure (.guide, .title-content)
-       First-line box-drawing characters reuse the --muted auxiliary-text
-       token. Wrapped lines keep a clean hanging indent after the entire guide;
-       they do not synthesize vertical rules whose geometry can disagree with
-       the font's Unicode bars. Only `.title-text` wraps; disclosure remains in
-       its own column.
+       Every non-root bead has exactly one `└──` elbow at its depth indentation;
+       sibling position never changes it to a tee and ancestor levels use spaces,
+       never vertical bars. The elbow reuses the --muted auxiliary-text token.
+       Wrapped lines keep a clean hanging indent after the entire guide and never
+       synthesize continuation rules. Only `.title-text` wraps; disclosure remains
+       in its own column.
 
      Local field deltas (.delta-before, .delta-after)
        Each scalar side uses an 80-character middle-ellipsis preview so appended

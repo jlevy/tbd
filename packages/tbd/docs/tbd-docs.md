@@ -675,6 +675,8 @@ Pretty is on by default and never changes when a column sort changes.
 In Pretty mode, the two-key sort moves only outermost visible parent groups.
 Updated is rolled up to the latest timestamp in each complete visible subtree for every
 parent kind; children keep their official `child_order_hints` order.
+Every non-root browser row uses one `└──` elbow at its hierarchy indentation.
+Deeper levels use spaces instead of ancestor bars, and siblings never switch to a tee.
 Flat mode applies the stack to individual rows.
 Filters remain exact in both modes: a filtered-out parent is not reinserted, and a
 matching child simply becomes a root.

@@ -426,6 +426,8 @@ Sorting never disables Pretty.
 In Pretty mode it reorders only outermost visible parent groups, using the latest
 Updated timestamp in each complete visible subtree while preserving official child
 order. Flat mode applies the sort stack to individual rows.
+Each non-root row uses one `└──` elbow at its hierarchy indentation; deeper levels use
+spaces rather than ancestor bars, and sibling position never introduces a tee.
 Changing a filter, sort, display mode, or page closes expanded row details.
 During a live update, only rows still present in the bounded response remain expanded,
 with any display-ID change reconciled before their bodies reload.
