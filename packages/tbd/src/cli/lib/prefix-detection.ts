@@ -9,11 +9,10 @@ import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { parse as parseYaml } from 'yaml';
 
+import { isValidDisplayPrefix } from '../../lib/display-id.js';
+
 /** Maximum length for a valid prefix */
 const MAX_PREFIX_LENGTH = 20;
-
-/** Minimum length for a valid prefix */
-const MIN_PREFIX_LENGTH = 1;
 
 /** Recommended minimum length */
 const RECOMMENDED_MIN_LENGTH = 2;
@@ -48,25 +47,7 @@ export function normalizePrefix(s: string): string {
  * - No dashes allowed (breaks ID syntax)
  */
 export function isValidPrefix(s: string): boolean {
-  if (!s) {
-    return false;
-  }
-  if (s.length < MIN_PREFIX_LENGTH || s.length > MAX_PREFIX_LENGTH) {
-    return false;
-  }
-
-  // First char must be a letter
-  if (!/^[a-z]/.test(s)) {
-    return false;
-  }
-
-  // Last char must be alphanumeric (for length > 1)
-  if (s.length > 1 && !/[a-z0-9]$/.test(s)) {
-    return false;
-  }
-
-  // All chars must be alphanumeric, dot, or underscore (no dashes!)
-  return /^[a-z][a-z0-9._]*$/.test(s);
+  return isValidDisplayPrefix(s);
 }
 
 /**

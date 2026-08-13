@@ -12,7 +12,19 @@ import type {
   IssueKind,
   Priority,
   Dependency,
+  LinkedEntry,
+  ProviderName,
   ConfigSchema,
+  IntegrationsConfigSchema,
+  IntegrationSelectSchema,
+  InboundClauseSchema,
+  FieldSyncClauseSchema,
+  PolicyDefinitionSchema,
+  PolicyName,
+  BridgeBaseSchema,
+  LinkRecordSchema,
+  LinearIntegrationSchema,
+  GithubIntegrationSchema,
   CommonDirLayoutSchema,
   MetaSchema,
   LocalStateSchema,
@@ -48,6 +60,16 @@ export type PriorityType = z.infer<typeof Priority>;
  */
 export type DependencyType = z.infer<typeof Dependency>;
 
+/**
+ * A link from a bead to an item in an external tracker.
+ */
+export type LinkedEntryType = z.infer<typeof LinkedEntry>;
+
+/**
+ * External tracker provider name.
+ */
+export type ProviderNameType = z.infer<typeof ProviderName>;
+
 // =============================================================================
 // Configuration Types
 // =============================================================================
@@ -56,6 +78,44 @@ export type DependencyType = z.infer<typeof Dependency>;
  * Project configuration.
  */
 export type Config = z.infer<typeof ConfigSchema>;
+
+/**
+ * External tracker integration configuration.
+ */
+export type IntegrationsConfig = z.infer<typeof IntegrationsConfigSchema>;
+
+/**
+ * Which beads an integration mirrors outward.
+ */
+export type IntegrationSelect = z.infer<typeof IntegrationSelectSchema>;
+
+/** The inbound creation clause of a linking policy. */
+export type InboundClause = z.infer<typeof InboundClauseSchema>;
+
+/** The field_sync clause of a linking policy. */
+export type FieldSyncClause = z.infer<typeof FieldSyncClauseSchema>;
+
+/** A fully resolved linking policy. */
+export type PolicyDefinition = z.infer<typeof PolicyDefinitionSchema>;
+
+/** Named policy presets. */
+export type PolicyNameType = z.infer<typeof PolicyName>;
+
+/** Canonical field values at a link's last reconciliation. */
+export type BridgeBase = z.infer<typeof BridgeBaseSchema>;
+
+/** One link's bridge record on the sync branch. */
+export type LinkRecord = z.infer<typeof LinkRecordSchema>;
+
+/**
+ * Linear-specific integration configuration.
+ */
+export type LinearIntegrationConfig = z.infer<typeof LinearIntegrationSchema>;
+
+/**
+ * GitHub-specific integration configuration.
+ */
+export type GithubIntegrationConfig = z.infer<typeof GithubIntegrationSchema>;
 
 /**
  * Git common-dir local layout metadata.

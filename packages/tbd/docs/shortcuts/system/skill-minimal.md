@@ -5,7 +5,7 @@ description: >-
   coding agents. Use when managing tasks, committing code, following engineering
   best practices, planning features, or viewing beads in a live browser.
 license: MIT
-compatibility: Requires Node.js 20+ and git. Install CLI first: npm install -g get-tbd@latest
+compatibility: Requires Node.js 20.12+ and git. Install CLI first: npm install -g get-tbd@latest
 metadata:
   author: jlevy
   repository: https://github.com/jlevy/tbd

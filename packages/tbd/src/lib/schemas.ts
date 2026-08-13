@@ -7,6 +7,8 @@
 
 import { z } from 'zod';
 
+import { DISPLAY_PREFIX_PATTERN_SOURCE, EXTERNAL_SHORT_ID_PATTERN_SOURCE } from './display-id.js';
+
 // =============================================================================
 // Common Types (§2.6.1)
 // =============================================================================
@@ -43,7 +45,9 @@ export const Ulid = z.string().regex(/^[0-9a-z]{26}$/);
  * External Issue ID input: accepts {prefix}-{short} or just {short}.
  * Examples: bd-a7k2, a7k2, bd-100, 100
  */
-export const ExternalIssueIdInput = z.string().regex(/^([a-z]+-)?[0-9a-z]+$/);
+export const ExternalIssueIdInput = z
+  .string()
+  .regex(new RegExp(`^(?:${DISPLAY_PREFIX_PATTERN_SOURCE}-)?${EXTERNAL_SHORT_ID_PATTERN_SOURCE}$`));
 
 /**
  * Edit counter - incremented on every local change.
@@ -122,6 +126,35 @@ export const DependencyRelationType = z.enum(['blocks']);
 export const Dependency = z.object({
   type: DependencyRelationType,
   target: IssueId,
+});
+
+/**
+ * External tracker providers that a bead can be linked to.
+ */
+export const ProviderName = z.enum(['linear', 'github']);
+
+/**
+ * A link from a bead to an item in an external tracker.
+ *
+ * Stored under `extensions.<provider>` rather than as a top-level issue field.
+ * `extensions` is already part of `BaseEntity` with opaque contents, so a tbd
+ * that predates this feature round-trips the link untouched instead of silently
+ * stripping it. That keeps the feature additive and needs no format bump.
+ *
+ * The namespace key IS the provider, which makes "at most one link per provider"
+ * structural rather than a rule the merge code has to enforce.
+ *
+ * `id` is the provider's stable internal identifier and is the canonical key:
+ * human identifiers like Linear's `FIN-123` change when an issue moves between
+ * teams, but the UUID does not. `key` and `url` are display conveniences and are
+ * refreshed on each sync.
+ */
+export const LinkedEntry = z.object({
+  provider: ProviderName,
+  id: z.string().min(1),
+  key: z.string().min(1).nullable().optional(),
+  url: z.string().min(1).nullable().optional(),
+  linked_at: Timestamp,
 });
 
 /**
@@ -303,6 +336,244 @@ export const UpgradeEntrySchema = z.object({
   at: Timestamp.optional(),
 });
 
+/**
+ * Which beads an integration mirrors outward.
+ *
+ * The default is epics in an active status: the point of the mirror is the
+ * filter, so mirroring the whole store would defeat it. Explicitly linked beads
+ * are always included regardless of these predicates.
+ */
+export const SpecSelector = z.enum(['none', 'active', 'any']);
+
+export const IntegrationSelectSchema = z.object({
+  /** Kinds that qualify on their own, e.g. every open epic. */
+  kinds: z.array(IssueKind).default(['epic']),
+  /**
+   * Statuses a bead must be in to qualify. Acts as a gate over `kinds` and
+   * `specs` alike, which is what keeps closed work out of the mirror.
+   */
+  statuses: z.array(IssueStatus).default(['open', 'in_progress', 'blocked']),
+  labels: z.array(z.string()).default([]),
+  /**
+   * Qualify a bead by its linked plan spec, independently of its kind:
+   * `active` matches only specs under a `specs/active/` directory, `any`
+   * matches any `spec_path`, and `none` disables the rule. Specs that have been
+   * archived out of `active/` stop being mirrored, which is the point.
+   */
+  specs: SpecSelector.default('none'),
+  linked: z.boolean().default(true),
+});
+
+/**
+ * One synchronized comment, as persisted in a bead's `extensions.<provider>`
+ * namespace. An allow-list, like the link payload: identity, timestamp, an
+ * author DISPLAY NAME (never an email), and a capped body. An inbound comment
+ * carries the provider's immutable `id`; a locally authored one starts with
+ * only `local_id` (a ulid) and gains `id` when pushed.
+ */
+export const CommentEntry = z
+  .object({
+    id: z.string().min(1).optional(),
+    local_id: z.string().min(1).optional(),
+    at: Timestamp,
+    author: z.string().nullable().optional(),
+    body: z.string(),
+  })
+  .refine((entry) => entry.id !== undefined || entry.local_id !== undefined, {
+    message: 'a comment entry needs an id or a local_id',
+  });
+
+/** Stored comment bodies are capped; the full text lives in the tracker. */
+export const COMMENT_BODY_CAP = 10_000;
+/** Beads keep at most this many full comment entries; older ones stub out. */
+export const COMMENTS_PER_BEAD_CAP = 50;
+
+/**
+ * Canonical (tbd-space) field values at the last successful reconciliation of
+ * a linked pair. Scalars are stored verbatim; the description is stored only
+ * as a normalized hash — change detection needs equality, not content, and
+ * bridge records are committed to git, where tracker prose does not belong.
+ */
+export const BridgeBaseSchema = z.object({
+  title: z.string(),
+  status: IssueStatus,
+  priority: Priority,
+  labels: z.array(z.string()).default([]),
+  assignee: z.string().nullable().optional(),
+  description_hash: z.string(),
+});
+
+/**
+ * One link's bridge record: the sync-branch state that makes reconciliation
+ * three-way. The bead carries identity (`extensions.<provider>`); this record
+ * carries dynamics (base tuple, watermarks), which churn on every sync and
+ * belong on the sync branch rather than in bead history.
+ *
+ * Records merge by newest observation (higher `remote_updated_at`, then
+ * `synced_at`): both sides of a merge are observations of the same external
+ * truth, so the later observation wins, conflict-free by construction.
+ */
+export const LinkRecordSchema = z.object({
+  type: z.literal('lk'),
+  bead_id: IssueId,
+  external_id: z.string().min(1),
+  base: BridgeBaseSchema,
+  /** The provider's clock at last sync. A fetch prefilter, never correctness. */
+  remote_updated_at: Timestamp,
+  synced_at: Timestamp,
+  state: z.enum(['linked', 'orphaned']).default('linked'),
+});
+
+/**
+ * How one field of a linked pair flows between tbd and the tracker.
+ *
+ * `merge` is full three-way: either side can change it, both-sides changes
+ * conflict. `local` means tbd owns the field: it is pushed outward and a
+ * tracker-side edit is overwritten on the next sync (reported, never silent).
+ * `remote` is the reverse.
+ */
+export const FieldFlowRule = z.enum(['merge', 'local', 'remote']);
+
+/** Which direction comment sequences flow for linked pairs. */
+export const CommentsMode = z.enum(['two_way', 'inbound', 'outbound', 'off']);
+
+/** Fallback when a merge field changed on both sides with different values. */
+export const TieBreak = z.enum(['newest', 'local', 'remote']);
+
+/** What happens to unlinked tracker items that match the inbound selector. */
+export const InboundMode = z.enum(['off', 'report', 'auto']);
+
+/**
+ * The inbound creation clause: when a tracker issue should become a bead.
+ *
+ * `report` (the default) lists matching items with ready-to-run `import`
+ * commands; `auto` imports them during `sync`. `auto` stays opt-in because it
+ * lets people outside the repo create work inside it.
+ */
+export const InboundClauseSchema = z.object({
+  mode: InboundMode.default('report'),
+  /** Only items carrying one of these labels qualify (empty: any item). */
+  labels: z.array(z.string()).default([]),
+  /** Kind assigned to imported beads. */
+  as_kind: IssueKind.default('task'),
+});
+
+/**
+ * The field_sync clause: how a linked pair's fields and comments flow.
+ *
+ * Defaults: content and triage fields merge (linked pairs converge); `labels`
+ * stays local because pulling a team's label taxonomy into beads imports
+ * noise; `assignee` stays local because tracker assignees are people
+ * (names/emails) and nothing person-identifying lands in beads without an
+ * explicit `user_map` and an explicit `assignee: merge`.
+ */
+export const FieldSyncClauseSchema = z.object({
+  fields: z
+    .object({
+      title: FieldFlowRule.default('merge'),
+      description: FieldFlowRule.default('merge'),
+      status: FieldFlowRule.default('merge'),
+      priority: FieldFlowRule.default('merge'),
+      labels: FieldFlowRule.default('local'),
+      assignee: FieldFlowRule.default('local'),
+    })
+    .default({}),
+  comments: CommentsMode.default('two_way'),
+  tie_break: TieBreak.default('newest'),
+});
+
+/**
+ * A linking policy: one structured object answering, per integration, when a
+ * bead should create a tracker issue (`outbound`), when a tracker issue should
+ * become a bead (`inbound`), and how a linked pair reconciles (`field_sync`).
+ *
+ * The clause names state their direction deliberately; `sync` is reserved for
+ * the full synchronization the `tbd integration sync` command performs.
+ */
+export const PolicyDefinitionSchema = z.object({
+  outbound: IntegrationSelectSchema.default({}),
+  inbound: InboundClauseSchema.default({}),
+  field_sync: FieldSyncClauseSchema.default({}),
+});
+
+/** Named policy presets. Growing this enum is the extension point. */
+export const PolicyName = z.enum(['default']);
+
+/**
+ * Settings shared by every provider.
+ */
+const IntegrationProviderBase = {
+  enabled: z.boolean().default(false),
+  /**
+   * Deprecated spelling of `policy.outbound`, kept so Phase 1 configs parse
+   * unchanged. When `policy` is absent, this folds into it during resolution
+   * (see integrations/core/policy.ts).
+   */
+  select: IntegrationSelectSchema.default({}),
+  /**
+   * The linking policy: a preset name or an inline definition. Absent means
+   * "legacy": `select` becomes the outbound clause and everything else takes
+   * defaults, which preserves Phase 1 behavior exactly.
+   */
+  policy: z.union([PolicyName, PolicyDefinitionSchema]).optional(),
+  /**
+   * Levels of sub-issue nesting to mirror. Linear's data model nests without
+   * limit, but its views flatten past roughly two levels, so deeper structure
+   * stays in beads where `tbd dep` can render it.
+   */
+  max_nesting: z.number().int().min(1).max(5).default(2),
+};
+
+export const LinearIntegrationSchema = z.object({
+  ...IntegrationProviderBase,
+  /** Linear team key, e.g. "FIN". Required when enabled. */
+  team_key: z.string().min(1).optional(),
+  /**
+   * Linear project to file mirrored issues under, by name or slug id. Optional:
+   * without it, issues land in the team with no project.
+   */
+  project: z.string().min(1).optional(),
+  /**
+   * Push bead labels as Linear labels.
+   *
+   * Off by default, and deliberately so. A repository can carry a hundred-plus
+   * distinct bead labels, and creating one Linear label each pollutes a shared
+   * team namespace that other people and projects also use. The labels are
+   * already mirrored as structured data in the bead attachment, so turning this
+   * on only buys the ability to filter by them inside Linear.
+   *
+   * When enabled, mirrored labels are prefixed so they are identifiable and
+   * removable in bulk. tbd's own status carriers (`tbd:blocked`,
+   * `tbd:deferred`) are pushed regardless, because they encode status Linear
+   * has no state for.
+   */
+  mirror_labels: z.boolean().default(false),
+  /** Create labels that do not yet exist in the team on push. */
+  create_labels: z.boolean().default(true),
+  /** Maps a tbd assignee string to a Linear user email or UUID. */
+  user_map: z.record(z.string(), z.string()).default({}),
+});
+
+export const GithubIntegrationSchema = z.object({
+  ...IntegrationProviderBase,
+  /** Repository as "owner/name". Required when enabled. */
+  repo: z.string().min(1).optional(),
+});
+
+export const IntegrationsConfigSchema = z.object({
+  /**
+   * Include enabled integrations in plain `tbd sync`.
+   *
+   * On by default: enabling an integration IS the opt-in, and a second flag
+   * only creates a state where a configured tracker silently drifts. Set false
+   * to keep an integration configured but excluded from `tbd sync`, running
+   * `tbd integration sync` by hand instead.
+   */
+  sync_on_tbd_sync: z.boolean().default(true),
+  linear: LinearIntegrationSchema.optional(),
+  github: GithubIntegrationSchema.optional(),
+});
+
 export const ConfigSchema = z.object({
   /**
    * Format version for the .tbd/ directory structure.
@@ -359,6 +630,11 @@ export const ConfigSchema = z.object({
    * See DocsCacheSchema for structure details.
    */
   docs_cache: DocsCacheSchema.optional(),
+  /**
+   * External tracker integrations. Absent means no integration is configured and
+   * every integration command and check is inert.
+   */
+  integrations: IntegrationsConfigSchema.optional(),
 });
 
 // =============================================================================

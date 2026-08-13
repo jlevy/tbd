@@ -223,6 +223,48 @@ mutation and make one call per group.
 | `tbd label list` | List all labels in use |
 | `tbd stale` | List issues not updated recently |
 
+### External Trackers (Linear)
+
+| Command | Purpose |
+| --- | --- |
+| `tbd integration status` | Is Linear configured, credentialed, reachable? Run before anything else |
+| `tbd --dry-run integration sync --push` | Preview which beads would go outward |
+| `tbd integration sync --push` | Outbound only: create/update tracker issues (idempotent) |
+| `tbd integration sync --pull` | Inbound only: tracker changes into beads, no external writes |
+| `tbd integration sync --pull --external <ref...>` | Create beads from exactly named tracker items, independent of policy |
+| `tbd integration sync` | Both directions; converges to `nothing to do` |
+| `tbd integration link/unlink <bead> [ref]` | Bind or sever a bead and an existing tracker item; unlink safely cancels pending writes for that pair before clearing the link |
+| `tbd integration comment <bead> "text"` | Author a comment offline; posted on next sync |
+
+When a user asks to “sync our specs and beads to Linear”: run `status` first.
+No API key → ask the user to create one at `linear.app/settings/api` and put it in a
+**gitignored** `.env` as `LINEAR_API_KEY=…` (never commit it).
+No config → add
+`integrations: { linear: { enabled: true, team_key: <THEIRS>, project: <optional>, user_map: <optional alias-to-email-or-UUID map>, policy: default } }`
+to `.tbd/config.yml`, re-check `status`, then `--dry-run sync --push`, `sync --push`,
+`sync`. Full details: the External Tracker Integrations section of `tbd docs`. Bulk runs
+over 20 creates / 40 updates refuse without `--yes`. Never echo credentials into output
+or commits. `--pull` never replays or performs provider writes; deferred claims and
+conflict notices remain journaled until the next full sync.
+Link/inbound creation refuse a remote `tbd://bead/…` claim unless `--force` is explicit
+and the old claim was verified stale.
+Configured `project` scopes both creates and automatic inbound scans; an explicit
+`--external` import bypasses that scan scope.
+Assignees sync only through `user_map`: beads retain aliases (including on initial
+import), runtime email/UUID targets never persist, unmapped local aliases are reported,
+and an unmapped provider identity leaves the local field and prior bridge base unchanged
+with a safe warning, preserving local divergence until mapping recovers.
+Linear sub-issues import parent-first and never flatten; `max_nesting` limits only new
+outbound creation. Comments are append-only and paginated; edits, deletions, reactions,
+and thread shape are not synchronized.
+
+**Direction flags mean the same thing everywhere in tbd**: bare = both directions,
+`--push` = outbound only, `--pull` = inbound only, `--status` = report only.
+Plain `tbd sync` at session end covers docs, issues, AND enabled trackers; surfaces run
+independently, so one failing (an expired key, a down remote) never stops the others,
+and every failure is reported at the end.
+Narrow with `--docs`, `--issues`, or `--integrations` for a single surface.
+
 ### Documentation
 
 | Command | Purpose |

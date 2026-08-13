@@ -2,7 +2,7 @@
  * Shared issue predicates used by list-like commands and snapshot change detection.
  */
 
-import type { Issue, IssueStatusType } from './types.js';
+import type { Issue, IssueKindType, IssueStatusType } from './types.js';
 import { matchesSpecPath } from './spec-matching.js';
 
 /** Filters whose semantics are shared with `tbd list`. */
@@ -10,11 +10,16 @@ export interface SharedIssueFilters {
   labels: readonly string[];
   spec: string | null;
   status: IssueStatusType | null;
+  /** Issue kind, e.g. `epic`. Null means any kind. */
+  kind?: IssueKindType | null;
 }
 
-/** Match the label, spec, and status predicates shared by list and watch. */
+/** Match the label, spec, status, and kind predicates shared by list and watch. */
 export function issueMatchesSharedFilters(issue: Issue, filters: SharedIssueFilters): boolean {
   if (filters.status !== null && issue.status !== filters.status) {
+    return false;
+  }
+  if (filters.kind != null && issue.kind !== filters.kind) {
     return false;
   }
   if (filters.labels.some((label) => !issue.labels.includes(label))) {

@@ -1,5 +1,5 @@
 import { createServer, request } from 'node:http';
-import type { Server } from 'node:http';
+import type { RequestListener, Server } from 'node:http';
 import { readFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -112,6 +112,7 @@ function dependencies(): {
       createBoard: createBoardDependency,
       createObserver: () => observer,
       fetch: globalThis.fetch,
+      listen: listenRequest,
     },
     observer,
     createBoardDependency,
@@ -134,6 +135,12 @@ function listen(server: Server, port = 0): Promise<number> {
   });
 }
 
+async function listenRequest(listener: RequestListener, port: number): Promise<Server> {
+  const server = createServer(listener);
+  await listen(server, port);
+  return server;
+}
+
 function get(port: number): Promise<string> {
   return new Promise((resolve, reject) => {
     const req = request({ hostname: '127.0.0.1', port, path: '/' }, (response) => {
@@ -153,20 +160,9 @@ function get(port: number): Promise<string> {
 
 describe('startWebServer', () => {
   const handles: WebServerHandle[] = [];
-  const blockers: Server[] = [];
 
   afterEach(async () => {
     await Promise.all(handles.splice(0).map((handle) => handle.close()));
-    await Promise.all(
-      blockers.splice(0).map(
-        (server) =>
-          new Promise<void>((resolve) => {
-            server.close(() => {
-              resolve();
-            });
-          }),
-      ),
-    );
   });
 
   it('binds loopback, waits for HTTP readiness, and closes observer plus sockets idempotently', async () => {
@@ -216,27 +212,40 @@ describe('startWebServer', () => {
   });
 
   it('searches a bounded range for a default port but never moves an explicit port', async () => {
-    const blocker = createServer((_request, response) => response.end('occupied'));
-    blockers.push(blocker);
-    const occupied = await listen(blocker);
+    const first = 34_601;
+    const addressInUse = Object.assign(new Error('occupied'), { code: 'EADDRINUSE' });
 
     const searched = dependencies();
+    const searchedPorts: number[] = [];
+    searched.value.listen = async (listener, port) => {
+      searchedPorts.push(port);
+      if (searchedPorts.length === 1) {
+        throw addressInUse;
+      }
+      // The injected binder records the requested candidate but uses an OS-
+      // assigned port. This proves search policy without racing the suite for
+      // ownership of an adjacent real port.
+      return listenRequest(listener, 0);
+    };
     const handle = await startWebServer(
       {
         repoDir: '/repo',
         initialContext: context,
-        defaultPort: occupied,
+        defaultPort: first,
         portSearchCount: 2,
       },
       searched.value,
     );
     handles.push(handle);
-    expect(handle.port).toBe(occupied + 1);
+    expect(searchedPorts).toEqual([first, first + 1]);
 
     const pinned = dependencies();
+    const pinnedListen = vi.fn(() => Promise.reject(addressInUse));
+    pinned.value.listen = pinnedListen;
     await expect(
-      startWebServer({ repoDir: '/repo', initialContext: context, port: occupied }, pinned.value),
-    ).rejects.toThrow(`Port ${occupied} is already in use`);
+      startWebServer({ repoDir: '/repo', initialContext: context, port: first }, pinned.value),
+    ).rejects.toThrow(`Port ${first} is already in use`);
+    expect(pinnedListen).toHaveBeenCalledOnce();
   });
 
   it('loads and serves the stitched, self-contained production artifact', async () => {

@@ -1,5 +1,115 @@
 # get-tbd
 
+## Unreleased
+
+### Added
+
+- **External tracker integrations** (`tbd integration`), with Linear as the first
+  provider: a one-way outbound projection plus full bidirectional synchronization,
+  governed by a per-integration linking policy (`outbound` / `inbound` / `field_sync`
+  clauses, `policy: default` preset).
+  - `tbd integration sync` takes the same direction flags as `tbd sync` — bare is both
+    directions, `--push` is outbound only, `--pull` is inbound only — so the vocabulary
+    is identical across every surface.
+    `--pull --external <ref...>` creates exactly named inbound beads independent of the
+    policy; it remains externally read-only.
+  - Plain `tbd sync` now covers docs, issues, **and** enabled trackers.
+    Surfaces run independently and failures roll up: one surface failing (an expired
+    credential, an unreachable remote) never stops another, and nothing a working
+    surface would have saved is lost.
+    Narrow with `--docs`, `--issues`, or `--integrations`.
+  - Comments sync as append-only sequences; conflicts archive to the attic and post
+    resolvable tracker comments; bulk changes over 20 creates / 40 updates require
+    `--yes` and are refused non-interactively.
+  - Strictly additive: repositories without an `integrations` config block are
+    unaffected, links ride each bead’s `extensions` namespace, and there is no format
+    bump.
+  - `tbd integration status` reports whether each provider is configured, credentialed,
+    and reachable, with a remedy on every failure.
+    Inert and offline when none is enabled.
+  - `tbd integration sync --push` projects selected beads outward.
+    Accepts the same selectors as `list` (`--bead`, `--type`, `--status`, `--label`,
+    `--spec`) plus `--limit`, so a rollout can be staged without editing config.
+    Idempotent: re-running updates in place.
+  - Runs above 20 creates or 40 updates require affirmation.
+    Without a terminal the run is refused rather than prompted, so CI never hangs and
+    never silently makes a large change.
+    `--yes` proceeds.
+  - Credentials load from the environment or a gitignored `.env`. An unignored `.env` is
+    reported as an error.
+- An `integrations` config block.
+  **No format bump and no schema change**: the bead’s link is stored in the existing
+  `extensions.<provider>` namespace, which an older tbd round-trips untouched.
+  A top-level field would have been silently stripped on the first write from an older
+  CLI, which is what forces a format gate; using the namespace keeps the feature
+  additive and mixed-version safe.
+- `tbd doctor` gains hierarchy and integration checks.
+
+### Fixed
+
+- Every display prefix accepted by `init` and `setup --force` (including digits, dots,
+  and underscores) is now parsed by issue and integration commands.
+  Exact imported short IDs win before prefix stripping, preserving short IDs that
+  contain hyphens.
+- Sync and doctor now detect pre-existing multiple-beads-to-one-external-item links.
+  Every holder fails closed before journal replay or provider writes, with an unlink
+  remedy, while unrelated linked pairs continue to converge.
+  Ambiguous pending writes are discarded so a stale former holder cannot replay after
+  repair.
+- Link and inbound creation now probe `tbd://bead/…` attachment claims before allowing a
+  second repository to bind the same tracker item; `--force` is the deliberate stale-
+  claim override. Manual links persist their bead link, bridge base, and attachment
+  intent before the provider write, so a failed claim upsert replays safely.
+- `tbd integration sync --pull` no longer replays provider-write journals or writes an
+  inbound bead attachment.
+  Every inbound ownership claim is journaled before provider I/O, so an attachment
+  failure retries without creating a duplicate bead; pull-only claims and conflict
+  notices remain local and post exactly once on the next full sync.
+- Malformed or unreadable integration intent journals now fail synchronization closed
+  with the damaged filename instead of silently discarding the client UUID that prevents
+  duplicate external creation.
+- Every replayed provider write now carries its owning bead id and requires the current
+  bead to retain the exact provider relationship; comments additionally require their
+  unpushed local entry.
+  New creates persist their client UUID as a provisional link before provider I/O. A
+  matching durable create intent now keeps a confirmed-absent relationship pending
+  rather than misreporting it as orphaned, including under `--pull`; an already-live
+  item still reconciles while follow-up journal work remains.
+  If that work failed before the first bridge record, the journaled creation snapshot
+  supplies the three-way base, so intervening tracker edits pull or conflict correctly
+  rather than being overwritten.
+  Enriching the provisional link preserves comments and future provider-namespace
+  siblings. Unlink cancels pending writes before clearing that identity and keeps the
+  bridge record until cleanup finishes, so failures remain retryable and a stale or
+  cross-machine journal cannot write after unlink or pin future synchronization.
+- Top-level `tbd sync --push` now uses the same outbound-only tracker projection as
+  `tbd integration sync --push`; it no longer runs bidirectional reconciliation and pull
+  remote tracker edits under a push-only command.
+- Folded tracker item failures and integration config parse/read failures now propagate
+  to `tbd sync`’s aggregate non-zero exit status after independent docs and issue work
+  completes, instead of being reduced to a warning or silently treated as inert config.
+- Tracker conflicts now archive the exact losing value before either side is overwritten
+  and journal the conflict comment with its archive path.
+  Crash replay reuses both.
+- Attic list/show/restore now accept mapped display IDs and real base32 ULID filenames,
+  decode canonical JSON text without breaking legacy entries, and reverse-archive the
+  displaced winner before a restore.
+- Linked Linear issues are liveness-checked even outside the update watermark, so an
+  archive or deletion marks the link orphaned without deleting or closing the bead.
+- `extensions` merged as one opaque last-writer-wins value, so two writers touching
+  different namespaces silently lost one side.
+  Now merged per namespace.
+- Nothing prevented a `parent_id` cycle, which makes every ancestor walk
+  non-terminating. Now rejected on the write path, with a `doctor` check for existing
+  data.
+- The `engines` floor was `>=20` while `util.parseEnv` needs 20.12, so `.env` reading
+  would have thrown at runtime on 20.0-20.11.
+
+### Changed
+
+- `kind` moved into the shared issue filter, so `list`, `changes`, and `watch` evaluate
+  it identically.
+
 ## 0.5.0
 
 ### Features

@@ -51,6 +51,8 @@ export interface WebServerDependencies {
     options: { logger: OperationLogger },
   ) => WebObserverController;
   fetch: typeof globalThis.fetch;
+  /** Injectable socket binder keeps port-policy tests deterministic. */
+  listen: (listener: RequestListener, port: number) => Promise<Server>;
 }
 
 export interface WebServerHandle {
@@ -83,6 +85,7 @@ const defaultDependencies: WebServerDependencies = {
   createBoard: (repoDir, initialContext) => new BoardState(repoDir, undefined, initialContext),
   createObserver: (board, options) => new LocalObserver(board, { logger: options.logger }),
   fetch: globalThis.fetch,
+  listen: listenOnce,
 };
 
 /** Perform any first-use initialization or repair before the long-running lifecycle. */
@@ -190,10 +193,14 @@ function listenOnce(listener: RequestListener, port: number): Promise<Server> {
   });
 }
 
-async function bindServer(listener: RequestListener, options: WebServerOptions): Promise<Server> {
+async function bindServer(
+  listener: RequestListener,
+  options: WebServerOptions,
+  listen: WebServerDependencies['listen'],
+): Promise<Server> {
   if (options.port !== undefined) {
     try {
-      return await listenOnce(listener, options.port);
+      return await listen(listener, options.port);
     } catch (error) {
       if (isAddressInUse(error)) {
         throw new Error(
@@ -210,7 +217,7 @@ async function bindServer(listener: RequestListener, options: WebServerOptions):
   for (let offset = 0; offset < count; offset += 1) {
     const candidate = first + offset;
     try {
-      return await listenOnce(listener, candidate);
+      return await listen(listener, candidate);
     } catch (error) {
       if (!isAddressInUse(error)) {
         throw error;
@@ -300,7 +307,7 @@ export async function startWebServer(
 
   let server: Server;
   try {
-    server = await bindServer(listener, options);
+    server = await bindServer(listener, options, dependencies.listen);
   } catch (error) {
     unsubscribe();
     events.close();

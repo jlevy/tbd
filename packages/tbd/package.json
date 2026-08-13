@@ -26,7 +26,7 @@
     "dist"
   ],
   "engines": {
-    "node": ">=20"
+    "node": ">=20.12"
   },
   "repository": {
     "type": "git",
@@ -61,6 +61,7 @@
     "qa:watch-release": "pnpm build && pnpm qa:watch-release:built",
     "qa:watch-release:built": "tsx scripts/validate-watch-release.ts",
     "qa:web-package": "node scripts/validate-web-package.mjs",
+    "qa:linear-live": "pnpm build && tsx scripts/validate-linear-integration-live.ts",
     "bench": "tsx scripts/benchmark.ts",
     "validate-import": "tsx scripts/validate-import.ts",
     "publint": "publint",

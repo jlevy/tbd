@@ -74,7 +74,7 @@ but these map to unique ULID-based internal IDs for reliable sorting and storage
 
 **Requirements:**
 
-- Node.js 20+
+- Node.js 20.12+
 - Git 2.42+ (for orphan worktree support)
 
 ```bash
@@ -1558,6 +1558,382 @@ tbd sync --status           # Check what's pending
 
 Note: Your normal `git push` is only for code changes.
 Issue sync is separate and automatic.
+
+## External Tracker Integrations
+
+`tbd integration` mirrors selected beads outward to an external tracker so people who do
+not clone the repo can see the work.
+Linear is the first provider; GitHub is planned.
+
+The **mirror** is one-way: beads are the source of truth and nothing is imported back,
+which is what makes it safe to run from any agent at any time.
+Full **bidirectional synchronization** (`tbd integration sync`) is also available and is
+governed by a per-integration linking policy, described below.
+
+Everything here is **strictly additive**: a repository without an `integrations` block
+behaves exactly as before, every other tbd command is unchanged, and enabling an
+integration for one project has no effect on any other repository or on collaborators
+who never run `tbd integration` commands.
+Links live in each bead’s `extensions` namespace, which older tbd versions preserve
+untouched.
+
+### Setup
+
+```yaml
+# .tbd/config.yml
+integrations:
+  linear:
+    enabled: true
+    team_key: FIN
+    project: tbd # optional: scope creates and automatic inbound discovery
+    user_map: # optional: the only identities tbd may push as assignees
+      jlevy: josh@example.com # UUIDs are accepted too
+    policy: default # or an inline policy; see below
+```
+
+The `team_key` and `project` values are plain config: an agent asked to point a
+repository at a different Linear team or project edits `.tbd/config.yml` and runs
+`tbd integration status` to verify.
+When `project` is set, new outbound issues are filed there and automatic inbound scans
+are limited to that project.
+Explicit `sync --pull --external` remains an intentional override and can import a named
+team issue from outside it.
+`user_map` is deliberately closed: a bead stores the stable alias (`jlevy` above), the
+adapter resolves its configured email or UUID at runtime, and neither the email nor a
+raw Linear user enters bead or bridge data.
+Unmapped local assignees remain unchanged and are reported as skipped pushes; inbound
+mapped users become the alias, including when an assigned Linear issue first becomes a
+bead.
+If Linear names a user outside `user_map`, sync leaves the bead assignee unchanged,
+emits a safe warning, retains the prior canonical bridge base so local edits stay
+pending, and stores neither the display name nor email in the bead or bridge.
+(`select:`, the older spelling of the policy’s outbound clause, still parses and is
+folded in.)
+
+One caveat: `tbd setup` run by a tbd version that predates this feature will drop the
+`integrations` block from `config.yml`, because config has no extensions namespace.
+The block is tracked in git, so `git checkout .tbd/config.yml` restores it, and the
+symptom is loud (the mirror stops working rather than misbehaving).
+
+Set `LINEAR_API_KEY` in your environment or in a **gitignored** `.env` at the repository
+root. tbd reads it but never writes it back, and refuses to treat an unignored `.env` as
+acceptable, because that is how a key gets committed.
+
+```bash
+tbd integration status          # Is it configured, credentialed, reachable?
+tbd integration status --offline # Skip the network check
+```
+
+`tbd doctor` reports the same findings.
+Both are inert when nothing is enabled.
+
+### What to sync
+
+**Mirror the shape of the work, not the work itself.** A useful rule of thumb is around
+**10% of your beads**: the epics someone would ask about in a status meeting, plus
+whatever carries a live plan spec.
+In this repository that is 122 of 1,372 beads, or 8%.
+
+The default policy is *open epics, or anything whose `spec_path` points into
+`specs/active/`*. Kind and spec are **alternatives**, not requirements, so both “every
+open epic” and “everything with a live spec” qualify.
+Status gates both, which is what makes finished work drop out on its own.
+A spec archived out of `active/` stops being mirrored for the same reason.
+
+None of this is fixed policy.
+Set `kinds: []` to select purely by spec, `specs: none` to select purely by kind, or add
+`labels:` to require an opt-in marker.
+If the mirror stops being the thing people actually look at, it is selecting too much.
+
+### Pushing beads outward
+
+```bash
+tbd --dry-run integration sync --push   # Preview: prints every bead id it would touch
+tbd integration sync --push             # Project the policy's outbound set
+```
+
+Every `list` selector works here too, and **overrides** the configured policy, so a
+staged rollout needs no config edits:
+
+```bash
+tbd integration sync --push --bead tbd-abc1 tbd-def2   # Exactly these
+tbd integration sync --push --type epic --limit 10     # Ten epics, deterministic order
+tbd integration sync --push --spec plan-2026-08-10-x.md
+```
+
+The recommended way to start is to mirror a handful, look at the result in Linear, then
+widen.
+
+Mirroring is **idempotent**. Re-running updates in place rather than creating
+duplicates, because the bead’s attachment is keyed on a stable `tbd://bead/<id>` URL. A
+failed bead is reported and the rest still mirror.
+
+### Bulk-change safety
+
+A mis-set selector can turn “a couple of epics” into “every bead in the repo”, which is
+tedious to undo by hand.
+Runs above **20 creates** or **40 updates** need affirmation:
+
+- On a terminal, you are asked to confirm.
+- With no terminal (an agent, or CI), the run is **refused** rather than prompting, so
+  it neither hangs nor silently makes a large change.
+  Pass `--yes` to proceed, or narrow with `--bead` / `--limit`.
+
+`--dry-run` is exempt: it writes nothing, and previewing should be easy.
+
+### What lands in the tracker
+
+Linear has no custom fields, so each mirrored issue carries:
+
+- A managed `<!-- tbd:begin -->` block in the description with the bead id, status,
+  priority, child counts, and a link to the plan spec.
+  **Only that block is rewritten**, so prose a human adds around it survives.
+- An attachment keyed `tbd://bead/<id>` holding the full bead field set as structured
+  metadata.
+
+The bead’s side of the link is stored under `extensions.linear` rather than as a
+top-level field, so a tbd that predates this feature reads and rewrites a linked bead
+without disturbing it.
+`tbd show` displays it as part of `extensions`. Because the namespace key is the
+provider, a bead can carry a Linear link and a GitHub link at the same time, and can
+never carry two of either.
+- An attachment linking the plan spec, as a **permalink to the branch that actually has
+  it**.
+
+If a mirrored issue moves to another team, Linear renumbers it (identifiers are
+team-scoped, so `FIN-11` becomes `TBD-4`). The link survives because it is keyed on the
+issue UUID, and the next mirror run refreshes the stored identifier and URL. Specs live
+on the branch that authored them, so a link built from the bare path would 404 depending
+on who follows it.
+
+**Bead labels are not pushed as tracker labels by default.** A repository can carry a
+hundred-plus distinct bead labels, and creating one Linear label for each pollutes a
+team namespace that other projects and people share.
+The labels are mirrored as structured data in the bead attachment regardless, so
+enabling `mirror_labels: true` only buys the ability to filter by them inside Linear;
+when enabled, they are prefixed `tbd:` so they stay identifiable and can be removed in
+bulk. tbd’s own status carriers (`tbd:blocked`, `tbd:deferred`) are always pushed,
+because they encode status Linear has no workflow state for.
+
+New outbound sub-issues are mirrored to `max_nesting` levels (2 by default) and deeper
+new beads are skipped and reported.
+Existing links and inbound Linear sub-issues always retain their true parent
+relationship; the presentation limit never flattens source data.
+Linear’s data model nests without limit, but its views flatten past about two levels, so
+deeper structure is better left in beads where `tbd dep` renders it.
+
+### The linking policy
+
+`policy` answers three directional questions, as a preset name (`default`) or inline:
+
+```yaml
+policy:
+  outbound: # when a bead should CREATE a tracker issue
+    kinds: [epic]
+    statuses: [open, in_progress, blocked]
+    specs: active
+  inbound: # when a tracker issue should BECOME a bead
+    mode: report # off | report | auto
+    as_kind: task
+  field_sync: # how a LINKED pair's fields and comments flow
+    fields:
+      title: merge # merge | local | remote
+      description: merge
+      status: merge
+      priority: merge
+      labels: local
+      assignee: local
+    comments: two_way # two_way | inbound | outbound | off
+    tie_break: newest # both-sides-changed fallback: newest | local | remote
+```
+
+The policy is only a default — explicit `sync --push` selectors,
+`sync --pull --external`, and `link` always override it — and linking is separate from
+syncing: once a pair is linked, `sync` reconciles it until it is unlinked.
+
+### Full synchronization
+
+```bash
+tbd --dry-run integration sync   # Preview the identical computation, write nothing
+tbd integration sync             # Both directions: reconcile every linked pair
+tbd integration sync --push      # Outbound only: project beads to the tracker
+tbd integration sync --pull      # Inbound only: writes nothing to the tracker
+tbd integration sync --pull --external FIN-123 # Create one bead, regardless of policy
+tbd integration sync --yes       # Affirm a run over the bulk thresholds
+```
+
+The flags mean what they mean everywhere else in tbd: **bare is both directions,
+`--push` is outbound only, `--pull` is inbound only** — the same shape as
+`tbd sync --push` / `--pull` for issues.
+`--pull` performs **no external writes at all**, including replay of a pending outbound
+journal, so it is the safe way to take tracker changes without touching the tracker.
+A suppressed outbound change stays pending and the next full sync pushes it.
+Top-level `tbd sync --push` uses this same outbound-only projection before it commits
+and pushes the sync branch; it does not pull tracker fields or replay the bidirectional
+engine. Every inbound attachment claim is journaled before provider I/O; a full sync
+removes the intent only after the upsert succeeds.
+Under `--pull`, attachment claims and conflict notices remain local until the next full
+sync posts them idempotently.
+Outbound selectors (`--bead`, `--type`, `--status`, `--label`, `--spec`, and `--limit`)
+are valid only with `--push`. Bare sync deliberately reconciles every linked pair;
+supplying a push-only selector without `--push` is a usage error rather than a silently
+broader run.
+
+One full run performs, in order: replay of any interrupted prior run (external writes
+are journaled before they happen, so a crash converges instead of duplicating), a pull
+of recently changed tracker items, a per-field three-way reconciliation of every linked
+pair against its recorded base (one-sided changes flow; both-sided changes fall to
+`tie_break`, archive the losing value to the attic, and post a resolvable conflict
+comment on the tracker item), comment flows per `field_sync.comments`, and finally the
+policy’s outbound and inbound clauses for unlinked work on both sides.
+The attic entry is written before either side is overwritten, and its exact path plus
+the conflict comment’s client UUID ride the same write-ahead journal; a crash can
+neither advertise a missing archive nor duplicate the comment on replay.
+Two runs in a row with no changes report `nothing to do` — that is the expected steady
+state, and anything else is worth reading.
+
+Intent recovery is fail-closed.
+A missing journal directory is an empty queue, but a present journal that is unreadable,
+malformed, or invalid stops synchronization with the filename before any provider write.
+Repair or recover that tracked file rather than deleting it blindly: it may contain the
+stable client UUID preventing a duplicate item.
+
+Cosmetic tracker rewrites (bullet style, list spacing, URL auto-linkification) are
+normalized before comparison, so they never count as remote edits.
+Priorities P3 and P4 both map to Linear’s “Low”; a P4 bead stays P4 rather than
+oscillating. An archived or deleted tracker item marks its link **orphaned** and is
+reported — the bead is never deleted or closed automatically.
+An unfamiliar Linear workflow-state type maps conservatively to `open` and produces a
+visible sync warning naming the provider item and unknown type; it never crashes the run
+or silently invents a tbd status.
+The bulk thresholds count both directions: creates and updates to the tracker AND
+inbound creations and updates to beads.
+
+### One command at session end
+
+Plain `tbd sync` covers **every surface** — docs, issues, and any enabled tracker — so
+an agent closing a session runs one command and the repository is current:
+
+```bash
+tbd sync                  # Docs, issues, and trackers
+tbd sync --docs           # Only docs
+tbd sync --issues         # Only issues
+tbd sync --integrations   # Only trackers
+tbd sync --push           # Outbound only, for the network surfaces
+```
+
+**Surfaces run independently and their failures roll up.** An expired tracker credential
+does not stop docs or issues from syncing; a git remote that is down does not stop docs.
+Each surface is attempted, each failure is reported with its surface name, and the exit
+code is non-zero if any failed — while everything that worked is still saved.
+This includes provider operations returned as per-item failures, not only thrown network
+errors. An unreadable or invalid integration config also fails closed instead of making
+the tracker surface appear unconfigured.
+
+The tracker run happens between the git pull and push, so it reconciles bead state that
+already includes other machines’ work and its own writes ride the same push out.
+If the git phase fails before reaching it, the tracker run still happens afterward and
+records to the sync branch; the next successful push carries it.
+A git problem delays tracker work rather than losing it.
+
+Set `integrations.sync_on_tbd_sync: false` to keep an integration configured but out of
+`tbd sync`, running `tbd integration sync` by hand instead.
+It defaults to true: enabling an integration is already the opt-in, and a second switch
+only creates a state where a configured tracker silently drifts.
+
+### Linking, unlinking, and comments
+
+```bash
+tbd integration link tbd-abc1 FIN-123           # Bind a bead to an existing item
+tbd integration link tbd-abc1 FIN-123 --take remote  # Adopt its values when they differ
+tbd integration sync --pull --external FIN-124  # Create a bead from exactly this item
+tbd integration unlink tbd-abc1                 # Sever; nothing is deleted anywhere
+tbd integration comment tbd-abc1 "Blocked on the API quota decision."
+```
+
+`link` and explicit inbound creation refuse when the item is already linked locally or
+carries another repository’s `tbd://bead/…` attachment (two bead writers make a
+ping-pong machine).
+`--force` is the explicit override for a verified stale remote claim;
+the probe prevents ordinary sequential duplication but is not an atomic distributed
+lock. When the two sides differ, `link` requires a stance: `--take local` pushes the
+bead’s values on the next sync, `--take remote` adopts the item’s values now.
+Without a terminal and without `--take`, it refuses rather than guessing.
+Both manual linking and inbound creation persist the local link/base and an idempotent
+attachment intent before attempting the remote claim, so an interrupted claim upsert
+replays without duplicating the bead or the link.
+`sync` and `doctor` also scan links already present from an older migration, import, or
+hand edit.
+If multiple beads name one external item, every holder is reported and none of
+them is replayed, pulled, pushed, or base-advanced until `unlink` leaves exactly one;
+unrelated links continue normally.
+Pending writes for the ambiguous item are discarded; the durable surviving bead re-plans
+current state after repair, preventing a stale former holder from writing after unlink.
+
+Every pending provider write is tied to its bead and exact provider id.
+Before replay, tbd checks that the relationship still exists; comment writes also
+require the exact unpushed local entry.
+A new outbound item records its client UUID as a provisional link with the journal
+before any network call, so crash recovery cannot confuse live creation with work
+canceled by unlink.
+While that exact create journal remains, tbd still checks the item: a
+live item reconciles normally even if attachment or managed-content work remains, while
+a confirmed absence is pending rather than incorrectly orphaned, including under
+`--pull`. If the item is live but follow-up work failed before its first bridge record,
+the journaled creation values are the base; tracker edits made in that interval still
+pull or conflict instead of being mistaken for outbound bead changes.
+Filling in the created item’s key and URL preserves comments and other provider state
+already recorded beside the link.
+`unlink` removes matching pending writes first, clears the bead link second, and deletes
+the bridge record last.
+If cancellation cannot complete, the link remains intact and a repeated unlink can
+safely finish; stale journals merged from another machine are consumed without touching
+the former provider item.
+
+`comment` works offline: the entry is recorded on the bead immediately and posted on the
+next sync, exactly once.
+Inbound comments are folded into the bead the same way — append-only, identified by the
+tracker’s immutable comment id, author recorded as a display name only.
+Bodies over 10 KB are truncated with a marker.
+Every provider comment identity remains for deduplication, while only the newest 50
+provider-held entries keep full local prose and older ones collapse to id-only stubs.
+An unpushed local comment is never truncated or collapsed before its provider id is
+recorded; the tracker remains the system of record for long threads.
+Comment edits, deletion, reactions, and thread shape are not synchronized.
+
+The authoritative support/boundary matrix and its code/test traceability live in the
+active external-tracker integration plan.
+Maintainers run the API-driven live gate in `tests/qa/linear-integration.qa.md`; its
+stable scenarios are the compatibility contract that a GitHub driver must reuse rather
+than redesign.
+
+### For agents: synchronizing specs and beads to Linear
+
+The whole flow an agent needs when a user says “sync our specs and major beads to
+Linear”:
+
+```bash
+tbd integration status             # 1. Is Linear configured and reachable?
+```
+
+- If **no API key**: ask the user to create one at `linear.app/settings/api` and place
+  it in a **gitignored** `.env` at the repo root as `LINEAR_API_KEY=lin_api_…`, or
+  export it in the environment.
+  Never commit a key; `status` fails loudly if `.env` is not gitignored.
+- If **no config**: add the `integrations:` block above to `.tbd/config.yml` with the
+  user’s team key (and project, if they name one), then re-run `status` to verify the
+  team resolves.
+
+```bash
+tbd --dry-run integration sync --push  # 2. Preview the outbound set; stage with --bead/--limit
+tbd integration sync --push            # 3. Create/update the tracker issues
+tbd integration sync               # 4. Reconcile from then on; repeat at session end
+```
+
+The default policy mirrors open epics and anything with an active plan spec — the right
+starting point for “track our specs and major work”.
+Re-running any of these is safe: mirroring is idempotent and sync converges to
+`nothing to do`.
 
 ## Troubleshooting
 

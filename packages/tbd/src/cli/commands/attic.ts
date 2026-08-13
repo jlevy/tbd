@@ -5,41 +5,30 @@
  */
 
 import { Command } from 'commander';
-import { readdir, readFile, mkdir } from 'node:fs/promises';
+import { readdir, readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 
-import { parseYamlWithConflictDetection, sortKeys, stringifyYaml } from '../../utils/yaml-utils.js';
-
-import { writeFile } from 'atomically';
+import { parseYamlWithConflictDetection } from '../../utils/yaml-utils.js';
 
 import { BaseCommand } from '../lib/base-command.js';
 import { requireInit, NotFoundError, ValidationError } from '../lib/errors.js';
 import { readIssue, writeIssue } from '../../file/storage.js';
-import { normalizeIssueId, formatDisplayId, formatDebugId } from '../../lib/ids.js';
+import { formatDisplayId, formatDebugId } from '../../lib/ids.js';
+import { resolveToInternalId, type IdMapping } from '../../file/id-mapping.js';
 import { resolveAtticDir } from '../../lib/paths.js';
 import { formatTimestampAgo } from '../../lib/format-utils.js';
 import { now } from '../../utils/time-utils.js';
 import type { AtticEntry } from '../../lib/types.js';
-import { AtticEntrySchema, ATTIC_ENTRY_FIELD_ORDER } from '../../lib/schemas.js';
+import { AtticEntrySchema } from '../../lib/schemas.js';
 import { loadDataContext, withDataSyncContext } from '../lib/data-context.js';
+import { writeAtticEntryFile } from '../../file/attic-entry.js';
 
-/**
- * Get attic entry filename from components.
- */
-function getAtticFilename(entityId: string, timestamp: string, field: string): string {
-  // Convert timestamp colons to hyphens for filesystem safety
-  const safeTimestamp = timestamp.replace(/:/g, '-');
-  return `${entityId}_${safeTimestamp}_${field}.yml`;
-}
-
-/**
- * Parse attic entry filename to components.
- */
-function parseAtticFilename(
+/** Parse attic entry filename into its filterable components. */
+export function parseAtticFilename(
   filename: string,
 ): { entityId: string; timestamp: string; field: string } | null {
   // Format: is-abc123_2025-01-07T10-30-00Z_description.yml
-  const match = /^(is-[a-f0-9]+)_(.+)_([^_]+)\.yml$/.exec(filename);
+  const match = /^(is-[0-9a-z]{26})_(.+)_([^_]+)\.yml$/.exec(filename);
   if (!match) {
     return null;
   }
@@ -47,6 +36,49 @@ function parseAtticFilename(
   // Convert hyphens back to colons in timestamp
   const isoTimestamp = timestamp!.replace(/T(\d{2})-(\d{2})-(\d{2})/, 'T$1:$2:$3');
   return { entityId: entityId!, timestamp: isoTimestamp, field: field! };
+}
+
+/** Resolve every user-facing ID form accepted by the rest of the issue CLI. */
+export function resolveAtticIssueId(input: string, mapping: IdMapping): string {
+  return resolveToInternalId(input, mapping);
+}
+
+/** Decode canonical JSON storage while retaining legacy plain-text entries. */
+export function decodeAtticTextValue(value: string): string | null {
+  try {
+    const decoded: unknown = JSON.parse(value);
+    return typeof decoded === 'string' || decoded === null ? decoded : value;
+  } catch {
+    return value;
+  }
+}
+
+/**
+ * Build the reverse archive written before a restore overwrites the current
+ * winner. Writing this first makes restore failure one-sided and recoverable:
+ * an extra archive is harmless, while an overwritten value without one is not.
+ */
+export function buildRestorationAtticEntry(input: {
+  original: AtticEntry;
+  currentValue: string | null | undefined;
+  currentVersion: number;
+  currentUpdatedAt: string;
+  restoredAt: string;
+}): AtticEntry {
+  return {
+    entity_id: input.original.entity_id,
+    timestamp: input.restoredAt,
+    field: input.original.field,
+    lost_value: JSON.stringify(input.currentValue ?? null),
+    winner_source: input.original.loser_source,
+    loser_source: input.original.winner_source,
+    context: {
+      local_version: input.currentVersion,
+      remote_version: input.original.context.remote_version,
+      local_updated_at: input.currentUpdatedAt,
+      remote_updated_at: input.original.context.remote_updated_at,
+    },
+  };
 }
 
 /**
@@ -102,15 +134,7 @@ async function listAtticEntries(tbdRoot: string, filterById?: string): Promise<A
  */
 export async function saveAtticEntry(tbdRoot: string, entry: AtticEntry): Promise<void> {
   const atticPath = await resolveAtticDir(tbdRoot);
-  await mkdir(atticPath, { recursive: true });
-
-  const filename = getAtticFilename(entry.entity_id, entry.timestamp, entry.field);
-  const filepath = join(atticPath, filename);
-  // Sort keys using canonical field order, then serialize
-  const sorted = sortKeys(entry as unknown as Record<string, unknown>, ATTIC_ENTRY_FIELD_ORDER);
-  const content = stringifyYaml(sorted, { sortMapEntries: false });
-
-  await writeFile(filepath, content);
+  await writeAtticEntryFile(atticPath, entry);
 }
 
 // List attic entries
@@ -121,7 +145,7 @@ class AtticListHandler extends BaseCommand {
     // Load ID mapping and config for display, initializing shared layout first.
     const { mapping, config } = await loadDataContext(tbdRoot);
 
-    const filterId = id ? normalizeIssueId(id) : undefined;
+    const filterId = id ? resolveAtticIssueId(id, mapping) : undefined;
     const entries = await listAtticEntries(tbdRoot, filterId);
 
     const prefix = config.display.id_prefix;
@@ -163,7 +187,7 @@ class AtticShowHandler extends BaseCommand {
     // Load ID mapping and config for display, initializing shared layout first.
     const { mapping, config } = await loadDataContext(tbdRoot);
 
-    const normalizedId = normalizeIssueId(id);
+    const normalizedId = resolveAtticIssueId(id, mapping);
     const entries = await listAtticEntries(tbdRoot, normalizedId);
 
     // Find entry matching timestamp (approximate match for different formats)
@@ -208,9 +232,9 @@ class AtticRestoreHandler extends BaseCommand {
   async run(id: string, timestamp: string): Promise<void> {
     const tbdRoot = await requireInit();
 
-    await loadDataContext(tbdRoot);
+    const { mapping } = await loadDataContext(tbdRoot);
 
-    const normalizedId = normalizeIssueId(id);
+    const normalizedId = resolveAtticIssueId(id, mapping);
     const entries = await listAtticEntries(tbdRoot, normalizedId);
 
     // Find entry matching timestamp
@@ -244,13 +268,46 @@ class AtticRestoreHandler extends BaseCommand {
           // Restore the field value
           const field = entry.field as keyof typeof issue;
           if (field === 'description' || field === 'notes' || field === 'title') {
-            (issue as Record<string, unknown>)[field] = entry.lost_value;
+            const restored = decodeAtticTextValue(entry.lost_value);
+            const current = issue[field];
+            if (restored === null) {
+              if (field === 'title') {
+                throw new ValidationError('Cannot restore a null title');
+              }
+              if (field === 'description') {
+                const withoutDescription = { ...issue };
+                delete withoutDescription.description;
+                issue = withoutDescription;
+              } else {
+                const withoutNotes = { ...issue };
+                delete withoutNotes.notes;
+                issue = withoutNotes;
+              }
+            } else {
+              (issue as Record<string, unknown>)[field] = restored;
+            }
+
+            if ((current ?? null) !== restored) {
+              const restoredAt = now();
+              await writeAtticEntryFile(
+                join(dataSyncDir, 'attic'),
+                buildRestorationAtticEntry({
+                  original: entry,
+                  currentValue: typeof current === 'string' ? current : null,
+                  currentVersion: issue.version,
+                  currentUpdatedAt: issue.updated_at,
+                  restoredAt,
+                }),
+              );
+              issue.updated_at = restoredAt;
+            } else {
+              issue.updated_at = now();
+            }
           } else {
             throw new ValidationError(`Cannot restore field: ${entry.field}`);
           }
 
           issue.version += 1;
-          issue.updated_at = now();
 
           await writeIssue(dataSyncDir, issue);
 

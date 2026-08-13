@@ -413,7 +413,7 @@ export async function commitToSyncBranch(
 /**
  * Field-level merge strategy types.
  */
-type MergeStrategy = 'lww' | 'union' | 'max' | 'immutable';
+type MergeStrategy = 'lww' | 'union' | 'max' | 'immutable' | 'namespace_merge';
 
 /**
  * Field-level merge strategies for Issue fields.
@@ -450,8 +450,11 @@ const FIELD_STRATEGIES: Record<keyof Issue, MergeStrategy> = {
   labels: 'union',
   dependencies: 'union',
 
-  // Extensions - LWW for whole object
-  extensions: 'lww',
+  // Merged per top-level namespace, not as one opaque value: two writers touching
+  // different namespaces must both survive. Whole-object LWW here silently
+  // dropped one side's namespace, which now matters more because external
+  // tracker links live in these namespaces.
+  extensions: 'namespace_merge',
 };
 
 /**
@@ -548,6 +551,151 @@ function unionArrays<T>(a: T[], b: T[]): T[] {
     }
   }
   return result;
+}
+
+/**
+ * Recorded in the attic when a namespace deletion lost to a concurrent edit.
+ * Distinguishes "the deletion was discarded" from "a null value was discarded".
+ */
+export const DELETED_NAMESPACE = '<deleted>';
+
+/**
+ * A value that is a plain object (not an array, not null).
+ */
+function isPlainObject(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+/**
+ * Merge `extensions` one top-level namespace at a time.
+ *
+ * Namespaces are independent: two writers touching `github` and `linear` must
+ * both survive. Only a namespace that both sides changed differently is a real
+ * conflict, and only that namespace is reported lost.
+ */
+/** Outcome for one namespace: present with a value, or intentionally absent. */
+type NamespaceResolution = { present: true; value: unknown } | { present: false };
+
+/**
+ * Merge one namespace three ways.
+ *
+ * Absence is a value here, not a gap: a namespace removed since the base was
+ * *deleted* on purpose (`tbd integration unlink`), and a two-way presence check
+ * cannot tell that apart from "the other side simply never had it". Getting this
+ * wrong silently resurrects an unlinked bead, so deletion is treated as an edit
+ * like any other.
+ */
+function resolveNamespace(
+  namespace: string,
+  base: Record<string, unknown>,
+  local: Record<string, unknown>,
+  remote: Record<string, unknown>,
+  onConflict: (namespace: string, lost: unknown, winner: unknown) => void,
+  localWins: boolean,
+): NamespaceResolution {
+  const inBase = Object.hasOwn(base, namespace);
+  const inLocal = Object.hasOwn(local, namespace);
+  const inRemote = Object.hasOwn(remote, namespace);
+
+  const localChanged = inLocal ? !deepEqual(local[namespace], base[namespace]) || !inBase : inBase;
+  const remoteChanged = inRemote
+    ? !deepEqual(remote[namespace], base[namespace]) || !inBase
+    : inBase;
+
+  // Unchanged on both sides: carry the base through untouched.
+  if (!localChanged && !remoteChanged) {
+    return inBase ? { present: true, value: base[namespace] } : { present: false };
+  }
+  // Exactly one side edited: take that edit, including a deletion.
+  if (localChanged && !remoteChanged) {
+    return inLocal ? { present: true, value: local[namespace] } : { present: false };
+  }
+  if (remoteChanged && !localChanged) {
+    return inRemote ? { present: true, value: remote[namespace] } : { present: false };
+  }
+
+  // Both edited. Agreement is not a conflict, including agreeing to delete.
+  if (!inLocal && !inRemote) {
+    return { present: false };
+  }
+  if (inLocal && inRemote && deepEqual(local[namespace], remote[namespace])) {
+    return { present: true, value: local[namespace] };
+  }
+
+  // Delete on one side, edit on the other. Keep the edit: re-deleting is cheap,
+  // whereas recovering a discarded link means hunting down the external issue.
+  // The discarded deletion is still reported so it is not silent.
+  if (!inLocal || !inRemote) {
+    const survivor = inLocal ? local[namespace] : remote[namespace];
+    onConflict(namespace, DELETED_NAMESPACE, survivor);
+    return { present: true, value: survivor };
+  }
+
+  // Both sides are objects and at least one carries a `comments` array: the
+  // sequences are append-only, so they union by identity instead of one side
+  // losing. Two machines appending different comments is the NORMAL case for
+  // comment sync, not a conflict — only divergence beyond `comments` is.
+  const localNs = local[namespace];
+  const remoteNs = remote[namespace];
+  if (isPlainObject(localNs) && isPlainObject(remoteNs)) {
+    const hasComments = Array.isArray(localNs.comments) || Array.isArray(remoteNs.comments);
+    if (hasComments) {
+      const winnerNs = localWins ? localNs : remoteNs;
+      const loserNs = localWins ? remoteNs : localNs;
+      const value = {
+        ...winnerNs,
+        comments: unionCommentArrays(localNs.comments, remoteNs.comments),
+      };
+      if (!deepEqual(omitComments(localNs), omitComments(remoteNs))) {
+        onConflict(namespace, omitComments(loserNs), omitComments(winnerNs));
+      }
+      return { present: true, value };
+    }
+  }
+
+  const winner = localWins ? local[namespace] : remote[namespace];
+  const loser = localWins ? remote[namespace] : local[namespace];
+  onConflict(namespace, loser, winner);
+  return { present: true, value: winner };
+}
+
+/** A namespace value without its comments array, for beyond-comments compare. */
+function omitComments(value: Record<string, unknown>): Record<string, unknown> {
+  const { comments: _comments, ...rest } = value;
+  return rest;
+}
+
+/**
+ * Merge `extensions` one top-level namespace at a time.
+ *
+ * Namespaces are independent: two writers touching `github` and `linear` must
+ * both survive. Only a namespace that both sides changed differently is a real
+ * conflict, and only that namespace is reported lost.
+ */
+function mergeNamespaces(
+  baseVal: unknown,
+  localVal: unknown,
+  remoteVal: unknown,
+  onConflict: (namespace: string, lost: unknown, winner: unknown) => void,
+  localWins: boolean,
+): Record<string, unknown> {
+  const base = isPlainObject(baseVal) ? baseVal : {};
+  const local = isPlainObject(localVal) ? localVal : {};
+  const remote = isPlainObject(remoteVal) ? remoteVal : {};
+
+  const merged: Record<string, unknown> = {};
+  // Base keys are included so a namespace deleted on one side is still visited.
+  for (const namespace of new Set([
+    ...Object.keys(base),
+    ...Object.keys(local),
+    ...Object.keys(remote),
+  ])) {
+    const resolution = resolveNamespace(namespace, base, local, remote, onConflict, localWins);
+    if (resolution.present) {
+      merged[namespace] = resolution.value;
+    }
+  }
+  return merged;
 }
 
 /**
@@ -728,6 +876,32 @@ export function mergeIssues(base: Issue | null, local: Issue, remote: Issue): Me
           remoteVal as number,
         );
         break;
+
+      case 'namespace_merge': {
+        // Per-namespace merge; only a namespace both sides changed conflicts.
+        const nsLocalTime = new Date(local.updated_at).getTime();
+        const nsRemoteTime = new Date(remote.updated_at).getTime();
+        (merged as Record<string, unknown>)[key] = mergeNamespaces(
+          baseVal,
+          localVal,
+          remoteVal,
+          (namespace, lost, winner) => {
+            conflicts.push(
+              createConflictEntry(
+                local.id,
+                `${field}.${namespace}`,
+                lost,
+                winner,
+                local.version,
+                remote.version,
+                'lww',
+              ),
+            );
+          },
+          nsLocalTime >= nsRemoteTime,
+        );
+        break;
+      }
     }
   }
 
@@ -988,7 +1162,10 @@ import {
   resolveSharedTbdPaths,
   type SharedTbdPaths,
 } from '../lib/paths.js';
-import { DATA_SYNC_SCHEMA_VERSION } from '../lib/schemas.js';
+import { DATA_SYNC_SCHEMA_VERSION, LinkRecordSchema } from '../lib/schemas.js';
+import type { LinkRecord } from '../lib/types.js';
+import { parseYamlWithConflictDetection, stringifyYaml } from '../utils/yaml-utils.js';
+import { unionCommentArrays } from '../lib/comment-union.js';
 import {
   loadIdMapping,
   mergeIdMappings,
@@ -1932,6 +2109,135 @@ export async function mergeBeadAcrossRefs(
   return mergeIssues(base, ours, theirs);
 }
 
+/**
+ * Pick the newer observation of a link record.
+ *
+ * Both sides of a sync-branch merge are observations of the same external
+ * truth (the tracker item), so the later observation wins outright — higher
+ * `remote_updated_at`, then `synced_at`, then ours for determinism. This is
+ * conflict-free by construction: no field-level merge, no attic, no report.
+ */
+export function pickNewestLinkRecord(ours: LinkRecord, theirs: LinkRecord): LinkRecord {
+  if (ours.remote_updated_at !== theirs.remote_updated_at) {
+    return ours.remote_updated_at > theirs.remote_updated_at ? ours : theirs;
+  }
+  if (ours.synced_at !== theirs.synced_at) {
+    return ours.synced_at > theirs.synced_at ? ours : theirs;
+  }
+  return ours;
+}
+
+/** Read and validate a bridge link record blob from a git ref, or undefined. */
+async function readLinkRecordBlob(
+  repoDir: string,
+  ref: string,
+  path: string,
+): Promise<LinkRecord | undefined> {
+  let content: string;
+  try {
+    content = await git('-C', repoDir, 'show', `${ref}:${path}`);
+  } catch (err) {
+    if (err instanceof GitError) {
+      return undefined; // absent on that side
+    }
+    throw err;
+  }
+  try {
+    const parsed = LinkRecordSchema.safeParse(parseYamlWithConflictDetection(content));
+    return parsed.success ? parsed.data : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+/**
+ * Resolve every conflicted bridge file left by a sync-branch merge.
+ *
+ * Bridge state lives under `DATA_SYNC_DIR/bridge/<provider>/`, one file per
+ * link (plus intents and a meta cache), and git's text merge cannot resolve
+ * concurrent updates to the same record. The rules, in order:
+ *
+ * - **Absence wins.** A side that deleted the file did so deliberately (an
+ *   unlink, or an intent consumed by replay); recreating it would resurrect
+ *   state someone removed. Mirrors the extensions namespace-merge rule.
+ * - **Link records** (`links/*.yml`): the newest observation wins
+ *   ({@link pickNewestLinkRecord}). An invalid side loses to a valid one; two
+ *   invalid sides resolve to deletion, and the next sync re-seeds the base.
+ * - **Anything else** (intents, meta cache): ours wins. Intent replay is
+ *   idempotent and the meta cache refreshes on demand, so either side is fine.
+ *
+ * Called while a merge is in progress (MERGE_HEAD set), before the caller's
+ * `add -A`; the conflict-marker safety check downstream would otherwise refuse
+ * to commit these files at all.
+ */
+export async function resolveBridgeConflicts(
+  worktreePath: string,
+): Promise<{ resolved: number; deleted: number }> {
+  const conflictedList = await git(
+    '-C',
+    worktreePath,
+    'diff',
+    '--name-only',
+    '--diff-filter=U',
+    '--',
+    `${DATA_SYNC_DIR}/bridge`,
+  );
+  const paths = conflictedList
+    .split('\n')
+    .map((line) => line.trim())
+    .filter((line) => line.length > 0);
+
+  let resolved = 0;
+  let deleted = 0;
+  for (const path of paths) {
+    const absolute = join(worktreePath, path);
+    const isLinkRecord = /\/links\/[^/]+\.yml$/.test(path);
+
+    if (isLinkRecord) {
+      const ours = await readLinkRecordBlob(worktreePath, 'HEAD', path);
+      const theirs = await readLinkRecordBlob(worktreePath, 'MERGE_HEAD', path);
+      // A delete/modify conflict reads the deleted side as undefined only when
+      // the blob is truly absent; distinguish "absent" from "present but
+      // invalid" via ls-files stages: stage 2 = ours, stage 3 = theirs.
+      const stages = await git('-C', worktreePath, 'ls-files', '-u', '--', path);
+      const hasOurs = /\s2\t/.test(stages);
+      const hasTheirs = /\s3\t/.test(stages);
+
+      if (!hasOurs || !hasTheirs) {
+        // Deleted on one side: absence wins.
+        await rm(absolute, { force: true });
+        deleted++;
+      } else if (ours && theirs) {
+        await writeFile(absolute, stringifyYaml(pickNewestLinkRecord(ours, theirs)));
+        resolved++;
+      } else if (ours || theirs) {
+        await writeFile(absolute, stringifyYaml(ours ?? theirs));
+        resolved++;
+      } else {
+        // Both sides present but unreadable: delete and let sync re-seed.
+        await rm(absolute, { force: true });
+        deleted++;
+      }
+      continue;
+    }
+
+    // Intents and meta: absence wins, else ours.
+    const stages = await git('-C', worktreePath, 'ls-files', '-u', '--', path);
+    const hasOurs = /\s2\t/.test(stages);
+    const hasTheirs = /\s3\t/.test(stages);
+    if (!hasOurs || !hasTheirs) {
+      await rm(absolute, { force: true });
+      deleted++;
+    } else {
+      const content = await git('-C', worktreePath, 'show', `HEAD:${path}`);
+      await writeFile(absolute, content);
+      resolved++;
+    }
+  }
+
+  return { resolved, deleted };
+}
+
 /** Preserve a losing issue version explicitly under attic/conflicts/. */
 async function preserveLosingVersion(dataSyncPath: string, loser: Issue): Promise<void> {
   const conflictsDir = join(dataSyncPath, 'attic', 'conflicts');
@@ -2277,6 +2583,8 @@ export async function migrateDataToWorktree(
   migratedCount: number;
   backupPath?: string;
   error?: string;
+  /** Whether this run recorded a commit. False when already migrated. */
+  committed?: boolean;
 }> {
   const wrongPath = join(baseDir, TBD_DIR, DATA_SYNC_DIR_NAME);
   const {
@@ -2358,6 +2666,7 @@ export async function migrateDataToWorktree(
       .then(() => false)
       .catch(() => true);
 
+    let committed = false;
     if (hasChanges) {
       await gitCommit(
         worktreePath,
@@ -2365,10 +2674,44 @@ export async function migrateDataToWorktree(
         '-m',
         `tbd: migrate ${totalFiles} file(s) from incorrect location`,
       );
+      committed = true;
+    } else {
+      // Nothing staged. That is legitimate when a previous run already migrated
+      // and committed these files, and a bug in every other case: the copy
+      // above would be unrecorded, and step 4 is about to delete the source.
+      // Verify against the committed tree rather than assuming the benign case.
+      const missing: string[] = [];
+      for (const file of issueFiles) {
+        const tracked = await git(
+          '-C',
+          worktreePath,
+          'ls-files',
+          '--error-unmatch',
+          join(TBD_DIR, DATA_SYNC_DIR_NAME, 'issues', file),
+        )
+          .then(() => true)
+          .catch(() => false);
+        if (!tracked) {
+          missing.push(file);
+        }
+      }
+      if (missing.length > 0) {
+        return {
+          success: false,
+          migratedCount: 0,
+          backupPath,
+          error:
+            `Migration copied ${totalFiles} file(s) but committed nothing, and ` +
+            `${missing.length} of them are absent from the sync branch ` +
+            `(${missing.slice(0, 3).join(', ')}). Source files were left in place. ` +
+            `The backup is at ${backupPath}.`,
+        };
+      }
     }
-    // If no changes, files were already migrated - that's fine
 
-    // Step 4: Optionally remove wrong location data
+    // Step 4: Optionally remove wrong location data. Only reached once the files
+    // are known to be recorded on the sync branch, so a failed commit cannot
+    // take the source with it.
     if (removeSource) {
       // Remove issue and mapping files, but keep directory structure
       for (const file of issueFiles) {
@@ -2383,6 +2726,7 @@ export async function migrateDataToWorktree(
       success: true,
       migratedCount: totalFiles,
       backupPath,
+      committed,
     };
   } catch (error) {
     return {

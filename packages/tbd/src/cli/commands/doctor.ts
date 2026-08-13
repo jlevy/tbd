@@ -41,7 +41,11 @@ import {
   CODEX_HOOKS_REL,
   AGENT_INTEGRATION_FORMAT,
 } from '../../lib/integration-paths.js';
-import { validateIssueId, extractUlidFromInternalId } from '../../lib/ids.js';
+import { validateIssueId, extractUlidFromInternalId, formatDisplayId } from '../../lib/ids.js';
+import { findHierarchyProblems } from '../../lib/issue-hierarchy.js';
+import { duplicateExternalLinks } from '../../integrations/core/link-store.js';
+import { integrationsInert } from '../../integrations/core/registry.js';
+import { integrationStatus } from '../../integrations/core/status.js';
 import { git } from '../../file/git.js';
 import {
   checkGitVersion,
@@ -353,10 +357,23 @@ class DoctorHandler extends BaseCommand {
       await this.safeCheck('Unique IDs', async () => this.checkDuplicateIds(this.issues)),
     );
 
+    // Check 5a: Parent hierarchy cycles. A cycle makes every ancestor walk
+    // non-terminating, so it is worth reporting even in stores written before
+    // the write-path guard existed.
+    healthChecks.push(
+      await this.safeCheck('Issue hierarchy', () =>
+        Promise.resolve(this.checkHierarchy(this.issues)),
+      ),
+    );
+
     // Check 5b: Merge conflict markers in ids.yml
     healthChecks.push(
       await this.safeCheck('ID mapping conflicts', () => this.checkIdMappingConflicts(options.fix)),
     );
+
+    // Check 5c: External integrations. Skipped entirely when none is enabled, so
+    // doctor stays green and offline for repositories that never use them.
+    healthChecks.push(await this.safeCheck('Integrations', () => this.checkIntegrations()));
 
     // Check 6: Duplicate mapping keys in ids.yml
     healthChecks.push(
@@ -737,6 +754,102 @@ class DoctorHandler extends BaseCommand {
       details: orphans,
       fixable: true,
       suggestion: 'Run: tbd doctor --fix',
+    };
+  }
+
+  /**
+   * Report `parent_id` cycles and over-deep chains.
+   *
+   * The write path now refuses to create either, but a store written by an
+   * older CLI can still contain one, and a cycle hangs every ancestor walk.
+   */
+  private checkHierarchy(issues: Issue[]): DiagnosticResult {
+    const problems = findHierarchyProblems(issues);
+    if (problems.length === 0) {
+      return { name: 'Issue hierarchy', status: 'ok' };
+    }
+
+    return {
+      name: 'Issue hierarchy',
+      status: 'error',
+      message: `${problems.length} issue(s) with a parent cycle or excessive depth`,
+      details: problems.map(
+        ({ issueId, problem }) =>
+          `${issueId}: ${problem.kind === 'cycle' ? 'parent cycle' : `nested ${problem.depth} levels`}`,
+      ),
+      suggestion: 'Clear the parent with: tbd update <id> --parent ""',
+    };
+  }
+
+  /**
+   * Report integration readiness.
+   *
+   * Returns `ok` and makes no network call when no integration is enabled, so
+   * `doctor` stays green and offline for repositories that never use one.
+   */
+  private async checkIntegrations(): Promise<DiagnosticResult> {
+    if (!this.config || integrationsInert(this.config)) {
+      // The config-loss tripwire: an older CLI rewriting config silently
+      // strips the integrations block (it happened three times during the
+      // pilot). Linked beads with no configured integration is the signature.
+      const linkedCount = this.issues.filter((issue) => {
+        const extensions = issue.extensions;
+        return extensions && ('linear' in extensions || 'github' in extensions);
+      }).length;
+      if (linkedCount > 0) {
+        return {
+          name: 'Integrations',
+          status: 'warn',
+          message:
+            `${linkedCount} bead(s) carry external tracker links but no integration is ` +
+            'configured. If the integrations block was stripped from .tbd/config.yml ' +
+            '(an older tbd rewriting config does this), restore it from git history.',
+        };
+      }
+      return { name: 'Integrations', status: 'ok', message: 'none enabled' };
+    }
+
+    // Offline: doctor should not depend on a reachable third-party API.
+    const status = await integrationStatus({ config: this.config, repoRoot: this.cwd });
+    const problems: string[] = [];
+
+    const { loadIdMapping } = await import('../../file/id-mapping.js');
+    const mapping = await loadIdMapping(this.dataSyncDir);
+    const displayPrefix = this.config.display.id_prefix;
+    for (const provider of ['linear', 'github'] as const) {
+      for (const duplicate of duplicateExternalLinks(this.issues, provider)) {
+        const holders = duplicate.beadIds
+          .map((id) => formatDisplayId(id, mapping, displayPrefix))
+          .sort();
+        problems.push(
+          `${provider} ${duplicate.externalKey ?? duplicate.externalId} is linked by multiple ` +
+            `beads: ${holders.join(', ')}. Unlink until exactly one remains.`,
+        );
+      }
+    }
+
+    if (status.envFile.state === 'error') {
+      problems.push(`${status.envFile.label}: ${status.envFile.detail}`);
+    }
+    for (const provider of status.providers) {
+      for (const finding of provider.findings) {
+        if (finding.state === 'error') {
+          problems.push(`${provider.provider} ${finding.label}: ${finding.detail}`);
+        }
+      }
+    }
+
+    if (problems.length === 0) {
+      const enabled = status.providers.filter((p) => p.enabled).map((p) => p.provider);
+      return { name: 'Integrations', status: 'ok', message: enabled.join(', ') };
+    }
+
+    return {
+      name: 'Integrations',
+      status: 'error',
+      message: `${problems.length} integration problem(s)`,
+      details: problems,
+      suggestion: 'Run: tbd integration status',
     };
   }
 

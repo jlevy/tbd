@@ -5,6 +5,8 @@ import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import { subprocessTestTimeout } from './test-helpers.js';
+
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const TBD_BIN = join(__dirname, '..', 'dist', 'bin.mjs');
 
@@ -19,7 +21,7 @@ interface DoctorResult {
   integrationChecks: DiagnosticResult[];
 }
 
-describe('doctor managed agent surfaces', { timeout: 45_000 }, () => {
+describe('doctor managed agent surfaces', { timeout: subprocessTestTimeout(45_000) }, () => {
   let projectDir: string;
   let fakeHome: string;
 
@@ -36,11 +38,11 @@ describe('doctor managed agent surfaces', { timeout: 45_000 }, () => {
 
     const setup = runTbd(['setup', '--auto', '--prefix=test']);
     expect(setup.status).toBe(0);
-  });
+  }, subprocessTestTimeout(30_000));
 
   afterEach(async () => {
     await rm(projectDir, { recursive: true, force: true });
-  });
+  }, subprocessTestTimeout(30_000));
 
   function run(command: [string, ...string[]]): void {
     const result = spawnSync(command[0], command.slice(1), {

@@ -11,7 +11,7 @@ patterns:
   SHORTID: '[0-9a-z]{4,5}'
   TIMESTAMP: "\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?Z"
 before: |
-  # Isolated bare repo as "origin" (avoid the shared ../origin.git).
+  # Isolated bare repo as "origin" (avoid the shared ../origin-sync-unrelated-rescue.git).
   rm -rf ../origin-rescue.git ../seed-rescue
   mkdir -p ../origin-rescue.git
   git init --bare ../origin-rescue.git

@@ -651,6 +651,12 @@ describe('extractShortId', () => {
     expect(extractShortId('myproject-12345')).toBe('12345');
     expect(extractShortId('abc-def')).toBe('def');
   });
+
+  it('handles every prefix shape accepted by init and setup', () => {
+    expect(extractShortId('e2e-a7k2')).toBe('a7k2');
+    expect(extractShortId('proj.v2-a7k2')).toBe('a7k2');
+    expect(extractShortId('my_app1-a7k2')).toBe('a7k2');
+  });
 });
 
 describe('extractPrefix', () => {
@@ -675,6 +681,12 @@ describe('extractPrefix', () => {
   it('handles multi-letter prefixes', () => {
     expect(extractPrefix('myproject-12345')).toBe('myproject');
     expect(extractPrefix('abc-def')).toBe('abc');
+  });
+
+  it('handles every prefix shape accepted by init and setup', () => {
+    expect(extractPrefix('e2e-a7k2')).toBe('e2e');
+    expect(extractPrefix('proj.v2-a7k2')).toBe('proj.v2');
+    expect(extractPrefix('my_app1-a7k2')).toBe('my_app1');
   });
 
   it('returns null for numeric-only strings', () => {

@@ -100,6 +100,8 @@ Sync and Status:
   save [options]                     Save issues to a workspace or directory
   status                             Show repository status and orientation
   stats                              Show repository statistics
+  integration                        Manage external tracker integrations
+                                     (Linear, GitHub)
 
 Maintenance:
   doctor [options]                   Diagnose and repair repository
