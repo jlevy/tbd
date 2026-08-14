@@ -5,7 +5,7 @@ title: "[epic] Agent sync protocol: prime, claim, checkpoint, and Linear visibil
 kind: epic
 status: open
 priority: 1
-version: 25
+version: 26
 labels: []
 dependencies: []
 child_order_hints:
@@ -34,17 +34,34 @@ child_order_hints:
   - is-01m00ja8zjg8mbnw6b474q9q17
   - is-01m00jaacfz0nepg8ghey7qd87
 created_at: 2026-08-14T16:19:15.771Z
-updated_at: 2026-08-14T16:40:07.823Z
+updated_at: 2026-08-14T16:47:37.981Z
 ---
-Make Linear show what every agent is doing right now, from a small set of mirrored issues.
+Make Linear show what every agent is doing right now, from a small set of mirrored issues — and make tbd sync cheap enough that agents can run it constantly.
 
-Research: docs/project/research/current/research-2026-08-14-agent-sync-protocol-and-hooks.md
+Full background: docs/project/research/current/research-2026-08-14-agent-sync-protocol-and-hooks.md
 
-Audit findings (measured 2026-08-14 against this repo's 1,681 beads):
-- F1: the default policy selects 114 of 254 active beads (45%), not the ~10% claimed in setup-linear and policy.ts.
-- F2: 44 of those 114 sit at nesting depth 3 and are skipped under max_nesting: 2, so 114 selected produces 70 Linear issues.
-- F3: 8 of the 14 in_progress beads are not selected, so in-flight work is invisible in Linear.
-- F4: 0 of 1,681 beads have ever carried an assignee; there is no claim or presence signal at all.
-- The SessionStart hook script exits 1 in this environment (PATH prepend shadows Node 22 with Node 20) and fails silently.
+Findings, all measured 2026-08-14 against this repo's 1,681 beads and a probe of the sync engine against the bundled mock Linear server.
 
-The sync mechanism is complete and safe to call from any agent; what is missing is when it runs and what it says.
+EFFICIENCY — prerequisites for everything else (label: sync-efficiency)
+- F5  tbd sync pushes the sync branch without --no-verify, so every sync fires the parent repo's pre-push hook; here that is the full test suite, and again on each retry. (tbd-7okw)
+- F9  A no-op sync rewrites EVERY bridge record (synced_at only), so it commits, pushes, and triggers F5 — while reporting nothingToDo: true. (tbd-774m, P0)
+- F10 Comment polling is one request per linked bead per sync, so cost is 2+N. A 70-bead mirror allows ~34 syncs/hour across everyone sharing a key. (tbd-iqgm)
+- ensureMeta caches per-process only, so every CLI run re-fetches team states and labels. (tbd-9ulk)
+
+SURFACE CONSISTENCY
+- sync_on_tbd_sync defaults to TRUE and the fold is systematic — that part is correct. But:
+- F6 tbd sync --push silently performs the outbound-only mirror setup-linear warns joiners never to run. (tbd-71am)
+- F7 tbd --dry-run sync and --status never cover the tracker. (tbd-42u4)
+- tbd sync --issues silently drops the tracker. (tbd-8ot8)
+- F8 sync.ts:1155 says the fold is 'off by default'. It is on. (tbd-1uep)
+
+VISIBILITY
+- F1 The default policy selects 114 of 254 active beads (45%), not the ~10% claimed in setup-linear and policy.ts. (tbd-czhw)
+- F2 44 of those 114 are at depth 3 and skipped under max_nesting: 2, so 114 selected produces 70 Linear issues. (tbd-czhw)
+- F3 8 of the 14 in_progress beads are not selected, so in-flight work is invisible. (tbd-9j5a, tbd-o6o6)
+- F4 0 of 1,681 beads have ever carried an assignee; there is no claim or presence signal at all. (tbd-mnci, tbd-f39i, tbd-c4zl)
+
+ORIENTATION
+- The SessionStart hook exits 1 in this environment (PATH prepend shadows Node 22 with Node 20) and fails silently. (tbd-fnwc, tbd-qd1n)
+
+Suggested order: fix the efficiency items first (a quiet sync must be ~2 requests, 0 writes, 0 commits, no push), then repair the existing surfaces, then the claim protocol, then enforcement hooks.
