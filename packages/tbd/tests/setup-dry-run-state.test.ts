@@ -18,6 +18,7 @@ import {
   writeFile,
 } from 'node:fs/promises';
 import { execFileSync, spawnSync } from 'node:child_process';
+import { CURRENT_FORMAT } from '../src/lib/tbd-format.js';
 import { tmpdir } from 'node:os';
 import { dirname, join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -154,14 +155,17 @@ describe('setup --auto --dry-run whole-state invariant', { timeout: 45_000 }, ()
 
     const configPath = join(projectDir, '.tbd', 'config.yml');
     const config = (await readFile(configPath, 'utf-8'))
-      .replace('tbd_format: f06', 'tbd_format: f05')
+      .replace(`tbd_format: ${CURRENT_FORMAT}`, 'tbd_format: f05')
       .replace(/^tbd_version:.*$/m, 'tbd_version: 0.3.0');
     await writeFile(configPath, config);
 
     const layoutPath = join(sharedTbdDir, 'layout.yml');
     await writeFile(
       layoutPath,
-      (await readFile(layoutPath, 'utf-8')).replace('tbd_format: f06', 'tbd_format: f05'),
+      (await readFile(layoutPath, 'utf-8')).replace(
+        `tbd_format: ${CURRENT_FORMAT}`,
+        'tbd_format: f05',
+      ),
     );
 
     await writeFile(join(projectDir, '.tbd', '.gitignore'), '# stale\n');
@@ -209,6 +213,7 @@ describe('setup --auto --dry-run whole-state invariant', { timeout: 45_000 }, ()
 
     expect(result.status).toBe(0);
     expect(output).toContain('Updated tbd_format: f06');
+    expect(output).toContain(`Updated tbd_format: ${CURRENT_FORMAT}`);
     expect(output).toMatch(/\[DRY-RUN\].*[Ww]ould update .*config/i);
     expect(output).toMatch(/\[DRY-RUN\].*[Ww]ould update \.tbd\/\.gitignore/i);
     expect(output).toMatch(/\[DRY-RUN\].*[Ww]ould update \.tbd\/\.gitattributes/i);
@@ -230,7 +235,7 @@ describe('setup --auto --dry-run whole-state invariant', { timeout: 45_000 }, ()
     const mirrorPath = join(projectDir, '.claude', 'skills', 'tbd', 'SKILL.md');
     await writeFile(
       mirrorPath,
-      (await readFile(mirrorPath, 'utf-8')).replace('format=f06', 'format=f99'),
+      (await readFile(mirrorPath, 'utf-8')).replace(`format=${CURRENT_FORMAT}`, 'format=f99'),
     );
     const before = await snapshotAllState();
 

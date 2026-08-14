@@ -41,6 +41,9 @@ jobs:
         id: version
         run: echo "version=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
 
+      - name: Verify release metadata
+        run: pnpm exec tsx packages/tbd/scripts/verify-release-metadata.ts "${GITHUB_REF_NAME}"
+
       # Resolve the release body BEFORE publishing: if the wrapper or changelog path
       # ever fails, fail here rather than after the package is already on npm.
       - name: Extract changelog for this version

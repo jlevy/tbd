@@ -15,7 +15,7 @@ import { BaseCommand } from '../lib/base-command.js';
 import { requireInit } from '../lib/errors.js';
 import { EXIT_OPERATIONAL_ERROR } from '../lib/exit-codes.js';
 import { listIssues, type InvalidIssueFile } from '../../file/storage.js';
-import { IncompatibleFormatError, readConfig } from '../../file/config.js';
+import { droppedConfigKeys, IncompatibleFormatError, readConfig } from '../../file/config.js';
 import { prepareDataSyncContext } from '../lib/data-context.js';
 import type { Config, Issue, IssueStatusType } from '../../lib/types.js';
 import {
@@ -86,6 +86,29 @@ import {
   inspectCodexHooksSurface,
 } from './setup.js';
 import { withLockfile } from '../../utils/lockfile.js';
+
+/**
+ * Diagnose the one dropped top-level key that proves integration config loss.
+ * Other absent keys may be unrelated edits and must not be mislabeled as integrations.
+ */
+export function droppedIntegrationConfigFinding(
+  droppedKeys: readonly string[],
+): DiagnosticResult | null {
+  if (!droppedKeys.includes('integrations')) {
+    return null;
+  }
+
+  return {
+    name: 'Integrations',
+    status: 'warn',
+    message:
+      '.tbd/config.yml is missing `integrations`, which is present in the committed ' +
+      'version. A tbd older than f07 drops config it does not know when it rewrites the file.',
+    suggestion:
+      'Restore: git checkout .tbd/config.yml (then upgrade tbd: npm install -g get-tbd@latest). ' +
+      'If you removed it deliberately, commit the change.',
+  };
+}
 
 function managedArtifactFinding(
   name: string,
@@ -789,9 +812,16 @@ class DoctorHandler extends BaseCommand {
    */
   private async checkIntegrations(): Promise<DiagnosticResult> {
     if (!this.config || integrationsInert(this.config)) {
-      // The config-loss tripwire: an older CLI rewriting config silently
-      // strips the integrations block (it happened three times during the
-      // pilot). Linked beads with no configured integration is the signature.
+      // The config-loss tripwire, strongest signal first: config that is committed
+      // but missing locally was dropped, not deleted on purpose. A pre-f07 tbd
+      // rewriting config.yml does this silently (three times during the pilot).
+      const dropped = await droppedConfigKeys(this.cwd);
+      const droppedFinding = droppedIntegrationConfigFinding(dropped);
+      if (droppedFinding) {
+        return droppedFinding;
+      }
+
+      // Weaker but independent: links with no configured integration.
       const linkedCount = this.issues.filter((issue) => {
         const extensions = issue.extensions;
         return extensions && ('linear' in extensions || 'github' in extensions);

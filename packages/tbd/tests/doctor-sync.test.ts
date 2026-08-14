@@ -19,7 +19,24 @@ import { extractUlidFromInternalId } from '../src/lib/ids.js';
 import type { Issue } from '../src/lib/types.js';
 import { DATA_SYNC_DIR, TBD_DIR } from '../src/lib/paths.js';
 import { detectDuplicateYamlKeys } from '../src/utils/yaml-utils.js';
+import { droppedIntegrationConfigFinding } from '../src/cli/commands/doctor.js';
 import { TEST_ULIDS, testId, createTestIssue } from './test-helpers.js';
+
+describe('dropped integration config diagnostic', () => {
+  it('ignores unrelated top-level keys', () => {
+    expect(droppedIntegrationConfigFinding(['docs_cache'])).toBeNull();
+  });
+
+  it('reports only the integrations block when it is missing', () => {
+    const finding = droppedIntegrationConfigFinding(['docs_cache', 'integrations']);
+    expect(finding).toMatchObject({
+      name: 'Integrations',
+      status: 'warn',
+    });
+    expect(finding?.message).toContain('`integrations`');
+    expect(finding?.message).not.toContain('`docs_cache`');
+  });
+});
 
 describe('doctor command logic', () => {
   let testDir: string;

@@ -1,7 +1,7 @@
 #!/usr/bin/env npx tsx
 /**
  * Print the GitHub Release body for a version: the matching "## X.Y.Z" section of the
- * changelog, or "Release v<version>" when there is no such section.
+ * changelog. Missing or empty sections fail closed before npm publish.
  *
  * Usage: tsx scripts/extract-changelog.ts <version> [changelog-path]
  *
@@ -12,7 +12,7 @@
 
 import { readFileSync } from 'node:fs';
 
-import { resolveReleaseBody } from '../src/utils/changelog.js';
+import { requireChangelogSection } from '../src/utils/changelog.js';
 
 const DEFAULT_CHANGELOG = 'packages/tbd/CHANGELOG.md';
 
@@ -25,7 +25,12 @@ function main(argv: string[]): void {
   }
   const changelogPath = argv[1] ?? DEFAULT_CHANGELOG;
   const changelog = readFileSync(changelogPath, 'utf-8');
-  process.stdout.write(resolveReleaseBody(changelog, version) + '\n');
+  process.stdout.write(requireChangelogSection(changelog, version) + '\n');
 }
 
-main(process.argv.slice(2));
+try {
+  main(process.argv.slice(2));
+} catch (error: unknown) {
+  console.error(error instanceof Error ? error.message : String(error));
+  process.exitCode = 1;
+}

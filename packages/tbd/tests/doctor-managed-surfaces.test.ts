@@ -6,6 +6,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { subprocessTestTimeout } from './test-helpers.js';
+import { CURRENT_FORMAT } from '../src/lib/tbd-format.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const TBD_BIN = join(__dirname, '..', 'dist', 'bin.mjs');
@@ -123,12 +124,12 @@ describe('doctor managed agent surfaces', { timeout: subprocessTestTimeout(45_00
     );
     expect(findingNamed('AGENTS.md').finding).toMatchObject({ status: 'ok', message: 'current' });
 
-    await writeFile(skillPath, expected.replace('format=f06', 'format=f99'));
+    await writeFile(skillPath, expected.replace(`format=${CURRENT_FORMAT}`, 'format=f99'));
     const tooNew = portableFinding();
     expect(tooNew.result.status).toBe(1);
     expect(tooNew.finding).toMatchObject({
       status: 'error',
-      message: 'managed file uses newer integration format f99 (supported: f06)',
+      message: `managed file uses newer integration format f99 (supported: ${CURRENT_FORMAT})`,
       suggestion: 'Upgrade tbd to manage this file: npm install -g get-tbd@latest',
     });
   });
