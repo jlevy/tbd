@@ -133,6 +133,7 @@ tbd_format: f07
 tbd_version: legacy
 # tbd_upgrades: tbd versions that have run `tbd setup` in this repo (oldest first);
 # tbd_version above is the most recent. Informational; updated automatically by setup.
+# tbd_fallback_version is the one exact registry fallback for format-incompatible launchers.
 tbd_upgrades:
   - version: legacy
 display:
