@@ -105,13 +105,21 @@ describe('integration file formats', () => {
     });
 
     it('keeps the minimal skill runtime requirement aligned with the package', async () => {
-      const content = await readFile(join(shortcutsSystemDir, 'skill-minimal.md'), 'utf-8');
+      const sourcePath = join(__dirname, '..', 'docs', 'shortcuts', 'system', 'skill-minimal.md');
+      const bundledPath = join(shortcutsSystemDir, 'skill-minimal.md');
+      const [sourceContent, bundledContent] = await Promise.all([
+        readFile(sourcePath, 'utf-8'),
+        readFile(bundledPath, 'utf-8'),
+      ]);
       const packageJson = JSON.parse(
         await readFile(join(__dirname, '..', 'package.json'), 'utf-8'),
       ) as { engines: { node: string } };
       const minimumNode = packageJson.engines.node.replace(/^>=/u, '');
+      const requirement = `Requires Node.js ${minimumNode} or newer and git`;
 
-      expect(content).toContain(`Requires Node.js ${minimumNode}+ and git`);
+      expect(sourceContent).toContain(requirement);
+      expect(bundledContent).toContain(requirement);
+      expect(bundledContent).toBe(sourceContent);
     });
 
     it('includes the natural-language browser request in installed onboarding', async () => {

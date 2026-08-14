@@ -36,16 +36,25 @@ import { fileURLToPath } from 'node:url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 const packageDir = dirname(__dirname);
+const repoDir = dirname(dirname(packageDir));
 
 const BUILD_TARGET = join(packageDir, 'dist', 'bin.mjs');
-const SOURCE_DIRS = [join(packageDir, 'src')];
-const SOURCE_EXTENSIONS = ['.ts', '.tsx', '.mts', '.cts', '.js', '.mjs', '.cjs'];
+// The package build bundles code and copies/composes documentation. Both kinds of
+// input must invalidate dist; otherwise local tests can read stale bundled docs while
+// a clean CI checkout rebuilds them and observes different content.
+const SOURCE_DIRS = [
+  join(packageDir, 'src'),
+  join(packageDir, 'scripts'),
+  join(packageDir, 'docs'),
+];
+const SOURCE_EXTENSIONS = ['.ts', '.tsx', '.mts', '.cts', '.js', '.mjs', '.cjs', '.md'];
 
 // Config files that affect build output
 const CONFIG_FILES = [
   join(packageDir, 'tsdown.config.ts'),
   join(packageDir, 'tsconfig.json'),
   join(packageDir, 'package.json'),
+  join(repoDir, 'README.md'),
 ];
 
 /**
