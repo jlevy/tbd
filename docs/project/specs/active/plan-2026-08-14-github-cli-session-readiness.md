@@ -24,10 +24,12 @@ Give remote agents one clear capability verdict, keep healthy local sessions sil
 move proxy internals behind an on-demand troubleshooting reference.
 
 This plan supersedes the GitHub/session proposals in PRs #219 and #221. Merged PR #223
-is the baseline for repository upgrades, and merged PR #220 supplies the compatibility
-decision procedure. Their incident evidence remains useful input, but their broad
-resident documentation, global-install, wrapper, and durable-state proposals are not the
-intended implementation.
+is the baseline for repository upgrades, PR #226 makes its generated launchers
+format-compatible with one centralized fallback pin, and merged PR #220 supplies the
+compatibility decision procedure.
+Their incident evidence remains useful input, but their broad resident documentation,
+global-install, wrapper, and durable-state proposals are not the intended
+implementation.
 
 ## Goals
 
@@ -45,7 +47,7 @@ intended implementation.
 ## Non-Goals
 
 - Checking npm for newer tbd releases or changing repository upgrade behavior.
-  Merged PR #223 already owns the version-aware hook and setup-upgrade path.
+  PR #226 owns the format-aware launcher and setup-upgrade path.
 - Installing tbd globally from a session hook.
 - Installing a user-level `gh` wrapper, editing shell profiles, or maintaining an
   access-plane state file.
@@ -60,8 +62,8 @@ intended implementation.
 | Compare config `tbd_version` with the running CLI | Drop | It cannot discover the reported failure when both the repository pin and running CLI are equally old. Registry-backed release discovery is a separate policy decision. |
 | Check `latest` during every session | Drop | It adds startup network work and conflicts with the reviewed-version cool-off unless update eligibility is defined separately. |
 | Report setup version transitions and avoid stale local CLIs | Landed in PR #223 | The merged upgrade path is now the implementation baseline, not work for this plan. |
-| Stamp generated scripts | Drop | Generated hooks already contain an exact package pin, and setup/doctor compare their content with the bundled source. Another stamp adds no new signal. |
-| Globally install tbd from the fallback | Drop | Merged PR #223 deliberately chooses a compatible local CLI or the repository-pinned zero-install fallback. A repository hook should not mutate a user-global install. |
+| Stamp generated scripts | Drop | Generated hooks probe `tbd_format`, share one validated `tbd_fallback_version` in config, and are content-checked by setup/doctor. Another stamp adds no new signal. |
+| Globally install tbd from the fallback | Drop | PR #226 deliberately chooses a format-compatible local CLI or the repository-pinned zero-install fallback. A repository hook should not mutate a user-global install. |
 | Install a `~/.local/bin/gh` proxy wrapper | Replace | A wrapper can shadow the real binary and outlive the session or repository that justified it. Use platform-owned session environment persistence instead. |
 | Persist an access-plane state file | Drop | The result is session-dependent and cheap to re-probe; a durable file creates invalidation and trust problems. |
 | Emit one truthful GitHub verdict | Keep | This directly addresses agent confusion, provided healthy local sessions remain silent. |
@@ -182,6 +184,7 @@ session-environment contract is known.
 - [PR #221: agent session ergonomics](https://github.com/jlevy/tbd/pull/221)
 - [PR #219: proxied-session evidence](https://github.com/jlevy/tbd/pull/219)
 - [PR #223: repository upgrade behavior](https://github.com/jlevy/tbd/pull/223)
+- [PR #226: format-compatible launchers](https://github.com/jlevy/tbd/pull/226)
 - [PR #220: backward-compatibility decision procedure](https://github.com/jlevy/tbd/pull/220)
 - [metabrowser PR #43: downstream application of the compatibility template](https://github.com/jlevy/metabrowser/pull/43)
 - [Claude Code hooks: persistent session environment](https://code.claude.com/docs/en/hooks#persist-environment-variables)
