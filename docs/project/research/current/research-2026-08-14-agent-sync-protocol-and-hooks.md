@@ -752,7 +752,8 @@ No code, and probably the highest ratio of value to effort:
 
 ## 6. Enforcement design, agent by agent
 
-The same four scripts, wired to each platform’s nearest equivalent event.
+Three commands — `tbd prime`, `tbd closing`, `tbd sync` — wired to each platform’s
+nearest equivalent event.
 Tiers are from [§2.1](#21-what-enforcement-can-actually-mean).
 
 | Purpose | Script | Claude Code | Codex | Cursor | Gemini CLI | Others |
