@@ -5,14 +5,14 @@ title: Harden and release repeatable tbd repository upgrades
 kind: task
 status: in_progress
 priority: 1
-version: 5
+version: 6
 labels: []
 dependencies: []
 created_at: 2026-08-14T17:30:19.070Z
-updated_at: 2026-08-14T19:27:24.332Z
+updated_at: 2026-08-14T20:08:22.398Z
 ---
-Dogfood the published 0.6.1 self-upgrade, preserve the observed repository diff on an evidence branch, then make same-format and format-changing upgrades deterministic, idempotent, tested from packed artifacts, and enforced by CI/release validation for 0.6.2.
+Dogfood the published v0.6.2 repository upgrade, preserve its exact generated diff, then remove release literals from generated launchers and release v0.6.3 with one centralized, format-aware fallback and packed upgrade coverage for 0.6.2, 0.4.2, and 0.5.0.
 
 ## Notes
 
-Evidence branch codex/evidence-v0.6.1-upgrade is pushed at 67490fd6. PR #223 merged at a2653b10 after senior review and complete CI; v0.6.2 was tagged on that exact merge and its release workflow passed audit, publint, packed web QA, and packaged upgrade proofs for 0.6.1/f07, common 0.4.2/f06, and boundary 0.5.0/f06 before publishing npm and the GitHub Release. Public npm latest, integrity, shasum, and SLSA provenance were verified. The exact first-party tarball was globally installed with lifecycle scripts disabled and a 14-day cutoff for third parties; its 79-node graph matched an independent install with zero audit vulnerabilities. Fresh branch codex/post-release-v0.6.2 from origin/main produced only the four generated hook scripts plus the f07 config stamp, reran byte-for-byte idempotently, passed live prime and shell syntax, and passed the full 2,009-test CI gate. Doctor reports every managed surface current; only the intentionally unavailable Linear credential remains.
+Evidence branch codex/evidence-v0.6.1-upgrade is pushed at 67490fd6. PR #223 merged at a2653b10 after senior review and complete CI; v0.6.2 was tagged on that exact merge and its release workflow passed audit, publint, packed web QA, and packaged upgrade proofs for 0.6.1/f07, common 0.4.2/f06, and boundary 0.5.0/f06 before publishing npm and the GitHub Release. Public npm latest, integrity, shasum, and SLSA provenance were verified. The exact first-party tarball was globally installed with lifecycle scripts disabled and a 14-day cutoff for third parties; its 79-node graph matched an independent install with zero audit vulnerabilities. Fresh branch codex/post-release-v0.6.2 and draft PR #225 preserved the rejected exact-version script churn as evidence and will be superseded. On fresh origin/main branch codex/format-compatible-hooks-v0.6.3, generated Bash launchers now probe tbd_format compatibility and read one strictly validated tbd_fallback_version from config only when needed; no launcher embeds a release literal. The current-repo upgrade changed exactly four launchers, two generated skill mirrors, and config, and identical reruns have the same binary diff hash. Final local gates: formatting, typecheck, lint, build, 2,012 tests, publint, runtime audit, 14-day package-age check, packed web proof, watch smoke, release metadata, and packed upgrade proofs from 0.6.2/f07, 0.4.2/f06, and 0.5.0/f06 all pass. Pending: PR review/CI, merge, main-SHA CI gate, v0.6.3 tag/release verification, published self-upgrade, PR #225 closure, and cleanup.
