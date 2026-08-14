@@ -14,7 +14,6 @@
 
 import { Command } from 'commander';
 import { readFile, mkdir, access, rm, rename, chmod, readdir } from 'node:fs/promises';
-import { spawnSync } from 'node:child_process';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { isDeepStrictEqual } from 'node:util';
@@ -22,7 +21,8 @@ import { writeFile } from 'atomically';
 
 import { BaseCommand } from '../lib/base-command.js';
 import { CLIError } from '../lib/errors.js';
-import { loadSkillContent } from './prime.js';
+import { loadSkillContent, runPrime } from './prime.js';
+import { runImport } from './import.js';
 import { insertAfterFrontmatter } from '../../utils/markdown-utils.js';
 import { pathExists } from '../../utils/file-utils.js';
 import { ensureGitignorePatterns } from '../../utils/gitignore-utils.js';
@@ -254,6 +254,42 @@ interface SetupCodexOptions {
 }
 
 /**
+ * Shell helper shared by generated hooks that select between a local tbd and the
+ * repository-pinned fallback. Compare numeric SemVer cores so a matching development
+ * build is accepted and a genuinely newer local CLI is never downgraded.
+ */
+const TBD_VERSION_AT_LEAST_FUNCTION = `tbd_version_at_least() {
+  local version_pattern='^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)(-[0-9A-Za-z.-]+)?(\\+[0-9A-Za-z.-]+)?$'
+  local installed_major installed_minor installed_patch
+  local required_major required_minor required_patch
+
+  if [[ $1 =~ $version_pattern ]]; then
+    installed_major=\${BASH_REMATCH[1]}
+    installed_minor=\${BASH_REMATCH[2]}
+    installed_patch=\${BASH_REMATCH[3]}
+  else
+    return 1
+  fi
+  if [[ $2 =~ $version_pattern ]]; then
+    required_major=\${BASH_REMATCH[1]}
+    required_minor=\${BASH_REMATCH[2]}
+    required_patch=\${BASH_REMATCH[3]}
+  else
+    return 1
+  fi
+
+  if (( installed_major != required_major )); then
+    (( installed_major > required_major ))
+    return
+  fi
+  if (( installed_minor != required_minor )); then
+    (( installed_minor > required_minor ))
+    return
+  fi
+  (( installed_patch >= required_patch ))
+}`;
+
+/**
  * Script to ensure tbd CLI is installed and run tbd prime.
  * Installed to project .claude/scripts/tbd-session.sh.
  * Runs on SessionStart and PreCompact to ensure tbd is available and provide orientation.
@@ -274,19 +310,33 @@ const TBD_SESSION_SCRIPT = `#!/bin/bash
 # Prefer common local bin locations.
 export PATH="$HOME/.local/bin:$HOME/bin:/usr/local/bin:$PATH"
 
-# Local-first: use tbd if it is already on PATH.
+${TBD_VERSION_AT_LEAST_FUNCTION}
+
+# Local-first when the installed CLI satisfies this repository's pin. An older CLI may
+# be unable to read a newer tbd_format, so let the exact pinned fallback handle upgrades.
+installed_tbd_version=""
 if command -v tbd &> /dev/null; then
+    installed_tbd_version=$(tbd --version 2>/dev/null || true)
+fi
+if [ -n "$installed_tbd_version" ] && tbd_version_at_least "$installed_tbd_version" "${PINNED_NPM_VERSION}"; then
     tbd prime "$@"
     exit $?
 fi
 
 # Pinned zero-install fallback. Never use an unpinned runner here.
 if command -v npx &> /dev/null; then
+    if [ -n "$installed_tbd_version" ]; then
+        echo "[tbd] Local tbd $installed_tbd_version does not satisfy repository pin ${PINNED_NPM_VERSION}; using pinned fallback." >&2
+    fi
     npx --yes get-tbd@${PINNED_NPM_VERSION} prime "$@"
     exit $?
 fi
 
-echo "[tbd] tbd CLI not found and npx is unavailable."
+if [ -n "$installed_tbd_version" ]; then
+    echo "[tbd] Local tbd $installed_tbd_version does not satisfy repository pin ${PINNED_NPM_VERSION}, and npx is unavailable."
+else
+    echo "[tbd] tbd CLI not found and npx is unavailable."
+fi
 echo "[tbd] Install it with: npm install -g get-tbd@${PINNED_NPM_VERSION}"
 exit 1
 `;
@@ -296,18 +346,25 @@ exit 1
  * Always uses project-relative paths so hooks work in any environment
  * (local dev, Claude Code Cloud, etc.).
  */
+const CLAUDE_TBD_SESSION_COMMAND = 'bash .claude/scripts/tbd-session.sh';
+const CLAUDE_TBD_PRECOMPACT_COMMAND = `${CLAUDE_TBD_SESSION_COMMAND} --brief`;
+const CURRENT_CLAUDE_TBD_HOOK_COMMANDS = new Set([
+  CLAUDE_TBD_SESSION_COMMAND,
+  CLAUDE_TBD_PRECOMPACT_COMMAND,
+]);
+
 const CLAUDE_SESSION_HOOKS = {
   hooks: {
     SessionStart: [
       {
         matcher: '',
-        hooks: [{ type: 'command', command: 'bash .claude/scripts/tbd-session.sh' }],
+        hooks: [{ type: 'command', command: CLAUDE_TBD_SESSION_COMMAND }],
       },
     ],
     PreCompact: [
       {
         matcher: '',
-        hooks: [{ type: 'command', command: 'bash .claude/scripts/tbd-session.sh --brief' }],
+        hooks: [{ type: 'command', command: CLAUDE_TBD_PRECOMPACT_COMMAND }],
       },
     ],
   },
@@ -351,9 +408,14 @@ if [[ "$command" == git\\ push* ]] || [[ "$command" == *"&& git push"* ]] || [[ 
   repo_root=$(git rev-parse --show-toplevel 2>/dev/null) && cd "$repo_root"
   if [ -d ".tbd" ]; then
     # Same local-first, version-pinned fallback as tbd-session.sh, so the
-    # reminder still fires when tbd is not on the hook's PATH.
+    # reminder still fires when tbd is missing or too old for this repository.
     export PATH="$HOME/.local/bin:$HOME/bin:/usr/local/bin:$PATH"
+    ${TBD_VERSION_AT_LEAST_FUNCTION}
+    installed_tbd_version=""
     if command -v tbd &> /dev/null; then
+      installed_tbd_version=$(tbd --version 2>/dev/null || true)
+    fi
+    if [ -n "$installed_tbd_version" ] && tbd_version_at_least "$installed_tbd_version" "${PINNED_NPM_VERSION}"; then
       tbd closing
     elif command -v npx &> /dev/null; then
       npx --yes get-tbd@${PINNED_NPM_VERSION} closing
@@ -1440,6 +1502,7 @@ class SetupDefaultHandler extends BaseCommand {
     if (hasTbd) {
       // Already initialized flow - check for migrations
       const { config, migrated, changes } = await readConfigWithMigration(projectDir);
+      const previousVersion = config.tbd_version ?? 'unknown';
       console.log(`  ${colors.success('✓')} tbd initialized (prefix: ${config.display.id_prefix})`);
 
       // Apply --no-gh-cli flag to config if specified
@@ -1484,6 +1547,12 @@ class SetupDefaultHandler extends BaseCommand {
       // the stamped config (the migration notice has already fired).
       if (!this.ctx.dryRun && (versionStamped || ghCliChanged)) {
         await writeConfig(projectDir, stamped);
+        if (versionStamped) {
+          console.log(
+            `  ${colors.success('✓')} Recorded tbd setup version ${previousVersion} → ${VERSION}`,
+          );
+          console.log(colors.dim('      Review and commit the generated repository changes.'));
+        }
         if (ghCliChanged) {
           console.log(`  ${colors.success('✓')} Disabled gh CLI auto-setup`);
         }
@@ -1666,11 +1735,9 @@ class SetupDefaultHandler extends BaseCommand {
     try {
       await access(jsonlPath);
       // Import directly from the JSONL file (tbd is already initialized)
-      const result = spawnSync('tbd', ['import', jsonlPath, '--verbose'], {
-        cwd,
-        stdio: 'inherit',
-      });
-      if (result.status !== 0) {
+      try {
+        await runImport(this.cmd, jsonlPath, { verbose: true });
+      } catch {
         console.log(colors.warn('Warning: Some issues may not have imported correctly'));
       }
     } catch {
@@ -1693,7 +1760,7 @@ class SetupDefaultHandler extends BaseCommand {
     this.showWhatsNext(colors);
 
     // Show dashboard after setup
-    spawnSync('tbd', ['prime'], { stdio: 'inherit' });
+    await runPrime(this.cmd);
 
     // Mark welcome as seen since the user got the full onboarding experience
     try {
@@ -1786,7 +1853,7 @@ class SetupDefaultHandler extends BaseCommand {
     this.showWhatsNext(colors);
 
     // Show dashboard after setup
-    spawnSync('tbd', ['prime'], { stdio: 'inherit' });
+    await runPrime(this.cmd);
 
     // Mark welcome as seen since the user got the full onboarding experience
     try {
@@ -2003,10 +2070,14 @@ class SetupAutoHandler extends BaseCommand {
     return hookList.filter((entry) => {
       // Check if any hook command matches legacy patterns
       const hasLegacyCommand = entry.hooks?.some((hook) => {
-        if (!hook.command) {
+        const command = hook.command;
+        if (!command) {
           return false;
         }
-        return LEGACY_TBD_HOOK_PATTERNS.some((pattern) => pattern.test(hook.command!));
+        if (CURRENT_CLAUDE_TBD_HOOK_COMMANDS.has(command)) {
+          return false;
+        }
+        return LEGACY_TBD_HOOK_PATTERNS.some((pattern) => pattern.test(command));
       });
       // Keep entries that DON'T have legacy commands
       return !hasLegacyCommand;

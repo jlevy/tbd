@@ -126,6 +126,7 @@ pnpm --filter get-tbd exec vitest run \
   tests/web-*.test.ts tests/cli-web.test.ts tests/bead-web-css.test.ts
 pnpm --filter get-tbd exec tryscript run tests/cli-web.tryscript.md
 pnpm --filter get-tbd qa:web-package
+pnpm --filter get-tbd qa:upgrade-package
 ```
 
 The spawned-process acceptance test creates real writer and viewer clones, proves the

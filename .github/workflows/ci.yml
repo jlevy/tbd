@@ -51,6 +51,10 @@ jobs:
       - name: Run packed web proof
         run: pnpm --filter get-tbd qa:web-package
 
+      - name: Run packed upgrade proof
+        if: ${{ matrix.os == 'ubuntu-latest' && matrix.node == 24 }}
+        run: pnpm --filter get-tbd qa:upgrade-package
+
   coverage:
     name: Coverage & Lint
     runs-on: ubuntu-latest

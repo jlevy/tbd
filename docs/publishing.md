@@ -205,6 +205,13 @@ No Changesets—bump by hand on a `claude/release-vX.X.X` branch:
 The notes you write here ARE the release notes (Step 5); there is no separate changeset
 summary to keep in sync.
 
+Before publishing every release, run `pnpm qa:upgrade-package`. It packs the candidate
+with the release version and upgrades disposable repositories created by the exact
+published same-format and previous-format baselines.
+Update `TBD_UPGRADE_SAME_FORMAT_FROM`, `TBD_UPGRADE_COMMON_FROM`, or
+`TBD_UPGRADE_PREVIOUS_FORMAT_FROM` when validating a different usage or compatibility
+boundary.
+
 **If the release bumps `tbd_format`** (`CURRENT_FORMAT` in
 [`tbd-format.ts`](../packages/tbd/src/lib/tbd-format.ts) differs from the last release):
 
