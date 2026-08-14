@@ -785,9 +785,15 @@ Agents are not Linear users, and `assignee` pushes only identities present in `u
 data without an explicit mapping.
 Three options:
 
-- **(a) Map an agent alias to a real Linear bot user.** Cleanest UI: Linear’s own
-  avatar, filters, and “assigned to me” views all work.
-  Costs a Linear seat and a `user_map` entry.
+- **(a) Delegate to a real Linear agent user.** Linear models this natively and the
+  ecosystem has standardized on it: `delegate` is a **separate field from `assignee`**,
+  so the human stays the owner while the agent “contributes on their behalf”, and agents
+  are **not billable seats**
+  ([§6.4a of the Linear brief](research-2026-08-09-linear-task-surfaces.md#64a-the-agent-ecosystem-surveyed-2026-08-14)).
+  Filterable in views, search, and Insights.
+  An earlier draft proposed mapping an agent alias to a **bot user in `assignee`**; that
+  is the wrong shape — it fights the platform’s ownership model and costs a seat, where
+  `delegate` agrees with it and does not.
 - **(b) Carry the actor in the managed block and a `tbd:in-progress` label.** No seat,
   no schema change, works today.
   Loses Linear’s native assignee affordances.
@@ -868,7 +874,15 @@ per-team prefix answers “which repo” at a glance in every Linear view, notif
 commit message. Its cost is real — teams carry members, cycles, and state configuration,
 and `ensureMeta` is per team — so it suits a handful of repos, not dozens.
 
-Mode 2 is what the user’s instinct describes (tags), and it should become first-class:
+**Labels are applied in every mode, not only Mode 2.** They cost nothing, keep human
+filtering uniform whatever topology a repository uses, make a Mode 1 repository
+consolidation-ready (moving to a shared scope later needs no relabelling), and are what
+lets the inbound origin-scoping guard work at all.
+Every part is customizable — `labels.origin: false` opts out entirely,
+`labels.repo: false` drops just the repo label, a string pins the name — but the
+*default* needs no configuration ([§4.7](#47-the-integration-config-is-the-data-model)
+is their config home).
+Mode 2 is the topology that makes them load-bearing:
 
 - **Origin labels (E18).** Every mirrored issue gets a plain `tbd` label plus a
   per-repository label inside a **Linear label group** named `repo` — the platform’s
@@ -1104,7 +1118,8 @@ policy:
     mode: report # off | report | auto — unchanged default
     when:
       labels: [tbd-take] # any of these
-      assignee: agents@example.com # or assigned to this Linear user
+      delegate: tbd # or delegated to this Linear agent (see below)
+      assignee: agents@example.com # or assigned to this user
     as_kind: task # default kind
     kind_labels: # optional: label -> kind overrides
       bug: bug
@@ -1114,8 +1129,25 @@ policy:
 `when.labels` preserves today’s behavior exactly (an existing `labels: [...]` config
 folds into `when.labels`, the same way `select` folds into `policy.outbound`), so this
 is additive. Matching is **any-of within a selector and any-of across selectors**: a
-human can hand work over by labelling *or* by assigning, whichever their team already
+human can hand work over by labelling *or* by delegating, whichever their team already
 does.
+
+**`delegate` is the selector that matches how Linear actually works.** The ecosystem
+survey
+([§6.4a](research-2026-08-09-linear-task-surfaces.md#64a-the-agent-ecosystem-surveyed-2026-08-14))
+found 27 agents in Linear’s directory — Codex, Cursor, Copilot, Devin, Factory, and a
+Claude Code-powered one called Cyrus — and all are triggered by **delegation** or
+**`@mention`**, not by labels.
+Delegation keeps the human as assignee by design, which is exactly the ownership model a
+human handing work to an agent wants.
+Supporting `when.delegate` costs one filter and buys the gesture users already know.
+
+**And the label path may need no code at all.** Linear’s custom **Triage rules** can
+route on label and *delegate to an agent* in the same flow, so a team already using
+Triage can wire `tbd-take` → delegate natively.
+Worth documenting before building a label scanner: for those teams it is configuration,
+not software. The scanner still earns its place for teams not on Triage, and for
+`mode: report`, where nothing should be delegated automatically.
 
 **Do not assign imported beads to an agent — put them in the ready set.** The obvious
 reading of “assign it to an agent” is that the import picks an agent and assigns.

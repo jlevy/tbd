@@ -146,16 +146,16 @@ synchronizable pair rather than only changed ones (`sync-engine.ts:1097`) and en
 writing the link record unconditionally with `synced_at: options.now()`. Two candidate
 fixes:
 
-1. Write the record only when a field other than `synced_at` differs from the record on
-   disk.
-2. **Preferred:** drop `synced_at` from `LinkRecordSchema`. It is diagnostic only —
-   reconciliation rides on `base` and `remote_updated_at` — and the git commit timestamp
-   of the record already answers “when did this last move”.
+1. **Correct, and shipped in [#227](https://github.com/jlevy/tbd/pull/227):** write the
+   record only when a field other than `synced_at` differs from the record on disk.
+2. ~~Drop `synced_at` from `LinkRecordSchema`.~~ **Wrong — do not do this.** This draft
+   preferred it on the grounds that the field is diagnostic only.
+   It is not: `pickNewestLinkRecord` (`git.ts:2117-2125`) uses `synced_at` as the merge
+   tiebreaker when two machines observe the same item and their `remote_updated_at`
+   agree. The field is load-bearing; only its role as a *write trigger* was the defect.
 
-Option 2 removes the failure mode rather than guarding it, at the cost of a
-bridge-record shape change.
-Bridge records are machine-written and locally regenerable, so this is far cheaper than
-a bead-format change.
+Implementing it is what surfaced the correction — a reminder that “diagnostic only”
+should be verified by grep, not assumed from a field’s name.
 
 **The sync branch must push without parent-repo hooks (`F5`).** tbd already passes
 `--no-verify` on its *commits* to the sync branch, and `git.ts:1722` states that intent.
@@ -446,7 +446,8 @@ policy:
     mode: report # unchanged default; auto stays a deliberate opt-in
     when:
       labels: [tbd-take] # any of these, or…
-      assignee: agents@example.com # …assigned to this Linear user
+      delegate: tbd # …delegated to this Linear agent, or…
+      assignee: agents@example.com # …assigned to this user
     as_kind: task
     kind_labels: { bug: bug } # optional per-label kind overrides
     consume: true # remove the trigger label on import
@@ -458,6 +459,15 @@ Two decisions worth stating:
   item carries `tbd`, using `tbd` as the trigger would make every mirrored item — and
   every *other* repository’s — a standing import candidate.
   Human-applied `tbd-take`; tbd-applied `tbd`.
+- **`delegate` is the gesture the ecosystem actually uses.** Linear’s agent directory
+  lists 27 agents — Codex, Cursor, Copilot, Devin, Factory, and the Claude Code-powered
+  Cyrus — and all are triggered by delegation or `@mention`, never by labels.
+  `delegate` is a separate field from `assignee` by design, so the human stays owner
+  while the agent contributes; agents are not billable seats.
+  A related discovery: Linear’s **Triage rules** can route on label *and* delegate to an
+  agent in one flow, so for teams already on Triage the label→delegate path is
+  configuration rather than software.
+  The scanner still earns its place for teams not on Triage and for `mode: report`.
 - **Imported beads are not assigned to an agent.** They arrive `open` and unassigned, so
   they land in `tbd ready` and the next agent claims one with `tbd start` (Phase 1).
   That reuses the claim protocol rather than inventing a second assignment path, names
@@ -540,6 +550,80 @@ keys; `LinkRecordSchema` drops `synced_at`; `IntegrationSelect` gains an attenti
 clause.
 
 **Format:** `f07` → `f08`, metadata-only stamp.
+
+## Schema and Structure Changes
+
+Every persisted shape this plan touches, in one place, with its compatibility story.
+Three artifacts have durable on-disk shapes — the **bead** (committed, read by every
+client), the **config** (committed, read by every client), and the **bridge record**
+(machine-written, locally regenerable) — and they carry very different risk.
+
+### Bead schema (`IssueSchema`) — Phase 2, `f08`
+
+| Change | Shape | Compatibility |
+| --- | --- | --- |
+| Preserve unknown keys | parse mode: strip → passthrough | **The reason `f08` exists.** Verified by probe: an older client parse-and-write **deletes** any bead field it does not know |
+| Carry unknown keys through merge | `mergeIssues` builds from `{...base}` plus the fixed `FIELD_STRATEGIES` table | A key added on only one side is dropped even once parsing preserves it — both layers must change |
+| `docs` | `{path, role?, title?}[]`, optional | Additive; `docs: 'union'` on `path` |
+| `refs` | `{kind, url, title?, at}[]`, optional | Additive; `refs: 'union'` on `url` |
+| `spec_path` | **unchanged** | Load-bearing for selection, propagation, and `list --spec` |
+
+Serialization needs no change: `sortKeys` already iterates `Object.keys(obj)` and emits
+whatever it is handed.
+
+### Integration config (`IntegrationsConfigSchema`) — Phase 2, same `f08`
+
+Regrouping by concern, so future decisions are values in an existing group rather than
+new flat siblings.
+
+| From | To | Note |
+| --- | --- | --- |
+| `team_key`, `project` | `target: {…}` | Provider-specific inside a provider-neutral group (`target: {repo}` for GitHub) |
+| `max_nesting` | `policy.outbound.max_nesting` | It is a selection concern; rides presets |
+| `select` (legacy alias) | removed | Folds into `policy.outbound`, which the runtime resolver already does |
+| `mirror_labels`, `create_labels` | `labels: {mirror, create}` | Joined by `labels.origin` and `labels.repo` |
+| *(new)* | `labels.origin: true` | The `tbd` marker. **On by default in every integration mode**, per-key customizable |
+| *(new)* | `labels.repo: auto` | `repo`-group label; `auto` derives from the git origin |
+| `user_map` | `identity: {user_map}` |  |
+| *(new)* | `policy.inbound.when: {labels, delegate, assignee}` | Today’s `inbound.labels` folds into `when.labels` |
+| *(new)* | `policy.inbound.kind_labels`, `.consume` |  |
+
+`sync_on_tbd_sync` stays where it is: it gates the whole block, not one provider.
+
+**The integration mode is deliberately not a config field.** It would be a claim about
+*other* repositories’ configs that this one cannot see or keep true.
+Only local fact is serialized; `doctor` infers cross-repo risk from observed labels.
+
+### Bridge record (`LinkRecordSchema`) — Phase 1, no format bump
+
+| Change | Note |
+| --- | --- |
+| Write only when a field other than `synced_at` differs | Shipped. The record shape is unchanged |
+| `synced_at` **retained** | An earlier draft proposed dropping it. It is a merge tiebreaker in `pickNewestLinkRecord`, so it is load-bearing; only its role as a *write trigger* was wrong |
+
+Bridge records are machine-written and regenerable, so shape changes here are cheap —
+which is exactly why the `f09`-free fix belongs on this side of the line rather than the
+bead side.
+
+### Not a schema, but structural
+
+| Structure | Change | Phase |
+| --- | --- | --- |
+| Sync-branch push | `--no-verify` at both push sites | 1 (shipped) |
+| Managed block | Adds docs, refs, in-flight children, actor, `synced` timestamp | 3 |
+| Claim attachment URL | `tbd://bead/<displayId>` may gain repo identity — it is also the upsert idempotency key, so any change must tolerate the old form | 3 (open question) |
+| `tbd web` routes | `#<bead-id>` deep link | 3 |
+| Linear labels | `tbd` (plain) + `repo/<name>` (group); human-applied `tbd-take` stays distinct | 3 |
+
+### The compatibility rule this plan follows
+
+`f08` is the **last** bead-format bump additive metadata should need.
+After it, both the bead schema and the config preserve unknown keys, so a future field
+is either a value in an existing group or a new optional one — neither of which requires
+a bump. A bump remains necessary only for what the format rules already say: destructive
+changes, renames, and semantic changes to existing fields.
+
+* * *
 
 ## Implementation Plan
 
