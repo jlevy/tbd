@@ -62,7 +62,7 @@ platform and any optional Linear sandbox experiment.
 
 ## Prerequisites
 
-- Node.js 20 or newer, pnpm 10, and Git 2.42 or newer.
+- Node.js 22.12.0 or newer, pnpm 10, and Git 2.42 or newer.
 - A clean checkout of the release commit.
 - For Phase 2, a disposable private GitHub repository and credentials that match the
   intended operator environment.
@@ -378,7 +378,7 @@ CI is the automated floor; this phase samples the actual artifact and shell inte
 | Item | Check | Status |
 | --- | --- | --- |
 | Cross-platform built candidate | CI runs the full disposable-topology smoke on macOS, Ubuntu, and Windows. | Automated |
-| Minimum runtime | Exact packed artifact passes under the supported Node.js 20 floor. | ⏳ |
+| Minimum runtime | Exact packed artifact passes under the supported Node.js 22.12.0 floor. | ⏳ |
 | macOS | Packed smoke passes; unattended recipe parses and runs under system Bash 3.2. | ⏳ |
 | Ubuntu | Packed smoke and one real-remote wake pass. | ⏳ |
 | Windows | Packed smoke passes through PowerShell/Git; `.cmd` shim and CRLF docs extraction remain valid. | ⏳ |
