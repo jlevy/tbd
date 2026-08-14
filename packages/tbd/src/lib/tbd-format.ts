@@ -8,10 +8,12 @@
  * - Bump when changes REQUIRE migration (deleting files, changing formats, moving files)
  * - Bump for config removals, renames, semantic changes, or additions inside a nested
  *   schema that does not preserve unknown keys when an older client could lose data.
- * - **Bump when the shape of a generated agent-integration surface changes** (e.g. the
- *   managed AGENTS.md block). This same format is stamped there via
- *   AGENT_INTEGRATION_FORMAT (integration-paths.ts), so there is ONE format code across
- *   all tbd-managed surfaces.
+ * - Bump when the shape of a format-stamped agent-integration surface changes
+ *   incompatibly (e.g. the managed AGENTS.md block). The same format is stamped there
+ *   via AGENT_INTEGRATION_FORMAT (integration-paths.ts).
+ * - Do NOT bump merely because the implementation of a content-managed launcher script
+ *   changes compatibly. Those scripts are refreshed by content comparison and select a
+ *   CLI by probing this repository format at runtime.
  * - Do NOT bump for a purely additive top-level config block, or a key inside an
  *   explicitly passthrough schema, once the repository is on f07.
  * - Do NOT bump for additive changes that don't affect config.yml (new directories, etc.)
@@ -167,6 +169,8 @@ export type FormatVersion = keyof typeof FORMAT_HISTORY;
 export interface RawConfig {
   tbd_format?: string;
   tbd_version?: string;
+  /** Exact published version for generated launchers' incompatible-format fallback. */
+  tbd_fallback_version?: string;
   /** Upgrade history (f06+). Seeded on migration; appended by setup. */
   tbd_upgrades?: { version: string; at?: string }[];
   sync?: {

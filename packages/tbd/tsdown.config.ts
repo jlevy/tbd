@@ -8,10 +8,9 @@ import { getGitVersion } from './scripts/git-version.mjs';
 // Full git-describe version, used for display/diagnostics (e.g. `tbd --version`).
 const version = getGitVersion();
 
-// Clean published semver from package.json, used for pinned `get-tbd@<version>`
-// fallbacks (e.g. the session script). Unlike `version`, this is never a
-// dev/dirty git-describe string — that would not be installable from npm and
-// would churn generated files on every local build.
+// Clean published semver from package.json, recorded once in repository config for
+// pinned `get-tbd@<version>` fallbacks. Unlike `version`, this is never a dev/dirty
+// git-describe string, and generated scripts do not embed it.
 const pinnedVersion = (
   JSON.parse(readFileSync(new URL('./package.json', import.meta.url), 'utf8')) as {
     version: string;

@@ -5,7 +5,7 @@
  * Prove a packed candidate upgrades real published repositories safely.
  *
  * Three baselines exercise the real-world path and distinct compatibility contracts:
- * - the latest same-format patch (0.6.1 / f07), whose older client must keep working;
+ * - the latest same-format patch (0.6.2 / f07), whose older client must keep working;
  * - the common pre-f07 release (0.4.2 / f06), whose client must fail closed after upgrade;
  * - the last pre-f07 release (0.5.0 / f06), which guards the immediate format boundary.
  */
@@ -32,7 +32,7 @@ const execFileAsync = promisify(execFile);
 const scriptDir = dirname(fileURLToPath(import.meta.url));
 const packageDir = join(scriptDir, '..');
 const sourceRepoDir = join(packageDir, '..', '..');
-const sameFormatBaseline = process.env.TBD_UPGRADE_SAME_FORMAT_FROM ?? '0.6.1';
+const sameFormatBaseline = process.env.TBD_UPGRADE_SAME_FORMAT_FROM ?? '0.6.2';
 const commonUpgradeBaseline = process.env.TBD_UPGRADE_COMMON_FROM ?? '0.4.2';
 const previousFormatBaseline = process.env.TBD_UPGRADE_PREVIOUS_FORMAT_FROM ?? '0.5.0';
 const managedUpgradePaths = new Set([
@@ -292,6 +292,11 @@ async function validateScenario({
     `${name}: config reports ${String(upgradedConfig.tbd_version)}, expected ${candidateVersion}`,
   );
   invariant(
+    upgradedConfig.tbd_fallback_version === candidateVersion,
+    `${name}: config fallback reports ${String(upgradedConfig.tbd_fallback_version)}, ` +
+      `expected ${candidateVersion}`,
+  );
+  invariant(
     upgradedConfig.upgrade_qa?.preserve === 'top-level-value',
     `${name}: top-level config probe was lost`,
   );
@@ -331,10 +336,17 @@ async function validateScenario({
     join(repository, '.claude', 'scripts', 'tbd-session.sh'),
     'utf8',
   );
-  invariant(sessionScript.includes('tbd_version_at_least'), `${name}: version guard is missing`);
   invariant(
-    sessionScript.includes(`get-tbd@${candidateVersion}`),
-    `${name}: session fallback is not pinned to ${candidateVersion}`,
+    sessionScript.includes('tbd config get tbd_format'),
+    `${name}: format compatibility probe is missing`,
+  );
+  invariant(
+    sessionScript.includes('npx --yes "get-tbd@$configured_fallback_version"'),
+    `${name}: session fallback does not read the exact configured version`,
+  );
+  invariant(
+    !/get-tbd@\d+\.\d+\.\d+/u.test(sessionScript),
+    `${name}: session script embeds a release version`,
   );
 
   const firstDiff = await git(repository, 'diff', '--cached', '--binary');

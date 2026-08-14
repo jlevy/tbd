@@ -254,39 +254,32 @@ interface SetupCodexOptions {
 }
 
 /**
- * Shell helper shared by generated hooks that select between a local tbd and the
- * repository-pinned fallback. Compare numeric SemVer cores so a matching development
- * build is accepted and a genuinely newer local CLI is never downgraded.
+ * Shell helpers shared by generated hooks. Compatibility is defined by the repository
+ * format, not by the release that last ran setup: `tbd config get tbd_format` succeeds
+ * only when the local CLI can safely read the config. The exact network fallback stays
+ * deterministic, but its pin is read from config so patch releases do not rewrite every
+ * generated script.
  */
-const TBD_VERSION_AT_LEAST_FUNCTION = `tbd_version_at_least() {
-  local version_pattern='^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)(-[0-9A-Za-z.-]+)?(\\+[0-9A-Za-z.-]+)?$'
-  local installed_major installed_minor installed_patch
-  local required_major required_minor required_patch
+const TBD_REPOSITORY_RUNNER_FUNCTIONS = `tbd_configured_fallback_version() {
+  local config_path=$1
+  local line configured_fallback_version
+  local version_pattern='^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)(-[0-9A-Za-z-]+(\\.[0-9A-Za-z-]+)*)?(\\+[0-9A-Za-z-]+(\\.[0-9A-Za-z-]+)*)?$'
 
-  if [[ $1 =~ $version_pattern ]]; then
-    installed_major=\${BASH_REMATCH[1]}
-    installed_minor=\${BASH_REMATCH[2]}
-    installed_patch=\${BASH_REMATCH[3]}
-  else
-    return 1
-  fi
-  if [[ $2 =~ $version_pattern ]]; then
-    required_major=\${BASH_REMATCH[1]}
-    required_minor=\${BASH_REMATCH[2]}
-    required_patch=\${BASH_REMATCH[3]}
-  else
-    return 1
-  fi
+  while IFS= read -r line; do
+    if [[ $line =~ ^tbd_fallback_version:[[:space:]]*([^[:space:]]+)[[:space:]]*$ ]]; then
+      configured_fallback_version=\${BASH_REMATCH[1]}
+      if [[ $configured_fallback_version =~ $version_pattern ]]; then
+        printf '%s\\n' "$configured_fallback_version"
+        return 0
+      fi
+      return 1
+    fi
+  done < "$config_path"
+  return 1
+}
 
-  if (( installed_major != required_major )); then
-    (( installed_major > required_major ))
-    return
-  fi
-  if (( installed_minor != required_minor )); then
-    (( installed_minor > required_minor ))
-    return
-  fi
-  (( installed_patch >= required_patch ))
+tbd_local_can_read_repository() {
+  command -v tbd &> /dev/null && tbd config get tbd_format >/dev/null 2>&1
 }`;
 
 /**
@@ -302,42 +295,52 @@ const TBD_SESSION_SCRIPT = `#!/bin/bash
 # Ensure the tbd CLI is available and run \`tbd prime\`.
 # Installed by: tbd setup --auto. Runs on SessionStart and PreCompact.
 #
-# Local-first, then a VERSION-PINNED zero-install fallback. Pinning is both a
-# supply-chain control (an unpinned runner re-resolves to latest on every run
-# and bypasses any cool-off) and a consistency control (every teammate and agent
-# runs the same tbd version).
+# Local-first when the installed CLI can read this repository's tbd_format. Otherwise,
+# use the exact version recorded by setup in .tbd/config.yml. Keeping the pin in config
+# avoids rewriting this script for every compatible patch while retaining deterministic
+# zero-install behavior.
 
 # Prefer common local bin locations.
 export PATH="$HOME/.local/bin:$HOME/bin:/usr/local/bin:$PATH"
 
-${TBD_VERSION_AT_LEAST_FUNCTION}
-
-# Local-first when the installed CLI satisfies this repository's pin. An older CLI may
-# be unable to read a newer tbd_format, so let the exact pinned fallback handle upgrades.
-installed_tbd_version=""
-if command -v tbd &> /dev/null; then
-    installed_tbd_version=$(tbd --version 2>/dev/null || true)
+repo_root=$(git rev-parse --show-toplevel 2>/dev/null)
+if [ -z "$repo_root" ] || [ ! -f "$repo_root/.tbd/config.yml" ]; then
+    echo "[tbd] Cannot locate repository .tbd/config.yml." >&2
+    exit 1
 fi
-if [ -n "$installed_tbd_version" ] && tbd_version_at_least "$installed_tbd_version" "${PINNED_NPM_VERSION}"; then
+cd "$repo_root" || exit 1
+
+${TBD_REPOSITORY_RUNNER_FUNCTIONS}
+
+if tbd_local_can_read_repository; then
     tbd prime "$@"
     exit $?
 fi
 
-# Pinned zero-install fallback. Never use an unpinned runner here.
+# Read and validate the exact fallback before invoking a package runner. This prevents a
+# malformed or hand-edited config value from becoming an executable package spec.
+if ! configured_fallback_version=$(tbd_configured_fallback_version ".tbd/config.yml"); then
+    echo "[tbd] .tbd/config.yml does not contain a valid exact tbd_fallback_version." >&2
+    echo "[tbd] Run a current 'tbd setup --auto' to repair the managed launcher." >&2
+    exit 1
+fi
+
 if command -v npx &> /dev/null; then
-    if [ -n "$installed_tbd_version" ]; then
-        echo "[tbd] Local tbd $installed_tbd_version does not satisfy repository pin ${PINNED_NPM_VERSION}; using pinned fallback." >&2
+    if command -v tbd &> /dev/null; then
+        echo "[tbd] Local tbd cannot read this repository format; using configured fallback get-tbd@$configured_fallback_version." >&2
+    else
+        echo "[tbd] tbd CLI not found; using configured fallback get-tbd@$configured_fallback_version." >&2
     fi
-    npx --yes get-tbd@${PINNED_NPM_VERSION} prime "$@"
+    npx --yes "get-tbd@$configured_fallback_version" prime "$@"
     exit $?
 fi
 
-if [ -n "$installed_tbd_version" ]; then
-    echo "[tbd] Local tbd $installed_tbd_version does not satisfy repository pin ${PINNED_NPM_VERSION}, and npx is unavailable."
+if command -v tbd &> /dev/null; then
+    echo "[tbd] Local tbd cannot read this repository format, and npx is unavailable." >&2
 else
-    echo "[tbd] tbd CLI not found and npx is unavailable."
+    echo "[tbd] tbd CLI not found and npx is unavailable." >&2
 fi
-echo "[tbd] Install it with: npm install -g get-tbd@${PINNED_NPM_VERSION}"
+echo "[tbd] Install it with: npm install -g get-tbd@$configured_fallback_version" >&2
 exit 1
 `;
 
@@ -399,26 +402,28 @@ const TBD_CLOSE_PROTOCOL_SCRIPT = `#!/bin/bash
 # Remind about close protocol after git push
 # Installed by: tbd setup --auto
 
+${TBD_REPOSITORY_RUNNER_FUNCTIONS}
+
 input=$(cat)
 command=$(echo "$input" | jq -r '.tool_input.command // empty')
 
 # Check if this is a git push command and .tbd exists
 if [[ "$command" == git\\ push* ]] || [[ "$command" == *"&& git push"* ]] || [[ "$command" == *"; git push"* ]]; then
   # The hook may start in a subdirectory; check .tbd at the repo root.
-  repo_root=$(git rev-parse --show-toplevel 2>/dev/null) && cd "$repo_root"
+  if ! repo_root=$(git rev-parse --show-toplevel 2>/dev/null); then
+    exit 0
+  fi
+  cd "$repo_root" || exit 0
   if [ -d ".tbd" ]; then
-    # Same local-first, version-pinned fallback as tbd-session.sh, so the
-    # reminder still fires when tbd is missing or too old for this repository.
+    # Same format-compatible local selection and config-pinned fallback as
+    # tbd-session.sh, so compatible patch releases do not rewrite this hook.
     export PATH="$HOME/.local/bin:$HOME/bin:/usr/local/bin:$PATH"
-    ${TBD_VERSION_AT_LEAST_FUNCTION}
-    installed_tbd_version=""
-    if command -v tbd &> /dev/null; then
-      installed_tbd_version=$(tbd --version 2>/dev/null || true)
-    fi
-    if [ -n "$installed_tbd_version" ] && tbd_version_at_least "$installed_tbd_version" "${PINNED_NPM_VERSION}"; then
+    if tbd_local_can_read_repository; then
       tbd closing
-    elif command -v npx &> /dev/null; then
-      npx --yes get-tbd@${PINNED_NPM_VERSION} closing
+    elif configured_fallback_version=$(tbd_configured_fallback_version ".tbd/config.yml"); then
+      if command -v npx &> /dev/null; then
+        npx --yes "get-tbd@$configured_fallback_version" closing
+      fi
     fi
   fi
 fi
@@ -1515,14 +1520,21 @@ class SetupDefaultHandler extends BaseCommand {
       // Stamp the version that ran this setup: refresh tbd_version and append to the
       // upgrade history when the version changed (dedupe keeps re-runs quiet). Runs on
       // every setup, including same-format upgrades where no migration fires.
-      const stamped = stampSetupVersion(config, VERSION);
-      const versionStamped = stamped !== config;
+      const setupVersionChanged =
+        config.tbd_version !== VERSION || config.tbd_upgrades.at(-1)?.version !== VERSION;
+      const fallbackVersionChanged = config.tbd_fallback_version !== PINNED_NPM_VERSION;
+      const stamped = stampSetupVersion(config, {
+        version: VERSION,
+        fallbackVersion: PINNED_NPM_VERSION,
+      });
+      const configStamped = stamped !== config;
 
       if (this.ctx.dryRun) {
-        if (migrated || versionStamped || ghCliChanged) {
+        if (migrated || configStamped || ghCliChanged) {
           this.output.dryRun('Would update .tbd/config.yml', {
             migrated,
             version: VERSION,
+            fallbackVersion: PINNED_NPM_VERSION,
             ghCliChanged,
           });
         }
@@ -1545,11 +1557,16 @@ class SetupDefaultHandler extends BaseCommand {
       // Persist the version stamp and any flag changes (e.g., --no-gh-cli) as a single
       // explicit write. When migrated, this supersedes the data-context write above with
       // the stamped config (the migration notice has already fired).
-      if (!this.ctx.dryRun && (versionStamped || ghCliChanged)) {
+      if (!this.ctx.dryRun && (configStamped || ghCliChanged)) {
         await writeConfig(projectDir, stamped);
-        if (versionStamped) {
+        if (setupVersionChanged) {
           console.log(
             `  ${colors.success('✓')} Recorded tbd setup version ${previousVersion} → ${VERSION}`,
+          );
+          console.log(colors.dim('      Review and commit the generated repository changes.'));
+        } else if (fallbackVersionChanged) {
+          console.log(
+            `  ${colors.success('✓')} Configured exact tbd fallback ${PINNED_NPM_VERSION}`,
           );
           console.log(colors.dim('      Review and commit the generated repository changes.'));
         }
@@ -1886,7 +1903,7 @@ class SetupDefaultHandler extends BaseCommand {
     const colors = this.output.getColors();
 
     // 1. Create .tbd/ directory with config.yml
-    const config = await initConfig(cwd, VERSION, prefix);
+    const config = await initConfig(cwd, VERSION, prefix, PINNED_NPM_VERSION);
     console.log(`  ${colors.success('✓')} Created .tbd/config.yml`);
 
     // 2. Create/update .tbd/.gitignore (idempotent)

@@ -12,7 +12,7 @@ import { BaseCommand } from '../lib/base-command.js';
 import { ensureGitignorePatterns } from '../../utils/gitignore-utils.js';
 import { CLIError, ValidationError } from '../lib/errors.js';
 import { isValidPrefix, isRecommendedPrefix } from '../lib/prefix-detection.js';
-import { VERSION } from '../lib/version.js';
+import { PINNED_NPM_VERSION, VERSION } from '../lib/version.js';
 import { initConfig } from '../../file/config.js';
 import {
   TBD_DIR,
@@ -115,7 +115,7 @@ class InitHandler extends BaseCommand {
     await this.execute(async () => {
       // 1. Create .tbd/ directory with config.yml
       // Note: options.prefix is validated to be non-null above
-      const config = await initConfig(cwd, VERSION, options.prefix!);
+      const config = await initConfig(cwd, VERSION, options.prefix!, PINNED_NPM_VERSION);
       this.output.debug(`Created ${TBD_DIR}/config.yml with prefix '${options.prefix}'`);
 
       // 2. Create .tbd/.gitignore (idempotent)
