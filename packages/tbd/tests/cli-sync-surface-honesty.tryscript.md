@@ -74,11 +74,26 @@ $ tbd sync --issues --dry-run 2>&1 | grep -c "Skipping external trackers"
 ? 0
 ```
 
-# Test: JSON mode carries the omission as data
+# Test: capture JSON result and diagnostics on their separate channels
 
 ```console
-$ tbd sync --issues --json 2>&1 | grep -c "skippedSurfaces"
-1
+$ tbd sync --issues --json > sync-output.json 2> sync-diagnostics.jsonl || true
+? 0
+```
+
+# Test: JSON mode keeps stdout as one valid result document
+
+```console
+$ node -e "const fs=require('node:fs'); JSON.parse(fs.readFileSync('sync-output.json','utf8')); console.log('valid JSON result')"
+valid JSON result
+? 0
+```
+
+# Test: JSON mode carries the omission as a structured diagnostic
+
+```console
+$ node -e "const fs=require('node:fs'); const rows=fs.readFileSync('sync-diagnostics.jsonl','utf8').trim().split('\\n').map(JSON.parse); console.log(rows.find((row)=>row.skippedSurfaces)?.skippedSurfaces.join(','))"
+integrations
 ? 0
 ```
 

@@ -398,10 +398,16 @@ export class OutputManager {
 
   /**
    * Output notice message - noteworthy events during normal operation.
-   * Blue bullet, shown at default level. Suppressed by --quiet and --json.
+   * Blue bullet, shown at default level. Suppressed by --quiet. In JSON mode,
+   * optional structured data is emitted to stderr so stdout remains one
+   * machine-readable result document.
    */
-  notice(message: string): void {
-    if (!this.ctx.json && !this.ctx.quiet) {
+  notice(message: string, jsonData?: unknown): void {
+    if (this.ctx.json) {
+      if (jsonData !== undefined) {
+        console.error(JSON.stringify(jsonData));
+      }
+    } else if (!this.ctx.quiet) {
       console.log(this.colors.info(`${ICONS.NOTICE} ${message}`));
     }
   }

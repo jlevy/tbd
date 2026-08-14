@@ -148,18 +148,18 @@ class SyncHandler extends BaseCommand {
     //
     // This must survive the default invocation: `info()` is verbose-only, so
     // reporting it there would leave the ordinary run exactly as silent as
-    // before. `data()` gives the structured form under --json and the
-    // default-visible `notice()` otherwise. Dry runs report it too — "what
-    // would this do?" has to include "not the tracker".
+    // before. `notice()` gives the default-visible text form and writes its
+    // structured diagnostic to stderr under --json, preserving stdout's
+    // single-result-document contract. Dry runs report it too — "what would
+    // this do?" has to include "not the tracker".
     if (!syncIntegrations && !options.status) {
       const config = await readConfig(tbdRoot);
       if (!integrationsInert(config) && config.integrations?.sync_on_tbd_sync !== false) {
-        this.output.data({ skippedSurfaces: ['integrations'] }, () => {
-          this.output.notice(
-            'Skipping external trackers for this run (surface flag given). ' +
-              'Run `tbd sync` or `tbd sync --integrations` to reconcile them.',
-          );
-        });
+        this.output.notice(
+          'Skipping external trackers for this run (surface flag given). ' +
+            'Run `tbd sync` or `tbd sync --integrations` to reconcile them.',
+          { skippedSurfaces: ['integrations'] },
+        );
       }
     }
 
