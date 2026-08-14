@@ -3,7 +3,8 @@
 **Date:** 2026-08-14 (last updated 2026-08-14)
 
 **Author:** Research brief (AI-assisted; audit of the shipped v0.6.1 code and this
-repository’s live bead store, plus a primary-source survey of agent hook surfaces)
+repository’s live bead store, a measured probe of the sync engine against the bundled
+mock Linear server, plus a primary-source survey of agent hook surfaces)
 
 **Status:** Complete for the current-state audit and the platform survey.
 The design section proposes and recommends; it deliberately does not decide.
@@ -41,9 +42,9 @@ Three questions, in order:
    rather than by good behavior?
 
 **The headline finding: the mechanism is essentially built and the enforcement is not.**
-`tbd sync` already folds Linear in, reconciles three-way against a recorded base, and is
-safe to call from any agent at any moment — that was the hard part and it is done.
-What is missing is everything that decides *when* it runs and *what it says*:
+`tbd sync` already folds Linear in by default, reconciles three-way against a recorded
+base, and is safe to call from any agent at any moment — that was the hard part and it
+is done. What is missing is everything that decides *when* it runs and *what it says*:
 
 - Nothing makes an agent claim a bead.
   **Zero of this repository’s 1,681 beads carry an assignee.**
@@ -52,7 +53,17 @@ What is missing is everything that decides *when* it runs and *what it says*:
 - The selection policy puts 114 mostly-idle beads in Linear while leaving 8 of the 14
   *currently in-flight* beads out of it.
 
-Each of those is a small, tractable change.
+**And a second finding that reorders the work: a sync with nothing to do is not free.**
+Measured, a quiet tracker sync still rewrites every bridge record (so it commits, so it
+pushes, so it runs this repo’s pre-push test suite) and spends one provider request per
+linked bead. So the natural plan — *hook it, run it constantly, keep agents unblocked* —
+is correct in principle but cannot be built on today’s code without making every agent
+turn expensive. Three small fixes
+([§1.7](#17-is-plain-tbd-sync-cheap-enough-to-run-often-measured)) turn a quiet sync
+into two requests and zero writes, and they are prerequisites for everything else here
+rather than follow-ups to it.
+
+Each of these is a small, tractable change.
 None of them requires new distributed-systems machinery.
 
 ### The chain, and where it breaks
@@ -62,14 +73,14 @@ Each link exists; three of them are unreliable.
 
 | # | Link | Mechanism today | Verdict |
 | --- | --- | --- | --- |
-| 1 | Agent learns tbd exists and what to work on | `SessionStart` hook runs `tbd prime` | **Broken here** — the shipped hook script exits 1 in this environment and fails silently ([§1.3](#13-finding-the-sessionstart-hook-fails-open-and-fails-here)) |
+| 1 | Agent learns tbd exists and what to work on | `SessionStart` hook runs `tbd prime` | **Broken here** — the shipped hook script exits 1 in this environment and fails silently ([§1.4](#14-finding-the-sessionstart-hook-fails-open-and-fails-here)) |
 | 2 | Agent picks work | `tbd ready` | Works |
-| 3 | Agent marks what it is working on | `tbd update <id> --status in_progress` | **Never happens** — one table row in one doc tier; 0 assignees repo-wide ([§1.4](#14-finding-nothing-in-the-shipped-guidance-tells-an-agent-to-claim)) |
-| 4 | The change reaches Linear | `tbd sync` with `sync_on_tbd_sync` | Works, but off in this repo, and instructed only at session end ([§1.1](#11-the-sync-path-is-real-and-already-safe-to-call-from-any-agent)) |
-| 5 | Linear shows who and what | Managed block + attachment | Shows status; carries no actor and no in-flight detail ([§1.5](#15-finding-linear-receives-status-but-not-actor-or-in-flight-detail)) |
+| 3 | Agent marks what it is working on | `tbd update <id> --status in_progress` | **Never happens** — one table row in one doc tier; 0 assignees repo-wide ([§1.5](#15-finding-nothing-in-the-shipped-guidance-tells-an-agent-to-claim)) |
+| 4 | The change reaches Linear | `tbd sync`, on by default via `sync_on_tbd_sync` | Correct, but **not cheap enough to run often** (F9, F10) — and off in this repo, and instructed only at session end ([§1.2](#12-is-linear-included-in-plain-tbd-sync-yes--the-matrix), [§1.7](#17-is-plain-tbd-sync-cheap-enough-to-run-often-measured)) |
+| 5 | Linear shows who and what | Managed block + attachment | Shows status; carries no actor and no in-flight detail ([§1.6](#16-finding-linear-receives-status-but-not-actor-or-in-flight-detail)) |
 
 Links 1, 3, and 5 are the work.
-Link 4 is a one-line config change plus a frequency policy.
+Link 4 works but needs to get cheap before anything can lean on it.
 
 * * *
 
@@ -103,10 +114,56 @@ called for, and it is complete:
 
 **The consequence that matters for this brief: how often to sync is a policy question,
 not a safety question.** Two agents syncing concurrently is already handled.
-There is no correctness argument left against syncing more often — only cost arguments,
-which [§3.3](#33-why-sync-on-claim-is-affordable) quantifies.
+There is no *correctness* argument left against syncing more often.
+There are, however, three concrete *cost* defects that make frequent syncing painful
+today, all measured in [§1.7](#17-is-plain-tbd-sync-cheap-enough-to-run-often-measured)
+and all fixable.
 
-### 1.2 Measured state of this repository
+### 1.2 Is Linear included in plain `tbd sync`? Yes — the matrix
+
+Worth stating plainly, because it is the first thing to check before building any
+frequent-sync habit on top of it.
+**`integrations.sync_on_tbd_sync` defaults to `true`** (`schemas.ts:581`), and the fold
+site tests `!== false` (`sync.ts:1163-1167`), so *enabling a provider is itself the
+opt-in*: a repository that configures Linear gets it in plain `tbd sync` with no second
+switch. That is the right default and it is already systematic.
+
+What is *not* uniform is which invocations carry it, and in which direction:
+
+| Invocation | Docs | Issues | Linear | Direction |
+| --- | --- | --- | --- | --- |
+| `tbd sync` | ✓ | full | **✓ full** | both |
+| `tbd sync --integrations` | — | — | ✓ full | both |
+| `tbd sync --pull` | — | pull | ✓ | inbound only |
+| `tbd sync --push` | — | push | ✓ **but outbound-only mirror** | outbound, **no three-way reconcile** |
+| `tbd sync --issues` | — | full | **✗ silently skipped** | — |
+| `tbd sync --docs` | ✓ | — | ✗ | — |
+| `tbd sync --status` | ✓ | ✓ | **✗ never reported** | — |
+| `tbd --dry-run sync` | ✓ | ✓ | **✗ never previewed** | — |
+
+Three of those rows are defects rather than design:
+
+**F6 — `tbd sync --push` silently performs the outbound-only projection.** It calls
+`runEnabledIntegrationPushes` (`sync.ts:205`), the same one-way mirror as
+`tbd integration sync --push`. The `setup-linear` shortcut warns joiners in bold never
+to run that command, because it “projects local bead values over the tracker without a
+three-way reconcile, so it can overwrite a teammate’s Linear-side edit that a full
+`sync` would have detected.”
+The warning names `integration sync --push` only.
+`tbd sync --push` is a far more natural thing for an agent to type, carries no warning,
+and does the same thing.
+
+**F7 — `tbd --dry-run sync` previews docs and git but never the tracker.** The dry-run
+guard returns before `fullSync` and surface 3 excludes dry runs outright
+(`sync.ts:234`), so the one command an agent would reach for to answer “what would this
+do to Linear?” is exactly the one that will not say.
+`tbd --dry-run integration sync` does preview it — the inconsistency is the problem.
+
+**F8 — the code comment says the opposite of the code.** `sync.ts:1155` opens the fold
+site with “Integration fold, **off by default**.” The default is on.
+A reader auditing this file — human or agent — takes away the reverse of the truth.
+
+### 1.3 Measured state of this repository
 
 Read from the live sync branch on 2026-08-14 (1,681 bead files under
 `.git/tbd/data-sync-worktree/.tbd/data-sync/issues/`), with the selection recomputed
@@ -164,7 +221,7 @@ recorded in the tracker spec.
 **So today, in this repo, plain `tbd sync` does not touch Linear at all.** Everything
 below assumes that override is lifted once the pilot completes.
 
-### 1.3 Finding: the SessionStart hook fails open, and fails here
+### 1.4 Finding: the SessionStart hook fails open, and fails here
 
 `tbd setup --auto` installs `.claude/scripts/tbd-session.sh`, which Claude Code runs on
 `SessionStart` and `PreCompact`. It is the only mechanism that makes an agent aware of
@@ -207,7 +264,7 @@ Three separate weaknesses compound here:
 
 This is link 1 of the chain, and it is the cheapest thing in this brief to fix.
 
-### 1.4 Finding: nothing in the shipped guidance tells an agent to claim
+### 1.5 Finding: nothing in the shipped guidance tells an agent to claim
 
 An audit of every instruction surface tbd installs, searching for anything that tells an
 agent to mark a bead as in progress:
@@ -233,7 +290,7 @@ By contrast, the closing protocol — commit, push, watch CI, close, sync — ap
 The lesson is not subtle: repetition across tiers is what makes agent instructions
 stick.
 
-### 1.5 Finding: Linear receives status but not actor or in-flight detail
+### 1.6 Finding: Linear receives status but not actor or in-flight detail
 
 `renderManagedBlock` (`managed-block.ts:57-93`) writes this into the Linear description,
 inside `⟦tbd⟧`…`⟦/tbd⟧`:
@@ -263,6 +320,102 @@ What is absent, for the operational-visibility purpose:
 `Children` and `ready` are computed across *all* issues, not just the selected ones
 (`mirror.ts:176-183`), so the data needed for a real roll-up is already in hand at
 render time. This is a rendering change, not a data change.
+
+### 1.7 Is plain `tbd sync` cheap enough to run often? Measured
+
+The plan — hook it, run it a lot, keep agents unblocked — only works if a sync that has
+nothing to do is genuinely free.
+It is not, and the reasons are specific.
+
+**Measurement 1: git, no bead changes.** A no-op `tbd sync` in this repository:
+
+```
+✓ Docs up to date
+✓ Already in sync
+--- wall: 2.92s | tbd-sync commits: 468 -> 468 (delta 0)
+```
+
+**2.9 seconds, no commit, and no push at all** — `pushChanges` skips the push when
+`aheadCommits === 0` (`sync.ts:1220`), so the pre-push hook of F5 never fires.
+Roughly 1.3 s of that is CLI startup.
+This is the good case and it is fine.
+
+**Measurement 2: the tracker path, nothing changed anywhere.** Run against the mock
+Linear server in `tests/helpers/linear-mock-server.ts`, driving `runSync` to a settled
+steady state and then measuring one further genuinely-quiet run with a fresh adapter
+(because the real CLI is a fresh process each time):
+
+| Linked beads | `comments` mode | Provider requests | Bridge records rewritten | `nothingToDo` |
+| --- | --- | --- | --- | --- |
+| 3 | `two_way` (default) | 5 | **3 of 3** | `true` |
+| 10 | `two_way` (default) | 12 | **10 of 10** | `true` |
+| 10 | `off` | **2** | **10 of 10** | `true` |
+
+Two defects, both visible in that table.
+
+**F9 — a no-op sync rewrites every bridge record, so “nothing changed” still produces a
+commit.** The apply loop runs over *every* linked pair, not only the changed ones
+(`sync-engine.ts:1097`, over `executablePairs`, which is every synchronizable pair), and
+ends by writing the link record unconditionally with `synced_at: options.now()`
+(`sync-engine.ts:1216-1230`). `synced_at` is a persisted schema field
+(`schemas.ts:425`), so the file genuinely differs.
+The measured diff of a quiet run is exactly this and nothing else:
+
+```
+  - synced_at: 2026-08-14T16:34:57.878Z
+  + synced_at: 2026-08-14T16:34:57.898Z
+```
+
+The consequences compound:
+
+- Every sync writes N files, so **every sync produces a commit and therefore a push**,
+  which means **F5’s pre-push test suite fires on every sync** — the good case in
+  measurement 1 never happens once Linear is on.
+- `tbd changes` fills with commits that carry no information, which is precisely the
+  “unreadable change reports” harm §7b.4 warned about.
+- **The report and the git history disagree**: `nothingToDo` is `true` while N files are
+  rewritten. Anything built on the report — a hook, a dashboard — will believe the sync
+  was free.
+
+The fix is small and local: write the record only when a field other than `synced_at`
+differs, or drop `synced_at` from the persisted record (it is diagnostic; correctness
+rides on `base` and `remote_updated_at`).
+
+**F10 — comment polling is one request per linked bead, per sync, unbatched.** With the
+default `comments: two_way`, the per-sync request count is **2 + N**, where N is the
+number of linked beads: one `TeamMeta`, one `IssuesUpdatedSince`, and then one
+`IssueComments` for *every* linked pair regardless of whether the delta showed any
+activity on it. Setting `comments: off` collapses it to a flat 2, which confirms the
+comment fetch is the entire slope.
+
+**This corrects the estimate in an earlier draft of §3.3.** The real budget arithmetic,
+against the **2,500 requests/hour** measured on a live key
+([§1.2 of the Linear brief](research-2026-08-09-linear-task-surfaces.md#12-rate-limits-measured)):
+
+| Linked beads | Requests per no-op sync | Syncs/hour on one key |
+| --- | --- | --- |
+| 10 | 12 | ~208 |
+| 70 (this repo’s projected mirror) | 72 | **~34** |
+| 114 (this repo’s current selection) | 116 | **~21** |
+
+Thirty-four syncs per hour is not “sync on every claim across a fleet of agents” — it is
+one agent syncing twice a minute, with the whole team sharing that budget.
+And the ceiling is per *key*, so every agent holding the same personal key draws on the
+same 2,500.
+
+With `comments: off` the same table reads 2 requests and ~1,250 syncs/hour at any bead
+count, which is the shape frequent syncing needs.
+Comments are worth having, so the fix is not to turn them off but to **fetch comments
+only for pairs the delta says changed** — the delta is already in hand at that point in
+the run, and a quiet pair cannot have a new comment without its `updatedAt` moving.
+
+**Verdict on the user’s question.** Yes, `tbd sync` should always include Linear, and it
+already does by default — that part is correct and systematic.
+But “run it often, from a hook, without slowing an agent down” is **not safe to build
+today**: F9 makes every sync a commit, F5 turns every commit into a full test-suite run,
+and F10 makes the request cost scale with the mirror.
+Fix those three and the frequent-sync design becomes not just viable but nearly free — a
+quiet sync would be two requests, zero writes, zero commits, and no push.
 
 * * *
 
@@ -402,7 +555,7 @@ strongly worded reminder.
 Gemini; everything else is on the honour system.
 So the protocol has to be *correct by instruction* and merely *reinforced* by hooks.
 Any design that only works with hooks silently excludes half the ecosystem — and, per
-[§1.3](#13-finding-the-sessionstart-hook-fails-open-and-fails-here), hooks fail open
+[§1.4](#14-finding-the-sessionstart-hook-fails-open-and-fails-here), hooks fail open
 even where they exist.
 
 * * *
@@ -443,26 +596,34 @@ selection change in [§4](#4-visibility-versus-volume-in-linear) — it is what 
 bead in front of a human in Linear.
 If exactly one change ships from this brief, it should be this one.
 
-### 3.3 Why “sync on claim” is affordable
+### 3.3 What “sync on claim” actually costs
 
-**Linear API cost.** A no-op full sync makes roughly four GraphQL requests: `ensureMeta`
-(team + workflow states + first label page), the project resolution,
-`fetchUpdatedSince`, and one batched liveness `fetchIssues` for linked pairs absent from
-the delta — more with pagination.
-Against the **2,500 requests/hour** ceiling measured on a real key
-([§1.2 of the Linear brief](research-2026-08-09-linear-task-surfaces.md#12-rate-limits-measured);
-note this is half the documented figure), that is about 600 syncs/hour per key.
-A ten-agent fleet syncing six times an hour each spends 240 requests/hour — under 10% of
-budget. Complexity points are not close to binding.
+[§1.7](#17-is-plain-tbd-sync-cheap-enough-to-run-often-measured) has the measurements;
+this is what they mean for the protocol.
 
-One avoidable waste: `ensureMeta` caches on the adapter instance only
+**As shipped, sync-on-claim is affordable only at small mirror sizes.** The per-sync
+request count is `2 + N` (N = linked beads), so this repository’s projected 70-bead
+mirror allows roughly 34 syncs/hour across everyone sharing a key — and every sync
+writes N bridge records, commits, pushes, and (here) runs the test suite.
+Claiming a bead is itself a change, so **every claim pays the full price**.
+
+**After F9 and F10 are fixed, it is nearly free**: two requests, zero writes on a quiet
+run, no commit, no push, no hook.
+At that point the frequency question stops being interesting and the protocol can simply
+say “sync on every transition.”
+
+That ordering matters for planning: **the efficiency fixes are prerequisites for the
+enforcement work, not follow-ups to it.** A `Stop`-hook gate that nags an agent into
+syncing, on today’s code, converts every agent turn into a test-suite run.
+
+One further avoidable cost: `ensureMeta` caches on the adapter instance only
 (`adapter.ts:488-491`), so **every CLI invocation re-fetches the team’s workflow states
-and labels**, which is the single most expensive query in the set (53 complexity points
-measured). An on-disk cache with a TTL would cut a routine sync’s request count by
-roughly a third.
+and labels** — the single most expensive query in the set at 53 complexity points
+measured. It is one of the two requests in the fixed floor, so an on-disk cache with a
+TTL would halve a quiet sync.
 
-**Git cost is the real constraint.** Each `tbd sync` fetches, merges, commits, and
-pushes the `tbd-sync` branch.
+**Git cost.** Each `tbd sync` fetches and merges the `tbd-sync` branch; it commits and
+pushes only when something changed (`sync.ts:1220`), which measurement 1 confirms.
 Syncing per bead transition is fine; syncing per tool call is not — it turns the sync
 branch into commit noise and makes `tbd changes` reports unreadable, which is the
 concrete harm §7b.4 warned about.
@@ -481,15 +642,18 @@ under a second and then sat for minutes in `pnpm test`, invoked from the sync br
 push. Worse, the retry loop re-pushes up to `MAX_PUSH_RETRIES` times on a
 non-fast-forward, so a contended sync can pay for the suite repeatedly.
 
-This is the single largest obstacle to “sync often,” and it is an inconsistency rather
-than a design decision: the commit path already states the intent that the push path
-does not implement.
-The fix is to push the sync branch with `--no-verify` — it carries no
-source code, so no parent-repo pre-push gate has anything to say about it.
+It is an inconsistency rather than a design decision: the commit path already states the
+intent that the push path does not implement.
+The fix is to push the sync branch with `--no-verify` — it carries no source code, so no
+parent-repo pre-push gate has anything to say about it.
+
+F5 and F9 multiply each other.
+F9 guarantees there is always something to push; F5 makes every push expensive.
+Either fix alone helps; both together are what make a quiet sync actually quiet.
 
 **Rule of thumb: sync on state transitions and commits, never on tool calls.** That is
-at most a handful of syncs per bead, which both budgets absorb comfortably — once F5 is
-fixed.
+at most a handful of syncs per bead, which both budgets absorb comfortably — once F5,
+F9, and F10 are fixed.
 
 ### 3.4 What not to do
 
@@ -720,7 +884,7 @@ guarantee, and it must live where the state is.
 
 - Fix the PATH order in `tbd-session.sh` and its Codex twin: **append** the fallback
   locations rather than prepending them
-  ([§1.3](#13-finding-the-sessionstart-hook-fails-open-and-fails-here)).
+  ([§1.4](#14-finding-the-sessionstart-hook-fails-open-and-fails-here)).
 - Prefer a repo-local resolution (`node_modules/.bin/tbd`, then a global `tbd`) before
   reaching for `npx`, so the common case needs no network.
 - **Fail loudly**: emit `{"systemMessage": "tbd prime failed: …"}` so a broken hook is
@@ -733,8 +897,69 @@ guarantee, and it must live where the state is.
 ### E8. Cheaper repeated syncs
 
 Cache `ensureMeta` on disk with a TTL (per team, under the gitignored state area).
-Cuts roughly a third of the requests from a routine sync and makes frequent syncing
-comfortably cheap.
+It is one of the two requests in the fixed floor and the most expensive one, so this
+roughly halves a quiet sync once E10 and E11 land.
+
+### E10. A quiet sync must write nothing (F9)
+
+*Problem:* the apply loop writes every link record on every run with a fresh
+`synced_at`, so a sync that changed nothing still produces N file writes, a commit, a
+push, and (with F5) a test-suite run — while reporting `nothingToDo: true`.
+
+*Proposal:* one of two small changes, and the second is cleaner:
+
+1. Write the record only when a field other than `synced_at` differs from the record
+   already on disk.
+2. Drop `synced_at` from `LinkRecordSchema` entirely.
+   It is diagnostic only — reconciliation rides on `base` and `remote_updated_at` — and
+   the git commit timestamp already records when the record last moved.
+
+Either way, add the regression test the audit used: settle a mirror, run once more, and
+assert **zero bytes changed under `bridge/<provider>/links/`**. That assertion is the
+whole contract, and nothing currently pins it.
+
+*Why this is the highest-priority efficiency item:* it is what makes “sync is free when
+nothing happened” true, which is the premise every frequent-sync design in this brief
+rests on.
+
+### E11. Fetch comments only for pairs the delta moved (F10)
+
+*Problem:* with the default `comments: two_way`, every linked pair gets its own
+`IssueComments` request on every sync, so cost is `2 + N` and a 70-bead mirror allows
+~34 syncs/hour on a shared key.
+
+*Proposal:* a pair whose provider `updatedAt` has not advanced past the recorded
+`remote_updated_at` cannot have a new comment — Linear bumps `updatedAt` on comment
+creation. The delta is already in hand at that point in the run
+(`sync-engine.ts:513-560`), so restrict the comment fetch to pairs present in it, plus
+pairs with locally authored comments pending push.
+Quiet mirrors then cost a flat 2 requests at any size.
+
+If a case is found where Linear does *not* bump `updatedAt` for a comment, fall back to
+a periodic full comment reconcile (say, hourly) rather than per-sync polling — the
+correctness argument for catching a missed comment within the hour is much weaker than
+the cost argument against `N` requests every sync.
+
+### E12. Make the surface flags say what they do (F6, F7)
+
+- `tbd sync --issues` silently excludes the tracker.
+  Either include it (issues and tracker are one logical surface) or say so in the
+  output, so an agent narrowing to `--issues` for speed knows Linear went stale.
+- `tbd sync --push` performs the outbound-only mirror that `setup-linear` warns joiners
+  never to run. Give it the same guard the shortcut prescribes, or make it run the full
+  reconcile in the outbound direction.
+  A natural-looking flag should not be the dangerous one.
+- `tbd --dry-run sync` should preview tracker work, as `tbd --dry-run integration sync`
+  already does. “What would this do to Linear?”
+  is the question dry-run exists to answer.
+- `tbd sync --status` should report tracker state — enabled, reachable, last synced,
+  pending intents — alongside git status.
+  It is where `tbd prime` and any hook would read freshness from (E5).
+
+### E13. Fix the comment that says the opposite of the code (F8)
+
+`sync.ts:1155` says the integration fold is “off by default.”
+It is on. One line, and it is exactly the kind of thing a future audit trusts.
 
 ### E9. Instruction changes
 
@@ -801,7 +1026,8 @@ followed → then gate.
 | **Gate loops** | A `Stop` hook blocks on a condition the agent cannot satisfy | [§6.1](#61-the-gate-must-never-trap-the-agent) |
 | **Credential sprawl** | Every agent that can sync holds a workspace-writable Linear key in its sandbox, sharing one identity and one rate-limit budget | Already flagged in [§7b.2 of the Linear brief](research-2026-08-09-linear-task-surfaces.md#7b2-what-a-second-non-git-replica-breaks). More frequent syncing raises the value of a narrower app identity |
 | **Inbound prompt injection** | `field_sync.comments` defaults to `two_way`, so Linear comments land in `extensions.<provider>.comments` and are read by agents. Anyone who can comment in the workspace can write text into bead data | Body is capped and the author is a display name only, but treat pulled comments as untrusted input. Worth an explicit note in the guidance |
-| **Sync-branch churn** | Frequent syncing turns `tbd changes` into noise | Sync on transitions and commits, never on tool calls ([§3.3](#33-why-sync-on-claim-is-affordable)) |
+| **Sync-branch churn** | Frequent syncing turns `tbd changes` into noise — and F9 makes EVERY sync churn, even a quiet one | E10 (write nothing when nothing changed), then sync on transitions and commits, never on tool calls ([§3.3](#33-what-sync-on-claim-actually-costs)) |
+| **Rate-limit exhaustion on a shared key** | Comment polling costs one request per linked bead per sync (F10), so a 70-bead mirror allows ~34 syncs/hour across everyone sharing the key | E11 — fetch comments only for pairs the delta moved |
 | **Sync pays for the parent repo’s pre-push hook** | `pushWithRetry` pushes without `--no-verify`, so every sync fires `.git/hooks/pre-push` — here, the full test suite, and again on each retry (F5) | Push the sync branch with `--no-verify`, matching what the commit path already does deliberately |
 | **Silent hook failure** | Demonstrated in this very session | E7 — fail loud, and make `doctor` execute the scripts |
 | **First-mirror surprise** | 114 selected, 70 created, 44 skipped (F2), against a 20-create bulk guard | Document it; keep the staged `--limit` rollout the `setup-linear` shortcut already prescribes |
@@ -810,39 +1036,93 @@ followed → then gate.
 
 ## 8. Recommendations
 
-### Phase 0 — no new code
+The ordering changed once the costs were measured.
+**Make a quiet sync actually quiet first**, because every later item — the hook, the
+gate, the claim protocol — assumes syncing is cheap, and today it is not.
 
-1. Fix `tbd-session.sh` and `.codex/tbd-session.sh`: append rather than prepend the
-   fallback PATH, prefer local resolution, emit `systemMessage` on failure (E7).
-2. Add **Claim** to all four instruction surfaces and to `implement-beads` (E9).
-3. Correct the “roughly 10%” claim and document the `max_nesting` skip in `setup-linear`
-   (F1, F2).
-4. Decide whether to lift this repository’s `sync_on_tbd_sync: false` pilot override.
-5. Push the sync branch with `--no-verify` (F5). This is a two-word change and it is the
-   difference between “sync often” costing a second and costing a full test run.
+### Phase 0 — make a quiet sync free
 
-### Phase 1 — small CLI additions
+The whole phase is small, local, and unblocks everything else.
 
-6. `tbd start` (E1) and agent identity (E2).
-7. `tbd prime` reports claimed work and sync freshness (E5).
-8. Managed-block roll-up with in-flight children and a sync timestamp (E4).
+1. **E10 — a quiet sync writes nothing** (F9). Write the link record only when something
+   other than `synced_at` changed, or drop `synced_at` from the schema.
+   Pin it with a test asserting zero bytes change under `bridge/<provider>/links/` on a
+   settled re-run.
+2. **F5 — push the sync branch with `--no-verify`.** Two words.
+   The difference between a sync costing a second and costing a full test run.
+3. **E11 — fetch comments only for pairs the delta moved** (F10). Turns `2 + N` requests
+   per sync into a flat 2.
+4. **E8 — cache `ensureMeta` on disk with a TTL.** Halves what remains.
 
-### Phase 2 — enforcement and selection
+Together these make a no-op sync ≈ 2 requests, 0 writes, 0 commits, 0 pushes, no hooks —
+which is the precondition for treating `tbd sync` as something an agent runs constantly
+rather than ceremonially.
 
-9. `tbd closing --check` with exit-code semantics and `--json` (E6).
-10. `Stop`-event gate for Claude Code and Codex, with the anti-loop constraints (§6.1).
-11. Attention-based selection (E3), then narrow the default standing set to epics.
+### Phase 1 — repair the surfaces that already exist
 
-### Phase 3 — reach and efficiency
+5. **E7 — hook hardening.** Append rather than prepend the fallback PATH, prefer local
+   resolution, fail loudly, and make `doctor` execute the hook scripts.
+6. **E9 — instruction changes.** Add **Claim** to all four surfaces and to
+   `implement-beads`; correct the “roughly 10%” figure (F1) and document the
+   `max_nesting` skip (F2).
+7. **E12/E13 — make the flags and comments honest.** `--issues` silently drops the
+   tracker; `--push` silently does the dangerous outbound-only projection; `--dry-run`
+   never previews it; `--status` never reports it; and the fold-site comment claims the
+   feature is off by default when it is on.
+8. Decide whether to lift this repository’s `sync_on_tbd_sync: false` pilot override.
 
-12. A `cursor` setup surface (`.cursor/hooks.json` + `sessionStart`/`stop`).
-13. A Gemini CLI surface (`settings.json` hooks; orientation only).
-14. On-disk `ensureMeta` cache (E8).
-15. Watch OpenCode’s hook-router work; ship a plugin when the API settles.
+### Phase 2 — the claim protocol
 
-**If only one thing ships: `tbd start` plus the instruction repetition (E1 + E9).** That
-alone converts every subsequent `tbd sync` — which agents already run at session end —
-into a live picture of who is working on what.
+9. `tbd start` (E1) and agent identity (E2).
+10. `tbd prime` reports claimed work and sync freshness (E5).
+11. Managed-block roll-up with in-flight children and a sync timestamp (E4).
+
+### Phase 3 — enforcement and selection
+
+12. `tbd closing --check` with exit-code semantics and `--json` (E6).
+13. `Stop`-event gate for Claude Code and Codex, with the anti-loop constraints (§6.1).
+14. Attention-based selection (E3), then narrow the default standing set to epics.
+
+### Phase 4 — reach
+
+15. A `cursor` setup surface (`.cursor/hooks.json` + `sessionStart`/`stop`).
+16. A Gemini CLI surface (`settings.json` hooks; orientation only).
+17. Watch OpenCode’s hook-router work; ship a plugin when the API settles.
+
+**If only one thing ships: E10.** It is a handful of lines, it is the difference between
+“nothing changed” costing nothing and costing a commit plus a push plus a test suite,
+and every other recommendation here gets cheaper behind it.
+
+**If only one *user-visible* thing ships: `tbd start` plus the instruction repetition
+(E1 + E9).** That converts every subsequent `tbd sync` — which agents already run at
+session end — into a live picture of who is working on what.
+
+### 8.1 What this streamlines, in one page
+
+The through-line of every recommendation above is the same: **move work out of the
+agent’s head and out of the agent’s critical path.**
+
+| Today the agent must… | After | Which primitive |
+| --- | --- | --- |
+| Remember three commands to claim a bead (`update --status`, `--assignee`, `sync`) | Run one verb: `tbd start` | E1 |
+| Invent an identity string for `--assignee` | Get one resolved for it | E2 |
+| Wait out a commit, a push, and a test suite on every sync | Wait ~2 s for a quiet sync | E10, F5, E11, E8 |
+| Re-read the whole skill doc to recall the protocol | Read its own claimed work and sync age in `prime` | E5 |
+| Know that `--issues` and `--push` behave differently toward Linear | Have flags that mean what they say | E12 |
+| Be trusted to remember the protocol at all | Be reminded by a hook, and gated once at the end | E6, §6 |
+| Mirror 114 beads to give a human visibility | Mirror ~37 and roll the rest up | E3, E4 |
+
+Two things this deliberately does **not** add, because they would cost more complexity
+than they buy:
+
+- **No background sync daemon.** Once a quiet sync is two requests and no writes,
+  calling it inline on transitions is simpler than owning a process lifecycle, and it
+  keeps the “opportunistic single-writer through git” property that makes concurrent
+  agents safe.
+- **No new bead fields for presence.** `status` and `assignee` already carry it.
+  Adding a presence namespace would mean new merge semantics for something the existing
+  fields express, and §7b.4’s discipline (claim before write, one writer per bead) works
+  precisely because those fields are single-writer.
 
 * * *
 
@@ -864,6 +1144,17 @@ into a live picture of who is working on what.
    too long for “an agent is actively holding this.”
 6. **How should the gate behave for subagents?** `SubagentStop` can block, but a
    subagent usually should not sync — its parent should.
+7. **Is `synced_at` worth keeping at all?** It is the sole cause of F9’s churn and is
+   never read for correctness.
+   If something does want “when did this last reconcile”, the git commit time of the
+   record answers it without writing every run.
+8. **Does Linear always bump `Issue.updatedAt` when a comment is added?** E11’s
+   delta-gated comment fetch depends on it.
+   The live-QA runner is the place to prove it; if it does not hold, a periodic full
+   comment reconcile is the fallback.
+9. **Should the tracker be part of the `--issues` surface rather than its own?** Beads
+   and their mirror are arguably one logical thing, and merging them would remove the
+   surprise in F6 rather than documenting it.
 
 * * *
 
