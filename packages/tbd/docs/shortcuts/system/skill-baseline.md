@@ -109,6 +109,9 @@ or want help → run `tbd shortcut welcome-user`
 | “Make the guidelines visible / customize doc X” | `tbd docs fork --category=general --category=<lang>` (recommended: general + the repo’s languages), or `tbd docs fork <name>` / `--all`; then edit in `docs/tbd/` |
 | “Update the guidelines to the latest” | `tbd docs update`; on conflicts ask the user, then `--merge` or `--keep-ours` |
 | “I deleted a forked doc file” | `tbd docs status` shows it `missing`; restore with `tbd docs fork <name> --force` or finalize with `tbd docs unfork <name>` |
+| **External Trackers** |  |
+| “Set up Linear” / “Connect this repo to Linear” | `tbd shortcut setup-linear` |
+| “My Linear sync isn’t working” / “Add my Linear key” | `tbd shortcut setup-linear` |
 | **Cleanup & Maintenance** |  |
 | “Clean up this code” / “Remove dead code” | `tbd shortcut code-cleanup-all` |
 | “Fix repository problems” | `tbd doctor --fix` |
@@ -219,7 +222,8 @@ mutation and make one call per group.
 
 | Command | Purpose |
 | --- | --- |
-| `tbd integration status` | Is Linear configured, credentialed, reachable? Run before anything else |
+| `tbd integration status --offline` | Distinguish shared config from a missing personal key without a network call |
+| `tbd integration status` | Verify the configured key and Linear team are reachable |
 | `tbd --dry-run integration sync --push` | Preview which beads would go outward |
 | `tbd integration sync --push` | Outbound only: create/update tracker issues (idempotent) |
 | `tbd integration sync --pull` | Inbound only: tracker changes into beads, no external writes |
@@ -228,16 +232,23 @@ mutation and make one call per group.
 | `tbd integration link/unlink <bead> [ref]` | Bind or sever a bead and an existing tracker item; unlink safely cancels pending writes for that pair before clearing the link |
 | `tbd integration comment <bead> "text"` | Author a comment offline; posted on next sync |
 
-When a user asks to “sync our specs and beads to Linear”: run `status` first.
-No API key → ask the user to create one at `linear.app/settings/api` and put it in a
-**gitignored** `.env` as `LINEAR_API_KEY=…` (never commit it).
-No config → add
-`integrations: { linear: { enabled: true, team_key: <THEIRS>, project: <optional>, user_map: <optional alias-to-email-or-UUID map>, policy: default } }`
-to `.tbd/config.yml`, re-check `status`, then `--dry-run sync --push`, `sync --push`,
-`sync`. Full details: the External Tracker Integrations section of `tbd docs`. Bulk runs
-over 20 creates / 40 updates refuse without `--yes`. Never echo credentials into output
-or commits. `--pull` never replays or performs provider writes; deferred claims and
-conflict notices remain journaled until the next full sync.
+**Setting Linear up at all — including “add my key” — is `tbd shortcut setup-linear`.**
+Run it rather than improvising; it detects which case applies and walks the user through
+only that case.
+
+The mental model it encodes: **config is shared, credentials are personal.** The
+`integrations` block in `.tbd/config.yml` (team, project, policy) is committed, so a
+teammate who clones already has it; `LINEAR_API_KEY` lives in the environment or a
+**gitignored** `.env` and is never committed.
+So a user joining a repo whose team already syncs needs *only* a key—never a config
+edit, and never `integration sync --push` (their links arrived with the clone; after a
+dry-run preview, plain `tbd sync` first pulls the team’s current bead state and then
+reconciles Linear). Run `tbd integration status --offline` first in every case.
+Full details: the External Tracker Integrations section of `tbd docs`. Bulk runs over 20
+creates / 40 updates refuse without `--yes`. Never echo credentials into output or
+commits.
+`--pull` never replays or performs provider writes; deferred claims and conflict
+notices remain journaled until the next full sync.
 Link/inbound creation refuse a remote `tbd://bead/…` claim unless `--force` is explicit
 and the old claim was verified stale.
 Configured `project` scopes both creates and automatic inbound scans; an explicit
@@ -249,6 +260,9 @@ with a safe warning, preserving local divergence until mapping recovers.
 Linear sub-issues import parent-first and never flatten; `max_nesting` limits only new
 outbound creation. Comments are append-only and paginated; edits, deletions, reactions,
 and thread shape are not synchronized.
+Linear descriptions carry a tbd-owned `⟦tbd⟧` … `⟦/tbd⟧` region.
+Human prose outside it is preserved; legacy HTML-comment delimiters are upgraded on the
+next outbound sync. Never hand-edit the managed region—change the bead and sync instead.
 
 **Direction flags mean the same thing everywhere in tbd**: bare = both directions,
 `--push` = outbound only, `--pull` = inbound only, `--status` = report only.

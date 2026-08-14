@@ -8,13 +8,14 @@ import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { clearLink, readLink, writeLink } from '../src/integrations/core/link-store.js';
 import { readLinkRecord } from '../src/integrations/core/bridge-state.js';
 import { readComments } from '../src/integrations/core/comment-store.js';
 import { appendLocalComment, recordPushedComment } from '../src/integrations/core/comment-store.js';
 import { listIntentFiles, writeIntentFile } from '../src/integrations/core/intents.js';
+import { MANAGED_BLOCK_MARKERS } from '../src/integrations/core/managed-block.js';
 import { runSync, type SyncCallbacks } from '../src/integrations/core/sync-engine.js';
 import { LinearAdapter } from '../src/integrations/linear/adapter.js';
 import { LinearClient } from '../src/integrations/linear/client.js';
@@ -163,6 +164,138 @@ describe('the sync engine', () => {
     expect(second.pulled).toEqual([]);
     expect(second.conflicts).toEqual([]);
     expect(second.createdOutbound).toEqual([]);
+  });
+
+  it('backfills and preserves the managed block on a pre-existing linked item', async () => {
+    server.addIssue({
+      id: 'linked-item',
+      identifier: 'FIN-10',
+      title: 'Linked issue',
+      description: 'Human prose',
+    });
+    const linked = writeLink(
+      bead('is-01hx5zzkbkactav9wevgemmvrz', {
+        title: 'Linked issue',
+        description: 'Human prose',
+      }),
+      {
+        provider: 'linear',
+        id: 'linked-item',
+        key: 'FIN-10',
+        linked_at: '2026-08-10T00:00:00.000Z',
+      },
+    );
+    store.set(linked.id, linked);
+
+    const backfill = await run([linked]);
+
+    expect(backfill.failures).toEqual([]);
+    expect(backfill.pushed).toEqual(['mvrz']);
+    expect(server.issues.get('linked-item')?.description).toContain('Human prose');
+    expect(server.issues.get('linked-item')?.description).toContain(MANAGED_BLOCK_MARKERS.begin);
+
+    const edited = {
+      ...store.get(linked.id)!,
+      description: 'Revised human prose',
+      updated_at: new Date(Date.now() + 120_000).toISOString(),
+    };
+    store.set(edited.id, edited);
+    const update = await run([edited]);
+    const description = server.issues.get('linked-item')?.description ?? '';
+
+    expect(update.failures).toEqual([]);
+    expect(description).toContain('Revised human prose');
+    expect(description.split(MANAGED_BLOCK_MARKERS.begin)).toHaveLength(2);
+    expect(description.split(MANAGED_BLOCK_MARKERS.end)).toHaveLength(2);
+  });
+
+  it('does not report a push when the managed-block splice is already satisfied', async () => {
+    server.addIssue({
+      id: 'linked-item',
+      identifier: 'FIN-10',
+      title: 'Linked issue',
+      description: 'Human prose',
+    });
+    const linked = writeLink(
+      bead('is-01hx5zzkbkactav9wevgemmvrz', {
+        title: 'Linked issue',
+        description: 'Human prose',
+      }),
+      {
+        provider: 'linear',
+        id: 'linked-item',
+        key: 'FIN-10',
+        linked_at: '2026-08-10T00:00:00.000Z',
+      },
+    );
+    store.set(linked.id, linked);
+    vi.spyOn(adapter, 'spliceDescription').mockResolvedValue(null);
+
+    const result = await run([linked]);
+
+    expect(result.failures).toEqual([]);
+    expect(result.pushed).toEqual([]);
+  });
+
+  it('renders the managed block from values pulled during the same sync', async () => {
+    const policy = PolicyDefinitionSchema.parse({
+      outbound: { kinds: ['epic'], statuses: ['open'], specs: 'none', linked: true },
+      field_sync: { fields: { status: 'remote' } },
+    });
+    const epic = bead('is-01hx5zzkbkactav9wevgemmvrz');
+    store.set(epic.id, epic);
+
+    await run([epic], policy);
+    const linked = store.get(epic.id)!;
+    const externalId = readLink(linked, 'linear')!.id;
+    const remote = server.issues.get(externalId)!;
+    remote.state = server.states.find((state) => state.type === 'started')!;
+    remote.updatedAt = new Date(Date.now() + 60_000).toISOString();
+
+    const result = await run([linked], policy);
+    const description = server.issues.get(externalId)?.description ?? '';
+
+    expect(result.failures).toEqual([]);
+    expect(result.pulled).toEqual(['mvrz']);
+    expect(store.get(epic.id)?.status).toBe('in_progress');
+    expect(description).toContain('· in_progress ·');
+    expect(description).not.toContain('· open ·');
+  });
+
+  it('fails a linked pair closed before any write when managed markers are malformed', async () => {
+    const malformed = `${MANAGED_BLOCK_MARKERS.begin}\nfirst\n${MANAGED_BLOCK_MARKERS.begin}\nsecond\n${MANAGED_BLOCK_MARKERS.end}`;
+    server.addIssue({
+      id: 'linked-item',
+      identifier: 'FIN-10',
+      title: 'Remote title',
+      description: malformed,
+    });
+    const linked = writeLink(
+      bead('is-01hx5zzkbkactav9wevgemmvrz', {
+        title: 'Local title',
+        description: 'Local replacement',
+      }),
+      {
+        provider: 'linear',
+        id: 'linked-item',
+        key: 'FIN-10',
+        linked_at: '2026-08-10T00:00:00.000Z',
+      },
+    );
+    store.set(linked.id, linked);
+
+    const result = await run([linked]);
+
+    expect(result.failures).toEqual([
+      {
+        beadId: 'mvrz',
+        error: 'Managed block markers in FIN-10 are malformed; skipped all writes for this pair.',
+      },
+    ]);
+    expect(server.issues.get('linked-item')).toMatchObject({
+      title: 'Remote title',
+      description: malformed,
+    });
   });
 
   it('reports provider mapping warnings once even when an item appears in multiple fetches', async () => {
@@ -1367,7 +1500,7 @@ describe('the sync engine', () => {
     expect(server.issues.size).toBe(1); // no duplicate item
     expect(server.attachments).toHaveLength(1); // attachments landed
     const item = [...server.issues.values()][0]!;
-    expect(item.description ?? '').toContain('tbd:begin'); // block spliced
+    expect(item.description ?? '').toContain(MANAGED_BLOCK_MARKERS.begin);
     expect(await listIntentFiles(dir, 'linear')).toHaveLength(0); // consumed
   });
 

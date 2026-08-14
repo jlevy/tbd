@@ -58,8 +58,9 @@ will work in Cursor, Codex, or any agent environment that can use the `tbd` CLI.
 That’s it.
 Running `tbd prime` gives agents full workflow context on how to use `tbd` and
 how to help you. It will then bootstrap a SKILL.md into your project by running
-`tbd setup --auto` (which will add a `.tbd` directory and add itself to your `.claude`
-skills and hooks). And then it will use shortcuts to welcome you and get you started.
+`tbd setup --auto` (which adds `.tbd/`, installs the portable and Claude skill mirrors,
+and configures Claude/Codex project hooks).
+Then it uses shortcuts to welcome you and get you started.
 
 Running `tbd` with no arguments shows help with a prominent reminder for agents to run
 `tbd prime`.
@@ -147,6 +148,7 @@ status or context or knowledge and know what to do next:
 | “Create a bead for the bug where …” | Agent creates and tracks a bead | `tbd create "..." --type=bug` |
 | “Let’s work on current beads” | Agent finds ready beads and starts working | `tbd ready` |
 | “Show my beads in a browser” | Agent opens and keeps alive the local viewer | `tbd web --open` |
+| “Set up Linear” / “Add my Linear key” | Agent distinguishes shared repository config from your personal credential and walks through only the needed path | [`tbd shortcut setup-linear`](packages/tbd/docs/shortcuts/standard/setup-linear.md) |
 | “Review this code” | Agent performs comprehensive code review with all guidelines | [`tbd shortcut review-code`](packages/tbd/docs/shortcuts/standard/review-code.md) |
 | “Review this PR” | Agent reviews a GitHub pull request and publishes the review | [`tbd shortcut review-github-pr`](packages/tbd/docs/shortcuts/standard/review-github-pr.md) |
 | “Use the shortcut to commit” | Agent runs full pre-commit checks, code review, and commits | [`tbd shortcut code-review-and-commit`](packages/tbd/docs/shortcuts/standard/code-review-and-commit.md) |
@@ -329,7 +331,8 @@ versions moved; run `tbd docs update` to merge the changes in.
 ```bash
 npm install -g get-tbd@latest
 tbd setup --auto --prefix=proj   # Short alphabetic prefix for issue IDs
-git add .tbd/ .claude/ && git commit -m "Initialize tbd"
+git add .tbd/ .agents/ .claude/ .codex/ AGENTS.md
+git commit -m "Initialize tbd"
 git push
 ```
 
@@ -339,6 +342,23 @@ git clone <repo>
 npm install -g get-tbd@latest
 tbd setup --auto                    # No --prefix needed—reads existing config
 ```
+
+### Optional Linear Setup
+
+tbd works without an external tracker.
+To add Linear, say **“Set up Linear.”** The agent runs
+[`tbd shortcut setup-linear`](packages/tbd/docs/shortcuts/standard/setup-linear.md),
+which first determines whether this is a first-time repository setup or a teammate
+joining configuration that is already committed.
+
+The distinction is intentional: `.tbd/config.yml` holds the shared Linear team, project,
+and policy, while every contributor supplies their own `LINEAR_API_KEY` through their
+environment or a gitignored `.env`. A joiner should not edit the shared target or start
+with an outbound-only push; the walkthrough verifies their key, previews the
+reconciliation, and then uses plain `tbd sync` so current team bead state is pulled
+first. Create personal keys under Linear’s
+[**Settings > Account > Security & Access**](https://linear.app/docs/api-and-webhooks#api-keys),
+and never paste a raw key into chat or commit it.
 
 ### Claude Code Integration
 

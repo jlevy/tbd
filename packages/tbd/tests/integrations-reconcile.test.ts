@@ -10,7 +10,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { descriptionHash } from '../src/integrations/core/bridge-state.js';
-import { BLOCK_BEGIN, BLOCK_END } from '../src/integrations/core/managed-block.js';
+import { MANAGED_BLOCK_MARKERS } from '../src/integrations/core/managed-block.js';
 import { reconcile, type LocalView, type RemoteView } from '../src/integrations/core/reconcile.js';
 import { FieldSyncClauseSchema } from '../src/lib/schemas.js';
 import type { BridgeBase, FieldSyncClause } from '../src/lib/types.js';
@@ -235,14 +235,14 @@ describe('freshly linked pairs (no base)', () => {
 describe('description semantics', () => {
   it('never counts the managed block or cosmetics as a remote edit', () => {
     const cosmetic = remote({
-      description: `Body  \r\n\n${BLOCK_BEGIN}\nmachine\n${BLOCK_END}`,
+      description: `Body  \r\n\n${MANAGED_BLOCK_MARKERS.begin}\nmachine\n${MANAGED_BLOCK_MARKERS.end}`,
     });
     expect(empty(reconcile(base(), local(), cosmetic, RULES))).toBe(true);
   });
 
   it('pulls remote prose with the managed block stripped', () => {
     const changed = remote({
-      description: `New prose.\n\n${BLOCK_BEGIN}\nmachine\n${BLOCK_END}`,
+      description: `New prose.\n\n${MANAGED_BLOCK_MARKERS.begin}\nmachine\n${MANAGED_BLOCK_MARKERS.end}`,
     });
     const result = reconcile(base(), local(), changed, RULES);
     expect(result.beadPatch.description).toBe('New prose.');
@@ -262,7 +262,7 @@ describe('description semantics', () => {
         updated_at: '2026-08-10T15:00:00.000Z',
       }),
       remote({
-        description: `Remote prose\n\n${BLOCK_BEGIN}\nmachine\n${BLOCK_END}`,
+        description: `Remote prose\n\n${MANAGED_BLOCK_MARKERS.begin}\nmachine\n${MANAGED_BLOCK_MARKERS.end}`,
         updatedAt: '2026-08-10T14:00:00.000Z',
       }),
       RULES,

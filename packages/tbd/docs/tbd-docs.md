@@ -1615,13 +1615,36 @@ One caveat: `tbd setup` run by a tbd version that predates this feature will dro
 The block is tracked in git, so `git checkout .tbd/config.yml` restores it, and the
 symptom is loud (the mirror stops working rather than misbehaving).
 
-Set `LINEAR_API_KEY` in your environment or in a **gitignored** `.env` at the repository
-root. tbd reads it but never writes it back, and refuses to treat an unignored `.env` as
+The block above is **committed**, so it is set up once per repository and everyone who
+clones inherits it. Credentials are the opposite: `LINEAR_API_KEY` is per person and per
+machine, set in the environment or in a **gitignored** `.env` at the repository root.
+tbd reads it but never writes it back, and refuses to treat an unignored `.env` as
 acceptable, because that is how a key gets committed.
+A teammate joining a repository that already syncs therefore needs only a key—no config
+edit at all.
+
+Check that `.env` is ignored *before* writing a key into it.
+For a configured integration, `status` distinguishes `not present and gitignored` from
+the warning `not present and not gitignored`. When no integration is configured it is
+inert and does not print the `.env` finding, so check the path directly:
 
 ```bash
-tbd integration status          # Is it configured, credentialed, reachable?
-tbd integration status --offline # Skip the network check
+git check-ignore -q .env && echo safe || echo "add .env to .gitignore first"
+```
+
+Create a personal key under Linear’s
+[**Settings > Account > Security & Access**](https://linear.app/docs/api-and-webhooks#api-keys).
+Full access works; a restricted key needs **Read**, **Write**, **Create issues**, and
+**Create comments**, scoped to the configured team.
+A workspace admin may need to enable **Settings > Administration > API > Member API
+keys** first. Do not ask a user to paste the raw key into chat; they should enter it
+through their local environment, secret manager, or gitignored `.env`.
+
+`tbd shortcut setup-linear` walks through all of this, including which case you are in.
+
+```bash
+tbd integration status --offline # Shared config and local credential, no network
+tbd integration status           # Also verify the key and target with Linear
 ```
 
 `tbd doctor` reports the same findings.
@@ -1685,9 +1708,11 @@ Runs above **20 creates** or **40 updates** need affirmation:
 
 Linear has no custom fields, so each mirrored issue carries:
 
-- A managed `<!-- tbd:begin -->` block in the description with the bead id, status,
+- A managed `⟦tbd⟧` … `⟦/tbd⟧` region in the description with the bead id, status,
   priority, child counts, and a link to the plan spec.
-  **Only that block is rewritten**, so prose a human adds around it survives.
+  **Only that region is rewritten**, so prose a human adds around it survives.
+  tbd also recognizes the former HTML-comment delimiters and upgrades them on the next
+  outbound sync; malformed or mixed delimiters are reported and left untouched.
 - An attachment keyed `tbd://bead/<id>` holding the full bead field set as structured
   metadata.
 
@@ -1907,27 +1932,64 @@ Maintainers run the API-driven live gate in `tests/qa/linear-integration.qa.md`;
 stable scenarios are the compatibility contract that a GitHub driver must reuse rather
 than redesign.
 
-### For agents: synchronizing specs and beads to Linear
+### For agents: setting up and synchronizing Linear
 
-The whole flow an agent needs when a user says “sync our specs and major beads to
-Linear”:
+**The guided walkthrough is `tbd shortcut setup-linear`.** It detects which of the cases
+below applies and covers only that one.
+Run it instead of improvising a setup sequence.
+
+The distinction that drives everything: **configuration is shared, credentials are
+personal.** The `integrations` block lives in `.tbd/config.yml`, which is committed, so
+everyone who clones the repository inherits the team, project, and policy.
+`LINEAR_API_KEY` lives in the environment or a gitignored `.env` and is never committed,
+so every person and agent supplies their own.
+
+`tbd integration status --offline` separates the two without a network call, and its
+output is how you tell the cases apart:
+
+| `status` shows | Case | What is needed |
+| --- | --- | --- |
+| `No external tracker integrations are configured.` | First-time repository setup | Config, then a key |
+| `✓ enabled` / `✓ target`, `✗ credential` | **Joining a repo the team already set up** | Only your own key |
+| all `✓` | Working | Nothing |
+
+#### Joining a repository that already syncs
+
+The common case on a team, and the one that needs the least work.
+The `integrations` block arrived with the clone, and the bead↔issue links live in the
+beads themselves on the sync branch, so they arrived too.
+Supply a key and run a full sync:
 
 ```bash
-tbd integration status             # 1. Is Linear configured and reachable?
+tbd integration status --offline       # Confirms config is present, credential is not
+# add LINEAR_API_KEY to a gitignored .env, then:
+tbd --dry-run integration sync         # Preview
+tbd sync                               # Pull beads, reconcile Linear, then push
 ```
 
-- If **no API key**: ask the user to create one at `linear.app/settings/api` and place
-  it in a **gitignored** `.env` at the repo root as `LINEAR_API_KEY=lin_api_…`, or
-  export it in the environment.
-  Never commit a key; `status` fails loudly if `.env` is not gitignored.
-- If **no config**: add the `integrations:` block above to `.tbd/config.yml` with the
-  user’s team key (and project, if they name one), then re-run `status` to verify the
-  team resolves.
+Do **not** re-run first-time setup here: editing `team_key` or `project` points this
+clone at a different place than the rest of the team.
+Do not reach for `sync --push` either—the links already exist, so the full `sync` is
+both correct and safer.
+Plain `tbd sync` first pulls the current team bead state, reconciles the tracker in
+place, and publishes the resulting state rather than projecting stale local values over
+Linear. If the shared config deliberately has `integrations.sync_on_tbd_sync: false`,
+preserve it: run `tbd sync` to update bead state, preview and run
+`tbd integration sync`, then run `tbd sync` again to publish the result.
+Do not change a team-level override merely to simplify one contributor’s setup.
+
+#### First-time setup for a repository
+
+Add the `integrations:` block shown under [Setup](#setup) with the user’s team key (and
+project, if they name one), add a key, verify, then stage the initial projection instead
+of creating every issue at once:
 
 ```bash
-tbd --dry-run integration sync --push  # 2. Preview the outbound set; stage with --bead/--limit
-tbd integration sync --push            # 3. Create/update the tracker issues
-tbd integration sync               # 4. Reconcile from then on; repeat at session end
+tbd integration status                             # 1. Config and key resolve; team exists
+tbd --dry-run integration sync --push              # 2. Preview the outbound set
+tbd integration sync --push --type epic --limit 5  # 3. A handful; look at them in Linear
+tbd integration sync --push                        # 4. Widen once the shape reads well
+tbd sync                                           # 5. Pull and reconcile from then on
 ```
 
 The default policy mirrors open epics and anything with an active plan spec — the right

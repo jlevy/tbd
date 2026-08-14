@@ -25,7 +25,7 @@ import {
   readLinkRecord,
   writeLinkRecord,
 } from '../src/integrations/core/bridge-state.js';
-import { BLOCK_BEGIN, BLOCK_END } from '../src/integrations/core/managed-block.js';
+import { MANAGED_BLOCK_MARKERS } from '../src/integrations/core/managed-block.js';
 import type { LinkRecord } from '../src/lib/types.js';
 
 const BEAD_ID = 'is-01hx5zzkbkactav9wevgemmvrz';
@@ -146,7 +146,7 @@ describe('the reverse index and watermark', () => {
 
 describe('description normalization and hashing', () => {
   it('ignores the managed block', () => {
-    const withBlock = `Prose.\n\n${BLOCK_BEGIN}\nmachine text\n${BLOCK_END}`;
+    const withBlock = `Prose.\n\n${MANAGED_BLOCK_MARKERS.begin}\nmachine text\n${MANAGED_BLOCK_MARKERS.end}`;
     expect(descriptionHash(withBlock)).toBe(descriptionHash('Prose.'));
   });
 

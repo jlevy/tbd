@@ -34,6 +34,7 @@ import type {
   PolicyDefinition,
   ProviderNameType,
 } from '../../lib/types.js';
+import { readyIssueIds } from '../../lib/issue-selection.js';
 import {
   descriptionHash,
   listLinkRecords,
@@ -48,7 +49,7 @@ import {
 } from './comment-store.js';
 import { duplicateExternalLinks, readLink, writeLink } from './link-store.js';
 import { assertExternalUnclaimed } from './link-guard.js';
-import { renderManagedBlock, type MirrorLinks } from './managed-block.js';
+import { renderManagedBlock, spliceManagedBlock, type MirrorLinks } from './managed-block.js';
 import { attachmentsFor, beadAttachmentUrl, depthWithinSelection, prefixLabels } from './mirror.js';
 import {
   reconcile,
@@ -511,6 +512,29 @@ export async function runSync(options: SyncEngineOptions): Promise<SyncRunReport
 
   // 2. Assemble the linked set and the remote view.
   const currentIssues = [...issuesById.values()];
+  const readyIds = readyIssueIds(currentIssues);
+  const childrenByParent = new Map<string, Issue[]>();
+  for (const issue of currentIssues) {
+    if (!issue.parent_id) {
+      continue;
+    }
+    const children = childrenByParent.get(issue.parent_id) ?? [];
+    children.push(issue);
+    childrenByParent.set(issue.parent_id, children);
+  }
+  const mirrorExtrasFor = (issue: Issue) => {
+    const displayId = options.displayId(issue.id);
+    const links: MirrorLinks = { specUrl: options.specUrl?.(issue), repoUrl: undefined };
+    const children = childrenByParent.get(issue.id) ?? [];
+    const counts = {
+      children: children.length,
+      ready: children.filter((child) => readyIds.has(child.id)).length,
+    };
+    return {
+      attachments: attachmentsFor(issue, displayId, links, counts),
+      block: renderManagedBlock(issue, links, counts, displayId),
+    };
+  };
   const outboundSelected = mirrorSet(currentIssues, policy.outbound, provider);
   const outboundSelectedIds = new Set(outboundSelected.map((issue) => issue.id));
   const maxNesting = options.maxNesting ?? 2;
@@ -743,23 +767,66 @@ export async function runSync(options: SyncEngineOptions): Promise<SyncRunReport
     });
   }
 
+  // The managed region is a projection, not a merge-owned description field.
+  // Re-splice it after any prose write, and backfill or refresh it when the
+  // provider snapshot differs. Inbound-only runs never write provider chrome.
+  const managedBlocks = new Map<string, string>();
+  const malformedManagedBeads = new Set<string>();
+  for (const pair of pairs) {
+    const projectedBead: Issue = {
+      ...pair.bead,
+      title: pair.result.merged.title,
+      status: pair.result.merged.status,
+      priority: pair.result.merged.priority,
+      labels: pair.result.merged.labels,
+      assignee: pair.result.merged.assignee ?? undefined,
+    };
+    const block = mirrorExtrasFor(projectedBead).block;
+    const spliced = spliceManagedBlock(pair.remote.description, block);
+    if ('error' in spliced) {
+      malformedManagedBeads.add(pair.bead.id);
+      report.failures.push({
+        beadId: options.displayId(pair.bead.id),
+        error: `Managed block markers in ${pair.remote.key ?? pair.remote.id} are malformed; skipped all writes for this pair.`,
+      });
+      continue;
+    }
+    if (
+      !inboundOnly &&
+      (pair.result.externalPatch.description !== undefined ||
+        spliced.result !== pair.remote.description)
+    ) {
+      managedBlocks.set(pair.bead.id, block);
+    }
+  }
+  const synchronizablePairs = pairs.filter((pair) => !malformedManagedBeads.has(pair.bead.id));
+  const synchronizableBeadIds = new Set(synchronizablePairs.map((pair) => pair.bead.id));
+  const synchronizableCommentPushes = commentPushes.filter((push) =>
+    synchronizableBeadIds.has(push.bead.id),
+  );
+  const synchronizableCommentPulls = commentPulls.filter((pull) =>
+    synchronizableBeadIds.has(pull.bead.id),
+  );
+
   // 4. The guard counts both directions.
-  const externalUpdates = pairs.filter(
-    (pair) => Object.keys(pair.result.externalPatch).length > 0,
+  const externalUpdates = synchronizablePairs.filter(
+    (pair) => Object.keys(pair.result.externalPatch).length > 0 || managedBlocks.has(pair.bead.id),
   ).length;
-  const beadUpdates = pairs.filter((pair) => Object.keys(pair.result.beadPatch).length > 0).length;
+  const beadUpdates = synchronizablePairs.filter(
+    (pair) => Object.keys(pair.result.beadPatch).length > 0,
+  ).length;
   const creates =
     outboundNew.length + (effectiveInboundMode === 'auto' ? importPlan.ordered.length : 0);
-  const updates = externalUpdates + beadUpdates + commentPushes.length;
+  const updates = externalUpdates + beadUpdates + synchronizableCommentPushes.length;
   if (!dryRun && (creates > 0 || updates > 0)) {
     await callbacks.affirmBulk({ creates, updates });
   }
 
   if (dryRun) {
     // Report what would happen; nothing below runs.
-    for (const pair of pairs) {
+    for (const pair of synchronizablePairs) {
       const id = options.displayId(pair.bead.id);
-      if (Object.keys(pair.result.externalPatch).length > 0) {
+      if (Object.keys(pair.result.externalPatch).length > 0 || managedBlocks.has(pair.bead.id)) {
         report.pushed.push(id);
       }
       if (Object.keys(pair.result.beadPatch).length > 0) {
@@ -779,10 +846,10 @@ export async function runSync(options: SyncEngineOptions): Promise<SyncRunReport
         report.overwrites.push({ beadId: id, field: 'parent', direction: 'push' });
       }
     }
-    for (const push of commentPushes) {
+    for (const push of synchronizableCommentPushes) {
       report.commentsPushed += unpushedComments(push.bead, provider).length;
     }
-    for (const pull of commentPulls) {
+    for (const pull of synchronizableCommentPulls) {
       try {
         const external = (await adapter.listComments(pull.externalId)).filter(
           (comment) => !comment.body.startsWith(CONFLICT_COMMENT_MARKER),
@@ -824,7 +891,7 @@ export async function runSync(options: SyncEngineOptions): Promise<SyncRunReport
   >();
   const deferredConflictOps: IntentOp[] = [];
   const executablePairs: PlannedPair[] = [];
-  for (const pair of pairs) {
+  for (const pair of synchronizablePairs) {
     const displayId = options.displayId(pair.bead.id);
     try {
       const plans: { report: ConflictReport; clientId?: string; needsPost: boolean }[] = [];
@@ -906,10 +973,7 @@ export async function runSync(options: SyncEngineOptions): Promise<SyncRunReport
   }
   for (const issue of outboundNew) {
     const clientId = outboundClientIds.get(issue.id)!;
-    const displayId = options.displayId(issue.id);
-    const links: MirrorLinks = { specUrl: options.specUrl?.(issue), repoUrl: undefined };
-    const attachments = attachmentsFor(issue, displayId, links, { children: 0, ready: 0 });
-    const block = renderManagedBlock(issue, links, { children: 0, ready: 0 }, displayId);
+    const { attachments, block } = mirrorExtrasFor(issue);
     outboundExtras.set(issue.id, { attachments, block });
     ops.push({
       kind: 'create_issue',
@@ -940,7 +1004,8 @@ export async function runSync(options: SyncEngineOptions): Promise<SyncRunReport
     }
   }
   for (const pair of executablePairs) {
-    if (!inboundOnly && Object.keys(pair.result.externalPatch).length > 0) {
+    const hasExternalPatch = Object.keys(pair.result.externalPatch).length > 0;
+    if (!inboundOnly && hasExternalPatch) {
       const link = readLink(pair.bead, provider)!;
       ops.push({
         kind: 'update_issue',
@@ -950,6 +1015,15 @@ export async function runSync(options: SyncEngineOptions): Promise<SyncRunReport
       });
     }
     const link = readLink(pair.bead, provider)!;
+    const managedBlock = managedBlocks.get(pair.bead.id);
+    if (managedBlock) {
+      ops.push({
+        kind: 'splice_description',
+        bead_id: pair.bead.id,
+        external_id: link.id,
+        block: managedBlock,
+      });
+    }
     for (const plan of conflictPlans.get(pair.bead.id) ?? []) {
       if (plan.needsPost) {
         ops.push({
@@ -964,7 +1038,7 @@ export async function runSync(options: SyncEngineOptions): Promise<SyncRunReport
   }
   const commentClientIds = new Map<string, string>();
   const executableBeadIds = new Set(executablePairs.map((pair) => pair.bead.id));
-  for (const push of commentPushes) {
+  for (const push of synchronizableCommentPushes) {
     if (!executableBeadIds.has(push.bead.id)) {
       continue;
     }
@@ -988,7 +1062,7 @@ export async function runSync(options: SyncEngineOptions): Promise<SyncRunReport
   const journaledExternalIds = new Set(
     ops.flatMap((op) => ('external_id' in op ? [op.external_id] : [])),
   );
-  const journaledCommentBeads = new Set(commentPushes.map((push) => push.bead.id));
+  const journaledCommentBeads = new Set(synchronizableCommentPushes.map((push) => push.bead.id));
   let journalDirty = false;
 
   if (ops.length > 0) {
@@ -1025,11 +1099,22 @@ export async function runSync(options: SyncEngineOptions): Promise<SyncRunReport
     const link = readLink(pair.bead, provider)!;
     try {
       let postWriteUpdatedAt = pair.remote.updatedAt;
+      const hasExternalPatch = Object.keys(pair.result.externalPatch).length > 0;
 
-      if (!inboundOnly && Object.keys(pair.result.externalPatch).length > 0) {
+      if (!inboundOnly && hasExternalPatch) {
         const { updatedAt } = await adapter.applyChanges(link.id, pair.result.externalPatch);
         postWriteUpdatedAt = updatedAt;
         report.pushed.push(displayId);
+      }
+      const managedBlock = managedBlocks.get(pair.bead.id);
+      if (managedBlock) {
+        const result = await adapter.spliceDescription(link.id, managedBlock);
+        if (result) {
+          postWriteUpdatedAt = result.updatedAt;
+          if (!hasExternalPatch) {
+            report.pushed.push(displayId);
+          }
+        }
       }
 
       // Conflict artifacts: a comment per conflicted field, exactly-once. An
@@ -1093,7 +1178,7 @@ export async function runSync(options: SyncEngineOptions): Promise<SyncRunReport
       }
 
       // Comments: push local-authored, then fold in the remote sequence.
-      if (commentPushes.some((push) => push.bead.id === pair.bead.id)) {
+      if (synchronizableCommentPushes.some((push) => push.bead.id === pair.bead.id)) {
         for (const entry of unpushedComments(stored, provider)) {
           const clientId =
             commentClientIds.get(`${pair.bead.id}:${entry.local_id}`) ?? randomUUID();
@@ -1103,7 +1188,7 @@ export async function runSync(options: SyncEngineOptions): Promise<SyncRunReport
           report.commentsPushed += 1;
         }
       }
-      if (commentPulls.some((pull) => pull.bead.id === pair.bead.id)) {
+      if (synchronizableCommentPulls.some((pull) => pull.bead.id === pair.bead.id)) {
         const external = (await adapter.listComments(link.id)).filter(
           (comment) => !comment.body.startsWith(CONFLICT_COMMENT_MARKER),
         );

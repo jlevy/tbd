@@ -167,6 +167,8 @@ gitignored `LINEAR_API_KEY`; the runner exercises the built CLI in a disposable 
 repository, archives its provider fixtures, and emits the stable scenario IDs enforced
 by the import-safe `scripts/provider-live-qa-contract.ts` checklist shared by future
 provider drivers. `--project` is required so project-isolation proof cannot be skipped.
+The outbound field scenario also reads the provider description back through GraphQL and
+verifies the current managed-block delimiters while rejecting the legacy format.
 Manual UI testing is a parity check, not release evidence.
 The complete Linear RC, GitHub issue/PR, and read-only web projection work map is
 [plan-2026-08-10-external-tracker-integrations.md](project/specs/active/plan-2026-08-10-external-tracker-integrations.md).

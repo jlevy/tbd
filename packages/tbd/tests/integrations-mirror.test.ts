@@ -89,7 +89,7 @@ describe('planMirror', () => {
     expect(linkFor(bead, 'linear')).toBeUndefined();
   });
 
-  it('skips a bead nested deeper than max_nesting rather than flattening it', () => {
+  it('skips a new bead nested deeper than max_nesting rather than flattening it', () => {
     const root = issue({ id: 'is-root' });
     const mid = issue({ id: 'is-mid', parent_id: 'is-root' });
     const deep = issue({ id: 'is-deep', parent_id: 'is-mid' });
@@ -105,6 +105,55 @@ describe('planMirror', () => {
     expect(plan.creates.map((a) => a.bead.id)).toEqual(['is-root', 'is-mid']);
     expect(plan.skips).toHaveLength(1);
     expect(plan.skips[0]?.skipReason).toContain('max_nesting');
+  });
+
+  it('updates an already-linked bead beyond max_nesting', () => {
+    const root = issue({ id: 'is-root' });
+    const mid = issue({ id: 'is-mid', parent_id: 'is-root' });
+    const deep = issue({
+      id: 'is-deep',
+      parent_id: 'is-mid',
+      extensions: {
+        linear: { id: 'linear-deep', linked_at: '2026-08-10T00:00:00.000Z' },
+      },
+    });
+
+    const plan = planMirror({
+      provider: 'linear',
+      allIssues: [root, mid, deep],
+      selected: [root, mid, deep],
+      displayId,
+      maxNesting: 2,
+    });
+
+    expect(plan.updates.map((action) => action.bead.id)).toContain('is-deep');
+    expect(plan.skips.map((action) => action.bead.id)).not.toContain('is-deep');
+  });
+
+  it('leaves the provider parent unchanged when a linked deep bead has a skipped parent', () => {
+    const root = issue({ id: 'is-root' });
+    const mid1 = issue({ id: 'is-mid1', parent_id: root.id });
+    const mid2 = issue({ id: 'is-mid2', parent_id: mid1.id });
+    const deep = issue({
+      id: 'is-deep',
+      parent_id: mid2.id,
+      extensions: {
+        linear: { id: 'linear-deep', linked_at: '2026-08-10T00:00:00.000Z' },
+      },
+    });
+
+    const plan = planMirror({
+      provider: 'linear',
+      allIssues: [root, mid1, mid2, deep],
+      selected: [root, mid1, mid2, deep],
+      displayId,
+      maxNesting: 2,
+    });
+
+    const deepAction = plan.updates.find((action) => action.bead.id === deep.id);
+    expect(plan.skips.map((action) => action.bead.id)).toContain(mid2.id);
+    expect(deepAction?.parentBeadId).toBeUndefined();
+    expect(deepAction?.patch).not.toHaveProperty('parentId');
   });
 
   it('treats a bead whose parent is not mirrored as a root', () => {
@@ -386,6 +435,38 @@ describe('applyMirror', () => {
 
     expect(report.skipped).toHaveLength(1);
     expect(report.skipped[0]?.beadId).toBe('tbd-deep');
+  });
+
+  it('updates a linked deep bead when its selected parent is skipped', async () => {
+    server.addIssue({ id: 'linear-mid2', identifier: 'FIN-20' });
+    server.addIssue({
+      id: 'linear-deep',
+      identifier: 'FIN-21',
+      parent: { id: 'linear-mid2', identifier: 'FIN-20' },
+    });
+    const root = issue({ id: 'is-root' });
+    const mid1 = issue({ id: 'is-mid1', parent_id: root.id });
+    const mid2 = issue({ id: 'is-mid2', parent_id: mid1.id });
+    const deep = issue({
+      id: 'is-deep',
+      parent_id: mid2.id,
+      extensions: {
+        linear: { id: 'linear-deep', linked_at: '2026-08-10T00:00:00.000Z' },
+      },
+    });
+    const plan = planMirror({
+      provider: 'linear',
+      allIssues: [root, mid1, mid2, deep],
+      selected: [root, mid1, mid2, deep],
+      displayId,
+      maxNesting: 2,
+    });
+
+    const report = await applyMirror({ adapter, plan, displayId, onLinked });
+
+    expect(report.failures).toEqual([]);
+    expect(report.updated).toContain('tbd-deep');
+    expect(server.issues.get('linear-deep')?.parent?.id).toBe('linear-mid2');
   });
 
   it('refreshes a stale identifier after the issue moves team', async () => {

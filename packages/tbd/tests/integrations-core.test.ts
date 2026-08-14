@@ -8,10 +8,10 @@ import { describe, expect, it } from 'vitest';
 import { parseEnvContent } from '../src/lib/env-file.js';
 import { maskSecret, CREDENTIAL_ENV_VARS } from '../src/integrations/core/credentials.js';
 import {
-  BLOCK_BEGIN,
-  BLOCK_END,
+  MANAGED_BLOCK_MARKERS,
   renderManagedBlock,
   spliceManagedBlock,
+  stripManagedBlock,
 } from '../src/integrations/core/managed-block.js';
 import { mirrorSet, isLinkedTo } from '../src/integrations/core/selection.js';
 import { blobUrl, parseRepoSlug } from '../src/integrations/core/permalink.js';
@@ -148,6 +148,24 @@ describe('Linear priority mapping', () => {
 });
 
 describe('managed block', () => {
+  const legacyMarkers = {
+    begin: '<!-- tbd:begin -->',
+    end: '<!-- tbd:end -->',
+  } as const;
+
+  it('renders plain-text delimiters with no Markdown or HTML semantics', () => {
+    expect(MANAGED_BLOCK_MARKERS).toEqual({
+      begin: '⟦tbd⟧',
+      end: '⟦/tbd⟧',
+    });
+
+    const block = renderManagedBlock(issue(), {}, undefined, 'tbd-abcd');
+
+    expect(block.startsWith(`${MANAGED_BLOCK_MARKERS.begin}\n`)).toBe(true);
+    expect(block.endsWith(`\n${MANAGED_BLOCK_MARKERS.end}`)).toBe(true);
+    expect(block).not.toContain('<!--');
+  });
+
   it('appends the block when the description has no markers', () => {
     const block = renderManagedBlock(issue({ kind: 'epic' }), {}, undefined, 'tbd-abcd');
     const spliced = spliceManagedBlock('Human written intro.', block);
@@ -170,18 +188,37 @@ describe('managed block', () => {
       expect(spliced.result).toContain('Below.');
       expect(spliced.result).toContain('closed');
       // Exactly one managed region survives.
-      expect(spliced.result.split(BLOCK_BEGIN).length - 1).toBe(1);
-      expect(spliced.result.split(BLOCK_END).length - 1).toBe(1);
+      expect(spliced.result.split(MANAGED_BLOCK_MARKERS.begin).length - 1).toBe(1);
+      expect(spliced.result.split(MANAGED_BLOCK_MARKERS.end).length - 1).toBe(1);
     }
   });
 
+  it('migrates a legacy block while preserving prose on both sides', () => {
+    const description = `Above.\n\n${legacyMarkers.begin}\nold\n${legacyMarkers.end}\n\nBelow.`;
+    const block = renderManagedBlock(issue({ status: 'closed' }), {}, undefined, 'tbd-abcd');
+
+    expect(stripManagedBlock(description)).toBe('Above.\n\nBelow.');
+    expect(spliceManagedBlock(description, block)).toEqual({
+      result: `Above.\n\n${block}\n\nBelow.`,
+    });
+  });
+
+  it('refuses mixed current and legacy marker pairs', () => {
+    const description = `${legacyMarkers.begin}\nold\n${MANAGED_BLOCK_MARKERS.end}`;
+
+    expect(stripManagedBlock(description)).toBe(description);
+    expect(spliceManagedBlock(description, 'x')).toEqual({ error: 'markers-malformed' });
+  });
+
   it('refuses to guess when markers are duplicated', () => {
-    const description = `${BLOCK_BEGIN}\na\n${BLOCK_END}\n${BLOCK_BEGIN}\nb\n${BLOCK_END}`;
+    const { begin, end } = MANAGED_BLOCK_MARKERS;
+    const description = `${begin}\na\n${end}\n${begin}\nb\n${end}`;
     expect(spliceManagedBlock(description, 'x')).toEqual({ error: 'markers-malformed' });
   });
 
   it('refuses when the end marker precedes the begin marker', () => {
-    const description = `${BLOCK_END}\nstray\n${BLOCK_BEGIN}`;
+    const { begin, end } = MANAGED_BLOCK_MARKERS;
+    const description = `${end}\nstray\n${begin}`;
     expect(spliceManagedBlock(description, 'x')).toEqual({ error: 'markers-malformed' });
   });
 

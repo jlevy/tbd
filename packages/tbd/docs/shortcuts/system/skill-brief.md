@@ -42,6 +42,7 @@ tbd web --open         # Open the live, read-only bead viewer
 | Found a bug | `tbd create "..." --type=bug` |
 | Show beads in a browser | `tbd web --open` (run it yourself and keep it running) |
 | Plan a feature | `tbd shortcut new-plan-spec` |
+| Set up Linear / add my Linear key | `tbd shortcut setup-linear` |
 | Commit code | `tbd shortcut code-review-and-commit` |
 | Create a PR | `tbd shortcut create-or-update-pr-simple` |
 | TypeScript review | `tbd guidelines typescript-rules` |

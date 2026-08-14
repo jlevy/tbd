@@ -46,7 +46,7 @@ export interface MirrorContext {
   specUrl?: (issue: Issue) => string | undefined;
   /** Permalink for the bead file itself. */
   repoUrl?: (issue: Issue) => string | undefined;
-  /** Levels of nesting to mirror. Deeper beads are skipped, not flattened. */
+  /** Levels of nesting to create. Already-linked beads remain synchronizable. */
   maxNesting: number;
   /**
    * Push bead labels as tracker labels. Off by default: a repo can carry a
@@ -198,8 +198,9 @@ export function planMirror(context: MirrorContext): MirrorPlan {
   for (const issue of orderSelectedParentFirst(context.selected)) {
     const displayId = context.displayId(issue.id);
     const depth = depthWithinSelection(issue, selectedIds, byId);
+    const existingLink = linkFor(issue, context.provider);
 
-    if (depth > context.maxNesting) {
+    if (depth > context.maxNesting && !existingLink) {
       plan.skips.push({
         bead: issue,
         patch: {},
@@ -209,6 +210,7 @@ export function planMirror(context: MirrorContext): MirrorPlan {
       });
       continue;
     }
+    const linkedBeyondMaxNesting = depth > context.maxNesting;
 
     const children = childrenOf.get(issue.id) ?? [];
     const counts = {
@@ -221,8 +223,13 @@ export function planMirror(context: MirrorContext): MirrorPlan {
       repoUrl: context.repoUrl?.(issue),
     };
 
+    // A deep linked bead is synchronized only by exemption from the creation
+    // limit. Its selected parent may itself be skipped, so leave the provider
+    // hierarchy untouched instead of requiring that parent to be mirrored.
     const parentBeadId =
-      issue.parent_id && selectedIds.has(issue.parent_id) ? issue.parent_id : undefined;
+      !linkedBeyondMaxNesting && issue.parent_id && selectedIds.has(issue.parent_id)
+        ? issue.parent_id
+        : undefined;
     const parentLink = parentBeadId
       ? linkFor(byId.get(parentBeadId)!, context.provider)
       : undefined;
@@ -230,7 +237,7 @@ export function planMirror(context: MirrorContext): MirrorPlan {
       title: issue.title,
       status: issue.status,
       priority: issue.priority,
-      parentId: parentLink?.id ?? null,
+      ...(!linkedBeyondMaxNesting ? { parentId: parentLink?.id ?? null } : {}),
       // Omitting `labels` entirely leaves the tracker's labels alone except for
       // the status carriers the adapter adds. Sending [] would strip labels a
       // human applied in the tracker, which is not ours to remove.
@@ -243,7 +250,7 @@ export function planMirror(context: MirrorContext): MirrorPlan {
     const action: MirrorAction = {
       bead: issue,
       ...(parentBeadId ? { parentBeadId } : {}),
-      externalId: linkFor(issue, context.provider)?.id,
+      externalId: existingLink?.id,
       patch,
       attachments: attachmentsFor(issue, displayId, links, counts),
       managedBlock: renderManagedBlock(issue, links, counts, displayId),
