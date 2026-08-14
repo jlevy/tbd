@@ -16,6 +16,9 @@ Design options are mapped but deliberately not decided.
   — OpenAI Symphony, the reference Linear-polling orchestrator
 - [Agent Coordination Kernel](research-agent-coordination-kernel.md) — durable truth vs.
   live coordination
+- [Keeping Agent Sessions Synchronized](research-2026-08-14-agent-sync-protocol-and-hooks.md)
+  — turns §7b.4’s “agents announcing themselves in beads” into a concrete protocol, and
+  audits what the shipped integration actually projects
 - [API References for Bridge Integrations](api-references-bridge-integrations.md) —
   GitHub and Slack bridge APIs.
   PR #197 adds a Linear §5 to that file; see
