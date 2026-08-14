@@ -5,7 +5,7 @@ title: "[epic] External sync and traceability: prime, claim, checkpoint, Linear 
 kind: epic
 status: open
 priority: 1
-version: 42
+version: 46
 spec_path: docs/project/specs/active/plan-2026-08-14-external-sync-and-traceability.md
 labels: []
 dependencies: []
@@ -47,8 +47,12 @@ child_order_hints:
   - is-01m00y5g4nha1jb0kxnempajex
   - is-01m010epmrrmp2s67x1pe8xqa3
   - is-01m012qa5v7vjnn713ec383mze
+  - is-01m017pgj0jg1kr909p5khayt1
+  - is-01m017q47ynz01gchchm33d958
+  - is-01m017q64g3783gr7eyde3mjfx
+  - is-01m017q7z7fq1p6b1zdqya2xd0
 created_at: 2026-08-14T16:19:15.771Z
-updated_at: 2026-08-14T21:26:50.810Z
+updated_at: 2026-08-14T22:54:11.431Z
 ---
 Make Linear show what every agent is doing right now, from a small set of mirrored issues — and make tbd sync cheap enough that agents can run it constantly.
 
