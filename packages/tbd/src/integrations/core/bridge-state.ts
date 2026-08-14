@@ -16,6 +16,7 @@
 import { createHash } from 'node:crypto';
 import { mkdir, readdir, readFile, rm } from 'node:fs/promises';
 import { join } from 'node:path';
+import { isDeepStrictEqual } from 'node:util';
 
 import { writeFile } from 'atomically';
 
@@ -131,25 +132,31 @@ export async function writeLinkRecord(
 }
 
 /**
- * True when two records differ in anything that matters.
+ * Every field whose change makes a record worth rewriting.
  *
- * `synced_at` is deliberately excluded: it advances on every run, so comparing
- * it would make every record differ from itself and defeat the caller. It is
- * not merely cosmetic — `pickNewestLinkRecord` uses it as a merge tiebreaker —
- * which is why it is skipped here rather than removed from the record.
+ * Exhaustive over `LinkRecord` minus `synced_at`, so adding a field to
+ * `LinkRecordSchema` fails to compile here until someone decides whether it is
+ * substantive. A hand-listed comparator would instead treat the new field as
+ * cosmetic and silently stop persisting it.
+ *
+ * `synced_at` is the one deliberate omission: it advances on every run, so
+ * including it would make every record differ from itself and defeat the
+ * caller. It is not merely cosmetic — `pickNewestLinkRecord` uses it as a merge
+ * tiebreaker — which is why it stays in the record and is skipped only here.
  */
+const SUBSTANTIVE_FIELDS: Readonly<Record<Exclude<keyof LinkRecord, 'synced_at'>, true>> = {
+  type: true,
+  bead_id: true,
+  external_id: true,
+  base: true,
+  remote_updated_at: true,
+  state: true,
+};
+
+/** True when two records differ in anything that matters. */
 function recordSubstantivelyDiffers(a: LinkRecord, b: LinkRecord): boolean {
-  return (
-    a.external_id !== b.external_id ||
-    a.remote_updated_at !== b.remote_updated_at ||
-    a.state !== b.state ||
-    a.base.title !== b.base.title ||
-    a.base.status !== b.base.status ||
-    a.base.priority !== b.base.priority ||
-    a.base.assignee !== b.base.assignee ||
-    a.base.description_hash !== b.base.description_hash ||
-    a.base.labels.length !== b.base.labels.length ||
-    a.base.labels.some((label, index) => label !== b.base.labels[index])
+  return (Object.keys(SUBSTANTIVE_FIELDS) as Exclude<keyof LinkRecord, 'synced_at'>[]).some(
+    (key) => !isDeepStrictEqual(a[key], b[key]),
   );
 }
 

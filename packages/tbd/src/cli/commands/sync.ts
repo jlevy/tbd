@@ -145,13 +145,21 @@ class SyncHandler extends BaseCommand {
     // Narrowing to a surface excludes the tracker, which is easy to do by
     // accident (`--issues` reads like "the issue surface", and the tracker IS
     // issues). Say so rather than letting the mirror go quietly stale.
-    if (!syncIntegrations && !options.status && !this.ctx.dryRun) {
+    //
+    // This must survive the default invocation: `info()` is verbose-only, so
+    // reporting it there would leave the ordinary run exactly as silent as
+    // before. `data()` gives the structured form under --json and the
+    // default-visible `notice()` otherwise. Dry runs report it too — "what
+    // would this do?" has to include "not the tracker".
+    if (!syncIntegrations && !options.status) {
       const config = await readConfig(tbdRoot);
       if (!integrationsInert(config) && config.integrations?.sync_on_tbd_sync !== false) {
-        this.output.info(
-          'Skipping external trackers for this run (surface flag given). ' +
-            'Run `tbd sync` or `tbd sync --integrations` to reconcile them.',
-        );
+        this.output.data({ skippedSurfaces: ['integrations'] }, () => {
+          this.output.notice(
+            'Skipping external trackers for this run (surface flag given). ' +
+              'Run `tbd sync` or `tbd sync --integrations` to reconcile them.',
+          );
+        });
       }
     }
 

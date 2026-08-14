@@ -1668,9 +1668,10 @@ would ask about in a status meeting, plus whatever carries a live plan spec.
 **Judge that against *open* work, not against every bead you have ever closed.** Status
 gates the selection, so closed beads can never be mirrored and including them in the
 denominator makes any policy look small.
-In this repository the default policy selects 151 beads: about 9% of all 1,726 beads,
-but **52% of the 291 that are still open** — and the second number is the one that
-predicts what lands in the tracker.
+Measured in this repository on 2026-08-14, the default policy selected 151 beads: about
+9% of all 1,726 beads, but **52% of the 291 that were still open**. Both numbers move as
+a repository grows; the second is the one that predicts what lands in the tracker.
+Run `tbd --dry-run integration sync --push` for your own current count.
 
 The default policy is *open epics, or anything whose `spec_path` points into
 `specs/active/`*. Kind and spec are **alternatives**, not requirements, so both “every
