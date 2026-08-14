@@ -1,5 +1,5 @@
 /**
- * Cross-check the three independent version sources used by a tag-triggered release.
+ * Cross-check the independent version sources used by a tag-triggered release.
  */
 
 import { requireChangelogSection } from './changelog.js';
@@ -7,6 +7,15 @@ import { requireChangelogSection } from './changelog.js';
 export interface VerifiedReleaseMetadata {
   version: string;
   releaseBody: string;
+}
+
+/** Require the compiled CLI to report the same immutable version as the release tag. */
+export function verifyReleaseArtifactVersion(expectedVersion: string, actualVersion: string): void {
+  if (actualVersion !== expectedVersion) {
+    throw new Error(
+      `Built CLI reports ${actualVersion || '<empty>'}, expected release version ${expectedVersion}`,
+    );
+  }
 }
 
 /**

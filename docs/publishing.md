@@ -344,6 +344,7 @@ gh release edit vX.X.X -R jlevy/tbd --notes-file release-notes.md
 ```bash
 gh release view vX.X.X -R jlevy/tbd
 npm view get-tbd
+npm exec --yes --package=get-tbd@X.X.X -- tbd --version
 
 # The GH Release body MUST be the "## X.Y.Z" CHANGELOG section, not the
 # fallback "Release vX.Y.Z" string. v0.1.30 and v0.2.0 both shipped with the
@@ -423,6 +424,13 @@ This project publishes via npm trusted publishing (OIDC) with provenance:
 
 The release workflow (`.github/workflows/release.yml`) triggers on `v*` tags and
 publishes automatically.
+
+It derives `TBD_VERSION_OVERRIDE` from the tag before any build so npm’s `prepack`
+rebuild cannot turn an otherwise valid release into a git-derived development version.
+Before publishing, it executes the compiled CLI and requires that version to match the
+tag and package manifest, and it requires the source checkout to remain clean.
+The packed web proof runs only in a disposable initialized repository; stateful package
+QA must never target the release checkout itself.
 
 ## GitHub Releases
 
