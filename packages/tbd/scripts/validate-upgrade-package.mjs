@@ -220,6 +220,38 @@ async function snapshotIssueData(repository) {
   return snapshot;
 }
 
+async function assertHardenedGhInstallers(repository, name) {
+  const claudeInstaller = await readFile(
+    join(repository, '.claude', 'scripts', 'ensure-gh-cli.sh'),
+    'utf8',
+  );
+  const codexInstaller = await readFile(join(repository, '.codex', 'ensure-gh-cli.sh'), 'utf8');
+  invariant(
+    claudeInstaller === codexInstaller,
+    `${name}: Claude and Codex received different GitHub CLI installers`,
+  );
+  invariant(
+    claudeInstaller.includes('# Automated GitHub CLI setup for agent sessions'),
+    `${name}: installer carries a surface-specific header`,
+  );
+  invariant(
+    claudeInstaller.includes('INSTALL_TMP_DIR=$(mktemp -d "${TMPDIR:-/tmp}/tbd-gh.XXXXXX")') &&
+      claudeInstaller.includes('trap cleanup EXIT') &&
+      claudeInstaller.includes('ARCHIVE_PATH="${INSTALL_TMP_DIR}/${ASSET}"'),
+    `${name}: installer does not isolate downloaded and extracted files`,
+  );
+  invariant(
+    claudeInstaller.includes('INSTALL_STAGING=$(mktemp "$HOME/.local/bin/.gh.XXXXXX")') &&
+      claudeInstaller.includes('mv -f "$INSTALL_STAGING" "$HOME/.local/bin/gh"'),
+    `${name}: installer does not replace the destination atomically`,
+  );
+  invariant(
+    !claudeInstaller.includes('EXTRACT_DIR="/tmp/') &&
+      !claudeInstaller.includes('curl -fsSL -o "/tmp/${ASSET}"'),
+    `${name}: installer writes to a shared fixed temporary path`,
+  );
+}
+
 async function validateScenario({
   candidate,
   candidateVersion,
@@ -357,6 +389,7 @@ async function validateScenario({
     !/get-tbd@\d+\.\d+\.\d+/u.test(sessionScript),
     `${name}: session script embeds a release version`,
   );
+  await assertHardenedGhInstallers(repository, name);
 
   const firstDiff = await git(repository, 'diff', '--cached', '--binary');
   const repeatedUpgrade = await invokeCli(candidate, repository, home, ['setup', '--auto']);

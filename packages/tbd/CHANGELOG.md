@@ -1,5 +1,27 @@
 # get-tbd
 
+## 0.6.5
+
+### Fixed
+
+- **Hardened generated GitHub CLI installer**: Setup now downloads and extracts the
+  pinned CLI inside a unique temporary directory, removes partial files on exit, and
+  atomically replaces the destination executable.
+  Upgrading no longer downgrades a downstream repository to shared fixed `/tmp` paths or
+  labels the Codex copy as a Claude-specific script.
+
+### Changed
+
+- **Packaged upgrade guard**: Release QA now verifies that the Claude and Codex surfaces
+  receive the same surface-neutral installer, with isolated temporary files and atomic
+  destination staging, across the 0.6.3, 0.4.2, and 0.5.0 upgrade paths.
+
+### Security
+
+- **Dependency posture**: No dependencies or lockfile entries changed.
+  The production audit remains clean, and exact first-party historical `get-tbd`
+  packages continue to run with lifecycle scripts disabled during upgrade QA.
+
 ## 0.6.4
 
 ### Fixed
