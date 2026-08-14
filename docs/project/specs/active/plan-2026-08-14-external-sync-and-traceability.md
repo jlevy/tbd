@@ -593,6 +593,19 @@ new flat siblings.
 
 `sync_on_tbd_sync` stays where it is: it gates the whole block, not one provider.
 
+**`f08` must also make the *nested* integration schemas preserve unknown keys.**
+`ConfigSchema` and the provider blocks are already passthrough, but the clauses inside
+them are not: `IntegrationSelectSchema` (`schemas.ts:350`) is a plain Zod object, so a
+key added inside `select` / `policy.outbound` is stripped by an older client on the next
+config rewrite. The format rules call for a bump in exactly that case ("additions inside
+a nested schema that does not preserve unknown keys when an older client could lose
+data").
+
+The practical consequence for sequencing: **any new selection clause waits for `f08`.**
+That includes attention-based selection (`always_statuses`), which is otherwise a small,
+tempting change. Making `IntegrationSelectSchema`, `InboundClauseSchema`, and
+`FieldSyncClauseSchema` passthrough as part of `f08` is what stops this recurring.
+
 **The integration mode is deliberately not a config field.** It would be a claim about
 *other* repositories’ configs that this one cannot see or keep true.
 Only local fact is serialized; `doctor` infers cross-repo risk from observed labels.
