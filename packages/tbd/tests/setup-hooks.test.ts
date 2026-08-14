@@ -170,12 +170,22 @@ describeUnix('setup hooks (project-local)', { timeout: 15000 }, () => {
           expected: `npx --yes get-tbd@${pinnedVersion} prime --brief`,
           fallback: true,
         },
+        {
+          version: '0.6.1',
+          expected: `npx --yes get-tbd@${pinnedVersion} prime --brief`,
+          fallback: true,
+        },
         { version: pinnedVersion!, expected: 'tbd prime --brief', fallback: false },
         { version: `${pinnedVersion}-dev.1.local`, expected: 'tbd prime --brief', fallback: false },
         { version: `${pinnedVersion}+local.1`, expected: 'tbd prime --brief', fallback: false },
         { version: '999.0.0', expected: 'tbd prime --brief', fallback: false },
         {
           version: 'development',
+          expected: `npx --yes get-tbd@${pinnedVersion} prime --brief`,
+          fallback: true,
+        },
+        {
+          version: '01.2.3',
           expected: `npx --yes get-tbd@${pinnedVersion} prime --brief`,
           fallback: true,
         },
@@ -195,7 +205,7 @@ describeUnix('setup hooks (project-local)', { timeout: 15000 }, () => {
           },
         });
 
-        expect(result.status).toBe(0);
+        expect(result.status, `${testCase.version}: ${result.stderr}`).toBe(0);
         expect((await readFile(runnerLog, 'utf-8')).trim()).toBe(testCase.expected);
         if (testCase.fallback) {
           expect(result.stderr).toContain('using pinned fallback');

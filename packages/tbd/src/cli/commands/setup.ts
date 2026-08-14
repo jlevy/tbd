@@ -259,20 +259,34 @@ interface SetupCodexOptions {
  * build is accepted and a genuinely newer local CLI is never downgraded.
  */
 const TBD_VERSION_AT_LEAST_FUNCTION = `tbd_version_at_least() {
-  node -e '
-const parse = (version) => {
-  const match = /^(\\d+)\\.(\\d+)\\.(\\d+)(?:[-+]|$)/u.exec(version);
-  return match === null ? null : match.slice(1).map(Number);
-};
-const installed = parse(process.argv[1]);
-const required = parse(process.argv[2]);
-if (installed === null || required === null) process.exit(1);
-for (let index = 0; index < 3; index += 1) {
-  if (installed[index] > required[index]) process.exit(0);
-  if (installed[index] < required[index]) process.exit(1);
-}
-process.exit(0);
-' "$1" "$2"
+  local version_pattern='^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)(-[0-9A-Za-z.-]+)?(\\+[0-9A-Za-z.-]+)?$'
+  local installed_major installed_minor installed_patch
+  local required_major required_minor required_patch
+
+  if [[ $1 =~ $version_pattern ]]; then
+    installed_major=\${BASH_REMATCH[1]}
+    installed_minor=\${BASH_REMATCH[2]}
+    installed_patch=\${BASH_REMATCH[3]}
+  else
+    return 1
+  fi
+  if [[ $2 =~ $version_pattern ]]; then
+    required_major=\${BASH_REMATCH[1]}
+    required_minor=\${BASH_REMATCH[2]}
+    required_patch=\${BASH_REMATCH[3]}
+  else
+    return 1
+  fi
+
+  if (( installed_major != required_major )); then
+    (( installed_major > required_major ))
+    return
+  fi
+  if (( installed_minor != required_minor )); then
+    (( installed_minor > required_minor ))
+    return
+  fi
+  (( installed_patch >= required_patch ))
 }`;
 
 /**
