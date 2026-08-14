@@ -429,6 +429,46 @@ first-class, and they are also the answer to the human-clutter concern:
   reports nor pays for a sibling’s traffic.
   Untagged (human-authored) items still flow under the inbound policy.
 
+**Work must be able to enter tbd from Linear, by a gesture a human already makes.**
+Three routes exist; explicit import (`sync --pull --external FIN-123`) and
+`integration link` are both complete, the latter carefully so — it refuses to guess when
+the two sides differ, demanding `--take local|remote`. Policy-driven import is the thin
+one (research §4.8, F18): the trigger is a flat label list, so assignment cannot be a
+gesture, the trigger label is never consumed, and `as_kind` is one fixed kind for every
+import.
+
+The inbound clause grows a small selector, with today’s `labels: [...]` folding into
+`when.labels` exactly as `select` folds into `policy.outbound`:
+
+```yaml
+policy:
+  inbound:
+    mode: report # unchanged default; auto stays a deliberate opt-in
+    when:
+      labels: [tbd-take] # any of these, or…
+      assignee: agents@example.com # …assigned to this Linear user
+    as_kind: task
+    kind_labels: { bug: bug } # optional per-label kind overrides
+    consume: true # remove the trigger label on import
+```
+
+Two decisions worth stating:
+
+- **The trigger label stays distinct from the origin label** (F19). Once every mirrored
+  item carries `tbd`, using `tbd` as the trigger would make every mirrored item — and
+  every *other* repository’s — a standing import candidate.
+  Human-applied `tbd-take`; tbd-applied `tbd`.
+- **Imported beads are not assigned to an agent.** They arrive `open` and unassigned, so
+  they land in `tbd ready` and the next agent claims one with `tbd start` (Phase 1).
+  That reuses the claim protocol rather than inventing a second assignment path, names
+  no agent that may not be running, and degrades correctly when none is: the work waits
+  in `ready`, which is where unstarted work belongs.
+  The human’s gesture ends at “this is for tbd”; Linear shows *Started* with the actor
+  as soon as an agent picks it up.
+
+The origin labels must be applied at the **linked-pair** level, not only on outbound
+creates, so items arriving by any of the three routes are marked.
+
 **Changing the mapping must be visible, and one case must stop breaking.** Config is
 committed and editable; today a remap splits silently (research §4.6): policy changes
 are safe, but a changed `project` leaves old items reconciling in the old project
@@ -565,6 +605,9 @@ anything.
   pushes, documented remap semantics (F17)
 - [ ] Multi-repo topologies documented in `setup-linear` (Mode 1 today, Mode 2 once
   labels land, Mode 3 as the hierarchy-native alternative)
+- [ ] Inbound selectors: `when.labels` / `when.assignee`, `kind_labels`, `consume`;
+  origin labels applied at the linked-pair level so all three inbound routes are marked
+  (research §4.8, E21)
 
 **Exit criteria:** a Linear issue for an epic shows its governing spec, its supporting
 docs, its PRs, its GitHub issues, its in-flight children with actor and age, and a

@@ -1035,6 +1035,123 @@ each having their own.
 
 * * *
 
+### 4.8 Inbound: how work enters tbd from the tracker
+
+Everything above is about projection outward.
+The reverse direction — a human writes an issue in Linear and wants an agent to pick it
+up, or wants an existing bead bound to an existing Linear issue — has three routes
+today, and they are in very different states of repair.
+
+| Route | Command | State |
+| --- | --- | --- |
+| **A. Explicit import** | `tbd integration sync --pull --external FIN-123` | **Complete.** Bypasses the policy gate entirely; imports exactly what is named |
+| **B. Policy-driven import** | `policy.inbound` (`mode`, `labels`, `as_kind`) | **Works, but thin.** One label list, one fixed kind, no consumption, no assignment trigger |
+| **C. Link an existing bead** | `tbd integration link <bead> FIN-123` | **Complete and careful** — the best-built path in the feature |
+
+**Route C is worth reading as the reference implementation.** `IntegrationLinkHandler`
+refuses when the bead already has a link for that provider, refuses when another local
+bead holds the item, runs the cross-repo claim guard, then — when the two sides differ —
+**refuses to guess**: `--take local|remote`, and a non-interactive run errors with
+“differing fields have no honest automatic answer at link time” rather than picking one.
+It seeds the bridge base to match the stance taken, writes a write-ahead intent for the
+claim attachment, upserts it, and cleans up.
+After that the bead is permanently in the mirror: `mirrorSet` always includes an
+explicitly linked bead, whatever the selection policy says (`selection.ts:76-80`). That
+is exactly the “officially a tbd-linked bead” status this use case wants, and it already
+exists.
+
+Route B is where the gaps are.
+**F18 — the inbound trigger is one flat label list and nothing else.** `InboundClause`
+is `{mode, labels, as_kind}` (`schemas.ts:455-461`). Consequences:
+
+- **No assignment trigger.** Assigning an issue to a bot user is the most natural “hand
+  this to the agent” gesture a Linear user has, and it cannot be expressed.
+- **The trigger label is never consumed.** After import the item still carries it, so
+  the label now means both “please take this” and “already taken”.
+  Nothing breaks — the item is linked, so it never re-qualifies — but the board is
+  ambiguous to the human who applied it.
+- **`as_kind` is a single fixed kind for every import.** A bug reported in Linear and a
+  feature request in Linear both land as `task`.
+- **`labels: []` means “any item qualifies”**, which combined with `mode: auto` and a
+  shared scope is the failure in [§4.5](#45-many-repositories-one-linear-surface).
+
+**F19 — the origin label and the request label must not be the same label.** Once
+[E18](#e18-origin-and-repo-labels-and-an-origin-scoped-inbound-scan-f15-f16) applies a
+`tbd` label to everything tbd manages, using that same `tbd` label as the inbound
+trigger would make every mirrored item — including other repositories’ — a standing
+import candidate. The two labels answer different questions and must stay distinct:
+
+| Label | Applied by | Means |
+| --- | --- | --- |
+| `tbd` (plain) | tbd | “tbd manages this issue” — the always-on origin marker |
+| `repo/<name>` (group) | tbd | which repository it belongs to |
+| **`tbd-take`** (plain) | **a human** | “tbd, please pick this up” — consumed on import |
+
+`tbd-take` is deliberately a separate plain label rather than a member of a `tbd` label
+group, because a Linear group and a plain label cannot share the name `tbd`, and the
+plain `tbd` origin label is the one filter the human asked to always be able to rely on.
+
+#### The design: selectors in, ready-set out
+
+Two changes, and the second is smaller than it looks.
+
+**Generalize the trigger from a label list to a small selector.** The inbound clause
+grows from one list into a `when` predicate that keeps the label case trivial:
+
+```yaml
+policy:
+  inbound:
+    mode: report # off | report | auto — unchanged default
+    when:
+      labels: [tbd-take] # any of these
+      assignee: agents@example.com # or assigned to this Linear user
+    as_kind: task # default kind
+    kind_labels: # optional: label -> kind overrides
+      bug: bug
+    consume: true # remove the trigger label on import
+```
+
+`when.labels` preserves today’s behavior exactly (an existing `labels: [...]` config
+folds into `when.labels`, the same way `select` folds into `policy.outbound`), so this
+is additive. Matching is **any-of within a selector and any-of across selectors**: a
+human can hand work over by labelling *or* by assigning, whichever their team already
+does.
+
+**Do not assign imported beads to an agent — put them in the ready set.** The obvious
+reading of “assign it to an agent” is that the import picks an agent and assigns.
+That is worse than it sounds: it names an agent that may not be running, it collides
+with the claim protocol, and it makes the import decide something the next available
+agent should decide.
+The better mechanism already exists after [§3.2](#32-the-five-moments):
+
+> import → bead is `open` and **unassigned** → `tbd ready` surfaces it → the next agent
+> claims it with `tbd start`, which sets `in_progress` + identity and syncs.
+
+The human’s gesture in Linear ends at “this is for tbd.”
+The claim protocol handles the rest, and the Linear issue shows *Started* with the actor
+as soon as an agent picks it up — which is the visibility the human wanted from
+assigning in the first place.
+No new mechanism, and it degrades correctly when no agent is running: the work simply
+sits in `ready`, which is exactly where unstarted work belongs.
+
+**Route C needs one addition, not a redesign.** `link` writes the claim attachment but
+no labels, so a manually linked issue is invisible to the `tbd` filter until its next
+mirror pass.
+Since E18 applies labels to every *linked pair* rather than only to outbound
+creates, this closes on its own — provided E18 is implemented at the pair level.
+Worth stating as an explicit requirement, because implementing it on the create path
+only would leave routes A, B, and C all producing unlabelled issues.
+
+#### What this does not change
+
+`mode: report` stays the default.
+Auto-import lets people outside the repository create work inside it, and that should
+remain a deliberate opt-in — the trigger being more expressive does not make it less
+consequential. The bulk guard, the claim guard, and the parent-first import ordering all
+apply unchanged.
+
+* * *
+
 ## 5. Traceability: beads, docs, PRs, and the tracker
 
 The requirement, stated as a test a person can run: **open Linear, see what has been
@@ -1542,6 +1659,27 @@ after it every future integration decision is a value in an existing group rathe
 new sibling key. The mode is deliberately not serialized — it is a claim about other
 repositories that this one cannot verify; `doctor` infers risk instead.
 
+### E21. Inbound selectors, and the ready-set handoff (F18, F19)
+
+Grow `policy.inbound` from a flat `labels` list into a `when` selector supporting
+`labels` (any-of) and `assignee` (a Linear user, so “assign it to the bot” becomes a
+valid hand-off gesture), plus `kind_labels` overrides for `as_kind` and `consume` to
+remove the trigger label on import.
+Today’s `labels: [...]` folds into `when.labels`, exactly as `select` folds into
+`policy.outbound`.
+
+Keep the trigger label (`tbd-take`, human-applied) distinct from the origin label
+(`tbd`, tbd-applied): sharing one label would make every mirrored item a standing import
+candidate.
+
+**Do not assign imported beads to an agent.** Import as `open` and unassigned so the
+bead lands in `tbd ready`, and let the next agent claim it with `tbd start` (E1). That
+reuses the claim protocol instead of inventing a second assignment path, and degrades
+correctly when no agent is running.
+
+E18’s labels must be applied at the **linked-pair** level, not only on outbound creates,
+so items that arrive via explicit import or `integration link` are marked too.
+
 ### E9. Instruction changes
 
 No code, and probably the highest ratio of value to effort:
@@ -1618,6 +1756,7 @@ followed → then gate.
 | **Sync pays for the parent repo’s pre-push hook** | `pushWithRetry` pushes without `--no-verify`, so every sync fires `.git/hooks/pre-push` — here, the full test suite, and again on each retry (F5) | Push the sync branch with `--no-verify`, matching what the commit path already does deliberately |
 | **Silent hook failure** | Demonstrated in this very session | E7 — fail loud, and make `doctor` execute the scripts |
 | **Shared-scope cross-talk** | Two repos on one team+project: report mode advertises each other’s items as importable; auto mode fails every sync (probed — F15) | E18 origin labels + origin-scoped inbound; or topology Mode 1 (team per repo), which is structurally isolated today |
+| **Inbound trigger ambiguity** | Reusing the `tbd` origin label as the import trigger would make every mirrored item — including other repos’ — a standing candidate (F19) | Keep human-applied `tbd-take` distinct from tbd-applied `tbd`, and consume it on import |
 | **Remap split-brain** | Changing `team_key` leaves old links reconciling in the old team while status pushes send the new team’s state UUIDs — repeated per-item failures (F17) | E19 — detect team mismatch, never push a state id across teams, document remap semantics |
 | **First-mirror surprise** | 114 selected, 70 created, 44 skipped (F2), against a 20-create bulk guard | Document it; keep the staged `--limit` rollout the `setup-linear` shortcut already prescribes |
 
