@@ -549,8 +549,10 @@ projection; `tbd sync --issues` states that the tracker was excluded;
 
 **Schema:** `IssueSchema` gains `docs` and `refs` and preserves unknown keys;
 `FIELD_STRATEGIES` gains `docs: 'union'`, `refs: 'union'`, and a default for unknown
-keys; `LinkRecordSchema` drops `synced_at`; `IntegrationSelect` gains an attention
-clause.
+keys; `IntegrationSelect` gains an attention clause and its schema (with the other
+nested integration clauses) starts preserving unknown keys.
+`LinkRecordSchema` is **unchanged** — `synced_at` is retained, and only the write is
+guarded (see the Phase 1 design).
 
 **Format:** `f07` → `f08`, metadata-only stamp.
 
