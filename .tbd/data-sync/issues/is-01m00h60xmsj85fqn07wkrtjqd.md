@@ -5,12 +5,13 @@ title: Stop-event completion gate for Claude Code and Codex
 kind: feature
 status: open
 priority: 2
-version: 1
+version: 2
+spec_path: docs/project/research/current/research-2026-08-14-agent-sync-protocol-and-hooks.md
 labels: []
 dependencies: []
 parent_id: is-01m00h43nvt17wxyhxqm88wh3c
 created_at: 2026-08-14T16:20:18.484Z
-updated_at: 2026-08-14T16:20:18.484Z
+updated_at: 2026-08-14T16:50:18.055Z
 ---
 Wire tbd closing --check to Claude Code's Stop event (exit 2 blocks the turn and returns stopReason to the model) and Codex's Stop (continue:false). Cursor's equivalent is stop -> followup_message. Gemini CLI has no blocking stop event and degrades to a reminder.
 

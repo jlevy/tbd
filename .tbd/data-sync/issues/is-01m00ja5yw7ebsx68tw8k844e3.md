@@ -5,12 +5,13 @@ title: tbd sync --push silently performs the outbound-only mirror the docs warn 
 kind: bug
 status: open
 priority: 1
-version: 1
+version: 2
+spec_path: docs/project/research/current/research-2026-08-14-agent-sync-protocol-and-hooks.md
 labels: []
 dependencies: []
 parent_id: is-01m00h43nvt17wxyhxqm88wh3c
 created_at: 2026-08-14T16:40:03.292Z
-updated_at: 2026-08-14T16:40:03.292Z
+updated_at: 2026-08-14T16:50:18.055Z
 ---
 tbd sync --push calls runEnabledIntegrationPushes (sync.ts:205) — the same one-way projection as tbd integration sync --push, with no three-way reconcile.
 

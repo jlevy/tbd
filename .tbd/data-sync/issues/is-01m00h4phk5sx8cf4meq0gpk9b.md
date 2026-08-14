@@ -5,14 +5,15 @@ title: Teach the claim step in all four instruction surfaces
 kind: task
 status: open
 priority: 1
-version: 2
+version: 3
+spec_path: docs/project/research/current/research-2026-08-14-agent-sync-protocol-and-hooks.md
 labels: []
 dependencies:
   - type: blocks
     target: is-01m00h60xmsj85fqn07wkrtjqd
 parent_id: is-01m00h43nvt17wxyhxqm88wh3c
 created_at: 2026-08-14T16:19:35.091Z
-updated_at: 2026-08-14T16:20:37.327Z
+updated_at: 2026-08-14T16:50:18.055Z
 ---
 Claiming a bead appears in exactly one table row of skill-baseline ('tbd update <id> --status in_progress' = Claim work) and nowhere in AGENTS.md, skill-brief, skill-minimal, the closing protocol, implement-beads, or plan-implementation-with-beads. The closing protocol appears in all four and is obeyed; claiming appears in one and is not (0 assignees repo-wide).
 

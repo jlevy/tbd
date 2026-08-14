@@ -5,12 +5,13 @@ title: Correct the '~10% of beads' selection claim and document max_nesting skip
 kind: bug
 status: open
 priority: 2
-version: 1
+version: 2
+spec_path: docs/project/research/current/research-2026-08-14-agent-sync-protocol-and-hooks.md
 labels: []
 dependencies: []
 parent_id: is-01m00h43nvt17wxyhxqm88wh3c
 created_at: 2026-08-14T16:19:36.585Z
-updated_at: 2026-08-14T16:19:36.585Z
+updated_at: 2026-08-14T16:50:18.055Z
 ---
 The 'roughly 10% of a typical repository's beads' figure appears in the setup-linear shortcut and in the PRESETS comment in integrations/core/policy.ts. Measured here it is 45% (114 of 254 active), because the specs:active clause dominates in a spec-driven repo: 105 of the 114 qualify on spec, not on being an epic.
 

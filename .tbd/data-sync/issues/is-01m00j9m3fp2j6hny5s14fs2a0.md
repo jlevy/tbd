@@ -5,13 +5,14 @@ title: Fetch Linear comments only for pairs the delta moved (cost is 2+N request
 kind: bug
 status: open
 priority: 1
-version: 2
+version: 3
+spec_path: docs/project/research/current/research-2026-08-14-agent-sync-protocol-and-hooks.md
 labels:
   - sync-efficiency
 dependencies: []
 parent_id: is-01m00h43nvt17wxyhxqm88wh3c
 created_at: 2026-08-14T16:39:45.007Z
-updated_at: 2026-08-14T16:40:23.376Z
+updated_at: 2026-08-14T16:50:18.055Z
 ---
 MEASURED, no-op steady-state sync against the mock server:
 

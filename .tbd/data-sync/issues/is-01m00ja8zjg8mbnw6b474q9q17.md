@@ -5,13 +5,14 @@ title: tbd sync --issues silently excludes the tracker
 kind: bug
 status: open
 priority: 2
-version: 2
+version: 3
+spec_path: docs/project/research/current/research-2026-08-14-agent-sync-protocol-and-hooks.md
 labels:
   - sync-efficiency
 dependencies: []
 parent_id: is-01m00h43nvt17wxyhxqm88wh3c
 created_at: 2026-08-14T16:40:06.386Z
-updated_at: 2026-08-14T16:40:22.019Z
+updated_at: 2026-08-14T16:50:18.055Z
 ---
 syncIntegrations = Boolean(options.integrations) || (!hasSurfaceFlag && !options.status), so passing --issues sets hasSurfaceFlag and drops Linear with no mention in the output. An agent narrowing to --issues for speed has no way to know the tracker went stale.
 

@@ -5,7 +5,8 @@ title: A quiet tbd sync must write nothing (bridge records rewritten on every ru
 kind: bug
 status: open
 priority: 0
-version: 4
+version: 5
+spec_path: docs/project/research/current/research-2026-08-14-agent-sync-protocol-and-hooks.md
 labels:
   - sync-efficiency
 dependencies:
@@ -15,7 +16,7 @@ dependencies:
     target: is-01m00h57nkvtvkbqn992w5fm2e
 parent_id: is-01m00h43nvt17wxyhxqm88wh3c
 created_at: 2026-08-14T16:39:43.473Z
-updated_at: 2026-08-14T16:40:23.369Z
+updated_at: 2026-08-14T16:50:18.055Z
 ---
 MEASURED against the bundled mock Linear server: a settled mirror, re-synced with nothing changed anywhere, still rewrites EVERY bridge link record. The only diff is the timestamp:
 

@@ -5,7 +5,8 @@ title: "[epic] Agent sync protocol: prime, claim, checkpoint, and Linear visibil
 kind: epic
 status: open
 priority: 1
-version: 26
+version: 33
+spec_path: docs/project/research/current/research-2026-08-14-agent-sync-protocol-and-hooks.md
 labels: []
 dependencies: []
 child_order_hints:
@@ -33,8 +34,14 @@ child_order_hints:
   - is-01m00ja7cxw4z9heqpmdcmsfsa
   - is-01m00ja8zjg8mbnw6b474q9q17
   - is-01m00jaacfz0nepg8ghey7qd87
+  - is-01m00k639pqyx9p30eszfh06k0
+  - is-01m00k64qt61hy5vnwb66nr3zx
+  - is-01m00k6rrtay18j0gb1snphxge
+  - is-01m00k6t67cbxc3hrcwek1563e
+  - is-01m00k6vj8rnw98ttyx016mmak
+  - is-01m00k6wyrse7se3kj2693296a
 created_at: 2026-08-14T16:19:15.771Z
-updated_at: 2026-08-14T16:47:37.981Z
+updated_at: 2026-08-14T16:55:44.344Z
 ---
 Make Linear show what every agent is doing right now, from a small set of mirrored issues — and make tbd sync cheap enough that agents can run it constantly.
 
