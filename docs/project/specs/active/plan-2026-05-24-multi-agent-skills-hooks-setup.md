@@ -590,9 +590,11 @@ Revised through 2026-08-14:
   surface is self-contained and Codex hooks never reference `.claude/`. The guideline
   treats this as a valid alternative to a shared neutral script.
   (`tbd-orup`)
-- **Version-aware local selection** — the session and closing hooks use a local `tbd`
-  only when its numeric SemVer core satisfies `PINNED_NPM_VERSION`; stale or malformed
-  clients fall through to the exact pin.
+- **Format-compatible local selection with one central pin** — the session and closing
+  hooks use a local `tbd` whenever it can read the repository’s `tbd_format`. If it
+  cannot, they use the strictly validated exact `tbd_fallback_version` from
+  `.tbd/config.yml`. Generated Bash files contain no tbd release literal, so compatible
+  package releases update one config value rather than every launcher.
   The remaining `@latest` usages are forward-compatibility upgrade errors or the
   first-install bootstrap, all of which legitimately want the newest release and must
   not be pinned. (`tbd-shsb`, revised 2026-08-14 by `tbd-2ezq`)
@@ -617,8 +619,10 @@ For tbd specifically:
   This makes version pinning safe on teams: an older tbd fails loudly rather than
   clobbering a newer managed block.
   (`tbd-y84j`, surfaced by `tbd-ymts`)
-- Version pinning in generated invocations serves both supply-chain hardening and
-  cross-team/cross-agent behavioral consistency.
+- The one exact config-level fallback pin serves supply-chain hardening and
+  deterministic recovery at format boundaries.
+  Normal local execution is compatibility-gated rather than release-gated, avoiding
+  needless patch-version churn.
   (`tbd-1h2s`)
 
 ## References

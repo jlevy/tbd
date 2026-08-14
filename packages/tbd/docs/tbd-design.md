@@ -1640,7 +1640,12 @@ Project configuration stored in `.tbd/config.yml`:
 
 ```yaml
 # .tbd/config.yml
+tbd_format: f07
 tbd_version: '3.0.0'
+tbd_fallback_version: '3.0.0'
+tbd_upgrades:
+  - version: '3.0.0'
+    at: '2026-01-01T00:00:00.000Z'
 
 sync:
   branch: tbd-sync # Branch name for synced data
@@ -1658,7 +1663,10 @@ settings:
 
 ```typescript
 const ConfigSchema = z.object({
+  tbd_format: z.string(),
   tbd_version: z.string(),
+  tbd_fallback_version: z.string().optional(),
+  tbd_upgrades: z.array(UpgradeEntrySchema).default([]),
   sync: z
     .object({
       branch: z.string().default('tbd-sync'),
@@ -2596,7 +2604,8 @@ If `.tbd/config.yml` does not exist or is invalid, commands exit with an error:
 **Detection logic:**
 
 1. Check for `.tbd/config.yml` existence
-2. Validate `tbd_version` field is present and compatible
+2. Validate the config and require its `tbd_format` to be compatible (`tbd_version` is
+   informational)
 3. If either check fails → error with initialization instructions
 
 **Commands and their initialization requirements:**
@@ -5435,6 +5444,10 @@ installed globally.
 
 The session script handles tbd CLI installation (if missing) and runs `tbd prime`. It is
 committed to the repo so cloud environments bootstrap automatically.
+It contains no tbd release literal: it uses an installed CLI when that CLI can read the
+repository’s `tbd_format`, otherwise it invokes the strictly validated exact
+`tbd_fallback_version` stored once in `.tbd/config.yml`. Compatible package upgrades
+therefore update the central pin without rewriting the script.
 
 **Setup command:**
 

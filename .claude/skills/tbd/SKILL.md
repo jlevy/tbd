@@ -352,7 +352,7 @@ Load the **General engineering** group first, then the language or framework gro
 
 | Name | Description |
 | --- | --- |
-| backward-compatibility-rules | Guidelines for maintaining backward compatibility across code, APIs, file formats, and database schemas |
+| backward-compatibility-rules | Guidelines for maintaining backward compatibility only for real consumers and data from released versions |
 | commit-conventions | Conventional Commits format with extensions for agentic workflows |
 | error-handling-rules | Rules for handling errors, failures, and exceptional conditions |
 | general-coding-rules | Rules for constants, magic numbers, cryptographic hash checks, and general coding practices |

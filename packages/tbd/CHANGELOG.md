@@ -1,5 +1,40 @@
 # get-tbd
 
+## 0.6.3
+
+### Fixed
+
+- **Version-independent repository launchers**: Generated session and closing scripts no
+  longer embed the tbd release that created them.
+  They use any installed CLI that can read the repository’s `tbd_format`, so routine
+  compatible releases do not rewrite every downstream repository’s Bash files.
+- **Deterministic incompatible-format recovery**: If the installed CLI cannot read the
+  repository format, launchers use the single exact `tbd_fallback_version` recorded in
+  `.tbd/config.yml`. The value is strictly validated before it reaches `npx`, retaining
+  the reviewed supply-chain pin without duplicating it across generated files.
+
+### Changed
+
+- **Representative upgrade proof**: Packed release QA now starts with the latest 0.6.2
+  same-format release as well as the common 0.4.2 and final f06 0.5.0 baselines.
+  It verifies compatible local selection, exact fallback behavior, preserved data,
+  fail-closed format boundaries, and byte-identical repeated setup.
+
+### Guidelines and content
+
+- **Centralized generated-runner pins**: CLI integration guidance now recommends one
+  validated repository-level fallback pin when several generated launchers share a
+  package, avoiding release-number churn in each script.
+- **Backward-compatibility decisions**: The bundled guideline now starts from verified
+  released consumers and persisted data, selects the smallest valid response, and calls
+  for obsolete aliases, fallbacks, and shims to be removed when their boundary ends.
+
+### Security
+
+- **Dependency posture**: No dependencies or lockfile entries changed.
+  Exact first-party historical `get-tbd` packages are used for upgrade QA with lifecycle
+  scripts disabled; the existing frozen dependency tree is reused.
+
 ## 0.6.2
 
 ### Fixed

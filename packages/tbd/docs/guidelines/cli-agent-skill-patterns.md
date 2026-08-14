@@ -210,6 +210,15 @@ When generated artifacts need a fallback pin, derive it from a known published r
 not the running development build.
 A local version such as `1.5.0-dev.<sha>` may not be resolvable from the registry.
 
+When several committed launchers share the same package, keep that exact pin once in a
+repository-level config or manifest and have each launcher read it.
+Validate the value against a strict package-version grammar before constructing the
+runner argument. This keeps the fallback deterministic while avoiding a rewrite of every
+script for a routine compatible package release.
+Keep compatibility separate from recency: prefer an installed CLI whenever it can safely
+read the repository’s format, even if its release number is older or newer than the
+recorded fallback.
+
 ### Make Failures Actionable
 
 The CLI should:

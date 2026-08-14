@@ -603,6 +603,16 @@ export const ConfigSchema = z
      */
     tbd_version: z.string(),
     /**
+     * Exact published package version used by generated launchers only when the locally
+     * installed CLI cannot read this repository's `tbd_format`. Kept in one central
+     * config field so compatible patch releases do not rewrite every launcher script.
+     * Optional for repositories created before this field was introduced; `tbd setup`
+     * fills it in before installing or refreshing launchers. Parsing stays lenient so
+     * setup can repair a malformed value; each launcher validates the exact package
+     * grammar before passing it to a runner.
+     */
+    tbd_fallback_version: z.string().optional(),
+    /**
      * Ordered history (oldest first) of tbd versions that have run setup here. Appended
      * on each setup when the version changes; informational. Seeded on the f06 migration
      * from the prior `tbd_version` (without a timestamp). See tbd-format.ts.
@@ -806,6 +816,7 @@ export const ISSUE_FIELD_ORDER = [
 export const CONFIG_FIELD_ORDER = [
   'tbd_format',
   'tbd_version',
+  'tbd_fallback_version',
   'tbd_upgrades',
   'display',
   'sync',

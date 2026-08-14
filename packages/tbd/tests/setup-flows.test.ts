@@ -731,17 +731,18 @@ describe('setup flows', { timeout: subprocessTestTimeout() }, () => {
         'bash "$CLAUDE_PROJECT_DIR"/.claude/hooks/tbd-closing-reminder.sh',
       );
 
-      // Both generated scripts resolve the repo root before checking .tbd
-      // (the hook may start in a subdirectory) and fall back to a pinned npx
-      // runner when tbd is not on the hook's PATH.
+      // Both generated scripts resolve the repo root before checking .tbd,
+      // probe the local CLI's format compatibility, and read an exact fallback
+      // from config without embedding a release number.
       for (const rel of [
         '.claude/hooks/tbd-closing-reminder.sh',
         '.codex/tbd-closing-reminder.sh',
       ]) {
         const script = await readFile(join(tempDir, rel), 'utf-8');
         expect(script).toContain('git rev-parse --show-toplevel');
-        expect(script).toContain('tbd_version_at_least');
-        expect(script).toMatch(/npx --yes get-tbd@\d+\.\d+\.\d+ closing/);
+        expect(script).toContain('tbd config get tbd_format');
+        expect(script).toContain('npx --yes "get-tbd@$configured_fallback_version" closing');
+        expect(script).not.toMatch(/get-tbd@\d+\.\d+\.\d+/u);
       }
     });
 
