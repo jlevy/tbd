@@ -10,9 +10,19 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { mkdtemp, rm, mkdir, writeFile, readFile, access, realpath, stat } from 'node:fs/promises';
+import {
+  mkdtemp,
+  rm,
+  mkdir,
+  writeFile,
+  readFile,
+  access,
+  realpath,
+  stat,
+  chmod,
+} from 'node:fs/promises';
 import { tmpdir, platform } from 'node:os';
-import { join } from 'node:path';
+import { delimiter, join } from 'node:path';
 import { execSync, spawnSync } from 'node:child_process';
 
 // Shell script hooks are Unix-only; skip entire suite on Windows
@@ -120,10 +130,79 @@ describeUnix('setup hooks (project-local)', { timeout: 15000 }, () => {
       // Verify key parts of the script: local-first, then a pinned npx fallback.
       expect(content).toContain('#!/bin/bash');
       expect(content).toContain('command -v tbd');
+      expect(content).toContain('tbd_version_at_least');
       expect(content).toContain('npx --yes get-tbd@');
       expect(content).toContain('tbd prime');
       // Must not use an unpinned runner.
       expect(content).not.toContain('npx get-tbd prime');
+    });
+
+    it('uses the pinned fallback only when the local CLI is stale or invalid', async () => {
+      const projectDir = join(tempDir, 'project');
+      await mkdir(projectDir, { recursive: true });
+      initGitRepo(projectDir);
+      expect(runTbd(['setup', '--auto', '--prefix=test'], projectDir).status).toBe(0);
+
+      const scriptPath = join(projectDir, '.claude', 'scripts', 'tbd-session.sh');
+      const script = await readFile(scriptPath, 'utf-8');
+      const pinnedVersion = /get-tbd@(\d+\.\d+\.\d+)/u.exec(script)?.[1];
+      expect(pinnedVersion).toBeDefined();
+
+      const fakeBin = join(tempDir, 'fake-bin');
+      const runnerLog = join(tempDir, 'runner.log');
+      await mkdir(fakeBin);
+      await writeFile(
+        join(fakeBin, 'tbd'),
+        '#!/bin/bash\n' +
+          'if [ "$1" = "--version" ]; then printf "%s\\n" "$FAKE_TBD_VERSION"; exit 0; fi\n' +
+          'printf "tbd %s\\n" "$*" >> "$TBD_RUNNER_LOG"\n',
+      );
+      await writeFile(
+        join(fakeBin, 'npx'),
+        '#!/bin/bash\nprintf "npx %s\\n" "$*" >> "$TBD_RUNNER_LOG"\n',
+      );
+      await chmod(join(fakeBin, 'tbd'), 0o755);
+      await chmod(join(fakeBin, 'npx'), 0o755);
+
+      const cases = [
+        {
+          version: '0.0.0',
+          expected: `npx --yes get-tbd@${pinnedVersion} prime --brief`,
+          fallback: true,
+        },
+        { version: pinnedVersion!, expected: 'tbd prime --brief', fallback: false },
+        { version: `${pinnedVersion}-dev.1.local`, expected: 'tbd prime --brief', fallback: false },
+        { version: `${pinnedVersion}+local.1`, expected: 'tbd prime --brief', fallback: false },
+        { version: '999.0.0', expected: 'tbd prime --brief', fallback: false },
+        {
+          version: 'development',
+          expected: `npx --yes get-tbd@${pinnedVersion} prime --brief`,
+          fallback: true,
+        },
+      ];
+
+      for (const testCase of cases) {
+        await writeFile(runnerLog, '');
+        const result = spawnSync('bash', [scriptPath, '--brief'], {
+          cwd: projectDir,
+          encoding: 'utf-8',
+          env: {
+            ...process.env,
+            HOME: fakeHome,
+            PATH: `${fakeBin}${delimiter}${process.env.PATH ?? ''}`,
+            FAKE_TBD_VERSION: testCase.version,
+            TBD_RUNNER_LOG: runnerLog,
+          },
+        });
+
+        expect(result.status).toBe(0);
+        expect((await readFile(runnerLog, 'utf-8')).trim()).toBe(testCase.expected);
+        if (testCase.fallback) {
+          expect(result.stderr).toContain('using pinned fallback');
+        } else {
+          expect(result.stderr).not.toContain('using pinned fallback');
+        }
+      }
     });
   });
 
@@ -368,8 +447,12 @@ describeUnix('setup hooks (project-local)', { timeout: 15000 }, () => {
       initGitRepo(projectDir);
 
       // Run setup twice
-      runTbd(['setup', '--auto', '--prefix=test'], projectDir);
-      runTbd(['setup', '--auto'], projectDir);
+      const first = runTbd(['setup', '--auto', '--prefix=test'], projectDir);
+      const second = runTbd(['setup', '--auto'], projectDir);
+
+      expect(first.status).toBe(0);
+      expect(second.status).toBe(0);
+      expect(second.stdout + second.stderr).not.toContain('Cleaned up legacy');
 
       const settingsPath = join(projectDir, '.claude', 'settings.json');
       const content = await readFile(settingsPath, 'utf-8');

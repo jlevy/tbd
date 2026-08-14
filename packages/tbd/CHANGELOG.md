@@ -1,5 +1,40 @@
 # get-tbd
 
+## 0.6.2
+
+### Fixed
+
+- **Version-aware generated hooks**: Session and closing hooks now use a local `tbd`
+  only when its numeric SemVer core satisfies the repository pin.
+  A stale or malformed installation falls through to the exact pinned `get-tbd` package,
+  so patch upgrades and repository-format upgrades no longer dead-end merely because an
+  older global CLI is still on `PATH`.
+- **Idempotent setup**: Repeated `tbd setup --auto` runs no longer classify the current
+  `.claude/scripts/tbd-session.sh` hooks as legacy, remove them, and then reinstall the
+  same entries while claiming cleanup work occurred.
+- **Clear upgrade handoff**: Setup now reports the previous and current tbd versions
+  when it stamps an existing repository and explicitly tells the operator to review and
+  commit the generated changes.
+  Identical reruns remain quiet.
+- **Consistent setup CLI**: Fresh setup and Beads migration now run their follow-up
+  import and dashboard with the current CLI process instead of dispatching to whichever
+  `tbd` happens to be on `PATH`, which could be an older, format-incompatible
+  installation.
+
+### Changed
+
+- **Verified upgrade paths**: Release packages are now exercised against the published
+  0.6.1 same-format baseline, the common 0.4.2 upgrade path, and the final 0.5.0 f06
+  baseline. The proof covers config and issue preservation, generated surfaces,
+  idempotent reruns, same-format backward compatibility, and the older client failing
+  closed after f07.
+
+### Security
+
+- **Dependency posture**: No dependencies or lockfile entries changed.
+  Packaged upgrade QA fetches only exact historical first-party `get-tbd` tarballs with
+  their lifecycle scripts disabled and reuses the frozen workspace dependency tree.
+
 ## 0.6.1
 
 ### Fixed

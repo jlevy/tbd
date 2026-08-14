@@ -44,6 +44,9 @@ jobs:
       - name: Verify packed web command
         run: pnpm --filter get-tbd qa:web-package
 
+      - name: Verify packaged upgrades
+        run: pnpm --filter get-tbd qa:upgrade-package
+
       - name: Verify release metadata
         run: pnpm exec tsx packages/tbd/scripts/verify-release-metadata.ts "${GITHUB_REF_NAME}"
 
