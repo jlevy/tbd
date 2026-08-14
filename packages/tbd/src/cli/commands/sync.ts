@@ -142,6 +142,19 @@ class SyncHandler extends BaseCommand {
     const syncIssues = Boolean(options.issues) || hasDirectionFlag || !hasSurfaceFlag;
     const syncIntegrations = Boolean(options.integrations) || (!hasSurfaceFlag && !options.status);
 
+    // Narrowing to a surface excludes the tracker, which is easy to do by
+    // accident (`--issues` reads like "the issue surface", and the tracker IS
+    // issues). Say so rather than letting the mirror go quietly stale.
+    if (!syncIntegrations && !options.status && !this.ctx.dryRun) {
+      const config = await readConfig(tbdRoot);
+      if (!integrationsInert(config) && config.integrations?.sync_on_tbd_sync !== false) {
+        this.output.info(
+          'Skipping external trackers for this run (surface flag given). ' +
+            'Run `tbd sync` or `tbd sync --integrations` to reconcile them.',
+        );
+      }
+    }
+
     // Every surface runs independently and its failure is collected rather
     // than thrown: one surface failing (an expired tracker credential, say)
     // must never stop another from completing, and must never cost data that
@@ -1152,7 +1165,8 @@ class SyncHandler extends BaseCommand {
       this.output.debug(`Fetch failed (may be first sync): ${(error as Error).message}`);
     }
 
-    // Integration fold, off by default. This is the one correct moment for
+    // Integration fold, on by default (`sync_on_tbd_sync` defaults to true;
+    // enabling a provider IS the opt-in). This is the one correct moment for
     // it: AFTER pull/merge (so reconciliation sees other machines' bead
     // changes instead of pushing stale state to the tracker) and BEFORE the
     // push (so the beads and bridge records it writes ride this very push).

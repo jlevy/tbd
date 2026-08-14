@@ -1014,6 +1014,12 @@ export async function pushWithRetry(
 ): Promise<PushResult> {
   // Use explicit refspec to avoid ambiguity with tags or other refs
   const refspec = `refs/heads/${syncBranch}:refs/heads/${syncBranch}`;
+  // `--no-verify` for the same reason the sync-branch COMMITS use it: the
+  // branch carries bead bookkeeping, never source code, so a parent repo's
+  // pre-push gate (lefthook, husky) has nothing to say about it. Without this
+  // every sync pays for that gate — a full test suite in this repository — and
+  // the retry loop below pays for it again on each non-fast-forward.
+  const pushArgs = ['push', '--no-verify', remote, refspec];
   // Build -C prefix args when baseDir is provided
   const dirArgs = baseDir ? ['-C', baseDir] : [];
 
@@ -1026,7 +1032,7 @@ export async function pushWithRetry(
   for (let attempt = 1; attempt <= MAX_PUSH_RETRIES; attempt++) {
     try {
       // Try to push
-      await git(...dirArgs, 'push', remote, refspec);
+      await git(...dirArgs, ...pushArgs);
       return {
         success: true,
         attempt,
@@ -1579,7 +1585,16 @@ export async function pushFreshOrphan(
   dataSyncPath: string,
 ): Promise<{ pushed: boolean; adopted: boolean }> {
   try {
-    await gitNoPrompt('-C', worktreePath, 'push', remote, `HEAD:refs/heads/${syncBranch}`);
+    // `--no-verify` for the same reason as pushWithRetry: the sync branch is
+    // bead bookkeeping, not source, so parent-repo pre-push gates do not apply.
+    await gitNoPrompt(
+      '-C',
+      worktreePath,
+      'push',
+      '--no-verify',
+      remote,
+      `HEAD:refs/heads/${syncBranch}`,
+    );
     return { pushed: true, adopted: false };
   } catch (err) {
     if (!isNonFastForward(err)) {

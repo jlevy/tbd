@@ -8,7 +8,7 @@
  * changes.
  */
 
-import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -24,6 +24,7 @@ import {
   pullWatermark,
   readLinkRecord,
   writeLinkRecord,
+  writeLinkRecordIfChanged,
 } from '../src/integrations/core/bridge-state.js';
 import { MANAGED_BLOCK_MARKERS } from '../src/integrations/core/managed-block.js';
 import type { LinkRecord } from '../src/lib/types.js';
@@ -200,5 +201,62 @@ describe('description normalization and hashing', () => {
     expect(normalizeDescription('  keep leading\ninternal  spacing')).toBe(
       'keep leading\ninternal  spacing',
     );
+  });
+});
+
+describe('writeLinkRecordIfChanged', () => {
+  let dir: string;
+
+  beforeEach(async () => {
+    dir = await mkdtemp(join(tmpdir(), 'tbd-bridge-guard-'));
+  });
+
+  afterEach(async () => {
+    await rm(dir, { recursive: true, force: true });
+  });
+
+  it('does not write when only synced_at advanced', async () => {
+    const previous = record();
+    await writeLinkRecord(dir, 'linear', previous);
+    const before = await readFile(join(bridgeLinksDir(dir, 'linear'), `${BEAD_ID}.yml`), 'utf8');
+
+    const wrote = await writeLinkRecordIfChanged(
+      dir,
+      'linear',
+      record({ synced_at: '2099-01-01T00:00:00.000Z' }),
+      previous,
+    );
+
+    expect(wrote).toBe(false);
+    const after = await readFile(join(bridgeLinksDir(dir, 'linear'), `${BEAD_ID}.yml`), 'utf8');
+    expect(after).toBe(before);
+  });
+
+  it.each([
+    ['remote_updated_at', record({ remote_updated_at: '2099-01-01T00:00:00.000Z' })],
+    ['state', record({ state: 'orphaned' as const })],
+    ['external_id', record({ external_id: 'other' })],
+    ['base.title', record({ base: { ...record().base, title: 'Renamed' } })],
+    ['base.status', record({ base: { ...record().base, status: 'closed' as const } })],
+    ['base.priority', record({ base: { ...record().base, priority: 0 as const } })],
+    ['base.assignee', record({ base: { ...record().base, assignee: 'agent' } })],
+    ['base.labels', record({ base: { ...record().base, labels: ['added'] } })],
+    [
+      'base.description_hash',
+      record({ base: { ...record().base, description_hash: descriptionHash('Changed') } }),
+    ],
+  ])('writes when %s changed', async (_field, next) => {
+    const previous = record();
+    await writeLinkRecord(dir, 'linear', previous);
+
+    const wrote = await writeLinkRecordIfChanged(dir, 'linear', next, previous);
+
+    expect(wrote).toBe(true);
+    expect(await readLinkRecord(dir, 'linear', BEAD_ID)).toEqual(next);
+  });
+
+  it('writes when there is no previous record', async () => {
+    expect(await writeLinkRecordIfChanged(dir, 'linear', record(), undefined)).toBe(true);
+    expect(await readLinkRecord(dir, 'linear', BEAD_ID)).toEqual(record());
   });
 });
