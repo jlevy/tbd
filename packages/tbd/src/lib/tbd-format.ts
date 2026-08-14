@@ -21,8 +21,10 @@
  * 5. Add tests for the migration path
  *
  * FORWARD COMPATIBILITY POLICY:
- * ConfigSchema uses Zod's strip() mode, which discards unknown fields. To prevent
- * data loss when users mix tbd versions:
+ * As of f07 ConfigSchema preserves unknown top-level keys, so a config block added by
+ * a newer tbd survives a round trip through an older one. That protects future
+ * additions; it cannot protect against clients already published, which parse config
+ * in strip mode and silently drop what they do not know. The format gate covers them:
  *
  * 1. When changing config schema, bump the format version (e.g., f03 → f04)
  * 2. config.ts checks format compatibility via isCompatibleFormat()
@@ -30,6 +32,9 @@
  * 4. The error tells users to upgrade: npm install -g get-tbd@latest
  *
  * This ensures older versions fail fast rather than silently corrupting config.
+ * A purely additive config key no longer needs a bump once every client in use is
+ * f07 or later; bump when the meaning of existing fields changes, or when losing the
+ * new key to a pre-f07 client would be damaging.
  * See ConfigSchema in schemas.ts and checkFormatCompatibility() in config.ts.
  */
 
@@ -41,7 +46,7 @@
  * Current format version.
  * Bump this ONLY for breaking changes that require migration.
  */
-export const CURRENT_FORMAT = 'f06';
+export const CURRENT_FORMAT = 'f07';
 
 /**
  * Initial format version for configs that don't have tbd_format field.
@@ -126,6 +131,23 @@ export const FORMAT_HISTORY = {
       'when changed. Revert: restore .tbd/config.yml (git checkout) and delete ' +
       '$GIT_COMMON_DIR/tbd/layout.yml; it regenerates from the config.',
   },
+  f07: {
+    introduced: '0.6.0',
+    description: 'Adds the external tracker integrations config block and preserves unknown keys',
+    changes: [
+      'Added the optional integrations: block to config.yml (tracker config and policy)',
+      'ConfigSchema now preserves unknown top-level keys instead of stripping them',
+      'The integrations block and its provider entries preserve unknown keys too',
+    ],
+    migration:
+      'Metadata-only: stamps tbd_format f07 (the integrations block appears only when a ' +
+      'tracker is configured). The bump is what closes the door on pre-0.6.0 clients, ' +
+      'which parse config in strip mode and silently drop an integrations block when ' +
+      'they rewrite config.yml. From f07 onward unknown keys survive that round trip, so ' +
+      'additive config blocks no longer need a format bump. Revert: restore ' +
+      '.tbd/config.yml (git checkout) and delete $GIT_COMMON_DIR/tbd/layout.yml; it ' +
+      'regenerates from the config.',
+  },
 } as const;
 
 export type FormatVersion = keyof typeof FORMAT_HISTORY;
@@ -165,6 +187,10 @@ export interface RawConfig {
     files?: Record<string, string>;
     lookup_path?: string[];
   };
+  /** External tracker integrations (f07+). Opaque here; ConfigSchema owns its shape. */
+  integrations?: Record<string, unknown>;
+  /** Unknown keys are carried through migration rather than dropped (f07+). */
+  [key: string]: unknown;
 }
 
 /**
@@ -344,6 +370,35 @@ function migrate_f05_to_f06(config: RawConfig): MigrationResult {
   };
 }
 
+/**
+ * Migrate from f06 to f07.
+ * - Metadata-only stamp: the `integrations` block is written by `tbd integration`
+ *   setup, not by migration, so a repository with no tracker gains nothing but the
+ *   new format ID.
+ * - The bump is the point. `ConfigSchema` parses in Zod strip mode in every released
+ *   client before 0.6.0, so such a client silently drops an `integrations` block the
+ *   first time it rewrites config.yml (via `setup`, `config set`, or `import`). Those
+ *   clients cannot be fixed retroactively; stamping f07 makes them fail closed with
+ *   the upgrade message instead of quietly discarding tracker configuration.
+ * - f07 clients preserve unknown top-level keys, so a later additive config block does
+ *   not need its own bump.
+ */
+function migrate_f06_to_f07(config: RawConfig): MigrationResult {
+  const changes: string[] = [];
+  const migrated = { ...config };
+
+  migrated.tbd_format = 'f07';
+  changes.push('Updated tbd_format: f07');
+
+  return {
+    config: migrated,
+    fromFormat: 'f06',
+    toFormat: 'f07',
+    changed: changes.length > 0,
+    changes,
+  };
+}
+
 // =============================================================================
 // Public API
 // =============================================================================
@@ -435,6 +490,13 @@ export function migrateToLatest(config: RawConfig): MigrationResult {
     allChanges.push(...result.changes);
   }
 
+  if (currentFormat === 'f06') {
+    const result = migrate_f06_to_f07(current);
+    current = result.config;
+    currentFormat = 'f07' as FormatVersion;
+    allChanges.push(...result.changes);
+  }
+
   return {
     config: current,
     fromFormat,
@@ -521,6 +583,11 @@ export function describeMigration(fromFormat: FormatVersion): string[] {
   if (current === 'f05') {
     descriptions.push('f05 → f06: Add config upgrade history (tbd_upgrades)');
     current = 'f06';
+  }
+
+  if (current === 'f06') {
+    descriptions.push('f06 → f07: Add external tracker integrations config (stamp only)');
+    current = 'f07';
   }
 
   return descriptions;

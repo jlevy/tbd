@@ -88,6 +88,12 @@ It selects open epics plus anything whose `spec_path` points into `specs/active/
 right starting point for “track our specs and major work”, and roughly 10% of a typical
 repository’s beads.
 
+**Then run `tbd setup --auto` before committing.** Writing the block leaves the
+repository at whatever format it was on; setup stamps `tbd_format: f07`, which is what
+stops a teammate’s pre-0.6.0 tbd from silently stripping the block on its next config
+write. Commit the block and the stamp together, so no one ever clones the window between
+them. If setup reports a format migration, that diff is part of this change.
+
 Two optional keys worth mentioning only if the user raises the need:
 
 - `user_map: { alias: person@example.com }` — the **only** identities tbd may push as
@@ -228,7 +234,8 @@ session-end `tbd sync` keeps Linear current with no extra command.
 | `LINEAR_API_KEY not found` | No key in env or `.env` | Step 3 |
 | `.env: present and NOT gitignored` | Key is one `git add` from being committed | Add `.env` to `.gitignore` now; rotate the key if it was ever committed |
 | `reachable` fails with a valid-looking key | Key revoked, missing a required permission, or no access to that team | Re-issue under Settings > Account > Security & Access; confirm permissions and `team_key` |
-| Integration block vanished from `config.yml` | `tbd setup` was run by a tbd older than this feature | `git checkout .tbd/config.yml`, then upgrade tbd |
+| Integration block vanished from `config.yml` | A pre-0.6.0 tbd rewrote config before the repository was stamped `f07` | `git checkout .tbd/config.yml`, upgrade that machine (`npm install -g get-tbd@latest`), then `tbd setup --auto` to stamp the format |
+| A teammate reports “This repository requires a newer version of tbd” | Working as intended: their tbd predates `f07` and would strip the block | Have them upgrade: `npm install -g get-tbd@latest` |
 | Sync says `nothing to do` but Linear looks stale | The policy does not select those beads | Check `policy.outbound` against what the user expects; `--dry-run integration sync --push` lists the selected set |
 | A bead reports malformed managed-block markers | A human edited inside the `⟦tbd⟧` … `⟦/tbd⟧` region in Linear | Repair the region in Linear (one `⟦tbd⟧` and one `⟦/tbd⟧`, in that order) or delete it entirely; the next sync rewrites it |
 

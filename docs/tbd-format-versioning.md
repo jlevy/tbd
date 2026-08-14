@@ -23,6 +23,33 @@ SINGLE SOURCE OF TRUTH: `CURRENT_FORMAT`, `FORMAT_HISTORY`, the per-step migrati
 `formatUpgradeMessage` all live there.
 When bumping `fNN` → `fNN+1` follow the rules below.
 
+## When a Config Schema Change Needs a Bump
+
+Adding, removing, or changing the meaning of a config field is a format change.
+Bump for it, and bump *unconditionally* in the release that ships the field, never
+conditionally on whether a repository uses the feature: `tbd_format` is what tells an
+older client whether it may rewrite this config at all, and a config can acquire the new
+block by hand (or by a teammate’s commit) at any time.
+A conditional stamp leaves exactly the window the gate exists to close.
+
+As of `f07` `ConfigSchema` preserves unknown top-level keys, so a *purely additive* key
+introduced after f07 survives a round trip through any f07-or-later client and does not
+need its own bump. That does not apply to clients released before the key existed and
+before f07: they parse in strip mode and drop what they do not know.
+The `integrations` block was lost that way three times during the Linear pilot, which is
+what f07 exists to stop.
+
+Bump when: existing field meaning changes, a field is removed or renamed, or losing the
+new field to a pre-f07 client would be damaging.
+Do not bump for: additive keys once every client in use is f07 or later.
+
+**Release sequencing.** Never commit a new format stamp to a repository before the
+client that supports it is published.
+The stamp locks out every unpublished-from client immediately, including agent sessions
+that install `get-tbd@latest` at startup, and the upgrade message it prints cannot be
+satisfied until the release is on npm.
+Land the bump, publish, then let repositories stamp.
+
 ## Old Client in a Newer Repo: Fail Closed, Never Silently Downgrade
 
 An older `tbd` (built with a smaller `CURRENT_FORMAT`) that encounters either marker

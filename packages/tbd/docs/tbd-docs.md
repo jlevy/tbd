@@ -1610,10 +1610,20 @@ pending, and stores neither the display name nor email in the bead or bridge.
 (`select:`, the older spelling of the policy’s outbound clause, still parses and is
 folded in.)
 
-One caveat: `tbd setup` run by a tbd version that predates this feature will drop the
-`integrations` block from `config.yml`, because config has no extensions namespace.
-The block is tracked in git, so `git checkout .tbd/config.yml` restores it, and the
-symptom is loud (the mirror stops working rather than misbehaving).
+**Mixing tbd versions.** Configuring an integration requires tbd 0.6.0 or later on every
+machine that runs tbd in the repository.
+A tbd released before 0.6.0 parses config in strip mode and silently drops the
+`integrations` block the first time it rewrites `config.yml`, so the repository format
+is stamped `f07` (see [Aborting a Format Upgrade](#aborting-a-format-upgrade)) and those
+versions now refuse to run at all rather than quietly discarding tracker configuration.
+The refusal names the upgrade command.
+From `f07` onward tbd preserves config it does not recognize, so a block added by a
+newer tbd survives an older one; that protects future additions, not versions already
+published.
+
+If a pre-0.6.0 tbd already stripped the block, it is recoverable: `config.yml` is
+tracked, so `git checkout .tbd/config.yml` restores it, and `tbd doctor` reports the
+loss by comparing the working copy against the committed version.
 
 The block above is **committed**, so it is set up once per repository and everyone who
 clones inherits it. Credentials are the opposite: `LINEAR_API_KEY` is per person and per
@@ -2056,6 +2066,7 @@ version. This is everything a format upgrade can touch:
 | Shared layout stamp | `$GIT_COMMON_DIR/tbd/layout.yml` | machine-local, not in git | the migration (re-stamp) | delete it; it regenerates from whatever the config says |
 | Writer epoch | `$GIT_COMMON_DIR/tbd/data-sync.epoch` | machine-local, not in git | every shared data writer | none; the next writer replaces it |
 | Forked docs (f05) | `docs/tbd/`, `.tbd/doc-forks/` | tracked once committed | only `tbd docs fork` | `git checkout --`/`git revert` if committed; delete if never committed |
+| Integrations config (f07) | `.tbd/config.yml` → `integrations:` | tracked | only integration setup, never the migration | `git checkout --`/`git revert`; reverting the stamp alone leaves the block intact |
 | Docs cache | `.tbd/docs/` | gitignored | doc sync (unchanged by migration) | none needed; always safe to delete and re-sync |
 | Issue data | `tbd-sync` branch and `$GIT_COMMON_DIR/tbd/data-sync-worktree/` | git branch | **never touched by migration** | none needed; the worktree re-materializes from the branch |
 
@@ -2107,6 +2118,12 @@ Notes:
 - Teammates each migrate their own machine-local stamp automatically; only the
   `.tbd/config.yml` change is shared (via your branch), so reverting that commit is the
   team-wide rollback.
+- **Aborting f07 with a tracker configured re-opens the loss it prevents.** The stamp is
+  what stops a pre-0.6.0 tbd from stripping the `integrations` block; on f06 that
+  version runs again and drops the block on its next config write.
+  If you must abort while an integration is configured, keep the block committed so
+  `git checkout .tbd/config.yml` restores it, and treat `tbd doctor`’s report of a
+  dropped block as the signal to re-upgrade.
 
 ### Performance
 

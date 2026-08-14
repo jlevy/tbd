@@ -205,6 +205,22 @@ No Changesets—bump by hand on a `claude/release-vX.X.X` branch:
 The notes you write here ARE the release notes (Step 5); there is no separate changeset
 summary to keep in sync.
 
+**If the release bumps `tbd_format`** (`CURRENT_FORMAT` in
+[`tbd-format.ts`](../packages/tbd/src/lib/tbd-format.ts) differs from the last release):
+
+- Lead the CHANGELOG section with an upgrade note: every machine working in a repository
+  must upgrade, because older clients fail closed once a repository is stamped.
+- **Do not commit a stamped `.tbd/config.yml` to this repository before the release is
+  on npm.** Running the dev build stamps it as a side effect (the test suite runs
+  `setup --auto` here), so check `git status` and revert `.tbd/config.yml`, `AGENTS.md`,
+  `.claude/`, `.agents/`, and `.codex/` before committing.
+  Stamping early locks out every agent session that installs `get-tbd@latest` at
+  startup, and the upgrade it tells them to run does not exist yet.
+- After the release publishes, upgrade and run `tbd setup --auto` here, then commit that
+  stamp as its own follow-up change.
+
+See [tbd-format-versioning.md](tbd-format-versioning.md) for the full contract.
+
 ### Step 5: Write Release Notes
 
 Write the `## X.X.X` CHANGELOG section following

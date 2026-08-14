@@ -15,7 +15,7 @@ import { BaseCommand } from '../lib/base-command.js';
 import { requireInit } from '../lib/errors.js';
 import { EXIT_OPERATIONAL_ERROR } from '../lib/exit-codes.js';
 import { listIssues, type InvalidIssueFile } from '../../file/storage.js';
-import { IncompatibleFormatError, readConfig } from '../../file/config.js';
+import { droppedConfigKeys, IncompatibleFormatError, readConfig } from '../../file/config.js';
 import { prepareDataSyncContext } from '../lib/data-context.js';
 import type { Config, Issue, IssueStatusType } from '../../lib/types.js';
 import {
@@ -789,9 +789,25 @@ class DoctorHandler extends BaseCommand {
    */
   private async checkIntegrations(): Promise<DiagnosticResult> {
     if (!this.config || integrationsInert(this.config)) {
-      // The config-loss tripwire: an older CLI rewriting config silently
-      // strips the integrations block (it happened three times during the
-      // pilot). Linked beads with no configured integration is the signature.
+      // The config-loss tripwire, strongest signal first: config that is committed
+      // but missing locally was dropped, not deleted on purpose. A pre-f07 tbd
+      // rewriting config.yml does this silently (three times during the pilot).
+      const dropped = await droppedConfigKeys(this.cwd);
+      if (dropped.length > 0) {
+        return {
+          name: 'Integrations',
+          status: 'warn',
+          message:
+            `.tbd/config.yml is missing ${dropped.map((key) => `\`${key}\``).join(', ')} ` +
+            'present in the committed version. A tbd older than f07 drops config it does ' +
+            'not know when it rewrites the file.',
+          suggestion:
+            'Restore: git checkout .tbd/config.yml (then upgrade tbd: npm install -g get-tbd@latest). ' +
+            'If you removed it deliberately, commit the change.',
+        };
+      }
+
+      // Weaker but independent: links with no configured integration.
       const linkedCount = this.issues.filter((issue) => {
         const extensions = issue.extensions;
         return extensions && ('linear' in extensions || 'github' in extensions);

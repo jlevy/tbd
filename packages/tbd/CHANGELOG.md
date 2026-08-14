@@ -1,6 +1,24 @@
 # get-tbd
 
-## Unreleased
+## 0.6.0
+
+### Upgrading: repository format f07
+
+This release bumps the repository format to `f07`. The first `tbd` command after
+upgrading stamps `.tbd/config.yml`; **commit that diff**, and everyone who works in the
+repository needs tbd 0.6.0 or later.
+Older versions then refuse the repository with an upgrade message instead of running.
+
+That gate is the point.
+`integrations` is a new top-level config key, and every tbd released before 0.6.0 parses
+config in strip mode: it silently drops the block the first time it rewrites
+`config.yml`, which happened three times during the Linear pilot.
+Those versions cannot be fixed retroactively, so f07 stops them at the door.
+
+From f07 onward tbd preserves config keys it does not recognize, at the top level and
+inside `integrations`, so a later additive config block needs no further format bump.
+Issue data is untouched by the migration, and the upgrade is revertible — see “Aborting
+a Format Upgrade” in `tbd docs manual`.
 
 ### Added
 
@@ -21,9 +39,9 @@
   - Comments sync as append-only sequences; conflicts archive to the attic and post
     resolvable tracker comments; bulk changes over 20 creates / 40 updates require
     `--yes` and are refused non-interactively.
-  - Strictly additive: repositories without an `integrations` config block are
-    unaffected, links ride each bead’s `extensions` namespace, and there is no format
-    bump.
+  - Strictly additive at the bead level: repositories without an `integrations` config
+    block behave exactly as before, and links ride each bead’s `extensions` namespace,
+    so a bead’s link survives a write by any tbd version.
   - `tbd integration status` reports whether each provider is configured, credentialed,
     and reachable, with a remedy on every failure.
     Inert and offline when none is enabled.
@@ -41,19 +59,26 @@
     `--yes` proceeds.
   - Credentials load from the environment or a gitignored `.env`. An unignored `.env` is
     reported as an error.
-- An `integrations` config block.
-  **No format bump and no schema change**: the bead’s link is stored in the existing
-  `extensions.<provider>` namespace, which an older tbd round-trips untouched.
-  A top-level field would have been silently stripped on the first write from an older
-  CLI, which is what forces a format gate; using the namespace keeps the feature
-  additive and mixed-version safe.
-- `tbd doctor` gains hierarchy and integration checks.
+- An `integrations` config block, gated by format `f07` (see Upgrading above).
+  The bead side needs no schema change: a link lives in the existing
+  `extensions.<provider>` namespace, which any tbd round-trips untouched.
+  The config side is a new top-level key, which a pre-0.6.0 tbd would strip — hence the
+  gate.
+- `tbd doctor` gains hierarchy and integration checks, including a report when
+  `.tbd/config.yml` is missing a block that is present in the committed version — the
+  signature of an older tbd having stripped it.
+  It names the `git checkout` that restores it.
 
 ### Changed
 
+- Repository format `f07` (see Upgrading above): `ConfigSchema` now preserves unknown
+  top-level keys instead of stripping them, and the `integrations` block preserves
+  unknown providers and provider settings.
 - Node.js 22.12.0 is now the minimum supported runtime.
   The CLI bootstrap reports an actionable version error before loading the application
   on older Node releases, and CI exercises the minimum version on Linux.
+- `kind` moved into the shared issue filter, so `list`, `changes`, and `watch` evaluate
+  it identically.
 
 ### Fixed
 
@@ -116,11 +141,6 @@
   data.
 - The `engines` floor was `>=20` while `util.parseEnv` needs 20.12, so `.env` reading
   would have thrown at runtime on 20.0-20.11.
-
-### Changed
-
-- `kind` moved into the shared issue filter, so `list`, `changes`, and `watch` evaluate
-  it identically.
 
 ## 0.5.0
 

@@ -6656,8 +6656,18 @@ extensions:
     linked_at: 2026-08-10T19:34:32.065Z
 ```
 
-There is no top-level schema change or format bump.
-Older tbd versions round-trip `extensions` untouched.
+The bead side needs no schema change or format bump: `extensions` is an existing field
+whose contents are opaque, so older tbd versions round-trip a link untouched.
+The **config** side is the opposite and is why the repository format is `f07`.
+`integrations` is a new top-level config key, and every tbd released before 0.6.0 parses
+config in strip mode, so it silently drops the block the first time it rewrites
+`config.yml`—observed three times during the pilot.
+Those clients cannot be fixed retroactively, so f07 makes them fail closed with the
+upgrade message instead.
+From f07 on, `ConfigSchema` and the `integrations` block preserve unknown keys, so a
+later additive config key needs no further bump.
+`tbd doctor` reports a block that is committed but missing locally, which is the exact
+signature of a pre-f07 client having stripped it.
 The persisted payload is an allow-list; credentials, raw API responses, emails, and
 workspace metadata never enter a bead.
 Different extension namespaces merge independently.

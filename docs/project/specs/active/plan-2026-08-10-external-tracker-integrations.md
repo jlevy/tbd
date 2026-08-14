@@ -1314,16 +1314,19 @@ per-row duplicated SVG paths are required.
 
 Shipped in Phase 1:
 
-- `IssueSchema`: **unchanged**. The link lives in the existing `extensions` namespace,
-  so there is no new field and **no `tbd_format` bump**.
-- `ConfigSchema`: the optional `integrations` block.
-  `ConfigSchema` has no `extensions` escape hatch, so an older CLI rewriting config
-  drops this block — **this happened twice during the pilot**, both times restored from
-  git history. The loss is recoverable (`config.yml` is tracked) but silent at loss time
-  and loud only at use time, so Phase 2’s doctor additions include a tripwire: warn when
-  beads carry provider links but no matching integration is configured.
-  Releasing Phase 1 closes the gap for this key (it becomes known to the schema); a
-  general `ConfigSchema` extensions namespace is tracked separately.
+- `IssueSchema`: **unchanged**, and the bead side needs no format bump.
+  The link lives in the existing `extensions` namespace, so there is no new field and
+  any tbd version round-trips a linked bead intact.
+- `ConfigSchema`: the optional `integrations` block, gated by **`tbd_format` f07**
+  (0.6.0). The config side has no `extensions` escape hatch, so a pre-f07 CLI rewriting
+  config drops this block — **this happened three times during the pilot**, each time
+  restored from git history.
+  Those clients cannot be fixed retroactively, so f07 makes them fail closed instead of
+  stripping. From f07 on, `ConfigSchema` and the `integrations` block are passthrough, so
+  a later additive config key needs no further bump.
+  The loss was silent at loss time and loud only at use time, so `doctor` reports it two
+  ways: a block that is committed but missing locally (direct), and beads carrying
+  provider links with no configured integration (the downstream symptom).
 - `FIELD_STRATEGIES`: `extensions` changed from `'lww'` to per-namespace three-way merge
   with absence-as-value.
 - Commands: `tbd integration status` and `tbd integration sync --push`, with the bulk
@@ -1582,10 +1585,13 @@ Phase 2 extends the same structure:
 
 ## Rollout Plan
 
-1. ✅ Phase 1 landed with **no format bump** (links ride `extensions`) and a Node
+1. ✅ Phase 1 landed with no *bead* format bump (links ride `extensions`) and a Node
    `>=22.12.0` runtime floor.
    On supported runtimes, repositories without an `integrations` block remain inert and
-   offline.
+   offline. The **config** side ships in 0.6.0 behind **`tbd_format` f07**, which stops
+   pre-0.6.0 clients from stripping the `integrations` block.
+   Sequencing: publish 0.6.0 to npm *before* stamping this repository, since the stamp
+   locks out any session still installing the previous `get-tbd@latest`.
 2. ✅ This repo is the pilot: 84 issues mirrored into the `tbd` project on the `TBD`
    team, through a staged rollout and a team move.
    Ongoing: keep mirroring as the epic set evolves.

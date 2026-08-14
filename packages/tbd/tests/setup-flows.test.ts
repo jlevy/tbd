@@ -9,6 +9,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { execSync, spawnSync } from 'node:child_process';
 import { subprocessTestTimeout } from './test-helpers.js';
+import { CURRENT_FORMAT } from '../src/lib/tbd-format.js';
 
 describe('setup flows', { timeout: subprocessTestTimeout() }, () => {
   let tempDir: string;
@@ -182,7 +183,9 @@ describe('setup flows', { timeout: subprocessTestTimeout() }, () => {
       expect(result.status).toBe(0);
 
       const agents = await readFile(join(tempDir, 'AGENTS.md'), 'utf-8');
-      expect(agents).toContain('<!-- BEGIN TBD INTEGRATION format=f06 surface=agents-md -->');
+      expect(agents).toContain(
+        `<!-- BEGIN TBD INTEGRATION format=${CURRENT_FORMAT} surface=agents-md -->`,
+      );
       expect(agents).toContain('tbd prime');
 
       const block = agents.slice(
@@ -280,7 +283,7 @@ describe('setup flows', { timeout: subprocessTestTimeout() }, () => {
 
       const agents = await readFile(join(tempDir, 'AGENTS.md'), 'utf-8');
       // Upgraded to the versioned compact block...
-      expect(agents).toContain('format=f06');
+      expect(agents).toContain(`format=${CURRENT_FORMAT}`);
       // ...while preserving user content outside the managed region.
       expect(agents).toContain('## My Notes');
       expect(agents).toContain('Keep me.');

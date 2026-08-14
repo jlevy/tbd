@@ -15,6 +15,7 @@ import { parse as parseYaml } from 'yaml';
 
 import { sortKeys, stringifyYaml } from '../utils/yaml-utils.js';
 import { now } from '../utils/time-utils.js';
+import { git } from './git.js';
 import type { Config, LocalState } from '../lib/types.js';
 import {
   ConfigSchema,
@@ -291,6 +292,60 @@ export async function findTbdRoot(startDir: string): Promise<string | null> {
 export async function isInitialized(baseDir: string): Promise<boolean> {
   const root = await findTbdRoot(baseDir);
   return root !== null;
+}
+
+/**
+ * Top-level config keys that are committed in git but absent from the working copy.
+ *
+ * A tbd older than f07 parses config in Zod strip mode, so it silently drops any block
+ * it does not know the first time it rewrites config.yml. That is how the `integrations`
+ * block was lost three times during the Linear pilot. The loss is recoverable, because
+ * config.yml is tracked, but it is silent when it happens and only becomes visible much
+ * later when a tracker stops syncing. Comparing the working copy against HEAD makes it
+ * loud immediately.
+ *
+ * Returns an empty array when there is no git repository, no commit, or no committed
+ * config, and when the committed format differs from the local one — a format migration
+ * legitimately adds and removes keys, and its own notice already asks for a commit.
+ */
+export async function droppedConfigKeys(baseDir: string): Promise<string[]> {
+  let committedRaw: string;
+  try {
+    // `HEAD:./path` resolves relative to -C, so this works from a subdirectory too.
+    committedRaw = await git('-C', baseDir, 'show', `HEAD:./${CONFIG_FILE}`);
+  } catch {
+    // No git repo, no commits, or config.yml is not tracked: nothing to compare.
+    return [];
+  }
+
+  let localRaw: string;
+  try {
+    localRaw = await readFile(join(baseDir, CONFIG_FILE), 'utf-8');
+  } catch {
+    return [];
+  }
+
+  let committed: RawConfig | null;
+  let local: RawConfig | null;
+  try {
+    committed = parseYaml(committedRaw) as RawConfig | null;
+    local = parseYaml(localRaw) as RawConfig | null;
+  } catch {
+    // An unparseable config is a different problem, reported by the config check.
+    return [];
+  }
+
+  if (!committed || !local) {
+    return [];
+  }
+
+  // A format change explains key differences on its own.
+  if (committed.tbd_format !== local.tbd_format) {
+    return [];
+  }
+
+  const localKeys = new Set(Object.keys(local));
+  return Object.keys(committed).filter((key) => !localKeys.has(key));
 }
 
 // =============================================================================

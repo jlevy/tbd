@@ -139,7 +139,9 @@ export const ProviderName = z.enum(['linear', 'github']);
  * Stored under `extensions.<provider>` rather than as a top-level issue field.
  * `extensions` is already part of `BaseEntity` with opaque contents, so a tbd
  * that predates this feature round-trips the link untouched instead of silently
- * stripping it. That keeps the feature additive and needs no format bump.
+ * stripping it. That keeps the bead side additive, with no format bump.
+ * (The config side is the opposite: `integrations` is a new top-level config key,
+ * which is why the repository format is gated at f07. See tbd-format.ts.)
  *
  * The namespace key IS the provider, which makes "at most one link per provider"
  * structural rather than a rule the merge code has to enforce.
@@ -524,118 +526,134 @@ const IntegrationProviderBase = {
   max_nesting: z.number().int().min(1).max(5).default(2),
 };
 
-export const LinearIntegrationSchema = z.object({
-  ...IntegrationProviderBase,
-  /** Linear team key, e.g. "FIN". Required when enabled. */
-  team_key: z.string().min(1).optional(),
-  /**
-   * Linear project to file mirrored issues under, by name or slug id. Optional:
-   * without it, issues land in the team with no project.
-   */
-  project: z.string().min(1).optional(),
-  /**
-   * Push bead labels as Linear labels.
-   *
-   * Off by default, and deliberately so. A repository can carry a hundred-plus
-   * distinct bead labels, and creating one Linear label each pollutes a shared
-   * team namespace that other people and projects also use. The labels are
-   * already mirrored as structured data in the bead attachment, so turning this
-   * on only buys the ability to filter by them inside Linear.
-   *
-   * When enabled, mirrored labels are prefixed so they are identifiable and
-   * removable in bulk. tbd's own status carriers (`tbd:blocked`,
-   * `tbd:deferred`) are pushed regardless, because they encode status Linear
-   * has no state for.
-   */
-  mirror_labels: z.boolean().default(false),
-  /** Create labels that do not yet exist in the team on push. */
-  create_labels: z.boolean().default(true),
-  /** Maps a tbd assignee string to a Linear user email or UUID. */
-  user_map: z.record(z.string(), z.string()).default({}),
-});
+export const LinearIntegrationSchema = z
+  .object({
+    ...IntegrationProviderBase,
+    /** Linear team key, e.g. "FIN". Required when enabled. */
+    team_key: z.string().min(1).optional(),
+    /**
+     * Linear project to file mirrored issues under, by name or slug id. Optional:
+     * without it, issues land in the team with no project.
+     */
+    project: z.string().min(1).optional(),
+    /**
+     * Push bead labels as Linear labels.
+     *
+     * Off by default, and deliberately so. A repository can carry a hundred-plus
+     * distinct bead labels, and creating one Linear label each pollutes a shared
+     * team namespace that other people and projects also use. The labels are
+     * already mirrored as structured data in the bead attachment, so turning this
+     * on only buys the ability to filter by them inside Linear.
+     *
+     * When enabled, mirrored labels are prefixed so they are identifiable and
+     * removable in bulk. tbd's own status carriers (`tbd:blocked`,
+     * `tbd:deferred`) are pushed regardless, because they encode status Linear
+     * has no state for.
+     */
+    mirror_labels: z.boolean().default(false),
+    /** Create labels that do not yet exist in the team on push. */
+    create_labels: z.boolean().default(true),
+    /** Maps a tbd assignee string to a Linear user email or UUID. */
+    user_map: z.record(z.string(), z.string()).default({}),
+  })
+  // Passthrough for the same reason as the block above: a per-provider setting added
+  // by a newer tbd must survive this version rewriting config.yml.
+  .passthrough();
 
-export const GithubIntegrationSchema = z.object({
-  ...IntegrationProviderBase,
-  /** Repository as "owner/name". Required when enabled. */
-  repo: z.string().min(1).optional(),
-});
+export const GithubIntegrationSchema = z
+  .object({
+    ...IntegrationProviderBase,
+    /** Repository as "owner/name". Required when enabled. */
+    repo: z.string().min(1).optional(),
+  })
+  .passthrough();
 
-export const IntegrationsConfigSchema = z.object({
-  /**
-   * Include enabled integrations in plain `tbd sync`.
-   *
-   * On by default: enabling an integration IS the opt-in, and a second flag
-   * only creates a state where a configured tracker silently drifts. Set false
-   * to keep an integration configured but excluded from `tbd sync`, running
-   * `tbd integration sync` by hand instead.
-   */
-  sync_on_tbd_sync: z.boolean().default(true),
-  linear: LinearIntegrationSchema.optional(),
-  github: GithubIntegrationSchema.optional(),
-});
+export const IntegrationsConfigSchema = z
+  .object({
+    /**
+     * Include enabled integrations in plain `tbd sync`.
+     *
+     * On by default: enabling an integration IS the opt-in, and a second flag
+     * only creates a state where a configured tracker silently drifts. Set false
+     * to keep an integration configured but excluded from `tbd sync`, running
+     * `tbd integration sync` by hand instead.
+     */
+    sync_on_tbd_sync: z.boolean().default(true),
+    linear: LinearIntegrationSchema.optional(),
+    github: GithubIntegrationSchema.optional(),
+  })
+  // Passthrough so a provider this version does not know (a newer tbd's tracker)
+  // survives a read/write round trip instead of being silently dropped.
+  .passthrough();
 
-export const ConfigSchema = z.object({
-  /**
-   * Format version for the .tbd/ directory structure.
-   * See tbd-format.ts for version history and migration rules.
-   * Only bumped for breaking changes that require migration.
-   */
-  tbd_format: z.string().default('f01'),
+export const ConfigSchema = z
+  .object({
+    /**
+     * Format version for the .tbd/ directory structure.
+     * See tbd-format.ts for version history and migration rules.
+     * Only bumped for breaking changes that require migration.
+     */
+    tbd_format: z.string().default('f01'),
 
-  /**
-   * The tbd version that last ran `tbd setup` in this repo. Updated on every setup.
-   * Informational only; functional version gating is via `tbd_format`. See
-   * `tbd_upgrades` for the full history. (As of format f06; before f06 this was the
-   * install-time version and never changed.)
-   */
-  tbd_version: z.string(),
-  /**
-   * Ordered history (oldest first) of tbd versions that have run setup here. Appended
-   * on each setup when the version changes; informational. Seeded on the f06 migration
-   * from the prior `tbd_version` (without a timestamp). See tbd-format.ts.
-   */
-  tbd_upgrades: z.array(UpgradeEntrySchema).default([]),
-  sync: z
-    .object({
-      branch: GitBranchName.default('tbd-sync'),
-      remote: GitRemoteName.default('origin'),
-      storage: SyncStorage.default('git-common-dir-v1'),
-    })
-    .default({}),
-  display: z.object({
-    id_prefix: z.string().min(1).max(20), // Required: set during init --prefix or import
-  }),
-  settings: z
-    .object({
-      auto_sync: z.boolean().default(false),
-      /**
-       * How often to automatically sync documentation cache (in hours).
-       * - Default: 24 (sync once per day when actively using tbd)
-       * - Set to 0 to disable auto-sync
-       * - Only triggers when accessing docs (shortcut, guidelines, template commands)
-       */
-      doc_auto_sync_hours: z.number().default(24),
-      /**
-       * Whether to install the ensure-gh-cli.sh hook script during setup.
-       * When true (default), `tbd setup` installs a SessionStart hook that
-       * ensures the GitHub CLI is available in agent sessions.
-       * Set to false or use `tbd setup --no-gh-cli` to disable.
-       */
-      use_gh_cli: z.boolean().default(true),
-    })
-    .default({}),
-  /**
-   * Documentation cache configuration (consolidated).
-   * Contains files to sync and lookup paths.
-   * See DocsCacheSchema for structure details.
-   */
-  docs_cache: DocsCacheSchema.optional(),
-  /**
-   * External tracker integrations. Absent means no integration is configured and
-   * every integration command and check is inert.
-   */
-  integrations: IntegrationsConfigSchema.optional(),
-});
+    /**
+     * The tbd version that last ran `tbd setup` in this repo. Updated on every setup.
+     * Informational only; functional version gating is via `tbd_format`. See
+     * `tbd_upgrades` for the full history. (As of format f06; before f06 this was the
+     * install-time version and never changed.)
+     */
+    tbd_version: z.string(),
+    /**
+     * Ordered history (oldest first) of tbd versions that have run setup here. Appended
+     * on each setup when the version changes; informational. Seeded on the f06 migration
+     * from the prior `tbd_version` (without a timestamp). See tbd-format.ts.
+     */
+    tbd_upgrades: z.array(UpgradeEntrySchema).default([]),
+    sync: z
+      .object({
+        branch: GitBranchName.default('tbd-sync'),
+        remote: GitRemoteName.default('origin'),
+        storage: SyncStorage.default('git-common-dir-v1'),
+      })
+      .default({}),
+    display: z.object({
+      id_prefix: z.string().min(1).max(20), // Required: set during init --prefix or import
+    }),
+    settings: z
+      .object({
+        auto_sync: z.boolean().default(false),
+        /**
+         * How often to automatically sync documentation cache (in hours).
+         * - Default: 24 (sync once per day when actively using tbd)
+         * - Set to 0 to disable auto-sync
+         * - Only triggers when accessing docs (shortcut, guidelines, template commands)
+         */
+        doc_auto_sync_hours: z.number().default(24),
+        /**
+         * Whether to install the ensure-gh-cli.sh hook script during setup.
+         * When true (default), `tbd setup` installs a SessionStart hook that
+         * ensures the GitHub CLI is available in agent sessions.
+         * Set to false or use `tbd setup --no-gh-cli` to disable.
+         */
+        use_gh_cli: z.boolean().default(true),
+      })
+      .default({}),
+    /**
+     * Documentation cache configuration (consolidated).
+     * Contains files to sync and lookup paths.
+     * See DocsCacheSchema for structure details.
+     */
+    docs_cache: DocsCacheSchema.optional(),
+    /**
+     * External tracker integrations. Absent means no integration is configured and
+     * every integration command and check is inert.
+     */
+    integrations: IntegrationsConfigSchema.optional(),
+  })
+  // Preserve unknown top-level keys (f07+). A tbd that strips them silently discards
+  // a newer version's configuration the first time it rewrites config.yml — which is
+  // how the integrations block was lost three times during the Linear pilot. Keeping
+  // them means a future additive block needs no format bump. See tbd-format.ts.
+  .passthrough();
 
 // =============================================================================
 // Common-Dir Layout Schema
@@ -793,6 +811,7 @@ export const CONFIG_FIELD_ORDER = [
   'sync',
   'settings',
   'docs_cache',
+  'integrations',
 ] as const;
 
 /**
