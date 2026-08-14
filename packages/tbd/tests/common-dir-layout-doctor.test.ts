@@ -327,6 +327,66 @@ describeUnlessWindows('common-dir layout via CLI', { timeout: 30000 }, () => {
     });
   });
 
+  describe('legacy sync branch initialization', () => {
+    it('repairs a registered worktree whose branch predates the data-sync scaffold', async () => {
+      const worktreePath = join(dir, '.git', 'tbd', 'data-sync-worktree');
+      const dataSyncPath = join(worktreePath, '.tbd', 'data-sync');
+
+      // Reproduce an f06-era repository whose tbd-sync branch exists and is
+      // registered, but never contained the f07 data-sync scaffold.
+      await gitIn(dir, 'worktree', 'remove', '--force', worktreePath);
+      await gitIn(dir, 'branch', '-D', 'tbd-sync');
+      await gitIn(dir, 'worktree', 'add', '--orphan', '-b', 'tbd-sync', worktreePath);
+      await writeFile(join(worktreePath, 'legacy-marker.txt'), 'preserve me\n');
+      await gitIn(worktreePath, 'add', '.');
+      await gitIn(worktreePath, 'commit', '-m', 'legacy tbd-sync branch');
+
+      const create = runTbd(dir, ['create', 'Upgrade probe', '--type', 'task']);
+      expect(create.status).toBe(0);
+      expect(await exists(join(dataSyncPath, 'meta.yml'))).toBe(true);
+      expect(await exists(join(dataSyncPath, 'issues'))).toBe(true);
+      expect(await readFile(join(worktreePath, 'legacy-marker.txt'), 'utf-8')).toBe(
+        'preserve me\n',
+      );
+    });
+
+    it('recovers a previously populated scaffold instead of resetting it empty', async () => {
+      const worktreePath = join(dir, '.git', 'tbd', 'data-sync-worktree');
+      const dataSyncPath = join(worktreePath, '.tbd', 'data-sync');
+      await gitIn(worktreePath, 'rm', '-r', '.tbd/data-sync');
+      await gitIn(worktreePath, 'commit', '-m', 'simulate lost tracker data');
+
+      const create = runTbd(dir, ['create', 'Recovery probe', '--type', 'task']);
+      expect(create.status).toBe(0);
+      expect(create.stderr).toMatch(/Restored .* tbd-sync data files from Git history/i);
+      expect(await exists(join(dataSyncPath, 'meta.yml'))).toBe(true);
+      const list = runTbd(dir, ['list', '--json']);
+      expect(list.status).toBe(0);
+      expect(list.stdout).toContain('Seed');
+      expect(list.stdout).toContain('Recovery probe');
+      expect(await gitIn(worktreePath, 'log', '-1', '--format=%s')).toMatch(
+        /Recovery probe|Restore missing tbd-sync data layout/,
+      );
+    });
+
+    it('finishes an interrupted historical recovery on the next command', async () => {
+      const worktreePath = join(dir, '.git', 'tbd', 'data-sync-worktree');
+      await gitIn(worktreePath, 'rm', '-r', '.tbd/data-sync');
+      await gitIn(worktreePath, 'commit', '-m', 'simulate lost tracker data');
+      await gitIn(worktreePath, 'checkout', 'HEAD^', '--', '.tbd/data-sync');
+
+      const create = runTbd(dir, ['create', 'Interrupted recovery probe', '--type', 'task']);
+      expect(create.status).toBe(0);
+      const list = runTbd(dir, ['list', '--json']);
+      expect(list.stdout).toContain('Seed');
+      expect(list.stdout).toContain('Interrupted recovery probe');
+      expect(await gitIn(worktreePath, 'diff', '--cached', '--name-only')).toBe('');
+      expect(await gitIn(worktreePath, 'show', 'HEAD:.tbd/data-sync/meta.yml')).toContain(
+        'schema_version: 1',
+      );
+    });
+  });
+
   describe('sibling-checkout config bump notice (tbd-afjh)', () => {
     it('prints a one-time stderr notice when this checkout migrates .tbd/config.yml to a newer tbd_format', async () => {
       const configPath = join(dir, '.tbd', 'config.yml');
